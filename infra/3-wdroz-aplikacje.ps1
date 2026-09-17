@@ -11,7 +11,11 @@ param(
     [string]$Profil = "notarai-admin",
     [string]$Region = "eu-central-1",
     [string]$Konto  = "127621462971",
-    [string]$Tag    = ""
+    [string]$Tag    = "",
+    # Adres na alarmy i budzet. Podaj raz - przy kolejnych wdrozeniach
+    # CloudFormation zapamieta poprzednia wartosc.
+    [string]$Email  = "",
+    [int]$Kopie     = 2
 )
 $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
@@ -61,12 +65,23 @@ $podsieci = (Uruchom-Aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc
 if ($podsieci.Count -lt 2) { throw "Load balancer potrzebuje co najmniej dwoch podsieci, znaleziono $($podsieci.Count)." }
 Write-Host "   obraz $Tag, VPC $vpc, podsieci: $($podsieci.Count)"
 
+$parametry = @(
+    "VpcId=$vpc"
+    "Podsieci=$($podsieci -join ',')"
+    "RepozytoriumUri=$repo"
+    "TagObrazu=$Tag"
+    "CertyfikatArn=$certArn"
+    "LiczbaKopii=$Kopie"
+)
+# Pustego adresu nie wysylamy - CloudFormation zostawi wtedy poprzedni.
+if ($Email) { $parametry += "EmailAlarmowy=$Email" }
+
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan
 Uruchom-Aws cloudformation deploy --stack-name notarai-aplikacja `
     --template-file "$korzen\infra\notarai-aplikacja.yaml" `
     --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai `
     --no-fail-on-empty-changeset `
-    --parameter-overrides "VpcId=$vpc" "Podsieci=$($podsieci -join ',')" "RepozytoriumUri=$repo" "TagObrazu=$Tag" "CertyfikatArn=$certArn" | Out-Host
+    --parameter-overrides @parametry | Out-Host
 
 $alb = Wyjscie notarai-aplikacja AdresLoadBalancera
 $domena = Uruchom-Aws acm describe-certificate --certificate-arn $certArn --query "Certificate.DomainName" --output text
@@ -79,3 +94,8 @@ Write-Host "     Cel   : $alb"
 Write-Host ""
 Write-Host "   Token panelu admina odczytasz w konsoli AWS:"
 Write-Host "     Secrets Manager -> notarai/admin-token -> Retrieve secret value"
+if ($Email) {
+    Write-Host ""
+    Write-Host "   AWS wyslal na $Email prosbe o potwierdzenie subskrypcji alarmow." -ForegroundColor Yellow
+    Write-Host "   Bez kliniecia linku z tej wiadomosci alarmy nie dojda."
+}

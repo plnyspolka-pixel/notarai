@@ -5,22 +5,37 @@ import json
 import pytest
 
 
+def _etag(dane: bytes) -> str:
+    """Tak jak S3: ETag to skrot tresci w cudzyslowie."""
+    import hashlib
+    return '"' + hashlib.md5(dane).hexdigest() + '"'
+
+
 class AtrapaS3:
-    """Minimalna atrapa boto3 S3: put/get/list w slowniku."""
+    """Minimalna atrapa boto3 S3: put/get/head/list w slowniku."""
 
     def __init__(self):
         self.obiekty: dict[str, bytes] = {}
         self.szyfrowanie: dict[str, str] = {}
+        self.pobrania = 0
 
     def put_object(self, Bucket, Key, Body, **kw):
-        self.obiekty[Key] = Body if isinstance(Body, bytes) else Body.encode()
+        dane = Body if isinstance(Body, bytes) else Body.encode()
+        self.obiekty[Key] = dane
         self.szyfrowanie[Key] = kw.get("ServerSideEncryption", "")
+        return {"ETag": _etag(dane)}
 
     def get_object(self, Bucket, Key):
         if Key not in self.obiekty:
             raise _NoSuchKey()
         import io
+        self.pobrania += 1
         return {"Body": io.BytesIO(self.obiekty[Key])}
+
+    def head_object(self, Bucket, Key):
+        if Key not in self.obiekty:
+            raise _NoSuchKey()
+        return {"ETag": _etag(self.obiekty[Key])}
 
     def get_paginator(self, nazwa):
         return _Paginator(self)
@@ -46,7 +61,9 @@ class _Paginator:
             })
             yield {"CommonPrefixes": [{"Prefix": p} for p in prefiksy]}
         else:
-            yield {"Contents": [{"Key": k} for k in sorted(klucze)]}
+            yield {"Contents": [
+                {"Key": k, "ETag": _etag(self.s3.obiekty[k])} for k in sorted(klucze)
+            ]}
 
 
 @pytest.fixture
@@ -132,6 +149,76 @@ def test_s3_izolacja_kancelarii(magazyn_s3):
         assert magazyn.pobierz_sprawe(magazyn.sprawy_dir(tmp) / "sprawa1") is False
     finally:
         magazyn.kancelaria_var.reset(zn)
+
+
+class TestDwieKopieAplikacji:
+    """Aplikacja moze dzialac w kilku kontenerach naraz.
+
+    Dysk kazdego z nich to tylko pamiec podreczna, wiec przed odczytem trzeba
+    sprawdzic, czy druga kopia nie zmienila sprawy w S3.
+    """
+
+    @staticmethod
+    def _zapisz(magazyn, katalog, tresc):
+        katalog.mkdir(parents=True, exist_ok=True)
+        (katalog / "sprawa.json").write_text(json.dumps(tresc), encoding="utf-8")
+        magazyn.utrwal_sprawe(katalog)
+
+    def test_druga_kopia_widzi_zmiane(self, magazyn_s3):
+        magazyn, _, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            kontenerA = tmp / "a" / "abc123"
+            kontenerB = tmp / "b" / "abc123"
+
+            self._zapisz(magazyn, kontenerA, {"id": "abc123", "etap": 1})
+            assert magazyn.pobierz_sprawe(kontenerB) is True
+            assert json.loads((kontenerB / "sprawa.json").read_text())["etap"] == 1
+
+            # kontener A zmienia sprawe
+            self._zapisz(magazyn, kontenerA, {"id": "abc123", "etap": 3})
+
+            # kontener B ma stara kopie na dysku - musi ja odswiezyc
+            assert magazyn.pobierz_sprawe(kontenerB) is True
+            assert json.loads((kontenerB / "sprawa.json").read_text())["etap"] == 3
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_aktualna_kopia_nie_jest_pobierana_ponownie(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            katalog = tmp / "a" / "abc123"
+            self._zapisz(magazyn, katalog, {"id": "abc123"})
+            przed = atrapa.pobrania
+            assert magazyn.pobierz_sprawe(katalog) is True
+            assert atrapa.pobrania == przed, "aktualna kopia nie powinna schodzic z S3"
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_znacznik_nie_trafia_do_s3(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            katalog = tmp / "a" / "abc123"
+            self._zapisz(magazyn, katalog, {"id": "abc123"})
+            assert (katalog / magazyn._ZNACZNIK).exists()
+            assert not any(magazyn._ZNACZNIK in k for k in atrapa.obiekty)
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_brak_sprawy_w_s3_nie_kasuje_lokalnej(self, magazyn_s3):
+        """Sprawa wlasnie powstaje i nie zostala jeszcze utrwalona."""
+        magazyn, _, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            katalog = tmp / "a" / "nowa123"
+            katalog.mkdir(parents=True)
+            (katalog / "sprawa.json").write_text('{"id": "nowa123"}', encoding="utf-8")
+            assert magazyn.pobierz_sprawe(katalog) is True
+            assert json.loads((katalog / "sprawa.json").read_text())["id"] == "nowa123"
+        finally:
+            magazyn.kancelaria_var.reset(zn)
 
 
 def test_s3_lista_po_restarcie(magazyn_s3):

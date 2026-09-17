@@ -82,35 +82,73 @@ def _klucz(id_sprawy: str, wzgledna: str) -> str:
 # --- Synchronizacja z S3 ----------------------------------------------------
 
 
+# Znacznik wersji lokalnej kopii: ETag pliku sprawa.json z S3 w chwili
+# ostatniego zapisu albo pobrania. Pozwala wykryc, ze inna kopia aplikacji
+# zmienila sprawe, i odswiezyc cache. Sam nie jest wysylany do S3.
+_ZNACZNIK = ".s3-znacznik"
+
+
+def _zapisz_znacznik(katalog: Path, etag: str) -> None:
+    if etag:
+        (katalog / _ZNACZNIK).write_text(etag.strip(), encoding="utf-8")
+
+
+def _aktualna_kopia(katalog: Path) -> bool:
+    """Czy lokalna kopia sprawy odpowiada temu, co jest w S3."""
+    znacznik = katalog / _ZNACZNIK
+    if not znacznik.exists():
+        return False
+    try:
+        odp = _klient_s3().head_object(
+            Bucket=BUCKET, Key=_klucz(katalog.name, "sprawa.json")
+        )
+    except Exception:
+        # Sprawy nie ma jeszcze w S3 (wlasnie powstaje) albo S3 chwilowo nie
+        # odpowiada. Lepiej pokazac kopie lokalna niz przerwac prace.
+        return True
+    return odp.get("ETag", "") == znacznik.read_text("utf-8").strip()
+
+
 def utrwal_sprawe(katalog: Path) -> None:
     """Wysyla wszystkie pliki sprawy do S3. No-op w trybie lokalnym."""
     if TRYB != "s3":
         return
     id_sprawy = katalog.name
     ile = 0
+    etag = ""
     for plik in sorted(katalog.rglob("*")):
-        if not plik.is_file():
+        if not plik.is_file() or plik.name == _ZNACZNIK:
             continue
         wzgledna = plik.relative_to(katalog).as_posix()
-        _klient_s3().put_object(
+        odpowiedz_put = _klient_s3().put_object(
             Bucket=BUCKET,
             Key=_klucz(id_sprawy, wzgledna),
             Body=plik.read_bytes(),
             **_szyfrowanie(),
         )
+        if wzgledna == "sprawa.json":
+            etag = (odpowiedz_put or {}).get("ETag", "")
         ile += 1
+    _zapisz_znacznik(katalog, etag)
     log.info("sprawa %s: utrwalono %d plikow do S3", id_sprawy, ile)
 
 
 def pobierz_sprawe(katalog: Path) -> bool:
-    """Sciaga sprawe z S3 do lokalnego cache, jesli jej tu nie ma.
+    """Sciaga sprawe z S3 do lokalnego cache, jesli jej tam brakuje albo
+    jest nieaktualna.
+
+    Dysk kontenera to tylko pamiec podreczna. Gdy aplikacja dziala w kilku
+    kopiach, sprawe mogla zmienic inna z nich - dlatego przed odczytem
+    porownujemy znacznik wersji z ETagiem w S3.
 
     Zwraca True, gdy sprawa istnieje (lokalnie lub po pobraniu).
     No-op w trybie lokalnym (wtedy tylko sprawdza dysk).
     """
     if (katalog / "sprawa.json").exists():
-        return True
-    if TRYB != "s3":
+        if TRYB != "s3" or _aktualna_kopia(katalog):
+            return True
+        log.info("sprawa %s: lokalna kopia nieaktualna, odswiezam z S3", katalog.name)
+    elif TRYB != "s3":
         return katalog.is_dir()
 
     id_sprawy = katalog.name
@@ -119,6 +157,7 @@ def pobierz_sprawe(katalog: Path) -> bool:
         Bucket=BUCKET, Prefix=prefiks
     )
     ile = 0
+    etag = ""
     for strona in strony:
         for obiekt in strona.get("Contents", []):
             wzgledna = obiekt["Key"][len(prefiks):]
@@ -128,8 +167,11 @@ def pobierz_sprawe(katalog: Path) -> bool:
             cel.parent.mkdir(parents=True, exist_ok=True)
             odpowiedz = _klient_s3().get_object(Bucket=BUCKET, Key=obiekt["Key"])
             cel.write_bytes(odpowiedz["Body"].read())
+            if wzgledna == "sprawa.json":
+                etag = obiekt.get("ETag", "")
             ile += 1
     if ile:
+        _zapisz_znacznik(katalog, etag)
         log.info("sprawa %s: pobrano %d plikow z S3", id_sprawy, ile)
     return ile > 0 or katalog.is_dir()
 

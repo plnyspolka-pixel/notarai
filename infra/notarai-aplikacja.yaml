@@ -33,6 +33,27 @@ Parameters:
     Type: String
     Default: "3072"
     Description: MiB. Dla 1024 CPU dozwolone 2048-8192, dla 2048 CPU 4096-16384.
+  LiczbaKopii:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 6
+    Description: >-
+      Ile kontenerow ma dzialac naraz. 2 to minimum, zeby awaria jednego
+      kontenera albo calej strefy dostepnosci nie przerwala pracy kancelarii.
+  EmailAlarmowy:
+    Type: String
+    Default: ""
+    Description: >-
+      Adres, na ktory maja isc alarmy. Po wdrozeniu potwierdz subskrypcje
+      linkiem z wiadomosci od AWS. Puste = alarmy bez powiadomien.
+  LimitKosztowUsd:
+    Type: Number
+    Default: 150
+    Description: Miesieczny budzet. Ostrzezenie przy 80 procentach i prognozie przekroczenia.
+
+Conditions:
+  MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -289,7 +310,7 @@ Resources:
       TaskDefinition: !Ref DefinicjaZadania
       LaunchType: FARGATE
       PlatformVersion: LATEST
-      DesiredCount: 1
+      DesiredCount: !Ref LiczbaKopii
       HealthCheckGracePeriodSeconds: 60
       DeploymentConfiguration:
         MinimumHealthyPercent: 100
@@ -314,7 +335,141 @@ Resources:
         - Key: projekt
           Value: notarai
 
+  # ---------------- czujniki ----------------
+  # Aplikacja ma dzialac rok bez opieki, wiec awaria musi sie sama zglosic.
+  Powiadomienia:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: notarai-alarmy
+      DisplayName: notarai
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  SubskrypcjaEmail:
+    Condition: MamyEmail
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref Powiadomienia
+      Protocol: email
+      Endpoint: !Ref EmailAlarmowy
+
+  # Brak zdrowego kontenera = kancelarie nie moga pracowac.
+  AlarmBrakZdrowych:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-brak-zdrowych-kontenerow
+      AlarmDescription: Load balancer nie ma ani jednego zdrowego kontenera
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !GetAtt GrupaDocelowa.TargetGroupFullName
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      # Brak danych tez jest zla wiadomoscia.
+      TreatMissingData: breaching
+      AlarmActions: [!Ref Powiadomienia]
+      OKActions: [!Ref Powiadomienia]
+
+  # Redundancja zjedzona: dziala mniej kopii, niz powinno.
+  AlarmMniejKopii:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-mniej-kopii-niz-powinno
+      AlarmDescription: Dziala mniej kontenerow niz zadano - zostala pojedyncza kopia
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value: !GetAtt GrupaDocelowa.TargetGroupFullName
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: !Ref LiczbaKopii
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
+
+  # Bledy aplikacji: np. wycofany model Bedrock albo brak uprawnien.
+  AlarmBledowAplikacji:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-bledy-aplikacji
+      AlarmDescription: Aplikacja zwraca bledy 5xx
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
+
+  # Load balancer nie dostal odpowiedzi - kontener sie wywrocil albo zawiesil.
+  AlarmBledowLoadBalancera:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-bledy-load-balancera
+      AlarmDescription: Load balancer zwraca 5xx, czyli nie ma komu obsluzyc zadania
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
+
+  # Rachunek pilnuje sie sam - nieoplacone konto to przestoj calej uslugi.
+  Budzet:
+    Condition: MamyEmail
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: notarai-miesieczny
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref LimitKosztowUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailAlarmowy
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailAlarmowy
+
 Outputs:
+  TematAlarmow:
+    Description: Temat SNS z alarmami
+    Value: !Ref Powiadomienia
   AdresLoadBalancera:
     Description: Cel rekordu CNAME dla domeny aplikacji w az.pl
     Value: !GetAtt LoadBalancer.DNSName

@@ -63,6 +63,35 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
   w kontenerze wyłączone (Dockerfile pomija te zależności)
 - wymuszenie profilu `eu.` — bez zmian, dalej twarde
 
+## Rok bez opieki
+
+Co utrzymuje się samo:
+- **Awaria kontenera albo całej strefy dostępności.** Działają dwie kopie
+  w różnych strefach, load balancer omija chorą, ECS odtwarza brakującą.
+- **Certyfikat TLS.** ACM odnawia go sam, dopóki rekord walidacyjny CNAME
+  zostaje w az.pl. Bieżący jest ważny do kwietnia 2027.
+- **Sesja wdrożeniowa.** Nie ma wpływu na działanie aplikacji; kontenery
+  korzystają z roli IAM, nie z Twojego logowania.
+- **Miejsce i koszty magazynu.** Stare wersje plików kasują się po 90 dniach,
+  paczki źródeł po 14, logi po 90, w rejestrze obrazów zostaje ostatnie 15.
+
+Co zgłosi się mailem (temat SNS `notarai-alarmy`, trzeba potwierdzić subskrypcję):
+- brak choćby jednego zdrowego kontenera,
+- spadek poniżej zadanej liczby kopii, czyli utrata redundancji,
+- błędy 5xx aplikacji, np. gdyby model w Bedrock został wycofany,
+- błędy 5xx samego load balancera,
+- 80 procent miesięcznego budżetu i prognoza jego przekroczenia.
+
+Czego żadna automatyka nie załatwi:
+- **Przedłużenie domeny notarai.pl** w az.pl i pozostawienie rekordów DNS.
+- **Ważna karta płatnicza** na koncie AWS. Nieopłacone konto to przestój.
+- **Aktualizacje bezpieczeństwa obrazu.** Rok bez przebudowy to rok bez łatek
+  Pythona i systemu. Warto przebudować obraz raz na kwartał, nawet bez zmian
+  w kodzie: etap 2 i 3.
+- **Cykl życia modelu.** `eu.anthropic.claude-sonnet-4-5` jest aktywny.
+  Gdy zostanie wycofany, alarm błędów 5xx to wykryje, ale podmiana modelu
+  w `config.py` wymaga człowieka.
+
 ## Znane granice (uczciwie)
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.
@@ -74,6 +103,7 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
 - Kontener w publicznej podsieci domyślnego VPC, bez NAT: wejście blokuje grupa
   bezpieczeństwa (tylko ruch z load balancera). Prywatne podsieci z NAT to
   osobny, stały koszt; warto przy większej skali.
-- Jedna kopia aplikacji. Przy dwóch równoległych kopiach lokalny cache sprawy
-  mógłby być nieaktualny względem S3 - przed skalowaniem w poziomie trzeba to
-  rozwiązać.
+- Dwie kopie aplikacji. Przed odczytem sprawy każda porównuje znacznik wersji
+  z ETagiem pliku w S3 i odświeża swoją pamięć podręczną, gdy druga kopia
+  zapisała zmianę. Nadal obowiązuje zasada: przy równoczesnym zapisie tej samej
+  sprawy z dwóch miejsc ostatni wygrywa.
