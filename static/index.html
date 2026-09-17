@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
@@ -184,6 +184,21 @@ select{font:inherit;padding:8px 10px;border:1px solid var(--linia2);border-radiu
   .krok{padding:7px 10px;font-size:13px}.nowa{padding:7px 10px}
   main{height:auto}.kol{padding:28px 16px 80px}.para{grid-template-columns:1fr}
 }
+
+/* ---------- brama dostepu (tryb wielu kancelarii) ---------- */
+.brama{position:fixed;inset:0;z-index:50;background:var(--tlo);display:flex;
+  align-items:center;justify-content:center;padding:24px}
+.brama[hidden]{display:none}
+.brama .pudlo{width:100%;max-width:420px;background:var(--karta);border:1px solid var(--linia);
+  border-radius:var(--r);padding:28px}
+.brama .logo{padding:0 0 18px}
+.brama h2{font:500 19px/1.3 var(--serif);margin:0 0 8px}
+.brama p{color:var(--tekst2);font-size:14px;margin:0 0 20px}
+.brama input{font-family:var(--mono);font-size:13px}
+.brama .dol{display:flex;align-items:center;gap:12px;margin-top:16px}
+.wyloguj{margin-top:10px;font-size:11.5px;color:var(--tekst3);cursor:pointer;
+  background:none;border:0;padding:0;font-weight:400;text-align:left}
+.wyloguj:hover{color:var(--tekst2);background:none}
 </style>
 </head>
 <body>
@@ -203,6 +218,7 @@ notarai</div>
   <div class="stopka-aside">
     Bedrock, region eu-central-1. Skany i projekty zostają na tym komputerze.
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
+    <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj kancelarię</button>
   </div>
 </aside>
 
@@ -358,10 +374,105 @@ notarai</div>
 
 </div></main>
 
+<!-- Widoczna tylko w trybie wielu kancelarii, gdy serwer odrzuci zadanie bez tokenu. -->
+<div class="brama" id="brama" hidden>
+  <div class="pudlo">
+    <div class="logo"><img class="osiol" src="/static/logo.png" alt="">notarai</div>
+    <h2>Dostęp kancelarii</h2>
+    <p>Wklej token otrzymany od administratora. Zostanie zapamiętany w tej przeglądarce.</p>
+    <div class="pole">
+      <label class="etykieta" for="token-pole">Token kancelarii</label>
+      <input type="text" id="token-pole" autocomplete="off" spellcheck="false"
+             placeholder="np. 9f3c…" aria-describedby="stan-brama">
+    </div>
+    <div class="dol">
+      <button id="btn-token">Zaloguj</button>
+      <span class="stan" id="stan-brama"></span>
+    </div>
+  </div>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const OSIOL = '<img class="osiol" src="/static/logo.png" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1;
+
+/* ---------- dostep kancelarii ----------
+   Tryb lokalny: serwer nie wymaga tokenu, brama nigdy sie nie pokazuje.
+   Tryb SaaS: kazde /api/* idzie z naglowkiem Authorization; odpowiedz 401
+   otwiera bramę. Token trzymamy tylko w tej przegladarce.              */
+const KLUCZ_TOKENU = "notarai_token";
+
+function czytajToken(){
+  try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; }
+}
+function zapiszToken(wartosc){
+  try {
+    if (wartosc) localStorage.setItem(KLUCZ_TOKENU, wartosc);
+    else localStorage.removeItem(KLUCZ_TOKENU);
+  } catch { /* tryb prywatny: token zyje do przeladowania strony */ }
+}
+
+let token = czytajToken();
+
+/* Jedyne wejscie do API. Dokłada token i przechwytuje 401. */
+async function api(adres, opcje = {}){
+  const naglowki = new Headers(opcje.headers || {});
+  if (token) naglowki.set("Authorization", "Bearer " + token);
+  const odp = await fetch(adres, {...opcje, headers: naglowki});
+  if (odp.status === 401) {
+    otworzBrame(token ? "Token odrzucony przez serwer." : "");
+    throw new Error("Brak dostępu do tej kancelarii.");
+  }
+  return odp;
+}
+
+function otworzBrame(komunikat){
+  $("brama").hidden = false;
+  stan($("stan-brama"), komunikat || "", !!komunikat);
+  $("token-pole").value = "";
+  $("token-pole").focus();
+  odswiezWyloguj();
+}
+
+/* Przycisk wylogowania ma sens tylko wtedy, gdy token jest w uzyciu. */
+function odswiezWyloguj(){
+  $("btn-wyloguj").hidden = !token;
+}
+
+$("btn-wyloguj").onclick = () => {
+  token = "";
+  zapiszToken("");
+  otworzBrame("Wylogowano.");
+};
+
+$("btn-token").onclick = async () => {
+  const wpisany = $("token-pole").value.trim();
+  if (!wpisany) { stan($("stan-brama"), "Wklej token.", true); return; }
+  stan($("stan-brama"), "Sprawdzam…", false, true);
+  const poprzedni = token;
+  token = wpisany;
+  try {
+    const proba = "/api" + "/sprawy";   // celowo bez api(): 401 obsluguje ta funkcja
+    const odp = await fetch(proba, {headers:{"Authorization":"Bearer " + token}});
+    if (odp.status === 401) {
+      token = poprzedni;
+      stan($("stan-brama"), "Token nieprawidłowy albo kancelaria wyłączona.", true);
+      return;
+    }
+    if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
+    zapiszToken(token);
+    $("brama").hidden = true;
+    stan($("stan-brama"), "");
+    odswiezWyloguj();
+    rysujListeSpraw();
+  } catch (e) {
+    token = poprzedni;
+    stan($("stan-brama"), e.message, true);
+  }
+};
+
+$("token-pole").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-token").click(); });
 
 /* ---------- nawigacja ---------- */
 function pokaz(numer){
@@ -386,7 +497,7 @@ $("btn-nowa").onclick = () => { if (!sprawa || confirm("Zacząć nową sprawę? 
 async function rysujListeSpraw(){
   const k = $("lista-spraw");
   try {
-    const lista = await (await fetch("/api/sprawy")).json();
+    const lista = await (await api("/api/sprawy")).json();
     k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Brak zapisanych spraw.</span>';
     lista.forEach(s => {
       const d = document.createElement("div");
@@ -403,7 +514,7 @@ async function rysujListeSpraw(){
   } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; }
 }
 async function wczytajSprawe(id){
-  const odp = await fetch("/api/sprawy/" + id);
+  const odp = await api("/api/sprawy/" + id);
   if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
   const w = await odp.json();
   sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
@@ -424,14 +535,15 @@ async function wczytajSprawe(id){
 }
 $("nazwa2").onchange = async () => {
   if (!sprawa) return;
-  const odp = await fetch("/api/sprawy/" + sprawa.id + "/nazwa", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({nazwa: $("nazwa2").value})});
+  const odp = await api("/api/sprawy/" + sprawa.id + "/nazwa", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({nazwa: $("nazwa2").value})});
   if (odp.ok) { sprawa.nazwa = (await odp.json()).nazwa; $("nazwa2").value = sprawa.nazwa || ""; rysujListeSpraw(); }
 };
 $("sygn2").onchange = async () => {
   if (!sprawa) return;
-  const odp = await fetch("/api/sprawy/" + sprawa.id + "/sygnatura", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sygnatura: $("sygn2").value})});
+  const odp = await api("/api/sprawy/" + sprawa.id + "/sygnatura", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sygnatura: $("sygn2").value})});
   if (odp.ok) { sprawa.sygnatura = (await odp.json()).sygnatura; rysujListeSpraw(); }
 };
+odswiezWyloguj();
 rysujListeSpraw();
 function stan(el, tekst, blad, praca){
   el.textContent = tekst;
@@ -461,7 +573,7 @@ $("btn-odczytaj").onclick = async () => {
   $("btn-odczytaj").disabled = true;
   stan($("stan1"), "Odczytuję skany… przy kilkunastu stronach to 1–3 minuty.", false, true);
   try {
-    const odp = await fetch("/api/sprawy", {method:"POST", body:dane});
+    const odp = await api("/api/sprawy", {method:"POST", body:dane});
     const wynik = await odp.json();
     if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
     sprawa = wynik;
@@ -575,7 +687,7 @@ async function wyslijWiadomosc(nr){
   rysujCzat(); ta.value = "";
   stan(st, "Asystent odpowiada…", false, true);
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/rozmowa", {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/rozmowa", {
       method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
     });
     const w = await odp.json();
@@ -615,7 +727,7 @@ function ustawMikrofon(nr){
       try {
         const blob = new Blob(kawalki, {type: rec.mimeType || "audio/webm"});
         const fd = new FormData(); fd.append("audio", blob, "nagranie.webm");
-        const odp = await fetch("/api/transkrypcja", {method:"POST", body:fd});
+        const odp = await api("/api/transkrypcja", {method:"POST", body:fd});
         const w = await odp.json();
         if (!odp.ok) throw new Error(w.detail || "Błąd transkrypcji");
         ta.value = (ta.value ? ta.value + " " : "") + w.tekst;
@@ -640,7 +752,7 @@ $("btn-generuj").onclick = async () => {
   $("btn-generuj").disabled = true;
   stan($("stan2"), "Sporządzam projekt…", false, true);
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/projekt", {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
     });
@@ -649,7 +761,7 @@ $("btn-generuj").onclick = async () => {
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
-    fetch("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
+    api("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
   } catch (e) {
     stan($("stan2"), e.message, true);
   } finally {
@@ -695,7 +807,7 @@ async function rysujSprawdzenia(){
   });
   if (!sprawa) return;
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/sprawdzenia");
+    const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia");
     rysujHistorie(await odp.json());
   } catch (e) { /* brak historii */ }
 }
@@ -730,7 +842,7 @@ async function wyslijFormularz(tryb){
     return;
   stan($("stan4"), tryb === "faktyczny" ? "Łączę się z Twoją przeglądarką…" : "Przygotowuję podgląd…", false, true);
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/formularze/rejestry_notarialne_pesel", {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/formularze/rejestry_notarialne_pesel", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({pola: [{nazwa:"pesel", wartosc:s.pesel}], tryb, potwierdzam: tryb === "faktyczny"})
     });
@@ -758,7 +870,7 @@ $("btn-krz").onclick = async () => {
   $("btn-krz").disabled = true;
   stan($("stan4"), "Sprawdzam w KRZ… ok. 20 s na osobę", false, true);
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/krz", {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/krz", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({osoby: unikalne.map(s => ({pesel: s.pesel, etykieta: s.nazwa})), potwierdzam: true})
     });
@@ -774,7 +886,7 @@ $("btn-spr-zapisz").onclick = async () => {
   if (!s) return stan($("stan4b"), "Wybierz stronę.", true);
   stan($("stan4b"), "Zapisuję…", false, true);
   try {
-    const odp = await fetch("/api/sprawy/" + sprawa.id + "/sprawdzenia", {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({rejestr:$("spr-rejestr").value, pesel:s.pesel, status:$("spr-status").value, szczegoly:$("spr-szczegoly").value, zrodlo: $("spr-rejestr").value === "KRZ" ? "krz.ms.gov.pl (potwierdzenie notariusza)" : "Rejestry Notarialne KRN"})
     });

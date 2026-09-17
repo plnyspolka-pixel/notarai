@@ -43,3 +43,6 @@ desktop.ini
 
 # Robocze wyniki i oceny przebiegow - moga zawierac dane sprawy
 Claude outputs/
+
+# Lokalna konfiguracja Claude Code (uprawnienia, launch.json)
+.claude/

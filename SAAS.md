@@ -27,8 +27,10 @@
 4. Dodaj kancelarię:
    `curl -X POST https://.../api/admin/kancelarie -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"nazwa":"Kancelaria X"}'`
    → odpowiedź zawiera token JEDEN RAZ. Przekaż kancelarii.
-5. Kancelaria używa interfejsu z nagłówkiem tokenu (interfejs www: TODO pole tokenu
-   w index.html — na razie API; DECISION_REQUIRED: logowanie w UI).
+5. Kancelaria otwiera stronę i wkleja token w oknie ,,Dostęp kancelarii''.
+   Token zostaje w localStorage tej przeglądarki i leci w nagłówku przy każdym
+   żądaniu. ,,Wyloguj kancelarię'' w stopce paska bocznego go kasuje.
+   W trybie lokalnym okno się nie pokazuje.
 
 ## Czego celowo NIE ruszałem
 - `bedrock.py`, `walidacja.py`, `prompty.py`, `dokumenty.py` — zero zmian
@@ -41,4 +43,6 @@
   przy większej skali przenieś do DynamoDB/RDS.
 - Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa
   (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
-- UI nie ma jeszcze pola na token — patrz DECISION_REQUIRED wyżej.
+- Token kancelarii leży w localStorage przeglądarki: wystarczy dla stanowiska
+  w kancelarii, ale nie wygasa sam. Przy szerszym gronie odbiorców warto przejść
+  na sesje z terminem waznosci.
