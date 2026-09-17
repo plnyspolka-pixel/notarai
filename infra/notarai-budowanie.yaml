@@ -1,0 +1,204 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - budowanie obrazu kontenera w AWS. Repozytorium ECR, bucket na
+  paczki zrodel i projekt CodeBuild, ktory buduje obraz z Dockerfile i wypycha
+  go do ECR. Docker na stanowisku nie jest potrzebny.
+
+Parameters:
+  NazwaRepozytorium:
+    Type: String
+    Default: notarai
+    AllowedPattern: "^[a-z0-9][a-z0-9-_/]{1,254}$"
+
+Resources:
+  # Obrazy aplikacji. Tagi niezmienne: tag = skrot commita, wiec obraz zawsze
+  # odpowiada konkretnemu stanowi repozytorium.
+  Repozytorium:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref NazwaRepozytorium
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Zostaw 15 ostatnich obrazow",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 15
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  # Paczki zrodel dla CodeBuild. Zawieraja wylacznie zacommitowany kod
+  # (git archive), nigdy katalog dane/. Kasowane po 14 dniach.
+  BucketZrodel:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "notarai-zrodla-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: stare-paczki
+            Status: Enabled
+            ExpirationInDays: 14
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  PolitykaBucketaZrodel:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketZrodel
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt BucketZrodel.Arn
+              - !Sub "${BucketZrodel.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  LogiBudowania:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/codebuild/notarai-obraz
+      RetentionInDays: 30
+
+  RolaBudowania:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-codebuild
+      Description: notarai - CodeBuild czyta paczke zrodel i wypycha obraz do ECR
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: budowanie-obrazu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Logi
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${LogiBudowania.Arn}:*"
+              - Sid: PaczkaZrodel
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource: !Sub "${BucketZrodel.Arn}/*"
+              - Sid: LokalizacjaBucketa
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetBucketAcl
+                Resource: !GetAtt BucketZrodel.Arn
+              # GetAuthorizationToken dotyczy calego rejestru - musi byc "*".
+              - Sid: LogowanieDoEcr
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: WypychanieObrazu
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                Resource: !GetAtt Repozytorium.Arn
+
+  ProjektBudowania:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: notarai-obraz
+      Description: notarai - budowa obrazu z Dockerfile i wypchniecie do ECR
+      ServiceRole: !GetAtt RolaBudowania.Arn
+      TimeoutInMinutes: 30
+      Source:
+        Type: S3
+        Location: !Sub "${BucketZrodel}/notarai/zrodla.zip"
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              on-failure: ABORT
+              commands:
+                - test -n "$IMAGE_TAG" || { echo "Brak IMAGE_TAG"; exit 1; }
+                - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "${REPO_URI%%/*}"
+            build:
+              on-failure: ABORT
+              commands:
+                - docker build --pull -t "$REPO_URI:$IMAGE_TAG" .
+            post_build:
+              commands:
+                - docker push "$REPO_URI:$IMAGE_TAG"
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux-x86_64-standard:5.0
+        # Budowa obrazu Dockera wymaga trybu uprzywilejowanego.
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: REPO_URI
+            Value: !GetAtt Repozytorium.RepositoryUri
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref LogiBudowania
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+Outputs:
+  RepozytoriumUri:
+    Description: Adres repozytorium ECR - parametr RepozytoriumUri stosu notarai-aplikacja
+    Value: !GetAtt Repozytorium.RepositoryUri
+  BucketZrodel:
+    Description: Bucket na paczki zrodel
+    Value: !Ref BucketZrodel
+  ProjektBudowania:
+    Description: Nazwa projektu CodeBuild
+    Value: !Ref ProjektBudowania

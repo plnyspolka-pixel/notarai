@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - certyfikat TLS z ACM dla adresu aplikacji. Walidacja przez DNS:
+  stos czeka, az w strefie domeny (az.pl) pojawi sie rekord CNAME podany
+  przez ACM. Certyfikat odnawia sie sam, dopoki rekord zostaje w DNS.
+
+Parameters:
+  Domena:
+    Type: String
+    Default: app.notarai.pl
+    Description: Adres, pod ktorym kancelarie otworza aplikacje
+
+Resources:
+  Certyfikat:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref Domena
+      ValidationMethod: DNS
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+Outputs:
+  CertyfikatArn:
+    Description: ARN certyfikatu - parametr CertyfikatArn stosu notarai-aplikacja
+    Value: !Ref Certyfikat

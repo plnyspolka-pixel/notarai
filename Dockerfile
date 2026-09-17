@@ -1,17 +1,18 @@
-# pieczapp - kontener produkcyjny (App Runner / ECS, Linux)
+# notarai - kontener produkcyjny (ECS Fargate, Linux x86_64)
 #
-# Budowa:   docker build -t pieczapp .
-# Test:     docker run -p 8000:8000 -e PIECZAPP_HOST=0.0.0.0 pieczapp
+# Obraz buduje CodeBuild w AWS (infra/notarai-budowanie.yaml), Docker na
+# stanowisku nie jest potrzebny. Lokalnie, jesli Docker jest:
+#   docker build -t notarai .
+#   docker run -p 8000:8000 notarai
 #
-# W chmurze ustaw:
-#   PIECZAPP_HOST=0.0.0.0          (kontener slucha dla load balancera)
-#   PIECZAPP_MAGAZYN=s3
-#   PIECZAPP_S3_BUCKET=...
-#   PIECZAPP_MULTI=true
-#   PIECZAPP_ADMIN_TOKEN=...       (openssl rand -hex 32)
-#   AWS_REGION=eu-central-1
-# Poswiadczenia AWS: rola IAM instancji/uslugi (NIE klucze w env).
-FROM python:3.12-slim
+# Konfiguracja w chmurze pochodzi z definicji zadania ECS
+# (infra/notarai-aplikacja.yaml): tryb S3, wiele kancelarii, token admina
+# wstrzykiwany z Secrets Manager. Poswiadczenia AWS: rola zadania, NIGDY
+# klucze w zmiennych srodowiskowych.
+
+# Oficjalny obraz Pythona z lustra ECR Public - bez limitow pobran Docker Hub,
+# ktore trafiaja wspoldzielone adresy CodeBuild.
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 WORKDIR /app
 
@@ -23,7 +24,13 @@ RUN grep -vE "^(faster-whisper|playwright)" requirements.txt > /tmp/req.txt \
 
 COPY . .
 
-# Kontener nie trzyma danych na stale - dysk to cache, prawda jest w S3.
+# Aplikacja nie dziala jako root. Zapisuje tylko do dane/ (cache spraw),
+# prawda jest w S3.
+RUN useradd --system --uid 10001 --home-dir /app notarai \
+    && mkdir -p /app/dane \
+    && chown -R notarai /app/dane
+USER notarai
+
 ENV PIECZAPP_HOST=0.0.0.0 \
     PIECZAPP_PORT=8000 \
     PYTHONUNBUFFERED=1
