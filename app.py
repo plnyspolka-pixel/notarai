@@ -112,6 +112,8 @@ async def nowa_sprawa(
         odczyt = bedrock.odczytaj_dane(
             strony, pola_wzoru, polecenie, analiza["legenda"]
         )
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("sprawa %s: blad odczytu (%s)", identyfikator, type(blad).__name__)
         raise HTTPException(502, f"Bedrock: {blad}")
@@ -184,6 +186,8 @@ def generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania):
         projekt = bedrock.sporzadz_projekt(
             analiza["tresc"], zadanie.pola, zadanie.polecenie, analiza["legenda"], rozmowa
         )
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("sprawa %s: blad generowania (%s)", identyfikator, type(blad).__name__)
         raise HTTPException(502, f"Bedrock: {blad}")
@@ -375,6 +379,8 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
     teraz = datetime.now().isoformat(timespec="seconds")
     try:
         odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("sprawa %s: blad rozmowy (%s)", identyfikator, type(blad).__name__)
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")

@@ -13,6 +13,7 @@ import logging
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 import config
 import prompty
@@ -21,7 +22,11 @@ log = logging.getLogger("pieczapp.bedrock")
 
 _ustawienia = Config(
     region_name=config.REGION,
-    retries={"max_attempts": 3, "mode": "standard"},
+    # Tryb adaptacyjny: poza ponawianiem z rosnacym odstepem sam przyhamowuje
+    # wysylanie, gdy Bedrock zaczyna odrzucac zadania. Konto ma dzis limit
+    # 5 zadan na minute, a jeden odczyt sprawy to kilka wywolan, wiec bez
+    # tego dwie kancelarie pracujace naraz zobaczylyby bledy.
+    retries={"max_attempts": 6, "mode": "adaptive"},
     read_timeout=300,
     connect_timeout=15,
 )
@@ -37,6 +42,15 @@ def _klient():
     return sesja.client("bedrock-runtime", config=_ustawienia)
 
 
+class Przeciazenie(RuntimeError):
+    """Bedrock odrzucil zadanie przez limit zapytan, mimo ponowien."""
+
+
+# Kody, ktore Bedrock zwraca przy wyczerpanym limicie zapytan.
+_PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
+                 "ServiceQuotaExceededException"}
+
+
 def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[dict] | None = None) -> str:
     """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}]."""
     wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
@@ -46,12 +60,24 @@ def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[di
     ustawienia = {"maxTokens": max_tokenow}
     if config.przyjmuje_temperature():
         ustawienia["temperature"] = 0
-    odpowiedz = _klient().converse(
-        modelId=config.MODEL,
-        system=[{"text": system}],
-        messages=wiadomosci,
-        inferenceConfig=ustawienia,
-    )
+    try:
+        odpowiedz = _klient().converse(
+            modelId=config.MODEL,
+            system=[{"text": system}],
+            messages=wiadomosci,
+            inferenceConfig=ustawienia,
+        )
+    except ClientError as blad:
+        # Ponawianie zrobil juz klient boto3. Jesli mimo to nie przeszlo,
+        # limit jest wyczerpany na dluzej - mowimy o tym wprost, zamiast
+        # pokazywac notariuszowi nazwe wyjatku.
+        if blad.response.get("Error", {}).get("Code") in _PRZECIAZENIE:
+            log.warning("Bedrock odrzucil zadanie z powodu limitu zapytan")
+            raise Przeciazenie(
+                "Model jest chwilowo przeciazony (limit zapytan na koncie AWS). "
+                "Odczekaj minute i sprobuj ponownie."
+            ) from blad
+        raise
     uzycie = odpowiedz.get("usage", {})
     log.info(
         "wywolanie modelu: wejscie=%s wyjscie=%s",

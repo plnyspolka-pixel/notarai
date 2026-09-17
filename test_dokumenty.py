@@ -109,6 +109,43 @@ class TestRozdzielczoscModelu:
         importlib.reload(config)
 
 
+class TestPrzeciazenieModelu:
+    """Limit zapytan na koncie AWS jest niski, wiec odmowa musi byc obsluzona."""
+
+    def _atrapa_bledu(self, kod):
+        from botocore.exceptions import ClientError
+        return ClientError({"Error": {"Code": kod, "Message": "limit"}}, "Converse")
+
+    def test_klient_ponawia_i_przyhamowuje(self):
+        import bedrock
+        ponowienia = bedrock._ustawienia.retries
+        assert ponowienia["mode"] == "adaptive", "tryb adaptacyjny sam zwalnia przy odmowach"
+        assert ponowienia["max_attempts"] >= 5
+
+    @pytest.mark.parametrize("kod", [
+        "ThrottlingException", "TooManyRequestsException", "ServiceQuotaExceededException",
+    ])
+    def test_limit_daje_czytelny_komunikat(self, monkeypatch, kod):
+        from unittest.mock import MagicMock
+        import bedrock
+        klient = MagicMock()
+        klient.converse.side_effect = self._atrapa_bledu(kod)
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(bedrock.Przeciazenie) as blad:
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert "przeciazony" in str(blad.value).lower()
+
+    def test_inne_bledy_przechodza_dalej(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ClientError
+        import bedrock
+        klient = MagicMock()
+        klient.converse.side_effect = self._atrapa_bledu("AccessDeniedException")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(ClientError):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+
+
 class TestPrzygotowanieStron:
     """Co trafia do modelu: tekst, obraz, podzial strony i limity zadania."""
 
