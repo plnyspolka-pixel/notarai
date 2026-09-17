@@ -4,6 +4,7 @@ Wszystkie sciezki sa lokalne. Zadne dane nie opuszczaja tego katalogu
 poza pojedynczym wywolaniem Bedrock, ktore nie jest nigdzie zapisywane.
 """
 import os
+import re
 from pathlib import Path
 
 KORZEN = Path(__file__).parent
@@ -30,8 +31,22 @@ def __getattr__(nazwa: str):
 REGION = os.getenv("AWS_REGION", "eu-central-1")
 MODEL = os.getenv(
     "PIECZAPP_MODEL",
-    "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    # Najnowszy profil, do ktorego konto ma wlaczony dostep w Bedrock.
+    # Modele od wersji 4.7 wzwyz czytaja obraz w wyzszej rozdzielczosci
+    # (patrz MAX_BOK) - po wlaczeniu im dostepu wystarczy podmienic te wartosc.
+    "eu.anthropic.claude-sonnet-4-6",
 )
+
+# Modele, ktore widza obraz w wyzszej rozdzielczosci: dluzszy bok 2576 px
+# zamiast 1568. Dla A4 to roznica miedzy ~220 a ~134 dpi, czyli miedzy
+# czytelna a nieczytelna pieczatka.
+_WYSOKA_ROZDZIELCZOSC = re.compile(
+    r"(claude-opus-(4-7|4-8|5)|claude-sonnet-5|claude-fable-5)"
+)
+
+
+def wysoka_rozdzielczosc(model: str = "") -> bool:
+    return bool(_WYSOKA_ROZDZIELCZOSC.search(model or MODEL))
 
 # Profil AWS. Pusto (domyslnie) = zwykly lancuch poswiadczen boto3:
 # lokalnie profil [default] z ~/.aws, w chmurze rola instancji App Runner
@@ -45,13 +60,16 @@ PROFIL_AWS = os.getenv("PIECZAPP_AWS_PROFILE", "")
 HOST = os.getenv("PIECZAPP_HOST", "127.0.0.1")
 PORT = int(os.getenv("PIECZAPP_PORT", "8000"))
 
-# Rozdzielczosc renderowania stron PDF. 200 dpi to dobry kompromis
-# miedzy czytelnoscia pieczatek a rozmiarem obrazu.
-DPI = int(os.getenv("PIECZAPP_DPI", "220"))
+# Rozdzielczosc renderowania stron PDF. 300 dpi daje zapas nad docelowym
+# rozmiarem obrazu, wiec pomniejszenie tylko wyostrza, zamiast gubic szczegol.
+DPI = int(os.getenv("PIECZAPP_DPI", "300"))
 
-# Najdluzszy bok obrazu strony wysylanego do modelu. Odreczne formularze
-# (dowod, oswiadczenia) sa nieczytelne ponizej ~2000 px.
-MAX_BOK = int(os.getenv("PIECZAPP_MAX_BOK", "2400"))
+# Najdluzszy bok obrazu strony wysylanego do modelu. Wyzej niz widzi model
+# nie ma sensu: nadmiar i tak zostanie pomniejszony po jego stronie, a my
+# zaplacimy za przeslanie. Stad wartosc zalezna od modelu.
+MAX_BOK = int(os.getenv("PIECZAPP_MAX_BOK", "0")) or (
+    2576 if wysoka_rozdzielczosc() else 1568
+)
 
 # Maksymalna liczba stron wysylanych do modelu w jednej analizie.
 MAX_STRON = int(os.getenv("PIECZAPP_MAX_STRON", "40"))

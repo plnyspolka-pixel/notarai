@@ -76,12 +76,21 @@ def odczytaj_dane(
     """Przebieg 1 - odczyt danych ze skanow."""
     tresc: list[dict] = []
     for strona in strony:
-        tresc.append(
-            {"text": f"[{strona['dokument']}, strona {strona['strona']}]"}
-        )
-        tresc.append(
-            {"image": {"format": "png", "source": {"bytes": strona["png"]}}}
-        )
+        etykieta = f"[{strona['dokument']}, strona {strona['strona']}"
+        if strona.get("fragment"):
+            etykieta += f", {strona['fragment']} strony"
+        tresc.append({"text": etykieta + "]"})
+        if strona.get("png"):
+            tresc.append(
+                {"image": {"format": "png", "source": {"bytes": strona["png"]}}}
+            )
+        # Tekst osadzony w pliku jest dokladny - nie pochodzi z rozpoznawania
+        # obrazu, wiec ma pierwszenstwo przed tym, co widac na skanie.
+        if strona.get("tekst"):
+            tresc.append({"text": (
+                "Tekst osadzony w tym pliku (dokladny, przepisany wprost z dokumentu, "
+                "ma pierwszenstwo przed odczytem z obrazu):\n" + strona["tekst"]
+            )})
     pola_pelne = list(pola) + [p for p in prompty.POLA_STALE if p not in pola]
     tresc.append({"text": prompty.polecenie_ekstrakcji(pola_pelne, opis, legenda)})
 

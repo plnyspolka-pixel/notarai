@@ -92,6 +92,27 @@ Czego żadna automatyka nie załatwi:
   Gdy zostanie wycofany, alarm błędów 5xx to wykryje, ale podmiana modelu
   w `config.py` wymaga człowieka.
 
+## Jakość odczytu skanów
+
+- **Warstwa tekstowa ma pierwszeństwo.** Gdy PDF został wygenerowany
+  elektronicznie (wypis, zaświadczenie, wydruk KW), aplikacja bierze tekst
+  wprost z pliku i zaznacza modelowi, że jest dokładny. Skany bez tekstu idą
+  jako obraz.
+- **Rozmiar obrazu dobierany do modelu.** Modele od wersji 4.7 wzwyż czytają
+  dłuższy bok do 2576 px, starsze do 1568 px. Wysyłanie więcej nic nie daje,
+  bo model i tak pomniejszy obraz, a koszt rośnie.
+- **Gęste strony dzielone na dwie zachodzące części**, każda w pełnej
+  rozdzielczości. Podwaja szczegół na skanach i pismie ręcznym. Nie dzielimy
+  stron, które i tak mieszczą się w limicie.
+- **Powyżej 20 obrazów w żądaniu** obowiązuje ostrzejszy limit rozmiaru
+  (2000 px). Aplikacja sama schodzi z rozdzielczości, zamiast dostać odmowę
+  z API: najpierw rezygnuje z dzielenia stron, potem z obrazów dla stron
+  mających dokładny tekst, na końcu zmniejsza wszystkie strony.
+- **Do zrobienia po stronie konta:** w konsoli Bedrock (Model access) włącz
+  dostęp do `claude-opus-4-7` albo nowszego. Konto fbpl ma dziś tylko
+  Sonnet 4.5 i 4.6, czyli niższą klasę rozdzielczości. Po włączeniu wystarczy
+  ustawić `PIECZAPP_MODEL`; rozmiar obrazu dopasuje się sam.
+
 ## Znane granice (uczciwie)
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.

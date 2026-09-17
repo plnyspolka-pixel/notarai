@@ -12,31 +12,44 @@ import config
 
 OBRAZY = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
+# Limity obrazu po stronie modelu (dokumentacja Claude Vision).
+# Model i tak przeskaluje wiekszy obraz w dol, wiec wysylanie nadmiaru
+# pikseli tylko kosztuje, a nic nie wnosi.
+PROG_WIELU_OBRAZOW = 20     # powyzej tylu obrazow w zadaniu obowiazuje ostrzejszy limit
+MAX_BOK_WIELE_OBRAZOW = 2000
+
+# Strona bez warstwy tekstowej, ktora nie miesci sie w limicie, jest dzielona
+# na dwie zachodzace czesci. Kazda idzie w pelnej rozdzielczosci, wiec model
+# widzi mniej wiecej dwa razy wiecej szczegolu.
+NAKLADKA = 0.08
+PROG_TEKSTU = 200           # tyle znakow uznajemy za prawdziwa warstwe tekstowa
+
 
 def strony_ze_skanow(sciezki: list[Path]) -> list[dict]:
-    """Zamienia skany (PDF lub obrazy) na liste stron gotowych dla modelu."""
-    strony: list[dict] = []
+    """Zamienia skany (PDF lub obrazy) na liste stron gotowych dla modelu.
+
+    Kazda strona to obraz, tekst osadzony w pliku albo jedno i drugie.
+    Dokumenty wygenerowane elektronicznie (wypisy, zaswiadczenia, wydruki KW)
+    niosa dokladny tekst - wtedy nie ma po co zgadywac go z obrazu.
+    """
+    surowe: list[dict] = []
     for sciezka in sciezki:
         rozszerzenie = sciezka.suffix.lower()
         if rozszerzenie == ".pdf":
-            strony.extend(_strony_z_pdf(sciezka))
+            surowe.extend(_strony_z_pdf(sciezka))
         elif rozszerzenie in OBRAZY:
-            strony.append(
-                {
-                    "dokument": sciezka.name,
-                    "strona": 1,
-                    "png": _na_png(Image.open(sciezka)),
-                }
+            surowe.append(
+                {"dokument": sciezka.name, "strona": 1, "obraz": Image.open(sciezka), "tekst": ""}
             )
         else:
             raise ValueError(f"Nieobslugiwany format: {sciezka.name}")
 
-        if len(strony) > config.MAX_STRON:
+        if len(surowe) > config.MAX_STRON:
             raise ValueError(
-                f"Za duzo stron ({len(strony)}). Limit to {config.MAX_STRON}. "
+                f"Za duzo stron ({len(surowe)}). Limit to {config.MAX_STRON}. "
                 "Podziel sprawe albo usun zbedne zalaczniki."
             )
-    return strony
+    return _przygotuj(surowe)
 
 
 def _strony_z_pdf(sciezka: Path) -> list[dict]:
@@ -45,11 +58,69 @@ def _strony_z_pdf(sciezka: Path) -> list[dict]:
         skala = config.DPI / 72
         for numer, strona in enumerate(pdf, start=1):
             piksmapa = strona.get_pixmap(matrix=fitz.Matrix(skala, skala))
-            obraz = Image.open(io.BytesIO(piksmapa.tobytes("png")))
-            wynik.append(
-                {"dokument": sciezka.name, "strona": numer, "png": _na_png(obraz)}
-            )
+            wynik.append({
+                "dokument": sciezka.name,
+                "strona": numer,
+                "obraz": Image.open(io.BytesIO(piksmapa.tobytes("png"))),
+                "tekst": strona.get_text("text").strip(),
+            })
     return wynik
+
+
+def _przygotuj(surowe: list[dict]) -> list[dict]:
+    """Dobiera rozdzielczosc i podzial stron do limitow jednego zadania.
+
+    Kolejnosc ustepstw, gdy obrazow jest za duzo: najpierw rezygnujemy
+    z dzielenia stron, potem z obrazow tych stron, ktore maja dokladny tekst,
+    a dopiero na koncu zmniejszamy wszystkie obrazy.
+    """
+    z_tekstem = [s for s in surowe if len(s["tekst"]) >= PROG_TEKSTU]
+    skany = [s for s in surowe if len(s["tekst"]) < PROG_TEKSTU]
+
+    dzielimy = len(z_tekstem) + 2 * len(skany) <= PROG_WIELU_OBRAZOW
+    obrazy_dla_tekstowych = True
+    ile = len(z_tekstem) + (2 if dzielimy else 1) * len(skany)
+    if ile > PROG_WIELU_OBRAZOW:
+        obrazy_dla_tekstowych = False
+        ile = len(skany)
+    max_bok = config.MAX_BOK if ile <= PROG_WIELU_OBRAZOW else MAX_BOK_WIELE_OBRAZOW
+
+    wynik: list[dict] = []
+    for s in surowe:
+        ma_tekst = len(s["tekst"]) >= PROG_TEKSTU
+        wpis = {"dokument": s["dokument"], "strona": s["strona"], "tekst": s["tekst"]}
+        if ma_tekst and not obrazy_dla_tekstowych:
+            wynik.append(wpis)
+            continue
+        czesci = _fragmenty(s["obraz"], max_bok) if (dzielimy and not ma_tekst) else [(None, s["obraz"])]
+        for nazwa, kawalek in czesci:
+            nowy = dict(wpis)
+            if nazwa:
+                nowy["fragment"] = nazwa
+            nowy["png"] = _na_png(kawalek, max_bok)
+            wynik.append(nowy)
+    return wynik
+
+
+def _fragmenty(obraz: Image.Image, max_bok: int) -> list[tuple[str | None, Image.Image]]:
+    """Dzieli strone na dwie zachodzace czesci wzdluz dluzszego boku.
+
+    Dzielimy tylko wtedy, gdy strona i tak zostalaby pomniejszona - inaczej
+    podzial nic nie wnosi, a podwaja koszt.
+    """
+    if max(obraz.size) <= max_bok:
+        return [(None, obraz)]
+    if obraz.height >= obraz.width:
+        srodek, margines = obraz.height // 2, int(obraz.height * NAKLADKA)
+        return [
+            ("gora", obraz.crop((0, 0, obraz.width, min(obraz.height, srodek + margines)))),
+            ("dol", obraz.crop((0, max(0, srodek - margines), obraz.width, obraz.height))),
+        ]
+    srodek, margines = obraz.width // 2, int(obraz.width * NAKLADKA)
+    return [
+        ("lewa", obraz.crop((0, 0, min(obraz.width, srodek + margines), obraz.height))),
+        ("prawa", obraz.crop((max(0, srodek - margines), 0, obraz.width, obraz.height))),
+    ]
 
 
 def _na_png(obraz: Image.Image, max_bok: int | None = None) -> bytes:

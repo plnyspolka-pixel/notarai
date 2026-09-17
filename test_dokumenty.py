@@ -6,10 +6,127 @@ Testujemy:
 - duplikaty
 - formaty edge case
 """
+import io
+
 import pytest
 from pathlib import Path
 import tempfile
 from dokumenty import pola_ze_wzoru, wzor_na_tekst, tekst_na_docx
+
+
+def _pdf_z_tekstem(cel: Path, linie: int = 20) -> Path:
+    """PDF wygenerowany elektronicznie - ma warstwe tekstowa, jak wypis."""
+    import fitz
+    dokument = fitz.open()
+    strona = dokument.new_page()
+    for i in range(linie):
+        strona.insert_text(
+            (60, 80 + i * 16),
+            f"ZASWIADCZENIE nr {i}/2026, dzialka 12/3, obreb Zalesie",
+            fontsize=10,
+        )
+    dokument.save(cel)
+    dokument.close()
+    return cel
+
+
+def _pdf_skan(cel: Path, stron: int = 1) -> Path:
+    """PDF bez warstwy tekstowej - strona wklejona jako obraz A4 w 300 dpi."""
+    import fitz
+    from PIL import Image
+    bufor = io.BytesIO()
+    Image.new("L", (2480, 3508), 255).save(bufor, format="PNG")
+    dokument = fitz.open()
+    for _ in range(stron):
+        strona = dokument.new_page()
+        strona.insert_image(strona.rect, stream=bufor.getvalue())
+    dokument.save(cel)
+    dokument.close()
+    return cel
+
+
+class TestRozdzielczoscModelu:
+    """Rozmiar obrazu ma odpowiadac temu, ile model naprawde widzi."""
+
+    @pytest.mark.parametrize("model,wysoka", [
+        ("eu.anthropic.claude-sonnet-4-5-20250929-v1:0", False),
+        ("eu.anthropic.claude-sonnet-4-6", False),
+        ("eu.anthropic.claude-opus-4-7", True),
+        ("eu.anthropic.claude-opus-4-8", True),
+        ("eu.anthropic.claude-sonnet-5", True),
+        ("eu.anthropic.claude-opus-5", True),
+    ])
+    def test_klasa_rozdzielczosci(self, model, wysoka):
+        import config
+        assert config.wysoka_rozdzielczosc(model) is wysoka
+
+    def test_max_bok_idzie_za_modelem(self, monkeypatch):
+        import importlib
+        import config
+        monkeypatch.setenv("PIECZAPP_MODEL", "eu.anthropic.claude-opus-5")
+        monkeypatch.delenv("PIECZAPP_MAX_BOK", raising=False)
+        importlib.reload(config)
+        assert config.MAX_BOK == 2576
+        monkeypatch.setenv("PIECZAPP_MODEL", "eu.anthropic.claude-sonnet-4-6")
+        importlib.reload(config)
+        assert config.MAX_BOK == 1568
+        # recznie podana wartosc jest rozstrzygajaca
+        monkeypatch.setenv("PIECZAPP_MAX_BOK", "1234")
+        importlib.reload(config)
+        assert config.MAX_BOK == 1234
+        monkeypatch.undo()
+        importlib.reload(config)
+
+
+class TestPrzygotowanieStron:
+    """Co trafia do modelu: tekst, obraz, podzial strony i limity zadania."""
+
+    def test_warstwa_tekstowa_idzie_obok_obrazu(self, tmp_path):
+        from dokumenty import strony_ze_skanow
+        strony = strony_ze_skanow([_pdf_z_tekstem(tmp_path / "wypis.pdf")])
+        assert strony, "dokument nie zostal przetworzony"
+        assert all("ZASWIADCZENIE" in s["tekst"] for s in strony)
+        assert any(s.get("png") for s in strony)
+
+    def test_skan_bez_tekstu_dzielony_na_dwie_czesci(self, tmp_path):
+        from dokumenty import strony_ze_skanow
+        strony = strony_ze_skanow([_pdf_skan(tmp_path / "skan.pdf")])
+        assert [s.get("fragment") for s in strony] == ["gora", "dol"]
+        assert all(s["tekst"] == "" for s in strony)
+
+    def test_czesci_zachodza_na_siebie(self, tmp_path):
+        """Podzial nie moze uciac wiersza przechodzacego przez srodek strony.
+
+        Porownujemy proporcje, nie piksele - obraz moze byc po drodze
+        pomniejszony do tego, ile widzi model.
+        """
+        from PIL import Image
+        from dokumenty import strony_ze_skanow
+        strony = strony_ze_skanow([_pdf_skan(tmp_path / "skan.pdf")])
+        proporcja_strony = 3508 / 2480
+        for s in strony:
+            obraz = Image.open(io.BytesIO(s["png"]))
+            proporcja = obraz.height / obraz.width
+            assert proporcja > proporcja_strony / 2, "czesc krotsza niz polowa strony"
+            assert proporcja < proporcja_strony, "czesc nie moze byc cala strona"
+
+    def test_duza_sprawa_miesci_sie_w_limicie_zadania(self, tmp_path):
+        """Powyzej 20 obrazow API wymaga mniejszych stron - inaczej odrzuca zadanie."""
+        from PIL import Image
+        from dokumenty import strony_ze_skanow, MAX_BOK_WIELE_OBRAZOW
+        strony = strony_ze_skanow([_pdf_skan(tmp_path / "duzy.pdf", stron=25)])
+        assert all("fragment" not in s for s in strony), "przy duzej sprawie nie dzielimy stron"
+        boki = [max(Image.open(io.BytesIO(s["png"])).size) for s in strony]
+        assert max(boki) <= MAX_BOK_WIELE_OBRAZOW
+
+    def test_strona_w_limicie_nie_jest_dzielona(self, tmp_path):
+        """Maly obraz nie zyskuje na podziale, wiec go nie dzielimy."""
+        from PIL import Image
+        from dokumenty import strony_ze_skanow
+        maly = tmp_path / "dowod.png"
+        Image.new("L", (1200, 800), 255).save(maly)
+        strony = strony_ze_skanow([maly])
+        assert len(strony) == 1 and "fragment" not in strony[0]
 
 
 class TestPolaZeWzoru:
