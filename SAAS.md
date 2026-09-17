@@ -108,10 +108,16 @@ Czego żadna automatyka nie załatwi:
   (2000 px). Aplikacja sama schodzi z rozdzielczości, zamiast dostać odmowę
   z API: najpierw rezygnuje z dzielenia stron, potem z obrazów dla stron
   mających dokładny tekst, na końcu zmniejsza wszystkie strony.
-- **Do zrobienia po stronie konta:** w konsoli Bedrock (Model access) włącz
-  dostęp do `claude-opus-4-7` albo nowszego. Konto fbpl ma dziś tylko
-  Sonnet 4.5 i 4.6, czyli niższą klasę rozdzielczości. Po włączeniu wystarczy
-  ustawić `PIECZAPP_MODEL`; rozmiar obrazu dopasuje się sam.
+- **Model: `eu.anthropic.claude-opus-4-6-v1`.** W porównaniu na tych samych
+  fragmentach strony (trzy odczyty na model) Opus 4.6 odczytał wszystko
+  bezbłędnie 3/3, Sonnet 4.6 0/3 - mylił numer repertorium i cyfrę PESEL.
+- **Modele 4.7+ są zablokowane na koncie fbpl przez AWS.** Umowy dla
+  `opus-4-7`, `opus-4-8`, `sonnet-5` i `opus-5` są zaakceptowane i mają status
+  AVAILABLE, ale wywołanie zwraca „not available for this account" także dla
+  konta głównego. Odblokowanie wymaga zgłoszenia do AWS Support albo działu
+  sprzedaży. Po odblokowaniu wystarczy zmienić `PIECZAPP_MODEL`: rozmiar
+  obrazu podniesie się sam, a parametr `temperature` zostanie pominięty,
+  bo nowsze modele go odrzucają.
 
 ## Znane granice (uczciwie)
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;

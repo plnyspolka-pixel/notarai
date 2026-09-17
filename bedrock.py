@@ -40,11 +40,17 @@ def _klient():
 def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[dict] | None = None) -> str:
     """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}]."""
     wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
+    # Chcemy odpowiedzi powtarzalnych, stad temperature 0. Modele od wersji
+    # 4.7 wzwyz nie przyjmuja juz tego parametru i odrzucaja takie zadanie,
+    # wiec pomijamy go, zamiast wywrocic aplikacje po zmianie modelu.
+    ustawienia = {"maxTokens": max_tokenow}
+    if config.przyjmuje_temperature():
+        ustawienia["temperature"] = 0
     odpowiedz = _klient().converse(
         modelId=config.MODEL,
         system=[{"text": system}],
         messages=wiadomosci,
-        inferenceConfig={"maxTokens": max_tokenow, "temperature": 0},
+        inferenceConfig=ustawienia,
     )
     uzycie = odpowiedz.get("usage", {})
     log.info(

@@ -31,22 +31,28 @@ def __getattr__(nazwa: str):
 REGION = os.getenv("AWS_REGION", "eu-central-1")
 MODEL = os.getenv(
     "PIECZAPP_MODEL",
-    # Najnowszy profil, do ktorego konto ma wlaczony dostep w Bedrock.
-    # Modele od wersji 4.7 wzwyz czytaja obraz w wyzszej rozdzielczosci
-    # (patrz MAX_BOK) - po wlaczeniu im dostepu wystarczy podmienic te wartosc.
-    "eu.anthropic.claude-sonnet-4-6",
+    # Najmocniejszy profil, do ktorego konto ma wlaczony dostep w Bedrock.
+    # Modele od wersji 4.7 wzwyz sa na tym koncie zablokowane po stronie AWS
+    # (odmowa takze dla konta glownego) - po odblokowaniu wystarczy podmienic
+    # te wartosc, reszta ustawien dostosuje sie sama.
+    "eu.anthropic.claude-opus-4-6-v1",
 )
 
-# Modele, ktore widza obraz w wyzszej rozdzielczosci: dluzszy bok 2576 px
-# zamiast 1568. Dla A4 to roznica miedzy ~220 a ~134 dpi, czyli miedzy
-# czytelna a nieczytelna pieczatka.
-_WYSOKA_ROZDZIELCZOSC = re.compile(
+# Modele od wersji 4.7 wzwyz. Dwie rzeczy zalezne od tej granicy:
+#  - czytaja obraz w wyzszej rozdzielczosci: dluzszy bok 2576 px zamiast 1568,
+#    czyli dla A4 okolo 220 zamiast 134 dpi,
+#  - nie przyjmuja juz parametru temperature; wyslanie go konczy sie bledem.
+_NOWA_GENERACJA = re.compile(
     r"(claude-opus-(4-7|4-8|5)|claude-sonnet-5|claude-fable-5)"
 )
 
 
 def wysoka_rozdzielczosc(model: str = "") -> bool:
-    return bool(_WYSOKA_ROZDZIELCZOSC.search(model or MODEL))
+    return bool(_NOWA_GENERACJA.search(model or MODEL))
+
+
+def przyjmuje_temperature(model: str = "") -> bool:
+    return not _NOWA_GENERACJA.search(model or MODEL)
 
 # Profil AWS. Pusto (domyslnie) = zwykly lancuch poswiadczen boto3:
 # lokalnie profil [default] z ~/.aws, w chmurze rola instancji App Runner

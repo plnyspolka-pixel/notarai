@@ -51,6 +51,7 @@ class TestRozdzielczoscModelu:
     @pytest.mark.parametrize("model,wysoka", [
         ("eu.anthropic.claude-sonnet-4-5-20250929-v1:0", False),
         ("eu.anthropic.claude-sonnet-4-6", False),
+        ("eu.anthropic.claude-opus-4-6-v1", False),
         ("eu.anthropic.claude-opus-4-7", True),
         ("eu.anthropic.claude-opus-4-8", True),
         ("eu.anthropic.claude-sonnet-5", True),
@@ -59,6 +60,36 @@ class TestRozdzielczoscModelu:
     def test_klasa_rozdzielczosci(self, model, wysoka):
         import config
         assert config.wysoka_rozdzielczosc(model) is wysoka
+
+    @pytest.mark.parametrize("model,przyjmuje", [
+        ("eu.anthropic.claude-opus-4-6-v1", True),
+        ("eu.anthropic.claude-sonnet-4-6", True),
+        ("eu.anthropic.claude-opus-4-7", False),
+        ("eu.anthropic.claude-opus-5", False),
+        ("eu.anthropic.claude-sonnet-5", False),
+    ])
+    def test_temperature_tylko_dla_starszych_modeli(self, model, przyjmuje):
+        """Modele 4.7+ odrzucaja zadanie z parametrem temperature."""
+        import config
+        assert config.przyjmuje_temperature(model) is przyjmuje
+
+    def test_zadanie_bez_temperatury_dla_nowych_modeli(self, monkeypatch):
+        from unittest.mock import MagicMock
+        import bedrock
+        klient = MagicMock()
+        klient.converse.return_value = {
+            "output": {"message": {"content": [{"text": "ok"}]}},
+            "usage": {}, "stopReason": "end_turn",
+        }
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+
+        monkeypatch.setattr(bedrock.config, "MODEL", "eu.anthropic.claude-opus-4-6-v1")
+        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse.call_args.kwargs["inferenceConfig"]["temperature"] == 0
+
+        monkeypatch.setattr(bedrock.config, "MODEL", "eu.anthropic.claude-opus-5")
+        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert "temperature" not in klient.converse.call_args.kwargs["inferenceConfig"]
 
     def test_max_bok_idzie_za_modelem(self, monkeypatch):
         import importlib
