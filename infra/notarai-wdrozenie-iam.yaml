@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - polityka dla tozsamosci wdrozeniowej. Pozwala zalozyc stos
+  notarai-s3 (bucket spraw + polityka aplikacji) i nic poza tym. Oddzielona
+  od tozsamosci samej aplikacji, ktora ma dostep wylacznie do Bedrock i do
+  swojego bucketa.
+
+  UWAGA: ten stos tworzy uprawnienia, wiec wdraza go ktos, kto juz je ma -
+  administrator konta, z konsoli AWS albo z poswiadczen administracyjnych.
+  Potem wystarczy dolaczyc powstala polityke do uzytkownika wdrozeniowego.
+
+Parameters:
+  NazwaBucketa:
+    Type: String
+    Default: notarai-sprawy
+    Description: Ta sama nazwa, ktora podasz przy wdrozeniu stosu notarai-s3
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+  NazwaStosu:
+    Type: String
+    Default: notarai-s3
+    Description: Nazwa stosu z bucketem spraw
+
+Resources:
+  PolitykaWdrozeniowa:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: notarai-wdrozenie
+      Description: notarai - zakladanie i aktualizacja stosu z bucketem spraw
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Operacje na samym stosie notarai-s3 i na zmianach w nim.
+          - Sid: StosNotarai
+            Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResource
+              - cloudformation:DescribeStackResources
+              - cloudformation:GetTemplate
+              - cloudformation:GetTemplateSummary
+              - cloudformation:CreateChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:ListChangeSets
+            Resource:
+              - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${NazwaStosu}/*"
+          # Walidacja szablonu nie dotyczy konkretnego stosu.
+          - Sid: WalidacjaSzablonu
+            Effect: Allow
+            Action:
+              - cloudformation:ValidateTemplate
+              - cloudformation:ListStacks
+            Resource: "*"
+          # Bucket spraw - tylko ten jeden, po nazwie.
+          - Sid: BucketSpraw
+            Effect: Allow
+            Action:
+              - s3:CreateBucket
+              - s3:PutBucketPolicy
+              - s3:GetBucketPolicy
+              - s3:PutBucketPublicAccessBlock
+              - s3:GetBucketPublicAccessBlock
+              - s3:PutBucketVersioning
+              - s3:GetBucketVersioning
+              - s3:PutEncryptionConfiguration
+              - s3:GetEncryptionConfiguration
+              - s3:PutLifecycleConfiguration
+              - s3:GetLifecycleConfiguration
+              - s3:PutBucketOwnershipControls
+              - s3:GetBucketOwnershipControls
+              - s3:PutBucketTagging
+              - s3:GetBucketTagging
+              - s3:GetBucketLocation
+            Resource: !Sub "arn:aws:s3:::${NazwaBucketa}"
+          # Polityka aplikacji, ktora zaklada stos notarai-s3.
+          - Sid: PolitykaAplikacji
+            Effect: Allow
+            Action:
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:GetPolicy
+              - iam:GetPolicyVersion
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:ListPolicyVersions
+              - iam:TagPolicy
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:policy/notarai-aplikacja"
+
+Outputs:
+  PolitykaArn:
+    Description: >-
+      Dolacz te polityke do uzytkownika lub roli, ktora bedzie wdrazac
+      notarai-s3 (konsola IAM: Users -> uzytkownik -> Add permissions).
+    Value: !Ref PolitykaWdrozeniowa
+  CoDalej:
+    Description: Komenda do uruchomienia po dolaczeniu polityki
+    Value: !Sub >-
+      aws cloudformation deploy --stack-name ${NazwaStosu}
+      --template-file infra/notarai-s3.yaml
+      --parameter-overrides NazwaBucketa=${NazwaBucketa}
+      --capabilities CAPABILITY_NAMED_IAM --region ${AWS::Region}

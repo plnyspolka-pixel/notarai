@@ -4,6 +4,7 @@
 - `magazyn.py`      — pliki spraw: dysk (jak dotąd) albo dysk-cache + S3
 - `autoryzacja.py`  — tokeny kancelarii + panel admina /api/admin/*
 - `Dockerfile`      — kontener dla App Runner / ECS
+- `infra/notarai-wdrozenie-iam.yaml` — CloudFormation: polityka dla tozsamosci, ktora wdraza stos ponizej (wdraza ja administrator konta, raz)
 - `infra/notarai-s3.yaml` — CloudFormation: bucket S3 (szyfrowany, prywatny, wersjonowany, tylko TLS) + polityka IAM aplikacji (S3 + Bedrock we wszystkich regionach UE, bo profile `eu.` routują poza Frankfurt)
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
