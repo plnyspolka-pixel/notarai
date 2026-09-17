@@ -21,6 +21,14 @@ function Uruchom-Aws {
     if ($LASTEXITCODE -ne 0) { throw "Polecenie aws $($args[0]) $($args[1]) nie powiodlo sie (kod $LASTEXITCODE)." }
     return $wynik
 }
+# Sprawdzenie, ktorego odpowiedz "nie ma" jest oczekiwana. Windows PowerShell 5.1
+# przy ErrorActionPreference=Stop zamienia przekierowany stderr programu w blad
+# krytyczny, wiec wewnatrz funkcji wracamy do Continue.
+function Czy-Aws {
+    $ErrorActionPreference = "Continue"
+    & aws @args --profile $Profil --region $Region 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
 function Wyjscie($stos, $klucz) {
     Uruchom-Aws cloudformation describe-stacks --stack-name $stos `
         --query "Stacks[0].Outputs[?OutputKey=='$klucz'].OutputValue | [0]" --output text
@@ -40,8 +48,7 @@ $certArn = Wyjscie notarai-certyfikat CertyfikatArn
 $repo    = Wyjscie notarai-budowanie RepozytoriumUri
 $nazwaRepo = $repo.Split("/", 2)[1]
 
-& aws ecr describe-images --repository-name $nazwaRepo --image-ids "imageTag=$Tag" --profile $Profil --region $Region --output text --query "imageDetails[0].imageTag" 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Brak obrazu $($repo):$Tag w ECR. Uruchom najpierw etap 2." }
+if (-not (Czy-Aws ecr describe-images --repository-name $nazwaRepo --image-ids "imageTag=$Tag")) { throw "Brak obrazu $($repo):$Tag w ECR. Uruchom najpierw etap 2." }
 
 $vpc = Uruchom-Aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query "Vpcs[0].VpcId" --output text
 if (-not $vpc -or $vpc -eq "None") { throw "Brak domyslnego VPC w regionie $Region." }

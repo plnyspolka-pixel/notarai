@@ -20,6 +20,15 @@ function Uruchom-Aws {
     return $wynik
 }
 
+# Sprawdzenie, ktorego odpowiedz "nie ma" jest oczekiwana. Windows PowerShell 5.1
+# przy ErrorActionPreference=Stop zamienia przekierowany stderr programu w blad
+# krytyczny, wiec wewnatrz funkcji wracamy do Continue.
+function Czy-Aws {
+    $ErrorActionPreference = "Continue"
+    & aws @args --profile $Profil --region $Region 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
 Write-Host "== Sprawdzam konto AWS i repozytorium" -ForegroundColor Cyan
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
 if ($biezace -ne $Konto) { throw "Profil $Profil wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
@@ -35,8 +44,7 @@ $projekt = ($wyjscia | Where-Object OutputKey -eq "ProjektBudowania").OutputValu
 $repo    = ($wyjscia | Where-Object OutputKey -eq "RepozytoriumUri").OutputValue
 $nazwaRepo = $repo.Split("/", 2)[1]
 
-& aws ecr describe-images --repository-name $nazwaRepo --image-ids "imageTag=$tag" --profile $Profil --region $Region --output text --query "imageDetails[0].imageTag" 2>$null | Out-Null
-if ($LASTEXITCODE -eq 0) {
+if (Czy-Aws ecr describe-images --repository-name $nazwaRepo --image-ids "imageTag=$tag") {
     Write-Host "== Obraz $($repo):$tag juz jest w ECR - pomijam budowanie" -ForegroundColor Green
     Write-Host "Dalej: powershell -ExecutionPolicy Bypass -File infra\3-wdroz-aplikacje.ps1"
     return
