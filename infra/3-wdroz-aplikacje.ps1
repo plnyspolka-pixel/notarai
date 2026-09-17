@@ -50,7 +50,9 @@ $nazwaRepo = $repo.Split("/", 2)[1]
 
 if (-not (Czy-Aws ecr describe-images --repository-name $nazwaRepo --image-ids "imageTag=$Tag")) { throw "Brak obrazu $($repo):$Tag w ECR. Uruchom najpierw etap 2." }
 
-$vpc = Uruchom-Aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query "Vpcs[0].VpcId" --output text
+# Argumenty z przecinkiem zawsze w cudzyslowie: bez niego PowerShell robi z nich
+# tablice i przekazuje do aws jako osobne slowa.
+$vpc = Uruchom-Aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query "Vpcs[0].VpcId" --output text
 if (-not $vpc -or $vpc -eq "None") { throw "Brak domyslnego VPC w regionie $Region." }
 $podsieci = (Uruchom-Aws ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc" "Name=default-for-az,Values=true" --query "Subnets[].SubnetId" --output text) -split "\s+" | Where-Object { $_ }
 if ($podsieci.Count -lt 2) { throw "Load balancer potrzebuje co najmniej dwoch podsieci, znaleziono $($podsieci.Count)." }
