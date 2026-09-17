@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - bucket S3 na sprawy kancelarii (tryb SaaS, PIECZAPP_MAGAZYN=s3)
+  oraz polityka IAM dla roli aplikacji (App Runner / ECS). Region: eu-central-1.
+  Bucket przechowuje dane osobowe klientow kancelarii - utworzenie stosu wymaga
+  swiadomej decyzji (patrz CLAUDE.md).
+
+Parameters:
+  NazwaBucketa:
+    Type: String
+    Default: notarai-sprawy
+    Description: Nazwa bucketa (globalnie unikalna, tylko male litery, cyfry i myslniki)
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+  KluczKms:
+    Type: String
+    Default: ""
+    Description: >-
+      Opcjonalny ARN klucza KMS (CMK). Pusty = szyfrowanie SSE-S3 (AES256).
+      Musi odpowiadac PIECZAPP_KMS_KEY_ID w aplikacji.
+
+Conditions:
+  UzyjKms: !Not [!Equals [!Ref KluczKms, ""]]
+
+Resources:
+  BucketSprawy:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref NazwaBucketa
+      # Dane kancelarii NIGDY nie moga byc publiczne.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      # Kazdy obiekt szyfrowany; wersjonowanie pozwala cofnac nadpisanie.
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: !If [UzyjKms, true, false]
+            ServerSideEncryptionByDefault: !If
+              - UzyjKms
+              - SSEAlgorithm: aws:kms
+                KMSMasterKeyID: !Ref KluczKms
+              - SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: sprzatanie-starych-wersji
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+          - Id: porzucone-uploady
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: projekt
+          Value: notarai
+        - Key: dane-osobowe
+          Value: "tak"
+
+  # Wymuszenie TLS - zadnego dostepu po zwyklym HTTP.
+  PolitykaBucketa:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketSprawy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt BucketSprawy.Arn
+              - !Sub "${BucketSprawy.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  # Minimalne uprawnienia roli aplikacji: sprawy w S3 + Bedrock przez profile eu.
+  # Profile eu.* kieruja ruch do kilku regionow UE, wiec foundation-model
+  # musi byc dozwolony w kazdym z nich (inaczej AccessDenied).
+  PolitykaAplikacji:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: notarai-aplikacja
+      Description: notarai - dostep aplikacji do bucketa spraw i modeli Bedrock w UE
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: SprawyS3
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub "${BucketSprawy.Arn}/*"
+          - Sid: ListaS3
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !GetAtt BucketSprawy.Arn
+          - !If
+            - UzyjKms
+            - Sid: KmsDlaBucketa
+              Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !Ref KluczKms
+            - !Ref AWS::NoValue
+          - Sid: BedrockProfileEU
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+            Resource:
+              - !Sub "arn:aws:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.*"
+              - "arn:aws:bedrock:eu-central-1::foundation-model/*"
+              - "arn:aws:bedrock:eu-west-1::foundation-model/*"
+              - "arn:aws:bedrock:eu-west-3::foundation-model/*"
+              - "arn:aws:bedrock:eu-north-1::foundation-model/*"
+              - "arn:aws:bedrock:eu-south-1::foundation-model/*"
+              - "arn:aws:bedrock:eu-south-2::foundation-model/*"
+          - Sid: BedrockOdczyt
+            Effect: Allow
+            Action:
+              - bedrock:ListInferenceProfiles
+              - bedrock:GetInferenceProfile
+              - bedrock:ListFoundationModels
+              - bedrock:GetFoundationModel
+            Resource: "*"
+
+Outputs:
+  Bucket:
+    Description: Nazwa bucketa - ustaw jako PIECZAPP_S3_BUCKET
+    Value: !Ref BucketSprawy
+  PolitykaArn:
+    Description: ARN polityki - dolacz do roli instancji App Runner / roli zadania ECS
+    Value: !Ref PolitykaAplikacji

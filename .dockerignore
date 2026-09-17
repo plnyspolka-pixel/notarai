@@ -1,0 +1,25 @@
+# Do obrazu NIGDY nie trafiaja dane kancelarii ani sekrety.
+dane/
+.env
+.env.*
+!.env.example
+
+# Srodowisko i cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Narzedzia deweloperskie i pliki stanowiska lokalnego
+.git/
+.gitignore
+.claude/
+*.bat
+*.log
+*.tmp
+*.bak
+.vscode/
+.idea/

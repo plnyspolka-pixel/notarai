@@ -1,0 +1,45 @@
+# Dane kancelarii - NIGDY nie commituj tego katalogu
+dane/
+
+# Środowisko wirtualne
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logi
+*.log
+
+# Tymczasowe
+*.tmp
+*.bak
+
+# Robocze wyniki i oceny przebiegow - moga zawierac dane sprawy
+Claude outputs/

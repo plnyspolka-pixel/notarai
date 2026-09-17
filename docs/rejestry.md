@@ -1,0 +1,81 @@
+# Rejestry publiczne - ustalenia (SPEC, zadanie A1)
+
+Sprawdzono: 16.09.2026. Zrodla oficjalne podane przy kazdym punkcie.
+Reguła: jesli czegos nie da sie potwierdzic w oficjalnym zrodle, integracji nie budujemy.
+
+## Rejestr Zastrzezen Numerow PESEL
+
+**Sciezki dostepu dla podmiotu zobowiazanego (notariusz):**
+
+1. **Modul w systemie "Rejestry Notarialne" Krajowej Rady Notarialnej.** To jest kanal,
+   z ktorego notariusze korzystaja w praktyce: dodatkowy modul w systemie KRN daje
+   "szybka lacznosc z Rejestrem Zastrzezen Numerow PESEL". Logowanie do Rejestrow
+   Notarialnych - certyfikat notariusza. Zrodlo: KRN,
+   https://krn.org.pl/aktualnosci/zastrzezenie-numeru-pesel-co-warto-wiedziec-przed-wizyta-u-notariusza
+2. **Bezposrednie API Ministerstwa Cyfryzacji (REST, X-API-KEY, lista dozwolonych IP).**
+   Wymaga: pisemnego wniosku do MC o udostepnienie danych, potem "wniosku dostepowego"
+   do COI (cc.wnioski@coi.gov.pl) z dokumentacja techniczna systemu, ktora bada COI.
+   Bezplatne. Srodowisko testowe: int-rejestr-zastrzezen.obywatel.gov.pl/api/v1/,
+   endpointy /status-zastrzezenia/aktualny i /status-zastrzezenia/na-dzien, odpowiedz
+   JSON ze statusem ZASTRZEZONY / NIEZASTRZEZONY i znacznikiem czasu.
+   Zrodla: https://www.gov.pl/web/cyfryzacja/udostepnianie-danych-z-rejestru-zastrzezen-numerow-pesel
+   oraz dokumentacja dla integratorow https://www.gov.pl/attachment/5781564b-68dd-4982-9898-5741694a9c67
+
+**Obowiazek:** weryfikacja obowiazkowa przy nabyciu, zbyciu, obciazeniu nieruchomosci
+i pelnomocnictwach do tych czynnosci; przy innych czynnosciach fakultatywna (KRN, j.w.).
+
+**Decyzja dla pieczapp:**
+- Kanal 2 (wlasne API) jest oficjalny i najsolidniejszy, ale wymaga postepowania
+  administracyjnego i stalego IP kancelarii. Do rozwazenia w przyszlosci; wniosek
+  sklada notariusz, nie aplikacja.
+- Kanal 1 (modul KRN) jest interfejsem INSTYTUCJONALNYM dla notariuszy, nie aplikacja
+  dla obywatela, wiec asysta w przegladarce (poziom 3 z formularze.md) nie narusza
+  zakazu z SPEC A2. Warunek: regulamin Rejestrow Notarialnych (BIP KRN,
+  https://bip.krn.org.pl/rejestry-notarialne) - do przeczytania przez notariusza
+  przed wlaczeniem trybu faktycznego; do czasu potwierdzenia dziala tylko tryb podgladu.
+- Nie odpytujemy masowo. Jedno sprawdzenie = jedna strona czynnosci, na zadanie
+  notariusza, z wpisem w dane/sprawy/<id>/sprawdzenia.json (PESEL zamaskowany).
+
+**Czego brakuje / kogo zapytac:** tresc regulaminu Rejestrow Notarialnych w zakresie
+automatyzacji (KRN, bip.krn.org.pl); czy dostawca modulu KRN udostepnia interfejs
+dla oprogramowania kancelaryjnego (pytanie do KRN / izby notarialnej).
+
+## Krajowy Rejestr Zadluzonych (KRZ)
+
+Sprawdzono 16.09.2026 w przegladarce notariusza (portal odrzuca zapytania spoza
+przegladarki kodem 403, wiec pobranie automatyczne nie bylo mozliwe).
+
+**Stan faktyczny portalu https://krz.ms.gov.pl (wersja systemu 1.22.002 - 2026.09.10):**
+- Portal publiczny, bez logowania. Menu: Tablica obwieszczen, Wyszukiwanie podmiotow,
+  Wyszukiwanie wspolnikow, Wyszukiwanie masy upadlosci, Wyszukiwanie doradcow,
+  Weryfikacja autentycznosci dokumentu. Logowanie (Portal Uzytkownikow Zarejestrowanych,
+  krz-ext.ms.gov.pl) dotyczy skladania pism, nie wyszukiwania.
+- "Wyszukiwanie podmiotow" ma 4 zakladki: (1) Podmiot niebedacy osoba fizyczna,
+  (2) Osoba fizyczna prowadzaca dzialalnosc gospodarcza - pola: Firma, Identyfikator
+  (PESEL, NIP lub inny), Imie, Nazwisko, (3) Osoba fizyczna nieprowadzaca dzialalnosci
+  gospodarczej - jedno pole: Identyfikator (PESEL, NIP lub inny), (4) Sygnatura.
+  Przyciski: Wyszukaj, Wyczysc. Formularz siedzi w osobnej ramce
+  (krz-rejpub-gui-krz-pub-prod.apps.ocp.prod.ms.gov.pl).
+- Na formularzu nie stwierdzono CAPTCHA (brak skryptow recaptcha/hcaptcha/turnstile);
+  nie sprawdzano, czy pojawia sie po wyslaniu, bo zapytanie testowe wykonuje notariusz.
+- Oficjalnego API dla podmiotow zewnetrznych brak (publicznie dostepne sa tylko
+  komercyjni posrednicy, np. MGBI - nie jest to zrodlo oficjalne).
+- Na portalu nie ma regulaminu korzystania z wyszukiwarki; stopka zawiera tylko
+  Deklaracje dostepnosci, Polityke cookies i Instrukcje (podreczniki PDF na
+  krz-info-prod.apps.ocp.prod.ms.gov.pl/krz-help/, m.in.
+  KRZ_PP_Podrecznik_uzytkownika_v1.04.pdf). Rejestr jest z mocy ustawy jawny
+  (ustawa z 6.12.2018 o Krajowym Rejestrze Zadluzonych).
+
+**Decyzja dla pieczapp:**
+- Sprawdzenie w KRZ to zapytanie tylko do odczytu, bezplatne, bez skutku zewnetrznego,
+  a portal publiczny jest jedyna oficjalna droga - takze dla notariuszy. Wykonujemy je
+  w przegladarce notariusza, JEDNO na strone czynnosci, na zadanie z pieczapp,
+  z odstepem miedzy zapytaniami. Bez masowego odpytywania, bez lokalnej kopii rejestru.
+- Dla kazdej osoby fizycznej dwa zapytania po PESEL: zakladka "prowadzaca" i
+  "nieprowadzaca dzialalnosci". Wynik = zrzut ekranu (dowod starannosci) w
+  dane/sprawy/<id>/sprawdzenia/ + wpis w sprawdzenia.json (PESEL zamaskowany).
+- Rozpoznanie wyniku (brak wynikow / lista) jest heurystyczne; notariusz OGLADA zrzut
+  i zatwierdza status. Wpis w KRZ = alarm, czynnosc do rozwazenia.
+- Zaslepka "niedostepny", gdy portal nie odpowiada albo zmienil uklad.
+- Do potwierdzenia przez notariusza: tresc podrecznika KRZ_PP (czy wprowadza
+  ograniczenia korzystania) - link wyzej.

@@ -1,0 +1,793 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai.pl</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,'SF Mono',monospace;
+  --r:14px; --r2:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.6 var(--sans);
+  -webkit-font-smoothing:antialiased;display:flex}
+
+/* ---------- pasek boczny ---------- */
+aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--linia);
+  padding:20px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{font:600 21px/1 var(--serif);padding:8px 10px 18px;display:flex;align-items:center;gap:10px}
+.logo .osiol{width:36px;height:36px;border-radius:9px;flex:none;display:block}
+.aw{overflow:hidden;background:transparent!important}
+.aw .osiol{width:30px;height:30px;border-radius:8px;display:block}
+.nowa{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r2);
+  background:var(--karta);border:1px solid var(--linia);cursor:pointer;font-weight:500;font-size:14px}
+.nowa:hover{border-color:var(--linia2)}
+.nowa span{width:22px;height:22px;border-radius:50%;background:var(--akcent);color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
+.sekcja-t{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--tekst3);
+  padding:18px 12px 6px}
+.krok{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r2);
+  color:var(--tekst2);font-size:14px;cursor:default;user-select:none}
+.krok b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--linia2);
+  display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--sans);flex:none}
+.krok.aktywny{background:var(--karta);color:var(--tekst);border:1px solid var(--linia);cursor:pointer}
+.krok.aktywny b{background:var(--akcent);border-color:var(--akcent);color:#fff}
+.krok.zrobiony{color:var(--tekst);cursor:pointer}
+.krok.zrobiony b{background:var(--ok-tlo);border-color:var(--ok);color:var(--ok)}
+.krok.zrobiony b::after{content:"✓"}
+.krok.zrobiony b span{display:none}
+.sprawy{display:flex;flex-direction:column;gap:2px;flex:none}
+.sprawa-el{padding:8px 12px;border-radius:var(--r2);cursor:pointer;font-size:13px;color:var(--tekst2);line-height:1.35}
+.sprawa-el:hover{background:var(--karta)}
+.sprawa-el.aktywna{background:var(--karta);color:var(--tekst);border:1px solid var(--linia)}
+.sprawa-el b{display:block;font-weight:500;color:var(--tekst);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sprawa-el small{color:var(--tekst3);font-size:11.5px}
+.sygn-edit{font:inherit;font-size:13px;border:0;border-bottom:1px dashed var(--linia2);background:transparent;color:var(--tekst);padding:2px 0;width:100%}
+.stopka-aside{margin-top:auto;padding-top:18px!important;font-size:11.5px;color:var(--tekst3);padding:12px;line-height:1.5}
+
+/* ---------- glowna kolumna ---------- */
+main{flex:1;min-width:0;overflow-y:auto;height:100vh}
+.kol{max-width:760px;margin:0 auto;padding:48px 28px 120px}
+h1{font:400 32px/1.25 var(--serif);margin:0 0 6px;letter-spacing:-.01em}
+.pod{color:var(--tekst2);margin:0 0 34px;font-size:15px}
+.karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);
+  padding:22px 24px;margin-bottom:18px}
+.karta[hidden]{display:none}
+.karta h2{font:500 18px/1.3 var(--serif);margin:0 0 16px}
+.etykieta{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--tekst2)}
+.wskaz{font-weight:400;color:var(--tekst3)}
+input[type=text]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
+input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px solid var(--akcent);outline-offset:1px}
+.pole{margin-bottom:18px}
+.para{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* upload jak "zalacznik" */
+.upload{border:1.5px dashed var(--linia2);border-radius:var(--r2);padding:14px 16px;
+  background:var(--tlo);cursor:pointer;display:flex;align-items:center;gap:12px;font-size:14px;color:var(--tekst2)}
+.upload:hover{border-color:var(--akcent)}
+.upload input{display:none}
+.upload .ikona{width:34px;height:34px;border-radius:9px;background:var(--akcent-tlo);color:var(--akcent);
+  display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.upload .nazwy{color:var(--tekst);font-weight:500;word-break:break-word}
+
+/* composer jak w czacie */
+.composer{border:1px solid var(--linia2);border-radius:18px;background:var(--karta);
+  padding:14px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.composer textarea{width:100%;border:0;background:transparent;font:inherit;color:var(--tekst);
+  resize:none;min-height:88px;outline:none;padding:2px 4px}
+.composer .dol{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.composer .dol small{color:var(--tekst3);font-size:12px}
+
+button{font:500 14px var(--sans);padding:10px 18px;border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;border-radius:var(--r2);transition:background .15s}
+button:hover:not(:disabled){background:var(--akcent2);border-color:var(--akcent2)}
+button:disabled{opacity:.45;cursor:default}
+button.wtorny{background:transparent;color:var(--tekst);border-color:var(--linia2)}
+button.wtorny:hover:not(:disabled){background:var(--tlo2);border-color:var(--linia2)}
+button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;line-height:1}
+
+.pasek{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+.stan{font-size:13px;color:var(--tekst2)}
+.stan.blad{color:var(--alarm)}
+.stan.praca::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;
+  border:2px solid var(--akcent);border-right-color:transparent;margin-right:8px;
+  vertical-align:-1px;animation:kr .8s linear infinite}
+@keyframes kr{to{transform:rotate(360deg)}}
+
+/* "wiadomosc" asystenta */
+.wiad{display:flex;gap:14px;margin-bottom:18px}
+.wiad .aw{width:30px;height:30px;border-radius:8px;background:var(--akcent);flex:none;margin-top:4px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font:600 13px var(--serif)}
+.wiad .tresc{flex:1;min-width:0}
+.podsum{font-size:15px;line-height:1.65;margin:0 0 12px}
+
+/* pola do weryfikacji */
+.filtry{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--linia2);
+  background:transparent;color:var(--tekst2);cursor:pointer}
+.chip.on{background:var(--tekst);color:var(--tlo);border-color:var(--tekst)}
+.wiersz{border:1px solid var(--linia);border-radius:var(--r2);padding:12px 14px;margin-bottom:8px;background:var(--tlo)}
+.wiersz.uwaga{border-color:var(--alarm);background:var(--alarm-tlo)}
+.wiersz.dodatkowe{border-style:dashed}
+.naglowek-pola{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.nazwa-pola{font-weight:500;font-size:13.5px;overflow-wrap:anywhere}
+.zrodlo{font:11px/1.4 var(--mono);color:var(--tekst3);text-align:right;flex:none;max-width:45%}
+.wiersz input{font-family:var(--mono);font-size:13px;background:var(--karta)}
+.komunikat{font-size:12px;margin-top:5px}
+.komunikat.zle{color:var(--alarm)}
+.komunikat.dobrze{color:var(--ok)}
+.komunikat.info{color:var(--tekst2)}
+.lista{background:var(--akcent-tlo);border-radius:var(--r2);padding:12px 16px;margin-bottom:12px;font-size:13.5px}
+.lista h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--akcent)}
+.lista ul{margin:0;padding-left:18px}
+
+/* projekt */
+.projekt{font:15px/1.8 var(--serif);white-space:pre-wrap;background:var(--tlo);
+  border:1px solid var(--linia);border-radius:var(--r2);padding:26px 30px;max-height:560px;overflow:auto}
+.projekt mark{background:var(--akcent-tlo);color:var(--akcent);font-family:var(--mono);font-size:12px;
+  border-radius:4px;padding:0 3px}
+
+/* rozmowa */
+.czat{display:flex;flex-direction:column;gap:14px;margin-bottom:14px}
+.msg{display:flex;gap:12px;max-width:100%}
+.msg .aw{width:28px;height:28px;border-radius:8px;flex:none;margin-top:2px;display:flex;align-items:center;
+  justify-content:center;font:600 12px var(--serif);color:#fff;background:var(--akcent)}
+.msg.ja .aw{background:var(--tekst2)!important;color:#fff}
+.msg .dymek{white-space:pre-wrap;line-height:1.6;font-size:14.5px;min-width:0}
+.msg.ja .dymek{background:var(--tlo2);border-radius:var(--r2);padding:10px 14px}
+.msg .czas{font-size:11px;color:var(--tekst3);margin-top:3px}
+.msg.mysli .dymek{color:var(--tekst3);font-style:italic}
+.composer.czat-composer textarea{min-height:56px}
+.mic{width:36px;height:36px;padding:0;border-radius:50%;background:transparent;color:var(--tekst2);
+  border:1px solid var(--linia2);font-size:16px;line-height:1}
+.mic:hover:not(:disabled){background:var(--tlo2);border-color:var(--linia2)}
+.mic.nagrywa{background:var(--alarm);border-color:var(--alarm);color:#fff;animation:puls 1s ease-in-out infinite}
+@keyframes puls{50%{opacity:.6}}
+.narz{display:flex;gap:8px;align-items:center}
+.gotowe-btn{margin-left:auto}
+
+/* sprawdzenia */
+.spr-wiersz{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  padding:12px 14px;border:1px solid var(--linia);border-radius:var(--r2);margin-bottom:8px;background:var(--tlo)}
+.spr-wiersz .kto{font-weight:500}
+.spr-wiersz .pesel{font:12px var(--mono);color:var(--tekst3)}
+.spr-wynik{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;font-weight:500}
+.spr-wynik.brak_wpisu{background:var(--ok-tlo);color:var(--ok)}
+.spr-wynik.wpis{background:var(--alarm);color:#fff}
+.spr-wynik.niedostepny,.spr-wynik.blad{background:var(--akcent-tlo);color:var(--akcent)}
+select{font:inherit;padding:8px 10px;border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
+.ostrzez{font-size:13px;color:var(--tekst2);background:var(--tlo2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px}
+.ostrzez.alarm{background:var(--alarm-tlo);color:var(--alarm);font-weight:500}
+.przycisk-menu{display:none}
+@media(max-width:820px){
+  body{flex-direction:column}
+  aside{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;gap:6px;padding:12px}
+  .logo{padding:6px 8px;width:100%}.sekcja-t,.stopka-aside{display:none}
+  .krok{padding:7px 10px;font-size:13px}.nowa{padding:7px 10px}
+  main{height:auto}.kol{padding:28px 16px 80px}.para{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="logo"><img class="osiol" src="/static/logo.png" alt="">
+notarai</div>
+  <div class="nowa" id="btn-nowa"><span>+</span>Nowa sprawa</div>
+  <div class="sekcja-t">Etapy</div>
+  <div class="krok aktywny" data-etap="1"><b><span>1</span></b>Materiały sprawy</div>
+  <div class="krok" data-etap="2"><b><span>2</span></b>Weryfikacja odczytu</div>
+  <div class="krok" data-etap="3"><b><span>3</span></b>Projekt dokumentu</div>
+  <div class="sekcja-t">Narzędzia</div>
+  <div class="krok" data-etap="4"><b><span>✓</span></b>Sprawdzenia</div>
+  <div class="sekcja-t">Sprawy</div>
+  <div class="sprawy" id="lista-spraw"><span class="stan" style="padding:0 12px">Ładuję…</span></div>
+  <div class="stopka-aside">
+    Bedrock, region eu-central-1. Skany i projekty zostają na tym komputerze.
+    Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
+  </div>
+</aside>
+
+<main><div class="kol">
+
+<!-- ===== 1 ===== -->
+<section id="etap1">
+  <h1>Co dziś przygotowujemy?</h1>
+  <p class="pod">Wgraj wzór aktu i skany sprawy, opisz czego potrzebujesz. Dostaniesz projekt do sprawdzenia, nie dokument gotowy do podpisu.</p>
+
+  <div class="karta">
+    <div class="para">
+      <div class="pole">
+        <label class="etykieta" for="sygnatura">Sygnatura <span class="wskaz">opcjonalna</span></label>
+        <input type="text" id="sygnatura" placeholder="np. Rep. A 412/2026">
+      </div>
+      <div class="pole">
+        <span class="etykieta">Wzór aktu <span class="wskaz">.docx lub .txt</span></span>
+        <label class="upload" id="up-wzor"><input type="file" id="wzor" accept=".docx,.txt,.md">
+          <span class="ikona">📄</span><span class="nazwy" data-pusty="Wybierz plik ze wzorem">Wybierz plik ze wzorem</span></label>
+      </div>
+    </div>
+    <div class="pole">
+      <span class="etykieta">Skany dokumentów <span class="wskaz">PDF lub obrazy, można kilka naraz</span></span>
+      <label class="upload" id="up-skany"><input type="file" id="skany" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff">
+        <span class="ikona">🗂</span><span class="nazwy" data-pusty="Dodaj skany sprawy">Dodaj skany sprawy</span></label>
+    </div>
+  </div>
+
+  <div class="composer">
+    <textarea id="polecenie" placeholder="Opisz, co ma powstać: np. sprzedaż działki nr 12/3 rolnikowi indywidualnemu, cena 50 000 zł zapłacona przed aktem, działka ma dostęp do drogi publicznej…"></textarea>
+    <div class="dol">
+      <small>Braki i wątpliwości zobaczysz jako znaczniki w projekcie, nie jako pytania.</small>
+      <button class="okragly" id="btn-odczytaj" title="Odczytaj dane ze skanów">↑</button>
+    </div>
+  </div>
+  <div class="pasek"><span class="stan" id="stan1"></span></div>
+</section>
+
+<!-- ===== 2 ===== -->
+<section id="etap2" hidden>
+  <h1>Weryfikacja odczytu</h1>
+  <p class="pod" style="margin-bottom:4px"><label class="etykieta" style="display:inline;margin-right:8px">Nazwa sprawy:</label><input class="sygn-edit" id="nazwa2" placeholder="z nazwisk stron (kliknij, żeby zmienić)" style="width:320px"></p>
+  <p class="pod" style="margin-bottom:8px"><label class="etykieta" style="display:inline;margin-right:8px">Sygnatura sprawy:</label><input class="sygn-edit" id="sygn2" placeholder="np. Rep. A 412/2026 (kliknij, żeby nadać)" style="width:320px"></p>
+  <p class="pod">Sprawdź, co model odczytał ze skanów. Czerwone pola wymagają uwagi: błędna suma kontrolna, niska pewność albo brak danych.</p>
+  <div class="wiad"><div class="aw"><img class="osiol" src="/static/logo.png" alt="">
+</div><div class="tresc">
+    <p class="podsum" id="podsum2"></p>
+    <div id="ostrzezenia"></div>
+  </div></div>
+  <div class="karta">
+    <h2>Rozmowa o sprawie</h2>
+    <div class="czat" id="czat2"></div>
+    <div class="composer czat-composer">
+      <textarea id="msg2" placeholder="Odpowiedz na pytania albo dopisz, co wiesz (np. „cena zapłacona przelewem przed aktem”)…"></textarea>
+      <div class="dol">
+        <div class="narz">
+          <button class="mic" id="mic2" title="Nagraj wiadomość głosową (kliknij, żeby zacząć i zakończyć)">🎙</button>
+          <small id="mic2-stan">Mikrofon: kliknij, mów, kliknij ponownie.</small>
+        </div>
+        <button class="okragly" id="send2" title="Wyślij">↑</button>
+      </div>
+    </div>
+    <div class="pasek"><span class="stan" id="stan2c"></span></div>
+  </div>
+  <div class="karta">
+    <div class="filtry">
+      <button class="chip on" data-f="wszystkie">Wszystkie</button>
+      <button class="chip" data-f="uwaga">Wymagają uwagi</button>
+      <button class="chip" data-f="wypelnione">Wypełnione</button>
+      <button class="chip" data-f="dodatkowe">Dodatkowe od modelu</button>
+    </div>
+    <div id="pola"></div>
+    <div class="pasek">
+      <button id="btn-generuj">Sporządź projekt</button>
+      <button class="wtorny" id="btn-wroc">Wróć</button>
+      <span class="stan" id="stan2"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3 ===== -->
+<section id="etap3" hidden>
+  <h1>Projekt dokumentu</h1>
+  <p class="pod">Znaczniki <code>&lt;&lt;BRAK&gt;&gt;</code> i <code>&lt;&lt;WYBOR&gt;&gt;</code> to miejsca, których nie dało się wypełnić z dokumentów. Projekt wymaga sprawdzenia przez notariusza.</p>
+  <div class="wiad"><div class="aw"><img class="osiol" src="/static/logo.png" alt="">
+</div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
+  <div class="karta">
+    <div class="projekt" id="projekt"></div>
+    <div class="pasek">
+      <button id="btn-pobierz">Pobierz jako Word</button>
+      <button class="wtorny" id="btn-popraw">Popraw dane</button>
+      <span class="stan" id="stan3"></span>
+    </div>
+  </div>
+  <div class="karta">
+    <h2>Poprawki do projektu</h2>
+    <p class="pod" style="margin-bottom:12px">Napisz albo nagraj, co zmienić („§3: cała cena przelewem przed aktem”, „usuń pouczenie o KRO”). Projekt zostanie sporządzony ponownie z uwzględnieniem całej rozmowy.</p>
+    <div class="czat" id="czat3"></div>
+    <div class="composer czat-composer">
+      <textarea id="msg3" placeholder="Co poprawić w projekcie?"></textarea>
+      <div class="dol">
+        <div class="narz">
+          <button class="mic" id="mic3" title="Nagraj wiadomość głosową">🎙</button>
+          <small id="mic3-stan">Mikrofon: kliknij, mów, kliknij ponownie.</small>
+        </div>
+        <button id="send3">Popraw i sporządź ponownie</button>
+      </div>
+    </div>
+    <div class="pasek"><span class="stan" id="stan3c"></span></div>
+  </div>
+</section>
+
+<!-- ===== 4: sprawdzenia ===== -->
+<section id="etap4" hidden>
+  <h1>Sprawdzenia w rejestrach</h1>
+  <p class="pod">Rejestr Zastrzeżeń PESEL: notarai wpisuje numer w Twojej zalogowanej przeglądarce, Ty klikasz „Sprawdź” i zatwierdzasz wynik tutaj. KRZ (Krajowy Rejestr Zadłużonych): notarai wykonuje dwa wyszukiwania po PESEL i zapisuje zrzuty ekranu do sprawy; status potwierdzasz po obejrzeniu zrzutów. Przeglądarka do formularzy uruchamia się sama przy pierwszym użyciu (osobne okno Chrome/Edge).</p>
+  <div class="karta">
+    <h2>Numery PESEL w tej sprawie</h2>
+    <div id="spr-brak-sprawy" class="ostrzez">Najpierw odczytaj sprawę (etap 1), wtedy pojawią się tu strony czynności.</div>
+    <div id="spr-lista"></div>
+    <div id="spr-info" class="ostrzez" hidden></div>
+    <div class="pasek">
+      <button class="wtorny" id="btn-spr-podglad">Podgląd wypełnienia</button>
+      <button id="btn-spr-wypelnij" title="Wpisuje PESEL w otwartym module KRN. Nie klika „Sprawdź”.">Wpisz w przeglądarce</button>
+      <button id="btn-krz" title="Uruchamia przeglądarkę, wyszukuje każdy PESEL ze sprawy w krz.ms.gov.pl (prowadząca i nieprowadząca działalności), zapisuje zrzuty">Sprawdź wszystkich w KRZ</button>
+      <span class="stan" id="stan4"></span>
+    </div>
+  </div>
+  <div class="karta">
+    <h2>Zatwierdź wynik odczytany z ekranu</h2>
+    <div class="para">
+      <div class="pole"><label class="etykieta" for="spr-pesel">Strona</label><select id="spr-pesel"></select></div>
+      <div class="pole"><label class="etykieta" for="spr-rejestr">Rejestr</label>
+        <select id="spr-rejestr"><option value="ZASTRZEZENIA_PESEL">Rejestr Zastrzeżeń PESEL</option><option value="KRZ">KRZ</option></select></div>
+      <div class="pole"><label class="etykieta" for="spr-status">Wynik</label>
+        <select id="spr-status">
+          <option value="brak_wpisu">Brak zastrzeżenia / brak wpisu</option>
+          <option value="wpis">PESEL ZASTRZEŻONY / WPIS W REJESTRZE</option>
+          <option value="niedostepny">Rejestr niedostępny</option>
+          <option value="blad">Błąd sprawdzenia</option>
+        </select></div>
+    </div>
+    <div class="pole"><label class="etykieta" for="spr-szczegoly">Uwagi <span class="wskaz">opcjonalne, bez danych osobowych</span></label>
+      <input type="text" id="spr-szczegoly" placeholder="np. sprawdzono o 9:05, wydruk w aktach"></div>
+    <div class="pasek"><button id="btn-spr-zapisz">Zapisz sprawdzenie</button><span class="stan" id="stan4b"></span></div>
+  </div>
+  <div class="karta">
+    <h2>Ślad audytowy</h2>
+    <div id="spr-historia"><span class="stan">Brak sprawdzeń w tej sprawie.</span></div>
+  </div>
+</section>
+
+</div></main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const OSIOL = '<img class="osiol" src="/static/logo.png" alt="">';
+let sprawa = null, poleceniePierwotne = "", najdalej = 1;
+
+/* ---------- nawigacja ---------- */
+function pokaz(numer){
+  [1,2,3,4].forEach(n => $("etap"+n).hidden = (n !== numer));
+  if (numer <= 3) najdalej = Math.max(najdalej, numer);
+  document.querySelectorAll(".krok").forEach(k => {
+    const n = +k.dataset.etap;
+    k.classList.toggle("aktywny", n === numer);
+    k.classList.toggle("zrobiony", n < najdalej && n !== numer && n <= 3);
+    if (n === 4) k.classList.toggle("zrobiony", false);
+  });
+  if (numer === 4) rysujSprawdzenia();
+  $("etap"+numer).closest("main").scrollTo({top:0, behavior:"smooth"});
+}
+document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
+  const n = +k.dataset.etap;
+  if (n === 4 || n <= najdalej) pokaz(n);
+});
+$("btn-nowa").onclick = () => { if (!sprawa || confirm("Zacząć nową sprawę? Bieżąca jest zapisana i wróci na liście po lewej.")) location.reload(); };
+
+/* ---------- lista spraw ---------- */
+async function rysujListeSpraw(){
+  const k = $("lista-spraw");
+  try {
+    const lista = await (await fetch("/api/sprawy")).json();
+    k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Brak zapisanych spraw.</span>';
+    lista.forEach(s => {
+      const d = document.createElement("div");
+      d.className = "sprawa-el" + (sprawa && sprawa.id === s.id ? " aktywna" : "");
+      d.dataset.id = s.id;
+      const kiedy = (s.utworzono || "").replace("T", " ").slice(0, 16);
+      d.innerHTML = "<b>" + escape(s.nazwa || s.sygnatura || ("sprawa " + s.id.slice(0, 6))) + "</b>"
+        + "<small>" + (s.nazwa && s.sygnatura ? escape(s.sygnatura) + " · " : "") + escape(kiedy) + " · " + (s.stron ? s.stron + " str." : s.skany + " plik" + (s.skany === 1 ? "" : "i")) + " · " + (s.etap === 3 ? "projekt" : "odczyt")
+        + (s.sprawdzenia ? " · " + s.sprawdzenia + " spr." : "") + "</small>";
+      d.title = "Wzór: " + (s.wzor || "?") + ", skanów: " + s.skany;
+      d.onclick = () => wczytajSprawe(s.id);
+      k.appendChild(d);
+    });
+  } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; }
+}
+async function wczytajSprawe(id){
+  const odp = await fetch("/api/sprawy/" + id);
+  if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
+  const w = await odp.json();
+  sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
+  najdalej = 1;
+  $("sygn2").value = w.sygnatura || "";
+  $("nazwa2").value = w.nazwa || "";
+  $("polecenie").value = w.polecenie || "";
+  rysujCzat(); rysujPola(w);
+  najdalej = 2;
+  if (w.projekt) {
+    najdalej = 3;
+    pokazProjekt(w);
+    pokaz(3);
+  } else {
+    pokaz(2);
+  }
+  rysujListeSpraw();
+}
+$("nazwa2").onchange = async () => {
+  if (!sprawa) return;
+  const odp = await fetch("/api/sprawy/" + sprawa.id + "/nazwa", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({nazwa: $("nazwa2").value})});
+  if (odp.ok) { sprawa.nazwa = (await odp.json()).nazwa; $("nazwa2").value = sprawa.nazwa || ""; rysujListeSpraw(); }
+};
+$("sygn2").onchange = async () => {
+  if (!sprawa) return;
+  const odp = await fetch("/api/sprawy/" + sprawa.id + "/sygnatura", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sygnatura: $("sygn2").value})});
+  if (odp.ok) { sprawa.sygnatura = (await odp.json()).sygnatura; rysujListeSpraw(); }
+};
+rysujListeSpraw();
+function stan(el, tekst, blad, praca){
+  el.textContent = tekst;
+  el.classList.toggle("blad", !!blad);
+  el.classList.toggle("praca", !!praca);
+}
+
+/* ---------- upload: nazwy plikow ---------- */
+[["wzor","up-wzor"],["skany","up-skany"]].forEach(([inp, lab]) => {
+  $(inp).onchange = () => {
+    const n = $(lab).querySelector(".nazwy"), f = [...$(inp).files];
+    n.textContent = f.length ? f.map(x => x.name).join(", ") : n.dataset.pusty;
+  };
+});
+
+/* ---------- 1: odczyt ---------- */
+$("btn-odczytaj").onclick = async () => {
+  const wzor = $("wzor").files[0], skany = $("skany").files;
+  if (!wzor)         return stan($("stan1"), "Wybierz plik ze wzorem aktu.", true);
+  if (!skany.length) return stan($("stan1"), "Dodaj co najmniej jeden skan.", true);
+  const dane = new FormData();
+  dane.append("wzor", wzor);
+  for (const s of skany) dane.append("skany", s);
+  poleceniePierwotne = $("polecenie").value;
+  dane.append("polecenie", poleceniePierwotne);
+  dane.append("sygnatura", $("sygnatura").value);
+  $("btn-odczytaj").disabled = true;
+  stan($("stan1"), "Odczytuję skany… przy kilkunastu stronach to 1–3 minuty.", false, true);
+  try {
+    const odp = await fetch("/api/sprawy", {method:"POST", body:dane});
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    sprawa = wynik;
+    rozmowa = wynik.rozmowa || [];
+    $("sygn2").value = wynik.sygnatura || "";
+    $("nazwa2").value = wynik.nazwa || "";
+    rysujCzat();
+    rysujPola(wynik);
+    rysujListeSpraw();
+    stan($("stan1"), "");
+    pokaz(2);
+  } catch (e) {
+    stan($("stan1"), e.message, true);
+  } finally {
+    $("btn-odczytaj").disabled = false;
+  }
+};
+
+/* ---------- 2: weryfikacja ---------- */
+let filtr = "wszystkie";
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
+  filtr = c.dataset.f;
+  document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+  zastosujFiltr();
+});
+function zastosujFiltr(){
+  document.querySelectorAll("#pola .wiersz").forEach(w => {
+    const p = sprawa.pola[w.dataset.indeks];
+    const ok = filtr === "wszystkie"
+      || (filtr === "uwaga" && p.wymaga_uwagi)
+      || (filtr === "wypelnione" && p.wartosc)
+      || (filtr === "dodatkowe" && p.nazwa.startsWith("+ "));
+    w.hidden = !ok;
+  });
+}
+
+function rysujPola(wynik){
+  const wypelnione = wynik.pola.filter(p => p.wartosc).length;
+  const uwaga = wynik.pola.filter(p => p.wymaga_uwagi).length;
+  $("podsum2").textContent =
+    `Przejrzałam ${wynik.stron} stron skanów. Wzór ma ${wynik.pola.length} miejsc do wypełnienia; `
+    + `odczytałam ${wypelnione}, ${uwaga} wymaga Twojej uwagi.`
+    + (wynik.warianty ? ` We wzorze jest ${wynik.warianty} miejsc z wariantami do wyboru.` : "");
+
+  const ostrzezenia = $("ostrzezenia");
+  ostrzezenia.innerHTML = "";
+  const dodaj = (tytul, elementy) => {
+    if (!elementy || !elementy.length) return;
+    const blok = document.createElement("div");
+    blok.className = "lista";
+    blok.innerHTML = "<h3>"+tytul+"</h3><ul>" + elementy.map(t => "<li>"+escape(t)+"</li>").join("") + "</ul>";
+    ostrzezenia.appendChild(blok);
+  };
+  dodaj("Braki w dokumentach", wynik.braki);
+  dodaj("Rozbieżności między dokumentami", wynik.rozbieznosci);
+
+  const kontener = $("pola");
+  kontener.innerHTML = "";
+  wynik.pola.forEach((pole, i) => {
+    const wiersz = document.createElement("div");
+    wiersz.className = "wiersz" + (pole.wymaga_uwagi ? " uwaga" : "") + (pole.nazwa.startsWith("+ ") ? " dodatkowe" : "");
+    wiersz.dataset.indeks = i;
+    const naglowek = document.createElement("div");
+    naglowek.className = "naglowek-pola";
+    naglowek.innerHTML = '<span class="nazwa-pola">' + escape(pole.nazwa) + '</span>'
+      + '<span class="zrodlo">' + escape(pole.zrodlo || "brak źródła") + '</span>';
+    const wejscie = document.createElement("input");
+    wejscie.type = "text";
+    wejscie.value = pole.wartosc ?? "";
+    wejscie.placeholder = "do uzupełnienia ręcznie";
+    wejscie.dataset.indeks = i;
+    wiersz.append(naglowek, wejscie);
+    const uwagi = [];
+    if (pole.uwaga)      uwagi.push(["info", pole.uwaga]);
+    if (pole.walidacja)  uwagi.push([pole.walidacja_ok ? "dobrze" : "zle", pole.walidacja]);
+    if (pole.pewnosc === "niska") uwagi.push(["zle", "Model zgłosił niską pewność odczytu"]);
+    if (!pole.wartosc)   uwagi.push(["zle", "Nie odczytano ze skanów"]);
+    uwagi.forEach(([klasa, tekst]) => {
+      const p = document.createElement("div");
+      p.className = "komunikat " + klasa; p.textContent = tekst; wiersz.appendChild(p);
+    });
+    kontener.appendChild(wiersz);
+  });
+  zastosujFiltr();
+  stan($("stan2"), uwaga ? uwaga + " z " + wynik.pola.length + " pól wymaga uwagi" : "Wszystkie pola odczytane bez zastrzeżeń");
+}
+
+/* ---------- rozmowa ---------- */
+let rozmowa = [];
+function rysujCzat(){
+  ["czat2","czat3"].forEach(id => {
+    const k = $(id); k.innerHTML = "";
+    rozmowa.forEach(w => {
+      const d = document.createElement("div");
+      d.className = "msg" + (w.rola === "uzytkownik" ? " ja" : "");
+      d.innerHTML = '<div class="aw">' + (w.rola === "uzytkownik" ? "Ty" : OSIOL) + '</div>'
+        + '<div><div class="dymek"></div><div class="czas">' + escape((w.czas || "").replace("T"," ")) + '</div></div>';
+      d.querySelector(".dymek").textContent = w.tresc;
+      k.appendChild(d);
+    });
+    k.lastElementChild?.scrollIntoView({block:"nearest"});
+  });
+}
+async function wyslijWiadomosc(nr){
+  const ta = $("msg"+nr), st = $("stan"+nr+"c"), btn = $("send"+nr);
+  const tresc = ta.value.trim();
+  if (!tresc) return stan(st, "Wpisz albo nagraj wiadomość.", true);
+  btn.disabled = true;
+  rozmowa.push({rola:"uzytkownik", tresc, czas:new Date().toISOString().slice(0,19)});
+  rozmowa.push({rola:"asystent", tresc:"…", czas:""});
+  rysujCzat(); ta.value = "";
+  stan(st, "Asystent odpowiada…", false, true);
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/rozmowa", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    rozmowa = w.rozmowa; rysujCzat(); stan(st, "");
+    return true;
+  } catch (e) {
+    rozmowa.splice(-2, 2); rysujCzat(); ta.value = tresc; stan(st, e.message, true);
+    return false;
+  } finally { btn.disabled = false; }
+}
+$("send2").onclick = () => wyslijWiadomosc(2);
+$("msg2").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); wyslijWiadomosc(2); } };
+$("send3").onclick = async () => { if (await wyslijWiadomosc(3)) $("btn-generuj").click(); };
+
+/* ---------- mikrofon ---------- */
+const nagrania = {};
+function ustawMikrofon(nr){
+  const btn = $("mic"+nr), st = $("mic"+nr+"-stan"), ta = $("msg"+nr);
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    btn.disabled = true; st.textContent = "Ta przeglądarka nie obsługuje nagrywania."; return;
+  }
+  btn.onclick = async () => {
+    const n = nagrania[nr];
+    if (n && n.rec.state === "recording") { n.rec.stop(); return; }
+    let strumien;
+    try { strumien = await navigator.mediaDevices.getUserMedia({audio:true}); }
+    catch (e) { st.textContent = "Brak dostępu do mikrofonu."; return; }
+    const typ = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+    const rec = new MediaRecorder(strumien, typ ? {mimeType:typ} : undefined);
+    const kawalki = [];
+    rec.ondataavailable = e => e.data.size && kawalki.push(e.data);
+    rec.onstop = async () => {
+      strumien.getTracks().forEach(t => t.stop());
+      btn.classList.remove("nagrywa"); btn.disabled = true;
+      st.textContent = "Transkrybuję lokalnie… (przy pierwszym użyciu ładowanie modelu, do minuty)";
+      try {
+        const blob = new Blob(kawalki, {type: rec.mimeType || "audio/webm"});
+        const fd = new FormData(); fd.append("audio", blob, "nagranie.webm");
+        const odp = await fetch("/api/transkrypcja", {method:"POST", body:fd});
+        const w = await odp.json();
+        if (!odp.ok) throw new Error(w.detail || "Błąd transkrypcji");
+        ta.value = (ta.value ? ta.value + " " : "") + w.tekst;
+        st.textContent = "Sprawdź tekst i wyślij."; ta.focus();
+      } catch (e) { st.textContent = e.message; }
+      finally { btn.disabled = false; }
+    };
+    nagrania[nr] = {rec}; rec.start();
+    btn.classList.add("nagrywa"); st.textContent = "Nagrywam… kliknij, żeby zakończyć.";
+  };
+}
+ustawMikrofon(2); ustawMikrofon(3);
+
+function zbierzPola(){
+  document.querySelectorAll("#pola input").forEach(w => {
+    sprawa.pola[w.dataset.indeks].wartosc = w.value.trim() || null;
+  });
+}
+
+$("btn-generuj").onclick = async () => {
+  zbierzPola();
+  $("btn-generuj").disabled = true;
+  stan($("stan2"), "Sporządzam projekt…", false, true);
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/projekt", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
+    });
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
+    stan($("stan3"), ""); stan($("stan2"), "");
+    pokaz(3); rysujListeSpraw();
+    fetch("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
+  } catch (e) {
+    stan($("stan2"), e.message, true);
+  } finally {
+    $("btn-generuj").disabled = false;
+  }
+};
+function pokazProjekt(w){
+  $("projekt").innerHTML = escape(w.projekt)
+    .replace(/&lt;&lt;BRAK:([^&]*?)&gt;&gt;/g, '<mark>&lt;&lt;BRAK:$1&gt;&gt;</mark>')
+    .replace(/&lt;&lt;WYBOR:([^&]*?)&gt;&gt;/g, '<mark>&lt;&lt;WYBOR:$1&gt;&gt;</mark>');
+  const uwagi = [];
+  if (w.brakujace) uwagi.push(w.brakujace + " miejsc bez danych");
+  if (w.do_wyboru) uwagi.push(w.do_wyboru + " wariantów do rozstrzygnięcia");
+  $("podsum3").textContent = uwagi.length
+    ? "Projekt gotowy do sprawdzenia. Zostało " + uwagi.join(" i ") + ", zaznaczone w tekście."
+    : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
+}
+$("btn-pobierz").onclick = () => location.href = "/api/sprawy/" + sprawa.id + "/plik";
+$("btn-wroc").onclick   = () => pokaz(1);
+$("btn-popraw").onclick = () => pokaz(2);
+
+/* ---------- 4: sprawdzenia ---------- */
+function polaPesel(){
+  if (!sprawa) return [];
+  zbierzPola();
+  return sprawa.pola.filter(p => /pesel __|pesel\b/i.test(p.nazwa) && p.wartosc && /^\d{11}$/.test(p.wartosc.replace(/\D/g, "")))
+    .map(p => ({nazwa: p.nazwa, pesel: p.wartosc.replace(/\D/g, "")}));
+}
+function maskuj(p){ return "*******" + p.slice(-4); }
+async function rysujSprawdzenia(){
+  const lista = polaPesel();
+  $("spr-brak-sprawy").hidden = !!sprawa;
+  $("spr-lista").innerHTML = lista.length ? "" : (sprawa ? '<span class="stan">Nie odczytano żadnego numeru PESEL.</span>' : "");
+  $("spr-pesel").innerHTML = "";
+  lista.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "spr-wiersz";
+    d.innerHTML = `<div><div class="kto">${escape(s.nazwa)}</div><div class="pesel">PESEL ${maskuj(s.pesel)}</div></div>
+      <label style="font-size:13px"><input type="radio" name="spr-wybor" value="${i}" ${i===0?"checked":""}> do wpisania</label>`;
+    $("spr-lista").appendChild(d);
+    const o = document.createElement("option"); o.value = i; o.textContent = s.nazwa + " · " + maskuj(s.pesel);
+    $("spr-pesel").appendChild(o);
+  });
+  if (!sprawa) return;
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/sprawdzenia");
+    rysujHistorie(await odp.json());
+  } catch (e) { /* brak historii */ }
+}
+function rysujHistorie(wpisy){
+  const h = $("spr-historia");
+  if (!wpisy.length) { h.innerHTML = '<span class="stan">Brak sprawdzeń w tej sprawie.</span>'; return; }
+  h.innerHTML = "";
+  wpisy.slice().reverse().forEach(w => {
+    const d = document.createElement("div");
+    d.className = "spr-wiersz";
+    const opis = {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"}[w.status] || w.status;
+    const zrzuty = [...(w.szczegoly || "").matchAll(/\[([a-z0-9_\-]+\.png)\]/g)]
+      .map(m => `<a href="/api/sprawy/${sprawa.id}/sprawdzenia/pliki/${m[1]}" target="_blank">${escape(m[1].split("_")[1])}</a>`).join(" · ");
+    d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span></div>
+      <div class="pesel">${escape(w.sprawdzono.replace("T"," "))} · ${escape(w.zrodlo)}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
+      ${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
+      <span class="spr-wynik ${escape(w.status)}">${opis}</span>`;
+    h.appendChild(d);
+  });
+  if (wpisy.some(w => w.status === "wpis")) {
+    const a = document.createElement("div"); a.className = "ostrzez alarm";
+    a.textContent = "W tej sprawie jest zastrzeżony numer PESEL. Czynność należy wstrzymać.";
+    h.prepend(a);
+  }
+}
+async function wyslijFormularz(tryb){
+  const lista = polaPesel();
+  const wybor = document.querySelector('input[name="spr-wybor"]:checked');
+  if (!lista.length || !wybor) return stan($("stan4"), "Brak numeru PESEL do wpisania.", true);
+  const s = lista[+wybor.value];
+  if (tryb === "faktyczny" && !confirm("Wpisać PESEL " + maskuj(s.pesel) + " w otwartym module KRN? Przycisk „Sprawdź” klikasz sama."))
+    return;
+  stan($("stan4"), tryb === "faktyczny" ? "Łączę się z Twoją przeglądarką…" : "Przygotowuję podgląd…", false, true);
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/formularze/rejestry_notarialne_pesel", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({pola: [{nazwa:"pesel", wartosc:s.pesel}], tryb, potwierdzam: tryb === "faktyczny"})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    const info = $("spr-info"); info.hidden = false; info.className = "ostrzez";
+    if (w.status_mapowania === "szkic")
+      info.textContent = "Mapowanie modułu KRN ma status „szkic”: selektory pól nie są jeszcze ustalone, działa tylko podgląd. "
+        + "Podgląd: " + w.kroki.map(k => k.pole + " → " + (k.wartosc ? maskuj(k.wartosc) : "brak")).join(", ") + ".";
+    else if (w.bledy.length) { info.className = "ostrzez alarm"; info.textContent = "Nie wpisano: " + w.bledy.join("; "); }
+    else info.textContent = (tryb === "faktyczny" ? "Wpisano " : "Do wpisania: ")
+        + w.kroki.map(k => k.pole + " → " + (k.wartosc ? maskuj(k.wartosc) : "brak")).join(", ")
+        + ". Zatrzymano przed " + w.zatrzymano_przed + ".";
+    stan($("stan4"), "");
+  } catch (e) { stan($("stan4"), e.message, true); }
+}
+$("btn-spr-podglad").onclick  = () => wyslijFormularz("podglad");
+$("btn-spr-wypelnij").onclick = () => wyslijFormularz("faktyczny");
+$("btn-krz").onclick = async () => {
+  const lista = polaPesel();
+  if (!lista.length) return stan($("stan4"), "Brak numeru PESEL do sprawdzenia.", true);
+  const unikalne = [...new Map(lista.map(s => [s.pesel, s])).values()];
+  if (!confirm("Wyszukać w Krajowym Rejestrze Zadłużonych: " + unikalne.map(s => maskuj(s.pesel)).join(", ")
+    + " (po 2 zapytania na osobę)? Jeśli przeglądarka do formularzy nie jest otwarta, uruchomi się sama.")) return;
+  $("btn-krz").disabled = true;
+  stan($("stan4"), "Sprawdzam w KRZ… ok. 20 s na osobę", false, true);
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/krz", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({osoby: unikalne.map(s => ({pesel: s.pesel, etykieta: s.nazwa})), potwierdzam: true})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    rysujHistorie(w); stan($("stan4"), "Zapisano. Obejrzyj zrzuty i potwierdź status poniżej.");
+  } catch (e) { stan($("stan4"), e.message, true); }
+  finally { $("btn-krz").disabled = false; }
+};
+$("btn-spr-zapisz").onclick = async () => {
+  const lista = polaPesel();
+  const s = lista[+$("spr-pesel").value];
+  if (!s) return stan($("stan4b"), "Wybierz stronę.", true);
+  stan($("stan4b"), "Zapisuję…", false, true);
+  try {
+    const odp = await fetch("/api/sprawy/" + sprawa.id + "/sprawdzenia", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({rejestr:$("spr-rejestr").value, pesel:s.pesel, status:$("spr-status").value, szczegoly:$("spr-szczegoly").value, zrodlo: $("spr-rejestr").value === "KRZ" ? "krz.ms.gov.pl (potwierdzenie notariusza)" : "Rejestry Notarialne KRN"})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    rysujHistorie(w); $("spr-szczegoly").value = "";
+    stan($("stan4b"), "Zapisano w sprawdzenia.json");
+  } catch (e) { stan($("stan4b"), e.message, true); }
+};
+
+function escape(t){
+  return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+</script>
+</body>
+</html>
