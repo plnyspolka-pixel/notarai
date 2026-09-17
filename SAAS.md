@@ -27,6 +27,11 @@
 ## Uruchomienie SaaS
 
 Konto AWS fbpl (127621462971), region eu-central-1, profil CLI `notarai-admin`.
+Sesja profilu odnawia się sama: `aws login` zapisuje token odświeżający, a CLI
+wymienia poświadczenia automatycznie, dopóki ten token jest ważny (wg
+dokumentacji AWS do 90 dni). Logowanie w przeglądarce powtarzasz dopiero,
+gdy skrypt poprosi. Skrypty etapu 2 i 3 sprawdzają sesję na starcie i wypisują
+gotowe polecenie logowania, zamiast wywalać się błędem AWS.
 App Runner nie przyjmuje nowych klientów od 30.04.2026, dlatego ECS Fargate.
 Express Mode odpada, bo nie pozwala podnieść limitu bezczynności load balancera,
 a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebny.

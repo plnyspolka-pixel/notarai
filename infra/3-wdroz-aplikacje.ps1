@@ -35,6 +35,9 @@ function Wyjscie($stos, $klucz) {
 }
 
 Write-Host "== Sprawdzam konto, certyfikat i obraz" -ForegroundColor Cyan
+if (-not (Czy-Aws sts get-caller-identity)) {
+    throw "Sesja profilu $Profil nie dziala. Odnow ja poleceniem:`n  aws login --profile $Profil --region $Region`nLink z terminala otworz w tym oknie Chrome, w ktorym jestes zalogowana do konsoli AWS."
+}
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
 if ($biezace -ne $Konto) { throw "Profil $Profil wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
 
