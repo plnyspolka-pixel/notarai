@@ -28,7 +28,12 @@ _ustawienia = Config(
 
 
 def _klient():
-    sesja = boto3.Session(profile_name=config.PROFIL_AWS, region_name=config.REGION)
+    # Bez nazwy profilu boto3 bierze poswiadczenia ze standardowego lancucha:
+    # [default] z ~/.aws na stanowisku, rola instancji w chmurze.
+    if config.PROFIL_AWS:
+        sesja = boto3.Session(profile_name=config.PROFIL_AWS, region_name=config.REGION)
+    else:
+        sesja = boto3.Session(region_name=config.REGION)
     return sesja.client("bedrock-runtime", config=_ustawienia)
 
 

@@ -19,12 +19,12 @@ if not exist .venv (
 )
 
 echo [1/4] Sprawdzam sesje AWS...
-aws sts get-caller-identity --profile pieczapp >nul 2>&1
+aws sts get-caller-identity >nul 2>&1
 if errorlevel 1 (
   echo       Sesja wygasla. Otworzy sie przegladarka - ZALOGUJ SIE, potem wroc tutaj.
-  aws login --profile pieczapp
-  if errorlevel 1 aws sso login --profile pieczapp
-  aws sts get-caller-identity --profile pieczapp >nul 2>&1
+  aws login
+  if errorlevel 1 aws sso login
+  aws sts get-caller-identity >nul 2>&1
   if errorlevel 1 (
     echo       BLAD: nadal brak sesji AWS. Zatrzymuje sie.
     goto koniec

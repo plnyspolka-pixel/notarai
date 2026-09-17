@@ -21,7 +21,7 @@
 | env | nic | PIECZAPP_MAGAZYN=s3, PIECZAPP_S3_BUCKET, PIECZAPP_MULTI=true, PIECZAPP_ADMIN_TOKEN |
 
 ## Uruchomienie SaaS (skrót)
-1. `aws cloudformation deploy --stack-name notarai-s3 --template-file infra/notarai-s3.yaml --capabilities CAPABILITY_NAMED_IAM --region eu-central-1 --profile pieczapp` → bucket + polityka IAM (bucket trzyma dane osobowe: decyzja świadoma)
+1. `aws cloudformation deploy --stack-name notarai-s3 --template-file infra/notarai-s3.yaml --capabilities CAPABILITY_NAMED_IAM --region eu-central-1` → bucket + polityka IAM (bucket trzyma dane osobowe: decyzja świadoma)
 2. `docker build -t notarai .` → obraz (`.dockerignore` wyklucza `dane/` i `.env`); wypchnij do ECR
 3. App Runner: obraz z ECR, port 8000, rola instancji z polityką z kroku 1,
    env z sekcji wyżej (`PIECZAPP_ADMIN_TOKEN` jako referencja do Secrets Manager, nie wartość). Sonda zdrowia: `/zdrowie`.

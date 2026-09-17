@@ -33,8 +33,12 @@ MODEL = os.getenv(
     "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
 )
 
-# Profil AWS - dla izolacji uprawnien pomiędzy projektami
-PROFIL_AWS = os.getenv("PIECZAPP_AWS_PROFILE", "pieczapp")
+# Profil AWS. Pusto (domyslnie) = zwykly lancuch poswiadczen boto3:
+# lokalnie profil [default] z ~/.aws, w chmurze rola instancji App Runner
+# albo rola zadania ECS. Nazwe profilu podaj tylko wtedy, gdy swiadomie
+# chcesz innego niz default - w kontenerze zadne profile nie istnieja
+# i wymuszenie nazwy wywrocilo by start aplikacji.
+PROFIL_AWS = os.getenv("PIECZAPP_AWS_PROFILE", "")
 
 # Serwer slucha wylacznie na petli lokalnej.
 # Zmiana na 0.0.0.0 wystawia aplikacje na siec - rob to swiadomie.

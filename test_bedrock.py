@@ -423,3 +423,32 @@ class TestPolaStale:
         prompt = mock_bedrock_client.converse.call_args.kwargs["messages"][0]["content"][-1]["text"]
         assert f"[{n}]" in prompt and "STALE: miejscowosc" in prompt
         assert wynik["pola"][0]["nazwa"] == prompty.POLA_STALE[0]
+
+
+class TestWyborProfiluAWS:
+    """Skad biora sie poswiadczenia.
+
+    W kontenerze (App Runner, ECS) nie ma zadnych profili AWS - poswiadczenia
+    daje rola instancji. Wymuszenie nazwy profilu wywrocilo by tam start
+    aplikacji, wiec domyslnie nie podajemy jej wcale.
+    """
+
+    def test_bez_profilu_zwykly_lancuch_poswiadczen(self, monkeypatch):
+        monkeypatch.setattr(bedrock.config, "PROFIL_AWS", "")
+        with patch("bedrock.boto3.Session") as sesja:
+            bedrock._klient()
+        assert "profile_name" not in sesja.call_args.kwargs
+        assert sesja.call_args.kwargs["region_name"] == bedrock.config.REGION
+
+    def test_nazwany_profil_gdy_ustawiony(self, monkeypatch):
+        monkeypatch.setattr(bedrock.config, "PROFIL_AWS", "inny-profil")
+        with patch("bedrock.boto3.Session") as sesja:
+            bedrock._klient()
+        assert sesja.call_args.kwargs["profile_name"] == "inny-profil"
+
+    def test_domyslna_konfiguracja_nie_wymusza_profilu(self):
+        """Domyslnie pusto - inaczej obraz nie wstanie w chmurze."""
+        import importlib
+        import config as modul_config
+        importlib.reload(modul_config)
+        assert modul_config.PROFIL_AWS == ""
