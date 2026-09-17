@@ -3,6 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 set FOLDER=C:\Users\Pieczak\Desktop\trening PieczAppa
 set AWS_REGION=eu-central-1
+set PIECZAPP_AWS_PROFILE=pieczapp
 
 echo ============================================
 echo  pieczapp - przebieg testowy: %FOLDER%
@@ -19,12 +20,12 @@ if not exist .venv (
 )
 
 echo [1/4] Sprawdzam sesje AWS...
-aws sts get-caller-identity >nul 2>&1
+aws sts get-caller-identity --profile %PIECZAPP_AWS_PROFILE% >nul 2>&1
 if errorlevel 1 (
   echo       Sesja wygasla. Otworzy sie przegladarka - ZALOGUJ SIE, potem wroc tutaj.
-  aws login
-  if errorlevel 1 aws sso login
-  aws sts get-caller-identity >nul 2>&1
+  aws login --profile %PIECZAPP_AWS_PROFILE%
+  if errorlevel 1 aws sso login --profile %PIECZAPP_AWS_PROFILE%
+  aws sts get-caller-identity --profile %PIECZAPP_AWS_PROFILE% >nul 2>&1
   if errorlevel 1 (
     echo       BLAD: nadal brak sesji AWS. Zatrzymuje sie.
     goto koniec

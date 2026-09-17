@@ -11,5 +11,8 @@ if not exist .venv (
   pip install -q -r requirements.txt
 )
 set AWS_REGION=eu-central-1
+REM Konto AWS fbpl (127621462971). W kontenerze tej zmiennej nie ustawiamy,
+REM tam poswiadczenia daje rola instancji.
+set PIECZAPP_AWS_PROFILE=pieczapp
 start "" http://127.0.0.1:8000
 python app.py
