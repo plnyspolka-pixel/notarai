@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -45,8 +45,15 @@ app.include_router(autoryzacja.router)
 
 
 @app.get("/zdrowie")
-def zdrowie():
-    """Sonda dla App Runner/ECS. Zadnych danych, sam status."""
+def zdrowie(request: Request):
+    """Sonda dla App Runner/ECS. Zadnych danych, sam status.
+
+    Sciezka jest otwarta (sonda nie ma tokenu), wiec publicznie zwraca tylko
+    "ok". Konfiguracja - tryb magazynu, model, region - to informacje o
+    wnetrzu uslugi i widzi je wylacznie administrator.
+    """
+    if not autoryzacja.czy_admin(request):
+        return {"status": "ok"}
     return {
         "status": "ok",
         "magazyn": magazyn.TRYB,

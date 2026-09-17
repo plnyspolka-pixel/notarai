@@ -123,10 +123,18 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def _wymagaj_admina(request: Request) -> None:
     if not ADMIN_TOKEN:
         raise HTTPException(503, "Panel admina wylaczony: ustaw PIECZAPP_ADMIN_TOKEN")
+    if not czy_admin(request):
+        raise HTTPException(401, "Nieprawidlowy token administratora")
+
+
+def czy_admin(request: Request) -> bool:
+    """Czy zadanie niesie wazny token administratora. Bez wyjatku - do uzytku
+    tam, gdzie brak tokenu nie jest bledem (np. sonda /zdrowie)."""
+    if not ADMIN_TOKEN:
+        return False
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    if not secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN)):
-        raise HTTPException(401, "Nieprawidlowy token administratora")
+    return secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN))
 
 
 class NowaKancelaria(BaseModel):

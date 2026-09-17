@@ -100,3 +100,56 @@ def test_dezaktywacja_odbiera_dostep(monkeypatch, tmp_path):
                          headers=naglowki_admina).status_code == 200
     aut._CACHE = None  # w produkcji cache wygasa po 60 s
     assert klient.get("/api/sprawy", headers=token).status_code == 401
+
+
+class _Zadanie:
+    """Minimalna atrapa Request - liczy sie tylko naglowek Authorization."""
+
+    def __init__(self, naglowek: str = ""):
+        self.headers = {"authorization": naglowek}
+
+
+def test_czy_admin_bez_wyjatku(monkeypatch, tmp_path):
+    _, aut = _apka(monkeypatch, tmp_path, multi=True)
+    assert aut.czy_admin(_Zadanie("Bearer sekret-admina")) is True
+    assert aut.czy_admin(_Zadanie("Bearer zly")) is False
+    assert aut.czy_admin(_Zadanie()) is False
+
+
+def test_czy_admin_bez_ustawionego_tokenu(monkeypatch, tmp_path):
+    """Bez PIECZAPP_ADMIN_TOKEN nikt nie jest adminem - takze z pustym naglowkiem."""
+    _, aut = _apka(monkeypatch, tmp_path, multi=True, admin="")
+    assert aut.czy_admin(_Zadanie()) is False
+    assert aut.czy_admin(_Zadanie("Bearer ")) is False
+
+
+def test_sonda_zdrowia_nie_zdradza_konfiguracji(monkeypatch, tmp_path):
+    """Sonda jest otwarta, wiec publicznie oddaje sam status.
+
+    Tryb magazynu, model i region to informacje o wnetrzu uslugi - widzi je
+    tylko administrator.
+    """
+    import importlib
+
+    monkeypatch.setenv("PIECZAPP_MULTI", "true")
+    monkeypatch.setenv("PIECZAPP_ADMIN_TOKEN", "sekret-admina")
+    monkeypatch.setenv("PIECZAPP_MAGAZYN", "lokalny")
+    import magazyn
+    import autoryzacja
+    importlib.reload(magazyn)
+    importlib.reload(autoryzacja)
+    import app as aplikacja
+    importlib.reload(aplikacja)
+
+    klient = TestClient(aplikacja.app)
+
+    jawne = klient.get("/zdrowie")
+    assert jawne.status_code == 200
+    assert jawne.json() == {"status": "ok"}
+
+    zly = klient.get("/zdrowie", headers={"Authorization": "Bearer zly"})
+    assert zly.json() == {"status": "ok"}
+
+    admin = klient.get("/zdrowie", headers={"Authorization": "Bearer sekret-admina"}).json()
+    assert admin["status"] == "ok"
+    assert {"magazyn", "multi", "model", "region"} <= set(admin)
