@@ -9,6 +9,7 @@
 - `infra/notarai-budowanie.yaml` — CloudFormation: ECR (niezmienne tagi, skanowanie), bucket paczek źródeł, CodeBuild budujący obraz w AWS
 - `infra/notarai-certyfikat.yaml` — CloudFormation: certyfikat ACM dla app.notarai.pl, walidacja DNS
 - `infra/notarai-aplikacja.yaml` — CloudFormation: ECS Fargate + ALB z HTTPS, token admina generowany w Secrets Manager, role wykonawcza i zadania
+- `infra/notarai-repozytorium.yaml` — CloudFormation: repozytorium kodu w CodeCommit (eu-central-1) i dostęp do niego dla stanowiska
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
@@ -37,6 +38,10 @@ Express Mode odpada, bo nie pozwala podnieść limitu bezczynności load balance
 a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebny.
 
 0. Bucket spraw: stos `notarai-s3` (wdrożony 17.09.2026).
+   Kod: stos `notarai-repozytorium` (CodeCommit). Po wdrożeniu:
+   `pip install git-remote-codecommit`, potem
+   `git remote add origin codecommit::eu-central-1://pieczapp@notarai`
+   i `git push -u origin master`. Historia przestaje zależeć od jednego dysku.
 1. Budowanie i certyfikat:
    `aws cloudformation deploy --stack-name notarai-budowanie --template-file infra/notarai-budowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
    `aws cloudformation create-stack --stack-name notarai-certyfikat --template-body file://infra/notarai-certyfikat.yaml --parameters ParameterKey=Domena,ParameterValue=app.notarai.pl --tags Key=projekt,Value=notarai --profile notarai-admin --region eu-central-1`

@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - repozytorium kodu w koncie AWS (CodeCommit, eu-central-1) i dostep
+  do niego dla tozsamosci, ktora wypycha zmiany ze stanowiska. Kod przestaje
+  zalezec od jednego laptopa.
+
+  Uwaga: AWS zamknal CodeCommit dla nowych klientow. To konto ma dostep, ale
+  usluga nie dostaje nowych funkcji - przy dluzszej perspektywie warto miec
+  plan przeniesienia historii gdzie indziej.
+
+Parameters:
+  NazwaRepozytorium:
+    Type: String
+    Default: notarai
+  UzytkownikGit:
+    Type: String
+    Default: pieczapp-app
+    Description: >-
+      Istniejacy uzytkownik IAM, ktory dostanie prawo czytania i wypychania
+      zmian. Swiadomie ten sam, ktory ma juz klucze na stanowisku - nie
+      mnozymy trwalych kluczy. Uprawnienia sa zawezone do tego repozytorium.
+
+Resources:
+  Repozytorium:
+    Type: AWS::CodeCommit::Repository
+    # Historia kodu nie moze zniknac razem ze stosem.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Ref NazwaRepozytorium
+      RepositoryDescription: notarai - kod aplikacji kancelarii notarialnej
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  DostepDoRepozytorium:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: notarai-repozytorium
+      Description: notarai - czytanie i wypychanie zmian do repozytorium kodu
+      Users:
+        - !Ref UzytkownikGit
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PracaNaRepozytorium
+            Effect: Allow
+            Action:
+              - codecommit:GitPull
+              - codecommit:GitPush
+              - codecommit:GetRepository
+              - codecommit:GetBranch
+              - codecommit:ListBranches
+              - codecommit:GetCommit
+              - codecommit:GetDifferences
+              - codecommit:BatchGetCommits
+            Resource: !GetAtt Repozytorium.Arn
+          # Lista repozytoriow nie dotyczy pojedynczego zasobu.
+          - Sid: ListaRepozytoriow
+            Effect: Allow
+            Action: codecommit:ListRepositories
+            Resource: "*"
+
+Outputs:
+  AdresGit:
+    Description: >-
+      Zdalne repozytorium dla polecenia git (wymaga pakietu
+      git-remote-codecommit i profilu AWS o tej nazwie)
+    Value: !Sub "codecommit::${AWS::Region}://pieczapp@${NazwaRepozytorium}"
+  AdresHttps:
+    Description: Adres HTTPS repozytorium
+    Value: !GetAtt Repozytorium.CloneUrlHttp
