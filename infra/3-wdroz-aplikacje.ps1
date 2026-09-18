@@ -76,6 +76,18 @@ $parametry = @(
 # Pustego adresu nie wysylamy - CloudFormation zostawi wtedy poprzedni.
 if ($Email) { $parametry += "EmailAlarmowy=$Email" }
 
+# Logowanie uzytkownikow jest opcjonalne: gdy stos notarai-logowanie istnieje,
+# przekazujemy jego identyfikatory do aplikacji.
+if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
+    $pula = Wyjscie notarai-logowanie PulaId
+    $klientId = Wyjscie notarai-logowanie KlientId
+    $parametry += "PulaLogowania=$pula"
+    $parametry += "KlientLogowania=$klientId"
+    Write-Host "   logowanie uzytkownikow: pula $pula"
+} else {
+    Write-Host "   logowanie uzytkownikow: brak stosu notarai-logowanie, zostaje sam token kancelarii" -ForegroundColor Yellow
+}
+
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan
 Uruchom-Aws cloudformation deploy --stack-name notarai-aplikacja `
     --template-file "$korzen\infra\notarai-aplikacja.yaml" `

@@ -42,6 +42,7 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 # middleware przepuszcza wszystko, a panel admina wymaga PIECZAPP_ADMIN_TOKEN.
 app.middleware("http")(autoryzacja.middleware)
 app.include_router(autoryzacja.router)
+app.include_router(autoryzacja.router_logowania)
 
 
 @app.get("/zdrowie")

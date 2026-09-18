@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - logowanie uzytkownikow kancelarii (Amazon Cognito, eu-central-1).
+  Hasla przechowuje i weryfikuje Cognito; aplikacja nigdy ich nie zapisuje.
+  Odzyskiwanie hasla kodem na e-mail, wymuszona zmiana hasla przy pierwszym
+  logowaniu. Rejestracja wylacznie przez administratora - kancelarie zakladamy
+  swiadomie, po podpisaniu umowy powierzenia przetwarzania danych.
+
+Parameters:
+  DlugoscHasla:
+    Type: Number
+    Default: 12
+    MinValue: 8
+    MaxValue: 99
+  WaznoscHaslaTymczasowego:
+    Type: Number
+    Default: 7
+    Description: Ile dni wazne jest haslo z zaproszenia
+
+Resources:
+  PulaUzytkownikow:
+    Type: AWS::Cognito::UserPool
+    # Usuniecie stosu nie moze skasowac kont kancelarii.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: notarai
+      # Logowanie adresem e-mail, bez osobnej nazwy uzytkownika.
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      UsernameConfiguration:
+        CaseSensitive: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+        InviteMessageTemplate:
+          EmailSubject: notarai - dostep do aplikacji
+          EmailMessage: >-
+            Dzien dobry,<br><br>
+            zalozylismy konto w aplikacji notarai dla adresu {username}.<br>
+            Haslo tymczasowe: <b>{####}</b><br><br>
+            Zaloguj sie na https://app.notarai.pl i ustaw wlasne haslo.
+            Haslo tymczasowe wygasa po kilku dniach.
+          SMSMessage: "notarai: {username}, haslo tymczasowe {####}"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: !Ref DlugoscHasla
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          # Znaki specjalne pomijamy swiadomie: przy 12 znakach i wymogu
+          # wielkich, malych liter oraz cyfr zysk jest niewielki, a haslo
+          # trudniejsze do zapamietania i czesciej zapisywane na kartce.
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: !Ref WaznoscHaslaTymczasowego
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      # Wysylka przez Cognito - nie wymaga wyjscia SES z piaskownicy.
+      # Limit to kilkadziesiat wiadomosci dziennie; przy wiekszej skali
+      # trzeba przejsc na SES z dostepem produkcyjnym.
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        # Do ktorej kancelarii nalezy uzytkownik. Ta wartosc decyduje,
+        # czyje sprawy widzi - musi byc niezmienna dla uzytkownika.
+        - Name: kancelaria
+          AttributeDataType: String
+          Mutable: false
+          StringAttributeConstraints:
+            MinLength: "1"
+            MaxLength: "64"
+      UserPoolTags:
+        projekt: notarai
+
+  # Klient dla naszego wlasnego ekranu logowania: bez sekretu, bo hasla
+  # przechodza przez nasz backend, a nie przez przegladarke uzytkownika.
+  KlientAplikacji:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: notarai-aplikacja
+      UserPoolId: !Ref PulaUzytkownikow
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      # Bledne logowanie nie zdradza, czy taki adres istnieje.
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 8
+      IdTokenValidity: 8
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      ReadAttributes:
+        - email
+        - email_verified
+        - custom:kancelaria
+      WriteAttributes:
+        - email
+
+Outputs:
+  PulaId:
+    Description: Ustaw jako PIECZAPP_COGNITO_POOL w definicji zadania
+    Value: !Ref PulaUzytkownikow
+  KlientId:
+    Description: Ustaw jako PIECZAPP_COGNITO_KLIENT w definicji zadania
+    Value: !Ref KlientAplikacji

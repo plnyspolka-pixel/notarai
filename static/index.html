@@ -73,7 +73,7 @@ h1{font:400 32px/1.25 var(--serif);margin:0 0 6px;letter-spacing:-.01em}
 .karta h2{font:500 18px/1.3 var(--serif);margin:0 0 16px}
 .etykieta{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--tekst2)}
 .wskaz{font-weight:400;color:var(--tekst3)}
-input[type=text]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
+input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
   background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
 input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px solid var(--akcent);outline-offset:1px}
 .pole{margin-bottom:18px}
@@ -199,6 +199,11 @@ select{font:inherit;padding:8px 10px;border:1px solid var(--linia2);border-radiu
 .wyloguj{margin-top:10px;font-size:11.5px;color:var(--tekst3);cursor:pointer;
   background:none;border:0;padding:0;font-weight:400;text-align:left}
 .wyloguj:hover{color:var(--tekst2);background:none}
+.brama .odnosnik{display:block;margin-top:12px;padding:0;border:0;background:none;
+  color:var(--tekst2);font-size:13px;font-weight:400;text-align:left;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px}
+.brama .odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
+.brama .pole{margin-bottom:14px}
 </style>
 </head>
 <body>
@@ -218,7 +223,7 @@ notarai</div>
   <div class="stopka-aside">
     Bedrock, region eu-central-1. Skany i projekty zostają na tym komputerze.
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
-    <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj kancelarię</button>
+    <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
   </div>
 </aside>
 
@@ -374,20 +379,88 @@ notarai</div>
 
 </div></main>
 
-<!-- Widoczna tylko w trybie wielu kancelarii, gdy serwer odrzuci zadanie bez tokenu. -->
+<!-- Widoczna w trybie wielu kancelarii, gdy serwer odrzuci zadanie bez logowania. -->
 <div class="brama" id="brama" hidden>
   <div class="pudlo">
     <div class="logo"><img class="osiol" src="/static/logo.png" alt="">notarai</div>
-    <h2>Dostęp kancelarii</h2>
-    <p>Wklej token otrzymany od administratora. Zostanie zapamiętany w tej przeglądarce.</p>
-    <div class="pole">
-      <label class="etykieta" for="token-pole">Token kancelarii</label>
-      <input type="text" id="token-pole" autocomplete="off" spellcheck="false"
-             placeholder="np. 9f3c…" aria-describedby="stan-brama">
+
+    <!-- 1. logowanie -->
+    <div id="widok-logowanie">
+      <h2>Zaloguj się</h2>
+      <p>Konto zakłada administrator. Zaproszenie z hasłem tymczasowym przychodzi na e-mail.</p>
+      <div class="pole">
+        <label class="etykieta" for="pole-email">Adres e-mail</label>
+        <input type="email" id="pole-email" autocomplete="username" spellcheck="false">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="pole-haslo">Hasło</label>
+        <input type="password" id="pole-haslo" autocomplete="current-password">
+      </div>
+      <div class="dol">
+        <button id="btn-zaloguj">Zaloguj</button>
+        <span class="stan" id="stan-brama"></span>
+      </div>
+      <button class="odnosnik" id="btn-zapomnialem">Nie pamiętam hasła</button>
+      <button class="odnosnik" id="btn-pokaz-token">Mam token kancelarii</button>
     </div>
-    <div class="dol">
-      <button id="btn-token">Zaloguj</button>
-      <span class="stan" id="stan-brama"></span>
+
+    <!-- 2. pierwsze logowanie: hasło z zaproszenia trzeba zmienić -->
+    <div id="widok-nowe-haslo" hidden>
+      <h2>Ustaw własne hasło</h2>
+      <p>Hasło z zaproszenia jest tymczasowe. Ustaw teraz swoje, minimum 12 znaków, w tym wielka litera, mała litera i cyfra.</p>
+      <div class="pole">
+        <label class="etykieta" for="pole-haslo-nowe">Nowe hasło</label>
+        <input type="password" id="pole-haslo-nowe" autocomplete="new-password">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="pole-haslo-nowe2">Powtórz hasło</label>
+        <input type="password" id="pole-haslo-nowe2" autocomplete="new-password">
+      </div>
+      <div class="dol">
+        <button id="btn-ustaw-haslo">Zapisz i wejdź</button>
+        <span class="stan" id="stan-nowe"></span>
+      </div>
+    </div>
+
+    <!-- 3. odzyskiwanie hasła -->
+    <div id="widok-odzyskiwanie" hidden>
+      <h2>Odzyskiwanie hasła</h2>
+      <p id="opis-odzyskiwania">Podaj adres e-mail. Wyślemy na niego kod do ustawienia nowego hasła.</p>
+      <div class="pole">
+        <label class="etykieta" for="pole-email-reset">Adres e-mail</label>
+        <input type="email" id="pole-email-reset" autocomplete="username" spellcheck="false">
+      </div>
+      <div id="pola-kodu" hidden>
+        <div class="pole">
+          <label class="etykieta" for="pole-kod">Kod z wiadomości</label>
+          <input type="text" id="pole-kod" autocomplete="one-time-code" spellcheck="false">
+        </div>
+        <div class="pole">
+          <label class="etykieta" for="pole-haslo-reset">Nowe hasło</label>
+          <input type="password" id="pole-haslo-reset" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="dol">
+        <button id="btn-wyslij-kod">Wyślij kod</button>
+        <button class="wtorny" id="btn-ustaw-kodem" hidden>Ustaw hasło</button>
+        <span class="stan" id="stan-reset"></span>
+      </div>
+      <button class="odnosnik" id="btn-wroc-reset">Wróć do logowania</button>
+    </div>
+
+    <!-- 4. dawny token kancelarii, dla zadań automatycznych -->
+    <div id="widok-token" hidden>
+      <h2>Token kancelarii</h2>
+      <p>Wspólny token dla całej kancelarii. Zwykłe logowanie adresem e-mail jest bezpieczniejsze, bo wskazuje osobę.</p>
+      <div class="pole">
+        <label class="etykieta" for="token-pole">Token</label>
+        <input type="text" id="token-pole" autocomplete="off" spellcheck="false" placeholder="np. 9f3c…">
+      </div>
+      <div class="dol">
+        <button id="btn-token">Użyj tokenu</button>
+        <span class="stan" id="stan-token"></span>
+      </div>
+      <button class="odnosnik" id="btn-wroc-token">Wróć do logowania</button>
     </div>
   </div>
 </div>
@@ -397,10 +470,11 @@ const $ = (id) => document.getElementById(id);
 const OSIOL = '<img class="osiol" src="/static/logo.png" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1;
 
-/* ---------- dostep kancelarii ----------
-   Tryb lokalny: serwer nie wymaga tokenu, brama nigdy sie nie pokazuje.
-   Tryb SaaS: kazde /api/* idzie z naglowkiem Authorization; odpowiedz 401
-   otwiera bramę. Token trzymamy tylko w tej przegladarce.              */
+/* ---------- logowanie ----------
+   Tryb lokalny: serwer nie wymaga logowania, brama nigdy sie nie pokazuje.
+   Tryb SaaS: po zalogowaniu przegladarka trzyma token tozsamosci i dokłada
+   go do kazdego zadania. Odpowiedz 401 otwiera bramę. Hasla nigdzie nie
+   zapisujemy - idą prosto do serwera i dalej do Cognito.               */
 const KLUCZ_TOKENU = "notarai_token";
 
 function czytajToken(){
@@ -421,21 +495,38 @@ async function api(adres, opcje = {}){
   if (token) naglowki.set("Authorization", "Bearer " + token);
   const odp = await fetch(adres, {...opcje, headers: naglowki});
   if (odp.status === 401) {
-    otworzBrame(token ? "Token odrzucony przez serwer." : "");
-    throw new Error("Brak dostępu do tej kancelarii.");
+    otworzBrame(token ? "Sesja wygasła. Zaloguj się ponownie." : "");
+    throw new Error("Wymagane logowanie.");
   }
   return odp;
 }
 
+const WIDOKI = ["widok-logowanie", "widok-nowe-haslo", "widok-odzyskiwanie", "widok-token"];
+let sesjaNowegoHasla = "", emailLogowania = "";
+
+function pokazWidok(nazwa){
+  WIDOKI.forEach(w => $(w).hidden = (w !== nazwa));
+}
+
 function otworzBrame(komunikat){
   $("brama").hidden = false;
+  pokazWidok("widok-logowanie");
   stan($("stan-brama"), komunikat || "", !!komunikat);
-  $("token-pole").value = "";
-  $("token-pole").focus();
+  $("pole-haslo").value = "";
+  ($("pole-email").value ? $("pole-haslo") : $("pole-email")).focus();
   odswiezWyloguj();
 }
 
-/* Przycisk wylogowania ma sens tylko wtedy, gdy token jest w uzyciu. */
+function wpusc(nowyToken){
+  token = nowyToken;
+  zapiszToken(token);
+  $("brama").hidden = true;
+  stan($("stan-brama"), "");
+  odswiezWyloguj();
+  rysujListeSpraw();
+}
+
+/* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
 }
@@ -446,33 +537,133 @@ $("btn-wyloguj").onclick = () => {
   otworzBrame("Wylogowano.");
 };
 
-$("btn-token").onclick = async () => {
-  const wpisany = $("token-pole").value.trim();
-  if (!wpisany) { stan($("stan-brama"), "Wklej token.", true); return; }
+/* Wspolna obsluga odpowiedzi z /api/logowanie/*: zwraca dane albo rzuca
+   bledem z komunikatem od serwera. */
+async function wyslijLogowanie(adres, dane){
+  const odp = await fetch(adres, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(dane),
+  });
+  let tresc = {};
+  try { tresc = await odp.json(); } catch { /* serwer nie zawsze zwraca JSON */ }
+  if (!odp.ok) throw new Error(tresc.detail || "Serwer odpowiedział " + odp.status);
+  return tresc;
+}
+
+$("btn-zaloguj").onclick = async () => {
+  const email = $("pole-email").value.trim();
+  const haslo = $("pole-haslo").value;
+  if (!email || !haslo) { stan($("stan-brama"), "Podaj adres e-mail i hasło.", true); return; }
   stan($("stan-brama"), "Sprawdzam…", false, true);
-  const poprzedni = token;
-  token = wpisany;
   try {
-    const proba = "/api" + "/sprawy";   // celowo bez api(): 401 obsluguje ta funkcja
-    const odp = await fetch(proba, {headers:{"Authorization":"Bearer " + token}});
-    if (odp.status === 401) {
-      token = poprzedni;
-      stan($("stan-brama"), "Token nieprawidłowy albo kancelaria wyłączona.", true);
+    const wynik = await wyslijLogowanie("/api/logowanie", {email, haslo});
+    if (wynik.wymagane_nowe_haslo) {
+      emailLogowania = email;
+      sesjaNowegoHasla = wynik.sesja;
+      pokazWidok("widok-nowe-haslo");
+      stan($("stan-nowe"), "");
+      $("pole-haslo-nowe").focus();
       return;
     }
-    if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
-    zapiszToken(token);
-    $("brama").hidden = true;
-    stan($("stan-brama"), "");
-    odswiezWyloguj();
-    rysujListeSpraw();
+    wpusc(wynik.token);
   } catch (e) {
-    token = poprzedni;
     stan($("stan-brama"), e.message, true);
   }
 };
 
-$("token-pole").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-token").click(); });
+$("btn-ustaw-haslo").onclick = async () => {
+  const haslo = $("pole-haslo-nowe").value, powtorz = $("pole-haslo-nowe2").value;
+  if (haslo !== powtorz) { stan($("stan-nowe"), "Hasła nie są takie same.", true); return; }
+  stan($("stan-nowe"), "Zapisuję…", false, true);
+  try {
+    const wynik = await wyslijLogowanie("/api/logowanie/nowe-haslo",
+      {email: emailLogowania, haslo, sesja: sesjaNowegoHasla});
+    sesjaNowegoHasla = "";
+    wpusc(wynik.token);
+  } catch (e) {
+    stan($("stan-nowe"), e.message, true);
+  }
+};
+
+$("btn-zapomnialem").onclick = () => {
+  pokazWidok("widok-odzyskiwanie");
+  $("pole-email-reset").value = $("pole-email").value.trim();
+  $("pola-kodu").hidden = true;
+  $("btn-ustaw-kodem").hidden = true;
+  $("btn-wyslij-kod").hidden = false;
+  stan($("stan-reset"), "");
+  $("pole-email-reset").focus();
+};
+
+$("btn-wyslij-kod").onclick = async () => {
+  const email = $("pole-email-reset").value.trim();
+  if (!email) { stan($("stan-reset"), "Podaj adres e-mail.", true); return; }
+  stan($("stan-reset"), "Wysyłam…", false, true);
+  try {
+    await wyslijLogowanie("/api/logowanie/kod", {email});
+    $("opis-odzyskiwania").textContent =
+      "Jeśli konto o tym adresie istnieje, kod jest już w skrzynce. Wpisz go poniżej razem z nowym hasłem.";
+    $("pola-kodu").hidden = false;
+    $("btn-wyslij-kod").hidden = true;
+    $("btn-ustaw-kodem").hidden = false;
+    stan($("stan-reset"), "");
+    $("pole-kod").focus();
+  } catch (e) {
+    stan($("stan-reset"), e.message, true);
+  }
+};
+
+$("btn-ustaw-kodem").onclick = async () => {
+  const email = $("pole-email-reset").value.trim();
+  const kod = $("pole-kod").value.trim(), haslo = $("pole-haslo-reset").value;
+  if (!kod || !haslo) { stan($("stan-reset"), "Podaj kod i nowe hasło.", true); return; }
+  stan($("stan-reset"), "Zapisuję…", false, true);
+  try {
+    await wyslijLogowanie("/api/logowanie/kod/potwierdz", {email, kod, haslo});
+    $("pole-email").value = email;
+    otworzBrame("");
+    stan($("stan-brama"), "Hasło zmienione. Zaloguj się.");
+  } catch (e) {
+    stan($("stan-reset"), e.message, true);
+  }
+};
+
+$("btn-pokaz-token").onclick = () => { pokazWidok("widok-token"); $("token-pole").focus(); };
+/* Uwaga: identyfikatory w bramie musza byc unikalne w calej stronie -
+   aplikacja ma juz wlasny przycisk "Wróć" (powrot do etapu 1). */
+$("btn-wroc-reset").onclick = () => otworzBrame("");
+$("btn-wroc-token").onclick = () => otworzBrame("");
+
+/* Dawny token kancelarii - wspolny dla calej kancelarii, do zadan automatycznych. */
+$("btn-token").onclick = async () => {
+  const wpisany = $("token-pole").value.trim();
+  if (!wpisany) { stan($("stan-token"), "Wklej token.", true); return; }
+  stan($("stan-token"), "Sprawdzam…", false, true);
+  const poprzedni = token;
+  try {
+    const proba = "/api" + "/sprawy";   // celowo bez api(): 401 obsluguje ta funkcja
+    const odp = await fetch(proba, {headers:{"Authorization":"Bearer " + wpisany}});
+    if (odp.status === 401) {
+      stan($("stan-token"), "Token nieprawidłowy albo kancelaria wyłączona.", true);
+      return;
+    }
+    if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
+    wpusc(wpisany);
+  } catch (e) {
+    token = poprzedni;
+    stan($("stan-token"), e.message, true);
+  }
+};
+
+[["pole-email", "btn-zaloguj"], ["pole-haslo", "btn-zaloguj"],
+ ["pole-haslo-nowe2", "btn-ustaw-haslo"], ["pole-email-reset", "btn-wyslij-kod"],
+ ["pole-haslo-reset", "btn-ustaw-kodem"], ["token-pole", "btn-token"]
+].forEach(([pole, przycisk]) => {
+  $(pole).addEventListener("keydown", e => {
+    if (e.key === "Enter" && !$(przycisk).hidden) { e.preventDefault(); $(przycisk).click(); }
+  });
+});
 
 /* ---------- nawigacja ---------- */
 function pokaz(numer){

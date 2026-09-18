@@ -10,6 +10,8 @@
 - `infra/notarai-certyfikat.yaml` — CloudFormation: certyfikat ACM dla app.notarai.pl, walidacja DNS
 - `infra/notarai-aplikacja.yaml` — CloudFormation: ECS Fargate + ALB z HTTPS, token admina generowany w Secrets Manager, role wykonawcza i zadania
 - `infra/notarai-repozytorium.yaml` — CloudFormation: repozytorium kodu w CodeCommit (eu-central-1) i dostęp do niego dla stanowiska
+- `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
+- `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
@@ -57,7 +59,14 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    `curl -X POST https://app.notarai.pl/api/admin/kancelarie -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"nazwa":"Kancelaria X"}'`
    → odpowiedź zawiera token JEDEN RAZ. Przekaż kancelarii.
 6. Nowa wersja aplikacji: commit, potem etap 2 i 3. Podmiana bez przestoju.
-7. Kancelaria otwiera stronę i wkleja token w oknie ,,Dostęp kancelarii''.
+7. Logowanie użytkowników (opcjonalne, ale zalecane):
+   `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
+   Potem etap 3 jeszcze raz - skrypt sam wykryje stos i poda aplikacji dane puli.
+   Konta zakłada administrator:
+   `curl -X POST https://app.notarai.pl/api/admin/uzytkownicy -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"email":"notariusz@kancelaria.pl","kancelaria":"kancelaria-x"}'`
+   Użytkownik dostaje e-mail z hasłem tymczasowym i ustawia własne przy pierwszym logowaniu.
+   Hasła przechowuje Cognito; aplikacja ich nie zapisuje.
+8. Kancelaria bez logowania: token w oknie ,,Token kancelarii''.
    Token zostaje w localStorage tej przeglądarki i leci w nagłówku przy każdym
    żądaniu. ,,Wyloguj kancelarię'' w stopce paska bocznego go kasuje.
    W trybie lokalnym okno się nie pokazuje.

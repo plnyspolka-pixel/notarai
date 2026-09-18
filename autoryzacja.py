@@ -28,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+import logowanie
 import magazyn
 
 log = logging.getLogger("pieczapp.autoryzacja")
@@ -36,8 +37,8 @@ MULTI = os.getenv("PIECZAPP_MULTI", "false").lower() == "true"
 ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
-# (panel ma wlasny token) i favicon.
-_OTWARTE = ("/", "/static", "/zdrowie", "/api/admin", "/favicon.ico")
+# (panel ma wlasny token), logowanie i odzyskiwanie hasla oraz favicon.
+_OTWARTE = ("/", "/static", "/zdrowie", "/api/admin", "/api/logowanie", "/favicon.ico")
 
 _CACHE_S: float = 0.0
 _CACHE: dict | None = None
@@ -93,8 +94,28 @@ def _zapisz_rejestr(dane: dict) -> None:
 # --- Middleware -------------------------------------------------------------
 
 
+def _kancelaria_z_naglowka(token: str):
+    """Kancelaria z tokenu logowania albo z dawnego tokenu kancelarii.
+
+    Token logowania (JWT) jest podpisany przez Cognito i niesie kancelarie
+    uzytkownika. Dawny token kancelarii zostaje dla zadan automatycznych -
+    jest wspolny dla calej kancelarii i nie wskazuje osoby.
+    """
+    if not token:
+        return None
+    if logowanie.wlaczone() and logowanie.czy_jwt(token):
+        try:
+            return logowanie.dane_z_tokenu(token)["kancelaria"]
+        except logowanie.BladLogowania:
+            return None
+    wpis = _wczytaj_rejestr().get(_sha(token))
+    if wpis and wpis.get("aktywna", True):
+        return wpis["id"]
+    return None
+
+
 async def middleware(request: Request, call_next):
-    """Bearer kancelarii -> kontekst kancelarii. Tylko gdy PIECZAPP_MULTI."""
+    """Token uzytkownika albo kancelarii -> kontekst. Tylko gdy PIECZAPP_MULTI."""
     sciezka = request.url.path
     if not MULTI or sciezka == "/" or any(
         sciezka.startswith(o) for o in _OTWARTE if o != "/"
@@ -103,13 +124,13 @@ async def middleware(request: Request, call_next):
 
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    wpis = _wczytaj_rejestr().get(_sha(token)) if token else None
-    if not wpis or not wpis.get("aktywna", True):
-        return JSONResponse({"detail": "Brak lub nieprawidlowy token kancelarii"}, 401)
+    kancelaria = _kancelaria_z_naglowka(token)
+    if not kancelaria:
+        return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
 
-    znacznik = magazyn.kancelaria_var.set(wpis["id"])
+    znacznik = magazyn.kancelaria_var.set(kancelaria)
     try:
-        request.state.kancelaria = wpis["id"]
+        request.state.kancelaria = kancelaria
         return await call_next(request)
     finally:
         magazyn.kancelaria_var.reset(znacznik)
@@ -135,6 +156,98 @@ def czy_admin(request: Request) -> bool:
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
     return secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN))
+
+
+# --- logowanie uzytkownikow -------------------------------------------------
+
+router_logowania = APIRouter(prefix="/api/logowanie", tags=["logowanie"])
+
+
+class DaneLogowania(BaseModel):
+    email: str
+    haslo: str
+
+
+class NoweHaslo(BaseModel):
+    email: str
+    haslo: str
+    sesja: str
+
+
+class ProsbaOKod(BaseModel):
+    email: str
+
+
+class HasloZKodem(BaseModel):
+    email: str
+    kod: str
+    haslo: str
+
+
+def _wymagaj_logowania() -> None:
+    if not logowanie.wlaczone():
+        raise HTTPException(503, "Logowanie nie jest skonfigurowane na tym serwerze.")
+
+
+@router_logowania.post("")
+def zaloguj(dane: DaneLogowania):
+    _wymagaj_logowania()
+    try:
+        return logowanie.zaloguj(dane.email.strip().lower(), dane.haslo)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(401, str(blad))
+
+
+@router_logowania.post("/nowe-haslo")
+def nowe_haslo(dane: NoweHaslo):
+    """Pierwsze logowanie: zamiana hasla z zaproszenia na wlasne."""
+    _wymagaj_logowania()
+    try:
+        return logowanie.ustaw_nowe_haslo(dane.email.strip().lower(), dane.haslo, dane.sesja)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(400, str(blad))
+
+
+@router_logowania.post("/kod")
+def wyslij_kod(dane: ProsbaOKod):
+    """Wysyla kod odzyskiwania. Odpowiedz jest zawsze taka sama, zeby nie
+    zdradzac, czy konto o tym adresie istnieje."""
+    _wymagaj_logowania()
+    try:
+        logowanie.wyslij_kod(dane.email.strip().lower())
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(429, str(blad))
+    return {"wyslano": True}
+
+
+@router_logowania.post("/kod/potwierdz")
+def potwierdz_kod(dane: HasloZKodem):
+    _wymagaj_logowania()
+    try:
+        logowanie.ustaw_haslo_kodem(dane.email.strip().lower(), dane.kod.strip(), dane.haslo)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(400, str(blad))
+    return {"zmieniono": True}
+
+
+class NowyUzytkownik(BaseModel):
+    email: str
+    kancelaria: str
+
+
+@router.post("/uzytkownicy", status_code=201)
+def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
+    """Zaklada konto w kancelarii i wysyla zaproszenie z haslem tymczasowym."""
+    _wymagaj_admina(request)
+    _wymagaj_logowania()
+    kancelaria = dane.kancelaria.strip()
+    if kancelaria not in {w["id"] for w in _wczytaj_rejestr().values()}:
+        raise HTTPException(404, "Nie znaleziono kancelarii o takim identyfikatorze")
+    try:
+        logowanie.utworz_uzytkownika(dane.email.strip().lower(), kancelaria)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(409, str(blad))
+    return {"utworzono": True, "kancelaria": kancelaria}
 
 
 class NowaKancelaria(BaseModel):
