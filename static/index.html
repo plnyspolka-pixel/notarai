@@ -59,6 +59,12 @@ aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--
 .sprawa-el.aktywna{background:var(--karta);color:var(--tekst);border:1px solid var(--linia)}
 .sprawa-el b{display:block;font-weight:500;color:var(--tekst);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sprawa-el small{color:var(--tekst3);font-size:11.5px}
+.sprawa-el{position:relative}
+.sprawa-el .kosz{position:absolute;top:6px;right:6px;width:22px;height:22px;padding:0;
+  border:0;border-radius:6px;background:transparent;color:var(--tekst3);font-size:16px;
+  line-height:1;cursor:pointer;opacity:0;transition:opacity .12s}
+.sprawa-el:hover .kosz,.sprawa-el .kosz:focus-visible{opacity:1}
+.sprawa-el .kosz:hover:not(:disabled){background:var(--alarm-tlo);color:var(--alarm)}
 .sygn-edit{font:inherit;font-size:13px;border:0;border-bottom:1px dashed var(--linia2);background:transparent;color:var(--tekst);padding:2px 0;width:100%}
 .stopka-aside{margin-top:auto;padding-top:18px!important;font-size:11.5px;color:var(--tekst3);padding:12px;line-height:1.5}
 
@@ -703,6 +709,27 @@ async function rysujListeSpraw(){
         + (s.sprawdzenia ? " · " + s.sprawdzenia + " spr." : "") + "</small>";
       d.title = "Wzór: " + (s.wzor || "?") + ", skanów: " + s.skany;
       d.onclick = () => wczytajSprawe(s.id);
+
+      /* Usuniecie sprawy: nieodwracalne, wiec pytamy nazwa sprawy, a nie
+         samym "czy na pewno". Realizacja prawa do usuniecia danych. */
+      const kosz = document.createElement("button");
+      kosz.className = "kosz";
+      kosz.textContent = "×";
+      kosz.title = "Usuń sprawę wraz ze skanami i projektem";
+      kosz.onclick = async (zdarzenie) => {
+        zdarzenie.stopPropagation();
+        const opis = s.nazwa || s.sygnatura || ("sprawa " + s.id.slice(0, 6));
+        if (!confirm("Usunąć „" + opis + "” bezpowrotnie?\n\n"
+          + "Znikną skany, odczytane dane, rozmowa i projekt. "
+          + "Tego nie da się cofnąć.")) return;
+        try {
+          const odp = await api("/api/sprawy/" + s.id + "?potwierdzam=true", {method: "DELETE"});
+          if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
+          if (sprawa && sprawa.id === s.id) { location.reload(); return; }
+          rysujListeSpraw();
+        } catch (e) { alert("Nie udało się usunąć sprawy: " + e.message); }
+      };
+      d.appendChild(kosz);
       k.appendChild(d);
     });
   } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; }

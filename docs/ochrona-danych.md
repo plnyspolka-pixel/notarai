@@ -1,0 +1,93 @@
+# notarai - co dzieje się z danymi kancelarii
+
+Dokument do rozmowy z kancelarią. Każde zdanie odpowiada faktycznemu
+ustawieniu, sprawdzonemu w AWS 18.09.2026. Gdy coś zmienimy w aplikacji,
+ten plik trzeba poprawić razem z nią.
+
+## Gdzie są dane
+
+| Co | Gdzie | Zabezpieczenie |
+|---|---|---|
+| Skany, odczyty, rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |
+| Konta i hasła użytkowników | Amazon Cognito, Frankfurt | hasła przechowuje AWS, aplikacja ich nie widzi |
+| Dzienniki pracy aplikacji | CloudWatch, Frankfurt | 90 dni, bez danych osobowych |
+| Odczyt skanów przez model | Amazon Bedrock, regiony UE | patrz niżej |
+
+Dane nie opuszczają Unii Europejskiej.
+
+## Model językowy
+
+Skany i odczytane dane trafiają do modelu Claude uruchomionego w Amazon
+Bedrock. Zapytania idą przez profil europejski, więc są przetwarzane w
+regionach UE: Frankfurt, Irlandia, Paryż i Sztokholm.
+
+Na koncie ustawione jest **zerowe przechowywanie danych** (tryb `none`) we
+wszystkich czterech regionach. Znaczy to, że AWS nie zapisuje treści zapytań
+ani odpowiedzi w trwałej pamięci. Dostawca modelu nie otrzymuje tych treści;
+zgodnie z dokumentacją AWS dostawcy modeli nie mają dostępu do zapytań i
+odpowiedzi klientów.
+
+Model nie uczy się na danych kancelarii.
+
+## Oddzielenie kancelarii od siebie
+
+Każda kancelaria ma własny obszar w magazynie, a aplikacja pilnuje, żeby
+zalogowany użytkownik widział wyłącznie sprawy swojej kancelarii.
+Przypisanie użytkownika do kancelarii jest zapisane w jego koncie i nie da
+się go zmienić od strony przeglądarki.
+
+Uczciwie: rozdzielenie zapewnia aplikacja, a nie osobny magazyn czy osobny
+klucz szyfrujący dla każdej kancelarii. Przy wymaganiu pełnego rozdzielenia
+technicznego trzeba osobnej instalacji.
+
+## Usuwanie danych
+
+Kancelaria może usunąć każdą sprawę z poziomu aplikacji. Kasowane są skany,
+odczytane dane, rozmowa i projekt, razem z wcześniejszymi wersjami plików.
+Usunięcie jest natychmiastowe i nieodwracalne.
+
+Wcześniejsze wersje plików istnieją po to, żeby dało się cofnąć przypadkowe
+nadpisanie. Znikają automatycznie po 90 dniach, a przy usunięciu sprawy od
+razu.
+
+## Logi
+
+W dziennikach zapisujemy identyfikator sprawy, liczbę stron, czas i rodzaj
+błędu. Nie zapisujemy numerów PESEL, nazwisk, adresów ani treści dokumentów.
+Pilnują tego testy automatyczne, które sprawdzają, że dane osobowe nie
+pojawiają się w logach nawet przy błędach.
+
+## Dostęp
+
+Aplikacja działa na uprawnieniach ograniczonych do jednego magazynu spraw i
+do wywołania modelu. Nie ma dostępu do innych zasobów konta.
+
+Dostęp administracyjny do konta AWS ma właściciel usługi. Do danych
+kancelarii nikt inny nie ma wglądu.
+
+## Czego aplikacja nie robi
+
+Nie tworzy dokumentu gotowego do podpisu. Każdy projekt wymaga sprawdzenia i
+akceptacji notariusza; aplikacja wprost oznacza braki i miejsca do
+rozstrzygnięcia. Nie loguje się w systemach urzędowych i nie składa za
+notariusza żadnych wniosków.
+
+## Podstawa prawna współpracy
+
+Przetwarzanie danych klientów kancelarii wymaga umowy powierzenia
+przetwarzania danych osobowych między kancelarią a dostawcą usługi.
+AWS występuje jako dalszy podmiot przetwarzający, na warunkach umowy
+powierzenia AWS.
+
+---
+
+## Do zrobienia po naszej stronie (część wewnętrzna, nie dla kancelarii)
+
+- MFA na koncie głównym AWS. Bez tego całość chroni samo hasło.
+- Wzór umowy powierzenia przetwarzania danych. Bez niej nie wolno podłączyć
+  obcej kancelarii.
+- Rejestr czynności przetwarzania i procedura zgłaszania naruszeń.
+- Kopia zapasowa poza S3. Dziś wersjonowanie chroni przed nadpisaniem, ale
+  nie przed utratą całego konta.
+- Usuwanie danych całej kancelarii przy zakończeniu współpracy. Dziś
+  usuwamy sprawa po sprawie.

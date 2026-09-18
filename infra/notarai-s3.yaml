@@ -99,11 +99,17 @@ Resources:
             Action:
               - s3:GetObject
               - s3:PutObject
+              # Usuniecie sprawy na zadanie kancelarii: kasujemy takze starsze
+              # wersje, inaczej zostalyby w buckecie mimo "usuniecia".
+              - s3:DeleteObject
+              - s3:DeleteObjectVersion
+              - s3:GetObjectVersion
             Resource: !Sub "${BucketSprawy.Arn}/*"
           - Sid: ListaS3
             Effect: Allow
             Action:
               - s3:ListBucket
+              - s3:ListBucketVersions
             Resource: !GetAtt BucketSprawy.Arn
           - !If
             - UzyjKms

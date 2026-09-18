@@ -176,6 +176,41 @@ def pobierz_sprawe(katalog: Path) -> bool:
     return ile > 0 or katalog.is_dir()
 
 
+def usun_sprawe(katalog: Path) -> int:
+    """Kasuje sprawe z dysku i z S3. Zwraca liczbe usunietych obiektow.
+
+    Usuwamy takze starsze wersje plikow. Bucket ma wersjonowanie, wiec samo
+    skasowanie zostawiloby poprzednie wersje na kolejne 90 dni - a "usunieta"
+    sprawa ma znaczyc usunieta, nie ukryta.
+    """
+    import shutil
+
+    if katalog.exists():
+        shutil.rmtree(katalog)
+    if TRYB != "s3":
+        return 0
+
+    id_sprawy = katalog.name
+    prefiks = _klucz(id_sprawy, "")
+    klient = _klient_s3()
+    usuniete = 0
+    strony = klient.get_paginator("list_object_versions").paginate(
+        Bucket=BUCKET, Prefix=prefiks
+    )
+    for strona in strony:
+        do_usuniecia = [
+            {"Key": o["Key"], "VersionId": o["VersionId"]}
+            for klucz in ("Versions", "DeleteMarkers")
+            for o in strona.get(klucz, [])
+        ]
+        for poczatek in range(0, len(do_usuniecia), 1000):  # limit jednego zadania
+            paczka = do_usuniecia[poczatek:poczatek + 1000]
+            klient.delete_objects(Bucket=BUCKET, Delete={"Objects": paczka, "Quiet": True})
+            usuniete += len(paczka)
+    log.info("sprawa %s: usunieto %d obiektow z S3", id_sprawy, usuniete)
+    return usuniete
+
+
 def identyfikatory_spraw(baza_spraw: Path) -> list[str]:
     """Lista identyfikatorow spraw biezacej kancelarii.
 

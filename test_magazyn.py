@@ -37,8 +37,12 @@ class AtrapaS3:
             raise _NoSuchKey()
         return {"ETag": _etag(self.obiekty[Key])}
 
+    def delete_objects(self, Bucket, Delete):
+        for o in Delete["Objects"]:
+            self.obiekty.pop(o["Key"], None)
+
     def get_paginator(self, nazwa):
-        return _Paginator(self)
+        return _Paginator(self, nazwa)
 
 
 class _NoSuchKey(Exception):
@@ -49,11 +53,16 @@ _NoSuchKey.__name__ = "NoSuchKey"
 
 
 class _Paginator:
-    def __init__(self, s3):
+    def __init__(self, s3, nazwa="list_objects_v2"):
         self.s3 = s3
+        self.nazwa = nazwa
 
     def paginate(self, Bucket, Prefix, Delimiter=None):
         klucze = [k for k in self.s3.obiekty if k.startswith(Prefix)]
+        if self.nazwa == "list_object_versions":
+            # Bucket ma wersjonowanie: kazdy plik ma tu jedna wersje biezaca.
+            yield {"Versions": [{"Key": k, "VersionId": "v1"} for k in sorted(klucze)]}
+            return
         if Delimiter:
             prefiksy = sorted({
                 Prefix + k[len(Prefix):].split(Delimiter)[0] + Delimiter
@@ -219,6 +228,62 @@ class TestDwieKopieAplikacji:
             assert json.loads((katalog / "sprawa.json").read_text())["id"] == "nowa123"
         finally:
             magazyn.kancelaria_var.reset(zn)
+
+
+class TestUsuwanieSprawy:
+    """Prawo do usuniecia danych: usunieta ma znaczyc usunieta."""
+
+    def test_kasuje_dysk_i_wszystkie_wersje_w_s3(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            katalog = magazyn.sprawy_dir(tmp) / "abc123"
+            (katalog / "skany").mkdir(parents=True)
+            (katalog / "sprawa.json").write_text('{"id": "abc123"}', encoding="utf-8")
+            (katalog / "skany" / "dowod.pdf").write_bytes(b"%PDF")
+            magazyn.utrwal_sprawe(katalog)
+            assert any("abc123" in k for k in atrapa.obiekty)
+
+            usuniete = magazyn.usun_sprawe(katalog)
+
+            assert usuniete >= 2
+            assert not katalog.exists(), "katalog sprawy ma zniknac z dysku"
+            assert not any("abc123" in k for k in atrapa.obiekty), "w S3 nie moze nic zostac"
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_nie_rusza_spraw_innej_kancelarii(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kancelaria-a")
+        try:
+            katalog_a = magazyn.sprawy_dir(tmp) / "sprawa1"
+            katalog_a.mkdir(parents=True)
+            (katalog_a / "sprawa.json").write_text("{}")
+            magazyn.utrwal_sprawe(katalog_a)
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+        zn = magazyn.kancelaria_var.set("kancelaria-b")
+        try:
+            katalog_b = magazyn.sprawy_dir(tmp) / "sprawa1"
+            katalog_b.mkdir(parents=True)
+            (katalog_b / "sprawa.json").write_text("{}")
+            magazyn.utrwal_sprawe(katalog_b)
+            magazyn.usun_sprawe(katalog_b)
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+        assert any("kancelaria-a/sprawy/sprawa1" in k for k in atrapa.obiekty), \
+            "usuniecie u jednej kancelarii nie moze dotknac drugiej"
+
+    def test_tryb_lokalny_kasuje_sam_katalog(self, tmp_path):
+        import magazyn
+        importlib.reload(magazyn)
+        katalog = tmp_path / "sprawy" / "abc123"
+        katalog.mkdir(parents=True)
+        (katalog / "sprawa.json").write_text("{}")
+        assert magazyn.usun_sprawe(katalog) == 0
+        assert not katalog.exists()
 
 
 def test_s3_lista_po_restarcie(magazyn_s3):

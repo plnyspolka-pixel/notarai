@@ -342,6 +342,21 @@ def wczytaj_sprawe(identyfikator: str):
     }
 
 
+@app.delete("/api/sprawy/{identyfikator}")
+def usun_sprawe(identyfikator: str, potwierdzam: bool = False):
+    """Kasuje sprawe razem ze skanami, odczytem, rozmowa i projektem.
+
+    Nieodwracalne i takie ma byc: to realizacja prawa do usuniecia danych.
+    Kasujemy tez starsze wersje plikow w S3, zeby nie zostawaly przez 90 dni.
+    """
+    katalog = _katalog_sprawy(identyfikator)
+    if not potwierdzam:
+        raise HTTPException(400, "Usuniecie sprawy wymaga jawnego potwierdzenia")
+    usuniete = magazyn.usun_sprawe(katalog)
+    log.info("sprawa %s: usunieta, obiektow w S3: %d", identyfikator, usuniete)
+    return {"usunieto": identyfikator, "obiektow": usuniete}
+
+
 @app.put("/api/sprawy/{identyfikator}/sygnatura")
 def zmien_sygnature(identyfikator: str, dane: Sygnatura):
     katalog = _katalog_sprawy(identyfikator)
