@@ -133,6 +133,24 @@ Czego żadna automatyka nie załatwi:
   obrazu podniesie się sam, a parametr `temperature` zostanie pominięty,
   bo nowsze modele go odrzucają.
 
+## Pliki w chmurze albo u kancelarii
+
+Kancelaria dostaje pole `przechowywanie` przy zakładaniu konta: `chmura`
+(domyślnie) albo `u-klienta`. Zmiany w trakcie nie ma świadomie - zostawiałaby
+sprawy w dwóch miejscach naraz.
+
+Przy `u-klienta`:
+- serwer nie zapisuje niczego; `magazyn.utrwal_sprawe()` odmawia zapisu,
+- przeglądarka pracuje na punktach `/api/odczyt`, `/api/projekt`, `/api/rozmowa`,
+  które przetwarzają dane w katalogu tymczasowym i kasują go zawsze,
+- sprawy trafiają do folderu wskazanego przez notariusza: układ plików
+  identyczny jak w chmurze (sprawa.json, odczyt.json, rozmowa.json,
+  kontekst.txt, wzor.*, skany/, projekt.docx, projekt.txt),
+- folder pamięta się między uruchomieniami; wymaga Chrome albo Edge,
+- sprawdzenia w rejestrach są w tym trybie ukryte, bo zapisują ślad w sprawie
+  po stronie serwera,
+- za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
+
 ## Znane granice (uczciwie)
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.

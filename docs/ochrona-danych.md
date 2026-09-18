@@ -6,6 +6,19 @@ ten plik trzeba poprawić razem z nią.
 
 ## Gdzie są dane
 
+Kancelaria wybiera przy zakładaniu konta jedną z dwóch możliwości.
+
+**Pliki w chmurze** (domyślnie): sprawy leżą w S3 we Frankfurcie, szyfrowane
+i wersjonowane. Odzyskanie po przypadkowym nadpisaniu jest możliwe.
+
+**Pliki u kancelarii**: sprawy zapisują się w folderze na komputerze
+notariusza. Serwer nie przechowuje wtedy niczego. Skany i tak przechodzą przez
+model, żeby dało się je odczytać, ale po przetworzeniu nie zostaje po nich
+żaden plik. Za kopie zapasowe odpowiada wtedy kancelaria; wymaga to
+przeglądarki Chrome albo Edge.
+
+Poniższa tabela opisuje wariant chmurowy.
+
 | Co | Gdzie | Zabezpieczenie |
 |---|---|---|
 | Skany, odczyty, rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |

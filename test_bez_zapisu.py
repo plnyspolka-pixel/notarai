@@ -84,8 +84,10 @@ class TestProjektBezZapisu:
                               data={"pola": json.dumps([{"nazwa": "zbywca", "wartosc": "Jan"}]),
                                     "polecenie": "", "rozmowa": "[]"})
         assert odp.status_code == 200
-        assert "wordprocessingml" in odp.headers["content-type"]
-        assert odp.content[:2] == b"PK", "docx to archiwum zip"
+        wynik = odp.json()
+        assert wynik["tekst"].startswith("AKT NOTARIALNY")
+        import base64
+        assert base64.b64decode(wynik["docx"])[:2] == b"PK", "docx to archiwum zip"
 
     def test_zly_format_pol(self, klient):
         odp = klient.post("/api/projekt", files={"wzor": _wzor()},

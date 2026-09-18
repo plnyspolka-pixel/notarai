@@ -45,6 +45,8 @@ aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--
   padding:18px 12px 6px}
 .krok{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r2);
   color:var(--tekst2);font-size:14px;cursor:default;user-select:none}
+/* display:flex wygrywa z domyslnym [hidden], wiec ukrycie trzeba dopisac */
+.krok[hidden]{display:none}
 .krok b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--linia2);
   display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--sans);flex:none}
 .krok.aktywny{background:var(--karta);color:var(--tekst);border:1px solid var(--linia);cursor:pointer}
@@ -59,6 +61,9 @@ aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--
 .sprawa-el.aktywna{background:var(--karta);color:var(--tekst);border:1px solid var(--linia)}
 .sprawa-el b{display:block;font-weight:500;color:var(--tekst);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sprawa-el small{color:var(--tekst3);font-size:11.5px}
+.folder{font-size:11.5px;color:var(--tekst3);padding:0 12px 6px;line-height:1.45}
+.folder b{color:var(--tekst2);font-weight:500}
+button.maly{font-size:12px;padding:5px 10px;margin:0 12px 10px;width:calc(100% - 24px)}
 .sprawa-el{position:relative}
 .sprawa-el .kosz{position:absolute;top:6px;right:6px;width:22px;height:22px;padding:0;
   border:0;border-radius:6px;background:transparent;color:var(--tekst3);font-size:16px;
@@ -225,6 +230,11 @@ notarai</div>
   <div class="sekcja-t">Narzędzia</div>
   <div class="krok" data-etap="4"><b><span>✓</span></b>Sprawdzenia</div>
   <div class="sekcja-t">Sprawy</div>
+  <!-- Widoczne tylko wtedy, gdy kancelaria trzyma pliki u siebie. -->
+  <div id="pasek-folder" hidden>
+    <div class="folder" id="opis-folder">Sprawy zapisują się na tym komputerze.</div>
+    <button class="wtorny maly" id="btn-folder">Wskaż folder na sprawy</button>
+  </div>
   <div class="sprawy" id="lista-spraw"><span class="stan" style="padding:0 12px">Ładuję…</span></div>
   <!-- Tresc o przechowywaniu wstawia serwer przy wydaniu strony: zaleznie od
        trybu dane leza na tym komputerze albo w chmurze. Nie moze byc na sztywno,
@@ -532,7 +542,7 @@ function wpusc(nowyToken){
   $("brama").hidden = true;
   stan($("stan-brama"), "");
   odswiezWyloguj();
-  rysujListeSpraw();
+  uruchomTrybPracy();
 }
 
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
@@ -674,6 +684,102 @@ $("btn-token").onclick = async () => {
   });
 });
 
+/* ---------- sprawy na dysku notariusza ----------
+   Kancelaria moze pracowac tak, zeby serwer niczego nie zapisywal. Wtedy
+   sprawy leza w folderze wskazanym przez notariusza: kazda sprawa to
+   podkatalog z tymi samymi plikami, co w chmurze. Dostep do folderu daje
+   przegladarka (Chrome i Edge); uprawnienie zostaje miedzy uruchomieniami,
+   ale czasem trzeba je potwierdzic ponownie.                              */
+const dysk = {
+  obslugiwany: typeof window.showDirectoryPicker === "function",
+  aktywny: false,      // czy ta kancelaria pracuje na dysku
+  folder: null,
+
+  async zapamietaj(uchwyt){
+    try {
+      const baza = await new Promise((ok, zle) => {
+        const z = indexedDB.open("notarai", 1);
+        z.onupgradeneeded = () => z.result.createObjectStore("uchwyty");
+        z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+      });
+      await new Promise((ok, zle) => {
+        const t = baza.transaction("uchwyty", "readwrite");
+        t.objectStore("uchwyty").put(uchwyt, "folder");
+        t.oncomplete = ok; t.onerror = () => zle(t.error);
+      });
+    } catch { /* brak pamieci to tylko ponowny wybor folderu */ }
+  },
+
+  async odtworz(){
+    try {
+      const baza = await new Promise((ok, zle) => {
+        const z = indexedDB.open("notarai", 1);
+        z.onupgradeneeded = () => z.result.createObjectStore("uchwyty");
+        z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+      });
+      const uchwyt = await new Promise((ok, zle) => {
+        const z = baza.transaction("uchwyty").objectStore("uchwyty").get("folder");
+        z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+      });
+      return uchwyt || null;   // o brakujące uprawnienie poprosimy przy pierwszym użyciu
+    } catch { return null; }
+  },
+
+  async wybierz(){
+    const uchwyt = await window.showDirectoryPicker({mode:"readwrite", id:"notarai-sprawy"});
+    this.folder = uchwyt;
+    await this.zapamietaj(uchwyt);
+    return uchwyt;
+  },
+
+  async upewnijSieODostepie(){
+    if (!this.folder) return false;
+    // Nie kazdy uchwyt ma pytanie o uprawnienia (np. pamiec wlasna strony).
+    if (typeof this.folder.queryPermission !== "function") return true;
+    if (await this.folder.queryPermission({mode:"readwrite"}) === "granted") return true;
+    return await this.folder.requestPermission({mode:"readwrite"}) === "granted";
+  },
+
+  async katalogSprawy(id, tworz = false){
+    return await this.folder.getDirectoryHandle(id, {create: tworz});
+  },
+
+  async zapiszPlik(katalog, nazwa, dane){
+    const plik = await katalog.getFileHandle(nazwa, {create:true});
+    const zapis = await plik.createWritable();
+    await zapis.write(dane);
+    await zapis.close();
+  },
+
+  async zapiszJson(katalog, nazwa, obiekt){
+    await this.zapiszPlik(katalog, nazwa, JSON.stringify(obiekt, null, 2));
+  },
+
+  async czytajJson(katalog, nazwa){
+    try {
+      const plik = await (await katalog.getFileHandle(nazwa)).getFile();
+      return JSON.parse(await plik.text());
+    } catch { return null; }
+  },
+
+  async czytajTekst(katalog, nazwa){
+    try {
+      const plik = await (await katalog.getFileHandle(nazwa)).getFile();
+      return await plik.text();
+    } catch { return ""; }
+  },
+
+  async listaSpraw(){
+    const wynik = [];
+    for await (const [nazwa, uchwyt] of this.folder.entries()) {
+      if (uchwyt.kind !== "directory") continue;
+      const meta = await this.czytajJson(uchwyt, "sprawa.json");
+      if (meta) wynik.push(meta);
+    }
+    return wynik.sort((a, b) => (b.utworzono || "").localeCompare(a.utworzono || ""));
+  },
+};
+
 /* ---------- nawigacja ---------- */
 function pokaz(numer){
   [1,2,3,4].forEach(n => $("etap"+n).hidden = (n !== numer));
@@ -697,7 +803,18 @@ $("btn-nowa").onclick = () => { if (!sprawa || confirm("Zacząć nową sprawę? 
 async function rysujListeSpraw(){
   const k = $("lista-spraw");
   try {
-    const lista = await (await api("/api/sprawy")).json();
+    if (dysk.aktywny) {
+      if (!dysk.folder) {
+        k.innerHTML = '<span class="stan" style="padding:0 12px">Wskaż folder na sprawy.</span>';
+        return;
+      }
+      if (!await dysk.upewnijSieODostepie()) {
+        k.innerHTML = '<span class="stan blad" style="padding:0 12px">Brak dostępu do folderu.</span>';
+        return;
+      }
+    }
+    const lista = dysk.aktywny ? await dysk.listaSpraw()
+                               : await (await api("/api/sprawy")).json();
     k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Brak zapisanych spraw.</span>';
     lista.forEach(s => {
       const d = document.createElement("div");
@@ -723,8 +840,12 @@ async function rysujListeSpraw(){
           + "Znikną skany, odczytane dane, rozmowa i projekt. "
           + "Tego nie da się cofnąć.")) return;
         try {
-          const odp = await api("/api/sprawy/" + s.id + "?potwierdzam=true", {method: "DELETE"});
-          if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
+          if (dysk.aktywny) {
+            await dysk.folder.removeEntry(s.id, {recursive: true});
+          } else {
+            const odp = await api("/api/sprawy/" + s.id + "?potwierdzam=true", {method: "DELETE"});
+            if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
+          }
           if (sprawa && sprawa.id === s.id) { location.reload(); return; }
           rysujListeSpraw();
         } catch (e) { alert("Nie udało się usunąć sprawy: " + e.message); }
@@ -735,9 +856,23 @@ async function rysujListeSpraw(){
   } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; }
 }
 async function wczytajSprawe(id){
-  const odp = await api("/api/sprawy/" + id);
-  if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
-  const w = await odp.json();
+  let w;
+  if (dysk.aktywny) {
+    try {
+      const katalog = await dysk.katalogSprawy(id);
+      const meta = await dysk.czytajJson(katalog, "sprawa.json") || {};
+      const odczyt = await dysk.czytajJson(katalog, "odczyt.json") || {};
+      w = Object.assign({}, meta, odczyt, {
+        rozmowa: await dysk.czytajJson(katalog, "rozmowa.json") || [],
+        kontekst: await dysk.czytajTekst(katalog, "kontekst.txt"),
+        projekt: await dysk.czytajTekst(katalog, "projekt.txt"),
+      });
+    } catch (e) { return alert("Nie udało się wczytać sprawy z dysku: " + e.message); }
+  } else {
+    const odp = await api("/api/sprawy/" + id);
+    if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
+    w = await odp.json();
+  }
   sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
   najdalej = 1;
   $("sygn2").value = w.sygnatura || "";
@@ -754,18 +889,75 @@ async function wczytajSprawe(id){
   }
   rysujListeSpraw();
 }
-$("nazwa2").onchange = async () => {
+/* Nazwa i sygnatura: na dysku poprawiamy sprawa.json u notariusza. */
+async function zapiszMeta(pole, wartosc){
   if (!sprawa) return;
-  const odp = await api("/api/sprawy/" + sprawa.id + "/nazwa", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({nazwa: $("nazwa2").value})});
-  if (odp.ok) { sprawa.nazwa = (await odp.json()).nazwa; $("nazwa2").value = sprawa.nazwa || ""; rysujListeSpraw(); }
+  if (dysk.aktywny) {
+    const katalog = await dysk.katalogSprawy(sprawa.id);
+    const meta = await dysk.czytajJson(katalog, "sprawa.json") || {};
+    meta[pole] = wartosc;
+    await dysk.zapiszJson(katalog, "sprawa.json", meta);
+    sprawa[pole] = wartosc;
+    rysujListeSpraw();
+    return;
+  }
+  const odp = await api("/api/sprawy/" + sprawa.id + "/" + pole, {
+    method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({[pole]: wartosc})});
+  if (odp.ok) {
+    sprawa[pole] = (await odp.json())[pole];
+    if (pole === "nazwa") $("nazwa2").value = sprawa.nazwa || "";
+    rysujListeSpraw();
+  }
+}
+$("nazwa2").onchange = () => zapiszMeta("nazwa", $("nazwa2").value);
+$("sygn2").onchange = () => zapiszMeta("sygnatura", $("sygn2").value);
+/* ---------- tryb pracy: chmura albo dysk notariusza ---------- */
+function odswiezOpisFolderu(){
+  const opis = $("opis-folder"), btn = $("btn-folder");
+  if (!dysk.obslugiwany) {
+    opis.innerHTML = "Ta przeglądarka nie potrafi zapisywać spraw w folderze. "
+      + "Użyj Chrome albo Edge.";
+    btn.hidden = true;
+    return;
+  }
+  opis.innerHTML = dysk.folder
+    ? "Sprawy zapisują się w folderze <b>" + escape(dysk.folder.name) + "</b> na tym komputerze."
+    : "Sprawy mają zostawać na tym komputerze. Wskaż folder, w którym mam je zapisywać.";
+  btn.textContent = dysk.folder ? "Zmień folder" : "Wskaż folder na sprawy";
+  btn.hidden = false;
+}
+
+$("btn-folder").onclick = async () => {
+  try {
+    await dysk.wybierz();
+    odswiezOpisFolderu();
+    rysujListeSpraw();
+  } catch (e) {
+    if (e.name !== "AbortError") alert("Nie udało się otworzyć folderu: " + e.message);
+  }
 };
-$("sygn2").onchange = async () => {
-  if (!sprawa) return;
-  const odp = await api("/api/sprawy/" + sprawa.id + "/sygnatura", {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sygnatura: $("sygn2").value})});
-  if (odp.ok) { sprawa.sygnatura = (await odp.json()).sygnatura; rysujListeSpraw(); }
-};
+
+async function uruchomTrybPracy(){
+  try {
+    const odp = await api("/api/ustawienia");
+    if (odp.ok) dysk.aktywny = (await odp.json()).przechowywanie === "u-klienta";
+  } catch { return; }   // brak logowania: brama jest już otwarta
+  if (dysk.aktywny) {
+    $("pasek-folder").hidden = false;
+    if (dysk.obslugiwany) dysk.folder = await dysk.odtworz();
+    odswiezOpisFolderu();
+    // Sprawdzenia w rejestrach zapisuja slad w sprawie po stronie serwera,
+    // wiec przy pracy na dysku nie sa jeszcze dostepne. Lepiej ukryc niz
+    // pokazac przycisk, ktory konczy sie bledem.
+    const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
+    if (krokSprawdzen) krokSprawdzen.hidden = true;
+  }
+  rysujListeSpraw();
+}
+
 odswiezWyloguj();
-rysujListeSpraw();
+uruchomTrybPracy();
 function stan(el, tekst, blad, praca){
   el.textContent = tekst;
   el.classList.toggle("blad", !!blad);
@@ -780,11 +972,31 @@ function stan(el, tekst, blad, praca){
   };
 });
 
+/* Zapisuje nowa sprawe w folderze notariusza - te same pliki, co w chmurze. */
+async function zapiszSpraweNaDysku(wynik, wzor, skany){
+  const katalog = await dysk.katalogSprawy(wynik.id, true);
+  await dysk.zapiszPlik(katalog, wynik.wzor, wzor);
+  const skanyKatalog = await katalog.getDirectoryHandle("skany", {create:true});
+  for (const s of skany) await dysk.zapiszPlik(skanyKatalog, s.name, s);
+  await dysk.zapiszJson(katalog, "sprawa.json", {
+    id: wynik.id, nazwa: wynik.nazwa, sygnatura: wynik.sygnatura,
+    utworzono: wynik.utworzono, polecenie: wynik.polecenie,
+    wzor: wynik.wzor, skany: wynik.skany, stron: wynik.stron,
+    pola_wzoru: wynik.pola_wzoru, legenda: wynik.legenda, warianty: wynik.warianty,
+  });
+  await dysk.zapiszJson(katalog, "odczyt.json", {
+    pola: wynik.pola, braki: wynik.braki, rozbieznosci: wynik.rozbieznosci,
+  });
+  await dysk.zapiszJson(katalog, "rozmowa.json", wynik.rozmowa || []);
+  await dysk.zapiszPlik(katalog, "kontekst.txt", wynik.kontekst || "");
+}
+
 /* ---------- 1: odczyt ---------- */
 $("btn-odczytaj").onclick = async () => {
   const wzor = $("wzor").files[0], skany = $("skany").files;
   if (!wzor)         return stan($("stan1"), "Wybierz plik ze wzorem aktu.", true);
   if (!skany.length) return stan($("stan1"), "Dodaj co najmniej jeden skan.", true);
+  if (dysk.aktywny && !dysk.folder) return stan($("stan1"), "Najpierw wskaż folder na sprawy.", true);
   const dane = new FormData();
   dane.append("wzor", wzor);
   for (const s of skany) dane.append("skany", s);
@@ -794,9 +1006,19 @@ $("btn-odczytaj").onclick = async () => {
   $("btn-odczytaj").disabled = true;
   stan($("stan1"), "Odczytuję skany… przy kilkunastu stronach to 1–3 minuty.", false, true);
   try {
-    const odp = await api("/api/sprawy", {method:"POST", body:dane});
+    const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy", {method:"POST", body:dane});
     const wynik = await odp.json();
     if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    if (dysk.aktywny) {
+      // Serwer nic nie zapisal - sprawe zakladamy u notariusza na dysku.
+      wynik.id = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16)).slice(0, 12);
+      wynik.sygnatura = $("sygnatura").value;
+      wynik.polecenie = poleceniePierwotne;
+      wynik.utworzono = new Date().toISOString().slice(0, 19);
+      wynik.wzor = "wzor" + wzor.name.slice(wzor.name.lastIndexOf("."));
+      wynik.skany = [...skany].map(s => s.name);
+      await zapiszSpraweNaDysku(wynik, wzor, skany);
+    }
     sprawa = wynik;
     rozmowa = wynik.rozmowa || [];
     $("sygn2").value = wynik.sygnatura || "";
@@ -908,12 +1130,29 @@ async function wyslijWiadomosc(nr){
   rysujCzat(); ta.value = "";
   stan(st, "Asystent odpowiada…", false, true);
   try {
-    const odp = await api("/api/sprawy/" + sprawa.id + "/rozmowa", {
-      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
-    });
-    const w = await odp.json();
-    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
-    rozmowa = w.rozmowa; rysujCzat(); stan(st, "");
+    let w;
+    if (dysk.aktywny) {
+      // Historie trzyma przegladarka i dysk notariusza, nie serwer.
+      const historia = rozmowa.slice(0, -2);
+      const odp = await api("/api/rozmowa", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({kontekst: sprawa.kontekst || "", historia, tresc})
+      });
+      w = await odp.json();
+      if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+      rozmowa[rozmowa.length - 1] = {rola:"asystent", tresc:w.odpowiedz,
+                                     czas:new Date().toISOString().slice(0,19)};
+      const katalog = await dysk.katalogSprawy(sprawa.id);
+      await dysk.zapiszJson(katalog, "rozmowa.json", rozmowa);
+    } else {
+      const odp = await api("/api/sprawy/" + sprawa.id + "/rozmowa", {
+        method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
+      });
+      w = await odp.json();
+      if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+      rozmowa = w.rozmowa;
+    }
+    rysujCzat(); stan(st, "");
     return true;
   } catch (e) {
     rozmowa.splice(-2, 2); rysujCzat(); ta.value = tresc; stan(st, e.message, true);
@@ -973,16 +1212,39 @@ $("btn-generuj").onclick = async () => {
   $("btn-generuj").disabled = true;
   stan($("stan2"), "Sporządzam projekt…", false, true);
   try {
-    const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
-    });
-    const wynik = await odp.json();
-    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    let wynik;
+    if (dysk.aktywny) {
+      const katalog = await dysk.katalogSprawy(sprawa.id);
+      const wzorPlik = await (await katalog.getFileHandle(sprawa.wzor)).getFile();
+      const dane = new FormData();
+      dane.append("wzor", wzorPlik);
+      dane.append("pola", JSON.stringify(sprawa.pola));
+      dane.append("polecenie", poleceniePierwotne);
+      dane.append("rozmowa", JSON.stringify(rozmowa));
+      const odp = await api("/api/projekt", {method:"POST", body:dane});
+      wynik = await odp.json();
+      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+      // Projekt ląduje u notariusza: .docx do pracy i .txt do podglądu.
+      const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
+      await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
+      await dysk.zapiszPlik(katalog, "projekt.txt", wynik.tekst);
+      await dysk.zapiszJson(katalog, "odczyt.json", {
+        pola: sprawa.pola, braki: sprawa.braki || [], rozbieznosci: sprawa.rozbieznosci || [],
+      });
+    } else {
+      const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
+      });
+      wynik = await odp.json();
+      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    }
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
-    api("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
+    if (!dysk.aktywny) {
+      api("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
+    }
   } catch (e) {
     stan($("stan2"), e.message, true);
   } finally {
@@ -1000,7 +1262,18 @@ function pokazProjekt(w){
     ? "Projekt gotowy do sprawdzenia. Zostało " + uwagi.join(" i ") + ", zaznaczone w tekście."
     : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
 }
-$("btn-pobierz").onclick = () => location.href = "/api/sprawy/" + sprawa.id + "/plik";
+$("btn-pobierz").onclick = async () => {
+  if (!dysk.aktywny) { location.href = "/api/sprawy/" + sprawa.id + "/plik"; return; }
+  // Plik jest juz u notariusza - otwieramy go z dysku zamiast pobierac z serwera.
+  try {
+    const katalog = await dysk.katalogSprawy(sprawa.id);
+    const plik = await (await katalog.getFileHandle("projekt.docx")).getFile();
+    const adres = URL.createObjectURL(plik);
+    const a = document.createElement("a");
+    a.href = adres; a.download = "projekt.docx"; a.click();
+    setTimeout(() => URL.revokeObjectURL(adres), 10000);
+  } catch (e) { alert("Nie znalazłem projektu w folderze sprawy: " + e.message); }
+};
 $("btn-wroc").onclick   = () => pokaz(1);
 $("btn-popraw").onclick = () => pokaz(2);
 

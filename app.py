@@ -3,6 +3,7 @@
 Uruchomienie:  python app.py
 Adres:         http://127.0.0.1:8000
 """
+import base64
 import json
 import logging
 import re
@@ -210,6 +211,15 @@ async def nowa_sprawa(
     }
 
 
+@app.get("/api/ustawienia")
+def ustawienia_kancelarii():
+    """Co przegladarka musi wiedziec o tej kancelarii, zeby wybrac tryb pracy."""
+    return {
+        "przechowywanie": magazyn.przechowywanie_var.get(),
+        "kancelaria": magazyn.kancelaria(),
+    }
+
+
 # --- praca bez zapisu: pliki zostaja u kancelarii --------------------------
 # Te punkty nie tworza sprawy i nic nie zapisuja. Pliki przychodza z dysku
 # notariusza przy kazdym zadaniu, a wyniki wracaja do przegladarki, ktora
@@ -289,11 +299,13 @@ async def projekt_bez_zapisu(
         dane = cel.read_bytes()
 
     log.info("projekt bez zapisu: znakow=%d", len(projekt))
-    return Response(
-        content=dane,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": 'attachment; filename="projekt.docx"'},
-    )
+    # Tekst do podgladu w przegladarce, plik do zapisania na dysku notariusza.
+    return {
+        "tekst": projekt,
+        "brakujace": projekt.count("<<BRAK:"),
+        "do_wyboru": projekt.count("<<WYBOR:"),
+        "docx": base64.b64encode(dane).decode("ascii"),
+    }
 
 
 class ZadanieRozmowy(BaseModel):
