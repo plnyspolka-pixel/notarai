@@ -129,11 +129,21 @@ async def middleware(request: Request, call_next):
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
 
     znacznik = magazyn.kancelaria_var.set(kancelaria)
+    znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
     try:
         request.state.kancelaria = kancelaria
         return await call_next(request)
     finally:
         magazyn.kancelaria_var.reset(znacznik)
+        magazyn.przechowywanie_var.reset(znacznik_p)
+
+
+def _przechowywanie(kancelaria: str) -> str:
+    """Gdzie ta kancelaria trzyma pliki. Domyslnie w chmurze."""
+    for wpis in _wczytaj_rejestr().values():
+        if wpis["id"] == kancelaria:
+            return wpis.get("przechowywanie", "chmura")
+    return "chmura"
 
 
 # --- Panel admina -----------------------------------------------------------
@@ -252,6 +262,11 @@ def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
 
 class NowaKancelaria(BaseModel):
     nazwa: str
+    # "chmura": pliki w S3 we Frankfurcie. "u-klienta": serwer niczego nie
+    # zapisuje, pliki zostaja na dysku kancelarii. Decyzja zapada przy
+    # zakladaniu konta, bo zmiana w trakcie zostawialaby sprawy w dwoch
+    # miejscach naraz.
+    przechowywanie: str = "chmura"
 
 
 @router.get("/kancelarie")
@@ -259,7 +274,8 @@ def lista_kancelarii(request: Request):
     _wymagaj_admina(request)
     rejestr = _wczytaj_rejestr()
     return [
-        {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True)}
+        {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
+         "przechowywanie": w.get("przechowywanie", "chmura")}
         for w in rejestr.values()
     ]
 
@@ -277,13 +293,22 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     if id_k in zajete:
         id_k = f"{id_k}-{secrets.token_hex(3)}"
 
+    if dane.przechowywanie not in ("chmura", "u-klienta"):
+        raise HTTPException(400, "Przechowywanie: 'chmura' albo 'u-klienta'")
+
     token = secrets.token_hex(32)
-    rejestr[_sha(token)] = {"id": id_k, "nazwa": nazwa, "aktywna": True}
+    rejestr[_sha(token)] = {
+        "id": id_k,
+        "nazwa": nazwa,
+        "aktywna": True,
+        "przechowywanie": dane.przechowywanie,
+    }
     _zapisz_rejestr(rejestr)
-    log.info("kancelaria dodana: %s", id_k)
+    log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
     return {
         "id": id_k,
         "nazwa": nazwa,
+        "przechowywanie": dane.przechowywanie,
         "token": token,
         "uwaga": "Zapisz token teraz - nie da sie go odczytac ponownie.",
     }

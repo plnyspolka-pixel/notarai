@@ -7,12 +7,13 @@ import json
 import logging
 import re
 import shutil
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -87,6 +88,54 @@ def strona_glowna():
     return strona.replace("Sprawdzam, gdzie zapisywane są dane…", gdzie)
 
 
+def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
+               etykieta: str) -> dict:
+    """Wspolna czesc: analiza wzoru, odczyt skanow, pierwsza tura rozmowy.
+
+    Nie zapisuje niczego trwale - zapis (albo jego brak) nalezy do funkcji
+    wywolujacej. `etykieta` trafia tylko do logow, nigdy dane osobowe.
+    """
+    tekst_wzoru = dokumenty.wzor_na_tekst(sciezka_wzoru)
+    analiza = dokumenty.analizuj_wzor(tekst_wzoru)
+    pola_wzoru = analiza["pola"]
+    strony = dokumenty.strony_ze_skanow(sciezki_skanow)
+
+    log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d",
+             etykieta, sciezka_wzoru.name, len(pola_wzoru),
+             len(analiza["legenda"]), analiza["warianty"], len(strony))
+
+    try:
+        odczyt = bedrock.odczytaj_dane(strony, pola_wzoru, polecenie, analiza["legenda"])
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+    except Exception as blad:
+        log.error("%s: blad odczytu (%s)", etykieta, type(blad).__name__)
+        raise HTTPException(502, f"Bedrock: {blad}")
+
+    pola = _zwaliduj(odczyt.get("pola", []))
+    kontekst = prompty.kontekst_rozmowy(
+        pola, odczyt.get("braki", []), odczyt.get("rozbieznosci", []), polecenie
+    )
+    try:
+        pytania = bedrock.rozmawiaj(kontekst, [], None)
+    except Exception as blad:
+        log.error("%s: blad pytan wstepnych (%s)", etykieta, type(blad).__name__)
+        pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
+                   "albo od razu sporzadzic projekt.")
+
+    return {
+        "analiza": analiza,
+        "pola_wzoru": pola_wzoru,
+        "pola": pola,
+        "braki": odczyt.get("braki", []),
+        "rozbieznosci": odczyt.get("rozbieznosci", []),
+        "stron": len(strony),
+        "kontekst": kontekst,
+        "rozmowa": [{"rola": "asystent", "tresc": pytania,
+                     "czas": datetime.now().isoformat(timespec="seconds")}],
+    }
+
+
 @app.post("/api/sprawy")
 async def nowa_sprawa(
     wzor: UploadFile = File(...),
@@ -94,7 +143,12 @@ async def nowa_sprawa(
     polecenie: str = Form(""),
     sygnatura: str = Form(""),
 ):
-    """Wgranie wzoru i skanow, odczyt danych."""
+    """Wgranie wzoru i skanow, odczyt danych. Sprawa zostaje w magazynie."""
+    if magazyn.u_klienta():
+        raise HTTPException(409, (
+            "Ta kancelaria trzyma pliki u siebie. Uzyj /api/odczyt, ktore niczego "
+            "nie zapisuje."
+        ))
     identyfikator = uuid.uuid4().hex[:12]
     katalog = config.SPRAWY / identyfikator
     (katalog / "skany").mkdir(parents=True)
@@ -109,48 +163,19 @@ async def nowa_sprawa(
         sciezki_skanow.append(cel)
 
     try:
-        tekst_wzoru = dokumenty.wzor_na_tekst(sciezka_wzoru)
-        analiza = dokumenty.analizuj_wzor(tekst_wzoru)
-        pola_wzoru = analiza["pola"]
-        strony = dokumenty.strony_ze_skanow(sciezki_skanow)
+        wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
+                           f"sprawa {identyfikator}")
     except ValueError as blad:
         shutil.rmtree(katalog, ignore_errors=True)
         raise HTTPException(400, str(blad))
+    except HTTPException:
+        shutil.rmtree(katalog, ignore_errors=True)
+        raise
 
-    log.info(
-        "sprawa %s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d",
-        identyfikator,
-        sciezka_wzoru.name,
-        len(pola_wzoru),
-        len(analiza["legenda"]),
-        analiza["warianty"],
-        len(strony),
-    )
-
-    try:
-        odczyt = bedrock.odczytaj_dane(
-            strony, pola_wzoru, polecenie, analiza["legenda"]
-        )
-    except bedrock.Przeciazenie as blad:
-        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
-    except Exception as blad:
-        log.error("sprawa %s: blad odczytu (%s)", identyfikator, type(blad).__name__)
-        raise HTTPException(502, f"Bedrock: {blad}")
-
-    pola = _zwaliduj(odczyt.get("pola", []))
-
-    # Pierwsza tura rozmowy: model pyta o to, czego brakuje.
-    kontekst = prompty.kontekst_rozmowy(
-        pola, odczyt.get("braki", []), odczyt.get("rozbieznosci", []), polecenie
-    )
-    try:
-        pytania = bedrock.rozmawiaj(kontekst, [], None)
-    except Exception as blad:
-        log.error("sprawa %s: blad pytan wstepnych (%s)", identyfikator, type(blad).__name__)
-        pytania = "Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej albo od razu sporzadzic projekt."
-    rozmowa = [{"rola": "asystent", "tresc": pytania, "czas": datetime.now().isoformat(timespec="seconds")}]
+    analiza, pola = wynik["analiza"], wynik["pola"]
+    rozmowa = wynik["rozmowa"]
     _zapisz_rozmowe(katalog, rozmowa)
-    (katalog / "kontekst.txt").write_text(kontekst, encoding="utf-8")
+    (katalog / "kontekst.txt").write_text(wynik["kontekst"], encoding="utf-8")
 
     _zapisz_json(katalog / "sprawa.json", {
         "id": identyfikator,
@@ -160,15 +185,15 @@ async def nowa_sprawa(
         "polecenie": polecenie,
         "wzor": sciezka_wzoru.name,
         "skany": [p.name for p in sciezki_skanow],
-        "stron": len(strony),
-        "pola_wzoru": pola_wzoru,
+        "stron": wynik["stron"],
+        "pola_wzoru": wynik["pola_wzoru"],
         "legenda": analiza["legenda"],
         "warianty": analiza["warianty"],
     })
     _zapisz_json(katalog / "odczyt.json", {
         "pola": pola,
-        "braki": odczyt.get("braki", []),
-        "rozbieznosci": odczyt.get("rozbieznosci", []),
+        "braki": wynik["braki"],
+        "rozbieznosci": wynik["rozbieznosci"],
     })
     magazyn.utrwal_sprawe(katalog)
 
@@ -177,12 +202,120 @@ async def nowa_sprawa(
         "nazwa": nazwy.nazwa_sprawy(pola, [p.name for p in sciezki_skanow]),
         "sygnatura": sygnatura,
         "pola": pola,
-        "braki": odczyt.get("braki", []),
-        "rozbieznosci": odczyt.get("rozbieznosci", []),
-        "stron": len(strony),
+        "braki": wynik["braki"],
+        "rozbieznosci": wynik["rozbieznosci"],
+        "stron": wynik["stron"],
         "warianty": analiza["warianty"],
         "rozmowa": rozmowa,
     }
+
+
+# --- praca bez zapisu: pliki zostaja u kancelarii --------------------------
+# Te punkty nie tworza sprawy i nic nie zapisuja. Pliki przychodza z dysku
+# notariusza przy kazdym zadaniu, a wyniki wracaja do przegladarki, ktora
+# zapisuje je z powrotem u niego. Serwer pracuje w katalogu tymczasowym,
+# kasowanym zawsze, takze po bledzie.
+
+
+@app.post("/api/odczyt")
+async def odczyt_bez_zapisu(
+    wzor: UploadFile = File(...),
+    skany: list[UploadFile] = File(...),
+    polecenie: str = Form(""),
+):
+    """Odczyt skanow bez tworzenia sprawy. Nic nie zostaje na serwerze."""
+    with tempfile.TemporaryDirectory(prefix="notarai-") as tymczasowy:
+        katalog = Path(tymczasowy)
+        (katalog / "skany").mkdir()
+        sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
+        _zapisz(wzor, sciezka_wzoru)
+        sciezki_skanow = []
+        for skan in skany:
+            cel = katalog / "skany" / Path(skan.filename).name
+            _zapisz(skan, cel)
+            sciezki_skanow.append(cel)
+
+        try:
+            wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie, "odczyt bez zapisu")
+        except ValueError as blad:
+            raise HTTPException(400, str(blad))
+
+        analiza = wynik["analiza"]
+        return {
+            "nazwa": nazwy.nazwa_sprawy(wynik["pola"], [p.name for p in sciezki_skanow]),
+            "pola": wynik["pola"],
+            "braki": wynik["braki"],
+            "rozbieznosci": wynik["rozbieznosci"],
+            "stron": wynik["stron"],
+            "warianty": analiza["warianty"],
+            "legenda": analiza["legenda"],
+            "pola_wzoru": wynik["pola_wzoru"],
+            "kontekst": wynik["kontekst"],
+            "rozmowa": wynik["rozmowa"],
+        }
+
+
+@app.post("/api/projekt")
+async def projekt_bez_zapisu(
+    wzor: UploadFile = File(...),
+    pola: str = Form("[]"),
+    polecenie: str = Form(""),
+    rozmowa: str = Form("[]"),
+):
+    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie."""
+    try:
+        lista_pol = json.loads(pola)
+        historia = json.loads(rozmowa)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Nieprawidlowy format pol albo rozmowy")
+
+    with tempfile.TemporaryDirectory(prefix="notarai-") as tymczasowy:
+        katalog = Path(tymczasowy)
+        sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
+        _zapisz(wzor, sciezka_wzoru)
+        analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
+        try:
+            projekt = bedrock.sporzadz_projekt(
+                analiza["tresc"], lista_pol, polecenie, analiza["legenda"], historia
+            )
+        except bedrock.Przeciazenie as blad:
+            raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+        except Exception as blad:
+            log.error("projekt bez zapisu: blad generowania (%s)", type(blad).__name__)
+            raise HTTPException(502, f"Bedrock: {blad}")
+
+        cel = katalog / "projekt.docx"
+        dokumenty.tekst_na_docx(projekt, cel)
+        dane = cel.read_bytes()
+
+    log.info("projekt bez zapisu: znakow=%d", len(projekt))
+    return Response(
+        content=dane,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="projekt.docx"'},
+    )
+
+
+class ZadanieRozmowy(BaseModel):
+    kontekst: str
+    historia: list[dict] = []
+    tresc: str
+
+
+@app.post("/api/rozmowa")
+def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
+    """Kolejna tura rozmowy bez sprawy na serwerze. Historie trzyma przegladarka."""
+    tresc = zadanie.tresc.strip()
+    if not tresc:
+        raise HTTPException(400, "Pusta wiadomosc")
+    try:
+        odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+    except Exception as blad:
+        log.error("rozmowa bez zapisu: blad (%s)", type(blad).__name__)
+        raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
+    return {"odpowiedz": odpowiedz}
 
 
 class ZadanieGenerowania(BaseModel):

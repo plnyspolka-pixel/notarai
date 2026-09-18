@@ -36,6 +36,15 @@ if TRYB == "s3" and not BUCKET:
 # w trybie lokalnym zawsze "lokalna" i sciezki sa identyczne jak dotychczas.
 kancelaria_var: ContextVar[str] = ContextVar("kancelaria", default="lokalna")
 
+# Gdzie leza pliki tej kancelarii: "chmura" (domyslnie) albo "u-klienta".
+# Przy "u-klienta" serwer niczego nie zapisuje - pliki trzyma przegladarka
+# notariusza na jego dysku, a my tylko przetwarzamy je w locie.
+przechowywanie_var: ContextVar[str] = ContextVar("przechowywanie", default="chmura")
+
+
+def u_klienta() -> bool:
+    return przechowywanie_var.get() == "u-klienta"
+
 _s3 = None  # leniwie tworzony klient boto3; podmienialny w testach
 
 
@@ -111,6 +120,12 @@ def _aktualna_kopia(katalog: Path) -> bool:
 
 def utrwal_sprawe(katalog: Path) -> None:
     """Wysyla wszystkie pliki sprawy do S3. No-op w trybie lokalnym."""
+    if u_klienta():
+        # Zabezpieczenie na poziomie magazynu, nie tylko sciezek w API:
+        # kancelarii, ktora trzyma pliki u siebie, nie wolno nic zapisac.
+        raise RuntimeError(
+            "Ta kancelaria trzyma pliki u siebie - zapis w chmurze jest wylaczony."
+        )
     if TRYB != "s3":
         return
     id_sprawy = katalog.name
