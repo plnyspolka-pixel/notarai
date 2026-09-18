@@ -66,7 +66,25 @@ def zdrowie(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def strona_glowna():
-    return (Path(__file__).parent / "static" / "index.html").read_text("utf-8")
+    """Strona z informacja o tym, gdzie naprawde leza dane.
+
+    Ta sama aplikacja dziala na stanowisku notariusza i w chmurze, a rozni je
+    miejsce przechowywania skanow i projektow. Zapewnienie w stopce musi
+    odpowiadac rzeczywistosci, wiec wstawiamy je przy wydaniu strony.
+    """
+    strona = (Path(__file__).parent / "static" / "index.html").read_text("utf-8")
+    if magazyn.TRYB == "s3":
+        gdzie = (
+            f"Model przez Bedrock w regionie {config.REGION}. Skany i projekty "
+            f"zapisujemy zaszyfrowane w chmurze AWS w tym samym regionie, "
+            f"nie na tym komputerze."
+        )
+    else:
+        gdzie = (
+            f"Model przez Bedrock w regionie {config.REGION}. Skany i projekty "
+            f"zostaja na tym komputerze."
+        )
+    return strona.replace("Sprawdzam, gdzie zapisywane są dane…", gdzie)
 
 
 @app.post("/api/sprawy")

@@ -54,7 +54,16 @@ dodatkowo sprawdzona sumą kontrolną.
 
 ## Gdzie są dane
 
-Wszystko w katalogu `dane/`, na tym komputerze:
+Zależnie od trybu (patrz `SAAS.md`):
+
+- **tryb lokalny** (domyślny): wszystko zostaje na tym komputerze, w katalogu `dane/`,
+- **tryb SaaS**: skany, odczyty i projekty trafiają zaszyfrowane do S3 w AWS
+  (region eu-central-1), a dysk aplikacji jest tylko pamięcią podręczną.
+
+Stopka w aplikacji pokazuje, który tryb jest w użyciu. To zapewnienie dla
+notariusza o miejscu przechowywania danych, więc nie jest wpisane na sztywno.
+
+Układ katalogów w trybie lokalnym:
 
 ```
 dane/sprawy/<id>/  wzor.docx, skany/, sprawa.json, projekt.docx

@@ -168,6 +168,37 @@ class _AtrapaKluczy:
         return type("Klucz", (), {"key": "nieistotny"})()
 
 
+class TestInformacjaOPrzechowywaniu:
+    """Stopka mowi notariuszowi, gdzie leza skany i projekty.
+
+    W chmurze nie wolno twierdzic, ze dane zostaja na jego komputerze.
+    """
+
+    def _strona(self, monkeypatch, tryb, bucket="notarai-sprawy"):
+        monkeypatch.setenv("PIECZAPP_MAGAZYN", tryb)
+        monkeypatch.setenv("PIECZAPP_S3_BUCKET", bucket)
+        import magazyn
+        import app as aplikacja
+        importlib.reload(magazyn)
+        importlib.reload(aplikacja)
+        return aplikacja.strona_glowna()
+
+    def test_w_chmurze_nie_obiecujemy_dysku_lokalnego(self, monkeypatch):
+        strona = self._strona(monkeypatch, "s3")
+        assert "zostaja na tym komputerze" not in strona
+        assert "w chmurze AWS" in strona
+        assert "eu-central-1" in strona
+
+    def test_na_stanowisku_dane_zostaja_lokalnie(self, monkeypatch):
+        strona = self._strona(monkeypatch, "lokalny")
+        assert "zostaja na tym komputerze" in strona
+        assert "w chmurze AWS" not in strona
+
+    def test_zadne_wydanie_nie_zostawia_tekstu_zastepczego(self, monkeypatch):
+        for tryb in ("lokalny", "s3"):
+            assert "Sprawdzam, gdzie zapisywane" not in self._strona(monkeypatch, tryb)
+
+
 class TestApiLogowania:
     def _apka(self, monkeypatch, tmp_path, atrapa):
         monkeypatch.setenv("PIECZAPP_MULTI", "true")
