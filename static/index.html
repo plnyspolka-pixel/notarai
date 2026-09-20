@@ -180,6 +180,8 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
   padding:12px 14px;border:1px solid var(--linia);border-radius:var(--r2);margin-bottom:8px;background:var(--tlo)}
 .spr-wiersz .kto{font-weight:500}
 .spr-wiersz .pesel{font:12px var(--mono);color:var(--tekst3)}
+.zrzut-podglad{display:block;width:100%;max-width:420px;margin-top:8px;
+  border:1px solid var(--linia);border-radius:var(--r2)}
 .spr-wynik{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;font-weight:500}
 .spr-wynik.brak_wpisu{background:var(--ok-tlo);color:var(--ok)}
 .spr-wynik.wpis{background:var(--alarm);color:#fff}
@@ -1360,7 +1362,7 @@ function rysujHistorie(wpisy){
     d.className = "spr-wiersz";
     const opis = {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"}[w.status] || w.status;
     const zrzuty = [...(w.szczegoly || "").matchAll(/\[([a-z0-9_\-]+\.png)\]/g)]
-      .map(m => `<a href="/api/sprawy/${sprawa.id}/sprawdzenia/pliki/${m[1]}" target="_blank">${escape(m[1].split("_")[1])}</a>`).join(" · ");
+      .map(m => `<a href="#" data-zrzut="${escape(m[1])}">${escape(m[1].split("_")[1])}</a>`).join(" · ");
     d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span></div>
       <div class="pesel">${escape(w.sprawdzono.replace("T"," "))} · ${escape(w.zrodlo)}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
       ${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
@@ -1373,6 +1375,28 @@ function rysujHistorie(wpisy){
     h.prepend(a);
   }
 }
+/* Zrzuty ze sprawdzen leza za autoryzacja. Zwykly odnosnik nie niesie tokenu,
+   wiec serwer odpowiadal 401 zamiast pokazac dowod sprawdzenia. Pobieramy plik
+   przez api() i pokazujemy go na miejscu; drugie klikniecie chowa podglad. */
+$("spr-historia").addEventListener("click", async (zdarzenie) => {
+  const odnosnik = zdarzenie.target.closest("a[data-zrzut]");
+  if (!odnosnik) return;
+  zdarzenie.preventDefault();
+  const pojemnik = odnosnik.parentElement;
+  const widoczny = pojemnik.querySelector("img.zrzut-podglad");
+  if (widoczny) { URL.revokeObjectURL(widoczny.src); widoczny.remove(); return; }
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia/pliki/" + odnosnik.dataset.zrzut);
+    if (!odp.ok) throw new Error("serwer odpowiedzial " + odp.status);
+    const obraz = document.createElement("img");
+    obraz.className = "zrzut-podglad";
+    obraz.alt = "Zrzut ekranu ze sprawdzenia w rejestrze";
+    obraz.src = URL.createObjectURL(await odp.blob());
+    pojemnik.appendChild(obraz);
+  } catch (e) {
+    stan($("stan4"), "Nie udało się otworzyć zrzutu: " + e.message, true);
+  }
+});
 async function wyslijFormularz(tryb){
   const lista = polaPesel();
   const wybor = document.querySelector('input[name="spr-wybor"]:checked');

@@ -24,17 +24,26 @@ if (-not $sciezka) {
 }
 $env:PATH = "$sciezka;$env:PATH"
 
-$brudne = git -C $korzen status --porcelain
+function Uruchom-Git {
+    # git pisze postep wysylki na stderr. Windows PowerShell 5.1 przy
+    # ErrorActionPreference=Stop robi z tego blad krytyczny i przerywa skrypt,
+    # chociaz git zwrocil zero. O powodzeniu decyduje kod wyjscia, nie stderr.
+    $poprzednie = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { & git @args } finally { $ErrorActionPreference = $poprzednie }
+}
+
+$brudne = Uruchom-Git -C $korzen status --porcelain
 if ($brudne) {
     Write-Host "Uwaga: sa niezacommitowane zmiany - zostana na dysku, wysylam tylko commity." -ForegroundColor Yellow
 }
 
 Write-Host "== Wysylam galaz $Galaz do AWS" -ForegroundColor Cyan
-git -C $korzen push origin $Galaz
+Uruchom-Git -C $korzen push origin $Galaz
 if ($LASTEXITCODE -ne 0) { throw "Wyslanie nie powiodlo sie (kod $LASTEXITCODE)." }
 
-$lokalny = (git -C $korzen rev-parse $Galaz).Trim()
-$zdalny = (git -C $korzen rev-parse "origin/$Galaz").Trim()
+$lokalny = (Uruchom-Git -C $korzen rev-parse $Galaz).Trim()
+$zdalny = (Uruchom-Git -C $korzen rev-parse "origin/$Galaz").Trim()
 if ($lokalny -ne $zdalny) { throw "Po wyslaniu wersje sie roznia: lokalnie $lokalny, w AWS $zdalny." }
 
 Write-Host ""
