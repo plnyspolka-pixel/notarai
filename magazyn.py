@@ -14,6 +14,7 @@ Tryby (PIECZAPP_MAGAZYN):
 Zero danych osobowych w logach: logujemy identyfikatory i liczby plikow,
 nigdy tresc.
 """
+import hashlib
 import logging
 import os
 from contextvars import ContextVar
@@ -91,31 +92,45 @@ def _klucz(id_sprawy: str, wzgledna: str) -> str:
 # --- Synchronizacja z S3 ----------------------------------------------------
 
 
-# Znacznik wersji lokalnej kopii: ETag pliku sprawa.json z S3 w chwili
-# ostatniego zapisu albo pobrania. Pozwala wykryc, ze inna kopia aplikacji
-# zmienila sprawe, i odswiezyc cache. Sam nie jest wysylany do S3.
+# Znacznik wersji lokalnej kopii: odcisk calej sprawy w S3 (klucze plikow wraz
+# z ich ETagami) z chwili ostatniego zapisu albo pobrania. Pozwala wykryc, ze
+# inna kopia aplikacji zmienila sprawe, i odswiezyc cache. Sam nie jest
+# wysylany do S3.
+#
+# Odcisk musi obejmowac wszystkie pliki sprawy, nie same metadane: sporzadzenie
+# projektu dodaje projekt.docx i projekt.txt, nie ruszajac sprawa.json. Gdy
+# znacznik patrzyl tylko na sprawa.json, druga kopia aplikacji uznawala swoja
+# kopie za aktualna i notariusz nie mogl wrocic do wlasnego projektu.
 _ZNACZNIK = ".s3-znacznik"
 
 
-def _zapisz_znacznik(katalog: Path, etag: str) -> None:
-    if etag:
-        (katalog / _ZNACZNIK).write_text(etag.strip(), encoding="utf-8")
+def _zapisz_znacznik(katalog: Path, sygnatura: str) -> None:
+    if sygnatura:
+        (katalog / _ZNACZNIK).write_text(sygnatura, encoding="utf-8")
 
 
-def _aktualna_kopia(katalog: Path) -> bool:
-    """Czy lokalna kopia sprawy odpowiada temu, co jest w S3."""
-    znacznik = katalog / _ZNACZNIK
-    if not znacznik.exists():
-        return False
-    try:
-        odp = _klient_s3().head_object(
-            Bucket=BUCKET, Key=_klucz(katalog.name, "sprawa.json")
-        )
-    except Exception:
-        # Sprawy nie ma jeszcze w S3 (wlasnie powstaje) albo S3 chwilowo nie
-        # odpowiada. Lepiej pokazac kopie lokalna niz przerwac prace.
-        return True
-    return odp.get("ETag", "") == znacznik.read_text("utf-8").strip()
+def _znacznik(katalog: Path) -> str:
+    plik = katalog / _ZNACZNIK
+    return plik.read_text("utf-8").strip() if plik.exists() else ""
+
+
+def _sygnatura(spis: list[tuple[str, str]]) -> str:
+    """Odcisk sprawy. Zmiana dowolnego pliku zmienia wynik."""
+    tresc = "\n".join(f"{klucz} {etag}" for klucz, etag in sorted(spis))
+    return hashlib.sha256(tresc.encode("utf-8")).hexdigest()
+
+
+def _spis_s3(id_sprawy: str) -> list[tuple[str, str]]:
+    """Klucze i ETagi wszystkich plikow sprawy lezacych w S3."""
+    prefiks = _klucz(id_sprawy, "")
+    spis: list[tuple[str, str]] = []
+    strony = _klient_s3().get_paginator("list_objects_v2").paginate(
+        Bucket=BUCKET, Prefix=prefiks
+    )
+    for strona in strony:
+        for obiekt in strona.get("Contents", []):
+            spis.append((obiekt["Key"], obiekt.get("ETag", "")))
+    return spis
 
 
 def utrwal_sprawe(katalog: Path) -> None:
@@ -129,23 +144,20 @@ def utrwal_sprawe(katalog: Path) -> None:
     if TRYB != "s3":
         return
     id_sprawy = katalog.name
-    ile = 0
-    etag = ""
+    wyslane: list[tuple[str, str]] = []
     for plik in sorted(katalog.rglob("*")):
         if not plik.is_file() or plik.name == _ZNACZNIK:
             continue
-        wzgledna = plik.relative_to(katalog).as_posix()
+        klucz = _klucz(id_sprawy, plik.relative_to(katalog).as_posix())
         odpowiedz_put = _klient_s3().put_object(
             Bucket=BUCKET,
-            Key=_klucz(id_sprawy, wzgledna),
+            Key=klucz,
             Body=plik.read_bytes(),
             **_szyfrowanie(),
         )
-        if wzgledna == "sprawa.json":
-            etag = (odpowiedz_put or {}).get("ETag", "")
-        ile += 1
-    _zapisz_znacznik(katalog, etag)
-    log.info("sprawa %s: utrwalono %d plikow do S3", id_sprawy, ile)
+        wyslane.append((klucz, (odpowiedz_put or {}).get("ETag", "")))
+    _zapisz_znacznik(katalog, _sygnatura(wyslane))
+    log.info("sprawa %s: utrwalono %d plikow do S3", id_sprawy, len(wyslane))
 
 
 def pobierz_sprawe(katalog: Path) -> bool:
@@ -154,41 +166,41 @@ def pobierz_sprawe(katalog: Path) -> bool:
 
     Dysk kontenera to tylko pamiec podreczna. Gdy aplikacja dziala w kilku
     kopiach, sprawe mogla zmienic inna z nich - dlatego przed odczytem
-    porownujemy znacznik wersji z ETagiem w S3.
+    porownujemy odcisk lokalnej kopii z tym, co faktycznie lezy w S3.
 
     Zwraca True, gdy sprawa istnieje (lokalnie lub po pobraniu).
     No-op w trybie lokalnym (wtedy tylko sprawdza dysk).
     """
-    if (katalog / "sprawa.json").exists():
-        if TRYB != "s3" or _aktualna_kopia(katalog):
-            return True
-        log.info("sprawa %s: lokalna kopia nieaktualna, odswiezam z S3", katalog.name)
-    elif TRYB != "s3":
-        return katalog.is_dir()
+    if TRYB != "s3":
+        return (katalog / "sprawa.json").exists() or katalog.is_dir()
 
     id_sprawy = katalog.name
+    try:
+        spis = _spis_s3(id_sprawy)
+    except Exception:
+        # S3 chwilowo nie odpowiada. Lepiej pokazac kopie lokalna niz przerwac
+        # prace notariusza.
+        log.warning("sprawa %s: S3 nie odpowiada, pracuje na kopii lokalnej", id_sprawy)
+        return katalog.is_dir()
+
+    if not spis:
+        # Sprawy nie ma jeszcze w S3 - wlasnie powstaje na tym kontenerze.
+        return katalog.is_dir()
+
+    if (katalog / "sprawa.json").exists() and _sygnatura(spis) == _znacznik(katalog):
+        return True
+
     prefiks = _klucz(id_sprawy, "")
-    strony = _klient_s3().get_paginator("list_objects_v2").paginate(
-        Bucket=BUCKET, Prefix=prefiks
-    )
-    ile = 0
-    etag = ""
-    for strona in strony:
-        for obiekt in strona.get("Contents", []):
-            wzgledna = obiekt["Key"][len(prefiks):]
-            if not wzgledna:
-                continue
-            cel = katalog / wzgledna
-            cel.parent.mkdir(parents=True, exist_ok=True)
-            odpowiedz = _klient_s3().get_object(Bucket=BUCKET, Key=obiekt["Key"])
-            cel.write_bytes(odpowiedz["Body"].read())
-            if wzgledna == "sprawa.json":
-                etag = obiekt.get("ETag", "")
-            ile += 1
-    if ile:
-        _zapisz_znacznik(katalog, etag)
-        log.info("sprawa %s: pobrano %d plikow z S3", id_sprawy, ile)
-    return ile > 0 or katalog.is_dir()
+    for klucz, _ in spis:
+        wzgledna = klucz[len(prefiks):]
+        if not wzgledna:
+            continue
+        cel = katalog / wzgledna
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        cel.write_bytes(_klient_s3().get_object(Bucket=BUCKET, Key=klucz)["Body"].read())
+    _zapisz_znacznik(katalog, _sygnatura(spis))
+    log.info("sprawa %s: pobrano %d plikow z S3", id_sprawy, len(spis))
+    return True
 
 
 def usun_sprawe(katalog: Path) -> int:

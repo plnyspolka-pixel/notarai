@@ -1288,17 +1288,37 @@ function pokazProjekt(w){
     ? "Projekt gotowy do sprawdzenia. Zostało " + uwagi.join(" i ") + ", zaznaczone w tekście."
     : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
 }
+function zapiszPlik(dane, nazwa){
+  const adres = URL.createObjectURL(dane);
+  const a = document.createElement("a");
+  a.href = adres; a.download = nazwa; a.click();
+  setTimeout(() => URL.revokeObjectURL(adres), 10000);
+}
 $("btn-pobierz").onclick = async () => {
-  if (!dysk.aktywny) { location.href = "/api/sprawy/" + sprawa.id + "/plik"; return; }
-  // Plik jest juz u notariusza - otwieramy go z dysku zamiast pobierac z serwera.
+  if (dysk.aktywny) {
+    // Plik jest juz u notariusza - otwieramy go z dysku zamiast pobierac z serwera.
+    try {
+      const katalog = await dysk.katalogSprawy(sprawa.id);
+      zapiszPlik(await (await katalog.getFileHandle("projekt.docx")).getFile(), "projekt.docx");
+    } catch (e) {
+      stan($("stan3"), "Nie znalazłem projektu w folderze sprawy: " + e.message, true);
+    }
+    return;
+  }
+  // Zwykle przejscie pod adres nie niesie tokenu, wiec serwer odpowiadal 401
+  // i przegladarka opuszczala aplikacje. Plik musi przyjsc przez api().
+  stan($("stan3"), "Pobieram projekt…", false, true);
   try {
-    const katalog = await dysk.katalogSprawy(sprawa.id);
-    const plik = await (await katalog.getFileHandle("projekt.docx")).getFile();
-    const adres = URL.createObjectURL(plik);
-    const a = document.createElement("a");
-    a.href = adres; a.download = "projekt.docx"; a.click();
-    setTimeout(() => URL.revokeObjectURL(adres), 10000);
-  } catch (e) { alert("Nie znalazłem projektu w folderze sprawy: " + e.message); }
+    const odp = await api("/api/sprawy/" + sprawa.id + "/plik");
+    if (!odp.ok) {
+      const tresc = await odp.json().catch(() => ({}));
+      throw new Error(tresc.detail || "serwer odpowiedzial " + odp.status);
+    }
+    zapiszPlik(await odp.blob(), "projekt-" + sprawa.id + ".docx");
+    stan($("stan3"), "");
+  } catch (e) {
+    stan($("stan3"), "Nie udało się pobrać projektu: " + e.message, true);
+  }
 };
 $("btn-wroc").onclick   = () => pokaz(1);
 $("btn-popraw").onclick = () => pokaz(2);

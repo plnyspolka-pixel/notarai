@@ -193,6 +193,39 @@ class TestDwieKopieAplikacji:
         finally:
             magazyn.kancelaria_var.reset(zn)
 
+    def test_druga_kopia_widzi_projekt(self, magazyn_s3):
+        """Blad z produkcji 20.09.2026: sporzadzenie projektu dokladalo
+        projekt.docx i projekt.txt, nie ruszajac sprawa.json. Znacznik
+        pilnowal wtedy samego sprawa.json, wiec druga kopia aplikacji uznawala
+        swoja kopie za aktualna - notariusz nie mogl wrocic do wlasnego
+        projektu ani go pobrac, a starsze sprawy dzialaly."""
+        magazyn, _, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            kontenerA = tmp / "a" / "abc123"
+            kontenerB = tmp / "b" / "abc123"
+
+            self._zapisz(magazyn, kontenerA, {"id": "abc123"})
+            assert magazyn.pobierz_sprawe(kontenerB) is True
+
+            # A sporzadza projekt - metadane sprawy bez zmian
+            (kontenerA / "projekt.docx").write_bytes(b"PK-docx")
+            (kontenerA / "projekt.txt").write_text("pierwsza wersja", encoding="utf-8")
+            magazyn.utrwal_sprawe(kontenerA)
+
+            assert magazyn.pobierz_sprawe(kontenerB) is True
+            assert (kontenerB / "projekt.docx").exists(), "projekt musi byc widoczny"
+            assert (kontenerB / "projekt.txt").read_text("utf-8") == "pierwsza wersja"
+
+            # A poprawia projekt - zmiana tresci istniejacego pliku
+            (kontenerA / "projekt.txt").write_text("po poprawkach", encoding="utf-8")
+            magazyn.utrwal_sprawe(kontenerA)
+
+            assert magazyn.pobierz_sprawe(kontenerB) is True
+            assert (kontenerB / "projekt.txt").read_text("utf-8") == "po poprawkach"
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
     def test_aktualna_kopia_nie_jest_pobierana_ponownie(self, magazyn_s3):
         magazyn, atrapa, tmp = magazyn_s3
         zn = magazyn.kancelaria_var.set("kowalski")
