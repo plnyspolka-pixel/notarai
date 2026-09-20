@@ -327,6 +327,25 @@ class TestSprawdzPole:
         poprawny, _ = sprawdz_pole("numer-kw", "KR1K/00012345/7")
         assert poprawny is True
 
+    @pytest.mark.parametrize("nazwa", [
+        "Numer ksiegi wieczystej", "ksiega wieczysta", "ksiegi wieczystej",
+        "w ksiedze wieczystej",
+    ])
+    def test_odmienione_nazwy_pol_tez_sa_sprawdzane(self, nazwa):
+        """Pole nazwane inaczej niz w mianowniku przechodzilo bez zadnej kontroli."""
+        poprawny, komunikat = sprawdz_pole(nazwa, "ZLY-FORMAT")
+        assert poprawny is False and "KW" in komunikat
+
+    @pytest.mark.parametrize("nazwa", ["wartosc rynkowa", "wartość", "kwoty", "ceny"])
+    def test_odmienione_nazwy_kwot(self, nazwa):
+        poprawny, _ = sprawdz_pole(nazwa, "50 000")
+        assert poprawny is True
+
+    @pytest.mark.parametrize("nazwa", ["kwatera", "kwiecien", "centrum", "nazwisko"])
+    def test_szersza_regula_nie_lapie_przypadkowych_slow(self, nazwa):
+        poprawny, _ = sprawdz_pole(nazwa, "cokolwiek")
+        assert poprawny is None
+
     def test_pole_kwota_z_separatorami(self):
         # "kwota (zl)", "cena-brutto" dzialaja
         poprawny, _ = sprawdz_pole("kwota (zl)", "1000")

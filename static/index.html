@@ -372,6 +372,32 @@ notarai</div>
       <span class="stan" id="stan4"></span>
     </div>
   </div>
+  <!-- Dobieranie wartosci do formularza z tresci aktu. Nic nie jest nigdzie
+       wpisywane: to propozycja do sprawdzenia przez notariusza. -->
+  <div class="karta">
+    <h2>Wypełnienie formularza z treści aktu</h2>
+    <p class="pod" style="margin-bottom:14px">Podpowiem, co wpisać w każde pole wybranego
+      formularza, na podstawie treści aktu. Przy każdej wartości zobaczysz fragment aktu,
+      z którego pochodzi. Nic nie zostaje wpisane do systemu urzędowego.</p>
+    <div class="para">
+      <div class="pole">
+        <label class="etykieta" for="dop-system">Formularz</label>
+        <select id="dop-system"></select>
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="dop-zrodlo">Skąd brać treść</label>
+        <select id="dop-zrodlo">
+          <option value="projekt">Projekt aktu (etap 3)</option>
+          <option value="pola">Tylko odczytane pola</option>
+        </select>
+      </div>
+    </div>
+    <div class="pasek">
+      <button id="btn-dopasuj">Zaproponuj wartości</button>
+      <span class="stan" id="stan-dop"></span>
+    </div>
+    <div id="dop-wynik"></div>
+  </div>
   <div class="karta">
     <h2>Zatwierdź wynik odczytany z ekranu</h2>
     <div class="para">
@@ -790,7 +816,7 @@ function pokaz(numer){
     k.classList.toggle("zrobiony", n < najdalej && n !== numer && n <= 3);
     if (n === 4) k.classList.toggle("zrobiony", false);
   });
-  if (numer === 4) rysujSprawdzenia();
+  if (numer === 4) { rysujSprawdzenia(); rysujSystemy(); }
   $("etap"+numer).closest("main").scrollTo({top:0, behavior:"smooth"});
 }
 document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
@@ -1355,6 +1381,73 @@ async function wyslijFormularz(tryb){
 }
 $("btn-spr-podglad").onclick  = () => wyslijFormularz("podglad");
 $("btn-spr-wypelnij").onclick = () => wyslijFormularz("faktyczny");
+/* ---------- wypelnienie formularza z tresci aktu ---------- */
+async function rysujSystemy(){
+  const lista = $("dop-system");
+  if (lista.options.length) return;
+  try {
+    const systemy = await (await api("/api/formularze")).json();
+    lista.innerHTML = systemy.map(s =>
+      `<option value="${escape(s.system)}">${escape(s.opis || s.system)}`
+      + (s.status === "szkic" ? " (szkic)" : "") + `</option>`).join("");
+  } catch { lista.innerHTML = '<option value="">Nie udało się pobrać listy</option>'; }
+}
+
+$("btn-dopasuj").onclick = async () => {
+  if (!sprawa) return stan($("stan-dop"), "Najpierw odczytaj sprawę.", true);
+  const system = $("dop-system").value;
+  if (!system) return stan($("stan-dop"), "Wybierz formularz.", true);
+
+  // Z projektu bierzemy tresc aktu; bez projektu zostaja same odczytane pola.
+  const zProjektu = $("dop-zrodlo").value === "projekt";
+  const tekst = zProjektu ? ($("projekt").innerText || sprawa.projekt || "") : "";
+  if (zProjektu && !tekst.trim()) {
+    return stan($("stan-dop"), "Nie ma jeszcze projektu aktu. Sporządź go w etapie 3 albo wybierz odczytane pola.", true);
+  }
+
+  $("btn-dopasuj").disabled = true;
+  stan($("stan-dop"), "Szukam wartości w akcie…", false, true);
+  try {
+    const odp = await api("/api/formularze/" + system + "/dopasuj", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({tekst_aktu: tekst, pola: sprawa.pola || []})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    pokazDopasowanie(w);
+    stan($("stan-dop"), `Gotowych ${w.gotowych}, bez danych ${w.brakujacych}`
+      + (w.ostrzezen ? `, do sprawdzenia ${w.ostrzezen}` : ""));
+  } catch (e) {
+    stan($("stan-dop"), e.message, true);
+  } finally {
+    $("btn-dopasuj").disabled = false;
+  }
+};
+
+function pokazDopasowanie(w){
+  if (!w.wpisy.length) { $("dop-wynik").innerHTML = ""; return; }
+  const wiersze = w.wpisy.map(p => {
+    const wartosc = p.wartosc
+      ? `<b>${escape(p.wartosc)}</b>`
+      : `<span class="stan">brak danych w akcie</span>`;
+    const skad = p.cytat
+      ? `<small>z aktu: „${escape(p.cytat)}”</small>`
+      : (p.skad === "pole sprawy" ? "<small>z odczytanych pól sprawy</small>" : "");
+    const uwagi = [];
+    if (p.ostrzezenie) uwagi.push(`<span class="zle">${escape(p.ostrzezenie)}</span>`);
+    if (p.uwaga) uwagi.push(escape(p.uwaga));
+    if (p.wartosc && p.pewnosc === "niska") uwagi.push("pewność niska - sprawdź w akcie");
+    return `<div class="wiersz${p.ostrzezenie ? " uwaga" : ""}">
+      <div class="etykieta">${escape(p.pole)}${p.wymagane ? " *" : ""}</div>
+      <div>${wartosc}</div>${skad}
+      ${uwagi.length ? `<small>${uwagi.join(" · ")}</small>` : ""}
+    </div>`;
+  }).join("");
+  $("dop-wynik").innerHTML = wiersze
+    + `<p class="pod" style="margin:12px 0 0">Wartości są propozycją. Sprawdź je w akcie,
+       zanim cokolwiek trafi do systemu urzędowego.</p>`;
+}
+
 $("btn-krz").onclick = async () => {
   const lista = polaPesel();
   if (!lista.length) return stan($("stan4"), "Brak numeru PESEL do sprawdzenia.", true);

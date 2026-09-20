@@ -32,6 +32,10 @@ class PoleFormularza:
     typ: str = "tekst"  # tekst | lista | pole_wyboru
     transformacja: str = ""
     wymagane: bool = False
+    # Opis dla czlowieka i dla modelu: co dokladnie ma tu trafic. Przy
+    # dobieraniu wartosci z tresci aktu to on rozstrzyga, ktora z dwoch
+    # pasujacych danych wybrac (np. PESEL zbywcy, a nie nabywcy).
+    opis: str = ""
 
 
 @dataclass

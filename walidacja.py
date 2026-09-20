@@ -84,15 +84,18 @@ def kwota(wartosc: str) -> tuple[bool, str]:
     return True, f"{liczba:.2f} zl"
 
 
+# Klucze sa wzorcami wyrazen regularnych, bo pola nazywaja sie roznymi
+# formami tego samego slowa: "ksiega wieczysta", "numer ksiegi wieczystej",
+# "wpis w ksiedze". Dopasowanie po samym mianowniku przepuszczalo te pola
+# bez zadnego sprawdzenia.
 REGULY = {
     "pesel": pesel,
     "nip": nip,
-    "ksiega": ksiega_wieczysta,
-    "kwota": kwota,
-    "cena": kwota,
-    "cenę": kwota,
-    "kwotę": kwota,
-    "wartosc": kwota,
+    "ksie[gd][a-ząćęłńóśźż]*": ksiega_wieczysta,
+    "kwot[a-ząćęłńóśźż]*": kwota,
+    "cen[aeęy][a-ząćęłńóśźż]*": kwota,
+    "wartosc[a-ząćęłńóśźż]*": kwota,
+    "wartość[a-ząćęłńóśźż]*": kwota,
     "kw": ksiega_wieczysta,
 }
 
@@ -109,6 +112,6 @@ def sprawdz_pole(nazwa: str, wartosc: str) -> tuple[bool | None, str]:
         przed_luka = re.search(r"((?:\S+\s+){0,2})__", klucz)
         klucz = przed_luka.group(1) if przed_luka else ""
     for wzorzec, funkcja in REGULY.items():
-        if re.search(rf"(?<![a-z0-9]){re.escape(wzorzec)}(?![a-z0-9])", klucz):
+        if re.search(rf"(?<![a-ząćęłńóśźż0-9]){wzorzec}(?![a-ząćęłńóśźż0-9])", klucz):
             return funkcja(wartosc)
     return None, ""

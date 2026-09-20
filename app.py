@@ -609,6 +609,46 @@ def lista_formularzy():
     return formularze.dostepne_systemy()
 
 
+class ZadanieDopasowania(BaseModel):
+    tekst_aktu: str = ""
+    pola: list[dict] = []
+
+
+@app.post("/api/formularze/{system}/dopasuj")
+def dopasuj_formularz(system: str, zadanie: ZadanieDopasowania):
+    """Proponuje, co wpisac w kazde pole formularza, na podstawie tresci aktu.
+
+    Niczego nie wpisuje i nie dotyka przegladarki - to material do sprawdzenia
+    przez notariusza. Kazda wartosc ma zrodlo: pole sprawy albo cytat z aktu.
+    """
+    try:
+        mapowanie = formularze.wczytaj_mapowanie(system)
+    except formularze.BladMapowania as blad:
+        raise HTTPException(404, str(blad))
+
+    pola_sprawy = {str(p.get("nazwa", "")): p.get("wartosc") for p in zadanie.pola}
+    try:
+        wynik = formularze.dopasuj(
+            mapowanie, zadanie.tekst_aktu, pola_sprawy,
+            model=bedrock.wyciagnij_do_formularza,
+        )
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+    except Exception as blad:
+        log.error("formularz %s: blad dopasowania (%s)", system, type(blad).__name__)
+        raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
+
+    return {
+        "system": mapowanie.system,
+        "opis": mapowanie.opis,
+        "status": mapowanie.status,
+        "wpisy": wynik["wpisy"],
+        "gotowych": sum(1 for w in wynik["wpisy"] if w["wartosc"]),
+        "brakujacych": sum(1 for w in wynik["wpisy"] if not w["wartosc"]),
+        "ostrzezen": sum(1 for w in wynik["wpisy"] if w["ostrzezenie"]),
+    }
+
+
 class ZadanieFormularza(BaseModel):
     pola: list[dict]
     tryb: str = "podglad"          # podglad | faktyczny

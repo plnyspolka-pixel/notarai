@@ -164,6 +164,42 @@ def sporzadz_projekt(
     return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc, max_tokenow=24000))
 
 
+def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
+    """Dobiera wartosci pol formularza z tresci aktu.
+
+    Zwraca liste wpisow: pole, wartosc (albo None), cytat uzasadniajacy,
+    pewnosc i uwage. Cytat jest po to, zeby notariusz mogl sprawdzic zrodlo
+    bez czytania calego aktu.
+    """
+    if not pola:
+        return []
+    tresc = [{"text": prompty.polecenie_formularza(tekst_aktu, pola)}]
+    surowa = _rozmowa(prompty.FORMULARZ, tresc, max_tokenow=8000)
+    wynik = _wczytaj_json(surowa)
+
+    nazwy_pol = {p["nazwa"] for p in pola}
+    odpowiedzi = {}
+    for wpis in wynik.get("pola", []):
+        nazwa = str(wpis.get("pole", "")).strip()
+        if nazwa in nazwy_pol:          # model bywa kreatywny w nazwach
+            odpowiedzi[nazwa] = wpis
+
+    braki = len(nazwy_pol) - len(odpowiedzi)
+    log.info("formularz: pol=%d dopasowanych=%d bez odpowiedzi=%d",
+             len(nazwy_pol), len(odpowiedzi), braki)
+
+    return [
+        {
+            "pole": p["nazwa"],
+            "wartosc": (odpowiedzi.get(p["nazwa"], {}).get("wartosc") or None),
+            "cytat": str(odpowiedzi.get(p["nazwa"], {}).get("cytat", ""))[:200],
+            "pewnosc": odpowiedzi.get(p["nazwa"], {}).get("pewnosc", "niska"),
+            "uwaga": str(odpowiedzi.get(p["nazwa"], {}).get("uwaga", "")),
+        }
+        for p in pola
+    ]
+
+
 def _oczysc_projekt(tekst: str) -> str:
     """Usuwa naglowki markdown i ogrodzenia kodu, ktore model czasem dopisuje."""
     linie = []

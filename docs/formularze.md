@@ -3,6 +3,27 @@
 Sprawdzono: 16.09.2026. Kolejnosc podejsc wg SPEC: 1 API -> 2 eksport pliku ->
 3 schowek/asysta -> 4 automatyzacja przegladarki. Ponizej werdykt per system.
 
+## Skad biora sie wartosci (dodane 20.09.2026)
+
+Silnik potrafi wpisac wartosci do pol, ale ktos musi zdecydowac, co wpisac.
+Pola w akcie nazywaja sie po swojemu ("??5: ..., PESEL __ , zamieszkaly"),
+a rubryki w rejestrze inaczej. Robi to `formularze/dopasowanie.py`:
+
+1. pole sprawy o nazwie dokladnie takiej, jak `zrodlo` w mapowaniu,
+2. tresc aktu odczytana przez model - z cytatem uzasadniajacym kazda wartosc,
+3. brak - i tak to nazywamy, zamiast zgadywac.
+
+Kazda wartosc przechodzi przez walidacje (sumy kontrolne). Bledna suma nie
+kasuje wartosci, tylko ja oznacza: decyzje podejmuje notariusz, ale musi to
+zobaczyc.
+
+Gdy do pola pasuje kilka danych (dwie osoby, dwa numery), rozstrzyga `opis`
+pola w mapowaniu. Dlatego kazde nowe pole powinno miec opis napisany jezykiem
+notariusza, np. "PESEL zbywcy, bo to on rozporzadza prawem".
+
+Punkt `POST /api/formularze/<system>/dopasuj` zwraca propozycje wraz z cytatami
+i ostrzezeniami. Niczego nie wpisuje - to material do sprawdzenia.
+
 ## Wspolne ustalenia dla wszystkich trzech systemow
 
 - Wszystkie wymagaja logowania certyfikatem notariusza i/lub podpisu kwalifikowanego.

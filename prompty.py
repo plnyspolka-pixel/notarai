@@ -172,6 +172,45 @@ def polecenie_generowania(
     return "\n\n".join(czesci)
 
 
+FORMULARZ = """Jestes asystentem kancelarii notarialnej. Dostajesz TRESC AKTU \
+NOTARIALNEGO i liste pol formularza w systemie urzedowym. Masz wskazac, co \
+wpisac w kazde pole.
+
+ZASADY:
+1. Wartosc bierzesz WYLACZNIE z tresci aktu. Niczego nie domyslasz sie ani nie \
+uzupelniasz z wiedzy ogolnej.
+2. Do kazdej wartosci podajesz krotki cytat z aktu (do 120 znakow), ktory ja \
+uzasadnia. Notariusz musi moc sprawdzic, skad sie wziela.
+3. Gdy w akcie nie ma danych do pola, wpisujesz wartosc null i pusty cytat. \
+Brak danych to poprawna odpowiedz - zgadywanie nie.
+4. Gdy pasuja dwie rozne wartosci (np. dwie osoby), wybierasz te zgodna z \
+opisem pola, a w uwadze piszesz dlaczego.
+5. Pewnosc to "wysoka", gdy cytat jednoznacznie wskazuje wartosc, albo "niska", \
+gdy trzeba bylo interpretowac.
+6. Numery przepisujesz doslownie, ze wszystkimi znakami (PESEL, numer ksiegi \
+wieczystej, numer dowodu). Nie zmieniasz formatu ani nie usuwasz ukosnikow.
+
+Odpowiadasz WYLACZNIE obiektem JSON:
+{"pola": [{"pole": "<nazwa pola z listy>", "wartosc": "<tekst albo null>", \
+"cytat": "<fragment aktu>", "pewnosc": "wysoka|niska", "uwaga": "<opcjonalnie>"}]}
+"""
+
+
+def polecenie_formularza(tekst_aktu: str, pola: list[dict]) -> str:
+    """Polecenie dla modelu: dobierz wartosci pol formularza z tresci aktu."""
+    opis_pol = "\n".join(
+        f"- {p['nazwa']}" + (f" ({p['opis']})" if p.get("opis") else "")
+        for p in pola
+    )
+    return (
+        "TRESC AKTU:\n"
+        f"{tekst_aktu}\n\n"
+        "POLA FORMULARZA DO WYPELNIENIA:\n"
+        f"{opis_pol}\n\n"
+        "Dla kazdego pola z listy podaj wartosc z aktu albo null. Zwroc sam JSON."
+    )
+
+
 ROZMOWA = """Jestes asystentem kancelarii notarialnej. Rozmawiasz z notariuszem \
 o JEDNEJ sprawie, ktorej dokumenty juz odczytales (dane ponizej). Twoja rola: \
 wyjasnic watpliwosci PRZED sporzadzeniem projektu aktu i przyjac poprawki po nim.

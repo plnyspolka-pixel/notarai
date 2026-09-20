@@ -17,3 +17,8 @@ pola:
     typ: tekst
     transformacja: cyfry
     wymagane: true
+    # Opis rozstrzyga, ktora osobe wybrac, gdy w akcie jest kilka numerow.
+    opis: >
+      PESEL strony, ktorej numer sprawdzamy w rejestrze zastrzezen. Przy
+      sprzedazy nieruchomosci sprawdzamy zbywce, bo to on rozporzadza prawem.
+      Gdy w akcie jest kilka numerow, wybierz numer zbywcy.
