@@ -986,6 +986,7 @@ async function uruchomTrybPracy(){
       // W chmurze serwer nie ma przegladarki, wiec nie pokazujemy przyciskow,
       // ktore i tak skonczylyby sie bledem.
       sterowaniePrzegladarka = !!ustawienia.sterowanie_przegladarka;
+      pomocnikPolaczony = !!ustawienia.pomocnik_polaczony;
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
   if (dysk.aktywny) {
@@ -1354,6 +1355,7 @@ const OPIS_STATUSU = {
 };
 let sprawdzenia = [];               // slad audytowy biezacej sprawy
 let sterowaniePrzegladarka = false; // czy ta instalacja moze sama wpisywac
+let pomocnikPolaczony = false;      // czy pomocnik notariusza jest pod reka
 
 function opisRubryki(nazwa){
   /* Opis miejsca we wzorze, z ktorego numer pochodzi - podpowiedz, nie nazwisko.
@@ -1410,10 +1412,12 @@ function rysujStrony(){
   const szukane = ($("spr-szukaj").value || "").trim().toLowerCase();
   $("spr-pole-szukaj").hidden = wszystkie.length <= 8;   // przy kilku osobach to zbedne
   // Sprawdzenie w KRZ zostaje widoczne takze w chmurze, bo to glowna czynnosc
-  // tej zakladki. Nieczynne, dopoki nie ma czym sterowac - z wyjasnieniem obok,
-  // zamiast przycisku, ktory konczy sie bledem.
-  $("btn-krz").disabled = !sterowaniePrzegladarka;
-  $("spr-bez-przegladarki").hidden = sterowaniePrzegladarka || !wszystkie.length;
+  // tej zakladki. Czynne, gdy jest komu je wykonac: albo ta instalacja sama ma
+  // przegladarke, albo pomocnik notariusza odbija sie po zlecenia. Inaczej
+  // nieczynne z wyjasnieniem obok, zamiast przycisku konczacego sie bledem.
+  const jestKomuZlecic = sterowaniePrzegladarka || pomocnikPolaczony;
+  $("btn-krz").disabled = !jestKomuZlecic;
+  $("spr-bez-przegladarki").hidden = jestKomuZlecic || !wszystkie.length;
 
   const sprawdzonych = wszystkie.filter(s => stanStrony(s, rejestr)).length;
   $("spr-licznik").textContent = wszystkie.length
@@ -1666,6 +1670,24 @@ function pokazDopasowanie(w){
 $("spr-rejestr").onchange = rysujStrony;
 $("spr-szukaj").oninput = rysujStrony;
 
+/* Zlecenie wedruje do pomocnika na komputerze notariusza, wiec wynik nie
+   wraca w tej samej odpowiedzi. Dopytujemy co trzy sekundy. */
+async function poczekajNaZlecenie(identyfikator, sekund = 300){
+  const koniec = Date.now() + sekund * 1000;
+  while (Date.now() < koniec) {
+    await new Promise(gotowe => setTimeout(gotowe, 3000));
+    const odp = await api("/api/sprawy/" + sprawa.id + "/zlecenia/" + identyfikator);
+    if (!odp.ok) throw new Error("Zlecenie przepadło albo straciło ważność.");
+    const stanZlecenia = await odp.json();
+    if (stanZlecenia.stan === "wykonane") {
+      const bledy = (stanZlecenia.raport || {}).bledy || [];
+      if (bledy.length) pokazInfo("Pomocnik zgłosił: " + bledy.join("; "), true);
+      return stanZlecenia;
+    }
+  }
+  throw new Error("Pomocnik nie odesłał wyniku w wyznaczonym czasie.");
+}
+
 $("btn-krz").onclick = async () => {
   const lista = polaPesel();
   if (!lista.length) return stan($("stan4"), "Brak numeru PESEL do sprawdzenia.", true);
@@ -1681,12 +1703,17 @@ $("btn-krz").onclick = async () => {
       body: JSON.stringify({osoby: lista.map(s => ({pesel: s.pesel, etykieta: s.nazwa})),
                             potwierdzam: true}),
     });
-    const wynik = await odp.json();
-    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
-    sprawdzenia = wynik;
-    rysujStrony();
-    rysujHistorie(sprawdzenia);
-    stan($("stan4"), "Zapisano. Obejrzyj zrzuty w śladzie audytowym i potwierdź status przy każdym numerze.");
+    const odpowiedz = await odp.json();
+    if (!odp.ok) throw new Error(odpowiedz.detail || "Błąd serwera");
+    if (odp.status === 202) {
+      // Serwer nie ma przegladarki i przekazal robote pomocnikowi notariusza.
+      stan($("stan4"), "Przekazałem pomocnikowi na Twoim komputerze. Czekam na wynik…", false, true);
+      await poczekajNaZlecenie(odpowiedz.zlecenie);
+    } else {
+      sprawdzenia = odpowiedz;
+    }
+    await rysujSprawdzenia();
+    stan($("stan4"), "Gotowe. Obejrzyj wyniki w śladzie audytowym i potwierdź status przy każdym numerze.");
   } catch (e) { stan($("stan4"), e.message, true); }
   finally { $("btn-krz").disabled = false; }
 };

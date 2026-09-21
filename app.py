@@ -23,6 +23,7 @@ import config
 import dokumenty
 import formularze
 import krz
+import zlecenia
 import magazyn
 import autoryzacja
 import nazwy
@@ -220,6 +221,10 @@ def ustawienia_kancelarii():
         # Czy ta instalacja moze sama wpisywac do rejestrow. W chmurze nie -
         # tam robi to pomocnik na komputerze notariusza.
         "sterowanie_przegladarka": formularze.silnik.czy_mozna_sterowac(),
+        # Czy pomocnik tej kancelarii jest teraz pod reka. Bez niego przycisk
+        # sprawdzenia w rejestrze ma byc nieczynny, zamiast skladac zlecenia,
+        # ktorych nikt nie odbierze.
+        "pomocnik_polaczony": zlecenia.dostepne() and zlecenia.pomocnik_aktywny(),
     }
 
 
@@ -607,6 +612,12 @@ def _zapisz_rozmowe(katalog: Path, rozmowa: list[dict]) -> None:
 # Jedna odpowiedz na "wpisz to w rejestrze" tam, gdzie serwer nie ma
 # przegladarki. Mowi, gdzie ta czynnosc nalezy, zamiast kazac notariuszowi
 # instalowac Chrome, ktorego przeciez ma.
+BRAK_POMOCNIKA = (
+    "Pomocnik notarai nie jest teraz uruchomiony na Twoim komputerze. "
+    "Sprawdzenie w rejestrze dzieje sie w Twojej przegladarce, wiec bez niego "
+    "nie ma kto go wykonac. Uruchom pomocnika i sprobuj ponownie."
+)
+
 BRAK_PRZEGLADARKI = (
     "Wpisywanie do rejestru dzieje sie w przegladarce na Twoim komputerze, "
     "a ta notarai pracuje w chmurze. Zrobi to pomocnik notarai, ktory "
@@ -764,7 +775,16 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
     if not zadanie.osoby:
         raise HTTPException(400, "Brak osob do sprawdzenia")
     if not formularze.silnik.czy_mozna_sterowac():
-        raise HTTPException(409, BRAK_PRZEGLADARKI)
+        # Serwer nie ma przegladarki. Zlecamy to pomocnikowi przy komputerze
+        # notariusza - zapytanie ma wychodzic z lacza kancelarii, nie z chmury.
+        if not zlecenia.dostepne():
+            raise HTTPException(409, BRAK_PRZEGLADARKI)
+        if not zlecenia.pomocnik_aktywny():
+            raise HTTPException(409, BRAK_POMOCNIKA)
+        zlecenie = zlecenia.zloz("krz", identyfikator, {
+            "osoby": [{"pesel": o.pesel, "etykieta": o.etykieta} for o in zadanie.osoby],
+        })
+        return JSONResponse({"zlecenie": zlecenie["id"], "stan": "czeka"}, status_code=202)
     try:
         pw, strona = formularze.silnik.aktywna_strona()
     except RuntimeError as blad:
@@ -791,6 +811,76 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
         pw.stop()
     magazyn.utrwal_sprawe(config.SPRAWY / identyfikator)
     return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+# --- Pomocnik notariusza ----------------------------------------------------
+# Czynnosci, ktore musza sie wydarzyc w przegladarce notariusza, serwer zleca
+# pomocnikowi na jego komputerze. Tu jest oba konce tej rozmowy: interfejs pyta
+# o stan zlecenia, pomocnik odbiera robote i odsyla raport.
+
+
+@app.get("/api/sprawy/{identyfikator}/zlecenia/{zlecenie}")
+def stan_zlecenia(identyfikator: str, zlecenie: str):
+    _katalog_sprawy(identyfikator)
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    stan = zlecenia.wynik(zlecenie)
+    if not stan:
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    return {"stan": stan["stan"], "raport": stan.get("raport")}
+
+
+class RaportPomocnika(BaseModel):
+    sprawdzenia: list[ZadanieSprawdzenia] = []
+    bledy: list[str] = []
+
+
+@app.get("/api/pomocnik/zlecenia")
+def zlecenia_dla_pomocnika(wersja: str = ""):
+    """Pomocnik pyta o robote.
+
+    Samo zapytanie jest znakiem, ze jest pod reka - dlatego odnotowujemy je
+    jako obecnosc. Gdy pomocnik zamilknie, przycisk sprawdzenia gasnie sam.
+    """
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    zlecenia.odnotuj_pomocnika(wersja)
+    return zlecenia.czekajace()
+
+
+@app.post("/api/pomocnik/zlecenia/{zlecenie}/wynik")
+def wynik_od_pomocnika(zlecenie: str, raport: RaportPomocnika):
+    """Pomocnik skonczyl. Jego wpisy trafiaja do sladu audytowego sprawy."""
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    zlecenia.odnotuj_pomocnika()
+    stan = zlecenia.wynik(zlecenie)
+    if not stan:
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+
+    identyfikator = stan["sprawa"]
+    katalog = _katalog_sprawy(identyfikator)
+    zapisane = 0
+    for wpis in raport.sprawdzenia:
+        try:
+            wynik = rejestry.WynikSprawdzenia(
+                rejestr=wpis.rejestr,
+                zapytanie=rejestry.maskuj_pesel(wpis.pesel),
+                status=wpis.status,
+                szczegoly=wpis.szczegoly,
+                zrodlo=wpis.zrodlo,
+                etykieta=wpis.etykieta,
+            )
+        except ValueError as blad:
+            raise HTTPException(400, str(blad))
+        rejestry.zapisz_sprawdzenie(identyfikator, wynik)
+        zapisane += 1
+    if zapisane:
+        magazyn.utrwal_sprawe(katalog)
+    zlecenia.zapisz_wynik(zlecenie, {"zapisano": zapisane, "bledy": raport.bledy})
+    log.info("zlecenie %s: raport przyjety, wpisow=%d bledow=%d",
+             zlecenie, zapisane, len(raport.bledy))
+    return {"stan": "wykonane", "zapisano": zapisane}
 
 
 @app.get("/api/sprawy/{identyfikator}/sprawdzenia/pliki/{nazwa}")
