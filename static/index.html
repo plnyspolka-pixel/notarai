@@ -367,11 +367,11 @@ notarai</div>
 <!-- ===== 4: sprawdzenia ===== -->
 <section id="etap4" hidden>
   <h1>Sprawdzenia w rejestrach</h1>
-  <p class="pod">Każdą stronę czynności sprawdzasz w rejestrze i zatwierdzasz wynik jednym kliknięciem. Wpisy tworzą ślad audytowy sprawy.</p>
+  <p class="pod">Numery PESEL wykryte w akcie. Każdy sprawdzasz w rejestrze i zatwierdzasz wynik jednym kliknięciem. Wpisy tworzą ślad audytowy sprawy.</p>
   <div class="karta">
-    <h2>Strony czynności</h2>
+    <h2>Wykryte numery PESEL</h2>
     <p class="pod" id="spr-licznik" style="margin-bottom:14px"></p>
-    <div id="spr-brak-sprawy" class="ostrzez">Najpierw odczytaj sprawę (etap 1), wtedy pojawią się tu strony czynności.</div>
+    <div id="spr-brak-sprawy" class="ostrzez">Najpierw odczytaj sprawę (etap 1), wtedy pojawią się tu wykryte numery PESEL.</div>
     <div class="para" id="spr-narzedzia" hidden>
       <div class="pole">
         <label class="etykieta" for="spr-rejestr">Rejestr</label>
@@ -381,14 +381,14 @@ notarai</div>
         </select>
       </div>
       <div class="pole" id="spr-pole-szukaj" hidden>
-        <label class="etykieta" for="spr-szukaj">Szukaj strony</label>
+        <label class="etykieta" for="spr-szukaj">Szukaj</label>
         <input type="text" id="spr-szukaj" placeholder="fragment opisu albo końcówka numeru" autocomplete="off">
       </div>
     </div>
     <div id="spr-lista"></div>
     <div id="spr-info" class="ostrzez" hidden></div>
     <div class="pasek">
-      <button id="btn-krz" title="Wyszukuje każdą stronę czynności w krz.ms.gov.pl i zapisuje zrzuty do sprawy">Sprawdź wszystkich w KRZ</button>
+      <button id="btn-krz" title="Wyszukuje każdy wykryty numer PESEL w krz.ms.gov.pl i zapisuje zrzuty do sprawy">Sprawdź wszystkie w KRZ</button>
       <span class="stan" id="spr-bez-przegladarki" hidden>Wpisywanie do rejestru dzieje się w przeglądarce na Twoim komputerze. Zrobi to pomocnik notarai, który jest w przygotowaniu. Wyniki sprawdzeń zatwierdzasz tutaj już teraz.</span>
       <span class="stan" id="stan4"></span>
     </div>
@@ -1396,7 +1396,10 @@ function rysujStrony(){
   const rejestr = $("spr-rejestr").value;
   const szukane = ($("spr-szukaj").value || "").trim().toLowerCase();
   $("spr-pole-szukaj").hidden = wszystkie.length <= 8;   // przy kilku osobach to zbedne
-  $("btn-krz").hidden = !sterowaniePrzegladarka;
+  // Sprawdzenie w KRZ zostaje widoczne takze w chmurze, bo to glowna czynnosc
+  // tej zakladki. Nieczynne, dopoki nie ma czym sterowac - z wyjasnieniem obok,
+  // zamiast przycisku, ktory konczy sie bledem.
+  $("btn-krz").disabled = !sterowaniePrzegladarka;
   $("spr-bez-przegladarki").hidden = sterowaniePrzegladarka || !wszystkie.length;
 
   const sprawdzonych = wszystkie.filter(s => stanStrony(s, rejestr)).length;
@@ -1416,7 +1419,7 @@ function rysujStrony(){
                             || s.pesel.slice(-4).includes(szukane))
     : wszystkie;
   if (!lista.length) {
-    cel.innerHTML = '<span class="stan">Żadna strona nie pasuje do wyszukiwania.</span>';
+    cel.innerHTML = '<span class="stan">Żaden numer nie pasuje do wyszukiwania.</span>';
     return;
   }
   lista.forEach(osoba => cel.appendChild(wierszStrony(osoba, rejestr)));
@@ -1653,7 +1656,7 @@ $("spr-szukaj").oninput = rysujStrony;
 $("btn-krz").onclick = async () => {
   const lista = polaPesel();
   if (!lista.length) return stan($("stan4"), "Brak numeru PESEL do sprawdzenia.", true);
-  if (!confirm("Wyszukać w Krajowym Rejestrze Zadłużonych wszystkie strony czynności?\n"
+  if (!confirm("Wyszukać w Krajowym Rejestrze Zadłużonych wszystkie wykryte numery PESEL?\n"
     + "Liczba osób: " + lista.length + ", po 2 zapytania na osobę.\n"
     + "Potrwa to około " + Math.max(1, Math.round(lista.length * 20 / 60)) + " min.\n"
     + "Jeśli przeglądarka do formularzy nie jest otwarta, uruchomi się sama.")) return;
@@ -1670,7 +1673,7 @@ $("btn-krz").onclick = async () => {
     sprawdzenia = wynik;
     rysujStrony();
     rysujHistorie(sprawdzenia);
-    stan($("stan4"), "Zapisano. Obejrzyj zrzuty w śladzie audytowym i potwierdź status przy każdej stronie.");
+    stan($("stan4"), "Zapisano. Obejrzyj zrzuty w śladzie audytowym i potwierdź status przy każdym numerze.");
   } catch (e) { stan($("stan4"), e.message, true); }
   finally { $("btn-krz").disabled = false; }
 };
