@@ -110,6 +110,7 @@ def sprawdz_osobe(strona: StronaKRZ, pesel: str, identyfikator: str, etykieta: s
              identyfikator, status, len(wyniki), time.time() - start)
     return rejestry.WynikSprawdzenia(
         rejestr="KRZ", zapytanie=maska, status=status, szczegoly=szczegoly, zrodlo=ADRES,
+        etykieta=etykieta,
     )
 
 

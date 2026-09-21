@@ -211,6 +211,19 @@ def _sciezka_przegladarki() -> str | None:
     return shutil.which("chrome") or shutil.which("chromium") or shutil.which("msedge") or shutil.which("google-chrome")
 
 
+def czy_mozna_sterowac() -> bool:
+    """Czy ta instalacja ma czym sterowac.
+
+    W kancelarii pieczapp dziala na komputerze notariusza i ma jego Chrome.
+    W chmurze notarai dziala w kontenerze, gdzie zadnej przegladarki nie ma i
+    nie bedzie - tam wpisywanie przejmuje pomocnik na komputerze notariusza.
+    Bez tego sprawdzenia serwer probowal uruchomic przegladarke u siebie i
+    odpowiadal notariuszowi "zainstaluj Chrome", co bylo mylace: Chrome ma,
+    tylko nie tam.
+    """
+    return bool(_sciezka_przegladarki())
+
+
 def uruchom_przegladarke(port: int = PORT_CDP) -> None:
     """Startuje osobna przegladarke z profilem pieczapp i portem CDP na localhost.
 

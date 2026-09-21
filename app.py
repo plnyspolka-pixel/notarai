@@ -217,6 +217,9 @@ def ustawienia_kancelarii():
     return {
         "przechowywanie": magazyn.przechowywanie_var.get(),
         "kancelaria": magazyn.kancelaria(),
+        # Czy ta instalacja moze sama wpisywac do rejestrow. W chmurze nie -
+        # tam robi to pomocnik na komputerze notariusza.
+        "sterowanie_przegladarka": formularze.silnik.czy_mozna_sterowac(),
     }
 
 
@@ -600,6 +603,16 @@ def _zapisz_rozmowe(katalog: Path, rozmowa: list[dict]) -> None:
 
 
 # --- Asysta formularzy i sprawdzenia (SPEC A3, B) -------------------------
+
+# Jedna odpowiedz na "wpisz to w rejestrze" tam, gdzie serwer nie ma
+# przegladarki. Mowi, gdzie ta czynnosc nalezy, zamiast kazac notariuszowi
+# instalowac Chrome, ktorego przeciez ma.
+BRAK_PRZEGLADARKI = (
+    "Wpisywanie do rejestru dzieje sie w przegladarce na Twoim komputerze, "
+    "a ta notarai pracuje w chmurze. Zrobi to pomocnik notarai, ktory "
+    "instaluje sie na komputerze - jest w przygotowaniu. Na razie skorzystaj "
+    "z podgladu wypelnienia i zatwierdz wynik odczytany z ekranu."
+)
 # Skutek zewnetrzny (wyslanie, zlozenie) NIGDY nie nastepuje tutaj. Silnik
 # wypelnia pola w przegladarce notariusza i zatrzymuje sie przed wysylka.
 
@@ -669,6 +682,8 @@ def wypelnij_formularz(identyfikator: str, system: str, zadanie: ZadanieFormular
     else:
         if not zadanie.potwierdzam:
             raise HTTPException(400, "Tryb faktyczny wymaga jawnego potwierdzenia")
+        if not formularze.silnik.czy_mozna_sterowac():
+            raise HTTPException(409, BRAK_PRZEGLADARKI)
         try:
             pw, strona = formularze.silnik.aktywna_strona()
         except RuntimeError as blad:
@@ -699,6 +714,7 @@ class ZadanieSprawdzenia(BaseModel):
     status: str
     szczegoly: str = ""
     zrodlo: str = "Rejestry Notarialne KRN"
+    etykieta: str = ""        # ktorej strony czynnosci dotyczy wpis
 
 
 @app.post("/api/sprawy/{identyfikator}/sprawdzenia")
@@ -712,6 +728,7 @@ def zapisz_sprawdzenie(identyfikator: str, zadanie: ZadanieSprawdzenia):
             status=zadanie.status,
             szczegoly=zadanie.szczegoly,
             zrodlo=zadanie.zrodlo,
+            etykieta=zadanie.etykieta,
         )
     except ValueError as blad:
         raise HTTPException(400, str(blad))
@@ -746,6 +763,8 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
         raise HTTPException(400, "Sprawdzenie w KRZ wymaga jawnego potwierdzenia")
     if not zadanie.osoby:
         raise HTTPException(400, "Brak osob do sprawdzenia")
+    if not formularze.silnik.czy_mozna_sterowac():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
     try:
         pw, strona = formularze.silnik.aktywna_strona()
     except RuntimeError as blad:
@@ -758,13 +777,14 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
                 wynik = rejestry.WynikSprawdzenia(
                     rejestr="KRZ", zapytanie=rejestry.maskuj_pesel(osoba.pesel), status="blad",
                     szczegoly=f"{osoba.etykieta} - {blad}", zrodlo=krz.ADRES,
+                    etykieta=osoba.etykieta,
                 )
             except Exception as blad:  # noqa: BLE001
                 log.error("sprawa %s: KRZ blad (%s)", identyfikator, type(blad).__name__)
                 wynik = rejestry.WynikSprawdzenia(
                     rejestr="KRZ", zapytanie=rejestry.maskuj_pesel(osoba.pesel), status="niedostepny",
                     szczegoly=f"{osoba.etykieta} - portal niedostepny albo zmienil uklad ({type(blad).__name__})",
-                    zrodlo=krz.ADRES,
+                    zrodlo=krz.ADRES, etykieta=osoba.etykieta,
                 )
             rejestry.zapisz_sprawdzenie(identyfikator, wynik)
     finally:

@@ -162,3 +162,52 @@ class TestApi:
         assert odp.status_code == 200 and odp.json()[0]["zapytanie"] == "*******1359"
         assert klient.get("/api/sprawy/abc123/sprawdzenia").json()[0]["status"] == "brak_wpisu"
         assert "44051401359" not in (tmp_path / "abc123" / "sprawdzenia.json").read_text()
+
+    def test_sprawdzenie_pamieta_ktorej_strony_dotyczy(self, klient):
+        """Przy kilkunastu stronach czynnosci cztery koncowe cyfry PESEL nie
+        wystarcza, zeby przypisac wynik wlasciwej osobie."""
+        klient.post("/api/sprawy/abc123/sprawdzenia",
+                    json={"rejestr": "ZASTRZEZENIA_PESEL", "pesel": "44051401359",
+                          "status": "brak_wpisu", "etykieta": "aaa: zbywca"})
+        assert klient.get("/api/sprawy/abc123/sprawdzenia").json()[0]["etykieta"] == "aaa: zbywca"
+
+
+class TestBezPrzegladarki:
+    """Serwer w chmurze nie ma przegladarki i nigdy nie bedzie mial.
+
+    Wczesniej probowal ja u siebie uruchomic i odpowiadal notariuszowi
+    "zainstaluj Chrome", co bylo mylace: Chrome ma, tylko nie tam.
+    """
+
+    @pytest.fixture
+    def klient(self, tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+        import app as aplikacja
+        monkeypatch.setattr(config, "SPRAWY", tmp_path)
+        monkeypatch.setattr(silnik, "czy_mozna_sterowac", lambda: False)
+        (tmp_path / "abc123").mkdir()
+        return TestClient(aplikacja.app)
+
+    def test_ustawienia_mowia_ze_nie_ma_czym_sterowac(self, klient):
+        assert klient.get("/api/ustawienia").json()["sterowanie_przegladarka"] is False
+
+    def test_wpisywanie_odsyla_do_pomocnika(self, klient):
+        odp = klient.post("/api/sprawy/abc123/formularze/rejestry_notarialne_pesel",
+                          json={"pola": [{"nazwa": "pesel", "wartosc": "44051401359"}],
+                                "tryb": "faktyczny", "potwierdzam": True})
+        assert odp.status_code == 409
+        tresc = odp.json()["detail"].lower()
+        assert "pomocnik" in tresc
+        assert "zainstaluj" not in tresc, "nie kazemy instalowac przegladarki, ktora notariusz ma"
+
+    def test_krz_odsyla_do_pomocnika(self, klient):
+        odp = klient.post("/api/sprawy/abc123/krz",
+                          json={"osoby": [{"pesel": "44051401359", "etykieta": "zbywca"}],
+                                "potwierdzam": True})
+        assert odp.status_code == 409 and "pomocnik" in odp.json()["detail"].lower()
+
+    def test_podglad_dziala_dalej(self, klient):
+        """Podglad nie dotyka przegladarki, wiec ma dzialac takze w chmurze."""
+        odp = klient.post("/api/sprawy/abc123/formularze/rejestry_notarialne_pesel",
+                          json={"pola": [{"nazwa": "pesel", "wartosc": "44051401359"}]})
+        assert odp.status_code == 200 and odp.json()["tryb"] == "podglad"

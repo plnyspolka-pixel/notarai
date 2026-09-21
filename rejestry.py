@@ -34,6 +34,11 @@ class WynikSprawdzenia:
     sprawdzono: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     zrodlo: str = ""
     kto: str = ""             # kto zatwierdzil sprawdzenie (na przyszlosc: konta)
+    # Ktorej strony czynnosci dotyczy wpis - nazwa pola ze sprawy. PESEL
+    # zapisujemy zamaskowany, a same cztery koncowe cyfry nie rozroznia stron,
+    # gdy w akcie jest ich kilkanascie. Bez tego status "sprawdzony" moglby
+    # sie pokazac przy niewlasciwej osobie.
+    etykieta: str = ""
 
     def __post_init__(self):
         if self.rejestr not in REJESTRY:
