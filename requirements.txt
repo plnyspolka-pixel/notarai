@@ -13,3 +13,5 @@ PyJWT[crypto]>=2.10
 playwright>=1.49
 httpx>=0.27
 faster-whisper>=1.1
+# Pomocnik na komputerze notariusza steruje przegladarka przez CDP.
+websocket-client>=1.8
