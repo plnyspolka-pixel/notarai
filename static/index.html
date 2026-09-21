@@ -187,8 +187,18 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .spr-wynik.wpis{background:var(--alarm);color:#fff}
 .spr-wynik.niedostepny,.spr-wynik.blad{background:var(--akcent-tlo);color:var(--akcent)}
 .spr-wynik.nieznany{background:var(--tlo2);color:var(--tekst3)}
+.spr-wiersz > div{min-width:0}   /* inaczej dlugi opis rubryki rozpycha wiersz zamiast sie skracac */
+.spr-wiersz .rubryka{font:12px var(--mono);color:var(--tekst3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spr-akcje{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .spr-akcje button{font-size:12px;padding:5px 11px}
+/* "inne..." to wyjscie awaryjne, nie glowna czynnosc, wiec ma wygladac jak
+   odnosnik. Styl .odnosnik byl zdefiniowany tylko wewnatrz bramy logowania,
+   wiec tutaj przycisk dostawal wyglad przycisku glownego i krzyczal w wierszu
+   glosniej niz "brak zastrzezenia". */
+.spr-akcje .odnosnik{padding:5px 4px;border:0;background:none;color:var(--tekst3);
+  text-decoration:underline;font-size:12px}
+.spr-akcje .odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
 .spr-inne{grid-column:1/-1;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;
   margin-top:12px;padding-top:12px;border-top:1px solid var(--linia)}
 .spr-inne .pole{margin:0}
@@ -1345,17 +1355,20 @@ const OPIS_STATUSU = {
 let sprawdzenia = [];               // slad audytowy biezacej sprawy
 let sterowaniePrzegladarka = false; // czy ta instalacja moze sama wpisywac
 
-function ladnaNazwa(nazwa){
-  // Pola wzoru nazywaja sie "??5: Kowalski Jan, PESEL __ , zamieszkaly"
-  // albo "aaa: zbywca". Na liscie stron czynnosci liczy sie sama strona,
-  // a nie opis rubryki, w ktorej jej numer stoi we wzorze.
-  const surowa = String(nazwa ?? "")
+function opisRubryki(nazwa){
+  /* Opis miejsca we wzorze, z ktorego numer pochodzi - podpowiedz, nie nazwisko.
+     Wzory roznia sie miedzy kancelariami i miedzy czynnosciami: raz jest to
+     "+ PESEL zbywcy", raz "??7: __ , ważny do dnia __ r.) , PESEL __".
+     Probowalem wyciagac z tego nazwisko strony; w drugim wzorze imie i nazwisko
+     jest samo pustym miejscem, wiec obie strony dostawaly identyczny opis i nie
+     dalo sie ich odroznic. Rozroznia je numer PESEL i to on jest w wierszu
+     najwazniejszy, a opis rubryki zostaje skrocona podpowiedzia. */
+  const opis = String(nazwa ?? "")
     .replace(/^\?\?\d+:\s*/, "")
     .replace(/\s*__\s*/g, " … ")
     .replace(/\s+/g, " ")
     .trim();
-  const bezRubryki = surowa.replace(/[,;]?\s*PESEL\b.*$/i, "").replace(/[,;]\s*$/, "").trim();
-  return bezRubryki || surowa || "strona czynności";
+  return opis || "pole wzoru bez opisu";
 }
 function polaPesel(){
   if (!sprawa) return [];
@@ -1363,7 +1376,7 @@ function polaPesel(){
   const znalezione = (sprawa.pola || [])
     .filter(p => /pesel __|pesel\b/i.test(p.nazwa) && p.wartosc
                  && /^\d{11}$/.test(String(p.wartosc).replace(/\D/g, "")))
-    .map(p => ({nazwa: p.nazwa, etykieta: ladnaNazwa(p.nazwa),
+    .map(p => ({nazwa: p.nazwa, rubryka: opisRubryki(p.nazwa),
                 pesel: String(p.wartosc).replace(/\D/g, "")}));
   // Ten sam numer bywa w kilku polach wzoru, a strona czynnosci jest jedna.
   return [...new Map(znalezione.map(s => [s.pesel, s])).values()];
@@ -1415,7 +1428,7 @@ function rysujStrony(){
     return;
   }
   const lista = szukane
-    ? wszystkie.filter(s => s.etykieta.toLowerCase().includes(szukane)
+    ? wszystkie.filter(s => s.rubryka.toLowerCase().includes(szukane)
                             || s.pesel.slice(-4).includes(szukane))
     : wszystkie;
   if (!lista.length) {
@@ -1431,9 +1444,9 @@ function wierszStrony(osoba, rejestr){
   const d = document.createElement("div");
   d.className = "spr-wiersz";
   d.innerHTML = `<div>
-      <div class="kto">${escape(osoba.etykieta)}</div>
-      <div class="pesel">PESEL ${maskuj(osoba.pesel)}${
-        wpis ? " · " + escape(String(wpis.sprawdzono || "").replace("T", " ")) : ""}</div>
+      <div class="kto">PESEL ${maskuj(osoba.pesel)}${
+        wpis ? ' <span class="pesel">· ' + escape(String(wpis.sprawdzono || "").replace("T", " ")) + "</span>" : ""}</div>
+      <div class="rubryka" title="${escape(osoba.rubryka)}">${escape(osoba.rubryka)}</div>
     </div>
     <div class="spr-akcje">
       <span class="spr-wynik ${wpis ? escape(wpis.status) : "nieznany"}">${escape(opis)}</span>
@@ -1570,7 +1583,7 @@ async function wpiszWRejestrze(osoba){
       stan($("stan4"), "");
       return;
     }
-    if (!confirm("Wpisać w otwartym module KRN dla: " + osoba.etykieta + "\n\n"
+    if (!confirm("Wpisać w otwartym module KRN numer PESEL " + maskuj(osoba.pesel) + "\n\n"
                  + opisKrokow(podglad) + "\n\nPrzycisk „Sprawdź” klikasz sama.")) {
       stan($("stan4"), "");
       return;
