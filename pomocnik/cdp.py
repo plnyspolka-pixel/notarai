@@ -153,6 +153,19 @@ class StronaCDP:
                 "Moze byc zablokowane albo wymagac wczesniejszego wyboru."
             )
 
+    def typ_pola(self, selektor: str) -> str:
+        """Czym jest element: "password", "text", "checkbox", "select-one"...
+
+        Pomocnik nigdy nie wpisuje do pola hasla ani PIN-u karty. Zeby moc tego
+        odmowic, musi najpierw wiedziec, w co celuje selektor - mapowanie
+        przychodzi z serwera i nie moze byc jedynym strazem.
+        """
+        return self._p.oblicz(f"""(() => {{
+            const pole = document.querySelector({json.dumps(selektor)});
+            if (!pole) return '';
+            return (pole.type || pole.tagName || '').toLowerCase();
+        }})()""") or ""
+
     def odczytaj(self, selektor: str) -> str:
         """Co naprawde jest w polu. Strony rejestrow czesto formatuja wpisana
         wartosc, wiec nie porownujemy jej znak w znak - patrzymy, czy cokolwiek
