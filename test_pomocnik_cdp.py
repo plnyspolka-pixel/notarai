@@ -34,6 +34,14 @@ STRONA = """<!doctype html>
     <div id="uwagi" contenteditable="true"></div>
     <input id="tylko-odczyt" readonly>
     <input id="uparty">
+  </form>
+  <!-- Formularze rejestrow siedza w ramkach - KRZ tak wlasnie ma. -->
+  <iframe id="ramka" style="width:320px;height:120px" srcdoc="
+    <!doctype html><meta charset=utf-8><body>
+      <input id='w-ramce'>
+      <button id='szukaj-w-ramce'>Wyszukaj</button>
+    </body>"></iframe>
+  <form id="reszta" onsubmit="return false">
     <button id="wyslij" type="submit">Wyslij wniosek</button>
   </form>
 <script>
@@ -177,6 +185,35 @@ def test_pole_ktore_odrzuca_wpis_konczy_sie_bledem(strona):
     with pytest.raises(cdp.BladPrzegladarki) as blad:
         strona.wpisz("#uparty", "cokolwiek")
     assert "nie przyjelo" in str(blad.value)
+
+
+class TestRamek:
+    """Formularz rejestru zwykle siedzi w iframe. Kod wykonany w dokumencie
+    glownym nie widzi jego pol w ogole - i to wyglada jak brak pola, a nie jak
+    zle miejsce szukania."""
+
+    def test_dokument_glowny_nie_widzi_pola_z_ramki(self, strona):
+        assert strona.istnieje("#w-ramce") is False
+
+    def test_znajduje_ramke_po_zawartosci(self, strona):
+        ramka = strona.ramka_z("#w-ramce", sekundy=10)
+        assert ramka.istnieje("#w-ramce") is True
+
+    def test_wpisuje_do_pola_w_ramce(self, strona):
+        ramka = strona.ramka_z("#w-ramce", sekundy=10)
+        ramka.wpisz("#w-ramce", "44051401359")
+        assert ramka.odczytaj("#w-ramce") == "44051401359"
+
+    def test_elementy_ramki_to_elementy_ramki(self, strona):
+        ramka = strona.ramka_z("#w-ramce", sekundy=10)
+        opisy = [e["opis"] for e in ramka.elementy()]
+        assert any("Wyszukaj" in o for o in opisy)
+        assert not any("Wyslij wniosek" in o for o in opisy), \
+            "ramka nie moze zwracac elementow dokumentu glownego"
+
+    def test_brak_formularza_konczy_sie_czytelnym_bledem(self, strona):
+        with pytest.raises(cdp.BladPrzegladarki, match="ani w zadnej ramce"):
+            strona.ramka_z("#czegos-takiego-nie-ma", sekundy=1)
 
 
 def test_nic_nie_zostalo_wyslane(strona):

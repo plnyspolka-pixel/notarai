@@ -96,7 +96,9 @@ class Polaczenie:
 
     def polecenie(self, metoda: str, **parametry):
         self._numer += 1
-        self._ws.send(json.dumps({"id": self._numer, "method": metoda, "params": parametry}))
+        self._ws.send(json.dumps({"id": self._numer, "method": metoda,
+                                  "params": {k: v for k, v in parametry.items()
+                                             if v is not None}}))
         while True:
             wiadomosc = json.loads(self._ws.recv())
             if wiadomosc.get("id") != self._numer:
@@ -107,28 +109,94 @@ class Polaczenie:
                 )
             return wiadomosc.get("result", {})
 
-    def oblicz(self, wyrazenie: str):
-        """Wykonuje wyrazenie JavaScript w strony i zwraca wartosc."""
+    def oblicz(self, wyrazenie: str, kontekst: int | None = None):
+        """Wykonuje wyrazenie JavaScript i zwraca wartosc.
+
+        `kontekst` wskazuje ramke strony. Formularze urzedowe lubia siedziec w
+        iframe (KRZ tak wlasnie ma), a kod wykonany w dokumencie glownym nie
+        widzi ich pol w ogole.
+        """
         wynik = self.polecenie(
-            "Runtime.evaluate", expression=wyrazenie, returnByValue=True, awaitPromise=True
+            "Runtime.evaluate", expression=wyrazenie, returnByValue=True,
+            awaitPromise=True, contextId=kontekst,
         )
         if wynik.get("exceptionDetails"):
             raise BladPrzegladarki("Strona odrzucila zapytanie o element formularza.")
         return wynik.get("result", {}).get("value")
 
+    def konteksty(self) -> list[dict]:
+        """Ramki strony jako osobne konteksty wykonania kodu.
+
+        Dla kazdej ramki tworzymy wlasny, odizolowany swiat: widzi ten sam
+        dokument, ale nie miesza sie ze skryptami strony.
+        """
+        self.polecenie("Page.enable")
+        ramki: list[dict] = []
+
+        def zejdz(wezel: dict) -> None:
+            if "frame" in wezel:
+                ramki.append(wezel["frame"])
+            for dziecko in wezel.get("childFrames") or []:
+                zejdz(dziecko)
+
+        zejdz(self.polecenie("Page.getFrameTree").get("frameTree", {}))
+        wynik = []
+        for ramka in ramki:
+            try:
+                odp = self.polecenie("Page.createIsolatedWorld",
+                                     frameId=ramka["id"], worldName="notarai")
+            except BladPrzegladarki:
+                continue  # ramka zdazyla zniknac albo jest nam niedostepna
+            wynik.append({"ramka": ramka["id"], "adres": ramka.get("url", ""),
+                          "kontekst": odp.get("executionContextId")})
+        return wynik
+
 
 class StronaCDP:
     """Adapter na interfejs Strona z formularze.silnik, oparty o CDP."""
 
-    def __init__(self, polaczenie: Polaczenie):
+    def __init__(self, polaczenie: Polaczenie, kontekst: int | None = None):
         self._p = polaczenie
+        self._kontekst = kontekst   # None = dokument glowny, inaczej ramka
+
+    def _ob(self, wyrazenie: str):
+        return self._p.oblicz(wyrazenie, self._kontekst)
+
+    def ramki(self) -> list["StronaCDP"]:
+        """Strona widziana z kazdej ramki osobno, razem z dokumentem glownym."""
+        return [StronaCDP(self._p, k["kontekst"]) for k in self._p.konteksty()
+                if k.get("kontekst")]
+
+    def ramka_z(self, selektor: str, sekundy: float = 20) -> "StronaCDP":
+        """Ramka, w ktorej jest wskazany element.
+
+        Formularze urzedowe lubia siedziec w iframe - KRZ tak wlasnie ma.
+        Szukanie po zawartosci jest odporniejsze niz zapamietywanie adresu
+        ramki, bo ten potrafi sie zmienic przy kazdym wdrozeniu portalu.
+        """
+        import time
+
+        koniec = time.monotonic() + sekundy
+        while True:
+            for ramka in self.ramki():
+                try:
+                    if ramka.istnieje(selektor):
+                        return ramka
+                except BladPrzegladarki:
+                    continue
+            if time.monotonic() >= koniec:
+                raise BladPrzegladarki(
+                    f"Nie znalazlem formularza na stronie ({selektor}) - "
+                    "ani w dokumencie glownym, ani w zadnej ramce."
+                )
+            time.sleep(0.5)
 
     @property
     def url(self) -> str:
-        return self._p.oblicz("location.href") or ""
+        return self._ob("location.href") or ""
 
     def istnieje(self, selektor: str) -> bool:
-        return bool(self._p.oblicz(f"!!document.querySelector({json.dumps(selektor)})"))
+        return bool(self._ob(f"!!document.querySelector({json.dumps(selektor)})"))
 
     def wpisz(self, selektor: str, wartosc: str) -> None:
         """Wpisuje tekst tak, jak zrobilby to czlowiek z klawiatury.
@@ -162,7 +230,7 @@ class StronaCDP:
         ona pilnuje, w co kliknac nie wolno (patrz klikamy.WYSYLKA).
         """
         self.poczekaj_na(selektor, 5)
-        udalo = self._p.oblicz(f"""(() => {{
+        udalo = self._ob(f"""(() => {{
             const el = document.querySelector({json.dumps(selektor)});
             if (!el) return false;
             el.scrollIntoView({{block: 'center'}});
@@ -185,7 +253,7 @@ class StronaCDP:
         albo nie wskazuje niczego, co w formularzu urzedowym jest roznica
         miedzy pomylka a jej brakiem.
         """
-        return self._p.oblicz(f"""(() => {{
+        return self._ob(f"""(() => {{
             const sciezka = (el) => {{
                 if (el.id) return '#' + CSS.escape(el.id);
                 if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
@@ -224,7 +292,7 @@ class StronaCDP:
 
     def tekst_strony(self, limit: int = 4000) -> str:
         """Widoczny tekst strony - do oceny, czy jestesmy tam, gdzie trzeba."""
-        tresc = self._p.oblicz(
+        tresc = self._ob(
             "(document.body ? document.body.innerText : '').replace(/\\s+\\n/g, '\\n')"
         ) or ""
         return tresc[:limit]
@@ -236,7 +304,7 @@ class StronaCDP:
         odmowic, musi najpierw wiedziec, w co celuje selektor - mapowanie
         przychodzi z serwera i nie moze byc jedynym strazem.
         """
-        return self._p.oblicz(f"""(() => {{
+        return self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return '';
             return (pole.type || pole.tagName || '').toLowerCase();
@@ -246,14 +314,14 @@ class StronaCDP:
         """Co naprawde jest w polu. Strony rejestrow czesto formatuja wpisana
         wartosc, wiec nie porownujemy jej znak w znak - patrzymy, czy cokolwiek
         zostalo przyjete."""
-        return self._p.oblicz(f"""(() => {{
+        return self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return '';
             return ('value' in pole ? pole.value : pole.textContent) || '';
         }})()""") or ""
 
     def _podstaw(self, selektor: str, wartosc: str) -> None:
-        self._p.oblicz(f"""(() => {{
+        self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return;
             if ('value' in pole) {{ pole.value = {json.dumps(wartosc)}; }}
@@ -262,7 +330,7 @@ class StronaCDP:
 
     def wybierz(self, selektor: str, wartosc: str) -> None:
         self.poczekaj_na(selektor, 5)
-        udalo = self._p.oblicz(f"""(() => {{
+        udalo = self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole || !pole.options) return false;
             const szukane = {json.dumps(wartosc)}.trim().toLowerCase();
@@ -282,7 +350,7 @@ class StronaCDP:
 
     def zaznacz(self, selektor: str, tak: bool) -> None:
         self.poczekaj_na(selektor, 5)
-        udalo = self._p.oblicz(f"""(() => {{
+        udalo = self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return false;
             if (!!pole.checked !== {json.dumps(bool(tak))}) pole.click();
@@ -306,7 +374,7 @@ class StronaCDP:
 
         koniec = time.monotonic() + sekundy
         while True:
-            if bool(self._p.oblicz(warunek)):
+            if bool(self._ob(warunek)):
                 return True
             if time.monotonic() >= koniec:
                 return False
@@ -320,7 +388,7 @@ class StronaCDP:
         jak brak pola. Liczy sie, czy pole w ogole istnieje.
         """
         self.poczekaj_na(selektor, 5)
-        istnieje = self._p.oblicz(f"""(() => {{
+        istnieje = self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return false;
             pole.focus();
@@ -336,7 +404,7 @@ class StronaCDP:
     def _powiadom_strone(self, selektor: str) -> None:
         """Domkniecie zdarzen. insertText daje 'input', ale 'change' strona
         zwykle dostaje dopiero przy opuszczeniu pola - a my pola nie opuszczamy."""
-        self._p.oblicz(f"""(() => {{
+        self._ob(f"""(() => {{
             const pole = document.querySelector({json.dumps(selektor)});
             if (!pole) return;
             pole.dispatchEvent(new Event('change', {{bubbles: true}}));
