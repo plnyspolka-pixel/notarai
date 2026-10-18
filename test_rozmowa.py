@@ -80,6 +80,49 @@ class TestUstalenia:
         t = prompty.ustalenia_z_rozmowy([{"rola": "asystent", "tresc": "?"}, {"rola": "uzytkownik", "tresc": "tak"}])
         assert "ASYSTENT: ?" in t and "NOTARIUSZ: tak" in t
 
+    def test_limit_odpowiedzi_w_rozmowie(self):
+        with patch("bedrock._rozmowa", return_value="OK") as r:
+            bedrock.rozmawiaj("K", [], "a")
+        assert r.call_args.kwargs["max_tokenow"] == bedrock.MAX_TOKENOW_ROZMOWY > 2000
+
+    def test_generowanie_dostaje_podsumowanie_zamiast_zapisu(self):
+        rozmowa = [
+            {"rola": "asystent", "tresc": "1. Jaka cena?"},
+            {"rola": "uzytkownik", "tresc": "Cena 400 000"},
+            {"rola": "uzytkownik", "tresc": "Jednak 450 000"},
+        ]
+        odpowiedzi = iter(["- Cena: 450 000 zl\nNIEROZSTRZYGNIETE: brak", "AKT"])
+        with patch("bedrock._rozmowa", side_effect=lambda *a, **k: next(odpowiedzi)) as r:
+            assert bedrock.sporzadz_projekt("WZOR", [], "", rozmowa=rozmowa) == "AKT"
+        podsumowanie, generowanie = r.call_args_list
+        assert podsumowanie.args[0] == prompty.PODSUMOWANIE_ROZMOWY
+        assert "NOTARIUSZ: Jednak 450 000" in podsumowanie.args[1][0]["text"]
+        prompt = generowanie.args[1][0]["text"]
+        assert "- Cena: 450 000 zl" in prompt
+        assert "400 000" not in prompt and "NOTARIUSZ:" not in prompt
+
+    def test_same_pytania_asystenta_bez_podsumowania(self):
+        with patch("bedrock._rozmowa", return_value="AKT") as r:
+            bedrock.sporzadz_projekt("WZOR", [], "", rozmowa=[{"rola": "asystent", "tresc": "?"}])
+        assert r.call_count == 1
+        assert "USTALENIA" not in r.call_args.args[1][0]["text"]
+
+    def test_nieudane_podsumowanie_daje_pelny_zapis(self, caplog):
+        rozmowa = [{"rola": "uzytkownik", "tresc": "Zaplata gotowka, PESEL 44051401359"}]
+        odpowiedzi = iter([ValueError("ucieta"), "AKT"])
+
+        def atrapa(*a, **k):
+            w = next(odpowiedzi)
+            if isinstance(w, Exception):
+                raise w
+            return w
+
+        with patch("bedrock._rozmowa", side_effect=atrapa) as r:
+            assert bedrock.sporzadz_projekt("WZOR", [], "", rozmowa=rozmowa) == "AKT"
+        assert "NOTARIUSZ: Zaplata gotowka" in r.call_args.args[1][0]["text"]
+        assert "podsumowanie rozmowy nieudane" in caplog.text
+        assert "44051401359" not in caplog.text
+
     def test_kontekst_oznacza_niska_pewnosc(self):
         k = prompty.kontekst_rozmowy([{"nazwa": "rok", "wartosc": "1897", "pewnosc": "niska"}], ["x"], [], "op")
         assert "[NISKA PEWNOSC]" in k and "- x" in k

@@ -147,8 +147,9 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
 
 def polecenie_generowania(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    rozmowa: list[dict] | None = None,
+    ustalenia: str = "",
 ) -> str:
+    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy."""
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
@@ -165,8 +166,8 @@ def polecenie_generowania(
         )
     czesci.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
     czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
-    if rozmowa:
-        czesci.append(ustalenia_z_rozmowy(rozmowa))
+    if ustalenia:
+        czesci.append(ustalenia)
     czesci.append(f"POLECENIE UZYTKOWNIKA:\n{opis or '(brak)'}")
     czesci.append("Sporzadz projekt dokumentu.")
     return "\n\n".join(czesci)
@@ -259,12 +260,50 @@ PIERWSZE_PYTANIA = (
 )
 
 
-def ustalenia_z_rozmowy(historia: list[dict]) -> str:
-    """Rozmowa jako tekst do promptu generowania."""
-    if not historia:
-        return ""
+def zapis_rozmowy(historia: list[dict]) -> str:
+    """Rozmowa jako tekst: kazda wypowiedz w osobnej linii z oznaczeniem, kto mowi."""
     linie = []
     for w in historia:
         kto = "NOTARIUSZ" if w["rola"] == "uzytkownik" else "ASYSTENT"
         linie.append(f"{kto}: {w['tresc']}")
-    return "USTALENIA Z ROZMOWY Z NOTARIUSZEM (rozstrzygajace, maja pierwszenstwo przed danymi):\n" + "\n".join(linie)
+    return "\n".join(linie)
+
+
+def ustalenia_z_rozmowy(historia: list[dict]) -> str:
+    """Surowy zapis rozmowy do promptu generowania - gdy podsumowanie zawiodlo."""
+    if not historia:
+        return ""
+    return ("USTALENIA Z ROZMOWY Z NOTARIUSZEM (rozstrzygajace, maja pierwszenstwo "
+            "przed danymi; przy sprzecznosciach obowiazuje pozniejsza wypowiedz):\n"
+            + zapis_rozmowy(historia))
+
+
+def ustalenia_podsumowane(podsumowanie: str) -> str:
+    """Podsumowanie rozmowy jako blok do promptu generowania."""
+    return ("USTALENIA Z ROZMOWY Z NOTARIUSZEM (stan koncowy, rozstrzygajace, "
+            "maja pierwszenstwo przed danymi):\n" + podsumowanie)
+
+
+# Dluga rozmowa to dziesiatki tur z poprawkami poprawek. Wklejona wprost do
+# promptu generowania zmusza model do rozplatania jej w trakcie pisania aktu
+# - stad osobny krok: najpierw lista ostatecznych ustalen, potem projekt.
+PODSUMOWANIE_ROZMOWY = """Jestes asystentem kancelarii notarialnej. Dostajesz \
+ZAPIS ROZMOWY notariusza z asystentem o jednej sprawie, prowadzonej przed \
+sporzadzeniem projektu aktu. Masz wypisac ostateczne ustalenia, ktore trafia \
+do generowania projektu.
+
+ZASADY
+1. Ustaleniem jest tylko to, co powiedzial lub potwierdzil NOTARIUSZ. Pytania \
+i propozycje asystenta, na ktore notariusz nie odpowiedzial, nie sa ustaleniami.
+2. Gdy notariusz zmienil zdanie, podajesz WYLACZNIE wersje ostatnia. Nie \
+wspominasz wersji wczesniejszych.
+3. Kazde ustalenie w osobnym punkcie, konkretnie: czego dotyczy i jaka jest \
+wartosc albo decyzja (np. "Cena: 450 000 zl, platna przelewem do 30 dni"). \
+Grupuj punkty wedlug tematu: strony, przedmiot, cena i zaplata, warianty wzoru, \
+inne postanowienia.
+4. Liczby, kwoty, daty, numery ksiag i dokumentow przepisujesz doslownie.
+5. Niczego nie dodajesz od siebie i nie uzupelniasz z wiedzy ogolnej.
+6. Na koncu sekcja "NIEROZSTRZYGNIETE:" z pytaniami asystenta, ktore zostaly \
+bez odpowiedzi, albo "NIEROZSTRZYGNIETE: brak".
+7. Zwykly tekst, bez markdown, punkty zaczynaj od "- ".
+"""

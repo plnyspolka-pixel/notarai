@@ -50,6 +50,11 @@ class Przeciazenie(RuntimeError):
 _PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
                  "ServiceQuotaExceededException"}
 
+# Limit odpowiedzi w rozmowie o sprawie i w podsumowaniu ustalen. Dawne 2000
+# tokenow nie wystarczalo, gdy model podsumowywal w punktach dluga rozmowe
+# (odpowiedz ucieta, notariusz dostawal blad zamiast podsumowania).
+MAX_TOKENOW_ROZMOWY = 6000
+
 
 def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[dict] | None = None) -> str:
     """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}]."""
@@ -160,8 +165,37 @@ def sporzadz_projekt(
     rozmowa: list[dict] | None = None,
 ) -> str:
     """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy."""
-    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, rozmowa)}]
+    ustalenia = _ustalenia(rozmowa or [])
+    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia)}]
     return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc, max_tokenow=24000))
+
+
+def _ustalenia(rozmowa: list[dict]) -> str:
+    """Blok ustalen do generowania: podsumowanie rozmowy, a gdy zawiedzie - zapis.
+
+    Bez zadnej wypowiedzi notariusza nie ma czego podsumowywac (same pytania
+    asystenta nie sa ustaleniami), wiec oszczedzamy wywolanie modelu.
+    """
+    if not any(w.get("rola") == "uzytkownik" for w in rozmowa):
+        return ""
+    try:
+        podsumowanie = podsumuj_rozmowe(rozmowa)
+    except (Przeciazenie, ValueError, ClientError) as blad:
+        log.warning("podsumowanie rozmowy nieudane (%s), generowanie z pelnym zapisem",
+                    type(blad).__name__)
+        return prompty.ustalenia_z_rozmowy(rozmowa)
+    if not podsumowanie:
+        log.warning("puste podsumowanie rozmowy, generowanie z pelnym zapisem")
+        return prompty.ustalenia_z_rozmowy(rozmowa)
+    return prompty.ustalenia_podsumowane(podsumowanie)
+
+
+def podsumuj_rozmowe(rozmowa: list[dict]) -> str:
+    """Ostateczne ustalenia z rozmowy z notariuszem, punkt po punkcie."""
+    tresc = [{"text": "ZAPIS ROZMOWY:\n" + prompty.zapis_rozmowy(rozmowa)
+              + "\n\nWypisz ostateczne ustalenia."}]
+    return _oczysc_projekt(_rozmowa(prompty.PODSUMOWANIE_ROZMOWY, tresc,
+                                    max_tokenow=MAX_TOKENOW_ROZMOWY))
 
 
 def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
@@ -267,9 +301,9 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
     if wiadomosc is None:
         # pierwsza tura: pytania wstepne - kontekst juz jest ostatnia tura uzytkownika
         ostatnia = tury.pop()
-        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=2000, historia=tury)
+        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
     if tury[-1]["role"] == "user":
         tury[-1]["content"].append({"text": wiadomosc})
         ostatnia = tury.pop()
-        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=2000, historia=tury)
-    return _rozmowa(prompty.ROZMOWA, [{"text": wiadomosc}], max_tokenow=2000, historia=tury)
+        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
+    return _rozmowa(prompty.ROZMOWA, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
