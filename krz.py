@@ -1,116 +1,51 @@
-"""Sprawdzenie w Krajowym Rejestrze Zadluzonych (krz.ms.gov.pl).
+"""Sprawdzenie w Krajowym Rejestrze Zadluzonych - czesc serwerowa.
 
-Zapytanie tylko do odczytu, wykonywane w przegladarce notariusza (polaczenie
-CDP przez uruchom_przegladarke.bat). Dla osoby fizycznej dwa wyszukiwania po
-PESEL: "prowadzaca dzialalnosc" i "nieprowadzaca dzialalnosci". Wynik to zrzuty
-ekranu + wpis audytowy. Rozpoznanie tresci wyniku jest heurystyczne - notariusz
-oglada zrzut i zatwierdza. Patrz docs/rejestry.md.
+Wiedza o samym portalu (zakladki, wzorce rozpoznawania, przebieg wyszukiwania)
+siedzi w krz_portal.py, bo to samo sprawdzenie wykonuje takze pomocnik na
+komputerze notariusza. Tutaj zostaje to, co wiaze je ze sprawa: katalog na
+zrzuty i wpis audytowy.
 
-Logi: identyfikator sprawy, ktore wyszukiwanie, status, czas. Bez PESEL-i.
+Logi: identyfikator sprawy, status, czas. Bez PESEL-i.
 """
 import logging
 import re
 import time
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Protocol
 
 import config
+import krz_portal
 import rejestry
+from krz_portal import (  # nazwy, po ktore siega serwer, testy i pomocnik
+    ADRES,
+    ODSTEP_S,
+    STALE_TEKSTY,
+    WZORCE_BRAK,
+    WZORCE_WPIS,
+    ZAKLADKI,
+    StronaKRZ,
+    WynikZakladki,
+    rozpoznaj,
+)
 
 log = logging.getLogger("pieczapp.krz")
 
-ADRES = "https://krz.ms.gov.pl/"
-ZAKLADKI = {
-    "prowadzaca": "Osoba fizyczna prowadząca działalność gospodarczą",
-    "nieprowadzaca": "Osoba fizyczna nieprowadząca działalności gospodarczej",
-}
-ODSTEP_S = 2.0  # miedzy zapytaniami - rate limiting po naszej stronie
 
-# Komunikat portalu przy braku wynikow (sprawdzone 17.09.2026, wersja 1.22.002):
-# "Nie zostały znalezione żadne pozycje dla podanych kryteriów wyszukiwania."
-WZORCE_BRAK = re.compile(r"nie zosta[łl]y znalezione|[żz]adne pozycje|brak wynik|nie znaleziono|nie odnaleziono", re.I)
-# Teksty stale na stronie (zakladki, ramka informacyjna) - wycinane przed szukaniem slow o wpisie,
-# bo zawieraja np. "Sygnatura" i "postepowania".
-STALE_TEKSTY = re.compile(
-    r"Przejd[źz] do kryteri[óo]w wyszukiwania|Podmiot nieb[ęe]d[ąa]cy osob[ąa] fizyczn[ąa]|"
-    r"Osoba fizyczna (nie)?prowadz[ąa]ca dzia[łl]alno[śs][ćc]i? gospodarcz[ąe]j?|Sygnatura|"
-    r"Poprzednia zak[łl]adka|Nast[ęe]pna zak[łl]adka|zak[łl]adka \d z \d|\d / \d|"
-    r"INFORMACJA O KRYTERIACH WYSZUKIWANIA.*?w trakcie post[ęe]powania\.",
-    re.I | re.S,
-)
-WZORCE_WPIS = re.compile(r"upad[łl]o|restruktur|zakaz prowadzenia|egzekuc|nr sprawy|numer sprawy|data wszcz", re.I)
-
-
-class StronaKRZ(Protocol):
-    """To, czego modul potrzebuje od przegladarki - Playwright albo atrapa."""
-    def otworz(self) -> None: ...
-    def wybierz_zakladke(self, nazwa: str) -> None: ...
-    def wpisz_identyfikator(self, wartosc: str) -> None: ...
-    def wyszukaj(self) -> None: ...
-    def wyczysc(self) -> None: ...
-    def tekst_wyniku(self) -> str: ...
-    def zrzut(self, cel: Path) -> None: ...
-
-
-@dataclass
-class WynikKRZ:
-    zakladka: str
-    status: str        # brak_wpisu | wpis | blad
-    zrzut: str         # nazwa pliku
-    opis: str
-
-
-def rozpoznaj(tekst: str) -> tuple[str, str]:
-    """Heurystyka na tekscie strony wynikow. Zawsze do potwierdzenia przez czlowieka."""
-    t = " ".join((tekst or "").split())
-    if WZORCE_BRAK.search(t):
-        return "brak_wpisu", "portal: nie znaleziono pozycji"
-    reszta = STALE_TEKSTY.sub(" ", t)
-    if WZORCE_WPIS.search(reszta):
-        return "wpis", "portal: znaleziono pozycje - SPRAWDZ ZRZUT"
-    return "blad", "nie rozpoznano wyniku - sprawdz zrzut"
-
-
-def sprawdz_osobe(strona: StronaKRZ, pesel: str, identyfikator: str, etykieta: str = "") -> rejestry.WynikSprawdzenia:
+def sprawdz_osobe(strona: StronaKRZ, pesel: str, identyfikator: str,
+                  etykieta: str = "") -> rejestry.WynikSprawdzenia:
     """Dwa wyszukiwania po PESEL, zrzuty do sprawy, jeden wpis audytowy."""
-    cyfry = re.sub(r"\D", "", pesel or "")
-    if len(cyfry) != 11:
-        raise ValueError("PESEL musi miec 11 cyfr")
     katalog = config.SPRAWY / identyfikator / "sprawdzenia"
     katalog.mkdir(parents=True, exist_ok=True)
-    maska = rejestry.maskuj_pesel(cyfry)
-    znacznik = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    wyniki: list[WynikKRZ] = []
     start = time.time()
-    strona.otworz()
-    for klucz, nazwa in ZAKLADKI.items():
-        strona.wybierz_zakladke(nazwa)
-        strona.wpisz_identyfikator(cyfry)
-        strona.wyszukaj()
-        plik = katalog / f"krz_{klucz}_{maska[-4:]}_{znacznik}.png"
-        strona.zrzut(plik)
-        status, opis = rozpoznaj(strona.tekst_wyniku())
-        wyniki.append(WynikKRZ(klucz, status, plik.name, opis))
-        strona.wyczysc()
-        time.sleep(ODSTEP_S)
-
-    if any(w.status == "wpis" for w in wyniki):
-        status = "wpis"
-    elif all(w.status == "brak_wpisu" for w in wyniki):
-        status = "brak_wpisu"
-    else:
-        status = "blad"
-    szczegoly = "; ".join(f"{w.zakladka}: {w.opis} [{w.zrzut}]" for w in wyniki)
-    if etykieta:
-        szczegoly = f"{etykieta} - " + szczegoly
+    wynik = krz_portal.przebieg(
+        strona, pesel, etykieta,
+        zrzut_do=lambda nazwa: katalog / nazwa,
+        odstep_s=ODSTEP_S,
+    )
     log.info("sprawa %s: KRZ status=%s zapytan=%d czas=%.0fs",
-             identyfikator, status, len(wyniki), time.time() - start)
+             identyfikator, wynik["status"], len(wynik["zakladki"]), time.time() - start)
     return rejestry.WynikSprawdzenia(
-        rejestr="KRZ", zapytanie=maska, status=status, szczegoly=szczegoly, zrodlo=ADRES,
-        etykieta=etykieta,
+        rejestr="KRZ", zapytanie=wynik["maska"], status=wynik["status"],
+        szczegoly=wynik["szczegoly"], zrodlo=wynik["zrodlo"], etykieta=etykieta,
     )
 
 

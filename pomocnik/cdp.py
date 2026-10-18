@@ -24,6 +24,25 @@ import urllib.request
 log = logging.getLogger("notarai.pomocnik.cdp")
 
 PORT = 9222
+# Jak zbudowac selektor wskazujacy dokladnie ten element. Wspolne dla listy
+# elementow i dla szukania po tekscie, zeby oba mowily o stronie tak samo.
+_JS_SCIEZKA = """
+const sciezka = (el) => {
+    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
+    const kroki = [];
+    let w = el;
+    while (w && w.nodeType === 1 && w !== document.body) {
+        const rodzic = w.parentNode;
+        if (!rodzic) break;
+        const rodzenstwo = [...rodzic.children].filter(e => e.tagName === w.tagName);
+        kroki.unshift(w.tagName.toLowerCase() + ':nth-of-type(' + (rodzenstwo.indexOf(w) + 1) + ')');
+        w = rodzic;
+    }
+    return 'body > ' + kroki.join(' > ');
+};
+"""
+
 CZAS_ODPOWIEDZI = 20  # sekund; formularze rejestrow potrafia myslec
 
 
@@ -191,6 +210,25 @@ class StronaCDP:
                 )
             time.sleep(0.5)
 
+    def ramka_z_tekstem(self, fragment: str, sekundy: float = 20) -> "StronaCDP":
+        """Ramka, w ktorej widac taki napis. Dla portali bez stalych selektorow."""
+        import time
+
+        koniec = time.monotonic() + sekundy
+        while True:
+            for ramka in self.ramki():
+                try:
+                    if ramka.selektor_po_tekscie(fragment):
+                        return ramka
+                except BladPrzegladarki:
+                    continue
+            if time.monotonic() >= koniec:
+                raise BladPrzegladarki(
+                    f"Nie znalazlem na stronie napisu „{fragment}” - "
+                    "ani w dokumencie glownym, ani w zadnej ramce."
+                )
+            time.sleep(0.5)
+
     @property
     def url(self) -> str:
         return self._ob("location.href") or ""
@@ -244,6 +282,41 @@ class StronaCDP:
         self._p.polecenie("Page.navigate", url=adres)
         self.poczekaj_na_dokument()
 
+    def selektor_po_tekscie(self, fragment: str) -> str | None:
+        """Selektor widocznego elementu z takim tekstem, najglebiej zagniezdzonego.
+
+        Portale urzedowe nie gwarantuja nazw klas ani identyfikatorow, ale
+        gwarantuja napisy - bo te widzi urzednik i uzytkownik. "Osoba fizyczna
+        nieprowadzaca dzialalnosci gospodarczej" przetrwa zmiane ukladu strony
+        dluzej niz jakikolwiek selektor CSS.
+        """
+        return self._ob(f"""(() => {{
+            {_JS_SCIEZKA}
+            const szukane = {json.dumps(fragment)}.toLowerCase();
+            const widoczny = (el) => {{
+                const p = el.getBoundingClientRect();
+                return p.width > 0 && p.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+            }};
+            const pasuje = [...document.querySelectorAll('*')].filter(el =>
+                widoczny(el) && (el.textContent || '').toLowerCase().includes(szukane));
+            if (!pasuje.length) return null;
+            // Najglebszy pasujacy: rodzic tez "zawiera" ten tekst, ale klikniecie
+            // w rodzica trafia obok.
+            pasuje.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+            return sciezka(pasuje[0]);
+        }})()""")
+
+    def zrzut(self, cel) -> None:
+        """Zrzut widocznej czesci strony. Dowod starannosci do akt sprawy."""
+        import base64
+        from pathlib import Path
+
+        wynik = self._p.polecenie("Page.captureScreenshot", format="png")
+        dane = wynik.get("data")
+        if not dane:
+            raise BladPrzegladarki("Przegladarka nie oddala zrzutu ekranu.")
+        Path(cel).write_bytes(base64.b64decode(dane))
+
     def elementy(self, limit: int = 120) -> list[dict]:
         """Co na stronie da sie kliknac albo wypelnic, z gotowym selektorem.
 
@@ -254,21 +327,7 @@ class StronaCDP:
         miedzy pomylka a jej brakiem.
         """
         return self._ob(f"""(() => {{
-            const sciezka = (el) => {{
-                if (el.id) return '#' + CSS.escape(el.id);
-                if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
-                const kroki = [];
-                let w = el;
-                while (w && w.nodeType === 1 && w !== document.body) {{
-                    const rodzic = w.parentNode;
-                    if (!rodzic) break;
-                    const rodzenstwo = [...rodzic.children].filter(e => e.tagName === w.tagName);
-                    const nr = rodzenstwo.indexOf(w) + 1;
-                    kroki.unshift(w.tagName.toLowerCase() + ':nth-of-type(' + nr + ')');
-                    w = rodzic;
-                }}
-                return 'body > ' + kroki.join(' > ');
-            }};
+            {_JS_SCIEZKA}
             const widoczny = (el) => {{
                 const p = el.getBoundingClientRect();
                 return p.width > 0 && p.height > 0 && getComputedStyle(el).visibility !== 'hidden';
