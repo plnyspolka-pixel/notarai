@@ -71,8 +71,10 @@ class TestPrzegladarki:
 class AtrapaKlienta:
     """Serwer: laczy od razu, a przy pracy odrzuca token `odrzuc` razy."""
 
-    def __init__(self, odrzuc=0):
+    def __init__(self, odrzuc=0, potwierdz_po=1):
         self.odrzuc = odrzuc
+        self.potwierdz_po = potwierdz_po
+        self.pytan = 0
         self.odlaczone = []
 
     def __call__(self, adres, token=""):
@@ -83,7 +85,8 @@ class AtrapaKlienta:
                 return {"kod": "ABCD-EFGH", "sekret": "s"}
 
             def odbierz_token(self, kod, sekret):
-                return "pom_nowy"
+                atrapa.pytan += 1
+                return "pom_nowy" if atrapa.pytan >= atrapa.potwierdz_po else None
 
             def zlecenia(self):
                 if atrapa.odrzuc:
@@ -101,6 +104,9 @@ class AtrapaKlienta:
 def _sterownik(monkeypatch, tmp_path, atrapa):
     global sterownik
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    # Prawdziwe przerwy to sekundy; tu ten sam stosunek w milisekundach.
+    monkeypatch.setattr(klient, "PRZERWA_LACZENIA_S", 0.001)
+    monkeypatch.setattr(klient, "OTWORZ_PO_S", 0.002)
     monkeypatch.delenv("NOTARAI_ADRES", raising=False)
     otwarte = []
     sterownik = okno.Sterownik(queue.Queue(), otworz_strone=otwarte.append,
@@ -109,11 +115,19 @@ def _sterownik(monkeypatch, tmp_path, atrapa):
 
 
 class TestRazUstawiaszIJedziesz:
-    def test_pierwsze_uruchomienie_otwiera_notarai_z_kodem(self, monkeypatch, tmp_path):
-        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta())
+    def test_bez_kreatora_sam_otwiera_notarai_z_kodem(self, monkeypatch, tmp_path):
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta(potwierdz_po=6))
         sterownik.cykl()
-        assert otwarte == ["https://app.notarai.pl/#polacz=ABCD-EFGH"]
+        assert otwarte == ["https://app.notarai.pl/#polacz=ABCD-EFGH"], "raz, nie co 2 s"
         assert okno.wczytaj_ustawienia()["token"] == "pom_nowy", "token zapamietany"
+
+    def test_potwierdzony_w_kreatorze_nie_otwiera_nowej_karty(self, monkeypatch, tmp_path):
+        """Notariusz ma otwarty kreator i klika Polacz od razu - dodatkowa
+        karta z tym samym pytaniem tylko by go zmylila."""
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta(potwierdz_po=1))
+        sterownik.cykl()
+        assert otwarte == []
+        assert okno.wczytaj_ustawienia()["token"] == "pom_nowy"
 
     def test_kolejne_uruchomienie_nie_pyta_o_nic(self, monkeypatch, tmp_path):
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
@@ -125,7 +139,8 @@ class TestRazUstawiaszIJedziesz:
     def test_odlaczony_komputer_sam_wraca_do_laczenia(self, monkeypatch, tmp_path):
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
         okno.zapisz_ustawienia("https://app.notarai.pl", "pom_stary")
-        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta(odrzuc=1))
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path,
+                                        AtrapaKlienta(odrzuc=1, potwierdz_po=6))
         sterownik.cykl()
         assert otwarte == ["https://app.notarai.pl/#polacz=ABCD-EFGH"]
         assert okno.wczytaj_ustawienia()["token"] == "pom_nowy"
@@ -143,3 +158,29 @@ class TestRazUstawiaszIJedziesz:
     def test_adres_dla_wsparcia_ze_zmiennej(self, monkeypatch):
         monkeypatch.setenv("NOTARAI_ADRES", "http://127.0.0.1:8000/")
         assert okno.adres_notarai({}) == "http://127.0.0.1:8000"
+
+
+class TestSamoinstalacji:
+    """Same decyzje i sciezki - kopiowanie i skroty sprawdzamy na zbudowanym .exe."""
+
+    def test_wszystko_w_profilu_uzytkownika(self, monkeypatch, tmp_path):
+        from pomocnik import instalacja
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+        monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+        assert instalacja.plik_programu().is_relative_to(tmp_path / "Local")
+        assert instalacja.katalog_autostartu().is_relative_to(tmp_path / "Roaming")
+        assert instalacja.katalog_autostartu().name == "Startup"
+
+    def test_pobrany_plik_trzeba_zainstalowac_zainstalowanego_nie(self, monkeypatch, tmp_path):
+        from pomocnik import instalacja
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        assert instalacja.trzeba_zainstalowac(tmp_path / "Downloads" / instalacja.NAZWA_PLIKU)
+        assert not instalacja.trzeba_zainstalowac(instalacja.plik_programu())
+
+    def test_z_kodu_sie_nie_instaluje(self):
+        from pomocnik import instalacja
+        assert not instalacja.spakowany(), "python -m pomocnik nie kopiuje pythona.exe"
+
+    def test_apostrof_w_sciezce_nie_psuje_polecenia(self):
+        from pomocnik import instalacja
+        assert instalacja._ps("C:\\Users\\O'Brien") == "'C:\\Users\\O''Brien'"

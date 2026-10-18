@@ -159,9 +159,43 @@ def _parowanie(kod: str) -> dict:
     return wpis
 
 
-def opis(kod: str) -> dict:
-    """Co zobaczy notariusz, zanim kliknie Polacz."""
-    return {"kod": pokaz_kod(normalizuj_kod(kod)), "nazwa": _parowanie(kod)["nazwa"]}
+def opis(kod: str, kancelaria: str = "") -> dict:
+    """Co zobaczy notariusz, zanim kliknie Polacz.
+
+    `potwierdzony` - ta kancelaria juz go polaczyla (np. w kreatorze, a ta
+    strona otworzyla sie z pomocnika chwile pozniej). To nie blad, tylko
+    "gotowe".
+    """
+    wpis = _parowanie(kod)
+    return {"kod": pokaz_kod(normalizuj_kod(kod)), "nazwa": wpis["nazwa"],
+            "potwierdzony": bool(kancelaria) and wpis.get("kancelaria") == kancelaria}
+
+
+def oczekujace(ip: str) -> list[dict]:
+    """Pomocnicy, ktorzy wlasnie czekaja na polaczenie z tej samej sieci.
+
+    Kreator instalacji pokazuje je sam, wiec notariusz nie przepisuje kodu
+    ani nie szuka nowej karty. Z innej sieci nie pokazujemy nic - z tego
+    samego powodu, dla ktorego potwierdzenie z innej sieci jest odrzucane.
+    """
+    if not ip:
+        return []
+    prefiks = f"{magazyn.PREFIKS}/admin/parowania/"
+    wynik = []
+    strony = magazyn._klient_s3().get_paginator("list_objects_v2").paginate(
+        Bucket=magazyn.BUCKET, Prefix=prefiks)
+    for strona in strony:
+        for obiekt in strona.get("Contents", []):
+            kod = obiekt["Key"][len(prefiks):].removesuffix(".json")
+            try:
+                wpis = _parowanie(kod)  # przy okazji kasuje wygasle
+            except BladParowania:
+                continue
+            if wpis.get("ip") == ip and not wpis.get("kancelaria"):
+                wynik.append({"kod": pokaz_kod(kod), "nazwa": wpis["nazwa"],
+                              "utworzono": wpis["utworzono"]})
+    wynik.sort(key=lambda w: w["utworzono"], reverse=True)
+    return wynik
 
 
 def potwierdz(kod: str, kancelaria: str, ip: str) -> dict:

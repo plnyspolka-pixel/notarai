@@ -46,3 +46,6 @@ Claude outputs/
 
 # Lokalna konfiguracja Claude Code (uprawnienia, launch.json)
 .claude/
+
+# Srodowisko budowania pomocnika (.exe) - infra/zbuduj-pomocnika.ps1
+.venv-pomocnik/

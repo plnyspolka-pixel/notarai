@@ -212,3 +212,50 @@ class TestTokenuPomocnika:
         for _ in range(5):
             klient.get("/api/pomocnik/zlecenia", headers=pomocnik)
         assert len([k for k in zapisy if "/pomocnicy/" in k]) == 1
+
+
+class TestKreatora:
+    def test_kreator_widzi_pomocnika_z_tej_sieci(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, notariusz = kancelaria("Kancelaria Sobczak")
+        kod = klient.post("/api/pomocnik/parowanie", json={"nazwa": "BIURO-1"},
+                          headers={"X-Forwarded-For": "203.0.113.7"}).json()["kod"]
+        widziane = klient.get("/api/urzadzenia/oczekujace",
+                              headers={**notariusz, "X-Forwarded-For": "203.0.113.7"}).json()
+        assert [(w["kod"], w["nazwa"]) for w in widziane] == [(kod, "BIURO-1")]
+
+    def test_kreator_nie_widzi_pomocnikow_z_innej_sieci(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, notariusz = kancelaria("Kancelaria Sobczak")
+        klient.post("/api/pomocnik/parowanie", json={"nazwa": "OBCY"},
+                    headers={"X-Forwarded-For": "203.0.113.7"})
+        assert klient.get("/api/urzadzenia/oczekujace",
+                          headers={**notariusz, "X-Forwarded-For": "198.51.100.2"}).json() == []
+
+    def test_polaczony_znika_z_oczekujacych(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, notariusz = kancelaria("Kancelaria Sobczak")
+        kod = klient.post("/api/pomocnik/parowanie", json={"nazwa": "X"}).json()["kod"]
+        klient.post("/api/urzadzenia/polacz", json={"kod": kod}, headers=notariusz)
+        assert klient.get("/api/urzadzenia/oczekujace", headers=notariusz).json() == []
+
+    def test_karta_z_pomocnika_po_kreatorze_mowi_gotowe(self, srodowisko):
+        """Kreator polaczyl, a pomocnik zdazyl otworzyc karte - to nie blad."""
+        klient, kancelaria, _, _ = srodowisko
+        _, notariusz = kancelaria("Kancelaria Sobczak")
+        kod = klient.post("/api/pomocnik/parowanie", json={"nazwa": "X"}).json()["kod"]
+        assert klient.get(f"/api/urzadzenia/kod/{kod}", headers=notariusz).json()["potwierdzony"] is False
+        klient.post("/api/urzadzenia/polacz", json={"kod": kod}, headers=notariusz)
+        assert klient.get(f"/api/urzadzenia/kod/{kod}", headers=notariusz).json()["potwierdzony"] is True
+
+    def test_odnosnik_do_pobrania_pomocnika(self, srodowisko, tmp_path, monkeypatch):
+        klient, kancelaria, _, _ = srodowisko
+        _, notariusz = kancelaria("Kancelaria Sobczak")
+        import app as aplikacja
+        monkeypatch.setattr(aplikacja, "_POBIERZ", tmp_path)
+        assert klient.get("/api/urzadzenia", headers=notariusz).json()["pobierz"] is None
+        (tmp_path / "notarai-pomocnik.exe").write_bytes(b"MZ" + bytes(2 * 1024 * 1024))
+        (tmp_path / "notarai-pomocnik.json").write_text('{"wersja": "0.2", "sha256": "ab"}')
+        pobierz = klient.get("/api/urzadzenia", headers=notariusz).json()["pobierz"]
+        assert pobierz["adres"] == "/static/pobierz/notarai-pomocnik.exe"
+        assert pobierz["wersja"] == "0.2" and pobierz["rozmiar_mb"] == 2.0

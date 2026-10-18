@@ -257,6 +257,29 @@ dialog.okno input{font:14px var(--mono);text-transform:uppercase;width:12em}
 .komputer b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .komputer small{color:var(--tekst3);font-size:12px}
 .komputer button{font-size:12px;padding:5px 11px}
+
+/* kreator instalacji pomocnika: cztery kroki, biezacy rozwiniety */
+dialog.kreator{width:min(560px,calc(100vw - 32px))}
+.kroki-kreatora{list-style:none;margin:16px 0 0;padding:0;counter-reset:krok}
+.kroki-kreatora li{position:relative;padding:0 0 18px 40px;counter-increment:krok}
+.kroki-kreatora li::before{content:counter(krok);position:absolute;left:0;top:0;width:26px;height:26px;
+  border-radius:50%;border:1.5px solid var(--linia2);display:flex;align-items:center;
+  justify-content:center;font:500 13px var(--sans);color:var(--tekst3);background:var(--karta)}
+.kroki-kreatora li:not(:last-child)::after{content:"";position:absolute;left:13px;top:30px;bottom:4px;
+  width:1.5px;background:var(--linia)}
+.kroki-kreatora li > b{display:block;font-weight:500;line-height:26px;color:var(--tekst3)}
+.kroki-kreatora li .tresc{display:none;margin-top:6px}
+.kroki-kreatora li.biezacy::before{background:var(--akcent);border-color:var(--akcent);color:#fff}
+.kroki-kreatora li.biezacy > b{color:var(--tekst)}
+.kroki-kreatora li.biezacy .tresc{display:block}
+.kroki-kreatora li.zrobiony::before{content:"✓";background:var(--ok-tlo);border-color:var(--ok);color:var(--ok)}
+.kroki-kreatora li.zrobiony > b{color:var(--tekst2)}
+.kroki-kreatora small{display:block;color:var(--tekst3);font-size:12px;margin-top:6px}
+a.przycisk{display:inline-block;font:500 14px var(--sans);padding:10px 18px;border-radius:var(--r2);
+  background:var(--akcent);color:#fff;text-decoration:none;border:1px solid var(--akcent)}
+a.przycisk:hover{background:var(--akcent2);border-color:var(--akcent2)}
+a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
+.wskazowka{font-size:13px!important;background:var(--tlo2);border-radius:var(--r2);padding:10px 12px}
 </style>
 </head>
 <body>
@@ -558,14 +581,48 @@ notarai</div>
   <h2>Pomocnik na komputerze</h2>
   <p>Pomocnik wykonuje na Twoim komputerze to, czego chmura zrobić nie może: sprawdzenia w rejestrach. Łączysz go raz, potem działa sam.</p>
   <div id="lista-komputerow"></div>
-  <h3>Połącz komputer</h3>
-  <p>Uruchom na nim pomocnika notarai. Sam otworzy tę stronę i poprosi o jedno kliknięcie. Jeśli strona się nie otworzyła, wpisz kod z okna pomocnika:</p>
+  <div class="dol"><button id="btn-instaluj-pomocnika">Zainstaluj pomocnika na tym komputerze</button></div>
+  <h3>Masz kod z okna pomocnika?</h3>
+  <p>Zwykle nie jest potrzebny - kreator sam zauważa uruchomionego pomocnika. Jeśli łączysz komputer z innej sieci niż ta przeglądarka, wpisz kod tutaj:</p>
   <div class="dol">
     <input type="text" id="pole-kod-pomocnika" placeholder="K7M4-QP2X" autocomplete="off" spellcheck="false" maxlength="12">
     <button id="btn-kod-pomocnika">Dalej</button>
     <span class="stan" id="stan-pomocnik"></span>
   </div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-pomocnik">Zamknij</button></div>
+</dialog>
+
+<!-- Kreator instalacji: pobierz, uruchom, polacz. Kolejne kroki zapalaja sie
+     same - strona widzi, kiedy pomocnik sie zglosi i kiedy zaczal dzialac. -->
+<dialog class="okno kreator" id="okno-kreator">
+  <h2>Pomocnik notarai na tym komputerze</h2>
+  <p>Dzięki niemu notarai sprawdza strony czynności w rejestrach z Twojej przeglądarki. Instalacja trwa około dwóch minut, potem pomocnik działa sam i uruchamia się razem z Windows.</p>
+  <ol class="kroki-kreatora">
+    <li id="kr-1"><b>Pobierz pomocnika</b>
+      <div class="tresc">
+        <a class="przycisk" id="kr-pobierz" href="#" download>Pobierz pomocnika</a>
+        <small id="kr-pobierz-opis"></small>
+      </div>
+    </li>
+    <li id="kr-2"><b>Uruchom pobrany plik</b>
+      <div class="tresc">
+        <p>Kliknij <b>notarai-pomocnik.exe</b> na liście pobranych plików przeglądarki. Pomocnik zainstaluje się sam - bez uprawnień administratora i bez dodatkowych pytań.</p>
+        <p class="wskazowka">Jeśli Windows pokaże niebieskie okno „System Windows ochronił komputer”, kliknij <b>Więcej informacji</b>, a potem <b>Uruchom mimo to</b>. Windows ostrzega tak przed programami bez podpisu cyfrowego - pomocnik jeszcze go nie ma.</p>
+        <span class="stan praca">Czekam, aż pomocnik się zgłosi…</span>
+      </div>
+    </li>
+    <li id="kr-3"><b>Połącz z kancelarią</b>
+      <div class="tresc">
+        <p>Pomocnik na komputerze <b id="kr-nazwa"></b> czeka na połączenie. Ten sam kod widzisz w jego oknie:</p>
+        <div class="kod-duzy" id="kr-kod"></div>
+        <div class="dol" style="margin-top:0"><button id="kr-polacz">Połącz</button><span class="stan" id="kr-stan"></span></div>
+      </div>
+    </li>
+    <li id="kr-4"><b>Gotowe</b>
+      <div class="tresc"><p>Pomocnik działa. Uruchamia się sam razem z Windows - nic więcej nie musisz robić. Okno pomocnika możesz zminimalizować.</p></div>
+    </li>
+  </ol>
+  <div class="dol"><button class="wtorny" id="kr-zamknij">Później</button></div>
 </dialog>
 
 <dialog class="okno" id="okno-polacz">
@@ -1160,8 +1217,10 @@ async function odswiezPomocnika(){
       pomocnikDostepny = !!dane.dostepne && !dysk.aktywny;
       const byl = pomocnikPolaczony;
       pomocnikPolaczony = !!dane.polaczony;
+      ostatniStanPomocnika = dane;
       rysujPomocnika(dane);
       if (byl !== pomocnikPolaczony) odswiezPrzyciskKrz();
+      zaproponujKreator(dane);
     }
   } catch { return; }   // brak logowania: brama otwarta, zegar wznowi wpusc()
   if (!pomocnikDostepny) return;
@@ -1198,6 +1257,8 @@ function rysujPomocnika(dane){
 }
 
 $("btn-pomocnik").onclick = () => {
+  // Bez zadnego komputera lista jest pusta - od razu prowadzimy przez instalacje.
+  if (!((ostatniStanPomocnika || {}).urzadzenia || []).length) { otworzKreator(); return; }
   stan($("stan-pomocnik"), "");
   $("okno-pomocnik").showModal();
   odswiezPomocnika();
@@ -1231,6 +1292,13 @@ async function pokazPotwierdzenie(kod){
   $("btn-polacz").disabled = false;
   $("btn-polacz").hidden = false;
   $("btn-nie-lacz").textContent = "Nie łącz";
+  if (dane.potwierdzony) {
+    // Polaczony juz w kreatorze - ta karta otworzyla sie z pomocnika pozniej.
+    stan($("stan-polacz"), "Ten komputer jest już połączony z Twoją kancelarią. Możesz zamknąć tę kartę.");
+    $("btn-polacz").hidden = true;
+    $("btn-nie-lacz").textContent = "Zamknij";
+  }
+  if ($("okno-kreator").open) $("okno-kreator").close();
   if ($("okno-pomocnik").open) $("okno-pomocnik").close();
   $("okno-polacz").showModal();
   $("btn-polacz").focus();
@@ -1266,6 +1334,124 @@ $("btn-polacz").onclick = async () => {
   }
 };
 $("btn-nie-lacz").onclick = () => $("okno-polacz").close();
+
+/* ---------- kreator instalacji pomocnika ----------
+   Pobierz -> uruchom -> polacz -> gotowe. Notariusz klika dwa razy:
+   "Pobierz" i "Polacz". Reszte strona zauwaza sama: pomocnik po
+   uruchomieniu prosi o kod, a kreator co 2 s pyta, czy z tej sieci ktos
+   czeka na polaczenie, i potem - czy polaczony pomocnik juz pracuje.
+   Po zalogowaniu kreator otwiera sie sam, jesli kancelaria nie ma jeszcze
+   zadnego komputera z pomocnikiem; "Pozniej" odklada go na tydzien.     */
+const KLUCZ_KREATORA = "notarai_kreator_odlozony";
+let ostatniStanPomocnika = null, krokKreatora = 1, zegarKreatora = null;
+let kreatorKod = "", kreatorNazwa = "", kreatorZaproponowany = false;
+const naWindows = /Windows/.test(navigator.userAgent);
+
+function kreatorOdlozony(){
+  try { return Date.now() - (+localStorage.getItem(KLUCZ_KREATORA) || 0) < 7 * 864e5; }
+  catch { return false; }
+}
+
+function zaproponujKreator(dane){
+  if (kreatorZaproponowany) return;
+  kreatorZaproponowany = true;   // raz na wczytanie strony, nie co 15 s
+  if (!pomocnikDostepny || (dane.urzadzenia || []).length || !naWindows) return;
+  if (kreatorOdlozony() || location.hash.startsWith("#polacz=")) return;
+  if (document.querySelector("dialog[open]")) return;
+  otworzKreator();
+}
+
+function ustawKrok(n){
+  krokKreatora = n;
+  [1, 2, 3, 4].forEach(i => {
+    $("kr-" + i).classList.toggle("zrobiony", i < n);
+    $("kr-" + i).classList.toggle("biezacy", i === n);
+  });
+  $("kr-zamknij").textContent = n === 4 ? "Zamknij" : "Później";
+}
+
+function otworzKreator(){
+  const plik = (ostatniStanPomocnika || {}).pobierz;
+  const link = $("kr-pobierz");
+  if (plik) {
+    link.href = plik.adres;
+    link.removeAttribute("aria-disabled");
+    $("kr-pobierz-opis").textContent = "Windows 10 i 11 · " + plik.rozmiar_mb.toLocaleString("pl-PL")
+      + " MB" + (plik.wersja ? " · wersja " + plik.wersja : "");
+  } else {
+    link.removeAttribute("href");
+    link.setAttribute("aria-disabled", "true");
+    $("kr-pobierz-opis").textContent = "Plik pomocnika jest w przygotowaniu. Wróć tu za jakiś czas.";
+  }
+  if (!naWindows) $("kr-pobierz-opis").textContent += " Pomocnik działa tylko na Windows.";
+  kreatorKod = kreatorNazwa = "";
+  stan($("kr-stan"), "");
+  $("kr-polacz").disabled = false;
+  $("kr-polacz").hidden = false;
+  ustawKrok(1);
+  if ($("okno-pomocnik").open) $("okno-pomocnik").close();
+  $("okno-kreator").showModal();
+  sledzKreator();
+}
+
+/* Kreator patrzy sam: krok 1-2 - czy pomocnik z tej sieci czeka na
+   polaczenie; krok 3 po kliknieciu Polacz - czy juz pracuje. */
+async function sledzKreator(){
+  clearTimeout(zegarKreatora);
+  if (!$("okno-kreator").open) return;
+  try {
+    if (krokKreatora < 3) {
+      const odp = await api("/api/urzadzenia/oczekujace");
+      const czekajace = odp.ok ? await odp.json() : [];
+      if (czekajace.length) {
+        kreatorKod = czekajace[0].kod;
+        kreatorNazwa = czekajace[0].nazwa;
+        $("kr-kod").textContent = kreatorKod;
+        $("kr-nazwa").textContent = kreatorNazwa;
+        ustawKrok(3);
+        $("kr-polacz").focus();
+      }
+    } else if (krokKreatora === 3 && $("kr-polacz").hidden) {
+      await odswiezPomocnika();
+      const pracuje = ((ostatniStanPomocnika || {}).urzadzenia || [])
+        .some(u => u.nazwa === kreatorNazwa && u.polaczony);
+      if (pracuje) ustawKrok(4);
+    }
+  } catch { /* chwilowy brak sieci - sprobujemy za chwile */ }
+  if (krokKreatora < 4) zegarKreatora = setTimeout(sledzKreator, 2000);
+}
+
+// Bez preventDefault: przegladarka pobiera plik, a kreator przechodzi dalej.
+$("kr-pobierz").onclick = () => setTimeout(() => { if (krokKreatora === 1) ustawKrok(2); }, 300);
+
+$("kr-polacz").onclick = async () => {
+  $("kr-polacz").disabled = true;
+  stan($("kr-stan"), "Łączę…", false, true);
+  try {
+    const odp = await api("/api/urzadzenia/polacz", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({kod: kreatorKod})});
+    const dane = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(dane.detail || "Nie udało się połączyć.");
+    $("kr-polacz").hidden = true;
+    stan($("kr-stan"), "Połączono. Czekam, aż pomocnik zacznie pracę…", false, true);
+    szybkoDo = Date.now() + 60 * 1000;
+    sledzKreator();
+  } catch (e) {
+    stan($("kr-stan"), e.message, true);
+    $("kr-polacz").disabled = false;
+    if (/wygasł|nie istnieje/.test(e.message)) { ustawKrok(2); sledzKreator(); }
+  }
+};
+
+$("kr-zamknij").onclick = () => {
+  if (krokKreatora < 4) {
+    try { localStorage.setItem(KLUCZ_KREATORA, String(Date.now())); } catch { /* tryb prywatny */ }
+  }
+  $("okno-kreator").close();
+};
+$("okno-kreator").addEventListener("close", () => clearTimeout(zegarKreatora));
+$("btn-instaluj-pomocnika").onclick = otworzKreator;
 
 odswiezWyloguj();
 planujOdnowienie();

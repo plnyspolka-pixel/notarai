@@ -21,6 +21,7 @@ import logging
 import os
 import platform
 import queue
+import sys
 import threading
 import webbrowser
 from pathlib import Path
@@ -142,10 +143,12 @@ class Sterownik:
         def pokaz_kod(kod: str) -> None:
             self.ostatni_kod = kod
             self._stan("kod", kod)
+
+        def otworz(kod: str) -> None:
             self._otworz_strone(adres_polaczenia(self.adres, kod))
 
         return klient.polacz(self._nowy_klient(adres=self.adres), nazwa_komputera(),
-                             pokaz_kod, dziala=self._dziala, spij=self._spij)
+                             pokaz_kod, otworz=otworz, dziala=self._dziala, spij=self._spij)
 
     def odlacz_ten_komputer(self) -> None:
         """Na zyczenie notariusza: token przestaje dzialac takze w notarai."""
@@ -160,7 +163,7 @@ class Sterownik:
         self.stop()
 
 
-def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
+def uruchom(w_tle: bool = False) -> None:  # pragma: no cover - warstwa okienkowa
     import tkinter as tk
     from tkinter import messagebox, scrolledtext
 
@@ -169,6 +172,12 @@ def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
 
     korzen = tk.Tk()
     korzen.title("notarai - pomocnik")
+    ikona = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent)) / "static" / "favicon.png"
+    if ikona.exists():
+        try:
+            korzen.iconphoto(True, tk.PhotoImage(file=str(ikona)))
+        except tk.TclError:
+            pass
     szerokosc_ekranu = korzen.winfo_screenwidth()
     wysokosc_ekranu = korzen.winfo_screenheight()
     polowa = max(szerokosc_ekranu // 2, 640)
@@ -192,9 +201,9 @@ def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
     kod_etykieta = tk.Label(laczenie, text="", font=("Consolas", 34, "bold"), fg="#c96442")
     kod_etykieta.pack(anchor="w", pady=(6, 4))
     tk.Label(laczenie, justify="left", wraplength=polowa - 60, fg="#555",
-             text="Otworzyłem notarai w przeglądarce. Kliknij tam „Połącz” - "
-                  "i gotowe, nic więcej nie trzeba wpisywać. Jeśli strona się nie "
-                  "otworzyła, wejdź w notarai w menu Pomocnik i wpisz ten kod."
+             text="Wróć do notarai w przeglądarce i kliknij „Połącz” - kreator "
+                  "instalacji sam zauważy ten komputer. Jeśli notarai nie jest "
+                  "otwarte, za chwilę otworzę je sam. Nic nie trzeba przepisywać."
              ).pack(anchor="w")
     tk.Button(laczenie, text="Otwórz notarai jeszcze raz",
               command=sterownik.otworz_polaczenie).pack(anchor="w", pady=(8, 0))
@@ -261,5 +270,9 @@ def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
         korzen.after(300, odswiezaj)
 
     korzen.after(300, odswiezaj)
+    # Z autostartu Windows: polaczony pomocnik nie zaslania pulpitu, tylko
+    # czeka na pasku zadan. Niepolaczony pokazuje sie, bo ma cos do powiedzenia.
+    if w_tle and wczytaj_ustawienia().get("token"):
+        korzen.iconify()
     sterownik.start()
     korzen.mainloop()

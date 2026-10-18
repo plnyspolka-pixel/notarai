@@ -924,9 +924,34 @@ def parowanie_opis(kod: str):
     """Co zobaczy notariusz przed kliknieciem Polacz."""
     _wymagaj_urzadzen()
     try:
-        return urzadzenia.opis(kod)
+        return urzadzenia.opis(kod, magazyn.kancelaria())
     except urzadzenia.BladParowania as blad:
         raise HTTPException(410, str(blad))
+
+
+@app.get("/api/urzadzenia/oczekujace")
+def oczekujace_urzadzenia(request: Request):
+    """Pomocnicy z tej sieci, ktorzy czekaja na Polacz. Kreator pyta o to sam."""
+    _wymagaj_urzadzen()
+    return urzadzenia.oczekujace(autoryzacja.adres_klienta(request))
+
+
+_POBIERZ = Path(__file__).parent / "static" / "pobierz"
+
+
+def _pomocnik_do_pobrania() -> dict | None:
+    """Plik buduje infra/zbuduj-pomocnika.ps1. Bez niego kreator mowi, ze
+    pomocnik jest w przygotowaniu, zamiast podsuwac zepsuty odnosnik."""
+    plik = _POBIERZ / "notarai-pomocnik.exe"
+    if not plik.exists():
+        return None
+    try:
+        opis = json.loads((_POBIERZ / "notarai-pomocnik.json").read_text("utf-8-sig"))
+    except (OSError, ValueError):
+        opis = {}
+    return {"adres": "/static/pobierz/notarai-pomocnik.exe",
+            "wersja": opis.get("wersja", ""), "sha256": opis.get("sha256", ""),
+            "rozmiar_mb": round(plik.stat().st_size / 1024 / 1024, 1)}
 
 
 @app.post("/api/urzadzenia/polacz")
@@ -947,12 +972,13 @@ def lista_urzadzen():
     rejestrze i znaczek pomocnika zmieniaja sie same, bez odswiezania strony.
     """
     if not urzadzenia.dostepne():
-        return {"dostepne": False, "polaczony": False, "urzadzenia": []}
+        return {"dostepne": False, "polaczony": False, "urzadzenia": [], "pobierz": None}
     lista = urzadzenia.lista(magazyn.kancelaria())
     return {
         "dostepne": True,
         "polaczony": any(u["polaczony"] for u in lista) or zlecenia.pomocnik_aktywny(),
         "urzadzenia": lista,
+        "pobierz": _pomocnik_do_pobrania(),
     }
 
 

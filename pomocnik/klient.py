@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 log = logging.getLogger("notarai.pomocnik.klient")
 
-WERSJA = "0.1"
+WERSJA = "0.2"
 PRZERWA_S = 3.0
 PRZERWA_PO_BLEDZIE_S = 15.0
 
@@ -170,19 +170,25 @@ def pracuj(notarai: Notarai, wykonawcy: dict, przerwa_s: float = PRZERWA_S,
 
 
 PRZERWA_LACZENIA_S = 2.0
+# Tyle czekamy, zanim sami otworzymy notarai w przegladarce. Zwykle notariusz
+# ma juz otwarty kreator instalacji, ktory sam zauwaza nowy komputer - wtedy
+# nowa karta tylko by mu przeszkodzila.
+OTWORZ_PO_S = 10.0
 
 
-def polacz(notarai: Notarai, nazwa_komputera: str, pokaz_kod,
+def polacz(notarai: Notarai, nazwa_komputera: str, pokaz_kod, otworz=lambda kod: None,
            dziala=lambda: True, spij=time.sleep) -> str | None:
     """Laczy ten komputer z kancelaria i zwraca jego token.
 
-    Prosi o kod, przekazuje go `pokaz_kod` (okno pokazuje go i otwiera
-    notarai w przegladarce), po czym czeka, az notariusz kliknie Polacz.
-    Wygasly kod wymienia sam na nowy, zerwane lacze przeczekuje - notariusz
-    nie musi niczego klikac ponownie. None, gdy `dziala()` przestanie byc
-    prawda.
+    Prosi o kod i przekazuje go `pokaz_kod` (okno go wyswietla). Jesli przez
+    OTWORZ_PO_S nikt nie potwierdzi, wola `otworz` - okno otwiera wtedy
+    notarai w przegladarce na stronie z tym kodem. Wygasly kod wymienia sam
+    na nowy, zerwane lacze przeczekuje - notariusz nie musi niczego klikac
+    ponownie. None, gdy `dziala()` przestanie byc prawda.
     """
     kod = sekret = ""
+    czeka_s = 0.0
+    otwarte = False
     while dziala():
         try:
             if not kod:
@@ -193,9 +199,14 @@ def polacz(notarai: Notarai, nazwa_komputera: str, pokaz_kod,
             if token:
                 log.info("pomocnik: komputer polaczony z kancelaria")
                 return token
+            if not otwarte and czeka_s >= OTWORZ_PO_S:
+                otworz(kod)
+                otwarte = True
             spij(PRZERWA_LACZENIA_S)
+            czeka_s += PRZERWA_LACZENIA_S
         except KodNieaktualny:
             kod = sekret = ""
+            czeka_s, otwarte = 0.0, False
         except BladPolaczenia as blad:
             log.warning("laczenie: %s Ponawiam za %.0f s.", blad, PRZERWA_PO_BLEDZIE_S)
             spij(PRZERWA_PO_BLEDZIE_S)

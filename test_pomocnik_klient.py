@@ -218,3 +218,18 @@ class TestLaczenia:
         monkeypatch.setattr(klient.urllib.request, "urlopen", podgladnij)
         Notarai("https://app.notarai.pl").popros_o_kod("BIURO")
         assert "Authorization" not in zapisane["naglowki"]
+
+
+class TestOtwieraniaPrzegladarki:
+    def test_otwiera_raz_po_chwili_czekania(self, monkeypatch):
+        monkeypatch.setattr(klient, "OTWORZ_PO_S", 4.0)
+        otwarte = []
+        klient.polacz(AtrapaLaczenia(po_ilu=6), "BIURO", lambda k: None,
+                      otworz=otwarte.append, spij=lambda s: None)
+        assert otwarte == ["KOD1"]
+
+    def test_szybkie_potwierdzenie_nie_otwiera(self):
+        otwarte = []
+        klient.polacz(AtrapaLaczenia(po_ilu=1), "BIURO", lambda k: None,
+                      otworz=otwarte.append, spij=lambda s: None)
+        assert otwarte == []
