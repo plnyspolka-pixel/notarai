@@ -36,9 +36,18 @@ if (-not (Czy-Aws sts get-caller-identity)) {
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
 if ($biezace -ne $Konto) { throw "Profil $Profil wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
 
+# Obraz powstaje z "git archive HEAD", wiec odpowiada commitowi zawsze, takze
+# gdy na dysku lezy praca w toku. Kiedys bylo to bledem krytycznym, zeby nikt
+# nie myslal, ze wdraza swoje niezapisane zmiany. Przy dwoch osobach pracujacych
+# w jednym repozytorium blokowalo to jednak wypuszczenie gotowego commita przez
+# to, ze ktos obok wlasnie pisze. Zamiast przerywac - mowimy wprost, czego w
+# obrazie nie bedzie.
 $brudne = git -C $korzen status --porcelain
-if ($brudne) { throw "W repozytorium sa niezacommitowane zmiany. Zacommituj je, zeby obraz odpowiadal commitowi." }
 $tag = (git -C $korzen rev-parse --short=12 HEAD).Trim()
+if ($brudne) {
+    Write-Host "Uwaga: ponizsze zmiany NIE wejda do obrazu - powstaje on z commita $tag :" -ForegroundColor Yellow
+    ($brudne -split "`n") | Where-Object { $_.Trim() } | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
+}
 Write-Host "   konto $biezace, commit $tag"
 
 $wyjscia = Uruchom-Aws cloudformation describe-stacks --stack-name notarai-budowanie --query "Stacks[0].Outputs" --output json | Out-String | ConvertFrom-Json
