@@ -153,6 +153,82 @@ class StronaCDP:
                 "Moze byc zablokowane albo wymagac wczesniejszego wyboru."
             )
 
+    def kliknij(self, selektor: str) -> None:
+        """Klika wskazany element.
+
+        Wypelnianie formularzy tej czynnosci nie uzywa i uzywac nie bedzie -
+        tam pomocnik zatrzymuje sie przed przyciskiem wysylki. Klikanie jest
+        potrzebne sekcji "Klikamy", gdzie model prowadzi przegladarke, i to
+        ona pilnuje, w co kliknac nie wolno (patrz klikamy.WYSYLKA).
+        """
+        self.poczekaj_na(selektor, 5)
+        udalo = self._p.oblicz(f"""(() => {{
+            const el = document.querySelector({json.dumps(selektor)});
+            if (!el) return false;
+            el.scrollIntoView({{block: 'center'}});
+            el.click();
+            return true;
+        }})()""")
+        if not udalo:
+            raise BladPrzegladarki(f"Nie znalazlem elementu do klikniecia ({selektor}).")
+
+    def otworz(self, adres: str) -> None:
+        self._p.polecenie("Page.navigate", url=adres)
+        self.poczekaj_na_dokument()
+
+    def elementy(self, limit: int = 120) -> list[dict]:
+        """Co na stronie da sie kliknac albo wypelnic, z gotowym selektorem.
+
+        Model dostaje numerowana liste, a nie wspolrzedne na obrazku. Klikniecie
+        "w punkt x,y" jest zgadywaniem: wystarczy, ze strona przeskoczy o dwa
+        piksele i trafiamy w inny przycisk. Selektor wskazuje konkretny element
+        albo nie wskazuje niczego, co w formularzu urzedowym jest roznica
+        miedzy pomylka a jej brakiem.
+        """
+        return self._p.oblicz(f"""(() => {{
+            const sciezka = (el) => {{
+                if (el.id) return '#' + CSS.escape(el.id);
+                if (el.name) return el.tagName.toLowerCase() + '[name="' + CSS.escape(el.name) + '"]';
+                const kroki = [];
+                let w = el;
+                while (w && w.nodeType === 1 && w !== document.body) {{
+                    const rodzic = w.parentNode;
+                    if (!rodzic) break;
+                    const rodzenstwo = [...rodzic.children].filter(e => e.tagName === w.tagName);
+                    const nr = rodzenstwo.indexOf(w) + 1;
+                    kroki.unshift(w.tagName.toLowerCase() + ':nth-of-type(' + nr + ')');
+                    w = rodzic;
+                }}
+                return 'body > ' + kroki.join(' > ');
+            }};
+            const widoczny = (el) => {{
+                const p = el.getBoundingClientRect();
+                return p.width > 0 && p.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+            }};
+            const opis = (el) => (
+                el.getAttribute('aria-label') || el.placeholder || el.title ||
+                (el.labels && el.labels[0] ? el.labels[0].textContent : '') ||
+                (el.value && el.type === 'submit' ? el.value : '') ||
+                el.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 100);
+            const wybor = 'a[href], button, input, select, textarea, [role=button], [onclick], [contenteditable]';
+            return [...document.querySelectorAll(wybor)]
+                .filter(widoczny)
+                .slice(0, {int(limit)})
+                .map((el, i) => ({{
+                    nr: i + 1,
+                    rola: (el.tagName.toLowerCase() + (el.type ? ':' + el.type : '')),
+                    opis: opis(el),
+                    selektor: sciezka(el),
+                }}));
+        }})()""") or []
+
+    def tekst_strony(self, limit: int = 4000) -> str:
+        """Widoczny tekst strony - do oceny, czy jestesmy tam, gdzie trzeba."""
+        tresc = self._p.oblicz(
+            "(document.body ? document.body.innerText : '').replace(/\\s+\\n/g, '\\n')"
+        ) or ""
+        return tresc[:limit]
+
     def typ_pola(self, selektor: str) -> str:
         """Czym jest element: "password", "text", "checkbox", "select-one"...
 
