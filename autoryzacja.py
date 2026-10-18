@@ -314,6 +314,36 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     }
 
 
+@router.post("/kancelarie/{id_k}/token")
+def nowy_token_kancelarii(request: Request, id_k: str):
+    """Wydaje nowy token kancelarii. Stary przestaje dzialac natychmiast.
+
+    Tokenow nie przechowujemy wprost, tylko ich skroty, wiec zgubionego nie da
+    sie odczytac - ani nam, ani komus, kto dostalby sie do rejestru. Jedyne
+    wyjscie to wydac nowy, i dlatego to musi byc zwykla czynnosc, a nie
+    awaryjna. Kancelaria zostaje ta sama: identyfikator sie nie zmienia, wiec
+    wszystkie sprawy zostaja na miejscu.
+    """
+    _wymagaj_admina(request)
+    rejestr = _wczytaj_rejestr()
+    stary_skrot = next((s for s, w in rejestr.items() if w["id"] == id_k), None)
+    if stary_skrot is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+
+    wpis = rejestr.pop(stary_skrot)
+    token = secrets.token_hex(32)
+    rejestr[_sha(token)] = wpis
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: wydano nowy token, stary uniewazniony", id_k)
+    return {
+        "id": id_k,
+        "nazwa": wpis["nazwa"],
+        "token": token,
+        "uwaga": "Zapisz token teraz - nie da sie go odczytac ponownie. "
+                 "Poprzedni przestal dzialac.",
+    }
+
+
 @router.delete("/kancelarie/{id_k}")
 def dezaktywuj_kancelarie(request: Request, id_k: str):
     _wymagaj_admina(request)

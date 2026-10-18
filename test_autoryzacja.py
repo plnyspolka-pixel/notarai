@@ -88,6 +88,47 @@ def test_admin_dodaje_kancelarie_i_token_dziala(monkeypatch, tmp_path):
     assert [k["id"] for k in lista] == [dane["id"]]
 
 
+def test_nowy_token_uniewaznia_stary_i_zostawia_sprawy(monkeypatch, tmp_path):
+    """Zgubionego tokenu nie da sie odczytac - w rejestrze sa tylko skroty.
+    Jedyne wyjscie to wydac nowy, wiec to musi byc zwykla czynnosc."""
+    klient, _ = _apka(monkeypatch, tmp_path, multi=True)
+    naglowki_admina = {"Authorization": "Bearer sekret-admina"}
+    dane = klient.post("/api/admin/kancelarie", json={"nazwa": "Kancelaria Kowalski"},
+                       headers=naglowki_admina).json()
+    stary = dane["token"]
+
+    odp = klient.post(f"/api/admin/kancelarie/{dane['id']}/token", headers=naglowki_admina)
+    assert odp.status_code == 200
+    nowy = odp.json()["token"]
+    assert len(nowy) == 64 and nowy != stary
+
+    assert klient.get("/api/sprawy",
+                      headers={"Authorization": f"Bearer {stary}"}).status_code == 401
+    odp = klient.get("/api/sprawy", headers={"Authorization": f"Bearer {nowy}"})
+    assert odp.status_code == 200
+    assert odp.json()["kancelaria"] == dane["id"], \
+        "kancelaria zostaje ta sama, wiec sprawy zostaja na miejscu"
+
+    zapis = (tmp_path / "kancelarie.json").read_text("utf-8")
+    assert nowy not in zapis and stary not in zapis
+
+
+def test_nowy_token_wymaga_admina(monkeypatch, tmp_path):
+    klient, _ = _apka(monkeypatch, tmp_path, multi=True)
+    dane = klient.post("/api/admin/kancelarie", json={"nazwa": "Testowa"},
+                       headers={"Authorization": "Bearer sekret-admina"}).json()
+    assert klient.post(f"/api/admin/kancelarie/{dane['id']}/token").status_code == 401
+    assert klient.post(f"/api/admin/kancelarie/{dane['id']}/token",
+                       headers={"Authorization": "Bearer nie-ten"}).status_code == 401
+
+
+def test_nowy_token_nieznanej_kancelarii(monkeypatch, tmp_path):
+    klient, _ = _apka(monkeypatch, tmp_path, multi=True)
+    odp = klient.post("/api/admin/kancelarie/nie-ma-takiej/token",
+                      headers={"Authorization": "Bearer sekret-admina"})
+    assert odp.status_code == 404
+
+
 def test_dezaktywacja_odbiera_dostep(monkeypatch, tmp_path):
     klient, aut = _apka(monkeypatch, tmp_path, multi=True)
     naglowki_admina = {"Authorization": "Bearer sekret-admina"}
