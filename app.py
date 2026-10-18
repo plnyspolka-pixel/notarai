@@ -23,6 +23,7 @@ import config
 import dokumenty
 import formularze
 import krz
+import urzadzenia
 import zlecenia
 import magazyn
 import autoryzacja
@@ -224,7 +225,7 @@ def ustawienia_kancelarii():
         # Czy pomocnik tej kancelarii jest teraz pod reka. Bez niego przycisk
         # sprawdzenia w rejestrze ma byc nieczynny, zamiast skladac zlecenia,
         # ktorych nikt nie odbierze.
-        "pomocnik_polaczony": zlecenia.dostepne() and zlecenia.pomocnik_aktywny(),
+        "pomocnik_polaczony": _pomocnik_pod_reka(),
     }
 
 
@@ -779,7 +780,7 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
         # notariusza - zapytanie ma wychodzic z lacza kancelarii, nie z chmury.
         if not zlecenia.dostepne():
             raise HTTPException(409, BRAK_PRZEGLADARKI)
-        if not zlecenia.pomocnik_aktywny():
+        if not _pomocnik_pod_reka():
             raise HTTPException(409, BRAK_POMOCNIKA)
         zlecenie = zlecenia.zloz("krz", identyfikator, {
             "osoby": [{"pesel": o.pesel, "etykieta": o.etykieta} for o in zadanie.osoby],
@@ -835,8 +836,23 @@ class RaportPomocnika(BaseModel):
     bledy: list[str] = []
 
 
+def _odnotuj_pomocnika(request: Request, wersja: str = "") -> None:
+    """Obecnosc komputera z wlasnym tokenem albo - dawniej - calej kancelarii."""
+    komputer = getattr(request.state, "komputer", None)
+    if komputer:
+        urzadzenia.odnotuj(magazyn.kancelaria(), komputer, wersja)
+    else:
+        zlecenia.odnotuj_pomocnika(wersja)
+
+
+def _pomocnik_pod_reka() -> bool:
+    if not zlecenia.dostepne():
+        return False
+    return zlecenia.pomocnik_aktywny() or urzadzenia.aktywny(magazyn.kancelaria())
+
+
 @app.get("/api/pomocnik/zlecenia")
-def zlecenia_dla_pomocnika(wersja: str = ""):
+def zlecenia_dla_pomocnika(request: Request, wersja: str = ""):
     """Pomocnik pyta o robote.
 
     Samo zapytanie jest znakiem, ze jest pod reka - dlatego odnotowujemy je
@@ -844,16 +860,116 @@ def zlecenia_dla_pomocnika(wersja: str = ""):
     """
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
-    zlecenia.odnotuj_pomocnika(wersja)
+    _odnotuj_pomocnika(request, wersja)
     return zlecenia.czekajace()
 
 
+# --- laczenie pomocnika z kancelaria ---------------------------------------
+# Pomocnik prosi o kod, notariusz klika "Polacz" w zalogowanej notarai,
+# pomocnik odbiera wlasny token. Nikt niczego nie przepisuje. Szczegoly i
+# zabezpieczenia w urzadzenia.py.
+
+
+class NazwaKomputera(BaseModel):
+    nazwa: str = ""
+
+
+class OdbiorTokenu(BaseModel):
+    sekret: str
+
+
+class KodPolaczenia(BaseModel):
+    kod: str
+
+
+def _wymagaj_urzadzen() -> None:
+    if not urzadzenia.dostepne():
+        raise HTTPException(404, "Pomocnik działa tylko z notarai w chmurze.")
+
+
+@app.post("/api/pomocnik/parowanie", status_code=201)
+def parowanie_start(request: Request, dane: NazwaKomputera):
+    _wymagaj_urzadzen()
+    ip = autoryzacja.adres_klienta(request)
+    if not urzadzenia.wolno(ip):
+        raise HTTPException(429, "Za dużo prób łączenia. Spróbuj za kilka minut.")
+    return urzadzenia.rozpocznij(dane.nazwa, ip)
+
+
+@app.post("/api/pomocnik/parowanie/{kod}")
+def parowanie_odbior(kod: str, dane: OdbiorTokenu):
+    """Pomocnik dopytuje. 202 - czekamy na notariusza, 200 - jest token."""
+    _wymagaj_urzadzen()
+    try:
+        wynik = urzadzenia.odbierz(kod, dane.sekret)
+    except urzadzenia.BladParowania as blad:
+        raise HTTPException(410, str(blad))
+    if wynik is None:
+        return JSONResponse({"stan": "czeka"}, status_code=202)
+    return wynik
+
+
+@app.post("/api/pomocnik/odlacz")
+def pomocnik_odlacza_sie(request: Request):
+    """Pomocnik odlacza swoj komputer (np. przed oddaniem laptopa)."""
+    _wymagaj_urzadzen()
+    komputer = getattr(request.state, "komputer", None)
+    if komputer:
+        urzadzenia.odlacz(magazyn.kancelaria(), komputer)
+    return {"odlaczono": bool(komputer)}
+
+
+@app.get("/api/urzadzenia/kod/{kod}")
+def parowanie_opis(kod: str):
+    """Co zobaczy notariusz przed kliknieciem Polacz."""
+    _wymagaj_urzadzen()
+    try:
+        return urzadzenia.opis(kod)
+    except urzadzenia.BladParowania as blad:
+        raise HTTPException(410, str(blad))
+
+
+@app.post("/api/urzadzenia/polacz")
+def parowanie_potwierdz(request: Request, dane: KodPolaczenia):
+    _wymagaj_urzadzen()
+    try:
+        return urzadzenia.potwierdz(dane.kod, magazyn.kancelaria(),
+                                    autoryzacja.adres_klienta(request))
+    except urzadzenia.BladParowania as blad:
+        raise HTTPException(409, str(blad))
+
+
+@app.get("/api/urzadzenia")
+def lista_urzadzen():
+    """Komputery z pomocnikiem i to, czy ktorys jest teraz pod reka.
+
+    Interfejs pyta o to co kilkanascie sekund, wiec przycisk sprawdzenia w
+    rejestrze i znaczek pomocnika zmieniaja sie same, bez odswiezania strony.
+    """
+    if not urzadzenia.dostepne():
+        return {"dostepne": False, "polaczony": False, "urzadzenia": []}
+    lista = urzadzenia.lista(magazyn.kancelaria())
+    return {
+        "dostepne": True,
+        "polaczony": any(u["polaczony"] for u in lista) or zlecenia.pomocnik_aktywny(),
+        "urzadzenia": lista,
+    }
+
+
+@app.delete("/api/urzadzenia/{identyfikator}")
+def odlacz_urzadzenie(identyfikator: str):
+    _wymagaj_urzadzen()
+    if not urzadzenia.odlacz(magazyn.kancelaria(), identyfikator):
+        raise HTTPException(404, "Nie ma takiego komputera")
+    return {"odlaczono": True}
+
+
 @app.post("/api/pomocnik/zlecenia/{zlecenie}/wynik")
-def wynik_od_pomocnika(zlecenie: str, raport: RaportPomocnika):
+def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika):
     """Pomocnik skonczyl. Jego wpisy trafiaja do sladu audytowego sprawy."""
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
-    zlecenia.odnotuj_pomocnika()
+    _odnotuj_pomocnika(request)
     stan = zlecenia.wynik(zlecenie)
     if not stan:
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")

@@ -138,5 +138,83 @@ class TestRozmowyZSerwerem:
                 zadanie.full_url, 401, "Unauthorized", {}, io.BytesIO(b""))
 
         monkeypatch.setattr(klient.urllib.request, "urlopen", odmow)
-        with pytest.raises(BladPolaczenia, match="token"):
+        with pytest.raises(klient.BladTokenu, match="nie jest już połączony"):
             Notarai("https://app.notarai.pl", "zly").zlecenia()
+
+
+class TestOdlaczonegoKomputera:
+    def test_odrzucony_token_konczy_prace_zamiast_ponawiac(self):
+        """Zerwane lacze przeczekujemy, odlaczony komputer - nie: ponawianie
+        w nieskonczonosc ukryloby przed notariuszem, ze trzeba polaczyc ponownie."""
+        class Odlaczone(AtrapaNotarai):
+            def zlecenia(self):
+                raise klient.BladTokenu("odlaczony")
+
+        with pytest.raises(klient.BladTokenu):
+            pracuj(Odlaczone(), {}, dziala=lambda: True, spij=lambda s: None)
+
+
+class AtrapaLaczenia(Notarai):
+    """Serwer, ktory potwierdza kod za `po_ilu` pytaniem."""
+
+    def __init__(self, po_ilu=2, wygasa_pierwszy=False, zrywa_raz=False):
+        super().__init__(adres="https://app.notarai.pl")
+        self.po_ilu, self.wygasa_pierwszy, self.zrywa_raz = po_ilu, wygasa_pierwszy, zrywa_raz
+        self.wydane = []
+        self.pytan = 0
+
+    def popros_o_kod(self, nazwa):
+        if self.zrywa_raz:
+            self.zrywa_raz = False
+            raise BladPolaczenia("brak sieci")
+        kod = f"KOD{len(self.wydane) + 1}"
+        self.wydane.append(kod)
+        return {"kod": kod, "sekret": "s", "wazny_s": 600}
+
+    def odbierz_token(self, kod, sekret):
+        if self.wygasa_pierwszy and kod == "KOD1":
+            raise klient.KodNieaktualny("wygasl")
+        self.pytan += 1
+        return "pom_token" if self.pytan >= self.po_ilu else None
+
+
+class TestLaczenia:
+    def test_czeka_na_klikniecie_i_zwraca_token(self):
+        pokazane = []
+        token = klient.polacz(AtrapaLaczenia(po_ilu=3), "BIURO", pokazane.append,
+                              spij=lambda s: None)
+        assert token == "pom_token"
+        assert pokazane == ["KOD1"], "kod pokazujemy raz, nie przy kazdym pytaniu"
+
+    def test_wygasly_kod_wymienia_sam(self):
+        pokazane = []
+        serwer = AtrapaLaczenia(wygasa_pierwszy=True)
+        assert klient.polacz(serwer, "BIURO", pokazane.append, spij=lambda s: None)
+        assert pokazane == ["KOD1", "KOD2"]
+
+    def test_zerwane_lacze_przeczekuje(self):
+        spania = []
+        serwer = AtrapaLaczenia(zrywa_raz=True)
+        assert klient.polacz(serwer, "BIURO", lambda k: None, spij=spania.append)
+        assert klient.PRZERWA_PO_BLEDZIE_S in spania
+
+    def test_zatrzymanie_w_trakcie(self):
+        obiegi = iter([True, False])
+        assert klient.polacz(AtrapaLaczenia(po_ilu=99), "BIURO", lambda k: None,
+                             dziala=lambda: next(obiegi), spij=lambda s: None) is None
+
+    def test_bez_tokenu_nie_wysyla_naglowka_autoryzacji(self, monkeypatch):
+        zapisane = {}
+
+        class Odp:
+            def read(self): return b'{"kod": "ABCD-EFGH", "sekret": "s"}'
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def podgladnij(zadanie, timeout=None, context=None):
+            zapisane["naglowki"] = dict(zadanie.headers)
+            return Odp()
+
+        monkeypatch.setattr(klient.urllib.request, "urlopen", podgladnij)
+        Notarai("https://app.notarai.pl").popros_o_kod("BIURO")
+        assert "Authorization" not in zapisane["naglowki"]

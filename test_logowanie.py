@@ -19,13 +19,22 @@ class AtrapaCognito:
         self.utworzeni = []
         self.wyslane_kody = []
         self.blad = None
+        self.uniewaznione = []
 
     def initiate_auth(self, **kw):
         if self.blad:
             raise self.blad
+        if kw["AuthFlow"] == "REFRESH_TOKEN_AUTH":
+            if kw["AuthParameters"]["REFRESH_TOKEN"] in self.uniewaznione:
+                raise _wyjatek("NotAuthorizedException")
+            return {"AuthenticationResult": {"IdToken": "token.odnowiony.x", "ExpiresIn": 28800}}
         if kw["AuthParameters"]["PASSWORD"] == "tymczasowe":
             return {"ChallengeName": "NEW_PASSWORD_REQUIRED", "Session": "sesja-123"}
-        return {"AuthenticationResult": {"IdToken": "token.z.cognito", "ExpiresIn": 28800}}
+        return {"AuthenticationResult": {"IdToken": "token.z.cognito", "ExpiresIn": 28800,
+                                         "RefreshToken": "odnowienie-30-dni"}}
+
+    def revoke_token(self, **kw):
+        self.uniewaznione.append(kw["Token"])
 
     def respond_to_auth_challenge(self, **kw):
         if self.blad:
@@ -256,3 +265,51 @@ class TestApiLogowania:
                           json={"email": "Nowy@Example.PL", "kancelaria": dane["id"]})
         assert odp.status_code == 201
         assert atrapa.utworzeni == ["nowy@example.pl"], "adres zapisujemy malymi literami"
+
+
+class TestSesjiBezPonownegoLogowania:
+    """Notariusz loguje sie raz na 30 dni. Token tozsamosci (8 h) przegladarka
+    odnawia sama, bez hasla i bez przeladowania strony."""
+
+    def _apka(self, monkeypatch, tmp_path, atrapa):
+        return TestApiLogowania._apka(self, monkeypatch, tmp_path, atrapa)
+
+    def test_token_odnawiania_tylko_w_ciasteczku_httponly(
+            self, logowanie_atrapa, monkeypatch, tmp_path):
+        _, atrapa = logowanie_atrapa
+        klient, _ = self._apka(monkeypatch, tmp_path, atrapa)
+        odp = klient.post("/api/logowanie", json={"email": "k@x.pl", "haslo": "Haslo123456"})
+        assert "odnowienie" not in odp.json(), "JavaScript nie moze go widziec"
+        ciastko = odp.headers["set-cookie"]
+        assert "notarai_odnowienie=odnowienie-30-dni" in ciastko
+        assert "HttpOnly" in ciastko and "SameSite=strict" in ciastko
+        assert "Path=/api/logowanie" in ciastko
+
+    def test_za_alb_ciasteczko_jest_secure(self, logowanie_atrapa, monkeypatch, tmp_path):
+        _, atrapa = logowanie_atrapa
+        klient, _ = self._apka(monkeypatch, tmp_path, atrapa)
+        odp = klient.post("/api/logowanie", json={"email": "k@x.pl", "haslo": "Haslo123456"},
+                          headers={"X-Forwarded-Proto": "https"})
+        assert "Secure" in odp.headers["set-cookie"]
+
+    def test_odnowienie_bez_hasla(self, logowanie_atrapa, monkeypatch, tmp_path):
+        _, atrapa = logowanie_atrapa
+        klient, _ = self._apka(monkeypatch, tmp_path, atrapa)
+        klient.post("/api/logowanie", json={"email": "k@x.pl", "haslo": "Haslo123456"})
+        odp = klient.post("/api/logowanie/odnow")
+        assert odp.status_code == 200 and odp.json()["token"] == "token.odnowiony.x"
+
+    def test_bez_ciasteczka_trzeba_sie_zalogowac(self, logowanie_atrapa, monkeypatch, tmp_path):
+        _, atrapa = logowanie_atrapa
+        klient, _ = self._apka(monkeypatch, tmp_path, atrapa)
+        assert klient.post("/api/logowanie/odnow").status_code == 401
+
+    def test_wylogowanie_uniewaznia_odnawianie(self, logowanie_atrapa, monkeypatch, tmp_path):
+        _, atrapa = logowanie_atrapa
+        klient, _ = self._apka(monkeypatch, tmp_path, atrapa)
+        klient.post("/api/logowanie", json={"email": "k@x.pl", "haslo": "Haslo123456"})
+        assert klient.post("/api/logowanie/wyloguj").status_code == 200
+        assert atrapa.uniewaznione == ["odnowienie-30-dni"]
+        # nawet gdyby ktos zachowal ciasteczko, Cognito go juz nie przyjmie
+        klient.cookies.set("notarai_odnowienie", "odnowienie-30-dni", path="/api/logowanie")
+        assert klient.post("/api/logowanie/odnow").status_code == 401

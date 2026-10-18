@@ -24,12 +24,13 @@ import secrets
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import logowanie
 import magazyn
+import urzadzenia
 
 log = logging.getLogger("pieczapp.autoryzacja")
 
@@ -37,8 +38,14 @@ MULTI = os.getenv("PIECZAPP_MULTI", "false").lower() == "true"
 ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
-# (panel ma wlasny token), logowanie i odzyskiwanie hasla oraz favicon.
-_OTWARTE = ("/", "/static", "/zdrowie", "/api/admin", "/api/logowanie", "/favicon.ico")
+# (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
+# laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy).
+_OTWARTE = ("/", "/static", "/zdrowie", "/api/admin", "/api/logowanie", "/favicon.ico",
+            "/api/pomocnik/parowanie")
+
+# Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
+# komputera notariusza nie pozwala przegladac spraw.
+_DLA_POMOCNIKA = "/api/pomocnik/"
 
 _CACHE_S: float = 0.0
 _CACHE: dict | None = None
@@ -94,24 +101,50 @@ def _zapisz_rejestr(dane: dict) -> None:
 # --- Middleware -------------------------------------------------------------
 
 
-def _kancelaria_z_naglowka(token: str):
-    """Kancelaria z tokenu logowania albo z dawnego tokenu kancelarii.
+def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None]:
+    """(kancelaria, identyfikator komputera z pomocnikiem albo None).
 
     Token logowania (JWT) jest podpisany przez Cognito i niesie kancelarie
-    uzytkownika. Dawny token kancelarii zostaje dla zadan automatycznych -
-    jest wspolny dla calej kancelarii i nie wskazuje osoby.
+    uzytkownika. Token pomocnika nalezy do jednego komputera. Dawny token
+    kancelarii zostaje dla zadan automatycznych - jest wspolny dla calej
+    kancelarii i nie wskazuje osoby.
     """
     if not token:
-        return None
+        return None, None
     if logowanie.wlaczone() and logowanie.czy_jwt(token):
         try:
-            return logowanie.dane_z_tokenu(token)["kancelaria"]
+            return logowanie.dane_z_tokenu(token)["kancelaria"], None
         except logowanie.BladLogowania:
-            return None
+            return None, None
+    if urzadzenia.czy_token_pomocnika(token):
+        komputer = urzadzenia.z_tokenu(token)
+        if komputer and _aktywna(komputer["kancelaria"]):
+            return komputer["kancelaria"], komputer["id"]
+        return None, None
     wpis = _wczytaj_rejestr().get(_sha(token))
     if wpis and wpis.get("aktywna", True):
-        return wpis["id"]
-    return None
+        return wpis["id"], None
+    return None, None
+
+
+def _aktywna(kancelaria: str) -> bool:
+    """Wylaczenie kancelarii odcina takze jej pomocnikow."""
+    for wpis in _wczytaj_rejestr().values():
+        if wpis["id"] == kancelaria:
+            return wpis.get("aktywna", True)
+    return False
+
+
+def adres_klienta(request: Request) -> str:
+    """Adres IP, z ktorego przyszlo zadanie.
+
+    Za ALB prawdziwy adres jest w X-Forwarded-For. Bierzemy ostatni wpis -
+    ten dopisal ALB; wczesniejsze moze podstawic kazdy klient.
+    """
+    przekazany = request.headers.get("x-forwarded-for", "")
+    if przekazany:
+        return przekazany.split(",")[-1].strip()
+    return request.client.host if request.client else ""
 
 
 async def middleware(request: Request, call_next):
@@ -124,14 +157,17 @@ async def middleware(request: Request, call_next):
 
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    kancelaria = _kancelaria_z_naglowka(token)
+    kancelaria, komputer = _kancelaria_z_naglowka(token)
     if not kancelaria:
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
+    if komputer and not sciezka.startswith(_DLA_POMOCNIKA):
+        return JSONResponse({"detail": "Token pomocnika sluzy tylko pomocnikowi."}, 403)
 
     znacznik = magazyn.kancelaria_var.set(kancelaria)
     znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
     try:
         request.state.kancelaria = kancelaria
+        request.state.komputer = komputer
         return await call_next(request)
     finally:
         magazyn.kancelaria_var.reset(znacznik)
@@ -199,23 +235,73 @@ def _wymagaj_logowania() -> None:
         raise HTTPException(503, "Logowanie nie jest skonfigurowane na tym serwerze.")
 
 
+# Token odnawiania zyje w ciasteczku HttpOnly: JavaScript go nie widzi, wiec
+# nie wyciagnie go nawet wstrzykniety skrypt. Sciezka ogranicza go do
+# /api/logowanie, wiec nie leci z kazdym zadaniem. SameSite=Strict - obca
+# strona nie wywola odnowienia w imieniu notariusza.
+CIASTKO = "notarai_odnowienie"
+_DNI_ODNOWIENIA = int(os.getenv("PIECZAPP_ODNOWIENIE_DNI", "30"))
+
+
+def _ustaw_ciastko(request: Request, odpowiedz: Response, wartosc: str) -> None:
+    if not wartosc:
+        return
+    https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    odpowiedz.set_cookie(
+        CIASTKO, wartosc, max_age=_DNI_ODNOWIENIA * 86400, path="/api/logowanie",
+        httponly=True, secure=https, samesite="strict",
+    )
+
+
+def _dla_przegladarki(request: Request, odpowiedz: Response, wynik: dict) -> dict:
+    """Token odnawiania do ciasteczka, reszta do JSON-a."""
+    wynik = dict(wynik)
+    _ustaw_ciastko(request, odpowiedz, wynik.pop("odnowienie", ""))
+    return wynik
+
+
 @router_logowania.post("")
-def zaloguj(dane: DaneLogowania):
+def zaloguj(dane: DaneLogowania, request: Request, odpowiedz: Response):
     _wymagaj_logowania()
     try:
-        return logowanie.zaloguj(dane.email.strip().lower(), dane.haslo)
+        wynik = logowanie.zaloguj(dane.email.strip().lower(), dane.haslo)
     except logowanie.BladLogowania as blad:
         raise HTTPException(401, str(blad))
+    return _dla_przegladarki(request, odpowiedz, wynik)
 
 
 @router_logowania.post("/nowe-haslo")
-def nowe_haslo(dane: NoweHaslo):
+def nowe_haslo(dane: NoweHaslo, request: Request, odpowiedz: Response):
     """Pierwsze logowanie: zamiana hasla z zaproszenia na wlasne."""
     _wymagaj_logowania()
     try:
-        return logowanie.ustaw_nowe_haslo(dane.email.strip().lower(), dane.haslo, dane.sesja)
+        wynik = logowanie.ustaw_nowe_haslo(dane.email.strip().lower(), dane.haslo, dane.sesja)
     except logowanie.BladLogowania as blad:
         raise HTTPException(400, str(blad))
+    return _dla_przegladarki(request, odpowiedz, wynik)
+
+
+@router_logowania.post("/odnow")
+def odnow(request: Request, odpowiedz: Response):
+    """Nowy token tozsamosci bez hasla. Przegladarka wola to sama."""
+    _wymagaj_logowania()
+    try:
+        wynik = logowanie.odnow(request.cookies.get(CIASTKO, ""))
+    except logowanie.BladLogowania as blad:
+        odpowiedz = JSONResponse({"detail": str(blad)}, 401)
+        odpowiedz.delete_cookie(CIASTKO, path="/api/logowanie")
+        return odpowiedz
+    return _dla_przegladarki(request, odpowiedz, wynik)
+
+
+@router_logowania.post("/wyloguj")
+def wyloguj(request: Request):
+    """Wylogowanie naprawde konczy sesje - takze na pozostalych kartach."""
+    if logowanie.wlaczone():
+        logowanie.wyloguj(request.cookies.get(CIASTKO, ""))
+    odpowiedz = JSONResponse({"wylogowano": True})
+    odpowiedz.delete_cookie(CIASTKO, path="/api/logowanie")
+    return odpowiedz
 
 
 @router_logowania.post("/kod")

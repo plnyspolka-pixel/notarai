@@ -1,7 +1,8 @@
 """Testy warstwy pod oknem pomocnika. Tkinter nie jest tu uruchamiany."""
 import json
+import queue
 
-from pomocnik import okno, przegladarka
+from pomocnik import klient, okno, przegladarka
 
 
 class TestUstawien:
@@ -65,3 +66,80 @@ class TestPrzegladarki:
             assert "Zainstaluj" in str(blad)
         else:
             raise AssertionError("brak przegladarki musi byc zglaszany")
+
+
+class AtrapaKlienta:
+    """Serwer: laczy od razu, a przy pracy odrzuca token `odrzuc` razy."""
+
+    def __init__(self, odrzuc=0):
+        self.odrzuc = odrzuc
+        self.odlaczone = []
+
+    def __call__(self, adres, token=""):
+        atrapa = self
+
+        class Klient(klient.Notarai):
+            def popros_o_kod(self, nazwa):
+                return {"kod": "ABCD-EFGH", "sekret": "s"}
+
+            def odbierz_token(self, kod, sekret):
+                return "pom_nowy"
+
+            def zlecenia(self):
+                if atrapa.odrzuc:
+                    atrapa.odrzuc -= 1
+                    raise klient.BladTokenu("odlaczony")
+                sterownik.stop()
+                return []
+
+            def odlacz(self):
+                atrapa.odlaczone.append(self.token)
+
+        return Klient(adres=adres, token=token)
+
+
+def _sterownik(monkeypatch, tmp_path, atrapa):
+    global sterownik
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("NOTARAI_ADRES", raising=False)
+    otwarte = []
+    sterownik = okno.Sterownik(queue.Queue(), otworz_strone=otwarte.append,
+                               wykonawcy={}, nowy_klient=atrapa)
+    return sterownik, otwarte
+
+
+class TestRazUstawiaszIJedziesz:
+    def test_pierwsze_uruchomienie_otwiera_notarai_z_kodem(self, monkeypatch, tmp_path):
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta())
+        sterownik.cykl()
+        assert otwarte == ["https://app.notarai.pl/#polacz=ABCD-EFGH"]
+        assert okno.wczytaj_ustawienia()["token"] == "pom_nowy", "token zapamietany"
+
+    def test_kolejne_uruchomienie_nie_pyta_o_nic(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        okno.zapisz_ustawienia("https://app.notarai.pl", "pom_zapamietany")
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta())
+        sterownik.cykl()
+        assert otwarte == [], "polaczony komputer nie otwiera strony laczenia"
+
+    def test_odlaczony_komputer_sam_wraca_do_laczenia(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        okno.zapisz_ustawienia("https://app.notarai.pl", "pom_stary")
+        sterownik, otwarte = _sterownik(monkeypatch, tmp_path, AtrapaKlienta(odrzuc=1))
+        sterownik.cykl()
+        assert otwarte == ["https://app.notarai.pl/#polacz=ABCD-EFGH"]
+        assert okno.wczytaj_ustawienia()["token"] == "pom_nowy"
+
+    def test_odlaczenie_z_okna_zapomina_token_i_mowi_serwerowi(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+        okno.zapisz_ustawienia("https://app.notarai.pl", "pom_stary")
+        atrapa = AtrapaKlienta()
+        sterownik, _ = _sterownik(monkeypatch, tmp_path, atrapa)
+        sterownik.adres = "https://app.notarai.pl"
+        sterownik.odlacz_ten_komputer()
+        assert atrapa.odlaczone == ["pom_stary"]
+        assert okno.wczytaj_ustawienia()["token"] == ""
+
+    def test_adres_dla_wsparcia_ze_zmiennej(self, monkeypatch):
+        monkeypatch.setenv("NOTARAI_ADRES", "http://127.0.0.1:8000/")
+        assert okno.adres_notarai({}) == "http://127.0.0.1:8000"

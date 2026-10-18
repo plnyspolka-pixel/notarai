@@ -110,10 +110,49 @@ def ustaw_nowe_haslo(email: str, nowe_haslo: str, sesja: str) -> dict:
 
 
 def _wynik(odp: dict) -> dict:
+    """Token tozsamosci dla przegladarki i - osobno - token odnawiania.
+
+    Token odnawiania (30 dni) nie trafia do JavaScriptu: serwer odklada go w
+    ciasteczku HttpOnly. Dzieki niemu przegladarka sama dostaje nowy token
+    tozsamosci, zanim stary wygasnie, i notariusz loguje sie raz na miesiac,
+    a nie co 8 godzin.
+    """
     wynik = odp.get("AuthenticationResult") or {}
     if not wynik.get("IdToken"):
         raise BladLogowania("Logowanie nie zakonczylo sie poprawnie.")
-    return {"token": wynik["IdToken"], "wygasa_za": wynik.get("ExpiresIn", 3600)}
+    return {"token": wynik["IdToken"], "wygasa_za": wynik.get("ExpiresIn", 3600),
+            "odnowienie": wynik.get("RefreshToken", "")}
+
+
+def odnow(token_odnowienia: str) -> dict:
+    """Nowy token tozsamosci z tokenu odnawiania. Bez hasla."""
+    if not token_odnowienia:
+        raise BladLogowania("Zaloguj sie ponownie.")
+    try:
+        odp = _klient().initiate_auth(
+            ClientId=KLIENT,
+            AuthFlow="REFRESH_TOKEN_AUTH",
+            AuthParameters={"REFRESH_TOKEN": token_odnowienia},
+        )
+    except Exception as blad:
+        if type(blad).__name__ in ("NotAuthorizedException", "UserNotFoundException"):
+            # wygasl, zostal uniewazniony albo konto wylaczono
+            raise BladLogowania("Sesja wygasla. Zaloguj sie ponownie.") from blad
+        raise
+    wynik = _wynik(odp)
+    # Cognito bez rotacji nie zwraca nowego tokenu odnawiania - stary dziala dalej.
+    wynik["odnowienie"] = wynik["odnowienie"] or token_odnowienia
+    return wynik
+
+
+def wyloguj(token_odnowienia: str) -> None:
+    """Uniewaznia token odnawiania. Bledy pomijamy - ciasteczko i tak znika."""
+    if not token_odnowienia:
+        return
+    try:
+        _klient().revoke_token(Token=token_odnowienia, ClientId=KLIENT)
+    except Exception as blad:  # noqa: BLE001
+        log.info("wylogowanie: nie uniewazniono tokenu (%s)", type(blad).__name__)
 
 
 # --- odzyskiwanie hasla -----------------------------------------------------

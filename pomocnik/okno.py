@@ -1,9 +1,14 @@
 """Okno pomocnika notarai - lewa polowa ekranu.
 
-Jedno okno, trzy rzeczy: czy pomocnik jest polaczony, przycisk do otwarcia
-przegladarki do rejestrow i dziennik tego, co sie wydarzylo. Token kancelarii
-wklejasz raz; lezy w %LOCALAPPDATA%\\notarai\\pomocnik.json i nie wychodzi
-poza ten komputer.
+Raz ustawiasz i zapominasz. Pierwsze uruchomienie pokazuje kod i samo otwiera
+notarai w przegladarce - notariusz klika tam "Polacz" i to wszystko. Zadnego
+tokenu do kopiowania. Od tej chwili pomocnik po kazdym uruchomieniu laczy sie
+sam, przeczekuje zerwane lacze, a gdy ktos odlaczy komputer w notarai, sam
+wraca do ekranu z kodem.
+
+Token tego komputera lezy w %LOCALAPPDATA%\\notarai\\pomocnik.json i nie
+wychodzi poza ten komputer. Otwiera wylacznie odbieranie zlecen pomocnika -
+spraw kancelarii nim nie obejrzysz.
 
 Dziennik pokazuje czynnosci i liczby, nigdy numerow ani wartosci pol - ten sam
 rygor co w logach serwera, bo notariusz pracuje przy ludziach i to okno bywa
@@ -14,8 +19,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import platform
 import queue
 import threading
+import webbrowser
 from pathlib import Path
 
 from pomocnik import klient, przegladarka, zadania
@@ -43,48 +50,122 @@ def zapisz_ustawienia(adres: str, token: str) -> None:
         json.dumps({"adres": adres, "token": token}, ensure_ascii=False), encoding="utf-8")
 
 
-class Pomocnik:
-    """Petla pomocnika w osobnym watku, zeby okno nie zamarzalo."""
+def adres_notarai(ustawienia: dict) -> str:
+    """Adres zmienia tylko wsparcie techniczne - plikiem albo zmienna srodowiska."""
+    return (os.environ.get("NOTARAI_ADRES") or ustawienia.get("adres")
+            or ADRES_DOMYSLNY).rstrip("/")
 
-    def __init__(self, dziennik: queue.Queue):
-        self._watek: threading.Thread | None = None
+
+def nazwa_komputera() -> str:
+    return platform.node() or "Komputer"
+
+
+def adres_polaczenia(adres: str, kod: str) -> str:
+    """Strona notarai, ktora od razu pyta "Polaczyc ten komputer?"."""
+    return f"{adres}/#polacz={kod}"
+
+
+class Sterownik:
+    """Caly cykl zycia pomocnika w jednym watku: laczenie, praca, ponowne laczenie.
+
+    Okno tylko wyswietla to, co sterownik wrzuca do kolejki:
+      ("stan", "laczenie" | "kod" | "polaczony" | "zatrzymany", tekst)
+      ("dziennik", tekst)
+    """
+
+    def __init__(self, wydarzenia: queue.Queue, otworz_strone=webbrowser.open,
+                 wykonawcy=None, nowy_klient=klient.Notarai):
+        self._wydarzenia = wydarzenia
+        self._otworz_strone = otworz_strone
+        self._wykonawcy = wykonawcy if wykonawcy is not None else zadania.WYKONAWCY
+        self._nowy_klient = nowy_klient
         self._stop = threading.Event()
-        self._dziennik = dziennik
+        self._watek: threading.Thread | None = None
+        self.adres = ""
+        self.ostatni_kod = ""
 
-    @property
-    def dziala(self) -> bool:
-        return bool(self._watek and self._watek.is_alive())
+    def _stan(self, stan: str, tekst: str = "") -> None:
+        self._wydarzenia.put(("stan", stan, tekst))
 
-    def start(self, adres: str, token: str) -> None:
-        if self.dziala:
+    def _dziennik(self, tekst: str) -> None:
+        self._wydarzenia.put(("dziennik", tekst))
+
+    def _dziala(self) -> bool:
+        return not self._stop.is_set()
+
+    def _spij(self, sekundy: float) -> None:
+        self._stop.wait(sekundy)
+
+    def start(self) -> None:
+        if self._watek and self._watek.is_alive():
             return
         self._stop.clear()
-        notarai = klient.Notarai(adres=adres, token=token)
-
-        def pracuj():
-            self._dziennik.put("Połączony. Czekam na zlecenia z notarai.")
-            try:
-                klient.pracuj(notarai, zadania.WYKONAWCY,
-                              dziala=lambda: not self._stop.is_set())
-            except Exception as blad:  # noqa: BLE001 - bez tresci zlecen w oknie
-                self._dziennik.put(f"Zatrzymany: {type(blad).__name__}")
-            else:
-                self._dziennik.put("Zatrzymany.")
-
-        self._watek = threading.Thread(target=pracuj, daemon=True)
+        self._watek = threading.Thread(target=self.cykl, daemon=True)
         self._watek.start()
 
     def stop(self) -> None:
         self._stop.set()
+
+    def otworz_polaczenie(self) -> None:
+        if self.ostatni_kod:
+            self._otworz_strone(adres_polaczenia(self.adres, self.ostatni_kod))
+
+    def cykl(self) -> None:
+        ustawienia = wczytaj_ustawienia()
+        self.adres = adres_notarai(ustawienia)
+        token = ustawienia.get("token", "")
+        while self._dziala():
+            if not token:
+                token = self._polacz()
+                if not token:
+                    break
+                zapisz_ustawienia(self.adres, token)
+                self._dziennik("Komputer połączony z kancelarią.")
+            self._stan("polaczony", "Połączony z notarai. Pomocnik działa sam - "
+                                    "możesz zminimalizować to okno.")
+            try:
+                klient.pracuj(self._nowy_klient(adres=self.adres, token=token),
+                              self._wykonawcy, dziala=self._dziala, spij=self._spij)
+            except klient.BladTokenu:
+                self._dziennik("Ten komputer odłączono od kancelarii. "
+                               "Pokazuję nowy kod połączenia.")
+                token = ""
+                zapisz_ustawienia(self.adres, "")
+            except Exception as blad:  # noqa: BLE001 - bez tresci zlecen w oknie
+                self._dziennik(f"Błąd pomocnika: {type(blad).__name__}. Ponawiam.")
+                self._spij(klient.PRZERWA_PO_BLEDZIE_S)
+        self._stan("zatrzymany", "Zatrzymany.")
+
+    def _polacz(self) -> str | None:
+        self._stan("laczenie", "Łączę się z notarai…")
+
+        def pokaz_kod(kod: str) -> None:
+            self.ostatni_kod = kod
+            self._stan("kod", kod)
+            self._otworz_strone(adres_polaczenia(self.adres, kod))
+
+        return klient.polacz(self._nowy_klient(adres=self.adres), nazwa_komputera(),
+                             pokaz_kod, dziala=self._dziala, spij=self._spij)
+
+    def odlacz_ten_komputer(self) -> None:
+        """Na zyczenie notariusza: token przestaje dzialac takze w notarai."""
+        token = wczytaj_ustawienia().get("token", "")
+        if token:
+            try:
+                self._nowy_klient(adres=self.adres, token=token).odlacz()
+            except klient.BladPolaczenia:
+                pass  # i tak zapominamy token; w notarai mozna odlaczyc recznie
+        zapisz_ustawienia(self.adres, "")
+        self._dziennik("Odłączyłem ten komputer od kancelarii.")
+        self.stop()
 
 
 def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
     import tkinter as tk
     from tkinter import messagebox, scrolledtext
 
-    ustawienia = wczytaj_ustawienia()
-    dziennik: queue.Queue[str] = queue.Queue()
-    pomocnik = Pomocnik(dziennik)
+    wydarzenia: queue.Queue = queue.Queue()
+    sterownik = Sterownik(wydarzenia)
 
     korzen = tk.Tk()
     korzen.title("notarai - pomocnik")
@@ -102,25 +183,28 @@ def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
                   "przeglądarce: sprawdzenia w rejestrach i wypełnianie formularzy. "
                   "Nigdy nie wysyła, nie składa ani nie podpisuje.").pack(anchor="w", pady=(4, 14))
 
-    tk.Label(ramka, text="Adres notarai").pack(anchor="w")
-    pole_adresu = tk.Entry(ramka)
-    pole_adresu.insert(0, ustawienia.get("adres") or ADRES_DOMYSLNY)
-    pole_adresu.pack(fill="x", pady=(0, 10))
+    stan = tk.Label(ramka, text="Uruchamiam…", fg="#555", font=("Segoe UI", 11, "bold"),
+                    justify="left", wraplength=polowa - 60)
+    stan.pack(anchor="w")
 
-    tk.Label(ramka, text="Token kancelarii").pack(anchor="w")
-    pole_tokenu = tk.Entry(ramka, show="•")
-    pole_tokenu.insert(0, ustawienia.get("token") or "")
-    pole_tokenu.pack(fill="x", pady=(0, 10))
-
-    stan = tk.Label(ramka, text="Nie połączony", fg="#b45309", font=("Segoe UI", 10, "bold"))
-    stan.pack(anchor="w", pady=(0, 10))
+    # Ekran laczenia: widoczny tylko, dopoki komputer nie jest polaczony.
+    laczenie = tk.Frame(ramka)
+    kod_etykieta = tk.Label(laczenie, text="", font=("Consolas", 34, "bold"), fg="#c96442")
+    kod_etykieta.pack(anchor="w", pady=(6, 4))
+    tk.Label(laczenie, justify="left", wraplength=polowa - 60, fg="#555",
+             text="Otworzyłem notarai w przeglądarce. Kliknij tam „Połącz” - "
+                  "i gotowe, nic więcej nie trzeba wpisywać. Jeśli strona się nie "
+                  "otworzyła, wejdź w notarai w menu Pomocnik i wpisz ten kod."
+             ).pack(anchor="w")
+    tk.Button(laczenie, text="Otwórz notarai jeszcze raz",
+              command=sterownik.otworz_polaczenie).pack(anchor="w", pady=(8, 0))
 
     pasek = tk.Frame(ramka)
-    pasek.pack(fill="x", pady=(0, 10))
-    przycisk_polacz = tk.Button(pasek, text="Połącz")
-    przycisk_polacz.pack(side="left")
+    pasek.pack(fill="x", pady=(14, 10))
     tk.Button(pasek, text="Otwórz przeglądarkę do rejestrów",
-              command=lambda: otworz_przegladarke()).pack(side="left", padx=8)
+              command=lambda: otworz_przegladarke()).pack(side="left")
+    przycisk_odlacz = tk.Button(pasek, text="Odłącz ten komputer",
+                                command=lambda: odlacz())
 
     widok = scrolledtext.ScrolledText(ramka, height=16, state="disabled", wrap="word")
     widok.pack(fill="both", expand=True)
@@ -138,35 +222,44 @@ def uruchom() -> None:  # pragma: no cover - warstwa okienkowa
         except RuntimeError as blad:
             messagebox.showerror("notarai", str(blad))
 
-    def przelacz() -> None:
-        if pomocnik.dziala:
-            pomocnik.stop()
-            przycisk_polacz.configure(text="Połącz")
-            stan.configure(text="Nie połączony", fg="#b45309")
+    def odlacz() -> None:
+        if not messagebox.askyesno(
+                "notarai", "Odłączyć ten komputer od kancelarii?\n"
+                "Pomocnik przestanie odbierać zlecenia, a przy następnym "
+                "uruchomieniu poprosi o ponowne połączenie."):
             return
-        adres = pole_adresu.get().strip()
-        token = pole_tokenu.get().strip()
-        if not token:
-            messagebox.showwarning("notarai", "Wklej token kancelarii z notarai.")
-            return
-        zapisz_ustawienia(adres, token)
-        pomocnik.start(adres, token)
-        przycisk_polacz.configure(text="Rozłącz")
-        stan.configure(text="Połączony", fg="#15803d")
+        threading.Thread(target=sterownik.odlacz_ten_komputer, daemon=True).start()
 
-    przycisk_polacz.configure(command=przelacz)
+    def pokaz_stan(rodzaj: str, tekst: str) -> None:
+        kolory = {"polaczony": "#15803d", "kod": "#1f1e1b", "laczenie": "#555",
+                  "zatrzymany": "#b45309"}
+        if rodzaj == "kod":
+            kod_etykieta.configure(text=tekst)
+            stan.configure(text="Połącz ten komputer z kancelarią", fg=kolory["kod"])
+            laczenie.pack(anchor="w", fill="x", after=stan)
+        else:
+            stan.configure(text=tekst, fg=kolory.get(rodzaj, "#555"))
+            if rodzaj != "laczenie":
+                laczenie.pack_forget()
+        if rodzaj == "polaczony":
+            przycisk_odlacz.pack(side="left", padx=8)
+        else:
+            przycisk_odlacz.pack_forget()
+        if rodzaj == "zatrzymany":
+            dopisz("Pomocnik zatrzymany. Uruchom go ponownie, żeby połączyć komputer.")
 
     def odswiezaj() -> None:
         while True:
             try:
-                dopisz(dziennik.get_nowait())
+                wydarzenie = wydarzenia.get_nowait()
             except queue.Empty:
                 break
-        if not pomocnik.dziala and przycisk_polacz["text"] == "Rozłącz":
-            przycisk_polacz.configure(text="Połącz")
-            stan.configure(text="Nie połączony", fg="#b45309")
-        korzen.after(500, odswiezaj)
+            if wydarzenie[0] == "stan":
+                pokaz_stan(wydarzenie[1], wydarzenie[2])
+            else:
+                dopisz(wydarzenie[1])
+        korzen.after(300, odswiezaj)
 
-    dopisz("Wklej token kancelarii i kliknij Połącz.")
-    korzen.after(500, odswiezaj)
+    korzen.after(300, odswiezaj)
+    sterownik.start()
     korzen.mainloop()
