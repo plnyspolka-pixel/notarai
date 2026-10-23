@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai · administracja</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,'SF Mono',monospace;
+  --r:14px; --r2:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+.kol{max-width:760px;margin:0 auto;padding:40px 16px 100px}
+.logo{font:600 21px/1 var(--serif);display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.logo img{width:36px;height:36px;border-radius:9px}
+.logo small{font:400 13px var(--sans);color:var(--tekst3);margin-left:auto}
+h1{font:400 28px/1.25 var(--serif);margin:0 0 6px}
+h2{font:500 18px/1.3 var(--serif);margin:0 0 14px}
+.pod{color:var(--tekst2);margin:0 0 24px}
+.karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:22px 24px;margin-bottom:18px}
+.karta[hidden],[hidden]{display:none!important}
+.etykieta{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--tekst2)}
+.wskaz{font-weight:400;color:var(--tekst3)}
+input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
+input:focus,button:focus-visible{outline:2px solid var(--akcent);outline-offset:1px}
+.pole{margin-bottom:16px}
+.para{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+button{font:500 14px var(--sans);padding:10px 18px;border:1px solid var(--akcent);background:var(--akcent);color:#fff;
+  cursor:pointer;border-radius:var(--r2)}
+button:hover:not(:disabled){background:var(--akcent2);border-color:var(--akcent2)}
+button:disabled{opacity:.45;cursor:default}
+button.wtorny{background:transparent;color:var(--tekst);border-color:var(--linia2)}
+button.wtorny:hover:not(:disabled){background:var(--tlo2)}
+button.maly{font-size:12.5px;padding:5px 11px}
+button.odnosnik{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400;font-size:12.5px}
+button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
+.pasek{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.stan{font-size:13px;color:var(--tekst2)}
+.stan.blad{color:var(--alarm)}
+.stan.praca::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;
+  border:2px solid var(--akcent);border-right-color:transparent;margin-right:8px;vertical-align:-1px;animation:kr .8s linear infinite}
+@keyframes kr{to{transform:rotate(360deg)}}
+
+/* wybor miejsca na pliki: dwie karty zamiast listy rozwijanej */
+.wybor{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.wybor label{display:block;border:1.5px solid var(--linia2);border-radius:var(--r2);padding:12px 14px;cursor:pointer;background:var(--tlo)}
+.wybor label:has(input:checked){border-color:var(--akcent);background:var(--akcent-tlo)}
+.wybor input{margin:0 8px 0 0;accent-color:var(--akcent)}
+.wybor b{font-weight:500}
+.wybor small{display:block;color:var(--tekst2);font-size:12.5px;line-height:1.45;margin-top:4px}
+
+.sukces{background:var(--ok-tlo);color:var(--tekst);border-radius:var(--r2);padding:14px 16px;font-size:14px;margin-top:14px}
+.sukces b{color:var(--ok)}
+.blad-pudlo{background:var(--alarm-tlo);color:var(--alarm);border-radius:var(--r2);padding:12px 14px;font-size:14px;margin-top:14px}
+
+.kanc-naglowek{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.kanc-naglowek h2{margin:0}
+.znacznik{font-size:11.5px;padding:2px 9px;border-radius:999px;background:var(--tlo2);color:var(--tekst2)}
+.znacznik.wyl{background:var(--alarm-tlo);color:var(--alarm)}
+.znacznik.ok{background:var(--ok-tlo);color:var(--ok)}
+.osoba{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--linia);border-radius:var(--r2);
+  margin-bottom:6px;background:var(--tlo);flex-wrap:wrap}
+.osoba > div{flex:1;min-width:180px}
+.osoba b{font-weight:500;overflow-wrap:anywhere}
+.osoba small{display:block;color:var(--tekst3);font-size:12px}
+.zapros{display:flex;gap:8px;margin:10px 0 4px}
+.zapros input{flex:1}
+.stopka-kanc{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--linia);align-items:center}
+.token-pokaz{font:13px var(--mono);word-break:break-all;background:var(--tlo2);padding:10px 12px;border-radius:var(--r2);margin-top:10px}
+.szukaj{margin-bottom:14px}
+@media(max-width:620px){.para,.wybor{grid-template-columns:1fr}.karta{padding:18px 16px}}
+</style>
+</head>
+<body>
+<div class="kol">
+  <div class="logo"><img src="/static/logo.png" alt="">notarai <small>administracja</small></div>
+
+  <!-- wejscie: token administratora z Secrets Manager (notarai/admin-token) -->
+  <section id="widok-wejscie" hidden>
+    <h1>Panel administracyjny</h1>
+    <p class="pod">Tu zakładasz kancelarie. Wklej token administratora — znajdziesz go w konsoli AWS:
+      Secrets Manager → <code>notarai/admin-token</code> → Retrieve secret value.
+      Przeglądarka zapamięta go do zamknięcia karty.</p>
+    <div class="karta">
+      <div class="pole">
+        <label class="etykieta" for="pole-admin">Token administratora</label>
+        <input type="password" id="pole-admin" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="pasek"><button id="btn-wejdz">Wejdź</button><span class="stan" id="stan-wejscie"></span></div>
+    </div>
+  </section>
+
+  <section id="widok-panel" hidden>
+    <h1>Nowa kancelaria</h1>
+    <p class="pod">Jeden formularz. Notariusz dostaje e-mail z hasłem tymczasowym, loguje się
+      na app.notarai.pl i od razu może pracować. Swój zespół zaprasza już sam.</p>
+
+    <div class="karta">
+      <div class="para">
+        <div class="pole">
+          <label class="etykieta" for="nk-nazwa">Nazwa kancelarii</label>
+          <input type="text" id="nk-nazwa" placeholder="np. Kancelaria Notarialna Anna Sobczak">
+        </div>
+        <div class="pole">
+          <label class="etykieta" for="nk-email">E-mail notariusza <span class="wskaz">właściciel konta</span></label>
+          <input type="email" id="nk-email" placeholder="anna@kancelaria.pl" spellcheck="false">
+        </div>
+      </div>
+      <span class="etykieta">Gdzie mają leżeć sprawy <span class="wskaz">tego później nie zmienisz</span></span>
+      <div class="wybor">
+        <label><input type="radio" name="nk-gdzie" value="chmura" checked><b>W chmurze notarai</b>
+          <small>Zalecane. Szyfrowane we Frankfurcie, z kopiami zapasowymi. Działa w każdej przeglądarce,
+            z każdego komputera. Pełne sprawdzenia w rejestrach.</small></label>
+        <label><input type="radio" name="nk-gdzie" value="u-klienta"><b>Na komputerze kancelarii</b>
+          <small>Serwer niczego nie zapisuje. Tylko Chrome lub Edge, kopie zapasowe robi kancelaria,
+            bez sprawdzeń w rejestrach.</small></label>
+      </div>
+      <div class="pasek"><button id="btn-zaloz">Załóż kancelarię i wyślij zaproszenie</button>
+        <span class="stan" id="stan-zaloz"></span></div>
+      <div id="wynik-zaloz"></div>
+    </div>
+
+    <h1 style="margin-top:40px">Kancelarie</h1>
+    <p class="pod" id="licznik"></p>
+    <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
+    <div id="lista"><span class="stan praca">Ładuję…</span></div>
+    <div class="pasek"><button class="odnosnik" id="btn-wyjdz">Zamknij panel (zapomnij token w tej karcie)</button></div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KLUCZ = "notarai_admin";
+let token = "";
+try { token = sessionStorage.getItem(KLUCZ) || ""; } catch { /* tryb prywatny */ }
+let kancelarie = [];
+
+function escape(t){
+  return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+function stan(el, tekst, blad, praca){
+  el.textContent = tekst; el.classList.toggle("blad", !!blad); el.classList.toggle("praca", !!praca);
+}
+function data(iso){ return iso ? new Date(iso).toLocaleDateString("pl-PL") : ""; }
+
+async function api(adres, opcje = {}){
+  const naglowki = new Headers(opcje.headers || {});
+  naglowki.set("Authorization", "Bearer " + token);
+  if (opcje.body && !naglowki.has("Content-Type")) naglowki.set("Content-Type", "application/json");
+  const odp = await fetch(adres, {...opcje, headers: naglowki});
+  const tresc = await odp.json().catch(() => ({}));
+  if (odp.status === 401) { wyjdz("Token administratora jest nieprawidłowy."); throw new Error("Brak dostępu."); }
+  if (!odp.ok) throw new Error((tresc.detail || "Serwer odpowiedział " + odp.status));
+  return tresc;
+}
+
+function wyjdz(komunikat){
+  token = "";
+  try { sessionStorage.removeItem(KLUCZ); } catch {}
+  $("widok-panel").hidden = true; $("widok-wejscie").hidden = false;
+  stan($("stan-wejscie"), komunikat || "", !!komunikat);
+  $("pole-admin").focus();
+}
+
+$("btn-wejdz").onclick = async () => {
+  token = $("pole-admin").value.trim();
+  if (!token) return stan($("stan-wejscie"), "Wklej token.", true);
+  stan($("stan-wejscie"), "Sprawdzam…", false, true);
+  try {
+    kancelarie = await api("/api/admin/kancelarie");
+    try { sessionStorage.setItem(KLUCZ, token); } catch {}
+    $("pole-admin").value = "";
+    pokazPanel();
+  } catch (e) { if (token) stan($("stan-wejscie"), e.message, true); }
+};
+$("pole-admin").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-wejdz").click(); });
+$("btn-wyjdz").onclick = () => wyjdz("");
+
+function pokazPanel(){
+  $("widok-wejscie").hidden = true; $("widok-panel").hidden = false;
+  rysuj();
+  $("nk-nazwa").focus();
+}
+
+async function odswiez(){ kancelarie = await api("/api/admin/kancelarie"); rysuj(); }
+
+/* ---------- zakladanie ---------- */
+$("btn-zaloz").onclick = async () => {
+  const nazwa = $("nk-nazwa").value.trim(), email = $("nk-email").value.trim();
+  const gdzie = document.querySelector('input[name="nk-gdzie"]:checked').value;
+  $("wynik-zaloz").innerHTML = "";
+  if (nazwa.length < 2) return stan($("stan-zaloz"), "Podaj nazwę kancelarii.", true);
+  if (!email) return stan($("stan-zaloz"), "Podaj e-mail notariusza — na niego pójdzie zaproszenie.", true);
+  $("btn-zaloz").disabled = true;
+  stan($("stan-zaloz"), "Zakładam…", false, true);
+  try {
+    const w = await api("/api/admin/kancelarie", {method: "POST",
+      body: JSON.stringify({nazwa, email, przechowywanie: gdzie})});
+    stan($("stan-zaloz"), "");
+    if (w.zaproszono) {
+      $("wynik-zaloz").innerHTML = `<div class="sukces"><b>Gotowe.</b> Założono „${escape(w.nazwa)}”, zaproszenie poszło na <b>${escape(w.zaproszono)}</b>.<br>
+        Wiadomość przychodzi od <i>no-reply@verificationemail.com</i> — poproś, żeby w razie czego zajrzeć
+        do spamu. Hasło tymczasowe jest ważne kilka dni; zawsze możesz je wysłać ponownie z listy poniżej.</div>`;
+    } else {
+      $("wynik-zaloz").innerHTML = `<div class="blad-pudlo">Kancelaria założona, ale zaproszenie nie wyszło:
+        ${escape(w.blad_zaproszenia || "")}. Zaproś notariusza z listy poniżej.</div>`;
+    }
+    $("nk-nazwa").value = ""; $("nk-email").value = "";
+    await odswiez();
+  } catch (e) { stan($("stan-zaloz"), e.message, true); }
+  finally { $("btn-zaloz").disabled = false; }
+};
+
+/* ---------- lista ---------- */
+$("szukaj").oninput = rysuj;
+
+function rysuj(){
+  const fraza = $("szukaj").value.trim().toLowerCase();
+  $("pole-szukaj").hidden = kancelarie.length < 6;
+  $("licznik").textContent = kancelarie.length
+    ? "Aktywnych: " + kancelarie.filter(k => k.aktywna).length + " z " + kancelarie.length + "."
+    : "Jeszcze żadnej. Załóż pierwszą powyżej.";
+  const widoczne = kancelarie.filter(k => !fraza || k.nazwa.toLowerCase().includes(fraza)
+    || (k.zespol || []).some(o => o.email.includes(fraza)));
+  $("lista").innerHTML = "";
+  widoczne.forEach(k => $("lista").appendChild(kartaKancelarii(k)));
+}
+
+function opisOsoby(o){
+  if (o.dolaczyl) return "w zespole od " + data(o.dolaczyl);
+  if (o.zaproszono) return "zaproszenie wysłane " + data(o.zaproszono) + " · jeszcze się nie zalogował(a)";
+  return "konto sprzed zespołów";
+}
+
+function kartaKancelarii(k){
+  const d = document.createElement("div");
+  d.className = "karta";
+  const zespol = k.zespol || [];
+  d.innerHTML = `
+    <div class="kanc-naglowek"><h2>${escape(k.nazwa)}</h2>
+      <span class="znacznik ${k.aktywna ? "ok" : "wyl"}">${k.aktywna ? "aktywna" : "wyłączona"}</span>
+      <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki u kancelarii" : "pliki w chmurze"}</span>
+      <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span></div>
+    <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
+    <div class="zapros"><input type="email" placeholder="${zespol.length ? "zaproś kolejną osobę: e-mail" : "e-mail notariusza"}" spellcheck="false">
+      <button class="wtorny">Zaproś</button></div>
+    <span class="stan"></span>
+    <div class="stopka-kanc">
+      <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
+      <button class="odnosnik" data-akcja="token">Token do automatyzacji…</button>
+    </div>
+    <div class="miejsce-tokenu"></div>`;
+  const st = d.querySelector(".stan");
+  const osoby = d.querySelector(".osoby");
+  zespol.forEach(o => {
+    const w = document.createElement("div");
+    w.className = "osoba";
+    w.innerHTML = `<div><b>${escape(o.email)}</b><small>${escape(opisOsoby(o))}</small></div>
+      <span class="znacznik ${o.rola === "wlasciciel" ? "ok" : ""}">${o.rola === "wlasciciel" ? "właściciel" : "zespół"}</span>
+      ${o.dolaczyl ? "" : '<button class="wtorny maly" data-ponow>Wyślij zaproszenie ponownie</button>'}
+      <button class="odnosnik" data-rola>${o.rola === "wlasciciel" ? "zwykły członek" : "zrób właścicielem"}</button>`;
+    const ponow = w.querySelector("[data-ponow]");
+    if (ponow) ponow.onclick = async () => {
+      ponow.disabled = true; stan(st, "Wysyłam…", false, true);
+      try {
+        await api(`/api/admin/kancelarie/${encodeURIComponent(k.id)}/zespol/${encodeURIComponent(o.email)}/ponow`, {method: "POST"});
+        stan(st, "Wysłano nowe hasło tymczasowe na " + o.email + ".");
+      } catch (e) { stan(st, e.message, true); ponow.disabled = false; }
+    };
+    w.querySelector("[data-rola]").onclick = async () => {
+      const rola = o.rola === "wlasciciel" ? "czlonek" : "wlasciciel";
+      try {
+        await api(`/api/admin/kancelarie/${encodeURIComponent(k.id)}/zespol/${encodeURIComponent(o.email)}`,
+                  {method: "PUT", body: JSON.stringify({rola})});
+        await odswiez();
+      } catch (e) { stan(st, e.message, true); }
+    };
+    osoby.appendChild(w);
+  });
+
+  const pole = d.querySelector(".zapros input"), zapros = d.querySelector(".zapros button");
+  zapros.onclick = async () => {
+    const email = pole.value.trim();
+    if (!email) return stan(st, "Wpisz adres e-mail.", true);
+    zapros.disabled = true; stan(st, "Wysyłam zaproszenie…", false, true);
+    try {
+      const w = await api("/api/admin/uzytkownicy", {method: "POST",
+        body: JSON.stringify({email, kancelaria: k.id})});
+      await odswiez();
+      return w;
+    } catch (e) { stan(st, e.message, true); zapros.disabled = false; }
+  };
+  pole.addEventListener("keydown", e => { if (e.key === "Enter") zapros.click(); });
+
+  d.querySelector('[data-akcja="aktywna"]').onclick = async () => {
+    if (k.aktywna && !confirm("Wyłączyć „" + k.nazwa + "”?\n\nNikt z kancelarii się nie zaloguje, "
+      + "a jej pomocnicy przestaną działać. Sprawy zostają na miejscu — możesz ją włączyć ponownie.")) return;
+    try {
+      await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + (k.aktywna ? "" : "/aktywna"),
+                {method: k.aktywna ? "DELETE" : "PUT"});
+      await odswiez();
+    } catch (e) { stan(st, e.message, true); }
+  };
+
+  d.querySelector('[data-akcja="token"]').onclick = async () => {
+    if (!confirm("Wydać nowy token kancelarii?\n\nToken jest potrzebny tylko do skryptów i automatyzacji — "
+      + "ludzie logują się adresem e-mail. Poprzedni token przestanie działać.")) return;
+    try {
+      const w = await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/token", {method: "POST"});
+      d.querySelector(".miejsce-tokenu").innerHTML = `<div class="token-pokaz">${escape(w.token)}</div>
+        <p class="stan">Skopiuj teraz — po odświeżeniu strony nie da się go odczytać.</p>`;
+    } catch (e) { stan(st, e.message, true); }
+  };
+  return d;
+}
+
+if (token) api("/api/admin/kancelarie").then(l => { kancelarie = l; pokazPanel(); }).catch(() => {});
+else wyjdz("");
+</script>
+</body>
+</html>

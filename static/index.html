@@ -280,6 +280,42 @@ a.przycisk{display:inline-block;font:500 14px var(--sans);padding:10px 18px;bord
 a.przycisk:hover{background:var(--akcent2);border-color:var(--akcent2)}
 a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 .wskazowka{font-size:13px!important;background:var(--tlo2);border-radius:var(--r2);padding:10px 12px}
+
+/* wymogi hasla odhaczaja sie w trakcie pisania, zamiast bledu po wyslaniu */
+.wymogi{list-style:none;padding:0;margin:-4px 0 14px;font-size:13px;color:var(--tekst3);
+  display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}
+.wymogi li::before{content:"○";display:inline-block;width:1.3em}
+.wymogi li.ok{color:var(--ok)}
+.wymogi li.ok::before{content:"✓"}
+
+/* zespol kancelarii */
+.kto{font-size:11.5px;color:var(--tekst2);margin-top:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stopka-aside .wyloguj{display:block}
+#okno-zespol input{text-transform:none;font:14px var(--sans);width:auto;flex:1;min-width:200px}
+.znacznik{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--ok-tlo);color:var(--ok);flex:none}
+.komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
+.komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
+
+/* jedno pole na wszystkie pliki sprawy */
+.strefa{padding:22px 18px;align-items:flex-start}
+.strefa small{color:var(--tekst3);font-size:12.5px}
+.strefa b{color:var(--tekst);font-weight:500}
+body.przeciaganie .strefa{border-color:var(--akcent);background:var(--akcent-tlo)}
+.wybrane{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.wybrane:empty{display:none}
+.plik{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:7px 10px;border-radius:var(--r2);background:var(--tlo2)}
+.plik .rodzaj{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--tekst3);width:52px;flex:none}
+.plik .rodzaj.wzor{color:var(--akcent)}
+.plik span.nazwa{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plik button{background:none;border:0;color:var(--tekst3);padding:0 4px;font-size:16px;line-height:1}
+.plik button:hover:not(:disabled){background:none;color:var(--alarm)}
+.plik.brak{background:transparent;border:1px dashed var(--linia2);color:var(--tekst2)}
+.plik.brak button.podpowiedz{font-size:13px;color:var(--akcent);text-decoration:underline;padding:0}
+.plik.brak button.podpowiedz:hover:not(:disabled){color:var(--akcent2)}
+
+/* przycisk "Sporzadz projekt" zostaje pod reka przy dlugiej liscie pol */
+.pasek.przyklejony{position:sticky;bottom:0;background:var(--karta);margin:18px -24px -22px;
+  padding:14px 24px;border-top:1px solid var(--linia);border-radius:0 0 var(--r) var(--r)}
 </style>
 </head>
 <body>
@@ -312,6 +348,8 @@ notarai</div>
   <div class="stopka-aside">
     <span id="gdzie-dane">Sprawdzam, gdzie zapisywane są dane…</span>
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
+    <div class="kto" id="kto" hidden></div>
+    <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
   </div>
 </aside>
@@ -324,29 +362,21 @@ notarai</div>
   <p class="pod">Wgraj wzór aktu i skany sprawy, opisz czego potrzebujesz. Dostaniesz projekt do sprawdzenia, nie dokument gotowy do podpisu.</p>
 
   <div class="karta">
-    <div class="para">
-      <div class="pole">
-        <label class="etykieta" for="sygnatura">Sygnatura <span class="wskaz">opcjonalna</span></label>
-        <input type="text" id="sygnatura" placeholder="np. Rep. A 412/2026">
-      </div>
-      <div class="pole">
-        <span class="etykieta">Wzór aktu <span class="wskaz">.docx lub .txt</span></span>
-        <label class="upload" id="up-wzor"><input type="file" id="wzor" accept=".docx,.txt,.md">
-          <span class="ikona">📄</span><span class="nazwy" data-pusty="Wybierz plik ze wzorem">Wybierz plik ze wzorem</span></label>
-      </div>
-    </div>
-    <div class="pole">
-      <span class="etykieta">Skany dokumentów <span class="wskaz">PDF lub obrazy, można kilka naraz</span></span>
-      <label class="upload" id="up-skany"><input type="file" id="skany" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff">
-        <span class="ikona">🗂</span><span class="nazwy" data-pusty="Dodaj skany sprawy">Dodaj skany sprawy</span></label>
-    </div>
+    <!-- Jedno pole na wszystko: wzor rozpoznajemy po rozszerzeniu (.docx, .txt),
+         reszta to skany. Pliki mozna tez upuscic w dowolnym miejscu okna. -->
+    <label class="upload strefa" id="strefa"><input type="file" id="pliki" multiple
+        accept=".docx,.txt,.md,.pdf,.png,.jpg,.jpeg,.tif,.tiff">
+      <span class="ikona">📎</span>
+      <span><b>Przeciągnij tu wzór aktu i skany</b> albo kliknij, żeby wybrać.<br>
+        <small>Wzór to plik .docx lub .txt, skany to PDF-y albo zdjęcia, ile trzeba.</small></span></label>
+    <div class="wybrane" id="wybrane"></div>
   </div>
 
   <div class="composer">
-    <textarea id="polecenie" placeholder="Opisz, co ma powstać: np. sprzedaż działki nr 12/3 rolnikowi indywidualnemu, cena 50 000 zł zapłacona przed aktem, działka ma dostęp do drogi publicznej…"></textarea>
+    <textarea id="polecenie" placeholder="Opis sprawy, nieobowiązkowy: np. sprzedaż działki nr 12/3 rolnikowi indywidualnemu, cena 50 000 zł zapłacona przed aktem…"></textarea>
     <div class="dol">
       <small>Braki i wątpliwości zobaczysz jako znaczniki w projekcie, nie jako pytania.</small>
-      <button class="okragly" id="btn-odczytaj" title="Odczytaj dane ze skanów">↑</button>
+      <button id="btn-odczytaj">Odczytaj skany</button>
     </div>
   </div>
   <div class="pasek"><span class="stan" id="stan1"></span></div>
@@ -386,9 +416,8 @@ notarai</div>
       <button class="chip" data-f="dodatkowe">Dodatkowe od modelu</button>
     </div>
     <div id="pola"></div>
-    <div class="pasek">
+    <div class="pasek przyklejony">
       <button id="btn-generuj">Sporządź projekt</button>
-      <button class="wtorny" id="btn-wroc">Wróć</button>
       <span class="stan" id="stan2"></span>
     </div>
   </div>
@@ -497,7 +526,7 @@ notarai</div>
     <!-- 1. logowanie -->
     <div id="widok-logowanie">
       <h2>Zaloguj się</h2>
-      <p>Konto zakłada administrator. Zaproszenie z hasłem tymczasowym przychodzi na e-mail.</p>
+      <p>Pierwszy raz? Hasło tymczasowe jest w zaproszeniu, które przyszło e-mailem. Nie widzisz go — zajrzyj do spamu.</p>
       <div class="pole">
         <label class="etykieta" for="pole-email">Adres e-mail</label>
         <input type="email" id="pole-email" autocomplete="username" spellcheck="false">
@@ -511,13 +540,15 @@ notarai</div>
         <span class="stan" id="stan-brama"></span>
       </div>
       <button class="odnosnik" id="btn-zapomnialem">Nie pamiętam hasła</button>
-      <button class="odnosnik" id="btn-pokaz-token">Mam token kancelarii</button>
+      <!-- Dawny token kancelarii sluzy automatyzacji, nie ludziom. Ukryty;
+           otwiera go adres zakonczony #token. -->
+      <button class="odnosnik" id="btn-pokaz-token" hidden>Mam token kancelarii</button>
     </div>
 
     <!-- 2. pierwsze logowanie: hasło z zaproszenia trzeba zmienić -->
     <div id="widok-nowe-haslo" hidden>
       <h2>Ustaw własne hasło</h2>
-      <p>Hasło z zaproszenia jest tymczasowe. Ustaw teraz swoje, minimum 12 znaków, w tym wielka litera, mała litera i cyfra.</p>
+      <p>Hasło z zaproszenia jest jednorazowe. Ustaw swoje — potem przeglądarka pamięta logowanie przez 30 dni.</p>
       <div class="pole">
         <label class="etykieta" for="pole-haslo-nowe">Nowe hasło</label>
         <input type="password" id="pole-haslo-nowe" autocomplete="new-password">
@@ -526,6 +557,13 @@ notarai</div>
         <label class="etykieta" for="pole-haslo-nowe2">Powtórz hasło</label>
         <input type="password" id="pole-haslo-nowe2" autocomplete="new-password">
       </div>
+      <ul class="wymogi" id="wymogi">
+        <li data-w="dlugosc">co najmniej 12 znaków</li>
+        <li data-w="cyfra">cyfra</li>
+        <li data-w="wielka">wielka litera</li>
+        <li data-w="mala">mała litera</li>
+        <li data-w="zgodne">oba pola takie same</li>
+      </ul>
       <div class="dol">
         <button id="btn-ustaw-haslo">Zapisz i wejdź</button>
         <span class="stan" id="stan-nowe"></span>
@@ -623,6 +661,20 @@ notarai</div>
     </li>
   </ol>
   <div class="dol"><button class="wtorny" id="kr-zamknij">Później</button></div>
+</dialog>
+
+<!-- Zespol: kazdy widzi, kto ma dostep do spraw kancelarii; wlasciciel
+     zaprasza i usuwa osoby sam, bez administratora notarai. -->
+<dialog class="okno" id="okno-zespol">
+  <h2 id="zespol-tytul">Zespół kancelarii</h2>
+  <p id="zespol-opis"></p>
+  <div id="zespol-lista"></div>
+  <div class="dol" id="zespol-zapros" hidden>
+    <input type="email" id="zespol-email" placeholder="e-mail osoby z kancelarii" spellcheck="false" autocomplete="off">
+    <button id="btn-zespol-zapros">Zaproś</button>
+  </div>
+  <div class="dol"><span class="stan" id="stan-zespol"></span></div>
+  <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
 <dialog class="okno" id="okno-polacz">
@@ -773,6 +825,7 @@ function wpusc(nowyToken){
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
+  if (!token) { $("btn-zespol").hidden = true; $("kto").hidden = true; }
 }
 
 $("btn-wyloguj").onclick = async () => {
@@ -809,6 +862,7 @@ $("btn-zaloguj").onclick = async () => {
       sesjaNowegoHasla = wynik.sesja;
       pokazWidok("widok-nowe-haslo");
       stan($("stan-nowe"), "");
+      sprawdzWymogi();
       $("pole-haslo-nowe").focus();
       return;
     }
@@ -817,6 +871,16 @@ $("btn-zaloguj").onclick = async () => {
     stan($("stan-brama"), e.message, true);
   }
 };
+
+function sprawdzWymogi(){
+  const h = $("pole-haslo-nowe").value, h2 = $("pole-haslo-nowe2").value;
+  const wymogi = {dlugosc: h.length >= 12, cyfra: /\d/.test(h), wielka: /\p{Lu}/u.test(h),
+                  mala: /\p{Ll}/u.test(h), zgodne: !!h && h === h2};
+  document.querySelectorAll("#wymogi li").forEach(li => li.classList.toggle("ok", wymogi[li.dataset.w]));
+  $("btn-ustaw-haslo").disabled = !Object.values(wymogi).every(Boolean);
+}
+$("pole-haslo-nowe").addEventListener("input", sprawdzWymogi);
+$("pole-haslo-nowe2").addEventListener("input", sprawdzWymogi);
 
 $("btn-ustaw-haslo").onclick = async () => {
   const haslo = $("pole-haslo-nowe").value, powtorz = $("pole-haslo-nowe2").value;
@@ -876,6 +940,7 @@ $("btn-ustaw-kodem").onclick = async () => {
 };
 
 $("btn-pokaz-token").onclick = () => { pokazWidok("widok-token"); $("token-pole").focus(); };
+$("btn-pokaz-token").hidden = location.hash !== "#token";
 /* Uwaga: identyfikatory w bramie musza byc unikalne w calej stronie -
    aplikacja ma juz wlasny przycisk "Wróć" (powrot do etapu 1). */
 $("btn-wroc-reset").onclick = () => otworzBrame("");
@@ -1017,14 +1082,29 @@ function pokaz(numer){
     k.classList.toggle("zrobiony", n < najdalej && n !== numer && n <= 3);
     if (n === 4) k.classList.toggle("zrobiony", false);
   });
-  if (numer === 4) { rysujSprawdzenia(); rysujSystemy(); }
+  if (numer === 4) {
+    rysujSprawdzenia(); rysujSystemy();
+    // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
+    // go tutaj, a nie zaraz po pierwszym logowaniu.
+    if (ostatniStanPomocnika) zaproponujKreator(ostatniStanPomocnika);
+  }
   $("etap"+numer).closest("main").scrollTo({top:0, behavior:"smooth"});
 }
 document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
   const n = +k.dataset.etap;
   if (n === 4 || n <= najdalej) pokaz(n);
 });
-$("btn-nowa").onclick = () => { if (!sprawa || confirm("Zacząć nową sprawę? Bieżąca jest zapisana i wróci na liście po lewej.")) location.reload(); };
+/* Biezaca sprawa jest juz zapisana, wiec nie ma o co pytac. */
+$("btn-nowa").onclick = () => {
+  sprawa = null; rozmowa = []; poleceniePierwotne = ""; najdalej = 1;
+  wybranyWzor = null; wybraneSkany = [];
+  $("polecenie").value = ""; $("projekt").innerHTML = "";
+  $("nazwa2").value = ""; $("sygn2").value = "";
+  stan($("stan1"), "");
+  rysujWybrane();
+  pokaz(1);
+  rysujListeSpraw();
+};
 
 /* ---------- lista spraw ---------- */
 async function rysujListeSpraw(){
@@ -1042,7 +1122,9 @@ async function rysujListeSpraw(){
     }
     const lista = dysk.aktywny ? await dysk.listaSpraw()
                                : await (await api("/api/sprawy")).json();
-    k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Brak zapisanych spraw.</span>';
+    ostatniaSprawa = lista.find(s => s.wzor) || null;
+    rysujWybrane();
+    k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Tu pojawią się Twoje sprawy.</span>';
     lista.forEach(s => {
       const d = document.createElement("div");
       d.className = "sprawa-el" + (sprawa && sprawa.id === s.id ? " aktywna" : "");
@@ -1175,6 +1257,10 @@ async function uruchomTrybPracy(){
       // ktore i tak skonczylyby sie bledem.
       sterowaniePrzegladarka = !!ustawienia.sterowanie_przegladarka;
       pomocnikPolaczony = !!ustawienia.pomocnik_polaczony;
+      // Bez modelu mowy na serwerze mikrofon tylko by rozczarowal.
+      if (ustawienia.transkrypcja === false) {
+        document.querySelectorAll(".narz").forEach(n => n.hidden = true);
+      }
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
   if (dysk.aktywny) {
@@ -1188,11 +1274,107 @@ async function uruchomTrybPracy(){
     if (krokSprawdzen) krokSprawdzen.hidden = true;
   }
   rysujListeSpraw();
+  wczytajZespol();
   if (!dysk.aktywny) {
     await odswiezPomocnika();
     obsluzKodZAdresu();
   }
 }
+
+/* ---------- zespol kancelarii ---------- */
+let zespol = null;
+
+async function wczytajZespol(){
+  // Zespol ma sens tylko przy logowaniu adresem e-mail.
+  if (!czyJwt(token)) return;
+  try {
+    const odp = await api("/api/zespol");
+    if (!odp.ok) return;
+    zespol = await odp.json();
+  } catch { return; }
+  $("kto").textContent = zespol.ja;
+  $("kto").title = zespol.kancelaria;
+  $("kto").hidden = false;
+  $("btn-zespol").hidden = false;
+  if ($("okno-zespol").open) rysujZespol();
+}
+
+function rysujZespol(){
+  const wlasciciel = zespol.jestem_wlascicielem;
+  $("zespol-tytul").textContent = zespol.kancelaria;
+  $("zespol-opis").textContent = wlasciciel
+    ? "Te osoby widzą sprawy kancelarii. Zaproś kogoś adresem e-mail — dostanie hasło tymczasowe i od razu może pracować."
+    : "Te osoby widzą sprawy kancelarii. Nowe osoby zaprasza właściciel kancelarii.";
+  $("zespol-zapros").hidden = !wlasciciel;
+  $("zespol-lista").innerHTML = "";
+  zespol.osoby.forEach(o => {
+    const ja = o.email === zespol.ja;
+    const d = document.createElement("div");
+    d.className = "komputer";
+    const opis = o.dolaczyl ? "w zespole"
+      : o.zaproszono ? "zaproszenie wysłane " + new Date(o.zaproszono).toLocaleDateString("pl-PL") + ", czeka na pierwsze logowanie"
+      : "w zespole";
+    d.innerHTML = `<span class="kropka ${o.dolaczyl ? "jest" : ""}"></span>
+      <div><b>${escape(o.email)}${ja ? " (Ty)" : ""}</b><small>${escape(opis)}</small></div>
+      ${o.rola === "wlasciciel" ? '<span class="znacznik">właściciel</span>' : ""}
+      ${wlasciciel && !ja && !o.dolaczyl ? '<button class="wtorny" data-ponow>Wyślij ponownie</button>' : ""}
+      ${wlasciciel && !ja && o.rola !== "wlasciciel" ? '<button class="odnosnik-maly" data-usun>Usuń</button>' : ""}`;
+    const sciezka = "/api/zespol/" + encodeURIComponent(o.email);
+    const ponow = d.querySelector("[data-ponow]");
+    if (ponow) ponow.onclick = async () => {
+      ponow.disabled = true;
+      stan($("stan-zespol"), "Wysyłam…", false, true);
+      try {
+        const odp = await api(sciezka + "/ponow", {method: "POST"});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się wysłać.");
+        stan($("stan-zespol"), "Wysłano nowe hasło tymczasowe na " + o.email + ".");
+      } catch (e) { stan($("stan-zespol"), e.message, true); ponow.disabled = false; }
+    };
+    const usun = d.querySelector("[data-usun]");
+    if (usun) usun.onclick = async () => {
+      if (!confirm("Usunąć " + o.email + " z zespołu?\n\nTa osoba straci dostęp od razu. "
+        + "Sprawy kancelarii zostają.")) return;
+      try {
+        const odp = await api(sciezka, {method: "DELETE"});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się usunąć.");
+        stan($("stan-zespol"), "");
+        await wczytajZespol();
+      } catch (e) { stan($("stan-zespol"), e.message, true); }
+    };
+    $("zespol-lista").appendChild(d);
+  });
+}
+
+$("btn-zespol").onclick = async () => {
+  stan($("stan-zespol"), "");
+  if (zespol) rysujZespol();
+  $("okno-zespol").showModal();
+  await wczytajZespol();
+  if (zespol && zespol.jestem_wlascicielem) $("zespol-email").focus();
+};
+$("btn-zamknij-zespol").onclick = () => $("okno-zespol").close();
+$("btn-zespol-zapros").onclick = async () => {
+  const email = $("zespol-email").value.trim();
+  if (!email) return stan($("stan-zespol"), "Wpisz adres e-mail.", true);
+  $("btn-zespol-zapros").disabled = true;
+  stan($("stan-zespol"), "Wysyłam zaproszenie…", false, true);
+  try {
+    const odp = await api("/api/zespol", {method: "POST",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({email})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zaprosić.");
+    $("zespol-email").value = "";
+    await wczytajZespol();
+    stan($("stan-zespol"), "Zaproszenie poszło na " + w.email
+      + ". Jeśli nie dotrze w kilka minut, niech zajrzy do spamu.");
+  } catch (e) { stan($("stan-zespol"), e.message, true); }
+  finally { $("btn-zespol-zapros").disabled = false; }
+};
+$("zespol-email").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); $("btn-zespol-zapros").click(); }
+});
 
 /* ---------- pomocnik na komputerze notariusza ----------
    Nic tu nie trzeba odswiezac recznie: stan pomocnika pobieramy co 15 s
@@ -1220,7 +1402,6 @@ async function odswiezPomocnika(){
       ostatniStanPomocnika = dane;
       rysujPomocnika(dane);
       if (byl !== pomocnikPolaczony) odswiezPrzyciskKrz();
-      zaproponujKreator(dane);
     }
   } catch { return; }   // brak logowania: brama otwarta, zegar wznowi wpusc()
   if (!pomocnikDostepny) return;
@@ -1462,12 +1643,100 @@ function stan(el, tekst, blad, praca){
   el.classList.toggle("praca", !!praca);
 }
 
-/* ---------- upload: nazwy plikow ---------- */
-[["wzor","up-wzor"],["skany","up-skany"]].forEach(([inp, lab]) => {
-  $(inp).onchange = () => {
-    const n = $(lab).querySelector(".nazwy"), f = [...$(inp).files];
-    n.textContent = f.length ? f.map(x => x.name).join(", ") : n.dataset.pusty;
+/* ---------- pliki sprawy: jedno pole, upuszczanie w calym oknie ----------
+   Wzor rozpoznajemy po rozszerzeniu. Nowy wzor zastepuje poprzedni, skany
+   sie dopisuja. Wzor mozna tez wziac z ostatniej sprawy jednym kliknieciem. */
+const NA_WZOR = /\.(docx|txt|md)$/i, NA_SKAN = /\.(pdf|png|jpe?g|tiff?)$/i;
+let wybranyWzor = null;     // File albo {zeSprawy: id, nazwa}
+let wybraneSkany = [];
+let ostatniaSprawa = null;
+
+function dodajPliki(pliki){
+  const pominiete = [];
+  for (const plik of pliki) {
+    if (NA_WZOR.test(plik.name)) wybranyWzor = plik;
+    else if (NA_SKAN.test(plik.name)) {
+      if (!wybraneSkany.some(s => s.name === plik.name && s.size === plik.size)) wybraneSkany.push(plik);
+    } else pominiete.push(plik.name);
+  }
+  stan($("stan1"), pominiete.length
+    ? "Pominięto: " + pominiete.join(", ") + ". Wzór to .docx lub .txt, skany to PDF albo zdjęcia." : "",
+    !!pominiete.length);
+  rysujWybrane();
+}
+
+function rysujWybrane(){
+  const k = $("wybrane");
+  k.innerHTML = "";
+  const wiersz = (rodzaj, nazwa, usun) => {
+    const d = document.createElement("div");
+    d.className = "plik";
+    d.innerHTML = `<span class="rodzaj ${rodzaj === "wzór" ? "wzor" : ""}">${rodzaj}</span>
+      <span class="nazwa" title="${escape(nazwa)}">${escape(nazwa)}</span>
+      <button type="button" title="Usuń z listy">×</button>`;
+    d.querySelector("button").onclick = usun;
+    k.appendChild(d);
   };
+  if (wybranyWzor) {
+    wiersz("wzór", wybranyWzor.zeSprawy || wybranyWzor.zDysku
+      ? "ten sam co w sprawie „" + wybranyWzor.opis + "”" : wybranyWzor.name,
+      () => { wybranyWzor = null; rysujWybrane(); });
+  } else if (wybraneSkany.length || ostatniaSprawa) {
+    const d = document.createElement("div");
+    d.className = "plik brak";
+    d.innerHTML = '<span class="rodzaj wzor">wzór</span><span class="nazwa">brak — dodaj plik .docx'
+      + (ostatniaSprawa ? ' albo <button type="button" class="podpowiedz">użyj wzoru z ostatniej sprawy</button>' : "")
+      + "</span>";
+    const b = d.querySelector(".podpowiedz");
+    if (b) b.onclick = uzyjOstatniegoWzoru;
+    k.appendChild(d);
+  }
+  wybraneSkany.forEach((s, i) => wiersz("skan", s.name,
+    () => { wybraneSkany.splice(i, 1); rysujWybrane(); }));
+  if (!wybranyWzor && !wybraneSkany.length && !ostatniaSprawa) k.innerHTML = "";
+}
+
+async function uzyjOstatniegoWzoru(){
+  const s = ostatniaSprawa;
+  const opis = s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6);
+  if (dysk.aktywny) {
+    // Plik lezy w folderze tamtej sprawy - bierzemy go stamtad.
+    try {
+      const katalog = await dysk.katalogSprawy(s.id);
+      const plik = await (await katalog.getFileHandle(s.wzor)).getFile();
+      wybranyWzor = Object.assign(plik, {zDysku: true, opis});
+    } catch (e) { return stan($("stan1"), "Nie znalazłem wzoru w folderze tamtej sprawy.", true); }
+  } else {
+    wybranyWzor = {zeSprawy: s.id, opis};
+  }
+  rysujWybrane();
+}
+
+$("pliki").onchange = () => { dodajPliki([...$("pliki").files]); $("pliki").value = ""; };
+
+/* Upuszczony plik bez obslugi przegladarka otwiera zamiast aplikacji -
+   dlatego przechwytujemy upuszczanie w calym oknie. */
+let licznikPrzeciagania = 0;
+const niosePliki = e => [...(e.dataTransfer?.types || [])].includes("Files");
+window.addEventListener("dragenter", e => {
+  if (!niosePliki(e)) return;
+  licznikPrzeciagania++;
+  if (!$("etap1").hidden) document.body.classList.add("przeciaganie");
+});
+window.addEventListener("dragleave", () => {
+  if (--licznikPrzeciagania <= 0) { licznikPrzeciagania = 0; document.body.classList.remove("przeciaganie"); }
+});
+window.addEventListener("dragover", e => { if (niosePliki(e)) e.preventDefault(); });
+window.addEventListener("drop", e => {
+  if (!niosePliki(e)) return;
+  e.preventDefault();
+  licznikPrzeciagania = 0;
+  document.body.classList.remove("przeciaganie");
+  if ($("etap1").hidden) {
+    if (sprawa) return;   // w trakcie innej sprawy nie zaczynamy nowej po cichu
+    pokaz(1);
+  }
+  dodajPliki([...e.dataTransfer.files]);
 });
 
 /* Zapisuje nowa sprawe w folderze notariusza - te same pliki, co w chmurze. */
@@ -1491,18 +1760,27 @@ async function zapiszSpraweNaDysku(wynik, wzor, skany){
 
 /* ---------- 1: odczyt ---------- */
 $("btn-odczytaj").onclick = async () => {
-  const wzor = $("wzor").files[0], skany = $("skany").files;
-  if (!wzor)         return stan($("stan1"), "Wybierz plik ze wzorem aktu.", true);
+  const wzor = wybranyWzor, skany = wybraneSkany;
+  if (!wzor)         return stan($("stan1"), "Brakuje wzoru aktu: dodaj plik .docx albo .txt.", true);
   if (!skany.length) return stan($("stan1"), "Dodaj co najmniej jeden skan.", true);
-  if (dysk.aktywny && !dysk.folder) return stan($("stan1"), "Najpierw wskaż folder na sprawy.", true);
+  if (dysk.aktywny && !dysk.folder) return stan($("stan1"), "Najpierw wskaż folder na sprawy (po lewej).", true);
   const dane = new FormData();
-  dane.append("wzor", wzor);
+  if (wzor.zeSprawy) dane.append("wzor_ze_sprawy", wzor.zeSprawy);
+  else dane.append("wzor", wzor);
   for (const s of skany) dane.append("skany", s);
   poleceniePierwotne = $("polecenie").value;
   dane.append("polecenie", poleceniePierwotne);
-  dane.append("sygnatura", $("sygnatura").value);
+  dane.append("sygnatura", "");
   $("btn-odczytaj").disabled = true;
-  stan($("stan1"), "Odczytuję skany… przy kilkunastu stronach to 1–3 minuty.", false, true);
+  // Odczyt trwa minuty - licznik pokazuje, ze cos sie dzieje.
+  const start = Date.now();
+  const tik = () => {
+    const s = Math.round((Date.now() - start) / 1000);
+    stan($("stan1"), "Odczytuję skany… " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0")
+      + " (zwykle 1–3 minuty)", false, true);
+  };
+  tik();
+  const zegar = setInterval(tik, 1000);
   try {
     const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy", {method:"POST", body:dane});
     const wynik = await odp.json();
@@ -1510,7 +1788,7 @@ $("btn-odczytaj").onclick = async () => {
     if (dysk.aktywny) {
       // Serwer nic nie zapisal - sprawe zakladamy u notariusza na dysku.
       wynik.id = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16)).slice(0, 12);
-      wynik.sygnatura = $("sygnatura").value;
+      wynik.sygnatura = "";
       wynik.polecenie = poleceniePierwotne;
       wynik.utworzono = new Date().toISOString().slice(0, 19);
       wynik.wzor = "wzor" + wzor.name.slice(wzor.name.lastIndexOf("."));
@@ -1523,12 +1801,15 @@ $("btn-odczytaj").onclick = async () => {
     $("nazwa2").value = wynik.nazwa || "";
     rysujCzat();
     rysujPola(wynik);
+    wybranyWzor = null; wybraneSkany = [];
+    rysujWybrane();
     rysujListeSpraw();
     stan($("stan1"), "");
     pokaz(2);
   } catch (e) {
     stan($("stan1"), e.message, true);
   } finally {
+    clearInterval(zegar);
     $("btn-odczytaj").disabled = false;
   }
 };
@@ -1598,6 +1879,16 @@ function rysujPola(wynik){
     });
     kontener.appendChild(wiersz);
   });
+  // Liczniki na filtrach i domyslnie to, co wymaga uwagi - reszta czeka.
+  const dodatkowe = wynik.pola.filter(p => p.nazwa.startsWith("+ ")).length;
+  const liczby = {wszystkie: wynik.pola.length, uwaga, wypelnione, dodatkowe};
+  document.querySelectorAll(".chip").forEach(c => {
+    c.dataset.opis = c.dataset.opis || c.textContent;
+    c.textContent = c.dataset.opis + " (" + liczby[c.dataset.f] + ")";
+    c.hidden = c.dataset.f === "dodatkowe" && !dodatkowe;
+  });
+  filtr = uwaga ? "uwaga" : "wszystkie";
+  document.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x.dataset.f === filtr));
   zastosujFiltr();
   stan($("stan2"), uwaga ? uwaga + " z " + wynik.pola.length + " pól wymaga uwagi" : "Wszystkie pola odczytane bez zastrzeżeń");
 }
@@ -1792,7 +2083,6 @@ $("btn-pobierz").onclick = async () => {
     stan($("stan3"), "Nie udało się pobrać projektu: " + e.message, true);
   }
 };
-$("btn-wroc").onclick   = () => pokaz(1);
 $("btn-popraw").onclick = () => pokaz(2);
 
 /* ---------- 4: sprawdzenia ---------- */

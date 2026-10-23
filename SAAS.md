@@ -55,9 +55,12 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    Wymaga certyfikatu ISSUED. Na końcu wypisuje cel CNAME dla app.notarai.pl.
 4. Token admina: konsola AWS -> Secrets Manager -> `notarai/admin-token` ->
    Retrieve secret value. Wartość generuje AWS, nie ma jej w kodzie ani w logach.
-5. Dodaj kancelarię:
-   `curl -X POST https://app.notarai.pl/api/admin/kancelarie -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"nazwa":"Kancelaria X"}'`
-   → odpowiedź zawiera token JEDEN RAZ. Przekaż kancelarii.
+5. Dodaj kancelarię: https://app.notarai.pl/admin, wklej token admina, wpisz
+   nazwę kancelarii i e-mail notariusza, wybierz miejsce na pliki. Jeden
+   przycisk zakłada kancelarię, konto właściciela i wysyła zaproszenie.
+   Właściciel zaprasza swój zespół sam (pasek boczny -> Zespół kancelarii).
+   W panelu też: ponowne wysłanie zaproszenia, nadanie roli właściciela,
+   wyłączenie i ponowne włączenie kancelarii, token do automatyzacji.
 6. Nowa wersja aplikacji: commit, potem etap 2 i 3. Podmiana bez przestoju.
 7. Logowanie użytkowników (opcjonalne, ale zalecane):
    `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`

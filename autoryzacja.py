@@ -40,7 +40,7 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy).
-_OTWARTE = ("/", "/static", "/zdrowie", "/api/admin", "/api/logowanie", "/favicon.ico",
+_OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
             "/api/pomocnik/parowanie")
 
 # Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
@@ -101,8 +101,11 @@ def _zapisz_rejestr(dane: dict) -> None:
 # --- Middleware -------------------------------------------------------------
 
 
-def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None]:
-    """(kancelaria, identyfikator komputera z pomocnikiem albo None).
+def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None, str]:
+    """(kancelaria, identyfikator komputera z pomocnikiem albo None, e-mail).
+
+    E-mail jest tylko przy tokenie logowania - po nim poznajemy wlasciciela
+    kancelarii. Dawny token i token pomocnika nie wskazuja osoby.
 
     Token logowania (JWT) jest podpisany przez Cognito i niesie kancelarie
     uzytkownika. Token pomocnika nalezy do jednego komputera. Dawny token
@@ -110,21 +113,26 @@ def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None]:
     kancelarii i nie wskazuje osoby.
     """
     if not token:
-        return None, None
+        return None, None, ""
     if logowanie.wlaczone() and logowanie.czy_jwt(token):
         try:
-            return logowanie.dane_z_tokenu(token)["kancelaria"], None
+            dane = logowanie.dane_z_tokenu(token)
         except logowanie.BladLogowania:
-            return None, None
+            return None, None, ""
+        # Wylaczenie kancelarii ma odciac takze zalogowanych - token
+        # tozsamosci jest wazny jeszcze kilka godzin.
+        if not _aktywna(dane["kancelaria"]):
+            return None, None, ""
+        return dane["kancelaria"], None, dane["email"].lower()
     if urzadzenia.czy_token_pomocnika(token):
         komputer = urzadzenia.z_tokenu(token)
         if komputer and _aktywna(komputer["kancelaria"]):
-            return komputer["kancelaria"], komputer["id"]
-        return None, None
+            return komputer["kancelaria"], komputer["id"], ""
+        return None, None, ""
     wpis = _wczytaj_rejestr().get(_sha(token))
     if wpis and wpis.get("aktywna", True):
-        return wpis["id"], None
-    return None, None
+        return wpis["id"], None, ""
+    return None, None, ""
 
 
 def _aktywna(kancelaria: str) -> bool:
@@ -157,7 +165,7 @@ async def middleware(request: Request, call_next):
 
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    kancelaria, komputer = _kancelaria_z_naglowka(token)
+    kancelaria, komputer, email = _kancelaria_z_naglowka(token)
     if not kancelaria:
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
     if komputer and not sciezka.startswith(_DLA_POMOCNIKA):
@@ -168,6 +176,7 @@ async def middleware(request: Request, call_next):
     try:
         request.state.kancelaria = kancelaria
         request.state.komputer = komputer
+        request.state.email = email
         return await call_next(request)
     finally:
         magazyn.kancelaria_var.reset(znacznik)
@@ -267,6 +276,7 @@ def zaloguj(dane: DaneLogowania, request: Request, odpowiedz: Response):
         wynik = logowanie.zaloguj(dane.email.strip().lower(), dane.haslo)
     except logowanie.BladLogowania as blad:
         raise HTTPException(401, str(blad))
+    _odnotuj_dolaczenie(wynik.get("token", ""))
     return _dla_przegladarki(request, odpowiedz, wynik)
 
 
@@ -278,6 +288,7 @@ def nowe_haslo(dane: NoweHaslo, request: Request, odpowiedz: Response):
         wynik = logowanie.ustaw_nowe_haslo(dane.email.strip().lower(), dane.haslo, dane.sesja)
     except logowanie.BladLogowania as blad:
         raise HTTPException(400, str(blad))
+    _odnotuj_dolaczenie(wynik.get("token", ""))
     return _dla_przegladarki(request, odpowiedz, wynik)
 
 
@@ -329,6 +340,9 @@ def potwierdz_kod(dane: HasloZKodem):
 class NowyUzytkownik(BaseModel):
     email: str
     kancelaria: str
+    # Pusta: pierwsza osoba w kancelarii zostaje wlascicielem, kolejne -
+    # czlonkami zespolu. Wlasciciel zaprasza dalej sam, bez administratora.
+    rola: str = ""
 
 
 @router.post("/uzytkownicy", status_code=201)
@@ -337,13 +351,15 @@ def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
     _wymagaj_admina(request)
     _wymagaj_logowania()
     kancelaria = dane.kancelaria.strip()
-    if kancelaria not in {w["id"] for w in _wczytaj_rejestr().values()}:
+    rejestr = _wczytaj_rejestr()
+    skrot, wpis = _znajdz(rejestr, kancelaria)
+    if wpis is None:
         raise HTTPException(404, "Nie znaleziono kancelarii o takim identyfikatorze")
-    try:
-        logowanie.utworz_uzytkownika(dane.email.strip().lower(), kancelaria)
-    except logowanie.BladLogowania as blad:
-        raise HTTPException(409, str(blad))
-    return {"utworzono": True, "kancelaria": kancelaria}
+    if dane.rola and dane.rola not in _ROLE:
+        raise HTTPException(400, "Rola: 'wlasciciel' albo 'czlonek'")
+    rola = dane.rola or ("czlonek" if _wlasciciele(wpis) else "wlasciciel")
+    osoba = _zapros(rejestr, skrot, dane.email, rola)
+    return {"utworzono": True, "kancelaria": kancelaria, "rola": osoba["rola"]}
 
 
 class NowaKancelaria(BaseModel):
@@ -353,6 +369,9 @@ class NowaKancelaria(BaseModel):
     # zakladaniu konta, bo zmiana w trakcie zostawialaby sprawy w dwoch
     # miejscach naraz.
     przechowywanie: str = "chmura"
+    # Adres notariusza. Podany - od razu zakladamy mu konto wlasciciela
+    # i wysylamy zaproszenie, wiec cale wdrozenie to jeden formularz.
+    email: str = ""
 
 
 @router.get("/kancelarie")
@@ -361,7 +380,8 @@ def lista_kancelarii(request: Request):
     rejestr = _wczytaj_rejestr()
     return [
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
-         "przechowywanie": w.get("przechowywanie", "chmura")}
+         "przechowywanie": w.get("przechowywanie", "chmura"),
+         "zespol": _zespol(w)}
         for w in rejestr.values()
     ]
 
@@ -381,6 +401,10 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
 
     if dane.przechowywanie not in ("chmura", "u-klienta"):
         raise HTTPException(400, "Przechowywanie: 'chmura' albo 'u-klienta'")
+    # Bledny adres odrzucamy, zanim cokolwiek powstanie.
+    email = _poprawny_email(dane.email) if dane.email.strip() else ""
+    if email:
+        _wymagaj_logowania()
 
     token = secrets.token_hex(32)
     rejestr[_sha(token)] = {
@@ -391,13 +415,21 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     }
     _zapisz_rejestr(rejestr)
     log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
-    return {
+    wynik = {
         "id": id_k,
         "nazwa": nazwa,
         "przechowywanie": dane.przechowywanie,
         "token": token,
         "uwaga": "Zapisz token teraz - nie da sie go odczytac ponownie.",
     }
+    if email:
+        # Kancelaria juz jest; nieudane zaproszenie mozna powtorzyc z panelu.
+        try:
+            _zapros(rejestr, _sha(token), email, "wlasciciel")
+            wynik["zaproszono"] = email
+        except HTTPException as blad:
+            wynik["blad_zaproszenia"] = blad.detail
+    return wynik
 
 
 @router.post("/kancelarie/{id_k}/token")
@@ -444,3 +476,219 @@ def dezaktywuj_kancelarie(request: Request, id_k: str):
     _zapisz_rejestr(rejestr)
     log.info("kancelaria dezaktywowana: %s", id_k)
     return {"id": id_k, "aktywna": False}
+
+
+class Rola(BaseModel):
+    rola: str
+
+
+@router.put("/kancelarie/{id_k}/zespol/{email}")
+def ustaw_role(request: Request, id_k: str, email: str, dane: Rola):
+    """Nadaje role osobie, ktora ma juz konto - np. zalozone przed zespolami."""
+    _wymagaj_admina(request)
+    if dane.rola not in _ROLE:
+        raise HTTPException(400, "Rola: 'wlasciciel' albo 'czlonek'")
+    rejestr = _wczytaj_rejestr()
+    _, wpis = _znajdz(rejestr, id_k)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    email = _poprawny_email(email)
+    osoba = _osoba(wpis, email)
+    if osoba is None:
+        osoba = {"email": email, "zaproszono": None, "dolaczyl": None}
+        wpis.setdefault("zespol", []).append(osoba)
+    osoba["rola"] = dane.rola
+    _zapisz_rejestr(rejestr)
+    return {"email": email, "rola": dane.rola}
+
+
+@router.post("/kancelarie/{id_k}/zespol/{email}/ponow")
+def admin_ponow(request: Request, id_k: str, email: str):
+    _wymagaj_admina(request)
+    _wymagaj_logowania()
+    _, wpis = _znajdz(_wczytaj_rejestr(), id_k)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    _ponow(wpis, email)
+    return {"wyslano": True}
+
+
+@router.put("/kancelarie/{id_k}/aktywna")
+def przywroc_kancelarie(request: Request, id_k: str):
+    """Odwrotnosc wylaczenia. Sprawy przez caly czas zostaja na miejscu."""
+    _wymagaj_admina(request)
+    rejestr = _wczytaj_rejestr()
+    _, wpis = _znajdz(rejestr, id_k)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    wpis["aktywna"] = True
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria przywrocona: %s", id_k)
+    return {"id": id_k, "aktywna": True}
+
+
+# --- zespol kancelarii -------------------------------------------------------
+# Kto ma konto w kancelarii, trzymamy w jej wpisie rejestru: Cognito nie
+# pozwala filtrowac uzytkownikow po wlasnym atrybucie. Wlasciciel zaprasza
+# i usuwa osoby sam - administrator jest potrzebny tylko przy zalozeniu
+# kancelarii. Adresy e-mail nigdy nie trafiaja do logow.
+
+_ROLE = ("wlasciciel", "czlonek")
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _teraz() -> str:
+    from datetime import datetime
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _poprawny_email(email: str) -> str:
+    email = (email or "").strip().lower()
+    if not _EMAIL.match(email):
+        raise HTTPException(400, "To nie wyglada na adres e-mail.")
+    return email
+
+
+def _znajdz(rejestr: dict, id_k: str) -> tuple[str | None, dict | None]:
+    for skrot, wpis in rejestr.items():
+        if wpis["id"] == id_k:
+            return skrot, wpis
+    return None, None
+
+
+def _zespol(wpis: dict) -> list[dict]:
+    return [dict(o) for o in wpis.get("zespol", [])]
+
+
+def _osoba(wpis: dict, email: str) -> dict | None:
+    return next((o for o in wpis.get("zespol", []) if o["email"] == email), None)
+
+
+def _wlasciciele(wpis: dict) -> list[str]:
+    return [o["email"] for o in wpis.get("zespol", []) if o.get("rola") == "wlasciciel"]
+
+
+def _zapros(rejestr: dict, skrot: str, email: str, rola: str) -> dict:
+    """Zaklada konto w Cognito, wysyla zaproszenie, dopisuje do zespolu."""
+    email = _poprawny_email(email)
+    wpis = rejestr[skrot]
+    if _osoba(wpis, email):
+        raise HTTPException(409, "Ta osoba jest juz w zespole. Mozesz ponowic zaproszenie.")
+    try:
+        logowanie.utworz_uzytkownika(email, wpis["id"])
+    except logowanie.BladLogowania:
+        raise HTTPException(409, "Ten adres ma juz konto w notarai.")
+    osoba = {"email": email, "rola": rola, "zaproszono": _teraz(), "dolaczyl": None}
+    wpis.setdefault("zespol", []).append(osoba)
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: zaproszono osobe (%s)", wpis["id"], rola)
+    return osoba
+
+
+def _ponow(wpis: dict, email: str) -> None:
+    email = _poprawny_email(email)
+    if _osoba(wpis, email) is None:
+        raise HTTPException(404, "Tej osoby nie ma w zespole.")
+    try:
+        logowanie.ponow_zaproszenie(email)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(409, str(blad))
+
+
+def _odnotuj_dolaczenie(token: str) -> None:
+    """Pierwsze udane logowanie zamienia "zaproszony" na "w zespole".
+
+    Konta zalozone przed zespolami dopisujemy przy pierwszym logowaniu jako
+    czlonkow - wlasciciela wskazuje administrator. Blad nie moze zablokowac
+    logowania, wiec go tylko odnotowujemy.
+    """
+    if not token or not logowanie.czy_jwt(token):
+        return
+    try:
+        dane = logowanie.dane_z_tokenu(token)
+        rejestr = _wczytaj_rejestr()
+        _, wpis = _znajdz(rejestr, dane["kancelaria"])
+        if wpis is None:
+            return
+        email = dane["email"].lower()
+        osoba = _osoba(wpis, email)
+        if osoba is None:
+            osoba = {"email": email, "rola": "czlonek", "zaproszono": None, "dolaczyl": None}
+            wpis.setdefault("zespol", []).append(osoba)
+        if osoba.get("dolaczyl"):
+            return
+        osoba["dolaczyl"] = _teraz()
+        _zapisz_rejestr(rejestr)
+    except Exception as blad:  # noqa: BLE001
+        log.info("zespol: nie odnotowano logowania (%s)", type(blad).__name__)
+
+
+router_zespolu = APIRouter(prefix="/api/zespol", tags=["zespol"])
+
+
+def _moja_kancelaria(request: Request) -> tuple[dict, str, dict, str]:
+    """(rejestr, skrot, wpis kancelarii, moj e-mail). Tylko dla osob
+    zalogowanych adresem e-mail - dawny token nie wskazuje osoby."""
+    email = getattr(request.state, "email", "")
+    if not email:
+        raise HTTPException(403, "Zespolem zarzadza sie po zalogowaniu adresem e-mail.")
+    rejestr = _wczytaj_rejestr()
+    skrot, wpis = _znajdz(rejestr, request.state.kancelaria)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    return rejestr, skrot, wpis, email
+
+
+def _wymagaj_wlasciciela(wpis: dict, email: str) -> None:
+    if email not in _wlasciciele(wpis):
+        raise HTTPException(403, "Zapraszac i usuwac osoby moze wlasciciel kancelarii.")
+
+
+class Zaproszenie(BaseModel):
+    email: str
+
+
+@router_zespolu.get("")
+def moj_zespol(request: Request):
+    _, _, wpis, email = _moja_kancelaria(request)
+    return {"ja": email, "kancelaria": wpis["nazwa"],
+            "jestem_wlascicielem": email in _wlasciciele(wpis),
+            "osoby": _zespol(wpis)}
+
+
+@router_zespolu.post("", status_code=201)
+def zapros_do_zespolu(request: Request, dane: Zaproszenie):
+    _wymagaj_logowania()
+    rejestr, skrot, wpis, email = _moja_kancelaria(request)
+    _wymagaj_wlasciciela(wpis, email)
+    return _zapros(rejestr, skrot, dane.email, "czlonek")
+
+
+@router_zespolu.post("/{adres}/ponow")
+def ponow_w_zespole(request: Request, adres: str):
+    _wymagaj_logowania()
+    _, _, wpis, email = _moja_kancelaria(request)
+    _wymagaj_wlasciciela(wpis, email)
+    _ponow(wpis, adres)
+    return {"wyslano": True}
+
+
+@router_zespolu.delete("/{adres}")
+def usun_z_zespolu(request: Request, adres: str):
+    """Usuwa konto osoby. Sprawy kancelarii zostaja - naleza do kancelarii."""
+    _wymagaj_logowania()
+    rejestr, _, wpis, email = _moja_kancelaria(request)
+    _wymagaj_wlasciciela(wpis, email)
+    adres = _poprawny_email(adres)
+    if adres == email:
+        raise HTTPException(400, "Nie mozesz usunac wlasnego konta.")
+    osoba = _osoba(wpis, adres)
+    if osoba is None:
+        raise HTTPException(404, "Tej osoby nie ma w zespole.")
+    if osoba.get("rola") == "wlasciciel":
+        raise HTTPException(403, "Wlasciciela usuwa administrator.")
+    logowanie.usun_uzytkownika(adres)
+    wpis["zespol"].remove(osoba)
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: usunieto osobe z zespolu", wpis["id"])
+    return {"usunieto": True}

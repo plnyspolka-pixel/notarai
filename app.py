@@ -47,6 +47,7 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 app.middleware("http")(autoryzacja.middleware)
 app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
+app.include_router(autoryzacja.router_zespolu)
 
 
 @app.get("/zdrowie")
@@ -66,6 +67,13 @@ def zdrowie(request: Request):
         "model": config.MODEL,
         "region": config.REGION,
     }
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def panel_admina():
+    """Zakladanie kancelarii bez curl. Strona jest jawna; dane za nia chroni
+    token administratora, ktory przegladarka wysyla z kazdym zadaniem."""
+    return (Path(__file__).parent / "static" / "admin.html").read_text("utf-8")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -141,8 +149,11 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
 
 @app.post("/api/sprawy")
 async def nowa_sprawa(
-    wzor: UploadFile = File(...),
     skany: list[UploadFile] = File(...),
+    wzor: UploadFile | None = File(None),
+    # Kancelaria zwykle pracuje na kilku tych samych wzorach. Zamiast wgrywac
+    # plik przy kazdej sprawie, mozna wskazac sprawe, z ktorej go wziac.
+    wzor_ze_sprawy: str = Form(""),
     polecenie: str = Form(""),
     sygnatura: str = Form(""),
 ):
@@ -152,12 +163,24 @@ async def nowa_sprawa(
             "Ta kancelaria trzyma pliki u siebie. Uzyj /api/odczyt, ktore niczego "
             "nie zapisuje."
         ))
+    wzor_zrodlowy = None
+    if wzor is None:
+        if not wzor_ze_sprawy:
+            raise HTTPException(400, "Dodaj wzor aktu.")
+        wzor_zrodlowy = next(_katalog_sprawy(wzor_ze_sprawy).glob("wzor.*"), None)
+        if wzor_zrodlowy is None:
+            raise HTTPException(404, "W tamtej sprawie nie ma wzoru.")
+
     identyfikator = uuid.uuid4().hex[:12]
     katalog = config.SPRAWY / identyfikator
     (katalog / "skany").mkdir(parents=True)
 
-    sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
-    _zapisz(wzor, sciezka_wzoru)
+    if wzor_zrodlowy is not None:
+        sciezka_wzoru = katalog / wzor_zrodlowy.name
+        shutil.copyfile(wzor_zrodlowy, sciezka_wzoru)
+    else:
+        sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
+        _zapisz(wzor, sciezka_wzoru)
 
     sciezki_skanow = []
     for skan in skany:
@@ -226,6 +249,9 @@ def ustawienia_kancelarii():
         # sprawdzenia w rejestrze ma byc nieczynny, zamiast skladac zlecenia,
         # ktorych nikt nie odbierze.
         "pomocnik_polaczony": _pomocnik_pod_reka(),
+        # Mikrofon pokazujemy tylko tam, gdzie nagranie da sie przepisac.
+        # W kontenerze nie ma modelu mowy, wiec przycisk konczylby sie bledem.
+        "transkrypcja": transkrypcja.dostepna(),
     }
 
 

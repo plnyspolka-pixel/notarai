@@ -249,3 +249,37 @@ def utworz_uzytkownika(email: str, kancelaria: str) -> None:
         if type(blad).__name__ == "UsernameExistsException":
             raise BladLogowania("Konto o tym adresie juz istnieje.") from blad
         raise
+
+
+def ponow_zaproszenie(email: str) -> None:
+    """Wysyla zaproszenie jeszcze raz, z nowym haslem tymczasowym.
+
+    Zaproszenia z domyslnej wysylki Cognito czesto trafiaja do spamu albo
+    wygasaja, zanim ktos je otworzy. Ponowienie musi byc jednym kliknieciem.
+    """
+    try:
+        _klient().admin_create_user(
+            UserPoolId=PULA, Username=email,
+            MessageAction="RESEND", DesiredDeliveryMediums=["EMAIL"],
+        )
+        log.info("ponowiono zaproszenie")
+    except Exception as blad:
+        nazwa = type(blad).__name__
+        if nazwa == "UserNotFoundException":
+            raise BladLogowania("Nie ma konta o tym adresie.") from blad
+        if nazwa == "UnsupportedUserStateException":
+            raise BladLogowania(
+                "To konto ma juz ustawione haslo. Jesli go nie pamieta, "
+                "niech uzyje opcji Nie pamietam hasla."
+            ) from blad
+        raise
+
+
+def usun_uzytkownika(email: str) -> None:
+    """Usuwa konto. Brak konta nie jest bledem - cel i tak osiagniety."""
+    try:
+        _klient().admin_delete_user(UserPoolId=PULA, Username=email)
+        log.info("usunieto konto uzytkownika")
+    except Exception as blad:
+        if type(blad).__name__ != "UserNotFoundException":
+            raise
