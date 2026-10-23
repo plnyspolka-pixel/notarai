@@ -58,14 +58,14 @@ def glowna(folder: Path) -> int:
 
     analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(wzor))
     pisz(f"pola we wzorze: {len(analiza['pola'])}, legenda: {len(analiza['legenda'])}, warianty: {analiza['warianty']}")
-    strony = dokumenty.strony_ze_skanow(skany)
+    strony = dokumenty.opisz_strony(skany)
     pisz(f"stron do modelu: {len(strony)}")
 
     pisz()
     pisz("--- ETAP 1: odczyt danych ze skanow (Bedrock) ---")
     start = time.time()
     try:
-        odczyt = bedrock.odczytaj_dane(strony, analiza["pola"], polecenie, analiza["legenda"])
+        odczyt, _ = bedrock.odczytaj_sprawe(strony, analiza["pola"], polecenie, analiza["legenda"])
     except Exception as blad:
         pisz(f"BLAD odczytu: {type(blad).__name__}: {blad}")
         raport.write_text("\n".join(linie), encoding="utf-8")

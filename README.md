@@ -85,12 +85,18 @@ Zmienne środowiskowe, wszystkie opcjonalne:
 | Zmienna | Domyślnie | Znaczenie |
 |---|---|---|
 | `AWS_REGION` | `eu-central-1` | region Bedrock |
-| `PIECZAPP_MODEL` | `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | profil modelu |
+| `PIECZAPP_MODEL` | `eu.anthropic.claude-opus-4-6-v1` | profil modelu |
 | `PIECZAPP_HOST` | `127.0.0.1` | adres nasłuchu |
 | `PIECZAPP_PORT` | `8000` | port |
-| `PIECZAPP_DPI` | `220` | rozdzielczość renderowania PDF |
-| `PIECZAPP_MAX_BOK` | `2400` | najdłuższy bok obrazu strony (px) wysyłanego do modelu |
-| `PIECZAPP_MAX_STRON` | `40` | limit stron na sprawę |
+| `PIECZAPP_DPI` | `300` | rozdzielczość renderowania PDF |
+| `PIECZAPP_MAX_BOK` | `1568` (4.7+: `2576`) | najdłuższy bok obrazu, który model widzi bez pomniejszania |
+| `PIECZAPP_MAX_PIKSELI` | `1150000` | największa powierzchnia obrazu widziana bez pomniejszania |
+| `PIECZAPP_MAX_STRON` | `400` | limit stron na sprawę |
+| `PIECZAPP_STRON_W_PACZCE` | `4` | ile kolejnych stron w jednym zapytaniu do modelu |
+| `PIECZAPP_ROWNOLEGLE` | `2` | ile paczek stron czytanych jednocześnie |
+| `PIECZAPP_MAX_WYJSCIE` | `128000` | limit odpowiedzi modelu w tokenach (maksimum Opus 4.6) |
+| `PIECZAPP_MYSLENIE` | `1` | `0` wyłącza myślenie modelu |
+| `PIECZAPP_WYSILEK` | `max` | domyślny wysiłek myślenia; przełącznik „Dokładność odczytu” zmienia go dla sprawy |
 
 Aplikacja odmawia startu, jeśli model nie jest profilem `eu.` — zabezpieczenie
 przed przypadkowym wyjściem poza Unię Europejską.

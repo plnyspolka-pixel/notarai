@@ -3,18 +3,22 @@
 Uruchomienie:  python app.py
 Adres:         http://127.0.0.1:8000
 """
+import asyncio
 import base64
+import contextvars
 import json
 import logging
+import queue
 import re
 import shutil
 import tempfile
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -99,24 +103,31 @@ def strona_glowna():
     return strona.replace("Sprawdzam, gdzie zapisywane są dane…", gdzie)
 
 
+# Przelacznik "Dokladnosc odczytu"; nieznana wartosc = ustawienie domyslne.
+WYSILKI = {"max", "high", "medium"}
+
+
 def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
-               etykieta: str) -> dict:
+               etykieta: str, postep=None, wysilek: str = "") -> dict:
     """Wspolna czesc: analiza wzoru, odczyt skanow, pierwsza tura rozmowy.
 
     Nie zapisuje niczego trwale - zapis (albo jego brak) nalezy do funkcji
     wywolujacej. `etykieta` trafia tylko do logow, nigdy dane osobowe.
+    `postep(etap, gotowe, wszystkie)` dostaje kolejne kroki odczytu.
     """
     tekst_wzoru = dokumenty.wzor_na_tekst(sciezka_wzoru)
     analiza = dokumenty.analizuj_wzor(tekst_wzoru)
     pola_wzoru = analiza["pola"]
-    strony = dokumenty.strony_ze_skanow(sciezki_skanow)
+    strony = dokumenty.opisz_strony(sciezki_skanow)
+    wysilek = wysilek if wysilek in WYSILKI else config.WYSILEK
 
-    log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d",
+    log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d wysilek=%s",
              etykieta, sciezka_wzoru.name, len(pola_wzoru),
-             len(analiza["legenda"]), analiza["warianty"], len(strony))
+             len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek)
 
     try:
-        odczyt = bedrock.odczytaj_dane(strony, pola_wzoru, polecenie, analiza["legenda"])
+        odczyt, transkrypcje = bedrock.odczytaj_sprawe(
+            strony, pola_wzoru, polecenie, analiza["legenda"], postep, wysilek)
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
@@ -141,14 +152,69 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
         "braki": odczyt.get("braki", []),
         "rozbieznosci": odczyt.get("rozbieznosci", []),
         "stron": len(strony),
+        "wysilek": wysilek,
+        "transkrypcje": transkrypcje,
         "kontekst": kontekst,
         "rozmowa": [{"rola": "asystent", "tresc": pytania,
                      "czas": datetime.now().isoformat(timespec="seconds")}],
     }
 
 
+def _chce_strumienia(request: Request) -> bool:
+    return "application/x-ndjson" in request.headers.get("accept", "")
+
+
+async def _wykonaj(request: Request, praca) -> Response:
+    """Uruchamia odczyt poza petla zdarzen.
+
+    Przegladarka, ktora prosi o application/x-ndjson, dostaje strumien linii
+    JSON: postep ({"postep": ...}), co kilkanascie sekund znak zycia, na koncu
+    {"wynik": ...} albo {"blad": ..., "kod": ...}. Bez tego ALB (idle 900 s)
+    zerwalby polaczenie przy duzej sprawie, ktora czyta sie dluzej niz kwadrans.
+    Bez naglowka - zwykla odpowiedz JSON jak dawniej.
+
+    Kontekst kancelarii (contextvars) przechodzi do watku razem z praca.
+    """
+    if not _chce_strumienia(request):
+        return JSONResponse(await asyncio.to_thread(contextvars.copy_context().run, praca, None))
+
+    kolejka: queue.Queue = queue.Queue()
+    kontekst = contextvars.copy_context()
+
+    def postep(etap: str, gotowe: int, wszystkie: int) -> None:
+        kolejka.put({"postep": {"etap": etap, "gotowe": gotowe, "wszystkie": wszystkie}})
+
+    def watek():
+        try:
+            kolejka.put({"wynik": praca(postep)})
+        except HTTPException as blad:
+            kolejka.put({"blad": blad.detail, "kod": blad.status_code})
+        except Exception as blad:  # noqa: BLE001 - tresc bledu nie trafia do logu
+            log.error("odczyt w tle: %s", type(blad).__name__)
+            kolejka.put({"blad": "Blad serwera podczas odczytu.", "kod": 500})
+        finally:
+            kolejka.put(None)
+
+    threading.Thread(target=kontekst.run, args=(watek,), daemon=True).start()
+
+    async def linie():
+        while True:
+            try:
+                wpis = await asyncio.to_thread(kolejka.get, True, 15)
+            except queue.Empty:
+                yield b'{"zyje":1}\n'
+                continue
+            if wpis is None:
+                return
+            yield (json.dumps(wpis, ensure_ascii=False) + "\n").encode("utf-8")
+
+    return StreamingResponse(linie(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.post("/api/sprawy")
 async def nowa_sprawa(
+    request: Request,
     skany: list[UploadFile] = File(...),
     wzor: UploadFile | None = File(None),
     # Kancelaria zwykle pracuje na kilku tych samych wzorach. Zamiast wgrywac
@@ -156,6 +222,7 @@ async def nowa_sprawa(
     wzor_ze_sprawy: str = Form(""),
     polecenie: str = Form(""),
     sygnatura: str = Form(""),
+    wysilek: str = Form(""),
 ):
     """Wgranie wzoru i skanow, odczyt danych. Sprawa zostaje w magazynie."""
     if magazyn.u_klienta():
@@ -188,16 +255,25 @@ async def nowa_sprawa(
         _zapisz(skan, cel)
         sciezki_skanow.append(cel)
 
-    try:
-        wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
-                           f"sprawa {identyfikator}")
-    except ValueError as blad:
-        shutil.rmtree(katalog, ignore_errors=True)
-        raise HTTPException(400, str(blad))
-    except HTTPException:
-        shutil.rmtree(katalog, ignore_errors=True)
-        raise
+    def praca(postep) -> dict:
+        try:
+            wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
+                               f"sprawa {identyfikator}", postep, wysilek)
+        except ValueError as blad:
+            shutil.rmtree(katalog, ignore_errors=True)
+            raise HTTPException(400, str(blad))
+        except BaseException:
+            shutil.rmtree(katalog, ignore_errors=True)
+            raise
+        return _zapisz_nowa_sprawe(katalog, identyfikator, sciezka_wzoru, sciezki_skanow,
+                                   polecenie, sygnatura, wynik)
 
+    return await _wykonaj(request, praca)
+
+
+def _zapisz_nowa_sprawe(katalog: Path, identyfikator: str, sciezka_wzoru: Path,
+                        sciezki_skanow: list[Path], polecenie: str, sygnatura: str,
+                        wynik: dict) -> dict:
     analiza, pola = wynik["analiza"], wynik["pola"]
     rozmowa = wynik["rozmowa"]
     _zapisz_rozmowe(katalog, rozmowa)
@@ -212,10 +288,13 @@ async def nowa_sprawa(
         "wzor": sciezka_wzoru.name,
         "skany": [p.name for p in sciezki_skanow],
         "stron": wynik["stron"],
+        "wysilek": wynik["wysilek"],
         "pola_wzoru": wynik["pola_wzoru"],
         "legenda": analiza["legenda"],
         "warianty": analiza["warianty"],
     })
+    # Transkrypcje zostaja przy sprawie: do wgladu, gdy odczyt budzi watpliwosci.
+    _zapisz_json(katalog / "transkrypcje.json", wynik["transkrypcje"])
     _zapisz_json(katalog / "odczyt.json", {
         "pola": pola,
         "braki": wynik["braki"],
@@ -264,13 +343,19 @@ def ustawienia_kancelarii():
 
 @app.post("/api/odczyt")
 async def odczyt_bez_zapisu(
+    request: Request,
     wzor: UploadFile = File(...),
     skany: list[UploadFile] = File(...),
     polecenie: str = Form(""),
+    wysilek: str = Form(""),
 ):
-    """Odczyt skanow bez tworzenia sprawy. Nic nie zostaje na serwerze."""
-    with tempfile.TemporaryDirectory(prefix="notarai-") as tymczasowy:
-        katalog = Path(tymczasowy)
+    """Odczyt skanow bez tworzenia sprawy. Nic nie zostaje na serwerze.
+
+    Katalog tymczasowy zyje tyle, co sam odczyt (takze odczyt w tle przy
+    odpowiedzi strumieniowej) i jest kasowany zawsze, takze po bledzie.
+    """
+    katalog = Path(tempfile.mkdtemp(prefix="notarai-"))
+    try:
         (katalog / "skany").mkdir()
         sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
         _zapisz(wzor, sciezka_wzoru)
@@ -279,11 +364,19 @@ async def odczyt_bez_zapisu(
             cel = katalog / "skany" / Path(skan.filename).name
             _zapisz(skan, cel)
             sciezki_skanow.append(cel)
+    except BaseException:
+        shutil.rmtree(katalog, ignore_errors=True)
+        raise
 
+    def praca(postep) -> dict:
         try:
-            wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie, "odczyt bez zapisu")
-        except ValueError as blad:
-            raise HTTPException(400, str(blad))
+            try:
+                wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
+                                   "odczyt bez zapisu", postep, wysilek)
+            except ValueError as blad:
+                raise HTTPException(400, str(blad))
+        finally:
+            shutil.rmtree(katalog, ignore_errors=True)
 
         analiza = wynik["analiza"]
         return {
@@ -298,6 +391,8 @@ async def odczyt_bez_zapisu(
             "kontekst": wynik["kontekst"],
             "rozmowa": wynik["rozmowa"],
         }
+
+    return await _wykonaj(request, praca)
 
 
 @app.post("/api/projekt")

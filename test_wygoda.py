@@ -8,7 +8,7 @@ ODCZYT = {"pola": [{"nr": 1, "nazwa": "zbywca", "wartosc": "Ewa Pawlak"}],
 
 
 def _nowa(klient, **kw):
-    with patch("bedrock.odczytaj_dane", return_value=ODCZYT), \
+    with patch("bedrock.odczytaj_sprawe", return_value=(ODCZYT, [])), \
          patch("bedrock.rozmawiaj", return_value="Czego brakuje?"):
         return klient.post("/api/sprawy", **kw)
 

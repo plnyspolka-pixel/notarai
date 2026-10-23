@@ -53,7 +53,7 @@ class TestOdczytBezZapisu:
     def test_nie_zostawia_nic_na_dysku(self, klient, tmp_path):
         """Po odczycie w katalogu spraw nie moze pojawic sie nowa sprawa."""
         przed = set(p.name for p in tmp_path.iterdir()) if tmp_path.exists() else set()
-        with patch("bedrock.odczytaj_dane", return_value=ODCZYT), \
+        with patch("bedrock.odczytaj_sprawe", return_value=(ODCZYT, [])), \
              patch("bedrock.rozmawiaj", return_value="Czego brakuje?"):
             odp = klient.post("/api/odczyt",
                               files={"wzor": _wzor(), "skany": _skan()},
@@ -70,7 +70,7 @@ class TestOdczytBezZapisu:
     def test_katalog_tymczasowy_znika_takze_po_bledzie(self, klient, tmp_path):
         import tempfile
         przed = set(Path(tempfile.gettempdir()).glob("notarai-*"))
-        with patch("bedrock.odczytaj_dane", side_effect=RuntimeError("model padl")), \
+        with patch("bedrock.odczytaj_sprawe", side_effect=RuntimeError("model padl")), \
              patch("bedrock.rozmawiaj", return_value="x"):
             odp = klient.post("/api/odczyt", files={"wzor": _wzor(), "skany": _skan()})
         assert odp.status_code == 502
@@ -135,3 +135,38 @@ class TestZakazZapisu:
             assert "u siebie" in odp.json()["detail"]
         finally:
             magazyn.przechowywanie_var.reset(znacznik)
+
+
+class TestOdczytStrumieniem:
+    """Duza sprawa czyta sie dluzej niz ALB trzyma cisze - postep idzie strumieniem."""
+
+    def test_postep_i_wynik_w_liniach_json(self, klient, tmp_path):
+        import json as _json
+        import tempfile
+
+        def odczyt(strony, pola, polecenie, legenda, postep, wysilek):
+            assert wysilek == "high"
+            postep("transkrypcja", 1, 1)
+            postep("zestawienie", 0, 1)
+            return ODCZYT, []
+
+        przed = set(Path(tempfile.gettempdir()).glob("notarai-*"))
+        with patch("bedrock.odczytaj_sprawe", side_effect=odczyt), \
+             patch("bedrock.rozmawiaj", return_value="Czego brakuje?"):
+            odp = klient.post("/api/odczyt", files={"wzor": _wzor(), "skany": _skan()},
+                              data={"wysilek": "high"},
+                              headers={"Accept": "application/x-ndjson"})
+        assert odp.status_code == 200
+        linie = [_json.loads(l) for l in odp.text.splitlines() if l.strip()]
+        assert linie[0] == {"postep": {"etap": "transkrypcja", "gotowe": 1, "wszystkie": 1}}
+        assert linie[-1]["wynik"]["pola"][0]["wartosc"] == "Jan Kowalski"
+        assert set(Path(tempfile.gettempdir()).glob("notarai-*")) == przed
+
+    def test_blad_jako_ostatnia_linia(self, klient):
+        import json as _json
+        with patch("bedrock.odczytaj_sprawe", side_effect=RuntimeError("model padl")), \
+             patch("bedrock.rozmawiaj", return_value="x"):
+            odp = klient.post("/api/odczyt", files={"wzor": _wzor(), "skany": _skan()},
+                              headers={"Accept": "application/x-ndjson"})
+        ostatnia = _json.loads(odp.text.strip().splitlines()[-1])
+        assert ostatnia["kod"] == 502 and ostatnia["blad"]

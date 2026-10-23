@@ -9,11 +9,27 @@ from unittest.mock import MagicMock, patch
 import bedrock
 
 
+def _jako_strumien(odpowiedz: dict) -> dict:
+    """Odpowiedz w ksztalcie `converse` zamieniona na zdarzenia `converse_stream`."""
+    zdarzenia = [{"contentBlockDelta": {"delta": {"text": c.get("text", "")}}}
+                 for c in odpowiedz["output"]["message"]["content"]]
+    zdarzenia.append({"messageStop": {"stopReason": odpowiedz.get("stopReason", "end_turn")}})
+    zdarzenia.append({"metadata": {"usage": odpowiedz.get("usage", {})}})
+    return {"stream": iter(zdarzenia)}
+
+
 @pytest.fixture
 def mock_bedrock_client():
-    """Atrapa klienta Bedrock."""
+    """Atrapa klienta Bedrock.
+
+    Testy ustawiaja `converse.return_value` jak dla zwyklego wywolania;
+    `converse_stream`, ktorego uzywa aplikacja, przekazuje do niego argumenty
+    i zwraca te sama odpowiedz jako strumien. Dzieki temu asercje na
+    `converse.call_args` dalej widza parametry wywolania.
+    """
     with patch("bedrock._klient") as mock:
         klient = MagicMock()
+        klient.converse_stream.side_effect = lambda **kw: _jako_strumien(klient.converse(**kw))
         mock.return_value = klient
         yield klient
 
@@ -318,7 +334,39 @@ class TestRozmowa:
         assert call_kwargs["system"] == [{"text": system}]
         assert call_kwargs["messages"][0]["content"] == tresc
         assert call_kwargs["inferenceConfig"]["maxTokens"] == max_tokenow
-        assert call_kwargs["inferenceConfig"]["temperature"] == 0
+
+    def test_myslenie_i_limity_dla_opus_4_6(self, mock_bedrock_client, monkeypatch):
+        import config
+        monkeypatch.setattr(config, "MODEL", "eu.anthropic.claude-opus-4-6-v1")
+        monkeypatch.setattr(config, "MYSLENIE", True)
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}
+        bedrock._rozmowa("s", [{"text": "t"}])
+        kw = mock_bedrock_client.converse.call_args.kwargs
+        assert kw["inferenceConfig"] == {"maxTokens": config.MAX_WYJSCIE}  # bez temperature przy mysleniu
+        dodatkowe = kw["additionalModelRequestFields"]
+        assert dodatkowe["thinking"] == {"type": "adaptive"}
+        assert dodatkowe["output_config"] == {"effort": config.WYSILEK}
+        assert "context-1m-2025-08-07" in dodatkowe["anthropic_beta"]
+
+    def test_bez_myslenia_temperatura_zero(self, mock_bedrock_client, monkeypatch):
+        import config
+        monkeypatch.setattr(config, "MODEL", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}
+        bedrock._rozmowa("s", [{"text": "t"}], 1000, myslenie=False)
+        kw = mock_bedrock_client.converse.call_args.kwargs
+        assert kw["inferenceConfig"]["temperature"] == 0
+        assert "additionalModelRequestFields" not in kw
+
+    def test_starszy_model_dostaje_budzet_myslenia(self, mock_bedrock_client, monkeypatch):
+        import config
+        monkeypatch.setattr(config, "MODEL", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0")
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}
+        bedrock._rozmowa("s", [{"text": "t"}], 8000, myslenie=True)
+        dodatkowe = mock_bedrock_client.converse.call_args.kwargs["additionalModelRequestFields"]
+        assert dodatkowe == {"thinking": {"type": "enabled", "budget_tokens": 4000}}
 
     def test_rozmowa_wiele_czesci_odpowiedzi(self, mock_bedrock_client):
         # Model moze zwrocic odpowiedz w wielu czesciach
@@ -432,6 +480,11 @@ class TestWyborProfiluAWS:
     daje rola instancji. Wymuszenie nazwy profilu wywrocilo by tam start
     aplikacji, wiec domyslnie nie podajemy jej wcale.
     """
+
+    @pytest.fixture(autouse=True)
+    def _nowy_klient(self, monkeypatch):
+        # Klient jest tworzony raz i wspoldzielony przez watki odczytu.
+        monkeypatch.setattr(bedrock, "_klient_bedrock", None)
 
     def test_bez_profilu_zwykly_lancuch_poswiadczen(self, monkeypatch):
         monkeypatch.setattr(bedrock.config, "PROFIL_AWS", "")

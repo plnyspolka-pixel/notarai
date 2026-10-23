@@ -12,126 +12,102 @@ import config
 
 OBRAZY = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
-# Limity obrazu po stronie modelu (dokumentacja Claude Vision).
-# Model i tak przeskaluje wiekszy obraz w dol, wiec wysylanie nadmiaru
-# pikseli tylko kosztuje, a nic nie wnosi.
-PROG_WIELU_OBRAZOW = 20     # powyzej tylu obrazow w zadaniu obowiazuje ostrzejszy limit
-MAX_BOK_WIELE_OBRAZOW = 2000
+# Pasy zachodza na siebie, zeby wiersz tabeli lub numer przeciety granica
+# pasa byl w calosci przynajmniej w jednym z nich.
+NAKLADKA = 0.12
 
-# Strona bez warstwy tekstowej, ktora nie miesci sie w limicie, jest dzielona
-# na dwie zachodzace czesci. Kazda idzie w pelnej rozdzielczosci, wiec model
-# widzi mniej wiecej dwa razy wiecej szczegolu.
-NAKLADKA = 0.08
-PROG_TEKSTU = 200           # tyle znakow uznajemy za prawdziwa warstwe tekstowa
+# Strona PDF z warstwa tekstowa dluzsza niz tyle znakow to dokument
+# elektroniczny (np. wydruk KW z EKW, wypis z rejestru gruntow z systemu).
+PROG_TEKSTU = 200
 
 
-def strony_ze_skanow(sciezki: list[Path]) -> list[dict]:
-    """Zamienia skany (PDF lub obrazy) na liste stron gotowych dla modelu.
+def opisz_strony(sciezki: list[Path]) -> list[dict]:
+    """Lista stron sprawy bez renderowania obrazow.
 
-    Kazda strona to obraz, tekst osadzony w pliku albo jedno i drugie.
-    Dokumenty wygenerowane elektronicznie (wypisy, zaswiadczenia, wydruki KW)
-    niosa dokladny tekst - wtedy nie ma po co zgadywac go z obrazu.
+    Obrazy powstaja dopiero przy odczycie konkretnej strony (obrazy_strony),
+    bo 300 stron w 300 dpi trzymanych naraz w pamieci to kilka GB.
     """
-    surowe: list[dict] = []
+    strony: list[dict] = []
     for sciezka in sciezki:
         rozszerzenie = sciezka.suffix.lower()
         if rozszerzenie == ".pdf":
-            surowe.extend(_strony_z_pdf(sciezka))
-        elif rozszerzenie in OBRAZY:
-            surowe.append(
-                {"dokument": sciezka.name, "strona": 1, "obraz": Image.open(sciezka), "tekst": ""}
+            with fitz.open(sciezka) as pdf:
+                ile = pdf.page_count
+            strony.extend(
+                {"dokument": sciezka.name, "strona": n, "sciezka": sciezka}
+                for n in range(1, ile + 1)
             )
+        elif rozszerzenie in OBRAZY:
+            strony.append({"dokument": sciezka.name, "strona": 1, "sciezka": sciezka})
         else:
             raise ValueError(f"Nieobslugiwany format: {sciezka.name}")
-
-        if len(surowe) > config.MAX_STRON:
+        if len(strony) > config.MAX_STRON:
             raise ValueError(
-                f"Za duzo stron ({len(surowe)}). Limit to {config.MAX_STRON}. "
-                "Podziel sprawe albo usun zbedne zalaczniki."
+                f"Za duzo stron ({len(strony)}). Limit to {config.MAX_STRON} "
+                "(zmienna PIECZAPP_MAX_STRON)."
             )
-    return _przygotuj(surowe)
+    return strony
 
 
-def _strony_z_pdf(sciezka: Path) -> list[dict]:
-    wynik = []
+def obrazy_strony(strona: dict) -> dict:
+    """Renderuje jedna strone: obraz calej strony, pasy w pelnej rozdzielczosci
+    i warstwe tekstowa PDF (jesli jest)."""
+    obraz, tekst = _wczytaj_strone(strona)
+    return {
+        "calosc": _na_png(_dopasuj(obraz)),
+        "pasy": [_na_png(_dopasuj(pas)) for pas in _pasy(obraz)],
+        "tekst": tekst if len(tekst) >= PROG_TEKSTU else "",
+    }
+
+
+def _wczytaj_strone(strona: dict) -> tuple[Image.Image, str]:
+    sciezka = Path(strona["sciezka"])
+    if sciezka.suffix.lower() != ".pdf":
+        with Image.open(sciezka) as obraz:
+            return obraz.convert("L"), ""
     with fitz.open(sciezka) as pdf:
+        s = pdf[strona["strona"] - 1]
         skala = config.DPI / 72
-        for numer, strona in enumerate(pdf, start=1):
-            piksmapa = strona.get_pixmap(matrix=fitz.Matrix(skala, skala))
-            wynik.append({
-                "dokument": sciezka.name,
-                "strona": numer,
-                "obraz": Image.open(io.BytesIO(piksmapa.tobytes("png"))),
-                "tekst": strona.get_text("text").strip(),
-            })
-    return wynik
+        piksmapa = s.get_pixmap(matrix=fitz.Matrix(skala, skala), colorspace=fitz.csGRAY)
+        obraz = Image.frombytes("L", (piksmapa.width, piksmapa.height), piksmapa.samples)
+        return obraz, s.get_text("text").strip()
 
 
-def _przygotuj(surowe: list[dict]) -> list[dict]:
-    """Dobiera rozdzielczosc i podzial stron do limitow jednego zadania.
+def _pasy(obraz: Image.Image) -> list[Image.Image]:
+    """Dzieli strone na poziome pasy na cala szerokosc.
 
-    Kolejnosc ustepstw, gdy obrazow jest za duzo: najpierw rezygnujemy
-    z dzielenia stron, potem z obrazow tych stron, ktore maja dokladny tekst,
-    a dopiero na koncu zmniejszamy wszystkie obrazy.
+    Pasy, nie kafelki: wiersz tabeli musi zostac w jednym kawalku, inaczej
+    numer dzialki i jej powierzchnia trafilyby do roznych obrazow.
+    Wysokosc pasa dobieramy tak, by po dopasowaniu do limitow modelu pas
+    nie byl juz dalej pomniejszany.
     """
-    z_tekstem = [s for s in surowe if len(s["tekst"]) >= PROG_TEKSTU]
-    skany = [s for s in surowe if len(s["tekst"]) < PROG_TEKSTU]
-
-    dzielimy = len(z_tekstem) + 2 * len(skany) <= PROG_WIELU_OBRAZOW
-    obrazy_dla_tekstowych = True
-    ile = len(z_tekstem) + (2 if dzielimy else 1) * len(skany)
-    if ile > PROG_WIELU_OBRAZOW:
-        obrazy_dla_tekstowych = False
-        ile = len(skany)
-    max_bok = config.MAX_BOK if ile <= PROG_WIELU_OBRAZOW else MAX_BOK_WIELE_OBRAZOW
-
-    wynik: list[dict] = []
-    for s in surowe:
-        ma_tekst = len(s["tekst"]) >= PROG_TEKSTU
-        wpis = {"dokument": s["dokument"], "strona": s["strona"], "tekst": s["tekst"]}
-        if ma_tekst and not obrazy_dla_tekstowych:
-            wynik.append(wpis)
-            continue
-        czesci = _fragmenty(s["obraz"], max_bok) if (dzielimy and not ma_tekst) else [(None, s["obraz"])]
-        for nazwa, kawalek in czesci:
-            nowy = dict(wpis)
-            if nazwa:
-                nowy["fragment"] = nazwa
-            nowy["png"] = _na_png(kawalek, max_bok)
-            wynik.append(nowy)
-    return wynik
+    szer, wys = obraz.size
+    skala = min(1.0, config.MAX_BOK / szer)
+    wys_pasa = int(min(config.MAX_BOK, config.MAX_PIKSELI / (szer * skala)) / skala)
+    if wys_pasa >= wys:
+        return []  # cala strona miesci sie w limicie, pasy nic nie wnosza
+    krok = int(wys_pasa * (1 - NAKLADKA))
+    pasy, gora = [], 0
+    while True:
+        dol = min(wys, gora + wys_pasa)
+        pasy.append(obraz.crop((0, max(0, dol - wys_pasa), szer, dol)))
+        if dol >= wys:
+            return pasy
+        gora += krok
 
 
-def _fragmenty(obraz: Image.Image, max_bok: int) -> list[tuple[str | None, Image.Image]]:
-    """Dzieli strone na dwie zachodzace czesci wzdluz dluzszego boku.
-
-    Dzielimy tylko wtedy, gdy strona i tak zostalaby pomniejszona - inaczej
-    podzial nic nie wnosi, a podwaja koszt.
-    """
-    if max(obraz.size) <= max_bok:
-        return [(None, obraz)]
-    if obraz.height >= obraz.width:
-        srodek, margines = obraz.height // 2, int(obraz.height * NAKLADKA)
-        return [
-            ("gora", obraz.crop((0, 0, obraz.width, min(obraz.height, srodek + margines)))),
-            ("dol", obraz.crop((0, max(0, srodek - margines), obraz.width, obraz.height))),
-        ]
-    srodek, margines = obraz.width // 2, int(obraz.width * NAKLADKA)
-    return [
-        ("lewa", obraz.crop((0, 0, min(obraz.width, srodek + margines), obraz.height))),
-        ("prawa", obraz.crop((max(0, srodek - margines), 0, obraz.width, obraz.height))),
-    ]
+def _dopasuj(obraz: Image.Image) -> Image.Image:
+    """Pomniejsza obraz do tego, co model faktycznie widzi."""
+    szer, wys = obraz.size
+    skala = min(1.0, config.MAX_BOK / max(szer, wys), (config.MAX_PIKSELI / (szer * wys)) ** 0.5)
+    if skala < 1.0:
+        obraz = obraz.resize((max(1, int(szer * skala)), max(1, int(wys * skala))), Image.LANCZOS)
+    return obraz
 
 
-def _na_png(obraz: Image.Image, max_bok: int | None = None) -> bytes:
-    max_bok = max_bok or config.MAX_BOK
-    obraz = obraz.convert("L")  # skany sa czarno-biale; odcienie szarosci = 3x mniejszy PNG
-    if max(obraz.size) > max_bok:
-        wspolczynnik = max_bok / max(obraz.size)
-        nowy = (int(obraz.width * wspolczynnik), int(obraz.height * wspolczynnik))
-        obraz = obraz.resize(nowy, Image.LANCZOS)
+def _na_png(obraz: Image.Image) -> bytes:
     bufor = io.BytesIO()
-    obraz.save(bufor, format="PNG", optimize=True)
+    obraz.convert("L").save(bufor, format="PNG", optimize=True)  # skany sa czarno-biale
     return bufor.getvalue()
 
 
@@ -291,6 +267,25 @@ def tekst_na_docx(tekst: str, cel: Path) -> Path:
             przebieg.bold = True
             akapit.alignment = 1
 
+    _oznacz_jako_ai(dokument)
     cel.parent.mkdir(parents=True, exist_ok=True)
     dokument.save(cel)
     return cel
+
+
+# Informacja w metadanych pliku, czytelna maszynowo (art. 50 ust. 2 AI Act).
+# Zostaje w pliku po edycji w Wordzie, dopoki ktos jej swiadomie nie usunie.
+OZNACZENIE_AI = ("Projekt przygotowany z udziałem sztucznej inteligencji (notarai). "
+                 "Wymaga weryfikacji i akceptacji notariusza.")
+
+
+def _oznacz_jako_ai(dokument) -> None:
+    from datetime import datetime, timezone
+    wlasciwosci = dokument.core_properties
+    wlasciwosci.author = "notarai"
+    wlasciwosci.last_modified_by = "notarai"
+    wlasciwosci.title = "Projekt dokumentu - do weryfikacji notariusza"
+    wlasciwosci.category = "Projekt wygenerowany przez AI"
+    wlasciwosci.keywords = "AI-generated; notarai; projekt"
+    wlasciwosci.comments = OZNACZENIE_AI
+    wlasciwosci.created = datetime.now(timezone.utc).replace(tzinfo=None)

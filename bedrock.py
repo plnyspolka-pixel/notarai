@@ -1,45 +1,76 @@
 """Komunikacja z Amazon Bedrock.
 
-Dwa osobne przebiegi:
-  1. ekstrakcja  - skany  -> dane w JSON
-  2. generowanie - wzor + zwalidowane dane -> projekt dokumentu
+Trzy przebiegi:
+  1. transkrypcja - kazda strona osobno, w wysokiej rozdzielczosci -> tekst
+  2. ekstrakcja   - transkrypcje pogrupowane w dokumenty -> dane w JSON
+  3. generowanie  - wzor + zwalidowane dane -> projekt dokumentu
 
-Rozdzielenie jest celowe. Miedzy przebiegami wchodzi walidacja i czlowiek.
+Strony czytamy pojedynczo, bo jedno zadanie z dziesiatkami obrazow zmusza
+do ich pomniejszania (drobny druk tabel staje sie nieczytelny), a model
+zajety naraz czytaniem i wnioskowaniem gubi przypisanie wierszy tabel
+i stron do dokumentow. Miedzy ekstrakcja a generowaniem wchodzi walidacja
+i czlowiek.
 
 UWAGA: nie logujemy tresci promptow ani odpowiedzi. Ani do pliku, ani na konsole.
 """
 import json
 import logging
+import re
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
 import config
+import dokumenty
 import prompty
 
 log = logging.getLogger("pieczapp.bedrock")
 
 _ustawienia = Config(
     region_name=config.REGION,
-    # Tryb adaptacyjny: poza ponawianiem z rosnacym odstepem sam przyhamowuje
-    # wysylanie, gdy Bedrock zaczyna odrzucac zadania. Konto ma dzis limit
-    # 5 zadan na minute, a jeden odczyt sprawy to kilka wywolan, wiec bez
-    # tego dwie kancelarie pracujace naraz zobaczylyby bledy.
-    retries={"max_attempts": 6, "mode": "adaptive"},
-    read_timeout=300,
+    # Duza sprawa to kilkaset wywolan w krotkim czasie - adaptacyjne
+    # ponowienia zwalniaja tempo zamiast przerywac odczyt przy dlawieniu.
+    retries={"max_attempts": 10, "mode": "adaptive"},
+    # Odpowiedz przychodzi strumieniem, ale przy dlugim mysleniu przerwy
+    # miedzy porcjami bywaja dlugie.
+    read_timeout=3600,
     connect_timeout=15,
+    max_pool_connections=max(10, config.ROWNOLEGLE * 2),
 )
+
+_blokada = threading.Lock()
+_klient_bedrock = None
+
+# Odpowiedz dla paczki stron nie potrzebuje 128 tys. tokenow, a tyle
+# rezerwowaloby limit przepustowosci konta przy kazdym rownoleglym wywolaniu.
+MAX_WYJSCIE_PACZKA = 64000
+
+# Obrazow w jednym zadaniu. Powyzej 20 Bedrock wymaga mniejszych obrazow
+# (najwyzej 2000 px), a my chcemy pelnej rozdzielczosci pasow.
+MAX_OBRAZOW = 20
+
+# Modele, ktore przyjmuja myslenie adaptacyjne i parametr wysilku (4.6+).
+_ADAPTACYJNE = re.compile(r"claude-(opus|sonnet|haiku)-(4-[6-9]|5)|claude-fable-5")
+# Limit odpowiedzi w rozmowie o sprawie i w podsumowaniu ustalen.
+MAX_TOKENOW_ROZMOWY = config.MAX_WYJSCIE
 
 
 def _klient():
     # Bez nazwy profilu boto3 bierze poswiadczenia ze standardowego lancucha:
-    # [default] z ~/.aws na stanowisku, rola instancji w chmurze.
-    if config.PROFIL_AWS:
-        sesja = boto3.Session(profile_name=config.PROFIL_AWS, region_name=config.REGION)
-    else:
-        sesja = boto3.Session(region_name=config.REGION)
-    return sesja.client("bedrock-runtime", config=_ustawienia)
+    # [default] z ~/.aws na stanowisku, rola zadania ECS w chmurze.
+    global _klient_bedrock
+    with _blokada:
+        if _klient_bedrock is None:
+            if config.PROFIL_AWS:
+                sesja = boto3.Session(profile_name=config.PROFIL_AWS, region_name=config.REGION)
+            else:
+                sesja = boto3.Session(region_name=config.REGION)
+            _klient_bedrock = sesja.client("bedrock-runtime", config=_ustawienia)
+        return _klient_bedrock
 
 
 class Przeciazenie(RuntimeError):
@@ -50,28 +81,62 @@ class Przeciazenie(RuntimeError):
 _PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
                  "ServiceQuotaExceededException"}
 
-# Limit odpowiedzi w rozmowie o sprawie i w podsumowaniu ustalen. Dawne 2000
-# tokenow nie wystarczalo, gdy model podsumowywal w punktach dluga rozmowe
-# (odpowiedz ucieta, notariusz dostawal blad zamiast podsumowania).
-MAX_TOKENOW_ROZMOWY = 6000
 
-
-def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[dict] | None = None) -> str:
-    """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}]."""
-    wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
-    # Chcemy odpowiedzi powtarzalnych, stad temperature 0. Modele od wersji
-    # 4.7 wzwyz nie przyjmuja juz tego parametru i odrzucaja takie zadanie,
-    # wiec pomijamy go, zamiast wywrocic aplikacje po zmianie modelu.
-    ustawienia = {"maxTokens": max_tokenow}
-    if config.przyjmuje_temperature():
+def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = None) -> tuple[dict, dict]:
+    """inferenceConfig i additionalModelRequestFields dla biezacego modelu."""
+    ustawienia: dict = {"maxTokens": max_tokenow}
+    dodatkowe: dict = {}
+    adaptacyjny = bool(_ADAPTACYJNE.search(config.MODEL))
+    if myslenie:
+        # Przy mysleniu temperatura musi zostac domyslna.
+        if adaptacyjny:
+            dodatkowe["thinking"] = {"type": "adaptive"}
+            dodatkowe["output_config"] = {"effort": wysilek or config.WYSILEK}
+        else:
+            dodatkowe["thinking"] = {"type": "enabled", "budget_tokens": max(1024, max_tokenow // 2)}
+    elif config.przyjmuje_temperature():
         ustawienia["temperature"] = 0
+    if adaptacyjny:
+        # Kontekst 1M tokenow - koncowe zestawienie duzej sprawy go potrzebuje.
+        dodatkowe["anthropic_beta"] = ["context-1m-2025-08-07"]
+    return ustawienia, dodatkowe
+
+
+def _rozmowa(
+    system: str, tresc: list[dict], max_tokenow: int | None = None,
+    historia: list[dict] | None = None, myslenie: bool | None = None,
+    wysilek: str | None = None,
+) -> str:
+    """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}].
+
+    Odpowiedz odbieramy strumieniem: dlugie odpowiedzi z mysleniem potrafia
+    trwac dluzej, niz wytrzymuje zwykle wywolanie.
+    """
+    max_tokenow = max_tokenow or config.MAX_WYJSCIE
+    myslenie = config.MYSLENIE if myslenie is None else myslenie
+    ustawienia, dodatkowe = _parametry_modelu(max_tokenow, myslenie, wysilek)
+    wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
+    zadanie = {
+        "modelId": config.MODEL,
+        "system": [{"text": system}],
+        "messages": wiadomosci,
+        "inferenceConfig": ustawienia,
+    }
+    if dodatkowe:
+        zadanie["additionalModelRequestFields"] = dodatkowe
+    czesci: list[str] = []
+    powod = None
+    uzycie: dict = {}
     try:
-        odpowiedz = _klient().converse(
-            modelId=config.MODEL,
-            system=[{"text": system}],
-            messages=wiadomosci,
-            inferenceConfig=ustawienia,
-        )
+        odpowiedz = _klient().converse_stream(**zadanie)
+        for zdarzenie in odpowiedz["stream"]:
+            if "contentBlockDelta" in zdarzenie:
+                # tylko tekst odpowiedzi; bloki myslenia (reasoningContent) pomijamy
+                czesci.append(zdarzenie["contentBlockDelta"]["delta"].get("text", ""))
+            elif "messageStop" in zdarzenie:
+                powod = zdarzenie["messageStop"].get("stopReason")
+            elif "metadata" in zdarzenie:
+                uzycie = zdarzenie["metadata"].get("usage", {})
     except ClientError as blad:
         # Ponawianie zrobil juz klient boto3. Jesli mimo to nie przeszlo,
         # limit jest wyczerpany na dluzej - mowimy o tym wprost, zamiast
@@ -83,55 +148,279 @@ def _rozmowa(system: str, tresc: list[dict], max_tokenow: int, historia: list[di
                 "Odczekaj minute i sprobuj ponownie."
             ) from blad
         raise
-    uzycie = odpowiedz.get("usage", {})
     log.info(
         "wywolanie modelu: wejscie=%s wyjscie=%s",
         uzycie.get("inputTokens"),
         uzycie.get("outputTokens"),
     )
-    czesci = odpowiedz["output"]["message"]["content"]
-    wynik = "".join(c.get("text", "") for c in czesci).strip()
+    wynik = "".join(czesci).strip()
 
-    if odpowiedz.get("stopReason") == "max_tokens":
+    if powod == "max_tokens":
         log.error("odpowiedz modelu ucieta przy limicie %d tokenow", max_tokenow)
         raise ValueError(
             f"Odpowiedz modelu zostala ucieta (limit {max_tokenow} tokenow). "
-            "Zmniejsz liczbe pol we wzorze albo liczbe stron."
+            "Podziel sprawe na mniejsze czesci."
         )
-
-    # Ostrzegaj, gdy odpowiedz jest bardzo dluga - moze byc przycięta lub zawierać błędy
-    dlugosc = len(wynik)
-    if dlugosc > 50000:
-        log.warning("Bardzo dluga odpowiedz modelu: %d znakow", dlugosc)
-
     return wynik
 
 
-def odczytaj_dane(
-    strony: list[dict], pola: list[str], opis: str, legenda: dict | None = None
-) -> dict:
-    """Przebieg 1 - odczyt danych ze skanow."""
+# ---------------------------------------------------------------- transkrypcja
+
+def transkrybuj_paczke(strony: list[dict], wysilek: str | None = None) -> list[dict]:
+    """Przebieg 1 dla kilku kolejnych stron w jednym wywolaniu.
+
+    Kazda strona idzie jako obraz calej strony plus pasy w pelnej
+    rozdzielczosci. Strony sa oznaczone "STRONA n" - po tych znacznikach
+    rozdzielamy odpowiedz. Strony, ktorych model nie oddal, wracaja z kluczem
+    "brak", zeby wywolujacy przeczytal je jeszcze raz pojedynczo.
+    """
+    obrazy = [dokumenty.obrazy_strony(s) for s in strony]
+    if len(strony) > 1 and sum(1 + len(o["pasy"]) for o in obrazy) > MAX_OBRAZOW:
+        polowa = len(strony) // 2  # wyjatkowo dlugie strony - dzielimy paczke
+        return (transkrybuj_paczke(strony[:polowa], wysilek)
+                + transkrybuj_paczke(strony[polowa:], wysilek))
+
     tresc: list[dict] = []
-    for strona in strony:
-        etykieta = f"[{strona['dokument']}, strona {strona['strona']}"
-        if strona.get("fragment"):
-            etykieta += f", {strona['fragment']} strony"
-        tresc.append({"text": etykieta + "]"})
-        if strona.get("png"):
-            tresc.append(
-                {"image": {"format": "png", "source": {"bytes": strona["png"]}}}
-            )
-        # Tekst osadzony w pliku jest dokladny - nie pochodzi z rozpoznawania
-        # obrazu, wiec ma pierwszenstwo przed tym, co widac na skanie.
-        if strona.get("tekst"):
-            tresc.append({"text": (
-                "Tekst osadzony w tym pliku (dokladny, przepisany wprost z dokumentu, "
-                "ma pierwszenstwo przed odczytem z obrazu):\n" + strona["tekst"]
-            )})
+    for nr, (strona, o) in enumerate(zip(strony, obrazy), start=1):
+        tresc.append({"text": f"=== STRONA {nr}: plik {strona['dokument']}, strona {strona['strona']} === "
+                              "Obraz calej strony (do orientacji w ukladzie)."})
+        tresc.append({"image": {"format": "png", "source": {"bytes": o["calosc"]}}})
+        for i, pas in enumerate(o["pasy"], start=1):
+            tresc.append({"text": f"STRONA {nr}, pas {i} z {len(o['pasy'])}, liczac od gory, "
+                                  "w wyzszej rozdzielczosci (pasy zachodza na siebie)."})
+            tresc.append({"image": {"format": "png", "source": {"bytes": pas}}})
+        if o["tekst"]:
+            tresc.append({"text": f"STRONA {nr} - WARSTWA TEKSTOWA PDF (dokladne znaki, "
+                                  "kolejnosc moze byc pomieszana):\n" + o["tekst"]})
+    tresc.append({"text": prompty.polecenie_transkrypcji(len(strony))})
+
+    surowa = _rozmowa(prompty.TRANSKRYPCJA, tresc, max_tokenow=MAX_WYJSCIE_PACZKA, wysilek=wysilek)
+    czesci = _podziel_na_strony(surowa, len(strony))
+    wyniki = []
+    for nr, (strona, o) in enumerate(zip(strony, obrazy), start=1):
+        if nr in czesci:
+            wynik = _naglowek_transkrypcji(czesci[nr])
+        else:
+            wynik = {"brak": True}
+        wynik.update({"dokument": strona["dokument"], "strona": strona["strona"],
+                      "pasow": len(o["pasy"]), "warstwa_tekstowa": bool(o["tekst"])})
+        wyniki.append(wynik)
+    return wyniki
+
+
+_ZNACZNIK_STRONY = re.compile(r"^=+\s*STRONA\s+(\d+)\b[^\n]*$", re.MULTILINE)
+
+
+def _podziel_na_strony(surowa: str, ile: int) -> dict[int, str]:
+    """{nr strony w paczce: jej czesc odpowiedzi}."""
+    znaczniki = list(_ZNACZNIK_STRONY.finditer(surowa))
+    if not znaczniki:
+        return {1: surowa} if ile == 1 else {}
+    czesci = {}
+    for i, z in enumerate(znaczniki):
+        koniec = znaczniki[i + 1].start() if i + 1 < len(znaczniki) else len(surowa)
+        nr = int(z.group(1))
+        if 1 <= nr <= ile:
+            czesci[nr] = surowa[z.end():koniec].strip()
+    return czesci
+
+
+def _naglowek_transkrypcji(surowa: str) -> dict:
+    """Rozdziela naglowek (TYP:, NR_KW: ...) od tresci strony."""
+    naglowek, separator, tresc = surowa.partition("\n---")
+    if not separator:  # model pominal separator - cala odpowiedz to tresc
+        naglowek, tresc = "", surowa
+    pola = {}
+    for linia in naglowek.splitlines():
+        klucz, dwukropek, wartosc = linia.partition(":")
+        if dwukropek:
+            pola[klucz.strip().upper()] = wartosc.strip()
+
+    def puste(w: str | None) -> str | None:
+        return None if not w or w.lower() in {"brak", "nie dotyczy", "-", "null"} else w
+
+    return {
+        "typ": puste(pola.get("TYP")) or "nieustalony",
+        "nr_kw": puste(pola.get("NR_KW")),
+        "poczatek": pola.get("POCZATEK_DOKUMENTU", "").lower().startswith("tak"),
+        "numeracja": puste(pola.get("NUMERACJA")),
+        "dzial": puste(pola.get("DZIAL")),
+        "tresc": tresc.lstrip("-").strip(),
+    }
+
+
+def _paczki(strony: list[dict]) -> list[list[dict]]:
+    """Kolejne strony tego samego pliku, po STRON_W_PACZCE."""
+    paczki: list[list[dict]] = []
+    for s in strony:
+        if (paczki and len(paczki[-1]) < config.STRON_W_PACZCE
+                and paczki[-1][-1]["dokument"] == s["dokument"]):
+            paczki[-1].append(s)
+        else:
+            paczki.append([s])
+    return paczki
+
+
+def transkrybuj_strony(strony: list[dict], postep=None, wysilek: str | None = None) -> list[dict]:
+    """Przebieg 1 dla calej sprawy, paczki rownolegle. Kolejnosc stron zachowana.
+
+    `postep(gotowe, wszystkie)` jest wolany po kazdej paczce (liczone w stronach).
+    """
+    paczki = _paczki(strony)
+    wyniki: list[list[dict] | None] = [None] * len(paczki)
+    gotowe = 0
+    with ThreadPoolExecutor(max_workers=max(1, config.ROWNOLEGLE)) as pula:
+        zadania = {pula.submit(_transkrybuj_z_ponowieniem, p, wysilek): i
+                   for i, p in enumerate(paczki)}
+        for zadanie in as_completed(zadania):
+            i = zadania[zadanie]
+            wyniki[i] = zadanie.result()
+            gotowe += len(paczki[i])
+            if postep:
+                postep(gotowe, len(strony))
+    return [t for paczka in wyniki for t in paczka]  # type: ignore[union-attr]
+
+
+def _transkrybuj_z_ponowieniem(paczka: list[dict], wysilek: str | None = None, proby: int = 3) -> list[dict]:
+    """Ponowienia ponad te z botocore: dlawienie potrafi trwac dluzej niz
+    jego wycofanie, a pojedyncza ucieta odpowiedz nie powinna psuc sprawy.
+    Strony pominiete w odpowiedzi czytamy jeszcze raz, kazda osobno."""
+    for proba in range(1, proby + 1):
+        try:
+            wyniki = transkrybuj_paczke(paczka, wysilek)
+            break
+        except Przeciazenie:
+            # Limit zapytan na minute - przeczekanie go to jedyne, co pomaga.
+            if proba == proby:
+                raise
+            log.warning("paczka %s/%d (%d str.): limit zapytan, czekam (%d)",
+                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), proba)
+            time.sleep(60 * proba)
+        except ClientError as blad:
+            kod = blad.response.get("Error", {}).get("Code", "")
+            if kod in {"ValidationException", "AccessDeniedException"} or proba == proby:
+                raise
+            log.warning("paczka %s/%d (%d str.): %s, ponawiam (%d)",
+                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), kod, proba)
+        except ValueError:
+            if proba == proby:
+                raise
+            log.warning("paczka %s/%d (%d str.): niepelna odpowiedz, ponawiam (%d)",
+                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), proba)
+    if len(paczka) > 1:
+        for i, w in enumerate(wyniki):
+            if w.get("brak"):
+                log.warning("strona %s/%d pominieta w paczce, czytam osobno", w["dokument"], w["strona"])
+                wyniki[i] = _transkrybuj_z_ponowieniem([paczka[i]], wysilek, proby)[0]
+    for w in wyniki:
+        if w.pop("brak", False):
+            raise ValueError(f"Nie udalo sie przepisac strony {w['strona']} pliku {w['dokument']}.")
+    return wyniki
+
+
+_STRONA_PIERWSZA = re.compile(r"\b(strona|str\.?)\s*1\s*(z|/)\s*\d+", re.IGNORECASE)
+
+
+def pogrupuj_dokumenty(transkrypcje: list[dict]) -> list[dict]:
+    """Laczy kolejne strony w dokumenty i przenosi numer KW na strony bez niego.
+
+    Nowy dokument zaczyna sie, gdy: zmienia sie plik, model rozpoznal pierwsza
+    strone dokumentu, numeracja to "strona 1 z N" albo na stronie jest inny
+    numer KW niz w biezacym dokumencie. Strona bez numeru KW nalezy do
+    dokumentu, w ktorym lezy - wlasnie takie strony mylily wczesniej odczyt.
+    """
+    grupy: list[dict] = []
+    for t in transkrypcje:
+        biezacy = grupy[-1] if grupy else None
+        nowy = (
+            biezacy is None
+            or t["dokument"] != biezacy["plik"]
+            or t.get("poczatek")
+            or bool(t.get("numeracja") and _STRONA_PIERWSZA.search(t["numeracja"]))
+            or bool(t.get("nr_kw") and biezacy["nr_kw"]
+                    and _kw(t["nr_kw"]) != _kw(biezacy["nr_kw"]))
+        )
+        if nowy:
+            biezacy = {"nr": len(grupy) + 1, "plik": t["dokument"], "typ": t.get("typ"),
+                       "nr_kw": t.get("nr_kw"), "strony": []}
+            grupy.append(biezacy)
+        elif t.get("nr_kw") and not biezacy["nr_kw"]:
+            biezacy["nr_kw"] = t["nr_kw"]
+        biezacy["strony"].append(t)
+    return grupy
+
+
+def _kw(numer: str) -> str:
+    return re.sub(r"[^0-9A-Z]", "", numer.upper())
+
+
+def _tresc_z_transkrypcji(transkrypcje: list[dict]) -> list[dict]:
+    """Transkrypcje jako tekst dla ekstrakcji: mapa dokumentow, potem
+    kazdy dokument w wyraznych granicach, z numerem KW przy kazdej stronie."""
+    grupy = pogrupuj_dokumenty(transkrypcje)
+    mapa = ["MAPA DOKUMENTOW SPRAWY (podzial ustalony z naglowkow stron):"]
+    for g in grupy:
+        zakres = f"{g['strony'][0]['strona']}-{g['strony'][-1]['strona']}"
+        mapa.append(f"- Dokument {g['nr']}: {g['typ']}"
+                    + (f", KW {g['nr_kw']}" if g["nr_kw"] else "")
+                    + f" (plik {g['plik']}, strony {zakres})")
+    czesci = ["\n".join(mapa)]
+    for g in grupy:
+        linie = [f"===== DOKUMENT {g['nr']}: {g['typ']}"
+                 + (f" | KSIEGA WIECZYSTA {g['nr_kw']}" if g["nr_kw"] else "")
+                 + f" | plik {g['plik']} ====="]
+        for t in g["strony"]:
+            kw = ""
+            if g["nr_kw"]:
+                kw = (f" | KW na stronie: {t['nr_kw']}" if t.get("nr_kw")
+                      else f" | KW na stronie: brak, strona nalezy do KW {g['nr_kw']}")
+            linie.append(f"--- [{t['dokument']}, strona {t['strona']}]"
+                         + (f" | dzial: {t['dzial']}" if t.get("dzial") else "") + kw + " ---")
+            linie.append(t.get("tresc", ""))
+        linie.append(f"===== KONIEC DOKUMENTU {g['nr']} =====")
+        czesci.append("\n".join(linie))
+    return [{"text": c} for c in czesci]
+
+
+# ---------------------------------------------------------------- ekstrakcja
+
+def odczytaj_sprawe(
+    strony: list[dict], pola: list[str], opis: str, legenda: dict | None = None,
+    postep=None, wysilek: str | None = None,
+) -> tuple[dict, list[dict]]:
+    """Pelny odczyt: transkrypcja stron, potem zestawienie danych.
+
+    Zwraca (odczyt, transkrypcje). `postep(etap, gotowe, wszystkie)`.
+    `wysilek` (low/medium/high/max) zastepuje PIECZAPP_WYSILEK dla tej sprawy.
+    """
+    transkrypcje = transkrybuj_strony(
+        strony, (lambda g, w: postep("transkrypcja", g, w)) if postep else None, wysilek
+    )
+    if postep:
+        postep("zestawienie", 0, 1)
+    return odczytaj_dane(transkrypcje, pola, opis, legenda, wysilek), transkrypcje
+
+
+def odczytaj_dane(
+    strony: list[dict], pola: list[str], opis: str, legenda: dict | None = None,
+    wysilek: str | None = None,
+) -> dict:
+    """Przebieg 2 - zestawienie danych.
+
+    `strony` to transkrypcje z transkrybuj_strony (klucz "tresc") albo,
+    dla malych spraw i testow, strony z gotowym obrazem (klucz "png").
+    """
+    if strony and all("tresc" in s for s in strony):
+        tresc = _tresc_z_transkrypcji(strony)
+    else:
+        tresc = []
+        for strona in strony:
+            tresc.append({"text": f"[{strona['dokument']}, strona {strona['strona']}]"})
+            tresc.append({"image": {"format": "png", "source": {"bytes": strona["png"]}}})
     pola_pelne = list(pola) + [p for p in prompty.POLA_STALE if p not in pola]
     tresc.append({"text": prompty.polecenie_ekstrakcji(pola_pelne, opis, legenda)})
 
-    surowa = _rozmowa(prompty.EKSTRAKCJA, tresc, max_tokenow=32000)
+    surowa = _rozmowa(prompty.EKSTRAKCJA, tresc, wysilek=wysilek)
     wynik = _wczytaj_json(surowa)
     wynik["pola"] = _przypisz_nazwy(wynik.get("pola", []), pola_pelne)
     return wynik
@@ -167,7 +456,7 @@ def sporzadz_projekt(
     """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy."""
     ustalenia = _ustalenia(rozmowa or [])
     tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia)}]
-    return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc, max_tokenow=24000))
+    return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc))
 
 
 def _ustalenia(rozmowa: list[dict]) -> str:
@@ -208,7 +497,7 @@ def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
     if not pola:
         return []
     tresc = [{"text": prompty.polecenie_formularza(tekst_aktu, pola)}]
-    surowa = _rozmowa(prompty.FORMULARZ, tresc, max_tokenow=8000)
+    surowa = _rozmowa(prompty.FORMULARZ, tresc)
     wynik = _wczytaj_json(surowa)
 
     nazwy_pol = {p["nazwa"] for p in pola}
@@ -279,7 +568,7 @@ def _wczytaj_json(tekst: str) -> dict:
         )
         raise ValueError(
             f"Model zwrocil niepoprawny JSON ({e.msg}, linia {e.lineno}). "
-            "Jesli odpowiedz byla ucieta, zmniejsz liczbe pol albo stron."
+            "Sprobuj ponownie."
         ) from e
 
 
@@ -319,5 +608,5 @@ def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
     from pomocnik import klikamy
 
     tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki)
-    odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700)
+    odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700, myslenie=False)
     return klikamy.odpowiedz_na_slownik(odpowiedz)

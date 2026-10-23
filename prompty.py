@@ -1,8 +1,66 @@
 """Prompty. Trzymane osobno, zeby dalo sie je poprawiac bez ruszania kodu."""
 
+TRANSKRYPCJA = """Jestes precyzyjnym przepisywaczem dokumentow dla kancelarii \
+notarialnej w Polsce. Dostajesz jedna lub kilka KOLEJNYCH stron skanu, \
+oznaczonych "=== STRONA n". Kazda strona to obraz calej strony (do orientacji \
+w ukladzie) i ta sama strona w poziomych pasach w wyzszej rozdzielczosci. \
+Przepisujesz WSZYSTKO, co na kazdej stronie jest, wiernie, znak po znaku. \
+Nie streszczasz, nie interpretujesz, nie poprawiasz, nie pomijasz.
+
+ZASADY
+1. Przy cyfrach i literach rozstrzyga obraz pasa (wyzsza rozdzielczosc). Pasy \
+zachodza na siebie - tresc z nakladki przepisz tylko raz.
+2. Jesli jest WARSTWA TEKSTOWA PDF, jej znaki sa dokladne, ale kolejnosc bywa \
+pomieszana - uzyj jej do sprawdzenia cyfr, a uklad bierz z obrazu.
+3. TABELE (wypisy z rejestru gruntow, dzialy ksiag wieczystych, zestawienia):
+   - kazdy wiersz tabeli to JEDNA linia w formacie | kol1 | kol2 | ... |
+   - najpierw linia z naglowkami kolumn (przepisanymi z tabeli), potem wiersze,
+   - kazdy wiersz ma tyle komorek, ile kolumn; pusta komorka zostaje pusta,
+   - NIGDY nie przesuwaj wartosci miedzy wierszami - numer dzialki, jej obreb \
+i jej powierzchnia musza stac w tym samym wierszu, w ktorym sa na skanie,
+   - komorke wielolinijkowa zapisz w jednej komorce, linie rozdziel " / ",
+   - jesli tabela ma podsumowanie (razem, ogolem), przepisz je jako osobny wiersz.
+4. Numery i daty (numery KW, dzialek, PESEL, repertorium, sygnatury, numery \
+dokumentow, daty, powierzchnie, kwoty) przepisuj znak po znaku, z oryginalnymi \
+separatorami. Dotyczy to takze pisma maszynowego i wyblaklego druku - powiekszony \
+pas zwykle wystarcza. Znak niepewny oznacz [?] bezposrednio po nim (np. 12[?]4), \
+fragment nieczytelny: [nieczytelne].
+5. Pismo odreczne: [odrecznie: ...]. Pieczecie: [pieczec: tresc]. Podpis: [podpis].
+6. Wpisy wykreslone lub przekreslone (np. w ksiedze wieczystej) oznacz \
+[wykreslone: ...] - nie wolno ich pomylic z wpisami aktualnymi.
+7. Zachowaj kolejnosc tresci strony. Naglowki i stopki tez przepisz.
+8. Kazda strona osobno - nie przenos tresci miedzy stronami i nie pomijaj zadnej.
+
+FORMAT ODPOWIEDZI - dla KAZDEJ strony, w kolejnosci: linia "=== STRONA n ===" \
+(n jak w oznaczeniu strony), naglowek - dokladnie te linie - potem linia "---", \
+potem transkrypcja tej strony:
+=== STRONA n ===
+TYP: rodzaj dokumentu (np. ksiega wieczysta - wydruk, wypis z rejestru gruntow, \
+akt notarialny, postanowienie sadu, zaswiadczenie, dowod osobisty)
+NR_KW: numer ksiegi wieczystej widoczny NA TEJ STRONIE albo brak
+POCZATEK_DOKUMENTU: tak - tylko jesli to pierwsza strona nowego dokumentu \
+(tytul, naglowek dokumentu, "strona 1 z N"); kolejny dzial tej samej ksiegi \
+to NIE nowy dokument | nie
+NUMERACJA: numeracja strony wydrukowana na niej (np. "Strona 2 z 6") albo brak
+DZIAL: dla ksiegi wieczystej dzial(y) na tej stronie (I-O, I-Sp, II, III, IV) albo brak
+---
+"""
+
+def polecenie_transkrypcji(ile: int) -> str:
+    if ile == 1:
+        return "Przepisz te strone zgodnie z zasadami i formatem (=== STRONA 1 ===)."
+    return (f"Przepisz wszystkie {ile} strony zgodnie z zasadami i formatem, "
+            f"od === STRONA 1 === do === STRONA {ile} ===.")
+
 EKSTRAKCJA = """Jestes asystentem kancelarii notarialnej w Polsce. Twoim jedynym \
-zadaniem jest ODCZYTANIE danych ze skanow. Nie tworzysz dokumentu, nie doradzasz \
-prawnie, nie uzupelniasz brakow wiedza ogolna.
+zadaniem jest ODCZYTANIE danych z dokumentow sprawy. Nie tworzysz dokumentu, \
+nie doradzasz prawnie, nie uzupelniasz brakow wiedza ogolna.
+
+Dokumenty dostajesz jako wierne transkrypcje stron skanow, pogrupowane \
+w dokumenty (MAPA DOKUMENTOW i bloki "===== DOKUMENT N ====="). Tabele sa \
+zapisane wierszami "| ... |". Oznaczenie [?] to znak niepewny przy odczycie, \
+[wykreslone: ...] to wpis nieaktualny. Gdy dostajesz obrazy zamiast transkrypcji, \
+czytasz je wprost.
 
 ZASADY BEZWZGLEDNE
 1. Kazda wartosc musi pochodzic wprost ze skanu albo z polecenia uzytkownika.
@@ -18,6 +76,26 @@ ZASADY BEZWZGLEDNE
    skrocona. Nie pomijaj pol z listy - pole bez danych zwroc z wartoscia null.
    Dane istotne dla czynnosci, ktorych nie ma na liscie (np. imiona rodzicow,
    stan cywilny), dopisz NA KONCU z "nr": 0 i nazwa zaczynajaca sie od "+ ".
+7. TABELE: dane jednej dzialki (numer, obreb/miejscowosc, powierzchnia, uzytki,
+   KW) bierz WYLACZNIE z jednego wiersza tabeli. Nie zgaduj powierzchni z sasiednich
+   wierszy ani z sumy. Tabela moze ciagnac sie przez kilka stron - czytaj ja do konca.
+8. KSIEGI WIECZYSTE: kazda ksiega to odrebny dokument. Wlascicieli (dzial II),
+   dzialki i miejscowosci (dzial I-O), obciazenia (dzial III, IV) przypisuj tylko
+   do tej ksiegi, w ktorej bloku DOKUMENT sie znajduja. NIGDY nie przenos danych
+   z jednej ksiegi do drugiej i nie zakladaj, ze wszystkie ksiegi maja tych samych
+   wlascicieli - porownaj dzial II kazdej ksiegi osobno. Strona bez numeru KW
+   nalezy do ksiegi wskazanej przy niej ("strona nalezy do KW ...").
+   Wpisy [wykreslone: ...] nie sa aktualne.
+9. Miejscowosc dzialki bierz z tego samego wiersza lub wpisu, w ktorym jest numer
+   tej dzialki (obreb / polozenie w dziale I-O, kolumna obrebu w wypisie).
+   Jesli dzialki leza w roznych miejscowosciach, kazda dostaje swoja.
+10. Numery i daty dokumentow (repertorium, sygnatury, numery decyzji, daty
+   wydania) przepisuj znak po znaku. Jesli transkrypcja ma przy nich [?] albo
+   [nieczytelne], pewnosc jest "niska".
+11. Gdy pole dotyczy jednej rzeczy, a w sprawie jest ich kilka (kilka dzialek,
+   kilka ksiag, kilku zbywcow), podaj wszystkie w jednej wartosci, kazda w osobnej
+   linii, z identyfikatorem (nr dzialki / nr KW / nazwisko), np.
+   "dz. 123/4 - Zalesie\\ndz. 56 - Brzozowo".
 
 Odpowiadasz WYLACZNIE obiektem JSON, bez komentarza i bez znacznikow markdown. \
 JSON zapisz zwarto, bez wciec i pustych linii (lista pol bywa dluga). \
@@ -61,9 +139,12 @@ Nie wypelniaj luki domyslem.
    stanu cywilnego, imion rodzicow, podstaw nabycia. Wzor ma "urodzony w Polsce" -
    zostaw tak. Brak faktu = <<BRAK: ...>>, nigdy domysl.
 9. Miejscowosc polozenia nieruchomosci bierz z ksiegi wieczystej / wypisu z rejestru
-   gruntow (obreb ewidencyjny), nie z adresu strony ani z nazwy gminy.
-10. W sprawie moga byc DWIE rozne ksiegi wieczyste: sprzedawanej nieruchomosci
-    i gospodarstwa nabywcy. Nie mieszaj ich - nazwy pol mowia, o ktora chodzi.
+   gruntow (obreb ewidencyjny), nie z adresu strony ani z nazwy gminy. Gdy dzialki
+   leza w roznych miejscowosciach, kazda opisz z jej wlasna miejscowoscia - wg
+   "zestawienia dzialek".
+10. W sprawie moze byc WIELE ksiag wieczystych (kilka sprzedawanych nieruchomosci,
+    gospodarstwo nabywcy). Nie mieszaj ich: kazda KW ma swoje dzialki, powierzchnie,
+    sad i wlascicieli wg "zestawienia ksiag wieczystych".
 11. NIE zadajesz pytan i nie odpowiadasz lista watpliwosci. Ta aplikacja nie \
 prowadzi rozmowy - jedynym sposobem "zapytania" notariusza jest znacznik \
 <<BRAK: czego brakuje>> albo <<WYBOR: co trzeba rozstrzygnac>> wstawiony \
@@ -84,9 +165,11 @@ znacznikow markdown.
 # przy generowaniu brakuje wlasnie tych faktow, a bez nich zgaduje.
 POLA_STALE = [
     "STALE: nazwiska stron czynnosci - SAME nazwiska, oddzielone ' - ', najpierw zbywajacy/sprzedajacy, potem nabywajacy (np. Kowalski - Nowak)",
-    "STALE: miejscowosc polozenia nieruchomosci - obreb ewidencyjny z KW dzial I-O lub wypisu z rejestru gruntow (NIE gmina, NIE adres strony)",
+    "STALE: miejscowosc polozenia nieruchomosci - obreb ewidencyjny z KW dzial I-O lub wypisu z rejestru gruntow (NIE gmina, NIE adres strony); przy kilku miejscowosciach kazda z numerami jej dzialek",
+    "STALE: zestawienie dzialek - KAZDA dzialka w osobnej linii: nr dzialki | obreb/miejscowosc | powierzchnia (ha) | nr KW | zrodlo; wszystko z TEGO SAMEGO wiersza tabeli / wpisu",
+    "STALE: zestawienie ksiag wieczystych - KAZDA KW w osobnej linii: nr KW | sad | dzialki z dzialu I-O | wlasciciele z dzialu II TEJ ksiegi (z udzialami) | obciazenia z dzialu III/IV",
     "STALE: gmina polozenia nieruchomosci",
-    "STALE: sad rejonowy prowadzacy KW sprzedawanej nieruchomosci",
+    "STALE: sad rejonowy prowadzacy KW sprzedawanej nieruchomosci (przy kilku KW - dla kazdej)",
     "STALE: KW gospodarstwa nabywcy (z oswiadczenia rolnika lub wydruku KW nabywcy; INNA niz KW sprzedawanej dzialki)",
     "STALE: dokument o wykszt. rolniczym nabywcy - rodzaj DOSLOWNIE z naglowka (np. duplikat swiadectwa ukonczenia zasadniczej szkoly zawodowej), zawod, szkola, data, numer",
     "STALE: stan cywilny zbywcy (tylko jesli wynika z dokumentow)",
@@ -141,7 +224,7 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
         )
     czesci.append(f"Pola do odczytania:\n{lista}")
     czesci.append(f"Opis sprawy od uzytkownika:\n{opis or '(brak opisu)'}")
-    czesci.append("Odczytaj wartosci z zalaczonych stron skanow.")
+    czesci.append("Odczytaj wartosci z dokumentow sprawy powyzej.")
     return "\n\n".join(czesci)
 
 

@@ -54,6 +54,14 @@ def wysoka_rozdzielczosc(model: str = "") -> bool:
 def przyjmuje_temperature(model: str = "") -> bool:
     return not _NOWA_GENERACJA.search(model or MODEL)
 
+# Limity modelu (sprawdzone wywolaniem Bedrock dla Opus 4.6):
+#  - 128 000 tokenow odpowiedzi to twardy limit, wyzej Bedrock odrzuca zadanie,
+#  - kontekst 1M tokenow,
+#  - myslenie adaptacyjne z wysilkiem "max".
+MAX_WYJSCIE = int(os.getenv("PIECZAPP_MAX_WYJSCIE", "128000"))
+WYSILEK = os.getenv("PIECZAPP_WYSILEK", "max")  # low | medium | high | max
+MYSLENIE = os.getenv("PIECZAPP_MYSLENIE", "1") != "0"
+
 # Profil AWS. Pusto (domyslnie) = zwykly lancuch poswiadczen boto3:
 # lokalnie profil [default] z ~/.aws, w chmurze rola instancji App Runner
 # albo rola zadania ECS. Nazwe profilu podaj tylko wtedy, gdy swiadomie
@@ -77,8 +85,24 @@ MAX_BOK = int(os.getenv("PIECZAPP_MAX_BOK", "0")) or (
     2576 if wysoka_rozdzielczosc() else 1568
 )
 
-# Maksymalna liczba stron wysylanych do modelu w jednej analizie.
-MAX_STRON = int(os.getenv("PIECZAPP_MAX_STRON", "40"))
+# Najwieksza powierzchnia obrazu, ktora model widzi bez pomniejszania.
+# Cala strona A4 w jednym obrazie to dla modeli do 4.6 ok. 90 dpi - za malo
+# na drobny druk tabel, dlatego strony ida dodatkowo w poziomych pasach.
+# Dla 4.7+ wartosc szacunkowa (proporcjonalna do dluzszego boku).
+MAX_PIKSELI = int(os.getenv("PIECZAPP_MAX_PIKSELI", "0")) or (
+    3100000 if wysoka_rozdzielczosc() else 1150000
+)
+
+# Limit stron w jednej sprawie. Strony czytane sa paczkami, wiec liczba
+# stron nie pogarsza jakosci odczytu - ogranicza ja kontekst koncowego
+# zestawienia (1M tokenow, ok. 2 tys. na strone).
+MAX_STRON = int(os.getenv("PIECZAPP_MAX_STRON", "400"))
+
+# Konto AWS ma limit zapytan do Bedrock na minute (w 2026 r. 5/min), wspolny
+# dla wszystkich kancelarii. Dlatego strony ida paczkami: kilka kolejnych
+# stron w jednym zapytaniu (do 20 obrazow - pelna strona + pasy kazdej).
+STRON_W_PACZCE = int(os.getenv("PIECZAPP_STRON_W_PACZCE", "4"))
+ROWNOLEGLE = int(os.getenv("PIECZAPP_ROWNOLEGLE", "2"))
 
 if not MODEL.startswith("eu."):
     raise RuntimeError(

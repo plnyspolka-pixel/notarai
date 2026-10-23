@@ -77,19 +77,20 @@ class TestRozdzielczoscModelu:
         from unittest.mock import MagicMock
         import bedrock
         klient = MagicMock()
-        klient.converse.return_value = {
-            "output": {"message": {"content": [{"text": "ok"}]}},
-            "usage": {}, "stopReason": "end_turn",
-        }
+        klient.converse_stream.side_effect = lambda **kw: {"stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "ok"}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+        ])}
         monkeypatch.setattr(bedrock, "_klient", lambda: klient)
 
+        # bez myslenia (np. klikanie) - temperatura 0 tam, gdzie model ja przyjmuje
         monkeypatch.setattr(bedrock.config, "MODEL", "eu.anthropic.claude-opus-4-6-v1")
-        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
-        assert klient.converse.call_args.kwargs["inferenceConfig"]["temperature"] == 0
+        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10, myslenie=False)
+        assert klient.converse_stream.call_args.kwargs["inferenceConfig"]["temperature"] == 0
 
         monkeypatch.setattr(bedrock.config, "MODEL", "eu.anthropic.claude-opus-5")
-        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
-        assert "temperature" not in klient.converse.call_args.kwargs["inferenceConfig"]
+        bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10, myslenie=False)
+        assert "temperature" not in klient.converse_stream.call_args.kwargs["inferenceConfig"]
 
     def test_max_bok_idzie_za_modelem(self, monkeypatch):
         import importlib
@@ -129,7 +130,7 @@ class TestPrzeciazenieModelu:
         from unittest.mock import MagicMock
         import bedrock
         klient = MagicMock()
-        klient.converse.side_effect = self._atrapa_bledu(kod)
+        klient.converse_stream.side_effect = self._atrapa_bledu(kod)
         monkeypatch.setattr(bedrock, "_klient", lambda: klient)
         with pytest.raises(bedrock.Przeciazenie) as blad:
             bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
@@ -140,61 +141,10 @@ class TestPrzeciazenieModelu:
         from botocore.exceptions import ClientError
         import bedrock
         klient = MagicMock()
-        klient.converse.side_effect = self._atrapa_bledu("AccessDeniedException")
+        klient.converse_stream.side_effect = self._atrapa_bledu("AccessDeniedException")
         monkeypatch.setattr(bedrock, "_klient", lambda: klient)
         with pytest.raises(ClientError):
             bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
-
-
-class TestPrzygotowanieStron:
-    """Co trafia do modelu: tekst, obraz, podzial strony i limity zadania."""
-
-    def test_warstwa_tekstowa_idzie_obok_obrazu(self, tmp_path):
-        from dokumenty import strony_ze_skanow
-        strony = strony_ze_skanow([_pdf_z_tekstem(tmp_path / "wypis.pdf")])
-        assert strony, "dokument nie zostal przetworzony"
-        assert all("ZASWIADCZENIE" in s["tekst"] for s in strony)
-        assert any(s.get("png") for s in strony)
-
-    def test_skan_bez_tekstu_dzielony_na_dwie_czesci(self, tmp_path):
-        from dokumenty import strony_ze_skanow
-        strony = strony_ze_skanow([_pdf_skan(tmp_path / "skan.pdf")])
-        assert [s.get("fragment") for s in strony] == ["gora", "dol"]
-        assert all(s["tekst"] == "" for s in strony)
-
-    def test_czesci_zachodza_na_siebie(self, tmp_path):
-        """Podzial nie moze uciac wiersza przechodzacego przez srodek strony.
-
-        Porownujemy proporcje, nie piksele - obraz moze byc po drodze
-        pomniejszony do tego, ile widzi model.
-        """
-        from PIL import Image
-        from dokumenty import strony_ze_skanow
-        strony = strony_ze_skanow([_pdf_skan(tmp_path / "skan.pdf")])
-        proporcja_strony = 3508 / 2480
-        for s in strony:
-            obraz = Image.open(io.BytesIO(s["png"]))
-            proporcja = obraz.height / obraz.width
-            assert proporcja > proporcja_strony / 2, "czesc krotsza niz polowa strony"
-            assert proporcja < proporcja_strony, "czesc nie moze byc cala strona"
-
-    def test_duza_sprawa_miesci_sie_w_limicie_zadania(self, tmp_path):
-        """Powyzej 20 obrazow API wymaga mniejszych stron - inaczej odrzuca zadanie."""
-        from PIL import Image
-        from dokumenty import strony_ze_skanow, MAX_BOK_WIELE_OBRAZOW
-        strony = strony_ze_skanow([_pdf_skan(tmp_path / "duzy.pdf", stron=25)])
-        assert all("fragment" not in s for s in strony), "przy duzej sprawie nie dzielimy stron"
-        boki = [max(Image.open(io.BytesIO(s["png"])).size) for s in strony]
-        assert max(boki) <= MAX_BOK_WIELE_OBRAZOW
-
-    def test_strona_w_limicie_nie_jest_dzielona(self, tmp_path):
-        """Maly obraz nie zyskuje na podziale, wiec go nie dzielimy."""
-        from PIL import Image
-        from dokumenty import strony_ze_skanow
-        maly = tmp_path / "dowod.png"
-        Image.new("L", (1200, 800), 255).save(maly)
-        strony = strony_ze_skanow([maly])
-        assert len(strony) == 1 and "fragment" not in strony[0]
 
 
 class TestPolaZeWzoru:
@@ -391,3 +341,14 @@ class TestTekstNaDocx:
             pierwszy = doc.paragraphs[0]
             # Sprawdz czy tekst zostal zapisany
             assert "AKT NOTARIALNY" in pierwszy.text or len(pierwszy.runs) > 0
+
+
+def test_projekt_docx_ma_oznaczenie_ai_w_metadanych(tmp_path):
+    """Plik niesie maszynowo czytelna informacje, ze powstal z udzialem AI."""
+    from docx import Document
+    import dokumenty
+    cel = dokumenty.tekst_na_docx("AKT NOTARIALNY\n\nTreść projektu.", tmp_path / "projekt.docx")
+    wl = Document(cel).core_properties
+    assert "sztucznej inteligencji" in wl.comments
+    assert "AI-generated" in wl.keywords
+    assert wl.author == "notarai"

@@ -102,6 +102,19 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
 .upload .nazwy{color:var(--tekst);font-weight:500;word-break:break-word}
 
 /* composer jak w czacie */
+/* przelacznik dokladnosci odczytu */
+.dokladnosc{margin-top:16px}
+.przelacznik{display:inline-flex;border:1px solid var(--linia2);border-radius:var(--r2);
+  background:var(--tlo);padding:3px;gap:3px;flex-wrap:wrap}
+.przelacznik input{position:absolute;opacity:0;pointer-events:none}
+.przelacznik label{padding:7px 14px;border-radius:calc(var(--r2) - 3px);font-size:13.5px;
+  color:var(--tekst2);cursor:pointer;user-select:none}
+.przelacznik label:hover{color:var(--tekst)}
+.przelacznik input:checked + label{background:var(--karta);color:var(--tekst);font-weight:500;
+  box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.przelacznik input:focus-visible + label{outline:2px solid var(--akcent);outline-offset:1px}
+.opis-dokl{font-size:12.5px;color:var(--tekst3);margin-top:7px;line-height:1.45}
+
 .composer{border:1px solid var(--linia2);border-radius:18px;background:var(--karta);
   padding:14px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .composer textarea{width:100%;border:0;background:transparent;font:inherit;color:var(--tekst);
@@ -381,6 +394,15 @@ notarai</div>
       <span><b>Przeciągnij tu wzór aktu i skany</b> albo kliknij, żeby wybrać.<br>
         <small>Wzór to plik .docx lub .txt, skany to PDF-y albo zdjęcia, ile trzeba.</small></span></label>
     <div class="wybrane" id="wybrane"></div>
+    <div class="dokladnosc">
+      <span class="etykieta" id="dokl-etykieta">Dokładność odczytu</span>
+      <div class="przelacznik" role="radiogroup" aria-labelledby="dokl-etykieta">
+        <input type="radio" name="wysilek" id="wys-max" value="max" checked><label for="wys-max">Maksymalna</label>
+        <input type="radio" name="wysilek" id="wys-high" value="high"><label for="wys-high">Wysoka</label>
+        <input type="radio" name="wysilek" id="wys-medium" value="medium"><label for="wys-medium">Szybka</label>
+      </div>
+      <div class="opis-dokl" id="opis-dokl"></div>
+    </div>
   </div>
 
   <div class="composer">
@@ -1806,6 +1828,53 @@ async function zapiszSpraweNaDysku(wynik, wzor, skany){
   await dysk.zapiszPlik(katalog, "kontekst.txt", wynik.kontekst || "");
 }
 
+/* ---------- dokladnosc odczytu ---------- */
+const OPISY_DOKL = {
+  max: "Model najdłużej analizuje każdą stronę. Do dużych i trudnych spraw: tabele, kilka ksiąg, wyblakły maszynopis. Najwolniej i najdrożej.",
+  high: "Krócej myśli nad każdą stroną. Zwykle wystarcza przy czytelnych skanach. Szybciej i taniej.",
+  medium: "Najszybciej i najtaniej. Do prostych spraw z kilkoma wyraźnymi dokumentami. Sprawdzaj uważniej numery i tabele.",
+};
+function wybranaDokladnosc() {
+  return (document.querySelector('input[name="wysilek"]:checked') || {}).value || "max";
+}
+function opiszDokladnosc() { $("opis-dokl").textContent = OPISY_DOKL[wybranaDokladnosc()]; }
+try {
+  const zapisana = localStorage.getItem("notarai-wysilek");
+  if (zapisana && OPISY_DOKL[zapisana]) $("wys-" + zapisana).checked = true;
+} catch (e) {}
+document.querySelectorAll('input[name="wysilek"]').forEach(r => r.onchange = () => {
+  opiszDokladnosc();
+  try { localStorage.setItem("notarai-wysilek", wybranaDokladnosc()); } catch (e) {}
+});
+opiszDokladnosc();
+
+/* Odczyt duzej sprawy trwa dluzej niz kwadrans, a posrednik (ALB) zrywa
+   polaczenie po kwadransie ciszy. Serwer przysyla wiec linie JSON: postep,
+   znaki zycia i na koncu wynik albo blad. */
+async function czytajStrumien(odp, naPostep) {
+  if (!odp.ok || !(odp.headers.get("content-type") || "").includes("ndjson")) {
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    return w;
+  }
+  const czytnik = odp.body.getReader(), dekoder = new TextDecoder();
+  let bufor = "";
+  for (;;) {
+    const {value, done} = await czytnik.read();
+    bufor += dekoder.decode(value || new Uint8Array(), {stream: !done});
+    let nl;
+    while ((nl = bufor.indexOf("\n")) >= 0) {
+      const linia = bufor.slice(0, nl).trim(); bufor = bufor.slice(nl + 1);
+      if (!linia) continue;
+      const w = JSON.parse(linia);
+      if (w.postep) naPostep(w.postep);
+      else if ("wynik" in w) return w.wynik;
+      else if (w.blad) throw new Error(w.blad);
+    }
+    if (done) throw new Error("Połączenie z serwerem przerwane w trakcie odczytu. Spróbuj ponownie.");
+  }
+}
+
 /* ---------- 1: odczyt ---------- */
 $("btn-odczytaj").onclick = async () => {
   const wzor = wybranyWzor, skany = wybraneSkany;
@@ -1819,20 +1888,28 @@ $("btn-odczytaj").onclick = async () => {
   poleceniePierwotne = $("polecenie").value;
   dane.append("polecenie", poleceniePierwotne);
   dane.append("sygnatura", "");
+  dane.append("wysilek", wybranaDokladnosc());
   $("btn-odczytaj").disabled = true;
-  // Odczyt trwa minuty - licznik pokazuje, ze cos sie dzieje.
+  // Odczyt trwa minuty - licznik i postep pokazuja, ze cos sie dzieje.
   const start = Date.now();
+  let etap = "Wysyłam skany…";
   const tik = () => {
     const s = Math.round((Date.now() - start) / 1000);
-    stan($("stan1"), "Odczytuję skany… " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0")
-      + " (zwykle 1–3 minuty)", false, true);
+    stan($("stan1"), etap + " " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"), false, true);
+  };
+  const naPostep = p => {
+    if (p.etap === "transkrypcja")
+      etap = `Czytam strony: ${p.gotowe} z ${p.wszystkie}. Każda strona w pełnej rozdzielczości.`;
+    else if (p.etap === "zestawienie")
+      etap = "Strony przeczytane. Zestawiam dane z całej sprawy…";
+    tik();
   };
   tik();
   const zegar = setInterval(tik, 1000);
   try {
-    const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy", {method:"POST", body:dane});
-    const wynik = await odp.json();
-    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy",
+      {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
+    const wynik = await czytajStrumien(odp, naPostep);
     if (dysk.aktywny) {
       // Serwer nic nie zapisal - sprawe zakladamy u notariusza na dysku.
       wynik.id = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16)).slice(0, 12);
