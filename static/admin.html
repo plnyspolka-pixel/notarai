@@ -85,6 +85,8 @@ button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
 .stopka-kanc{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--linia);align-items:center}
 .token-pokaz{font:13px var(--mono);word-break:break-all;background:var(--tlo2);padding:10px 12px;border-radius:var(--r2);margin-top:10px}
 .szukaj{margin-bottom:14px}
+a.odnosnik-a{color:var(--tekst3);font-size:12.5px;padding:5px 4px}
+a.odnosnik-a:hover{color:var(--tekst)}
 @media(max-width:620px){.para,.wybor{grid-template-columns:1fr}.karta{padding:18px 16px}}
 </style>
 </head>
@@ -93,21 +95,58 @@ button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
   <div class="logo"><img src="/static/logo.png" alt="">notarai <small>administracja</small></div>
 
   <!-- wejscie: token administratora z Secrets Manager (notarai/admin-token) -->
+  <!-- wejscie: e-mail i haslo administratora; token z Secrets Manager tylko awaryjnie -->
   <section id="widok-wejscie" hidden>
     <h1>Panel administracyjny</h1>
-    <p class="pod">Tu zakładasz kancelarie. Wklej token administratora — znajdziesz go w konsoli AWS:
-      Secrets Manager → <code>notarai/admin-token</code> → Retrieve secret value.
-      Przeglądarka zapamięta go do zamknięcia karty.</p>
-    <div class="karta">
+    <p class="pod">Tu zakładasz kancelarie. Zaloguj się adresem e-mail administratora —
+      przeglądarka pamięta logowanie przez 30 dni.</p>
+
+    <div class="karta" id="karta-haslo">
+      <div class="pole">
+        <label class="etykieta" for="pole-email">Adres e-mail</label>
+        <input type="email" id="pole-email" autocomplete="username" spellcheck="false">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="pole-haslo">Hasło</label>
+        <input type="password" id="pole-haslo" autocomplete="current-password">
+      </div>
+      <div class="pasek"><button id="btn-zaloguj">Zaloguj</button><span class="stan" id="stan-wejscie"></span></div>
+      <div class="pasek">
+        <a class="odnosnik-a" href="/">Nie pamiętam hasła</a>
+        <button class="odnosnik" id="btn-pokaz-token">Wejdź tokenem awaryjnym</button>
+      </div>
+    </div>
+
+    <div class="karta" id="karta-nowe" hidden>
+      <h2>Ustaw własne hasło</h2>
+      <p class="stan" style="margin:0 0 14px">Hasło z zaproszenia jest jednorazowe. Minimum 12 znaków, w tym wielka litera, mała litera i cyfra.</p>
+      <div class="pole">
+        <label class="etykieta" for="pole-nowe">Nowe hasło</label>
+        <input type="password" id="pole-nowe" autocomplete="new-password">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="pole-nowe2">Powtórz hasło</label>
+        <input type="password" id="pole-nowe2" autocomplete="new-password">
+      </div>
+      <div class="pasek"><button id="btn-nowe">Zapisz i wejdź</button><span class="stan" id="stan-nowe"></span></div>
+    </div>
+
+    <div class="karta" id="karta-token" hidden>
+      <p class="stan" style="margin:0 0 14px">Token awaryjny jest w konsoli AWS: Secrets Manager →
+        <code>notarai/admin-token</code> → Retrieve secret value. Potrzebny tylko wtedy, gdy nikt nie może się zalogować.</p>
       <div class="pole">
         <label class="etykieta" for="pole-admin">Token administratora</label>
         <input type="password" id="pole-admin" autocomplete="off" spellcheck="false">
       </div>
-      <div class="pasek"><button id="btn-wejdz">Wejdź</button><span class="stan" id="stan-wejscie"></span></div>
+      <div class="pasek"><button id="btn-wejdz">Wejdź</button><span class="stan" id="stan-token"></span>
+        <button class="odnosnik" id="btn-wroc-haslo">Wróć do logowania</button></div>
     </div>
   </section>
 
   <section id="widok-panel" hidden>
+    <div class="sukces" id="baner-token" hidden style="margin:0 0 24px">Wszedłeś tokenem awaryjnym.
+      Dodaj swój adres w sekcji <b>Administratorzy</b> na dole strony — od tej chwili logujesz się
+      tu e-mailem i hasłem, bez konsoli AWS.</div>
     <h1>Nowa kancelaria</h1>
     <p class="pod">Jeden formularz. Notariusz dostaje e-mail z hasłem tymczasowym, loguje się
       na app.notarai.pl i od razu może pracować. Swój zespół zaprasza już sam.</p>
@@ -141,16 +180,29 @@ button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
     <p class="pod" id="licznik"></p>
     <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
     <div id="lista"><span class="stan praca">Ładuję…</span></div>
-    <div class="pasek"><button class="odnosnik" id="btn-wyjdz">Zamknij panel (zapomnij token w tej karcie)</button></div>
+    <h1 style="margin-top:40px">Administratorzy</h1>
+    <p class="pod">Osoby, które zakładają kancelarie. Logują się tutaj e-mailem i hasłem.
+      Adres administratora nie może być jednocześnie kontem w kancelarii.</p>
+    <div class="karta">
+      <div id="admini"></div>
+      <div class="zapros"><input type="email" id="nowy-admin" placeholder="e-mail administratora" spellcheck="false">
+        <button class="wtorny" id="btn-nowy-admin">Zaproś</button></div>
+      <span class="stan" id="stan-admini"></span>
+    </div>
+    <div class="pasek"><span class="stan" id="kto"></span><button class="odnosnik" id="btn-wyjdz">Wyloguj</button></div>
   </section>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
+/* Token logowania (JWT) trzymamy tylko w pamieci - po przeladowaniu strony
+   przegladarka dostaje nowy z ciasteczka odnawiania (30 dni). Token awaryjny
+   z Secrets Manager pamietamy do zamkniecia karty. */
 const KLUCZ = "notarai_admin";
 let token = "";
 try { token = sessionStorage.getItem(KLUCZ) || ""; } catch { /* tryb prywatny */ }
-let kancelarie = [];
+let kancelarie = [], sesjaNowego = "", emailNowego = "";
+const czyJwt = t => (t || "").split(".").length === 3;
 
 function escape(t){
   return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -160,44 +212,169 @@ function stan(el, tekst, blad, praca){
 }
 function data(iso){ return iso ? new Date(iso).toLocaleDateString("pl-PL") : ""; }
 
+async function odnow(){
+  try {
+    const odp = await fetch("/api/logowanie/odnow", {method: "POST"});
+    if (!odp.ok) return false;
+    token = (await odp.json()).token;
+    return true;
+  } catch { return false; }
+}
+
 async function api(adres, opcje = {}){
-  const naglowki = new Headers(opcje.headers || {});
-  naglowki.set("Authorization", "Bearer " + token);
-  if (opcje.body && !naglowki.has("Content-Type")) naglowki.set("Content-Type", "application/json");
-  const odp = await fetch(adres, {...opcje, headers: naglowki});
+  const wyslij = () => {
+    const naglowki = new Headers(opcje.headers || {});
+    naglowki.set("Authorization", "Bearer " + token);
+    if (opcje.body && !naglowki.has("Content-Type")) naglowki.set("Content-Type", "application/json");
+    return fetch(adres, {...opcje, headers: naglowki});
+  };
+  let odp = await wyslij();
+  // Token logowania wygasa po kilku godzinach - wymieniamy go po cichu.
+  if (odp.status === 401 && czyJwt(token) && await odnow()) odp = await wyslij();
   const tresc = await odp.json().catch(() => ({}));
-  if (odp.status === 401) { wyjdz("Token administratora jest nieprawidłowy."); throw new Error("Brak dostępu."); }
+  if (odp.status === 401) { pokazWejscie("Zaloguj się ponownie."); throw new Error("Brak dostępu."); }
   if (!odp.ok) throw new Error((tresc.detail || "Serwer odpowiedział " + odp.status));
   return tresc;
 }
 
-function wyjdz(komunikat){
+function widokWejscia(karta){
+  ["karta-haslo", "karta-nowe", "karta-token"].forEach(k => $(k).hidden = k !== karta);
+}
+
+function pokazWejscie(komunikat){
   token = "";
   try { sessionStorage.removeItem(KLUCZ); } catch {}
   $("widok-panel").hidden = true; $("widok-wejscie").hidden = false;
+  widokWejscia("karta-haslo");
   stan($("stan-wejscie"), komunikat || "", !!komunikat);
-  $("pole-admin").focus();
+  ($("pole-email").value ? $("pole-haslo") : $("pole-email")).focus();
 }
+
+async function wejdz(){
+  kancelarie = await api("/api/admin/kancelarie");
+  pokazPanel();
+}
+
+async function wyslijLogowanie(adres, dane){
+  const odp = await fetch(adres, {method: "POST", headers: {"Content-Type": "application/json"},
+                                  body: JSON.stringify(dane)});
+  const tresc = await odp.json().catch(() => ({}));
+  if (!odp.ok) throw new Error(tresc.detail || "Serwer odpowiedział " + odp.status);
+  return tresc;
+}
+
+$("btn-zaloguj").onclick = async () => {
+  const email = $("pole-email").value.trim(), haslo = $("pole-haslo").value;
+  if (!email || !haslo) return stan($("stan-wejscie"), "Podaj adres e-mail i hasło.", true);
+  stan($("stan-wejscie"), "Sprawdzam…", false, true);
+  try {
+    const w = await wyslijLogowanie("/api/logowanie", {email, haslo});
+    $("pole-haslo").value = "";
+    if (w.wymagane_nowe_haslo) {
+      emailNowego = email; sesjaNowego = w.sesja;
+      widokWejscia("karta-nowe"); stan($("stan-nowe"), ""); $("pole-nowe").focus();
+      return;
+    }
+    token = w.token;
+    stan($("stan-wejscie"), "");
+    await wejdz();
+  } catch (e) {
+    stan($("stan-wejscie"), e.message === "Brak dostępu."
+      ? "To konto nie jest kontem administratora." : e.message, true);
+  }
+};
+
+$("btn-nowe").onclick = async () => {
+  const h = $("pole-nowe").value;
+  if (h !== $("pole-nowe2").value) return stan($("stan-nowe"), "Hasła nie są takie same.", true);
+  stan($("stan-nowe"), "Zapisuję…", false, true);
+  try {
+    const w = await wyslijLogowanie("/api/logowanie/nowe-haslo", {email: emailNowego, haslo: h, sesja: sesjaNowego});
+    token = w.token;
+    $("pole-nowe").value = $("pole-nowe2").value = "";
+    await wejdz();
+  } catch (e) { stan($("stan-nowe"), e.message, true); }
+};
+
+$("btn-pokaz-token").onclick = () => { widokWejscia("karta-token"); stan($("stan-token"), ""); $("pole-admin").focus(); };
+$("btn-wroc-haslo").onclick = () => pokazWejscie("");
 
 $("btn-wejdz").onclick = async () => {
   token = $("pole-admin").value.trim();
-  if (!token) return stan($("stan-wejscie"), "Wklej token.", true);
-  stan($("stan-wejscie"), "Sprawdzam…", false, true);
+  if (!token) return stan($("stan-token"), "Wklej token.", true);
+  stan($("stan-token"), "Sprawdzam…", false, true);
   try {
     kancelarie = await api("/api/admin/kancelarie");
     try { sessionStorage.setItem(KLUCZ, token); } catch {}
     $("pole-admin").value = "";
     pokazPanel();
-  } catch (e) { if (token) stan($("stan-wejscie"), e.message, true); }
+  } catch (e) {
+    widokWejscia("karta-token");
+    stan($("stan-token"), "Token jest nieprawidłowy.", true);
+  }
 };
-$("pole-admin").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-wejdz").click(); });
-$("btn-wyjdz").onclick = () => wyjdz("");
+
+[["pole-email", "btn-zaloguj"], ["pole-haslo", "btn-zaloguj"], ["pole-nowe2", "btn-nowe"],
+ ["pole-admin", "btn-wejdz"]].forEach(([pole, przycisk]) =>
+  $(pole).addEventListener("keydown", e => { if (e.key === "Enter") $(przycisk).click(); }));
+
+$("btn-wyjdz").onclick = async () => {
+  if (czyJwt(token)) { try { await fetch("/api/logowanie/wyloguj", {method: "POST"}); } catch {} }
+  pokazWejscie("Wylogowano.");
+};
 
 function pokazPanel(){
   $("widok-wejscie").hidden = true; $("widok-panel").hidden = false;
   rysuj();
+  rysujAdminow();
   $("nk-nazwa").focus();
 }
+
+/* ---------- administratorzy ---------- */
+async function rysujAdminow(){
+  let dane;
+  try { dane = await api("/api/admin/administratorzy"); } catch (e) { return stan($("stan-admini"), e.message, true); }
+  $("baner-token").hidden = !!dane.ja;
+  $("kto").textContent = dane.ja ? "Zalogowano: " + dane.ja : "Wejście tokenem awaryjnym";
+  const k = $("admini");
+  k.innerHTML = dane.administratorzy.length ? "" : '<p class="stan">Nikt jeszcze nie loguje się hasłem. Dodaj swój adres.</p>';
+  dane.administratorzy.forEach(email => {
+    const ja = email === dane.ja;
+    const w = document.createElement("div");
+    w.className = "osoba";
+    w.innerHTML = `<div><b>${escape(email)}${ja ? " (Ty)" : ""}</b></div>
+      ${ja ? "" : '<button class="wtorny maly" data-ponow>Wyślij zaproszenie ponownie</button><button class="odnosnik" data-usun>usuń</button>'}`;
+    const sciezka = "/api/admin/administratorzy/" + encodeURIComponent(email);
+    const ponow = w.querySelector("[data-ponow]");
+    if (ponow) ponow.onclick = async () => {
+      ponow.disabled = true;
+      try { await api(sciezka + "/ponow", {method: "POST"}); stan($("stan-admini"), "Wysłano nowe hasło tymczasowe na " + email + "."); }
+      catch (e) { stan($("stan-admini"), e.message, true); ponow.disabled = false; }
+    };
+    const usun = w.querySelector("[data-usun]");
+    if (usun) usun.onclick = async () => {
+      if (!confirm("Odebrać " + email + " dostęp do panelu?")) return;
+      try { await api(sciezka, {method: "DELETE"}); stan($("stan-admini"), ""); rysujAdminow(); }
+      catch (e) { stan($("stan-admini"), e.message, true); }
+    };
+    k.appendChild(w);
+  });
+}
+
+$("btn-nowy-admin").onclick = async () => {
+  const email = $("nowy-admin").value.trim();
+  if (!email) return stan($("stan-admini"), "Wpisz adres e-mail.", true);
+  $("btn-nowy-admin").disabled = true;
+  stan($("stan-admini"), "Wysyłam zaproszenie…", false, true);
+  try {
+    await api("/api/admin/administratorzy", {method: "POST", body: JSON.stringify({email})});
+    $("nowy-admin").value = "";
+    stan($("stan-admini"), "Zaproszenie poszło na " + email + ". Hasło tymczasowe wpisz na tej stronie przy logowaniu.");
+    rysujAdminow();
+  } catch (e) { stan($("stan-admini"), e.message, true); }
+  finally { $("btn-nowy-admin").disabled = false; }
+};
+$("nowy-admin").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-nowy-admin").click(); });
 
 async function odswiez(){ kancelarie = await api("/api/admin/kancelarie"); rysuj(); }
 
@@ -331,8 +508,13 @@ function kartaKancelarii(k){
   return d;
 }
 
-if (token) api("/api/admin/kancelarie").then(l => { kancelarie = l; pokazPanel(); }).catch(() => {});
-else wyjdz("");
+/* Start: token awaryjny z tej karty albo ciche odnowienie logowania. */
+(async () => {
+  if (token || await odnow()) {
+    try { await wejdz(); return; } catch { /* konto bez praw administratora */ }
+  }
+  pokazWejscie("");
+})();
 </script>
 </body>
 </html>

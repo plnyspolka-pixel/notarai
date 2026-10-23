@@ -53,14 +53,18 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    Pakuje tylko zacommitowany kod (`git archive HEAD`), tag = skrót commita.
 3. Aplikacja: `powershell -ExecutionPolicy Bypass -File infra\3-wdroz-aplikacje.ps1`
    Wymaga certyfikatu ISSUED. Na końcu wypisuje cel CNAME dla app.notarai.pl.
-4. Token admina: konsola AWS -> Secrets Manager -> `notarai/admin-token` ->
-   Retrieve secret value. Wartość generuje AWS, nie ma jej w kodzie ani w logach.
-5. Dodaj kancelarię: https://app.notarai.pl/admin, wklej token admina, wpisz
-   nazwę kancelarii i e-mail notariusza, wybierz miejsce na pliki. Jeden
-   przycisk zakłada kancelarię, konto właściciela i wysyła zaproszenie.
-   Właściciel zaprasza swój zespół sam (pasek boczny -> Zespół kancelarii).
-   W panelu też: ponowne wysłanie zaproszenia, nadanie roli właściciela,
-   wyłączenie i ponowne włączenie kancelarii, token do automatyzacji.
+4. Pierwsze wejście do panelu (raz): https://app.notarai.pl/admin ->
+   „Wejdź tokenem awaryjnym”. Token: konsola AWS -> Secrets Manager ->
+   `notarai/admin-token` -> Retrieve secret value. W sekcji Administratorzy
+   dodaj swój e-mail (osobny od kont w kancelariach), wyloguj się i wejdź
+   hasłem z zaproszenia. Od tej chwili panel to e-mail i hasło, sesja trzyma
+   30 dni; token zostaje tylko na awarię.
+5. Dodaj kancelarię: w panelu /admin wpisz nazwę kancelarii i e-mail
+   notariusza, wybierz miejsce na pliki. Jeden przycisk zakłada kancelarię,
+   konto właściciela i wysyła zaproszenie. Właściciel zaprasza swój zespół
+   sam (pasek boczny -> Zespół kancelarii). W panelu też: ponowne wysłanie
+   zaproszenia, rola właściciela, wyłączenie i włączenie kancelarii, token
+   do automatyzacji.
 6. Nowa wersja aplikacji: commit, potem etap 2 i 3. Podmiana bez przestoju.
 7. Logowanie użytkowników (opcjonalne, ale zalecane):
    `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`

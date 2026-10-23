@@ -9,7 +9,8 @@ Rejestr kancelarii: plik JSON {hash_sha256_tokenu: {"id","nazwa","aktywna"}}.
 Tokeny NIE sa przechowywane wprost - tylko ich hashe. Token widac raz,
 przy utworzeniu kancelarii.
 
-Panel admina (osobny token PIECZAPP_ADMIN_TOKEN, nie tokeny kancelarii):
+Panel admina (/admin): logowanie e-mailem z listy administratorow, a awaryjnie
+osobny token PIECZAPP_ADMIN_TOKEN (nie tokeny kancelarii):
   GET  /api/admin/kancelarie          lista
   POST /api/admin/kancelarie {nazwa}  utworzenie + jednorazowy token
 
@@ -197,20 +198,77 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 def _wymagaj_admina(request: Request) -> None:
-    if not ADMIN_TOKEN:
+    if not ADMIN_TOKEN and not logowanie.wlaczone():
         raise HTTPException(503, "Panel admina wylaczony: ustaw PIECZAPP_ADMIN_TOKEN")
     if not czy_admin(request):
-        raise HTTPException(401, "Nieprawidlowy token administratora")
+        raise HTTPException(401, "Brak uprawnien administratora")
 
 
 def czy_admin(request: Request) -> bool:
-    """Czy zadanie niesie wazny token administratora. Bez wyjatku - do uzytku
-    tam, gdzie brak tokenu nie jest bledem (np. sonda /zdrowie)."""
-    if not ADMIN_TOKEN:
-        return False
+    """Czy zadanie pochodzi od administratora: zalogowanego adresem e-mail
+    z listy administratorow albo z tokenem awaryjnym z Secrets Manager.
+    Bez wyjatku - do uzytku tam, gdzie brak uprawnien nie jest bledem
+    (np. sonda /zdrowie)."""
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    return secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN))
+    if not token:
+        return False
+    if ADMIN_TOKEN and secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN)):
+        return True
+    return bool(_email_administratora(token))
+
+
+# --- administratorzy notarai ------------------------------------------------
+# Administrator loguje sie do /admin adresem e-mail i haslem, jak notariusz.
+# Token z Secrets Manager zostaje na awarie (np. pierwszy administrator albo
+# zgubione haslo). Konto administratora nalezy do obszaru, ktory nie jest
+# kancelaria, wiec nie otwiera zadnych spraw - tylko panel.
+
+KANCELARIA_ADMINOW = "_administracja"   # id kancelarii nie zaczyna sie od "_"
+
+
+def _plik_adminow() -> Path:
+    import config
+    return config.DANE / "administratorzy.json"
+
+
+def _wczytaj_adminow() -> list[str]:
+    if magazyn.TRYB == "s3":
+        try:
+            odp = magazyn._klient_s3().get_object(
+                Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/administratorzy.json")
+            return json.loads(odp["Body"].read().decode("utf-8"))
+        except Exception as blad:  # brak pliku = brak administratorow
+            if type(blad).__name__ not in ("NoSuchKey", "ClientError"):
+                raise
+            return []
+    plik = _plik_adminow()
+    return json.loads(plik.read_text("utf-8")) if plik.exists() else []
+
+
+def _zapisz_adminow(lista: list[str]) -> None:
+    tresc = json.dumps(sorted(set(lista)), ensure_ascii=False, indent=2)
+    if magazyn.TRYB == "s3":
+        magazyn._klient_s3().put_object(
+            Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/administratorzy.json",
+            Body=tresc.encode("utf-8"), **magazyn._szyfrowanie(),
+        )
+    else:
+        _plik_adminow().write_text(tresc, encoding="utf-8")
+
+
+def _email_administratora(token: str) -> str:
+    """E-mail administratora z podpisanego tokenu logowania albo pusty."""
+    if not logowanie.wlaczone() or not logowanie.czy_jwt(token):
+        return ""
+    try:
+        dane = logowanie.dane_z_tokenu(token)
+    except logowanie.BladLogowania:
+        return ""
+    email = dane["email"].lower()
+    if dane["kancelaria"] != KANCELARIA_ADMINOW or email not in _wczytaj_adminow():
+        return ""
+    return email
 
 
 # --- logowanie uzytkownikow -------------------------------------------------
@@ -691,4 +749,64 @@ def usun_z_zespolu(request: Request, adres: str):
     wpis["zespol"].remove(osoba)
     _zapisz_rejestr(rejestr)
     log.info("kancelaria %s: usunieto osobe z zespolu", wpis["id"])
+    return {"usunieto": True}
+
+
+# --- lista administratorow (panel) -------------------------------------------
+
+@router.get("/administratorzy")
+def lista_adminow(request: Request):
+    _wymagaj_admina(request)
+    naglowek = request.headers.get("authorization", "")
+    return {"ja": _email_administratora(naglowek[7:]) if naglowek.startswith("Bearer ") else "",
+            "administratorzy": _wczytaj_adminow()}
+
+
+@router.post("/administratorzy", status_code=201)
+def dodaj_admina(request: Request, dane: Zaproszenie):
+    """Konto do panelu: zaproszenie e-mailem, potem logowanie haslem."""
+    _wymagaj_admina(request)
+    _wymagaj_logowania()
+    email = _poprawny_email(dane.email)
+    lista = _wczytaj_adminow()
+    if email in lista:
+        raise HTTPException(409, "Ten adres jest juz administratorem.")
+    try:
+        logowanie.utworz_uzytkownika(email, KANCELARIA_ADMINOW)
+    except logowanie.BladLogowania:
+        raise HTTPException(409, "Ten adres ma juz konto w notarai. "
+                                 "Administrator potrzebuje osobnego adresu.")
+    _zapisz_adminow(lista + [email])
+    log.info("dodano administratora")
+    return {"email": email}
+
+
+@router.post("/administratorzy/{email}/ponow")
+def ponow_adminowi(request: Request, email: str):
+    _wymagaj_admina(request)
+    _wymagaj_logowania()
+    email = _poprawny_email(email)
+    if email not in _wczytaj_adminow():
+        raise HTTPException(404, "Tego adresu nie ma na liscie administratorow.")
+    try:
+        logowanie.ponow_zaproszenie(email)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(409, str(blad))
+    return {"wyslano": True}
+
+
+@router.delete("/administratorzy/{email}")
+def usun_admina(request: Request, email: str):
+    _wymagaj_admina(request)
+    email = _poprawny_email(email)
+    naglowek = request.headers.get("authorization", "")
+    if email == _email_administratora(naglowek[7:] if naglowek.startswith("Bearer ") else ""):
+        raise HTTPException(400, "Nie mozesz usunac wlasnego konta administratora.")
+    lista = _wczytaj_adminow()
+    if email not in lista:
+        raise HTTPException(404, "Tego adresu nie ma na liscie administratorow.")
+    if logowanie.wlaczone():
+        logowanie.usun_uzytkownika(email)
+    _zapisz_adminow([a for a in lista if a != email])
+    log.info("usunieto administratora")
     return {"usunieto": True}
