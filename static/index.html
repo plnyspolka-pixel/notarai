@@ -86,6 +86,8 @@ h1{font:400 32px/1.25 var(--serif);margin:0 0 6px;letter-spacing:-.01em}
 .wskaz{font-weight:400;color:var(--tekst3)}
 input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
   background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
+.pole textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2);resize:vertical}
 input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px solid var(--akcent);outline-offset:1px}
 .pole{margin-bottom:18px}
 .para{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -187,6 +189,14 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .spr-wynik.wpis{background:var(--alarm);color:#fff}
 .spr-wynik.niedostepny,.spr-wynik.blad{background:var(--akcent-tlo);color:var(--akcent)}
 .spr-wynik.nieznany{background:var(--tlo2);color:var(--tekst3)}
+.klik-uklad{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
+@media (max-width:1100px){.klik-uklad{grid-template-columns:1fr}}
+.klik-krok{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:10px 0;
+  border-top:1px solid var(--linia)}
+.klik-krok b{font:12px var(--mono);color:var(--tekst3)}
+.klik-krok .mysl{color:var(--tekst2);font-size:13px}
+.klik-krok .uwaga{color:var(--alarm);font-size:13px}
+.klik-kroki{margin-top:14px}
 .spr-wiersz > div{min-width:0}   /* inaczej dlugi opis rubryki rozpycha wiersz zamiast sie skracac */
 .spr-wiersz .rubryka{font:12px var(--mono);color:var(--tekst3);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -330,6 +340,7 @@ notarai</div>
   <div class="krok" data-etap="3"><b><span>3</span></b>Projekt dokumentu</div>
   <div class="sekcja-t">Narzędzia</div>
   <div class="krok" data-etap="4"><b><span>✓</span></b>Sprawdzenia</div>
+  <div class="krok" data-etap="5"><b><span>▶</span></b>Klikamy</div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -513,6 +524,42 @@ notarai</div>
   <div class="karta">
     <h2>Ślad audytowy</h2>
     <div id="spr-historia"><span class="stan">Brak sprawdzeń w tej sprawie.</span></div>
+  </div>
+</section>
+
+<!-- ===== 5: klikamy ===== -->
+<section id="etap5" hidden>
+  <h1>Klikamy</h1>
+  <p class="pod">Napisz, co ma się wydarzyć w przeglądarce, a pomocnik zrobi to krok po kroku na Twoim komputerze. Po każdym kroku widzisz, co zrobił i dlaczego. Niczego nie wyśle, nie złoży ani nie podpisze — przy takiej czynności odda Ci sterowanie.</p>
+  <div class="klik-uklad">
+    <div class="karta">
+      <h2>Polecenie</h2>
+      <div class="pole">
+        <label class="etykieta" for="klik-cel">Co mam zrobić</label>
+        <textarea id="klik-cel" rows="4" placeholder="np. otwórz geoportal i znajdź działkę 123/4 w obrębie Słoneczna"></textarea>
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="klik-hosty">Adresy, na które wolno wejść
+          <span class="wskaz">po przecinku; puste = tylko strona już otwarta</span></label>
+        <input type="text" id="klik-hosty" placeholder="geoportal.gov.pl, krz.ms.gov.pl" autocomplete="off">
+      </div>
+      <div class="pasek">
+        <button id="btn-klik">Wykonaj</button>
+        <span class="stan" id="stan5"></span>
+      </div>
+      <div class="klik-kroki" id="klik-przebieg"></div>
+    </div>
+    <div class="karta">
+      <h2>Przeglądarka</h2>
+      <p class="pod" style="margin-bottom:12px">Okno przeglądarki do rejestrów stoi po prawej stronie ekranu, obok notarai. To Twoja zalogowana sesja — w każdej chwili możesz złapać mysz i przejąć sterowanie.</p>
+      <div class="ostrzez" id="klik-bez-pomocnika" hidden>Pomocnik nie jest teraz połączony z tym komputerem, więc nie ma kto klikać. Uruchom go i połącz.</div>
+      <p class="pod">Zanim napiszesz polecenie:</p>
+      <ol class="pod" style="margin:8px 0 0 18px;line-height:1.7">
+        <li>Otwórz przeglądarkę przyciskiem w oknie pomocnika.</li>
+        <li>Zaloguj się w rejestrze, jeśli dana strona tego wymaga.</li>
+        <li>Wróć tutaj i napisz, co ma się wydarzyć.</li>
+      </ol>
+    </div>
   </div>
 </section>
 
@@ -1074,14 +1121,15 @@ const dysk = {
 
 /* ---------- nawigacja ---------- */
 function pokaz(numer){
-  [1,2,3,4].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
     k.classList.toggle("aktywny", n === numer);
     k.classList.toggle("zrobiony", n < najdalej && n !== numer && n <= 3);
-    if (n === 4) k.classList.toggle("zrobiony", false);
+    if (n >= 4) k.classList.toggle("zrobiony", false);
   });
+  if (numer === 5) $("klik-bez-pomocnika").hidden = pomocnikPolaczony;
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -2467,6 +2515,76 @@ $("btn-krz").onclick = async () => {
     stan($("stan4"), "Gotowe. Obejrzyj wyniki w śladzie audytowym i potwierdź status przy każdym numerze.");
   } catch (e) { stan($("stan4"), e.message, true); }
   finally { $("btn-krz").disabled = false; }
+};
+
+/* ---------- 5: klikamy ---------- */
+const OPIS_AKCJI = {
+  kliknij: "kliknięcie", wpisz: "wpisanie", wybierz: "wybór z listy",
+  otworz: "otwarcie adresu", czytaj: "odczyt strony",
+  pytam: "pytanie do Ciebie", koniec: "koniec",
+};
+function rysujPrzebieg(raport){
+  const cel = $("klik-przebieg");
+  cel.innerHTML = "";
+  (raport.kroki || []).forEach(k => {
+    const d = document.createElement("div");
+    d.className = "klik-krok";
+    const opis = OPIS_AKCJI[k.akcja] || k.akcja || "";
+    d.innerHTML = `<b>${k.nr}.</b><div>
+        <div>${escape(opis)}${k.cel ? " — " + escape(k.cel) : ""}</div>
+        ${k.mysl ? '<div class="mysl">' + escape(k.mysl) + "</div>" : ""}
+        ${k.uwaga ? '<div class="uwaga">' + escape(k.uwaga) + "</div>" : ""}
+      </div>`;
+    cel.appendChild(d);
+  });
+  if (raport.pytanie) {
+    const p = document.createElement("div");
+    p.className = "ostrzez alarm";
+    p.style.marginTop = "14px";
+    p.textContent = "Pomocnik oddaje Ci sterowanie: " + raport.pytanie;
+    cel.appendChild(p);
+  } else if (raport.podsumowanie) {
+    const p = document.createElement("div");
+    p.className = "ostrzez";
+    p.style.marginTop = "14px";
+    p.textContent = raport.podsumowanie;
+    cel.appendChild(p);
+  }
+  (raport.bledy || []).forEach(b => {
+    const e = document.createElement("div");
+    e.className = "ostrzez alarm";
+    e.style.marginTop = "10px";
+    e.textContent = b;
+    cel.appendChild(e);
+  });
+}
+
+$("btn-klik").onclick = async () => {
+  if (!sprawa) return stan($("stan5"), "Najpierw otwórz sprawę.", true);
+  const cel = $("klik-cel").value.trim();
+  if (!cel) return stan($("stan5"), "Napisz, co mam zrobić.", true);
+  const hosty = $("klik-hosty").value.split(",").map(h => h.trim()).filter(Boolean);
+  $("btn-klik").disabled = true;
+  $("klik-przebieg").innerHTML = "";
+  stan($("stan5"), "Przekazuję pomocnikowi…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/klikamy", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({cel, dozwolone_hosty: hosty}),
+    });
+    const zlecone = await odp.json();
+    if (!odp.ok) throw new Error(zlecone.detail || "Błąd serwera");
+    stan($("stan5"), "Pomocnik pracuje. Patrz na okno przeglądarki po prawej…", false, true);
+    // Prowadzenie przegladarki trwa dluzej niz sprawdzenie - kazdy krok to
+    // pytanie do modelu i czynnosc na stronie.
+    const wynik = await poczekajNaZlecenie(zlecone.zlecenie, 900);
+    rysujPrzebieg((wynik && wynik.raport) || {});
+    stan($("stan5"), "");
+  } catch (e) {
+    stan($("stan5"), e.message, true);
+  } finally {
+    $("btn-klik").disabled = false;
+  }
 };
 
 function escape(t){
