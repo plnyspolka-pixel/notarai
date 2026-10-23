@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai - asystent kancelarii notarialnej</title>
+<meta name="description" content="notarai odczytuje dane ze skanów, sprawdza je i przygotowuje projekt aktu na wzorze kancelarii. Decyzja zawsze należy do notariusza.">
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="naglowek">
+  <div class="szer naglowek-w">
+    <a class="marka" href="#">
+      <img src="favicon.png" alt="" width="32" height="32">
+      <span>notarai</span>
+    </a>
+    <nav class="menu">
+      <a href="#jak">Jak to działa</a>
+      <a href="#funkcje">Funkcje</a>
+      <a href="#dane">Dane</a>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+    <a class="przycisk maly" href="https://app.notarai.pl">Zaloguj się</a>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="szer">
+    <p class="znacznik">Dla kancelarii notarialnych</p>
+    <h1>Projekt aktu w kilka minut.<br>Decyzja zawsze u&nbsp;notariusza.</h1>
+    <p class="wstep">Wgrywasz wzór aktu i skany dokumentów. notarai odczytuje dane, sprawdza je i&nbsp;przygotowuje projekt na wzorze Twojej kancelarii, gotowy do przejrzenia w Wordzie.</p>
+    <div class="akcje">
+      <a class="przycisk" href="https://app.notarai.pl">Zaloguj się do aplikacji</a>
+      <a class="przycisk drugi" href="#kontakt">Umów prezentację</a>
+    </div>
+    <p class="uwaga">notarai nie tworzy dokumentów gotowych do podpisu. Każdy projekt wymaga sprawdzenia i&nbsp;akceptacji notariusza.</p>
+  </div>
+</section>
+
+<section id="jak" class="sekcja">
+  <div class="szer">
+    <h2>Jak to działa</h2>
+    <ol class="kroki">
+      <li>
+        <span class="nr">1</span>
+        <h3>Materiały sprawy</h3>
+        <p>Wgraj wzór aktu (.docx) i skany: dowody, wypisy, odpisy z księgi wieczystej. Krótko opisz, czego potrzebujesz.</p>
+      </li>
+      <li>
+        <span class="nr">2</span>
+        <h3>Weryfikacja odczytu</h3>
+        <p>Sprawdzasz odczytane pola. Te, które wymagają uwagi: błędna suma kontrolna, niska pewność, brak danych, są wyraźnie oznaczone.</p>
+      </li>
+      <li>
+        <span class="nr">3</span>
+        <h3>Projekt dokumentu</h3>
+        <p>Pobierasz projekt jako plik Word. Miejsca, których nie dało się wypełnić, zostają jawnie zaznaczone w&nbsp;tekście.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="funkcje" class="sekcja tlo2">
+  <div class="szer">
+    <h2>Funkcje</h2>
+    <div class="siatka">
+      <article class="karta">
+        <h3>Odczyt skanów z kontrolą</h3>
+        <p>PESEL, NIP, numery ksiąg wieczystych i kwoty są sprawdzane sumą kontrolną, zanim trafią do projektu.</p>
+      </article>
+      <article class="karta">
+        <h3>Twoje wzory aktów</h3>
+        <p>Pracujesz na własnych wzorach z polami do wypełnienia. Bez przepisywania szablonów do nowego systemu.</p>
+      </article>
+      <article class="karta">
+        <h3>Rozmowa o sprawie</h3>
+        <p>Poprawki do projektu zgłaszasz zwykłym językiem: „dodaj pełnomocnika”, „zmień sposób zapłaty”.</p>
+      </article>
+      <article class="karta">
+        <h3>Sprawdzenia w rejestrach</h3>
+        <p>Wykryte numery PESEL można sprawdzić w rejestrach. Każde sprawdzenie zostawia ślad audytowy ze zrzutem ekranu.</p>
+      </article>
+      <article class="karta">
+        <h3>Formularze z treści aktu</h3>
+        <p>notarai proponuje wartości do formularzy rejestrowych, każdą z cytatem z aktu. Niczego nie wysyła za Ciebie.</p>
+      </article>
+      <article class="karta">
+        <h3>Zespół kancelarii</h3>
+        <p>Osobne konta dla notariusza i pracowników, logowanie e-mailem i hasłem, reset hasła kodem z e-maila.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="dane" class="sekcja">
+  <div class="szer dwie">
+    <div>
+      <h2>Dane zostają w Unii Europejskiej</h2>
+      <p class="wstep">Kancelaria przy zakładaniu konta wybiera, gdzie trzyma akta spraw.</p>
+    </div>
+    <ul class="lista">
+      <li><strong>W chmurze.</strong> Skany i projekty są przechowywane zaszyfrowane na serwerach AWS we Frankfurcie.</li>
+      <li><strong>U klienta.</strong> Akta zostają w folderze na komputerze kancelarii, a serwer niczego nie zapisuje.</li>
+      <li><strong>Model AI w UE.</strong> Odczyt i projekt przygotowuje model Claude w usłudze Amazon Bedrock w regionie Frankfurt. Bedrock nie zapisuje treści zapytań ani odpowiedzi.</li>
+      <li><strong>Połączenie szyfrowane.</strong> Cały ruch odbywa się wyłącznie przez HTTPS.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="kontakt" class="sekcja kontakt">
+  <div class="szer">
+    <h2>Porozmawiajmy</h2>
+    <p class="wstep">Pokażemy notarai na przykładowej sprawie i założymy konto dla Twojej kancelarii.</p>
+    <div class="akcje">
+      <a class="przycisk" href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a>
+      <a class="przycisk drugi" href="https://app.notarai.pl">Mam już konto</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="stopka">
+  <div class="szer stopka-w">
+    <span>© 2026 notarai.pl</span>
+    <a href="https://app.notarai.pl">app.notarai.pl</a>
+  </div>
+</footer>
+
+</body>
+</html>

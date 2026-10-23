@@ -49,3 +49,6 @@ Claude outputs/
 
 # Srodowisko budowania pomocnika (.exe) - infra/zbuduj-pomocnika.ps1
 .venv-pomocnik/
+
+# Kopie strony notarai.pl pobrane z az.pl przed kazda wysylka - infra/strona.ps1
+strona-kopie/
