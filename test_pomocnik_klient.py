@@ -34,25 +34,25 @@ ZLECENIE_KRZ = {"id": "abc", "rodzaj": "krz", "sprawa": "s1",
 class TestKierowaniaZlecen:
     def test_zlecenie_trafia_do_wlasciwego_wykonawcy(self):
         widziane = []
-        raport = wykonaj(ZLECENIE_KRZ, {"krz": lambda z: widziane.append(z) or {"ok": True}})
+        raport = wykonaj(ZLECENIE_KRZ, {"krz": lambda z, notarai=None: widziane.append(z) or {"ok": True}})
         assert raport == {"ok": True} and widziane == [ZLECENIE_KRZ]
 
     def test_nieznanego_rodzaju_nie_udajemy(self):
         """Zlecenie, ktorego pomocnik nie umie wykonac, ma wrocic z wyjasnieniem,
         a nie zniknac po cichu - notariusz czeka przy ekranie."""
-        raport = wykonaj({"id": "x", "rodzaj": "kosmiczny"}, {"krz": lambda z: {}})
+        raport = wykonaj({"id": "x", "rodzaj": "kosmiczny"}, {"krz": lambda z, notarai=None: {}})
         assert raport["bledy"] and "nie obsluguje" in raport["bledy"][0]
 
 
 class TestObiegu:
     def test_wykonuje_i_odsyla(self):
         notarai = AtrapaNotarai([ZLECENIE_KRZ])
-        zrobione = jeden_obieg(notarai, {"krz": lambda z: {"zapisano": 2}})
+        zrobione = jeden_obieg(notarai, {"krz": lambda z, notarai=None: {"zapisano": 2}})
         assert zrobione == 1
         assert notarai.odeslane == [("abc", {"zapisano": 2})]
 
     def test_blad_jednego_zlecenia_nie_przerywa_reszty(self):
-        def kapryszny(zlecenie):
+        def kapryszny(zlecenie, notarai=None):
             if zlecenie["id"] == "zly":
                 raise RuntimeError("cos sie stalo")
             return {"ok": True}
@@ -68,7 +68,7 @@ class TestObiegu:
 
     def test_raport_bledu_nie_niesie_tresci_zlecenia(self):
         """Komunikat bledu trafia do logow serwera. Numery PESEL nie."""
-        def wybuchowy(zlecenie):
+        def wybuchowy(zlecenie, notarai=None):
             raise RuntimeError("blad przy numerze 44051401359")
 
         notarai = AtrapaNotarai([ZLECENIE_KRZ])
@@ -82,7 +82,7 @@ class TestObiegu:
 
     def test_zerwane_odsylanie_nie_wywraca_pomocnika(self):
         notarai = AtrapaNotarai([ZLECENIE_KRZ], psuj_odsylanie=True)
-        assert jeden_obieg(notarai, {"krz": lambda z: {"ok": True}}) == 0
+        assert jeden_obieg(notarai, {"krz": lambda z, notarai=None: {"ok": True}}) == 0
 
 
 class TestPetli:

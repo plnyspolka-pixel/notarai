@@ -307,3 +307,17 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
         ostatnia = tury.pop()
         return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
     return _rozmowa(prompty.ROZMOWA, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
+
+
+def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
+    """Jedna decyzja agenta prowadzacego przegladarke notariusza.
+
+    Model stoi po stronie serwera, bo tu jest dostep do Bedrocka. Komputer
+    notariusza go nie ma i miec nie musi - dostaje gotowa czynnosc do
+    wykonania, a nie klucze do modelu.
+    """
+    from pomocnik import klikamy
+
+    tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki)
+    odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700)
+    return klikamy.odpowiedz_na_slownik(odpowiedz)

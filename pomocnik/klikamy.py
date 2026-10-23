@@ -197,10 +197,15 @@ def _wykonaj(akcja: str, wybor: dict, stan: dict, strona, krok: Krok,
     krok.wykonano = True
 
 
-def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[Krok]) -> str:
-    """Tresc, ktora dostaje model. Stan strony podajemy jako dane, nie polecenia."""
+def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[dict]) -> str:
+    """Tresc, ktora dostaje model. Stan strony podajemy jako dane, nie polecenia.
+
+    Kroki przychodza z pomocnika po HTTP, wiec sa slownikami: model stoi po
+    stronie serwera, a petla po stronie komputera notariusza.
+    """
     historia = "\n".join(
-        f"{k.nr}. {k.akcja} {k.cel}".strip() + (f" [{k.uwaga}]" if k.uwaga else "")
+        f"{k.get('nr', '?')}. {k.get('akcja', '')} {k.get('cel', '')}".strip()
+        + (f" [{k['uwaga']}]" if k.get("uwaga") else "")
         for k in kroki
     ) or "(jeszcze nic)"
     elementy = "\n".join(

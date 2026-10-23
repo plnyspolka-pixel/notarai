@@ -30,7 +30,7 @@ import magazyn
 log = logging.getLogger("pieczapp.zlecenia")
 
 WAZNOSC_MINUT = int(os.getenv("PIECZAPP_ZLECENIE_MINUT", "30"))
-RODZAJE = ("krz", "formularz")
+RODZAJE = ("krz", "formularz", "klikamy")
 STANY = ("czeka", "wykonane")
 
 

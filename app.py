@@ -862,6 +862,58 @@ class RaportPomocnika(BaseModel):
     bledy: list[str] = []
 
 
+# --- Klikamy: model prowadzi przegladarke notariusza ------------------------
+# Notariusz pisze, co ma sie stac; model decyduje o kolejnym kroku, a pomocnik
+# go wykonuje. Model stoi tutaj, bo tu jest dostep do Bedrocka - komputer
+# notariusza dostaje gotowa czynnosc, a nie klucze do modelu.
+
+
+class ZadanieKlikania(BaseModel):
+    cel: str
+    dozwolone_hosty: list[str] = []
+
+
+@app.post("/api/sprawy/{identyfikator}/klikamy", status_code=202)
+def zlec_klikanie(identyfikator: str, zadanie: ZadanieKlikania):
+    _katalog_sprawy(identyfikator)
+    cel = zadanie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co pomocnik ma zrobic w przegladarce")
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    if not _pomocnik_pod_reka():
+        raise HTTPException(409, BRAK_POMOCNIKA)
+    zlecenie = zlecenia.zloz("klikamy", identyfikator, {
+        "cel": cel[:1000],
+        "dozwolone_hosty": [h.strip() for h in zadanie.dozwolone_hosty if h.strip()][:20],
+    })
+    log.info("sprawa %s: zlecono klikanie, zlecenie %s", identyfikator, zlecenie["id"])
+    return {"zlecenie": zlecenie["id"], "stan": "czeka"}
+
+
+class WidokStrony(BaseModel):
+    cel: str
+    stan: dict
+    kroki: list[dict] = []
+
+
+@app.post("/api/pomocnik/klikamy/{zlecenie}/krok")
+def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
+    """Pomocnik pokazuje, co widzi na stronie; model mowi, co zrobic dalej."""
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    _odnotuj_pomocnika(request)
+    if not zlecenia.wynik(zlecenie):
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    try:
+        krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
+    # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.
+    log.info("zlecenie %s: krok %s", zlecenie, krok.get("akcja") or "brak")
+    return krok
+
+
 def _odnotuj_pomocnika(request: Request, wersja: str = "") -> None:
     """Obecnosc komputera z wlasnym tokenem albo - dawniej - calej kancelarii."""
     komputer = getattr(request.state, "komputer", None)

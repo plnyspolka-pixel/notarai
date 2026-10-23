@@ -115,3 +115,81 @@ def test_maskowanie_zgodne_z_tym_w_sladzie_audytowym():
     wpisow w sprawie - ten test ma to zlapac od razu."""
     for numer in ["44051401359", "85031512331", "123", "", "abc", "1234567890123"]:
         assert krz_portal.maskuj(numer) == rejestry.maskuj_pesel(numer), numer
+
+
+class AtrapaNotarai:
+    """Serwer odgrywajacy scenariusz czynnosci dla agenta."""
+
+    def __init__(self, *akcje):
+        self.kolejka = list(akcje)
+        self.pytania = []
+
+    def krok_klikania(self, zlecenie, cel, stan, kroki):
+        self.pytania.append({"cel": cel, "kroki": kroki})
+        return self.kolejka.pop(0) if self.kolejka else {"akcja": "koniec",
+                                                         "podsumowanie": "koniec"}
+
+
+class AtrapaStronyWww:
+    url = "https://mapy.geoportal.gov.pl/"
+
+    def __init__(self):
+        self.wpisane = {}
+
+    def elementy(self, limit=120):
+        return [{"nr": 1, "rola": "input:text", "opis": "Numer działki",
+                 "selektor": "#dzialka"}]
+    def tekst_strony(self, limit=4000): return "Wyszukiwarka"
+    def typ_pola(self, selektor): return "text"
+    def wpisz(self, selektor, wartosc): self.wpisane[selektor] = wartosc
+    def kliknij(self, selektor): pass
+    def wybierz(self, selektor, wartosc): pass
+    def otworz(self, adres): pass
+
+
+def zlecenie_klikania(cel="znajdz dzialke 123/4", hosty=None):
+    return {"id": "z9", "rodzaj": "klikamy", "sprawa": "abc123",
+            "tresc": {"cel": cel, "dozwolone_hosty": hosty or []}}
+
+
+class TestKlikania:
+    def test_wykonuje_czynnosci_wskazane_przez_model(self):
+        strona = AtrapaStronyWww()
+        notarai = AtrapaNotarai(
+            {"akcja": "wpisz", "nr": 1, "tekst": "123/4", "mysl": "pole numeru"},
+            {"akcja": "koniec", "podsumowanie": "Znalazłem działkę."},
+        )
+        raport = zadania.klikamy(zlecenie_klikania(), notarai=notarai,
+                                 polacz=polaczenie_z(strona))
+        assert strona.wpisane == {"#dzialka": "123/4"}
+        assert raport["podsumowanie"] == "Znalazłem działkę."
+        assert raport["bledy"] == []
+
+    def test_raport_nie_niesie_wpisywanych_wartosci(self):
+        """Raport wraca na serwer i trafia do logow."""
+        notarai = AtrapaNotarai({"akcja": "wpisz", "nr": 1, "tekst": "44051401359"},
+                                {"akcja": "koniec", "podsumowanie": "gotowe"})
+        raport = zadania.klikamy(zlecenie_klikania(), notarai=notarai,
+                                 polacz=polaczenie_z(AtrapaStronyWww()))
+        assert "44051401359" not in str(raport)
+
+    def test_pytanie_agenta_wraca_do_notariusza(self):
+        notarai = AtrapaNotarai({"akcja": "pytam", "pytanie": "Która z dwóch działek?"})
+        raport = zadania.klikamy(zlecenie_klikania(), notarai=notarai,
+                                 polacz=polaczenie_z(AtrapaStronyWww()))
+        assert raport["pytanie"] == "Która z dwóch działek?"
+
+    def test_bez_polaczenia_z_notarai_nie_zgadujemy(self):
+        raport = zadania.klikamy(zlecenie_klikania(), notarai=None,
+                                 polacz=polaczenie_z(AtrapaStronyWww()))
+        assert raport["bledy"] and "polaczenia" in raport["bledy"][0]
+
+    def test_zlecenie_bez_celu(self):
+        raport = zadania.klikamy(zlecenie_klikania(cel=""), notarai=AtrapaNotarai(),
+                                 polacz=polaczenie_z(AtrapaStronyWww()))
+        assert raport["bledy"]
+
+    def test_zawsze_zamyka_kanal_sterowania(self):
+        polacz = polaczenie_z(AtrapaStronyWww())
+        zadania.klikamy(zlecenie_klikania(), notarai=AtrapaNotarai(), polacz=polacz)
+        assert polacz.polaczenie.zamkniete

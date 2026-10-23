@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 import krz_portal
-from pomocnik import cdp, krz_cdp
+from pomocnik import cdp, klikamy as silnik_klikania, krz_cdp
 
 log = logging.getLogger("notarai.pomocnik.zadania")
 
@@ -28,7 +28,8 @@ def katalog_zrzutow(sprawa: str) -> Path:
     return katalog
 
 
-def krz(zlecenie: dict, polacz=cdp.polacz, portal_z=krz_cdp.StronaKRZ) -> dict:
+def krz(zlecenie: dict, notarai=None, polacz=cdp.polacz,
+        portal_z=krz_cdp.StronaKRZ) -> dict:
     """Sprawdzenie w Krajowym Rejestrze Zadluzonych dla kazdej osoby ze zlecenia.
 
     Blad przy jednej osobie nie przerywa pozostalych: notariusz woli dostac
@@ -73,4 +74,46 @@ def krz(zlecenie: dict, polacz=cdp.polacz, portal_z=krz_cdp.StronaKRZ) -> dict:
     return {"sprawdzenia": sprawdzenia, "bledy": bledy, "zrzuty_w": str(katalog)}
 
 
-WYKONAWCY = {"krz": krz}
+def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
+    """Prowadzenie przegladarki wedlug polecenia notariusza.
+
+    Petla jest tutaj, a model na serwerze: po kazdym kroku pokazujemy notarai,
+    co widac na stronie, i dostajemy jedna czynnosc do wykonania. Dzieki temu
+    komputer notariusza nie potrzebuje zadnego dostepu do modelu.
+
+    Zabezpieczenia pilnuje silnik (pomocnik/klikamy.py), nie polecenie dla
+    modelu: w przycisk, ktory wysyla albo podpisuje, nie da sie kliknac, a poza
+    dozwolone adresy agent nie wyjdzie.
+    """
+    tresc = zlecenie.get("tresc") or {}
+    cel = tresc.get("cel", "")
+    if not cel:
+        return {"bledy": ["Zlecenie nie mowi, co zrobic."]}
+    if notarai is None:
+        return {"bledy": ["Pomocnik nie ma polaczenia z notarai, wiec nie ma kogo "
+                          "zapytac o kolejny krok."]}
+
+    def model(cel, stan, kroki):
+        return notarai.krok_klikania(zlecenie.get("id", ""), cel, stan,
+                                     [vars(k) for k in kroki])
+
+    polaczenie, strona = polacz()
+    try:
+        przebieg = silnik_klikania.prowadz(
+            cel, strona, model,
+            dozwolone_hosty=tuple(tresc.get("dozwolone_hosty") or ()),
+        )
+    finally:
+        polaczenie.zamknij()
+
+    log.info("klikamy: krokow=%d pytanie=%s", len(przebieg.kroki),
+             bool(przebieg.pytanie))
+    return {
+        "kroki": [vars(k) for k in przebieg.kroki],
+        "podsumowanie": przebieg.podsumowanie,
+        "pytanie": przebieg.pytanie,
+        "bledy": [przebieg.zatrzymano] if przebieg.zatrzymano else [],
+    }
+
+
+WYKONAWCY = {"krz": krz, "klikamy": klikamy}

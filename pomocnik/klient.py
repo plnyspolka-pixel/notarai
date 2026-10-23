@@ -106,12 +106,22 @@ class Notarai:
         wynik = self._zadanie(f"/api/pomocnik/zlecenia?wersja={WERSJA}")
         return wynik if isinstance(wynik, list) else []
 
+    def krok_klikania(self, zlecenie: str, cel: str, stan: dict, kroki: list) -> dict:
+        """Pyta serwer, co zrobic dalej na stronie.
+
+        Model stoi po stronie notarai - ten komputer nie ma dostepu do Bedrocka
+        i nie musi go miec. Dostaje gotowa czynnosc, nie klucze do modelu.
+        """
+        wynik = self._zadanie(f"/api/pomocnik/klikamy/{zlecenie}/krok",
+                              {"cel": cel, "stan": stan, "kroki": kroki})
+        return wynik if isinstance(wynik, dict) else {}
+
     def odeslij(self, identyfikator: str, raport: dict) -> dict:
         wynik = self._zadanie(f"/api/pomocnik/zlecenia/{identyfikator}/wynik", raport)
         return wynik if isinstance(wynik, dict) else {}
 
 
-def wykonaj(zlecenie: dict, wykonawcy: dict) -> dict:
+def wykonaj(zlecenie: dict, wykonawcy: dict, notarai=None) -> dict:
     """Kieruje zlecenie do wlasciwego wykonawcy.
 
     Nieznanego rodzaju nie udajemy, ze wykonalismy. Lepiej, zeby notariusz
@@ -123,7 +133,10 @@ def wykonaj(zlecenie: dict, wykonawcy: dict) -> dict:
         log.warning("zlecenie %s: nieznany rodzaj %r", zlecenie.get("id"), rodzaj)
         return {"bledy": [f"Ten pomocnik nie obsluguje zlecen rodzaju '{rodzaj}'. "
                           "Zaktualizuj pomocnika."]}
-    return wykonawca(zlecenie)
+    # Polaczenie z notarai przekazujemy wykonawcy, bo przy prowadzeniu
+    # przegladarki model stoi po stronie serwera i trzeba go pytac o kazdy
+    # krok. Sprawdzenie w KRZ go nie potrzebuje i po prostu pomija.
+    return wykonawca(zlecenie, notarai=notarai)
 
 
 def jeden_obieg(notarai: Notarai, wykonawcy: dict) -> int:
@@ -137,7 +150,7 @@ def jeden_obieg(notarai: Notarai, wykonawcy: dict) -> int:
     for zlecenie in zlecenia:
         identyfikator = zlecenie.get("id", "")
         try:
-            raport = wykonaj(zlecenie, wykonawcy)
+            raport = wykonaj(zlecenie, wykonawcy, notarai)
         except Exception as blad:  # noqa: BLE001 - bez tresci zlecenia w komunikacie
             log.error("zlecenie %s: %s", identyfikator, type(blad).__name__)
             raport = {"bledy": [f"Pomocnik nie dokonczyl: {type(blad).__name__}"]}
