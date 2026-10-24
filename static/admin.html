@@ -99,7 +99,8 @@ a.odnosnik-a:hover{color:var(--tekst)}
   <section id="widok-wejscie" hidden>
     <h1>Panel administracyjny</h1>
     <p class="pod">Tu zakładasz kancelarie. Zaloguj się adresem e-mail administratora —
-      przeglądarka pamięta logowanie przez 30 dni.</p>
+      przeglądarka pamięta logowanie przez 30 dni. Pierwszy raz? Hasło tymczasowe przyszło
+      e-mailem (sprawdź też spam).</p>
 
     <div class="karta" id="karta-haslo">
       <div class="pole">
@@ -342,8 +343,10 @@ async function rysujAdminow(){
     const ja = email === dane.ja;
     const w = document.createElement("div");
     w.className = "osoba";
-    w.innerHTML = `<div><b>${escape(email)}${ja ? " (Ty)" : ""}</b></div>
-      ${ja ? "" : '<button class="wtorny maly" data-ponow>Wyślij zaproszenie ponownie</button><button class="odnosnik" data-usun>usuń</button>'}`;
+    const staly = (dane.stali || []).includes(email);
+    w.innerHTML = `<div><b>${escape(email)}${ja ? " (Ty)" : ""}</b>${staly ? "<small>stały administrator</small>" : ""}</div>
+      ${ja ? "" : '<button class="wtorny maly" data-ponow>Wyślij zaproszenie ponownie</button>'}
+      ${ja || staly ? "" : '<button class="odnosnik" data-usun>usuń</button>'}`;
     const sciezka = "/api/admin/administratorzy/" + encodeURIComponent(email);
     const ponow = w.querySelector("[data-ponow]");
     if (ponow) ponow.onclick = async () => {

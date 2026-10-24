@@ -51,6 +51,13 @@ Parameters:
     Type: Number
     Default: 150
     Description: Miesieczny budzet. Ostrzezenie przy 80 procentach i prognozie przekroczenia.
+  Administratorzy:
+    Type: String
+    Default: plnyspolka@gmail.com
+    Description: >-
+      Stali administratorzy panelu /admin, adresy po przecinku. Konto zaklada
+      sie samo przy pierwszym otwarciu panelu. Token z Secrets Manager zostaje
+      tylko na awarie.
   PulaLogowania:
     Type: String
     Default: ""
@@ -344,6 +351,8 @@ Resources:
               Value: !Ref BucketSpraw
             - Name: PIECZAPP_MULTI
               Value: "true"
+            - Name: PIECZAPP_ADMINI
+              Value: !Ref Administratorzy
             - Name: PIECZAPP_COGNITO_POOL
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT

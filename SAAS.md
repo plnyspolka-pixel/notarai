@@ -53,12 +53,13 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    Pakuje tylko zacommitowany kod (`git archive HEAD`), tag = skrót commita.
 3. Aplikacja: `powershell -ExecutionPolicy Bypass -File infra\3-wdroz-aplikacje.ps1`
    Wymaga certyfikatu ISSUED. Na końcu wypisuje cel CNAME dla app.notarai.pl.
-4. Pierwsze wejście do panelu (raz): https://app.notarai.pl/admin ->
-   „Wejdź tokenem awaryjnym”. Token: konsola AWS -> Secrets Manager ->
-   `notarai/admin-token` -> Retrieve secret value. W sekcji Administratorzy
-   dodaj swój e-mail (osobny od kont w kancelariach), wyloguj się i wejdź
-   hasłem z zaproszenia. Od tej chwili panel to e-mail i hasło, sesja trzyma
-   30 dni; token zostaje tylko na awarię.
+4. Panel administratora: https://app.notarai.pl/admin. Stały administrator
+   to parametr stosu `Administratorzy` (domyślnie plnyspolka@gmail.com, kilka
+   adresów po przecinku). Jego konto zakłada się samo przy pierwszym otwarciu
+   panelu po wdrożeniu - zaproszenie z hasłem tymczasowym przychodzi e-mailem,
+   potem logujesz się hasłem, sesja trzyma 30 dni. Kolejnych administratorów
+   dodajesz w panelu (sekcja Administratorzy). Token z Secrets Manager
+   (`notarai/admin-token`) zostaje wyłącznie na awarię: „Wejdź tokenem awaryjnym”.
 5. Dodaj kancelarię: w panelu /admin wpisz nazwę kancelarii i e-mail
    notariusza, wybierz miejsce na pliki. Jeden przycisk zakłada kancelarię,
    konto właściciela i wysyła zaproszenie. Właściciel zaprasza swój zespół

@@ -79,6 +79,7 @@ def zdrowie(request: Request):
 def panel_admina():
     """Zakladanie kancelarii bez curl. Strona jest jawna; dane za nia chroni
     token administratora, ktory przegladarka wysyla z kazdym zadaniem."""
+    autoryzacja.zaloz_stalych_adminow()
     return (Path(__file__).parent / "static" / "admin.html").read_text("utf-8")
 
 

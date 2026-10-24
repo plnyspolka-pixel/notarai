@@ -19,7 +19,7 @@ def test_token_awaryjny_dodaje_pierwszego_administratora(srodowisko):
     assert _dodaj(klient).status_code == 201
     assert ADMINKA in atrapa.utworzeni
     lista = klient.get("/api/admin/administratorzy", headers=ADMIN).json()
-    assert lista == {"ja": "", "administratorzy": [ADMINKA]}
+    assert lista == {"ja": "", "administratorzy": [ADMINKA], "stali": []}
 
 
 def test_administrator_po_zalogowaniu_zaklada_kancelarie(srodowisko):
@@ -78,3 +78,48 @@ def test_adres_zajety_przez_notariusza(srodowisko):
     odp = _dodaj(klient)
     assert odp.status_code == 409 and "osobnego adresu" in odp.json()["detail"]
     assert klient.get("/api/admin/administratorzy", headers=ADMIN).json()["administratorzy"] == []
+
+
+STALY = "staly.admin@example.test"
+
+
+def _staly(monkeypatch):
+    import autoryzacja
+    monkeypatch.setattr(autoryzacja, "STALI_ADMINI", [STALY])
+    monkeypatch.setattr(autoryzacja, "_stali_zalozeni", False)
+    return autoryzacja
+
+
+def test_staly_administrator_dostaje_konto_sam_i_raz(srodowisko, monkeypatch):
+    klient, atrapa = srodowisko
+    aut = _staly(monkeypatch)
+    aut.zaloz_stalych_adminow()
+    aut.zaloz_stalych_adminow()
+    assert atrapa.utworzeni.count(STALY) == 1
+    assert klient.get("/api/admin/kancelarie", headers=_jako_admin(STALY)).status_code == 200
+
+
+def test_istniejace_konto_stalego_nie_jest_bledem(srodowisko, monkeypatch):
+    _, atrapa = srodowisko
+    atrapa.utworzeni.append(STALY)
+    _staly(monkeypatch).zaloz_stalych_adminow()
+    assert atrapa.utworzeni.count(STALY) == 1
+
+
+def test_stalego_nie_usunie_inny_administrator(srodowisko, monkeypatch):
+    klient, atrapa = srodowisko
+    _staly(monkeypatch)
+    _dodaj(klient)
+    odp = klient.delete(f"/api/admin/administratorzy/{STALY}", headers=_jako_admin())
+    assert odp.status_code == 403 and STALY not in atrapa.usunieci
+    dane = klient.get("/api/admin/administratorzy", headers=_jako_admin(STALY)).json()
+    assert dane["ja"] == STALY and dane["stali"] == [STALY]
+    assert set(dane["administratorzy"]) == {STALY, ADMINKA}
+
+
+def test_bez_stalych_nic_sie_nie_zaklada(srodowisko, monkeypatch):
+    _, atrapa = srodowisko
+    import autoryzacja
+    monkeypatch.setattr(autoryzacja, "STALI_ADMINI", [])
+    autoryzacja.zaloz_stalych_adminow()
+    assert atrapa.utworzeni == []

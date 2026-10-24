@@ -244,6 +244,35 @@ def czy_admin(request: Request) -> bool:
 
 KANCELARIA_ADMINOW = "_administracja"   # id kancelarii nie zaczyna sie od "_"
 
+# Stali administratorzy z parametru stosu (PIECZAPP_ADMINI, po przecinku).
+# Nie da sie ich usunac z panelu, a konto zaklada sie samo przy pierwszym
+# otwarciu /admin - wiec po wdrozeniu wystarczy otworzyc panel i odebrac
+# zaproszenie. Token z Secrets Manager zostaje wylacznie na awarie.
+STALI_ADMINI = [a.strip().lower() for a in os.getenv("PIECZAPP_ADMINI", "").split(",") if a.strip()]
+_stali_zalozeni = False
+
+
+def zaloz_stalych_adminow() -> None:
+    """Raz na proces: konto w Cognito dla kazdego stalego administratora.
+    Istniejace konto to nie blad - zaproszenie poszlo juz wczesniej."""
+    global _stali_zalozeni
+    if _stali_zalozeni or not STALI_ADMINI or not logowanie.wlaczone():
+        return
+    _stali_zalozeni = True
+    for email in STALI_ADMINI:
+        try:
+            logowanie.utworz_uzytkownika(email, KANCELARIA_ADMINOW)
+            log.info("zalozono konto stalego administratora")
+        except logowanie.BladLogowania:
+            pass   # konto juz jest
+        except Exception as blad:  # noqa: BLE001 - panel ma dzialac i tak
+            _stali_zalozeni = False
+            log.warning("staly administrator: nie zalozono konta (%s)", type(blad).__name__)
+
+
+def _wszyscy_admini() -> list[str]:
+    return sorted(set(STALI_ADMINI) | set(_wczytaj_adminow()))
+
 
 def _plik_adminow() -> Path:
     import config
@@ -284,7 +313,7 @@ def _email_administratora(token: str) -> str:
     except logowanie.BladLogowania:
         return ""
     email = dane["email"].lower()
-    if dane["kancelaria"] != KANCELARIA_ADMINOW or email not in _wczytaj_adminow():
+    if dane["kancelaria"] != KANCELARIA_ADMINOW or email not in _wszyscy_admini():
         return ""
     return email
 
@@ -808,7 +837,7 @@ def lista_adminow(request: Request):
     _wymagaj_admina(request)
     naglowek = request.headers.get("authorization", "")
     return {"ja": _email_administratora(naglowek[7:]) if naglowek.startswith("Bearer ") else "",
-            "administratorzy": _wczytaj_adminow()}
+            "administratorzy": _wszyscy_admini(), "stali": STALI_ADMINI}
 
 
 @router.post("/administratorzy", status_code=201)
@@ -818,7 +847,7 @@ def dodaj_admina(request: Request, dane: Zaproszenie):
     _wymagaj_logowania()
     email = _poprawny_email(dane.email)
     lista = _wczytaj_adminow()
-    if email in lista:
+    if email in lista or email in STALI_ADMINI:
         raise HTTPException(409, "Ten adres jest juz administratorem.")
     try:
         logowanie.utworz_uzytkownika(email, KANCELARIA_ADMINOW)
@@ -835,7 +864,7 @@ def ponow_adminowi(request: Request, email: str):
     _wymagaj_admina(request)
     _wymagaj_logowania()
     email = _poprawny_email(email)
-    if email not in _wczytaj_adminow():
+    if email not in _wszyscy_admini():
         raise HTTPException(404, "Tego adresu nie ma na liscie administratorow.")
     try:
         logowanie.ponow_zaproszenie(email)
@@ -851,6 +880,9 @@ def usun_admina(request: Request, email: str):
     naglowek = request.headers.get("authorization", "")
     if email == _email_administratora(naglowek[7:] if naglowek.startswith("Bearer ") else ""):
         raise HTTPException(400, "Nie mozesz usunac wlasnego konta administratora.")
+    if email in STALI_ADMINI:
+        raise HTTPException(403, "Stalego administratora zmienia sie parametrem stosu "
+                                 "Administratorzy, nie w panelu.")
     lista = _wczytaj_adminow()
     if email not in lista:
         raise HTTPException(404, "Tego adresu nie ma na liscie administratorow.")
