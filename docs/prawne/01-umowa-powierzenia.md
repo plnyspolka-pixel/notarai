@@ -1,9 +1,13 @@
 # UMOWA POWIERZENIA PRZETWARZANIA DANYCH OSOBOWYCH
 
-zawarta w dniu [data] w [miejscowość] (dalej: **Umowa**) pomiędzy:
+Wersja z dnia 24.10.2026. Integralna część Regulaminu świadczenia usługi
+notarai.
 
-**[imię i nazwisko notariusza]**, notariuszem prowadzącym Kancelarię Notarialną
-w [miejscowość], [adres], NIP [●], REGON [●]
+Umowa zostaje zawarta przez akceptację w Formularzu rejestracji
+(§ 6 Regulaminu), bez podpisu (dalej: **Umowa**), pomiędzy:
+
+**notariuszem wskazanym w Formularzu rejestracji**, prowadzącym kancelarię
+notarialną pod adresem podanym w tym formularzu
 (dalej: **Administrator**),
 
 a
@@ -20,9 +24,12 @@ Filipa Roberta Bielaka
 
 dalej łącznie: **Strony**.
 
-> Uwaga dla kancelarii prowadzonej w formie spółki cywilnej notariuszy:
-> administratorem jest każdy notariusz w zakresie czynności, które wykonuje.
-> Umowę podpisują wszyscy wspólnicy albo zawiera się odrębne umowy.
+> Kancelaria prowadzona w formie spółki cywilnej notariuszy: administratorem
+> jest każdy notariusz w zakresie czynności, które wykonuje. Umowa zostaje
+> zawarta z każdym notariuszem wymienionym w Formularzu rejestracji.
+
+Dane Administratora, datę zawarcia Umowy i jej wersję Administrator widzi
+w aplikacji (Dokumenty → Umowa powierzenia) i może je stamtąd pobrać.
 
 ## § 1. Definicje
 
@@ -83,7 +90,8 @@ Pozostałe pojęcia mają znaczenie nadane im w RODO.
 
 ## § 4. Zakazy dotyczące wykorzystania Danych
 
-Podmiot przetwarzający nie może, bez wyraźnej pisemnej zgody Administratora:
+Podmiot przetwarzający nie może, bez wyraźnej zgody Administratora wyrażonej
+co najmniej w formie dokumentowej:
 
 1. wykorzystywać Danych do celów własnych, w tym do trenowania, dostrajania,
    testowania lub oceny modeli sztucznej inteligencji, do ulepszania promptów,
@@ -102,12 +110,17 @@ Podmiot przetwarzający nie może, bez wyraźnej pisemnej zgody Administratora:
 
 1. Podmiot przetwarzający zapewnia, że osoby upoważnione do przetwarzania
    Danych:
-   1. zostały imiennie upoważnione na piśmie,
-   2. zobowiązały się na piśmie do zachowania w tajemnicy Danych, sposobów ich
-      zabezpieczenia oraz wszelkich okoliczności spraw Administratora,
-      bezterminowo, także po ustaniu współpracy z Podmiotem przetwarzającym,
+   1. zostały imiennie upoważnione, co najmniej w formie dokumentowej,
+   2. zobowiązały się, co najmniej w formie dokumentowej, do zachowania
+      w tajemnicy Danych, sposobów ich zabezpieczenia oraz wszelkich
+      okoliczności spraw Administratora, bezterminowo, także po ustaniu
+      współpracy z Podmiotem przetwarzającym,
    3. zostały przeszkolone z zasad ochrony danych osobowych i z niniejszej
       Umowy.
+
+   Członkowie zarządu Podmiotu przetwarzającego działają jako jego organ
+   i nie wymagają upoważnienia; składają zobowiązanie, o którym mowa
+   w pkt 2.
 2. Podmiot przetwarzający zachowuje w tajemnicy wszystkie informacje
    o sprawach Administratora, w tym okoliczności objęte Tajemnicą notarialną,
    w zakresie nie mniejszym niż wynikający z art. 18 ustawy - Prawo
@@ -255,7 +268,8 @@ Podmiot przetwarzający nie może, bez wyraźnej pisemnej zgody Administratora:
 
 ## § 14. Kontakt
 
-1. Administrator: [imię i nazwisko], e-mail [●].
+1. Administrator: adres e-mail Właściciela podany w Formularzu rejestracji,
+   a po zmianie - adres wskazany przez Administratora.
 2. Podmiot przetwarzający, w sprawach ochrony danych i Naruszeń:
    Filip Robert Bielak, e-mail kontakt@notarai.pl.
 3. Zmiana danych kontaktowych nie wymaga aneksu; wymaga powiadomienia w formie
@@ -267,24 +281,21 @@ Podmiot przetwarzający nie może, bez wyraźnej pisemnej zgody Administratora:
    o ochronie danych osobowych oraz Kodeks cywilny.
 2. W razie sprzeczności między Umową a Regulaminem lub inną umową między
    Stronami w zakresie ochrony Danych pierwszeństwo ma Umowa.
-3. Zmiany Umowy wymagają formy pisemnej albo elektronicznej (kwalifikowany
-   podpis elektroniczny) pod rygorem nieważności, z wyjątkiem aktualizacji
-   Załączników nr 2 i 3 dokonywanych w trybie § 6 ust. 2 i § 8 ust. 2.
-4. Spory rozstrzyga sąd właściwy dla siedziby [Podmiotu przetwarzającego /
-   Administratora].
-5. Umowę sporządzono w dwóch jednobrzmiących egzemplarzach albo w formie
-   elektronicznej opatrzonej kwalifikowanymi podpisami elektronicznymi Stron.
+3. Umowę zmienia się w trybie zmiany Regulaminu (§ 14 Regulaminu),
+   a Załączniki nr 2 i 3 - w trybie § 6 ust. 2 i § 8 ust. 2 Umowy.
+4. Spory rozstrzyga sąd właściwy dla siedziby Podmiotu przetwarzającego.
+5. Umowę zawiera się w formie elektronicznej (art. 28 ust. 9 RODO) przez
+   akceptację w Formularzu rejestracji albo, gdy konto Kancelarii założył
+   Podmiot przetwarzający, przy pierwszym logowaniu Właściciela. Podmiot
+   przetwarzający przechowuje zapis akceptacji (data i godzina, wersja
+   Umowy, dane z formularza, adres e-mail i adres IP) przez czas trwania
+   Umowy i 5 lat po jej zakończeniu.
 
 Załączniki:
 
 1. Opis przetwarzania.
 2. Środki techniczne i organizacyjne.
 3. Dalsi podmioty przetwarzający.
-
-| Administrator | Podmiot przetwarzający |
-|---|---|
-| | |
-| ............................ | ............................ |
 
 ---
 
@@ -343,7 +354,7 @@ w pamięci i plikach tymczasowych usuwanych po zakończeniu operacji.
 
 ## Załącznik nr 2. Środki techniczne i organizacyjne
 
-Opis zgodny ze stanem Usługi na dzień [data podpisania].
+Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 
 ### A. Lokalizacja i infrastruktura
 
@@ -388,7 +399,7 @@ Opis zgodny ze stanem Usługi na dzień [data podpisania].
 6. Aplikacja działa na roli IAM ograniczonej do magazynu spraw i wywołania
    modelu (zasada najmniejszych uprawnień).
 7. Dostęp administracyjny do konta AWS mają wyłącznie imiennie upoważnione
-   osoby Fundacji: [lista]. Konto główne AWS chronione uwierzytelnianiem
+   osoby Fundacji: Filip Robert Bielak, Prezes Zarządu. Konto główne AWS chronione uwierzytelnianiem
    wieloskładnikowym (MFA) i nieużywane do pracy bieżącej.
 8. Sekrety (np. tokeny administracyjne) przechowywane w AWS Secrets Manager,
    nigdy w kodzie ani repozytorium.
@@ -437,7 +448,8 @@ Opis zgodny ze stanem Usługi na dzień [data podpisania].
 
 ### H. Bezpieczeństwo wytwarzania oprogramowania
 
-1. Kod w prywatnym repozytorium w regionie UE; zautomatyzowane testy przed
+1. Kod w prywatnym repozytorium w regionie UE, z kopią zapasową u osoby
+   upoważnionej; kod nie zawiera Danych. Zautomatyzowane testy przed
    wdrożeniem; obrazy kontenerów skanowane pod kątem podatności, z niezmiennymi
    tagami.
 2. Aktualizacja obrazu (łatki systemu i bibliotek) co najmniej raz na
@@ -457,8 +469,8 @@ Opis zgodny ze stanem Usługi na dzień [data podpisania].
 
 ### J. Organizacja
 
-1. Imienne upoważnienia i pisemne zobowiązania do poufności dla wszystkich
-   osób z dostępem do Danych.
+1. Imienne upoważnienia i zobowiązania do poufności, w formie dokumentowej,
+   dla wszystkich osób z dostępem do Danych.
 2. Procedura obsługi naruszeń ochrony danych.
 3. Rejestr kategorii czynności przetwarzania (art. 30 ust. 2 RODO).
 4. Przegląd środków bezpieczeństwa raz w roku.

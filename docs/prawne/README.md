@@ -1,25 +1,44 @@
 # notarai - dokumentacja prawna
 
 Komplet dla Fundacji Krzewienia Edukacji Finansowej im. Pieczaka jako
-dostawcy usługi notarai. Stan na 23.10.2026.
+dostawcy usługi notarai. Stan na 24.10.2026, wszystko obowiązuje od
+24.10.2026.
 
-**To są projekty, nie porada prawna.** Przed podpisaniem pierwszej umowy
-z obcą kancelarią daj całość do przejrzenia radcy prawnemu lub adwokatowi
-zajmującemu się RODO i - najlepiej - obsługą notariatu. Jednorazowy przegląd
-gotowego kompletu jest dużo tańszy niż pisanie od zera.
+**Nic tu nie wymaga podpisu.** Kancelaria zakłada konto sama pod
+app.notarai.pl/rejestracja i jednym zaznaczeniem akceptuje Regulamin razem
+z umową powierzenia (art. 28 ust. 9 RODO dopuszcza formę elektroniczną).
+Aplikacja zapisuje dowód: wersje, czas, e-mail, adres IP, dane kancelarii.
+
+To nie jest porada prawna. Dokumenty obowiązują, ale przegląd przez radcę
+prawnego od RODO i notariatu nadal jest dobrym pomysłem. Zmiany po
+przeglądzie wprowadza się w trybie § 14 Regulaminu (14 dni, e-mail
+i komunikat w aplikacji).
 
 ## Pliki
 
-| Plik | Dla kogo | Kto podpisuje |
+| Plik | Dla kogo | Jak się go przyjmuje |
 |---|---|---|
-| [01-umowa-powierzenia.md](01-umowa-powierzenia.md) | każda kancelaria, z 3 załącznikami | notariusz i Fundacja |
-| [02-regulamin.md](02-regulamin.md) | publiczny, na notarai.pl | akceptuje kancelaria |
-| [03-polityka-prywatnosci.md](03-polityka-prywatnosci.md) | publiczna, na notarai.pl | - |
-| [04-rejestry-art-30.md](04-rejestry-art-30.md) | wewnętrzny, Fundacja | - |
-| [05-procedura-naruszen.md](05-procedura-naruszen.md) | wewnętrzna, Fundacja | przyjmuje zarząd |
-| [06-upowaznienie-i-poufnosc.md](06-upowaznienie-i-poufnosc.md) | każda osoba Fundacji z dostępem | zarząd i ta osoba |
-| [07-dpia-dla-kancelarii.md](07-dpia-dla-kancelarii.md) | wzór dla kancelarii | notariusz |
+| [01-umowa-powierzenia.md](01-umowa-powierzenia.md) | każda kancelaria, z 3 załącznikami | akceptacja w formularzu rejestracji (albo przy pierwszym logowaniu właściciela, gdy konto założył administrator); bez akceptacji serwer nie wpuszcza do spraw (428) |
+| [02-regulamin.md](02-regulamin.md) | publiczny | jw., razem z umową |
+| [03-polityka-prywatnosci.md](03-polityka-prywatnosci.md) | publiczna | - |
+| [04-rejestry-art-30.md](04-rejestry-art-30.md) | wewnętrzny, Fundacja | wykaz kancelarii prowadzi aplikacja: `/admin` → Rejestr umów (CSV) |
+| [05-procedura-naruszen.md](05-procedura-naruszen.md) | wewnętrzna, Fundacja | przyjęta przez zarząd 24.10.2026 |
+| [06-upowaznienie-i-poufnosc.md](06-upowaznienie-i-poufnosc.md) | osoby Fundacji z dostępem | forma dokumentowa: e-mail albo wpis w pliku; prezes działa jako organ |
+| [07-dpia-dla-kancelarii.md](07-dpia-dla-kancelarii.md) | kancelaria | aplikacja wypełnia ją danymi kancelarii, notariusz klika „Przyjmuję ocenę” |
 | [08-dla-kancelarii-checklista.md](08-dla-kancelarii-checklista.md) | kancelaria | - |
+| [09-instrukcja-ai.md](09-instrukcja-ai.md) | każda osoba w kancelarii (§ 4 ust. 5 Regulaminu, art. 4 AI Act) | każdy potwierdza ją sam przy pierwszym logowaniu |
+| [10-rejestr-dostepow-serwisowych.md](10-rejestr-dostepow-serwisowych.md) | wewnętrzny, Fundacja (§ 5 ust. 3 umowy powierzenia) | - |
+
+Wersja dokumentu to data w linii „Wersja z dnia DD.MM.RRRR.”. Aplikacja
+porównuje ją z zaakceptowaną. Zmiana daty w 01 lub 02 oznacza, że
+właściciele dostaną prośbę o akceptację nowej wersji, w 09 - że każdy
+ponownie potwierdzi instrukcję, w 07 - że notariusz ponownie przyjmie ocenę.
+
+Strony notarai.pl/regulamin, /umowa-powierzenia, /instrukcja-ai
+i /prywatnosc generuje `py -3 infra/strona_dokumenty.py`. Aplikacja
+pokazuje te same pliki pod app.notarai.pl/dokumenty/... (z obrazu, więc
+zawsze w wersji, która jest wdrożona). Po każdej zmianie uruchom generator
+i wyślij stronę.
 
 Opis techniczny „co się dzieje z danymi” jest w [../ochrona-danych.md](../ochrona-danych.md);
 Załącznik nr 2 do umowy powierzenia musi się z nim zgadzać.
@@ -35,20 +54,25 @@ Prawne:
    i nieruchomości. Jeżeli wniosek o zmianę PKD jest w sądzie, wszystko
    w porządku; jeżeli nie - dopisać np. 62.10 i 63.10 (PKD 2025) przy
    najbliższej zmianie wpisu.
-2. **Uzupełnić**
-   cennik - szukaj `[●]` i `[imię i nazwisko]`.
-   Dane Fundacji (adres, KRS, NIP, REGON, sąd, adres do e-doręczeń) są już
-   wpisane.
-3. **Podpisać upoważnienia** (plik 06) z każdą osobą, która ma dostęp do konta
-   AWS - zaczynając od siebie.
-4. **Opublikować** regulamin i politykę prywatności na notarai.pl.
+2. Dane uzupełnione 24.10.2026: cena 600 zł bez VAT (Fundacja zwolniona,
+   art. 113 - sprawdzone na białej liście; limit 200 000 zł rocznie to
+   około 27 kancelarii przez cały rok, potem VAT i zmiana ceny w trybie
+   § 14), przerwy zapowiadane 48 h przed, wypowiedzenie przez Fundację
+   3 miesiące, IOD niewyznaczony, księgowość bez biura, poczta AZ.pl.
+3. Upoważnienia (plik 06): dostęp ma tylko prezes, który działa jako organ.
+   Każda kolejna osoba dostaje upoważnienie e-mailem i odpowiada
+   zobowiązaniem - dopiero potem dostęp.
+4. **Opublikować** stronę z dokumentami: `py -3 infra/strona_dokumenty.py`,
+   potem `infra\strona.ps1 wyslij`.
 
 Techniczne - kod gotowy, zostało wdrożyć (Ty uruchamiasz polecenia AWS):
 
 5. MFA na koncie głównym AWS - zrobione.
-6. **Nowa wersja aplikacji** (usuwanie całej kancelarii, metadane AI w .docx,
-   adres alarmów `plnyspolka@gmail.com` wpisany w skrypt jako domyślny):
-   commit, potem etap 2 i 3 jak zwykle. Po etapie 3 **potwierdź subskrypcję**
+6. **Nowa wersja aplikacji** (rejestracja z akceptacją umowy, dokumenty
+   w aplikacji, usuwanie całej kancelarii, metadane AI w .docx, adres
+   alarmów `plnyspolka@gmail.com` wpisany w skrypt jako domyślny):
+   etap 2 i 3 jak zwykle. Rejestracja jest włączona parametrem stosu
+   `Rejestracja` (domyślnie `true`). Po etapie 3 **potwierdź subskrypcję**
    linkiem z maila od AWS - bez tego alarmy nie dojdą.
 7. **Kopia zapasowa** - nowy stos `infra/notarai-kopia.yaml`. Najpierw
    sprawdź, czy AWS Backup ma włączone S3 w regionie:
@@ -84,7 +108,7 @@ Techniczne - kod gotowy, zostało wdrożyć (Ty uruchamiasz polecenia AWS):
    kancelarii, jeśli obsługiwał ją inny kontener niż ten, który usuwał.
 5. Kopie zapasowe wygasną same po 21 dniach - mieści się to w 30 dniach
    z umowy.
-6. Wpis w rejestrze (plik 04, część A): data zakończenia i usunięcia.
+6. Rejestr umów zapisuje datę usunięcia sam (historia przez 5 lat).
 
 ## Najważniejsze kwestie prawne i jak je rozwiązuje komplet
 
@@ -178,8 +202,8 @@ udostępnieniem funkcji „Klikamy”.
 
 ## Kolejność działań
 
-1. Statut i KRS (punkt 1 blokerów) - to najdłużej trwa.
-2. Luki techniczne 6-9.
-3. Uzupełnienie danych w plikach, przegląd przez prawnika.
-4. Upoważnienia, rejestry, publikacja regulaminu i polityki.
-5. Umowa powierzenia z pierwszą kancelarią + przekazanie plików 07 i 08.
+1. Wdrożenie aplikacji (punkt 6) i kopii zapasowej (punkt 7).
+2. Publikacja strony z dokumentami (punkt 4).
+3. Kampania: kancelarie rejestrują się same, bez udziału Fundacji.
+4. W tle: PKD w KRS (punkt 1) i przegląd prawnika; zmiany po przeglądzie
+   w trybie § 14 Regulaminu.

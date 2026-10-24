@@ -1,16 +1,24 @@
 # NOTARAI - CO KANCELARIA ROBI PO SWOJEJ STRONIE
 
-Krótka lista dla notariusza. Wszystko poniżej to obowiązki administratora
-danych; Fundacja dostarcza wzory.
+Wersja z dnia 24.10.2026.
 
-1. **Podpisać umowę powierzenia** (plik 01) przed wgraniem pierwszej sprawy.
-2. **Przeprowadzić ocenę skutków (DPIA)** na wzorze z pliku 07 i przechowywać
-   ją w dokumentacji ochrony danych kancelarii.
-3. **Wpisać notarai do rejestru czynności przetwarzania** kancelarii: przy
+Krótka lista dla notariusza. Nic tu nie wymaga podpisu ani wysyłania
+dokumentów do Fundacji. Punkty 1-3 załatwia się w aplikacji kliknięciem.
+
+1. **Umowa powierzenia** - zawarta przy rejestracji, razem z Regulaminem.
+   Treść z danymi kancelarii i datą zawarcia jest w aplikacji:
+   Dokumenty → Umowa powierzenia.
+2. **Ocena skutków (DPIA)** - gotowa, wypełniona danymi kancelarii:
+   Dokumenty → Ocena skutków → **Przyjmuję ocenę**. Pobraną kopię
+   przechowuj w dokumentacji ochrony danych kancelarii.
+3. **Instrukcja AI** - każda osoba z zespołu potwierdza ją sama przy
+   pierwszym logowaniu (art. 4 AI Act). Kto i kiedy potwierdził, widać
+   w oknie Zespół kancelarii.
+4. **Wpisać notarai do rejestru czynności przetwarzania** kancelarii: przy
    czynnościach notarialnych w rubryce „odbiorcy” - „dostawca usługi IT
    (podmiot przetwarzający): Fundacja Krzewienia Edukacji Finansowej
-   im. Pieczaka; dalszy podmiot: Amazon Web Services EMEA SARL”.
-4. **Uzupełnić klauzulę informacyjną** dla klientów, np.:
+   im. Pieczaka, Lublin; dalszy podmiot: Amazon Web Services EMEA SARL”.
+5. **Uzupełnić klauzulę informacyjną** dla klientów, np.:
 
    > Odbiorcami danych mogą być podmioty świadczące na rzecz kancelarii usługi
    > informatyczne, w tym usługi przechowywania danych i oprogramowania
@@ -21,17 +29,14 @@ danych; Fundacja dostarcza wzory.
    > notariusza; kancelaria nie podejmuje wobec Pani/Pana decyzji opartych
    > wyłącznie na zautomatyzowanym przetwarzaniu.
 
-5. **Nadać pracownikom upoważnienia** obejmujące pracę w notarai i zakładać
-   konta tylko osobom upoważnionym; usuwać konto w dniu zakończenia pracy.
-6. **Przeszkolić zespół** z instrukcji notarai: co model robi źle, że każdy
-   odczyt i projekt trzeba porównać ze źródłem (art. 4 AI Act - kompetencje
-   w zakresie AI).
+6. **Zakładać konta tylko osobom upoważnionym** przez kancelarię do
+   przetwarzania danych i usuwać konto w dniu zakończenia pracy.
 7. **Usuwać sprawy** z notarai po zakończeniu czynności (lub ustalić
-   w kancelarii inny termin). Notarai nie jest repertorium ani archiwum
+   w kancelarii inny termin). notarai nie jest repertorium ani archiwum
    notarialnym - dokumentację prowadzi się jak dotąd.
-8. **Tryb „Pliki u kancelarii”**: zapewnić kopię zapasową folderu i
-   szyfrowanie dysku.
+8. **Tryb „Pliki u kancelarii”**: zapewnić kopię zapasową folderu
+   i szyfrowanie dysku.
 9. **Do rejestrów logować się samodzielnie.** Nie przekazywać nikomu
    (w tym Fundacji) haseł ani kart do systemów urzędowych.
-10. Rozważyć konsultację z izbą notarialną, czy samorząd wydał wytyczne
-    dotyczące korzystania z chmury i narzędzi AI.
+10. Warto zapytać izbę notarialną, czy samorząd wydał wytyczne dotyczące
+    korzystania z chmury i narzędzi AI.

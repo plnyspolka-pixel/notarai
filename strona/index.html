@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notarai - asystent kancelarii notarialnej</title>
-<meta name="description" content="notarai odczytuje dane ze skanów, sprawdza je i przygotowuje projekt aktu na wzorze kancelarii. Decyzja zawsze należy do notariusza.">
+<meta name="description" content="notarai przygotowuje projekt aktu ze skanów i przeklikuje za Ciebie portale rejestrów. Dane zostają w Unii Europejskiej, a ostatnie kliknięcie zawsze należy do notariusza.">
 <link rel="icon" href="favicon.png">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -16,10 +16,12 @@
       <img src="favicon.png" alt="" width="32" height="32">
       <span>notarai</span>
     </a>
-    <nav class="menu">
-      <a href="#jak">Jak to działa</a>
-      <a href="#funkcje">Funkcje</a>
-      <a href="#dane">Dane</a>
+    <nav class="menu" aria-label="Sekcje strony">
+      <a href="#klikamy">Klikamy za Ciebie</a>
+      <a href="#latwo">Jak to działa</a>
+      <a href="#dane">Bezpieczeństwo</a>
+      <a href="#zgodnosc">Zgodność</a>
+      <a href="#cennik">Cennik</a>
       <a href="#kontakt">Kontakt</a>
     </nav>
     <a class="przycisk maly" href="https://app.notarai.pl">Zaloguj się</a>
@@ -28,95 +30,305 @@
 
 <main>
 
+<!-- HERO -->
 <section class="hero">
-  <div class="szer">
-    <p class="znacznik">Dla kancelarii notarialnych</p>
-    <h1>Projekt aktu w kilka minut.<br>Decyzja zawsze u&nbsp;notariusza.</h1>
-    <p class="wstep">Wgrywasz wzór aktu i skany dokumentów. notarai odczytuje dane, sprawdza je i&nbsp;przygotowuje projekt na wzorze Twojej kancelarii, gotowy do przejrzenia w Wordzie.</p>
-    <div class="akcje">
-      <a class="przycisk" href="https://app.notarai.pl">Zaloguj się do aplikacji</a>
-      <a class="przycisk drugi" href="#kontakt">Umów prezentację</a>
+  <div class="szer hero-w">
+    <div>
+      <p class="znacznik">Dla kancelarii notarialnych</p>
+      <h1>Akt przygotowany.<br>Rejestry przeklikane.<br><em>Ty decydujesz.</em></h1>
+      <p class="wstep">notarai odczytuje skany, przygotowuje projekt aktu na Twoim wzorze i&nbsp;przeklikuje za Ciebie portale rejestrów. Ostatnie kliknięcie zawsze należy do notariusza.</p>
+      <div class="akcje">
+        <a class="przycisk" href="https://app.notarai.pl/rejestracja">Wypróbuj 14 dni za darmo</a>
+        <a class="przycisk drugi" href="#kontakt">Umów prezentację</a>
+      </div>
+      <ul class="odznaki">
+        <li>Dane tylko w UE</li>
+        <li>Model nie zapamiętuje treści</li>
+        <li>14 dni za darmo</li>
+      </ul>
     </div>
-    <p class="uwaga">notarai nie tworzy dokumentów gotowych do podpisu. Każdy projekt wymaga sprawdzenia i&nbsp;akceptacji notariusza.</p>
+
+    <!-- podglad ekranu Klikamy -->
+    <figure class="okno" aria-label="Przykładowy ekran Klikamy">
+      <div class="okno-pasek"><i></i><i></i><i></i><span>Klikamy</span></div>
+      <div class="okno-tresc">
+        <div class="polecenie">
+          <span class="etykieta">Polecenie</span>
+          <p>Otwórz księgę wieczystą dla działki 123/4, obręb Słoneczna, i&nbsp;sprawdź dział III.</p>
+        </div>
+        <ol class="kroki-agenta">
+          <li class="zrobione"><b>Wpisuję</b> numer działki w wyszukiwarce <span>bo tak szuka portal</span></li>
+          <li class="zrobione"><b>Wybieram</b> obręb Słoneczna z listy</li>
+          <li class="zrobione"><b>Otwieram</b> księgę i dział III <span>znaleziono 1 wpis</span></li>
+          <li class="stop"><b>Zatrzymuję się.</b> Przycisk „Złóż wniosek” zostawiam Tobie.</li>
+        </ol>
+      </div>
+    </figure>
   </div>
 </section>
 
-<section id="jak" class="sekcja">
+<!-- KLIKAMY -->
+<section id="klikamy" class="sekcja ciemna">
   <div class="szer">
-    <h2>Jak to działa</h2>
+    <p class="znacznik jasny">Klikamy za Ciebie</p>
+    <h2>Piszesz, co ma się stać.<br>notarai klika. Ty patrzysz i decydujesz.</h2>
+    <p class="wstep">Portale rejestrów wymagają dziesiątek kliknięć przy każdej sprawie. Opisz zadanie zwykłym językiem, a notarai przejdzie je krok po kroku w&nbsp;prawdziwej przeglądarce Chrome na Twoim komputerze, obok okna aplikacji. Przy każdym kroku widać, co zostało zrobione i dlaczego.</p>
+
+    <div class="siatka trzy">
+      <article class="karta ciemna">
+        <h3>Zatrzymuje się przed tym, co ważne</h3>
+        <p>Przyciski, które wysyłają, składają, podpisują, płacą albo usuwają, agent rozpoznaje i ich nie klika. Oddaje wtedy stery Tobie, a formularz przed wysłaniem sprawdzasz samodzielnie.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Nie dotyka haseł</h3>
+        <p>Do pól hasła i PIN-u nie wpisuje niczego. Do portali logujesz się samodzielnie, swoim sposobem.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Tylko zatwierdzone adresy</h3>
+        <p>Agent nie wychodzi poza strony, na które się zgodzisz. Treść strony traktuje jako informację, a nie polecenie.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Formularze z treści aktu</h3>
+        <p>Wartości do formularzy rejestrowych bierze z danych sprawy i aktu. Przy każdej pokazuje cytat, z którego ją wziął.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Wybiera, nie zgaduje</h3>
+        <p>Klika w konkretny element strony z listy, a nie „w punkt na obrazku”. W formularzu urzędowym to różnica między pomyłką a jej brakiem.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Twój komputer, Twoja sesja</h3>
+        <p>Pomocnik działa na Windows w kancelarii. Łączysz go z kontem jednym kodem i niczego nie otwierasz na zewnątrz.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- LATWOSC OBSLUGI -->
+<section id="latwo" class="sekcja">
+  <div class="szer">
+    <h2>Trzy kroki do projektu aktu</h2>
     <ol class="kroki">
       <li>
         <span class="nr">1</span>
-        <h3>Materiały sprawy</h3>
-        <p>Wgraj wzór aktu (.docx) i skany: dowody, wypisy, odpisy z księgi wieczystej. Krótko opisz, czego potrzebujesz.</p>
+        <h3>Wgraj materiały</h3>
+        <p>Wzór aktu (.docx) i skany: dowody, wypisy, odpisy z księgi wieczystej. Krótko opisz, czego potrzebujesz.</p>
       </li>
       <li>
         <span class="nr">2</span>
-        <h3>Weryfikacja odczytu</h3>
-        <p>Sprawdzasz odczytane pola. Te, które wymagają uwagi: błędna suma kontrolna, niska pewność, brak danych, są wyraźnie oznaczone.</p>
+        <h3>Sprawdź odczyt</h3>
+        <p>Pola wymagające uwagi są oznaczone na czerwono: błędna suma kontrolna PESEL lub NIP, niska pewność, brak danych.</p>
       </li>
       <li>
         <span class="nr">3</span>
-        <h3>Projekt dokumentu</h3>
-        <p>Pobierasz projekt jako plik Word. Miejsca, których nie dało się wypełnić, zostają jawnie zaznaczone w&nbsp;tekście.</p>
+        <h3>Pobierz projekt</h3>
+        <p>Projekt w Wordzie, na Twoim wzorze. Miejsca, których nie dało się wypełnić, są wprost zaznaczone w tekście.</p>
       </li>
     </ol>
-  </div>
-</section>
 
-<section id="funkcje" class="sekcja tlo2">
-  <div class="szer">
-    <h2>Funkcje</h2>
-    <div class="siatka">
-      <article class="karta">
-        <h3>Odczyt skanów z kontrolą</h3>
-        <p>PESEL, NIP, numery ksiąg wieczystych i kwoty są sprawdzane sumą kontrolną, zanim trafią do projektu.</p>
-      </article>
-      <article class="karta">
-        <h3>Twoje wzory aktów</h3>
-        <p>Pracujesz na własnych wzorach z polami do wypełnienia. Bez przepisywania szablonów do nowego systemu.</p>
-      </article>
-      <article class="karta">
-        <h3>Rozmowa o sprawie</h3>
-        <p>Poprawki do projektu zgłaszasz zwykłym językiem: „dodaj pełnomocnika”, „zmień sposób zapłaty”.</p>
-      </article>
-      <article class="karta">
-        <h3>Sprawdzenia w rejestrach</h3>
-        <p>Wykryte numery PESEL można sprawdzić w rejestrach. Każde sprawdzenie zostawia ślad audytowy ze zrzutem ekranu.</p>
-      </article>
-      <article class="karta">
-        <h3>Formularze z treści aktu</h3>
-        <p>notarai proponuje wartości do formularzy rejestrowych, każdą z cytatem z aktu. Niczego nie wysyła za Ciebie.</p>
-      </article>
-      <article class="karta">
-        <h3>Zespół kancelarii</h3>
-        <p>Osobne konta dla notariusza i pracowników, logowanie e-mailem i hasłem, reset hasła kodem z e-maila.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section id="dane" class="sekcja">
-  <div class="szer dwie">
-    <div>
-      <h2>Dane zostają w Unii Europejskiej</h2>
-      <p class="wstep">Kancelaria przy zakładaniu konta wybiera, gdzie trzyma akta spraw.</p>
-    </div>
-    <ul class="lista">
-      <li><strong>W chmurze.</strong> Skany i projekty są przechowywane zaszyfrowane na serwerach AWS we Frankfurcie.</li>
-      <li><strong>U klienta.</strong> Akta zostają w folderze na komputerze kancelarii, a serwer niczego nie zapisuje.</li>
-      <li><strong>Model AI w UE.</strong> Odczyt i projekt przygotowuje model Claude w usłudze Amazon Bedrock w regionie Frankfurt. Bedrock nie zapisuje treści zapytań ani odpowiedzi.</li>
-      <li><strong>Połączenie szyfrowane.</strong> Cały ruch odbywa się wyłącznie przez HTTPS.</li>
+    <ul class="zalety">
+      <li><strong>Działa w przeglądarce.</strong> Do projektów aktów nic nie instalujesz. Pomocnik jest potrzebny tylko do klikania w rejestrach.</li>
+      <li><strong>Twoje wzory.</strong> Pracujesz na własnych plikach Word, bez przepisywania szablonów do nowego systemu.</li>
+      <li><strong>Poprawki zwykłym językiem.</strong> „Dodaj pełnomocnika”, „zmień sposób zapłaty”, a projekt się aktualizuje.</li>
+      <li><strong>Cały zespół.</strong> Osobne konta dla notariusza i pracowników kancelarii.</li>
+      <li><strong>Bez ciągłego logowania.</strong> Sesja odnawia się sama do 30 dni na zaufanym komputerze.</li>
+      <li><strong>Ślad audytowy.</strong> Sprawdzenia w rejestrach zapisują się w sprawie razem ze zrzutem ekranu.</li>
     </ul>
   </div>
 </section>
 
-<section id="kontakt" class="sekcja kontakt">
+<!-- BEZPIECZENSTWO -->
+<section id="dane" class="sekcja tlo2">
   <div class="szer">
-    <h2>Porozmawiajmy</h2>
-    <p class="wstep">Pokażemy notarai na przykładowej sprawie i założymy konto dla Twojej kancelarii.</p>
+    <h2>Dane klientów kancelarii pod kontrolą</h2>
+    <p class="wstep">Pracujesz na danych objętych tajemnicą notarialną. Dlatego każde zdanie poniżej opisuje rzeczywiste ustawienie usługi, a nie obietnicę marketingową.</p>
+
+    <div class="siatka trzy">
+      <article class="karta">
+        <h3>Wyłącznie Unia Europejska</h3>
+        <p>Sprawy leżą w AWS we Frankfurcie. Model działa w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm. Dane nie opuszczają Unii.</p>
+      </article>
+      <article class="karta">
+        <h3>Model niczego nie zapamiętuje</h3>
+        <p>Rejestrowanie wywołań modelu w Amazon Bedrock jest wyłączone. AWS nie przechowuje treści zapytań i nie używa ich do trenowania, a model nie uczy się na sprawach kancelarii.</p>
+      </article>
+      <article class="karta">
+        <h3>Albo pliki tylko u Ciebie</h3>
+        <p>Możesz wybrać tryb, w którym sprawy zapisują się w folderze na komputerze kancelarii. Skany przechodzą przez serwer tylko na czas odczytu i nie zostaje po nich żaden plik.</p>
+      </article>
+      <article class="karta">
+        <h3>Szyfrowanie i wersje</h3>
+        <p>Pliki są szyfrowane, dostępne wyłącznie przez HTTPS i wersjonowane, więc przypadkowe nadpisanie da się cofnąć.</p>
+      </article>
+      <article class="karta">
+        <h3>Logi bez danych osobowych</h3>
+        <p>W dziennikach nie ma numerów PESEL, nazwisk, adresów ani treści dokumentów. Pilnują tego testy automatyczne, także przy błędach.</p>
+      </article>
+      <article class="karta">
+        <h3>Usuwanie od ręki</h3>
+        <p>Usunięcie sprawy natychmiast kasuje skany, odczyty i projekt razem ze wszystkimi wersjami. Z zaszyfrowanych kopii zapasowych znikają najpóźniej po 21 dniach.</p>
+      </article>
+    </div>
+
+    <div class="ramka">
+      <div>
+        <h3>Czego notarai nie robi</h3>
+        <ul>
+          <li>Nie tworzy dokumentu gotowego do podpisu. Każdy projekt wymaga sprawdzenia i akceptacji notariusza.</li>
+          <li>Nie loguje się za Ciebie do systemów urzędowych.</li>
+          <li>Nie składa, nie podpisuje i nie wysyła wniosków w Twoim imieniu.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Podstawa prawna</h3>
+        <ul>
+          <li>Umowa powierzenia przetwarzania danych z każdą kancelarią.</li>
+          <li>Zobowiązanie do tajemnicy w zakresie art. 18 Prawa o notariacie.</li>
+          <li><a href="#zgodnosc">Szczegóły: role, terminy, dokumenty</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ZGODNOSC -->
+<section id="zgodnosc" class="sekcja">
+  <div class="szer">
+    <p class="znacznik">Zgodność</p>
+    <h2>RODO, tajemnica notarialna i AI.<br>Konkretnie, punkt po punkcie.</h2>
+    <p class="wstep">Poniżej opisujemy, kto za co odpowiada, do czego zobowiązuje nas umowa powierzenia i&nbsp;co pozostaje po stronie kancelarii. Wszystkie dokumenty dostajesz do wglądu przed podpisaniem umowy.</p>
+
+    <h3 class="podtytul">Role w przetwarzaniu danych</h3>
+    <ol class="role">
+      <li>
+        <span class="rola-nazwa">Administrator</span>
+        <strong>Kancelaria notarialna</strong>
+        <p>Decyduje o celach i sposobie przetwarzania danych klientów. Wydaje polecenia przez umowę, ustawienia i&nbsp;czynności w aplikacji.</p>
+      </li>
+      <li>
+        <span class="rola-nazwa">Podmiot przetwarzający, art. 28 RODO</span>
+        <strong>Fundacja Krzewienia Edukacji Finansowej im.&nbsp;Pieczaka</strong>
+        <p>Dostawca usługi notarai. Przetwarza dane wyłącznie na udokumentowane polecenie kancelarii.</p>
+      </li>
+      <li>
+        <span class="rola-nazwa">Dalszy podmiot przetwarzający</span>
+        <strong>Amazon Web Services EMEA SARL, Luksemburg</strong>
+        <p>Infrastruktura, magazyn plików, logowanie użytkowników i model językowy w Amazon Bedrock. Działa na podstawie AWS GDPR Data Processing Addendum.</p>
+      </li>
+    </ol>
+    <p class="przypis">Anthropic, twórca modelu Claude, nie jest podmiotem przetwarzającym. Model działa w infrastrukturze AWS, a jego dostawca nie ma dostępu do zapytań ani odpowiedzi.</p>
+
+    <div class="tematy">
+      <article>
+        <h3>Do czego zobowiązuje nas umowa powierzenia</h3>
+        <ul>
+          <li>Zakaz wykorzystywania danych do celów własnych, w tym do trenowania, dostrajania, testowania i oceny modeli AI.</li>
+          <li>Przetwarzanie wyłącznie na terytorium Europejskiego Obszaru Gospodarczego.</li>
+          <li>Zgłoszenie naruszenia ochrony danych kancelarii w ciągu <strong>24 godzin</strong> od jego stwierdzenia.</li>
+          <li>Informacja o nowym dalszym podmiocie przetwarzającym co najmniej <strong>30 dni</strong> wcześniej, z prawem sprzeciwu i wypowiedzenia bez opłat.</li>
+          <li>Prawo do audytu raz w roku, z 14-dniowym wyprzedzeniem, a po naruszeniu także bez tego limitu.</li>
+          <li>Po zakończeniu usługi usunięcie wszystkich danych w ciągu <strong>30 dni</strong>, z potwierdzeniem e-mailem. Na wniosek przekazujemy wcześniej kopię danych.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>Tajemnica notarialna</h3>
+        <ul>
+          <li>Umowa zobowiązuje Fundację do zachowania w tajemnicy okoliczności spraw w zakresie nie mniejszym niż art. 18 Prawa o notariacie, bezterminowo.</li>
+          <li>Dostęp do danych mogą mieć wyłącznie osoby z imiennym upoważnieniem i zobowiązaniem do poufności.</li>
+          <li>Do treści spraw zaglądamy tylko na Twoją prośbę albo gdy to konieczne do usunięcia awarii. W drugim przypadku informujemy Cię w ciągu 3 dni roboczych.</li>
+          <li>Gdy organ zażąda danych, informujemy kancelarię, kierujemy żądającego do niej i kwestionujemy żądania, które uznamy za niezgodne z prawem.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>Dane nie wyjeżdżają z UE</h3>
+        <ul>
+          <li>Pliki są przechowywane we Frankfurcie, a model działa w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm. Aplikacja nie uruchomi się z konfiguracją spoza UE.</li>
+          <li>Rejestrowanie wywołań modelu jest wyłączone. AWS nie przechowuje treści zapytań i nie używa ich do trenowania.</li>
+          <li>AWS należy do grupy z siedzibą w USA. Dostęp na podstawie prawa państwa trzeciego obejmują zobowiązania AWS z umowy powierzenia oraz certyfikacja EU-U.S. Data Privacy Framework.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>Środki bezpieczeństwa, art. 32 RODO</h3>
+        <ul>
+          <li>Szyfrowanie plików AES-256, transmisja wyłącznie przez TLS.</li>
+          <li>Indywidualne konta w Amazon Cognito z hasłem o długości co najmniej 12 znaków. Uwierzytelnianie dwuskładnikowe jest w przygotowaniu.</li>
+          <li>Rozdzielenie kancelarii realizuje aplikacja, w ramach wspólnego magazynu. Jeśli potrzebujesz osobnej instalacji, porozmawiajmy.</li>
+          <li>Codzienna kopia zapasowa w sejfie z blokadą usunięcia. Każda kopia wygasa po 21 dniach.</li>
+          <li>Aplikacja ma uprawnienia tylko do magazynu spraw i modelu. Testy prowadzimy wyłącznie na danych fikcyjnych.</li>
+          <li>Infrastruktura AWS ma certyfikaty ISO/IEC 27001, 27017, 27018 i 27701 oraz raporty SOC 2.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>Sztuczna inteligencja</h3>
+        <ul>
+          <li>Każdy wynik jest projektem. Pola niepewne, z błędną sumą kontrolną albo bez danych są wyróżnione, a braki zostają w tekście jako widoczne znaczniki.</li>
+          <li>Decyzje podejmuje notariusz. Kancelaria nie podejmuje wobec klientów decyzji opartych wyłącznie na zautomatyzowanym przetwarzaniu (art. 22 RODO).</li>
+          <li>Klikamy rozpoznaje przyciski wysyłania, podpisu i płatności i ich nie klika, a do pól haseł nic nie wpisuje. Do rejestrów notariusz loguje się własnymi danymi.</li>
+        </ul>
+      </article>
+      <article class="pakiet">
+        <h3>Dokumenty bez papierologii</h3>
+        <ul>
+          <li>Umowę powierzenia zawierasz przy rejestracji, razem z Regulaminem. Bez podpisów i bez wysyłania dokumentów.</li>
+          <li>Ocena skutków dla ochrony danych (DPIA) czeka w aplikacji, wypełniona danymi kancelarii. Przyjmujesz ją jednym kliknięciem.</li>
+          <li>Instrukcję AI każda osoba z zespołu potwierdza przy pierwszym logowaniu.</li>
+          <li>Gotowy wpis do rejestru czynności przetwarzania i wzór klauzuli informacyjnej dla klientów.</li>
+        </ul>
+        <a class="przycisk drugi" href="umowa-powierzenia/">Przeczytaj umowę powierzenia</a>
+      </article>
+    </div>
+
+    <div class="ramka">
+      <div>
+        <h3>Co należy do kancelarii</h3>
+        <ul>
+          <li>Zaakceptować umowę powierzenia przy rejestracji. Bez niej aplikacja nie przyjmie żadnej sprawy.</li>
+          <li>Przyjąć w aplikacji gotową ocenę skutków (DPIA) i dopisać notarai do rejestru czynności przetwarzania.</li>
+          <li>Uzupełnić klauzulę informacyjną dla klientów.</li>
+          <li>Zakładać konta tylko upoważnionym pracownikom i usuwać je w dniu zakończenia pracy.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Dobra praktyka</h3>
+        <ul>
+          <li>Usuwać sprawy po zakończeniu czynności. notarai nie jest repertorium ani archiwum notarialnym.</li>
+          <li>W trybie „pliki u kancelarii” zadbać o kopię zapasową folderu i szyfrowanie dysku, np. BitLocker.</li>
+          <li>Nie przekazywać nikomu, także nam, haseł ani kart do systemów urzędowych.</li>
+          <li>Sprawdzić, czy izba notarialna wydała wytyczne dotyczące chmury i narzędzi AI.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="przypis">Ten opis ma charakter informacyjny. Prawa i obowiązki stron określają Regulamin i umowa powierzenia przetwarzania danych.</p>
+  </div>
+</section>
+
+<!-- CENNIK -->
+<section id="cennik" class="sekcja">
+  <div class="szer cennik">
+    <div>
+      <h2>Jeden abonament dla całej kancelarii</h2>
+      <p class="wstep">Płacisz kartą, co miesiąc z góry. Abonament włączasz w aplikacji, a fakturę dostajesz e-mailem. Jesteśmy zwolnieni z VAT, więc 600 zł to cała kwota.</p>
+    </div>
+    <div class="karta cena">
+      <p class="kwota"><span>600 zł</span> / miesiąc</p>
+      <ul>
+        <li>Odczyt skanów i projekty aktów</li>
+        <li>Klikamy za Ciebie i pomocnik na Windows</li>
+        <li>Konta dla całego zespołu</li>
+        <li>14 dni na wypróbowanie za darmo</li>
+      </ul>
+      <a class="przycisk pelny" href="https://app.notarai.pl/rejestracja">Zacznij okres próbny</a>
+    </div>
+  </div>
+</section>
+
+<!-- KONTAKT -->
+<section id="kontakt" class="sekcja kontakt tlo2">
+  <div class="szer">
+    <h2>Zobacz notarai na przykładowej sprawie</h2>
+    <p class="wstep">Załóż konto sam, w dwie minuty, albo napisz, a pokażemy cały przebieg, od skanów do projektu i rejestrów.</p>
     <div class="akcje">
-      <a class="przycisk" href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a>
+      <a class="przycisk" href="https://app.notarai.pl/rejestracja">Załóż konto kancelarii</a>
+      <a class="przycisk drugi" href="mailto:kontakt@notarai.pl?subject=Prezentacja%20notarai">kontakt@notarai.pl</a>
       <a class="przycisk drugi" href="https://app.notarai.pl">Mam już konto</a>
     </div>
   </div>
@@ -126,8 +338,8 @@
 
 <footer class="stopka">
   <div class="szer stopka-w">
-    <span>© 2026 notarai.pl</span>
-    <a href="https://app.notarai.pl">app.notarai.pl</a>
+    <p>notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul.&nbsp;Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
+    <p><a href="regulamin/">Regulamin</a> · <a href="umowa-powierzenia/">Umowa powierzenia</a> · <a href="instrukcja-ai/">Instrukcja AI</a> · <a href="prywatnosc/">Polityka prywatności</a> · <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a></p>
   </div>
 </footer>
 

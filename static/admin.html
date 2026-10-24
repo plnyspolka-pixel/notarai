@@ -179,6 +179,8 @@ a.odnosnik-a:hover{color:var(--tekst)}
 
     <h1 style="margin-top:40px">Kancelarie</h1>
     <p class="pod" id="licznik"></p>
+    <div class="pasek"><button class="wtorny maly" id="btn-rejestr-umow">Rejestr umów (CSV)</button>
+      <span class="stan">wykaz administratorów do rejestru art. 30 ust. 2 RODO, z umowami zakończonymi w ostatnich 5 latach</span></div>
     <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
     <div id="lista"><span class="stan praca">Ładuję…</span></div>
     <h1 style="margin-top:40px">Administratorzy</h1>
@@ -423,6 +425,23 @@ function rysuj(){
   widoczne.forEach(k => $("lista").appendChild(kartaKancelarii(k)));
 }
 
+/* Rejestr umow jako CSV dla Excela: srednik i BOM, bo tak go otwiera
+   polski Excel bez kreatora importu. */
+$("btn-rejestr-umow").onclick = async () => {
+  const wiersze = await api("/api/admin/rejestr-umow");
+  const kolumny = [["id", "identyfikator"], ["nazwa", "kancelaria"], ["notariusze", "notariusze"],
+    ["adres", "adres"], ["nip", "NIP"], ["wlasciciel", "e-mail właściciela"], ["zawarto", "umowa zawarta"],
+    ["wersja_umowy", "wersja umowy"], ["sposob", "sposób zawarcia"], ["przechowywanie", "tryb plików"],
+    ["aktywna", "aktywna"], ["usunieto", "dane usunięte"]];
+  const pole = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const csv = [kolumny.map(k => pole(k[1])).join(";")]
+    .concat(wiersze.map(w => kolumny.map(k => pole(w[k[0]])).join(";"))).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv"}));
+  a.download = "notarai-rejestr-umow-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+};
+
 function opisOsoby(o){
   if (o.dolaczyl) return "w zespole od " + data(o.dolaczyl);
   if (o.zaproszono) return "zaproszenie wysłane " + data(o.zaproszono) + " · jeszcze się nie zalogował(a)";
@@ -439,7 +458,8 @@ function kartaKancelarii(k){
       <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki u kancelarii" : "pliki w chmurze"}</span>
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
       <span class="znacznik ${k.oplacono_do && k.oplacono_do < new Date().toISOString().slice(0, 10) ? "wyl" : ""}"
-            title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span></div>
+            title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span>
+      <span class="znacznik ${k.umowa ? "ok" : "wyl"}" title="Regulamin i umowa powierzenia">${k.umowa ? "umowa od " + data(k.umowa) : "umowa niezaakceptowana"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
     <div class="zapros"><input type="email" placeholder="${zespol.length ? "zaproś kolejną osobę: e-mail" : "e-mail notariusza"}" spellcheck="false">
       <button class="wtorny">Zaproś</button></div>

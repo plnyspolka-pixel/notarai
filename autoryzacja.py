@@ -43,13 +43,18 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
-# webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis).
+# webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
+# jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/stripe/")
+            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
 _BEZ_ABONAMENTU = ("/api/abonament", "/api/zespol")
+
+# Bez zaakceptowanej umowy powierzenia nie przetwarzamy spraw (Regulamin
+# § 6 ust. 4). Otwarte zostaje to, co potrzebne do jej zaakceptowania.
+_BEZ_UMOWY = _BEZ_ABONAMENTU + ("/api/dokumenty", "/api/ustawienia")
 
 # Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
 # komputera notariusza nie pozwala przegladac spraw.
@@ -181,6 +186,11 @@ async def middleware(request: Request, call_next):
     if not sciezka.startswith(_BEZ_ABONAMENTU) and not _oplacona(kancelaria):
         return JSONResponse({"detail": "Abonament kancelarii wygasl. Wlasciciel moze go oplacic "
                                        "w oknie Abonament.", "abonament": True}, 402)
+    # Dotyczy ludzi. Dawny token i pomocnik to automatyzacja kancelarii,
+    # ktora i tak zaczyna dzialac dopiero po zalogowaniu wlasciciela.
+    if email and not sciezka.startswith(_BEZ_UMOWY) and not umowa_zawarta(kancelaria):
+        return JSONResponse({"detail": "Wlasciciel kancelarii musi najpierw zaakceptowac Regulamin "
+                                       "i umowe powierzenia.", "umowa": True}, 428)
 
     znacznik = magazyn.kancelaria_var.set(kancelaria)
     znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
@@ -200,6 +210,11 @@ def _oplacona(kancelaria: str) -> bool:
         return True
     _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
     return wpis is None or platnosci.stan(wpis)["wazny"]
+
+
+def umowa_zawarta(kancelaria: str) -> bool:
+    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
+    return bool(wpis and (wpis.get("umowa") or {}).get("zaakceptowano"))
 
 
 def _przechowywanie(kancelaria: str) -> str:
@@ -274,34 +289,40 @@ def _wszyscy_admini() -> list[str]:
     return sorted(set(STALI_ADMINI) | set(_wczytaj_adminow()))
 
 
-def _plik_adminow() -> Path:
-    import config
-    return config.DANE / "administratorzy.json"
-
-
-def _wczytaj_adminow() -> list[str]:
+def _wczytaj_admin_json(nazwa: str) -> list:
+    """Plik obszaru administracyjnego (lista). Brak pliku = pusta lista."""
     if magazyn.TRYB == "s3":
         try:
             odp = magazyn._klient_s3().get_object(
-                Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/administratorzy.json")
+                Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/{nazwa}")
             return json.loads(odp["Body"].read().decode("utf-8"))
-        except Exception as blad:  # brak pliku = brak administratorow
+        except Exception as blad:
             if type(blad).__name__ not in ("NoSuchKey", "ClientError"):
                 raise
             return []
-    plik = _plik_adminow()
+    import config
+    plik = config.DANE / nazwa
     return json.loads(plik.read_text("utf-8")) if plik.exists() else []
 
 
-def _zapisz_adminow(lista: list[str]) -> None:
-    tresc = json.dumps(sorted(set(lista)), ensure_ascii=False, indent=2)
+def _zapisz_admin_json(nazwa: str, dane: list) -> None:
+    tresc = json.dumps(dane, ensure_ascii=False, indent=2)
     if magazyn.TRYB == "s3":
         magazyn._klient_s3().put_object(
-            Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/administratorzy.json",
+            Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/{nazwa}",
             Body=tresc.encode("utf-8"), **magazyn._szyfrowanie(),
         )
     else:
-        _plik_adminow().write_text(tresc, encoding="utf-8")
+        import config
+        (config.DANE / nazwa).write_text(tresc, encoding="utf-8")
+
+
+def _wczytaj_adminow() -> list[str]:
+    return _wczytaj_admin_json("administratorzy.json")
+
+
+def _zapisz_adminow(lista: list[str]) -> None:
+    _zapisz_admin_json("administratorzy.json", sorted(set(lista)))
 
 
 def _email_administratora(token: str) -> str:
@@ -487,9 +508,18 @@ def lista_kancelarii(request: Request):
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
          "przechowywanie": w.get("przechowywanie", "chmura"),
          "oplacono_do": w.get("oplacono_do"),
+         "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w)}
         for w in rejestr.values()
     ]
+
+
+def nowy_identyfikator(rejestr: dict, nazwa: str) -> str:
+    id_k = re.sub(r"[^a-z0-9]+", "-", nazwa.lower()).strip("-")[:40] or "kancelaria"
+    zajete = {w["id"] for w in rejestr.values()} | set(magazyn.ZASTRZEZONE)
+    if id_k in zajete:
+        id_k = f"{id_k}-{secrets.token_hex(3)}"
+    return id_k
 
 
 @router.post("/kancelarie", status_code=201)
@@ -499,11 +529,8 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     if len(nazwa) < 2:
         raise HTTPException(400, "Nazwa kancelarii: minimum 2 znaki")
 
-    id_k = re.sub(r"[^a-z0-9]+", "-", nazwa.lower()).strip("-")[:40] or "kancelaria"
     rejestr = _wczytaj_rejestr()
-    zajete = {w["id"] for w in rejestr.values()} | set(magazyn.ZASTRZEZONE)
-    if id_k in zajete:
-        id_k = f"{id_k}-{secrets.token_hex(3)}"
+    id_k = nowy_identyfikator(rejestr, nazwa)
 
     if dane.przechowywanie not in ("chmura", "u-klienta"):
         raise HTTPException(400, "Przechowywanie: 'chmura' albo 'u-klienta'")
@@ -699,12 +726,53 @@ def usun_dane_kancelarii(request: Request, id_k: str, dane: PotwierdzenieUsuniec
     import config
     obiekty = magazyn.usun_kancelarie(id_k, config.DANE)
 
+    # Rejestr art. 30 ust. 2 i dowod zawarcia umowy musza przetrwac
+    # usuniecie danych: zostaje jeden wiersz bez tresci spraw.
+    dopisz_do_historii(wpis, usunieto=_teraz())
     del rejestr[skrot]
     _zapisz_rejestr(rejestr)
     log.info("kancelaria %s: usunieto dane (obiekty %d, konta %d, komputery %d)",
              id_k, obiekty, konta, komputery)
     return {"id": id_k, "usunieto": _teraz(), "obiekty": obiekty,
             "konta": konta, "komputery": komputery}
+
+
+# --- rejestr umow (art. 30 ust. 2 RODO) -------------------------------------
+# Biezace kancelarie sa w rejestrze; zakonczone umowy - w historii, przez
+# 5 lat od usuniecia danych (dowod zawarcia umowy powierzenia i jej konca).
+
+HISTORIA_UMOW = "historia-umow.json"
+_LATA_HISTORII = 5
+
+
+def _wiersz_umowy(wpis: dict) -> dict:
+    umowa = wpis.get("umowa") or {}
+    dane = wpis.get("dane") or {}
+    return {
+        "id": wpis["id"], "nazwa": wpis["nazwa"],
+        "notariusze": dane.get("notariusze", ""), "adres": dane.get("adres", ""),
+        "nip": dane.get("nip", ""),
+        "wlasciciel": ", ".join(_wlasciciele(wpis)),
+        "zawarto": umowa.get("zaakceptowano"), "wersja_umowy": umowa.get("umowa"),
+        "sposob": umowa.get("sposob"),
+        "przechowywanie": wpis.get("przechowywanie", "chmura"),
+        "aktywna": wpis.get("aktywna", True), "usunieto": None,
+    }
+
+
+def dopisz_do_historii(wpis: dict, usunieto: str) -> None:
+    granica = str(date.today().year - _LATA_HISTORII)
+    historia = [h for h in _wczytaj_admin_json(HISTORIA_UMOW) if (h.get("usunieto") or "9") >= granica]
+    historia.append({**_wiersz_umowy(wpis), "aktywna": False, "usunieto": usunieto})
+    _zapisz_admin_json(HISTORIA_UMOW, historia)
+
+
+@router.get("/rejestr-umow")
+def rejestr_umow(request: Request):
+    """Wykaz administratorow, w imieniu ktorych przetwarzamy dane."""
+    _wymagaj_admina(request)
+    biezace = [_wiersz_umowy(w) for w in _wczytaj_rejestr().values()]
+    return biezace + _wczytaj_admin_json(HISTORIA_UMOW)
 
 
 # --- zespol kancelarii -------------------------------------------------------

@@ -1,6 +1,6 @@
 # REGULAMIN ŚWIADCZENIA USŁUGI NOTARAI
 
-Wersja z dnia [data].
+Wersja z dnia 24.10.2026.
 
 ## § 1. Usługodawca
 
@@ -31,7 +31,11 @@ Wersja z dnia [data].
 6. **Projekt** - dokument przygotowany przez Usługę z użyciem modelu
    sztucznej inteligencji, przeznaczony do weryfikacji przez notariusza.
 7. **Umowa powierzenia** - umowa powierzenia przetwarzania danych osobowych
-   zawarta między Kancelarią a Usługodawcą.
+   między Kancelarią a Usługodawcą, której treść jest opublikowana pod adresem
+   notarai.pl/umowa-powierzenia i stanowi integralną część Regulaminu.
+8. **Formularz rejestracji** - formularz pod adresem app.notarai.pl/rejestracja,
+   w którym Kancelaria podaje swoje dane i akceptuje Regulamin wraz z Umową
+   powierzenia.
 
 ## § 3. Zakres Usługi
 
@@ -67,10 +71,13 @@ Wersja z dnia [data].
 4. Usługodawca nie używa danych Kancelarii do trenowania ani ulepszania
    modeli sztucznej inteligencji. Dostawca modelu nie otrzymuje treści
    zapytań.
-5. Usługodawca udostępnia Kancelarii instrukcję korzystania z Usługi,
-   opisującą jej możliwości, ograniczenia i typowe błędy, w celu zapewnienia
-   kompetencji w zakresie sztucznej inteligencji osób korzystających
-   z Usługi (art. 4 rozporządzenia (UE) 2024/1689).
+5. Usługodawca udostępnia instrukcję korzystania z Usługi, opisującą jej
+   możliwości, ograniczenia i typowe błędy, w celu zapewnienia kompetencji
+   w zakresie sztucznej inteligencji osób korzystających z Usługi (art. 4
+   rozporządzenia (UE) 2024/1689). Instrukcja jest dostępna pod adresem
+   notarai.pl/instrukcja-ai i w aplikacji. Każdy Użytkownik potwierdza
+   zapoznanie się z nią przy pierwszym logowaniu. Usługodawca przechowuje
+   datę potwierdzenia, a Kancelaria widzi ją na liście zespołu.
 
 ## § 5. Wymagania techniczne
 
@@ -84,25 +91,59 @@ Wersja z dnia [data].
 
 ## § 6. Zawarcie umowy i konta
 
-1. Umowa o świadczenie Usługi zostaje zawarta z chwilą [podpisania umowy /
-   akceptacji Regulaminu i założenia konta Kancelarii przez Usługodawcę],
-   pod warunkiem zawarcia Umowy powierzenia. Usługodawca nie udostępnia
-   Usługi przed zawarciem Umowy powierzenia.
-2. Usługa jest przeznaczona wyłącznie dla notariuszy w związku
+1. Umowa o świadczenie Usługi i Umowa powierzenia zostają zawarte z chwilą
+   wysłania Formularza rejestracji z zaznaczoną akceptacją Regulaminu i Umowy
+   powierzenia. Nie jest potrzebny podpis ani żaden inny dokument. Umowę
+   powierzenia zawiera się w formie elektronicznej w rozumieniu art. 28
+   ust. 9 RODO.
+2. Osoba wysyłająca Formularz rejestracji oświadcza, że jest notariuszem
+   wskazanym w formularzu albo działa w jego imieniu i z jego upoważnienia.
+   W kancelarii prowadzonej w formie spółki cywilnej w formularzu wymienia
+   się wszystkich notariuszy, a akceptacja dotyczy każdego z nich.
+3. Usługodawca zapisuje akceptację: datę i godzinę, wersje Regulaminu
+   i Umowy powierzenia, dane z Formularza rejestracji, adres e-mail
+   i adres IP, z którego wysłano formularz. Właściciel może w każdej chwili
+   pobrać w aplikacji Umowę powierzenia z danymi Kancelarii i potwierdzeniem
+   jej zawarcia.
+4. Na prośbę Kancelarii konto może założyć Usługodawca. Wtedy umowy zostają
+   zawarte z chwilą, gdy Właściciel przy pierwszym logowaniu zaakceptuje
+   Regulamin i Umowę powierzenia. Do tej chwili Usługa nie przetwarza
+   Spraw Kancelarii.
+5. Usługa jest przeznaczona wyłącznie dla notariuszy w związku
    z wykonywaniem zawodu. Kancelaria nie jest konsumentem.
-3. Usługodawca zakłada konto Kancelarii i konto Właściciela. Właściciel
-   zaprasza i usuwa pozostałych Użytkowników i odpowiada za to, by konta
-   miały tylko osoby uprawnione do dostępu do danych Kancelarii.
-4. Użytkownik zachowuje hasło w tajemnicy, nie udostępnia konta innym osobom
+6. Po wysłaniu Formularza rejestracji Właściciel otrzymuje e-mailem hasło
+   tymczasowe, które zmienia przy pierwszym logowaniu. Właściciel zaprasza
+   i usuwa pozostałych Użytkowników i odpowiada za to, by konta miały tylko
+   osoby uprawnione do dostępu do danych Kancelarii.
+7. Użytkownik zachowuje hasło w tajemnicy, nie udostępnia konta innym osobom
    i niezwłocznie zgłasza podejrzenie przejęcia konta.
-5. Usługodawca może zablokować konto w razie uzasadnionego podejrzenia
+8. Usługodawca może zablokować konto w razie uzasadnionego podejrzenia
    przejęcia konta lub naruszenia bezpieczeństwa, informując o tym
-   Kancelarię niezwłocznie.
+   Kancelarię niezwłocznie. Usługodawca może też wyłączyć konto, jeżeli
+   z Formularza rejestracji wynika, że nie należy ono do kancelarii
+   notarialnej, informując o tym na adres e-mail Właściciela.
 
 ## § 7. Opłaty
 
-1. Opłaty za Usługę określa [cennik / umowa]. Faktury są wystawiane [●].
-2. [Okres próbny / bezpłatny pilotaż: zasady.]
+1. Abonament za Usługę wynosi 600 zł miesięcznie za Kancelarię, niezależnie
+   od liczby Użytkowników. Usługodawca korzysta ze zwolnienia z podatku VAT
+   (art. 113 ust. 1 ustawy o podatku od towarów i usług), więc kwota nie
+   zawiera VAT. Gdy zwolnienie przestanie przysługiwać, zmiana ceny wymaga
+   trybu z § 14.
+2. Abonament jest płatny z góry za każdy miesiąc, kartą płatniczą, za
+   pośrednictwem Stripe Payments Europe, Limited. Właściciel włącza
+   abonament w aplikacji; opłata jest pobierana automatycznie co miesiąc do
+   czasu rezygnacji. Faktura jest wysyłana e-mailem po każdej płatności.
+3. Nowa Kancelaria może przez 14 dni korzystać z Usługi bezpłatnie. Okres
+   próbny zaczyna się z chwilą zawarcia umowy (§ 6) i nie wymaga podania
+   karty. Po okresie próbnym opłata jest pobierana dopiero po włączeniu
+   abonamentu przez Właściciela; do tego czasu dostęp jest ograniczony
+   jak w ust. 4.
+4. Jeżeli opłata nie wpłynie, Usługa działa jeszcze przez 3 dni. Po tym
+   czasie dostęp jest ograniczony do opłacenia abonamentu i zarządzania
+   zespołem, do czasu zapłaty. Ograniczenie nie usuwa Spraw.
+5. Zmianę karty, faktury i rezygnację z abonamentu Właściciel obsługuje
+   w portalu klienta Stripe dostępnym z aplikacji.
 
 ## § 8. Treści i zakaz treści bezprawnych
 
@@ -129,7 +170,7 @@ Wersja z dnia [data].
 
 1. Usługodawca dokłada starań, aby Usługa była dostępna całodobowo,
    z zastrzeżeniem przerw technicznych, o których - jeżeli są planowane -
-   informuje z wyprzedzeniem co najmniej [48 godzin].
+   informuje z wyprzedzeniem co najmniej 48 godzin.
 2. Usługodawca może rozwijać i zmieniać funkcje Usługi, w tym wersję modelu,
    jeżeli zmiana nie obniża poziomu ochrony danych. Zmiana dalszego podmiotu
    przetwarzającego następuje w trybie Umowy powierzenia.
@@ -161,7 +202,7 @@ Wersja z dnia [data].
 
 1. Kancelaria może wypowiedzieć umowę w każdym czasie ze skutkiem na koniec
    okresu rozliczeniowego, wysyłając oświadczenie na kontakt@notarai.pl.
-2. Usługodawca może wypowiedzieć umowę z zachowaniem [trzymiesięcznego]
+2. Usługodawca może wypowiedzieć umowę z zachowaniem trzymiesięcznego
    okresu wypowiedzenia, a bez wypowiedzenia - w razie rażącego naruszenia
    Regulaminu przez Kancelarię, po bezskutecznym wezwaniu do zaprzestania
    naruszeń.
@@ -174,20 +215,22 @@ Wersja z dnia [data].
    podmiot przetwarzający, na podstawie Umowy powierzenia.
 2. Usługodawca przetwarza dane Użytkowników (konta, logowanie, kontakt) jako
    administrator, zgodnie z Polityką prywatności dostępną pod adresem
-   [notarai.pl/prywatnosc].
+   notarai.pl/prywatnosc.
 
 ## § 14. Zmiany Regulaminu
 
-1. Usługodawca może zmienić Regulamin z ważnych przyczyn (zmiana przepisów,
-   zmiana zakresu Usługi, względy bezpieczeństwa), informując Kancelarię
-   e-mailem co najmniej 14 dni przed wejściem zmian w życie.
+1. Usługodawca może zmienić Regulamin i Umowę powierzenia z ważnych przyczyn
+   (zmiana przepisów, zmiana zakresu Usługi, względy bezpieczeństwa),
+   informując Kancelarię e-mailem na adres Właściciela i komunikatem
+   w aplikacji co najmniej 14 dni przed wejściem zmian w życie. Załączniki
+   nr 2 i 3 do Umowy powierzenia zmienia się w trybie tej umowy.
 2. Kancelaria, która nie akceptuje zmian, może wypowiedzieć umowę ze skutkiem
    na dzień wejścia zmian w życie.
 
 ## § 15. Postanowienia końcowe
 
-1. Regulamin jest udostępniany nieodpłatnie pod adresem [notarai.pl/regulamin]
+1. Regulamin jest udostępniany nieodpłatnie pod adresem notarai.pl/regulamin
    w formie, która umożliwia jego pobranie, utrwalenie i wydrukowanie.
 2. Prawem właściwym jest prawo polskie. Spory rozstrzyga sąd właściwy dla
    siedziby Usługodawcy (Lublin).
-3. Regulamin wchodzi w życie z dniem [data].
+3. Regulamin wchodzi w życie z dniem 24.10.2026.

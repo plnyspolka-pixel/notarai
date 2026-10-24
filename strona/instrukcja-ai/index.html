@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instrukcja korzystania z AI - notarai</title>
+<link rel="icon" href="../favicon.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="naglowek">
+  <div class="szer naglowek-w rozsun">
+    <a class="marka" href="../">
+      <img src="../favicon.png" alt="" width="32" height="32">
+      <span>notarai</span>
+    </a>
+    <a class="przycisk maly" href="https://app.notarai.pl/rejestracja">Załóż konto</a>
+  </div>
+</header>
+<main class="szer dokument">
+<h1>Notarai - instrukcja korzystania z funkcji sztucznej inteligencji</h1>
+<p>Wersja z dnia 24.10.2026.</p>
+<p>Instrukcja, o której mowa w § 4 ust. 5 Regulaminu. Służy do zapewnienia kompetencji w zakresie sztucznej inteligencji osobom korzystającym z notarai w kancelarii (art. 4 rozporządzenia (UE) 2024/1689 - AI Act). Aplikacja pokazuje ją każdej osobie przy pierwszym logowaniu (pkt 8).</p>
+<h2>1. Co robi model, a czego nie</h2>
+<p>notarai korzysta z modelu językowego Claude uruchomionego w Amazon Bedrock w regionach Unii Europejskiej. Model:</p>
+<ul><li>
+odczytuje treść skanów i plików i wypisuje dane potrzebne do czynności,
+</li><li>
+wypełnia wzór aktu kancelarii odczytanymi danymi,
+</li><li>
+odpowiada na pytania i wprowadza poprawki w rozmowie o sprawie,
+</li><li>
+proponuje wartości do formularzy rejestrowych na podstawie treści aktu,
+</li><li>
+w sekcji Klikamy prowadzi przeglądarkę w portalach rejestrów według polecenia użytkownika.
+</li></ul>
+<p>Model <strong>nie</strong> zna stanu prawnego sprawy poza dokumentami, które wgrasz. Nie weryfikuje autentyczności dokumentów ani tożsamości osób. Nie ocenia zdolności do czynności prawnych ani zgodności czynności z prawem. Wszystko, co zwraca, jest propozycją, którą notariusz sprawdza z dokumentami źródłowymi.</p>
+<h2>2. Typowe błędy modelu</h2>
+<ol><li>
+<strong>Pomylone cyfry.</strong> Zamiana podobnych znaków (3 i 8, 1 i 7, 0 i O, 5 i S) w PESEL, numerach dowodów, numerach ksiąg wieczystych, numerach działek, kwotach i datach. Sumy kontrolne wychwytują część takich błędów w PESEL, NIP i numerach KW. Nie wychwytują ich w numerach działek, datach, kwotach ani numerach dokumentów tożsamości.
+</li><li>
+<strong>Pismo odręczne i słaba jakość skanu.</strong> Wpisy odręczne, pieczątki, przekreślenia i ciemne kopie są odczytywane gorzej. Model powinien wtedy oznaczyć niską pewność, ale nie zawsze to robi.
+</li><li>
+<strong>Pomylenie osób.</strong> Przy kilku stronach, małżonkach albo pełnomocnikach dane jednej osoby mogą trafić do innej, np. imiona rodziców albo adres.
+</li><li>
+<strong>Odmiana i pisownia.</strong> Błędna odmiana imion i nazwisk przez przypadki, utrata polskich znaków, nietypowe nazwiska „poprawione” na popularne.
+</li><li>
+<strong>Uzupełnianie z domysłu.</strong> Model ma instrukcję, by przy braku danych zostawiać znacznik zamiast zgadywać. Mimo to może podać wartość prawdopodobną, a nie wynikającą z dokumentu.
+</li><li>
+<strong>Nieaktualne dokumenty.</strong> Model nie wie, czy odpis z księgi wieczystej albo zaświadczenie jest aktualne. Odczytuje to, co jest na skanie.
+</li><li>
+<strong>Zmiany w rozmowie.</strong> Poprawka zgłoszona w rozmowie może zmienić także inne miejsca projektu albo pominąć któreś z miejsc, które powinna zmienić.
+</li><li>
+<strong>Pominięte strony lub wpisy.</strong> Przy dużych sprawach model może pominąć wpis, np. w dziale III lub IV księgi wieczystej.
+</li></ol>
+<h2>3. Jak notarai pomaga wychwycić błędy</h2>
+<ul><li>
+Pola z błędną sumą kontrolną, niską pewnością odczytu albo bez danych są oznaczone czerwoną krawędzią na ekranie weryfikacji odczytu.
+</li><li>
+Miejsca, których nie dało się wypełnić, zostają w projekcie jako <code>&lt;&lt;BRAK: nazwa pola&gt;&gt;</code>. Miejsca wymagające decyzji notariusza zostają jako <code>&lt;&lt;WYBOR: opis&gt;&gt;</code>.
+</li><li>
+Propozycje wartości do formularzy pokazują cytat z aktu, z którego pochodzą.
+</li><li>
+Plik projektu w Wordzie ma w metadanych informację, że powstał z użyciem AI.
+</li></ul>
+<p>Brak oznaczenia nie oznacza, że wartość jest poprawna.</p>
+<h2>4. Obowiązkowe sprawdzenie przed użyciem</h2>
+<p>Przed wykorzystaniem odczytu albo projektu notariusz lub upoważniony pracownik:</p>
+<ol><li>
+porównuje z dokumentem źródłowym <strong>każdy</strong> numer: PESEL, numer i seria dokumentu tożsamości, numer księgi wieczystej, numer działki, NIP, REGON, KRS, numer rachunku,
+</li><li>
+porównuje imiona, nazwiska, imiona rodziców, adresy i daty,
+</li><li>
+sprawdza kwoty, cenę i sposób zapłaty, także zapisane słownie,
+</li><li>
+usuwa z projektu wszystkie znaczniki <code>&lt;&lt;BRAK&gt;&gt;</code> i <code>&lt;&lt;WYBOR&gt;&gt;</code>,
+</li><li>
+czyta projekt w całości, a nie tylko miejsca zmienione,
+</li><li>
+po każdej poprawce z rozmowy sprawdza ponownie cały projekt.
+</li></ol>
+<h2>5. Klikamy i pomocnik</h2>
+<ul><li>
+Do portali rejestrów logujesz się samodzielnie. Pomocnik nie wpisuje niczego w pola haseł i PIN-ów. Nie przekazuj nikomu, także Fundacji, haseł ani kart do systemów urzędowych.
+</li><li>
+Pomocnik rozpoznaje przyciski wysyłania, składania, podpisu, płatności i usuwania po ich opisie i ich nie klika. Rozpoznanie działa na podstawie nazwy przycisku i <strong>może zawieść</strong>, gdy portal nazwie przycisk nietypowo, np. „Dalej” na ostatnim kroku wniosku. Obserwuj okno przeglądarki i przerwij pracę, jeśli agent robi coś, czego nie oczekujesz.
+</li><li>
+Agent nie przechodzi na strony spoza adresów, na które się zgodzisz, i wykonuje najwyżej 20 kroków na jedno polecenie.
+</li><li>
+Przed wysłaniem lub podpisaniem czegokolwiek w portalu sprawdź samodzielnie wszystkie pola formularza.
+</li><li>
+Wynik sprawdzenia w rejestrze zapisuje się w sprawie ze zrzutem ekranu. Zrzut pokazuje stan w chwili sprawdzenia.
+</li></ul>
+<h2>6. Dane, które wgrywasz</h2>
+<ul><li>
+Wgrywaj wyłącznie dokumenty potrzebne do danej czynności.
+</li><li>
+Nie wgrywaj dokumentów, które zawierają dane o zdrowiu, wyroki albo inne dane szczególnie chronione, jeżeli nie są potrzebne do czynności.
+</li><li>
+Usuwaj sprawy z notarai po zakończeniu czynności albo w terminie ustalonym w kancelarii. notarai nie jest repertorium ani archiwum notarialnym.
+</li></ul>
+<h2>7. Zgłaszanie problemów</h2>
+<p>Błędny odczyt, który nie został oznaczony, albo nieoczekiwane działanie pomocnika zgłoś na <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a>. Opisz problem bez danych osobowych klientów: identyfikator sprawy, numer strony, rodzaj pola i rodzaj błędu.</p>
+<h2>8. Potwierdzenie zapoznania</h2>
+<p>Każda osoba potwierdza zapoznanie się z instrukcją w aplikacji, przy pierwszym logowaniu, przyciskiem <strong>Przeczytałam / przeczytałem</strong>. Podpis nie jest potrzebny. Data potwierdzenia jest zapisywana przy koncie, a Właściciel widzi ją w oknie Zespół kancelarii. Po istotnej zmianie instrukcji aplikacja prosi o ponowne potwierdzenie.</p>
+</main>
+<footer class="stopka">
+  <div class="szer stopka-w">
+    <p>notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul.&nbsp;Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
+    <p><a href="../regulamin/">Regulamin</a> · <a href="../umowa-powierzenia/">Umowa powierzenia</a> · <a href="../instrukcja-ai/">Instrukcja AI</a> · <a href="../prywatnosc/">Polityka prywatności</a> · <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a></p>
+  </div>
+</footer>
+</body>
+</html>

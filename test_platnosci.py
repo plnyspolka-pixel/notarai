@@ -224,6 +224,10 @@ def serwer(logowanie_atrapa, monkeypatch, tmp_path):
     id_k = odp.json()["id"]
     for email, rola in ((WLASCICIEL, "wlasciciel"), (CZLONEK, "czlonek")):
         klient.put(f"/api/admin/kancelarie/{id_k}/zespol/{email}", headers=ADMIN, json={"rola": rola})
+    # Tu sprawdzamy platnosci, nie akceptacje umowy (test_rejestracja.py).
+    rejestr = autoryzacja._wczytaj_rejestr()
+    autoryzacja._znajdz(rejestr, id_k)[1]["umowa"] = {"zaakceptowano": "2026-10-24T10:00:00"}
+    autoryzacja._zapisz_rejestr(rejestr)
     return klient, id_k
 
 

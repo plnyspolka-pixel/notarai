@@ -82,7 +82,14 @@ Parameters:
     Type: String
     Default: ""
     AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
-    Description: Cena miesiaca abonamentu w zl brutto do wyswietlenia, np. 600.00.
+    Description: Cena miesiaca abonamentu w zl do wyswietlenia (Fundacja zwolniona z VAT), np. 600.00.
+  Rejestracja:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Czy notariusz moze sam zalozyc konto pod /rejestracja (z akceptacja
+      Regulaminu i umowy powierzenia). false = konta zaklada tylko administrator.
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
@@ -367,6 +374,8 @@ Resources:
               Value: !Ref AdresPubliczny
             - Name: STRIPE_CENA
               Value: !Ref StripeCena
+            - Name: PIECZAPP_REJESTRACJA
+              Value: !Ref Rejestracja
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina

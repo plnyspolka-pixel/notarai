@@ -1,7 +1,7 @@
 # PROCEDURA POSTĘPOWANIA W RAZIE NARUSZENIA OCHRONY DANYCH
 
 Fundacja Krzewienia Edukacji Finansowej im. Pieczaka - usługa notarai.
-Obowiązuje od [data]. Osoba odpowiedzialna: Filip Robert Bielak, Prezes Zarządu.
+Obowiązuje od 24.10.2026, przyjęta przez Zarząd Fundacji. Osoba odpowiedzialna: Filip Robert Bielak, Prezes Zarządu.
 
 ## 1. Co jest naruszeniem
 
@@ -48,18 +48,18 @@ uodo.gov.pl).
 >
 > Szanowna Pani Notariusz / Szanowny Panie Notariuszu,
 >
-> zgodnie z § 10 umowy powierzenia z dnia [●] zgłaszamy naruszenie ochrony
-> danych osobowych.
+> zgodnie z § 10 umowy powierzenia zawartej <DATA AKCEPTACJI z panelu
+> /admin> zgłaszamy naruszenie ochrony danych osobowych.
 >
-> 1. Data i godzina naruszenia (lub okres): [●]; data stwierdzenia: [●].
-> 2. Opis zdarzenia: [●].
-> 3. Kategorie danych: [●]. Kategorie osób: [●].
-> 4. Przybliżona liczba osób / spraw / plików: [●].
+> 1. Data i godzina naruszenia (lub okres): <…>; data stwierdzenia: <…>.
+> 2. Opis zdarzenia: <…>.
+> 3. Kategorie danych: <…>. Kategorie osób: <…>.
+> 4. Przybliżona liczba osób / spraw / plików: <…>.
 > 5. Czy dane były zaszyfrowane lub w inny sposób niezrozumiałe dla osób
->    nieuprawnionych: [●].
-> 6. Możliwe konsekwencje: [●].
-> 7. Działania podjęte: [●]. Działania planowane: [●].
-> 8. Czy naruszenie trwa: [tak/nie].
+>    nieuprawnionych: <…>.
+> 6. Możliwe konsekwencje: <…>.
+> 7. Działania podjęte: <…>. Działania planowane: <…>.
+> 8. Czy naruszenie trwa: <tak / nie>.
 > 9. Osoba kontaktowa: Filip Robert Bielak, kontakt@notarai.pl.
 >
 > Informacje, których jeszcze nie znamy, przekażemy niezwłocznie.

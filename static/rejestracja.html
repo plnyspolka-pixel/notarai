@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Załóż konto kancelarii - notarai</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --r:14px; --r2:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.6 var(--sans);
+  -webkit-font-smoothing:antialiased;display:flex;justify-content:center;padding:32px 16px}
+.pudlo{width:100%;max-width:560px;background:var(--karta);border:1px solid var(--linia);
+  border-radius:var(--r);padding:28px}
+.logo{font:600 21px/1 var(--serif);display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.logo img{width:36px;height:36px;border-radius:9px}
+h1{font:500 22px/1.3 var(--serif);margin:0 0 8px}
+p{color:var(--tekst2);font-size:14px;margin:0 0 18px}
+.pole{margin-bottom:16px}
+.etykieta{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--tekst2)}
+.wskaz{font-weight:400;color:var(--tekst3)}
+input[type=text],input[type=email]{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
+input:focus,button:focus-visible{outline:2px solid var(--akcent);outline-offset:1px}
+.wybor{display:grid;gap:8px}
+.wybor label,.zgoda{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;
+  padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+.wybor small{display:block;color:var(--tekst3);font-size:12.5px}
+.zgoda{border-color:var(--akcent);background:var(--akcent-tlo)}
+input[type=radio],input[type=checkbox]{margin-top:4px;accent-color:var(--akcent)}
+a{color:var(--akcent2)}
+button{font:500 15px var(--sans);padding:11px 20px;border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;border-radius:var(--r2)}
+button:hover:not(:disabled){background:var(--akcent2)}
+button:disabled{opacity:.45;cursor:default}
+.dol{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
+.stan{font-size:13px;color:var(--tekst2)}
+.stan.blad{color:var(--alarm)}
+.ukryte{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.sukces{background:var(--ok-tlo);border:1px solid var(--ok);border-radius:var(--r2);padding:14px 16px}
+.sukces p{color:var(--tekst);margin:0 0 8px}
+.male{font-size:12.5px;color:var(--tekst3);margin-top:18px}
+</style>
+</head>
+<body>
+<div class="pudlo">
+  <div class="logo"><img src="/static/logo.png" alt="">notarai</div>
+
+  <form id="formularz" novalidate>
+    <h1>Załóż konto kancelarii</h1>
+    <p id="wstep">14 dni za darmo, bez karty. Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.</p>
+
+    <div class="pole">
+      <label class="etykieta" for="nazwa">Nazwa kancelarii</label>
+      <input type="text" id="nazwa" autocomplete="organization" placeholder="Kancelaria Notarialna Anna Sobczak" required>
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="notariusze">Notariusz <span class="wskaz">- w spółce cywilnej wszyscy, po przecinku</span></label>
+      <input type="text" id="notariusze" autocomplete="name" placeholder="Anna Sobczak" required>
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="adres">Adres kancelarii</label>
+      <input type="text" id="adres" autocomplete="street-address" placeholder="ul. Przykładowa 1, 20-001 Lublin" required>
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="nip">NIP <span class="wskaz">- nieobowiązkowy, do faktur</span></label>
+      <input type="text" id="nip" inputmode="numeric" autocomplete="off" placeholder="0000000000">
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="email">Twój e-mail <span class="wskaz">- tu przyjdzie hasło; będziesz właścicielem konta</span></label>
+      <input type="email" id="email" autocomplete="email" spellcheck="false" required>
+    </div>
+    <div class="pole">
+      <span class="etykieta">Gdzie mają być pliki spraw</span>
+      <div class="wybor">
+        <label><input type="radio" name="przechowywanie" value="chmura" checked>
+          <span>W chmurze, zaszyfrowane, we Frankfurcie
+            <small>Sprawy otwierasz z każdego komputera kancelarii. Polecane.</small></span></label>
+        <label><input type="radio" name="przechowywanie" value="u-klienta">
+          <span>Tylko u kancelarii
+            <small>Serwer niczego nie zapisuje; sprawy są w folderze na Twoim komputerze. Wymaga Chrome albo Edge. Tego wyboru nie da się później zmienić.</small></span></label>
+      </div>
+    </div>
+    <!-- Pole dla automatow. Czlowiek go nie widzi i nie wypelnia. -->
+    <div class="ukryte" aria-hidden="true">
+      <label for="strona">Strona www</label><input type="text" id="strona" tabindex="-1" autocomplete="off">
+    </div>
+
+    <label class="zgoda"><input type="checkbox" id="akceptuje">
+      <span>Akceptuję <a href="/dokumenty/regulamin" target="_blank" rel="noopener">Regulamin</a>
+        wraz z <a href="/dokumenty/umowa" target="_blank" rel="noopener">umową powierzenia przetwarzania danych</a>
+        i oświadczam, że jestem wskazanym wyżej notariuszem albo działam w jego imieniu i z jego upoważnienia.</span></label>
+
+    <div class="dol">
+      <button type="submit" id="wyslij">Załóż konto</button>
+      <span class="stan" id="stan"></span>
+    </div>
+    <p class="male">Dane konta przetwarzamy zgodnie z <a href="/dokumenty/prywatnosc" target="_blank" rel="noopener">polityką prywatności</a>. Masz już konto? <a href="/">Zaloguj się</a>.</p>
+  </form>
+
+  <div id="gotowe" hidden>
+    <h1>Konto założone</h1>
+    <div class="sukces">
+      <p id="komunikat"></p>
+      <p>E-mail przychodzi zwykle w ciągu minuty. Nie widzisz go? Zajrzyj do spamu.</p>
+    </div>
+    <div class="dol"><a href="/"><button type="button">Przejdź do logowania</button></a></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function stan(tekst, blad){
+  $("stan").textContent = tekst;
+  $("stan").classList.toggle("blad", !!blad);
+}
+
+fetch("/api/rejestracja").then(o => o.json()).then(info => {
+  if (!info.wlaczona) {
+    $("wstep").textContent = "Rejestracja jest chwilowo wyłączona. Napisz na kontakt@notarai.pl, a założymy konto za Ciebie.";
+    $("wyslij").disabled = true;
+  } else if (info.okres_probny_dni && info.cena) {
+    $("wstep").textContent = `${info.okres_probny_dni} dni za darmo, bez karty, potem ${info.cena} miesięcznie za całą kancelarię. ` +
+      "Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.";
+  }
+}).catch(() => {});
+
+$("formularz").onsubmit = async e => {
+  e.preventDefault();
+  if (!$("akceptuje").checked) { stan("Zaznacz akceptację Regulaminu i umowy powierzenia.", true); return; }
+  $("wyslij").disabled = true;
+  stan("Zakładam konto…");
+  try {
+    const odp = await fetch("/api/rejestracja", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        nazwa: $("nazwa").value, notariusze: $("notariusze").value, adres: $("adres").value,
+        nip: $("nip").value, email: $("email").value, strona: $("strona").value,
+        przechowywanie: document.querySelector("input[name=przechowywanie]:checked").value,
+        akceptuje: $("akceptuje").checked,
+      }),
+    });
+    const dane = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(dane.detail || "Nie udało się założyć konta.");
+    $("komunikat").textContent = dane.komunikat;
+    $("formularz").hidden = true;
+    $("gotowe").hidden = false;
+  } catch (blad) {
+    stan(blad.message, true);
+    $("wyslij").disabled = false;
+  }
+};
+</script>
+</body>
+</html>

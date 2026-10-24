@@ -21,7 +21,8 @@ Poniższa tabela opisuje wariant chmurowy.
 
 | Co | Gdzie | Zabezpieczenie |
 |---|---|---|
-| Skany, odczyty, rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |
+| Skany, odczyty, przepisana treść stron (transkrypcje), rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |
+| Dane kancelarii i zapis akceptacji umowy powierzenia | S3, Frankfurt, obszar administracyjny | szyfrowane, tylko dla aplikacji i administratora |
 | Konta i hasła użytkowników | Amazon Cognito, Frankfurt | hasła przechowuje AWS, aplikacja ich nie widzi |
 | Dzienniki pracy aplikacji | CloudWatch, Frankfurt | 90 dni, bez danych osobowych |
 | Odczyt skanów przez model | Amazon Bedrock, regiony UE | patrz niżej |
@@ -56,7 +57,8 @@ technicznego trzeba osobnej instalacji.
 ## Usuwanie danych
 
 Kancelaria może usunąć każdą sprawę z poziomu aplikacji. Kasowane są skany,
-odczytane dane, rozmowa i projekt, razem z wcześniejszymi wersjami plików.
+odczytane dane, przepisana treść stron, rozmowa i projekt, razem
+z wcześniejszymi wersjami plików.
 Usunięcie jest natychmiastowe i nieodwracalne.
 
 Wcześniejsze wersje plików istnieją po to, żeby dało się cofnąć przypadkowe
@@ -102,16 +104,17 @@ notariusza żadnych wniosków.
 
 Przetwarzanie danych klientów kancelarii wymaga umowy powierzenia
 przetwarzania danych osobowych między kancelarią a dostawcą usługi.
-AWS występuje jako dalszy podmiot przetwarzający, na warunkach umowy
-powierzenia AWS.
+Kancelaria zawiera ją przy rejestracji, akceptując Regulamin, bez podpisu.
+Bez zaakceptowanej umowy aplikacja nie przyjmuje spraw. AWS występuje jako
+dalszy podmiot przetwarzający, na warunkach umowy powierzenia AWS.
 
 ---
 
 ## Do zrobienia po naszej stronie (część wewnętrzna, nie dla kancelarii)
 
 - Dokumentacja prawna (umowa powierzenia, regulamin, rejestry, procedura
-  naruszeń) jest w `docs/prawne/` - projekty do uzupełnienia i przeglądu
-  przez prawnika, z listą blokerów w `docs/prawne/README.md`.
+  naruszeń) jest w `docs/prawne/` i obowiązuje od 24.10.2026; lista tego,
+  co zostało, jest w `docs/prawne/README.md`.
 - Wdrożyć stos `notarai-kopia` (polecenie w `docs/prawne/README.md`). Do
   tego czasu sekcja „Kopia zapasowa” wyżej jest zapowiedzią, nie faktem.
 - Kopia chroni przed skasowaniem bucketa i przejęciem konta (blokada sejfu),

@@ -26,6 +26,7 @@ import bedrock
 import config
 import dziennik
 import dokumenty
+import dokumenty_prawne
 import formularze
 import krz
 import urzadzenia
@@ -34,6 +35,7 @@ import magazyn
 import autoryzacja
 import nazwy
 import prompty
+import rejestracja
 import rejestry
 import transkrypcja
 import walidacja
@@ -56,6 +58,8 @@ app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
 app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
+app.include_router(rejestracja.router)
+app.include_router(rejestracja.router_dokumentow)
 
 
 @app.exception_handler(Exception)
@@ -91,6 +95,21 @@ def panel_admina():
     token administratora, ktory przegladarka wysyla z kazdym zadaniem."""
     autoryzacja.zaloz_stalych_adminow()
     return (Path(__file__).parent / "static" / "admin.html").read_text("utf-8")
+
+
+@app.get("/rejestracja", response_class=HTMLResponse)
+def strona_rejestracji():
+    """Notariusz zaklada konto kancelarii sam, bez nas i bez papieru."""
+    return (Path(__file__).parent / "static" / "rejestracja.html").read_text("utf-8")
+
+
+@app.get("/dokumenty/{nazwa}", response_class=HTMLResponse)
+def dokument_publiczny(nazwa: str):
+    """Dokumenty do przeczytania przed rejestracja - w tej samej wersji,
+    ktora formularz zapisuje jako zaakceptowana."""
+    if nazwa not in ("regulamin", "umowa", "prywatnosc", "instrukcja"):
+        raise HTTPException(404, "Nie ma takiego dokumentu.")
+    return dokumenty_prawne.strona(nazwa)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI NOTARAI
 
-Wersja z dnia [data].
+Wersja z dnia 24.10.2026.
 
 Ta polityka dotyczy danych, które Fundacja przetwarza **jako administrator**:
 danych użytkowników usługi, osób kontaktujących się z nami i odwiedzających
@@ -25,9 +25,12 @@ siedziby.
 |---|---|---|---|---|
 | Użytkownicy usługi (notariusze, pracownicy kancelarii) | e-mail, imię i nazwisko (jeżeli podane), kancelaria, rola, daty zaproszenia i dołączenia, dane logowania (hasło przechowywane w postaci zabezpieczonej przez AWS Cognito) | założenie i prowadzenie konta, logowanie, zaproszenia, reset hasła | art. 6 ust. 1 lit. b (umowa z kancelarią - wobec notariusza) oraz lit. f (prawnie uzasadniony interes: obsługa kont pracowników kancelarii) | do usunięcia konta, a potem do 90 dni |
 | Użytkownicy | adres IP, czas i rodzaj żądań, identyfikatory techniczne w dziennikach | bezpieczeństwo, wykrywanie nadużyć i awarii | art. 6 ust. 1 lit. f | 90 dni |
-| Notariusz zawierający umowę, osoby reprezentujące | imię i nazwisko, dane kancelarii, NIP, adres, dane kontaktowe | zawarcie i wykonanie umowy, rozliczenia | art. 6 ust. 1 lit. b i c (przepisy podatkowe i rachunkowe) | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku, oraz do przedawnienia roszczeń |
+| Notariusz zawierający umowę, osoba wysyłająca formularz rejestracji | imię i nazwisko notariusza (notariuszy), nazwa i adres kancelarii, NIP, e-mail | zawarcie i wykonanie umowy, rozliczenia | art. 6 ust. 1 lit. b i c (przepisy podatkowe i rachunkowe) | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku, oraz do przedawnienia roszczeń |
+| Osoba akceptująca Regulamin i umowę powierzenia | data i godzina akceptacji, wersje dokumentów, e-mail, adres IP | wykazanie zawarcia umowy i umowy powierzenia (rozliczalność, art. 5 ust. 2 i art. 28 ust. 9 RODO) | art. 6 ust. 1 lit. c i f | czas umowy i 5 lat po jej zakończeniu |
+| Użytkownicy | data potwierdzenia zapoznania się z instrukcją AI, data przyjęcia oceny skutków przez notariusza | wykazanie kompetencji w zakresie AI (art. 4 rozporządzenia (UE) 2024/1689) i dokumentacji kancelarii | art. 6 ust. 1 lit. c i f | do usunięcia konta albo kancelarii |
+| Właściciel kancelarii opłacający abonament | e-mail płatnika, identyfikator klienta i subskrypcji w Stripe, status i daty płatności, faktury; danych karty Fundacja nie otrzymuje | prowadzenie abonamentu, rozliczenia | art. 6 ust. 1 lit. b i c | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku |
 | Osoby piszące do nas | e-mail, imię i nazwisko, treść wiadomości | odpowiedź, obsługa reklamacji i zgłoszeń | art. 6 ust. 1 lit. f | do zakończenia sprawy, nie dłużej niż 3 lata |
-| Odwiedzający stronę notarai.pl | dane techniczne przekazywane przez przeglądarkę u dostawcy hostingu strony | wyświetlenie strony | art. 6 ust. 1 lit. f | zgodnie z polityką dostawcy hostingu |
+| Odwiedzający stronę notarai.pl | adres IP, czas wizyty i dane techniczne przeglądarki w dziennikach serwera hostingu AZ.pl | wyświetlenie strony, bezpieczeństwo | art. 6 ust. 1 lit. f | zgodnie z zasadami dostawcy hostingu |
 
 Podanie danych jest dobrowolne, ale bez adresu e-mail nie da się założyć
 konta.
@@ -45,14 +48,19 @@ wymagana zgoda.
 1. Amazon Web Services EMEA SARL (Luksemburg) - hosting, logowanie, wysyłka
    e-maili z zaproszeniami i kodami, dzienniki; dane przechowywane we
    Frankfurcie.
-2. [Dostawca hostingu strony i domeny - az.pl / Home.pl S.A.] - strona
-   notarai.pl i poczta [jeżeli dotyczy].
-3. [Biuro rachunkowe, dostawca systemu do faktur - jeżeli dotyczy.]
+2. AZ.pl Sp. z o.o. (Szczecin) - hosting strony notarai.pl, domena
+   i skrzynka kontakt@notarai.pl.
+3. Stripe Payments Europe, Limited (Dublin, Irlandia) - obsługa płatności
+   kartą, subskrypcji i faktur. Stripe przetwarza dane płatnicze także jako
+   odrębny administrator, na zasadach swojej polityki prywatności
+   (stripe.com/pl/privacy). Dane karty podaje się bezpośrednio Stripe.
 4. Organy publiczne, gdy wynika to z przepisów.
 
-Dane nie są przekazywane poza Europejski Obszar Gospodarczy. AWS należy do
-grupy z siedzibą w USA i stosuje certyfikację w ramach EU-U.S. Data Privacy
-Framework.
+Dane użytkowników usługi są przechowywane w Europejskim Obszarze
+Gospodarczym. AWS należy do grupy z siedzibą w USA i stosuje certyfikację
+w ramach EU-U.S. Data Privacy Framework. Stripe może przekazywać dane
+płatnicze do Stripe, Inc. w USA na podstawie EU-U.S. Data Privacy Framework
+oraz standardowych klauzul umownych zatwierdzonych przez Komisję Europejską.
 
 ## 5. Twoje prawa
 

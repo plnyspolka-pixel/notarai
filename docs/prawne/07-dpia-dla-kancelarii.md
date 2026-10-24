@@ -1,12 +1,16 @@
 # OCENA SKUTKÓW DLA OCHRONY DANYCH (DPIA) - KORZYSTANIE Z NOTARAI
 
-Wzór przygotowany przez Fundację dla kancelarii (art. 28 ust. 3 lit. f
-RODO). **Ocenę przeprowadza i podpisuje notariusz jako administrator.**
-Fragmenty w nawiasach kwadratowych uzupełnia kancelaria; resztę należy
-przeczytać i zmienić, jeżeli nie odpowiada praktyce kancelarii.
+Wersja z dnia 24.10.2026.
 
-Kancelaria: [●]. Data: [●]. Osoba przeprowadzająca: [●]. Opinia inspektora
-ochrony danych (jeżeli wyznaczony): [●].
+Ocena przygotowana przez Fundację dla kancelarii (art. 28 ust. 3 lit. f
+RODO) i wypełniona przez aplikację danymi kancelarii. Ocenę przyjmuje
+notariusz jako administrator: w aplikacji, w oknie Dokumenty, przyciskiem
+**Przyjmuję ocenę**. Podpis nie jest wymagany. Data przyjęcia zostaje
+zapisana. Jeżeli coś nie odpowiada praktyce kancelarii, pobierz ocenę,
+popraw ją u siebie i przechowuj w dokumentacji ochrony danych kancelarii.
+
+Kancelaria: {{kancelaria}}. Notariusz: {{notariusze}}. Data oceny:
+{{data}}. Inspektor ochrony danych kancelarii: {{iod}}.
 
 ## 1. Czy ocena jest wymagana
 
@@ -24,26 +28,27 @@ korzystania z usługi.
 - **Podstawa prawna przetwarzania przez kancelarię:** art. 6 ust. 1 lit. c
   i e RODO w związku z ustawą - Prawo o notariacie; dla danych z art. 9 -
   art. 9 ust. 2 lit. f i g; dla danych z art. 10 - przepisy ustawy - Prawo
-  o notariacie. [Do weryfikacji przez kancelarię.]
+  o notariacie.
 - **Przepływ:** pracownik wgrywa skany i wzór → serwer notarai we Frankfurcie
   → model Claude w Amazon Bedrock (regiony UE, bez zapisu treści) → wynik
   zapisany w S3 we Frankfurcie albo w folderze kancelarii → notariusz
   sprawdza i poprawia → projekt pobierany do Worda.
 - **Podmioty:** Fundacja (podmiot przetwarzający), AWS EMEA SARL (dalszy
   podmiot przetwarzający).
-- **Tryb plików wybrany przez kancelarię:** [chmura / u kancelarii].
-- **Skala:** około [●] spraw miesięcznie, [●] użytkowników.
+- **Tryb plików wybrany przez kancelarię:** {{przechowywanie}}.
+- **Skala:** {{uzytkownicy}} użytkowników w chwili oceny; liczba spraw
+  zależy od obłożenia kancelarii.
 
 ## 3. Niezbędność i proporcjonalność
 
 | Zasada | Jak spełniona |
 |---|---|
 | Ograniczenie celu | dane używane wyłącznie do przygotowania czynności; zakaz trenowania modeli i innych celów w umowie powierzenia (§ 4) |
-| Minimalizacja | do usługi wgrywa się tylko dokumenty potrzebne do danej czynności [zasada wewnętrzna kancelarii] |
+| Minimalizacja | do usługi wgrywa się tylko dokumenty potrzebne do danej czynności (instrukcja AI, pkt 6) |
 | Prawidłowość | wyniki AI oznaczone jako projekt, walidacja sum kontrolnych, oznaczanie niepewnych odczytów, obowiązkowa weryfikacja przez notariusza |
-| Ograniczenie przechowywania | kancelaria usuwa sprawę z notarai po [zakończeniu czynności / X dniach]; dokumentacja notarialna przechowywana zgodnie z przepisami poza notarai |
+| Ograniczenie przechowywania | kancelaria usuwa sprawę z notarai po zakończeniu czynności; dokumentacja notarialna jest przechowywana zgodnie z przepisami poza notarai |
 | Integralność i poufność | Załącznik nr 2 do umowy powierzenia |
-| Przejrzystość | klauzula informacyjna kancelarii wymienia dostawców usług IT jako odbiorców (wzór w pliku 08) |
+| Przejrzystość | klauzula informacyjna kancelarii wymienia dostawców usług IT jako odbiorców (wzór w aplikacji, Dokumenty → Co robi kancelaria) |
 
 ## 4. Ryzyka i środki
 
@@ -54,7 +59,7 @@ Skala: prawdopodobieństwo (P) i skutek (S) - niskie / średnie / wysokie.
 | Błędny odczyt danych (cyfra PESEL, KW, kwota) przeniesiony do aktu | średnie | wysokie | sumy kontrolne, oznaczanie niepewnych pól, znaczniki BRAK, obowiązkowe porównanie ze źródłem przez notariusza | niskie |
 | Halucynacja modelu (informacja nieobecna w dokumentach) | średnie | wysokie | projekt zawsze weryfikowany; asystent cytuje źródło przy dopasowaniu formularzy | niskie |
 | Dostęp innej kancelarii do spraw | niskie | wysokie | izolacja w aplikacji, przypisanie kancelarii w tożsamości, testy automatyczne | niskie |
-| Przejęcie konta pracownika | średnie | wysokie | indywidualne konta, usuwanie członków zespołu przez właściciela, [MFA], szkolenie | niskie |
+| Przejęcie konta pracownika | średnie | wysokie | indywidualne konta, hasła co najmniej 12 znaków, usuwanie członków zespołu przez właściciela, instrukcja potwierdzana przez każdego użytkownika | niskie |
 | Ujawnienie danych przez dostawcę lub na żądanie organu państwa trzeciego | niskie | wysokie | dane wyłącznie w UE, szyfrowanie, zobowiązania AWS, § 5 ust. 4 umowy powierzenia; tryb „Pliki u kancelarii” ogranicza przechowywanie | niskie |
 | Ujawnienie tajemnicy notarialnej przez personel Fundacji | niskie | wysokie | zakaz przeglądania spraw, rejestr dostępów serwisowych, zobowiązania do poufności | niskie |
 | Utrata danych (awaria, usunięcie) | niskie | średnie | wersjonowanie, kopie zapasowe, oryginały dokumentów pozostają w kancelarii | niskie |
@@ -63,11 +68,12 @@ Skala: prawdopodobieństwo (P) i skutek (S) - niskie / średnie / wysokie.
 
 ## 5. Wniosek
 
-Po zastosowaniu środków ryzyko szczątkowe jest [niskie / akceptowalne].
-Uprzednia konsultacja z Prezesem UODO (art. 36 RODO) [nie jest wymagana].
+Po zastosowaniu środków ryzyko szczątkowe jest niskie. Uprzednia
+konsultacja z Prezesem UODO (art. 36 RODO) nie jest wymagana.
 
 Przegląd oceny: co najmniej raz w roku i przy istotnej zmianie usługi
-(nowy dostawca, nowa funkcja AI, zmiana lokalizacji danych).
+(nowy dostawca, nowa funkcja AI, zmiana lokalizacji danych). O takiej
+zmianie Fundacja informuje kancelarię e-mailem, a aplikacja prosi wtedy
+o ponowne przyjęcie oceny.
 
-............................................
-(data i podpis notariusza)
+Przyjęcie przez notariusza: {{przyjeto}}.

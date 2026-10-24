@@ -280,6 +280,17 @@ dialog.okno input{font:14px var(--mono);text-transform:uppercase;width:12em}
 .komputer b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .komputer small{color:var(--tekst3);font-size:12px}
 .komputer button{font-size:12px;padding:5px 11px}
+/* dokumenty akceptowane w aplikacji */
+#okno-umowa input[type=text]{font:14px var(--sans);text-transform:none;width:100%}
+#okno-umowa .pole{margin-bottom:12px}
+.zgoda{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;cursor:pointer;margin-top:6px;
+  padding:10px 12px;border:1px solid var(--akcent);border-radius:var(--r2);background:var(--akcent-tlo)}
+.zgoda[hidden]{display:none}
+dialog.okno .zgoda input{width:auto;margin-top:3px;accent-color:var(--akcent)}
+.zgoda a{color:var(--akcent2)}
+dialog.okno.szerokie{width:min(760px,calc(100vw - 32px))}
+.dokument-ramka{width:100%;height:min(56vh,520px);border:1px solid var(--linia);border-radius:var(--r2);background:#fff}
+#dokumenty-lista .komputer b{white-space:normal}
 
 /* kreator instalacji pomocnika: cztery kroki, biezacy rozwiniety */
 dialog.kreator{width:min(560px,calc(100vw - 32px))}
@@ -379,6 +390,7 @@ notarai</div>
     <div class="kto" id="kto" hidden></div>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
+    <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
   </div>
 </aside>
@@ -614,6 +626,7 @@ notarai</div>
         <span class="stan" id="stan-brama"></span>
       </div>
       <button class="odnosnik" id="btn-zapomnialem">Nie pamiętam hasła</button>
+      <a class="odnosnik" href="/rejestracja">Nie masz konta? Załóż konto kancelarii, 14 dni za darmo</a>
       <!-- Dawny token kancelarii sluzy automatyzacji, nie ludziom. Ukryty;
            otwiera go adres zakonczony #token. -->
       <button class="odnosnik" id="btn-pokaz-token" hidden>Mam token kancelarii</button>
@@ -766,6 +779,46 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-abonament">Zamknij</button></div>
 </dialog>
 
+<!-- Regulamin i umowa powierzenia: akceptacja zamiast podpisu. Wlasciciel
+     kancelarii zalozonej przez nas akceptuje je przy pierwszym logowaniu. -->
+<dialog class="okno" id="okno-umowa">
+  <h2>Regulamin i umowa powierzenia</h2>
+  <p id="umowa-opis">Zanim wgrasz pierwszą sprawę, kancelaria musi zawrzeć z nami umowę powierzenia przetwarzania danych. Wystarczy akceptacja - bez podpisu i bez wysyłania dokumentów.</p>
+  <div id="umowa-dane">
+    <div class="pole">
+      <label class="etykieta" for="umowa-notariusze">Notariusz <span class="wskaz">- w spółce cywilnej wszyscy, po przecinku</span></label>
+      <input type="text" id="umowa-notariusze" autocomplete="name">
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="umowa-adres">Adres kancelarii</label>
+      <input type="text" id="umowa-adres" autocomplete="street-address">
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="umowa-nip">NIP <span class="wskaz">- nieobowiązkowy</span></label>
+      <input type="text" id="umowa-nip" inputmode="numeric" autocomplete="off">
+    </div>
+  </div>
+  <label class="zgoda"><input type="checkbox" id="umowa-akceptuje">
+    <span>Akceptuję <a href="/dokumenty/regulamin" target="_blank" rel="noopener">Regulamin</a> wraz z <a href="/dokumenty/umowa" target="_blank" rel="noopener">umową powierzenia</a> i oświadczam, że jestem wskazanym notariuszem albo działam w jego imieniu i z jego upoważnienia.</span></label>
+  <div class="dol"><button id="btn-umowa">Akceptuję</button><span class="stan" id="stan-umowa"></span></div>
+</dialog>
+
+<!-- Instrukcja AI (art. 4 AI Act): kazda osoba potwierdza ja sama. -->
+<dialog class="okno szerokie" id="okno-instrukcja">
+  <h2>Zanim zaczniesz: co model robi źle</h2>
+  <p>Przeczytaj krótką instrukcję. Potwierdzasz ją raz; data potwierdzenia jest widoczna dla właściciela kancelarii.</p>
+  <iframe id="instrukcja-tresc" class="dokument-ramka" sandbox title="Instrukcja korzystania z AI"></iframe>
+  <div class="dol"><button id="btn-instrukcja">Przeczytałam / przeczytałem</button><span class="stan" id="stan-instrukcja"></span></div>
+</dialog>
+
+<dialog class="okno" id="okno-dokumenty">
+  <h2>Dokumenty kancelarii</h2>
+  <p>Wszystko akceptujesz w aplikacji, niczego nie podpisujesz. Dokument otwiera się w nowej karcie; z niej możesz go wydrukować albo zapisać jako PDF.</p>
+  <div id="dokumenty-lista"></div>
+  <div class="dol"><span class="stan" id="stan-dokumenty"></span></div>
+  <div class="dol"><button class="wtorny" id="btn-zamknij-dokumenty">Zamknij</button></div>
+</dialog>
+
 <dialog class="okno" id="okno-polacz">
   <h2>Połączyć ten komputer?</h2>
   <p>Komputer <b id="polacz-nazwa"></b> prosi o połączenie z Twoją kancelarią.</p>
@@ -885,6 +938,7 @@ async function api(adres, opcje = {}){
     otworzBrame(token ? "Sesja wygasła. Zaloguj się ponownie." : "");
     throw new Error("Wymagane logowanie.");
   }
+  if (odp.status === 428) sprawdzDokumenty();   // brak zaakceptowanej umowy
   if (odp.status === 402) {
     // Abonament wygasl: zamiast bledu w srodku pracy - okno z platnoscia.
     wczytajAbonament().then(() => {
@@ -920,7 +974,7 @@ function wpusc(nowyToken){
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
-  if (!token) { $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("kto").hidden = true; }
+  if (!token) { $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("kto").hidden = true; }
 }
 
 $("btn-wyloguj").onclick = async () => {
@@ -1369,7 +1423,13 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
   }
-  rysujListeSpraw();
+  await sprawdzDokumenty();
+  if (dokumenty && !dokumenty.umowa_zawarta) {
+    // Serwer i tak odmowi (428); lepiej powiedziec, dlaczego listy nie ma.
+    $("lista-spraw").innerHTML = '<span class="stan" style="padding:0 12px">Sprawy będą dostępne po akceptacji umowy powierzenia.</span>';
+  } else {
+    rysujListeSpraw();
+  }
   wczytajZespol();
   wczytajAbonament().then(obsluzPowrotZPlatnosci);
   if (!dysk.aktywny) {
@@ -1408,9 +1468,12 @@ function rysujZespol(){
     const ja = o.email === zespol.ja;
     const d = document.createElement("div");
     d.className = "komputer";
-    const opis = o.dolaczyl ? "w zespole"
+    const instrukcja = o.instrukcja
+      ? ", instrukcję AI potwierdził(a) " + new Date(o.instrukcja.data).toLocaleDateString("pl-PL")
+      : ", instrukcja AI niepotwierdzona";
+    const opis = o.dolaczyl ? "w zespole" + instrukcja
       : o.zaproszono ? "zaproszenie wysłane " + new Date(o.zaproszono).toLocaleDateString("pl-PL") + ", czeka na pierwsze logowanie"
-      : "w zespole";
+      : "w zespole" + instrukcja;
     d.innerHTML = `<span class="kropka ${o.dolaczyl ? "jest" : ""}"></span>
       <div><b>${escape(o.email)}${ja ? " (Ty)" : ""}</b><small>${escape(opis)}</small></div>
       ${o.rola === "wlasciciel" ? '<span class="znacznik">właściciel</span>' : ""}
@@ -1443,6 +1506,154 @@ function rysujZespol(){
     $("zespol-lista").appendChild(d);
   });
 }
+
+/* ---------- dokumenty: akceptacja zamiast podpisu ----------
+   Umowa powierzenia (wlasciciel, raz), instrukcja AI (kazda osoba), ocena
+   skutkow (wlasciciel). Serwer bez umowy nie wpuszcza do spraw (428), wiec
+   to okno jest jedyna droga dalej - nie da sie go zamknac Esc. */
+let dokumenty = null;
+
+async function sprawdzDokumenty(){
+  if (!czyJwt(token)) return;
+  try {
+    const odp = await api("/api/dokumenty");
+    if (!odp.ok) return;
+    dokumenty = await odp.json();
+  } catch { return; }
+  $("btn-dokumenty").hidden = false;
+  const braki = dokumenty.do_akceptacji;
+  if (!dokumenty.umowa_zawarta || braki.includes("umowa")) {
+    pokazUmowe();
+  } else if (braki.includes("instrukcja")) {
+    await pokazInstrukcje();
+  }
+}
+
+function pokazUmowe(){
+  if ($("okno-umowa").open) return;
+  const wlasciciel = dokumenty.jestem_wlascicielem;
+  const zmiana = dokumenty.umowa_zawarta;
+  $("umowa-opis").textContent = !wlasciciel
+    ? "Kancelaria nie zaakceptowała jeszcze Regulaminu i umowy powierzenia. Zrobi to właściciel konta przy logowaniu - do tego czasu sprawy są niedostępne."
+    : zmiana
+      ? "Zmieniliśmy Regulamin lub umowę powierzenia. Zmiany obowiązują po 14 dniach od zawiadomienia; zaakceptuj je, żeby ten komunikat zniknął."
+      : "Zanim wgrasz pierwszą sprawę, kancelaria zawiera z nami umowę powierzenia przetwarzania danych. Wystarczy akceptacja - bez podpisu i bez wysyłania dokumentów.";
+  const d = dokumenty.dane || {};
+  $("umowa-dane").hidden = !wlasciciel || !!d.notariusze;
+  $("umowa-notariusze").value = d.notariusze || "";
+  $("umowa-adres").value = d.adres || "";
+  $("umowa-nip").value = d.nip || "";
+  $("umowa-akceptuje").closest("label").hidden = !wlasciciel;
+  $("btn-umowa").hidden = !wlasciciel;
+  stan($("stan-umowa"), "");
+  $("okno-umowa").showModal();
+}
+
+$("okno-umowa").addEventListener("cancel", e => {
+  if (!dokumenty || !dokumenty.umowa_zawarta) e.preventDefault();
+});
+
+$("btn-umowa").onclick = async () => {
+  if (!$("umowa-akceptuje").checked) return stan($("stan-umowa"), "Zaznacz akceptację.", true);
+  $("btn-umowa").disabled = true;
+  stan($("stan-umowa"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/dokumenty/umowa", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({akceptuje: true, notariusze: $("umowa-notariusze").value,
+                            adres: $("umowa-adres").value, nip: $("umowa-nip").value}),
+    });
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać akceptacji.");
+    $("okno-umowa").close();
+    await sprawdzDokumenty();
+    rysujListeSpraw();
+  } catch (e) { stan($("stan-umowa"), e.message, true); }
+  $("btn-umowa").disabled = false;
+};
+
+async function pokazInstrukcje(){
+  try {
+    const odp = await api("/api/dokumenty/instrukcja");
+    if (!odp.ok) return;
+    $("instrukcja-tresc").srcdoc = await odp.text();
+  } catch { return; }
+  stan($("stan-instrukcja"), "");
+  $("okno-instrukcja").showModal();
+}
+
+$("okno-instrukcja").addEventListener("cancel", e => e.preventDefault());
+
+$("btn-instrukcja").onclick = async () => {
+  $("btn-instrukcja").disabled = true;
+  try {
+    const odp = await api("/api/dokumenty/instrukcja", {method: "POST"});
+    if (!odp.ok) throw new Error("Nie udało się zapisać potwierdzenia.");
+    $("okno-instrukcja").close();
+    await sprawdzDokumenty();
+    wczytajZespol();
+  } catch (e) { stan($("stan-instrukcja"), e.message, true); }
+  $("btn-instrukcja").disabled = false;
+};
+
+/* Dokument z danymi kancelarii przez api() (z tokenem) - zwykly odnosnik do
+   /api nie niesie naglowka Authorization i skonczylby sie 401. */
+async function otworzDokument(nazwa){
+  const karta = window.open("", "_blank");
+  try {
+    const odp = await api("/api/dokumenty/" + nazwa);
+    if (!odp.ok) throw new Error("Nie udało się otworzyć dokumentu.");
+    const adres = URL.createObjectURL(new Blob([await odp.text()], {type: "text/html"}));
+    if (karta) karta.location = adres; else location.href = adres;
+  } catch (e) {
+    if (karta) karta.close();
+    stan($("stan-dokumenty"), e.message, true);
+  }
+}
+
+const OPIS_DOKUMENTU = {
+  umowa: () => dokumenty.umowa_zawarta
+    ? "zawarta " + new Date(dokumenty.umowa.zaakceptowano).toLocaleDateString("pl-PL") + ", z danymi kancelarii"
+    : "jeszcze niezawarta",
+  dpia: () => dokumenty.dpia.przyjeto
+    ? "przyjęta " + new Date(dokumenty.dpia.przyjeto).toLocaleDateString("pl-PL")
+    : "wypełniona danymi kancelarii, czeka na przyjęcie przez notariusza",
+  instrukcja: () => dokumenty.do_akceptacji.includes("instrukcja") ? "do potwierdzenia" : "potwierdzona",
+};
+
+function rysujDokumenty(){
+  $("dokumenty-lista").innerHTML = "";
+  dokumenty.dokumenty.forEach(dok => {
+    const d = document.createElement("div");
+    d.className = "komputer";
+    const opis = OPIS_DOKUMENTU[dok.nazwa] ? OPIS_DOKUMENTU[dok.nazwa]() : "wersja z " + dok.wersja;
+    const przyjmij = dok.nazwa === "dpia" && dokumenty.jestem_wlascicielem && dokumenty.do_akceptacji.includes("dpia");
+    d.innerHTML = `<div><b>${escape(dok.tytul)}</b><small>${escape(opis)}</small></div>
+      ${przyjmij ? '<button data-przyjmij>Przyjmuję ocenę</button>' : ""}
+      <button class="wtorny" data-otworz>Otwórz</button>`;
+    d.querySelector("[data-otworz]").onclick = () => otworzDokument(dok.nazwa);
+    const p = d.querySelector("[data-przyjmij]");
+    if (p) p.onclick = async () => {
+      if (!confirm("Przyjąć ocenę skutków dla ochrony danych jako notariusz-administrator?\n\n"
+        + "Najpierw ją otwórz i przeczytaj. Jeżeli coś nie odpowiada praktyce kancelarii, "
+        + "popraw pobraną kopię u siebie.")) return;
+      const odp = await api("/api/dokumenty/dpia", {method: "POST"});
+      if (!odp.ok) return stan($("stan-dokumenty"), "Nie udało się zapisać.", true);
+      await sprawdzDokumenty();
+      rysujDokumenty();
+    };
+    $("dokumenty-lista").appendChild(d);
+  });
+}
+
+$("btn-dokumenty").onclick = async () => {
+  stan($("stan-dokumenty"), "");
+  await sprawdzDokumenty();
+  if (!dokumenty) return;
+  rysujDokumenty();
+  $("okno-dokumenty").showModal();
+};
+$("btn-zamknij-dokumenty").onclick = () => $("okno-dokumenty").close();
 
 $("btn-zespol").onclick = async () => {
   stan($("stan-zespol"), "");
