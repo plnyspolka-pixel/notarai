@@ -137,7 +137,8 @@ fetch("/api/rejestracja").then(o => o.json()).then(info => {
     $("wstep").textContent = "Rejestracja jest chwilowo wyłączona. Napisz na kontakt@notarai.pl, a założymy konto za Ciebie.";
     $("wyslij").disabled = true;
   } else if (info.okres_probny_dni && info.cena) {
-    $("wstep").textContent = `${info.okres_probny_dni} dni za darmo, bez karty, potem ${info.cena} miesięcznie za całą kancelarię. ` +
+    const cena = Number(info.cena).toLocaleString("pl-PL", {maximumFractionDigits: 2}) + " zł";
+    $("wstep").textContent = `${info.okres_probny_dni} dni za darmo, bez karty, potem ${cena} miesięcznie za całą kancelarię. ` +
       "Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.";
   }
 }).catch(() => {});
