@@ -272,10 +272,13 @@ Resources:
       Matcher:
         HttpCode: "200"
       TargetGroupAttributes:
-        # Dluzsze niz typowe zadanie, zeby wdrozenie nie urywalo trwajacej
-        # analizy skanow. Kosztem wolniejszej podmiany kontenera.
+        # Wdrozenie czeka, az stary kontener skonczy trwajace odczyty, zanim
+        # go zatrzyma. Odczyt duzej sprawy trwa ok. 20 minut (z limitem
+        # zapytan dluzej), a 300 s urwalo 24.10.2026 odczyt 51 stron w trakcie
+        # wdrozenia ("network error"). 3600 s to maksimum ALB; bez trwajacych
+        # odczytow podmiana nadal konczy sie od razu.
         - Key: deregistration_delay.timeout_seconds
-          Value: "300"
+          Value: "3600"
       Tags:
         - Key: projekt
           Value: notarai
