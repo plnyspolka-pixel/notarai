@@ -751,14 +751,15 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
-<!-- Abonament: kancelaria placi za miesiac z gory przez Tpay (karta, BLIK).
-     Placi wlasciciel; pozostali widza tylko termin. -->
+<!-- Abonament: subskrypcja miesieczna w Stripe, faktury ze Stripe e-mailem.
+     Zarzadza wlasciciel; pozostali widza tylko termin. -->
 <dialog class="okno" id="okno-abonament">
   <h2>Abonament kancelarii</h2>
   <p id="abonament-opis"></p>
   <div id="abonament-termin"></div>
   <div class="dol" id="abonament-zaplac" hidden>
-    <button id="btn-zaplac">Zapłać za miesiąc</button>
+    <button id="btn-zaplac">Włącz abonament</button>
+    <button class="wtorny" id="btn-portal" hidden>Karta, faktury, rezygnacja</button>
   </div>
   <div id="abonament-historia"></div>
   <div class="dol"><span class="stan" id="stan-abonament"></span></div>
@@ -1472,9 +1473,9 @@ $("zespol-email").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); $("btn-zespol-zapros").click(); }
 });
 
-/* ---------- abonament (Tpay) ----------
-   Termin przesuwa serwer po powiadomieniu od Tpay, nie powrot przegladarki:
-   powrot "ok" znaczy tylko, ze platnik skonczyl w panelu Tpay. */
+/* ---------- abonament (Stripe) ----------
+   Termin przesuwa serwer po webhooku od Stripe, nie powrot przegladarki:
+   powrot "ok" znaczy tylko, ze platnik skonczyl na stronie Stripe. */
 let abonament = null;
 const KLUCZ_PRZED_PLATNOSCIA = "notarai_termin_przed_platnoscia";
 
@@ -1510,14 +1511,33 @@ function rysujAbonament(){
       + (a.po_terminie ? ' <span class="znacznik alarm">po terminie</span>' : "");
   }
   $("abonament-zaplac").hidden = !(a.platnosci_wlaczone && a.moge_zaplacic);
-  $("btn-zaplac").textContent = "Zapłać za miesiąc — " + a.cena.replace(".", ",") + " zł";
-  if (a.platnosci_wlaczone && !a.moge_zaplacic) {
-    $("abonament-opis").textContent += " Abonament opłaca właściciel kancelarii.";
+  // Trwajaca subskrypcja: zamiast drugiej - portal Stripe.
+  $("btn-zaplac").hidden = !!a.subskrypcja;
+  $("btn-portal").hidden = !a.subskrypcja;
+  $("btn-zaplac").textContent = "Włącz abonament — " + a.cena.replace(".", ",") + " zł / miesiąc";
+  let dopisek = "";
+  if (a.subskrypcja) {
+    dopisek = a.konczy_sie ? "Abonament został wypowiedziany i nie odnowi się."
+      : a.subskrypcja === "past_due" ? "Ostatnie obciążenie karty się nie udało — zmień kartę."
+      : "Abonament odnawia się co miesiąc z karty, faktura przychodzi e-mailem.";
+  } else if (a.platnosci_wlaczone && a.moge_zaplacic) {
+    dopisek = "Opłata pobierana co miesiąc z karty, faktura przychodzi e-mailem.";
   }
-  $("abonament-historia").innerHTML = a.historia.length
-    ? "<b>Wpłaty</b>" + a.historia.slice().reverse().map(p =>
+  if (a.platnosci_wlaczone && !a.moge_zaplacic) dopisek += " Abonamentem zarządza właściciel kancelarii.";
+  dopisek = dopisek.trim();
+  if (dopisek) {
+    // "Oplacono do:" ma stac tuz nad data, wiec dopisek idzie przed nim.
+    const opis = $("abonament-opis");
+    opis.textContent = opis.textContent === "Opłacono do:"
+      ? dopisek + " Opłacono do:" : opis.textContent + " " + dopisek;
+  }
+  const wplaty = a.historia.filter(p => p.status === "true");
+  $("abonament-historia").innerHTML = wplaty.length
+    ? "<b>Faktury</b>" + wplaty.slice().reverse().map(p =>
         `<div><span>${escape(dataPl(p.data))}</span><span>${escape(String(p.kwota).replace(".", ","))} zł`
-        + `${p.status === "true" ? "" : " · zwrot"}</span></div>`).join("")
+        + (p.faktura && /^https:\/\//.test(p.faktura)
+            ? ` · <a href="${escape(p.faktura)}" target="_blank" rel="noopener">faktura</a>` : "")
+        + `</span></div>`).join("")
     : "";
 }
 
@@ -1535,15 +1555,25 @@ $("btn-zaplac").onclick = async () => {
     const odp = await api("/api/abonament", {method: "POST"});
     const w = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
-    // Powiadomienie Tpay czesto dochodzi, zanim platnik wroci - porownujemy
+    // Webhook Stripe czesto dochodzi, zanim platnik wroci - porownujemy
     // wiec z terminem sprzed platnosci, nie z tym po powrocie.
     try { sessionStorage.setItem(KLUCZ_PRZED_PLATNOSCIA, abonament.oplacono_do || ""); } catch { /* prywatne okno */ }
-    location.assign(w.adres);   // panel Tpay, nie nasze /api - tu przekierowanie jest w porządku
+    location.assign(w.adres);   // strona Stripe, nie nasze /api - tu przekierowanie jest w porządku
   } catch (e) { stan($("stan-abonament"), e.message, true); $("btn-zaplac").disabled = false; }
 };
+$("btn-portal").onclick = async () => {
+  $("btn-portal").disabled = true;
+  stan($("stan-abonament"), "Otwieram portal Stripe…", false, true);
+  try {
+    const odp = await api("/api/abonament/portal", {method: "POST"});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się otworzyć portalu.");
+    location.assign(w.adres);
+  } catch (e) { stan($("stan-abonament"), e.message, true); $("btn-portal").disabled = false; }
+};
 
-/* Powrot z panelu Tpay: ?platnosc=ok albo ?platnosc=blad. Powiadomienie
-   moze dojsc kilka sekund po platniku, wiec chwile odpytujemy. */
+/* Powrot ze Stripe: ?platnosc=ok albo ?platnosc=blad. Webhook moze dojsc
+   kilka sekund po platniku, wiec chwile odpytujemy. */
 async function obsluzPowrotZPlatnosci(){
   const wynik = new URLSearchParams(location.search).get("platnosc");
   if (!wynik || !abonament) return;
@@ -1560,15 +1590,18 @@ async function obsluzPowrotZPlatnosci(){
     stan($("stan-abonament"), "Płatność nie została dokończona. Możesz spróbować ponownie.", true);
     return;
   }
-  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie z Tpay…", false, true);
+  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie ze Stripe…", false, true);
   for (let i = 0; i <= 20; i++) {
     if (i) { await new Promise(r => setTimeout(r, 3000)); await wczytajAbonament(); }
-    if (abonament.oplacono_do !== przed) {
-      stan($("stan-abonament"), "Płatność potwierdzona. Abonament opłacony do " + dataPl(abonament.oplacono_do) + ".");
+    // Przy trwajacym okresie probnym termin sie nie zmienia - wtedy
+    // potwierdzeniem jest sama subskrypcja.
+    if (abonament.oplacono_do !== przed || ["active", "trialing"].includes(abonament.subskrypcja)) {
+      stan($("stan-abonament"), "Abonament włączony, opłacony do " + dataPl(abonament.oplacono_do)
+        + ". Faktura przyjdzie e-mailem.");
       return;
     }
   }
-  stan($("stan-abonament"), "Tpay jeszcze nie potwierdził płatności. Zwykle trwa to chwilę — termin zmieni się sam.");
+  stan($("stan-abonament"), "Stripe jeszcze nie potwierdził płatności. Zwykle trwa to chwilę — termin zmieni się sam.");
 }
 
 /* ---------- pomocnik na komputerze notariusza ----------

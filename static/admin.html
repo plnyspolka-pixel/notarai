@@ -439,7 +439,7 @@ function kartaKancelarii(k){
       <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki u kancelarii" : "pliki w chmurze"}</span>
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
       <span class="znacznik ${k.oplacono_do && k.oplacono_do < new Date().toISOString().slice(0, 10) ? "wyl" : ""}"
-            title="Abonament w Tpay">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span></div>
+            title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
     <div class="zapros"><input type="email" placeholder="${zespol.length ? "zaproś kolejną osobę: e-mail" : "e-mail notariusza"}" spellcheck="false">
       <button class="wtorny">Zaproś</button></div>
@@ -505,7 +505,7 @@ function kartaKancelarii(k){
 
   d.querySelector('[data-akcja="abonament"]').onclick = async () => {
     const termin = prompt("Do kiedy „" + k.nazwa + "” ma opłacony abonament? (RRRR-MM-DD)\n\n"
-      + "Np. okres próbny albo przelew poza Tpay. Puste pole = kancelaria nie płaci w aplikacji "
+      + "Np. okres próbny albo przelew poza Stripe. Puste pole = kancelaria nie płaci w aplikacji "
       + "(umowa poza systemem) i nic jej nie blokujemy.", k.oplacono_do || "");
     if (termin === null) return;
     try {

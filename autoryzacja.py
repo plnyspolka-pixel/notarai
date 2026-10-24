@@ -43,9 +43,9 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
-# powiadomienia Tpay (Tpay nie ma tokenu, zaufanie daje podpis JWS).
+# webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis).
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/tpay/")
+            "/api/pomocnik/parowanie", "/api/stripe/")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
@@ -637,7 +637,7 @@ def przywroc_kancelarie(request: Request, id_k: str):
 
 
 class TerminAbonamentu(BaseModel):
-    # "RRRR-MM-DD" albo pusty: kancelaria bez abonamentu w Tpay (np. umowa
+    # "RRRR-MM-DD" albo pusty: kancelaria bez abonamentu w Stripe (np. umowa
     # i faktura poza systemem) - wtedy nic jej nie blokujemy.
     oplacono_do: str = ""
 
@@ -937,12 +937,21 @@ def usun_admina(request: Request, email: str):
     return {"usunieto": True}
 
 
-# --- abonament (Tpay) --------------------------------------------------------
-# Kancelaria placi za miesiac z gory. Termin trzymamy w jej wpisie rejestru
-# ("oplacono_do"), a zaksiegowane wplaty w "platnosci" - po tr_id poznajemy
-# powtorzone powiadomienie, bo Tpay wysyla je, dopoki nie odpowiemy TRUE.
+# --- abonament (Stripe) ------------------------------------------------------
+# Kancelaria ma w Stripe subskrypcje miesieczna. Termin trzymamy w jej wpisie
+# rejestru ("oplacono_do"), dane Stripe w "stripe" (klient, subskrypcja,
+# status), a oplacone faktury w "platnosci" - po identyfikatorze faktury
+# poznajemy powtorzony webhook.
 
 router_abonamentu = APIRouter(prefix="/api/abonament", tags=["abonament"])
+
+# Subskrypcja w tych stanach jeszcze trwa - nowej nie zakladamy, tylko
+# kierujemy do portalu (np. past_due: trzeba zmienic karte).
+_TRWA = ("active", "trialing", "past_due", "unpaid", "incomplete")
+
+
+def _subskrypcja(wpis: dict) -> dict:
+    return dict(wpis.get("stripe") or {})
 
 
 @router_abonamentu.get("")
@@ -951,71 +960,135 @@ def moj_abonament(request: Request):
     if wpis is None:
         raise HTTPException(404, "Nie znaleziono kancelarii")
     email = getattr(request.state, "email", "")
+    sub = _subskrypcja(wpis)
     return {**platnosci.stan(wpis), "platnosci_wlaczone": platnosci.wlaczone(),
             "cena": platnosci.cena(),
             "moge_zaplacic": bool(email) and email in _wlasciciele(wpis),
-            "historia": [{k: p.get(k) for k in ("data", "kwota", "status", "oplacono_do")}
+            "subskrypcja": sub.get("status") if sub.get("status") in _TRWA else None,
+            "konczy_sie": bool(sub.get("anulowana")),
+            "historia": [{k: p.get(k) for k in ("data", "kwota", "status", "oplacono_do", "faktura")}
                          for p in wpis.get("platnosci", [])[-12:]]}
 
 
-@router_abonamentu.post("", status_code=201)
-def zaplac(request: Request):
-    """Transakcja w Tpay za jeden miesiac; przegladarka idzie pod zwrocony adres."""
+def _wlasciciel_placi(request: Request) -> dict:
     if not platnosci.wlaczone():
         raise HTTPException(503, "Platnosci nie sa skonfigurowane na tym serwerze.")
     _, _, wpis, email = _moja_kancelaria(request)
     if email not in _wlasciciele(wpis):
-        raise HTTPException(403, "Abonament oplaca wlasciciel kancelarii.")
+        raise HTTPException(403, "Abonamentem zarzadza wlasciciel kancelarii.")
+    return {"wpis": wpis, "email": email}
+
+
+@router_abonamentu.post("", status_code=201)
+def zaplac(request: Request):
+    """Strona platnosci Stripe zakladajaca subskrypcje; gdy subskrypcja juz
+    trwa - portal klienta, zeby nie obciazyc kancelarii dwa razy."""
+    dane = _wlasciciel_placi(request)
+    wpis, sub = dane["wpis"], _subskrypcja(dane["wpis"])
     try:
-        return platnosci.utworz_transakcje(wpis["id"], wpis["nazwa"], email)
+        if sub.get("klient") and sub.get("status") in _TRWA:
+            return platnosci.utworz_portal(sub["klient"])
+        return platnosci.utworz_checkout(wpis["id"], dane["email"], sub.get("klient", ""),
+                                         wpis.get("oplacono_do"))
     except platnosci.BladPlatnosci as blad:
         raise HTTPException(502, str(blad))
 
 
-router_tpay = APIRouter(prefix="/api/tpay", tags=["tpay"])
+@router_abonamentu.post("/portal", status_code=201)
+def portal(request: Request):
+    """Portal klienta Stripe: zmiana karty, faktury, rezygnacja."""
+    sub = _subskrypcja(_wlasciciel_placi(request)["wpis"])
+    if not sub.get("klient"):
+        raise HTTPException(409, "Kancelaria nie ma jeszcze abonamentu w Stripe.")
+    try:
+        return platnosci.utworz_portal(sub["klient"])
+    except platnosci.BladPlatnosci as blad:
+        raise HTTPException(502, str(blad))
 
 
-def _tak() -> Response:
-    return Response("TRUE", media_type="text/plain")
+router_stripe = APIRouter(prefix="/api/stripe", tags=["stripe"])
 
 
-@router_tpay.post("/powiadomienie")
-async def powiadomienie_tpay(request: Request):
-    """Tpay potwierdza wplate. Wierzymy tylko podpisowi JWS - adresy IP Tpay
-    sie zmieniaja, a ta sciezka jest otwarta dla kazdego."""
+def _kancelaria_stripe(rejestr: dict, id_k: str, klient: str) -> dict | None:
+    """Po metadanych, a gdy ich brak - po kliencie Stripe zapisanym wczesniej."""
+    if id_k:
+        return _znajdz(rejestr, id_k)[1]
+    if klient:
+        return next((w for w in rejestr.values() if _subskrypcja(w).get("klient") == klient), None)
+    return None
+
+
+@router_stripe.post("/webhook")
+async def webhook_stripe(request: Request):
+    """Zdarzenia Stripe. Wierzymy tylko podpisowi - ta sciezka jest otwarta
+    dla kazdego. 2xx konczy ponawianie; blad podpisu - 400."""
     global _CACHE
     tresc = await request.body()
     try:
-        pola = platnosci.odczytaj_powiadomienie(tresc, request.headers.get("x-jws-signature", ""))
+        zdarzenie = platnosci.odczytaj_zdarzenie(tresc, request.headers.get("stripe-signature", ""))
     except platnosci.BladPodpisu as blad:
-        log.warning("tpay: odrzucono powiadomienie (%s)", blad)
-        return Response("FALSE", status_code=400, media_type="text/plain")
+        log.warning("stripe: odrzucono webhook (%s)", blad)
+        return JSONResponse({"odebrano": False}, 400)
 
-    id_k = platnosci.kancelaria_z_opisu(pola["tr_crc"])
-    status = pola["tr_status"].lower()
+    typ = zdarzenie["type"]
+    obiekt = (zdarzenie.get("data") or {}).get("object") or {}
     _CACHE = None          # druga kopia aplikacji mogla przed chwila zmienic rejestr
     rejestr = _wczytaj_rejestr()
-    _, wpis = _znajdz(rejestr, id_k) if id_k else (None, None)
-    if wpis is None:
-        # Podpisane, ale nie nasze (np. inny sklep na tym koncie Tpay).
-        # TRUE, bo powtarzanie niczego nie zmieni.
-        log.warning("tpay: wplata %s bez znanej kancelarii", pola["tr_id"])
-        return _tak()
-    historia = wpis.setdefault("platnosci", [])
-    if any(p.get("tr_id") == pola["tr_id"] and p.get("status") == status for p in historia):
-        return _tak()
 
-    wplata = {"tr_id": pola["tr_id"], "status": status, "data": _teraz(),
-              "kwota": pola.get("tr_paid") or pola["tr_amount"],
-              "test": pola.get("test_mode") == "1"}
-    if status == "true":
-        wpis["oplacono_do"] = platnosci.przedluz(wpis.get("oplacono_do"))
-        wplata["oplacono_do"] = wpis["oplacono_do"]
-        log.info("tpay: kancelaria %s oplacona do %s", id_k, wpis["oplacono_do"])
+    if typ == "checkout.session.completed":
+        id_k = obiekt.get("client_reference_id") or (obiekt.get("metadata") or {}).get("kancelaria", "")
+        klient = obiekt.get("customer") or ""
+        subskrypcja = obiekt.get("subscription") or ""
+    elif typ.startswith("invoice."):
+        id_k, klient = platnosci.kancelaria_faktury(obiekt), obiekt.get("customer") or ""
+        subskrypcja = platnosci.subskrypcja_faktury(obiekt)
+    elif typ.startswith("customer.subscription."):
+        id_k = (obiekt.get("metadata") or {}).get("kancelaria", "")
+        klient, subskrypcja = obiekt.get("customer") or "", obiekt.get("id") or ""
     else:
-        # "chargeback" to zwrot calej kwoty. Terminu nie cofamy sami -
-        # decyduje administrator (PUT /api/admin/kancelarie/<id>/abonament).
-        log.warning("tpay: kancelaria %s, wplata %s ze statusem %s", id_k, pola["tr_id"], status)
-    historia.append(wplata)
+        return {"odebrano": True}
+
+    wpis = _kancelaria_stripe(rejestr, id_k, klient)
+    if wpis is None:
+        # Podpisane, ale nie nasze (np. inny produkt na tym koncie Stripe).
+        log.warning("stripe: %s bez znanej kancelarii", typ)
+        return {"odebrano": True}
+    sub = wpis.setdefault("stripe", {})
+    if klient:
+        sub["klient"] = klient
+    if subskrypcja:
+        sub["subskrypcja"] = subskrypcja
+
+    if typ == "checkout.session.completed":
+        # Bez platnosci teraz = trwa okres probny; dokladny stan i tak
+        # przyjdzie w customer.subscription.updated.
+        platne = obiekt.get("payment_status")
+        sub["status"] = {"paid": "active", "no_payment_required": "trialing"}.get(platne, "incomplete")
+    elif typ.startswith("customer.subscription."):
+        sub["status"] = "canceled" if typ.endswith(".deleted") else obiekt.get("status", "")
+        sub["anulowana"] = bool(obiekt.get("cancel_at_period_end") or obiekt.get("cancel_at"))
+        log.info("stripe: kancelaria %s, subskrypcja %s", wpis["id"], sub["status"])
+    elif typ == "invoice.paid":
+        historia = wpis.setdefault("platnosci", [])
+        if any(p.get("faktura_id") == obiekt.get("id") for p in historia):
+            return {"odebrano": True}
+        koniec = platnosci.koniec_okresu(obiekt)
+        # Starsza faktura doszla po nowszej - terminu nie cofamy.
+        if koniec and koniec > (wpis.get("oplacono_do") or ""):
+            wpis["oplacono_do"] = koniec
+        if obiekt.get("amount_paid"):
+            sub["status"] = "active"
+            historia.append({"faktura_id": obiekt.get("id"), "status": "true", "data": _teraz(),
+                             "kwota": f"{obiekt['amount_paid'] / 100:.2f}",
+                             "faktura": obiekt.get("hosted_invoice_url"),
+                             "oplacono_do": wpis.get("oplacono_do")})
+        else:
+            # Faktura zerowa (okres probny) - termin tak, wpis w historii nie.
+            historia.append({"faktura_id": obiekt.get("id"), "status": "proba", "data": _teraz()})
+        log.info("stripe: kancelaria %s oplacona do %s", wpis["id"], wpis.get("oplacono_do"))
+    elif typ == "invoice.payment_failed":
+        # Stripe sam ponawia i wysyla e-mail; my tylko odnotowujemy.
+        log.warning("stripe: kancelaria %s, nieudane obciazenie", wpis["id"])
+
     _zapisz_rejestr(rejestr)
-    return _tak()
+    return {"odebrano": True}

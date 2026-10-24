@@ -16,10 +16,10 @@ param(
     # CloudFormation zapamieta poprzednia wartosc.
     [string]$Email  = "plnyspolka@gmail.com",
     [int]$Kopie     = 2,
-    # Cena miesiaca abonamentu w zl brutto. Pusta = zostaje poprzednia.
+    # Cena miesiaca abonamentu w zl brutto (do wyswietlenia) i jej
+    # identyfikator w Stripe. Puste = zostaja poprzednie.
     [string]$Cena   = "600.00",
-    # Tpay w trybie testowym (klucze z sandboxa, bez prawdziwych pieniedzy).
-    [switch]$TpaySandbox
+    [string]$StripeCena = "price_1UTzcA4iRvhgqNnm2sgVZWBh"
 )
 $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
@@ -92,16 +92,16 @@ if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
     Write-Host "   logowanie uzytkownikow: brak stosu notarai-logowanie, zostaje sam token kancelarii" -ForegroundColor Yellow
 }
 
-# Platnosci Tpay: sekret notarai/tpay zaklada sie recznie w konsoli (klucze
-# client_id i client_secret). Czytamy tylko jego ARN - wartosc zostaje w AWS.
-if (Czy-Aws secretsmanager describe-secret --secret-id notarai/tpay) {
-    $tpayArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/tpay --query ARN --output text
-    $parametry += "TpaySekretArn=$tpayArn"
-    $parametry += "TpaySrodowisko=$(if ($TpaySandbox) { 'sandbox' } else { 'produkcja' })"
+# Platnosci Stripe: sekret notarai/stripe zaklada infra\zapisz-sekret-stripe.ps1
+# (klucze klucz i webhook). Czytamy tylko jego ARN - wartosc zostaje w AWS.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/stripe) {
+    $stripeArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/stripe --query ARN --output text
+    $parametry += "StripeSekretArn=$stripeArn"
+    if ($StripeCena) { $parametry += "StripeCena=$StripeCena" }
     if ($Cena) { $parametry += "CenaAbonamentu=$Cena" }
-    Write-Host "   platnosci Tpay: sekret notarai/tpay$(if ($TpaySandbox) { ', SANDBOX' })$(if ($Cena) { ", cena $Cena zl" })"
+    Write-Host "   platnosci Stripe: sekret notarai/stripe$(if ($Cena) { ", cena $Cena zl" })"
 } else {
-    Write-Host "   platnosci Tpay: brak sekretu notarai/tpay, platnosci wylaczone" -ForegroundColor Yellow
+    Write-Host "   platnosci Stripe: brak sekretu notarai/stripe, platnosci wylaczone" -ForegroundColor Yellow
 }
 
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan

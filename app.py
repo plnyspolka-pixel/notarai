@@ -55,7 +55,7 @@ app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
 app.include_router(autoryzacja.router_abonamentu)
-app.include_router(autoryzacja.router_tpay)
+app.include_router(autoryzacja.router_stripe)
 
 
 @app.exception_handler(Exception)

@@ -1,74 +1,65 @@
-"""Abonament kancelarii oplacany przez Tpay (Open API).
+"""Abonament kancelarii w Stripe (subskrypcja miesieczna, faktury ze Stripe).
 
-Kancelaria placi za miesiac z gory: wlasciciel klika "Zaplac", my tworzymy
-transakcje w Tpay i przekierowujemy go do panelu platnosci (karta, BLIK).
-Po zaplacie Tpay wysyla powiadomienie na /api/tpay/powiadomienie, a my
-przesuwamy kancelarii date "oplacono_do" o miesiac.
+Wlasciciel kancelarii klika "Wlacz abonament", my tworzymy sesje Stripe
+Checkout w trybie subskrypcji i przekierowujemy go na strone platnosci.
+Stripe co miesiac sam pobiera oplate z karty, wystawia fakture i wysyla ja
+e-mailem. Kazda oplacona faktura przychodzi do nas webhookiem invoice.paid,
+a my ustawiamy kancelarii "oplacono_do" na koniec oplaconego okresu.
+Zmiane karty, faktury i rezygnacje notariusz zalatwia w portalu klienta
+Stripe.
 
-Konfiguracja (w chmurze z sekretu notarai/tpay w Secrets Manager):
-  TPAY_CLIENT_ID, TPAY_CLIENT_SECRET   klucze Open API z panelu Tpay
-  TPAY_KOD_BEZPIECZENSTWA             kod z panelu: Powiadomienia -> Bezpieczenstwo
-                                      (opcjonalny, dodatkowa suma md5)
-  TPAY_SRODOWISKO                     "produkcja" (domyslnie) albo "sandbox"
-  PIECZAPP_ABONAMENT_ZL               cena miesiaca brutto, np. "199.00"
-  PIECZAPP_ADRES                      publiczny adres aplikacji, np. https://app.notarai.pl
+Konfiguracja (w chmurze z sekretu notarai/stripe w Secrets Manager):
+  STRIPE_KLUCZ            klucz tajny API (sk_live_... albo rk_live_...)
+  STRIPE_WEBHOOK_SEKRET   klucz podpisu webhooka (whsec_...)
+  STRIPE_CENA             identyfikator ceny abonamentu (price_..., jawny)
+  PIECZAPP_ABONAMENT_ZL   cena do wyswietlenia, np. "600.00"
+  PIECZAPP_ADRES          publiczny adres aplikacji, np. https://app.notarai.pl
 
-Powiadomieniu wierzymy tylko z waznym podpisem JWS. Certyfikat podpisu
-pobieramy z adresu x5u, ale tylko z hosta Tpay, i sprawdzamy, ze wystawilo
-go CA Tpay zapisane w repozytorium (certyfikaty/) - nie to pobrane z sieci.
-
-Zero danych osobowych w logach: adres platnika idzie tylko do Tpay.
+Webhookowi wierzymy tylko z waznym podpisem (HMAC-SHA256 kluczem whsec,
+znacznik czasu nie starszy niz 5 minut). Zero danych osobowych w logach:
+adres platnika idzie tylko do Stripe.
 """
-import base64
 import calendar
 import hashlib
+import hmac
 import json
 import logging
 import os
-import secrets
-import threading
 import time
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
-from urllib.parse import parse_qs
+from urllib.parse import urlencode
 
 import httpx
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
 
 log = logging.getLogger("pieczapp.platnosci")
 
-CLIENT_ID = os.getenv("TPAY_CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("TPAY_CLIENT_SECRET", "")
-KOD_BEZPIECZENSTWA = os.getenv("TPAY_KOD_BEZPIECZENSTWA", "")
-SANDBOX = os.getenv("TPAY_SRODOWISKO", "produkcja").lower() == "sandbox"
+KLUCZ = os.getenv("STRIPE_KLUCZ", "")
+WEBHOOK_SEKRET = os.getenv("STRIPE_WEBHOOK_SEKRET", "")
+CENA_ID = os.getenv("STRIPE_CENA", "")
 CENA = os.getenv("PIECZAPP_ABONAMENT_ZL", "")
 ADRES = os.getenv("PIECZAPP_ADRES", "").rstrip("/")
-# Po terminie kancelaria pracuje jeszcze kilka dni - przelew z banku albo
-# zapomniany BLIK nie moze odciac notariusza w srodku aktu.
+# Po terminie kancelaria pracuje jeszcze kilka dni - Stripe ponawia nieudane
+# obciazenie karty, a notariusz nie moze stracic dostepu w srodku aktu.
 KARENCJA_DNI = int(os.getenv("PIECZAPP_KARENCJA_DNI", "3"))
 OKRES_PROBNY_DNI = int(os.getenv("PIECZAPP_OKRES_PROBNY_DNI", "14"))
 
-API = "https://openapi.sandbox.tpay.com" if SANDBOX else "https://api.tpay.com"
-HOST_CERTYFIKATOW = "https://secure.sandbox.tpay.com" if SANDBOX else "https://secure.tpay.com"
-NAZWA_CERTYFIKATU = "notification.sandbox.tpay.com" if SANDBOX else "notification.tpay.com"
-_CA = Path(__file__).parent / "certyfikaty" / (
-    "tpay-jws-root-sandbox.pem" if SANDBOX else "tpay-jws-root.pem")
-
-PREFIKS_OPISU = "abonament|"
+API = "https://api.stripe.com/v1"
+# Ta sama wersja co webhook notarai-aplikacja w panelu Stripe - inaczej
+# ksztalt obiektow w odpowiedziach i zdarzeniach moglby sie roznic.
+WERSJA_API = "2026-04-22.dahlia"
+TOLERANCJA_S = 300
 
 
 class BladPlatnosci(Exception):
-    """Tpay odrzucil zadanie albo jest nieosiagalny."""
+    """Stripe odrzucil zadanie albo jest nieosiagalny."""
 
 
 class BladPodpisu(Exception):
-    """Powiadomienie bez waznego podpisu Tpay - nie wierzymy mu."""
+    """Webhook bez waznego podpisu Stripe - nie wierzymy mu."""
 
 
 def wlaczone() -> bool:
-    return bool(CLIENT_ID and CLIENT_SECRET and CENA and ADRES)
+    return bool(KLUCZ and WEBHOOK_SEKRET and CENA_ID and ADRES)
 
 
 def cena() -> str:
@@ -82,28 +73,13 @@ def dzis() -> date:
     return datetime.now(timezone.utc).date()
 
 
-def _plus_miesiac(d: date) -> date:
-    rok, miesiac = (d.year + 1, 1) if d.month == 12 else (d.year, d.month + 1)
-    return date(rok, miesiac, min(d.day, calendar.monthrange(rok, miesiac)[1]))
-
-
-def przedluz(oplacono_do: str | None, teraz: date | None = None) -> str:
-    """Nowa data po zaplacie za miesiac. Wplata przed terminem dolicza sie
-    do konca biezacego okresu; po terminie miesiac liczy sie od dzis."""
-    teraz = teraz or dzis()
-    start = teraz
-    if oplacono_do:
-        start = max(teraz, date.fromisoformat(oplacono_do))
-    return _plus_miesiac(start).isoformat()
-
-
 def na_probe(teraz: date | None = None) -> str:
     return ((teraz or dzis()) + timedelta(days=OKRES_PROBNY_DNI)).isoformat()
 
 
 def stan(wpis: dict, teraz: date | None = None) -> dict:
     """Stan abonamentu kancelarii. Bez daty "oplacono_do" kancelaria nie
-    placi przez Tpay (np. umowa poza systemem) i nic jej nie blokujemy."""
+    placi w aplikacji (np. umowa poza systemem) i nic jej nie blokujemy."""
     teraz = teraz or dzis()
     do = wpis.get("oplacono_do")
     if not do:
@@ -118,154 +94,140 @@ def stan(wpis: dict, teraz: date | None = None) -> dict:
     }
 
 
-# --- Open API ----------------------------------------------------------------
+def _data(znacznik: int) -> str:
+    return datetime.fromtimestamp(znacznik, timezone.utc).date().isoformat()
 
-_TOKEN: dict = {"wartosc": "", "wygasa": 0.0}
-_ZAMEK = threading.Lock()
+
+# --- API Stripe --------------------------------------------------------------
 
 
 def _klient() -> httpx.Client:
     return httpx.Client(timeout=20)
 
 
-def _token() -> str:
-    """Token OAuth (client_credentials). Zyje ok. 2 h - odnawiamy z zapasem."""
-    with _ZAMEK:
-        if _TOKEN["wartosc"] and time.monotonic() < _TOKEN["wygasa"]:
-            return _TOKEN["wartosc"]
-        with _klient() as http:
-            odp = http.post(f"{API}/oauth/auth",
-                            data={"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET})
-        if odp.status_code != 200:
-            log.warning("tpay: autoryzacja odrzucona (HTTP %s)", odp.status_code)
-            raise BladPlatnosci("Bramka platnosci odrzucila klucze. Sprawdz sekret notarai/tpay.")
-        dane = odp.json()
-        _TOKEN["wartosc"] = dane["access_token"]
-        _TOKEN["wygasa"] = time.monotonic() + max(60, int(dane.get("expires_in", 7200)) - 300)
-        return _TOKEN["wartosc"]
+def _formularz(dane: dict, prefiks: str = "") -> list[tuple[str, str]]:
+    """{"a": {"b": [1]}} -> [("a[b][0]", "1")] - format zadan API Stripe."""
+    pary = []
+    elementy = dane.items() if isinstance(dane, dict) else enumerate(dane)
+    for klucz, wartosc in elementy:
+        nazwa = f"{prefiks}[{klucz}]" if prefiks else str(klucz)
+        if isinstance(wartosc, (dict, list)):
+            pary += _formularz(wartosc, nazwa)
+        elif isinstance(wartosc, bool):
+            pary.append((nazwa, "true" if wartosc else "false"))
+        elif wartosc is not None:
+            pary.append((nazwa, str(wartosc)))
+    return pary
 
 
-def utworz_transakcje(kancelaria: str, nazwa: str, email: str) -> dict:
-    """Transakcja za jeden miesiac. Zwraca adres panelu platnosci Tpay.
+def _stripe(sciezka: str, dane: dict) -> dict:
+    with _klient() as http:
+        odp = http.post(f"{API}{sciezka}", content=urlencode(_formularz(dane)),
+                        headers={"Authorization": f"Bearer {KLUCZ}", "Stripe-Version": WERSJA_API,
+                                 "Content-Type": "application/x-www-form-urlencoded"})
+    tresc = odp.json() if odp.headers.get("content-type", "").startswith("application/json") else {}
+    if odp.status_code >= 300:
+        # Kod i typ bledu Stripe nie zawieraja danych osobowych, komunikat - moze.
+        blad = tresc.get("error", {}) if isinstance(tresc, dict) else {}
+        log.warning("stripe: %s odrzucone (HTTP %s, %s/%s)", sciezka, odp.status_code,
+                    blad.get("type"), blad.get("code"))
+        raise BladPlatnosci("Bramka platnosci nie przyjela zlecenia. Sprobuj za chwile.")
+    return tresc
 
-    Kancelarie rozpoznajemy po hiddenDescription - Tpay odsyla go w
-    powiadomieniu jako tr_crc. Klientow nie widza tego pola.
+
+def utworz_checkout(kancelaria: str, email: str, klient: str = "",
+                    oplacono_do: str | None = None) -> dict:
+    """Sesja Checkout zakladajaca subskrypcje. Zwraca adres strony platnosci.
+
+    Kancelaria jedzie w metadanych subskrypcji, wiec kazda jej faktura
+    (invoice.paid) wskazuje kancelarie bez zgadywania. Trwajacy okres probny
+    przechodzi do Stripe - pierwsza oplata dopiero po jego koncu.
     """
     if not wlaczone():
         raise BladPlatnosci("Platnosci nie sa skonfigurowane na tym serwerze.")
-    tresc = {
-        "amount": float(cena()),
-        "description": "notarai - abonament na 1 miesiac",
-        "hiddenDescription": f"{PREFIKS_OPISU}{kancelaria}|{secrets.token_hex(4)}",
-        "payer": {"email": email, "name": nazwa[:255]},
-        "callbacks": {
-            "payerUrls": {"success": f"{ADRES}/?platnosc=ok", "error": f"{ADRES}/?platnosc=blad"},
-            "notification": {"url": f"{ADRES}/api/tpay/powiadomienie"},
-        },
+    dane = {
+        "mode": "subscription",
+        "line_items": [{"price": CENA_ID, "quantity": 1}],
+        "client_reference_id": kancelaria,
+        "metadata": {"kancelaria": kancelaria},
+        "subscription_data": {"metadata": {"kancelaria": kancelaria}},
+        "success_url": f"{ADRES}/?platnosc=ok",
+        "cancel_url": f"{ADRES}/?platnosc=blad",
+        "locale": "pl",
+        # Faktura z NIP-em i adresem kancelarii; VAT liczy Stripe Tax.
+        "automatic_tax": {"enabled": True},
+        "tax_id_collection": {"enabled": True},
+        "billing_address_collection": "required",
     }
-    with _klient() as http:
-        odp = http.post(f"{API}/transactions", json=tresc,
-                        headers={"Authorization": f"Bearer {_token()}"})
-    dane = odp.json() if odp.headers.get("content-type", "").startswith("application/json") else {}
-    if odp.status_code >= 300 or not dane.get("transactionPaymentUrl"):
-        # Kody bledow Tpay nie zawieraja danych osobowych, tresc zadania - tak.
-        kody = [b.get("errorCode") for b in dane.get("errors", []) if isinstance(b, dict)]
-        log.warning("tpay: transakcja odrzucona (HTTP %s, %s)", odp.status_code, kody)
-        raise BladPlatnosci("Bramka platnosci nie przyjela zlecenia. Sprobuj za chwile.")
-    log.info("tpay: transakcja %s dla kancelarii %s", dane.get("title", "?"), kancelaria)
-    return {"adres": dane["transactionPaymentUrl"], "tytul": dane.get("title", "")}
+    if klient:
+        dane["customer"] = klient
+        dane["customer_update"] = {"address": "auto", "name": "auto"}
+    else:
+        dane["customer_email"] = email
+    if oplacono_do:
+        # Stripe przyjmuje koniec okresu probnego najwczesniej za 48 h.
+        koniec = datetime.combine(date.fromisoformat(oplacono_do), datetime.min.time(), timezone.utc)
+        if koniec.timestamp() - time.time() > 2 * 86400 + 600:
+            dane["subscription_data"]["trial_end"] = int(koniec.timestamp())
+    sesja = _stripe("/checkout/sessions", dane)
+    log.info("stripe: sesja platnosci dla kancelarii %s", kancelaria)
+    return {"adres": sesja["url"]}
 
 
-# --- powiadomienia -----------------------------------------------------------
-
-_CERTYFIKATY: dict[str, tuple[float, x509.Certificate]] = {}
-_DOBA = 24 * 3600
-
-
-def _b64url(dane: str) -> bytes:
-    return base64.urlsafe_b64decode(dane + "=" * (-len(dane) % 4))
-
-
-def _zaufane_ca() -> list[x509.Certificate]:
-    return x509.load_pem_x509_certificates(_CA.read_bytes())
+def utworz_portal(klient: str) -> dict:
+    """Portal klienta Stripe: karta, faktury, rezygnacja."""
+    if not wlaczone():
+        raise BladPlatnosci("Platnosci nie sa skonfigurowane na tym serwerze.")
+    sesja = _stripe("/billing_portal/sessions", {"customer": klient, "return_url": f"{ADRES}/",
+                                                 "locale": "pl"})
+    return {"adres": sesja["url"]}
 
 
-def _certyfikat(x5u: str) -> x509.Certificate:
-    """Certyfikat podpisu z x5u - tylko z hosta Tpay, sprawdzony wzgledem CA
-    z repozytorium. Pamietamy go przez dobe."""
-    # Ukosnik po hoscie: sam prefiks przepuscilby secure.tpay.com.zly.pl.
-    if not x5u.startswith(HOST_CERTYFIKATOW + "/"):
-        raise BladPodpisu("x5u spoza Tpay")
-    zapis = _CERTYFIKATY.get(x5u)
-    if zapis and time.monotonic() - zapis[0] < _DOBA:
-        return zapis[1]
-    with _klient() as http:
-        odp = http.get(x5u)
-    if odp.status_code != 200:
-        raise BladPodpisu("nie pobrano certyfikatu")
-    cert = x509.load_pem_x509_certificate(odp.content)
-    sprawdz_certyfikat(cert)
-    _CERTYFIKATY[x5u] = (time.monotonic(), cert)
-    return cert
+# --- webhook -----------------------------------------------------------------
 
 
-def sprawdz_certyfikat(cert: x509.Certificate, ca: list[x509.Certificate] | None = None) -> None:
-    ca = _zaufane_ca() if ca is None else ca
-    teraz = datetime.now(timezone.utc)
-    if not cert.not_valid_before_utc <= teraz <= cert.not_valid_after_utc:
-        raise BladPodpisu("certyfikat poza okresem waznosci")
-    nazwy = [a.value for a in cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)]
-    if nazwy != [NAZWA_CERTYFIKATU]:
-        raise BladPodpisu("certyfikat nie dla powiadomien Tpay")
-    for wystawca in ca:
-        try:
-            cert.verify_directly_issued_by(wystawca)
-            return
-        except Exception:  # noqa: BLE001 - nie ten wystawca, probujemy dalej
-            continue
-    raise BladPodpisu("certyfikat nie od CA Tpay")
-
-
-def sprawdz_podpis(tresc: bytes, jws: str, cert: x509.Certificate | None = None) -> None:
-    """JWS z odlaczona trescia (RFC 7515): naglowek..podpis, a podpisane
-    jest naglowek + "." + base64url(surowa tresc zadania)."""
-    czesci = (jws or "").split(".")
-    if len(czesci) != 3 or not czesci[0] or not czesci[2]:
-        raise BladPodpisu("brak podpisu JWS")
-    try:
-        naglowek = json.loads(_b64url(czesci[0]))
-    except ValueError:
-        raise BladPodpisu("zly naglowek JWS")
-    if naglowek.get("alg") not in (None, "RS256"):
-        raise BladPodpisu("nieznany algorytm podpisu")
-    cert = cert or _certyfikat(str(naglowek.get("x5u", "")))
-    podpisane = (czesci[0] + "." + base64.urlsafe_b64encode(tresc).decode().rstrip("=")).encode()
-    try:
-        cert.public_key().verify(_b64url(czesci[2]), podpisane, padding.PKCS1v15(), hashes.SHA256())
-    except Exception:  # noqa: BLE001 - InvalidSignature i zle zakodowany podpis
-        _CERTYFIKATY.clear()   # moze Tpay wymienil certyfikat
+def sprawdz_podpis(tresc: bytes, naglowek: str, sekret: str | None = None,
+                   teraz: float | None = None) -> None:
+    """Naglowek Stripe-Signature: t=<czas>,v1=<hmac>[,v1=...]. Podpisane jest
+    "<czas>.<surowa tresc>" kluczem whsec_."""
+    sekret = WEBHOOK_SEKRET if sekret is None else sekret
+    czesci = [p.split("=", 1) for p in (naglowek or "").split(",") if "=" in p]
+    znacznik = next((v for k, v in czesci if k.strip() == "t"), "")
+    podpisy = [v for k, v in czesci if k.strip() == "v1"]
+    if not sekret or not znacznik.isdigit() or not podpisy:
+        raise BladPodpisu("brak podpisu")
+    if abs((teraz or time.time()) - int(znacznik)) > TOLERANCJA_S:
+        raise BladPodpisu("podpis przeterminowany")
+    oczekiwany = hmac.new(sekret.encode(), znacznik.encode() + b"." + tresc, hashlib.sha256).hexdigest()
+    if not any(hmac.compare_digest(oczekiwany, p) for p in podpisy):
         raise BladPodpisu("podpis sie nie zgadza")
 
 
-def odczytaj_powiadomienie(tresc: bytes, jws: str) -> dict:
-    """Pola powiadomienia o rozliczeniu, po sprawdzeniu podpisu i sumy md5."""
-    sprawdz_podpis(tresc, jws)
-    pola = {k: v[0] for k, v in parse_qs(tresc.decode("utf-8"), keep_blank_values=True).items()}
-    for wymagane in ("id", "tr_id", "tr_amount", "tr_crc", "tr_status"):
-        if wymagane not in pola:
-            raise BladPodpisu(f"brak pola {wymagane}")
-    if KOD_BEZPIECZENSTWA:
-        kwota = f"{float(pola['tr_amount']):.2f}"
-        suma = hashlib.md5(
-            (pola["id"] + pola["tr_id"] + kwota + pola["tr_crc"] + KOD_BEZPIECZENSTWA).encode()
-        ).hexdigest()
-        if not secrets.compare_digest(suma, pola.get("md5sum", "")):
-            raise BladPodpisu("suma md5 sie nie zgadza")
-    return pola
+def odczytaj_zdarzenie(tresc: bytes, naglowek: str) -> dict:
+    sprawdz_podpis(tresc, naglowek)
+    try:
+        zdarzenie = json.loads(tresc)
+    except ValueError:
+        raise BladPodpisu("tresc to nie JSON")
+    if not isinstance(zdarzenie, dict) or "type" not in zdarzenie:
+        raise BladPodpisu("to nie zdarzenie Stripe")
+    return zdarzenie
 
 
-def kancelaria_z_opisu(tr_crc: str) -> str:
-    """"abonament|<kancelaria>|<losowe>" -> identyfikator kancelarii albo ""."""
-    if not tr_crc.startswith(PREFIKS_OPISU):
-        return ""
-    return tr_crc[len(PREFIKS_OPISU):].split("|", 1)[0]
+def kancelaria_faktury(faktura: dict) -> str:
+    """Kancelaria z metadanych subskrypcji, ktore Stripe kopiuje na fakture."""
+    szczegoly = ((faktura.get("parent") or {}).get("subscription_details") or {})
+    return (szczegoly.get("metadata") or {}).get("kancelaria", "")
+
+
+def subskrypcja_faktury(faktura: dict) -> str:
+    szczegoly = ((faktura.get("parent") or {}).get("subscription_details") or {})
+    return szczegoly.get("subscription") or ""
+
+
+def koniec_okresu(faktura: dict) -> str | None:
+    """Do kiedy faktura oplaca dostep: najpozniejszy koniec okresu jej pozycji."""
+    konce = [((p.get("period") or {}).get("end") or 0)
+             for p in ((faktura.get("lines") or {}).get("data") or [])]
+    konce = [k for k in konce if k]
+    return _data(max(konce)) if konce else None

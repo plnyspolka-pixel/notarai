@@ -66,31 +66,32 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
-  TpaySekretArn:
+  StripeSekretArn:
     Type: String
     Default: ""
     Description: >-
-      Pelny ARN sekretu notarai/tpay (klucze client_id i client_secret),
-      zalozonego recznie w konsoli - wartosci nie trafiaja do szablonu.
+      Pelny ARN sekretu notarai/stripe (klucze klucz i webhook), zalozonego
+      skryptem zapisz-sekret-stripe.ps1 - wartosci nie trafiaja do szablonu.
       Puste = platnosci wylaczone, nikogo nie blokujemy.
+  StripeCena:
+    Type: String
+    Default: ""
+    AllowedPattern: "^(price_[A-Za-z0-9]+)?$"
+    Description: Identyfikator ceny abonamentu w Stripe (price_...). Jawny, nie jest sekretem.
   CenaAbonamentu:
     Type: String
     Default: ""
     AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
-    Description: Cena miesiaca abonamentu w zl brutto, np. 199.00. Puste = platnosci wylaczone.
-  TpaySrodowisko:
-    Type: String
-    Default: produkcja
-    AllowedValues: [produkcja, sandbox]
+    Description: Cena miesiaca abonamentu w zl brutto do wyswietlenia, np. 600.00.
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
-    Description: Adres aplikacji - na niego Tpay wysyla powiadomienia i wraca platnik.
+    Description: Adres aplikacji - tu wraca platnik ze Stripe.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
-  MamyTpay: !Not [!Equals [!Ref TpaySekretArn, ""]]
+  MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -145,14 +146,14 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
         - !If
-          - MamyTpay
-          - PolicyName: sekret-tpay
+          - MamyStripe
+          - PolicyName: sekret-stripe
             PolicyDocument:
               Version: "2012-10-17"
               Statement:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
-                  Resource: !Ref TpaySekretArn
+                  Resource: !Ref StripeSekretArn
           - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
@@ -361,21 +362,21 @@ Resources:
               Value: !Ref CenaAbonamentu
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
-            - Name: TPAY_SRODOWISKO
-              Value: !Ref TpaySrodowisko
+            - Name: STRIPE_CENA
+              Value: !Ref StripeCena
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
-            # Klucze Tpay z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
+            # Klucze Stripe z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
             - !If
-              - MamyTpay
-              - Name: TPAY_CLIENT_ID
-                ValueFrom: !Sub "${TpaySekretArn}:client_id::"
+              - MamyStripe
+              - Name: STRIPE_KLUCZ
+                ValueFrom: !Sub "${StripeSekretArn}:klucz::"
               - !Ref AWS::NoValue
             - !If
-              - MamyTpay
-              - Name: TPAY_CLIENT_SECRET
-                ValueFrom: !Sub "${TpaySekretArn}:client_secret::"
+              - MamyStripe
+              - Name: STRIPE_WEBHOOK_SEKRET
+                ValueFrom: !Sub "${StripeSekretArn}:webhook::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
