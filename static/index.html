@@ -1254,7 +1254,7 @@ function pokaz(numer){
 }
 document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
   const n = +k.dataset.etap;
-  if (n === 4 || n <= najdalej) pokaz(n);
+  if (n >= 4 || n <= najdalej) pokaz(n);
 });
 /* Biezaca sprawa jest juz zapisana, wiec nie ma o co pytac. */
 $("btn-nowa").onclick = () => {
