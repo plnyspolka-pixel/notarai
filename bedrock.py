@@ -77,6 +77,14 @@ class Przeciazenie(RuntimeError):
     """Bedrock odrzucil zadanie przez limit zapytan, mimo ponowien."""
 
 
+class NiepoprawnyJson(ValueError):
+    """Odpowiedz modelu nie daje sie odczytac jako JSON, nawet po naprawie."""
+
+
+# Ile razy probujemy zestawienia danych (blad JSON albo limit zapytan).
+PROB_ZESTAWIENIA = 3
+
+
 # Kody, ktore Bedrock zwraca przy wyczerpanym limicie zapytan.
 _PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
                  "ServiceQuotaExceededException"}
@@ -420,8 +428,23 @@ def odczytaj_dane(
     pola_pelne = list(pola) + [p for p in prompty.POLA_STALE if p not in pola]
     tresc.append({"text": prompty.polecenie_ekstrakcji(pola_pelne, opis, legenda)})
 
-    surowa = _rozmowa(prompty.EKSTRAKCJA, tresc, wysilek=wysilek)
-    wynik = _wczytaj_json(surowa)
+    # Zestawienie przychodzi po wielu minutach przepisywania stron. Blad na tym
+    # etapie nie moze przekreslac calej pracy: transkrypcje sa w reku, wiec
+    # zestawienie ponawiamy, zamiast konczyc sprawe bledem.
+    for proba in range(1, PROB_ZESTAWIENIA + 1):
+        try:
+            surowa = _rozmowa(prompty.EKSTRAKCJA, tresc, wysilek=wysilek)
+            wynik = _wczytaj_json_z_naprawa(surowa)
+            break
+        except Przeciazenie:
+            if proba == PROB_ZESTAWIENIA:
+                raise
+            log.warning("zestawienie: limit zapytan, czekam (%d)", proba)
+            time.sleep(60 * proba)
+        except NiepoprawnyJson:
+            if proba == PROB_ZESTAWIENIA:
+                raise
+            log.warning("zestawienie: niepoprawny JSON mimo naprawy, ponawiam (%d)", proba)
     wynik["pola"] = _przypisz_nazwy(wynik.get("pola", []), pola_pelne)
     return wynik
 
@@ -498,7 +521,7 @@ def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
         return []
     tresc = [{"text": prompty.polecenie_formularza(tekst_aktu, pola)}]
     surowa = _rozmowa(prompty.FORMULARZ, tresc)
-    wynik = _wczytaj_json(surowa)
+    wynik = _wczytaj_json_z_naprawa(surowa)
 
     nazwy_pol = {p["nazwa"] for p in pola}
     odpowiedzi = {}
@@ -541,35 +564,92 @@ def _wczytaj_json(tekst: str) -> dict:
     poczatek = oczyszczony.find("{")
     koniec = oczyszczony.rfind("}")
     if poczatek == -1 or koniec == -1:
-        raise ValueError("Model nie zwrocil poprawnego JSON-a")
+        raise NiepoprawnyJson("Model nie zwrocil poprawnego JSON-a")
     fragment = oczyszczony[poczatek : koniec + 1]
 
-    # Próba 1: normalny parsing
+    # strict=False: surowe znaki nowej linii i tabulatory w wartosciach
+    # (przepisany tekst dokumentu) nie sa powodem, zeby odrzucac odpowiedz.
     try:
-        return json.loads(fragment)
+        return json.loads(fragment, strict=False)
     except json.JSONDecodeError as e:
+        blad = e
         log.warning("Blad parsowania JSON z modelu. Pozycja: linia %d, kolumna %d", e.lineno, e.colno)
 
-        # Próba 2: usuwamy końcowy przecinek przed } lub ]
-        # Częsty błąd: {"key": "value",} zamiast {"key": "value"}
-        import re
-        naprawiony = re.sub(r',(\s*[}\]])', r'\1', fragment)
-        if naprawiony != fragment:
-            log.info("Probuje naprawic JSON przez usuniecie koncowych przecinkow")
-            try:
-                return json.loads(naprawiony)
-            except json.JSONDecodeError:
-                pass
+    # Typowe usterki modelu: przecinek przed } lub ] oraz cudzyslow z tresci
+    # dokumentu (np. nazwa spolki "ABC") niezabezpieczony w wartosci.
+    bez_przecinkow = re.sub(r',(\s*[}\]])', r'\1', fragment)
+    for naprawiony in (bez_przecinkow, _napraw_cudzyslowy(bez_przecinkow)):
+        if naprawiony == fragment:
+            continue
+        try:
+            wynik = json.loads(naprawiony, strict=False)
+            log.info("JSON z modelu naprawiony lokalnie")
+            return wynik
+        except json.JSONDecodeError:
+            pass
 
-        # Nie logujemy fragmentu odpowiedzi - moglby zawierac dane osobowe.
-        log.error(
-            "Niepoprawny JSON z modelu: %d znakow, %d linii, blad w linii %d",
-            len(fragment), fragment.count("\n"), e.lineno,
-        )
-        raise ValueError(
-            f"Model zwrocil niepoprawny JSON ({e.msg}, linia {e.lineno}). "
-            "Sprobuj ponownie."
-        ) from e
+    # Nie logujemy fragmentu odpowiedzi - moglby zawierac dane osobowe.
+    log.error(
+        "Niepoprawny JSON z modelu: %d znakow, %d linii, blad w linii %d",
+        len(fragment), fragment.count("\n"), blad.lineno,
+    )
+    raise NiepoprawnyJson(
+        f"Model zwrocil niepoprawny JSON ({blad.msg}, linia {blad.lineno}). "
+        "Sprobuj ponownie."
+    ) from blad
+
+
+def _napraw_cudzyslowy(tekst: str) -> str:
+    """Zabezpiecza cudzyslowy wewnatrz wartosci tekstowych.
+
+    Cudzyslow w napisie uznajemy za zamykajacy, gdy dalej (po bialych znakach)
+    stoi , : } ] albo koniec tekstu. Kazdy inny to znak z tresci dokumentu.
+    """
+    wynik: list[str] = []
+    w_napisie = False
+    i = 0
+    while i < len(tekst):
+        znak = tekst[i]
+        if w_napisie and znak == "\\":
+            wynik.append(tekst[i:i + 2])
+            i += 2
+            continue
+        if znak == '"':
+            if not w_napisie:
+                w_napisie = True
+            else:
+                j = i + 1
+                while j < len(tekst) and tekst[j] in " \t\r\n":
+                    j += 1
+                if j == len(tekst) or tekst[j] in ",:}]":
+                    w_napisie = False
+                else:
+                    wynik.append('\\"')
+                    i += 1
+                    continue
+        wynik.append(znak)
+        i += 1
+    return "".join(wynik)
+
+
+def _wczytaj_json_z_naprawa(tekst: str) -> dict:
+    """_wczytaj_json, a gdy zawiedzie - poprawka skladni przez model.
+
+    Krotkie wywolanie bez myslenia i bez skanow: model dostaje tylko wlasna
+    odpowiedz i ma poprawic skladnie, nie tresc. Kosztuje ulamek ponownego
+    zestawienia, ktore przy duzej sprawie trwa kilkanascie minut.
+    """
+    try:
+        return _wczytaj_json(tekst)
+    except NiepoprawnyJson as blad:
+        log.warning("prosze model o poprawienie skladni JSON (%d znakow)", len(tekst))
+        tresc = [{"text": f"BLAD PARSERA: {blad}\n\nJSON DO POPRAWIENIA:\n{tekst}"}]
+        try:
+            poprawiony = _rozmowa(prompty.NAPRAWA_JSON, tresc,
+                                  max_tokenow=min(64000, len(tekst) // 2 + 4000), myslenie=False)
+        except ValueError:  # ucieta poprawka - zostaje bledem pierwotnym
+            raise blad from None
+        return _wczytaj_json(poprawiony)
 
 
 def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:

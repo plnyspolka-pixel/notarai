@@ -307,6 +307,79 @@ class TestWczytajJson:
         wynik = bedrock._wczytaj_json(tekst)
         assert wynik["outer"]["inner"] == "value"
 
+    def test_cudzyslow_z_tresci_dokumentu(self):
+        # Tak wygladala usterka, przez ktora 23.10.2026 przepadla duza sprawa.
+        tekst = '{"pola": [{"nazwa": "kupujacy", "wartosc": "Spolka "Zalesie" sp. z o.o.", "pewnosc": "wysoka"}]}'
+        wynik = bedrock._wczytaj_json(tekst)
+        assert wynik["pola"][0]["wartosc"] == 'Spolka "Zalesie" sp. z o.o.'
+        assert wynik["pola"][0]["pewnosc"] == "wysoka"
+
+    def test_surowa_nowa_linia_w_wartosci(self):
+        wynik = bedrock._wczytaj_json('{"cytat": "Dzial II\nwlasciciel: Sobczak Jan"}')
+        assert wynik["cytat"] == "Dzial II\nwlasciciel: Sobczak Jan"
+
+    def test_poprawne_cudzyslowy_bez_zmian(self):
+        tekst = '{"a": "x \\"y\\" z", "b": ["1", "2"], "c": {"d": ""}}'
+        assert bedrock._napraw_cudzyslowy(tekst) == tekst
+
+    def test_nienaprawialny_to_niepoprawny_json(self):
+        with pytest.raises(bedrock.NiepoprawnyJson):
+            bedrock._wczytaj_json('{"a": "1" "b": "2"}')
+
+
+def _odpowiedz(tekst: str, powod: str = "end_turn") -> dict:
+    return {"output": {"message": {"content": [{"text": tekst}]}},
+            "usage": {"inputTokens": 1, "outputTokens": 1}, "stopReason": powod}
+
+
+ZLY_JSON = '{"pola": [{"nazwa": "a" "wartosc": "1"}], "braki": []}'
+DOBRY_JSON = '{"pola": [{"nr": 1, "nazwa": "a", "wartosc": "1"}], "braki": [], "rozbieznosci": []}'
+
+
+class TestZestawienieNiePrzepada:
+    """Blad na koncu odczytu nie moze przekreslac przepisanych juz stron."""
+
+    def test_model_poprawia_skladnie(self, mock_bedrock_client):
+        mock_bedrock_client.converse.side_effect = [_odpowiedz(ZLY_JSON), _odpowiedz(DOBRY_JSON)]
+        wynik = bedrock.odczytaj_dane([], ["a"], "")
+        assert wynik["pola"][0]["wartosc"] == "1"
+        naprawa = mock_bedrock_client.converse.call_args_list[1].kwargs
+        assert naprawa["system"][0]["text"] == bedrock.prompty.NAPRAWA_JSON
+        assert "thinking" not in naprawa.get("additionalModelRequestFields", {})
+        assert ZLY_JSON in naprawa["messages"][0]["content"][0]["text"]
+
+    def test_ponawia_zestawienie_gdy_naprawa_zawiedzie(self, mock_bedrock_client):
+        mock_bedrock_client.converse.side_effect = [
+            _odpowiedz(ZLY_JSON), _odpowiedz(ZLY_JSON),  # zestawienie i nieudana poprawka
+            _odpowiedz(DOBRY_JSON),                       # drugie zestawienie
+        ]
+        wynik = bedrock.odczytaj_dane([], ["a"], "")
+        assert wynik["pola"][0]["nazwa"] == "a"
+        systemy = [c.kwargs["system"][0]["text"] for c in mock_bedrock_client.converse.call_args_list]
+        assert systemy == [bedrock.prompty.EKSTRAKCJA, bedrock.prompty.NAPRAWA_JSON,
+                           bedrock.prompty.EKSTRAKCJA]
+
+    def test_przeczekuje_limit_zapytan(self, mock_bedrock_client, monkeypatch):
+        from botocore.exceptions import ClientError
+        czekanie = []
+        monkeypatch.setattr(bedrock.time, "sleep", czekanie.append)
+        limit = ClientError({"Error": {"Code": "ThrottlingException", "Message": "limit"}}, "ConverseStream")
+        mock_bedrock_client.converse.side_effect = [limit, _odpowiedz(DOBRY_JSON)]
+        wynik = bedrock.odczytaj_dane([], ["a"], "")
+        assert wynik["pola"][0]["wartosc"] == "1" and czekanie == [60]
+
+    def test_po_wszystkich_probach_czytelny_blad(self, mock_bedrock_client):
+        mock_bedrock_client.converse.return_value = _odpowiedz(ZLY_JSON)
+        with pytest.raises(bedrock.NiepoprawnyJson, match="niepoprawny JSON"):
+            bedrock.odczytaj_dane([], ["a"], "")
+        assert mock_bedrock_client.converse.call_count == 2 * bedrock.PROB_ZESTAWIENIA
+
+    def test_ucieta_odpowiedz_nie_jest_ponawiana(self, mock_bedrock_client):
+        mock_bedrock_client.converse.return_value = _odpowiedz('{"pola": [', "max_tokens")
+        with pytest.raises(ValueError, match="ucieta"):
+            bedrock.odczytaj_dane([], ["a"], "")
+        assert mock_bedrock_client.converse.call_count == 1
+
 
 class TestRozmowa:
     """Testy podstawowego mechanizmu rozmowy z modelem."""

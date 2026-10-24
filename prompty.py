@@ -392,6 +392,15 @@ bez odpowiedzi, albo "NIEROZSTRZYGNIETE: brak".
 """
 
 
+# Zestawienie duzej sprawy to dziesiatki tysiecy znakow JSON-a. Jeden
+# niezabezpieczony cudzyslow przekreslalby kilkanascie minut odczytu.
+NAPRAWA_JSON = """Dostajesz JSON, ktorego parser nie przyjal, i komunikat \
+parsera. Zwracasz ten sam JSON z poprawiona WYLACZNIE skladnia: zabezpieczasz \
+cudzyslowy i ukosniki wewnatrz wartosci, usuwasz zbedne przecinki, domykasz \
+nawiasy. Nie zmieniasz, nie skracasz i nie dopisujesz zadnej tresci, kluczy \
+ani wartosci. Odpowiadasz samym JSON-em, bez komentarza i bez markdown."""
+
+
 KLIKAMY = """Jestes asystentem notariusza. Prowadzisz przegladarke na jego komputerze, w jego zalogowanej sesji, i robisz to, o co poprosil.
 
 Zasady, od ktorych nie ma odstepstw:
