@@ -448,6 +448,7 @@ function kartaKancelarii(k){
       <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
       <button class="odnosnik" data-akcja="token">Token do automatyzacji…</button>
       <button class="odnosnik" data-akcja="abonament">Termin abonamentu…</button>
+      ${k.aktywna ? "" : '<button class="odnosnik" data-akcja="usun">Usuń wszystkie dane…</button>'}
     </div>
     <div class="miejsce-tokenu"></div>`;
   const st = d.querySelector(".stan");
@@ -512,6 +513,24 @@ function kartaKancelarii(k){
                 {method: "PUT", body: JSON.stringify({oplacono_do: termin.trim()})});
       await odswiez();
     } catch (e) { stan(st, e.message, true); }
+  };
+
+  const usun = d.querySelector('[data-akcja="usun"]');
+  if (usun) usun.onclick = async () => {
+    const wpisane = prompt("Usunąć WSZYSTKIE dane „" + k.nazwa + "”?\n\nZnikną sprawy ze wszystkimi wersjami, "
+      + "konta zespołu, komputery pomocnika i sama kancelaria. Tego nie da się cofnąć.\n\n"
+      + "Aby potwierdzić, przepisz identyfikator: " + k.id);
+    if (wpisane === null) return;
+    usun.disabled = true; stan(st, "Usuwam…", false, true);
+    try {
+      const w = await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/usun-dane",
+                          {method: "POST", body: JSON.stringify({potwierdzenie: wpisane.trim()})});
+      alert("Usunięto dane kancelarii „" + k.nazwa + "” (" + w.usunieto.replace("T", " ") + ").\n\n"
+        + "Plików: " + w.obiekty + ", kont: " + w.konta + ", komputerów: " + w.komputery + ".\n"
+        + "Kopie zapasowe wygasną same po okresie przechowywania.\n"
+        + "Zapisz tę datę - potwierdzasz ją notariuszowi zgodnie z umową powierzenia.");
+      await odswiez();
+    } catch (e) { stan(st, e.message, true); usun.disabled = false; }
   };
 
   d.querySelector('[data-akcja="token"]').onclick = async () => {

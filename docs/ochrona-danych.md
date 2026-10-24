@@ -63,6 +63,19 @@ Wcześniejsze wersje plików istnieją po to, żeby dało się cofnąć przypadk
 nadpisanie. Znikają automatycznie po 90 dniach, a przy usunięciu sprawy od
 razu.
 
+Po zakończeniu współpracy usuwamy jedną operacją wszystkie dane kancelarii:
+sprawy ze wszystkimi wersjami, zlecenia pomocnika, połączone komputery,
+konta zespołu i samą kancelarię.
+
+## Kopia zapasowa
+
+Co noc AWS Backup robi kopię całego magazynu spraw do osobnego sejfu we
+Frankfurcie. Sejf jest zablokowany: nikt, także właściciel konta, nie usunie
+kopii przed upływem 7 dni ani nie zatrzyma jej dłużej niż 35 dni. Każda kopia
+wygasa po 21 dniach. Dlatego dane usunięte z aplikacji znikają z kopii
+najpóźniej po 21 dniach; do tego czasu są zaszyfrowane i aplikacja nie ma do
+nich dostępu.
+
 ## Logi
 
 W dziennikach zapisujemy identyfikator sprawy, liczbę stron, czas i rodzaj
@@ -96,11 +109,12 @@ powierzenia AWS.
 
 ## Do zrobienia po naszej stronie (część wewnętrzna, nie dla kancelarii)
 
-- MFA na koncie głównym AWS. Bez tego całość chroni samo hasło.
-- Wzór umowy powierzenia przetwarzania danych. Bez niej nie wolno podłączyć
-  obcej kancelarii.
-- Rejestr czynności przetwarzania i procedura zgłaszania naruszeń.
-- Kopia zapasowa poza S3. Dziś wersjonowanie chroni przed nadpisaniem, ale
-  nie przed utratą całego konta.
-- Usuwanie danych całej kancelarii przy zakończeniu współpracy. Dziś
-  usuwamy sprawa po sprawie.
+- Dokumentacja prawna (umowa powierzenia, regulamin, rejestry, procedura
+  naruszeń) jest w `docs/prawne/` - projekty do uzupełnienia i przeglądu
+  przez prawnika, z listą blokerów w `docs/prawne/README.md`.
+- Wdrożyć stos `notarai-kopia` (polecenie w `docs/prawne/README.md`). Do
+  tego czasu sekcja „Kopia zapasowa” wyżej jest zapowiedzią, nie faktem.
+- Kopia chroni przed skasowaniem bucketa i przejęciem konta (blokada sejfu),
+  ale leży na tym samym koncie AWS. Kopia na drugim koncie wymaga AWS
+  Organizations - do rozważenia przy kilkunastu kancelariach.
+- MFA dla użytkowników w Cognito.

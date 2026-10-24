@@ -218,7 +218,13 @@ def usun_sprawe(katalog: Path) -> int:
         return 0
 
     id_sprawy = katalog.name
-    prefiks = _klucz(id_sprawy, "")
+    usuniete = _usun_wszystkie_wersje(_klucz(id_sprawy, ""))
+    log.info("sprawa %s: usunieto %d obiektow z S3", id_sprawy, usuniete)
+    return usuniete
+
+
+def _usun_wszystkie_wersje(prefiks: str) -> int:
+    """Kasuje z S3 kazda wersje i kazdy znacznik usuniecia pod prefiksem."""
     klient = _klient_s3()
     usuniete = 0
     strony = klient.get_paginator("list_object_versions").paginate(
@@ -234,7 +240,35 @@ def usun_sprawe(katalog: Path) -> int:
             paczka = do_usuniecia[poczatek:poczatek + 1000]
             klient.delete_objects(Bucket=BUCKET, Delete={"Objects": paczka, "Quiet": True})
             usuniete += len(paczka)
-    log.info("sprawa %s: usunieto %d obiektow z S3", id_sprawy, usuniete)
+    return usuniete
+
+
+# Identyfikatory, ktore nie sa kancelariami: "admin" to rejestr i tokeny
+# urzadzen, "lokalna" to tryb jednego stanowiska.
+ZASTRZEZONE = ("admin", "lokalna")
+
+
+def usun_kancelarie(id_kancelarii: str, baza: Path) -> int:
+    """Kasuje wszystkie dane kancelarii: sprawy, zlecenia, wpisy pomocnikow,
+    z dysku i z S3, razem ze starszymi wersjami. Zwraca liczbe obiektow S3.
+
+    To realizacja obowiazku z umowy powierzenia (usuniecie danych po
+    zakonczeniu uslugi), wiec nie zostawiamy niczego "na 90 dni".
+    """
+    import shutil
+
+    if (not id_kancelarii or id_kancelarii in ZASTRZEZONE
+            or "/" in id_kancelarii or "\\" in id_kancelarii or ".." in id_kancelarii):
+        raise ValueError("Nieprawidlowy identyfikator kancelarii")
+
+    katalog = baza / "kancelarie" / id_kancelarii
+    if katalog.exists():
+        shutil.rmtree(katalog)
+    if TRYB != "s3":
+        return 0
+    # Ukosnik na koncu: "kancelaria-a/" nie moze trafic w "kancelaria-ab/".
+    usuniete = _usun_wszystkie_wersje(f"{PREFIKS}/{id_kancelarii}/")
+    log.info("kancelaria %s: usunieto %d obiektow z S3", id_kancelarii, usuniete)
     return usuniete
 
 

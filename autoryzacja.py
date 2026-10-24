@@ -501,7 +501,7 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
 
     id_k = re.sub(r"[^a-z0-9]+", "-", nazwa.lower()).strip("-")[:40] or "kancelaria"
     rejestr = _wczytaj_rejestr()
-    zajete = {w["id"] for w in rejestr.values()}
+    zajete = {w["id"] for w in rejestr.values()} | set(magazyn.ZASTRZEZONE)
     if id_k in zajete:
         id_k = f"{id_k}-{secrets.token_hex(3)}"
 
@@ -661,6 +661,50 @@ def ustaw_abonament(request: Request, id_k: str, dane: TerminAbonamentu):
     _zapisz_rejestr(rejestr)
     log.info("kancelaria %s: abonament ustawiony recznie", id_k)
     return {"id": id_k, "oplacono_do": wpis.get("oplacono_do")}
+
+
+class PotwierdzenieUsuniecia(BaseModel):
+    potwierdzenie: str
+
+
+@router.post("/kancelarie/{id_k}/usun-dane")
+def usun_dane_kancelarii(request: Request, id_k: str, dane: PotwierdzenieUsuniecia):
+    """Koniec uslugi: kasuje wszystko, co mamy o kancelarii, nieodwracalnie.
+
+    Sprawy ze wszystkimi wersjami, zlecenia, komputery pomocnika, konta
+    zespolu w Cognito i wpis w rejestrze. Dwa bezpieczniki: kancelaria musi
+    byc najpierw wylaczona, a w tresci trzeba przepisac jej identyfikator.
+    Wpis w rejestrze znika na koncu, wiec przerwane usuwanie mozna powtorzyc.
+    """
+    _wymagaj_admina(request)
+    rejestr = _wczytaj_rejestr()
+    skrot, wpis = _znajdz(rejestr, id_k)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    if wpis.get("aktywna", True):
+        raise HTTPException(409, "Najpierw wylacz kancelarie.")
+    if dane.potwierdzenie != id_k:
+        raise HTTPException(400, "Potwierdzenie: przepisz identyfikator kancelarii.")
+
+    konta = 0
+    if logowanie.wlaczone():
+        for osoba in _zespol(wpis):
+            logowanie.usun_uzytkownika(osoba["email"])
+            konta += 1
+    komputery = 0
+    if urzadzenia.dostepne():
+        for komputer in urzadzenia.lista(id_k):
+            komputery += urzadzenia.odlacz(id_k, komputer["id"])
+
+    import config
+    obiekty = magazyn.usun_kancelarie(id_k, config.DANE)
+
+    del rejestr[skrot]
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: usunieto dane (obiekty %d, konta %d, komputery %d)",
+             id_k, obiekty, konta, komputery)
+    return {"id": id_k, "usunieto": _teraz(), "obiekty": obiekty,
+            "konta": konta, "komputery": komputery}
 
 
 # --- zespol kancelarii -------------------------------------------------------

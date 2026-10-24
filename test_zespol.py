@@ -205,3 +205,81 @@ def test_adresy_nie_trafiaja_do_logow(srodowisko, caplog):
     klient.post("/api/zespol", headers=jako("anna@kancelaria-sobczak.test", k),
                 json={"email": "jan@kancelaria-sobczak.test"})
     assert "@" not in caplog.text
+
+
+class TestUsuniecieDanychKancelarii:
+    """Koniec uslugi: umowa powierzenia obiecuje usuniecie wszystkich danych."""
+
+    def _sciezka(self, klient, k):
+        import config
+        katalog = config.DANE / "kancelarie" / k / "sprawy" / "sprawa1"
+        katalog.mkdir(parents=True)
+        (katalog / "sprawa.json").write_text("{}")
+        return katalog
+
+    def test_kasuje_konta_pliki_i_wpis(self, srodowisko):
+        klient, atrapa = srodowisko
+        k = _kancelaria(klient)["id"]
+        klient.post("/api/zespol", headers=jako("anna@kancelaria-sobczak.test", k),
+                    json={"email": "jan@kancelaria-sobczak.test"})
+        katalog = self._sciezka(klient, k)
+        assert klient.delete(f"/api/admin/kancelarie/{k}", headers=ADMIN).status_code == 200
+
+        odp = klient.post(f"/api/admin/kancelarie/{k}/usun-dane", headers=ADMIN,
+                          json={"potwierdzenie": k})
+
+        assert odp.status_code == 200
+        assert odp.json()["konta"] == 2
+        assert sorted(atrapa.usunieci) == ["anna@kancelaria-sobczak.test",
+                                          "jan@kancelaria-sobczak.test"]
+        assert not katalog.parent.parent.exists(), "na dysku nie moze nic zostac"
+        assert klient.get("/api/admin/kancelarie", headers=ADMIN).json() == []
+
+    def test_aktywnej_nie_usuwa(self, srodowisko):
+        klient, atrapa = srodowisko
+        k = _kancelaria(klient)["id"]
+        odp = klient.post(f"/api/admin/kancelarie/{k}/usun-dane", headers=ADMIN,
+                          json={"potwierdzenie": k})
+        assert odp.status_code == 409
+        assert atrapa.usunieci == []
+
+    def test_wymaga_przepisania_identyfikatora(self, srodowisko):
+        klient, atrapa = srodowisko
+        k = _kancelaria(klient)["id"]
+        katalog = self._sciezka(klient, k)
+        klient.delete(f"/api/admin/kancelarie/{k}", headers=ADMIN)
+        odp = klient.post(f"/api/admin/kancelarie/{k}/usun-dane", headers=ADMIN,
+                          json={"potwierdzenie": "tak"})
+        assert odp.status_code == 400
+        assert katalog.exists() and atrapa.usunieci == []
+
+    def test_wymaga_admina(self, srodowisko):
+        klient, _ = srodowisko
+        k = _kancelaria(klient)["id"]
+        klient.delete(f"/api/admin/kancelarie/{k}", headers=ADMIN)
+        odp = klient.post(f"/api/admin/kancelarie/{k}/usun-dane",
+                          headers=jako("anna@kancelaria-sobczak.test", k),
+                          json={"potwierdzenie": k})
+        assert odp.status_code == 401
+
+    def test_nie_rusza_innej_kancelarii(self, srodowisko):
+        klient, atrapa = srodowisko
+        k1 = _kancelaria(klient)["id"]
+        k2 = klient.post("/api/admin/kancelarie", headers=ADMIN,
+                         json={"nazwa": "Kancelaria Pawlak", "email": "ewa@kancelaria-pawlak.test"}
+                         ).json()["id"]
+        inna = self._sciezka(klient, k2)
+        klient.delete(f"/api/admin/kancelarie/{k1}", headers=ADMIN)
+        klient.post(f"/api/admin/kancelarie/{k1}/usun-dane", headers=ADMIN,
+                    json={"potwierdzenie": k1})
+        assert inna.exists()
+        assert "ewa@kancelaria-pawlak.test" not in atrapa.usunieci
+        assert [w["id"] for w in klient.get("/api/admin/kancelarie", headers=ADMIN).json()] == [k2]
+
+
+def test_nazwa_admin_nie_zajmuje_zastrzezonego_obszaru(srodowisko):
+    """Obszar "admin" w magazynie to rejestr kancelarii, nie kancelaria."""
+    klient, _ = srodowisko
+    odp = klient.post("/api/admin/kancelarie", headers=ADMIN, json={"nazwa": "Admin"})
+    assert odp.status_code == 201
+    assert odp.json()["id"] != "admin"

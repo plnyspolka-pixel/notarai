@@ -333,3 +333,47 @@ def test_s3_lista_po_restarcie(magazyn_s3):
         assert magazyn.identyfikatory_spraw(magazyn.sprawy_dir(tmp)) == ["aaa", "bbb"]
     finally:
         magazyn.kancelaria_var.reset(zn)
+
+
+class TestUsuwanieKancelarii:
+    def _zapisz(self, magazyn, tmp, kancelaria, sprawa="s1"):
+        zn = magazyn.kancelaria_var.set(kancelaria)
+        try:
+            katalog = magazyn.sprawy_dir(tmp) / sprawa
+            katalog.mkdir(parents=True)
+            (katalog / "sprawa.json").write_text("{}")
+            magazyn.utrwal_sprawe(katalog)
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_kasuje_wszystko_pod_kancelaria(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        self._zapisz(magazyn, tmp, "kancelaria-a")
+        atrapa.obiekty["kancelarie/kancelaria-a/zlecenia/z1.json"] = b"{}"
+        atrapa.obiekty["kancelarie/kancelaria-a/pomocnicy/p1.json"] = b"{}"
+
+        usuniete = magazyn.usun_kancelarie("kancelaria-a", tmp)
+
+        assert usuniete == 3
+        assert not any(k.startswith("kancelarie/kancelaria-a/") for k in atrapa.obiekty)
+        assert not (tmp / "kancelarie" / "kancelaria-a").exists()
+
+    def test_nie_rusza_kancelarii_o_podobnym_identyfikatorze(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        self._zapisz(magazyn, tmp, "kancelaria-a")
+        self._zapisz(magazyn, tmp, "kancelaria-ab")
+        atrapa.obiekty["kancelarie/admin/kancelarie.json"] = b"{}"
+
+        magazyn.usun_kancelarie("kancelaria-a", tmp)
+
+        assert any(k.startswith("kancelarie/kancelaria-ab/") for k in atrapa.obiekty)
+        assert "kancelarie/admin/kancelarie.json" in atrapa.obiekty
+        assert (tmp / "kancelarie" / "kancelaria-ab").exists()
+
+    @pytest.mark.parametrize("zly", ["", "admin", "lokalna", "../admin", "a/b"])
+    def test_odrzuca_zastrzezone_i_sciezki(self, magazyn_s3, zly):
+        magazyn, atrapa, tmp = magazyn_s3
+        atrapa.obiekty["kancelarie/admin/kancelarie.json"] = b"{}"
+        with pytest.raises(ValueError):
+            magazyn.usun_kancelarie(zly, tmp)
+        assert "kancelarie/admin/kancelarie.json" in atrapa.obiekty

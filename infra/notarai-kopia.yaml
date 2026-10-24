@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - kopia zapasowa bucketa spraw poza samym bucketem (AWS Backup,
+  eu-central-1). Codzienna kopia trzymana 21 dni w sejfie z blokada: nikt,
+  takze konto root, nie skasuje kopii wczesniej niz po 7 dniach ani nie
+  przedluzy ich ponad 35 dni. Okres 21 dni miesci sie w 30 dniach na usuniecie
+  danych z umowy powierzenia.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    why: >-
+      Wersjonowanie S3 chroni przed nadpisaniem, ale nie przed skasowaniem
+      bucketa, przejeciem konta ani bledem w kodzie usuwania. Zalacznik nr 2 do
+      umowy powierzenia obiecuje kopie poza glownym magazynem, w UE.
+    must:
+      - Kopie tylko w regionach UE (dane osobowe klientow kancelarii).
+      - Retencja kopii nie dluzsza niz 30 dni - umowa powierzenia obiecuje
+        usuniecie danych kancelarii w 30 dni od konca uslugi.
+
+Parameters:
+  NazwaBucketa:
+    Type: String
+    Default: notarai-sprawy
+    Description: Bucket spraw ze stosu notarai-s3
+  DniPrzechowania:
+    Type: Number
+    Default: 21
+    MinValue: 7
+    MaxValue: 30
+    Description: >-
+      Ile dni trzymac kazda kopie. Gorna granica 30 wynika z umowy powierzenia.
+  DniDoBlokady:
+    Type: Number
+    Default: 3
+    MinValue: 3
+    Description: >-
+      Po tylu dniach od utworzenia blokada sejfu staje sie NIEODWRACALNA
+      (tryb compliance). Do tego czasu mozna ja zdjac i poprawic ustawienia.
+  TematAlarmow:
+    Type: String
+    Default: ""
+    Description: >-
+      ARN tematu SNS z alarmami (wynik TematAlarmow stosu notarai-aplikacja).
+      Pusty = bez alarmu o nieudanej kopii.
+
+Conditions:
+  MamyTemat: !Not [!Equals [!Ref TematAlarmow, ""]]
+
+Resources:
+  Sejf:
+    Type: AWS::Backup::BackupVault
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: >-
+          Blokada (Vault Lock) sprawia, ze przejete konto albo pomylka nie
+          skasuje kopii przed MinRetentionDays. MaxRetentionDays pilnuje
+          drugiej strony: kopie nie moga zyc dluzej, niz pozwala umowa.
+        must:
+          - Po DniDoBlokady blokady nie da sie zdjac ani zmienic.
+    Properties:
+      BackupVaultName: notarai-kopia
+      LockConfiguration:
+        MinRetentionDays: 7
+        MaxRetentionDays: 35
+        ChangeableForDays: !Ref DniDoBlokady
+      BackupVaultTags:
+        projekt: notarai
+        dane-osobowe: "tak"
+
+  RolaKopii:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-kopia
+      Description: notarai - rola AWS Backup do kopii i odtwarzania bucketa spraw
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: backup.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSBackupServiceRolePolicyForS3Backup
+        - arn:aws:iam::aws:policy/AWSBackupServiceRolePolicyForS3Restore
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  Plan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: notarai-kopia-codzienna
+        BackupPlanRule:
+          - RuleName: codziennie
+            TargetBackupVault: !Ref Sejf
+            # 01:00 UTC - poza godzinami pracy kancelarii.
+            ScheduleExpression: cron(0 1 * * ? *)
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 720
+            Lifecycle:
+              DeleteAfterDays: !Ref DniPrzechowania
+            RecoveryPointTags:
+              projekt: notarai
+      BackupPlanTags:
+        projekt: notarai
+
+  Wybor:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref Plan
+      BackupSelection:
+        SelectionName: bucket-spraw
+        IamRoleArn: !GetAtt RolaKopii.Arn
+        Resources:
+          - !Sub "arn:${AWS::Partition}:s3:::${NazwaBucketa}"
+
+  AlarmNieudanaKopia:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MamyTemat
+    Properties:
+      AlarmName: notarai-nieudana-kopia
+      AlarmDescription: Nocna kopia bucketa spraw nie powiodla sie.
+      Namespace: AWS/Backup
+      MetricName: NumberOfBackupJobsFailed
+      Dimensions:
+        - Name: BackupVaultName
+          Value: !Ref Sejf
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref TematAlarmow
+
+Outputs:
+  Sejf:
+    Description: Sejf AWS Backup z kopiami bucketa spraw
+    Value: !Ref Sejf
+  Plan:
+    Description: Identyfikator planu kopii
+    Value: !Ref Plan
