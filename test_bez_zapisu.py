@@ -94,6 +94,20 @@ class TestProjektBezZapisu:
                           data={"pola": "to nie json"})
         assert odp.status_code == 400
 
+    def test_strumieniem_i_bez_sladu_na_dysku(self, klient):
+        import base64
+        import tempfile
+        przed = set(Path(tempfile.gettempdir()).glob("notarai-*"))
+        with patch("bedrock.sporzadz_projekt", return_value="AKT NOTARIALNY"):
+            odp = klient.post("/api/projekt", files={"wzor": _wzor()},
+                              headers={"Accept": "application/x-ndjson"},
+                              data={"pola": "[]", "polecenie": "", "rozmowa": "[]"})
+        assert "ndjson" in odp.headers["content-type"]
+        wynik = json.loads(odp.text.strip().splitlines()[-1])["wynik"]
+        assert wynik["tekst"] == "AKT NOTARIALNY"
+        assert base64.b64decode(wynik["docx"])[:2] == b"PK"
+        assert set(Path(tempfile.gettempdir()).glob("notarai-*")) == przed
+
 
 class TestRozmowaBezZapisu:
     def test_historia_przychodzi_z_przegladarki(self, klient):

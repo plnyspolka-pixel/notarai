@@ -197,13 +197,14 @@ def _chce_strumienia(request: Request) -> bool:
     return "application/x-ndjson" in request.headers.get("accept", "")
 
 
-async def _wykonaj(request: Request, praca) -> Response:
-    """Uruchamia odczyt poza petla zdarzen.
+async def _wykonaj(request: Request, praca, nazwa: str = "odczyt") -> Response:
+    """Uruchamia dluga prace (odczyt, projekt) poza petla zdarzen.
 
     Przegladarka, ktora prosi o application/x-ndjson, dostaje strumien linii
     JSON: postep ({"postep": ...}), co kilkanascie sekund znak zycia, na koncu
     {"wynik": ...} albo {"blad": ..., "kod": ...}. Bez tego ALB (idle 900 s)
-    zerwalby polaczenie przy duzej sprawie, ktora czyta sie dluzej niz kwadrans.
+    zerwalby polaczenie przy duzej sprawie, ktora czyta sie dluzej niz kwadrans
+    - 24.10.2026 tak urwal sie projekt aktu pisany 21 minut.
     Bez naglowka - zwykla odpowiedz JSON jak dawniej.
 
     Kontekst kancelarii (contextvars) przechodzi do watku razem z praca.
@@ -223,8 +224,8 @@ async def _wykonaj(request: Request, praca) -> Response:
         except HTTPException as blad:
             kolejka.put({"blad": blad.detail, "kod": blad.status_code})
         except Exception as blad:  # noqa: BLE001 - tresc bledu nie trafia do logu
-            log.error("odczyt w tle: %s", dziennik.opis_bledu(blad))
-            kolejka.put({"blad": "Blad serwera podczas odczytu.", "kod": 500})
+            log.error("%s w tle: %s", nazwa, dziennik.opis_bledu(blad))
+            kolejka.put({"blad": f"Blad serwera ({nazwa}).", "kod": 500})
         finally:
             kolejka.put(None)
 
@@ -432,6 +433,7 @@ async def odczyt_bez_zapisu(
 
 @app.post("/api/projekt")
 async def projekt_bez_zapisu(
+    request: Request,
     wzor: UploadFile = File(...),
     pola: str = Form("[]"),
     polecenie: str = Form(""),
@@ -444,33 +446,51 @@ async def projekt_bez_zapisu(
     except json.JSONDecodeError:
         raise HTTPException(400, "Nieprawidlowy format pol albo rozmowy")
 
-    with tempfile.TemporaryDirectory(prefix="notarai-") as tymczasowy:
-        katalog = Path(tymczasowy)
+    # Wzor zapisujemy od razu: przy odpowiedzi strumieniem przesylany plik
+    # zostalby zamkniety, zanim praca w tle zdazy go przeczytac.
+    katalog = Path(tempfile.mkdtemp(prefix="notarai-"))
+    try:
         sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
         _zapisz(wzor, sciezka_wzoru)
-        analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
+    except BaseException:
+        shutil.rmtree(katalog, ignore_errors=True)
+        raise
+
+    def praca(postep) -> dict:
         try:
-            projekt = bedrock.sporzadz_projekt(
-                analiza["tresc"], lista_pol, polecenie, analiza["legenda"], historia
-            )
-        except bedrock.Przeciazenie as blad:
-            raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
-        except Exception as blad:
-            log.error("projekt bez zapisu: blad generowania (%s)", dziennik.opis_bledu(blad))
-            raise HTTPException(502, f"Bedrock: {blad}")
+            analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
+            projekt = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
+            cel = katalog / "projekt.docx"
+            dokumenty.tekst_na_docx(projekt, cel)
+            dane = cel.read_bytes()
+        finally:
+            shutil.rmtree(katalog, ignore_errors=True)
 
-        cel = katalog / "projekt.docx"
-        dokumenty.tekst_na_docx(projekt, cel)
-        dane = cel.read_bytes()
+        log.info("projekt bez zapisu: znakow=%d", len(projekt))
+        # Tekst do podgladu w przegladarce, plik do zapisania na dysku notariusza.
+        return {
+            "tekst": projekt,
+            "brakujace": projekt.count("<<BRAK:"),
+            "do_wyboru": projekt.count("<<WYBOR:"),
+            "docx": base64.b64encode(dane).decode("ascii"),
+        }
 
-    log.info("projekt bez zapisu: znakow=%d", len(projekt))
-    # Tekst do podgladu w przegladarce, plik do zapisania na dysku notariusza.
-    return {
-        "tekst": projekt,
-        "brakujace": projekt.count("<<BRAK:"),
-        "do_wyboru": projekt.count("<<WYBOR:"),
-        "docx": base64.b64encode(dane).decode("ascii"),
-    }
+    return await _wykonaj(request, praca, "projekt")
+
+
+def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
+              etykieta: str) -> str:
+    """Wywolanie modelu dla projektu z bledami zamienionymi na odpowiedzi HTTP."""
+    try:
+        return bedrock.sporzadz_projekt(
+            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa
+        )
+    except bedrock.Przeciazenie as blad:
+        log.error("%s: projekt przerwany, limit zapytan Bedrock", etykieta)
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+    except Exception as blad:
+        log.error("%s: blad generowania (%s)", etykieta, dziennik.opis_bledu(blad))
+        raise HTTPException(502, f"Bedrock: {blad}")
 
 
 class ZadanieRozmowy(BaseModel):
@@ -502,8 +522,14 @@ class ZadanieGenerowania(BaseModel):
 
 
 @app.post("/api/sprawy/{identyfikator}/projekt")
-def generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania):
-    """Wypelnienie wzoru zatwierdzonymi danymi."""
+async def generuj_projekt(request: Request, identyfikator: str, zadanie: ZadanieGenerowania):
+    """Wypelnienie wzoru zatwierdzonymi danymi. Duzy akt pisze sie ponad kwadrans,
+    wiec przegladarka dostaje strumien ze znakami zycia (jak przy odczycie)."""
+    return await _wykonaj(request, lambda postep: _generuj_projekt(identyfikator, zadanie),
+                          "projekt")
+
+
+def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
     katalog = _katalog_sprawy(identyfikator)
     sciezka_wzoru = next(katalog.glob("wzor.*"), None)
     if sciezka_wzoru is None:
@@ -511,15 +537,8 @@ def generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania):
 
     analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
     rozmowa = _wczytaj_rozmowe(katalog) if zadanie.z_rozmowa else []
-    try:
-        projekt = bedrock.sporzadz_projekt(
-            analiza["tresc"], zadanie.pola, zadanie.polecenie, analiza["legenda"], rozmowa
-        )
-    except bedrock.Przeciazenie as blad:
-        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
-    except Exception as blad:
-        log.error("sprawa %s: blad generowania (%s)", identyfikator, dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {blad}")
+    projekt = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
+                        f"sprawa {identyfikator}")
 
     cel = katalog / "projekt.docx"
     dokumenty.tekst_na_docx(projekt, cel)

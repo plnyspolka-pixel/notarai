@@ -75,6 +75,49 @@ class TestApiRozmowy:
         assert sp.call_args.args[4][0]["tresc"] == "Zaplata gotowka"
 
 
+STRUMIEN = {"Accept": "application/x-ndjson"}
+
+
+def _linie(odp) -> list[dict]:
+    return [json.loads(l) for l in odp.text.splitlines() if l.strip()]
+
+
+class TestProjektStrumieniem:
+    """Duzy akt pisze sie ponad kwadrans - 24.10.2026 ALB urwal takie zadanie
+    po 15 minutach ciszy i przegladarka dostala strone bledu w HTML."""
+
+    def test_wynik_w_strumieniu_i_projekt_zapisany(self, klient, tmp_path):
+        (tmp_path / "abc123" / "wzor.txt").write_text("Cena {{cena}}", encoding="utf-8")
+        with patch("bedrock.sporzadz_projekt", return_value="AKT <<BRAK: cena>>"):
+            odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
+                              json={"pola": [], "polecenie": ""})
+        assert odp.status_code == 200 and "ndjson" in odp.headers["content-type"]
+        wynik = _linie(odp)[-1]["wynik"]
+        assert wynik["tekst"] == "AKT <<BRAK: cena>>" and wynik["brakujace"] == 1
+        assert (tmp_path / "abc123" / "projekt.txt").read_text("utf-8") == "AKT <<BRAK: cena>>"
+
+    def test_blad_modelu_w_strumieniu_bez_tresci(self, klient, tmp_path, caplog):
+        (tmp_path / "abc123" / "wzor.txt").write_text("x", encoding="utf-8")
+        with patch("bedrock.sporzadz_projekt", side_effect=RuntimeError("PESEL 85031512337")):
+            odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
+                              json={"pola": [], "polecenie": ""})
+        ostatnia = _linie(odp)[-1]
+        assert ostatnia["kod"] == 502 and ostatnia["blad"].startswith("Bedrock:")
+        assert "85031512337" not in caplog.text
+
+    def test_limit_zapytan_w_strumieniu(self, klient, tmp_path):
+        (tmp_path / "abc123" / "wzor.txt").write_text("x", encoding="utf-8")
+        with patch("bedrock.sporzadz_projekt", side_effect=bedrock.Przeciazenie("Model jest chwilowo przeciazony")):
+            odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
+                              json={"pola": [], "polecenie": ""})
+        assert _linie(odp)[-1] == {"blad": "Model jest chwilowo przeciazony", "kod": 503}
+
+    def test_brak_wzoru_w_strumieniu(self, klient):
+        odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
+                          json={"pola": [], "polecenie": ""})
+        assert _linie(odp)[-1]["kod"] == 404
+
+
 class TestUstalenia:
     def test_tekst_ustalen(self):
         t = prompty.ustalenia_z_rozmowy([{"rola": "asystent", "tresc": "?"}, {"rola": "uzytkownik", "tresc": "tak"}])

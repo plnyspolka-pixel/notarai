@@ -945,7 +945,19 @@ async function api(adres, opcje = {}){
       if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
     });
   }
+  // Gdy aplikacja nie odpowie, posrednik AWS (ALB) oddaje strone bledu w HTML.
+  // Zamiast "Unexpected token '<'" - komunikat, co sie stalo i co zrobic.
+  odp.json = async () => {
+    const tekst = await odp.text();
+    try { return JSON.parse(tekst); } catch { throw new Error(komunikatHttp(odp.status)); }
+  };
   return odp;
+}
+function komunikatHttp(status){
+  if (status === 504 || status === 502 || status === 503)
+    return `Serwer nie odpowiedział (HTTP ${status}). Praca mogła się mimo to zakończyć: ` +
+           "za kilka minut otwórz sprawę z listy, zanim spróbujesz ponownie.";
+  return `Nieoczekiwana odpowiedź serwera (HTTP ${status}). Spróbuj ponownie za chwilę.`;
 }
 
 const WIDOKI = ["widok-logowanie", "widok-nowe-haslo", "widok-odzyskiwanie", "widok-token"];
@@ -2217,10 +2229,10 @@ document.querySelectorAll('input[name="wysilek"]').forEach(r => r.onchange = () 
 });
 opiszDokladnosc();
 
-/* Odczyt duzej sprawy trwa dluzej niz kwadrans, a posrednik (ALB) zrywa
-   polaczenie po kwadransie ciszy. Serwer przysyla wiec linie JSON: postep,
-   znaki zycia i na koncu wynik albo blad. */
-async function czytajStrumien(odp, naPostep) {
+/* Odczyt i projekt duzej sprawy trwaja dluzej niz kwadrans, a posrednik (ALB)
+   zrywa polaczenie po kwadransie ciszy. Serwer przysyla wiec linie JSON:
+   postep, znaki zycia i na koncu wynik albo blad. */
+async function czytajStrumien(odp, naPostep = () => {}) {
   if (!odp.ok || !(odp.headers.get("content-type") || "").includes("ndjson")) {
     const w = await odp.json();
     if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
@@ -2240,7 +2252,8 @@ async function czytajStrumien(odp, naPostep) {
       else if ("wynik" in w) return w.wynik;
       else if (w.blad) throw new Error(w.blad);
     }
-    if (done) throw new Error("Połączenie z serwerem przerwane w trakcie odczytu. Spróbuj ponownie.");
+    if (done) throw new Error("Połączenie z serwerem przerwane w trakcie pracy. Za kilka minut " +
+                              "otwórz sprawę z listy - wynik mógł się zapisać. Potem spróbuj ponownie.");
   }
 }
 
@@ -2504,9 +2517,9 @@ $("btn-generuj").onclick = async () => {
       dane.append("pola", JSON.stringify(sprawa.pola));
       dane.append("polecenie", poleceniePierwotne);
       dane.append("rozmowa", JSON.stringify(rozmowa));
-      const odp = await api("/api/projekt", {method:"POST", body:dane});
-      wynik = await odp.json();
-      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+      const odp = await api("/api/projekt",
+        {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
+      wynik = await czytajStrumien(odp);
       // Projekt ląduje u notariusza: .docx do pracy i .txt do podglądu.
       const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
       await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
@@ -2516,11 +2529,10 @@ $("btn-generuj").onclick = async () => {
       });
     } else {
       const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST", headers:{"Content-Type":"application/json", "Accept": "application/x-ndjson"},
         body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
       });
-      wynik = await odp.json();
-      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+      wynik = await czytajStrumien(odp);
     }
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
     stan($("stan3"), ""); stan($("stan2"), "");
