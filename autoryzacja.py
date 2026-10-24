@@ -23,6 +23,7 @@ import os
 import re
 import secrets
 import time
+from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -31,6 +32,7 @@ from pydantic import BaseModel
 
 import logowanie
 import magazyn
+import platnosci
 import urzadzenia
 
 log = logging.getLogger("pieczapp.autoryzacja")
@@ -40,9 +42,14 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 
 # Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
-# laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy).
+# laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
+# powiadomienia Tpay (Tpay nie ma tokenu, zaufanie daje podpis JWS).
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie")
+            "/api/pomocnik/parowanie", "/api/tpay/")
+
+# Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
+# moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
+_BEZ_ABONAMENTU = ("/api/abonament", "/api/zespol")
 
 # Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
 # komputera notariusza nie pozwala przegladac spraw.
@@ -171,6 +178,9 @@ async def middleware(request: Request, call_next):
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
     if komputer and not sciezka.startswith(_DLA_POMOCNIKA):
         return JSONResponse({"detail": "Token pomocnika sluzy tylko pomocnikowi."}, 403)
+    if not sciezka.startswith(_BEZ_ABONAMENTU) and not _oplacona(kancelaria):
+        return JSONResponse({"detail": "Abonament kancelarii wygasl. Wlasciciel moze go oplacic "
+                                       "w oknie Abonament.", "abonament": True}, 402)
 
     znacznik = magazyn.kancelaria_var.set(kancelaria)
     znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
@@ -182,6 +192,14 @@ async def middleware(request: Request, call_next):
     finally:
         magazyn.kancelaria_var.reset(znacznik)
         magazyn.przechowywanie_var.reset(znacznik_p)
+
+
+def _oplacona(kancelaria: str) -> bool:
+    """Bez skonfigurowanych platnosci nikogo nie blokujemy."""
+    if not platnosci.wlaczone():
+        return True
+    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
+    return wpis is None or platnosci.stan(wpis)["wazny"]
 
 
 def _przechowywanie(kancelaria: str) -> str:
@@ -439,6 +457,7 @@ def lista_kancelarii(request: Request):
     return [
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
          "przechowywanie": w.get("przechowywanie", "chmura"),
+         "oplacono_do": w.get("oplacono_do"),
          "zespol": _zespol(w)}
         for w in rejestr.values()
     ]
@@ -471,6 +490,9 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
         "aktywna": True,
         "przechowywanie": dane.przechowywanie,
     }
+    # Z platnosciami nowa kancelaria dostaje okres probny, potem placi sama.
+    if platnosci.wlaczone():
+        rejestr[_sha(token)]["oplacono_do"] = platnosci.na_probe()
     _zapisz_rejestr(rejestr)
     log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
     wynik = {
@@ -583,6 +605,33 @@ def przywroc_kancelarie(request: Request, id_k: str):
     _zapisz_rejestr(rejestr)
     log.info("kancelaria przywrocona: %s", id_k)
     return {"id": id_k, "aktywna": True}
+
+
+class TerminAbonamentu(BaseModel):
+    # "RRRR-MM-DD" albo pusty: kancelaria bez abonamentu w Tpay (np. umowa
+    # i faktura poza systemem) - wtedy nic jej nie blokujemy.
+    oplacono_do: str = ""
+
+
+@router.put("/kancelarie/{id_k}/abonament")
+def ustaw_abonament(request: Request, id_k: str, dane: TerminAbonamentu):
+    """Recznie: okres probny, przedluzenie po przelewie, zwolnienie z oplat."""
+    _wymagaj_admina(request)
+    rejestr = _wczytaj_rejestr()
+    _, wpis = _znajdz(rejestr, id_k)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    if dane.oplacono_do:
+        try:
+            date.fromisoformat(dane.oplacono_do)
+        except ValueError:
+            raise HTTPException(400, "Data w postaci RRRR-MM-DD")
+        wpis["oplacono_do"] = dane.oplacono_do
+    else:
+        wpis.pop("oplacono_do", None)
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: abonament ustawiony recznie", id_k)
+    return {"id": id_k, "oplacono_do": wpis.get("oplacono_do")}
 
 
 # --- zespol kancelarii -------------------------------------------------------
@@ -810,3 +859,87 @@ def usun_admina(request: Request, email: str):
     _zapisz_adminow([a for a in lista if a != email])
     log.info("usunieto administratora")
     return {"usunieto": True}
+
+
+# --- abonament (Tpay) --------------------------------------------------------
+# Kancelaria placi za miesiac z gory. Termin trzymamy w jej wpisie rejestru
+# ("oplacono_do"), a zaksiegowane wplaty w "platnosci" - po tr_id poznajemy
+# powtorzone powiadomienie, bo Tpay wysyla je, dopoki nie odpowiemy TRUE.
+
+router_abonamentu = APIRouter(prefix="/api/abonament", tags=["abonament"])
+
+
+@router_abonamentu.get("")
+def moj_abonament(request: Request):
+    _, wpis = _znajdz(_wczytaj_rejestr(), request.state.kancelaria)
+    if wpis is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    email = getattr(request.state, "email", "")
+    return {**platnosci.stan(wpis), "platnosci_wlaczone": platnosci.wlaczone(),
+            "cena": platnosci.cena(),
+            "moge_zaplacic": bool(email) and email in _wlasciciele(wpis),
+            "historia": [{k: p.get(k) for k in ("data", "kwota", "status", "oplacono_do")}
+                         for p in wpis.get("platnosci", [])[-12:]]}
+
+
+@router_abonamentu.post("", status_code=201)
+def zaplac(request: Request):
+    """Transakcja w Tpay za jeden miesiac; przegladarka idzie pod zwrocony adres."""
+    if not platnosci.wlaczone():
+        raise HTTPException(503, "Platnosci nie sa skonfigurowane na tym serwerze.")
+    _, _, wpis, email = _moja_kancelaria(request)
+    if email not in _wlasciciele(wpis):
+        raise HTTPException(403, "Abonament oplaca wlasciciel kancelarii.")
+    try:
+        return platnosci.utworz_transakcje(wpis["id"], wpis["nazwa"], email)
+    except platnosci.BladPlatnosci as blad:
+        raise HTTPException(502, str(blad))
+
+
+router_tpay = APIRouter(prefix="/api/tpay", tags=["tpay"])
+
+
+def _tak() -> Response:
+    return Response("TRUE", media_type="text/plain")
+
+
+@router_tpay.post("/powiadomienie")
+async def powiadomienie_tpay(request: Request):
+    """Tpay potwierdza wplate. Wierzymy tylko podpisowi JWS - adresy IP Tpay
+    sie zmieniaja, a ta sciezka jest otwarta dla kazdego."""
+    global _CACHE
+    tresc = await request.body()
+    try:
+        pola = platnosci.odczytaj_powiadomienie(tresc, request.headers.get("x-jws-signature", ""))
+    except platnosci.BladPodpisu as blad:
+        log.warning("tpay: odrzucono powiadomienie (%s)", blad)
+        return Response("FALSE", status_code=400, media_type="text/plain")
+
+    id_k = platnosci.kancelaria_z_opisu(pola["tr_crc"])
+    status = pola["tr_status"].lower()
+    _CACHE = None          # druga kopia aplikacji mogla przed chwila zmienic rejestr
+    rejestr = _wczytaj_rejestr()
+    _, wpis = _znajdz(rejestr, id_k) if id_k else (None, None)
+    if wpis is None:
+        # Podpisane, ale nie nasze (np. inny sklep na tym koncie Tpay).
+        # TRUE, bo powtarzanie niczego nie zmieni.
+        log.warning("tpay: wplata %s bez znanej kancelarii", pola["tr_id"])
+        return _tak()
+    historia = wpis.setdefault("platnosci", [])
+    if any(p.get("tr_id") == pola["tr_id"] and p.get("status") == status for p in historia):
+        return _tak()
+
+    wplata = {"tr_id": pola["tr_id"], "status": status, "data": _teraz(),
+              "kwota": pola.get("tr_paid") or pola["tr_amount"],
+              "test": pola.get("test_mode") == "1"}
+    if status == "true":
+        wpis["oplacono_do"] = platnosci.przedluz(wpis.get("oplacono_do"))
+        wplata["oplacono_do"] = wpis["oplacono_do"]
+        log.info("tpay: kancelaria %s oplacona do %s", id_k, wpis["oplacono_do"])
+    else:
+        # "chargeback" to zwrot calej kwoty. Terminu nie cofamy sami -
+        # decyduje administrator (PUT /api/admin/kancelarie/<id>/abonament).
+        log.warning("tpay: kancelaria %s, wplata %s ze statusem %s", id_k, pola["tr_id"], status)
+    historia.append(wplata)
+    _zapisz_rejestr(rejestr)
+    return _tak()

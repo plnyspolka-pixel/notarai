@@ -59,10 +59,31 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
+  TpaySekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/tpay (klucze client_id i client_secret),
+      zalozonego recznie w konsoli - wartosci nie trafiaja do szablonu.
+      Puste = platnosci wylaczone, nikogo nie blokujemy.
+  CenaAbonamentu:
+    Type: String
+    Default: ""
+    AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
+    Description: Cena miesiaca abonamentu w zl brutto, np. 199.00. Puste = platnosci wylaczone.
+  TpaySrodowisko:
+    Type: String
+    Default: produkcja
+    AllowedValues: [produkcja, sandbox]
+  AdresPubliczny:
+    Type: String
+    Default: https://app.notarai.pl
+    Description: Adres aplikacji - na niego Tpay wysyla powiadomienia i wraca platnik.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
+  MamyTpay: !Not [!Equals [!Ref TpaySekretArn, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -116,6 +137,16 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
+        - !If
+          - MamyTpay
+          - PolicyName: sekret-tpay
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref TpaySekretArn
+          - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
   RolaZadania:
@@ -317,9 +348,26 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
+            - Name: PIECZAPP_ABONAMENT_ZL
+              Value: !Ref CenaAbonamentu
+            - Name: PIECZAPP_ADRES
+              Value: !Ref AdresPubliczny
+            - Name: TPAY_SRODOWISKO
+              Value: !Ref TpaySrodowisko
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
+            # Klucze Tpay z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
+            - !If
+              - MamyTpay
+              - Name: TPAY_CLIENT_ID
+                ValueFrom: !Sub "${TpaySekretArn}:client_id::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyTpay
+              - Name: TPAY_CLIENT_SECRET
+                ValueFrom: !Sub "${TpaySekretArn}:client_secret::"
+              - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
             Options:

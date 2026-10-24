@@ -316,6 +316,10 @@ a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 .stopka-aside .wyloguj{display:block}
 #okno-zespol input{text-transform:none;font:14px var(--sans);width:auto;flex:1;min-width:200px}
 .znacznik{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--ok-tlo);color:var(--ok);flex:none}
+.znacznik.alarm{background:var(--alarm-tlo);color:var(--alarm)}
+#abonament-termin{font:500 22px var(--serif);margin:4px 0 2px}
+#abonament-historia{font-size:12.5px;color:var(--tekst3);margin-top:10px}
+#abonament-historia div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid var(--linia)}
 .komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
 .komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
 
@@ -374,6 +378,7 @@ notarai</div>
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
     <div class="kto" id="kto" hidden></div>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
+    <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
   </div>
 </aside>
@@ -746,6 +751,20 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
+<!-- Abonament: kancelaria placi za miesiac z gory przez Tpay (karta, BLIK).
+     Placi wlasciciel; pozostali widza tylko termin. -->
+<dialog class="okno" id="okno-abonament">
+  <h2>Abonament kancelarii</h2>
+  <p id="abonament-opis"></p>
+  <div id="abonament-termin"></div>
+  <div class="dol" id="abonament-zaplac" hidden>
+    <button id="btn-zaplac">Zapłać za miesiąc</button>
+  </div>
+  <div id="abonament-historia"></div>
+  <div class="dol"><span class="stan" id="stan-abonament"></span></div>
+  <div class="dol"><button class="wtorny" id="btn-zamknij-abonament">Zamknij</button></div>
+</dialog>
+
 <dialog class="okno" id="okno-polacz">
   <h2>Połączyć ten komputer?</h2>
   <p>Komputer <b id="polacz-nazwa"></b> prosi o połączenie z Twoją kancelarią.</p>
@@ -865,6 +884,12 @@ async function api(adres, opcje = {}){
     otworzBrame(token ? "Sesja wygasła. Zaloguj się ponownie." : "");
     throw new Error("Wymagane logowanie.");
   }
+  if (odp.status === 402) {
+    // Abonament wygasl: zamiast bledu w srodku pracy - okno z platnoscia.
+    wczytajAbonament().then(() => {
+      if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
+    });
+  }
   return odp;
 }
 
@@ -894,7 +919,7 @@ function wpusc(nowyToken){
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
-  if (!token) { $("btn-zespol").hidden = true; $("kto").hidden = true; }
+  if (!token) { $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("kto").hidden = true; }
 }
 
 $("btn-wyloguj").onclick = async () => {
@@ -1345,6 +1370,7 @@ async function uruchomTrybPracy(){
   }
   rysujListeSpraw();
   wczytajZespol();
+  wczytajAbonament().then(obsluzPowrotZPlatnosci);
   if (!dysk.aktywny) {
     await odswiezPomocnika();
     obsluzKodZAdresu();
@@ -1445,6 +1471,105 @@ $("btn-zespol-zapros").onclick = async () => {
 $("zespol-email").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); $("btn-zespol-zapros").click(); }
 });
+
+/* ---------- abonament (Tpay) ----------
+   Termin przesuwa serwer po powiadomieniu od Tpay, nie powrot przegladarki:
+   powrot "ok" znaczy tylko, ze platnik skonczyl w panelu Tpay. */
+let abonament = null;
+const KLUCZ_PRZED_PLATNOSCIA = "notarai_termin_przed_platnoscia";
+
+async function wczytajAbonament(){
+  try {
+    const odp = await api("/api/abonament");
+    if (!odp.ok) return;
+    abonament = await odp.json();
+  } catch { return; }
+  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany;
+  if (abonament.wymagany && (abonament.po_terminie || abonament.dni_do_konca <= 5)) {
+    $("btn-abonament").textContent = abonament.po_terminie ? "Abonament wygasł" : "Abonament kończy się";
+  } else {
+    $("btn-abonament").textContent = "Abonament";
+  }
+  if ($("okno-abonament").open) rysujAbonament();
+}
+
+const dataPl = d => new Date(d).toLocaleDateString("pl-PL", {day: "numeric", month: "long", year: "numeric"});
+
+function rysujAbonament(){
+  const a = abonament;
+  const termin = $("abonament-termin");
+  if (!a.wymagany) {
+    $("abonament-opis").textContent = "Kancelaria korzysta z notarai na podstawie umowy — nie trzeba niczego opłacać w aplikacji.";
+    termin.textContent = "";
+  } else {
+    $("abonament-opis").textContent = a.po_terminie
+      ? (a.wazny ? "Termin minął. Kilka dni możesz jeszcze pracować — opłać abonament, żeby nie stracić dostępu."
+                 : "Abonament wygasł. Sprawy są bezpieczne, wrócą zaraz po opłaceniu.")
+      : "Opłacono do:";
+    termin.innerHTML = escape(dataPl(a.oplacono_do))
+      + (a.po_terminie ? ' <span class="znacznik alarm">po terminie</span>' : "");
+  }
+  $("abonament-zaplac").hidden = !(a.platnosci_wlaczone && a.moge_zaplacic);
+  $("btn-zaplac").textContent = "Zapłać za miesiąc — " + a.cena.replace(".", ",") + " zł";
+  if (a.platnosci_wlaczone && !a.moge_zaplacic) {
+    $("abonament-opis").textContent += " Abonament opłaca właściciel kancelarii.";
+  }
+  $("abonament-historia").innerHTML = a.historia.length
+    ? "<b>Wpłaty</b>" + a.historia.slice().reverse().map(p =>
+        `<div><span>${escape(dataPl(p.data))}</span><span>${escape(String(p.kwota).replace(".", ","))} zł`
+        + `${p.status === "true" ? "" : " · zwrot"}</span></div>`).join("")
+    : "";
+}
+
+$("btn-abonament").onclick = async () => {
+  stan($("stan-abonament"), "");
+  if (abonament) rysujAbonament();
+  $("okno-abonament").showModal();
+  await wczytajAbonament();
+};
+$("btn-zamknij-abonament").onclick = () => $("okno-abonament").close();
+$("btn-zaplac").onclick = async () => {
+  $("btn-zaplac").disabled = true;
+  stan($("stan-abonament"), "Łączę z bramką płatności…", false, true);
+  try {
+    const odp = await api("/api/abonament", {method: "POST"});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
+    // Powiadomienie Tpay czesto dochodzi, zanim platnik wroci - porownujemy
+    // wiec z terminem sprzed platnosci, nie z tym po powrocie.
+    try { sessionStorage.setItem(KLUCZ_PRZED_PLATNOSCIA, abonament.oplacono_do || ""); } catch { /* prywatne okno */ }
+    location.assign(w.adres);   // panel Tpay, nie nasze /api - tu przekierowanie jest w porządku
+  } catch (e) { stan($("stan-abonament"), e.message, true); $("btn-zaplac").disabled = false; }
+};
+
+/* Powrot z panelu Tpay: ?platnosc=ok albo ?platnosc=blad. Powiadomienie
+   moze dojsc kilka sekund po platniku, wiec chwile odpytujemy. */
+async function obsluzPowrotZPlatnosci(){
+  const wynik = new URLSearchParams(location.search).get("platnosc");
+  if (!wynik || !abonament) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+  let przed = abonament.oplacono_do;
+  try {
+    const zapamietany = sessionStorage.getItem(KLUCZ_PRZED_PLATNOSCIA);
+    if (zapamietany !== null) przed = zapamietany || null;
+    sessionStorage.removeItem(KLUCZ_PRZED_PLATNOSCIA);
+  } catch { /* bez pamieci karty porownujemy z biezacym terminem */ }
+  rysujAbonament();
+  $("okno-abonament").showModal();
+  if (wynik !== "ok") {
+    stan($("stan-abonament"), "Płatność nie została dokończona. Możesz spróbować ponownie.", true);
+    return;
+  }
+  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie z Tpay…", false, true);
+  for (let i = 0; i <= 20; i++) {
+    if (i) { await new Promise(r => setTimeout(r, 3000)); await wczytajAbonament(); }
+    if (abonament.oplacono_do !== przed) {
+      stan($("stan-abonament"), "Płatność potwierdzona. Abonament opłacony do " + dataPl(abonament.oplacono_do) + ".");
+      return;
+    }
+  }
+  stan($("stan-abonament"), "Tpay jeszcze nie potwierdził płatności. Zwykle trwa to chwilę — termin zmieni się sam.");
+}
 
 /* ---------- pomocnik na komputerze notariusza ----------
    Nic tu nie trzeba odswiezac recznie: stan pomocnika pobieramy co 15 s

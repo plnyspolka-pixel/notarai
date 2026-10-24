@@ -434,7 +434,9 @@ function kartaKancelarii(k){
     <div class="kanc-naglowek"><h2>${escape(k.nazwa)}</h2>
       <span class="znacznik ${k.aktywna ? "ok" : "wyl"}">${k.aktywna ? "aktywna" : "wyłączona"}</span>
       <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki u kancelarii" : "pliki w chmurze"}</span>
-      <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span></div>
+      <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
+      <span class="znacznik ${k.oplacono_do && k.oplacono_do < new Date().toISOString().slice(0, 10) ? "wyl" : ""}"
+            title="Abonament w Tpay">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
     <div class="zapros"><input type="email" placeholder="${zespol.length ? "zaproś kolejną osobę: e-mail" : "e-mail notariusza"}" spellcheck="false">
       <button class="wtorny">Zaproś</button></div>
@@ -442,6 +444,7 @@ function kartaKancelarii(k){
     <div class="stopka-kanc">
       <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
       <button class="odnosnik" data-akcja="token">Token do automatyzacji…</button>
+      <button class="odnosnik" data-akcja="abonament">Termin abonamentu…</button>
     </div>
     <div class="miejsce-tokenu"></div>`;
   const st = d.querySelector(".stan");
@@ -492,6 +495,18 @@ function kartaKancelarii(k){
     try {
       await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + (k.aktywna ? "" : "/aktywna"),
                 {method: k.aktywna ? "DELETE" : "PUT"});
+      await odswiez();
+    } catch (e) { stan(st, e.message, true); }
+  };
+
+  d.querySelector('[data-akcja="abonament"]').onclick = async () => {
+    const termin = prompt("Do kiedy „" + k.nazwa + "” ma opłacony abonament? (RRRR-MM-DD)\n\n"
+      + "Np. okres próbny albo przelew poza Tpay. Puste pole = kancelaria nie płaci w aplikacji "
+      + "(umowa poza systemem) i nic jej nie blokujemy.", k.oplacono_do || "");
+    if (termin === null) return;
+    try {
+      await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/abonament",
+                {method: "PUT", body: JSON.stringify({oplacono_do: termin.trim()})});
       await odswiez();
     } catch (e) { stan(st, e.message, true); }
   };

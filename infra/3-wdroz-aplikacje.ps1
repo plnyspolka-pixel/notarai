@@ -15,7 +15,11 @@ param(
     # Adres na alarmy i budzet. Podaj raz - przy kolejnych wdrozeniach
     # CloudFormation zapamieta poprzednia wartosc.
     [string]$Email  = "",
-    [int]$Kopie     = 2
+    [int]$Kopie     = 2,
+    # Cena miesiaca abonamentu w zl brutto. Pusta = zostaje poprzednia.
+    [string]$Cena   = "600.00",
+    # Tpay w trybie testowym (klucze z sandboxa, bez prawdziwych pieniedzy).
+    [switch]$TpaySandbox
 )
 $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
@@ -86,6 +90,18 @@ if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
     Write-Host "   logowanie uzytkownikow: pula $pula"
 } else {
     Write-Host "   logowanie uzytkownikow: brak stosu notarai-logowanie, zostaje sam token kancelarii" -ForegroundColor Yellow
+}
+
+# Platnosci Tpay: sekret notarai/tpay zaklada sie recznie w konsoli (klucze
+# client_id i client_secret). Czytamy tylko jego ARN - wartosc zostaje w AWS.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/tpay) {
+    $tpayArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/tpay --query ARN --output text
+    $parametry += "TpaySekretArn=$tpayArn"
+    $parametry += "TpaySrodowisko=$(if ($TpaySandbox) { 'sandbox' } else { 'produkcja' })"
+    if ($Cena) { $parametry += "CenaAbonamentu=$Cena" }
+    Write-Host "   platnosci Tpay: sekret notarai/tpay$(if ($TpaySandbox) { ', SANDBOX' })$(if ($Cena) { ", cena $Cena zl" })"
+} else {
+    Write-Host "   platnosci Tpay: brak sekretu notarai/tpay, platnosci wylaczone" -ForegroundColor Yellow
 }
 
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan

@@ -10,6 +10,8 @@ pytest-mock==3.14.0
 PyYAML>=6.0
 # Sprawdzanie podpisu tokenu logowania z Cognito (klucze RS256).
 PyJWT[crypto]>=2.10
+# Podpis powiadomien Tpay: verify_directly_issued_by i daty *_utc.
+cryptography>=42
 playwright>=1.49
 httpx>=0.27
 faster-whisper>=1.1

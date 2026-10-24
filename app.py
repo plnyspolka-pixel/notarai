@@ -52,6 +52,8 @@ app.middleware("http")(autoryzacja.middleware)
 app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
+app.include_router(autoryzacja.router_abonamentu)
+app.include_router(autoryzacja.router_tpay)
 
 
 @app.get("/zdrowie")
