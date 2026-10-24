@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 import bedrock
 import config
+import dziennik
 import dokumenty
 import formularze
 import krz
@@ -41,6 +42,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+dziennik.wlacz_maskowanie()
 log = logging.getLogger("pieczapp")
 
 app = FastAPI(title="pieczapp", docs_url=None, redoc_url=None)
@@ -54,6 +56,14 @@ app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
 app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_tpay)
+
+
+@app.exception_handler(Exception)
+async def _nieobsluzony(request: Request, blad: Exception):
+    """Blad, ktorego nie zlapal endpoint: do dziennika, bez tresci wyjatku."""
+    log.error("%s %s: nieobsluzony blad (%s)", request.method, request.url.path,
+              dziennik.opis_bledu(blad))
+    return JSONResponse({"detail": "Blad serwera."}, status_code=500)
 
 
 @app.get("/zdrowie")
@@ -132,9 +142,10 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
         odczyt, transkrypcje = bedrock.odczytaj_sprawe(
             strony, pola_wzoru, polecenie, analiza["legenda"], postep, wysilek)
     except bedrock.Przeciazenie as blad:
+        log.error("%s: odczyt przerwany, limit zapytan Bedrock", etykieta)
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
-        log.error("%s: blad odczytu (%s)", etykieta, type(blad).__name__)
+        log.error("%s: blad odczytu (%s)", etykieta, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {blad}")
 
     pola = _zwaliduj(odczyt.get("pola", []))
@@ -144,7 +155,7 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
     try:
         pytania = bedrock.rozmawiaj(kontekst, [], None)
     except Exception as blad:
-        log.error("%s: blad pytan wstepnych (%s)", etykieta, type(blad).__name__)
+        log.error("%s: blad pytan wstepnych (%s)", etykieta, dziennik.opis_bledu(blad))
         pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
                    "albo od razu sporzadzic projekt.")
 
@@ -193,7 +204,7 @@ async def _wykonaj(request: Request, praca) -> Response:
         except HTTPException as blad:
             kolejka.put({"blad": blad.detail, "kod": blad.status_code})
         except Exception as blad:  # noqa: BLE001 - tresc bledu nie trafia do logu
-            log.error("odczyt w tle: %s", type(blad).__name__)
+            log.error("odczyt w tle: %s", dziennik.opis_bledu(blad))
             kolejka.put({"blad": "Blad serwera podczas odczytu.", "kod": 500})
         finally:
             kolejka.put(None)
@@ -263,6 +274,7 @@ async def nowa_sprawa(
             wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
                                f"sprawa {identyfikator}", postep, wysilek)
         except ValueError as blad:
+            log.warning("sprawa %s: odrzucona (%s)", identyfikator, dziennik.opis_bledu(blad))
             shutil.rmtree(katalog, ignore_errors=True)
             raise HTTPException(400, str(blad))
         except BaseException:
@@ -377,6 +389,7 @@ async def odczyt_bez_zapisu(
                 wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
                                    "odczyt bez zapisu", postep, wysilek)
             except ValueError as blad:
+                log.warning("odczyt bez zapisu: odrzucony (%s)", dziennik.opis_bledu(blad))
                 raise HTTPException(400, str(blad))
         finally:
             shutil.rmtree(katalog, ignore_errors=True)
@@ -424,7 +437,7 @@ async def projekt_bez_zapisu(
         except bedrock.Przeciazenie as blad:
             raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
         except Exception as blad:
-            log.error("projekt bez zapisu: blad generowania (%s)", type(blad).__name__)
+            log.error("projekt bez zapisu: blad generowania (%s)", dziennik.opis_bledu(blad))
             raise HTTPException(502, f"Bedrock: {blad}")
 
         cel = katalog / "projekt.docx"
@@ -458,7 +471,7 @@ def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
-        log.error("rozmowa bez zapisu: blad (%s)", type(blad).__name__)
+        log.error("rozmowa bez zapisu: blad (%s)", dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
     return {"odpowiedz": odpowiedz}
 
@@ -486,7 +499,7 @@ def generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania):
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
-        log.error("sprawa %s: blad generowania (%s)", identyfikator, type(blad).__name__)
+        log.error("sprawa %s: blad generowania (%s)", identyfikator, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {blad}")
 
     cel = katalog / "projekt.docx"
@@ -694,7 +707,7 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
-        log.error("sprawa %s: blad rozmowy (%s)", identyfikator, type(blad).__name__)
+        log.error("sprawa %s: blad rozmowy (%s)", identyfikator, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
     rozmowa.append({"rola": "uzytkownik", "tresc": tresc, "czas": teraz})
     rozmowa.append({"rola": "asystent", "tresc": odpowiedz, "czas": datetime.now().isoformat(timespec="seconds")})
@@ -716,7 +729,7 @@ async def transkrybuj_audio(audio: UploadFile = File(...)):
     try:
         tekst = transkrypcja.transkrybuj(dane, rozszerzenie)
     except Exception as blad:
-        log.error("transkrypcja: blad (%s)", type(blad).__name__)
+        log.error("transkrypcja: blad (%s)", dziennik.opis_bledu(blad))
         raise HTTPException(500, f"Transkrypcja nie powiodla sie: {type(blad).__name__}")
     return {"tekst": tekst}
 
@@ -784,7 +797,7 @@ def dopasuj_formularz(system: str, zadanie: ZadanieDopasowania):
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
-        log.error("formularz %s: blad dopasowania (%s)", system, type(blad).__name__)
+        log.error("formularz %s: blad dopasowania (%s)", system, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
 
     return {
@@ -925,7 +938,7 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
                     etykieta=osoba.etykieta,
                 )
             except Exception as blad:  # noqa: BLE001
-                log.error("sprawa %s: KRZ blad (%s)", identyfikator, type(blad).__name__)
+                log.error("sprawa %s: KRZ blad (%s)", identyfikator, dziennik.opis_bledu(blad))
                 wynik = rejestry.WynikSprawdzenia(
                     rejestr="KRZ", zapytanie=rejestry.maskuj_pesel(osoba.pesel), status="niedostepny",
                     szczegoly=f"{osoba.etykieta} - portal niedostepny albo zmienil uklad ({type(blad).__name__})",

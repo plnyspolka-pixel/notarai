@@ -293,24 +293,24 @@ def _transkrybuj_z_ponowieniem(paczka: list[dict], wysilek: str | None = None, p
             # Limit zapytan na minute - przeczekanie go to jedyne, co pomaga.
             if proba == proby:
                 raise
-            log.warning("paczka %s/%d (%d str.): limit zapytan, czekam (%d)",
-                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), proba)
+            log.warning("paczka od strony %d (%d str.): limit zapytan, czekam (%d)",
+                        paczka[0]["strona"], len(paczka), proba)
             time.sleep(60 * proba)
         except ClientError as blad:
             kod = blad.response.get("Error", {}).get("Code", "")
             if kod in {"ValidationException", "AccessDeniedException"} or proba == proby:
                 raise
-            log.warning("paczka %s/%d (%d str.): %s, ponawiam (%d)",
-                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), kod, proba)
+            log.warning("paczka od strony %d (%d str.): %s, ponawiam (%d)",
+                        paczka[0]["strona"], len(paczka), kod, proba)
         except ValueError:
             if proba == proby:
                 raise
-            log.warning("paczka %s/%d (%d str.): niepelna odpowiedz, ponawiam (%d)",
-                        paczka[0]["dokument"], paczka[0]["strona"], len(paczka), proba)
+            log.warning("paczka od strony %d (%d str.): niepelna odpowiedz, ponawiam (%d)",
+                        paczka[0]["strona"], len(paczka), proba)
     if len(paczka) > 1:
         for i, w in enumerate(wyniki):
             if w.get("brak"):
-                log.warning("strona %s/%d pominieta w paczce, czytam osobno", w["dokument"], w["strona"])
+                log.warning("strona %d pominieta w paczce, czytam osobno", w["strona"])
                 wyniki[i] = _transkrybuj_z_ponowieniem([paczka[i]], wysilek, proby)[0]
     for w in wyniki:
         if w.pop("brak", False):
