@@ -216,7 +216,8 @@ def stan_dokumentow(request: Request):
         "dane": wpis.get("dane") or {},
         "do_akceptacji": _do_akceptacji(wpis, email, wlasciciel),
         "dokumenty": [{"nazwa": n, "tytul": dokumenty_prawne.tytul(n),
-                       "wersja": dokumenty_prawne.wersja(n)} for n in dokumenty_prawne.DOKUMENTY],
+                       "wersja": dokumenty_prawne.wersja(n),
+                       "wewnetrzny": n in dokumenty_prawne.WEWNETRZNE} for n in dokumenty_prawne.DOKUMENTY],
     }
 
 
@@ -307,27 +308,100 @@ def _ramka_umowy(wpis: dict) -> str:
             "w aplikacji notarai, bez podpisu.</p></div>")
 
 
-def _wypelnienie(nazwa: str, wpis: dict) -> tuple[dict | None, str]:
-    """(pola do wstawienia, ramka przed trescia) - dane tej kancelarii."""
+def _pola_kancelarii(wpis: dict) -> dict:
+    """Dane kancelarii wspolne dla dokumentow wypelnianych przez aplikacje."""
+    dane, umowa = wpis.get("dane") or {}, wpis.get("umowa") or {}
+    chmura = wpis.get("przechowywanie", "chmura") == "chmura"
+    return {
+        "kancelaria": wpis["nazwa"], "notariusze": dane.get("notariusze"),
+        "adres": dane.get("adres"), "nip": dane.get("nip") or "-",
+        "email": ", ".join(autoryzacja._wlasciciele(wpis)),
+        "data": _data(autoryzacja._teraz())[:10],
+        "zawarto": (_data(umowa.get("zawarto") or umowa["zaakceptowano"])[:10]
+                    if umowa.get("zaakceptowano") else "jeszcze niezawarta"),
+        "iod": "nie wyznaczono albo według dokumentacji kancelarii",
+        "przechowywanie": _PRZECHOWYWANIE.get(wpis.get("przechowywanie", "chmura")),
+        "kalendarz": ("tak - kancelaria przechowuje pliki w chmurze, kalendarz i spis telefonów są dostępne"
+                      if chmura else "nie - w trybie „Pliki u kancelarii” kalendarz i spis telefonów "
+                                     "są wyłączone; wpisu nie trzeba dodawać"),
+        "uzytkownicy": str(len(autoryzacja._zespol(wpis))),
+    }
+
+
+_TYLKO_WLASCICIEL = ("<p><em>Zestawienie osób z zespołu widzi tylko właściciel kancelarii.</em></p>")
+
+
+def _potwierdzenia_instrukcji(wpis: dict) -> str:
+    osoby = "".join(
+        f"<tr><td>{html.escape(o['email'])}</td><td>"
+        + (html.escape(f"{_data((o.get('instrukcja') or {}).get('data'))}, wersja "
+                       f"{(o.get('instrukcja') or {}).get('wersja', '')}")
+           if (o.get("instrukcja") or {}).get("data") else "jeszcze nie potwierdziła / nie potwierdził")
+        + "</td></tr>"
+        for o in autoryzacja._zespol(wpis))
+    return ("<h2>Potwierdzenia instrukcji korzystania z AI</h2>"
+            f"<table><tr><th>Osoba</th><th>Potwierdzenie</th></tr>{osoby}</table>")
+
+
+def _upowaznienia(wpis: dict, osoby: list[dict]) -> str:
+    """Jedna ramka na osobe: dane z konta, reszte kancelaria dopisuje."""
+    notariusze = (wpis.get("dane") or {}).get("notariusze", "")
+    czesci = []
+    for i, o in enumerate(osoby, 1):
+        od = _data(o.get("dolaczyl") or o.get("zaproszono"))[:10] or "...................."
+        rola = "właściciel konta kancelarii" if o.get("rola") == "wlasciciel" else "członek zespołu"
+        wiersze = [
+            ("Konto w notarai (e-mail)", o.get("email", "")),
+            ("Rola w aplikacji", rola),
+            ("Imię i nazwisko", "........................................................"),
+            ("Stanowisko", "........................................................"),
+            ("Upoważnienie od dnia", od),
+            ("Upoważnienie do dnia", "do odwołania, najpóźniej do usunięcia konta"),
+        ]
+        tabela = "".join(f"<tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>" for k, v in wiersze)
+        czesci.append(
+            f'<div class="upowaznienie"><h3>Upoważnienie {i}</h3>'
+            f"<table>{tabela}</table>"
+            f'<p class="podpis">Administrator: {html.escape(notariusze)} '
+            "....................................... (podpis albo e-mail)</p>"
+            '<p class="podpis">Oświadczam, że zapoznałam / zapoznałem się z treścią upoważnienia i przyjmuję '
+            "zobowiązania z pkt 3. ....................................... (podpis albo odpowiedź e-mailem)</p>"
+            "</div>")
+    if not czesci:
+        return "<p>W zespole kancelarii nie ma jeszcze żadnych kont.</p>"
+    return "".join(czesci)
+
+
+def _wypelnienie(nazwa: str, wpis: dict, email: str = "",
+                 wlasciciel: bool = False) -> tuple[dict | None, str, str]:
+    """(pola do wstawienia, ramka przed trescia, dodatek po tresci) - dane
+    tej kancelarii. Zestawienia osob z zespolu dostaje tylko wlasciciel;
+    czlonek zespolu widzi wlasne upowaznienie."""
     if nazwa == "umowa":
-        return None, _ramka_umowy(wpis)
+        return None, _ramka_umowy(wpis), ""
     if nazwa == "dpia":
-        dane, dpia = wpis.get("dane") or {}, wpis.get("dpia") or {}
+        dpia = wpis.get("dpia") or {}
         return {
-            "kancelaria": wpis["nazwa"], "notariusze": dane.get("notariusze"),
+            **_pola_kancelarii(wpis),
             "data": _data(dpia.get("przyjeto") or autoryzacja._teraz())[:10],
-            "iod": "nie wyznaczono albo według dokumentacji kancelarii",
-            "przechowywanie": _PRZECHOWYWANIE.get(wpis.get("przechowywanie", "chmura")),
-            "uzytkownicy": str(len(autoryzacja._zespol(wpis))),
             "przyjeto": (f"{_data(dpia['przyjeto'])}, {dpia.get('email', '')}" if dpia.get("przyjeto")
                          else "jeszcze nie przyjęto"),
-        }, ""
-    return None, ""
+        }, "", ""
+    if nazwa == "zasady-ai":
+        return _pola_kancelarii(wpis), "", (_potwierdzenia_instrukcji(wpis) if wlasciciel else _TYLKO_WLASCICIEL)
+    if nazwa == "upowaznienia":
+        zespol = autoryzacja._zespol(wpis)
+        osoby = zespol if wlasciciel else [o for o in zespol if o.get("email") == email]
+        return _pola_kancelarii(wpis), "", _upowaznienia(wpis, osoby)
+    if nazwa in dokumenty_prawne.WEWNETRZNE:
+        return _pola_kancelarii(wpis), "", ""
+    return None, "", ""
 
 
 # Kolejnosc w komplecie: najpierw to, co kancelaria zawarla, potem to, co
-# przyjela u siebie, na koncu instrukcje dla zespolu.
-KOMPLET = ("regulamin", "umowa", "prywatnosc", "dpia", "instrukcja", "kancelaria")
+# przyjela u siebie, instrukcje dla zespolu, na koncu dokumenty wewnetrzne.
+KOMPLET = ("regulamin", "umowa", "prywatnosc", "dpia", "instrukcja", "kancelaria",
+           *dokumenty_prawne.WEWNETRZNE)
 
 
 def _strona_tytulowa(wpis: dict, wlasciciel: bool) -> str:
@@ -340,23 +414,14 @@ def _strona_tytulowa(wpis: dict, wlasciciel: bool) -> str:
         "dpia": (f"przyjęta {_data(dpia['przyjeto'])}" if dpia.get("przyjeto")
                  else "czeka na przyjęcie przez notariusza"),
         "instrukcja": "potwierdza ją każda osoba w zespole przy pierwszym logowaniu",
+        **{n: "dokument wewnętrzny: przyjmij w kancelarii i przechowuj" for n in dokumenty_prawne.WEWNETRZNE},
     }
     wiersze = "".join(
         f"<tr><td>{i}.</td><td>{html.escape(dokumenty_prawne.tytul(n))}</td>"
         f"<td>{html.escape(dokumenty_prawne.wersja(n))}</td>"
         f"<td>{html.escape(stan.get(n, 'do wiadomości'))}</td></tr>"
         for i, n in enumerate(KOMPLET, 1))
-    potwierdzenia = ""
-    if wlasciciel:
-        osoby = "".join(
-            f"<tr><td>{html.escape(o['email'])}</td><td>"
-            + (html.escape(f"{_data((o.get('instrukcja') or {}).get('data'))}, wersja "
-                           f"{(o.get('instrukcja') or {}).get('wersja', '')}")
-               if (o.get("instrukcja") or {}).get("data") else "jeszcze nie potwierdziła / nie potwierdził")
-            + "</td></tr>"
-            for o in autoryzacja._zespol(wpis))
-        potwierdzenia = ("<h2>Potwierdzenia instrukcji korzystania z AI</h2>"
-                         f"<table><tr><th>Osoba</th><th>Potwierdzenie</th></tr>{osoby}</table>")
+    potwierdzenia = _potwierdzenia_instrukcji(wpis) if wlasciciel else ""
     return (
         f"<h1>Dokumenty kancelarii: {html.escape(wpis['nazwa'])}</h1>"
         f"<p>Komplet dokumentów prawnych usługi notarai, z danymi kancelarii, "
@@ -371,11 +436,11 @@ def _strona_tytulowa(wpis: dict, wlasciciel: bool) -> str:
 def komplet(request: Request):
     """Wszystkie dokumenty kancelarii w jednym pliku: strona tytulowa ze
     stanem akceptacji, potem kazdy dokument od nowej strony przy wydruku."""
-    _, _, wpis, _, wlasciciel = _ja(request)
+    _, _, wpis, email, wlasciciel = _ja(request)
     czesci = [f'<section class="dok">{_strona_tytulowa(wpis, wlasciciel)}</section>']
     for nazwa in KOMPLET:
-        pola, przed = _wypelnienie(nazwa, wpis)
-        czesci.append(f'<section class="dok">{przed}{dokumenty_prawne.html_dokumentu(nazwa, pola)}</section>')
+        pola, przed, po = _wypelnienie(nazwa, wpis, email, wlasciciel)
+        czesci.append(f'<section class="dok">{przed}{dokumenty_prawne.html_dokumentu(nazwa, pola)}{po}</section>')
     log.info("kancelaria %s: pobrano komplet dokumentow", wpis["id"])
     return (
         '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
@@ -393,6 +458,6 @@ def dokument(nazwa: str, request: Request):
     pobiera go przez api() (z tokenem), nie zwyklym odnosnikiem."""
     if nazwa not in dokumenty_prawne.DOKUMENTY:
         raise HTTPException(404, "Nie ma takiego dokumentu.")
-    _, _, wpis, _, _ = _ja(request)
-    pola, przed = _wypelnienie(nazwa, wpis)
-    return dokumenty_prawne.strona(nazwa, pola, przed=przed)
+    _, _, wpis, email, wlasciciel = _ja(request)
+    pola, przed, po = _wypelnienie(nazwa, wpis, email, wlasciciel)
+    return dokumenty_prawne.strona(nazwa, pola, przed=przed, po=po)

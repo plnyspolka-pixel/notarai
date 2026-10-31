@@ -27,7 +27,16 @@ DOKUMENTY = {
     "instrukcja": ("09-instrukcja-ai.md", "Instrukcja korzystania z AI"),
     "dpia": ("07-dpia-dla-kancelarii.md", "Ocena skutków dla ochrony danych"),
     "kancelaria": ("08-dla-kancelarii-checklista.md", "Co robi kancelaria"),
+    "rejestr-czynnosci": ("11-rejestr-czynnosci-kancelarii.md", "Rejestr czynności przetwarzania - wpisy"),
+    "klauzula": ("12-klauzula-informacyjna.md", "Klauzula informacyjna dla klientów"),
+    "zasady-ai": ("13-zasady-ai-w-kancelarii.md", "Zasady korzystania z AI w kancelarii"),
+    "upowaznienia": ("14-upowaznienia-kancelarii.md", "Upoważnienia do przetwarzania danych"),
+    "naruszenia": ("15-naruszenia-w-kancelarii.md", "Postępowanie z naruszeniem ochrony danych"),
 }
+
+# Dokumenty wewnetrzne kancelarii: niczego tu nie akceptuje sie w aplikacji,
+# kancelaria przyjmuje je u siebie (zarzadzenie, rejestr, upowaznienia).
+WEWNETRZNE = ("rejestr-czynnosci", "klauzula", "zasady-ai", "upowaznienia", "naruszenia")
 
 # Pole bez wartosci na stronie publicznej: wzor, ktory wypelnia aplikacja.
 PUSTE_POLE = "(uzupełnia aplikacja)"
@@ -77,18 +86,21 @@ th{background:#f4f2ee}.tabela{overflow-x:auto}
 blockquote{margin:12px 0;padding:8px 14px;border-left:3px solid #ccc;color:#444}
 code{font-family:Consolas,monospace;font-size:13px}
 .zawarcie{border:1px solid #9bb59b;background:#f2f8f2;padding:4px 16px 8px;margin:0 0 24px}
-@media print{body{padding:0}.zawarcie{break-inside:avoid}}
+.upowaznienie{border:1px solid #ccc;padding:4px 16px 12px;margin:16px 0}
+.podpis{margin-top:28px;color:#555}
+@media print{body{padding:0}.zawarcie,.upowaznienie{break-inside:avoid}}
 """
 
 
-def strona(nazwa: str, pola: dict | None = None, przed: str = "") -> str:
+def strona(nazwa: str, pola: dict | None = None, przed: str = "", po: str = "") -> str:
     """Samodzielna strona do otwarcia, wydruku albo zapisu jako PDF.
-    `przed` to gotowy, juz zakodowany HTML (np. ramka z danymi stron)."""
+    `przed` i `po` to gotowy, juz zakodowany HTML (np. ramka z danymi stron,
+    zestawienie osob z zespolu)."""
     return (
         '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{html.escape(tytul(nazwa))} - notarai</title><style>{STYL}</style></head>"
-        f"<body>{przed}{html_dokumentu(nazwa, pola)}</body></html>"
+        f"<body>{przed}{html_dokumentu(nazwa, pola)}{po}</body></html>"
     )
 
 

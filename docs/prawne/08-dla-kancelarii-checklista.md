@@ -1,6 +1,6 @@
 # NOTARAI - CO KANCELARIA ROBI PO SWOJEJ STRONIE
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 31.10.2026.
 
 Krótka lista dla notariusza. Nic tu nie wymaga podpisu ani wysyłania
 dokumentów do Fundacji. Punkty 1-3 załatwia się w aplikacji kliknięciem.
@@ -18,7 +18,10 @@ dokumentów do Fundacji. Punkty 1-3 załatwia się w aplikacji kliknięciem.
    czynnościach notarialnych w rubryce „odbiorcy” - „dostawca usługi IT
    (podmiot przetwarzający): Fundacja Krzewienia Edukacji Finansowej
    im. Pieczaka, Lublin; dalszy podmiot: Amazon Web Services EMEA SARL”.
-5. **Uzupełnić klauzulę informacyjną** dla klientów, np.:
+   Gotowe wpisy z danymi kancelarii: Dokumenty → Rejestr czynności
+   przetwarzania - wpisy.
+5. **Uzupełnić klauzulę informacyjną** dla klientów (pełny wzór z danymi
+   kancelarii: Dokumenty → Klauzula informacyjna dla klientów), np.:
 
    > Odbiorcami danych mogą być podmioty świadczące na rzecz kancelarii usługi
    > informatyczne, w tym usługi przechowywania danych i oprogramowania
@@ -31,6 +34,9 @@ dokumentów do Fundacji. Punkty 1-3 załatwia się w aplikacji kliknięciem.
 
 6. **Zakładać konta tylko osobom upoważnionym** przez kancelarię do
    przetwarzania danych i usuwać konto w dniu zakończenia pracy.
+   Upoważnienia dla każdego konta z zespołu, zasady korzystania z AI
+   (zarządzenie notariusza) i procedurę z ewidencją naruszeń aplikacja
+   przygotowuje w oknie Dokumenty - przyjmij je u siebie.
 7. **Usuwać sprawy** z notarai po zakończeniu czynności (lub ustalić
    w kancelarii inny termin). notarai nie jest repertorium ani archiwum
    notarialnym - dokumentację prowadzi się jak dotąd.

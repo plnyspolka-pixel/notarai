@@ -223,7 +223,7 @@ class TestDokumenty:
         wlasciciel = self._wlasciciel(
             klient, nazwa="<script>alert(1)</script> [klik](javascript:alert(2))",
             notariusze="Anna **Sobczak** <img src=x onerror=alert(3)>")
-        for dokument in ("umowa", "dpia", "komplet"):
+        for dokument in ("umowa", "dpia", "komplet", "upowaznienia", "klauzula"):
             strona = klient.get(f"/api/dokumenty/{dokument}", headers=wlasciciel).text
             assert "<script>alert" not in strona and "<img" not in strona
             assert 'href="javascript' not in strona
@@ -253,6 +253,45 @@ class TestDokumenty:
         klient.post("/api/zespol", headers=wlasciciel, json={"email": "ewa@kancelaria-sobczak.test"})
         odp = klient.get("/api/dokumenty/komplet", headers=jako("ewa@kancelaria-sobczak.test", k))
         assert odp.status_code == 200 and "Potwierdzenia instrukcji" not in odp.text
+
+    def test_dokumenty_wewnetrzne_z_danymi_kancelarii(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient, nip="7740001454")
+        lista = klient.get("/api/dokumenty", headers=wlasciciel).json()["dokumenty"]
+        assert {d["nazwa"] for d in lista if d["wewnetrzny"]} == set(dokumenty_prawne.WEWNETRZNE)
+        for nazwa in dokumenty_prawne.WEWNETRZNE:
+            strona = klient.get(f"/api/dokumenty/{nazwa}", headers=wlasciciel).text
+            assert "{{" not in strona and dokumenty_prawne.PUSTE_POLE not in strona, nazwa
+            assert "Anna Sobczak" in strona and "ul. Fikcyjna 1, 20-001 Lublin" in strona, nazwa
+        assert "7740001454" in klient.get("/api/dokumenty/rejestr-czynnosci", headers=wlasciciel).text
+        assert "anna@kancelaria-sobczak.test" in klient.get("/api/dokumenty/klauzula", headers=wlasciciel).text
+
+    def test_upowaznienie_dla_kazdego_konta_czlonek_widzi_swoje(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient)
+        k = _id(klient)
+        klient.post("/api/zespol", headers=wlasciciel, json={"email": "ewa@kancelaria-sobczak.test"})
+        strona = klient.get("/api/dokumenty/upowaznienia", headers=wlasciciel).text
+        assert strona.count('class="upowaznienie"') == 2 and "ewa@kancelaria-sobczak.test" in strona
+        ewa = klient.get("/api/dokumenty/upowaznienia", headers=jako("ewa@kancelaria-sobczak.test", k)).text
+        assert ewa.count('class="upowaznienie"') == 1
+        assert "ewa@kancelaria-sobczak.test" in ewa and "anna@kancelaria-sobczak.test" not in ewa
+
+    def test_zasady_ai_z_potwierdzeniami_tylko_dla_wlasciciela(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient)
+        k = _id(klient)
+        klient.post("/api/dokumenty/instrukcja", headers=wlasciciel)
+        klient.post("/api/zespol", headers=wlasciciel, json={"email": "ewa@kancelaria-sobczak.test"})
+        assert "Potwierdzenia instrukcji" in klient.get("/api/dokumenty/zasady-ai", headers=wlasciciel).text
+        ewa = klient.get("/api/dokumenty/zasady-ai", headers=jako("ewa@kancelaria-sobczak.test", k)).text
+        assert "Potwierdzenia instrukcji" not in ewa and "widzi tylko właściciel" in ewa
+
+    def test_kalendarz_w_rejestrze_zalezy_od_trybu_plikow(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient, przechowywanie="u-klienta")
+        strona = klient.get("/api/dokumenty/rejestr-czynnosci", headers=wlasciciel).text
+        assert "wpisu nie trzeba dodawać" in strona
 
 
 def test_usuniecie_danych_zostawia_wpis_w_rejestrze_umow(srodowisko):

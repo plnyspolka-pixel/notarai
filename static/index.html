@@ -1797,7 +1797,9 @@ function rysujDokumenty(){
   dokumenty.dokumenty.forEach(dok => {
     const d = document.createElement("div");
     d.className = "komputer";
-    const opis = OPIS_DOKUMENTU[dok.nazwa] ? OPIS_DOKUMENTU[dok.nazwa]() : "wersja z " + dok.wersja;
+    const opis = OPIS_DOKUMENTU[dok.nazwa] ? OPIS_DOKUMENTU[dok.nazwa]()
+      : dok.wewnetrzny ? "dokument wewnętrzny z danymi kancelarii - przyjmij u siebie i przechowuj"
+      : "wersja z " + dok.wersja;
     const przyjmij = dok.nazwa === "dpia" && dokumenty.jestem_wlascicielem && dokumenty.do_akceptacji.includes("dpia");
     d.innerHTML = `<div><b>${escape(dok.tytul)}</b><small>${escape(opis)}</small></div>
       ${przyjmij ? '<button data-przyjmij>Przyjmuję ocenę</button>' : ""}

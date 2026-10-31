@@ -29,6 +29,15 @@ i komunikat w aplikacji).
 | [08-dla-kancelarii-checklista.md](08-dla-kancelarii-checklista.md) | kancelaria | - |
 | [09-instrukcja-ai.md](09-instrukcja-ai.md) | każda osoba w kancelarii (§ 4 ust. 5 Regulaminu, art. 4 AI Act) | każdy potwierdza ją sam przy pierwszym logowaniu |
 | [10-rejestr-dostepow-serwisowych.md](10-rejestr-dostepow-serwisowych.md) | wewnętrzny, Fundacja (§ 5 ust. 4 umowy powierzenia) | wpisy prowadzi aplikacja; kancelaria widzi je w oknie „Zespół kancelarii” |
+| [11-rejestr-czynnosci-kancelarii.md](11-rejestr-czynnosci-kancelarii.md) | wewnętrzny, kancelaria (art. 30 ust. 1 RODO) | aplikacja wypełnia danymi kancelarii; kancelaria dołącza do swojego rejestru |
+| [12-klauzula-informacyjna.md](12-klauzula-informacyjna.md) | kancelaria → jej klienci (art. 13-14 RODO) | jw.; kancelaria udostępnia klientom |
+| [13-zasady-ai-w-kancelarii.md](13-zasady-ai-w-kancelarii.md) | wewnętrzny, kancelaria (art. 4 AI Act) | jw., z zestawieniem potwierdzeń instrukcji (tylko dla właściciela); zarządzenie notariusza |
+| [14-upowaznienia-kancelarii.md](14-upowaznienia-kancelarii.md) | wewnętrzny, kancelaria (art. 29 i 32 ust. 4 RODO) | jedna ramka na każde konto z zespołu; członek zespołu widzi tylko swoje |
+| [15-naruszenia-w-kancelarii.md](15-naruszenia-w-kancelarii.md) | wewnętrzny, kancelaria (art. 33-34 RODO) | procedura i pusta ewidencja naruszeń |
+
+Dokumenty 11-15 niczego nie wymagają w aplikacji: zmiana ich daty wersji nie
+prosi o ponowną akceptację. Nie są publikowane na notarai.pl (`STRONY`
+w `infra/strona_dokumenty.py`), są w oknie Dokumenty i w komplecie.
 
 Wersja dokumentu to data w linii „Wersja z dnia DD.MM.RRRR.”. Aplikacja
 porównuje ją z zaakceptowaną. Zmiana daty w 01 lub 02 oznacza, że
