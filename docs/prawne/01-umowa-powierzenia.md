@@ -1,6 +1,6 @@
 # UMOWA POWIERZENIA PRZETWARZANIA DANYCH OSOBOWYCH
 
-Wersja z dnia 24.10.2026. Integralna część Regulaminu świadczenia usługi
+Wersja z dnia 31.10.2026. Integralna część Regulaminu świadczenia usługi
 notarai.
 
 Umowa zostaje zawarta przez akceptację w Formularzu rejestracji
@@ -307,7 +307,10 @@ materiałów spraw, odczyt i przepisanie treści dokumentów (w tym skanów) prz
 model sztucznej inteligencji, porządkowanie i walidacja odczytanych danych,
 przygotowanie projektów dokumentów do weryfikacji przez notariusza, rozmowa
 z asystentem o sprawie, wspieranie wypełniania formularzy i przeglądania
-rejestrów publicznych w przeglądarce Administratora.
+rejestrów publicznych w przeglądarce Administratora, prowadzenie kalendarza
+terminów czynności oraz spisu stron czynności z numerami telefonów
+wpisanymi przez użytkownika (spis powstaje z danych odczytanych w sprawach;
+numer PESEL nie jest w nim zapisywany).
 
 **Operacje.** Zbieranie (przesłanie przez użytkownika), utrwalanie,
 przechowywanie, odczyt, porządkowanie, strukturyzowanie, łączenie,
@@ -329,7 +332,8 @@ przesyłanie do modelu językowego, usuwanie.
 1. Dane identyfikacyjne: imiona, nazwiska, nazwiska rodowe, imiona rodziców,
    data i miejsce urodzenia, PESEL, seria i numer dokumentu tożsamości,
    obywatelstwo.
-2. Dane kontaktowe i adresowe.
+2. Dane kontaktowe i adresowe, w tym numery telefonów stron czynności
+   wpisane przez użytkownika.
 3. Stan cywilny, ustrój majątkowy małżeński, dane z aktów stanu cywilnego.
 4. Dane majątkowe i finansowe: nieruchomości, numery ksiąg wieczystych, ceny,
    kwoty, numery rachunków bankowych, zobowiązania, hipoteki, udziały.

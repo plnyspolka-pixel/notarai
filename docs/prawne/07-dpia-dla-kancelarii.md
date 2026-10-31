@@ -1,6 +1,6 @@
 # OCENA SKUTKÓW DLA OCHRONY DANYCH (DPIA) - KORZYSTANIE Z NOTARAI
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 31.10.2026.
 
 Ocena przygotowana przez Fundację dla kancelarii (art. 28 ust. 3 lit. f
 RODO) i wypełniona przez aplikację danymi kancelarii. Ocenę przyjmuje
@@ -24,7 +24,9 @@ korzystania z usługi.
 ## 2. Opis przetwarzania
 
 - **Cel:** przyspieszenie przygotowania czynności notarialnych - odczyt
-  dokumentów, zestawienie danych, projekt aktu do weryfikacji.
+  dokumentów, zestawienie danych, projekt aktu do weryfikacji; kalendarz
+  terminów i spis stron czynności z numerami telefonów do kontaktu przed
+  czynnością (tylko przy przechowywaniu w chmurze, bez numerów PESEL).
 - **Podstawa prawna przetwarzania przez kancelarię:** art. 6 ust. 1 lit. c
   i e RODO w związku z ustawą - Prawo o notariacie; dla danych z art. 9 -
   art. 9 ust. 2 lit. f i g; dla danych z art. 10 - przepisy ustawy - Prawo

@@ -22,6 +22,7 @@ Poniższa tabela opisuje wariant chmurowy.
 | Co | Gdzie | Zabezpieczenie |
 |---|---|---|
 | Skany, odczyty, przepisana treść stron (transkrypcje), rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |
+| Kalendarz terminów i numery telefonów stron (bez numerów PESEL; spis osób powstaje na bieżąco z odczytów) | S3, Frankfurt, osobno dla każdej kancelarii | szyfrowane, dostęp tylko po TLS, wersjonowane; usuwane razem z danymi kancelarii |
 | Dane kancelarii i zapis akceptacji umowy powierzenia | S3, Frankfurt, obszar administracyjny | szyfrowane, tylko dla aplikacji i administratora |
 | Konta i hasła użytkowników | Amazon Cognito, Frankfurt | hasła przechowuje AWS, aplikacja ich nie widzi |
 | Dzienniki pracy aplikacji | CloudWatch, Frankfurt | 90 dni, bez danych osobowych |

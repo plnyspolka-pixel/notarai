@@ -1,6 +1,6 @@
 # REGULAMIN ŚWIADCZENIA USŁUGI NOTARAI
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 31.10.2026.
 
 ## § 1. Usługodawca
 
@@ -50,7 +50,10 @@ Wersja z dnia 24.10.2026.
    4. przygotowanie Projektów na podstawie wzorów Kancelarii,
    5. rozmowę z asystentem o Sprawie,
    6. wspieranie pracy z rejestrami publicznymi przez program pomocnika
-      w przeglądarce na komputerze Kancelarii.
+      w przeglądarce na komputerze Kancelarii,
+   7. kalendarz terminów czynności i spis stron czynności z numerami
+      telefonów, które wpisuje Użytkownik (w trybie przechowywania Spraw
+      w chmurze).
 2. Usługa jest narzędziem wspierającym. **Nie wykonuje czynności
    notarialnych, nie świadczy pomocy prawnej, nie tworzy dokumentów gotowych
    do podpisu i nie składa w imieniu Kancelarii wniosków ani oświadczeń.**

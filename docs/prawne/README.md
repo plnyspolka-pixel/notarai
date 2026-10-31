@@ -1,7 +1,8 @@
 # notarai - dokumentacja prawna
 
 Komplet dla Fundacji Krzewienia Edukacji Finansowej im. Pieczaka jako
-dostawcy usługi notarai. Stan na 24.10.2026, wszystko obowiązuje od
+dostawcy usługi notarai. Stan na 31.10.2026 (Regulamin, umowa powierzenia i DPIA: dopisany
+kalendarz i spis telefonów), pierwsze wersje obowiązują od
 24.10.2026.
 
 **Nic tu nie wymaga podpisu.** Kancelaria zakłada konto sama pod

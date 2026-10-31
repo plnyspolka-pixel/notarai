@@ -268,8 +268,9 @@ def test_usuniecie_danych_zostawia_wpis_w_rejestrze_umow(srodowisko):
 
 
 def test_kazdy_dokument_ma_wersje():
+    from datetime import date
     for nazwa in dokumenty_prawne.DOKUMENTY:
-        assert dokumenty_prawne.wersja(nazwa) == "2026-10-24"
+        assert date.fromisoformat(dokumenty_prawne.wersja(nazwa)) >= date(2026, 10, 24)
 
 
 def test_odnosniki_tylko_bezpieczne():
