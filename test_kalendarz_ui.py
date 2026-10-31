@@ -36,7 +36,7 @@ def serwer(tmp_path, monkeypatch):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    uv = uvicorn.Server(uvicorn.Config(aplikacja.app, host="127.0.0.1", port=port, log_level="warning"))
+    uv = uvicorn.Server(uvicorn.Config(aplikacja.app, host="127.0.0.1", port=port, log_config=None))
     watek = threading.Thread(target=uv.run, daemon=True)
     watek.start()
     for _ in range(100):
