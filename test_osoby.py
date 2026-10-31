@@ -24,7 +24,8 @@ def dane(tmp_path, monkeypatch):
     # monkeypatch.setattr(config, "SPRAWY", ...) w innych testach zostawia po
     # sobie zwykly atrybut SPRAWY = prawdziwe dane/sprawy; bez niego wraca
     # wyliczanie z DANE.
-    monkeypatch.delattr(config, "SPRAWY", raising=False)
+    if "SPRAWY" in vars(config):
+        monkeypatch.delattr(config, "SPRAWY")
     sprawy = config.SPRAWY
     assert sprawy.is_relative_to(tmp_path)
     osoby._PAMIEC.clear()
@@ -245,7 +246,8 @@ def s3(tmp_path, monkeypatch):
     # monkeypatch.setattr(config, "SPRAWY", ...) w innych testach zostawia po
     # sobie zwykly atrybut SPRAWY = prawdziwe dane/sprawy; bez niego wraca
     # wyliczanie z DANE.
-    monkeypatch.delattr(config, "SPRAWY", raising=False)
+    if "SPRAWY" in vars(config):
+        monkeypatch.delattr(config, "SPRAWY")
     znacznik = magazyn.kancelaria_var.set("kancelaria-a")
     yield magazyn, atrapa
     magazyn.kancelaria_var.reset(znacznik)

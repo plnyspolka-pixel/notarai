@@ -271,6 +271,17 @@ textarea.pole-tekst{resize:vertical;min-height:60px}
 .kal-slot.zajety:hover:not(:disabled){background:var(--alarm-tlo);border-color:var(--alarm)}
 .kal-slot.wybrany,.kal-slot.wybrany:hover:not(:disabled){background:var(--akcent);border-color:var(--akcent);color:#fff}
 .kal-slot.wybrany .o{color:#fff}
+/* okienko, ktore edytowany termin zwolni dopiero po zapisie */
+.kal-slot.zwalniany{background:repeating-linear-gradient(135deg,var(--tlo),var(--tlo) 6px,var(--tlo2) 6px,var(--tlo2) 12px);border-style:dashed;border-color:var(--linia2)}
+.kal-slot.zwalniany .o{color:var(--tekst2)}
+.kal-tel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
+button.maly{padding:5px 10px;font-size:12.5px}
+#kal-przenies.on{background:var(--akcent-tlo);border-color:var(--akcent);color:var(--akcent)}
+/* pliki sprawy */
+.zal-el{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linia);font-size:13.5px}
+.zal-el a{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zal-el small{color:var(--tekst3);flex:none}
+#pliki-sprawy .strefa{margin-top:12px}
 .kal-rodzaje{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .kal-rodzaj{font:400 13.5px var(--sans);padding:9px 10px;border-radius:8px;background:var(--tlo);color:var(--tekst);
   border:1px solid var(--linia2);text-align:left}
@@ -545,6 +556,17 @@ notarai</div>
   </div>
 </section>
 
+<!-- Pliki sprawy: jedna karta, przenoszona do etapu 2 albo 3 (pokaz()). -->
+<div class="karta" id="pliki-sprawy" hidden>
+  <h2>Pliki sprawy</h2>
+  <div id="pliki-lista"></div>
+  <label class="upload strefa"><input type="file" id="pliki-sprawy-wybor" multiple>
+    <span class="ikona">📎</span>
+    <span><b>Dodaj dokumenty do tej sprawy</b> — przeciągnij je tutaj albo kliknij, żeby wybrać.<br>
+      <small>Zaświadczenia, wypisy, korespondencja, zdjęcia. Do 25 MB na plik.</small></span></label>
+  <div class="pasek" style="margin-top:8px"><span class="stan" id="stan-pliki"></span></div>
+</div>
+
 <!-- ===== 3 ===== -->
 <section id="etap3" hidden>
   <h1>Projekt dokumentu</h1>
@@ -709,7 +731,8 @@ notarai</div>
           <div class="kal-wybrane" id="kal-wybrane"></div>
           <div id="kal-szczegoly" hidden>
             <div class="pole"><label class="etykieta" for="kal-uczestnicy">Nazwiska osób</label><input type="text" id="kal-uczestnicy" placeholder="np. Sobczak, Pawlak"></div>
-            <div class="pole"><label class="etykieta" for="kal-telefon">Telefon</label><input type="tel" id="kal-telefon" placeholder="np. 600 100 200"></div>
+            <div class="pole"><span class="etykieta">Telefony</span><div id="kal-telefony"></div>
+              <button type="button" class="wtorny maly" id="kal-dodaj-tel">+ Dodaj kolejny telefon</button></div>
             <div class="pole"><span class="etykieta">Czynność</span><div class="kal-rodzaje" id="kal-rodzaje"></div></div>
             <div class="pole" id="kal-inne-pole" hidden><label class="etykieta" for="kal-rodzaj-inny">Jaka to czynność?</label><input type="text" id="kal-rodzaj-inny"></div>
             <div class="pole"><label class="etykieta" for="kal-sprawa">Sprawa <span class="wskaz">opcjonalna</span></label><select id="kal-sprawa" style="width:100%"></select></div>
@@ -717,6 +740,7 @@ notarai</div>
             <div id="kal-osoby"></div>
             <div class="pasek">
               <button id="kal-zapisz">Rezerwuj</button>
+              <button class="wtorny" id="kal-przenies" hidden>Przenieś na inną godzinę</button>
               <button class="wtorny" id="kal-anuluj">Nowa rezerwacja</button>
               <button class="wtorny" id="kal-usun" hidden>Usuń</button>
               <span class="stan" id="stan6"></span>
@@ -1387,6 +1411,10 @@ function pokaz(numer){
     if (n >= 4) k.classList.toggle("zrobiony", false);
   });
   if (numer === 5) $("klik-bez-pomocnika").hidden = pomocnikPolaczony;
+  // Pliki sprawy: ta sama karta pod weryfikacja i pod projektem.
+  const plikiSprawy = $("pliki-sprawy");
+  plikiSprawy.hidden = !(sprawa && sprawa.id && (numer === 2 || numer === 3));
+  if (!plikiSprawy.hidden) { $("etap" + numer).appendChild(plikiSprawy); rysujPlikiSprawy(); }
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
   if (numer === 4) {
@@ -1507,6 +1535,106 @@ async function wczytajSprawe(id){
   }
   rysujListeSpraw();
 }
+/* ---------- pliki sprawy ----------
+   Dokumenty dodane recznie do sprawy. W chmurze przez /api/sprawy/{id}/pliki,
+   przy pracy na dysku w podfolderze zalaczniki/ sprawy u notariusza. */
+const MAKS_ZALACZNIK = 25 * 1024 * 1024;
+async function folderZalacznikow(tworz){
+  return (await dysk.katalogSprawy(sprawa.id)).getDirectoryHandle("zalaczniki", {create: tworz});
+}
+async function rysujPlikiSprawy(){
+  if (!sprawa || !sprawa.id) return;
+  const id = sprawa.id;
+  let lista = [];
+  try {
+    if (dysk.aktywny) {
+      try {
+        for await (const [nazwa, u] of (await folderZalacznikow(false)).entries()) {
+          if (u.kind !== "file") continue;
+          const p = await u.getFile();
+          lista.push({nazwa, rozmiar: p.size, dodano: new Date(p.lastModified).toISOString()});
+        }
+      } catch { lista = []; }   // folder powstaje przy pierwszym pliku
+      lista.sort((a, b) => a.nazwa.localeCompare(b.nazwa, "pl"));
+    } else {
+      const odp = await api("/api/sprawy/" + id + "/pliki");
+      if (!odp.ok) throw new Error();
+      lista = await odp.json();
+    }
+  } catch { $("pliki-lista").innerHTML = '<span class="stan blad">Nie udało się pobrać listy plików.</span>'; return; }
+  if (sprawa && sprawa.id === id) pokazPliki(lista);
+}
+function rozmiarPliku(b){
+  return b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1024 / 1024).toFixed(1).replace(".", ",") + " MB";
+}
+function pokazPliki(lista){
+  const k = $("pliki-lista");
+  k.innerHTML = lista.length ? "" : '<span class="stan">Brak dodanych plików.</span>';
+  lista.forEach(p => {
+    const d = document.createElement("div");
+    d.className = "zal-el";
+    d.innerHTML = '<a href="#" title="Pobierz"></a><small></small><button type="button" class="wtorny okragly" title="Usuń plik">×</button>';
+    d.querySelector("a").textContent = p.nazwa;
+    d.querySelector("small").textContent = rozmiarPliku(p.rozmiar) + " · " + (p.dodano || "").replace("T", " ").slice(0, 16);
+    d.querySelector("a").onclick = e => { e.preventDefault(); pobierzZalacznik(p.nazwa); };
+    d.querySelector("button").onclick = () => usunZalacznik(p.nazwa);
+    k.appendChild(d);
+  });
+}
+async function pobierzZalacznik(nazwa){
+  try {
+    if (dysk.aktywny) {
+      const plik = await (await (await folderZalacznikow(false)).getFileHandle(nazwa)).getFile();
+      return zapiszPlik(plik, nazwa);
+    }
+    const odp = await api("/api/sprawy/" + sprawa.id + "/pliki/" + encodeURIComponent(nazwa));
+    if (!odp.ok) throw new Error();
+    zapiszPlik(await odp.blob(), nazwa);
+  } catch { stan($("stan-pliki"), "Nie udało się pobrać pliku.", true); }
+}
+async function dodajZalaczniki(pliki){
+  if (!sprawa || !sprawa.id || !pliki.length) return;
+  const zaDuze = pliki.filter(p => p.size > MAKS_ZALACZNIK);
+  if (zaDuze.length) return stan($("stan-pliki"), "Plik większy niż 25 MB: " + zaDuze.map(p => p.name).join(", "), true);
+  stan($("stan-pliki"), "Dodaję " + pliki.length + (pliki.length === 1 ? " plik…" : " pliki…"));
+  try {
+    if (dysk.aktywny) {
+      const folder = await folderZalacznikow(true);
+      for (const p of pliki) {
+        // Ten sam plik dodany drugi raz nie nadpisuje pierwszego (jak na serwerze).
+        const kropka = p.name.lastIndexOf("."), rdzen = kropka > 0 ? p.name.slice(0, kropka) : p.name, roz = kropka > 0 ? p.name.slice(kropka) : "";
+        let nazwa = p.name;
+        for (let n = 2; await folder.getFileHandle(nazwa).then(() => true, () => false); n++) nazwa = rdzen + " (" + n + ")" + roz;
+        await dysk.zapiszPlik(folder, nazwa, p);
+      }
+      await rysujPlikiSprawy();
+    } else {
+      const dane = new FormData();
+      pliki.forEach(p => dane.append("pliki", p));
+      const odp = await api("/api/sprawy/" + sprawa.id + "/pliki", {method: "POST", body: dane});
+      const w = await odp.json();
+      if (!odp.ok) throw new Error(typeof w.detail === "string" ? w.detail : "");
+      pokazPliki(w);
+    }
+    stan($("stan-pliki"), pliki.length === 1 ? "Dodano plik." : "Dodano pliki: " + pliki.length + ".");
+  } catch (e) { stan($("stan-pliki"), "Nie udało się dodać plików" + (e.message ? ": " + e.message : "."), true); }
+}
+async function usunZalacznik(nazwa){
+  if (!confirm("Usunąć plik „" + nazwa + "” z tej sprawy?\n\nTego nie da się cofnąć.")) return;
+  try {
+    if (dysk.aktywny) {
+      await (await folderZalacznikow(false)).removeEntry(nazwa);
+      await rysujPlikiSprawy();
+    } else {
+      const odp = await api("/api/sprawy/" + sprawa.id + "/pliki/" + encodeURIComponent(nazwa), {method: "DELETE"});
+      if (!odp.ok) throw new Error();
+      pokazPliki(await odp.json());
+    }
+    stan($("stan-pliki"), "Usunięto.");
+  } catch { stan($("stan-pliki"), "Nie udało się usunąć pliku.", true); }
+}
+$("pliki-sprawy-wybor").onchange = e => { dodajZalaczniki([...e.target.files]); e.target.value = ""; };
+
 /* Nazwa i sygnatura: na dysku poprawiamy sprawa.json u notariusza. */
 async function zapiszMeta(pole, wartosc){
   if (!sprawa) return;
@@ -1877,10 +2005,23 @@ function rysujSerwis(s){
   $("btn-serwis-wlacz").textContent = s.wlaczony ? "Ustaw nowy czas" : "Włącz dostęp";
   $("serwis-historia").innerHTML = s.historia.slice(0, 5).map(h => {
     const koniec = h.odwolano ? "odwołano " + kiedySerwis(h.odwolano) : "do " + kiedySerwis(h.do);
-    const kto = (h.uzyli || []).map(u => escape(u.email) + " (" + kiedySerwis(u.od) + ")").join(", ");
+    const kto = (h.uzyli || []).map(zakresSerwisu).join("<br>");
     return `<div class="komputer"><div><b>${kiedySerwis(h.od)}, ${escape(koniec)}</b>`
-      + `<small>włączył(a) ${escape(h.wlaczyl)} · ${kto ? "skorzystali: " + kto : "nikt nie skorzystał"}</small></div></div>`;
+      + `<small>włączył(a) ${escape(h.wlaczyl)}<br>${kto || "nikt nie skorzystał"}</small></div></div>`;
   }).join("");
+}
+
+/* Kto z obslugi wszedl i w co zajrzal: obszary danych, otwarte sprawy,
+   czy cos zmienial. */
+const OBSZARY_SERWISU = {sprawy: "sprawy", kalendarz: "kalendarz", osoby: "osoby i telefony",
+                         ustawienia: "ustawienia", urzadzenia: "komputery z pomocnikiem"};
+function zakresSerwisu(u){
+  const obszary = (u.obszary || []).map(o => OBSZARY_SERWISU[o] || o).join(", ");
+  const sprawy = (u.sprawy || []).map(nazwaSprawy).join(", ");
+  return escape(u.email) + ", od " + kiedySerwis(u.od)
+    + (obszary ? " · dane: " + escape(obszary) : "")
+    + (sprawy ? " · otwarte sprawy: " + escape(sprawy) : " · nie otwierał(a) spraw")
+    + (u.zmiany ? " · wprowadzał(a) zmiany" : " · tylko odczyt");
 }
 
 async function zmienSerwis(metoda, tresc){
@@ -2405,6 +2546,9 @@ window.addEventListener("drop", e => {
   e.preventDefault();
   licznikPrzeciagania = 0;
   document.body.classList.remove("przeciaganie");
+  if (!$("pliki-sprawy").hidden && e.target.closest && e.target.closest("#pliki-sprawy")) {
+    return dodajZalaczniki([...e.dataTransfer.files]);
+  }
   if ($("etap1").hidden) {
     if (sprawa) return;   // w trakcie innej sprawy nie zaczynamy nowej po cichu
     pokaz(1);
@@ -3365,6 +3509,10 @@ const RODZAJE = ["sprzedaż", "darowizna", "dział spadku", "poświadczenie podp
 const OD = 8 * 60 + 30, DO = 18 * 60, KROK = 30;
 let wpisyKal = [], kalMiesiac = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let dzienOkna = "", edytowany = null, wybrane = [], rodzaj = "";
+// oryginalne - okienka edytowanego terminu przed zmianami; przenoszenie -
+// nastepny klik w wolna godzine przesuwa caly termin; stanPoczatkowy -
+// do pytania o niezapisane zmiany.
+let oryginalne = [], przenoszenie = false, stanPoczatkowy = "";
 const dwa = n => String(n).padStart(2, "0");
 const iso = d => d.getFullYear() + "-" + dwa(d.getMonth() + 1) + "-" + dwa(d.getDate());
 const minuty = g => +g.slice(0, 2) * 60 + +g.slice(3, 5);
@@ -3382,6 +3530,10 @@ function opisWpisu(w){
   return czesci.length ? czesci.join(" · ") : (w.tytul || (w.sprawa ? nazwaSprawy(w.sprawa) : ""));
 }
 function godzinyWpisu(w){ return w.godzina ? w.godzina + (w.koniec ? "–" + w.koniec : "") : ""; }
+function telefonyWpisu(w){ return w.telefony || (w.telefon ? [{imie: "", numer: w.telefon}] : []); }
+function linkTelefonu(t){
+  return (t.imie ? escape(t.imie) + ": " : "") + '<a href="tel:' + escape(t.numer.replace(/\s/g, "")) + '">' + escape(t.numer) + "</a>";
+}
 function brakTelefonu(w){ return !!w.sprawa && osobyWSprawie(w.sprawa).some(o => !o.telefon); }
 function listaTelefonow(id){
   const ludzie = osobyWSprawie(id);
@@ -3443,10 +3595,10 @@ function rysujNajblizsze(){
     const kiedy = new Date(w.data + "T00:00").toLocaleDateString("pl-PL", {weekday:"long", day:"numeric", month:"long"});
     d.innerHTML = '<div class="kiedy">' + escape(kiedy) + (w.godzina ? ", godz. " + escape(godzinyWpisu(w)) : "") + "</div>"
       + '<div class="co">' + escape(opisWpisu(w)) + (w.sprawa && opisWpisu(w) !== nazwaSprawy(w.sprawa) ? ' <span class="stan">· ' + escape(nazwaSprawy(w.sprawa)) + "</span>" : "") + "</div>"
-      + (w.telefon ? '<div class="tel"><a href="tel:' + escape(w.telefon.replace(/\s/g, "")) + '">' + escape(w.telefon) + "</a></div>" : "")
+      + (telefonyWpisu(w).length ? '<div class="tel">' + telefonyWpisu(w).map(linkTelefonu).join(" · ") + "</div>" : "")
       + (w.uwagi ? '<div class="stan">' + escape(w.uwagi) + "</div>" : "")
       + (w.sprawa ? listaTelefonow(w.sprawa) : "");
-    d.querySelector(".co").onclick = () => otworzDzien(w.data, w);
+    d.querySelector(".co").onclick = () => { if ($("kal-okno").hidden || porzucic()) otworzDzien(w.data, w); };
     podepnijUzupelnij(d);
     k.appendChild(d);
   });
@@ -3464,7 +3616,21 @@ function otworzDzien(data, wpis){
   if (wpis) edytujTermin(wpis); else nowyTermin();
   rysujMiesiac();
 }
-function zamknijOkno(){ $("kal-okno").hidden = true; edytowany = null; rysujMiesiac(); }
+function zamknijOkno(){
+  if (!porzucic()) return;
+  $("kal-okno").hidden = true; edytowany = null; przenoszenie = false; rysujMiesiac();
+}
+// Niezapisane zmiany: przy nowej rezerwacji liczy sie to, co wpisano, przy
+// edycji takze godziny - zeby klik w inny termin nie zgubil ich po cichu.
+function stanFormularza(){
+  return JSON.stringify([edytowany ? wybrane : [], $("kal-uczestnicy").value.trim(), telefonyZFormularza(), rodzaj,
+    $("kal-rodzaj-inny").value.trim(), $("kal-sprawa").value, $("kal-uwagi").value.trim()]);
+}
+function porzucic(){
+  if (stanFormularza() === stanPoczatkowy) return true;
+  return confirm(edytowany ? "Zmiany w tym terminie nie są zapisane. Porzucić je?"
+                           : "Ta rezerwacja nie jest zapisana. Porzucić ją?");
+}
 function rysujOkno(){
   const t = new Date(dzienOkna + "T00:00").toLocaleDateString("pl-PL", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
   $("kal-okno-tytul").textContent = t.charAt(0).toUpperCase() + t.slice(1);
@@ -3483,23 +3649,55 @@ function rysujOkno(){
   g.innerHTML = "";
   okienka.forEach(m => {
     const kto = zajmujacy(m), el = document.createElement("button");
+    // Godzina, ktora edytowany termin zajmuje, a po zmianach juz nie bedzie.
+    // Do zapisu jest nadal zajeta - nie pokazujemy jej jako wolnej.
+    const zwalniany = !kto && !wybrane.includes(m) && oryginalne.includes(m);
     el.type = "button";
-    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "");
+    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "") + (zwalniany ? " zwalniany" : "");
     // Kazde okienko rezerwacji pokazuje, czyje jest - nie tylko pierwsze.
     el.innerHTML = '<span class="g">' + godz(m) + "–" + godz(m + KROK) + '</span><span class="o">'
-      + (kto ? escape(opisWpisu(kto) || "zajęte") : wybrane.includes(m) ? "wybrane" : "wolne") + "</span>";
+      + (kto ? escape(opisWpisu(kto) || "zajęte") : wybrane.includes(m) ? "wybrane" : zwalniany ? "zwolni się po zapisie" : "wolne") + "</span>";
     if (kto) el.title = godzinyWpisu(kto) + " " + opisWpisu(kto) + " — kliknij, żeby zobaczyć";
-    el.onclick = () => kto ? edytujTermin(kto) : zaznacz(m);
+    el.onclick = () => kto ? (porzucic() && edytujTermin(kto)) : zaznacz(m);
     g.appendChild(el);
   });
   const n = wybrane.length;
-  $("kal-wybrane").innerHTML = n
+  $("kal-przenies").hidden = !edytowany || !n;
+  $("kal-przenies").classList.toggle("on", przenoszenie);
+  $("kal-przenies").textContent = przenoszenie ? "Anuluj przenoszenie" : "Przenieś na inną godzinę";
+  $("kal-wybrane").innerHTML = przenoszenie
+    ? '<span class="stan">Kliknij wolną godzinę, od której ma się zaczynać termin.</span>'
+    : n
     ? (edytowany ? "Termin " : "Rezerwacja ") + godz(wybrane[0]) + "–" + godz(wybrane[n - 1] + KROK) + ' <span class="stan">(' + String(n * KROK / 60).replace(".", ",") + " godz.)</span>"
     : edytowany ? '<span class="stan">Termin bez godziny. Zaznacz godziny po lewej, żeby go umieścić.</span>'
     : '<span class="stan">Zaznacz wolne godziny po lewej — jedną albo kilka po kolei.</span>';
   $("kal-szczegoly").hidden = !n && !edytowany;
 }
 function zaznacz(m){
+  if (przenoszenie) return przenies(m);
+  // Edycja: godziny terminu zmienia sie tylko przy jego brzegach. Wolna godzina
+  // gdzie indziej to nowa rezerwacja - ten termin zostaje tam, gdzie byl.
+  // (Wczesniej taki klik po cichu przenosil termin, a jego godziny wygladaly
+  // na wolne.)
+  if (edytowany && wybrane.length) {
+    const pierwszy = wybrane[0], ostatni = wybrane[wybrane.length - 1];
+    if (m === pierwszy - KROK) wybrane.unshift(m);
+    else if (m === ostatni + KROK) wybrane.push(m);
+    else if (wybrane.length > 1 && m === pierwszy) wybrane.shift();
+    else if (wybrane.length > 1 && m === ostatni) wybrane.pop();
+    else if (wybrane.includes(m)) {
+      return stan($("stan6"), "Żeby skrócić termin, kliknij jego pierwszą albo ostatnią godzinę. Żeby go przesunąć, użyj „Przenieś na inną godzinę”.");
+    } else {
+      if (!porzucic()) return;
+      nowyTermin();
+      wybrane = [m];
+      rysujOkno();
+      $("kal-uczestnicy").focus();
+      return stan($("stan6"), "Nowa rezerwacja. Poprzedni termin został bez zmian.");
+    }
+    stan($("stan6"), "");
+    return rysujOkno();
+  }
   if (wybrane.includes(m)) {
     // Odznaczyc mozna brzeg; klik w srodek zaczyna od nowa od tego okienka.
     if (m === wybrane[0]) wybrane.shift();
@@ -3514,6 +3712,37 @@ function zaznacz(m){
   stan($("stan6"), "");
   rysujOkno();
   if (wybrane.length === 1 && !edytowany) $("kal-uczestnicy").focus();
+}
+function przenies(m){
+  przenoszenie = false;
+  const dlugosc = Math.max(wybrane.length, 1);
+  const ciag = okienka.filter(x => x >= m && x < m + dlugosc * KROK);
+  const miesci = ciag.length === dlugosc && ciag.every(x => !zajmujacy(x));
+  wybrane = miesci ? ciag : [m];
+  stan($("stan6"), miesci ? "Sprawdź nowe godziny i kliknij „Zapisz zmiany”."
+                          : "Cały termin się tu nie mieści — zaznaczono jedną godzinę, dołóż kolejne.", !miesci);
+  rysujOkno();
+}
+function rysujTelefony(lista){
+  $("kal-telefony").innerHTML = "";
+  (lista.length ? lista : [{}]).forEach(dodajWierszTelefonu);
+}
+function dodajWierszTelefonu(t){
+  const w = document.createElement("div");
+  w.className = "kal-tel";
+  w.innerHTML = '<input type="text" class="imie" placeholder="imię, np. Ewa" aria-label="Imię">'
+    + '<input type="tel" class="numer" placeholder="np. 600 100 200" aria-label="Numer telefonu">'
+    + '<button type="button" class="wtorny okragly" title="Usuń ten telefon">×</button>';
+  w.querySelector(".imie").value = t.imie || "";
+  w.querySelector(".numer").value = t.numer || "";
+  w.querySelector("button").onclick = () => { w.remove(); if (!$("kal-telefony").children.length) dodajWierszTelefonu({}); };
+  $("kal-telefony").appendChild(w);
+  return w;
+}
+function telefonyZFormularza(){
+  return [...document.querySelectorAll("#kal-telefony .kal-tel")]
+    .map(w => ({imie: w.querySelector(".imie").value.trim(), numer: w.querySelector(".numer").value.trim()}))
+    .filter(t => t.imie || t.numer);
 }
 function rysujRodzaje(){
   const k = $("kal-rodzaje");
@@ -3533,28 +3762,32 @@ function rysujOsobyTerminu(){
   podepnijUzupelnij(k);
 }
 function wypelnij(w){
-  $("kal-uczestnicy").value = w.uczestnicy || ""; $("kal-telefon").value = w.telefon || "";
+  $("kal-uczestnicy").value = w.uczestnicy || ""; rysujTelefony(telefonyWpisu(w));
   $("kal-rodzaj-inny").value = w.rodzaj_inny || ""; $("kal-uwagi").value = w.uwagi || "";
   $("kal-sprawa").value = w.sprawa || "";
   rodzaj = w.rodzaj || "";
   rysujRodzaje(); rysujOsobyTerminu();
 }
 function nowyTermin(){
-  edytowany = null; wybrane = [];
+  edytowany = null; wybrane = []; oryginalne = []; przenoszenie = false;
   wypelnij({sprawa: sprawa ? sprawa.id : ""});
+  stanPoczatkowy = stanFormularza();
   $("kal-zapisz").textContent = "Rezerwuj";
   $("kal-usun").hidden = true; stan($("stan6"), "");
   rysujOkno();
 }
 function edytujTermin(w){
-  edytowany = w.id;
+  edytowany = w.id; przenoszenie = false;
   wybrane = w.godzina ? okienka.filter(m => m + KROK > minuty(w.godzina) && m < koniecWpisu(w)) : [];
+  oryginalne = [...wybrane];
   wypelnij(w);
+  stanPoczatkowy = stanFormularza();
   $("kal-zapisz").textContent = "Zapisz zmiany";
   $("kal-usun").hidden = false; stan($("stan6"), "");
   rysujOkno();
 }
 function przesunDzien(o){
+  if (!porzucic()) return;
   const d = new Date(dzienOkna + "T00:00"); d.setDate(d.getDate() + o);
   kalMiesiac = new Date(d.getFullYear(), d.getMonth(), 1);
   otworzDzien(iso(d));
@@ -3568,22 +3801,28 @@ $("kal-dzien-dalej").onclick  = () => przesunDzien(1);
 $("kal-zamknij").onclick = zamknijOkno;
 $("kal-okno").onclick = e => { if (e.target === $("kal-okno")) zamknijOkno(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("kal-okno").hidden) zamknijOkno(); });
-$("kal-anuluj").onclick = nowyTermin;
+$("kal-anuluj").onclick = () => { if (porzucic()) nowyTermin(); };
+$("kal-przenies").onclick = () => { przenoszenie = !przenoszenie; stan($("stan6"), ""); rysujOkno(); };
+$("kal-dodaj-tel").onclick = () => dodajWierszTelefonu({}).querySelector(".imie").focus();
 $("kal-zapisz").onclick = async () => {
   const stary = wpisyKal.find(w => w.id === edytowany) || {};
   // Dawny termin bez godziny mozna zapisac bez zaznaczania okienek.
   const godziny = wybrane.length ? {godzina: godz(wybrane[0]), koniec: godz(wybrane[wybrane.length - 1] + KROK)}
                                  : {godzina: stary.godzina || "", koniec: stary.koniec || ""};
   if (!godziny.godzina && !edytowany) return stan($("stan6"), "Zaznacz godziny.", true);
+  // Przeniesienie (nowe godziny rozlaczne z dawnymi) potwierdzamy - przedluzenie nie.
+  if (edytowany && stary.godzina && godziny.godzina
+      && (minuty(godziny.godzina) >= koniecWpisu(stary) || minuty(godziny.koniec) <= minuty(stary.godzina))
+      && !confirm("Przenieść termin z " + godzinyWpisu(stary) + " na " + godziny.godzina + "–" + godziny.koniec + "?")) return;
   const dane = {data: dzienOkna, ...godziny, tytul: stary.tytul || "",
-                uczestnicy: $("kal-uczestnicy").value, telefon: $("kal-telefon").value,
+                uczestnicy: $("kal-uczestnicy").value, telefony: telefonyZFormularza(),
                 rodzaj, rodzaj_inny: $("kal-rodzaj-inny").value,
                 sprawa: $("kal-sprawa").value, uwagi: $("kal-uwagi").value};
   const odp = await api("/api/kalendarz" + (edytowany ? "/" + edytowany : ""), {
     method: edytowany ? "PUT" : "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(dane)});
   const w = await odp.json();
   // Ktos inny mogl w miedzyczasie zajac te godziny - odswiezamy widok.
-  if (!odp.ok) { await rysujKalendarz(); return stan($("stan6"), w.detail || "Nie zapisano", true); }
+  if (!odp.ok) { await rysujKalendarz(); return stan($("stan6"), typeof w.detail === "string" ? w.detail : "Nie zapisano", true); }
   edytowany = null;
   await rysujKalendarz();
   nowyTermin();

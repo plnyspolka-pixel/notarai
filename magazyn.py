@@ -225,6 +225,23 @@ def usun_sprawe(katalog: Path) -> int:
     return usuniete
 
 
+def usun_plik_sprawy(katalog: Path, wzgledna: str) -> None:
+    """Kasuje jeden plik sprawy z dysku i z S3, razem ze starszymi wersjami."""
+    (katalog / wzgledna).unlink(missing_ok=True)
+    if TRYB != "s3":
+        return
+    klucz = _klucz(katalog.name, wzgledna)
+    # Prefiks lapie tez "plik.pdf.bak" - zostawiamy tylko dokladny klucz.
+    klient = _klient_s3()
+    for strona in klient.get_paginator("list_object_versions").paginate(Bucket=BUCKET, Prefix=klucz):
+        wersje = [{"Key": o["Key"], "VersionId": o["VersionId"]}
+                  for rodzaj in ("Versions", "DeleteMarkers")
+                  for o in strona.get(rodzaj, []) if o["Key"] == klucz]
+        if wersje:
+            klient.delete_objects(Bucket=BUCKET, Delete={"Objects": wersje, "Quiet": True})
+    _zapisz_znacznik(katalog, _sygnatura(_spis_s3(katalog.name)))
+
+
 def _usun_wszystkie_wersje(prefiks: str) -> int:
     """Kasuje z S3 kazda wersje i kazdy znacznik usuniecia pod prefiksem."""
     klient = _klient_s3()

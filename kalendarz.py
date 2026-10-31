@@ -19,10 +19,38 @@ PLIK = "kalendarz"
 RODZAJE = ("sprzedaż", "darowizna", "dział spadku", "poświadczenie podpisów",
            "testament", "pełnomocnictwo notarialne", "inne")
 _GODZINA = r"([01]\d|2[0-3]):[0-5]\d"
+MAKS_TELEFONOW = 10
 
 
 def _jednolinijkowy(tekst, limit: int) -> str:
     return " ".join(str(tekst or "").split())[:limit]
+
+
+def _telefony(dane: dict) -> list[dict]:
+    """Telefony terminu: kazdy z imieniem, do kogo dzwonic.
+
+    Dawne wpisy mialy jedno pole `telefon` - przy zapisie staje sie pierwsza
+    pozycja listy. Puste wiersze z formularza pomijamy.
+    """
+    lista = dane.get("telefony")
+    if not isinstance(lista, list):
+        lista = [{"imie": "", "numer": dane.get("telefon")}] if dane.get("telefon") else []
+    wynik = []
+    for pozycja in lista:
+        if not isinstance(pozycja, dict):
+            continue
+        imie = _jednolinijkowy(pozycja.get("imie"), 100)
+        numer = _jednolinijkowy(pozycja.get("numer"), 40)
+        if not numer:
+            if imie:
+                raise ValueError(f"Podaj numer telefonu dla: {imie}")
+            continue
+        if len(re.findall(r"\d", numer)) < 3:
+            raise ValueError(f"Nieprawidłowy numer telefonu: {numer}")
+        wynik.append({"imie": imie, "numer": numer})
+    if len(wynik) > MAKS_TELEFONOW:
+        raise ValueError(f"Najwyżej {MAKS_TELEFONOW} telefonów przy jednym terminie")
+    return wynik
 
 
 def _sprawdz(dane: dict) -> dict:
@@ -47,7 +75,7 @@ def _sprawdz(dane: dict) -> dict:
     if rodzaj == "inne" and not rodzaj_inny:
         raise ValueError("Wpisz, jaka to czynność")
     uczestnicy = _jednolinijkowy(dane.get("uczestnicy"), 500)
-    telefon = _jednolinijkowy(dane.get("telefon"), 100)
+    telefony = _telefony(dane)
     if not (tytul or sprawa or rodzaj or uczestnicy):
         raise ValueError("Podaj nazwiska, rodzaj czynności albo wybierz sprawę")
     return {
@@ -58,7 +86,7 @@ def _sprawdz(dane: dict) -> dict:
         "rodzaj": rodzaj,
         "rodzaj_inny": rodzaj_inny,
         "uczestnicy": uczestnicy,
-        "telefon": telefon,
+        "telefony": telefony,
         "sprawa": sprawa,
         "uwagi": str(dane.get("uwagi") or "").strip()[:2000],
     }
@@ -84,6 +112,10 @@ def _sprawdz_kolizje(wpisy: list[dict], nowy: dict, pomin: str = "") -> None:
 
 def lista() -> list[dict]:
     wpisy = magazyn.wczytaj_plik_kancelarii(PLIK, [])
+    for wpis in wpisy:
+        if "telefony" not in wpis:
+            wpis["telefony"] = [{"imie": "", "numer": wpis["telefon"]}] if wpis.get("telefon") else []
+            wpis.pop("telefon", None)
     return sorted(wpisy, key=lambda w: (w["data"], w["godzina"] or "99:99"))
 
 
@@ -105,6 +137,7 @@ def zmien(identyfikator: str, dane: dict) -> dict | None:
         for wpis in wpisy:
             if wpis["id"] == identyfikator:
                 _sprawdz_kolizje(wpisy, nowe, pomin=identyfikator)
+                wpis.pop("telefon", None)  # dawne pojedyncze pole, teraz w `telefony`
                 wpis.update(nowe)
                 return wpis
         return None

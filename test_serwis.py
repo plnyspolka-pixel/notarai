@@ -91,6 +91,27 @@ def test_kancelaria_widzi_kto_skorzystal(srodowisko):
     historia = klient.get("/api/serwis", headers=jako(CZLONEK, k)).json()["historia"]
     assert historia[0]["wlaczyl"] == WLASCICIEL
     assert [u["email"] for u in historia[0]["uzyli"]] == [SERWISANT], "jedno wejscie na osobe"
+    assert historia[0]["uzyli"][0]["sprawy"] == [] and historia[0]["uzyli"][0]["zmiany"] is False
+
+
+def test_kancelaria_widzi_zakres_dostepu(srodowisko):
+    """Ktore sprawy obsluga otworzyla, jakie dane i czy cos zmieniala."""
+    klient, k, aut = srodowisko
+    klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
+    klient.get("/api/sprawy/7f3a91c2/plik", headers=serwisant(k))
+    klient.get("/api/sprawy/7f3a91c2", headers=serwisant(k))
+    klient.put("/api/kalendarz/1", headers=serwisant(k), json={})
+    osoba = klient.get("/api/serwis", headers=jako(WLASCICIEL, k)).json()["historia"][0]["uzyli"][0]
+    assert osoba["sprawy"] == ["7f3a91c2"]
+    assert osoba["obszary"] == ["sprawy", "kalendarz"]
+    assert osoba["zmiany"] is True
+
+
+def test_odmowa_nie_poszerza_zakresu(srodowisko):
+    klient, k, _ = srodowisko
+    klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
+    klient.post("/api/zespol", headers=serwisant(k), json={"email": "x@y.test"})
+    assert klient.get("/api/serwis", headers=jako(WLASCICIEL, k)).json()["historia"][0]["uzyli"] == []
 
 
 def test_wlacza_i_odwoluje_tylko_wlasciciel(srodowisko):

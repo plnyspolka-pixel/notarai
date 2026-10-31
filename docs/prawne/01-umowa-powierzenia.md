@@ -98,7 +98,7 @@ co najmniej w formie dokumentowej:
    tworzenia zbiorów testowych, analityki ani statystyk innych niż techniczne
    i zanonimizowane wskaźniki działania Usługi (np. liczba stron, czas
    odpowiedzi);
-2. udostępniać Danych podmiotom innym niż Dalsi podmioty przetwarzający
+2. udostępniać Danych podmiotom innym niż Dalsze podmioty przetwarzające
    wskazani zgodnie z § 8;
 3. przetwarzać Danych poza Europejskim Obszarem Gospodarczym;
 4. zapisywać Danych w dziennikach systemowych (logach), komunikatach o błędach
@@ -138,9 +138,10 @@ co najmniej w formie dokumentowej:
       upływie czasu wskazanego przy włączeniu, nie dłuższego niż 7 dni,
    3. wykonują wyłącznie osoby upoważnione do dostępu serwisowego,
       w zakresie niezbędnym do wykonania żądania,
-   4. jest rejestrowany, a Administrator widzi w Usłudze datę włączenia,
-      wygaśnięcia i każdego skorzystania z dostępu oraz osobę, która z niego
-      skorzystała.
+   4. jest rejestrowany, a Administrator widzi w Usłudze datę włączenia
+      i wygaśnięcia albo odwołania dostępu, osobę, która z niego skorzystała,
+      datę jej pierwszego wejścia oraz zakres dostępu: rodzaje danych
+      i sprawy, które otworzyła, oraz informację, czy wprowadzała zmiany.
 5. Podmiot przetwarzający usuwa awarie i obsługuje Naruszenia bez dostępu
    do treści spraw, na podstawie danych technicznych: identyfikatorów,
    rozmiarów i dat plików oraz dzienników niezawierających Danych. Jeżeli
@@ -189,7 +190,7 @@ co najmniej w formie dokumentowej:
 2. Pomoc w zakresie wykraczającym poza funkcje Usługi i udostępnione
    dokumenty Strony mogą rozliczyć odrębnie, według uzasadnionych kosztów.
 
-## § 8. Dalsi podmioty przetwarzający
+## § 8. Dalsze podmioty przetwarzające
 
 1. Administrator udziela ogólnej zgody na korzystanie przez Podmiot
    przetwarzający z Dalszych podmiotów przetwarzających. Wykaz Dalszych
@@ -314,7 +315,7 @@ Załączniki:
 
 1. Opis przetwarzania.
 2. Środki techniczne i organizacyjne.
-3. Dalsi podmioty przetwarzający.
+3. Dalsze podmioty przetwarzające.
 
 ---
 
@@ -439,8 +440,9 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
    Właściciel kancelarii włącza go w oknie „Zespół kancelarii” na wybrany
    czas (od 1 godziny do 7 dni) i może go w każdej chwili odwołać. Osoba
    Fundacji korzysta z niego wyłącznie zalogowana imiennie; Usługa zapisuje
-   każde włączenie, odwołanie i skorzystanie z dostępu, a kancelaria widzi
-   ten zapis w tym samym oknie. Dostęp serwisowy nie obejmuje zespołu,
+   każde włączenie i odwołanie dostępu, osoby, które z niego skorzystały,
+   oraz zakres dostępu (rodzaje danych, otwarte sprawy, wprowadzenie
+   zmian), a kancelaria widzi ten zapis w tym samym oknie. Dostęp serwisowy nie obejmuje zespołu,
    abonamentu, akceptacji dokumentów ani pomocnika kancelarii.
 3. Na poziomie magazynu spraw polityka bucketa zakazuje odczytu i zapisu
    plików spraw oraz wyświetlania spisu plików (nazwy plików mogą zawierać
@@ -516,7 +518,7 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 
 ---
 
-## Załącznik nr 3. Dalsi podmioty przetwarzający
+## Załącznik nr 3. Dalsze podmioty przetwarzające
 
 | Podmiot | Siedziba | Zakres | Miejsce przetwarzania | Podstawa |
 |---|---|---|---|---|
@@ -526,5 +528,5 @@ Dostawca modelu językowego (Anthropic) **nie jest** dalszym podmiotem
 przetwarzającym: model jest uruchamiany w infrastrukturze AWS, a dostawca
 modelu nie ma dostępu do zapytań ani odpowiedzi.
 
-Dalsi podmioty przetwarzający AWS: aktualny wykaz publikuje AWS
+Dalsze podmioty przetwarzające AWS: aktualny wykaz publikuje AWS
 (aws.amazon.com/compliance/sub-processors).

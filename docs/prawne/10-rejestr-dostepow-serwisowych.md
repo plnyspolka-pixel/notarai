@@ -39,7 +39,11 @@ włączenia zapisuje:
 - kto z kancelarii włączył dostęp i kiedy,
 - do kiedy dostęp miał trwać i czy został wcześniej odwołany (kiedy),
 - kto z Fundacji z niego skorzystał (adres e-mail konta) i kiedy wszedł
-  po raz pierwszy.
+  po raz pierwszy,
+- zakres dostępu tej osoby: rodzaje danych (np. sprawy, kalendarz, osoby
+  i telefony), otwarte sprawy (identyfikatory, które kancelaria widzi jako
+  nazwy swoich spraw) oraz to, czy wprowadzała zmiany, czy tylko
+  przeglądała.
 
 Kancelaria widzi pięć ostatnich wpisów w oknie „Zespół kancelarii”.
 W dziennikach aplikacji zostaje wyłącznie sam fakt włączenia, odwołania

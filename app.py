@@ -722,6 +722,83 @@ def _zapisz_json(plik: Path, dane) -> None:
     plik.write_text(json.dumps(dane, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+# --- Pliki sprawy (dokumenty dodane przez kancelarie) ------------------------
+
+
+# Dowolne dokumenty do sprawy: zaswiadczenia, wypisy, korespondencja. Leza
+# w {sprawa}/zalaczniki/ i ida do S3 razem z reszta sprawy, wiec znikaja
+# przy jej usunieciu. Nazwy plikow bywaja nazwiskami - nie trafiaja do logow.
+ZALACZNIKI = "zalaczniki"
+MAKS_ZALACZNIK = 25 * 1024 * 1024
+
+
+def _nazwa_zalacznika(nazwa: str) -> str:
+    czysta = re.sub(r"[^\w .()\-]", "_", Path(nazwa or "").name).strip(" .")[:120]
+    if not czysta:
+        raise HTTPException(400, "Nieprawidlowa nazwa pliku")
+    return czysta
+
+
+def _spis_zalacznikow(katalog: Path) -> list[dict]:
+    folder = katalog / ZALACZNIKI
+    if not folder.is_dir():
+        return []
+    return [{"nazwa": p.name, "rozmiar": p.stat().st_size,
+             "dodano": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")}
+            for p in sorted(folder.iterdir(), key=lambda p: p.name.lower()) if p.is_file()]
+
+
+@app.get("/api/sprawy/{identyfikator}/pliki")
+def pliki_sprawy(identyfikator: str):
+    return _spis_zalacznikow(_katalog_sprawy(identyfikator))
+
+
+@app.post("/api/sprawy/{identyfikator}/pliki")
+def dodaj_pliki_sprawy(identyfikator: str, pliki: list[UploadFile] = File(...)):
+    if magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie.")
+    katalog = _katalog_sprawy(identyfikator)
+    folder = katalog / ZALACZNIKI
+    folder.mkdir(exist_ok=True)
+    for plik in pliki:
+        rozmiar = plik.size if plik.size is not None else len(plik.file.read())
+        plik.file.seek(0)
+        if rozmiar > MAKS_ZALACZNIK:
+            raise HTTPException(413, f"Plik jest większy niż {MAKS_ZALACZNIK // 1024 // 1024} MB")
+    for plik in pliki:
+        nazwa = _nazwa_zalacznika(plik.filename)
+        cel, numer = folder / nazwa, 2
+        # Ten sam plik dodany drugi raz nie nadpisuje pierwszego.
+        while cel.exists():
+            cel = folder / f"{Path(nazwa).stem} ({numer}){Path(nazwa).suffix}"
+            numer += 1
+        _zapisz(plik, cel)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: dodano plikow %d", identyfikator, len(pliki))
+    return _spis_zalacznikow(katalog)
+
+
+@app.get("/api/sprawy/{identyfikator}/pliki/{nazwa}")
+def pobierz_plik_sprawy(identyfikator: str, nazwa: str):
+    plik = _katalog_sprawy(identyfikator) / ZALACZNIKI / _nazwa_zalacznika(nazwa)
+    if not plik.is_file():
+        raise HTTPException(404, "Nie ma takiego pliku")
+    return FileResponse(plik, filename=plik.name)
+
+
+@app.delete("/api/sprawy/{identyfikator}/pliki/{nazwa}")
+def usun_plik_sprawy(identyfikator: str, nazwa: str):
+    if magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie.")
+    katalog = _katalog_sprawy(identyfikator)
+    wzgledna = f"{ZALACZNIKI}/{_nazwa_zalacznika(nazwa)}"
+    if not (katalog / wzgledna).is_file():
+        raise HTTPException(404, "Nie ma takiego pliku")
+    magazyn.usun_plik_sprawy(katalog, wzgledna)
+    log.info("sprawa %s: usunieto plik", identyfikator)
+    return _spis_zalacznikow(katalog)
+
+
 # --- Osoby i telefony --------------------------------------------------------
 
 
@@ -797,7 +874,8 @@ class WpisKalendarza(BaseModel):
     rodzaj: str = ""
     rodzaj_inny: str = ""
     uczestnicy: str = ""
-    telefon: str = ""
+    telefon: str = ""  # dawne pojedyncze pole; nowy interfejs wysyla `telefony`
+    telefony: list[dict] | None = None
     sprawa: str = ""
     uwagi: str = ""
 

@@ -188,13 +188,13 @@ async def middleware(request: Request, call_next):
     if id_serwisu:
         # Administrator w sprawach kancelarii: tylko gdy ta kancelaria sama
         # wlaczyla dostep serwisowy i tylko do czasu, ktory wskazala.
-        email = _wejscie_serwisowe(token, id_serwisu)
-        if not email:
-            return JSONResponse({"detail": "Kancelaria nie wlaczyla dostepu serwisowego "
-                                           "albo juz wygasl."}, 403)
         if sciezka.startswith(_POZA_SERWISEM):
             return JSONResponse({"detail": "Dostep serwisowy nie obejmuje zespolu, abonamentu, "
                                            "dokumentow ani pomocnika kancelarii."}, 403)
+        email = _wejscie_serwisowe(token, id_serwisu, sciezka, request.method)
+        if not email:
+            return JSONResponse({"detail": "Kancelaria nie wlaczyla dostepu serwisowego "
+                                           "albo juz wygasl."}, 403)
         kancelaria, komputer = id_serwisu, None
     else:
         kancelaria, komputer, email = _kancelaria_z_naglowka(token)
@@ -959,9 +959,22 @@ def _serwis_trwa(wpis: dict) -> dict | None:
     return None
 
 
-def _wejscie_serwisowe(token: str, id_k: str) -> str:
+def _zakres_zadania(sciezka: str, metoda: str) -> tuple[str, str, bool]:
+    """(obszar danych, identyfikator sprawy albo "", czy zadanie cos zmienia)
+    - z tego kancelaria widzi, w co obsluga zajrzala."""
+    czesci = sciezka.split("/")   # ["", "api", obszar, identyfikator, ...]
+    obszar = czesci[2] if len(czesci) > 2 else ""
+    sprawa = czesci[3] if obszar == "sprawy" and len(czesci) > 3 else ""
+    return obszar, sprawa, metoda not in ("GET", "HEAD", "OPTIONS")
+
+
+def _wejscie_serwisowe(token: str, id_k: str, sciezka: str = "", metoda: str = "GET") -> str:
     """E-mail administratora, ktoremu kancelaria id_k otworzyla dostep, albo
-    pusty. Token awaryjny nie wystarcza: dostep musi wskazywac osobe."""
+    pusty. Token awaryjny nie wystarcza: dostep musi wskazywac osobe.
+
+    Przy okazji dopisuje do wpisu zakres: obszary danych, otwarte sprawy
+    i to, czy cos zmieniano. Rejestr zapisujemy tylko wtedy, gdy zakres
+    sie poszerzyl, nie przy kazdym zadaniu."""
     email = _email_administratora(token)
     if not email:
         return ""
@@ -973,10 +986,21 @@ def _wejscie_serwisowe(token: str, id_k: str) -> str:
     if trwa is None:
         return ""
     uzyli = trwa.setdefault("uzyli", [])
-    if not any(u["email"] == email for u in uzyli):
-        uzyli.append({"email": email, "od": _teraz()})
-        _zapisz_rejestr(rejestr)
+    osoba = next((u for u in uzyli if u["email"] == email), None)
+    if osoba is None:
+        osoba = {"email": email, "od": _teraz()}
+        uzyli.append(osoba)
         log.info("kancelaria %s: administrator wszedl w ramach dostepu serwisowego", id_k)
+    przed = json.dumps(osoba, sort_keys=True)
+    obszar, sprawa, zmiana = _zakres_zadania(sciezka, metoda)
+    obszary, sprawy = osoba.setdefault("obszary", []), osoba.setdefault("sprawy", [])
+    if obszar and obszar not in obszary:
+        obszary.append(obszar)
+    if sprawa and sprawa not in sprawy:
+        sprawy.append(sprawa)
+    osoba["zmiany"] = bool(osoba.get("zmiany")) or zmiana
+    if json.dumps(osoba, sort_keys=True) != przed:
+        _zapisz_rejestr(rejestr)
     return email
 
 

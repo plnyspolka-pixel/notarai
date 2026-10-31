@@ -23,7 +23,7 @@ Data ostatniej aktualizacji: 24.10.2026.
 | Kategoria przetwarzania | Świadczenie usługi notarai: przechowywanie materiałów spraw, odczyt dokumentów przez model AI, walidacja danych, przygotowanie projektów dokumentów, rozmowa z asystentem, wsparcie pracy z rejestrami publicznymi, kalendarz terminów i spis stron czynności z numerami telefonów |
 | Rodzaje danych | jak w Załączniku nr 1 do umowy powierzenia (w tym PESEL, dane z art. 9 i 10 RODO, jeżeli występują w dokumentach) |
 | Przekazania do państw trzecich | brak; przetwarzanie wyłącznie w EOG (AWS Frankfurt; model w regionach UE) |
-| Dalsi podmioty przetwarzający | Amazon Web Services EMEA SARL |
+| Dalsze podmioty przetwarzające | Amazon Web Services EMEA SARL |
 | Ogólny opis środków bezpieczeństwa (art. 32 ust. 1) | Załącznik nr 2 do umowy powierzenia |
 
 ### Wykaz administratorów
