@@ -791,7 +791,12 @@ def usun_osobe(identyfikator: str):
 class WpisKalendarza(BaseModel):
     data: str
     godzina: str = ""
+    koniec: str = ""
     tytul: str = ""
+    rodzaj: str = ""
+    rodzaj_inny: str = ""
+    uczestnicy: str = ""
+    telefon: str = ""
     sprawa: str = ""
     uwagi: str = ""
 

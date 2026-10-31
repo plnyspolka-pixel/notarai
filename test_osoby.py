@@ -125,13 +125,38 @@ class TestKalendarz:
         wpis = kalendarz.dodaj({"data": "2026-11-03", "godzina": "10:30", "sprawa": "aaa111"})
         kalendarz.dodaj({"data": "2026-11-03", "godzina": "09:00", "tytul": "Spotkanie"})
         assert [w["godzina"] for w in kalendarz.lista()] == ["09:00", "10:30"]
+        with pytest.raises(ValueError, match="zajęte"):
+            kalendarz.dodaj({"data": "2026-11-03", "godzina": "08:30", "koniec": "09:30", "tytul": "x"})
         kalendarz.zmien(wpis["id"], {"data": "2026-11-04", "godzina": "", "tytul": "Akt", "sprawa": "aaa111"})
         assert kalendarz.lista()[-1]["data"] == "2026-11-04"
         assert kalendarz.usun(wpis["id"])
         assert len(kalendarz.lista()) == 1
 
+    def test_rezerwacja_godzin(self, dane):
+        wpis = kalendarz.dodaj({"data": "2026-11-03", "godzina": "08:30", "koniec": "09:30",
+                                "rodzaj": "sprzedaż", "uczestnicy": "Sobczak, Pawlak", "telefon": "600 100 200"})
+        assert wpis["rodzaj"] == "sprzedaż" and wpis["uczestnicy"] == "Sobczak, Pawlak"
+        kalendarz.dodaj({"data": "2026-11-03", "godzina": "09:30", "koniec": "10:00", "rodzaj": "testament"})
+        kalendarz.dodaj({"data": "2026-11-04", "godzina": "09:00", "koniec": "10:00", "rodzaj": "testament"})
+        with pytest.raises(ValueError, match="zajęte"):
+            kalendarz.dodaj({"data": "2026-11-03", "godzina": "09:00", "koniec": "09:30", "rodzaj": "darowizna"})
+        with pytest.raises(ValueError, match="zajęte"):
+            kalendarz.zmien(wpis["id"], {**wpis, "koniec": "10:00"})
+        kalendarz.zmien(wpis["id"], {**wpis, "godzina": "08:00"})
+        assert len(kalendarz.lista()) == 3
+
+    def test_rodzaj_inne_wymaga_opisu(self, dane):
+        with pytest.raises(ValueError, match="jaka to czynność"):
+            kalendarz.dodaj({"data": "2026-11-03", "rodzaj": "inne"})
+        wpis = kalendarz.dodaj({"data": "2026-11-03", "rodzaj": "inne", "rodzaj_inny": "umowa dożywocia"})
+        assert wpis["rodzaj_inny"] == "umowa dożywocia"
+        assert kalendarz.dodaj({"data": "2026-11-03", "rodzaj": "sprzedaż", "rodzaj_inny": "x"})["rodzaj_inny"] == ""
+
     @pytest.mark.parametrize("dane_wpisu", [
         {"data": "3.11.2026", "tytul": "x"},
+        {"data": "2026-11-03", "godzina": "09:00", "koniec": "08:30", "tytul": "x"},
+        {"data": "2026-11-03", "koniec": "09:00", "tytul": "x"},
+        {"data": "2026-11-03", "rodzaj": "kupno"},
         {"data": "2026-11-03", "godzina": "25:00", "tytul": "x"},
         {"data": "2026-11-03"},
         {"data": "2026-11-03", "sprawa": "../etc"},
