@@ -5,6 +5,10 @@ Description: >-
   Bucket przechowuje dane osobowe klientow kancelarii - utworzenie stosu wymaga
   swiadomej decyzji (patrz CLAUDE.md).
 
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+
 Parameters:
   NazwaBucketa:
     Type: String
@@ -110,7 +114,22 @@ Resources:
               - s3:GetObjectVersionForReplication
               - s3:GetObjectTorrent
               - s3:PutObject
+              - s3:GetObjectAttributes
             Resource: !Sub "${BucketSprawy.Arn}/kancelarie/*"
+            Condition:
+              ArnNotLike:
+                aws:PrincipalArn:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaAplikacji}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaKopii}"
+          # Nazwy plikow to tez dane: skany nazywaja sie nazwiskami stron.
+          - Sid: SpisPlikowTylkoDlaAplikacji
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - s3:ListBucket
+              - s3:ListBucketVersions
+              - s3:ListBucketMultipartUploads
+            Resource: !GetAtt BucketSprawy.Arn
             Condition:
               ArnNotLike:
                 aws:PrincipalArn:
@@ -144,6 +163,9 @@ Resources:
               Service: events.amazonaws.com
             Action: sns:Publish
             Resource: !Ref TematZabezpieczen
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt RegulaZmianyPolityki.Arn
 
   SubskrypcjaZabezpieczen:
     Type: AWS::SNS::Subscription

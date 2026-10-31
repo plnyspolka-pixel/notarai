@@ -443,7 +443,8 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
    ten zapis w tym samym oknie. Dostęp serwisowy nie obejmuje zespołu,
    abonamentu, akceptacji dokumentów ani pomocnika kancelarii.
 3. Na poziomie magazynu spraw polityka bucketa zakazuje odczytu i zapisu
-   plików spraw wszystkim poza rolą aplikacji i rolą kopii zapasowej,
+   plików spraw oraz wyświetlania spisu plików (nazwy plików mogą zawierać
+   dane osobowe) wszystkim poza rolą aplikacji i rolą kopii zapasowej,
    również administratorom konta AWS i użytkownikowi głównemu. Każda zmiana
    lub usunięcie tej polityki jest zapisywane w AWS CloudTrail i wysyła
    powiadomienie e-mailem.
