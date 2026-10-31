@@ -165,10 +165,10 @@ a.odnosnik-a:hover{color:var(--tekst)}
       </div>
       <span class="etykieta">Gdzie mają leżeć sprawy <span class="wskaz">tego później nie zmienisz</span></span>
       <div class="wybor">
-        <label><input type="radio" name="nk-gdzie" value="chmura" checked><b>W chmurze notarai</b>
+        <label><input type="radio" name="nk-gdzie" value="chmura" checked><b>Pliki w chmurze notarai</b>
           <small>Zalecane. Szyfrowane we Frankfurcie, z kopiami zapasowymi. Działa w każdej przeglądarce,
             z każdego komputera. Pełne sprawdzenia w rejestrach.</small></label>
-        <label><input type="radio" name="nk-gdzie" value="u-klienta"><b>Na komputerze kancelarii</b>
+        <label><input type="radio" name="nk-gdzie" value="u-klienta"><b>Pliki na komputerze kancelarii</b>
           <small>Serwer niczego nie zapisuje. Tylko Chrome lub Edge, kopie zapasowe robi kancelaria,
             bez sprawdzeń w rejestrach.</small></label>
       </div>
@@ -455,7 +455,7 @@ function kartaKancelarii(k){
   d.innerHTML = `
     <div class="kanc-naglowek"><h2>${escape(k.nazwa)}</h2>
       <span class="znacznik ${k.aktywna ? "ok" : "wyl"}">${k.aktywna ? "aktywna" : "wyłączona"}</span>
-      <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki u kancelarii" : "pliki w chmurze"}</span>
+      <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki na komputerze kancelarii" : "pliki w chmurze"}</span>
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
       <span class="znacznik ${k.oplacono_do && k.oplacono_do < new Date().toISOString().slice(0, 10) ? "wyl" : ""}"
             title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span>

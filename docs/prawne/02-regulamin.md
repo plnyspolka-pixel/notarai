@@ -1,6 +1,6 @@
 # REGULAMIN ŚWIADCZENIA USŁUGI NOTARAI
 
-Wersja z dnia 31.10.2026.
+Wersja z dnia 01.11.2026.
 
 ## § 1. Usługodawca
 
@@ -41,8 +41,9 @@ Wersja z dnia 31.10.2026.
 
 1. Usługa obejmuje:
    1. przechowywanie Spraw w chmurze albo - według wyboru Kancelarii -
-      przetwarzanie bez przechowywania na serwerze (tryb „Pliki
-      u kancelarii”, pliki zapisywane w folderze na komputerze Kancelarii),
+      przetwarzanie bez przechowywania na serwerze (tryb „Pliki na
+      komputerze kancelarii”, pliki zapisywane w folderze na komputerze
+      Kancelarii),
    2. odczyt treści dokumentów, w tym skanów, przez model sztucznej
       inteligencji i zestawienie danych potrzebnych do czynności,
    3. sprawdzenie odczytanych danych (sumy kontrolne, zgodność, oznaczenie
@@ -85,7 +86,7 @@ Wersja z dnia 31.10.2026.
 ## § 5. Wymagania techniczne
 
 1. Komputer z dostępem do internetu i aktualną przeglądarką Chrome, Edge,
-   Firefox lub Safari; tryb „Pliki u kancelarii” wymaga Chrome lub Edge.
+   Firefox lub Safari; tryb „Pliki na komputerze kancelarii” wymaga Chrome lub Edge.
 2. Program pomocnika: Windows 10 lub 11 i przeglądarka Chrome.
 3. Włączona obsługa JavaScript i plików cookie niezbędnych do logowania.
 4. Adres e-mail dla każdego Użytkownika.
@@ -180,7 +181,7 @@ Wersja z dnia 31.10.2026.
    jeżeli zmiana nie obniża poziomu ochrony danych. Zmiana dalszego podmiotu
    przetwarzającego następuje w trybie Umowy powierzenia.
 3. Kancelaria odpowiada za kopie zapasowe Spraw prowadzonych w trybie
-   „Pliki u kancelarii”.
+   „Pliki na komputerze kancelarii”.
 
 ## § 10. Odpowiedzialność
 

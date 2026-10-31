@@ -125,7 +125,7 @@ Techniczne - kod gotowy, zostało wdrożyć (Ty uruchamiasz polecenia AWS):
 ### RODO - rola Fundacji
 
 Notariusz jest administratorem danych klientów. Fundacja jest podmiotem
-przetwarzającym (art. 28 RODO) - także w trybie „Pliki u kancelarii”, bo
+przetwarzającym (art. 28 RODO) - także w trybie „Pliki na komputerze kancelarii”, bo
 skany i tak przechodzą przez serwer i model. AWS jest dalszym podmiotem
 przetwarzającym na podstawie AWS GDPR DPA, akceptowanego automatycznie
 w AWS Service Terms. Anthropic nie jest podmiotem przetwarzającym - model
@@ -148,7 +148,7 @@ wskazany czas i rejestrowany w aplikacji oraz nakłada procedurę na żądania
 organów. Kod pilnuje tego samego: panel administracyjny nie otwiera spraw,
 a polityka magazynu zakazuje odczytu wszystkim poza aplikacją i kopią
 zapasową. Dla kancelarii, która
-nie chce, by cokolwiek leżało poza nią, jest tryb „Pliki u kancelarii”.
+nie chce, by cokolwiek leżało poza nią, jest tryb „Pliki na komputerze kancelarii”.
 Warto, by pierwszy notariusz-klient zapytał swoją izbę notarialną, czy są
 wytyczne samorządu - to rozwiewa wątpliwości kolejnych.
 

@@ -1,6 +1,6 @@
 # OCENA SKUTKÓW DLA OCHRONY DANYCH (DPIA) - KORZYSTANIE Z NOTARAI
 
-Wersja z dnia 31.10.2026.
+Wersja z dnia 01.11.2026.
 
 Ocena przygotowana przez Fundację dla kancelarii (art. 28 ust. 3 lit. f
 RODO) i wypełniona przez aplikację danymi kancelarii. Ocenę przyjmuje
@@ -62,7 +62,7 @@ Skala: prawdopodobieństwo (P) i skutek (S) - niskie / średnie / wysokie.
 | Halucynacja modelu (informacja nieobecna w dokumentach) | średnie | wysokie | projekt zawsze weryfikowany; asystent cytuje źródło przy dopasowaniu formularzy | niskie |
 | Dostęp innej kancelarii do spraw | niskie | wysokie | izolacja w aplikacji, przypisanie kancelarii w tożsamości, testy automatyczne | niskie |
 | Przejęcie konta pracownika | średnie | wysokie | indywidualne konta, hasła co najmniej 12 znaków, usuwanie członków zespołu przez właściciela, instrukcja potwierdzana przez każdego użytkownika | niskie |
-| Ujawnienie danych przez dostawcę lub na żądanie organu państwa trzeciego | niskie | wysokie | dane wyłącznie w UE, szyfrowanie, zobowiązania AWS, § 5 ust. 7 umowy powierzenia; tryb „Pliki u kancelarii” ogranicza przechowywanie | niskie |
+| Ujawnienie danych przez dostawcę lub na żądanie organu państwa trzeciego | niskie | wysokie | dane wyłącznie w UE, szyfrowanie, zobowiązania AWS, § 5 ust. 7 umowy powierzenia; tryb „Pliki na komputerze kancelarii” ogranicza przechowywanie | niskie |
 | Ujawnienie tajemnicy notarialnej przez personel Fundacji | niskie | wysokie | Fundacja nie ma dostępu do treści spraw: panel administracyjny ich nie otwiera, a polityka magazynu zakazuje odczytu wszystkim poza aplikacją i kopią zapasową; dostęp serwisowy tylko włączany przez kancelarię na wskazany czas, z zapisem widocznym dla kancelarii; zobowiązania do poufności | niskie |
 | Utrata danych (awaria, usunięcie) | niskie | średnie | wersjonowanie, kopie zapasowe, oryginały dokumentów pozostają w kancelarii | niskie |
 | Dane osobowe w logach | niskie | średnie | zakaz w umowie, testy automatyczne | niskie |

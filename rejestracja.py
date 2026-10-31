@@ -271,7 +271,7 @@ def przyjmij_dpia(request: Request):
 
 
 _PRZECHOWYWANIE = {"chmura": "pliki w chmurze (AWS, Frankfurt)",
-                   "u-klienta": "pliki u kancelarii (folder na komputerze kancelarii)"}
+                   "u-klienta": "pliki na komputerze kancelarii (folder wskazany przez kancelarię)"}
 
 
 def _data(iso: str | None) -> str:
@@ -322,7 +322,7 @@ def _pola_kancelarii(wpis: dict) -> dict:
         "iod": "nie wyznaczono albo według dokumentacji kancelarii",
         "przechowywanie": _PRZECHOWYWANIE.get(wpis.get("przechowywanie", "chmura")),
         "kalendarz": ("tak - kancelaria przechowuje pliki w chmurze, kalendarz i spis telefonów są dostępne"
-                      if chmura else "nie - w trybie „Pliki u kancelarii” kalendarz i spis telefonów "
+                      if chmura else "nie - w trybie „Pliki na komputerze kancelarii” kalendarz i spis telefonów "
                                      "są wyłączone; wpisu nie trzeba dodawać"),
         "uzytkownicy": str(len(autoryzacja._zespol(wpis))),
     }

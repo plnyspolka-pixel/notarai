@@ -40,7 +40,7 @@ dokumentów do Fundacji. Punkty 1-3 załatwia się w aplikacji kliknięciem.
 7. **Usuwać sprawy** z notarai po zakończeniu czynności (lub ustalić
    w kancelarii inny termin). notarai nie jest repertorium ani archiwum
    notarialnym - dokumentację prowadzi się jak dotąd.
-8. **Tryb „Pliki u kancelarii”**: zapewnić kopię zapasową folderu
+8. **Tryb „Pliki na komputerze kancelarii”**: zapewnić kopię zapasową folderu
    i szyfrowanie dysku.
 9. **Do rejestrów logować się samodzielnie.** Nie przekazywać nikomu
    (w tym Fundacji) haseł ani kart do systemów urzędowych.

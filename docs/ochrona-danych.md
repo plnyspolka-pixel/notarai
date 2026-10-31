@@ -11,7 +11,7 @@ Kancelaria wybiera przy zakładaniu konta jedną z dwóch możliwości.
 **Pliki w chmurze** (domyślnie): sprawy leżą w S3 we Frankfurcie, szyfrowane
 i wersjonowane. Odzyskanie po przypadkowym nadpisaniu jest możliwe.
 
-**Pliki u kancelarii**: sprawy zapisują się w folderze na komputerze
+**Pliki na komputerze kancelarii**: sprawy zapisują się w folderze na komputerze
 notariusza. Serwer nie przechowuje wtedy niczego. Skany i tak przechodzą przez
 model, żeby dało się je odczytać, ale po przetworzeniu nie zostaje po nich
 żaden plik. Za kopie zapasowe odpowiada wtedy kancelaria; wymaga to

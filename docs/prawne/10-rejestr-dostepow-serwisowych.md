@@ -1,6 +1,6 @@
 # REJESTR DOSTĘPÓW SERWISOWYCH DO TREŚCI SPRAW
 
-Wersja z dnia 31.10.2026.
+Wersja z dnia 01.11.2026.
 
 Prowadzi: Fundacja Krzewienia Edukacji Finansowej im. Pieczaka.
 Osoba odpowiedzialna: Filip Robert Bielak, Prezes Zarządu.

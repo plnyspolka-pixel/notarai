@@ -1,6 +1,6 @@
 # UMOWA POWIERZENIA PRZETWARZANIA DANYCH OSOBOWYCH
 
-Wersja z dnia 31.10.2026. Integralna część Regulaminu świadczenia usługi
+Wersja z dnia 01.11.2026. Integralna część Regulaminu świadczenia usługi
 notarai.
 
 Umowa zostaje zawarta przez akceptację w Formularzu rejestracji
@@ -271,7 +271,7 @@ co najmniej w formie dokumentowej:
    przetwarzający usuwa wszystkie Dane, w tym wszystkie wersje plików,
    i potwierdza to Administratorowi w formie dokumentowej, chyba że prawo
    Unii lub prawo polskie nakazuje ich dalsze przechowywanie.
-5. Dane przechowywane w trybie „Pliki u kancelarii” znajdują się na
+5. Dane przechowywane w trybie „Pliki na komputerze kancelarii” znajdują się na
    urządzeniach Administratora i Podmiot przetwarzający ich nie posiada.
 
 ## § 13. Odpowiedzialność
@@ -370,7 +370,7 @@ przesyłanie do modelu językowego, usuwanie.
 do ich usunięcia przez Administratora, a po zakończeniu Usługi zgodnie
 z § 12 Umowy.
 
-**Tryb „Pliki u kancelarii”.** Pliki są przechowywane na komputerze
+**Tryb „Pliki na komputerze kancelarii”.** Pliki są przechowywane na komputerze
 Administratora. Na serwerze Usługi Dane są przetwarzane wyłącznie przejściowo,
 w pamięci i plikach tymczasowych usuwanych po zakończeniu operacji.
 
@@ -401,7 +401,7 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 2. Przechowywanie: szyfrowanie po stronie serwera (AES-256) wszystkich plików
    spraw.
 3. Zalecane dla Administratora: szyfrowanie dysków komputerów kancelarii
-   (np. BitLocker), zwłaszcza w trybie „Pliki u kancelarii”.
+   (np. BitLocker), zwłaszcza w trybie „Pliki na komputerze kancelarii”.
 
 ### C. Kontrola dostępu
 
