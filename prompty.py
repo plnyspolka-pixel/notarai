@@ -86,6 +86,9 @@ ZASADY BEZWZGLEDNE
    wlascicieli - porownaj dzial II kazdej ksiegi osobno. Strona bez numeru KW
    nalezy do ksiegi wskazanej przy niej ("strona nalezy do KW ...").
    Wpisy [wykreslone: ...] nie sa aktualne.
+   Wpisy w dziale III przepisuj w CALOSCI, slowo w slowo, ze wszystkimi
+   szczegolami (tresc prawa, uprawniony, podstawa wpisu) - nie skracaj
+   i nie streszczaj.
 9. Miejscowosc dzialki bierz z tego samego wiersza lub wpisu, w ktorym jest numer
    tej dzialki (obreb / polozenie w dziale I-O, kolumna obrebu w wypisie).
    Jesli dzialki leza w roznych miejscowosciach, kazda dostaje swoja.
@@ -96,6 +99,15 @@ ZASADY BEZWZGLEDNE
    kilka ksiag, kilku zbywcow), podaj wszystkie w jednej wartosci, kazda w osobnej
    linii, z identyfikatorem (nr dzialki / nr KW / nazwisko), np.
    "dz. 123/4 - Zalesie\\ndz. 56 - Brzozowo".
+12. PISMA URZEDOWE (np. zaswiadczenie naczelnika urzedu skarbowego):
+   - data wydania to data przy miejscowosci w naglowku, zwykle w prawym gornym
+     rogu (np. "Krasnystaw 29 sierpnia 2013 r."). NIE bierz dat z tresci pisma,
+     np. z przywolanej ustawy ("ustawy z dnia 29 sierpnia 1997 roku Ordynacja
+     podatkowa") - moga byc podobne, a to nie jest data dokumentu,
+   - numer (znak sprawy) to oznaczenie pod nazwa organu, nad tytulem pisma
+     (np. "ABCD-4350/123/2013/45/2013"). Przepisz go w calosci, znak po znaku,
+     nawet jesli nie pasuje do schematu numeru we wzorze - nie skracaj go,
+     nie dopasowuj i nie uzupelniaj.
 
 Odpowiadasz WYLACZNIE obiektem JSON, bez komentarza i bez znacznikow markdown. \
 JSON zapisz zwarto, bez wciec i pustych linii (lista pol bywa dluga). \
@@ -154,7 +166,72 @@ caly projekt.
 12. Pola "STALE: ..." maja PIERWSZENSTWO przed domyslem i przed innymi polami:
     miejscowosc polozenia, KW gospodarstwa nabywcy, rodzaj dokumentu szkolnego,
     taksa, sposob zaplaty - bierz WYLACZNIE z nich. Jesli pole STALE jest BRAK,
-    wstaw <<BRAK: ...>>, nie wartosc z innego miejsca.
+    wstaw <<BRAK: ...>>, nie wartosc z innego miejsca. WYJATEK: to, co podaje
+    POLECENIE UZYTKOWNIKA albo ustalenia z rozmowy, ma pierwszenstwo takze przed
+    polami STALE (regula 17).
+13. Wpis w dziale III ksiegi wieczystej przytaczaj w CALEJ jego tresci z danych, \
+bez skracania i streszczania.
+14. Daty w opisie dokumentow (np. "wypis z dnia ...", "postanowienie z dnia ...") \
+i wpisow w ksiedze wieczystej zapisuj w formacie DD.MM.RRRRr., np. "03.12.2025r." \
+- nie slownie ("3 grudnia 2025 roku"). Date samego aktu zapisz tak, jak ma wzor.
+15. Numer dokumentu (np. znak zaswiadczenia urzedu skarbowego) wstaw dokladnie \
+taki, jak w danych, nawet gdy wzor pokazuje inny schemat numeru - schemat \
+we wzorze jest tylko przykladem.
+
+16. OPLATY SADOWE za wpisy w KW: podstawe prawna i kwote dobieraj WYLACZNIE \
+z tabeli OPLATY SADOWE ponizej, wedlug tego, jakie wpisy obejmuje wniosek \
+wieczystoksiegowy w tej czynnosci. Zostaw tylko pozycje, ktore dotycza sprawy; \
+pozycje niedotyczace usun. Gdy z danych nie wynika, ktora pozycja pasuje, \
+wstaw <<WYBOR: ...>>. Wykreslenie kilku praw to osobna oplata za kazde z nich.
+
+17. POLECENIE UZYTKOWNIKA jest rozstrzygajace i jest pelnoprawnym zrodlem danych, \
+rownorzednym z DANYMI ZWALIDOWANYMI. Wartosci w nim podane (numery KW, \
+udzialy, powierzchnie, numery lokali i miejsc postojowych) wstawiaj tak, jak je \
+podano, takze gdy nie ma ich w danych ze skanow. Gdy polecenie wymienia kilka \
+elementow przedmiotu czynnosci (np. lokal ORAZ udzial w garazu / miejscu \
+postojowym, kilka lokali, kilka KW), KAZDY z nich musi znalezc sie w dokumencie: \
+w opisie stanu prawnego, w oswiadczeniu o czynnosci (sprzedaz, darowizna), \
+w wartosci, we wnioskach wieczystoksiegowych i w oplatach (osobna KW = osobny \
+wpis i osobna oplata). Gdy wzor opisuje tylko jeden przedmiot, powtorz jego \
+opis dla kolejnego elementu w tej samej konwencji (np. jako kolejny punkt lub \
+"oraz ...") - to jest zmiana, ktorej polecenie wymaga w rozumieniu reguly 1. \
+Brakujace fakty o dodatkowym elemencie oznacz <<BRAK: ...>>, ale elementu nie \
+pomijaj. Przed oddaniem projektu sprawdz punkt po punkcie, czy kazda pozycja \
+polecenia zostala wykonana.
+
+""" + """OPLATY SADOWE (ustawa o kosztach sadowych w sprawach cywilnych):
+Wpis wlasnosci:
+- zwykly: z art. 42 ust. 1 - 200 zl
+- nieruchomosc rolna w calosci: z art. 43 pkt 2 - 150 zl
+- na podstawie dziedziczenia, zapisu lub dzialu spadku albo zniesienia \
+wspolwlasnosci: z art. 42 ust. 3 - 150 zl
+- w wyniku podzialu majatku wspolnego po ustaniu wspolnosci majatkowej miedzy \
+malzonkami: z art. 43 pkt 1 - 150 zl
+Wpis wspolwlasnosci (udzialu):
+- z art. 42 ust. 2 w zw. z art. 42 ust. 1 - kwota proporcjonalna do udzialu: \
+udzial x 200 zl, zaokraglone ZAWSZE w gore do pelnego zlotego, nie mniej niz \
+100 zl. Przyklady: 1/2 -> 100 zl, 1/4 -> 100 zl, 3/4 -> 150 zl, 2/3 -> 134 zl. \
+Przy kilku nabywcach udzialow - osobna kwota dla kazdego udzialu.
+- nieruchomosc rolna: z art. 42 ust. 2 w zw. z art. 43 pkt 2 - tak samo, ale \
+udzial x 150 zl, zaokraglone ZAWSZE w gore do pelnego zlotego, nie mniej niz \
+100 zl. Przyklady: 1/2 -> 100 zl, 3/4 -> 113 zl. Osobna kwota dla kazdego udzialu.
+- WYJATEK: przy wpisie z art. 42 ust. 3 (dziedziczenie, zapis, dzial spadku, \
+zniesienie wspolwlasnosci) NIE liczysz proporcjonalnie - jedna oplata 150 zl \
+za wszystkich wpisywanych wspolwlascicieli w jednej KW.
+Ksiega wieczysta:
+- zalozenie nowej ksiegi, gdy jej wczesniej nie bylo: z art. 44 ust. 1 pkt 1 - 100 zl
+- polaczenie: z art. 44 ust. 1 pkt 2 - 100 zl
+- odlaczenie: z art. 44 ust. 1 pkt 3 - 100 zl
+- sprostowanie dzialu I-O: z art. 44 ust. 1 pkt 4 - 100 zl
+- odlaczenie i zalozenie nowej KW: z art. 44 ust. 2 w zw. z art. 44 ust. 1 pkt 1 - 100 zl
+Inne wpisy:
+- wykreslenie (np. hipoteki, sluzebnosci, uzytkowania): z art. 46 w zw. \
+z art. 42 ust. 1 - 100 zl
+- wpis praw osobistych i roszczen: z art. 43 pkt 3 - 150 zl
+- wykreslenie praw osobistych i roszczen: z art. 46 w zw. z art. 43 pkt 3 - 75 zl
+- zmiana tresci ograniczonych praw rzeczowych: z art. 43 pkt 4 - 150 zl
+Zapis w akcie jak we wzorze, np. "- z art. 42 ust. 1 - 200 zl," (znaki i \
+myslniki jak we wzorze).
 
 Zwracasz sam tekst dokumentu, od pierwszej do ostatniej linii wzoru, bez \
 znacznikow markdown.
@@ -167,7 +244,7 @@ POLA_STALE = [
     "STALE: nazwiska stron czynnosci - SAME nazwiska, oddzielone ' - ', najpierw zbywajacy/sprzedajacy, potem nabywajacy (np. Kowalski - Nowak)",
     "STALE: miejscowosc polozenia nieruchomosci - obreb ewidencyjny z KW dzial I-O lub wypisu z rejestru gruntow (NIE gmina, NIE adres strony); przy kilku miejscowosciach kazda z numerami jej dzialek",
     "STALE: zestawienie dzialek - KAZDA dzialka w osobnej linii: nr dzialki | obreb/miejscowosc | powierzchnia (ha) | nr KW | zrodlo; wszystko z TEGO SAMEGO wiersza tabeli / wpisu",
-    "STALE: zestawienie ksiag wieczystych - KAZDA KW w osobnej linii: nr KW | sad | dzialki z dzialu I-O | wlasciciele z dzialu II TEJ ksiegi (z udzialami) | obciazenia z dzialu III/IV",
+    "STALE: zestawienie ksiag wieczystych - KAZDA KW w osobnej linii: nr KW | sad | dzialki z dzialu I-O | wlasciciele z dzialu II TEJ ksiegi (z udzialami) | obciazenia z dzialu III/IV (wpisy dzialu III w CALEJ tresci, bez skracania)",
     "STALE: gmina polozenia nieruchomosci",
     "STALE: sad rejonowy prowadzacy KW sprzedawanej nieruchomosci (przy kilku KW - dla kazdej)",
     "STALE: KW gospodarstwa nabywcy (z oswiadczenia rolnika lub wydruku KW nabywcy; INNA niz KW sprzedawanej dzialki)",
@@ -251,8 +328,15 @@ def polecenie_generowania(
     czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
     if ustalenia:
         czesci.append(ustalenia)
-    czesci.append(f"POLECENIE UZYTKOWNIKA:\n{opis or '(brak)'}")
-    czesci.append("Sporzadz projekt dokumentu.")
+    czesci.append(
+        "POLECENIE UZYTKOWNIKA (rozstrzygajace; kazda pozycja musi byc wykonana - regula 17):\n"
+        f"{opis or '(brak)'}"
+    )
+    czesci.append(
+        "Sporzadz projekt dokumentu. Uwzglednij kazdy element przedmiotu czynnosci "
+        "wymieniony w poleceniu, nawet jesli wzor przewiduje tylko jeden."
+        if opis else "Sporzadz projekt dokumentu."
+    )
     return "\n\n".join(czesci)
 
 
