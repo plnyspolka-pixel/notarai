@@ -778,9 +778,6 @@ notarai</div>
       </div>
       <button class="odnosnik" id="btn-zapomnialem">Nie pamiętam hasła</button>
       <a class="odnosnik" href="/rejestracja">Nie masz konta? Załóż konto kancelarii, 14 dni za darmo</a>
-      <!-- Dawny token kancelarii sluzy automatyzacji, nie ludziom. Ukryty;
-           otwiera go adres zakonczony #token. -->
-      <button class="odnosnik" id="btn-pokaz-token" hidden>Mam token kancelarii</button>
     </div>
 
     <!-- 2. pierwsze logowanie: hasło z zaproszenia trzeba zmienić -->
@@ -834,20 +831,6 @@ notarai</div>
       <button class="odnosnik" id="btn-wroc-reset">Wróć do logowania</button>
     </div>
 
-    <!-- 4. dawny token kancelarii, dla zadań automatycznych -->
-    <div id="widok-token" hidden>
-      <h2>Token kancelarii</h2>
-      <p>Wspólny token dla całej kancelarii. Zwykłe logowanie adresem e-mail jest bezpieczniejsze, bo wskazuje osobę.</p>
-      <div class="pole">
-        <label class="etykieta" for="token-pole">Token</label>
-        <input type="text" id="token-pole" autocomplete="off" spellcheck="false" placeholder="np. 9f3c…">
-      </div>
-      <div class="dol">
-        <button id="btn-token">Użyj tokenu</button>
-        <span class="stan" id="stan-token"></span>
-      </div>
-      <button class="odnosnik" id="btn-wroc-token">Wróć do logowania</button>
-    </div>
   </div>
 </div>
 
@@ -912,6 +895,22 @@ notarai</div>
     <button id="btn-zespol-zapros">Zaproś</button>
   </div>
   <div class="dol"><span class="stan" id="stan-zespol"></span></div>
+  <!-- Dostep serwisowy: jedyna droga obslugi notarai do spraw kancelarii.
+       Wlacza go wlasciciel, na okreslony czas (umowa powierzenia § 5 ust. 4). -->
+  <h2 style="margin-top:22px">Dostęp serwisowy notarai</h2>
+  <p id="serwis-opis"></p>
+  <div class="dol" id="serwis-sterowanie" hidden>
+    <select id="serwis-godziny" aria-label="Na jak długo">
+      <option value="1">na 1 godzinę</option>
+      <option value="24" selected>na 24 godziny</option>
+      <option value="72">na 3 dni</option>
+      <option value="168">na 7 dni</option>
+    </select>
+    <button class="wtorny" id="btn-serwis-wlacz">Włącz dostęp</button>
+    <button class="wtorny" id="btn-serwis-odwolaj" hidden>Odwołaj dostęp</button>
+  </div>
+  <div id="serwis-historia"></div>
+  <div class="dol"><span class="stan" id="stan-serwis"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
@@ -1002,10 +1001,21 @@ let sprawa = null, poleceniePierwotne = "", najdalej = 1, sprawyLista = [];
    wtedy, gdy i on przestanie dzialac.                                    */
 const KLUCZ_TOKENU = "notarai_token";
 
+/* Dostep serwisowy: administrator wchodzi z panelu /admin adresem
+   /?serwis=<kancelaria>, zalogowany wlasnym kontem z panelu. Serwer wpusci
+   go tylko wtedy, gdy ta kancelaria sama wlaczyla dostep serwisowy. Token
+   administratora zostaje w tej karcie i nie nadpisuje logowania kancelarii. */
+const SERWIS = new URLSearchParams(location.search).get("serwis") || "";
+
 function czytajToken(){
+  if (SERWIS) { try { return sessionStorage.getItem("notarai_admin") || ""; } catch { return ""; } }
   try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; }
 }
 function zapiszToken(wartosc){
+  if (SERWIS) {
+    try { if (wartosc) sessionStorage.setItem("notarai_admin", wartosc); } catch { /* tryb prywatny */ }
+    return;
+  }
   try {
     if (wartosc) localStorage.setItem(KLUCZ_TOKENU, wartosc);
     else localStorage.removeItem(KLUCZ_TOKENU);
@@ -1014,7 +1024,7 @@ function zapiszToken(wartosc){
 
 let token = czytajToken();
 
-/* Dawny token kancelarii nie wygasa; wygasa tylko token logowania (JWT). */
+/* Token logowania (JWT) wygasa i trzeba go odnawiac. */
 const czyJwt = t => (t || "").split(".").length === 3;
 function msDoWygasniecia(t){
   try {
@@ -1059,12 +1069,12 @@ function ustawToken(nowy){
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   if (czyJwt(token) && msDoWygasniecia(token) < 5 * 60 * 1000) odnowSesje();
-  if (token && $("brama").hidden) odswiezPomocnika();
+  if (token && $("brama").hidden && !SERWIS) odswiezPomocnika();
 });
 
 /* Logowanie i wylogowanie w jednej karcie dziala we wszystkich. */
 window.addEventListener("storage", e => {
-  if (e.key !== KLUCZ_TOKENU) return;
+  if (SERWIS || e.key !== KLUCZ_TOKENU) return;
   token = e.newValue || "";
   planujOdnowienie();
   if (!token) { otworzBrame("Wylogowano."); return; }
@@ -1077,14 +1087,19 @@ async function api(adres, opcje = {}){
   const wyslij = () => {
     const naglowki = new Headers(opcje.headers || {});
     if (token) naglowki.set("Authorization", "Bearer " + token);
+    if (SERWIS) naglowki.set("X-Serwis-Kancelaria", SERWIS);
     return fetch(adres, {...opcje, headers: naglowki});
   };
   if (czyJwt(token) && msDoWygasniecia(token) < 60 * 1000) await odnowSesje();
   let odp = await wyslij();
-  if (odp.status === 401 && !czyJwt(token) && token) {
-    // dawny token kancelarii odrzucony - odnawianie nic tu nie da
-  } else if (odp.status === 401 && await odnowSesje()) {
+  if (odp.status === 401 && await odnowSesje()) {
     odp = await wyslij();
+  }
+  if (SERWIS && (odp.status === 401 || odp.status === 403) && !adres.startsWith("/api/pomocnik")) {
+    // Kancelaria odwolala dostep, wygasl albo wygasla sesja panelu.
+    alert("Kancelaria nie włączyła dostępu serwisowego albo już wygasł.");
+    location.href = "/admin";
+    throw new Error("Brak dostępu serwisowego.");
   }
   if (odp.status === 401) {
     otworzBrame(token ? "Sesja wygasła. Zaloguj się ponownie." : "");
@@ -1112,7 +1127,7 @@ function komunikatHttp(status){
   return `Nieoczekiwana odpowiedź serwera (HTTP ${status}). Spróbuj ponownie za chwilę.`;
 }
 
-const WIDOKI = ["widok-logowanie", "widok-nowe-haslo", "widok-odzyskiwanie", "widok-token"];
+const WIDOKI = ["widok-logowanie", "widok-nowe-haslo", "widok-odzyskiwanie"];
 let sesjaNowegoHasla = "", emailLogowania = "";
 
 function pokazWidok(nazwa){
@@ -1252,37 +1267,13 @@ $("btn-ustaw-kodem").onclick = async () => {
   }
 };
 
-$("btn-pokaz-token").onclick = () => { pokazWidok("widok-token"); $("token-pole").focus(); };
-$("btn-pokaz-token").hidden = location.hash !== "#token";
 /* Uwaga: identyfikatory w bramie musza byc unikalne w calej stronie -
    aplikacja ma juz wlasny przycisk "Wróć" (powrot do etapu 1). */
 $("btn-wroc-reset").onclick = () => otworzBrame("");
-$("btn-wroc-token").onclick = () => otworzBrame("");
-
-/* Dawny token kancelarii - wspolny dla calej kancelarii, do zadan automatycznych. */
-$("btn-token").onclick = async () => {
-  const wpisany = $("token-pole").value.trim();
-  if (!wpisany) { stan($("stan-token"), "Wklej token.", true); return; }
-  stan($("stan-token"), "Sprawdzam…", false, true);
-  const poprzedni = token;
-  try {
-    const proba = "/api" + "/sprawy";   // celowo bez api(): 401 obsluguje ta funkcja
-    const odp = await fetch(proba, {headers:{"Authorization":"Bearer " + wpisany}});
-    if (odp.status === 401) {
-      stan($("stan-token"), "Token nieprawidłowy albo kancelaria wyłączona.", true);
-      return;
-    }
-    if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
-    wpusc(wpisany);
-  } catch (e) {
-    token = poprzedni;
-    stan($("stan-token"), e.message, true);
-  }
-};
 
 [["pole-email", "btn-zaloguj"], ["pole-haslo", "btn-zaloguj"],
  ["pole-haslo-nowe2", "btn-ustaw-haslo"], ["pole-email-reset", "btn-wyslij-kod"],
- ["pole-haslo-reset", "btn-ustaw-kodem"], ["token-pole", "btn-token"]
+ ["pole-haslo-reset", "btn-ustaw-kodem"]
 ].forEach(([pole, przycisk]) => {
   $(pole).addEventListener("keydown", e => {
     if (e.key === "Enter" && !$(przycisk).hidden) { e.preventDefault(); $(przycisk).click(); }
@@ -1581,6 +1572,15 @@ async function uruchomTrybPracy(){
       }
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
+  if (SERWIS) {
+    // Obsluga notarai widzi sprawy, nie zespol, abonament ani dokumenty
+    // kancelarii - tych serwer i tak jej nie pokaze.
+    $("kto").textContent = "Dostęp serwisowy: " + SERWIS;
+    $("kto").title = "Wejście za zgodą kancelarii, do czasu, który wskazała";
+    $("kto").hidden = false;
+    rysujListeSpraw();
+    return;
+  }
   if (dysk.aktywny) {
     $("pasek-folder").hidden = false;
     if (dysk.obslugiwany) dysk.folder = await dysk.odtworz();
@@ -1684,7 +1684,7 @@ function rysujZespol(){
 let dokumenty = null;
 
 async function sprawdzDokumenty(){
-  if (!czyJwt(token)) return;
+  if (!czyJwt(token) || SERWIS) return;
   try {
     const odp = await api("/api/dokumenty");
     if (!odp.ok) return;
@@ -1849,8 +1849,51 @@ $("btn-zespol").onclick = async () => {
   if (zespol) rysujZespol();
   $("okno-zespol").showModal();
   await wczytajZespol();
+  await wczytajSerwis();
   if (zespol && zespol.jestem_wlascicielem) $("zespol-email").focus();
 };
+
+/* ---------- dostep serwisowy ---------- */
+async function wczytajSerwis(){
+  try {
+    const odp = await api("/api/serwis");
+    if (!odp.ok) return;
+    rysujSerwis(await odp.json());
+  } catch { /* okno zespolu dziala i bez tego */ }
+}
+
+const kiedySerwis = t => new Date(t).toLocaleString("pl-PL", {dateStyle: "short", timeStyle: "short"});
+
+function rysujSerwis(s){
+  const wlasciciel = !!(zespol && zespol.jestem_wlascicielem);
+  $("serwis-opis").textContent = s.wlaczony
+    ? "Włączony do " + kiedySerwis(s.do) + ". Do tego czasu obsługa notarai może otworzyć sprawy kancelarii, żeby pomóc w zgłoszonym problemie."
+    : "Wyłączony. Nikt spoza kancelarii nie ma dostępu do jej spraw. Jeśli prosisz obsługę notarai o pomoc, "
+      + (wlasciciel ? "włącz dostęp na czas potrzebny do jej udzielenia." : "dostęp włącza właściciel kancelarii.");
+  $("serwis-sterowanie").hidden = !wlasciciel;
+  $("btn-serwis-odwolaj").hidden = !s.wlaczony;
+  $("btn-serwis-wlacz").textContent = s.wlaczony ? "Ustaw nowy czas" : "Włącz dostęp";
+  $("serwis-historia").innerHTML = s.historia.slice(0, 5).map(h => {
+    const koniec = h.odwolano ? "odwołano " + kiedySerwis(h.odwolano) : "do " + kiedySerwis(h.do);
+    const kto = (h.uzyli || []).map(u => escape(u.email) + " (" + kiedySerwis(u.od) + ")").join(", ");
+    return `<div class="komputer"><div><b>${kiedySerwis(h.od)}, ${escape(koniec)}</b>`
+      + `<small>włączył(a) ${escape(h.wlaczyl)} · ${kto ? "skorzystali: " + kto : "nikt nie skorzystał"}</small></div></div>`;
+  }).join("");
+}
+
+async function zmienSerwis(metoda, tresc){
+  stan($("stan-serwis"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/serwis", {method: metoda,
+      headers: {"Content-Type": "application/json"}, body: tresc ? JSON.stringify(tresc) : undefined});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać.");
+    rysujSerwis(w);
+    stan($("stan-serwis"), w.wlaczony ? "Dostęp włączony." : "Dostęp odwołany.");
+  } catch (e) { stan($("stan-serwis"), e.message, true); }
+}
+$("btn-serwis-wlacz").onclick = () => zmienSerwis("POST", {godziny: +$("serwis-godziny").value});
+$("btn-serwis-odwolaj").onclick = () => zmienSerwis("DELETE");
 $("btn-zamknij-zespol").onclick = () => $("okno-zespol").close();
 $("btn-zespol-zapros").onclick = async () => {
   const email = $("zespol-email").value.trim();

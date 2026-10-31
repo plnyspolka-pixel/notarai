@@ -2,7 +2,7 @@
 
 ## Nowe pliki
 - `magazyn.py`      — pliki spraw: dysk (jak dotąd) albo dysk-cache + S3
-- `autoryzacja.py`  — tokeny kancelarii + panel admina /api/admin/*
+- `autoryzacja.py`  — logowanie per osoba, panel admina /api/admin/*, dostęp serwisowy /api/serwis
 - `Dockerfile`      — kontener dla ECS Fargate (x86_64, użytkownik bez uprawnień roota)
 - `infra/notarai-wdrozenie-iam.yaml` — CloudFormation: polityka dla tozsamosci, ktora wdraza stos ponizej (wdraza ja administrator konta, raz)
 - `infra/notarai-s3.yaml` — CloudFormation: bucket S3 (szyfrowany, prywatny, wersjonowany, tylko TLS) + polityka IAM aplikacji (S3 + Bedrock we wszystkich regionach UE, bo profile `eu.` routują poza Frankfurt)
@@ -24,7 +24,7 @@
 | | lokalny (domyślny) | SaaS |
 |---|---|---|
 | pliki | dane/sprawy (bez zmian) | S3: kancelarie/{id}/sprawy/{id}/ |
-| logowanie | brak | Bearer token per kancelaria |
+| logowanie | brak | Bearer token logowania (Cognito) per osoba |
 | env | nic | PIECZAPP_MAGAZYN=s3, PIECZAPP_S3_BUCKET, PIECZAPP_MULTI=true, PIECZAPP_ADMIN_TOKEN |
 
 ## Uruchomienie SaaS
@@ -64,8 +64,12 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    notariusza, wybierz miejsce na pliki. Jeden przycisk zakłada kancelarię,
    konto właściciela i wysyła zaproszenie. Właściciel zaprasza swój zespół
    sam (pasek boczny -> Zespół kancelarii). W panelu też: ponowne wysłanie
-   zaproszenia, rola właściciela, wyłączenie i włączenie kancelarii, token
-   do automatyzacji.
+   zaproszenia, rola właściciela, wyłączenie i włączenie kancelarii. Panel
+   nie otwiera spraw: administrator zaprasza tylko pierwszego właściciela,
+   a do spraw wchodzi wyłącznie przez dostęp serwisowy, który właściciel
+   kancelarii sam włącza w oknie Zespół kancelarii (umowa powierzenia § 5
+   ust. 4). Gdy jest włączony, w karcie kancelarii pojawia się przycisk
+   „Otwórz sprawy (dostęp serwisowy)”.
 6. Nowa wersja aplikacji: commit, potem etap 2 i 3. Podmiana bez przestoju.
 7. Logowanie użytkowników (opcjonalne, ale zalecane):
    `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
@@ -74,10 +78,9 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    `curl -X POST https://app.notarai.pl/api/admin/uzytkownicy -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"email":"notariusz@kancelaria.pl","kancelaria":"kancelaria-x"}'`
    Użytkownik dostaje e-mail z hasłem tymczasowym i ustawia własne przy pierwszym logowaniu.
    Hasła przechowuje Cognito; aplikacja ich nie zapisuje.
-8. Kancelaria bez logowania: token w oknie ,,Token kancelarii''.
-   Token zostaje w localStorage tej przeglądarki i leci w nagłówku przy każdym
-   żądaniu. ,,Wyloguj kancelarię'' w stopce paska bocznego go kasuje.
-   W trybie lokalnym okno się nie pokazuje.
+8. Wspólnego tokenu kancelarii już nie ma (usunięty 31.10.2026): dawał
+   pełny dostęp do spraw temu, kto go miał, także administratorowi, który go
+   wydawał. Do spraw wchodzi się tylko logując się adresem e-mail.
 
 ## Czego celowo NIE ruszałem
 - `bedrock.py`, `walidacja.py`, `prompty.py`, `dokumenty.py` — zero zmian
@@ -164,9 +167,6 @@ Przy `u-klienta`:
   przy większej skali przenieś do DynamoDB/RDS.
 - Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa
   (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
-- Token kancelarii leży w localStorage przeglądarki: wystarczy dla stanowiska
-  w kancelarii, ale nie wygasa sam. Przy szerszym gronie odbiorców warto przejść
-  na sesje z terminem waznosci.
 - Kontener w publicznej podsieci domyślnego VPC, bez NAT: wejście blokuje grupa
   bezpieczeństwa (tylko ruch z load balancera). Prywatne podsieci z NAT to
   osobny, stały koszt; warto przy większej skali.

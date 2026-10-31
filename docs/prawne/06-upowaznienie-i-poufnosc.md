@@ -21,7 +21,7 @@ Zakresy:
 | Kod | Zakres |
 |---|---|
 | A | Administracja kontem AWS i infrastrukturą usługi notarai (bez przeglądania treści spraw) |
-| B | Dostęp serwisowy do treści spraw - wyłącznie na zasadach § 5 ust. 3 umowy powierzenia, z wpisem do rejestru dostępów (plik 10) |
+| B | Dostęp serwisowy do treści spraw - wyłącznie gdy kancelaria sama włączy go w Usłudze, na czas przez nią wskazany (§ 5 ust. 4 umowy powierzenia); wejście zapisuje aplikacja (plik 10) |
 | C | Obsługa kont użytkowników (zakładanie, blokady) |
 | D | Obsługa korespondencji, reklamacji i zgłoszeń |
 | E | Umowy i rozliczenia z kancelariami |
@@ -51,8 +51,10 @@ Oświadczam, że:
    miał(a) dostęp, sposoby ich zabezpieczenia oraz **wszelkie okoliczności
    spraw kancelarii notarialnych**, o których dowiem się w związku ze
    współpracą z Fundacją, także po jej zakończeniu, bezterminowo.
-3. Nie będę przeglądać treści spraw kancelarii poza przypadkami dozwolonymi
-   w umowie powierzenia, nie będę kopiować danych na nośniki ani do usług
+3. Nie będę przeglądać treści spraw kancelarii poza dostępem serwisowym,
+   który kancelaria sama włączyła w Usłudze (§ 5 ust. 4 umowy powierzenia),
+   i tylko w zakresie zgłoszenia, nie będę obchodzić zabezpieczeń chroniących
+   treść spraw, nie będę kopiować danych na nośniki ani do usług
    nieprzewidzianych w dokumentacji (w tym do prywatnych kont, czatów AI,
    repozytoriów kodu), ani używać danych kancelarii do testów.
 4. Niezwłocznie zgłoszę osobie odpowiedzialnej każde podejrzenie naruszenia

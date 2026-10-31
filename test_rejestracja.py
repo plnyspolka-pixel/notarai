@@ -176,12 +176,13 @@ class TestKancelariaZalozonaPrzezAdmina:
         stan = klient.get("/api/dokumenty", headers=jako("ewa@kancelaria-pawlak.test", k)).json()
         assert stan["jestem_wlascicielem"] is False
 
-    def test_dawny_token_kancelarii_nie_jest_blokowany(self, srodowisko):
-        """Automatyzacja kancelarii nie ma kogo zapytac o akceptacje."""
+    def test_administrator_nie_dostaje_klucza_do_spraw(self, srodowisko):
+        """Zalozenie kancelarii nie oddaje administratorowi niczego, czym
+        moglby otworzyc jej sprawy."""
         klient, _, _ = srodowisko
         odp = klient.post("/api/admin/kancelarie", headers=ADMIN, json={"nazwa": "Kancelaria Pawlak"})
-        token = {"Authorization": "Bearer " + odp.json()["token"]}
-        assert klient.get("/api/sprawy", headers=token).status_code == 200
+        assert "token" not in odp.json()
+        assert klient.get("/api/sprawy", headers=ADMIN).status_code == 401
 
 
 class TestDokumenty:

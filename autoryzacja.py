@@ -1,18 +1,20 @@
 """Autoryzacja per kancelaria (tryb SaaS) + panel administracyjny.
 
 Tryb wielu kancelarii wlacza PIECZAPP_MULTI=true. Wtedy kazde zadanie /api/*
-musi niesc naglowek:  Authorization: Bearer <token kancelarii>
+musi niesc naglowek:  Authorization: Bearer <token logowania albo pomocnika>
+Token logowania (Cognito) niesie kancelarie osoby; innej drogi do spraw nie
+ma. Wspolnego tokenu kancelarii juz nie ma: dawal pelny dostep do spraw
+komukolwiek, kto go mial - takze administratorowi, ktory go wydawal.
 
-Rejestr kancelarii: plik JSON {hash_sha256_tokenu: {"id","nazwa","aktywna"}}.
+Rejestr kancelarii: plik JSON {losowy_skrot: {"id","nazwa","aktywna",...}}.
   - tryb lokalny: dane/kancelarie.json
   - tryb s3:      s3://BUCKET/PREFIKS/admin/kancelarie.json (szyfrowany)
-Tokeny NIE sa przechowywane wprost - tylko ich hashe. Token widac raz,
-przy utworzeniu kancelarii.
 
 Panel admina (/admin): logowanie e-mailem z listy administratorow, a awaryjnie
-osobny token PIECZAPP_ADMIN_TOKEN (nie tokeny kancelarii):
-  GET  /api/admin/kancelarie          lista
-  POST /api/admin/kancelarie {nazwa}  utworzenie + jednorazowy token
+osobny token PIECZAPP_ADMIN_TOKEN. Panel zaklada i wylacza kancelarie, ale
+nie otwiera ich spraw. Do spraw administrator wchodzi wylacznie przez dostep
+serwisowy, ktory wlasciciel kancelarii sam wlacza na okreslony czas
+(umowa powierzenia § 5 ust. 4) - i tylko zalogowany imiennie, nie tokenem.
 
 Zero danych osobowych ani tokenow w logach.
 """
@@ -40,7 +42,7 @@ log = logging.getLogger("pieczapp.autoryzacja")
 MULTI = os.getenv("PIECZAPP_MULTI", "false").lower() == "true"
 ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 
-# Sciezki bez tokenu kancelarii: strona, statyki, zdrowie, panel admina
+# Sciezki bez logowania: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
 # webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
@@ -59,6 +61,15 @@ _BEZ_UMOWY = _BEZ_ABONAMENTU + ("/api/dokumenty", "/api/ustawienia")
 # Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
 # komputera notariusza nie pozwala przegladac spraw.
 _DLA_POMOCNIKA = "/api/pomocnik/"
+
+# Dostep serwisowy: administrator wskazuje kancelarie tym naglowkiem. Nie
+# siega po to, co nalezy do kancelarii jako klienta - zespol, abonament,
+# akceptacje dokumentow, pomocnika - ani po sam dostep serwisowy, zeby nie
+# mogl go sobie przedluzyc.
+NAGLOWEK_SERWISU = "x-serwis-kancelaria"
+_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
+                  "/api/pomocnik")
+_SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
 _CACHE: dict | None = None
@@ -118,12 +129,11 @@ def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None, str]:
     """(kancelaria, identyfikator komputera z pomocnikiem albo None, e-mail).
 
     E-mail jest tylko przy tokenie logowania - po nim poznajemy wlasciciela
-    kancelarii. Dawny token i token pomocnika nie wskazuja osoby.
+    kancelarii. Token pomocnika nie wskazuje osoby.
 
     Token logowania (JWT) jest podpisany przez Cognito i niesie kancelarie
-    uzytkownika. Token pomocnika nalezy do jednego komputera. Dawny token
-    kancelarii zostaje dla zadan automatycznych - jest wspolny dla calej
-    kancelarii i nie wskazuje osoby.
+    uzytkownika. Token pomocnika nalezy do jednego komputera i otwiera tylko
+    kolejke pomocnika.
     """
     if not token:
         return None, None, ""
@@ -141,10 +151,6 @@ def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None, str]:
         komputer = urzadzenia.z_tokenu(token)
         if komputer and _aktywna(komputer["kancelaria"]):
             return komputer["kancelaria"], komputer["id"], ""
-        return None, None, ""
-    wpis = _wczytaj_rejestr().get(_sha(token))
-    if wpis and wpis.get("aktywna", True):
-        return wpis["id"], None, ""
     return None, None, ""
 
 
@@ -178,7 +184,20 @@ async def middleware(request: Request, call_next):
 
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    kancelaria, komputer, email = _kancelaria_z_naglowka(token)
+    id_serwisu = request.headers.get(NAGLOWEK_SERWISU, "").strip()
+    if id_serwisu:
+        # Administrator w sprawach kancelarii: tylko gdy ta kancelaria sama
+        # wlaczyla dostep serwisowy i tylko do czasu, ktory wskazala.
+        email = _wejscie_serwisowe(token, id_serwisu)
+        if not email:
+            return JSONResponse({"detail": "Kancelaria nie wlaczyla dostepu serwisowego "
+                                           "albo juz wygasl."}, 403)
+        if sciezka.startswith(_POZA_SERWISEM):
+            return JSONResponse({"detail": "Dostep serwisowy nie obejmuje zespolu, abonamentu, "
+                                           "dokumentow ani pomocnika kancelarii."}, 403)
+        kancelaria, komputer = id_serwisu, None
+    else:
+        kancelaria, komputer, email = _kancelaria_z_naglowka(token)
     if not kancelaria:
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
     if komputer and not sciezka.startswith(_DLA_POMOCNIKA):
@@ -186,8 +205,8 @@ async def middleware(request: Request, call_next):
     if not sciezka.startswith(_BEZ_ABONAMENTU) and not _oplacona(kancelaria):
         return JSONResponse({"detail": "Abonament kancelarii wygasl. Wlasciciel moze go oplacic "
                                        "w oknie Abonament.", "abonament": True}, 402)
-    # Dotyczy ludzi. Dawny token i pomocnik to automatyzacja kancelarii,
-    # ktora i tak zaczyna dzialac dopiero po zalogowaniu wlasciciela.
+    # Dotyczy ludzi. Pomocnik to automatyzacja kancelarii, ktora i tak
+    # zaczyna dzialac dopiero po zalogowaniu wlasciciela.
     if email and not sciezka.startswith(_BEZ_UMOWY) and not umowa_zawarta(kancelaria):
         return JSONResponse({"detail": "Wlasciciel kancelarii musi najpierw zaakceptowac Regulamin "
                                        "i umowe powierzenia.", "umowa": True}, 428)
@@ -198,6 +217,7 @@ async def middleware(request: Request, call_next):
         request.state.kancelaria = kancelaria
         request.state.komputer = komputer
         request.state.email = email
+        request.state.serwis = bool(id_serwisu)
         return await call_next(request)
     finally:
         magazyn.kancelaria_var.reset(znacznik)
@@ -466,14 +486,19 @@ def potwierdz_kod(dane: HasloZKodem):
 class NowyUzytkownik(BaseModel):
     email: str
     kancelaria: str
-    # Pusta: pierwsza osoba w kancelarii zostaje wlascicielem, kolejne -
-    # czlonkami zespolu. Wlasciciel zaprasza dalej sam, bez administratora.
+    # Zostaje dla zgodnosci: administrator zaprasza tylko pierwsza osobe,
+    # zawsze jako wlasciciela.
     rola: str = ""
 
 
 @router.post("/uzytkownicy", status_code=201)
 def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
-    """Zaklada konto w kancelarii i wysyla zaproszenie z haslem tymczasowym."""
+    """Zaprasza wlasciciela do kancelarii, w ktorej nikt jeszcze nie ma konta.
+
+    Tylko pierwsza osoba: gdyby administrator mogl dopisac konto do
+    dzialajacej kancelarii, moglby dopisac siebie i czytac jej sprawy.
+    Kolejne osoby zaprasza wlasciciel.
+    """
     _wymagaj_admina(request)
     _wymagaj_logowania()
     kancelaria = dane.kancelaria.strip()
@@ -481,10 +506,10 @@ def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
     skrot, wpis = _znajdz(rejestr, kancelaria)
     if wpis is None:
         raise HTTPException(404, "Nie znaleziono kancelarii o takim identyfikatorze")
-    if dane.rola and dane.rola not in _ROLE:
-        raise HTTPException(400, "Rola: 'wlasciciel' albo 'czlonek'")
-    rola = dane.rola or ("czlonek" if _wlasciciele(wpis) else "wlasciciel")
-    osoba = _zapros(rejestr, skrot, dane.email, rola)
+    if wpis.get("zespol"):
+        raise HTTPException(409, "Kancelaria ma już zespół. Kolejne osoby zaprasza "
+                                 "właściciel kancelarii.")
+    osoba = _zapros(rejestr, skrot, dane.email, "wlasciciel")
     return {"utworzono": True, "kancelaria": kancelaria, "rola": osoba["rola"]}
 
 
@@ -509,7 +534,8 @@ def lista_kancelarii(request: Request):
          "przechowywanie": w.get("przechowywanie", "chmura"),
          "oplacono_do": w.get("oplacono_do"),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
-         "zespol": _zespol(w)}
+         "zespol": _zespol(w),
+         "serwis_do": (_serwis_trwa(w) or {}).get("do")}
         for w in rejestr.values()
     ]
 
@@ -539,8 +565,11 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     if email:
         _wymagaj_logowania()
 
-    token = secrets.token_hex(32)
-    rejestr[_sha(token)] = {
+    # Klucz wpisu to losowy skrot bez zadnego tokenu za nim: do spraw
+    # wchodzi sie wylacznie logujac sie, wiec administrator nie dostaje
+    # niczego, czym moglby je otworzyc.
+    skrot = _sha(secrets.token_hex(32))
+    rejestr[skrot] = {
         "id": id_k,
         "nazwa": nazwa,
         "aktywna": True,
@@ -548,54 +577,22 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     }
     # Z platnosciami nowa kancelaria dostaje okres probny, potem placi sama.
     if platnosci.wlaczone():
-        rejestr[_sha(token)]["oplacono_do"] = platnosci.na_probe()
+        rejestr[skrot]["oplacono_do"] = platnosci.na_probe()
     _zapisz_rejestr(rejestr)
     log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
     wynik = {
         "id": id_k,
         "nazwa": nazwa,
         "przechowywanie": dane.przechowywanie,
-        "token": token,
-        "uwaga": "Zapisz token teraz - nie da sie go odczytac ponownie.",
     }
     if email:
         # Kancelaria juz jest; nieudane zaproszenie mozna powtorzyc z panelu.
         try:
-            _zapros(rejestr, _sha(token), email, "wlasciciel")
+            _zapros(rejestr, skrot, email, "wlasciciel")
             wynik["zaproszono"] = email
         except HTTPException as blad:
             wynik["blad_zaproszenia"] = blad.detail
     return wynik
-
-
-@router.post("/kancelarie/{id_k}/token")
-def nowy_token_kancelarii(request: Request, id_k: str):
-    """Wydaje nowy token kancelarii. Stary przestaje dzialac natychmiast.
-
-    Tokenow nie przechowujemy wprost, tylko ich skroty, wiec zgubionego nie da
-    sie odczytac - ani nam, ani komus, kto dostalby sie do rejestru. Jedyne
-    wyjscie to wydac nowy, i dlatego to musi byc zwykla czynnosc, a nie
-    awaryjna. Kancelaria zostaje ta sama: identyfikator sie nie zmienia, wiec
-    wszystkie sprawy zostaja na miejscu.
-    """
-    _wymagaj_admina(request)
-    rejestr = _wczytaj_rejestr()
-    stary_skrot = next((s for s, w in rejestr.items() if w["id"] == id_k), None)
-    if stary_skrot is None:
-        raise HTTPException(404, "Nie znaleziono kancelarii")
-
-    wpis = rejestr.pop(stary_skrot)
-    token = secrets.token_hex(32)
-    rejestr[_sha(token)] = wpis
-    _zapisz_rejestr(rejestr)
-    log.info("kancelaria %s: wydano nowy token, stary uniewazniony", id_k)
-    return {
-        "id": id_k,
-        "nazwa": wpis["nazwa"],
-        "token": token,
-        "uwaga": "Zapisz token teraz - nie da sie go odczytac ponownie. "
-                 "Poprzedni przestal dzialac.",
-    }
 
 
 @router.delete("/kancelarie/{id_k}")
@@ -620,7 +617,10 @@ class Rola(BaseModel):
 
 @router.put("/kancelarie/{id_k}/zespol/{email}")
 def ustaw_role(request: Request, id_k: str, email: str, dane: Rola):
-    """Nadaje role osobie, ktora ma juz konto - np. zalozone przed zespolami."""
+    """Zmienia role osobie z zespolu, np. gdy wlasciciel odchodzi.
+
+    Dopisac nowej osoby nie mozna - zespol tworzy kancelaria sama.
+    """
     _wymagaj_admina(request)
     if dane.rola not in _ROLE:
         raise HTTPException(400, "Rola: 'wlasciciel' albo 'czlonek'")
@@ -631,8 +631,7 @@ def ustaw_role(request: Request, id_k: str, email: str, dane: Rola):
     email = _poprawny_email(email)
     osoba = _osoba(wpis, email)
     if osoba is None:
-        osoba = {"email": email, "zaproszono": None, "dolaczyl": None}
-        wpis.setdefault("zespol", []).append(osoba)
+        raise HTTPException(404, "Tej osoby nie ma w zespole kancelarii.")
     osoba["rola"] = dane.rola
     _zapisz_rejestr(rejestr)
     return {"email": email, "rola": dane.rola}
@@ -876,7 +875,7 @@ router_zespolu = APIRouter(prefix="/api/zespol", tags=["zespol"])
 
 def _moja_kancelaria(request: Request) -> tuple[dict, str, dict, str]:
     """(rejestr, skrot, wpis kancelarii, moj e-mail). Tylko dla osob
-    zalogowanych adresem e-mail - dawny token nie wskazuje osoby."""
+    zalogowanych adresem e-mail - token pomocnika nie wskazuje osoby."""
     email = getattr(request.state, "email", "")
     if not email:
         raise HTTPException(403, "Zespolem zarzadza sie po zalogowaniu adresem e-mail.")
@@ -940,6 +939,95 @@ def usun_z_zespolu(request: Request, adres: str):
     _zapisz_rejestr(rejestr)
     log.info("kancelaria %s: usunieto osobe z zespolu", wpis["id"])
     return {"usunieto": True}
+
+
+# --- dostep serwisowy ----------------------------------------------------------
+# Jedyna droga administratora do spraw kancelarii (umowa powierzenia § 5
+# ust. 4). Wlacza ja wlasciciel kancelarii na wskazany czas i moze ja odwolac.
+# Kazde wlaczenie zostaje w "serwis" we wpisie kancelarii razem z tym, kto z
+# niego skorzystal - kancelaria widzi to w swoim oknie. W dziennikach
+# aplikacji zostaje sam fakt, bez adresow e-mail.
+
+router_serwisu = APIRouter(prefix="/api/serwis", tags=["serwis"])
+
+
+def _serwis_trwa(wpis: dict) -> dict | None:
+    """Wlaczony i niewygasly dostep serwisowy albo None."""
+    ostatni = (wpis.get("serwis") or [None])[-1]
+    if ostatni and not ostatni.get("odwolano") and ostatni["do"] > _teraz():
+        return ostatni
+    return None
+
+
+def _wejscie_serwisowe(token: str, id_k: str) -> str:
+    """E-mail administratora, ktoremu kancelaria id_k otworzyla dostep, albo
+    pusty. Token awaryjny nie wystarcza: dostep musi wskazywac osobe."""
+    email = _email_administratora(token)
+    if not email:
+        return ""
+    rejestr = _wczytaj_rejestr()
+    _, wpis = _znajdz(rejestr, id_k)
+    if wpis is None or not wpis.get("aktywna", True):
+        return ""
+    trwa = _serwis_trwa(wpis)
+    if trwa is None:
+        return ""
+    uzyli = trwa.setdefault("uzyli", [])
+    if not any(u["email"] == email for u in uzyli):
+        uzyli.append({"email": email, "od": _teraz()})
+        _zapisz_rejestr(rejestr)
+        log.info("kancelaria %s: administrator wszedl w ramach dostepu serwisowego", id_k)
+    return email
+
+
+def _opis_serwisu(wpis: dict) -> dict:
+    trwa = _serwis_trwa(wpis)
+    return {"wlaczony": trwa is not None, "do": trwa["do"] if trwa else None,
+            "historia": [dict(s) for s in reversed(wpis.get("serwis") or [])]}
+
+
+class WlaczenieSerwisu(BaseModel):
+    godziny: int = 24
+
+
+@router_serwisu.get("")
+def stan_serwisu(request: Request):
+    _, _, wpis, _ = _moja_kancelaria(request)
+    return _opis_serwisu(wpis)
+
+
+@router_serwisu.post("", status_code=201)
+def wlacz_serwis(request: Request, dane: WlaczenieSerwisu):
+    """Wlasciciel otwiera administratorowi sprawy kancelarii na dane.godziny.
+    Ponowne wlaczenie zamyka poprzednie i liczy czas od nowa."""
+    from datetime import datetime, timedelta
+    rejestr, _, wpis, email = _moja_kancelaria(request)
+    if email not in _wlasciciele(wpis):
+        raise HTTPException(403, "Dostęp serwisowy włącza właściciel kancelarii.")
+    if not 1 <= dane.godziny <= _SERWIS_MAKS_GODZIN:
+        raise HTTPException(400, "Czas dostępu: od 1 godziny do 7 dni.")
+    lista = wpis.setdefault("serwis", [])
+    trwa = _serwis_trwa(wpis)
+    if trwa:
+        trwa["odwolano"] = _teraz()
+    do = (datetime.now() + timedelta(hours=dane.godziny)).isoformat(timespec="seconds")
+    lista.append({"wlaczyl": email, "od": _teraz(), "do": do, "odwolano": None, "uzyli": []})
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: wlaczono dostep serwisowy na %d h", wpis["id"], dane.godziny)
+    return _opis_serwisu(wpis)
+
+
+@router_serwisu.delete("")
+def odwolaj_serwis(request: Request):
+    rejestr, _, wpis, email = _moja_kancelaria(request)
+    if email not in _wlasciciele(wpis):
+        raise HTTPException(403, "Dostęp serwisowy odwołuje właściciel kancelarii.")
+    trwa = _serwis_trwa(wpis)
+    if trwa:
+        trwa["odwolano"] = _teraz()
+        _zapisz_rejestr(rejestr)
+        log.info("kancelaria %s: odwolano dostep serwisowy", wpis["id"])
+    return _opis_serwisu(wpis)
 
 
 # --- lista administratorow (panel) -------------------------------------------

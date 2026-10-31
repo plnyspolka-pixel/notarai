@@ -26,10 +26,20 @@ def srodowisko(monkeypatch):
     for modul in (zlecenia, urzadzenia, autoryzacja, aplikacja):
         importlib.reload(modul)
     klient = TestClient(aplikacja.app)
+    # Do spraw wchodzi sie tylko logujac sie. Token "jwt|<email>|<kancelaria>"
+    # udaje podpisany token tozsamosci.
+    monkeypatch.setattr(autoryzacja.logowanie, "wlaczone", lambda: True)
+    monkeypatch.setattr(autoryzacja.logowanie, "czy_jwt", lambda t: t.startswith("jwt|"))
+    monkeypatch.setattr(autoryzacja.logowanie, "dane_z_tokenu",
+                        lambda t: {"email": t.split("|")[1], "kancelaria": t.split("|")[2]})
 
     def kancelaria(nazwa):
-        dane = klient.post("/api/admin/kancelarie", json={"nazwa": nazwa}, headers=ADMIN).json()
-        return dane["id"], {"Authorization": "Bearer " + dane["token"]}
+        id_k = klient.post("/api/admin/kancelarie", json={"nazwa": nazwa}, headers=ADMIN).json()["id"]
+        # Tu sprawdzamy pomocnika, nie akceptacje umowy (test_rejestracja.py).
+        rejestr = autoryzacja._wczytaj_rejestr()
+        autoryzacja._znajdz(rejestr, id_k)[1]["umowa"] = {"zaakceptowano": "2026-10-24T10:00:00"}
+        autoryzacja._zapisz_rejestr(rejestr)
+        return id_k, {"Authorization": f"Bearer jwt|notariusz@{id_k}.test|{id_k}"}
 
     yield klient, kancelaria, urzadzenia, atrapa
 

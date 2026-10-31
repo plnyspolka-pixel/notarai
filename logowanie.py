@@ -21,7 +21,7 @@ PULA = os.getenv("PIECZAPP_COGNITO_POOL", "")
 KLIENT = os.getenv("PIECZAPP_COGNITO_KLIENT", "")
 
 # Token JWT ma trzy czesci rozdzielone kropka. Po tym odrozniamy go od
-# dawnego tokenu kancelarii, ktory jest zwyklym ciagiem szesnastkowym.
+# tokenu pomocnika i awaryjnego tokenu administratora.
 _JWT = re.compile(r"^[\w-]+\.[\w-]+\.[\w-]+$")
 
 _cognito = None

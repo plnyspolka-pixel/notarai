@@ -222,11 +222,13 @@ def serwer(logowanie_atrapa, monkeypatch, tmp_path):
     odp = klient.post("/api/admin/kancelarie", headers=ADMIN, json={"nazwa": "Sobczak"})
     assert odp.status_code == 201
     id_k = odp.json()["id"]
-    for email, rola in ((WLASCICIEL, "wlasciciel"), (CZLONEK, "czlonek")):
-        klient.put(f"/api/admin/kancelarie/{id_k}/zespol/{email}", headers=ADMIN, json={"rola": rola})
-    # Tu sprawdzamy platnosci, nie akceptacje umowy (test_rejestracja.py).
+    # Tu sprawdzamy platnosci, nie zespol (test_zespol.py) ani akceptacje
+    # umowy (test_rejestracja.py) - oba wpisujemy wprost do rejestru.
     rejestr = autoryzacja._wczytaj_rejestr()
-    autoryzacja._znajdz(rejestr, id_k)[1]["umowa"] = {"zaakceptowano": "2026-10-24T10:00:00"}
+    wpis = autoryzacja._znajdz(rejestr, id_k)[1]
+    wpis["zespol"] = [{"email": e, "rola": r, "zaproszono": None, "dolaczyl": None}
+                      for e, r in ((WLASCICIEL, "wlasciciel"), (CZLONEK, "czlonek"))]
+    wpis["umowa"] = {"zaakceptowano": "2026-10-24T10:00:00"}
     autoryzacja._zapisz_rejestr(rejestr)
     return klient, id_k
 

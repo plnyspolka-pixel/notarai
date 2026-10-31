@@ -28,7 +28,7 @@ i komunikat w aplikacji).
 | [07-dpia-dla-kancelarii.md](07-dpia-dla-kancelarii.md) | kancelaria | aplikacja wypełnia ją danymi kancelarii, notariusz klika „Przyjmuję ocenę” |
 | [08-dla-kancelarii-checklista.md](08-dla-kancelarii-checklista.md) | kancelaria | - |
 | [09-instrukcja-ai.md](09-instrukcja-ai.md) | każda osoba w kancelarii (§ 4 ust. 5 Regulaminu, art. 4 AI Act) | każdy potwierdza ją sam przy pierwszym logowaniu |
-| [10-rejestr-dostepow-serwisowych.md](10-rejestr-dostepow-serwisowych.md) | wewnętrzny, Fundacja (§ 5 ust. 3 umowy powierzenia) | - |
+| [10-rejestr-dostepow-serwisowych.md](10-rejestr-dostepow-serwisowych.md) | wewnętrzny, Fundacja (§ 5 ust. 4 umowy powierzenia) | wpisy prowadzi aplikacja; kancelaria widzi je w oknie „Zespół kancelarii” |
 
 Wersja dokumentu to data w linii „Wersja z dnia DD.MM.RRRR.”. Aplikacja
 porównuje ją z zaakceptowaną. Zmiana daty w 01 lub 02 oznacza, że
@@ -133,8 +133,12 @@ korzystania przez notariusza z zewnętrznych usług informatycznych, ale nie
 znalazłam (i nie mogę zweryfikować bez dostępu do aktualnych uchwał) stanowiska
 Krajowej Rady Notarialnej dotyczącego chmury i AI. Komplet rozwiązuje to
 umownie: § 5 umowy powierzenia rozciąga obowiązek tajemnicy na Fundację i jej
-osoby bezterminowo, zakazuje przeglądania spraw poza zgłoszeniem serwisowym,
-nakłada rejestr dostępów i procedurę na żądania organów. Dla kancelarii, która
+osoby bezterminowo, stwierdza, że Fundacja nie ma dostępu do treści spraw,
+dopuszcza wyłącznie dostęp serwisowy włączany przez samą kancelarię na
+wskazany czas i rejestrowany w aplikacji oraz nakłada procedurę na żądania
+organów. Kod pilnuje tego samego: panel administracyjny nie otwiera spraw,
+a polityka magazynu zakazuje odczytu wszystkim poza aplikacją i kopią
+zapasową. Dla kancelarii, która
 nie chce, by cokolwiek leżało poza nią, jest tryb „Pliki u kancelarii”.
 Warto, by pierwszy notariusz-klient zapytał swoją izbę notarialną, czy są
 wytyczne samorządu - to rozwiewa wątpliwości kolejnych.

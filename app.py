@@ -52,12 +52,13 @@ log = logging.getLogger("pieczapp")
 app = FastAPI(title="pieczapp", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
-# Tryb SaaS: token kancelarii na /api/* + panel admina. W trybie lokalnym
+# Tryb SaaS: token logowania na /api/* + panel admina. W trybie lokalnym
 # middleware przepuszcza wszystko, a panel admina wymaga PIECZAPP_ADMIN_TOKEN.
 app.middleware("http")(autoryzacja.middleware)
 app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
+app.include_router(autoryzacja.router_serwisu)
 app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
 app.include_router(rejestracja.router)

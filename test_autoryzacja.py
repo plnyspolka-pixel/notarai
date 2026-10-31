@@ -59,7 +59,23 @@ def test_multi_wymaga_tokenu(monkeypatch, tmp_path):
     assert klient.get("/zdrowie").status_code == 200
 
 
-def test_admin_dodaje_kancelarie_i_token_dziala(monkeypatch, tmp_path):
+def _udawane_logowanie(monkeypatch, aut):
+    """Token "jwt|<email>|<kancelaria>" udaje podpisany token tozsamosci."""
+    monkeypatch.setattr(aut.logowanie, "wlaczone", lambda: True)
+    monkeypatch.setattr(aut.logowanie, "czy_jwt", lambda t: t.startswith("jwt|"))
+    monkeypatch.setattr(aut.logowanie, "dane_z_tokenu",
+                        lambda t: {"email": t.split("|")[1], "kancelaria": t.split("|")[2]})
+
+
+def _z_umowa(aut, id_k):
+    rejestr = aut._wczytaj_rejestr()
+    aut._znajdz(rejestr, id_k)[1]["umowa"] = {"zaakceptowano": "2026-10-24T10:00:00"}
+    aut._zapisz_rejestr(rejestr)
+
+
+def test_admin_dodaje_kancelarie_bez_klucza_do_spraw(monkeypatch, tmp_path):
+    """Panel zaklada kancelarie, ale nie daje administratorowi niczego, czym
+    moglby otworzyc jej sprawy - do spraw wchodzi sie tylko logujac sie."""
     klient, aut = _apka(monkeypatch, tmp_path, multi=True)
     naglowki_admina = {"Authorization": "Bearer sekret-admina"}
 
@@ -71,70 +87,46 @@ def test_admin_dodaje_kancelarie_i_token_dziala(monkeypatch, tmp_path):
     assert odp.status_code == 201
     dane = odp.json()
     assert dane["id"].startswith("kancelaria-kowalski")
-    token = dane["token"]
-    assert len(token) == 64
+    assert "token" not in dane
 
-    # token kancelarii otwiera /api/* i ustawia kontekst kancelarii
-    odp = klient.get("/api/sprawy", headers={"Authorization": f"Bearer {token}"})
-    assert odp.status_code == 200
-    assert odp.json()["kancelaria"] == dane["id"]
-
-    # rejestr trzyma hash, nie token
-    zapis = (tmp_path / "kancelarie.json").read_text("utf-8")
-    assert token not in zapis
+    # token administratora nie otwiera spraw
+    assert klient.get("/api/sprawy", headers=naglowki_admina).status_code == 401
 
     # lista widoczna dla admina
     lista = klient.get("/api/admin/kancelarie", headers=naglowki_admina).json()
     assert [k["id"] for k in lista] == [dane["id"]]
+    assert lista[0]["serwis_do"] is None
 
 
-def test_nowy_token_uniewaznia_stary_i_zostawia_sprawy(monkeypatch, tmp_path):
-    """Zgubionego tokenu nie da sie odczytac - w rejestrze sa tylko skroty.
-    Jedyne wyjscie to wydac nowy, wiec to musi byc zwykla czynnosc."""
+def test_admin_nie_wyda_tokenu_kancelarii(monkeypatch, tmp_path):
+    """Dawny wspolny token kancelarii otwieral wszystkie jej sprawy temu, kto
+    go wydal. Takiej czynnosci w panelu juz nie ma."""
     klient, _ = _apka(monkeypatch, tmp_path, multi=True)
     naglowki_admina = {"Authorization": "Bearer sekret-admina"}
-    dane = klient.post("/api/admin/kancelarie", json={"nazwa": "Kancelaria Kowalski"},
-                       headers=naglowki_admina).json()
-    stary = dane["token"]
-
-    odp = klient.post(f"/api/admin/kancelarie/{dane['id']}/token", headers=naglowki_admina)
-    assert odp.status_code == 200
-    nowy = odp.json()["token"]
-    assert len(nowy) == 64 and nowy != stary
-
-    assert klient.get("/api/sprawy",
-                      headers={"Authorization": f"Bearer {stary}"}).status_code == 401
-    odp = klient.get("/api/sprawy", headers={"Authorization": f"Bearer {nowy}"})
-    assert odp.status_code == 200
-    assert odp.json()["kancelaria"] == dane["id"], \
-        "kancelaria zostaje ta sama, wiec sprawy zostaja na miejscu"
-
-    zapis = (tmp_path / "kancelarie.json").read_text("utf-8")
-    assert nowy not in zapis and stary not in zapis
-
-
-def test_nowy_token_wymaga_admina(monkeypatch, tmp_path):
-    klient, _ = _apka(monkeypatch, tmp_path, multi=True)
     dane = klient.post("/api/admin/kancelarie", json={"nazwa": "Testowa"},
-                       headers={"Authorization": "Bearer sekret-admina"}).json()
-    assert klient.post(f"/api/admin/kancelarie/{dane['id']}/token").status_code == 401
-    assert klient.post(f"/api/admin/kancelarie/{dane['id']}/token",
-                       headers={"Authorization": "Bearer nie-ten"}).status_code == 401
+                       headers=naglowki_admina).json()
+    odp = klient.post(f"/api/admin/kancelarie/{dane['id']}/token", headers=naglowki_admina)
+    assert odp.status_code in (404, 405)
 
 
-def test_nowy_token_nieznanej_kancelarii(monkeypatch, tmp_path):
-    klient, _ = _apka(monkeypatch, tmp_path, multi=True)
-    odp = klient.post("/api/admin/kancelarie/nie-ma-takiej/token",
-                      headers={"Authorization": "Bearer sekret-admina"})
-    assert odp.status_code == 404
+def test_skrot_z_rejestru_nie_otwiera_spraw(monkeypatch, tmp_path):
+    """Klucz wpisu w rejestrze nie jest zadnym tokenem."""
+    klient, aut = _apka(monkeypatch, tmp_path, multi=True)
+    klient.post("/api/admin/kancelarie", json={"nazwa": "Testowa"},
+                headers={"Authorization": "Bearer sekret-admina"})
+    for skrot in aut._wczytaj_rejestr():
+        assert klient.get("/api/sprawy",
+                          headers={"Authorization": f"Bearer {skrot}"}).status_code == 401
 
 
 def test_dezaktywacja_odbiera_dostep(monkeypatch, tmp_path):
     klient, aut = _apka(monkeypatch, tmp_path, multi=True)
+    _udawane_logowanie(monkeypatch, aut)
     naglowki_admina = {"Authorization": "Bearer sekret-admina"}
     dane = klient.post("/api/admin/kancelarie", json={"nazwa": "Testowa"},
                        headers=naglowki_admina).json()
-    token = {"Authorization": f"Bearer {dane['token']}"}
+    _z_umowa(aut, dane["id"])
+    token = {"Authorization": f"Bearer jwt|anna@kancelaria-sobczak.test|{dane['id']}"}
     assert klient.get("/api/sprawy", headers=token).status_code == 200
 
     assert klient.delete(f"/api/admin/kancelarie/{dane['id']}",

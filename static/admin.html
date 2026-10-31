@@ -53,6 +53,7 @@ button.odnosnik{background:none;border:0;color:var(--tekst3);text-decoration:und
 button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
 .pasek{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
 .stan{font-size:13px;color:var(--tekst2)}
+.serwis-opis{font-size:13px;color:var(--tekst2);margin:8px 0 0}
 .stan.blad{color:var(--alarm)}
 .stan.praca::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;
   border:2px solid var(--akcent);border-right-color:transparent;margin-right:8px;vertical-align:-1px;animation:kr .8s linear infinite}
@@ -83,7 +84,6 @@ button.odnosnik:hover:not(:disabled){background:none;color:var(--tekst)}
 .zapros{display:flex;gap:8px;margin:10px 0 4px}
 .zapros input{flex:1}
 .stopka-kanc{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--linia);align-items:center}
-.token-pokaz{font:13px var(--mono);word-break:break-all;background:var(--tlo2);padding:10px 12px;border-radius:var(--r2);margin-top:10px}
 .szukaj{margin-bottom:14px}
 a.odnosnik-a{color:var(--tekst3);font-size:12.5px;padding:5px 4px}
 a.odnosnik-a:hover{color:var(--tekst)}
@@ -461,16 +461,19 @@ function kartaKancelarii(k){
             title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span>
       <span class="znacznik ${k.umowa ? "ok" : "wyl"}" title="Regulamin i umowa powierzenia">${k.umowa ? "umowa od " + data(k.umowa) : "umowa niezaakceptowana"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
-    <div class="zapros"><input type="email" placeholder="${zespol.length ? "zaproś kolejną osobę: e-mail" : "e-mail notariusza"}" spellcheck="false">
-      <button class="wtorny">Zaproś</button></div>
+    ${zespol.length ? "" : `<div class="zapros"><input type="email" placeholder="e-mail notariusza" spellcheck="false">
+      <button class="wtorny">Zaproś</button></div>`}
+    <p class="serwis-opis">${k.serwis_do
+      ? "Kancelaria włączyła dostęp serwisowy do " + escape(k.serwis_do.replace("T", " ").slice(0, 16)) + "."
+      : "Sprawy kancelarii są dla Ciebie zamknięte. Otworzy je tylko dostęp serwisowy włączony przez właściciela kancelarii."}</p>
     <span class="stan"></span>
     <div class="stopka-kanc">
       <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
-      <button class="odnosnik" data-akcja="token">Token do automatyzacji…</button>
+      ${k.serwis_do && k.aktywna && czyJwt(token) ? '<button class="wtorny maly" data-akcja="serwis">Otwórz sprawy (dostęp serwisowy)</button>' : ""}
       <button class="odnosnik" data-akcja="abonament">Termin abonamentu…</button>
       ${k.aktywna ? "" : '<button class="odnosnik" data-akcja="usun">Usuń wszystkie dane…</button>'}
     </div>
-    <div class="miejsce-tokenu"></div>`;
+`;
   const st = d.querySelector(".stan");
   const osoby = d.querySelector(".osoby");
   zespol.forEach(o => {
@@ -499,8 +502,10 @@ function kartaKancelarii(k){
     osoby.appendChild(w);
   });
 
+  // Administrator zaprasza tylko pierwszego wlasciciela - kolejne osoby
+  // dodaje kancelaria sama, inaczej panel bylby furtka do jej spraw.
   const pole = d.querySelector(".zapros input"), zapros = d.querySelector(".zapros button");
-  zapros.onclick = async () => {
+  if (zapros) zapros.onclick = async () => {
     const email = pole.value.trim();
     if (!email) return stan(st, "Wpisz adres e-mail.", true);
     zapros.disabled = true; stan(st, "Wysyłam zaproszenie…", false, true);
@@ -511,7 +516,14 @@ function kartaKancelarii(k){
       return w;
     } catch (e) { stan(st, e.message, true); zapros.disabled = false; }
   };
-  pole.addEventListener("keydown", e => { if (e.key === "Enter") zapros.click(); });
+  if (pole) pole.addEventListener("keydown", e => { if (e.key === "Enter") zapros.click(); });
+
+  const serwis = d.querySelector('[data-akcja="serwis"]');
+  if (serwis) serwis.onclick = () => {
+    if (!confirm("Otworzyć sprawy „" + k.nazwa + "”?\n\nKancelaria zobaczy w oknie Zespół, że z dostępu "
+      + "serwisowego skorzystało Twoje konto. Zaglądaj tylko w to, czego dotyczy zgłoszenie.")) return;
+    location.href = "/?serwis=" + encodeURIComponent(k.id);
+  };
 
   d.querySelector('[data-akcja="aktywna"]').onclick = async () => {
     if (k.aktywna && !confirm("Wyłączyć „" + k.nazwa + "”?\n\nNikt z kancelarii się nie zaloguje, "
@@ -553,15 +565,6 @@ function kartaKancelarii(k){
     } catch (e) { stan(st, e.message, true); usun.disabled = false; }
   };
 
-  d.querySelector('[data-akcja="token"]').onclick = async () => {
-    if (!confirm("Wydać nowy token kancelarii?\n\nToken jest potrzebny tylko do skryptów i automatyzacji — "
-      + "ludzie logują się adresem e-mail. Poprzedni token przestanie działać.")) return;
-    try {
-      const w = await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/token", {method: "POST"});
-      d.querySelector(".miejsce-tokenu").innerHTML = `<div class="token-pokaz">${escape(w.token)}</div>
-        <p class="stan">Skopiuj teraz — po odświeżeniu strony nie da się go odczytać.</p>`;
-    } catch (e) { stan(st, e.message, true); }
-  };
   return d;
 }
 

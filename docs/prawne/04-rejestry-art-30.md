@@ -63,5 +63,7 @@ właściwy rejestr naruszeń. Fundacja prowadzi własną ewidencję incydentów,
 
 ## Część D. Rejestr dostępów serwisowych do treści spraw
 
-| Lp. | Data | Osoba Fundacji | Kancelaria / sprawa | Powód | Zgoda (kto, kiedy, jak) | Zakres dostępu |
-|---|---|---|---|---|---|---|
+Fundacja nie ma dostępu do treści spraw (§ 5 ust. 3 umowy powierzenia).
+Dostęp serwisowy włącza wyłącznie kancelaria w Usłudze (§ 5 ust. 4), a zapis
+każdego włączenia, odwołania i skorzystania prowadzi automatycznie aplikacja.
+Zasady opisuje plik 10.

@@ -161,7 +161,7 @@ def zarejestruj(dane: Rejestracja, request: Request):
     }
     if platnosci.wlaczone():
         wpis["oplacono_do"] = platnosci.na_probe()
-    # Token kancelarii jest wymagany przez budowe rejestru; nikt go nie widzi.
+    # Klucz wpisu to losowy skrot; do spraw wchodzi sie tylko logujac sie.
     rejestr[autoryzacja._sha(secrets.token_hex(32))] = wpis
     autoryzacja._zapisz_rejestr(rejestr)
     log.info("rejestracja: nowa kancelaria %s, pliki: %s", id_k, dane.przechowywanie)

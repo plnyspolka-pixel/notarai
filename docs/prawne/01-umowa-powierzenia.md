@@ -125,14 +125,33 @@ co najmniej w formie dokumentowej:
    o sprawach Administratora, w tym okoliczności objęte Tajemnicą notarialną,
    w zakresie nie mniejszym niż wynikający z art. 18 ustawy - Prawo
    o notariacie. Obowiązek ten trwa bezterminowo.
-3. Dostęp osób działających w imieniu Podmiotu przetwarzającego do treści
-   spraw Administratora jest dopuszczalny wyłącznie:
-   1. na wyraźną prośbę Administratora (np. zgłoszenie serwisowe), w zakresie
-      niezbędnym do jej wykonania, albo
-   2. gdy jest to bezwzględnie konieczne do usunięcia awarii lub Naruszenia;
-      w takim przypadku Podmiot przetwarzający informuje o tym Administratora
-      niezwłocznie, nie później niż w ciągu 3 dni roboczych.
-4. Jeżeli organ publiczny, sąd lub inny podmiot (w tym organ państwa
+3. Podmiot przetwarzający nie ma dostępu do treści spraw Administratora.
+   Usługa jest zbudowana tak, że ani osoby działające w imieniu Podmiotu
+   przetwarzającego, ani narzędzia administracyjne Usługi nie pozwalają
+   odczytać treści spraw. Jedynym wyjątkiem jest dostęp serwisowy, o którym
+   mowa w ust. 4.
+4. Dostęp serwisowy do treści spraw jest dopuszczalny wyłącznie na żądanie
+   Administratora, gdy Administrator włączy go w Usłudze. Dostęp serwisowy:
+   1. włącza i odwołuje wyłącznie użytkownik Administratora z rolą
+      właściciela,
+   2. obejmuje wyłącznie sprawy Administratora i wygasa samoczynnie po
+      upływie czasu wskazanego przy włączeniu, nie dłuższego niż 7 dni,
+   3. wykonują wyłącznie osoby upoważnione do dostępu serwisowego,
+      w zakresie niezbędnym do wykonania żądania,
+   4. jest rejestrowany, a Administrator widzi w Usłudze datę włączenia,
+      wygaśnięcia i każdego skorzystania z dostępu oraz osobę, która z niego
+      skorzystała.
+5. Podmiot przetwarzający usuwa awarie i obsługuje Naruszenia bez dostępu
+   do treści spraw, na podstawie danych technicznych: identyfikatorów,
+   rozmiarów i dat plików oraz dzienników niezawierających Danych. Jeżeli
+   usunięcie awarii wymaga dostępu do treści spraw, Podmiot przetwarzający
+   zwraca się do Administratora o włączenie dostępu serwisowego zgodnie
+   z ust. 4.
+6. Podmiot przetwarzający nie zmienia zabezpieczeń technicznych chroniących
+   treść spraw w celu uzyskania dostępu z pominięciem ust. 4. Zmiany
+   konfiguracji tych zabezpieczeń są rejestrowane w dzienniku infrastruktury,
+   a ich wykaz Podmiot przetwarzający udostępnia Administratorowi na żądanie.
+7. Jeżeli organ publiczny, sąd lub inny podmiot (w tym organ państwa
    trzeciego) zażąda od Podmiotu przetwarzającego lub Dalszego podmiotu
    przetwarzającego udostępnienia Danych, Podmiot przetwarzający:
    1. niezwłocznie informuje o tym Administratora, o ile prawo tego nie
@@ -200,7 +219,7 @@ co najmniej w formie dokumentowej:
    jest objęty zobowiązaniami tego podmiotu opisanymi w jego umowie
    powierzenia (AWS GDPR Data Processing Addendum), w tym zobowiązaniem do
    kwestionowania nadmiernych żądań, oraz certyfikacją w ramach EU-U.S. Data
-   Privacy Framework, a także § 5 ust. 4 Umowy.
+   Privacy Framework, a także § 5 ust. 7 Umowy.
 
 ## § 10. Naruszenia ochrony danych
 
@@ -389,8 +408,10 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
    o minimalnej długości 12 znaków, wymuszona zmiana hasła tymczasowego,
    reset hasła kodem e-mail. Aplikacja nie przechowuje haseł.
 2. Konta użytkowników zakłada właściciel kancelarii (zaproszenie); właściciel
-   może usunąć członka zespołu. Wyłączenie kancelarii odcina wszystkich jej
-   użytkowników.
+   może usunąć członka zespołu. Fundacja może zaprosić wyłącznie pierwszego
+   właściciela kancelarii, w której nikt jeszcze nie ma konta, i nie może
+   dopisać osoby do istniejącego zespołu. Wyłączenie kancelarii odcina
+   wszystkich jej użytkowników.
 3. Przypisanie użytkownika do kancelarii jest zapisane w jego tożsamości
    i nie może być zmienione z poziomu przeglądarki; aplikacja udostępnia
    użytkownikowi wyłącznie sprawy jego kancelarii (izolacja logiczna;
@@ -410,10 +431,23 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 
 ### D. Dostęp do treści spraw przez Fundację
 
-1. Osoby Fundacji nie przeglądają treści spraw, z wyjątkami z § 5 ust. 3
-   Umowy. Każdy taki dostęp jest odnotowywany w rejestrze dostępów
-   serwisowych (data, osoba, sprawa, powód, zgoda kancelarii).
-2. Fundacja nie wykorzystuje danych kancelarii do testów; testy aplikacji
+1. Fundacja nie ma dostępu do treści spraw (§ 5 ust. 3 Umowy). Panel
+   administracyjny Usługi pozwala zakładać, wyłączać i usuwać kancelarie,
+   ale nie otwiera ich spraw. Usługa nie wydaje Fundacji żadnego klucza,
+   tokenu ani konta, którym można otworzyć sprawy kancelarii.
+2. Jedyną drogą do treści spraw jest dostęp serwisowy z § 5 ust. 4 Umowy.
+   Właściciel kancelarii włącza go w oknie „Zespół kancelarii” na wybrany
+   czas (od 1 godziny do 7 dni) i może go w każdej chwili odwołać. Osoba
+   Fundacji korzysta z niego wyłącznie zalogowana imiennie; Usługa zapisuje
+   każde włączenie, odwołanie i skorzystanie z dostępu, a kancelaria widzi
+   ten zapis w tym samym oknie. Dostęp serwisowy nie obejmuje zespołu,
+   abonamentu, akceptacji dokumentów ani pomocnika kancelarii.
+3. Na poziomie magazynu spraw polityka bucketa zakazuje odczytu i zapisu
+   plików spraw wszystkim poza rolą aplikacji i rolą kopii zapasowej,
+   również administratorom konta AWS i użytkownikowi głównemu. Każda zmiana
+   lub usunięcie tej polityki jest zapisywane w AWS CloudTrail i wysyła
+   powiadomienie e-mailem.
+4. Fundacja nie wykorzystuje danych kancelarii do testów; testy aplikacji
    używają wyłącznie danych fikcyjnych.
 
 ### E. Dzienniki i monitorowanie

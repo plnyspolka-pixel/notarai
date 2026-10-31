@@ -157,9 +157,11 @@ Wersja z dnia 31.10.2026.
    dobrymi obyczajami lub naruszający dobra osobiste osób trzecich,
    w szczególności do prób obejścia zabezpieczeń Usługi, rejestrów
    publicznych lub modelu.
-3. Usługodawca nie przegląda i nie moderuje treści Spraw. Treści Spraw są
-   objęte tajemnicą i są dostępne wyłącznie Kancelarii, z wyjątkami
-   określonymi w Umowie powierzenia.
+3. Usługodawca nie przegląda i nie moderuje treści Spraw i nie ma do nich
+   dostępu. Treści Spraw są objęte tajemnicą i są dostępne wyłącznie
+   Kancelarii. Jedynym wyjątkiem jest dostęp serwisowy, który Kancelaria
+   sama włącza w Usłudze na wybrany czas, na zasadach § 5 ust. 4 Umowy
+   powierzenia.
 4. Każdy może zgłosić Usługodawcy na adres kontakt@notarai.pl treść, którą
    uważa za nielegalną, podając: uzasadnienie, dokładne wskazanie miejsca
    treści, imię i nazwisko oraz adres e-mail zgłaszającego (z wyjątkiem

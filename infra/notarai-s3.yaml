@@ -17,9 +17,24 @@ Parameters:
     Description: >-
       Opcjonalny ARN klucza KMS (CMK). Pusty = szyfrowanie SSE-S3 (AES256).
       Musi odpowiadac PIECZAPP_KMS_KEY_ID w aplikacji.
+  RolaAplikacji:
+    Type: String
+    Default: notarai-ecs-zadanie
+    Description: Nazwa roli zadania ECS (stos notarai-aplikacja) - jedynej, ktora czyta sprawy.
+  RolaKopii:
+    Type: String
+    Default: notarai-kopia
+    Description: Nazwa roli AWS Backup (stos notarai-kopia) - kopiuje i odtwarza sprawy.
+  EmailZabezpieczen:
+    Type: String
+    Default: ""
+    Description: >-
+      Adres na powiadomienie o zmianie lub usunieciu polityki bucketa. Pusty =
+      bez powiadomienia (zmiana i tak zostaje w CloudTrail).
 
 Conditions:
   UzyjKms: !Not [!Equals [!Ref KluczKms, ""]]
+  MamyEmail: !Not [!Equals [!Ref EmailZabezpieczen, ""]]
 
 Resources:
   BucketSprawy:
@@ -64,7 +79,11 @@ Resources:
         - Key: dane-osobowe
           Value: "tak"
 
-  # Wymuszenie TLS - zadnego dostepu po zwyklym HTTP.
+  # Wymuszenie TLS - zadnego dostepu po zwyklym HTTP. Tresc spraw czyta
+  # wylacznie aplikacja i kopia zapasowa: zakaz obejmuje kazdego innego,
+  # takze administratorow konta i uzytkownika root (umowa powierzenia § 5
+  # ust. 3 i 6). Zdjecie zakazu wymaga zmiany tej polityki, a to zostaje
+  # w CloudTrail i wysyla powiadomienie (RegulaZmianyPolityki).
   PolitykaBucketa:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -82,6 +101,81 @@ Resources:
             Condition:
               Bool:
                 aws:SecureTransport: "false"
+          - Sid: TrescSprawTylkoDlaAplikacji
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:GetObjectVersionForReplication
+              - s3:GetObjectTorrent
+              - s3:PutObject
+            Resource: !Sub "${BucketSprawy.Arn}/kancelarie/*"
+            Condition:
+              ArnNotLike:
+                aws:PrincipalArn:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaAplikacji}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaKopii}"
+
+  # Powiadomienie o kazdej zmianie polityki bucketa - jedynej drogi do
+  # zdjecia zakazu powyzej.
+  TematZabezpieczen:
+    Type: AWS::SNS::Topic
+    Condition: MamyEmail
+    Properties:
+      TopicName: notarai-zabezpieczenia-spraw
+      DisplayName: notarai zabezpieczenia
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  PolitykaTematu:
+    Type: AWS::SNS::TopicPolicy
+    Condition: MamyEmail
+    Properties:
+      Topics:
+        - !Ref TematZabezpieczen
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EventBridge
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref TematZabezpieczen
+
+  SubskrypcjaZabezpieczen:
+    Type: AWS::SNS::Subscription
+    Condition: MamyEmail
+    Properties:
+      TopicArn: !Ref TematZabezpieczen
+      Protocol: email
+      Endpoint: !Ref EmailZabezpieczen
+
+  RegulaZmianyPolityki:
+    Type: AWS::Events::Rule
+    Condition: MamyEmail
+    Properties:
+      Name: notarai-zmiana-polityki-bucketa
+      Description: Zmiana lub usuniecie polityki bucketa spraw
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - s3.amazonaws.com
+          eventName:
+            - PutBucketPolicy
+            - DeleteBucketPolicy
+          requestParameters:
+            bucketName:
+              - !Ref BucketSprawy
+      Targets:
+        - Arn: !Ref TematZabezpieczen
+          Id: powiadomienie
 
   # Minimalne uprawnienia roli aplikacji: sprawy w S3 + Bedrock przez profile eu.
   # Profile eu.* kieruja ruch do kilku regionow UE, wiec foundation-model

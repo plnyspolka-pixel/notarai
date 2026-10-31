@@ -143,11 +143,19 @@ def test_zespol_nie_siega_do_innej_kancelarii(srodowisko):
     assert len(klient.get("/api/zespol", headers=wl1).json()["osoby"]) == 1
 
 
-def test_dawny_token_kancelarii_nie_zarzadza_zespolem(srodowisko):
-    klient, _ = srodowisko
-    token = _kancelaria(klient)["token"]
-    assert klient.get("/api/zespol",
-                      headers={"Authorization": f"Bearer {token}"}).status_code == 403
+def test_administrator_nie_dopisze_osoby_do_zespolu(srodowisko):
+    """Inaczej moglby dopisac siebie i czytac sprawy kancelarii."""
+    klient, atrapa = srodowisko
+    k = _kancelaria(klient)["id"]
+    odp = klient.post("/api/admin/uzytkownicy", headers=ADMIN,
+                      json={"email": "obcy@fundacja.test", "kancelaria": k})
+    assert odp.status_code == 409
+    odp = klient.put(f"/api/admin/kancelarie/{k}/zespol/obcy@fundacja.test",
+                     headers=ADMIN, json={"rola": "czlonek"})
+    assert odp.status_code == 404
+    assert atrapa.utworzeni == ["anna@kancelaria-sobczak.test"]
+    osoby = klient.get("/api/zespol", headers=jako("anna@kancelaria-sobczak.test", k)).json()["osoby"]
+    assert [o["email"] for o in osoby] == ["anna@kancelaria-sobczak.test"]
 
 
 def test_ponowienie_po_ustawieniu_hasla_tlumaczy_co_robic(srodowisko):
