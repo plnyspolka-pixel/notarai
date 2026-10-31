@@ -437,6 +437,7 @@ notarai</div>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
+    <button class="wyloguj" id="btn-komplet" hidden title="Wszystkie dokumenty prawne kancelarii w jednym pliku">Pobierz komplet dokumentów</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
   </div>
 </aside>
@@ -922,6 +923,7 @@ notarai</div>
   <h2>Dokumenty kancelarii</h2>
   <p>Wszystko akceptujesz w aplikacji, niczego nie podpisujesz. Dokument otwiera się w nowej karcie; z niej możesz go wydrukować albo zapisać jako PDF.</p>
   <div id="dokumenty-lista"></div>
+  <div class="dol"><button id="btn-komplet-okno">Pobierz komplet</button><small>Wszystkie dokumenty po kolei w jednym pliku, z datami akceptacji. Zachowaj go w dokumentacji RODO kancelarii.</small></div>
   <div class="dol"><span class="stan" id="stan-dokumenty"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-dokumenty">Zamknij</button></div>
 </dialog>
@@ -1093,7 +1095,7 @@ function wpusc(nowyToken){
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
-  if (!token) { $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("kto").hidden = true; }
+  if (!token) { $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("btn-komplet").hidden = true; $("kto").hidden = true; }
 }
 
 $("btn-wyloguj").onclick = async () => {
@@ -1646,6 +1648,7 @@ async function sprawdzDokumenty(){
     dokumenty = await odp.json();
   } catch { return; }
   $("btn-dokumenty").hidden = false;
+  $("btn-komplet").hidden = false;
   const braki = dokumenty.do_akceptacji;
   if (!dokumenty.umowa_zawarta || braki.includes("umowa")) {
     pokazUmowe();
@@ -1779,6 +1782,24 @@ $("btn-dokumenty").onclick = async () => {
   $("okno-dokumenty").showModal();
 };
 $("btn-zamknij-dokumenty").onclick = () => $("okno-dokumenty").close();
+
+/* Komplet jako plik: przez api() z tokenem, potem zapis z bloba. */
+async function pobierzKomplet(){
+  try {
+    const odp = await api("/api/dokumenty/komplet");
+    if (!odp.ok) throw new Error("Nie udało się pobrać dokumentów.");
+    const adres = URL.createObjectURL(new Blob([await odp.text()], {type: "text/html"}));
+    const a = document.createElement("a");
+    a.href = adres;
+    a.download = "notarai-dokumenty-kancelarii-" + new Date().toISOString().slice(0, 10) + ".html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(adres), 10000);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+$("btn-komplet").onclick = pobierzKomplet;
+$("btn-komplet-okno").onclick = pobierzKomplet;
 
 $("btn-zespol").onclick = async () => {
   stan($("stan-zespol"), "");

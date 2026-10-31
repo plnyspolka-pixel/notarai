@@ -222,7 +222,7 @@ class TestDokumenty:
         wlasciciel = self._wlasciciel(
             klient, nazwa="<script>alert(1)</script> [klik](javascript:alert(2))",
             notariusze="Anna **Sobczak** <img src=x onerror=alert(3)>")
-        for dokument in ("umowa", "dpia"):
+        for dokument in ("umowa", "dpia", "komplet"):
             strona = klient.get(f"/api/dokumenty/{dokument}", headers=wlasciciel).text
             assert "<script>alert" not in strona and "<img" not in strona
             assert 'href="javascript' not in strona
@@ -231,6 +231,27 @@ class TestDokumenty:
         klient, _, _ = srodowisko
         wlasciciel = self._wlasciciel(klient)
         assert klient.get("/api/dokumenty/sekret", headers=wlasciciel).status_code == 404
+
+    def test_komplet_wszystkie_dokumenty_po_kolei_z_danymi_kancelarii(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient)
+        klient.post("/api/dokumenty/instrukcja", headers=wlasciciel)
+        strona = klient.get("/api/dokumenty/komplet", headers=wlasciciel).text
+        import rejestracja
+        pozycje = [strona.index(f"<h1>{dokumenty_prawne.html_dokumentu(n).split('<h1>')[1].split('</h1>')[0]}</h1>")
+                   for n in rejestracja.KOMPLET]
+        assert pozycje == sorted(pozycje)
+        assert "Strony i potwierdzenie zawarcia" in strona and "Anna Sobczak" in strona
+        assert "{{" not in strona and dokumenty_prawne.PUSTE_POLE not in strona.split("Ocena")[0]
+        assert "Potwierdzenia instrukcji" in strona and "anna@kancelaria-sobczak.test" in strona
+
+    def test_czlonek_pobiera_komplet_bez_listy_potwierdzen(self, srodowisko):
+        klient, _, _ = srodowisko
+        wlasciciel = self._wlasciciel(klient)
+        k = _id(klient)
+        klient.post("/api/zespol", headers=wlasciciel, json={"email": "ewa@kancelaria-sobczak.test"})
+        odp = klient.get("/api/dokumenty/komplet", headers=jako("ewa@kancelaria-sobczak.test", k))
+        assert odp.status_code == 200 and "Potwierdzenia instrukcji" not in odp.text
 
 
 def test_usuniecie_danych_zostawia_wpis_w_rejestrze_umow(srodowisko):

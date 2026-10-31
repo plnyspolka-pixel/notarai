@@ -307,19 +307,13 @@ def _ramka_umowy(wpis: dict) -> str:
             "w aplikacji notarai, bez podpisu.</p></div>")
 
 
-@router_dokumentow.get("/{nazwa}", response_class=HTMLResponse)
-def dokument(nazwa: str, request: Request):
-    """Dokument jako strona HTML, z danymi tej kancelarii. Przegladarka
-    pobiera go przez api() (z tokenem), nie zwyklym odnosnikiem."""
-    if nazwa not in dokumenty_prawne.DOKUMENTY:
-        raise HTTPException(404, "Nie ma takiego dokumentu.")
-    _, _, wpis, _, _ = _ja(request)
-    dane = wpis.get("dane") or {}
+def _wypelnienie(nazwa: str, wpis: dict) -> tuple[dict | None, str]:
+    """(pola do wstawienia, ramka przed trescia) - dane tej kancelarii."""
     if nazwa == "umowa":
-        return dokumenty_prawne.strona(nazwa, przed=_ramka_umowy(wpis))
+        return None, _ramka_umowy(wpis)
     if nazwa == "dpia":
-        dpia = wpis.get("dpia") or {}
-        pola = {
+        dane, dpia = wpis.get("dane") or {}, wpis.get("dpia") or {}
+        return {
             "kancelaria": wpis["nazwa"], "notariusze": dane.get("notariusze"),
             "data": _data(dpia.get("przyjeto") or autoryzacja._teraz())[:10],
             "iod": "nie wyznaczono albo według dokumentacji kancelarii",
@@ -327,6 +321,78 @@ def dokument(nazwa: str, request: Request):
             "uzytkownicy": str(len(autoryzacja._zespol(wpis))),
             "przyjeto": (f"{_data(dpia['przyjeto'])}, {dpia.get('email', '')}" if dpia.get("przyjeto")
                          else "jeszcze nie przyjęto"),
-        }
-        return dokumenty_prawne.strona(nazwa, pola)
-    return dokumenty_prawne.strona(nazwa)
+        }, ""
+    return None, ""
+
+
+# Kolejnosc w komplecie: najpierw to, co kancelaria zawarla, potem to, co
+# przyjela u siebie, na koncu instrukcje dla zespolu.
+KOMPLET = ("regulamin", "umowa", "prywatnosc", "dpia", "instrukcja", "kancelaria")
+
+
+def _strona_tytulowa(wpis: dict, wlasciciel: bool) -> str:
+    umowa, dpia = wpis.get("umowa") or {}, wpis.get("dpia") or {}
+    stan = {
+        "regulamin": (f"zaakceptowany {_data(umowa['zaakceptowano'])}, wersja {umowa.get('regulamin', '')}"
+                      if umowa.get("zaakceptowano") else "jeszcze niezaakceptowany"),
+        "umowa": (f"zawarta {_data(umowa.get('zawarto') or umowa['zaakceptowano'])}, wersja {umowa.get('umowa', '')}"
+                  if umowa.get("zaakceptowano") else "jeszcze niezawarta"),
+        "dpia": (f"przyjęta {_data(dpia['przyjeto'])}" if dpia.get("przyjeto")
+                 else "czeka na przyjęcie przez notariusza"),
+        "instrukcja": "potwierdza ją każda osoba w zespole przy pierwszym logowaniu",
+    }
+    wiersze = "".join(
+        f"<tr><td>{i}.</td><td>{html.escape(dokumenty_prawne.tytul(n))}</td>"
+        f"<td>{html.escape(dokumenty_prawne.wersja(n))}</td>"
+        f"<td>{html.escape(stan.get(n, 'do wiadomości'))}</td></tr>"
+        for i, n in enumerate(KOMPLET, 1))
+    potwierdzenia = ""
+    if wlasciciel:
+        osoby = "".join(
+            f"<tr><td>{html.escape(o['email'])}</td><td>"
+            + (html.escape(f"{_data((o.get('instrukcja') or {}).get('data'))}, wersja "
+                           f"{(o.get('instrukcja') or {}).get('wersja', '')}")
+               if (o.get("instrukcja") or {}).get("data") else "jeszcze nie potwierdziła / nie potwierdził")
+            + "</td></tr>"
+            for o in autoryzacja._zespol(wpis))
+        potwierdzenia = ("<h2>Potwierdzenia instrukcji korzystania z AI</h2>"
+                         f"<table><tr><th>Osoba</th><th>Potwierdzenie</th></tr>{osoby}</table>")
+    return (
+        f"<h1>Dokumenty kancelarii: {html.escape(wpis['nazwa'])}</h1>"
+        f"<p>Komplet dokumentów prawnych usługi notarai, z danymi kancelarii, "
+        f"stan na {html.escape(_data(autoryzacja._teraz())[:10])}. Wszystko zawarto "
+        "i przyjęto w aplikacji, bez podpisu. Zachowaj ten plik w dokumentacji RODO kancelarii.</p>"
+        f"<table><tr><th>Lp.</th><th>Dokument</th><th>Wersja</th><th>Stan</th></tr>{wiersze}</table>"
+        f"{potwierdzenia}"
+    )
+
+
+@router_dokumentow.get("/komplet", response_class=HTMLResponse)
+def komplet(request: Request):
+    """Wszystkie dokumenty kancelarii w jednym pliku: strona tytulowa ze
+    stanem akceptacji, potem kazdy dokument od nowej strony przy wydruku."""
+    _, _, wpis, _, wlasciciel = _ja(request)
+    czesci = [f'<section class="dok">{_strona_tytulowa(wpis, wlasciciel)}</section>']
+    for nazwa in KOMPLET:
+        pola, przed = _wypelnienie(nazwa, wpis)
+        czesci.append(f'<section class="dok">{przed}{dokumenty_prawne.html_dokumentu(nazwa, pola)}</section>')
+    log.info("kancelaria %s: pobrano komplet dokumentow", wpis["id"])
+    return (
+        '<!doctype html><html lang="pl"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>Dokumenty kancelarii - notarai</title><style>{dokumenty_prawne.STYL}"
+        ".dok+.dok{border-top:2px solid #ccc;margin-top:48px;padding-top:24px}"
+        "@media print{.dok+.dok{break-before:page;border:0;margin:0;padding:0}}</style></head>"
+        f"<body>{''.join(czesci)}</body></html>"
+    )
+
+
+@router_dokumentow.get("/{nazwa}", response_class=HTMLResponse)
+def dokument(nazwa: str, request: Request):
+    """Dokument jako strona HTML, z danymi tej kancelarii. Przegladarka
+    pobiera go przez api() (z tokenem), nie zwyklym odnosnikiem."""
+    if nazwa not in dokumenty_prawne.DOKUMENTY:
+        raise HTTPException(404, "Nie ma takiego dokumentu.")
+    _, _, wpis, _, _ = _ja(request)
+    pola, przed = _wypelnienie(nazwa, wpis)
+    return dokumenty_prawne.strona(nazwa, pola, przed=przed)
