@@ -175,6 +175,15 @@ router_dokumentow = APIRouter(prefix="/api/dokumenty", tags=["dokumenty"])
 
 def _ja(request: Request) -> tuple[dict, str, dict, str, bool]:
     rejestr, skrot, wpis, email = autoryzacja._moja_kancelaria(request)
+    zespol = wpis.get("zespol") or []
+    # Kancelarie zalozone przed zespolami nie maja wlasciciela, a bez niego
+    # nikt nie moze zaakceptowac umowy i sprawy sa zablokowane na zawsze.
+    # Jedyna osoba w zespole jest wtedy wlascicielem - zapisujemy to na stale.
+    if (email and not autoryzacja._wlasciciele(wpis)
+            and len(zespol) == 1 and zespol[0].get("email") == email):
+        zespol[0]["rola"] = "wlasciciel"
+        autoryzacja._zapisz_rejestr(rejestr)
+        log.info("kancelaria %s: jedyna osoba w zespole zostala wlascicielem", wpis.get("id"))
     return rejestr, skrot, wpis, email, email in autoryzacja._wlasciciele(wpis)
 
 

@@ -151,6 +151,31 @@ class TestKancelariaZalozonaPrzezAdmina:
                            json={"akceptuje": True, "notariusze": "Jan Pawlak",
                                  "adres": "ul. Testowa 2, 00-001 Warszawa"}).status_code == 403
 
+    def test_jedyna_osoba_bez_wlasciciela_zostaje_wlascicielem(self, srodowisko):
+        """Kancelaria sprzed zespolow: jedno konto, rola czlonek, nikt nie moze
+        zaakceptowac umowy. To konto przejmuje role wlasciciela."""
+        klient, _, autoryzacja = srodowisko
+        k = self._kancelaria(klient)
+        rejestr = autoryzacja._wczytaj_rejestr()
+        next(iter(rejestr.values()))["zespol"][0]["rola"] = "czlonek"
+        autoryzacja._zapisz_rejestr(rejestr)
+        jan = jako("jan@kancelaria-pawlak.test", k)
+        stan = klient.get("/api/dokumenty", headers=jan).json()
+        assert stan["jestem_wlascicielem"] is True and "umowa" in stan["do_akceptacji"]
+        assert next(iter(autoryzacja._wczytaj_rejestr().values()))["zespol"][0]["rola"] == "wlasciciel"
+
+    def test_czlonek_nie_przejmuje_kancelarii_z_kilkoma_osobami(self, srodowisko):
+        klient, _, autoryzacja = srodowisko
+        k = self._kancelaria(klient)
+        klient.post("/api/zespol", headers=jako("jan@kancelaria-pawlak.test", k),
+                    json={"email": "ewa@kancelaria-pawlak.test"})
+        rejestr = autoryzacja._wczytaj_rejestr()
+        for osoba in next(iter(rejestr.values()))["zespol"]:
+            osoba["rola"] = "czlonek"
+        autoryzacja._zapisz_rejestr(rejestr)
+        stan = klient.get("/api/dokumenty", headers=jako("ewa@kancelaria-pawlak.test", k)).json()
+        assert stan["jestem_wlascicielem"] is False
+
     def test_dawny_token_kancelarii_nie_jest_blokowany(self, srodowisko):
         """Automatyzacja kancelarii nie ma kogo zapytac o akceptacje."""
         klient, _, _ = srodowisko
