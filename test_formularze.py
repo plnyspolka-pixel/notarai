@@ -106,8 +106,8 @@ class TestMapowaniaZPlikow:
 
 class TestRejestry:
     def test_maskowanie(self):
-        assert rejestry.maskuj_pesel("44051401359") == "*******1359"
-        assert rejestry.maskuj_pesel("440-514-01359") == "*******1359"
+        assert rejestry.maskuj_pesel("44051401359") == "4405*******"
+        assert rejestry.maskuj_pesel("440-514-01359") == "4405*******"
         assert rejestry.maskuj_pesel("123") == "***"
 
     def test_pelny_pesel_odrzucony(self):
@@ -159,7 +159,7 @@ class TestApi:
     def test_sprawdzenie_zapis_i_odczyt(self, klient, tmp_path):
         odp = klient.post("/api/sprawy/abc123/sprawdzenia",
                           json={"rejestr": "ZASTRZEZENIA_PESEL", "pesel": "44051401359", "status": "brak_wpisu"})
-        assert odp.status_code == 200 and odp.json()[0]["zapytanie"] == "*******1359"
+        assert odp.status_code == 200 and odp.json()[0]["zapytanie"] == "4405*******"
         assert klient.get("/api/sprawy/abc123/sprawdzenia").json()[0]["status"] == "brak_wpisu"
         assert "44051401359" not in (tmp_path / "abc123" / "sprawdzenia.json").read_text()
 

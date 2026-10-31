@@ -112,6 +112,31 @@ class TestBaza:
         assert wynik[0]["telefon"] == "+48 600 100 200"
         assert len(wynik[0]["sprawy"]) == 2
 
+    def test_drugie_imie_tylko_w_jednej_sprawie(self, dane):
+        a = dane("aaa111", [{"nazwa": "aaa: zbywca", "wartosc": "Tomasz Sobczak"}])
+        b = dane("bbb222", [{"nazwa": "bbb: nabywcy", "wartosc": "Tomasz Piotr Sobczak"},
+                            {"nazwa": "+ PESEL nabywcy", "wartosc": PESEL_SOBCZAK}])
+        c = dane("ccc333", [{"nazwa": "aaa: zbywca", "wartosc": "Tomasz Piotr Sobczak"}])
+        wynik = osoby.wszystkie([a, b, c])
+        assert len(wynik) == 1
+        assert wynik[0]["imie_nazwisko"] == "Tomasz Piotr Sobczak"
+        assert wynik[0]["pesel"] == PESEL_SOBCZAK[:4] + "*******"
+        assert len(wynik[0]["sprawy"]) == 3
+
+    def test_bez_peselu_laczy_sie_z_pelniejszym_imieniem(self, dane):
+        a = dane("aaa111", [{"nazwa": "aaa: zbywca", "wartosc": "Grzegorz Pawlak"}])
+        b = dane("bbb222", [{"nazwa": "bbb: nabywcy", "wartosc": "Grzegorz Adam Pawlak"},
+                            {"nazwa": "aaa: zbywca", "wartosc": "Ewa Pawlak"}])
+        assert sorted(o["imie_nazwisko"] for o in osoby.wszystkie([a, b])) == ["Ewa Pawlak", "Grzegorz Adam Pawlak"]
+
+    def test_dwie_osoby_z_peselem_nie_zgadujemy(self, dane):
+        a = dane("aaa111", [{"nazwa": "aaa: zbywca", "wartosc": "Grzegorz Pawlak"},
+                            {"nazwa": "+ PESEL zbywcy", "wartosc": PESEL_PAWLAK}])
+        b = dane("bbb222", [{"nazwa": "aaa: zbywca", "wartosc": "Grzegorz Pawlak"},
+                            {"nazwa": "+ PESEL zbywcy", "wartosc": PESEL_PAWLAK_EWA}])
+        c = dane("ccc333", [{"nazwa": "aaa: zbywca", "wartosc": "Grzegorz Pawlak"}])
+        assert len(osoby.wszystkie([a, b, c])) == 3
+
     def test_osoba_reczna(self, dane):
         identyfikator = osoby.dodaj_reczna("Ewa Pawlak", "")
         assert osoby.wszystkie([])[0] == {"id": identyfikator, "imie_nazwisko": "Ewa Pawlak", "pesel": "",

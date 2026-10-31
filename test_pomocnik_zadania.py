@@ -105,8 +105,8 @@ def test_zrzuty_zostaja_u_notariusza(tmp_path, monkeypatch):
                 polacz=polaczenie_z(portal), portal_z=lambda s: portal)
     pliki = list(tmp_path.glob("krz_*.png"))
     assert len(pliki) == 2
-    assert all("1359" in p.name and "44051401359" not in p.name for p in pliki), \
-        "nazwa zrzutu niesie cztery koncowe cyfry, nigdy caly numer"
+    assert all("_4405_" in p.name and "44051401359" not in p.name for p in pliki), \
+        "nazwa zrzutu niesie cztery poczatkowe cyfry, nigdy caly numer"
 
 
 def test_maskowanie_zgodne_z_tym_w_sladzie_audytowym():

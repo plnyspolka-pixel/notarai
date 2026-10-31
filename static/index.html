@@ -2808,14 +2808,16 @@ function polaPesel(){
   // Ten sam numer bywa w kilku polach wzoru, a strona czynnosci jest jedna.
   return [...new Map(znalezione.map(s => [s.pesel, s])).values()];
 }
-function maskuj(p){ return "*******" + p.slice(-4); }
+function maskuj(p){ return p.slice(0, 4) + "*******"; }
 
 function stanStrony(osoba, rejestr){
   // Ostatni wpis o tej stronie w tym rejestrze. Dopasowujemy po etykiecie,
   // bo zamaskowany PESEL to cztery cyfry - przy kilkunastu osobach za malo,
   // zeby je rozroznic.
   const pasujace = sprawdzenia.filter(w => w.rejestr === rejestr && (
-    w.etykieta ? w.etykieta === osoba.nazwa : w.zapytanie === maskuj(osoba.pesel)));
+    w.etykieta ? w.etykieta === osoba.nazwa
+               // starsze wpisy maja maske z koncowymi cyframi
+               : [maskuj(osoba.pesel), "*******" + osoba.pesel.slice(-4)].includes(w.zapytanie)));
   return pasujace.length ? pasujace[pasujace.length - 1] : null;
 }
 
@@ -2867,7 +2869,7 @@ function rysujStrony(){
   }
   const lista = szukane
     ? wszystkie.filter(s => s.rubryka.toLowerCase().includes(szukane)
-                            || s.pesel.slice(-4).includes(szukane))
+                            || s.pesel.slice(0, 4).includes(szukane))
     : wszystkie;
   if (!lista.length) {
     cel.innerHTML = '<span class="stan">Żaden numer nie pasuje do wyszukiwania.</span>';
@@ -3261,7 +3263,10 @@ function rysujListeOsob(){
   widoczne.forEach(o => {
     const d = document.createElement("div");
     d.className = "osoba" + (o.telefon ? "" : " brak");
-    const gdzie = o.sprawy.map(s => escape(s.rola) + ' · <a data-sprawa="' + escape(s.id) + '">' + escape(s.nazwa || ("sprawa " + s.id.slice(0, 6))) + '</a>').join("; ");
+    // ta sama sprawa wczytana kilka razy - jeden link, do najnowszej
+    const sprawyRaz = o.sprawy.filter((s, i, t) =>
+      t.findIndex(x => x.rola === s.rola && (x.nazwa || x.id) === (s.nazwa || s.id)) === i);
+    const gdzie = sprawyRaz.map(s => escape(s.rola) + ' · <a data-sprawa="' + escape(s.id) + '">' + escape(s.nazwa || ("sprawa " + s.id.slice(0, 6))) + '</a>').join("; ");
     d.innerHTML = '<div><div class="kto">' + escape(o.imie_nazwisko || "(imię i nazwisko nieodczytane)")
       + (o.pesel ? ' <span class="pesel" style="font:12px var(--mono);color:var(--tekst3)">PESEL ' + escape(o.pesel) + '</span>' : '')
       + '</div><div class="gdzie">' + (gdzie || (o.reczna ? 'dodana ręcznie · <span class="usun">usuń</span>' : '')) + '</div></div>';

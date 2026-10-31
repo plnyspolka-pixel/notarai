@@ -67,14 +67,14 @@ class WynikZakladki:
 
 
 def maskuj(pesel: str) -> str:
-    """'12345678901' -> '*******8901'. Cokolwiek innego - w calosci gwiazdki.
+    """'12345678901' -> '1234*******'. Cokolwiek innego - w calosci gwiazdki.
 
     Swiadome powtorzenie rejestry.maskuj_pesel: ten modul ma nie zalezec od
     serwera. Zgodnosc obu pilnuje test, zeby nie rozjechaly sie po cichu.
     """
     cyfry = re.sub(r"\D", "", pesel or "")
     if len(cyfry) == 11:
-        return "*" * 7 + cyfry[-4:]
+        return cyfry[:4] + "*" * 7
     return "*" * max(len(cyfry), 1)
 
 
@@ -121,8 +121,8 @@ def przebieg(strona: StronaKRZ, pesel: str, etykieta: str = "",
         strona.wybierz_zakladke(nazwa)
         strona.wpisz_identyfikator(cyfry)
         strona.wyszukaj()
-        # Nazwa pliku niesie cztery koncowe cyfry, nigdy caly numer.
-        nazwa_zrzutu = f"krz_{klucz}_{maska[-4:]}_{znacznik}.png"
+        # Nazwa pliku niesie cztery poczatkowe cyfry, nigdy caly numer.
+        nazwa_zrzutu = f"krz_{klucz}_{maska[:4]}_{znacznik}.png"
         cel = zrzut_do(nazwa_zrzutu) if zrzut_do else None
         if cel is not None:
             strona.zrzut(cel)

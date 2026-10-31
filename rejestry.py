@@ -18,10 +18,10 @@ STATUSY = ("brak_wpisu", "wpis", "niedostepny", "blad")
 
 
 def maskuj_pesel(pesel: str) -> str:
-    """'12345678901' -> '*******8901'. Cokolwiek innego - w calosci gwiazdki."""
+    """'12345678901' -> '1234*******'. Cokolwiek innego - w calosci gwiazdki."""
     cyfry = re.sub(r"\D", "", pesel or "")
     if len(cyfry) == 11:
-        return "*" * 7 + cyfry[-4:]
+        return cyfry[:4] + "*" * 7
     return "*" * max(len(cyfry), 1)
 
 

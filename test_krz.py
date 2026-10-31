@@ -57,11 +57,11 @@ class TestSprawdzOsobe:
     def test_dwa_zapytania_i_zrzuty(self, tmp_path):
         s = Atrapa(["Brak wyników", "Brak wyników"])
         w = krz.sprawdz_osobe(s, "440-514-01359", "abc123", "zbywca")
-        assert w.rejestr == "KRZ" and w.status == "brak_wpisu" and w.zapytanie == "*******1359"
+        assert w.rejestr == "KRZ" and w.status == "brak_wpisu" and w.zapytanie == "4405*******"
         assert s.kroki.count("wyszukaj") == 2 and s.kroki.count("zrzut") == 2
         assert [k for k in s.kroki if k.startswith("zakladka")] == ["zakladka:Osoba fizyczna prowa", "zakladka:Osoba fizyczna niepr"]
         pliki = list((tmp_path / "abc123" / "sprawdzenia").glob("krz_*.png"))
-        assert len(pliki) == 2 and all("1359" in p.name and "44051401359" not in p.name for p in pliki)
+        assert len(pliki) == 2 and all("_4405_" in p.name and "44051401359" not in p.name for p in pliki)
         assert "44051401359" not in w.szczegoly and w.szczegoly.startswith("zbywca - ")
 
     def test_wpis_w_jednej_zakladce_daje_wpis(self):

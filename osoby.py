@@ -136,6 +136,16 @@ def _klucz(osoba: dict) -> str:
     return "n:" + " ".join(osoba.get("imie_nazwisko", "").lower().split())
 
 
+def _ta_sama_osoba(a: str, b: str) -> bool:
+    """To samo pierwsze imie i nazwisko, a drugie imie najwyzej w jednym z zapisow:
+    'Artur Makuch' i 'Artur Roman Makuch' tak; 'Artur Makuch' i 'Anna Makuch' nie."""
+    a, b = a.lower().split(), b.lower().split()
+    if len(a) < 2 or len(b) < 2 or a[0] != b[0] or a[-1] != b[-1]:
+        return False
+    krotsze, dluzsze = sorted((a, b), key=len)
+    return set(krotsze) <= set(dluzsze)
+
+
 def _identyfikator(klucz: str) -> str:
     return hashlib.sha256(klucz.encode("utf-8")).hexdigest()[:16]
 
@@ -201,13 +211,23 @@ def wszystkie(sprawy: list[dict]) -> list[dict]:
 
     # Osoba bez PESEL w jednej sprawie i z PESEL w innej - to ta sama osoba,
     # jesli imie i nazwisko pasuje do dokladnie jednej osoby z numerem.
-    for klucz in [k for k in po_kluczu if k.startswith("n:")]:
+    # Gdy zadna z numerem nie pasuje - do dokladnie jednej bez numeru o pelniejszym
+    # imieniu ('Artur Makuch' -> 'Artur Roman Makuch').
+    for klucz in sorted((k for k in po_kluczu if k.startswith("n:")), key=len):
+        bez = po_kluczu[klucz]
         pasujace = [w for k, w in po_kluczu.items()
-                    if k.startswith("p:") and "n:" + " ".join(w["imie_nazwisko"].lower().split()) == klucz]
+                    if k.startswith("p:") and _ta_sama_osoba(bez["imie_nazwisko"], w["imie_nazwisko"])]
+        if not pasujace:
+            pasujace = [w for k, w in po_kluczu.items()
+                        if k.startswith("n:") and len(k) > len(klucz)
+                        and _ta_sama_osoba(bez["imie_nazwisko"], w["imie_nazwisko"])]
         if len(pasujace) == 1:
-            bez = po_kluczu.pop(klucz)
-            pasujace[0]["klucze"].add(klucz)
-            pasujace[0]["sprawy"].extend(s for s in bez["sprawy"] if s not in pasujace[0]["sprawy"])
+            cel = pasujace[0]
+            del po_kluczu[klucz]
+            cel["klucze"] |= bez["klucze"]
+            cel["sprawy"].extend(s for s in bez["sprawy"] if s not in cel["sprawy"])
+            if len(bez["imie_nazwisko"].split()) > len(cel["imie_nazwisko"].split()):
+                cel["imie_nazwisko"] = bez["imie_nazwisko"]
 
     zapis = _wczytaj_zapis()
     telefony = zapis["telefony"]
