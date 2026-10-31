@@ -3333,7 +3333,7 @@ function nazwaSprawy(id){
 }
 function nazwaRodzaju(w){ return w.rodzaj === "inne" ? w.rodzaj_inny : (w.rodzaj || ""); }
 function opisWpisu(w){
-  const czesci = [nazwaRodzaju(w), w.uczestnicy].filter(Boolean);
+  const czesci = [w.uczestnicy, nazwaRodzaju(w)].filter(Boolean);
   return czesci.length ? czesci.join(" · ") : (w.tytul || (w.sprawa ? nazwaSprawy(w.sprawa) : ""));
 }
 function godzinyWpisu(w){ return w.godzina ? w.godzina + (w.koniec ? "–" + w.koniec : "") : ""; }
@@ -3440,9 +3440,9 @@ function rysujOkno(){
     const kto = zajmujacy(m), el = document.createElement("button");
     el.type = "button";
     el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "");
-    const pierwsze = kto && Math.max(minuty(kto.godzina), OD) <= m && m < Math.max(minuty(kto.godzina), OD) + KROK;
+    // Kazde okienko rezerwacji pokazuje, czyje jest - nie tylko pierwsze.
     el.innerHTML = '<span class="g">' + godz(m) + "–" + godz(m + KROK) + '</span><span class="o">'
-      + (kto ? (pierwsze ? escape(opisWpisu(kto) || "zajęte") : "zajęte") : wybrane.includes(m) ? "wybrane" : "wolne") + "</span>";
+      + (kto ? escape(opisWpisu(kto) || "zajęte") : wybrane.includes(m) ? "wybrane" : "wolne") + "</span>";
     if (kto) el.title = godzinyWpisu(kto) + " " + opisWpisu(kto) + " — kliknij, żeby zobaczyć";
     el.onclick = () => kto ? edytujTermin(kto) : zaznacz(m);
     g.appendChild(el);
