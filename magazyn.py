@@ -15,8 +15,10 @@ Zero danych osobowych w logach: logujemy identyfikatory i liczby plikow,
 nigdy tresc.
 """
 import hashlib
+import json
 import logging
 import os
+import threading
 from contextvars import ContextVar
 from pathlib import Path
 
@@ -295,3 +297,98 @@ def identyfikatory_spraw(baza_spraw: Path) -> list[str]:
     for id_sprawy in zdalne - lokalne:
         pobierz_sprawe(baza_spraw / id_sprawy)
     return sorted(lokalne | zdalne)
+
+
+# --- Pliki calej kancelarii (kalendarz, telefony) ---------------------------
+
+
+# Rejestry wspolne dla calej kancelarii, nie dla jednej sprawy:
+#   kancelarie/{kancelaria}/{nazwa}.json
+# Leza pod prefiksem kancelarii, wiec usun_kancelarie() kasuje je razem
+# ze sprawami. W trybie S3 czytamy je zawsze z S3 - sa male, a dwie kopie
+# aplikacji nie moga miec dwoch roznych wersji kalendarza.
+PLIKI_KANCELARII = ("kalendarz", "osoby")
+_PROB_ZAPISU = 5
+_BLOKADA_PLIKOW = threading.Lock()
+
+
+class KonfliktZapisu(RuntimeError):
+    """Plik zmienial sie rownoczesnie tyle razy, ze nie udalo sie go zapisac."""
+
+
+def _plik_kancelarii(nazwa: str) -> Path:
+    import config
+    return sprawy_dir(config.DANE).parent / f"{nazwa}.json"
+
+
+def _klucz_kancelarii(nazwa: str) -> str:
+    return f"{PREFIKS}/{kancelaria()}/{nazwa}.json"
+
+
+def _czytaj_s3(nazwa: str) -> tuple[object | None, str]:
+    """(dane albo None, ETag albo "")."""
+    try:
+        odp = _klient_s3().get_object(Bucket=BUCKET, Key=_klucz_kancelarii(nazwa))
+    except Exception as blad:  # noqa: BLE001
+        if type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404"):
+            return None, ""
+        raise
+    return json.loads(odp["Body"].read().decode("utf-8")), odp.get("ETag", "")
+
+
+def _kod_bledu(blad: Exception) -> str:
+    return str(getattr(blad, "response", {}).get("Error", {}).get("Code", ""))
+
+
+def wczytaj_plik_kancelarii(nazwa: str, domyslne):
+    if nazwa not in PLIKI_KANCELARII:
+        raise ValueError(f"Nieznany plik kancelarii: {nazwa}")
+    if TRYB == "s3":
+        dane, _ = _czytaj_s3(nazwa)
+        return domyslne if dane is None else dane
+    plik = _plik_kancelarii(nazwa)
+    with _BLOKADA_PLIKOW:
+        return json.loads(plik.read_text("utf-8")) if plik.exists() else domyslne
+
+
+def zmien_plik_kancelarii(nazwa: str, zmiana, domyslne):
+    """Odczyt - zmiana - zapis bez gubienia cudzych zmian.
+
+    `zmiana(dane)` zmienia dane w miejscu i zwraca wynik dla wywolujacego.
+    W S3 zapis jest warunkowy (If-Match / If-None-Match): gdy druga kopia
+    aplikacji zdazyla zapisac plik w miedzyczasie, czytamy go jeszcze raz
+    i powtarzamy zmiane na nowszej wersji.
+    """
+    if nazwa not in PLIKI_KANCELARII:
+        raise ValueError(f"Nieznany plik kancelarii: {nazwa}")
+    if u_klienta():
+        raise RuntimeError("Kancelaria trzyma pliki u siebie - serwer nie zapisuje jej danych.")
+    if TRYB != "s3":
+        plik = _plik_kancelarii(nazwa)
+        with _BLOKADA_PLIKOW:
+            dane = json.loads(plik.read_text("utf-8")) if plik.exists() else domyslne
+            wynik = zmiana(dane)
+            tymczasowy = plik.with_suffix(".tmp")
+            tymczasowy.write_text(json.dumps(dane, ensure_ascii=False, indent=2), encoding="utf-8")
+            tymczasowy.replace(plik)
+        return wynik
+
+    for _ in range(_PROB_ZAPISU):
+        dane, etag = _czytaj_s3(nazwa)
+        if dane is None:
+            dane = domyslne
+        wynik = zmiana(dane)
+        warunek = {"IfMatch": etag} if etag else {"IfNoneMatch": "*"}
+        try:
+            _klient_s3().put_object(
+                Bucket=BUCKET, Key=_klucz_kancelarii(nazwa),
+                Body=json.dumps(dane, ensure_ascii=False).encode("utf-8"),
+                **warunek, **_szyfrowanie(),
+            )
+        except Exception as blad:  # noqa: BLE001
+            if _kod_bledu(blad) in ("PreconditionFailed", "ConditionalRequestConflict", "412", "409"):
+                log.info("plik kancelarii %s: rownoczesna zmiana, ponawiam", nazwa)
+                continue
+            raise
+        return wynik
+    raise KonfliktZapisu("Ktos rownoczesnie zmienia te dane. Sprobuj za chwile.")

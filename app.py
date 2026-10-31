@@ -28,12 +28,14 @@ import dziennik
 import dokumenty
 import dokumenty_prawne
 import formularze
+import kalendarz
 import krz
 import urzadzenia
 import zlecenia
 import magazyn
 import autoryzacja
 import nazwy
+import osoby
 import prompty
 import rejestracja
 import rejestry
@@ -682,6 +684,7 @@ def usun_sprawe(identyfikator: str, potwierdzam: bool = False):
     if not potwierdzam:
         raise HTTPException(400, "Usuniecie sprawy wymaga jawnego potwierdzenia")
     usuniete = magazyn.usun_sprawe(katalog)
+    kalendarz.usun_sprawe(identyfikator)
     log.info("sprawa %s: usunieta, obiektow w S3: %d", identyfikator, usuniete)
     return {"usunieto": identyfikator, "obiektow": usuniete}
 
@@ -716,6 +719,114 @@ def zmien_nazwe(identyfikator: str, dane: NazwaSprawy):
 
 def _zapisz_json(plik: Path, dane) -> None:
     plik.write_text(json.dumps(dane, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# --- Osoby i telefony --------------------------------------------------------
+
+
+# Telefony i kalendarz leza na serwerze. Kancelaria, ktora trzyma pliki
+# u siebie, zadeklarowala, ze serwer niczego nie przechowuje - wiec tu nic.
+def _tylko_w_chmurze() -> None:
+    if magazyn.u_klienta():
+        raise HTTPException(409, (
+            "Ta kancelaria trzyma pliki u siebie, a kalendarz i telefony "
+            "bylyby zapisane na serwerze."
+        ))
+
+
+def _zapis_kancelarii(funkcja, *argumenty):
+    try:
+        return funkcja(*argumenty)
+    except magazyn.KonfliktZapisu as blad:
+        raise HTTPException(409, str(blad))
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+
+
+class Telefon(BaseModel):
+    telefon: str = ""
+
+
+class NowaOsoba(BaseModel):
+    imie_nazwisko: str
+    telefon: str = ""
+
+
+@app.get("/api/osoby")
+def lista_osob():
+    """Strony czynnosci ze wszystkich spraw z telefonami. PESEL tylko zamaskowany."""
+    _tylko_w_chmurze()
+    wynik = osoby.wszystkie(lista_spraw())
+    return {"osoby": wynik, "bez_telefonu": sum(1 for o in wynik if not o["telefon"])}
+
+
+@app.put("/api/osoby/{identyfikator}/telefon")
+def zmien_telefon(identyfikator: str, dane: Telefon):
+    _tylko_w_chmurze()
+    numer = _zapis_kancelarii(osoby.ustaw_telefon, identyfikator, dane.telefon)
+    log.info("osoba %s: telefon %s", identyfikator, "zapisany" if numer else "usuniety")
+    return {"telefon": numer}
+
+
+@app.post("/api/osoby")
+def dodaj_osobe(dane: NowaOsoba):
+    _tylko_w_chmurze()
+    identyfikator = _zapis_kancelarii(osoby.dodaj_reczna, dane.imie_nazwisko, dane.telefon)
+    log.info("osoba %s: dodana recznie", identyfikator)
+    return {"id": identyfikator}
+
+
+@app.delete("/api/osoby/{identyfikator}")
+def usun_osobe(identyfikator: str):
+    _tylko_w_chmurze()
+    if not _zapis_kancelarii(osoby.usun_reczna, identyfikator):
+        raise HTTPException(404, "Usunąć można tylko osobę dodaną ręcznie")
+    log.info("osoba %s: usunieta", identyfikator)
+    return {"ok": True}
+
+
+# --- Kalendarz ---------------------------------------------------------------
+
+
+class WpisKalendarza(BaseModel):
+    data: str
+    godzina: str = ""
+    tytul: str = ""
+    sprawa: str = ""
+    uwagi: str = ""
+
+
+@app.get("/api/kalendarz")
+def lista_kalendarza():
+    _tylko_w_chmurze()
+    return kalendarz.lista()
+
+
+@app.post("/api/kalendarz")
+def dodaj_do_kalendarza(dane: WpisKalendarza):
+    _tylko_w_chmurze()
+    wpis = _zapis_kancelarii(kalendarz.dodaj, dane.model_dump())
+    log.info("kalendarz %s: dodany", wpis["id"])
+    return wpis
+
+
+@app.put("/api/kalendarz/{identyfikator}")
+def zmien_w_kalendarzu(identyfikator: str, dane: WpisKalendarza):
+    _tylko_w_chmurze()
+    wpis = _zapis_kancelarii(kalendarz.zmien, identyfikator, dane.model_dump())
+    if wpis is None:
+        raise HTTPException(404, "Nie ma takiego terminu")
+    log.info("kalendarz %s: zmieniony", identyfikator)
+    return wpis
+
+
+@app.delete("/api/kalendarz/{identyfikator}")
+def usun_z_kalendarza(identyfikator: str):
+    _tylko_w_chmurze()
+    if not _zapis_kancelarii(kalendarz.usun, identyfikator):
+        raise HTTPException(404, "Nie ma takiego terminu")
+    log.info("kalendarz %s: usuniety", identyfikator)
+    return {"ok": True}
 
 
 # --- Rozmowa o sprawie -------------------------------------------------------
