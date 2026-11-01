@@ -894,6 +894,25 @@ def dodaj_do_kalendarza(dane: WpisKalendarza):
     return wpis
 
 
+class OpisDnia(BaseModel):
+    tytul: str = ""
+    nieczynne: bool = False
+
+
+@app.get("/api/kalendarz/dni")
+def dni_kalendarza():
+    _tylko_w_chmurze()
+    return kalendarz.dni()
+
+
+@app.put("/api/kalendarz/dni/{dzien}")
+def ustaw_dzien_kalendarza(dzien: str, dane: OpisDnia):
+    _tylko_w_chmurze()
+    opis = _zapis_kancelarii(kalendarz.ustaw_dzien, dzien, dane.model_dump())
+    log.info("kalendarz: opis dnia %s %s", dzien, "zapisany" if opis["tytul"] or opis["nieczynne"] else "usuniety")
+    return opis
+
+
 @app.put("/api/kalendarz/{identyfikator}")
 def zmien_w_kalendarzu(identyfikator: str, dane: WpisKalendarza):
     _tylko_w_chmurze()

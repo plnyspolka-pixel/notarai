@@ -8,6 +8,10 @@ Rezerwacja zajmuje godziny od `godzina` do `koniec` (polgodzinne okienka
 w oknie dnia). Dwie rezerwacje tego samego dnia nie moga na siebie nachodzic -
 sprawdzamy to przy zapisie, wiec nie zarezerwuja tej samej godziny dwie osoby
 z kancelarii naraz.
+
+Osobno, w dni.json, leza opisy dni nadane przez notariusza: tytul (np.
+"dzien odrzucen spadkow") i znacznik, ze kancelaria jest tego dnia nieczynna.
+Swieta panstwowe liczy interfejs - nie trzeba ich przechowywac.
 """
 import re
 import uuid
@@ -150,6 +154,31 @@ def usun(identyfikator: str) -> bool:
         wpisy[:] = [w for w in wpisy if w["id"] != identyfikator]
         return len(wpisy) != przed
     return magazyn.zmien_plik_kancelarii(PLIK, zmiana, [])
+
+
+PLIK_DNI = "dni"
+
+
+def dni() -> dict:
+    """{"RRRR-MM-DD": {"tytul": ..., "nieczynne": bool}} - tylko dni z opisem."""
+    return magazyn.wczytaj_plik_kancelarii(PLIK_DNI, {})
+
+
+def ustaw_dzien(dzien: str, dane: dict) -> dict:
+    """Tytul i znacznik "nieczynne" jednego dnia. Pusty opis usuwa wpis."""
+    try:
+        dzien = date.fromisoformat(dzien).isoformat()
+    except ValueError:
+        raise ValueError("Podaj datę w postaci RRRR-MM-DD")
+    opis = {"tytul": _jednolinijkowy(dane.get("tytul"), 120), "nieczynne": bool(dane.get("nieczynne"))}
+
+    def zmiana(wszystkie):
+        if opis["tytul"] or opis["nieczynne"]:
+            wszystkie[dzien] = opis
+        else:
+            wszystkie.pop(dzien, None)
+    magazyn.zmien_plik_kancelarii(PLIK_DNI, zmiana, {})
+    return opis
 
 
 def usun_sprawe(id_sprawy: str) -> None:

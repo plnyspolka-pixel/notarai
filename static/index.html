@@ -277,6 +277,43 @@ textarea.pole-tekst{resize:vertical;min-height:60px}
 .kal-tel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
 button.maly{padding:5px 10px;font-size:12.5px}
 #kal-przenies.on{background:var(--akcent-tlo);border-color:var(--akcent);color:var(--akcent)}
+/* dostepnosc dnia: kropka przy dacie */
+.kal-gora{flex-wrap:wrap}
+.kal-siatka[hidden]{display:none}
+.kal-widoki{display:flex;gap:4px}
+.kal-kropka{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.k-szara{background:#9b958f}.k-ziel{background:#2f9e52}.k-zolta{background:#e2b200}.k-czerw{background:#d33b2c}.k-purp{background:#8b3fbd}
+.kal-dzien .gora{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.kal-dzien.wolny{background:var(--tlo2)}
+.kal-swieto,.kal-tytul{font-size:11px;line-height:1.25;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.kal-swieto{color:var(--alarm)}
+.kal-tytul{color:var(--tekst);font-weight:600}
+.kal-legenda{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:12.5px;color:var(--tekst2)}
+.kal-legenda span{display:inline-flex;align-items:center;gap:6px}
+/* widok tygodnia */
+.kal-tydz-ramka{overflow-x:auto}
+.kal-tydz{display:grid;grid-template-columns:48px repeat(7,minmax(86px,1fr));gap:3px;min-width:660px}
+.kal-tydz .nag{font-size:12px;padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid var(--linia);background:var(--tlo);min-width:0}
+.kal-tydz .nag:hover{border-color:var(--linia2)}
+.kal-tydz .nag.dzis{border-color:var(--akcent)}
+.kal-tydz .nag.wolny{background:var(--tlo2)}
+.kal-tydz .nag b{display:flex;align-items:center;justify-content:space-between;gap:5px;font-weight:600}
+.kal-tydz .g{font:11.5px var(--mono);color:var(--tekst3);padding-top:6px}
+.kal-tydz .k{font-size:11.5px;min-height:27px;padding:5px 6px;border-radius:5px;background:var(--ok-tlo);cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent}
+.kal-tydz .k:hover{border-color:var(--ok)}
+.kal-tydz .k.zajety{background:var(--alarm-tlo);color:var(--alarm)}
+.kal-tydz .k.zajety:hover{border-color:var(--alarm)}
+.kal-tydz .k.wolny{background:var(--tlo2)}
+/* widok dnia: to samo okno dnia, tylko wbudowane w strone */
+.kal-pudlo.wbudowany{max-width:none;border:0;padding:0;background:none}
+.kal-pudlo.wbudowany > .kal-gora{display:none}
+.kal-opis-dnia{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:14px;padding:10px 12px;
+  border-radius:var(--r2);background:var(--tlo2)}
+.kal-opis-dnia .stan{margin:0}
+.kal-opis-dnia input[type=text]{flex:1;min-width:200px;width:auto;padding:6px 10px}
+.kal-opis-dnia label{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+@media(max-width:820px){.kal-widoki{order:5;width:100%}.kal-widoki .chip{flex:1}}
 /* pliki sprawy */
 .zal-el{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linia);font-size:13.5px}
 .zal-el a{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -802,12 +839,26 @@ notarai</div>
   <p class="pod">Kliknij dzień, żeby zobaczyć wolne i zajęte godziny i zarezerwować termin. Przy terminie powiązanym ze sprawą widać strony czynności i ich telefony; czerwony pasek oznacza, że komuś brakuje numeru.</p>
   <div class="karta">
     <div class="kal-gora">
-      <button class="wtorny okragly" id="kal-wstecz" title="Poprzedni miesiąc">‹</button>
+      <button class="wtorny okragly" id="kal-wstecz" title="Wstecz">‹</button>
       <h2 id="kal-miesiac"></h2>
+      <div class="kal-widoki" id="kal-widoki">
+        <button class="chip on" data-w="miesiac">Miesiąc</button>
+        <button class="chip" data-w="tydzien">Tydzień</button>
+        <button class="chip" data-w="dzien">Dzień</button>
+      </div>
       <button class="wtorny" id="kal-dzis">Dziś</button>
-      <button class="wtorny okragly" id="kal-dalej" title="Następny miesiąc">›</button>
+      <button class="wtorny okragly" id="kal-dalej" title="Dalej">›</button>
     </div>
     <div class="kal-siatka" id="kal-siatka"></div>
+    <div class="kal-tydz-ramka" id="kal-tydzien" hidden></div>
+    <div id="kal-dzien-miejsce" hidden></div>
+    <div class="kal-legenda">
+      <span><i class="kal-kropka k-ziel"></i>80–100% wolnych godzin</span>
+      <span><i class="kal-kropka k-zolta"></i>50–80%</span>
+      <span><i class="kal-kropka k-czerw"></i>poniżej 50%, ale co najmniej godzina</span>
+      <span><i class="kal-kropka k-purp"></i>pełne (wolne najwyżej pół godziny)</span>
+      <span><i class="kal-kropka k-szara"></i>niedostępny: weekend, święto, kancelaria nieczynna</span>
+    </div>
   </div>
   <div class="karta">
     <h2>Najbliższe terminy</h2>
@@ -820,6 +871,14 @@ notarai</div>
         <h2 id="kal-okno-tytul"></h2>
         <button class="wtorny okragly" id="kal-dzien-dalej" title="Następny dzień">›</button>
         <button class="wtorny okragly" id="kal-zamknij" title="Zamknij">×</button>
+      </div>
+      <div class="kal-opis-dnia">
+        <i class="kal-kropka" id="kal-kropka-dnia"></i>
+        <span class="stan" id="kal-stan-dnia"></span>
+        <input type="text" id="kal-tytul-dnia" maxlength="120" placeholder="Tytuł dnia, np. dzień odrzuceń spadków" aria-label="Tytuł dnia">
+        <label><input type="checkbox" id="kal-nieczynne"> kancelaria nieczynna</label>
+        <button class="wtorny maly" id="kal-zapisz-dzien">Zapisz opis dnia</button>
+        <span class="stan" id="stan6d"></span>
       </div>
       <div id="kal-bez-godz" class="kal-bez-godz"></div>
       <div class="kal-uklad">
@@ -2250,7 +2309,6 @@ $("btn-dane-zapisz").onclick = async () => {
   } catch (e) { stan($("stan-dokumenty"), e.message, true); }
   $("btn-dane-zapisz").disabled = false;
 };
-
 
 $("btn-dokumenty").onclick = async () => {
   stan($("stan-dokumenty"), "");
@@ -3812,8 +3870,10 @@ $("btn-dodaj-osobe").onclick = async () => {
 // zawsze ciagiem - rezerwacja trwa od pierwszego do konca ostatniego.
 const RODZAJE = ["sprzedaż", "darowizna", "dział spadku", "poświadczenie podpisów", "testament", "pełnomocnictwo notarialne", "inne"];
 const OD = 8 * 60 + 30, DO = 18 * 60, KROK = 30;
-let wpisyKal = [], kalMiesiac = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-let dzienOkna = "", edytowany = null, wybrane = [], rodzaj = "";
+// kalData - dzien, wokol ktorego rysujemy miesiac / tydzien / dzien.
+let wpisyKal = [], opisyDni = {}, kalData = new Date(), widok = "miesiac";
+kalData.setHours(0, 0, 0, 0);
+let dzienOkna = "", edytowany = null, wybrane = [], rodzaj = "", opisDlaDnia = "";
 // oryginalne - okienka edytowanego terminu przed zmianami; przenoszenie -
 // nastepny klik w wolna godzine przesuwa caly termin; stanPoczatkowy -
 // do pytania o niezapisane zmiany.
@@ -3825,6 +3885,58 @@ const godz = m => dwa(Math.floor(m / 60)) + ":" + dwa(m % 60);
 const okienka = []; for (let m = OD; m < DO; m += KROK) okienka.push(m);
 // Termin z sama godzina rozpoczecia zajmuje jedno okienko (tak samo liczy serwer).
 const koniecWpisu = w => w.koniec ? minuty(w.koniec) : minuty(w.godzina) + KROK;
+const duzaLitera = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+// Dni ustawowo wolne od pracy (ustawa z 18.01.1951). Wigilia od 2025 r.
+const SWIETA_STALE = {"01-01": "Nowy Rok", "01-06": "Trzech Króli", "05-01": "Święto Pracy",
+  "05-03": "Święto Konstytucji 3 Maja", "08-15": "Wniebowzięcie NMP", "11-01": "Wszystkich Świętych",
+  "11-11": "Święto Niepodległości", "12-24": "Wigilia", "12-25": "Boże Narodzenie", "12-26": "Drugi dzień Bożego Narodzenia"};
+const swietaLat = {};
+function swieto(data){
+  const rok = +data.slice(0, 4);
+  if (!swietaLat[rok]) {
+    // Wielkanoc: algorytm Meeusa-Jonesa-Butchera (kalendarz gregorianski).
+    const a = rok % 19, b = Math.floor(rok / 100), c = rok % 100, d = Math.floor(b / 4), e = b % 4,
+      f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30,
+      i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+      n = h + l - 7 * m + 114;
+    const lista = {}, wielkanoc = new Date(rok, Math.floor(n / 31) - 1, n % 31 + 1);
+    Object.entries(SWIETA_STALE).forEach(([md, nazwa]) => { if (md !== "12-24" || rok >= 2025) lista[rok + "-" + md] = nazwa; });
+    [[0, "Wielkanoc"], [1, "Poniedziałek Wielkanocny"], [49, "Zielone Świątki"], [60, "Boże Ciało"]].forEach(([o, nazwa]) => {
+      const x = new Date(wielkanoc); x.setDate(x.getDate() + o); lista[iso(x)] = nazwa;
+    });
+    swietaLat[rok] = lista;
+  }
+  return swietaLat[rok][data] || "";
+}
+// Dlaczego dzien jest niedostepny - albo "", gdy kancelaria tego dnia pracuje.
+function dzienWolny(data){
+  if ((opisyDni[data] || {}).nieczynne) return "kancelaria nieczynna";
+  if (swieto(data)) return "dzień ustawowo wolny";
+  const dzien = new Date(data + "T00:00").getDay();
+  return dzien === 6 ? "sobota" : dzien === 0 ? "niedziela" : "";
+}
+// Kropka przy dacie. 100% to godziny otwarcia (okienka OD-DO).
+function dostepnosc(data){
+  const wolny = dzienWolny(data);
+  if (wolny) return {klasa: "k-szara", opis: "niedostępny: " + wolny};
+  const terminy = wpisyKal.filter(w => w.data === data && w.godzina);
+  const wolne = okienka.filter(m => !terminy.some(w => minuty(w.godzina) < m + KROK && m < koniecWpisu(w))).length;
+  const zajete = terminy.reduce((s, w) => s + koniecWpisu(w) - minuty(w.godzina), 0);
+  const czesc = wolne / okienka.length;
+  const klasa = wolne < 2 || zajete >= DO - OD ? "k-purp" : czesc >= .8 ? "k-ziel" : czesc >= .5 ? "k-zolta" : "k-czerw";
+  return {klasa, opis: "wolne " + String(wolne * KROK / 60).replace(".", ",") + " z " + String((DO - OD) / 60).replace(".", ",") + " godz."};
+}
+function kropka(data){
+  const d = dostepnosc(data);
+  return '<i class="kal-kropka ' + d.klasa + '" title="' + escape(duzaLitera(d.opis)) + '"></i>';
+}
+function opisyDniaHtml(data){
+  const sw = swieto(data), t = (opisyDni[data] || {}).tytul;
+  return (sw ? '<div class="kal-swieto" title="' + escape(sw) + '">' + escape(sw) + "</div>" : "")
+    + (t ? '<div class="kal-tytul" title="' + escape(t) + '">' + escape(t) + "</div>" : "");
+}
+const dzienWidoczny = () => !$("kal-okno").hidden || widok === "dzien";
 function nazwaSprawy(id){
   const s = sprawyLista.find(x => x.id === id);
   return s ? (s.nazwa || s.sygnatura || "sprawa " + id.slice(0, 6)) : "sprawa " + id.slice(0, 6);
@@ -3857,27 +3969,77 @@ function podepnijUzupelnij(k){
 }
 async function rysujKalendarz(){
   try {
-    const [wpisy] = await Promise.all([api("/api/kalendarz").then(r => r.json()), pobierzOsoby(), sprawyLista.length ? null : rysujListeSpraw()]);
-    wpisyKal = wpisy;
+    const [wpisy, dni] = await Promise.all([api("/api/kalendarz").then(r => r.json()), api("/api/kalendarz/dni").then(r => r.json()),
+                                            pobierzOsoby(), sprawyLista.length ? null : rysujListeSpraw()]);
+    wpisyKal = wpisy; opisyDni = dni;
   } catch (e) { stan($("stan6"), "Nie udało się pobrać kalendarza.", true); return; }
   const wybor = $("kal-sprawa"), poprzedni = wybor.value;
   wybor.innerHTML = '<option value="">— bez sprawy —</option>' + sprawyLista.map(s =>
     '<option value="' + escape(s.id) + '">' + escape(s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6)) + (s.nazwa && s.sygnatura ? " · " + escape(s.sygnatura) : "") + "</option>").join("");
   wybor.value = poprzedni;
-  rysujMiesiac(); rysujNajblizsze();
+  rysujWidok(); rysujNajblizsze();
   if (!$("kal-okno").hidden) rysujOkno();
 }
+function rysujWidok(){
+  $("kal-siatka").hidden = widok !== "miesiac";
+  $("kal-tydzien").hidden = widok !== "tydzien";
+  $("kal-dzien-miejsce").hidden = widok !== "dzien";
+  document.querySelectorAll("#kal-widoki .chip").forEach(b => b.classList.toggle("on", b.dataset.w === widok));
+  const n = $("kal-miesiac");
+  if (widok === "miesiac") {
+    n.textContent = duzaLitera(kalData.toLocaleDateString("pl-PL", {month:"long", year:"numeric"}));
+    rysujMiesiac();
+  } else if (widok === "tydzien") {
+    const od = poczatekTygodnia(kalData), dok = new Date(od); dok.setDate(dok.getDate() + 6);
+    n.textContent = od.getMonth() === dok.getMonth()
+      ? od.getDate() + "–" + dok.toLocaleDateString("pl-PL", {day:"numeric", month:"long", year:"numeric"})
+      : od.toLocaleDateString("pl-PL", {day:"numeric", month:"long"}) + " – " + dok.toLocaleDateString("pl-PL", {day:"numeric", month:"long", year:"numeric"});
+    rysujTydzien();
+  } else {
+    rysujOkno();
+    n.textContent = $("kal-okno-tytul").textContent;
+  }
+}
+function poczatekTygodnia(d){ const x = new Date(d); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
+function rysujTydzien(){
+  const start = poczatekTygodnia(kalData), dzis = iso(new Date());
+  const dni = [...Array(7)].map((_, i) => { const x = new Date(start); x.setDate(x.getDate() + i); return x; });
+  let html = '<div class="kal-tydz"><div></div>';
+  dni.forEach(d => {
+    const data = iso(d), bez = wpisyKal.filter(w => w.data === data && !w.godzina).length;
+    html += '<div class="nag' + (data === dzis ? " dzis" : "") + (dzienWolny(data) ? " wolny" : "") + '" data-dzien="' + data + '">'
+      + "<b>" + escape(d.toLocaleDateString("pl-PL", {weekday:"short", day:"numeric", month:"numeric"})) + kropka(data) + "</b>"
+      + opisyDniaHtml(data) + (bez ? '<div class="stan">+ ' + bez + " bez godziny</div>" : "") + "</div>";
+  });
+  okienka.forEach(m => {
+    html += '<div class="g">' + godz(m) + "</div>";
+    dni.forEach(d => {
+      const data = iso(d), kto = wpisyKal.find(w => w.data === data && w.godzina && minuty(w.godzina) < m + KROK && m < koniecWpisu(w));
+      html += '<div class="k' + (kto ? " zajety" : dzienWolny(data) ? " wolny" : "") + '" data-dzien="' + data + '" data-m="' + m + '"'
+        + (kto ? ' data-wpis="' + escape(kto.id) + '" title="' + escape(godzinyWpisu(kto) + " " + opisWpisu(kto)) + '"' : "")
+        + ">" + (kto ? escape(opisWpisu(kto) || "zajęte") : "") + "</div>";
+    });
+  });
+  const t = $("kal-tydzien");
+  t.innerHTML = html + "</div>";
+  // Klik w wolna godzine otwiera dzien z ta godzina juz zaznaczona.
+  t.querySelectorAll("[data-dzien]").forEach(el => el.onclick = () => {
+    const wpis = el.dataset.wpis ? wpisyKal.find(w => w.id === el.dataset.wpis) : null;
+    otworzDzien(el.dataset.dzien, wpis);
+    if (!wpis && el.dataset.m) zaznacz(+el.dataset.m);
+  });
+}
 function rysujMiesiac(){
-  const t = kalMiesiac.toLocaleDateString("pl-PL", {month:"long", year:"numeric"});
-  $("kal-miesiac").textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  const kalMiesiac = new Date(kalData.getFullYear(), kalData.getMonth(), 1);
   const s = $("kal-siatka");
   s.innerHTML = ["pon","wt","śr","czw","pt","sob","ndz"].map(d => '<div class="kal-dzien-t">' + d + "</div>").join("");
   const start = new Date(kalMiesiac); start.setDate(1 - (kalMiesiac.getDay() + 6) % 7);
   const dzis = iso(new Date()), wybrany = $("kal-okno").hidden ? "" : dzienOkna;
   for (let d = new Date(start); d.getMonth() === kalMiesiac.getMonth() || d < kalMiesiac || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {
     const data = iso(d), el = document.createElement("div");
-    el.className = "kal-dzien" + (d.getMonth() !== kalMiesiac.getMonth() ? " inny" : "") + (data === dzis ? " dzis" : "") + (data === wybrany ? " wybrany" : "");
-    el.innerHTML = '<span class="nr">' + d.getDate() + "</span>";
+    el.className = "kal-dzien" + (d.getMonth() !== kalMiesiac.getMonth() ? " inny" : "") + (data === dzis ? " dzis" : "")
+      + (data === wybrany ? " wybrany" : "") + (dzienWolny(data) ? " wolny" : "");
+    el.innerHTML = '<div class="gora"><span class="nr">' + d.getDate() + "</span>" + kropka(data) + "</div>" + opisyDniaHtml(data);
     wpisyKal.filter(w => w.data === data).forEach(w => {
       const e = document.createElement("div");
       e.className = "kal-wpis" + (brakTelefonu(w) ? " brak-tel" : "");
@@ -3903,7 +4065,11 @@ function rysujNajblizsze(){
       + (telefonyWpisu(w).length ? '<div class="tel">' + telefonyWpisu(w).map(linkTelefonu).join(" · ") + "</div>" : "")
       + (w.uwagi ? '<div class="stan">' + escape(w.uwagi) + "</div>" : "")
       + (w.sprawa ? listaTelefonow(w.sprawa) : "");
-    d.querySelector(".co").onclick = () => { if ($("kal-okno").hidden || porzucic()) otworzDzien(w.data, w); };
+    d.querySelector(".co").onclick = () => {
+      if (dzienWidoczny() && !porzucic()) return;
+      if (widok === "dzien") $("kal-dzien-miejsce").scrollIntoView({behavior:"smooth"});
+      otworzDzien(w.data, w);
+    };
     podepnijUzupelnij(d);
     k.appendChild(d);
   });
@@ -3915,15 +4081,43 @@ function wpisyDnia(){ return wpisyKal.filter(w => w.data === dzienOkna); }
 function zajmujacy(m){
   return wpisyDnia().find(w => w.id !== edytowany && w.godzina && minuty(w.godzina) < m + KROK && m < koniecWpisu(w));
 }
+// W widoku miesiaca i tygodnia dzien otwiera sie w oknie, w widoku dnia
+// to samo okno jest wbudowane w strone.
 function otworzDzien(data, wpis){
   dzienOkna = data;
-  $("kal-okno").hidden = false;
+  if (widok === "dzien") kalData = new Date(data + "T00:00");
+  else $("kal-okno").hidden = false;
   if (wpis) edytujTermin(wpis); else nowyTermin();
-  rysujMiesiac();
+  rysujWidok();
 }
 function zamknijOkno(){
   if (!porzucic()) return;
-  $("kal-okno").hidden = true; edytowany = null; przenoszenie = false; rysujMiesiac();
+  $("kal-okno").hidden = true; edytowany = null; przenoszenie = false; rysujWidok();
+}
+function ustawWidok(w){
+  if (w === widok || (dzienWidoczny() && !porzucic())) return;
+  $("kal-okno").hidden = true;
+  edytowany = null; przenoszenie = false;
+  widok = w;
+  try { localStorage.setItem("kal-widok", w); } catch (e) {}
+  const pudlo = document.querySelector(".kal-pudlo");
+  pudlo.classList.toggle("wbudowany", w === "dzien");
+  if (w === "dzien") {
+    pudlo.removeAttribute("role"); pudlo.removeAttribute("aria-modal");
+    $("kal-dzien-miejsce").appendChild(pudlo);
+    dzienOkna = iso(kalData);
+    nowyTermin();
+  } else {
+    pudlo.setAttribute("role", "dialog"); pudlo.setAttribute("aria-modal", "true");
+    $("kal-okno").appendChild(pudlo);
+  }
+  rysujWidok();
+}
+function przesunWidok(o){
+  if (widok === "dzien") return przesunDzien(o);
+  if (widok === "tydzien") kalData.setDate(kalData.getDate() + 7 * o);
+  else kalData = new Date(kalData.getFullYear(), kalData.getMonth() + o, 1);
+  rysujWidok();
 }
 // Niezapisane zmiany: przy nowej rezerwacji liczy sie to, co wpisano, przy
 // edycji takze godziny - zeby klik w inny termin nie zgubil ich po cichu.
@@ -3939,6 +4133,18 @@ function porzucic(){
 function rysujOkno(){
   const t = new Date(dzienOkna + "T00:00").toLocaleDateString("pl-PL", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
   $("kal-okno-tytul").textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  const dost = dostepnosc(dzienOkna);
+  $("kal-kropka-dnia").className = "kal-kropka " + dost.klasa;
+  $("kal-stan-dnia").textContent = [swieto(dzienOkna), duzaLitera(dost.opis)].filter(Boolean).join(" · ");
+  // Pola opisu wypelniamy tylko po zmianie dnia - rysujOkno leci przy kazdym
+  // kliknieciu godziny i nie moze kasowac tego, co notariusz wlasnie wpisuje.
+  if (opisDlaDnia !== dzienOkna) {
+    opisDlaDnia = dzienOkna;
+    const opis = opisyDni[dzienOkna] || {};
+    $("kal-tytul-dnia").value = opis.tytul || "";
+    $("kal-nieczynne").checked = !!opis.nieczynne;
+    stan($("stan6d"), "");
+  }
   // Terminy bez godziny albo poza okienkami, zeby nie zginely z widoku.
   const poza = wpisyDnia().filter(w => !w.godzina || koniecWpisu(w) <= OD || minuty(w.godzina) >= DO);
   const b = $("kal-bez-godz");
@@ -4094,13 +4300,29 @@ function edytujTermin(w){
 function przesunDzien(o){
   if (!porzucic()) return;
   const d = new Date(dzienOkna + "T00:00"); d.setDate(d.getDate() + o);
-  kalMiesiac = new Date(d.getFullYear(), d.getMonth(), 1);
+  kalData = d;
   otworzDzien(iso(d));
 }
 $("kal-sprawa").onchange = rysujOsobyTerminu;
-$("kal-wstecz").onclick = () => { kalMiesiac.setMonth(kalMiesiac.getMonth() - 1); rysujMiesiac(); };
-$("kal-dalej").onclick  = () => { kalMiesiac.setMonth(kalMiesiac.getMonth() + 1); rysujMiesiac(); };
-$("kal-dzis").onclick   = () => { const d = new Date(); kalMiesiac = new Date(d.getFullYear(), d.getMonth(), 1); rysujMiesiac(); };
+$("kal-wstecz").onclick = () => przesunWidok(-1);
+$("kal-dalej").onclick  = () => przesunWidok(1);
+$("kal-dzis").onclick   = () => {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (widok !== "dzien") { kalData = d; return rysujWidok(); }
+  if (porzucic()) otworzDzien(iso(d));
+};
+document.querySelectorAll("#kal-widoki .chip").forEach(b => b.onclick = () => ustawWidok(b.dataset.w));
+$("kal-zapisz-dzien").onclick = async () => {
+  const dzien = dzienOkna;
+  const odp = await api("/api/kalendarz/dni/" + dzien, {method:"PUT", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({tytul: $("kal-tytul-dnia").value, nieczynne: $("kal-nieczynne").checked})});
+  const w = await odp.json();
+  if (!odp.ok) return stan($("stan6d"), typeof w.detail === "string" ? w.detail : "Nie zapisano", true);
+  if (w.tytul || w.nieczynne) opisyDni[dzien] = w; else delete opisyDni[dzien];
+  rysujWidok(); rysujOkno();
+  stan($("stan6d"), "Zapisano.");
+};
+try { const w = localStorage.getItem("kal-widok"); if (w === "tydzien" || w === "dzien") ustawWidok(w); } catch (e) {}
 $("kal-dzien-wstecz").onclick = () => przesunDzien(-1);
 $("kal-dzien-dalej").onclick  = () => przesunDzien(1);
 $("kal-zamknij").onclick = zamknijOkno;

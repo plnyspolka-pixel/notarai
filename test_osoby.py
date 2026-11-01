@@ -196,6 +196,26 @@ class TestKalendarz:
         kalendarz.usun_sprawe("aaa111")
         assert next(w for w in kalendarz.lista() if w["id"] == wpis["id"])["sprawa"] == ""
 
+    def test_opis_dnia(self, dane):
+        assert kalendarz.dni() == {}
+        kalendarz.ustaw_dzien("2026-11-12", {"tytul": "  Dzień   odrzuceń spadków ", "nieczynne": False})
+        kalendarz.ustaw_dzien("2026-11-13", {"tytul": "", "nieczynne": True})
+        assert kalendarz.dni() == {"2026-11-12": {"tytul": "Dzień odrzuceń spadków", "nieczynne": False},
+                                   "2026-11-13": {"tytul": "", "nieczynne": True}}
+        kalendarz.ustaw_dzien("2026-11-13", {})
+        assert list(kalendarz.dni()) == ["2026-11-12"]
+        with pytest.raises(ValueError):
+            kalendarz.ustaw_dzien("12.11.2026", {"tytul": "x"})
+
+    def test_api_opisu_dnia(self, dane):
+        from fastapi.testclient import TestClient
+        import app as aplikacja
+        klient = TestClient(aplikacja.app)
+        odp = klient.put("/api/kalendarz/dni/2026-11-12", json={"tytul": "Walne zgromadzenie spółki"})
+        assert odp.status_code == 200
+        assert klient.get("/api/kalendarz/dni").json() == {"2026-11-12": {"tytul": "Walne zgromadzenie spółki", "nieczynne": False}}
+        assert klient.put("/api/kalendarz/dni/jutro", json={"tytul": "x"}).status_code == 400
+
 
 # --- notarai: S3, kilka kopii aplikacji, kilka kancelarii ---------------------
 
