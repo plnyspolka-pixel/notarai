@@ -1072,6 +1072,9 @@ notarai</div>
       <input type="text" id="umowa-nip" inputmode="numeric" autocomplete="off">
     </div>
   </div>
+  <!-- Dane zapisane przy rejestracji albo pierwszej akceptacji: przy zmianie
+       dokumentow tylko je pokazujemy, zmienia sie je w oknie Dokumenty. -->
+  <p id="umowa-dane-zapisane" hidden></p>
   <label class="zgoda"><input type="checkbox" id="umowa-akceptuje">
     <span>Akceptuję <a href="/dokumenty/regulamin" target="_blank" rel="noopener">Regulamin</a> wraz z <a href="/dokumenty/umowa" target="_blank" rel="noopener">umową powierzenia</a> i oświadczam, że jestem wskazanym notariuszem albo działam w jego imieniu i z jego upoważnienia.</span></label>
   <div class="dol"><button id="btn-umowa">Akceptuję</button><span class="stan" id="stan-umowa"></span></div>
@@ -1089,6 +1092,27 @@ notarai</div>
   <h2>Dokumenty kancelarii</h2>
   <p>Wszystko akceptujesz w aplikacji, niczego nie podpisujesz. Dokument otwiera się w nowej karcie; z niej możesz go wydrukować albo zapisać jako PDF.</p>
   <div id="dokumenty-lista"></div>
+  <!-- Dane kancelarii zapisane na stale; trafiaja do umowy i dokumentow
+       wewnetrznych. Zmiana nie wymaga ponownej akceptacji. -->
+  <h2 style="margin-top:22px">Dane kancelarii</h2>
+  <p id="dane-opis"></p>
+  <div id="dane-formularz" hidden>
+    <div class="pole">
+      <label class="etykieta" for="dane-notariusze">Notariusz <span class="wskaz">- w spółce cywilnej wszyscy, po przecinku</span></label>
+      <input type="text" id="dane-notariusze" autocomplete="name">
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="dane-adres">Adres kancelarii</label>
+      <input type="text" id="dane-adres" autocomplete="street-address">
+    </div>
+    <div class="pole">
+      <label class="etykieta" for="dane-nip">NIP <span class="wskaz">- nieobowiązkowy</span></label>
+      <input type="text" id="dane-nip" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="dol"><button id="btn-dane-zapisz">Zapisz dane</button>
+      <button class="wtorny" id="btn-dane-anuluj">Anuluj</button></div>
+  </div>
+  <div class="dol"><button class="wtorny" id="btn-dane-zmien" hidden>Zmień dane kancelarii</button></div>
   <div class="dol"><button id="btn-komplet-okno">Pobierz komplet</button><small>Wszystkie dokumenty po kolei w jednym pliku, z datami akceptacji. Zachowaj go w dokumentacji RODO kancelarii.</small></div>
   <div class="dol"><span class="stan" id="stan-dokumenty"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-dokumenty">Zamknij</button></div>
@@ -2072,7 +2096,10 @@ function pokazUmowe(){
       ? "Zmieniliśmy Regulamin lub umowę powierzenia. Zmiany obowiązują po 14 dniach od zawiadomienia; zaakceptuj je, żeby ten komunikat zniknął."
       : "Zanim wgrasz pierwszą sprawę, kancelaria zawiera z nami umowę powierzenia przetwarzania danych. Wystarczy akceptacja - bez podpisu i bez wysyłania dokumentów.";
   const d = dokumenty.dane || {};
-  $("umowa-dane").hidden = !wlasciciel || !!d.notariusze;
+  $("umowa-dane").hidden = !wlasciciel || dokumenty.dane_pelne;
+  $("umowa-dane-zapisane").hidden = !wlasciciel || !dokumenty.dane_pelne;
+  $("umowa-dane-zapisane").textContent = "Dane kancelarii w umowie: " + opisDanych(d)
+    + ". Są zapisane na koncie kancelarii; zmienisz je w oknie Dokumenty.";
   $("umowa-notariusze").value = d.notariusze || "";
   $("umowa-adres").value = d.adres || "";
   $("umowa-nip").value = d.nip || "";
@@ -2091,10 +2118,12 @@ $("btn-umowa").onclick = async () => {
   $("btn-umowa").disabled = true;
   stan($("stan-umowa"), "Zapisuję…", false, true);
   try {
+    // Zapisanych danych nie wysylamy ponownie - akceptacja to jedno klikniecie.
+    const tresc = dokumenty.dane_pelne ? {akceptuje: true}
+      : {akceptuje: true, notariusze: $("umowa-notariusze").value,
+         adres: $("umowa-adres").value, nip: $("umowa-nip").value};
     const odp = await api("/api/dokumenty/umowa", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({akceptuje: true, notariusze: $("umowa-notariusze").value,
-                            adres: $("umowa-adres").value, nip: $("umowa-nip").value}),
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(tresc),
     });
     const w = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać akceptacji.");
@@ -2179,7 +2208,49 @@ function rysujDokumenty(){
     };
     $("dokumenty-lista").appendChild(d);
   });
+  rysujDaneKancelarii();
 }
+
+/* ---------- dane kancelarii ---------- */
+function opisDanych(d){
+  return [d.notariusze, d.adres, d.nip ? "NIP " + d.nip : ""].filter(Boolean).join(", ");
+}
+
+function rysujDaneKancelarii(){
+  const d = dokumenty.dane || {}, wlasciciel = dokumenty.jestem_wlascicielem;
+  $("dane-opis").textContent = (opisDanych(d) ? opisDanych(d) + "." : "Nie podano jeszcze danych kancelarii.")
+    + (wlasciciel ? " Zapisane na koncie kancelarii - przy zmianie Regulaminu wystarczy akceptacja." : "");
+  $("dane-formularz").hidden = true;
+  $("btn-dane-zmien").hidden = !wlasciciel;
+}
+
+$("btn-dane-zmien").onclick = () => {
+  const d = dokumenty.dane || {};
+  $("dane-notariusze").value = d.notariusze || "";
+  $("dane-adres").value = d.adres || "";
+  $("dane-nip").value = d.nip || "";
+  $("dane-formularz").hidden = false;
+  $("btn-dane-zmien").hidden = true;
+  $("dane-notariusze").focus();
+};
+$("btn-dane-anuluj").onclick = rysujDaneKancelarii;
+$("btn-dane-zapisz").onclick = async () => {
+  $("btn-dane-zapisz").disabled = true;
+  stan($("stan-dokumenty"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/dokumenty/dane", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({notariusze: $("dane-notariusze").value, adres: $("dane-adres").value,
+                            nip: $("dane-nip").value})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać danych.");
+    await sprawdzDokumenty();
+    rysujDokumenty();
+    stan($("stan-dokumenty"), "Dane kancelarii zapisane.");
+  } catch (e) { stan($("stan-dokumenty"), e.message, true); }
+  $("btn-dane-zapisz").disabled = false;
+};
+
 
 $("btn-dokumenty").onclick = async () => {
   stan($("stan-dokumenty"), "");

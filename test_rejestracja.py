@@ -316,3 +316,77 @@ def test_kazdy_dokument_ma_wersje():
 def test_odnosniki_tylko_bezpieczne():
     assert 'href="javascript' not in dokumenty_prawne.wiersz("[x](javascript:alert(1))")
     assert '<a href="https://notarai.pl">' in dokumenty_prawne.wiersz("[x](https://notarai.pl)")
+
+
+class TestDanychKancelarii:
+    """Dane kancelarii zapisuje sie raz. Po zmianie dokumentow wystarczy
+    akceptacja, bez ponownego wpisywania."""
+
+    WL = "anna@kancelaria-sobczak.test"
+
+    def _nowa_wersja(self, aut, k):
+        rejestr = aut._wczytaj_rejestr()
+        aut._znajdz(rejestr, k)[1]["umowa"]["umowa"] = "2000-01-01"
+        aut._zapisz_rejestr(rejestr)
+
+    def test_nowa_wersja_akceptowana_jednym_kliknieciem(self, srodowisko):
+        klient, _, aut = srodowisko
+        _zarejestruj(klient)
+        k = _id(klient)
+        dane_przed = klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()["dane"]
+        self._nowa_wersja(aut, k)
+        stan = klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()
+        assert "umowa" in stan["do_akceptacji"] and stan["dane_pelne"] is True
+        odp = klient.post("/api/dokumenty/umowa", headers=jako(self.WL, k), json={"akceptuje": True})
+        assert odp.status_code == 200
+        stan = klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()
+        assert "umowa" not in stan["do_akceptacji"]
+        assert stan["dane"] == dane_przed, "dane zostaja te same"
+
+    def test_akceptacja_nie_nadpisuje_danych(self, srodowisko):
+        klient, _, aut = srodowisko
+        _zarejestruj(klient)
+        k = _id(klient)
+        przed = klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()["dane"]
+        self._nowa_wersja(aut, k)
+        klient.post("/api/dokumenty/umowa", headers=jako(self.WL, k),
+                    json={"akceptuje": True, "notariusze": "x", "adres": ""})
+        assert klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()["dane"] == przed
+
+    def test_niepelne_dane_trzeba_uzupelnic(self, srodowisko):
+        klient, _, aut = srodowisko
+        _zarejestruj(klient)
+        k = _id(klient)
+        rejestr = aut._wczytaj_rejestr()
+        aut._znajdz(rejestr, k)[1]["dane"] = {"notariusze": "Anna Sobczak"}
+        aut._zapisz_rejestr(rejestr)
+        self._nowa_wersja(aut, k)
+        assert klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()["dane_pelne"] is False
+        assert klient.post("/api/dokumenty/umowa", headers=jako(self.WL, k),
+                           json={"akceptuje": True}).status_code == 400
+        odp = klient.post("/api/dokumenty/umowa", headers=jako(self.WL, k),
+                          json={"akceptuje": True, "notariusze": "Anna Sobczak",
+                                "adres": "ul. Krótka 5, 20-001 Lublin"})
+        assert odp.status_code == 200
+
+    def test_wlasciciel_zmienia_dane_bez_ponownej_akceptacji(self, srodowisko):
+        klient, _, aut = srodowisko
+        _zarejestruj(klient)
+        k = _id(klient)
+        odp = klient.post("/api/dokumenty/dane", headers=jako(self.WL, k),
+                          json={"notariusze": "Anna Sobczak, Jan Pawlak",
+                                "adres": "ul. Długa 7, 20-002 Lublin"})
+        assert odp.status_code == 200
+        stan = klient.get("/api/dokumenty", headers=jako(self.WL, k)).json()
+        assert stan["dane"]["adres"] == "ul. Długa 7, 20-002 Lublin"
+        assert "umowa" not in stan["do_akceptacji"], "zmiana danych nie wymaga akceptacji"
+        assert klient.post("/api/dokumenty/dane", headers=jako(self.WL, k),
+                           json={"notariusze": "x", "adres": "y"}).status_code == 400
+
+    def test_czlonek_nie_zmienia_danych(self, srodowisko):
+        klient, _, aut = srodowisko
+        _zarejestruj(klient)
+        k = _id(klient)
+        odp = klient.post("/api/dokumenty/dane", headers=jako("ewa@kancelaria-sobczak.test", k),
+                          json={"notariusze": "Ewa Pawlak", "adres": "ul. Długa 7, 20-002 Lublin"})
+        assert odp.status_code in (403, 404)

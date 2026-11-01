@@ -214,6 +214,7 @@ def stan_dokumentow(request: Request):
         "umowa": {k: umowa.get(k) for k in ("zaakceptowano", "umowa", "regulamin", "sposob")},
         "dpia": {k: (wpis.get("dpia") or {}).get(k) for k in ("przyjeto", "wersja")},
         "dane": wpis.get("dane") or {},
+        "dane_pelne": _dane_pelne(wpis),
         "do_akceptacji": _do_akceptacji(wpis, email, wlasciciel),
         "dokumenty": [{"nazwa": n, "tytul": dokumenty_prawne.tytul(n),
                        "wersja": dokumenty_prawne.wersja(n),
@@ -234,8 +235,10 @@ def akceptuj_umowe(dane: Akceptacja, request: Request):
         raise HTTPException(403, "Umowę akceptuje właściciel kancelarii.")
     if not dane.akceptuje:
         raise HTTPException(400, "Zaznacz akceptację Regulaminu i umowy powierzenia.")
-    obecne = wpis.get("dane") or {}
-    if dane.notariusze or dane.adres or not obecne.get("notariusze"):
+    # Dane kancelarii sa zapisane na stale. Po zmianie dokumentow wystarczy
+    # akceptacja - dane podaje sie tylko wtedy, gdy ich jeszcze nie ma albo
+    # sa niepelne; zmienia sie je osobno (POST /api/dokumenty/dane).
+    if not _dane_pelne(wpis):
         wpis["dane"] = _sprawdz_dane(dane)
     poprzednia = wpis.get("umowa") or {}
     zapis = _zapis_akceptacji(email, autoryzacja.adres_klienta(request), "akceptacja w aplikacji")
@@ -246,6 +249,29 @@ def akceptuj_umowe(dane: Akceptacja, request: Request):
     autoryzacja._zapisz_rejestr(rejestr)
     log.info("kancelaria %s: zaakceptowano umowe %s", wpis["id"], zapis["umowa"])
     return {"zaakceptowano": zapis["zaakceptowano"]}
+
+
+def _dane_pelne(wpis: dict) -> bool:
+    """Czy zapisane dane kancelarii przechodza te same wymagania co przy
+    rejestracji - wtedy nie trzeba ich podawac ponownie."""
+    try:
+        _sprawdz_dane(DaneKancelarii(**(wpis.get("dane") or {})))
+    except HTTPException:
+        return False
+    return True
+
+
+@router_dokumentow.post("/dane")
+def zmien_dane(dane: DaneKancelarii, request: Request):
+    """Wlasciciel poprawia dane kancelarii (np. nowy adres) bez ponownej
+    akceptacji dokumentow. Umowa i komplet pokazuja zawsze dane biezace."""
+    rejestr, _, wpis, _, wlasciciel = _ja(request)
+    if not wlasciciel:
+        raise HTTPException(403, "Dane kancelarii zmienia właściciel kancelarii.")
+    wpis["dane"] = {**_sprawdz_dane(dane), "zmieniono": autoryzacja._teraz()}
+    autoryzacja._zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: zmieniono dane kancelarii", wpis["id"])
+    return wpis["dane"]
 
 
 @router_dokumentow.post("/instrukcja")
