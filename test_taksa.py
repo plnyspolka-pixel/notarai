@@ -178,6 +178,17 @@ class TestObliczSprzedaz:
         assert "Wypis z rejestru gruntów" in grupy["Starostwo powiatowe (w mieście na prawach powiatu: urząd miasta)"]
         assert "Świadectwo charakterystyki energetycznej" in grupy["Dodatkowo"]
 
+    def test_oplaty_sadowe_jako_slownik_albo_napis(self):
+        w = taksa.oblicz({"data": "2026-11-07", "czynnosci": [{"rodzaj": "sprzedaz_lokalu", "wartosc": 10000}],
+                          "oplaty_sadowe": {"zalozenie_kw": True, "wpis_hipoteki": 0}})
+        assert [p["etykieta"] for p in w["pozycje"] if p["rodzaj"] == "sad"] == ["opłata sądowa: założenie księgi wieczystej"]
+        w = taksa.oblicz({"data": "2026-11-07", "czynnosci": [{"rodzaj": "sprzedaz_lokalu", "wartosc": 10000}],
+                          "oplaty_sadowe": "wykreslenie_hipoteki"})
+        assert w["sumy"]["sad"] == 100.0
+        w = taksa.oblicz({"data": "2026-11-07", "czynnosci": [{"rodzaj": "sprzedaz_lokalu", "wartosc": 10000}],
+                          "oplaty_sadowe": 7})
+        assert w["sumy"]["sad"] == 200.0   # smieci = domyslne wg rodzaju
+
     def test_pusto(self):
         w = taksa.oblicz({})
         assert w["pozycje"] == [] and w["razem"] == 0 and w["tekst"] == "" and w["uwagi"]

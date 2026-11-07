@@ -78,6 +78,20 @@ jeśli kancelaria jej nie pobiera, wystarczy ją wyzerować.
   wiadomość do 1500 znaków, historia do 24 tur, pole-pułapka dla automatów.
   CORS tylko dla `/api/taksa` i tylko dla domen z `PIECZAPP_KALKULATOR_ORIGINS`
   (domyślnie notarai.pl). Treści rozmów nie zapisujemy i nie logujemy.
+  Model: osobny profil `PIECZAPP_KALKULATOR_MODEL` (domyślnie
+  `eu.anthropic.claude-sonnet-4-6`). Limit zapytań Bedrock na koncie jest
+  liczony na model, więc publiczny czat na Sonnecie nie dławi odczytu skanów,
+  który idzie na Opusie. Test na żywo 07.11.2026 (8 przypadków na Opusie 4.6,
+  3 na Sonnecie 4.6): oba dobierają właściwe identyfikatory (zakup na kredyt:
+  `sprzedaz_lokalu` + hipoteka 1/4; darowizna działki od rodziców:
+  `darowizna_inna` + I grupa; spadek z testamentem: `apd` +
+  `protokol_dziedziczenia` + `otwarcie_testamentu`), nie powtarzają PESEL-u
+  z wiadomości klienta, odmawiają poleceń spoza tematu. Opus czasem dopisywał
+  rozważania przed JSON-em i raz oddał `oplaty_sadowe` jako słownik; parser
+  (`bedrock._wczytaj_json`) i `taksa.oblicz` to przyjmują. Modele 4.6 nie
+  przyjmują narzuconego początku odpowiedzi (prefill), więc format pilnuje sam
+  prompt. Przy 8 równoległych wywołaniach Opus dostał `ThrottlingException`
+  (limit konta około 5 zapytań na minutę na model); stąd osobny model i limity.
 - `strona/kalkulator/index.html` - strona (samodzielna: własne style w pliku,
   żeby działała i na hostingu az.pl, i z aplikacji). Czat + formularz bez
   asystenta + karta wyniku z przyciskiem „Kopiuj kalkulację”.

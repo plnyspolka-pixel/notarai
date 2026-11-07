@@ -35,6 +35,23 @@ import taksa
 log = logging.getLogger("pieczapp.kalkulator")
 
 WLACZONY = os.getenv("PIECZAPP_KALKULATOR", "true").lower() == "true"
+# Osobny profil modelu dla kalkulatora. Limit zapytan Bedrock jest liczony na
+# model, wiec publiczny czat na innym profilu nie dlawi odczytu skanow
+# kancelarii (config.MODEL, Opus). Sonnet 4.6 sprawdzony na zywo 07.11.2026:
+# czysty JSON, 1,5-3,5 s na odpowiedz, poprawne identyfikatory. Pusto = ten
+# sam model co reszta aplikacji.
+MODEL_DOMYSLNY = "eu.anthropic.claude-sonnet-4-6"
+
+
+def _model_z_env(wartosc: str | None) -> str:
+    """Profil kalkulatora; jak config.MODEL musi byc profilem EU."""
+    model = (MODEL_DOMYSLNY if wartosc is None else wartosc).strip()
+    if model and not model.startswith("eu."):
+        raise RuntimeError(f"PIECZAPP_KALKULATOR_MODEL '{model}' nie jest profilem EU (prefiks 'eu.').")
+    return model
+
+
+MODEL = _model_z_env(os.getenv("PIECZAPP_KALKULATOR_MODEL"))
 ORIGINY = tuple(o.strip().rstrip("/") for o in os.getenv(
     "PIECZAPP_KALKULATOR_ORIGINS", "https://notarai.pl,https://www.notarai.pl").split(",") if o.strip())
 
@@ -212,7 +229,7 @@ def rozmowa(zadanie: Rozmowa, request: Request):
     else:
         tresc = f"{wynik_poprzedni}\n\nKLIENT: {wiadomosc}" if wynik_poprzedni else wiadomosc
     try:
-        odpowiedz = bedrock.rozmowa_kalkulatora(_system(), tury, tresc)
+        odpowiedz = bedrock.rozmowa_kalkulatora(_system(), tury, tresc, MODEL or None)
     except bedrock.Przeciazenie:
         raise HTTPException(503, "Asystent jest chwilowo zajęty. Spróbuj za minutę albo skorzystaj "
                                  "z formularza poniżej.", headers={"Retry-After": "60"})

@@ -151,7 +151,9 @@ nowe, Dz.U. 2026 poz. 1370), wypisy, PCC i opłaty sądowe, oraz podaje listę
 dokumentów do przyniesienia. Klient opisuje sprawę zwykłym językiem (model
 przez Bedrock ustala tylko parametry; kwoty liczy `taksa.py`) albo wypełnia
 formularz bez modelu. Szczegóły i źródła stawek: [docs/taksa.md](docs/taksa.md).
-Wyłączenie asystenta: `PIECZAPP_KALKULATOR=false`.
+Wyłączenie asystenta: `PIECZAPP_KALKULATOR=false`. Rozmowa idzie na osobny
+profil (`PIECZAPP_KALKULATOR_MODEL`, domyślnie Sonnet 4.6 w UE), żeby publiczny
+czat nie zjadał limitu zapytań modelu, który czyta skany kancelarii.
 
 ## Testy
 

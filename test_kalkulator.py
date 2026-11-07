@@ -60,9 +60,9 @@ class TestRozmowa:
         assert dane["odpowiedz"].startswith("Przyjąłem")
         assert dane["kalkulacja"]["sumy"]["pcc"] == 9000.0
         assert dane["parametry"]["czynnosci"][0]["rodzaj"] == "sprzedaz_lokalu"
-        system, tury, tresc = model.call_args.args
+        system, tury, tresc = model.call_args.args[:3]
         assert tury == [] and tresc == "Kupuję mieszkanie za 450 tys."
-        assert "sprzedaz_lokalu" in system and "DZIS JEST" in system and "WYLACZNIE JSON" in system.upper()
+        assert "sprzedaz_lokalu" in system and "DZIS JEST" in system and "JEDEN OBIEKT JSON" in system.upper()
 
     def test_historia_idzie_do_modelu_z_wynikiem_kalkulatora(self, klient):
         historia = [
@@ -74,7 +74,7 @@ class TestRozmowa:
         with patch("bedrock.rozmowa_kalkulatora", return_value='{"odpowiedz": "Jasne.", "kalkulacja": null}') as model:
             odp = klient.post("/api/taksa/rozmowa", json={"wiadomosc": "A z kredytem 400 tys.?", "historia": historia})
         assert odp.status_code == 200 and odp.json()["kalkulacja"] is None
-        _, tury, tresc = model.call_args.args
+        _, tury, tresc = model.call_args.args[:3]
         assert [t["role"] for t in tury] == ["user", "assistant"]
         assert json.loads(tury[1]["content"][0]["text"])["kalkulacja"]["czynnosci"][0]["wartosc"] == 450000
         assert tresc.startswith("WYNIK KALKULATORA") and "RAZEM: 11" in tresc.replace(" ", " ")
@@ -85,7 +85,7 @@ class TestRozmowa:
                     {"rola": "uzytkownik", "tresc": "c"}]
         with patch("bedrock.rozmowa_kalkulatora", return_value='{"odpowiedz": "d", "kalkulacja": null}') as model:
             klient.post("/api/taksa/rozmowa", json={"wiadomosc": "e", "historia": historia})
-        _, tury, tresc = model.call_args.args
+        _, tury, tresc = model.call_args.args[:3]
         assert [t["role"] for t in tury] == ["user", "assistant"] and tresc == "c\ne"
 
     def test_zly_json_modelu_to_sam_tekst(self, klient):
@@ -189,11 +189,95 @@ class TestBezLogowania:
         assert klient.get("/api/sprawy").status_code == 401
 
 
+PROZA_PRZED_JSON = """
+
+Muszę ustalić kilka rzeczy. Nie powinienem powtarzać danych osobowych.
+
+```json
+{
+  "odpowiedz": "Rozumiem, sprzedaż domu córce za 800 000 zł.",
+  "kalkulacja": {"czynnosci": [{"rodzaj": "sprzedaz_domu", "wartosc": 800000}], "grupa1": true,
+                 "oplaty_sadowe": {"wpis_wlasnosci": 1, "wpis_hipoteki": 0}}
+}
+```"""
+
+
+class TestOdczytOdpowiedzi:
+    def test_proza_przed_json_i_slownik_oplat(self):
+        """Tak odpowiedzial Opus 4.6 na zywo (07.11.2026) - musi sie dac odczytac."""
+        tekst, parametry = kalkulator._odczytaj(PROZA_PRZED_JSON)
+        assert tekst.startswith("Rozumiem") and parametry["grupa1"] is True
+        wynik = taksa.oblicz(parametry)
+        sad = [p["etykieta"] for p in wynik["pozycje"] if p["rodzaj"] == "sad"]
+        assert sad == ["opłata sądowa: wpis prawa własności (użytkowania wieczystego, spółdzielczego prawa)"]
+
+    def test_czysty_json(self):
+        tekst, parametry = kalkulator._odczytaj('{"odpowiedz": "ok", "kalkulacja": null}')
+        assert tekst == "ok" and parametry is None
+
+
+class TestModelKalkulatora:
+    def test_domyslnie_sonnet_w_ue(self):
+        assert kalkulator._model_z_env(None) == "eu.anthropic.claude-sonnet-4-6"
+
+    def test_pusto_znaczy_model_aplikacji(self):
+        assert kalkulator._model_z_env("") == "" and kalkulator._model_z_env("  ") == ""
+
+    def test_profil_spoza_ue_odrzucony(self):
+        with pytest.raises(RuntimeError, match="profilem EU"):
+            kalkulator._model_z_env("global.anthropic.claude-sonnet-4-6")
+        with pytest.raises(RuntimeError):
+            kalkulator._model_z_env("us.anthropic.claude-sonnet-4-6")
+
+    def test_rozmowa_idzie_na_model_kalkulatora(self, klient, monkeypatch):
+        monkeypatch.setattr(kalkulator, "MODEL", "eu.anthropic.claude-haiku-4-5-20251001-v1:0")
+        with patch("bedrock.rozmowa_kalkulatora", return_value='{"odpowiedz": "ok", "kalkulacja": null}') as model:
+            klient.post("/api/taksa/rozmowa", json={"wiadomosc": "x"})
+        assert model.call_args.args[3] == "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+
 class TestBedrock:
-    def test_rozmowa_kalkulatora_bez_myslenia(self):
+    def test_rozmowa_kalkulatora_bez_myslenia_na_osobnym_modelu(self):
         with patch("bedrock._rozmowa", return_value="{}") as r:
             bedrock.rozmowa_kalkulatora("SYSTEM", [{"role": "user", "content": [{"text": "a"}]},
-                                                   {"role": "assistant", "content": [{"text": "b"}]}], "c")
+                                                   {"role": "assistant", "content": [{"text": "b"}]}], "c",
+                                        "eu.anthropic.claude-sonnet-4-6")
         assert r.call_args.args[0] == "SYSTEM" and r.call_args.args[1] == [{"text": "c"}]
         assert r.call_args.kwargs["myslenie"] is False and len(r.call_args.kwargs["historia"]) == 2
         assert r.call_args.kwargs["max_tokenow"] == bedrock.MAX_TOKENOW_KALKULATORA
+        assert r.call_args.kwargs["model"] == "eu.anthropic.claude-sonnet-4-6"
+
+    def test_model_w_zadaniu_bedrock(self):
+        class Strumien:
+            def __init__(self):
+                self.zadanie = None
+
+            def converse_stream(self, **zadanie):
+                self.zadanie = zadanie
+                return {"stream": [{"contentBlockDelta": {"delta": {"text": '{"odpowiedz": "x"}'}}},
+                                   {"messageStop": {"stopReason": "end_turn"}}]}
+
+        klient = Strumien()
+        with patch("bedrock._klient", return_value=klient):
+            wynik = bedrock._rozmowa("S", [{"text": "u"}], max_tokenow=10, myslenie=False,
+                                     model="eu.anthropic.claude-sonnet-4-6")
+        assert wynik == '{"odpowiedz": "x"}'
+        assert klient.zadanie["modelId"] == "eu.anthropic.claude-sonnet-4-6"
+        assert klient.zadanie["messages"][-1]["role"] == "user"
+        assert "thinking" not in klient.zadanie.get("additionalModelRequestFields", {})
+        assert klient.zadanie["inferenceConfig"] == {"maxTokens": 10, "temperature": 0}
+
+    def test_domyslny_model_bez_parametru(self):
+        class Strumien:
+            def __init__(self):
+                self.zadanie = None
+
+            def converse_stream(self, **zadanie):
+                self.zadanie = zadanie
+                return {"stream": [{"contentBlockDelta": {"delta": {"text": "ok"}}}]}
+
+        klient = Strumien()
+        with patch("bedrock._klient", return_value=klient):
+            assert bedrock._rozmowa("S", [{"text": "u"}], max_tokenow=10, myslenie=True) == "ok"
+        import config
+        assert klient.zadanie["modelId"] == config.MODEL

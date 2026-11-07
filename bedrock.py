@@ -90,11 +90,13 @@ _PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
                  "ServiceQuotaExceededException"}
 
 
-def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = None) -> tuple[dict, dict]:
+def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = None,
+                      model: str | None = None) -> tuple[dict, dict]:
     """inferenceConfig i additionalModelRequestFields dla biezacego modelu."""
+    model = model or config.MODEL
     ustawienia: dict = {"maxTokens": max_tokenow}
     dodatkowe: dict = {}
-    adaptacyjny = bool(_ADAPTACYJNE.search(config.MODEL))
+    adaptacyjny = bool(_ADAPTACYJNE.search(model))
     if myslenie:
         # Przy mysleniu temperatura musi zostac domyslna.
         if adaptacyjny:
@@ -102,7 +104,7 @@ def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = No
             dodatkowe["output_config"] = {"effort": wysilek or config.WYSILEK}
         else:
             dodatkowe["thinking"] = {"type": "enabled", "budget_tokens": max(1024, max_tokenow // 2)}
-    elif config.przyjmuje_temperature():
+    elif config.przyjmuje_temperature(model):
         ustawienia["temperature"] = 0
     if adaptacyjny:
         # Kontekst 1M tokenow - koncowe zestawienie duzej sprawy go potrzebuje.
@@ -113,19 +115,23 @@ def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = No
 def _rozmowa(
     system: str, tresc: list[dict], max_tokenow: int | None = None,
     historia: list[dict] | None = None, myslenie: bool | None = None,
-    wysilek: str | None = None,
+    wysilek: str | None = None, model: str | None = None,
 ) -> str:
     """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}].
 
     Odpowiedz odbieramy strumieniem: dlugie odpowiedzi z mysleniem potrafia
-    trwac dluzej, niz wytrzymuje zwykle wywolanie.
+    trwac dluzej, niz wytrzymuje zwykle wywolanie. `model` inny niz config.MODEL
+    tylko dla zadan, ktore maja wlasny profil (kalkulator). Modele 4.6+ nie
+    przyjmuja juz narzuconego poczatku odpowiedzi asystenta (prefill), wiec
+    format wymuszamy wylacznie promptem, a odpowiedz czyta _wczytaj_json.
     """
     max_tokenow = max_tokenow or config.MAX_WYJSCIE
     myslenie = config.MYSLENIE if myslenie is None else myslenie
-    ustawienia, dodatkowe = _parametry_modelu(max_tokenow, myslenie, wysilek)
+    model = model or config.MODEL
+    ustawienia, dodatkowe = _parametry_modelu(max_tokenow, myslenie, wysilek, model)
     wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
     zadanie = {
-        "modelId": config.MODEL,
+        "modelId": model,
         "system": [{"text": system}],
         "messages": wiadomosci,
         "inferenceConfig": ustawienia,
@@ -682,14 +688,16 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
 MAX_TOKENOW_KALKULATORA = 1500
 
 
-def rozmowa_kalkulatora(system: str, tury: list[dict], wiadomosc: str) -> str:
+def rozmowa_kalkulatora(system: str, tury: list[dict], wiadomosc: str, model: str | None = None) -> str:
     """Tura rozmowy klienta kancelarii z kalkulatorem taksy (kalkulator.py).
 
     Bez myslenia: dobor parametrow jest prosty, a klient czeka na stronie.
     `tury` to gotowe, naprzemienne tury Bedrock [{"role","content"}].
+    `model` to osobny profil kalkulatora, zeby publiczny czat nie zjadal
+    limitu zapytan modelu, ktory czyta skany kancelarii.
     """
     return _rozmowa(system, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_KALKULATORA,
-                    historia=tury, myslenie=False)
+                    historia=tury, myslenie=False, model=model)
 
 
 def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:

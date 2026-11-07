@@ -585,7 +585,11 @@ def oblicz(parametry: dict) -> dict:
 
     # --- oplaty sadowe
     oplaty = parametry.get("oplaty_sadowe")
-    if oplaty is None:
+    if isinstance(oplaty, dict):            # model potrafi oddac {"wpis_wlasnosci": 1}
+        oplaty = [k for k, v in oplaty.items() if v]
+    elif isinstance(oplaty, str):
+        oplaty = [oplaty]
+    if not isinstance(oplaty, list):
         oplaty = oplaty_domyslne
     widziane: list[str] = []
     for klucz in oplaty:
