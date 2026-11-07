@@ -678,6 +678,20 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
     return _rozmowa(prompty.ROZMOWA, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
 
 
+# Odpowiedz kalkulatora to krotki JSON z parametrami; kwoty liczy taksa.py.
+MAX_TOKENOW_KALKULATORA = 1500
+
+
+def rozmowa_kalkulatora(system: str, tury: list[dict], wiadomosc: str) -> str:
+    """Tura rozmowy klienta kancelarii z kalkulatorem taksy (kalkulator.py).
+
+    Bez myslenia: dobor parametrow jest prosty, a klient czeka na stronie.
+    `tury` to gotowe, naprzemienne tury Bedrock [{"role","content"}].
+    """
+    return _rozmowa(system, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_KALKULATORA,
+                    historia=tury, myslenie=False)
+
+
 def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
     """Jedna decyzja agenta prowadzacego przegladarke notariusza.
 

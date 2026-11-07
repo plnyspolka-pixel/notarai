@@ -47,8 +47,10 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
 # webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
+# Kalkulator taksy jest dla klientow kancelarii, ktorzy konta nie maja.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/")
+            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
+            "/kalkulator", "/api/taksa")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.

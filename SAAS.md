@@ -15,6 +15,9 @@
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
+- `taksa.py`, `kalkulator.py`, `strona/kalkulator/` — kalkulator kosztów dla klientów
+  (07.11.2026): `/api/taksa*` bez logowania, CORS tylko dla notarai.pl, limity
+  na IP i dobę, treści rozmów nie zapisujemy. Opis: `docs/taksa.md`.
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki

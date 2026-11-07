@@ -143,6 +143,16 @@ sesji `aws login` (max 12 h). Jednorazowo uruchom `infra\USTAW_DOSTEP_AWS.bat`
 **Model źle odczytuje skany** — sprawdź jakość skanu. Poniżej 200 dpi drobny
 druk i pieczątki bywają nieczytelne. Popraw pole ręcznie w etapie 2.
 
+## Kalkulator kosztów dla klientów
+
+Publiczna strona `/kalkulator` (na notarai.pl: `notarai.pl/kalkulator/`) liczy
+szacunkowe koszty czynności: taksę według stawek maksymalnych (od 5.11.2026 r.
+nowe, Dz.U. 2026 poz. 1370), wypisy, PCC i opłaty sądowe, oraz podaje listę
+dokumentów do przyniesienia. Klient opisuje sprawę zwykłym językiem (model
+przez Bedrock ustala tylko parametry; kwoty liczy `taksa.py`) albo wypełnia
+formularz bez modelu. Szczegóły i źródła stawek: [docs/taksa.md](docs/taksa.md).
+Wyłączenie asystenta: `PIECZAPP_KALKULATOR=false`.
+
 ## Testy
 
 Uruchomienie testów:
@@ -158,6 +168,9 @@ Więcej informacji w [TESTY.md](TESTY.md).
 ```
 app.py              serwer i endpointy
 bedrock.py          wywołania modelu — ekstrakcja i generowanie
+taksa.py            taksa notarialna: stawki, ułamki, wypisy, PCC, opłaty sądowe (liczy kod)
+kalkulator.py       publiczny kalkulator kosztów dla klientów: /api/taksa, rozmowa z modelem
+strona/kalkulator/  strona kalkulatora na notarai.pl (ta sama pod /kalkulator w aplikacji)
 dokumenty.py        PDF/obrazy na strony, docx tam i z powrotem
 walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
 prompty.py          treść promptów

@@ -29,6 +29,7 @@ import dokumenty
 import dokumenty_prawne
 import formularze
 import kalendarz
+import kalkulator
 import krz
 import urzadzenia
 import zlecenia
@@ -63,6 +64,9 @@ app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
 app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
+# Kalkulator taksy dla klientow: otwarty, z CORS dla notarai.pl (tylko /api/taksa).
+app.include_router(kalkulator.router)
+app.middleware("http")(kalkulator.cors)
 
 
 @app.exception_handler(Exception)
@@ -113,6 +117,14 @@ def dokument_publiczny(nazwa: str):
     if nazwa not in ("regulamin", "umowa", "prywatnosc", "instrukcja"):
         raise HTTPException(404, "Nie ma takiego dokumentu.")
     return dokumenty_prawne.strona(nazwa)
+
+
+@app.get("/kalkulator", response_class=HTMLResponse)
+def strona_kalkulatora():
+    """Ta sama strona, ktora stoi na notarai.pl/kalkulator - tu bez CORS,
+    dla kancelarii (link w pasku bocznym) i do podgladu przed wyslaniem."""
+    strona = (Path(__file__).parent / "strona" / "kalkulator" / "index.html").read_text("utf-8")
+    return strona.replace('"../favicon.png"', '"/static/favicon.png"')
 
 
 @app.get("/", response_class=HTMLResponse)
