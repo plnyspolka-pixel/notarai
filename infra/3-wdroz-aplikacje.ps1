@@ -104,6 +104,16 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/stripe) {
     Write-Host "   platnosci Stripe: brak sekretu notarai/stripe, platnosci wylaczone" -ForegroundColor Yellow
 }
 
+# Ksiegi wieczyste z EKW: sekret notarai/apify zaklada infra\zapisz-sekret-apify.ps1
+# (klucz token). Jak przy Stripe czytamy tylko ARN - wartosc zostaje w AWS.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/apify) {
+    $apifyArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/apify --query ARN --output text
+    $parametry += "ApifySekretArn=$apifyArn"
+    Write-Host "   ksiegi z EKW: sekret notarai/apify"
+} else {
+    Write-Host "   ksiegi z EKW: brak sekretu notarai/apify, pobieranie wylaczone" -ForegroundColor Yellow
+}
+
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan
 Uruchom-Aws cloudformation deploy --stack-name notarai-aplikacja `
     --template-file "$korzen\infra\notarai-aplikacja.yaml" `

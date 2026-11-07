@@ -40,6 +40,42 @@ i pelnomocnictwach do tych czynnosci; przy innych czynnosciach fakultatywna (KRN
 automatyzacji (KRN, bip.krn.org.pl); czy dostawca modulu KRN udostepnia interfejs
 dla oprogramowania kancelaryjnego (pytanie do KRN / izby notarialnej).
 
+## Elektroniczne Ksiegi Wieczyste (EKW) - tresc ksiegi
+
+Sprawdzono 07.11.2026.
+
+**Stan faktyczny portalu https://przegladarka-ekw.ms.gov.pl:**
+- Publiczny, bez logowania, jedna ksiega na raz po pelnym numerze KW. Oficjalnego
+  API dla oprogramowania brak; Ministerstwo nie oferuje dostepu masowego.
+- Portal stoi za zapora Imperva/Incapsula. Wejscie z serwerow (chmura, CI) konczy
+  sie HTTP 403 "Error 15" jeszcze przed formularzem - potwierdzone 02.11.2026
+  z trzech srodowisk. Serwer notarai nie moze wiec czytac EKW sam.
+- Rejestr jest jawny z mocy ustawy o ksiegach wieczystych i hipotece, ale dzial II
+  zawiera dane osobowe (imiona, nazwiska, czasem PESEL).
+
+**Decyzja dla notarai (ekw.py):**
+- Tresc ksiegi pobiera dostawca: aktor `regdata/ekw-ksiegi-wieczyste-scraper`
+  na platformie Apify (https://apify.com/regdata/ekw-ksiegi-wieczyste-scraper).
+  Rozliczenie za wynik: 0,005-0,010 USD za ksiege zaleznie od planu Apify plus
+  0,025 USD za uruchomienie; ksiegi nieodczytane i nieistniejace nie sa liczone.
+  Plan bezplatny: 25 ksiag na 30 dni.
+- Jedna ksiega na zadanie notariusza, z jawnym potwierdzeniem, zawsze widok
+  "aktualna". Bez masowego pobierania i bez lokalnej kopii rejestru - tresc
+  trafia tylko do sprawy (`dane/sprawy/<id>/ksiegi/<numer>.json` i `.txt`).
+- Kazde pobranie (udane i nieudane) to wpis w `sprawdzenia.json` z rejestrem
+  `EKW`; zapytaniem jest numer KW, status `wpis` oznacza wpisy w dziale III
+  albo IV, `brak_wpisu` - oba dzialy puste.
+- Ksiega z nieodczytanym dzialem jest odrzucana w calosci. Dostawca oznacza
+  dzial jako pusty tylko, gdy portal oddal "BRAK WPISOW".
+- Po odczycie notarai kasuje u dostawcy zbior wynikow i magazyn zadania.
+  Dostawca jest podmiotem przetwarzajacym poza nasza infrastruktura - patrz
+  docs/ochrona-danych.md; wymaga umowy powierzenia przed uzyciem na danych
+  klientow.
+- To **nie jest odpis urzedowy**. Notariusz porownuje tresc ze zrodlem i tak
+  oznacza ja interfejs.
+- Token dostawcy: `PIECZAPP_APIFY_TOKEN`; w chmurze z sekretu `notarai/apify`
+  (infra/zapisz-sekret-apify.ps1). Bez tokenu karta w interfejsie jest ukryta.
+
 ## Krajowy Rejestr Zadluzonych (KRZ)
 
 Sprawdzono 16.09.2026 w przegladarce notariusza (portal odrzuca zapytania spoza

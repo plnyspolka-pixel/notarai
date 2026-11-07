@@ -73,6 +73,13 @@ Parameters:
       Pelny ARN sekretu notarai/stripe (klucze klucz i webhook), zalozonego
       skryptem zapisz-sekret-stripe.ps1 - wartosci nie trafiaja do szablonu.
       Puste = platnosci wylaczone, nikogo nie blokujemy.
+  ApifySekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/apify (klucz token), zalozonego skryptem
+      zapisz-sekret-apify.ps1. Wlacza pobieranie tresci ksiag wieczystych
+      z EKW przez dostawce (ekw.py). Puste = funkcja wylaczona.
   StripeCena:
     Type: String
     Default: ""
@@ -99,6 +106,7 @@ Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
   MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
+  MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -161,6 +169,16 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref StripeSekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyApify
+          - PolicyName: sekret-apify
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref ApifySekretArn
           - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
@@ -389,6 +407,12 @@ Resources:
               - MamyStripe
               - Name: STRIPE_WEBHOOK_SEKRET
                 ValueFrom: !Sub "${StripeSekretArn}:webhook::"
+              - !Ref AWS::NoValue
+            # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
+            - !If
+              - MamyApify
+              - Name: PIECZAPP_APIFY_TOKEN
+                ValueFrom: !Sub "${ApifySekretArn}:token::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs

@@ -1,0 +1,306 @@
+"""Tresc ksiegi wieczystej z EKW - przez aktora Apify, na zadanie notariusza.
+
+Przegladarka EKW (przegladarka-ekw.ms.gov.pl) nie ma API i odrzuca ruch
+z serwerow kodem 403, wiec serwer notarai nie czyta jej sam. Pobranie zleca
+aktorowi `regdata/ekw-ksiegi-wieczyste-scraper` na platformie Apify, ktory
+oddaje piec dzialow ksiegi jako JSON. Rozliczenie: jedna ksiega = jeden wynik.
+
+Zasady (SPEC A, docs/rejestry.md):
+- jedna ksiega na zadanie, z odstepem; bez masowego pobierania i bez lokalnej
+  kopii rejestru - tresc trafia tylko do sprawy, ktorej dotyczy;
+- po odczycie kasujemy u dostawcy zbior wynikow i magazyn zadania, zeby dane
+  stron (dzial II zawiera imiona, czasem PESEL) nie lezaly tam dluzej niz trzeba;
+- w logach tylko identyfikator sprawy, status i czas - bez numeru KW i tresci;
+- to nie jest odpis urzedowy; notariusz porownuje ze zrodlem.
+
+Konfiguracja: PIECZAPP_APIFY_TOKEN (w chmurze z Secrets Manager). Bez tokenu
+modul jest nieaktywny i interfejs nie pokazuje przycisku.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+
+import httpx
+
+import config
+import rejestry
+import walidacja
+
+log = logging.getLogger("pieczapp.ekw")
+
+AKTOR = "regdata~ekw-ksiegi-wieczyste-scraper"
+ADRES_API = "https://api.apify.com/v2"
+PORTAL = "przegladarka-ekw.ms.gov.pl"
+ZRODLO = f"{PORTAL} (przez Apify {AKTOR.replace('~', '/')})"
+# Kolejnosc jak w wydruku z EKW. Klucz aktora -> oznaczenie dzialu.
+DZIALY = (
+    ("dzialIO", "I-O"),
+    ("dzialISp", "I-Sp"),
+    ("dzialII", "II"),
+    ("dzialIII", "III"),
+    ("dzialIV", "IV"),
+)
+ODSTEP_S = 2.0      # miedzy pobraniami - ograniczenie po naszej stronie
+CZAS_S = 240        # tyle czekamy na aktora; portal bywa powolny
+KATALOG = "ksiegi"  # dane/sprawy/<id>/ksiegi/<numer>.json i .txt
+
+# Komunikaty aktora o ksiedze, ktorej nie ma w rejestrze (zapis ERRORS).
+_NIE_ZNALEZIONO = re.compile(r"not found|does not exist|nie istnieje|nie znaleziono|brak ksi", re.I)
+
+_blokada = threading.Lock()
+_ostatnie = 0.0
+
+
+class BladEKW(Exception):
+    """Pobranie sie nie udalo. `kod` mowi dlaczego, komunikat jest dla notariusza.
+
+    Kody: brak_tokenu, blad_tokenu, limit, nie_znaleziono, niepelny, niedostepny.
+    Zaden komunikat nie zawiera tresci ksiegi ani danych stron.
+    """
+
+    def __init__(self, kod: str, komunikat: str):
+        super().__init__(komunikat)
+        self.kod = kod
+
+
+def token() -> str:
+    return os.getenv("PIECZAPP_APIFY_TOKEN", "").strip()
+
+
+def dostepne() -> bool:
+    """Czy ta instalacja ma czym pobierac. Decyduje o przycisku w interfejsie."""
+    return bool(token())
+
+
+def normalizuj_numer(numer: str) -> str:
+    """'wa4m/00160286/2 ' -> 'WA4M/00160286/2'. Zly numer = ValueError."""
+    tekst = re.sub(r"\s+", "", (numer or "").upper())
+    poprawny, komunikat = walidacja.ksiega_wieczysta(tekst)
+    if not poprawny:
+        raise ValueError(komunikat)
+    return tekst
+
+
+def nazwa_pliku(numer: str) -> str:
+    return numer.replace("/", "_")
+
+
+def _klient() -> httpx.Client:
+    # Token w naglowku, nie w adresie: adres trafia do komunikatow bledow httpx.
+    return httpx.Client(
+        base_url=ADRES_API,
+        headers={"Authorization": "Bearer " + token()},
+        timeout=httpx.Timeout(CZAS_S + 30, connect=20),
+    )
+
+
+def _odczekaj() -> None:
+    global _ostatnie
+    with _blokada:
+        przerwa = ODSTEP_S - (time.monotonic() - _ostatnie)
+        if przerwa > 0:
+            time.sleep(przerwa)
+        _ostatnie = time.monotonic()
+
+
+def _tekst_wpisow(dzial: dict) -> str:
+    """Wpisy dzialu jako czytelny tekst - taki, jaki notariusz zna z wydruku."""
+    wiersze: list[str] = []
+    for wpis in dzial.get("entries") or []:
+        if isinstance(wpis, dict):
+            etykieta, wartosc = wpis.get("label"), wpis.get("value")
+            if etykieta is not None or wartosc is not None:
+                wiersze.append(f"{etykieta or ''}: {wartosc or ''}".strip(": ").strip())
+            else:
+                wiersze.append(json.dumps(wpis, ensure_ascii=False))
+        elif wpis not in (None, ""):
+            wiersze.append(str(wpis))
+    if not wiersze and dzial.get("rawText"):
+        wiersze.append(str(dzial["rawText"]).strip())
+    return "\n".join(w for w in wiersze if w)
+
+
+def _dzial(rekord: dict, klucz: str, oznaczenie: str) -> dict:
+    dzial = rekord.get(klucz)
+    if not isinstance(dzial, dict) or dzial.get("available") is False:
+        raise BladEKW("niepelny", f"Nie udalo sie odczytac dzialu {oznaczenie} - ksiega odrzucona w calosci")
+    pusty = dzial.get("empty") is True
+    tekst = _tekst_wpisow(dzial)
+    if not pusty and not tekst:
+        raise BladEKW("niepelny", f"Dzial {oznaczenie} bez tresci i bez oznaczenia BRAK WPISOW - ksiega odrzucona")
+    return {
+        "oznaczenie": oznaczenie,
+        "tytul": str(dzial.get("title") or f"DZIAL {oznaczenie}"),
+        "pusty": pusty,
+        "tekst": "BRAK WPISÓW" if pusty else tekst,
+    }
+
+
+def z_rekordu(rekord: dict, numer: str) -> dict:
+    """Rekord aktora -> ksiega w ukladzie notarai. Kazdy dzial musi byc odczytany."""
+    if not isinstance(rekord, dict) or rekord.get("success") is False:
+        raise BladEKW("niedostepny", "Aktor nie potwierdzil odczytu ksiegi")
+    zwrocony = re.sub(r"\s+", "", str(rekord.get("kwNumber") or "").upper())
+    if zwrocony != numer:
+        raise BladEKW("niedostepny", "Dostawca zwrocil inna ksiege niz zadana")
+    if rekord.get("viewType") not in (None, "aktualna"):
+        raise BladEKW("niedostepny", "Dostawca zwrocil inny widok niz aktualna tresc ksiegi")
+    return {
+        "numer_kw": numer,
+        "kod_sadu": str(rekord.get("courtCode") or numer[:4]),
+        "sad": str(rekord.get("courtName") or ""),
+        "typ": str(rekord.get("propertyType") or ""),
+        "widok": "aktualna",
+        "dzialy": [_dzial(rekord, klucz, oznaczenie) for klucz, oznaczenie in DZIALY],
+        "pobrano": datetime.now().isoformat(timespec="seconds"),
+        "zrodlo": ZRODLO,
+    }
+
+
+def do_tekstu(ksiega: dict) -> str:
+    """Caly odczyt jako tekst - do zapisu w sprawie i do wklejenia w materialy."""
+    linie = [
+        f"KSIĘGA WIECZYSTA {ksiega['numer_kw']}",
+        f"Sąd: {ksiega.get('sad') or 'brak danych'}",
+        f"Typ nieruchomości: {ksiega.get('typ') or 'brak danych'}",
+        f"Treść aktualna, pobrano {ksiega['pobrano'].replace('T', ' ')} z {ksiega['zrodlo']}",
+        "To nie jest odpis urzędowy - porównaj ze źródłem.",
+    ]
+    for dzial in ksiega["dzialy"]:
+        linie += ["", dzial["tytul"], dzial["tekst"]]
+    return "\n".join(linie) + "\n"
+
+
+def podsumowanie(ksiega: dict) -> tuple[str, str]:
+    """Status do sladu audytowego: 'wpis' gdy dzial III albo IV cos zawiera."""
+    stany = {d["oznaczenie"]: ("brak wpisów" if d["pusty"] else "wpisy") for d in ksiega["dzialy"]}
+    obciazona = any(not d["pusty"] for d in ksiega["dzialy"] if d["oznaczenie"] in ("III", "IV"))
+    opis = ", ".join(f"dz. {o}: {s}" for o, s in stany.items())
+    return ("wpis" if obciazona else "brak_wpisu"), opis
+
+
+def _zapis_bledow(klient: httpx.Client, magazyn_id: str | None) -> str:
+    if not magazyn_id:
+        return ""
+    try:
+        odp = klient.get(f"/key-value-stores/{magazyn_id}/records/ERRORS")
+    except httpx.HTTPError:
+        return ""
+    return odp.text[:2000] if odp.status_code == 200 else ""
+
+
+def _posprzataj(klient: httpx.Client, zbior: str | None, magazyn_id: str | None) -> None:
+    """Kasuje u dostawcy wyniki i magazyn zadania. Niepowodzenie tylko ostrzega."""
+    for sciezka in (f"/datasets/{zbior}" if zbior else None,
+                    f"/key-value-stores/{magazyn_id}" if magazyn_id else None):
+        if not sciezka:
+            continue
+        try:
+            odp = klient.delete(sciezka)
+            if odp.status_code >= 400 and odp.status_code != 404:
+                log.warning("EKW: nie udalo sie skasowac danych u dostawcy (%d)", odp.status_code)
+        except httpx.HTTPError as blad:
+            log.warning("EKW: nie udalo sie skasowac danych u dostawcy (%s)", type(blad).__name__)
+
+
+def pobierz(numer: str, klient: httpx.Client | None = None) -> dict:
+    """Jedna ksiega, aktualna tresc, wszystkie dzialy. Czeka na wynik aktora."""
+    numer = normalizuj_numer(numer)
+    if not dostepne():
+        raise BladEKW("brak_tokenu", "Pobieranie z EKW nie jest wlaczone w tej instalacji (PIECZAPP_APIFY_TOKEN)")
+    _odczekaj()
+    wlasny = klient is None
+    k = klient or _klient()
+    zbior = magazyn_id = None
+    try:
+        try:
+            odp = k.post(
+                f"/acts/{AKTOR}/run-sync",
+                params={"timeout": CZAS_S, "memory": 1024},
+                json={"kwNumbers": [numer], "viewType": "aktualna",
+                      "includeRawHtml": False, "maxConcurrency": 1},
+            )
+        except httpx.TimeoutException:
+            raise BladEKW("niedostepny", "Portal EKW nie odpowiedzial w czasie - sprobuj pozniej")
+        except httpx.HTTPError as blad:
+            raise BladEKW("niedostepny", f"Brak polaczenia z dostawca ({type(blad).__name__})")
+        if odp.status_code in (401, 403):
+            raise BladEKW("blad_tokenu", "Dostawca odrzucil token - sprawdz PIECZAPP_APIFY_TOKEN")
+        if odp.status_code in (402, 429):
+            raise BladEKW("limit", "Wyczerpany limit albo saldo konta u dostawcy")
+        if odp.status_code == 408:
+            raise BladEKW("niedostepny", "Portal EKW nie odpowiedzial w czasie - sprobuj pozniej")
+        if odp.status_code >= 400:
+            raise BladEKW("niedostepny", f"Dostawca odpowiedzial kodem {odp.status_code}")
+        try:
+            zadanie = odp.json().get("data") or {}
+        except ValueError:
+            raise BladEKW("niedostepny", "Niezrozumiala odpowiedz dostawcy")
+        zbior, magazyn_id = zadanie.get("defaultDatasetId"), zadanie.get("defaultKeyValueStoreId")
+        rekordy: list = []
+        if zbior:
+            try:
+                wyniki = k.get(f"/datasets/{zbior}/items", params={"clean": "true"})
+                rekordy = wyniki.json() if wyniki.status_code == 200 else []
+            except (httpx.HTTPError, ValueError):
+                rekordy = []
+        if not rekordy:
+            bledy = _zapis_bledow(k, magazyn_id)
+            if _NIE_ZNALEZIONO.search(bledy):
+                raise BladEKW("nie_znaleziono", "Ksiegi o tym numerze nie ma w rejestrze")
+            if zadanie.get("statusMessage") and _NIE_ZNALEZIONO.search(str(zadanie["statusMessage"])):
+                raise BladEKW("nie_znaleziono", "Ksiegi o tym numerze nie ma w rejestrze")
+            if "allowance" in bledy.lower() or "allowance" in str(zadanie.get("statusMessage") or "").lower():
+                raise BladEKW("limit", "Wyczerpany limit bezplatnego planu u dostawcy")
+            raise BladEKW("niedostepny",
+                          f"Portal EKW nie oddal ksiegi (stan zadania: {zadanie.get('status') or 'nieznany'})")
+        return z_rekordu(rekordy[0], numer)
+    finally:
+        _posprzataj(k, zbior, magazyn_id)
+        if wlasny:
+            k.close()
+
+
+def zapisz(identyfikator: str, ksiega: dict) -> Path:
+    """Tresc do sprawy (JSON + tekst) i wpis w sladzie audytowym."""
+    katalog = config.SPRAWY / identyfikator / KATALOG
+    katalog.mkdir(parents=True, exist_ok=True)
+    nazwa = nazwa_pliku(ksiega["numer_kw"])
+    (katalog / f"{nazwa}.json").write_text(json.dumps(ksiega, ensure_ascii=False, indent=2), encoding="utf-8")
+    (katalog / f"{nazwa}.txt").write_text(do_tekstu(ksiega), encoding="utf-8")
+    status, opis = podsumowanie(ksiega)
+    rejestry.zapisz_sprawdzenie(identyfikator, rejestry.WynikSprawdzenia(
+        rejestr="EKW", zapytanie=ksiega["numer_kw"], status=status,
+        szczegoly=opis, zrodlo=ZRODLO, etykieta=ksiega["numer_kw"],
+    ))
+    return katalog / f"{nazwa}.json"
+
+
+def wynik_bledu(numer: str, blad: BladEKW) -> rejestry.WynikSprawdzenia:
+    """Nieudane pobranie tez zostaje w sladzie - jako dowod proby, nie wyniku."""
+    status = "blad" if blad.kod in ("nie_znaleziono", "niepelny") else "niedostepny"
+    return rejestry.WynikSprawdzenia(
+        rejestr="EKW", zapytanie=numer, status=status, szczegoly=str(blad),
+        zrodlo=ZRODLO, etykieta=numer,
+    )
+
+
+def wczytaj(identyfikator: str) -> list[dict]:
+    """Ksiegi pobrane do sprawy, od najnowszej."""
+    katalog = config.SPRAWY / identyfikator / KATALOG
+    if not katalog.is_dir():
+        return []
+    ksiegi = []
+    for plik in katalog.glob("*.json"):
+        try:
+            ksiegi.append(json.loads(plik.read_text("utf-8")))
+        except (ValueError, OSError):
+            log.warning("sprawa %s: uszkodzony zapis ksiegi", identyfikator)
+    return sorted(ksiegi, key=lambda k: k.get("pobrano", ""), reverse=True)
