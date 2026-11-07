@@ -110,10 +110,15 @@ def _naglowki_cors(origin: str) -> dict:
             "Access-Control-Max-Age": "86400"}
 
 
+# Sciezki publiczne, ktore strona notarai.pl wola z innej domeny.
+SCIEZKI_CORS = ("/api/taksa", "/api/wizyty")
+
+
 async def cors(request: Request, call_next):
-    """Strona notarai.pl wola kalkulator na app.notarai.pl. Inne sciezki i domeny: bez zmian."""
+    """Strona notarai.pl wola kalkulator i umawianie wizyt na app.notarai.pl.
+    Inne sciezki i domeny: bez zmian."""
     origin = request.headers.get("origin", "").rstrip("/")
-    if not request.url.path.startswith("/api/taksa") or origin not in ORIGINY:
+    if not request.url.path.startswith(SCIEZKI_CORS) or origin not in ORIGINY:
         return await call_next(request)
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=_naglowki_cors(origin))

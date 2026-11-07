@@ -40,6 +40,13 @@ switch ($Polecenie) {
     "kopia" { Kopia }
     "wyslij" {
         if (-not (Test-Path (Join-Path $zrodlo "index.html"))) { throw "Brak $zrodlo\index.html" }
+        # Strony miejscowosci, blog, sitemap i robots powstaja z kodu tuz przed wysylka.
+        Write-Host "== Generuje strony miejscowosci i blog"
+        & py -3 (Join-Path $korzen "seo\generuj.py")
+        if ($LASTEXITCODE -ne 0) { throw "seo\generuj.py zakonczyl sie kodem $LASTEXITCODE" }
+        & py -3 (Join-Path $korzen "seo\blog.py") zbuduj
+        if ($LASTEXITCODE -ne 0) { throw "seo\blog.py zakonczyl sie kodem $LASTEXITCODE" }
+        & py -3 (Join-Path $korzen "seo\generuj.py")   # sitemap z wpisami bloga
         Kopia
         Write-Host "== Wysylam $zrodlo"
         Ftp @("wyslij", $zrodlo, "/")

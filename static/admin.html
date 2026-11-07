@@ -183,6 +183,15 @@ a.odnosnik-a:hover{color:var(--tekst)}
       <span class="stan">wykaz administratorów do rejestru art. 30 ust. 2 RODO, z umowami zakończonymi w ostatnich 5 latach</span></div>
     <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
     <div id="lista"><span class="stan praca">Ładuję…</span></div>
+    <h1 style="margin-top:40px">Zapytania klientów</h1>
+    <p class="pod">Zgłoszenia ze strony notarai.pl (wykaz kancelarii i kalkulator). Kancelarie korzystające z notarai
+      dostają je same. Pozostałym przekazujesz zgłoszenie e-mailem jednym kliknięciem; to jednocześnie zaproszenie
+      do notarai: „mamy klientów dla kancelarii, które z nas korzystają”.</p>
+    <div class="pasek"><button class="wtorny maly" id="btn-zapytania-odswiez">Odśwież</button>
+      <label class="stan"><input type="checkbox" id="zapytania-tylko-otwarte" checked> tylko otwarte</label>
+      <span class="stan" id="stan-zapytania"></span></div>
+    <div id="zapytania"><span class="stan">Ładuję…</span></div>
+
     <h1 style="margin-top:40px">Administratorzy</h1>
     <p class="pod">Osoby, które zakładają kancelarie. Logują się tutaj e-mailem i hasłem.
       Adres administratora nie może być jednocześnie kontem w kancelarii.</p>
@@ -413,7 +422,61 @@ $("btn-zaloz").onclick = async () => {
 /* ---------- lista ---------- */
 $("szukaj").oninput = rysuj;
 
+/* ---------- zapytania klientow (umawianie wizyt) ---------- */
+let zapytania = null;
+const STATUSY_ZAPYTAN = {nowa: "nowe", kontakt: "w kontakcie", umowiona: "umówione", odrzucona: "odrzucone", zamknieta: "zamknięte"};
+
+async function wczytajZapytania(){
+  try { zapytania = await api("/api/admin/wizyty"); rysujZapytania(); }
+  catch (e) { $("zapytania").innerHTML = `<span class="stan blad">${escape(e.message)}</span>`; }
+}
+
+function rysujZapytania(){
+  if (!zapytania) return;
+  const tylkoOtwarte = $("zapytania-tylko-otwarte").checked;
+  const lista = zapytania.zgloszenia.filter(z => !tylkoOtwarte || z.status === "nowa" || z.status === "kontakt");
+  if (!lista.length) { $("zapytania").innerHTML = '<p class="stan">Brak zgłoszeń' + (tylkoOtwarte ? " otwartych" : "") + ".</p>"; return; }
+  const opcjeKancelarii = kancelarie.filter(k => k.aktywna).map(k => `<option value="${escape(k.id)}">${escape(k.nazwa)}</option>`).join("");
+  $("zapytania").innerHTML = "";
+  lista.forEach(z => {
+    const d = document.createElement("div");
+    d.className = "karta";
+    const k = z.klient || {};
+    const kontaktKanc = [z.kancelaria_email ? escape(z.kancelaria_email) : "", ...(z.kancelaria_telefony || []).map(escape)].filter(Boolean).join(" · ");
+    d.innerHTML = `
+      <div class="kanc-naglowek"><h2>${escape(k.imie || "klient")}: ${escape(z.czynnosc)}${z.wartosc ? ", " + Number(z.wartosc).toLocaleString("pl-PL") + " zł" : ""}</h2>
+        <span class="znacznik ${z.status === "nowa" ? "ok" : ""}">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>
+        <span class="znacznik ${z.kancelaria_id ? "ok" : "wyl"}">${z.kancelaria_id ? "kancelaria w notarai: " + escape(z.kancelaria_id) : "kancelaria spoza notarai"}</span>
+        ${z.przekazano ? `<span class="znacznik">przekazano ${escape(z.przekazano.replace("T", " ").slice(0, 16))}</span>` : ""}
+        <span class="znacznik" title="źródło">${escape(z.zrodlo)}</span></div>
+      <p class="serwis-opis"><b>${escape(z.kancelaria_nazwa || "dowolna kancelaria")}</b>, ${escape(z.miejscowosc_nazwa || z.miejscowosc)}${kontaktKanc ? " · " + kontaktKanc : ""}</p>
+      <p class="serwis-opis">Klient: ${escape(k.telefon || "")} ${escape(k.email || "")}${z.termin ? " · termin: " + escape(z.termin) : ""}<br>
+        ${z.wiadomosc ? escape(z.wiadomosc) + "<br>" : ""}${z.kalkulacja ? "szacunek z kalkulatora: " + Number(z.kalkulacja.razem).toLocaleString("pl-PL", {style: "currency", currency: "PLN"}) + "<br>" : ""}
+        zgłoszono ${escape(z.utworzono.replace("T", " ").slice(0, 16))}${(z.historia || []).map(h => "<br>" + escape(h.czas.replace("T", " ").slice(0, 16)) + " " + escape(h.kto) + ": " + escape(STATUSY_ZAPYTAN[h.status] || h.status) + (h.uwagi ? " (" + escape(h.uwagi) + ")" : "")).join("")}</p>
+      <div class="pasek" style="flex-wrap:wrap">
+        ${!z.kancelaria_id && z.kancelaria_email ? '<button class="maly z-przekaz">Przekaż kancelarii e-mailem</button>' : ""}
+        <select class="z-kanc"><option value="">skieruj do kancelarii notarai…</option>${opcjeKancelarii}</select>
+        <button class="wtorny maly z-zamknij">Zamknij zgłoszenie</button>
+        <span class="stan"></span></div>`;
+    const st = d.querySelector(".stan");
+    const wyslij = async (sciezka, opcje) => {
+      stan(st, "Zapisuję…", false, true);
+      try { await api(sciezka, opcje); stan(st, "Gotowe."); await wczytajZapytania(); }
+      catch (e) { stan(st, e.message, true); }
+    };
+    const przekaz = d.querySelector(".z-przekaz");
+    if (przekaz) przekaz.onclick = () => { if (confirm("Wysłać zgłoszenie klienta na adres " + z.kancelaria_email + "?")) wyslij(`/api/admin/wizyty/${encodeURIComponent(z.id)}/przekaz`, {method: "POST"}); };
+    d.querySelector(".z-kanc").onchange = e => { if (e.target.value) wyslij(`/api/admin/wizyty/${encodeURIComponent(z.id)}`, {method: "PUT", body: JSON.stringify({kancelaria_id: e.target.value, uwagi: "skierowano z panelu"})}); };
+    d.querySelector(".z-zamknij").onclick = () => wyslij(`/api/admin/wizyty/${encodeURIComponent(z.id)}`, {method: "PUT", body: JSON.stringify({status: "zamknieta"})});
+    $("zapytania").appendChild(d);
+  });
+}
+$("btn-zapytania-odswiez").onclick = wczytajZapytania;
+$("zapytania-tylko-otwarte").onchange = rysujZapytania;
+
+let zapytaniaWczytane = false;
 function rysuj(){
+  if (!zapytaniaWczytane) { zapytaniaWczytane = true; wczytajZapytania(); }
   const fraza = $("szukaj").value.trim().toLowerCase();
   $("pole-szukaj").hidden = kancelarie.length < 6;
   $("licznik").textContent = kancelarie.length

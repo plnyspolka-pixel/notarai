@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI NOTARAI
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 07.11.2026.
 
 Ta polityka dotyczy danych, które Fundacja przetwarza **jako administrator**:
 danych użytkowników usługi, osób kontaktujących się z nami i odwiedzających
@@ -34,6 +34,41 @@ siedziby.
 
 Podanie danych jest dobrowolne, ale bez adresu e-mail nie da się założyć
 konta.
+
+### 2a. Kalkulator kosztów (notarai.pl/kalkulator)
+
+Kalkulator nie wymaga rejestracji. Treść rozmowy z asystentem trafia do modelu
+językowego działającego w Amazon Bedrock w Unii Europejskiej wyłącznie po to,
+żeby ustalić parametry wyliczenia; nie zapisujemy jej, nie logujemy i nie
+używamy do trenowania modeli. Prosimy nie podawać w rozmowie danych osobowych
+(nazwisk, numerów PESEL, adresów). Do ochrony przed nadużyciami przetwarzamy
+adres IP przez krótki czas w pamięci serwera (art. 6 ust. 1 lit. f RODO).
+
+### 2b. Umawianie wizyty u notariusza (notarai.pl/notariusz)
+
+Gdy wypełniasz formularz „Umów wizytę”, przetwarzamy: imię, numer telefonu
+lub adres e-mail, opis czynności, orientacyjną wartość, preferowany termin i
+treść wiadomości, a jeśli przychodzisz z kalkulatora, także parametry
+wyliczenia. Cel: przekazanie zgłoszenia wybranej kancelarii notarialnej i
+umówienie wizyty. Podstawa: Twoja zgoda (art. 6 ust. 1 lit. a RODO), którą
+możesz cofnąć pisząc na kontakt@notarai.pl; cofnięcie nie wpływa na
+przetwarzanie sprzed tej chwili. Odbiorcą danych jest wybrana kancelaria
+(jako odrębny administrator), a jeśli nie korzysta ona z notarai, zgłoszenie
+przekazujemy jej e-mailem na adres z publicznego wykazu. Dane przechowujemy
+w zaszyfrowanym magazynie w regionie Frankfurt przez 180 dni, a potem usuwamy.
+Potwierdzenie przyjęcia zgłoszenia wysyłamy na podany adres e-mail.
+
+### 2c. Wykaz kancelarii notarialnych
+
+Strony notarai.pl/notariusz zawierają nazwy kancelarii, imiona i nazwiska
+notariuszy, adresy, telefony i strony WWW pochodzące z oficjalnego wykazu
+notariuszy (dane.gov.pl) oraz wyszukiwarek izb notarialnych, w części
+uzupełnione z katalogów branżowych (oznaczone jako wymagające potwierdzenia).
+Są to dane o wykonywaniu zawodu zaufania publicznego, przetwarzane w
+uzasadnionym interesie Fundacji i osób szukających notariusza (art. 6 ust. 1
+lit. f RODO). Adresów e-mail kancelarii nie publikujemy; służą wyłącznie do
+przekazania zgłoszenia. Notariusz może zażądać sprostowania lub usunięcia
+swojego wpisu, pisząc na kontakt@notarai.pl.
 
 ## 3. Pliki cookie
 

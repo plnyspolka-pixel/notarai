@@ -18,6 +18,10 @@
 - `taksa.py`, `kalkulator.py`, `strona/kalkulator/` — kalkulator kosztów dla klientów
   (07.11.2026): `/api/taksa*` bez logowania, CORS tylko dla notarai.pl, limity
   na IP i dobę, treści rozmów nie zapisujemy. Opis: `docs/taksa.md`.
+- `wizyty.py`, `seo/` — strony miejscowości z wykazem 3501 kancelarii, blog AI
+  i umawianie wizyt (07.11.2026): zgłoszenia w `_administracja/wizyty.json`,
+  e-mail przez SES (parametry stosu `EmailNadawcy`, `EmailZgloszen`),
+  okno „Zapytania klientów” w aplikacji i sekcja w panelu. Opis: `docs/seo.md`.
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki

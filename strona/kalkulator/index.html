@@ -142,7 +142,8 @@ p { margin: 0 0 1em; }
     </a>
     <nav class="menu" aria-label="Nawigacja">
       <a href="#formularz">Formularz</a>
-      <a href="#skad">Skąd te stawki</a>
+      <a href="https://notarai.pl/notariusz/">Znajdź notariusza</a>
+      <a href="https://notarai.pl/blog/">Blog</a>
       <a href="https://notarai.pl/">Dla kancelarii</a>
     </nav>
   </div>
@@ -264,7 +265,9 @@ function dymek(klasa, tekst) {
   return el;
 }
 
-function kartaKalkulacji(w, kontener) {
+let parametryWyniku = null;   // parametry ostatniej kalkulacji - ida z klientem do formularza umawiania
+function kartaKalkulacji(w, kontener, parametry) {
+  parametryWyniku = parametry || parametryWyniku;
   const box = document.createElement('div');
   box.className = 'kalk';
   const tabela = document.createElement('table');
@@ -292,6 +295,11 @@ function kartaKalkulacji(w, kontener) {
     box.appendChild(d);
   }
   const akcje = document.createElement('div'); akcje.className = 'akcje';
+  const umow = document.createElement('a'); umow.className = 'przycisk';
+  umow.textContent = 'Umów wizytę u notariusza';
+  const opis = (w.pozycje[0] && w.pozycje[0].etykieta || '').replace(/^taksa notarialna:\s*/, '').slice(0, 120);
+  umow.href = 'https://notarai.pl/notariusz/?' + new URLSearchParams({ czynnosc: opis, wartosc: w.wartosc || '', p: JSON.stringify(parametryWyniku || {}) }).toString();
+  akcje.appendChild(umow);
   const kopiuj = document.createElement('button'); kopiuj.type = 'button'; kopiuj.className = 'przycisk drugi'; kopiuj.textContent = 'Kopiuj kalkulację';
   kopiuj.addEventListener('click', () => kopiujTekst(w.tekst, kopiuj));
   akcje.appendChild(kopiuj);
@@ -338,7 +346,7 @@ async function wyslij(tekst) {
     if (dane.parametry) wpis.parametry = dane.parametry;
     historia.push(wpis);
     if (dane.odpowiedz) dymek('asystent', dane.odpowiedz);
-    if (dane.kalkulacja) kartaKalkulacji(dane.kalkulacja);
+    if (dane.kalkulacja) kartaKalkulacji(dane.kalkulacja, null, dane.parametry);
   } catch (e) {
     pisze.remove();
     dymek('blad', 'Brak połączenia z kalkulatorem. Spróbuj ponownie albo skorzystaj z formularza obok.');
@@ -417,7 +425,7 @@ $('form-szybki').addEventListener('submit', async e => {
     const dane = await odp.json();
     wynik.textContent = '';
     if (!odp.ok) { wynik.textContent = typeof dane.detail === 'string' ? dane.detail : 'Nie udało się policzyć.'; return; }
-    kartaKalkulacji(dane, wynik);
+    kartaKalkulacji(dane, wynik, parametry);
   } catch (err) {
     wynik.textContent = 'Brak połączenia z kalkulatorem. Spróbuj ponownie.';
   }

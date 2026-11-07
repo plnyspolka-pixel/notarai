@@ -42,6 +42,7 @@ import rejestracja
 import rejestry
 import transkrypcja
 import walidacja
+import wizyty
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,6 +67,11 @@ app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
 # Kalkulator taksy dla klientow: otwarty, z CORS dla notarai.pl (tylko /api/taksa).
 app.include_router(kalkulator.router)
+# Umawianie wizyt: zgloszenia ze strony (otwarte), zapytania kancelarii
+# (zalogowani), obsluga zgloszen w panelu admina.
+app.include_router(wizyty.router)
+app.include_router(wizyty.router_zapytan)
+app.include_router(wizyty.router_admina)
 app.middleware("http")(kalkulator.cors)
 
 

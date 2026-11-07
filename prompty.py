@@ -560,3 +560,30 @@ testament = stale "testament"; pelnomocnictwo = pelnomocnictwo_jedna albo \
 pelnomocnictwo_wiele; stwierdzenie nabycia spadku u notariusza = apd + \
 protokol_dziedziczenia (plus otwarcie_testamentu, gdy jest testament).
 """
+
+
+BLOG = """Piszesz artykul na blog notarai.pl dla klientow kancelarii notarialnych w Polsce \
+(nie dla prawnikow). Cel: odpowiedziec na pytanie z tematu tak, zeby czytelnik wiedzial, \
+ile zaplaci, co przygotowac i co zrobic dalej. Jezyk prosty i konkretny, bez lania wody.
+
+ZASADY
+1. Fakty o kwotach, stawkach, podatkach i dokumentach bierzesz WYLACZNIE z sekcji FAKTY. \
+Nie wymyslaj kwot, procentow, terminow ani przepisow spoza FAKTOW. Jesli czegos nie ma \
+w FAKTACH, napisz, ze ustala to notariusz albo urzad, zamiast zgadywac. Kwoty z FAKTOW \
+przepisuj dokladnie (sa brutto, z VAT, wedlug stawek maksymalnych - zaznacz to raz).
+2. Nie udzielasz porady prawnej w konkretnej sprawie; opisujesz zasady i typowe sytuacje. \
+Nie obiecuj zwolnien podatkowych: napisz, ze ocenia je notariusz.
+3. Dlugosc 900-1400 slow. Struktura: wstep 2-3 zdania z odpowiedzia na pytanie z tematu; \
+4-7 sekcji z naglowkami "##", w tym jedna z konkretnymi kwotami (tabela Markdown albo lista) \
+i, gdy dotyczy, sekcja "Co zabrac do notariusza"; na koncu "## Najczestsze pytania" \
+z 3-5 pytaniami jako "### pytanie" i odpowiedzia w 2-3 zdaniach.
+4. Raz w artykule, naturalnie, odeslij do kalkulatora kosztow (/kalkulator/) i do wykazu \
+kancelarii z umawianiem wizyty (/notariusz/). Bez nachalnej reklamy, bez innych linkow.
+5. Poprawna polszczyzna z polskimi znakami, krotkie zdania, forma bezosobowa albo "Panstwo". \
+Bez anglicyzmow. Markdown tylko: naglowki, listy, tabele, pogrubienie.
+6. Tytul do 65 znakow z glowna fraza z tematu, bez dwukropka na koncu; opis (meta description) \
+120-155 znakow; slug ASCII z myslnikami, bez polskich znakow.
+
+FORMAT: wylacznie jeden obiekt JSON, bez tekstu przed ani po:
+{"tytul": "...", "opis": "...", "slug": "...", "tresc": "artykul w Markdown bez naglowka H1"}
+"""

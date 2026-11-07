@@ -155,6 +155,15 @@ Wyłączenie asystenta: `PIECZAPP_KALKULATOR=false`. Rozmowa idzie na osobny
 profil (`PIECZAPP_KALKULATOR_MODEL`, domyślnie Sonnet 4.6 w UE), żeby publiczny
 czat nie zjadał limitu zapytań modelu, który czyta skany kancelarii.
 
+## Strona notarai.pl: wykaz kancelarii, blog, umawianie wizyt
+
+`seo/` generuje strony miejscowości (`/notariusz/<miasto>/`, 602 strony z
+listą kancelarii z oficjalnego wykazu, przykładami kosztów i formularzem
+umówienia wizyty), blog pisany przez model na faktach z `taksa.py` i sitemap.
+Zgłoszenia wizyt obsługuje `wizyty.py`: kancelaria korzystająca z notarai
+dostaje je w aplikacji („Zapytania klientów”) i w kalendarzu, pozostałe
+przekazuje obsługa z panelu `/admin`. Opis: [docs/seo.md](docs/seo.md).
+
 ## Testy
 
 Uruchomienie testów:
@@ -173,6 +182,8 @@ bedrock.py          wywołania modelu — ekstrakcja i generowanie
 taksa.py            taksa notarialna: stawki, ułamki, wypisy, PCC, opłaty sądowe (liczy kod)
 kalkulator.py       publiczny kalkulator kosztów dla klientów: /api/taksa, rozmowa z modelem
 strona/kalkulator/  strona kalkulatora na notarai.pl (ta sama pod /kalkulator w aplikacji)
+wizyty.py           umawianie wizyt: zgłoszenia klientów, routing do kancelarii, e-mail, kalendarz
+seo/                baza kancelarii (kancelarie.json), generator stron miejscowości, blog AI
 dokumenty.py        PDF/obrazy na strony, docx tam i z powrotem
 walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
 prompty.py          treść promptów
