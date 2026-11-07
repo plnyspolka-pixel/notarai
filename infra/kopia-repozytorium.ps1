@@ -2,8 +2,9 @@
 #
 #   powershell -ExecutionPolicy Bypass -File C:\Users\Pieczak\notarai\infra\kopia-repozytorium.ps1
 #
-# CodeCommit jest zamkniety dla nowych klientow AWS, wiec historia kodu nie
-# moze zyc tylko tam. Skrypt robi dwie rzeczy:
+# Glowne repozytorium to GitHub (https://github.com/plnyspolka-pixel/notarai,
+# od 07.11.2026; wczesniej AWS CodeCommit). Historia nie moze zyc tylko u
+# jednego dostawcy, wiec skrypt robi dwie rzeczy:
 #   1. lustro (bare) C:\Users\Pieczak\kopie-repozytoriow\notarai.git - z niego
 #      mozna sklonowac albo wypchnac historie gdziekolwiek indziej,
 #   2. jeden plik notarai-RRRR-MM-DD.bundle z cala historia - do skopiowania na

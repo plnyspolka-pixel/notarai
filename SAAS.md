@@ -9,7 +9,8 @@
 - `infra/notarai-budowanie.yaml` — CloudFormation: ECR (niezmienne tagi, skanowanie), bucket paczek źródeł, CodeBuild budujący obraz w AWS
 - `infra/notarai-certyfikat.yaml` — CloudFormation: certyfikat ACM dla app.notarai.pl, walidacja DNS
 - `infra/notarai-aplikacja.yaml` — CloudFormation: ECS Fargate + ALB z HTTPS, token admina generowany w Secrets Manager, role wykonawcza i zadania
-- `infra/notarai-repozytorium.yaml` — CloudFormation: repozytorium kodu w CodeCommit (eu-central-1) i dostęp do niego dla stanowiska
+- `infra/notarai-repozytorium.yaml` — CloudFormation: dawne repozytorium kodu w CodeCommit (nieaktualne od 07.11.2026, kod jest na GitHub: https://github.com/plnyspolka-pixel/notarai)
+- `infra/wyslij-kod.ps1` — wysyła zacommitowane zmiany na GitHub (przepina `origin` ze starego CodeCommit, jeśli trzeba)
 - `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
@@ -40,10 +41,13 @@ Express Mode odpada, bo nie pozwala podnieść limitu bezczynności load balance
 a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebny.
 
 0. Bucket spraw: stos `notarai-s3` (wdrożony 17.09.2026).
-   Kod: stos `notarai-repozytorium` (CodeCommit). Po wdrożeniu:
-   `pip install git-remote-codecommit`, potem
-   `git remote add origin codecommit::eu-central-1://pieczapp@notarai`
-   i `git push -u origin master`. Historia przestaje zależeć od jednego dysku.
+   Kod: GitHub, https://github.com/plnyspolka-pixel/notarai (gałąź `master`).
+   Nowe stanowisko: `git clone https://github.com/plnyspolka-pixel/notarai.git`.
+   Wysyłka zmian: `powershell -ExecutionPolicy Bypass -File infra\wyslij-kod.ps1`.
+   Do 07.11.2026 kod był w AWS CodeCommit (stos `notarai-repozytorium`);
+   historia została przeniesiona 1:1 (te same skróty commitów, więc tagi
+   obrazów w ECR dalej odpowiadają commitom). CodeCommit nie przyjmuje już
+   zmian, stos można usunąć, gdy nikt z niego nie korzysta.
 1. Budowanie i certyfikat:
    `aws cloudformation deploy --stack-name notarai-budowanie --template-file infra/notarai-budowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
    `aws cloudformation create-stack --stack-name notarai-certyfikat --template-body file://infra/notarai-certyfikat.yaml --parameters ParameterKey=Domena,ParameterValue=app.notarai.pl --tags Key=projekt,Value=notarai --profile notarai-admin --region eu-central-1`

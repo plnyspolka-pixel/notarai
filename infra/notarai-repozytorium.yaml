@@ -1,8 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  notarai - repozytorium kodu w koncie AWS (CodeCommit, eu-central-1) i dostep
-  do niego dla tozsamosci, ktora wypycha zmiany ze stanowiska. Kod przestaje
-  zalezec od jednego laptopa.
+  notarai - DAWNE repozytorium kodu w koncie AWS (CodeCommit, eu-central-1)
+  i dostep do niego dla tozsamosci, ktora wypychala zmiany ze stanowiska.
+
+  NIEAKTUALNE od 07.11.2026: cala historia zostala przeniesiona do GitHub
+  (https://github.com/plnyspolka-pixel/notarai), tam jest teraz jedyne zrodlo
+  prawdy. Repozytorium CodeCommit zostaje na razie jako zamrozona kopia (nie
+  wypychaj do niego zmian). Gdy nic juz go nie potrzebuje, stos mozna usunac:
+  Repozytorium ma DeletionPolicy Retain, wiec usuniecie stosu zdejmie tylko
+  polityke IAM, a samo repozytorium trzeba skasowac osobno w konsoli.
 
   Uwaga: AWS zamknal CodeCommit dla nowych klientow. To konto ma dostep, ale
   usluga nie dostaje nowych funkcji - przy dluzszej perspektywie warto miec
