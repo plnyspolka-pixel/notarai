@@ -202,6 +202,9 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .spr-wynik.wpis{background:var(--alarm);color:#fff}
 .spr-wynik.niedostepny,.spr-wynik.blad{background:var(--akcent-tlo);color:var(--akcent)}
 .spr-wynik.nieznany{background:var(--tlo2);color:var(--tekst3)}
+/* CRBR odwrotnie: wpis spolki to norma, brak wpisu to sygnal */
+.spr-wynik.CRBR.wpis{background:var(--ok-tlo);color:var(--ok)}
+.spr-wynik.CRBR.brak_wpisu{background:var(--alarm);color:#fff}
 .klik-uklad{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
 @media (max-width:1100px){.klik-uklad{grid-template-columns:1fr}}
 .klik-krok{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:10px 0;
@@ -763,6 +766,35 @@ notarai</div>
       <button id="btn-krz" title="Wyszukuje każdy wykryty numer PESEL w krz.ms.gov.pl i zapisuje zrzuty do sprawy">Sprawdź wszystkie w KRZ</button>
       <span class="stan" id="spr-bez-przegladarki" hidden>Wpisywanie do rejestru dzieje się w przeglądarce na Twoim komputerze, więc robi to pomocnik notarai. Uruchom go - przycisk włączy się sam. Stan pomocnika widzisz po lewej.</span>
       <span class="stan" id="stan4"></span>
+    </div>
+  </div>
+  <!-- AML: listy sankcyjne, PEP, CRBR. Listy sa pobrane do notarai, porownanie
+       liczy serwer u siebie - dane stron nie wychodza na zewnatrz. Do bramki
+       CRBR idzie wylacznie NIP albo KRS spolki. -->
+  <div class="karta">
+    <h2>Listy sankcyjne, PEP i CRBR</h2>
+    <p class="pod" style="margin-bottom:14px">Ustawa o przeciwdziałaniu praniu pieniędzy: strony czynności
+      sprawdzasz na listach sankcyjnych (UE, ONZ, MSWiA) i wśród osób na eksponowanych stanowiskach politycznych,
+      a spółki w Centralnym Rejestrze Beneficjentów Rzeczywistych. Automat sam stwierdza tylko brak trafień;
+      każde trafienie rozstrzygasz Ty, z uzasadnieniem w śladzie audytowym.</p>
+    <div class="pasek">
+      <button id="btn-aml" title="Porównuje imiona i nazwiska stron (z datą urodzenia z PESEL) z listami pobranymi do notarai">Sprawdź strony na listach sankcyjnych i PEP</button>
+      <span class="stan" id="stan-aml"></span>
+    </div>
+    <p class="pod" id="aml-listy" style="margin:6px 0 14px"></p>
+    <div class="para">
+      <div class="pole">
+        <label class="etykieta" for="crbr-nip">Spółka: NIP albo KRS</label>
+        <input type="text" id="crbr-nip" placeholder="10 cyfr NIP albo numer KRS" autocomplete="off">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="crbr-etykieta">Rola w czynności</label>
+        <input type="text" id="crbr-etykieta" placeholder="np. zbywca" autocomplete="off">
+      </div>
+    </div>
+    <div class="pasek">
+      <button id="btn-crbr" class="wtorny" title="Pyta oficjalną bramkę CRBR Ministerstwa Finansów o beneficjentów rzeczywistych spółki">Sprawdź spółkę w CRBR</button>
+      <span class="stan" id="stan-crbr"></span>
     </div>
   </div>
   <!-- Dobieranie wartosci do formularza z tresci aktu. Nic nie jest nigdzie
@@ -3383,6 +3415,9 @@ async function rysujSprawdzenia(){
   } catch { sprawdzenia = []; }
   rysujStrony();
   rysujHistorie(sprawdzenia);
+  wczytajListyAML();
+  const nipy = polaNip();
+  if (nipy.length && !$("crbr-nip").value) $("crbr-nip").value = nipy[0];
 }
 
 /* Wolane takze przez zegar pomocnika: gdy pomocnik sie zglosi albo zniknie,
@@ -3498,27 +3533,117 @@ async function zapiszWynik(osoba, rejestr, status, uwagi){
     stan($("stan4"), "Zapisano w śladzie audytowym.");
   } catch (e) { stan($("stan4"), e.message, true); }
 }
+const OPISY_WYNIKU = {
+  ZASTRZEZENIA_PESEL: {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"},
+  KRZ: {brak_wpisu:"brak wpisu w KRZ", wpis:"WPIS W KRZ", niedostepny:"rejestr niedostępny", blad:"błąd"},
+  SANKCJE: {brak_wpisu:"brak trafień", wpis:"TRAFIENIE do decyzji", niedostepny:"listy niepobrane", blad:"błąd"},
+  PEP: {brak_wpisu:"brak trafień", wpis:"MOŻLIWY PEP do decyzji", niedostepny:"listy niepobrane", blad:"błąd"},
+  CRBR: {brak_wpisu:"BRAK WPISU w CRBR", wpis:"wpis w CRBR", niedostepny:"bramka niedostępna", blad:"wiele spółek albo błąd"},
+};
+const ALARMY = {
+  ZASTRZEZENIA_PESEL: "W tej sprawie jest zastrzeżony numer PESEL. Czynność należy wstrzymać.",
+  KRZ: "W tej sprawie jest wpis w Krajowym Rejestrze Zadłużonych. Rozważ czynność.",
+  SANKCJE: "Trafienie na liście sankcyjnej czeka na decyzję notariusza. Do czasu decyzji czynność należy wstrzymać.",
+  PEP: "Możliwa osoba na eksponowanym stanowisku politycznym. Rozstrzygnij trafienie; potwierdzony PEP wymaga wzmożonych środków bezpieczeństwa.",
+  CRBR: "Spółka nie figuruje w CRBR. Ustal beneficjenta rzeczywistego inną drogą i odnotuj to w sprawie.",
+};
+function opisWyniku(w){
+  if (w.decyzja) return w.decyzja === "falszywe_trafienie" ? "fałszywe trafienie" : "POTWIERDZONE";
+  return (OPISY_WYNIKU[w.rejestr] || OPISY_WYNIKU.ZASTRZEZENIA_PESEL)[w.status] || w.status;
+}
+function decyzjaDoWpisu(wpisy, i){ return wpisy.find(x => x.decyzja && x.dotyczy === i) || null; }
+function opisTrafienia(t){
+  const czesci = [escape(t.nazwa_na_liscie || "")];
+  if (t.wynik != null) czesci.push(t.wynik + "/100" + (t.pasmo === "silne" ? " silne" : ""));
+  if (t.etykieta_zrodla) czesci.push(escape(t.etykieta_zrodla));
+  else if (t.rola) czesci.push(escape(t.rola) + (t.strona_czynnosci ? " (strona czynności)" : ""));
+  if (t.rok_urodzenia_na_liscie) czesci.push("ur. " + t.rok_urodzenia_na_liscie);
+  if (typeof t.data_urodzenia === "string" && /^\d{4}-/.test(t.data_urodzenia)) czesci.push("ur. " + t.data_urodzenia);
+  if (t.funkcje && t.funkcje.length) czesci.push(escape(t.funkcje.join(", ")));
+  if (t.funkcja) czesci.push(escape(t.funkcja));
+  if (t.uprawnienia) czesci.push(escape(t.uprawnienia));
+  if (t.status_pep === "byly_pep") czesci.push("były PEP");
+  if (t.ograniczenie) czesci.push(escape(t.ograniczenie));
+  if (t.nip) czesci.push("NIP " + escape(t.nip));
+  const zrodlo = t.adres ? ` <a href="${escape(t.adres)}" target="_blank" rel="noopener">źródło</a>` : "";
+  return `<div class="pesel">· ${czesci.join(" · ")}${zrodlo}</div>`;
+}
 function rysujHistorie(wpisy){
   const h = $("spr-historia");
   if (!wpisy.length) { h.innerHTML = '<span class="stan">Brak sprawdzeń w tej sprawie.</span>'; return; }
   h.innerHTML = "";
-  wpisy.slice().reverse().forEach(w => {
+  wpisy.map((w, i) => [w, i]).reverse().forEach(([w, i]) => {
     const d = document.createElement("div");
     d.className = "spr-wiersz";
-    const opis = {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"}[w.status] || w.status;
     const zrzuty = [...(w.szczegoly || "").matchAll(/\[([a-z0-9_\-]+\.png)\]/g)]
       .map(m => `<a href="#" data-zrzut="${escape(m[1])}">${escape(m[1].split("_")[1])}</a>`).join(" · ");
-    d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span></div>
-      <div class="pesel">${escape(w.sprawdzono.replace("T"," "))} · ${escape(w.zrodlo)}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
-      ${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
-      <span class="spr-wynik ${escape(w.status)}">${opis}</span>`;
+    const trafienia = (w.trafienia || []).slice(0, 6).map(opisTrafienia).join("")
+      + ((w.trafienia || []).length > 6 ? `<div class="pesel">· … i ${w.trafienia.length - 6} więcej</div>` : "");
+    const doDecyzji = ["SANKCJE", "PEP"].includes(w.rejestr) && w.status === "wpis" && !w.decyzja && !decyzjaDoWpisu(wpisy, i);
+    d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span>${
+        w.decyzja ? ' · decyzja do wpisu nr ' + (w.dotyczy + 1) : ""}</div>
+      <div class="pesel">${escape(String(w.sprawdzono || "").replace("T"," "))} · ${escape(w.zrodlo || "")}${
+        w.kto ? " · " + escape(w.kto) : ""}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
+      ${trafienia}${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
+      <span class="spr-wynik ${escape(w.status)} ${escape(w.rejestr)}">${opisWyniku(w)}${
+        doDecyzji ? ' <button class="odnosnik" data-decyzja="1">rozstrzygnij…</button>' : ""}</span>`;
+    const przycisk = d.querySelector("button[data-decyzja]");
+    if (przycisk) przycisk.onclick = () => formularzDecyzji(d, i);
     h.appendChild(d);
   });
-  if (wpisy.some(w => w.status === "wpis")) {
-    const a = document.createElement("div"); a.className = "ostrzez alarm";
-    a.textContent = "W tej sprawie jest zastrzeżony numer PESEL. Czynność należy wstrzymać.";
-    h.prepend(a);
-  }
+  /* Alarmy: zastrzezony PESEL i wpis w KRZ od razu; trafienia z list dopiero
+     po wykluczeniu falszywych; brak spolki w CRBR tez jest sygnalem. */
+  const alarmy = [];
+  wpisy.forEach((w, i) => {
+    if (w.decyzja) return;
+    const alarm = w.rejestr === "CRBR" ? w.status === "brak_wpisu" : w.status === "wpis";
+    if (!alarm) return;
+    let tekst = ALARMY[w.rejestr] || "Wpis w rejestrze.";
+    if (["SANKCJE", "PEP"].includes(w.rejestr)) {
+      const dec = decyzjaDoWpisu(wpisy, i);
+      if (dec && dec.decyzja === "falszywe_trafienie") return;
+      if (dec) tekst = w.rejestr === "SANKCJE"
+        ? "Potwierdzone trafienie sankcyjne. Czynność należy wstrzymać i rozważyć zawiadomienie GIIF."
+        : "Potwierdzony PEP: stosuj wzmożone środki bezpieczeństwa finansowego (źródło majątku i środków).";
+    }
+    if (!alarmy.includes(tekst)) alarmy.push(tekst);
+  });
+  alarmy.reverse().forEach(tekst => {
+    const a = document.createElement("div"); a.className = "ostrzez alarm"; a.textContent = tekst; h.prepend(a);
+  });
+}
+function formularzDecyzji(wiersz, indeks){
+  const otwarty = wiersz.querySelector(".spr-inne");
+  if (otwarty) { otwarty.remove(); return; }
+  const panel = document.createElement("div");
+  panel.className = "spr-inne";
+  panel.innerHTML = `
+    <div class="pole"><label class="etykieta">Decyzja</label>
+      <select>
+        <option value="falszywe_trafienie">Fałszywe trafienie - inna osoba</option>
+        <option value="potwierdzone">Potwierdzone - to ta osoba</option>
+      </select></div>
+    <div class="pole" style="flex:1;min-width:260px">
+      <label class="etykieta">Uzasadnienie <span class="wskaz">min. 10 znaków, bez numeru PESEL</span></label>
+      <input type="text" placeholder="np. inna data urodzenia i obywatelstwo wg dowodu"></div>
+    <button>Zapisz decyzję</button>`;
+  panel.querySelector("button").onclick = async () => {
+    stan($("stan4"), "Zapisuję decyzję…", false, true);
+    try {
+      const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia/decyzja", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({indeks, decyzja: panel.querySelector("select").value,
+                              uzasadnienie: panel.querySelector("input").value}),
+      });
+      const wynik = await odp.json();
+      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+      sprawdzenia = wynik;
+      rysujHistorie(sprawdzenia);
+      stan($("stan4"), "Decyzja zapisana w śladzie audytowym.");
+    } catch (e) { stan($("stan4"), e.message, true); }
+  };
+  wiersz.appendChild(panel);
+  panel.querySelector("input").focus();
 }
 /* Zrzuty ze sprawdzen leza za autoryzacja. Zwykly odnosnik nie niesie tokenu,
    wiec serwer odpowiadal 401 zamiast pokazac dowod sprawdzenia. Pobieramy plik
@@ -3704,6 +3829,72 @@ $("btn-krz").onclick = async () => {
     stan($("stan4"), "Gotowe. Obejrzyj wyniki w śladzie audytowym i potwierdź status przy każdym numerze.");
   } catch (e) { stan($("stan4"), e.message, true); }
   finally { $("btn-krz").disabled = false; }
+};
+
+/* ---------- 4b: listy sankcyjne, PEP, CRBR ---------- */
+async function wczytajListyAML(){
+  try {
+    const odp = await api("/api/aml/listy");
+    if (!odp.ok) return;
+    const listy = await odp.json();
+    const opis = listy.map(l => l.zrodlo + (l.pobrano ? " z " + l.pobrano.slice(0, 10) : ": brak")
+                                + (l.pobrano && l.nieaktualna ? " (nieaktualna)" : "")).join(", ");
+    const sa = listy.some(l => l.liczba);
+    $("aml-listy").textContent = (listy.length ? "Listy w notarai: " + opis + "." : "")
+      + (sa ? "" : " Listy nie są jeszcze pobrane - administrator odświeża je w panelu, a w chmurze robi to wątek w tle.");
+    $("btn-aml").disabled = !sa;
+  } catch { /* brak sieci - przycisk zostaje jak byl */ }
+}
+function polaNip(){
+  if (!sprawa) return [];
+  zbierzPola();
+  return [...new Set((sprawa.pola || [])
+    .filter(p => /\bnip\b/i.test(p.nazwa) && /^\d{10}$/.test(String(p.wartosc || "").replace(/\D/g, "")))
+    .map(p => String(p.wartosc).replace(/\D/g, "")))];
+}
+$("btn-aml").onclick = async () => {
+  if (!sprawa) return stan($("stan-aml"), "Najpierw odczytaj sprawę.", true);
+  if (!confirm("Sprawdzić wszystkie strony czynności z odczytu na listach sankcyjnych (UE, ONZ, MSWiA) "
+    + "i wśród osób na eksponowanych stanowiskach politycznych?\nPorównanie liczy notarai u siebie; "
+    + "dane stron nie są nikomu wysyłane.")) return;
+  $("btn-aml").disabled = true;
+  stan($("stan-aml"), "Porównuję z listami…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/aml", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({potwierdzam: true}),
+    });
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    sprawdzenia = wynik;
+    rysujHistorie(sprawdzenia);
+    const otwarte = wynik.some((w, i) => ["SANKCJE", "PEP"].includes(w.rejestr) && w.status === "wpis"
+                                        && !w.decyzja && !decyzjaDoWpisu(wynik, i));
+    stan($("stan-aml"), otwarte ? "Są trafienia do rozstrzygnięcia - patrz ślad audytowy." : "Gotowe. Wyniki w śladzie audytowym.");
+  } catch (e) { stan($("stan-aml"), e.message, true); }
+  finally { $("btn-aml").disabled = false; }
+};
+$("btn-crbr").onclick = async () => {
+  if (!sprawa) return stan($("stan-crbr"), "Najpierw odczytaj sprawę.", true);
+  const numer = $("crbr-nip").value.replace(/\D/g, "");
+  if (!numer) return stan($("stan-crbr"), "Podaj NIP albo numer KRS spółki.", true);
+  const nip = numer.length === 10 ? numer : "";
+  const krs = numer.length === 10 ? "" : numer;
+  if (!confirm("Zapytać bramkę CRBR Ministerstwa Finansów o spółkę " + (nip ? "NIP " + nip : "KRS " + krs) + "?")) return;
+  $("btn-crbr").disabled = true;
+  stan($("stan-crbr"), "Pytam CRBR…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/crbr", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({nip, krs, etykieta: $("crbr-etykieta").value.trim(), potwierdzam: true}),
+    });
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    sprawdzenia = wynik;
+    rysujHistorie(sprawdzenia);
+    stan($("stan-crbr"), "Gotowe. Wynik w śladzie audytowym.");
+  } catch (e) { stan($("stan-crbr"), e.message, true); }
+  finally { $("btn-crbr").disabled = false; }
 };
 
 /* ---------- 5: klikamy ---------- */

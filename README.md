@@ -160,6 +160,12 @@ app.py              serwer i endpointy
 bedrock.py          wywołania modelu — ekstrakcja i generowanie
 dokumenty.py        PDF/obrazy na strony, docx tam i z powrotem
 walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
+rejestry.py         ślad sprawdzeń w rejestrach (sprawdzenia.json)
+aml_listy.py        listy sankcyjne i PEP: pobieranie, migawki, indeks
+aml_dopasowanie.py  dopasowanie nazwisk do list (bez sieci)
+aml.py              sprawdzenie stron czynności, decyzje notariusza
+crbr.py             beneficjenci rzeczywiści z bramki CRBR
+probki/             próbki odpowiedzi rejestrów do testów
 prompty.py          treść promptów
 config.py           ustawienia
 static/             interfejs

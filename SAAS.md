@@ -3,6 +3,8 @@
 ## Nowe pliki
 - `magazyn.py`      — pliki spraw: dysk (jak dotąd) albo dysk-cache + S3
 - `autoryzacja.py`  — logowanie per osoba, panel admina /api/admin/*, dostęp serwisowy /api/serwis
+- `aml_listy.py`, `aml_dopasowanie.py`, `aml.py` — listy sankcyjne (UE, ONZ, MSWiA) i PEP (Sejm, KPRM, Wikidata) pobierane do aplikacji, dopasowanie liczone u nas, decyzje notariusza w śladzie audytowym (docs/rejestry.md)
+- `crbr.py`         — beneficjenci rzeczywiści spółki z oficjalnej bramki CRBR Ministerstwa Finansów
 - `Dockerfile`      — kontener dla ECS Fargate (x86_64, użytkownik bez uprawnień roota)
 - `infra/notarai-wdrozenie-iam.yaml` — CloudFormation: polityka dla tozsamosci, ktora wdraza stos ponizej (wdraza ja administrator konta, raz)
 - `infra/notarai-s3.yaml` — CloudFormation: bucket S3 (szyfrowany, prywatny, wersjonowany, tylko TLS) + polityka IAM aplikacji (S3 + Bedrock we wszystkich regionach UE, bo profile `eu.` routują poza Frankfurt)
@@ -167,6 +169,10 @@ Przy `u-klienta`:
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
 
 ## Znane granice (uczciwie)
+- Listy sankcyjne i PEP leżą jako migawki JSON w S3 (`<prefiks>/admin/listy_aml/`), a indeks
+  buduje się w pamięci każdej kopii aplikacji (sekundy). Odświeża je wątek w tle co 6 h;
+  obie kopie mogą to robić równolegle, zapis jest idempotentny. Wikidata bywa
+  przeciążona (429) - importer ponawia, a stara migawka zostaje.
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.
 - Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa
