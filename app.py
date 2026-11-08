@@ -43,6 +43,7 @@ import prompty
 import rejestracja
 import rejestry
 import rezerwacje_hurtowe
+import rezerwacje_klientow
 import wizyty
 import transkrypcja
 import walidacja
@@ -76,6 +77,9 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
 app.include_router(wizyty.router)
+app.include_router(rezerwacje_klientow.router)
+app.include_router(rezerwacje_klientow.router_admina)
+rezerwacje_klientow.uruchom_przypomnienia()
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)

@@ -24,6 +24,9 @@ import re
 import threading
 import time
 
+import json
+from pathlib import Path
+
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -177,22 +180,70 @@ def stan_mapy(wpis: dict) -> dict:
 router = APIRouter(prefix="/api/notariusze", tags=["notariusze"])
 
 
+PLIK_POLOZEN = Path(__file__).resolve().parent / "seo" / "polozenia.json"
+_POLOZENIA: tuple[float, dict] = (-1.0, {})
+
+
+def polozenia_wykazu() -> dict[int, dict]:
+    """Wspolrzedne kancelarii z publicznego wykazu (seo/kancelarie.json),
+    wyznaczone wsadowo przez seo/geokoduj_wykaz.py. Brak pliku = pusto."""
+    global _POLOZENIA
+    try:
+        zmiana = PLIK_POLOZEN.stat().st_mtime
+    except FileNotFoundError:
+        return {}
+    if zmiana != _POLOZENIA[0]:
+        dane = json.loads(PLIK_POLOZEN.read_text("utf-8"))
+        _POLOZENIA = (zmiana, {int(k): v for k, v in dane.get("polozenia", {}).items() if v.get("lat") is not None})
+    return _POLOZENIA[1]
+
+
+def _z_wykazu(k: dict, poz: dict) -> dict:
+    return {"id": k["id"], "nazwa": k["nazwa"], "notariusze": k.get("notariusze", ""),
+            "adres": k.get("adres", ""), "lat": poz["lat"], "lon": poz["lon"],
+            "dokladnosc": poz.get("dokladnosc", "adres"), "telefony": k.get("telefony", []),
+            "miejscowosc": k.get("slug", ""), "brak_kontaktu": bool(k.get("brak_kontaktu")),
+            "online": False, "zrodlo": "wykaz"}
+
+
 @router.get("")
 def lista(lat: float | None = None, lon: float | None = None):
-    """Kancelarie na mapie: nazwa, notariusze, adres, wspolrzedne. Z lat/lon
-    posortowane od najblizszej, z odlegloscia w kilometrach."""
+    """Kancelarie na mapie. Z lat/lon w neutralnej kolejnosci od najblizszej
+    (pasma odleglosci + rotacja, rekomendacje.py), z odlegloscia w km.
+
+    Zrodla: caly publiczny wykaz notariuszy z polozeniem (polozenia_wykazu)
+    oraz kancelarie z notarai, ktore wlaczyly publikacje, a nie ma ich
+    w wykazie. Kancelaria z notarai NIE dostaje lepszego miejsca: dostaje
+    tylko znacznik "online" (zgloszenie trafia od razu do aplikacji)."""
     if (lat is None) != (lon is None):
         raise HTTPException(400, "Podaj lat i lon razem.")
     if lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise HTTPException(400, "Wspolrzedne poza zakresem.")
-    kancelarie = [_wizytowka(w) for w in autoryzacja._wczytaj_rejestr().values() if publikowana(w)]
+    import wizyty
+    rejestr = autoryzacja._wczytaj_rejestr().values()
+    polozenia = polozenia_wykazu()
+    kancelarie: list[dict] = []
+    powiazane: dict[str, int] = {}
+    if polozenia:
+        baza = wizyty.baza()["kancelarie"]
+        kancelarie = [_z_wykazu(baza[i], poz) for i, poz in polozenia.items() if i in baza]
+        powiazane = {id_k: i for i, id_k in wizyty.kancelarie_notarai().items()}
+    po_id = {k["id"]: k for k in kancelarie}
+    for w in rejestr:
+        if not publikowana(w):
+            continue
+        z_wykazu = po_id.get(powiazane.get(w["id"], -1))
+        if z_wykazu:
+            z_wykazu["online"] = True
+        else:
+            kancelarie.append({**_wizytowka(w), **({"online": True, "zrodlo": "notarai"} if polozenia else {})})
     if lat is not None:
         for k in kancelarie:
             k["odleglosc_km"] = round(odleglosc_km(lat, lon, k["lat"], k["lon"]), 1)
     # Neutralna kolejnosc: pasma odleglosci, w pasmie codzienna rotacja
     # (rekomendacje.py). Bez alfabetu, ktory stale faworyzuje nazwy na "A".
     kancelarie = rekomendacje.kolejnosc(kancelarie, kontekst="mapa", klucz_id="nazwa")
-    return {"kancelarie": kancelarie}
+    return {"kancelarie": kancelarie, "zasady": rekomendacje.WERSJA}
 
 
 # --- ustawienia kancelarii (po zalogowaniu) ----------------------------------

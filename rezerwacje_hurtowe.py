@@ -35,6 +35,8 @@ router_mcp = APIRouter(tags=["MCP"])
 
 class Polityka(BaseModel):
     wlaczone: bool = False
+    # Te same godziny dla klientow ze strony notarai.pl (rezerwacje_klientow.py).
+    klienci: bool = False
     miasto: str = Field(default="", max_length=100)
     adres: str = Field(default="", max_length=250)
     # 0 = poniedzialek, 6 = niedziela. Kazdy dzien: [poczatek, koniec].
@@ -102,7 +104,7 @@ def _popraw_polityke(dane: Polityka) -> dict:
         raise HTTPException(400, "Czas spotkania: 30, 60, 90 lub 120 minut.")
     if not 1 <= dane.wyprzedzenie_godzin <= 168 or not 1 <= dane.max_dni <= 90:
         raise HTTPException(400, "Wyprzedzenie: 1-168 godzin; horyzont: 1-90 dni.")
-    if dane.wlaczone and (not dane.miasto.strip() or not dane.adres.strip() or not dane.godziny):
+    if (dane.wlaczone or dane.klienci) and (not dane.miasto.strip() or not dane.adres.strip() or not dane.godziny):
         raise HTTPException(400, "Aby wlaczyc rezerwacje, podaj miasto, adres i godziny.")
     for dzien, przedzial in dane.godziny.items():
         if dzien not in tuple(str(i) for i in range(7)) or len(przedzial) != 2:

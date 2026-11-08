@@ -73,7 +73,12 @@ def formularz_html(slug_miasta: str, nazwa_miasta: str) -> str:
       <label><span>Czynność</span><select id="u-czynnosc">{opcje}</select></label>
       <label><span>Wartość (zł, jeśli dotyczy)</span><input type="text" id="u-wartosc" inputmode="decimal" placeholder="np. 450 000"></label>
     </div>
-    <label><span>Preferowany termin</span><input type="text" id="u-termin" maxlength="200" placeholder="np. w przyszłym tygodniu po 15:00"></label>
+    <div id="u-sloty" class="sloty" hidden>
+      <p class="sloty-tytul">Wybierz wolną godzinę (rezerwacja od razu) albo zostaw pole niżej:</p>
+      <div id="u-sloty-lista"></div>
+      <input type="hidden" id="u-data" value=""><input type="hidden" id="u-godzina" value="">
+    </div>
+    <label id="u-termin-pole"><span>Preferowany termin</span><input type="text" id="u-termin" maxlength="200" placeholder="np. w przyszłym tygodniu po 15:00"></label>
     <label><span>Wiadomość (opcjonalnie)</span><textarea id="u-wiadomosc" rows="3" maxlength="2000" placeholder="Krótko o sprawie: strony, kredyt, czy akt ma być pilnie"></textarea></label>
     <input class="pulapka" type="text" id="u-pulapka" tabindex="-1" autocomplete="off" aria-hidden="true">
     <label class="chk"><input type="checkbox" id="u-zgoda" required> <span>Zgadzam się na przekazanie moich danych wybranej kancelarii notarialnej w celu umówienia wizyty. Administratorem danych jest Fundacja Krzewienia Edukacji Finansowej im. Pieczaka (<a href="/prywatnosc/" target="_blank" rel="noopener">polityka prywatności</a>).</span></label>
@@ -91,7 +96,38 @@ const SLUG = {json.dumps(slug_miasta)};
 const $ = id => document.getElementById(id);
 const liczba = s => {{ const n = Number(String(s).replace(/\\s|\\u00a0/g, '').replace(',', '.')); return isFinite(n) && n > 0 ? n : null; }};
 const q = new URLSearchParams(location.search);
+let REZERWACJA = [];
+const DNI = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
+function wybierzSlot(b) {{
+  document.querySelectorAll('#u-sloty-lista button').forEach(x => x.classList.toggle('wybrany', x === b && !b.classList.contains('wybrany')));
+  const on = b.classList.contains('wybrany');
+  $('u-data').value = on ? b.dataset.data : ''; $('u-godzina').value = on ? b.dataset.godzina : '';
+  $('u-termin-pole').style.display = on ? 'none' : ''; $('u-email').required = on;
+  $('u-email').previousElementSibling.textContent = on ? 'E-mail (potwierdzenie, przypomnienie i link do odwołania)' : 'E-mail (opcjonalnie, dostaniesz potwierdzenie)';
+  $('u-wyslij').textContent = on ? 'Zarezerwuj ' + b.dataset.data + ' ' + b.dataset.godzina : 'Wyślij zgłoszenie';
+}}
+async function pokazSloty(id) {{
+  const box = $('u-sloty'), lista = $('u-sloty-lista');
+  box.hidden = true; lista.textContent = ''; $('u-data').value = ''; $('u-godzina').value = '';
+  $('u-termin-pole').style.display = ''; $('u-email').required = false; $('u-wyslij').textContent = 'Wyślij zgłoszenie';
+  if (!id || !REZERWACJA.includes(Number(id))) return;
+  try {{
+    const d = await (await fetch(API + '/api/wizyty/terminy?dni=14&kancelaria=' + encodeURIComponent(id))).json();
+    if (!d.online || !d.terminy.length) return;
+    const wg = {{}}; d.terminy.forEach(t => (wg[t.data] = wg[t.data] || []).push(t));
+    Object.keys(wg).slice(0, 7).forEach(dzien => {{
+      const wiersz = document.createElement('div'); wiersz.className = 'slot-dzien';
+      const et = document.createElement('b'); et.textContent = DNI[new Date(dzien + 'T12:00').getDay()] + ' ' + dzien.slice(8) + '.' + dzien.slice(5, 7);
+      wiersz.append(et);
+      wg[dzien].forEach(t => {{ const b = document.createElement('button'); b.type = 'button'; b.className = 'slot';
+        b.dataset.data = t.data; b.dataset.godzina = t.godzina; b.textContent = t.godzina; b.addEventListener('click', () => wybierzSlot(b)); wiersz.append(b); }});
+      lista.append(wiersz);
+    }});
+    box.hidden = false;
+  }} catch (err) {{ /* bez terminow zostaje zwykle zgloszenie */ }}
+}}
 function otworz(id, nazwa) {{
+  pokazSloty(id);
   $('u-kancelaria').value = id || '';
   $('umow-kancelaria').textContent = nazwa ? 'Kancelaria: ' + nazwa : 'Dowolna kancelaria w miejscowości {esc(nazwa_miasta)}';
   $('u-wynik').hidden = true; $('u-wyslij').disabled = false;
@@ -111,9 +147,11 @@ $('umow-form').addEventListener('submit', async e => {{
     czynnosc: $('u-czynnosc').value, wartosc: liczba($('u-wartosc').value), termin: $('u-termin').value,
     wiadomosc: $('u-wiadomosc').value, zgoda: $('u-zgoda').checked, kancelaria: $('u-kancelaria').value || null,
     miejscowosc: SLUG, parametry, zrodlo: q.get('p') ? 'kalkulator' : 'strona', strona: $('u-pulapka').value }};
+  const rezerwacja = Boolean($('u-godzina').value);
+  if (rezerwacja) {{ dane.data = $('u-data').value; dane.godzina = $('u-godzina').value; }}
   $('u-wyslij').disabled = true;
   try {{
-    const odp = await fetch(API + '/api/wizyty/zgloszenie', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(dane) }});
+    const odp = await fetch(API + (rezerwacja ? '/api/wizyty/rezerwacja' : '/api/wizyty/zgloszenie'), {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(dane) }});
     const w = await odp.json().catch(() => ({{}}));
     wynik.hidden = false;
     if (!odp.ok) {{ wynik.classList.add('blad'); wynik.textContent = typeof w.detail === 'string' ? w.detail : 'Nie udało się wysłać. Zadzwoń do kancelarii.'; $('u-wyslij').disabled = false; return; }}
@@ -129,11 +167,21 @@ $('umow-form').addEventListener('submit', async e => {{
 fetch(API + '/api/wizyty/kancelarie?miejscowosc=' + encodeURIComponent(SLUG)).then(r => r.json()).then(d => {{
   const lista = document.getElementById('lista-kancelarii');
   (d.kolejnosc || []).forEach(id => {{ const el = document.getElementById('k-' + id); if (el) lista.append(el); }});
+  REZERWACJA = d.rezerwacja || [];
   (d.online || []).forEach(id => {{
     const el = document.getElementById('k-' + id); if (!el) return;
-    const b = document.createElement('span'); b.className = 'notarai'; b.textContent = 'Zgłoszenie trafia od razu do kancelarii';
+    const b = document.createElement('span'); b.className = 'notarai';
+    b.textContent = REZERWACJA.includes(id) ? 'Rezerwacja online: wybierasz wolną godzinę' : 'Zgłoszenie trafia od razu do kancelarii';
     el.querySelector('h3').after(b);
+    if (REZERWACJA.includes(id)) el.dataset.online = '1';
   }});
+  // Filtr wlacza wylacznie klient; domyslnie widac wszystkie kancelarie.
+  if (REZERWACJA.length) {{
+    const f = document.createElement('label'); f.className = 'filtr-online';
+    f.innerHTML = '<input type="checkbox" id="tylko-online"> Pokaż tylko kancelarie z rezerwacją online';
+    lista.before(f);
+    $('tylko-online').addEventListener('change', e => lista.querySelectorAll('article').forEach(a => {{ a.hidden = e.target.checked && !a.dataset.online; }}));
+  }}
 }}).catch(() => {{}});
 </script>
 """
@@ -204,7 +252,7 @@ def strona_miejscowosci(m: dict, kancelarie: list[dict], okolice: list[dict], pr
 <section class="sekcja-w" id="kancelarie">
   <div class="szer">
     <h2>Kancelarie notarialne w {esc(miasto)}</h2>
-    <p class="wstep">Kolejność listy zmienia się codziennie według tej samej reguły dla każdej kancelarii (rotacja). Nie zależy od tego, czy kancelaria korzysta z notarai ani czy cokolwiek nam płaci; na koniec trafiają tylko kancelarie bez kontaktu w publicznych wykazach. Gdy wybierzesz „dowolną kancelarię”, zgłoszenie przydzielamy z kolejki, po równo dla wszystkich kancelarii w miejscowości.</p>
+    <p class="wstep">Kolejność listy zmienia się codziennie według tej samej reguły dla każdej kancelarii (rotacja). Nie zależy od tego, czy kancelaria korzysta z notarai ani czy cokolwiek nam płaci; na koniec trafiają tylko kancelarie bez kontaktu w publicznych wykazach. Gdy wybierzesz „dowolną kancelarię”, zgłoszenie przydzielamy z kolejki, po równo dla wszystkich kancelarii w miejscowości. <a href="/zasady-kolejnosci/">Zasady i sprawdzarka</a>.</p>
     <div class="kanc" id="lista-kancelarii">{"".join(karta_kancelarii(k) for k in kancelarie)}</div>
   </div>
 </section>
@@ -303,7 +351,7 @@ pole.addEventListener('input', () => {{
 
 def sitemap(miejscowosci: list[dict]) -> str:
     dzis = date.today().isoformat()
-    adresy = ["/", "/kalkulator/", "/notariusz/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
+    adresy = ["/", "/kalkulator/", "/notariusz/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
     adresy += [f"/notariusz/{m['slug']}/" for m in miejscowosci]
     for wpis in sorted((KATALOG_STRONY / "blog").glob("*/index.html")):
         adresy.append(f"/blog/{wpis.parent.name}/")
@@ -329,6 +377,11 @@ def generuj(dane: dict | None = None, cel: Path = KATALOG_STRONY) -> dict:
         html = strona_miejscowosci(m, wg_slug[m["slug"]], okolice, przyklady, izby)
         (katalog / m["slug"]).mkdir(exist_ok=True)
         (katalog / m["slug"] / "index.html").write_text(html, encoding="utf-8")
+    from seo import przejrzystosc
+    for sciezka, html in ((przejrzystosc.SCIEZKA_ZASAD, przejrzystosc.strona_zasad()),
+                          (przejrzystosc.SCIEZKA_ODWOLANIA, przejrzystosc.strona_odwolania())):
+        (cel / sciezka.strip("/")).mkdir(parents=True, exist_ok=True)
+        (cel / sciezka.strip("/") / "index.html").write_text(html, encoding="utf-8")
     (katalog / "index.html").write_text(strona_hub(miejscowosci, izby, len(dane["kancelarie"])), encoding="utf-8")
     (cel / "sitemap.xml").write_text(sitemap(miejscowosci), encoding="utf-8")
     (cel / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {STRONA}/sitemap.xml\n", encoding="utf-8")

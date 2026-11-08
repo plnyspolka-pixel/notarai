@@ -445,6 +445,8 @@ Resources:
               Value: !Ref EmailNadawcy
             - Name: PIECZAPP_EMAIL_ZGLOSZEN
               Value: !Ref EmailZgloszen
+            - Name: PIECZAPP_PRZYPOMNIENIA
+              Value: "true"
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
           Secrets:

@@ -443,4 +443,4 @@ class TestStronaMapy:
         assert klient.get("/static/leaflet/images/marker-icon.png").status_code == 200
 
     def test_pusta_lista_w_trybie_lokalnym(self, klient):
-        assert klient.get("/api/notariusze").json() == {"kancelarie": []}
+        assert klient.get("/api/notariusze").json()["kancelarie"] == []

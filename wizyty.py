@@ -399,19 +399,66 @@ def _przydziel(z: dict, wczesniejsze: list[dict]) -> None:
 
 
 @router.get("/kancelarie")
-def kancelarie_w_miejscowosci(miejscowosc: str = ""):
+def kancelarie_w_miejscowosci(miejscowosc: str = "", tylko_online: bool = False):
     """Kolejnosc kancelarii na stronie miejscowosci na dzis (neutralna,
-    rekomendacje.kolejnosc) i ktore przyjmuja zgloszenia od razu w aplikacji.
-    To drugie jest informacja dla klienta, jak zostanie obsluzony; nie
-    zmienia miejsca kancelarii na liscie."""
+    rekomendacje.kolejnosc) i jak kazda przyjmie klienta:
+      online      - zgloszenie trafia od razu do aplikacji kancelarii,
+      rezerwacja  - klient od razu wybiera wolna godzine.
+    To informacja o sposobie obslugi; nie zmienia miejsca na liscie.
+    tylko_online=1 to filtr, ktory klient wlacza sam (domyslnie wylaczony):
+    zaweza liste, kolejnosc pozostalych zostaje ta sama."""
+    import rezerwacje_klientow
     b = baza()
     slug = _linia(miejscowosc, 80).lower()
     identyfikatory = b["wg_miejscowosci"].get(slug, [])
     klienci = kancelarie_notarai()
-    lista = rekomendacje.kolejnosc([b["kancelarie"][i] for i in identyfikatory], kontekst=slug)
     online = [i for i in identyfikatory if i in klienci]
-    return {"miejscowosc": slug, "kolejnosc": [k["id"] for k in lista], "online": online,
-            "notarai": online, "zasady": rekomendacje.WERSJA}
+    rezerwacja = rezerwacje_klientow.online(online)
+    lista = [k["id"] for k in rekomendacje.kolejnosc([b["kancelarie"][i] for i in identyfikatory], kontekst=slug)]
+    if tylko_online:
+        lista = [i for i in lista if i in rezerwacja]
+    return {"miejscowosc": slug, "kolejnosc": lista, "online": online, "rezerwacja": rezerwacja,
+            "notarai": online, "zasady": rekomendacje.WERSJA, "filtr": "tylko_online" if tylko_online else ""}
+
+
+def _przydzialy(d: dict, slug: str | None = None) -> dict:
+    granica = (datetime.now() - timedelta(days=rekomendacje.OKNO_DNI)).isoformat(timespec="seconds")
+    wynik: dict[str, dict[int, int]] = {}
+    for z in d["zgloszenia"]:
+        if (z.get("przydzial") or {}).get("sposob") == "kolejka" and z.get("utworzono", "") >= granica \
+                and (slug is None or z.get("miejscowosc") == slug):
+            miasto = wynik.setdefault(z["miejscowosc"], {})
+            miasto[z["baza_id"]] = miasto.get(z["baza_id"], 0) + 1
+    return wynik
+
+
+@router.get("/przejrzystosc")
+def przejrzystosc(miejscowosc: str, data: str = ""):
+    """Publiczny wglad w algorytm: regula, kolejnosc na wskazany dzien (do
+    sprawdzenia przez kazdego) i liczba przydzialow z kolejki "dowolna
+    kancelaria" w oknie 90 dni. Same liczby, zadnych danych klientow."""
+    from datetime import date
+    b = baza()
+    slug = _linia(miejscowosc, 80).lower()
+    if slug not in b["miejscowosci"]:
+        raise HTTPException(404, "Nie znamy takiej miejscowości.")
+    try:
+        dzien = date.fromisoformat(data) if data else date.today()
+    except ValueError:
+        raise HTTPException(400, "Data w formacie RRRR-MM-DD.")
+    kancelarie = [b["kancelarie"][i] for i in b["wg_miejscowosci"].get(slug, [])]
+    przydzialy = _przydzialy(_wczytaj(), slug).get(slug, {})
+    return {
+        "wersja": rekomendacje.WERSJA, "data": dzien.isoformat(), "miejscowosc": slug,
+        "regula": {"pasmo_km": rekomendacje.PASMO_KM, "okno_dni": rekomendacje.OKNO_DNI,
+                   "rotacja": f"sha256('notarai|{rekomendacje.WERSJA}|<data>|<miejscowosc>|<id>'), rosnaco",
+                   "pomijane": "abonament, płatności, konto w notarai, terminy z kalendarza notarai"},
+        "kolejnosc": [{"id": k["id"], "nazwa": k["nazwa"], "brak_kontaktu": bool(k.get("brak_kontaktu")),
+                       "los": str(rekomendacje.los(dzien, slug, k["id"]))}
+                      for k in rekomendacje.kolejnosc(kancelarie, kontekst=slug, dzien=dzien)],
+        "przydzialy": [{"id": k["id"], "nazwa": k["nazwa"], "liczba": przydzialy.get(k["id"], 0)}
+                       for k in kancelarie if not k.get("brak_kontaktu")],
+    }
 
 
 # --- API kancelarii ----------------------------------------------------------
@@ -516,6 +563,24 @@ def wszystkie(request: Request):
         z["kancelaria_telefony"] = k["telefony"] if k else []
     return {"zgloszenia": zgloszenia, "powiazania": d["powiazania"],
             "kancelarie_notarai": klienci}
+
+
+@router_admina.get("/rownosc")
+def rownosc(request: Request):
+    """Audyt kolejki: w kazdej miejscowosci roznica miedzy najczesciej
+    i najrzadziej wybierana kancelaria (z kontaktem). Kolejka gwarantuje
+    roznice najwyzej 1 w oknie; wieksza oznacza blad albo reczna ingerencje."""
+    autoryzacja._wymagaj_admina(request)
+    b = baza()
+    wynik = []
+    for slug, liczby in _przydzialy(_wczytaj()).items():
+        kandydaci = [i for i in b["wg_miejscowosci"].get(slug, []) if not b["kancelarie"][i].get("brak_kontaktu")]
+        wartosci = [liczby.get(i, 0) for i in kandydaci] or [0]
+        wynik.append({"miejscowosc": slug, "kancelarie": len(kandydaci), "przydzialy": sum(wartosci),
+                      "roznica": max(wartosci) - min(wartosci)})
+    wynik.sort(key=lambda w: -w["roznica"])
+    return {"wersja": rekomendacje.WERSJA, "okno_dni": rekomendacje.OKNO_DNI,
+            "miejscowosci": wynik, "naruszenia": [w for w in wynik if w["roznica"] > 1]}
 
 
 class ZmianaAdmina(BaseModel):

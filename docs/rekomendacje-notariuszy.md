@@ -77,8 +77,8 @@ albo przez kolejkę. Każda jest opisem sposobu obsługi, a nie wyróżnieniem.
 | zachęta | kancelaria w notarai | kancelaria spoza notarai |
 |---|---|---|
 | przyjęcie zgłoszenia | od razu w aplikacji i e-mailem | obsługa notarai przekazuje e-mailem (dziś ręcznie) |
-| termin *(do zbudowania; sloty są dziś tylko w API B2B)* | klient wybiera wolną godzinę z kalendarza, potwierdzenie od razu | klient podaje preferencję, kancelaria oddzwania |
-| przypomnienia *(do zbudowania)* | e-mail/SMS dzień przed wizytą, mniej nieobecności | brak |
+| termin (rezerwacja online, `rezerwacje_klientow.py`) | klient wybiera wolną godzinę z kalendarza, potwierdzenie od razu | klient podaje preferencję, kancelaria oddzwania |
+| przypomnienia (e-mail; SMS do zbudowania) | e-mail/SMS dzień przed wizytą, mniej nieobecności | brak |
 | przed wizytą *(częściowo: projekt aktu jest, przesyłanie skanów przez klienta do zbudowania)* | lista dokumentów do zabrania dla danej czynności, bezpieczne przesłanie skanów, wstępny projekt aktu w aplikacji | lista dokumentów ogólna |
 | koszt | szacunek taksy z kalkulatora od razu w zgłoszeniu | szacunek też (kalkulator jest dla wszystkich) |
 | informacja na karcie | „Zgłoszenie trafia od razu do kancelarii” | brak tej linijki |
@@ -90,21 +90,55 @@ co technicznie daje aplikacja.
 Linijka na karcie jest **funkcjonalna** („trafia od razu”), bez logo
 i bez słów typu „polecana”, „sprawdzona”, „partner”. Nie przesuwa karty.
 
+## Co jest zbudowane (stan 08.11.2026)
+
+| element | gdzie | jak działa |
+|---|---|---|
+| neutralna kolejność | `rekomendacje.py` | pasma odległości, kontakt, rotacja SHA-256 dnia |
+| kolejka „dowolna kancelaria” | `wizyty._przydziel` | najmniej przydziałów w 90 dniach, także dla kancelarii spoza notarai |
+| rezerwacja online | `rezerwacje_klientow.py`, `GET /api/wizyty/terminy`, `POST /api/wizyty/rezerwacja` | kancelaria włącza przełącznik „Rezerwacja online dla klientów” (okno Terminy dla klientów hurtowych, te same godziny); termin wchodzi do kalendarza atomowo |
+| odwołanie przez klienta | `POST /api/wizyty/rezerwacja/odwolaj`, strona `/wizyta/odwolaj/#token` | token jednorazowy, w pliku tylko skrót SHA-256; najpóźniej 2 h przed wizytą |
+| przypomnienia | `rezerwacje_klientow.przypomnij`, wątek przy `PIECZAPP_PRZYPOMNIENIA=true`, ręcznie `POST /api/admin/wizyty/przypomnienia` | po 17:00 e-mail o jutrzejszych wizytach, znacznik zapisywany atomowo, więc bez dubli z kilku kontenerów |
+| filtr klienta „tylko z rezerwacją online” | strona miejscowości, `?tylko_online=1` | domyślnie wyłączony, tylko zawęża, nie zmienia kolejności pozostałych |
+| sprawdzarka publiczna | `/zasady-kolejnosci/`, `GET /api/wizyty/przejrzystosc` | przeglądarka sama liczy SHA-256 i mówi, czy kolejność zgadza się z regułą; pokazuje liczbę przydziałów z kolejki |
+| audyt kolejki | `GET /api/admin/wizyty/rownosc` | różnica między najczęściej i najrzadziej wybieraną kancelarią w mieście; >1 do sprawdzenia |
+| mapa z całego wykazu | `seo/geokoduj_wykaz.py` -> `seo/polozenia.json`, `notariusze.lista` | wszystkie kancelarie z wykazu; notarai tylko z dopiskiem „zgłoszenie trafia od razu”; mapa w przeglądarce używa tych samych pasm i rotacji |
+
+Mapa z wykazu zadziała po jednorazowym `python seo/geokoduj_wykaz.py`
+(około godziny dla ~3500 adresów przy limicie Nominatim, można porcjami
+`--limit 500`) i commicie `seo/polozenia.json`. Bez tego pliku mapa działa
+jak dotąd.
+
+## Kolejne pomysły techniczne (nie zbudowane)
+
+1. **Zobowiązanie kolejności z wyprzedzeniem**: codziennie publikujemy
+   skrót listy na następny miesiąc (np. w repozytorium albo w pliku na
+   stronie). Wtedy nie da się po fakcie „poprawić” kolejności, a izba może
+   to sprawdzić bez dostępu do naszych serwerów.
+2. **Licznik ekspozycji**: zagregowane (bez danych osobowych) liczniki,
+   ile razy każda kancelaria była na 1.–3. miejscu i ile razy ją kliknięto.
+   Dowód liczbowy, że rotacja wyrównuje widoczność.
+3. **Darmowa wizytówka dla każdej kancelarii z wykazu**: logowanie linkiem
+   wysłanym na e-mail z wykazu, edycja godzin, języków, dostępności.
+4. **Przypomnienia SMS** przez Amazon SNS w eu-central-1.
+5. **Rezerwacja online po przydziale z kolejki**: gdy kolejka wybierze
+   kancelarię z rezerwacją online, klient od razu widzi jej wolne godziny.
+
 ## Do decyzji (nie wdrożone)
 
-1. **Mapa `/notariusze` pokazuje dziś tylko kancelarie z ważnym abonamentem
-   notarai** (`notariusze.publikowana`). To jest de facto lista naszych
+1. **Mapa `/notariusze`** (kod gotowy, potrzebne geokodowanie wykazu, patrz wyżej). Do tego czasu pokazuje tylko kancelarie z ważnym abonamentem
+   notarai (`notariusze.publikowana`). To jest de facto lista naszych
    klientów, więc publiczna mapa to wprost wyróżnienie płatne. Propozycja:
    mapa z całego publicznego wykazu (`seo/kancelarie.json` + geokodowanie
    wsadowe), a abonament wpływa tylko na linijkę „rezerwacja online”.
    Do tego czasu mapy nie linkować jako wyszukiwarki notariuszy.
-2. **Filtr „tylko z terminem online”** jako świadomy wybór klienta.
+2. **Filtr „tylko z terminem online”** (zbudowany) jako świadomy wybór klienta.
    Prawdopodobnie dopuszczalny (klient sam zawęża, domyślnie wyłączony),
    ale to graniczny przypadek: zapytać izbę przed wdrożeniem.
 3. **Darmowa wizytówka dla każdej kancelarii** (godziny, języki,
    dostępność dla osób z niepełnosprawnościami, poprawka danych): taka
    sama dla klientów i nie-klientów. Wzmacnia argument o równości.
-4. **Publiczna strona „Zasady kolejności”** (P2B art. 5) z treścią
+4. **Publiczna strona „Zasady kolejności”** (zbudowana: `/zasady-kolejnosci/`; P2B art. 5) z treścią
    sekcji „Algorytm kolejności” i wersją reguł. Dziś opis jest w akapicie
    nad listą kancelarii na stronie miejscowości.
 5. Opinia izby notarialnej / KRN na piśmie przed szerszą kampanią.
