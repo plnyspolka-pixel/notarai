@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Znajdź notariusza - mapa kancelarii notarialnych - notarai</title>
 <meta name="description" content="Najbliższa kancelaria notarialna na mapie. Włącz lokalizację albo wpisz miejscowość, a pokażemy kancelarie korzystające z notarai, od najbliższej.">
-<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/static/notarai-symbol.svg">
 <!-- Leaflet 1.9.4 z tego serwera (static/leaflet), nie z obcego CDN: strona
      nie wykonuje skryptow spoza notarai. Kafelki mapy pobiera przegladarka
      z OpenStreetMap. -->
@@ -120,11 +120,31 @@ footer a{color:var(--tekst3)}
   .panel{padding:14px 16px 10px}
   h1{font-size:19px}
 }
+
+/* Brand map: distinct public-facing client experience. */
+:root{--tlo:#f6f9ff;--tlo2:#edf4ff;--karta:#fff;--linia:#d9e6f6;--linia2:#c2d9f1;
+ --tekst:#0c285d;--tekst2:#5c7293;--tekst3:#8799b5;
+ --akcent:#225cbb;--akcent2:#0a92d1;--akcent-tlo:#eaf4ff;
+ --ok:#137f66;--ok-tlo:#e8f9f0;--sans:Montserrat,"Segoe UI",sans-serif;--serif:var(--sans);}
+body{background:#f5f9ff;color:#0d2856;}
+header{background:linear-gradient(105deg,#0a2156,#0f3986);color:#fff;border-bottom:1px solid #25549d;}
+header .logo{color:#fff;font-size:22px;font-weight:850;letter-spacing:-.045em;}
+header .tytul{color:#bfd7fb;}
+header a{color:#ddf3ff;}
+header a:hover{color:#fff;}
+aside{background:#f7faff;border-color:#d7e5f6;}
+h1{font-family:var(--sans);font-size:23px;letter-spacing:-.035em;font-weight:800;}
+#btn-lokalizacja{background:linear-gradient(110deg,#253ab7,#1598d0);border:0;color:#fff;font-weight:760;border-radius:11px;}
+.pozycja{border-color:#dbe7f5;box-shadow:0 6px 18px -16px rgba(25,65,130,.22);}
+.pozycja:hover{border-color:#a4c9f7;}
+footer{background:#eef4fc;border-color:#d3e4f6;}
+/* Keep the map as a true interactive Leaflet map, not a static image. */
+
 </style>
 </head>
 <body>
 <header>
-  <a class="logo" href="https://notarai.pl"><img src="/static/logo.png" alt="">notarai</a>
+  <a class="logo" href="https://notarai.pl"><img src="/static/notarai-symbol.svg" alt="">notar<strong>ai</strong></a>
   <span class="tytul">Znajdź notariusza</span>
   <span class="prawo"><span>Jesteś notariuszem? </span><a href="/rejestracja">Dodaj swoją kancelarię</a></span>
 </header>
