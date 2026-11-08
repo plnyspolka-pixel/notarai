@@ -243,4 +243,9 @@
   } else {
     renderCases();
   }
+  // If the asynchronous application bootstrap finished before this file loaded,
+  // restore the compact sidebar and active dashboard navigation state.
+  if (node("kokpit") && !node("kokpit").hidden) {
+    window.pokazKokpit();
+  }
 })();
