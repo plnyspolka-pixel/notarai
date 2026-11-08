@@ -147,3 +147,29 @@ def test_polityka_wymaga_zgody_i_jest_scisla(scena):
     with pytest.raises(Exception):
         h._popraw_polityke(h.Polityka(wlaczone=True, miasto="Lublin", adres="",
                                       godziny={"0": ["09:00", "17:00"]}))
+
+
+def test_portal_b2b_i_link_na_stronie(scena):
+    client, _, _, _ = scena
+    portal = client.get("/hurtowe")
+    assert portal.status_code == 200
+    assert "Otwórz terminarz" in portal.text
+    assert "/static/hurtowe.js" in portal.text
+    assert client.get("/static/hurtowe.js").status_code == 200
+    assert client.get("/api/hurtowe/kancelarie").status_code == 401
+    from pathlib import Path
+    strona = (Path(__file__).parent / "strona" / "index.html").read_text("utf-8")
+    assert "https://app.notarai.pl/hurtowe" in strona
+    assert "Rezerwacje B2B" in strona
+
+
+def test_rezerwacja_niestandardowej_czynnosci(scena):
+    client, dzien, nowy, _ = scena
+    klucz, _ = nowy("Partner z testem", ["biuro-a"])
+    dane = wizyta(dzien, rodzaj="inne", rodzaj_inny="Umowa spółki",
+                  idempotency_key="niestandardowa-czynnosc-001")
+    odp = client.post("/api/hurtowe/rezerwacje", json=dane, headers=klucz)
+    assert odp.status_code == 201, odp.text
+    with h._WBiurze("biuro-a"):
+        wpis = h.kalendarz.lista()[0]
+        assert wpis["rodzaj_inny"] == "Umowa spółki"
