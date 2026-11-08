@@ -50,7 +50,7 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Kalkulator taksy jest dla klientow kancelarii, ktorzy konta nie maja.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
             "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
-            "/kalkulator", "/api/taksa", "/api/wizyty")
+            "/kalkulator", "/api/taksa", "/api/wizyty", "/notariusze", "/api/notariusze")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
