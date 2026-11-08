@@ -57,7 +57,7 @@ def szkielet(tytul: str, opis: str, tresc: str, sciezka: str, jsonld: list | Non
 <meta property="og:url" content="{esc(kanoniczny)}">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pl_PL">
-<link rel="icon" href="/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
 <link rel="stylesheet" href="/style.css">
 <style>
 .okruszki {{ font-size: .88rem; color: var(--tekst3); margin: 20px 0 0; }}
@@ -131,7 +131,7 @@ dialog.umow .wynik.blad {{ background: var(--alarm-tlo, #fbeceb); }}
 
 <header class="naglowek">
   <div class="szer naglowek-w">
-    <a class="marka" href="/"><img src="/favicon.png" alt="" width="32" height="32"><span>notarai</span></a>
+    <a class="marka" href="/"><img src="/logo-mark.svg" alt="" width="32" height="32"><span>notar<strong>ai</strong></span></a>
     <nav class="menu" aria-label="Sekcje strony">
       <a href="/notariusz/"{' aria-current="page"' if menu_aktywne == "notariusz" else ""}>Notariusze</a>
       <a href="/kalkulator/">Kalkulator kosztów</a>
