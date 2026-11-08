@@ -7,7 +7,7 @@
 # niezacommitowane zmiany nigdy nie trafiaja do obrazu. Tag obrazu to skrot
 # commita, wiec obraz w ECR zawsze odpowiada konkretnemu stanowi repozytorium.
 param(
-    [string]$Profil = "notarai-admin",
+    [string]$Profil = "",
     [string]$Region = "eu-central-1",
     [string]$Konto  = "127621462971"
 )
@@ -15,7 +15,10 @@ $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
 
 function Uruchom-Aws {
-    $wynik = & aws @args --profile $Profil --region $Region
+    # Nie wymuszamy --profile: istniejąca sesja AWS CLI może być z env/SSO.
+    $opcje = @("--region", $Region)
+    if ($Profil) { $opcje += @("--profile", $Profil) }
+    $wynik = & aws @args @opcje
     if ($LASTEXITCODE -ne 0) { throw "Polecenie aws $($args[0]) $($args[1]) nie powiodlo sie (kod $LASTEXITCODE)." }
     return $wynik
 }
@@ -25,16 +28,18 @@ function Uruchom-Aws {
 # krytyczny, wiec wewnatrz funkcji wracamy do Continue.
 function Czy-Aws {
     $ErrorActionPreference = "Continue"
-    & aws @args --profile $Profil --region $Region 2>$null | Out-Null
+    $opcje = @("--region", $Region)
+    if ($Profil) { $opcje += @("--profile", $Profil) }
+    & aws @args @opcje 2>$null | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
 
 Write-Host "== Sprawdzam konto AWS i repozytorium" -ForegroundColor Cyan
 if (-not (Czy-Aws sts get-caller-identity)) {
-    throw "Sesja profilu $Profil nie dziala. Odnow ja poleceniem:`n  aws login --profile $Profil --region $Region`nLink z terminala otworz w tym oknie Chrome, w ktorym jestes zalogowana do konsoli AWS."
+    throw "AWS CLI nie ma aktywnych uprawnien dla tej sesji. Sprawdz profil AWS_PROFILE lub skonfigurowany dostep CLI; logowanie w przegladarce nie jest sesja CLI."
 }
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
-if ($biezace -ne $Konto) { throw "Profil $Profil wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
+if ($biezace -ne $Konto) { throw "AWS wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
 
 # Obraz powstaje z "git archive HEAD", wiec odpowiada commitowi zawsze, takze
 # gdy na dysku lezy praca w toku. Kiedys bylo to bledem krytycznym, zeby nikt
