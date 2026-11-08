@@ -18,6 +18,18 @@ $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
 $zrodlo = Join-Path $korzen "strona"
 
+# Fallback na stanowiskach, na ktorych nie ma launchera Python "py".
+# Publikuje tylko zmieniona strone glowna i CSS sekcji B2B; nie wymaga
+# instalowania Pythona ani ponownego logowania do AWS.
+if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+    if ($Polecenie -ne "wyslij") {
+        throw "Na tym komputerze nie ma polecenia py. Dla publikacji sekcji B2B uzyj: infra\wyslij-rezerwacje-bez-pythona.ps1"
+    }
+    Write-Host "== Brak launchera py - publikacja sekcji B2B przez Windows FTPS, bez Pythona" -ForegroundColor Yellow
+    & (Join-Path $PSScriptRoot "wyslij-rezerwacje-bez-pythona.ps1")
+    return
+}
+
 $env:AWS_PROFILE = "notarai-admin"
 $env:AWS_REGION = "eu-central-1"
 $bundle = Join-Path $env:USERPROFILE ".aws\ca-bundle.pem"
