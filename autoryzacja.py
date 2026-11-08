@@ -1146,7 +1146,13 @@ def _subskrypcja(wpis: dict) -> dict:
 
 @router_abonamentu.get("")
 def moj_abonament(request: Request):
-    _, wpis = _znajdz(_wczytaj_rejestr(), request.state.kancelaria)
+    kancelaria = getattr(request.state, "kancelaria", None)
+    if not kancelaria:
+        # Lokalny tryb bez sesji SaaS: panel nie pokazuje abonamentu.
+        return {"platnosci_wlaczone": False, "wymagany": False, "po_terminie": False,
+                "dni_do_konca": None, "cena": platnosci.cena(), "moge_zaplacic": False,
+                "subskrypcja": None, "konczy_sie": False, "historia": []}
+    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
     if wpis is None:
         raise HTTPException(404, "Nie znaleziono kancelarii")
     email = getattr(request.state, "email", "")
