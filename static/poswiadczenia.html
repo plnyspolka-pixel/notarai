@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai · poświadczenie kopii</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --r:14px; --r2:10px;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.kol{max-width:820px;margin:0 auto;padding:28px 16px 100px}
+.logo{font:600 20px/1 var(--serif);display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.logo img{width:34px;height:34px}
+.logo a{margin-left:auto;font:400 14px var(--sans);color:var(--tekst2)}
+h1{font:400 26px/1.25 var(--serif);margin:0 0 6px}
+h2{font:500 18px/1.3 var(--serif);margin:0 0 12px}
+.pod{color:var(--tekst2);margin:0 0 20px}
+.karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:20px;margin-bottom:16px}
+label.etykieta{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--tekst2)}
+select,textarea{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+textarea{min-height:120px;field-sizing:content;resize:vertical;line-height:1.45}
+button{font:500 15px var(--sans);padding:11px 18px;border-radius:var(--r2);border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;min-height:44px}
+button:hover{background:var(--akcent2)}
+button:disabled{opacity:.5;cursor:default}
+button.wtorny{background:var(--karta);color:var(--tekst);border-color:var(--linia2)}
+button.wtorny:hover{border-color:var(--tekst3)}
+.przyciski{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.strefa{border:1.5px dashed var(--linia2);border-radius:var(--r);padding:18px;text-align:center;color:var(--tekst2);margin-top:14px}
+.strefa.nad{border-color:var(--akcent);background:var(--akcent-tlo)}
+.miniatury{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.min{position:relative;width:86px;height:112px;border:1px solid var(--linia);border-radius:8px;overflow:hidden;
+  background:var(--tlo2);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--tekst2);text-align:center}
+.min img{width:100%;height:100%;object-fit:cover}
+.min b{position:absolute;left:4px;top:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:6px;padding:1px 6px}
+.min button{position:absolute;right:3px;top:3px;min-height:0;width:24px;height:24px;padding:0;border-radius:50%;
+  background:rgba(0,0,0,.6);border:0;font-size:14px;line-height:1}
+.stan{font-size:14px;color:var(--tekst2);margin-top:12px;min-height:1.4em}
+.stan.blad{color:var(--alarm)}
+.wpis{border:1px solid var(--linia);border-radius:var(--r2);padding:14px;margin-top:12px;background:var(--tlo)}
+.wpis-gora{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--tekst2);margin-bottom:8px;flex-wrap:wrap}
+.wpis dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;font-size:13.5px;margin:10px 0 0}
+.wpis dt{color:var(--tekst3)}
+.wpis dd{margin:0;overflow-wrap:anywhere}
+.uwaga{background:var(--alarm-tlo);color:var(--alarm);border-radius:8px;padding:8px 10px;font-size:13.5px;margin-top:10px}
+.cechy{background:var(--akcent-tlo);border-radius:8px;padding:8px 10px;font-size:13.5px;margin-top:10px}
+.lista-pusta{color:var(--tekst3);font-size:14px}
+.suma{font-weight:500;margin-top:12px}
+small.wskaz{display:block;color:var(--tekst3);font-size:12.5px;margin-top:6px}
+@media (max-width:520px){ .kol{padding-top:16px} h1{font-size:22px} .przyciski button{flex:1 1 100%} }
+</style>
+</head>
+<body>
+<div class="kol">
+  <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← panel kancelarii</a></div>
+  <h1>Poświadczenie kopii</h1>
+  <p class="pod">Zrób zdjęcie dokumentu telefonem albo dodaj skan z kopiarki. notarai rozpozna dokument
+    i przygotuje krótką treść czynności do repertorium A oraz taksę. Zdjęcia nie są przechowywane.</p>
+
+  <div class="karta" id="brama" hidden>
+    <h2>Zaloguj się</h2>
+    <p class="pod" id="brama-tekst">Ta strona korzysta z logowania kancelarii.</p>
+    <button type="button" id="btn-zaloguj">Przejdź do logowania</button>
+  </div>
+
+  <div class="karta">
+    <label class="etykieta" for="rodzaj">Rodzaj poświadczenia</label>
+    <select id="rodzaj">
+      <option value="odpis">Zgodność odpisu z okazanym dokumentem</option>
+      <option value="kopia">Zgodność kopii z okazanym dokumentem</option>
+      <option value="wyciag">Zgodność wyciągu z okazanym dokumentem</option>
+      <option value="data">Data okazania dokumentu</option>
+    </select>
+    <div class="przyciski">
+      <button type="button" id="btn-zdjecie">📷 Zdjęcie strony</button>
+      <button type="button" class="wtorny" id="btn-pliki">Dodaj skan lub pliki</button>
+    </div>
+    <div class="strefa" id="strefa">Przeciągnij tu skan z kopiarki (PDF) lub zdjęcia.
+      <small class="wskaz">Kolejne zdjęcia to kolejne strony. Jeden skan może zawierać kilka dokumentów - zostaną rozdzielone.</small></div>
+    <input type="file" id="plik-aparat" accept="image/*" capture="environment" hidden>
+    <input type="file" id="plik-skan" accept="image/*,application/pdf" multiple hidden>
+    <div class="miniatury" id="miniatury"></div>
+    <div class="przyciski">
+      <button type="button" id="btn-odczytaj" disabled>Odczytaj i opisz</button>
+      <button type="button" class="wtorny" id="btn-wyczysc" disabled>Wyczyść strony</button>
+    </div>
+    <div class="stan" id="stan" role="status"></div>
+  </div>
+
+  <div class="karta">
+    <h2>Do repertorium</h2>
+    <div id="wpisy"><p class="lista-pusta">Tu pojawią się opisy odczytanych dokumentów. Sprawdź je z dokumentem przed wpisaniem.</p></div>
+    <div class="suma" id="suma" hidden></div>
+    <div class="przyciski" id="eksport" hidden>
+      <button type="button" class="wtorny" id="btn-kopiuj-wszystkie">Kopiuj wszystkie</button>
+      <button type="button" class="wtorny" id="btn-csv">Pobierz CSV</button>
+      <button type="button" class="wtorny" id="btn-nowa-lista">Nowa lista</button>
+    </div>
+    <small class="wskaz">Lista żyje tylko w tej karcie przeglądarki - po zamknięciu znika.</small>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KLUCZ_TOKENU = "notarai_token";
+// Zdjecie z telefonu (12 Mpx, kilka MB) pomniejszamy przed wyslaniem:
+// model i tak widzi strone w najwyzej ok. 2,5 tys. px.
+const MAX_BOK = 2600;
+const MAX_STRON = 20;
+
+let strony = [];   // {plik: File|Blob, nazwa, podglad}
+let wpisy = [];    // wpisy do repertorium (tylko w pamieci karty)
+
+function token(){ try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; } }
+
+async function odnow(){
+  try {
+    const odp = await fetch("/api/logowanie/odnow", {method: "POST"});
+    if (!odp.ok) return false;
+    const t = (await odp.json()).token;
+    try { localStorage.setItem(KLUCZ_TOKENU, t); } catch { /* tryb prywatny */ }
+    return true;
+  } catch { return false; }
+}
+
+async function api(adres, opcje = {}){
+  const wyslij = () => {
+    const naglowki = new Headers(opcje.headers || {});
+    if (token()) naglowki.set("Authorization", "Bearer " + token());
+    return fetch(adres, {...opcje, headers: naglowki});
+  };
+  let odp = await wyslij();
+  if (odp.status === 401 && await odnow()) odp = await wyslij();
+  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby odczytać dokument."); }
+  return odp;
+}
+
+$("btn-zaloguj").onclick = () => { location.href = "/"; };
+
+/* ---------- strony ---------- */
+
+function pomniejsz(plik){
+  if (!plik.type.startsWith("image/") || plik.type === "image/tiff") return Promise.resolve(plik);
+  return new Promise(gotowe => {
+    const url = URL.createObjectURL(plik);
+    const obraz = new Image();
+    obraz.onload = () => {
+      const skala = Math.min(1, MAX_BOK / Math.max(obraz.width, obraz.height));
+      if (skala === 1 && plik.size < 4e6) { URL.revokeObjectURL(url); gotowe(plik); return; }
+      const c = document.createElement("canvas");
+      c.width = Math.round(obraz.width * skala); c.height = Math.round(obraz.height * skala);
+      c.getContext("2d").drawImage(obraz, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => gotowe(b || plik), "image/jpeg", 0.88);
+    };
+    obraz.onerror = () => { URL.revokeObjectURL(url); gotowe(plik); };
+    obraz.src = url;
+  });
+}
+
+async function dodaj(pliki){
+  for (const plik of pliki) {
+    if (strony.length >= MAX_STRON) { stan(`Najwyżej ${MAX_STRON} stron naraz.`, true); break; }
+    const pdf = plik.type === "application/pdf" || /\.pdf$/i.test(plik.name);
+    const gotowy = pdf ? plik : await pomniejsz(plik);
+    strony.push({plik: gotowy, pdf, nazwa: pdf ? "skan.pdf" : "strona.jpg",
+                 podglad: pdf ? "" : URL.createObjectURL(gotowy)});
+  }
+  rysujStrony();
+}
+
+function rysujStrony(){
+  const m = $("miniatury");
+  m.replaceChildren();
+  strony.forEach((s, i) => {
+    const el = document.createElement("div");
+    el.className = "min";
+    if (s.podglad) { const img = document.createElement("img"); img.src = s.podglad; img.alt = ""; el.append(img); }
+    else el.append("PDF");
+    const nr = document.createElement("b"); nr.textContent = i + 1; el.append(nr);
+    const usun = document.createElement("button");
+    usun.type = "button"; usun.textContent = "×"; usun.title = "Usuń"; usun.setAttribute("aria-label", "Usuń stronę " + (i + 1));
+    usun.onclick = () => { if (s.podglad) URL.revokeObjectURL(s.podglad); strony.splice(i, 1); rysujStrony(); };
+    el.append(usun);
+    m.append(el);
+  });
+  $("btn-odczytaj").disabled = !strony.length;
+  $("btn-wyczysc").disabled = !strony.length;
+}
+
+function wyczyscStrony(){
+  strony.forEach(s => s.podglad && URL.revokeObjectURL(s.podglad));
+  strony = []; rysujStrony();
+}
+
+$("btn-zdjecie").onclick = () => $("plik-aparat").click();
+$("btn-pliki").onclick = () => $("plik-skan").click();
+for (const id of ["plik-aparat", "plik-skan"]) {
+  $(id).onchange = async e => { await dodaj([...e.target.files]); e.target.value = ""; };
+}
+$("btn-wyczysc").onclick = wyczyscStrony;
+const strefa = $("strefa");
+strefa.ondragover = e => { e.preventDefault(); strefa.classList.add("nad"); };
+strefa.ondragleave = () => strefa.classList.remove("nad");
+strefa.ondrop = e => { e.preventDefault(); strefa.classList.remove("nad"); dodaj([...e.dataTransfer.files]); };
+
+function stan(tekst, blad = false){ $("stan").textContent = tekst; $("stan").classList.toggle("blad", blad); }
+
+/* ---------- odczyt ---------- */
+
+$("btn-odczytaj").onclick = async () => {
+  const dane = new FormData();
+  strony.forEach(s => dane.append("pliki", s.plik, s.nazwa));
+  dane.append("rodzaj", $("rodzaj").value);
+  $("btn-odczytaj").disabled = true;
+  stan("Odczytuję dokument…");
+  try {
+    const odp = await api("/api/poswiadczenia/opis", {method: "POST", body: dane});
+    const wynik = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(wynik.detail || "Nie udało się odczytać dokumentu.");
+    for (const d of wynik.dokumenty) wpisy.push({...d, rodzaj: wynik.rodzaj});
+    stan(wynik.dokumenty.length === 1 ? "Gotowe: 1 dokument." : `Gotowe: ${wynik.dokumenty.length} dokumenty.`);
+    wyczyscStrony();
+    rysujWpisy();
+  } catch (blad) {
+    stan(blad.message, true);
+    $("btn-odczytaj").disabled = !strony.length;
+  }
+};
+
+const zl = x => Number(x || 0).toLocaleString("pl-PL", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " zł";
+
+function pole(dl, nazwa, wartosc){
+  if (!wartosc) return;
+  const dt = document.createElement("dt"); dt.textContent = nazwa;
+  const dd = document.createElement("dd"); dd.textContent = wartosc;
+  dl.append(dt, dd);
+}
+
+function rysujWpisy(){
+  const kontener = $("wpisy");
+  kontener.replaceChildren();
+  if (!wpisy.length) {
+    const p = document.createElement("p"); p.className = "lista-pusta";
+    p.textContent = "Tu pojawią się opisy odczytanych dokumentów. Sprawdź je z dokumentem przed wpisaniem.";
+    kontener.append(p);
+  }
+  wpisy.forEach((w, i) => {
+    const el = document.createElement("div"); el.className = "wpis";
+    const gora = document.createElement("div"); gora.className = "wpis-gora";
+    const lewo = document.createElement("span"); lewo.textContent = `${i + 1}. ${w.nazwa || "dokument"} · ${w.stron} str.`;
+    const prawo = document.createElement("span"); prawo.textContent = "taksa " + zl(w.taksa_brutto) + " brutto";
+    gora.append(lewo, prawo);
+    const opis = document.createElement("textarea");
+    opis.value = w.opis; opis.setAttribute("aria-label", "Treść do repertorium, wpis " + (i + 1));
+    opis.oninput = () => { w.opis = opis.value; };
+    const dl = document.createElement("dl");
+    pole(dl, "numer", w.numer);
+    pole(dl, "data", w.data_slownie || w.data);
+    pole(dl, "wystawca", w.wystawca);
+    pole(dl, "dotyczy", w.dotyczy);
+    pole(dl, "postać", w.postac);
+    if (w.jezyk && w.jezyk.toLowerCase() !== "polski") pole(dl, "język", w.jezyk);
+    el.append(gora, opis, dl);
+    if (w.cechy && w.cechy.length) {
+      const c = document.createElement("div"); c.className = "cechy";
+      c.textContent = "Do klauzuli (cechy dokumentu): " + w.cechy.join("; ");
+      el.append(c);
+    }
+    if (w.niepewne && w.niepewne.length) {
+      const u = document.createElement("div"); u.className = "uwaga";
+      u.textContent = "Sprawdź z dokumentem: " + w.niepewne.join("; ");
+      el.append(u);
+    }
+    const przyciski = document.createElement("div"); przyciski.className = "przyciski";
+    const kopiuj = document.createElement("button"); kopiuj.type = "button"; kopiuj.className = "wtorny";
+    kopiuj.textContent = "Kopiuj treść";
+    kopiuj.onclick = () => kopiujTekst(w.opis, kopiuj);
+    const usun = document.createElement("button"); usun.type = "button"; usun.className = "wtorny";
+    usun.textContent = "Usuń";
+    usun.onclick = () => { wpisy.splice(i, 1); rysujWpisy(); };
+    przyciski.append(kopiuj, usun);
+    el.append(przyciski);
+    kontener.append(el);
+  });
+  const razem = wpisy.reduce((s, w) => s + (w.taksa_brutto || 0), 0);
+  $("suma").hidden = $("eksport").hidden = !wpisy.length;
+  $("suma").textContent = `Pozycji: ${wpisy.length} · taksa razem ${zl(razem)} brutto (stawki maksymalne).`;
+}
+
+async function kopiujTekst(tekst, przycisk){
+  try { await navigator.clipboard.writeText(tekst); }
+  catch {
+    const t = document.createElement("textarea"); t.value = tekst; document.body.append(t);
+    t.select(); document.execCommand("copy"); t.remove();
+  }
+  if (przycisk) { const stary = przycisk.textContent; przycisk.textContent = "Skopiowano"; setTimeout(() => przycisk.textContent = stary, 1500); }
+}
+
+$("btn-kopiuj-wszystkie").onclick = e =>
+  kopiujTekst(wpisy.map((w, i) => `${i + 1}. ${w.opis}`).join("\n"), e.target);
+
+$("btn-csv").onclick = () => {
+  const pole = x => '"' + String(x ?? "").replace(/"/g, '""') + '"';
+  const wiersze = [["lp", "tresc_czynnosci", "stron", "taksa_netto", "taksa_brutto", "numer", "data", "wystawca"]]
+    .concat(wpisy.map((w, i) => [i + 1, w.opis, w.stron, w.taksa_netto, w.taksa_brutto, w.numer, w.data, w.wystawca]));
+  const csv = "﻿" + wiersze.map(r => r.map(pole).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+  a.download = `poswiadczenia-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+$("btn-nowa-lista").onclick = () => {
+  if (wpisy.length && !confirm("Usunąć wszystkie opisy z listy?")) return;
+  wpisy = []; rysujWpisy();
+};
+
+window.addEventListener("beforeunload", e => { if (wpisy.length) { e.preventDefault(); e.returnValue = ""; } });
+</script>
+</body>
+</html>

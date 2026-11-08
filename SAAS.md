@@ -16,6 +16,13 @@
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
+- `poswiadczenia.py` + `static/poswiadczenia.html` — poświadczenie kopii: zdjęcie z telefonu
+  albo skan z kopiarki (PDF, także kilka dokumentów w jednym skanie) → opis do repertorium A
+  (krótka treść czynności, liczba stron, cechy dokumentu do klauzuli, taksa § 13 pkt 2/3).
+  Strona `/poswiadczenia`, API `POST /api/poswiadczenia/opis` (wymaga logowania). Pliki tylko
+  w katalogu tymczasowym na czas odczytu, nic nie zapisujemy ani nie logujemy. Model:
+  `PIECZAPP_POSWIADCZENIA_MODEL` (domyślnie `eu.anthropic.claude-sonnet-4-6`, tylko profil `eu.`).
+
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
 - `app.py`    — middleware + router admina, `/zdrowie`, utrwalanie do S3 po zapisach,

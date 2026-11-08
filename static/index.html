@@ -47,6 +47,8 @@ aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--
   color:var(--tekst2);font-size:14px;cursor:default;user-select:none}
 /* display:flex wygrywa z domyslnym [hidden], wiec ukrycie trzeba dopisac */
 .krok[hidden]{display:none}
+a.krok-link{text-decoration:none;cursor:pointer}
+a.krok-link:hover{color:var(--tekst)}
 .krok b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--linia2);
   display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--sans);flex:none}
 .krok.aktywny{background:var(--karta);color:var(--tekst);border:1px solid var(--linia);cursor:pointer}
@@ -592,6 +594,8 @@ notarai</div>
   <div class="krok" data-etap="5"><b><span>▶</span></b>Klikamy</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
+  <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
+  <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>

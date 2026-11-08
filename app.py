@@ -39,6 +39,7 @@ import notariusze
 import autoryzacja
 import nazwy
 import osoby
+import poswiadczenia
 import prompty
 import rejestracja
 import rejestry
@@ -81,6 +82,8 @@ app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)
 app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
+# Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
+app.include_router(poswiadczenia.router)
 app.middleware("http")(kalkulator.cors)
 
 
@@ -145,6 +148,13 @@ def dokument_publiczny(nazwa: str):
 def strona_mapy_kancelarii():
     """Publiczna mapa kancelarii, ktore wlaczyly publikacje adresu."""
     return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
+
+
+@app.get("/poswiadczenia", response_class=HTMLResponse)
+def strona_poswiadczen():
+    """Zdjecie albo skan dokumentu -> opis do repertorium A. Strona jest
+    jawna (jak /admin); odczyt za nia wymaga tokenu logowania kancelarii."""
+    return (Path(__file__).parent / "static" / "poswiadczenia.html").read_text("utf-8")
 
 
 @app.get("/kalkulator", response_class=HTMLResponse)
