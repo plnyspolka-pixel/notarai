@@ -2747,10 +2747,17 @@ function rysujZapytania(){
                        z.kalkulacja ? "szacunek z kalkulatora: " + Number(z.kalkulacja.razem).toLocaleString("pl-PL", {style: "currency", currency: "PLN"}) : ""]
       .filter(Boolean).join("<br>");
     const wizyta = z.wizyta ? `<br>umówiono na ${escape(z.wizyta.data)} ${escape(z.wizyta.godzina || "")}` : "";
+    const pliki = (z.pliki || []).map(p => `<button class="wtorny z-plik" data-plik="${escape(p.id)}" data-nazwa="${escape(p.nazwa)}">📄 ${escape(p.nazwa)}</button>`).join(" ");
+    const kw = z.ksiega ? `<br>KW ${escape(z.kw)}: ${z.ksiega.stan === "wpis" ? "<b>są wpisy w dz. III/IV</b>" : "bez wpisów w dz. III/IV"} (${escape(z.ksiega.opis)})${z.ksiega.adres ? ", adres: " + escape(z.ksiega.adres) : ""}` : "";
+    const teczka = z.zapytanie ? `<details style="width:100%;margin-top:6px"><summary>Zapytanie przygotowane z klientem${(z.pliki || []).length ? " i pliki (" + z.pliki.length + ")" : ""}</summary>
+        <pre style="white-space:pre-wrap;font-size:.8rem">${escape(z.zapytanie)}</pre>${pliki}
+        ${z.kw ? `<button class="wtorny z-kw">${z.ksiega ? "Pobierz KW ponownie" : "Sprawdź KW " + escape(z.kw) + " w EKW"}</button>` : ""}
+        ${z.ksiega ? `<details><summary>Treść księgi</summary><pre style="white-space:pre-wrap;font-size:.75rem">${escape(z.ksiega.tekst)}</pre></details>` : ""}</details>` : "";
     const aktywne = z.status === "nowa" || z.status === "kontakt";
     return `<div class="komputer" data-id="${escape(z.id)}" style="align-items:flex-start;flex-wrap:wrap">
       <div><b>${escape(k.imie || "klient")}: ${escape(z.czynnosc)}</b>
-        <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
+        <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${kw}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
+      ${teczka}
       ${aktywne ? `<div class="dol" style="margin-top:8px;width:100%">
         <input type="date" class="z-data" style="text-transform:none;width:auto"> <input type="time" class="z-godzina" step="1800" style="text-transform:none;width:auto">
         <button class="z-umow">Umówione: do kalendarza</button>
@@ -2780,6 +2787,25 @@ function rysujZapytania(){
     };
     const kontakt = el.querySelector(".z-kontakt");
     if (kontakt) kontakt.onclick = () => zmien("kontakt");
+    el.querySelectorAll(".z-plik").forEach(b => b.onclick = async () => {
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id) + "/plik/" + encodeURIComponent(b.dataset.plik));
+        if (!odp.ok) throw new Error((await odp.json().catch(() => ({}))).detail || "Nie udało się pobrać pliku.");
+        const url = URL.createObjectURL(await odp.blob()); const a = document.createElement("a");
+        a.href = url; a.download = b.dataset.nazwa; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    });
+    const kwBtn = el.querySelector(".z-kw");
+    if (kwBtn) kwBtn.onclick = async () => {
+      stan($("stan-zapytania"), "Pobieram księgę z EKW, to może potrwać do kilku minut…", false, true);
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id) + "/ksiega", {method: "POST"});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się pobrać księgi.");
+        stan($("stan-zapytania"), "Księga pobrana.");
+        await odswiezLicznikZapytan(); rysujZapytania();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
     const odrzuc = el.querySelector(".z-odrzuc");
     if (odrzuc) odrzuc.onclick = () => { if (confirm("Odrzucić to zapytanie?")) zmien("odrzucona"); };
   });

@@ -47,8 +47,7 @@ Stan: 08.11.2026. Kod: `teczka.py`, strona `seo/teczka_strona.py` ->
 
 ## Następne kroki (nie zbudowane)
 
-1. Dostęp kancelarii do wgranych plików z poziomu „Zapytania klientów”
-   (dziś kancelaria dostaje tekst zapytania i listę plików).
+1. (zrobione) Kancelaria pobiera pliki klienta i sprawdza KW w EKW w oknie „Zapytania klientów”.
 2. Sprawdzenie KW w EKW (`ekw.py`) po podaniu numeru: właściciel, obciążenia,
    hipoteki, rozbieżności z opisem klienta.
 3. Szablony pytań dla trudniejszych spraw (spadek z kilkoma

@@ -717,7 +717,8 @@ def wyslij(dane: Wyslanie, request: Request):
                             kancelaria=dane.kancelaria, miejscowosc=miejscowosc, zrodlo="inne", strona=dane.strona)
     wynik = wizyty.przyjmij(zgl, request, dodatki={
         "zrodlo": "teczka", "zapytanie": z["tekst"], "teczka": ident,
-        "pliki": [{k: p[k] for k in ("id", "nazwa", "dokument", "opis")} for p in t["pliki"]]})
+        "kw": t["dane"]["nieruchomosc"].get("kw", ""), "adres": t["dane"]["nieruchomosc"].get("adres", ""),
+        "pliki": [{k: p[k] for k in ("id", "nazwa", "dokument", "opis", "rozszerzenie")} for p in t["pliki"]]})
     t["wyslano"] = _teraz()
     t["zgloszenie"] = wynik.get("id")
     zapisz(ident, t)

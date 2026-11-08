@@ -494,6 +494,73 @@ class ZmianaZapytania(BaseModel):
     koniec: str = ""
 
 
+def _moje_zgloszenie(identyfikator: str) -> dict:
+    z = next((w for w in _wczytaj()["zgloszenia"] if w["id"] == identyfikator
+              and w.get("kancelaria_id") == magazyn.kancelaria()), None)
+    if not z:
+        raise HTTPException(404, "Nie ma takiego zapytania.")
+    return z
+
+
+@router_zapytan.get("/{identyfikator}/plik/{plik_id}")
+def plik_z_teczki(identyfikator: str, plik_id: str):
+    """Plik, ktory klient wgral do teczki (teczka.py). Tylko kancelaria,
+    do ktorej trafilo zapytanie."""
+    import teczka
+    from fastapi.responses import Response
+    from urllib.parse import quote
+    z = _moje_zgloszenie(identyfikator)
+    p = next((x for x in z.get("pliki") or [] if x["id"] == plik_id), None)
+    if not p or not z.get("teczka"):
+        raise HTTPException(404, "Nie ma takiego pliku.")
+    dane = teczka._czytaj_bajty(z["teczka"], f"pliki/{p['id']}{p.get('rozszerzenie', '')}")
+    if dane is None:
+        raise HTTPException(410, f"Plik został już usunięty (pliki klientów trzymamy {teczka.RETENCJA_DNI} dni).")
+    log.info("wizyty: kancelaria pobrala plik %s z zapytania %s", plik_id, identyfikator)
+    return Response(dane, media_type=teczka.TYPY.get(p.get("rozszerzenie", ""), "application/octet-stream"),
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(p['nazwa'])}",
+                             "Cache-Control": "no-store"})
+
+
+def _porownaj_adres(adres: str, tekst: str) -> str:
+    """Czy ulica i numer z teczki wystepuja w tresci ksiegi (dzial I-O)."""
+    slowa = [w for w in re.findall(r"[\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+", adres.lower()) if len(w) > 3 or w.isdigit()]
+    if not slowa:
+        return ""
+    tekst = tekst.lower()
+    trafione = [w for w in slowa if w in tekst]
+    return "zgodny" if len(trafione) >= max(1, len(slowa) - 1) else "do sprawdzenia"
+
+
+@router_zapytan.post("/{identyfikator}/ksiega")
+def sprawdz_ksiege(identyfikator: str):
+    """Pobiera aktualna tresc KW podanej przez klienta (ekw.py) i zapisuje
+    przy zapytaniu: obciazenia (dz. III/IV) i zgodnosc adresu z teczki."""
+    import ekw
+    z = _moje_zgloszenie(identyfikator)
+    if not z.get("kw"):
+        raise HTTPException(400, "Klient nie podał numeru księgi wieczystej.")
+    if not ekw.dostepne():
+        raise HTTPException(503, "Pobieranie ksiąg nie jest skonfigurowane na tym serwerze.")
+    try:
+        ksiega = ekw.pobierz(z["kw"])
+    except ekw.BladEKW as blad:
+        raise HTTPException(502, str(blad))
+    stan, opis = ekw.podsumowanie(ksiega)
+    dzial1 = next((d["tekst"] for d in ksiega["dzialy"] if d["oznaczenie"].startswith("I") and "O" in d["oznaczenie"]),
+                  ksiega["dzialy"][0]["tekst"] if ksiega["dzialy"] else "")
+    wynik = {"pobrano": ksiega["pobrano"], "stan": stan, "opis": opis, "zrodlo": ksiega.get("zrodlo", ""),
+             "adres": _porownaj_adres(z.get("adres") or "", dzial1), "tekst": ekw.do_tekstu(ksiega)}
+
+    def zapisz(d):
+        for w in d["zgloszenia"]:
+            if w["id"] == identyfikator:
+                w["ksiega"] = wynik
+    _zmien(zapisz)
+    log.info("wizyty: ksiega do zapytania %s sprawdzona (%s)", identyfikator, stan)
+    return wynik
+
+
 # Slowa z opisu czynnosci -> rodzaj z kalendarza kancelarii.
 _RODZAJE_SLOWA = [
     ("sprzedaż", ("sprzeda", "zakup", "kupn", "kupuj", "nabyci")),

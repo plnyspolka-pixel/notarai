@@ -243,3 +243,47 @@ def test_strona_przygotowania_sprawy():
     from seo import teczka_strona
     html = teczka_strona.strona()
     assert "/api/teczka" in html and 'name="robots"' not in html
+
+
+class TestKancelaria:
+    def _wyslane(self, k):
+        token, _ = _nowa(k)
+        kw = _kw_poprawna()
+        k.model.odpowiedzi.append({"dokument": "akt_notarialny", "opis": "Poprzedni akt notarialny"})
+        k.post("/api/teczka/plik", data={"token": token}, files={"plik": ("akt zakupu.pdf", _pdf("AKT"), "application/pdf")})
+        _pisz(k, token, "sprzedaż", czynnosc="sprzedaz_lokalu", miejsce="Lublin",
+              nieruchomosc={"kw": kw, "adres": "ul. Próbna 1, Lublin", "nabycie": "kupno"})
+        k.post("/api/teczka/wyslij", json={"token": token, "imie": "Zenobiusz", "telefon": "600 700 800",
+                                           "zgoda": True, "kancelaria": 1})
+        return wizyty._wczytaj()["zgloszenia"][0], kw
+
+    def test_kancelaria_pobiera_plik_klienta(self, k):
+        z, _ = self._wyslane(k)
+        odp = k.get(f"/api/zapytania/{z['id']}/plik/{z['pliki'][0]['id']}")
+        assert odp.status_code == 200 and odp.content.startswith(b"%PDF")
+        assert "akt%20zakupu.pdf" in odp.headers["content-disposition"]
+        assert k.get(f"/api/zapytania/{z['id']}/plik/nieznany").status_code == 404
+
+    def test_cudza_kancelaria_nie_widzi_pliku(self, k):
+        z, _ = self._wyslane(k)
+        wizyty._zmien(lambda d: d["zgloszenia"][0].update(kancelaria_id="inna"))
+        assert k.get(f"/api/zapytania/{z['id']}/plik/{z['pliki'][0]['id']}").status_code == 404
+
+    def test_sprawdzenie_ksiegi(self, k, monkeypatch):
+        import ekw
+        z, kw = self._wyslane(k)
+        monkeypatch.setattr(ekw, "dostepne", lambda: True)
+        ksiega = {"numer_kw": kw, "sad": "SR Lublin", "typ": "lokal", "pobrano": "2026-11-08T12:00:00", "zrodlo": "test",
+                  "dzialy": [{"oznaczenie": "I-O", "tytul": "DZIAŁ I-O", "pusty": False, "tekst": "Lublin, ulica Próbna 1, lokal 5"},
+                             {"oznaczenie": "III", "tytul": "DZIAŁ III", "pusty": True, "tekst": "BRAK WPISÓW"},
+                             {"oznaczenie": "IV", "tytul": "DZIAŁ IV", "pusty": False, "tekst": "Hipoteka umowna 300 000 zł"}]}
+        monkeypatch.setattr(ekw, "pobierz", lambda numer: ksiega if numer == kw else None)
+        w = k.post(f"/api/zapytania/{z['id']}/ksiega").json()
+        assert w["stan"] == "wpis" and w["adres"] == "zgodny" and "Hipoteka" in w["tekst"]
+        assert wizyty._wczytaj()["zgloszenia"][0]["ksiega"]["stan"] == "wpis"
+
+    def test_ksiega_bez_dostawcy(self, k, monkeypatch):
+        import ekw
+        z, _ = self._wyslane(k)
+        monkeypatch.setattr(ekw, "dostepne", lambda: False)
+        assert k.post(f"/api/zapytania/{z['id']}/ksiega").status_code == 503
