@@ -179,7 +179,7 @@ async def middleware(request: Request, call_next):
     sciezka = request.url.path
     # External B2B routes use a separate, narrowly scoped API key in each handler.
     # No Cognito session can grant partner permissions through these routes.
-    if sciezka == "/mcp" or sciezka.startswith("/api/hurtowe/") or sciezka == "/api/hurtowe":
+    if sciezka == "/hurtowe" or sciezka == "/mcp" or sciezka.startswith("/api/hurtowe/") or sciezka == "/api/hurtowe":
         return await call_next(request)
     if not MULTI or sciezka == "/" or any(
         sciezka.startswith(o) for o in _OTWARTE if o != "/"
