@@ -1328,6 +1328,17 @@ function msDoWygasniecia(t){
   } catch { return Infinity; }
 }
 
+// Odczyt JWT służy wyłącznie do porównania lokalnej tożsamości w UI.
+ // Autoryzację i podpis tokenu zawsze sprawdza serwer.
+function tozsamoscTokena(t){
+  if (!czyJwt(t)) return "";
+  try {
+    const ladunek = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return ladunek.sub && ladunek["custom:kancelaria"]
+      ? ladunek.sub + "|" + ladunek["custom:kancelaria"] : "";
+  } catch { return ""; }
+}
+
 let trwajaceOdnowienie = null, zegarOdnowienia = null;
 
 /* Jedna wymiana naraz, nawet gdy kilka zadan dostanie 401 jednoczesnie. */
@@ -1372,12 +1383,16 @@ window.addEventListener("storage", e => {
   if (SERWIS || e.key !== KLUCZ_TOKENU) return;
   const nowyToken = e.newValue || "";
   if (nowyToken === token) return;
+  const staraTozsamosc = tozsamoscTokena(token);
+  const nowaTozsamosc = tozsamoscTokena(nowyToken);
   token = nowyToken;
   planujOdnowienie();
   if (!token) {
     otworzBrame("Wylogowano."); return;
   }
-  // Token mógł pochodzić z konta innej kancelarii w drugiej karcie.
+  // Odświeżenie JWT tej samej osoby w drugiej karcie nie przerywa jej pracy.
+  if (staraTozsamosc && nowaTozsamosc === staraTozsamosc) return;
+  // Nowe konto albo inna kancelaria: nie pokazuj starej sprawy.
   wyczyscDanePoWylogowaniu();
   $("brama").hidden = true;
   odswiezWyloguj();
