@@ -127,3 +127,24 @@ aside .kokpit-menu-toggle .kokpit-icon { width:21px; height:21px; fill:none; str
 @media(prefers-reduced-motion:reduce) {
   #kokpit * { transition:none!important; }
 }
+
+#kokpit .kokpit-modules-head { margin:25px 0 13px; display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+#kokpit .kokpit-modules-head h2 { font:800 19px/1.3 Montserrat,"Segoe UI",sans-serif; margin:0; color:#132c5c; }
+#kokpit .kokpit-modules-head p { margin:0; color:#7184a0; font-size:12px; }
+#kokpit .kokpit-modules { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px; }
+#kokpit .kokpit-module { display:flex; align-items:flex-start; gap:12px; text-align:left; border:1px solid #d9e7f7!important; background:#fff!important; color:#142d61!important; border-radius:14px!important; box-shadow:0 4px 14px -12px #1a4174!important; padding:15px 13px!important; min-height:91px; }
+#kokpit .kokpit-module[hidden] { display:none!important; }
+#kokpit .kokpit-module:hover { background:#f0f7ff!important; border-color:#8cbaf0!important; }
+#kokpit .kokpit-module .kokpit-icon { color:#1b8cd5; width:21px; height:21px; }
+#kokpit .kokpit-module span { min-width:0; }
+#kokpit .kokpit-module strong { display:block; font-size:12px; line-height:1.4; }
+#kokpit .kokpit-module small { display:block; color:#7287a7; font-size:10px; line-height:1.5; margin-top:4px; }
+#kokpit .kokpit-module:focus-visible { outline:3px solid #1cbde9; outline-offset:3px; }
+@media(max-width:1180px) { #kokpit .kokpit-modules { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:520px) { #kokpit .kokpit-modules { grid-template-columns:1fr; } }
+@media(prefers-color-scheme:dark) {
+ #kokpit .kokpit-modules-head h2 { color:#f1f5ff; }
+ #kokpit .kokpit-module { background:#142344!important; border-color:#305079!important; color:#eff5ff!important; }
+ #kokpit .kokpit-module:hover { background:#1b3865!important; }
+ #kokpit .kokpit-module small { color:#a7bad6; }
+}
