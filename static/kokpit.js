@@ -154,8 +154,32 @@
     node("btn-kokpit")?.setAttribute("aria-current","page");
     node("kokpit")?.removeAttribute("hidden");
     message("");
+    odswiezModulyKokpitu();
     renderCases();
   };
+
+  function odswiezModulyKokpitu() {
+    document.querySelectorAll("[data-kokpit-nav]").forEach(button => {
+      const element = document.querySelector(button.dataset.kokpitNav);
+      button.hidden = !element || element.hidden;
+    });
+  }
+  window.odswiezModulyKokpitu = odswiezModulyKokpitu;
+  document.querySelectorAll("[data-kokpit-nav]").forEach(button => {
+    const element = document.querySelector(button.dataset.kokpitNav);
+    button.addEventListener("click", () => {
+      if (!element || element.hidden) {
+        message("Moduł nie jest dostępny na tym koncie lub w tym trybie pracy.", "error");
+        return;
+      }
+      element.click(); // Wykorzystuje dotychczasowe kontrole uprawnień.
+    });
+    if (element && typeof MutationObserver === "function") {
+      new MutationObserver(odswiezModulyKokpitu)
+        .observe(element, {attributes:true, attributeFilter:["hidden"]});
+    }
+  });
+  odswiezModulyKokpitu();
 
   window.ukryjKokpit = function () {
     document.body.classList.remove("kokpit-widoczny","kokpit-aside-expanded");
