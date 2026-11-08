@@ -477,12 +477,34 @@ def _przypisz_nazwy(odczytane: list[dict], pola: list[str]) -> list[dict]:
 
 def sporzadz_projekt(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    rozmowa: list[dict] | None = None,
+    rozmowa: list[dict] | None = None, personalizacja: str = "",
 ) -> str:
-    """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy."""
+    """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy.
+    `personalizacja`: zasady i styl kancelarii (blok tekstu do polecenia)."""
     ustalenia = _ustalenia(rozmowa or [])
-    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia)}]
+    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia, personalizacja)}]
     return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc))
+
+
+def popraw_wg_zasad(tekst: str, naruszenia: list[dict]) -> str:
+    """Jedna tura poprawki projektu: tylko miejsca naruszajace zasady kancelarii.
+    Wynik i tak przechodzi ponowna kontrole w zasady.egzekwuj()."""
+    if not config.POPRAWA_ZASAD:
+        raise RuntimeError("poprawa przez model wylaczona")
+    tresc = [{"text": prompty.polecenie_poprawy(tekst, naruszenia)}]
+    return _oczysc_projekt(_rozmowa(prompty.POPRAWA_ZASAD, tresc))
+
+
+def sprawdz_wytyczne(tekst: str, wytyczne: list[dict]) -> list[dict]:
+    """Kontrola wytycznych, ktorych nie da sie sprawdzic regula. Zwraca
+    [{"zasada", "fragment", "uwaga"}] - tylko dla znanych identyfikatorow."""
+    if not wytyczne or not config.POPRAWA_ZASAD:
+        return []
+    tresc = [{"text": prompty.polecenie_kontroli(tekst, wytyczne)}]
+    wynik = _wczytaj_json_z_naprawa(_rozmowa(prompty.KONTROLA_WYTYCZNYCH, tresc,
+                                             max_tokenow=MAX_TOKENOW_ROZMOWY, myslenie=False))
+    znane = {w["id"] for w in wytyczne}
+    return [n for n in wynik.get("naruszenia", []) if isinstance(n, dict) and n.get("zasada") in znane]
 
 
 def _ustalenia(rozmowa: list[dict]) -> str:

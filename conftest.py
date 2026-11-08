@@ -33,3 +33,20 @@ def _bez_poczty_w_testach():
     sledzenie.TRANSPORT = poczta_polska.TRANSPORT = httpx.MockTransport(brak)
     yield
     sledzenie.TRANSPORT = poczta_polska.TRANSPORT = None
+
+
+@pytest.fixture(autouse=True)
+def _bez_modelu_przy_kontroli_zasad():
+    """Kontrola zasad kancelarii po projekcie nie wola prawdziwego Bedrock.
+    Testy poprawki przez model podstawiaja wlasne funkcje.
+
+    Bez monkeypatch - z tego samego powodu co wyzej (kolejnosc sprzatania).
+    """
+    import bedrock
+
+    def brak(*_a, **_k):
+        raise RuntimeError("test: brak modelu")
+    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne
+    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = brak
+    yield
+    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne = oryginaly

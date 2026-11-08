@@ -40,6 +40,7 @@ import autoryzacja
 import nazwy
 import osoby
 import poczta_polska
+import personalizacja
 import przesylki
 import sledzenie
 import prompty
@@ -79,6 +80,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
 app.include_router(przesylki.router)
+app.include_router(personalizacja.router)
 app.include_router(poczta_polska.router)
 app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
@@ -510,7 +512,7 @@ async def projekt_bez_zapisu(
     def praca(postep) -> dict:
         try:
             analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
-            projekt = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
+            projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
             cel = katalog / "projekt.docx"
             dokumenty.tekst_na_docx(projekt, cel)
             dane = cel.read_bytes()
@@ -524,17 +526,25 @@ async def projekt_bez_zapisu(
             "brakujace": projekt.count("<<BRAK:"),
             "do_wyboru": projekt.count("<<WYBOR:"),
             "docx": base64.b64encode(dane).decode("ascii"),
+            "zgodnosc": zgodnosc,
         }
 
     return await _wykonaj(request, praca, "projekt")
 
 
 def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
-              etykieta: str) -> str:
-    """Wywolanie modelu dla projektu z bledami zamienionymi na odpowiedzi HTTP."""
+              etykieta: str) -> tuple[str, dict]:
+    """Projekt z modelu po kontroli zasad kancelarii: (tekst, raport zgodnosci).
+
+    Zasady i styl kancelarii ida do modelu razem ze wzorem, a gotowy projekt
+    przechodzi przez personalizacja.skontroluj() ZANIM trafi do notariusza.
+    Bledy modelu zamieniamy na odpowiedzi HTTP.
+    """
+    rodzaje = personalizacja.rodzaje_sprawy(analiza["tresc"], polecenie)
+    ustawienia, blok = personalizacja.przygotuj(rodzaje)
     try:
-        return bedrock.sporzadz_projekt(
-            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa
+        projekt = bedrock.sporzadz_projekt(
+            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa, personalizacja=blok
         )
     except bedrock.Przeciazenie as blad:
         log.error("%s: projekt przerwany, limit zapytan Bedrock", etykieta)
@@ -542,6 +552,7 @@ def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dic
     except Exception as blad:
         log.error("%s: blad generowania (%s)", etykieta, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {blad}")
+    return personalizacja.skontroluj(projekt, ustawienia, rodzaje)
 
 
 class ZadanieRozmowy(BaseModel):
@@ -588,8 +599,8 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
 
     analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
     rozmowa = _wczytaj_rozmowe(katalog) if zadanie.z_rozmowa else []
-    projekt = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
-                        f"sprawa {identyfikator}")
+    projekt, zgodnosc = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
+                                  f"sprawa {identyfikator}")
 
     cel = katalog / "projekt.docx"
     dokumenty.tekst_na_docx(projekt, cel)
@@ -606,6 +617,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
             if nowa:
                 meta["nazwa"] = nowa
                 _zapisz_json(meta_plik, meta)
+    _zapisz_json(katalog / "zgodnosc.json", zgodnosc)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: projekt zapisany", identyfikator)
 
@@ -614,6 +626,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
         "brakujace": projekt.count("<<BRAK:"),
         "do_wyboru": projekt.count("<<WYBOR:"),
         "plik": f"/api/sprawy/{identyfikator}/plik",
+        "zgodnosc": zgodnosc,
     }
 
 
@@ -700,6 +713,8 @@ def wczytaj_sprawe(identyfikator: str):
     odczyt = json.loads(odczyt_plik.read_text("utf-8")) if odczyt_plik.exists() else {"pola": [], "braki": [], "rozbieznosci": []}
     projekt_plik = katalog / "projekt.txt"
     projekt = projekt_plik.read_text("utf-8") if projekt_plik.exists() else None
+    zgodnosc_plik = katalog / "zgodnosc.json"
+    zgodnosc = json.loads(zgodnosc_plik.read_text("utf-8")) if projekt and zgodnosc_plik.exists() else None
     return {
         "id": meta.get("id", identyfikator),
         "nazwa": _nazwa(katalog, meta),
@@ -719,6 +734,7 @@ def wczytaj_sprawe(identyfikator: str):
         "do_wyboru": projekt.count("<<WYBOR:") if projekt else 0,
         "plik": f"/api/sprawy/{identyfikator}/plik" if (katalog / "projekt.docx").exists() else None,
         "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator),
+        "zgodnosc": zgodnosc,
     }
 
 
