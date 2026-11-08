@@ -28,6 +28,8 @@ import dziennik
 import dokumenty
 import dokumenty_prawne
 import ekw
+import giif
+import ksiegi_notarialne
 import formularze
 import kalendarz
 import kalkulator
@@ -1299,6 +1301,146 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
 def ksiegi_sprawy(identyfikator: str):
     _katalog_sprawy(identyfikator)
     return ekw.wczytaj(identyfikator)
+
+
+# --- Ksiegi notarialne i zgloszenia do GIIF ------------------------------------
+# Repertorium A/P, ksiega depozytowa, dzienniki (ksiegi_notarialne.py) oraz
+# obieg zgloszen do GIIF / Szefa KAS (giif.py). Numery nadaje serwer,
+# poprawki zostaja w historii. Wysylka do SI*GIIF i do systemu KW MS odbywa
+# sie podpisem kwalifikowanym notariusza - tu rejestrujemy jej wynik.
+
+
+def _kto(request: Request) -> str:
+    return getattr(request.state, "email", "") or ""
+
+
+def _ksiegi(funkcja, *argumenty, **nazwane):
+    _tylko_w_chmurze()
+    try:
+        return funkcja(*argumenty, **nazwane)
+    except LookupError as blad:
+        raise HTTPException(404, str(blad))
+    except magazyn.KonfliktZapisu as blad:
+        raise HTTPException(409, str(blad))
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+
+
+class Poprawka(BaseModel):
+    zmiany: dict
+    powod: str
+
+
+class Uwaga(BaseModel):
+    tresc: str
+
+
+@app.get("/api/ksiegi-kancelarii")
+def definicje_ksiag():
+    return ksiegi_notarialne.definicje()
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/sumy")
+def sumy_repertorium(rok: int, miesiac: int | None = None):
+    return _ksiegi(ksiegi_notarialne.sumy, rok, miesiac)
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/skorowidz")
+def skorowidz_repertorium(rok: int):
+    return _ksiegi(ksiegi_notarialne.skorowidz, rok)
+
+
+@app.get("/api/ksiegi-kancelarii/{ksiega}")
+def lista_ksiegi(ksiega: str, rok: int | None = None):
+    return _ksiegi(ksiegi_notarialne.lista, ksiega, rok)
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}")
+def wpis_do_ksiegi(ksiega: str, dane: dict, request: Request):
+    wpis = _ksiegi(ksiegi_notarialne.dodaj, ksiega, dane, _kto(request))
+    log.info("ksiega %s: nowy wpis %s", ksiega, wpis["id"])
+    return wpis
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}/{wpis}/poprawka")
+def poprawka_w_ksiedze(ksiega: str, wpis: str, dane: Poprawka, request: Request):
+    wynik = _ksiegi(ksiegi_notarialne.popraw, ksiega, wpis, dane.zmiany, dane.powod, _kto(request))
+    log.info("ksiega %s: poprawka wpisu %s", ksiega, wpis)
+    return wynik
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}/{wpis}/uwagi")
+def uwaga_w_ksiedze(ksiega: str, wpis: str, dane: Uwaga, request: Request):
+    return _ksiegi(ksiegi_notarialne.dodaj_uwage, ksiega, wpis, dane.tresc, _kto(request))
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw")
+def wniosek_kw(wpis: str, dane: dict, request: Request):
+    return _ksiegi(ksiegi_notarialne.zarejestruj_wniosek_kw, wpis, dane, _kto(request))
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}")
+def status_wniosku_kw(wpis: str, wniosek: str, dane: dict, request: Request):
+    return _ksiegi(ksiegi_notarialne.zmien_status_wniosku_kw, wpis, wniosek, dane, _kto(request))
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/{wpis}/giif")
+def kwalifikacja_giif(wpis: str, kurs_eur: str = ""):
+    rep = _ksiegi(ksiegi_notarialne.wpis, "repertorium_a", wpis)
+    if rep is None:
+        raise HTTPException(404, "Nie ma takiego wpisu")
+    return _ksiegi(giif.kwalifikuj, rep, kurs_eur or None)
+
+
+class NoweZgloszenie(BaseModel):
+    rodzaj: str | None = None
+    rep_a_id: str = ""
+    kurs_eur: str = ""
+    dane: dict = {}
+
+
+class Wysylka(BaseModel):
+    identyfikator_si_giif: str
+    data_wysylki: str
+
+
+@app.get("/api/giif")
+def lista_zgloszen(status: str | None = None):
+    return {"definicje": giif.definicje(), "zgloszenia": _ksiegi(giif.lista, status),
+            "zalegle": _ksiegi(giif.zalegle)}
+
+
+@app.post("/api/giif")
+def nowe_zgloszenie(dane: NoweZgloszenie, request: Request):
+    if dane.rep_a_id:
+        z = _ksiegi(giif.z_repertorium, dane.rep_a_id, dane.rodzaj, dane.kurs_eur or None, _kto(request))
+    else:
+        z = _ksiegi(giif.utworz, dane.rodzaj or "", dane.dane, _kto(request))
+    log.info("giif: nowe zgloszenie %s rodzaj=%s", z["id"], z["rodzaj"])
+    return z
+
+
+@app.post("/api/giif/{zgloszenie}")
+def zmiana_zgloszenia(zgloszenie: str, dane: dict, request: Request):
+    return _ksiegi(giif.zmien, zgloszenie, dane, _kto(request))
+
+
+@app.post("/api/giif/{zgloszenie}/zatwierdz")
+def zatwierdz_zgloszenie(zgloszenie: str, request: Request):
+    return _ksiegi(giif.zatwierdz, zgloszenie, _kto(request))
+
+
+@app.post("/api/giif/{zgloszenie}/wysylka")
+def wysylka_zgloszenia(zgloszenie: str, dane: Wysylka, request: Request):
+    z = _ksiegi(giif.zarejestruj_wysylke, zgloszenie, dane.model_dump(), _kto(request))
+    log.info("giif: zgloszenie %s wyslane", zgloszenie)
+    return z
+
+
+@app.post("/api/giif/{zgloszenie}/upo")
+async def upo_zgloszenia(zgloszenie: str, request: Request, plik: UploadFile = File(...)):
+    tresc = await plik.read()
+    return _ksiegi(giif.zarejestruj_upo, zgloszenie, tresc, _kto(request))
 
 
 # --- Pomocnik notariusza ----------------------------------------------------

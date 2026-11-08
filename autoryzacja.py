@@ -69,7 +69,9 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
-                  "/api/pomocnik", "/api/mapa", "/api/zapytania")
+                  "/api/pomocnik", "/api/mapa", "/api/zapytania",
+                  # Repertorium i zgloszenia AML - tajemnica notarialna, art. 18 PrNot.
+                  "/api/ksiegi-kancelarii", "/api/giif")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
