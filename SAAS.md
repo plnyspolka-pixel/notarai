@@ -22,6 +22,10 @@
   Strona `/poswiadczenia`, API `POST /api/poswiadczenia/opis` (wymaga logowania). Pliki tylko
   w katalogu tymczasowym na czas odczytu, nic nie zapisujemy ani nie logujemy. Model:
   `PIECZAPP_POSWIADCZENIA_MODEL` (domyślnie `eu.anthropic.claude-sonnet-4-6`, tylko profil `eu.`).
+  Dodatkowo: projekt klauzuli poświadczenia (taksa netto, VAT, podstawa § 13, cechy dokumentu)
+  z drukiem, automatyczna numeracja Rep. A i miejscowość (ustawienia w przeglądarce, bez danych
+  klientów), nasłuch folderu kopiarki w Chrome/Edge (File System Access API: nowy skan jest
+  odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki

@@ -66,7 +66,25 @@ button.wtorny:hover{border-color:var(--tekst3)}
 .lista-pusta{color:var(--tekst3);font-size:14px}
 .suma{font-weight:500;margin-top:12px}
 small.wskaz{display:block;color:var(--tekst3);font-size:12.5px;margin-top:6px}
-@media (max-width:520px){ .kol{padding-top:16px} h1{font-size:22px} .przyciski button{flex:1 1 100%} }
+.ustawienia{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=text]{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+.wpis-nr{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tekst2);margin:10px 0 6px}
+.wpis-nr input{width:140px;padding:6px 10px}
+.wpis textarea.klauzula{font-family:var(--serif);font-size:14.5px;min-height:170px}
+details.klauzula-el{margin-top:10px}
+details.klauzula-el summary{cursor:pointer;font-size:13.5px;color:var(--tekst2)}
+.folder{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:14px;color:var(--tekst2)}
+.kropka{width:9px;height:9px;border-radius:50%;background:var(--tekst3);flex:none}
+.kropka.wl{background:var(--ok)}
+#druk{display:none}
+@media print{
+  body{background:#fff;color:#000}
+  .kol{display:none}
+  #druk{display:block}
+  #druk .kl{white-space:pre-wrap;font:12pt/1.45 'Times New Roman',serif;break-inside:avoid;
+    border-bottom:1px dashed #999;padding:0 0 10mm;margin:0 0 10mm}
+}
+@media (max-width:520px){ .ustawienia{grid-template-columns:1fr} .kol{padding-top:16px} h1{font-size:22px} .przyciski button{flex:1 1 100%} }
 </style>
 </head>
 <body>
@@ -82,6 +100,17 @@ small.wskaz{display:block;color:var(--tekst3);font-size:12.5px;margin-top:6px}
     <button type="button" id="btn-zaloguj">Przejdź do logowania</button>
   </div>
 
+  <details class="karta" id="ustawienia-karta">
+    <summary><b>Ustawienia kancelarii</b> <span class="wskaz" id="ustawienia-skrot"></span></summary>
+    <div class="ustawienia" style="margin-top:14px">
+      <div><label class="etykieta" for="miejscowosc">Miejscowość (do klauzuli)</label>
+        <input type="text" id="miejscowosc" placeholder="np. Poznań" autocomplete="off"></div>
+      <div><label class="etykieta" for="nastepny-nr">Następny numer Rep. A</label>
+        <input type="text" id="nastepny-nr" placeholder="np. 1234/2026" autocomplete="off" inputmode="text"></div>
+    </div>
+    <small class="wskaz">Każdy odczytany dokument dostaje kolejny numer. Puste pole = bez numeracji. Ustawienia zostają w tej przeglądarce.</small>
+  </details>
+
   <div class="karta">
     <label class="etykieta" for="rodzaj">Rodzaj poświadczenia</label>
     <select id="rodzaj">
@@ -96,6 +125,14 @@ small.wskaz{display:block;color:var(--tekst3);font-size:12.5px;margin-top:6px}
     </div>
     <div class="strefa" id="strefa">Przeciągnij tu skan z kopiarki (PDF) lub zdjęcia.
       <small class="wskaz">Kolejne zdjęcia to kolejne strony. Jeden skan może zawierać kilka dokumentów - zostaną rozdzielone.</small></div>
+    <div class="folder" id="folder" hidden>
+      <span class="kropka" id="folder-kropka"></span>
+      <span id="folder-stan">Folder kopiarki: nie wybrano.</span>
+      <button type="button" class="wtorny" id="btn-folder">Wybierz folder kopiarki</button>
+      <button type="button" class="wtorny" id="btn-folder-stop" hidden>Zatrzymaj</button>
+    </div>
+    <small class="wskaz" id="folder-wskaz" hidden>Wskaż folder, do którego kopiarka zapisuje skany. Każdy nowy skan zostanie odczytany sam,
+      a plik przeniesiony do podfolderu „odczytane”. Działa w Chrome i Edge na komputerze.</small>
     <input type="file" id="plik-aparat" accept="image/*" capture="environment" hidden>
     <input type="file" id="plik-skan" accept="image/*,application/pdf" multiple hidden>
     <div class="miniatury" id="miniatury"></div>
@@ -112,12 +149,14 @@ small.wskaz{display:block;color:var(--tekst3);font-size:12.5px;margin-top:6px}
     <div class="suma" id="suma" hidden></div>
     <div class="przyciski" id="eksport" hidden>
       <button type="button" class="wtorny" id="btn-kopiuj-wszystkie">Kopiuj wszystkie</button>
+      <button type="button" class="wtorny" id="btn-drukuj">Drukuj klauzule</button>
       <button type="button" class="wtorny" id="btn-csv">Pobierz CSV</button>
       <button type="button" class="wtorny" id="btn-nowa-lista">Nowa lista</button>
     </div>
     <small class="wskaz">Lista żyje tylko w tej karcie przeglądarki - po zamknięciu znika.</small>
   </div>
 </div>
+<div id="druk" aria-hidden="true"></div>
 
 <script>
 "use strict";
@@ -130,6 +169,41 @@ const MAX_STRON = 20;
 
 let strony = [];   // {plik: File|Blob, nazwa, podglad}
 let wpisy = [];    // wpisy do repertorium (tylko w pamieci karty)
+
+/* ---------- ustawienia kancelarii (bez danych klientow) ---------- */
+
+function czytaj(klucz){ try { return localStorage.getItem(klucz) || ""; } catch { return ""; } }
+function zapisz(klucz, w){ try { w ? localStorage.setItem(klucz, w) : localStorage.removeItem(klucz); } catch { /* tryb prywatny */ } }
+
+$("miejscowosc").value = czytaj("posw-miejscowosc");
+$("nastepny-nr").value = czytaj("posw-nastepny-nr");
+function skrotUstawien(){
+  const m = $("miejscowosc").value.trim(), n = $("nastepny-nr").value.trim();
+  $("ustawienia-skrot").textContent = [m, n && "następny Rep. A " + n].filter(Boolean).join(" · ") || "uzupełnij miejscowość i numer";
+}
+$("miejscowosc").oninput = () => { zapisz("posw-miejscowosc", $("miejscowosc").value.trim()); skrotUstawien(); rysujWpisy(); };
+$("nastepny-nr").oninput = () => { zapisz("posw-nastepny-nr", $("nastepny-nr").value.trim()); skrotUstawien(); };
+skrotUstawien();
+if (!czytaj("posw-miejscowosc")) $("ustawienia-karta").open = true;
+
+/* "1234/2026" -> "1234/2026" teraz, "1235/2026" w polu. Numer bez cyfr = bez numeracji. */
+function przydzielNumer(){
+  const pole = $("nastepny-nr"), biezacy = pole.value.trim();
+  const m = biezacy.match(/^(\D*)(\d+)(.*)$/);
+  if (!m) return "";
+  const kolejny = String(+m[2] + 1).padStart(m[2].length, "0");
+  pole.value = m[1] + kolejny + m[3];
+  zapisz("posw-nastepny-nr", pole.value);
+  skrotUstawien();
+  return biezacy;
+}
+
+function klauzulaWpisu(w){
+  if (w.klauzulaReczna) return w.klauzulaReczna;
+  return (w.klauzula || "")
+    .replace("[nr]", w.nr_rep || "[nr]")
+    .replace("[miejscowość]", $("miejscowosc").value.trim() || "[miejscowość]");
+}
 
 function token(){ try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; } }
 
@@ -228,20 +302,27 @@ function stan(tekst, blad = false){ $("stan").textContent = tekst; $("stan").cla
 
 /* ---------- odczyt ---------- */
 
-$("btn-odczytaj").onclick = async () => {
+/* Pliki jednego okazania -> wpisy na liscie. Rzuca blad z komunikatem serwera. */
+async function odczytajPliki(pliki){
   const dane = new FormData();
-  strony.forEach(s => dane.append("pliki", s.plik, s.nazwa));
+  pliki.forEach(p => dane.append("pliki", p.plik, p.nazwa));
   dane.append("rodzaj", $("rodzaj").value);
+  const odp = await api("/api/poswiadczenia/opis", {method: "POST", body: dane});
+  const wynik = await odp.json().catch(() => ({}));
+  if (!odp.ok) throw new Error(wynik.detail || "Nie udało się odczytać dokumentu.");
+  for (const d of wynik.dokumenty) wpisy.push({...d, rodzaj: wynik.rodzaj, nr_rep: przydzielNumer()});
+  rysujWpisy();
+  return wynik.dokumenty.length;
+}
+const ileDok = n => n === 1 ? "1 dokument" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? `${n} dokumenty` : `${n} dokumentów`;
+
+$("btn-odczytaj").onclick = async () => {
   $("btn-odczytaj").disabled = true;
   stan("Odczytuję dokument…");
   try {
-    const odp = await api("/api/poswiadczenia/opis", {method: "POST", body: dane});
-    const wynik = await odp.json().catch(() => ({}));
-    if (!odp.ok) throw new Error(wynik.detail || "Nie udało się odczytać dokumentu.");
-    for (const d of wynik.dokumenty) wpisy.push({...d, rodzaj: wynik.rodzaj});
-    stan(wynik.dokumenty.length === 1 ? "Gotowe: 1 dokument." : `Gotowe: ${wynik.dokumenty.length} dokumenty.`);
+    const n = await odczytajPliki(strony);
+    stan("Gotowe: " + ileDok(n) + ".");
     wyczyscStrony();
-    rysujWpisy();
   } catch (blad) {
     stan(blad.message, true);
     $("btn-odczytaj").disabled = !strony.length;
@@ -281,7 +362,20 @@ function rysujWpisy(){
     pole(dl, "dotyczy", w.dotyczy);
     pole(dl, "postać", w.postac);
     if (w.jezyk && w.jezyk.toLowerCase() !== "polski") pole(dl, "język", w.jezyk);
-    el.append(gora, opis, dl);
+    const nr = document.createElement("label"); nr.className = "wpis-nr";
+    nr.append("Rep. A nr");
+    const nrPole = document.createElement("input"); nrPole.type = "text"; nrPole.value = w.nr_rep || "";
+    nrPole.placeholder = "np. 1234/2026";
+    nrPole.oninput = () => { w.nr_rep = nrPole.value.trim(); if (!w.klauzulaReczna) klPole.value = klauzulaWpisu(w); };
+    nr.append(nrPole);
+    const kl = document.createElement("details"); kl.className = "klauzula-el";
+    const klTyt = document.createElement("summary"); klTyt.textContent = "Klauzula poświadczenia (projekt do sprawdzenia)";
+    const klPole = document.createElement("textarea"); klPole.className = "klauzula";
+    klPole.value = klauzulaWpisu(w);
+    klPole.setAttribute("aria-label", "Klauzula poświadczenia, wpis " + (i + 1));
+    klPole.oninput = () => { w.klauzulaReczna = klPole.value; };
+    kl.append(klTyt, klPole);
+    el.append(gora, nr, opis, dl);
     if (w.cechy && w.cechy.length) {
       const c = document.createElement("div"); c.className = "cechy";
       c.textContent = "Do klauzuli (cechy dokumentu): " + w.cechy.join("; ");
@@ -299,8 +393,11 @@ function rysujWpisy(){
     const usun = document.createElement("button"); usun.type = "button"; usun.className = "wtorny";
     usun.textContent = "Usuń";
     usun.onclick = () => { wpisy.splice(i, 1); rysujWpisy(); };
-    przyciski.append(kopiuj, usun);
-    el.append(przyciski);
+    const kopiujKl = document.createElement("button"); kopiujKl.type = "button"; kopiujKl.className = "wtorny";
+    kopiujKl.textContent = "Kopiuj klauzulę";
+    kopiujKl.onclick = () => kopiujTekst(klauzulaWpisu(w), kopiujKl);
+    przyciski.append(kopiuj, kopiujKl, usun);
+    el.append(kl, przyciski);
     kontener.append(el);
   });
   const razem = wpisy.reduce((s, w) => s + (w.taksa_brutto || 0), 0);
@@ -318,12 +415,12 @@ async function kopiujTekst(tekst, przycisk){
 }
 
 $("btn-kopiuj-wszystkie").onclick = e =>
-  kopiujTekst(wpisy.map((w, i) => `${i + 1}. ${w.opis}`).join("\n"), e.target);
+  kopiujTekst(wpisy.map((w, i) => `${w.nr_rep || i + 1}\t${w.opis}`).join("\n"), e.target);
 
 $("btn-csv").onclick = () => {
   const pole = x => '"' + String(x ?? "").replace(/"/g, '""') + '"';
-  const wiersze = [["lp", "tresc_czynnosci", "stron", "taksa_netto", "taksa_brutto", "numer", "data", "wystawca"]]
-    .concat(wpisy.map((w, i) => [i + 1, w.opis, w.stron, w.taksa_netto, w.taksa_brutto, w.numer, w.data, w.wystawca]));
+  const wiersze = [["lp", "nr_repertorium", "tresc_czynnosci", "stron", "taksa_netto", "vat", "taksa_brutto", "podstawa", "numer_dokumentu", "data_dokumentu", "wystawca"]]
+    .concat(wpisy.map((w, i) => [i + 1, w.nr_rep, w.opis, w.stron, w.taksa_netto, w.taksa_vat, w.taksa_brutto, w.podstawa, w.numer, w.data, w.wystawca]));
   const csv = "﻿" + wiersze.map(r => r.map(pole).join(";")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
@@ -336,6 +433,125 @@ $("btn-nowa-lista").onclick = () => {
   if (wpisy.length && !confirm("Usunąć wszystkie opisy z listy?")) return;
   wpisy = []; rysujWpisy();
 };
+
+$("btn-drukuj").onclick = () => {
+  const druk = $("druk");
+  druk.replaceChildren(...wpisy.map(w => { const d = document.createElement("div"); d.className = "kl"; d.textContent = klauzulaWpisu(w); return d; }));
+  window.print();
+};
+
+/* ---------- folder kopiarki (File System Access API, Chrome/Edge) ----------
+   Kopiarka zapisuje skany do folderu sieciowego albo na dysk komputera.
+   Strona sprawdza go co kilka sekund; nowy plik, ktorego rozmiar przestal
+   rosnac (kopiarka skonczyla zapis), idzie do odczytu i trafia do
+   podfolderu "odczytane". Nic nie zostaje na serwerze. W IndexedDB trzymamy
+   tylko uchwyt folderu (bez tresci), zeby po odswiezeniu wystarczylo klikniecie. */
+const SKANY = /\.(pdf|jpe?g|png|tiff?|webp)$/i;
+const CO_ILE_MS = 4000;
+let folder = null, zegarFolderu = null, wTrakcie = false;
+const rozmiary = new Map();   // nazwa -> rozmiar z poprzedniego sprawdzenia
+const pominiete = new Set();  // pliki, ktorych nie dalo sie odczytac (do zmiany nazwy przez czlowieka)
+
+function bazaUchwytow(){
+  return new Promise((gotowe, blad) => {
+    const z = indexedDB.open("notarai-poswiadczenia", 1);
+    z.onupgradeneeded = () => z.result.createObjectStore("uchwyty");
+    z.onsuccess = () => gotowe(z.result);
+    z.onerror = () => blad(z.error);
+  });
+}
+async function uchwyt(wartosc){
+  try {
+    const baza = await bazaUchwytow();
+    return await new Promise(gotowe => {
+      const t = baza.transaction("uchwyty", wartosc === undefined ? "readonly" : "readwrite").objectStore("uchwyty");
+      const z = wartosc === undefined ? t.get("folder") : (wartosc ? t.put(wartosc, "folder") : t.delete("folder"));
+      z.onsuccess = () => gotowe(z.result); z.onerror = () => gotowe(null);
+    });
+  } catch { return null; }
+}
+
+function stanFolderu(tekst, wlaczony){
+  $("folder-stan").textContent = tekst;
+  $("folder-kropka").classList.toggle("wl", !!wlaczony);
+  $("btn-folder-stop").hidden = !wlaczony;
+}
+
+async function wlaczFolder(f){
+  const opcje = {mode: "readwrite"};
+  if (await f.queryPermission(opcje) !== "granted" && await f.requestPermission(opcje) !== "granted") {
+    stanFolderu("Brak zgody na folder " + f.name + ".", false); return;
+  }
+  folder = f; rozmiary.clear(); pominiete.clear();
+  await uchwyt(f);
+  stanFolderu(`Nasłuchuję folderu „${f.name}”.`, true);
+  $("btn-folder").textContent = "Zmień folder";
+  $("btn-folder").onclick = wybierzFolder;
+  clearInterval(zegarFolderu);
+  zegarFolderu = setInterval(sprawdzFolder, CO_ILE_MS);
+  sprawdzFolder();
+}
+
+async function przeniesDoOdczytanych(plikUchwyt, plik){
+  const cel = await folder.getDirectoryHandle("odczytane", {create: true});
+  if (plikUchwyt.move) { try { await plikUchwyt.move(cel); return; } catch { /* starszy Chrome */ } }
+  const nazwa = Date.now() + "-" + plik.name;
+  const zapis = await (await cel.getFileHandle(nazwa, {create: true})).createWritable();
+  await zapis.write(plik); await zapis.close();
+  await folder.removeEntry(plik.name);
+}
+
+async function sprawdzFolder(){
+  if (!folder || wTrakcie) return;
+  wTrakcie = true;
+  try {
+    for await (const [nazwa, wpis] of folder.entries()) {
+      if (wpis.kind !== "file" || !SKANY.test(nazwa) || pominiete.has(nazwa)) continue;
+      const plik = await wpis.getFile();
+      if (rozmiary.get(nazwa) !== plik.size || Date.now() - plik.lastModified < 2000) {
+        rozmiary.set(nazwa, plik.size); continue;      // kopiarka jeszcze zapisuje
+      }
+      rozmiary.delete(nazwa);
+      stanFolderu(`Odczytuję nowy skan z folderu „${folder.name}”…`, true);
+      try {
+        const pdf = /\.pdf$/i.test(nazwa);
+        const gotowy = pdf ? plik : await pomniejsz(plik);
+        const n = await odczytajPliki([{plik: gotowy, nazwa: pdf ? "skan.pdf" : "skan.jpg"}]);
+        await przeniesDoOdczytanych(wpis, plik);
+        stanFolderu(`Nasłuchuję folderu „${folder.name}”. Ostatni skan: ${ileDok(n)}.`, true);
+      } catch (blad) {
+        pominiete.add(nazwa);
+        stanFolderu(`Skan „${nazwa}” pominięty: ${blad.message}`, true);
+      }
+    }
+  } catch (blad) {
+    clearInterval(zegarFolderu); folder = null;
+    stanFolderu("Folder niedostępny (" + blad.message + "). Wybierz go ponownie.", false);
+  } finally { wTrakcie = false; }
+}
+
+async function wybierzFolder(){
+  try { await wlaczFolder(await showDirectoryPicker({id: "notarai-kopiarka", mode: "readwrite"})); }
+  catch (blad) { if (blad.name !== "AbortError") stanFolderu(blad.message, false); }
+}
+
+if (window.showDirectoryPicker) {
+  $("folder").hidden = $("folder-wskaz").hidden = false;
+  $("btn-folder").onclick = wybierzFolder;
+  $("btn-folder-stop").onclick = async () => {
+    clearInterval(zegarFolderu); folder = null; await uchwyt(null);
+    stanFolderu("Folder kopiarki: nie wybrano.", false);
+    $("btn-folder").textContent = "Wybierz folder kopiarki";
+  };
+  // Po odswiezeniu: folder pamietany, ale zgode przegladarka daje dopiero po kliknieciu.
+  uchwyt().then(async f => {
+    if (!f) return;
+    if (await f.queryPermission({mode: "readwrite"}) === "granted") { wlaczFolder(f); return; }
+    stanFolderu(`Folder „${f.name}” czeka na wznowienie.`, false);
+    $("btn-folder").textContent = "Wznów nasłuch";
+    $("btn-folder").onclick = () => wlaczFolder(f).catch(b => stanFolderu(b.message, false));
+  });
+}
 
 window.addEventListener("beforeunload", e => { if (wpisy.length) { e.preventDefault(); e.returnValue = ""; } });
 </script>

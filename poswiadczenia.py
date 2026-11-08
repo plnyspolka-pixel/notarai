@@ -107,6 +107,59 @@ def opis_repertorium(dokument: dict, rodzaj: str, stron: int) -> str:
     return f"{poczatek} – {przedmiot} ({_strony_slownie(stron)})"
 
 
+MIESIACE = ("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+            "sierpnia", "września", "października", "listopada", "grudnia")
+
+# Znaczniki, ktore przegladarka podmienia na numer repertorium i miejscowosc
+# kancelarii (ustawienia notariusza, nie dane klienta).
+NR = "[nr]"
+MIEJSCE = "[miejscowość]"
+
+_POCZATEK_KLAUZULI = {
+    "odpis": "Poświadczam zgodność niniejszego odpisu z okazanym mi dokumentem",
+    "kopia": "Poświadczam zgodność niniejszej kopii z okazanym mi dokumentem",
+    "wyciag": "Poświadczam zgodność niniejszego wyciągu z okazanym mi dokumentem",
+}
+
+
+def data_slownie(dzien: date) -> str:
+    return f"{dzien.day} {MIESIACE[dzien.month - 1]} {dzien.year} r."
+
+
+def _zl(kwota: float) -> str:
+    return f"{kwota:,.2f}".replace(",", " ").replace(".", ",") + " zł"
+
+
+def _przedmiot(dokument: dict) -> str:
+    """Przedmiot w dopelniaczu, z tej samej tresci co opis do repertorium."""
+    opis = opis_repertorium(dokument, "odpis", 1)
+    return opis.split(" – ", 1)[1].rsplit(" (", 1)[0]
+
+
+def klauzula(dokument: dict, rodzaj: str, stron: int, pozycja: dict, dzien: date) -> str:
+    """Projekt klauzuli na kopii. Notariusz czyta ja z dokumentem w reku -
+    cechy dokumentu pochodza z odczytu i trzeba je potwierdzic."""
+    przedmiot = _przedmiot(dokument)
+    if rodzaj == "data":
+        zdania = [f"Stwierdzam, że w dniu {data_slownie(dzien)} o godzinie [godzina] okazano mi "
+                  f"dokument – {przedmiot} ({_strony_slownie(stron)})."]
+    else:
+        zdania = [f"{_POCZATEK_KLAUZULI.get(rodzaj, _POCZATEK_KLAUZULI['odpis'])} – {przedmiot} "
+                  f"({_strony_slownie(stron)})."]
+        postac = _tekst(dokument.get("postac"), 120)
+        if postac:
+            zdania.append(f"Okazany dokument: {postac}.")
+        cechy = _lista(dokument.get("cechy"))
+        zdania.append("Na dokumencie: " + "; ".join(cechy) + "." if cechy
+                      else "Dokument nie zawiera dopisków, poprawek ani uszkodzeń.")
+    vat = pozycja.get("vat") or 0.0
+    zdania.append(f"Pobrano taksę notarialną w kwocie {_zl(pozycja.get('netto') or 0.0)} na podstawie "
+                  f"{pozycja.get('podstawa', '§ 13')} rozporządzenia Ministra Sprawiedliwości z dnia "
+                  "28 czerwca 2004 r. w sprawie maksymalnych stawek taksy notarialnej oraz podatek "
+                  f"od towarów i usług w kwocie {_zl(vat)}.")
+    return "\n".join([f"Repertorium A nr {NR}", *zdania, f"{MIEJSCE}, dnia {data_slownie(dzien)}"])
+
+
 def _zakres(dokument: dict, wszystkich: int) -> tuple[int, int]:
     """Strony dokumentu [od, do] w numeracji 1..wszystkich, poprawione."""
     try:
@@ -157,11 +210,13 @@ def _lista(wartosc, maks: int = 8) -> list[str]:
 def zloz_wynik(odpowiedz: dict, wszystkich: int, rodzaj: str, dzien: date | None = None) -> dict:
     """Odpowiedz modelu -> wpisy do repertorium z taksa. Bez wywolan modelu."""
     pozycja = RODZAJE.get(rodzaj, RODZAJE["odpis"])[1]
+    dzien = dzien or date.today()
     wpisy = []
     for nr, d in enumerate(_uporzadkuj(odpowiedz, wszystkich), start=1):
         stron = d["strona_do"] - d["strona_od"] + 1
-        kalkulacja = taksa.oblicz({"data": (dzien or date.today()).isoformat(),
+        kalkulacja = taksa.oblicz({"data": dzien.isoformat(),
                                    "stale": [{"id": pozycja, "dokumentow": 1, "stron_dokumentu": stron}]})
+        pozycja_taksy = kalkulacja["pozycje"][0] if kalkulacja["pozycje"] else {}
         wpisy.append({
             "nr": nr,
             "strona_od": d["strona_od"], "strona_do": d["strona_do"], "stron": stron,
@@ -176,11 +231,15 @@ def zloz_wynik(odpowiedz: dict, wszystkich: int, rodzaj: str, dzien: date | None
             "cechy": _lista(d.get("cechy")),
             "niepewne": _lista(d.get("niepewne")),
             "opis": opis_repertorium(d, rodzaj, stron),
-            "taksa_netto": kalkulacja["pozycje"][0]["netto"] if kalkulacja["pozycje"] else 0.0,
+            "taksa_netto": pozycja_taksy.get("netto", 0.0),
+            "taksa_vat": pozycja_taksy.get("vat", 0.0),
             "taksa_brutto": kalkulacja["razem"],
+            "podstawa": pozycja_taksy.get("podstawa", ""),
+            "klauzula": klauzula(d, rodzaj, stron, pozycja_taksy, dzien),
         })
     return {
         "rodzaj": rodzaj if rodzaj in RODZAJE else "odpis",
+        "znaczniki": {"nr": NR, "miejscowosc": MIEJSCE},
         "stron": wszystkich,
         "dokumenty": wpisy,
         "razem_brutto": round(sum(w["taksa_brutto"] for w in wpisy), 2),
@@ -190,13 +249,25 @@ def zloz_wynik(odpowiedz: dict, wszystkich: int, rodzaj: str, dzien: date | None
 # --- odczyt ------------------------------------------------------------------
 
 def _tresc_dla_modelu(strony: list[dict]) -> list[dict]:
-    """Strony jako obrazy (cala strona; naglowek dokumentu jest czytelny bez
-    pasow) plus warstwa tekstowa PDF, gdy jest."""
+    """Strony jako obrazy plus warstwa tekstowa PDF, gdy jest.
+
+    Kazda strona idzie w calosci. Pasy w wyzszej rozdzielczosci (drobny druk
+    numeru faktury, NIP, daty) dokladamy stronom od poczatku, dopoki laczna
+    liczba obrazow miesci sie w limicie Bedrock - przy jednym, dwustronicowym
+    dokumencie to zwykle wszystkie pasy.
+    """
+    obrazy_stron = [dokumenty.obrazy_strony(s) for s in strony]
+    wolne = bedrock.MAX_OBRAZOW - len(strony)
     tresc: list[dict] = []
-    for nr, strona in enumerate(strony, start=1):
-        obrazy = dokumenty.obrazy_strony(strona)
+    for nr, obrazy in enumerate(obrazy_stron, start=1):
         tresc.append({"text": f"=== STRONA {nr} z {len(strony)} ==="})
         tresc.append({"image": {"format": "png", "source": {"bytes": obrazy["calosc"]}}})
+        if obrazy["pasy"] and len(obrazy["pasy"]) <= wolne:
+            wolne -= len(obrazy["pasy"])
+            for i, pas in enumerate(obrazy["pasy"], start=1):
+                tresc.append({"text": f"STRONA {nr}, pas {i} z {len(obrazy['pasy'])} od gory, "
+                                      "wyzsza rozdzielczosc (pasy zachodza na siebie)."})
+                tresc.append({"image": {"format": "png", "source": {"bytes": pas}}})
         if obrazy["tekst"]:
             tresc.append({"text": f"STRONA {nr} - WARSTWA TEKSTOWA PDF:\n" + obrazy["tekst"][:6000]})
     tresc.append({"text": prompty.polecenie_poswiadczenia(len(strony))})
