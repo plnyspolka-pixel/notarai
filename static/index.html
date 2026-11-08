@@ -1419,6 +1419,7 @@ function wyczyscDanePoWylogowaniu(){
     .forEach(id => $(id)?.replaceChildren());
   ["polecenie", "nazwa2", "sygn2", "msg2", "msg3", "pliki"]
     .forEach(id => { if ($(id)) $(id).value = ""; });
+  window.resetujKokpit?.();
   window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
 }
 
@@ -3160,6 +3161,7 @@ $("btn-odczytaj").onclick = async () => {
       wynik.skany = [...skany].map(s => s.name);
       await zapiszSpraweNaDysku(wynik, wzor, skany);
     }
+    if (sesjaZadania !== pokolenieSesji || numerSprawy !== pokolenieOtwierania) return;
     sprawa = wynik;
     rozmowa = wynik.rozmowa || [];
     $("sygn2").value = wynik.sygnatura || "";
@@ -3388,7 +3390,8 @@ $("btn-generuj").onclick = async () => {
       await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
       await dysk.zapiszPlik(katalog, "projekt.txt", wynik.tekst);
       await dysk.zapiszJson(katalog, "odczyt.json", {
-        pola: sprawa.pola, braki: sprawa.braki || [], rozbieznosci: sprawa.rozbieznosci || [],
+        pola: edytowanaSprawa.pola, braki: edytowanaSprawa.braki || [],
+        rozbieznosci: edytowanaSprawa.rozbieznosci || [],
       });
     } else {
       const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
