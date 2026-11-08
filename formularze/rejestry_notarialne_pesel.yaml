@@ -1,5 +1,5 @@
 # Rejestr Zastrzezen PESEL - modul w systemie "Rejestry Notarialne" KRN.
-# STATUS: szkic. Selektory do ustalenia po zalogowaniu notariusza do systemu
+# STATUS: szkic - czeka na dostep: docs/czeka-na-dostep.md, NA-4. Selektory do ustalenia po zalogowaniu notariusza do systemu
 # (patrz docs/formularze.md). Dopoki status != gotowe, dziala tylko tryb podgladu.
 system: rejestry_notarialne_pesel
 opis: Sprawdzenie zastrzezenia numeru PESEL strony (modul KRN)

@@ -40,7 +40,7 @@ import magazyn
 
 PLIK = "giif"
 PROG_EUR = Decimal("15000")
-TERMIN_DNI = 7  # 7 dni od sporzadzenia aktu / rejestracji APD (art. 72 ustawy AML, art. 84a Op);
+TERMIN_DNI = 7  # do potwierdzenia: docs/czeka-na-dostep.md NA-6; 7 dni od sporzadzenia aktu / rejestracji APD (art. 72 ustawy AML, art. 84a Op);
                 # sposob liczenia (dni kalendarzowe, swieta) - komunikat GIIF nr 15, do potwierdzenia
 
 RODZAJE = {

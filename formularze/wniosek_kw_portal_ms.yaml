@@ -1,7 +1,7 @@
 # Wniosek o wpis w ksiedze wieczystej - portal MS (elektroniczne postepowanie
 # wieczystoksiegowe, art. 92 par. 4 PrNot). Pomocnik wypelnia, notariusz
 # podpisuje kwalifikowanym podpisem i wysyla SAM.
-# STATUS: szkic. Selektory do ustalenia na zalogowanym koncie notariusza
+# STATUS: szkic - czeka na dostep: docs/czeka-na-dostep.md, NA-1. Selektory do ustalenia na zalogowanym koncie notariusza
 # (nagranie jednego wniosku w trybie podgladu - patrz docs/ksiegi-i-giif.md).
 # Dopoki status != gotowe, dziala tylko tryb podgladu.
 system: wniosek_kw_portal_ms

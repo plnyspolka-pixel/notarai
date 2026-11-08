@@ -50,3 +50,11 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   konsolę i nie w Terraform.
 - Tryb domyślny aplikacji to lokalny; tryb SaaS włączają zmienne opisane
   w `SAAS.md` i `.env.example`.
+
+### Zadania czekające na dostęp (testy na żywo)
+- Rejestr: `docs/czeka-na-dostep.md` (pozycje `NA-n`). Gdy użytkownik mówi,
+  że jest dostęp (konto notariusza, środowisko testowe GIIF, portal MS itp.),
+  zacznij od tej listy i prowadź test na żywo według kroków z pozycji.
+- Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
+  dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
+  i commitem (nie usuwaj).
