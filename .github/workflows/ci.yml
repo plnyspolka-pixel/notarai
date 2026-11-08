@@ -40,6 +40,7 @@ jobs:
       - name: Sprawdz skladnie skryptow i HTML
         run: |
           node --check static/kokpit.js
+          node --check static/rezerwacje-hurtowe.js
           python scripts/check_frontend.py
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
