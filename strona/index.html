@@ -4,66 +4,157 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notarai - asystent kancelarii notarialnej</title>
-<meta name="description" content="notarai przygotowuje projekt aktu ze skanów i przeklikuje za Ciebie portale rejestrów. Dane zostają w Unii Europejskiej, a ostatnie kliknięcie zawsze należy do notariusza.">
-<link rel="icon" href="favicon.png">
+<meta name="description" content="NotarAI dla kancelarii notarialnych: AI odczytuje skany, przygotowuje projekty aktów na Twoich wzorach i pomaga w obsłudze rejestrów. Notariusz zachowuje pełną kontrolę.">
+<meta name="theme-color" content="#071d49">
+<link rel="icon" type="image/svg+xml" href="logo-mark.svg">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="brand-site.css">
 </head>
 <body>
 
-<header class="naglowek">
-  <div class="szer naglowek-w">
-    <a class="marka" href="#">
-      <img src="favicon.png" alt="" width="32" height="32">
-      <span>notarai</span>
+<!-- Lightweight inline icon sprite, no external UI library. -->
+<svg class="brand-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <symbol id="bi-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="bi-play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7V5Z"/></symbol>
+  <symbol id="bi-shield" viewBox="0 0 24 24"><path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="bi-chip" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></symbol>
+  <symbol id="bi-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="bi-scales" viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 7h8L6 7Zm12 0-4 7h8l-4-7Z"/></symbol>
+  <symbol id="bi-file" viewBox="0 0 24 24"><path d="M13 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M13 2v8h8M7 14h10M7 18h7"/></symbol>
+  <symbol id="bi-fileplus" viewBox="0 0 24 24"><path d="M13 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M13 2v8h8m-9 4v6m-3-3h6"/></symbol>
+  <symbol id="bi-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></symbol>
+  <symbol id="bi-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m0 4a5 5 0 0 1 4 5v1"/></symbol>
+  <symbol id="bi-stack" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5Zm-10 10 10 5 10-5M2 17l10 5 10-5"/></symbol>
+  <symbol id="bi-spark" viewBox="0 0 24 24"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/><path d="m19 2 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></symbol>
+  <symbol id="bi-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M9 2h6l1 3 3 1 3 4-2 3 1 3-4 3-3-1-3 2-4-2-1-3-3-2 1-5 3-1 2-5Z"/></symbol>
+  <symbol id="bi-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+</svg>
+
+<header class="brand-header">
+  <div class="szer brand-header__inner">
+    <a class="brand-logo" href="./" aria-label="notarai — strona główna">
+      <img class="brand-logo__mark" src="logo-mark.svg" width="47" height="47" alt="">
+      <span class="brand-logo__word">notar<strong>ai</strong></span>
     </a>
-    <nav class="menu" aria-label="Sekcje strony">
-      <a href="#klikamy">Klikamy za Ciebie</a>
+
+    <nav id="brand-primary-nav" class="brand-nav" aria-label="Nawigacja główna">
+      <a href="#klikamy">Rozwiązania</a>
       <a href="#latwo">Jak to działa</a>
       <a href="#dane">Bezpieczeństwo</a>
-      <a href="#zgodnosc">Zgodność</a>
       <a href="#cennik">Cennik</a>
       <a href="#kontakt">Kontakt</a>
     </nav>
-    <a class="przycisk maly" href="https://app.notarai.pl">Zaloguj się</a>
+
+    <div class="brand-header__actions">
+      <a class="brand-login" href="https://app.notarai.pl">Zaloguj się</a>
+      <a class="brand-btn brand-btn--primary brand-btn--small" href="https://app.notarai.pl/rejestracja">
+        Załóż konto <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+      </a>
+    </div>
+    <button class="brand-menu-toggle" id="brand-menu-toggle" aria-label="Otwórz menu" aria-expanded="false" aria-controls="brand-primary-nav" type="button">
+      <svg class="brand-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
   </div>
 </header>
 
 <main>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="szer hero-w">
-    <div>
-      <p class="znacznik">Dla kancelarii notarialnych</p>
-      <h1>Akt przygotowany.<br>Rejestry przeklikane.<br><em>Ty decydujesz.</em></h1>
-      <p class="wstep">notarai odczytuje skany, przygotowuje projekt aktu na Twoim wzorze i&nbsp;przeklikuje za Ciebie portale rejestrów. Ostatnie kliknięcie zawsze należy do notariusza.</p>
-      <div class="akcje">
-        <a class="przycisk" href="https://app.notarai.pl/rejestracja">Wypróbuj 14 dni za darmo</a>
-        <a class="przycisk drugi" href="#kontakt">Umów prezentację</a>
+<!-- Hero visual derived from the approved NotarAI brand identity. -->
+<section class="brand-hero" aria-labelledby="brand-hero-heading">
+  <div class="szer brand-hero__inner">
+    <div class="brand-hero__copy">
+      <p class="brand-eyebrow"><span>Legal-tech</span><b></b><span>Notariat</span><b></b><span>AI</span></p>
+      <h1 id="brand-hero-heading">Nowoczesna obsługa notarialna <span>z mocą AI</span></h1>
+      <p class="brand-hero__subtitle">notarai pomaga kancelariom przygotowywać projekty aktów na własnych wzorach, odczytywać dokumenty i wykonywać rutynowe czynności w rejestrach. Ty sprawdzasz wynik i podejmujesz decyzję.</p>
+      <div class="brand-hero__actions">
+        <a class="brand-btn brand-btn--primary" href="https://app.notarai.pl/rejestracja">
+          Wypróbuj 14 dni za darmo <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+        </a>
+        <a class="brand-btn brand-btn--secondary" href="#latwo">
+          <svg class="brand-icon" aria-hidden="true"><use href="#bi-play"/></svg> Zobacz, jak to działa
+        </a>
       </div>
-      <ul class="odznaki">
-        <li>Dane tylko w UE</li>
-        <li>Model nie zapamiętuje treści</li>
-        <li>14 dni za darmo</li>
+      <p class="brand-hero__disclaimer">Bez karty płatniczej na start. Każdy projekt wymaga weryfikacji notariusza.</p>
+      <ul class="brand-hero__trust">
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-shield"/></svg> Dane w UE</li>
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-chip"/></svg> AI dla notariatu</li>
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-clock"/></svg> Mniej rutynowych czynności</li>
       </ul>
     </div>
 
-    <!-- podglad ekranu Klikamy -->
-    <figure class="okno" aria-label="Przykładowy ekran Klikamy">
-      <div class="okno-pasek"><i></i><i></i><i></i><span>Klikamy</span></div>
-      <div class="okno-tresc">
-        <div class="polecenie">
-          <span class="etykieta">Polecenie</span>
-          <p>Otwórz księgę wieczystą dla działki 123/4, obręb Słoneczna, i&nbsp;sprawdź dział III.</p>
-        </div>
-        <ol class="kroki-agenta">
-          <li class="zrobione"><b>Wpisuję</b> numer działki w wyszukiwarce <span>bo tak szuka portal</span></li>
-          <li class="zrobione"><b>Wybieram</b> obręb Słoneczna z listy</li>
-          <li class="zrobione"><b>Otwieram</b> księgę i dział III <span>znaleziono 1 wpis</span></li>
-          <li class="stop"><b>Zatrzymuję się.</b> Przycisk „Złóż wniosek” zostawiam Tobie.</li>
-        </ol>
+    <div class="brand-hero__visual">
+      <div class="brand-floater" aria-hidden="true">
+        <svg class="brand-icon"><use href="#bi-spark"/></svg>
+        <div><strong>Asystent AI</strong><span>Odczyt i przygotowanie projektu do kontroli</span></div>
       </div>
-    </figure>
+      <div class="brand-dashboard" role="img" aria-label="Poglądowa makieta panelu kancelarii: przykładowe sprawy, statusy oraz etapy przygotowania projektu.">
+        <div class="brand-dashboard__rail" aria-hidden="true">
+          <img src="logo-mark.svg" alt="">
+          <span class="brand-dashboard__rail-item on"><svg class="brand-icon"><use href="#bi-home"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-file"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-users"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-stack"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-shield"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-settings"/></svg></span>
+        </div>
+        <div class="brand-dashboard__body">
+          <div class="brand-dashboard__top">
+            <div><h2>Witaj w notarai</h2><p>Dokumenty i sprawy kancelarii w jednym miejscu.</p></div>
+            <span class="brand-dashboard__avatar" aria-hidden="true">N</span>
+          </div>
+          <div class="brand-dashboard__main">
+            <div class="brand-dashboard__cases">
+              <div class="brand-dashboard__cases-head">
+                <strong>Moje sprawy</strong>
+                <span>Przykładowe dane</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Sprzedaż nieruchomości</strong><small>Projekt do sprawdzenia</small></span>
+                <span class="brand-status">Projekt</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Umowa darowizny</strong><small>Weryfikacja danych</small></span>
+                <span class="brand-status brand-status--progress">Weryfikacja</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Pełnomocnictwo</strong><small>Zapisane w sprawie</small></span>
+                <span class="brand-status brand-status--done">Zakończone</span>
+              </div>
+            </div>
+            <div class="brand-dashboard__metric">
+              <svg class="brand-icon" aria-hidden="true"><use href="#bi-spark"/></svg>
+              <strong>Od skanów<br>do projektu</strong>
+              <span>AI przygotowuje materiał. Notariusz weryfikuje i zatwierdza.</span>
+            </div>
+          </div>
+          <div class="brand-dashboard__flow" aria-hidden="true">
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-fileplus"/></svg><span>Dodaj pliki</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-spark"/></svg><span>Odczyt AI</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-shield"/></svg><span>Sprawdź dane</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-file"/></svg><span>Projekt Word</span></div>
+          </div>
+          <p class="brand-dashboard__caption">WIZUALIZACJA POGLĄDOWA • NIE JEST TO ZRZUT AKTUALNEGO PANELU</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="brand-hero__pixel p1" aria-hidden="true"></span>
+  <span class="brand-hero__pixel p2" aria-hidden="true"></span>
+  <span class="brand-hero__pixel p3" aria-hidden="true"></span>
+  <span class="brand-hero__wave" aria-hidden="true"></span>
+</section>
+
+<section class="brand-benefits" aria-label="Najważniejsze cechy rozwiązania">
+  <div class="szer brand-benefits__row">
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-scales"/></svg><div><strong>Prawo i zaufanie</strong><p>Kontrola decyzji pozostaje po stronie notariusza.</p></div></div>
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-chip"/></svg><div><strong>Technologia AI</strong><p>Odczyt skanów i projekty na własnych wzorach.</p></div></div>
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-clock"/></svg><div><strong>Wygoda i efektywność</strong><p>Powtarzalne etapy obsługi w jednym procesie.</p></div></div>
   </div>
 </section>
 
@@ -337,11 +428,53 @@
 </main>
 
 <footer class="stopka">
-  <div class="szer stopka-w">
-    <p>notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul.&nbsp;Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
-    <p><a href="regulamin/">Regulamin</a> · <a href="umowa-powierzenia/">Umowa powierzenia</a> · <a href="instrukcja-ai/">Instrukcja AI</a> · <a href="prywatnosc/">Polityka prywatności</a> · <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a></p>
+  <div class="szer">
+    <div class="brand-footer__top">
+      <a class="brand-logo brand-logo--inverse" href="./" aria-label="notarai — strona główna">
+        <img class="brand-logo__mark" src="logo-mark.svg" width="43" height="43" alt="">
+        <span class="brand-logo__word">notar<strong>ai</strong></span>
+      </a>
+      <nav class="brand-footer__links" aria-label="Dokumenty i kontakt">
+        <a href="regulamin/">Regulamin</a>
+        <a href="umowa-powierzenia/">Umowa powierzenia</a>
+        <a href="instrukcja-ai/">Instrukcja AI</a>
+        <a href="prywatnosc/">Polityka prywatności</a>
+        <a href="mailto:kontakt@notarai.pl">Kontakt</a>
+      </nav>
+    </div>
+    <div class="brand-footer__bottom">
+      <p>Usługę notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul. Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
+      <p>Każdy dokument przygotowany w systemie jest projektem do weryfikacji przez notariusza.</p>
+    </div>
   </div>
 </footer>
 
+<script>
+(function () {
+  const toggle = document.getElementById('brand-menu-toggle');
+  const nav = document.getElementById('brand-primary-nav');
+  if (!toggle || !nav) return;
+  function closeMenu() {
+    nav.classList.remove('is-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Otwórz menu');
+  }
+  toggle.addEventListener('click', function () {
+    const isOpen = !nav.classList.contains('is-open');
+    nav.classList.toggle('is-open', isOpen);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    toggle.setAttribute('aria-label', isOpen ? 'Zamknij menu' : 'Otwórz menu');
+  });
+  nav.addEventListener('click', function (event) {
+    if (event.target.closest('a')) closeMenu();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeMenu();
+  });
+  document.addEventListener('click', function (event) {
+    if (!toggle.contains(event.target) && !nav.contains(event.target)) closeMenu();
+  });
+})();
+</script>
 </body>
 </html>

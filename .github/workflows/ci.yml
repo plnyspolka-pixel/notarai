@@ -1,0 +1,45 @@
+name: NotarAI - testy kodu
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Python + JS + testy regresyjne
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_DEFAULT_REGION: eu-central-1
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Instaluj zaleznosci bez opcjonalnych lokalnych modeli / przegladarki
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-requirements-ci.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r /tmp/notarai-requirements-ci.txt
+      - name: Kompilacja modulow Python
+        run: python -m compileall -q -x '(^|/)(\.git|\.venv|dane|build|dist)/' .
+      - name: Sprawdz skladnie skryptow i HTML
+        run: |
+          node --check static/kokpit.js
+          python scripts/check_frontend.py
+      - name: Testy automatyczne (bez AWS i danych klientow)
+        run: python -m pytest -q
