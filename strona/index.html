@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notarai - asystent kancelarii notarialnej</title>
-<meta name="description" content="NotarAI dla kancelarii notarialnych: AI odczytuje skany, przygotowuje projekty aktów na Twoich wzorach i pomaga w obsłudze rejestrów. Notariusz zachowuje pełną kontrolę.">
+<meta name="description" content="NotarAI: pomocnik kancelarii i narzędzia dla klientów. Kalkulator kosztów notarialnych, wyszukiwarka notariuszy i zgłoszenia wizyt.">
 <meta name="theme-color" content="#071d49">
 <link rel="icon" type="image/svg+xml" href="logo-mark.svg">
 <link rel="stylesheet" href="style.css">
@@ -38,6 +38,7 @@
     </a>
 
     <nav id="brand-primary-nav" class="brand-nav" aria-label="Nawigacja główna">
+      <a href="#dla-klientow">Dla klientów</a>
       <a href="#klikamy">Rozwiązania</a>
       <a href="#latwo">Jak to działa</a>
       <a href="#dane">Bezpieczeństwo</a>
@@ -392,6 +393,60 @@
   </div>
 </section>
 
+<!-- Public tools and lead generation built in separate customer-facing modules. -->
+<section id="dla-klientow" class="sekcja klient-sekcja">
+  <div class="szer">
+    <p class="znacznik">Dla klientów kancelarii · bez logowania</p>
+    <h2>Od pytania o koszt do wizyty u notariusza</h2>
+    <p class="wstep">Sprawdź orientacyjny koszt czynności, przygotuj dokumenty i wybierz kancelarię, do której wyślesz zapytanie. Każda prośba o wizytę wymaga potwierdzenia przez kancelarię.</p>
+    <div class="siatka klient-grid">
+      <article class="karta klient-karta">
+        <span class="klient-nr">01</span>
+        <h3>Policz koszt czynności</h3>
+        <p>Taksa, wypisy, PCC i opłaty sądowe. Opisz sprawę asystentowi AI lub skorzystaj z formularza.</p>
+        <a class="klient-link" href="kalkulator/">Otwórz bezpłatny kalkulator <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">02</span>
+        <h3>Znajdź kancelarię</h3>
+        <p>Wykaz kancelarii według miejscowości, informacje kontaktowe i przydatne wskazówki przed wizytą.</p>
+        <a class="klient-link" href="notariusz/">Znajdź notariusza w swojej okolicy <span aria-hidden="true">→</span></a>
+        <a class="klient-link" href="https://app.notarai.pl/notariusze">Zobacz interaktywną mapę kancelarii NotarAI <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">03</span>
+        <h3>Wyślij prośbę o wizytę</h3>
+        <p>Wybierz kancelarię, opisz czynność i podaj kontakt. Kancelaria oddzwoni lub potwierdzi proponowany termin.</p>
+        <a class="klient-link" href="notariusz/">Wybierz kancelarię i wyślij zapytanie <span aria-hidden="true">→</span></a>
+      </article>
+    </div>
+    <div class="klient-info">
+      <div><strong>Przygotuj się przed spotkaniem</strong><p>Zobacz wyjaśnienia dotyczące dokumentów i kosztów czynności w naszym poradniku.</p></div>
+      <a class="przycisk drugi" href="blog/">Czytaj poradniki</a>
+    </div>
+  </div>
+</section>
+<section class="sekcja klient-konwersja tlo2">
+  <div class="szer cennik">
+    <div>
+      <p class="znacznik">Dla kancelarii notarialnych</p>
+      <h2>Zapytania klientów bezpośrednio w panelu</h2>
+      <p class="wstep">Kiedy klient wybierze kancelarię korzystającą z NotarAI, jego zapytanie trafi do panelu „Zapytania klientów”. Możesz oddzwonić, ustalić termin, a zaakceptowaną wizytę dodać do kalendarza.</p>
+      <p class="przypis">Zgłoszenie jest prośbą o kontakt, nie automatyczną rezerwacją. Powiadomienia e-mail zależą od konfiguracji poczty.</p>
+    </div>
+    <div class="karta klient-cta">
+      <h3>Jeden system od pierwszego kontaktu do aktu</h3>
+      <ul>
+        <li>Zapytania i statusy kontaktu</li>
+        <li>Kalendarz i telefony stron czynności</li>
+        <li>Odczyt skanów i projekt dokumentu Word</li>
+        <li>Asystent rejestrów z kontrolą notariusza</li>
+      </ul>
+      <a class="przycisk pelny" href="https://app.notarai.pl/rejestracja">Załóż konto kancelarii</a>
+    </div>
+  </div>
+</section>
+
 <!-- CENNIK -->
 <section id="cennik" class="sekcja">
   <div class="szer cennik">
@@ -435,6 +490,9 @@
         <span class="brand-logo__word">notar<strong>ai</strong></span>
       </a>
       <nav class="brand-footer__links" aria-label="Dokumenty i kontakt">
+        <a href="kalkulator/">Kalkulator</a>
+        <a href="notariusz/">Kancelarie notarialne</a>
+        <a href="blog/">Poradniki</a>
         <a href="regulamin/">Regulamin</a>
         <a href="umowa-powierzenia/">Umowa powierzenia</a>
         <a href="instrukcja-ai/">Instrukcja AI</a>
