@@ -45,7 +45,7 @@ $haslo = [string]$sekret.password
 $sekretTekst = $null
 $sekret = $null
 if (-not $haslo) { throw "Brak pola password w sekrecie FTP." }
-$credentials = New-Object System.Net.NetworkCredential($loginFtps, $haslo)
+$credentials = [System.Net.NetworkCredential]::new($loginFtps, $haslo)
 $haslo = $null
 
 function Utworz-ZadanieFtps([string]$Plik, [string]$Metoda) {
@@ -79,7 +79,7 @@ function Lista-Ftps([string]$Katalog) {
     $zadanie = Utworz-ZadanieFtps $Katalog ([System.Net.WebRequestMethods+Ftp]::ListDirectory)
     $odpowiedz = $zadanie.GetResponse()
     try {
-        $czytnik = New-Object System.IO.StreamReader($odpowiedz.GetResponseStream(), [System.Text.Encoding]::UTF8)
+        $czytnik = [System.IO.StreamReader]::new($odpowiedz.GetResponseStream(), [System.Text.Encoding]::UTF8)
         try { $tresc = $czytnik.ReadToEnd() }
         finally { $czytnik.Dispose() }
     } finally { $odpowiedz.Close() }
@@ -92,7 +92,7 @@ function Zdalny-Plik([string]$Katalog, [string]$Plik) {
 }
 
 function Znajdz-KatalogStrony([string]$KatalogKopii) {
-    $kandydaci = New-Object System.Collections.Generic.List[string]
+    $kandydaci = [System.Collections.Generic.List[string]]::new()
     $kandydaci.Add("")
     foreach ($k in @("public_html", "www", "htdocs", "httpdocs", "html",
                      "notarai.pl", "notarai.pl/public_html", "notarai.pl/www",
