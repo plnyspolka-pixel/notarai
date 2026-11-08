@@ -134,3 +134,53 @@ async def webhook(request: Request, zadania: BackgroundTasks):
     # Meta czeka kilka sekund na 200; pobranie i rozsylka ida w tle.
     zadania.add_task(_przetworz_wszystkie, zmiany)
     return {"ok": True, "leady": len(zmiany)}
+
+
+# ---------------------------------------------------------------- leady przekazywane przez Finance You
+#
+# Finance You odbiera webhook Meta dla swoich stron i formularz z ustawionym
+# client_forward_url wysyla prosto do zewnetrznego panelu (src/lib/
+# meta-leads-client-forward.server.ts w repo finyou): JSON LeadKlienta
+# + naglowek x-lead-secret. U siebie nie zostawia danych osobowych.
+#
+# Sekret jest wspolny z Finance You (meta_lead_forms.client_forward_secret).
+# Tutaj trzymamy tylko jego skrot SHA-256 - skrot losowego 256-bitowego
+# sekretu nie jest tajny, wiec nie potrzeba Secrets Manager. Zmiana sekretu:
+# nowy skrot w PIECZAPP_LEADY_FINYOU_SHA256 (albo tu) i nowy sekret w Finance You.
+SKROT_SEKRETU_FINYOU = os.getenv(
+    "PIECZAPP_LEADY_FINYOU_SHA256", "55ce75e25719b1124a1093f3a6acdafc4d1b2c69f1293ad6a3c2ca0cf7b42246")
+
+
+def sekret_finyou_poprawny(sekret: str) -> bool:
+    if not sekret or not SKROT_SEKRETU_FINYOU:
+        return False
+    return hmac.compare_digest(hashlib.sha256(sekret.encode("utf-8")).hexdigest(), SKROT_SEKRETU_FINYOU)
+
+
+@router.post("/finyou")
+async def z_finyou(request: Request):
+    """Lead z formularza Meta przekazany przez Finance You."""
+    if not sekret_finyou_poprawny(request.headers.get("x-lead-secret", "")):
+        raise HTTPException(403, "Zly sekret.")
+    try:
+        dane = await request.json()
+    except ValueError:
+        raise HTTPException(400, "To nie jest JSON.")
+    meta_id = str(dane.get("meta_lead_id") or "")
+    if not meta_id:
+        raise HTTPException(400, "Brak meta_lead_id.")
+    if any((l.get("meta") or {}).get("leadgen_id") == meta_id for l in leady._wczytaj()["leady"]):
+        return {"ok": True, "duplikat": True}
+    pola = [{"name": p.get("nazwa"), "values": [p.get("wartosc")]} for p in dane.get("pola") or [] if isinstance(p, dict)]
+    f = z_formularza({"field_data": pola})
+    # Finance You czysci imie z wklejonych numerow i wyluskuje telefon odporniej - bierzemy jego wersje.
+    if dane.get("imie") and not f["nazwisko"]:
+        czesci = str(dane["imie"]).split()
+        f["imie"], f["nazwisko"] = (czesci[0] if czesci else ""), " ".join(czesci[1:])
+    f["telefon"] = str(dane.get("telefon") or f["telefon"] or "")
+    f["email"] = str(dane.get("email") or f["email"] or "")
+    meta = {"leadgen_id": meta_id, "form_id": dane.get("formularz_id"), "ad_id": dane.get("reklama_id"),
+            "campaign_id": dane.get("kampania_id"), "created_time": dane.get("utworzono"), "przez": "finyou"}
+    lead = leady.nowy(klient=f, sprawa=f["sprawa"] or f["opis"], opis=f["opis"],
+                      miejscowosc=f["miejscowosc"], zrodlo="meta", meta=meta)
+    return {"ok": True, "id": lead["id"], "wyslano": lead["wyslano"]}

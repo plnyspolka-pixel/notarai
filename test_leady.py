@@ -228,3 +228,30 @@ def test_admin_dodaje_lead_recznie(k):
     assert odp.status_code == 201 and odp.json()["wyslano"] == 1
     lista = k.get("/api/admin/leady", headers={"Authorization": "Bearer sekret-admina"}).json()
     assert lista["podsumowanie"]["leady"] == 1 and "zaproszenia" not in lista["leady"][0]
+
+
+class TestPrzezFinyou:
+    SEKRET = "sekret-testowy"
+
+    @pytest.fixture
+    def fy(self, k, monkeypatch):
+        monkeypatch.setattr(meta_leady, "SKROT_SEKRETU_FINYOU", hashlib.sha256(self.SEKRET.encode()).hexdigest())
+        return k
+
+    PAYLOAD = {"meta_lead_id": "987", "imie": "Zenobiusz Testowy", "telefon": "+48600700800", "email": "z@klient.test",
+               "utworzono": "2026-11-08T10:00:00+0000", "kampania_id": "c1", "reklama_id": "a1", "formularz_id": "f9",
+               "pola": [{"nazwa": "full_name", "wartosc": "Zenobiusz Testowy"}, {"nazwa": "city", "wartosc": "Lublin"},
+                        {"nazwa": "jaka_sprawa", "wartosc": "Spadek, poświadczenie dziedziczenia"},
+                        {"nazwa": "opis_sprawy", "wartosc": "Po tacie, dwoje rodzeństwa"}]}
+
+    def test_lead_z_finyou(self, fy):
+        odp = fy.post("/api/meta/finyou", json=self.PAYLOAD, headers={"x-lead-secret": self.SEKRET})
+        assert odp.status_code == 200 and odp.json()["wyslano"] == 2
+        lead = leady._wczytaj()["leady"][0]
+        assert lead["sprawa"] == "spadek" and lead["miejscowosc"] == "lublin"
+        assert lead["klient"]["nazwisko"] == "Testowy" and lead["meta"]["przez"] == "finyou"
+        assert fy.post("/api/meta/finyou", json=self.PAYLOAD, headers={"x-lead-secret": self.SEKRET}).json()["duplikat"]
+
+    def test_zly_sekret(self, fy):
+        assert fy.post("/api/meta/finyou", json=self.PAYLOAD, headers={"x-lead-secret": "zly"}).status_code == 403
+        assert fy.post("/api/meta/finyou", json=self.PAYLOAD).status_code == 403
