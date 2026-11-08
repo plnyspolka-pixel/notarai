@@ -70,9 +70,9 @@ jobs:
             )
             if ($errors.Count -gt 0) {
               foreach ($parseError in $errors) {
-                Write-Host ("BŁĄD " + $file + ": " + $parseError.Message)
+                Write-Host ("ERROR " + $file + ": " + $parseError.Message)
               }
-              throw "Błąd składni PowerShell w $file"
+              throw "PowerShell syntax error in $file"
             }
             Write-Host "OK $file"
           }
