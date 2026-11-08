@@ -14,7 +14,7 @@ do logow - logujemy identyfikator kancelarii i typ bledu.
 Wspolrzedne zapisujemy w rejestrze kancelarii pod kluczem "mapa":
   {"adres", "lat", "lon", "dokladnosc": "adres" | "miejscowosc", "sprawdzono"}
   albo {"adres", "blad", "sprawdzono"}, gdy geokoder adresu nie zna.
-Klucz "na_mapie" (domyslnie True) mowi, czy kancelaria jest publikowana.
+Klucz "na_mapie" (domyslnie False) mowi, czy kancelaria jest publikowana.
 Zmienia go wylacznie wlasciciel kancelarii.
 """
 import logging
@@ -151,7 +151,7 @@ def publikowana(wpis: dict) -> bool:
     """Czy kancelaria jest na publicznej mapie: aktywna, nie wylaczyla
     publikacji, ma polozenie i nie jest po terminie abonamentu."""
     mapa = wpis.get("mapa") or {}
-    if not wpis.get("aktywna", True) or not wpis.get("na_mapie", True) or mapa.get("lat") is None:
+    if not wpis.get("aktywna", True) or not wpis.get("na_mapie", False) or mapa.get("lat") is None:
         return False
     return not platnosci.wlaczone() or platnosci.stan(wpis)["wazny"]
 
@@ -167,7 +167,7 @@ def _wizytowka(wpis: dict) -> dict:
 def stan_mapy(wpis: dict) -> dict:
     """Krotki stan dla panelu administratora."""
     mapa = wpis.get("mapa") or {}
-    return {"na_mapie": wpis.get("na_mapie", True), "polozenie": mapa.get("lat") is not None,
+    return {"na_mapie": wpis.get("na_mapie", False), "polozenie": mapa.get("lat") is not None,
             "blad": mapa.get("blad")}
 
 
@@ -205,7 +205,7 @@ class Widocznosc(BaseModel):
 
 def _stan_wlasny(wpis: dict) -> dict:
     mapa = wpis.get("mapa") or {}
-    return {"na_mapie": wpis.get("na_mapie", True), "publikowana": publikowana(wpis),
+    return {"na_mapie": wpis.get("na_mapie", False), "publikowana": publikowana(wpis),
             "geokoder": wlaczone(),
             **{k: mapa.get(k) for k in ("adres", "lat", "lon", "dokladnosc", "blad", "sprawdzono")}}
 
