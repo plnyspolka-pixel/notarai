@@ -54,9 +54,11 @@
     if (!list || !count) return;
 
     const cases = filteredCases();
-    count.textContent = state.loaded
-      ? (state.cases.length + (state.cases.length === 1 ? " sprawa" : " spraw"))
-      : "Wczytywanie";
+    const n = state.cases.length;
+    const plural = n === 1 ? " sprawa"
+      : (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14))
+        ? " sprawy" : " spraw";
+    count.textContent = state.loaded ? n + plural : "Wczytywanie";
     list.replaceChildren();
 
     if (state.issue) {
