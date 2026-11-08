@@ -1328,7 +1328,10 @@ window.addEventListener("storage", e => {
   if (SERWIS || e.key !== KLUCZ_TOKENU) return;
   token = e.newValue || "";
   planujOdnowienie();
-  if (!token) { otworzBrame("Wylogowano."); return; }
+  if (!token) {
+    window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
+    otworzBrame("Wylogowano."); return;
+  }
   if (!$("brama").hidden) { $("brama").hidden = true; odswiezWyloguj(); uruchomTrybPracy(); }
 });
 
@@ -1412,6 +1415,7 @@ $("btn-wyloguj").onclick = async () => {
   // do nastepnego odswiezenia strony.
   try { await fetch("/api/logowanie/wyloguj", {method: "POST"}); } catch { /* offline */ }
   ustawToken("");
+  window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
   otworzBrame("Wylogowano.");
 };
 
