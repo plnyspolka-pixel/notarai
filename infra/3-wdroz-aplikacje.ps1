@@ -19,7 +19,9 @@ param(
     # Cena miesiaca abonamentu w zl brutto (do wyswietlenia) i jej
     # identyfikator w Stripe. Puste = zostaja poprzednie.
     [string]$Cena   = "600.00",
-    [string]$StripeCena = "price_1UTzcA4iRvhgqNnm2sgVZWBh"
+    [string]$StripeCena = "price_1UTzcA4iRvhgqNnm2sgVZWBh",
+    # Opcjonalny adres API dostawcy EKW, tylko gdy sekret notarai/finyou istnieje.
+    [string]$FinyouAdres = "https://finyou.pl"
 )
 $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
@@ -102,6 +104,27 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/stripe) {
     Write-Host "   platnosci Stripe: sekret notarai/stripe$(if ($Cena) { ", cena $Cena zl" })"
 } else {
     Write-Host "   platnosci Stripe: brak sekretu notarai/stripe, platnosci wylaczone" -ForegroundColor Yellow
+}
+
+# Ksiegi wieczyste z EKW: sekret notarai/apify zaklada infra\zapisz-sekret-apify.ps1
+# (klucz token). Jak przy Stripe czytamy tylko ARN - wartosc zostaje w AWS.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/apify) {
+    $apifyArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/apify --query ARN --output text
+    $parametry += "ApifySekretArn=$apifyArn"
+    Write-Host "   ksiegi z EKW: sekret notarai/apify"
+} else {
+    Write-Host "   ksiegi z EKW: brak sekretu notarai/apify, pobieranie wylaczone" -ForegroundColor Yellow
+}
+
+# Finance You jako dostawca tresci KW (ma pierwszenstwo przed Apify): sekret
+# notarai/finyou zaklada infra\zapisz-sekret-finyou.ps1, adres API parametrem.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/finyou) {
+    $finyouArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/finyou --query ARN --output text
+    $parametry += "FinyouSekretArn=$finyouArn"
+    $parametry += "FinyouAdres=$FinyouAdres"
+    Write-Host "   ksiegi z EKW przez Finance You: sekret notarai/finyou, adres $FinyouAdres"
+} else {
+    Write-Host "   ksiegi z EKW przez Finance You: brak sekretu notarai/finyou" -ForegroundColor Yellow
 }
 
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan
