@@ -40,6 +40,7 @@ import osoby
 import prompty
 import rejestracja
 import rejestry
+import rezerwacje_hurtowe
 import transkrypcja
 import walidacja
 
@@ -64,6 +65,10 @@ app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
 app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
+app.include_router(rezerwacje_hurtowe.router_biuro)
+app.include_router(rezerwacje_hurtowe.router_partner)
+app.include_router(rezerwacje_hurtowe.router_admin)
+app.include_router(rezerwacje_hurtowe.router_mcp)
 
 
 @app.exception_handler(Exception)
