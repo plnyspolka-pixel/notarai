@@ -183,3 +183,25 @@ def test_kreator_poczty_od_wniosku_do_zbioru(strona, monkeypatch):
     ksiazka.value.wait_for_url("blob:**")
     strona.locator("#pp-zbiory", has_text="zbiór 900").wait_for()
     assert nadawca.wywolania.count("sendEnvelope") == 1
+
+
+def test_status_i_historia_przesylki(strona, monkeypatch):
+    import httpx
+    import sledzenie
+    from test_sledzenie import DZIS, SAD, WCZORAJ, UdawaneSledzenie
+    monkeypatch.setattr(sledzenie, "TRANSPORT", httpx.MockTransport(UdawaneSledzenie()))
+    for numer in ("00659007734000000001", "00659007734000000003"):
+        odp = strona.request.post(strona.adres + "/api/przesylki/przeslane", data={
+            "data": WCZORAJ, "repertorium": "A 1/2026", **SAD, "numer_nadania": numer})
+        assert odp.ok, odp.text()
+
+    strona.goto(strona.adres + "/")
+    strona.wait_for_load_state("networkidle")
+    strona.locator('.krok[data-etap="8"]').click()
+    # Statusy pobieraja sie same przy otwarciu widoku.
+    strona.locator(".prz-stan.doreczona").wait_for()
+    assert "zwrócona" in strona.locator(".prz-stan.zwrocona").inner_text()
+    assert f"doręczono {DZIS[8:10]}.{DZIS[5:7]}" in strona.locator("#prz-lista").inner_text()
+    strona.locator(".prz-stan.doreczona").click()
+    strona.locator(".prz-historia", has_text="Doręczona").wait_for()
+    assert "Przyjęta w centrum logistycznym" in strona.locator(".prz-historia").inner_text()

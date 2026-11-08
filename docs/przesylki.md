@@ -101,6 +101,39 @@ Wdrożenie: rola zadania ECS dostała politykę `sekrety-poczty-polskiej`
 (Secrets Manager, tylko `notarai-poczta-*`) w `infra/notarai-aplikacja.yaml`.
 Trzeba zaktualizować stos, zanim pierwsza kancelaria się połączy.
 
+## Śledzenie przesyłek
+
+`sledzenie.py` korzysta z usługi SOAP „Śledzenie” Poczty Polskiej
+(`https://tt.poczta-polska.pl/Sledzenie/services/Sledzenie`). Używa
+domyślnego konta, które Poczta publikuje w dokumentacji: `sledzeniepp` /
+`PPSA`, WS-Security PasswordText. Logowanie i format odpowiedzi sprawdziłem
+na żywo 08.11.2026.
+
+- **Kiedy pytamy.** Przy otwarciu widoku statusy odświeżają się same,
+  najwyżej co 3 godziny (`PIECZAPP_PP_SLEDZENIE_CO_GODZIN`). Przycisk
+  „Sprawdź statusy na Poczcie” pyta zawsze. Pytamy tylko o przesyłki z numerem
+  nadania z ostatnich 45 dni, bez daty doręczenia i jeszcze niezakończone.
+  Usługa i tak zna tylko przesyłki ze zdarzeniem z ostatnich 30 dni.
+- **Co widać.** Przy numerze pojawia się stan: nadana, w drodze, awizo,
+  doręczona albo zwrócona (na czerwono). Kliknięcie pokazuje historię zdarzeń
+  z placówkami.
+- **Doręczenie.** Kody P_D, P_DS, P_S, P_ZPNA, P_OWU i P_OWP wpisują datę
+  doręczenia do księgi jako uzupełnienie, z adnotacją „Poczta Polska
+  (śledzenie)”.
+- **Kody, nie nazwy.** Zgodnie z zaleceniem Poczty mapujemy kody zdarzeń, a nie
+  ich nazwy (lista `PPSA_events_lists`, wersja 20250205).
+- **Jakie dane wychodzą.** Do Poczty idą wyłącznie numery nadania, bez
+  adresów i nazwisk.
+- **Konto domyślne.** W `sprawdzPrzesylki` odpowiada tylko o pierwszy numer,
+  więc pytamy o każdy numer osobno.
+- **Konto dedykowane.** Poczta zakłada je na wniosek („Wniosek o utworzenie
+  konta WSDL/SOAP”, sledzenie@poczta-polska.pl). Ustawia się je zmiennymi:
+  - `PIECZAPP_PP_SLEDZENIE_LOGIN` i `PIECZAPP_PP_SLEDZENIE_HASLO` (w ECS jako
+    referencja do sekretu w Secrets Manager),
+  - `PIECZAPP_PP_SLEDZENIE_PACZKA`: ile numerów w jednym zapytaniu.
+- **Awarie.** Usługa czasem zrywa połączenie. Odczyt ponawiamy 3 razy, bo to
+  bezpieczne.
+
 ## Dane osobowe
 
 Adresatami bywają osoby fizyczne. Dzienniki leżą w obszarze kancelarii

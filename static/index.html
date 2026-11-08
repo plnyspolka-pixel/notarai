@@ -160,6 +160,12 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .prz-tab tr.anul td:first-child,.prz-tab tr.anul td:last-child{text-decoration:none}
 .prz-tab input.prz-nr{font:12px var(--mono);padding:4px 6px;width:190px;border:1px solid var(--linia2);border-radius:6px;background:var(--tlo);color:var(--tekst)}
 .prz-tab .akcje a{cursor:pointer;margin-right:8px;font-size:12px}
+.prz-stan{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;background:var(--tlo2);color:var(--tekst2);margin-top:4px;cursor:pointer}
+.prz-stan.doreczona{background:#e6f4ea;color:#1a7f37}
+.prz-stan.zwrocona{background:#fde8e8;color:#b42318}
+.prz-stan.awizo{background:#fff4e0;color:#9a5b00}
+.prz-historia td{background:var(--tlo2);font-size:12.5px}
+.prz-historia ol{margin:4px 0 4px 18px;padding:0}
 .prz-przewijanie{overflow-x:auto}
 .prz-trzy{display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:16px}
 @media (max-width:700px){.prz-trzy,.para.prz-para{grid-template-columns:1fr}}
@@ -1165,12 +1171,13 @@ notarai</div>
   <div class="karta">
     <h2>Wpisy</h2>
     <div class="filtry"><input type="search" id="prz-szukaj" placeholder="Szukaj: adresat, repertorium, numer nadania…" style="flex:1;min-width:160px;width:auto;padding:4px 12px;border-radius:999px;font-size:13px"></div>
-    <p class="pod" style="margin-top:0">Numery nadania z naklejek można wpisać od razu w tabeli — także czytnikiem kodów kreskowych (Enter przechodzi do następnej pozycji). Zaznacz pozycje, żeby wydrukować koperty albo przygotować plik dla Elektronicznego Nadawcy.</p>
+    <p class="pod" style="margin-top:0">Status każdej przesyłki pobiera się z Poczty Polskiej sam (kliknij go, żeby zobaczyć historię), a data doręczenia wpisuje się do księgi automatycznie. Numery nadania z naklejek można wpisać od razu w tabeli — także czytnikiem kodów kreskowych (Enter przechodzi do następnej pozycji). Zaznacz pozycje, żeby wydrukować koperty albo przygotować plik dla Elektronicznego Nadawcy.</p>
     <div class="prz-przewijanie"><table class="prz-tab"><thead><tr><th><input type="checkbox" id="prz-wszystkie" aria-label="Zaznacz wszystkie widoczne"></th><th>Lp.</th><th>Data</th><th id="prz-kol-druga">Repertorium</th><th>Adresat</th><th>Sposób</th><th>Nr nadania</th><th></th></tr></thead><tbody id="prz-lista"></tbody></table></div>
     <div class="prz-pasek" style="margin-top:14px">
       <div><label for="prz-format">Koperta</label><br><select id="prz-format"><option>DL</option><option>C5</option><option>C6</option><option>C4</option></select></div>
       <button class="wtorny" id="prz-koperty">Drukuj koperty</button>
       <button class="wtorny" id="prz-csv">Plik dla e-Nadawcy (CSV)</button>
+      <button class="wtorny" id="prz-statusy">Sprawdź statusy na Poczcie</button>
       <span class="stan" id="stan8b"></span>
     </div>
     <div class="prz-pasek" id="pp-akcje" style="margin-top:14px" hidden>
@@ -5180,6 +5187,40 @@ async function rysujPrzesylki(){
   if (!$("prz-nadawcza-dzien").value) $("prz-nadawcza-dzien").value = dzisIso();
   ustawFormularzPrzesylki();
   rysujTabelePrzesylek();
+  odswiezStatusy(false);
+}
+// Statusy z Poczty: przy otwarciu widoku samoczynnie (serwer pyta najwyzej co
+// kilka godzin), przyciskiem - zawsze.
+let przStatusyTrwaja = false;
+async function odswiezStatusy(wymus){
+  if (przStatusyTrwaja || (!wymus && !przWpisy.some(w => w.numer_nadania && !w.data_doreczenia && w.status !== "anulowany"))) return;
+  przStatusyTrwaja = true;
+  if (wymus) stan($("stan8b"), "Pytam Pocztę o statusy przesyłek…", false, true);
+  try {
+    const odp = await api("/api/sledzenie?wymus=" + (wymus ? "true" : "false"), {method: "POST"});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) { if (wymus) stan($("stan8b"), typeof w.detail === "string" ? w.detail : "Nie udało się sprawdzić statusów", true); return; }
+    if (!w.pominieto) {
+      przWpisy = await api("/api/przesylki/" + przKsiega).then(r => r.json());
+      rysujTabelePrzesylek();
+    }
+    if (wymus || w.doreczone || w.zwrocone) stan($("stan8b"), "Sprawdzono " + w.sprawdzono + " przesyłek"
+      + (w.doreczone ? ", nowe doręczenia: " + w.doreczone : "") + (w.zwrocone ? ", zwroty: " + w.zwrocone + " (zaznaczone na czerwono)" : "") + ".", !!w.zwrocone);
+  } finally { przStatusyTrwaja = false; }
+}
+async function pokazHistorie(tr, numer){
+  const nastepny = tr.nextElementSibling;
+  if (nastepny && nastepny.classList.contains("prz-historia")) { nastepny.remove(); return; }
+  const wiersz = document.createElement("tr"); wiersz.className = "prz-historia";
+  wiersz.innerHTML = '<td colspan="8"><span class="stan">Pobieram historię z Poczty…</span></td>';
+  tr.after(wiersz);
+  const odp = await api("/api/sledzenie/" + encodeURIComponent(numer));
+  const h = await odp.json().catch(() => ({}));
+  const link = ' <a href="' + escape(przSlowniki.sledzenie + encodeURIComponent(numer)) + '" target="_blank" rel="noopener">strona Poczty Polskiej ↗</a>';
+  if (!odp.ok) { wiersz.firstChild.innerHTML = '<span class="stan blad">' + escape(h.detail || "Nie udało się pobrać historii.") + "</span>" + link; return; }
+  wiersz.firstChild.innerHTML = "<b>" + escape(numer) + "</b> · " + escape((h.opisy_stanow || {})[h.stan] || h.stan) + link
+    + (h.zdarzenia.length ? "<ol>" + h.zdarzenia.map(z => "<li>" + escape(z.czas) + " — " + escape(z.nazwa) + (z.jednostka ? " (" + escape(z.jednostka) + ")" : "") + "</li>").join("") + "</ol>"
+      : '<div class="stan">Poczta nie ma jeszcze zdarzeń dla tej przesyłki (pokazuje przesyłki ze zdarzeniem z ostatnich 30 dni).</div>');
 }
 function ustawFormularzPrzesylki(){
   const k = przKsiega;
@@ -5203,7 +5244,12 @@ function rysujTabelePrzesylek(){
     const tr = document.createElement("tr");
     if (anul) tr.className = "anul";
     const druga = przKsiega === "przeslane" ? w.repertorium : (w.kierunek === "przychodzące" ? "↘ " : "↗ ") + w.tresc;
-    const sledz = w.numer_nadania ? ' <a href="' + escape(przSlowniki.sledzenie + encodeURIComponent(w.numer_nadania)) + '" target="_blank" rel="noopener" title="Śledzenie przesyłki na stronie Poczty Polskiej">śledź</a>' : "";
+    // Status z uslugi sledzenia Poczty (sledzenie.py); klik pokazuje historie zdarzen.
+    const sl = w.sledzenie || {};
+    const opisStanu = {doreczona: "doręczona", zwrocona: "zwrócona do nadawcy", awizo: "awizo", w_drodze: "w drodze", nadana: "nadana", brak: "brak w systemie Poczty"}[sl.stan];
+    const ostatnie = sl.ostatnie ? " · " + escape(sl.ostatnie.czas.slice(8, 10) + "." + sl.ostatnie.czas.slice(5, 7) + " " + sl.ostatnie.czas.slice(11, 16)) : "";
+    const sledz = !w.numer_nadania ? "" : '<br><span class="prz-stan ' + escape(sl.stan || "") + '" data-historia="' + escape(w.numer_nadania) + '" title="Historia przesyłki">'
+      + (opisStanu ? escape(opisStanu) + ostatnie : "status przesyłki") + " ›</span>";
     const rejestrowana = przSlowniki.rejestrowane.includes(w.sposob) && w.kierunek !== "przychodzące";
     tr.innerHTML = '<td>' + (anul ? "" : '<input type="checkbox" class="prz-wybor" value="' + escape(w.id) + '">') + '</td>'
       + '<td>' + w.lp + '</td><td>' + plData(w.data) + '</td><td>' + escape(druga) + '</td>'
@@ -5212,6 +5258,7 @@ function rysujTabelePrzesylek(){
       + '<td>' + (anul || !rejestrowana ? escape(w.numer_nadania || "") : '<input class="prz-nr" data-id="' + escape(w.id) + '" value="' + escape(w.numer_nadania || "") + '" placeholder="zeskanuj lub wpisz">') + sledz + '</td>'
       + '<td class="akcje">' + (anul ? "anulowana" : '<a data-akcja="popraw">popraw</a><a data-akcja="anuluj">anuluj</a>') + '</td>';
     tr.querySelector('[data-akcja="popraw"]')?.addEventListener("click", () => edytujPrzesylke(w));
+    tr.querySelector("[data-historia]")?.addEventListener("click", () => pokazHistorie(tr, w.numer_nadania));
     tr.querySelector('[data-akcja="anuluj"]')?.addEventListener("click", () => anulujPrzesylke(w));
     t.appendChild(tr);
   });
@@ -5431,6 +5478,7 @@ document.querySelectorAll("#prz-ksiegi .chip").forEach(b => b.onclick = () => {
 });
 $("prz-kierunek").onchange = ustawFormularzPrzesylki;
 $("prz-szukaj").oninput = rysujTabelePrzesylek;
+$("prz-statusy").onclick = () => odswiezStatusy(true);
 $("prz-wszystkie").onchange = e => document.querySelectorAll("#prz-lista .prz-wybor").forEach(c => c.checked = e.target.checked);
 $("prz-adresat").addEventListener("change", () => {
   // Wybrany z podpowiedzi urzad uzupelnia adres z ostatniego wpisu.

@@ -41,6 +41,7 @@ import nazwy
 import osoby
 import poczta_polska
 import przesylki
+import sledzenie
 import prompty
 import rejestracja
 import rejestry
@@ -79,6 +80,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 app.include_router(kalkulator.router)
 app.include_router(przesylki.router)
 app.include_router(poczta_polska.router)
+app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
