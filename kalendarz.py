@@ -109,7 +109,7 @@ def _sprawdz_kolizje(wpisy: list[dict], nowy: dict, pomin: str = "") -> None:
     if not nowy["godzina"]:
         return
     for wpis in wpisy:
-        if (wpis["id"] != pomin and wpis["data"] == nowy["data"] and wpis.get("godzina")
+        if (wpis["id"] != pomin and wpis.get("status") != "anulowana" and wpis["data"] == nowy["data"] and wpis.get("godzina")
                 and wpis["godzina"] < _koniec(nowy) and nowy["godzina"] < _koniec(wpis)):
             raise ValueError(f"Godziny {wpis['godzina']}-{_koniec(wpis)} są już zajęte")
 
@@ -120,7 +120,8 @@ def lista() -> list[dict]:
         if "telefony" not in wpis:
             wpis["telefony"] = [{"imie": "", "numer": wpis["telefon"]}] if wpis.get("telefon") else []
             wpis.pop("telefon", None)
-    return sorted(wpisy, key=lambda w: (w["data"], w["godzina"] or "99:99"))
+    return sorted((w for w in wpisy if w.get("status") != "anulowana"),
+                  key=lambda w: (w["data"], w["godzina"] or "99:99"))
 
 
 def dodaj(dane: dict) -> dict:
