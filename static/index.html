@@ -1717,6 +1717,7 @@ document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
 });
 /* Biezaca sprawa jest juz zapisana, wiec nie ma o co pytac. */
 $("btn-nowa").onclick = () => {
+  pokolenieOtwierania++;
   sprawa = null; rozmowa = []; poleceniePierwotne = ""; najdalej = 1;
   wybranyWzor = null; wybraneSkany = [];
   $("polecenie").value = ""; $("projekt").innerHTML = "";
@@ -2119,6 +2120,7 @@ $("btn-folder").onclick = async () => {
 };
 
 async function uruchomTrybPracy(){
+  const rozpoczecieSesji = pokolenieSesji;
   try {
     const odp = await api("/api/ustawienia");
     if (odp.ok) {
@@ -2134,6 +2136,7 @@ async function uruchomTrybPracy(){
       }
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
+  if (rozpoczecieSesji !== pokolenieSesji) return;
   pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
   if (SERWIS) {
     // Obsluga notarai widzi sprawy, nie zespol, abonament ani dokumenty
@@ -2146,7 +2149,11 @@ async function uruchomTrybPracy(){
   }
   if (dysk.aktywny) {
     $("pasek-folder").hidden = false;
-    if (dysk.obslugiwany) dysk.folder = await dysk.odtworz();
+    if (dysk.obslugiwany) {
+      const folder = await dysk.odtworz();
+      if (rozpoczecieSesji !== pokolenieSesji) return;
+      dysk.folder = folder;
+    }
     odswiezOpisFolderu();
     // Sprawdzenia w rejestrach zapisuja slad w sprawie po stronie serwera,
     // wiec przy pracy na dysku nie sa jeszcze dostepne. Lepiej ukryc niz
@@ -2157,6 +2164,7 @@ async function uruchomTrybPracy(){
     document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
+  if (rozpoczecieSesji !== pokolenieSesji) return;
   if (dokumenty && !dokumenty.umowa_zawarta) {
     // Serwer i tak odmowi (428); lepiej powiedziec, dlaczego listy nie ma.
     $("lista-spraw").innerHTML = '<span class="stan" style="padding:0 12px">Sprawy będą dostępne po akceptacji umowy powierzenia.</span>';
@@ -3107,6 +3115,7 @@ async function czytajStrumien(odp, naPostep = () => {}) {
 
 /* ---------- 1: odczyt ---------- */
 $("btn-odczytaj").onclick = async () => {
+  const sesjaZadania = pokolenieSesji, numerSprawy = pokolenieOtwierania;
   const wzor = wybranyWzor, skany = wybraneSkany;
   if (!wzor)         return stan($("stan1"), "Brakuje wzoru aktu: dodaj plik .docx albo .txt.", true);
   if (!skany.length) return stan($("stan1"), "Dodaj co najmniej jeden skan.", true);
@@ -3140,6 +3149,7 @@ $("btn-odczytaj").onclick = async () => {
     const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy",
       {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
     const wynik = await czytajStrumien(odp, naPostep);
+    if (sesjaZadania !== pokolenieSesji || numerSprawy !== pokolenieOtwierania) return;
     if (dysk.aktywny) {
       // Serwer nic nie zapisal - sprawe zakladamy u notariusza na dysku.
       wynik.id = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16)).slice(0, 12);
@@ -3352,6 +3362,9 @@ function zbierzPola(){
 }
 
 $("btn-generuj").onclick = async () => {
+  if (!sprawa?.id) return stan($("stan2"), "Najpierw wybierz sprawę.", true);
+  const sesjaZadania = pokolenieSesji, edytowanaSprawa = sprawa;
+  const numerSprawy = pokolenieOtwierania;
   zbierzPola();
   $("btn-generuj").disabled = true;
   stan($("stan2"), "Sporządzam projekt…", false, true);
@@ -3368,6 +3381,8 @@ $("btn-generuj").onclick = async () => {
       const odp = await api("/api/projekt",
         {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
       wynik = await czytajStrumien(odp);
+      if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
+          numerSprawy !== pokolenieOtwierania) return;
       // Projekt ląduje u notariusza: .docx do pracy i .txt do podglądu.
       const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
       await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
@@ -3382,11 +3397,18 @@ $("btn-generuj").onclick = async () => {
       });
       wynik = await czytajStrumien(odp);
     }
+    if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
+        numerSprawy !== pokolenieOtwierania) return;
+    sprawa.projekt = wynik.tekst;
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
     if (!dysk.aktywny) {
-      api("/api/sprawy/" + sprawa.id).then(r => r.json()).then(w => { sprawa.nazwa = w.nazwa; $("nazwa2").value = w.nazwa || ""; });
+      api("/api/sprawy/" + edytowanaSprawa.id).then(r => r.json()).then(w => {
+        if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa) return;
+        sprawa.nazwa = w.nazwa;
+        $("nazwa2").value = w.nazwa || "";
+      }).catch(() => {});
     }
   } catch (e) {
     stan($("stan2"), e.message, true);
