@@ -60,6 +60,21 @@ def szkielet(tytul: str, opis: str, tresc: str, sciezka: str, jsonld: list | Non
 <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
 <link rel="stylesheet" href="/style.css">
 <style>
+/* Tokeny marki NotarAI wspolne z witryna i kalkulatorem. */
+:root {{ --tlo:#f6f9ff; --tlo2:#edf4ff; --karta:#fff; --linia:#d8e5f6;
+  --tekst:#102a58; --tekst2:#566b8c; --tekst3:#8497af;
+  --akcent:#1e5cc3; --akcent2:#079bd1; --akcent-tlo:#e9f3ff;
+  --serif:Montserrat,"Segoe UI",Arial,sans-serif;
+  --sans:Montserrat,"Segoe UI",Arial,sans-serif; color-scheme:light; }}
+body {{background:linear-gradient(165deg,#f7fbff,#fff 60%,#edf5ff);color:var(--tekst);}}
+.naglowek {{ background:rgba(255,255,255,.97);border-bottom:1px solid #d8e7f7; }}
+.naglowek .marka {{color:#0a2758;font-weight:800;letter-spacing:-.045em;}}
+.naglowek .marka strong {{color:#0b9bd6;}}
+.hero {{ background:radial-gradient(circle at 82% 12%,#dcecff,#f8fbff 70%); }}
+.hero h1 {{font-weight:800;letter-spacing:-.035em;}}
+.kanc article, .wpisy article {{box-shadow:0 12px 35px -29px rgba(13,61,129,.22);border-color:#d9e6f5;}}
+.przycisk {{background:linear-gradient(110deg,#293cb8,#138ac9);border:0;color:#fff;}}
+.przycisk.drugi {{background:#fff;color:#255bb6;border:1px solid #c7dff7;}}
 .okruszki {{ font-size: .88rem; color: var(--tekst3); margin: 20px 0 0; }}
 .okruszki a {{ color: var(--tekst3); }}
 .sekcja-w {{ padding: 44px 0; border-top: 1px solid var(--linia); }}
