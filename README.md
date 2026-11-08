@@ -160,7 +160,7 @@ app.py              serwer i endpointy
 bedrock.py          wywołania modelu — ekstrakcja i generowanie
 dokumenty.py        PDF/obrazy na strony, docx tam i z powrotem
 walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
-ekw.py              treść księgi wieczystej z EKW przez dostawcę (Apify), na żądanie
+ekw.py              treść księgi wieczystej z EKW przez dostawcę (Finance You albo Apify), na żądanie
 krz.py, krz_portal.py  sprawdzenie w KRZ w przeglądarce notariusza
 rejestry.py         ślad audytowy sprawdzeń w rejestrach
 prompty.py          treść promptów

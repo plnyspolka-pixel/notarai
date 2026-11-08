@@ -1214,8 +1214,9 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
 
 BRAK_EKW = (
     "Pobieranie ksiag z EKW nie jest wlaczone w tej instalacji. Administrator "
-    "musi podac token dostawcy (PIECZAPP_APIFY_TOKEN). Do tego czasu wklej "
-    "wydruk ksiegi jako dokument sprawy."
+    "musi skonfigurowac dostawce: Finance You (PIECZAPP_FINYOU_URL i "
+    "PIECZAPP_FINYOU_TOKEN) albo Apify (PIECZAPP_APIFY_TOKEN). Do tego czasu "
+    "wklej wydruk ksiegi jako dokument sprawy."
 )
 
 

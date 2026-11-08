@@ -27,7 +27,7 @@ Poniższa tabela opisuje wariant chmurowy.
 | Konta i hasła użytkowników | Amazon Cognito, Frankfurt | hasła przechowuje AWS, aplikacja ich nie widzi |
 | Dzienniki pracy aplikacji | CloudWatch, Frankfurt | 90 dni, bez danych osobowych |
 | Odczyt skanów przez model | Amazon Bedrock, regiony UE | patrz niżej |
-| Treść księgi wieczystej pobrana z EKW (tylko gdy kancelaria o to poprosi) | S3, Frankfurt, w sprawie; przelotnie u dostawcy Apify (patrz niżej) | szyfrowane; u dostawcy kasowane zaraz po odczycie |
+| Treść księgi wieczystej pobrana z EKW (tylko gdy kancelaria o to poprosi) | S3, Frankfurt, w sprawie; przelotnie u dostawcy treści KW — Finance You i jego poddostawców (patrz niżej) | szyfrowane; u poddostawcy Apify kasowane zaraz po odczycie |
 
 Dane nie opuszczają Unii Europejskiej, z jednym wyjątkiem opisanym w części
 „Księgi wieczyste z EKW": numer księgi i jej treść przechodzą przez dostawcę
@@ -51,23 +51,35 @@ Model nie uczy się na danych kancelarii.
 
 Portal przeglądarki EKW odrzuca połączenia z serwerów, więc notarai nie czyta
 go sam. Gdy notariusz poprosi o treść konkretnej księgi, aplikacja zleca jej
-pobranie dostawcy: aktorowi `regdata/ekw-ksiegi-wieczyste-scraper` na
-platformie Apify (Apify Technologies s.r.o., Praga; infrastruktura dostawcy
-może leżeć poza UE). Dostawca widzi numer księgi i oddaje jej treść, w tym
-dział II z danymi właścicieli. Co robimy, żeby ograniczyć ślad:
+pobranie **dostawcy treści KW: Finance You** (Finance You sp. z o.o., Polska;
+API partnerskie, dane w Unii Europejskiej). Finance You widzi numer księgi,
+pobiera treść z EKW własnym łańcuchem źródeł i oddaje notarai pięć działów,
+w tym dział II z danymi właścicieli. Poddostawcy Finance You, z których może
+skorzystać przy pobraniu (kolejność jak w jego procedurze):
+
+| Poddostawca | Kraj / lokalizacja danych | Rola |
+|---|---|---|
+| Apify Technologies s.r.o. (aktor `regdata/ekw-ksiegi-wieczyste-scraper`, twórca: getregdata, JDG z Polski) | Czechy; platforma i storage w AWS us-east-1 (USA), transfer na podstawie SCC | pobranie treści z portalu EKW; wynik kasowany zaraz po odczycie |
+| CMD / EasyMKW (mkw.monitoringdanych.io) | Polska | Centralna Baza Ksiąg Wieczystych, zapasowo gdy Apify odmówi |
+
+Przy każdej księdze notarai zapisuje, które źródło pierwotne dowiozło treść.
+Co robimy, żeby ograniczyć ślad:
 
 - pobranie wyłącznie na żądanie notariusza, jedna księga na raz, z jawnym
   potwierdzeniem; nie ma pobierania „na zapas" ani kopii rejestru,
-- zaraz po odczycie notarai kasuje u dostawcy zbiór wyników i magazyn zadania,
+- Finance You kasuje u Apify zbiór wyników i magazyn zadania zaraz po odczycie,
 - treść trafia tylko do sprawy, której dotyczy, i jest usuwana razem z nią,
 - w logach nie ma ani numeru księgi, ani treści.
 
-Funkcja jest wyłączona, dopóki administrator nie poda tokenu dostawcy.
-**Przed włączeniem na danych klientów wymagana jest umowa powierzenia z
-dostawcą i wpisanie go do listy dalszych podmiotów przetwarzających** w
-umowie z kancelarią. Kancelaria, która tego nie chce, zostaje przy wklejaniu
-wydruku księgi jako dokumentu sprawy. Rejestr ksiąg wieczystych jest jawny
-z mocy ustawy; pobranie nie jest odpisem urzędowym.
+Instalacja bez Finance You może użyć Apify bezpośrednio (token
+`PIECZAPP_APIFY_TOKEN`) — wtedy Apify jest podmiotem przetwarzającym
+bezpośrednio dla kancelarii. Funkcja jest wyłączona, dopóki administrator nie
+poda tokenu dostawcy. **Przed włączeniem na danych klientów wymagana jest
+umowa powierzenia z Finance You (obejmująca jego poddostawców, w tym transfer
+do USA przez Apify) i wpisanie go do listy dalszych podmiotów
+przetwarzających** w umowie z kancelarią. Kancelaria, która tego nie chce,
+zostaje przy wklejaniu wydruku księgi jako dokumentu sprawy. Rejestr ksiąg
+wieczystych jest jawny z mocy ustawy; pobranie nie jest odpisem urzędowym.
 
 ## Oddzielenie kancelarii od siebie
 

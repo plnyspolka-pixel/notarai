@@ -80,6 +80,17 @@ Parameters:
       Pelny ARN sekretu notarai/apify (klucz token), zalozonego skryptem
       zapisz-sekret-apify.ps1. Wlacza pobieranie tresci ksiag wieczystych
       z EKW przez dostawce (ekw.py). Puste = funkcja wylaczona.
+  FinyouSekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/finyou (klucz token), zalozonego skryptem
+      zapisz-sekret-finyou.ps1. Finance You jako dostawca tresci ksiag
+      wieczystych (ekw.py) - ma pierwszenstwo przed Apify. Puste = wylaczone.
+  FinyouAdres:
+    Type: String
+    Default: ""
+    Description: Adres API Finance You (np. https://finyou.pl). Jawny, nie jest sekretem.
   StripeCena:
     Type: String
     Default: ""
@@ -107,6 +118,7 @@ Conditions:
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
   MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
+  MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -179,6 +191,16 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref ApifySekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyFinyou
+          - PolicyName: sekret-finyou
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref FinyouSekretArn
           - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
@@ -394,6 +416,8 @@ Resources:
               Value: !Ref StripeCena
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
+            - Name: PIECZAPP_FINYOU_URL
+              Value: !Ref FinyouAdres
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
@@ -413,6 +437,12 @@ Resources:
               - MamyApify
               - Name: PIECZAPP_APIFY_TOKEN
                 ValueFrom: !Sub "${ApifySekretArn}:token::"
+              - !Ref AWS::NoValue
+            # Token partnerski Finance You (dostawca tresci KW) z sekretu notarai/finyou.
+            - !If
+              - MamyFinyou
+              - Name: PIECZAPP_FINYOU_TOKEN
+                ValueFrom: !Sub "${FinyouSekretArn}:token::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs

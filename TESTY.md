@@ -40,7 +40,8 @@ pytest -s
 test_walidacja.py    - Testy walidatorów (PESEL, NIP, KW, kwoty)
 test_dokumenty.py    - Testy wykrywania pól ze wzoru i konwersji dokumentów
 test_bedrock.py      - Testy przepływu z atrapą Bedrock (bez prawdziwego modelu)
-test_ekw.py          - Księga wieczysta z EKW przez dostawcę: atrapa klienta HTTP, zapis do sprawy, ślad audytowy, endpointy
+test_ekw.py          - Księga wieczysta z EKW przez Apify: atrapa klienta HTTP, zapis do sprawy, ślad audytowy, endpointy
+test_ekw_finyou.py   - Księga wieczysta przez Finance You (API partnerskie): wybór dostawcy, dopytywanie, błędy
 pytest.ini           - Konfiguracja pytest
 generuj_testowe.py   - Pomocniczy skrypt do generowania poprawnych numerów testowych
 ```

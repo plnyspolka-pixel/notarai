@@ -1,20 +1,26 @@
-"""Tresc ksiegi wieczystej z EKW - przez aktora Apify, na zadanie notariusza.
+"""Tresc ksiegi wieczystej z EKW - przez dostawce, na zadanie notariusza.
 
 Przegladarka EKW (przegladarka-ekw.ms.gov.pl) nie ma API i odrzuca ruch
-z serwerow kodem 403, wiec serwer notarai nie czyta jej sam. Pobranie zleca
-aktorowi `regdata/ekw-ksiegi-wieczyste-scraper` na platformie Apify, ktory
-oddaje piec dzialow ksiegi jako JSON. Rozliczenie: jedna ksiega = jeden wynik.
+z serwerow kodem 403, wiec serwer notarai nie czyta jej sam. Dostawcy:
+
+- **Finance You** (domyslny, gdy skonfigurowany): API partnerskie
+  /api/public/partner-kw. Finance You sam dobiera zrodlo (Apify, EasyMKW/CMD)
+  i oddaje piec dzialow jako tekst + HTML. W procedurze kancelarii dostawca
+  tresci KW to Finance You; jego poddostawcy sa opisani w docs/ochrona-danych.md.
+- **Apify** (zapasowy / samodzielny): aktor `regdata/ekw-ksiegi-wieczyste-scraper`,
+  jedna ksiega = jeden platny wynik.
 
 Zasady (SPEC A, docs/rejestry.md):
 - jedna ksiega na zadanie, z odstepem; bez masowego pobierania i bez lokalnej
   kopii rejestru - tresc trafia tylko do sprawy, ktorej dotyczy;
-- po odczycie kasujemy u dostawcy zbior wynikow i magazyn zadania, zeby dane
-  stron (dzial II zawiera imiona, czasem PESEL) nie lezaly tam dluzej niz trzeba;
+- przy Apify po odczycie kasujemy u dostawcy zbior wynikow i magazyn zadania,
+  zeby dane stron (dzial II zawiera imiona, czasem PESEL) nie lezaly tam dluzej;
 - w logach tylko identyfikator sprawy, status i czas - bez numeru KW i tresci;
 - to nie jest odpis urzedowy; notariusz porownuje ze zrodlem.
 
-Konfiguracja: PIECZAPP_APIFY_TOKEN (w chmurze z Secrets Manager). Bez tokenu
-modul jest nieaktywny i interfejs nie pokazuje przycisku.
+Konfiguracja (w chmurze z Secrets Manager): PIECZAPP_FINYOU_URL +
+PIECZAPP_FINYOU_TOKEN (Finance You) albo PIECZAPP_APIFY_TOKEN (Apify). Bez
+zadnego z nich modul jest nieaktywny i interfejs nie pokazuje przycisku.
 """
 from __future__ import annotations
 
@@ -38,7 +44,19 @@ log = logging.getLogger("pieczapp.ekw")
 AKTOR = "regdata~ekw-ksiegi-wieczyste-scraper"
 ADRES_API = "https://api.apify.com/v2"
 PORTAL = "przegladarka-ekw.ms.gov.pl"
-ZRODLO = f"{PORTAL} (przez Apify {AKTOR.replace('~', '/')})"
+ZRODLO_APIFY = f"{PORTAL} (przez Apify {AKTOR.replace('~', '/')})"
+ZRODLO_FINYOU = "Finance You (API partnerskie) - dostawca tresci KW"
+ZRODLO = ZRODLO_APIFY  # zgodnosc wsteczna; aktualne zrodlo daje zrodlo()
+# Dzialy w odpowiedzi Finance You (klucze kw_documents) -> oznaczenie dzialu.
+SEKCJE_FINYOU = (
+    ("dzial_1o", "I-O"),
+    ("dzial_1s", "I-Sp"),
+    ("dzial_2", "II"),
+    ("dzial_3", "III"),
+    ("dzial_4", "IV"),
+)
+ODSTEP_FINYOU_S = 5.0  # miedzy dopytaniami, gdy Finance You dopiero pobiera
+CZAS_FINYOU_S = 60     # ile Finance You czeka w jednym zadaniu (maks. 50 s + zapas)
 # Kolejnosc jak w wydruku z EKW. Klucz aktora -> oznaczenie dzialu.
 DZIALY = (
     ("dzialIO", "I-O"),
@@ -74,9 +92,30 @@ def token() -> str:
     return os.getenv("PIECZAPP_APIFY_TOKEN", "").strip()
 
 
+def finyou_adres() -> str:
+    return os.getenv("PIECZAPP_FINYOU_URL", "").strip().rstrip("/")
+
+
+def finyou_token() -> str:
+    return os.getenv("PIECZAPP_FINYOU_TOKEN", "").strip()
+
+
+def dostawca() -> str:
+    """'finyou' | 'apify' | '' - Finance You ma pierwszenstwo, gdy skonfigurowane."""
+    if finyou_adres() and finyou_token():
+        return "finyou"
+    if token():
+        return "apify"
+    return ""
+
+
 def dostepne() -> bool:
     """Czy ta instalacja ma czym pobierac. Decyduje o przycisku w interfejsie."""
-    return bool(token())
+    return bool(dostawca())
+
+
+def zrodlo() -> str:
+    return ZRODLO_FINYOU if dostawca() == "finyou" else ZRODLO_APIFY
 
 
 def normalizuj_numer(numer: str) -> str:
@@ -160,8 +199,120 @@ def z_rekordu(rekord: dict, numer: str) -> dict:
         "widok": "aktualna",
         "dzialy": [_dzial(rekord, klucz, oznaczenie) for klucz, oznaczenie in DZIALY],
         "pobrano": datetime.now().isoformat(timespec="seconds"),
-        "zrodlo": ZRODLO,
+        "zrodlo": ZRODLO_APIFY,
+        "dostawca": "apify",
     }
+
+
+# ── Finance You jako dostawca ─────────────────────────────────────────────────
+
+_WIERSZ_OKLADKI = re.compile(r"^\s*{}\s*\|\s*(.+?)\s*$", re.I | re.M)
+
+
+def _z_okladki(tekst: str, etykieta: str) -> str:
+    """Wartosc z wiersza okladki w formacie 'Etykieta | wartosc' (tekst z HTML EKW)."""
+    m = re.search(_WIERSZ_OKLADKI.pattern.format(re.escape(etykieta)), tekst or "", re.I | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def z_odpowiedzi_finyou(dane: dict, numer: str) -> dict:
+    """Odpowiedz /api/public/partner-kw -> ksiega w ukladzie notarai."""
+    if not isinstance(dane, dict):
+        raise BladEKW("niedostepny", "Niezrozumiala odpowiedz Finance You")
+    status = dane.get("status")
+    if status == "not_found":
+        raise BladEKW("nie_znaleziono", "Ksiegi o tym numerze nie ma w rejestrze")
+    if status == "processing":
+        raise BladEKW("niedostepny", "Finance You jeszcze pobiera ksiege - sprobuj za chwile")
+    sekcje = dane.get("sections")
+    if status != "ready" or not isinstance(sekcje, dict):
+        powod = str(dane.get("error") or "brak tresci")[:300]
+        raise BladEKW("niedostepny", f"Finance You nie oddalo ksiegi: {powod}")
+    zwrocony = re.sub(r"\s+", "", str(dane.get("kw_number") or "").upper())
+    if zwrocony != numer:
+        raise BladEKW("niedostepny", "Dostawca zwrocil inna ksiege niz zadana")
+    dzialy = []
+    for klucz, oznaczenie in SEKCJE_FINYOU:
+        s = sekcje.get(klucz)
+        if not isinstance(s, dict):
+            raise BladEKW("niepelny", f"Nie udalo sie odczytac dzialu {oznaczenie} - ksiega odrzucona w calosci")
+        tekst = str(s.get("text") or "").strip()
+        pusty = s.get("empty") is True
+        if not pusty and not tekst:
+            raise BladEKW("niepelny", f"Dzial {oznaczenie} bez tresci i bez oznaczenia BRAK WPISOW - ksiega odrzucona")
+        dzialy.append({
+            "oznaczenie": oznaczenie,
+            "tytul": str(s.get("label") or f"DZIAL {oznaczenie}"),
+            "pusty": pusty,
+            "tekst": "BRAK WPISÓW" if pusty else tekst,
+        })
+    okladka = str((sekcje.get("okladka") or {}).get("text") or "")
+    pierwotne = str(dane.get("provider") or "nieznane")
+    return {
+        "numer_kw": numer,
+        "kod_sadu": numer[:4],
+        "sad": _z_okladki(okladka, "Sąd rejonowy") or _z_okladki(okladka, "Sad rejonowy"),
+        "typ": _z_okladki(okladka, "Typ księgi") or _z_okladki(okladka, "Typ ksiegi"),
+        "widok": "aktualna",
+        "dzialy": dzialy,
+        "pobrano": datetime.now().isoformat(timespec="seconds"),
+        "zrodlo": f"{ZRODLO_FINYOU}; zrodlo pierwotne: {pierwotne}",
+        "dostawca": "finyou",
+    }
+
+
+def _klient_finyou() -> httpx.Client:
+    return httpx.Client(
+        base_url=finyou_adres(),
+        headers={"Authorization": "Bearer " + finyou_token(), "Accept": "application/json"},
+        timeout=httpx.Timeout(CZAS_FINYOU_S + 30, connect=20),
+    )
+
+
+def _odpowiedz_finyou(odp) -> dict:
+    if odp.status_code in (401, 403):
+        raise BladEKW("blad_tokenu", "Finance You odrzucilo token - sprawdz PIECZAPP_FINYOU_TOKEN")
+    if odp.status_code == 429:
+        raise BladEKW("limit", "Finance You: za duzo zapytan - sprobuj pozniej")
+    if odp.status_code >= 500:
+        raise BladEKW("niedostepny", f"Finance You odpowiedzialo kodem {odp.status_code}")
+    try:
+        dane = odp.json()
+    except ValueError:
+        raise BladEKW("niedostepny", "Niezrozumiala odpowiedz Finance You")
+    if odp.status_code >= 400:
+        raise BladEKW("niedostepny", f"Finance You: {str((dane or {}).get('error') or odp.status_code)[:200]}")
+    return dane
+
+
+def pobierz_finyou(numer: str, klient: httpx.Client | None = None) -> dict:
+    """Jedna ksiega z Finance You. Gdy dostawca dopiero pobiera, dopytuje do CZAS_S."""
+    numer = normalizuj_numer(numer)
+    if not (finyou_adres() and finyou_token()):
+        raise BladEKW("brak_tokenu", "Finance You nie jest skonfigurowane (PIECZAPP_FINYOU_URL / PIECZAPP_FINYOU_TOKEN)")
+    _odczekaj()
+    wlasny = klient is None
+    k = klient or _klient_finyou()
+    try:
+        try:
+            odp = k.post("/api/public/partner-kw", json={"kw": numer, "wait_seconds": 50})
+        except httpx.TimeoutException:
+            raise BladEKW("niedostepny", "Finance You nie odpowiedzialo w czasie - sprobuj pozniej")
+        except httpx.HTTPError as blad:
+            raise BladEKW("niedostepny", f"Brak polaczenia z Finance You ({type(blad).__name__})")
+        dane = _odpowiedz_finyou(odp)
+        koniec = time.monotonic() + CZAS_S
+        while isinstance(dane, dict) and dane.get("status") == "processing" and time.monotonic() < koniec:
+            time.sleep(ODSTEP_FINYOU_S)
+            try:
+                odp = k.get("/api/public/partner-kw", params={"kw": numer})
+            except httpx.HTTPError as blad:
+                raise BladEKW("niedostepny", f"Brak polaczenia z Finance You ({type(blad).__name__})")
+            dane = _odpowiedz_finyou(odp)
+        return z_odpowiedzi_finyou(dane, numer)
+    finally:
+        if wlasny:
+            k.close()
 
 
 def do_tekstu(ksiega: dict) -> str:
@@ -211,9 +362,16 @@ def _posprzataj(klient: httpx.Client, zbior: str | None, magazyn_id: str | None)
 
 
 def pobierz(numer: str, klient: httpx.Client | None = None) -> dict:
-    """Jedna ksiega, aktualna tresc, wszystkie dzialy. Czeka na wynik aktora."""
+    """Jedna ksiega, aktualna tresc, wszystkie dzialy - od skonfigurowanego dostawcy."""
+    if dostawca() == "finyou":
+        return pobierz_finyou(numer, klient)
+    return pobierz_apify(numer, klient)
+
+
+def pobierz_apify(numer: str, klient: httpx.Client | None = None) -> dict:
+    """Jedna ksiega przez aktora Apify. Czeka na wynik aktora."""
     numer = normalizuj_numer(numer)
-    if not dostepne():
+    if not token():
         raise BladEKW("brak_tokenu", "Pobieranie z EKW nie jest wlaczone w tej instalacji (PIECZAPP_APIFY_TOKEN)")
     _odczekaj()
     wlasny = klient is None
@@ -278,7 +436,7 @@ def zapisz(identyfikator: str, ksiega: dict) -> Path:
     status, opis = podsumowanie(ksiega)
     rejestry.zapisz_sprawdzenie(identyfikator, rejestry.WynikSprawdzenia(
         rejestr="EKW", zapytanie=ksiega["numer_kw"], status=status,
-        szczegoly=opis, zrodlo=ZRODLO, etykieta=ksiega["numer_kw"],
+        szczegoly=opis, zrodlo=ksiega.get("zrodlo") or zrodlo(), etykieta=ksiega["numer_kw"],
     ))
     return katalog / f"{nazwa}.json"
 
@@ -288,7 +446,7 @@ def wynik_bledu(numer: str, blad: BladEKW) -> rejestry.WynikSprawdzenia:
     status = "blad" if blad.kod in ("nie_znaleziono", "niepelny") else "niedostepny"
     return rejestry.WynikSprawdzenia(
         rejestr="EKW", zapytanie=numer, status=status, szczegoly=str(blad),
-        zrodlo=ZRODLO, etykieta=numer,
+        zrodlo=zrodlo(), etykieta=numer,
     )
 
 

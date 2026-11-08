@@ -53,12 +53,21 @@ Sprawdzono 07.11.2026.
 - Rejestr jest jawny z mocy ustawy o ksiegach wieczystych i hipotece, ale dzial II
   zawiera dane osobowe (imiona, nazwiska, czasem PESEL).
 
-**Decyzja dla notarai (ekw.py):**
-- Tresc ksiegi pobiera dostawca: aktor `regdata/ekw-ksiegi-wieczyste-scraper`
-  na platformie Apify (https://apify.com/regdata/ekw-ksiegi-wieczyste-scraper).
-  Rozliczenie za wynik: 0,005-0,010 USD za ksiege zaleznie od planu Apify plus
-  0,025 USD za uruchomienie; ksiegi nieodczytane i nieistniejace nie sa liczone.
-  Plan bezplatny: 25 ksiag na 30 dni.
+**Decyzja dla notarai (ekw.py) - procedura:**
+- **Dostawca tresci ksiegi wieczystej dla notarai to Finance You** (API
+  partnerskie `POST/GET /api/public/partner-kw`, token `PIECZAPP_FINYOU_TOKEN`,
+  adres `PIECZAPP_FINYOU_URL`). Notarai wysyla numer KW i dostaje piec dzialow
+  jako tekst i HTML; gdy Finance You dopiero pobiera (`processing`), notarai
+  dopytuje co 5 s, najdluzej 4 min. Finance You sam dobiera zrodlo pierwotne
+  (kolejno: Apify, EasyMKW/CMD) i to on jest dla kancelarii podmiotem
+  przetwarzajacym; jego poddostawcy sa wpisani w docs/ochrona-danych.md.
+  Zrodlo pierwotne zapisujemy przy ksiedze (`zrodlo: ... zrodlo pierwotne: apify`).
+- Zapasowo / bez Finance You: aktor `regdata/ekw-ksiegi-wieczyste-scraper`
+  na platformie Apify (https://apify.com/regdata/ekw-ksiegi-wieczyste-scraper),
+  token `PIECZAPP_APIFY_TOKEN`. Rozliczenie za wynik: 0,005-0,010 USD za
+  ksiege zaleznie od planu Apify plus 0,025 USD za uruchomienie; ksiegi
+  nieodczytane i nieistniejace nie sa liczone. Plan bezplatny: 25 ksiag na
+  30 dni. Gdy skonfigurowane sa oba, Finance You ma pierwszenstwo.
 - Jedna ksiega na zadanie notariusza, z jawnym potwierdzeniem, zawsze widok
   "aktualna". Bez masowego pobierania i bez lokalnej kopii rejestru - tresc
   trafia tylko do sprawy (`dane/sprawy/<id>/ksiegi/<numer>.json` i `.txt`).
@@ -67,14 +76,15 @@ Sprawdzono 07.11.2026.
   albo IV, `brak_wpisu` - oba dzialy puste.
 - Ksiega z nieodczytanym dzialem jest odrzucana w calosci. Dostawca oznacza
   dzial jako pusty tylko, gdy portal oddal "BRAK WPISOW".
-- Po odczycie notarai kasuje u dostawcy zbior wynikow i magazyn zadania.
-  Dostawca jest podmiotem przetwarzajacym poza nasza infrastruktura - patrz
-  docs/ochrona-danych.md; wymaga umowy powierzenia przed uzyciem na danych
-  klientow.
+- Przy Apify po odczycie notarai kasuje u dostawcy zbior wynikow i magazyn
+  zadania. Kazdy dostawca jest podmiotem przetwarzajacym poza nasza
+  infrastruktura - patrz docs/ochrona-danych.md; wymaga umowy powierzenia
+  przed uzyciem na danych klientow.
 - To **nie jest odpis urzedowy**. Notariusz porownuje tresc ze zrodlem i tak
   oznacza ja interfejs.
-- Token dostawcy: `PIECZAPP_APIFY_TOKEN`; w chmurze z sekretu `notarai/apify`
-  (infra/zapisz-sekret-apify.ps1). Bez tokenu karta w interfejsie jest ukryta.
+- Sekrety w chmurze: `notarai/finyou` (infra/zapisz-sekret-finyou.ps1, adres
+  parametrem `FinyouAdres`) albo `notarai/apify` (infra/zapisz-sekret-apify.ps1).
+  Bez zadnego z nich karta w interfejsie jest ukryta.
 
 ## Krajowy Rejestr Zadluzonych (KRZ)
 
