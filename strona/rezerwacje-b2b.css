@@ -1,0 +1,125 @@
+/* NotarAI - isolated B2B bookings section. Safe with the existing notarai.pl CSS. */
+#rezerwacje-b2b {
+  --b2b-navy: #071d49;
+  --b2b-indigo: #2947c3;
+  --b2b-cyan: #00bde6;
+  --b2b-muted: #5e7093;
+  background: radial-gradient(ellipse at 5% 0, #dceeff 0, transparent 55%),
+    linear-gradient(135deg, #f9fcff, #edf5ff);
+  color: var(--b2b-navy);
+  border-top: 1px solid #d8e7f8;
+  border-bottom: 1px solid #d8e7f8;
+  padding-top: clamp(60px, 7vw, 100px);
+  padding-bottom: clamp(60px, 7vw, 100px);
+}
+#rezerwacje-b2b .b2b-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr);
+  gap: clamp(28px, 4vw, 72px);
+  align-items: center;
+}
+#rezerwacje-b2b .b2b-eyebrow {
+  display: inline-block;
+  margin-bottom: 24px;
+  padding: 7px 12px;
+  border-radius: 99px;
+  background: #e4f6ff;
+  color: #0769a4;
+  letter-spacing: .08em;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+#rezerwacje-b2b h2 {
+  max-width: 680px;
+  font: 800 clamp(30px, 3.6vw, 49px)/1.12 Montserrat, "Segoe UI", Arial, sans-serif;
+  letter-spacing: -.048em;
+  color: var(--b2b-navy);
+  margin: 0 0 24px;
+}
+#rezerwacje-b2b .b2b-copy > p {
+  color: #506480;
+  font-size: clamp(15px, 1.4vw, 17px);
+  line-height: 1.8;
+}
+#rezerwacje-b2b .b2b-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 27px;
+}
+#rezerwacje-b2b .b2b-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 52px;
+  padding: 13px 22px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font: 750 14px/1.4 Montserrat, "Segoe UI", Arial, sans-serif;
+  transition: background .16s, box-shadow .16s, transform .16s;
+}
+#rezerwacje-b2b .b2b-button:hover { transform: translateY(-2px); }
+#rezerwacje-b2b .b2b-button-primary {
+  color: #fff;
+  background: linear-gradient(112deg, #2429af, #266dd2);
+  box-shadow: 0 16px 28px -16px #214dc2;
+}
+#rezerwacje-b2b .b2b-button-primary:hover { background: #1a48b6; }
+#rezerwacje-b2b .b2b-button-secondary {
+  color: #123978;
+  background: #fff;
+  border-color: #c5d9f2;
+}
+#rezerwacje-b2b .b2b-footnote {
+  margin-top: 17px;
+  color: #647899 !important;
+  font-size: 12px !important;
+}
+#rezerwacje-b2b .b2b-features {
+  display: grid;
+  padding: 15px 22px;
+  border: 1px solid #d5e4f5;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 30px 60px -39px rgba(12,48,101,.26);
+}
+#rezerwacje-b2b .b2b-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 19px 5px;
+}
+#rezerwacje-b2b .b2b-feature + .b2b-feature { border-top: 1px solid #e7eef8; }
+#rezerwacje-b2b .b2b-number {
+  flex: 0 0 39px;
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  border-radius: 11px;
+  background: #e9f6ff;
+  color: #1773ac;
+  font-size: 12px;
+  font-weight: 800;
+}
+#rezerwacje-b2b .b2b-feature strong {
+  display: block;
+  font: 750 15px/1.35 Montserrat, "Segoe UI", Arial, sans-serif;
+  color: #102c61;
+}
+#rezerwacje-b2b .b2b-feature p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--b2b-muted);
+}
+@media (max-width: 880px) {
+  #rezerwacje-b2b .b2b-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  #rezerwacje-b2b .b2b-actions { display: grid; }
+  #rezerwacje-b2b .b2b-features { padding: 12px; }
+}
