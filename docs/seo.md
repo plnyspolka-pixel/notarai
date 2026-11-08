@@ -120,3 +120,24 @@ Bez tych kroków zgłoszenia działają, tylko bez e-maili.
   formularz zgłoszenia poprawek i pole w rejestrze.
 - Blog: generować kolejne tematy z `seo/tematy.txt` partiami (po 3-5) i czytać
   przed publikacją; dopisać linki z artykułów do stron miast.
+
+## Stan wdrożenia (08.11.2026)
+
+- Aplikacja: obraz `bc49f593eb0b` zbudowany w CodeBuild i wdrożony na ECS
+  (stos `notarai-aplikacja`, UPDATE_COMPLETE, 2 zdrowe kopie). Sprawdzone na
+  żywo: `/zdrowie`, `/api/taksa`, `/kalkulator`, `/api/wizyty/kancelarie`,
+  CORS dla notarai.pl, `/api/taksa/oblicz` liczy 12 633,69 zł dla przykładu
+  kontrolnego. Parametry `EmailNadawcy=notarai <kontakt@notarai.pl>`,
+  `EmailZgloszen=plnyspolka@gmail.com`.
+- SES (eu-central-1): tożsamość domeny `notarai.pl` utworzona (DKIM
+  oczekuje na rekordy CNAME w az.pl), adres plnyspolka@gmail.com do
+  weryfikacji (link w e-mailu od AWS). Wniosek o wyjście z piaskownicy został
+  automatycznie odrzucony (sprawa 179409642200625) - trzeba odwołać się w AWS
+  Support Center z opisem użycia. Do tego czasu SES wysyła tylko na
+  zweryfikowane adresy; aplikacja loguje nieudane wysyłki bez treści.
+- Strona statyczna (az.pl): z chmury nie ma dostępu FTPS, wysyłka
+  `infra\strona.ps1 wyslij` ze stanowiska.
+- Blog: 9 artykułów opublikowanych (wszystkie sprawdzone pod kątem kwot;
+  w artykule o umowie deweloperskiej tabela taksy przeliczona kalkulatorem,
+  bo model policzył ją źle, i poprawiony podział kosztów według ustawy
+  deweloperskiej).
