@@ -1380,8 +1380,22 @@ def wniosek_kw(wpis: str, dane: dict, request: Request):
 
 
 @app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}")
+def zmiana_wniosku_kw(wpis: str, wniosek: str, dane: dict, request: Request):
+    return _ksiegi(ksiegi_notarialne.zmien_wniosek_kw, wpis, wniosek, dane, _kto(request))
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}/pakiet")
+def pakiet_wniosku_kw(wpis: str, wniosek: str):
+    """Kroki do portalu MS w kolejnosci formularza - do skopiowania albo dla pomocnika."""
+    return _ksiegi(ksiegi_notarialne.pakiet_wniosku_kw, wpis, wniosek)
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}/status")
 def status_wniosku_kw(wpis: str, wniosek: str, dane: dict, request: Request):
-    return _ksiegi(ksiegi_notarialne.zmien_status_wniosku_kw, wpis, wniosek, dane, _kto(request))
+    """Zlozony (z numerem REP.C -> repertorium C), w sadzie, wpis dokonany, zwrot..."""
+    wynik = _ksiegi(ksiegi_notarialne.zmien_status_wniosku_kw, wpis, wniosek, dane, _kto(request))
+    log.info("wniosek KW %s: status %s", wniosek, dane.get("status"))
+    return wynik
 
 
 @app.get("/api/ksiegi-kancelarii/repertorium_a/{wpis}/giif")

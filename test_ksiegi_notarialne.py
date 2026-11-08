@@ -90,23 +90,95 @@ def test_depozyt_numeracja_ciagla(klient):
         ["Dep. nr 1", "Dep. nr 2"]
 
 
-def test_wniosek_kw_trafia_do_dziennika_przesylanych(klient):
-    w = rep_a(klient)
-    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw",
-                      json={"numer_kw": "wa4m/00160286/2", "zadanie": "wpis wlasnosci"})
-    wniosek = odp.json()["wnioski_kw"][0]
-    assert wniosek["status"] == "przygotowany"
-    assert klient.get("/api/ksiegi-kancelarii/dziennik_przesylanych").json() == []
-    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wniosek['id']}",
-                      json={"status": "zlozony", "data_zlozenia": "2026-11-03", "identyfikator": "EKW-123"})
+KW = "WA4M/00160286/2"
+
+
+def wniosek_kw(klient, w, **pola):
+    dane = {"numer_kw": KW.lower(), "sad": "SR dla Warszawy-Mokotowa, XIII Wydzial KW",
+            "uczestnicy": [{"nazwa": "Jan Sobczak", "rola": "zbywca", "pesel": PESEL},
+                           {"nazwa": "Anna Pawlak", "rola": "nabywca", "pesel": z_suma_kontrolna("9002021234"),
+                            "imiona_rodzicow": "Adam, Ewa"}],
+            "zadania": [{"rodzaj": "wpis_wlasnosci", "na_rzecz": ["Anna Pawlak"]},
+                        {"rodzaj": "wpis_hipoteki", "na_rzecz": ["Anna Pawlak"], "suma": "100000"}],
+            "akt": {"notariusz": "Maria Notariuszowa", "siedziba": "Warszawa"}, **pola}
+    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw", json=dane)
     assert odp.status_code == 200, odp.text
-    dziennik = klient.get("/api/ksiegi-kancelarii/dziennik_przesylanych").json()
-    assert len(dziennik) == 1
-    assert dziennik[0]["rep_a"] == "Rep. A nr 1/2026" and dziennik[0]["numer_kw"] == "WA4M/00160286/2"
+    return odp.json()["wnioski_kw"][-1]
+
+
+def test_wniosek_kw_przygotowanie_braki_i_oplata(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w)
+    assert wn["status"] == "przygotowany" and wn["numer_kw"] == KW
+    assert wn["podstawa"]["rep_a"] == "Rep. A nr 1/2026" and wn["podstawa"]["data"] == "2026-11-03"
+    assert wn["oplata"]["razem"] == "400.00"
+    assert wn["braki"] == [] and wn["gotowy"]
+    zly = wniosek_kw(klient, w, uczestnicy=[{"nazwa": "Anna Pawlak", "rola": "nabywca"}],
+                     zadania=[{"rodzaj": "wpis_wlasnosci", "na_rzecz": ["Ktos Obcy"]}], numer_kw="WA4M/00160286/3")
+    assert not zly["gotowy"]
+    tekst = " ".join(zly["braki"])
+    assert "Numer KW" in tekst and "PESEL" in tekst and "nie jest uczestnikiem" in tekst
+    poprawiony = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{zly['id']}",
+                             json={"numer_kw": KW}).json()["wnioski_kw"][-1]
+    assert not any("Numer KW" in b for b in poprawiony["braki"])
+
+
+def test_pakiet_do_portalu_konczy_sie_przed_podpisem(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w)
+    pakiet = klient.get(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/pakiet").json()
+    assert pakiet["gotowy"] and pakiet["kroki"][-1]["krok"].startswith("STOP")
+    assert [k["krok"] for k in pakiet["kroki"]].count("Zadanie") == 2
+    assert pakiet["formularz"]["dane"]["zadanie_1_dzial"] == "II"
+    assert pakiet["formularz"]["dane"]["rep_a"] == "Rep. A nr 1/2026"
+
+
+def test_zlozenie_tworzy_wpis_w_repertorium_c(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w)
+    adres = f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/status"
+    assert klient.post(adres, json={"status": "zlozony", "data_zlozenia": "2026-11-03"}).status_code == 400
+    assert klient.post(adres, json={"status": "zlozony", "data_zlozenia": "2026-11-03",
+                                    "numer_rep_c": "REP.C/KOMO/1/26"}).status_code == 400
+    odp = klient.post(adres, json={"status": "zlozony", "data_zlozenia": "2026-11-03",
+                                   "numer_rep_c": "rep.c nota 001234 26"})
+    assert odp.status_code == 200, odp.text
+    assert odp.json()["wnioski_kw"][0]["numer_rep_c"] == "REP.C/NOTA/1234/26"
+    rep_c = klient.get("/api/ksiegi-kancelarii/repertorium_c").json()
+    assert len(rep_c) == 1
+    assert rep_c[0]["oznaczenie"] == "REP.C/NOTA/1234/26" and rep_c[0]["rep_a"] == "Rep. A nr 1/2026"
+    assert rep_c[0]["oplata_sadowa"] == "400.00" and rep_c[0]["status"] == "zlozony"
+    # przebieg w sadzie zapisuje sie w repertorium C z historia
+    odp = klient.post(adres, json={"status": "wpis_dokonany", "sygnatura_dz_kw": "WA2M/Dz.Kw./12345/26",
+                                   "data_wpisu": "2026-11-20"})
+    assert odp.status_code == 200, odp.text
+    rep_c = klient.get("/api/ksiegi-kancelarii/repertorium_c").json()[0]
+    assert rep_c["status"] == "wpis_dokonany" and rep_c["sygnatura_dz_kw"] == "WA2M/Dz.Kw./12345/26"
+    assert rep_c["korekty"][0]["powod"] == "przebieg wniosku: wpis_dokonany"
+    assert klient.post(adres, json={"status": "zwrot"}).status_code == 400
+    # ten sam numer REP.C nie wejdzie drugi raz
+    wn2 = wniosek_kw(klient, w)
+    adres2 = f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn2['id']}/status"
+    assert klient.post(adres2, json={"status": "zlozony", "data_zlozenia": "2026-11-04",
+                                     "numer_rep_c": "REP.C/NOTA/1234/26"}).status_code == 400
+
+
+def test_niekompletnego_wniosku_nie_mozna_zlozyc(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w, sad="")
+    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/status",
+                      json={"status": "zlozony", "data_zlozenia": "2026-11-03", "numer_rep_c": "REP.C/NOTA/1/26"})
+    assert odp.status_code == 400 and "braki" in odp.json()["detail"]
+
+
+def test_mapowanie_portalu_jest_szkicem():
+    from formularze import silnik
+    m = silnik.wczytaj_mapowanie("wniosek_kw_portal_ms")
+    assert m.status == "szkic" and all(p.selektor != m.przycisk_wysylki for p in m.pola)
 
 
 def test_nieznana_ksiega(klient):
-    assert klient.get("/api/ksiegi-kancelarii/repertorium_c").status_code == 400
+    assert klient.get("/api/ksiegi-kancelarii/repertorium_x").status_code == 400
 
 
 # --- GIIF ---------------------------------------------------------------------
