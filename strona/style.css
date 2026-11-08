@@ -241,3 +241,205 @@ p { margin: 0 0 1em; }
 }
 
 .naglowek-w.rozsun { justify-content: space-between; }
+
+
+/* ==========================================================================
+   NotarAI / Finance You visual refresh — design reference: finyou/src/styles.css
+   Dark-glow marketing hero; same navy/cyan/gold language, own NotarAI identity.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --tlo: #f6f8fc;
+  --tlo2: #edf2fa;
+  --karta: #ffffff;
+  --linia: #dce5f1;
+  --tekst: #0d193c;
+  --tekst2: #485875;
+  --tekst3: #72809b;
+  --akcent: #1c1cc0;
+  --akcent2: #2563cf;
+  --akcent-tlo: #eaf1ff;
+  --ok: #24784d;
+  --ciemne: #070b22;
+  --ciemne2: #101a3a;
+  --ciemne-linia: rgba(104,153,241,.28);
+  --ciemne-tekst: #f5f8ff;
+  --ciemne-tekst2: #b9cbeb;
+  --sans: "Montserrat","Segoe UI",system-ui,-apple-system,sans-serif;
+  --serif: "Montserrat","Segoe UI",system-ui,sans-serif;
+  --r: 20px;
+  --fy-navy: #0d193c;
+  --fy-deep: #050a30;
+  --fy-cyan: #2197d3;
+  --fy-gold: #e4c47a;
+  --fy-gradient: linear-gradient(110deg,#1c1cc0 0%,#2861ca 52%,#2197d3 100%);
+}
+body { background: var(--tlo); color: var(--tekst); font-family: var(--sans); }
+h1,h2,h3 { font-family: var(--sans); letter-spacing: -.035em; }
+h1 { font-size: clamp(2.5rem,5vw,4.3rem); font-weight: 800; line-height: 1.11; }
+h2 { font-size: clamp(1.85rem,3.4vw,2.8rem); font-weight: 750; line-height: 1.18; }
+h3 { font-weight: 725; line-height: 1.32; }
+.szer { max-width: 1230px; }
+.wstep { line-height: 1.8; }
+:where(a,button,input,textarea,select):focus-visible { outline: 3px solid #55c0ee; outline-offset: 3px; }
+
+/* Header modelled on Finance You's dark marketing navigation */
+.naglowek {
+  background: rgba(7,11,34,.93);
+  border-bottom: 1px solid rgba(140,174,239,.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 26px rgba(0,0,0,.11);
+}
+.naglowek-w { height: 76px; gap: 28px; }
+.marka { color: #fff; font: 800 1.33rem/1 var(--sans); letter-spacing: -.045em; }
+.marka img { border-radius: 11px; box-shadow: 0 0 0 1px rgba(255,255,255,.14); }
+.menu { align-items: center; }
+.menu a { color: #bdcdec; font-size: .87rem; font-weight: 600; }
+.menu a:hover { color: #fff; }
+.naglowek .przycisk.maly { margin-left: 2px; white-space: nowrap; }
+
+/* Branded buttons + focus states, with gold reserved for the hero micro-accent. */
+.przycisk {
+  background: var(--fy-gradient); border-color: transparent; color: #fff;
+  border-radius: 12px; padding: 14px 24px; font-weight: 750; font-size: .96rem;
+  box-shadow: 0 14px 30px -16px rgba(28,28,192,.63);
+  transition: transform .18s, box-shadow .18s, filter .18s;
+}
+.przycisk:hover { background: var(--fy-gradient); border-color: transparent; color: #fff; filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 16px 36px -13px rgba(33,151,211,.48); }
+.przycisk:active { transform: translateY(0); }
+.przycisk.drugi { background: #fff; border-color: #bfcfec; color: #0d193c; box-shadow: none; }
+.przycisk.drugi:hover { background: #eaf2ff; border-color: #78aae9; color: #0d193c; }
+.naglowek .przycisk.maly { padding: 10px 17px; font-size: .84rem; }
+.znacznik { color: #1755ad; background: #e5efff; font-size: .73rem; letter-spacing: .10em; font-weight: 800; text-transform: uppercase; padding: 8px 14px; }
+.znacznik.jasny { color: #f2d999; background: rgba(228,196,122,.12); border: 1px solid rgba(228,196,122,.26); }
+
+/* Signature Finance You gradient glow: premium product landing. */
+.hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  padding: clamp(88px,9vw,128px) 0 clamp(84px,8vw,110px);
+  color: #f6f9ff;
+  background: radial-gradient(100% 115% at 52% -20%,#152756 0%,#0b1435 43%,#05091e 100%);
+}
+.hero::before {
+  content:""; position:absolute; z-index:-1; pointer-events:none;
+  inset:-28% -15%;
+  background:
+    radial-gradient(36% 33% at 12% 26%,rgba(28,28,192,.41),transparent 72%),
+    radial-gradient(35% 35% at 91% 21%,rgba(33,151,211,.28),transparent 74%),
+    radial-gradient(40% 28% at 83% 98%,rgba(228,196,122,.14),transparent 70%);
+  filter: blur(34px);
+}
+.hero::after {
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background: repeating-linear-gradient(115deg,transparent 0 55px,rgba(228,196,122,.026) 55px 56px);
+  mask-image: linear-gradient(to bottom,#000,transparent 89%);
+}
+.hero-w { gap: clamp(30px,5.5vw,84px); grid-template-columns: 1.07fr .93fr; }
+.hero h1 { color: #fff; text-wrap: balance; margin: 18px 0 25px; }
+.hero h1 em { color: var(--fy-gold); font-style: normal; }
+.hero .wstep { color: #b9ccef; font-size: clamp(1.02rem,1.5vw,1.15rem); max-width: 600px; }
+.hero .znacznik { color: #ecd69b; background: rgba(228,196,122,.12); border: 1px solid rgba(228,196,122,.28); }
+.hero .akcje { margin: 32px 0 27px; }
+.hero .przycisk.drugi { background: rgba(255,255,255,.06); color: #f5f8ff; border: 1px solid rgba(190,210,249,.37); }
+.hero .przycisk.drugi:hover { background: rgba(255,255,255,.13); color: #fff; border-color: #b4d5fa; }
+.hero .odznaki { color: #aebfe0; font-size: .79rem; font-weight: 600; gap: 9px 15px; }
+.hero .odznaki li::before { color: #efd28c; margin-right: 8px; }
+
+/* Reworked in-product demonstration: glass console with stacked steps. */
+.hero .okno {
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(134,176,245,.28);
+  background: rgba(13,27,64,.82);
+  box-shadow: 0 32px 90px -24px rgba(0,0,0,.63),0 0 48px rgba(33,151,211,.10);
+  backdrop-filter: blur(16px);
+  transform: perspective(1300px) rotateY(-3deg);
+}
+.hero .okno-pasek { background: rgba(8,18,47,.85); border-bottom-color: rgba(122,166,238,.22); padding: 15px 20px; }
+.hero .okno-pasek i:nth-child(1) { background: #e99a85; }
+.hero .okno-pasek i:nth-child(2) { background: #f0cd7e; }
+.hero .okno-pasek i:nth-child(3) { background: #7bc9b2; }
+.hero .okno-pasek span { color: #cfdefa; }
+.hero .okno-tresc { padding: 22px; gap: 18px; }
+.hero .polecenie { color: #edf5ff; background: rgba(57,91,160,.28); border: 1px solid rgba(140,173,234,.24); border-radius: 12px; }
+.hero .polecenie .etykieta { color: #f2d895; }
+.hero .kroki-agenta li { color: #e6eefd; border-color: rgba(137,177,244,.18); background: rgba(14,30,68,.57); padding: 11px 14px 11px 38px; border-radius: 11px; }
+.hero .kroki-agenta li span { color: #91afd9; }
+.hero .kroki-agenta .zrobione::before { color: #7fe0b7; }
+.hero .kroki-agenta .stop { border-color: rgba(228,196,122,.55); background: rgba(228,196,122,.10); }
+.hero .kroki-agenta .stop::before { color: #f5d78e; }
+
+/* Content surfaces & subtle interaction */
+.sekcja { padding: clamp(66px,7vw,108px) 0; border-top-color: #e3eaf5; }
+.tlo2 { background: linear-gradient(180deg,#eff3fb,#f6f8fc); }
+.sekcja h2 { max-width: 940px; text-wrap: balance; }
+.karta, .role li, .tematy article, .ramka {
+  background: #fff; border: 1px solid #dce5f1; border-radius: 19px;
+  box-shadow: 0 16px 50px -36px rgba(13,25,60,.25),0 5px 20px -14px rgba(13,25,60,.10);
+}
+.siatka { gap: 18px; margin-top: 40px; }
+.karta { padding: 29px; }
+.karta p { color: #53627d; }
+.karta h3 { color: #0d193c; font-size: 1.08rem; margin-bottom: 14px; }
+.siatka .karta { transition: transform .2s,box-shadow .2s,border-color .2s; }
+.siatka .karta:hover { transform: translateY(-3px); border-color: #a5c7f4; box-shadow: 0 24px 56px -29px rgba(13,25,60,.25); }
+.sekcja.ciemna {
+  background:
+    radial-gradient(85% 100% at 90% 0%,rgba(32,110,203,.19),transparent 64%),
+    linear-gradient(155deg,#0d193c,#070b22 72%);
+  color: #f5f8ff;
+}
+.sekcja.ciemna h2 { color: #fff; }
+.sekcja.ciemna .wstep { color: #b5c8e9; }
+.karta.ciemna { background: rgba(29,47,92,.56); border: 1px solid rgba(121,167,244,.25); box-shadow: 0 12px 34px -25px rgba(0,0,0,.45); }
+.karta.ciemna h3 { color: #f4f7ff; }
+.karta.ciemna p { color: #b9cbec; }
+.sekcja.ciemna .karta:hover { border-color: rgba(136,199,252,.55); box-shadow: 0 14px 34px -24px rgba(33,151,211,.4); }
+.kroki { gap: 24px; }
+.kroki li { position: relative; border: 1px solid var(--linia); background: #fff; padding: 25px; border-radius: 18px; }
+.nr { width: 45px; height: 45px; background: linear-gradient(135deg,#e2eaff,#e7f6ff); color: #1c1cc0; font: 800 1rem var(--sans); border-radius: 13px; }
+.kroki h3 { margin: 4px 0 12px; }
+.zalety li::before { background: #2197d3; }
+.ramka { border-left: 4px solid #268fd5; padding: 30px 34px; }
+.role li, .tematy article { padding: 26px; }
+.rola-nazwa { color: #205fc0; }
+.role strong { font: 700 1.1rem/1.35 var(--sans); }
+.tematy .pakiet { background: #eaf2ff; border-color: #c5d8f9; }
+
+/* Premium pricing emphasis and conversion */
+.cena { position: relative; padding: 36px; border: 1px solid #c9d9f1; border-top: 4px solid #2197d3; box-shadow: 0 28px 70px -36px rgba(13,25,60,.30); }
+.kwota span { font-family: var(--sans); font-weight: 800; font-size: clamp(2.3rem,3.8vw,3.1rem); letter-spacing: -.05em; }
+.cena li::before { color: #1f8d5e; }
+.kontakt {
+  background: radial-gradient(85% 150% at 50% -30%,#e6efff,transparent 70%),#f6f8fc;
+}
+.stopka { background: #091431; border-top: 1px solid rgba(162,189,239,.18); color: #b6c5e4; padding: 34px 0; }
+.stopka a { color: #b6c5e4; }
+.stopka a:hover { color: #fff; }
+
+/* Documents stay on a clean white canvas for legibility. */
+.dokument { max-width: 860px; background: #fff; padding: clamp(26px,4vw,56px); margin-top: 46px; margin-bottom: 56px; border: 1px solid #dce5f1; border-radius: 20px; box-shadow: 0 20px 70px -50px rgba(13,25,60,.24); }
+.dokument h1 { color: #0d193c; }
+.dokument h2 { font-size: clamp(1.3rem,2.3vw,1.65rem); }
+.dokument .tabela { border-color: #dce5f1; }
+
+/* Responsive: no unintended horizontal overflow, zero movement for reduced motion. */
+@media (max-width: 960px) {
+  .hero-w { grid-template-columns: 1fr; }
+  .hero .okno { max-width: 680px; transform: none; }
+}
+@media (max-width: 720px) {
+  .naglowek-w { height: 68px; }
+  .hero { padding: 72px 0 75px; }
+  .hero h1 { font-size: clamp(2.25rem,8vw,3.35rem); }
+  .hero .okno-tresc { padding: 15px; }
+  .kroki li { padding: 20px; }
+  .dokument { margin-top: 18px; margin-bottom: 20px; border-radius: 14px; }
+  .cena { padding: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .przycisk, .siatka .karta { transition: none; }
+  .przycisk:hover, .siatka .karta:hover { transform: none; }
+}
