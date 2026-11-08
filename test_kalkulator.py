@@ -281,3 +281,11 @@ class TestBedrock:
             assert bedrock._rozmowa("S", [{"text": "u"}], max_tokenow=10, myslenie=True) == "ok"
         import config
         assert klient.zadanie["modelId"] == config.MODEL
+
+
+class TestTrybLokalny:
+    def test_abonament_bez_logowania_nie_wywala_500(self, klient):
+        """Strona aplikacji w trybie lokalnym pyta o abonament; wczesniej leciał AttributeError."""
+        odp = klient.get("/api/abonament")
+        assert odp.status_code == 200
+        assert odp.json()["platnosci_wlaczone"] is False and odp.json()["wymagany"] is False
