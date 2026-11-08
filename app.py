@@ -34,6 +34,7 @@ import krz
 import urzadzenia
 import zlecenia
 import magazyn
+import notariusze
 import autoryzacja
 import nazwy
 import osoby
@@ -72,6 +73,10 @@ app.include_router(kalkulator.router)
 app.include_router(wizyty.router)
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
+# Public map (read-only), office visibility (authorized owner) and admin geocoding.
+app.include_router(notariusze.router)
+app.include_router(notariusze.router_kancelarii)
+app.include_router(notariusze.router_admina)
 app.middleware("http")(kalkulator.cors)
 
 
@@ -123,6 +128,12 @@ def dokument_publiczny(nazwa: str):
     if nazwa not in ("regulamin", "umowa", "prywatnosc", "instrukcja"):
         raise HTTPException(404, "Nie ma takiego dokumentu.")
     return dokumenty_prawne.strona(nazwa)
+
+
+@app.get("/notariusze", response_class=HTMLResponse)
+def mapa_kancelarii_publiczna():
+    """Publicna mapa tylko kancelarii, ktore zdecydowaly sie byc widoczne."""
+    return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
 
 
 @app.get("/kalkulator", response_class=HTMLResponse)
