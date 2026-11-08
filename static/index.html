@@ -1730,6 +1730,9 @@ $("btn-nowa").onclick = () => {
 /* ---------- lista spraw ---------- */
 async function rysujListeSpraw(){
   const pobranePokolenie = pokolenieSesji;
+  const pobranePokolenieListy = ++pokolenieListy;
+  const czyNieaktualne = () => pobranePokolenie !== pokolenieSesji ||
+    pobranePokolenieListy !== pokolenieListy;
   const k = $("lista-spraw");
   try {
     if (dysk.aktywny) {
@@ -1739,7 +1742,7 @@ async function rysujListeSpraw(){
         return;
       }
       const dostep = await dysk.upewnijSieODostepie();
-      if (pobranePokolenie !== pokolenieSesji) return;
+      if (czyNieaktualne()) return;
       if (!dostep) {
         k.innerHTML = '<span class="stan blad" style="padding:0 12px">Brak dostępu do folderu.</span>';
         window.odswiezKokpit?.([], 'Brak dostępu do folderu spraw. Przyznaj uprawnienia i odśwież listę.');
@@ -1748,7 +1751,7 @@ async function rysujListeSpraw(){
     }
     const lista = dysk.aktywny ? await dysk.listaSpraw()
                                : await (await api("/api/sprawy")).json();
-    if (pobranePokolenie !== pokolenieSesji) return;
+    if (czyNieaktualne()) return;
     sprawyLista = lista;
     window.odswiezKokpit?.(lista);
     ostatniaSprawa = lista.find(s => s.wzor) || null;
@@ -1793,13 +1796,14 @@ async function rysujListeSpraw(){
       k.appendChild(d);
     });
   } catch (e) {
-    if (pobranePokolenie !== pokolenieSesji) return;
+    if (czyNieaktualne()) return;
     k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>';
     window.odswiezKokpit?.([], 'Nie udało się pobrać spraw. Sprawdź połączenie i spróbuj ponownie.');
   }
 }
 async function wczytajSprawe(id){
   const pobranePokolenie = pokolenieSesji;
+  const pobranePokolenieOtwierania = ++pokolenieOtwierania;
   let w;
   if (dysk.aktywny) {
     try {
@@ -1817,7 +1821,8 @@ async function wczytajSprawe(id){
     if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
     w = await odp.json();
   }
-  if (pobranePokolenie !== pokolenieSesji) return;
+  if (pobranePokolenie !== pokolenieSesji ||
+      pobranePokolenieOtwierania !== pokolenieOtwierania) return;
   sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
   najdalej = 1;
   $("sygn2").value = w.sygnatura || "";
