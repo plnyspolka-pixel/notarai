@@ -599,7 +599,13 @@ notarai</div>
 <section id="kokpit" class="kokpit-panel" hidden aria-labelledby="kokpit-title">
  <header class="kokpit-head">
   <div><h1 id="kokpit-title">Witaj w notarai</h1><p>Dokumenty i sprawy kancelarii w jednym miejscu.</p></div>
-  <button id="kokpit-new" class="kokpit-new" type="button">+ Nowa sprawa</button>
+  <div class="kokpit-head-actions">
+    <button id="kokpit-assistant" class="kokpit-assistant" type="button" title="Przejdź do pracy z asystentem AI">
+      <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-spark"/></svg>
+      <span><strong>Asystent AI</strong><small>Odczyt i poprawki do projektu</small></span>
+    </button>
+    <button id="kokpit-new" class="kokpit-new" type="button">+ Nowa sprawa</button>
+  </div>
  </header>
  <div class="kokpit-grid">
   <div class="kokpit-box">
