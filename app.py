@@ -46,6 +46,7 @@ import prompty
 import rejestracja
 import rejestry
 import rezerwacje_hurtowe
+import tokenomia
 import wizyty
 import transkrypcja
 import walidacja
@@ -87,6 +88,8 @@ app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)
 app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
+app.include_router(tokenomia.router)
+app.include_router(tokenomia.router_admina)
 app.middleware("http")(kalkulator.cors)
 
 
@@ -205,6 +208,38 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
              etykieta, sciezka_wzoru.name, len(pola_wzoru),
              len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek)
 
+    # Tokenomia: strony (cena zalezna od dokladnosci) + zestawienie z pytaniami.
+    # Saldo sprawdzamy przed pierwszym wywolaniem, pobieramy po udanym odczycie.
+    platna = tokenomia.akcja(tokenomia.akcja_odczytu(wysilek), len(strony), etykieta)
+    platna.dodaj("zalozenie_sprawy", 1)
+    with platna:
+        odczyt, transkrypcje, pytania = _odczytaj_i_zapytaj(
+            strony, pola_wzoru, polecenie, analiza, postep, wysilek, etykieta)
+    pola = _zwaliduj(odczyt.get("pola", []))
+    kontekst = prompty.kontekst_rozmowy(
+        pola, odczyt.get("braki", []), odczyt.get("rozbieznosci", []), polecenie
+    )
+    if pytania is None:
+        pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
+                   "albo od razu sporzadzic projekt.")
+
+    return {
+        "analiza": analiza,
+        "pola_wzoru": pola_wzoru,
+        "pola": pola,
+        "braki": odczyt.get("braki", []),
+        "rozbieznosci": odczyt.get("rozbieznosci", []),
+        "stron": len(strony),
+        "wysilek": wysilek,
+        "transkrypcje": transkrypcje,
+        "kontekst": kontekst,
+        "rozmowa": [{"rola": "asystent", "tresc": pytania,
+                     "czas": datetime.now().isoformat(timespec="seconds")}],
+    }
+
+
+def _odczytaj_i_zapytaj(strony, pola_wzoru, polecenie, analiza, postep, wysilek, etykieta):
+    """Odczyt sprawy i pytania wstepne (None, gdy pytan nie udalo sie przygotowac)."""
     try:
         odczyt, transkrypcje = bedrock.odczytaj_sprawe(
             strony, pola_wzoru, polecenie, analiza["legenda"], postep, wysilek)
@@ -223,22 +258,8 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
         pytania = bedrock.rozmawiaj(kontekst, [], None)
     except Exception as blad:
         log.error("%s: blad pytan wstepnych (%s)", etykieta, dziennik.opis_bledu(blad))
-        pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
-                   "albo od razu sporzadzic projekt.")
-
-    return {
-        "analiza": analiza,
-        "pola_wzoru": pola_wzoru,
-        "pola": pola,
-        "braki": odczyt.get("braki", []),
-        "rozbieznosci": odczyt.get("rozbieznosci", []),
-        "stron": len(strony),
-        "wysilek": wysilek,
-        "transkrypcje": transkrypcje,
-        "kontekst": kontekst,
-        "rozmowa": [{"rola": "asystent", "tresc": pytania,
-                     "czas": datetime.now().isoformat(timespec="seconds")}],
-    }
+        pytania = None
+    return odczyt, transkrypcje, pytania
 
 
 def _chce_strumienia(request: Request) -> bool:
@@ -417,6 +438,8 @@ def ustawienia_kancelarii():
         # Pobranie tresci ksiegi wieczystej z EKW (ekw.py). Bez tokenu dostawcy
         # przycisk nie ma sensu, wiec interfejs go nie pokazuje.
         "ekw": ekw.dostepne(),
+        # Saldo kredytow, gdy kancelaria placi za akcje (tokenomia); inaczej None.
+        "kredyty": tokenomia.saldo_kancelarii(),
     }
 
 
@@ -531,7 +554,16 @@ async def projekt_bez_zapisu(
 
 def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
               etykieta: str) -> str:
-    """Wywolanie modelu dla projektu z bledami zamienionymi na odpowiedzi HTTP."""
+    """Wywolanie modelu dla projektu z bledami zamienionymi na odpowiedzi HTTP.
+    Tokenomia: projekt w cenie do 40 tys. znakow wzoru, dalej doplata."""
+    platna = tokenomia.akcja("projekt", 1, etykieta)
+    platna.dodaj("projekt_dodatek", tokenomia.jednostki_projektu(len(analiza["tresc"])))
+    with platna:
+        return _sporzadz_bez_oplaty(analiza, pola, polecenie, rozmowa, etykieta)
+
+
+def _sporzadz_bez_oplaty(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
+                         etykieta: str) -> str:
     try:
         return bedrock.sporzadz_projekt(
             analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa
@@ -557,13 +589,24 @@ def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
     if not tresc:
         raise HTTPException(400, "Pusta wiadomosc")
     try:
-        odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
+        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(zadanie.kontekst, zadanie.historia, tresc),
+                             "rozmowa bez zapisu"):
+            odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("rozmowa bez zapisu: blad (%s)", dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
     return {"odpowiedz": odpowiedz}
+
+
+def _tury_rozmowy(kontekst: str, historia: list[dict], tresc: str) -> int:
+    """Ile tur rozmowy policzyc: kontekst sprawy i cala historia ida do modelu
+    przy kazdej wiadomosci, wiec dluga rozmowa kosztuje wiecej."""
+    znakow = len(kontekst or "") + len(tresc or "") + sum(len(str(w.get("tresc", ""))) for w in historia or [])
+    return tokenomia.jednostki_rozmowy(znakow)
 
 
 class ZadanieGenerowania(BaseModel):
@@ -1004,7 +1047,11 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
     rozmowa = _wczytaj_rozmowe(katalog)
     teraz = datetime.now().isoformat(timespec="seconds")
     try:
-        odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(kontekst, rozmowa, tresc),
+                             f"sprawa {identyfikator}"):
+            odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
@@ -1091,10 +1138,13 @@ def dopasuj_formularz(system: str, zadanie: ZadanieDopasowania):
 
     pola_sprawy = {str(p.get("nazwa", "")): p.get("wartosc") for p in zadanie.pola}
     try:
-        wynik = formularze.dopasuj(
-            mapowanie, zadanie.tekst_aktu, pola_sprawy,
-            model=bedrock.wyciagnij_do_formularza,
-        )
+        with tokenomia.akcja("formularz", 1, f"formularz {system}"):
+            wynik = formularze.dopasuj(
+                mapowanie, zadanie.tekst_aktu, pola_sprawy,
+                model=bedrock.wyciagnij_do_formularza,
+            )
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
@@ -1286,7 +1336,9 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
         raise HTTPException(400, str(blad))
     start = datetime.now()
     try:
-        ksiega = ekw.pobierz(numer)
+        # Platny wynik u dostawcy: kredyty tylko za pobrana ksiege.
+        with tokenomia.akcja("ekw_ksiega", 1, f"sprawa {identyfikator}"):
+            ksiega = ekw.pobierz(numer)
     except ekw.BladEKW as blad:
         # Nieudana proba tez jest sladem starannosci - bez numeru KW w logach.
         rejestry.zapisz_sprawdzenie(identyfikator, ekw.wynik_bledu(numer, blad))
@@ -1374,7 +1426,8 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     if not zlecenia.wynik(zlecenie):
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
     try:
-        krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
+        with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
+            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
     # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.

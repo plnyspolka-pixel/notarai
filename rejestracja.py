@@ -36,6 +36,7 @@ import dokumenty_prawne
 import logowanie
 import notariusze
 import platnosci
+import tokenomia
 import walidacja
 
 log = logging.getLogger("pieczapp.rejestracja")
@@ -167,6 +168,8 @@ def zarejestruj(dane: Rejestracja, request: Request):
     # Klucz wpisu to losowy skrot; do spraw wchodzi sie tylko logujac sie.
     rejestr[autoryzacja._sha(secrets.token_hex(32))] = wpis
     autoryzacja._zapisz_rejestr(rejestr)
+    if tokenomia.WLACZONA:
+        tokenomia.zaloz_portfel_probny(id_k)
     log.info("rejestracja: nowa kancelaria %s, pliki: %s", id_k, dane.przechowywanie)
     return odpowiedz
 

@@ -13,6 +13,7 @@ i czlowiek.
 
 UWAGA: nie logujemy tresci promptow ani odpowiedzi. Ani do pliku, ani na konsole.
 """
+import contextvars
 import json
 import logging
 import re
@@ -27,6 +28,7 @@ from botocore.exceptions import ClientError
 import config
 import dokumenty
 import prompty
+import tokenomia
 
 log = logging.getLogger("pieczapp.bedrock")
 
@@ -164,6 +166,8 @@ def _rozmowa(
         uzycie.get("inputTokens"),
         uzycie.get("outputTokens"),
     )
+    # Koszt wywolania do licznika biezacej akcji (tokenomia) - same liczby tokenow.
+    tokenomia.dolicz(model, uzycie)
     wynik = "".join(czesci).strip()
 
     if powod == "max_tokens":
@@ -281,7 +285,9 @@ def transkrybuj_strony(strony: list[dict], postep=None, wysilek: str | None = No
     wyniki: list[list[dict] | None] = [None] * len(paczki)
     gotowe = 0
     with ThreadPoolExecutor(max_workers=max(1, config.ROWNOLEGLE)) as pula:
-        zadania = {pula.submit(_transkrybuj_z_ponowieniem, p, wysilek): i
+        # Kopia kontekstu na kazde zadanie: watki puli nie dziedzicza go same,
+        # a niesie on kancelarie i licznik kosztow akcji (tokenomia).
+        zadania = {pula.submit(contextvars.copy_context().run, _transkrybuj_z_ponowieniem, p, wysilek): i
                    for i, p in enumerate(paczki)}
         for zadanie in as_completed(zadania):
             i = zadania[zadanie]
