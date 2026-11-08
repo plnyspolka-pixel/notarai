@@ -118,7 +118,7 @@ def znajdz_katalog_strony(ftp):
             if b"notarai" not in html or b"app.notarai.pl" not in html:
                 continue
             # Pusty plik CSS tez potwierdza sciezke, ale jego brak wyklucza.
-            ftp.size(css)
+            ftp.retrbinary(f"RETR {css}", lambda _: None)
             return bazowy or "/"
         except (ftplib.error_perm, OSError):
             continue
