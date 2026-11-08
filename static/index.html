@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notarai.pl</title>
-<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/static/notarai-symbol.svg">
 <style>
 :root{
   --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
@@ -539,20 +539,23 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
 }
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
+<link rel="stylesheet" href="/static/kokpit.css">
 </head>
 <body>
 
 <!-- Tylko na telefonie: pasek boczny chowa sie w menu pod tym przyciskiem. -->
 <header class="gora-tel">
   <button class="wtorny okragly" id="btn-menu" aria-label="Menu" aria-expanded="false">☰</button>
-  <div class="logo"><img class="osiol" src="/static/logo.png" alt=""><span id="tytul-tel">notarai</span></div>
+  <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt=""><span id="tytul-tel">notarai</span></div>
   <button class="okragly" id="btn-aparat-gora" title="Zdjęcia do tej sprawy" aria-label="Zdjęcia do tej sprawy" hidden>📷</button>
 </header>
 <div class="zaslona" id="zaslona"></div>
 
 <aside>
-  <div class="logo"><img class="osiol" src="/static/logo.png" alt="">
+  <button id="btn-kokpit-menu" type="button" class="kokpit-menu-toggle" aria-expanded="false" aria-label="Rozwiń menu" title="Rozwiń lub zwiń panel boczny"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-menu"/></svg></button>
+  <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 notarai</div>
+  <button id="btn-kokpit" type="button" class="kokpit-link" aria-label="Panel główny NotarAI" title="Panel główny NotarAI"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg> Panel główny</button>
   <div class="nowa" id="btn-nowa"><span>+</span>Nowa sprawa</div>
   <div class="sekcja-t">Etapy</div>
   <div class="krok aktywny" data-etap="1"><b><span>1</span></b>Materiały sprawy</div>
@@ -591,6 +594,46 @@ notarai</div>
 </aside>
 
 <main><div class="kol">
+
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg"><symbol id="kokpit-i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></symbol><symbol id="kokpit-i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="kokpit-i-file" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7Z"/><path d="M13 2v7h7M8 14h8M8 18h6"/></symbol><symbol id="kokpit-i-upload" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7Z"/><path d="M13 2v7h7M12 12v7m-3-3.5h6"/></symbol><symbol id="kokpit-i-spark" viewBox="0 0 24 24"><path d="m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z"/><path d="m20 1 .7 2.3L23 4l-2.3.7L20 7l-.7-2.3L17 4l2.3-.7L20 1Z"/></symbol><symbol id="kokpit-i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10Z"/><path d="m8 12 3 3 5-5"/></symbol><symbol id="kokpit-i-word" viewBox="0 0 24 24"><path d="M13 2H5v20h14V8l-6-6Z"/><path d="M13 2v6h6M7 13l1 5 2-3 2 3 1-5"/></symbol></svg>
+<section id="kokpit" class="kokpit-panel" hidden aria-labelledby="kokpit-title">
+ <header class="kokpit-head">
+  <div><h1 id="kokpit-title">Witaj w notarai</h1><p>Dokumenty i sprawy kancelarii w jednym miejscu.</p></div>
+  <button id="kokpit-new" class="kokpit-new" type="button">+ Nowa sprawa</button>
+ </header>
+ <div class="kokpit-grid">
+  <div class="kokpit-box">
+   <div class="kokpit-section-head"><h2>Moje sprawy</h2><span id="kokpit-counter" class="kokpit-counter" aria-live="polite">Wczytywanie</span></div>
+   <div class="kokpit-tools">
+    <input id="kokpit-search" class="kokpit-search" type="search" aria-label="Szukaj spraw" autocomplete="off" placeholder="Szukaj po nazwie lub sygnaturze…">
+    <div id="kokpit-filters" class="kokpit-filters" role="group" aria-label="Filtry spraw">
+     <button type="button" class="kokpit-filter" data-filter="all" aria-pressed="true">Wszystkie</button>
+     <button type="button" class="kokpit-filter" data-filter="review" aria-pressed="false">Do weryfikacji</button>
+     <button type="button" class="kokpit-filter" data-filter="projects" aria-pressed="false">Projekty Word</button>
+    </div>
+   </div>
+   <div id="kokpit-sprawy" class="kokpit-list" aria-label="Sprawy kancelarii" aria-live="polite"><p class="kokpit-empty">Wczytuję sprawy…</p></div>
+   <div class="kokpit-actions"><button id="kokpit-refresh" class="kokpit-refresh" type="button">↻ Odśwież sprawy</button><button id="kokpit-showall" class="kokpit-refresh" type="button" hidden>Pokaż wszystkie</button></div>
+  </div>
+  <div class="kokpit-promo">
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-spark"/></svg>
+   <h2>Od skanów<br>do <span>projektu</span></h2>
+   <p>AI odczytuje dokumenty i przygotowuje projekt. Notariusz sprawdza dane i zatwierdza treść.</p>
+   <button id="kokpit-promo-new" type="button">Rozpocznij nową sprawę →</button>
+  </div>
+ </div>
+ <div class="kokpit-flow" role="group" aria-label="Etapy pracy nad sprawą">
+  <button id="kokpit-upload" class="kokpit-step" type="button" title="Dodaj pliki"><span class="kokpit-step-icon"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-upload"/></svg></span><strong>Dodaj pliki</strong></button>
+  <span class="kokpit-arrow" aria-hidden="true">→</span>
+  <button id="kokpit-ai" class="kokpit-step" type="button" title="Odczyt AI"><span class="kokpit-step-icon"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-spark"/></svg></span><strong>Odczyt AI</strong></button>
+  <span class="kokpit-arrow" aria-hidden="true">→</span>
+  <button id="kokpit-review" class="kokpit-step" type="button" title="Sprawdź dane"><span class="kokpit-step-icon"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg></span><strong>Sprawdź dane</strong></button>
+  <span class="kokpit-arrow" aria-hidden="true">→</span>
+  <button id="kokpit-word" class="kokpit-step" type="button" title="Projekt Word"><span class="kokpit-step-icon"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-word"/></svg></span><strong>Projekt Word</strong></button>
+ </div>
+ <p id="kokpit-help" class="kokpit-help" role="status" aria-live="polite"></p>
+</section>
+
 
 <!-- ===== 1 ===== -->
 <section id="etap1">
@@ -633,7 +676,7 @@ notarai</div>
   <p class="pod" style="margin-bottom:4px"><label class="etykieta" style="display:inline;margin-right:8px">Nazwa sprawy:</label><input class="sygn-edit" id="nazwa2" placeholder="z nazwisk stron (kliknij, żeby zmienić)" style="width:320px"></p>
   <p class="pod" style="margin-bottom:8px"><label class="etykieta" style="display:inline;margin-right:8px">Sygnatura sprawy:</label><input class="sygn-edit" id="sygn2" placeholder="np. Rep. A 412/2026 (kliknij, żeby nadać)" style="width:320px"></p>
   <p class="pod">Sprawdź, co model odczytał ze skanów. Czerwone pola wymagają uwagi: błędna suma kontrolna, niska pewność albo brak danych.</p>
-  <div class="wiad"><div class="aw"><img class="osiol" src="/static/logo.png" alt="">
+  <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 </div><div class="tresc">
     <p class="podsum" id="podsum2"></p>
     <div id="ostrzezenia"></div>
@@ -709,7 +752,7 @@ notarai</div>
 <section id="etap3" hidden>
   <h1>Projekt dokumentu</h1>
   <p class="pod">Znaczniki <code>&lt;&lt;BRAK&gt;&gt;</code> i <code>&lt;&lt;WYBOR&gt;&gt;</code> to miejsca, których nie dało się wypełnić z dokumentów. Projekt wymaga sprawdzenia przez notariusza.</p>
-  <div class="wiad"><div class="aw"><img class="osiol" src="/static/logo.png" alt="">
+  <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 </div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
   <div class="karta">
     <div class="projekt" id="projekt"></div>
@@ -916,7 +959,7 @@ notarai</div>
 <section id="etap7" hidden>
   <h1>Osoby i telefony</h1>
   <p class="pod">Wszystkie strony czynności odczytane w sprawach. Ta sama osoba w kilku sprawach to jeden wpis (rozpoznawana po numerze PESEL). Numer telefonu zapisuje się po wyjściu z pola.</p>
-  <div class="wiad"><div class="aw"><img class="osiol" src="/static/logo.png" alt=""></div><div class="tresc">
+  <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt=""></div><div class="tresc">
     <p class="podsum" id="podsum7"></p>
   </div></div>
   <div class="karta">
@@ -942,7 +985,7 @@ notarai</div>
 <!-- Widoczna w trybie wielu kancelarii, gdy serwer odrzuci zadanie bez logowania. -->
 <div class="brama" id="brama" hidden>
   <div class="pudlo">
-    <div class="logo"><img class="osiol" src="/static/logo.png" alt="">notarai</div>
+    <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt="">notarai</div>
 
     <!-- 1. logowanie -->
     <div id="widok-logowanie">
@@ -1192,7 +1235,7 @@ notarai</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const OSIOL = '<img class="osiol" src="/static/logo.png" alt="">';
+const OSIOL = '<img class="osiol" src="/static/notarai-symbol.svg" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1, sprawyLista = [];
 
 /* ---------- logowanie ----------
@@ -1586,6 +1629,11 @@ const dysk = {
 
 /* ---------- nawigacja ---------- */
 function pokaz(numer){
+  const nowyKokpit = numer === 0;
+  $("kokpit").hidden = !nowyKokpit;
+  $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
+  if (nowyKokpit) window.pokazKokpit?.();
+  else window.ukryjKokpit?.();
   [1,2,3,4,5,6,7].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
@@ -1601,7 +1649,7 @@ function pokaz(numer){
   if (!plikiSprawy.hidden) { $("etap" + numer).appendChild(plikiSprawy); rysujPlikiSprawy(); }
   // Na telefonie aparat jest pod reka w pasku u gory, bez przewijania do kart.
   $("btn-aparat-gora").hidden = plikiSprawy.hidden;
-  $("tytul-tel").textContent = sprawa && sprawa.id && numer <= 3
+  $("tytul-tel").textContent = sprawa && sprawa.id && numer > 0 && numer <= 3
     ? (sprawa.nazwa || sprawa.sygnatura || "sprawa " + sprawa.id.slice(0, 6)) : "notarai";
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
@@ -1611,7 +1659,7 @@ function pokaz(numer){
     // go tutaj, a nie zaraz po pierwszym logowaniu.
     if (ostatniStanPomocnika) zaproponujKreator(ostatniStanPomocnika);
   }
-  $("etap"+numer).closest("main").scrollTo({top:0, behavior:"smooth"});
+  (nowyKokpit ? $("kokpit") : $("etap"+numer)).closest("main").scrollTo({top:0, behavior:"smooth"});
 }
 document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
   const n = +k.dataset.etap;
@@ -1636,16 +1684,19 @@ async function rysujListeSpraw(){
     if (dysk.aktywny) {
       if (!dysk.folder) {
         k.innerHTML = '<span class="stan" style="padding:0 12px">Wskaż folder na sprawy.</span>';
+        window.odswiezKokpit?.([], 'Wskaż folder na sprawy w bocznym menu.');
         return;
       }
       if (!await dysk.upewnijSieODostepie()) {
         k.innerHTML = '<span class="stan blad" style="padding:0 12px">Brak dostępu do folderu.</span>';
+        window.odswiezKokpit?.([], 'Brak dostępu do folderu spraw. Przyznaj uprawnienia i odśwież listę.');
         return;
       }
     }
     const lista = dysk.aktywny ? await dysk.listaSpraw()
                                : await (await api("/api/sprawy")).json();
     sprawyLista = lista;
+    window.odswiezKokpit?.(lista);
     ostatniaSprawa = lista.find(s => s.wzor) || null;
     if (!dysk.aktywny) pobierzOsoby().catch(() => {});
     rysujWybrane();
@@ -1687,7 +1738,7 @@ async function rysujListeSpraw(){
       d.appendChild(kosz);
       k.appendChild(d);
     });
-  } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; }
+  } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; window.odswiezKokpit?.([], 'Nie udało się pobrać spraw. Sprawdź połączenie i spróbuj ponownie.'); }
 }
 async function wczytajSprawe(id){
   let w;
@@ -2018,6 +2069,7 @@ async function uruchomTrybPracy(){
       }
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
+  pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
   if (SERWIS) {
     // Obsluga notarai widzi sprawy, nie zespol, abonament ani dokumenty
     // kancelarii - tych serwer i tak jej nie pokaze.
@@ -2043,6 +2095,7 @@ async function uruchomTrybPracy(){
   if (dokumenty && !dokumenty.umowa_zawarta) {
     // Serwer i tak odmowi (428); lepiej powiedziec, dlaczego listy nie ma.
     $("lista-spraw").innerHTML = '<span class="stan" style="padding:0 12px">Sprawy będą dostępne po akceptacji umowy powierzenia.</span>';
+    window.odswiezKokpit?.([], 'Przed użyciem spraw zaakceptuj umowę powierzenia danych w sekcji Dokumenty.');
   } else {
     rysujListeSpraw();
   }
@@ -4369,5 +4422,6 @@ function escape(t){
   return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
 </script>
+<script src="/static/kokpit.js"></script>
 </body>
 </html>
