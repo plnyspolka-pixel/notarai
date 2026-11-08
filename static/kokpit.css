@@ -75,7 +75,7 @@ aside .kokpit-menu-toggle .kokpit-icon { width:21px; height:21px; fill:none; str
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .stopka-aside,
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside #pasek-folder,
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .pomocnik-el { display:none!important; }
-  body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .kokpit-menu-toggle { display:flex; }
+  body.kokpit-widoczny > aside .kokpit-menu-toggle { display:flex; }
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .kokpit-link { font-size:0; justify-content:center; padding:13px 4px; }
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .kokpit-link .kokpit-icon { width:24px; height:24px; }
   body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .nowa { justify-content:center; font-size:0; padding:11px; }
