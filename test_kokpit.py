@@ -105,3 +105,10 @@ def test_previous_session_data_cannot_repopulate_dashboard():
     assert "const pobranePokolenie = pokolenieSesji;" in HTML
     assert HTML.count("if (pobranePokolenie !== pokolenieSesji) return;") >= 3
     assert "function otworzBrame(komunikat){\n  wyczyscDanePoWylogowaniu();" in HTML
+
+
+def test_project_word_action_downloads_generated_project():
+    # Wygenerowanie projektu ustawia najdalej=3, lecz nie ustawia sprawa.projekt.
+    assert "if (najdalej >= 3)" in DASHBOARD
+    assert 'node("btn-pobierz")?.click()' in DASHBOARD
+    assert "sprawa.projekt && najdalej >= 3" not in DASHBOARD
