@@ -60,7 +60,7 @@ def test_dashboard_routes_into_existing_real_workflow():
     assert 'wczytajSprawe(s.id)' in DASHBOARD
     assert 'pokaz(2)' in DASHBOARD
     assert 'pokaz(3)' in DASHBOARD
-    assert 'node("btn-pobierz")?.focus()' in DASHBOARD
+    assert 'node("btn-pobierz")?.click()' in DASHBOARD
     assert '@app.get("/api/sprawy")' in API
     assert '@app.get("/api/sprawy/{identyfikator}")' in API
     assert '@app.post("/api/sprawy/{identyfikator}/projekt")' in API
