@@ -1,4 +1,4 @@
-# NotarAI — produkcja z aktywnej sesji AWS CLI
+﻿# NotarAI — produkcja z aktywnej sesji AWS CLI
 #
 # Z katalogu repozytorium w Windows PowerShell:
 #   powershell -ExecutionPolicy Bypass -File infra\wydaj-rezerwacje.ps1
