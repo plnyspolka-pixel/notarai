@@ -13,7 +13,8 @@ from pathlib import Path
 
 import config
 
-REJESTRY = ("KRZ", "ZASTRZEZENIA_PESEL")
+# EKW: pobranie tresci ksiegi wieczystej (ekw.py); zapytanie to numer KW, nie PESEL.
+REJESTRY = ("KRZ", "ZASTRZEZENIA_PESEL", "EKW")
 STATUSY = ("brak_wpisu", "wpis", "niedostepny", "blad")
 
 

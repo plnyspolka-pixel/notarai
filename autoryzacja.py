@@ -50,7 +50,7 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Kalkulator taksy jest dla klientow kancelarii, ktorzy konta nie maja.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
             "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
-            "/kalkulator", "/api/taksa", "/api/wizyty")
+            "/kalkulator", "/api/taksa", "/api/wizyty", "/notariusze", "/api/notariusze")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
@@ -70,7 +70,7 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
-                  "/api/pomocnik")
+                  "/api/pomocnik", "/api/mapa", "/api/zapytania")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
@@ -537,9 +537,18 @@ def lista_kancelarii(request: Request):
          "oplacono_do": w.get("oplacono_do"),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
-         "serwis_do": (_serwis_trwa(w) or {}).get("do")}
+         "serwis_do": (_serwis_trwa(w) or {}).get("do"),
+         "mapa": _stan_mapy(w)}
         for w in rejestr.values()
     ]
+
+
+def _stan_mapy(wpis: dict) -> dict:
+    """Tylko stan publikacji adresu kancelarii; bez danych klientów."""
+    mapa = wpis.get("mapa") or {}
+    return {"na_mapie": bool(wpis.get("na_mapie", False)),
+            "polozenie": mapa.get("lat") is not None,
+            "blad": mapa.get("blad")}
 
 
 def nowy_identyfikator(rejestr: dict, nazwa: str) -> str:
