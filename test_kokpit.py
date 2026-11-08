@@ -103,7 +103,9 @@ def test_previous_session_data_cannot_repopulate_dashboard():
     assert "function wyczyscDanePoWylogowaniu()" in HTML
     assert "sprawyLista = [];" in HTML
     assert "const pobranePokolenie = pokolenieSesji;" in HTML
-    assert HTML.count("if (pobranePokolenie !== pokolenieSesji) return;") >= 3
+    assert "const czyNieaktualne = () => pobranePokolenie !== pokolenieSesji" in HTML
+    assert HTML.count("if (czyNieaktualne()) return;") == 3
+    assert "pobranePokolenieOtwierania !== pokolenieOtwierania" in HTML
     assert "function otworzBrame(komunikat){\n  wyczyscDanePoWylogowaniu();" in HTML
 
 
@@ -112,3 +114,26 @@ def test_project_word_action_downloads_generated_project():
     assert "if (najdalej >= 3)" in DASHBOARD
     assert 'node("btn-pobierz")?.click()' in DASHBOARD
     assert "sprawa.projekt && najdalej >= 3" not in DASHBOARD
+
+
+def test_session_switch_resets_private_content_and_filters():
+    for item in ("sprawyLista = [];", "sprawa = null;", "wybraneSkany = [];",
+                 '$("projekt")?.replaceChildren()', '"czat3", "ostrzezenia"',
+                 "window.resetujKokpit?.();"):
+        assert item in HTML
+    assert "window.resetujKokpit = function ()" in DASHBOARD
+    assert 'state.filter = "all";' in DASHBOARD
+
+
+def test_latest_selected_case_wins():
+    assert "const pobranePokolenieOtwierania = ++pokolenieOtwierania;" in HTML
+    assert "pobranePokolenieOtwierania !== pokolenieOtwierania" in HTML
+    assert "const pobranePokolenieListy = ++pokolenieListy;" in HTML
+    assert "pobranePokolenieListy !== pokolenieListy" in HTML
+
+
+def test_ai_result_not_rendered_after_logout_or_switch():
+    assert "sesjaZadania !== pokolenieSesji" in HTML
+    assert "numerSprawy !== pokolenieOtwierania" in HTML
+    assert "edytowanaSprawa !== sprawa" in HTML
+    assert "sprawa.projekt = wynik.tekst;" in HTML
