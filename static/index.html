@@ -1621,7 +1621,18 @@ const dysk = {
     for await (const [nazwa, uchwyt] of this.folder.entries()) {
       if (uchwyt.kind !== "directory") continue;
       const meta = await this.czytajJson(uchwyt, "sprawa.json");
-      if (meta) wynik.push(meta);
+      if (meta) {
+        // Status zgodny z API /api/sprawy: projekt istnieje w lokalnym folderze.
+        let etap = 2;
+        try {
+          await uchwyt.getFileHandle("projekt.txt");
+          etap = 3;
+        } catch {
+          try { await uchwyt.getFileHandle("projekt.docx"); etap = 3; }
+          catch { /* projekt jeszcze nie istnieje */ }
+        }
+        wynik.push({...meta, etap});
+      }
     }
     return wynik.sort((a, b) => (b.utworzono || "").localeCompare(a.utworzono || ""));
   },
