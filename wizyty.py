@@ -1,14 +1,19 @@
 """Umawianie wizyt: zgloszenia klientow ze strony notarai.pl do kancelarii.
 
 Klient na stronie miejscowosci (notarai.pl/notariusz/<miasto>/) albo przy
-wyniku kalkulatora wybiera kancelarie i zostawia kontakt. Zgloszenie trafia:
-  - do kancelarii, ktora korzysta z notarai (dopasowanie po e-mailu z bazy
-    albo powiazanie ustawione w panelu admina): widzi je w aplikacji w oknie
-    "Zapytania klientow", dostaje e-mail, a po umowieniu terminu wpis laduje
-    w jej kalendarzu,
-  - do notarai (panel /admin), gdy kancelaria nie jest klientem: obsluga
-    przekazuje je recznie e-mailem - to oferta "mamy klientow" dla kancelarii
-    spoza notarai. Nic nie wysylamy do obcych kancelarii automatycznie.
+wyniku kalkulatora wybiera kancelarie i zostawia kontakt. Zgloszenie przyjmujemy
+tylko dla kancelarii, ktora korzysta z notarai (dopasowanie po e-mailu z bazy
+albo powiazanie ustawione w panelu admina): widzi je w aplikacji w oknie
+"Zapytania klientow", dostaje e-mail, a po umowieniu terminu wpis laduje
+w jej kalendarzu.
+
+Zasada neutralnosci (zakaz reklamy notariuszy, KEZN): notarai jest narzedziem
+rezerwacyjnym, nie posrednikiem. Dlatego:
+  - nie przyjmujemy zgloszen do kancelarii spoza notarai i nie przekazujemy
+    ich takim kancelariom - klient dostaje jej publiczne dane kontaktowe,
+  - nie dobieramy kancelarii za klienta ("dowolna w miejscowosci"),
+  - lista kancelarii na stronie nie zalezy od tego, kto korzysta z notarai
+    (ta sama kolejnosc, bez wyroznien) - rozni sie tylko przycisk rezerwacji.
 
 Zgloszenia leza w jednym pliku w obszarze administracyjnym magazynu
 (kancelarie/_administracja/wizyty.json; w S3 zaszyfrowane, w UE), bo
@@ -240,17 +245,14 @@ def _powiadom(z: dict) -> dict:
     if KOPIA:
         wynik["notarai"] = _wyslij_email(
             [KOPIA], f"[notarai] zgłoszenie {z['id']}: {z.get('kancelaria_nazwa') or z.get('miejscowosc_nazwa', '')}",
-            ("Kancelaria korzysta z notarai, dostała zgłoszenie sama.\n\n" if z.get("kancelaria_id")
-             else "Kancelaria NIE korzysta z notarai. Przekaż zgłoszenie z panelu /admin.\n\n") + opis)
+"Kancelaria dostała zgłoszenie w aplikacji.\n\n" + opis)
     if z["klient"].get("email"):
         wynik["klient"] = _wyslij_email(
             [z["klient"]["email"]], "Twoje zgłoszenie do notariusza",
             f"Dzień dobry,\n\nprzyjęliśmy zgłoszenie wizyty u notariusza"
             + (f" w kancelarii {z['kancelaria_nazwa']}" if z.get("kancelaria_nazwa") else "")
             + f" ({z.get('miejscowosc_nazwa', '')}).\n\n"
-            + ("Kancelaria korzysta z notarai i skontaktuje się z Tobą bezpośrednio.\n"
-               if z.get("kancelaria_id") else
-               "Przekażemy je kancelarii i potwierdzimy kontakt.\n")
+            + "Kancelaria skontaktuje się z Tobą bezpośrednio.\n"
             + "\nTwoje zgłoszenie:\n" + opis
             + "\n\nJeśli to nie Ty wysłałeś zgłoszenie, odpowiedz na tę wiadomość.\n\nnotarai.pl")
     return wynik
@@ -281,6 +283,16 @@ def _linia(tekst, limit: int) -> str:
     return " ".join(str(tekst or "").split())[:limit]
 
 
+def _kontakt_publiczny(k: dict) -> str:
+    """Dane z publicznego wykazu, ktore pokazujemy klientowi zamiast formularza."""
+    czesci = [k["nazwa"]]
+    if k.get("adres"):
+        czesci.append(k["adres"])
+    if k.get("telefony"):
+        czesci.append("tel. " + ", ".join(k["telefony"]))
+    return ", ".join(czesci)
+
+
 def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
     imie = _linia(dane.imie, 80)
     if len(imie) < 2:
@@ -299,16 +311,14 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
     if not dane.zgoda:
         raise HTTPException(400, "Potrzebna jest zgoda na przekazanie danych kancelarii.")
     b = baza()
-    kancelaria = None
-    if dane.kancelaria not in (None, ""):
-        try:
-            kancelaria = b["kancelarie"][int(dane.kancelaria)]
-        except (ValueError, KeyError):
-            raise HTTPException(400, "Nie znamy takiej kancelarii.")
-    slug = kancelaria["slug"] if kancelaria else _linia(dane.miejscowosc, 80).lower()
+    if dane.kancelaria in (None, ""):
+        raise HTTPException(400, "Wybierz kancelarię z listy.")
+    try:
+        kancelaria = b["kancelarie"][int(dane.kancelaria)]
+    except (ValueError, KeyError):
+        raise HTTPException(400, "Nie znamy takiej kancelarii.")
+    slug = kancelaria["slug"]
     miejscowosc = b["miejscowosci"].get(slug)
-    if not kancelaria and not miejscowosc:
-        raise HTTPException(400, "Wybierz kancelarię albo miejscowość.")
     wartosc = taksa.kwota(dane.wartosc)
     kalkulacja = None
     if isinstance(dane.parametry, dict) and len(json.dumps(dane.parametry)) < 20000:
@@ -321,9 +331,9 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
         "utworzono": _teraz(),
         "zrodlo": dane.zrodlo if dane.zrodlo in ("strona", "kalkulator", "inne") else "inne",
         "miejscowosc": slug,
-        "miejscowosc_nazwa": miejscowosc["nazwa"] if miejscowosc else (kancelaria or {}).get("miejscowosc", ""),
-        "baza_id": kancelaria["id"] if kancelaria else None,
-        "kancelaria_nazwa": kancelaria["nazwa"] if kancelaria else "",
+        "miejscowosc_nazwa": miejscowosc["nazwa"] if miejscowosc else kancelaria.get("miejscowosc", ""),
+        "baza_id": kancelaria["id"],
+        "kancelaria_nazwa": kancelaria["nazwa"],
         "kancelaria_id": None,
         "klient": {"imie": imie, "telefon": telefon, "email": email},
         "czynnosc": czynnosc,
@@ -334,7 +344,6 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
         "zgoda": _teraz(),
         "status": "nowa",
         "historia": [],
-        "przekazano": None,
     }
 
 
@@ -343,10 +352,14 @@ def zgloszenie(dane: Zgloszenie, request: Request):
     if dane.strona:
         return {"id": "", "notarai": False, "komunikat": "Dziękujemy."}
     z = _sprawdz_zgloszenie(dane)
+    z["kancelaria_id"] = kancelarie_notarai().get(z["baza_id"])
+    if not z["kancelaria_id"]:
+        # Nic nie zapisujemy i nikomu nie przekazujemy: klient kontaktuje sie sam.
+        k = baza()["kancelarie"][z["baza_id"]]
+        raise HTTPException(409, "Ta kancelaria nie przyjmuje zgłoszeń online. Skontaktuj się z nią "
+                                 "bezpośrednio: " + _kontakt_publiczny(k) + ".")
     limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
                            "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
-    if z["baza_id"] is not None:
-        z["kancelaria_id"] = kancelarie_notarai().get(z["baza_id"])
 
     def dodaj(d):
         d["zgloszenia"].append(z)
@@ -359,25 +372,17 @@ def zgloszenie(dane: Zgloszenie, request: Request):
                 if w["id"] == z["id"]:
                     w["powiadomiono"] = powiadomienia
         _zmien(odnotuj)
-    log.info("wizyty: zgloszenie %s (%s), kancelaria notarai=%s, e-maile=%s",
-             z["id"], z["zrodlo"], "tak" if z["kancelaria_id"] else "nie",
+    log.info("wizyty: zgloszenie %s (%s), e-maile=%s", z["id"], z["zrodlo"],
              ",".join(k for k, v in powiadomienia.items() if v) or "brak")
-    if z["kancelaria_id"]:
-        komunikat = (f"Zgłoszenie dotarło do kancelarii {z['kancelaria_nazwa']}. Kancelaria korzysta z notarai "
-                     "i skontaktuje się z Tobą, żeby potwierdzić termin.")
-    elif z["kancelaria_nazwa"]:
-        komunikat = (f"Zgłoszenie przyjęte. Przekażemy je kancelarii {z['kancelaria_nazwa']} i potwierdzimy "
-                     "kontakt. Jeśli sprawa jest pilna, zadzwoń do kancelarii bezpośrednio.")
-    else:
-        komunikat = (f"Zgłoszenie przyjęte. Dobierzemy kancelarię w miejscowości {z['miejscowosc_nazwa']} "
-                     "i potwierdzimy kontakt.")
-    return {"id": z["id"], "notarai": bool(z["kancelaria_id"]), "komunikat": komunikat}
+    komunikat = (f"Zgłoszenie dotarło do kancelarii {z['kancelaria_nazwa']}. Kancelaria skontaktuje się "
+                 "z Tobą, żeby potwierdzić termin.")
+    return {"id": z["id"], "notarai": True, "komunikat": komunikat}
 
 
 @router.get("/kancelarie")
 def kancelarie_w_miejscowosci(miejscowosc: str = ""):
-    """Ktore kancelarie z tej miejscowosci korzystaja z notarai (strona
-    oznacza je i stawia na gorze listy)."""
+    """Ktore kancelarie z tej miejscowosci przyjmuja zgloszenia online. Strona
+    pokazuje przy nich przycisk rezerwacji; kolejnosci listy nie zmienia."""
     b = baza()
     slug = _linia(miejscowosc, 80).lower()
     identyfikatory = b["wg_miejscowosci"].get(slug, [])
@@ -492,7 +497,7 @@ def wszystkie(request: Request):
 class ZmianaAdmina(BaseModel):
     status: str = ""
     uwagi: str = ""
-    kancelaria_id: str | None = None   # reczne skierowanie do kancelarii notarai
+    kancelaria_id: str | None = None   # dopiecie do kancelarii powiazanej z ta sama pozycja bazy
 
 
 @router_admina.put("/{identyfikator}")
@@ -500,10 +505,14 @@ def zmien_jako_admin(identyfikator: str, zmiana: ZmianaAdmina, request: Request)
     autoryzacja._wymagaj_admina(request)
     if zmiana.status and zmiana.status not in STATUSY:
         raise HTTPException(400, "Nieznany status.")
+    powiazane = kancelarie_notarai()
 
     def zmien(d):
         for z in d["zgloszenia"]:
             if z["id"] == identyfikator:
+                # Bez kierowania klienta do innej kancelarii niz ta, ktora wybral.
+                if zmiana.kancelaria_id and zmiana.kancelaria_id != powiazane.get(z.get("baza_id")):
+                    raise HTTPException(400, "Zgłoszenie można przypisać tylko kancelarii, którą wybrał klient.")
                 if zmiana.status:
                     z["status"] = zmiana.status
                 if zmiana.kancelaria_id is not None:
@@ -517,43 +526,6 @@ def zmien_jako_admin(identyfikator: str, zmiana: ZmianaAdmina, request: Request)
         raise HTTPException(404, "Nie ma takiego zgłoszenia.")
     if zmiana.kancelaria_id:
         _powiadom(z)
-    return z
-
-
-@router_admina.post("/{identyfikator}/przekaz")
-def przekaz(identyfikator: str, request: Request):
-    """Reczne przekazanie zgloszenia kancelarii spoza notarai - na jej adres
-    z bazy. Jedna decyzja czlowieka na jedno zgloszenie."""
-    autoryzacja._wymagaj_admina(request)
-    d = _wczytaj()
-    z = next((w for w in d["zgloszenia"] if w["id"] == identyfikator), None)
-    if not z:
-        raise HTTPException(404, "Nie ma takiego zgłoszenia.")
-    k = baza()["kancelarie"].get(z.get("baza_id") or -1)
-    if not k or not k.get("email"):
-        raise HTTPException(409, "Nie znamy adresu e-mail tej kancelarii. Zadzwoń do niej.")
-    if not NADAWCA:
-        raise HTTPException(503, "Wysyłka e-mail jest wyłączona (PIECZAPP_EMAIL_NADAWCA).")
-    wyszlo = _wyslij_email(
-        [k["email"]], f"Klient chce umówić wizytę: {z['czynnosc'][:60]}",
-        "Dzień dobry,\n\nklient zostawił na notarai.pl prośbę o wizytę w Państwa kancelarii. "
-        "Przekazujemy ją w jego imieniu - prosimy o kontakt z klientem.\n\n" + _opis_zgloszenia(z)
-        + "\n\nnotarai.pl to asystent kancelarii notarialnej: projekty aktów ze skanów, kalendarz, "
-        "sprawdzenia w rejestrach i takie zapytania od klientów wprost w aplikacji. "
-        f"Więcej: {STRONA}\n\nZespół notarai, kontakt@notarai.pl")
-    if not wyszlo:
-        raise HTTPException(502, "E-mail nie wyszedł. Spróbuj ponownie albo zadzwoń do kancelarii.")
-
-    def odnotuj(dane):
-        for w in dane["zgloszenia"]:
-            if w["id"] == identyfikator:
-                w["przekazano"] = _teraz()
-                w["status"] = "kontakt" if w["status"] == "nowa" else w["status"]
-                w["historia"].append({"czas": _teraz(), "kto": "notarai", "status": w["status"],
-                                      "uwagi": "przekazano kancelarii e-mailem"})
-                return w
-    z = _zmien(odnotuj)
-    log.info("wizyty: zgloszenie %s przekazane kancelarii spoza notarai", identyfikator)
     return z
 
 

@@ -93,6 +93,11 @@ class TestStrony:
         assert "<title>Notariusz Lublin: 2 kancelarie, koszty aktu, umów wizytę</title>" in lublin
         assert "Anna Testowa" in lublin and "81 000 00 00" in lublin and "tajny@kancelaria.test" not in lublin
         assert 'data-umow="1"' in lublin and 'data-umow="2"' not in lublin   # bez kontaktu = bez przycisku
+        # Neutralnosc: przycisk odslania JS tylko przy kancelariach z rezerwacja online,
+        # bez odznak, bez zmiany kolejnosci i bez "dowolnej kancelarii" dobieranej przez notarai.
+        assert 'data-umow="1" data-nazwa="Kancelaria Notarialna Anna Testowa" hidden>' in lublin
+        assert 'data-umow=""' not in lublin and "dowolnej kancelarii" not in lublin
+        assert "lista.prepend" not in lublin and "Korzysta z notarai" not in lublin and "przekazujemy" not in lublin
         assert "Brak danych kontaktowych" in lublin
         assert '"@type": "Notary"' in lublin and '"@type": "FAQPage"' in lublin and 'rel="canonical" href="https://notarai.pl/notariusz/lublin/"' in lublin
         assert "/notariusz/pulawy/" in lublin and "11 387,69" in lublin   # okolice i przyklad kosztow

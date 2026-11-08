@@ -4,7 +4,12 @@
 
 Kazda strona ma to, czego nie ma zadna inna: liste kancelarii z tej
 miejscowosci z adresami i telefonami (z wykazu izb i dane.gov.pl), liczbe,
-izbe, formularz umowienia wizyty w konkretnej kancelarii. Wspolne sa
+izbe, formularz umowienia wizyty w konkretnej kancelarii.
+
+Neutralnosc (zakaz reklamy notariuszy): lista ma te sama kolejnosc dla
+wszystkich kancelarii, bez odznak i wyroznien. Przycisk "Umow wizyte" pojawia
+sie tylko przy kancelariach, ktore przyjmuja zgloszenia online; przy
+pozostalych sa adres i telefon. notarai nie dobiera kancelarii za klienta. Wspolne sa
 przyklady kosztow (taksa jest ogolnopolska) i pytania. E-maile kancelarii
 nie trafiaja na strony - sluza tylko aplikacji do przekazywania zgloszen.
 """
@@ -36,8 +41,8 @@ FAQ = [
      "Przy zakupie mieszkania za 400 000 zł taksa z wypisami to około {taksa_mieszkanie}, do tego podatek PCC 2 % i opłaty sądowe. "
      "Kancelarie w {miasto} mogą policzyć mniej niż stawka maksymalna, więc warto zapytać o wycenę."),
     ("Czy mogę umówić wizytę u notariusza online?",
-     "Tak. Wybierz kancelarię z listy wyżej i kliknij „Umów wizytę”. Zostawiasz imię, telefon albo e-mail i opis sprawy. "
-     "Kancelarie korzystające z notarai dostają zgłoszenie od razu w swojej aplikacji; pozostałym przekazujemy je i potwierdzamy kontakt."),
+     "W części kancelarii tak: przy nich na liście jest przycisk „Umów wizytę”. Zostawiasz imię, telefon albo e-mail i opis sprawy, "
+     "a zgłoszenie trafia prosto do kancelarii. Z pozostałymi skontaktuj się telefonicznie, numery są na liście."),
     ("Jakie dokumenty zabrać do notariusza?",
      "Zawsze dowód osobisty lub paszport. Przy nieruchomości: dokument nabycia, numer księgi wieczystej, zaświadczenia z urzędu gminy "
      "(plan zagospodarowania, rewitalizacja), ze spółdzielni lub wspólnoty o braku zaległości i o zameldowaniu, a przy kredycie umowę z bankiem. "
@@ -93,7 +98,8 @@ const liczba = s => {{ const n = Number(String(s).replace(/\\s|\\u00a0/g, '').re
 const q = new URLSearchParams(location.search);
 function otworz(id, nazwa) {{
   $('u-kancelaria').value = id || '';
-  $('umow-kancelaria').textContent = nazwa ? 'Kancelaria: ' + nazwa : 'Dowolna kancelaria w miejscowości {esc(nazwa_miasta)}';
+  if (!id) return;
+  $('umow-kancelaria').textContent = 'Kancelaria: ' + nazwa;
   $('u-wynik').hidden = true; $('u-wyslij').disabled = false;
   if (q.get('czynnosc')) {{ const sel = $('u-czynnosc'); const o = [...sel.options].find(o => q.get('czynnosc').toLowerCase().includes(o.value.split(' ')[0])); if (o) sel.value = o.value; }}
   if (q.get('wartosc')) $('u-wartosc').value = q.get('wartosc');
@@ -123,15 +129,11 @@ $('umow-form').addEventListener('submit', async e => {{
     wynik.hidden = false; wynik.classList.add('blad'); wynik.textContent = 'Brak połączenia. Spróbuj ponownie albo zadzwoń do kancelarii.'; $('u-wyslij').disabled = false;
   }}
 }});
-// Kancelarie korzystajace z notarai: odznaka i miejsce na gorze listy.
+// Kancelarie przyjmujace zgloszenia online: tylko odsloniety przycisk.
+// Kolejnosc listy i wyglad karty zostaja takie same jak u pozostalych.
 fetch(API + '/api/wizyty/kancelarie?miejscowosc=' + encodeURIComponent(SLUG)).then(r => r.json()).then(d => {{
-  const lista = document.getElementById('lista-kancelarii');
-  (d.notarai || []).slice().reverse().forEach(id => {{
-    const el = document.getElementById('k-' + id); if (!el) return;
-    el.classList.add('klient');
-    const b = document.createElement('span'); b.className = 'notarai'; b.textContent = 'Korzysta z notarai: zgłoszenie trafia od razu do kancelarii';
-    el.querySelector('h3').after(b);
-    lista.prepend(el);
+  (d.notarai || []).forEach(id => {{
+    const b = document.querySelector('#k-' + id + ' [data-umow]'); if (b) b.hidden = false;
   }});
 }}).catch(() => {{}});
 </script>
@@ -150,7 +152,7 @@ def karta_kancelarii(k: dict) -> str:
     if k.get("brak_kontaktu"):
         linie.append('<p class="brak">Brak danych kontaktowych w publicznych wykazach. Kancelario, jeśli to Ty: napisz na kontakt@notarai.pl.</p>')
     else:
-        linie.append(f'<div class="akcje"><button class="przycisk" type="button" data-umow="{k["id"]}" data-nazwa="{esc(k["nazwa"])}">Umów wizytę</button>'
+        linie.append(f'<div class="akcje"><button class="przycisk" type="button" data-umow="{k["id"]}" data-nazwa="{esc(k["nazwa"])}" hidden>Umów wizytę</button>'
                      + ('' if k["zweryfikowany"] else '<span class="brak">dane z katalogu branżowego, do potwierdzenia</span>') + '</div>')
     return f'<article id="k-{k["id"]}">' + "".join(linie) + "</article>"
 
@@ -221,11 +223,10 @@ def strona_miejscowosci(m: dict, kancelarie: list[dict], okolice: list[dict], pr
   <div class="szer">
     <h2>Jak umówić wizytę u notariusza w {esc(miasto)}</h2>
     <ol class="kroki-u">
-      <li><b>Wybierz kancelarię</b>Kliknij „Umów wizytę” przy kancelarii z listy albo zostaw wybór nam.</li>
+      <li><b>Wybierz kancelarię</b>Przy kancelariach, które przyjmują zgłoszenia online, kliknij „Umów wizytę”. Do pozostałych zadzwoń, numery są na liście.</li>
       <li><b>Opisz sprawę</b>Imię, telefon lub e-mail, rodzaj czynności i preferowany termin. Bez PESEL-u i bez skanów.</li>
-      <li><b>Potwierdzenie</b>Kancelaria korzystająca z notarai widzi zgłoszenie w swojej aplikacji i odpowiada. Pozostałym przekazujemy je i potwierdzamy kontakt.</li>
+      <li><b>Potwierdzenie</b>Zgłoszenie trafia prosto do wybranej kancelarii, która kontaktuje się z Tobą i potwierdza termin.</li>
     </ol>
-    <button class="przycisk" type="button" data-umow="" data-nazwa="">Umów wizytę w dowolnej kancelarii w {esc(miasto)}</button>
   </div>
 </section>
 

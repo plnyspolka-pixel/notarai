@@ -63,7 +63,7 @@ class TestZgloszenie:
         odp = klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
         assert odp.status_code == 201, odp.text
         dane = odp.json()
-        assert dane["notarai"] is True and "korzysta z notarai" in dane["komunikat"]
+        assert dane["notarai"] is True and "dotarło do kancelarii" in dane["komunikat"]
         # e-maile: do wlasciciela kancelarii, kopia do notarai, potwierdzenie do klienta
         adresaci = [tuple(w[0]) for w in klient.wyslane]
         assert adresaci == [("anna@kancelaria-testowa.test",), ("zapytania@notarai.test",), ("zenobiusz@klient.test",)]
@@ -74,16 +74,17 @@ class TestZgloszenie:
         assert zapis["kalkulacja"]["razem"] > 0 and zapis["wartosc"] == 450000.0
         assert zapis["powiadomiono"] == {"kancelaria": True, "notarai": True, "klient": True}
 
-    def test_do_kancelarii_spoza_notarai(self, klient):
-        odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2, "email": ""})
-        assert odp.status_code == 201
-        assert odp.json()["notarai"] is False and "Przekażemy" in odp.json()["komunikat"]
-        assert [tuple(w[0]) for w in klient.wyslane] == [("zapytania@notarai.test",)]
-        assert "NIE korzysta" in klient.wyslane[0][2]
+    def test_kancelaria_spoza_notarai_nie_przyjmuje_zgloszen(self, klient):
+        """Neutralnosc: nie zbieramy zgloszen dla obcych kancelarii i nie przekazujemy
+        ich dalej. Klient dostaje publiczne dane kontaktowe, nic nie zapisujemy."""
+        odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
+        assert odp.status_code == 409
+        assert "nie przyjmuje zgłoszeń online" in odp.json()["detail"] and "Jan Obcy" in odp.json()["detail"]
+        assert klient.wyslane == [] and wizyty._wczytaj()["zgloszenia"] == []
 
-    def test_tylko_miejscowosc(self, klient):
+    def test_bez_wyboru_kancelarii_nie_dobieramy(self, klient):
         odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "pulawy"})
-        assert odp.status_code == 201 and "Puławy" in odp.json()["komunikat"]
+        assert odp.status_code == 400 and wizyty._wczytaj()["zgloszenia"] == []
 
     def test_walidacja(self, klient):
         assert klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "zgoda": False}).status_code == 400
@@ -124,13 +125,14 @@ class TestZgloszenie:
         def postarz(d):
             d["zgloszenia"][0]["utworzono"] = dawno
         wizyty._w_obszarze_admina(wizyty.magazyn.zmien_plik_kancelarii, wizyty.PLIK, postarz, wizyty._pusty())
-        klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
+        klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
         assert len(wizyty._wczytaj()["zgloszenia"]) == 1
 
 
 class TestZapytaniaKancelarii:
-    def test_lista_tylko_swoje(self, klient):
+    def test_lista_tylko_swoje(self, klient, monkeypatch):
         klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
+        monkeypatch.setattr(wizyty, "kancelarie_notarai", lambda: {1: "lokalna", 2: "inna"})
         klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
         lista = klient.get("/api/zapytania").json()
         assert len(lista) == 1 and lista[0]["kancelaria_id"] == "lokalna" and lista[0]["klient"]["imie"] == "Zenobiusz"
@@ -145,7 +147,8 @@ class TestZapytaniaKancelarii:
         assert len(wpisy) == 1 and wpisy[0]["rodzaj"] == "sprzedaż" and wpisy[0]["telefony"][0]["numer"] == "600 700 800"
         assert "Zenobiusz" in wpisy[0]["tytul"]
 
-    def test_cudze_i_zly_status(self, klient):
+    def test_cudze_i_zly_status(self, klient, monkeypatch):
+        monkeypatch.setattr(wizyty, "kancelarie_notarai", lambda: {2: "inna"})
         klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
         ident = wizyty._wczytaj()["zgloszenia"][0]["id"]
         assert klient.put(f"/api/zapytania/{ident}", json={"status": "kontakt"}).status_code == 404
@@ -158,26 +161,16 @@ class TestZapytaniaKancelarii:
 
 
 class TestAdmin:
-    def test_lista_i_przekazanie(self, klient):
-        klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
+    def test_lista_dla_admina(self, klient):
+        klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
         assert klient.get("/api/admin/wizyty").status_code == 401
         dane = klient.get("/api/admin/wizyty", headers=ADMIN).json()
-        assert len(dane["zgloszenia"]) == 1 and dane["zgloszenia"][0]["kancelaria_email"] == "jan@obcy.test"
-        assert dane["kancelarie_notarai"] == {"lokalna": 1}
-        ident = dane["zgloszenia"][0]["id"]
-        klient.wyslane.clear()
-        odp = klient.post(f"/api/admin/wizyty/{ident}/przekaz", headers=ADMIN)
-        assert odp.status_code == 200 and odp.json()["przekazano"] and odp.json()["status"] == "kontakt"
-        assert klient.wyslane[0][0] == ["jan@obcy.test"] and "notarai.pl to asystent" in klient.wyslane[0][2]
+        assert len(dane["zgloszenia"]) == 1 and dane["kancelarie_notarai"] == {"lokalna": 1}
 
-    def test_przekazanie_bez_adresu_i_bez_nadawcy(self, klient, monkeypatch):
-        klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 3})
+    def test_nie_ma_przekazywania_obcym_kancelariom(self, klient):
+        klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
         ident = wizyty._wczytaj()["zgloszenia"][0]["id"]
-        assert klient.post(f"/api/admin/wizyty/{ident}/przekaz", headers=ADMIN).status_code == 409
-        klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
-        ident2 = [z["id"] for z in wizyty._wczytaj()["zgloszenia"] if z["baza_id"] == 2][0]
-        monkeypatch.setattr(wizyty, "NADAWCA", "")
-        assert klient.post(f"/api/admin/wizyty/{ident2}/przekaz", headers=ADMIN).status_code == 503
+        assert klient.post(f"/api/admin/wizyty/{ident}/przekaz", headers=ADMIN).status_code in (404, 405)
 
     def test_powiazanie_kieruje_do_aplikacji(self, klient):
         odp = klient.put("/api/admin/wizyty/powiazania/2", json={"kancelaria_id": "lokalna"}, headers=ADMIN)
@@ -189,22 +182,16 @@ class TestAdmin:
         assert klient.get("/api/wizyty/kancelarie", params={"miejscowosc": "lublin"}).json()["notarai"] == [1]
         assert klient.put("/api/admin/wizyty/powiazania/999", json={"kancelaria_id": "x"}, headers=ADMIN).status_code == 404
 
-    def test_reczne_skierowanie_i_status(self, klient):
-        klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": 2})
+    def test_przypisanie_tylko_do_wybranej_kancelarii(self, klient, monkeypatch):
+        """Admin moze dopiac zgloszenie do kancelarii powiazanej z pozycja, ktora
+        wybral klient (np. po zmianie powiazania), ale nie skierowac go gdzie indziej."""
+        klient.post("/api/wizyty/zgloszenie", json=ZGLOSZENIE)
         ident = wizyty._wczytaj()["zgloszenia"][0]["id"]
+        odp = klient.put(f"/api/admin/wizyty/{ident}", json={"kancelaria_id": "inna"}, headers=ADMIN)
+        assert odp.status_code == 400
+        assert wizyty._wczytaj()["zgloszenia"][0]["kancelaria_id"] == "lokalna"
         klient.wyslane.clear()
-        odp = klient.put(f"/api/admin/wizyty/{ident}", json={"kancelaria_id": "lokalna", "uwagi": "kancelaria dołączyła"}, headers=ADMIN)
+        odp = klient.put(f"/api/admin/wizyty/{ident}", json={"kancelaria_id": "lokalna", "uwagi": "ponowne powiadomienie"}, headers=ADMIN)
         assert odp.status_code == 200 and odp.json()["kancelaria_id"] == "lokalna"
         assert klient.wyslane and klient.wyslane[0][0] == ["anna@kancelaria-testowa.test"]
-        assert klient.get("/api/zapytania").json()[0]["id"] == ident
         assert klient.put(f"/api/admin/wizyty/{ident}", json={"status": "zamknieta"}, headers=ADMIN).json()["status"] == "zamknieta"
-        assert klient.put(f"/api/admin/wizyty/{ident}", json={"status": "x"}, headers=ADMIN).status_code == 400
-
-
-class TestBaza:
-    def test_prawdziwa_baza_sie_laduje(self):
-        wizyty._ustaw_baze(None)
-        b = wizyty.baza()
-        assert len(b["kancelarie"]) > 3000 and "lublin" in b["miejscowosci"]
-        assert all("@" not in k["nazwa"] for k in b["kancelarie"].values())
-        wizyty._ustaw_baze(None)

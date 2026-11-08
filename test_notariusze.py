@@ -369,14 +369,16 @@ class TestUstawieniaKancelarii:
         assert klient.delete("/api/admin/kancelarie/" + id_k, headers=ADMIN).status_code == 200
         assert _publiczne(klient) == []
 
-    def test_po_terminie_abonamentu_znika_z_mapy(self, srodowisko, monkeypatch):
+    def test_widocznosc_nie_zalezy_od_abonamentu(self, srodowisko, monkeypatch):
+        """Miejsca na mapie nie mozna kupic (zakaz reklamy notariuszy)."""
+        import platnosci
         klient, _, autoryzacja = srodowisko
         self._kancelaria(klient, autoryzacja)
-        monkeypatch.setattr(notariusze.platnosci, "wlaczone", lambda: True)
+        monkeypatch.setattr(platnosci, "wlaczone", lambda: True)
         rejestr = autoryzacja._wczytaj_rejestr()
         _wpis(autoryzacja)["oplacono_do"] = "2020-01-01"
         autoryzacja._zapisz_rejestr(rejestr)
-        assert _publiczne(klient) == []
+        assert len(_publiczne(klient)) == 1
 
 
 class TestPanelAdministratora:

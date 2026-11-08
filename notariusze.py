@@ -30,7 +30,6 @@ from pydantic import BaseModel
 
 import autoryzacja
 import dziennik
-import platnosci
 
 log = logging.getLogger("pieczapp.notariusze")
 
@@ -149,11 +148,11 @@ def odleglosc_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 def publikowana(wpis: dict) -> bool:
     """Czy kancelaria jest na publicznej mapie: aktywna, nie wylaczyla
-    publikacji, ma polozenie i nie jest po terminie abonamentu."""
+    publikacji i ma polozenie. Celowo NIE zalezy od abonamentu: miejsce na
+    mapie nie moze byc czyms, co kancelaria kupuje (zakaz reklamy notariuszy).
+    Za pieniadze jest oprogramowanie, nie widocznosc."""
     mapa = wpis.get("mapa") or {}
-    if not wpis.get("aktywna", True) or not wpis.get("na_mapie", False) or mapa.get("lat") is None:
-        return False
-    return not platnosci.wlaczone() or platnosci.stan(wpis)["wazny"]
+    return bool(wpis.get("aktywna", True) and wpis.get("na_mapie", False) and mapa.get("lat") is not None)
 
 
 def _wizytowka(wpis: dict) -> dict:

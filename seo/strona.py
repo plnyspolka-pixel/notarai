@@ -87,7 +87,6 @@ body {{background:linear-gradient(165deg,#f7fbff,#fff 60%,#edf5ff);color:var(--t
 .kanc .akcje {{ margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }}
 .kanc .przycisk {{ padding: 8px 14px; font-size: .92rem; }}
 .kanc .brak {{ color: var(--tekst3); font-size: .88rem; }}
-.kanc .notarai {{ display: inline-block; background: var(--akcent-tlo); color: var(--akcent); padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; }}
 .kanc article.klient {{ border-color: var(--akcent); }}
 .tabela-k {{ overflow-x: auto; margin: 18px 0; border: 1px solid var(--linia); border-radius: 10px; background: var(--karta); }}
 .tabela-k table {{ border-collapse: collapse; width: 100%; font-size: .95rem; }}
