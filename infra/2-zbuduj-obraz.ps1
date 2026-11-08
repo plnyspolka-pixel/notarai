@@ -1,4 +1,4 @@
-# notarai - etap 2: budowa obrazu kontenera w CodeBuild
+﻿# notarai - etap 2: budowa obrazu kontenera w CodeBuild
 #
 # Uruchom z katalogu notarai:
 #   powershell -ExecutionPolicy Bypass -File infra\2-zbuduj-obraz.ps1
