@@ -1245,6 +1245,7 @@ const OSIOL = '<img class="osiol" src="/static/notarai-symbol.svg" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1, sprawyLista = [];
 // Zmiana pokolenia unieważnia odpowiedzi asynchroniczne poprzedniej sesji.
 let pokolenieSesji = 0;
+let pokolenieListy = 0, pokolenieOtwierania = 0;
 
 /* ---------- logowanie ----------
    Tryb lokalny: serwer nie wymaga logowania, brama nigdy sie nie pokazuje.
@@ -1334,12 +1335,18 @@ document.addEventListener("visibilitychange", () => {
 /* Logowanie i wylogowanie w jednej karcie dziala we wszystkich. */
 window.addEventListener("storage", e => {
   if (SERWIS || e.key !== KLUCZ_TOKENU) return;
-  token = e.newValue || "";
+  const nowyToken = e.newValue || "";
+  if (nowyToken === token) return;
+  token = nowyToken;
   planujOdnowienie();
   if (!token) {
     otworzBrame("Wylogowano."); return;
   }
-  if (!$("brama").hidden) { $("brama").hidden = true; odswiezWyloguj(); uruchomTrybPracy(); }
+  // Token mógł pochodzić z konta innej kancelarii w drugiej karcie.
+  wyczyscDanePoWylogowaniu();
+  $("brama").hidden = true;
+  odswiezWyloguj();
+  uruchomTrybPracy();
 });
 
 /* Jedyne wejscie do API. Dokłada token, odnawia go po cichu i dopiero gdy
@@ -1397,15 +1404,21 @@ function pokazWidok(nazwa){
 
 function wyczyscDanePoWylogowaniu(){
   pokolenieSesji++;
+  pokolenieListy++;
+  pokolenieOtwierania++;
   sprawyLista = [];
   sprawa = null;
   rozmowa = [];
   ostatniaSprawa = null;
   najdalej = 1;
+  poleceniePierwotne = "";
+  wybranyWzor = null;
+  wybraneSkany = [];
   $("lista-spraw")?.replaceChildren();
-  $("projekt")?.replaceChildren();
-  $("pola")?.replaceChildren();
-  $("czat2")?.replaceChildren();
+  ["projekt", "pola", "czat2", "czat3", "ostrzezenia", "podsum2", "podsum3", "pliki-lista"]
+    .forEach(id => $(id)?.replaceChildren());
+  ["polecenie", "nazwa2", "sygn2", "msg2", "msg3", "pliki"]
+    .forEach(id => { if ($(id)) $(id).value = ""; });
   window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
 }
 
