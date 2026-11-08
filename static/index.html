@@ -1243,6 +1243,8 @@ notarai</div>
 const $ = (id) => document.getElementById(id);
 const OSIOL = '<img class="osiol" src="/static/notarai-symbol.svg" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1, sprawyLista = [];
+// Zmiana pokolenia unieważnia odpowiedzi asynchroniczne poprzedniej sesji.
+let pokolenieSesji = 0;
 
 /* ---------- logowanie ----------
    Tryb lokalny: serwer nie wymaga logowania, brama nigdy sie nie pokazuje.
@@ -1335,7 +1337,6 @@ window.addEventListener("storage", e => {
   token = e.newValue || "";
   planujOdnowienie();
   if (!token) {
-    window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
     otworzBrame("Wylogowano."); return;
   }
   if (!$("brama").hidden) { $("brama").hidden = true; odswiezWyloguj(); uruchomTrybPracy(); }
@@ -1394,7 +1395,22 @@ function pokazWidok(nazwa){
   WIDOKI.forEach(w => $(w).hidden = (w !== nazwa));
 }
 
+function wyczyscDanePoWylogowaniu(){
+  pokolenieSesji++;
+  sprawyLista = [];
+  sprawa = null;
+  rozmowa = [];
+  ostatniaSprawa = null;
+  najdalej = 1;
+  $("lista-spraw")?.replaceChildren();
+  $("projekt")?.replaceChildren();
+  $("pola")?.replaceChildren();
+  $("czat2")?.replaceChildren();
+  window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
+}
+
 function otworzBrame(komunikat){
+  wyczyscDanePoWylogowaniu();
   $("brama").hidden = false;
   pokazWidok("widok-logowanie");
   stan($("stan-brama"), komunikat || "", !!komunikat);
@@ -1404,6 +1420,7 @@ function otworzBrame(komunikat){
 }
 
 function wpusc(nowyToken){
+  pokolenieSesji++;
   ustawToken(nowyToken);
   $("brama").hidden = true;
   stan($("stan-brama"), "");
@@ -1421,7 +1438,6 @@ $("btn-wyloguj").onclick = async () => {
   // do nastepnego odswiezenia strony.
   try { await fetch("/api/logowanie/wyloguj", {method: "POST"}); } catch { /* offline */ }
   ustawToken("");
-  window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
   otworzBrame("Wylogowano.");
 };
 
@@ -1700,6 +1716,7 @@ $("btn-nowa").onclick = () => {
 
 /* ---------- lista spraw ---------- */
 async function rysujListeSpraw(){
+  const pobranePokolenie = pokolenieSesji;
   const k = $("lista-spraw");
   try {
     if (dysk.aktywny) {
@@ -1708,7 +1725,9 @@ async function rysujListeSpraw(){
         window.odswiezKokpit?.([], 'Wskaż folder na sprawy w bocznym menu.');
         return;
       }
-      if (!await dysk.upewnijSieODostepie()) {
+      const dostep = await dysk.upewnijSieODostepie();
+      if (pobranePokolenie !== pokolenieSesji) return;
+      if (!dostep) {
         k.innerHTML = '<span class="stan blad" style="padding:0 12px">Brak dostępu do folderu.</span>';
         window.odswiezKokpit?.([], 'Brak dostępu do folderu spraw. Przyznaj uprawnienia i odśwież listę.');
         return;
@@ -1716,6 +1735,7 @@ async function rysujListeSpraw(){
     }
     const lista = dysk.aktywny ? await dysk.listaSpraw()
                                : await (await api("/api/sprawy")).json();
+    if (pobranePokolenie !== pokolenieSesji) return;
     sprawyLista = lista;
     window.odswiezKokpit?.(lista);
     ostatniaSprawa = lista.find(s => s.wzor) || null;
@@ -1759,9 +1779,14 @@ async function rysujListeSpraw(){
       d.appendChild(kosz);
       k.appendChild(d);
     });
-  } catch (e) { k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>'; window.odswiezKokpit?.([], 'Nie udało się pobrać spraw. Sprawdź połączenie i spróbuj ponownie.'); }
+  } catch (e) {
+    if (pobranePokolenie !== pokolenieSesji) return;
+    k.innerHTML = '<span class="stan blad" style="padding:0 12px">Nie udało się pobrać listy.</span>';
+    window.odswiezKokpit?.([], 'Nie udało się pobrać spraw. Sprawdź połączenie i spróbuj ponownie.');
+  }
 }
 async function wczytajSprawe(id){
+  const pobranePokolenie = pokolenieSesji;
   let w;
   if (dysk.aktywny) {
     try {
@@ -1779,6 +1804,7 @@ async function wczytajSprawe(id){
     if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
     w = await odp.json();
   }
+  if (pobranePokolenie !== pokolenieSesji) return;
   sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
   najdalej = 1;
   $("sygn2").value = w.sygnatura || "";
