@@ -83,7 +83,7 @@ function Ftp([string[]]$argumenty) {
 function Kopia {
     $cel = Join-Path $korzen ("strona-kopie\" + (Get-Date -Format "yyyy-MM-dd-HHmmss"))
     Write-Host "== Kopia plików serwera do $cel" -ForegroundColor Cyan
-    Ftp @("kopia", "/", $cel)
+    Ftp @("kopia", "auto", $cel)
 }
 
 switch ($Polecenie) {
@@ -108,7 +108,7 @@ switch ($Polecenie) {
         }
         Kopia
         Write-Host "== Wysyłam pełną stronę na az.pl przez FTPS" -ForegroundColor Cyan
-        Ftp @("wyslij", $zrodlo, "/")
+        Ftp @("wyslij", $zrodlo, "auto")
         Write-Host "== Pliki wysłane: https://notarai.pl" -ForegroundColor Green
     }
 }
