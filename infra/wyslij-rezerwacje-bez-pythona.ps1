@@ -134,20 +134,20 @@ $sekcja = @'
 <section id="rezerwacje-b2b" class="sekcja" aria-labelledby="b2b-title">
   <div class="szer b2b-layout">
     <div class="b2b-copy">
-      <span class="b2b-eyebrow">Nowosc - dla klientow hurtowych</span>
-      <h2 id="b2b-title">Umawianie spotkan notarialnych przez API i MCP</h2>
-      <p>Biura nieruchomosci, deweloperzy i firmy obslugujace wiele transakcji moga rezerwowac wizyty bez wymiany maili i telefonow. Kancelaria sama ustala dostepne terminy.</p>
+      <span class="b2b-eyebrow">Nowo&#347;&#263; - dla klient&#243;w hurtowych</span>
+      <h2 id="b2b-title">Umawianie spotka&#324; notarialnych przez API i MCP</h2>
+      <p>Biura nieruchomo&#347;ci, deweloperzy i firmy obs&#322;uguj&#261;ce wiele transakcji mog&#261; rezerwowa&#263; wizyty bez wymiany e-maili i telefon&#243;w. Kancelaria sama ustala dost&#281;pne terminy.</p>
       <div class="b2b-actions">
-        <a class="b2b-button b2b-button-primary" href="https://app.notarai.pl/hurtowe">Otworz panel rezerwacji</a>
-        <a class="b2b-button b2b-button-secondary" href="mailto:kontakt@notarai.pl?subject=Dostep%20B2B%20API%20MCP">Uzyskaj dostep B2B</a>
+        <a class="b2b-button b2b-button-primary" href="https://app.notarai.pl/hurtowe">Otw&#243;rz panel rezerwacji</a>
+        <a class="b2b-button b2b-button-secondary" href="mailto:kontakt@notarai.pl?subject=Dostep%20B2B%20API%20MCP">Uzyskaj dost&#281;p B2B</a>
       </div>
-      <p class="b2b-footnote">Dostep dla autoryzowanych firm z kluczem API.</p>
+      <p class="b2b-footnote">Dost&#281;p dla autoryzowanych firm z kluczem API.</p>
     </div>
     <div class="b2b-features">
-      <div class="b2b-feature"><span class="b2b-number">01</span><div><strong>Wolne terminy</strong><p>Sprawdz godziny w udostepnionych kancelariach.</p></div></div>
-      <div class="b2b-feature"><span class="b2b-number">02</span><div><strong>Potwierdzenie w kalendarzu</strong><p>Termin trafia bezposrednio do systemu notariusza.</p></div></div>
-      <div class="b2b-feature"><span class="b2b-number">03</span><div><strong>REST API i agenci MCP</strong><p>Integracja z CRM, przekladanie i anulowanie wizyt.</p></div></div>
-      <div class="b2b-feature"><span class="b2b-number">04</span><div><strong>Kontrola kancelarii</strong><p>Notariusz decyduje, jakie terminy udostepnia.</p></div></div>
+      <div class="b2b-feature"><span class="b2b-number">01</span><div><strong>Wolne terminy</strong><p>Sprawd&#378; godziny w udost&#281;pnionych kancelariach.</p></div></div>
+      <div class="b2b-feature"><span class="b2b-number">02</span><div><strong>Potwierdzenie w kalendarzu</strong><p>Termin trafia bezpo&#347;rednio do systemu notariusza.</p></div></div>
+      <div class="b2b-feature"><span class="b2b-number">03</span><div><strong>REST API i agenci MCP</strong><p>Integracja z CRM, przek&#322;adanie i anulowanie wizyt.</p></div></div>
+      <div class="b2b-feature"><span class="b2b-number">04</span><div><strong>Kontrola kancelarii</strong><p>Notariusz decyduje, jakie terminy udost&#281;pnia.</p></div></div>
     </div>
   </div>
 </section>
