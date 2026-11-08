@@ -56,6 +56,7 @@ class Wizyta(BaseModel):
     rodzaj: str
     uczestnicy: str = Field(min_length=2, max_length=500)
     telefon: str = Field(default="", max_length=40)
+    rodzaj_inny: str = Field(default="", max_length=200)
     zewnetrzne_id: str = Field(default="", max_length=100)
     idempotency_key: str = Field(min_length=12, max_length=120)
     potwierdzam: bool = False
@@ -380,7 +381,8 @@ def _rezerwuj(partner: dict, dane: Wizyta) -> dict:
             m = _minuty(dane.godzina)
             nowy = kalendarz._sprawdz({
                 "data": dane.data, "godzina": dane.godzina, "koniec": _hhmm(m + p["czas_minut"]),
-                "rodzaj": dane.rodzaj, "uczestnicy": dane.uczestnicy,
+                "rodzaj": dane.rodzaj, "rodzaj_inny": dane.rodzaj_inny,
+                "uczestnicy": dane.uczestnicy,
                 "telefony": [{"imie": "", "numer": dane.telefon}] if dane.telefon else [],
             })
             wpis = {"id": uuid.uuid4().hex[:12], **nowy, "zrodlo": "hurtowe",
