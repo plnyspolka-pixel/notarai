@@ -45,3 +45,25 @@ jobs:
           python scripts/check_frontend.py
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
+
+  powershell:
+    name: Parser Windows PowerShell 5.1 (skrypty FTPS)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+      - name: Sprawdz parserem PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($file in @('infra/strona.ps1', 'infra/wyslij-rezerwacje-bez-pythona.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error "$file : $($_.Message) (linia $($_.Extent.StartLineNumber))" }
+              exit 1
+            }
+            Write-Host "OK: $file"
+          }
