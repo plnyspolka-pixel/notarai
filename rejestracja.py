@@ -34,6 +34,7 @@ from pydantic import BaseModel
 import autoryzacja
 import dokumenty_prawne
 import logowanie
+import notariusze
 import platnosci
 import walidacja
 
@@ -161,6 +162,9 @@ def zarejestruj(dane: Rejestracja, request: Request):
     }
     if platnosci.wlaczone():
         wpis["oplacono_do"] = platnosci.na_probe()
+    # Wspolrzedne kancelarii przygotowujemy na serwerze, ale publikacja
+    # wymaga odrebnego wlaczenia na_mapie przez wlasciciela.
+    notariusze.ustal_polozenie(wpis)
     # Klucz wpisu to losowy skrot; do spraw wchodzi sie tylko logujac sie.
     rejestr[autoryzacja._sha(secrets.token_hex(32))] = wpis
     autoryzacja._zapisz_rejestr(rejestr)
@@ -240,6 +244,7 @@ def akceptuj_umowe(dane: Akceptacja, request: Request):
     # sa niepelne; zmienia sie je osobno (POST /api/dokumenty/dane).
     if not _dane_pelne(wpis):
         wpis["dane"] = _sprawdz_dane(dane)
+        notariusze.ustal_polozenie(wpis)
     poprzednia = wpis.get("umowa") or {}
     zapis = _zapis_akceptacji(email, autoryzacja.adres_klienta(request), "akceptacja w aplikacji")
     # Data zawarcia zostaje pierwotna; kolejne akceptacje to zmiany wersji.
@@ -269,6 +274,7 @@ def zmien_dane(dane: DaneKancelarii, request: Request):
     if not wlasciciel:
         raise HTTPException(403, "Dane kancelarii zmienia właściciel kancelarii.")
     wpis["dane"] = {**_sprawdz_dane(dane), "zmieniono": autoryzacja._teraz()}
+    notariusze.ustal_polozenie(wpis)  # aktualizacja lokalizacji po zmianie adresu
     autoryzacja._zapisz_rejestr(rejestr)
     log.info("kancelaria %s: zmieniono dane kancelarii", wpis["id"])
     return wpis["dane"]
