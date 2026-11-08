@@ -87,6 +87,13 @@ Parameters:
       Pelny ARN sekretu notarai/finyou (klucz token), zalozonego skryptem
       zapisz-sekret-finyou.ps1. Finance You jako dostawca tresci ksiag
       wieczystych (ekw.py) - ma pierwszenstwo przed Apify. Puste = wylaczone.
+  MetaSekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/meta (JSON z kluczami verify, app_secret,
+      token). Wlacza webhook leadow z formularzy Meta /api/meta/leadgen
+      (meta_leady.py). Puste = wylaczone.
   FinyouAdres:
     Type: String
     Default: ""
@@ -130,6 +137,7 @@ Conditions:
   MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
+  MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
   MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
 
 Resources:
@@ -213,6 +221,16 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref FinyouSekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyMeta
+          - PolicyName: sekret-meta
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref MetaSekretArn
           - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
@@ -474,6 +492,21 @@ Resources:
               - MamyFinyou
               - Name: PIECZAPP_FINYOU_TOKEN
                 ValueFrom: !Sub "${FinyouSekretArn}:token::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyMeta
+              - Name: PIECZAPP_META_VERIFY
+                ValueFrom: !Sub "${MetaSekretArn}:verify::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyMeta
+              - Name: PIECZAPP_META_APP_SECRET
+                ValueFrom: !Sub "${MetaSekretArn}:app_secret::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyMeta
+              - Name: PIECZAPP_META_TOKEN
+                ValueFrom: !Sub "${MetaSekretArn}:token::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs

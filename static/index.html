@@ -1221,6 +1221,9 @@ notarai</div>
   <h2>Zapytania klientów</h2>
   <p>Klienci, którzy przez notarai.pl poprosili o wizytę w tej kancelarii. Umówiony termin trafia do kalendarza razem z telefonem klienta.</p>
   <div id="zapytania-lista"></div>
+  <h3 style="margin:18px 0 6px">Giełda zapytań z okolicy</h3>
+  <p style="margin:0 0 8px"><small>Zapytania bez wybranej kancelarii (np. z reklam). Przez godzinę może odpowiedzieć każda kancelaria z miejscowości klienta; potem trafiają do archiwum dostępnego w abonamencie.</small></p>
+  <div id="gielda-lista"></div>
   <div class="dol"><span class="stan" id="stan-zapytania"></span><button class="wtorny" id="btn-zamknij-zapytania">Zamknij</button></div>
 </dialog>
 
@@ -2811,6 +2814,33 @@ function rysujZapytania(){
   });
 }
 
+async function rysujGielde(){
+  const box = $("gielda-lista");
+  let g;
+  try { const odp = await api("/api/gielda"); if (!odp.ok) return; g = await odp.json(); } catch { return; }
+  if (!g.powiazana) { box.innerHTML = '<p class="stan">Kancelaria nie jest jeszcze powiązana z wykazem notariuszy – napisz na kontakt@notarai.pl.</p>'; return; }
+  const kontakt = l => l.klient ? `<br>${escape([l.klient.imie, l.klient.nazwisko].filter(Boolean).join(" "))} · ${escape(l.klient.telefon || "")} ${escape(l.klient.email || "")}` : "";
+  const karta = (l, otwarte) => `<div class="komputer" data-lead="${escape(l.id)}" style="align-items:flex-start;flex-wrap:wrap">
+      <div><b>${escape(l.sprawa)} · ${escape(l.miejscowosc)}</b><small><br>${escape(kiedySerwis(l.utworzono))}${otwarte ? " · do " + escape(l.okno_do.slice(11, 16)) : ""} · odpowiedzi: ${l.odpowiedzi}${l.odpowiedziala ? " · <b>odpowiedzieliście</b>" : ""}${l.opis ? "<br>" + escape(l.opis) : ""}${kontakt(l)}</small></div>
+      ${l.odpowiedziala ? "" : `<div class="dol" style="margin-top:8px;width:100%"><input class="g-tresc" placeholder="Wiadomość do klienta" maxlength="1500" style="flex:1;text-transform:none"> <button class="g-odp">Odpowiedz</button></div>`}
+    </div>`;
+  box.innerHTML = (g.otwarte.length ? g.otwarte.map(l => karta(l, true)).join("") : '<p class="stan">Teraz nie ma otwartych zapytań.</p>')
+    + (g.oplacona ? (g.archiwum.length ? '<h4 style="margin:12px 0 4px">Archiwum</h4>' + g.archiwum.map(l => karta(l, false)).join("") : "")
+                  : '<p class="stan">Archiwum zapytań starszych niż godzina jest dostępne w abonamencie notarai.</p>');
+  box.querySelectorAll("[data-lead]").forEach(el => {
+    const b = el.querySelector(".g-odp"); if (!b) return;
+    b.onclick = async () => {
+      try {
+        const odp = await api("/api/gielda/" + encodeURIComponent(el.dataset.lead) + "/odpowiedz", {method: "POST",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({tresc: el.querySelector(".g-tresc").value})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się odpowiedzieć.");
+        stan($("stan-zapytania"), "Odpowiedź wysłana do klienta."); rysujGielde();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
+  });
+}
+
 $("btn-zapytania").onclick = async () => {
   stan($("stan-zapytania"), "");
   if (SERWIS || !czyJwt(token)) return;
@@ -2818,6 +2848,7 @@ $("btn-zapytania").onclick = async () => {
   $("okno-zapytania").showModal();
   await odswiezLicznikZapytan();
   rysujZapytania();
+  rysujGielde();
 };
 $("btn-zamknij-zapytania").onclick = () => $("okno-zapytania").close();
 

@@ -232,11 +232,14 @@ class TestWyslanie:
         assert odp.json()["wyslano"]
         assert k.post("/api/teczka/wiadomosc", json={"token": token, "wiadomosc": "x"}).status_code == 409
 
-    def test_dowolna_kancelaria_z_kolejki(self, k):
+    def test_dowolna_kancelaria_na_gielde_z_zapytaniem(self, k):
+        import leady
         token, _ = _nowa(k)
         _pisz(k, token, "testament", czynnosc="testament", miejsce="Lublin")
         odp = k.post("/api/teczka/wyslij", json={"token": token, "imie": "Zenobiusz", "telefon": "600 700 800", "zgoda": True})
-        assert odp.status_code == 201 and "z kolejki" in odp.json()["komunikat"]
+        assert odp.status_code == 201 and odp.json()["gielda"]
+        lead = leady._wczytaj()["leady"][0]
+        assert lead["sprawa"] == "testament" and "ZAPYTANIE DO KANCELARII" in lead["zapytanie"]
 
 
 def test_strona_przygotowania_sprawy():

@@ -51,6 +51,9 @@ STRONA = "https://notarai.pl"
 # E-mail przez Amazon SES (eu-central-1). Bez nadawcy zgloszenia dzialaja,
 # tylko bez powiadomien - widac je w aplikacji i w panelu.
 NADAWCA = os.getenv("PIECZAPP_EMAIL_NADAWCA", "").strip()
+# "Dowolna kancelaria w miejscowosci": gielda (leady.py, godzina dla wszystkich
+# kancelarii, potem archiwum dla placacych) albo dawna kolejka (rekomendacje.przydziel).
+DOWOLNA = os.getenv("PIECZAPP_DOWOLNA", "gielda").lower()
 # Kopia kazdego zgloszenia dla obslugi notarai (np. zapytania@notarai.pl).
 KOPIA = os.getenv("PIECZAPP_EMAIL_ZGLOSZEN", "").strip()
 
@@ -353,6 +356,8 @@ def przyjmij(dane: Zgloszenie, request: Request, dodatki: dict | None = None) ->
         return {"id": "", "notarai": False, "komunikat": "Dziękujemy."}
     z = _sprawdz_zgloszenie(dane)
     z.update(dodatki or {})
+    if z["baza_id"] is None and DOWOLNA == "gielda":
+        return _na_gielde(z, request)
     limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
                            "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
     klienci = kancelarie_notarai()
@@ -390,6 +395,25 @@ def przyjmij(dane: Zgloszenie, request: Request, dodatki: dict | None = None) ->
                      + ("Kancelaria korzysta z notarai i skontaktuje się z Tobą, żeby potwierdzić termin."
                         if z["kancelaria_id"] else "Przekażemy jej zgłoszenie i potwierdzimy kontakt."))
     return {"id": z["id"], "notarai": bool(z["kancelaria_id"]), "komunikat": komunikat}
+
+
+def _na_gielde(z: dict, request: Request) -> dict:
+    import leady
+    limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
+                           "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
+    opis = "\n".join(x for x in (z.get("wiadomosc", ""), f"Preferowany termin: {z['termin']}" if z.get("termin") else "",
+                                  f"Wartość: {taksa.zl(z['wartosc'])}" if z.get("wartosc") else "") if x)
+    lead = leady.nowy(klient=z["klient"], sprawa=z["czynnosc"], opis=opis, miejscowosc=z["miejscowosc"],
+                      zrodlo=z.get("zrodlo") or "strona", zapytanie=z.get("zapytanie", ""))
+    ile = len(lead["zaproszenia"])
+    if ile:
+        komunikat = (f"Zapytanie dostały wszystkie kancelarie w miejscowości {z['miejscowosc_nazwa']} ({ile}). "
+                     "Kancelarie, które się nim zajmą, odpowiedzą zwykle w ciągu godziny"
+                     + (" – odpowiedzi przyjdą też na Twój e-mail." if z["klient"].get("email") else "."))
+    else:
+        komunikat = (f"Zgłoszenie przyjęte. Dobierzemy kancelarię w miejscowości {z['miejscowosc_nazwa']} "
+                     "i potwierdzimy kontakt.")
+    return {"id": lead["id"], "notarai": False, "gielda": True, "komunikat": komunikat}
 
 
 def _przydziel(z: dict, wczesniejsze: list[dict]) -> None:

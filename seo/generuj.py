@@ -381,8 +381,9 @@ def generuj(dane: dict | None = None, cel: Path = KATALOG_STRONY) -> dict:
         html = strona_miejscowosci(m, wg_slug[m["slug"]], okolice, przyklady, izby)
         (katalog / m["slug"]).mkdir(exist_ok=True)
         (katalog / m["slug"] / "index.html").write_text(html, encoding="utf-8")
-    from seo import przejrzystosc, teczka_strona
+    from seo import lead_strona, przejrzystosc, teczka_strona
     for sciezka, html in ((przejrzystosc.SCIEZKA_ZASAD, przejrzystosc.strona_zasad()),
+                          (lead_strona.SCIEZKA, lead_strona.strona()),
                           (teczka_strona.SCIEZKA, teczka_strona.strona()),
                           (przejrzystosc.SCIEZKA_ODWOLANIA, przejrzystosc.strona_odwolania())):
         (cel / sciezka.strip("/")).mkdir(parents=True, exist_ok=True)

@@ -140,7 +140,8 @@ class TestListaIFiltr:
 
 
 class TestPrzejrzystosc:
-    def test_kolejnosc_do_przeliczenia_i_przydzialy(self, klient):
+    def test_kolejnosc_do_przeliczenia_i_przydzialy(self, klient, monkeypatch):
+        monkeypatch.setattr(wizyty, "DOWOLNA", "kolejka")
         for _ in range(4):
             klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "lublin"})
         d = klient.get("/api/wizyty/przejrzystosc", params={"miejscowosc": "lublin", "data": "2026-11-08"}).json()
@@ -154,7 +155,8 @@ class TestPrzejrzystosc:
         assert "Zenobiusz" not in tekst and "600 700 800" not in tekst
         assert klient.get("/api/wizyty/przejrzystosc", params={"miejscowosc": "nigdzie"}).status_code == 404
 
-    def test_audyt_rownosci(self, klient):
+    def test_audyt_rownosci(self, klient, monkeypatch):
+        monkeypatch.setattr(wizyty, "DOWOLNA", "kolejka")
         for _ in range(5):
             klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "lublin"})
         d = klient.get("/api/admin/wizyty/rownosc", headers=ADMIN).json()

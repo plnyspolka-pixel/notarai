@@ -81,7 +81,8 @@ class TestZgloszenie:
         assert [tuple(w[0]) for w in klient.wyslane] == [("zapytania@notarai.test",)]
         assert "NIE korzysta" in klient.wyslane[0][2]
 
-    def test_tylko_miejscowosc(self, klient):
+    def test_tylko_miejscowosc(self, klient, monkeypatch):
+        monkeypatch.setattr(wizyty, "DOWOLNA", "kolejka")
         odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "pulawy"})
         assert odp.status_code == 201 and "Puławy" in odp.json()["komunikat"]
         zapis = wizyty._wczytaj()["zgloszenia"][0]
@@ -92,6 +93,7 @@ class TestZgloszenie:
         """Lublin: kancelaria 1 korzysta z notarai, 2 nie. Kolejka daje obu
         tyle samo zgloszen; ta spoza notarai trafia do przekazania przez obsluge."""
         monkeypatch.setattr(wizyty, "limit_zgloszen", wizyty.Limit(100, 100))
+        monkeypatch.setattr(wizyty, "DOWOLNA", "kolejka")
         przydzialy = []
         for _ in range(6):
             odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "lublin"})
