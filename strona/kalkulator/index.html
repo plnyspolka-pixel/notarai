@@ -130,6 +130,38 @@ p { margin: 0 0 1em; }
   .wpis { flex-direction: column; }
   .dymek { max-width: 100%; }
 }
+
+/* Client calculator — same approved blue / indigo / cyan system as NotarAI. */
+:root, :root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --tlo:#f6f9fe; --tlo2:#edf4ff; --karta:#fff;
+  --linia:#dae7f7; --linia2:#c5d9f2;
+  --tekst:#0b2554; --tekst2:#5d6e8b; --tekst3:#8496b2;
+  --akcent:#235ac3; --akcent2:#128fca; --akcent-tlo:#e9f3ff;
+  --ok:#147a61; --ok-tlo:#e5f7f1; --alarm:#b93957; --alarm-tlo:#fff0f2;
+  --serif:Montserrat,"Segoe UI",Arial,sans-serif;
+  --sans:Montserrat,"Segoe UI",Arial,sans-serif;
+  --r:18px; --r2:11px;
+}
+body {background:linear-gradient(160deg,#f7fbff,#fff 65%,#eff7ff);}
+.naglowek {background:rgba(255,255,255,.96);border-bottom:1px solid #e0ebfa;box-shadow:0 5px 20px rgba(9,40,100,.04);backdrop-filter:blur(15px);}
+.naglowek .marka{font-size:24px;font-weight:800;letter-spacing:-.045em;color:#0c2455;}
+.naglowek .marka span strong{color:#04afd6;}
+.naglowek .menu a{color:#24426e;font-weight:650;}
+.hero {color:#0b265b;background:radial-gradient(ellipse at 85% 0%,#dceeff,#fff 70%);position:relative;overflow:hidden;}
+.hero::after {content:"";position:absolute;z-index:0;width:280px;height:280px;right:-120px;bottom:-140px;border:31px solid #03bfe6;border-radius:50%;box-shadow:0 0 0 42px #dfeeff,0 0 0 80px #2459cc30;pointer-events:none;}
+.hero>.szer {position:relative;z-index:1;}
+.hero h1 {color:#092254;letter-spacing:-.045em;font-size:clamp(31px,4.1vw,54px);font-weight:800;}
+.hero h1 em{color:#038bcf;background:linear-gradient(105deg,#1749bb,#00b4d9);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-style:normal;}
+.hero .wstep {color:#506987;}
+.hero .odznaki{color:#49668b;}
+.karta{background:#fff;border:1px solid #d8e6f6;border-radius:19px;box-shadow:0 18px 54px -37px rgba(12,36,92,.22);}
+.przycisk {background:linear-gradient(115deg,#253ab8,#2176d4,#079bd0);color:white;border-color:transparent;border-radius:11px;box-shadow:0 9px 25px -17px #1853c9bd;font-weight:750;}
+.przycisk:hover {filter:brightness(1.06);}
+.znacznik{color:#176bc0;background:#e6f2ff;letter-spacing:.07em;}
+:where(a,button,input,textarea,select):focus-visible {outline:3px solid #25c1ed;outline-offset:2px;}
+@media(max-width:750px){.hero{padding-top:42px;}.naglowek .menu{gap:9px;}}
+
 </style>
 </head>
 <body>
@@ -138,7 +170,7 @@ p { margin: 0 0 1em; }
   <div class="szer naglowek-w">
     <a class="marka" href="https://notarai.pl/">
       <img src="../favicon.png" alt="" width="32" height="32">
-      <span>notarai</span>
+      <span>notar<strong>ai</strong></span>
     </a>
     <nav class="menu" aria-label="Nawigacja">
       <a href="#formularz">Formularz</a>
