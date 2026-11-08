@@ -113,7 +113,7 @@ function Znajdz-KatalogStrony([string]$KatalogKopii) {
         $listaKorzenia = @(Lista-Ftps "")
         Write-Host "   Polaczono z FTPS. Wpisow w katalogu startowym: $($listaKorzenia.Count)"
         foreach ($pozycja in $listaKorzenia) {
-            $nazwa = ($pozycja -replace "\\", "/" -split "/")[-1]
+            $nazwa = ($pozycja -replace '\\', '/').Split('/')[-1]
             if ($nazwa -match '^[a-zA-Z0-9_.-]{1,100}
     $zadanie = Utworz-ZadanieFtps $ZdalnyPlik ([System.Net.WebRequestMethods+Ftp]::UploadFile)
     $zadanie.ContentLength = ([System.IO.FileInfo]::new($LokalnyPlik)).Length
@@ -184,8 +184,13 @@ Write-Host "   Kopie poprzednich wersji: $kopia"
             Pobierz-Ftps (Zdalny-Plik $katalog "brand-site.css") $probkaCss
             Write-Host "   Znalazlem katalog strony: /$katalog" -ForegroundColor Green
             return $katalog
-        } catch [System.Net.WebException] {
-            # Plik nie istnieje w probowanej sciezce - sprawdz kolejny katalog.
+        } catch {
+            # PowerShell opakowuje FtpWebRequest.GetResponse (550) w
+            # MethodInvocationException, a nie zawsze WebException.
+            if ($_.Exception.ToString() -match '(^|[^0-9])550([^0-9]|$)') {
+                continue
+            }
+            throw
         }
     }
     $wpisy = if ($listaKorzenia.Count -gt 0) {
