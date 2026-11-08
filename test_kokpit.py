@@ -118,7 +118,7 @@ def test_project_word_action_downloads_generated_project():
 
 def test_session_switch_resets_private_content_and_filters():
     for item in ("sprawyLista = [];", "sprawa = null;", "wybraneSkany = [];",
-                 '$("projekt")?.replaceChildren()', '"czat3", "ostrzezenia"',
+                 '"projekt", "pola", "czat2", "czat3", "ostrzezenia"',
                  "window.resetujKokpit?.();"):
         assert item in HTML
     assert "window.resetujKokpit = function ()" in DASHBOARD
@@ -137,3 +137,14 @@ def test_ai_result_not_rendered_after_logout_or_switch():
     assert "numerSprawy !== pokolenieOtwierania" in HTML
     assert "edytowanaSprawa !== sprawa" in HTML
     assert "sprawa.projekt = wynik.tekst;" in HTML
+
+
+def test_modules_use_existing_authorized_navigation():
+    for label in ("Rejestry i weryfikacja", "Formularze urzędowe",
+                  "Kalendarz", "Osoby i telefony", "Dokumenty i RODO",
+                  "Zespół kancelarii", "Abonament", "Pomocnik lokalny"):
+        assert label in HTML
+    assert HTML.count("data-kokpit-nav=") == 8
+    assert "element.click(); // Wykorzystuje dotychczasowe kontrole" in DASHBOARD
+    assert "button.hidden = !element || element.hidden" in DASHBOARD
+    assert ".kokpit-module[hidden] { display:none!important; }" in CSS
