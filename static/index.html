@@ -1312,6 +1312,15 @@ notarai</div>
       <button class="wtorny" id="btn-dane-anuluj">Anuluj</button></div>
   </div>
   <div class="dol"><button class="wtorny" id="btn-dane-zmien" hidden>Zmień dane kancelarii</button></div>
+  <!-- Mapa notariuszy: publiczna wyszukiwarka najblizszej kancelarii
+       (/notariusze) dla klientow. Polozenie wyznacza serwer z adresu
+       kancelarii; wlasciciel moze kancelarie z mapy zdjac. -->
+  <h2 style="margin-top:22px">Mapa notariuszy</h2>
+  <p id="mapa-opis"></p>
+  <label class="zgoda" id="mapa-zgoda" hidden><input type="checkbox" id="mapa-na-mapie">
+    <span>Pokazuj kancelarię w publicznej wyszukiwarce najbliższego notariusza: nazwa kancelarii, notariusze i adres. Bez adresów e-mail i NIP.</span></label>
+  <div class="dol"><button class="wtorny" id="btn-mapa-otworz">Zobacz mapę</button>
+    <button class="wtorny" id="btn-mapa-odswiez" hidden>Wyznacz położenie ponownie</button></div>
   <div class="dol"><button id="btn-komplet-okno">Pobierz komplet</button><small>Wszystkie dokumenty po kolei w jednym pliku, z datami akceptacji. Zachowaj go w dokumentacji RODO kancelarii.</small></div>
   <div class="dol"><span class="stan" id="stan-dokumenty"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-dokumenty">Zamknij</button></div>
@@ -2552,16 +2561,90 @@ $("btn-dane-zapisz").onclick = async () => {
     if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać danych.");
     await sprawdzDokumenty();
     rysujDokumenty();
+    if (!SERWIS && czyJwt(token)) void wczytajMape();
     stan($("stan-dokumenty"), "Dane kancelarii zapisane.");
   } catch (e) { stan($("stan-dokumenty"), e.message, true); }
   $("btn-dane-zapisz").disabled = false;
 };
+
+/* ---------- mapa notariuszy ----------
+   Publiczna wyszukiwarka najblizszej kancelarii (/notariusze). Polozenie
+   wyznacza serwer z adresu kancelarii; wlasciciel decyduje, czy kancelaria
+   jest na mapie. */
+let mapaKancelarii = null;
+
+async function wczytajMape(){
+  mapaKancelarii = null;
+  const sesja = pokolenieSesji;
+  if (SERWIS || !czyJwt(token)) return;
+  try {
+    const odp = await api("/api/mapa");
+    if (odp.ok) {
+      const wynik = await odp.json();
+      if (sesja !== pokolenieSesji) return;
+      mapaKancelarii = wynik;
+    }
+  } catch { /* offline */ }
+  rysujMape();
+}
+
+function opisMapy(m){
+  if (!m.adres) return "Położenie wyznaczymy z adresu kancelarii, gdy podasz go powyżej.";
+  if (m.lat == null) {
+    if (!m.geokoder) return "Wyznaczanie położenia jest wyłączone na tym serwerze.";
+    return m.blad === "geokoder niedostepny"
+      ? "Usługa map była niedostępna i położenie nie zostało wyznaczone. Spróbuj ponownie."
+      : "Nie udało się znaleźć adresu „" + m.adres + "” na mapie. Sprawdź pisownię adresu albo spróbuj ponownie.";
+  }
+  const gdzie = m.dokladnosc === "miejscowosc" ? "w przybliżeniu, w centrum miejscowości" : "pod adresem " + m.adres;
+  return (m.publikowana ? "Kancelaria jest na mapie " : "Kancelaria jest ukryta; położenie wyznaczone ") + gdzie + ".";
+}
+
+function rysujMape(){
+  const m = mapaKancelarii, wlasciciel = !!(dokumenty && dokumenty.jestem_wlascicielem);
+  $("mapa-zgoda").hidden = !m || !wlasciciel;
+  $("btn-mapa-odswiez").hidden = !m || !wlasciciel || !m.adres || !m.geokoder;
+  if (!m) { $("mapa-opis").textContent = "Nie udało się sprawdzić stanu mapy."; return; }
+  $("mapa-opis").textContent = opisMapy(m);
+  $("mapa-na-mapie").checked = !!m.na_mapie;
+}
+
+$("mapa-na-mapie").onchange = async () => {
+  const na_mapie = $("mapa-na-mapie").checked;
+  stan($("stan-dokumenty"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/mapa", {method: "PUT", headers: {"Content-Type": "application/json"},
+                          body: JSON.stringify({na_mapie})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać.");
+    mapaKancelarii = w;
+    rysujMape();
+    stan($("stan-dokumenty"), na_mapie ? "Kancelaria jest widoczna na mapie." : "Kancelaria zniknęła z mapy.");
+  } catch (e) { stan($("stan-dokumenty"), e.message, true); rysujMape(); }
+};
+
+$("btn-mapa-odswiez").onclick = async () => {
+  $("btn-mapa-odswiez").disabled = true;
+  stan($("stan-dokumenty"), "Wyznaczam położenie…", false, true);
+  try {
+    const odp = await api("/api/mapa/odswiez", {method: "POST"});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się wyznaczyć położenia.");
+    mapaKancelarii = w;
+    rysujMape();
+    stan($("stan-dokumenty"), w.lat != null ? "Położenie wyznaczone." : "Adresu nie udało się znaleźć na mapie.", w.lat == null);
+  } catch (e) { stan($("stan-dokumenty"), e.message, true); }
+  $("btn-mapa-odswiez").disabled = false;
+};
+
+$("btn-mapa-otworz").onclick = () => window.open("/notariusze", "_blank", "noopener");
 
 $("btn-dokumenty").onclick = async () => {
   stan($("stan-dokumenty"), "");
   await sprawdzDokumenty();
   if (!dokumenty) return;
   rysujDokumenty();
+  if (!SERWIS && czyJwt(token)) void wczytajMape();
   $("okno-dokumenty").showModal();
 };
 $("btn-zamknij-dokumenty").onclick = () => $("okno-dokumenty").close();
