@@ -122,3 +122,64 @@ def test_wypis_numer_z_czytnika_i_poprawka(strona):
     with strona.context.expect_page() as nowa:
         strona.locator("#prz-podglad").click()
     nowa.value.wait_for_url("blob:**")
+
+
+def test_kreator_poczty_od_wniosku_do_zbioru(strona, monkeypatch):
+    import httpx
+    import poczta_polska
+    from test_poczta_polska import HASLO, LOGIN, Sejf, UdawanyNadawca
+    nadawca, sejf = UdawanyNadawca(), Sejf()
+    monkeypatch.setattr(poczta_polska, "TRANSPORT", httpx.MockTransport(nadawca))
+    monkeypatch.setattr(poczta_polska, "sejf", sejf)
+
+    strona.goto(strona.adres + "/")
+    strona.wait_for_load_state("networkidle")
+    strona.locator('.krok[data-etap="8"]').click()
+    strona.locator("#pp-krok1").wait_for()
+
+    # Krok 1: wniosek.
+    for pole, wartosc in {"firma": "Kancelaria Notarialna Ewa Sobczak", "nip": "5260001246", "ulica": "Rynek",
+                          "numer": "5", "kod": "05-500", "miejscowosc": "Zalesie", "imie": "Ewa", "nazwisko": "Sobczak",
+                          "email": "kancelaria@example.com", "telefon": "600100200"}.items():
+        strona.locator("#pp-" + pole).fill(wartosc)
+    strona.locator("#pp-zapisz-wniosek").click()
+    strona.locator("#pp-wyslij").wait_for()
+    with strona.context.expect_page() as pdf:
+        strona.locator("#pp-pdf").click()
+    pdf.value.wait_for_url("blob:**")
+    strona.locator("#pp-wyslalem").click()
+
+    # Krok 2 -> 3: czekanie na umowe, potem login.
+    strona.locator("#pp-krok2").wait_for()
+    strona.locator("#pp-mam-login").click()
+    strona.locator("#pp-krok3").wait_for()
+    strona.locator("#pp-login").fill(LOGIN)
+    strona.locator("#pp-haslo").fill(HASLO)
+    strona.locator("#pp-polacz").click()
+    strona.locator("#pp-polaczona").wait_for()
+    assert "Połączono" in strona.locator("#pp-opis-polaczenia").inner_text()
+    assert strona.locator("#pp-urzad").input_value() == "263867"
+    assert sejf.dane["lokalna"]["haslo"] == HASLO and strona.locator("#pp-haslo").input_value() == ""
+
+    # Wpis, nadanie, etykiety, zbior.
+    strona.locator("#prz-repertorium").fill("A 1234/2026")
+    strona.locator("#prz-adresat").fill("Sąd Rejonowy w Zalesiu, Wydział Ksiąg Wieczystych")
+    strona.locator("#prz-ulica").fill("ul. Sądowa 1")
+    strona.locator("#prz-kod").fill("05-500")
+    strona.locator("#prz-miejscowosc").fill("Zalesie")
+    strona.locator("#prz-zapisz").click()
+    strona.locator("#stan8", has_text="Dodano pozycję 1").wait_for()
+    strona.locator("#pp-akcje").wait_for()
+    strona.locator(".prz-wybor").first.check()
+    strona.locator("#pp-nadaj").click()
+    strona.locator("#stan-pp-akcje", has_text="Nadano: 1").wait_for()
+    assert strona.locator("input.prz-nr").first.input_value() == "00659007734000000001"
+    with strona.context.expect_page() as etykiety:
+        strona.locator(".prz-wybor").first.check()
+        strona.locator("#pp-etykiety").click()
+    etykiety.value.wait_for_url("blob:**")
+    with strona.context.expect_page() as ksiazka:
+        strona.locator("#pp-zbior").click()
+    ksiazka.value.wait_for_url("blob:**")
+    strona.locator("#pp-zbiory", has_text="zbiór 900").wait_for()
+    assert nadawca.wywolania.count("sendEnvelope") == 1

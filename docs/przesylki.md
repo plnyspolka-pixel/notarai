@@ -48,26 +48,58 @@ w danej izbie notarialnej.
 
 Dane nadawcy (nazwa i adres kancelarii) ustawia się raz, na dole widoku.
 
-## Poczta Polska
+## Poczta Polska: umowa i nadawanie z aplikacji
 
-Teraz:
+Okno „Poczta Polska” w widoku Przesyłki prowadzi kancelarię przez trzy kroki
+(`poczta_polska.py`).
 
-- eksport zaznaczonych listów poleconych do CSV (UTF-8, separator `;`) do
-  importu w aplikacji **Elektroniczny Nadawca**. Szablon importu (przypisanie
-  kolumn) ustawia się w e-Nadawcy raz. Kolumna `identyfikator_nadawcy` niesie
-  odsyłacz do pozycji w dzienniku;
-- link do śledzenia przesyłki (`emonitoring.poczta-polska.pl`).
+1. **Wniosek o umowę.** Umowy z Pocztą nie da się zawrzeć przez API: zawiera
+   ją przedstawiciel handlowy. Aplikacja wypełnia wniosek danymi z rejestracji
+   w notarai i proponuje trzy sposoby wysłania:
+   - PDF do podpisu,
+   - gotowy e-mail do Poczty (kontakt@poczta-polska.pl),
+   - oficjalny formularz sprzedażowy Poczty z treścią prośby w schowku.
 
-Następny krok wymaga umowy z Pocztą Polską i konta e-Nadawca z dostępem do
-WebAPI. Dopiero z nim można:
+   Prośba obejmuje: przesyłki polecone z potwierdzeniem odbioru, konto
+   w Elektronicznym Nadawcy z dostępem do WebAPI, EPO (opcjonalnie) i
+   wyłączenie wymuszonej zmiany hasła dla konta WebAPI. Dokumentacja WebAPI
+   mówi, że takie ustawienie zmienia tylko Poczta.
+2. **Umowa.** Przedstawiciel się odzywa, podpisane oryginały wracają pocztą
+   (Poczta sprawdza firmę w BIG), a potem przychodzi e-mail z loginem
+   i hasłem. Kancelarie podają, że trwa to 3–6 tygodni.
+3. **Połączenie.** Kancelaria wkleja login i hasło. Aplikacja sprawdza je
+   jedną próbą (metoda `hello`), bo kilka błędnych prób blokuje konto. Potem:
+   - zapisuje login i hasło w AWS Secrets Manager (`notarai-poczta-<kancelaria>`),
+   - pobiera urzędy nadania i karty umowy.
 
-- pobierać numery nadania z puli kancelarii przed wyjściem na pocztę,
-- drukować etykiety z kodem kreskowym zamiast naklejek z okienka,
-- wysyłać elektroniczną książkę nadawczą (zbiór przesyłek) zamiast papierowej,
-- pobierać statusy doręczeń i daty z elektronicznego potwierdzenia odbioru.
+   Hasło nigdy nie wraca do przeglądarki.
 
-Login i hasło do WebAPI trzymamy w AWS Secrets Manager, nigdy w kodzie ani
-w `.env`.
+Po połączeniu, w tabeli wpisów:
+
+- **Nadaj w e-Nadawcy** (`getGuid` + `addShipment`): numer nadania wpisuje się
+  do księgi sam, jako uzupełnienie, a nie poprawka;
+- **Etykiety z kodem** (`getPrintForParcel`, ADDRESS_LABEL);
+- **Wycofaj z bufora** (`clearEnvelopeByGuids`);
+- **Wyślij zbiór na pocztę** (`sendEnvelope`), a zaraz po nim książka nadawcza
+  z Poczty (`getOutboxBook`). e-Nadawca przyjmuje zbiór tylko z przesyłek
+  dodanych tego samego dnia, więc aplikacja pilnuje tego przed wysłaniem;
+- **Sprawdź doręczenia** (`getEPOStatus`): daty doręczeń z EPO trafiają do
+  księgi;
+- **Zmień hasło automatycznie** (`changePassword`): nowe hasło zapisuje się
+  w sejfie przed wywołaniem Poczty, więc nie ginie przy awarii.
+
+WebAPI: SOAP 1.1, HTTP Basic, adresy z dokumentacji WebAPI w97:
+
+- produkcja: `https://e-nadawca.api.poczta-polska.pl/websrv/`
+- integracja: `https://int-e-nadawca.api.poczta-polska.pl/websrv/` (osobny
+  login od Poczty; do wyboru w kroku 3 jako „środowisko testowe”).
+
+Bez połączenia nadal działają koperty, papierowa książka nadawcza, eksport
+CSV do e-Nadawcy i link „śledź”.
+
+Wdrożenie: rola zadania ECS dostała politykę `sekrety-poczty-polskiej`
+(Secrets Manager, tylko `notarai-poczta-*`) w `infra/notarai-aplikacja.yaml`.
+Trzeba zaktualizować stos, zanim pierwsza kancelaria się połączy.
 
 ## Dane osobowe
 

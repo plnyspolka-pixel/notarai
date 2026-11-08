@@ -264,6 +264,23 @@ Resources:
                   Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*"
           - !Ref AWS::NoValue
 
+        # Polaczenie kancelarii z Poczta Polska (poczta_polska.py): login i haslo
+        # do WebAPI Elektronicznego Nadawcy kazdej kancelarii w osobnym sekrecie
+        # notarai-poczta-<kancelaria>. Kod nigdy nie zwraca hasla do przegladarki.
+        - PolicyName: sekrety-poczty-polskiej
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:TagResource
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-poczta-*"
+
   # ---------------- siec ----------------
   GrupaLoadBalancera:
     Type: AWS::EC2::SecurityGroup

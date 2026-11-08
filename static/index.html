@@ -163,6 +163,16 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .prz-przewijanie{overflow-x:auto}
 .prz-trzy{display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:16px}
 @media (max-width:700px){.prz-trzy,.para.prz-para{grid-template-columns:1fr}}
+.pp-kroki{display:flex;gap:8px;flex-wrap:wrap;list-style:none;margin:0 0 16px;padding:0}
+.pp-kroki li{flex:1;min-width:150px;padding:8px 12px;border:1px solid var(--linia2);border-radius:var(--r2);font-size:13px;cursor:pointer;color:var(--tekst2)}
+.pp-kroki li b{display:block;color:var(--tekst)}
+.pp-kroki li.teraz{border-color:var(--akcent);box-shadow:0 0 0 1px var(--akcent)}
+.pp-kroki li.gotowe b::after{content:" ✓";color:var(--ok, #1a7f37)}
+.pp-info{background:var(--tlo2);border-radius:var(--r2);padding:10px 14px;font-size:13px;line-height:1.55;margin:10px 0}
+.pp-info ol{margin:4px 0 0 18px;padding:0}
+.pp-form select,.pp-form input[type=tel]{font:inherit;padding:9px 10px;border:1px solid var(--linia2);background:var(--tlo);color:var(--tekst);border-radius:var(--r2);width:100%}
+.pp-cztery{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 2fr;gap:12px}
+@media (max-width:700px){.pp-cztery{grid-template-columns:1fr 1fr}}
 .chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--linia2);
   background:transparent;color:var(--tekst2);cursor:pointer}
 .chip.on{background:var(--tekst);color:var(--tlo);border-color:var(--tekst)}
@@ -1163,6 +1173,109 @@ notarai</div>
       <button class="wtorny" id="prz-csv">Plik dla e-Nadawcy (CSV)</button>
       <span class="stan" id="stan8b"></span>
     </div>
+    <div class="prz-pasek" id="pp-akcje" style="margin-top:14px" hidden>
+      <button id="pp-nadaj">Nadaj w e-Nadawcy</button>
+      <button class="wtorny" id="pp-etykiety">Etykiety z kodem</button>
+      <button class="wtorny" id="pp-wycofaj">Wycofaj z bufora</button>
+      <button id="pp-zbior">Wyślij zbiór na pocztę</button>
+      <button class="wtorny" id="pp-doreczenia">Sprawdź doręczenia</button>
+      <span class="stan" id="stan-pp-akcje"></span>
+    </div>
+    <p class="pod" id="pp-akcje-opis" hidden>Zaznacz listy polecone i kliknij „Nadaj” — numery nadania wpiszą się same. Wydrukuj etykiety i naklej na koperty. Na koniec dnia „Wyślij zbiór” (e-Nadawca przyjmuje zbiór tylko z przesyłek dodanych tego samego dnia) i wydrukuj książkę nadawczą do podbicia w urzędzie.</p>
+  </div>
+
+
+  <div class="karta" id="pp-karta">
+    <h2>Poczta Polska: umowa i nadawanie z aplikacji</h2>
+    <p class="pod" style="margin-top:0">Po połączeniu z Elektronicznym Nadawcą numery nadania wpisują się do księgi same, etykiety z kodem kreskowym drukujesz w kancelarii, książkę nadawczą przygotowuje Poczta, a daty doręczeń przychodzą z elektronicznego potwierdzenia odbioru.</p>
+    <ol class="pp-kroki" id="pp-kroki">
+      <li data-krok="1"><b>1. Wniosek o umowę</b>wypełniamy go za Ciebie</li>
+      <li data-krok="2"><b>2. Umowa z Pocztą</b>przedstawiciel, podpis, login</li>
+      <li data-krok="3"><b>3. Połączenie</b>login i hasło do e-Nadawcy</li>
+    </ol>
+
+    <div id="pp-krok1" hidden>
+      <div class="pp-form">
+        <div class="para prz-para">
+          <div class="pole"><label class="etykieta" for="pp-firma">Nazwa kancelarii</label><input type="text" id="pp-firma"></div>
+          <div class="pole"><label class="etykieta" for="pp-nip">NIP</label><input type="text" id="pp-nip" inputmode="numeric"></div>
+        </div>
+        <div class="pp-cztery">
+          <div class="pole"><label class="etykieta" for="pp-ulica">Ulica</label><input type="text" id="pp-ulica"></div>
+          <div class="pole"><label class="etykieta" for="pp-numer">Nr posesji</label><input type="text" id="pp-numer"></div>
+          <div class="pole"><label class="etykieta" for="pp-lokal">Nr lokalu</label><input type="text" id="pp-lokal"></div>
+          <div class="pole"><label class="etykieta" for="pp-kod">Kod</label><input type="text" id="pp-kod" placeholder="00-000" maxlength="6"></div>
+          <div class="pole"><label class="etykieta" for="pp-miejscowosc">Miejscowość</label><input type="text" id="pp-miejscowosc"></div>
+        </div>
+        <div class="para prz-para">
+          <div class="pole"><label class="etykieta" for="pp-imie">Osoba kontaktowa: imię</label><input type="text" id="pp-imie"></div>
+          <div class="pole"><label class="etykieta" for="pp-nazwisko">Nazwisko</label><input type="text" id="pp-nazwisko"></div>
+        </div>
+        <div class="para prz-para">
+          <div class="pole"><label class="etykieta" for="pp-email">E-mail (tu przyjdzie umowa i login)</label><input type="email" id="pp-email"></div>
+          <div class="pole"><label class="etykieta" for="pp-telefon">Telefon</label><input type="tel" id="pp-telefon"></div>
+        </div>
+        <div class="para prz-para">
+          <div class="pole"><label class="etykieta" for="pp-wolumen">Ile przesyłek miesięcznie</label><select id="pp-wolumen"></select></div>
+          <div class="pole"><label class="etykieta"><input type="checkbox" id="pp-epo-wniosek" checked> Elektroniczne potwierdzenie odbioru (EPO)</label><span class="wskaz">data doręczenia sama trafi do księgi, bez papierowej zwrotki</span></div>
+        </div>
+      </div>
+      <div class="pasek" style="margin-top:0"><button id="pp-zapisz-wniosek">Przygotuj wniosek</button><a href="#" id="pp-mam-konto" style="font-size:13px">Mam już umowę i konto w e-Nadawcy →</a><span class="stan" id="stan-pp1"></span></div>
+      <div id="pp-wyslij" hidden>
+        <div class="pp-info"><b>Wniosek gotowy. Wyślij go jednym z trzech sposobów:</b></div>
+        <div class="pasek" style="margin-top:0">
+          <button class="wtorny" id="pp-pdf">Wniosek PDF do podpisu</button>
+          <button class="wtorny" id="pp-mail">Wyślij e-mailem do Poczty</button>
+          <button class="wtorny" id="pp-formularz">Formularz Poczty (treść skopiuje się sama)</button>
+        </div>
+        <div class="pp-info" id="pp-podpowiedz-formularza" hidden>Treść prośby jest w schowku: w formularzu Poczty wklej ją w pole „Uwagi” (Ctrl+V). Pozostałe pola przepisz z wniosku powyżej.</div>
+        <div class="pasek"><button id="pp-wyslalem">Wniosek wysłany</button></div>
+      </div>
+    </div>
+
+    <div id="pp-krok2" hidden>
+      <div class="pp-info"><b>Co teraz robi Poczta Polska</b>
+        <ol>
+          <li>Przedstawiciel handlowy dzwoni lub pisze, zwykle w ciągu 2 dni roboczych (infolinia dla firm: <span id="pp-telefony"></span>).</li>
+          <li>Przysyła umowę. Podpisane oryginały trzeba odesłać pocztą — Poczta weryfikuje firmę w BIG dopiero po ich otrzymaniu. Umowę EPO warto odesłać w tej samej kopercie.</li>
+          <li>Po aktywacji konta przychodzi e-mail z loginem i hasłem do Elektronicznego Nadawcy. Kancelarie podają, że całość trwa 3–6 tygodni.</li>
+        </ol>
+        Gdy przyjdzie login, przejdź do kroku 3. Do tego czasu dzienniki, koperty i papierowa książka nadawcza działają jak dotąd.
+      </div>
+      <div class="pasek" style="margin-top:0"><button id="pp-mam-login">Mam login i hasło</button><span class="stan" id="stan-pp2"></span></div>
+    </div>
+
+    <div id="pp-krok3" hidden>
+      <div class="para prz-para">
+        <div class="pole"><label class="etykieta" for="pp-login">Login do e-Nadawcy</label><input type="text" id="pp-login" autocomplete="off"></div>
+        <div class="pole"><label class="etykieta" for="pp-haslo">Hasło</label><input type="password" id="pp-haslo" autocomplete="new-password"></div>
+      </div>
+      <details style="margin-bottom:12px"><summary style="font-size:13px;cursor:pointer">Środowisko testowe Poczty</summary>
+        <div class="pole" style="margin-top:8px"><select id="pp-srodowisko" class="pp-form" style="font:inherit;padding:8px"><option value="produkcja">produkcja (prawdziwe przesyłki)</option><option value="integracja">integracja (testy, osobny login od Poczty)</option></select></div>
+      </details>
+      <div class="pp-info">Hasło trafia do szyfrowanego sejfu (AWS Secrets Manager, Frankfurt) i nie jest pokazywane w aplikacji. Sprawdzamy je jedną próbą — kilka błędnych prób blokuje konto w e-Nadawcy. Jeśli Poczta nie włączyła dostępu do WebAPI, połączenie się nie uda: poproś wtedy opiekuna umowy o jego włączenie.</div>
+      <div class="pasek" style="margin-top:0"><button id="pp-polacz">Połącz z e-Nadawcą</button><span class="stan" id="stan-pp3"></span></div>
+    </div>
+
+    <div id="pp-polaczona" hidden>
+      <div class="pp-info" id="pp-opis-polaczenia"></div>
+      <div class="para prz-para pp-form">
+        <div class="pole"><label class="etykieta" for="pp-urzad">Urząd nadania</label><select id="pp-urzad"></select></div>
+        <div class="pole"><label class="etykieta" for="pp-karta-umowy">Karta umowy</label><select id="pp-karta-umowy"></select></div>
+      </div>
+      <div class="para prz-para pp-form">
+        <div class="pole"><label class="etykieta" for="pp-kategoria">Listy polecone</label><select id="pp-kategoria"><option value="EKONOMICZNA">ekonomiczne</option><option value="PRIORYTETOWA">priorytetowe</option></select></div>
+        <div class="pole"><label class="etykieta"><input type="checkbox" id="pp-epo"> Potwierdzenie odbioru elektroniczne (EPO)</label><span class="wskaz">tylko jeśli umowa obejmuje EPO</span></div>
+      </div>
+      <div class="pasek" style="margin-top:0">
+        <button class="wtorny" id="pp-zapisz-ustawienia">Zapisz ustawienia</button>
+        <button class="wtorny" id="pp-zmien-haslo">Zmień hasło automatycznie</button>
+        <button class="wtorny" id="pp-odlacz">Odłącz</button>
+        <span class="stan" id="stan-pp4"></span>
+      </div>
+      <h3 style="margin-top:18px">Zbiory wysłane do Poczty</h3>
+      <div id="pp-zbiory"></div>
+    </div>
   </div>
 
   <div class="karta">
@@ -1981,7 +2094,7 @@ function pokaz(numer){
     ? (sprawa.nazwa || sprawa.sygnatura || "sprawa " + sprawa.id.slice(0, 6)) : "notarai";
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
-  if (numer === 8) rysujPrzesylki();
+  if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -5158,6 +5271,159 @@ async function otworzPdfPrzesylek(adres, opcje, stanEl){
   } catch (e) { if (okno) okno.close(); stan(stanEl, e.message, true); }
 }
 const wybranePrzesylki = () => [...document.querySelectorAll("#prz-lista .prz-wybor:checked")].map(c => c.value);
+
+/* ---------- Poczta Polska: kreator umowy i polaczenie z e-Nadawca ----------
+   Serwer (poczta_polska.py) trzyma etap, wniosek i ustawienia; login i haslo
+   leza w Secrets Manager i nigdy tu nie wracaja. */
+let ppStan = null, ppKrok = 1;
+const PP_WNIOSEK = ["firma", "nip", "imie", "nazwisko", "email", "telefon", "ulica", "numer", "lokal", "kod", "miejscowosc", "wolumen"];
+
+async function rysujPoczte(){
+  try { ppStan = await api("/api/poczta").then(r => { if (!r.ok) throw new Error(); return r.json(); }); }
+  catch (e) { $("pp-karta").hidden = true; return; }
+  $("pp-karta").hidden = false;
+  if (!$("pp-wolumen").options.length) $("pp-wolumen").innerHTML = ppStan.wolumeny.map(w => "<option>" + escape(w) + "</option>").join("");
+  $("pp-telefony").textContent = ppStan.telefony_poczty.join(" lub ");
+  ppKrok = {start: 1, wniosek: 2, umowa: 3, polaczona: 4}[ppStan.etap] || 1;
+  wypelnijWniosek();
+  pokazKrokPoczty(ppKrok);
+  const polaczona = ppStan.etap === "polaczona";
+  $("pp-akcje").hidden = $("pp-akcje-opis").hidden = !polaczona;
+  if (polaczona) rysujPolaczenie();
+}
+function wypelnijWniosek(){
+  const w = ppStan.wniosek || {};
+  if (w.firma) { PP_WNIOSEK.forEach(k => $("pp-" + k).value = w[k] || ""); $("pp-epo-wniosek").checked = w.epo !== false; $("pp-wyslij").hidden = false; return; }
+  if ($("pp-firma").value) return;
+  // Pierwsze otwarcie: dane z rejestracji w notarai i z danych nadawcy kopert.
+  const r = ppStan.rejestracja || {};
+  $("pp-firma").value = r.nazwa || $("prz-nadawca").value || "";
+  $("pp-nip").value = r.nip || "";
+  const adres = (r.adres || $("prz-adres-nadawcy").value || "").replace(/\n/g, ", ");
+  const m = adres.match(/^(.*?)\s+(\d+[A-Za-z]?)(?:\s*\/\s*(\w+))?\s*,?\s*(\d{2}-\d{3})\s+(.+)$/);
+  if (m) { $("pp-ulica").value = m[1].replace(/,$/, ""); $("pp-numer").value = m[2]; $("pp-lokal").value = m[3] || ""; $("pp-kod").value = m[4]; $("pp-miejscowosc").value = m[5]; }
+  const notariusz = (r.notariusze || "").split(/[,;]/)[0].replace(/^(notariusz|not\.)\s+/i, "").trim().split(/\s+/);
+  if (notariusz.length >= 2) { $("pp-imie").value = notariusz[0]; $("pp-nazwisko").value = notariusz.slice(1).join(" "); }
+  try { if (czyJwt(token)) $("pp-email").value = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).email || ""; } catch (e) { /* bez e-maila */ }
+}
+function pokazKrokPoczty(n){
+  [1, 2, 3].forEach(k => $("pp-krok" + k).hidden = n !== k);
+  $("pp-polaczona").hidden = n !== 4;
+  document.querySelectorAll("#pp-kroki li").forEach(li => {
+    const k = +li.dataset.krok;
+    li.classList.toggle("teraz", k === Math.min(n, 3) && n !== 4);
+    li.classList.toggle("gotowe", k < ppKrok || ppKrok === 4);
+  });
+}
+function rysujPolaczenie(){
+  const p = ppStan.polaczenie || {};
+  const wygasa = p.haslo_wygasa ? Math.round((new Date(p.haslo_wygasa) - new Date()) / 864e5) : null;
+  $("pp-opis-polaczenia").innerHTML = "<b>Połączono z Elektronicznym Nadawcą</b>" + (p.srodowisko === "integracja" ? " (środowisko testowe)" : "")
+    + " · login " + escape(p.login || "") + (wygasa !== null ? " · hasło wygasa za " + wygasa + " dni" + (wygasa < 7 ? " — kliknij „Zmień hasło automatycznie”" : "") : "")
+    + (ppStan.w_buforze ? "<br>W buforze e-Nadawcy czeka " + ppStan.w_buforze + " przesyłek — wyślij zbiór na koniec dnia." : "");
+  $("pp-urzad").innerHTML = '<option value="">— wybierz —</option>' + (p.urzedy || []).map(u => '<option value="' + escape(u.id) + '">' + escape(u.opis || u.id) + "</option>").join("");
+  $("pp-urzad").value = p.urzad || "";
+  $("pp-karta-umowy").innerHTML = (p.karty || []).map(k => '<option value="' + escape(k.id) + '">' + escape(k.opis || k.id) + "</option>").join("");
+  $("pp-karta-umowy").value = p.karta || "";
+  $("pp-kategoria").value = ppStan.ustawienia.kategoria || "EKONOMICZNA";
+  $("pp-epo").checked = !!ppStan.ustawienia.epo;
+  $("pp-zbiory").innerHTML = (ppStan.zbiory || []).length ? (ppStan.zbiory || []).slice(0, 20).map(z =>
+    '<div style="font-size:13px;margin:4px 0">' + plData(z.data) + " · zbiór " + escape(z.id) + " · " + z.przesylek + ' przesyłek · <a href="#" data-zbior="' + escape(z.id) + '">książka nadawcza</a></div>').join("")
+    : '<span class="stan">Jeszcze nic nie wysłano.</span>';
+  $("pp-zbiory").querySelectorAll("[data-zbior]").forEach(a => a.onclick = e => {
+    e.preventDefault(); otworzPdfPrzesylek("/api/poczta/zbior/" + encodeURIComponent(a.dataset.zbior) + "/ksiazka.pdf", {}, $("stan-pp4"));
+  });
+}
+async function wyslijPoczta(adres, metoda, dane, stanEl){
+  const odp = await api(adres, {method: metoda, headers: {"Content-Type": "application/json"}, body: dane === undefined ? undefined : JSON.stringify(dane)});
+  const w = await odp.json().catch(() => ({}));
+  if (!odp.ok) { stan(stanEl, typeof w.detail === "string" ? w.detail : "Nie udało się", true); return null; }
+  return w;
+}
+const wybranePoczta = () => wybranePrzesylki().map(id => ({ksiega: przKsiega, id}));
+
+document.querySelectorAll("#pp-kroki li").forEach(li => li.onclick = () => pokazKrokPoczty(+li.dataset.krok === 3 && ppKrok === 4 ? 4 : +li.dataset.krok));
+$("pp-mam-konto").onclick = e => { e.preventDefault(); pokazKrokPoczty(3); };
+$("pp-zapisz-wniosek").onclick = async () => {
+  const dane = {epo: $("pp-epo-wniosek").checked};
+  PP_WNIOSEK.forEach(k => dane[k] = $("pp-" + k).value.trim());
+  const w = await wyslijPoczta("/api/poczta/wniosek", "PUT", dane, $("stan-pp1"));
+  if (!w) return;
+  ppStan = w; $("pp-wyslij").hidden = false;
+  stan($("stan-pp1"), "Wniosek gotowy — wyślij go poniżej.");
+};
+$("pp-pdf").onclick = () => otworzPdfPrzesylek("/api/poczta/wniosek.pdf", {}, $("stan-pp1"));
+$("pp-mail").onclick = () => {
+  location.href = "mailto:" + ppStan.email_poczty + "?subject=" + encodeURIComponent("Umowa na usługi pocztowe i Elektroniczny Nadawca (WebAPI) - kancelaria notarialna")
+    + "&body=" + encodeURIComponent("Dzień dobry,\n\n" + ppStan.prosba + "\n\nZ poważaniem\n" + $("pp-imie").value + " " + $("pp-nazwisko").value);
+};
+$("pp-formularz").onclick = async () => {
+  try { await navigator.clipboard.writeText(ppStan.prosba); $("pp-podpowiedz-formularza").hidden = false; } catch (e) { /* bez schowka - tresc jest w PDF */ }
+  window.open(ppStan.formularz_poczty, "_blank", "noopener");
+};
+$("pp-wyslalem").onclick = async () => { if (await wyslijPoczta("/api/poczta/etap", "POST", {etap: "wniosek"}, $("stan-pp1"))) rysujPoczte(); };
+$("pp-mam-login").onclick = async () => { if (await wyslijPoczta("/api/poczta/etap", "POST", {etap: "umowa"}, $("stan-pp2"))) rysujPoczte(); };
+$("pp-polacz").onclick = async () => {
+  stan($("stan-pp3"), "Łączę z e-Nadawcą…", false, true);
+  $("pp-polacz").disabled = true;
+  const w = await wyslijPoczta("/api/poczta/polacz", "POST", {login: $("pp-login").value, haslo: $("pp-haslo").value, srodowisko: $("pp-srodowisko").value}, $("stan-pp3"));
+  $("pp-polacz").disabled = false;
+  $("pp-haslo").value = "";
+  if (w) { stan($("stan-pp3"), ""); await rysujPoczte(); stan($("stan-pp4"), "Połączono. Sprawdź urząd nadania i zapisz ustawienia."); }
+};
+$("pp-zapisz-ustawienia").onclick = async () => {
+  const w = await wyslijPoczta("/api/poczta/ustawienia", "PUT", {urzad: $("pp-urzad").value, karta: $("pp-karta-umowy").value,
+    kategoria: $("pp-kategoria").value, epo: $("pp-epo").checked}, $("stan-pp4"));
+  if (w) { ppStan = w; rysujPolaczenie(); stan($("stan-pp4"), "Zapisano."); }
+};
+$("pp-zmien-haslo").onclick = async () => {
+  if (!confirm("Ustawić w e-Nadawcy nowe, losowe hasło? Aplikacja zapamięta je w sejfie. Jeśli logujesz się też ręcznie na stronie e-Nadawcy, użyj tam „Nie pamiętam hasła”.")) return;
+  const w = await wyslijPoczta("/api/poczta/haslo", "POST", undefined, $("stan-pp4"));
+  if (w) { ppStan = w; rysujPolaczenie(); stan($("stan-pp4"), "Hasło zmienione."); }
+};
+$("pp-odlacz").onclick = async () => {
+  if (!confirm("Odłączyć e-Nadawcę? Login i hasło zostaną usunięte z sejfu. Wpisy w księgach zostają.")) return;
+  if (await wyslijPoczta("/api/poczta/polaczenie", "DELETE", undefined, $("stan-pp4"))) rysujPoczte();
+};
+$("pp-nadaj").onclick = async () => {
+  const pozycje = wybranePoczta();
+  if (!pozycje.length) return stan($("stan-pp-akcje"), "Zaznacz listy polecone.", true);
+  stan($("stan-pp-akcje"), "Nadaję w e-Nadawcy…", false, true);
+  const w = await wyslijPoczta("/api/poczta/nadaj", "POST", {pozycje}, $("stan-pp-akcje"));
+  if (!w) return;
+  await rysujPrzesylki(); await rysujPoczte();
+  stan($("stan-pp-akcje"), "Nadano: " + w.nadano + (w.bledy.length ? ". Odrzucone: " + w.bledy.join("; ") : ". Wydrukuj etykiety."), !!w.bledy.length);
+};
+$("pp-etykiety").onclick = () => {
+  const pozycje = wybranePoczta();
+  if (!pozycje.length) return stan($("stan-pp-akcje"), "Zaznacz przesyłki nadane w e-Nadawcy.", true);
+  otworzPdfPrzesylek("/api/poczta/etykiety.pdf", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pozycje})}, $("stan-pp-akcje"));
+};
+$("pp-wycofaj").onclick = async () => {
+  const pozycje = wybranePoczta();
+  if (!pozycje.length || !confirm("Wycofać zaznaczone przesyłki z bufora e-Nadawcy? Numery nadania zostaną usunięte z księgi.")) return;
+  const w = await wyslijPoczta("/api/poczta/wycofaj", "POST", {pozycje}, $("stan-pp-akcje"));
+  if (w) { await rysujPrzesylki(); await rysujPoczte(); stan($("stan-pp-akcje"), "Wycofano: " + w.wycofano + "."); }
+};
+$("pp-zbior").onclick = async () => {
+  if (!confirm("Wysłać do Poczty zbiór ze wszystkimi przesyłkami czekającymi w buforze?")) return;
+  const okno = window.open("", "_blank");
+  const w = await wyslijPoczta("/api/poczta/zbior", "POST", undefined, $("stan-pp-akcje"));
+  if (!w) { if (okno) okno.close(); return; }
+  stan($("stan-pp-akcje"), "Zbiór " + w.id + " przyjęty (" + w.przesylek + " przesyłek). Pobieram książkę nadawczą…");
+  try {
+    const odp = await api("/api/poczta/zbior/" + encodeURIComponent(w.id) + "/ksiazka.pdf");
+    if (!odp.ok) throw new Error();
+    const url = URL.createObjectURL(await odp.blob());
+    if (okno) okno.location = url; else location.assign(url);
+  } catch (e) { if (okno) okno.close(); stan($("stan-pp-akcje"), "Zbiór wysłany, ale książki nie udało się pobrać — jest na liście zbiorów niżej.", true); }
+  await rysujPoczte();
+};
+$("pp-doreczenia").onclick = async () => {
+  stan($("stan-pp-akcje"), "Sprawdzam potwierdzenia odbioru…", false, true);
+  const w = await wyslijPoczta("/api/poczta/doreczenia", "POST", undefined, $("stan-pp-akcje"));
+  if (w) { await rysujPrzesylki(); stan($("stan-pp-akcje"), "Sprawdzono " + w.sprawdzono + ", nowe daty doręczeń: " + w.zmieniono + "."); }
+};
 
 document.querySelectorAll("#prz-ksiegi .chip").forEach(b => b.onclick = () => {
   document.querySelectorAll("#prz-ksiegi .chip").forEach(x => x.classList.toggle("on", x === b));

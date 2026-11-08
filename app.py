@@ -39,6 +39,7 @@ import notariusze
 import autoryzacja
 import nazwy
 import osoby
+import poczta_polska
 import przesylki
 import prompty
 import rejestracja
@@ -77,6 +78,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
 app.include_router(przesylki.router)
+app.include_router(poczta_polska.router)
 app.include_router(wizyty.router)
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)

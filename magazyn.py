@@ -325,7 +325,7 @@ def identyfikatory_spraw(baza_spraw: Path) -> list[str]:
 # ze sprawami. W trybie S3 czytamy je zawsze z S3 - sa male, a dwie kopie
 # aplikacji nie moga miec dwoch roznych wersji kalendarza.
 PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
-                    "dziennik_przeslanych", "dziennik_korespondencyjny", "przesylki_ustawienia")  # wizyty: w obszarze administracyjnym
+                    "dziennik_przeslanych", "dziennik_korespondencyjny", "przesylki_ustawienia", "poczta_polska")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
