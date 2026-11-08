@@ -59,9 +59,9 @@ Sprawdzono 07.11.2026.
   adres `PIECZAPP_FINYOU_URL`). Notarai wysyla numer KW i dostaje piec dzialow
   jako tekst i HTML; gdy Finance You dopiero pobiera (`processing`), notarai
   dopytuje co 5 s, najdluzej 4 min. Finance You sam dobiera zrodlo pierwotne
-  (kolejno: Apify, EasyMKW/CMD) i to on jest dla kancelarii podmiotem
-  przetwarzajacym; jego poddostawcy sa wpisani w docs/ochrona-danych.md.
-  Zrodlo pierwotne zapisujemy przy ksiedze (`zrodlo: ... zrodlo pierwotne: apify`).
+  i to on jest dla kancelarii podmiotem przetwarzajacym (umowa powierzenia,
+  docs/ochrona-danych.md). Zrodlo pierwotne zapisujemy przy ksiedze
+  (`zrodlo: ... zrodlo pierwotne: ...`).
 - Zapasowo / bez Finance You: aktor `regdata/ekw-ksiegi-wieczyste-scraper`
   na platformie Apify (https://apify.com/regdata/ekw-ksiegi-wieczyste-scraper),
   token `PIECZAPP_APIFY_TOKEN`. Rozliczenie za wynik: 0,005-0,010 USD za
