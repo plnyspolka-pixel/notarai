@@ -1,8 +1,9 @@
-# Publikacja ZMIENIONYCH plikow sekcji rezerwacji B2B na notarai.pl.
-# Nie wymaga Pythona, py, instalacji dodatkowych bibliotek ani nowego logowania.
-# Uzywa istniejacego profilu AWS i FTPS (TLS) w Windows PowerShell 5.1.
-# Wysyla TYLKO strona/index.html i strona/brand-site.css.
-# Nie generuje ani nie zmienia katalogu kancelarii / SEO / bloga.
+# Bezpieczna publikacja sekcji B2B na istniejacej stronie notarai.pl.
+# Bez Pythona, instalacji dodatkowych bibliotek i ponownego logowania AWS.
+# Pobiera kopie index.html z FTPS, dodaje sekcje i lacze CSS, wysyla tylko:
+#  - nowy plik rezerwacje-b2b.css
+#  - zmodyfikowany zdalny index.html (bez nadpisywania innych sekcji)
+# Nie zmienia style.css, katalogu kancelarii, SEO ani bloga.
 param(
     [string]$Profil = "notarai-admin",
     [string]$Region = "eu-central-1"
