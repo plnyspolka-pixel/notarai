@@ -88,6 +88,46 @@ def wyslij(ftp, lokalny, zdalny):
             print(f"  wyslano {posixpath.join(cel, nazwa)}")
 
 
+def znajdz_katalog_strony(ftp):
+    """Znajdz katalog publikacji notarai.pl bez zakladania, ze to root FTPS.
+
+    Nie publikujemy na podstawie samej nazwy domeny: wymagamy realnej
+    strony z linkiem do app.notarai.pl i arkuszem brand-site.css.
+    """
+    katalogi = ["", "public_html", "www", "htdocs", "httpdocs", "html",
+                "notarai.pl", "notarai.pl/public_html", "notarai.pl/www",
+                "domains/notarai.pl/public_html"]
+    try:
+        for nazwa, czy_katalog in wpisy(ftp, "/"):
+            if not czy_katalog or "/" in nazwa or "\\" in nazwa or nazwa.startswith("."):
+                continue
+            if len(nazwa) > 100:
+                continue
+            katalogi.extend([nazwa, f"{nazwa}/public_html", f"{nazwa}/www"])
+    except (OSError, ftplib.error_perm):
+        pass
+
+    for katalog in dict.fromkeys(katalogi):
+        bazowy = "/" + katalog.strip("/") if katalog else ""
+        indeks = posixpath.join(bazowy, "index.html")
+        css = posixpath.join(bazowy, "brand-site.css")
+        czesci = []
+        try:
+            ftp.retrbinary(f"RETR {indeks}", czesci.append)
+            html = b"".join(czesci).lower()
+            if b"notarai" not in html or b"app.notarai.pl" not in html:
+                continue
+            # Pusty plik CSS tez potwierdza sciezke, ale jego brak wyklucza.
+            ftp.size(css)
+            return bazowy or "/"
+        except (ftplib.error_perm, OSError):
+            continue
+    raise RuntimeError(
+        "Nie rozpoznano katalogu domeny notarai.pl na FTPS. "
+        "Nic nie wyslano i nie pobrano. Sprawdz konfiguracje hostingu."
+    )
+
+
 def main(argv):
     if not argv:
         sys.exit(__doc__)
@@ -96,9 +136,11 @@ def main(argv):
         if argv[0] == "lista":
             lista(ftp, argv[1] if len(argv) > 1 else "/")
         elif argv[0] == "kopia" and len(argv) == 3:
-            kopia(ftp, argv[1], argv[2])
+            zrodlo = znajdz_katalog_strony(ftp) if argv[1] == "auto" else argv[1]
+            kopia(ftp, zrodlo, argv[2])
         elif argv[0] == "wyslij" and len(argv) == 3:
-            wyslij(ftp, argv[1], argv[2])
+            cel = znajdz_katalog_strony(ftp) if argv[2] == "auto" else argv[2]
+            wyslij(ftp, argv[1], cel)
         else:
             sys.exit(__doc__)
     finally:
