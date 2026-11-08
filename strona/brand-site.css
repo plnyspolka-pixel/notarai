@@ -229,3 +229,27 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-btn, .brand-nav a { transition: none; }
   .brand-btn:hover { transform: none; }
 }
+
+
+/* Customer journey: consistent with the approved NotarAI identity. */
+.klient-sekcja{background:radial-gradient(80% 100% at 80% 0%,#edf8ff,#fff 75%)!important;}
+.klient-sekcja .szer>h2{max-width:850px;}
+.klient-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;}
+.klient-karta{display:flex;flex-direction:column;min-height:265px;padding:30px 27px!important;border-color:#d9e7f6!important;}
+.klient-nr{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:linear-gradient(145deg,#d9e9ff,#e4faff);font-size:13px;font-weight:850;color:#096ebf;margin-bottom:17px;}
+.klient-karta h3{font-size:19px!important;margin:0 0 10px!important;letter-spacing:-.03em;}
+.klient-karta p{line-height:1.75;color:#586c89;flex:1;}
+.klient-link{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;color:#145ec4!important;font-size:13px;font-weight:800;text-decoration:none;border-bottom:1px solid #b5d5f6;padding-bottom:8px;}
+.klient-link:hover{color:#0497d5!important;}
+.klient-link span{font-size:19px;}
+.klient-info{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:26px;padding:23px 26px;background:#eef6ff;border:1px solid #d5e8fb;border-radius:17px;}
+.klient-info strong{display:block;font-size:16px;color:#0d285c;}
+.klient-info p{margin:5px 0 0;font-size:13px;color:#556b8f;}
+.klient-konwersja{background:linear-gradient(150deg,#eaf3ff,#f6fbff)!important;}
+.klient-cta{border-top:4px solid #10bce7!important;padding:29px!important;}
+.klient-cta h3{color:#0b285a;font-size:20px!important;}
+.klient-cta ul{margin:20px 0 24px;padding-left:20px;color:#38557b;font-size:14px;line-height:2;}
+.klient-cta li::marker{color:#09a3db;}
+.brand-nav a[href="#dla-klientow"]{color:#007fc1;font-weight:850;}
+@media(max-width:900px){.klient-grid{grid-template-columns:repeat(2,1fr);}.klient-karta:last-child{grid-column:span 2;min-height:0;}}
+@media(max-width:620px){.klient-grid{grid-template-columns:1fr;}.klient-karta:last-child{grid-column:auto;}.klient-karta{min-height:0;}.klient-info{align-items:flex-start;flex-direction:column;}.klient-info .przycisk{width:100%;text-align:center;}}
