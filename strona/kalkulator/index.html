@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalkulator kosztów u notariusza - notarai</title>
+<meta name="description" content="Policz szacunkowe koszty czynności notarialnej: taksa, wypisy, PCC, opłaty sądowe. Opisz sprawę zwykłym językiem albo wypełnij krótki formularz. Stawki od 5 listopada 2026 r.">
+<link rel="icon" href="../favicon.png">
+<style>
+/* te same barwy i kroje co notarai.pl (strona/style.css) - plik jest samodzielny,
+   bo te sama strone wydaje tez app.notarai.pl/kalkulator */
+:root {
+  --tlo: #faf9f5; --tlo2: #f4f3ee; --karta: #ffffff; --linia: #e6e4dd; --linia2: #d9d7cf;
+  --tekst: #1f1e1b; --tekst2: #5e5c57; --tekst3: #8e8b84;
+  --akcent: #c96442; --akcent2: #b5532f; --akcent-tlo: #fbeee8;
+  --ok: #3d7a4f; --ok-tlo: #eaf3ec; --alarm: #b23a2c; --alarm-tlo: #fbeceb;
+  --serif: 'Charter', 'Georgia', 'Iowan Old Style', 'Times New Roman', serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  --r: 14px; --r2: 10px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tlo: #262624; --tlo2: #1f1f1d; --karta: #30302e; --linia: #3e3d39; --linia2: #4a4944;
+    --tekst: #eeece6; --tekst2: #b8b5ac; --tekst3: #87847c;
+    --akcent: #d9785a; --akcent2: #e58a6d; --akcent-tlo: #3a2d27;
+    --ok: #8fcaa0; --ok-tlo: #26352a; --alarm: #f08a7c; --alarm-tlo: #3f2a28;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--tlo); color: var(--tekst); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--akcent); }
+h1, h2, h3 { font-family: var(--serif); font-weight: 500; line-height: 1.2; margin: 0 0 .5em; }
+h1 { font-size: clamp(1.9rem, 4.2vw, 2.8rem); letter-spacing: -.01em; }
+h1 em { font-style: normal; color: var(--akcent); }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0 0 1em; }
+.szer { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+.naglowek { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--tlo) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--linia); }
+.naglowek-w { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 64px; }
+.marka { display: flex; align-items: center; gap: 10px; color: var(--tekst); text-decoration: none; font: 600 1.25rem var(--serif); }
+.marka img { border-radius: 8px; }
+.menu a { color: var(--tekst2); text-decoration: none; font-size: .95rem; margin-left: 20px; }
+.menu a:hover { color: var(--tekst); }
+
+.hero { padding: 48px 0 28px; }
+.wstep { font-size: 1.08rem; color: var(--tekst2); max-width: 700px; }
+.znacznik { display: inline-block; background: var(--akcent-tlo); color: var(--akcent); padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+.odznaki { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--tekst2); font-size: .92rem; }
+.odznaki li::before { content: "✓"; color: var(--ok); font-weight: 700; margin-right: 6px; }
+
+.uklad { display: grid; grid-template-columns: 1.25fr .85fr; gap: 24px; align-items: start; padding-bottom: 56px; }
+.karta { background: var(--karta); border: 1px solid var(--linia); border-radius: var(--r); }
+
+/* czat */
+.czat { display: flex; flex-direction: column; min-height: 560px; }
+.czat-naglowek { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--linia); font-weight: 600; }
+.czat-naglowek small { margin-left: auto; color: var(--tekst3); font-weight: 400; font-size: .82rem; }
+.wiadomosci { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 62vh; }
+.dymek { max-width: 92%; padding: 11px 14px; border-radius: var(--r2); white-space: pre-wrap; word-wrap: break-word; }
+.dymek.uzytkownik { align-self: flex-end; background: var(--akcent); color: #fff; }
+.dymek.asystent { align-self: flex-start; background: var(--tlo2); }
+.dymek.blad { align-self: flex-start; background: var(--alarm-tlo); color: var(--alarm); }
+.dymek.pisze { color: var(--tekst3); font-style: italic; }
+.kalk { align-self: stretch; border: 1px solid var(--linia2); border-radius: var(--r2); padding: 14px 16px; background: var(--karta); }
+.kalk table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.kalk td { padding: 5px 0; border-bottom: 1px dashed var(--linia); vertical-align: top; }
+.kalk td:last-child { text-align: right; white-space: nowrap; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.kalk tr.suma td { border-bottom: 0; border-top: 2px solid var(--linia2); font-weight: 700; font-size: 1.05rem; padding-top: 9px; }
+.kalk .podstawa { display: block; color: var(--tekst3); font-size: .78rem; }
+.kalk .uwaga { margin: 10px 0 0; padding: 8px 12px; background: var(--akcent-tlo); border-radius: 8px; font-size: .88rem; color: var(--tekst); }
+.kalk details { margin-top: 10px; font-size: .9rem; }
+.kalk summary { cursor: pointer; color: var(--akcent); font-weight: 600; }
+.kalk details ul { margin: 6px 0 0; padding-left: 20px; color: var(--tekst2); }
+.kalk details h4 { margin: 10px 0 2px; font-size: .85rem; color: var(--tekst3); text-transform: uppercase; letter-spacing: .04em; }
+.kalk .akcje { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.kalk .stawki { color: var(--tekst3); font-size: .8rem; margin: 10px 0 0; }
+
+.podpowiedzi { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 12px; }
+.podpowiedzi button { background: var(--tlo2); border: 1px solid var(--linia); border-radius: 999px; padding: 6px 12px; font-size: .86rem; color: var(--tekst2); cursor: pointer; }
+.podpowiedzi button:hover { border-color: var(--akcent); color: var(--akcent); }
+.wpis { display: flex; gap: 10px; padding: 12px 18px 16px; border-top: 1px solid var(--linia); }
+.wpis textarea { flex: 1; resize: vertical; min-height: 46px; max-height: 160px; padding: 10px 12px; border: 1px solid var(--linia2); border-radius: var(--r2); background: var(--tlo); color: var(--tekst); font: inherit; }
+.wpis textarea:focus { outline: 2px solid var(--akcent); outline-offset: 0; border-color: transparent; }
+.przycisk { display: inline-block; text-align: center; background: var(--akcent); color: #fff; padding: 10px 18px; border-radius: var(--r2); text-decoration: none; font-weight: 600; font-size: .98rem; border: 1px solid var(--akcent); cursor: pointer; font-family: inherit; }
+.przycisk:hover { background: var(--akcent2); border-color: var(--akcent2); }
+.przycisk:disabled { opacity: .55; cursor: wait; }
+.przycisk.drugi { background: transparent; color: var(--tekst); border-color: var(--linia2); }
+.przycisk.drugi:hover { background: var(--tlo2); }
+.przycisk.pelny { display: block; width: 100%; }
+.przypis { color: var(--tekst3); font-size: .84rem; margin: 0; padding: 0 18px 16px; }
+.pulapka { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* formularz */
+.formularz { padding: 22px; }
+.formularz h2 { margin-bottom: 4px; }
+.formularz .wstep { font-size: .92rem; margin-bottom: 16px; }
+.formularz label { display: block; font-size: .9rem; color: var(--tekst2); margin-bottom: 12px; }
+.formularz label > span { display: block; margin-bottom: 4px; }
+.formularz input[type=text], .formularz input[type=number], .formularz select { width: 100%; padding: 9px 11px; border: 1px solid var(--linia2); border-radius: 8px; background: var(--tlo); color: var(--tekst); font: inherit; font-size: .95rem; }
+.formularz .chk { display: flex; align-items: flex-start; gap: 8px; color: var(--tekst); }
+.formularz .chk input { margin-top: 4px; }
+.formularz .dwie { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.formularz details { margin: 4px 0 14px; }
+.formularz summary { cursor: pointer; color: var(--akcent); font-size: .9rem; }
+.formularz .wynik { margin-top: 16px; }
+
+/* informacje */
+.info { padding: 0 0 72px; }
+.siatka { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.siatka .karta { padding: 22px; }
+.siatka p, .siatka li { color: var(--tekst2); font-size: .94rem; }
+.siatka ul { margin: 0; padding-left: 18px; }
+.siatka li { margin-bottom: 5px; }
+.stopka { border-top: 1px solid var(--linia); padding: 28px 0; color: var(--tekst3); font-size: .86rem; }
+.stopka p { margin: 0 0 6px; max-width: 820px; }
+.stopka a { color: var(--tekst3); }
+
+@media (max-width: 900px) {
+  .uklad, .siatka { grid-template-columns: 1fr; }
+  .czat { min-height: 480px; }
+}
+@media (max-width: 600px) {
+  .szer { padding: 0 16px; }
+  .menu a { margin-left: 12px; font-size: .88rem; }
+  .hero { padding: 32px 0 20px; }
+  .wpis { flex-direction: column; }
+  .dymek { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<header class="naglowek">
+  <div class="szer naglowek-w">
+    <a class="marka" href="https://notarai.pl/">
+      <img src="../favicon.png" alt="" width="32" height="32">
+      <span>notarai</span>
+    </a>
+    <nav class="menu" aria-label="Nawigacja">
+      <a href="#formularz">Formularz</a>
+      <a href="https://notarai.pl/notariusz/">Znajdź notariusza</a>
+      <a href="https://notarai.pl/blog/">Blog</a>
+      <a href="https://notarai.pl/">Dla kancelarii</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="szer">
+    <p class="znacznik">Dla klientów kancelarii notarialnych</p>
+    <h1>Ile zapłacę u notariusza?<br><em>Policz, zanim umówisz wizytę.</em></h1>
+    <p class="wstep">Opisz zwykłym językiem, co planujesz: zakup mieszkania, darowiznę działki, testament, pełnomocnictwo. Asystent dopyta o to, co zmienia koszt, a kalkulator policzy taksę, wypisy, podatek i opłaty sądowe według maksymalnych stawek z rozporządzenia.</p>
+    <ul class="odznaki">
+      <li>Stawki obowiązujące od 5 listopada 2026 r.</li>
+      <li>Bez rejestracji, bez danych osobowych</li>
+      <li>Gotowa lista dokumentów do przyniesienia</li>
+    </ul>
+  </div>
+</section>
+
+<section class="szer uklad">
+  <div class="karta czat" id="czat">
+    <div class="czat-naglowek">Asystent kosztów <span class="znacznik">AI</span><small id="stawki-info"></small></div>
+    <div class="wiadomosci" id="wiadomosci" aria-live="polite"></div>
+    <div class="podpowiedzi" id="podpowiedzi">
+      <button type="button">Kupuję mieszkanie za 450 tys. zł na kredyt</button>
+      <button type="button">Rodzice darują mi działkę budowlaną wartą 200 tys. zł</button>
+      <button type="button">Chcę spisać testament</button>
+      <button type="button">Pełnomocnictwo do sprzedaży mieszkania</button>
+      <button type="button">Stwierdzenie nabycia spadku po ojcu</button>
+    </div>
+    <form class="wpis" id="form-czat" autocomplete="off">
+      <textarea id="pytanie" rows="2" placeholder="Np. kupuję dom za 800 tys. zł, połowa z kredytu" maxlength="1500" aria-label="Twoja wiadomość"></textarea>
+      <input class="pulapka" type="text" name="strona" id="pulapka" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button class="przycisk" type="submit" id="wyslij">Wyślij</button>
+    </form>
+    <p class="przypis">Nie podawaj nazwisk, numerów PESEL ani adresów. Rozmowa nie jest zapisywana. Wynik jest szacunkiem, a nie ofertą kancelarii.</p>
+  </div>
+
+  <aside class="karta formularz" id="formularz">
+    <h2>Szybkie wyliczenie</h2>
+    <p class="wstep">Bez asystenta. Wybierz czynność, wpisz wartość i policz.</p>
+    <form id="form-szybki" autocomplete="off">
+      <label><span>Czynność</span><select id="rodzaj"></select></label>
+      <label id="wartosc-wrap"><span>Wartość przedmiotu (zł)</span><input type="text" id="wartosc" inputmode="decimal" placeholder="np. 450 000"></label>
+      <label class="chk"><input type="checkbox" id="grupa1"> <span>Strony to najbliższa rodzina (małżonek, dzieci, rodzice, rodzeństwo, dziadkowie, wnuki, teściowie, zięć, synowa)</span></label>
+      <label class="chk" id="kredyt-wrap"><input type="checkbox" id="kredyt"> <span>Zakup na kredyt: hipoteka w tym samym akcie</span></label>
+      <label id="hipoteka-wrap" hidden><span>Kwota hipoteki (zł)</span><input type="text" id="hipoteka" inputmode="decimal" placeholder="np. 400 000"></label>
+      <label class="chk" id="pcc-wrap"><input type="checkbox" id="pcc" checked> <span>Doliczyć podatek PCC (nie dotyczy zakupu z VAT, np. od dewelopera)</span></label>
+      <div class="dwie">
+        <label><span>Wypisów aktu</span><input type="number" id="wypisy" value="6" min="0" max="100"></label>
+        <label><span>Stron w wypisie</span><input type="number" id="strony" value="6" min="0" max="500"></label>
+      </div>
+      <details id="stale-wrap">
+        <summary>Czynność ze stałą stawką (testament, pełnomocnictwo, protokół…)</summary>
+        <label style="margin-top:10px"><span>Dodatkowo w tym samym akcie</span><select id="stala"><option value="">brak</option></select></label>
+      </details>
+      <button class="przycisk pelny" type="submit">Policz</button>
+    </form>
+    <div class="wynik" id="wynik-formularza"></div>
+  </aside>
+</section>
+
+<section class="szer info" id="skad">
+  <div class="siatka">
+    <article class="karta">
+      <h3>Z czego składa się koszt</h3>
+      <ul>
+        <li><strong>Taksa notarialna</strong> zależy od wartości (np. ceny mieszkania). Za sprzedaż lokalu, domu czy działki budowlanej notariusz pobiera najwyżej połowę stawki podstawowej, za hipotekę pod kredyt mieszkaniowy jedną czwartą.</li>
+        <li><strong>Wypisy aktu</strong> dla stron, sądu i urzędów: 12 zł za stronę (od 11. strony 10 zł, od 21. strony 8 zł).</li>
+        <li><strong>Podatek PCC</strong> 2 % ceny przy zakupie z rynku wtórnego i <strong>opłaty sądowe</strong> za wpisy w księdze wieczystej. Te kwoty notariusz tylko przekazuje dalej.</li>
+        <li>Do taksy i wypisów dochodzi <strong>VAT 23 %</strong>.</li>
+      </ul>
+    </article>
+    <article class="karta">
+      <h3>Maksimum, nie cennik</h3>
+      <p>Rozporządzenie określa tylko górną granicę wynagrodzenia notariusza. Kancelaria może policzyć mniej. Dlatego wynik traktuj jako szacunek do rozmowy z notariuszem, a nie ofertę.</p>
+      <p>Lista dokumentów przy wyniku to typowy komplet; kancelaria może poprosić o coś więcej albo z czegoś zrezygnować.</p>
+    </article>
+    <article class="karta">
+      <h3>Skąd te stawki</h3>
+      <ul>
+        <li>Rozporządzenie Ministra Sprawiedliwości z 28 czerwca 2004 r. w sprawie maksymalnych stawek taksy notarialnej (t.j. Dz.U. 2024 poz. 1566).</li>
+        <li>Zmiana z 13 października 2026 r. (Dz.U. 2026 poz. 1370), obowiązuje od 5 listopada 2026 r.</li>
+        <li>Ustawa o kosztach sądowych w sprawach cywilnych oraz ustawa o podatku od czynności cywilnoprawnych.</li>
+      </ul>
+      <p>Układ kalkulacji wzorowany na C.A.R., darmowym kalkulatorze napisanym przez notariusza dla notariuszy.</p>
+    </article>
+  </div>
+</section>
+</main>
+
+<footer class="stopka">
+  <div class="szer">
+    <p>Kalkulator ma charakter informacyjny i nie stanowi porady prawnej ani oferty. Kwoty są liczone według stawek maksymalnych; ostateczny koszt ustala notariusz na podstawie treści czynności.</p>
+    <p>notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, Lublin. <a href="https://notarai.pl/prywatnosc/">Polityka prywatności</a> · <a href="https://notarai.pl/">Asystent dla kancelarii notarialnych</a> · <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a></p>
+  </div>
+</footer>
+
+<script>
+'use strict';
+// Strona stoi na notarai.pl (hosting statyczny) i wola API na app.notarai.pl.
+// Ta sama strona wydana przez aplikacje (app.notarai.pl/kalkulator albo lokalnie) wola API u siebie.
+const API = ['notarai.pl', 'www.notarai.pl'].includes(location.hostname) ? 'https://app.notarai.pl' : '';
+const $ = id => document.getElementById(id);
+const zl = n => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(n);
+const POWITANIE = 'Dzień dobry. Napisz, jaką czynność planujesz u notariusza i jakiej wartości dotyczy, np. „kupuję mieszkanie za 450 tys. zł”. Dopytam tylko o to, co zmienia koszt, i policzę.';
+
+let katalog = null;
+let historia = [];   // [{rola, tresc, parametry?}] - to samo, co idzie do API
+let czeka = false;
+
+// ---------- czat ----------
+function dymek(klasa, tekst) {
+  const el = document.createElement('div');
+  el.className = 'dymek ' + klasa;
+  el.textContent = tekst;
+  $('wiadomosci').appendChild(el);
+  $('wiadomosci').scrollTop = $('wiadomosci').scrollHeight;
+  return el;
+}
+
+let parametryWyniku = null;   // parametry ostatniej kalkulacji - ida z klientem do formularza umawiania
+function kartaKalkulacji(w, kontener, parametry) {
+  parametryWyniku = parametry || parametryWyniku;
+  const box = document.createElement('div');
+  box.className = 'kalk';
+  const tabela = document.createElement('table');
+  w.pozycje.forEach(p => {
+    const tr = tabela.insertRow();
+    const td = tr.insertCell();
+    td.textContent = p.etykieta;
+    if (p.podstawa) { const s = document.createElement('span'); s.className = 'podstawa'; s.textContent = p.podstawa + (p.vat ? ' · z VAT' : ''); td.appendChild(s); }
+    tr.insertCell().textContent = zl(p.brutto);
+  });
+  const suma = tabela.insertRow(); suma.className = 'suma';
+  suma.insertCell().textContent = 'RAZEM (szacunkowo)';
+  suma.insertCell().textContent = zl(w.razem);
+  box.appendChild(tabela);
+  (w.uwagi || []).forEach(u => { const p = document.createElement('p'); p.className = 'uwaga'; p.textContent = u; box.appendChild(p); });
+  if (w.dokumenty && w.dokumenty.length) {
+    const d = document.createElement('details');
+    const s = document.createElement('summary'); s.textContent = 'Co zwykle trzeba przynieść do kancelarii'; d.appendChild(s);
+    w.dokumenty.forEach(g => {
+      const h = document.createElement('h4'); h.textContent = g.grupa; d.appendChild(h);
+      const ul = document.createElement('ul');
+      g.pozycje.forEach(x => { const li = document.createElement('li'); li.textContent = x; ul.appendChild(li); });
+      d.appendChild(ul);
+    });
+    box.appendChild(d);
+  }
+  const akcje = document.createElement('div'); akcje.className = 'akcje';
+  const umow = document.createElement('a'); umow.className = 'przycisk';
+  umow.textContent = 'Umów wizytę u notariusza';
+  const opis = (w.pozycje[0] && w.pozycje[0].etykieta || '').replace(/^taksa notarialna:\s*/, '').slice(0, 120);
+  umow.href = 'https://notarai.pl/notariusz/?' + new URLSearchParams({ czynnosc: opis, wartosc: w.wartosc || '', p: JSON.stringify(parametryWyniku || {}) }).toString();
+  akcje.appendChild(umow);
+  const kopiuj = document.createElement('button'); kopiuj.type = 'button'; kopiuj.className = 'przycisk drugi'; kopiuj.textContent = 'Kopiuj kalkulację';
+  kopiuj.addEventListener('click', () => kopiujTekst(w.tekst, kopiuj));
+  akcje.appendChild(kopiuj);
+  box.appendChild(akcje);
+  const st = document.createElement('p'); st.className = 'stawki'; st.textContent = w.tabela.etykieta + ' (' + w.tabela.podstawa + ').';
+  box.appendChild(st);
+  (kontener || $('wiadomosci')).appendChild(box);
+  if (!kontener) $('wiadomosci').scrollTop = $('wiadomosci').scrollHeight;
+}
+
+async function kopiujTekst(tekst, przycisk) {
+  let ok = false;
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(tekst); ok = true; } } catch (e) { ok = false; }
+  if (!ok) {
+    const ta = document.createElement('textarea'); ta.value = tekst; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+  }
+  const bylo = przycisk.textContent;
+  przycisk.textContent = ok ? 'Skopiowano' : 'Nie udało się skopiować';
+  setTimeout(() => { przycisk.textContent = bylo; }, 1800);
+}
+
+async function wyslij(tekst) {
+  tekst = (tekst || '').trim();
+  if (!tekst || czeka) return;
+  czeka = true; $('wyslij').disabled = true;
+  dymek('uzytkownik', tekst);
+  const pisze = dymek('asystent pisze', 'Liczę…');
+  try {
+    const odp = await fetch(API + '/api/taksa/rozmowa', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wiadomosc: tekst, historia, strona: $('pulapka').value })
+    });
+    const dane = await odp.json().catch(() => ({}));
+    pisze.remove();
+    if (!odp.ok) {
+      dymek('blad', typeof dane.detail === 'string' ? dane.detail : 'Asystent nie odpowiada. Skorzystaj z formularza obok.');
+      return;
+    }
+    historia.push({ rola: 'uzytkownik', tresc: tekst });
+    const wpis = { rola: 'asystent', tresc: dane.odpowiedz || '' };
+    if (dane.parametry) wpis.parametry = dane.parametry;
+    historia.push(wpis);
+    if (dane.odpowiedz) dymek('asystent', dane.odpowiedz);
+    if (dane.kalkulacja) kartaKalkulacji(dane.kalkulacja, null, dane.parametry);
+  } catch (e) {
+    pisze.remove();
+    dymek('blad', 'Brak połączenia z kalkulatorem. Spróbuj ponownie albo skorzystaj z formularza obok.');
+  } finally {
+    czeka = false; $('wyslij').disabled = false; $('pytanie').focus();
+  }
+}
+
+$('form-czat').addEventListener('submit', e => { e.preventDefault(); const t = $('pytanie').value; $('pytanie').value = ''; wyslij(t); });
+$('pytanie').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('form-czat').requestSubmit(); } });
+$('podpowiedzi').addEventListener('click', e => { const b = e.target.closest('button'); if (b) wyslij(b.textContent); });
+dymek('asystent', POWITANIE);
+
+// ---------- formularz ----------
+const liczba = s => { const n = Number(String(s).replace(/\s| /g, '').replace(',', '.')); return isFinite(n) && n > 0 ? n : 0; };
+
+function wypelnijFormularz() {
+  const sel = $('rodzaj');
+  sel.innerHTML = '';
+  const grupy = {};
+  katalog.rodzaje.forEach(r => { (grupy[r.grupa] = grupy[r.grupa] || []).push(r); });
+  Object.keys(grupy).forEach(g => {
+    const og = document.createElement('optgroup'); og.label = g;
+    grupy[g].forEach(r => { const o = document.createElement('option'); o.value = r.id; o.textContent = r.nazwa + (r.ulamek !== '1' ? ' (' + r.ulamek + ' stawki)' : ''); og.appendChild(o); });
+    sel.appendChild(og);
+  });
+  const og0 = document.createElement('optgroup'); og0.label = 'Bez wartości';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Tylko czynność ze stałą stawką (wybierz niżej)'; og0.appendChild(o0);
+  sel.appendChild(og0);
+  const st = $('stala');
+  const grupyS = {};
+  katalog.stale.forEach(c => { (grupyS[c.grupa] = grupyS[c.grupa] || []).push(c); });
+  Object.keys(grupyS).forEach(g => {
+    const og = document.createElement('optgroup'); og.label = g;
+    grupyS[g].forEach(c => {
+      const o = document.createElement('option'); o.value = c.id;
+      const cena = c.kwota != null ? zl(c.kwota) + ' netto' : (c.od_stron ? 'od strony' : c.ulamek_placy + ' płacy minimalnej');
+      o.textContent = c.nazwa + ' · ' + cena; og.appendChild(o);
+    });
+    st.appendChild(og);
+  });
+  $('stawki-info').textContent = katalog.tabela.etykieta;
+  zmianaRodzaju();
+}
+
+function zmianaRodzaju() {
+  const r = katalog.rodzaje.find(x => x.id === $('rodzaj').value);
+  $('wartosc-wrap').hidden = !r;
+  $('kredyt-wrap').hidden = !r || r.grupa === 'Hipoteka';
+  $('pcc-wrap').hidden = !r || r.pcc === '0';
+  if (r) { $('pcc').checked = r.pcc !== '0'; $('wypisy').value = katalog.domyslne_wypisy.wartosc[0]; $('strony').value = katalog.domyslne_wypisy.wartosc[1]; }
+  else { $('wypisy').value = katalog.domyslne_wypisy.stala[0]; $('strony').value = katalog.domyslne_wypisy.stala[1]; $('stale-wrap').open = true; }
+}
+$('rodzaj').addEventListener('change', zmianaRodzaju);
+$('kredyt').addEventListener('change', () => { $('hipoteka-wrap').hidden = !$('kredyt').checked; });
+
+$('form-szybki').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!katalog) return;
+  const r = katalog.rodzaje.find(x => x.id === $('rodzaj').value);
+  const parametry = { grupa1: $('grupa1').checked, czynnosci: [], stale: [] };
+  if (r) {
+    const wartosc = liczba($('wartosc').value);
+    if (!wartosc) { $('wartosc').focus(); return; }
+    parametry.czynnosci.push({ rodzaj: r.id, wartosc });
+    parametry.pcc = $('pcc-wrap').hidden ? null : $('pcc').checked;
+    parametry.wypisy = Number($('wypisy').value); parametry.strony = Number($('strony').value);
+    if ($('kredyt').checked && !$('kredyt-wrap').hidden) parametry.hipoteka = { kwota: liczba($('hipoteka').value) || wartosc, kredyt_mieszkaniowy: true };
+  }
+  if ($('stala').value) parametry.stale.push({ id: $('stala').value, wypisy: Number($('wypisy').value), strony: Number($('strony').value) });
+  if (!parametry.czynnosci.length && !parametry.stale.length) { $('stala').focus(); return; }
+  const wynik = $('wynik-formularza');
+  wynik.textContent = 'Liczę…';
+  try {
+    const odp = await fetch(API + '/api/taksa/oblicz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parametry) });
+    const dane = await odp.json();
+    wynik.textContent = '';
+    if (!odp.ok) { wynik.textContent = typeof dane.detail === 'string' ? dane.detail : 'Nie udało się policzyć.'; return; }
+    kartaKalkulacji(dane, wynik, parametry);
+  } catch (err) {
+    wynik.textContent = 'Brak połączenia z kalkulatorem. Spróbuj ponownie.';
+  }
+});
+
+fetch(API + '/api/taksa').then(r => r.json()).then(k => { katalog = k; wypelnijFormularz(); }).catch(() => {
+  $('wynik-formularza').textContent = 'Nie udało się pobrać katalogu czynności. Odśwież stronę.';
+});
+</script>
+</body>
+</html>
