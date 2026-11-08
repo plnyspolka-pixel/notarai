@@ -21,7 +21,7 @@ $korzen = Split-Path -Parent $PSScriptRoot
 $zrodlo = Join-Path $korzen "strona"
 
 if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
-    throw "Pełna publikacja wymaga Python 3 (polecenie py -3). Nie wysyłam tylko dwóch plików zamiast całej strony. Dla samej sekcji B2B użyj świadomie infra\wyslij-rezerwacje-bez-pythona.ps1."
+    throw "Pełna publikacja wymaga Python 3 (polecenie py -3). Nie wysyłam tylko dwóch plików zamiast całej strony. Dla samej sekcji B2B uzyj infra\publikuj-sekcje-b2b-az.ps1."
 }
 & py -3 --version | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Launcher py jest dostępny, ale Python 3 nie uruchamia się." }
