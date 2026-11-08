@@ -29,11 +29,11 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
     throw "Brak AWS CLI. Wymagane jest istniejące połączenie do AWS Secrets Manager."
 }
 
-$script:awsOpcje = @("--region", $Region)
-if ($Profil) { $script:awsOpcje += @("--profile", $Profil) }
+$awsOpcje = @("--region", $Region)
+if ($Profil) { $awsOpcje += @("--profile", $Profil) }
 
 # Ta kontrola nie loguje. Sesja w przeglądarce i sesja AWS CLI mogą być różne.
-$konto = & aws sts get-caller-identity @script:awsOpcje --query Account --output text
+$konto = & aws sts get-caller-identity @awsOpcje --query Account --output text
 if ($LASTEXITCODE -ne 0 -or -not $konto) {
     throw "Brak dostępu przez aktywną sesję AWS CLI. Nie zmieniono żadnych plików na serwerze."
 }
@@ -49,7 +49,7 @@ function Haslo-Ftps {
     if ($script:hasloFtps) { return $script:hasloFtps }
     # Sekret pobieramy bezpośrednio przez już skonfigurowane AWS CLI.
     # Zawartość nie jest wyświetlana i nie przechodzi przez AWS MCP.
-    $tekst = & aws secretsmanager get-secret-value --secret-id "notarai/strona-ftp" @script:awsOpcje --query SecretString --output text
+    $tekst = & aws secretsmanager get-secret-value --secret-id "notarai/strona-ftp" @awsOpcje --query SecretString --output text
     if ($LASTEXITCODE -ne 0 -or -not $tekst) {
         throw "Nie mogę odczytać notarai/strona-ftp z Secrets Manager. Nie publikuję strony."
     }
