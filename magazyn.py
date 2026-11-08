@@ -324,7 +324,7 @@ def identyfikatory_spraw(baza_spraw: Path) -> list[str]:
 # Leza pod prefiksem kancelarii, wiec usun_kancelarie() kasuje je razem
 # ze sprawami. W trybie S3 czytamy je zawsze z S3 - sa male, a dwie kopie
 # aplikacji nie moga miec dwoch roznych wersji kalendarza.
-PLIKI_KANCELARII = ("kalendarz", "dni", "osoby")
+PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "rezerwacje_hurtowe")
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
