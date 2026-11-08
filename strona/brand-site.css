@@ -229,3 +229,19 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-btn, .brand-nav a { transition: none; }
   .brand-btn:hover { transform: none; }
 }
+
+
+/* Booking B2B: native NotarAI marketing section */
+.brand-booking{background:radial-gradient(ellipse at 8% 0,#e7f4ff 0,transparent 52%),linear-gradient(130deg,#f8fbff,#edf5ff);border-top:1px solid #e2edf9;border-bottom:1px solid #dce7f4}
+.brand-booking__layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(32px,5vw,75px);align-items:center}
+.brand-booking h2{color:#071d49;font-weight:820;letter-spacing:-.045em;max-width:600px}
+.brand-booking .wstep{color:#586d8c;max-width:620px}
+.brand-booking__actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:30px}
+.brand-booking__note{font-size:12px;color:#687e9e;line-height:1.65;margin-top:18px}
+.brand-booking__features{background:#fff;border:1px solid #dbeaf9;box-shadow:0 35px 70px -50px #153a76;border-radius:20px;padding:24px}
+.brand-booking__features article{display:flex;gap:17px;padding:18px 8px}
+.brand-booking__features article+article{border-top:1px solid #e8eff7}
+.brand-booking__features article>span{display:grid;place-items:center;flex:none;width:39px;height:39px;border-radius:12px;background:#eaf7ff;color:#1265ab;font-size:13px;font-weight:850}
+.brand-booking__features h3{margin:0 0 6px;color:#0f2a57;font-size:16px}
+.brand-booking__features p{margin:0;color:#607390;font-size:13px;line-height:1.7}
+@media(max-width:920px){.brand-booking__layout{grid-template-columns:1fr}}

@@ -40,6 +40,7 @@ import osoby
 import prompty
 import rejestracja
 import rejestry
+import rezerwacje_hurtowe
 import transkrypcja
 import walidacja
 
@@ -64,6 +65,10 @@ app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
 app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
+app.include_router(rezerwacje_hurtowe.router_biuro)
+app.include_router(rezerwacje_hurtowe.router_partner)
+app.include_router(rezerwacje_hurtowe.router_admin)
+app.include_router(rezerwacje_hurtowe.router_mcp)
 
 
 @app.exception_handler(Exception)
@@ -99,6 +104,12 @@ def panel_admina():
     token administratora, ktory przegladarka wysyla z kazdym zadaniem."""
     autoryzacja.zaloz_stalych_adminow()
     return (Path(__file__).parent / "static" / "admin.html").read_text("utf-8")
+
+
+@app.get("/hurtowe", response_class=HTMLResponse)
+def portal_hurtowy():
+    """Portal rezerwacyjny partnerow B2B, bez danych przed podaniem klucza."""
+    return (Path(__file__).parent / "static" / "hurtowe.html").read_text("utf-8")
 
 
 @app.get("/rejestracja", response_class=HTMLResponse)
