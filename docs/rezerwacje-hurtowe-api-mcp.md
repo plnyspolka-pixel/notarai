@@ -13,6 +13,10 @@ W panelu kancelarii istniejący kalendarz pokazuje wizyty z API. Wpis ma \`zrodl
 
 Właściciel kancelarii musi zgodzić się na udostępnianie terminarza; domyślnie funkcja jest **wyłączona**. Kancelarie w trybie \`u-klienta\` nie mogą jej włączyć, bo przechowywanie kalendarza na serwerze byłoby sprzeczne z deklarowanym modelem pracy.
 
+## Panel kancelarii
+
+Po zalogowaniu właściciela konta w NotarAI otwórz przycisk **Rezerwacje hurtowe** w lewym panelu. Ustaw miasto i adres, zaznacz dni i godziny dostępności, określ czas wizyty i wyprzedzenie, a następnie włącz przełącznik i zapisz. Kancelaria w trybie przechowywania plików lokalnie lub członek zespołu bez roli właściciela nie widzą tego przycisku. Panel korzysta z poniższych endpointów.
+
 ## 1. Włączenie przez kancelarię
 
 Autoryzowany JWT właściciela w nagłówku \`Authorization\`:
