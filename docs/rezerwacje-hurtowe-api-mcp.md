@@ -161,3 +161,21 @@ Serwer obsługuje \`server/discover\`, \`tools/list\`, \`tools/call\`. Dla przeg
 - Nie jest to integracja z Google Calendar, Outlook ani zewnętrznym kalendarzem notariusza; źródłem prawdy jest kalendarz NotarAI.
 - Nie ma automatycznego wysyłania powiadomień, synchronizacji kalendarzy zewnętrznych, zamykania świąt ustawowych ani rozliczeń klientów hurtowych — to oddzielne funkcje.
 - Po połączeniu PR należy uruchomić testy, ręcznie sprawdzić dwa konta kancelarii oraz partnerów w staging, a dopiero potem wdrożyć na produkcję.
+
+
+## Portal i publikacja na produkcji
+
+- Portal partnera: **https://app.notarai.pl/hurtowe**; pliki \`static/hurtowe.html\` i \`static/hurtowe.js\`.
+- Strona marketingowa: **https://notarai.pl/#hurtowe**; źródła w \`strona/index.html\` i \`strona/brand-site.css\`.
+- Panel kancelarii: **https://app.notarai.pl/**, przycisk „Rezerwacje hurtowe” dostępny dla właściciela.
+
+Samo scalenie zmian do \`master\` nie publikuje strony: aplikacja działa na AWS ECS, a witryna marketingowa na hostingu az.pl przez FTPS. Po scaleniu gałęzi uruchom na komputerze z dostępem do AWS i FTPS:
+
+\`\`\`powershell
+powershell -ExecutionPolicy Bypass -File infra\wydaj-rezerwacje.ps1
+\`\`\`
+
+Skrypt sprawdza czyste repo, aktualizuje \`master\`, weryfikuje konto AWS, uruchamia istniejące CodeBuild/ECR i CloudFormation/ECS, sprawdza działanie portalu, tworzy kopię strony FTP, wysyła stronę i sprawdza link B2B. Bez ważnej sesji AWS albo sekretu FTPS skrypt zatrzyma się z błędem i nie będzie raportował sukcesu.
+
+Weryfikacja przed wydaniem obejmuje również ścieżkę end-to-end: właściciel włącza terminy -> administrator przypisuje kancelarię do partnera -> partner zakłada rezerwację -> notariusz widzi ją w swoim kalendarzu -> partner przenosi/anuluje, a slot jest znów wolny. Testy CI nie zastępują testów na rzeczywistym AWS.
+
