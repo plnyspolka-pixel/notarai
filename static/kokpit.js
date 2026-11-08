@@ -178,9 +178,11 @@
       message("Otwórz sprawę, której projekt chcesz pobrać lub przygotować.", "error");
       return;
     }
-    if (sprawa.projekt && najdalej >= 3) {
-      pokaz(3); // Existing button downloads the actual .docx.
-      node("btn-pobierz")?.focus();
+    if (najdalej >= 3) {
+      // Projekt mógł powstać w tej sesji bez ustawienia sprawa.projekt.
+      // Użytkownik wybrał Word, więc uruchamiamy istniejący, autoryzowany download.
+      pokaz(3);
+      node("btn-pobierz")?.click();
       return;
     }
     if (najdalej >= 2) {
