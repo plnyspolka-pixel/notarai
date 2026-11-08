@@ -192,8 +192,14 @@ body:has(> .pudlo) {
   }
   main { background: radial-gradient(ellipse 85% 47% at 95% -9%, #162858 0%, transparent 76%), var(--tlo); }
   .karta { box-shadow: 0 15px 40px -24px rgba(0,0,0,.55); }
-  input[type=text], input[type=email], input[type=password], textarea, select,
-  .wiersz, .spr-wiersz, .kal-dzien, .kal-tydz .nag { background: #111c3b; }
+  main input[type=text], main input[type=email], main input[type=password],
+  main input[type=tel], main input[type=date], main input[type=time],
+  main input[type=search], main textarea, main select,
+  .pudlo input[type=text], .pudlo input[type=email], .kol input[type=password],
+  .wiersz, .spr-wiersz, .kal-dzien, .kal-tydz .nag {
+    background: #111c3b; color: #f1f5ff; border-color: #405478;
+  }
+  .pudlo input::placeholder, main input::placeholder, main textarea::placeholder { color: #92a6ca; }
   button.wtorny,button.mic,.chip { color: #f1f5ff; background: #1d3057; }
   .chip.on, .przelacznik input:checked + label { color: #fff; background: #2354a1; }
   .pudlo { background: #152246; border-color: #2c4267; }
