@@ -40,6 +40,17 @@ switch ($Polecenie) {
     "kopia" { Kopia }
     "wyslij" {
         if (-not (Test-Path (Join-Path $zrodlo "index.html"))) { throw "Brak $zrodlo\index.html" }
+        # Generujemy katalog kancelarii i tylko zatwierdzone artykuly przed kopia + FTPS.
+        # Nie piszemy nowych artykulow modelem w czasie wdrozenia.
+        Write-Host "== Buduje strony miast, katalog i sitemap"
+        & py -3 (Join-Path $korzen "seo\generuj.py")
+        if ($LASTEXITCODE -ne 0) { throw "Generowanie stron kancelarii nie powiodlo sie." }
+        Write-Host "== Buduje opublikowane poradniki"
+        & py -3 (Join-Path $korzen "seo\blog.py") zbuduj
+        if ($LASTEXITCODE -ne 0) { throw "Generowanie bloga nie powiodlo sie." }
+        foreach ($sciezka in @("notariusz\index.html", "blog\index.html", "sitemap.xml", "kalkulator\index.html")) {
+            if (-not (Test-Path (Join-Path $zrodlo $sciezka))) { throw "Brak wygenerowanego pliku: $sciezka" }
+        }
         Kopia
         Write-Host "== Wysylam $zrodlo"
         Ftp @("wyslij", $zrodlo, "/")
