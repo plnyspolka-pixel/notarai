@@ -106,6 +106,12 @@ def panel_admina():
     return (Path(__file__).parent / "static" / "admin.html").read_text("utf-8")
 
 
+@app.get("/hurtowe", response_class=HTMLResponse)
+def portal_hurtowy():
+    """Portal rezerwacyjny partnerow B2B, bez danych przed podaniem klucza."""
+    return (Path(__file__).parent / "static" / "hurtowe.html").read_text("utf-8")
+
+
 @app.get("/rejestracja", response_class=HTMLResponse)
 def strona_rejestracji():
     """Notariusz zaklada konto kancelarii sam, bez nas i bez papieru."""
