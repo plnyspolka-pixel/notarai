@@ -27,6 +27,7 @@ import config
 import dziennik
 import dokumenty
 import dokumenty_prawne
+import ekw
 import formularze
 import kalendarz
 import kalkulator
@@ -398,6 +399,9 @@ def ustawienia_kancelarii():
         # Mikrofon pokazujemy tylko tam, gdzie nagranie da sie przepisac.
         # W kontenerze nie ma modelu mowy, wiec przycisk konczylby sie bledem.
         "transkrypcja": transkrypcja.dostepna(),
+        # Pobranie tresci ksiegi wieczystej z EKW (ekw.py). Bez tokenu dostawcy
+        # przycisk nie ma sensu, wiec interfejs go nie pokazuje.
+        "ekw": ekw.dostepne(),
     }
 
 
@@ -1230,6 +1234,62 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
         pw.stop()
     magazyn.utrwal_sprawe(config.SPRAWY / identyfikator)
     return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+# --- Ksiega wieczysta z EKW ------------------------------------------------
+# Portal EKW odrzuca ruch z serwerow, wiec tresc ksiegi pobiera dostawca
+# (aktor Apify) - jedna ksiega na zadanie notariusza, z jawnym potwierdzeniem.
+# Tresc zostaje w sprawie (katalog ksiegi/), pobranie w sladzie audytowym.
+
+BRAK_EKW = (
+    "Pobieranie ksiag z EKW nie jest wlaczone w tej instalacji. Administrator "
+    "musi skonfigurowac dostawce: Finance You (PIECZAPP_FINYOU_URL i "
+    "PIECZAPP_FINYOU_TOKEN) albo Apify (PIECZAPP_APIFY_TOKEN). Do tego czasu "
+    "wklej wydruk ksiegi jako dokument sprawy."
+)
+
+
+class ZadanieEKW(BaseModel):
+    numer_kw: str
+    potwierdzam: bool = False
+
+
+@app.post("/api/sprawy/{identyfikator}/ekw")
+def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
+    """Jedna ksiega: pobranie przez dostawce, zapis do sprawy, wpis audytowy."""
+    if magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie.")
+    _katalog_sprawy(identyfikator)
+    if not ekw.dostepne():
+        raise HTTPException(409, BRAK_EKW)
+    if not zadanie.potwierdzam:
+        raise HTTPException(400, "Pobranie ksiegi z EKW wymaga jawnego potwierdzenia")
+    try:
+        numer = ekw.normalizuj_numer(zadanie.numer_kw)
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    start = datetime.now()
+    try:
+        ksiega = ekw.pobierz(numer)
+    except ekw.BladEKW as blad:
+        # Nieudana proba tez jest sladem starannosci - bez numeru KW w logach.
+        rejestry.zapisz_sprawdzenie(identyfikator, ekw.wynik_bledu(numer, blad))
+        magazyn.utrwal_sprawe(config.SPRAWY / identyfikator)
+        log.warning("sprawa %s: EKW nie pobrano (%s)", identyfikator, blad.kod)
+        kod = {"nie_znaleziono": 404, "brak_tokenu": 409, "blad_tokenu": 409, "limit": 429}.get(blad.kod, 502)
+        raise HTTPException(kod, str(blad))
+    ekw.zapisz(identyfikator, ksiega)
+    magazyn.utrwal_sprawe(config.SPRAWY / identyfikator)
+    log.info("sprawa %s: EKW pobrano ksiege, dzialow z wpisami=%d, czas=%.0fs",
+             identyfikator, sum(1 for d in ksiega["dzialy"] if not d["pusty"]),
+             (datetime.now() - start).total_seconds())
+    return {"ksiega": ksiega, "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator)}
+
+
+@app.get("/api/sprawy/{identyfikator}/ksiegi")
+def ksiegi_sprawy(identyfikator: str):
+    _katalog_sprawy(identyfikator)
+    return ekw.wczytaj(identyfikator)
 
 
 # --- Pomocnik notariusza ----------------------------------------------------
