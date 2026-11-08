@@ -52,3 +52,8 @@ Claude outputs/
 
 # Kopie strony notarai.pl pobrane z az.pl przed kazda wysylka - infra/strona.ps1
 strona-kopie/
+
+# Wygenerowane podczas publikacji (nie sa zrodlami projektu)
+strona/notariusz/
+strona/blog/
+strona/sitemap.xml

@@ -1,4 +1,4 @@
-# notarai - etap 3: aplikacja na ECS Fargate za load balancerem z HTTPS
+﻿# notarai - etap 3: aplikacja na ECS Fargate za load balancerem z HTTPS
 #
 # Uruchom z katalogu notarai:
 #   powershell -ExecutionPolicy Bypass -File infra\3-wdroz-aplikacje.ps1
@@ -8,7 +8,7 @@
 # Ponowne uruchomienie po nowym commicie i etapie 2 podmienia wersje aplikacji
 # bez przestoju.
 param(
-    [string]$Profil = "notarai-admin",
+    [string]$Profil = "",
     [string]$Region = "eu-central-1",
     [string]$Konto  = "127621462971",
     [string]$Tag    = "",
@@ -31,7 +31,10 @@ $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
 
 function Uruchom-Aws {
-    $wynik = & aws @args --profile $Profil --region $Region
+    # Nie wymuszamy --profile: istniejąca sesja AWS CLI może być z env/SSO.
+    $opcje = @("--region", $Region)
+    if ($Profil) { $opcje += @("--profile", $Profil) }
+    $wynik = & aws @args @opcje
     if ($LASTEXITCODE -ne 0) { throw "Polecenie aws $($args[0]) $($args[1]) nie powiodlo sie (kod $LASTEXITCODE)." }
     return $wynik
 }
@@ -40,7 +43,9 @@ function Uruchom-Aws {
 # krytyczny, wiec wewnatrz funkcji wracamy do Continue.
 function Czy-Aws {
     $ErrorActionPreference = "Continue"
-    & aws @args --profile $Profil --region $Region 2>$null | Out-Null
+    $opcje = @("--region", $Region)
+    if ($Profil) { $opcje += @("--profile", $Profil) }
+    & aws @args @opcje 2>$null | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
 function Wyjscie($stos, $klucz) {
@@ -50,18 +55,20 @@ function Wyjscie($stos, $klucz) {
 
 Write-Host "== Sprawdzam konto, certyfikat i obraz" -ForegroundColor Cyan
 if (-not (Czy-Aws sts get-caller-identity)) {
-    throw "Sesja profilu $Profil nie dziala. Odnow ja poleceniem:`n  aws login --profile $Profil --region $Region`nLink z terminala otworz w tym oknie Chrome, w ktorym jestes zalogowana do konsoli AWS."
+    throw "AWS CLI nie ma aktywnych uprawnien dla tej sesji. Sprawdz profil AWS_PROFILE lub skonfigurowany dostep CLI; logowanie w przegladarce nie jest sesja CLI."
 }
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
-if ($biezace -ne $Konto) { throw "Profil $Profil wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
+if ($biezace -ne $Konto) { throw "AWS wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
 
 if (-not $Tag) { $Tag = (git -C $korzen rev-parse --short=12 HEAD).Trim() }
 
 $stanCert = Uruchom-Aws cloudformation describe-stacks --stack-name notarai-certyfikat --query "Stacks[0].StackStatus" --output text
-if ($stanCert -ne "CREATE_COMPLETE") {
-    throw "Stos notarai-certyfikat ma status $stanCert. Dodaj rekord CNAME z etapu 1 w az.pl i poczekaj na ISSUED."
+if ($stanCert -notin @("CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE")) {
+    throw "Stos notarai-certyfikat ma status $stanCert. Sprawdz CloudFormation."
 }
 $certArn = Wyjscie notarai-certyfikat CertyfikatArn
+$stanAcm = Uruchom-Aws acm describe-certificate --certificate-arn $certArn --query "Certificate.Status" --output text
+if ($stanAcm -ne "ISSUED") { throw "Certyfikat ACM ma status $stanAcm zamiast ISSUED." }
 $repo    = Wyjscie notarai-budowanie RepozytoriumUri
 $nazwaRepo = $repo.Split("/", 2)[1]
 
@@ -141,6 +148,17 @@ Uruchom-Aws cloudformation deploy --stack-name notarai-aplikacja `
     --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai `
     --no-fail-on-empty-changeset `
     --parameter-overrides @parametry | Out-Host
+
+# CloudFormation zakonczył aktualizację; wymagamy jeszcze stabilnej usługi ECS
+# i dokładnie tego obrazu, który przygotowano z commita wydania.
+$klaster = Wyjscie notarai-aplikacja Klaster
+$usluga = Wyjscie notarai-aplikacja Usluga
+Uruchom-Aws ecs wait services-stable --cluster $klaster --services $usluga | Out-Null
+$definicja = Uruchom-Aws ecs describe-services --cluster $klaster --services $usluga --query "services[0].taskDefinition" --output text
+$obraz = Uruchom-Aws ecs describe-task-definition --task-definition $definicja --query "taskDefinition.containerDefinitions[0].image" --output text
+if ($obraz.Trim() -ne "$($repo):$Tag") {
+    throw "ECS używa obrazu $obraz; oczekiwano $($repo):$Tag. Wydanie przerwane."
+}
 
 $alb = Wyjscie notarai-aplikacja AdresLoadBalancera
 $domena = Uruchom-Aws acm describe-certificate --certificate-arn $certArn --query "Certificate.DomainName" --output text
