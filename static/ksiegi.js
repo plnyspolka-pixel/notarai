@@ -172,7 +172,11 @@
       ${z.identyfikator_si_giif ? `<br>SI*GIIF: ${esc(z.identyfikator_si_giif)} (${esc(z.data_wysylki)})${z.po_terminie ? " — po terminie" : ""}` : ""}
       <br>${z.status === "szkic" ? `<button class="wtorny" data-g="edytuj" data-id="${z.id}">Uzupełnij</button><button class="wtorny" data-g="zatwierdz" data-id="${z.id}">Zatwierdź</button>` : ""}
       ${z.status === "do_podpisu" ? `<button class="wtorny" data-g="wyslane" data-id="${z.id}">Wysłane w SI*GIIF</button>` : ""}
-      ${z.status === "wyslane" ? `<label class="wtorny">UPO <input type="file" data-upo="${z.id}" hidden></label>` : ""}</div>`).join("");
+      ${z.status === "wyslane" ? `<label class="wtorny">UPO <input type="file" data-upo="${z.id}" hidden></label>` : ""}
+      ${z.rodzaj === "czynnosc_giif_kas" && ["szkic", "do_podpisu"].includes(z.status) ? `<button class="wtorny" data-g="karta" data-id="${z.id}">Karta XML</button>` : ""}
+      ${z.status === "do_podpisu" && z.sha256_xml ? `<a class="wtorny" href="#" data-xml="${z.id}">Pobierz XML do podpisu</a>` : ""}</div>`).join("");
+    el("giif-lista").querySelectorAll("[data-xml]").forEach(a => a.onclick = e => { e.preventDefault(); pobierzXml(a.dataset.xml); });
+    rysujUstawienia(dane.definicje);
     el("giif-lista").querySelectorAll("[data-g]").forEach(b => b.onclick = () => akcjaGiif(b.dataset.g, dane.zgloszenia.find(z => z.id === b.dataset.id), dane.definicje));
     el("giif-lista").querySelectorAll("[data-upo]").forEach(i => i.onchange = async () => {
       const f = new FormData(); f.append("plik", i.files[0]);
@@ -190,6 +194,7 @@
         await post(`/api/giif/${z.id}/wysylka`, {identyfikator_si_giif: numer, data_wysylki: data});
       }
       if (rodzaj === "edytuj") return edytujGiif(z, def);
+      if (rodzaj === "karta") return edytujKarte(z);
       el("giif-edycja").hidden = true;
       window.rysujGiif();
     } catch (e) { stan(el("stan9"), e.message, true); }
@@ -219,5 +224,80 @@
       } catch (e) { stan(el("stan9"), e.message, true); }
     };
     k.scrollIntoView({behavior: "smooth"});
+  }
+
+  /* ---------- karta XML (schemat CRWDE 14250) ---------- */
+  async function pobierzXml(id) {
+    const odp = await api(`/api/giif/${id}/xml?pobierz=1`);
+    if (!odp.ok) { const w = await odp.json().catch(() => ({})); return stan(el("stan9"), w.detail || "Błąd", true); }
+    const url = URL.createObjectURL(await odp.blob());
+    const a = Object.assign(document.createElement("a"), {href: url, download: `giif-${id}.xml`});
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function rysujUstawienia(def) {
+    let u; try { u = await json("/api/giif/ustawienia"); } catch { return; }
+    const opisy = {nip: "NIP notariusza (nipIO)", nr_sekw_js: "Urząd skarbowy notariusza (słownik USK, 4 cyfry)",
+      tytul: "Domyślny tytuł transakcji (TytulTr)", charakter_zbywcy: "Charakter podmiotu — zbywca",
+      charakter_nabywcy: "Charakter podmiotu — nabywca", rodzaj_dokumentu: "Rodzaj dokumentu tożsamości (np. DO)",
+      typ_przedmiotu_lokal: "Kod przedmiotu: lokal", typ_przedmiotu_dom: "Kod przedmiotu: dom", typ_przedmiotu_grunt: "Kod przedmiotu: grunt"};
+    el("giif-ustawienia-pola").innerHTML = def.pola_ustawien.map(p => `<label class="pole">${esc(opisy[p] || p)}<input type="text" data-u="${p}" value="${esc(u[p])}"></label>`).join("")
+      + `<p class="pod">Kody słownikowe (tytuł, charakter podmiotu, rodzaj przedmiotu, urząd) bierzesz ze słowników po zalogowaniu w SI*GIIF — SI*GIIF sprawdza je przy przyjęciu pliku.</p><button id="giif-u-zapisz">Zapisz ustawienia</button>`;
+    el("giif-u-zapisz").onclick = async () => {
+      const dane = {}; el("giif-ustawienia-pola").querySelectorAll("[data-u]").forEach(i => { dane[i.dataset.u] = i.value; });
+      try { await post("/api/giif/ustawienia", dane); stan(el("stan9"), "Zapisano ustawienia GIIF."); }
+      catch (e) { stan(el("stan9"), e.message, true); }
+    };
+  }
+
+  const POLA_KARTY = [["nr_crewan", "Numer CREWAN (XX900 gdy akt nie idzie do CREWAN)"], ["numer_repertorium", "Numer repertorium"],
+    ["numer_czynnosci", "Numer czynności w akcie"], ["tytul", "Tytuł transakcji (TytulTr)"], ["kod_rodzaju", "Rodzaj: 07 akt, 17 APD, 27 EPS"],
+    ["sposob_wydania", "Sposób wydania dyspozycji (0 bez depozytu, 1-3 depozyt)"], ["kwota", "Kwota transakcji"], ["uwagi", "Uwagi"]];
+  const POLA_STRONY = [["imie", "Imię"], ["imie_drugie", "Drugie imię"], ["nazwisko", "Nazwisko"], ["obywatelstwo", "Obywatelstwo (PL)"],
+    ["pesel", "PESEL"], ["data_urodzenia", "Data urodzenia (gdy brak PESEL)"], ["kraj_urodzenia", "Kraj urodzenia (gdy brak PESEL)"],
+    ["dokument.rodzaj", "Rodzaj dokumentu (DO, PA…)"], ["dokument.numer", "Seria i numer dokumentu"], ["dokument.kraj", "Kraj wydania dokumentu"],
+    ["adres.miejscowosc", "Miejscowość"], ["adres.kod_pocztowy", "Kod pocztowy"], ["adres.ulica", "Ulica i numer"]];
+  const POLA_PRZEDMIOTU = [["typ", "Kod rodzaju przedmiotu (IdSlPrzedmiotTyp)"], ["wartosc", "Wartość (zbywana część)"],
+    ["adres.woj", "TERYT: województwo"], ["adres.pow", "TERYT: powiat"], ["adres.gmi", "TERYT: gmina"], ["adres.rodz", "TERYT: rodzaj gminy"],
+    ["adres.simc", "TERYT: SIMC miejscowości"], ["adres.ulic", "TERYT: ULIC ulicy"], ["adres.kod_pocztowy", "Kod pocztowy"],
+    ["adres.nr_domu", "Numer domu"], ["adres.nr_mieszkania", "Numer lokalu"], ["adres.nr_obrebu", "Numer obrębu"], ["adres.nr_dzialki", "Numer działki"],
+    ["opis_nieruchomosci.numer_kw", "Numer KW"], ["opis_nieruchomosci.pow_lokalu", "Powierzchnia użytkowa lokalu"],
+    ["opis_nieruchomosci.pow_domu", "Powierzchnia nieruchomości z domem"], ["opis_nieruchomosci.liczba_pokoi", "Liczba pokoi"],
+    ["opis_nieruchomosci.kondygnacja", "Kondygnacja lokalu"]];
+  const wez = (o, sciezka) => sciezka.split(".").reduce((x, k) => (x || {})[k], o) ?? "";
+  const ustaw = (o, sciezka, v) => { const k = sciezka.split("."); const ost = k.pop(); k.reduce((x, c) => (x[c] = x[c] || {}), o)[ost] = v; };
+
+  async function edytujKarte(z) {
+    let w; try { w = await json(`/api/giif/${z.id}/xml`); } catch (e) { return stan(el("stan9"), e.message, true); }
+    const k = w.karta, okno = el("giif-karta"); okno.hidden = false;
+    const pola = (prefiks, lista, obiekt) => lista.map(([p, n]) => `<label class="pole">${esc(n)}<input type="text" data-k="${prefiks}${p}" value="${esc(wez(obiekt, p))}"></label>`).join("");
+    okno.innerHTML = `<h2>Karta transakcji ${esc(z.rep_a)} — schemat CRWDE ${esc(w.schemat)}</h2>
+      ${w.bledy.length ? `<p class="stan blad">${w.bledy.map(esc).join("<br>")}</p>` : `<p class="stan">Plik zgodny ze schematem i regułami. Możesz zatwierdzić zgłoszenie.</p>`}
+      <label class="pole"><input type="checkbox" data-kb="dla_giif" ${k.dla_giif ? "checked" : ""}> Transakcja ponadprogowa — także do GIIF (dlaGIIF)</label>
+      <label class="pole"><input type="checkbox" data-kb="czy_odplatna" ${k.czy_odplatna ? "checked" : ""}> Czynność odpłatna</label>
+      ${pola("", POLA_KARTY, k)}
+      ${k.strony.map((s, i) => `<h2>Strona ${i + 1}${s.osoba_prawna ? " (osoba prawna — uzupełnij w danych technicznych)" : ""}</h2>` + (s.osoba_prawna ? "" : pola(`strony.${i}.`, POLA_STRONY, s))).join("")}
+      ${k.przedmioty.map((p, i) => `<h2>Przedmiot ${i + 1}</h2>
+        <label class="pole"><input type="checkbox" data-kb="przedmioty.${i}.nieruchomosc" ${p.nieruchomosc ? "checked" : ""}> Nieruchomość</label>
+        <label class="pole"><input type="checkbox" data-kb="przedmioty.${i}.zwolnienie_vat" ${p.zwolnienie_vat ? "checked" : ""}> Strony złożyły oświadczenie o zwolnieniu z VAT</label>
+        ${pola(`przedmioty.${i}.`, POLA_PRZEDMIOTU, p)}
+        ${p.podmioty.map((pd, j) => `<div class="pole"><b>${esc((k.strony[pd.strona] || {}).nazwisko || (k.strony[pd.strona] || {}).nazwa || "")}</b>
+          ${pola(`przedmioty.${i}.podmioty.${j}.`, [["charakter", "Charakter podmiotu (kod)"], ["strona_transakcji", "Strona: Z zbywca / N nabywca / I inna"],
+            ["udzial_licznik", "Udział — licznik"], ["udzial_mianownik", "Udział — mianownik"]], pd)}</div>`).join("")}`).join("")}
+      <details><summary>Dane techniczne karty (JSON)</summary><textarea id="giif-json" rows="14" style="width:100%;font:12px monospace">${esc(JSON.stringify(k, null, 2))}</textarea></details>
+      <button id="giif-karta-zapisz">Zapisz kartę i sprawdź</button>`;
+    el("giif-karta-zapisz").onclick = async () => {
+      let karta;
+      try { karta = JSON.parse(el("giif-json").value); } catch { return stan(el("stan9"), "Dane techniczne: niepoprawny JSON", true); }
+      okno.querySelectorAll("[data-k]").forEach(i => {
+        const liczba = /(udzial_|liczba_pokoi|kondygnacja|^rok)/.test(i.dataset.k.split(".").pop());
+        ustaw(karta, i.dataset.k, liczba && i.value !== "" ? Number(i.value) : i.value);
+      });
+      okno.querySelectorAll("[data-kb]").forEach(i => ustaw(karta, i.dataset.kb, i.checked));
+      karta.przedmioty.forEach(p => { if (!p.nieruchomosc) p.zwolnienie_vat = null; });
+      try { await post(`/api/giif/${z.id}/karta`, karta); await edytujKarte(z); window.rysujGiif(); }
+      catch (e) { stan(el("stan9"), e.message, true); }
+    };
+    okno.scrollIntoView({behavior: "smooth"});
   }
 })();

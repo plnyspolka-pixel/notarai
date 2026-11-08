@@ -94,3 +94,12 @@ def test_repertorium_wniosek_kw_i_giif(strona):
     strona.locator('.krok[data-etap="9"]').click()
     strona.locator("#giif-lista", has_text="Rep. A nr 1/2026").wait_for()
     assert "Braki" in strona.locator("#giif-lista").inner_text()
+    # karta XML: edytor pokazuje bledy, ustawienia kancelarii sa pod reka
+    strona.locator('[data-g="karta"]').click()
+    strona.locator("#giif-karta .stan.blad", has_text="CREWAN").wait_for()
+    strona.fill('#giif-karta [data-k="nr_crewan"]', "XX900")
+    strona.click("#giif-karta-zapisz")
+    strona.locator('#giif-karta [data-k="nr_crewan"][value="XX900"]').wait_for()
+    assert "CREWAN" not in strona.locator("#giif-karta .stan").inner_text()
+    strona.click("#giif-ustawienia summary")
+    strona.locator('[data-u="nr_sekw_js"]').wait_for()

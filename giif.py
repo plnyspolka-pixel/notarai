@@ -22,10 +22,10 @@ Stan prawny (sprawdzony 11.2026, zrodla w docs/ksiegi-i-giif.md):
 - SI*GIIF ma REST API dla oprogramowania kancelarii (dokumentacja po
   zalogowaniu; srodowisko testowe test.giif.mofnet.gov.pl).
 
-Czego tu celowo NIE ma: generatora XML. Finance You buduje wlasna strukture
-(urn:giif:rest2018:zgloszenie), ktora nie jest oficjalnym schematem - plik
-odrzucilaby walidacja SI*GIIF. Mapowanie na XSD dopiszemy, gdy schemat z
-CRWDE trafi do repozytorium (docs/ksiegi-i-giif.md, krok 1).
+Plik XML karty transakcji (GIIF + Szef KAS) buduje giif_xml.py wedlug
+oficjalnego XSD z CRWDE 2026/04/28/14250 i waliduje go przed zatwierdzeniem.
+(Finance You buduje wlasna strukture urn:giif:rest2018:zgloszenie, ktorej
+SI*GIIF nie przyjmie - tej czesci nie przenosilismy.)
 
 Dane stron (PESEL, dokumenty, adresy) nie trafiaja do logow.
 """
@@ -34,6 +34,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+import giif_xml
 import ksiegi_notarialne
 import magazyn
 
@@ -252,13 +253,27 @@ def zmien(identyfikator: str, dane: dict, kto: str = "") -> dict:
 
 
 def zatwierdz(identyfikator: str, kto: str = "") -> dict:
-    """Szkic -> do_podpisu. Tylko gdy nic nie brakuje; zapisujemy skrot tresci."""
+    """Szkic -> do_podpisu. Tylko gdy nic nie brakuje; zapisujemy skrot tresci.
+
+    Karta do GIIF i Szefa KAS musi miec plik XML zgodny z XSD i regulami -
+    wtedy skrot liczymy z pliku, ktory notariusz podpisze.
+    """
+    ustaw = ustawienia()
+
     def funkcja(z):
         if z["status"] != "szkic":
             raise ValueError("Zatwierdzic mozna tylko szkic")
         _przelicz(z)
         if z["braki"]:
             raise ValueError("Uzupelnij: " + "; ".join(z["braki"]))
+        if z["rodzaj"] == "czynnosc_giif_kas":
+            if not z.get("karta"):
+                raise ValueError("Uzupelnij karte transakcji (dane do pliku XML)")
+            wynik = giif_xml.sprawdz([z["karta"]], ustaw)
+            if wynik["bledy"]:
+                raise ValueError("Plik XML: " + "; ".join(wynik["bledy"]))
+            z["sha256_xml"] = hashlib.sha256(wynik["xml"].encode("utf-8")).hexdigest()
+            z["schemat"] = wynik["schemat"]
         z["status"] = "do_podpisu"
         z["sha256_tresci"] = skrot(z)
         z["historia"].append(_zdarzenie("zatwierdzono", kto, sha256=z["sha256_tresci"]))
@@ -319,6 +334,105 @@ def zalegle(dzis: str | None = None) -> list[dict]:
             and z.get("termin") and z["termin"] <= dzis]
 
 
+# ---------------------------------------------------------------- karta XML
+
+PLIK_USTAWIEN = "giif_ustawienia"
+POLA_USTAWIEN = ("nip", "nr_sekw_js", "tytul", "charakter_zbywcy", "charakter_nabywcy",
+                 "rodzaj_dokumentu", "typ_przedmiotu_lokal", "typ_przedmiotu_dom", "typ_przedmiotu_grunt")
+
+
+def ustawienia() -> dict:
+    """NIP notariusza, urzad skarbowy (slownik USK) i domyslne kody ze slownikow GIIF."""
+    return magazyn.wczytaj_plik_kancelarii(PLIK_USTAWIEN, {})
+
+
+def zapisz_ustawienia(dane: dict) -> dict:
+    nowe = {k: str(dane.get(k, "") or "").strip().upper() for k in POLA_USTAWIEN if k in dane}
+
+    def zmiana(stare):
+        stare.update(nowe)
+        return dict(stare)
+    return magazyn.zmien_plik_kancelarii(PLIK_USTAWIEN, zmiana, {})
+
+
+def _imie_nazwisko(nazwa: str) -> tuple[str, str, str]:
+    czesci = nazwa.split()
+    if len(czesci) < 2:
+        return nazwa, "", ""
+    return czesci[0], " ".join(czesci[1:-1]), czesci[-1]
+
+
+_ZBYWCY = ("sprzeda", "zbyw", "darczy", "dluznik", "wydzierz", "oddaj")
+
+
+def karta_wstepna(z: dict, ustaw: dict | None = None) -> dict:
+    """Karta z danych zgloszenia i wpisu rep. A - do uzupelnienia przez kancelarie."""
+    ustaw = ustaw if ustaw is not None else ustawienia()
+    rep = z.get("rep_a", "")
+    numer = rep.replace("Rep. A nr ", "").replace(" ", "")
+    strony, podmioty = [], []
+    zbywcy = [i for i, s in enumerate(z.get("strony", [])) if any(x in s.get("rola", "").lower() for x in _ZBYWCY)]
+    for i, s in enumerate(z.get("strony", [])):
+        if s.get("osoba_prawna"):
+            strony.append({"osoba_prawna": True, "nazwa": s["nazwa"], "nip": s.get("nip", ""), "forma": "",
+                           "adres": {"kraj": "PL", "ulica": s.get("adres", "")}, "upowaznieni": []})
+        else:
+            imie, drugie, nazwisko = _imie_nazwisko(s.get("nazwa", ""))
+            strony.append({"imie": imie, "imie_drugie": drugie, "nazwisko": nazwisko,
+                           "obywatelstwo": s.get("obywatelstwo") or "PL", "pesel": s.get("pesel", ""),
+                           "dokument": {"kraj": s.get("panstwo_dokumentu") or "PL",
+                                        "rodzaj": ustaw.get("rodzaj_dokumentu", "DO"), "numer": s.get("dokument", "")},
+                           "adres": {"kraj": "PL", "miejscowosc": "", "kod_pocztowy": "", "ulica": s.get("adres", "")}})
+        strona_tr = "Z" if i in zbywcy else "N"
+        ile = len(zbywcy) if strona_tr == "Z" else len(z.get("strony", [])) - len(zbywcy)
+        podmioty.append({"strona": i, "strona_transakcji": strona_tr,
+                         "charakter": ustaw.get("charakter_zbywcy" if strona_tr == "Z" else "charakter_nabywcy", ""),
+                         "udzial_licznik": 1, "udzial_mianownik": max(ile, 1)})
+    n = z.get("nieruchomosc")
+    przedmiot = {"udzial_licznik": 1, "udzial_mianownik": 1, "wartosc": z.get("kwota", ""), "czy_vat": False,
+                 "typ": ustaw.get("typ_przedmiotu_lokal", "") if n else "", "nieruchomosc": bool(n),
+                 "zwolnienie_vat": False if n else None, "adres": {"kraj": "PL"}, "podmioty": podmioty}
+    if n:
+        przedmiot["opis_nieruchomosci"] = {"numer_kw": n.get("numer_kw", ""),
+                                           "pow_lokalu": n.get("powierzchnia_uzytkowa", ""),
+                                           "pow_domu": n.get("powierzchnia_domu", ""),
+                                           "liczba_pokoi": n.get("liczba_pokoi", ""),
+                                           "kondygnacja": n.get("kondygnacja", "")}
+    return {"korekta": False, "dla_giif": z["rodzaj"] != "czynnosc_giif_kas" or bool(
+                z.get("rownowartosc_eur") and Decimal(z["rownowartosc_eur"]) > PROG_EUR),
+            "czy_odplatna": True, "numer_repertorium": numer, "numer_czynnosci": "1", "nr_crewan": "",
+            "data_dokumentu": z.get("data_czynnosci", ""), "rok_repertorium": (z.get("data_czynnosci") or "")[:4],
+            "data_tr": z.get("data_czynnosci", ""), "kwota": z.get("kwota", ""), "waluta": z.get("waluta", "PLN"),
+            "kod_rodzaju": "07", "tytul": ustaw.get("tytul", ""), "sposob_wydania": "0", "uwagi": "",
+            "strony": strony, "przedmioty": [przedmiot]}
+
+
+def zapisz_karte(identyfikator: str, karta: dict, kto: str = "") -> dict:
+    def funkcja(z):
+        if z["status"] not in ("szkic", "do_podpisu"):
+            raise ValueError("Wyslanego zgloszenia nie zmienia sie - przygotuj korekte jako nowe")
+        z["karta"] = karta
+        z["status"] = "szkic"
+        z["historia"].append(_zdarzenie("karta", kto))
+        return _przelicz(z)
+    return _zmien(identyfikator, funkcja)
+
+
+def plik_xml(identyfikator: str) -> dict:
+    """XML karty + bledy. Bez karty - karta wstepna z danych zgloszenia."""
+    z = next((x for x in lista() if x["id"] == identyfikator), None)
+    if z is None:
+        raise LookupError("Nie ma takiego zgloszenia")
+    if z["rodzaj"] != "czynnosc_giif_kas":
+        raise ValueError("Plik XML budujemy na razie dla karty do GIIF i Szefa KAS (schemat 14250)")
+    ustaw = ustawienia()
+    karta = z.get("karta") or karta_wstepna(z, ustaw)
+    wynik = giif_xml.sprawdz([karta], ustaw)
+    return {**wynik, "karta": karta, "nazwa_pliku": f"giif-{karta.get('numer_repertorium', '').replace('/', '-')}.xml"}
+
+
 def definicje() -> dict:
     return {"rodzaje": RODZAJE, "statusy": STATUSY, "prog_eur": str(PROG_EUR),
-            "termin_dni": TERMIN_DNI, "pola_nieruchomosci": POLA_NIERUCHOMOSCI}
+            "termin_dni": TERMIN_DNI, "pola_nieruchomosci": POLA_NIERUCHOMOSCI,
+            "pola_ustawien": POLA_USTAWIEN, "kody_rodzaju": giif_xml.KODY_RODZAJU,
+            "sposob_wydania": giif_xml.SPOSOB_WYDANIA, "schemat": giif_xml.CRWDE}

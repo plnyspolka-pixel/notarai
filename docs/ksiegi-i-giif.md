@@ -1,103 +1,138 @@
-# Księgi notarialne, wnioski KW i zgłoszenia do GIIF w notarai
+# Księgi notarialne, wnioski KW (repertorium C) i zgłoszenia do GIIF
 
-Stan na 08.11.2026. Kod: `ksiegi_notarialne.py`, `giif.py`, testy
-`test_ksiegi_notarialne.py`, API `/api/ksiegi-kancelarii/*` i `/api/giif/*`.
+Stan na 08.11.2026. Kod: `ksiegi_notarialne.py`, `wnioski_kw.py`, `giif.py`,
+`giif_xml.py`, schematy `giif_xsd/`, ekrany `static/ksiegi.js`. Testy:
+`test_ksiegi_notarialne.py`, `test_ksiegi_ui.py`.
 
-## 1. Jakie księgi notariusz musi prowadzić
+## 1. Księgi kancelarii
 
 Rozporządzenie MS z 12.04.1991 w sprawie prowadzenia ksiąg notarialnych
-(t.j. Dz.U. 2018 poz. 2039), § 1 ust. 1:
+(t.j. Dz.U. 2018 poz. 2039), § 1 ust. 1, oraz repertorium C z systemu EKW:
 
-| Księga | W notarai | Numeracja |
+| Księga | Klucz | Numeracja |
 |---|---|---|
-| Repertorium A (wszystkie czynności poza protestami) | `repertorium_a` | roczna, `Rep. A nr N/RRRR` |
-| Repertorium P (protesty weksli i czeków) | `repertorium_p` | roczna |
+| Repertorium A — czynności (poza protestami) | `repertorium_a` | roczna, `Rep. A nr N/RRRR`, nadaje serwer |
+| Repertorium P — protesty | `repertorium_p` | roczna, nadaje serwer |
+| **Repertorium C** — wnioski wieczystoksięgowe złożone w systemie teleinformatycznym | `repertorium_c` | **numer z systemu MS**: `REP.C/NOTA/N/RR` |
 | Księga depozytowa (§ 4) | `depozytowa` | ciągła |
-| Dziennik przesyłanych dokumentów (wnioski i pisma z urzędu do sądów i organów) | `dziennik_przesylanych` | ciągła |
+| Dziennik przesyłanych dokumentów | `dziennik_przesylanych` | ciągła |
 | Dziennik korespondencyjny | `dziennik_korespondencyjny` | ciągła |
-| Skorowidz alfabetyczno-numerowy (tylko do rep. A) | wyliczany: `/repertorium_a/skorowidz` | — |
+| Skorowidz do rep. A | `/repertorium_a/skorowidz` | wyliczany |
 
-**Repertorium C nie występuje w rozporządzeniu.** Jeżeli kancelaria używa tej
-nazwy (np. wewnętrznie albo w programie kancelaryjnym), trzeba ustalić, co do
-niego wpisuje — dopiszemy je jako kolejną pozycję słownika `KSIEGI`.
+**Repertorium C** to centralne repertorium wniosków elektronicznych prowadzone
+przez system MS. Numer powstaje „z chwilą zarejestrowania wniosku w centralnym
+repertorium wniosków elektronicznych” i składa się z oznaczenia REP.C, kodu
+podmiotu (NOTA — notariusze), kolejnego numeru i dwóch ostatnich cyfr roku
+(§ 68 rozporządzenia MS z 15.02.2016 w sprawie zakładania i prowadzenia ksiąg
+wieczystych w systemie teleinformatycznym, Dz.U. poz. 312). Przepis nie podaje
+separatorów; zapisujemy `REP.C/NOTA/1234/26`, a numer wpisany w innej postaci
+normalizujemy. W notarai repertorium C to kancelaryjny rejestr tych wniosków:
+numer REP.C, data złożenia, rep. A, numer KW, sąd, żądania, opłata, a potem
+przebieg w sądzie (numer w dzienniku KW — § 71, wpis, zwrot, oddalenie),
+każda zmiana z historią.
 
-Zasady wpisane w kod: numer nadaje serwer, repertorium jest chronologiczne,
-poprawki nie wymazują treści (historia: było/jest, kto, kiedy, powód — odpowiednik
-przekreślenia na czerwono), adnotacje o wypisach idą do „uwag” pod numerem
-rep. A, należności sumowane dziennie i miesięcznie.
+Zasady wpisane w kod: numer nadaje serwer (rep. C — system MS), repertorium
+jest chronologiczne, poprawki zostają w historii (było/jest, kto, kiedy, powód),
+uwagi o wypisach, sumy należności dzienne i miesięczne.
 
 **Uwaga prawna:** rozporządzenie z 1991 r. wymaga ksiąg oprawionych, z
 ponumerowanymi stronami. Wersja w notarai to rejestr roboczy z pełną historią
 i podstawą do wydruku; czy może zastąpić księgę papierową, zależy od przepisów
 o elektronicznym repertorium (sprawdzić nowelizację Dz.U. 2025 poz. 1793).
-Do tego czasu w dokumentach prawnych zostaje zdanie, że notarai nie jest
-archiwum notarialnym.
 
-## 2. Wnioski do ksiąg wieczystych
+## 2. Wnioski do ksiąg wieczystych — jak to działa i co robi notarai
 
-- Notariusz składa wniosek o wpis **wyłącznie przez system teleinformatyczny**
-  (art. 626⁴ KPC, art. 92 § 4 PrNot), portal MS EKW.
-- Dostęp: konto w portalu i certyfikat dostępowy, wysłanie wniosku wymaga
-  **kwalifikowanego podpisu elektronicznego**. Wniosek można przygotować
-  wcześniej i wstępnie zweryfikować, a podpisać i wysłać później — tak to działa
-  w obecnych programach kancelaryjnych: przygotowanie u siebie, podpis w portalu.
-- Publicznego API do składania wniosków dla zewnętrznych programów nie
-  potwierdziliśmy. Nie da się więc „zduplikować” wysyłki bez portalu MS:
-  podpis kwalifikowany i wysłanie zawsze robi notariusz.
-- Co robi notarai: wniosek przypięty do czynności z rep. A (`/wnioski-kw`),
-  status `przygotowany → zlozony → wpis_dokonany / zwrot / oddalony`. Po
-  oznaczeniu „złożony” sam powstaje wpis w dzienniku przesyłanych dokumentów
-  (numer rep. A, numer KW, identyfikator z systemu). Treść KW pobiera już `ekw.py`.
-- Następny krok (poziom 4 z `docs/formularze.md`): pomocnik w przeglądarce
-  wypełnia formularz wniosku w portalu i zatrzymuje się przed podpisem.
+Prawo: notariusz składa wniosek o wpis **wyłącznie przez system
+teleinformatyczny** (art. 626⁴ KPC, art. 92 § 4 PrNot), z **kwalifikowanym
+podpisem elektronicznym**. System rejestruje wniosek w REP.C i w tej samej
+chwili umieszcza wzmiankę w księdze (§ 68). Podstawa wpisu „akt notarialny”
+zawiera m.in. numer rep. A, datę, notariusza i siedzibę kancelarii.
 
-## 3. GIIF / Szef KAS
+Publicznego API do składania wniosków nie ma, więc podpis i wysłanie zostają
+w portalu MS. Obieg w notarai:
+
+1. **Przygotowanie** (`POST .../repertorium_a/{id}/wnioski-kw`): sąd, numer KW
+   (z sumą kontrolną), uczestnicy (PESEL osoby, na rzecz której następuje wpis;
+   imiona rodziców nabywcy), żądania per dział księgi (I-O, I-Sp, II, III, IV),
+   podstawa wpisu uzupełniana z rep. A, opłata sądowa liczona z
+   `taksa.OPLATY_SADOWE` — każde żądanie osobno. Lista braków na bieżąco.
+2. **Pakiet do portalu** (`GET .../pakiet`): kroki w kolejności formularza
+   z przyciskami „Kopiuj”, kończące się krokiem „STOP — podpis i wysłanie”.
+   Te same dane są gotowe dla pomocnika (`formularze/wniosek_kw_portal_ms.yaml`,
+   status: szkic).
+3. **Złożenie** (`POST .../status` ze `status=zlozony`, numerem REP.C i datą):
+   tylko kompletny wniosek; powstaje wpis w **repertorium C**. Ten sam numer
+   REP.C nie wejdzie dwa razy.
+4. **Przebieg** (`w_sadzie`, `wpis_dokonany`, `zwrot`, `oddalony`, `odrzucony`,
+   `cofniety`, z sygnaturą Dz.Kw., datą wpisu i doręczenia) — poprawką w rep. C
+   z historią. Zakończonego wniosku nie da się już przestawić.
+
+**Do zrobienia (wymaga konta notariusza):** selektory pól formularza w portalu
+MS dla pomocnika. Trzeba raz przejść wniosek na zalogowanym koncie w trybie
+podglądu i zapisać selektory w YAML; do tego czasu działa kopiuj-wklej.
+
+## 3. GIIF i Szef KAS
 
 - Od 1.03.2023 notariusz przekazuje informacje o czynnościach do GIIF i Szefa
-  KAS **wyłącznie elektronicznie przez SI*GIIF**, w formie ustrukturyzowanej
-  według XSD (komunikat KAS z 28.11.2022; ustawa z 7.10.2022, Dz.U. poz. 2180)
-  — tzw. eNotariusz (podatki.gov.pl/enotariusz). Obejmuje czynności z PCC, SD,
-  oświadczenia z art. 43 ust. 10 pkt 2 lit. b ustawy o VAT, APD i europejskie
-  poświadczenia spadkowe. Każda czynność ma osobną kartę transakcji z tym
-  samym numerem rep. A.
-- Art. 72 ust. 4 ustawy AML: transakcje powyżej równowartości 15 000 EUR;
-  art. 72 ust. 6 pkt 7a: przedmiot transakcji, a przy nieruchomości adres.
-- Komunikat GIIF nr 110: nowy XSD od 30.06.2026 (CRWDE 2026/04/28/14250) z polami
-  numer KW, identyfikator działki, liczba pokoi, kondygnacja, powierzchnia
-  użytkowa lokalu, powierzchnia nieruchomości zabudowanej domem; dla osób
-  fizycznych państwo wydania dokumentu. Osobny XSD „tylko do GIIF” (CRWDE
-  2026/04/30/14252) od 15.06.2026.
-- SI*GIIF ma REST API dla oprogramowania kancelarii; dokumentacja jest dostępna
-  po zalogowaniu, środowisko testowe: test.giif.mofnet.gov.pl. Status przesyłek
-  sprawdza się po zalogowaniu kwalifikowanym podpisem zgłoszonym do GIIF.
-- Zawiadomienia o podejrzeniach (art. 74, 86, 89) też idą przez SI*GIIF.
+  KAS **wyłącznie elektronicznie przez SI*GIIF**, w XML według XSD
+  (komunikat KAS z 28.11.2022; eNotariusz).
+- Art. 72 ust. 4 ustawy AML: transakcje > 15 000 EUR (`dlaGIIF=true`);
+  pozostałe czynności z PCC/SD, APD i EPS idą tylko do KAS (`dlaGIIF=false`).
 
-### Co przeniesiono z Finance You
+### Plik XML (`giif_xml.py`)
 
-Obieg z `finyou/src/lib/aml/aml-reports.functions.ts`: szkic → kontrola
-kompletności → zatwierdzenie (skrót SHA-256 treści) → wysyłka w SI*GIIF
-podpisem kwalifikowanym → rejestracja identyfikatora → UPO (skrót). Do tego
-kurs EUR z tabeli A NBP z cofaniem do dnia roboczego (`nbp-eur.server.ts`)
-i termin. W notarai szkic tworzy się jednym kliknięciem z wpisu rep. A,
-a `kwalifikuj()` podpowiada, czy czynność trzeba zgłosić (PCC/SD → KAS,
-> 15 000 EUR → GIIF). Decyzję podejmuje notariusz.
+- Schemat **CRWDE 2026/04/28/14250** (GIIF + Szef KAS, od 30.06.2026,
+  komunikat nr 110) z importami w `giif_xsd/` — walidacja offline (lxml, bez
+  sieci), sprawdzona też niezależnie `xmllint --schema`.
+- Reguły spoza XSD z opisu schematu (`docs/giif/opis-schematu-notarialnego-v4.1.txt`):
+  INF.2 (udziały zbywców i nabywców sumują się do 1, inna strona 0/1),
+  INF.3 (suma wartości = kwota), INF.4 (APD/EPS: kwota 0, `dlaGIIF=false`),
+  INF.7 (adres TERYT i numer domu albo obręb + działka), sumy kontrolne
+  PESEL, NIP, KW, oświadczenie o VAT dla nieruchomości, numer CREWAN
+  (`XX900` dla aktów nie zgłaszanych do CREWAN — komunikat nr 101).
+- Kartę wstępną notarai buduje z rep. A i zgłoszenia (strony, role
+  zbywca/nabywca, udziały, numer KW, powierzchnia, pokoje). Kancelaria
+  uzupełnia resztę w edytorze karty; błędy widać od razu.
+- Zatwierdzenie karty do GIIF i KAS wymaga pliku bez błędów; zapisujemy SHA-256
+  pliku, który notariusz podpisze. `GET /api/giif/{id}/xml?pobierz=1` zwraca plik.
 
-### Czego NIE przeniesiono i dlaczego
+### Słowniki — skąd kody
 
-Generatora XML z Finance You (`giif-xml.server.ts`). Buduje on własną
-strukturę (`urn:giif:rest2018:zgloszenie`), która nie jest oficjalnym schematem
-GIIF — SI*GIIF odrzuciłby taki plik. Ten sam problem dotyczy Finance You.
+Kody `TytulTr`, `IdSlPrzedmiotTyp`, `charakterPodmiotu`, `RodzajDokumentu`,
+`FormaOrganizacyjna` i urząd skarbowy (`nrSekwJs`, słownik USK) są w
+słownikach SI*GIIF (`giif.mofnet.gov.pl/api/web/slowniki/...`), dostępnych po
+zalogowaniu (z zewnątrz blokuje je ochrona antybotowa). Kancelaria wpisuje je
+raz w „Ustawieniach GIIF”, a w karcie można je zmienić. Poprawność kodu
+sprawdza SI*GIIF przy przyjęciu pliku (status X = plik odrzucony w całości).
+
+### Podpis, szyfrowanie, wysyłka (`docs/giif/podpis-i-szyfrowanie-sigiif.txt`)
+
+- Plik: XML UTF-8, podpis **CAdES** (nie XAdES), SHA-256/384/512, następnie
+  szyfrowanie CMS EnvelopedData (AES-128/256-CBC) certyfikatem GIIF.
+- Kanały: strona SI*GIIF albo web service `https://www.giif.mofnet.gov.pl/api/rest2018`.
+  Nazwa pliku dowolna (komunikat nr 8).
+- Statusy (komunikat nr 13): Z → O → P → R; X = błędny, W = wyjaśniony.
+  UPO (`giif_xsd/UPO2018.xsd`) przez API od statusu P, na stronie od statusu R.
+- notarai **nie podpisuje i nie szyfruje** — podpis kwalifikowany jest
+  notariusza. Notariusz pobiera XML, podpisuje i szyfruje (narzędzie GIIF
+  „Bezpieczny plik”), wysyła w SI*GIIF, a w notarai rejestruje identyfikator
+  przesyłki i UPO (skrót SHA-256).
+
+### Czego jeszcze nie ma
+
+- **Schemat 14252** („tylko do GIIF”) — XSD jest w `giif_xsd/`, generator na
+  razie tylko dla 14250.
+- **Pole `WartoscBezBonifikaty`** (opis v4.1): w XSD 14250 go nie ma, a numeru
+  CRWDE nowszego schematu nie znaleźliśmy. Dodamy, gdy GIIF opublikuje schemat.
+- **Zawiadomienia art. 74/86/89** — mają osobne schematy; obieg działa, XML nie.
+- **Wysyłka przez REST API** — opis API i uwierzytelnianie są za logowaniem.
+  Pierwszy krok: konto testowe na `test.giif.mofnet.gov.pl`.
 
 ## 4. Kolejne kroki
 
-1. Pobrać z CRWDE oba XSD notariusza (14250, 14252) i opis schematów v3.0
-   (załączniki do komunikatu nr 110), dodać do repozytorium i napisać mapowanie
-   karty transakcji na XML z walidacją `xmllint --schema`.
-2. Konto testowe w test.giif.mofnet.gov.pl i dokumentacja REST API: wysyłka
-   pliku podpisanego podpisem kwalifikowanym notariusza (podpis zawsze u
-   notariusza — kartą lub podpisem w chmurze, nie na serwerze notarai).
-3. Termin 7 dni (`giif.TERMIN_DNI`) potwierdzić z komunikatem GIIF o liczeniu
-   terminów.
-4. Ekran w aplikacji: zakładka „Księgi” (repertoria, depozyt, dzienniki,
-   wydruk) i „GIIF” (lista z terminami, zaległe na górze).
-5. Ustalić z kancelarią, co oznacza „repertorium C”.
+1. Na koncie notariusza: selektory formularza wniosku KW w portalu MS
+   (pomocnik, tryb podglądu) oraz słowniki SI*GIIF do ustawień.
+2. Konto testowe SI*GIIF: wysłanie pliku wygenerowanego przez notarai
+   i sprawdzenie statusu P/R.
+3. Generator dla schematu 14252 i zawiadomień AML.
+4. Potwierdzić termin 7 dni (`giif.TERMIN_DNI`) z komunikatem GIIF o liczeniu terminów.

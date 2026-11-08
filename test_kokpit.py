@@ -142,9 +142,10 @@ def test_ai_result_not_rendered_after_logout_or_switch():
 def test_modules_use_existing_authorized_navigation():
     for label in ("Rejestry i weryfikacja", "Formularze urzędowe",
                   "Kalendarz", "Osoby i telefony", "Dokumenty i RODO",
-                  "Zespół kancelarii", "Abonament", "Pomocnik lokalny"):
+                  "Zespół kancelarii", "Abonament", "Pomocnik lokalny",
+                  "Księgi i repertoria", "Zgłoszenia GIIF"):
         assert label in HTML
-    assert HTML.count("data-kokpit-nav=") == 8
+    assert HTML.count("data-kokpit-nav=") == 10
     assert "element.click(); // Wykorzystuje dotychczasowe kontrole" in DASHBOARD
     assert "button.hidden = !element || element.hidden" in DASHBOARD
     assert ".kokpit-module[hidden] { display:none!important; }" in CSS

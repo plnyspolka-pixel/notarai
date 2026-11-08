@@ -1434,6 +1434,33 @@ def nowe_zgloszenie(dane: NoweZgloszenie, request: Request):
     return z
 
 
+@app.get("/api/giif/ustawienia")
+def ustawienia_giif():
+    return _ksiegi(giif.ustawienia)
+
+
+@app.post("/api/giif/ustawienia")
+def zapis_ustawien_giif(dane: dict):
+    return _ksiegi(giif.zapisz_ustawienia, dane)
+
+
+@app.post("/api/giif/{zgloszenie}/karta")
+def karta_zgloszenia(zgloszenie: str, karta: dict, request: Request):
+    return _ksiegi(giif.zapisz_karte, zgloszenie, karta, _kto(request))
+
+
+@app.get("/api/giif/{zgloszenie}/xml")
+def xml_zgloszenia(zgloszenie: str, pobierz: bool = False):
+    """Plik XML wg XSD CRWDE 14250 + bledy. pobierz=1 - sam plik, tylko gdy bez bledow."""
+    wynik = _ksiegi(giif.plik_xml, zgloszenie)
+    if not pobierz:
+        return wynik
+    if wynik["bledy"]:
+        raise HTTPException(400, "Plik ma bledy: " + "; ".join(wynik["bledy"][:5]))
+    return Response(wynik["xml"], media_type="application/xml",
+                    headers={"Content-Disposition": f'attachment; filename="{wynik["nazwa_pliku"]}"'})
+
+
 @app.post("/api/giif/{zgloszenie}")
 def zmiana_zgloszenia(zgloszenie: str, dane: dict, request: Request):
     return _ksiegi(giif.zmien, zgloszenie, dane, _kto(request))

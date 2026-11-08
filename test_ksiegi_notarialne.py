@@ -208,7 +208,12 @@ def test_obieg_zgloszenia(klient):
         "nieruchomosc": {"adres": "ul. Lipowa 1/2, Warszawa", "numer_kw": "WA4M/00160286/2",
                          "powierzchnia_uzytkowa": "48.5", "liczba_pokoi": "2"}}).json()
     assert z["braki"] == [], z["braki"]
+    # karta XML: bez ustawien i kodow ze slownikow GIIF nie da sie zatwierdzic
+    odp = klient.post(f"/api/giif/{z['id']}/zatwierdz")
+    assert odp.status_code == 400 and "karte" in odp.json()["detail"]
+    z = wypelnij_karte(klient, z)
     z = klient.post(f"/api/giif/{z['id']}/zatwierdz").json()
+    assert len(z["sha256_xml"]) == 64 and z["schemat"] == "2026/04/28/14250"
     assert z["status"] == "do_podpisu" and len(z["sha256_tresci"]) == 64
     z = klient.post(f"/api/giif/{z['id']}/wysylka",
                     json={"identyfikator_si_giif": "GIIF-2026-1", "data_wysylki": "2026-11-12"}).json()
@@ -216,7 +221,43 @@ def test_obieg_zgloszenia(klient):
     assert klient.post(f"/api/giif/{z['id']}", json={"przedmiot": "x"}).status_code == 400
     z = klient.post(f"/api/giif/{z['id']}/upo", files={"plik": ("upo.xml", b"<UPO/>")}).json()
     assert z["status"] == "upo" and len(z["sha256_upo"]) == 64
-    assert [h["co"] for h in z["historia"]] == ["utworzono", "zmieniono", "zatwierdzono", "wyslano", "upo"]
+    assert [h["co"] for h in z["historia"]] == ["utworzono", "zmieniono", "karta", "zatwierdzono", "wyslano", "upo"]
+
+
+def wypelnij_karte(klient, z):
+    klient.post("/api/giif/ustawienia", json={
+        "nip": "5260250274", "nr_sekw_js": "1471", "tytul": "a01", "charakter_zbywcy": "sprz",
+        "charakter_nabywcy": "kupu", "rodzaj_dokumentu": "DO", "typ_przedmiotu_lokal": "111"})
+    wynik = klient.get(f"/api/giif/{z['id']}/xml").json()
+    karta = wynik["karta"]
+    assert karta["numer_repertorium"] == "1/2026" and karta["tytul"] == "A01"
+    assert [p["strona_transakcji"] for p in karta["przedmioty"][0]["podmioty"]] == ["Z", "N"]
+    assert any("CREWAN" in b for b in wynik["bledy"])
+    karta["nr_crewan"] = "XX900"
+    for s in karta["strony"]:
+        s["adres"].update(miejscowosc="Warszawa", kod_pocztowy="00-001", ulica="Lipowa 1")
+    karta["strony"][0]["dokument"]["numer"] = "ABC123456"
+    karta["strony"][1].update(data_urodzenia="1990-02-02", kraj_urodzenia="PL")  # bez PESEL
+    karta["przedmioty"][0]["adres"] = {"kraj": "PL", "kod_pocztowy": "02-001", "woj": "14", "pow": "65",
+                                       "gmi": "01", "rodz": "1", "simc": "0918123", "nr_domu": "1", "nr_mieszkania": "2"}
+    odp = klient.post(f"/api/giif/{z['id']}/karta", json=karta)
+    assert odp.status_code == 200, odp.text
+    wynik = klient.get(f"/api/giif/{z['id']}/xml").json()
+    assert wynik["bledy"] == [], wynik["bledy"]
+    assert "<NrKsiegiWieczystej>WA4M/00160286/2</NrKsiegiWieczystej>" in wynik["xml"].replace("typ:", "")
+    plik = klient.get(f"/api/giif/{z['id']}/xml", params={"pobierz": 1})
+    assert plik.status_code == 200 and plik.headers["content-type"].startswith("application/xml")
+    return odp.json()
+
+
+def test_xml_regul_udzialow_i_sumy():
+    import giif_xml
+    karta = {"kwota": "100", "przedmioty": [{"wartosc": "90", "typ": "1", "podmioty": [
+        {"strona": 0, "charakter": "X", "strona_transakcji": "N", "udzial_licznik": 1, "udzial_mianownik": 2}]}],
+        "strony": [{"imie": "A", "nazwisko": "B", "pesel": "12345678901"}]}
+    bledy = " | ".join(giif_xml.bledy_regul(karta, {"nip": "1", "nr_sekw_js": ""}))
+    for fragment in ("NIP notariusza", "nrSekwJs", "INF.3", "INF.2", "PESEL niepoprawny", "CREWAN", "Tytul"):
+        assert fragment in bledy, fragment
 
 
 def test_zalegle_zgloszenia(klient):
