@@ -39,6 +39,7 @@ import notariusze
 import autoryzacja
 import nazwy
 import osoby
+import przesylki
 import prompty
 import rejestracja
 import rejestry
@@ -75,6 +76,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # Narzędzia klientów — publiczny kalkulator i składanie zgłoszeń,
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
+app.include_router(przesylki.router)
 app.include_router(wizyty.router)
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
@@ -728,6 +730,7 @@ def usun_sprawe(identyfikator: str, potwierdzam: bool = False):
         raise HTTPException(400, "Usuniecie sprawy wymaga jawnego potwierdzenia")
     usuniete = magazyn.usun_sprawe(katalog)
     kalendarz.usun_sprawe(identyfikator)
+    przesylki.usun_sprawe(identyfikator)
     log.info("sprawa %s: usunieta, obiektow w S3: %d", identyfikator, usuniete)
     return {"usunieto": identyfikator, "obiektow": usuniete}
 

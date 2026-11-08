@@ -147,6 +147,22 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 
 /* pola do weryfikacji */
 .filtry{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+/* przesylki i korespondencja */
+.prz-form select,.prz-form input[type=date],.prz-pasek select,.prz-pasek input{font:inherit;padding:9px 10px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2);width:100%}
+.prz-pasek{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.prz-pasek label{font-size:12px;color:var(--tekst2)}
+.prz-pasek input,.prz-pasek select{width:auto}
+.prz-tab{width:100%;border-collapse:collapse;font-size:13px}
+.prz-tab th{text-align:left;font-weight:500;color:var(--tekst2);border-bottom:1px solid var(--linia2);padding:6px}
+.prz-tab td{border-bottom:1px solid var(--linia);padding:6px;vertical-align:top}
+.prz-tab tr.anul td{color:var(--tekst3);text-decoration:line-through}
+.prz-tab tr.anul td:first-child,.prz-tab tr.anul td:last-child{text-decoration:none}
+.prz-tab input.prz-nr{font:12px var(--mono);padding:4px 6px;width:190px;border:1px solid var(--linia2);border-radius:6px;background:var(--tlo);color:var(--tekst)}
+.prz-tab .akcje a{cursor:pointer;margin-right:8px;font-size:12px}
+.prz-przewijanie{overflow-x:auto}
+.prz-trzy{display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:16px}
+@media (max-width:700px){.prz-trzy,.para.prz-para{grid-template-columns:1fr}}
 .chip{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--linia2);
   background:transparent;color:var(--tekst2);cursor:pointer}
 .chip.on{background:var(--tekst);color:var(--tlo);border-color:var(--tekst)}
@@ -592,6 +608,7 @@ notarai</div>
   <div class="krok" data-etap="5"><b><span>▶</span></b>Klikamy</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
+  <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -696,6 +713,10 @@ notarai</div>
   <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='7']" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
    <span><strong>Osoby i telefony</strong><small>Kontakty ze spraw kancelarii</small></span>
+  </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='8']" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
+   <span><strong>Przesyłki i korespondencja</strong><small>Dzienniki, książka nadawcza, koperty</small></span>
   </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-dokumenty" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg>
@@ -1081,6 +1102,93 @@ notarai</div>
       <div class="pole"><label class="etykieta" for="nowa-osoba-tel">Telefon <span class="wskaz">opcjonalny</span></label><input type="tel" id="nowa-osoba-tel" placeholder="np. 600 100 200"></div>
     </div>
     <div class="pasek" style="margin-top:0"><button id="btn-dodaj-osobe">Dodaj</button><span class="stan" id="stan7"></span></div>
+  </div>
+</section>
+
+<!-- ===== 8: przesylki i korespondencja ===== -->
+<section id="etap8" hidden>
+  <h1>Przesyłki i korespondencja</h1>
+  <p class="pod">Dwie osobne księgi: dziennik przesyłanych dokumentów (wypisy i pisma przesyłane z urzędu sądom i organom) i dziennik korespondencyjny (pozostałe pisma wysyłane i przychodzące). Numeracja pozycji jest ciągła, nie zaczyna się od nowa w nowym roku. Wpisów się nie kasuje: poprawka zostaje odnotowana w rubryce uwag, a anulowana pozycja jest przekreślona.</p>
+  <div class="karta">
+    <div class="filtry" id="prz-ksiegi">
+      <button class="chip on" data-k="przeslane">Dziennik przesyłanych dokumentów</button>
+      <button class="chip" data-k="korespondencja">Dziennik korespondencyjny</button>
+    </div>
+    <h2 id="prz-tytul-formularza">Nowa pozycja</h2>
+    <div class="prz-form">
+      <div class="para prz-para">
+        <div class="pole"><label class="etykieta" for="prz-data" id="prz-et-data">Data wysłania</label><input type="date" id="prz-data"></div>
+        <div class="pole" data-tylko="przeslane"><label class="etykieta" for="prz-repertorium">Nr repertorium aktu</label><input type="text" id="prz-repertorium" placeholder="np. A 1234/2026"></div>
+        <div class="pole" data-tylko="korespondencja"><label class="etykieta" for="prz-kierunek">Pismo</label>
+          <select id="prz-kierunek"><option value="wychodzące">wychodzące (wysyłamy)</option><option value="przychodzące">przychodzące (wpłynęło)</option></select></div>
+      </div>
+      <div class="para prz-para" data-tylko="przeslane">
+        <div class="pole"><label class="etykieta" for="prz-dokument">Rodzaj dokumentu</label><input type="text" id="prz-dokument" list="prz-dokumenty" placeholder="wypis aktu notarialnego">
+          <datalist id="prz-dokumenty"><option value="wypis aktu notarialnego"><option value="wniosek wieczystoksięgowy"><option value="zawiadomienie"><option value="informacja"></datalist></div>
+        <div class="pole"><label class="etykieta" for="prz-sprawa">Sprawa <span class="wskaz">opcjonalnie</span></label><select id="prz-sprawa"></select></div>
+      </div>
+      <div data-tylko="korespondencja">
+        <div class="pole"><label class="etykieta" for="prz-tresc">Czego dotyczy pismo</label><input type="text" id="prz-tresc"></div>
+        <div class="para prz-para">
+          <div class="pole"><label class="etykieta" for="prz-znak">Znak pisma <span class="wskaz">opcjonalnie</span></label><input type="text" id="prz-znak"></div>
+          <div class="pole"><label class="etykieta" for="prz-data-pisma">Data pisma <span class="wskaz">opcjonalnie</span></label><input type="date" id="prz-data-pisma"></div>
+        </div>
+      </div>
+      <div class="pole"><label class="etykieta" for="prz-adresat" id="prz-et-adresat">Adresat (urząd, sąd)</label><input type="text" id="prz-adresat" list="prz-adresaci" placeholder="np. Sąd Rejonowy w …, Wydział Ksiąg Wieczystych"><datalist id="prz-adresaci"></datalist></div>
+      <div class="prz-trzy">
+        <div class="pole"><label class="etykieta" for="prz-ulica">Ulica i numer</label><input type="text" id="prz-ulica"></div>
+        <div class="pole"><label class="etykieta" for="prz-kod">Kod pocztowy</label><input type="text" id="prz-kod" placeholder="00-000" maxlength="6"></div>
+        <div class="pole"><label class="etykieta" for="prz-miejscowosc">Miejscowość</label><input type="text" id="prz-miejscowosc"></div>
+      </div>
+      <div class="para prz-para">
+        <div class="pole"><label class="etykieta" for="prz-sposob">Sposób przesłania</label><select id="prz-sposob"></select></div>
+        <div class="pole"><label class="etykieta" for="prz-numer">Numer nadania <span class="wskaz">z naklejki Poczty, można dopisać później</span></label><input type="text" id="prz-numer" autocomplete="off"></div>
+      </div>
+      <div class="para prz-para">
+        <div class="pole"><label class="etykieta" for="prz-doreczenie">Data doręczenia <span class="wskaz">z potwierdzenia odbioru</span></label><input type="date" id="prz-doreczenie"></div>
+        <div class="pole"><label class="etykieta" for="prz-uwagi">Uwagi</label><input type="text" id="prz-uwagi"></div>
+      </div>
+    </div>
+    <div class="pasek" style="margin-top:0"><button id="prz-zapisz">Dodaj do księgi</button><button class="wtorny" id="prz-anuluj-edycje" hidden>Anuluj edycję</button><span class="stan" id="stan8"></span></div>
+  </div>
+
+  <div class="karta">
+    <h2>Wpisy</h2>
+    <div class="filtry"><input type="search" id="prz-szukaj" placeholder="Szukaj: adresat, repertorium, numer nadania…" style="flex:1;min-width:160px;width:auto;padding:4px 12px;border-radius:999px;font-size:13px"></div>
+    <p class="pod" style="margin-top:0">Numery nadania z naklejek można wpisać od razu w tabeli — także czytnikiem kodów kreskowych (Enter przechodzi do następnej pozycji). Zaznacz pozycje, żeby wydrukować koperty albo przygotować plik dla Elektronicznego Nadawcy.</p>
+    <div class="prz-przewijanie"><table class="prz-tab"><thead><tr><th><input type="checkbox" id="prz-wszystkie" aria-label="Zaznacz wszystkie widoczne"></th><th>Lp.</th><th>Data</th><th id="prz-kol-druga">Repertorium</th><th>Adresat</th><th>Sposób</th><th>Nr nadania</th><th></th></tr></thead><tbody id="prz-lista"></tbody></table></div>
+    <div class="prz-pasek" style="margin-top:14px">
+      <div><label for="prz-format">Koperta</label><br><select id="prz-format"><option>DL</option><option>C5</option><option>C6</option><option>C4</option></select></div>
+      <button class="wtorny" id="prz-koperty">Drukuj koperty</button>
+      <button class="wtorny" id="prz-csv">Plik dla e-Nadawcy (CSV)</button>
+      <span class="stan" id="stan8b"></span>
+    </div>
+  </div>
+
+  <div class="karta">
+    <h2>Wydruki</h2>
+    <div class="prz-pasek">
+      <div><label for="prz-nadawcza-dzien">Pocztowa książka nadawcza na dzień</label><br><input type="date" id="prz-nadawcza-dzien"></div>
+      <button class="wtorny" id="prz-nadawcza">Drukuj książkę nadawczą</button>
+    </div>
+    <p class="pod">Zestawienie listów poleconych z obu dzienników z wybranego dnia, do podbicia w urzędzie pocztowym.</p>
+    <div class="prz-pasek">
+      <div><label for="prz-od">Od dnia</label><br><input type="date" id="prz-od"></div>
+      <div><label for="prz-do">Do dnia</label><br><input type="date" id="prz-do"></div>
+      <div><label for="prz-od-strony">Numer pierwszej strony</label><br><input type="number" id="prz-od-strony" min="1" style="width:110px" placeholder="automatycznie"></div>
+      <button class="wtorny" id="prz-podglad">Podgląd</button>
+      <button id="prz-drukuj-ksiege">Drukuj księgę do oprawy</button>
+    </div>
+    <p class="pod">Księga drukuje się w poziomie, z nagłówkiem tabeli na każdej stronie i numeracją stron. „Drukuj do oprawy” zapamiętuje, na której stronie skończył się wydruk — następny zaczyna od kolejnej. Podgląd niczego nie zapamiętuje.</p>
+  </div>
+
+  <div class="karta">
+    <h2>Dane nadawcy na kopertach i w książce nadawczej</h2>
+    <div class="para prz-para">
+      <div class="pole"><label class="etykieta" for="prz-nadawca">Kancelaria</label><input type="text" id="prz-nadawca" placeholder="Kancelaria Notarialna …"></div>
+      <div class="pole"><label class="etykieta" for="prz-adres-nadawcy">Adres <span class="wskaz">do 4 wierszy</span></label><textarea id="prz-adres-nadawcy" rows="3" style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);background:var(--tlo);color:var(--tekst);border-radius:var(--r2)"></textarea></div>
+    </div>
+    <div class="pasek" style="margin-top:0"><button class="wtorny" id="prz-zapisz-nadawce">Zapisz dane nadawcy</button><span class="stan" id="stan8c"></span></div>
   </div>
 </section>
 
@@ -1854,7 +1962,7 @@ function pokaz(numer){
   $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
-  [1,2,3,4,5,6,7].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5,6,7,8].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
@@ -1873,6 +1981,7 @@ function pokaz(numer){
     ? (sprawa.nazwa || sprawa.sygnatura || "sprawa " + sprawa.id.slice(0, 6)) : "notarai";
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
+  if (numer === 8) rysujPrzesylki();
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -2332,7 +2441,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -4922,6 +5031,187 @@ $("kal-usun").onclick = async () => {
 function escape(t){
   return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
+
+/* ---------- 8: przesylki i korespondencja ----------
+   Dwie osobne ksiegi (rozporzadzenie o ksiegach notarialnych). Serwer nadaje
+   numer pozycji i pilnuje historii poprawek; tu tylko formularz, tabela
+   i wydruki PDF (pobierane z tokenem, otwierane w nowej karcie). */
+let przKsiega = "przeslane", przWpisy = [], przSlowniki = null, przEdytowany = null;
+const PRZ_POLA = {data: "prz-data", repertorium: "prz-repertorium", dokument: "prz-dokument", sprawa: "prz-sprawa",
+  kierunek: "prz-kierunek", tresc: "prz-tresc", znak_pisma: "prz-znak", data_pisma: "prz-data-pisma",
+  adresat: "prz-adresat", ulica: "prz-ulica", kod: "prz-kod", miejscowosc: "prz-miejscowosc",
+  sposob: "prz-sposob", numer_nadania: "prz-numer", data_doreczenia: "prz-doreczenie", uwagi: "prz-uwagi"};
+const dzisIso = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const plData = iso => iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "";
+
+async function rysujPrzesylki(){
+  try {
+    if (!przSlowniki) {
+      przSlowniki = await api("/api/przesylki/slowniki").then(r => r.json());
+      $("prz-sposob").innerHTML = przSlowniki.sposoby.map(x => '<option>' + escape(x) + '</option>').join("");
+      const ust = await api("/api/przesylki/ustawienia").then(r => r.json());
+      $("prz-nadawca").value = ust.nadawca || ""; $("prz-adres-nadawcy").value = ust.adres_nadawcy || "";
+    }
+    if (!sprawyLista.length) await rysujListeSpraw();
+    przWpisy = await api("/api/przesylki/" + przKsiega).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+  } catch (e) { stan($("stan8"), "Nie udało się pobrać dziennika.", true); return; }
+  const wybor = $("prz-sprawa"), poprzedni = wybor.value;
+  wybor.innerHTML = '<option value="">— bez sprawy —</option>' + sprawyLista.map(s =>
+    '<option value="' + escape(s.id) + '">' + escape(s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6)) + "</option>").join("");
+  wybor.value = poprzedni;
+  // Podpowiedzi adresatow z wczesniejszych wpisow: urzedy powtarzaja sie co dzien.
+  const adresaci = new Map();
+  przWpisy.forEach(w => { if (w.adresat && w.ulica) adresaci.set(w.adresat, w); });
+  $("prz-adresaci").innerHTML = [...adresaci.keys()].map(a => '<option value="' + escape(a) + '">').join("");
+  if (!$("prz-data").value) $("prz-data").value = dzisIso();
+  if (!$("prz-nadawcza-dzien").value) $("prz-nadawcza-dzien").value = dzisIso();
+  ustawFormularzPrzesylki();
+  rysujTabelePrzesylek();
+}
+function ustawFormularzPrzesylki(){
+  const k = przKsiega;
+  document.querySelectorAll("#etap8 [data-tylko]").forEach(e => e.hidden = e.dataset.tylko !== k);
+  const przychodzace = k === "korespondencja" && $("prz-kierunek").value === "przychodzące";
+  $("prz-et-data").textContent = k === "przeslane" ? "Data wysłania" : (przychodzace ? "Data wpływu" : "Data wysłania");
+  $("prz-et-adresat").textContent = k === "przeslane" ? "Adresat (urząd, sąd)" : (przychodzace ? "Nadawca" : "Adresat");
+  $("prz-kol-druga").textContent = k === "przeslane" ? "Repertorium" : "Treść";
+  $("prz-tytul-formularza").textContent = przEdytowany ? "Poprawka pozycji" : "Nowa pozycja";
+  $("prz-zapisz").textContent = przEdytowany ? "Zapisz poprawkę" : "Dodaj do księgi";
+  $("prz-anuluj-edycje").hidden = !przEdytowany;
+}
+function rysujTabelePrzesylek(){
+  const szukaj = $("prz-szukaj").value.trim().toLowerCase();
+  const widoczne = przWpisy.slice().reverse().filter(w => !szukaj ||
+    [w.adresat, w.repertorium, w.numer_nadania, w.tresc, w.miejscowosc, w.znak_pisma, String(w.lp)].some(x => (x || "").toLowerCase().includes(szukaj)));
+  const t = $("prz-lista");
+  t.innerHTML = widoczne.length ? "" : '<tr><td colspan="8"><span class="stan">' + (przWpisy.length ? "Nic nie pasuje do wyszukiwania." : "Księga jest pusta.") + '</span></td></tr>';
+  widoczne.forEach(w => {
+    const anul = w.status === "anulowany";
+    const tr = document.createElement("tr");
+    if (anul) tr.className = "anul";
+    const druga = przKsiega === "przeslane" ? w.repertorium : (w.kierunek === "przychodzące" ? "↘ " : "↗ ") + w.tresc;
+    const sledz = w.numer_nadania ? ' <a href="' + escape(przSlowniki.sledzenie + encodeURIComponent(w.numer_nadania)) + '" target="_blank" rel="noopener" title="Śledzenie przesyłki na stronie Poczty Polskiej">śledź</a>' : "";
+    const rejestrowana = przSlowniki.rejestrowane.includes(w.sposob) && w.kierunek !== "przychodzące";
+    tr.innerHTML = '<td>' + (anul ? "" : '<input type="checkbox" class="prz-wybor" value="' + escape(w.id) + '">') + '</td>'
+      + '<td>' + w.lp + '</td><td>' + plData(w.data) + '</td><td>' + escape(druga) + '</td>'
+      + '<td>' + escape([w.adresat, [w.kod, w.miejscowosc].filter(Boolean).join(" ")].filter(Boolean).join(", ")) + '</td>'
+      + '<td>' + escape(w.sposob) + (w.data_doreczenia ? '<br><small>doręczono ' + plData(w.data_doreczenia) + '</small>' : '') + '</td>'
+      + '<td>' + (anul || !rejestrowana ? escape(w.numer_nadania || "") : '<input class="prz-nr" data-id="' + escape(w.id) + '" value="' + escape(w.numer_nadania || "") + '" placeholder="zeskanuj lub wpisz">') + sledz + '</td>'
+      + '<td class="akcje">' + (anul ? "anulowana" : '<a data-akcja="popraw">popraw</a><a data-akcja="anuluj">anuluj</a>') + '</td>';
+    tr.querySelector('[data-akcja="popraw"]')?.addEventListener("click", () => edytujPrzesylke(w));
+    tr.querySelector('[data-akcja="anuluj"]')?.addEventListener("click", () => anulujPrzesylke(w));
+    t.appendChild(tr);
+  });
+  const numery = [...t.querySelectorAll("input.prz-nr")];
+  numery.forEach((pole, i) => {
+    // Czytnik kodow konczy numer Enterem: zapis i od razu nastepna pozycja.
+    pole.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); pole.blur(); numery[i + 1]?.focus(); } });
+    pole.addEventListener("change", () => zapiszNumer(pole));
+  });
+  $("prz-wszystkie").checked = false;
+}
+async function zapiszNumer(pole){
+  const odp = await api("/api/przesylki/" + przKsiega + "/numery", {method: "PUT", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({numery: {[pole.dataset.id]: pole.value}})});
+  const w = await odp.json().catch(() => ({}));
+  if (!odp.ok) { pole.style.borderColor = "var(--blad, #b00)"; return stan($("stan8b"), typeof w.detail === "string" ? w.detail : "Nie zapisano numeru", true); }
+  pole.style.borderColor = "";
+  const wpis = przWpisy.find(x => x.id === pole.dataset.id);
+  if (wpis) wpis.numer_nadania = pole.value.replace(/\s/g, "").toUpperCase();
+  pole.value = wpis ? wpis.numer_nadania : pole.value;
+  stan($("stan8b"), "Numer nadania zapisany.");
+}
+function daneFormularzaPrzesylki(){
+  const dane = {};
+  Object.entries(PRZ_POLA).forEach(([k, id]) => dane[k] = $(id).value.trim());
+  return dane;
+}
+function wyczyscFormularzPrzesylki(){
+  Object.entries(PRZ_POLA).forEach(([k, id]) => { if (!["data", "sposob", "kierunek"].includes(k)) $(id).value = ""; });
+  przEdytowany = null; ustawFormularzPrzesylki();
+}
+function edytujPrzesylke(w){
+  przEdytowany = w.id;
+  Object.entries(PRZ_POLA).forEach(([k, id]) => $(id).value = w[k] || "");
+  ustawFormularzPrzesylki();
+  stan($("stan8"), "Poprawiasz pozycję " + w.lp + ". Pierwotna treść zostanie odnotowana w uwagach na wydruku.");
+  $("etap8").closest("main").scrollTo({top: 0, behavior: "smooth"});
+}
+async function anulujPrzesylke(w){
+  const powod = prompt("Pozycja " + w.lp + " zostanie przekreślona (numer zostaje w księdze). Podaj powód anulowania:");
+  if (!powod) return;
+  const odp = await api("/api/przesylki/" + przKsiega + "/" + w.id + "/anuluj", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({powod})});
+  if (!odp.ok) return stan($("stan8b"), "Nie udało się anulować pozycji.", true);
+  await rysujPrzesylki();
+}
+async function otworzPdfPrzesylek(adres, opcje, stanEl){
+  stan(stanEl, "Przygotowuję wydruk…", false, true);
+  // Okno otwieramy od razu (w obsludze klikniecia), inaczej przegladarka je zablokuje.
+  const okno = window.open("", "_blank");
+  try {
+    const odp = await api(adres, opcje);
+    if (!odp.ok) { const w = await odp.json().catch(() => ({})); throw new Error(typeof w.detail === "string" ? w.detail : "Nie udało się przygotować wydruku"); }
+    const url = URL.createObjectURL(await odp.blob());
+    if (okno) okno.location = url; else location.assign(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    stan(stanEl, "");
+  } catch (e) { if (okno) okno.close(); stan(stanEl, e.message, true); }
+}
+const wybranePrzesylki = () => [...document.querySelectorAll("#prz-lista .prz-wybor:checked")].map(c => c.value);
+
+document.querySelectorAll("#prz-ksiegi .chip").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#prz-ksiegi .chip").forEach(x => x.classList.toggle("on", x === b));
+  przKsiega = b.dataset.k; przEdytowany = null; wyczyscFormularzPrzesylki(); stan($("stan8"), ""); rysujPrzesylki();
+});
+$("prz-kierunek").onchange = ustawFormularzPrzesylki;
+$("prz-szukaj").oninput = rysujTabelePrzesylek;
+$("prz-wszystkie").onchange = e => document.querySelectorAll("#prz-lista .prz-wybor").forEach(c => c.checked = e.target.checked);
+$("prz-adresat").addEventListener("change", () => {
+  // Wybrany z podpowiedzi urzad uzupelnia adres z ostatniego wpisu.
+  const w = przWpisy.slice().reverse().find(x => x.adresat === $("prz-adresat").value && x.ulica);
+  if (w && !$("prz-ulica").value) { $("prz-ulica").value = w.ulica; $("prz-kod").value = w.kod; $("prz-miejscowosc").value = w.miejscowosc; }
+});
+$("prz-anuluj-edycje").onclick = () => { wyczyscFormularzPrzesylki(); stan($("stan8"), ""); };
+$("prz-zapisz").onclick = async () => {
+  const odp = await api("/api/przesylki/" + przKsiega + (przEdytowany ? "/" + przEdytowany : ""), {
+    method: przEdytowany ? "PUT" : "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(daneFormularzaPrzesylki())});
+  const w = await odp.json().catch(() => ({}));
+  if (!odp.ok) return stan($("stan8"), typeof w.detail === "string" ? w.detail : "Nie zapisano", true);
+  stan($("stan8"), (przEdytowany ? "Poprawiono pozycję " : "Dodano pozycję ") + w.lp + ".");
+  wyczyscFormularzPrzesylki();
+  await rysujPrzesylki();
+};
+$("prz-koperty").onclick = () => {
+  const pozycje = wybranePrzesylki();
+  if (!pozycje.length) return stan($("stan8b"), "Zaznacz pozycje do druku kopert.", true);
+  otworzPdfPrzesylek("/api/przesylki/" + przKsiega + "/koperty.pdf", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({pozycje, format: $("prz-format").value})}, $("stan8b"));
+};
+$("prz-csv").onclick = async () => {
+  const pozycje = wybranePrzesylki();
+  if (!pozycje.length) return stan($("stan8b"), "Zaznacz listy polecone do eksportu.", true);
+  const odp = await api("/api/przesylki/" + przKsiega + "/e-nadawca.csv", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pozycje})});
+  if (!odp.ok) { const w = await odp.json().catch(() => ({})); return stan($("stan8b"), w.detail || "Nie udało się przygotować pliku", true); }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(await odp.blob()); a.download = "e-nadawca-" + dzisIso() + ".csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  stan($("stan8b"), "Plik zapisany. Zaimportuj go w Elektronicznym Nadawcy (Import przesyłek).");
+};
+$("prz-nadawcza").onclick = () => otworzPdfPrzesylek("/api/przesylki/ksiazka-nadawcza.pdf?dzien=" + encodeURIComponent($("prz-nadawcza-dzien").value), {}, $("stan8b"));
+function adresKsiegiPdf(podglad){
+  const q = new URLSearchParams();
+  if ($("prz-od").value) q.set("od", $("prz-od").value);
+  if ($("prz-do").value) q.set("do", $("prz-do").value);
+  if ($("prz-od-strony").value) q.set("od_strony", $("prz-od-strony").value);
+  if (podglad) q.set("podglad", "1");
+  return "/api/przesylki/" + przKsiega + "/ksiega.pdf?" + q;
+}
+$("prz-podglad").onclick = () => otworzPdfPrzesylek(adresKsiegiPdf(true), {}, $("stan8b"));
+$("prz-drukuj-ksiege").onclick = () => otworzPdfPrzesylek(adresKsiegiPdf(false), {}, $("stan8b"));
+$("prz-zapisz-nadawce").onclick = async () => {
+  const odp = await api("/api/przesylki/ustawienia", {method: "PUT", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({nadawca: $("prz-nadawca").value, adres_nadawcy: $("prz-adres-nadawcy").value})});
+  stan($("stan8c"), odp.ok ? "Zapisano." : "Nie zapisano.", !odp.ok);
+};
 </script>
 <script src="/static/rezerwacje-hurtowe.js"></script>
 <script src="/static/kokpit.js"></script>
