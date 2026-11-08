@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Znajdź notariusza - mapa kancelarii notarialnych - notarai</title>
+<meta name="description" content="Najbliższa kancelaria notarialna na mapie. Włącz lokalizację albo wpisz miejscowość, a pokażemy kancelarie korzystające z notarai, od najbliższej.">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<!-- Leaflet 1.9.4 z tego serwera (static/leaflet), nie z obcego CDN: strona
+     nie wykonuje skryptow spoza notarai. Kafelki mapy pobiera przegladarka
+     z OpenStreetMap. -->
+<link rel="stylesheet" href="/static/leaflet/leaflet.css">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --r:14px; --r2:10px; --naglowek:60px;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+  .leaflet-layer{filter:brightness(.78) contrast(1.05) saturate(.85)}
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+a{color:var(--akcent2)}
+header{height:var(--naglowek);display:flex;align-items:center;gap:14px;padding:0 20px;
+  border-bottom:1px solid var(--linia);background:var(--karta);flex:none}
+.logo{font:600 20px/1 var(--serif);display:flex;align-items:center;gap:10px;color:var(--tekst);text-decoration:none}
+.logo img{width:32px;height:32px;border-radius:8px}
+header .tytul{color:var(--tekst2);font-size:14px;border-left:1px solid var(--linia);padding-left:14px}
+header .prawo{margin-left:auto;font-size:13px;color:var(--tekst3);white-space:nowrap}
+header .prawo a{color:var(--tekst2);text-decoration:none}
+header .prawo a:hover{color:var(--tekst)}
+
+main{flex:1;display:grid;grid-template-columns:400px 1fr;min-height:0}
+aside{display:flex;flex-direction:column;border-right:1px solid var(--linia);background:var(--karta);min-height:0;overflow:auto}
+.panel{padding:20px 20px 12px;border-bottom:1px solid var(--linia);flex:none}
+h1{font:500 22px/1.25 var(--serif);margin:0 0 6px}
+.pod{color:var(--tekst2);font-size:14px;margin:0 0 14px}
+.akcje{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.akcje button{font:500 14px var(--sans);padding:9px 16px;border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;border-radius:var(--r2)}
+.akcje button:hover:not(:disabled){background:var(--akcent2);border-color:var(--akcent2)}
+.akcje button:disabled{opacity:.5;cursor:default}
+.akcje button.wtorny{background:transparent;color:var(--tekst);border-color:var(--linia2)}
+.akcje button.wtorny:hover:not(:disabled){background:var(--tlo2)}
+button:focus-visible,input:focus-visible,.pozycja:focus-visible{outline:2px solid var(--akcent);outline-offset:1px}
+.szukaj{position:relative;margin-top:12px}
+.szukaj input{width:100%;font:inherit;padding:10px 12px 10px 36px;border:1px solid var(--linia2);
+  background:var(--tlo);color:var(--tekst);border-radius:var(--r2)}
+.szukaj::before{content:"⌕";position:absolute;left:12px;top:7px;font-size:19px;color:var(--tekst3)}
+.stan{font-size:13px;color:var(--tekst2);margin:8px 0 0;min-height:1.3em}
+.stan.blad{color:var(--alarm)}
+.stan.ok{color:var(--ok)}
+.wskaz{font-size:12.5px;color:var(--tekst3);margin:6px 0 0}
+
+ol.lista{list-style:none;margin:0;padding:10px 12px 16px;overflow:auto;flex:1;min-height:180px}
+.pozycja{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;width:100%;text-align:left;
+  padding:12px 12px;margin-bottom:8px;border:1px solid var(--linia);border-radius:var(--r2);background:var(--tlo);
+  color:var(--tekst);font:inherit;cursor:pointer}
+.pozycja .nr{grid-column:1}
+.pozycja .tresc{grid-column:2;min-width:0}
+.pozycja .odl{grid-column:3}
+.pozycja:hover{border-color:var(--linia2);background:var(--tlo2)}
+.pozycja.wybrana{border-color:var(--akcent);background:var(--akcent-tlo)}
+.pozycja.najblizsza .nr{background:var(--ok);color:#fff}
+.nr{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--akcent-tlo);
+  color:var(--akcent);font:600 13px var(--sans)}
+.pozycja b{font-weight:600;display:block;font-size:14.5px;line-height:1.35}
+.pozycja small{display:block;color:var(--tekst2);font-size:13px;margin-top:2px}
+.pozycja .adres{color:var(--tekst2)}
+.odl{font-size:13px;color:var(--tekst2);white-space:nowrap;text-align:right}
+.odl b{display:block;font-size:15px;color:var(--tekst)}
+.przyblizone{color:var(--tekst3);font-size:12px}
+.pusto{color:var(--tekst2);font-size:14px;padding:16px 10px;text-align:center}
+.pusto a{display:inline-block;margin-top:6px}
+
+#mapa{min-height:0;background:var(--tlo2)}
+.leaflet-container{font:13px var(--sans)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--karta);color:var(--tekst);box-shadow:0 8px 28px -8px rgba(0,0,0,.35)}
+.leaflet-popup-content{margin:14px 16px;line-height:1.45}
+.leaflet-popup-content b{font-size:14.5px;display:block;margin-bottom:2px}
+.leaflet-popup-content small{display:block;color:var(--tekst2)}
+.leaflet-popup-content .trasa{display:inline-block;margin-top:8px;font-weight:500}
+.leaflet-container a.leaflet-popup-close-button{color:var(--tekst3)}
+.leaflet-bar a{background:var(--karta);color:var(--tekst);border-bottom-color:var(--linia)}
+.leaflet-bar a:hover{background:var(--tlo2)}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--karta) 85%,transparent);color:var(--tekst2)}
+.leaflet-control-attribution a{color:var(--tekst2)}
+/* Pinezki kancelarii rysujemy wlasnym SVG, zeby pasowaly do barw strony. */
+.pin svg path{fill:var(--akcent);stroke:#fff;stroke-width:1.4}
+.pin svg circle{fill:#fff}
+.pin.najblizsza svg path{fill:var(--ok)}
+.pin.wybrana svg path{fill:var(--akcent2)}
+.ja-kropka{background:#2b6cb0;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px rgba(43,108,176,.25)}
+
+footer{flex:none;padding:8px 20px;border-top:1px solid var(--linia);background:var(--karta);
+  color:var(--tekst3);font-size:12.5px;display:flex;gap:6px 18px;flex-wrap:wrap}
+footer a{color:var(--tekst3)}
+
+@media (max-width: 820px){
+  html,body{height:auto;min-height:100%}
+  main{display:flex;flex-direction:column}
+  #mapa{order:-1;height:46vh;flex:none}
+  aside{display:block;border-right:0;border-top:1px solid var(--linia);overflow:visible}
+  ol.lista{overflow:visible;min-height:0}
+  header .tytul,header .prawo span{display:none}
+  .panel{padding:14px 16px 10px}
+  h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="https://notarai.pl"><img src="/static/logo.png" alt="">notarai</a>
+  <span class="tytul">Znajdź notariusza</span>
+  <span class="prawo"><span>Jesteś notariuszem? </span><a href="/rejestracja">Dodaj swoją kancelarię</a></span>
+</header>
+
+<main>
+  <aside>
+    <div class="panel">
+      <h1>Najbliższa kancelaria notarialna</h1>
+      <p class="pod">Kancelarie korzystające z notarai. Wskaż, gdzie jesteś, a ułożymy je od najbliższej, z adresem i trasą dojazdu.</p>
+      <div class="akcje">
+        <button id="btn-lokalizacja">Użyj mojej lokalizacji</button>
+        <button class="wtorny" id="btn-wyczysc" hidden>Wyczyść</button>
+      </div>
+      <p class="stan" id="stan"></p>
+      <div class="szukaj"><input type="search" id="filtr" placeholder="Miejscowość albo nazwa kancelarii" autocomplete="off" aria-label="Filtruj listę kancelarii"></div>
+      <p class="wskaz">Możesz też kliknąć na mapie w miejsce, w którym jesteś.</p>
+    </div>
+    <ol class="lista" id="lista" aria-live="polite"><li class="pusto">Ładuję kancelarie…</li></ol>
+  </aside>
+  <div id="mapa" role="region" aria-label="Mapa kancelarii notarialnych"></div>
+</main>
+
+<footer>
+  <span>Położenie wyznaczamy z adresu podanego przez kancelarię. Przed wizytą potwierdź termin w kancelarii.</span>
+  <span>Twoja lokalizacja zostaje w przeglądarce; nie wysyłamy jej na nasz serwer.</span>
+  <a href="https://notarai.pl/prywatnosc/">Polityka prywatności</a>
+</footer>
+
+<script src="/static/leaflet/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const escape = t => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm = t => String(t || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+const POLSKA = [[49.0, 14.1], [54.9, 24.2]];
+let kancelarie = [], ja = null, wybrana = null, znacznikJa = null;
+const znaczniki = new Map();   // kancelaria -> marker
+
+const mapa = L.map("mapa", {zoomControl: true, attributionControl: true});
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">autorzy OpenStreetMap</a>',
+}).addTo(mapa);
+mapa.fitBounds(POLSKA);
+
+function pinezka(klasy){
+  return L.divIcon({
+    className: "pin " + klasy,
+    html: '<svg viewBox="0 0 24 34" width="28" height="40" aria-hidden="true"><path d="M12 1C6 1 1.5 5.6 1.5 11.5 1.5 19.5 12 33 12 33s10.5-13.5 10.5-21.5C22.5 5.6 18 1 12 1z"/><circle cx="12" cy="11.5" r="4.2"/></svg>',
+    iconSize: [28, 40], iconAnchor: [14, 40], popupAnchor: [0, -36],
+  });
+}
+
+function stan(tekst, klasa){
+  $("stan").textContent = tekst || "";
+  $("stan").className = "stan" + (klasa ? " " + klasa : "");
+}
+
+/* Odleglosc w linii prostej (haversine), w kilometrach. */
+function odleglosc(a, b){
+  const r = 6371.0088, rad = x => x * Math.PI / 180;
+  const df = rad(b.lat - a.lat), dl = rad(b.lon - a.lon);
+  const s = Math.sin(df / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dl / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(s));
+}
+function km(d){ return d < 10 ? d.toFixed(1).replace(".", ",") + " km" : Math.round(d) + " km"; }
+
+/* Trasa w Google Maps - otwiera sie dopiero po kliknieciu, z punktem startu
+   tylko wtedy, gdy klient sam go wskazal. */
+function trasa(k){
+  let adres = "https://www.google.com/maps/dir/?api=1&destination=" + k.lat + "," + k.lon;
+  if (ja) adres += "&origin=" + ja.lat.toFixed(5) + "," + ja.lon.toFixed(5);
+  return adres;
+}
+
+function opisPopup(k){
+  return `<b>${escape(k.nazwa)}</b>
+    ${k.notariusze ? `<small>${escape(k.notariusze)}</small>` : ""}
+    <small>${escape(k.adres)}</small>
+    ${k.dokladnosc === "miejscowosc" ? '<small class="przyblizone">położenie przybliżone (centrum miejscowości)</small>' : ""}
+    ${k.odleglosc != null ? `<small>${km(k.odleglosc)} w linii prostej</small>` : ""}
+    <a class="trasa" href="${trasa(k)}" target="_blank" rel="noopener">Trasa dojazdu ↗</a>`;
+}
+
+function posortowane(){
+  const fraza = norm($("filtr").value.trim());
+  let lista = kancelarie.filter(k => !fraza || norm(k.nazwa + " " + k.adres + " " + k.notariusze).includes(fraza));
+  if (ja) {
+    lista.forEach(k => k.odleglosc = odleglosc(ja, k));
+    lista.sort((a, b) => a.odleglosc - b.odleglosc);
+  } else {
+    lista.forEach(k => k.odleglosc = null);
+    lista.sort((a, b) => a.nazwa.localeCompare(b.nazwa, "pl"));
+  }
+  return lista;
+}
+
+function odswiezZnaczniki(lista){
+  const najblizsza = ja && lista.length ? lista[0] : null;
+  kancelarie.forEach(k => {
+    const m = znaczniki.get(k);
+    const widoczna = lista.includes(k);
+    if (widoczna && !mapa.hasLayer(m)) m.addTo(mapa);
+    if (!widoczna && mapa.hasLayer(m)) m.remove();
+    m.setIcon(pinezka((k === najblizsza ? "najblizsza " : "") + (k === wybrana ? "wybrana" : "")));
+    m.setPopupContent(opisPopup(k));
+  });
+}
+
+function rysuj(){
+  const lista = posortowane();
+  const ol = $("lista");
+  ol.innerHTML = "";
+  if (!kancelarie.length) {
+    ol.innerHTML = '<li class="pusto">Jeszcze żadna kancelaria nie udostępniła swojego położenia.<br>'
+      + '<a href="/rejestracja">Jesteś notariuszem? Dodaj swoją kancelarię</a></li>';
+  } else if (!lista.length) {
+    ol.innerHTML = '<li class="pusto">Żadna kancelaria nie pasuje do wpisanej frazy. Spróbuj samej miejscowości.</li>';
+  }
+  lista.forEach((k, i) => {
+    const li = document.createElement("li");
+    const najblizsza = ja && i === 0;
+    li.innerHTML = `<button type="button" class="pozycja${najblizsza ? " najblizsza" : ""}${k === wybrana ? " wybrana" : ""}">
+      <span class="nr">${i + 1}</span>
+      <span class="tresc"><b>${escape(k.nazwa)}</b>
+        ${k.notariusze ? `<small>${escape(k.notariusze)}</small>` : ""}
+        <small class="adres">${escape(k.adres)}</small>
+        ${k.dokladnosc === "miejscowosc" ? '<small class="przyblizone">położenie przybliżone (centrum miejscowości)</small>' : ""}
+      </span>
+      ${k.odleglosc != null ? `<span class="odl"><b>${km(k.odleglosc)}</b>${najblizsza ? "najbliżej" : ""}</span>` : ""}
+    </button>`;
+    li.querySelector("button").onclick = () => wybierz(k);
+    ol.appendChild(li);
+  });
+  odswiezZnaczniki(lista);
+  return lista;
+}
+
+function wybierz(k){
+  wybrana = k;
+  const m = znaczniki.get(k);
+  mapa.flyTo([k.lat, k.lon], Math.max(mapa.getZoom(), 14), {duration: .6});
+  m.openPopup();
+  rysuj();
+  const el = [...document.querySelectorAll(".pozycja.wybrana")][0];
+  if (el) el.scrollIntoView({block: "nearest", behavior: "smooth"});
+}
+
+function ustawJa(lat, lon, zrodlo){
+  ja = {lat, lon};
+  if (znacznikJa) znacznikJa.remove();
+  znacznikJa = L.marker([lat, lon], {
+    icon: L.divIcon({className: "", html: '<div class="ja-kropka" style="width:18px;height:18px"></div>', iconSize: [18, 18], iconAnchor: [9, 9]}),
+    zIndexOffset: 1000, interactive: false,
+  }).addTo(mapa);
+  $("btn-wyczysc").hidden = false;
+  const lista = rysuj();
+  if (lista.length) {
+    const punkty = [[lat, lon], ...lista.slice(0, 3).map(k => [k.lat, k.lon])];
+    mapa.fitBounds(L.latLngBounds(punkty), {padding: [40, 40], maxZoom: 14});
+    stan(zrodlo === "gps" ? "Twoje położenie ustalone. Najbliższa kancelaria: " + km(lista[0].odleglosc) + "."
+      : "Miejsce wskazane na mapie. Najbliższa kancelaria: " + km(lista[0].odleglosc) + ".", "ok");
+  } else {
+    stan(zrodlo === "gps" ? "Twoje położenie ustalone." : "Miejsce wskazane na mapie.", "ok");
+  }
+}
+
+$("btn-lokalizacja").onclick = () => {
+  if (!navigator.geolocation) return stan("Ta przeglądarka nie udostępnia lokalizacji. Kliknij na mapie w miejsce, w którym jesteś.", "blad");
+  $("btn-lokalizacja").disabled = true;
+  stan("Ustalam Twoje położenie…");
+  navigator.geolocation.getCurrentPosition(
+    p => { $("btn-lokalizacja").disabled = false; ustawJa(p.coords.latitude, p.coords.longitude, "gps"); },
+    () => {
+      $("btn-lokalizacja").disabled = false;
+      stan("Nie udało się ustalić położenia (brak zgody albo sygnału). Kliknij na mapie w miejsce, w którym jesteś, albo wpisz miejscowość.", "blad");
+    },
+    {enableHighAccuracy: false, timeout: 12000, maximumAge: 300000},
+  );
+};
+
+$("btn-wyczysc").onclick = () => {
+  ja = null; wybrana = null;
+  if (znacznikJa) { znacznikJa.remove(); znacznikJa = null; }
+  $("btn-wyczysc").hidden = true;
+  stan("");
+  rysuj();
+  dopasujWidok();
+};
+
+mapa.on("click", e => ustawJa(e.latlng.lat, e.latlng.lng, "mapa"));
+$("filtr").oninput = () => {
+  const lista = rysuj();
+  if (!ja && lista.length && lista.length < kancelarie.length) {
+    mapa.fitBounds(L.latLngBounds(lista.map(k => [k.lat, k.lon])), {padding: [40, 40], maxZoom: 13});
+  }
+};
+
+function dopasujWidok(){
+  if (kancelarie.length) mapa.fitBounds(L.latLngBounds(kancelarie.map(k => [k.lat, k.lon])), {padding: [40, 40], maxZoom: 12});
+  else mapa.fitBounds(POLSKA);
+}
+
+(async () => {
+  try {
+    const odp = await fetch("/api/notariusze");
+    if (!odp.ok) throw new Error();
+    kancelarie = (await odp.json()).kancelarie || [];
+  } catch {
+    $("lista").innerHTML = '<li class="pusto">Nie udało się pobrać listy kancelarii. Odśwież stronę.</li>';
+    return;
+  }
+  kancelarie.forEach(k => {
+    const m = L.marker([k.lat, k.lon], {icon: pinezka(""), title: k.nazwa});
+    m.bindPopup(opisPopup(k));
+    m.on("click", () => { wybrana = k; rysuj(); });
+    znaczniki.set(k, m);
+  });
+  rysuj();
+  dopasujWidok();
+})();
+</script>
+</body>
+</html>
