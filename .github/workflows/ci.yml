@@ -57,7 +57,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($file in @('infra/2-zbuduj-obraz.ps1', 'infra/3-wdroz-aplikacje.ps1', 'infra/wydaj-rezerwacje.ps1', 'infra/strona.ps1', 'infra/wyslij-rezerwacje-bez-pythona.ps1')) {
+          foreach ($file in @('infra/2-zbuduj-obraz.ps1', 'infra/3-wdroz-aplikacje.ps1', 'infra/wydaj-rezerwacje.ps1', 'infra/strona.ps1', 'infra/wyslij-rezerwacje-bez-pythona.ps1', 'infra/publikuj-sekcje-b2b-az.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$parseErrors)
