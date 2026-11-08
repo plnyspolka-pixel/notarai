@@ -84,6 +84,22 @@ class TestZgloszenie:
     def test_tylko_miejscowosc(self, klient):
         odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "pulawy"})
         assert odp.status_code == 201 and "Puławy" in odp.json()["komunikat"]
+        zapis = wizyty._wczytaj()["zgloszenia"][0]
+        assert zapis["baza_id"] == 3 and zapis["przydzial"]["sposob"] == "kolejka"
+        assert "z kolejki" in odp.json()["komunikat"] and "Ewa Bez-Maila" in odp.json()["komunikat"]
+
+    def test_dowolna_kancelaria_po_rowno_bez_wzgledu_na_notarai(self, klient, monkeypatch):
+        """Lublin: kancelaria 1 korzysta z notarai, 2 nie. Kolejka daje obu
+        tyle samo zgloszen; ta spoza notarai trafia do przekazania przez obsluge."""
+        monkeypatch.setattr(wizyty, "limit_zgloszen", wizyty.Limit(100, 100))
+        przydzialy = []
+        for _ in range(6):
+            odp = klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "kancelaria": None, "miejscowosc": "lublin"})
+            assert odp.status_code == 201
+        for z in wizyty._wczytaj()["zgloszenia"]:
+            przydzialy.append(z["baza_id"])
+            assert (z["kancelaria_id"] == "lokalna") == (z["baza_id"] == 1)
+        assert przydzialy.count(1) == przydzialy.count(2) == 3
 
     def test_walidacja(self, klient):
         assert klient.post("/api/wizyty/zgloszenie", json={**ZGLOSZENIE, "zgoda": False}).status_code == 400
@@ -109,8 +125,10 @@ class TestZgloszenie:
         assert "wizyty: zgloszenie" in caplog.text
 
     def test_kancelarie_notarai_w_miejscowosci(self, klient):
-        assert klient.get("/api/wizyty/kancelarie", params={"miejscowosc": "lublin"}).json() == {"miejscowosc": "lublin", "notarai": [1]}
-        assert klient.get("/api/wizyty/kancelarie", params={"miejscowosc": "pulawy"}).json()["notarai"] == []
+        dane = klient.get("/api/wizyty/kancelarie", params={"miejscowosc": "lublin"}).json()
+        assert dane["online"] == [1] and dane["notarai"] == [1]
+        assert sorted(dane["kolejnosc"]) == [1, 2]
+        assert klient.get("/api/wizyty/kancelarie", params={"miejscowosc": "pulawy"}).json()["online"] == []
 
     def test_cors_dla_wizyt(self, klient):
         odp = klient.options("/api/wizyty/zgloszenie", headers={"Origin": "https://notarai.pl",

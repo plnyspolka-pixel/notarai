@@ -294,8 +294,8 @@ class TestRejestracjaNaMapie:
         assert lista[0]["odleglosc_km"] < 1 and 150 < lista[1]["odleglosc_km"] < 157
         # z Warszawy odwrotnie
         assert _publiczne(klient, lat=52.23, lon=21.01)[0]["nazwa"] == "Kancelaria Notarialna Jan Pawlak"
-        # bez polozenia: alfabetycznie, bez odleglosci
-        assert [k["nazwa"] for k in _publiczne(klient)] == [FORMULARZ["nazwa"], "Kancelaria Notarialna Jan Pawlak"]
+        # bez polozenia: neutralna rotacja dzienna (rekomendacje.py), bez odleglosci
+        assert sorted(k["nazwa"] for k in _publiczne(klient)) == [FORMULARZ["nazwa"], "Kancelaria Notarialna Jan Pawlak"]
         assert "odleglosc_km" not in _publiczne(klient)[0]
 
     def test_lat_bez_lon_odrzucone(self, srodowisko):

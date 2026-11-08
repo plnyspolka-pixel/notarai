@@ -123,15 +123,16 @@ $('umow-form').addEventListener('submit', async e => {{
     wynik.hidden = false; wynik.classList.add('blad'); wynik.textContent = 'Brak połączenia. Spróbuj ponownie albo zadzwoń do kancelarii.'; $('u-wyslij').disabled = false;
   }}
 }});
-// Kancelarie korzystajace z notarai: odznaka i miejsce na gorze listy.
+// Neutralna kolejnosc na dzis z API (rekomendacje.py): codzienna rotacja, ta sama
+// dla wszystkich odwiedzajacych. Korzystanie z notarai NIE zmienia miejsca na liscie;
+// dostaje tylko opis, jak kancelaria przyjmie zgloszenie.
 fetch(API + '/api/wizyty/kancelarie?miejscowosc=' + encodeURIComponent(SLUG)).then(r => r.json()).then(d => {{
   const lista = document.getElementById('lista-kancelarii');
-  (d.notarai || []).slice().reverse().forEach(id => {{
+  (d.kolejnosc || []).forEach(id => {{ const el = document.getElementById('k-' + id); if (el) lista.append(el); }});
+  (d.online || []).forEach(id => {{
     const el = document.getElementById('k-' + id); if (!el) return;
-    el.classList.add('klient');
-    const b = document.createElement('span'); b.className = 'notarai'; b.textContent = 'Korzysta z notarai: zgłoszenie trafia od razu do kancelarii';
+    const b = document.createElement('span'); b.className = 'notarai'; b.textContent = 'Zgłoszenie trafia od razu do kancelarii';
     el.querySelector('h3').after(b);
-    lista.prepend(el);
   }});
 }}).catch(() => {{}});
 </script>
@@ -203,7 +204,7 @@ def strona_miejscowosci(m: dict, kancelarie: list[dict], okolice: list[dict], pr
 <section class="sekcja-w" id="kancelarie">
   <div class="szer">
     <h2>Kancelarie notarialne w {esc(miasto)}</h2>
-    <p class="wstep">Kolejność: najpierw kancelarie z potwierdzonymi danymi z wykazu izby. Kancelarie korzystające z notarai dostają zgłoszenie od razu w swojej aplikacji.</p>
+    <p class="wstep">Kolejność listy zmienia się codziennie według tej samej reguły dla każdej kancelarii (rotacja). Nie zależy od tego, czy kancelaria korzysta z notarai ani czy cokolwiek nam płaci; na koniec trafiają tylko kancelarie bez kontaktu w publicznych wykazach. Gdy wybierzesz „dowolną kancelarię”, zgłoszenie przydzielamy z kolejki, po równo dla wszystkich kancelarii w miejscowości.</p>
     <div class="kanc" id="lista-kancelarii">{"".join(karta_kancelarii(k) for k in kancelarie)}</div>
   </div>
 </section>

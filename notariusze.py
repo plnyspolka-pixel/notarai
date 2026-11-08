@@ -31,6 +31,7 @@ from pydantic import BaseModel
 import autoryzacja
 import dziennik
 import platnosci
+import rekomendacje
 
 log = logging.getLogger("pieczapp.notariusze")
 
@@ -185,12 +186,12 @@ def lista(lat: float | None = None, lon: float | None = None):
     if lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise HTTPException(400, "Wspolrzedne poza zakresem.")
     kancelarie = [_wizytowka(w) for w in autoryzacja._wczytaj_rejestr().values() if publikowana(w)]
-    if lat is None:
-        kancelarie.sort(key=lambda k: k["nazwa"].lower())
-    else:
+    if lat is not None:
         for k in kancelarie:
             k["odleglosc_km"] = round(odleglosc_km(lat, lon, k["lat"], k["lon"]), 1)
-        kancelarie.sort(key=lambda k: (k["odleglosc_km"], k["nazwa"].lower()))
+    # Neutralna kolejnosc: pasma odleglosci, w pasmie codzienna rotacja
+    # (rekomendacje.py). Bez alfabetu, ktory stale faworyzuje nazwy na "A".
+    kancelarie = rekomendacje.kolejnosc(kancelarie, kontekst="mapa", klucz_id="nazwa")
     return {"kancelarie": kancelarie}
 
 

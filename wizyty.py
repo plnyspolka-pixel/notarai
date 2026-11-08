@@ -34,6 +34,7 @@ import autoryzacja
 import dziennik
 import kalendarz
 import magazyn
+import rekomendacje
 import taksa
 from kalkulator import Limit
 
@@ -345,10 +346,13 @@ def zgloszenie(dane: Zgloszenie, request: Request):
     z = _sprawdz_zgloszenie(dane)
     limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
                            "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
-    if z["baza_id"] is not None:
-        z["kancelaria_id"] = kancelarie_notarai().get(z["baza_id"])
+    klienci = kancelarie_notarai()
 
     def dodaj(d):
+        if z["baza_id"] is None:
+            _przydziel(z, d["zgloszenia"])
+        if z["baza_id"] is not None:
+            z["kancelaria_id"] = klienci.get(z["baza_id"])
         d["zgloszenia"].append(z)
         return z
     _zmien(dodaj)
@@ -371,18 +375,43 @@ def zgloszenie(dane: Zgloszenie, request: Request):
     else:
         komunikat = (f"Zgłoszenie przyjęte. Dobierzemy kancelarię w miejscowości {z['miejscowosc_nazwa']} "
                      "i potwierdzimy kontakt.")
+    if z.get("przydzial"):
+        komunikat = (f"Kancelarię w miejscowości {z['miejscowosc_nazwa']} dobraliśmy z kolejki, po równo dla "
+                     f"wszystkich kancelarii: {z['kancelaria_nazwa']}. "
+                     + ("Kancelaria korzysta z notarai i skontaktuje się z Tobą, żeby potwierdzić termin."
+                        if z["kancelaria_id"] else "Przekażemy jej zgłoszenie i potwierdzimy kontakt."))
     return {"id": z["id"], "notarai": bool(z["kancelaria_id"]), "komunikat": komunikat}
+
+
+def _przydziel(z: dict, wczesniejsze: list[dict]) -> None:
+    """Klient nie wybral kancelarii: kolejka po rowno dla wszystkich kancelarii
+    w miejscowosci, bez wzgledu na to, czy korzystaja z notarai
+    (rekomendacje.przydziel). Wywolywane pod blokada zapisu pliku zgloszen."""
+    b = baza()
+    kandydaci = [i for i in b["wg_miejscowosci"].get(z["miejscowosc"], [])
+                 if not b["kancelarie"][i].get("brak_kontaktu")]
+    wybrana = rekomendacje.przydziel(kandydaci, wczesniejsze, z["miejscowosc"])
+    if wybrana is None:
+        return
+    z["baza_id"] = wybrana
+    z["kancelaria_nazwa"] = b["kancelarie"][wybrana]["nazwa"]
+    z["przydzial"] = {"sposob": "kolejka", "wersja": rekomendacje.WERSJA, "kandydaci": len(kandydaci)}
 
 
 @router.get("/kancelarie")
 def kancelarie_w_miejscowosci(miejscowosc: str = ""):
-    """Ktore kancelarie z tej miejscowosci korzystaja z notarai (strona
-    oznacza je i stawia na gorze listy)."""
+    """Kolejnosc kancelarii na stronie miejscowosci na dzis (neutralna,
+    rekomendacje.kolejnosc) i ktore przyjmuja zgloszenia od razu w aplikacji.
+    To drugie jest informacja dla klienta, jak zostanie obsluzony; nie
+    zmienia miejsca kancelarii na liscie."""
     b = baza()
     slug = _linia(miejscowosc, 80).lower()
     identyfikatory = b["wg_miejscowosci"].get(slug, [])
     klienci = kancelarie_notarai()
-    return {"miejscowosc": slug, "notarai": [i for i in identyfikatory if i in klienci]}
+    lista = rekomendacje.kolejnosc([b["kancelarie"][i] for i in identyfikatory], kontekst=slug)
+    online = [i for i in identyfikatory if i in klienci]
+    return {"miejscowosc": slug, "kolejnosc": [k["id"] for k in lista], "online": online,
+            "notarai": online, "zasady": rekomendacje.WERSJA}
 
 
 # --- API kancelarii ----------------------------------------------------------
