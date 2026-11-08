@@ -195,6 +195,27 @@ Resources:
                   Resource: !Ref StripeSekretArn
           - !Ref AWS::NoValue
 
+        - !If
+          - MamyApify
+          - PolicyName: sekret-apify
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref ApifySekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyFinyou
+          - PolicyName: sekret-finyou
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref FinyouSekretArn
+          - !Ref AWS::NoValue
+
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
   RolaZadania:
     Type: AWS::IAM::Role
