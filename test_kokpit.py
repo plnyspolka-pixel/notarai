@@ -148,3 +148,9 @@ def test_modules_use_existing_authorized_navigation():
     assert "element.click(); // Wykorzystuje dotychczasowe kontrole" in DASHBOARD
     assert "button.hidden = !element || element.hidden" in DASHBOARD
     assert ".kokpit-module[hidden] { display:none!important; }" in CSS
+
+
+def test_same_user_token_refresh_does_not_clear_ongoing_work():
+    assert 'function tozsamoscTokena(t){' in HTML
+    assert 'ladunek["custom:kancelaria"]' in HTML
+    assert "nowaTozsamosc === staraTozsamosc) return;" in HTML
