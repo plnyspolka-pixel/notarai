@@ -91,3 +91,17 @@ def test_accessibility_and_responsive_styles():
     assert "@media(prefers-reduced-motion:reduce)" in CSS
     assert "kokpit-widoczny" in CSS
     assert "focus-visible" in CSS
+
+
+def test_dashboard_menu_can_be_collapsed_again():
+    # Przycisk musi być widoczny również po rozwinięciu sidebara.
+    assert "body.kokpit-widoczny > aside .kokpit-menu-toggle { display:flex; }" in CSS
+    assert "body.kokpit-widoczny:not(.kokpit-aside-expanded) > aside .kokpit-menu-toggle { display:flex; }" not in CSS
+
+
+def test_previous_session_data_cannot_repopulate_dashboard():
+    assert "function wyczyscDanePoWylogowaniu()" in HTML
+    assert "sprawyLista = [];" in HTML
+    assert "const pobranePokolenie = pokolenieSesji;" in HTML
+    assert HTML.count("if (pobranePokolenie !== pokolenieSesji) return;") >= 3
+    assert "function otworzBrame(komunikat){\n  wyczyscDanePoWylogowaniu();" in HTML
