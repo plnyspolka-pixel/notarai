@@ -127,6 +127,20 @@
 
   // Called by the existing rysujListeSpraw() after data was read from
   // /api/sprawy OR from the explicitly selected local folder.
+  window.resetujKokpit = function () {
+    state.cases = [];
+    state.query = "";
+    state.filter = "all";
+    state.all = false;
+    state.loaded = false;
+    state.issue = "";
+    if (node("kokpit-search")) node("kokpit-search").value = "";
+    node("kokpit-filters")?.querySelectorAll("button[data-filter]").forEach(b => {
+      b.setAttribute("aria-pressed", String(b.dataset.filter === "all"));
+    });
+    renderCases();
+  };
+
   window.odswiezKokpit = function (cases, issue="") {
     state.cases = Array.isArray(cases) ? cases.filter(x => x && x.id) : [];
     state.issue = String(issue || "");
