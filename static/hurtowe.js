@@ -166,8 +166,15 @@
       ? (state.slot ? "Potwierdź zmianę na " + state.slot : "Wybierz nową godzinę")
       : (state.slot ? "Rezerwuj wizytę o " + state.slot : "Wybierz godzinę, aby zarezerwować");
   }
-  for(const id of ["rodzaj","telefon","uczestnicy","numer-sprawy"])
+  for(const id of ["rodzaj","rodzaj-inny","telefon","uczestnicy","numer-sprawy"])
     $(id).addEventListener("input", changed);
+  function toggleOther(){
+    const other = $("rodzaj").value === "inne";
+    show("wiersz-rodzaj-inny", other);
+    $("rodzaj-inny").required = other;
+  }
+  $("rodzaj").addEventListener("change",toggleOther);
+  toggleOther();
   $("form-rezerwacja").addEventListener("submit",async e => {
     e.preventDefault();
     if(!state.office || !state.slot) return;
@@ -196,6 +203,7 @@
           body:JSON.stringify({
             kancelaria:office,data:date,godzina:time,rodzaj:$("rodzaj").value,
             uczestnicy:$("uczestnicy").value.trim(),telefon:$("telefon").value.trim(),
+            rodzaj_inny:$("rodzaj-inny").value.trim(),
             zewnetrzne_id:$("numer-sprawy").value.trim(),
             idempotency_key:state.idem,potwierdzam:true
           })
@@ -206,6 +214,7 @@
       state.slot = "";
       show("anuluj-przenoszenie",false);
       $("form-rezerwacja").reset();
+      toggleOther();
       $("btn-rezerwuj").textContent = "Wybierz godzinę, aby zarezerwować";
       status("rezerwacja-stan","Spotkanie potwierdzone. Numer: "+result.id,"success");
       await Promise.all([loadBookings(),loadSlots()]);
@@ -257,6 +266,8 @@
           $("dzien").value=w.data;
           $("uczestnicy").value=w.uczestnicy||"";
           $("rodzaj").value=w.rodzaj||"sprzedaż";
+          $("rodzaj-inny").value=w.rodzaj_inny||"";
+          toggleOther();
           $("telefon").value=w.telefony?.[0]?.numer||"";
           $("numer-sprawy").value=w.zewnetrzne_id||"";
           show("anuluj-przenoszenie",true);
@@ -290,6 +301,7 @@
     state.editing=null;
     state.slot="";
     $("form-rezerwacja").reset();
+    toggleOther();
     show("anuluj-przenoszenie",false);
     updateReserveButton();
     renderSlots();
