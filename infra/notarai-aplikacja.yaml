@@ -108,6 +108,17 @@ Parameters:
     Description: >-
       Czy notariusz moze sam zalozyc konto pod /rejestracja (z akceptacja
       Regulaminu i umowy powierzenia). false = konta zaklada tylko administrator.
+  EmailNadawcy:
+    Type: String
+    Default: ""
+    Description: >-
+      Nadawca e-maili o zgloszeniach wizyt (np. "notarai <zapytania@notarai.pl>").
+      Adres albo domena musi byc zweryfikowana w Amazon SES w tym regionie,
+      a konto SES poza piaskownica. Pusto = bez wysylki (zgloszenia widac w aplikacji i panelu).
+  EmailZgloszen:
+    Type: String
+    Default: ""
+    Description: Adres obslugi notarai, na ktory idzie kopia kazdego zgloszenia wizyty (pusto = bez kopii).
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
@@ -119,6 +130,7 @@ Conditions:
   MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
+  MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -237,6 +249,19 @@ Resources:
                     - cognito-idp:AdminCreateUser
                     - cognito-idp:AdminDeleteUser
                   Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${PulaLogowania}"
+          - !Ref AWS::NoValue
+
+        # E-maile o zgloszeniach wizyt (wizyty.py) przez SES - tylko z tozsamosci tego konta.
+        - !If
+          - MamyNadawce
+          - PolicyName: wysylka-email
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - ses:SendEmail
+                  Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*"
           - !Ref AWS::NoValue
 
   # ---------------- siec ----------------
@@ -416,6 +441,10 @@ Resources:
               Value: !Ref StripeCena
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
+            - Name: PIECZAPP_EMAIL_NADAWCA
+              Value: !Ref EmailNadawcy
+            - Name: PIECZAPP_EMAIL_ZGLOSZEN
+              Value: !Ref EmailZgloszen
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
           Secrets:

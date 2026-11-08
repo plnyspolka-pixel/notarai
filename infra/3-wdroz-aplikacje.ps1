@@ -22,7 +22,10 @@ param(
     [string]$StripeCena = "price_1UTzcA4iRvhgqNnm2sgVZWBh",
     # Adres API Finance You (dostawca tresci ksiag wieczystych); uzywany, gdy
     # istnieje sekret notarai/finyou.
-    [string]$FinyouAdres = "https://finyou.pl"
+    [string]$FinyouAdres = "https://finyou.pl",
+    # Powiadomienia o zapytaniach - tylko po weryfikacji tozsamosci SES.
+    [string]$EmailNadawcy = "",
+    [string]$EmailZgloszen = ""
 )
 $ErrorActionPreference = "Stop"
 $korzen = Split-Path -Parent $PSScriptRoot
@@ -127,6 +130,10 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/finyou) {
 } else {
     Write-Host "   ksiegi z EKW przez Finance You: brak sekretu notarai/finyou" -ForegroundColor Yellow
 }
+
+# SES: wlacz dopiero po weryfikacji adresu lub domeny i wyjsciu z sandbox.
+if ($EmailNadawcy) { $parametry += "EmailNadawcy=$EmailNadawcy" }
+if ($EmailZgloszen) { $parametry += "EmailZgloszen=$EmailZgloszen" }
 
 Write-Host "== Stos notarai-aplikacja (zwykle 5-10 minut przy pierwszym wdrozeniu)" -ForegroundColor Cyan
 Uruchom-Aws cloudformation deploy --stack-name notarai-aplikacja `

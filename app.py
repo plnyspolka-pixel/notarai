@@ -30,10 +30,12 @@ import dokumenty_prawne
 import ekw
 import formularze
 import kalendarz
+import kalkulator
 import krz
 import urzadzenia
 import zlecenia
 import magazyn
+import notariusze
 import autoryzacja
 import nazwy
 import osoby
@@ -41,6 +43,7 @@ import prompty
 import rejestracja
 import rejestry
 import rezerwacje_hurtowe
+import wizyty
 import transkrypcja
 import walidacja
 
@@ -69,6 +72,16 @@ app.include_router(rezerwacje_hurtowe.router_biuro)
 app.include_router(rezerwacje_hurtowe.router_partner)
 app.include_router(rezerwacje_hurtowe.router_admin)
 app.include_router(rezerwacje_hurtowe.router_mcp)
+# Narzędzia klientów — publiczny kalkulator i składanie zgłoszeń,
+# autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
+app.include_router(kalkulator.router)
+app.include_router(wizyty.router)
+app.include_router(wizyty.router_zapytan)
+app.include_router(wizyty.router_admina)
+app.include_router(notariusze.router)
+app.include_router(notariusze.router_kancelarii)
+app.include_router(notariusze.router_admina)
+app.middleware("http")(kalkulator.cors)
 
 
 @app.exception_handler(Exception)
@@ -125,6 +138,20 @@ def dokument_publiczny(nazwa: str):
     if nazwa not in ("regulamin", "umowa", "prywatnosc", "instrukcja"):
         raise HTTPException(404, "Nie ma takiego dokumentu.")
     return dokumenty_prawne.strona(nazwa)
+
+
+
+@app.get("/notariusze", response_class=HTMLResponse)
+def strona_mapy_kancelarii():
+    """Publiczna mapa kancelarii, ktore wlaczyly publikacje adresu."""
+    return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
+
+
+@app.get("/kalkulator", response_class=HTMLResponse)
+def strona_kalkulatora():
+    """Kalkulator taksy bez koniecznosci logowania."""
+    strona = (Path(__file__).parent / "strona" / "kalkulator" / "index.html").read_text("utf-8")
+    return strona.replace('"../logo-mark.svg"', '"/static/notarai-symbol.svg"')
 
 
 @app.get("/", response_class=HTMLResponse)

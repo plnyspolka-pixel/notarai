@@ -148,3 +148,49 @@ aside .kokpit-menu-toggle .kokpit-icon { width:21px; height:21px; fill:none; str
  #kokpit .kokpit-module:hover { background:#1b3865!important; }
  #kokpit .kokpit-module small { color:#a7bad6; }
 }
+
+/* Customer intake and appointment flow in the functional dashboard. */
+#kokpit .kokpit-client-bar {
+ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:17px;
+ margin:0 0 20px; padding:19px 23px; border:1px solid #d0e2f6; border-radius:19px;
+ background:linear-gradient(115deg,#ffffff 20%,#eaf4ff 100%);
+ box-shadow:0 14px 40px -30px rgba(20,60,135,.25);
+}
+#kokpit .kokpit-client-bar__text { min-width:180px; flex:1; }
+#kokpit .kokpit-client-bar__eyebrow {
+ display:block; margin-bottom:7px; font-size:10px; font-weight:850;
+ letter-spacing:.12em; text-transform:uppercase; color:#147ec7;
+}
+#kokpit .kokpit-client-bar__text strong {
+ display:block; color:#0b2557; font-size:15px; line-height:1.4;
+}
+#kokpit .kokpit-client-bar__text small {
+ display:block; margin-top:5px; font-size:11px; color:#5b789f; line-height:1.55;
+}
+#kokpit .kokpit-client-bar__actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
+#kokpit .kokpit-client-bar__actions .kokpit-client-bar__primary,
+#kokpit .kokpit-client-bar__actions .kokpit-client-bar__link {
+ display:inline-flex; align-items:center; justify-content:center; padding:10px 14px;
+ border-radius:10px; font:750 12px Montserrat,"Segoe UI",sans-serif; text-decoration:none;
+ transition:filter .15s; cursor:pointer; white-space:nowrap; margin:0;
+}
+#kokpit .kokpit-client-bar__primary {
+ background:linear-gradient(120deg,#1d35ac,#158ecf)!important; color:white!important;
+ border:1px solid transparent!important; box-shadow:0 10px 20px -12px #2b72cbbb!important;
+}
+#kokpit .kokpit-client-bar__link {
+ background:white!important; color:#174f9e!important;
+ border:1px solid #bed8f3!important; box-shadow:none!important;
+}
+#kokpit .kokpit-client-bar__actions .kokpit-client-bar__link:hover { background:#f1f8ff!important; }
+#kokpit .kokpit-client-bar__actions .kokpit-client-bar__primary:hover { filter:brightness(1.07); }
+@media (max-width:640px) {
+ #kokpit .kokpit-client-bar {padding:17px 16px;}
+ #kokpit .kokpit-client-bar__actions {width:100%;}
+ #kokpit .kokpit-client-bar__actions > * {flex:1 1 100%;white-space:normal!important;}
+}
+@media(prefers-color-scheme:dark){
+ #kokpit .kokpit-client-bar { background:linear-gradient(120deg,#11274e,#1c345e); border-color:#294a80; }
+ #kokpit .kokpit-client-bar__text strong {color:#eaf4ff;}
+ #kokpit .kokpit-client-bar__text small {color:#b8cbe8;}
+}

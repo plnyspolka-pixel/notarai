@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>notarai - asystent kancelarii notarialnej</title>
-<meta name="description" content="NotarAI dla kancelarii notarialnych: AI odczytuje skany, przygotowuje projekty aktów na Twoich wzorach i pomaga w obsłudze rejestrów. Notariusz zachowuje pełną kontrolę.">
+<meta name="description" content="NotarAI: pomocnik kancelarii i narzędzia dla klientów. Kalkulator kosztów notarialnych, wyszukiwarka notariuszy i zgłoszenia wizyt.">
 <meta name="theme-color" content="#071d49">
 <link rel="icon" type="image/svg+xml" href="logo-mark.svg">
 <link rel="stylesheet" href="style.css">
@@ -38,9 +38,10 @@
     </a>
 
     <nav id="brand-primary-nav" class="brand-nav" aria-label="Nawigacja główna">
+      <a href="#dla-klientow">Dla klientów</a>
+      <a href="#hurtowe">Rezerwacje B2B</a>
       <a href="#klikamy">Rozwiązania</a>
       <a href="#latwo">Jak to działa</a>
-      <a href="#hurtowe">Rezerwacje B2B</a>
       <a href="#dane">Bezpieczeństwo</a>
       <a href="#cennik">Cennik</a>
       <a href="#kontakt">Kontakt</a>
@@ -191,30 +192,6 @@
         <h3>Twój komputer, Twoja sesja</h3>
         <p>Pomocnik działa na Windows w kancelarii. Łączysz go z kontem jednym kodem i niczego nie otwierasz na zewnątrz.</p>
       </article>
-    </div>
-  </div>
-</section>
-
-<!-- REZERWACJE B2B -->
-<section id="hurtowe" class="sekcja brand-booking" aria-labelledby="hurtowe-tytul">
-  <div class="szer brand-booking__layout">
-    <div>
-      <p class="znacznik">Nowość · dla klientów hurtowych</p>
-      <h2 id="hurtowe-tytul">Umawianie wizyt notarialnych przez API i MCP</h2>
-      <p class="wstep">Biura nieruchomości, deweloperzy, kancelarie prawne i firmy obsługujące wiele transakcji mogą rezerwować spotkania bez wymiany maili i telefonów. NotarAI pokazuje dostępność tylko tych kancelarii, które wyraziły zgodę na przyjmowanie rezerwacji B2B.</p>
-      <div class="brand-booking__actions">
-        <a class="brand-btn brand-btn--primary" href="https://app.notarai.pl/hurtowe">Przejdź do rezerwacji partnera
-          <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
-        </a>
-        <a class="brand-btn brand-btn--secondary" href="mailto:kontakt@notarai.pl?subject=Dostep%20hurtowy%20API%20MCP">Uzyskaj dostęp B2B</a>
-      </div>
-      <p class="brand-booking__note">Dostęp wyłącznie dla autoryzowanych firm. W panelu partnera potrzebny jest indywidualny klucz API.</p>
-    </div>
-    <div class="brand-booking__features" aria-label="Funkcje rezerwacji">
-      <article><span>01</span><div><h3>Wolne terminy w jednym miejscu</h3><p>Wyszukaj kancelarię i zobacz dostępne godziny bez ujawniania cudzych rezerwacji.</p></div></article>
-      <article><span>02</span><div><h3>Potwierdzenie bez telefonu</h3><p>Wybierz termin. Rezerwacja trafia bezpośrednio do kalendarza kancelarii.</p></div></article>
-      <article><span>03</span><div><h3>Integracja z Twoim systemem</h3><p>REST API, obsługa agentów AI przez MCP oraz zmiana i odwoływanie własnych wizyt.</p></div></article>
-      <article><span>04</span><div><h3>Kontrola po stronie notariusza</h3><p>Kancelaria wybiera godziny, długość wizyt i w każdej chwili może wyłączyć dostęp B2B.</p></div></article>
     </div>
   </div>
 </section>
@@ -417,6 +394,84 @@
   </div>
 </section>
 
+<!-- Public tools and lead generation built in separate customer-facing modules. -->
+<section id="dla-klientow" class="sekcja klient-sekcja">
+  <div class="szer">
+    <p class="znacznik">Dla klientów kancelarii · bez logowania</p>
+    <h2>Od pytania o koszt do wizyty u notariusza</h2>
+    <p class="wstep">Sprawdź orientacyjny koszt czynności, przygotuj dokumenty i wybierz kancelarię, do której wyślesz zapytanie. Każda prośba o wizytę wymaga potwierdzenia przez kancelarię.</p>
+    <div class="siatka klient-grid">
+      <article class="karta klient-karta">
+        <span class="klient-nr">01</span>
+        <h3>Policz koszt czynności</h3>
+        <p>Taksa, wypisy, PCC i opłaty sądowe. Opisz sprawę asystentowi AI lub skorzystaj z formularza.</p>
+        <a class="klient-link" href="kalkulator/">Otwórz bezpłatny kalkulator <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">02</span>
+        <h3>Znajdź kancelarię</h3>
+        <p>Wykaz kancelarii według miejscowości, informacje kontaktowe i przydatne wskazówki przed wizytą.</p>
+        <a class="klient-link" href="notariusz/">Znajdź notariusza w swojej okolicy <span aria-hidden="true">→</span></a>
+        <a class="klient-link" href="https://app.notarai.pl/notariusze">Zobacz interaktywną mapę kancelarii NotarAI <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">03</span>
+        <h3>Wyślij prośbę o wizytę</h3>
+        <p>Wybierz kancelarię, opisz czynność i podaj kontakt. Kancelaria oddzwoni lub potwierdzi proponowany termin.</p>
+        <a class="klient-link" href="notariusz/">Wybierz kancelarię i wyślij zapytanie <span aria-hidden="true">→</span></a>
+      </article>
+    </div>
+    <div class="klient-info">
+      <div><strong>Przygotuj się przed spotkaniem</strong><p>Zobacz wyjaśnienia dotyczące dokumentów i kosztów czynności w naszym poradniku.</p></div>
+      <a class="przycisk drugi" href="blog/">Czytaj poradniki</a>
+    </div>
+  </div>
+</section>
+<section class="sekcja klient-konwersja tlo2">
+  <div class="szer cennik">
+    <div>
+      <p class="znacznik">Dla kancelarii notarialnych</p>
+      <h2>Zapytania klientów bezpośrednio w panelu</h2>
+      <p class="wstep">Kiedy klient wybierze kancelarię korzystającą z NotarAI, jego zapytanie trafi do panelu „Zapytania klientów”. Możesz oddzwonić, ustalić termin, a zaakceptowaną wizytę dodać do kalendarza.</p>
+      <p class="przypis">Zgłoszenie jest prośbą o kontakt, nie automatyczną rezerwacją. Powiadomienia e-mail zależą od konfiguracji poczty.</p>
+    </div>
+    <div class="karta klient-cta">
+      <h3>Jeden system od pierwszego kontaktu do aktu</h3>
+      <ul>
+        <li>Zapytania i statusy kontaktu</li>
+        <li>Kalendarz i telefony stron czynności</li>
+        <li>Odczyt skanów i projekt dokumentu Word</li>
+        <li>Asystent rejestrów z kontrolą notariusza</li>
+      </ul>
+      <a class="przycisk pelny" href="https://app.notarai.pl/rejestracja">Załóż konto kancelarii</a>
+    </div>
+  </div>
+</section>
+
+<!-- REZERWACJE B2B -->
+<section id="hurtowe" class="sekcja brand-booking" aria-labelledby="hurtowe-tytul">
+  <div class="szer brand-booking__layout">
+    <div>
+      <p class="znacznik">Nowość · dla klientów hurtowych</p>
+      <h2 id="hurtowe-tytul">Umawianie wizyt notarialnych przez API i MCP</h2>
+      <p class="wstep">Biura nieruchomości, deweloperzy, kancelarie prawne i firmy obsługujące wiele transakcji mogą rezerwować spotkania bez wymiany maili i telefonów. NotarAI pokazuje dostępność tylko tych kancelarii, które wyraziły zgodę na przyjmowanie rezerwacji B2B.</p>
+      <div class="brand-booking__actions">
+        <a class="brand-btn brand-btn--primary" href="https://app.notarai.pl/hurtowe">Przejdź do rezerwacji partnera
+          <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+        </a>
+        <a class="brand-btn brand-btn--secondary" href="mailto:kontakt@notarai.pl?subject=Dostep%20hurtowy%20API%20MCP">Uzyskaj dostęp B2B</a>
+      </div>
+      <p class="brand-booking__note">Dostęp wyłącznie dla autoryzowanych firm. W panelu partnera potrzebny jest indywidualny klucz API.</p>
+    </div>
+    <div class="brand-booking__features" aria-label="Funkcje rezerwacji">
+      <article><span>01</span><div><h3>Wolne terminy w jednym miejscu</h3><p>Wyszukaj kancelarię i zobacz dostępne godziny bez ujawniania cudzych rezerwacji.</p></div></article>
+      <article><span>02</span><div><h3>Potwierdzenie bez telefonu</h3><p>Wybierz termin. Rezerwacja trafia bezpośrednio do kalendarza kancelarii.</p></div></article>
+      <article><span>03</span><div><h3>Integracja z Twoim systemem</h3><p>REST API, obsługa agentów AI przez MCP oraz zmiana i odwoływanie własnych wizyt.</p></div></article>
+      <article><span>04</span><div><h3>Kontrola po stronie notariusza</h3><p>Kancelaria wybiera godziny, długość wizyt i w każdej chwili może wyłączyć dostęp B2B.</p></div></article>
+    </div>
+  </div>
+</section>
+
 <!-- CENNIK -->
 <section id="cennik" class="sekcja">
   <div class="szer cennik">
@@ -460,11 +515,13 @@
         <span class="brand-logo__word">notar<strong>ai</strong></span>
       </a>
       <nav class="brand-footer__links" aria-label="Dokumenty i kontakt">
+        <a href="kalkulator/">Kalkulator</a>
+        <a href="notariusz/">Kancelarie notarialne</a>
+        <a href="blog/">Poradniki</a>
         <a href="regulamin/">Regulamin</a>
         <a href="umowa-powierzenia/">Umowa powierzenia</a>
         <a href="instrukcja-ai/">Instrukcja AI</a>
         <a href="prywatnosc/">Polityka prywatności</a>
-        <a href="https://app.notarai.pl/hurtowe">Rezerwacje dla firm</a>
         <a href="mailto:kontakt@notarai.pl">Kontakt</a>
       </nav>
     </div>

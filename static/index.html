@@ -611,6 +611,8 @@ notarai</div>
     <span id="gdzie-dane">Sprawdzam, gdzie zapisywane są dane…</span>
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
     <div class="kto" id="kto" hidden></div>
+    <a class="wyloguj" id="link-kalkulator" href="/kalkulator" target="_blank" rel="noopener" style="text-decoration:none">Kalkulator taksy</a>
+    <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
     <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
@@ -634,7 +636,19 @@ notarai</div>
     <button id="kokpit-new" class="kokpit-new" type="button">+ Nowa sprawa</button>
   </div>
  </header>
- <div class="kokpit-grid">
+ <div class="kokpit-client-bar" aria-label="Obsługa klientów kancelarii" hidden>
+  <div class="kokpit-client-bar__text">
+    <span class="kokpit-client-bar__eyebrow">Klienci kancelarii</span>
+    <strong>Zapytania, koszty i wizyty w jednym miejscu</strong>
+    <small id="kokpit-lead-count" aria-live="polite">Zaloguj się, aby zobaczyć zapytania.</small>
+  </div>
+  <div class="kokpit-client-bar__actions">
+    <button id="kokpit-open-leads" type="button" class="kokpit-client-bar__primary">Zapytania klientów</button>
+    <a href="/kalkulator" target="_blank" rel="noopener" class="kokpit-client-bar__link">Kalkulator taksy</a>
+    <button id="kokpit-open-calendar" type="button" class="kokpit-client-bar__link">Kalendarz</button>
+  </div>
+</div>
+<div class="kokpit-grid">
   <div class="kokpit-box">
    <div class="kokpit-section-head"><h2>Moje sprawy</h2><span id="kokpit-counter" class="kokpit-counter" aria-live="polite">Wczytywanie</span></div>
    <div class="kokpit-tools">
@@ -1201,6 +1215,15 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="kr-zamknij">Później</button></div>
 </dialog>
 
+<!-- Zapytania klientow: zgloszenia ze strony notarai.pl (wykaz kancelarii
+     i kalkulator). Kancelaria umawia termin - wpis trafia do kalendarza. -->
+<dialog class="okno" id="okno-zapytania">
+  <h2>Zapytania klientów</h2>
+  <p>Klienci, którzy przez notarai.pl poprosili o wizytę w tej kancelarii. Umówiony termin trafia do kalendarza razem z telefonem klienta.</p>
+  <div id="zapytania-lista"></div>
+  <div class="dol"><span class="stan" id="stan-zapytania"></span><button class="wtorny" id="btn-zamknij-zapytania">Zamknij</button></div>
+</dialog>
+
 <dialog class="okno" id="okno-hurtowe" aria-labelledby="hurtowe-tytul">
   <h2 id="hurtowe-tytul">Terminy dla klientów hurtowych</h2>
   <p>Kancelaria decyduje, czy zewnętrzni partnerzy API/MCP mogą rezerwować wolne godziny.
@@ -1332,6 +1355,15 @@ notarai</div>
       <button class="wtorny" id="btn-dane-anuluj">Anuluj</button></div>
   </div>
   <div class="dol"><button class="wtorny" id="btn-dane-zmien" hidden>Zmień dane kancelarii</button></div>
+  <!-- Mapa notariuszy: publiczna wyszukiwarka najblizszej kancelarii
+       (/notariusze) dla klientow. Polozenie wyznacza serwer z adresu
+       kancelarii; wlasciciel moze kancelarie z mapy zdjac. -->
+  <h2 style="margin-top:22px">Mapa notariuszy</h2>
+  <p id="mapa-opis"></p>
+  <label class="zgoda" id="mapa-zgoda" hidden><input type="checkbox" id="mapa-na-mapie">
+    <span>Pokazuj kancelarię w publicznej wyszukiwarce najbliższego notariusza: nazwa kancelarii, notariusze i adres. Bez adresów e-mail i NIP.</span></label>
+  <div class="dol"><button class="wtorny" id="btn-mapa-otworz">Zobacz mapę</button>
+    <button class="wtorny" id="btn-mapa-odswiez" hidden>Wyznacz położenie ponownie</button></div>
   <div class="dol"><button id="btn-komplet-okno">Pobierz komplet</button><small>Wszystkie dokumenty po kolei w jednym pliku, z datami akceptacji. Zachowaj go w dokumentacji RODO kancelarii.</small></div>
   <div class="dol"><span class="stan" id="stan-dokumenty"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-dokumenty">Zamknij</button></div>
@@ -1528,6 +1560,18 @@ function pokazWidok(nazwa){
 }
 
 function wyczyscDanePoWylogowaniu(){
+  const btnHurtowe = document.getElementById("btn-hurtowe");
+  if (btnHurtowe) btnHurtowe.hidden = true;
+  const dlgHurtowe = document.getElementById("okno-hurtowe");
+  if (dlgHurtowe?.open) dlgHurtowe.close();
+  const btnKlienci = document.getElementById("btn-zapytania");
+  if (btnKlienci) btnKlienci.hidden = true;
+  const pasekKlienci = document.querySelector(".kokpit-client-bar");
+  if (pasekKlienci) pasekKlienci.hidden = true;
+  const oknoKlienci = document.getElementById("okno-zapytania");
+  if (oknoKlienci?.open) oknoKlienci.close();
+  if (typeof zapytania !== "undefined") zapytania = [];
+
   pokolenieSesji++;
   pokolenieListy++;
   pokolenieOtwierania++;
@@ -2322,7 +2366,12 @@ async function wczytajZespol(){
   $("kto").title = zespol.kancelaria;
   $("kto").hidden = false;
   $("btn-zespol").hidden = false;
-  $("btn-hurtowe").hidden = !zespol.jestem_wlascicielem || dysk.aktywny || !!SERWIS;
+  if (!SERWIS && czyJwt(token)) $("btn-hurtowe").hidden = false;
+  if (!SERWIS && czyJwt(token)) {
+    $("btn-zapytania").hidden = false;
+    document.querySelector(".kokpit-client-bar").hidden = false;
+    void odswiezLicznikZapytan();
+  }
   if ($("okno-zespol").open) rysujZespol();
 }
 
@@ -2560,16 +2609,90 @@ $("btn-dane-zapisz").onclick = async () => {
     if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać danych.");
     await sprawdzDokumenty();
     rysujDokumenty();
+    if (!SERWIS && czyJwt(token)) void wczytajMape();
     stan($("stan-dokumenty"), "Dane kancelarii zapisane.");
   } catch (e) { stan($("stan-dokumenty"), e.message, true); }
   $("btn-dane-zapisz").disabled = false;
 };
+
+/* ---------- mapa notariuszy ----------
+   Publiczna wyszukiwarka najblizszej kancelarii (/notariusze). Polozenie
+   wyznacza serwer z adresu kancelarii; wlasciciel decyduje, czy kancelaria
+   jest na mapie. */
+let mapaKancelarii = null;
+
+async function wczytajMape(){
+  mapaKancelarii = null;
+  const sesja = pokolenieSesji;
+  if (SERWIS || !czyJwt(token)) return;
+  try {
+    const odp = await api("/api/mapa");
+    if (odp.ok) {
+      const wynik = await odp.json();
+      if (sesja !== pokolenieSesji) return;
+      mapaKancelarii = wynik;
+    }
+  } catch { /* offline */ }
+  rysujMape();
+}
+
+function opisMapy(m){
+  if (!m.adres) return "Położenie wyznaczymy z adresu kancelarii, gdy podasz go powyżej.";
+  if (m.lat == null) {
+    if (!m.geokoder) return "Wyznaczanie położenia jest wyłączone na tym serwerze.";
+    return m.blad === "geokoder niedostepny"
+      ? "Usługa map była niedostępna i położenie nie zostało wyznaczone. Spróbuj ponownie."
+      : "Nie udało się znaleźć adresu „" + m.adres + "” na mapie. Sprawdź pisownię adresu albo spróbuj ponownie.";
+  }
+  const gdzie = m.dokladnosc === "miejscowosc" ? "w przybliżeniu, w centrum miejscowości" : "pod adresem " + m.adres;
+  return (m.publikowana ? "Kancelaria jest na mapie " : "Kancelaria jest ukryta; położenie wyznaczone ") + gdzie + ".";
+}
+
+function rysujMape(){
+  const m = mapaKancelarii, wlasciciel = !!(dokumenty && dokumenty.jestem_wlascicielem);
+  $("mapa-zgoda").hidden = !m || !wlasciciel;
+  $("btn-mapa-odswiez").hidden = !m || !wlasciciel || !m.adres || !m.geokoder;
+  if (!m) { $("mapa-opis").textContent = "Nie udało się sprawdzić stanu mapy."; return; }
+  $("mapa-opis").textContent = opisMapy(m);
+  $("mapa-na-mapie").checked = !!m.na_mapie;
+}
+
+$("mapa-na-mapie").onchange = async () => {
+  const na_mapie = $("mapa-na-mapie").checked;
+  stan($("stan-dokumenty"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/mapa", {method: "PUT", headers: {"Content-Type": "application/json"},
+                          body: JSON.stringify({na_mapie})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać.");
+    mapaKancelarii = w;
+    rysujMape();
+    stan($("stan-dokumenty"), na_mapie ? "Kancelaria jest widoczna na mapie." : "Kancelaria zniknęła z mapy.");
+  } catch (e) { stan($("stan-dokumenty"), e.message, true); rysujMape(); }
+};
+
+$("btn-mapa-odswiez").onclick = async () => {
+  $("btn-mapa-odswiez").disabled = true;
+  stan($("stan-dokumenty"), "Wyznaczam położenie…", false, true);
+  try {
+    const odp = await api("/api/mapa/odswiez", {method: "POST"});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się wyznaczyć położenia.");
+    mapaKancelarii = w;
+    rysujMape();
+    stan($("stan-dokumenty"), w.lat != null ? "Położenie wyznaczone." : "Adresu nie udało się znaleźć na mapie.", w.lat == null);
+  } catch (e) { stan($("stan-dokumenty"), e.message, true); }
+  $("btn-mapa-odswiez").disabled = false;
+};
+
+$("btn-mapa-otworz").onclick = () => window.open("/notariusze", "_blank", "noopener");
 
 $("btn-dokumenty").onclick = async () => {
   stan($("stan-dokumenty"), "");
   await sprawdzDokumenty();
   if (!dokumenty) return;
   rysujDokumenty();
+  if (!SERWIS && czyJwt(token)) void wczytajMape();
   $("okno-dokumenty").showModal();
 };
 $("btn-zamknij-dokumenty").onclick = () => $("okno-dokumenty").close();
@@ -2591,6 +2714,84 @@ async function pobierzKomplet(){
 }
 $("btn-komplet").onclick = pobierzKomplet;
 $("btn-komplet-okno").onclick = pobierzKomplet;
+
+/* ---------- zapytania klientow (umawianie wizyt ze strony) ---------- */
+const STATUSY_ZAPYTAN = {nowa: "nowe", kontakt: "w kontakcie", umowiona: "umówione", odrzucona: "odrzucone", zamknieta: "zamknięte"};
+let zapytania = [];
+
+async function odswiezLicznikZapytan(){
+  const sesja = pokolenieSesji;
+  if (SERWIS || !czyJwt(token)) return;
+  try {
+    const odp = await api("/api/zapytania");
+    if (sesja !== pokolenieSesji || SERWIS || !czyJwt(token)) return;
+    if (!odp.ok) return;
+    zapytania = await odp.json();
+    const nowe = zapytania.filter(z => z.status === "nowa").length;
+    $("btn-zapytania").textContent = "Zapytania klientów" + (nowe ? " (" + nowe + ")" : "");
+  } catch { /* przycisk zostaje bez licznika */ }
+}
+
+function rysujZapytania(){
+  const box = $("zapytania-lista");
+  if (!zapytania.length) { box.innerHTML = '<p class="stan">Jeszcze nikt nie pytał. Zgłoszenia przychodzą ze strony notarai.pl/notariusz i z kalkulatora kosztów.</p>'; return; }
+  box.innerHTML = zapytania.map(z => {
+    const k = z.klient || {};
+    const kontakt = [k.telefon ? `<a href="tel:${escape(k.telefon.replace(/\s/g, ""))}">${escape(k.telefon)}</a>` : "",
+                     k.email ? `<a href="mailto:${escape(k.email)}">${escape(k.email)}</a>` : ""].filter(Boolean).join(" · ");
+    const kiedy = kiedySerwis(z.utworzono);
+    const szczegoly = [z.wartosc ? "wartość " + Number(z.wartosc).toLocaleString("pl-PL") + " zł" : "",
+                       z.termin ? "termin: " + escape(z.termin) : "", z.wiadomosc ? escape(z.wiadomosc) : "",
+                       z.kalkulacja ? "szacunek z kalkulatora: " + Number(z.kalkulacja.razem).toLocaleString("pl-PL", {style: "currency", currency: "PLN"}) : ""]
+      .filter(Boolean).join("<br>");
+    const wizyta = z.wizyta ? `<br>umówiono na ${escape(z.wizyta.data)} ${escape(z.wizyta.godzina || "")}` : "";
+    const aktywne = z.status === "nowa" || z.status === "kontakt";
+    return `<div class="komputer" data-id="${escape(z.id)}" style="align-items:flex-start;flex-wrap:wrap">
+      <div><b>${escape(k.imie || "klient")}: ${escape(z.czynnosc)}</b>
+        <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
+      ${aktywne ? `<div class="dol" style="margin-top:8px;width:100%">
+        <input type="date" class="z-data" style="text-transform:none;width:auto"> <input type="time" class="z-godzina" step="1800" style="text-transform:none;width:auto">
+        <button class="z-umow">Umówione: do kalendarza</button>
+        <button class="wtorny z-kontakt" ${z.status === "kontakt" ? "hidden" : ""}>Oddzwonię</button>
+        <button class="wtorny z-odrzuc">Odrzuć</button></div>` : ""}
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".komputer").forEach(el => {
+    const id = el.dataset.id;
+    const zmien = async (status, dodatkowe = {}) => {
+      stan($("stan-zapytania"), "Zapisuję…", false, true);
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id), {method: "PUT",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({status, ...dodatkowe})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać.");
+        stan($("stan-zapytania"), status === "umowiona" ? (w.kalendarz ? "Termin zapisany w kalendarzu." : "Status zapisany.") : "Zapisano.");
+        await odswiezLicznikZapytan(); rysujZapytania();
+        if (w.kalendarz && typeof rysujKalendarz === "function") rysujKalendarz();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
+    const umow = el.querySelector(".z-umow");
+    if (umow) umow.onclick = () => {
+      const data = el.querySelector(".z-data").value, godzina = el.querySelector(".z-godzina").value;
+      if (!data) return stan($("stan-zapytania"), "Podaj datę wizyty.", true);
+      zmien("umowiona", {data, godzina});
+    };
+    const kontakt = el.querySelector(".z-kontakt");
+    if (kontakt) kontakt.onclick = () => zmien("kontakt");
+    const odrzuc = el.querySelector(".z-odrzuc");
+    if (odrzuc) odrzuc.onclick = () => { if (confirm("Odrzucić to zapytanie?")) zmien("odrzucona"); };
+  });
+}
+
+$("btn-zapytania").onclick = async () => {
+  stan($("stan-zapytania"), "");
+  if (SERWIS || !czyJwt(token)) return;
+  rysujZapytania();
+  $("okno-zapytania").showModal();
+  await odswiezLicznikZapytan();
+  rysujZapytania();
+};
+$("btn-zamknij-zapytania").onclick = () => $("okno-zapytania").close();
 
 $("btn-zespol").onclick = async () => {
   stan($("stan-zespol"), "");
@@ -4722,7 +4923,8 @@ function escape(t){
   return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
 </script>
-<script src="/static/kokpit.js"></script>
 <script src="/static/rezerwacje-hurtowe.js"></script>
+<script src="/static/kokpit.js"></script>
+<script src="/static/klienci-panel.js"></script>
 </body>
 </html>

@@ -48,7 +48,8 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/")
+            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
+            "/kalkulator", "/api/taksa", "/api/wizyty", "/notariusze", "/api/notariusze")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
@@ -68,7 +69,7 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
-                  "/api/pomocnik")
+                  "/api/pomocnik", "/api/mapa", "/api/zapytania")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
@@ -539,9 +540,18 @@ def lista_kancelarii(request: Request):
          "oplacono_do": w.get("oplacono_do"),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
-         "serwis_do": (_serwis_trwa(w) or {}).get("do")}
+         "serwis_do": (_serwis_trwa(w) or {}).get("do"),
+         "mapa": _stan_mapy(w)}
         for w in rejestr.values()
     ]
+
+
+def _stan_mapy(wpis: dict) -> dict:
+    """Publiczna lokalizacja kancelarii; bez danych spraw lub zapytan."""
+    mapa = wpis.get("mapa") or {}
+    return {"na_mapie": bool(wpis.get("na_mapie", False)),
+            "polozenie": mapa.get("lat") is not None,
+            "blad": mapa.get("blad")}
 
 
 def nowy_identyfikator(rejestr: dict, nazwa: str) -> str:
@@ -1140,7 +1150,13 @@ def _subskrypcja(wpis: dict) -> dict:
 
 @router_abonamentu.get("")
 def moj_abonament(request: Request):
-    _, wpis = _znajdz(_wczytaj_rejestr(), request.state.kancelaria)
+    kancelaria = getattr(request.state, "kancelaria", None)
+    if not kancelaria:
+        # Lokalny tryb bez sesji SaaS: panel nie pokazuje abonamentu.
+        return {"platnosci_wlaczone": False, "wymagany": False, "po_terminie": False,
+                "dni_do_konca": None, "cena": platnosci.cena(), "moge_zaplacic": False,
+                "subskrypcja": None, "konczy_sie": False, "historia": []}
+    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
     if wpis is None:
         raise HTTPException(404, "Nie znaleziono kancelarii")
     email = getattr(request.state, "email", "")
