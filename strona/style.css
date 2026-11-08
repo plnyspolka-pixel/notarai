@@ -443,3 +443,7 @@ h3 { font-weight: 725; line-height: 1.32; }
   .przycisk, .siatka .karta { transition: none; }
   .przycisk:hover, .siatka .karta:hover { transform: none; }
 }
+
+/* Visual identity continuity on the public legal-information subpages. */
+.naglowek .marka img[src$="logo-mark.svg"] { filter: brightness(0) invert(1); }
+.naglowek .marka strong { color: #29d5f3; font-weight: 800; }
