@@ -142,7 +142,7 @@ def strona_kalkulatora():
     """Ta sama strona, ktora stoi na notarai.pl/kalkulator - tu bez CORS,
     dla kancelarii (link w pasku bocznym) i do podgladu przed wyslaniem."""
     strona = (Path(__file__).parent / "strona" / "kalkulator" / "index.html").read_text("utf-8")
-    return strona.replace('"../favicon.png"', '"/static/favicon.png"')
+    return strona.replace('"../logo-mark.svg"', '"/static/notarai-symbol.svg"')
 
 
 @app.get("/", response_class=HTMLResponse)
