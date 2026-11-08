@@ -47,7 +47,7 @@ class TestInformacjeIFormularz:
     def test_strona_kalkulatora(self, klient):
         odp = klient.get("/kalkulator")
         assert odp.status_code == 200
-        assert "/static/favicon.png" in odp.text and "../favicon.png" not in odp.text
+        assert "/static/notarai-symbol.svg" in odp.text and "../logo-mark.svg" not in odp.text
         assert "api/taksa" in odp.text
 
 
