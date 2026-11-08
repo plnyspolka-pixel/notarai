@@ -45,3 +45,34 @@ jobs:
           python scripts/check_frontend.py
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
+
+  powershell-syntax:
+    name: Składnia skryptów wdrożeniowych (Windows PowerShell)
+    runs-on: windows-latest
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+      - name: Sprawdź składnię bez uruchamiania AWS ani FTPS
+        shell: powershell
+        run: |
+          $files = @(
+            'infra/2-zbuduj-obraz.ps1',
+            'infra/3-wdroz-aplikacje.ps1',
+            'infra/strona.ps1',
+            'infra/wydaj-rezerwacje.ps1',
+            'infra/wyslij-rezerwacje-bez-pythona.ps1'
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path, [ref]$tokens, [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              foreach ($parseError in $errors) {
+                Write-Host ("BŁĄD " + $file + ": " + $parseError.Message)
+              }
+              throw "Błąd składni PowerShell w $file"
+            }
+            Write-Host "OK $file"
+          }
