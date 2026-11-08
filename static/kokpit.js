@@ -200,6 +200,15 @@
     node("btn-kokpit-menu").setAttribute("aria-label",expanded ? "Zwiń menu" : "Rozwiń menu");
   });
   node("kokpit-new")?.addEventListener("click", () => goNew());
+  node("kokpit-assistant")?.addEventListener("click", () => {
+    if (sprawa && sprawa.id && najdalej >= 2) {
+      pokaz(2);
+      node("msg2")?.focus(); // Real conversation already connected to Bedrock.
+    } else {
+      pokaz(1);
+      node("polecenie")?.focus(); // Real scan-reading form.
+    }
+  });
   node("kokpit-promo-new")?.addEventListener("click", () => goNew());
   node("kokpit-upload")?.addEventListener("click", () => goNew(true));
   node("kokpit-ai")?.addEventListener("click", () => {
