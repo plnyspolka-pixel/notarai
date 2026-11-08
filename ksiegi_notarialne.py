@@ -28,10 +28,11 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 import magazyn
+import walidacja
 import wnioski_kw
 
 PLIK = "ksiegi_notarialne"
-PODSTAWA = ("rozporzadzenie MS z 12.04.1991 w sprawie prowadzenia ksiag notarialnych "
+PODSTAWA = ("rozporządzenie MS z 12.04.1991 w sprawie prowadzenia ksiąg notarialnych "
             "(t.j. Dz.U. 2018 poz. 2039)")
 
 # Rubryki kazdej ksiegi. "wymagane" sprawdzamy przy wpisie; reszte mozna
@@ -41,20 +42,20 @@ KSIEGI: dict[str, dict] = {
         "nazwa": "Repertorium A",
         "skrot": "Rep. A",
         "roczna": True,
-        "opis": "Wszystkie czynnosci notarialne poza protestami, chronologicznie, "
-                "niezwlocznie po zakonczeniu czynnosci.",
+        "opis": "Wszystkie czynności notarialne poza protestami, chronologicznie, "
+                "niezwłocznie po zakończeniu czynności.",
         "rubryki": {
-            "data_czynnosci": "Data czynnosci",
-            "strony": "Imiona i nazwiska / nazwy stron, osob prawnych i przedstawicieli",
-            "tresc": "Krotka tresc czynnosci",
-            "wartosc_przedmiotu": "Wartosc przedmiotu",
+            "data_czynnosci": "Data czynności",
+            "strony": "Imiona i nazwiska / nazwy stron, osób prawnych i przedstawicieli",
+            "tresc": "Krótka treść czynności",
+            "wartosc_przedmiotu": "Wartość przedmiotu",
             "wynagrodzenie": "Pobrane wynagrodzenie notariusza (netto)",
             "vat": "VAT od wynagrodzenia",
-            "oplata_sadowa": "Pobrane oplaty sadowe",
-            "oplata_skarbowa": "Pobrana oplata skarbowa",
-            "podatek_pcc": "Pobrany podatek od czynnosci cywilnoprawnych",
-            "podatek_sd": "Pobrany podatek od spadkow i darowizn",
-            "odbior": "Potwierdzenie odbioru dokumentu lub jego przeslania",
+            "oplata_sadowa": "Pobrane opłaty sądowe",
+            "oplata_skarbowa": "Pobrana opłata skarbowa",
+            "podatek_pcc": "Pobrany podatek od czynności cywilnoprawnych",
+            "podatek_sd": "Pobrany podatek od spadków i darowizn",
+            "odbior": "Potwierdzenie odbioru dokumentu lub jego przesłania",
         },
         "wymagane": ("data_czynnosci", "strony", "tresc"),
     },
@@ -62,10 +63,10 @@ KSIEGI: dict[str, dict] = {
         "nazwa": "Repertorium P",
         "skrot": "Rep. P",
         "roczna": True,
-        "opis": "Dokumenty oddane do protestu (stosuje sie odpowiednio zasady rep. A).",
+        "opis": "Dokumenty oddane do protestu (stosuje się odpowiednio zasady rep. A).",
         "rubryki": {
             "data_czynnosci": "Data oddania do protestu",
-            "strony": "Oddajacy dokument i zobowiazany",
+            "strony": "Oddający dokument i zobowiązany",
             "tresc": "Oznaczenie dokumentu (weksel, czek) i rodzaj protestu",
             "wartosc_przedmiotu": "Suma wekslowa / czekowa",
             "wynagrodzenie": "Pobrane wynagrodzenie notariusza (netto)",
@@ -75,19 +76,19 @@ KSIEGI: dict[str, dict] = {
         "wymagane": ("data_czynnosci", "strony", "tresc"),
     },
     "depozytowa": {
-        "nazwa": "Ksiega depozytowa",
+        "nazwa": "Księga depozytowa",
         "skrot": "Dep.",
         "roczna": False,
-        "opis": "Dokumenty, pieniadze i papiery wartosciowe przyjete do depozytu (par. 4).",
+        "opis": "Dokumenty, pieniądze i papiery wartościowe przyjęte do depozytu (par. 4).",
         "rubryki": {
-            "data_zlozenia": "Data zlozenia",
+            "data_zlozenia": "Data złożenia",
             "rep_a": "Numer repertorium A",
-            "skladajacy": "Imie i nazwisko (nazwa) i adres skladajacego",
-            "przedmiot": "Oznaczenie dokumentu albo wyszczegolnienie pieniedzy / papierow",
-            "kwota": "Kwota (gdy pieniadze)",
+            "skladajacy": "Imię i nazwisko (nazwa) i adres składającego",
+            "przedmiot": "Oznaczenie dokumentu albo wyszczególnienie pieniędzy / papierów",
+            "kwota": "Kwota (gdy pieniądze)",
             "waluta": "Waluta",
-            "odbiorca": "Osoba, ktorej depozyt ma byc wydany",
-            "depozyt_sadowy_bank": "Data zlozenia do depozytu sadowego lub banku i dowod",
+            "odbiorca": "Osoba, której depozyt ma być wydany",
+            "depozyt_sadowy_bank": "Data złożenia do depozytu sądowego lub banku i dowód",
             "data_wydania": "Data wydania",
             "pokwitowanie": "Pokwitowanie odbioru",
         },
@@ -98,41 +99,41 @@ KSIEGI: dict[str, dict] = {
         "skrot": "REP.C",
         "roczna": True,
         "numer_z_systemu": True,
-        "opis": "Wnioski wieczystoksiegowe zlozone przez notariusza w systemie "
+        "opis": "Wnioski wieczystoksięgowe złożone przez notariusza w systemie "
                 "teleinformatycznym (art. 92 par. 4 PrNot). Numer REP.C nadaje "
                 "system MS przy rejestracji wniosku w centralnym repertorium "
-                "wnioskow elektronicznych (par. 68 rozporzadzenia MS z 15.02.2016).",
+                "wniosków elektronicznych (par. 68 rozporządzenia MS z 15.02.2016).",
         "rubryki": {
-            "numer_rep_c": "Numer w centralnym repertorium wnioskow elektronicznych",
-            "data_zlozenia": "Data zlozenia (wyslania z podpisem kwalifikowanym)",
-            "rep_a": "Numer repertorium A aktu bedacego podstawa wpisu",
-            "numer_kw": "Numer ksiegi wieczystej",
-            "sad": "Sad rejonowy - wydzial ksiag wieczystych",
-            "zadania": "Zadania wpisu",
-            "oplata_sadowa": "Pobrana oplata sadowa",
+            "numer_rep_c": "Numer w centralnym repertorium wniosków elektronicznych",
+            "data_zlozenia": "Data złożenia (wysłania z podpisem kwalifikowanym)",
+            "rep_a": "Numer repertorium A aktu będącego podstawą wpisu",
+            "numer_kw": "Numer księgi wieczystej",
+            "sad": "Sąd rejonowy - wydział ksiąg wieczystych",
+            "zadania": "Żądania wpisu",
+            "oplata_sadowa": "Pobrana opłata sądowa",
             "status": "Stan wniosku",
-            "sygnatura_dz_kw": "Numer w dzienniku ksiag wieczystych (sygnatura sadu)",
+            "sygnatura_dz_kw": "Numer w dzienniku ksiąg wieczystych (sygnatura sądu)",
             "data_wpisu": "Data dokonania wpisu / orzeczenia",
-            "data_doreczenia": "Data doreczenia zawiadomienia",
+            "data_doreczenia": "Data doręczenia zawiadomienia",
         },
         "wymagane": ("numer_rep_c", "data_zlozenia", "rep_a", "sad"),
     },
     "dziennik_przesylanych": {
-        "nazwa": "Dziennik przesylanych dokumentow",
+        "nazwa": "Dziennik przesyłanych dokumentów",
         "skrot": "Dz. P.",
         "roczna": False,
-        "opis": "Wnioski i pisma przesylane z urzedu sadom i innym organom - m.in. "
-                "wnioski wieczystoksiegowe (art. 92 par. 4 PrNot), wypisy do "
-                "organow podatkowych i katastralnych. Wnioski skladane w systemie "
-                "teleinformatycznym ida do repertorium C.",
+        "opis": "Wnioski i pisma przesyłane z urzędu sądom i innym organom - m.in. "
+                "wnioski wieczystoksięgowe (art. 92 par. 4 PrNot), wypisy do "
+                "organów podatkowych i katastralnych. Wnioski składane w systemie "
+                "teleinformatycznym idą do repertorium C.",
         "rubryki": {
-            "data": "Data przeslania",
+            "data": "Data przesłania",
             "adresat": "Sad / organ",
             "rodzaj": "Rodzaj pisma (np. wniosek o wpis w KW)",
             "rep_a": "Numer repertorium A",
-            "numer_kw": "Numer ksiegi wieczystej (gdy dotyczy)",
+            "numer_kw": "Numer księgi wieczystej (gdy dotyczy)",
             "identyfikator": "Identyfikator / sygnatura nadana przez system lub organ",
-            "kanal": "Kanal (system teleinformatyczny / poczta / osobiscie)",
+            "kanal": "Kanał (system teleinformatyczny / poczta / osobiście)",
         },
         "wymagane": ("data", "adresat", "rodzaj"),
     },
@@ -140,13 +141,13 @@ KSIEGI: dict[str, dict] = {
         "nazwa": "Dziennik korespondencyjny",
         "skrot": "Dz. K.",
         "roczna": False,
-        "opis": "Pozostale pisma wysylane i wplywajace do kancelarii.",
+        "opis": "Pozostałe pisma wysyłane i wpływające do kancelarii.",
         "rubryki": {
             "data": "Data",
             "kierunek": "Wplyw / wysylka",
             "kontrahent": "Od kogo / do kogo",
-            "tresc": "Krotka tresc pisma",
-            "rep_a": "Zwiazany numer repertorium A",
+            "tresc": "Krótka treść pisma",
+            "rep_a": "Związany numer repertorium A",
         },
         "wymagane": ("data", "kierunek", "kontrahent", "tresc"),
     },
@@ -164,7 +165,7 @@ def _pusty() -> dict:
 
 def _ksiega(nazwa: str) -> dict:
     if nazwa not in KSIEGI:
-        raise ValueError(f"Nieznana ksiega: {nazwa}")
+        raise ValueError(f"Nieznana księga: {nazwa}")
     return KSIEGI[nazwa]
 
 
@@ -183,18 +184,32 @@ def _kwota(wartosc, pole: str) -> str:
     except InvalidOperation:
         raise ValueError(f"{pole}: niepoprawna kwota") from None
     if liczba < 0:
-        raise ValueError(f"{pole}: kwota nie moze byc ujemna")
+        raise ValueError(f"{pole}: kwota nie może być ujemna")
     return str(liczba.quantize(Decimal("0.01")))
 
 
 def _strony(strony) -> list[dict]:
     if isinstance(strony, str):
-        strony = [{"nazwa": s.strip()} for s in strony.split(";") if s.strip()]
+        # Szybki wpis z formularza: "Jan Sobczak, sprzedajacy, 80010112345; Anna Pawlak, kupujaca"
+        lista_stron = []
+        for segment in strony.split(";"):
+            czesci = [c.strip() for c in segment.split(",") if c.strip()]
+            if not czesci:
+                continue
+            pesel = next((c for c in czesci[1:] if c.isdigit() and len(c) == 11), "")
+            rola = next((c for c in czesci[1:] if c != pesel), "")
+            lista_stron.append({"nazwa": czesci[0], "rola": rola, "pesel": pesel})
+        strony = lista_stron
+    if not isinstance(strony, list) or not all(isinstance(s, dict) for s in strony):
+        raise ValueError("Strony: lista osób albo tekst 'Imię Nazwisko, rola, PESEL; ...'")
     wynik = []
     for strona in strony or []:
         nazwa = str(strona.get("nazwa", "")).strip()
         if not nazwa:
-            raise ValueError("Kazda strona musi miec imie i nazwisko albo nazwe")
+            raise ValueError("Każda strona musi mieć imię i nazwisko albo nazwę")
+        pesel = str(strona.get("pesel", "") or "").strip()
+        if pesel and not walidacja.pesel(pesel)[0]:
+            raise ValueError(f"Strona {nazwa}: niepoprawny PESEL (suma kontrolna)")
         wynik.append({"nazwa": nazwa, "rola": str(strona.get("rola", "")).strip(),
                       "pesel": str(strona.get("pesel", "")).strip(),
                       "reprezentowany": str(strona.get("reprezentowany", "")).strip()})
@@ -262,13 +277,13 @@ def dodaj(nazwa: str, dane: dict, kto: str = "") -> dict:
             ostatni = [w for w in wpisy if w["rok"] == wpis["rok"]]
             pole = "data_czynnosci"
             if ostatni and tresc.get(pole) and tresc[pole] < max(w.get(pole, "") for w in ostatni):
-                raise ValueError("Repertorium prowadzi sie chronologicznie - w tym roku jest "
-                                 "juz wpis z pozniejsza data czynnosci")
+                raise ValueError("Repertorium prowadzi się chronologicznie - w tym roku jest "
+                                 "już wpis z późniejszą datą czynności")
         wpis["numer"] = _nastepny_numer(wpisy, nazwa, wpis["rok"])
         if KSIEGI[nazwa].get("numer_z_systemu"):
             numer = wnioski_kw.normalizuj_rep_c(tresc["numer_rep_c"])
             if any(w.get("numer_rep_c") == numer for w in wpisy):
-                raise ValueError(f"Wniosek {numer} jest juz w repertorium C")
+                raise ValueError(f"Wniosek {numer} jest już w repertorium C")
             wpis["numer_rep_c"] = wpis["oznaczenie"] = numer
         else:
             wpis["oznaczenie"] = oznaczenie(nazwa, wpis)
@@ -306,7 +321,7 @@ def popraw(nazwa: str, identyfikator: str, zmiany: dict, powod: str, kto: str = 
     Numer, rok i oznaczenie sa nienaruszalne - poprawka nie przenumerowuje ksiegi.
     """
     if not (powod or "").strip():
-        raise ValueError("Podaj powod poprawki")
+        raise ValueError("Podaj powód poprawki")
     nowe = _oczysc(nazwa, zmiany, czesciowo=True)
     if not nowe:
         raise ValueError("Brak rubryk do poprawienia")
@@ -316,7 +331,7 @@ def popraw(nazwa: str, identyfikator: str, zmiany: dict, powod: str, kto: str = 
         w.update(nowe)
         brak = [KSIEGI[nazwa]["rubryki"][p] for p in KSIEGI[nazwa]["wymagane"] if not w.get(p)]
         if brak:
-            raise ValueError("Poprawka nie moze usunac: " + ", ".join(brak))
+            raise ValueError("Poprawka nie może usunąć: " + ", ".join(brak))
         w["korekty"].append({"czas": datetime.now().isoformat(timespec="seconds"), "kto": kto,
                              "powod": powod.strip(), "bylo": poprzednie, "jest": nowe})
         return w
@@ -326,7 +341,7 @@ def popraw(nazwa: str, identyfikator: str, zmiany: dict, powod: str, kto: str = 
 def dodaj_uwage(nazwa: str, identyfikator: str, tresc: str, kto: str = "") -> dict:
     """Rubryka "uwagi": np. wydanie wypisu, odpisu, wyciagu - komu i kiedy."""
     if not (tresc or "").strip():
-        raise ValueError("Uwaga nie moze byc pusta")
+        raise ValueError("Uwaga nie może być pusta")
 
     def funkcja(w):
         w["uwagi"].append({"czas": datetime.now().isoformat(timespec="seconds"),
@@ -400,7 +415,7 @@ def zmien_wniosek_kw(identyfikator: str, wniosek_id: str, dane: dict, kto: str =
     if stary is None:
         raise LookupError("Nie ma takiego wniosku")
     if stary["status"] != "przygotowany":
-        raise ValueError("Zlozonego wniosku nie zmienia sie - zmiany ida przez sad")
+        raise ValueError("Złożonego wniosku nie zmienia się - zmiany idą przez sąd")
     zrodlo = {"numer_kw": stary["numer_kw"], "sad": stary["sad"], "uczestnicy": stary["uczestnicy"],
               "zadania": stary["zadania"], "akt": stary["podstawa"], "dokumenty": stary["dokumenty"]}
     zrodlo.update({k: v for k, v in dane.items() if k in zrodlo})
@@ -435,11 +450,11 @@ def zmien_status_wniosku_kw(identyfikator: str, wniosek_id: str, dane: dict, kto
 
     if wn["status"] == "przygotowany":
         if status != "zlozony":
-            raise ValueError("Najpierw oznacz wniosek jako zlozony (z numerem REP.C)")
+            raise ValueError("Najpierw oznacz wniosek jako złożony (z numerem REP.C)")
         if not wn["gotowy"]:
             raise ValueError("Wniosek ma braki: " + "; ".join(wn["braki"]))
         if not dane.get("numer_rep_c") or not dane.get("data_zlozenia"):
-            raise ValueError("Podaj numer REP.C i date zlozenia z systemu MS")
+            raise ValueError("Podaj numer REP.C i date złożenia z systemu MS")
         numer = wnioski_kw.normalizuj_rep_c(dane["numer_rep_c"])
         rep_c = dodaj("repertorium_c", {
             "numer_rep_c": numer, "data_zlozenia": dane["data_zlozenia"], "rep_a": rep["oznaczenie"],
@@ -451,7 +466,7 @@ def zmien_status_wniosku_kw(identyfikator: str, wniosek_id: str, dane: dict, kto
                   "data_zlozenia": rep_c["data_zlozenia"]}
     else:
         if wn["status"] in ("wpis_dokonany", "oddalony", "odrzucony", "cofniety") and status != wn["status"]:
-            raise ValueError("Wniosek jest juz zakonczony")
+            raise ValueError("Wniosek jest już zakończony")
         zmiany = {"status": status}
         rubryki = {"status": status}
         for pole in ("sygnatura_dz_kw", "data_wpisu", "data_doreczenia"):
@@ -473,3 +488,74 @@ def zmien_status_wniosku_kw(identyfikator: str, wniosek_id: str, dane: dict, kto
 def definicje() -> dict:
     return {"podstawa": PODSTAWA, "ksiegi": KSIEGI, "statusy_wniosku_kw": STATUSY_WNIOSKU_KW,
             "wniosek_kw": wnioski_kw.definicje()}
+
+
+# ---------------------------------------------------------------- wydruk i eksport
+
+def _tekst_rubryki(wpis: dict, pole: str) -> str:
+    wartosc = wpis.get(pole, "")
+    if pole == "strony":
+        return "; ".join(s["nazwa"] + (f" ({s['rola']})" if s.get("rola") else "") +
+                         (f", PESEL {s['pesel']}" if s.get("pesel") else "") for s in wartosc or [])
+    if isinstance(wartosc, list):
+        return "; ".join(str(x) for x in wartosc)
+    return str(wartosc or "")
+
+
+def wiersze(nazwa: str, rok: int | None = None) -> tuple[list[str], list[list[str]]]:
+    """Naglowki i wiersze ksiegi w kolejnosci rubryk z rozporzadzenia (+ uwagi, poprawki)."""
+    ksiega = _ksiega(nazwa)
+    naglowki = ["Nr"] + list(ksiega["rubryki"].values()) + ["Uwagi", "Poprawki"]
+    dane = []
+    for w in lista(nazwa, rok):
+        uwagi = "; ".join(f"{u['czas'][:10]}: {u['tresc']}" for u in w.get("uwagi", []))
+        poprawki = "; ".join(
+            f"{k['czas'][:10]} " + ", ".join(f"{ksiega['rubryki'].get(p, p)}: było \"{_tekst_rubryki(k['bylo'], p)}\""
+                                            for p in k["bylo"])
+            + f" ({k['powod']}{', ' + k['kto'] if k.get('kto') else ''})" for k in w.get("korekty", []))
+        dane.append([w["oznaczenie"]] + [_tekst_rubryki(w, p) for p in ksiega["rubryki"]] + [uwagi, poprawki])
+    return naglowki, dane
+
+
+def csv_ksiegi(nazwa: str, rok: int | None = None) -> str:
+    import csv
+    import io
+    bufor = io.StringIO()
+    zapis = csv.writer(bufor, delimiter=";")
+    naglowki, dane = wiersze(nazwa, rok)
+    zapis.writerow(naglowki)
+    for wiersz in dane:
+        # Excel wykonuje komorki zaczynajace sie od =, +, -, @ - neutralizujemy.
+        zapis.writerow(["'" + k if k[:1] in ("=", "+", "-", "@") else k for k in wiersz])
+    return "﻿" + bufor.getvalue()
+
+
+def wydruk_html(nazwa: str, rok: int | None = None, kancelaria: str = "") -> str:
+    """Strona do wydruku (A4 poziomo): ksiega za rok, z poprawkami i sumami miesiecznymi."""
+    from html import escape
+    ksiega = _ksiega(nazwa)
+    naglowki, dane = wiersze(nazwa, rok)
+    tytul = f"{ksiega['nazwa']}{f' - rok {rok}' if rok else ''}"
+    tabela = "".join(f"<th>{escape(n)}</th>" for n in naglowki)
+    tresc = "".join("<tr>" + "".join(f"<td>{escape(k)}</td>" for k in w) + "</tr>" for w in dane)
+    podsumowanie = ""
+    if nazwa == "repertorium_a" and rok:
+        miesiace = []
+        for m in range(1, 13):
+            s = sumy(rok, m)
+            if s["liczba_wpisow"]:
+                miesiace.append("<tr><td>" + f"{m:02d}/{rok}</td><td>{s['liczba_wpisow']}</td>" +
+                                "".join(f"<td>{escape(s['razem'][p])}</td>" for p in s["razem"]) + "</tr>")
+        if miesiace:
+            kolumny = "".join(f"<th>{escape(ksiega['rubryki'][p])}</th>" for p in sumy(rok)["razem"])
+            podsumowanie = (f"<h2>Sumy miesięczne należności</h2><table><tr><th>Miesiąc</th><th>Wpisów</th>{kolumny}</tr>"
+                            + "".join(miesiace) + "</table>")
+    return f"""<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{escape(tytul)}</title>
+<style>@page{{size:A4 landscape;margin:12mm}}body{{font:10px/1.35 Georgia,serif;color:#000}}
+h1{{font-size:15px;margin:0 0 4px}}p{{margin:0 0 8px}}table{{border-collapse:collapse;width:100%;margin-bottom:12px}}
+th,td{{border:1px solid #000;padding:3px;vertical-align:top;text-align:left}}th{{background:#eee}}
+tr{{page-break-inside:avoid}}@media screen{{body{{max-width:1200px;margin:16px auto;padding:0 16px}}}}</style></head>
+<body><h1>{escape(tytul)}</h1><p>{escape(kancelaria)} {escape(PODSTAWA if nazwa != 'repertorium_c' else 'rozporządzenie MS z 15.02.2016 (Dz.U. poz. 312), par. 68')}.
+Wydruk z notarai: {datetime.now().strftime('%d.%m.%Y %H:%M')}. Wpisów: {len(dane)}.</p>
+<table><tr>{tabela}</tr>{tresc}</table>{podsumowanie}
+<script>window.onload=()=>window.print()</script></body></html>"""

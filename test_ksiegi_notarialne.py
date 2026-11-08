@@ -210,7 +210,7 @@ def test_obieg_zgloszenia(klient):
     assert z["braki"] == [], z["braki"]
     # karta XML: bez ustawien i kodow ze slownikow GIIF nie da sie zatwierdzic
     odp = klient.post(f"/api/giif/{z['id']}/zatwierdz")
-    assert odp.status_code == 400 and "karte" in odp.json()["detail"]
+    assert odp.status_code == 400 and "kartę" in odp.json()["detail"]
     z = wypelnij_karte(klient, z)
     z = klient.post(f"/api/giif/{z['id']}/zatwierdz").json()
     assert len(z["sha256_xml"]) == 64 and z["schemat"] == "2026/04/28/14250"
@@ -256,7 +256,7 @@ def test_xml_regul_udzialow_i_sumy():
         {"strona": 0, "charakter": "X", "strona_transakcji": "N", "udzial_licznik": 1, "udzial_mianownik": 2}]}],
         "strony": [{"imie": "A", "nazwisko": "B", "pesel": "12345678901"}]}
     bledy = " | ".join(giif_xml.bledy_regul(karta, {"nip": "1", "nr_sekw_js": ""}))
-    for fragment in ("NIP notariusza", "nrSekwJs", "INF.3", "INF.2", "PESEL niepoprawny", "CREWAN", "Tytul"):
+    for fragment in ("NIP notariusza", "nrSekwJs", "INF.3", "INF.2", "PESEL niepoprawny", "CREWAN", "Tytuł"):
         assert fragment in bledy, fragment
 
 
@@ -297,3 +297,87 @@ def test_kurs_nbp_cofa_sie_do_dnia_roboczego():
     assert giif.kurs_nbp("2026-11-08", atrapa)["data_tabeli"] == "2026-11-06"
     assert len(atrapa.adresy) == 3
     assert str(giif.rownowartosc_eur("650000", "PLN", "4.25")) == "152941.18"
+
+
+def test_szybki_wpis_stron_i_kontrola_pesel(klient):
+    odp = klient.post("/api/ksiegi-kancelarii/repertorium_a", json={
+        "data_czynnosci": "2026-11-03", "tresc": "Darowizna",
+        "strony": f"Jan Sobczak, darczyńca, {PESEL}; Anna Pawlak, obdarowana"})
+    assert odp.status_code == 200, odp.text
+    assert odp.json()["strony"][0] == {"nazwa": "Jan Sobczak", "rola": "darczyńca", "pesel": PESEL,
+                                       "reprezentowany": ""}
+    zly = klient.post("/api/ksiegi-kancelarii/repertorium_a", json={
+        "data_czynnosci": "2026-11-03", "tresc": "x", "strony": "Jan Sobczak, 12345678901"})
+    assert zly.status_code == 400 and "PESEL" in zly.json()["detail"]
+    zly_typ = klient.post("/api/ksiegi-kancelarii/repertorium_a", json={
+        "data_czynnosci": "2026-11-03", "tresc": "x", "strony": [1, 2]})
+    assert zly_typ.status_code == 400
+
+
+def test_wydruk_i_csv(klient):
+    w = rep_a(klient, tresc="=HYPERLINK(\"http://zlo\")")
+    klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/poprawka",
+                json={"zmiany": {"wynagrodzenie": "1200"}, "powod": "blad"})
+    html = klient.get("/api/ksiegi-kancelarii/repertorium_a/wydruk", params={"rok": 2026}).text
+    assert "Rep. A nr 1/2026" in html and "Sumy miesięczne" in html and "było &quot;1000.00&quot;" in html
+    assert "<script>window.onload" in html and "<td>=HYPERLINK(&quot;" in html
+    csv = klient.get("/api/ksiegi-kancelarii/repertorium_a/wydruk", params={"rok": 2026, "format": "csv"})
+    assert csv.headers["content-type"].startswith("text/csv")
+    assert "'=HYPERLINK" in csv.text and csv.text.startswith("﻿Nr;")
+
+
+UPO = """<?xml version="1.0" encoding="UTF-8"?>
+<Potwierdzenie xmlns="http://www.giif.mofnet.gov.pl/xsd/upo/2018">
+  <NazwaPodmiotuPrzyjmujacego>Generalny Inspektor Informacji Finansowej</NazwaPodmiotuPrzyjmujacego>
+  <NumerReferencyjny>{numer}</NumerReferencyjny>
+  <DataWplyniecia>2026-11-12T10:00:00</DataWplyniecia>
+  <NIPIO>{nip}</NIPIO>
+</Potwierdzenie>"""
+
+
+def test_upo_xml_odczyt_i_ostrzezenia(klient):
+    w = rep_a(klient)
+    z = klient.post("/api/giif", json={"rep_a_id": w["id"]}).json()
+    strony = [{**s, "adres": "Warszawa"} for s in z["strony"]]
+    strony[1].update(dokument="ABC123456", panstwo_dokumentu="PL")
+    z = klient.post(f"/api/giif/{z['id']}", json={"strony": strony,
+                    "nieruchomosc": {"adres": "Warszawa", "numer_kw": "WA4M/00160286/2"}}).json()
+    z = wypelnij_karte(klient, z)
+    klient.post(f"/api/giif/{z['id']}/zatwierdz")
+    klient.post(f"/api/giif/{z['id']}/wysylka", json={"identyfikator_si_giif": "REF-1", "data_wysylki": "2026-11-05"})
+    dobry = UPO.format(numer="REF-1", nip="5260250274").encode()
+    z = klient.post(f"/api/giif/{z['id']}/upo", files={"plik": ("upo.xml", dobry)}).json()
+    assert z["upo"]["NumerReferencyjny"] == "REF-1" and z["upo"]["zgodny_ze_schematem"]
+    assert z["ostrzezenia_upo"] == []
+    zly = UPO.format(numer="REF-2", nip="1111111111").encode()
+    z = klient.post(f"/api/giif/{z['id']}/upo", files={"plik": ("upo.xml", zly)}).json()
+    assert len(z["ostrzezenia_upo"]) == 2
+    pdf = klient.post(f"/api/giif/{z['id']}/upo", files={"plik": ("upo.pdf", b"%PDF-1.4 x")}).json()
+    assert pdf["upo"] is None and len(pdf["sha256_upo"]) == 64
+
+
+def test_upo_xxe_nie_czyta_plikow():
+    import giif
+    zly = b"""<?xml version="1.0"?><!DOCTYPE p [<!ENTITY x SYSTEM "file:///etc/passwd">]>
+<Potwierdzenie xmlns="http://www.giif.mofnet.gov.pl/xsd/upo/2018"><NazwaPodmiotuPrzyjmujacego>&x;</NazwaPodmiotuPrzyjmujacego><NumerReferencyjny>1</NumerReferencyjny></Potwierdzenie>"""
+    wynik = giif.odczytaj_upo(zly)
+    assert wynik is None or "root:" not in wynik.get("NazwaPodmiotuPrzyjmujacego", "")
+
+
+def test_karta_z_blednymi_typami_nie_wywraca_serwera():
+    import giif_xml
+    for karta in ({"przedmioty": [{"udzial_licznik": "abc", "podmioty": [{"strona": "x"}]}]},
+                  {"przedmioty": "nie lista"}, {"strony": [None]}):
+        wynik = giif_xml.sprawdz([karta], {})
+        assert wynik["bledy"], karta
+
+
+def test_bledy_xsd_po_polsku():
+    import giif_xml
+    karta = {"dla_giif": True, "numer_repertorium": "1/2026", "data_dokumentu": "2026-11-03",
+             "rok_repertorium": 2026, "kwota": "1", "tytul": "A01", "strony": [],
+             "przedmioty": [{"wartosc": "1", "typ": "1", "adres": {"kraj": "PL"}, "podmioty": []}]}
+    bledy = giif_xml.sprawdz([karta], {"nip": "5260250274", "nr_sekw_js": "1471"})["bledy"]
+    xsd = [b for b in bledy if b.startswith("Schemat XSD")]
+    assert any("numer CREWAN" in b for b in xsd)
+    assert all("{http" not in b for b in xsd) and len(xsd) == len(set(xsd))

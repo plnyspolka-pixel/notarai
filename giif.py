@@ -40,14 +40,15 @@ import magazyn
 
 PLIK = "giif"
 PROG_EUR = Decimal("15000")
-TERMIN_DNI = 7  # do potwierdzenia w komunikacie GIIF nr 15 (liczenie terminu)
+TERMIN_DNI = 7  # 7 dni od sporzadzenia aktu / rejestracji APD (art. 72 ustawy AML, art. 84a Op);
+                # sposob liczenia (dni kalendarzowe, swieta) - komunikat GIIF nr 15, do potwierdzenia
 
 RODZAJE = {
-    "czynnosc_giif_kas": {"nazwa": "Informacja o czynnosci notarialnej do GIIF i Szefa KAS",
+    "czynnosc_giif_kas": {"nazwa": "Informacja o czynności notarialnej do GIIF i Szefa KAS",
                           "podstawa": "art. 72 ust. 4 ustawy AML; PCC/SD (eNotariusz)"},
     "czynnosc_giif": {"nazwa": "Informacja o transakcji tylko do GIIF",
                       "podstawa": "art. 72 ust. 4 ustawy AML"},
-    "zawiadomienie_74": {"nazwa": "Zawiadomienie o okolicznosciach podejrzanych",
+    "zawiadomienie_74": {"nazwa": "Zawiadomienie o okolicznościach podejrzanych",
                          "podstawa": "art. 74 ust. 1 ustawy AML"},
     "zawiadomienie_86": {"nazwa": "Zawiadomienie o planowanej transakcji podejrzanej",
                          "podstawa": "art. 86 ust. 1 ustawy AML"},
@@ -82,10 +83,10 @@ def rownowartosc_eur(kwota, waluta: str, kurs_eur) -> Decimal:
     if waluta == "EUR":
         return kwota.quantize(Decimal("0.01"))
     if waluta != "PLN":
-        raise ValueError(f"Nieobslugiwana waluta {waluta} - przelicz przez PLN albo EUR")
+        raise ValueError(f"Nieobsługiwana waluta {waluta} - przelicz przez PLN albo EUR")
     kurs = _dec(kurs_eur)
     if not kurs:
-        raise ValueError("Podaj sredni kurs EUR z tabeli A NBP z dnia czynnosci")
+        raise ValueError("Podaj średni kurs EUR z tabeli A NBP z dnia czynności")
     return (kwota / kurs).quantize(Decimal("0.01"))
 
 
@@ -104,7 +105,7 @@ def kurs_nbp(dzien: str, klient=None) -> dict:
             raise RuntimeError(f"NBP API HTTP {odp.status_code}")
         kurs = odp.json()["rates"][0]
         return {"kurs": str(kurs["mid"]), "tabela": kurs["no"], "data_tabeli": kurs["effectiveDate"]}
-    raise RuntimeError(f"Brak tabeli A NBP dla {dzien} (cofnieto 10 dni)")
+    raise RuntimeError(f"Brak tabeli A NBP dla {dzien} (cofnięto 10 dni)")
 
 
 def kwalifikuj(rep_a: dict, kurs_eur=None) -> dict:
@@ -118,10 +119,10 @@ def kwalifikuj(rep_a: dict, kurs_eur=None) -> dict:
     if rep_a.get("wartosc_przedmiotu") and kurs_eur:
         eur = rownowartosc_eur(rep_a["wartosc_przedmiotu"], "PLN", kurs_eur)
         if eur > PROG_EUR:
-            powody.append(f"wartosc {eur} EUR przekracza 15 000 EUR (art. 72 ust. 4)")
+            powody.append(f"wartość {eur} EUR przekracza 15 000 EUR (art. 72 ust. 4)")
             rodzaj = rodzaj or "czynnosc_giif"
     elif rep_a.get("wartosc_przedmiotu"):
-        powody.append("podaj kurs EUR, zeby sprawdzic prog 15 000 EUR")
+        powody.append("podaj kurs EUR, żeby sprawdzić próg 15 000 EUR")
     return {"zglosic": rodzaj is not None, "rodzaj": rodzaj, "rownowartosc_eur": str(eur) if eur else "",
             "powody": powody, "termin": termin(rep_a["data_czynnosci"]) if rodzaj else ""}
 
@@ -144,17 +145,17 @@ def kompletnosc(z: dict) -> list[str]:
     if not z.get("rep_a"):
         brak.append("Numer repertorium A")
     if not z.get("data_czynnosci"):
-        brak.append("Data czynnosci")
+        brak.append("Data czynności")
     if not z.get("strony"):
         brak.append("Co najmniej jedna strona")
     for i, s in enumerate(z.get("strony", []), 1):
         if not s["nazwa"]:
-            brak.append(f"Strona {i}: imie i nazwisko / nazwa")
+            brak.append(f"Strona {i}: imię i nazwisko / nazwa")
         if s["osoba_prawna"]:
             if not s["nip"]:
                 brak.append(f"Strona {i}: NIP")
         elif not (s["pesel"] or (s["dokument"] and s["panstwo_dokumentu"])):
-            brak.append(f"Strona {i}: PESEL albo dokument tozsamosci z panstwem wydania")
+            brak.append(f"Strona {i}: PESEL albo dokument tożsamości z państwem wydania")
         if not s["adres"]:
             brak.append(f"Strona {i}: adres")
     if z["rodzaj"] in ZAWIADOMIENIA:
@@ -164,13 +165,13 @@ def kompletnosc(z: dict) -> list[str]:
     if not z.get("przedmiot"):
         brak.append("Przedmiot transakcji (art. 72 ust. 6 pkt 7a)")
     if not _dec(z.get("kwota")):
-        brak.append("Wartosc transakcji")
+        brak.append("Wartość transakcji")
     if z.get("nieruchomosc") is not None:
         n = z["nieruchomosc"]
         if not n.get("adres"):
-            brak.append("Nieruchomosc: adres lub miejsce polozenia")
+            brak.append("Nieruchomość: adres lub miejsce położenia")
         if not (n.get("numer_kw") or n.get("identyfikator_dzialki")):
-            brak.append("Nieruchomosc: numer KW albo identyfikator dzialki (komunikat nr 110)")
+            brak.append("Nieruchomość: numer KW albo identyfikator działki (komunikat nr 110)")
     return brak
 
 
@@ -199,7 +200,7 @@ def _przelicz(z: dict) -> dict:
 
 def utworz(rodzaj: str, dane: dict, kto: str = "") -> dict:
     if rodzaj not in RODZAJE:
-        raise ValueError(f"Nieznany rodzaj zgloszenia: {rodzaj}")
+        raise ValueError(f"Nieznany rodzaj zgłoszenia: {rodzaj}")
     z = {"id": uuid.uuid4().hex[:12], "rodzaj": rodzaj, "status": "szkic", "waluta": "PLN",
          "strony": [], "nieruchomosc": None, "historia": [],
          "utworzono": datetime.now().isoformat(timespec="seconds"), "kto": kto}
@@ -237,14 +238,14 @@ def _zmien(identyfikator: str, funkcja):
         for z in lista:
             if z["id"] == identyfikator:
                 return funkcja(z)
-        raise LookupError("Nie ma takiego zgloszenia")
+        raise LookupError("Nie ma takiego zgłoszenia")
     return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
 
 
 def zmien(identyfikator: str, dane: dict, kto: str = "") -> dict:
     def funkcja(z):
         if z["status"] not in ("szkic", "do_podpisu"):
-            raise ValueError("Wyslanego zgloszenia nie zmienia sie - przygotuj korekte jako nowe")
+            raise ValueError("Wysłanego zgłoszenia nie zmienia się - przygotuj korektę jako nowe")
         z.update(_oczysc(dane))
         z["status"] = "szkic"  # kazda zmiana cofa do szkicu: trzeba znow zatwierdzic
         z["historia"].append(_zdarzenie("zmieniono", kto))
@@ -262,13 +263,13 @@ def zatwierdz(identyfikator: str, kto: str = "") -> dict:
 
     def funkcja(z):
         if z["status"] != "szkic":
-            raise ValueError("Zatwierdzic mozna tylko szkic")
+            raise ValueError("Zatwierdzić można tylko szkic")
         _przelicz(z)
         if z["braki"]:
             raise ValueError("Uzupelnij: " + "; ".join(z["braki"]))
         if z["rodzaj"] == "czynnosc_giif_kas":
             if not z.get("karta"):
-                raise ValueError("Uzupelnij karte transakcji (dane do pliku XML)")
+                raise ValueError("Uzupełnij kartę transakcji (dane do pliku XML)")
             wynik = giif_xml.sprawdz([z["karta"]], ustaw)
             if wynik["bledy"]:
                 raise ValueError("Plik XML: " + "; ".join(wynik["bledy"]))
@@ -292,12 +293,12 @@ def zarejestruj_wysylke(identyfikator: str, dane: dict, kto: str = "") -> dict:
     """Wysylka wykonana w SI*GIIF podpisem kwalifikowanym - zapis identyfikatora."""
     numer = str(dane.get("identyfikator_si_giif", "")).strip()
     if not numer:
-        raise ValueError("Podaj identyfikator przesylki z SI*GIIF")
+        raise ValueError("Podaj identyfikator przesyłki z SI*GIIF")
     dzien = date.fromisoformat(str(dane.get("data_wysylki", ""))[:10]).isoformat()
 
     def funkcja(z):
         if z["status"] != "do_podpisu":
-            raise ValueError("Najpierw zatwierdz zgloszenie")
+            raise ValueError("Najpierw zatwierdź zgłoszenie")
         z.update({"status": "wyslane", "identyfikator_si_giif": numer, "data_wysylki": dzien,
                   "po_terminie": bool(z.get("termin")) and dzien > z["termin"]})
         z["historia"].append(_zdarzenie("wyslano", kto, identyfikator=numer))
@@ -305,16 +306,51 @@ def zarejestruj_wysylke(identyfikator: str, dane: dict, kto: str = "") -> dict:
     return _zmien(identyfikator, funkcja)
 
 
+def odczytaj_upo(tresc: bytes) -> dict | None:
+    """UPO z SI*GIIF w XML (giif_xsd/UPO2018.xsd) -> pola. Inny plik (np. PDF) -> None."""
+    from lxml import etree
+    try:
+        dok = etree.fromstring(tresc, etree.XMLParser(no_network=True, resolve_entities=False))
+    except etree.XMLSyntaxError:
+        return None
+    ns = "{http://www.giif.mofnet.gov.pl/xsd/upo/2018}"
+    if dok.tag != f"{ns}Potwierdzenie":
+        return None
+    schemat = etree.XMLSchema(etree.parse(str(giif_xml.KATALOG_XSD / "UPO2018.xsd")))
+    try:
+        zgodny = schemat.validate(dok)
+    except etree.XMLSchemaValidateError:  # np. nierozwiniete encje w pliku
+        zgodny = False
+    pola = {e.tag.replace(ns, ""): (e.text or "").strip() for e in dok if isinstance(e.tag, str)}
+    return {"zgodny_ze_schematem": zgodny, **pola}
+
+
 def zarejestruj_upo(identyfikator: str, tresc_upo: bytes, kto: str = "") -> dict:
-    """UPO z SI*GIIF: zapisujemy skrot SHA-256 (plik trzyma kancelaria)."""
+    """UPO z SI*GIIF: skrot SHA-256 pliku, a dla UPO w XML takze jego pola.
+
+    Sprawdzamy, czy UPO dotyczy tej przesylki (numer referencyjny) i tego
+    notariusza (NIPIO). Niezgodnosc nie blokuje zapisu - pokazujemy ostrzezenie,
+    bo identyfikator przesylki notariusz wpisuje recznie i moze sie pomylic.
+    """
     if not tresc_upo:
         raise ValueError("Pusty plik UPO")
     sha = hashlib.sha256(tresc_upo).hexdigest()
+    upo = odczytaj_upo(tresc_upo)
+    nip = "".join(c for c in str(ustawienia().get("nip", "")) if c.isdigit())
 
     def funkcja(z):
         if z["status"] not in ("wyslane", "upo"):
-            raise ValueError("Najpierw zarejestruj wysylke")
-        z.update({"status": "upo", "sha256_upo": sha})
+            raise ValueError("Najpierw zarejestruj wysyłkę")
+        ostrzezenia = []
+        if upo:
+            numer = upo.get("NumerReferencyjny", "")
+            if numer and z.get("identyfikator_si_giif") and numer != z["identyfikator_si_giif"]:
+                ostrzezenia.append(f"Numer referencyjny w UPO ({numer}) różni się od wpisanego identyfikatora przesyłki")
+            if upo.get("NIPIO") and nip and upo["NIPIO"] != nip:
+                ostrzezenia.append("NIP w UPO nie jest NIP-em notariusza z ustawień GIIF")
+            if not upo["zgodny_ze_schematem"]:
+                ostrzezenia.append("Plik UPO nie jest zgodny ze schematem UPO2018")
+        z.update({"status": "upo", "sha256_upo": sha, "upo": upo, "ostrzezenia_upo": ostrzezenia})
         z["historia"].append(_zdarzenie("upo", kto, sha256=sha))
         return z
     return _zmien(identyfikator, funkcja)
@@ -410,7 +446,7 @@ def karta_wstepna(z: dict, ustaw: dict | None = None) -> dict:
 def zapisz_karte(identyfikator: str, karta: dict, kto: str = "") -> dict:
     def funkcja(z):
         if z["status"] not in ("szkic", "do_podpisu"):
-            raise ValueError("Wyslanego zgloszenia nie zmienia sie - przygotuj korekte jako nowe")
+            raise ValueError("Wysłanego zgłoszenia nie zmienia się - przygotuj korektę jako nowe")
         z["karta"] = karta
         z["status"] = "szkic"
         z["historia"].append(_zdarzenie("karta", kto))
@@ -422,7 +458,7 @@ def plik_xml(identyfikator: str) -> dict:
     """XML karty + bledy. Bez karty - karta wstepna z danych zgloszenia."""
     z = next((x for x in lista() if x["id"] == identyfikator), None)
     if z is None:
-        raise LookupError("Nie ma takiego zgloszenia")
+        raise LookupError("Nie ma takiego zgłoszenia")
     if z["rodzaj"] != "czynnosc_giif_kas":
         raise ValueError("Plik XML budujemy na razie dla karty do GIIF i Szefa KAS (schemat 14250)")
     ustaw = ustawienia()

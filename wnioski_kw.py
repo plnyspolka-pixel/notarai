@@ -29,27 +29,27 @@ import ekw
 import taksa
 
 DZIALY = {
-    "I-O": "Dzial I-O - oznaczenie nieruchomosci",
-    "I-Sp": "Dzial I-Sp - spis praw zwiazanych z wlasnoscia",
-    "II": "Dzial II - wlasnosc i uzytkowanie wieczyste",
-    "III": "Dzial III - prawa, roszczenia i ograniczenia",
+    "I-O": "Dział I-O - oznaczenie nieruchomości",
+    "I-Sp": "Dział I-Sp - spis praw związanych z własnością",
+    "II": "Dział II - własność i użytkowanie wieczyste",
+    "III": "Dział III - prawa, roszczenia i ograniczenia",
     "IV": "Dzial IV - hipoteka",
 }
 
 # Rodzaj zadania -> (dzial, klucz oplaty z taksa.OPLATY_SADOWE, opis dla notariusza)
 ZADANIA = {
-    "zalozenie_kw": ("I-O", "zalozenie_kw", "Zalozenie ksiegi wieczystej (np. wyodrebnienie lokalu)"),
-    "odlaczenie": ("I-O", "inny_wpis", "Odlaczenie dzialki / zmiana oznaczenia nieruchomosci"),
-    "wpis_wlasnosci": ("II", "wpis_wlasnosci", "Wpis wlasnosci / uzytkowania wieczystego"),
+    "zalozenie_kw": ("I-O", "zalozenie_kw", "Założenie księgi wieczystej (np. wyodrębnienie lokalu)"),
+    "odlaczenie": ("I-O", "inny_wpis", "Odłączenie działki / zmiana oznaczenia nieruchomości"),
+    "wpis_wlasnosci": ("II", "wpis_wlasnosci", "Wpis własności / użytkowania wieczystego"),
     "wpis_wlasnosci_spadek": ("II", "wpis_wlasnosci_spadek",
-                              "Wpis wlasnosci na podstawie dziedziczenia, dzialu spadku, zniesienia wspolwlasnosci"),
-    "wykreslenie_wlasciciela": ("II", None, "Wykreslenie dotychczasowego wlasciciela (w ramach wpisu wlasnosci)"),
-    "wpis_sluzebnosci": ("III", "wpis_ograniczonego_prawa", "Wpis sluzebnosci / uzytkowania / innego ograniczonego prawa"),
-    "wpis_roszczenia": ("III", "wpis_roszczenia", "Wpis roszczenia (umowa deweloperska, przedwstepna, art. 16 ukwh)"),
-    "wykreslenie_roszczenia": ("III", "inny_wpis", "Wykreslenie roszczenia lub prawa z dzialu III"),
+                              "Wpis własności na podstawie dziedziczenia, działu spadku, zniesienia współwłasności"),
+    "wykreslenie_wlasciciela": ("II", None, "Wykreślenie dotychczasowego właściciela (w ramach wpisu własności)"),
+    "wpis_sluzebnosci": ("III", "wpis_ograniczonego_prawa", "Wpis służebności / użytkowania / innego ograniczonego prawa"),
+    "wpis_roszczenia": ("III", "wpis_roszczenia", "Wpis roszczenia (umowa deweloperska, przedwstępna, art. 16 ukwh)"),
+    "wykreslenie_roszczenia": ("III", "inny_wpis", "Wykreślenie roszczenia lub prawa z działu III"),
     "wpis_hipoteki": ("IV", "wpis_hipoteki", "Wpis hipoteki"),
-    "wykreslenie_hipoteki": ("IV", "wykreslenie_hipoteki", "Wykreslenie hipoteki"),
-    "inne": (None, "inny_wpis", "Inne zadanie - opisz tresc"),
+    "wykreslenie_hipoteki": ("IV", "wykreslenie_hipoteki", "Wykreślenie hipoteki"),
+    "inne": (None, "inny_wpis", "Inne żądanie - opisz treść"),
 }
 ROLE = ("wnioskodawca", "uczestnik", "nabywca", "zbywca", "wierzyciel_hipoteczny", "uprawniony")
 KOD_NOTARIUSZA = "NOTA"
@@ -75,14 +75,14 @@ def normalizuj_rep_c(tekst: str) -> str:
 def _zadanie(z: dict) -> dict:
     rodzaj = z.get("rodzaj", "")
     if rodzaj not in ZADANIA:
-        raise ValueError(f"Nieznany rodzaj zadania: {rodzaj}")
+        raise ValueError(f"Nieznany rodzaj żądania: {rodzaj}")
     dzial, oplata, opis = ZADANIA[rodzaj]
     dzial = z.get("dzial") or dzial
     if dzial not in DZIALY:
-        raise ValueError(f"Zadanie '{opis}': wskaz dzial ksiegi")
+        raise ValueError(f"Żądanie '{opis}': wskaż dział księgi")
     tresc = str(z.get("tresc", "")).strip()
     if rodzaj == "inne" and not tresc:
-        raise ValueError("Zadanie 'inne': opisz tresc zadania")
+        raise ValueError("Żądanie 'inne': opisz treść żądania")
     wynik = {"rodzaj": rodzaj, "dzial": dzial, "opis": opis, "tresc": tresc, "oplata": oplata,
              "na_rzecz": [str(x).strip() for x in z.get("na_rzecz", []) if str(x).strip()],
              "udzial": str(z.get("udzial", "")).strip()}
@@ -104,13 +104,13 @@ def przygotuj(dane: dict) -> dict:
         except ValueError as blad:
             braki.append(f"Numer KW: {blad}")
     elif not zalozenie:
-        braki.append("Numer ksiegi wieczystej (albo zadanie zalozenia ksiegi)")
+        braki.append("Numer księgi wieczystej (albo żądanie założenia księgi)")
     if zalozenie and not dane.get("ksiega_macierzysta") and not numer_kw:
-        braki.append("Zalozenie KW: numer ksiegi, z ktorej odlacza sie nieruchomosc (albo brak ksiegi - zaznacz)")
+        braki.append("Założenie KW: numer księgi, z której odłącza się nieruchomość (albo brak księgi - zaznacz)")
 
     sad = str(dane.get("sad", "")).strip()
     if not sad:
-        braki.append("Sad rejonowy i wydzial ksiag wieczystych")
+        braki.append("Sąd rejonowy i wydział ksiąg wieczystych")
 
     uczestnicy = []
     for i, u in enumerate(dane.get("uczestnicy", []), 1):
@@ -123,22 +123,22 @@ def przygotuj(dane: dict) -> dict:
                  "adres": str(u.get("adres", "")).strip(), "krs": str(u.get("krs", "")).strip(),
                  "osoba_prawna": bool(u.get("osoba_prawna"))}
         if not nazwa:
-            braki.append(f"Uczestnik {i}: imie i nazwisko / nazwa")
+            braki.append(f"Uczestnik {i}: imię i nazwisko / nazwa")
         if osoba["osoba_prawna"]:
             if not osoba["krs"]:
                 braki.append(f"Uczestnik {i}: numer KRS / REGON")
         elif rola in ("nabywca", "wierzyciel_hipoteczny", "uprawniony", "wnioskodawca") and not osoba["pesel"]:
             # osoba, na rzecz ktorej nastepuje wpis, musi byc oznaczona PESEL (art. 626^2 par. 4 KPC)
-            braki.append(f"Uczestnik {i}: PESEL (osoba, na rzecz ktorej ma nastapic wpis)")
+            braki.append(f"Uczestnik {i}: PESEL (osoba, na rzecz której ma nastąpić wpis)")
         if rola in ("nabywca", "uprawniony") and not osoba["osoba_prawna"] and not osoba["imiona_rodzicow"]:
-            braki.append(f"Uczestnik {i}: imiona rodzicow (do wpisu w dziale II/III)")
+            braki.append(f"Uczestnik {i}: imiona rodziców (do wpisu w dziale II/III)")
         uczestnicy.append(osoba)
     if not uczestnicy:
         braki.append("Co najmniej jeden uczestnik")
 
     zadania = [_zadanie(z) for z in dane.get("zadania", [])]
     if not zadania:
-        braki.append("Co najmniej jedno zadanie wpisu")
+        braki.append("Co najmniej jedno żądanie wpisu")
     nazwy = {u["nazwa"] for u in uczestnicy}
     for z in zadania:
         if z["rodzaj"] in ("wpis_wlasnosci", "wpis_wlasnosci_spadek", "wpis_hipoteki",
@@ -180,17 +180,17 @@ def oplata(zadania: list[dict]) -> dict:
 def pakiet_portalu(wniosek: dict) -> list[dict]:
     """Kroki w kolejnosci formularza portalu: co i gdzie wpisac (kopiuj-wklej / pomocnik)."""
     kroki = [{"krok": "Sad i ksiega", "pola": {"Sad / wydzial": wniosek["sad"],
-                                               "Numer ksiegi wieczystej": wniosek["numer_kw"]}}]
+                                               "Numer księgi wieczystej": wniosek["numer_kw"]}}]
     for u in wniosek["uczestnicy"]:
         pola = {"Rola": u["rola"], "Nazwa / imie i nazwisko": u["nazwa"]}
         pola.update({k: v for k, v in (("PESEL", u["pesel"]), ("KRS/REGON", u["krs"]),
-                                       ("Imiona rodzicow", u["imiona_rodzicow"]),
+                                       ("Imiona rodziców", u["imiona_rodzicow"]),
                                        ("Adres", u["adres"])) if v})
         kroki.append({"krok": "Uczestnik", "pola": pola})
     for z in wniosek["zadania"]:
         pola = {"Dzial": DZIALY[z["dzial"]], "Zadanie": z["opis"]}
         if z["tresc"]:
-            pola["Tresc zadania"] = z["tresc"]
+            pola["Treść żądania"] = z["tresc"]
         if z["na_rzecz"]:
             pola["Na rzecz"] = ", ".join(z["na_rzecz"]) + (f" ({z['udzial']})" if z["udzial"] else "")
         if z.get("suma"):
@@ -198,13 +198,13 @@ def pakiet_portalu(wniosek: dict) -> list[dict]:
         kroki.append({"krok": "Zadanie", "pola": pola})
     p = wniosek["podstawa"]
     kroki.append({"krok": "Podstawa wpisu - akt notarialny",
-                  "pola": {"Numer rep. A": p["rep_a"], "Data sporzadzenia": p["data"],
+                  "pola": {"Numer rep. A": p["rep_a"], "Data sporządzenia": p["data"],
                            "Notariusz": p["notariusz"], "Siedziba kancelarii": p["siedziba"],
                            **({"Identyfikator wypisu w CREWAN": p["id_wypisu_crewan"]} if p["id_wypisu_crewan"] else {})}})
     if wniosek["dokumenty"]:
-        kroki.append({"krok": "Dokumenty dolaczone", "pola": {f"Dokument {i}": d for i, d in
+        kroki.append({"krok": "Dokumenty dołączone", "pola": {f"Dokument {i}": d for i, d in
                                                                enumerate(wniosek["dokumenty"], 1)}})
-    kroki.append({"krok": "Oplata sadowa", "pola": {"Razem": f"{wniosek['oplata']['razem']} zl"}})
+    kroki.append({"krok": "Opłata sądowa", "pola": {"Razem": f"{wniosek['oplata']['razem']} zł"}})
     kroki.append({"krok": "STOP - podpis i wyslanie", "pola": {
         "Kto": "notariusz, kwalifikowanym podpisem elektronicznym w portalu MS",
         "Potem": "wpisz w notarai numer REP.C - wniosek trafi do repertorium C"}})

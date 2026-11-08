@@ -1350,6 +1350,16 @@ def skorowidz_repertorium(rok: int):
     return _ksiegi(ksiegi_notarialne.skorowidz, rok)
 
 
+@app.get("/api/ksiegi-kancelarii/{ksiega}/wydruk")
+def wydruk_ksiegi(ksiega: str, rok: int | None = None, format: str = "html"):
+    """Wydruk do oprawienia (HTML, A4 poziomo) albo CSV do arkusza."""
+    if format == "csv":
+        tresc = _ksiegi(ksiegi_notarialne.csv_ksiegi, ksiega, rok)
+        return Response(tresc, media_type="text/csv; charset=utf-8", headers={
+            "Content-Disposition": f'attachment; filename="{ksiega}-{rok or "wszystkie"}.csv"'})
+    return HTMLResponse(_ksiegi(ksiegi_notarialne.wydruk_html, ksiega, rok))
+
+
 @app.get("/api/ksiegi-kancelarii/{ksiega}")
 def lista_ksiegi(ksiega: str, rok: int | None = None):
     return _ksiegi(ksiegi_notarialne.lista, ksiega, rok)

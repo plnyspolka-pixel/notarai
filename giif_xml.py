@@ -37,8 +37,8 @@ _SCHEMAT = None
 
 KODY_RODZAJU = {"07": "akt notarialny", "17": "akt poswiadczenia dziedziczenia",
                 "27": "europejskie poswiadczenie spadkowe"}
-SPOSOB_WYDANIA = {"0": "bez depozytu", "1": "z depozytem dokumentu", "2": "z depozytem pieniedzy",
-                  "3": "z depozytem papierow wartosciowych"}
+SPOSOB_WYDANIA = {"0": "bez depozytu", "1": "z depozytem dokumentu", "2": "z depozytem pieniędzy",
+                  "3": "z depozytem papierów wartościowych"}
 STRONY_TRANSAKCJI = {"Z": "zbywca", "N": "nabywca", "I": "inna strona"}
 
 
@@ -120,7 +120,8 @@ def _osoba(rodzic, nazwa, o: dict, pelna: bool):
         _t(e, "DataUrodzenia", o.get("data_urodzenia", ""))
         _t(e, "KrajUrodzenia", (o.get("kraj_urodzenia") or "").upper())
     _dokument(e, o.get("dokument") or {})
-    if pelna and o.get("adres"):
+    # AdresZamieszkania jest opcjonalny - pusty adres pomijamy zamiast psuc plik.
+    if pelna and (o.get("adres") or {}).get("miejscowosc"):
         _adres(e, "AdresZamieszkania", o["adres"])
     return e
 
@@ -232,7 +233,43 @@ def zbuduj(karty: list[dict], ustawienia: dict) -> bytes:
 
 # ---------------------------------------------------------------- walidacja
 
-def bledy_xsd(xml: bytes) -> list[str]:
+ETYKIETY = {
+    "nrCREWAN": "numer CREWAN", "NumerRepertorium": "numer repertorium", "NumerCzynnosci": "numer czynności",
+    "DataDokumentu": "data aktu", "RokRepertorium": "rok repertorium", "DataTr": "data transakcji",
+    "KwotaTr": "kwota transakcji", "KodWalutyTr": "waluta", "KodRodzajuTr": "rodzaj transakcji",
+    "TytulTr": "tytuł transakcji", "SposobWydaniaDysp": "sposób wydania dyspozycji",
+    "WartoscPrzedmiotu": "wartość przedmiotu", "IdSlPrzedmiotTyp": "kod rodzaju przedmiotu",
+    "ZbywanyUdzialLicznik": "zbywany udział (licznik)", "ZbywanyUdzialMianownik": "zbywany udział (mianownik)",
+    "UdzialLicznik": "udział strony (licznik)", "UdzialMianownik": "udział strony (mianownik)",
+    "charakterPodmiotu": "charakter podmiotu", "ImiePierwsze": "imię", "Nazwisko": "nazwisko",
+    "Obywatelstwo": "obywatelstwo", "PESEL": "PESEL", "DataUrodzenia": "data urodzenia",
+    "KrajUrodzenia": "kraj urodzenia", "KrajDokumentu": "kraj wydania dokumentu",
+    "RodzajDokumentu": "rodzaj dokumentu", "SeriaINumerDokumentu": "seria i numer dokumentu",
+    "Kraj": "kraj", "Miejscowosc": "miejscowość", "KodPL": "kod pocztowy (NN-NNN)", "Kod": "kod pocztowy",
+    "Ulica": "ulica", "WOJ": "TERYT - województwo", "POW": "TERYT - powiat", "GMI": "TERYT - gmina",
+    "RODZ": "TERYT - rodzaj gminy", "SIMC": "TERYT - SIMC", "ULIC": "TERYT - ULIC",
+    "NrKsiegiWieczystej": "numer KW", "PowLokalu": "powierzchnia lokalu", "LiczbaPokoi": "liczba pokoi",
+    "NrKondygnacjiLokalu": "kondygnacja", "PowNieruchZabudowanejDomem": "powierzchnia nieruchomości z domem",
+    "NazwaPodmiotu": "nazwa podmiotu", "FormaOrganizacyjna": "forma organizacyjna", "PodmiotNIP": "NIP podmiotu",
+    "nipIO": "NIP notariusza", "nrSekwJs": "urząd skarbowy (USK)",
+}
+
+
+def _po_ludzku(komunikat: str) -> str:
+    import re
+    atrybut = re.search(r"attribute '(\w+)'", komunikat)
+    element = re.search(r"Element '\{[^}]*\}(\w+)'", komunikat)
+    nazwa = (atrybut or element).group(1) if (atrybut or element) else ""
+    if not nazwa:
+        return komunikat
+    pole = ETYKIETY.get(nazwa, nazwa)
+    if "not expected" in komunikat or "Missing child" in komunikat:
+        return f"Pole „{pole}”: brak albo w złym miejscu ({nazwa})"
+    return f"Pole „{pole}”: wartość pusta albo w złym formacie ({nazwa})"
+
+
+def bledy_xsd(xml: bytes, surowe: bool = False) -> list[str]:
+    """Bledy walidacji XSD - po polsku i bez powtorzen (surowe=True: komunikaty lxml)."""
     try:
         dok = etree.fromstring(xml, etree.XMLParser(no_network=True, resolve_entities=False))
     except etree.XMLSyntaxError as blad:
@@ -240,7 +277,14 @@ def bledy_xsd(xml: bytes) -> list[str]:
     s = schemat()
     if s.validate(dok):
         return []
-    return [f"linia {b.line}: {b.message}" for b in s.error_log]
+    if surowe:
+        return [f"linia {b.line}: {b.message}" for b in s.error_log]
+    wynik = []
+    for b in s.error_log:
+        tekst = _po_ludzku(b.message)
+        if tekst not in wynik:
+            wynik.append(tekst)
+    return wynik
 
 
 def _ulamek(licznik, mianownik) -> Fraction:
@@ -254,16 +298,16 @@ def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
     if not walidacja.nip(nip)[0]:
         b.append("Ustawienia GIIF: NIP notariusza (nipIO) niepoprawny")
     if not str(ustawienia.get("nr_sekw_js", "")).isdigit():
-        b.append("Ustawienia GIIF: numer urzedu skarbowego (nrSekwJs, slownik USK)")
+        b.append("Ustawienia GIIF: numer urzędu skarbowego (nrSekwJs, słownik USK)")
     kod = k.get("kod_rodzaju", "07")
     if kod not in KODY_RODZAJU:
         b.append("Kod rodzaju transakcji: 07, 17 albo 27")
     if k.get("sposob_wydania", "0") not in SPOSOB_WYDANIA:
-        b.append("Sposob wydania dyspozycji: 0-3")
+        b.append("Sposób wydania dyspozycji: 0-3")
     if not k.get("tytul"):
-        b.append("Tytul transakcji (K1.08, kod ze slownika GIIF, np. litera i dwie cyfry)")
+        b.append("Tytuł transakcji (K1.08, kod ze słownika GIIF, np. litera i dwie cyfry)")
     if not k.get("nr_crewan"):
-        b.append("Numer CREWAN (K1.03); dla aktow nie zglaszanych do CREWAN: XX900")
+        b.append("Numer CREWAN (K1.03); dla aktów nie zgłaszanych do CREWAN: XX900")
     if k.get("korekta") and not k.get("data_korekty"):
         b.append("Korekta wymaga daty korekty")
     przedmioty, strony = k.get("przedmioty", []), k.get("strony", [])
@@ -274,66 +318,78 @@ def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
             b.append("APD/EPS: kwota 0 i dlaGIIF=false (INF.4)")
     suma = sum((Decimal(_kwota(p.get("wartosc", 0))) for p in przedmioty), Decimal("0"))
     if suma.quantize(Decimal("0.01"), ROUND_UP) != Decimal(_kwota(k.get("kwota", 0))):
-        b.append(f"Suma wartosci przedmiotow ({suma}) rozni sie od kwoty transakcji (INF.3)")
+        b.append(f"Suma wartości przedmiotów ({suma}) różni się od kwoty transakcji (INF.3)")
     for i, s in enumerate(strony, 1):
         if s.get("osoba_prawna"):
             if s.get("nip") and not walidacja.nip(s["nip"])[0]:
                 b.append(f"Strona {i}: NIP niepoprawny")
             if not s.get("upowaznieni"):
-                b.append(f"Strona {i}: osoba prawna wymaga co najmniej jednej osoby upowaznionej")
+                b.append(f"Strona {i}: osoba prawna wymaga co najmniej jednej osoby upoważnionej")
         else:
             if s.get("pesel") and not walidacja.pesel(s["pesel"])[0]:
                 b.append(f"Strona {i}: PESEL niepoprawny")
             if not s.get("pesel") and not (s.get("data_urodzenia") and s.get("kraj_urodzenia")):
                 b.append(f"Strona {i}: PESEL albo data i kraj urodzenia")
             if not (s.get("dokument") or {}).get("rodzaj") or not (s.get("dokument") or {}).get("numer"):
-                b.append(f"Strona {i}: dokument tozsamosci (rodzaj ze slownika, np. DO, PA, i numer)")
+                b.append(f"Strona {i}: dokument tożsamości (rodzaj ze słownika, np. DO, PA, i numer)")
     for i, p in enumerate(przedmioty, 1):
         if int(p.get("udzial_licznik", 1)) > int(p.get("udzial_mianownik", 1)):
-            b.append(f"Przedmiot {i}: zbywany udzial wiekszy niz calosc")
+            b.append(f"Przedmiot {i}: zbywany udział większy niż całość")
         if not str(p.get("typ", "")).isdigit():
-            b.append(f"Przedmiot {i}: kod rodzaju przedmiotu (IdSlPrzedmiotTyp, slownik GIIF)")
+            b.append(f"Przedmiot {i}: kod rodzaju przedmiotu (IdSlPrzedmiotTyp, słownik GIIF)")
         if not p.get("podmioty"):
             b.append(f"Przedmiot {i}: co najmniej jeden podmiot")
         sumy = {"Z": Fraction(0), "N": Fraction(0)}
         for pd in p.get("podmioty", []):
             if not 0 <= pd.get("strona", -1) < len(strony):
-                b.append(f"Przedmiot {i}: podmiot wskazuje nieistniejaca strone")
+                b.append(f"Przedmiot {i}: podmiot wskazuje nieistniejącą stronę")
                 continue
             if not pd.get("charakter"):
-                b.append(f"Przedmiot {i}: charakter podmiotu (charakterPodmiotu, slownik GIIF)")
+                b.append(f"Przedmiot {i}: charakter podmiotu (charakterPodmiotu, słownik GIIF)")
             strona_tr = pd.get("strona_transakcji", "I")
             if strona_tr in sumy:
                 sumy[strona_tr] += _ulamek(pd.get("udzial_licznik", 0), pd.get("udzial_mianownik", 1))
             elif int(pd.get("udzial_licznik", 0)) != 0:
-                b.append(f"Przedmiot {i}: inna strona transakcji ma udzial 0/1 (INF.2)")
+                b.append(f"Przedmiot {i}: inna strona transakcji ma udział 0/1 (INF.2)")
         for strona_tr, s in sumy.items():
             if any(pd.get("strona_transakcji") == strona_tr for pd in p.get("podmioty", [])) and s != 1:
-                b.append(f"Przedmiot {i}: udzialy ({STRONY_TRANSAKCJI[strona_tr]}) sumuja sie do {s}, a musza do 1 (INF.2)")
+                b.append(f"Przedmiot {i}: udziały ({STRONY_TRANSAKCJI[strona_tr]}) sumują się do {s}, a muszą do 1 (INF.2)")
         if p.get("nieruchomosc"):
             a = p.get("adres") or {}
             if (a.get("kraj") or "PL").upper() == "PL":
                 if not all(a.get(x) for x in ("woj", "pow", "gmi", "rodz", "simc")):
-                    b.append(f"Przedmiot {i}: adres TERYT (WOJ, POW, GMI, RODZ, SIMC; dzialka bez adresu: SIMC 0000000)")
+                    b.append(f"Przedmiot {i}: adres TERYT (WOJ, POW, GMI, RODZ, SIMC; działka bez adresu: SIMC 0000000)")
                 if not a.get("nr_domu") and not (a.get("nr_obrebu") and a.get("nr_dzialki")):
-                    b.append(f"Przedmiot {i}: numer domu albo numer obrebu i dzialki (INF.7)")
+                    b.append(f"Przedmiot {i}: numer domu albo numer obrębu i działki (INF.7)")
                 if a.get("nr_obrebu") and not (str(a["nr_obrebu"]).isdigit() and len(str(a["nr_obrebu"])) <= 4):
-                    b.append(f"Przedmiot {i}: numer obrebu - tylko cyfry, 1-4")
+                    b.append(f"Przedmiot {i}: numer obrębu - tylko cyfry, 1-4")
                 if a.get("nr_dzialki") and not all(c.isdigit() or c == "/" for c in str(a["nr_dzialki"])):
-                    b.append(f"Przedmiot {i}: numer dzialki - tylko cyfry i ukosnik")
+                    b.append(f"Przedmiot {i}: numer działki - tylko cyfry i ukośnik")
                 kw = (p.get("opis_nieruchomosci") or {}).get("numer_kw")
                 if kw and not walidacja.ksiega_wieczysta(kw)[0]:
                     b.append(f"Przedmiot {i}: numer KW niepoprawny (suma kontrolna)")
             if kod == "07" and p.get("zwolnienie_vat") is None:
-                b.append(f"Przedmiot {i}: oswiadczenie o zwolnieniu z VAT (K2.07) dla nieruchomosci")
+                b.append(f"Przedmiot {i}: oświadczenie o zwolnieniu z VAT (K2.07) dla nieruchomości")
     return b
 
 
 def sprawdz(karty: list[dict], ustawienia: dict) -> dict:
-    """XML + bledy (reguly i XSD). Plik jest gotowy do podpisu, gdy bledy == []."""
+    """XML + bledy (reguly i XSD). Plik jest gotowy do podpisu, gdy bledy == [].
+
+    Karta przychodzi z przegladarki, wiec moze miec dowolne typy (tekst zamiast
+    liczby, brakujace klucze) - wtedy zwracamy blad, a nie wyjatek serwera.
+    """
     bledy = []
     for n, k in enumerate(karty, 1):
-        bledy += [f"Karta {n}: {x}" for x in bledy_regul(k, ustawienia)]
-    xml = zbuduj(karty, ustawienia)
-    bledy += [f"XSD: {x}" for x in bledy_xsd(xml)]
-    return {"xml": xml.decode("utf-8"), "bledy": bledy, "schemat": CRWDE}
+        try:
+            bledy += [f"Karta {n}: {x}" for x in bledy_regul(k, ustawienia)]
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError) as blad:
+            bledy.append(f"Karta {n}: niepoprawne dane karty ({type(blad).__name__}: {blad})")
+    try:
+        xml = zbuduj(karty, ustawienia)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as blad:
+        return {"xml": "", "bledy": bledy + [f"Nie da się zbudować pliku: {type(blad).__name__}: {blad}"],
+                "schemat": CRWDE, "bledy_xsd_szczegoly": []}
+    bledy += [f"Schemat XSD: {x}" for x in bledy_xsd(xml)]
+    return {"xml": xml.decode("utf-8"), "bledy": bledy, "schemat": CRWDE,
+            "bledy_xsd_szczegoly": bledy_xsd(xml, surowe=True)}

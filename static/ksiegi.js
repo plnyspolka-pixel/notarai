@@ -8,6 +8,8 @@
   const esc = t => String(t ?? "").replace(/[&<>"']/g, z => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[z]));
   const zl = t => (t ? Number(t).toLocaleString("pl-PL", {minimumFractionDigits: 2}) + " zł" : "");
   let definicje = null, ksiega = "repertorium_a", lista = [];
+  const STAN_WNIOSKU = {przygotowany: "przygotowany w notarai", zlozony: "złożony", w_sadzie: "w sądzie",
+    wpis_dokonany: "wpis dokonany", zwrot: "zwrócony", oddalony: "oddalony", odrzucony: "odrzucony", cofniety: "cofnięty"};
 
   async function json(adres, opcje) {
     const odp = await api(adres, opcje);
@@ -46,6 +48,22 @@
         kolumny.map(([p]) => `<td>${esc(Array.isArray(w[p]) ? w[p].map(x => x.nazwa || x).join("; ") : (/^(wartosc|wynagr|vat|oplata|podatek|kwota)/.test(p) ? zl(w[p]) : w[p]))}</td>`).join("")
       }<td>${akcje(w)}</td></tr>`).join("")}</tbody></table></div>`;
     el("ks-lista").querySelectorAll("[data-a]").forEach(b => b.onclick = () => akcja(b.dataset.a, b.dataset.id));
+    el("ks-lista").insertAdjacentHTML("beforeend", `<p><button class="wtorny" id="ks-drukuj">Wydruk do oprawienia</button> <button class="wtorny" id="ks-csv">Eksport CSV</button></p>`);
+    const adresWydruku = f => `/api/ksiegi-kancelarii/${ksiega}/wydruk?format=${f}${d.roczna ? "&rok=" + encodeURIComponent(el("ks-rok").value) : ""}`;
+    el("ks-drukuj").onclick = async () => {
+      // Okno otwieramy od razu (blokada wyskakujacych okien), tresc z tokenem doklada api().
+      const okno = window.open("", "_blank");
+      const odp = await api(adresWydruku("html"));
+      if (!odp.ok || !okno) { okno?.close(); return komunikat("Nie udało się przygotować wydruku", true); }
+      okno.document.write(await odp.text()); okno.document.close();
+    };
+    el("ks-csv").onclick = async () => {
+      const odp = await api(adresWydruku("csv"));
+      if (!odp.ok) return komunikat("Nie udało się przygotować pliku", true);
+      const url = URL.createObjectURL(await odp.blob());
+      Object.assign(document.createElement("a"), {href: url, download: `${ksiega}-${el("ks-rok").value}.csv`}).click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
   }
 
   function akcje(w) {
@@ -64,7 +82,7 @@
       return;
     }
     el("ks-nowy").innerHTML = `<h2>Nowy wpis: ${esc(d.nazwa)}</h2>${Object.entries(d.rubryki).map(([p, n]) =>
-      `<label class="pole">${esc(n)}${d.wymagane.includes(p) ? " *" : ""}<input type="text" data-p="${p}" ${p.startsWith("data") ? 'placeholder="RRRR-MM-DD"' : ""}${p === "strony" ? ' placeholder="Imię Nazwisko; Imię Nazwisko"' : ""}></label>`).join("")
+      `<label class="pole">${esc(n)}${d.wymagane.includes(p) ? " *" : ""}<input type="text" data-p="${p}" ${p.startsWith("data") ? 'placeholder="RRRR-MM-DD"' : ""}${p === "strony" ? ' placeholder="Jan Sobczak, sprzedający, PESEL; Anna Pawlak, kupująca, PESEL"' : ""}></label>`).join("")
       }<button id="ks-dodaj">Wpisz do księgi</button>`;
     el("ks-dodaj").onclick = async () => {
       const dane = {};
@@ -103,10 +121,11 @@
     const zad = definicje.wniosek_kw.zadania;
     const strony = (w.strony || []).map(s => s.nazwa);
     k.innerHTML = `<h2>Wnioski KW do ${esc(w.oznaczenie)}</h2>
-      ${(w.wnioski_kw || []).map(wn => `<div class="pole"><b>${esc(wn.numer_kw || "nowa księga")}</b> — ${esc(wn.status)}${wn.numer_rep_c ? " · " + esc(wn.numer_rep_c) : ""} · opłata ${zl(wn.oplata.razem)}
+      ${(w.wnioski_kw || []).map(wn => `<div class="pole"><b>${esc(wn.numer_kw || "nowa księga")}</b> — ${esc(STAN_WNIOSKU[wn.status] || wn.status)}${wn.numer_rep_c ? " · " + esc(wn.numer_rep_c) : ""} · opłata ${zl(wn.oplata.razem)}
         ${wn.braki.length ? `<br><span class="stan blad">Braki: ${esc(wn.braki.join("; "))}</span>` : ""}
         <br><button class="wtorny" data-pakiet="${wn.id}">Pakiet do portalu</button>
         ${wn.status === "przygotowany" ? `<button class="wtorny" data-zloz="${wn.id}">Złożony — wpisz REP.C</button>` : `<button class="wtorny" data-status="${wn.id}">Zmień stan</button>`}</div>`).join("")}
+      <div id="kw-pakiet"></div>
       <h2>Nowy wniosek</h2>
       <label class="pole">Numer KW<input type="text" id="kw-numer" placeholder="WA4M/00160286/2"></label>
       <label class="pole">Sąd i wydział KW<input type="text" id="kw-sad"></label>
@@ -116,7 +135,7 @@
       <label class="pole">Imiona rodziców nabywcy<input type="text" id="kw-rodzice"></label>
       <div class="pole">${Object.entries(zad).map(([kl, z]) => `<label style="display:block"><input type="checkbox" value="${kl}" class="kw-zad"> ${esc(z.opis)}</label>`).join("")}</div>
       <label class="pole">Suma hipoteki (gdy wpis hipoteki)<input type="text" id="kw-suma"></label>
-      <button id="kw-zapisz">Przygotuj wniosek</button><div id="kw-pakiet"></div>`;
+      <button id="kw-zapisz">Przygotuj wniosek</button>`;
     el("kw-zapisz").onclick = async () => {
       const naRzecz = el("kw-na-rzecz").value;
       const uczestnicy = (w.strony || []).map(s => ({nazwa: s.nazwa, pesel: s.pesel || "",
@@ -149,7 +168,7 @@
       zmien(b.dataset.zloz, {status: "zlozony", numer_rep_c: numer, data_zlozenia: data});
     });
     k.querySelectorAll("[data-status]").forEach(b => b.onclick = () => {
-      const status = prompt("Nowy stan: " + definicje.statusy_wniosku_kw.slice(2).join(", ")); if (!status) return;
+      const status = prompt("Nowy stan (wpisz kod): " + definicje.statusy_wniosku_kw.slice(2).map(k => `${k} = ${STAN_WNIOSKU[k]}`).join(", ")); if (!status) return;
       const sygnatura = prompt("Numer w dzienniku KW (sygnatura sądu), jeśli znany", "") || "";
       zmien(b.dataset.status, {status, sygnatura_dz_kw: sygnatura,
         data_wpisu: status === "wpis_dokonany" ? new Date().toISOString().slice(0, 10) : ""});
@@ -170,6 +189,8 @@
       ${z.termin ? ` · termin ${esc(z.termin)}` : ""}${z.rownowartosc_eur ? ` · ${esc(z.rownowartosc_eur)} EUR` : ""}
       ${z.braki.length ? `<br><span class="stan blad">Braki: ${esc(z.braki.join("; "))}</span>` : ""}
       ${z.identyfikator_si_giif ? `<br>SI*GIIF: ${esc(z.identyfikator_si_giif)} (${esc(z.data_wysylki)})${z.po_terminie ? " — po terminie" : ""}` : ""}
+      ${z.upo ? `<br>UPO: ${esc(z.upo.NumerReferencyjny || "")} ${esc((z.upo.DataWplyniecia || "").slice(0, 16))}` : ""}
+      ${(z.ostrzezenia_upo || []).length ? `<br><span class="stan blad">${z.ostrzezenia_upo.map(esc).join("<br>")}</span>` : ""}
       <br>${z.status === "szkic" ? `<button class="wtorny" data-g="edytuj" data-id="${z.id}">Uzupełnij</button><button class="wtorny" data-g="zatwierdz" data-id="${z.id}">Zatwierdź</button>` : ""}
       ${z.status === "do_podpisu" ? `<button class="wtorny" data-g="wyslane" data-id="${z.id}">Wysłane w SI*GIIF</button>` : ""}
       ${z.status === "wyslane" ? `<label class="wtorny">UPO <input type="file" data-upo="${z.id}" hidden></label>` : ""}
@@ -273,6 +294,7 @@
     const pola = (prefiks, lista, obiekt) => lista.map(([p, n]) => `<label class="pole">${esc(n)}<input type="text" data-k="${prefiks}${p}" value="${esc(wez(obiekt, p))}"></label>`).join("");
     okno.innerHTML = `<h2>Karta transakcji ${esc(z.rep_a)} — schemat CRWDE ${esc(w.schemat)}</h2>
       ${w.bledy.length ? `<p class="stan blad">${w.bledy.map(esc).join("<br>")}</p>` : `<p class="stan">Plik zgodny ze schematem i regułami. Możesz zatwierdzić zgłoszenie.</p>`}
+      ${w.bledy_xsd_szczegoly?.length ? `<details><summary>Szczegóły walidacji XSD (dla wsparcia technicznego)</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(w.bledy_xsd_szczegoly.join("\n"))}</pre></details>` : ""}
       <label class="pole"><input type="checkbox" data-kb="dla_giif" ${k.dla_giif ? "checked" : ""}> Transakcja ponadprogowa — także do GIIF (dlaGIIF)</label>
       <label class="pole"><input type="checkbox" data-kb="czy_odplatna" ${k.czy_odplatna ? "checked" : ""}> Czynność odpłatna</label>
       ${pola("", POLA_KARTY, k)}
