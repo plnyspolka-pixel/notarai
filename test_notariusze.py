@@ -220,8 +220,9 @@ class TestUstalPolozenie:
         geokoder.blad = None
         assert notariusze.ustal_polozenie(wpis)["lat"] == 51.2465
 
-    def test_wylaczony_geokoder_nic_nie_robi(self):
-        # conftest wylacza geokoder - tak jak stanowisko lokalne bez internetu
+    def test_wylaczony_geokoder_nic_nie_robi(self, monkeypatch):
+        # Wyłączenie geokodera powinno być jawne, nie zależeć od conftest.
+        monkeypatch.setattr(notariusze, "GEOKODER", "")
         wpis = self._wpis()
         assert notariusze.ustal_polozenie(wpis) is None and "mapa" not in wpis
 
@@ -403,7 +404,13 @@ class TestPanelAdministratora:
         wynik = klient.post("/api/admin/mapa", headers=ADMIN).json()
         assert wynik == {"ustalono": 1, "aktualne": 1, "bez_adresu": 0, "bez_polozenia": []}
         assert geokoder.zapytania == [ADRES_WARSZAWA], "kancelarii z aktualnym polozeniem nie pytamy ponownie"
-        assert sorted(k["nazwa"] for k in _publiczne(klient)) == ["Kancelaria Notarialna Anna Sobczak", "Kancelaria Pawlak"]
+        # Nowe kancelarie nie sa publiczne bez zgody. Wlasciciel Pawlaka
+        # wlacza publikacje swiadomie po ponownym wyznaczeniu polozenia.
+        assert [w["nazwa"] for w in _publiczne(klient)] == [FORMULARZ["nazwa"]]
+        odp = klient.put("/api/mapa", headers=jako("jan@kancelaria-pawlak.test", k["id"]),
+                         json={"na_mapie": True})
+        assert odp.status_code == 200
+        assert sorted(w["nazwa"] for w in _publiczne(klient)) == ["Kancelaria Notarialna Anna Sobczak", "Kancelaria Pawlak"]
 
     def test_wszystkie_wyznacza_od_nowa_i_wymienia_nieznane(self, srodowisko):
         klient, geokoder, _ = srodowisko
