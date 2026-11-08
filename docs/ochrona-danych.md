@@ -24,11 +24,16 @@ Poniższa tabela opisuje wariant chmurowy.
 | Skany, odczyty, przepisana treść stron (transkrypcje), rozmowy, projekty | S3, Frankfurt (eu-central-1) | szyfrowane, dostęp tylko po TLS, wersjonowane |
 | Kalendarz terminów i numery telefonów stron (bez numerów PESEL; spis osób powstaje na bieżąco z odczytów) | S3, Frankfurt, osobno dla każdej kancelarii | szyfrowane, dostęp tylko po TLS, wersjonowane; usuwane razem z danymi kancelarii |
 | Dane kancelarii i zapis akceptacji umowy powierzenia | S3, Frankfurt, obszar administracyjny | szyfrowane, tylko dla aplikacji i administratora |
+| Położenie kancelarii na mapie notariuszy (współrzędne wyznaczone z adresu kancelarii) | S3, Frankfurt, obszar administracyjny (rejestr kancelarii) | szyfrowane; publicznie widać tylko nazwę kancelarii, notariuszy i adres, właściciel może kancelarię z mapy zdjąć |
 | Konta i hasła użytkowników | Amazon Cognito, Frankfurt | hasła przechowuje AWS, aplikacja ich nie widzi |
 | Dzienniki pracy aplikacji | CloudWatch, Frankfurt | 90 dni, bez danych osobowych |
 | Odczyt skanów przez model | Amazon Bedrock, regiony UE | patrz niżej |
 
-Dane nie opuszczają Unii Europejskiej.
+Dane nie opuszczają Unii Europejskiej. Jedyny wyjątek dotyczy danych
+firmowych kancelarii, nie danych jej klientów: adres kancelarii (ten z umowy
+powierzenia) wysyłamy do geokodera OpenStreetMap (Nominatim, OpenStreetMap
+Foundation, Wielka Brytania), żeby postawić pinezkę na mapie notariuszy.
+Nic więcej tam nie trafia.
 
 ## Model językowy
 

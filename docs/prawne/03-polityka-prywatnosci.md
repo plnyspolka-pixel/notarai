@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI NOTARAI
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 08.11.2026.
 
 Ta polityka dotyczy danych, które Fundacja przetwarza **jako administrator**:
 danych użytkowników usługi, osób kontaktujących się z nami i odwiedzających
@@ -29,6 +29,8 @@ siedziby.
 | Osoba akceptująca Regulamin i umowę powierzenia | data i godzina akceptacji, wersje dokumentów, e-mail, adres IP | wykazanie zawarcia umowy i umowy powierzenia (rozliczalność, art. 5 ust. 2 i art. 28 ust. 9 RODO) | art. 6 ust. 1 lit. c i f | czas umowy i 5 lat po jej zakończeniu |
 | Użytkownicy | data potwierdzenia zapoznania się z instrukcją AI, data przyjęcia oceny skutków przez notariusza | wykazanie kompetencji w zakresie AI (art. 4 rozporządzenia (UE) 2024/1689) i dokumentacji kancelarii | art. 6 ust. 1 lit. c i f | do usunięcia konta albo kancelarii |
 | Właściciel kancelarii opłacający abonament | e-mail płatnika, identyfikator klienta i subskrypcji w Stripe, status i daty płatności, faktury; danych karty Fundacja nie otrzymuje | prowadzenie abonamentu, rozliczenia | art. 6 ust. 1 lit. b i c | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku |
+| Notariusz kancelarii pokazywanej na mapie notariuszy (app.notarai.pl/notariusze) | nazwa kancelarii, imię i nazwisko notariusza (notariuszy), adres kancelarii oraz współrzędne wyznaczone z tego adresu | publiczna wyszukiwarka najbliższej kancelarii dla klientów | art. 6 ust. 1 lit. f (prawnie uzasadniony interes: informowanie o kancelariach korzystających z usługi; dane te są jawne także w rejestrze samorządu notarialnego); właściciel kancelarii może w każdej chwili wyłączyć publikację w aplikacji | do wyłączenia publikacji, wyłączenia kancelarii albo końca umowy |
+| Osoby korzystające z mapy notariuszy | położenie ustalone przez przeglądarkę albo wskazane na mapie | wskazanie najbliższej kancelarii | nie jest przetwarzane przez Fundację: pozostaje w przeglądarce, odległości liczy strona lokalnie | - |
 | Osoby piszące do nas | e-mail, imię i nazwisko, treść wiadomości | odpowiedź, obsługa reklamacji i zgłoszeń | art. 6 ust. 1 lit. f | do zakończenia sprawy, nie dłużej niż 3 lata |
 | Odwiedzający stronę notarai.pl | adres IP, czas wizyty i dane techniczne przeglądarki w dziennikach serwera hostingu AZ.pl | wyświetlenie strony, bezpieczeństwo | art. 6 ust. 1 lit. f | zgodnie z zasadami dostawcy hostingu |
 
@@ -54,7 +56,14 @@ wymagana zgoda.
    kartą, subskrypcji i faktur. Stripe przetwarza dane płatnicze także jako
    odrębny administrator, na zasadach swojej polityki prywatności
    (stripe.com/pl/privacy). Dane karty podaje się bezpośrednio Stripe.
-4. Organy publiczne, gdy wynika to z przepisów.
+4. OpenStreetMap Foundation (Wielka Brytania) - wyznaczenie współrzędnych
+   kancelarii z jej adresu (usługa Nominatim; otrzymuje wyłącznie adres
+   kancelarii) oraz kafelki mapy, które przeglądarka osoby korzystającej
+   z mapy notariuszy pobiera bezpośrednio z serwerów OpenStreetMap (widzą one
+   jej adres IP, na zasadach polityki prywatności OSMF:
+   osmfoundation.org/wiki/Privacy_Policy). Wielka Brytania jest objęta
+   decyzją Komisji Europejskiej stwierdzającą odpowiedni stopień ochrony.
+5. Organy publiczne, gdy wynika to z przepisów.
 
 Dane użytkowników usługi są przechowywane w Europejskim Obszarze
 Gospodarczym. AWS należy do grupy z siedzibą w USA i stosuje certyfikację

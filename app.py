@@ -35,6 +35,7 @@ import zlecenia
 import magazyn
 import autoryzacja
 import nazwy
+import notariusze
 import osoby
 import prompty
 import rejestracja
@@ -63,6 +64,9 @@ app.include_router(autoryzacja.router_abonamentu)
 app.include_router(autoryzacja.router_stripe)
 app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
+app.include_router(notariusze.router)
+app.include_router(notariusze.router_kancelarii)
+app.include_router(notariusze.router_admina)
 
 
 @app.exception_handler(Exception)
@@ -104,6 +108,14 @@ def panel_admina():
 def strona_rejestracji():
     """Notariusz zaklada konto kancelarii sam, bez nas i bez papieru."""
     return (Path(__file__).parent / "static" / "rejestracja.html").read_text("utf-8")
+
+
+@app.get("/notariusze", response_class=HTMLResponse)
+def mapa_notariuszy():
+    """Publiczna wyszukiwarka najblizszej kancelarii - dla klientow, bez
+    logowania. Dane bierze z /api/notariusze: tylko to, co kancelaria
+    publikuje (nazwa, notariusze, adres, polozenie)."""
+    return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
 
 
 @app.get("/dokumenty/{nazwa}", response_class=HTMLResponse)

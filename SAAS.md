@@ -15,6 +15,8 @@
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
+- `notariusze.py`, `static/notariusze.html`, `static/leaflet/` — mapa notariuszy:
+  położenie kancelarii z adresu i publiczna wyszukiwarka najbliższej (patrz niżej)
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
@@ -165,6 +167,41 @@ Przy `u-klienta`:
 - sprawdzenia w rejestrach są w tym trybie ukryte, bo zapisują ślad w sprawie
   po stronie serwera,
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
+
+## Mapa notariuszy (wyszukiwarka najbliższej kancelarii)
+
+Publiczna strona https://app.notarai.pl/notariusze, bez logowania; link ze
+strony notarai.pl („Znajdź notariusza”) i z ekranu logowania. Klient włącza
+lokalizację w przeglądarce albo klika na mapie, a lista kancelarii układa się
+od najbliższej, z odległością i trasą dojazdu. Mapa to Leaflet 1.9.4 wydawany
+z `static/leaflet/` (żadnych skryptów z obcych CDN); kafelki z OpenStreetMap
+pobiera przeglądarka klienta. Lokalizacja klienta zostaje w jego przeglądarce,
+odległości liczy JavaScript.
+
+- Położenie kancelarii wyznacza serwer z adresu podanego przy rejestracji,
+  czyli tego samego, który trafia do umowy powierzenia: przy rejestracji,
+  przy akceptacji umowy z danymi i przy każdej zmianie adresu w oknie
+  Dokumenty. Geokoder: Nominatim (OpenStreetMap), `PIECZAPP_GEOKODER`;
+  pusta wartość wyłącza wyznaczanie. Wysyłamy wyłącznie adres kancelarii,
+  nie częściej niż raz na sekundę, z `User-Agent: notarai.pl
+  (kontakt@notarai.pl)`, jak wymaga regulamin Nominatim. Gdy pełny adres jest
+  nieznany, próbujemy bez „ul.” i kodu pocztowego, na końcu samej
+  miejscowości; wtedy pinezka stoi w centrum miejscowości i strona to
+  zaznacza jako położenie przybliżone.
+- Wynik leży w rejestrze kancelarii pod kluczem `mapa` (adres, lat, lon,
+  dokładność, data; albo `blad`). Awaria geokodera nie przerywa rejestracji
+  ani zmiany danych, zostaje odnotowana. Logi: identyfikator kancelarii
+  i typ błędu, nigdy adres.
+- Publikujemy tylko nazwę kancelarii, notariuszy, adres i współrzędne; bez
+  identyfikatora, e-maili i NIP. Kancelaria znika z mapy, gdy jest wyłączona,
+  po terminie abonamentu albo gdy właściciel ją ukryje (okno Dokumenty →
+  Mapa notariuszy; klucz `na_mapie` w rejestrze, domyślnie włączony).
+  Właściciel może też wyznaczyć położenie ponownie (`POST /api/mapa/odswiez`).
+- Kancelarie zarejestrowane przed mapą nie mają położenia. Panel /admin →
+  „Uzupełnij mapę notariuszy” (`POST /api/admin/mapa`; `?wszystkie=true`
+  wyznacza wszystkim od nowa, około sekundy na kancelarię).
+- `GET /api/notariusze?lat=&lon=` zwraca listę posortowaną od najbliższej
+  z `odleglosc_km` (dla innych klientów i testów).
 
 ## Znane granice (uczciwie)
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;

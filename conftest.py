@@ -1,5 +1,22 @@
 """Wspólne funkcje pomocnicze dla testów."""
+import pytest
+
 from walidacja import WAGI_PESEL
+
+
+@pytest.fixture(autouse=True)
+def _bez_geokodera():
+    """Żaden test nie pyta prawdziwego geokodera (OpenStreetMap). Testy mapy
+    notariuszy włączają go same, z atrapą transportu HTTP.
+
+    Bez monkeypatch celowo: fixture autouse z monkeypatch zmieniałby kolejność
+    sprzątania i reload modułów w `_przywroc_moduly` (test_logowanie)
+    odbywałby się ze środowiskiem jeszcze podmienionym (PIECZAPP_MULTI=true)."""
+    import notariusze
+    poprzedni = notariusze.GEOKODER
+    notariusze.GEOKODER = ""
+    yield
+    notariusze.GEOKODER = poprzedni
 
 
 def z_suma_kontrolna(dziesiec_cyfr: str) -> str:

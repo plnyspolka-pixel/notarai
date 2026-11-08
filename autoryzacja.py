@@ -46,9 +46,12 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
 # webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
-# jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
+# jest otwarta, bo to przez nia kancelaria dopiero dostaje konto. Mapa
+# notariuszy jest dla klientow kancelarii, wiec tez bez logowania - pokazuje
+# tylko to, co kancelaria publikuje (nazwa, notariusze, adres).
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/")
+            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
+            "/notariusze", "/api/notariusze")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
@@ -68,7 +71,7 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
-                  "/api/pomocnik")
+                  "/api/pomocnik", "/api/mapa")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
@@ -535,9 +538,18 @@ def lista_kancelarii(request: Request):
          "oplacono_do": w.get("oplacono_do"),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
-         "serwis_do": (_serwis_trwa(w) or {}).get("do")}
+         "serwis_do": (_serwis_trwa(w) or {}).get("do"),
+         "mapa": _stan_mapy(w)}
         for w in rejestr.values()
     ]
+
+
+def _stan_mapy(wpis: dict) -> dict:
+    """Mapa notariuszy (notariusze.py): czy kancelaria ma polozenie i czy je
+    publikuje. Tu, a nie przez import notariusze - ten modul importuje nas."""
+    mapa = wpis.get("mapa") or {}
+    return {"na_mapie": wpis.get("na_mapie", True), "polozenie": mapa.get("lat") is not None,
+            "blad": mapa.get("blad")}
 
 
 def nowy_identyfikator(rejestr: dict, nazwa: str) -> str:

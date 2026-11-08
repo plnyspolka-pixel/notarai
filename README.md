@@ -97,6 +97,7 @@ Zmienne środowiskowe, wszystkie opcjonalne:
 | `PIECZAPP_MAX_WYJSCIE` | `128000` | limit odpowiedzi modelu w tokenach (maksimum Opus 4.6) |
 | `PIECZAPP_MYSLENIE` | `1` | `0` wyłącza myślenie modelu |
 | `PIECZAPP_WYSILEK` | `max` | domyślny wysiłek myślenia; przełącznik „Dokładność odczytu” zmienia go dla sprawy |
+| `PIECZAPP_GEOKODER` | Nominatim (OpenStreetMap) | usługa wyznaczająca położenie kancelarii z adresu na mapę notariuszy (`/notariusze`); pusta wartość wyłącza |
 
 Aplikacja odmawia startu, jeśli model nie jest profilem `eu.` — zabezpieczenie
 przed przypadkowym wyjściem poza Unię Europejską.
@@ -162,7 +163,8 @@ dokumenty.py        PDF/obrazy na strony, docx tam i z powrotem
 walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
 prompty.py          treść promptów
 config.py           ustawienia
-static/             interfejs
+notariusze.py       mapa notariuszy: położenie kancelarii z adresu i wyszukiwarka najbliższej
+static/             interfejs (static/leaflet/ - biblioteka mapy, BSD-2)
 test_*.py           testy automatyczne (pytest)
 SPEC.md             specyfikacja kolejnego etapu
 CLAUDE.md           reguły dla Claude Code
