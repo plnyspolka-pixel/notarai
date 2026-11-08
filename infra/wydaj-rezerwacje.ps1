@@ -121,6 +121,10 @@ try {
         Sprawdz-Http "https://notarai.pl/" "https://app.notarai.pl/hurtowe" 6
         Sprawdz-Http "https://notarai.pl/kalkulator/" "api/taksa" 6
         Sprawdz-Http "https://notarai.pl/notariusz/" "notariusz" 6
+        # Neutralne strony miejscowosci: przycisk rezerwacji ukryty, dopoki API nie potwierdzi
+        # rezerwacji online; bez odznak i bez "dowolnej kancelarii".
+        Sprawdz-Http "https://notarai.pl/notariusz/lublin/" "[hidden] { display: none !important; }" 6
+        Sprawdz-Http "https://notarai.pl/kalkulator/" "w swojej okolicy" 6
         Write-Host "== Serwis, katalog i kalkulator potwierdzone" -ForegroundColor Green
     } else {
         Write-Host "== Pominięto aktualizację notarai.pl (-BezStrony)." -ForegroundColor Yellow

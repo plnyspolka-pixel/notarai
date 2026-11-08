@@ -328,7 +328,7 @@ function kartaKalkulacji(w, kontener, parametry) {
   }
   const akcje = document.createElement('div'); akcje.className = 'akcje';
   const umow = document.createElement('a'); umow.className = 'przycisk';
-  umow.textContent = 'Umów wizytę u notariusza';
+  umow.textContent = 'Znajdź kancelarię w swojej okolicy';
   const opis = (w.pozycje[0] && w.pozycje[0].etykieta || '').replace(/^taksa notarialna:\s*/, '').slice(0, 120);
   umow.href = 'https://notarai.pl/notariusz/?' + new URLSearchParams({ czynnosc: opis, wartosc: w.wartosc || '', p: JSON.stringify(parametryWyniku || {}) }).toString();
   akcje.appendChild(umow);

@@ -97,6 +97,8 @@ class TestStrony:
         # bez odznak, bez zmiany kolejnosci i bez "dowolnej kancelarii" dobieranej przez notarai.
         assert 'data-umow="1" data-nazwa="Kancelaria Notarialna Anna Testowa" hidden>' in lublin
         assert 'data-umow=""' not in lublin and "dowolnej kancelarii" not in lublin
+        # .przycisk ma display: inline-block w style.css - bez tej reguly hidden nie dziala
+        assert "[hidden] { display: none !important; }" in lublin
         assert "lista.prepend" not in lublin and "Korzysta z notarai" not in lublin and "przekazujemy" not in lublin
         assert "Brak danych kontaktowych" in lublin
         assert '"@type": "Notary"' in lublin and '"@type": "FAQPage"' in lublin and 'rel="canonical" href="https://notarai.pl/notariusz/lublin/"' in lublin
