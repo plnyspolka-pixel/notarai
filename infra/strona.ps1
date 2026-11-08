@@ -1,4 +1,4 @@
-# notarai.pl — pełna publikacja serwisu (katalog, blog, strony statyczne)
+﻿# notarai.pl — pełna publikacja serwisu (katalog, blog, strony statyczne)
 # Użycie:
 #   powershell -ExecutionPolicy Bypass -File infra\strona.ps1 -Polecenie wyslij
 #   powershell -ExecutionPolicy Bypass -File infra\strona.ps1 -Polecenie kopia
