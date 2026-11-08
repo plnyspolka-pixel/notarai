@@ -44,6 +44,7 @@ import rejestracja
 import rejestry
 import rezerwacje_hurtowe
 import rezerwacje_klientow
+import teczka
 import wizyty
 import transkrypcja
 import walidacja
@@ -78,6 +79,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 app.include_router(kalkulator.router)
 app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
+app.include_router(teczka.router)
 app.include_router(rezerwacje_klientow.router_admina)
 rezerwacje_klientow.uruchom_przypomnienia()
 app.include_router(wizyty.router_zapytan)

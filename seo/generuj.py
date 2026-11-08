@@ -9,6 +9,7 @@ przyklady kosztow (taksa jest ogolnopolska) i pytania. E-maile kancelarii
 nie trafiaja na strony - sluza tylko aplikacji do przekazywania zgloszen.
 """
 import json
+from urllib.parse import quote
 import re
 import sys
 from collections import defaultdict
@@ -61,6 +62,7 @@ def formularz_html(slug_miasta: str, nazwa_miasta: str) -> str:
 <dialog class="umow" id="umow">
   <form id="umow-form" method="dialog" autocomplete="off">
     <h2>Umów wizytę u notariusza</h2>
+    <p style="margin:0 0 6px;font-size:.9rem">Masz dokumenty albo złożoną sprawę? <a id="u-teczka" href="/przygotuj-sprawe/?miejscowosc={esc(slug_miasta)}">Przygotuj sprawę z asystentem</a> – powie, jakie dokumenty zabrać, i przygotuje zapytanie.</p>
     <p id="umow-kancelaria" style="color:var(--tekst2);margin:0 0 4px"></p>
     <input type="hidden" id="u-kancelaria" value="">
     <input type="hidden" id="u-parametry" value="">
@@ -129,6 +131,7 @@ async function pokazSloty(id) {{
 function otworz(id, nazwa) {{
   pokazSloty(id);
   $('u-kancelaria').value = id || '';
+  $('u-teczka').href = '/przygotuj-sprawe/?miejscowosc=' + encodeURIComponent(SLUG) + (id ? '&kancelaria=' + encodeURIComponent(id) + '&nazwa=' + encodeURIComponent(nazwa) : '');
   $('umow-kancelaria').textContent = nazwa ? 'Kancelaria: ' + nazwa : 'Dowolna kancelaria w miejscowości {esc(nazwa_miasta)}';
   $('u-wynik').hidden = true; $('u-wyslij').disabled = false;
   if (q.get('czynnosc')) {{ const sel = $('u-czynnosc'); const o = [...sel.options].find(o => q.get('czynnosc').toLowerCase().includes(o.value.split(' ')[0])); if (o) sel.value = o.value; }}
@@ -200,6 +203,7 @@ def karta_kancelarii(k: dict) -> str:
         linie.append('<p class="brak">Brak danych kontaktowych w publicznych wykazach. Kancelario, jeśli to Ty: napisz na kontakt@notarai.pl.</p>')
     else:
         linie.append(f'<div class="akcje"><button class="przycisk" type="button" data-umow="{k["id"]}" data-nazwa="{esc(k["nazwa"])}">Umów wizytę</button>'
+                     + f'<a class="przycisk drugi" href="/przygotuj-sprawe/?kancelaria={k["id"]}&amp;nazwa={quote(k["nazwa"])}&amp;miejscowosc={k["slug"]}">Przygotuj sprawę</a>'
                      + ('' if k["zweryfikowany"] else '<span class="brak">dane z katalogu branżowego, do potwierdzenia</span>') + '</div>')
     return f'<article id="k-{k["id"]}">' + "".join(linie) + "</article>"
 
@@ -351,7 +355,7 @@ pole.addEventListener('input', () => {{
 
 def sitemap(miejscowosci: list[dict]) -> str:
     dzis = date.today().isoformat()
-    adresy = ["/", "/kalkulator/", "/notariusz/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
+    adresy = ["/", "/kalkulator/", "/notariusz/", "/przygotuj-sprawe/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
     adresy += [f"/notariusz/{m['slug']}/" for m in miejscowosci]
     for wpis in sorted((KATALOG_STRONY / "blog").glob("*/index.html")):
         adresy.append(f"/blog/{wpis.parent.name}/")
@@ -377,8 +381,9 @@ def generuj(dane: dict | None = None, cel: Path = KATALOG_STRONY) -> dict:
         html = strona_miejscowosci(m, wg_slug[m["slug"]], okolice, przyklady, izby)
         (katalog / m["slug"]).mkdir(exist_ok=True)
         (katalog / m["slug"] / "index.html").write_text(html, encoding="utf-8")
-    from seo import przejrzystosc
+    from seo import przejrzystosc, teczka_strona
     for sciezka, html in ((przejrzystosc.SCIEZKA_ZASAD, przejrzystosc.strona_zasad()),
+                          (teczka_strona.SCIEZKA, teczka_strona.strona()),
                           (przejrzystosc.SCIEZKA_ODWOLANIA, przejrzystosc.strona_odwolania())):
         (cel / sciezka.strip("/")).mkdir(parents=True, exist_ok=True)
         (cel / sciezka.strip("/") / "index.html").write_text(html, encoding="utf-8")

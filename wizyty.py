@@ -225,6 +225,8 @@ def _opis_zgloszenia(z: dict) -> str:
               f"E-mail: {klient.get('email') or 'nie podano'}"]
     if z.get("kalkulacja"):
         linie += ["", "Szacunek z kalkulatora notarai:", z["kalkulacja"]["tekst"]]
+    if z.get("zapytanie"):
+        linie += ["", z["zapytanie"]]
     linie += ["", f"Zgłoszenie {z['id']} z {z['utworzono'].replace('T', ' ')}, przez {STRONA}."]
     return "\n".join(linie)
 
@@ -341,9 +343,16 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
 
 @router.post("/zgloszenie", status_code=201)
 def zgloszenie(dane: Zgloszenie, request: Request):
+    return przyjmij(dane, request)
+
+
+def przyjmij(dane: Zgloszenie, request: Request, dodatki: dict | None = None) -> dict:
+    """Walidacja, przydzial, zapis i powiadomienia. `dodatki` dopisuje do
+    zgloszenia np. pelne zapytanie z teczki klienta (teczka.py)."""
     if dane.strona:
         return {"id": "", "notarai": False, "komunikat": "Dziękujemy."}
     z = _sprawdz_zgloszenie(dane)
+    z.update(dodatki or {})
     limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
                            "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
     klienci = kancelarie_notarai()

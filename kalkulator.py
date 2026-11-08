@@ -111,7 +111,7 @@ def _naglowki_cors(origin: str) -> dict:
 
 
 # Sciezki publiczne, ktore strona notarai.pl wola z innej domeny.
-SCIEZKI_CORS = ("/api/taksa", "/api/wizyty")
+SCIEZKI_CORS = ("/api/taksa", "/api/wizyty", "/api/teczka")
 
 
 async def cors(request: Request, call_next):
