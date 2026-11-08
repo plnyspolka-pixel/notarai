@@ -93,9 +93,18 @@ def srodowisko(logowanie_atrapa, geokoder, monkeypatch, tmp_path):
     return TestClient(app), geokoder, autoryzacja
 
 
-def _zarejestruj(klient, **zmiany):
+def _zarejestruj(klient, _publikuj=True, **zmiany):
     odp = klient.post("/api/rejestracja", json={**FORMULARZ, **zmiany})
     assert odp.status_code == 201, odp.text
+    # W produkcji widocznosc nie jest domyslna: kancelaria swiadomie wlacza ja
+    # jako wlasciciel. Stare testy katalogu publikuja jawnie przez to API.
+    if _publikuj:
+        import autoryzacja
+        id_k = _wpis(autoryzacja, nazwa=zmiany.get("nazwa", FORMULARZ["nazwa"]))["id"]
+        email = zmiany.get("email", WLASCICIELKA)
+        wynik = klient.put("/api/mapa", headers=jako(email, id_k),
+                           json={"na_mapie": True})
+        assert wynik.status_code == 200, wynik.text
     return odp
 
 
@@ -243,13 +252,21 @@ class TestOdleglosc:
 
 
 class TestRejestracjaNaMapie:
+    def test_nowej_kancelarii_nie_publikujemy_bez_zgody(self, srodowisko):
+        klient, _, autoryzacja = srodowisko
+        _zarejestruj(klient, _publikuj=False)
+        wpis = _wpis(autoryzacja)
+        assert wpis.get("na_mapie", False) is False
+        assert _publiczne(klient) == []
+        assert klient.get("/api/mapa", headers=jako(WLASCICIELKA, wpis["id"])).json()["na_mapie"] is False
+
     def test_rejestracja_ustala_polozenie_poza_danymi_umowy(self, srodowisko):
         klient, geokoder, autoryzacja = srodowisko
         _zarejestruj(klient)
         wpis = _wpis(autoryzacja)
         assert wpis["mapa"]["lat"] == 51.2465 and wpis["mapa"]["adres"] == ADRES_LUBLIN
         assert wpis["dane"] == {"notariusze": "Anna Sobczak", "adres": ADRES_LUBLIN, "nip": ""}
-        assert wpis.get("na_mapie", True) is True
+        assert wpis.get("na_mapie", False) is True
 
     def test_publiczna_lista_bez_logowania_i_bez_danych_poufnych(self, srodowisko):
         klient, _, _ = srodowisko
