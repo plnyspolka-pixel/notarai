@@ -63,7 +63,7 @@ def normalizuj_rep_c(tekst: str) -> str:
     Rozporzadzenie (par. 68 ust. 2) wymienia sklad numeru, nie separatory;
     w zapisie kancelarii uzywamy ukosnika, tak jak w numerach KW.
     """
-    dopasowanie = _REP_C.match((tekst or "").strip().upper())
+    dopasowanie = _REP_C.match(str(tekst or "").strip().upper())
     if not dopasowanie:
         raise ValueError("Numer REP.C: oczekiwano REP.C, kodu podmiotu (NOTA), numeru i 2 cyfr roku, "
                          "np. REP.C/NOTA/1234/26")
@@ -73,8 +73,10 @@ def normalizuj_rep_c(tekst: str) -> str:
 
 
 def _zadanie(z: dict) -> dict:
+    if not isinstance(z, dict):
+        raise ValueError("Każde żądanie: obiekt z polem 'rodzaj'")
     rodzaj = z.get("rodzaj", "")
-    if rodzaj not in ZADANIA:
+    if not isinstance(rodzaj, str) or rodzaj not in ZADANIA:
         raise ValueError(f"Nieznany rodzaj żądania: {rodzaj}")
     dzial, oplata, opis = ZADANIA[rodzaj]
     dzial = z.get("dzial") or dzial
@@ -96,8 +98,15 @@ def _zadanie(z: dict) -> dict:
 def przygotuj(dane: dict) -> dict:
     """Uporzadkowany wniosek + lista brakow + oplata. Nic nie zapisuje."""
     braki = []
+    for pole in ("uczestnicy", "zadania", "dokumenty"):
+        if not isinstance(dane.get(pole) or [], list):
+            raise ValueError(f"{pole}: lista")
+    if not all(isinstance(u, dict) for u in dane.get("uczestnicy") or []):
+        raise ValueError("Każdy uczestnik: obiekt z polami nazwa, rola, pesel")
+    if not isinstance(dane.get("akt") or {}, dict):
+        raise ValueError("Podstawa wpisu (akt): obiekt")
     numer_kw = str(dane.get("numer_kw", "")).strip()
-    zalozenie = any(z.get("rodzaj") == "zalozenie_kw" for z in dane.get("zadania", []))
+    zalozenie = any(isinstance(z, dict) and z.get("rodzaj") == "zalozenie_kw" for z in dane.get("zadania") or [])
     if numer_kw:
         try:
             numer_kw = ekw.normalizuj_numer(numer_kw)
@@ -113,7 +122,7 @@ def przygotuj(dane: dict) -> dict:
         braki.append("Sąd rejonowy i wydział ksiąg wieczystych")
 
     uczestnicy = []
-    for i, u in enumerate(dane.get("uczestnicy", []), 1):
+    for i, u in enumerate((dane.get("uczestnicy") or []), 1):
         nazwa = str(u.get("nazwa", "")).strip()
         rola = u.get("rola", "uczestnik")
         if rola not in ROLE:
@@ -136,7 +145,7 @@ def przygotuj(dane: dict) -> dict:
     if not uczestnicy:
         braki.append("Co najmniej jeden uczestnik")
 
-    zadania = [_zadanie(z) for z in dane.get("zadania", [])]
+    zadania = [_zadanie(z) for z in (dane.get("zadania") or [])]
     if not zadania:
         braki.append("Co najmniej jedno żądanie wpisu")
     nazwy = {u["nazwa"] for u in uczestnicy}
@@ -161,7 +170,8 @@ def przygotuj(dane: dict) -> dict:
             braki.append(f"Podstawa wpisu: {opis}")
 
     return {"numer_kw": numer_kw, "sad": sad, "uczestnicy": uczestnicy, "zadania": zadania,
-            "podstawa": podstawa, "dokumenty": [str(d).strip() for d in dane.get("dokumenty", []) if str(d).strip()],
+            "ksiega_macierzysta": str(dane.get("ksiega_macierzysta", "") or "").strip(),
+            "podstawa": podstawa, "dokumenty": [str(d).strip() for d in (dane.get("dokumenty") or []) if str(d).strip()],
             "oplata": oplata(zadania), "braki": braki, "gotowy": not braki}
 
 

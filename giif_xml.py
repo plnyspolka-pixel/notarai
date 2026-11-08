@@ -184,8 +184,13 @@ def _przedmiot(rodzic, p: dict, strony: list[dict]):
             _t(an, "Miejscowosc", a.get("miejscowosc", ""))
             _t(an, "Ulica", a.get("ulica", ""))
     for pd in p.get("podmioty", []):
-        _podmiot(e, pd, strony[pd["strona"]])
-    opis = p.get("opis_nieruchomosci") or {}
+        nr = pd.get("strona")
+        if not isinstance(nr, int) or isinstance(nr, bool) or not 0 <= nr < len(strony):
+            raise ValueError("podmiot wskazuje nieistniejącą stronę")
+        _podmiot(e, pd, strony[nr])
+    opis = dict(p.get("opis_nieruchomosci") or {})
+    if (a.get("kraj") or "PL").upper() != "PL":
+        opis.pop("numer_kw", None)  # K2.10.01: tylko dla nieruchomosci z polskim adresem
     if p.get("nieruchomosc") and any(opis.values()):
         o = _el(e, "OpisNieruchomosci")
         for pole, xml in (("numer_kw", "NrKsiegiWieczystej"), ("pow_lokalu", "PowLokalu"),
@@ -210,7 +215,7 @@ def _karta(rodzic, k: dict):
     _el(e, "KwotaTr", _kwota(k.get("kwota", 0)))
     _el(e, "KodWalutyTr", (k.get("waluta") or "PLN").upper())
     _el(e, "KodRodzajuTr", k.get("kod_rodzaju", "07"))
-    _el(e, "TytulTr", (k.get("tytul") or "").upper())
+    _el(e, "TytulTr", str(k.get("tytul") or "").upper())
     _el(e, "SposobWydaniaDysp", k.get("sposob_wydania", "0"))
     _opc(e, "Uwagi", (k.get("uwagi") or "").replace("\n", " "))
     for p in k.get("przedmioty", []):
@@ -291,18 +296,48 @@ def _ulamek(licznik, mianownik) -> Fraction:
     return Fraction(int(licznik), int(mianownik))
 
 
+def _liczba(wartosc, opis: str, b: list[str], minimum: int | None = None) -> int | None:
+    """Liczba calkowita z karty albo komunikat w bledach (zamiast wyjatku)."""
+    try:
+        n = int(str(wartosc).strip())
+    except (TypeError, ValueError):
+        b.append(f"{opis}: liczba całkowita")
+        return None
+    if minimum is not None and n < minimum:
+        b.append(f"{opis}: co najmniej {minimum}")
+        return None
+    return n
+
+
+def _dziesietna(wartosc, opis: str, b: list[str]) -> Decimal | None:
+    """Kwota z karty: liczba >= 0, najwyzej 2 miejsca po przecinku (K1.05, K2.03)."""
+    try:
+        d = Decimal(str(wartosc).replace(" ", "").replace(",", "."))
+    except (InvalidOperation, ValueError):
+        b.append(f"{opis}: niepoprawna liczba")
+        return None
+    if not d.is_finite() or d < 0:
+        b.append(f"{opis}: niepoprawna liczba")
+        return None
+    if d.as_tuple().exponent < -2:
+        b.append(f"{opis}: najwyżej 2 miejsca po przecinku")
+    return d
+
+
 def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
-    """Reguly z opisu schematu (INF.1-9) i sumy kontrolne - przed wyslaniem."""
+    """Reguly z opisu schematu (INF.1-9, pola K1-K3) i sumy kontrolne - przed wyslaniem."""
+    from datetime import date as _date
     b = []
+    dzis = _date.today().isoformat()
     nip = "".join(c for c in str(ustawienia.get("nip", "")) if c.isdigit())
     if not walidacja.nip(nip)[0]:
         b.append("Ustawienia GIIF: NIP notariusza (nipIO) niepoprawny")
     if not str(ustawienia.get("nr_sekw_js", "")).isdigit():
         b.append("Ustawienia GIIF: numer urzędu skarbowego (nrSekwJs, słownik USK)")
-    kod = k.get("kod_rodzaju", "07")
+    kod = str(k.get("kod_rodzaju", "07"))
     if kod not in KODY_RODZAJU:
         b.append("Kod rodzaju transakcji: 07, 17 albo 27")
-    if k.get("sposob_wydania", "0") not in SPOSOB_WYDANIA:
+    if str(k.get("sposob_wydania", "0")) not in SPOSOB_WYDANIA:
         b.append("Sposób wydania dyspozycji: 0-3")
     if not k.get("tytul"):
         b.append("Tytuł transakcji (K1.08, kod ze słownika GIIF, np. litera i dwie cyfry)")
@@ -310,16 +345,36 @@ def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
         b.append("Numer CREWAN (K1.03); dla aktów nie zgłaszanych do CREWAN: XX900")
     if k.get("korekta") and not k.get("data_korekty"):
         b.append("Korekta wymaga daty korekty")
-    przedmioty, strony = k.get("przedmioty", []), k.get("strony", [])
+    for pole, opis in (("data_dokumentu", "Data aktu (K1.14)"), ("data_tr", "Data transakcji (K1.04)")):
+        if str(k.get(pole) or "") > dzis:
+            b.append(f"{opis} nie może być z przyszłości")
+    rok = _liczba(k.get("rok_repertorium", ""), "Rok repertorium (K1.13)", b)
+    if rok and str(k.get("data_dokumentu") or "")[:4].isdigit() and rok > int(str(k["data_dokumentu"])[:4]):
+        b.append("Rok repertorium nie może być późniejszy niż rok sporządzenia aktu (K1.13)")
+    przedmioty, strony = k.get("przedmioty") or [], k.get("strony") or []
+    if not isinstance(przedmioty, list) or not isinstance(strony, list):
+        return b + ["Karta: 'przedmioty' i 'strony' muszą być listami"]
     if not przedmioty:
         b.append("Co najmniej jeden przedmiot transakcji")
+    kwota = _dziesietna(k.get("kwota", 0), "Kwota transakcji (K1.05)", b)
     if kod in ("17", "27"):
-        if Decimal(_kwota(k.get("kwota", 0))) != 0 or k.get("dla_giif"):
-            b.append("APD/EPS: kwota 0 i dlaGIIF=false (INF.4)")
-    suma = sum((Decimal(_kwota(p.get("wartosc", 0))) for p in przedmioty), Decimal("0"))
-    if suma.quantize(Decimal("0.01"), ROUND_UP) != Decimal(_kwota(k.get("kwota", 0))):
-        b.append(f"Suma wartości przedmiotów ({suma}) różni się od kwoty transakcji (INF.3)")
+        # INF.4: APD i EPS nie maja wartosci nominalnej.
+        if kwota != 0 or k.get("dla_giif") or str(k.get("waluta") or "PLN").upper() != "PLN":
+            b.append("APD/EPS: kwota 0, waluta PLN i dlaGIIF=false (INF.4)")
+        for i, p in enumerate(przedmioty, 1):
+            if (str(p.get("wartosc", 0)) not in ("0", "0.00", "") or p.get("czy_vat")
+                    or str(p.get("udzial_licznik", 1)) != "1" or str(p.get("udzial_mianownik", 1)) != "1"):
+                b.append(f"Przedmiot {i}: APD/EPS - wartość 0, bez VAT, udział 1/1 (INF.4)")
+    wartosci = [_dziesietna(p.get("wartosc", 0), f"Przedmiot {i}: wartość (K2.03)", b)
+                for i, p in enumerate(przedmioty, 1)]
+    if kwota is not None and all(w is not None for w in wartosci):
+        suma = sum(wartosci, Decimal("0"))
+        if suma.quantize(Decimal("0.01"), ROUND_UP) != kwota.quantize(Decimal("0.01"), ROUND_UP):
+            b.append(f"Suma wartości przedmiotów ({suma}) różni się od kwoty transakcji (INF.3)")
     for i, s in enumerate(strony, 1):
+        if not isinstance(s, dict):
+            b.append(f"Strona {i}: niepoprawne dane")
+            continue
         if s.get("osoba_prawna"):
             if s.get("nip") and not walidacja.nip(s["nip"])[0]:
                 b.append(f"Strona {i}: NIP niepoprawny")
@@ -333,29 +388,43 @@ def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
             if not (s.get("dokument") or {}).get("rodzaj") or not (s.get("dokument") or {}).get("numer"):
                 b.append(f"Strona {i}: dokument tożsamości (rodzaj ze słownika, np. DO, PA, i numer)")
     for i, p in enumerate(przedmioty, 1):
-        if int(p.get("udzial_licznik", 1)) > int(p.get("udzial_mianownik", 1)):
+        licznik = _liczba(p.get("udzial_licznik", 1), f"Przedmiot {i}: zbywany udział - licznik (K2.01)", b, 1)
+        mianownik = _liczba(p.get("udzial_mianownik", 1), f"Przedmiot {i}: zbywany udział - mianownik (K2.02)", b, 1)
+        if licznik and mianownik and licznik > mianownik:
             b.append(f"Przedmiot {i}: zbywany udział większy niż całość")
         if not str(p.get("typ", "")).isdigit():
             b.append(f"Przedmiot {i}: kod rodzaju przedmiotu (IdSlPrzedmiotTyp, słownik GIIF)")
-        if not p.get("podmioty"):
+        podmioty = p.get("podmioty") or []
+        if not podmioty:
             b.append(f"Przedmiot {i}: co najmniej jeden podmiot")
         sumy = {"Z": Fraction(0), "N": Fraction(0)}
-        for pd in p.get("podmioty", []):
-            if not 0 <= pd.get("strona", -1) < len(strony):
+        for pd in podmioty:
+            nr = pd.get("strona")
+            if not isinstance(nr, int) or isinstance(nr, bool) or not 0 <= nr < len(strony):
                 b.append(f"Przedmiot {i}: podmiot wskazuje nieistniejącą stronę")
                 continue
             if not pd.get("charakter"):
                 b.append(f"Przedmiot {i}: charakter podmiotu (charakterPodmiotu, słownik GIIF)")
             strona_tr = pd.get("strona_transakcji", "I")
+            ul = _liczba(pd.get("udzial_licznik", 0), f"Przedmiot {i}: udział strony - licznik (K3.02)", b, 0)
+            um = _liczba(pd.get("udzial_mianownik", 1), f"Przedmiot {i}: udział strony - mianownik (K3.03)", b, 1)
+            if ul is None or um is None:
+                continue
+            if ul > um:
+                b.append(f"Przedmiot {i}: udział strony większy niż całość (K3.02)")
             if strona_tr in sumy:
-                sumy[strona_tr] += _ulamek(pd.get("udzial_licznik", 0), pd.get("udzial_mianownik", 1))
-            elif int(pd.get("udzial_licznik", 0)) != 0:
+                sumy[strona_tr] += Fraction(ul, um)
+            elif ul != 0 or um != 1:
                 b.append(f"Przedmiot {i}: inna strona transakcji ma udział 0/1 (INF.2)")
-        for strona_tr, s in sumy.items():
-            if any(pd.get("strona_transakcji") == strona_tr for pd in p.get("podmioty", [])) and s != 1:
-                b.append(f"Przedmiot {i}: udziały ({STRONY_TRANSAKCJI[strona_tr]}) sumują się do {s}, a muszą do 1 (INF.2)")
+        for strona_tr, suma_udzialow in sumy.items():
+            if any(pd.get("strona_transakcji") == strona_tr for pd in podmioty) and suma_udzialow != 1:
+                b.append(f"Przedmiot {i}: udziały ({STRONY_TRANSAKCJI[strona_tr]}) sumują się do "
+                         f"{suma_udzialow}, a muszą do 1 (INF.2)")
         if p.get("nieruchomosc"):
             a = p.get("adres") or {}
+            opis = p.get("opis_nieruchomosci") or {}
+            if str(opis.get("kondygnacja", "")).strip() in ("0", "-0"):
+                b.append(f"Przedmiot {i}: kondygnacja - parter to 1, zero niedozwolone (K2.10.05)")
             if (a.get("kraj") or "PL").upper() == "PL":
                 if not all(a.get(x) for x in ("woj", "pow", "gmi", "rodz", "simc")):
                     b.append(f"Przedmiot {i}: adres TERYT (WOJ, POW, GMI, RODZ, SIMC; działka bez adresu: SIMC 0000000)")
@@ -365,9 +434,13 @@ def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
                     b.append(f"Przedmiot {i}: numer obrębu - tylko cyfry, 1-4")
                 if a.get("nr_dzialki") and not all(c.isdigit() or c == "/" for c in str(a["nr_dzialki"])):
                     b.append(f"Przedmiot {i}: numer działki - tylko cyfry i ukośnik")
-                kw = (p.get("opis_nieruchomosci") or {}).get("numer_kw")
+                if a.get("nr_arkusza_mapy") and not str(a["nr_arkusza_mapy"]).isdigit():
+                    b.append(f"Przedmiot {i}: numer arkusza mapy - tylko cyfry (K2.08.14)")
+                kw = opis.get("numer_kw")
                 if kw and not walidacja.ksiega_wieczysta(kw)[0]:
                     b.append(f"Przedmiot {i}: numer KW niepoprawny (suma kontrolna)")
+            elif opis.get("numer_kw"):
+                b.append(f"Przedmiot {i}: numer KW podaje się tylko dla nieruchomości w Polsce (K2.10.01)")
             if kod == "07" and p.get("zwolnienie_vat") is None:
                 b.append(f"Przedmiot {i}: oświadczenie o zwolnieniu z VAT (K2.07) dla nieruchomości")
     return b

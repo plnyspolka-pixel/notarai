@@ -32,9 +32,9 @@ def rep_a(klient, data="2026-11-03", **pola):
 
 
 def test_numeracja_roczna_i_oznaczenie(klient):
+    assert rep_a(klient, "2025-12-30")["oznaczenie"] == "Rep. A nr 1/2025"
     assert rep_a(klient)["oznaczenie"] == "Rep. A nr 1/2026"
     assert rep_a(klient, "2026-11-04")["oznaczenie"] == "Rep. A nr 2/2026"
-    assert rep_a(klient, "2027-01-02")["oznaczenie"] == "Rep. A nr 1/2027"
     lista = klient.get("/api/ksiegi-kancelarii/repertorium_a", params={"rok": 2026}).json()
     assert [w["numer"] for w in lista] == [1, 2]
 
@@ -381,3 +381,204 @@ def test_bledy_xsd_po_polsku():
     xsd = [b for b in bledy if b.startswith("Schemat XSD")]
     assert any("numer CREWAN" in b for b in xsd)
     assert all("{http" not in b for b in xsd) and len(xsd) == len(set(xsd))
+
+
+# --- regresje z przegladu kodu (11.2026) ---------------------------------------
+
+
+def _zlozony(klient, w, numer="REP.C/NOTA/7/26"):
+    wn = wniosek_kw(klient, w)
+    adres = f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/status"
+    odp = klient.post(adres, json={"status": "zlozony", "data_zlozenia": "2026-11-03", "numer_rep_c": numer})
+    assert odp.status_code == 200, odp.text
+    return wn, adres
+
+
+def test_drugie_zlozenie_tego_samego_wniosku_odrzucone(klient):
+    w = rep_a(klient)
+    _, adres = _zlozony(klient, w)
+    odp = klient.post(adres, json={"status": "zlozony", "data_zlozenia": "2026-11-03",
+                                   "numer_rep_c": "REP.C/NOTA/9/26"})
+    assert odp.status_code == 400
+    assert len(klient.get("/api/ksiegi-kancelarii/repertorium_c").json()) == 1
+
+
+def test_nieudany_zapis_nie_zostawia_sieroty_w_rep_c(klient, monkeypatch):
+    import ksiegi_notarialne as k
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w)
+    oryginal = k._dodaj_do
+
+    def dodaj_i_padnij(wszystko, nazwa, tresc, kto):
+        oryginal(wszystko, nazwa, tresc, kto)
+        raise k.magazyn.KonfliktZapisu("symulacja")
+    monkeypatch.setattr(k, "_dodaj_do", dodaj_i_padnij)
+    adres = f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/status"
+    dane = {"status": "zlozony", "data_zlozenia": "2026-11-03", "numer_rep_c": "REP.C/NOTA/7/26"}
+    assert klient.post(adres, json=dane).status_code == 409
+    monkeypatch.setattr(k, "_dodaj_do", oryginal)
+    assert klient.get("/api/ksiegi-kancelarii/repertorium_c").json() == []
+    assert klient.post(adres, json=dane).status_code == 200
+
+
+def test_rep_c_nie_da_sie_zmienic_zwykla_poprawka_ani_wpisem(klient):
+    w = rep_a(klient)
+    _zlozony(klient, w)
+    rc = klient.get("/api/ksiegi-kancelarii/repertorium_c").json()[0]
+    for zmiany in ({"status": "cokolwiek"}, {"numer_rep_c": "bzdura"}):
+        odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_c/{rc['id']}/poprawka",
+                          json={"zmiany": zmiany, "powod": "test"})
+        assert odp.status_code == 400
+    assert klient.post("/api/ksiegi-kancelarii/repertorium_c", json={
+        "numer_rep_c": "REP.C/NOTA/5/26", "data_zlozenia": "2026-11-03", "rep_a": "x", "sad": "y"}).status_code == 400
+
+
+def test_przejscia_stanow_wniosku(klient):
+    w = rep_a(klient)
+    _, adres = _zlozony(klient, w)
+    assert klient.post(adres, json={"status": "w_sadzie", "sygnatura_dz_kw": "WA2M/Dz.Kw./1/26"}).status_code == 200
+    assert klient.post(adres, json={"status": "zlozony"}).status_code == 400          # wstecz
+    assert klient.post(adres, json={"status": "zwrot"}).status_code == 200
+    for status in ("wpis_dokonany", "zwrot", "w_sadzie"):                               # stan koncowy
+        assert klient.post(adres, json={"status": status}).status_code == 400
+
+
+def test_poprawka_daty_pilnuje_roku_kolejnosci_i_przyszlosci(klient):
+    w1 = rep_a(klient, "2026-01-05")
+    w2 = rep_a(klient, "2026-01-06")
+    rep_a(klient, "2026-01-07")
+    adres = "/api/ksiegi-kancelarii/repertorium_a/{}/poprawka"
+    for wpis, dzien in ((w1, "2025-12-20"), (w2, "2026-01-01"), (w2, "2026-01-09"), (w2, "2099-01-01")):
+        odp = klient.post(adres.format(wpis["id"]), json={"zmiany": {"data_czynnosci": dzien}, "powod": "x"})
+        assert odp.status_code == 400, (dzien, odp.text)
+    assert klient.post(adres.format(w2["id"]), json={"zmiany": {"data_czynnosci": "2026-01-05"},
+                                                     "powod": "x"}).status_code == 200
+    przyszly = klient.post("/api/ksiegi-kancelarii/repertorium_a", json={
+        "data_czynnosci": "2099-12-31", "tresc": "x", "strony": "Jan Sobczak"})
+    assert przyszly.status_code == 400
+
+
+@pytest.mark.parametrize("dane", [
+    {"wynagrodzenie": "NaN"}, {"wynagrodzenie": "Infinity"}, {"wynagrodzenie": "1e999"},
+    {"strony": {"nazwa": "Jan"}}, {"strony": 5}, {"strony": ["Jan Kowalski"]},
+])
+def test_zle_typy_w_repertorium_to_400(klient, dane):
+    odp = klient.post("/api/ksiegi-kancelarii/repertorium_a",
+                      json={"data_czynnosci": "2026-11-03", "tresc": "x", "strony": "Jan Sobczak", **dane})
+    assert odp.status_code == 400, odp.text
+
+
+@pytest.mark.parametrize("dane", [
+    {"akt": "x"}, {"akt": ["x"]}, {"zadania": ["wpis_wlasnosci"]}, {"zadania": [{"rodzaj": ["x"]}]},
+    {"uczestnicy": ["Jan"]},
+])
+def test_zle_typy_we_wniosku_kw_to_400(klient, dane):
+    w = rep_a(klient)
+    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw", json=dane)
+    assert odp.status_code == 400, odp.text
+
+
+def test_numer_rep_c_jako_liczba_to_400_a_nie_500(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w)
+    odp = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}/status",
+                      json={"status": "zlozony", "data_zlozenia": "2026-11-03", "numer_rep_c": 1234})
+    assert odp.status_code == 400
+
+
+def test_klient_nie_podmienia_numeru_rep_a_w_podstawie(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w, akt={"rep_a": "Rep. A nr 999/2026", "data": "2020-01-01",
+                                    "notariusz": "N", "siedziba": "W"})
+    assert wn["podstawa"]["rep_a"] == "Rep. A nr 1/2026" and wn["podstawa"]["data"] == "2026-11-03"
+
+
+def test_edycja_wniosku_zachowuje_ksiege_macierzysta(klient):
+    w = rep_a(klient)
+    wn = wniosek_kw(klient, w, numer_kw="", ksiega_macierzysta="WA4M/00160286/2",
+                    zadania=[{"rodzaj": "zalozenie_kw"}])
+    assert wn["gotowy"], wn["braki"]
+    po = klient.post(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/wnioski-kw/{wn['id']}",
+                     json={"sad": "SR Mokotow"}).json()["wnioski_kw"][-1]
+    assert po["gotowy"] and po["ksiega_macierzysta"] == "WA4M/00160286/2"
+
+
+@pytest.mark.parametrize("dane", [
+    {"strony": ["Jan"]}, {"nieruchomosc": "lokal"}, {"kwota": "Infinity"}, {"kwota": "NaN"},
+    {"data_czynnosci": "jutro"},
+])
+def test_zle_typy_w_zgloszeniu_giif_to_400(klient, dane):
+    w = rep_a(klient)
+    z = klient.post("/api/giif", json={"rep_a_id": w["id"]}).json()
+    assert klient.post(f"/api/giif/{z['id']}", json=dane).status_code == 400
+
+
+def test_kurs_eur_spoza_zakresu(klient):
+    w = rep_a(klient)
+    for kurs in ("NaN", "1e-30", "0"):
+        odp = klient.get(f"/api/ksiegi-kancelarii/repertorium_a/{w['id']}/giif", params={"kurs_eur": kurs})
+        assert odp.status_code in (200, 400) and odp.status_code != 500
+        if odp.status_code == 200:
+            assert not odp.json()["rownowartosc_eur"]
+
+
+def test_zgloszenie_z_rep_a_ma_zablokowana_date(klient):
+    w = rep_a(klient)
+    z = klient.post("/api/giif", json={"rep_a_id": w["id"]}).json()
+    z2 = klient.post(f"/api/giif/{z['id']}", json={"data_czynnosci": "2026-11-07", "rep_a": "inny"}).json()
+    assert z2["data_czynnosci"] == "2026-11-03" and z2["termin"] == z["termin"] and z2["rep_a"] == z["rep_a"]
+
+
+def test_zatwierdzony_xml_nie_zmienia_sie_po_zmianie_ustawien(klient):
+    import hashlib
+    w = rep_a(klient)
+    z = klient.post("/api/giif", json={"rep_a_id": w["id"]}).json()
+    strony = [{**s, "adres": "Warszawa"} for s in z["strony"]]
+    strony[1].update(dokument="ABC123456", panstwo_dokumentu="PL")
+    z = klient.post(f"/api/giif/{z['id']}", json={"strony": strony, "nieruchomosc": {
+        "adres": "Warszawa", "numer_kw": "WA4M/00160286/2"}}).json()
+    z = wypelnij_karte(klient, z)
+    z = klient.post(f"/api/giif/{z['id']}/zatwierdz").json()
+    klient.post("/api/giif/ustawienia", json={"nr_sekw_js": "1472"})
+    plik = klient.get(f"/api/giif/{z['id']}/xml", params={"pobierz": 1})
+    assert plik.status_code == 200
+    assert hashlib.sha256(plik.content).hexdigest() == z["sha256_xml"]
+
+
+@pytest.mark.parametrize("zmiana", [
+    lambda k: k["przedmioty"][0]["podmioty"][0].update(udzial_mianownik=0),
+    lambda k: k.update(tytul=7),
+    lambda k: k["przedmioty"][0]["podmioty"][0].update(strona="0"),
+    lambda k: k["przedmioty"][0]["podmioty"][0].update(strona=9),
+    lambda k: k["przedmioty"][0]["podmioty"][0].update(strona=-1),
+    lambda k: k.update(kwota="abc"),
+    lambda k: k["przedmioty"][0].update(wartosc="1,5,0"),
+])
+def test_zla_karta_daje_bledy_a_nie_500_ani_404(klient, zmiana):
+    w = rep_a(klient)
+    z = klient.post("/api/giif", json={"rep_a_id": w["id"]}).json()
+    karta = klient.get(f"/api/giif/{z['id']}/xml").json()["karta"]
+    zmiana(karta)
+    assert klient.post(f"/api/giif/{z['id']}/karta", json=karta).status_code == 200
+    odp = klient.get(f"/api/giif/{z['id']}/xml")
+    assert odp.status_code == 200 and odp.json()["bledy"]
+
+
+def test_inf3_i_inf4_wg_opisu_schematu():
+    import giif_xml
+    ustaw = {"nip": "5260250274", "nr_sekw_js": "1471"}
+    karta = {"kwota": "100.01", "przedmioty": [{"wartosc": "50.005"}, {"wartosc": "50.005"}]}
+    bledy = " | ".join(giif_xml.bledy_regul(karta, ustaw))
+    assert "INF.3" not in bledy and "2 miejsca" in bledy
+    apd = {"kod_rodzaju": "17", "kwota": "0", "waluta": "EUR", "przedmioty": [
+        {"wartosc": "10", "czy_vat": True, "udzial_licznik": 1, "udzial_mianownik": 2}]}
+    bledy = " | ".join(giif_xml.bledy_regul(apd, ustaw))
+    assert "waluta PLN" in bledy and "Przedmiot 1: APD/EPS" in bledy
+
+
+def test_upo_nie_nadpisze_flagi_zgodnosci():
+    import giif
+    upo = b"""<Potwierdzenie xmlns="http://www.giif.mofnet.gov.pl/xsd/upo/2018">
+<NazwaPodmiotuPrzyjmujacego>x</NazwaPodmiotuPrzyjmujacego><NumerReferencyjny>1</NumerReferencyjny>
+<zgodny_ze_schematem>1</zgodny_ze_schematem></Potwierdzenie>"""
+    assert giif.odczytaj_upo(upo)["zgodny_ze_schematem"] is False

@@ -2,7 +2,9 @@
 
 Stan na 08.11.2026. Kod: `ksiegi_notarialne.py`, `wnioski_kw.py`, `giif.py`,
 `giif_xml.py`, schematy `giif_xsd/`, ekrany `static/ksiegi.js`. Testy:
-`test_ksiegi_notarialne.py`, `test_ksiegi_ui.py`.
+`test_ksiegi_notarialne.py`, `test_ksiegi_s3.py`, `test_ksiegi_ui.py`.
+Dane pokazowe: `scripts/dane_pokazowe_ksiegi.py`. Scenariusz testu z notariuszem:
+`docs/testy-z-notariuszem-ksiegi.md`.
 
 ## 1. Księgi kancelarii
 
@@ -34,6 +36,10 @@ każda zmiana z historią.
 Zasady wpisane w kod: numer nadaje serwer (rep. C — system MS), repertorium
 jest chronologiczne, poprawki zostają w historii (było/jest, kto, kiedy, powód),
 uwagi o wypisach, sumy należności dzienne i miesięczne.
+Data czynności nie może być z przyszłości; poprawka daty nie może przenieść
+czynności do innego roku ani złamać kolejności numerów. Wydruk do oprawienia
+(A4 poziomo, z poprawkami i sumami miesięcznymi) i eksport CSV są w zakładce
+każdej księgi.
 
 **Uwaga prawna:** rozporządzenie z 1991 r. wymaga ksiąg oprawionych, z
 ponumerowanymi stronami. Wersja w notarai to rejestr roboczy z pełną historią
@@ -63,9 +69,14 @@ w portalu MS. Obieg w notarai:
 3. **Złożenie** (`POST .../status` ze `status=zlozony`, numerem REP.C i datą):
    tylko kompletny wniosek; powstaje wpis w **repertorium C**. Ten sam numer
    REP.C nie wejdzie dwa razy.
-4. **Przebieg** (`w_sadzie`, `wpis_dokonany`, `zwrot`, `oddalony`, `odrzucony`,
-   `cofniety`, z sygnaturą Dz.Kw., datą wpisu i doręczenia) — poprawką w rep. C
-   z historią. Zakończonego wniosku nie da się już przestawić.
+4. **Przebieg** — dozwolone przejścia: złożony → w sądzie / wpis dokonany /
+   zwrot / oddalony / odrzucony / cofnięty; w sądzie → te same (z dopisaniem
+   sygnatury). Stany końcowe się nie zmieniają — ponowne złożenie to nowy wniosek
+   z nowym numerem REP.C. Każda zmiana zapisuje się w rep. C z historią.
+   Złożenie i przebieg zapisują rep. A i rep. C w jednej zmianie pliku, więc
+   dwa równoczesne kliknięcia nie utworzą dwóch wpisów w rep. C.
+5. Numeru REP.C ani stanu nie da się zmienić zwykłą poprawką w rep. C, a ręczny
+   wpis do rep. C jest zablokowany — każdy wpis ma swój wniosek w rep. A.
 
 **Do zrobienia (wymaga konta notariusza):** selektory pól formularza w portalu
 MS dla pomocnika. Trzeba raz przejść wniosek na zalogowanym koncie w trybie
@@ -93,8 +104,17 @@ podglądu i zapisać selektory w YAML; do tego czasu działa kopiuj-wklej.
 - Kartę wstępną notarai buduje z rep. A i zgłoszenia (strony, role
   zbywca/nabywca, udziały, numer KW, powierzchnia, pokoje). Kancelaria
   uzupełnia resztę w edytorze karty; błędy widać od razu.
-- Zatwierdzenie karty do GIIF i KAS wymaga pliku bez błędów; zapisujemy SHA-256
-  pliku, który notariusz podpisze. `GET /api/giif/{id}/xml?pobierz=1` zwraca plik.
+- Zatwierdzenie karty do GIIF i KAS wymaga pliku bez błędów; zapisujemy ten plik
+  i jego SHA-256. `GET /api/giif/{id}/xml?pobierz=1` zwraca dokładnie zatwierdzony
+  plik (późniejsza zmiana ustawień go nie zmienia). Każda zmiana karty cofa do szkicu.
+- Dodatkowe reguły z opisu pól: INF.4 w całości (APD/EPS: kwota 0, PLN, wartości 0,
+  bez VAT, udział 1/1), INF.3 liczone na wartościach przed zaokrągleniem, najwyżej
+  2 miejsca po przecinku, udziały ≥ 1 i nie większe niż całość, parter = 1
+  (kondygnacja 0 niedozwolona), numer KW tylko dla nieruchomości w Polsce, daty
+  nie z przyszłości, rok repertorium nie późniejszy niż rok aktu.
+- UPO w XML jest odczytywane i sprawdzane (numer referencyjny = numer przesyłki,
+  NIP = NIP notariusza); UPO w PDF zapisujemy jako skrót.
+- Zgłoszenie utworzone z rep. A ma zablokowany numer i datę aktu (od daty liczy się termin).
 
 ### Słowniki — skąd kody
 

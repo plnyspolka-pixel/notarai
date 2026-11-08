@@ -70,9 +70,12 @@ def _dec(wartosc) -> Decimal | None:
     if wartosc in (None, ""):
         return None
     try:
-        return Decimal(str(wartosc).replace(" ", "").replace(",", "."))
+        liczba = Decimal(str(wartosc).replace(" ", "").replace(",", "."))
     except InvalidOperation:
         raise ValueError("Niepoprawna kwota") from None
+    if not liczba.is_finite() or liczba < 0 or liczba >= Decimal("1e15"):
+        raise ValueError("Niepoprawna kwota")
+    return liczba
 
 
 def rownowartosc_eur(kwota, waluta: str, kurs_eur) -> Decimal:
@@ -87,6 +90,8 @@ def rownowartosc_eur(kwota, waluta: str, kurs_eur) -> Decimal:
     kurs = _dec(kurs_eur)
     if not kurs:
         raise ValueError("Podaj średni kurs EUR z tabeli A NBP z dnia czynności")
+    if not Decimal("1") <= kurs <= Decimal("10"):
+        raise ValueError("Kurs EUR spoza rozsądnego zakresu (1-10 zł) - sprawdź tabelę A NBP")
     return (kwota / kurs).quantize(Decimal("0.01"))
 
 
@@ -176,15 +181,30 @@ def kompletnosc(z: dict) -> list[str]:
 
 
 def _oczysc(dane: dict) -> dict:
+    if not isinstance(dane, dict):
+        raise ValueError("Dane zgłoszenia: obiekt")
     wynik = {}
     for pole in ("rep_a", "data_czynnosci", "przedmiot", "kwota", "waluta", "kurs_eur",
                  "tabela_nbp", "uzasadnienie", "rep_a_id"):
         if pole in dane:
             wynik[pole] = str(dane[pole] or "").strip()
+    for pole in ("kwota", "kurs_eur"):
+        if wynik.get(pole):
+            wynik[pole] = str(_dec(wynik[pole]))
+    if wynik.get("data_czynnosci"):
+        try:
+            wynik["data_czynnosci"] = date.fromisoformat(wynik["data_czynnosci"][:10]).isoformat()
+        except ValueError:
+            raise ValueError("Data czynności: RRRR-MM-DD") from None
     if "strony" in dane:
-        wynik["strony"] = [_strona(s) for s in dane["strony"] or []]
+        strony = dane["strony"] or []
+        if not isinstance(strony, list) or not all(isinstance(x, dict) for x in strony):
+            raise ValueError("Strony: lista obiektów")
+        wynik["strony"] = [_strona(x) for x in strony]
     if "nieruchomosc" in dane:
         n = dane["nieruchomosc"]
+        if n is not None and not isinstance(n, dict):
+            raise ValueError("Nieruchomość: obiekt albo null")
         wynik["nieruchomosc"] = None if n is None else {p: str(n.get(p, "") or "").strip()
                                                          for p in POLA_NIERUCHOMOSCI}
     return wynik
@@ -218,7 +238,7 @@ def z_repertorium(rep_a_id: str, rodzaj: str | None = None, kurs_eur=None, kto: 
     """Szkic zgloszenia wypelniony z wpisu repertorium A (strony, wartosc, data)."""
     rep = ksiegi_notarialne.wpis("repertorium_a", rep_a_id)
     if rep is None:
-        raise LookupError("Nie ma takiego wpisu w repertorium A")
+        raise ksiegi_notarialne.BrakWpisu("Nie ma takiego wpisu w repertorium A")
     rodzaj = rodzaj or kwalifikuj(rep, kurs_eur)["rodzaj"] or "czynnosc_giif_kas"
     wnioski = rep.get("wnioski_kw", [])
     nieruchomosc = {"numer_kw": wnioski[0]["numer_kw"]} if wnioski else None
@@ -238,7 +258,7 @@ def _zmien(identyfikator: str, funkcja):
         for z in lista:
             if z["id"] == identyfikator:
                 return funkcja(z)
-        raise LookupError("Nie ma takiego zgłoszenia")
+        raise ksiegi_notarialne.BrakWpisu("Nie ma takiego zgłoszenia")
     return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
 
 
@@ -246,7 +266,13 @@ def zmien(identyfikator: str, dane: dict, kto: str = "") -> dict:
     def funkcja(z):
         if z["status"] not in ("szkic", "do_podpisu"):
             raise ValueError("Wysłanego zgłoszenia nie zmienia się - przygotuj korektę jako nowe")
-        z.update(_oczysc(dane))
+        nowe = _oczysc(dane)
+        if z.get("rep_a_id"):
+            # Numer, data i powiazanie z rep. A sa z repertorium - zmiana daty przesunelaby termin.
+            for pole in ("rep_a", "data_czynnosci", "rep_a_id"):
+                nowe.pop(pole, None)
+        z.update(nowe)
+        z.pop("xml_zatwierdzony", None)
         z["status"] = "szkic"  # kazda zmiana cofa do szkicu: trzeba znow zatwierdzic
         z["historia"].append(_zdarzenie("zmieniono", kto))
         return _przelicz(z)
@@ -274,6 +300,8 @@ def zatwierdz(identyfikator: str, kto: str = "") -> dict:
             if wynik["bledy"]:
                 raise ValueError("Plik XML: " + "; ".join(wynik["bledy"]))
             z["sha256_xml"] = hashlib.sha256(wynik["xml"].encode("utf-8")).hexdigest()
+            # Notariusz podpisze dokladnie ten plik - nie budujemy go ponownie z nowszych ustawien.
+            z["xml_zatwierdzony"] = wynik["xml"]
             z["schemat"] = wynik["schemat"]
         z["status"] = "do_podpisu"
         z["sha256_tresci"] = skrot(z)
@@ -322,7 +350,7 @@ def odczytaj_upo(tresc: bytes) -> dict | None:
     except etree.XMLSchemaValidateError:  # np. nierozwiniete encje w pliku
         zgodny = False
     pola = {e.tag.replace(ns, ""): (e.text or "").strip() for e in dok if isinstance(e.tag, str)}
-    return {"zgodny_ze_schematem": zgodny, **pola}
+    return {**pola, "zgodny_ze_schematem": zgodny}
 
 
 def zarejestruj_upo(identyfikator: str, tresc_upo: bytes, kto: str = "") -> dict:
@@ -444,9 +472,14 @@ def karta_wstepna(z: dict, ustaw: dict | None = None) -> dict:
 
 
 def zapisz_karte(identyfikator: str, karta: dict, kto: str = "") -> dict:
+    if not isinstance(karta, dict) or not isinstance(karta.get("strony", []), list) \
+            or not isinstance(karta.get("przedmioty", []), list):
+        raise ValueError("Karta: obiekt z listami 'strony' i 'przedmioty'")
+
     def funkcja(z):
         if z["status"] not in ("szkic", "do_podpisu"):
             raise ValueError("Wysłanego zgłoszenia nie zmienia się - przygotuj korektę jako nowe")
+        z.pop("xml_zatwierdzony", None)
         z["karta"] = karta
         z["status"] = "szkic"
         z["historia"].append(_zdarzenie("karta", kto))
@@ -458,13 +491,17 @@ def plik_xml(identyfikator: str) -> dict:
     """XML karty + bledy. Bez karty - karta wstepna z danych zgloszenia."""
     z = next((x for x in lista() if x["id"] == identyfikator), None)
     if z is None:
-        raise LookupError("Nie ma takiego zgłoszenia")
+        raise ksiegi_notarialne.BrakWpisu("Nie ma takiego zgłoszenia")
     if z["rodzaj"] != "czynnosc_giif_kas":
         raise ValueError("Plik XML budujemy na razie dla karty do GIIF i Szefa KAS (schemat 14250)")
     ustaw = ustawienia()
     karta = z.get("karta") or karta_wstepna(z, ustaw)
+    nazwa = f"giif-{str(karta.get('numer_repertorium', '')).replace('/', '-')}.xml"
+    if z.get("xml_zatwierdzony") and z["status"] != "szkic":
+        return {"xml": z["xml_zatwierdzony"], "bledy": [], "schemat": z.get("schemat", giif_xml.CRWDE),
+                "bledy_xsd_szczegoly": [], "karta": karta, "nazwa_pliku": nazwa, "zatwierdzony": True}
     wynik = giif_xml.sprawdz([karta], ustaw)
-    return {**wynik, "karta": karta, "nazwa_pliku": f"giif-{karta.get('numer_repertorium', '').replace('/', '-')}.xml"}
+    return {**wynik, "karta": karta, "nazwa_pliku": nazwa, "zatwierdzony": False}
 
 
 def definicje() -> dict:

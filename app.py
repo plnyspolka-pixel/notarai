@@ -1318,12 +1318,16 @@ def _ksiegi(funkcja, *argumenty, **nazwane):
     _tylko_w_chmurze()
     try:
         return funkcja(*argumenty, **nazwane)
-    except LookupError as blad:
+    except ksiegi_notarialne.BrakWpisu as blad:
         raise HTTPException(404, str(blad))
     except magazyn.KonfliktZapisu as blad:
         raise HTTPException(409, str(blad))
     except ValueError as blad:
         raise HTTPException(400, str(blad))
+    except (TypeError, ArithmeticError, KeyError, IndexError, AttributeError) as blad:
+        # Dane z przegladarki w nieoczekiwanym ksztalcie - to blad danych, nie serwera.
+        log.info("ksiegi/giif: niepoprawne dane (%s)", type(blad).__name__)
+        raise HTTPException(400, "Niepoprawne dane - sprawdź typy pól")
 
 
 class Poprawka(BaseModel):

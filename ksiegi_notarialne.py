@@ -157,6 +157,19 @@ KWOTY = ("wartosc_przedmiotu", "wynagrodzenie", "vat", "oplata_sadowa",
          "oplata_skarbowa", "podatek_pcc", "podatek_sd", "kwota")
 NALEZNOSCI = ("wynagrodzenie", "vat", "oplata_sadowa", "oplata_skarbowa", "podatek_pcc", "podatek_sd")
 STATUSY_WNIOSKU_KW = ("przygotowany", "zlozony", "w_sadzie", "wpis_dokonany", "zwrot", "oddalony", "odrzucony", "cofniety")
+# Dozwolone przejscia. Stan koncowy (wpis, zwrot, oddalenie, odrzucenie, cofniecie)
+# nie zmienia sie - ponowne zlozenie to nowy wniosek z nowym numerem REP.C.
+PRZEJSCIA_WNIOSKU_KW = {
+    "przygotowany": ("zlozony",),
+    "zlozony": ("w_sadzie", "wpis_dokonany", "zwrot", "oddalony", "odrzucony", "cofniety"),
+    "w_sadzie": ("w_sadzie", "wpis_dokonany", "zwrot", "oddalony", "odrzucony", "cofniety"),
+}
+# Rubryki repertorium C, ktore zmienia tylko przebieg wniosku (nie zwykla poprawka).
+_TYLKO_PRZEBIEG = ("numer_rep_c", "status")
+
+
+class BrakWpisu(Exception):
+    """Nie ma takiego wpisu / wniosku / zgloszenia (HTTP 404)."""
 
 
 def _pusty() -> dict:
@@ -183,6 +196,8 @@ def _kwota(wartosc, pole: str) -> str:
         liczba = Decimal(str(wartosc).replace(" ", "").replace(",", "."))
     except InvalidOperation:
         raise ValueError(f"{pole}: niepoprawna kwota") from None
+    if not liczba.is_finite() or abs(liczba) >= Decimal("1e15"):
+        raise ValueError(f"{pole}: niepoprawna kwota")
     if liczba < 0:
         raise ValueError(f"{pole}: kwota nie może być ujemna")
     return str(liczba.quantize(Decimal("0.01")))
@@ -228,7 +243,9 @@ def _oczysc(nazwa: str, dane: dict, czesciowo: bool = False) -> dict:
         elif pole in KWOTY:
             wartosc = _kwota(wartosc, ksiega["rubryki"][pole])
         elif pole == "zadania":
-            wartosc = [str(z).strip() for z in (wartosc or []) if str(z).strip()]
+            if not isinstance(wartosc, list):
+                raise ValueError("Żądania: lista")
+            wartosc = [str(z).strip() for z in wartosc if str(z).strip()]
         elif pole.startswith("data"):
             wartosc = _data(wartosc, ksiega["rubryki"][pole]) if wartosc else ""
         else:
@@ -263,35 +280,50 @@ def _nastepny_numer(wpisy: list[dict], nazwa: str, rok: int) -> int:
     return max(numery, default=0) + 1
 
 
-def dodaj(nazwa: str, dane: dict, kto: str = "") -> dict:
-    """Nowy wpis z numerem nadanym przez serwer (nastepny w roku lub ciagly)."""
-    tresc = _oczysc(nazwa, dane)
-    teraz = datetime.now().isoformat(timespec="seconds")
+def _sprawdz_date_czynnosci(dzien: str) -> None:
+    if dzien and dzien > date.today().isoformat():
+        raise ValueError("Data czynności nie może być z przyszłości")
 
-    def zmiana(wszystko):
-        wpisy = wszystko.setdefault(nazwa, [])
-        wpis = {"id": uuid.uuid4().hex[:12], **tresc, "utworzono": teraz, "kto": kto,
-                "uwagi": [], "korekty": []}
-        wpis["rok"] = _rok(wpis)
-        if KSIEGI[nazwa]["roczna"] and not KSIEGI[nazwa].get("numer_z_systemu"):
-            ostatni = [w for w in wpisy if w["rok"] == wpis["rok"]]
-            pole = "data_czynnosci"
-            if ostatni and tresc.get(pole) and tresc[pole] < max(w.get(pole, "") for w in ostatni):
-                raise ValueError("Repertorium prowadzi się chronologicznie - w tym roku jest "
-                                 "już wpis z późniejszą datą czynności")
-        wpis["numer"] = _nastepny_numer(wpisy, nazwa, wpis["rok"])
-        if KSIEGI[nazwa].get("numer_z_systemu"):
-            numer = wnioski_kw.normalizuj_rep_c(tresc["numer_rep_c"])
-            if any(w.get("numer_rep_c") == numer for w in wpisy):
-                raise ValueError(f"Wniosek {numer} jest już w repertorium C")
-            wpis["numer_rep_c"] = wpis["oznaczenie"] = numer
-        else:
-            wpis["oznaczenie"] = oznaczenie(nazwa, wpis)
-        if nazwa == "repertorium_a":
-            wpis["wnioski_kw"] = []
-        wpisy.append(wpis)
-        return wpis
-    return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
+
+def _dodaj_do(wszystko: dict, nazwa: str, tresc: dict, kto: str) -> dict:
+    """Dopisanie do ksiegi wewnatrz jednej zmiany pliku (numer liczony na biezacych danych)."""
+    wpisy = wszystko.setdefault(nazwa, [])
+    wpis = {"id": uuid.uuid4().hex[:12], **tresc, "utworzono": datetime.now().isoformat(timespec="seconds"),
+            "kto": kto, "uwagi": [], "korekty": []}
+    wpis["rok"] = _rok(wpis)
+    if KSIEGI[nazwa]["roczna"] and not KSIEGI[nazwa].get("numer_z_systemu"):
+        ostatni = [w for w in wpisy if w["rok"] == wpis["rok"]]
+        pole = "data_czynnosci"
+        if ostatni and tresc.get(pole) and tresc[pole] < max(w.get(pole, "") for w in ostatni):
+            raise ValueError("Repertorium prowadzi się chronologicznie - w tym roku jest "
+                             "już wpis z późniejszą datą czynności")
+    wpis["numer"] = _nastepny_numer(wpisy, nazwa, wpis["rok"])
+    if KSIEGI[nazwa].get("numer_z_systemu"):
+        numer = wnioski_kw.normalizuj_rep_c(tresc["numer_rep_c"])
+        if any(w.get("numer_rep_c") == numer for w in wpisy):
+            raise ValueError(f"Wniosek {numer} jest już w repertorium C")
+        wpis["numer_rep_c"] = wpis["oznaczenie"] = numer
+    else:
+        wpis["oznaczenie"] = oznaczenie(nazwa, wpis)
+    if nazwa == "repertorium_a":
+        wpis["wnioski_kw"] = []
+    wpisy.append(wpis)
+    return wpis
+
+
+def dodaj(nazwa: str, dane: dict, kto: str = "") -> dict:
+    """Nowy wpis z numerem nadanym przez serwer (nastepny w roku lub ciagly).
+
+    Repertorium C wypelnia sie tylko przez zlozenie wniosku KW
+    (zmien_status_wniosku_kw), bo kazdy wpis musi miec wniosek w rep. A.
+    """
+    if KSIEGI.get(nazwa, {}).get("numer_z_systemu"):
+        raise ValueError("Wpis w repertorium C powstaje przy oznaczeniu wniosku KW jako złożonego")
+    if not isinstance(dane, dict):
+        raise ValueError("Dane wpisu: obiekt z rubrykami")
+    tresc = _oczysc(nazwa, dane)
+    _sprawdz_date_czynnosci(tresc.get("data_czynnosci", ""))
+    return magazyn.zmien_plik_kancelarii(PLIK, lambda wszystko: _dodaj_do(wszystko, nazwa, tresc, kto), _pusty())
 
 
 def lista(nazwa: str, rok: int | None = None) -> list[dict]:
@@ -306,36 +338,66 @@ def wpis(nazwa: str, identyfikator: str) -> dict | None:
     return next((w for w in lista(nazwa) if w["id"] == identyfikator), None)
 
 
+def _znajdz(wszystko: dict, nazwa: str, identyfikator: str) -> dict:
+    for w in wszystko.setdefault(nazwa, []):
+        if w["id"] == identyfikator:
+            return w
+    raise BrakWpisu("Nie ma takiego wpisu")
+
+
+def _znajdz_wniosek(rep: dict, wniosek_id: str) -> dict:
+    for wn in rep.get("wnioski_kw", []):
+        if wn["id"] == wniosek_id:
+            return wn
+    raise BrakWpisu("Nie ma takiego wniosku")
+
+
 def _zmien_wpis(nazwa: str, identyfikator: str, funkcja):
-    def zmiana(wszystko):
-        for w in wszystko.setdefault(nazwa, []):
-            if w["id"] == identyfikator:
-                return funkcja(w)
-        raise LookupError("Nie ma takiego wpisu")
-    return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
+    return magazyn.zmien_plik_kancelarii(
+        PLIK, lambda wszystko: funkcja(_znajdz(wszystko, nazwa, identyfikator)), _pusty())
+
+
+def _popraw_w(wszystko: dict, nazwa: str, w: dict, nowe: dict, powod: str, kto: str) -> dict:
+    """Poprawka wpisu wewnatrz zmiany pliku: historia + kontrola dat i chronologii."""
+    ksiega = KSIEGI[nazwa]
+    if "data_czynnosci" in nowe and ksiega["roczna"] and not ksiega.get("numer_z_systemu"):
+        dzien = nowe["data_czynnosci"]
+        _sprawdz_date_czynnosci(dzien)
+        if int(dzien[:4]) != w["rok"]:
+            raise ValueError("Poprawka nie może przenieść czynności do innego roku - numer repertorium jest roczny")
+        sasiedzi = sorted((x for x in wszystko[nazwa] if x["rok"] == w["rok"]), key=lambda x: x["numer"])
+        wczesniej = [x["data_czynnosci"] for x in sasiedzi if x["numer"] < w["numer"]]
+        pozniej = [x["data_czynnosci"] for x in sasiedzi if x["numer"] > w["numer"]]
+        if (wczesniej and dzien < max(wczesniej)) or (pozniej and dzien > min(pozniej)):
+            raise ValueError("Poprawiona data łamie kolejność repertorium (wcześniejszy numer ma późniejszą datę)")
+    poprzednie = {pole: w.get(pole, "") for pole in nowe}
+    w.update(nowe)
+    brak = [ksiega["rubryki"][p] for p in ksiega["wymagane"] if not w.get(p)]
+    if brak:
+        raise ValueError("Poprawka nie może usunąć: " + ", ".join(brak))
+    w["korekty"].append({"czas": datetime.now().isoformat(timespec="seconds"), "kto": kto,
+                         "powod": powod.strip(), "bylo": poprzednie, "jest": nowe})
+    return w
 
 
 def popraw(nazwa: str, identyfikator: str, zmiany: dict, powod: str, kto: str = "") -> dict:
     """Poprawka bez wymazywania: poprzednia tresc zostaje w historii korekt.
 
     Numer, rok i oznaczenie sa nienaruszalne - poprawka nie przenumerowuje ksiegi.
+    W repertorium C numer REP.C i stan zmienia tylko przebieg wniosku.
     """
     if not (powod or "").strip():
         raise ValueError("Podaj powód poprawki")
+    if not isinstance(zmiany, dict):
+        raise ValueError("Zmiany: obiekt z rubrykami")
+    if KSIEGI.get(nazwa, {}).get("numer_z_systemu") and any(p in zmiany for p in _TYLKO_PRZEBIEG):
+        raise ValueError("Numer REP.C i stan wniosku zmienia się w przebiegu wniosku w repertorium A")
     nowe = _oczysc(nazwa, zmiany, czesciowo=True)
     if not nowe:
         raise ValueError("Brak rubryk do poprawienia")
-
-    def funkcja(w):
-        poprzednie = {pole: w.get(pole, "") for pole in nowe}
-        w.update(nowe)
-        brak = [KSIEGI[nazwa]["rubryki"][p] for p in KSIEGI[nazwa]["wymagane"] if not w.get(p)]
-        if brak:
-            raise ValueError("Poprawka nie może usunąć: " + ", ".join(brak))
-        w["korekty"].append({"czas": datetime.now().isoformat(timespec="seconds"), "kto": kto,
-                             "powod": powod.strip(), "bylo": poprzednie, "jest": nowe})
-        return w
-    return _zmien_wpis(nazwa, identyfikator, funkcja)
+    return magazyn.zmien_plik_kancelarii(
+        PLIK, lambda wszystko: _popraw_w(wszystko, nazwa, _znajdz(wszystko, nazwa, identyfikator), nowe, powod, kto),
+        _pusty())
 
 
 def dodaj_uwage(nazwa: str, identyfikator: str, tresc: str, kto: str = "") -> dict:
@@ -389,13 +451,18 @@ def zarejestruj_wniosek_kw(identyfikator: str, dane: dict, kto: str = "") -> dic
     """Wniosek wieczystoksiegowy przygotowany do czynnosci z rep. A.
 
     Tresc przechodzi przez wnioski_kw.przygotuj() (zadania, uczestnicy,
-    podstawa wpisu, oplata, braki). Podstawa wpisu i strony uzupelniaja sie
+    podstawa wpisu, oplata, braki). Numer rep. A i data aktu zawsze pochodza
     z wpisu rep. A. Status "przygotowany" - istnieje tylko w notarai.
     """
+    if not isinstance(dane, dict):
+        raise ValueError("Dane wniosku: obiekt")
     rep = wpis("repertorium_a", identyfikator)
     if rep is None:
-        raise LookupError("Nie ma takiego wpisu")
-    akt = {"rep_a": rep["oznaczenie"], "data": rep["data_czynnosci"], **(dane.get("akt") or {})}
+        raise BrakWpisu("Nie ma takiego wpisu")
+    akt_klienta = dane.get("akt") or {}
+    if not isinstance(akt_klienta, dict):
+        raise ValueError("Podstawa wpisu (akt): obiekt")
+    akt = {**akt_klienta, "rep_a": rep["oznaczenie"], "data": rep["data_czynnosci"]}
     uczestnicy = dane.get("uczestnicy") or [{"nazwa": s["nazwa"], "pesel": s.get("pesel", ""),
                                              "rola": "uczestnik"} for s in rep.get("strony", [])]
     przygotowany = wnioski_kw.przygotuj({**dane, "akt": akt, "uczestnicy": uczestnicy})
@@ -410,79 +477,87 @@ def zarejestruj_wniosek_kw(identyfikator: str, dane: dict, kto: str = "") -> dic
 
 def zmien_wniosek_kw(identyfikator: str, wniosek_id: str, dane: dict, kto: str = "") -> dict:
     """Poprawka tresci przygotowanego wniosku (przed zlozeniem)."""
-    rep = wpis("repertorium_a", identyfikator)
-    stary = next((wn for wn in (rep or {}).get("wnioski_kw", []) if wn["id"] == wniosek_id), None)
-    if stary is None:
-        raise LookupError("Nie ma takiego wniosku")
-    if stary["status"] != "przygotowany":
-        raise ValueError("Złożonego wniosku nie zmienia się - zmiany idą przez sąd")
-    zrodlo = {"numer_kw": stary["numer_kw"], "sad": stary["sad"], "uczestnicy": stary["uczestnicy"],
-              "zadania": stary["zadania"], "akt": stary["podstawa"], "dokumenty": stary["dokumenty"]}
-    zrodlo.update({k: v for k, v in dane.items() if k in zrodlo})
-    nowy = wnioski_kw.przygotuj(zrodlo)
+    if not isinstance(dane, dict):
+        raise ValueError("Dane wniosku: obiekt")
 
-    def funkcja(w):
-        for wn in w["wnioski_kw"]:
-            if wn["id"] == wniosek_id:
-                wn.update(nowy)
-                return w
-    return _zmien_wpis("repertorium_a", identyfikator, funkcja)
+    def zmiana(wszystko):
+        rep = _znajdz(wszystko, "repertorium_a", identyfikator)
+        wn = _znajdz_wniosek(rep, wniosek_id)
+        if wn["status"] != "przygotowany":
+            raise ValueError("Złożonego wniosku nie zmienia się - zmiany idą przez sąd")
+        zrodlo = {"numer_kw": wn["numer_kw"], "sad": wn["sad"], "uczestnicy": wn["uczestnicy"],
+                  "zadania": wn["zadania"], "akt": wn["podstawa"], "dokumenty": wn["dokumenty"],
+                  "ksiega_macierzysta": wn.get("ksiega_macierzysta", "")}
+        zrodlo.update({k: v for k, v in dane.items() if k in zrodlo})
+        if not isinstance(zrodlo["akt"], dict):
+            raise ValueError("Podstawa wpisu (akt): obiekt")
+        zrodlo["akt"] = {**zrodlo["akt"], "rep_a": rep["oznaczenie"], "data": rep["data_czynnosci"]}
+        wn.update(wnioski_kw.przygotuj(zrodlo))
+        return rep
+    return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
 
 
 def pakiet_wniosku_kw(identyfikator: str, wniosek_id: str) -> dict:
     rep = wpis("repertorium_a", identyfikator)
-    wn = next((x for x in (rep or {}).get("wnioski_kw", []) if x["id"] == wniosek_id), None)
-    if wn is None:
-        raise LookupError("Nie ma takiego wniosku")
+    if rep is None:
+        raise BrakWpisu("Nie ma takiego wpisu")
+    wn = _znajdz_wniosek(rep, wniosek_id)
     return {"gotowy": wn["gotowy"], "braki": wn["braki"], "kroki": wnioski_kw.pakiet_portalu(wn),
             "formularz": {"system": "wniosek_kw_portal_ms", "dane": wnioski_kw.dane_formularza(wn)}}
 
 
 def zmien_status_wniosku_kw(identyfikator: str, wniosek_id: str, dane: dict, kto: str = "") -> dict:
-    """Przebieg wniosku. Przy "zlozony" wymagany numer REP.C - powstaje wpis w repertorium C."""
+    """Przebieg wniosku w jednej zmianie pliku (rep. A i rep. C razem).
+
+    Przy "zlozony" wymagany numer REP.C - powstaje wpis w repertorium C.
+    Sprawdzenie stanu i oba zapisy dzieja sie atomowo: dwa rownoczesne
+    "zlozony" nie utworza dwoch wpisow, a nieudany zapis nie zostawi sieroty.
+    """
+    if not isinstance(dane, dict):
+        raise ValueError("Dane: obiekt")
     status = dane.get("status")
     if status not in STATUSY_WNIOSKU_KW or status == "przygotowany":
         raise ValueError(f"Niedozwolony status wniosku: {status}")
-    rep = wpis("repertorium_a", identyfikator)
-    wn = next((x for x in (rep or {}).get("wnioski_kw", []) if x["id"] == wniosek_id), None)
-    if wn is None:
-        raise LookupError("Nie ma takiego wniosku")
+    numer = wnioski_kw.normalizuj_rep_c(dane["numer_rep_c"]) if dane.get("numer_rep_c") else ""
+    data_zlozenia = _data(dane["data_zlozenia"], "Data złożenia") if dane.get("data_zlozenia") else ""
+    if data_zlozenia and data_zlozenia > date.today().isoformat():
+        raise ValueError("Data złożenia nie może być z przyszłości")
+    rubryki = {"status": status}
+    for pole in ("sygnatura_dz_kw", "data_wpisu", "data_doreczenia"):
+        if dane.get(pole):
+            rubryki[pole] = _data(dane[pole], pole) if pole.startswith("data") else str(dane[pole]).strip()
 
-    if wn["status"] == "przygotowany":
-        if status != "zlozony":
-            raise ValueError("Najpierw oznacz wniosek jako złożony (z numerem REP.C)")
-        if not wn["gotowy"]:
-            raise ValueError("Wniosek ma braki: " + "; ".join(wn["braki"]))
-        if not dane.get("numer_rep_c") or not dane.get("data_zlozenia"):
-            raise ValueError("Podaj numer REP.C i date złożenia z systemu MS")
-        numer = wnioski_kw.normalizuj_rep_c(dane["numer_rep_c"])
-        rep_c = dodaj("repertorium_c", {
-            "numer_rep_c": numer, "data_zlozenia": dane["data_zlozenia"], "rep_a": rep["oznaczenie"],
-            "numer_kw": wn["numer_kw"], "sad": wn["sad"],
-            "zadania": [z["opis"] + (f": {z['tresc']}" if z["tresc"] else "") for z in wn["zadania"]],
-            "oplata_sadowa": dane.get("oplata_sadowa") or wn["oplata"]["razem"], "status": "zlozony",
-        }, kto)
-        zmiany = {"status": "zlozony", "numer_rep_c": numer, "rep_c_id": rep_c["id"],
-                  "data_zlozenia": rep_c["data_zlozenia"]}
-    else:
-        if wn["status"] in ("wpis_dokonany", "oddalony", "odrzucony", "cofniety") and status != wn["status"]:
-            raise ValueError("Wniosek jest już zakończony")
-        zmiany = {"status": status}
-        rubryki = {"status": status}
-        for pole in ("sygnatura_dz_kw", "data_wpisu", "data_doreczenia"):
-            if dane.get(pole):
-                rubryki[pole] = dane[pole]
-        popraw("repertorium_c", wn["rep_c_id"], rubryki, f"przebieg wniosku: {status}", kto)
-        zmiany.update({k: v for k, v in rubryki.items() if k != "status"})
-
-    def funkcja(w):
-        for x in w["wnioski_kw"]:
-            if x["id"] == wniosek_id:
-                x.update(zmiany)
-                x.setdefault("historia", []).append(
-                    {"czas": datetime.now().isoformat(timespec="seconds"), "kto": kto, "status": status})
-                return w
-    return _zmien_wpis("repertorium_a", identyfikator, funkcja)
+    def zmiana(wszystko):
+        rep = _znajdz(wszystko, "repertorium_a", identyfikator)
+        wn = _znajdz_wniosek(rep, wniosek_id)
+        dozwolone = PRZEJSCIA_WNIOSKU_KW.get(wn["status"], ())
+        if status not in dozwolone:
+            if not dozwolone:
+                raise ValueError("Wniosek jest już zakończony - nowe żądanie to nowy wniosek")
+            if wn["status"] == "przygotowany":
+                raise ValueError("Najpierw oznacz wniosek jako złożony (z numerem REP.C)")
+            raise ValueError(f"Ze stanu {wn['status']} nie można przejść do {status}")
+        if status == "zlozony":
+            if not wn["gotowy"]:
+                raise ValueError("Wniosek ma braki: " + "; ".join(wn["braki"]))
+            if not numer or not data_zlozenia:
+                raise ValueError("Podaj numer REP.C i datę złożenia z systemu MS")
+            tresc = _oczysc("repertorium_c", {
+                "numer_rep_c": numer, "data_zlozenia": data_zlozenia, "rep_a": rep["oznaczenie"],
+                "numer_kw": wn["numer_kw"], "sad": wn["sad"],
+                "zadania": [z["opis"] + (f": {z['tresc']}" if z["tresc"] else "") for z in wn["zadania"]],
+                "oplata_sadowa": dane.get("oplata_sadowa") or wn["oplata"]["razem"], "status": "zlozony"})
+            rep_c = _dodaj_do(wszystko, "repertorium_c", tresc, kto)
+            wn.update({"status": "zlozony", "numer_rep_c": numer, "rep_c_id": rep_c["id"],
+                       "data_zlozenia": data_zlozenia})
+        else:
+            rep_c = _znajdz(wszystko, "repertorium_c", wn["rep_c_id"])
+            _popraw_w(wszystko, "repertorium_c", rep_c, rubryki, f"przebieg wniosku: {status}", kto)
+            wn.update(rubryki)
+        wn.setdefault("historia", []).append(
+            {"czas": datetime.now().isoformat(timespec="seconds"), "kto": kto, "status": status})
+        return rep
+    return magazyn.zmien_plik_kancelarii(PLIK, zmiana, _pusty())
 
 
 def definicje() -> dict:
@@ -526,7 +601,7 @@ def csv_ksiegi(nazwa: str, rok: int | None = None) -> str:
     zapis.writerow(naglowki)
     for wiersz in dane:
         # Excel wykonuje komorki zaczynajace sie od =, +, -, @ - neutralizujemy.
-        zapis.writerow(["'" + k if k[:1] in ("=", "+", "-", "@") else k for k in wiersz])
+        zapis.writerow(["'" + k if k[:1] in ("=", "+", "-", "@", "\t", "\r") else k for k in wiersz])
     return "﻿" + bufor.getvalue()
 
 
