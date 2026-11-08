@@ -1,4 +1,4 @@
-# notarai - etap 3: aplikacja na ECS Fargate za load balancerem z HTTPS
+﻿# notarai - etap 3: aplikacja na ECS Fargate za load balancerem z HTTPS
 #
 # Uruchom z katalogu notarai:
 #   powershell -ExecutionPolicy Bypass -File infra\3-wdroz-aplikacje.ps1
