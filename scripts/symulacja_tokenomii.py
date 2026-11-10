@@ -222,6 +222,51 @@ def ekonomia_modeli(ziarno: int = 11) -> dict:
     return wynik
 
 
+# --- kontakty klientow i grywalizacja --------------------------------------------------
+
+# Zapytania ze strony notarai.pl miesiecznie (szacunek; zalezy od ruchu SEO).
+ZAPYTANIA = {"mala": 8, "srednia": 20, "duza": 40}
+ODSLANIANE = 0.85          # czesc zapytan, ktore kancelaria odslania
+REKLAMOWANE = 0.05
+OSOB_W_AKADEMII = {"mala": 2, "srednia": 4, "duza": 6}
+
+
+def ekonomia_dodatkow(ziarno: int = 5) -> dict:
+    """Przychod z odsloniec kontaktu i koszt nagrod (Akademia, polecenie,
+    premia stazowa) - liczony kosztem AI kredytow, nie ich wartoscia."""
+    import akademia
+    gen = random.Random(ziarno)
+    proba = [losuj_sprawe(gen) for _ in range(2000)]
+    koszt_na_kredyt = statistics.mean(koszt_sprawy(s, gen) for s in proba) / statistics.mean(
+        kredyty_sprawy(s, "v2") for s in proba)
+    cena_kontaktu = t.AKCJE["kontakt_klienta"].kredyty()
+    plan = {"mala": "kancelaria", "srednia": "pro", "duza": "pro_plus"}
+    wynik = {"koszt_ai_jednego_kredytu_zl": round(koszt_na_kredyt, 3), "profile": {}}
+    for profil, zapytan in ZAPYTANIA.items():
+        odsloniete = zapytan * ODSLANIANE
+        w_planie = t.PLANY[plan[profil]]["kontakty"]
+        platne = max(0.0, odsloniete - w_planie) * (1 - REKLAMOWANE)
+        nagrody = OSOB_W_AKADEMII[profil] * sum(m["nagroda"] for m in akademia.MODULY) + akademia.NAGRODA_WDROZENIA
+        premia_roczna = 6 * akademia.premia_stazu(12, t.PLANY[plan[profil]]["pula"])  # drugi rok, 10%
+        wynik["profile"][profil] = {
+            "odsloniec_platnych_mies": round(platne, 1),
+            "przychod_kontakty_mies_zl": round(platne * cena_kontaktu * t.NAJNIZSZA_CENA_KREDYTU_ZL, 0),
+            "nagrody_jednorazowo_kr": nagrody,
+            "koszt_nagrod_jednorazowo_zl": round(nagrody * koszt_na_kredyt, 0),
+            "koszt_polecenia_zl": round(2 * akademia.NAGRODA_POLECENIA * koszt_na_kredyt, 0),
+            "koszt_premii_stazowej_rocznie_zl": round(premia_roczna * koszt_na_kredyt, 0),
+        }
+    # Lekcja "oszczedne kredyty": 30% stron przechodzi z max na standardowa.
+    mx, md = t.AKCJE["odczyt_strony_max"], t.AKCJE["odczyt_strony_medium"]
+    wynik["przesuniecie_30proc_stron"] = {
+        "koszt_ai_na_100_stron_przed_zl": round(100 * mx.koszt_sredni_zl(), 1),
+        "koszt_ai_na_100_stron_po_zl": round(70 * mx.koszt_sredni_zl() + 30 * md.koszt_sredni_zl(), 1),
+        "przychod_na_100_stron_przed_kr": 100 * mx.kredyty(),
+        "przychod_na_100_stron_po_kr": 70 * mx.kredyty() + 30 * md.kredyty(),
+    }
+    return wynik
+
+
 def _drukuj() -> None:
     r = symuluj()
     print(f"Spraw w symulacji: {r['spraw']}; koszt AI sprawy: srednio {r['koszt_sredni_zl']:.2f} zl, "
@@ -244,6 +289,13 @@ def _drukuj() -> None:
                   f"{m['marza_po_wsparciu_zl']:7.0f} zl  ({m['cena_za_sprawe_zl']} zl/sprawe)")
     print(f"\nKoszty stale {KOSZT_STALY_ZL:.0f} zl/mies. pokrywa {e['prog_rentownosci_kancelarii']} "
           "kancelaria(e) srednia(e) w modelu A.")
+    d = ekonomia_dodatkow()
+    print(f"\nDodatki (koszt AI 1 kredytu: {d['koszt_ai_jednego_kredytu_zl']} zl):")
+    for profil, w in d["profile"].items():
+        print(f"  {profil:8} odsloniecia platne {w['odsloniec_platnych_mies']:5}/mies. = {w['przychod_kontakty_mies_zl']:4.0f} zl;"
+              f" nagrody Akademii {w['nagrody_jednorazowo_kr']} kr = {w['koszt_nagrod_jednorazowo_zl']:.0f} zl kosztu;"
+              f" polecenie {w['koszt_polecenia_zl']:.0f} zl; premia stazowa {w['koszt_premii_stazowej_rocznie_zl']:.0f} zl/rok")
+    print("  30% stron na dokladnosci standardowej:", d["przesuniecie_30proc_stron"])
 
 
 if __name__ == "__main__":

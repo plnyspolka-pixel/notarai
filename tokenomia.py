@@ -126,7 +126,8 @@ class Akcja:
     nazwa: str
     jednostka: str
     profil: tuple[int, int, int, int] = (0, 0, 0, 0)
-    koszt_zewnetrzny_zl: float = 0.0     # platne zrodlo danych (EKW) na jednostke
+    koszt_zewnetrzny_zl: float = 0.0     # platne zrodlo danych (EKW): srednio na jednostke
+    koszt_zewnetrzny_p90_zl: float | None = None   # ... i w 90% przypadkow najwyzej tyle
     model: str = ""
     darmowa: bool = False                # akcje zgodnosci (staranność) nie kosztuja kredytow
     stala_cena: float | None = None      # cena uslugowa niezalezna od kosztu (np. nadanie)
@@ -135,7 +136,10 @@ class Akcja:
         we50, wy50, we90, wy90 = self.profil
         we, wy = (we90, wy90) if percentyl >= 90 else (we50, wy50)
         tokeny = koszt_tokenow_zl(self.model or MODEL_GLOWNY, we, wy)
-        return (tokeny * (1 + NARZUT_NA_BLEDY)) + self.koszt_zewnetrzny_zl
+        zewnetrzny = self.koszt_zewnetrzny_zl
+        if percentyl >= 90 and self.koszt_zewnetrzny_p90_zl is not None:
+            zewnetrzny = self.koszt_zewnetrzny_p90_zl
+        return (tokeny * (1 + NARZUT_NA_BLEDY)) + zewnetrzny
 
     def koszt_sredni_zl(self) -> float:
         """Srednia przy rozkladzie log-normalnym wyznaczonym przez P50 i P90:
@@ -189,9 +193,20 @@ AKCJE: dict[str, Akcja] = {a.kod: a for a in [
           (12_000, 3_000, 22_000, 9_000)),
     Akcja("asystent_krok", "Krok asystenta w przegladarce (pomocnik)", "krok",
           (3_500, 300, 5_000, 700)),
-    # Szacowana cena zakupu tresci jednej KW u dostawcy (Finance You / Apify).
+    # Tresc KW przez Finance You: najpierw Apify (0,005-0,010 USD za ksiege +
+    # 0,025 USD za uruchomienie, finyou src/lib/apify-ekw.server.ts), awaryjnie
+    # EasyMKW (2 kredyty EasyMKW za ksiege). Srednio ok. 0,35 zl przy ~10%
+    # przypadkow na EasyMKW. Cena to wartosc dla kancelarii (cena minimalna),
+    # nie koszt: notariusz dostaje piec dzialow w sprawie bez przepisywania.
     Akcja("ekw_ksiega", "Tresc ksiegi wieczystej z EKW", "ksiega",
-          koszt_zewnetrzny_zl=float(os.getenv("PIECZAPP_KOSZT_EKW_ZL", "1.80"))),
+          koszt_zewnetrzny_zl=float(os.getenv("PIECZAPP_KOSZT_EKW_ZL", "0.35")),
+          koszt_zewnetrzny_p90_zl=float(os.getenv("PIECZAPP_KOSZT_EKW_ZAPASOWY_ZL", "2.20")),
+          stala_cena=float(os.getenv("PIECZAPP_CENA_KW", "5"))),
+    # Odsloniecie danych kontaktowych klienta z zapytania ze strony notarai.pl
+    # (wizyty.py). Koszt dla nas ~0 (e-mail SES); cena uslugowa, ta sama dla
+    # kazdego zapytania - niezalezna od czynnosci i jej wartosci (neutralnosc).
+    Akcja("kontakt_klienta", "Odsloniecie kontaktu klienta z zapytania", "zapytanie",
+          stala_cena=float(os.getenv("PIECZAPP_CENA_KONTAKTU", "5"))),
     Akcja("kalkulator_tura", "Tura kalkulatora taksy dla klienta", "tura",
           (4_000, 400, 8_000, 1_500), model=MODEL_KALKULATORA),
     Akcja("krz_sprawdzenie", "Sprawdzenie w KRZ", "sprawdzenie", darmowa=True),
@@ -235,10 +250,10 @@ def cennik() -> list[dict]:
 # Start ~4 sprawy, Kancelaria ~9, Pro ~25, Kancelaria+ ~60 spraw miesiecznie.
 # Plan "kancelaria" odpowiada obecnej cenie abonamentu w Stripe (600 zl).
 PLANY: dict[str, dict] = {
-    "start": {"nazwa": "Start", "cena_zl": 290, "pula": 300, "uzytkownikow": 2, "gb": 20},
-    "kancelaria": {"nazwa": "Kancelaria", "cena_zl": 600, "pula": 700, "uzytkownikow": 6, "gb": 100},
-    "pro": {"nazwa": "Pro", "cena_zl": 1500, "pula": 1875, "uzytkownikow": 20, "gb": 300},
-    "pro_plus": {"nazwa": "Kancelaria+", "cena_zl": 3600, "pula": 4500, "uzytkownikow": 50, "gb": 1000},
+    "start": {"nazwa": "Start", "cena_zl": 290, "pula": 300, "uzytkownikow": 2, "gb": 20, "kontakty": 2},
+    "kancelaria": {"nazwa": "Kancelaria", "cena_zl": 600, "pula": 700, "uzytkownikow": 6, "gb": 100, "kontakty": 5},
+    "pro": {"nazwa": "Pro", "cena_zl": 1500, "pula": 1875, "uzytkownikow": 20, "gb": 300, "kontakty": 15},
+    "pro_plus": {"nazwa": "Kancelaria+", "cena_zl": 3600, "pula": 4500, "uzytkownikow": 50, "gb": 1000, "kontakty": 40},
 }
 # Pakiety kredytow (platnosc jednorazowa). Najwiekszy pakiet = najnizsza cena kredytu.
 PAKIETY: dict[str, dict] = {
@@ -250,8 +265,12 @@ PLAN_DOMYSLNY = os.getenv("PIECZAPP_PLAN_DOMYSLNY", "kancelaria")
 # Debet: tyle kredytow ponizej zera kancelaria moze zejsc, zeby nie przerwac
 # czynnosci w srodku (jak karencja abonamentu w platnosci.py).
 DEBET_KREDYTOW = float(os.getenv("PIECZAPP_DEBET_KREDYTOW", "30"))
-# Kredyty na start dla nowej kancelarii (okres probny).
+# Kredyty na start dla nowej kancelarii (okres probny) - raz na NIP.
 KREDYTY_PROBNE = float(os.getenv("PIECZAPP_KREDYTY_PROBNE", "150"))
+# Waznosc partii kredytow (dni) wg zrodla. Pakiety: 12 miesiecy (do Regulaminu).
+WAZNOSC_DNI = {"pakiet": 365, "reczne": 365, "proba": 30, "nagroda": 90, "zwrot": 90, "polecenie": 180}
+# Plan bez wpisu w portfelu (np. przed pierwsza faktura) - limity jak "start".
+PLAN_BEZ_ABONAMENTU = "start"
 
 
 def najnizsza_cena_kredytu() -> float:
@@ -329,26 +348,55 @@ def _miesiac() -> str:
 
 
 def _pusty_portfel() -> dict:
-    return {"plan": None, "pula": 0.0, "doladowane": 0.0, "przetworzone": [],
-            "historia": [], "miesiace": {}}
+    return {"plan": None, "pula": 0.0, "partie": [], "przetworzone": [],
+            "historia": [], "miesiace": {}, "liczniki": {}}
 
 
-def _klucz(kancelaria: str) -> str:
+def _dzis() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _za_dni(dni: int) -> str:
+    from datetime import timedelta
+    return (datetime.now(timezone.utc).date() + timedelta(days=dni)).isoformat()
+
+
+def _wazne(portfel: dict) -> list[dict]:
+    dzis = _dzis()
+    return [p for p in portfel.get("partie", []) if p.get("wygasa", "9999") >= dzis and p["kredyty"] > 0]
+
+
+def _normalizuj(portfel: dict) -> None:
+    """Stary format (pole "doladowane") -> partia; wygasle partie -> historia."""
+    stare = float(portfel.pop("doladowane", 0) or 0)
+    portfel.setdefault("partie", [])
+    portfel.setdefault("liczniki", {})
+    if stare > 0:
+        portfel["partie"].append({"kredyty": stare, "zrodlo": "pakiet", "wygasa": _za_dni(365)})
+    elif stare < 0:
+        portfel["pula"] = round(float(portfel.get("pula", 0)) + stare, 2)
+    dzis = _dzis()
+    for partia in [p for p in portfel["partie"] if p.get("wygasa", "9999") < dzis and p["kredyty"] > 0]:
+        _wpis(portfel, {"akcja": "wygasniecie", "kredyty": -partia["kredyty"], "zrodlo": partia["zrodlo"]})
+    portfel["partie"] = _wazne(portfel)
+
+
+def _klucz(kancelaria: str, katalog: str = "kredyty") -> str:
     import magazyn
-    return f"{magazyn.PREFIKS}/admin/kredyty/{kancelaria}.json"
+    return f"{magazyn.PREFIKS}/admin/{katalog}/{kancelaria}.json"
 
 
-def _plik(kancelaria: str) -> Path:
+def _plik(kancelaria: str, katalog: str = "kredyty") -> Path:
     import config
-    katalog = config.DANE / "kredyty"
-    katalog.mkdir(parents=True, exist_ok=True)
-    return katalog / f"{kancelaria}.json"
+    sciezka = config.DANE / katalog
+    sciezka.mkdir(parents=True, exist_ok=True)
+    return sciezka / f"{kancelaria}.json"
 
 
-def _czytaj_s3(kancelaria: str) -> tuple[dict | None, str]:
+def _czytaj_s3(kancelaria: str, katalog: str = "kredyty") -> tuple[dict | None, str]:
     import magazyn
     try:
-        odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz(kancelaria))
+        odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz(kancelaria, katalog))
     except Exception as blad:  # noqa: BLE001
         if type(blad).__name__ == "NoSuchKey" or magazyn._kod_bledu(blad) in ("NoSuchKey", "404"):
             return None, ""
@@ -356,44 +404,51 @@ def _czytaj_s3(kancelaria: str) -> tuple[dict | None, str]:
     return json.loads(odp["Body"].read().decode("utf-8")), odp.get("ETag", "")
 
 
-def wczytaj_portfel(kancelaria: str) -> dict | None:
-    """Portfel albo None - kancelaria bez portfela nie placi kredytami."""
+def wczytaj_portfel(kancelaria: str, katalog: str = "kredyty") -> dict | None:
+    """Portfel albo None - kancelaria bez portfela nie placi kredytami.
+    `katalog` pozwala trzymac tak samo inne dane rozliczeniowe (akademia)."""
     import magazyn
     if magazyn.TRYB == "s3":
-        return _czytaj_s3(kancelaria)[0]
-    plik = _plik(kancelaria)
+        return _czytaj_s3(kancelaria, katalog)[0]
+    plik = _plik(kancelaria, katalog)
     with _BLOKADA:
         return json.loads(plik.read_text("utf-8")) if plik.exists() else None
 
 
-def zmien_portfel(kancelaria: str, zmiana, utworz: bool = False):
+def zmien_portfel(kancelaria: str, zmiana, utworz: bool = False, katalog: str = "kredyty", pusty=None):
     """Odczyt - zmiana - zapis warunkowy. `zmiana(portfel)` zmienia w miejscu.
     Bez portfela i bez `utworz` zwraca None, niczego nie zapisujac."""
     import magazyn
+    portfel = katalog == "kredyty"
+    nowy = (pusty or _pusty_portfel) if portfel else (pusty or dict)
     if magazyn.TRYB != "s3":
-        plik = _plik(kancelaria)
+        plik = _plik(kancelaria, katalog)
         with _BLOKADA:
             dane = json.loads(plik.read_text("utf-8")) if plik.exists() else None
             if dane is None:
                 if not utworz:
                     return None
-                dane = _pusty_portfel()
+                dane = nowy()
+            if portfel:
+                _normalizuj(dane)
             wynik = zmiana(dane)
             tymczasowy = plik.with_suffix(".tmp")
             tymczasowy.write_text(json.dumps(dane, ensure_ascii=False, indent=1), encoding="utf-8")
             tymczasowy.replace(plik)
         return wynik
     for _ in range(_PROB):
-        dane, etag = _czytaj_s3(kancelaria)
+        dane, etag = _czytaj_s3(kancelaria, katalog)
         if dane is None:
             if not utworz:
                 return None
-            dane = _pusty_portfel()
+            dane = nowy()
+        if portfel:
+            _normalizuj(dane)
         wynik = zmiana(dane)
         warunek = {"IfMatch": etag} if etag else {"IfNoneMatch": "*"}
         try:
             magazyn._klient_s3().put_object(
-                Bucket=magazyn.BUCKET, Key=_klucz(kancelaria),
+                Bucket=magazyn.BUCKET, Key=_klucz(kancelaria, katalog),
                 Body=json.dumps(dane, ensure_ascii=False).encode("utf-8"),
                 **warunek, **magazyn._szyfrowanie())
         except Exception as blad:  # noqa: BLE001
@@ -404,8 +459,20 @@ def zmien_portfel(kancelaria: str, zmiana, utworz: bool = False):
     raise magazyn.KonfliktZapisu("Portfel kredytow zmienial sie rownoczesnie. Sprobuj za chwile.")
 
 
+def dokupione(portfel: dict) -> float:
+    """Wazne kredyty spoza puli abonamentu (pakiety, nagrody, zwroty)."""
+    stare = float(portfel.get("doladowane", 0) or 0)       # przed migracja formatu
+    return round(sum(p["kredyty"] for p in _wazne(portfel)) + stare, 2)
+
+
 def saldo(portfel: dict) -> float:
-    return round(float(portfel.get("pula", 0)) + float(portfel.get("doladowane", 0)), 2)
+    return round(float(portfel.get("pula", 0)) + dokupione(portfel), 2)
+
+
+def _dodaj_partie(portfel: dict, kredyty: float, zrodlo: str, dni: int | None = None) -> None:
+    portfel.setdefault("partie", []).append({
+        "kredyty": round(kredyty, 2), "zrodlo": zrodlo,
+        "wygasa": _za_dni(dni if dni is not None else WAZNOSC_DNI.get(zrodlo, 365))})
 
 
 def _wpis(portfel: dict, wpis: dict) -> None:
@@ -422,10 +489,23 @@ def _zaksieguj_miesiac(portfel: dict, akcja: str, kredyty: float, koszt: float) 
 
 
 def _pobierz(portfel: dict, kredyty: float) -> None:
-    """Najpierw pula abonamentu (przepada co miesiac), potem dokupione."""
-    z_puli = min(max(0.0, float(portfel.get("pula", 0))), kredyty)
+    """Najpierw pula abonamentu (przepada co okres), potem partie od tej, ktora
+    wygasa najwczesniej (nagrody i proba przed pakietami). Brak - dlug w puli,
+    potracany z kolejnej puli."""
+    _normalizuj(portfel)
+    reszta = kredyty
+    z_puli = min(max(0.0, float(portfel.get("pula", 0))), reszta)
     portfel["pula"] = round(float(portfel.get("pula", 0)) - z_puli, 2)
-    portfel["doladowane"] = round(float(portfel.get("doladowane", 0)) - (kredyty - z_puli), 2)
+    reszta = round(reszta - z_puli, 2)
+    for partia in sorted(portfel["partie"], key=lambda p: p.get("wygasa", "9999")):
+        if reszta <= 0:
+            break
+        z_partii = min(partia["kredyty"], reszta)
+        partia["kredyty"] = round(partia["kredyty"] - z_partii, 2)
+        reszta = round(reszta - z_partii, 2)
+    portfel["partie"] = [p for p in portfel["partie"] if p["kredyty"] > 0]
+    if reszta > 0:
+        portfel["pula"] = round(portfel["pula"] - reszta, 2)
 
 
 def _jednorazowo(portfel: dict, znacznik: str) -> bool:
@@ -438,14 +518,19 @@ def _jednorazowo(portfel: dict, znacznik: str) -> bool:
     return True
 
 
-def doladuj(kancelaria: str, kredyty: float, powod: str, znacznik: str = "") -> dict | None:
-    """Dopisuje dokupione kredyty. `znacznik` (np. id sesji Stripe) chroni przed
-    podwojnym zaksiegowaniem powtorzonego webhooka."""
+def doladuj(kancelaria: str, kredyty: float, powod: str, znacznik: str = "",
+            zrodlo: str = "pakiet", dni: int | None = None) -> dict | None:
+    """Dopisuje partie kredytow. `znacznik` (np. id sesji Stripe) chroni przed
+    podwojnym zaksiegowaniem powtorzonego webhooka. Ujemna korekta (reczna)
+    zdejmuje kredyty jak zwykle pobranie."""
     def zmiana(p):
         if znacznik and not _jednorazowo(p, znacznik):
             return p
-        p["doladowane"] = round(float(p.get("doladowane", 0)) + kredyty, 2)
-        _wpis(p, {"akcja": "doladowanie", "kredyty": kredyty, "powod": powod})
+        if kredyty >= 0:
+            _dodaj_partie(p, kredyty, zrodlo, dni)
+        else:
+            _pobierz(p, -kredyty)
+        _wpis(p, {"akcja": "doladowanie", "kredyty": kredyty, "powod": powod, "zrodlo": zrodlo})
         return p
     log.info("tokenomia: kancelaria %s, doladowanie %g kr. (%s)", kancelaria, kredyty, powod)
     return zmien_portfel(kancelaria, zmiana, utworz=True)
@@ -460,23 +545,62 @@ def odnow_pule(kancelaria: str, plan: str, znacznik: str = "") -> dict | None:
         if znacznik and not _jednorazowo(p, znacznik):
             return p
         p["plan"] = plan
-        # Ujemna pula (debet) przechodzi na dokupione, zeby nie zniknela.
-        if float(p.get("pula", 0)) < 0:
-            p["doladowane"] = round(float(p.get("doladowane", 0)) + float(p["pula"]), 2)
-        p["pula"] = float(PLANY[plan]["pula"])
+        # Dlug (ujemna pula) potracamy z nowej puli, zeby nie zniknal.
+        p["pula"] = round(float(PLANY[plan]["pula"]) + min(0.0, float(p.get("pula", 0))), 2)
         _wpis(p, {"akcja": "odnowienie_puli", "kredyty": PLANY[plan]["pula"], "plan": plan})
         return p
     log.info("tokenomia: kancelaria %s, odnowiona pula planu %s", kancelaria, plan)
     return zmien_portfel(kancelaria, zmiana, utworz=True)
 
 
-def zaloz_portfel_probny(kancelaria: str) -> dict | None:
+REJESTR_PROB = "_proby"
+
+
+def _nip_uzyty(nip: str) -> bool:
+    """True, gdy ten NIP dostal juz kredyty probne. Zapamietujemy skrot NIP-u,
+    nie numer. Chroni przed zakladaniem kolejnych kont dla kredytow."""
+    import hashlib
+    skrot = hashlib.sha256(("notarai-proba:" + nip).encode()).hexdigest()[:24]
+
     def zmiana(p):
-        if _jednorazowo(p, "proba"):
-            p["pula"] = round(float(p.get("pula", 0)) + KREDYTY_PROBNE, 2)
-            _wpis(p, {"akcja": "kredyty_probne", "kredyty": KREDYTY_PROBNE})
+        uzyte = p.setdefault("nip", [])
+        if skrot in uzyte:
+            return True
+        uzyte.append(skrot)
+        return False
+    return zmien_portfel(REJESTR_PROB, zmiana, utworz=True)
+
+
+def zaloz_portfel_probny(kancelaria: str, nip: str = "") -> dict | None:
+    """Portfel nowej kancelarii z partia probna (wygasa po 30 dniach, a nie
+    znika przy pierwszej fakturze). Kredyty probne raz na NIP."""
+    nip = "".join(c for c in (nip or "") if c.isdigit())
+    probne = KREDYTY_PROBNE if not (nip and _nip_uzyty(nip)) else 0.0
+    if nip and not probne:
+        log.info("tokenomia: kancelaria %s bez kredytow probnych (NIP juz je dostal)", kancelaria)
+
+    def zmiana(p):
+        if probne and _jednorazowo(p, "proba"):
+            _dodaj_partie(p, probne, "proba")
+            _wpis(p, {"akcja": "kredyty_probne", "kredyty": probne})
         return p
     return zmien_portfel(kancelaria, zmiana, utworz=True)
+
+
+def plan_kancelarii(portfel: dict | None) -> dict:
+    return PLANY.get((portfel or {}).get("plan") or PLAN_BEZ_ABONAMENTU, PLANY[PLAN_BEZ_ABONAMENTU])
+
+
+def licznik_miesiaca(portfel: dict, nazwa: str) -> int:
+    return int(((portfel.get("liczniki") or {}).get(_miesiac()) or {}).get(nazwa, 0))
+
+
+def _zwieksz_licznik(portfel: dict, nazwa: str) -> int:
+    m = portfel.setdefault("liczniki", {}).setdefault(_miesiac(), {})
+    m[nazwa] = int(m.get(nazwa, 0)) + 1
+    for stary in sorted(portfel["liczniki"])[:-13]:
+        del portfel["liczniki"][stary]
+    return m[nazwa]
 
 
 # --- akcja: sprawdzenie salda, pomiar, pobranie ----------------------------------
@@ -494,13 +618,61 @@ def egzekwowana(kancelaria: str) -> dict | None:
     return wczytaj_portfel(kancelaria)
 
 
+# Kredyty zarezerwowane przez trwajace akcje (w tym procesie). Bez tego dziesiec
+# odczytow uruchomionych naraz przeszloby sprawdzenie salda kazdy osobno.
+# Druga kopia aplikacji ma wlasne rezerwacje - przed reszta chroni debet.
+_REZERWACJE: dict[str, float] = {}
+_BLOKADA_REZERWACJI = threading.Lock()
+
+
+def zarezerwowane(kancelaria: str) -> float:
+    with _BLOKADA_REZERWACJI:
+        return _REZERWACJE.get(kancelaria, 0.0)
+
+
+def _rezerwuj(kancelaria: str, kredyty: float) -> None:
+    portfel = egzekwowana(kancelaria)
+    if portfel is None or kredyty <= 0:
+        return
+    with _BLOKADA_REZERWACJI:
+        dostepne = saldo(portfel) - _REZERWACJE.get(kancelaria, 0.0)
+        if dostepne - kredyty < -DEBET_KREDYTOW:
+            raise BrakKredytow(kredyty, round(dostepne, 2))
+        _REZERWACJE[kancelaria] = _REZERWACJE.get(kancelaria, 0.0) + kredyty
+
+
+def _zwolnij(kancelaria: str, kredyty: float) -> None:
+    with _BLOKADA_REZERWACJI:
+        reszta = round(_REZERWACJE.get(kancelaria, 0.0) - kredyty, 2)
+        if reszta > 0:
+            _REZERWACJE[kancelaria] = reszta
+        else:
+            _REZERWACJE.pop(kancelaria, None)
+
+
 def sprawdz(kod: str, ilosc: float = 1) -> float:
-    """Rzuca BrakKredytow, gdy saldo z debetem nie pokrywa akcji. Zwraca cene."""
+    """Rzuca BrakKredytow, gdy saldo (minus rezerwacje, plus debet) nie pokrywa
+    akcji. Zwraca cene. Niczego nie rezerwuje."""
     cena = AKCJE[kod].kredyty() * ilosc
-    portfel = egzekwowana(_kancelaria())
-    if portfel is not None and cena > 0 and saldo(portfel) - cena < -DEBET_KREDYTOW:
-        raise BrakKredytow(cena, saldo(portfel))
+    kancelaria = _kancelaria()
+    portfel = egzekwowana(kancelaria)
+    if portfel is not None and cena > 0:
+        dostepne = saldo(portfel) - zarezerwowane(kancelaria)
+        if dostepne - cena < -DEBET_KREDYTOW:
+            raise BrakKredytow(cena, round(dostepne, 2))
     return cena
+
+
+def wycena(pozycje: list[tuple[str, float]]) -> dict:
+    """Ile beda kosztowac pozycje i czy saldo wystarczy - przed klikniecem."""
+    kredyty = round(sum(AKCJE[k].kredyty() * n for k, n in pozycje if k in AKCJE), 2)
+    kancelaria = _kancelaria()
+    portfel = egzekwowana(kancelaria)
+    if portfel is None:
+        return {"kredyty": kredyty, "egzekwowana": False, "wystarczy": True, "saldo_po": None}
+    dostepne = saldo(portfel) - zarezerwowane(kancelaria)
+    return {"kredyty": kredyty, "egzekwowana": True, "saldo_po": round(dostepne - kredyty, 2),
+            "wystarczy": dostepne - kredyty >= -DEBET_KREDYTOW}
 
 
 class akcja:
@@ -523,22 +695,26 @@ class akcja:
 
     def dodaj(self, kod: str, ilosc: float) -> None:
         if ilosc > 0:
-            sprawdz(kod, ilosc)
             self.pozycje.append((kod, ilosc))
+
+    def cena(self) -> float:
+        return round(sum(AKCJE[k].kredyty() * n for k, n in self.pozycje), 2)
 
     def __enter__(self):
         self.kancelaria = _kancelaria()
-        kod, ilosc = self.pozycje[0]
-        sprawdz(kod, ilosc)
+        self._rezerwacja = self.cena()
+        _rezerwuj(self.kancelaria, self._rezerwacja)
         self._znacznik = _licznik.set(self.licznik)
         self._start = time.monotonic()
         return self
 
     def __exit__(self, typ, wartosc, slad):
         _licznik.reset(self._znacznik)
-        if typ is not None:
-            return False
-        self.zaksieguj()
+        try:
+            if typ is None:
+                self.zaksieguj()
+        finally:
+            _zwolnij(self.kancelaria, self._rezerwacja)
         return False
 
     def zaksieguj(self) -> None:
@@ -576,6 +752,151 @@ def obciaz(kod: str, ilosc: float, sprawa: str = "") -> float:
     a.kancelaria = _kancelaria()
     a.zaksieguj()
     return a.pobrano
+
+
+# --- ochrona przed kosztami bez platnika -------------------------------------------
+
+# Publiczny kalkulator taksy wola model bez logowania. Limity na IP nie
+# wystarcza przy rozproszonym ruchu automatow: 1500 tur na dobe x 2 kopie x
+# ~0,11 zl to do ok. 10 tys. zl miesiecznie. Dzienny budzet (na proces) to
+# twardy sufit - po nim kalkulator odsyla do formularza, ktory liczy bez modelu.
+BUDZET_PUBLICZNY_ZL = float(os.getenv("PIECZAPP_BUDZET_PUBLICZNY_ZL", "40"))
+_BUDZET: dict[str, float] = {}
+
+
+def budzet_publiczny_ok() -> bool:
+    with _BLOKADA:
+        return _BUDZET.get(_dzis(), 0.0) < BUDZET_PUBLICZNY_ZL
+
+
+def dolicz_publiczny(koszt_zl: float) -> None:
+    with _BLOKADA:
+        dzis = _dzis()
+        for dzien in [d for d in _BUDZET if d != dzis]:
+            del _BUDZET[dzien]
+        _BUDZET[dzis] = _BUDZET.get(dzis, 0.0) + koszt_zl
+
+
+# Asystent w przegladarce: pomocnik konczy po 20 krokach, ale serwer nie moze
+# wierzyc pomocnikowi - zapetlony albo podmieniony program drenowalby kredyty.
+MAKS_KROKOW_ZLECENIA = int(os.getenv("PIECZAPP_MAKS_KROKOW_ZLECENIA", "30"))
+_KROKI: dict[str, int] = {}
+
+
+def krok_zlecenia(zlecenie: str) -> int:
+    """Kolejny numer kroku zlecenia (w procesie). Powyzej limitu - 429."""
+    with _BLOKADA:
+        _KROKI[zlecenie] = _KROKI.get(zlecenie, 0) + 1
+        if len(_KROKI) > 5000:
+            for stary in list(_KROKI)[:1000]:
+                del _KROKI[stary]
+        numer = _KROKI[zlecenie]
+    if numer > MAKS_KROKOW_ZLECENIA:
+        raise HTTPException(429, f"Asystent przekroczyl {MAKS_KROKOW_ZLECENIA} krokow w tym zleceniu. "
+                                 "Zlec je od nowa z dokladniejszym celem.")
+    return numer
+
+
+# Ta sama ksiega w tej samej sprawie w ciagu doby: drugi raz bez oplaty
+# (odswiezenie przed czynnoscia, pomylka w kliknieciu). Skrot, nie numer KW.
+PONOWNE_KW_GODZIN = 24
+
+
+def kw_juz_oplacona(sprawa: str, numer: str) -> bool:
+    import hashlib
+    portfel = egzekwowana(_kancelaria())
+    if portfel is None:
+        return False
+    skrot = hashlib.sha256(f"{sprawa}|{numer}".encode()).hexdigest()[:16]
+    czas = (portfel.get("kw") or {}).get(skrot)
+    if not czas:
+        return False
+    return (datetime.now(timezone.utc) - datetime.fromisoformat(czas)).total_seconds() < PONOWNE_KW_GODZIN * 3600
+
+
+def zapamietaj_kw(sprawa: str, numer: str) -> None:
+    import hashlib
+    skrot = hashlib.sha256(f"{sprawa}|{numer}".encode()).hexdigest()[:16]
+
+    def zmiana(p):
+        kw = p.setdefault("kw", {})
+        kw[skrot] = _teraz()
+        for stary in sorted(kw, key=kw.get)[:-200]:
+            del kw[stary]
+    if egzekwowana(_kancelaria()) is not None:
+        zmien_portfel(_kancelaria(), zmiana)
+
+
+# --- odsloniecie kontaktu klienta (wizyty.py) ----------------------------------------
+
+PLATNY_KONTAKT = os.getenv("PIECZAPP_PLATNY_KONTAKT", "true").lower() == "true"
+REKLAMACJE_W_MIESIACU = int(os.getenv("PIECZAPP_REKLAMACJE_W_MIESIACU", "5"))
+REKLAMACJA_DNI = 7
+
+
+def kontakt_platny(kancelaria: str) -> bool:
+    """Czy ta kancelaria odslania kontakty klientow za kredyty."""
+    return PLATNY_KONTAKT and egzekwowana(kancelaria) is not None
+
+
+def odslon_kontakt(kancelaria: str, zapytanie: str, duplikat: bool = False) -> dict:
+    """Odsloniecie jednego zapytania, atomowo w portfelu: najpierw pula
+    odslonien z planu, potem kredyty. Duplikat (ten sam klient odsloniety
+    niedawno) - bez oplaty i bez zuzycia puli. 402, gdy brak kredytow."""
+    cena = AKCJE["kontakt_klienta"].kredyty()
+
+    def zmiana(p):
+        if duplikat:
+            tryb, kredyty = "duplikat", 0.0
+        elif licznik_miesiaca(p, "kontakt_klienta") < plan_kancelarii(p)["kontakty"]:
+            tryb, kredyty = "pula", 0.0
+            _zwieksz_licznik(p, "kontakt_klienta")
+        else:
+            dostepne = saldo(p) - zarezerwowane(kancelaria)
+            if dostepne - cena < -DEBET_KREDYTOW:
+                raise BrakKredytow(cena, round(dostepne, 2))
+            tryb, kredyty = "platne", cena
+            _pobierz(p, cena)
+            _zaksieguj_miesiac(p, "kontakt_klienta", cena, 0.0)
+        _wpis(p, {"akcja": "kontakt_klienta", "ilosc": 1, "kredyty": -kredyty, "koszt_zl": 0.0,
+                  "sprawa": f"zapytanie {zapytanie}", "tryb": tryb})
+        return {"tryb": tryb, "kredyty": kredyty}
+    wynik = zmien_portfel(kancelaria, zmiana)
+    log.info("tokenomia: kancelaria %s odslonila kontakt (%s, %g kr.)", kancelaria, wynik["tryb"], wynik["kredyty"])
+    return wynik
+
+
+def zwrot_kontaktu(kancelaria: str, zapytanie: str, odsloniecie: dict, powod: str) -> dict:
+    """Reklamacja odsloniecia (falszywy numer, spam): zwrot kredytow albo
+    miejsca w puli. Najwyzej REKLAMACJE_W_MIESIACU w miesiacu."""
+    def zmiana(p):
+        if licznik_miesiaca(p, "reklamacje") >= REKLAMACJE_W_MIESIACU:
+            raise HTTPException(429, f"W tym miesiacu wykorzystano juz {REKLAMACJE_W_MIESIACU} reklamacji. "
+                                     "Napisz do nas: kontakt@notarai.pl.")
+        _zwieksz_licznik(p, "reklamacje")
+        if odsloniecie.get("tryb") == "platne" and odsloniecie.get("kredyty"):
+            _dodaj_partie(p, float(odsloniecie["kredyty"]), "zwrot")
+            zwrot = float(odsloniecie["kredyty"])
+        else:
+            if odsloniecie.get("tryb") == "pula":
+                m = p.setdefault("liczniki", {}).setdefault(_miesiac(), {})
+                m["kontakt_klienta"] = max(0, int(m.get("kontakt_klienta", 0)) - 1)
+            zwrot = 0.0
+        _wpis(p, {"akcja": "reklamacja_kontaktu", "kredyty": zwrot, "sprawa": f"zapytanie {zapytanie}",
+                  "powod": powod})
+        return {"zwrot": zwrot, "tryb": odsloniecie.get("tryb")}
+    return zmien_portfel(kancelaria, zmiana)
+
+
+def limit_zespolu(kancelaria: str, osob: int) -> None:
+    """Plan okresla liczbe osob z kontem. 402, gdy zaproszenie by go przekroczylo."""
+    portfel = egzekwowana(kancelaria)
+    if portfel is None:
+        return
+    plan = plan_kancelarii(portfel)
+    if osob >= plan["uzytkownikow"]:
+        raise HTTPException(402, f"Plan {plan['nazwa']} obejmuje {plan['uzytkownikow']} osob. "
+                                 "Wyzszy plan wlaczysz w oknie Abonament.")
 
 
 # --- pomiary i kalibracja -----------------------------------------------------------
@@ -665,7 +986,12 @@ def _widok_portfela(portfel: dict | None) -> dict:
         "egzekwowana": portfel is not None,
         "saldo": None if portfel is None else saldo(portfel),
         "pula": None if portfel is None else portfel.get("pula", 0),
-        "doladowane": None if portfel is None else portfel.get("doladowane", 0),
+        "doladowane": None if portfel is None else dokupione(portfel),
+        "partie": [] if portfel is None else sorted(_wazne(portfel), key=lambda p: p["wygasa"]),
+        "niskie": portfel is not None and saldo(portfel) < max(20.0, 0.15 * plan_kancelarii(portfel)["pula"]),
+        "kontakty_w_planie": None if portfel is None else {
+            "w_planie": plan_kancelarii(portfel)["kontakty"],
+            "wykorzystane": licznik_miesiaca(portfel, "kontakt_klienta")},
         "plan": None if portfel is None else portfel.get("plan"),
         "debet": DEBET_KREDYTOW,
         "cena_kredytu_zl": CENA_KREDYTU_ZL,
@@ -680,6 +1006,27 @@ def _widok_portfela(portfel: dict | None) -> dict:
 @router.get("")
 def moje_kredyty():
     return _widok_portfela(egzekwowana(_kancelaria()))
+
+
+class PozycjaWyceny(BaseModel):
+    kod: str
+    ilosc: float = 1
+
+
+class ZadanieWyceny(BaseModel):
+    pozycje: list[PozycjaWyceny]
+
+
+@router.post("/wycena")
+def wycen(dane: ZadanieWyceny):
+    """Koszt czynnosci przed jej uruchomieniem (np. odczyt N stron) - zeby
+    notariusz nie dowiadywal sie o cenie po fakcie."""
+    if not dane.pozycje or len(dane.pozycje) > 20:
+        raise HTTPException(400, "Podaj od 1 do 20 pozycji")
+    nieznane = [p.kod for p in dane.pozycje if p.kod not in AKCJE]
+    if nieznane or any(not 0 <= p.ilosc <= 10_000 for p in dane.pozycje):
+        raise HTTPException(400, "Nieznana czynnosc albo zla liczba jednostek")
+    return wycena([(p.kod, p.ilosc) for p in dane.pozycje])
 
 
 class ZakupPakietu(BaseModel):

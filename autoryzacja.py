@@ -69,7 +69,7 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # akceptacje dokumentow, pomocnika - ani po sam dostep serwisowy, zeby nie
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
-_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/kredyty", "/api/dokumenty",
+_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/kredyty", "/api/akademia", "/api/dokumenty",
                   "/api/pomocnik", "/api/mapa", "/api/zapytania")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
@@ -925,6 +925,7 @@ def zapros_do_zespolu(request: Request, dane: Zaproszenie):
     _wymagaj_logowania()
     rejestr, skrot, wpis, email = _moja_kancelaria(request)
     _wymagaj_wlasciciela(wpis, email)
+    tokenomia.limit_zespolu(wpis["id"], len(wpis.get("zespol", [])))
     return _zapros(rejestr, skrot, dane.email, "czlonek")
 
 
@@ -1284,6 +1285,10 @@ async def webhook_stripe(request: Request):
             wpis["oplacono_do"] = koniec
         if obiekt.get("amount_paid"):
             sub["status"] = "active"
+            # Polecenie nagradzamy po pierwszej prawdziwie oplaconej fakturze.
+            if tokenomia.WLACZONA:
+                import akademia
+                akademia.nagrodz_polecenie(rejestr, wpis)
             historia.append({"faktura_id": obiekt.get("id"), "status": "true", "data": _teraz(),
                              "kwota": f"{obiekt['amount_paid'] / 100:.2f}",
                              "faktura": obiekt.get("hosted_invoice_url"),
@@ -1294,8 +1299,15 @@ async def webhook_stripe(request: Request):
         log.info("stripe: kancelaria %s oplacona do %s", wpis["id"], wpis.get("oplacono_do"))
         # Nowy okres abonamentu = nowa pula kredytow planu (raz na fakture).
         if tokenomia.WLACZONA:
-            tokenomia.odnow_pule(wpis["id"], wpis.get("plan") or tokenomia.PLAN_DOMYSLNY,
-                                 znacznik=obiekt.get("id", ""))
+            plan = wpis.get("plan") or tokenomia.PLAN_DOMYSLNY
+            tokenomia.odnow_pule(wpis["id"], plan, znacznik=obiekt.get("id", ""))
+            # Premia stazowa (6 i 12 oplaconych okresow) - partia nagrodowa.
+            import akademia
+            okresow = sum(1 for p in wpis.get("platnosci", []) if p.get("status") == "true")
+            premia = akademia.premia_stazu(okresow, tokenomia.PLANY.get(plan, tokenomia.PLANY["kancelaria"])["pula"])
+            if premia and obiekt.get("amount_paid"):
+                tokenomia.doladuj(wpis["id"], premia, f"premia stazowa ({okresow} okresow)",
+                                  znacznik=f"staz:{obiekt.get('id', '')}", zrodlo="nagroda")
     elif typ == "invoice.payment_failed":
         # Stripe sam ponawia i wysyla e-mail; my tylko odnotowujemy.
         log.warning("stripe: kancelaria %s, nieudane obciazenie", wpis["id"])

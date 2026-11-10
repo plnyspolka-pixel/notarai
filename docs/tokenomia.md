@@ -11,7 +11,7 @@ Na każdą sprawę składają się trzy rodzaje kosztów:
 | Koszt | Źródło | Rząd wielkości |
 |---|---|---|
 | **Zmienny, AI** | Bedrock, Claude Opus 4.6 w profilu `eu.`: 5 USD / 1 mln tokenów wejścia, 25 USD / 1 mln wyjścia, +10% za wnioskowanie geograficzne (założenie, `PIECZAPP_PREMIA_REGIONALNA`), kurs 3,70 zł | **ok. 22 zł na typową sprawę** (95% kosztów zmiennych) |
-| **Zmienny, dane** | treść KW z EKW przez Finance You / Apify (płatny wynik) | ok. 1,80 zł za księgę (założenie, `PIECZAPP_KOSZT_EKW_ZL`) |
+| **Zmienny, dane** | treść KW przez Finance You: Apify 0,005–0,010 USD + 0,025 USD za uruchomienie, awaryjnie EasyMKW (2 kredyty EasyMKW) | średnio ok. 0,35 zł, P90 2,20 zł za księgę (`finyou/src/lib/apify-ekw.server.ts`) |
 | **Stały, platforma** | 2 × Fargate 1 vCPU / 3 GB, ALB, publiczne IPv4, CloudWatch, Secrets Manager, S3, ECR, Cognito | ok. 550 zł / mies. niezależnie od liczby kancelarii |
 | **Płatności** | Stripe: karta ok. 1,5% + 1 zł, Billing 0,7%, Tax 0,5% | ok. 2,7% przychodu |
 | **Człowiek** | wsparcie, wdrożenie, utrzymanie | przyjęto 60 zł / kancelaria / mies. |
@@ -41,7 +41,8 @@ jest tańszych). Z nich wynika średnia (rozkład log-normalny).
 | Projekt aktu, każde dalsze 10 tys. znaków | 10 tys. zn. | 0,62 zł | 0,70 zł | 1,17 zł | **2,5 kr** |
 | Dopasowanie formularza urzędowego | formularz | 0,63 zł | 0,82 zł | 1,57 zł | **3,5 kr** |
 | Krok asystenta w przeglądarce | krok | 0,12 zł | 0,13 zł | 0,20 zł | **0,5 kr** |
-| Treść KW z EKW | księga | 1,80 zł | 1,80 zł | 1,80 zł | **4,5 kr** |
+| Treść KW z EKW | księga | 0,35 zł | 0,35 zł | 2,20 zł | **5 kr** (cena za wartość; ta sama KW w tej sprawie w ciągu doby – 0) |
+| Odsłonięcie kontaktu klienta z zapytania | zapytanie | ~0 | ~0 | ~0 | **5 kr** po wyczerpaniu puli planu |
 | Kalkulator taksy (Sonnet 4.6) | tura | 0,08 zł | 0,11 zł | 0,22 zł | 0,5 kr (wliczone) |
 | Nadanie przesyłki przez e-Nadawcę | przesyłka | ~0 | ~0 | ~0 | **0,5 kr** (opłata usługowa) |
 | Sprawdzenie w KRZ | sprawdzenie | ~0 | ~0 | ~0 | **0 kr** |
@@ -167,12 +168,14 @@ Koszty stałe platformy (ok. 550 zł/mies.) pokrywa marża jednej średniej kanc
 
 ### Model A: abonament z pulą kredytów + dokupowanie (zalecany na start)
 
-| Plan | Cena / mies. | Pula | zł / kr | Dla kogo |
-|---|---:|---:|---:|---|
-| Start | 290 zł | 300 kr | 0,97 | ~4 sprawy z AI, 2 osoby |
-| Kancelaria | 600 zł | 700 kr | 0,86 | ~9 spraw, 6 osób (obecna cena w Stripe) |
-| Pro | 1 500 zł | 1 875 kr | 0,80 | ~25 spraw, 20 osób |
-| Kancelaria+ | 3 600 zł | 4 500 kr | 0,80 | ~60 spraw, 50 osób |
+| Plan | Cena / mies. | Pula | zł / kr | Osób | Kontaktów klientów w cenie |
+|---|---:|---:|---:|---:|---:|
+| Start | 290 zł | 300 kr | 0,97 | 2 | 2 |
+| Kancelaria | 600 zł | 700 kr | 0,86 | 6 | 5 |
+| Pro | 1 500 zł | 1 875 kr | 0,80 | 20 | 15 |
+| Kancelaria+ | 3 600 zł | 4 500 kr | 0,80 | 50 | 40 |
+
+(Start ~4 sprawy z AI, Kancelaria ~9, Pro ~25, Kancelaria+ ~60; plan „Kancelaria” = obecna cena w Stripe.)
 
 Pakiety do dokupienia: 100 kr = 100 zł, 500 kr = 450 zł, 2 000 kr = 1 600 zł (ważne 12 mies.).
 
@@ -232,8 +235,8 @@ i 10 tur rozmowy, nadwyżka w kredytach.
   - tańszy model do rozmowy i podsumowania (Sonnet), Opus zostaje do odczytu skanów.
 - **Kurs USD/PLN:** cennik w kredytach przelicza się sam (`PIECZAPP_KURS_USD`),
   ale wymaga restartu aplikacji. Przy wahaniu > 10% warto zaktualizować.
-- **Założenia do potwierdzenia:** premia 10% za profil `eu.`, koszt KW u dostawcy
-  (1,80 zł), koszty stałe (550 zł) – w kodzie są parametrami. Rzeczywistych kosztów
+- **Założenia do potwierdzenia:** premia 10% za profil `eu.`, cena kredytu EasyMKW
+  (przyjęte ~1,10 zł), koszty stałe (550 zł) – w kodzie są parametrami. Rzeczywistych kosztów
   z Cost Explorer i liczników tokenów z CloudWatch nie mogłem w tej sesji odczytać
   (wymagało ponownego zalogowania do AWS), dlatego profile tokenów to szacunek.
 
@@ -246,3 +249,122 @@ i 10 tur rozmowy, nadwyżka w kredytach.
 3. Ogłosić kancelariom cennik i plany (min. 30 dni przed – zmiana Regulaminu).
 4. Parametr stosu `Tokenomia=true` (etap 3 wdrożenia). Istniejące kancelarie: pula planu
    przy najbliższej fakturze; do tego czasu można dopisać kredyty w panelu admina.
+
+
+## 8. Druga runda: czego nie było w pierwszym projekcie
+
+Przegląd całego kodu pod kątem „za co mogą płacić” i „gdzie stracimy pieniądze”.
+Wszystko poniżej jest wdrożone i ma testy (`test_tokenomia.py`, `test_kontakt_klienta.py`,
+`test_akademia.py`).
+
+| Ryzyko / luka | Co by się stało | Rozwiązanie |
+|---|---|---|
+| Kredyty próbne w puli abonamentu | pierwsza faktura nadpisuje pulę – próbne znikają | osobna partia „proba”, ważna 30 dni |
+| Nowe konto = nowe 150 kr | rejestracja jest samoobsługowa, można „farmić” | kredyty próbne raz na NIP (zapamiętany skrót, nie numer) |
+| Dokupione „ważne 12 miesięcy” tylko w dokumentacji | obietnica bez pokrycia w kodzie, problem z Regulaminem | partie z datą ważności, wygasłe trafiają do historii, wydawane od najszybciej wygasającej |
+| Dziesięć odczytów naraz | każdy przechodzi sprawdzenie salda osobno – przekroczenie debetu | rezerwacje kredytów na czas akcji |
+| Publiczny kalkulator taksy | 1 500 tur/dobę × 2 kopie × ~0,11 zł ≈ do 10 tys. zł/mies. przy ruchu automatów | dzienny budżet (40 zł/proces), potem odesłanie do formularza bez modelu |
+| Asystent w przeglądarce | zapętlony lub podmieniony pomocnik drenuje kredyty krokami | serwerowy limit 30 kroków na zlecenie |
+| Ta sama KW pobierana kilka razy | notariusz płaci podwójnie za odświeżenie przed aktem | ta sama księga w tej samej sprawie w ciągu doby – bez opłaty |
+| Limit osób w planie | pole w cenniku, niczego nie ograniczało | zaproszenie ponad limit planu – 402 z informacją o wyższym planie |
+| Cena znana po fakcie | notariusz boi się kliknąć | `POST /api/kredyty/wycena` + flaga niskiego salda |
+| Koszt KW | zakładałem 1,80 zł, w Finance You jest ~0,13 zł (Apify) | profil z prawdziwych stawek; cena 5 kr to cena za wartość, nie za koszt |
+
+Ryzyka, których kod nie rozwiąże:
+- **VAT i księgowość:** przedpłacone kredyty to w praktyce bon (MPV) – przychód przy
+  wykorzystaniu albo wygaśnięciu. Operator jest fundacją zwolnioną z VAT, a Stripe Tax jest
+  włączony – do potwierdzenia z księgową przed włączeniem pakietów.
+- **Zmiana cennika:** kredyty kupione wcześniej powinny zachować cenę akcji przez okres
+  wypowiedzenia (np. 30 dni) – zapisać w Regulaminie.
+- **Przepustowość Bedrock** (patrz punkt 6) – nadal największe ryzyko sprzedaży.
+
+## 9. Odsłonięcie kontaktu klienta
+
+Zapytania ze strony notarai.pl (`wizyty.py`): kancelaria od razu widzi czynność, wartość,
+termin i szacunek z kalkulatora, a telefon i e-mail klienta **po odsłonięciu**: najpierw
+z puli planu (2/5/15/40 miesięcznie), potem 5 kr.
+
+Zamknięte kanały, którymi kontakt wyciekał (każdy obchodziłby opłatę):
+1. lista zapytań – kontakt ukryty, widać tylko, czy klient podał telefon/e-mail,
+2. e-mail do kancelarii – bez telefonu i e-maila klienta,
+3. treść wiadomości – numery telefonów (9–15 cyfr) i e-maile maskowane; kwoty („500 000 zł”) i daty zostają,
+4. kalendarz – status „oddzwonię” i „umówione” wymaga odsłonięcia, bo wpis kalendarza niesie telefon.
+
+Uczciwość wobec kancelarii i klienta:
+- **duplikat bez opłaty** – ten sam klient (telefon/e-mail) odsłonięty w ostatnich 30 dniach,
+- **reklamacja** do 7 dni (fałszywy kontakt, spam, sprawa nie do notariusza): zwrot kredytów
+  albo miejsca w puli, najwyżej 5 w miesiącu,
+- **SLA dla klienta** – zapytanie nieodsłonięte po 48 h: klient dostaje e-mailem publiczny
+  kontakt kancelarii. Klient nie może czekać na telefon, który nie nadejdzie, bo kancelaria
+  nie chciała zapłacić,
+- **neutralność** – ta sama cena dla każdego zapytania, niezależnie od czynności i wartości
+  (test `test_cena_nie_zalezy_od_czynnosci_ani_wartosci`). To opłata za usługę narzędzia,
+  nie prowizja od klienta.
+
+**Uwaga prawna:** płatność za kontakt do klienta jest najbliżej granicy zakazu pozyskiwania
+klientów przez pośredników z Kodeksu Etyki Zawodowej Notariusza. Przed włączeniem
+(`PIECZAPP_PLATNY_KONTAKT`, domyślnie aktywne razem z tokenomią) warto uzyskać opinię
+samorządu notarialnego. Wyłączenie przywraca dawne zachowanie bez zmian w kodzie.
+
+**Ekonomia:** przy realnej liczbie zapytań (8–40 miesięcznie) odsłonięcia dają 0–8 zł
+miesięcznie na kancelarię. To nie jest źródło przychodu. Ich wartość to filtr jakości
+zapytań i argument „zapytania z notarai.pl w cenie planu”. Rekomendacja: zostawić pulę
+w planie jako korzyść, opłatę traktować jako hamulec przy dużym wolumenie, a nie jako biznes.
+
+## 10. Akademia notarai (grywalizacja)
+
+Założenie: notariusz to zawód zaufania publicznego – odznaki, rankingi i „serie dni”
+odbierałby jako niepoważne, a codzienne serie przy nieregularnej pracy kancelarii budzą
+poczucie winy i odpływ. Dlatego mechanika opiera się na **kompetencji i obowiązku**, nie na zabawie.
+
+**Haczyk:** art. 4 AI Act wymaga od kancelarii (podmiotu stosującego AI) zapewnienia
+kompetencji zespołu, a nasze Zasady AI w kancelarii (§ 3) to formalizują. Każdy zaliczony
+moduł to jednocześnie wpis do zaświadczenia o szkoleniu (data, wersja modułu, wynik) i kredyty.
+Notariusz dostaje dokumentację, którą i tak musi mieć.
+
+| Element | Zasada behawioralna | Nagroda | Ochrona przed nadużyciem |
+|---|---|---|---|
+| 6 modułów (3–4 min, lekcja + 4 pytania) | kompetencja, krótkie porcje, natychmiastowa informacja zwrotna | 15–20 kr za moduł (100 kr na osobę), partia ważna 90 dni | odpowiedzi sprawdza serwer, 3/4 do zaliczenia, 10 min przerwy po nieudanej próbie, nagroda raz, tylko osoby z zespołu, max 6 osób |
+| Ścieżka wdrożenia (6 kroków) | postęp na start (umowa = 1/6), gradient celu, zawsze nazwany następny krok | 100 kr po ukończeniu | kroki sprawdzane na faktach: odczyt, projekt, druga osoba *dołączyła*, pomocnik połączony |
+| Moduł „Jak pracować taniej” | zgodność interesów | jak inne moduły | uczy dokładności standardowej dla PDF z tekstem, zbierania poprawek w jednej wiadomości |
+| Polecenie (kod 8 znaków) | wzajemność, dowód społeczny wśród notariuszy | 200 kr dla obu stron | dopiero po pierwszej opłaconej fakturze poleconej kancelarii, nie dla tej samej firmy (NIP), max 10 rocznie |
+| Premia stażowa | inwestycja, unikanie straty statusu | 5% puli od 6. okresu, 10% od 12. | tylko przy opłaconej fakturze, raz na fakturę |
+| Postęp zespołu (dla właściciela) | przynależność bez rywalizacji | – | bez rankingu: kto ile modułów, do dokumentacji art. 4 |
+
+Czego świadomie **nie** ma: publicznych odznak (mapa notariuszy i notarai.pl pozostają
+neutralne – wyróżnienie byłoby reklamą), tablic wyników, odliczania, sztucznej presji,
+zawstydzania („nie chcesz oszczędzać?”).
+
+Koszt (symulacja, kredyt kosztuje nas ok. 0,27 zł kosztu AI):
+- Akademia dla małej kancelarii (2 osoby + ścieżka) – 300 kr ≈ 80 zł,
+- dla dużej (6 osób) – 700 kr ≈ 186 zł,
+- polecenie – 400 kr ≈ 106 zł,
+- premia stażowa w drugim roku – 112–718 zł rocznie zależnie od planu.
+
+Wszystko zwraca się w pierwszym miesiącu marży najmniejszej kancelarii (test
+`test_nagrody_zwracaja_sie_w_pierwszym_miesiacu`).
+
+Uczciwy minus: moduł o oszczędzaniu, jeśli 30% stron przejdzie na dokładność standardową,
+obniża nasz zysk brutto o ok. 9 kr na 100 stron (koszt AI −6 zł, przychód −15 kr). Płacimy
+tym za zaufanie i mniejszy odpływ klientów; narzut ≥ 100% zostaje na każdej akcji.
+
+API: `GET /api/akademia`, `POST /api/akademia/{modul}` `{"odpowiedzi": [..]}`,
+`GET /api/akademia/zaswiadczenie`, `GET /api/akademia/zespol/postep` (właściciel).
+Rejestracja przyjmuje `polecenie` (także z linku `/rejestracja?polecenie=KOD`).
+
+## 11. Projekt zapisów do Regulaminu (do oceny prawnika)
+
+1. Kredyty są jednostką rozliczeniową usługi; 1 kredyt w cenie katalogowej = 1 zł netto.
+   Cennik czynności jest dostępny w aplikacji przed wykonaniem czynności.
+2. Kredyty z puli abonamentu są ważne do końca okresu rozliczeniowego. Kredyty z pakietów
+   – 12 miesięcy od zakupu. Kredyty z nagród i zwrotów – 90 dni, z polecenia – 180 dni,
+   próbne – 30 dni. Najpierw wykorzystywana jest pula, potem kredyty wygasające najwcześniej.
+3. Kredyty nie podlegają wymianie na pieniądze; niewykorzystane wygasają.
+4. Czynność zakończona błędem nie obciąża kredytów. Saldo może zejść do −30 kr, żeby
+   dokończyć rozpoczętą czynność; ujemne saldo pomniejsza kolejną pulę.
+5. Zmiana cennika czynności – z 30-dniowym wyprzedzeniem; nie dotyczy kredytów już kupionych
+   w tym okresie.
+6. Odsłonięcie danych kontaktowych z zapytania jest usługą techniczną o stałej cenie,
+   niezależnej od czynności i jej wartości. Reklamacja w 7 dni.
+7. Nagrody Akademii i polecenia przysługują raz; Fundacja może je cofnąć przy nadużyciu
+   (np. polecenie własnej firmy).

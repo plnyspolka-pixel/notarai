@@ -84,6 +84,10 @@ button:disabled{opacity:.45;cursor:default}
       <input type="text" id="nip" inputmode="numeric" autocomplete="off" placeholder="0000000000">
     </div>
     <div class="pole">
+      <label class="etykieta" for="polecenie">Kod polecenia <span class="wskaz">- nieobowiązkowy, od kancelarii, która korzysta z notarai</span></label>
+      <input type="text" id="polecenie" autocomplete="off" maxlength="8" placeholder="np. 3F9A1C2B">
+    </div>
+    <div class="pole">
       <label class="etykieta" for="email">Twój e-mail <span class="wskaz">- tu przyjdzie hasło; będziesz właścicielem konta</span></label>
       <input type="email" id="email" autocomplete="email" spellcheck="false" required>
     </div>
@@ -126,6 +130,8 @@ button:disabled{opacity:.45;cursor:default}
 </div>
 
 <script>
+// Link z kodem polecenia (/rejestracja?polecenie=XXXXXXXX) wypelnia pole.
+try { const k = new URLSearchParams(location.search).get("polecenie"); if (k) document.getElementById("polecenie").value = k.slice(0, 8); } catch { /* bez kodu */ }
 const $ = id => document.getElementById(id);
 
 function stan(tekst, blad){
@@ -158,6 +164,7 @@ $("formularz").onsubmit = async e => {
         nip: $("nip").value, email: $("email").value, strona: $("strona").value,
         przechowywanie: document.querySelector("input[name=przechowywanie]:checked").value,
         akceptuje: $("akceptuje").checked,
+        polecenie: $("polecenie").value.trim(),
       }),
     });
     const dane = await odp.json().catch(() => ({}));

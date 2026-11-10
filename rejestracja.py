@@ -114,6 +114,8 @@ class Rejestracja(DaneKancelarii):
     email: str
     przechowywanie: str = "chmura"
     akceptuje: bool = False
+    # Kod polecenia od innej kancelarii (Akademia notarai) - opcjonalny.
+    polecenie: str = ""
     # Pole niewidoczne dla czlowieka. Wypelnia je tylko automat.
     strona: str = ""
 
@@ -163,13 +165,18 @@ def zarejestruj(dane: Rejestracja, request: Request):
     }
     if platnosci.wlaczone():
         wpis["oplacono_do"] = platnosci.na_probe()
+    if dane.polecenie:
+        import akademia
+        polecil = akademia.kancelaria_z_kodu(rejestr, dane.polecenie)
+        if polecil:
+            wpis["polecil"] = polecil
     # Geokodowanie adresu w rejestrze prywatnym; publikacja wymaga decyzji wlasciciela.
     notariusze.ustal_polozenie(wpis)
     # Klucz wpisu to losowy skrot; do spraw wchodzi sie tylko logujac sie.
     rejestr[autoryzacja._sha(secrets.token_hex(32))] = wpis
     autoryzacja._zapisz_rejestr(rejestr)
     if tokenomia.WLACZONA:
-        tokenomia.zaloz_portfel_probny(id_k)
+        tokenomia.zaloz_portfel_probny(id_k, firma.get("nip", ""))
     log.info("rejestracja: nowa kancelaria %s, pliki: %s", id_k, dane.przechowywanie)
     return odpowiedz
 

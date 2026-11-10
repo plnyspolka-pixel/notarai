@@ -179,7 +179,7 @@ def test_najpierw_pula_abonamentu_potem_dokupione(portfele):
     portfel = t.wczytaj_portfel(KANCELARIA)
     pula = t.PLANY["start"]["pula"]
     t._pobierz(portfel, pula + 50)
-    assert portfel["pula"] == 0 and portfel["doladowane"] == 50
+    assert portfel["pula"] == 0 and t.dokupione(portfel) == 50
 
 
 def test_odnowienie_puli_raz_na_fakture_i_debet_nie_znika(portfele):
@@ -188,7 +188,8 @@ def test_odnowienie_puli_raz_na_fakture_i_debet_nie_znika(portfele):
     t.odnow_pule(KANCELARIA, "start", znacznik="in_2")
     t.odnow_pule(KANCELARIA, "start", znacznik="in_2")      # powtorzony webhook
     portfel = t.wczytaj_portfel(KANCELARIA)
-    assert portfel["pula"] == t.PLANY["start"]["pula"] and portfel["doladowane"] == -12.0
+    # Dlug z poprzedniego okresu pomniejsza nowa pule - nie znika.
+    assert portfel["pula"] == t.PLANY["start"]["pula"] - 12
 
 
 def test_kredyty_probne_tylko_raz(portfele):
@@ -371,6 +372,7 @@ def test_kazdy_model_biznesowy_ma_narzut_100_procent_na_kosztach_ai():
 
 # --- webhook Stripe i konta kancelarii (pelny przeplyw z test_platnosci) --------------
 
+from test_logowanie import _przywroc_moduly  # noqa: E402,F401 - sprzata po trybie SaaS
 from test_platnosci import (ADMIN, CZLONEK, WLASCICIEL, _faktura, _wyslij, jako,  # noqa: E402,F401
                             logowanie_atrapa, serwer, stripe_atrapa)
 
@@ -406,7 +408,7 @@ def test_pakiet_z_webhooka_nie_rusza_subskrypcji(serwer_z_kredytami):
              "metadata": {"typ": "kredyty", "kancelaria": id_k, "pakiet": "100"}}
     assert _wyslij(klient, "checkout.session.completed", sesja).status_code == 200
     portfel = t.wczytaj_portfel(id_k)
-    assert portfel["doladowane"] == 100
+    assert t.dokupione(portfel) == 100
     wpis = autoryzacja._znajdz(autoryzacja._wczytaj_rejestr(), id_k)[1]
     assert not (wpis.get("stripe") or {}).get("status")
 
@@ -436,3 +438,136 @@ def test_kancelaria_widzi_swoje_kredyty(serwer_z_kredytami):
     t.doladuj(id_k, 42, "test")
     widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
     assert widok["saldo"] == 42 and widok["egzekwowana"]
+
+
+# --- zabezpieczenia portfela (druga runda) ------------------------------------------
+
+def test_partie_wygasaja_i_trafiaja_do_historii(portfele):
+    t.doladuj(KANCELARIA, 40, "nagroda", zrodlo="nagroda", dni=-1)     # juz po terminie
+    t.doladuj(KANCELARIA, 60, "pakiet")
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    assert t.saldo(portfel) == 60                                      # wygasla sie nie liczy
+    t.zmien_portfel(KANCELARIA, lambda p: None)                        # kazdy zapis sprzata
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    assert any(w["akcja"] == "wygasniecie" and w["kredyty"] == -40 for w in portfel["historia"])
+
+
+def test_najpierw_wydajemy_to_co_wygasa_najwczesniej(portfele):
+    t.doladuj(KANCELARIA, 100, "pakiet")                               # 365 dni
+    t.doladuj(KANCELARIA, 20, "nagroda", zrodlo="nagroda")             # 90 dni
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    t._pobierz(portfel, 30)
+    zostalo = {p["zrodlo"]: p["kredyty"] for p in portfel["partie"]}
+    assert zostalo == {"pakiet": 90}
+
+
+def test_stary_format_portfela_przechodzi_na_partie(portfele):
+    import json
+    t._plik(KANCELARIA).write_text(json.dumps({"plan": "start", "pula": 5, "doladowane": 70}))
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 75
+    t.zmien_portfel(KANCELARIA, lambda p: None)
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    assert "doladowane" not in portfel and t.dokupione(portfel) == 70
+
+
+def test_kredyty_probne_przetrwaja_pierwsza_fakture(portfele):
+    t.zaloz_portfel_probny(KANCELARIA)
+    t.odnow_pule(KANCELARIA, "start", znacznik="in_1")
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == t.KREDYTY_PROBNE + t.PLANY["start"]["pula"]
+
+
+def test_kredyty_probne_raz_na_nip(portfele):
+    t.zaloz_portfel_probny("kancelaria-a", nip="525-000-00-00")
+    t.zaloz_portfel_probny("kancelaria-b", nip="5250000000")           # ten sam NIP, inny zapis
+    assert t.saldo(t.wczytaj_portfel("kancelaria-a")) == t.KREDYTY_PROBNE
+    assert t.saldo(t.wczytaj_portfel("kancelaria-b")) == 0
+    import json
+    assert "5250000000" not in json.dumps(t.wczytaj_portfel(t.REJESTR_PROB))   # tylko skrot
+
+
+def test_rownolegle_akcje_nie_przekraczaja_salda(portfele):
+    t.doladuj(KANCELARIA, 20, "test")
+    cena = t.AKCJE["projekt"].kredyty()
+    wejscie, wyniki = threading.Barrier(5), []
+
+    def praca():
+        try:
+            with t.akcja("projekt"):
+                wejscie.wait(timeout=1)
+            wyniki.append("ok")
+        except t.BrakKredytow:
+            wyniki.append("402")
+        except threading.BrokenBarrierError:
+            wyniki.append("ok")
+    watki = [threading.Thread(target=praca) for _ in range(5)]
+    [w.start() for w in watki]
+    [w.join() for w in watki]
+    assert wyniki.count("ok") == int(20 // cena)
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) >= 0
+    assert t.zarezerwowane(KANCELARIA) == 0
+
+
+def test_wycena_przed_czynnoscia(klient):
+    t.doladuj(KANCELARIA, 10, "test")
+    odp = klient.post("/api/kredyty/wycena", json={"pozycje": [{"kod": "odczyt_strony_max", "ilosc": 12}]})
+    w = odp.json()
+    assert w["kredyty"] == 12 * t.AKCJE["odczyt_strony_max"].kredyty() and w["wystarczy"] is False
+    assert klient.post("/api/kredyty/wycena", json={"pozycje": [{"kod": "nie-ma", "ilosc": 1}]}).status_code == 400
+
+
+def test_niskie_saldo_w_widoku(klient):
+    t.doladuj(KANCELARIA, 5, "test")
+    assert klient.get("/api/kredyty").json()["niskie"] is True
+
+
+def test_ksiega_drugi_raz_w_ciagu_doby_bez_oplaty(portfele):
+    t.doladuj(KANCELARIA, 20, "test")
+    assert not t.kw_juz_oplacona("sprawa1", "WA1M/00012345/6")
+    t.zapamietaj_kw("sprawa1", "WA1M/00012345/6")
+    assert t.kw_juz_oplacona("sprawa1", "WA1M/00012345/6")
+    assert not t.kw_juz_oplacona("sprawa2", "WA1M/00012345/6")         # inna sprawa = nowa oplata
+    import json
+    assert "00012345" not in json.dumps(t.wczytaj_portfel(KANCELARIA))
+
+
+def test_cena_ksiegi_to_wartosc_nie_koszt():
+    kw = t.AKCJE["ekw_ksiega"]
+    assert kw.koszt_sredni_zl() < 0.5                                  # Apify ~0,13 zl, czasem EasyMKW
+    assert kw.kredyty() >= 5 and kw.kredyty() * t.CENA_KREDYTU_ZL >= 2 * kw.koszt_zl(90)
+
+
+def test_limit_krokow_asystenta():
+    for _ in range(t.MAKS_KROKOW_ZLECENIA):
+        t.krok_zlecenia("zl-test-limit")
+    with pytest.raises(Exception) as blad:
+        t.krok_zlecenia("zl-test-limit")
+    assert blad.value.status_code == 429
+
+
+def test_budzet_publicznego_kalkulatora(monkeypatch):
+    monkeypatch.setattr(t, "_BUDZET", {})
+    monkeypatch.setattr(t, "BUDZET_PUBLICZNY_ZL", 1.0)
+    assert t.budzet_publiczny_ok()
+    t.dolicz_publiczny(1.2)
+    assert not t.budzet_publiczny_ok()
+
+
+def test_kalkulator_po_budzecie_odsyla_do_formularza(monkeypatch):
+    import kalkulator
+    from fastapi import FastAPI
+    monkeypatch.setattr(t, "budzet_publiczny_ok", lambda: False)
+    monkeypatch.setattr(kalkulator, "WLACZONY", True)
+    app = FastAPI()
+    app.include_router(kalkulator.router)
+    with patch("bedrock.rozmowa_kalkulatora") as model:
+        odp = TestClient(app).post("/api/taksa/rozmowa", json={"wiadomosc": "Sprzedaz mieszkania za 500 tys."})
+    assert odp.status_code == 503 and "formularza" in odp.json()["detail"]
+    model.assert_not_called()
+
+
+def test_plan_ogranicza_liczbe_osob(portfele):
+    t.odnow_pule(KANCELARIA, "start", znacznik="in_1")
+    t.limit_zespolu(KANCELARIA, 1)
+    with pytest.raises(Exception) as blad:
+        t.limit_zespolu(KANCELARIA, t.PLANY["start"]["uzytkownikow"])
+    assert blad.value.status_code == 402

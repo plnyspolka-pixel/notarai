@@ -504,6 +504,15 @@ a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 #kredyty-cennik{font-size:12.5px;color:var(--tekst3);margin-top:8px}
 #kredyty-cennik div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-top:1px solid var(--linia)}
 #kredyty-pakiety{display:flex;flex-wrap:wrap;gap:8px}
+#akademia-sciezka{display:flex;gap:4px;margin:8px 0 4px}
+#akademia-sciezka span{flex:1;height:6px;border-radius:3px;background:var(--linia)}
+#akademia-sciezka span.gotowe{background:var(--akcent)}
+.modul-akademii{border-top:1px solid var(--linia);padding:10px 0}
+.modul-akademii ul{margin:6px 0 8px 18px;font-size:13.5px}
+.modul-akademii fieldset{border:0;padding:0;margin:8px 0}
+.modul-akademii legend{font-weight:500;margin-bottom:4px}
+.modul-akademii label{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:4px 0;text-transform:none;letter-spacing:0}
+.modul-akademii input[type=radio]{width:auto;flex:none;margin:3px 0 0}
 .komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
 .komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
 
@@ -653,6 +662,7 @@ notarai</div>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
     <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
+    <button class="wyloguj" id="btn-akademia" hidden>Akademia notarai</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
     <button class="wyloguj" id="btn-komplet" hidden title="Wszystkie dokumenty prawne kancelarii w jednym pliku">Pobierz komplet dokumentów</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
@@ -1512,6 +1522,26 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
+<!-- Akademia notarai (akademia.py): krotkie moduly z quizem. Kazdy zaliczony
+     modul to wpis do dokumentacji kompetencji AI (art. 4 AI Act) i kredyty
+     dla kancelarii. Bez rankingow i odznak - postep widzi tylko kancelaria. -->
+<dialog class="okno" id="okno-akademia">
+  <h2>Akademia notarai</h2>
+  <p id="akademia-opis">Sześć krótkich modułów, razem ok. 22 minuty. Każdy zaliczony moduł trafia do Twojego
+    zaświadczenia o szkoleniu z AI (art. 4 AI Act) i dopisuje kredyty kancelarii.</p>
+  <h3>Wdrożenie kancelarii</h3>
+  <div id="akademia-sciezka"></div>
+  <p id="akademia-nastepny"></p>
+  <h3>Moduły</h3>
+  <div id="akademia-moduly"></div>
+  <h3>Polecenie</h3>
+  <p id="akademia-polecenie"></p>
+  <p id="akademia-staz"></p>
+  <div class="dol"><span class="stan" id="stan-akademia"></span></div>
+  <div class="dol"><button class="wtorny" id="btn-zaswiadczenie">Pobierz zaświadczenie</button>
+    <button class="wtorny" id="btn-zamknij-akademia">Zamknij</button></div>
+</dialog>
+
 <!-- Abonament: subskrypcja miesieczna w Stripe, faktury ze Stripe e-mailem.
      Zarzadza wlasciciel; pozostali widza tylko termin. -->
 <dialog class="okno" id="okno-abonament">
@@ -1854,7 +1884,7 @@ function wpusc(nowyToken){
 /* Przycisk wylogowania ma sens tylko wtedy, gdy ktos jest zalogowany. */
 function odswiezWyloguj(){
   $("btn-wyloguj").hidden = !token;
-  if (!token) { $("btn-hurtowe").hidden = true; $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("btn-komplet").hidden = true; $("kto").hidden = true; }
+  if (!token) { $("btn-akademia").hidden = true; $("btn-hurtowe").hidden = true; $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("btn-komplet").hidden = true; $("kto").hidden = true; }
 }
 
 $("btn-wyloguj").onclick = async () => {
@@ -2587,6 +2617,7 @@ async function uruchomTrybPracy(){
   }
   wczytajZespol();
   wczytajAbonament().then(obsluzPowrotZPlatnosci);
+  wczytajAkademie();
   if (!dysk.aktywny) {
     await odswiezPomocnika();
     obsluzKodZAdresu();
@@ -2974,13 +3005,26 @@ async function odswiezLicznikZapytan(){
   } catch { /* przycisk zostaje bez licznika */ }
 }
 
+function opisOdsloniecia(){
+  const k = kredyty && kredyty.kontakty_w_planie;
+  const cena = kredyty && (kredyty.cennik.find(c => c.kod === "kontakt_klienta") || {}).kredyty;
+  if (!k) return "";
+  const zostalo = Math.max(0, k.w_planie - k.wykorzystane);
+  return zostalo ? `w planie zostało ${zostalo} z ${k.w_planie} w tym miesiącu` : `${kr(cena)} kr. (pula planu wykorzystana)`;
+}
+
 function rysujZapytania(){
   const box = $("zapytania-lista");
   if (!zapytania.length) { box.innerHTML = '<p class="stan">Jeszcze nikt nie pytał. Zgłoszenia przychodzą ze strony notarai.pl/notariusz i z kalkulatora kosztów.</p>'; return; }
   box.innerHTML = zapytania.map(z => {
     const k = z.klient || {};
-    const kontakt = [k.telefon ? `<a href="tel:${escape(k.telefon.replace(/\s/g, ""))}">${escape(k.telefon)}</a>` : "",
-                     k.email ? `<a href="mailto:${escape(k.email)}">${escape(k.email)}</a>` : ""].filter(Boolean).join(" · ");
+    // Platne odsloniecie (tokenomia): do decyzji wystarczy czynnosc, wartosc i termin.
+    const kontakt = z.zakryty
+      ? `<span class="znacznik">kontakt ukryty: ${[k.ma_telefon ? "telefon" : "", k.ma_email ? "e-mail" : ""].filter(Boolean).join(", ")}</span>`
+      : [k.telefon ? `<a href="tel:${escape(k.telefon.replace(/\s/g, ""))}">${escape(k.telefon)}</a>` : "",
+         k.email ? `<a href="mailto:${escape(k.email)}">${escape(k.email)}</a>` : ""].filter(Boolean).join(" · ");
+    const reklamacjaMozliwa = z.odsloniecie && !z.reklamacja
+      && (Date.now() - new Date(z.odsloniecie.czas).getTime()) < 7 * 864e5;
     const kiedy = kiedySerwis(z.utworzono);
     const szczegoly = [z.wartosc ? "wartość " + Number(z.wartosc).toLocaleString("pl-PL") + " zł" : "",
                        z.termin ? "termin: " + escape(z.termin) : "", z.wiadomosc ? escape(z.wiadomosc) : "",
@@ -2991,7 +3035,14 @@ function rysujZapytania(){
     return `<div class="komputer" data-id="${escape(z.id)}" style="align-items:flex-start;flex-wrap:wrap">
       <div><b>${escape(k.imie || "klient")}: ${escape(z.czynnosc)}</b>
         <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
-      ${aktywne ? `<div class="dol" style="margin-top:8px;width:100%">
+      ${aktywne && z.zakryty ? `<div class="dol" style="margin-top:8px;width:100%">
+        <button class="z-odslon">Odsłoń kontakt</button> <small>${escape(opisOdsloniecia())}</small>
+        <button class="wtorny z-odrzuc">Odrzuć</button></div>` : ""}
+      ${reklamacjaMozliwa ? `<div class="dol" style="margin-top:4px;width:100%"><small>Kontakt nie działa?</small>
+        <select class="z-powod" style="width:auto"><option value="falszywy_kontakt">fałszywy albo niedziałający kontakt</option>
+        <option value="spam">zgłoszenie nie od klienta</option><option value="nie_do_nas">sprawa nie do notariusza</option></select>
+        <button class="wtorny z-reklamuj">Zgłoś i odzyskaj</button></div>` : ""}
+      ${aktywne && !z.zakryty ? `<div class="dol" style="margin-top:8px;width:100%">
         <input type="date" class="z-data" style="text-transform:none;width:auto"> <input type="time" class="z-godzina" step="1800" style="text-transform:none;width:auto">
         <button class="z-umow">Umówione: do kalendarza</button>
         <button class="wtorny z-kontakt" ${z.status === "kontakt" ? "hidden" : ""}>Oddzwonię</button>
@@ -3020,6 +3071,25 @@ function rysujZapytania(){
     };
     const kontakt = el.querySelector(".z-kontakt");
     if (kontakt) kontakt.onclick = () => zmien("kontakt");
+    const akcjaZapytania = async (sciezka, cialo, komunikat) => {
+      stan($("stan-zapytania"), "Chwileczkę…", false, true);
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id) + sciezka, {method: "POST",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify(cialo || {})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się.");
+        stan($("stan-zapytania"), komunikat(w));
+        await odswiezLicznikZapytan(); rysujZapytania(); wczytajAbonament();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
+    const odslonBtn = el.querySelector(".z-odslon");
+    if (odslonBtn) odslonBtn.onclick = () => akcjaZapytania("/odslon", null, w =>
+      w.odsloniecie && w.odsloniecie.tryb === "platne" ? `Odsłonięto za ${kr(w.odsloniecie.kredyty)} kr.`
+        : w.odsloniecie && w.odsloniecie.tryb === "duplikat" ? "Ten klient był już odsłonięty - bez opłaty."
+        : "Odsłonięto w ramach planu.");
+    const reklamuj = el.querySelector(".z-reklamuj");
+    if (reklamuj) reklamuj.onclick = () => akcjaZapytania("/reklamacja", {powod: el.querySelector(".z-powod").value},
+      w => w.reklamacja && w.reklamacja.zwrot ? `Zwróciliśmy ${kr(w.reklamacja.zwrot)} kr.` : "Przyjęte, odsłonięcie wróciło do puli.");
     const odrzuc = el.querySelector(".z-odrzuc");
     if (odrzuc) odrzuc.onclick = () => { if (confirm("Odrzucić to zapytanie?")) zmien("odrzucona"); };
   });
@@ -3027,6 +3097,7 @@ function rysujZapytania(){
 
 $("btn-zapytania").onclick = async () => {
   stan($("stan-zapytania"), "");
+  if (!kredyty) wczytajAbonament();
   if (SERWIS || !czyJwt(token)) return;
   rysujZapytania();
   $("okno-zapytania").showModal();
@@ -3119,6 +3190,100 @@ $("btn-zespol-zapros").onclick = async () => {
 $("zespol-email").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); $("btn-zespol-zapros").click(); }
 });
+
+/* ---------- Akademia notarai ----------
+   Odpowiedzi sprawdza serwer; przegladarka nie zna poprawnych. */
+let akademiaStan = null;
+let otwartyModul = null;
+
+async function wczytajAkademie(){
+  if (SERWIS || !czyJwt(token)) return;
+  try {
+    const odp = await api("/api/akademia");
+    if (!odp.ok) return;
+    akademiaStan = await odp.json();
+  } catch { return; }
+  const a = akademiaStan;
+  $("btn-akademia").hidden = false;
+  $("btn-akademia").textContent = a.ukonczone < a.wszystkie
+    ? `Akademia notarai (${a.ukonczone}/${a.wszystkie})` : "Akademia notarai";
+  if ($("okno-akademia").open) rysujAkademie();
+}
+
+function rysujAkademie(){
+  const a = akademiaStan;
+  if (!a) return;
+  const s = a.sciezka;
+  $("akademia-sciezka").innerHTML = s.kroki.map(k =>
+    `<span class="${k.gotowe ? "gotowe" : ""}" title="${escape(k.nazwa)}"></span>`).join("");
+  $("akademia-nastepny").innerHTML = s.nastepny
+    ? `<b>${s.gotowe} z ${s.wszystkie}.</b> Następny krok: ${escape(s.nastepny.nazwa)}. ${escape(s.nastepny.jak)}`
+      + (a.kredyty_wlaczone ? ` Po ukończeniu wdrożenia kancelaria dostaje ${kr(s.nagroda_za_ukonczenie)} kr.` : "")
+    : "Wdrożenie ukończone.";
+  $("akademia-moduly").innerHTML = a.moduly.map(m => {
+    const otwarty = otwartyModul === m.kod;
+    return `<div class="modul-akademii" data-kod="${escape(m.kod)}">
+      <b>${m.zaliczony ? "✓ " : ""}${escape(m.tytul)}</b>
+      <small>${m.minut} min${a.kredyty_wlaczone && !m.zaliczony ? " · " + kr(m.nagroda) + " kr. dla kancelarii" : ""}${m.zaliczony ? " · zaliczono " + escape(dataPl(m.zaliczono)) : ""}</small>
+      ${otwarty ? `<ul>${m.lekcja.map(l => `<li>${escape(l)}</li>`).join("")}</ul>
+        ${m.zaliczony ? "" : m.pytania.map((p, i) => `<fieldset><legend>${i + 1}. ${escape(p.pytanie)}</legend>`
+          + p.odpowiedzi.map((o, j) => `<label><input type="radio" name="p${i}" value="${j}"> ${escape(o)}</label>`).join("")
+          + `</fieldset>`).join("") + `<button class="z-zdaj">Sprawdź odpowiedzi</button>`}`
+        : `<div><button class="wtorny z-otworz">${m.zaliczony ? "Przypomnij lekcję" : "Zacznij"}</button></div>`}
+    </div>`;
+  }).join("");
+  $("akademia-moduly").querySelectorAll(".modul-akademii").forEach(el => {
+    const kod = el.dataset.kod;
+    const otworz = el.querySelector(".z-otworz");
+    if (otworz) otworz.onclick = () => { otwartyModul = kod; rysujAkademie(); };
+    const zdaj = el.querySelector(".z-zdaj");
+    if (zdaj) zdaj.onclick = async () => {
+      const m = a.moduly.find(x => x.kod === kod);
+      const odpowiedzi = m.pytania.map((_, i) => {
+        const z = el.querySelector(`input[name=p${i}]:checked`);
+        return z ? Number(z.value) : -1;
+      });
+      if (odpowiedzi.includes(-1)) return stan($("stan-akademia"), "Odpowiedz na wszystkie pytania.", true);
+      stan($("stan-akademia"), "Sprawdzam…", false, true);
+      try {
+        const odp = await api("/api/akademia/" + encodeURIComponent(kod), {method: "POST",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({odpowiedzi})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się sprawdzić.");
+        stan($("stan-akademia"), w.zaliczony
+          ? `Zaliczone (${w.wynik}).` + (w.nagroda ? ` Kancelaria dostała ${kr(w.nagroda)} kr.` : "")
+          : `Wynik ${w.wynik}. Wróć do lekcji przy pytaniach: ${w.bledne.join(", ")}. Kolejna próba za kilka minut.`, !w.zaliczony);
+        if (w.zaliczony) otwartyModul = null;
+        await wczytajAkademie(); rysujAkademie(); wczytajAbonament();
+      } catch (e) { stan($("stan-akademia"), e.message, true); }
+    };
+  });
+  $("akademia-polecenie").innerHTML = `Znasz notariusza, któremu notarai by się przydał? Podaj mu kod
+    <b>${escape(a.polecenie.kod)}</b> do formularza rejestracji.` + (a.kredyty_wlaczone
+    ? ` ${escape(a.polecenie.zasada)} (po ${kr(a.polecenie.nagroda)} kr.)` : "");
+  const st = a.staz;
+  $("akademia-staz").textContent = a.kredyty_wlaczone && st.nastepna_premia
+    ? `Opłacone okresy: ${st.oplaconych_okresow}. Za ${st.nastepna_premia.za_okresow} okres(y) kancelaria zacznie dostawać premię ${st.nastepna_premia.procent}% puli przy każdym odnowieniu.`
+    : "";
+}
+
+$("btn-akademia").onclick = async () => {
+  stan($("stan-akademia"), "");
+  rysujAkademie();
+  $("okno-akademia").showModal();
+  await wczytajAkademie();
+};
+$("btn-zamknij-akademia").onclick = () => $("okno-akademia").close();
+$("btn-zaswiadczenie").onclick = async () => {
+  try {
+    const odp = await api("/api/akademia/zaswiadczenie");
+    if (!odp.ok) throw new Error("Nie udało się pobrać zaświadczenia.");
+    const blob = new Blob([await odp.text()], {type: "text/plain;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "zaswiadczenie-ai-notarai.txt"; a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { stan($("stan-akademia"), e.message, true); }
+};
 
 /* ---------- abonament (Stripe) ----------
    Termin przesuwa serwer po webhooku od Stripe, nie powrot przegladarki:

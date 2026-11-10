@@ -31,6 +31,7 @@ import bedrock
 import dziennik
 import prompty
 import taksa
+import tokenomia
 
 log = logging.getLogger("pieczapp.kalkulator")
 
@@ -233,8 +234,14 @@ def rozmowa(zadanie: Rozmowa, request: Request):
         tresc = "\n".join(c["text"] for c in ostatnia["content"])
     else:
         tresc = f"{wynik_poprzedni}\n\nKLIENT: {wiadomosc}" if wynik_poprzedni else wiadomosc
+    if not tokenomia.budzet_publiczny_ok():
+        log.warning("kalkulator: dzienny budzet rozmow publicznych wyczerpany")
+        raise HTTPException(503, "Asystent kosztów jest dziś niedostępny. Skorzystaj z formularza "
+                                 "poniżej - policzy to samo.")
+    licznik = tokenomia.akcja("kalkulator_tura", 0, "kalkulator publiczny")
     try:
-        odpowiedz = bedrock.rozmowa_kalkulatora(_system(), tury, tresc, MODEL or None)
+        with licznik:
+            odpowiedz = bedrock.rozmowa_kalkulatora(_system(), tury, tresc, MODEL or None)
     except bedrock.Przeciazenie:
         raise HTTPException(503, "Asystent jest chwilowo zajęty. Spróbuj za minutę albo skorzystaj "
                                  "z formularza poniżej.", headers={"Retry-After": "60"})
@@ -242,6 +249,7 @@ def rozmowa(zadanie: Rozmowa, request: Request):
         log.error("kalkulator: blad modelu (%s)", dziennik.opis_bledu(blad))
         raise HTTPException(502, "Asystent nie odpowiada. Skorzystaj z formularza poniżej.")
 
+    tokenomia.dolicz_publiczny(licznik.licznik.koszt_zl)
     tekst, parametry = _odczytaj(odpowiedz)
     wynik = None
     if parametry:

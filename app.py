@@ -47,6 +47,7 @@ import rejestracja
 import rejestry
 import rezerwacje_hurtowe
 import tokenomia
+import akademia
 import wizyty
 import transkrypcja
 import walidacja
@@ -90,6 +91,7 @@ app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
+app.include_router(akademia.router)
 app.middleware("http")(kalkulator.cors)
 
 
@@ -1336,9 +1338,13 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
         raise HTTPException(400, str(blad))
     start = datetime.now()
     try:
-        # Platny wynik u dostawcy: kredyty tylko za pobrana ksiege.
-        with tokenomia.akcja("ekw_ksiega", 1, f"sprawa {identyfikator}"):
+        # Platny wynik u dostawcy: kredyty tylko za pobrana ksiege, a ta sama
+        # ksiega w tej sprawie w ciagu doby - bez drugiej oplaty.
+        ponowna = tokenomia.kw_juz_oplacona(identyfikator, numer)
+        with tokenomia.akcja("ekw_ksiega", 0 if ponowna else 1, f"sprawa {identyfikator}"):
             ksiega = ekw.pobierz(numer)
+        if not ponowna:
+            tokenomia.zapamietaj_kw(identyfikator, numer)
     except ekw.BladEKW as blad:
         # Nieudana proba tez jest sladem starannosci - bez numeru KW w logach.
         rejestry.zapisz_sprawdzenie(identyfikator, ekw.wynik_bledu(numer, blad))
@@ -1426,6 +1432,7 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     if not zlecenia.wynik(zlecenie):
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
     try:
+        tokenomia.krok_zlecenia(zlecenie)
         with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
             krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
     except bedrock.Przeciazenie as blad:

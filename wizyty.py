@@ -40,6 +40,7 @@ import dziennik
 import kalendarz
 import magazyn
 import taksa
+import tokenomia
 from kalkulator import Limit
 
 log = logging.getLogger("pieczapp.wizyty")
@@ -57,6 +58,16 @@ STRONA = "https://notarai.pl"
 NADAWCA = os.getenv("PIECZAPP_EMAIL_NADAWCA", "").strip()
 # Kopia kazdego zgloszenia dla obslugi notarai (np. zapytania@notarai.pl).
 KOPIA = os.getenv("PIECZAPP_EMAIL_ZGLOSZEN", "").strip()
+
+# Platne odsloniecie kontaktu (tokenomia): kancelaria widzi czynnosc, wartosc
+# i termin od razu, a telefon i e-mail klienta po odslonieciu (pula w planie,
+# potem kredyty). Klient nie moze czekac w nieskonczonosc: bez odsloniecia po
+# SLA_GODZIN dostaje e-mailem publiczny kontakt kancelarii.
+SLA_GODZIN = int(os.getenv("PIECZAPP_WIZYTY_SLA_GODZIN", "48"))
+DUPLIKAT_DNI = 30
+UKRYTE = "[ukryte - odsłoń kontakt]"
+_TELEFON_W_TEKSCIE = re.compile(r"(?<![\d+])\+?\d[\d \-().]{5,}\d(?!\d)")
+_EMAIL_W_TEKSCIE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 limit_zgloszen = Limit(int(os.getenv("PIECZAPP_WIZYTY_NA_IP", "5")), int(os.getenv("PIECZAPP_WIZYTY_NA_DOBE", "300")))
 
@@ -233,14 +244,53 @@ def _opis_zgloszenia(z: dict) -> str:
     return "\n".join(linie)
 
 
+def maskuj_tekst(tekst: str) -> str:
+    """Numery telefonow i adresy e-mail w tresci wiadomosci klienta - klient
+    czesto wpisuje je tam drugi raz, co omijaloby odsloniecie. Telefon to
+    9-15 cyfr; kwoty ("500 000 zl") i daty zostaja."""
+    tekst = _EMAIL_W_TEKSCIE.sub(UKRYTE, tekst or "")
+
+    def telefon(m: re.Match) -> str:
+        cyfr = len(re.sub(r"\D", "", m.group(0)))
+        dalej = tekst[m.end():m.end() + 5].strip().lower()
+        if not 9 <= cyfr <= 15 or dalej.startswith(("zł", "zl", "pln", "m2", "m²")):
+            return m.group(0)
+        return UKRYTE
+    return _TELEFON_W_TEKSCIE.sub(telefon, tekst)
+
+
+def zakryte(z: dict) -> bool:
+    return bool(z.get("kancelaria_id")) and not z.get("odsloniecie") \
+        and tokenomia.kontakt_platny(z["kancelaria_id"])
+
+
+def widok_dla_kancelarii(z: dict) -> dict:
+    """Zapytanie tak, jak widzi je kancelaria: bez kontaktu przed odslonieciem."""
+    if not zakryte(z):
+        return {**z, "zakryty": False}
+    klient = z.get("klient") or {}
+    return {**z, "zakryty": True,
+            "klient": {"imie": klient.get("imie", ""), "telefon": "", "email": "",
+                       "ma_telefon": bool(klient.get("telefon")), "ma_email": bool(klient.get("email"))},
+            "wiadomosc": maskuj_tekst(z.get("wiadomosc", ""))}
+
+
 def _powiadom(z: dict) -> dict:
     wynik = {"kancelaria": False, "notarai": False, "klient": False}
     opis = _opis_zgloszenia(z)
     if z.get("kancelaria_id"):
+        if zakryte(z):
+            # E-mail nie moze omijac odsloniecia: bez telefonu, e-maila i numerow w tresci.
+            opis_k = _opis_zgloszenia(widok_dla_kancelarii(z)).replace(
+                "Telefon: nie podano", "Telefon: " + ("podany - odsłoń w aplikacji" if z["klient"].get("telefon") else "nie podano")
+            ).replace(
+                "E-mail: nie podano", "E-mail: " + ("podany - odsłoń w aplikacji" if z["klient"].get("email") else "nie podano"))
+        else:
+            opis_k = opis
         wynik["kancelaria"] = _wyslij_email(
             _emaile_kancelarii(z["kancelaria_id"]),
             f"Nowe zapytanie klienta: {z['czynnosc'][:60]}",
-            "Klient chce umówić wizytę w Twojej kancelarii.\n\n" + opis
+            "Klient chce umówić wizytę w Twojej kancelarii.\n\n" + opis_k
             + f"\n\nOdpowiedz w aplikacji: {ADRES_APLIKACJI} (pasek boczny, Zapytania klientów).")
     if KOPIA:
         wynik["notarai"] = _wyslij_email(
@@ -372,6 +422,7 @@ def zgloszenie(dane: Zgloszenie, request: Request):
                 if w["id"] == z["id"]:
                     w["powiadomiono"] = powiadomienia
         _zmien(odnotuj)
+    przypomnij_klientom()
     log.info("wizyty: zgloszenie %s (%s), e-maile=%s", z["id"], z["zrodlo"],
              ",".join(k for k, v in powiadomienia.items() if v) or "brak")
     komunikat = (f"Zgłoszenie dotarło do kancelarii {z['kancelaria_nazwa']}. Kancelaria skontaktuje się "
@@ -402,8 +453,118 @@ def _moje(d: dict) -> list[dict]:
 
 @router_zapytan.get("")
 def lista_zapytan():
-    zgloszenia = _moje(_wczytaj())
+    przypomnij_klientom()
+    zgloszenia = [widok_dla_kancelarii(z) for z in _moje(_wczytaj())]
     return sorted(zgloszenia, key=lambda z: z["utworzono"], reverse=True)
+
+
+def _klucz_kontaktu(klient: dict) -> set[str]:
+    klucze = set()
+    if klient.get("telefon"):
+        klucze.add("t:" + re.sub(r"\D", "", klient["telefon"])[-9:])
+    if klient.get("email"):
+        klucze.add("e:" + klient["email"].lower())
+    return klucze
+
+
+@router_zapytan.post("/{identyfikator}/odslon")
+def odslon(identyfikator: str):
+    """Telefon i e-mail klienta. Raz na zapytanie; ten sam klient odsloniety
+    w ostatnich 30 dniach - bez oplaty."""
+    moja = magazyn.kancelaria()
+    d = _wczytaj()
+    z = next((w for w in _moje(d) if w["id"] == identyfikator), None)
+    if z is None:
+        raise HTTPException(404, "Nie ma takiego zapytania.")
+    if not zakryte(z):
+        return widok_dla_kancelarii(z)
+    granica = (datetime.now() - timedelta(days=DUPLIKAT_DNI)).isoformat(timespec="seconds")
+    klucze = _klucz_kontaktu(z["klient"])
+    duplikat = any(w.get("odsloniecie") and w["odsloniecie"].get("czas", "") >= granica
+                   and _klucz_kontaktu(w["klient"]) & klucze for w in _moje(d) if w["id"] != identyfikator)
+    oplata = tokenomia.odslon_kontakt(moja, identyfikator, duplikat)
+
+    def zapisz(dane):
+        for w in dane["zgloszenia"]:
+            if w["id"] == identyfikator and w.get("kancelaria_id") == moja:
+                w.setdefault("odsloniecie", {"czas": _teraz(), **oplata})
+                return w
+        return None
+    try:
+        wynik = _zmien(zapisz)
+    except HTTPException:
+        if oplata["kredyty"]:
+            tokenomia.doladuj(moja, oplata["kredyty"], "zwrot: odsloniecie nie zapisane", zrodlo="zwrot")
+        raise
+    log.info("wizyty: zapytanie %s odsloniete (%s)", identyfikator, oplata["tryb"])
+    return widok_dla_kancelarii(wynik)
+
+
+POWODY_REKLAMACJI = {"falszywy_kontakt": "fałszywy albo niedziałający kontakt",
+                     "spam": "zgłoszenie nie od klienta", "nie_do_nas": "sprawa nie do notariusza"}
+
+
+class Reklamacja(BaseModel):
+    powod: str
+
+
+@router_zapytan.post("/{identyfikator}/reklamacja")
+def reklamuj(identyfikator: str, dane: Reklamacja):
+    if dane.powod not in POWODY_REKLAMACJI:
+        raise HTTPException(400, "Wybierz powód: " + ", ".join(POWODY_REKLAMACJI.values()) + ".")
+    moja = magazyn.kancelaria()
+    z = next((w for w in _moje(_wczytaj()) if w["id"] == identyfikator), None)
+    if z is None or not z.get("odsloniecie"):
+        raise HTTPException(404, "Reklamować można tylko odsłonięte zapytanie.")
+    if z.get("reklamacja"):
+        raise HTTPException(409, "To zapytanie było już reklamowane.")
+    granica = (datetime.now() - timedelta(days=tokenomia.REKLAMACJA_DNI)).isoformat(timespec="seconds")
+    if z["odsloniecie"].get("czas", "") < granica:
+        raise HTTPException(409, f"Reklamację składa się do {tokenomia.REKLAMACJA_DNI} dni od odsłonięcia.")
+    zwrot = tokenomia.zwrot_kontaktu(moja, identyfikator, z["odsloniecie"], dane.powod)
+
+    def zapisz(d):
+        for w in d["zgloszenia"]:
+            if w["id"] == identyfikator and w.get("kancelaria_id") == moja:
+                w["reklamacja"] = {"czas": _teraz(), "powod": dane.powod, **zwrot}
+                w["status"] = "zamknieta"
+                w["historia"].append({"czas": _teraz(), "kto": "kancelaria", "status": "zamknieta",
+                                      "uwagi": "reklamacja: " + POWODY_REKLAMACJI[dane.powod]})
+                return w
+    log.info("wizyty: reklamacja zapytania %s (%s)", identyfikator, dane.powod)
+    return widok_dla_kancelarii(_zmien(zapisz))
+
+
+def przypomnij_klientom() -> int:
+    """Zapytania bez odsloniecia po SLA_GODZIN: klient dostaje publiczny kontakt
+    kancelarii, zeby nie czekal na telefon, ktory moze nie nadejsc. Wolane
+    przy okazji ruchu (lista, nowe zgloszenie); raz na zapytanie."""
+    granica = (datetime.now() - timedelta(hours=SLA_GODZIN)).isoformat(timespec="seconds")
+    try:
+        d = _wczytaj()
+    except Exception:  # noqa: BLE001 - przypomnienie nie moze psuc listy
+        return 0
+    zalegle = [z["id"] for z in d["zgloszenia"] if z.get("status") == "nowa" and not z.get("sla")
+               and z.get("utworzono", "") < granica and zakryte(z)]
+    if not zalegle:
+        return 0
+
+    def oznacz(dane):
+        wynik = []
+        for z in dane["zgloszenia"]:
+            if z["id"] in zalegle and not z.get("sla"):
+                z["sla"] = _teraz()
+                wynik.append(dict(z))
+        return wynik
+    for z in _zmien(oznacz):
+        k = baza()["kancelarie"].get(z.get("baza_id") or -1)
+        if z["klient"].get("email") and k:
+            _wyslij_email([z["klient"]["email"]], "Twoje zgłoszenie do notariusza - kontakt do kancelarii",
+                          f"Dzień dobry,\n\nkancelaria {z['kancelaria_nazwa']} nie odpowiedziała jeszcze na Twoje "
+                          "zgłoszenie. Żeby nie czekać, skontaktuj się z nią bezpośrednio:\n"
+                          + _kontakt_publiczny(k) + "\n\nnotarai.pl")
+    log.info("wizyty: przypomnienie z kontaktem kancelarii dla %d zapytan", len(zalegle))
+    return len(zalegle)
 
 
 class ZmianaZapytania(BaseModel):
@@ -451,6 +612,11 @@ def zmien_zapytanie(identyfikator: str, zmiana: ZmianaZapytania):
         raise HTTPException(400, "Nieznany status.")
     moja = magazyn.kancelaria()
     wpis_kalendarza = None
+    if zmiana.status in ("kontakt", "umowiona"):
+        obecne = next((w for w in _moje(_wczytaj()) if w["id"] == identyfikator), None)
+        # Kontakt i termin wymagaja telefonu - a wpis kalendarza by go wydal.
+        if obecne is not None and zakryte(obecne):
+            raise HTTPException(409, "Najpierw odsłoń kontakt do klienta.")
 
     def zmien(d):
         for z in d["zgloszenia"]:
@@ -472,7 +638,7 @@ def zmien_zapytanie(identyfikator: str, zmiana: ZmianaZapytania):
             raise HTTPException(400, f"Status zapisany, ale termin nie trafił do kalendarza: {blad}")
     log.info("wizyty: zapytanie %s -> %s%s", identyfikator, zmiana.status,
              " (kalendarz)" if wpis_kalendarza else "")
-    return {**z, "kalendarz": wpis_kalendarza}
+    return {**widok_dla_kancelarii(z), "kalendarz": wpis_kalendarza}
 
 
 # --- API administratora notarai ---------------------------------------------
@@ -483,6 +649,7 @@ router_admina = APIRouter(prefix="/api/admin/wizyty", tags=["admin"])
 @router_admina.get("")
 def wszystkie(request: Request):
     autoryzacja._wymagaj_admina(request)
+    przypomnij_klientom()
     d = _wczytaj()
     klienci = {v: k for k, v in kancelarie_notarai().items()}
     zgloszenia = sorted(d["zgloszenia"], key=lambda z: z["utworzono"], reverse=True)
