@@ -52,16 +52,55 @@ npm start                   # kod QR dla Expo Go na telefonie (telefon w tej sam
 npm run typecheck
 ```
 
-## Budowa paczek
+## Ikony i splash
 
-Aplikacja jest w stylu „managed” Expo. Paczki `.aab`/`.ipa` buduje EAS:
+Ikony w `assets/` (ikona, adaptive icon Androida: tło/znak/monochromatyczna, splash,
+favicon web) generuje skrypt ze znaku `static/notarai-symbol.svg` w kolorach aplikacji
+(granat `#0d193c`, złoto `#e4c47a`):
 
-```bash
-npx eas-cli build --platform android --profile production
+```powershell
+.venv\Scripts\python scripts\generuj_ikony_aplikacji.py
 ```
 
+## Budowa paczek i publikacja (EAS)
+
+Aplikacja jest w stylu „managed” Expo (bez katalogów `android/` i `ios/`). Paczki buduje
+EAS w chmurze Expo według `eas.json`:
+
+| Profil | Co powstaje | Do czego |
+|---|---|---|
+| `development` | APK + build na symulator iOS | szybki test na telefonie bez sklepu |
+| `preview` | APK (dystrybucja wewnętrzna, link do pobrania) | testerzy w kancelariach |
+| `production` | Android App Bundle `.aab`, iOS `.ipa` | Google Play / App Store |
+
+Każdy profil łączy się z `https://app.notarai.pl` (`env.EXPO_PUBLIC_API_URL` w `eas.json`).
+
+Jednorazowo (konto Expo nie jest jeszcze przypisane, w `app.json` celowo nie ma `owner`):
+
+```bash
+cd mobilna
+npx eas-cli login                 # konto Expo właściciela notarai
+npx eas-cli init                  # dopisze extra.eas.projectId (i owner) do app.json – zacommituj
+```
+
+Build i wysyłka do sklepów:
+
+```bash
+npx eas-cli build --platform android --profile preview       # APK do testów
+npx eas-cli build --platform android --profile production    # .aab do Google Play
+npx eas-cli build --platform ios --profile production        # wymaga konta Apple Developer
+npx eas-cli submit --platform android --profile production   # ścieżka "internal", szkic
+```
+
+Pierwszy `.aab` w Google Play trzeba wgrać ręcznie w Play Console (potem działa `eas submit`
+z kluczem konta usługi Google, którego nie trzymamy w repo).
+
+Wersje: `version` w `app.json` (np. `1.0.1`) to wersja widoczna dla użytkownika i zarazem
+`runtimeVersion` (polityka `appVersion`). Przed każdym buildem do sklepu podbij też
+`android.versionCode` (liczba, +1) i `ios.buildNumber` (tekst, +1) – `eas.json` ma
+`appVersionSource: local`, więc EAS bierze je z `app.json`.
+
 Identyfikatory: Android `pl.notarai.klient`, iOS `pl.notarai.klient`, schemat linków `notarai://`.
-Ikony w `assets/` są tymczasowe (z szablonu Expo); przed publikacją podmień na znak notarai.
 
 ## Prywatność
 

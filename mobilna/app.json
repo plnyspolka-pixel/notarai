@@ -2,7 +2,11 @@
   "expo": {
     "name": "notarai",
     "slug": "notarai-klient",
+    "description": "Umów wizytę u notariusza: wolne terminy kancelarii, potwierdzenie SMS i przypomnienie.",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "scheme": "notarai",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,23 +22,34 @@
       "bundleIdentifier": "pl.notarai.klient",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Lokalizacja służy tylko do pokazania najbliższych kancelarii notarialnych."
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "pl.notarai.klient",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0d193c",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "notarai – umów wizytę u notariusza",
+      "shortName": "notarai",
+      "description": "Umów wizytę u notariusza: wolne terminy kancelarii, potwierdzenie SMS i przypomnienie.",
+      "lang": "pl",
+      "themeColor": "#0d193c",
+      "backgroundColor": "#f5f7fc"
     },
     "plugins": [
       "expo-router",
