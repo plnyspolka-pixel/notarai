@@ -57,3 +57,11 @@ strona-kopie/
 strona/notariusz/
 strona/blog/
 strona/sitemap.xml
+
+# Aplikacja mobilna (Expo)
+mobilna/node_modules/
+mobilna/.expo/
+mobilna/dist/
+mobilna/web-build/
+mobilna/.env
+mobilna/*.log

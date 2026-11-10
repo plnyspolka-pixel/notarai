@@ -319,7 +319,7 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
     return {
         "id": uuid.uuid4().hex[:12],
         "utworzono": _teraz(),
-        "zrodlo": dane.zrodlo if dane.zrodlo in ("strona", "kalkulator", "inne") else "inne",
+        "zrodlo": dane.zrodlo if dane.zrodlo in ("strona", "kalkulator", "aplikacja", "inne") else "inne",
         "miejscowosc": slug,
         "miejscowosc_nazwa": miejscowosc["nazwa"] if miejscowosc else (kancelaria or {}).get("miejscowosc", ""),
         "baza_id": kancelaria["id"] if kancelaria else None,

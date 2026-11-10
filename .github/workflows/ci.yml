@@ -36,7 +36,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r /tmp/notarai-requirements-ci.txt
       - name: Kompilacja modulow Python
-        run: python -m compileall -q -x '(^|/)(\.git|\.venv|dane|build|dist)/' .
+        run: python -m compileall -q -x '(^|/)(\.git|\.venv|dane|build|dist|mobilna)/' .
       - name: Sprawdz skladnie skryptow i HTML
         run: |
           node --check static/kokpit.js
@@ -45,6 +45,32 @@ jobs:
           python scripts/check_frontend.py
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
+
+  mobilna:
+    name: Aplikacja klienta (Expo): typy i eksport web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobilna
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+      - name: Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobilna/package-lock.json
+      - name: Instaluj zaleznosci
+        run: npm ci --no-audit --no-fund
+      - name: Sprawdz typy
+        run: npm run typecheck
+      - name: Zbuduj wersje web
+        run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_API_URL: https://app.notarai.pl
+          CI: "1"
 
   powershell:
     name: Parser Windows PowerShell 5.1 (skrypty FTPS)

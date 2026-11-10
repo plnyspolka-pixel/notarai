@@ -43,6 +43,7 @@ import prompty
 import rejestracja
 import rejestry
 import rezerwacje_hurtowe
+import rezerwacje_klienta
 import wizyty
 import transkrypcja
 import walidacja
@@ -72,6 +73,8 @@ app.include_router(rezerwacje_hurtowe.router_biuro)
 app.include_router(rezerwacje_hurtowe.router_partner)
 app.include_router(rezerwacje_hurtowe.router_admin)
 app.include_router(rezerwacje_hurtowe.router_mcp)
+app.include_router(rezerwacje_klienta.router)
+app.include_router(rezerwacje_klienta.router_admina)
 # Narzędzia klientów — publiczny kalkulator i składanie zgłoszeń,
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
@@ -955,22 +958,33 @@ def ustaw_dzien_kalendarza(dzien: str, dane: OpisDnia):
     return opis
 
 
+def _wpis_klienta(identyfikator: str) -> dict | None:
+    """Wizyta umowiona przez klienta w aplikacji - przed zmiana przez kancelarie,
+    zeby klient dostal SMS o przeniesieniu albo odwolaniu."""
+    return next((w for w in kalendarz.lista() if w["id"] == identyfikator
+                 and w.get("zrodlo") == rezerwacje_klienta.ZRODLO), None)
+
+
 @app.put("/api/kalendarz/{identyfikator}")
 def zmien_w_kalendarzu(identyfikator: str, dane: WpisKalendarza):
     _tylko_w_chmurze()
+    stary = _wpis_klienta(identyfikator)
     wpis = _zapis_kancelarii(kalendarz.zmien, identyfikator, dane.model_dump())
     if wpis is None:
         raise HTTPException(404, "Nie ma takiego terminu")
     log.info("kalendarz %s: zmieniony", identyfikator)
+    rezerwacje_klienta.powiadom_o_zmianie_kancelarii(stary, wpis)
     return wpis
 
 
 @app.delete("/api/kalendarz/{identyfikator}")
 def usun_z_kalendarza(identyfikator: str):
     _tylko_w_chmurze()
+    stary = _wpis_klienta(identyfikator)
     if not _zapis_kancelarii(kalendarz.usun, identyfikator):
         raise HTTPException(404, "Nie ma takiego terminu")
     log.info("kalendarz %s: usuniety", identyfikator)
+    rezerwacje_klienta.powiadom_o_zmianie_kancelarii(stary, None)
     return {"ok": True}
 
 

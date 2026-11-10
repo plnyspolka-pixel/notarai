@@ -138,6 +138,17 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/finyou) {
     Write-Host "   ksiegi z EKW przez Finance You: brak sekretu notarai/finyou" -ForegroundColor Yellow
 }
 
+# SMS do klientow aplikacji (sms.py, rezerwacje_klienta.py): sekret notarai/twilio
+# zaklada infra\zapisz-sekret-twilio.ps1 (klucze account_sid, auth_token, numer,
+# webhook_token). Osobne konto/podkonto i numer od Finance You. Czytamy tylko ARN.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/twilio) {
+    $twilioArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/twilio --query ARN --output text
+    $parametry += "TwilioSekretArn=$twilioArn"
+    Write-Host "   SMS i rezerwacje online dla klientow: sekret notarai/twilio"
+} else {
+    Write-Host "   SMS i rezerwacje online dla klientow: brak sekretu notarai/twilio, wylaczone" -ForegroundColor Yellow
+}
+
 # SES: wlacz dopiero po weryfikacji adresu lub domeny i wyjsciu z sandbox.
 if ($EmailNadawcy) { $parametry += "EmailNadawcy=$EmailNadawcy" }
 if ($EmailZgloszen) { $parametry += "EmailZgloszen=$EmailZgloszen" }

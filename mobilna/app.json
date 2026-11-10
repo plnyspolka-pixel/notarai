@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "notarai",
+    "slug": "notarai-klient",
+    "version": "1.0.0",
+    "scheme": "notarai",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d193c"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pl.notarai.klient",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Lokalizacja służy tylko do pokazania najbliższych kancelarii notarialnych."
+      }
+    },
+    "android": {
+      "package": "pl.notarai.klient",
+      "adaptiveIcon": {
+        "backgroundColor": "#0d193c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Lokalizacja służy tylko do pokazania najbliższych kancelarii notarialnych.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

@@ -26,8 +26,13 @@
     el.textContent = text;
     el.style.color = error ? "var(--alarm)" : "var(--tekst2)";
   };
+  const opis = p => {
+    const kto = [p.klienci ? "klienci z aplikacji" : "", p.wlaczone ? "partnerzy B2B" : ""].filter(Boolean);
+    return kto.length ? "Terminarz online włączony dla: " + kto.join(" i ") + "." : "Terminarz online jest wyłączony.";
+  };
   const render = p => {
     $("hurtowe-wlaczone").checked = Boolean(p.wlaczone);
+    $("hurtowe-klienci").checked = Boolean(p.klienci);
     $("hurtowe-miasto").value = p.miasto || "";
     $("hurtowe-adres").value = p.adres || "";
     $("hurtowe-czas").value = String(p.czas_minut || 60);
@@ -49,7 +54,7 @@
       const p = await odp.json();
       if (!odp.ok) throw new Error(p.detail || "Nie udało się pobrać ustawień.");
       render(p);
-      message(p.wlaczone ? "Rezerwacje hurtowe są włączone." : "Rezerwacje hurtowe są wyłączone.");
+      message(opis(p));
     } catch (e) {
       message(e.message || "Nie udało się pobrać ustawień.", true);
     }
@@ -63,6 +68,7 @@
     });
     const dane = {
       wlaczone: $("hurtowe-wlaczone").checked,
+      klienci: $("hurtowe-klienci").checked,
       miasto: $("hurtowe-miasto").value.trim(),
       adres: $("hurtowe-adres").value.trim(),
       godziny,
@@ -81,8 +87,7 @@
       const wynik = await odp.json();
       if (!odp.ok) throw new Error(wynik.detail || "Nie udało się zapisać.");
       render(wynik);
-      message(wynik.wlaczone ? "Zapisano. Partnerzy mogą rezerwować wolne terminy." :
-        "Zapisano. Rezerwacje hurtowe są wyłączone.");
+      message("Zapisano. " + opis(wynik));
     } catch (e) {
       message(e.message || "Nie udało się zapisać.", true);
     } finally {

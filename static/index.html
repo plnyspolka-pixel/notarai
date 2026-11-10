@@ -1225,9 +1225,13 @@ notarai</div>
 </dialog>
 
 <dialog class="okno" id="okno-hurtowe" aria-labelledby="hurtowe-tytul">
-  <h2 id="hurtowe-tytul">Terminy dla klientów hurtowych</h2>
-  <p>Kancelaria decyduje, czy zewnętrzni partnerzy API/MCP mogą rezerwować wolne godziny.
-     Partnerzy nie widzą zawartości kalendarza ani danych spraw. Każda zarezerwowana wizyta pojawi się w kalendarzu kancelarii.</p>
+  <h2 id="hurtowe-tytul">Terminarz online: klienci i partnerzy</h2>
+  <p>Kancelaria decyduje, kto może rezerwować wolne godziny z jej terminarza: klienci przez aplikację
+     notarai i stronę notarai.pl oraz zewnętrzni partnerzy API/MCP. Nikt z zewnątrz nie widzi zawartości
+     kalendarza ani danych spraw. Każda zarezerwowana wizyta pojawi się w kalendarzu kancelarii.</p>
+  <label class="hurtowe-zgoda"><input id="hurtowe-klienci" type="checkbox"> <strong>Przyjmuj rezerwacje klientów z aplikacji notarai</strong>
+    <span class="pod">Klient wybiera godzinę i potwierdza numer telefonu kodem SMS. Dostaje SMS z potwierdzeniem i przypomnienie dzień
+    przed wizytą, a kancelaria e-mail z danymi wizyty. Dane klienta trafiają wyłącznie do kalendarza kancelarii.</span></label>
   <label class="hurtowe-zgoda"><input id="hurtowe-wlaczone" type="checkbox"> <strong>Udostępniaj wolne terminy partnerom B2B</strong></label>
   <div class="hurtowe-form">
     <label>Miasto<input type="text" id="hurtowe-miasto" maxlength="100" placeholder="np. Lublin" autocomplete="address-level2"></label>
@@ -1243,7 +1247,7 @@ notarai</div>
       <input id="hurtowe-horyzont" type="number" min="1" max="90" value="60">
     </label>
   </div>
-  <h3>Godziny przyjęć dla partnerów</h3>
+  <h3>Godziny przyjęć dostępne do rezerwacji</h3>
   <div id="hurtowe-dni" class="hurtowe-dni"></div>
   <p class="pod">Dni nieczynne ustawione w kalendarzu nadal blokują rezerwacje. Godziny podawaj co 30 minut (strefa Warszawa).</p>
   <p class="stan" id="hurtowe-komunikat" role="status" aria-live="polite"></p>
