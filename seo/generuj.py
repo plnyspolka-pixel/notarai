@@ -4,16 +4,12 @@
 
 Kazda strona ma to, czego nie ma zadna inna: liste kancelarii z tej
 miejscowosci z adresami i telefonami (z wykazu izb i dane.gov.pl), liczbe,
-izbe, formularz umowienia wizyty w konkretnej kancelarii.
-
-Neutralnosc (zakaz reklamy notariuszy): lista ma te sama kolejnosc dla
-wszystkich kancelarii, bez odznak i wyroznien. Przycisk "Umow wizyte" pojawia
-sie tylko przy kancelariach, ktore przyjmuja zgloszenia online; przy
-pozostalych sa adres i telefon. notarai nie dobiera kancelarii za klienta. Wspolne sa
+izbe, formularz umowienia wizyty w konkretnej kancelarii. Wspolne sa
 przyklady kosztow (taksa jest ogolnopolska) i pytania. E-maile kancelarii
 nie trafiaja na strony - sluza tylko aplikacji do przekazywania zgloszen.
 """
 import json
+from urllib.parse import quote
 import re
 import sys
 from collections import defaultdict
@@ -41,8 +37,8 @@ FAQ = [
      "Przy zakupie mieszkania za 400 000 zł taksa z wypisami to około {taksa_mieszkanie}, do tego podatek PCC 2 % i opłaty sądowe. "
      "Kancelarie w {miasto} mogą policzyć mniej niż stawka maksymalna, więc warto zapytać o wycenę."),
     ("Czy mogę umówić wizytę u notariusza online?",
-     "W części kancelarii tak: przy nich na liście jest przycisk „Umów wizytę”. Zostawiasz imię, telefon albo e-mail i opis sprawy, "
-     "a zgłoszenie trafia prosto do kancelarii. Z pozostałymi skontaktuj się telefonicznie, numery są na liście."),
+     "Tak. Wybierz kancelarię z listy wyżej i kliknij „Umów wizytę”. Zostawiasz imię, telefon albo e-mail i opis sprawy. "
+     "Kancelarie korzystające z notarai dostają zgłoszenie od razu w swojej aplikacji; pozostałym przekazujemy je i potwierdzamy kontakt."),
     ("Jakie dokumenty zabrać do notariusza?",
      "Zawsze dowód osobisty lub paszport. Przy nieruchomości: dokument nabycia, numer księgi wieczystej, zaświadczenia z urzędu gminy "
      "(plan zagospodarowania, rewitalizacja), ze spółdzielni lub wspólnoty o braku zaległości i o zameldowaniu, a przy kredycie umowę z bankiem. "
@@ -66,6 +62,7 @@ def formularz_html(slug_miasta: str, nazwa_miasta: str) -> str:
 <dialog class="umow" id="umow">
   <form id="umow-form" method="dialog" autocomplete="off">
     <h2>Umów wizytę u notariusza</h2>
+    <p style="margin:0 0 6px;font-size:.9rem">Masz dokumenty albo złożoną sprawę? <a id="u-teczka" href="/przygotuj-sprawe/?miejscowosc={esc(slug_miasta)}">Przygotuj sprawę z asystentem</a> – powie, jakie dokumenty zabrać, i przygotuje zapytanie.</p>
     <p id="umow-kancelaria" style="color:var(--tekst2);margin:0 0 4px"></p>
     <input type="hidden" id="u-kancelaria" value="">
     <input type="hidden" id="u-parametry" value="">
@@ -78,7 +75,12 @@ def formularz_html(slug_miasta: str, nazwa_miasta: str) -> str:
       <label><span>Czynność</span><select id="u-czynnosc">{opcje}</select></label>
       <label><span>Wartość (zł, jeśli dotyczy)</span><input type="text" id="u-wartosc" inputmode="decimal" placeholder="np. 450 000"></label>
     </div>
-    <label><span>Preferowany termin</span><input type="text" id="u-termin" maxlength="200" placeholder="np. w przyszłym tygodniu po 15:00"></label>
+    <div id="u-sloty" class="sloty" hidden>
+      <p class="sloty-tytul">Wybierz wolną godzinę (rezerwacja od razu) albo zostaw pole niżej:</p>
+      <div id="u-sloty-lista"></div>
+      <input type="hidden" id="u-data" value=""><input type="hidden" id="u-godzina" value="">
+    </div>
+    <label id="u-termin-pole"><span>Preferowany termin</span><input type="text" id="u-termin" maxlength="200" placeholder="np. w przyszłym tygodniu po 15:00"></label>
     <label><span>Wiadomość (opcjonalnie)</span><textarea id="u-wiadomosc" rows="3" maxlength="2000" placeholder="Krótko o sprawie: strony, kredyt, czy akt ma być pilnie"></textarea></label>
     <input class="pulapka" type="text" id="u-pulapka" tabindex="-1" autocomplete="off" aria-hidden="true">
     <label class="chk"><input type="checkbox" id="u-zgoda" required> <span>Zgadzam się na przekazanie moich danych wybranej kancelarii notarialnej w celu umówienia wizyty. Administratorem danych jest Fundacja Krzewienia Edukacji Finansowej im. Pieczaka (<a href="/prywatnosc/" target="_blank" rel="noopener">polityka prywatności</a>).</span></label>
@@ -96,10 +98,41 @@ const SLUG = {json.dumps(slug_miasta)};
 const $ = id => document.getElementById(id);
 const liczba = s => {{ const n = Number(String(s).replace(/\\s|\\u00a0/g, '').replace(',', '.')); return isFinite(n) && n > 0 ? n : null; }};
 const q = new URLSearchParams(location.search);
+let REZERWACJA = [];
+const DNI = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
+function wybierzSlot(b) {{
+  document.querySelectorAll('#u-sloty-lista button').forEach(x => x.classList.toggle('wybrany', x === b && !b.classList.contains('wybrany')));
+  const on = b.classList.contains('wybrany');
+  $('u-data').value = on ? b.dataset.data : ''; $('u-godzina').value = on ? b.dataset.godzina : '';
+  $('u-termin-pole').style.display = on ? 'none' : ''; $('u-email').required = on;
+  $('u-email').previousElementSibling.textContent = on ? 'E-mail (potwierdzenie, przypomnienie i link do odwołania)' : 'E-mail (opcjonalnie, dostaniesz potwierdzenie)';
+  $('u-wyslij').textContent = on ? 'Zarezerwuj ' + b.dataset.data + ' ' + b.dataset.godzina : 'Wyślij zgłoszenie';
+}}
+async function pokazSloty(id) {{
+  const box = $('u-sloty'), lista = $('u-sloty-lista');
+  box.hidden = true; lista.textContent = ''; $('u-data').value = ''; $('u-godzina').value = '';
+  $('u-termin-pole').style.display = ''; $('u-email').required = false; $('u-wyslij').textContent = 'Wyślij zgłoszenie';
+  if (!id || !REZERWACJA.includes(Number(id))) return;
+  try {{
+    const d = await (await fetch(API + '/api/wizyty/terminy?dni=14&kancelaria=' + encodeURIComponent(id))).json();
+    if (!d.online || !d.terminy.length) return;
+    const wg = {{}}; d.terminy.forEach(t => (wg[t.data] = wg[t.data] || []).push(t));
+    Object.keys(wg).slice(0, 7).forEach(dzien => {{
+      const wiersz = document.createElement('div'); wiersz.className = 'slot-dzien';
+      const et = document.createElement('b'); et.textContent = DNI[new Date(dzien + 'T12:00').getDay()] + ' ' + dzien.slice(8) + '.' + dzien.slice(5, 7);
+      wiersz.append(et);
+      wg[dzien].forEach(t => {{ const b = document.createElement('button'); b.type = 'button'; b.className = 'slot';
+        b.dataset.data = t.data; b.dataset.godzina = t.godzina; b.textContent = t.godzina; b.addEventListener('click', () => wybierzSlot(b)); wiersz.append(b); }});
+      lista.append(wiersz);
+    }});
+    box.hidden = false;
+  }} catch (err) {{ /* bez terminow zostaje zwykle zgloszenie */ }}
+}}
 function otworz(id, nazwa) {{
+  pokazSloty(id);
   $('u-kancelaria').value = id || '';
-  if (!id) return;
-  $('umow-kancelaria').textContent = 'Kancelaria: ' + nazwa;
+  $('u-teczka').href = '/przygotuj-sprawe/?miejscowosc=' + encodeURIComponent(SLUG) + (id ? '&kancelaria=' + encodeURIComponent(id) + '&nazwa=' + encodeURIComponent(nazwa) : '');
+  $('umow-kancelaria').textContent = nazwa ? 'Kancelaria: ' + nazwa : 'Dowolna kancelaria w miejscowości {esc(nazwa_miasta)}';
   $('u-wynik').hidden = true; $('u-wyslij').disabled = false;
   if (q.get('czynnosc')) {{ const sel = $('u-czynnosc'); const o = [...sel.options].find(o => q.get('czynnosc').toLowerCase().includes(o.value.split(' ')[0])); if (o) sel.value = o.value; }}
   if (q.get('wartosc')) $('u-wartosc').value = q.get('wartosc');
@@ -117,9 +150,11 @@ $('umow-form').addEventListener('submit', async e => {{
     czynnosc: $('u-czynnosc').value, wartosc: liczba($('u-wartosc').value), termin: $('u-termin').value,
     wiadomosc: $('u-wiadomosc').value, zgoda: $('u-zgoda').checked, kancelaria: $('u-kancelaria').value || null,
     miejscowosc: SLUG, parametry, zrodlo: q.get('p') ? 'kalkulator' : 'strona', strona: $('u-pulapka').value }};
+  const rezerwacja = Boolean($('u-godzina').value);
+  if (rezerwacja) {{ dane.data = $('u-data').value; dane.godzina = $('u-godzina').value; }}
   $('u-wyslij').disabled = true;
   try {{
-    const odp = await fetch(API + '/api/wizyty/zgloszenie', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(dane) }});
+    const odp = await fetch(API + (rezerwacja ? '/api/wizyty/rezerwacja' : '/api/wizyty/zgloszenie'), {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(dane) }});
     const w = await odp.json().catch(() => ({{}}));
     wynik.hidden = false;
     if (!odp.ok) {{ wynik.classList.add('blad'); wynik.textContent = typeof w.detail === 'string' ? w.detail : 'Nie udało się wysłać. Zadzwoń do kancelarii.'; $('u-wyslij').disabled = false; return; }}
@@ -129,12 +164,27 @@ $('umow-form').addEventListener('submit', async e => {{
     wynik.hidden = false; wynik.classList.add('blad'); wynik.textContent = 'Brak połączenia. Spróbuj ponownie albo zadzwoń do kancelarii.'; $('u-wyslij').disabled = false;
   }}
 }});
-// Kancelarie przyjmujace zgloszenia online: tylko odsloniety przycisk.
-// Kolejnosc listy i wyglad karty zostaja takie same jak u pozostalych.
+// Neutralna kolejnosc na dzis z API (rekomendacje.py): codzienna rotacja, ta sama
+// dla wszystkich odwiedzajacych. Korzystanie z notarai NIE zmienia miejsca na liscie;
+// dostaje tylko opis, jak kancelaria przyjmie zgloszenie.
 fetch(API + '/api/wizyty/kancelarie?miejscowosc=' + encodeURIComponent(SLUG)).then(r => r.json()).then(d => {{
-  (d.notarai || []).forEach(id => {{
-    const b = document.querySelector('#k-' + id + ' [data-umow]'); if (b) b.hidden = false;
+  const lista = document.getElementById('lista-kancelarii');
+  (d.kolejnosc || []).forEach(id => {{ const el = document.getElementById('k-' + id); if (el) lista.append(el); }});
+  REZERWACJA = d.rezerwacja || [];
+  (d.online || []).forEach(id => {{
+    const el = document.getElementById('k-' + id); if (!el) return;
+    const b = document.createElement('span'); b.className = 'notarai';
+    b.textContent = REZERWACJA.includes(id) ? 'Rezerwacja online: wybierasz wolną godzinę' : 'Zgłoszenie trafia od razu do kancelarii';
+    el.querySelector('h3').after(b);
+    if (REZERWACJA.includes(id)) el.dataset.online = '1';
   }});
+  // Filtr wlacza wylacznie klient; domyslnie widac wszystkie kancelarie.
+  if (REZERWACJA.length) {{
+    const f = document.createElement('label'); f.className = 'filtr-online';
+    f.innerHTML = '<input type="checkbox" id="tylko-online"> Pokaż tylko kancelarie z rezerwacją online';
+    lista.before(f);
+    $('tylko-online').addEventListener('change', e => lista.querySelectorAll('article').forEach(a => {{ a.hidden = e.target.checked && !a.dataset.online; }}));
+  }}
 }}).catch(() => {{}});
 </script>
 """
@@ -152,7 +202,8 @@ def karta_kancelarii(k: dict) -> str:
     if k.get("brak_kontaktu"):
         linie.append('<p class="brak">Brak danych kontaktowych w publicznych wykazach. Kancelario, jeśli to Ty: napisz na kontakt@notarai.pl.</p>')
     else:
-        linie.append(f'<div class="akcje"><button class="przycisk" type="button" data-umow="{k["id"]}" data-nazwa="{esc(k["nazwa"])}" hidden>Umów wizytę</button>'
+        linie.append(f'<div class="akcje"><button class="przycisk" type="button" data-umow="{k["id"]}" data-nazwa="{esc(k["nazwa"])}">Umów wizytę</button>'
+                     + f'<a class="przycisk drugi" href="/przygotuj-sprawe/?kancelaria={k["id"]}&amp;nazwa={quote(k["nazwa"])}&amp;miejscowosc={k["slug"]}">Przygotuj sprawę</a>'
                      + ('' if k["zweryfikowany"] else '<span class="brak">dane z katalogu branżowego, do potwierdzenia</span>') + '</div>')
     return f'<article id="k-{k["id"]}">' + "".join(linie) + "</article>"
 
@@ -205,7 +256,7 @@ def strona_miejscowosci(m: dict, kancelarie: list[dict], okolice: list[dict], pr
 <section class="sekcja-w" id="kancelarie">
   <div class="szer">
     <h2>Kancelarie notarialne w {esc(miasto)}</h2>
-    <p class="wstep">Kolejność: najpierw kancelarie z potwierdzonymi danymi z wykazu izby. Kancelarie korzystające z notarai dostają zgłoszenie od razu w swojej aplikacji.</p>
+    <p class="wstep">Kolejność listy zmienia się codziennie według tej samej reguły dla każdej kancelarii (rotacja). Nie zależy od tego, czy kancelaria korzysta z notarai ani czy cokolwiek nam płaci; na koniec trafiają tylko kancelarie bez kontaktu w publicznych wykazach. Gdy wybierzesz „dowolną kancelarię”, zgłoszenie przydzielamy z kolejki, po równo dla wszystkich kancelarii w miejscowości. <a href="/zasady-kolejnosci/">Zasady i sprawdzarka</a>.</p>
     <div class="kanc" id="lista-kancelarii">{"".join(karta_kancelarii(k) for k in kancelarie)}</div>
   </div>
 </section>
@@ -223,10 +274,11 @@ def strona_miejscowosci(m: dict, kancelarie: list[dict], okolice: list[dict], pr
   <div class="szer">
     <h2>Jak umówić wizytę u notariusza w {esc(miasto)}</h2>
     <ol class="kroki-u">
-      <li><b>Wybierz kancelarię</b>Przy kancelariach, które przyjmują zgłoszenia online, kliknij „Umów wizytę”. Do pozostałych zadzwoń, numery są na liście.</li>
+      <li><b>Wybierz kancelarię</b>Kliknij „Umów wizytę” przy kancelarii z listy albo zostaw wybór nam.</li>
       <li><b>Opisz sprawę</b>Imię, telefon lub e-mail, rodzaj czynności i preferowany termin. Bez PESEL-u i bez skanów.</li>
-      <li><b>Potwierdzenie</b>Zgłoszenie trafia prosto do wybranej kancelarii, która kontaktuje się z Tobą i potwierdza termin.</li>
+      <li><b>Potwierdzenie</b>Kancelaria korzystająca z notarai widzi zgłoszenie w swojej aplikacji i odpowiada. Pozostałym przekazujemy je i potwierdzamy kontakt.</li>
     </ol>
+    <button class="przycisk" type="button" data-umow="" data-nazwa="">Umów wizytę w dowolnej kancelarii w {esc(miasto)}</button>
   </div>
 </section>
 
@@ -303,7 +355,7 @@ pole.addEventListener('input', () => {{
 
 def sitemap(miejscowosci: list[dict]) -> str:
     dzis = date.today().isoformat()
-    adresy = ["/", "/kalkulator/", "/notariusz/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
+    adresy = ["/", "/kalkulator/", "/notariusz/", "/przygotuj-sprawe/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
     adresy += [f"/notariusz/{m['slug']}/" for m in miejscowosci]
     for wpis in sorted((KATALOG_STRONY / "blog").glob("*/index.html")):
         adresy.append(f"/blog/{wpis.parent.name}/")
@@ -329,6 +381,13 @@ def generuj(dane: dict | None = None, cel: Path = KATALOG_STRONY) -> dict:
         html = strona_miejscowosci(m, wg_slug[m["slug"]], okolice, przyklady, izby)
         (katalog / m["slug"]).mkdir(exist_ok=True)
         (katalog / m["slug"] / "index.html").write_text(html, encoding="utf-8")
+    from seo import lead_strona, przejrzystosc, teczka_strona
+    for sciezka, html in ((przejrzystosc.SCIEZKA_ZASAD, przejrzystosc.strona_zasad()),
+                          (lead_strona.SCIEZKA, lead_strona.strona()),
+                          (teczka_strona.SCIEZKA, teczka_strona.strona()),
+                          (przejrzystosc.SCIEZKA_ODWOLANIA, przejrzystosc.strona_odwolania())):
+        (cel / sciezka.strip("/")).mkdir(parents=True, exist_ok=True)
+        (cel / sciezka.strip("/") / "index.html").write_text(html, encoding="utf-8")
     (katalog / "index.html").write_text(strona_hub(miejscowosci, izby, len(dane["kancelarie"])), encoding="utf-8")
     (cel / "sitemap.xml").write_text(sitemap(miejscowosci), encoding="utf-8")
     (cel / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {STRONA}/sitemap.xml\n", encoding="utf-8")

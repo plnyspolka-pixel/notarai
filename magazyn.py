@@ -329,7 +329,7 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     # personalizacja: zasady kancelarii i styl wyuczony z aktow (same szkielety
                     # klauzul po pseudonimizacji - bez danych klientow)
                     "zasady", "styl",
-                    "ksiegi_notarialne", "giif", "giif_ustawienia")  # wizyty: w obszarze administracyjnym
+                    "ksiegi_notarialne", "giif", "giif_ustawienia", "leady")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 

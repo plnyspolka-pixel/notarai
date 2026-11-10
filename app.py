@@ -55,6 +55,10 @@ import rejestracja
 import rejestry
 import rezerwacje_hurtowe
 import tokenomia
+import rezerwacje_klientow
+import teczka
+import leady
+import meta_leady
 import wizyty
 import transkrypcja
 import walidacja
@@ -92,6 +96,14 @@ app.include_router(personalizacja.router)
 app.include_router(poczta_polska.router)
 app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
+app.include_router(rezerwacje_klientow.router)
+app.include_router(teczka.router)
+app.include_router(leady.router)
+app.include_router(leady.router_kancelarii)
+app.include_router(leady.router_admina)
+app.include_router(meta_leady.router)
+app.include_router(rezerwacje_klientow.router_admina)
+rezerwacje_klientow.uruchom_przypomnienia()
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)

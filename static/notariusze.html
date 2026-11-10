@@ -226,6 +226,7 @@ function opisPopup(k){
     <small>${escape(k.adres)}</small>
     ${k.dokladnosc === "miejscowosc" ? '<small class="przyblizone">położenie przybliżone (centrum miejscowości)</small>' : ""}
     ${k.odleglosc != null ? `<small>${km(k.odleglosc)} w linii prostej</small>` : ""}
+    ${k.online ? '<small class="online">Zgłoszenie trafia od razu do kancelarii</small>' : ""}
     <a class="trasa" href="${trasa(k)}" target="_blank" rel="noopener">Trasa dojazdu ↗</a>`;
 }
 
@@ -234,10 +235,11 @@ function posortowane(){
   let lista = kancelarie.filter(k => !fraza || norm(k.nazwa + " " + k.adres + " " + k.notariusze).includes(fraza));
   if (ja) {
     lista.forEach(k => k.odleglosc = odleglosc(ja, k));
-    lista.sort((a, b) => a.odleglosc - b.odleglosc);
+    // Jak na serwerze (rekomendacje.py): pasma co 2 km, w pasmie rotacja dnia z serwera.
+    lista.sort((a, b) => (Math.floor(a.odleglosc / 2) - Math.floor(b.odleglosc / 2)) || (a._poz - b._poz));
   } else {
     lista.forEach(k => k.odleglosc = null);
-    lista.sort((a, b) => a.nazwa.localeCompare(b.nazwa, "pl"));
+    lista.sort((a, b) => a._poz - b._poz);   // rotacja dnia z serwera, nie alfabet
   }
   return lista;
 }
@@ -353,6 +355,7 @@ function dopasujWidok(){
     const odp = await fetch("/api/notariusze");
     if (!odp.ok) throw new Error();
     kancelarie = (await odp.json()).kancelarie || [];
+    kancelarie.forEach((k, i) => { k._poz = i; });
   } catch {
     $("lista").innerHTML = '<li class="pusto">Nie udało się pobrać listy kancelarii. Odśwież stronę.</li>';
     return;

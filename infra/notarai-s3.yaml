@@ -77,6 +77,12 @@ Resources:
             Status: Enabled
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 7
+          - Id: teczki-klientow-30-dni
+            Status: Enabled
+            Prefix: kancelarie/_administracja/teczki/
+            ExpirationInDays: 31
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
       Tags:
         - Key: projekt
           Value: notarai
