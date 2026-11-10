@@ -372,7 +372,7 @@ def test_kazdy_model_biznesowy_ma_narzut_100_procent_na_kosztach_ai():
 # --- webhook Stripe i konta kancelarii (pelny przeplyw z test_platnosci) --------------
 
 from test_platnosci import (ADMIN, CZLONEK, WLASCICIEL, _faktura, _wyslij, jako,  # noqa: E402,F401
-                            logowanie_atrapa, serwer, stripe_atrapa)
+                            _przywroc_moduly, logowanie_atrapa, serwer, stripe_atrapa)
 
 
 @pytest.fixture

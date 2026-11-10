@@ -14,7 +14,8 @@ from pathlib import Path
 import config
 
 # EKW: pobranie tresci ksiegi wieczystej (ekw.py); zapytanie to numer KW, nie PESEL.
-REJESTRY = ("KRZ", "ZASTRZEZENIA_PESEL", "EKW")
+REJESTRY = ("KRZ", "ZASTRZEZENIA_PESEL", "EKW", "SANKCJE", "PEP", "CRBR")
+DECYZJE = ("", "falszywe_trafienie", "potwierdzone")
 STATUSY = ("brak_wpisu", "wpis", "niedostepny", "blad")
 
 
@@ -40,13 +41,22 @@ class WynikSprawdzenia:
     # gdy w akcie jest ich kilkanascie. Bez tego status "sprawdzony" moglby
     # sie pokazac przy niewlasciwej osobie.
     etykieta: str = ""
+    # Listy sankcyjne i PEP: trafienia do decyzji notariusza (nazwa z listy,
+    # zrodlo, wynik 0-100). Zadnych pelnych PESEL-i - pilnuje __post_init__.
+    trafienia: list = field(default_factory=list)
+    # Decyzja notariusza o wczesniejszym wpisie (indeks w `dotyczy`):
+    # falszywe_trafienie albo potwierdzone. Pusta = zwykle sprawdzenie.
+    decyzja: str = ""
+    dotyczy: int | None = None
 
     def __post_init__(self):
         if self.rejestr not in REJESTRY:
             raise ValueError(f"Nieznany rejestr: {self.rejestr}")
         if self.status not in STATUSY:
             raise ValueError(f"Nieznany status: {self.status}")
-        if re.fullmatch(r"\d{11}", self.zapytanie or ""):
+        if self.decyzja not in DECYZJE:
+            raise ValueError(f"Nieznana decyzja: {self.decyzja}")
+        if re.search(r"\d{11}", self.zapytanie or "") or re.search(r"\d{11}", json.dumps(self.trafienia)):
             raise ValueError("Zapytanie zawiera pelny PESEL - zamaskuj przed zapisem")
 
 

@@ -163,6 +163,12 @@ walidacja.py        sumy kontrolne PESEL, NIP, KW, kwoty
 ekw.py              treść księgi wieczystej z EKW przez dostawcę (Finance You albo Apify), na żądanie
 krz.py, krz_portal.py  sprawdzenie w KRZ w przeglądarce notariusza
 rejestry.py         ślad audytowy sprawdzeń w rejestrach
+rejestry.py         ślad sprawdzeń w rejestrach (sprawdzenia.json)
+aml_listy.py        listy sankcyjne i PEP: pobieranie, migawki, indeks
+aml_dopasowanie.py  dopasowanie nazwisk do list (bez sieci)
+aml.py              sprawdzenie stron czynności, decyzje notariusza
+crbr.py             beneficjenci rzeczywiści z bramki CRBR
+probki/             próbki odpowiedzi rejestrów do testów
 prompty.py          treść promptów
 config.py           ustawienia
 static/             interfejs

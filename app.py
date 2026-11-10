@@ -8,6 +8,7 @@ import base64
 import contextvars
 import json
 import logging
+import os
 import queue
 import re
 import shutil
@@ -22,8 +23,11 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import aml
+import aml_listy
 import bedrock
 import config
+import crbr
 import dziennik
 import dokumenty
 import dokumenty_prawne
@@ -1368,6 +1372,139 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
 def ksiegi_sprawy(identyfikator: str):
     _katalog_sprawy(identyfikator)
     return ekw.wczytaj(identyfikator)
+# --- AML: listy sankcyjne, PEP i CRBR (ustawa z 1.03.2018) -------------------
+# Notariusz jest instytucja obowiazana (art. 2 ust. 1 pkt 13). Listy przychodza
+# do nas (aml_listy), dopasowanie liczymy u siebie (aml_dopasowanie) - dane
+# stron czynnosci nie wychodza na zewnatrz. Wyjatek: CRBR, gdzie pytamy
+# oficjalna bramke MF o spolke (NIP/KRS), nie o osobe.
+
+
+class StronaAML(BaseModel):
+    imie_nazwisko: str = ""
+    pesel: str = ""
+    etykieta: str = ""
+
+
+class ZadanieAML(BaseModel):
+    strony: list[StronaAML] = []          # puste = wszystkie strony z odczytu sprawy
+    rejestry: list[str] = ["SANKCJE", "PEP"]
+    potwierdzam: bool = False
+
+
+def _strony_sprawy(katalog: Path) -> list[dict]:
+    plik = katalog / "odczyt.json"
+    pola = json.loads(plik.read_text("utf-8")).get("pola", []) if plik.exists() else []
+    return [{"imie_nazwisko": s["imie_nazwisko"], "pesel": s.get("pesel", ""), "etykieta": s.get("rola", "")}
+            for s in osoby.osoby_ze_sprawy(pola) if s.get("imie_nazwisko")]
+
+
+@app.post("/api/sprawy/{identyfikator}/aml")
+def sprawdz_aml(identyfikator: str, zadanie: ZadanieAML):
+    """Strony czynnosci na listach sankcyjnych i PEP. Jeden wpis sladu na
+    strone i liste; trafienia czekaja na decyzje notariusza."""
+    katalog = _katalog_sprawy(identyfikator)
+    if not zadanie.potwierdzam:
+        raise HTTPException(400, "Sprawdzenie na listach wymaga jawnego potwierdzenia")
+    for r in zadanie.rejestry:
+        if r not in aml.KATEGORIA_REJESTRU:
+            raise HTTPException(400, f"Nieznana lista: {r}")
+    strony = [s.model_dump() for s in zadanie.strony if s.imie_nazwisko.strip()] or _strony_sprawy(katalog)
+    if not strony:
+        raise HTTPException(400, "Brak stron czynnosci do sprawdzenia - odczytaj sprawe albo podaj osoby")
+    wyniki = aml.sprawdz_strony(strony, tuple(zadanie.rejestry))
+    for wynik in wyniki:
+        rejestry.zapisz_sprawdzenie(identyfikator, wynik)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: AML stron=%d wpisow=%d trafien=%d", identyfikator, len(strony), len(wyniki),
+             sum(1 for w in wyniki if w.status == "wpis"))
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+class ZadanieCRBR(BaseModel):
+    nip: str = ""
+    krs: str = ""
+    nazwa: str = ""
+    etykieta: str = ""
+    potwierdzam: bool = False
+
+
+@app.post("/api/sprawy/{identyfikator}/crbr")
+def sprawdz_crbr(identyfikator: str, zadanie: ZadanieCRBR):
+    """Beneficjenci rzeczywisci spolki z oficjalnej bramki CRBR. W sladzie
+    PESEL-e beneficjentow sa zamaskowane; strony czynnosci porownujemy
+    z beneficjentami po imieniu i nazwisku."""
+    katalog = _katalog_sprawy(identyfikator)
+    if not zadanie.potwierdzam:
+        raise HTTPException(400, "Zapytanie do CRBR wymaga jawnego potwierdzenia")
+    wynik = crbr.sprawdz(zadanie.nip, zadanie.krs, zadanie.nazwa)
+    if wynik.status == "bledne_dane":
+        raise HTTPException(400, wynik.komunikat)
+    zapytanie = (f"NIP {crbr.normalizuj_nip(zadanie.nip)}" if crbr.normalizuj_nip(zadanie.nip)
+                 else f"KRS {crbr.normalizuj_krs(zadanie.krs)}" if crbr.normalizuj_krs(zadanie.krs)
+                 else zadanie.nazwa.strip())
+    status = {"ok": "wpis", "brak": "brak_wpisu", "wiele": "blad", "blad": "niedostepny"}[wynik.status]
+    szczegoly = crbr.opis_dla_sladu(wynik)
+    trafienia = []
+    if wynik.status == "ok":
+        strony = [s["imie_nazwisko"] for s in _strony_sprawy(katalog)]
+        dopasowania = crbr.dopasuj_osoby(strony, wynik.beneficjenci)
+        if strony:
+            sa = [n for n, ok in dopasowania.items() if ok]
+            nie = [n for n, ok in dopasowania.items() if not ok]
+            szczegoly += " | Strony czynnosci wsrod beneficjentow: " + (", ".join(sa) or "zadna")
+            if nie:
+                szczegoly += "; poza CRBR: " + ", ".join(nie)
+        trafienia = [{"nazwa_na_liscie": o.imie_nazwisko, "rola": "beneficjent", "uprawnienia": o.uprawnienia,
+                      "data_urodzenia": o.data_urodzenia, "pesel": o.pesel_maska,
+                      "strona_czynnosci": any(dopasowania.get(n) and crbr._norm(n) in crbr._norm(o.imie_nazwisko)
+                                              or crbr._norm(o.imie_nazwisko) in crbr._norm(n) for n in strony)}
+                     for o in wynik.beneficjenci] + [
+                     {"nazwa_na_liscie": o.imie_nazwisko, "rola": "zglaszajacy", "funkcja": o.funkcja}
+                     for o in wynik.zglaszajacy]
+    elif wynik.status == "wiele":
+        trafienia = [{"nazwa_na_liscie": k.nazwa, "rola": "spolka", "nip": k.nip, "krs": k.krs} for k in wynik.kandydaci]
+    wpis = rejestry.WynikSprawdzenia(rejestr="CRBR", zapytanie=zapytanie, status=status, szczegoly=szczegoly,
+                                     zrodlo=wynik.zrodlo, etykieta=zadanie.etykieta, trafienia=trafienia)
+    rejestry.zapisz_sprawdzenie(identyfikator, wpis)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: CRBR status=%s", identyfikator, wynik.status)
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+class DecyzjaSprawdzenia(BaseModel):
+    indeks: int
+    decyzja: str                       # falszywe_trafienie | potwierdzone
+    uzasadnienie: str
+
+
+@app.post("/api/sprawy/{identyfikator}/sprawdzenia/decyzja")
+def decyzja_sprawdzenia(identyfikator: str, dane: DecyzjaSprawdzenia, request: Request):
+    """Notariusz rozstrzyga trafienie z list. Stary wpis zostaje, dochodzi nowy."""
+    katalog = _katalog_sprawy(identyfikator)
+    wpisy = rejestry.wczytaj_sprawdzenia(identyfikator)
+    try:
+        wynik = aml.decyzja(wpisy, dane.indeks, dane.decyzja, dane.uzasadnienie,
+                            kto=getattr(request.state, "email", "") or "")
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    rejestry.zapisz_sprawdzenie(identyfikator, wynik)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: decyzja %s o wpisie %d (%s)", identyfikator, dane.decyzja, dane.indeks, wynik.rejestr)
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+@app.get("/api/aml/listy")
+def listy_aml():
+    """Z kiedy sa listy i ile maja wpisow - interfejs pokazuje to przy przycisku."""
+    return aml_listy.stan()
+
+
+@app.post("/api/admin/aml/listy/odswiez")
+def odswiez_listy_aml(request: Request):
+    """Pobiera listy na nowo (w tle - Wikidata trwa kilka minut)."""
+    autoryzacja._wymagaj_admina(request)
+    threading.Thread(target=aml_listy.odswiez, kwargs={"wymus": True}, daemon=True, name="listy-aml-admin").start()
+    return {"stan": "uruchomiono", "zrodla": aml_listy.zrodla_wlaczone()}
 
 
 # --- Pomocnik notariusza ----------------------------------------------------
@@ -1691,4 +1828,6 @@ if __name__ == "__main__":
     print(f"\n  pieczapp  ->  http://{config.HOST}:{config.PORT}")
     print(f"  model: {config.MODEL}")
     print(f"  region: {config.REGION}\n")
+    if os.getenv("PIECZAPP_AML_LISTY", "1") != "0":
+        aml_listy.odswiezaj_w_tle()   # listy sankcyjne i PEP, co 6 h
     uvicorn.run(app, host=config.HOST, port=config.PORT, access_log=False)
