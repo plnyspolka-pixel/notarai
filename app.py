@@ -8,6 +8,7 @@ import base64
 import contextvars
 import json
 import logging
+import os
 import queue
 import re
 import shutil
@@ -22,12 +23,17 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import aml
+import aml_listy
 import bedrock
 import config
+import crbr
 import dziennik
 import dokumenty
 import dokumenty_prawne
 import ekw
+import giif
+import ksiegi_notarialne
 import formularze
 import kalendarz
 import kalkulator
@@ -40,12 +46,19 @@ import autoryzacja
 import nazwy
 import osoby
 import poczta_polska
+import personalizacja
 import przesylki
 import sledzenie
+import poswiadczenia
 import prompty
 import rejestracja
 import rejestry
 import rezerwacje_hurtowe
+import tokenomia
+import rezerwacje_klientow
+import teczka
+import leady
+import meta_leady
 import wizyty
 import transkrypcja
 import walidacja
@@ -79,14 +92,27 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
 app.include_router(przesylki.router)
+app.include_router(personalizacja.router)
 app.include_router(poczta_polska.router)
 app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
+app.include_router(rezerwacje_klientow.router)
+app.include_router(teczka.router)
+app.include_router(leady.router)
+app.include_router(leady.router_kancelarii)
+app.include_router(leady.router_admina)
+app.include_router(meta_leady.router)
+app.include_router(rezerwacje_klientow.router_admina)
+rezerwacje_klientow.uruchom_przypomnienia()
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)
 app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
+# Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
+app.include_router(poswiadczenia.router)
+app.include_router(tokenomia.router)
+app.include_router(tokenomia.router_admina)
 app.middleware("http")(kalkulator.cors)
 
 
@@ -153,6 +179,13 @@ def strona_mapy_kancelarii():
     return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
 
 
+@app.get("/poswiadczenia", response_class=HTMLResponse)
+def strona_poswiadczen():
+    """Zdjecie albo skan dokumentu -> opis do repertorium A. Strona jest
+    jawna (jak /admin); odczyt za nia wymaga tokenu logowania kancelarii."""
+    return (Path(__file__).parent / "static" / "poswiadczenia.html").read_text("utf-8")
+
+
 @app.get("/kalkulator", response_class=HTMLResponse)
 def strona_kalkulatora():
     """Kalkulator taksy bez koniecznosci logowania."""
@@ -205,6 +238,38 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
              etykieta, sciezka_wzoru.name, len(pola_wzoru),
              len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek)
 
+    # Tokenomia: strony (cena zalezna od dokladnosci) + zestawienie z pytaniami.
+    # Saldo sprawdzamy przed pierwszym wywolaniem, pobieramy po udanym odczycie.
+    platna = tokenomia.akcja(tokenomia.akcja_odczytu(wysilek), len(strony), etykieta)
+    platna.dodaj("zalozenie_sprawy", 1)
+    with platna:
+        odczyt, transkrypcje, pytania = _odczytaj_i_zapytaj(
+            strony, pola_wzoru, polecenie, analiza, postep, wysilek, etykieta)
+    pola = _zwaliduj(odczyt.get("pola", []))
+    kontekst = prompty.kontekst_rozmowy(
+        pola, odczyt.get("braki", []), odczyt.get("rozbieznosci", []), polecenie
+    )
+    if pytania is None:
+        pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
+                   "albo od razu sporzadzic projekt.")
+
+    return {
+        "analiza": analiza,
+        "pola_wzoru": pola_wzoru,
+        "pola": pola,
+        "braki": odczyt.get("braki", []),
+        "rozbieznosci": odczyt.get("rozbieznosci", []),
+        "stron": len(strony),
+        "wysilek": wysilek,
+        "transkrypcje": transkrypcje,
+        "kontekst": kontekst,
+        "rozmowa": [{"rola": "asystent", "tresc": pytania,
+                     "czas": datetime.now().isoformat(timespec="seconds")}],
+    }
+
+
+def _odczytaj_i_zapytaj(strony, pola_wzoru, polecenie, analiza, postep, wysilek, etykieta):
+    """Odczyt sprawy i pytania wstepne (None, gdy pytan nie udalo sie przygotowac)."""
     try:
         odczyt, transkrypcje = bedrock.odczytaj_sprawe(
             strony, pola_wzoru, polecenie, analiza["legenda"], postep, wysilek)
@@ -223,22 +288,8 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
         pytania = bedrock.rozmawiaj(kontekst, [], None)
     except Exception as blad:
         log.error("%s: blad pytan wstepnych (%s)", etykieta, dziennik.opis_bledu(blad))
-        pytania = ("Nie udalo sie przygotowac pytan. Mozesz pisac do mnie ponizej "
-                   "albo od razu sporzadzic projekt.")
-
-    return {
-        "analiza": analiza,
-        "pola_wzoru": pola_wzoru,
-        "pola": pola,
-        "braki": odczyt.get("braki", []),
-        "rozbieznosci": odczyt.get("rozbieznosci", []),
-        "stron": len(strony),
-        "wysilek": wysilek,
-        "transkrypcje": transkrypcje,
-        "kontekst": kontekst,
-        "rozmowa": [{"rola": "asystent", "tresc": pytania,
-                     "czas": datetime.now().isoformat(timespec="seconds")}],
-    }
+        pytania = None
+    return odczyt, transkrypcje, pytania
 
 
 def _chce_strumienia(request: Request) -> bool:
@@ -417,6 +468,8 @@ def ustawienia_kancelarii():
         # Pobranie tresci ksiegi wieczystej z EKW (ekw.py). Bez tokenu dostawcy
         # przycisk nie ma sensu, wiec interfejs go nie pokazuje.
         "ekw": ekw.dostepne(),
+        # Saldo kredytow, gdy kancelaria placi za akcje (tokenomia); inaczej None.
+        "kredyty": tokenomia.saldo_kancelarii(),
     }
 
 
@@ -510,7 +563,7 @@ async def projekt_bez_zapisu(
     def praca(postep) -> dict:
         try:
             analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
-            projekt = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
+            projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
             cel = katalog / "projekt.docx"
             dokumenty.tekst_na_docx(projekt, cel)
             dane = cel.read_bytes()
@@ -524,17 +577,33 @@ async def projekt_bez_zapisu(
             "brakujace": projekt.count("<<BRAK:"),
             "do_wyboru": projekt.count("<<WYBOR:"),
             "docx": base64.b64encode(dane).decode("ascii"),
+            "zgodnosc": zgodnosc,
         }
 
     return await _wykonaj(request, praca, "projekt")
 
 
 def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
-              etykieta: str) -> str:
-    """Wywolanie modelu dla projektu z bledami zamienionymi na odpowiedzi HTTP."""
+              etykieta: str) -> tuple[str, dict]:
+    """Projekt z modelu po kontroli zasad kancelarii: (tekst, raport zgodnosci).
+    Tokenomia: projekt w cenie do 40 tys. znakow wzoru, dalej doplata."""
+    platna = tokenomia.akcja("projekt", 1, etykieta)
+    platna.dodaj("projekt_dodatek", tokenomia.jednostki_projektu(len(analiza["tresc"])))
+    with platna:
+        return _sporzadz_bez_oplaty(analiza, pola, polecenie, rozmowa, etykieta)
+
+
+def _sporzadz_bez_oplaty(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
+                         etykieta: str) -> tuple[str, dict]:
+    """Zasady i styl kancelarii ida do modelu razem ze wzorem, a gotowy projekt
+    przechodzi przez personalizacja.skontroluj() ZANIM trafi do notariusza.
+    Bledy modelu zamieniamy na odpowiedzi HTTP.
+    """
+    rodzaje = personalizacja.rodzaje_sprawy(analiza["tresc"], polecenie)
+    ustawienia, blok = personalizacja.przygotuj(rodzaje)
     try:
-        return bedrock.sporzadz_projekt(
-            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa
+        projekt = bedrock.sporzadz_projekt(
+            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa, personalizacja=blok
         )
     except bedrock.Przeciazenie as blad:
         log.error("%s: projekt przerwany, limit zapytan Bedrock", etykieta)
@@ -542,6 +611,7 @@ def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dic
     except Exception as blad:
         log.error("%s: blad generowania (%s)", etykieta, dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {blad}")
+    return personalizacja.skontroluj(projekt, ustawienia, rodzaje)
 
 
 class ZadanieRozmowy(BaseModel):
@@ -557,13 +627,24 @@ def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
     if not tresc:
         raise HTTPException(400, "Pusta wiadomosc")
     try:
-        odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
+        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(zadanie.kontekst, zadanie.historia, tresc),
+                             "rozmowa bez zapisu"):
+            odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("rozmowa bez zapisu: blad (%s)", dziennik.opis_bledu(blad))
         raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
     return {"odpowiedz": odpowiedz}
+
+
+def _tury_rozmowy(kontekst: str, historia: list[dict], tresc: str) -> int:
+    """Ile tur rozmowy policzyc: kontekst sprawy i cala historia ida do modelu
+    przy kazdej wiadomosci, wiec dluga rozmowa kosztuje wiecej."""
+    znakow = len(kontekst or "") + len(tresc or "") + sum(len(str(w.get("tresc", ""))) for w in historia or [])
+    return tokenomia.jednostki_rozmowy(znakow)
 
 
 class ZadanieGenerowania(BaseModel):
@@ -588,8 +669,8 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
 
     analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
     rozmowa = _wczytaj_rozmowe(katalog) if zadanie.z_rozmowa else []
-    projekt = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
-                        f"sprawa {identyfikator}")
+    projekt, zgodnosc = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
+                                  f"sprawa {identyfikator}")
 
     cel = katalog / "projekt.docx"
     dokumenty.tekst_na_docx(projekt, cel)
@@ -606,6 +687,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
             if nowa:
                 meta["nazwa"] = nowa
                 _zapisz_json(meta_plik, meta)
+    _zapisz_json(katalog / "zgodnosc.json", zgodnosc)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: projekt zapisany", identyfikator)
 
@@ -614,6 +696,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
         "brakujace": projekt.count("<<BRAK:"),
         "do_wyboru": projekt.count("<<WYBOR:"),
         "plik": f"/api/sprawy/{identyfikator}/plik",
+        "zgodnosc": zgodnosc,
     }
 
 
@@ -700,6 +783,8 @@ def wczytaj_sprawe(identyfikator: str):
     odczyt = json.loads(odczyt_plik.read_text("utf-8")) if odczyt_plik.exists() else {"pola": [], "braki": [], "rozbieznosci": []}
     projekt_plik = katalog / "projekt.txt"
     projekt = projekt_plik.read_text("utf-8") if projekt_plik.exists() else None
+    zgodnosc_plik = katalog / "zgodnosc.json"
+    zgodnosc = json.loads(zgodnosc_plik.read_text("utf-8")) if projekt and zgodnosc_plik.exists() else None
     return {
         "id": meta.get("id", identyfikator),
         "nazwa": _nazwa(katalog, meta),
@@ -719,6 +804,7 @@ def wczytaj_sprawe(identyfikator: str):
         "do_wyboru": projekt.count("<<WYBOR:") if projekt else 0,
         "plik": f"/api/sprawy/{identyfikator}/plik" if (katalog / "projekt.docx").exists() else None,
         "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator),
+        "zgodnosc": zgodnosc,
     }
 
 
@@ -1004,7 +1090,11 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
     rozmowa = _wczytaj_rozmowe(katalog)
     teraz = datetime.now().isoformat(timespec="seconds")
     try:
-        odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(kontekst, rozmowa, tresc),
+                             f"sprawa {identyfikator}"):
+            odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
@@ -1091,10 +1181,13 @@ def dopasuj_formularz(system: str, zadanie: ZadanieDopasowania):
 
     pola_sprawy = {str(p.get("nazwa", "")): p.get("wartosc") for p in zadanie.pola}
     try:
-        wynik = formularze.dopasuj(
-            mapowanie, zadanie.tekst_aktu, pola_sprawy,
-            model=bedrock.wyciagnij_do_formularza,
-        )
+        with tokenomia.akcja("formularz", 1, f"formularz {system}"):
+            wynik = formularze.dopasuj(
+                mapowanie, zadanie.tekst_aktu, pola_sprawy,
+                model=bedrock.wyciagnij_do_formularza,
+            )
+    except HTTPException:
+        raise
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
@@ -1286,7 +1379,9 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
         raise HTTPException(400, str(blad))
     start = datetime.now()
     try:
-        ksiega = ekw.pobierz(numer)
+        # Platny wynik u dostawcy: kredyty tylko za pobrana ksiege.
+        with tokenomia.akcja("ekw_ksiega", 1, f"sprawa {identyfikator}"):
+            ksiega = ekw.pobierz(numer)
     except ekw.BladEKW as blad:
         # Nieudana proba tez jest sladem starannosci - bez numeru KW w logach.
         rejestry.zapisz_sprawdzenie(identyfikator, ekw.wynik_bledu(numer, blad))
@@ -1306,6 +1401,334 @@ def pobierz_ksiege(identyfikator: str, zadanie: ZadanieEKW):
 def ksiegi_sprawy(identyfikator: str):
     _katalog_sprawy(identyfikator)
     return ekw.wczytaj(identyfikator)
+# --- AML: listy sankcyjne, PEP i CRBR (ustawa z 1.03.2018) -------------------
+# Notariusz jest instytucja obowiazana (art. 2 ust. 1 pkt 13). Listy przychodza
+# do nas (aml_listy), dopasowanie liczymy u siebie (aml_dopasowanie) - dane
+# stron czynnosci nie wychodza na zewnatrz. Wyjatek: CRBR, gdzie pytamy
+# oficjalna bramke MF o spolke (NIP/KRS), nie o osobe.
+
+
+class StronaAML(BaseModel):
+    imie_nazwisko: str = ""
+    pesel: str = ""
+    etykieta: str = ""
+
+
+class ZadanieAML(BaseModel):
+    strony: list[StronaAML] = []          # puste = wszystkie strony z odczytu sprawy
+    rejestry: list[str] = ["SANKCJE", "PEP"]
+    potwierdzam: bool = False
+
+
+def _strony_sprawy(katalog: Path) -> list[dict]:
+    plik = katalog / "odczyt.json"
+    pola = json.loads(plik.read_text("utf-8")).get("pola", []) if plik.exists() else []
+    return [{"imie_nazwisko": s["imie_nazwisko"], "pesel": s.get("pesel", ""), "etykieta": s.get("rola", "")}
+            for s in osoby.osoby_ze_sprawy(pola) if s.get("imie_nazwisko")]
+
+
+@app.post("/api/sprawy/{identyfikator}/aml")
+def sprawdz_aml(identyfikator: str, zadanie: ZadanieAML):
+    """Strony czynnosci na listach sankcyjnych i PEP. Jeden wpis sladu na
+    strone i liste; trafienia czekaja na decyzje notariusza."""
+    katalog = _katalog_sprawy(identyfikator)
+    if not zadanie.potwierdzam:
+        raise HTTPException(400, "Sprawdzenie na listach wymaga jawnego potwierdzenia")
+    for r in zadanie.rejestry:
+        if r not in aml.KATEGORIA_REJESTRU:
+            raise HTTPException(400, f"Nieznana lista: {r}")
+    strony = [s.model_dump() for s in zadanie.strony if s.imie_nazwisko.strip()] or _strony_sprawy(katalog)
+    if not strony:
+        raise HTTPException(400, "Brak stron czynnosci do sprawdzenia - odczytaj sprawe albo podaj osoby")
+    wyniki = aml.sprawdz_strony(strony, tuple(zadanie.rejestry))
+    for wynik in wyniki:
+        rejestry.zapisz_sprawdzenie(identyfikator, wynik)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: AML stron=%d wpisow=%d trafien=%d", identyfikator, len(strony), len(wyniki),
+             sum(1 for w in wyniki if w.status == "wpis"))
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+class ZadanieCRBR(BaseModel):
+    nip: str = ""
+    krs: str = ""
+    nazwa: str = ""
+    etykieta: str = ""
+    potwierdzam: bool = False
+
+
+@app.post("/api/sprawy/{identyfikator}/crbr")
+def sprawdz_crbr(identyfikator: str, zadanie: ZadanieCRBR):
+    """Beneficjenci rzeczywisci spolki z oficjalnej bramki CRBR. W sladzie
+    PESEL-e beneficjentow sa zamaskowane; strony czynnosci porownujemy
+    z beneficjentami po imieniu i nazwisku."""
+    katalog = _katalog_sprawy(identyfikator)
+    if not zadanie.potwierdzam:
+        raise HTTPException(400, "Zapytanie do CRBR wymaga jawnego potwierdzenia")
+    wynik = crbr.sprawdz(zadanie.nip, zadanie.krs, zadanie.nazwa)
+    if wynik.status == "bledne_dane":
+        raise HTTPException(400, wynik.komunikat)
+    zapytanie = (f"NIP {crbr.normalizuj_nip(zadanie.nip)}" if crbr.normalizuj_nip(zadanie.nip)
+                 else f"KRS {crbr.normalizuj_krs(zadanie.krs)}" if crbr.normalizuj_krs(zadanie.krs)
+                 else zadanie.nazwa.strip())
+    status = {"ok": "wpis", "brak": "brak_wpisu", "wiele": "blad", "blad": "niedostepny"}[wynik.status]
+    szczegoly = crbr.opis_dla_sladu(wynik)
+    trafienia = []
+    if wynik.status == "ok":
+        strony = [s["imie_nazwisko"] for s in _strony_sprawy(katalog)]
+        dopasowania = crbr.dopasuj_osoby(strony, wynik.beneficjenci)
+        if strony:
+            sa = [n for n, ok in dopasowania.items() if ok]
+            nie = [n for n, ok in dopasowania.items() if not ok]
+            szczegoly += " | Strony czynnosci wsrod beneficjentow: " + (", ".join(sa) or "zadna")
+            if nie:
+                szczegoly += "; poza CRBR: " + ", ".join(nie)
+        trafienia = [{"nazwa_na_liscie": o.imie_nazwisko, "rola": "beneficjent", "uprawnienia": o.uprawnienia,
+                      "data_urodzenia": o.data_urodzenia, "pesel": o.pesel_maska,
+                      "strona_czynnosci": any(dopasowania.get(n) and crbr._norm(n) in crbr._norm(o.imie_nazwisko)
+                                              or crbr._norm(o.imie_nazwisko) in crbr._norm(n) for n in strony)}
+                     for o in wynik.beneficjenci] + [
+                     {"nazwa_na_liscie": o.imie_nazwisko, "rola": "zglaszajacy", "funkcja": o.funkcja}
+                     for o in wynik.zglaszajacy]
+    elif wynik.status == "wiele":
+        trafienia = [{"nazwa_na_liscie": k.nazwa, "rola": "spolka", "nip": k.nip, "krs": k.krs} for k in wynik.kandydaci]
+    wpis = rejestry.WynikSprawdzenia(rejestr="CRBR", zapytanie=zapytanie, status=status, szczegoly=szczegoly,
+                                     zrodlo=wynik.zrodlo, etykieta=zadanie.etykieta, trafienia=trafienia)
+    rejestry.zapisz_sprawdzenie(identyfikator, wpis)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: CRBR status=%s", identyfikator, wynik.status)
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+class DecyzjaSprawdzenia(BaseModel):
+    indeks: int
+    decyzja: str                       # falszywe_trafienie | potwierdzone
+    uzasadnienie: str
+
+
+@app.post("/api/sprawy/{identyfikator}/sprawdzenia/decyzja")
+def decyzja_sprawdzenia(identyfikator: str, dane: DecyzjaSprawdzenia, request: Request):
+    """Notariusz rozstrzyga trafienie z list. Stary wpis zostaje, dochodzi nowy."""
+    katalog = _katalog_sprawy(identyfikator)
+    wpisy = rejestry.wczytaj_sprawdzenia(identyfikator)
+    try:
+        wynik = aml.decyzja(wpisy, dane.indeks, dane.decyzja, dane.uzasadnienie,
+                            kto=getattr(request.state, "email", "") or "")
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    rejestry.zapisz_sprawdzenie(identyfikator, wynik)
+    magazyn.utrwal_sprawe(katalog)
+    log.info("sprawa %s: decyzja %s o wpisie %d (%s)", identyfikator, dane.decyzja, dane.indeks, wynik.rejestr)
+    return rejestry.wczytaj_sprawdzenia(identyfikator)
+
+
+@app.get("/api/aml/listy")
+def listy_aml():
+    """Z kiedy sa listy i ile maja wpisow - interfejs pokazuje to przy przycisku."""
+    return aml_listy.stan()
+
+
+@app.post("/api/admin/aml/listy/odswiez")
+def odswiez_listy_aml(request: Request):
+    """Pobiera listy na nowo (w tle - Wikidata trwa kilka minut)."""
+    autoryzacja._wymagaj_admina(request)
+    threading.Thread(target=aml_listy.odswiez, kwargs={"wymus": True}, daemon=True, name="listy-aml-admin").start()
+    return {"stan": "uruchomiono", "zrodla": aml_listy.zrodla_wlaczone()}
+
+
+# --- Ksiegi notarialne i zgloszenia do GIIF ------------------------------------
+# Repertorium A/P, ksiega depozytowa, dzienniki (ksiegi_notarialne.py) oraz
+# obieg zgloszen do GIIF / Szefa KAS (giif.py). Numery nadaje serwer,
+# poprawki zostaja w historii. Wysylka do SI*GIIF i do systemu KW MS odbywa
+# sie podpisem kwalifikowanym notariusza - tu rejestrujemy jej wynik.
+
+
+def _kto(request: Request) -> str:
+    return getattr(request.state, "email", "") or ""
+
+
+def _ksiegi(funkcja, *argumenty, **nazwane):
+    _tylko_w_chmurze()
+    try:
+        return funkcja(*argumenty, **nazwane)
+    except ksiegi_notarialne.BrakWpisu as blad:
+        raise HTTPException(404, str(blad))
+    except magazyn.KonfliktZapisu as blad:
+        raise HTTPException(409, str(blad))
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    except (TypeError, ArithmeticError, KeyError, IndexError, AttributeError) as blad:
+        # Dane z przegladarki w nieoczekiwanym ksztalcie - to blad danych, nie serwera.
+        log.info("ksiegi/giif: niepoprawne dane (%s)", type(blad).__name__)
+        raise HTTPException(400, "Niepoprawne dane - sprawdź typy pól")
+
+
+class Poprawka(BaseModel):
+    zmiany: dict
+    powod: str
+
+
+class Uwaga(BaseModel):
+    tresc: str
+
+
+@app.get("/api/ksiegi-kancelarii")
+def definicje_ksiag():
+    return ksiegi_notarialne.definicje()
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/sumy")
+def sumy_repertorium(rok: int, miesiac: int | None = None):
+    return _ksiegi(ksiegi_notarialne.sumy, rok, miesiac)
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/skorowidz")
+def skorowidz_repertorium(rok: int):
+    return _ksiegi(ksiegi_notarialne.skorowidz, rok)
+
+
+@app.get("/api/ksiegi-kancelarii/{ksiega}/wydruk")
+def wydruk_ksiegi(ksiega: str, rok: int | None = None, format: str = "html"):
+    """Wydruk do oprawienia (HTML, A4 poziomo) albo CSV do arkusza."""
+    if format == "csv":
+        tresc = _ksiegi(ksiegi_notarialne.csv_ksiegi, ksiega, rok)
+        return Response(tresc, media_type="text/csv; charset=utf-8", headers={
+            "Content-Disposition": f'attachment; filename="{ksiega}-{rok or "wszystkie"}.csv"'})
+    return HTMLResponse(_ksiegi(ksiegi_notarialne.wydruk_html, ksiega, rok))
+
+
+@app.get("/api/ksiegi-kancelarii/{ksiega}")
+def lista_ksiegi(ksiega: str, rok: int | None = None):
+    return _ksiegi(ksiegi_notarialne.lista, ksiega, rok)
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}")
+def wpis_do_ksiegi(ksiega: str, dane: dict, request: Request):
+    wpis = _ksiegi(ksiegi_notarialne.dodaj, ksiega, dane, _kto(request))
+    log.info("ksiega %s: nowy wpis %s", ksiega, wpis["id"])
+    return wpis
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}/{wpis}/poprawka")
+def poprawka_w_ksiedze(ksiega: str, wpis: str, dane: Poprawka, request: Request):
+    wynik = _ksiegi(ksiegi_notarialne.popraw, ksiega, wpis, dane.zmiany, dane.powod, _kto(request))
+    log.info("ksiega %s: poprawka wpisu %s", ksiega, wpis)
+    return wynik
+
+
+@app.post("/api/ksiegi-kancelarii/{ksiega}/{wpis}/uwagi")
+def uwaga_w_ksiedze(ksiega: str, wpis: str, dane: Uwaga, request: Request):
+    return _ksiegi(ksiegi_notarialne.dodaj_uwage, ksiega, wpis, dane.tresc, _kto(request))
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw")
+def wniosek_kw(wpis: str, dane: dict, request: Request):
+    return _ksiegi(ksiegi_notarialne.zarejestruj_wniosek_kw, wpis, dane, _kto(request))
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}")
+def zmiana_wniosku_kw(wpis: str, wniosek: str, dane: dict, request: Request):
+    return _ksiegi(ksiegi_notarialne.zmien_wniosek_kw, wpis, wniosek, dane, _kto(request))
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}/pakiet")
+def pakiet_wniosku_kw(wpis: str, wniosek: str):
+    """Kroki do portalu MS w kolejnosci formularza - do skopiowania albo dla pomocnika."""
+    return _ksiegi(ksiegi_notarialne.pakiet_wniosku_kw, wpis, wniosek)
+
+
+@app.post("/api/ksiegi-kancelarii/repertorium_a/{wpis}/wnioski-kw/{wniosek}/status")
+def status_wniosku_kw(wpis: str, wniosek: str, dane: dict, request: Request):
+    """Zlozony (z numerem REP.C -> repertorium C), w sadzie, wpis dokonany, zwrot..."""
+    wynik = _ksiegi(ksiegi_notarialne.zmien_status_wniosku_kw, wpis, wniosek, dane, _kto(request))
+    log.info("wniosek KW %s: status %s", wniosek, dane.get("status"))
+    return wynik
+
+
+@app.get("/api/ksiegi-kancelarii/repertorium_a/{wpis}/giif")
+def kwalifikacja_giif(wpis: str, kurs_eur: str = ""):
+    rep = _ksiegi(ksiegi_notarialne.wpis, "repertorium_a", wpis)
+    if rep is None:
+        raise HTTPException(404, "Nie ma takiego wpisu")
+    return _ksiegi(giif.kwalifikuj, rep, kurs_eur or None)
+
+
+class NoweZgloszenie(BaseModel):
+    rodzaj: str | None = None
+    rep_a_id: str = ""
+    kurs_eur: str = ""
+    dane: dict = {}
+
+
+class Wysylka(BaseModel):
+    identyfikator_si_giif: str
+    data_wysylki: str
+
+
+@app.get("/api/giif")
+def lista_zgloszen(status: str | None = None):
+    return {"definicje": giif.definicje(), "zgloszenia": _ksiegi(giif.lista, status),
+            "zalegle": _ksiegi(giif.zalegle)}
+
+
+@app.post("/api/giif")
+def nowe_zgloszenie(dane: NoweZgloszenie, request: Request):
+    if dane.rep_a_id:
+        z = _ksiegi(giif.z_repertorium, dane.rep_a_id, dane.rodzaj, dane.kurs_eur or None, _kto(request))
+    else:
+        z = _ksiegi(giif.utworz, dane.rodzaj or "", dane.dane, _kto(request))
+    log.info("giif: nowe zgloszenie %s rodzaj=%s", z["id"], z["rodzaj"])
+    return z
+
+
+@app.get("/api/giif/ustawienia")
+def ustawienia_giif():
+    return _ksiegi(giif.ustawienia)
+
+
+@app.post("/api/giif/ustawienia")
+def zapis_ustawien_giif(dane: dict):
+    return _ksiegi(giif.zapisz_ustawienia, dane)
+
+
+@app.post("/api/giif/{zgloszenie}/karta")
+def karta_zgloszenia(zgloszenie: str, karta: dict, request: Request):
+    return _ksiegi(giif.zapisz_karte, zgloszenie, karta, _kto(request))
+
+
+@app.get("/api/giif/{zgloszenie}/xml")
+def xml_zgloszenia(zgloszenie: str, pobierz: bool = False):
+    """Plik XML wg XSD CRWDE 14250 + bledy. pobierz=1 - sam plik, tylko gdy bez bledow."""
+    wynik = _ksiegi(giif.plik_xml, zgloszenie)
+    if not pobierz:
+        return wynik
+    if wynik["bledy"]:
+        raise HTTPException(400, "Plik ma bledy: " + "; ".join(wynik["bledy"][:5]))
+    return Response(wynik["xml"], media_type="application/xml",
+                    headers={"Content-Disposition": f'attachment; filename="{wynik["nazwa_pliku"]}"'})
+
+
+@app.post("/api/giif/{zgloszenie}")
+def zmiana_zgloszenia(zgloszenie: str, dane: dict, request: Request):
+    return _ksiegi(giif.zmien, zgloszenie, dane, _kto(request))
+
+
+@app.post("/api/giif/{zgloszenie}/zatwierdz")
+def zatwierdz_zgloszenie(zgloszenie: str, request: Request):
+    return _ksiegi(giif.zatwierdz, zgloszenie, _kto(request))
+
+
+@app.post("/api/giif/{zgloszenie}/wysylka")
+def wysylka_zgloszenia(zgloszenie: str, dane: Wysylka, request: Request):
+    z = _ksiegi(giif.zarejestruj_wysylke, zgloszenie, dane.model_dump(), _kto(request))
+    log.info("giif: zgloszenie %s wyslane", zgloszenie)
+    return z
+
+
+@app.post("/api/giif/{zgloszenie}/upo")
+async def upo_zgloszenia(zgloszenie: str, request: Request, plik: UploadFile = File(...)):
+    tresc = await plik.read()
+    return _ksiegi(giif.zarejestruj_upo, zgloszenie, tresc, _kto(request))
 
 
 # --- Pomocnik notariusza ----------------------------------------------------
@@ -1374,7 +1797,8 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     if not zlecenia.wynik(zlecenie):
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
     try:
-        krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
+        with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
+            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
     # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.
@@ -1628,4 +2052,6 @@ if __name__ == "__main__":
     print(f"\n  pieczapp  ->  http://{config.HOST}:{config.PORT}")
     print(f"  model: {config.MODEL}")
     print(f"  region: {config.REGION}\n")
+    if os.getenv("PIECZAPP_AML_LISTY", "1") != "0":
+        aml_listy.odswiezaj_w_tle()   # listy sankcyjne i PEP, co 6 h
     uvicorn.run(app, host=config.HOST, port=config.PORT, access_log=False)

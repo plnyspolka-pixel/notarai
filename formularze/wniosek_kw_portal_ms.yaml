@@ -1,0 +1,67 @@
+# Wniosek o wpis w ksiedze wieczystej - portal MS (elektroniczne postepowanie
+# wieczystoksiegowe, art. 92 par. 4 PrNot). Pomocnik wypelnia, notariusz
+# podpisuje kwalifikowanym podpisem i wysyla SAM.
+# STATUS: szkic - czeka na dostep: docs/czeka-na-dostep.md, NA-1. Selektory do ustalenia na zalogowanym koncie notariusza
+# (nagranie jednego wniosku w trybie podgladu - patrz docs/ksiegi-i-giif.md).
+# Dopoki status != gotowe, dziala tylko tryb podgladu.
+system: wniosek_kw_portal_ms
+opis: Wniosek wieczystoksiegowy notariusza - wypelnienie formularza przed podpisem
+status: szkic
+adres: "https://ekw.ms.gov.pl/"   # TODO: dokladny adres formularza po zalogowaniu
+gotowosc: "TODO"                  # TODO: element, ktory jest tylko na formularzu wniosku
+przycisk_wysylki: "TODO-podpisz-i-wyslij"  # NIGDY nie klikany
+uwagi: >
+  Zrodlem wartosci jest wniosek przygotowany w notarai (ksiegi_notarialne,
+  wnioski_kw). Wieloelementowe czesci (uczestnicy, zadania) wypelnia pomocnik
+  w petli - tu sa pola pierwszego elementu jako wzor selektorow.
+  Po wyslaniu notariusz wpisuje numer REP.C - wniosek trafia do repertorium C.
+pola:
+  - nazwa: Sad / wydzial ksiag wieczystych
+    zrodlo: sad
+    selektor: "TODO"
+    typ: lista
+    wymagane: true
+    opis: Sad rejonowy wlasciwy dla polozenia nieruchomosci, wydzial ksiag wieczystych.
+  - nazwa: Numer ksiegi wieczystej
+    zrodlo: numer_kw
+    selektor: "TODO"
+    typ: tekst
+    transformacja: wielkie
+    wymagane: true
+    opis: Numer KW, w ktorej ma nastapic wpis (przy zalozeniu - ksiega macierzysta).
+  - nazwa: Uczestnik - imie i nazwisko / nazwa
+    zrodlo: uczestnik_1_nazwa
+    selektor: "TODO"
+    typ: tekst
+    wymagane: true
+    opis: Osoba, na rzecz ktorej ma nastapic wpis, albo inny uczestnik.
+  - nazwa: Uczestnik - PESEL
+    zrodlo: uczestnik_1_pesel
+    selektor: "TODO"
+    typ: tekst
+    transformacja: cyfry
+    opis: PESEL osoby fizycznej; wymagany dla osoby, na rzecz ktorej nastepuje wpis.
+  - nazwa: Zadanie - dzial ksiegi
+    zrodlo: zadanie_1_dzial
+    selektor: "TODO"
+    typ: lista
+    wymagane: true
+    opis: Dzial ksiegi (I-O, I-Sp, II, III, IV), ktorego dotyczy zadanie.
+  - nazwa: Zadanie - tresc
+    zrodlo: zadanie_1_tresc
+    selektor: "TODO"
+    typ: tekst
+    wymagane: true
+    opis: Tresc zadania wpisu, np. wpis prawa wlasnosci na rzecz nabywcy.
+  - nazwa: Podstawa wpisu - numer repertorium A
+    zrodlo: rep_a
+    selektor: "TODO"
+    typ: tekst
+    wymagane: true
+    opis: Numer rep. A aktu notarialnego bedacego podstawa wpisu (pole 1.12.1.2).
+  - nazwa: Podstawa wpisu - data aktu
+    zrodlo: data_aktu
+    selektor: "TODO"
+    typ: tekst
+    wymagane: true
+    opis: Data sporzadzenia aktu notarialnego.

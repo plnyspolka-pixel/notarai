@@ -28,6 +28,7 @@
   };
   const render = p => {
     $("hurtowe-wlaczone").checked = Boolean(p.wlaczone);
+    $("hurtowe-klienci").checked = Boolean(p.klienci);
     $("hurtowe-miasto").value = p.miasto || "";
     $("hurtowe-adres").value = p.adres || "";
     $("hurtowe-czas").value = String(p.czas_minut || 60);
@@ -63,6 +64,7 @@
     });
     const dane = {
       wlaczone: $("hurtowe-wlaczone").checked,
+      klienci: $("hurtowe-klienci").checked,
       miasto: $("hurtowe-miasto").value.trim(),
       adres: $("hurtowe-adres").value.trim(),
       godziny,

@@ -1,0 +1,123 @@
+/* Styl i zasady kancelarii (etap 9) + raport zgodnosci nad projektem (etap 3).
+   Tylko zmienne motywu z index.html - jasny i ciemny tryb dzialaja same. */
+
+.pz-liczby{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:-14px 0 22px}
+.pz-liczba{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:14px 16px}
+.pz-liczba b{display:block;font:500 26px/1.1 var(--serif);color:var(--tekst)}
+.pz-liczba span{font-size:12.5px;color:var(--tekst2)}
+
+.pz-nowa{margin-bottom:10px}
+.pz-nowa textarea{min-height:52px}
+.pz-podglad{border-top:1px solid var(--linia);margin-top:8px;padding:10px 4px 2px;font-size:13.5px}
+.pz-podglad .pz-rozumiem{color:var(--tekst3);font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.pz-podglad .pz-opis-glowny{color:var(--tekst);line-height:1.5}
+.pz-podglad .pz-ustawienia{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.pz-podglad select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--linia2);border-radius:var(--r2);
+  background:var(--tlo);color:var(--tekst);max-width:100%}
+.pz-podglad .przelacznik label{padding:5px 11px;font-size:12.5px}
+
+.pz-przyklady{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 18px;font-size:12.5px;color:var(--tekst3)}
+.pz-przyklady .chip{font-size:12px}
+
+.pz-sugestie{background:var(--akcent-tlo);border-radius:var(--r2);padding:12px 14px;margin:0 0 18px}
+.pz-sugestie h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--akcent)}
+.pz-sugestia{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 0;
+  border-top:1px solid color-mix(in srgb, var(--akcent) 18%, transparent)}
+.pz-sugestia:first-of-type{border-top:0}
+.pz-sugestia .pz-tekst{font-weight:500;font-size:14px}
+.pz-sugestia small{display:block;color:var(--tekst2);font-size:12.5px}
+.pz-sugestia .pz-przyciski{display:flex;gap:6px;flex:none}
+.pz-sugestia button{padding:6px 12px;font-size:13px}
+
+.pz-grupa{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--tekst3);
+  display:flex;align-items:center;gap:8px}
+.pz-grupa .pz-ikona{width:20px;height:20px;font-size:11px}
+.pz-zasada{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--linia);border-radius:var(--r2);
+  padding:11px 12px;margin-bottom:7px;background:var(--tlo)}
+.pz-zasada.wyl{opacity:.55}
+.pz-zasada.wyl .pz-tekst{text-decoration:line-through}
+.pz-ikona{width:28px;height:28px;border-radius:8px;background:var(--akcent-tlo);color:var(--akcent);flex:none;
+  display:inline-flex;align-items:center;justify-content:center;font:600 13px var(--sans)}
+.pz-tresc{flex:1;min-width:0}
+.pz-tekst{font-size:14.5px;line-height:1.45;overflow-wrap:anywhere;cursor:text}
+.pz-opis{font-size:12.5px;color:var(--tekst2);margin-top:3px;line-height:1.45}
+.pz-znaczki{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.pz-znaczek{font-size:11px;padding:1px 8px;border-radius:999px;background:var(--tlo2);color:var(--tekst2);border:1px solid var(--linia)}
+.pz-znaczek.twardy{background:var(--alarm-tlo);color:var(--alarm);border-color:transparent}
+.pz-znaczek.sam{background:var(--ok-tlo);color:var(--ok);border-color:transparent}
+.pz-akcje{display:flex;gap:4px;align-items:center;flex:none}
+.pz-akcje button{padding:4px 9px;font-size:12.5px}
+.pz-edycja{width:100%;font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--akcent);border-radius:8px;
+  background:var(--karta);color:var(--tekst)}
+
+/* przelacznik wl./wyl. */
+.pz-przel{position:relative;display:inline-block;width:36px;height:20px;flex:none;cursor:pointer}
+.pz-przel input{opacity:0;width:0;height:0;position:absolute}
+.pz-przel span{position:absolute;inset:0;border-radius:999px;background:var(--linia2);transition:background .15s}
+.pz-przel span::after{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;
+  background:#fff;transition:transform .15s}
+.pz-przel input:checked + span{background:var(--ok)}
+.pz-przel input:checked + span::after{transform:translateX(16px)}
+.pz-przel input:focus-visible + span{outline:2px solid var(--akcent);outline-offset:1px}
+
+.pz-wbudowane{margin-top:14px;font-size:13.5px}
+.pz-wbudowane summary{cursor:pointer;color:var(--tekst2)}
+.pz-wbudowane .pz-wb{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 2px;
+  border-bottom:1px solid var(--linia)}
+
+.pz-pusto{color:var(--tekst3);font-size:13.5px;padding:10px 2px}
+
+.pz-wynik{border:1px solid var(--linia);border-radius:var(--r2);padding:12px 14px;margin-top:12px;font-size:13.5px;background:var(--tlo)}
+.pz-wynik ul{margin:6px 0 0;padding-left:18px}
+.pz-nawyki{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.pz-nawyk{font-size:12.5px;padding:5px 10px;border-radius:999px;background:var(--tlo2);border:1px solid var(--linia)}
+.pz-nawyk small{color:var(--tekst3);margin-left:4px}
+.pz-akty{font-size:13px;color:var(--tekst2);margin-top:8px}
+.pz-akty div{padding:4px 0;border-bottom:1px dashed var(--linia)}
+
+.pz-sformulowanie{border:1px solid var(--linia);border-radius:var(--r2);padding:11px 13px;margin-bottom:7px;background:var(--tlo)}
+.pz-sformulowanie.ukryte{opacity:.5}
+.pz-sformulowanie.przypiete{border-color:var(--akcent);box-shadow:0 0 0 1px var(--akcent-tlo)}
+.pz-sformulowanie .pz-szkielet{font:14px/1.6 var(--serif)}
+.pz-pole{font:11.5px var(--mono);background:var(--akcent-tlo);color:var(--akcent);border-radius:4px;padding:0 4px;white-space:nowrap}
+.pz-sformulowanie .pz-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;
+  font-size:12px;color:var(--tekst3)}
+.pz-sformulowanie .pz-meta button{padding:3px 9px;font-size:12px}
+/* motyw financeyou nadaje przyciskom gradient - "pokaz wiecej" ma byc linkiem */
+button.pz-wiecej{font-size:13px;color:var(--akcent)!important;cursor:pointer;background:none!important;border:0!important;
+  box-shadow:none!important;padding:6px 0!important;margin-top:4px}
+button.pz-wiecej:hover:not(:disabled){background:none!important;text-decoration:underline}
+
+/* raport zgodnosci nad projektem */
+.zgodnosc{border-radius:var(--r2);padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.5;border:1px solid}
+.zgodnosc[hidden]{display:none}
+.zgodnosc.ok{background:var(--ok-tlo);border-color:transparent;color:var(--tekst)}
+.zgodnosc.zle{background:var(--alarm-tlo);border-color:var(--alarm)}
+.zgodnosc.uwaga{background:var(--tlo2);border-color:var(--linia2)}
+.zgodnosc .zg-tytul{font-weight:600;display:flex;gap:8px;align-items:center}
+.zgodnosc.ok .zg-tytul{color:var(--ok)}
+.zgodnosc.zle .zg-tytul{color:var(--alarm)}
+.zgodnosc ul{margin:8px 0 0;padding-left:0;list-style:none}
+.zgodnosc li{padding:7px 0;border-top:1px solid var(--linia)}
+.zgodnosc li:first-child{border-top:0}
+.zgodnosc .zg-zasada{font-size:12px;color:var(--tekst2)}
+.zgodnosc .zg-fragment{font:12.5px/1.5 var(--serif);color:var(--tekst2);margin-top:2px;font-style:italic}
+.zgodnosc details{margin-top:6px}
+.zgodnosc summary{cursor:pointer;color:var(--tekst2);font-size:12.5px}
+.zgodnosc a{color:var(--akcent);cursor:pointer}
+.projekt mark.naruszenie{background:var(--alarm-tlo);color:var(--alarm);font:inherit;outline:1px solid var(--alarm);padding:0 1px}
+
+/* pasek nad zaznaczeniem w projekcie */
+.pz-zaznaczenie{position:fixed;z-index:50;display:flex;gap:4px;padding:5px;border-radius:12px;background:var(--tekst);
+  box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.pz-zaznaczenie[hidden]{display:none}
+.pz-zaznaczenie button{background:transparent;border:0;color:var(--tlo);padding:6px 10px;font-size:12.5px;border-radius:8px;white-space:nowrap}
+.pz-zaznaczenie button:hover:not(:disabled){background:rgba(127,127,127,.25)}
+
+@media (max-width:700px){
+  .pz-liczby{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .pz-liczba{padding:10px}
+  .pz-liczba b{font-size:20px}
+  .pz-sugestia{flex-direction:column;align-items:flex-start}
+  .pz-zaznaczenie{left:8px!important;right:8px;flex-wrap:wrap;justify-content:center}
+}

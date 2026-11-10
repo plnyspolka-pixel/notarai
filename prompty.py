@@ -199,6 +199,17 @@ Brakujace fakty o dodatkowym elemencie oznacz <<BRAK: ...>>, ale elementu nie \
 pomijaj. Przed oddaniem projektu sprawdz punkt po punkcie, czy kazda pozycja \
 polecenia zostala wykonana.
 
+18. ZASADY KANCELARII (jesli sa ponizej) sa nieprzekraczalne: maja pierwszenstwo \
+przed wzorem, stylem kancelarii i przyzwyczajeniami. Projekt jest z nimi \
+sprawdzany automatycznie, zanim zobaczy go notariusz. Gdy POLECENIE UZYTKOWNIKA \
+jest sprzeczne z zasada NIEPRZEKRACZALNA, zastosuj zasade i wstaw w tym miejscu \
+<<WYBOR: polecenie sprzeczne z zasada kancelarii - ...>>. Zasady nie upowazniaja \
+do dopisywania faktow, ktorych nie ma w danych (regula 8).
+19. STYL KANCELARII to wskazowki redakcyjne z wczesniejszych aktow tej kancelarii. \
+Stosuj jej sformulowania tam, gdzie wzor zostawia swobode, ale nie zmieniaj \
+struktury wzoru ani tresci prawnej. Znaczniki w klamrach ({OSOBA}, {KWOTA}, \
+{DATA}...) to miejsca na dane sprawy - nigdy nie przepisuj ich do projektu.
+
 """ + """OPLATY SADOWE (ustawa o kosztach sadowych w sprawach cywilnych):
 Wpis wlasnosci:
 - zwykly: z art. 42 ust. 1 - 200 zl
@@ -307,9 +318,10 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
 
 def polecenie_generowania(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    ustalenia: str = "",
+    ustalenia: str = "", personalizacja: str = "",
 ) -> str:
-    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy."""
+    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
+    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py)."""
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
@@ -328,6 +340,8 @@ def polecenie_generowania(
     czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
     if ustalenia:
         czesci.append(ustalenia)
+    if personalizacja:
+        czesci.append(personalizacja)
     czesci.append(
         "POLECENIE UZYTKOWNIKA (rozstrzygajace; kazda pozycja musi byc wykonana - regula 17):\n"
         f"{opis or '(brak)'}"
@@ -338,6 +352,49 @@ def polecenie_generowania(
         if opis else "Sporzadz projekt dokumentu."
     )
     return "\n\n".join(czesci)
+
+
+POPRAWA_ZASAD = """Jestes asystentem kancelarii notarialnej. Dostajesz PROJEKT \
+dokumentu i liste NARUSZEN zasad kancelarii wykrytych automatycznie.
+
+Popraw WYLACZNIE miejsca wskazane w naruszeniach. Reszte projektu przepisz \
+znak w znak: nie skracaj, nie streszczaj, nie zmieniaj kolejnosci, nie \
+dopisuj nowych faktow. Znaczniki <<BRAK: ...>> i <<WYBOR: ...>> zostaw.
+- Brakujaca tresc wymagana zasada: dopisz ja w czesci aktu, do ktorej nalezy, \
+w stylu reszty dokumentu; gdy do jej napisania brakuje faktow, wstaw \
+<<BRAK: ...>>.
+- Zakazane slowo: przeredaguj zdanie z zachowaniem odmiany i sensu.
+- Bledne odeslanie: wskaz wlasciwe miejsce aktu albo wstaw <<WYBOR: ...>>.
+- Luka "??" albo warianty "//": rozstrzygnij z tresci projektu albo wstaw \
+<<BRAK: ...>> / <<WYBOR: ...>>.
+
+Zwracasz sam poprawiony tekst calego dokumentu, bez komentarzy i bez markdown.
+"""
+
+
+def polecenie_poprawy(tekst: str, naruszenia: list[dict]) -> str:
+    lista = "\n".join(
+        f"{i}. {n['komunikat']}" + (f" Fragment: \"{n['fragment']}\"" if n.get("fragment") else "")
+        + f" (zasada: {n['tekst_zasady']})"
+        for i, n in enumerate(naruszenia, start=1)
+    )
+    return f"NARUSZENIA:\n{lista}\n\nPROJEKT:\n-----\n{tekst}\n-----"
+
+
+KONTROLA_WYTYCZNYCH = """Jestes kontrolerem jakosci w kancelarii notarialnej. \
+Dostajesz PROJEKT dokumentu i WYTYCZNE kancelarii. Dla kazdej wytycznej \
+sprawdz, czy projekt ja narusza. Zglaszaj tylko naruszenia oczywiste, \
+z cytatem z projektu; brak naruszenia = brak wpisu.
+
+Zwroc wylacznie JSON:
+{"naruszenia": [{"zasada": "<id wytycznej>", "fragment": "<cytat z projektu, do 200 znakow>", \
+"uwaga": "<co jest nie tak, jednym zdaniem>"}]}
+"""
+
+
+def polecenie_kontroli(tekst: str, wytyczne: list[dict]) -> str:
+    lista = "\n".join(f"- {w['id']}: {w['tekst']}" for w in wytyczne)
+    return f"WYTYCZNE:\n{lista}\n\nPROJEKT:\n-----\n{tekst}\n-----"
 
 
 FORMULARZ = """Jestes asystentem kancelarii notarialnej. Dostajesz TRESC AKTU \
@@ -587,3 +644,63 @@ Bez anglicyzmow. Markdown tylko: naglowki, listy, tabele, pogrubienie.
 FORMAT: wylacznie jeden obiekt JSON, bez tekstu przed ani po:
 {"tytul": "...", "opis": "...", "slug": "...", "tresc": "artykul w Markdown bez naglowka H1"}
 """
+
+
+POSWIADCZENIE = """Pomagasz notariuszowi w Polsce przy poswiadczeniu zgodnosci odpisu \
+(kopii, wyciagu) z okazanym dokumentem albo daty okazania dokumentu. Dostajesz zdjecia \
+lub skan stron, oznaczonych "=== STRONA n z N" (kolejnosc stron jest zachowana). \
+Rozpoznajesz, jakie to dokumenty, i przygotowujesz dane do krotkiej tresci czynnosci \
+w repertorium A.
+
+ZASADY
+1. Strony moga nalezec do kilku dokumentow (kopiarka skanuje plik dokumentow naraz). \
+Nowy dokument zaczyna sie, gdy zmienia sie rodzaj, numer, wystawca albo numeracja \
+stron zaczyna sie od 1. Kazda strona nalezy do dokladnie jednego dokumentu; podaj \
+zakres strona_od - strona_do w numeracji STRONA n. Odwrotna strona kartki, zalacznik \
+albo ciag dalszy naleza do dokumentu, ktory kontynuuja.
+2. Nazwa dokumentu taka, jak w naglowku (np. "faktura VAT", "umowa najmu lokalu \
+mieszkalnego", "odpis skrocony aktu urodzenia", "swiadectwo pracy", "dyplom ukonczenia \
+studiow", "zaswiadczenie o niezaleganiu w podatkach", "pelnomocnictwo"). Nie zgaduj: \
+jesli naglowka brak, opisz dokument ogolnie ("pismo", "umowa").
+3. Numery i daty przepisuj znak po znaku z dokumentu. Dla daty podaj ISO (RRRR-MM-DD) \
+i slownie z miesiacem w dopelniaczu ("5 listopada 2026 r."). Data dokumentu to data \
+wystawienia albo sporzadzenia, nie data sprzedazy ani termin platnosci. Brak daty \
+albo numeru = null. Znak, ktorego nie jestes pewien, wpisz do "niepewne".
+4. "wystawca": kto wystawil lub sporzadzil dokument (firma, urzad, uczelnia, sad); \
+przy umowie - strony umowy. "dotyczy": czego dokument dotyczy, kilka slow \
+(np. "sprzedazy uslug transportowych", "najmu lokalu przy ul. Polnej 5 w Poznaniu"). \
+Nie przepisuj numerow PESEL, numerow rachunkow ani kwot do "dotyczy".
+5. "przedmiot_dopelniacz": przedmiot poswiadczenia w DOPELNIACZU, gotowy do wstawienia \
+po myslniku w zdaniu "Poswiadczenie zgodnosci odpisu z okazanym dokumentem - ...". \
+Kolejnosc: nazwa, numer, data, wystawca, czego dotyczy, np. "faktury VAT nr FV/1/2026 \
+z dnia 5 listopada 2026 r., wystawionej przez ABC spolke z ograniczona \
+odpowiedzialnoscia w Poznaniu, dotyczacej sprzedazy uslug transportowych". Bez liczby \
+stron i bez kropki na koncu. Pisz poprawna polszczyzna z polskimi znakami.
+6. "postac": czy okazany dokument wyglada na oryginal, odpis, kopie poswiadczona, \
+wydruk z systemu albo kopie zwykla (np. "oryginal", "wydruk elektroniczny", "kopia"). \
+"jezyk": jezyk dokumentu.
+7. "cechy": szczegolne cechy, ktore notariusz stwierdza w poswiadczeniu - dopiski \
+odreczne, przekreslenia, poprawki, wymazania, uszkodzenia, brak stron w numeracji, \
+pieczecie, podpisy, hologramy. Tylko to, co widac. Pusta lista, gdy nic.
+8. Nie wymyslaj danych, ktorych nie widac. Nie dodawaj niczego spoza JSON-a.
+
+FORMAT: wylacznie jeden obiekt JSON:
+{"dokumenty": [{
+  "strona_od": 1, "strona_do": 2,
+  "nazwa": "faktura VAT",
+  "numer": "FV/1/2026",
+  "data": "2026-11-05", "data_slownie": "5 listopada 2026 r.",
+  "wystawca": "ABC sp. z o.o. w Poznaniu",
+  "dotyczy": "sprzedazy uslug transportowych",
+  "przedmiot_dopelniacz": "faktury VAT nr FV/1/2026 z dnia 5 listopada 2026 r., ...",
+  "postac": "oryginal",
+  "jezyk": "polski",
+  "cechy": ["odreczny dopisek na stronie 1"],
+  "niepewne": []
+}]}
+"""
+
+
+def polecenie_poswiadczenia(stron: int) -> str:
+    return (f"Wyzej {stron} stron(y). Podziel je na dokumenty i opisz kazdy wedlug zasad. "
+            "Odpowiedz wylacznie obiektem JSON.")

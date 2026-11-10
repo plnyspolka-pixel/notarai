@@ -31,7 +31,7 @@ w aplikacji (app.notarai.pl):
   stacjonarne `xx xxx xx xx`, bez faksów), wybiera jedną wersję adresu, łączy
   literówki miejscowości (604 -> 602) i zapisuje `seo/kancelarie.json`.
 - Na strony nie trafiają adresy e-mail; w JSON zostają wyłącznie do
-  dopasowania kancelarii do konta w notarai.
+  przekazywania zgłoszeń przez aplikację.
 - Aktualizacja: nowy arkusz -> `py -3 seo\baza.py plik.xlsx` -> commit JSON.
 
 ## Generowanie i publikacja
@@ -72,7 +72,7 @@ Trzy pierwsze artykuły (zakup mieszkania, nowe stawki, testament) powstały
 
 - `POST /api/wizyty/zgloszenie` (otwarty, CORS dla notarai.pl, limit 5 na IP
   na godzinę i 300 na dobę, pole-pułapka): imię, telefon lub e-mail, czynność,
-  wartość, termin, wiadomość, zgoda, kancelaria z bazy (wymagana),
+  wartość, termin, wiadomość, zgoda, kancelaria z bazy albo miejscowość,
   parametry z kalkulatora (liczone na nowo na serwerze).
 - Routing: kancelaria z bazy jest klientem notarai, gdy jej e-mail z wykazu
   jest w zespole kancelarii w rejestrze albo administrator ustawił powiązanie
@@ -80,20 +80,16 @@ Trzy pierwsze artykuły (zakup mieszkania, nowe stawki, testament) powstały
   `kancelaria_id`, kancelaria widzi je w aplikacji (pasek boczny „Zapytania
   klientów”), dostaje e-mail, a status „umówiona” z datą tworzy wpis w jej
   kalendarzu z telefonem klienta.
-- Kancelaria spoza notarai: zgłoszenia nie przyjmujemy (409) i nikomu go nie
-  przekazujemy; klient dostaje publiczny adres i telefon kancelarii. Nie ma też
-  opcji „dowolna kancelaria w miejscowości” - notarai nie dobiera kancelarii.
-  Administrator może dopiąć zgłoszenie wyłącznie do kancelarii powiązanej z
-  pozycją, którą wybrał klient. Powód: zakaz reklamy i pozyskiwania klientów
-  przez pośredników (KEZN); notarai ma być narzędziem rezerwacyjnym.
+- Kancelaria spoza notarai: zgłoszenie widzi obsługa w `/admin` (sekcja
+  „Zapytania klientów”) i przekazuje je e-mailem na adres z bazy
+  (`POST /api/admin/wizyty/<id>/przekaz`). Wysyłka jest decyzją człowieka,
+  nic nie idzie automatycznie do obcych kancelarii. Treść e-maila zawiera
+  zgłoszenie klienta i jedno zdanie o notarai.
 - Klient dostaje potwierdzenie e-mailem (jeśli podał adres).
 - Magazyn: `kancelarie/_administracja/wizyty.json` (S3, szyfrowany, UE);
   retencja 180 dni (`PIECZAPP_WIZYTY_RETENCJA_DNI`). Dane klienta nie trafiają
   do logów. `GET /api/wizyty/kancelarie?miejscowosc=` zwraca id kancelarii
-  przyjmujących zgłoszenia online; strona tylko odsłania przy nich przycisk
-  „Umów wizytę”, bez odznak i bez zmiany kolejności listy.
-- Mapa `/notariusze`: widoczność zależy wyłącznie od zgody kancelarii i
-  położenia, nie od abonamentu (miejsca na mapie nie można kupić).
+  korzystających z notarai, żeby strona je wyróżniła.
 
 ### E-mail (Amazon SES)
 

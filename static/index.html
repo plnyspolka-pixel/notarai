@@ -47,6 +47,8 @@ aside{width:260px;flex:none;background:var(--tlo2);border-right:1px solid var(--
   color:var(--tekst2);font-size:14px;cursor:default;user-select:none}
 /* display:flex wygrywa z domyslnym [hidden], wiec ukrycie trzeba dopisac */
 .krok[hidden]{display:none}
+a.krok-link{text-decoration:none;cursor:pointer}
+a.krok-link:hover{color:var(--tekst)}
 .krok b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--linia2);
   display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--sans);flex:none}
 .krok.aktywny{background:var(--karta);color:var(--tekst);border:1px solid var(--linia);cursor:pointer}
@@ -132,6 +134,11 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 
 .pasek{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
 .stan{font-size:13px;color:var(--tekst2)}
+.ks-tab{width:100%;border-collapse:collapse;font-size:13px}.ks-tab th,.ks-tab td{border-bottom:1px solid var(--linia);padding:6px;text-align:left;vertical-align:top}
+button.maly-p{font-size:12px;padding:3px 8px;margin:2px}
+#etap8 label.pole,#etap9 label.pole{display:block}#etap8 select,#etap9 select{display:block;width:100%;font:inherit;padding:8px;margin-top:4px}
+#ks-zakladki{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#ks-zakladki .chip{flex:0 0 auto;width:auto;height:auto;white-space:nowrap;border-radius:999px}
+#etap8 label.pole input[type=checkbox],#etap9 label.pole input[type=checkbox]{margin-right:6px}
 .stan.blad{color:var(--alarm)}
 .stan.praca::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;
   border:2px solid var(--akcent);border-right-color:transparent;margin-right:8px;
@@ -234,6 +241,9 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 .spr-wynik.wpis{background:var(--alarm);color:#fff}
 .spr-wynik.niedostepny,.spr-wynik.blad{background:var(--akcent-tlo);color:var(--akcent)}
 .spr-wynik.nieznany{background:var(--tlo2);color:var(--tekst3)}
+/* CRBR odwrotnie: wpis spolki to norma, brak wpisu to sygnal */
+.spr-wynik.CRBR.wpis{background:var(--ok-tlo);color:var(--ok)}
+.spr-wynik.CRBR.brak_wpisu{background:var(--alarm);color:#fff}
 .klik-uklad{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
 @media (max-width:1100px){.klik-uklad{grid-template-columns:1fr}}
 .klik-krok{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:10px 0;
@@ -500,6 +510,10 @@ a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 #abonament-termin{font:500 22px var(--serif);margin:4px 0 2px}
 #abonament-historia{font-size:12.5px;color:var(--tekst3);margin-top:10px}
 #abonament-historia div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid var(--linia)}
+#kredyty-saldo{font:500 22px var(--serif);margin:4px 0 2px}
+#kredyty-cennik{font-size:12.5px;color:var(--tekst3);margin-top:8px}
+#kredyty-cennik div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-top:1px solid var(--linia)}
+#kredyty-pakiety{display:flex;flex-wrap:wrap;gap:8px}
 .komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
 .komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
 
@@ -598,6 +612,7 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
 <link rel="stylesheet" href="/static/kokpit.css">
+<link rel="stylesheet" href="/static/personalizacja.css">
 </head>
 <body>
 
@@ -625,6 +640,11 @@ notarai</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
   <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
+  <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
+  <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
+  <div class="krok" data-etap="9"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
+  <div class="krok" data-etap="10"><b><span>§</span></b>Księgi i repertoria</div>
+  <div class="krok" data-etap="11"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -733,6 +753,14 @@ notarai</div>
   <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='8']" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
    <span><strong>Przesyłki i korespondencja</strong><small>Dzienniki, książka nadawcza, koperty</small></span>
+  </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='10']" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
+   <span><strong>Księgi i repertoria</strong><small>Rep. A, P, C, depozyt, dzienniki</small></span>
+  </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='11']" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg>
+   <span><strong>Zgłoszenia GIIF</strong><small>Karty transakcji i terminy</small></span>
   </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-dokumenty" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg>
@@ -874,6 +902,7 @@ notarai</div>
   <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 </div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
   <div class="karta">
+    <div class="zgodnosc" id="zgodnosc3" hidden aria-live="polite"></div>
     <div class="projekt" id="projekt"></div>
     <div class="pasek">
       <button id="btn-pobierz">Pobierz jako Word</button>
@@ -950,6 +979,35 @@ notarai</div>
     </div>
     <div id="ekw-lista"></div>
   </div>
+  <!-- AML: listy sankcyjne, PEP, CRBR. Listy sa pobrane do notarai, porownanie
+       liczy serwer u siebie - dane stron nie wychodza na zewnatrz. Do bramki
+       CRBR idzie wylacznie NIP albo KRS spolki. -->
+  <div class="karta">
+    <h2>Listy sankcyjne, PEP i CRBR</h2>
+    <p class="pod" style="margin-bottom:14px">Ustawa o przeciwdziałaniu praniu pieniędzy: strony czynności
+      sprawdzasz na listach sankcyjnych (UE, ONZ, MSWiA) i wśród osób na eksponowanych stanowiskach politycznych,
+      a spółki w Centralnym Rejestrze Beneficjentów Rzeczywistych. Automat sam stwierdza tylko brak trafień;
+      każde trafienie rozstrzygasz Ty, z uzasadnieniem w śladzie audytowym.</p>
+    <div class="pasek">
+      <button id="btn-aml" title="Porównuje imiona i nazwiska stron (z datą urodzenia z PESEL) z listami pobranymi do notarai">Sprawdź strony na listach sankcyjnych i PEP</button>
+      <span class="stan" id="stan-aml"></span>
+    </div>
+    <p class="pod" id="aml-listy" style="margin:6px 0 14px"></p>
+    <div class="para">
+      <div class="pole">
+        <label class="etykieta" for="crbr-nip">Spółka: NIP albo KRS</label>
+        <input type="text" id="crbr-nip" placeholder="10 cyfr NIP albo numer KRS" autocomplete="off">
+      </div>
+      <div class="pole">
+        <label class="etykieta" for="crbr-etykieta">Rola w czynności</label>
+        <input type="text" id="crbr-etykieta" placeholder="np. zbywca" autocomplete="off">
+      </div>
+    </div>
+    <div class="pasek">
+      <button id="btn-crbr" class="wtorny" title="Pyta oficjalną bramkę CRBR Ministerstwa Finansów o beneficjentów rzeczywistych spółki">Sprawdź spółkę w CRBR</button>
+      <span class="stan" id="stan-crbr"></span>
+    </div>
+  </div>
   <!-- Dobieranie wartosci do formularza z tresci aktu. Nic nie jest nigdzie
        wpisywane: to propozycja do sprawdzenia przez notariusza. -->
   <div class="karta">
@@ -1016,6 +1074,31 @@ notarai</div>
       </ol>
     </div>
   </div>
+</section>
+
+<!-- ===== 8: ksiegi notarialne (static/ksiegi.js) ===== -->
+<section id="etap10" hidden>
+  <h1>Księgi i repertoria</h1>
+  <p class="pod">Repertorium A i P, repertorium C (wnioski wieczystoksięgowe złożone w systemie EKW), księga depozytowa i dzienniki. Numer nadaje system, poprawka nie wymazuje poprzedniej treści.</p>
+  <div class="karta">
+    <div class="kal-widoki" id="ks-zakladki"></div>
+    <p class="pod" id="ks-opis"></p>
+    <label class="pole">Rok <input type="text" id="ks-rok" inputmode="numeric" style="max-width:110px"></label>
+    <div id="ks-lista"></div>
+    <div class="stan" id="stan10"></div>
+  </div>
+  <div class="karta" id="ks-nowy"></div>
+  <div class="karta" id="ks-wniosek" hidden></div>
+</section>
+
+<!-- ===== 9: zgloszenia GIIF (static/ksiegi.js) ===== -->
+<section id="etap11" hidden>
+  <h1>Zgłoszenia GIIF i Szefa KAS</h1>
+  <p class="pod">Karty transakcji z repertorium A i zawiadomienia AML. notarai sprawdza kompletność i pilnuje terminu; wysyłasz w SI*GIIF swoim podpisem kwalifikowanym, a tu rejestrujesz identyfikator przesyłki i UPO.</p>
+  <div class="karta"><div id="giif-lista"></div><div class="stan" id="stan11"></div></div>
+  <div class="karta" id="giif-edycja" hidden></div>
+  <div class="karta" id="giif-karta" hidden></div>
+  <details class="karta" id="giif-ustawienia"><summary><b>Ustawienia GIIF kancelarii</b> — NIP, urząd skarbowy i kody ze słowników SI*GIIF</summary><div id="giif-ustawienia-pola"></div></details>
 </section>
 
 <!-- ===== 6: kalendarz ===== -->
@@ -1312,6 +1395,56 @@ notarai</div>
   </div>
 </section>
 
+<!-- ===== 9: styl i zasady kancelarii =====
+     Logika w /static/personalizacja.js. Notariusz pisze zasady zwyklym
+     zdaniem i uczy styl ze starych aktow; nic tu nie wybiera z list. -->
+<section id="etap9" hidden>
+  <h1>Styl i zasady kancelarii</h1>
+  <p class="pod">Każdy projekt, zanim go zobaczysz, przechodzi przez zasady Twojej kancelarii. Piszesz je zwykłym zdaniem, a notarai sam rozpoznaje, czego dotyczą, w jakich aktach obowiązują i jak ich pilnować.</p>
+  <div class="pz-liczby" id="pz-liczby" aria-live="polite"></div>
+
+  <div class="karta" id="pz-karta-zasady">
+    <h2>Nieprzekraczalne zasady</h2>
+    <div class="composer pz-nowa">
+      <textarea id="pz-tekst" rows="2" maxlength="600" aria-label="Nowa zasada kancelarii"
+        placeholder="Napisz zasadę tak, jak powiedziałbyś aplikantowi, np. „Zamiast w/w pisz wyżej wymieniony”"></textarea>
+      <div class="pz-podglad" id="pz-podglad" hidden aria-live="polite"></div>
+      <div class="dol"><small>Enter - dodaj · Shift+Enter - nowa linia</small><button id="pz-dodaj" disabled>Dodaj zasadę</button></div>
+    </div>
+    <div class="pz-przyklady" id="pz-przyklady"></div>
+    <div id="pz-sugestie"></div>
+    <div id="pz-lista"></div>
+    <details class="pz-wbudowane"><summary id="pz-wbudowane-tytul">Zawsze pilnuję też budowy aktu</summary><div id="pz-wbudowane"></div></details>
+    <div class="pasek" style="margin-top:10px"><span class="stan" id="pz-stan"></span></div>
+  </div>
+
+  <div class="karta">
+    <h2>Naucz notarai swojego stylu</h2>
+    <p class="pod" style="margin-bottom:14px">Wrzuć swoje wcześniejsze akty. Rozbiorę je na klauzule, rozpoznam rodzaj czynności i części aktu, policzę Twoje nawyki i zaproponuję zasady. Dane osobowe usuwam przed zapisem - zostaje sam sposób redagowania, a plików nie przechowuję.</p>
+    <label class="upload strefa" id="pz-strefa"><input type="file" id="pz-pliki" multiple accept=".docx,.pdf,.txt,.md">
+      <span class="ikona">⇪</span><span><span class="nazwy">Przeciągnij tu akty albo kliknij, żeby wybrać</span><br><small>.docx, .pdf z tekstem, .txt · do 30 naraz</small></span></label>
+    <div class="pasek" style="margin-top:8px"><span class="stan" id="pz-stan-nauki"></span></div>
+    <div id="pz-wynik-nauki"></div>
+    <div class="pz-nawyki" id="pz-nawyki"></div>
+    <div class="pz-akty" id="pz-akty"></div>
+    <div class="pasek"><button class="wtorny" id="pz-zapomnij" hidden>Zapomnij wyuczony styl</button></div>
+  </div>
+
+  <div class="karta" id="pz-karta-sformulowan">
+    <h2>Twoje sformułowania</h2>
+    <p class="pod" style="margin-bottom:14px">Tak redagujesz poszczególne części aktu. Sformułowania oznaczone ★ trafiają do każdego projektu w pierwszej kolejności. W gotowym projekcie zaznacz fragment, żeby dodać go tutaj albo zrobić z niego zasadę.</p>
+    <div class="filtry" id="pz-czesci"></div>
+    <div id="pz-sformulowania"></div>
+  </div>
+
+  <div class="karta">
+    <h2>Sprawdź dowolny tekst</h2>
+    <div class="pole"><textarea id="pz-test" rows="6" placeholder="Wklej akt albo fragment - sprawdzę go zasadami kancelarii (bez modelu AI, nic nie zapisuję)"></textarea></div>
+    <div class="pasek"><button class="wtorny" id="pz-sprawdz">Sprawdź z zasadami</button><span class="stan" id="pz-stan-test"></span></div>
+    <div id="pz-raport-test"></div>
+  </div>
+</section>
+
 </div></main>
 
 <!-- Widoczna w trybie wielu kancelarii, gdy serwer odrzuci zadanie bez logowania. -->
@@ -1449,6 +1582,9 @@ notarai</div>
   <h2>Zapytania klientów</h2>
   <p>Klienci, którzy przez notarai.pl poprosili o wizytę w tej kancelarii. Umówiony termin trafia do kalendarza razem z telefonem klienta.</p>
   <div id="zapytania-lista"></div>
+  <h3 style="margin:18px 0 6px">Giełda zapytań z okolicy</h3>
+  <p style="margin:0 0 8px"><small>Zapytania bez wybranej kancelarii (np. z reklam). Przez godzinę może odpowiedzieć każda kancelaria z miejscowości klienta; potem trafiają do archiwum dostępnego w abonamencie.</small></p>
+  <div id="gielda-lista"></div>
   <div class="dol"><span class="stan" id="stan-zapytania"></span><button class="wtorny" id="btn-zamknij-zapytania">Zamknij</button></div>
 </dialog>
 
@@ -1457,6 +1593,8 @@ notarai</div>
   <p>Kancelaria decyduje, czy zewnętrzni partnerzy API/MCP mogą rezerwować wolne godziny.
      Partnerzy nie widzą zawartości kalendarza ani danych spraw. Każda zarezerwowana wizyta pojawi się w kalendarzu kancelarii.</p>
   <label class="hurtowe-zgoda"><input id="hurtowe-wlaczone" type="checkbox"> <strong>Udostępniaj wolne terminy partnerom B2B</strong></label>
+  <label class="hurtowe-zgoda"><input id="hurtowe-klienci" type="checkbox"> <strong>Rezerwacja online dla klientów z notarai.pl</strong>
+    <small>Klient, który wybrał Twoją kancelarię, od razu zajmuje wolną godzinę, dostaje potwierdzenie, przypomnienie dzień wcześniej i link do odwołania. Nie zmienia to miejsca kancelarii na liście, bo kolejność jest jednakowa dla wszystkich.</small></label>
   <div class="hurtowe-form">
     <label>Miasto<input type="text" id="hurtowe-miasto" maxlength="100" placeholder="np. Lublin" autocomplete="address-level2"></label>
     <label>Adres kancelarii<input type="text" id="hurtowe-adres" maxlength="250" placeholder="Ulica, numer, miasto" autocomplete="street-address"></label>
@@ -1519,6 +1657,15 @@ notarai</div>
     <button class="wtorny" id="btn-portal" hidden>Karta, faktury, rezygnacja</button>
   </div>
   <div id="abonament-historia"></div>
+  <!-- Kredyty (tokenomia.py): pula z abonamentu + dokupione pakiety. Kazda
+       czynnosc z modelem kosztuje kredyty wg cennika ponizej; nieudana - nic. -->
+  <section id="abonament-kredyty" hidden>
+    <h3>Kredyty</h3>
+    <div id="kredyty-saldo"></div>
+    <p id="kredyty-opis"></p>
+    <div class="dol" id="kredyty-pakiety" hidden></div>
+    <details><summary>Cennik czynności</summary><div id="kredyty-cennik"></div></details>
+  </section>
   <div class="dol"><span class="stan" id="stan-abonament"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-abonament">Zamknij</button></div>
 </dialog>
@@ -2082,7 +2229,7 @@ function pokaz(numer){
   $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
-  [1,2,3,4,5,6,7,8].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5,6,7,8,9,10,11].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
@@ -2102,6 +2249,9 @@ function pokaz(numer){
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
   if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
+  if (numer === 9) window.rysujPersonalizacje?.();
+  if (numer === 10) window.rysujKsiegiKancelarii?.();
+  if (numer === 11) window.rysujGiif?.();
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -2561,7 +2711,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"], .krok[data-etap="10"], .krok[data-etap="11"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -2974,10 +3124,17 @@ function rysujZapytania(){
                        z.kalkulacja ? "szacunek z kalkulatora: " + Number(z.kalkulacja.razem).toLocaleString("pl-PL", {style: "currency", currency: "PLN"}) : ""]
       .filter(Boolean).join("<br>");
     const wizyta = z.wizyta ? `<br>umówiono na ${escape(z.wizyta.data)} ${escape(z.wizyta.godzina || "")}` : "";
+    const pliki = (z.pliki || []).map(p => `<button class="wtorny z-plik" data-plik="${escape(p.id)}" data-nazwa="${escape(p.nazwa)}">📄 ${escape(p.nazwa)}</button>`).join(" ");
+    const kw = z.ksiega ? `<br>KW ${escape(z.kw)}: ${z.ksiega.stan === "wpis" ? "<b>są wpisy w dz. III/IV</b>" : "bez wpisów w dz. III/IV"} (${escape(z.ksiega.opis)})${z.ksiega.adres ? ", adres: " + escape(z.ksiega.adres) : ""}` : "";
+    const teczka = z.zapytanie ? `<details style="width:100%;margin-top:6px"><summary>Zapytanie przygotowane z klientem${(z.pliki || []).length ? " i pliki (" + z.pliki.length + ")" : ""}</summary>
+        <pre style="white-space:pre-wrap;font-size:.8rem">${escape(z.zapytanie)}</pre>${pliki}
+        ${z.kw ? `<button class="wtorny z-kw">${z.ksiega ? "Pobierz KW ponownie" : "Sprawdź KW " + escape(z.kw) + " w EKW"}</button>` : ""}
+        ${z.ksiega ? `<details><summary>Treść księgi</summary><pre style="white-space:pre-wrap;font-size:.75rem">${escape(z.ksiega.tekst)}</pre></details>` : ""}</details>` : "";
     const aktywne = z.status === "nowa" || z.status === "kontakt";
     return `<div class="komputer" data-id="${escape(z.id)}" style="align-items:flex-start;flex-wrap:wrap">
       <div><b>${escape(k.imie || "klient")}: ${escape(z.czynnosc)}</b>
-        <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
+        <small>${kontakt}<br>${kiedy} · <span class="znacznik">${escape(STATUSY_ZAPYTAN[z.status] || z.status)}</span>${wizyta}${kw}${szczegoly ? "<br>" + szczegoly : ""}</small></div>
+      ${teczka}
       ${aktywne ? `<div class="dol" style="margin-top:8px;width:100%">
         <input type="date" class="z-data" style="text-transform:none;width:auto"> <input type="time" class="z-godzina" step="1800" style="text-transform:none;width:auto">
         <button class="z-umow">Umówione: do kalendarza</button>
@@ -3007,8 +3164,54 @@ function rysujZapytania(){
     };
     const kontakt = el.querySelector(".z-kontakt");
     if (kontakt) kontakt.onclick = () => zmien("kontakt");
+    el.querySelectorAll(".z-plik").forEach(b => b.onclick = async () => {
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id) + "/plik/" + encodeURIComponent(b.dataset.plik));
+        if (!odp.ok) throw new Error((await odp.json().catch(() => ({}))).detail || "Nie udało się pobrać pliku.");
+        const url = URL.createObjectURL(await odp.blob()); const a = document.createElement("a");
+        a.href = url; a.download = b.dataset.nazwa; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    });
+    const kwBtn = el.querySelector(".z-kw");
+    if (kwBtn) kwBtn.onclick = async () => {
+      stan($("stan-zapytania"), "Pobieram księgę z EKW, to może potrwać do kilku minut…", false, true);
+      try {
+        const odp = await api("/api/zapytania/" + encodeURIComponent(id) + "/ksiega", {method: "POST"});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się pobrać księgi.");
+        stan($("stan-zapytania"), "Księga pobrana.");
+        await odswiezLicznikZapytan(); rysujZapytania();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
     const odrzuc = el.querySelector(".z-odrzuc");
     if (odrzuc) odrzuc.onclick = () => { if (confirm("Odrzucić to zapytanie?")) zmien("odrzucona"); };
+  });
+}
+
+async function rysujGielde(){
+  const box = $("gielda-lista");
+  let g;
+  try { const odp = await api("/api/gielda"); if (!odp.ok) return; g = await odp.json(); } catch { return; }
+  if (!g.powiazana) { box.innerHTML = '<p class="stan">Kancelaria nie jest jeszcze powiązana z wykazem notariuszy – napisz na kontakt@notarai.pl.</p>'; return; }
+  const kontakt = l => l.klient ? `<br>${escape([l.klient.imie, l.klient.nazwisko].filter(Boolean).join(" "))} · ${escape(l.klient.telefon || "")} ${escape(l.klient.email || "")}` : "";
+  const karta = (l, otwarte) => `<div class="komputer" data-lead="${escape(l.id)}" style="align-items:flex-start;flex-wrap:wrap">
+      <div><b>${escape(l.sprawa)} · ${escape(l.miejscowosc)}</b><small><br>${escape(kiedySerwis(l.utworzono))}${otwarte ? " · do " + escape(l.okno_do.slice(11, 16)) : ""} · odpowiedzi: ${l.odpowiedzi}${l.odpowiedziala ? " · <b>odpowiedzieliście</b>" : ""}${l.opis ? "<br>" + escape(l.opis) : ""}${kontakt(l)}</small></div>
+      ${l.odpowiedziala ? "" : `<div class="dol" style="margin-top:8px;width:100%"><input class="g-tresc" placeholder="Wiadomość do klienta" maxlength="1500" style="flex:1;text-transform:none"> <button class="g-odp">Odpowiedz</button></div>`}
+    </div>`;
+  box.innerHTML = (g.otwarte.length ? g.otwarte.map(l => karta(l, true)).join("") : '<p class="stan">Teraz nie ma otwartych zapytań.</p>')
+    + (g.oplacona ? (g.archiwum.length ? '<h4 style="margin:12px 0 4px">Archiwum</h4>' + g.archiwum.map(l => karta(l, false)).join("") : "")
+                  : '<p class="stan">Archiwum zapytań starszych niż godzina jest dostępne w abonamencie notarai.</p>');
+  box.querySelectorAll("[data-lead]").forEach(el => {
+    const b = el.querySelector(".g-odp"); if (!b) return;
+    b.onclick = async () => {
+      try {
+        const odp = await api("/api/gielda/" + encodeURIComponent(el.dataset.lead) + "/odpowiedz", {method: "POST",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({tresc: el.querySelector(".g-tresc").value})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się odpowiedzieć.");
+        stan($("stan-zapytania"), "Odpowiedź wysłana do klienta."); rysujGielde();
+      } catch (e) { stan($("stan-zapytania"), e.message, true); }
+    };
   });
 }
 
@@ -3019,6 +3222,7 @@ $("btn-zapytania").onclick = async () => {
   $("okno-zapytania").showModal();
   await odswiezLicznikZapytan();
   rysujZapytania();
+  rysujGielde();
 };
 $("btn-zamknij-zapytania").onclick = () => $("okno-zapytania").close();
 
@@ -3111,6 +3315,38 @@ $("zespol-email").addEventListener("keydown", e => {
    Termin przesuwa serwer po webhooku od Stripe, nie powrot przegladarki:
    powrot "ok" znaczy tylko, ze platnik skonczyl na stronie Stripe. */
 let abonament = null;
+let kredyty = null;
+const kr = n => String(Math.round(n * 10) / 10).replace(".", ",");
+
+function rysujKredyty(){
+  const k = kredyty;
+  $("abonament-kredyty").hidden = !(k && k.egzekwowana);
+  if (!k || !k.egzekwowana) return;
+  $("kredyty-saldo").innerHTML = escape(kr(k.saldo)) + " kr."
+    + (k.saldo < 0 ? ' <span class="znacznik alarm">debet</span>' : "");
+  $("kredyty-opis").textContent = "Z abonamentu: " + kr(k.pula) + " kr. (odnawia się co miesiąc), dokupione: "
+    + kr(k.doladowane) + " kr. 1 kredyt = " + kr(k.cena_kredytu_zl) + " zł netto w cenie katalogowej."
+    + " Czynność, która się nie uda, nic nie kosztuje.";
+  const pakiety = $("kredyty-pakiety");
+  pakiety.hidden = !(abonament && abonament.platnosci_wlaczone && abonament.moge_zaplacic);
+  pakiety.innerHTML = Object.entries(k.pakiety).map(([kod, p]) =>
+    `<button class="wtorny" data-pakiet="${escape(kod)}">${escape(kr(p.kredyty))} kr. — ${escape(kr(p.cena_zl))} zł</button>`).join("");
+  pakiety.querySelectorAll("button").forEach(b => b.onclick = () => kupPakiet(b.dataset.pakiet, b));
+  $("kredyty-cennik").innerHTML = k.cennik.map(c =>
+    `<div><span>${escape(c.nazwa)}</span><span>${c.kredyty ? escape(kr(c.kredyty)) + " kr. / " + escape(c.jednostka) : "bez opłaty"}</span></div>`).join("");
+}
+
+async function kupPakiet(kod, przycisk){
+  przycisk.disabled = true;
+  stan($("stan-abonament"), "Łączę z bramką płatności…", false, true);
+  try {
+    const odp = await api("/api/kredyty/pakiet", {method: "POST", headers: {"Content-Type": "application/json"},
+                                                body: JSON.stringify({pakiet: kod})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
+    location.assign(w.adres);   // strona Stripe
+  } catch (e) { stan($("stan-abonament"), e.message, true); przycisk.disabled = false; }
+}
 const KLUCZ_PRZED_PLATNOSCIA = "notarai_termin_przed_platnoscia";
 
 async function wczytajAbonament(){
@@ -3119,7 +3355,11 @@ async function wczytajAbonament(){
     if (!odp.ok) return;
     abonament = await odp.json();
   } catch { return; }
-  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany;
+  try {
+    const k = await api("/api/kredyty");
+    kredyty = k.ok ? await k.json() : null;
+  } catch { kredyty = null; }
+  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany && !(kredyty && kredyty.egzekwowana);
   if (abonament.wymagany && (abonament.po_terminie || abonament.dni_do_konca <= 5)) {
     $("btn-abonament").textContent = abonament.po_terminie ? "Abonament wygasł" : "Abonament kończy się";
   } else {
@@ -3131,6 +3371,7 @@ async function wczytajAbonament(){
 const dataPl = d => new Date(d).toLocaleDateString("pl-PL", {day: "numeric", month: "long", year: "numeric"});
 
 function rysujAbonament(){
+  rysujKredyty();
   const a = abonament;
   const termin = $("abonament-termin");
   if (!a.wymagany) {
@@ -3597,6 +3838,8 @@ window.addEventListener("drop", e => {
   if (!$("pliki-sprawy").hidden && e.target.closest && e.target.closest("#pliki-sprawy")) {
     return dodajZalaczniki([...e.dataTransfer.files]);
   }
+  // Na ekranie stylu kancelarii upuszczone akty ida do nauki stylu, nie do nowej sprawy.
+  if (!$("etap9").hidden) return window.nauczZAktow?.([...e.dataTransfer.files]);
   if ($("etap1").hidden) {
     if (sprawa) return;   // w trakcie innej sprawy nie zaczynamy nowej po cichu
     pokaz(1);
@@ -3664,7 +3907,13 @@ async function czytajStrumien(odp, naPostep = () => {}) {
       const w = JSON.parse(linia);
       if (w.postep) naPostep(w.postep);
       else if ("wynik" in w) return w.wynik;
-      else if (w.blad) throw new Error(w.blad);
+      else if (w.blad) {
+        // Brak kredytow w trakcie pracy w tle: okno z saldem i pakietami.
+        if (w.kod === 402) wczytajAbonament().then(() => {
+          if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
+        });
+        throw new Error(w.blad);
+      }
     }
     if (done) throw new Error("Połączenie z serwerem przerwane w trakcie pracy. Za kilka minut " +
                               "otwórz sprawę z listy - wynik mógł się zapisać. Potem spróbuj ponownie.");
@@ -3960,7 +4209,8 @@ $("btn-generuj").onclick = async () => {
     if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
         numerSprawy !== pokolenieOtwierania) return;
     sprawa.projekt = wynik.tekst;
-    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
+    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
+                  zgodnosc: wynik.zgodnosc});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
     if (!dysk.aktywny) {
@@ -3986,6 +4236,8 @@ function pokazProjekt(w){
   $("podsum3").textContent = uwagi.length
     ? "Projekt gotowy do sprawdzenia. Zostało " + uwagi.join(" i ") + ", zaznaczone w tekście."
     : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
+  // Raport zasad kancelarii nad projektem (personalizacja.js).
+  window.pokazZgodnosc?.(w.zgodnosc);
 }
 function zapiszPlik(dane, nazwa){
   const adres = URL.createObjectURL(dane);
@@ -4087,6 +4339,9 @@ async function rysujSprawdzenia(){
   rysujStrony();
   rysujHistorie(sprawdzenia);
   await rysujKsiegi();
+  wczytajListyAML();
+  const nipy = polaNip();
+  if (nipy.length && !$("crbr-nip").value) $("crbr-nip").value = nipy[0];
 }
 
 /* ---------- ksiegi wieczyste z EKW ---------- */
@@ -4278,31 +4533,119 @@ async function zapiszWynik(osoba, rejestr, status, uwagi){
     stan($("stan4"), "Zapisano w śladzie audytowym.");
   } catch (e) { stan($("stan4"), e.message, true); }
 }
+const OPISY_WYNIKU = {
+  ZASTRZEZENIA_PESEL: {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"},
+  KRZ: {brak_wpisu:"brak wpisu w KRZ", wpis:"WPIS W KRZ", niedostepny:"rejestr niedostępny", blad:"błąd"},
+  SANKCJE: {brak_wpisu:"brak trafień", wpis:"TRAFIENIE do decyzji", niedostepny:"listy niepobrane", blad:"błąd"},
+  PEP: {brak_wpisu:"brak trafień", wpis:"MOŻLIWY PEP do decyzji", niedostepny:"listy niepobrane", blad:"błąd"},
+  CRBR: {brak_wpisu:"BRAK WPISU w CRBR", wpis:"wpis w CRBR", niedostepny:"bramka niedostępna", blad:"wiele spółek albo błąd"},
+  // EKW to nie rejestr osob: "wpis" znaczy obciazenia w dziale III/IV, nie zastrzezenie.
+  EKW: {brak_wpisu:"dział III/IV: brak wpisów", wpis:"dział III/IV: wpisy", niedostepny:"EKW niedostępne", blad:"nie pobrano"},
+};
+const ALARMY = {
+  ZASTRZEZENIA_PESEL: "W tej sprawie jest zastrzeżony numer PESEL. Czynność należy wstrzymać.",
+  KRZ: "W tej sprawie jest wpis w Krajowym Rejestrze Zadłużonych. Rozważ czynność.",
+  SANKCJE: "Trafienie na liście sankcyjnej czeka na decyzję notariusza. Do czasu decyzji czynność należy wstrzymać.",
+  PEP: "Możliwa osoba na eksponowanym stanowisku politycznym. Rozstrzygnij trafienie; potwierdzony PEP wymaga wzmożonych środków bezpieczeństwa.",
+  CRBR: "Spółka nie figuruje w CRBR. Ustal beneficjenta rzeczywistego inną drogą i odnotuj to w sprawie.",
+};
+function opisWyniku(w){
+  if (w.decyzja) return w.decyzja === "falszywe_trafienie" ? "fałszywe trafienie" : "POTWIERDZONE";
+  return (OPISY_WYNIKU[w.rejestr] || OPISY_WYNIKU.ZASTRZEZENIA_PESEL)[w.status] || w.status;
+}
+function decyzjaDoWpisu(wpisy, i){ return wpisy.find(x => x.decyzja && x.dotyczy === i) || null; }
+function opisTrafienia(t){
+  const czesci = [escape(t.nazwa_na_liscie || "")];
+  if (t.wynik != null) czesci.push(t.wynik + "/100" + (t.pasmo === "silne" ? " silne" : ""));
+  if (t.etykieta_zrodla) czesci.push(escape(t.etykieta_zrodla));
+  else if (t.rola) czesci.push(escape(t.rola) + (t.strona_czynnosci ? " (strona czynności)" : ""));
+  if (t.rok_urodzenia_na_liscie) czesci.push("ur. " + t.rok_urodzenia_na_liscie);
+  if (typeof t.data_urodzenia === "string" && /^\d{4}-/.test(t.data_urodzenia)) czesci.push("ur. " + t.data_urodzenia);
+  if (t.funkcje && t.funkcje.length) czesci.push(escape(t.funkcje.join(", ")));
+  if (t.funkcja) czesci.push(escape(t.funkcja));
+  if (t.uprawnienia) czesci.push(escape(t.uprawnienia));
+  if (t.status_pep === "byly_pep") czesci.push("były PEP");
+  if (t.ograniczenie) czesci.push(escape(t.ograniczenie));
+  if (t.nip) czesci.push("NIP " + escape(t.nip));
+  const zrodlo = t.adres ? ` <a href="${escape(t.adres)}" target="_blank" rel="noopener">źródło</a>` : "";
+  return `<div class="pesel">· ${czesci.join(" · ")}${zrodlo}</div>`;
+}
 function rysujHistorie(wpisy){
   const h = $("spr-historia");
   if (!wpisy.length) { h.innerHTML = '<span class="stan">Brak sprawdzeń w tej sprawie.</span>'; return; }
   h.innerHTML = "";
-  wpisy.slice().reverse().forEach(w => {
+  wpisy.map((w, i) => [w, i]).reverse().forEach(([w, i]) => {
     const d = document.createElement("div");
     d.className = "spr-wiersz";
-    // EKW to nie rejestr osob: "wpis" znaczy obciazenia w dziale III/IV, nie zastrzezenie.
-    const opisy = w.rejestr === "EKW"
-      ? {brak_wpisu:"dział III/IV: brak wpisów", wpis:"dział III/IV: wpisy", niedostepny:"EKW niedostępne", blad:"nie pobrano"}
-      : {brak_wpisu:"brak zastrzeżenia", wpis:"ZASTRZEŻONY", niedostepny:"rejestr niedostępny", blad:"błąd"};
-    const opis = opisy[w.status] || w.status;
     const zrzuty = [...(w.szczegoly || "").matchAll(/\[([a-z0-9_\-]+\.png)\]/g)]
       .map(m => `<a href="#" data-zrzut="${escape(m[1])}">${escape(m[1].split("_")[1])}</a>`).join(" · ");
-    d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span></div>
-      <div class="pesel">${escape(w.sprawdzono.replace("T"," "))} · ${escape(w.zrodlo)}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
-      ${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
-      <span class="spr-wynik ${escape(w.status)}">${opis}</span>`;
+    const trafienia = (w.trafienia || []).slice(0, 6).map(opisTrafienia).join("")
+      + ((w.trafienia || []).length > 6 ? `<div class="pesel">· … i ${w.trafienia.length - 6} więcej</div>` : "");
+    const doDecyzji = ["SANKCJE", "PEP"].includes(w.rejestr) && w.status === "wpis" && !w.decyzja && !decyzjaDoWpisu(wpisy, i);
+    d.innerHTML = `<div><div class="kto">${escape(w.rejestr)} · <span class="pesel">${escape(w.zapytanie)}</span>${
+        w.decyzja ? ' · decyzja do wpisu nr ' + (w.dotyczy + 1) : ""}</div>
+      <div class="pesel">${escape(String(w.sprawdzono || "").replace("T"," "))} · ${escape(w.zrodlo || "")}${
+        w.kto ? " · " + escape(w.kto) : ""}${w.szczegoly ? " · " + escape(w.szczegoly.replace(/\[[^\]]*\.png\]/g, "")) : ""}</div>
+      ${trafienia}${zrzuty ? '<div class="pesel">zrzuty: ' + zrzuty + '</div>' : ''}</div>
+      <span class="spr-wynik ${escape(w.status)} ${escape(w.rejestr)}">${opisWyniku(w)}${
+        doDecyzji ? ' <button class="odnosnik" data-decyzja="1">rozstrzygnij…</button>' : ""}</span>`;
+    const przycisk = d.querySelector("button[data-decyzja]");
+    if (przycisk) przycisk.onclick = () => formularzDecyzji(d, i);
     h.appendChild(d);
   });
-  if (wpisy.some(w => w.status === "wpis" && w.rejestr !== "EKW")) {
-    const a = document.createElement("div"); a.className = "ostrzez alarm";
-    a.textContent = "W tej sprawie jest zastrzeżony numer PESEL. Czynność należy wstrzymać.";
-    h.prepend(a);
-  }
+  /* Alarmy: zastrzezony PESEL i wpis w KRZ od razu; trafienia z list dopiero
+     po wykluczeniu falszywych; brak spolki w CRBR tez jest sygnalem. */
+  const alarmy = [];
+  wpisy.forEach((w, i) => {
+    if (w.decyzja || w.rejestr === "EKW") return;
+    const alarm = w.rejestr === "CRBR" ? w.status === "brak_wpisu" : w.status === "wpis";
+    if (!alarm) return;
+    let tekst = ALARMY[w.rejestr] || "Wpis w rejestrze.";
+    if (["SANKCJE", "PEP"].includes(w.rejestr)) {
+      const dec = decyzjaDoWpisu(wpisy, i);
+      if (dec && dec.decyzja === "falszywe_trafienie") return;
+      if (dec) tekst = w.rejestr === "SANKCJE"
+        ? "Potwierdzone trafienie sankcyjne. Czynność należy wstrzymać i rozważyć zawiadomienie GIIF."
+        : "Potwierdzony PEP: stosuj wzmożone środki bezpieczeństwa finansowego (źródło majątku i środków).";
+    }
+    if (!alarmy.includes(tekst)) alarmy.push(tekst);
+  });
+  alarmy.reverse().forEach(tekst => {
+    const a = document.createElement("div"); a.className = "ostrzez alarm"; a.textContent = tekst; h.prepend(a);
+  });
+}
+function formularzDecyzji(wiersz, indeks){
+  const otwarty = wiersz.querySelector(".spr-inne");
+  if (otwarty) { otwarty.remove(); return; }
+  const panel = document.createElement("div");
+  panel.className = "spr-inne";
+  panel.innerHTML = `
+    <div class="pole"><label class="etykieta">Decyzja</label>
+      <select>
+        <option value="falszywe_trafienie">Fałszywe trafienie - inna osoba</option>
+        <option value="potwierdzone">Potwierdzone - to ta osoba</option>
+      </select></div>
+    <div class="pole" style="flex:1;min-width:260px">
+      <label class="etykieta">Uzasadnienie <span class="wskaz">min. 10 znaków, bez numeru PESEL</span></label>
+      <input type="text" placeholder="np. inna data urodzenia i obywatelstwo wg dowodu"></div>
+    <button>Zapisz decyzję</button>`;
+  panel.querySelector("button").onclick = async () => {
+    stan($("stan4"), "Zapisuję decyzję…", false, true);
+    try {
+      const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia/decyzja", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({indeks, decyzja: panel.querySelector("select").value,
+                              uzasadnienie: panel.querySelector("input").value}),
+      });
+      const wynik = await odp.json();
+      if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+      sprawdzenia = wynik;
+      rysujHistorie(sprawdzenia);
+      stan($("stan4"), "Decyzja zapisana w śladzie audytowym.");
+    } catch (e) { stan($("stan4"), e.message, true); }
+  };
+  wiersz.appendChild(panel);
+  panel.querySelector("input").focus();
 }
 /* Zrzuty ze sprawdzen leza za autoryzacja. Zwykly odnosnik nie niesie tokenu,
    wiec serwer odpowiadal 401 zamiast pokazac dowod sprawdzenia. Pobieramy plik
@@ -4488,6 +4831,72 @@ $("btn-krz").onclick = async () => {
     stan($("stan4"), "Gotowe. Obejrzyj wyniki w śladzie audytowym i potwierdź status przy każdym numerze.");
   } catch (e) { stan($("stan4"), e.message, true); }
   finally { $("btn-krz").disabled = false; }
+};
+
+/* ---------- 4b: listy sankcyjne, PEP, CRBR ---------- */
+async function wczytajListyAML(){
+  try {
+    const odp = await api("/api/aml/listy");
+    if (!odp.ok) return;
+    const listy = await odp.json();
+    const opis = listy.map(l => l.zrodlo + (l.pobrano ? " z " + l.pobrano.slice(0, 10) : ": brak")
+                                + (l.pobrano && l.nieaktualna ? " (nieaktualna)" : "")).join(", ");
+    const sa = listy.some(l => l.liczba);
+    $("aml-listy").textContent = (listy.length ? "Listy w notarai: " + opis + "." : "")
+      + (sa ? "" : " Listy nie są jeszcze pobrane - administrator odświeża je w panelu, a w chmurze robi to wątek w tle.");
+    $("btn-aml").disabled = !sa;
+  } catch { /* brak sieci - przycisk zostaje jak byl */ }
+}
+function polaNip(){
+  if (!sprawa) return [];
+  zbierzPola();
+  return [...new Set((sprawa.pola || [])
+    .filter(p => /\bnip\b/i.test(p.nazwa) && /^\d{10}$/.test(String(p.wartosc || "").replace(/\D/g, "")))
+    .map(p => String(p.wartosc).replace(/\D/g, "")))];
+}
+$("btn-aml").onclick = async () => {
+  if (!sprawa) return stan($("stan-aml"), "Najpierw odczytaj sprawę.", true);
+  if (!confirm("Sprawdzić wszystkie strony czynności z odczytu na listach sankcyjnych (UE, ONZ, MSWiA) "
+    + "i wśród osób na eksponowanych stanowiskach politycznych?\nPorównanie liczy notarai u siebie; "
+    + "dane stron nie są nikomu wysyłane.")) return;
+  $("btn-aml").disabled = true;
+  stan($("stan-aml"), "Porównuję z listami…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/aml", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({potwierdzam: true}),
+    });
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    sprawdzenia = wynik;
+    rysujHistorie(sprawdzenia);
+    const otwarte = wynik.some((w, i) => ["SANKCJE", "PEP"].includes(w.rejestr) && w.status === "wpis"
+                                        && !w.decyzja && !decyzjaDoWpisu(wynik, i));
+    stan($("stan-aml"), otwarte ? "Są trafienia do rozstrzygnięcia - patrz ślad audytowy." : "Gotowe. Wyniki w śladzie audytowym.");
+  } catch (e) { stan($("stan-aml"), e.message, true); }
+  finally { $("btn-aml").disabled = false; }
+};
+$("btn-crbr").onclick = async () => {
+  if (!sprawa) return stan($("stan-crbr"), "Najpierw odczytaj sprawę.", true);
+  const numer = $("crbr-nip").value.replace(/\D/g, "");
+  if (!numer) return stan($("stan-crbr"), "Podaj NIP albo numer KRS spółki.", true);
+  const nip = numer.length === 10 ? numer : "";
+  const krs = numer.length === 10 ? "" : numer;
+  if (!confirm("Zapytać bramkę CRBR Ministerstwa Finansów o spółkę " + (nip ? "NIP " + nip : "KRS " + krs) + "?")) return;
+  $("btn-crbr").disabled = true;
+  stan($("stan-crbr"), "Pytam CRBR…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + sprawa.id + "/crbr", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({nip, krs, etykieta: $("crbr-etykieta").value.trim(), potwierdzam: true}),
+    });
+    const wynik = await odp.json();
+    if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+    sprawdzenia = wynik;
+    rysujHistorie(sprawdzenia);
+    stan($("stan-crbr"), "Gotowe. Wynik w śladzie audytowym.");
+  } catch (e) { stan($("stan-crbr"), e.message, true); }
+  finally { $("btn-crbr").disabled = false; }
 };
 
 /* ---------- 5: klikamy ---------- */
@@ -5530,5 +5939,7 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/rezerwacje-hurtowe.js"></script>
 <script src="/static/kokpit.js"></script>
 <script src="/static/klienci-panel.js"></script>
+<script src="/static/personalizacja.js"></script>
+<script src="/static/ksiegi.js"></script>
 </body>
 </html>

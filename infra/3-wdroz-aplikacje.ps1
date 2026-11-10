@@ -138,6 +138,16 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/finyou) {
     Write-Host "   ksiegi z EKW przez Finance You: brak sekretu notarai/finyou" -ForegroundColor Yellow
 }
 
+# Leady z formularzy Meta (meta_leady.py): sekret notarai/meta, JSON z kluczami
+# verify, app_secret, token. Zaklada go wlasciciel konta Meta w Secrets Manager.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/meta) {
+    $metaArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/meta --query ARN --output text
+    $parametry += "MetaSekretArn=$metaArn"
+    Write-Host "   leady z Meta: sekret notarai/meta"
+} else {
+    Write-Host "   leady z Meta: brak sekretu notarai/meta, webhook wylaczony" -ForegroundColor Yellow
+}
+
 # SES: wlacz dopiero po weryfikacji adresu lub domeny i wyjsciu z sandbox.
 if ($EmailNadawcy) { $parametry += "EmailNadawcy=$EmailNadawcy" }
 if ($EmailZgloszen) { $parametry += "EmailZgloszen=$EmailZgloszen" }

@@ -35,6 +35,7 @@ from pydantic import BaseModel
 import logowanie
 import magazyn
 import platnosci
+import tokenomia
 import urzadzenia
 
 log = logging.getLogger("pieczapp.autoryzacja")
@@ -49,11 +50,14 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
             "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
-            "/kalkulator", "/api/taksa", "/api/wizyty", "/notariusze", "/api/notariusze")
+            "/kalkulator", "/api/taksa", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
+            "/notariusze", "/api/notariusze",
+            # sama strona; jej API (/api/poswiadczenia) wymaga logowania
+            "/poswiadczenia")
 
 # Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
 # moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
-_BEZ_ABONAMENTU = ("/api/abonament", "/api/zespol")
+_BEZ_ABONAMENTU = ("/api/abonament", "/api/zespol", "/api/kredyty")
 
 # Bez zaakceptowanej umowy powierzenia nie przetwarzamy spraw (Regulamin
 # § 6 ust. 4). Otwarte zostaje to, co potrzebne do jej zaakceptowania.
@@ -68,8 +72,10 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # akceptacje dokumentow, pomocnika - ani po sam dostep serwisowy, zeby nie
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
-_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/dokumenty",
-                  "/api/pomocnik", "/api/mapa", "/api/zapytania")
+_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/kredyty", "/api/dokumenty",
+                  "/api/pomocnik", "/api/mapa", "/api/zapytania",
+                  # Repertorium i zgloszenia AML - tajemnica notarialna, art. 18 PrNot.
+                  "/api/ksiegi-kancelarii", "/api/giif")
 _SERWIS_MAKS_GODZIN = 7 * 24
 
 _CACHE_S: float = 0.0
@@ -593,6 +599,8 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     if platnosci.wlaczone():
         rejestr[skrot]["oplacono_do"] = platnosci.na_probe()
     _zapisz_rejestr(rejestr)
+    if tokenomia.WLACZONA:
+        tokenomia.zaloz_portfel_probny(id_k)
     log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
     wynik = {
         "id": id_k,
@@ -1232,6 +1240,9 @@ async def webhook_stripe(request: Request):
 
     typ = zdarzenie["type"]
     obiekt = (zdarzenie.get("data") or {}).get("object") or {}
+    # Zakup pakietu kredytow to platnosc jednorazowa - subskrypcji nie dotyka.
+    if typ == "checkout.session.completed" and tokenomia.z_platnosci_stripe(obiekt):
+        return {"odebrano": True}
     _CACHE = None          # druga kopia aplikacji mogla przed chwila zmienic rejestr
     rejestr = _wczytaj_rejestr()
 
@@ -1286,6 +1297,10 @@ async def webhook_stripe(request: Request):
             # Faktura zerowa (okres probny) - termin tak, wpis w historii nie.
             historia.append({"faktura_id": obiekt.get("id"), "status": "proba", "data": _teraz()})
         log.info("stripe: kancelaria %s oplacona do %s", wpis["id"], wpis.get("oplacono_do"))
+        # Nowy okres abonamentu = nowa pula kredytow planu (raz na fakture).
+        if tokenomia.WLACZONA:
+            tokenomia.odnow_pule(wpis["id"], wpis.get("plan") or tokenomia.PLAN_DOMYSLNY,
+                                 znacznik=obiekt.get("id", ""))
     elif typ == "invoice.payment_failed":
         # Stripe sam ponawia i wysyla e-mail; my tylko odnotowujemy.
         log.warning("stripe: kancelaria %s, nieudane obciazenie", wpis["id"])

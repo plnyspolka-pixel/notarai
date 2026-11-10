@@ -3,6 +3,8 @@
 ## Nowe pliki
 - `magazyn.py`      — pliki spraw: dysk (jak dotąd) albo dysk-cache + S3
 - `autoryzacja.py`  — logowanie per osoba, panel admina /api/admin/*, dostęp serwisowy /api/serwis
+- `aml_listy.py`, `aml_dopasowanie.py`, `aml.py` — listy sankcyjne (UE, ONZ, MSWiA) i PEP (Sejm, KPRM, Wikidata) pobierane do aplikacji, dopasowanie liczone u nas, decyzje notariusza w śladzie audytowym (docs/rejestry.md)
+- `crbr.py`         — beneficjenci rzeczywiści spółki z oficjalnej bramki CRBR Ministerstwa Finansów
 - `Dockerfile`      — kontener dla ECS Fargate (x86_64, użytkownik bez uprawnień roota)
 - `infra/notarai-wdrozenie-iam.yaml` — CloudFormation: polityka dla tozsamosci, ktora wdraza stos ponizej (wdraza ja administrator konta, raz)
 - `infra/notarai-s3.yaml` — CloudFormation: bucket S3 (szyfrowany, prywatny, wersjonowany, tylko TLS) + polityka IAM aplikacji (S3 + Bedrock we wszystkich regionach UE, bo profile `eu.` routują poza Frankfurt)
@@ -15,6 +17,17 @@
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
+
+- `poswiadczenia.py` + `static/poswiadczenia.html` — poświadczenie kopii: zdjęcie z telefonu
+  albo skan z kopiarki (PDF, także kilka dokumentów w jednym skanie) → opis do repertorium A
+  (krótka treść czynności, liczba stron, cechy dokumentu do klauzuli, taksa § 13 pkt 2/3).
+  Strona `/poswiadczenia`, API `POST /api/poswiadczenia/opis` (wymaga logowania). Pliki tylko
+  w katalogu tymczasowym na czas odczytu, nic nie zapisujemy ani nie logujemy. Model:
+  `PIECZAPP_POSWIADCZENIA_MODEL` (domyślnie `eu.anthropic.claude-sonnet-4-6`, tylko profil `eu.`).
+  Dodatkowo: projekt klauzuli poświadczenia (taksa netto, VAT, podstawa § 13, cechy dokumentu)
+  z drukiem, automatyczna numeracja Rep. A i miejscowość (ustawienia w przeglądarce, bez danych
+  klientów), nasłuch folderu kopiarki w Chrome/Edge (File System Access API: nowy skan jest
+  odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
@@ -166,6 +179,13 @@ Czego żadna automatyka nie załatwi:
   obrazu podniesie się sam, a parametr `temperature` zostanie pominięty,
   bo nowsze modele go odrzucają.
 
+## Kredyty za czynności (tokenomia)
+
+Koszt każdej czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny
+w kredytach wynikają z kosztu z narzutem co najmniej 100%. Włącza parametr stosu
+`Tokenomia=true` (zmienna `PIECZAPP_TOKENOMIA`); bez niego koszty są tylko liczone.
+Cennik, plany, symulacja i trzy modele biznesowe: `docs/tokenomia.md`.
+
 ## Pliki w chmurze albo u kancelarii
 
 Kancelaria dostaje pole `przechowywanie` przy zakładaniu konta: `chmura`
@@ -185,6 +205,10 @@ Przy `u-klienta`:
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
 
 ## Znane granice (uczciwie)
+- Listy sankcyjne i PEP leżą jako migawki JSON w S3 (`<prefiks>/admin/listy_aml/`), a indeks
+  buduje się w pamięci każdej kopii aplikacji (sekundy). Odświeża je wątek w tle co 6 h;
+  obie kopie mogą to robić równolegle, zapis jest idempotentny. Wikidata bywa
+  przeciążona (429) - importer ponawia, a stara migawka zostaje.
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.
 - Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa

@@ -89,6 +89,14 @@ body {{background:linear-gradient(165deg,#f7fbff,#fff 60%,#edf5ff);color:var(--t
 .kanc .brak {{ color: var(--tekst3); font-size: .88rem; }}
 /* .przycisk ma display: inline-block, ktory nadpisalby atrybut hidden. */
 [hidden] {{ display: none !important; }}
+.kanc .notarai {{ display: inline-block; background: var(--akcent-tlo); color: var(--akcent); padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; }}
+.kanc article.klient {{ border-color: var(--akcent); }}
+.sloty {{ margin: 6px 0 10px; }} .sloty-tytul {{ margin: 0 0 6px; font-size: .9rem; color: var(--tekst2); }}
+.slot-dzien {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }}
+.slot-dzien b {{ width: 64px; font-size: .85rem; }}
+.slot {{ border: 1px solid var(--akcent); background: transparent; color: var(--akcent); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: .85rem; cursor: pointer; }}
+.slot.wybrany {{ background: var(--akcent); color: #fff; }}
+.filtr-online {{ display: block; margin: 0 0 12px; font-size: .92rem; }}
 .tabela-k {{ overflow-x: auto; margin: 18px 0; border: 1px solid var(--linia); border-radius: 10px; background: var(--karta); }}
 .tabela-k table {{ border-collapse: collapse; width: 100%; font-size: .95rem; }}
 .tabela-k th, .tabela-k td {{ text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--linia); vertical-align: top; }}
