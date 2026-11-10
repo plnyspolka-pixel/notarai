@@ -1,0 +1,151 @@
+name: NotarAI - wdrozenie na app.notarai.pl
+
+# Po kazdym zielonym przebiegu testow na master: obraz w CodeBuild, potem
+# aktualizacja stosu notarai-aplikacja (podmiana bez przestoju). Recznie:
+# Actions -> "NotarAI - wdrozenie" -> Run workflow (na galezi master).
+#
+# Poswiadczenia AWS przez OIDC, bez kluczy i bez logowania. Role zaklada
+# jednorazowo infra/4-polacz-github.ps1 (stos notarai-github).
+
+on:
+  workflow_run:
+    workflows: ["NotarAI - testy kodu"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Jedno wdrozenie naraz; kolejne czeka, nie przerywa trwajacego.
+concurrency:
+  group: notarai-wdrozenie
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_KONTO: "127621462971"
+  ROLA_GITHUB: arn:aws:iam::127621462971:role/notarai-github-wdrozenie
+  ROLA_CLOUDFORMATION: arn:aws:iam::127621462971:role/notarai-cloudformation
+
+jobs:
+  wdrozenie:
+    name: Obraz + aktualizacja aplikacji
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: >-
+      github.ref == 'refs/heads/master' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'master'
+        )
+      )
+    steps:
+      - name: Pobierz kod (dokladnie przetestowany commit)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Poswiadczenia AWS przez OIDC
+        run: |
+          set -euo pipefail
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          if ! dane=$(aws sts assume-role-with-web-identity \
+                --role-arn "$ROLA_GITHUB" \
+                --role-session-name "github-${GITHUB_RUN_ID}" \
+                --web-identity-token "$token" \
+                --duration-seconds 3600 \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text); then
+            echo "::error::Brak dostepu do roli $ROLA_GITHUB. Uruchom raz na komputerze: powershell -ExecutionPolicy Bypass -File infra\\4-polacz-github.ps1"
+            exit 1
+          fi
+          read -r kid ksec ksesja <<< "$dane"
+          echo "::add-mask::$ksec"
+          echo "::add-mask::$ksesja"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$ksec"
+            echo "AWS_SESSION_TOKEN=$ksesja"
+          } >> "$GITHUB_ENV"
+
+      - name: Sprawdz konto
+        run: |
+          set -euo pipefail
+          konto=$(aws sts get-caller-identity --query Account --output text)
+          if [ "$konto" != "$AWS_KONTO" ]; then
+            echo "::error::AWS wskazuje konto $konto, oczekiwane $AWS_KONTO."
+            exit 1
+          fi
+          echo "TAG=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
+
+      - name: Obraz w CodeBuild
+        run: |
+          set -euo pipefail
+          wyjscie() {
+            aws cloudformation describe-stacks --stack-name notarai-budowanie \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" --output text
+          }
+          bucket=$(wyjscie BucketZrodel)
+          projekt=$(wyjscie ProjektBudowania)
+          repo=$(wyjscie RepozytoriumUri)
+          echo "REPO=$repo" >> "$GITHUB_ENV"
+
+          if aws ecr describe-images --repository-name "${repo#*/}" --image-ids "imageTag=$TAG" >/dev/null 2>&1; then
+            echo "Obraz $repo:$TAG juz jest w ECR - pomijam budowanie."
+            exit 0
+          fi
+
+          # Tylko zacommitowany kod (git archive) - dane/ i .env nigdy nie trafiaja do paczki.
+          git archive --format=zip -o "$RUNNER_TEMP/zrodla.zip" HEAD
+          klucz="notarai/zrodla-$TAG.zip"
+          aws s3 cp "$RUNNER_TEMP/zrodla.zip" "s3://$bucket/$klucz" --only-show-errors
+
+          id=$(aws codebuild start-build --project-name "$projekt" \
+            --source-location-override "$bucket/$klucz" \
+            --environment-variables-override "name=IMAGE_TAG,value=$TAG,type=PLAINTEXT" \
+            --query build.id --output text)
+          echo "Budowanie $id (zwykle 3-6 minut)"
+          while :; do
+            sleep 20
+            stan=$(aws codebuild batch-get-builds --ids "$id" --query 'builds[0].[buildStatus,currentPhase]' --output text)
+            echo "$(date +%H:%M:%S)  $stan"
+            case "$stan" in IN_PROGRESS*) ;; *) break ;; esac
+          done
+          if [ "${stan%%[[:space:]]*}" != "SUCCEEDED" ]; then
+            strumien=$(aws codebuild batch-get-builds --ids "$id" --query 'builds[0].logs.streamName' --output text)
+            aws logs get-log-events --log-group-name /aws/codebuild/notarai-obraz \
+              --log-stream-name "$strumien" --limit 60 --query 'events[].message' --output text || true
+            echo "::error::Budowanie obrazu zakonczone statusem $stan"
+            exit 1
+          fi
+
+      - name: Aktualizacja stosu notarai-aplikacja
+        run: |
+          set -euo pipefail
+          # Zmieniamy tylko tag obrazu. Pozostale parametry (certyfikat, VPC,
+          # sekrety Stripe/Apify/Finance You, e-mail) CloudFormation bierze
+          # z poprzedniego wdrozenia.
+          aws cloudformation deploy --stack-name notarai-aplikacja \
+            --template-file infra/notarai-aplikacja.yaml \
+            --role-arn "$ROLA_CLOUDFORMATION" \
+            --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides "TagObrazu=$TAG"
+
+      - name: Sprawdz, czy dziala nowa wersja
+        run: |
+          set -euo pipefail
+          aws ecs wait services-stable --cluster notarai --services notarai
+          definicja=$(aws ecs describe-services --cluster notarai --services notarai --query 'services[0].taskDefinition' --output text)
+          obraz=$(aws ecs describe-task-definition --task-definition "$definicja" --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "$obraz" != "$REPO:$TAG" ]; then
+            echo "::error::ECS uzywa obrazu $obraz, oczekiwano $REPO:$TAG"
+            exit 1
+          fi
+          echo "### Wdrozono $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Obraz: \`$obraz\`" >> "$GITHUB_STEP_SUMMARY"

@@ -74,7 +74,25 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    kancelarii sam włącza w oknie Zespół kancelarii (umowa powierzenia § 5
    ust. 4). Gdy jest włączony, w karcie kancelarii pojawia się przycisk
    „Otwórz sprawy (dostęp serwisowy)”.
-6. Nowa wersja aplikacji: commit, potem etap 2 i 3. Podmiana bez przestoju.
+6. Nowa wersja aplikacji: push na `master` (albo merge pull requesta na GitHubie).
+   Po zielonych testach workflow `.github/workflows/wdrozenie.yml` sam buduje
+   obraz i podmienia aplikację, bez przestoju i bez logowania do AWS. Postęp:
+   zakładka Actions w repozytorium. Ręcznie: Actions -> „NotarAI - wdrozenie
+   na app.notarai.pl” -> Run workflow (na `master`).
+   Jednorazowo trzeba to włączyć (zalogowany jako administrator konta):
+   `powershell -ExecutionPolicy Bypass -File infra\4-polacz-github.ps1 -Profil notarai-admin`
+   Skrypt zakłada stos `notarai-github` (`infra/notarai-github.yaml`):
+   dostawcę OIDC GitHuba i dwie role. `notarai-github-wdrozenie` przyjmuje
+   wyłącznie GitHub Actions z gałęzi `master` tego repozytorium; nie ma kluczy
+   dostępu, poświadczenia żyją godzinę. Zmiany w zasobach wykonuje rola
+   `notarai-cloudformation`, ograniczona do zasobów `notarai-*` stosu aplikacji.
+   GitHub zmienia tylko tag obrazu; pozostałe parametry stosu (certyfikat,
+   sekrety, e-mail, cena) zostają z poprzedniego wdrożenia. Etap 2 i 3 z
+   komputera dalej działają: są potrzebne, gdy dochodzi nowy sekret
+   (np. `notarai/stripe`) albo zmieniasz parametr, np. liczbę kopii czy cenę.
+   Bezpieczeństwo: każdy, kto może pushować na `master`, wdraża na produkcję.
+   Warto włączyć w GitHubie ochronę gałęzi `master` (Settings -> Branches)
+   z wymogiem zielonych testów.
 7. Logowanie użytkowników (opcjonalne, ale zalecane):
    `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
    Potem etap 3 jeszcze raz - skrypt sam wykryje stos i poda aplikacji dane puli.
