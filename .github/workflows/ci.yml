@@ -66,6 +66,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Sprawdz typy
         run: npm run typecheck
+      - name: Testy jednostkowe (src/api.ts, node --test)
+        run: npm test
       - name: Zbuduj wersje web
         run: npx expo export --platform web
         env:
