@@ -150,6 +150,34 @@ def strona_mapy_kancelarii():
     return (Path(__file__).parent / "static" / "notariusze.html").read_text("utf-8")
 
 
+# Aplikacja klienta (mobilna/, Expo) w wersji przegladarkowej: `expo export
+# --platform web` z baseUrl /aplikacja. Katalog dist/ powstaje przy budowie
+# obrazu (Dockerfile, etap node) albo recznie; bez niego trasa odpowiada 404.
+APLIKACJA_WEB = Path(__file__).parent / "mobilna" / "dist"
+_PLIKI_WEB = {".js", ".css", ".map", ".json", ".png", ".jpg", ".svg", ".ico", ".ttf", ".woff", ".woff2", ".txt"}
+
+
+@app.get("/aplikacja", include_in_schema=False)
+@app.get("/aplikacja/{sciezka:path}", include_in_schema=False)
+def aplikacja_klienta(sciezka: str = ""):
+    katalog = APLIKACJA_WEB.resolve()
+    indeks = katalog / "index.html"
+    if not indeks.is_file():
+        raise HTTPException(404, "Wersja web aplikacji nie jest zbudowana.")
+    if sciezka:
+        plik = (katalog / sciezka).resolve()
+        if plik.is_relative_to(katalog) and plik.is_file():
+            # Pliki z hashem w nazwie (_expo/static) nie zmieniaja sie nigdy.
+            trwaly = sciezka.startswith("_expo/static/")
+            return FileResponse(plik, headers={"Cache-Control": "public, max-age=31536000, immutable"
+                                               if trwaly else "public, max-age=3600"})
+        if sciezka.startswith(("_expo/", "assets/")) or Path(sciezka).suffix.lower() in _PLIKI_WEB:
+            raise HTTPException(404, "Nie ma takiego pliku.")
+    # Trasy aplikacji (/aplikacja/wizyty, /aplikacja/kancelaria/x) obsluguje
+    # router po stronie przegladarki - zawsze ten sam index.html.
+    return FileResponse(indeks, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/kalkulator", response_class=HTMLResponse)
 def strona_kalkulatora():
     """Kalkulator taksy bez koniecznosci logowania."""

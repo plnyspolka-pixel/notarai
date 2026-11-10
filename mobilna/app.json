@@ -62,7 +62,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": false
+      "typedRoutes": false,
+      "baseUrl": "/aplikacja"
     }
   }
 }

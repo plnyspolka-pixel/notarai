@@ -23,3 +23,13 @@ htmlcov/
 *.bak
 .vscode/
 .idea/
+
+# Aplikacja klienta (mobilna/): obraz dostaje tylko zbudowany dist/ z etapu
+# node w Dockerfile; lokalne zaleznosci, buildy i .env nie wchodza.
+**/.env
+**/.env.*
+!.env.example
+mobilna/node_modules/
+mobilna/dist/
+mobilna/.expo/
+mobilna/web-build/

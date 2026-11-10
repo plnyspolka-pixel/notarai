@@ -65,6 +65,11 @@ button:focus-visible,input:focus-visible,.pozycja:focus-visible{outline:2px soli
 .stan.blad{color:var(--alarm)}
 .stan.ok{color:var(--ok)}
 .wskaz{font-size:12.5px;color:var(--tekst3);margin:6px 0 0}
+a.aplikacja{display:block;margin-top:12px;padding:10px 14px;border:1px solid var(--linia2);border-radius:var(--r2);
+  background:var(--akcent-tlo);color:var(--tekst);font-weight:700;font-size:14px;text-decoration:none}
+a.aplikacja small{display:block;margin-top:2px;font-weight:400;font-size:12.5px;color:var(--tekst2)}
+a.aplikacja:hover{border-color:var(--akcent)}
+a.aplikacja:focus-visible{outline:2px solid var(--akcent);outline-offset:1px}
 
 ol.lista{list-style:none;margin:0;padding:10px 12px 16px;overflow:auto;flex:1;min-height:180px}
 .pozycja{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;width:100%;text-align:left;
@@ -161,6 +166,8 @@ footer{background:#eef4fc;border-color:#d3e4f6;}
       <p class="stan" id="stan"></p>
       <div class="szukaj"><input type="search" id="filtr" placeholder="Miejscowość albo nazwa kancelarii" autocomplete="off" aria-label="Filtruj listę kancelarii"></div>
       <p class="wskaz">Możesz też kliknąć na mapie w miejsce, w którym jesteś.</p>
+      <a class="aplikacja" href="/aplikacja/">Umów wizytę w aplikacji <span aria-hidden="true">→</span>
+        <small>Wolne godziny kancelarii, potwierdzenie kodem SMS i przypomnienie dzień przed wizytą.</small></a>
     </div>
     <ol class="lista" id="lista" aria-live="polite"><li class="pusto">Ładuję kancelarie…</li></ol>
   </aside>
