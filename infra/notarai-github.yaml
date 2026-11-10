@@ -11,9 +11,12 @@ Description: >-
 Parameters:
   Repozytorium:
     Type: String
-    Default: plnyspolka-pixel/notarai
-    Description: Repozytorium GitHub (wlasciciel/nazwa), z ktorego wolno wdrazac
-    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    Default: plnyspolka-pixel@288798782/notarai@1449623737
+    Description: >-
+      Repozytorium GitHub, z ktorego wolno wdrazac, w formacie pola sub tokenu
+      GitHuba: wlasciciel@id/nazwa@id. Numery sa niezmienne, wiec repozytorium
+      zalozone pozniej pod ta sama nazwa nie dostanie dostepu.
+    AllowedPattern: "^[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+$"
   Galaz:
     Type: String
     Default: master

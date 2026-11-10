@@ -38,12 +38,22 @@ if (-not (Czy-Aws sts get-caller-identity)) {
 $biezace = Uruchom-Aws sts get-caller-identity --query Account --output text
 if ($biezace -ne $Konto) { throw "AWS wskazuje konto $biezace, oczekiwane $Konto. Przerywam." }
 
+# Pole sub tokenu GitHuba: wlasciciel@id/repozytorium@id (numery niezmienne).
+$parametry = @("Repozytorium=plnyspolka-pixel@288798782/notarai@1449623737")
+
 # Dostawca OIDC GitHuba moze byc w koncie tylko jeden - nie zakladamy drugiego.
-$dostawcy = Uruchom-Aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[].Arn" --output text
-$nowy = "tak"
-if ($dostawcy -match "oidc-provider/token\.actions\.githubusercontent\.com") {
-    $nowy = "nie"
-    Write-Host "   dostawca OIDC GitHuba juz istnieje - uzyje istniejacego"
+# Przy ponownym uruchomieniu nie ruszamy tego wyboru: gdyby dostawce zalozyl
+# ten stos, zmiana na "nie" kazalaby CloudFormation go usunac.
+if (Czy-Aws cloudformation describe-stacks --stack-name notarai-github) {
+    Write-Host "   stos notarai-github juz istnieje - aktualizuje go"
+} else {
+    $dostawcy = Uruchom-Aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[].Arn" --output text
+    $nowy = "tak"
+    if ($dostawcy -match "oidc-provider/token\.actions\.githubusercontent\.com") {
+        $nowy = "nie"
+        Write-Host "   dostawca OIDC GitHuba juz istnieje - uzyje istniejacego"
+    }
+    $parametry += "UtworzDostawceOidc=$nowy"
 }
 
 Write-Host "== Stos notarai-github" -ForegroundColor Cyan
@@ -51,7 +61,7 @@ Uruchom-Aws cloudformation deploy --stack-name notarai-github `
     --template-file "$korzen\infra\notarai-github.yaml" `
     --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai `
     --no-fail-on-empty-changeset `
-    --parameter-overrides "UtworzDostawceOidc=$nowy" | Out-Host
+    --parameter-overrides @parametry | Out-Host
 
 Write-Host ""
 Write-Host "== Gotowe" -ForegroundColor Green
