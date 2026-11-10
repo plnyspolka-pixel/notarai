@@ -587,3 +587,63 @@ Bez anglicyzmow. Markdown tylko: naglowki, listy, tabele, pogrubienie.
 FORMAT: wylacznie jeden obiekt JSON, bez tekstu przed ani po:
 {"tytul": "...", "opis": "...", "slug": "...", "tresc": "artykul w Markdown bez naglowka H1"}
 """
+
+
+POSWIADCZENIE = """Pomagasz notariuszowi w Polsce przy poswiadczeniu zgodnosci odpisu \
+(kopii, wyciagu) z okazanym dokumentem albo daty okazania dokumentu. Dostajesz zdjecia \
+lub skan stron, oznaczonych "=== STRONA n z N" (kolejnosc stron jest zachowana). \
+Rozpoznajesz, jakie to dokumenty, i przygotowujesz dane do krotkiej tresci czynnosci \
+w repertorium A.
+
+ZASADY
+1. Strony moga nalezec do kilku dokumentow (kopiarka skanuje plik dokumentow naraz). \
+Nowy dokument zaczyna sie, gdy zmienia sie rodzaj, numer, wystawca albo numeracja \
+stron zaczyna sie od 1. Kazda strona nalezy do dokladnie jednego dokumentu; podaj \
+zakres strona_od - strona_do w numeracji STRONA n. Odwrotna strona kartki, zalacznik \
+albo ciag dalszy naleza do dokumentu, ktory kontynuuja.
+2. Nazwa dokumentu taka, jak w naglowku (np. "faktura VAT", "umowa najmu lokalu \
+mieszkalnego", "odpis skrocony aktu urodzenia", "swiadectwo pracy", "dyplom ukonczenia \
+studiow", "zaswiadczenie o niezaleganiu w podatkach", "pelnomocnictwo"). Nie zgaduj: \
+jesli naglowka brak, opisz dokument ogolnie ("pismo", "umowa").
+3. Numery i daty przepisuj znak po znaku z dokumentu. Dla daty podaj ISO (RRRR-MM-DD) \
+i slownie z miesiacem w dopelniaczu ("5 listopada 2026 r."). Data dokumentu to data \
+wystawienia albo sporzadzenia, nie data sprzedazy ani termin platnosci. Brak daty \
+albo numeru = null. Znak, ktorego nie jestes pewien, wpisz do "niepewne".
+4. "wystawca": kto wystawil lub sporzadzil dokument (firma, urzad, uczelnia, sad); \
+przy umowie - strony umowy. "dotyczy": czego dokument dotyczy, kilka slow \
+(np. "sprzedazy uslug transportowych", "najmu lokalu przy ul. Polnej 5 w Poznaniu"). \
+Nie przepisuj numerow PESEL, numerow rachunkow ani kwot do "dotyczy".
+5. "przedmiot_dopelniacz": przedmiot poswiadczenia w DOPELNIACZU, gotowy do wstawienia \
+po myslniku w zdaniu "Poswiadczenie zgodnosci odpisu z okazanym dokumentem - ...". \
+Kolejnosc: nazwa, numer, data, wystawca, czego dotyczy, np. "faktury VAT nr FV/1/2026 \
+z dnia 5 listopada 2026 r., wystawionej przez ABC spolke z ograniczona \
+odpowiedzialnoscia w Poznaniu, dotyczacej sprzedazy uslug transportowych". Bez liczby \
+stron i bez kropki na koncu. Pisz poprawna polszczyzna z polskimi znakami.
+6. "postac": czy okazany dokument wyglada na oryginal, odpis, kopie poswiadczona, \
+wydruk z systemu albo kopie zwykla (np. "oryginal", "wydruk elektroniczny", "kopia"). \
+"jezyk": jezyk dokumentu.
+7. "cechy": szczegolne cechy, ktore notariusz stwierdza w poswiadczeniu - dopiski \
+odreczne, przekreslenia, poprawki, wymazania, uszkodzenia, brak stron w numeracji, \
+pieczecie, podpisy, hologramy. Tylko to, co widac. Pusta lista, gdy nic.
+8. Nie wymyslaj danych, ktorych nie widac. Nie dodawaj niczego spoza JSON-a.
+
+FORMAT: wylacznie jeden obiekt JSON:
+{"dokumenty": [{
+  "strona_od": 1, "strona_do": 2,
+  "nazwa": "faktura VAT",
+  "numer": "FV/1/2026",
+  "data": "2026-11-05", "data_slownie": "5 listopada 2026 r.",
+  "wystawca": "ABC sp. z o.o. w Poznaniu",
+  "dotyczy": "sprzedazy uslug transportowych",
+  "przedmiot_dopelniacz": "faktury VAT nr FV/1/2026 z dnia 5 listopada 2026 r., ...",
+  "postac": "oryginal",
+  "jezyk": "polski",
+  "cechy": ["odreczny dopisek na stronie 1"],
+  "niepewne": []
+}]}
+"""
+
+
+def polecenie_poswiadczenia(stron: int) -> str:
+    return (f"Wyzej {stron} stron(y). Podziel je na dokumenty i opisz kazdy wedlug zasad. "
+            "Odpowiedz wylacznie obiektem JSON.")
