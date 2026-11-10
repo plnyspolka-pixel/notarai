@@ -255,9 +255,10 @@ def terminy(id_k: str, od: str = "", dni: int = 7):
     for i in range(dni):
         d = start + timedelta(days=i)
         dzien = d.isoformat()
-        nieczynne = bool(opisy.get(dzien, {}).get("nieczynne"))
+        swieto = kalendarz.swieto(d)
+        nieczynne = bool(swieto or opisy.get(dzien, {}).get("nieczynne"))
         sloty = [] if nieczynne else hurtowe._dostepne(wpisy, p, dzien)
-        wynik.append({"data": dzien, "nieczynne": nieczynne,
+        wynik.append({"data": dzien, "nieczynne": nieczynne, "swieto": swieto,
                       "terminy": [{"godzina": s["godzina"], "koniec": s["koniec"]} for s in sloty]})
     return {"kancelaria": _wizytowka(wpis, p), "czas_minut": p["czas_minut"],
             "od": start.isoformat(), "max_dni": p["max_dni"], "dni": wynik}
@@ -382,7 +383,7 @@ def _publiczny(w: dict, wpis_k: dict, p: dict) -> dict:
     return {"id": w["id"], "status": w.get("status", "potwierdzona"),
             "data": w["data"], "godzina": w["godzina"], "koniec": w.get("koniec", ""),
             "rodzaj": w.get("rodzaj", ""), "rodzaj_inny": w.get("rodzaj_inny", ""),
-            "utworzono": w.get("utworzono", ""),
+            "utworzono": w.get("utworzono", ""), "anulowal": w.get("anulowal", ""),
             "kancelaria": {k: v for k, v in _wizytowka(wpis_k, p).items()
                            if k in ("id", "nazwa", "adres", "miasto", "lat", "lon", "telefony")}}
 

@@ -11,11 +11,14 @@ z kancelarii naraz.
 
 Osobno, w dni.json, leza opisy dni nadane przez notariusza: tytul (np.
 "dzien odrzucen spadkow") i znacznik, ze kancelaria jest tego dnia nieczynna.
-Swieta panstwowe liczy interfejs - nie trzeba ich przechowywac.
+Swiat panstwowych nie przechowujemy - liczy je `swieto()` (i to samo robi
+interfejs w static/index.html). Rezerwacje online (klienci, partnerzy B2B)
+w swieta nie sa przyjmowane.
 """
+import functools
 import re
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import magazyn
 
@@ -24,6 +27,46 @@ RODZAJE = ("sprzedaż", "darowizna", "dział spadku", "poświadczenie podpisów"
            "testament", "pełnomocnictwo notarialne", "inne")
 _GODZINA = r"([01]\d|2[0-3]):[0-5]\d"
 MAKS_TELEFONOW = 10
+
+
+# Dni wolne od pracy (ustawa o dniach wolnych od pracy); Wigilia od 2025 r.
+SWIETA_STALE = {"01-01": "Nowy Rok", "01-06": "Trzech Króli", "05-01": "Święto Pracy",
+                "05-03": "Święto Konstytucji 3 Maja", "08-15": "Wniebowzięcie NMP", "11-01": "Wszystkich Świętych",
+                "11-11": "Święto Niepodległości", "12-24": "Wigilia", "12-25": "Boże Narodzenie",
+                "12-26": "Drugi dzień Bożego Narodzenia"}
+
+
+def _wielkanoc(rok: int) -> date:
+    """Algorytm Meeusa-Jonesa-Butchera (kalendarz gregorianski)."""
+    a, b, c = rok % 19, rok // 100, rok % 100
+    d, e = b // 4, b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7  # noqa: E741
+    m = (a + 11 * h + 22 * l) // 451
+    n = h + l - 7 * m + 114
+    return date(rok, n // 31, n % 31 + 1)
+
+
+@functools.lru_cache(maxsize=16)
+def swieta(rok: int) -> dict[str, str]:
+    lista = {f"{rok}-{md}": nazwa for md, nazwa in SWIETA_STALE.items() if md != "12-24" or rok >= 2025}
+    w = _wielkanoc(rok)
+    for przesuniecie, nazwa in ((0, "Wielkanoc"), (1, "Poniedziałek Wielkanocny"),
+                                (49, "Zielone Świątki"), (60, "Boże Ciało")):
+        lista[(w + timedelta(days=przesuniecie)).isoformat()] = nazwa
+    return lista
+
+
+def swieto(dzien: str | date) -> str:
+    """Nazwa swieta panstwowego tego dnia albo pusty napis."""
+    tekst = dzien.isoformat() if isinstance(dzien, date) else str(dzien)
+    try:
+        return swieta(int(tekst[:4])).get(tekst[:10], "")
+    except ValueError:
+        return ""
 
 
 def _jednolinijkowy(tekst, limit: int) -> str:

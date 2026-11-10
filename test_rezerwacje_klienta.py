@@ -54,6 +54,8 @@ def scena(tmp_path, monkeypatch):
     monkeypatch.setattr(sms, "TRYB", "test")
     monkeypatch.setattr(sms, "w_oknie", lambda teraz=None: True)
     monkeypatch.setattr(rk, "WEBHOOK_TOKEN", "hak-testowy")
+    # Daty w testach licza sie od dzisiaj - w przeddzien swieta "jutro" nie moze byc dniem wolnym.
+    monkeypatch.setattr(kalendarz, "swieto", lambda dzien: "")
     assert magazyn.TRYB == "lokalny"
     autoryzacja._zapisz_rejestr(REJESTR)
     for biuro, p in (("biuro-a", POLITYKA), ("biuro-b", {**POLITYKA, "klienci": False, "wlaczone": True}),
@@ -309,9 +311,28 @@ class TestZarzadzanie:
                            for t in d["terminy"]]
         podglad = scena.post(f"/api/klient/rezerwacje/{r['id']}/podglad",
                              json={"kancelaria": "lokalna", "token": r["token"]}).json()
-        assert podglad["status"] == "anulowana"
+        assert podglad["status"] == "anulowana" and podglad["anulowal"] == "kancelaria"
         assert scena.delete(f"/api/kalendarz/{r['id']}").status_code == 404     # drugi raz - nie ma czego
         assert len(sms.wyslane_testowo) == ile + 1
+
+
+class TestSwieta:
+    def test_kalendarz_swiat(self):
+        k = kalendarz                             # bez fikstury scena - prawdziwa funkcja
+        assert k.swieto("2026-11-11") == "Święto Niepodległości"
+        assert k.swieto("2026-04-06") == "Poniedziałek Wielkanocny"
+        assert k.swieto("2026-06-04") == "Boże Ciało"
+        assert k.swieto("2027-03-28") == "Wielkanoc"
+        assert k.swieto("2025-12-24") == "Wigilia" and k.swieto("2024-12-24") == ""
+        assert k.swieto("2026-11-10") == "" and k.swieto("zly-dzien") == ""
+
+    def test_w_swieto_brak_terminow_i_rezerwacji(self, scena, monkeypatch):
+        monkeypatch.setattr(kalendarz, "swieto", lambda dzien: "Testowe Święto" if str(dzien) == scena.dzien else "")
+        dni = scena.get("/api/klient/kancelarie/biuro-a/terminy", params={"od": scena.dzien, "dni": 2}).json()["dni"]
+        assert dni[0] == {"data": scena.dzien, "nieczynne": True, "swieto": "Testowe Święto", "terminy": []}
+        assert dni[1]["terminy"] and dni[1]["swieto"] == ""
+        odp = rezerwuj(scena)
+        assert odp.status_code == 409 and "zajęty" in odp.json()["detail"]
 
 
 class TestKokpitKancelarii:

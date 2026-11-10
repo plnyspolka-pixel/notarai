@@ -24,6 +24,7 @@ def scena(tmp_path, monkeypatch):
         "y": {"id": "biuro-b", "nazwa": "Kancelaria B", "aktywna": True,
               "umowa": {"zaakceptowano": "2026-11-01"}, "przechowywanie": "chmura"},
     })
+    monkeypatch.setattr(h.kalendarz, "swieto", lambda dzien: "")   # data testu nie trafi w swieto
     dzien = (datetime.now(h.STREFA) + timedelta(days=3)).date().isoformat()
     p = {"wlaczone": True, "miasto": "Lublin", "adres": "Testowa 1",
          "godziny": {str(i): ["09:00", "17:00"] for i in range(7)},

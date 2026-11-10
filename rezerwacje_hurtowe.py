@@ -276,7 +276,7 @@ def _dostepne(wpisy: list[dict], p: dict, dzien: str) -> list[dict]:
     if d < teraz.date() or d > teraz.date() + timedelta(days=p["max_dni"]):
         return []
     godziny = p["godziny"].get(str(d.weekday()))
-    if not godziny:
+    if not godziny or kalendarz.swieto(d):
         return []
     od, do = map(_minuty, godziny)
     wynik = []
