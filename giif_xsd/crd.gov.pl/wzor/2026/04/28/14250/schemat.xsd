@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://crd.gov.pl/wzor/2026/04/28/14250/" xmlns:typ="http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2018/10/10/giif/typy/" xmlns:str="http://crd.gov.pl/xml/schematy/struktura/2009/11/16/" targetNamespace="http://crd.gov.pl/wzor/2026/04/28/14250/" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <xsd:import namespace="http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2018/10/10/giif/typy/" schemaLocation="http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2018/10/10/giif/typy/typy.xsd"/>
+    <xsd:import namespace="http://crd.gov.pl/xml/schematy/struktura/2009/11/16/" schemaLocation="http://crd.gov.pl/xml/schematy/struktura/2009/11/16/struktura.xsd"/>
+    <xsd:element name="Dokument" type="TDokument"/>
+    <xsd:complexType name="TDokument">
+        <xsd:sequence>
+            <xsd:element name="OpisDokumentu" type="str:OpisDokumentuTyp"/>
+            <xsd:element name="DaneDokumentu" type="str:DaneDokumentuTyp"/>
+            <xsd:element name="TrescDokumentu" type="T2Dokument"/>
+        </xsd:sequence>
+        <xsd:attribute name="nipIO" use="required" type="xsd:string"/>
+        <xsd:attribute name="nrSekwJs" type="xsd:int" use="required">
+            <xsd:annotation>
+                <xsd:documentation>wartość na podstawie słownika jednostek skarbowych; urząd właściwy dla notariusza</xsd:documentation>
+            </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="idRE" type="xsd:int">
+            <xsd:annotation>
+                <xsd:documentation>OPCJONALNE - Numer identyfikujący instytucję w systemie goAML</xsd:documentation>
+            </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="userCode" type="xsd:string">
+            <xsd:annotation>
+                <xsd:documentation>OPCJONALNE - Kod użytkownika z systemu goAML</xsd:documentation>
+            </xsd:annotation>
+        </xsd:attribute>
+    </xsd:complexType>
+    <xsd:complexType name="T2Dokument">
+        <xsd:complexContent>
+            <xsd:extension base="str:TrescDokumentuTyp">
+                <xsd:sequence>
+                    <xsd:element name="Karta" maxOccurs="unbounded">
+                        <xsd:complexType>
+                            <xsd:complexContent>
+                                <xsd:extension base="TKartaTr"/>
+                            </xsd:complexContent>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+    <xsd:complexType name="TKartaTr">
+        <xsd:annotation/>
+        <xsd:complexContent>
+            <xsd:extension base="TTransakcjaTr">
+                <xsd:sequence>
+                    <xsd:element name="DanePrzedmiotu" type="TDanePrzedmiotu" maxOccurs="unbounded"/>
+                </xsd:sequence>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+    <xsd:complexType name="TTransakcjaTr">
+        <xsd:sequence>
+            <xsd:element name="IdentyfikatorTr">
+                <xsd:complexType>
+                    <xsd:complexContent>
+                        <xsd:extension base="TIdentyfikatorTr">
+                            <xsd:attribute name="nrCREWAN" use="required">
+                                <xsd:annotation>
+                                    <xsd:documentation>Numer Rep. N. (z CREWAN-u)</xsd:documentation>
+                                </xsd:annotation>
+                                <xsd:simpleType>
+                                    <xsd:restriction base="xsd:string">
+                                        <xsd:maxLength value="28"/>
+                                        <xsd:minLength value="5"/>
+                                        <xsd:whiteSpace value="collapse"/>
+                                        <xsd:pattern value="[A-Z]{2}\d{2}[_-]?\d{1,5}([_-]?\d{5}){0,3}"/>
+                                    </xsd:restriction>
+                                </xsd:simpleType>
+                            </xsd:attribute>
+                        </xsd:extension>
+                    </xsd:complexContent>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="DataDokumentu" type="typ:TDataUrodzenia"/>
+            <xsd:element name="RokRepertorium" type="TRok" minOccurs="1">
+                <xsd:annotation>
+                    <xsd:documentation>minimum 1900, maksymalnie 2099; wymagane podanie dokładnie 4 cyfr</xsd:documentation>
+                </xsd:annotation>
+            </xsd:element>
+            <xsd:element name="DataTr" type="typ:TDataUrodzenia"/>
+            <xsd:element name="KwotaTr" type="typ:TKwotaTr"/>
+            <xsd:element name="KodWalutyTr" type="typ:TKodWalutyTr"/>
+            <xsd:element name="KodRodzajuTr" type="typ:TKodRodzTr"/>
+            <xsd:element name="TytulTr" type="TTytulTr"/>
+            <xsd:element name="SposobWydaniaDysp" type="typ:TSposobWydaniaDyspTr"/>
+            <xsd:element name="Uwagi" type="typ:TUwagi" minOccurs="0"/>
+            <xsd:element name="TrescDokumentu" minOccurs="0">
+                <xsd:complexType>
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:base64Binary">
+                            <xsd:attribute name="plikTyp" use="required">
+                                <xsd:simpleType>
+                                    <xsd:restriction base="xsd:string">
+                                        <xsd:enumeration value="rtf"/>
+                                        <xsd:enumeration value="odt"/>
+                                        <xsd:enumeration value="doc"/>
+                                        <xsd:enumeration value="docx"/>
+                                    </xsd:restriction>
+                                </xsd:simpleType>
+                            </xsd:attribute>
+                        </xsd:extension>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute name="korekta" type="xsd:boolean" default="false"/>
+        <xsd:attribute name="dataKorekty" type="typ:TDataTr">
+            <xsd:annotation>
+                <xsd:documentation>atrybut obowiązkowy jeśli korekta=true</xsd:documentation>
+            </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="dlaGIIF" type="xsd:boolean" use="required"/>
+        <xsd:attribute name="czyOdplatna" type="xsd:boolean" use="required"/>
+    </xsd:complexType>
+    <xsd:complexType name="TIdentyfikatorTr">
+        <xsd:sequence>
+            <xsd:element name="NumerRepertorium">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:maxLength value="40"/>
+                        <xsd:pattern value="[A-Za-z0-9/]{1,40}"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="NumerCzynnosci">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:maxLength value="40"/>
+                        <xsd:minLength value="1"/>
+                        <xsd:whiteSpace value="collapse"/>
+                        <xsd:pattern value=".*"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:simpleType name="TRok">
+        <xsd:restriction base="xsd:int">
+            <xsd:minExclusive value="1900"/>
+            <xsd:maxExclusive value="2099"/>
+            <xsd:totalDigits value="4"/>
+            <xsd:pattern value="[0-9]{4}"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+    <xsd:simpleType name="TTytulTr">
+        <xsd:restriction base="xsd:string">
+            <xsd:length value="3"/>
+            <xsd:pattern value="[A-Z][0-9]{2}"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+    <xsd:complexType name="TDanePrzedmiotu">
+        <xsd:sequence>
+            <xsd:element name="ZbywanyUdzialLicznik" type="xsd:nonNegativeInteger" default="1"/>
+            <xsd:element name="ZbywanyUdzialMianownik" type="xsd:positiveInteger" default="1"/>
+            <xsd:element name="WartoscPrzedmiotu" type="typ:TKwotaTr"/>
+            <xsd:element name="CzyVAT" type="xsd:boolean"/>
+            <xsd:element name="IdSlPrzedmiotTyp" type="xsd:int"/>
+            <xsd:element name="OpisTypInne" minOccurs="0">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:maxLength value="200"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="ZwolnienieVAT" type="xsd:boolean" minOccurs="0">
+                <xsd:annotation>
+                    <xsd:documentation>
+                    </xsd:documentation>
+                </xsd:annotation>
+            </xsd:element>
+            <xsd:element name="Adres" minOccurs="1">
+                <xsd:complexType>
+                    <xsd:choice>
+                        <xsd:element name="Kraj" type="typ:TAdresKraj"/>
+                        <xsd:element name="AdresNieruchomosc" type="typ:TAdresTERYTmapa"/>
+                    </xsd:choice>
+                </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="DanePodmiotu" type="TDanePodmiotu" maxOccurs="unbounded"/>
+            <xsd:element minOccurs="0" name="OpisNieruchomosci">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element minOccurs="0" name="NrKsiegiWieczystej" nillable="false">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:string">
+                                    <xsd:maxLength value="15"/>
+                                    <xsd:pattern value="[A-Za-z0-9]{4}/[0-9]{8}/[0-9]"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="PowLokalu">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:decimal">
+                                    <xsd:fractionDigits value="2"/>
+                                    <xsd:minInclusive value="0.01"/>
+                                    <xsd:maxInclusive value="9999999.99"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="PowNieruchZabudowanejDomem">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:decimal">
+                                    <xsd:minInclusive value="0.01"/>
+                                    <xsd:maxInclusive value="9999999.99"/>
+                                    <xsd:fractionDigits value="2"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="LiczbaPokoi">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:int">
+                                    <xsd:minInclusive value="1"/>
+                                    <xsd:maxInclusive value="1000"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="NrKondygnacjiLokalu">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:int">
+                                    <xsd:maxInclusive value="1000"/>
+                                    <xsd:minInclusive value="-100"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="LiczbaKondNadziemnychBudynku">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:int">
+                                    <xsd:minInclusive value="1"/>
+                                    <xsd:maxInclusive value="1000"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="LiczbaKondPodziemnychBudynku">
+                            <xsd:simpleType>
+                                <xsd:restriction base="xsd:int">
+                                    <xsd:minInclusive value="0"/>
+                                    <xsd:maxInclusive value="100"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+                        </xsd:element>
+                        <xsd:element minOccurs="0" name="DataZakonczeniaRobot" type="typ:TDataUrodzenia"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:complexType name="TDanePodmiotu">
+        <xsd:sequence>
+            <xsd:choice>
+                <xsd:element name="ZleceniodawcaOsobaFizyczna" maxOccurs="1">
+                    <xsd:complexType>
+                        <xsd:sequence>
+                            <xsd:element name="OsobaFizyczna" type="typ:TNotarialnaOsobaFizyczna"/>
+                            <xsd:element name="OsFizycznaOsobaUpowazniona" type="typ:TNotarialnaOsFizycznaUpowazniona" minOccurs="0" maxOccurs="unbounded"/>
+                        </xsd:sequence>
+                    </xsd:complexType>
+                </xsd:element>
+                <xsd:element name="ZleceniodawcaOsobaPrawna" maxOccurs="1">
+                    <xsd:complexType>
+                        <xsd:sequence>
+                            <xsd:element name="OsobaPrawna">
+                                <xsd:complexType>
+                                    <xsd:complexContent>
+                                        <xsd:extension base="typ:TOsobaPrawna"/>
+                                    </xsd:complexContent>
+                                </xsd:complexType>
+                            </xsd:element>
+                            <xsd:element name="OsPrawnaOsobaUpowazniona" type="typ:TNotarialnaOsFizycznaUpowazniona" maxOccurs="unbounded"/>
+                        </xsd:sequence>
+                    </xsd:complexType>
+                </xsd:element>
+            </xsd:choice>
+            <xsd:element name="UdzialLicznik" type="xsd:nonNegativeInteger" default="0"/>
+            <xsd:element name="UdzialMianownik" type="xsd:positiveInteger" default="1"/>
+        </xsd:sequence>
+        <xsd:attribute name="charakterPodmiotu" type="typ:TCharakterPodmiotu" use="required"/>
+    </xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xs:schema xmlns:tns="http://www.giif.mofnet.gov.pl/xsd/upo/2018" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:plk="http://www.giif.mofnet.gov.pl/xsd/upo/2018" targetNamespace="http://www.giif.mofnet.gov.pl/xsd/upo/2018" elementFormDefault="qualified" version="1.0">
+	<xs:element name="Potwierdzenie" type="tns:PotwierdzenieT"/>
+	<xs:complexType name="PotwierdzenieT">
+		<xs:sequence>
+			<xs:element name="NazwaPodmiotuPrzyjmujacego" type="xs:string"/>
+			<xs:element name="NumerReferencyjny" type="xs:string"/>
+			<xs:element name="SkrotDokumentu" type="xs:string" minOccurs="0"/>
+			<xs:element name="SkrotZlozonejStruktury" type="xs:string" minOccurs="0"/>
+			<xs:element name="NazwaStrukturyLogicznej" type="xs:string" minOccurs="0"/>
+			<xs:element name="DataWplyniecia" type="xs:dateTime" minOccurs="0"/>
+			<xs:element name="SposobPotwierdzenia" type="tns:SposobPotwierdzeniaT" minOccurs="0"/>
+			<xs:element name="DataWplynieciaPotwierdzenia" type="xs:date" minOccurs="0"/>
+			<xs:element name="NIPIO" type="xs:string" minOccurs="0"/>
+			<xs:element name="DataICzasUPO" type="xs:dateTime" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:simpleType name="SposobPotwierdzeniaT">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Podpis elektroniczny"/>
+			<xs:enumeration value="Podpis własnoręczny"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

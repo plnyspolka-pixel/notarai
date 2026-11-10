@@ -134,6 +134,11 @@ button.okragly{width:36px;height:36px;padding:0;border-radius:50%;font-size:18px
 
 .pasek{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
 .stan{font-size:13px;color:var(--tekst2)}
+.ks-tab{width:100%;border-collapse:collapse;font-size:13px}.ks-tab th,.ks-tab td{border-bottom:1px solid var(--linia);padding:6px;text-align:left;vertical-align:top}
+button.maly-p{font-size:12px;padding:3px 8px;margin:2px}
+#etap8 label.pole,#etap9 label.pole{display:block}#etap8 select,#etap9 select{display:block;width:100%;font:inherit;padding:8px;margin-top:4px}
+#ks-zakladki{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#ks-zakladki .chip{flex:0 0 auto;width:auto;height:auto;white-space:nowrap;border-radius:999px}
+#etap8 label.pole input[type=checkbox],#etap9 label.pole input[type=checkbox]{margin-right:6px}
 .stan.blad{color:var(--alarm)}
 .stan.praca::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;
   border:2px solid var(--akcent);border-right-color:transparent;margin-right:8px;
@@ -638,6 +643,8 @@ notarai</div>
   <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
   <div class="krok" data-etap="9"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
+  <div class="krok" data-etap="10"><b><span>§</span></b>Księgi i repertoria</div>
+  <div class="krok" data-etap="11"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -746,6 +753,14 @@ notarai</div>
   <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='8']" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
    <span><strong>Przesyłki i korespondencja</strong><small>Dzienniki, książka nadawcza, koperty</small></span>
+  </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='10']" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-file"/></svg>
+   <span><strong>Księgi i repertoria</strong><small>Rep. A, P, C, depozyt, dzienniki</small></span>
+  </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav=".krok[data-etap='11']" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg>
+   <span><strong>Zgłoszenia GIIF</strong><small>Karty transakcji i terminy</small></span>
   </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-dokumenty" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-shield"/></svg>
@@ -1059,6 +1074,31 @@ notarai</div>
       </ol>
     </div>
   </div>
+</section>
+
+<!-- ===== 8: ksiegi notarialne (static/ksiegi.js) ===== -->
+<section id="etap10" hidden>
+  <h1>Księgi i repertoria</h1>
+  <p class="pod">Repertorium A i P, repertorium C (wnioski wieczystoksięgowe złożone w systemie EKW), księga depozytowa i dzienniki. Numer nadaje system, poprawka nie wymazuje poprzedniej treści.</p>
+  <div class="karta">
+    <div class="kal-widoki" id="ks-zakladki"></div>
+    <p class="pod" id="ks-opis"></p>
+    <label class="pole">Rok <input type="text" id="ks-rok" inputmode="numeric" style="max-width:110px"></label>
+    <div id="ks-lista"></div>
+    <div class="stan" id="stan10"></div>
+  </div>
+  <div class="karta" id="ks-nowy"></div>
+  <div class="karta" id="ks-wniosek" hidden></div>
+</section>
+
+<!-- ===== 9: zgloszenia GIIF (static/ksiegi.js) ===== -->
+<section id="etap11" hidden>
+  <h1>Zgłoszenia GIIF i Szefa KAS</h1>
+  <p class="pod">Karty transakcji z repertorium A i zawiadomienia AML. notarai sprawdza kompletność i pilnuje terminu; wysyłasz w SI*GIIF swoim podpisem kwalifikowanym, a tu rejestrujesz identyfikator przesyłki i UPO.</p>
+  <div class="karta"><div id="giif-lista"></div><div class="stan" id="stan11"></div></div>
+  <div class="karta" id="giif-edycja" hidden></div>
+  <div class="karta" id="giif-karta" hidden></div>
+  <details class="karta" id="giif-ustawienia"><summary><b>Ustawienia GIIF kancelarii</b> — NIP, urząd skarbowy i kody ze słowników SI*GIIF</summary><div id="giif-ustawienia-pola"></div></details>
 </section>
 
 <!-- ===== 6: kalendarz ===== -->
@@ -2184,7 +2224,7 @@ function pokaz(numer){
   $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
-  [1,2,3,4,5,6,7,8,9].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5,6,7,8,9,10,11].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
@@ -2205,6 +2245,8 @@ function pokaz(numer){
   if (numer === 7) rysujOsoby();
   if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
   if (numer === 9) window.rysujPersonalizacje?.();
+  if (numer === 10) window.rysujKsiegiKancelarii?.();
+  if (numer === 11) window.rysujGiif?.();
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -2664,7 +2706,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"], .krok[data-etap="10"], .krok[data-etap="11"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -5839,5 +5881,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/kokpit.js"></script>
 <script src="/static/klienci-panel.js"></script>
 <script src="/static/personalizacja.js"></script>
+<script src="/static/ksiegi.js"></script>
 </body>
 </html>

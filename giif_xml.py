@@ -1,0 +1,468 @@
+"""Karta transakcji notarialnej do GIIF i Szefa KAS - plik XML wg oficjalnego XSD.
+
+Schemat: CRWDE 2026/04/28/14250 (namespace http://crd.gov.pl/wzor/2026/04/28/14250/),
+obowiazuje od 30.06.2026 (komunikat GIIF nr 110). Kopie XSD w giif_xsd/,
+opisy pol w docs/giif/opis-schematu-notarialnego-v4.1.txt (numery pol K1.xx,
+K2.xx, K3.xx ponizej pochodza z tego opisu).
+
+Co robi ten modul:
+- buduje dokument <Dokument> z jedna lub wieloma kartami (jedna czynnosc =
+  jedna karta, ten sam numer repertorium),
+- waliduje go wzgledem XSD (lxml, bez sieci: importy crd.gov.pl czytamy z dysku),
+- sprawdza reguly, ktorych XSD nie wyraza (INF.2 udzialy stron, INF.3 suma
+  wartosci, INF.4 APD/EPS, adres nieruchomosci, sumy kontrolne PESEL/NIP/KW).
+
+Czego nie robi: nie zna slownikow GIIF (TytulTr, IdSlPrzedmiotTyp,
+charakterPodmiotu, RodzajDokumentu, FormaOrganizacyjna, USK) - sa dostepne
+dopiero po zalogowaniu w SI*GIIF. Kody podaje kancelaria (raz w ustawieniach
+albo przy karcie); SI*GIIF sprawdzi je przy przyjeciu pliku. Nie podpisuje
+(CAdES) i nie szyfruje - to robi notariusz swoim podpisem kwalifikowanym
+(narzedzie GIIF "Bezpieczny plik" albo wysylka przez strone SI*GIIF).
+"""
+from decimal import Decimal, InvalidOperation, ROUND_UP
+from fractions import Fraction
+from pathlib import Path
+
+from lxml import etree
+
+import walidacja
+
+NS = "http://crd.gov.pl/wzor/2026/04/28/14250/"
+# Elementy wewnatrz typow z typy.xsd (osoby, adresy, dokumenty) sa w jego przestrzeni nazw.
+TYP = "http://crd.gov.pl/xml/schematy/dziedzinowe/mf/2018/10/10/giif/typy/"
+CRWDE = "2026/04/28/14250"
+KATALOG_XSD = Path(__file__).parent / "giif_xsd"
+_CRD = "http://crd.gov.pl/"
+_SCHEMAT = None
+
+KODY_RODZAJU = {"07": "akt notarialny", "17": "akt poswiadczenia dziedziczenia",
+                "27": "europejskie poswiadczenie spadkowe"}
+SPOSOB_WYDANIA = {"0": "bez depozytu", "1": "z depozytem dokumentu", "2": "z depozytem pieniędzy",
+                  "3": "z depozytem papierów wartościowych"}
+STRONY_TRANSAKCJI = {"Z": "zbywca", "N": "nabywca", "I": "inna strona"}
+
+
+class _Resolver(etree.Resolver):
+    """Importy http://crd.gov.pl/... -> giif_xsd/crd.gov.pl/... (zero sieci)."""
+
+    def resolve(self, url, pubid, context):
+        if url and url.startswith(_CRD):
+            return self.resolve_filename(str(KATALOG_XSD / "crd.gov.pl" / url[len(_CRD):]), context)
+        return None
+
+
+def schemat() -> etree.XMLSchema:
+    global _SCHEMAT
+    if _SCHEMAT is None:
+        parser = etree.XMLParser(no_network=True)
+        parser.resolvers.add(_Resolver())
+        sciezka = KATALOG_XSD / "crd.gov.pl" / "wzor" / CRWDE / "schemat.xsd"
+        _SCHEMAT = etree.XMLSchema(etree.parse(str(sciezka), parser))
+    return _SCHEMAT
+
+
+# ---------------------------------------------------------------- budowa XML
+
+def _el(rodzic, nazwa, wartosc=None, ns=NS, **atrybuty):
+    e = etree.SubElement(rodzic, f"{{{ns}}}{nazwa}", {k: v for k, v in atrybuty.items() if v is not None})
+    if wartosc is not None:
+        e.text = str(wartosc)
+    return e
+
+
+def _opc(rodzic, nazwa, wartosc, ns=NS):
+    if wartosc not in (None, ""):
+        _el(rodzic, nazwa, wartosc, ns=ns)
+
+
+def _t(rodzic, nazwa, wartosc=None):
+    """Element z przestrzeni typy.xsd."""
+    return _el(rodzic, nazwa, wartosc, ns=TYP)
+
+
+def _kwota(wartosc) -> str:
+    try:
+        return str(Decimal(str(wartosc).replace(" ", "").replace(",", ".")).quantize(Decimal("0.01")))
+    except (InvalidOperation, ValueError):
+        return str(wartosc)
+
+
+def _bool(wartosc) -> str:
+    return "true" if wartosc else "false"
+
+
+def _adres(rodzic, nazwa, a: dict):
+    e = _t(rodzic, nazwa)
+    _t(e, "Kraj", (a.get("kraj") or "PL").upper())
+    _t(e, "Miejscowosc", a.get("miejscowosc", ""))
+    kod = _t(e, "KodPocztowy")
+    _t(kod, "KodPL" if (a.get("kraj") or "PL").upper() == "PL" else "Kod", a.get("kod_pocztowy", ""))
+    _t(e, "Ulica", a.get("ulica", ""))
+
+
+def _dokument(rodzic, d: dict):
+    e = _t(rodzic, "DokumentTozsamosci")
+    _t(e, "KrajDokumentu", (d.get("kraj") or "PL").upper())
+    _t(e, "RodzajDokumentu", (d.get("rodzaj") or "").upper())
+    _t(e, "SeriaINumerDokumentu", (d.get("numer") or "").replace(" ", "").upper())
+
+
+def _osoba(rodzic, nazwa, o: dict, pelna: bool):
+    """TNotarialnaOsobaFizyczna (pelna) albo TNotarialnaOsFizycznaUpowazniona."""
+    e = _el(rodzic, nazwa)
+    _t(e, "ImiePierwsze", o.get("imie", ""))
+    _opc(e, "ImieDrugie", o.get("imie_drugie"), ns=TYP)
+    _t(e, "Nazwisko", o.get("nazwisko", ""))
+    _t(e, "Obywatelstwo", (o.get("obywatelstwo") or "PL").upper())
+    if o.get("pesel"):
+        _t(e, "PESEL", o["pesel"])
+    else:
+        _t(e, "DataUrodzenia", o.get("data_urodzenia", ""))
+        _t(e, "KrajUrodzenia", (o.get("kraj_urodzenia") or "").upper())
+    _dokument(e, o.get("dokument") or {})
+    # AdresZamieszkania jest opcjonalny - pusty adres pomijamy zamiast psuc plik.
+    if pelna and (o.get("adres") or {}).get("miejscowosc"):
+        _adres(e, "AdresZamieszkania", o["adres"])
+    return e
+
+
+def _podmiot(rodzic, p: dict, strona: dict):
+    e = _el(rodzic, "DanePodmiotu", charakterPodmiotu=(p.get("charakter") or "").upper())
+    if strona.get("osoba_prawna"):
+        zl = _el(e, "ZleceniodawcaOsobaPrawna")
+        op = _el(zl, "OsobaPrawna")
+        _t(op, "NazwaPodmiotu", strona.get("nazwa", ""))
+        _t(op, "FormaOrganizacyjna", (strona.get("forma") or "").upper())
+        _adres(op, "AdresPodmiotu", strona.get("adres") or {})
+        if strona.get("nip"):
+            _t(op, "PodmiotNIP", "".join(c for c in strona["nip"] if c.isdigit()))
+        else:
+            _t(op, "NumerWRejestrze", strona.get("numer_w_rejestrze", ""))
+            _t(op, "DataRejestracji", strona.get("data_rejestracji", ""))
+            _t(op, "NazwaRejestru", strona.get("nazwa_rejestru", ""))
+            _t(op, "Kraj", (strona.get("kraj_rejestru") or "").upper())
+        for u in strona.get("upowaznieni", []):
+            _osoba(zl, "OsPrawnaOsobaUpowazniona", u, pelna=False)
+    else:
+        zl = _el(e, "ZleceniodawcaOsobaFizyczna")
+        _osoba(zl, "OsobaFizyczna", strona, pelna=True)
+        for u in strona.get("upowaznieni", []):
+            _osoba(zl, "OsFizycznaOsobaUpowazniona", u, pelna=False)
+    _el(e, "UdzialLicznik", p.get("udzial_licznik", 0))
+    _el(e, "UdzialMianownik", p.get("udzial_mianownik", 1))
+
+
+def _przedmiot(rodzic, p: dict, strony: list[dict]):
+    e = _el(rodzic, "DanePrzedmiotu")
+    _el(e, "ZbywanyUdzialLicznik", p.get("udzial_licznik", 1))
+    _el(e, "ZbywanyUdzialMianownik", p.get("udzial_mianownik", 1))
+    _el(e, "WartoscPrzedmiotu", _kwota(p.get("wartosc", 0)))
+    _el(e, "CzyVAT", _bool(p.get("czy_vat")))
+    _el(e, "IdSlPrzedmiotTyp", p.get("typ", ""))
+    _opc(e, "OpisTypInne", p.get("opis_inne"))
+    if p.get("zwolnienie_vat") is not None:
+        _el(e, "ZwolnienieVAT", _bool(p["zwolnienie_vat"]))
+    adres = _el(e, "Adres")
+    a = p.get("adres") or {}
+    if not p.get("nieruchomosc"):
+        _el(adres, "Kraj", (a.get("kraj") or "PL").upper())
+    else:
+        an = _el(adres, "AdresNieruchomosc")
+        kraj = (a.get("kraj") or "PL").upper()
+        _t(an, "Kraj", kraj)
+        if a.get("kod_pocztowy"):
+            kod = _t(an, "KodPocztowy")
+            _t(kod, "KodPL" if kraj == "PL" else "Kod", a["kod_pocztowy"])
+        if kraj == "PL":
+            for pole, xml in (("woj", "WOJ"), ("pow", "POW"), ("gmi", "GMI"), ("rodz", "RODZ"), ("simc", "SIMC")):
+                _t(an, xml, a.get(pole, ""))
+            for pole, xml in (("ulic", "ULIC"), ("nr_domu", "NrDomu"), ("nr_mieszkania", "NrMieszkania"),
+                              ("nr_arkusza_mapy", "NrArkuszaMapy"), ("nr_obrebu", "NrObrebu"),
+                              ("nr_dzialki", "NrDzialki")):
+                _opc(an, xml, a.get(pole), ns=TYP)
+        else:
+            _t(an, "Miejscowosc", a.get("miejscowosc", ""))
+            _t(an, "Ulica", a.get("ulica", ""))
+    for pd in p.get("podmioty", []):
+        nr = pd.get("strona")
+        if not isinstance(nr, int) or isinstance(nr, bool) or not 0 <= nr < len(strony):
+            raise ValueError("podmiot wskazuje nieistniejącą stronę")
+        _podmiot(e, pd, strony[nr])
+    opis = dict(p.get("opis_nieruchomosci") or {})
+    if (a.get("kraj") or "PL").upper() != "PL":
+        opis.pop("numer_kw", None)  # K2.10.01: tylko dla nieruchomosci z polskim adresem
+    if p.get("nieruchomosc") and any(opis.values()):
+        o = _el(e, "OpisNieruchomosci")
+        for pole, xml in (("numer_kw", "NrKsiegiWieczystej"), ("pow_lokalu", "PowLokalu"),
+                          ("pow_domu", "PowNieruchZabudowanejDomem"), ("liczba_pokoi", "LiczbaPokoi"),
+                          ("kondygnacja", "NrKondygnacjiLokalu")):
+            wartosc = opis.get(pole)
+            if pole in ("pow_lokalu", "pow_domu") and wartosc not in (None, ""):
+                wartosc = _kwota(wartosc)
+            _opc(o, xml, wartosc)
+
+
+def _karta(rodzic, k: dict):
+    e = _el(rodzic, "Karta", korekta=_bool(k.get("korekta")),
+            dataKorekty=k.get("data_korekty") or None,
+            dlaGIIF=_bool(k.get("dla_giif")), czyOdplatna=_bool(k.get("czy_odplatna", True)))
+    ident = _el(e, "IdentyfikatorTr", nrCREWAN=(k.get("nr_crewan") or "").upper())
+    _el(ident, "NumerRepertorium", k.get("numer_repertorium", ""))
+    _el(ident, "NumerCzynnosci", k.get("numer_czynnosci", "1"))
+    _el(e, "DataDokumentu", k.get("data_dokumentu", ""))
+    _el(e, "RokRepertorium", k.get("rok_repertorium", ""))
+    _el(e, "DataTr", k.get("data_tr") or k.get("data_dokumentu", ""))
+    _el(e, "KwotaTr", _kwota(k.get("kwota", 0)))
+    _el(e, "KodWalutyTr", (k.get("waluta") or "PLN").upper())
+    _el(e, "KodRodzajuTr", k.get("kod_rodzaju", "07"))
+    _el(e, "TytulTr", str(k.get("tytul") or "").upper())
+    _el(e, "SposobWydaniaDysp", k.get("sposob_wydania", "0"))
+    _opc(e, "Uwagi", (k.get("uwagi") or "").replace("\n", " "))
+    for p in k.get("przedmioty", []):
+        _przedmiot(e, p, k.get("strony", []))
+
+
+def zbuduj(karty: list[dict], ustawienia: dict) -> bytes:
+    """Dokument XML (UTF-8) z kartami. ustawienia: nip (notariusza), nr_sekw_js (USK)."""
+    nsmap = {None: NS, "typ": TYP}
+    dok = etree.Element(f"{{{NS}}}Dokument", nsmap=nsmap,
+                        nipIO="".join(c for c in str(ustawienia.get("nip", "")) if c.isdigit()),
+                        nrSekwJs=str(ustawienia.get("nr_sekw_js", "")))
+    _el(dok, "OpisDokumentu")
+    _el(dok, "DaneDokumentu")
+    tresc = _el(dok, "TrescDokumentu", format="text/xml", kodowanie="XML", rodzaj="inny")
+    for k in karty:
+        _karta(tresc, k)
+    return etree.tostring(dok, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+
+
+# ---------------------------------------------------------------- walidacja
+
+ETYKIETY = {
+    "nrCREWAN": "numer CREWAN", "NumerRepertorium": "numer repertorium", "NumerCzynnosci": "numer czynności",
+    "DataDokumentu": "data aktu", "RokRepertorium": "rok repertorium", "DataTr": "data transakcji",
+    "KwotaTr": "kwota transakcji", "KodWalutyTr": "waluta", "KodRodzajuTr": "rodzaj transakcji",
+    "TytulTr": "tytuł transakcji", "SposobWydaniaDysp": "sposób wydania dyspozycji",
+    "WartoscPrzedmiotu": "wartość przedmiotu", "IdSlPrzedmiotTyp": "kod rodzaju przedmiotu",
+    "ZbywanyUdzialLicznik": "zbywany udział (licznik)", "ZbywanyUdzialMianownik": "zbywany udział (mianownik)",
+    "UdzialLicznik": "udział strony (licznik)", "UdzialMianownik": "udział strony (mianownik)",
+    "charakterPodmiotu": "charakter podmiotu", "ImiePierwsze": "imię", "Nazwisko": "nazwisko",
+    "Obywatelstwo": "obywatelstwo", "PESEL": "PESEL", "DataUrodzenia": "data urodzenia",
+    "KrajUrodzenia": "kraj urodzenia", "KrajDokumentu": "kraj wydania dokumentu",
+    "RodzajDokumentu": "rodzaj dokumentu", "SeriaINumerDokumentu": "seria i numer dokumentu",
+    "Kraj": "kraj", "Miejscowosc": "miejscowość", "KodPL": "kod pocztowy (NN-NNN)", "Kod": "kod pocztowy",
+    "Ulica": "ulica", "WOJ": "TERYT - województwo", "POW": "TERYT - powiat", "GMI": "TERYT - gmina",
+    "RODZ": "TERYT - rodzaj gminy", "SIMC": "TERYT - SIMC", "ULIC": "TERYT - ULIC",
+    "NrKsiegiWieczystej": "numer KW", "PowLokalu": "powierzchnia lokalu", "LiczbaPokoi": "liczba pokoi",
+    "NrKondygnacjiLokalu": "kondygnacja", "PowNieruchZabudowanejDomem": "powierzchnia nieruchomości z domem",
+    "NazwaPodmiotu": "nazwa podmiotu", "FormaOrganizacyjna": "forma organizacyjna", "PodmiotNIP": "NIP podmiotu",
+    "nipIO": "NIP notariusza", "nrSekwJs": "urząd skarbowy (USK)",
+}
+
+
+def _po_ludzku(komunikat: str) -> str:
+    import re
+    atrybut = re.search(r"attribute '(\w+)'", komunikat)
+    element = re.search(r"Element '\{[^}]*\}(\w+)'", komunikat)
+    nazwa = (atrybut or element).group(1) if (atrybut or element) else ""
+    if not nazwa:
+        return komunikat
+    pole = ETYKIETY.get(nazwa, nazwa)
+    if "not expected" in komunikat or "Missing child" in komunikat:
+        return f"Pole „{pole}”: brak albo w złym miejscu ({nazwa})"
+    return f"Pole „{pole}”: wartość pusta albo w złym formacie ({nazwa})"
+
+
+def bledy_xsd(xml: bytes, surowe: bool = False) -> list[str]:
+    """Bledy walidacji XSD - po polsku i bez powtorzen (surowe=True: komunikaty lxml)."""
+    try:
+        dok = etree.fromstring(xml, etree.XMLParser(no_network=True, resolve_entities=False))
+    except etree.XMLSyntaxError as blad:
+        return [f"XML niepoprawny: {blad}"]
+    s = schemat()
+    if s.validate(dok):
+        return []
+    if surowe:
+        return [f"linia {b.line}: {b.message}" for b in s.error_log]
+    wynik = []
+    for b in s.error_log:
+        tekst = _po_ludzku(b.message)
+        if tekst not in wynik:
+            wynik.append(tekst)
+    return wynik
+
+
+def _ulamek(licznik, mianownik) -> Fraction:
+    return Fraction(int(licznik), int(mianownik))
+
+
+def _liczba(wartosc, opis: str, b: list[str], minimum: int | None = None) -> int | None:
+    """Liczba calkowita z karty albo komunikat w bledach (zamiast wyjatku)."""
+    try:
+        n = int(str(wartosc).strip())
+    except (TypeError, ValueError):
+        b.append(f"{opis}: liczba całkowita")
+        return None
+    if minimum is not None and n < minimum:
+        b.append(f"{opis}: co najmniej {minimum}")
+        return None
+    return n
+
+
+def _dziesietna(wartosc, opis: str, b: list[str]) -> Decimal | None:
+    """Kwota z karty: liczba >= 0, najwyzej 2 miejsca po przecinku (K1.05, K2.03)."""
+    try:
+        d = Decimal(str(wartosc).replace(" ", "").replace(",", "."))
+    except (InvalidOperation, ValueError):
+        b.append(f"{opis}: niepoprawna liczba")
+        return None
+    if not d.is_finite() or d < 0:
+        b.append(f"{opis}: niepoprawna liczba")
+        return None
+    if d.as_tuple().exponent < -2:
+        b.append(f"{opis}: najwyżej 2 miejsca po przecinku")
+    return d
+
+
+def bledy_regul(k: dict, ustawienia: dict) -> list[str]:
+    """Reguly z opisu schematu (INF.1-9, pola K1-K3) i sumy kontrolne - przed wyslaniem."""
+    from datetime import date as _date
+    b = []
+    dzis = _date.today().isoformat()
+    nip = "".join(c for c in str(ustawienia.get("nip", "")) if c.isdigit())
+    if not walidacja.nip(nip)[0]:
+        b.append("Ustawienia GIIF: NIP notariusza (nipIO) niepoprawny")
+    if not str(ustawienia.get("nr_sekw_js", "")).isdigit():
+        b.append("Ustawienia GIIF: numer urzędu skarbowego (nrSekwJs, słownik USK)")
+    kod = str(k.get("kod_rodzaju", "07"))
+    if kod not in KODY_RODZAJU:
+        b.append("Kod rodzaju transakcji: 07, 17 albo 27")
+    if str(k.get("sposob_wydania", "0")) not in SPOSOB_WYDANIA:
+        b.append("Sposób wydania dyspozycji: 0-3")
+    if not k.get("tytul"):
+        b.append("Tytuł transakcji (K1.08, kod ze słownika GIIF, np. litera i dwie cyfry)")
+    if not k.get("nr_crewan"):
+        b.append("Numer CREWAN (K1.03); dla aktów nie zgłaszanych do CREWAN: XX900")
+    if k.get("korekta") and not k.get("data_korekty"):
+        b.append("Korekta wymaga daty korekty")
+    for pole, opis in (("data_dokumentu", "Data aktu (K1.14)"), ("data_tr", "Data transakcji (K1.04)")):
+        if str(k.get(pole) or "") > dzis:
+            b.append(f"{opis} nie może być z przyszłości")
+    rok = _liczba(k.get("rok_repertorium", ""), "Rok repertorium (K1.13)", b)
+    if rok and str(k.get("data_dokumentu") or "")[:4].isdigit() and rok > int(str(k["data_dokumentu"])[:4]):
+        b.append("Rok repertorium nie może być późniejszy niż rok sporządzenia aktu (K1.13)")
+    przedmioty, strony = k.get("przedmioty") or [], k.get("strony") or []
+    if not isinstance(przedmioty, list) or not isinstance(strony, list):
+        return b + ["Karta: 'przedmioty' i 'strony' muszą być listami"]
+    if not przedmioty:
+        b.append("Co najmniej jeden przedmiot transakcji")
+    kwota = _dziesietna(k.get("kwota", 0), "Kwota transakcji (K1.05)", b)
+    if kod in ("17", "27"):
+        # INF.4: APD i EPS nie maja wartosci nominalnej.
+        if kwota != 0 or k.get("dla_giif") or str(k.get("waluta") or "PLN").upper() != "PLN":
+            b.append("APD/EPS: kwota 0, waluta PLN i dlaGIIF=false (INF.4)")
+        for i, p in enumerate(przedmioty, 1):
+            if (str(p.get("wartosc", 0)) not in ("0", "0.00", "") or p.get("czy_vat")
+                    or str(p.get("udzial_licznik", 1)) != "1" or str(p.get("udzial_mianownik", 1)) != "1"):
+                b.append(f"Przedmiot {i}: APD/EPS - wartość 0, bez VAT, udział 1/1 (INF.4)")
+    wartosci = [_dziesietna(p.get("wartosc", 0), f"Przedmiot {i}: wartość (K2.03)", b)
+                for i, p in enumerate(przedmioty, 1)]
+    if kwota is not None and all(w is not None for w in wartosci):
+        suma = sum(wartosci, Decimal("0"))
+        if suma.quantize(Decimal("0.01"), ROUND_UP) != kwota.quantize(Decimal("0.01"), ROUND_UP):
+            b.append(f"Suma wartości przedmiotów ({suma}) różni się od kwoty transakcji (INF.3)")
+    for i, s in enumerate(strony, 1):
+        if not isinstance(s, dict):
+            b.append(f"Strona {i}: niepoprawne dane")
+            continue
+        if s.get("osoba_prawna"):
+            if s.get("nip") and not walidacja.nip(s["nip"])[0]:
+                b.append(f"Strona {i}: NIP niepoprawny")
+            if not s.get("upowaznieni"):
+                b.append(f"Strona {i}: osoba prawna wymaga co najmniej jednej osoby upoważnionej")
+        else:
+            if s.get("pesel") and not walidacja.pesel(s["pesel"])[0]:
+                b.append(f"Strona {i}: PESEL niepoprawny")
+            if not s.get("pesel") and not (s.get("data_urodzenia") and s.get("kraj_urodzenia")):
+                b.append(f"Strona {i}: PESEL albo data i kraj urodzenia")
+            if not (s.get("dokument") or {}).get("rodzaj") or not (s.get("dokument") or {}).get("numer"):
+                b.append(f"Strona {i}: dokument tożsamości (rodzaj ze słownika, np. DO, PA, i numer)")
+    for i, p in enumerate(przedmioty, 1):
+        licznik = _liczba(p.get("udzial_licznik", 1), f"Przedmiot {i}: zbywany udział - licznik (K2.01)", b, 1)
+        mianownik = _liczba(p.get("udzial_mianownik", 1), f"Przedmiot {i}: zbywany udział - mianownik (K2.02)", b, 1)
+        if licznik and mianownik and licznik > mianownik:
+            b.append(f"Przedmiot {i}: zbywany udział większy niż całość")
+        if not str(p.get("typ", "")).isdigit():
+            b.append(f"Przedmiot {i}: kod rodzaju przedmiotu (IdSlPrzedmiotTyp, słownik GIIF)")
+        podmioty = p.get("podmioty") or []
+        if not podmioty:
+            b.append(f"Przedmiot {i}: co najmniej jeden podmiot")
+        sumy = {"Z": Fraction(0), "N": Fraction(0)}
+        for pd in podmioty:
+            nr = pd.get("strona")
+            if not isinstance(nr, int) or isinstance(nr, bool) or not 0 <= nr < len(strony):
+                b.append(f"Przedmiot {i}: podmiot wskazuje nieistniejącą stronę")
+                continue
+            if not pd.get("charakter"):
+                b.append(f"Przedmiot {i}: charakter podmiotu (charakterPodmiotu, słownik GIIF)")
+            strona_tr = pd.get("strona_transakcji", "I")
+            ul = _liczba(pd.get("udzial_licznik", 0), f"Przedmiot {i}: udział strony - licznik (K3.02)", b, 0)
+            um = _liczba(pd.get("udzial_mianownik", 1), f"Przedmiot {i}: udział strony - mianownik (K3.03)", b, 1)
+            if ul is None or um is None:
+                continue
+            if ul > um:
+                b.append(f"Przedmiot {i}: udział strony większy niż całość (K3.02)")
+            if strona_tr in sumy:
+                sumy[strona_tr] += Fraction(ul, um)
+            elif ul != 0 or um != 1:
+                b.append(f"Przedmiot {i}: inna strona transakcji ma udział 0/1 (INF.2)")
+        for strona_tr, suma_udzialow in sumy.items():
+            if any(pd.get("strona_transakcji") == strona_tr for pd in podmioty) and suma_udzialow != 1:
+                b.append(f"Przedmiot {i}: udziały ({STRONY_TRANSAKCJI[strona_tr]}) sumują się do "
+                         f"{suma_udzialow}, a muszą do 1 (INF.2)")
+        if p.get("nieruchomosc"):
+            a = p.get("adres") or {}
+            opis = p.get("opis_nieruchomosci") or {}
+            if str(opis.get("kondygnacja", "")).strip() in ("0", "-0"):
+                b.append(f"Przedmiot {i}: kondygnacja - parter to 1, zero niedozwolone (K2.10.05)")
+            if (a.get("kraj") or "PL").upper() == "PL":
+                if not all(a.get(x) for x in ("woj", "pow", "gmi", "rodz", "simc")):
+                    b.append(f"Przedmiot {i}: adres TERYT (WOJ, POW, GMI, RODZ, SIMC; działka bez adresu: SIMC 0000000)")
+                if not a.get("nr_domu") and not (a.get("nr_obrebu") and a.get("nr_dzialki")):
+                    b.append(f"Przedmiot {i}: numer domu albo numer obrębu i działki (INF.7)")
+                if a.get("nr_obrebu") and not (str(a["nr_obrebu"]).isdigit() and len(str(a["nr_obrebu"])) <= 4):
+                    b.append(f"Przedmiot {i}: numer obrębu - tylko cyfry, 1-4")
+                if a.get("nr_dzialki") and not all(c.isdigit() or c == "/" for c in str(a["nr_dzialki"])):
+                    b.append(f"Przedmiot {i}: numer działki - tylko cyfry i ukośnik")
+                if a.get("nr_arkusza_mapy") and not str(a["nr_arkusza_mapy"]).isdigit():
+                    b.append(f"Przedmiot {i}: numer arkusza mapy - tylko cyfry (K2.08.14)")
+                kw = opis.get("numer_kw")
+                if kw and not walidacja.ksiega_wieczysta(kw)[0]:
+                    b.append(f"Przedmiot {i}: numer KW niepoprawny (suma kontrolna)")
+            elif opis.get("numer_kw"):
+                b.append(f"Przedmiot {i}: numer KW podaje się tylko dla nieruchomości w Polsce (K2.10.01)")
+            if kod == "07" and p.get("zwolnienie_vat") is None:
+                b.append(f"Przedmiot {i}: oświadczenie o zwolnieniu z VAT (K2.07) dla nieruchomości")
+    return b
+
+
+def sprawdz(karty: list[dict], ustawienia: dict) -> dict:
+    """XML + bledy (reguly i XSD). Plik jest gotowy do podpisu, gdy bledy == [].
+
+    Karta przychodzi z przegladarki, wiec moze miec dowolne typy (tekst zamiast
+    liczby, brakujace klucze) - wtedy zwracamy blad, a nie wyjatek serwera.
+    """
+    bledy = []
+    for n, k in enumerate(karty, 1):
+        try:
+            bledy += [f"Karta {n}: {x}" for x in bledy_regul(k, ustawienia)]
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError) as blad:
+            bledy.append(f"Karta {n}: niepoprawne dane karty ({type(blad).__name__}: {blad})")
+    try:
+        xml = zbuduj(karty, ustawienia)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError) as blad:
+        return {"xml": "", "bledy": bledy + [f"Nie da się zbudować pliku: {type(blad).__name__}: {blad}"],
+                "schemat": CRWDE, "bledy_xsd_szczegoly": []}
+    bledy += [f"Schemat XSD: {x}" for x in bledy_xsd(xml)]
+    return {"xml": xml.decode("utf-8"), "bledy": bledy, "schemat": CRWDE,
+            "bledy_xsd_szczegoly": bledy_xsd(xml, surowe=True)}
