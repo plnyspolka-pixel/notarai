@@ -86,9 +86,25 @@ i ustępów, odesłania wewnętrzne, niewypełnione luki wzoru (`??`, `{{…}}`,
 - Wgrane pliki są czytane w katalogu tymczasowym i od razu usuwane; nazwy
   plików nie są zapisywane (wracają tylko do przeglądarki, która je wysłała).
 - Logi zawierają wyłącznie liczby.
-- Pliki `zasady.json` i `styl.json` leżą pod prefiksem kancelarii
-  (`kancelarie/{kancelaria}/`), więc usunięcie kancelarii usuwa je razem ze
-  sprawami. Kancelaria z plikami „u siebie” nie może ich zapisać (409).
+- Kancelaria w chmurze: pliki `zasady.json` i `styl.json` leżą pod prefiksem
+  kancelarii (`kancelarie/{kancelaria}/`), więc usunięcie kancelarii usuwa je
+  razem ze sprawami.
+
+## Kancelaria „u siebie”
+
+Zasady i styl leżą w folderze spraw notariusza, obok spraw:
+`notarai-zasady.json` i `notarai-styl.json`. Serwer niczego nie zapisuje:
+
+1. przeglądarka czyta oba pliki z folderu i dołącza je do każdego zapytania
+   `/api/personalizacja/*` (pole `pliki_kancelarii`; odczyt stanu idzie przez
+   `POST /api/personalizacja/stan`) oraz do `/api/projekt`,
+2. serwer normalizuje je (`zasady.normalizuj`, `styl.normalizuj` – plik mógł
+   zapisać starszy klient albo ktoś go zmienił ręcznie), a na czas zapytania
+   `magazyn` czyta i zmienia je w pamięci (`magazyn.pliki_przegladarki_var`),
+3. odpowiedź niesie nową wersję plików, przeglądarka zapisuje zmienione.
+
+Bez wskazanego folderu zapis kończy się czytelnym komunikatem (409). Pliki
+przysłane przez przeglądarkę kancelarii w chmurze są pomijane.
 
 ## Uprawnienia
 

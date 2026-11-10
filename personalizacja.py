@@ -12,12 +12,14 @@ zanim zostanie pokazany.
 
 Zero danych osobowych w logach: logujemy liczby, nigdy tresc aktow ani zasad.
 """
+import json
 import logging
 import shutil
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 import autoryzacja
@@ -75,12 +77,61 @@ def skontroluj(projekt: str, ustawienia: dict | None, rodzaje: list[str]) -> tup
 # ---------------------------------------------------------------------------
 # Pomocnicze
 # ---------------------------------------------------------------------------
-def _tylko_w_chmurze() -> None:
-    if magazyn.u_klienta():
-        raise HTTPException(409, (
-            "Ta kancelaria trzyma pliki u siebie, a zasady i styl kancelarii "
-            "byłyby zapisane na serwerze."
-        ))
+MAX_PLIKOW_PRZEGLADARKI = 8 * 1024 * 1024
+
+
+def stan_z_przegladarki(pliki) -> dict | None:
+    """Zasady i styl przyslane przez przegladarke kancelarii "u siebie".
+
+    Dla kancelarii w chmurze zwraca None - jej pliki sa na serwerze, a to,
+    co przyslala przegladarka, pomijamy. Zawartosc normalizujemy: plik
+    z dysku mogl zapisac starszy klient albo ktos go recznie zmienil.
+    """
+    if pliki is None or not magazyn.u_klienta():
+        return None
+    if isinstance(pliki, str):
+        if not pliki.strip():
+            return None
+        if len(pliki) > MAX_PLIKOW_PRZEGLADARKI:
+            raise HTTPException(413, "Pliki zasad i stylu są za duże.")
+        try:
+            pliki = json.loads(pliki)
+        except json.JSONDecodeError:
+            raise HTTPException(400, "Nieprawidłowy format plików zasad i stylu.")
+    if not isinstance(pliki, dict):
+        raise HTTPException(400, "Nieprawidłowy format plików zasad i stylu.")
+    return {"zasady": zasady.normalizuj(pliki.get("zasady")), "styl": styl.normalizuj(pliki.get("styl"))}
+
+
+@contextmanager
+def pliki_przegladarki(stan: dict | None):
+    """Na czas bloku zasady i styl czytamy i zmieniamy w `stan`, nie na serwerze."""
+    if stan is None:
+        yield None
+        return
+    znacznik = magazyn.pliki_przegladarki_var.set(stan)
+    try:
+        yield stan
+    finally:
+        magazyn.pliki_przegladarki_var.reset(znacznik)
+
+
+def _z_plikami(pliki, praca, zapis: bool = True):
+    """Wykonanie pracy z plikami kancelarii tam, gdzie kancelaria je trzyma.
+
+    Chmura: zwykly odczyt i zapis w magazynie. "U siebie": na plikach
+    przyslanych przez przegladarke; odpowiedz niesie ich nowa wersje
+    (`pliki_kancelarii`), ktora przegladarka zapisuje w folderze kancelarii.
+    """
+    stan = stan_z_przegladarki(pliki)
+    if stan is None and zapis and magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie. Wskaż folder na sprawy - "
+                                 "tam zapiszę zasady i styl kancelarii.")
+    with pliki_przegladarki(stan):
+        wynik = _wykonaj(praca)
+    if stan is not None and isinstance(wynik, dict):
+        wynik = {**wynik, "pliki_kancelarii": stan}
+    return wynik
 
 
 def _wykonaj(funkcja, *argumenty, **nazwane):
@@ -141,45 +192,60 @@ def _stan(request: Request) -> dict:
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
-class TekstZasady(BaseModel):
+class ZPlikami(BaseModel):
+    """Kancelaria "u siebie" dolacza do kazdego zadania swoje zasady i styl."""
+    pliki_kancelarii: dict | None = None
+
+
+class TekstZasady(ZPlikami):
     tekst: str
 
 
-class NowaZasada(BaseModel):
+class NowaZasada(ZPlikami):
     tekst: str
     poziom: str | None = None
     zakres: dict | None = None
 
 
-class ZmianaZasady(BaseModel):
+class ZmianaZasady(ZPlikami):
     tekst: str | None = None
     wlaczona: bool | None = None
     poziom: str | None = None
     zakres: dict | None = None
 
 
-class Wbudowana(BaseModel):
+class Wbudowana(ZPlikami):
     wlaczona: bool
 
 
-class Fragment(BaseModel):
+class Fragment(ZPlikami):
     tekst: str
 
 
-class ZmianaSformulowania(BaseModel):
+class ZmianaSformulowania(ZPlikami):
     przypiete: bool | None = None
     ukryte: bool | None = None
     czesc: str | None = None
     szkielet: str | None = None
 
 
-class TekstDoSprawdzenia(BaseModel):
+class TekstDoSprawdzenia(ZPlikami):
     tekst: str
+
+
+def _pliki(dane: ZPlikami | None):
+    return dane.pliki_kancelarii if dane is not None else None
 
 
 @router.get("")
 def stan(request: Request):
-    return _wykonaj(_stan, request)
+    return _z_plikami(None, lambda: _stan(request), zapis=False)
+
+
+@router.post("/stan")
+def stan_z_plikami(request: Request, dane: ZPlikami = Body(default=None)):
+    """To samo co GET, ale z plikami kancelarii "u siebie" w tresci zadania."""
+    return _z_plikami(_pliki(dane), lambda: _stan(request), zapis=False)
 
 
 @router.post("/zasady/interpretuj")
@@ -190,34 +256,36 @@ def interpretuj(dane: TekstZasady):
 
 @router.post("/zasady", status_code=201)
 def dodaj_zasade(request: Request, dane: NowaZasada):
-    _tylko_w_chmurze()
     _wymagaj_notariusza(request)
     nadpisania = {k: v for k, v in (("poziom", dane.poziom), ("zakres", dane.zakres)) if v is not None}
-    return _wykonaj(zasady.dodaj, dane.tekst, nadpisania)
+    return _z_plikami(dane.pliki_kancelarii, lambda: zasady.dodaj(dane.tekst, nadpisania))
 
 
 @router.put("/zasady/{identyfikator}")
 def zmien_zasade(request: Request, identyfikator: str, dane: ZmianaZasady):
-    _tylko_w_chmurze()
     _wymagaj_notariusza(request)
-    zmiany = {k: v for k, v in dane.model_dump().items() if v is not None}
-    return _wykonaj(zasady.zmien, identyfikator, zmiany)
+    zmiany = {k: v for k, v in dane.model_dump(exclude={"pliki_kancelarii"}).items() if v is not None}
+    return _z_plikami(dane.pliki_kancelarii, lambda: zasady.zmien(identyfikator, zmiany))
 
 
 @router.delete("/zasady/{identyfikator}")
-def usun_zasade(request: Request, identyfikator: str):
-    _tylko_w_chmurze()
+def usun_zasade(request: Request, identyfikator: str, dane: ZPlikami = Body(default=None)):
     _wymagaj_notariusza(request)
-    _wykonaj(zasady.usun, identyfikator)
-    return {"usunieto": identyfikator}
+
+    def praca():
+        zasady.usun(identyfikator)
+        return {"usunieto": identyfikator}
+    return _z_plikami(_pliki(dane), praca)
 
 
 @router.put("/wbudowane/{kod}")
 def ustaw_wbudowana(request: Request, kod: str, dane: Wbudowana):
-    _tylko_w_chmurze()
     _wymagaj_notariusza(request)
-    _wykonaj(zasady.ustaw_wbudowana, kod, dane.wlaczona)
-    return {"kod": kod, "wlaczona": dane.wlaczona}
+
+    def praca():
+        zasady.ustaw_wbudowana(kod, dane.wlaczona)
+        return {"kod": kod, "wlaczona": dane.wlaczona}
+    return _z_plikami(dane.pliki_kancelarii, praca)
 
 
 @router.post("/sprawdz")
@@ -237,14 +305,20 @@ def sprawdz_tekst(dane: TekstDoSprawdzenia):
         raport["poprawki"] = poprawki
         return raport
 
-    return _wykonaj(praca)
+    wynik = _z_plikami(dane.pliki_kancelarii, praca, zapis=False)
+    wynik.pop("pliki_kancelarii", None)     # niczego nie zmienilismy
+    return wynik
 
 
 @router.post("/akty")
-def naucz_z_aktow(pliki: list[UploadFile] = File(...)):
+def naucz_z_aktow(pliki: list[UploadFile] = File(...), pliki_kancelarii: str = Form("")):
     """Nauka stylu z wczesniejszych aktow. Pliki czytamy w pamieci tymczasowej
-    i od razu usuwamy - zapisujemy tylko szkielety klauzul bez danych osobowych."""
-    _tylko_w_chmurze()
+    i od razu usuwamy - zapisujemy tylko szkielety klauzul bez danych osobowych
+    (w chmurze albo, u kancelarii "u siebie", w jej folderze)."""
+    stan_plikow = stan_z_przegladarki(pliki_kancelarii)
+    if stan_plikow is None and magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie. Wskaż folder na sprawy - "
+                                 "tam zapiszę styl kancelarii.")
     if len(pliki) > MAX_AKTOW:
         raise HTTPException(400, f"Naraz najwyżej {MAX_AKTOW} aktów.")
     katalog = Path(tempfile.mkdtemp(prefix="notarai-styl-"))
@@ -278,58 +352,64 @@ def naucz_z_aktow(pliki: list[UploadFile] = File(...)):
         shutil.rmtree(katalog, ignore_errors=True)
     if not analizy:
         return {"dodane": [], "pominiete": pominiete, "aktow": None}
-    wynik = _wykonaj(styl.naucz, analizy)
+    with pliki_przegladarki(stan_plikow):
+        wynik = _wykonaj(styl.naucz, analizy)
     log.info("styl: dodano aktow=%d pominieto=%d sformulowan=%d", len(wynik["dodane"]),
              len(pominiete), wynik["sformulowan"])
     # nazwa pliku wraca tylko do przegladarki, ktora ja wyslala - nie zapisujemy jej
-    for dodany, analiza in zip(wynik["dodane"], analizy):
-        dodany["nazwa"] = analiza["nazwa"]
-        dodany["czesci"] = [kategorie.nazwa_czesci(c) for c in analiza["czesci"]]
-    return {**wynik, "pominiete": pominiete}
+    odpowiedz = {**wynik, "pominiete": pominiete,
+                 "dodane": [{**d, "nazwa": a["nazwa"], "czesci": [kategorie.nazwa_czesci(c) for c in a["czesci"]]}
+                            for d, a in zip(wynik["dodane"], analizy)]}
+    if stan_plikow is not None:
+        odpowiedz["pliki_kancelarii"] = stan_plikow
+    return odpowiedz
 
 
 @router.delete("/styl")
-def zapomnij_styl(request: Request):
-    _tylko_w_chmurze()
+def zapomnij_styl(request: Request, dane: ZPlikami = Body(default=None)):
     _wymagaj_notariusza(request)
-    _wykonaj(styl.zapomnij)
-    return {"zapomniano": True}
+
+    def praca():
+        styl.zapomnij()
+        return {"zapomniano": True}
+    return _z_plikami(_pliki(dane), praca)
 
 
 @router.post("/sformulowania", status_code=201)
 def zapamietaj_sformulowanie(dane: Fragment):
     """Zaznaczony w projekcie fragment -> wzorcowe sformulowanie kancelarii."""
-    _tylko_w_chmurze()
-    return _wykonaj(styl.zapamietaj_sformulowanie, dane.tekst)
+    return _z_plikami(dane.pliki_kancelarii, lambda: styl.zapamietaj_sformulowanie(dane.tekst))
 
 
 @router.put("/sformulowania/{identyfikator}")
 def zmien_sformulowanie(identyfikator: str, dane: ZmianaSformulowania):
-    _tylko_w_chmurze()
-    zmiany = {k: v for k, v in dane.model_dump().items() if v is not None}
-    return _wykonaj(styl.zmien_sformulowanie, identyfikator, zmiany)
+    zmiany = {k: v for k, v in dane.model_dump(exclude={"pliki_kancelarii"}).items() if v is not None}
+    return _z_plikami(dane.pliki_kancelarii, lambda: styl.zmien_sformulowanie(identyfikator, zmiany))
 
 
 @router.delete("/sformulowania/{identyfikator}")
-def usun_sformulowanie(identyfikator: str):
-    _tylko_w_chmurze()
-    _wykonaj(styl.usun_sformulowanie, identyfikator)
-    return {"usunieto": identyfikator}
+def usun_sformulowanie(identyfikator: str, dane: ZPlikami = Body(default=None)):
+    def praca():
+        styl.usun_sformulowanie(identyfikator)
+        return {"usunieto": identyfikator}
+    return _z_plikami(_pliki(dane), praca)
 
 
 @router.post("/sugestie/{klucz:path}/przyjmij", status_code=201)
-def przyjmij_sugestie(request: Request, klucz: str):
-    _tylko_w_chmurze()
+def przyjmij_sugestie(request: Request, klucz: str, dane: ZPlikami = Body(default=None)):
     _wymagaj_notariusza(request)
-    profil = styl.wczytaj()
-    for s in styl.sugestie(profil, zasady.wczytaj()):
-        if s["klucz"] == klucz:
-            return _wykonaj(zasady.dodaj, s["tekst"], None, "z_aktow")
-    raise HTTPException(404, "Tej podpowiedzi już nie ma - odśwież stronę.")
+
+    def praca():
+        for s in styl.sugestie(styl.wczytaj(), zasady.wczytaj()):
+            if s["klucz"] == klucz:
+                return zasady.dodaj(s["tekst"], None, "z_aktow")
+        raise KeyError(klucz)
+    return _z_plikami(_pliki(dane), praca)
 
 
 @router.post("/sugestie/{klucz:path}/odrzuc")
-def odrzuc_sugestie(klucz: str):
-    _tylko_w_chmurze()
-    _wykonaj(styl.odrzuc_sugestie, klucz)
-    return {"odrzucono": klucz}
+def odrzuc_sugestie(klucz: str, dane: ZPlikami = Body(default=None)):
+    def praca():
+        styl.odrzuc_sugestie(klucz)
+        return {"odrzucono": klucz}
+    return _z_plikami(_pliki(dane), praca)

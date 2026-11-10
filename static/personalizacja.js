@@ -21,10 +21,48 @@
     N: "liczba", EMAIL: "e-mail", TELEFON: "telefon",
   };
 
+  /* Kancelaria "u siebie": zasady i styl leza w jej folderze, obok spraw.
+     Kazde zadanie niesie oba pliki, serwer zmienia je w pamieci i oddaje
+     nowa wersje, ktora zapisujemy z powrotem. Serwer niczego nie utrwala. */
+  const PLIKI = {zasady: "notarai-zasady.json", styl: "notarai-styl.json"};
+
+  async function plikiZFolderu() {
+    if (!dysk.aktywny) return null;
+    if (!dysk.folder) throw new Error("Najpierw wskaż folder na sprawy (w pasku bocznym) - tam zapiszę zasady i styl kancelarii.");
+    if (!await dysk.upewnijSieODostepie()) throw new Error("Brak dostępu do folderu kancelarii. Zezwól na dostęp i spróbuj ponownie.");
+    return {zasady: await dysk.czytajJson(dysk.folder, PLIKI.zasady),
+            styl: await dysk.czytajJson(dysk.folder, PLIKI.styl)};
+  }
+
+  async function zapiszWFolderze(przed, po) {
+    for (const [klucz, nazwa] of Object.entries(PLIKI)) {
+      if (po[klucz] && JSON.stringify(po[klucz]) !== JSON.stringify(przed[klucz])) {
+        await dysk.zapiszJson(dysk.folder, nazwa, po[klucz]);
+      }
+    }
+  }
+
   async function json(adres, opcje = {}) {
+    const pliki = await plikiZFolderu();
+    if (pliki) {
+      opcje = {...opcje};
+      if (opcje.body instanceof FormData) {
+        opcje.body.append("pliki_kancelarii", JSON.stringify(pliki));
+      } else {
+        if (!opcje.method || opcje.method === "GET") { adres = "/api/personalizacja/stan"; opcje.method = "POST"; }
+        const tresc = opcje.body ? JSON.parse(opcje.body) : {};
+        tresc.pliki_kancelarii = pliki;
+        opcje.body = JSON.stringify(tresc);
+        opcje.headers = {...(opcje.headers || {}), "Content-Type": "application/json"};
+      }
+    }
     const odp = await api(adres, opcje);
     const w = await odp.json();
     if (!odp.ok) throw new Error(w.detail || "Serwer odpowiedział " + odp.status);
+    if (pliki && w.pliki_kancelarii) {
+      await zapiszWFolderze(pliki, w.pliki_kancelarii);
+      delete w.pliki_kancelarii;
+    }
     return w;
   }
   const wyslij = (adres, metoda, tresc) => json(adres, {
@@ -48,6 +86,9 @@
       [l.naprawianych, "poprawiam sam, bez Ciebie"],
       [dane.styl.aktow, odm(dane.styl.aktow, "akt w nauce stylu", "akty w nauce stylu", "aktów w nauce stylu")],
     ].map(([n, t]) => `<div class="pz-liczba"><b>${n}</b><span>${escape(t)}</span></div>`).join("");
+    $("pz-gdzie").hidden = !dysk.aktywny;
+    if (dysk.aktywny) $("pz-gdzie").innerHTML = "🔒 Zasady i styl zapisuję w Twoim folderze <b>" + escape(dysk.folder?.name || "") +
+      "</b> (pliki " + PLIKI.zasady + " i " + PLIKI.styl + "). Serwer sprawdza nimi projekt i niczego nie zachowuje.";
     const licznik = $("licznik-zasad");
     if (licznik) { licznik.hidden = !dane.sugestie.length; licznik.textContent = dane.sugestie.length || ""; }
     $("pz-tekst").disabled = !dane.moge_zmieniac;
@@ -433,4 +474,6 @@
 
   window.rysujPersonalizacje = rysuj;
   window.nauczZAktow = naucz;
+  // Projekt sporzadzany "u siebie" dostaje zasady i styl z folderu kancelarii.
+  window.plikiKancelarii = plikiZFolderu;
 })();

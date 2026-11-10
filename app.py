@@ -491,13 +491,16 @@ async def projekt_bez_zapisu(
     pola: str = Form("[]"),
     polecenie: str = Form(""),
     rozmowa: str = Form("[]"),
+    pliki_kancelarii: str = Form(""),
 ):
-    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie."""
+    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie.
+    `pliki_kancelarii`: zasady i styl z folderu kancelarii "u siebie"."""
     try:
         lista_pol = json.loads(pola)
         historia = json.loads(rozmowa)
     except json.JSONDecodeError:
         raise HTTPException(400, "Nieprawidlowy format pol albo rozmowy")
+    stan_plikow = personalizacja.stan_z_przegladarki(pliki_kancelarii)
 
     # Wzor zapisujemy od razu: przy odpowiedzi strumieniem przesylany plik
     # zostalby zamkniety, zanim praca w tle zdazy go przeczytac.
@@ -512,7 +515,8 @@ async def projekt_bez_zapisu(
     def praca(postep) -> dict:
         try:
             analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
-            projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
+            with personalizacja.pliki_przegladarki(stan_plikow):
+                projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
             cel = katalog / "projekt.docx"
             dokumenty.tekst_na_docx(projekt, cel)
             dane = cel.read_bytes()

@@ -748,3 +748,42 @@ PRZYKLADY = [
     "Każdy akt musi zawierać „Akt ten został odczytany, przyjęty i podpisany”",
     "Nazwiska stawających w komparycji wielkimi literami",
 ]
+
+
+def normalizuj(dane) -> dict:
+    """Plik zasad z folderu kancelarii "u siebie" -> poprawna struktura.
+
+    Plik mogl zostac zapisany przez starsza wersje aplikacji albo zmieniony
+    recznie, dlatego kazda zasade odtwarzamy z jej tresci (interpretuj)
+    i nakladamy tylko to, co notariusz ustawil sam: identyfikator,
+    wlaczenie, poziom i zakres.
+    """
+    wynik = domyslne()
+    if not isinstance(dane, dict):
+        return wynik
+    wylaczone = dane.get("wbudowane_wylaczone")
+    if isinstance(wylaczone, list):
+        wynik["wbudowane_wylaczone"] = sorted({k for k in wylaczone if k in klauzule.KONSTRUKCJA})
+    widziane = set()
+    for z in (dane.get("zasady") if isinstance(dane.get("zasady"), list) else [])[:500]:
+        if not isinstance(z, dict) or not isinstance(z.get("tekst"), str):
+            continue
+        try:
+            nowa = interpretuj(z["tekst"])
+        except ValueError:
+            continue
+        identyfikator = str(z.get("id") or "")[:20]
+        if not re.fullmatch(r"z[0-9a-f]{1,19}", identyfikator) or identyfikator in widziane:
+            identyfikator = "z" + uuid.uuid4().hex[:8]
+        widziane.add(identyfikator)
+        nowa["id"] = identyfikator
+        nowa["wlaczona"] = bool(z.get("wlaczona", True))
+        if z.get("poziom") in POZIOMY:
+            nowa["poziom"] = z["poziom"]
+        if isinstance(z.get("zakres"), dict):
+            nowa["zakres"] = _czysty_zakres(z["zakres"])
+        nowa["zrodlo"] = z.get("zrodlo") if z.get("zrodlo") in ("notariusz", "z_aktow") else "notariusz"
+        nowa["utworzono"] = str(z.get("utworzono") or "")[:30]
+        nowa["opis"] = opisz(nowa)
+        wynik["zasady"].append(nowa)
+    return wynik

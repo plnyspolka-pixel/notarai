@@ -14,6 +14,7 @@ Tryby (PIECZAPP_MAGAZYN):
 Zero danych osobowych w logach: logujemy identyfikatory i liczby plikow,
 nigdy tresc.
 """
+import copy
 import hashlib
 import json
 import logging
@@ -47,6 +48,19 @@ przechowywanie_var: ContextVar[str] = ContextVar("przechowywanie", default="chmu
 
 def u_klienta() -> bool:
     return przechowywanie_var.get() == "u-klienta"
+
+
+# Pliki kancelarii przyslane przez przegladarke kancelarii "u-klienta" (zasady
+# i styl leza w jej folderze). Na czas jednego zadania odczyt i zapis tych
+# plikow dzieje sie w pamieci, na tym slowniku - serwer niczego nie utrwala,
+# a zmieniona wersje oddaje przegladarce do zapisania u siebie.
+PLIKI_Z_PRZEGLADARKI = ("zasady", "styl")
+pliki_przegladarki_var: ContextVar[dict | None] = ContextVar("pliki_przegladarki", default=None)
+
+
+def _z_przegladarki(nazwa: str) -> dict | None:
+    pliki = pliki_przegladarki_var.get()
+    return pliki if pliki is not None and nazwa in PLIKI_Z_PRZEGLADARKI and nazwa in pliki else None
 
 _s3 = None  # leniwie tworzony klient boto3; podmienialny w testach
 
@@ -364,6 +378,8 @@ def _kod_bledu(blad: Exception) -> str:
 def wczytaj_plik_kancelarii(nazwa: str, domyslne):
     if nazwa not in PLIKI_KANCELARII:
         raise ValueError(f"Nieznany plik kancelarii: {nazwa}")
+    if (pliki := _z_przegladarki(nazwa)) is not None:
+        return copy.deepcopy(pliki[nazwa]) if pliki[nazwa] is not None else domyslne
     if TRYB == "s3":
         dane, _ = _czytaj_s3(nazwa)
         return domyslne if dane is None else dane
@@ -382,6 +398,12 @@ def zmien_plik_kancelarii(nazwa: str, zmiana, domyslne):
     """
     if nazwa not in PLIKI_KANCELARII:
         raise ValueError(f"Nieznany plik kancelarii: {nazwa}")
+    if (pliki := _z_przegladarki(nazwa)) is not None:
+        # zmiana na kopii: blad w srodku nie zostawia polowicznie zmienionego pliku
+        dane = copy.deepcopy(pliki[nazwa]) if pliki[nazwa] is not None else domyslne
+        wynik = zmiana(dane)
+        pliki[nazwa] = dane
+        return wynik
     if u_klienta():
         raise RuntimeError("Kancelaria trzyma pliki u siebie - serwer nie zapisuje jej danych.")
     if TRYB != "s3":

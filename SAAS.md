@@ -164,6 +164,9 @@ Przy `u-klienta`:
 - folder pamięta się między uruchomieniami; wymaga Chrome albo Edge,
 - sprawdzenia w rejestrach są w tym trybie ukryte, bo zapisują ślad w sprawie
   po stronie serwera,
+- zasady i styl kancelarii (Styl i zasady kancelarii) leżą w tym samym folderze
+  (`notarai-zasady.json`, `notarai-styl.json`); przeglądarka przysyła je z każdym
+  zapytaniem, serwer zmienia je tylko w pamięci i oddaje (docs/styl-i-zasady.md),
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
 
 ## Znane granice (uczciwie)

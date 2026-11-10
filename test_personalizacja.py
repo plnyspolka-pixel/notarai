@@ -344,14 +344,6 @@ class TestApi:
         r = klient.post("/api/personalizacja/sprawdz", json={"tekst": "§ 1. Sprzedaje w/w lokal."}).json()
         assert r["blokujacych"] == 1 and r["poprawiony"] == "§ 1. Sprzedaje wyżej wymieniony lokal."
 
-    def test_u_klienta_serwer_nie_zapisuje(self, klient):
-        import magazyn
-        znacznik = magazyn.przechowywanie_var.set("u-klienta")
-        try:
-            assert klient.post("/api/personalizacja/zasady", json={"tekst": "Po § zawsze spacja"}).status_code == 409
-        finally:
-            magazyn.przechowywanie_var.reset(znacznik)
-
     def test_projekt_przechodzi_przez_zasady(self, klient, dane):
         klient.post("/api/personalizacja/zasady", json={"tekst": "Zamiast „w/w” pisz „wyżej wymieniony”"})
         klient.post("/api/personalizacja/zasady", json={"tekst": "Kwoty zawsze cyframi i słownie"})
@@ -367,3 +359,72 @@ class TestApi:
         assert wynik["zgodnosc"]["zgodny"] and len(wynik["zgodnosc"]["poprawki"]) == 2
         assert (dane / "sprawy" / "abc123" / "projekt.txt").read_text("utf-8") == wynik["tekst"]
         assert klient.get("/api/sprawy/abc123").json()["zgodnosc"]["zgodny"]
+
+
+@pytest.fixture
+def u_siebie():
+    import magazyn
+    znacznik = magazyn.przechowywanie_var.set("u-klienta")
+    yield
+    magazyn.przechowywanie_var.reset(znacznik)
+
+
+class TestUSiebie:
+    """Kancelaria trzymajaca pliki u siebie: zasady i styl leza w jej folderze,
+    przegladarka przysyla je z kazdym zadaniem, serwer niczego nie zapisuje."""
+
+    def test_bez_plikow_czytelna_odmowa(self, klient, u_siebie):
+        odp = klient.post("/api/personalizacja/zasady", json={"tekst": "Po § zawsze spacja"})
+        assert odp.status_code == 409 and "folder" in odp.json()["detail"]
+
+    def test_zasady_wracaja_do_przegladarki_a_serwer_nic_nie_zapisuje(self, klient, dane, u_siebie):
+        pliki = {"zasady": None, "styl": None}
+        odp = klient.post("/api/personalizacja/zasady", json={"tekst": "Po § zawsze spacja", "pliki_kancelarii": pliki})
+        assert odp.status_code == 201
+        pliki = odp.json()["pliki_kancelarii"]
+        assert [z["tekst"] for z in pliki["zasady"]["zasady"]] == ["Po § zawsze spacja"]
+        id_ = pliki["zasady"]["zasady"][0]["id"]
+
+        odp = klient.put(f"/api/personalizacja/zasady/{id_}", json={"wlaczona": False, "pliki_kancelarii": pliki})
+        pliki = odp.json()["pliki_kancelarii"]
+        assert pliki["zasady"]["zasady"][0]["wlaczona"] is False
+
+        stan = klient.post("/api/personalizacja/stan", json={"pliki_kancelarii": pliki}).json()
+        assert stan["u_klienta"] and stan["liczby"]["zasad"] == 1
+
+        odp = klient.request("DELETE", f"/api/personalizacja/zasady/{id_}", json={"pliki_kancelarii": pliki})
+        assert odp.json()["pliki_kancelarii"]["zasady"]["zasady"] == []
+        assert not list(dane.glob("**/*.json"))           # na serwerze nic
+
+    def test_nauka_stylu_u_siebie(self, klient, dane, u_siebie):
+        odp = klient.post("/api/personalizacja/akty", files=akty(3),
+                          data={"pliki_kancelarii": json.dumps({"zasady": None, "styl": None})})
+        assert odp.status_code == 200, odp.text
+        styl_u_siebie = odp.json()["pliki_kancelarii"]["styl"]
+        assert len(styl_u_siebie["akty"]) == 3
+        for dana in DANE_OSOBOWE:
+            assert dana not in json.dumps(styl_u_siebie, ensure_ascii=False), dana
+        assert not list(dane.glob("**/*.json")) and not list(dane.glob("**/*.docx"))
+
+    def test_uszkodzony_plik_z_dysku_nie_wywraca(self, klient, u_siebie):
+        pliki = {"zasady": {"zasady": [{"tekst": "Kwoty zawsze cyframi i słownie", "id": "z1", "poziom": "ostrzega"},
+                                       {"smieci": 1}, "x"]},
+                 "styl": {"sformulowania": [{"id": 5}], "nawyki": {"daty": {"a": "b"}}}}
+        stan = klient.post("/api/personalizacja/stan", json={"pliki_kancelarii": pliki}).json()
+        assert [(z["typ"], z["poziom"]) for z in stan["zasady"]] == [("kwoty_slownie", "ostrzega")]
+
+    def test_projekt_sprawdzony_zasadami_z_folderu(self, klient, dane, u_siebie):
+        pliki = klient.post("/api/personalizacja/zasady", json={
+            "tekst": "Zamiast „w/w” pisz „wyżej wymieniony”", "pliki_kancelarii": {}}).json()["pliki_kancelarii"]
+        with patch("bedrock.sporzadz_projekt", return_value="§ 1. Sprzedaje w/w lokal.") as sp:
+            odp = klient.post("/api/projekt", files={"wzor": ("wzor.txt", "§ 1. {{x}}".encode(), "text/plain")},
+                              data={"pliki_kancelarii": json.dumps(pliki)})
+        assert odp.status_code == 200, odp.text
+        assert odp.json()["tekst"] == "§ 1. Sprzedaje wyżej wymieniony lokal."
+        assert "Zamiast „w/w”" in sp.call_args.kwargs["personalizacja"]
+        assert not list(dane.glob("**/*.json"))
+
+    def test_chmura_pomija_pliki_z_przegladarki(self, klient):
+        obce = {"zasady": {"zasady": [{"tekst": "Po § zawsze spacja"}]}}
+        stan = klient.post("/api/personalizacja/stan", json={"pliki_kancelarii": obce}).json()
+        assert stan["zasady"] == [] and "pliki_kancelarii" not in stan

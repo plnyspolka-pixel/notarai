@@ -1322,6 +1322,7 @@ notarai</div>
   <h1>Styl i zasady kancelarii</h1>
   <p class="pod">Każdy projekt, zanim go zobaczysz, przechodzi przez zasady Twojej kancelarii. Piszesz je zwykłym zdaniem, a notarai sam rozpoznaje, czego dotyczą, w jakich aktach obowiązują i jak ich pilnować.</p>
   <div class="pz-liczby" id="pz-liczby" aria-live="polite"></div>
+  <p class="pz-gdzie" id="pz-gdzie" hidden></p>
 
   <div class="karta" id="pz-karta-zasady">
     <h2>Nieprzekraczalne zasady</h2>
@@ -2268,6 +2269,7 @@ async function wczytajSprawe(id){
         rozmowa: await dysk.czytajJson(katalog, "rozmowa.json") || [],
         kontekst: await dysk.czytajTekst(katalog, "kontekst.txt"),
         projekt: await dysk.czytajTekst(katalog, "projekt.txt"),
+        zgodnosc: await dysk.czytajJson(katalog, "zgodnosc.json"),
       });
     } catch (e) { return alert("Nie udało się wczytać sprawy z dysku: " + e.message); }
   } else {
@@ -2615,7 +2617,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -3993,6 +3995,9 @@ $("btn-generuj").onclick = async () => {
       dane.append("pola", JSON.stringify(sprawa.pola));
       dane.append("polecenie", poleceniePierwotne);
       dane.append("rozmowa", JSON.stringify(rozmowa));
+      // Zasady i styl kancelarii z jej folderu - serwer sprawdzi nimi projekt.
+      const plikiKancelarii = await window.plikiKancelarii?.();
+      if (plikiKancelarii) dane.append("pliki_kancelarii", JSON.stringify(plikiKancelarii));
       const odp = await api("/api/projekt",
         {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
       wynik = await czytajStrumien(odp);
@@ -4002,6 +4007,7 @@ $("btn-generuj").onclick = async () => {
       const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
       await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
       await dysk.zapiszPlik(katalog, "projekt.txt", wynik.tekst);
+      if (wynik.zgodnosc) await dysk.zapiszJson(katalog, "zgodnosc.json", wynik.zgodnosc);
       await dysk.zapiszJson(katalog, "odczyt.json", {
         pola: edytowanaSprawa.pola, braki: edytowanaSprawa.braki || [],
         rozbieznosci: edytowanaSprawa.rozbieznosci || [],

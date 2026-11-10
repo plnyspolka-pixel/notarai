@@ -521,3 +521,56 @@ def blok_do_polecenia(profil: dict, rodzaje: list[str] | None = None, limit_znak
         czesci.append("Typowe sformulowania kancelarii (redaguj podobnie odpowiadajace im czesci aktu):\n"
                       + "\n".join(wiersze))
     return "\n\n".join(czesci)
+
+
+def _liczniki(dane, glebokosc: int = 0) -> dict:
+    """Nawyki: zagniezdzone slowniki z licznikami - nic innego."""
+    if not isinstance(dane, dict) or glebokosc > 3:
+        return {}
+    wynik = {}
+    for klucz, wartosc in list(dane.items())[:200]:
+        klucz = str(klucz)[:80]
+        if isinstance(wartosc, bool):
+            continue
+        if isinstance(wartosc, int) and wartosc >= 0:
+            wynik[klucz] = wartosc
+        elif isinstance(wartosc, dict):
+            wynik[klucz] = _liczniki(wartosc, glebokosc + 1)
+    return wynik
+
+
+def _napisy(lista, limit: int = 200, dlugosc: int = 120) -> list[str]:
+    return [str(x)[:dlugosc] for x in (lista if isinstance(lista, list) else [])[:limit] if isinstance(x, str)]
+
+
+def normalizuj(profil) -> dict:
+    """Plik stylu z folderu kancelarii "u siebie" -> poprawna struktura.
+    Odrzucamy wpisy o zlym ksztalcie zamiast wywracac zadanie."""
+    wynik = domyslny()
+    if not isinstance(profil, dict):
+        return wynik
+    for a in (profil.get("akty") if isinstance(profil.get("akty"), list) else [])[:1000]:
+        if not isinstance(a, dict) or not isinstance(a.get("id"), str):
+            continue
+        wynik["akty"].append({
+            "id": a["id"][:20], "etykieta": str(a.get("etykieta") or "Akt")[:120],
+            "rodzaje": [r for r in _napisy(a.get("rodzaje"), 5) if r in kategorie.RODZAJE or r == kategorie.RODZAJ_INNY],
+            "klauzul": a["klauzul"] if isinstance(a.get("klauzul"), int) else 0,
+            "czesci": [c for c in _napisy(a.get("czesci"), 30) if c in kategorie.CZESCI or c == kategorie.CZESC_INNA],
+            "odwolania": _napisy(a.get("odwolania"), 50, 60),
+            "dodano": str(a.get("dodano") or "")[:30],
+        })
+    for s in (profil.get("sformulowania") if isinstance(profil.get("sformulowania"), list) else [])[:MAX_SFORMULOWAN]:
+        if not isinstance(s, dict) or not isinstance(s.get("id"), str) or not isinstance(s.get("szkielet"), str):
+            continue
+        czesc = s.get("czesc") if s.get("czesc") in kategorie.CZESCI else kategorie.CZESC_INNA
+        wynik["sformulowania"].append({
+            "id": s["id"][:20], "czesc": czesc, "szkielet": s["szkielet"][:MAX_DLUGOSC],
+            "rodzaje": [r for r in _napisy(s.get("rodzaje"), 25) if r in kategorie.RODZAJE],
+            "wystapien": max(1, s["wystapien"]) if isinstance(s.get("wystapien"), int) else 1,
+            "akty": _napisy(s.get("akty"), 1000, 20),
+            "przypiete": bool(s.get("przypiete")), "ukryte": bool(s.get("ukryte")), "wlasne": bool(s.get("wlasne")),
+        })
+    wynik["nawyki"] = _liczniki(profil.get("nawyki"))
+    wynik["sugestie_odrzucone"] = _napisy(profil.get("sugestie_odrzucone"), 500, 200)
+    return wynik
