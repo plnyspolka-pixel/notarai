@@ -1018,9 +1018,11 @@ def zmien_w_kalendarzu(identyfikator: str, dane: WpisKalendarza):
 def usun_z_kalendarza(identyfikator: str):
     _tylko_w_chmurze()
     stary = _wpis_klienta(identyfikator)
-    if not _zapis_kancelarii(kalendarz.usun, identyfikator):
+    # Wizyta klienta z aplikacji zostaje jako odwolana - klient widzi to w aplikacji.
+    usun = rezerwacje_klienta.odwolaj_przez_kancelarie if stary else kalendarz.usun
+    if not _zapis_kancelarii(usun, identyfikator):
         raise HTTPException(404, "Nie ma takiego terminu")
-    log.info("kalendarz %s: usuniety", identyfikator)
+    log.info("kalendarz %s: %s", identyfikator, "odwolany" if stary else "usuniety")
     rezerwacje_klienta.powiadom_o_zmianie_kancelarii(stary, None)
     return {"ok": True}
 

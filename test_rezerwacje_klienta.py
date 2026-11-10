@@ -301,6 +301,17 @@ class TestZarzadzanie:
         assert scena.delete(f"/api/kalendarz/{r['id']}").status_code == 200
         assert len(sms.wyslane_testowo) == ile + 1 and "odwolala" in sms.wyslane_testowo[-1]["tresc"]
         assert "Kancelaria Lokalna Testowa" in sms.wyslane_testowo[-1]["tresc"]
+        # Wpis zostaje jako odwolany: znika z kalendarza i wolnych terminow, a
+        # aplikacja klienta widzi "anulowana" zamiast nieaktualnego potwierdzenia.
+        assert all(w["id"] != r["id"] for w in scena.get("/api/kalendarz").json())
+        assert "10:00" in [t["godzina"] for d in scena.get("/api/klient/kancelarie/lokalna/terminy",
+                                                             params={"od": scena.dzien, "dni": 1}).json()["dni"]
+                           for t in d["terminy"]]
+        podglad = scena.post(f"/api/klient/rezerwacje/{r['id']}/podglad",
+                             json={"kancelaria": "lokalna", "token": r["token"]}).json()
+        assert podglad["status"] == "anulowana"
+        assert scena.delete(f"/api/kalendarz/{r['id']}").status_code == 404     # drugi raz - nie ma czego
+        assert len(sms.wyslane_testowo) == ile + 1
 
 
 class TestKokpitKancelarii:

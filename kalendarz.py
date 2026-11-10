@@ -154,9 +154,11 @@ def zmien(identyfikator: str, dane: dict) -> dict | None:
 
 
 def usun(identyfikator: str) -> bool:
+    """Usuwa termin widoczny w kalendarzu. Odwolane wizyty klientow i partnerow
+    (status "anulowana") sa niewidoczne i zostaja - po nich klient sprawdza status."""
     def zmiana(wpisy):
         przed = len(wpisy)
-        wpisy[:] = [w for w in wpisy if w["id"] != identyfikator]
+        wpisy[:] = [w for w in wpisy if w["id"] != identyfikator or w.get("status") == "anulowana"]
         return len(wpisy) != przed
     return magazyn.zmien_plik_kancelarii(PLIK, zmiana, [])
 

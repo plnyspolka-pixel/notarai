@@ -578,6 +578,22 @@ def przeloz(id_w: str, dane: Przelozenie):
 # --- zmiany po stronie kancelarii -------------------------------------------
 
 
+def odwolaj_przez_kancelarie(id_w: str) -> bool:
+    """Kancelaria usuwa w kalendarzu wizyte klienta z aplikacji. Wpis nie znika,
+    tylko dostaje status "anulowana" (jak przy odwolaniu przez klienta): z
+    kalendarza kancelarii i z wolnych terminow schodzi tak samo, a aplikacja
+    klienta po odswiezeniu pokazuje "Odwolana" zamiast nieaktualnego potwierdzenia."""
+    kiedy = _teraz().isoformat(timespec="seconds")
+
+    def zmiana(wpisy):
+        for w in wpisy:
+            if w["id"] == id_w and w.get("zrodlo") == ZRODLO and w.get("status") != "anulowana":
+                w.update(status="anulowana", anulowano=kiedy, anulowal="kancelaria", przypomnienie=None)
+                return True
+        return False
+    return magazyn.zmien_plik_kancelarii("kalendarz", zmiana, [])
+
+
 def powiadom_o_zmianie_kancelarii(stary: dict | None, nowy: dict | None) -> None:
     """Kancelaria usunela albo przesunela wizyte klienta w swoim kalendarzu:
     klient dostaje SMS. Wolane z app.py; bledy nie przerywaja zapisu."""
