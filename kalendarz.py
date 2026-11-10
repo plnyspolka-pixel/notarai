@@ -143,6 +143,10 @@ def zmien(identyfikator: str, dane: dict) -> dict | None:
             if wpis["id"] == identyfikator:
                 _sprawdz_kolizje(wpisy, nowe, pomin=identyfikator)
                 wpis.pop("telefon", None)  # dawne pojedyncze pole, teraz w `telefony`
+                # Wizyta klienta przeniesiona na inny termin: przypomnienie SMS
+                # dotyczy nowego dnia, wiec znacznik wysylki zaczyna od nowa.
+                if wpis.get("przypomnienie") and (wpis["data"], wpis["godzina"]) != (nowe["data"], nowe["godzina"]):
+                    wpis["przypomnienie"] = None
                 wpis.update(nowe)
                 return wpis
         return None

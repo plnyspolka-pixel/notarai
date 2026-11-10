@@ -154,3 +154,20 @@ def test_same_user_token_refresh_does_not_clear_ongoing_work():
     assert 'function tozsamoscTokena(t){' in HTML
     assert 'ladunek["custom:kancelaria"]' in HTML
     assert "nowaTozsamosc === staraTozsamosc) return;" in HTML
+
+
+def test_calendar_marks_client_app_bookings_and_skips_noop_save():
+    """Client bookings from the notarai app (zrodlo "klient") carry a badge and
+    the client's e-mail/notes; saving an unchanged entry sends no PUT, so the
+    office never triggers a client SMS by accident."""
+    assert 'const zAplikacji = w => !!w && w.zrodlo === "klient";' in HTML
+    assert ">z aplikacji</span>" in HTML and ".plakietka-app{" in HTML
+    assert HTML.count("PLAKIETKA_APP") >= 4          # month, upcoming list, day window, definition
+    assert 'id="kal-aplikacja"' in HTML and "opisKlientaAplikacji(w)" in HTML
+    assert "k.email" in HTML and "k.uwagi" in HTML
+    save = HTML[HTML.index('$("kal-zapisz").onclick'):]
+    save = save[:save.index('$("kal-usun").onclick')]
+    assert save.index("stanFormularza() === stanPoczatkowy") < save.index('method: edytowany ? "PUT" : "POST"')
+    assert "SMS_KLIENTA" in save
+    remove = HTML[HTML.index('$("kal-usun").onclick'):]
+    assert remove.index("SMS_KLIENTA") < remove.index('method:"DELETE"')

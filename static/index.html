@@ -274,6 +274,16 @@ textarea.pole-tekst{resize:vertical;min-height:60px}
 .kal-wpis{font-size:11.5px;line-height:1.3;background:var(--akcent-tlo);color:var(--tekst);border-radius:5px;
   padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kal-wpis.brak-tel{box-shadow:inset 3px 0 0 var(--alarm)}
+/* Wizyty umowione przez klienta w aplikacji notarai (zrodlo "klient") */
+.plakietka-app{display:inline-block;font:600 10.5px/1.6 var(--sans);padding:0 7px;border-radius:999px;
+  background:#0d193c;color:#e4c47a;margin-left:6px;vertical-align:1px;white-space:nowrap;letter-spacing:.01em}
+.kal-wpis.z-aplikacji{box-shadow:inset 3px 0 0 #e4c47a}
+.kal-wpis.z-aplikacji .plakietka-app{margin:0 4px 0 0;padding:0 5px;font-size:9.5px}
+.kal-tydz .k.z-aplikacji,.kal-slot.z-aplikacji{box-shadow:inset 3px 0 0 #e4c47a}
+.kal-aplikacja{border:1px solid var(--linia);border-left:3px solid #e4c47a;border-radius:var(--r2);background:var(--tlo2);
+  padding:10px 12px;margin-bottom:12px;font-size:13.5px}
+.kal-aplikacja p{margin:4px 0 0}
+.kal-aplikacja .uwaga{color:var(--tekst2);font-size:12.5px}
 .termin{border:1px solid var(--linia);border-radius:var(--r2);padding:12px 14px;margin-bottom:8px;background:var(--tlo)}
 .termin .kiedy{font-size:12.5px;color:var(--tekst3)}
 .termin .co{font-weight:500;cursor:pointer}
@@ -1037,6 +1047,7 @@ notarai</div>
         <div>
           <div class="kal-wybrane" id="kal-wybrane"></div>
           <div id="kal-szczegoly" hidden>
+            <div class="kal-aplikacja" id="kal-aplikacja" hidden></div>
             <div class="pole"><label class="etykieta" for="kal-uczestnicy">Nazwiska osób</label><input type="text" id="kal-uczestnicy" placeholder="np. Sobczak, Pawlak"></div>
             <div class="pole"><span class="etykieta">Telefony</span><div id="kal-telefony"></div>
               <button type="button" class="wtorny maly" id="kal-dodaj-tel">+ Dodaj kolejny telefon</button></div>
@@ -4506,6 +4517,21 @@ function opisWpisu(w){
   return czesci.length ? czesci.join(" · ") : (w.tytul || (w.sprawa ? nazwaSprawy(w.sprawa) : ""));
 }
 function godzinyWpisu(w){ return w.godzina ? w.godzina + (w.koniec ? "–" + w.koniec : "") : ""; }
+// Wizyta, ktora klient umowil sam w aplikacji notarai (numer potwierdzony kodem SMS).
+// Zmiana jej terminu albo usuniecie wysyla klientowi SMS.
+const zAplikacji = w => !!w && w.zrodlo === "klient";
+const PLAKIETKA_APP = '<span class="plakietka-app" title="Wizyta umówiona przez klienta w aplikacji notarai">z aplikacji</span>';
+const SMS_KLIENTA = "\n\nKlient umówił tę wizytę w aplikacji notarai i dostanie SMS ";
+function opisKlientaAplikacji(w){
+  const k = w.klient || {};
+  const utworzono = w.utworzono ? new Date(w.utworzono).toLocaleString("pl-PL", {day:"numeric", month:"long", hour:"2-digit", minute:"2-digit"}) : "";
+  return "<strong>Rezerwacja z aplikacji notarai</strong>" + PLAKIETKA_APP
+    + "<p>Klient potwierdził numer telefonu kodem SMS" + (utworzono ? " · umówiono " + escape(utworzono) : "")
+    + (w.przelozono ? " · klient przełożył termin" : "") + ".</p>"
+    + (k.email ? '<p>E-mail: <a href="mailto:' + escape(k.email) + '">' + escape(k.email) + "</a></p>" : "")
+    + (k.uwagi ? "<p>Uwagi klienta: " + escape(k.uwagi) + "</p>" : "")
+    + '<p class="uwaga">Zmiana daty lub godziny albo usunięcie terminu wyśle klientowi SMS.</p>';
+}
 function telefonyWpisu(w){ return w.telefony || (w.telefon ? [{imie: "", numer: w.telefon}] : []); }
 function linkTelefonu(t){
   return (t.imie ? escape(t.imie) + ": " : "") + '<a href="tel:' + escape(t.numer.replace(/\s/g, "")) + '">' + escape(t.numer) + "</a>";
@@ -4574,8 +4600,10 @@ function rysujTydzien(){
     html += '<div class="g">' + godz(m) + "</div>";
     dni.forEach(d => {
       const data = iso(d), kto = wpisyKal.find(w => w.data === data && w.godzina && minuty(w.godzina) < m + KROK && m < koniecWpisu(w));
-      html += '<div class="k' + (kto ? " zajety" : dzienWolny(data) ? " wolny" : "") + '" data-dzien="' + data + '" data-m="' + m + '"'
-        + (kto ? ' data-wpis="' + escape(kto.id) + '" title="' + escape(godzinyWpisu(kto) + " " + opisWpisu(kto)) + '"' : "")
+      html += '<div class="k' + (kto ? " zajety" : dzienWolny(data) ? " wolny" : "") + (zAplikacji(kto) ? " z-aplikacji" : "")
+        + '" data-dzien="' + data + '" data-m="' + m + '"'
+        + (kto ? ' data-wpis="' + escape(kto.id) + '" title="' + escape(godzinyWpisu(kto) + " " + opisWpisu(kto)
+                 + (zAplikacji(kto) ? " (z aplikacji notarai)" : "")) + '"' : "")
         + ">" + (kto ? escape(opisWpisu(kto) || "zajęte") : "") + "</div>";
     });
   });
@@ -4601,9 +4629,10 @@ function rysujMiesiac(){
     el.innerHTML = '<div class="gora"><span class="nr">' + d.getDate() + "</span>" + kropka(data) + "</div>" + opisyDniaHtml(data);
     wpisyKal.filter(w => w.data === data).forEach(w => {
       const e = document.createElement("div");
-      e.className = "kal-wpis" + (brakTelefonu(w) ? " brak-tel" : "");
-      e.textContent = (w.godzina ? w.godzina + " " : "") + opisWpisu(w);
-      e.title = (godzinyWpisu(w) ? godzinyWpisu(w) + " " : "") + opisWpisu(w) + (brakTelefonu(w) ? " — ktoś nie ma numeru telefonu" : "");
+      e.className = "kal-wpis" + (brakTelefonu(w) ? " brak-tel" : "") + (zAplikacji(w) ? " z-aplikacji" : "");
+      e.innerHTML = (zAplikacji(w) ? PLAKIETKA_APP : "") + escape((w.godzina ? w.godzina + " " : "") + opisWpisu(w));
+      e.title = (godzinyWpisu(w) ? godzinyWpisu(w) + " " : "") + opisWpisu(w) + (brakTelefonu(w) ? " — ktoś nie ma numeru telefonu" : "")
+        + (zAplikacji(w) ? " — z aplikacji notarai" : "");
       e.onclick = ev => { ev.stopPropagation(); otworzDzien(w.data, w); };
       el.appendChild(e);
     });
@@ -4620,8 +4649,10 @@ function rysujNajblizsze(){
     d.className = "termin";
     const kiedy = new Date(w.data + "T00:00").toLocaleDateString("pl-PL", {weekday:"long", day:"numeric", month:"long"});
     d.innerHTML = '<div class="kiedy">' + escape(kiedy) + (w.godzina ? ", godz. " + escape(godzinyWpisu(w)) : "") + "</div>"
-      + '<div class="co">' + escape(opisWpisu(w)) + (w.sprawa && opisWpisu(w) !== nazwaSprawy(w.sprawa) ? ' <span class="stan">· ' + escape(nazwaSprawy(w.sprawa)) + "</span>" : "") + "</div>"
+      + '<div class="co">' + escape(opisWpisu(w)) + (w.sprawa && opisWpisu(w) !== nazwaSprawy(w.sprawa) ? ' <span class="stan">· ' + escape(nazwaSprawy(w.sprawa)) + "</span>" : "")
+      + (zAplikacji(w) ? PLAKIETKA_APP : "") + "</div>"
       + (telefonyWpisu(w).length ? '<div class="tel">' + telefonyWpisu(w).map(linkTelefonu).join(" · ") + "</div>" : "")
+      + (zAplikacji(w) && (w.klient || {}).email ? '<div class="tel"><a href="mailto:' + escape(w.klient.email) + '">' + escape(w.klient.email) + "</a></div>" : "")
       + (w.uwagi ? '<div class="stan">' + escape(w.uwagi) + "</div>" : "")
       + (w.sprawa ? listaTelefonow(w.sprawa) : "");
     d.querySelector(".co").onclick = () => {
@@ -4723,7 +4754,8 @@ function rysujOkno(){
     // Do zapisu jest nadal zajeta - nie pokazujemy jej jako wolnej.
     const zwalniany = !kto && !wybrane.includes(m) && oryginalne.includes(m);
     el.type = "button";
-    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "") + (zwalniany ? " zwalniany" : "");
+    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "") + (zwalniany ? " zwalniany" : "")
+      + (zAplikacji(kto) ? " z-aplikacji" : "");
     // Kazde okienko rezerwacji pokazuje, czyje jest - nie tylko pierwsze.
     el.innerHTML = '<span class="g">' + godz(m) + "–" + godz(m + KROK) + '</span><span class="o">'
       + (kto ? escape(opisWpisu(kto) || "zajęte") : wybrane.includes(m) ? "wybrane" : zwalniany ? "zwolni się po zapisie" : "wolne") + "</span>";
@@ -4832,6 +4864,8 @@ function rysujOsobyTerminu(){
   podepnijUzupelnij(k);
 }
 function wypelnij(w){
+  $("kal-aplikacja").hidden = !zAplikacji(w);
+  $("kal-aplikacja").innerHTML = zAplikacji(w) ? opisKlientaAplikacji(w) : "";
   $("kal-uczestnicy").value = w.uczestnicy || ""; rysujTelefony(telefonyWpisu(w));
   $("kal-rodzaj-inny").value = w.rodzaj_inny || ""; $("kal-uwagi").value = w.uwagi || "";
   $("kal-sprawa").value = w.sprawa || "";
@@ -4896,10 +4930,16 @@ $("kal-zapisz").onclick = async () => {
   const godziny = wybrane.length ? {godzina: godz(wybrane[0]), koniec: godz(wybrane[wybrane.length - 1] + KROK)}
                                  : {godzina: stary.godzina || "", koniec: stary.koniec || ""};
   if (!godziny.godzina && !edytowany) return stan($("stan6"), "Zaznacz godziny.", true);
+  // Nic nie zmieniono: bez zapisu (i bez zbednego PUT na wizycie klienta z aplikacji).
+  if (edytowany && stanFormularza() === stanPoczatkowy) return stan($("stan6"), "Bez zmian – nic nie zapisano.");
   // Przeniesienie (nowe godziny rozlaczne z dawnymi) potwierdzamy - przedluzenie nie.
-  if (edytowany && stary.godzina && godziny.godzina
-      && (minuty(godziny.godzina) >= koniecWpisu(stary) || minuty(godziny.koniec) <= minuty(stary.godzina))
-      && !confirm("Przenieść termin z " + godzinyWpisu(stary) + " na " + godziny.godzina + "–" + godziny.koniec + "?")) return;
+  // Wizyta z aplikacji: kazda zmiana godziny rozpoczecia to SMS do klienta, wiec pytamy zawsze.
+  const przeniesienie = edytowany && stary.godzina && godziny.godzina
+      && (minuty(godziny.godzina) >= koniecWpisu(stary) || minuty(godziny.koniec) <= minuty(stary.godzina));
+  const nowaGodzina = edytowany && zAplikacji(stary) && stary.godzina && godziny.godzina !== stary.godzina;
+  if ((przeniesienie || nowaGodzina)
+      && !confirm("Przenieść termin z " + godzinyWpisu(stary) + " na " + godziny.godzina + "–" + godziny.koniec + "?"
+                  + (zAplikacji(stary) ? SMS_KLIENTA + "z nowym terminem." : ""))) return;
   const dane = {data: dzienOkna, ...godziny, tytul: stary.tytul || "",
                 uczestnicy: $("kal-uczestnicy").value, telefony: telefonyZFormularza(),
                 rodzaj, rodzaj_inny: $("kal-rodzaj-inny").value,
@@ -4915,7 +4955,8 @@ $("kal-zapisz").onclick = async () => {
   stan($("stan6"), "Zapisano " + godzinyWpisu(w) + ".");
 };
 $("kal-usun").onclick = async () => {
-  if (!edytowany || !confirm("Usunąć ten termin z kalendarza?")) return;
+  const usuwany = wpisyKal.find(w => w.id === edytowany);
+  if (!edytowany || !confirm("Usunąć ten termin z kalendarza?" + (zAplikacji(usuwany) ? SMS_KLIENTA + "o odwołaniu." : ""))) return;
   await api("/api/kalendarz/" + edytowany, {method:"DELETE"});
   edytowany = null;
   await rysujKalendarz();

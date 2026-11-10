@@ -303,6 +303,56 @@ class TestZarzadzanie:
         assert "Kancelaria Lokalna Testowa" in sms.wyslane_testowo[-1]["tresc"]
 
 
+class TestKokpitKancelarii:
+    """Wizyta klienta w kalendarzu kancelarii (kokpit, /api/kalendarz): dane
+    klienta widoczne, odcisk tokenu nie, SMS tylko przy zmianie terminu."""
+
+    @pytest.fixture
+    def wizyta(self, scena):
+        rejestr = {**REJESTR, "l": {**REJESTR["x"], "id": "lokalna", "nazwa": "Kancelaria Lokalna Testowa",
+                                    "zespol": []}}
+        autoryzacja._zapisz_rejestr(rejestr)
+        with h._WBiurze("lokalna"):
+            magazyn.zmien_plik_kancelarii("rezerwacje_hurtowe", lambda a: a.update(POLITYKA), {})
+        r = rezerwuj(scena, kancelaria="lokalna")
+        assert r.status_code == 201, r.text
+        return next(w for w in scena.get("/api/kalendarz").json() if w["id"] == r.json()["id"])
+
+    @staticmethod
+    def formularz(wpis, **zmiany):
+        pola = ("data", "godzina", "koniec", "tytul", "rodzaj", "rodzaj_inny", "uczestnicy", "telefony", "uwagi")
+        return {**{k: wpis[k] for k in pola}, **zmiany}
+
+    def test_lista_z_danymi_klienta_bez_tokenu(self, wizyta):
+        assert wizyta["zrodlo"] == "klient" and wizyta["status"] == "potwierdzona"
+        assert wizyta["klient"]["email"] == "jan@klient.test" and wizyta["klient"]["uwagi"] == "Kupuję na kredyt."
+        assert "token" not in wizyta and "weryfikacja" not in wizyta
+
+    def test_zapis_bez_zmiany_terminu_bez_sms(self, scena, wizyta):
+        ile = len(sms.wyslane_testowo)
+        odp = scena.put(f"/api/kalendarz/{wizyta['id']}", json=self.formularz(wizyta, uwagi="Oddzwonić w sprawie KW."))
+        assert odp.status_code == 200, odp.text
+        assert "token" not in odp.json() and odp.json()["zrodlo"] == "klient"
+        assert len(sms.wyslane_testowo) == ile
+        po = next(w for w in scena.get("/api/kalendarz").json() if w["id"] == wizyta["id"])
+        assert po["uwagi"] == "Oddzwonić w sprawie KW." and po["klient"]["telefon"]
+
+    def test_przeniesienie_sms_i_przypomnienie_od_nowa(self, scena, wizyta):
+        with h._WBiurze("lokalna"):
+            magazyn.zmien_plik_kancelarii(
+                "kalendarz", lambda wpisy: [w.update(przypomnienie="2026-11-09T10:00:00") for w in wpisy], [])
+        nowy_dzien = (datetime.fromisoformat(wizyta["data"]) + timedelta(days=1)).date().isoformat()
+        ile = len(sms.wyslane_testowo)
+        odp = scena.put(f"/api/kalendarz/{wizyta['id']}",
+                        json=self.formularz(wizyta, data=nowy_dzien, godzina="15:00", koniec="16:00"))
+        assert odp.status_code == 200, odp.text
+        assert len(sms.wyslane_testowo) == ile + 1
+        assert "przeniosla" in sms.wyslane_testowo[-1]["tresc"] and nowy_dzien in sms.wyslane_testowo[-1]["tresc"]
+        with h._WBiurze("lokalna"):
+            wpis = next(w for w in kalendarz.lista() if w["id"] == wizyta["id"])
+        assert wpis["przypomnienie"] is None and wpis["zrodlo"] == "klient"
+
+
 class TestPrzypomnienia:
     def test_dzien_przed(self, scena):
         jutro = (datetime.now(h.STREFA) + timedelta(days=1)).date().isoformat()

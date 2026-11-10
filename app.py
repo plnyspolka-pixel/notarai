@@ -953,10 +953,19 @@ class WpisKalendarza(BaseModel):
     uwagi: str = ""
 
 
+# Wizyty z aplikacji klienta niosa odcisk tokenu klienta i identyfikator
+# weryfikacji SMS - kancelaria ich nie potrzebuje, wiec nie wychodza z API.
+_UKRYTE_W_KALENDARZU = ("token", "weryfikacja")
+
+
+def _dla_kancelarii(wpis: dict) -> dict:
+    return {k: v for k, v in wpis.items() if k not in _UKRYTE_W_KALENDARZU}
+
+
 @app.get("/api/kalendarz")
 def lista_kalendarza():
     _tylko_w_chmurze()
-    return kalendarz.lista()
+    return [_dla_kancelarii(w) for w in kalendarz.lista()]
 
 
 @app.post("/api/kalendarz")
@@ -1002,7 +1011,7 @@ def zmien_w_kalendarzu(identyfikator: str, dane: WpisKalendarza):
         raise HTTPException(404, "Nie ma takiego terminu")
     log.info("kalendarz %s: zmieniony", identyfikator)
     rezerwacje_klienta.powiadom_o_zmianie_kancelarii(stary, wpis)
-    return wpis
+    return _dla_kancelarii(wpis)
 
 
 @app.delete("/api/kalendarz/{identyfikator}")
