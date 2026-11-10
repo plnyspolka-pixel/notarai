@@ -1,9 +1,10 @@
-# NotarAI: aplikacja klienta i rezerwacje online (08.11.2026)
+# NotarAI: aplikacja klienta i rezerwacje online (08–10.11.2026)
 
 Klient umawia wizytę u notariusza z telefonu jak w Booksy: wybiera kancelarię,
 wolną godzinę, potwierdza numer kodem SMS i ma termin w kalendarzu kancelarii.
 Kod aplikacji: `mobilna/` (Expo, React Native, Android + iOS + web).
 Backend: `rezerwacje_klienta.py` (API `/api/klient/*`) i `sms.py` (Twilio).
+Wersja przeglądarkowa: `https://app.notarai.pl/aplikacja/` (ten sam kod, eksport web).
 
 ## Skąd się to bierze
 
@@ -20,6 +21,9 @@ Backend: `rezerwacje_klienta.py` (API `/api/klient/*`) i `sms.py` (Twilio).
 - **SMS**: klient Twilio i hamulec przeniesione z Finance You
   (`finyou/src/lib/twilio-api.server.ts`, `sms-guard.server.ts`) do Pythona,
   bez nowych zależności (httpx).
+- **Święta państwowe**: `kalendarz.swieto()` (stałe daty, Wielkanoc i święta
+  ruchome, Wigilia od 2025) – w święta silnik nie oferuje godzin ani klientom,
+  ani partnerom B2B; `terminy` zwraca taki dzień jako `nieczynne` z polem `swieto`.
 
 ## Rozdzielenie od Finance You
 
@@ -43,19 +47,30 @@ rozdziela koszty i limity.
 | możliwości | GET | `/api/klient/konfiguracja` | `rezerwacje_online` = czy SMS działa |
 | miejscowość | GET | `/api/klient/miejscowosci?q=lub` | podpowiedzi z bazy |
 | kancelarie | GET | `/api/klient/kancelarie?miasto=lublin` albo `?lat=&lon=` | online na górze; po współrzędnych tylko online, od najbliższej |
-| terminy | GET | `/api/klient/kancelarie/{id}/terminy?od=&dni=14` | max 14 dni na zapytanie, dni nieczynne puste |
+| terminy | GET | `/api/klient/kancelarie/{id}/terminy?od=&dni=14` | max 14 dni na zapytanie; dni nieczynne i święta puste (`nieczynne`, `swieto`) |
 | kod SMS | POST | `/api/klient/weryfikacja` `{telefon}` | 201 `{id, wygasa_s, koncowka}`; w trybie `test` także `kod_testowy` |
 | rezerwacja | POST | `/api/klient/rezerwacje` | kod + dane + `zgoda=true`; 201 z `token` (tylko raz); 409 gdy termin zajęty |
-| podgląd | POST | `/api/klient/rezerwacje/{id}/podglad` `{kancelaria, token}` | token w ciele, nie w adresie (logi dostępowe) |
+| podgląd | POST | `/api/klient/rezerwacje/{id}/podglad` `{kancelaria, token}` | token w ciele, nie w adresie (logi dostępowe); `status`, `anulowal` (`klient`/`kancelaria`) |
 | odwołanie | POST | `/api/klient/rezerwacje/{id}/anuluj` `{kancelaria, token}` | SMS do klienta, e-mail do kancelarii |
 | przełożenie | PUT | `/api/klient/rezerwacje/{id}` `{kancelaria, token, data, godzina}` | jak wyżej |
 | webhook Twilio | POST | `/api/klient/sms-przychodzacy?token=` | STOP wypisuje numer z przypomnień |
 | admin | POST/GET | `/api/admin/klient/przypomnienia`, `/api/admin/klient/stan` | token administratora |
 
 Wpis w kalendarzu kancelarii ma `zrodlo: "klient"`, tytuł „Wizyta z aplikacji: …”,
-telefon klienta w `telefony` i e-mail/uwagi w `uwagi`. Kancelaria pracuje na nim
-jak na każdym innym terminie; usunięcie albo przesunięcie w aplikacji kancelarii
-wysyła klientowi SMS (`powiadom_o_zmianie_kancelarii` w `app.py`).
+telefon klienta w `telefony`, e-mail i uwagi w `klient` (i opisowo w `uwagi`).
+Kancelaria pracuje na nim jak na każdym innym terminie:
+
+- kokpit (`static/index.html`) oznacza go plakietką **„z aplikacji”** i złotym paskiem
+  (miesiąc, tydzień, dzień, „Najbliższe terminy”); okno terminu pokazuje ramkę
+  z e-mailem i uwagami klienta oraz uprzedza, że zmiana terminu wyśle SMS;
+- zapis bez żadnej zmiany nie wysyła `PUT` („Bez zmian – nic nie zapisano”);
+  przeniesienie i usunięcie pytają z dopiskiem o SMS do klienta;
+- przesunięcie daty/godziny: SMS do klienta (`powiadom_o_zmianie_kancelarii`)
+  i wyzerowany znacznik przypomnienia (przypomnienie przyjdzie przed nowym terminem);
+- usunięcie: wpis nie znika, tylko dostaje `status: "anulowana"`, `anulowal: "kancelaria"`
+  (`odwolaj_przez_kancelarie`) – schodzi z kalendarza i zwalnia godzinę, klient
+  dostaje SMS, a aplikacja po odświeżeniu pokazuje „Kancelaria odwołała tę wizytę”;
+- `GET /api/kalendarz` nie zwraca odcisku tokenu klienta ani identyfikatora weryfikacji.
 
 ## SMS-y (co i kiedy)
 
@@ -68,10 +83,32 @@ wysyła klientowi SMS (`powiadom_o_zmianie_kancelarii` w `app.py`).
 Przypomnienia: wątek w aplikacji co 15 min (`PIECZAPP_PRZYPOMNIENIA=1`) oznacza
 wpis atomowo (zapis warunkowy), dopiero potem wysyła, więc dwie kopie na ECS nie
 wyślą dwa razy. Alternatywa: `PIECZAPP_PRZYPOMNIENIA=0` i zewnętrzny harmonogram
-wołający `POST /api/admin/klient/przypomnienia`.
+wołający `POST /api/admin/klient/przypomnienia`. W chmurze ustawia to parametr
+`Przypomnienia` stosu `notarai-aplikacja` (domyślnie `1`).
 
 Treści bez polskich znaków (UCS-2 skraca SMS do 70 znaków). Numer i treść nie
 trafiają do logów; logujemy kategorię, status i SID.
+
+## Wersja web (`/aplikacja`)
+
+- `app.py` serwuje `mobilna/dist` (eksport `expo export --platform web`, `baseUrl`
+  `/aplikacja` w `app.json`) pod `https://app.notarai.pl/aplikacja/`: pliki z hashem
+  z długim cache, trasy aplikacji (`/aplikacja/wizyty`, `/aplikacja/kancelaria/…`)
+  dostają `index.html`, brakujący plik to 404. Bez zbudowanego `dist/` trasa zwraca 404.
+  Ścieżka jest otwarta bez logowania (`autoryzacja._OTWARTE`).
+- Obraz: `Dockerfile` ma etap `node:22-slim` (lustro ECR Public), który robi
+  `npm ci` i `expo export`; do obrazu Pythona trafia tylko `dist/`, bez `node_modules`.
+  CodeBuild (`infra/notarai-budowanie.yaml`) niczego nie zmienia – buduje ten sam
+  `Dockerfile`, etap dokłada ok. 2–4 minuty. `.dockerignore` pomija `mobilna/node_modules`,
+  `mobilna/dist` i każde `.env`.
+- Ta sama domena co API, więc bez CORS. Linki „Umów wizytę w aplikacji”: sekcja
+  „Dla klientów” na `strona/index.html` i panel mapy `static/notariusze.html`.
+- Alternatywa bez przebudowy obrazu (np. gdy CodeBuild nie ma dostępu do npm):
+  zbudować lokalnie `dist/` z `EXPO_PUBLIC_API_URL=https://app.notarai.pl` i wgrać
+  go przez `infra/strona.ps1` jako `/aplikacja/` na hosting notarai.pl. Wtedy
+  `PIECZAPP_KALKULATOR_ORIGINS` musi zawierać `https://notarai.pl`, a serwer www
+  musi kierować nieznane ścieżki `/aplikacja/*` do `index.html`. Domyślnie nie używane.
+- Wizyty z wersji web są zapisane w przeglądarce (localStorage), nie w telefonie.
 
 ## Ochrona danych
 
@@ -101,9 +138,15 @@ pokazuje wszystkie kancelarie jako „Zapytanie o termin” i nic się nie psuje
 
 ## Testy
 
-`test_sms.py` (16) i `test_rezerwacje_klienta.py` (23): atrapa Twilio, kolizje,
-idempotencja, token, przypomnienia, STOP, brak danych osobowych w logach.
-Aplikacja: `cd mobilna && npm run typecheck`; CI sprawdza typy i eksport web.
+- `test_sms.py` i `test_rezerwacje_klienta.py`: atrapa Twilio, kolizje, idempotencja,
+  token, przypomnienia, STOP, brak danych osobowych w logach, święta, kokpit
+  (lista bez tokenu, zapis bez zmian bez SMS, przeniesienie zeruje przypomnienie,
+  odwołanie przez kancelarię widoczne w podglądzie).
+- `test_aplikacja_web.py`: trasa `/aplikacja` (SPA, cache, 404, nic spoza `dist/`,
+  otwarta przy `PIECZAPP_MULTI`), linki na stronie i mapie.
+- `test_kokpit.py`: plakietka „z aplikacji”, brak `PUT` bez zmian.
+- Aplikacja: `cd mobilna && npm run typecheck && npm test` (12 testów `src/api.ts`
+  przez `node --test`); CI sprawdza typy, testy i eksport web.
 
 ## Czego świadomie nie ma
 
@@ -112,3 +155,6 @@ Aplikacja: `cd mobilna && npm run typecheck`; CI sprawdza typy i eksport web.
 - Głosowego umawiania przez ElevenLabs/Twilio Voice: agent z Finance You ma inną
   bazę wiedzy; dla notarai to osobny projekt z własnym numerem i agentem.
 - Rezerwacji dla kancelarii w trybie „pliki u klienta” (kalendarz nie jest na serwerze).
+- Powiadomień push: przypomnienia idą SMS-em, który działa bez instalacji aplikacji.
+- Linku do aplikacji w SMS-ach: aplikacja trzyma wizyty w pamięci urządzenia, więc link
+  `https://app.notarai.pl/aplikacja/wizyty` otwarty w innej przeglądarce byłby pusty.

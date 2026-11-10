@@ -100,6 +100,16 @@ Parameters:
       do klientow i rezerwacje online z aplikacji (rezerwacje_klienta.py).
       Osobne konto/podkonto i numer od Finance You. Puste = rezerwacje online
       wylaczone, kancelarie z bazy dostaja zgloszenia e-mailem.
+  Przypomnienia:
+    Type: String
+    Default: "1"
+    AllowedValues: ["1", "0"]
+    Description: >-
+      Przypomnienia SMS dzien przed wizyta klienta z aplikacji. 1 = watek w
+      kazdej kopii aplikacji (przy kilku kopiach ECS kazda wizyte oznacza
+      atomowo jedna z nich, wiec SMS nie wychodzi dwa razy). 0 = przypomnienia
+      wywoluje zewnetrzny harmonogram przez POST /api/admin/klient/przypomnienia.
+      Bez sekretu Twilio nic nie jest wysylane niezaleznie od tej wartosci.
   StripeCena:
     Type: String
     Default: ""
@@ -470,6 +480,8 @@ Resources:
             # SMS do klientow (sms.py): twilio tylko gdy jest sekret notarai/twilio.
             - Name: PIECZAPP_SMS_TRYB
               Value: !If [MamyTwilio, twilio, wylaczony]
+            - Name: PIECZAPP_PRZYPOMNIENIA
+              Value: !Ref Przypomnienia
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina

@@ -44,6 +44,7 @@ def test_notary_dashboard_integrations():
 def test_notary_ekw_providers_are_optional():
     yaml = read("infra/notarai-aplikacja.yaml")
     for token in ("PIECZAPP_EMAIL_NADAWCA", "MamyApify", "MamyFinyou",
-                  "PIECZAPP_APIFY_TOKEN", "PIECZAPP_FINYOU_TOKEN"):
+                  "PIECZAPP_APIFY_TOKEN", "PIECZAPP_FINYOU_TOKEN",
+                  "MamyTwilio", "PIECZAPP_SMS_TRYB", "PIECZAPP_PRZYPOMNIENIA"):
         assert token in yaml
     assert '@app.post("/api/sprawy/{identyfikator}/ekw")' in read("app.py")
