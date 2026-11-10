@@ -62,7 +62,9 @@ limit_zgloszen = Limit(int(os.getenv("PIECZAPP_WIZYTY_NA_IP", "5")), int(os.gete
 _EMAIL = re.compile(r"^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$")
 _baza: dict | None = None
 _blokada = threading.Lock()
-_CACHE_NOTARAI: tuple[float, dict] = (0.0, {})
+# -inf, nie 0.0: time.monotonic() liczy od startu maszyny, wiec na swiezym
+# kontenerze (Fargate, runner CI) bywa < 60 s i pusty cache uchodzilby za swiezy.
+_CACHE_NOTARAI: tuple[float, dict] = (float("-inf"), {})
 
 
 # --- baza kancelarii -------------------------------------------------------
@@ -95,7 +97,7 @@ def _ustaw_baze(dane: dict | None) -> None:
         if dane:
             for k in dane["kancelarie"]:
                 _baza["wg_miejscowosci"].setdefault(k["slug"], []).append(k["id"])
-    _CACHE_NOTARAI = (0.0, {})
+    _CACHE_NOTARAI = (float("-inf"), {})
 
 
 # --- plik zgloszen w obszarze administracyjnym ----------------------------
@@ -771,5 +773,5 @@ def powiaz(baza_id: int, dane: Powiazanie, request: Request):
         return dict(d["powiazania"])
     wynik = _zmien(zmien)
     global _CACHE_NOTARAI
-    _CACHE_NOTARAI = (0.0, {})
+    _CACHE_NOTARAI = (float("-inf"), {})
     return {"powiazania": wynik}

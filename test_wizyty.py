@@ -228,3 +228,13 @@ class TestBaza:
         assert len(b["kancelarie"]) > 3000 and "lublin" in b["miejscowosci"]
         assert all("@" not in k["nazwa"] for k in b["kancelarie"].values())
         wizyty._ustaw_baze(None)
+
+
+def test_cache_kancelarii_pusty_tuz_po_starcie_maszyny(monkeypatch, tmp_path):
+    """Swiezy kontener: time.monotonic() < 60 s. Uniewazniony cache nie moze
+    wtedy uchodzic za swiezy (wczesniej wszystkie kancelarie byly 'niepowiazane')."""
+    monkeypatch.setattr(config, "DANE", tmp_path)
+    monkeypatch.setattr(autoryzacja, "_wczytaj_rejestr", lambda: REJESTR)
+    wizyty._ustaw_baze(BAZA)  # uniewaznia cache tak jak w aplikacji
+    monkeypatch.setattr(wizyty.time, "monotonic", lambda: 5.0)
+    assert wizyty.kancelarie_notarai() == {1: "lokalna"}
