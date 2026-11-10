@@ -62,6 +62,12 @@ MAX_WYJSCIE = int(os.getenv("PIECZAPP_MAX_WYJSCIE", "128000"))
 WYSILEK = os.getenv("PIECZAPP_WYSILEK", "max")  # low | medium | high | max
 MYSLENIE = os.getenv("PIECZAPP_MYSLENIE", "1") != "0"
 
+# Zasady kancelarii: projekt naruszajacy zasade nieprzekraczalna dostaje jedna
+# ture poprawki przez model, a wytyczne opisowe - kontrole przez model. To do
+# dwoch dodatkowych zapytan Bedrock na projekt (tylko gdy sa potrzebne).
+# "0" wylacza oba; zostaje kontrola regulami i autonaprawa bez modelu.
+POPRAWA_ZASAD = os.getenv("PIECZAPP_POPRAWA_ZASAD", "1") != "0"
+
 # Profil AWS. Pusto (domyslnie) = zwykly lancuch poswiadczen boto3:
 # lokalnie profil [default] z ~/.aws, w chmurze rola instancji App Runner
 # albo rola zadania ECS. Nazwe profilu podaj tylko wtedy, gdy swiadomie

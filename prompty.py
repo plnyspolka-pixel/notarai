@@ -199,6 +199,17 @@ Brakujace fakty o dodatkowym elemencie oznacz <<BRAK: ...>>, ale elementu nie \
 pomijaj. Przed oddaniem projektu sprawdz punkt po punkcie, czy kazda pozycja \
 polecenia zostala wykonana.
 
+18. ZASADY KANCELARII (jesli sa ponizej) sa nieprzekraczalne: maja pierwszenstwo \
+przed wzorem, stylem kancelarii i przyzwyczajeniami. Projekt jest z nimi \
+sprawdzany automatycznie, zanim zobaczy go notariusz. Gdy POLECENIE UZYTKOWNIKA \
+jest sprzeczne z zasada NIEPRZEKRACZALNA, zastosuj zasade i wstaw w tym miejscu \
+<<WYBOR: polecenie sprzeczne z zasada kancelarii - ...>>. Zasady nie upowazniaja \
+do dopisywania faktow, ktorych nie ma w danych (regula 8).
+19. STYL KANCELARII to wskazowki redakcyjne z wczesniejszych aktow tej kancelarii. \
+Stosuj jej sformulowania tam, gdzie wzor zostawia swobode, ale nie zmieniaj \
+struktury wzoru ani tresci prawnej. Znaczniki w klamrach ({OSOBA}, {KWOTA}, \
+{DATA}...) to miejsca na dane sprawy - nigdy nie przepisuj ich do projektu.
+
 """ + """OPLATY SADOWE (ustawa o kosztach sadowych w sprawach cywilnych):
 Wpis wlasnosci:
 - zwykly: z art. 42 ust. 1 - 200 zl
@@ -307,9 +318,10 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
 
 def polecenie_generowania(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    ustalenia: str = "",
+    ustalenia: str = "", personalizacja: str = "",
 ) -> str:
-    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy."""
+    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
+    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py)."""
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
@@ -328,6 +340,8 @@ def polecenie_generowania(
     czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
     if ustalenia:
         czesci.append(ustalenia)
+    if personalizacja:
+        czesci.append(personalizacja)
     czesci.append(
         "POLECENIE UZYTKOWNIKA (rozstrzygajace; kazda pozycja musi byc wykonana - regula 17):\n"
         f"{opis or '(brak)'}"
@@ -338,6 +352,49 @@ def polecenie_generowania(
         if opis else "Sporzadz projekt dokumentu."
     )
     return "\n\n".join(czesci)
+
+
+POPRAWA_ZASAD = """Jestes asystentem kancelarii notarialnej. Dostajesz PROJEKT \
+dokumentu i liste NARUSZEN zasad kancelarii wykrytych automatycznie.
+
+Popraw WYLACZNIE miejsca wskazane w naruszeniach. Reszte projektu przepisz \
+znak w znak: nie skracaj, nie streszczaj, nie zmieniaj kolejnosci, nie \
+dopisuj nowych faktow. Znaczniki <<BRAK: ...>> i <<WYBOR: ...>> zostaw.
+- Brakujaca tresc wymagana zasada: dopisz ja w czesci aktu, do ktorej nalezy, \
+w stylu reszty dokumentu; gdy do jej napisania brakuje faktow, wstaw \
+<<BRAK: ...>>.
+- Zakazane slowo: przeredaguj zdanie z zachowaniem odmiany i sensu.
+- Bledne odeslanie: wskaz wlasciwe miejsce aktu albo wstaw <<WYBOR: ...>>.
+- Luka "??" albo warianty "//": rozstrzygnij z tresci projektu albo wstaw \
+<<BRAK: ...>> / <<WYBOR: ...>>.
+
+Zwracasz sam poprawiony tekst calego dokumentu, bez komentarzy i bez markdown.
+"""
+
+
+def polecenie_poprawy(tekst: str, naruszenia: list[dict]) -> str:
+    lista = "\n".join(
+        f"{i}. {n['komunikat']}" + (f" Fragment: \"{n['fragment']}\"" if n.get("fragment") else "")
+        + f" (zasada: {n['tekst_zasady']})"
+        for i, n in enumerate(naruszenia, start=1)
+    )
+    return f"NARUSZENIA:\n{lista}\n\nPROJEKT:\n-----\n{tekst}\n-----"
+
+
+KONTROLA_WYTYCZNYCH = """Jestes kontrolerem jakosci w kancelarii notarialnej. \
+Dostajesz PROJEKT dokumentu i WYTYCZNE kancelarii. Dla kazdej wytycznej \
+sprawdz, czy projekt ja narusza. Zglaszaj tylko naruszenia oczywiste, \
+z cytatem z projektu; brak naruszenia = brak wpisu.
+
+Zwroc wylacznie JSON:
+{"naruszenia": [{"zasada": "<id wytycznej>", "fragment": "<cytat z projektu, do 200 znakow>", \
+"uwaga": "<co jest nie tak, jednym zdaniem>"}]}
+"""
+
+
+def polecenie_kontroli(tekst: str, wytyczne: list[dict]) -> str:
+    lista = "\n".join(f"- {w['id']}: {w['tekst']}" for w in wytyczne)
+    return f"WYTYCZNE:\n{lista}\n\nPROJEKT:\n-----\n{tekst}\n-----"
 
 
 FORMULARZ = """Jestes asystentem kancelarii notarialnej. Dostajesz TRESC AKTU \

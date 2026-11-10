@@ -607,6 +607,7 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
 <link rel="stylesheet" href="/static/kokpit.css">
+<link rel="stylesheet" href="/static/personalizacja.css">
 </head>
 <body>
 
@@ -636,6 +637,7 @@ notarai</div>
   <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
   <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
+  <div class="krok" data-etap="9"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -885,6 +887,7 @@ notarai</div>
   <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 </div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
   <div class="karta">
+    <div class="zgodnosc" id="zgodnosc3" hidden aria-live="polite"></div>
     <div class="projekt" id="projekt"></div>
     <div class="pasek">
       <button id="btn-pobierz">Pobierz jako Word</button>
@@ -1349,6 +1352,56 @@ notarai</div>
       <div class="pole"><label class="etykieta" for="prz-adres-nadawcy">Adres <span class="wskaz">do 4 wierszy</span></label><textarea id="prz-adres-nadawcy" rows="3" style="width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linia2);background:var(--tlo);color:var(--tekst);border-radius:var(--r2)"></textarea></div>
     </div>
     <div class="pasek" style="margin-top:0"><button class="wtorny" id="prz-zapisz-nadawce">Zapisz dane nadawcy</button><span class="stan" id="stan8c"></span></div>
+  </div>
+</section>
+
+<!-- ===== 9: styl i zasady kancelarii =====
+     Logika w /static/personalizacja.js. Notariusz pisze zasady zwyklym
+     zdaniem i uczy styl ze starych aktow; nic tu nie wybiera z list. -->
+<section id="etap9" hidden>
+  <h1>Styl i zasady kancelarii</h1>
+  <p class="pod">Każdy projekt, zanim go zobaczysz, przechodzi przez zasady Twojej kancelarii. Piszesz je zwykłym zdaniem, a notarai sam rozpoznaje, czego dotyczą, w jakich aktach obowiązują i jak ich pilnować.</p>
+  <div class="pz-liczby" id="pz-liczby" aria-live="polite"></div>
+
+  <div class="karta" id="pz-karta-zasady">
+    <h2>Nieprzekraczalne zasady</h2>
+    <div class="composer pz-nowa">
+      <textarea id="pz-tekst" rows="2" maxlength="600" aria-label="Nowa zasada kancelarii"
+        placeholder="Napisz zasadę tak, jak powiedziałbyś aplikantowi, np. „Zamiast w/w pisz wyżej wymieniony”"></textarea>
+      <div class="pz-podglad" id="pz-podglad" hidden aria-live="polite"></div>
+      <div class="dol"><small>Enter - dodaj · Shift+Enter - nowa linia</small><button id="pz-dodaj" disabled>Dodaj zasadę</button></div>
+    </div>
+    <div class="pz-przyklady" id="pz-przyklady"></div>
+    <div id="pz-sugestie"></div>
+    <div id="pz-lista"></div>
+    <details class="pz-wbudowane"><summary id="pz-wbudowane-tytul">Zawsze pilnuję też budowy aktu</summary><div id="pz-wbudowane"></div></details>
+    <div class="pasek" style="margin-top:10px"><span class="stan" id="pz-stan"></span></div>
+  </div>
+
+  <div class="karta">
+    <h2>Naucz notarai swojego stylu</h2>
+    <p class="pod" style="margin-bottom:14px">Wrzuć swoje wcześniejsze akty. Rozbiorę je na klauzule, rozpoznam rodzaj czynności i części aktu, policzę Twoje nawyki i zaproponuję zasady. Dane osobowe usuwam przed zapisem - zostaje sam sposób redagowania, a plików nie przechowuję.</p>
+    <label class="upload strefa" id="pz-strefa"><input type="file" id="pz-pliki" multiple accept=".docx,.pdf,.txt,.md">
+      <span class="ikona">⇪</span><span><span class="nazwy">Przeciągnij tu akty albo kliknij, żeby wybrać</span><br><small>.docx, .pdf z tekstem, .txt · do 30 naraz</small></span></label>
+    <div class="pasek" style="margin-top:8px"><span class="stan" id="pz-stan-nauki"></span></div>
+    <div id="pz-wynik-nauki"></div>
+    <div class="pz-nawyki" id="pz-nawyki"></div>
+    <div class="pz-akty" id="pz-akty"></div>
+    <div class="pasek"><button class="wtorny" id="pz-zapomnij" hidden>Zapomnij wyuczony styl</button></div>
+  </div>
+
+  <div class="karta" id="pz-karta-sformulowan">
+    <h2>Twoje sformułowania</h2>
+    <p class="pod" style="margin-bottom:14px">Tak redagujesz poszczególne części aktu. Sformułowania oznaczone ★ trafiają do każdego projektu w pierwszej kolejności. W gotowym projekcie zaznacz fragment, żeby dodać go tutaj albo zrobić z niego zasadę.</p>
+    <div class="filtry" id="pz-czesci"></div>
+    <div id="pz-sformulowania"></div>
+  </div>
+
+  <div class="karta">
+    <h2>Sprawdź dowolny tekst</h2>
+    <div class="pole"><textarea id="pz-test" rows="6" placeholder="Wklej akt albo fragment - sprawdzę go zasadami kancelarii (bez modelu AI, nic nie zapisuję)"></textarea></div>
+    <div class="pasek"><button class="wtorny" id="pz-sprawdz">Sprawdź z zasadami</button><span class="stan" id="pz-stan-test"></span></div>
+    <div id="pz-raport-test"></div>
   </div>
 </section>
 
@@ -2131,7 +2184,7 @@ function pokaz(numer){
   $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
-  [1,2,3,4,5,6,7,8].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5,6,7,8,9].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
@@ -2151,6 +2204,7 @@ function pokaz(numer){
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
   if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
+  if (numer === 9) window.rysujPersonalizacje?.();
   if (numer === 4) {
     rysujSprawdzenia(); rysujSystemy();
     // Pomocnik jest potrzebny dopiero do sprawdzen w rejestrach - proponujemy
@@ -2610,7 +2664,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -3683,6 +3737,8 @@ window.addEventListener("drop", e => {
   if (!$("pliki-sprawy").hidden && e.target.closest && e.target.closest("#pliki-sprawy")) {
     return dodajZalaczniki([...e.dataTransfer.files]);
   }
+  // Na ekranie stylu kancelarii upuszczone akty ida do nauki stylu, nie do nowej sprawy.
+  if (!$("etap9").hidden) return window.nauczZAktow?.([...e.dataTransfer.files]);
   if ($("etap1").hidden) {
     if (sprawa) return;   // w trakcie innej sprawy nie zaczynamy nowej po cichu
     pokaz(1);
@@ -4052,7 +4108,8 @@ $("btn-generuj").onclick = async () => {
     if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
         numerSprawy !== pokolenieOtwierania) return;
     sprawa.projekt = wynik.tekst;
-    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru});
+    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
+                  zgodnosc: wynik.zgodnosc});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
     if (!dysk.aktywny) {
@@ -4078,6 +4135,8 @@ function pokazProjekt(w){
   $("podsum3").textContent = uwagi.length
     ? "Projekt gotowy do sprawdzenia. Zostało " + uwagi.join(" i ") + ", zaznaczone w tekście."
     : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
+  // Raport zasad kancelarii nad projektem (personalizacja.js).
+  window.pokazZgodnosc?.(w.zgodnosc);
 }
 function zapiszPlik(dane, nazwa){
   const adres = URL.createObjectURL(dane);
@@ -5779,5 +5838,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/rezerwacje-hurtowe.js"></script>
 <script src="/static/kokpit.js"></script>
 <script src="/static/klienci-panel.js"></script>
+<script src="/static/personalizacja.js"></script>
 </body>
 </html>
