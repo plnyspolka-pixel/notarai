@@ -177,6 +177,13 @@ Czego żadna automatyka nie załatwi:
   obrazu podniesie się sam, a parametr `temperature` zostanie pominięty,
   bo nowsze modele go odrzucają.
 
+## Kredyty za czynności (tokenomia)
+
+Koszt każdej czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny
+w kredytach wynikają z kosztu z narzutem co najmniej 100%. Włącza parametr stosu
+`Tokenomia=true` (zmienna `PIECZAPP_TOKENOMIA`); bez niego koszty są tylko liczone.
+Cennik, plany, symulacja i trzy modele biznesowe: `docs/tokenomia.md`.
+
 ## Pliki w chmurze albo u kancelarii
 
 Kancelaria dostaje pole `przechowywanie` przy zakładaniu konta: `chmura`

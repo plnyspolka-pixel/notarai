@@ -502,6 +502,10 @@ a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 #abonament-termin{font:500 22px var(--serif);margin:4px 0 2px}
 #abonament-historia{font-size:12.5px;color:var(--tekst3);margin-top:10px}
 #abonament-historia div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid var(--linia)}
+#kredyty-saldo{font:500 22px var(--serif);margin:4px 0 2px}
+#kredyty-cennik{font-size:12.5px;color:var(--tekst3);margin-top:8px}
+#kredyty-cennik div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-top:1px solid var(--linia)}
+#kredyty-pakiety{display:flex;flex-wrap:wrap;gap:8px}
 .komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
 .komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
 
@@ -1523,6 +1527,15 @@ notarai</div>
     <button class="wtorny" id="btn-portal" hidden>Karta, faktury, rezygnacja</button>
   </div>
   <div id="abonament-historia"></div>
+  <!-- Kredyty (tokenomia.py): pula z abonamentu + dokupione pakiety. Kazda
+       czynnosc z modelem kosztuje kredyty wg cennika ponizej; nieudana - nic. -->
+  <section id="abonament-kredyty" hidden>
+    <h3>Kredyty</h3>
+    <div id="kredyty-saldo"></div>
+    <p id="kredyty-opis"></p>
+    <div class="dol" id="kredyty-pakiety" hidden></div>
+    <details><summary>Cennik czynności</summary><div id="kredyty-cennik"></div></details>
+  </section>
   <div class="dol"><span class="stan" id="stan-abonament"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-abonament">Zamknij</button></div>
 </dialog>
@@ -3115,6 +3128,38 @@ $("zespol-email").addEventListener("keydown", e => {
    Termin przesuwa serwer po webhooku od Stripe, nie powrot przegladarki:
    powrot "ok" znaczy tylko, ze platnik skonczyl na stronie Stripe. */
 let abonament = null;
+let kredyty = null;
+const kr = n => String(Math.round(n * 10) / 10).replace(".", ",");
+
+function rysujKredyty(){
+  const k = kredyty;
+  $("abonament-kredyty").hidden = !(k && k.egzekwowana);
+  if (!k || !k.egzekwowana) return;
+  $("kredyty-saldo").innerHTML = escape(kr(k.saldo)) + " kr."
+    + (k.saldo < 0 ? ' <span class="znacznik alarm">debet</span>' : "");
+  $("kredyty-opis").textContent = "Z abonamentu: " + kr(k.pula) + " kr. (odnawia się co miesiąc), dokupione: "
+    + kr(k.doladowane) + " kr. 1 kredyt = " + kr(k.cena_kredytu_zl) + " zł netto w cenie katalogowej."
+    + " Czynność, która się nie uda, nic nie kosztuje.";
+  const pakiety = $("kredyty-pakiety");
+  pakiety.hidden = !(abonament && abonament.platnosci_wlaczone && abonament.moge_zaplacic);
+  pakiety.innerHTML = Object.entries(k.pakiety).map(([kod, p]) =>
+    `<button class="wtorny" data-pakiet="${escape(kod)}">${escape(kr(p.kredyty))} kr. — ${escape(kr(p.cena_zl))} zł</button>`).join("");
+  pakiety.querySelectorAll("button").forEach(b => b.onclick = () => kupPakiet(b.dataset.pakiet, b));
+  $("kredyty-cennik").innerHTML = k.cennik.map(c =>
+    `<div><span>${escape(c.nazwa)}</span><span>${c.kredyty ? escape(kr(c.kredyty)) + " kr. / " + escape(c.jednostka) : "bez opłaty"}</span></div>`).join("");
+}
+
+async function kupPakiet(kod, przycisk){
+  przycisk.disabled = true;
+  stan($("stan-abonament"), "Łączę z bramką płatności…", false, true);
+  try {
+    const odp = await api("/api/kredyty/pakiet", {method: "POST", headers: {"Content-Type": "application/json"},
+                                                body: JSON.stringify({pakiet: kod})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
+    location.assign(w.adres);   // strona Stripe
+  } catch (e) { stan($("stan-abonament"), e.message, true); przycisk.disabled = false; }
+}
 const KLUCZ_PRZED_PLATNOSCIA = "notarai_termin_przed_platnoscia";
 
 async function wczytajAbonament(){
@@ -3123,7 +3168,11 @@ async function wczytajAbonament(){
     if (!odp.ok) return;
     abonament = await odp.json();
   } catch { return; }
-  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany;
+  try {
+    const k = await api("/api/kredyty");
+    kredyty = k.ok ? await k.json() : null;
+  } catch { kredyty = null; }
+  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany && !(kredyty && kredyty.egzekwowana);
   if (abonament.wymagany && (abonament.po_terminie || abonament.dni_do_konca <= 5)) {
     $("btn-abonament").textContent = abonament.po_terminie ? "Abonament wygasł" : "Abonament kończy się";
   } else {
@@ -3135,6 +3184,7 @@ async function wczytajAbonament(){
 const dataPl = d => new Date(d).toLocaleDateString("pl-PL", {day: "numeric", month: "long", year: "numeric"});
 
 function rysujAbonament(){
+  rysujKredyty();
   const a = abonament;
   const termin = $("abonament-termin");
   if (!a.wymagany) {
@@ -3668,7 +3718,13 @@ async function czytajStrumien(odp, naPostep = () => {}) {
       const w = JSON.parse(linia);
       if (w.postep) naPostep(w.postep);
       else if ("wynik" in w) return w.wynik;
-      else if (w.blad) throw new Error(w.blad);
+      else if (w.blad) {
+        // Brak kredytow w trakcie pracy w tle: okno z saldem i pakietami.
+        if (w.kod === 402) wczytajAbonament().then(() => {
+          if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
+        });
+        throw new Error(w.blad);
+      }
     }
     if (done) throw new Error("Połączenie z serwerem przerwane w trakcie pracy. Za kilka minut " +
                               "otwórz sprawę z listy - wynik mógł się zapisać. Potem spróbuj ponownie.");

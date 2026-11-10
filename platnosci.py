@@ -174,6 +174,40 @@ def utworz_checkout(kancelaria: str, email: str, klient: str = "",
     return {"adres": sesja["url"]}
 
 
+def utworz_checkout_kredytow(kancelaria: str, email: str, klient: str, pakiet: str,
+                             kredyty: float, cena_zl: float) -> dict:
+    """Jednorazowa platnosc za pakiet kredytow (tokenomia.py). Kancelaria i
+    pakiet jada w metadanych sesji - webhook checkout.session.completed
+    dopisuje kredyty dopiero po zaplaceniu (payment_status == "paid")."""
+    if not wlaczone():
+        raise BladPlatnosci("Platnosci nie sa skonfigurowane na tym serwerze.")
+    dane = {
+        "mode": "payment",
+        "line_items": [{"quantity": 1, "price_data": {
+            "currency": "pln", "unit_amount": int(round(cena_zl * 100)),
+            "tax_behavior": "exclusive",
+            "product_data": {"name": f"Kredyty notarai: {kredyty:g}"}}}],
+        "client_reference_id": kancelaria,
+        "metadata": {"kancelaria": kancelaria, "typ": "kredyty", "pakiet": pakiet},
+        "payment_intent_data": {"metadata": {"kancelaria": kancelaria, "typ": "kredyty"}},
+        "success_url": f"{ADRES}/?kredyty=ok",
+        "cancel_url": f"{ADRES}/?kredyty=blad",
+        "locale": "pl",
+        "automatic_tax": {"enabled": True},
+        "tax_id_collection": {"enabled": True},
+        "billing_address_collection": "required",
+        "invoice_creation": {"enabled": True},
+    }
+    if klient:
+        dane["customer"] = klient
+        dane["customer_update"] = {"address": "auto", "name": "auto"}
+    else:
+        dane["customer_email"] = email
+    sesja = _stripe("/checkout/sessions", dane)
+    log.info("stripe: sesja zakupu kredytow dla kancelarii %s, pakiet %s", kancelaria, pakiet)
+    return {"adres": sesja["url"]}
+
+
 def utworz_portal(klient: str) -> dict:
     """Portal klienta Stripe: karta, faktury, rezygnacja."""
     if not wlaczone():

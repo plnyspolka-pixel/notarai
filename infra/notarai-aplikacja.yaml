@@ -101,6 +101,13 @@ Parameters:
     Default: ""
     AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
     Description: Cena miesiaca abonamentu w zl do wyswietlenia (Fundacja zwolniona z VAT), np. 600.00.
+  Tokenomia:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Czy kancelarie placa kredytami za czynnosci z modelem (tokenomia.py,
+      docs/tokenomia.md). false = koszty tylko liczone w logach i panelu admina.
   Rejestracja:
     Type: String
     Default: "true"
@@ -458,6 +465,8 @@ Resources:
               Value: !Ref StripeCena
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
+            - Name: PIECZAPP_TOKENOMIA
+              Value: !Ref Tokenomia
             - Name: PIECZAPP_EMAIL_NADAWCA
               Value: !Ref EmailNadawcy
             - Name: PIECZAPP_EMAIL_ZGLOSZEN

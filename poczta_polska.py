@@ -50,6 +50,7 @@ from pydantic import BaseModel
 
 import config
 import magazyn
+import tokenomia
 import przesylki
 
 log = logging.getLogger("pieczapp.poczta")
@@ -786,7 +787,13 @@ def odlacz_api():
 
 @router.post("/nadaj")
 def nadaj_api(dane: Wybor, request: Request):
-    return _wykonaj(nadaj, magazyn.kancelaria(), dane.pozycje, _kto(request))
+    # Oplata uslugowa za nadana przesylke (tokenomia), znaczki placi kancelaria
+    # w swojej umowie z Poczta. Saldo przed, pobranie za faktycznie nadane.
+    tokenomia.sprawdz("przesylka", len(dane.pozycje))
+    wynik = _wykonaj(nadaj, magazyn.kancelaria(), dane.pozycje, _kto(request))
+    if isinstance(wynik, dict):
+        tokenomia.obciaz("przesylka", wynik.get("nadano", 0), "poczta")
+    return wynik
 
 
 @router.post("/wycofaj")
