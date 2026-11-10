@@ -11,16 +11,11 @@ Description: >-
 Parameters:
   Repozytorium:
     Type: String
-    Default: plnyspolka-pixel/notarai
-    Description: Repozytorium GitHub (wlasciciel/nazwa), z ktorego wolno wdrazac
-    AllowedPattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
-  RepozytoriumId:
-    Type: String
     Default: plnyspolka-pixel@288798782/notarai@1449623737
     Description: >-
-      To samo repozytorium w formacie z numerycznymi ID (wlasciciel@id/nazwa@id).
-      Tak GitHub podpisuje pole sub w tokenie OIDC tego repozytorium; stary
-      format bez ID zostaje dopuszczony na wypadek powrotu.
+      Repozytorium GitHub, z ktorego wolno wdrazac, w formacie pola sub tokenu
+      GitHuba: wlasciciel@id/nazwa@id. Numery sa niezmienne, wiec repozytorium
+      zalozone pozniej pod ta sama nazwa nie dostanie dostepu.
     AllowedPattern: "^[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+$"
   Galaz:
     Type: String
@@ -75,9 +70,7 @@ Resources:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
                 # Tylko push/uruchomienie na galezi master. Pull requesty
                 # i inne galezie nie dostana poswiadczen.
-                token.actions.githubusercontent.com:sub:
-                  - !Sub "repo:${Repozytorium}:ref:refs/heads/${Galaz}"
-                  - !Sub "repo:${RepozytoriumId}:ref:refs/heads/${Galaz}"
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repozytorium}:ref:refs/heads/${Galaz}"
       Policies:
         - PolicyName: wdrazanie
           PolicyDocument:
