@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { api, linkTelefonu, type Kancelaria } from "../src/api";
 import { czcionka, kolory, odstep, promien } from "../src/theme";
-import { Ekran, Komunikat, Ladowanie, Odznaka, Przycisk } from "../src/ui";
+import { BladZPonowieniem, Ekran, Komunikat, Ladowanie, Odznaka } from "../src/ui";
 
 export default function Kancelarie() {
   const { miasto, lat, lon } = useLocalSearchParams<{ miasto?: string; lat?: string; lon?: string }>();
@@ -55,12 +55,7 @@ export default function Kancelarie() {
         </Text>
       </View>
 
-      {blad ? (
-        <>
-          <Komunikat rodzaj="blad">{blad}</Komunikat>
-          <Przycisk odmiana="drugi" onPress={wczytaj}>Spróbuj ponownie</Przycisk>
-        </>
-      ) : null}
+      {blad ? <BladZPonowieniem blad={blad} onPonow={wczytaj} /> : null}
       {lista === null ? <Ladowanie tekst="Szukam kancelarii..." /> : null}
       {lista && lista.length === 0 && !blad ? (
         <Komunikat>

@@ -22,6 +22,7 @@ export default function Uklad() {
         <Stack.Screen name="potwierdzenie" options={{ title: "Wizyta umówiona", headerBackVisible: false }} />
         <Stack.Screen name="zapytanie" options={{ title: "Zapytanie o termin" }} />
         <Stack.Screen name="wizyty" options={{ title: "Moje wizyty" }} />
+        <Stack.Screen name="o-aplikacji" options={{ title: "O aplikacji" }} />
       </Stack>
     </>
   );

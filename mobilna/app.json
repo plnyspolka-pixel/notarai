@@ -11,12 +11,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0d193c"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "pl.notarai.klient",
@@ -58,6 +52,15 @@
         {
           "locationWhenInUsePermission": "Lokalizacja służy tylko do pokazania najbliższych kancelarii notarialnych.",
           "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0d193c"
         }
       ]
     ],

@@ -103,9 +103,10 @@ def main() -> None:
     pusty432 = Image.new("RGBA", (432, 432), (0, 0, 0, 0))
     wklej_na_srodku(pusty432, jednobarwny, 0.44).save(CEL / "android-icon-monochrome.png", optimize=True)
 
-    # Splash: znak na przezroczystym tle, tlo granatowe daje app.json (splash.backgroundColor).
+    # Splash (plugin expo-splash-screen, imageWidth 200): znak na przezroczystym tle, tlo
+    # granatowe daje app.json. Zapas wokol znaku - Android 12+ przycina ikone splash do kola.
     pusty1024 = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
-    wklej_na_srodku(pusty1024, na_ciemnym, 0.42).save(CEL / "splash-icon.png", optimize=True)
+    wklej_na_srodku(pusty1024, na_ciemnym, 0.62).save(CEL / "splash-icon.png", optimize=True)
 
     # Favicon web: zaokraglony granatowy kafelek, czytelny na jasnej i ciemnej karcie.
     kafel = zaokraglony(wklej_na_srodku(gradient(192, GRANAT, GRANAT_CIEMNY), na_ciemnym, 0.70), 0.22)

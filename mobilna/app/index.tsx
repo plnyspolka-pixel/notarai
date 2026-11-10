@@ -142,6 +142,9 @@ export default function Start() {
       <Text style={[czcionka.maly, { textAlign: "center" }]}>
         Aplikacja przekazuje Twoje dane wyłącznie wybranej kancelarii. Nie zakładasz konta.
       </Text>
+      <Pressable onPress={() => router.push("/o-aplikacji")} accessibilityRole="link" hitSlop={8}>
+        <Text style={[czcionka.maly, styl.oAplikacji]}>O aplikacji · kontakt · prywatność</Text>
+      </Pressable>
     </Ekran>
   );
 }
@@ -166,6 +169,7 @@ const styl = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  oAplikacji: { textAlign: "center", color: kolory.indygo, fontWeight: "600" },
   kafel: {
     backgroundColor: kolory.indygo,
     borderRadius: promien.l,

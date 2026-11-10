@@ -19,6 +19,7 @@
     "expo-linking": "~58.0.16",
     "expo-location": "~58.0.20",
     "expo-router": "~58.0.30",
+    "expo-splash-screen": "~58.0.13",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.7",
     "react": "19.3.0",
@@ -31,5 +32,15 @@
   "devDependencies": {
     "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "@react-native-masked-view/masked-view",
+          "expo-modules-core"
+        ]
+      }
+    }
   }
 }

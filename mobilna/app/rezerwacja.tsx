@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { api, dataDlugo, type Konfiguracja } from "../src/api";
 import { zapiszWizyte } from "../src/storage";
 import { czcionka, kolory, odstep } from "../src/theme";
-import { Ekran, Karta, Komunikat, Pole, Przycisk, Wybor, Zaznaczenie } from "../src/ui";
+import { Ekran, InformacjaPrywatnosc, Karta, Komunikat, Pole, Przycisk, Wybor, Zaznaczenie } from "../src/ui";
 
 type Parametry = { kancelaria: string; nazwa: string; adres: string; data: string; godzina: string; koniec: string };
 
@@ -175,6 +175,7 @@ export default function Rezerwacja() {
             Kancelaria jest administratorem tych danych; notarai nie wykorzystuje ich do innych celów.
           </Zaznaczenie>
           {bledy.zgoda ? <Text style={styl.blad}>{bledy.zgoda}</Text> : null}
+          <InformacjaPrywatnosc />
         </Karta>
       ) : (
         <Karta>

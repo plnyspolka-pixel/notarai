@@ -7,6 +7,15 @@
  */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "https://app.notarai.pl").replace(/\/+$/, "");
 
+export const STRONA = "https://notarai.pl";
+export const POLITYKA_PRYWATNOSCI = `${STRONA}/prywatnosc/`;
+export const KONTAKT_EMAIL = "kontakt@notarai.pl";
+
+/** Po tylu sekundach bez odpowiedzi przerywamy żądanie (słaby zasięg, tunel, winda). */
+export const LIMIT_CZASU_MS = 15000;
+/** Przerwy przed kolejnymi próbami żądań, które można bezpiecznie powtórzyć. */
+export const PRZERWY_PONOWIEN_MS = [800, 2500];
+
 export class BladApi extends Error {
   status: number;
   constructor(status: number, wiadomosc: string) {
@@ -35,7 +44,8 @@ export type Kancelaria = {
 export type Miejscowosc = { slug: string; nazwa: string; liczba: number };
 
 export type Termin = { godzina: string; koniec: string };
-export type DzienTerminow = { data: string; nieczynne: boolean; terminy: Termin[] };
+/** `swieto`: nazwa święta państwowego (wtedy `nieczynne`), pusty napis w zwykły dzień. */
+export type DzienTerminow = { data: string; nieczynne: boolean; swieto?: string; terminy: Termin[] };
 export type Terminy = {
   kancelaria: Kancelaria;
   czas_minut: number;
@@ -58,6 +68,8 @@ export type KancelariaRezerwacji = Pick<Kancelaria, "id" | "nazwa" | "adres" | "
 export type Rezerwacja = {
   id: string;
   status: "potwierdzona" | "anulowana";
+  /** Kto odwołał: "klient", "kancelaria" albo pusty, gdy wizyta aktualna. */
+  anulowal?: string;
   data: string;
   godzina: string;
   koniec: string;
@@ -96,18 +108,57 @@ export type Zgloszenie = {
   miejscowosc?: string;
 };
 
-async function zapytanie<T>(sciezka: string, init?: RequestInit): Promise<T> {
+/** Brak sieci albo serwer chwilowo niedostępny - warto spróbować ponownie. */
+export function doPonowienia(status: number): boolean {
+  return status === 0 || status === 502 || status === 503 || status === 504;
+}
+
+export function brakPolaczenia(e: unknown): boolean {
+  return e instanceof BladApi && e.status === 0;
+}
+
+const czekaj = (ms: number) => new Promise<void>((gotowe) => setTimeout(gotowe, ms));
+
+/**
+ * Żądanie do API. `ponawiaj` tylko dla żądań, których powtórzenie niczego nie
+ * psuje: odczyty i rezerwacja (serwer rozpoznaje powtórkę po kodzie SMS).
+ * Wysłanie kodu SMS czy odwołanie wizyty nie są powtarzane automatycznie.
+ */
+async function zapytanie<T>(sciezka: string, init?: RequestInit, opcje: { ponawiaj?: boolean } = {}): Promise<T> {
+  const przerwy = opcje.ponawiaj ? PRZERWY_PONOWIEN_MS : [];
+  for (let proba = 0; ; proba++) {
+    try {
+      return await jednoZapytanie<T>(sciezka, init);
+    } catch (e) {
+      if (proba >= przerwy.length || !(e instanceof BladApi) || !doPonowienia(e.status)) throw e;
+      await czekaj(przerwy[proba]);
+    }
+  }
+}
+
+async function jednoZapytanie<T>(sciezka: string, init?: RequestInit): Promise<T> {
+  const przerwij = new AbortController();
+  const zegar = setTimeout(() => przerwij.abort(), LIMIT_CZASU_MS);
   let odp: Response;
+  let tekst: string;
   try {
     odp = await fetch(API_URL + sciezka, {
       ...init,
+      signal: przerwij.signal,
       headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers },
     });
+    tekst = await odp.text();
   } catch {
-    throw new BladApi(0, "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.");
+    throw new BladApi(
+      0,
+      przerwij.signal.aborted
+        ? "Serwer nie odpowiada. Sprawdź połączenie z internetem i spróbuj ponownie."
+        : "Brak połączenia z internetem. Sprawdź zasięg albo Wi-Fi i spróbuj ponownie.",
+    );
+  } finally {
+    clearTimeout(zegar);
   }
   let dane: unknown = null;
-  const tekst = await odp.text();
   if (tekst) {
     try {
       dane = JSON.parse(tekst);
@@ -138,24 +189,30 @@ const q = (parametry: Record<string, string | number | undefined>) => {
 };
 
 export const api = {
-  konfiguracja: () => zapytanie<Konfiguracja>("/api/klient/konfiguracja"),
+  konfiguracja: () => zapytanie<Konfiguracja>("/api/klient/konfiguracja", undefined, { ponawiaj: true }),
   miejscowosci: (szukane: string) =>
     zapytanie<{ miejscowosci: Miejscowosc[] }>(`/api/klient/miejscowosci${q({ q: szukane })}`),
   kancelarie: (parametry: { miasto?: string; lat?: number; lon?: number }) =>
     zapytanie<{ kancelarie: Kancelaria[]; miejscowosc: { slug: string; nazwa: string } | null }>(
       `/api/klient/kancelarie${q(parametry)}`,
+      undefined,
+      { ponawiaj: true },
     ),
   terminy: (id: string, od?: string, dni = 14) =>
-    zapytanie<Terminy>(`/api/klient/kancelarie/${encodeURIComponent(id)}/terminy${q({ od, dni })}`),
+    zapytanie<Terminy>(`/api/klient/kancelarie/${encodeURIComponent(id)}/terminy${q({ od, dni })}`, undefined, {
+      ponawiaj: true,
+    }),
   weryfikacja: (telefon: string) =>
     zapytanie<Weryfikacja>("/api/klient/weryfikacja", { method: "POST", body: JSON.stringify({ telefon }) }),
+  // Powtórka z tym samym kodem SMS zwraca tę samą rezerwację (serwer pamięta weryfikację).
   rezerwuj: (dane: DaneRezerwacji) =>
-    zapytanie<Rezerwacja>("/api/klient/rezerwacje", { method: "POST", body: JSON.stringify(dane) }),
+    zapytanie<Rezerwacja>("/api/klient/rezerwacje", { method: "POST", body: JSON.stringify(dane) }, { ponawiaj: true }),
   rezerwacja: (id: string, kancelaria: string, token: string) =>
-    zapytanie<Rezerwacja>(`/api/klient/rezerwacje/${encodeURIComponent(id)}/podglad`, {
-      method: "POST",
-      body: JSON.stringify({ kancelaria, token }),
-    }),
+    zapytanie<Rezerwacja>(
+      `/api/klient/rezerwacje/${encodeURIComponent(id)}/podglad`,
+      { method: "POST", body: JSON.stringify({ kancelaria, token }) },
+      { ponawiaj: true },
+    ),
   anuluj: (id: string, kancelaria: string, token: string) =>
     zapytanie<Rezerwacja>(`/api/klient/rezerwacje/${encodeURIComponent(id)}/anuluj`, {
       method: "POST",
@@ -232,4 +289,8 @@ export function linkMapy(k: { lat: number | null; lon: number | null; adres: str
 
 export function linkTelefonu(numer: string): string {
   return `tel:${numer.replace(/[^\d+]/g, "")}`;
+}
+
+export function linkEmail(adres: string, temat = ""): string {
+  return `mailto:${adres}${temat ? `?subject=${encodeURIComponent(temat)}` : ""}`;
 }

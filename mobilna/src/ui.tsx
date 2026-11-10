@@ -2,7 +2,9 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,16 +15,50 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { POLITYKA_PRYWATNOSCI } from "./api";
 import { czcionka, kolory, odstep, promien } from "./theme";
 
-export function Ekran({ children, stopka }: PropsWithChildren<{ stopka?: ReactNode }>) {
+/** Pociągnij w dół, żeby odświeżyć (telefon). W przeglądarce ekran daje własny przycisk. */
+type Odswiezanie = { trwa: boolean; onOdswiez: () => void };
+
+export function Ekran({ children, stopka, odswiezanie }: PropsWithChildren<{ stopka?: ReactNode; odswiezanie?: Odswiezanie }>) {
   return (
     <SafeAreaView style={styl.ekran} edges={["bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styl.tresc} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styl.tresc}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          odswiezanie ? (
+            <RefreshControl
+              refreshing={odswiezanie.trwa}
+              onRefresh={odswiezanie.onOdswiez}
+              tintColor={kolory.indygo}
+              colors={[kolory.indygo]}
+              title="Odświeżam..."
+            />
+          ) : undefined
+        }
+      >
         {children}
       </ScrollView>
-      {stopka ? <View style={styl.stopka}>{stopka}</View> : null}
+      {stopka ? (
+        <View style={styl.stopka}>
+          <View style={styl.szerokosc}>{stopka}</View>
+        </View>
+      ) : null}
     </SafeAreaView>
+  );
+}
+
+/** Błąd z przyciskiem ponowienia - dla braku sieci i chwilowej niedostępności serwera. */
+export function BladZPonowieniem({ blad, onPonow, ladowanie }: { blad: string; onPonow: () => void; ladowanie?: boolean }) {
+  return (
+    <View style={{ gap: odstep.s }}>
+      <Komunikat rodzaj="blad">{blad}</Komunikat>
+      <Przycisk odmiana="drugi" onPress={onPonow} ladowanie={ladowanie}>
+        Spróbuj ponownie
+      </Przycisk>
+    </View>
   );
 }
 
@@ -97,6 +133,24 @@ export function Pole({ etykieta, blad, pomoc, style, ...reszta }: PoleProps) {
       />
       {blad ? <Text style={styl.blad}>{blad}</Text> : pomoc ? <Text style={czcionka.maly}>{pomoc}</Text> : null}
     </View>
+  );
+}
+
+/** Tekstowy odnośnik do strony albo mailto: (otwiera przeglądarkę / pocztę). */
+export function Odnosnik({ children, adres }: PropsWithChildren<{ adres: string }>) {
+  return (
+    <Text style={styl.odnosnik} onPress={() => Linking.openURL(adres)} accessibilityRole="link">
+      {children}
+    </Text>
+  );
+}
+
+/** Pod zgodą na przekazanie danych: gdzie przeczytać, co się z nimi dzieje. */
+export function InformacjaPrywatnosc() {
+  return (
+    <Text style={czcionka.maly}>
+      Jak przetwarzamy dane i jakie masz prawa: <Odnosnik adres={POLITYKA_PRYWATNOSCI}>polityka prywatności</Odnosnik>.
+    </Text>
   );
 }
 
@@ -178,7 +232,9 @@ export function Wybor<T extends string>({
 
 export const styl = StyleSheet.create({
   ekran: { flex: 1, backgroundColor: kolory.tlo },
-  tresc: { padding: odstep.l, paddingBottom: odstep.xxl, gap: odstep.l },
+  // Na szerokim ekranie (przeglądarka na komputerze, tablet) treść nie rozlewa się na całą szerokość.
+  szerokosc: { width: "100%", maxWidth: 640, alignSelf: "center" },
+  tresc: { padding: odstep.l, paddingBottom: odstep.xxl, gap: odstep.l, width: "100%", maxWidth: 672, alignSelf: "center" },
   stopka: {
     padding: odstep.l,
     borderTopWidth: 1,
@@ -221,6 +277,7 @@ export const styl = StyleSheet.create({
   odznaka: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: odstep.m, paddingVertical: 3 },
   odznakaTekst: { color: "#fff", fontSize: 12, fontWeight: "700" },
   komunikat: { borderRadius: promien.m, padding: odstep.m },
+  odnosnik: { color: kolory.indygo, fontWeight: "600", textDecorationLine: "underline" },
   zaznaczenie: { flexDirection: "row", gap: odstep.m, alignItems: "flex-start", paddingVertical: odstep.s },
   kratka: {
     width: 24,

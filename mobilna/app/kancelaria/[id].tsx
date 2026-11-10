@@ -15,14 +15,16 @@ import {
   linkTelefonu,
   type Terminy,
 } from "../../src/api";
-import { zapiszWizyte } from "../../src/storage";
+import { zapiszWizyte, znajdzWizyte } from "../../src/storage";
 import { czcionka, kolory, odstep, promien } from "../../src/theme";
-import { Ekran, Karta, Komunikat, Ladowanie, Przycisk } from "../../src/ui";
+import { BladZPonowieniem, Ekran, Karta, Komunikat, Ladowanie, Przycisk } from "../../src/ui";
 
 const DNI_NARAZ = 14;
 
 export default function Kancelaria() {
-  const { id, przeloz, token } = useLocalSearchParams<{ id: string; przeloz?: string; token?: string }>();
+  // Przełożenie: w adresie jest tylko id wizyty, token bierzemy z pamięci telefonu.
+  const { id, przeloz } = useLocalSearchParams<{ id: string; przeloz?: string }>();
+  const [token, setToken] = useState("");
   const [od, setOd] = useState<string | undefined>(undefined);
   const [terminy, setTerminy] = useState<Terminy | null>(null);
   const [blad, setBlad] = useState("");
@@ -46,6 +48,14 @@ export default function Kancelaria() {
 
   useEffect(wczytaj, [wczytaj]);
 
+  useEffect(() => {
+    if (!przeloz) return;
+    znajdzWizyte(przeloz).then((w) => {
+      if (w?.token) setToken(w.token);
+      else setBlad("Tej wizyty nie ma już w telefonie. Umów nowy termin albo zadzwoń do kancelarii.");
+    });
+  }, [przeloz]);
+
   const wybrany = useMemo(() => terminy?.dni.find((d) => d.data === dzien), [terminy, dzien]);
   const koniec = wybrany?.terminy.find((t) => t.godzina === godzina)?.koniec ?? "";
   const horyzont = terminy ? dataZIso(terminy.od) : null;
@@ -62,7 +72,8 @@ export default function Kancelaria() {
   const dalej = async () => {
     if (!terminy || !dzien || !godzina) return;
     const k = terminy.kancelaria;
-    if (przeloz && token) {
+    if (przeloz) {
+      if (!token) return;
       setZapisuje(true);
       setBlad("");
       try {
@@ -97,12 +108,7 @@ export default function Kancelaria() {
       }
     >
       {przeloz ? <Komunikat>Wybierz nowy termin wizyty. Poprzedni zostanie zwolniony.</Komunikat> : null}
-      {blad ? (
-        <>
-          <Komunikat rodzaj="blad">{blad}</Komunikat>
-          <Przycisk odmiana="drugi" onPress={wczytaj}>Spróbuj ponownie</Przycisk>
-        </>
-      ) : null}
+      {blad ? <BladZPonowieniem blad={blad} onPonow={wczytaj} /> : null}
       {!terminy && !blad ? <Ladowanie tekst="Sprawdzam wolne terminy..." /> : null}
 
       {k ? (
@@ -155,7 +161,7 @@ export default function Kancelaria() {
                   <Text style={[czcionka.maly, aktywny && { color: "#d6ddf2" }]}>{nazwa}</Text>
                   <Text style={[styl.dzienNumer, aktywny && { color: "#fff" }]}>{numer}</Text>
                   <Text style={[czcionka.maly, aktywny && { color: "#d6ddf2" }]}>
-                    {d.nieczynne ? "zamkn." : d.terminy.length ? `${d.terminy.length} wol.` : "brak"}
+                    {d.swieto ? "święto" : d.nieczynne ? "zamkn." : d.terminy.length ? `${d.terminy.length} wol.` : "brak"}
                   </Text>
                 </Pressable>
               );
@@ -167,7 +173,11 @@ export default function Kancelaria() {
               <Text style={czcionka.naglowek}>{dataDlugo(wybrany.data)}</Text>
               {wybrany.terminy.length === 0 ? (
                 <Text style={czcionka.pod}>
-                  {wybrany.nieczynne ? "Kancelaria jest tego dnia nieczynna." : "Brak wolnych godzin. Sprawdź inny dzień."}
+                  {wybrany.swieto
+                    ? `${wybrany.swieto} – kancelaria nieczynna.`
+                    : wybrany.nieczynne
+                      ? "Kancelaria jest tego dnia nieczynna."
+                      : "Brak wolnych godzin. Sprawdź inny dzień."}
                 </Text>
               ) : (
                 <View style={styl.siatka}>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { api } from "../src/api";
 import { czcionka, kolory } from "../src/theme";
-import { Ekran, Karta, Komunikat, Pole, Przycisk, Zaznaczenie } from "../src/ui";
+import { Ekran, InformacjaPrywatnosc, Karta, Komunikat, Pole, Przycisk, Zaznaczenie } from "../src/ui";
 
 type Parametry = { baza_id?: string; nazwa?: string; miasto?: string; miasto_nazwa?: string };
 
@@ -98,6 +98,7 @@ export default function Zapytanie() {
           Zgadzam się na przekazanie moich danych kancelarii notarialnej w celu umówienia wizyty.
         </Zaznaczenie>
         {bledy.zgoda ? <Text style={styl.blad}>{bledy.zgoda}</Text> : null}
+        <InformacjaPrywatnosc />
       </Karta>
     </Ekran>
   );
