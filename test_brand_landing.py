@@ -96,7 +96,7 @@ def test_numbers_ticker_and_badges_are_labelled_honestly():
     assert "liczby.css" in HTML
     assert "http://" not in lic and "https://" not in lic
     # Pasek certyfikatów: druga kopia tylko dla animacji, ukryta przed czytnikami.
-    assert HTML.count('class="nx-ticker__list"') == 1
+    assert HTML.count('class="nx-ticker__list">') == 1
     assert HTML.count('class="nx-ticker__list" aria-hidden="true"') == 1
     assert "@media (prefers-reduced-motion: reduce)" in lic
     # Certyfikaty ISO/SOC należą do AWS i strona musi to mówić wprost.
