@@ -111,10 +111,12 @@ def test_numbers_ticker_and_badges_are_labelled_honestly():
 
 
 def test_seals_are_own_design_and_say_whose_they_are():
-    # 10 pieczęci dostawcy infrastruktury + 6 zobowiązań notarai.
-    assert HTML.count('class="nx-pieczec nx-pieczec--') == 16
+    # 10 okrągłych pieczęci dostawcy infrastruktury; zobowiązania notarai
+    # to inny kształt (tarcza), żeby nie udawały certyfikatów.
+    assert HTML.count('class="nx-pieczec nx-pieczec--') == 10
+    assert HTML.count('class="nx-tarcza"') == 6
     assert HTML.count("DOSTAWCA INFRASTRUKTURY</textPath>") == 10
-    assert HTML.count(">NOTARAI</textPath>") == 6
+    assert HTML.count(">NOTARAI</text>") == 6
     assert "To nie są certyfikaty." in HTML
     # Tylko własne wektory, bez obrazków cudzych znaków.
     assert "<img" not in HTML.split('<ul class="nx-wall">')[1].split("</ul>")[0]

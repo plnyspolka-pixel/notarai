@@ -145,15 +145,46 @@ SCIANA = [
     ("csa", "SECURITY TRUST ASSURANCE", "CSA", "STAR", "rejestr bezpieczeństwa"),
     ("eu", "DATA PROTECTION CODE", "CISPE", "GDPR", "kodeks ochrony danych"),
 ]
-DOL_ZOB = "NOTARAI"
+# Zgodność z prawem: celowo INNY język wizualny niż pieczęcie certyfikatów
+# (jasna płaska tarcza herbowa zamiast okrągłej metalowej pieczęci), żeby
+# zobowiązań notarai nie dało się pomylić z certyfikatami dostawcy.
 ZGODNOSC = [
-    ("OCHRONA DANYCH OSOBOWYCH", "RODO", "art. 28 · 32 · 22"),
-    ("AKT O SZTUCZNEJ INTELIGENCJI", "AI ACT", "nadzór człowieka"),
-    ("OCENA SKUTKÓW · ART. 35", "DPIA", "gotowa w aplikacji"),
-    ("UMOWA POWIERZENIA DANYCH", "ART. 28", "przy rejestracji"),
-    ("TAJEMNICA NOTARIALNA", "ART. 18", "chroniona algorytmicznie"),
-    ("PRZETWARZANIE TYLKO W UE", "EU", "Frankfurt"),
+    ("OCHRONA DANYCH|OSOBOWYCH", "RODO", "art. 28 · 32 · 22"),
+    ("AKT O SZTUCZNEJ|INTELIGENCJI", "AI ACT", "nadzór człowieka"),
+    ("OCENA SKUTKÓW|ART. 35 RODO", "DPIA", "gotowa w aplikacji"),
+    ("UMOWA|POWIERZENIA", "ART. 28", "przy rejestracji"),
+    ("TAJEMNICA|NOTARIALNA", "ART. 18", "chroniona algorytmicznie"),
+    ("PRZETWARZANIE|TYLKO W UE", "EU", "Frankfurt"),
 ]
+
+TARCZA = "M80,5L150,22V88C150,136 120,168 80,185C40,168 10,136 10,88V22Z"
+TARCZA_W = "M80,13L142,28V88C142,131 115,159 80,175C45,159 18,131 18,88V28Z"
+
+
+def tarcza(tytul, duzy, opis):
+    linie = tytul.split("|")
+    tyt = "".join(
+        f'<text class="pt-tytul" x="80" y="{37 + i * 10}">{esc(l)}</text>' for i, l in enumerate(linie)
+    )
+    cx, cy, rr = 80, 94, 37
+    gw = "".join(
+        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.4)}"/>'
+        for i in range(12)
+    )
+    fs = 19 if len(duzy) <= 4 else 13.5
+    return (
+        f'<svg class="nx-tarcza" viewBox="0 0 160 190" role="img" aria-label="{esc(duzy)}: {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
+        f'<path d="{TARCZA}" class="pt-obrys"/>'
+        f'<path d="{TARCZA_W}" class="pt-wnetrze"/>'
+        f'{tyt}'
+        f'<g class="pt-gwiazdy">{gw}</g>'
+        f'<text class="pt-duzy" x="{cx}" y="{cy + fs * .36:.1f}" font-size="{fs}">{esc(duzy)}</text>'
+        f'<text class="pt-opis" x="80" y="143"' + (' font-size="6.2"' if len(opis) > 18 else '') + f'>{esc(opis)}</text>'
+        f'<path class="pt-kreska" d="M62,150H98"/>'
+        f'<text class="pt-marka" x="80" y="160">NOTARAI</text>'
+        "</svg>"
+    )
+
 
 # Pasek: (fragment nazwy w <b>) -> (rodzina, znak)
 PASEK = {
@@ -181,7 +212,7 @@ def main(sciezka):
 
     # 3. zgodność
     zg = "\n".join(
-        f'      <li>{pieczec("eu", g, DOL_ZOB, "", d, o, f"{d}: {g.lower()}, zobowiązanie notarai", gwiazdy=True)}</li>'
+        f'      <li>{tarcza(g, d, o)}</li>'
         for g, d, o in ZGODNOSC
     )
     s = re.sub(r'(<ul class="nx-law">\n).*?(\n    </ul>)', lambda m: m.group(1) + zg + m.group(2), s, flags=re.S)
