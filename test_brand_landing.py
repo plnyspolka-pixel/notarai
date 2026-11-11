@@ -89,3 +89,20 @@ def test_mockup_does_not_make_unverified_savings_claim():
     assert "–70%" not in HTML
     assert "-70%" not in HTML
     assert "WIZUALIZACJA POGLĄDOWA" in HTML
+
+
+def test_numbers_ticker_and_badges_are_labelled_honestly():
+    lic = (SITE / "liczby.css").read_text(encoding="utf-8")
+    assert "liczby.css" in HTML
+    assert "http://" not in lic and "https://" not in lic
+    # Pasek certyfikatów: druga kopia tylko dla animacji, ukryta przed czytnikami.
+    assert HTML.count('class="nx-ticker__list"') == 1
+    assert HTML.count('class="nx-ticker__list" aria-hidden="true"') == 1
+    assert "@media (prefers-reduced-motion: reduce)" in lic
+    # Certyfikaty ISO/SOC należą do AWS i strona musi to mówić wprost.
+    assert "posiada Amazon Web Services" in HTML
+    assert "Certyfikaty infrastruktury Amazon Web Services" in HTML
+    # Liczby czasu i kliknięć to szacunki, nie zmierzone wyniki.
+    assert "Szacunek" in HTML
+    for anchor in ("liczby", "ai"):
+        assert f'id="{anchor}"' in HTML
