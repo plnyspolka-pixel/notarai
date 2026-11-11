@@ -1,0 +1,92 @@
+{
+  "seria": "komputerku",
+  "odcinek": 1,
+  "tytul": "Księga nadawcza w pięć minut",
+  "funkcja_notarai": "Przesyłki i korespondencja (docs/przesylki.md)",
+  "format_glowny": "9x16",
+  "adaptacje": ["16x9", "1x1"],
+  "obsada_wersja": "obsada-v1",
+  "scenografia_wersja": "kancelaria-v1",
+  "warstwy": {
+    "oznaczenie_ai_sekundy": 5,
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "Dwadzieścia trzy listy. Każdy do książki nadawczej. Ręcznie.",
+      "emocja": "zmeczenie, lekka ironia",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "postac": "kuba",
+      "klatka_startowa": "kadry/plan_ogolny_biurko.png",
+      "kwestia": "Pani Basiu, a gdyby tak… poprosić komputer?",
+      "emocja": "nerwowy usmiech",
+      "ruch_kamery": "dojazd 15 cm"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "Kubusiu. Ten komputer drukuje od czasów Unii Lubelskiej.",
+      "emocja": "spojrzenie znad okularow",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
+      "kwestia": "Komputerku, przygotuj książkę nadawczą z dzisiejszych przesyłek.",
+      "grafika": ["dymek_komputerku", "status_slucham"],
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u5",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "grafika": ["status_sprawdzam"]
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "klatka_startowa": "kadry/basia_wydruk.png",
+      "kwestia": "Adresy się zgadzają. Numer pozycji… dalej po zeszłorocznej. Dobrze.",
+      "grafika": ["status_gotowe"],
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u7",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "postac": "basia",
+      "klatka_startowa": "kadry/plan_ogolny_drukarka.png",
+      "kwestia": "Ale koperty dalej kleję ja.",
+      "emocja": "satysfakcja",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "outro",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/{format}/OUTRO_komputerku.png",
+      "czas_s": 3
+    }
+  ]
+}
