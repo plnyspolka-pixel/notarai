@@ -84,7 +84,7 @@ Zmienne środowiskowe, wszystkie opcjonalne:
 
 | Zmienna | Domyślnie | Znaczenie |
 |---|---|---|
-| `AWS_REGION` | `eu-central-1` | region Bedrock |
+| `AWS_REGION` | `eu-central-1` | region Bedrock i magazynu; tylko regiony w UE (Frankfurt, Irlandia, Paryż, Sztokholm, Mediolan, Hiszpania), inaczej aplikacja nie startuje |
 | `PIECZAPP_MODEL` | `eu.anthropic.claude-opus-4-6-v1` | profil modelu |
 | `PIECZAPP_HOST` | `127.0.0.1` | adres nasłuchu |
 | `PIECZAPP_PORT` | `8000` | port |

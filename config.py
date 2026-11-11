@@ -110,6 +110,23 @@ MAX_STRON = int(os.getenv("PIECZAPP_MAX_STRON", "400"))
 STRON_W_PACZCE = int(os.getenv("PIECZAPP_STRON_W_PACZCE", "4"))
 ROWNOLEGLE = int(os.getenv("PIECZAPP_ROWNOLEGLE", "2"))
 
+# Regiony AWS lezace w panstwach Unii Europejskiej. Sam prefiks "eu-" nie
+# wystarcza: eu-west-2 to Londyn, a eu-central-2 to Zurych - oba poza UE.
+REGIONY_UE = {
+    "eu-central-1",  # Frankfurt
+    "eu-west-1",     # Irlandia
+    "eu-west-3",     # Paryz
+    "eu-north-1",    # Sztokholm
+    "eu-south-1",    # Mediolan
+    "eu-south-2",    # Hiszpania
+}
+if REGION not in REGIONY_UE:
+    raise RuntimeError(
+        f"Region AWS '{REGION}' nie lezy w Unii Europejskiej. "
+        f"Dozwolone: {', '.join(sorted(REGIONY_UE))}. Aplikacja nie startuje, "
+        "zeby dane klientow nie trafily poza UE."
+    )
+
 if not MODEL.startswith("eu."):
     raise RuntimeError(
         f"Model '{MODEL}' nie jest profilem EU. "
