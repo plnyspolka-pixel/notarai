@@ -3,7 +3,7 @@
   "wygenerowano": "2026-11-11",
   "model": "fal-ai/nano-banana-pro/edit (2K)",
   "koszt_usd": 1.95,
-  "uwaga": "Adresy fal_url to wyniki fal (mogą wygasnąć) — po wdrożeniu serii rejestrować z plików w repo przeniesionych do Storage (seria_kadr_zapisz).",
+  "uwaga": "Wygenerowane w konektorze fal (konto Finance You), tak jak klipy hooków Studia. Do systemu serii wpisuje się je przez seria_kadr_zapisz z adresem fal_url albo plikiem z repo — narzędzie kopiuje obraz do Storage studio-media. FAL_KEY w aplikacji nie jest potrzebny.",
   "kadry": [
     {
       "slug": "plan_ogolny_biurko",
