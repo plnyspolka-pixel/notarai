@@ -2,6 +2,7 @@
 
 Tests the actual repository HTML, CSS, and scalable symbol; no network or AWS.
 """
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -116,8 +117,10 @@ def test_seals_are_own_design_and_say_whose_they_are():
     assert HTML.count('class="nx-pieczec nx-pieczec--') == 10
     assert HTML.count('class="nx-tarcza"') == 6
     assert HTML.count("DOSTAWCA INFRASTRUKTURY</textPath>") == 10
-    assert HTML.count(">NOTARAI</text>") == 6
+    assert HTML.count(">NOTARAI</textPath>") == 6
     assert "To nie są certyfikaty." in HTML
+    ids = re.findall(r'\bid="([^"]+)"', HTML)
+    assert len(ids) == len(set(ids)), "powtórzone id w HTML"
     # Tylko własne wektory, bez obrazków cudzych znaków.
     assert "<img" not in HTML.split('<ul class="nx-wall">')[1].split("</ul>")[0]
     # Generator odtwarza dokładnie to, co jest w repozytorium.

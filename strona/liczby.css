@@ -127,19 +127,16 @@
 
 .nx-wall { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: clamp(14px,2.4vw,34px); margin: 8px 0 34px; padding: 0; list-style: none; }
 .nx-law { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: clamp(10px,1.8vw,24px); margin: 30px 0 6px; padding: 0; list-style: none; }
-/* Tarcze zgodności: jasne i płaskie, w odróżnieniu od metalowych pieczęci */
-.nx-tarcza { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 10px 14px rgba(7,29,73,.14)); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
-.nx-law li:hover .nx-tarcza { transform: translateY(-4px); }
+/* Tarcze zgodności: emaliowana odznaka herbowa, inny kształt niż pieczęcie */
+.nx-tarcza { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 14px 16px rgba(7,29,73,.28)) drop-shadow(0 2px 2px rgba(7,29,73,.2)); transition: transform .4s cubic-bezier(.2,.8,.2,1); }
+.nx-law li:hover .nx-tarcza { transform: translateY(-5px) scale(1.03); }
 .nx-tarcza text { font-family: Montserrat,"Segoe UI",Arial,sans-serif; text-anchor: middle; }
-.nx-tarcza .pt-obrys { fill: #003399; }
-.nx-tarcza .pt-wnetrze { fill: #fff; stroke: #ffcc00; stroke-width: 1.6; }
-.nx-tarcza .pt-tytul { fill: #003399; font-size: 7.6px; font-weight: 800; letter-spacing: .1em; }
-.nx-tarcza .pt-gwiazdy { fill: #ffcc00; }
-.nx-tarcza .pt-duzy { fill: #003399; font-weight: 850; letter-spacing: -.03em; }
-.nx-tarcza .pt-opis { fill: #4a5b80; font-weight: 650; }
-.nx-tarcza .pt-opis:not([font-size]) { font-size: 7.4px; }
-.nx-tarcza .pt-kreska { stroke: #ffcc00; stroke-width: 1.6; stroke-linecap: round; }
-.nx-tarcza .pt-marka { fill: #003399; font-size: 7.4px; font-weight: 850; letter-spacing: .28em; }
+.nx-tarcza .pt-grawer { stroke: #0a2a7a; opacity: .07; }
+.nx-tarcza .pt-tytul { fill: #fff; font-size: 7.8px; font-weight: 800; letter-spacing: .12em; }
+.nx-tarcza .pt-duzy { fill: #0a2266; font-weight: 900; letter-spacing: -.035em; }
+.nx-tarcza .pt-opis { fill: #3d4f78; font-weight: 700; }
+.nx-tarcza .pt-opis:not([font-size]) { font-size: 7.2px; }
+.nx-tarcza .pt-marka { font-size: 9px; font-weight: 900; letter-spacing: .34em; }
 .nx-law__opis { margin: 6px 0 0; color: #647392; font-size: 12px; text-align: center; }
 
 .nx-seal .nx-mini { flex: none; width: 42px; height: 42px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }

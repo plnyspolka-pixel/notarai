@@ -65,6 +65,13 @@ def sprite():
         + '<path id="ps-luk-g" d="M-69,0A69,69 0 0 1 69,0"/>'
         + '<path id="ps-luk-d" d="M-78.5,0A78.5,78.5 0 0 0 78.5,0"/>'
         + '<clipPath id="ps-tarcza-clip"><circle r="60"/></clipPath>'
+        + '<path id="pt-wstega" d="M18,170.5Q80,178.5 142,170.5" fill="none"/>'
+        + f'<clipPath id="pt-clip"><path d="{ksztalt(.9)}"/></clipPath>'
+        + '<linearGradient id="pt-emalia" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#f1f5fc"/><stop offset="1" stop-color="#dfe8f6"/></linearGradient>'
+        + '<linearGradient id="pt-blask" x1="0" y1="0" x2="1" y2=".9"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+        + '<g id="pt-grawer" fill="none" stroke-width=".4">' + "".join(
+            f'<ellipse cx="80" cy="99" rx="{R(30 + i * 5)}" ry="{R(30 + i * 5)}"/>' for i in range(14)) + "".join(
+            f'<path d="M80,99L{R(80 + 120 * math.cos(math.radians(i * 7.5)))},{R(99 + 120 * math.sin(math.radians(i * 7.5)))}"/>' for i in range(48)) + '</g>'
         + "</defs></svg>"
     )
 
@@ -157,35 +164,63 @@ ZGODNOSC = [
     ("PRZETWARZANIE|TYLKO W UE", "EU", "Frankfurt"),
 ]
 
-TARCZA = "M80,5L150,22V88C150,136 120,168 80,185C40,168 10,136 10,88V22Z"
-TARCZA_W = "M80,13L142,28V88C142,131 115,159 80,175C45,159 18,131 18,88V28Z"
+# Kształt tarczy: lekko wcięta góra, ostro zakończony dół. Liczby to pary x,y.
+_TARCZA = [("M", 80, 6), ("C", 102, 15, 128, 16, 150, 13), ("V", 94),
+           ("C", 150, 140, 121, 171, 80, 190), ("C", 39, 171, 10, 140, 10, 94),
+           ("V", 13), ("C", 32, 16, 58, 15, 80, 6)]
+
+
+def ksztalt(skala):
+    """Tarcza przeskalowana względem środka (80,100) - kolejne warstwy obwódki."""
+    out = []
+    for cmd, *liczby in _TARCZA:
+        if cmd == "V":
+            out.append(f"V{R((liczby[0] - 100) * skala + 100)}")
+            continue
+        pary = [f"{R((liczby[i] - 80) * skala + 80)},{R((liczby[i + 1] - 100) * skala + 100)}"
+                for i in range(0, len(liczby), 2)]
+        out.append(cmd + " ".join(pary))
+    return "".join(out) + "Z"
 
 
 def tarcza(tytul, duzy, opis):
     linie = tytul.split("|")
+    zloto = "url(#ps-m-iso)"
     tyt = "".join(
-        f'<text class="pt-tytul" x="80" y="{37 + i * 10}">{esc(l)}</text>' for i, l in enumerate(linie)
+        f'<text class="pt-tytul" x="80" y="{R(31 + i * 10.5)}">{esc(l)}</text>' for i, l in enumerate(linie)
     )
-    cx, cy, rr = 80, 94, 37
+    cx, cy, rr = 80, 96, 35
     gw = "".join(
-        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.4)}"/>'
+        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.6)}"/>'
         for i in range(12)
     )
-    fs = 19 if len(duzy) <= 4 else 13.5
+    fs = 18 if len(duzy) <= 4 else 12.5
+    rozmiar_opisu = ' font-size="6.1"' if len(opis) > 18 else ""
     return (
-        f'<svg class="nx-tarcza" viewBox="0 0 160 190" role="img" aria-label="{esc(duzy)}: {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
-        f'<path d="{TARCZA}" class="pt-obrys"/>'
-        f'<path d="{TARCZA_W}" class="pt-wnetrze"/>'
+        f'<svg class="nx-tarcza" viewBox="-10 0 180 200" role="img" aria-label="{esc(duzy)}: {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
+        f'<path d="{ksztalt(1)}" fill="{zloto}"/>'
+        f'<path d="{ksztalt(.955)}" fill="#0a2266"/>'
+        f'<path d="{ksztalt(.935)}" fill="{zloto}"/>'
+        f'<path d="{ksztalt(.9)}" fill="url(#pt-emalia)"/>'
+        f'<g clip-path="url(#pt-clip)">'
+        f'<use href="#pt-grawer" class="pt-grawer"/>'
+        f'<rect x="0" y="0" width="160" height="51" fill="url(#ps-b-eu)"/>'
+        f'<path d="M0,51H160" stroke="{zloto}" stroke-width="2"/>'
+        f'<path d="M0,54.2H160" stroke="#0a2266" stroke-width=".5" opacity=".5"/>'
+        f'</g>'
         f'{tyt}'
-        f'<g class="pt-gwiazdy">{gw}</g>'
-        f'<text class="pt-duzy" x="{cx}" y="{cy + fs * .36:.1f}" font-size="{fs}">{esc(duzy)}</text>'
-        f'<text class="pt-opis" x="80" y="143"' + (' font-size="6.2"' if len(opis) > 18 else '') + f'>{esc(opis)}</text>'
-        f'<path class="pt-kreska" d="M62,150H98"/>'
-        f'<text class="pt-marka" x="80" y="160">NOTARAI</text>'
+        f'<g fill="{zloto}">{gw}</g>'
+        f'<text class="pt-duzy" x="{cx}" y="{R(cy + fs * .36)}" font-size="{fs}">{esc(duzy)}</text>'
+        f'<text class="pt-opis" x="80" y="148.5"{rozmiar_opisu}>{esc(opis)}</text>'
+        f'<path d="{ksztalt(.9)}" fill="url(#pt-blask)"/>'
+        # wstęga z zakładkami wychodząca poza tarczę
+        f'<path d="M14,163H-6L2,171.5L-6,180H14Z" fill="#001a5c"/>'
+        f'<path d="M146,163H166L158,171.5L166,180H146Z" fill="#001a5c"/>'
+        f'<path d="M14,180L20,184V176Z M146,180L140,184V176Z" fill="#000d33"/>'
+        f'<path d="M14,158Q80,166 146,158V176Q80,184 14,176Z" fill="url(#ps-b-eu)" stroke="{zloto}" stroke-width="1.1"/>'
+        f'<text class="pt-marka" fill="{zloto}"><textPath href="#pt-wstega" startOffset="50%">NOTARAI</textPath></text>'
         "</svg>"
     )
-
-
 # Pasek: (fragment nazwy w <b>) -> (rodzina, znak)
 PASEK = {
     "RODO / GDPR": ("eu", "★"), "ISO/IEC 27001": ("iso", "ISO"), "AI Act": ("eu", "AI"),
