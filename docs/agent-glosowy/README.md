@@ -51,4 +51,4 @@ Zmiana promptu: edytuj `prompt.md`, a potem tę samą treść w ElevenLabs
   (prompt) - kancelaria dostaje imię, kontakt i krótki opis sprawy, tak jak
   z formularza strony.
 - ElevenLabs przechowuje transkrypcje rozmów (ustawienie retencji w agencie).
-  ElevenLabs jest dalszym odbiorcą danych z rozmowy - patrz `docs/czeka-na-dostep.md` NA-…
+  ElevenLabs jest dalszym odbiorcą danych z rozmowy - patrz `docs/czeka-na-dostep.md` NA-7

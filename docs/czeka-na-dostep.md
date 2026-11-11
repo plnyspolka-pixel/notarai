@@ -104,6 +104,30 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
     go opublikuje.
 - **W kodzie:** `giif.TERMIN_DNI`, `docs/ksiegi-i-giif.md`, `giif_xml.CRWDE`.
 
+## NA-7. Agent głosowy ElevenLabs — token webhooków, widżet i RODO
+
+- **Status:** w toku (agent działa, webhooki wdrożone; bez tokenu i bez widżetu)
+- **Brakuje:**
+  1. Tokenu webhooków: uruchomienia `infra/zapisz-sekret-agenta-glosowego.ps1`
+     (profil `notarai-admin`), wklejenia tokenu w ElevenLabs (Agents → Secrets →
+     `notarai_agent_glosowy_token`) i wdrożenia `infra/3-wdroz-aplikacje.ps1`.
+     Do tego czasu `/api/agent-glosowy` jest otwarte jak publiczne formularze
+     strony (limity na rozmowę i dobę).
+  2. Decyzji o kanale dla klientów: widżet na notarai.pl
+     (`<elevenlabs-convai agent-id="agent_5501m7611p1nfarsk1k4x9h49bhk"></elevenlabs-convai>`
+     + skrypt `@elevenlabs/convai-widget-embed`) albo numer telefonu (Twilio/SIP).
+     Agent ma już allowlistę domen notarai.pl, www.notarai.pl, app.notarai.pl.
+  3. RODO: ElevenLabs przetwarza głos i transkrypcję rozmowy (bez nagrywania
+     audio, retencja transkrypcji 30 dni). Przed publikacją widżetu: dopisać
+     ElevenLabs do polityki prywatności (`strona/prywatnosc`) i rejestru
+     czynności, rozważyć workspace ElevenLabs z rezydencją danych w UE.
+- **Na żywo:** rozmowa testowa z widżetu na notarai.pl: koszt sprzedaży
+  mieszkania, kancelaria w miejscowości, prośba o kontakt na dane testowe
+  kancelarii Testowej; sprawdzić e-mail w kancelarii i wpis w „Zapytania klientów”.
+- **W kodzie:** `agent_glosowy.py`, `docs/agent-glosowy/`.
+- **Zamknięte, gdy:** token wymagany (`GET /api/agent-glosowy` → `token_wymagany: true`),
+  widżet albo numer opublikowany, polityka prywatności zaktualizowana.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
