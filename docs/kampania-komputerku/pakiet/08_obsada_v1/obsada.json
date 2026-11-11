@@ -1,0 +1,117 @@
+{
+  "obsada": "notarai-komputerku-v1",
+  "wygenerowano": "2026-11-11",
+  "model": "fal-ai/nano-banana-pro/edit (2K)",
+  "koszt_usd": 1.95,
+  "uwaga": "Adresy fal_url to wyniki fal (mogą wygasnąć) — po wdrożeniu serii rejestrować z plików w repo przeniesionych do Storage (seria_kadr_zapisz).",
+  "kadry": [
+    {
+      "slug": "plan_ogolny_biurko",
+      "rodzaj": "plan_ogolny",
+      "postacie": [
+        "helena",
+        "marta",
+        "kuba",
+        "basia"
+      ],
+      "plik": "kadry/plan_ogolny_biurko.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/Lsjz4bDzKXj0_QOGAn2cw_SHL2G5wa.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "pusty_pokoj",
+      "rodzaj": "plan_ogolny",
+      "postacie": [],
+      "plik": "kadry/pusty_pokoj.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/BCIlw25RLJgWId4O9Im0g_ihFHZBx0.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "plan_ogolny_drukarka",
+      "rodzaj": "plan_ogolny",
+      "postacie": [
+        "basia",
+        "kuba"
+      ],
+      "plik": "kadry/plan_ogolny_drukarka.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/6YQvJpy6cl7U6JS_51-PZ_fBtYF8Ab.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "helena_przy_biurku",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "helena"
+      ],
+      "plik": "kadry/helena_przy_biurku.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/aHBQXv9ku-4WEwNCeRTxN_1cLWgcqQ.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "basia_przy_drukarce",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "basia"
+      ],
+      "plik": "kadry/basia_przy_drukarce.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21641/ePb4b2sGoStmmSwQC_xqX_ZxoSryMx.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "marta_laptop_przez_ramie",
+      "rodzaj": "przez_ramie",
+      "postacie": [
+        "marta"
+      ],
+      "plik": "kadry/marta_laptop_przez_ramie.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21639/Da1JKh5WcBUyEkX8r81hF_8HigaeSD.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "kuba_z_teczka",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "kuba"
+      ],
+      "plik": "kadry/kuba_z_teczka.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21639/UuEI3UJ8FiG5RP14n5A-b_8ug2uafu.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "detal_biurko",
+      "rodzaj": "detal",
+      "postacie": [],
+      "plik": "kadry/detal_biurko.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/VcXEUmhp-LVFIPvWdpezu_zVbZ1iOm.png",
+      "zatwierdzony": null
+    }
+  ],
+  "arkusze": [
+    {
+      "postac": "helena",
+      "plik": "arkusze/arkusz_helena.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/QjnG21HOJuCTJDRmBbq8P_DGeK5pku.png"
+    },
+    {
+      "postac": "marta",
+      "plik": "arkusze/arkusz_marta.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/eGGNXp3r2_H8nQF6P8eD1_o2uQyCcZ.png"
+    },
+    {
+      "postac": "basia",
+      "plik": "arkusze/arkusz_basia.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/iWi4ReWP4MYLCcMLRu2jf_hoitsF1G.png"
+    },
+    {
+      "postac": "kuba",
+      "plik": "arkusze/arkusz_kuba.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/oWArIj-EQQk-IjPqZ0z0b_oSvTT4Jx.png"
+    }
+  ],
+  "odrzucone": [
+    {
+      "slug": "basia_przy_drukarce",
+      "powod": "inna twarz i inne biuro niż wzorzec; zastąpione próbą 2"
+    }
+  ]
+}
