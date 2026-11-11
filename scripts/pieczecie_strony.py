@@ -82,7 +82,7 @@ def rozmiar_luku(tekst, dl):
 def pieczec(rod, gora, dol, maly, duzy, opis, etykieta, gwiazdy=False):
     m = f"url(#ps-m-{rod})"
     fg = R(rozmiar_luku(gora, 217))
-    fd = R(rozmiar_luku(dol, 247))
+    fd = R(rozmiar_luku(dol, 247)) if dol else 0
     if gwiazdy:
         fs = 24 if len(duzy) <= 4 else 17
         y_duzy = 5
@@ -95,6 +95,8 @@ def pieczec(rod, gora, dol, maly, duzy, opis, etykieta, gwiazdy=False):
     srodek.append(f'<text class="ps-duzy" y="{y_duzy}" font-size="{fs}">{esc(duzy)}</text>')
     if opis:
         srodek.append(f'<text class="ps-opis" y="{20 if gwiazdy else 24}"' + (' font-size="6"' if gwiazdy else '') + f'>{esc(opis)}</text>')
+    dolny = (f'<text class="ps-luk" font-size="{fd}" fill="{m}"><textPath href="#ps-luk-d" startOffset="50%">{esc(dol)}</textPath></text>'
+             if dol else "")
     linia = '' if gwiazdy else f'<circle r="54" fill="none" stroke="{m}" stroke-width=".6" opacity=".7"/>'
     gw = f'<use href="#ps-gwiazdy" fill="{m}" opacity=".95"/>' if gwiazdy else ""
     return (
@@ -104,7 +106,7 @@ def pieczec(rod, gora, dol, maly, duzy, opis, etykieta, gwiazdy=False):
         f'<circle r="88" fill="none" stroke="{m}" stroke-width="1.3"/>'
         f'<circle r="86" fill="none" stroke="{m}" stroke-width=".5" stroke-dasharray="1.2 2.2"/>'
         f'<text class="ps-luk" font-size="{fg}" fill="{m}"><textPath href="#ps-luk-g" startOffset="50%">{esc(gora)}</textPath></text>'
-        f'<text class="ps-luk" font-size="{fd}" fill="{m}"><textPath href="#ps-luk-d" startOffset="50%">{esc(dol)}</textPath></text>'
+        f'{dolny}'
         f'<path d="{gwiazda(-75, 0, 4.2)}" fill="{m}"/><path d="{gwiazda(75, 0, 4.2)}" fill="{m}"/>'
         f'<circle r="62.5" fill="{m}"/>'
         f'<circle r="60" fill="url(#ps-t-{rod})"/>'
@@ -143,7 +145,7 @@ SCIANA = [
     ("csa", "SECURITY TRUST ASSURANCE", "CSA", "STAR", "rejestr bezpieczeństwa"),
     ("eu", "DATA PROTECTION CODE", "CISPE", "GDPR", "kodeks ochrony danych"),
 ]
-DOL_ZOB = "ZOBOWIĄZANIE NOTARAI"
+DOL_ZOB = ""  # pieczęcie zgodności: bez dolnego napisu
 ZGODNOSC = [
     ("OCHRONA DANYCH OSOBOWYCH", "RODO", "art. 28 · 32 · 22"),
     ("AKT O SZTUCZNEJ INTELIGENCJI", "AI ACT", "nadzór człowieka"),

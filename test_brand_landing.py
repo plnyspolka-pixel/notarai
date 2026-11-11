@@ -114,7 +114,7 @@ def test_seals_are_own_design_and_say_whose_they_are():
     # 10 pieczęci dostawcy infrastruktury + 6 zobowiązań notarai.
     assert HTML.count('class="nx-pieczec nx-pieczec--') == 16
     assert HTML.count("DOSTAWCA INFRASTRUKTURY</textPath>") == 10
-    assert HTML.count("ZOBOWIĄZANIE NOTARAI</textPath>") == 6
+    assert "ZOBOWIĄZANIE NOTARAI" not in HTML
     assert "To nie są certyfikaty." in HTML
     # Tylko własne wektory, bez obrazków cudzych znaków.
     assert "<img" not in HTML.split('<ul class="nx-wall">')[1].split("</ul>")[0]
