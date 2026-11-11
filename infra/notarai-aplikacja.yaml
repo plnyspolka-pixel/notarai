@@ -94,6 +94,14 @@ Parameters:
       Pelny ARN sekretu notarai/meta (JSON z kluczami verify, app_secret,
       token). Wlacza webhook leadow z formularzy Meta /api/meta/leadgen
       (meta_leady.py). Puste = wylaczone.
+  AgentGlosowySekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/agent-glosowy (klucz token), zalozonego skryptem
+      zapisz-sekret-agenta-glosowego.ps1. Gdy jest, webhooki agenta glosowego
+      ElevenLabs (/api/agent-glosowy, agent_glosowy.py) wymagaja naglowka
+      X-Notarai-Agent. Puste = trasy otwarte jak publiczne formularze strony.
   FinyouAdres:
     Type: String
     Default: ""
@@ -145,6 +153,7 @@ Conditions:
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
+  MamyAgentaGlosowego: !Not [!Equals [!Ref AgentGlosowySekretArn, ""]]
   MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
 
 Resources:
@@ -238,6 +247,16 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref MetaSekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyAgentaGlosowego
+          - PolicyName: sekret-agent-glosowy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref AgentGlosowySekretArn
           - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
@@ -533,6 +552,12 @@ Resources:
               - MamyMeta
               - Name: PIECZAPP_META_TOKEN
                 ValueFrom: !Sub "${MetaSekretArn}:token::"
+              - !Ref AWS::NoValue
+            # Token webhookow agenta glosowego ElevenLabs (agent_glosowy.py).
+            - !If
+              - MamyAgentaGlosowego
+              - Name: PIECZAPP_AGENT_GLOSOWY_TOKEN
+                ValueFrom: !Sub "${AgentGlosowySekretArn}:token::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
