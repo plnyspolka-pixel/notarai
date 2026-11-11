@@ -16,15 +16,6 @@
 - Do not use em dashes in AWS resource names or descriptions. Use
   hyphens instead.
 
-## Secret Safety
-
-- MUST load the `aws-secrets-manager` skill first for any secret,
-  credential, API key, token, or password task. MUST NOT call
-  `secretsmanager get-secret-value` or `batch-get-secret-value`, and MUST
-  NOT hit the Secrets Manager Agent daemon directly. MUST use
-  `{{resolve:secretsmanager:secret-id:SecretString:json-key}}` with
-  `asm-exec` so the secret resolves at runtime without entering context.
-
 ## Projekt: notarai (notarai.pl)
 
 Wersja SaaS asystenta kancelarii notarialnej. Wywodzi się z projektu
