@@ -145,7 +145,7 @@ SCIANA = [
     ("csa", "SECURITY TRUST ASSURANCE", "CSA", "STAR", "rejestr bezpieczeństwa"),
     ("eu", "DATA PROTECTION CODE", "CISPE", "GDPR", "kodeks ochrony danych"),
 ]
-DOL_ZOB = ""  # pieczęcie zgodności: bez dolnego napisu
+DOL_ZOB = "NOTARAI"
 ZGODNOSC = [
     ("OCHRONA DANYCH OSOBOWYCH", "RODO", "art. 28 · 32 · 22"),
     ("AKT O SZTUCZNEJ INTELIGENCJI", "AI ACT", "nadzór człowieka"),
