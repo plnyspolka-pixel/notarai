@@ -158,7 +158,7 @@ poziomy format jest potrzebny.
 1. **Obsada-v1 (jednorazowo):** arkusze 4 postaci + 6–8 klatek pokoju (fal),
    4 głosy (ElevenLabs Voice Design), 4 talking photo (HeyGen). Akceptacja
    człowieka, zapis identyfikatorów w konfiguracji obsady.
-2. **Studio: typ zadania „odcinek serii”** w `finyou` — wejście
+2. ~~Studio: typ zadania „odcinek serii”~~ — **infrastruktura ujęć gotowa** w `finyou` (11.11.2026): `docs/seria-odcinkow.md`, narzędzia MCP `seria_*`; brakuje jeszcze montażu odcinka. Pierwotny opis: typ zadania „odcinek serii” w `finyou` — wejście
    `odcinek.json`, ujęcia renderowane równolegle, każde z własną postacią
    i głosem; reszta (napisy, Remotion/caption-burner, kolejka publikacji) już
    istnieje. Plus flaga marki „oznaczenie AI 0–5 s”.
