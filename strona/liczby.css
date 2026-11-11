@@ -126,15 +126,26 @@
 .nx-wall li:hover .nx-pieczec { transform: translateY(-4px) rotate(-4deg) scale(1.03); }
 
 .nx-wall { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: clamp(14px,2.4vw,34px); margin: 8px 0 34px; padding: 0; list-style: none; }
-.nx-law { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: clamp(10px,1.8vw,24px); margin: 30px 0 6px; padding: 0; list-style: none; }
 /* Tarcze zgodności: emaliowana odznaka herbowa, inny kształt niż pieczęcie */
-.nx-tarcza { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 14px 16px rgba(7,29,73,.28)) drop-shadow(0 2px 2px rgba(7,29,73,.2)); transition: transform .4s cubic-bezier(.2,.8,.2,1); }
+.nx-tarcza { display: block; width: 100%; max-width: 290px; height: auto; overflow: visible; filter: drop-shadow(0 22px 22px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(255,204,0,.16)); transition: transform .4s cubic-bezier(.2,.8,.2,1); }
 .nx-law li:hover .nx-tarcza { transform: translateY(-5px) scale(1.03); }
 .nx-tarcza text { font-family: Montserrat,"Segoe UI",Arial,sans-serif; text-anchor: middle; }
 .nx-tarcza .pt-grawer { stroke: #0a2a7a; opacity: .07; }
 .nx-tarcza .pt-tytul { fill: #fff; font-size: 7.8px; font-weight: 800; letter-spacing: .12em; }
 .nx-tarcza .pt-duzy { fill: #0a2266; font-weight: 900; letter-spacing: -.035em; }
 .nx-tarcza .pt-opis { fill: #3d4f78; font-weight: 700; }
+.nx-tarcza .pt-akt { fill: #7c8aa8; font-size: 5.6px; font-weight: 600; font-style: italic; letter-spacing: .02em; }
+.nx-tarcza .pt-grawer-glowica { stroke: #fff; opacity: .07; }
+.nx-tarcza .pt-laur ellipse { stroke: none; }
+
+/* Panel zgodności: ciemny „skarbiec” ze złotymi akcentami */
+.nx-law { position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: clamp(30px,4vw,54px) clamp(18px,3vw,40px); margin: 32px 0 10px; padding: clamp(40px,5vw,72px) clamp(22px,4vw,60px); list-style: none; border-radius: 30px;
+  background: radial-gradient(ellipse 55% 40% at 50% 0%, rgba(255,204,0,.16), transparent 72%), radial-gradient(ellipse 70% 70% at 100% 100%, rgba(30,80,200,.45), transparent 62%), radial-gradient(ellipse 60% 60% at 0% 70%, rgba(0,60,170,.35), transparent 60%), linear-gradient(165deg,#0a1f5c 0%,#040f33 55%,#020a24 100%);
+  box-shadow: inset 0 0 0 1px rgba(226,185,59,.5), inset 0 0 0 7px rgba(4,15,51,1), inset 0 0 0 8px rgba(226,185,59,.22), 0 50px 90px -45px rgba(2,10,36,.85); }
+.nx-law::before { content: ""; position: absolute; z-index: -1; inset: 0; opacity: .5; background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1.2px); background-size: 22px 22px; }
+.nx-law li { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.nx-law li b { margin-top: 14px; font: 800 17px/1.25 Montserrat,"Segoe UI",Arial,sans-serif; letter-spacing: -.02em; background: linear-gradient(100deg,#fff1b8,#e2b93b 60%,#fff1b8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nx-law li span { margin-top: 6px; max-width: 270px; color: #b7c6e8; font-size: 13.5px; line-height: 1.55; }
 .nx-tarcza .pt-opis:not([font-size]) { font-size: 7.2px; }
 .nx-tarcza .pt-marka { font-size: 9px; font-weight: 900; letter-spacing: .34em; }
 .nx-law__opis { margin: 6px 0 0; color: #647392; font-size: 12px; text-align: center; }
@@ -143,10 +154,11 @@
 
 @media (max-width: 900px) {
   .nx-wall { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  .nx-law { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .nx-law { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 620px) {
-  .nx-wall, .nx-law { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+  .nx-wall { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+  .nx-law { grid-template-columns: 1fr; padding: 34px 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nx-pieczec { transition: none; }

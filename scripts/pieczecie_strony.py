@@ -156,12 +156,19 @@ SCIANA = [
 # (jasna płaska tarcza herbowa zamiast okrągłej metalowej pieczęci), żeby
 # zobowiązań notarai nie dało się pomylić z certyfikatami dostawcy.
 ZGODNOSC = [
-    ("OCHRONA DANYCH|OSOBOWYCH", "RODO", "art. 28 · 32 · 22"),
-    ("AKT O SZTUCZNEJ|INTELIGENCJI", "AI ACT", "nadzór człowieka"),
-    ("OCENA SKUTKÓW|ART. 35 RODO", "DPIA", "gotowa w aplikacji"),
-    ("UMOWA|POWIERZENIA", "ART. 28", "przy rejestracji"),
-    ("TAJEMNICA|NOTARIALNA", "ART. 18", "chroniona algorytmicznie"),
-    ("PRZETWARZANIE|TYLKO W UE", "EU", "Frankfurt"),
+    # (tytuł w głowicy, duży napis, akt prawny drobnym drukiem, opis, podpis pod tarczą: nagłówek, zdanie)
+    ("OCHRONA DANYCH|OSOBOWYCH", "RODO", "rozporządzenie (UE) 2016/679", "art. 22 · 28 · 32 RODO",
+     "RODO bez papierologii", "Umowa powierzenia, rejestr czynności i klauzula informacyjna gotowe w aplikacji."),
+    ("AKT O SZTUCZNEJ|INTELIGENCJI", "AI ACT", "rozporządzenie (UE) 2024/1689", "nadzór człowieka",
+     "AI pod kontrolą notariusza", "Instrukcja AI dla całego zespołu. Każdą decyzję podejmuje notariusz."),
+    ("OCENA SKUTKÓW|DLA DANYCH", "DPIA", "art. 35 RODO", "gotowa w aplikacji",
+     "Ocena skutków w 1 klik", "Wypełniona danymi kancelarii. Przyjmujesz ją jednym kliknięciem."),
+    ("UMOWA|POWIERZENIA", "ART. 28", "RODO", "przy rejestracji",
+     "Umowa powierzenia od ręki", "Zawierasz ją przy rejestracji, bez podpisów i wysyłania dokumentów."),
+    ("TAJEMNICA|NOTARIALNA", "ART. 18", "ustawy Prawo o notariacie", "chroniona algorytmicznie",
+     "Tajemnica nienaruszona", "Treść spraw czyta wyłącznie algorytm. Żaden człowiek nie ma wglądu."),
+    ("PRZETWARZANIE|TYLKO W UE", "EU", "rozdział V RODO", "Frankfurt · Irlandia · Paryż",
+     "Dane nie wyjeżdżają z Unii", "Pliki i model AI wyłącznie w regionach UE. Spoza UE aplikacja nie ruszy."),
 ]
 
 # Kształt tarczy: lekko wcięta góra, ostro zakończony dół. Liczby to pary x,y.
@@ -183,44 +190,85 @@ def ksztalt(skala):
     return "".join(out) + "Z"
 
 
-def tarcza(tytul, duzy, opis):
+def laur(strona):
+    """Złota gałązka laurowa wzdłuż boku tarczy (strona -1 lewa, 1 prawa).
+
+    Łuk liczony dla lewej strony (kąt 90 = dół, 180 = lewo), prawą odbijamy lustrzanie.
+    """
+    cx, cy, r = 80, 104, 94
+    katy = [100 + i * 8.5 for i in range(14)]
+
+    def xy(k, dr=0):
+        a = math.radians(k)
+        x, y = cx + (r + dr) * math.cos(a), cy + (r + dr) * math.sin(a)
+        return (2 * cx - x if strona == 1 else x), y
+
+    def kat(k, odchyl):
+        # kierunek wzrostu gałązki = styczna do łuku (rosnące k), plus odchylenie liścia
+        t = math.degrees(math.atan2(math.cos(math.radians(k)), -math.sin(math.radians(k)))) + odchyl
+        return 180 - t if strona == 1 else t
+
+    x0, y0 = xy(katy[0])
+    x1, y1 = xy(katy[-1])
+    czesci = [f'<path d="M{R(x0)},{R(y0)}A{r},{r} 0 0 {1 if strona == -1 else 0} {R(x1)},{R(y1)}" '
+              f'fill="none" stroke-width="1.5" stroke-linecap="round"/>']
+    for i, k in enumerate(katy[1:], 1):
+        dl = 7.6 - i * .2
+        for bok in (-1, 1):
+            x, y = xy(k, bok * 5)
+            czesci.append(f'<ellipse cx="{R(x)}" cy="{R(y)}" rx="{R(dl)}" ry="{R(dl * .4)}" '
+                          f'transform="rotate({R(kat(k, -bok * 32))} {R(x)} {R(y)})"/>')
+    x, y = xy(katy[-1] + 5)
+    czesci.append(f'<ellipse cx="{R(x)}" cy="{R(y)}" rx="5.5" ry="2.2" transform="rotate({R(kat(katy[-1], 0))} {R(x)} {R(y)})"/>')
+    return "".join(czesci)
+
+
+def tarcza(tytul, duzy, akt, opis):
     linie = tytul.split("|")
     zloto = "url(#ps-m-iso)"
     tyt = "".join(
-        f'<text class="pt-tytul" x="80" y="{R(31 + i * 10.5)}">{esc(l)}</text>' for i, l in enumerate(linie)
+        f'<text class="pt-tytul" x="80" y="{R(32 + i * 10.5)}">{esc(l)}</text>' for i, l in enumerate(linie)
     )
-    cx, cy, rr = 80, 96, 35
+    cx, cy, rr = 80, 93, 31
     gw = "".join(
-        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.6)}"/>'
+        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.3)}"/>'
         for i in range(12)
     )
-    fs = 18 if len(duzy) <= 4 else 12.5
-    rozmiar_opisu = ' font-size="6.1"' if len(opis) > 18 else ""
+    fs = 17 if len(duzy) <= 4 else 12
+    rozmiar_opisu = ' font-size="5.9"' if len(opis) > 20 else ""
     return (
-        f'<svg class="nx-tarcza" viewBox="-10 0 180 200" role="img" aria-label="{esc(duzy)}: {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
+        f'<svg class="nx-tarcza" viewBox="-26 -16 212 222" role="img" aria-label="{esc(duzy)} ({esc(akt)}): {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
+        f'<g class="pt-laur" fill="{zloto}" stroke="{zloto}">{laur(-1)}{laur(1)}</g>'
         f'<path d="{ksztalt(1)}" fill="{zloto}"/>'
         f'<path d="{ksztalt(.955)}" fill="#0a2266"/>'
         f'<path d="{ksztalt(.935)}" fill="{zloto}"/>'
         f'<path d="{ksztalt(.9)}" fill="url(#pt-emalia)"/>'
         f'<g clip-path="url(#pt-clip)">'
         f'<use href="#pt-grawer" class="pt-grawer"/>'
-        f'<rect x="0" y="0" width="160" height="51" fill="url(#ps-b-eu)"/>'
-        f'<path d="M0,51H160" stroke="{zloto}" stroke-width="2"/>'
-        f'<path d="M0,54.2H160" stroke="#0a2266" stroke-width=".5" opacity=".5"/>'
+        f'<rect x="0" y="0" width="160" height="52" fill="url(#ps-b-eu)"/>'
+        f'<use href="#pt-grawer" class="pt-grawer-glowica"/>'
+        f'<path d="M0,52H160" stroke="{zloto}" stroke-width="2.2"/>'
         f'</g>'
         f'{tyt}'
         f'<g fill="{zloto}">{gw}</g>'
         f'<text class="pt-duzy" x="{cx}" y="{R(cy + fs * .36)}" font-size="{fs}">{esc(duzy)}</text>'
-        f'<text class="pt-opis" x="80" y="148.5"{rozmiar_opisu}>{esc(opis)}</text>'
+        f'<text class="pt-akt" x="80" y="135">{esc(akt)}</text>'
+        f'<text class="pt-opis" x="80" y="146"{rozmiar_opisu}>{esc(opis)}</text>'
         f'<path d="{ksztalt(.9)}" fill="url(#pt-blask)"/>'
+        # medalion z gwiazdą na szczycie tarczy
+        f'<circle cx="80" cy="5" r="12.5" fill="{zloto}"/>'
+        f'<circle cx="80" cy="5" r="10" fill="url(#ps-b-eu)"/>'
+        f'<path d="{gwiazda(80, 5.4, 6.4)}" fill="{zloto}"/>'
         # wstęga z zakładkami wychodząca poza tarczę
-        f'<path d="M14,163H-6L2,171.5L-6,180H14Z" fill="#001a5c"/>'
-        f'<path d="M146,163H166L158,171.5L166,180H146Z" fill="#001a5c"/>'
+        f'<path d="M14,163H-8L1,171.5L-8,180H14Z" fill="#001a5c"/>'
+        f'<path d="M146,163H168L159,171.5L168,180H146Z" fill="#001a5c"/>'
         f'<path d="M14,180L20,184V176Z M146,180L140,184V176Z" fill="#000d33"/>'
-        f'<path d="M14,158Q80,166 146,158V176Q80,184 14,176Z" fill="url(#ps-b-eu)" stroke="{zloto}" stroke-width="1.1"/>'
+        f'<path d="M14,157Q80,165 146,157V176Q80,184 14,176Z" fill="url(#ps-b-eu)" stroke="{zloto}" stroke-width="1.1"/>'
         f'<text class="pt-marka" fill="{zloto}"><textPath href="#pt-wstega" startOffset="50%">NOTARAI</textPath></text>'
         "</svg>"
     )
+
+
 # Pasek: (fragment nazwy w <b>) -> (rodzina, znak)
 PASEK = {
     "RODO / GDPR": ("eu", "★"), "ISO/IEC 27001": ("iso", "ISO"), "AI Act": ("eu", "AI"),
@@ -247,8 +295,8 @@ def main(sciezka):
 
     # 3. zgodność
     zg = "\n".join(
-        f'      <li>{tarcza(g, d, o)}</li>'
-        for g, d, o in ZGODNOSC
+        f'      <li>{tarcza(g, d, akt, o)}<b>{esc(nag)}</b><span>{esc(zd)}</span></li>'
+        for g, d, akt, o, nag, zd in ZGODNOSC
     )
     s = re.sub(r'(<ul class="nx-law">\n).*?(\n    </ul>)', lambda m: m.group(1) + zg + m.group(2), s, flags=re.S)
 
