@@ -3,7 +3,8 @@ Description: >-
   notarai - wdrazanie z GitHub Actions bez logowania do AWS. GitHub dostaje
   krotkotrwale poswiadczenia przez OIDC (bez kluczy dostepu), wylacznie dla
   galezi master repozytorium plnyspolka-pixel/notarai. Rola GitHuba buduje
-  obraz i zleca CloudFormation aktualizacje stosu notarai-aplikacja; zmiany
+  obraz, zleca CloudFormation aktualizacje stosu notarai-aplikacja i publikuje
+  strone notarai.pl (odczyt hasla FTPS z notarai/strona-ftp); zmiany
   w zasobach wykonuje osobna rola CloudFormation.
 
   Wdraza administrator konta raz: infra\4-polacz-github.ps1
@@ -134,6 +135,12 @@ Resources:
                 Effect: Allow
                 Action: ecs:DescribeTaskDefinition
                 Resource: "*"
+              # Workflow .github/workflows/strona.yml wysyla notarai.pl na az.pl
+              # przez FTPS. Tylko odczyt jednego sekretu z haslem FTP.
+              - Sid: HasloFtpStrony
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/strona-ftp-??????"
 
   # Rola, ktora CloudFormation wykonuje zmiany w stosie notarai-aplikacja.
   # Zakres: wylacznie zasoby z prefiksem notarai.

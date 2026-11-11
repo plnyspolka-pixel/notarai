@@ -1,0 +1,139 @@
+name: NotarAI - publikacja notarai.pl
+
+# Po kazdym zielonym przebiegu testow na master: generuje katalog kancelarii,
+# blog i sitemap, robi kopie obecnych plikow z az.pl (artefakt na 14 dni)
+# i wysyla caly folder strona/ przez FTPS. To samo co infra/strona.ps1
+# -Polecenie wyslij, tylko bez komputera w kancelarii.
+# Recznie: Actions -> "NotarAI - publikacja notarai.pl" -> Run workflow (master).
+#
+# Haslo FTPS pochodzi z Secrets Manager (notarai/strona-ftp), pobierane przez
+# role OIDC notarai-github-wdrozenie (uprawnienie HasloFtpStrony w
+# infra/notarai-github.yaml). Jest maskowane i zyje tylko w jednym kroku.
+
+on:
+  workflow_run:
+    workflows: ["NotarAI - testy kodu"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: notarai-strona
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_KONTO: "127621462971"
+  ROLA_GITHUB: arn:aws:iam::127621462971:role/notarai-github-wdrozenie
+
+jobs:
+  strona:
+    name: Generowanie i wysylka FTPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.ref == 'refs/heads/master' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'master'
+        )
+      )
+    steps:
+      - name: Pobierz kod (dokladnie przetestowany commit)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Generuj katalog kancelarii, blog i sitemap (offline)
+        run: |
+          set -euo pipefail
+          python seo/generuj.py
+          python seo/blog.py zbuduj
+          for plik in index.html liczby.css brand-site.css notariusz/index.html blog/index.html sitemap.xml kalkulator/index.html; do
+            test -f "strona/$plik" || { echo "::error::Brak strona/$plik"; exit 1; }
+          done
+
+      - name: Poswiadczenia AWS przez OIDC
+        run: |
+          set -euo pipefail
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          if ! dane=$(aws sts assume-role-with-web-identity \
+                --role-arn "$ROLA_GITHUB" \
+                --role-session-name "github-strona-${GITHUB_RUN_ID}" \
+                --web-identity-token "$token" \
+                --duration-seconds 3600 \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text); then
+            echo "::error::Brak dostepu do roli $ROLA_GITHUB. Uruchom raz na komputerze: powershell -ExecutionPolicy Bypass -File infra\\4-polacz-github.ps1"
+            exit 1
+          fi
+          read -r kid ksec ksesja <<< "$dane"
+          echo "::add-mask::$ksec"
+          echo "::add-mask::$ksesja"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$ksec"
+            echo "AWS_SESSION_TOKEN=$ksesja"
+          } >> "$GITHUB_ENV"
+          konto=$(AWS_ACCESS_KEY_ID=$kid AWS_SECRET_ACCESS_KEY=$ksec AWS_SESSION_TOKEN=$ksesja \
+            aws sts get-caller-identity --query Account --output text)
+          if [ "$konto" != "$AWS_KONTO" ]; then
+            echo "::error::AWS wskazuje konto $konto, oczekiwane $AWS_KONTO."
+            exit 1
+          fi
+
+      - name: Kopia z az.pl i wysylka FTPS
+        run: |
+          set -euo pipefail
+          if ! sekret=$(aws secretsmanager get-secret-value --secret-id notarai/strona-ftp \
+                --query SecretString --output text 2>/dev/null); then
+            echo "::error::Rola GitHuba nie moze odczytac notarai/strona-ftp. Zaktualizuj stos: infra\\4-polacz-github.ps1"
+            exit 1
+          fi
+          haslo=$(printf '%s' "$sekret" | jq -r '.password // empty')
+          unset sekret
+          if [ -z "$haslo" ]; then
+            echo "::error::W sekrecie notarai/strona-ftp brakuje pola password."
+            exit 1
+          fi
+          echo "::add-mask::$haslo"
+          export NOTARAI_FTP_HASLO="$haslo"
+          unset haslo
+          python -I infra/strona_ftp.py kopia auto "$RUNNER_TEMP/strona-kopia"
+          python -I infra/strona_ftp.py wyslij strona auto
+          unset NOTARAI_FTP_HASLO
+          echo "### Opublikowano notarai.pl" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`$(git rev-parse --short=12 HEAD)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Kopia poprzedniej wersji (artefakt)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strona-kopia-${{ github.run_id }}
+          path: ${{ runner.temp }}/strona-kopia
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Sprawdz, czy notarai.pl serwuje nowa wersje
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            if curl -sSf "https://notarai.pl/?v=${GITHUB_RUN_ID}" | grep -q 'liczby.css'; then
+              echo "notarai.pl serwuje nowa strone."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::Pliki wyslane, ale notarai.pl jeszcze nie pokazuje nowej strony (cache hostingu?)."

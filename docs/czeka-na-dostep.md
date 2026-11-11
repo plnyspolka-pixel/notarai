@@ -104,7 +104,17 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
     go opublikuje.
 - **W kodzie:** `giif.TERMIN_DNI`, `docs/ksiegi-i-giif.md`, `giif_xml.CRWDE`.
 
----
+## NA-7. Automatyczna publikacja notarai.pl z GitHub Actions
 
+- **Status:** czeka
+- **Brakuje:** jednorazowej aktualizacji stosu `notarai-github` przez
+  administratora konta AWS (nowe uprawnienie `HasloFtpStrony`: odczyt
+  sekretu `notarai/strona-ftp` przez rolę `notarai-github-wdrozenie`).
+- **Na żywo:** `powershell -ExecutionPolicy Bypass -File infra\4-polacz-github.ps1`,
+  potem Actions → „NotarAI - publikacja notarai.pl” → Run workflow (master).
+- **W kodzie:** `.github/workflows/strona.yml`, `infra/notarai-github.yaml`.
+- **Zamknięte, gdy:** przebieg jest zielony, a https://notarai.pl ładuje `liczby.css`.
+
+---
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 `docs/testy-z-notariuszem-ksiegi.md`.
