@@ -148,6 +148,17 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/meta) {
     Write-Host "   leady z Meta: brak sekretu notarai/meta, webhook wylaczony" -ForegroundColor Yellow
 }
 
+# Agent glosowy ElevenLabs (agent_glosowy.py): sekret notarai/agent-glosowy
+# zaklada infra\zapisz-sekret-agenta-glosowego.ps1. Z sekretem webhooki
+# /api/agent-glosowy wymagaja naglowka X-Notarai-Agent.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/agent-glosowy) {
+    $agentArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/agent-glosowy --query ARN --output text
+    $parametry += "AgentGlosowySekretArn=$agentArn"
+    Write-Host "   agent glosowy: sekret notarai/agent-glosowy (token wymagany)"
+} else {
+    Write-Host "   agent glosowy: brak sekretu notarai/agent-glosowy, webhooki bez tokenu" -ForegroundColor Yellow
+}
+
 # SES: wlacz dopiero po weryfikacji adresu lub domeny i wyjsciu z sandbox.
 if ($EmailNadawcy) { $parametry += "EmailNadawcy=$EmailNadawcy" }
 if ($EmailZgloszen) { $parametry += "EmailZgloszen=$EmailZgloszen" }
