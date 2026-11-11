@@ -108,3 +108,20 @@ def test_numbers_ticker_and_badges_are_labelled_honestly():
     assert "Szacunek" in HTML
     for anchor in ("liczby", "ai"):
         assert f'id="{anchor}"' in HTML
+
+
+def test_seals_are_own_design_and_say_whose_they_are():
+    # 10 pieczęci dostawcy infrastruktury + 6 zobowiązań notarai.
+    assert HTML.count('class="nx-pieczec nx-pieczec--') == 16
+    assert HTML.count("DOSTAWCA INFRASTRUKTURY</textPath>") == 10
+    assert HTML.count("ZOBOWIĄZANIE NOTARAI</textPath>") == 6
+    assert "To nie są certyfikaty." in HTML
+    # Tylko własne wektory, bez obrazków cudzych znaków.
+    assert "<img" not in HTML.split('<ul class="nx-wall">')[1].split("</ul>")[0]
+    # Generator odtwarza dokładnie to, co jest w repozytorium.
+    import subprocess, sys, tempfile, shutil
+    with tempfile.TemporaryDirectory() as d:
+        kopia = Path(d) / "index.html"
+        shutil.copy(SITE / "index.html", kopia)
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "pieczecie_strony.py"), str(kopia)], check=True)
+        assert kopia.read_text(encoding="utf-8") == HTML
