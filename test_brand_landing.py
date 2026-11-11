@@ -100,8 +100,10 @@ def test_numbers_ticker_and_badges_are_labelled_honestly():
     assert HTML.count('class="nx-ticker__list" aria-hidden="true"') == 1
     assert "@media (prefers-reduced-motion: reduce)" in lic
     # Certyfikaty ISO/SOC należą do AWS i strona musi to mówić wprost.
-    assert "posiada Amazon Web Services" in HTML
-    assert "Certyfikaty infrastruktury Amazon Web Services" in HTML
+    assert "posiada dostawca infrastruktury technicznej" in HTML
+    assert "Certyfikaty dostawcy infrastruktury technicznej" in HTML
+    assert "Tajemnica notarialna zabezpieczona algorytmicznie" in HTML
+    assert "AWS" not in HTML and "Amazon" not in HTML
     # Liczby czasu i kliknięć to szacunki, nie zmierzone wyniki.
     assert "Szacunek" in HTML
     for anchor in ("liczby", "ai"):
