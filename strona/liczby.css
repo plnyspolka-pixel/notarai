@@ -128,7 +128,18 @@
 .nx-wall { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: clamp(14px,2.4vw,34px); margin: 8px 0 34px; padding: 0; list-style: none; }
 /* Tarcze zgodności: emaliowana odznaka herbowa, inny kształt niż pieczęcie */
 .nx-tarcza { display: block; width: 100%; max-width: 290px; height: auto; overflow: visible; filter: drop-shadow(0 22px 22px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(255,204,0,.16)); transition: transform .4s cubic-bezier(.2,.8,.2,1); }
-.nx-law li:hover .nx-tarcza { transform: translateY(-5px) scale(1.03); }
+/* Przechył 3D pod kursorem (zmienne ustawia skrypt) i przelatujący błysk */
+.nx-law li { perspective: 900px; }
+.nx-tarcza { transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0); transition: transform .5s cubic-bezier(.2,.8,.2,1), filter .5s; will-change: transform; }
+.nx-law li.is-tilt .nx-tarcza { transition: transform .08s linear, filter .5s; filter: drop-shadow(calc(var(--ry, 0deg) * -1.2) 26px 26px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(255,204,0,.28)); }
+.nx-tarcza .pt-blysk-pas { animation: pt-blysk 8s cubic-bezier(.45,.05,.35,1) infinite; }
+.nx-law li:nth-child(2) .pt-blysk-pas { animation-delay: 1.1s; }
+.nx-law li:nth-child(3) .pt-blysk-pas { animation-delay: 2.2s; }
+.nx-law li:nth-child(4) .pt-blysk-pas { animation-delay: 3.3s; }
+.nx-law li:nth-child(5) .pt-blysk-pas { animation-delay: 4.4s; }
+.nx-law li:nth-child(6) .pt-blysk-pas { animation-delay: 5.5s; }
+.nx-law li:hover .pt-blysk-pas { animation-duration: 1.6s; animation-delay: 0s; }
+@keyframes pt-blysk { 0%, 72% { transform: translateX(0); } 100% { transform: translateX(320px); } }
 .nx-tarcza text { font-family: Montserrat,"Segoe UI",Arial,sans-serif; text-anchor: middle; }
 .nx-tarcza .pt-grawer { stroke: #0a2a7a; opacity: .07; }
 .nx-tarcza .pt-tytul { fill: #fff; font-size: 7.8px; font-weight: 800; letter-spacing: .12em; }
@@ -162,6 +173,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .nx-pieczec { transition: none; }
-  .nx-wall li:hover .nx-pieczec, .nx-law li:hover .nx-tarcza { transform: none; }
+  .nx-wall li:hover .nx-pieczec { transform: none; }
+  .nx-tarcza .pt-blysk-pas { animation: none; opacity: 0; }
+  .nx-tarcza { transform: none !important; }
   .nx-tarcza { transition: none; }
 }

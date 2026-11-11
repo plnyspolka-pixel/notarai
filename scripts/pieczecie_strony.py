@@ -67,6 +67,33 @@ def sprite():
         + '<clipPath id="ps-tarcza-clip"><circle r="60"/></clipPath>'
         + '<path id="pt-wstega" d="M18,170.5Q80,178.5 142,170.5" fill="none"/>'
         + f'<clipPath id="pt-clip"><path d="{ksztalt(.9)}"/></clipPath>'
+        + '<linearGradient id="pt-zloto" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#fff7cf"/><stop offset=".18" stop-color="#f3d466"/><stop offset=".38" stop-color="#b98a2b"/><stop offset=".52" stop-color="#7c5413"/><stop offset=".68" stop-color="#e2bb52"/><stop offset=".84" stop-color="#fff0ad"/><stop offset="1" stop-color="#a7771f"/></linearGradient>'
+        + '<radialGradient id="pt-kopula" cx=".42" cy=".34" r=".78"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f3f7fd"/><stop offset=".8" stop-color="#dbe5f4"/><stop offset="1" stop-color="#bccbe4"/></radialGradient>'
+        + '<linearGradient id="pt-glowica" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d5fd8"/><stop offset=".5" stop-color="#0b3aa8"/><stop offset="1" stop-color="#061f66"/></linearGradient>'
+        + '<linearGradient id="pt-wstega-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f62d8"/><stop offset=".3" stop-color="#0d3aa4"/><stop offset=".75" stop-color="#062474"/><stop offset="1" stop-color="#020f3d"/></linearGradient>'
+        + '<linearGradient id="pt-pas" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+        # relief metalu: rozproszone światło (cień na zboczach) + odbłysk z lewej góry
+        + '<filter id="pt-relief" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">'
+          '<feGaussianBlur in="SourceAlpha" stdDeviation="1.3" result="b"/>'
+          '<feDiffuseLighting in="b" surfaceScale="3" diffuseConstant="1.15" lighting-color="#fff" result="d"><feDistantLight azimuth="225" elevation="48"/></feDiffuseLighting>'
+          '<feComposite in="SourceGraphic" in2="d" operator="arithmetic" k1="1.1" k2="0" k3="0" k4="0" result="lit"/>'
+          '<feSpecularLighting in="b" surfaceScale="3.5" specularConstant="1.2" specularExponent="20" lighting-color="#fff" result="s"><feDistantLight azimuth="225" elevation="40"/></feSpecularLighting>'
+          '<feComposite in="s" in2="SourceAlpha" operator="in" result="s2"/>'
+          '<feComposite in="lit" in2="s2" operator="arithmetic" k1="0" k2="1" k3=".9" k4="0"/></filter>'
+        # drobny relief dla gwiazd i liści
+        + '<filter id="pt-relief-maly" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">'
+          '<feGaussianBlur in="SourceAlpha" stdDeviation=".55" result="b"/>'
+          '<feSpecularLighting in="b" surfaceScale="2" specularConstant="1.1" specularExponent="16" lighting-color="#fff" result="s"><feDistantLight azimuth="225" elevation="42"/></feSpecularLighting>'
+          '<feComposite in="s" in2="SourceAlpha" operator="in" result="s2"/>'
+          '<feComposite in="SourceGraphic" in2="s2" operator="arithmetic" k1="0" k2="1" k3=".8" k4="0" result="j"/>'
+          '<feDropShadow in="j" dx=".35" dy=".6" stdDeviation=".35" flood-color="#2a1a00" flood-opacity=".55"/></filter>'
+        # napis wytłoczony w emalii: ciemna krawędź u góry, jasna u dołu
+        + '<filter id="pt-wytlocz" x="-10%" y="-30%" width="120%" height="160%">'
+          '<feDropShadow dx="0" dy=".7" stdDeviation=".15" flood-color="#fff" flood-opacity=".95" result="j"/>'
+          '<feDropShadow in="j" dx="0" dy="-.45" stdDeviation=".25" flood-color="#000a2e" flood-opacity=".45"/></filter>'
+        # wewnętrzny cień kopuły emalii
+        + '<filter id="pt-cien-wew" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="3.2"/></filter>'
+        + '<filter id="pt-cien-tekstu" x="-10%" y="-40%" width="120%" height="180%"><feDropShadow dx="0" dy=".8" stdDeviation=".5" flood-color="#000820" flood-opacity=".7"/></filter>'
         + '<linearGradient id="pt-emalia" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#f1f5fc"/><stop offset="1" stop-color="#dfe8f6"/></linearGradient>'
         + '<linearGradient id="pt-blask" x1="0" y1="0" x2="1" y2=".9"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/></linearGradient>'
         + '<g id="pt-grawer" fill="none" stroke-width=".4">' + "".join(
@@ -225,46 +252,59 @@ def laur(strona):
 
 def tarcza(tytul, duzy, akt, opis):
     linie = tytul.split("|")
-    zloto = "url(#ps-m-iso)"
+    zloto = "url(#pt-zloto)"
     tyt = "".join(
         f'<text class="pt-tytul" x="80" y="{R(32 + i * 10.5)}">{esc(l)}</text>' for i, l in enumerate(linie)
     )
     cx, cy, rr = 80, 93, 31
     gw = "".join(
-        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.3)}"/>'
+        f'<path d="{gwiazda(cx + rr * math.cos(math.radians(i * 30 - 90)), cy + rr * math.sin(math.radians(i * 30 - 90)), 3.4)}"/>'
         for i in range(12)
     )
     fs = 17 if len(duzy) <= 4 else 12
     rozmiar_opisu = ' font-size="5.9"' if len(opis) > 20 else ""
     return (
         f'<svg class="nx-tarcza" viewBox="-26 -16 212 222" role="img" aria-label="{esc(duzy)} ({esc(akt)}): {esc(" ".join(linie).lower())}, zobowiązanie notarai">'
-        f'<g class="pt-laur" fill="{zloto}" stroke="{zloto}">{laur(-1)}{laur(1)}</g>'
+        f'<g class="pt-laur" fill="{zloto}" stroke="{zloto}" filter="url(#pt-relief-maly)">{laur(-1)}{laur(1)}</g>'
+        # metalowa rama: dwie złote obręcze w reliefie, między nimi granatowa emalia
+        f'<g filter="url(#pt-relief)">'
         f'<path d="{ksztalt(1)}" fill="{zloto}"/>'
-        f'<path d="{ksztalt(.955)}" fill="#0a2266"/>'
+        f'<path d="{ksztalt(.955)}" fill="#071a52"/>'
         f'<path d="{ksztalt(.935)}" fill="{zloto}"/>'
-        f'<path d="{ksztalt(.9)}" fill="url(#pt-emalia)"/>'
+        f'</g>'
+        # emalia jako wypukła kopuła
+        f'<path d="{ksztalt(.9)}" fill="url(#pt-kopula)"/>'
         f'<g clip-path="url(#pt-clip)">'
         f'<use href="#pt-grawer" class="pt-grawer"/>'
-        f'<rect x="0" y="0" width="160" height="52" fill="url(#ps-b-eu)"/>'
+        f'<rect x="0" y="0" width="160" height="52" fill="url(#pt-glowica)"/>'
         f'<use href="#pt-grawer" class="pt-grawer-glowica"/>'
-        f'<path d="M0,52H160" stroke="{zloto}" stroke-width="2.2"/>'
+        f'<rect x="0" y="0" width="160" height="22" fill="#fff" opacity=".1"/>'
+        f'<path d="M0,52H160" stroke="{zloto}" stroke-width="2.6" filter="url(#pt-relief-maly)"/>'
+        f'<path d="{ksztalt(.9)}" fill="none" stroke="#06184d" stroke-width="9" opacity=".38" filter="url(#pt-cien-wew)"/>'
+        f'<g transform="rotate(18 80 100)"><rect class="pt-blysk-pas" x="-70" y="-30" width="34" height="260" fill="url(#pt-pas)"/></g>'
         f'</g>'
-        f'{tyt}'
-        f'<g fill="{zloto}">{gw}</g>'
-        f'<text class="pt-duzy" x="{cx}" y="{R(cy + fs * .36)}" font-size="{fs}">{esc(duzy)}</text>'
+        f'<g filter="url(#pt-cien-tekstu)">{tyt}</g>'
+        f'<g fill="{zloto}" filter="url(#pt-relief-maly)">{gw}</g>'
+        f'<text class="pt-duzy" x="{cx}" y="{R(cy + fs * .36)}" font-size="{fs}" filter="url(#pt-wytlocz)">{esc(duzy)}</text>'
         f'<text class="pt-akt" x="80" y="135">{esc(akt)}</text>'
         f'<text class="pt-opis" x="80" y="146"{rozmiar_opisu}>{esc(opis)}</text>'
         f'<path d="{ksztalt(.9)}" fill="url(#pt-blask)"/>'
-        # medalion z gwiazdą na szczycie tarczy
-        f'<circle cx="80" cy="5" r="12.5" fill="{zloto}"/>'
-        f'<circle cx="80" cy="5" r="10" fill="url(#ps-b-eu)"/>'
-        f'<path d="{gwiazda(80, 5.4, 6.4)}" fill="{zloto}"/>'
-        # wstęga z zakładkami wychodząca poza tarczę
-        f'<path d="M14,163H-8L1,171.5L-8,180H14Z" fill="#001a5c"/>'
-        f'<path d="M146,163H168L159,171.5L168,180H146Z" fill="#001a5c"/>'
-        f'<path d="M14,180L20,184V176Z M146,180L140,184V176Z" fill="#000d33"/>'
-        f'<path d="M14,157Q80,165 146,157V176Q80,184 14,176Z" fill="url(#ps-b-eu)" stroke="{zloto}" stroke-width="1.1"/>'
-        f'<text class="pt-marka" fill="{zloto}"><textPath href="#pt-wstega" startOffset="50%">NOTARAI</textPath></text>'
+        # medalion z gwiazdą: wypukły, w reliefie
+        f'<g filter="url(#pt-relief)">'
+        f'<circle cx="80" cy="5" r="13" fill="{zloto}"/>'
+        f'<circle cx="80" cy="5" r="10.2" fill="url(#pt-glowica)"/>'
+        f'</g>'
+        f'<path d="{gwiazda(80, 5.5, 6.6)}" fill="{zloto}" filter="url(#pt-relief-maly)"/>'
+        f'<ellipse cx="76" cy="0" rx="5" ry="2.4" fill="#fff" opacity=".35"/>'
+        # wstęga: końce w cieniu, fałdy, przód z połyskiem
+        f'<path d="M14,163H-8L1,171.5L-8,180H14Z" fill="#021245"/>'
+        f'<path d="M146,163H168L159,171.5L168,180H146Z" fill="#021245"/>'
+        f'<path d="M14,163H-8L1,171.5L-8,180H14Z M146,163H168L159,171.5L168,180H146Z" fill="url(#pt-wstega-g)" opacity=".55"/>'
+        f'<path d="M14,180L20,185V176Z M146,180L140,185V176Z" fill="#000a2a"/>'
+        f'<path d="M14,157Q80,165 146,157V176Q80,184 14,176Z" fill="url(#pt-wstega-g)"/>'
+        f'<path d="M14,157Q80,165 146,157V176Q80,184 14,176Z" fill="none" stroke="{zloto}" stroke-width="1.4" filter="url(#pt-relief-maly)"/>'
+        f'<path d="M16,160Q80,168 144,160" fill="none" stroke="#fff" stroke-width=".8" opacity=".35"/>'
+        f'<text class="pt-marka" fill="{zloto}" filter="url(#pt-cien-tekstu)"><textPath href="#pt-wstega" startOffset="50%">NOTARAI</textPath></text>'
         "</svg>"
     )
 
