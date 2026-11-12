@@ -2,7 +2,7 @@
   "obsada": "notarai-komputerku-v1",
   "wygenerowano": "2026-11-11",
   "model": "fal-ai/nano-banana-pro/edit (2K)",
-  "koszt_usd": 2.25,
+  "koszt_usd": 2.55,
   "uwaga": "Wygenerowane w konektorze fal (konto Finance You), tak jak klipy hooków Studia. Do systemu serii wpisuje się je przez seria_kadr_zapisz z adresem fal_url albo plikiem z repo — narzędzie kopiuje obraz do Storage studio-media. FAL_KEY w aplikacji nie jest potrzebny.",
   "kadry": [
     {
@@ -95,6 +95,17 @@
       "fal_url": "https://v3b.fal.media/files/b/0ab21b89/fHoc3JHtBFsxDxt0285Ir_vxbnpTvo.png",
       "zatwierdzony": null,
       "uwaga": "natywne zbliżenie 2K (próba 2); próba 1 (przycięty plan) odrzucona — miękka i z artefaktami na biurku"
+    },
+    {
+      "slug": "marta_przy_biurku",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "marta"
+      ],
+      "plik": "kadry/marta_przy_biurku.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21ba2/j8lPNZ96_bGh3Nio3p6lS_JrJenZuo.png",
+      "zatwierdzony": null,
+      "uwaga": "Marta przy biurku z laptopem i książkami w realnej skali (wariant A z 2); zastępuje przycięte zbliżenie"
     }
   ],
   "arkusze": [
@@ -133,9 +144,12 @@
     },
     "marta": {
       "elevenlabs_voice_id": "BDuEI9b2twykxFyFIbv4",
-      "heygen_avatar_id": "8d7659468d92ec57903a5570d604483c",
-      "zdjecie_avatara": "kadry/marta_zblizenie.jpg",
-      "heygen_avatar_odrzucony": "46737e32a13d85b828fdd289d2f86c85"
+      "heygen_avatar_id": "18e4f2b5c26f30dd99be62807b38f79f",
+      "zdjecie_avatara": "kadry/marta_przy_biurku.jpg",
+      "heygen_avatar_odrzucone": [
+        "46737e32a13d85b828fdd289d2f86c85",
+        "8d7659468d92ec57903a5570d604483c"
+      ]
     },
     "basia": {
       "elevenlabs_voice_id": "XxH7vHpT0p7INeJx8ihA",
