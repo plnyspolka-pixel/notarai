@@ -10,7 +10,7 @@ Data: 2026-11-12. Status: do podpisu/weryfikacji, **nic nie zostało wysłane**.
 - adres: ul. Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin
 - nazwa systemu: **NotarAI**
 
-**To nie jest formularz Finance You.** Obie organizacje składają samodzielne dokumenty, z własnymi podpisami i kluczami API.
+**Zakres projektu:** wyłącznie Fundacja jako wnioskodawca i NotarAI jako system. Nie przygotowujemy odrębnych dokumentów ani integracji RzPESEL dla innych podmiotów.
 
 ## Dokumenty do przygotowania
 1. Oryginalny PDF „Wniosek dostępowy do RzPESEL”: środowisko **testowe**, **wydanie nowego klucza API**, nazwa NotarAI i dane Fundacji. Wymagane do uzupełnienia: osoba odpowiedzialna za integrację (imię i nazwisko), jej służbowy telefon do hasła SMS, służbowy e-mail do klucza, e-mail do powiadomień, faktyczny publiczny IPv4 egress i model pośredniczenia.
@@ -30,7 +30,6 @@ Fundacja nie jest notariuszem. Art. 23m ust. 1 pkt 4 ustawy o ewidencji ludnośc
 - Błędy/timeout/brak klucza oznaczają **nieustalony**, nigdy niezastrzeżony.
 - Testy stubem MC, regresja, kontrola uprawnień i separacji między kancelariami.
 
-## Repozytoria i integracje
+## Repozytorium i integracja
 - NotarAI: https://github.com/plnyspolka-pixel/notarai
-- Finance You (drugi **niezależny** podmiot): https://github.com/plnyspolka-pixel/finyou/pull/370
-- Wspólny adapter techniczny jest możliwy, ale nie wspólne uprawnienie, produkcyjny klucz API lub wniosek.
+- Wniosek i dostęp API dotyczą wyłącznie Fundacji; jeśli rejestr wymaga indywidualnych uprawnień notariuszy, wdrożyć bezpieczną obsługę kluczy odrębnych kancelarii. Nie traktować klucza Fundacji jako automatycznego uprawnienia każdej kancelarii.
