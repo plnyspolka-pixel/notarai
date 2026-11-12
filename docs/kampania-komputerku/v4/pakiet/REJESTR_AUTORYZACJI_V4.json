@@ -1,0 +1,3964 @@
+{
+  "schema_version": "1.0",
+  "package": "NotarAI_S1_V4",
+  "baseline_pr": 20,
+  "baseline_head": "5e58dd03b79ba1228657ec858b3116e84e5f659d",
+  "publication_default": "BLOCK",
+  "notice": "Rejestr kontrolny; nie jest integracją z kolejką publikacji.",
+  "episodes": [
+    {
+      "id": "E01",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E02",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E03",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E04",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E05",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E06",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E07",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "E08",
+      "revision": "V4-koncepcja",
+      "variant": "DO_WYBORU",
+      "product_build": "",
+      "evidence": [],
+      "assets": {
+        "video": {
+          "path": "",
+          "sha256": ""
+        },
+        "mail": {
+          "path": "",
+          "sha256": ""
+        },
+        "landing": {
+          "path": "",
+          "sha256": ""
+        }
+      },
+      "approvals": {
+        "product": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "notary": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "legal": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        },
+        "production": {
+          "status": "BLOCK",
+          "name": "",
+          "signed_at": "",
+          "valid_until": "",
+          "conditions": ""
+        }
+      },
+      "checks": {
+        "LA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "LE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PA06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PB08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PC06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PD07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PE07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF01": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF02": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF03": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF04": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF05": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF06": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF07": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF08": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        },
+        "PF09": {
+          "status": "BLOCK",
+          "reviewer": "",
+          "evidence": "",
+          "reason": ""
+        }
+      }
+    }
+  ],
+  "required_checks": [
+    "LA01",
+    "LA02",
+    "LA03",
+    "LA04",
+    "LA05",
+    "LA06",
+    "LB01",
+    "LB02",
+    "LB03",
+    "LB04",
+    "LB05",
+    "LB06",
+    "LC01",
+    "LC02",
+    "LC03",
+    "LC04",
+    "LC05",
+    "LD01",
+    "LD02",
+    "LD03",
+    "LD04",
+    "LD05",
+    "LD06",
+    "LE01",
+    "LE02",
+    "LE03",
+    "LE04",
+    "LE05",
+    "LE06",
+    "PA01",
+    "PA02",
+    "PA03",
+    "PA04",
+    "PA05",
+    "PA06",
+    "PB01",
+    "PB02",
+    "PB03",
+    "PB04",
+    "PB05",
+    "PB06",
+    "PB07",
+    "PB08",
+    "PC01",
+    "PC02",
+    "PC03",
+    "PC04",
+    "PC05",
+    "PC06",
+    "PD01",
+    "PD02",
+    "PD03",
+    "PD04",
+    "PD05",
+    "PD06",
+    "PD07",
+    "PE01",
+    "PE02",
+    "PE03",
+    "PE04",
+    "PE05",
+    "PE06",
+    "PE07",
+    "PF01",
+    "PF02",
+    "PF03",
+    "PF04",
+    "PF05",
+    "PF06",
+    "PF07",
+    "PF08",
+    "PF09"
+  ]
+}

@@ -1,5 +1,7 @@
 # Kampania „Komputerku…” — koncepcja produkcji powtarzalnej
 
+> **Pakiet koncepcyjny V4 (8 odcinków):** [start i komplet plików](v4/README.md). Rozwija oś chaos → koordynacja → projekt aktu na wzorze kancelarii. Aktualne głosy v2 i Text to Dialogue pozostają zgodne z `glosy.md`; patrz [nota integracyjna](v4/INTEGRACJA_PR20.md). Materiały V4 wymagają autoryzacji przed publikacją.
+
 > **Aktualne (12.11.2026): kancelaria-v2 / obsada-v2.** Scenografia z jednego źródła prawdy (plan, materiały, 9 stałych kamer) i powtarzalny proces wprowadzania postaci: [`KANCELARIA_I_POSTACIE.md`](KANCELARIA_I_POSTACIE.md), narzędzie `narzedzia/kancelaria.py`. Silniki awatarów i koszty: [`awatary.md`](awatary.md). Obsada v1 (`pakiet/08_obsada_v1`) zostaje jako archiwum.
 
 Stan: 11.11.2026. Pakiet graficzny: `pakiet/` (start: `pakiet/README_START_TUTAJ.md`).
