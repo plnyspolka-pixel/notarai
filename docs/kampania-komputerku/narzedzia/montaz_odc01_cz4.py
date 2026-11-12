@@ -76,7 +76,7 @@ DZ = [
  (PEN + 1.2, f'{V4}/sfx_dlugopis.mp3', 0, 1.5, 4.0),
  (0, f'{V3}/amb_recepcja_n.mp3', 0, S11 + 0.4, 0.75),
  (S11, f'{V4}/amb_gabinet.mp3', 0, S12 - S11 + 0.4, 0.8),
- (S12, f'{V4}/amb_gabinet.mp3', 8, PEN + 3.0 - S12, 0.55),
+ (S12, f'{V4}/amb_gabinet.mp3', 8, PEN + 3.6 - S12, 0.55),
  (SO, OUTRO, 0, dl(OUTRO), 1.0),
 ]
 inp = ['-i', f'{T}/obraz.mp4']; fc = []

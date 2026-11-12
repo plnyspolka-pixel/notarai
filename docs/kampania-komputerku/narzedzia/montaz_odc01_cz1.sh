@@ -21,8 +21,8 @@ ujecie "$V/b3_pawel_drzwi.mp4" 0.2 1.6 c3.mp4
 ujecie "$V/b4_drukarka.mp4" 1.0 0.9 c4.mp4
 ujecie "$V/b5_basia_chwileczke.mp4" 0.3 2.8 c5.mp4
 printf "file '%s'\n" c1.mp4 c2.mp4 c3.mp4 c4.mp4 c5.mp4 > l1.txt; ffmpeg -v error -y -f concat -safe 0 -i l1.txt -c copy cold_v.mp4
-ffmpeg -v error -y -i cold_v.mp4 -i "$V/amb_recepcja.mp3" -i "$V/sfx_telefon.mp3" -i "$V/sfx_drzwi.mp3" -i "$V/sfx_drukarka.mp3" -i "$V/kuba_zza_kadru.mp3" -filter_complex \
- "[1:a]atrim=0:7.5,volume=0.5[a1];[2:a]adelay=300|300,volume=0.9[a2];[3:a]adelay=2100|2100,volume=0.8[a3];[4:a]adelay=4000|4000,volume=0.7[a4];[5:a]adelay=4200|4200,volume=1.6,aecho=0.6:0.5:35:0.15[a5];\
+ffmpeg -v error -y -i cold_v.mp4 -i "$K/produkcja-odc01/czesc3_wideo/amb_recepcja_n.mp3" -i "$V/sfx_telefon.mp3" -i "$V/sfx_drzwi.mp3" -i "$V/sfx_drukarka.mp3" -i "$V/kuba_zza_kadru.mp3" -filter_complex \
+ "[1:a]atrim=0:7.5,volume=1.0[a1];[2:a]adelay=300|300,volume=0.9[a2];[3:a]adelay=2100|2100,volume=0.8[a3];[4:a]adelay=4000|4000,volume=0.7[a4];[5:a]adelay=4200|4200,volume=1.6,aecho=0.6:0.5:35:0.15[a5];\
 [a1][a2][a3][a4][a5]amix=inputs=5:duration=first:normalize=0,aformat=sample_rates=48000:channel_layouts=stereo[a]" \
  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -t 7.5 cold.mp4
 # --- intro 5 ---
@@ -42,8 +42,8 @@ ffmpeg -v error -y -f lavfi -t 0.8 -i anullsrc=r=48000:cl=stereo cisza08.wav
 printf "file '%s'\n" t1_basia_telefon.wav cisza08.wav t2_pawel.wav t1_basia_zajmuje.wav t3_marta.wav t1_basia_sprawdzam.wav > la.txt
 ffmpeg -v error -y -f concat -safe 0 -i la.txt -c pcm_s16le dialog.wav
 D2=$(ffprobe -v error -show_entries format=duration -of csv=p=0 sc2_v.mp4)
-ffmpeg -v error -y -i sc2_v.mp4 -i dialog.wav -i "$V/amb_recepcja.mp3" -i "$V/sfx_telefon.mp3" -filter_complex \
- "[1:a]volume=1.5[d];[2:a]atrim=3:20,asetpts=PTS-STARTPTS,volume=0.35[am];[3:a]adelay=3880|3880,volume=0.8[t];[d][am][t]amix=inputs=3:duration=first:normalize=0,afade=t=out:st=$(python3 -c "print($D2-0.4)"):d=0.4,aformat=sample_rates=48000:channel_layouts=stereo[a]" \
+ffmpeg -v error -y -i sc2_v.mp4 -i dialog.wav -i "$K/produkcja-odc01/czesc3_wideo/amb_recepcja_n.mp3" -i "$V/sfx_telefon.mp3" -filter_complex \
+ "[1:a]volume=1.5[d];[2:a]atrim=3:20,asetpts=PTS-STARTPTS,volume=0.85[am];[3:a]adelay=3880|3880,volume=0.8[t];[d][am][t]amix=inputs=3:duration=first:normalize=0,afade=t=out:st=$(python3 -c "print($D2-0.4)"):d=0.4,aformat=sample_rates=48000:channel_layouts=stereo[a]" \
  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -t $D2 sc2.mp4
 # --- całość ---
 printf "file '%s'\n" cold.mp4 intro.mp4 sc2.mp4 > lc.txt

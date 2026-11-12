@@ -8,7 +8,7 @@ Każda część: **A. kadry** (akceptacja) → **B. wideo** (akceptacja) → mon
 | 1 | Trzęsienie ziemi (sc. 01) → intro → sc. 02 | nie | ok. 5 USD | kadry: zlecenia gotowe (`czesc1_kadry.json`), czekają na środki w fal |
 | 2 | sc. 03–05: kalendarz, klient z dokumentem, zdjęcie telefonem | tak (kalendarz, telefon, aparat, pliki) | ok. 5 USD | czeka na część 1 i sesję „funkcje pod odcinek 01” |
 | 3 | sc. 06–09: weryfikacja odczytu, Helena, „Komputerku…”, przeskok 8:57 → 9:24 | tak (weryfikacja, Sporządź projekt) | ok. 5 USD | do akceptacji (podglady/odc01_czesc3.mp4, 58,2 s, poprawiony dźwięk) |
-| 4 | sc. 10–12 + outro: projekt i Word, Helena, pani Irena „bez syna” | tak (projekt, Word) | ok. 4 USD | do akceptacji (podglady/odc01_czesc4.mp4, 51,8 s) |
+| 4 | sc. 10–12 + outro: projekt i Word, Helena, pani Irena „bez syna” | tak (projekt, Word) | ok. 4 USD | zrobione |
 
 ## Część 1: ujęcia
 
@@ -24,3 +24,6 @@ Każda część: **A. kadry** (akceptacja) → **B. wideo** (akceptacja) → mon
 | B3 | drzwi (K7), wchodzi Pan Zenon | po akceptacji twarzy klienta → Kling | tak |
 
 Głos Kuby zza kadru (sc. 01) i kwestie sc. 02: ElevenLabs, głosy obsady v2; głos Pana Zenona: Voice Design z `postac.json`.
+
+**Cały odcinek (12.11.2026):** `podglady/ODC01_Poniedzialek_857.mp4`, 3:00, skrypt `narzedzia/montaz_odc01_calosc.sh`.
+Tło dźwiękowe we wszystkich częściach na wyrównanym gwarze recepcji (`czesc3_wideo/amb_recepcja_n.mp3`), karty imion w Montserrat.

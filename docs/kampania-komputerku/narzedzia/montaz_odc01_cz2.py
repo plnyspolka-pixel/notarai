@@ -54,12 +54,12 @@ DZ = [
  (start[16], f'{V2}/s05_marta.mp4', 0, 2.04, 1.5),
  (start[17], f'{V2}/s05_basia.mp4', 0, 4.6, 1.5),
  (P + 0.9, f'{V1}/sfx_telefon.mp3', 0, 1.0, 1.0),
- (0, f'{V1}/amb_recepcja_petla.mp3', 0, P, 0.35),
+ (0, f'{K}/produkcja-odc01/czesc3_wideo/amb_recepcja_n.mp3', 0, P, 0.85),
 ]
 inp = ['-i', f'{T}/obraz.mp4']; fc = []
 for i, (st, f, ss, d, g) in enumerate(DZ, 1):
-    inp += (['-stream_loop', '-1'] if f.endswith('amb_recepcja_petla.mp3') else []) + ['-i', f]; ms = int(st * 1000)
-    fade = f',afade=t=out:st={d - 0.35}:d=0.35' if f.endswith('amb_recepcja_petla.mp3') else ''
+    inp += (['-stream_loop', '-1'] if f.endswith('amb_recepcja_n.mp3') else []) + ['-i', f]; ms = int(st * 1000)
+    fade = f',afade=t=out:st={d - 0.35}:d=0.35' if f.endswith('amb_recepcja_n.mp3') else ''
     fc.append(f'[{i}:a]atrim={ss}:{ss + d},asetpts=PTS-STARTPTS{fade},volume={g},aformat=sample_rates=48000:channel_layouts=stereo,adelay={ms}|{ms}[a{i}]')
 fc.append(''.join(f'[a{i}]' for i in range(1, len(DZ) + 1)) + f'amix=inputs={len(DZ)}:duration=longest:normalize=0,atrim=0:{DL},loudnorm=I=-16:TP=-1.5:LRA=11[a]')
 wyj = f'{K}/podglady/odc01_czesc2.mp4'
