@@ -28,17 +28,25 @@
     {
       "kamera": "K3",
       "glowny": true,
-      "poza_en": "He stands at the secretary's small desk facing camera three-quarters, holding a clear plastic document sleeve with a single paper certificate in his left hand, the other hand relaxed, friendly businesslike smile, mouth closed."
+      "poza_en": "He stands at the secretary's small desk facing camera three-quarters, holding a clear plastic document sleeve with a single paper certificate in his left hand, the other hand relaxed, friendly businesslike smile, mouth closed.",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22f97/tzjaWLhC5JZ84cuhfIunp_r5xN9ZDL.png"
     },
     {
       "kamera": "K7",
       "glowny": false,
-      "poza_en": "He steps in briskly through the half-open double door, holding a clear plastic document sleeve, looking into the room."
+      "poza_en": "He steps in briskly through the half-open double door, holding a clear plastic document sleeve, looking into the room.",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22f97/ke4o9xVB7uoO-YPY_RmUV_6I4YXvaB.png"
     }
   ],
   "glos": {
-    "opis_voice_design_en": "(wariant 1 z Voice Design, wybór właściciela)",
-    "elevenlabs_voice_id": "xu17wWrBQRmEysbBcctv"
+    "opis_voice_design_en": "Polish man, 45, friendly but over-eager and in a hurry, fast matter-of-fact delivery, warm mid-range baritone",
+    "elevenlabs_voice_id": null,
+    "kandydaci": [
+      "7KAMhhzp05frisJC5L7o",
+      "T8EMpxJdrgSb97NAUtfB",
+      "Zx7C26UvQYBRaXFMf9S7"
+    ],
+    "uwaga": "czeka na wybór właściciela (pliki glosy_v2/pawel_projekt/pawel_glos_1..3.mp3)"
   },
   "ruch": {
     "silnik_domyslny": "heygen-avatar-6-turbo",
@@ -51,9 +59,13 @@
     "avatar_id": null
   },
   "pliki": {
-    "ref": null,
+    "ref": {
+      "plik": "../../../produkcja-odc01/czesc1_kadry/pawel_ref_3.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22f6e/Js-Bb_poEVm6fH-PXJa5s_l4ukPtmx.png",
+      "zatwierdzony": "właściciel 12.11.2026 (wariant 3)"
+    },
     "arkusz": null
   },
-  "status": "szkic — twarz do akceptacji",
+  "status": "twarz zatwierdzona (wariant 3); głos do wyboru",
   "zrodlo": "sezon1/BIBLIA_INTRYGI_SEZONU_1.md §2.7"
 }
