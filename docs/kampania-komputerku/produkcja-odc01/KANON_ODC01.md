@@ -27,8 +27,12 @@ Obowiązuje we wszystkich materiałach: wideo, dialogi, dane demo w NotarAI, mai
 | 02 | Basia | „Dzień dobry. Już się panem zajmuję.” |
 | 02 | Marta | „Basiu, sprawa pani Ireny?” |
 | 02 | Basia | „Już sprawdzam.” |
-| 04 | Paweł | „To zaświadczenie od zarządcy, o które pani prosiła.” |
+| 04 | Paweł | „Proszę bardzo, o to pani prosiła.” |
 | 04 | Basia | „Dziękuję. Dołączę je do sprawy pani Ireny. Proszę chwilę zaczekać.” |
 
+## Zasady dialogów
+- Bez powtórzeń tych samych fraz w kolejnych kwestiach (np. „od zarządcy” pada raz, w sc. 02; dalej „to”, „ten papier”). Mówimy jak ludzie, nie jak formularz.
+- Konkret zamiast ogólników: zawsze wiadomo, jaki dokument i do której sprawy.
+
 ## Głos
-- Głos klienta w sc. 02 i 04: **wariant 1** z Voice Design (`xu17wWrBQRmEysbBcctv`), decyzja właściciela „ma być wszędzie”, przypisany Pawłowi (uwaga: projektowany jako głos ok. 60+, Paweł ma 45 lat — do odsłuchu właściciela).
+- Paweł Nowak: **`7KAMhhzp05frisJC5L7o`** (nowy głos 45-latka, „głos 1” z drugiej sesji Voice Design, wybór właściciela). Głos `xu17…` (Pan Zenon) nie jest używany.

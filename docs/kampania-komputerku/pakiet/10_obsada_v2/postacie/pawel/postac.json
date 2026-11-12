@@ -40,13 +40,8 @@
   ],
   "glos": {
     "opis_voice_design_en": "Polish man, 45, friendly but over-eager and in a hurry, fast matter-of-fact delivery, warm mid-range baritone",
-    "elevenlabs_voice_id": null,
-    "kandydaci": [
-      "7KAMhhzp05frisJC5L7o",
-      "T8EMpxJdrgSb97NAUtfB",
-      "Zx7C26UvQYBRaXFMf9S7"
-    ],
-    "uwaga": "czeka na wybór właściciela (pliki glosy_v2/pawel_projekt/pawel_glos_1..3.mp3)"
+    "elevenlabs_voice_id": "7KAMhhzp05frisJC5L7o",
+    "uwaga": "głos 1 wybrany przez właściciela 12.11.2026 (glosy_v2/pawel_projekt/pawel_glos_1.mp3)"
   },
   "ruch": {
     "silnik_domyslny": "heygen-avatar-6-turbo",
@@ -66,6 +61,6 @@
     },
     "arkusz": null
   },
-  "status": "twarz zatwierdzona (wariant 3); głos do wyboru",
+  "status": "zatwierdzona: twarz wariant 3, głos 1",
   "zrodlo": "sezon1/BIBLIA_INTRYGI_SEZONU_1.md §2.7"
 }

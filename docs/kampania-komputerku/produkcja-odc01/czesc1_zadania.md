@@ -22,3 +22,12 @@
 
 Kuba `odc01_s01_kuba-04424a07.mp3` (zza kadru), Basia `odc01_s02_basia_1-67b22a41`, `_2-5f89c6ee`, `_3-46979760`,
 Pan Zenon: kwestia do ponownego nagrania głosem 1 `xu17wWrBQRmEysbBcctv` z konkretnym dokumentem (wersja z `dE7Z…` odrzucona), Marta `odc01_s02_marta-3fa22250`.
+
+## Zmiana obsady (kanon 12.11)
+- Paweł Nowak zamiast Pana Zenona: kadr K3 `tzjaWLhC5JZ84cuhfIunp` (T2_pawel_K3_2), K7 `ke4o9xVB7uoO-YPY_RmUV` (B3_pawel_K7_1).
+- Wejście Pawła (Kling): 01a1d063-f75d-7e63-99a8-dc364dca263a. Paweł mówi (HeyGen Avatar 6): 9477270ab803470eb1f1aae552be94ef, głos `7KAMhhzp05frisJC5L7o`, nagranie `odc01_s02_pawel_c-09d45a32.mp3`.
+- Odrzucone (archiwum, nie używać): Pan Zenon B3 01a1d041-495c-7ae0-bef2-4a01bf51c730, HeyGen 30a07333631a4dea90b4329ebdebdff5.
+
+## Montaż
+`narzedzia/montaz_odc01_cz1.sh` → `podglady/odc01_czesc1.mp4` (31,4 s): sc. 01 (7,5 s) → intro 5 (8 s) → sc. 02 (15,9 s).
+Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57”). Efekty: ElevenLabs SFX (telefon, drzwi, drukarka, gwar recepcji).
