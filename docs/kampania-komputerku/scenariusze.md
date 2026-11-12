@@ -1,21 +1,47 @@
 # „Komputerku…” — scenariusze odcinków (sezon 1)
 
-Stan: 11.11.2026. Seria mikrofabuł 30–40 s, format główny 9:16, adaptacje 16:9 i 1:1.
+Stan: 11.11.2026. Seria mikrofabuł 30–40 s akcji (z otwarciem, intro i outro ok. 40–50 s), format główny 9:16, adaptacje 16:9 i 1:1.
 Obsada i scenografia: `pakiet/05_biblia_produkcji/` (Helena, Marta, Basia, Kuba;
 jeden pokój, ten sam plan). Każdy odcinek pokazuje **jedną istniejącą funkcję**
 NotarAI na danych fikcyjnych i kończy się kontrolą człowieka.
 
-## Szkielet każdego odcinka (stały rytm)
+## Szkielet każdego odcinka (stały rytm, od 12.11.2026)
 
-| Czas | Blok | Co widać | Źródło obrazu |
-|---|---|---|---|
-| 0–3 s | **Hak** | problem w jednym zdaniu, reakcja postaci | AI (kadr + ruch) |
-| 3–10 s | **Kłopot** | wymiana 2–3 kwestii między postaciami | AI (mówiące postacie) |
-| 10–13 s | **„Komputerku…”** | postać mówi polecenie; dymek + „Słucham…” | AI + grafika systemowa |
-| 13–24 s | **Działanie** | „Już sprawdzam…” → prawdziwy ekran NotarAI | nagranie ekranu (dane testowe) |
-| 24–31 s | **Kontrola** | notariusz przegląda wynik, „Projekt do weryfikacji” | AI + grafika systemowa |
-| 31–35 s | **Puenta** | żart z charakterów, nie z prawa | AI |
-| 35–38 s | **Outro** | `OUTRO_komputerku` + notarai.pl | plansza |
+Zasada właściciela: **odcinek nie zaczyna się od intro**. Najpierw „trzęsienie ziemi”
+(Hitchcock: zacznij od wstrząsu, potem napięcie rośnie) albo „W poprzednim odcinku…”,
+albo oba. Dopiero potem intro serii.
+
+| Kolejność | Blok | Długość | Co widać | Kiedy |
+|---|---|---|---|---|
+| 0 | **W poprzednim odcinku…** | do 5 s | 2–3 najkrótsze ujęcia z poprzedniego odcinka (hak, „Komputerku…”, puenta), ciepła plansza „W poprzednim odcinku…”, głos postaci | od odc. 2, gdy fabuła się łączy |
+| 1 | **Trzęsienie ziemi** | 3–6 s | najmocniejszy moment odcinka *przed* wyjaśnieniem: hak albo skok w przód do kulminacji, mocny dźwięk na wejściu, twarde cięcie na intro w środku napięcia | zawsze |
+| 2 | **Intro** | 8 s | `intro/INTRO_5_komputerku_9x16.mp4` (Marta: „Komputerku… przywitaj się”) | zawsze |
+| 3 | **Kłopot** | 5–10 s | wymiana 2–3 kwestii między postaciami | zawsze |
+| 4 | **„Komputerku…”** | ok. 3 s | polecenie, dymek + „Słucham…” | zawsze |
+| 5 | **Działanie** | ok. 10 s | „Już sprawdzam…” → prawdziwy ekran NotarAI | zawsze |
+| 6 | **Kontrola** | ok. 5 s | notariusz przegląda wynik, „Projekt do weryfikacji” | zawsze |
+| 7 | **Puenta** | 3–4 s | żart z charakterów, nie z prawa | zawsze |
+| 8 | **Outro** | 6 s | `intro/OUTRO_siodemka_9x16.mp4` (siódemka na drzwiach + notarai.pl) | zawsze |
+
+Gdy są oba otwarcia: najpierw „W poprzednim odcinku…”, potem trzęsienie ziemi, potem intro.
+Całość: ok. 40–50 s (Reels, Shorts i TikTok przyjmują). Trzęsienie ziemi to nie
+osobna scena do dokręcenia: zwykle to hak odcinka albo jego kulminacja wyjęta na początek.
+Jeśli to skok w przód, scena musi potem wrócić w odcinku (widz dostaje odpowiedź).
+
+Wzór: odc. 1, `podglady/odc1_podglad_v3.mp4` (otwarcie: `podglady/odc1_trzesienie_ziemi.mp4`):
+łoskot stosu kopert na biurko → Basia: „Dwadzieścia trzy listy. Każdy do książki
+nadawczej. Ręcznie.” → uderzenie dźwiękowe → intro.
+
+### Otwarcia sezonu 1
+
+| Odc. | W poprzednim odcinku… | Trzęsienie ziemi |
+|---|---|---|
+| 1 | — | Łoskot stosu kopert. Basia: „Dwadzieścia trzy listy. Każdy do książki nadawczej. Ręcznie.” |
+| 2 | Basia nad kopertami → Marta: „Komputerku…” → Basia: „Ale koperty dalej kleję ja.” | Dzwonią dwa telefony naraz, Kuba z dwiema słuchawkami: „Piąty telefon dzisiaj!” |
+| 3 | Kuba: „Piąty telefon dzisiaj” → kalkulator → Helena: „Czyli ty, Kubo.” | Skok w przód: Kuba blady nad laptopem: „Pani Marto… jedno nazwisko się zgadza.” (w odcinku: to tylko podobne nazwisko) |
+| 4 | Kuba: „Jedno nazwisko się zgadza” → Helena: „Data urodzenia się nie zgadza” → Basia: „Też tam jestem?” | Skok w przód: Helena kładzie palec na ekranie: „Stop.” (w odcinku: poprawia udział jedna druga) |
+| 5 | Helena: „Stop.” → wniosek KW → „Komputer przepisuje. Czytam ja.” | Otwierają się drzwi, Basia: „Pan Nowak. Z »kompletem« papierów.” (reklamówka dokumentów) |
+| 6 | Basia: „Z kompletem papierów” → teczka klienta → Helena: „Zobaczymy.” | Kuba: „Nowy rok, zaczynam numerację od jedynki!” — Basia i Helena jednocześnie: „Nie.” |
 
 Warstwy stałe: znaczek „AI” w rogu przez cały film (bez belki „Treść
 wygenerowana przez AI”), logo w rogu, belki z imionami przy pierwszym pojawieniu

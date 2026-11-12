@@ -3,6 +3,23 @@
   "odcinek": 1,
   "tytul": "Księga nadawcza w pięć minut",
   "funkcja_notarai": "Przesyłki i korespondencja (docs/przesylki.md)",
+  "struktura": [
+    "w_poprzednim_odcinku (opcjonalnie, od odc. 2)",
+    "trzesienie_ziemi",
+    "intro",
+    "ujecia",
+    "outro"
+  ],
+  "w_poprzednim_odcinku": null,
+  "trzesienie_ziemi": {
+    "ujecie": "u1",
+    "plik": "podglady/odc1_trzesienie_ziemi.mp4",
+    "dzwiek_na_wejsciu": "łoskot stosu kopert (ElevenLabs SFX)",
+    "dzwiek_na_cieciu": "krótkie uderzenie (ElevenLabs SFX)",
+    "skok_w_przod": false
+  },
+  "intro": "intro/INTRO_5_komputerku_9x16.mp4",
+  "outro": "intro/OUTRO_siodemka_9x16.mp4",
   "format_glowny": "9x16",
   "adaptacje": [
     "16x9",
