@@ -67,7 +67,7 @@ function intro(W, H, f) {
       <div style="font-weight:800;font-size:${(land ? 74 : 92) * u}px;line-height:1.02;letter-spacing:-.045em">Kancelaria<br>pod Siódemką</div>
       <div style="font-weight:500;font-size:${30 * u}px;margin-top:${24 * u}px;color:#DCEBFF">Odcinek 1 · Księga nadawcza w pięć minut</div>
     </div>
-    <div style="font-weight:500;font-size:${19 * u}px;color:#BFD6FF">Postacie i kancelaria są fikcyjne · obraz wygenerowany przez AI</div>
+    <div></div>
   </div></div>`;
 }
 
@@ -81,7 +81,6 @@ function outro(W, H, f) {
     <div style="font-weight:500;font-size:${34 * u}px;line-height:1.35;max-width:${860 * u}px;color:#E3EEFF">NotarAI przygotuje projekt.<br>Decyzję zawsze podejmuje notariusz.</div>
     <div class="pill" style="background:#fff;color:var(--navy);font-weight:800;font-size:${46 * u}px;letter-spacing:-.03em;padding:${22 * u}px ${64 * u}px;box-shadow:0 ${20 * u}px ${50 * u}px rgba(6,23,68,.3)">notarai.pl</div>
   </div>
-  <div style="position:absolute;bottom:${46 * u}px;left:0;right:0;font-weight:500;font-size:${19 * u}px;color:#BFD6FF">Postacie fikcyjne, wygenerowane przez AI · ekrany: demonstracja na danych fikcyjnych</div>
   </div>`;
 }
 
@@ -101,6 +100,7 @@ function miniatura(W, H, f) {
 }
 
 // Nakładka na cały film: logo, belka z imieniem, znaczek AI (jak w rolkach Studia: prawy górny róg, pod paskiem aplikacji).
+// Bez belki „Treść wygenerowana przez AI” — nie używamy jej nigdzie (decyzja właściciela 12.11.2026, jak w rolkach Finance You).
 function overlay(W, H, f) {
   const u = Math.min(W, H) / 1080;
   const side = f === '9x16' ? 90 : 70;
@@ -112,28 +112,11 @@ function overlay(W, H, f) {
     <div style="width:${12 * u}px;background:var(--grad)"></div>
     <div style="padding:${18 * u}px ${30 * u}px">
       <div style="font-weight:800;font-size:${38 * u}px;letter-spacing:-.03em;color:var(--navy)">Helena</div>
-      <div style="font-weight:600;font-size:${22 * u}px;color:var(--muted);margin-top:${4 * u}px">pani rejent · postać fikcyjna</div>
+      <div style="font-weight:600;font-size:${22 * u}px;color:var(--muted);margin-top:${4 * u}px">pani rejent</div>
     </div>
   </div></div>`;
 }
 const aiPill = (u, x, y) => `<div class="pill" style="position:absolute;left:${x}px;top:${y}px;width:${96 * u}px;height:${54 * u}px;border-radius:${15 * u}px;background:rgba(0,0,0,.3);border:${2 * u}px solid rgba(255,255,255,.7);color:#fff;font-weight:800;font-size:${30 * u}px;letter-spacing:.02em">AI</div>`;
-
-// Oznaczenie AI na pierwsze 5 s (osobna warstwa; wchodzi od 0 s, schodzi ok. 5 s).
-function oznaczenieAI(W, H, f) {
-  const u = Math.min(W, H) / 1080;
-  const side = f === '9x16' ? 90 : 70;
-  const top = f === '9x16' ? 300 : (f === '1x1' ? 130 : 120);
-  return `<div class="stage" style="width:${W}px;height:${H}px">
-  <div style="position:absolute;left:${side * u}px;right:${side * u}px;top:${top * u}px;display:flex;justify-content:center">
-   <div style="display:flex;align-items:center;gap:${22 * u}px;background:rgba(6,23,68,.78);border:${2 * u}px solid rgba(255,255,255,.35);border-radius:${26 * u}px;padding:${20 * u}px ${30 * u}px;color:#fff;max-width:${(f === '16x9' ? 1100 : 900) * u}px">
-    <div class="pill" style="flex:none;width:${84 * u}px;height:${50 * u}px;border-radius:${14 * u}px;background:var(--cyan);color:var(--deep);font-weight:800;font-size:${28 * u}px">AI</div>
-    <div>
-      <div style="font-weight:800;font-size:${31 * u}px;letter-spacing:-.02em;line-height:1.15">Treść wygenerowana przez AI</div>
-      <div style="font-weight:500;font-size:${22 * u}px;color:#CFE0FF;margin-top:${6 * u}px;line-height:1.3">Postacie i kancelaria są fikcyjne. Ekrany NotarAI pokazano na danych testowych.</div>
-    </div>
-   </div>
-  </div></div>`;
-}
 
 // ── Grafika systemowa ───────────────────────────────────────────────────────
 function statusBar(W, H, icon, text, sub, iconBg) {
@@ -201,7 +184,6 @@ function obsada(W, H) {
      <div style="padding:18px 8px 6px"><div style="font-weight:800;font-size:36px;letter-spacing:-.03em;color:var(--navy)">${n}</div>
      <div style="font-weight:600;font-size:21px;color:var(--muted);margin-top:4px">${r}</div></div></div>`).join('')}
   </div>
-  <div style="margin-top:26px;font-weight:500;font-size:19px;color:var(--muted)">Postacie fikcyjne, wygenerowane przez AI. Nie przedstawiają prawdziwych notariuszy ani pracowników kancelarii.</div>
   </div>`;
 }
 
@@ -218,7 +200,6 @@ function keyVisual(W, H) {
       <div style="width:120px;height:46px">${wave()}</div>
     </div>
   </div>
-  <div style="position:absolute;right:40px;bottom:30px;font-weight:500;font-size:18px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5)">Postacie fikcyjne · obraz wygenerowany przez AI</div>
   </div>`;
 }
 
@@ -235,8 +216,7 @@ function brandBoard(W, H) {
      <div style="margin-top:34px;display:flex;align-items:baseline;gap:26px"><div style="font-weight:800;font-size:64px;letter-spacing:-.05em;color:var(--navy)">Aa</div><div style="font-weight:600;font-size:22px;color:var(--muted)">Montserrat 500 / 600 / 800 · nagłówki z ciasnym światłem (−0,045 em)</div></div>`)}
   ${box(`${h('Bohaterowie i stała scenografia')}<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px">${CAST.map(([k, n, r]) => `<div><div style="height:390px;border-radius:14px;background:url(${REF(k)}) center 25%/cover"></div><div style="font-weight:800;font-size:28px;color:var(--navy);margin-top:12px">${n}</div><div style="font-weight:600;font-size:17px;color:var(--muted)">${r}</div></div>`).join('')}</div>`)}
   ${box(`${h('Język animacji i plansz')}${st(micSvg(), 'var(--indigo)', 'Słucham…')}${st(barsSvg, 'var(--blue)', 'Już sprawdzam…')}${st(checkSvg, 'var(--success)', 'Projekt do weryfikacji')}
-     <div style="font-weight:600;font-size:21px;color:var(--muted);margin-top:22px">Polecenie → działanie → rezultat do kontroli notariusza</div>
-     <div style="font-weight:500;font-size:17px;color:var(--muted);margin-top:14px">Postacie fikcyjne, wygenerowane przez AI. Oryginalny sygnet NotarAI bez zmian.</div>`)}
+     <div style="font-weight:600;font-size:21px;color:var(--muted);margin-top:22px">Polecenie → działanie → rezultat do kontroli notariusza</div>`)}
   </div>`;
 }
 
@@ -247,7 +227,6 @@ for (const [f, [W, H]] of Object.entries(FMT)) {
   jobs.push([`03_plansze_video/${f}/OUTRO_komputerku.png`, W, H, outro(W, H, f), false]);
   jobs.push([`03_plansze_video/${f}/MINIATURA_odcinek_przyklad.png`, W, H, miniatura(W, H, f), false]);
   jobs.push([`03_plansze_video/${f}/OVERLAY_TRANSPARENT.png`, W, H, overlay(W, H, f), true]);
-  jobs.push([`03_plansze_video/${f}/OZNACZENIE_AI_pierwsze_5s.png`, W, H, oznaczenieAI(W, H, f), true]);
 }
 jobs.push(['04_grafika_systemowa/dymek_komputerku_transparent.png', 1280, 220, dymek(1280, 220), true]);
 jobs.push(['04_grafika_systemowa/mikrofon_komputerku_transparent.png', 512, 512, mikrofon(512, 512), true]);

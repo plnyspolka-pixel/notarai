@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sklejka podglądowa odc. 1 (u1–u4 + outro) z warstwami: logo+AI cały film,
-# oznaczenie AI 0–5 s, dymek „Komputerku…” na ujęciu Marty (u4).
+# Sklejka podglądowa odc. 1 (u1–u4 + outro) z warstwami: logo + znaczek AI
+# (bez belki „Treść wygenerowana przez AI”), dymek „Komputerku…” na ujęciu Marty (u4).
 set -euo pipefail
 cd "$(dirname "$0")"
 norm() { # $1 wejście, $2 wyjście — 720x1280, 25 fps, AAC 48k stereo
@@ -18,7 +18,7 @@ ffmpeg -y -v error -loop 1 -t 3 -i outro.png -f lavfi -t 3 -i anullsrc=r=48000:c
 printf "file 'n_u1.mp4'\nfile 'n_u2.mp4'\nfile 'n_u3.mp4'\nfile 'n_u4.mp4'\nfile 'n_outro.mp4'\n" > lista.txt
 ffmpeg -y -v error -f concat -safe 0 -i lista.txt -c copy surowa.mp4
 # warstwy na całość
-ffmpeg -y -v error -i surowa.mp4 -i warstwa_logo_ai.png -i warstwa_ai_5s.png -filter_complex \
-  "[0:v][1:v]overlay=0:0:enable='lt(t,$(python3 -c "print($(ffprobe -v error -show_entries format=duration -of csv=p=0 surowa.mp4)-3)"))'[a];[a][2:v]overlay=0:0:enable='lt(t,5)',format=yuv420p" \
+ffmpeg -y -v error -i surowa.mp4 -i warstwa_logo_ai.png -filter_complex \
+  "[0:v][1:v]overlay=0:0:enable='lt(t,$(python3 -c "print($(ffprobe -v error -show_entries format=duration -of csv=p=0 surowa.mp4)-3)"))'[a];[a]format=yuv420p" \
   -c:v libx264 -preset medium -crf 20 -c:a copy -movflags +faststart odc1_podglad_u1-u4.mp4
 ffprobe -v error -show_entries format=duration -of csv=p=0 odc1_podglad_u1-u4.mp4

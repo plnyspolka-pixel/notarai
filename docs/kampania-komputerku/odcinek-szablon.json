@@ -4,11 +4,13 @@
   "tytul": "Księga nadawcza w pięć minut",
   "funkcja_notarai": "Przesyłki i korespondencja (docs/przesylki.md)",
   "format_glowny": "9x16",
-  "adaptacje": ["16x9", "1x1"],
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
   "obsada_wersja": "obsada-v1",
   "scenografia_wersja": "kancelaria-v1",
   "warstwy": {
-    "oznaczenie_ai_sekundy": 5,
     "znaczek_ai": true,
     "logo_w_rogu": true,
     "belki_z_imionami": true,
@@ -52,7 +54,10 @@
       "postac": "marta",
       "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
       "kwestia": "Komputerku, przygotuj książkę nadawczą z dzisiejszych przesyłek.",
-      "grafika": ["dymek_komputerku", "status_slucham"],
+      "grafika": [
+        "dymek_komputerku",
+        "status_slucham"
+      ],
       "ruch_kamery": "statyczna"
     },
     {
@@ -60,7 +65,9 @@
       "typ": "ekran",
       "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
       "czas_s": 7,
-      "grafika": ["status_sprawdzam"]
+      "grafika": [
+        "status_sprawdzam"
+      ]
     },
     {
       "id": "u6",
@@ -69,7 +76,9 @@
       "postac": "basia",
       "klatka_startowa": "kadry/basia_wydruk.png",
       "kwestia": "Adresy się zgadzają. Numer pozycji… dalej po zeszłorocznej. Dobrze.",
-      "grafika": ["status_gotowe"],
+      "grafika": [
+        "status_gotowe"
+      ],
       "ruch_kamery": "statyczna"
     },
     {

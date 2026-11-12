@@ -21,5 +21,4 @@ Bohaterowie i ich wygląd, scenografia, storyboardy, plansze i makieta UI są ma
 - Wszystkie plansze i grafiki tekstowe (`01_marki`, `02_bohaterowie/obsada_4_postacie.png`, `03_plansze_video`, `04_grafika_systemowa`) wyrenderowane ponownie **prawdziwym Montserratem** (OFL, @fontsource/montserrat 5.1.0) zamiast zastępczego fontu. Źródło: `../narzedzia/render_plansz.js` — zmiana tekstu = zmiana w skrypcie i ponowny render, bez ręcznej edycji PNG.
 - Znak słowny jak na notarai.pl: Montserrat 800, „ai” w #00BFE8; na ciemnym tle sygnet na białej płytce (oryginalne kolory, bez przemalowania).
 - Makieta UI ma pieczątkę „MAKIETA POGLĄDOWA — nie jest zrzutem ekranu aplikacji”.
-- Nowa warstwa `03_plansze_video/{format}/OZNACZENIE_AI_pierwsze_5s.png` (0–5 s) i znaczek „AI” w `OVERLAY_TRANSPARENT.png` (cały film) — patrz `../README.md`, rozdział o oznaczeniu AI.
-- Plansze, które pokazują postacie, mają dopisek „Postacie fikcyjne, wygenerowane przez AI”.
+- Znaczek „AI” w rogu w `OVERLAY_TRANSPARENT.png` (cały film), jak w rolkach Finance You. Belki „Treść wygenerowana przez AI” i dopisków o AI na planszach nie używamy (12.11.2026).

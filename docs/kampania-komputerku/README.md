@@ -60,7 +60,7 @@ scenariusz (scenariusze.md → odcinek.json)
   │
   └─ 4. Montaż i wykończenie ─ Remotion Lambda (eu-central-1) albo caption-burner (Fly.io, waw)
         sklejka ujęć + intro/outro + grafika systemowa + napisy z czasów lektora
-        + oznaczenie AI 0–5 s + znaczek „AI” + logo  →  9:16, potem 16:9 i 1:1
+        + znaczek „AI” + logo  →  9:16, potem 16:9 i 1:1
         → kolejka publikacji Studia (YouTube Shorts, Reels, TikTok)
 ```
 
@@ -78,24 +78,13 @@ Kiedy HeyGen, a kiedy fal w kroku 3a:
 
 ## 4. Oznaczenie treści AI
 
-Dwie warstwy, obie w pakiecie:
-
-1. **„Treść wygenerowana przez AI”** — duża belka od 0 do 5 s
-   (`OZNACZENIE_AI_pierwsze_5s.png`), z dopiskiem, że postacie i kancelaria są
-   fikcyjne, a ekrany pokazano na danych testowych.
-2. **Znaczek „AI”** w prawym górnym rogu pod paskiem aplikacji, przez cały
-   film — ten sam wzór co w rolkach Studia (`AI_BADGE` w
-   `finyou/src/lib/caption-style.ts`).
-
-Uwaga o rolkach Finance You: dziś mają **tylko znaczek** — pełną etykietę
-z pierwszych sekund wycofano 23.10.2026 (komentarz w `caption-style.ts`).
-W NotarAI proponujemy wrócić do obu warstw, bo pokazujemy realistyczne,
-wygenerowane osoby w roli notariuszy; art. 50 ust. 4 AI Act (obowiązuje od
-2.08.2026) wymaga ujawnienia takich treści najpóźniej przy pierwszym kontakcie
-z odbiorcą. Technicznie to jedno dodatkowe zdarzenie w planie rolki (0–5 s),
-włączane flagą marki, bez zmiany zachowania rolek Finance You.
-Przy publikacji zaznaczać też etykietę „treść AI” na platformie
-(Meta, TikTok, YouTube mają takie pole).
+Tak jak w rolkach Finance You: **tylko mały znaczek „AI”** w prawym górnym
+rogu pod paskiem aplikacji, przez cały film (wzór `AI_BADGE` w
+`finyou/src/lib/caption-style.ts`, warstwa `OVERLAY_TRANSPARENT.png`).
+Belki „Treść wygenerowana przez AI” ani dopisków o postaciach generowanych
+przez AI na planszach **nie używamy** (decyzja właściciela 12.11.2026).
+Przy publikacji można dodatkowo zaznaczyć etykietę „treść AI” w ustawieniach
+platformy (Meta, TikTok, YouTube).
 
 ## 5. Koszt jednego odcinka (35 s)
 
@@ -161,7 +150,7 @@ poziomy format jest potrzebny.
 2. ~~Studio: typ zadania „odcinek serii”~~ — **infrastruktura ujęć gotowa** w `finyou` (11.11.2026): `docs/seria-odcinkow.md`, narzędzia MCP `seria_*`; brakuje jeszcze montażu odcinka. Pierwotny opis: typ zadania „odcinek serii” w `finyou` — wejście
    `odcinek.json`, ujęcia renderowane równolegle, każde z własną postacią
    i głosem; reszta (napisy, Remotion/caption-burner, kolejka publikacji) już
-   istnieje. Plus flaga marki „oznaczenie AI 0–5 s”.
+   istnieje.
 3. **Nagrania ekranów** NotarAI: skrypt Playwright na koncie demo, jeden
    klip na funkcję (przesyłki, kalkulator, AML, wniosek KW, teczka).
    Tryb „Komputerku” nagrywać dopiero z wersji, w której działa.

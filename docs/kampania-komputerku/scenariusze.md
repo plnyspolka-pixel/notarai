@@ -17,8 +17,8 @@ NotarAI na danych fikcyjnych i kończy się kontrolą człowieka.
 | 31–35 s | **Puenta** | żart z charakterów, nie z prawa | AI |
 | 35–38 s | **Outro** | `OUTRO_komputerku` + notarai.pl | plansza |
 
-Warstwy stałe: oznaczenie „Treść wygenerowana przez AI” przez pierwsze 5 s,
-znaczek „AI” do końca, logo w rogu, belki z imionami przy pierwszym pojawieniu
+Warstwy stałe: znaczek „AI” w rogu przez cały film (bez belki „Treść
+wygenerowana przez AI”), logo w rogu, belki z imionami przy pierwszym pojawieniu
 się postaci, napisy z czasów lektora.
 
 Zasady treści (z biblii): nikt nie popełnia błędu prawnego dla żartu; program
