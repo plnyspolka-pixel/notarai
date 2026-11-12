@@ -191,6 +191,14 @@
       "heygen_video_id": "46b0cea24ef6255fecc245d7662193fd",
       "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/46b0cea24ef6255fecc245d7662193fd-811ee76d.mp4",
       "sekundy": 3.69
+    },
+    {
+      "id": "u5",
+      "typ": "ekran",
+      "opis": "prawdziwa aplikacja NotarAI (widok Przesyłki, układ telefonu) na danych testowych + pasek trybu Komputerku; na końcu prawdziwy PDF pocztowej książki nadawczej",
+      "plik": "podglady/u5_ekran_komputerku_1080x1920.mp4",
+      "sekundy": 9.6,
+      "narzedzie": "narzedzia/nagraj_komputerku.js"
     }
   ]
 }

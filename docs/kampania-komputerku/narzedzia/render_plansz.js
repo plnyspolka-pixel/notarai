@@ -162,7 +162,6 @@ function uiMakieta(W, H) {
      <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:44px">
        ${card('Moje sprawy', 'Odczyt i projekty')}${card('Dokumenty', 'Analiza skanów')}${card('AML / PEP', 'Weryfikacja stron')}${card('Wniosek KW', 'Pakiet do portalu')}
      </div>
-     <div style="position:absolute;right:34px;bottom:30px;transform:rotate(-4deg);border:4px solid var(--alert,#B52E44);color:#B52E44;border-radius:14px;padding:10px 22px;font-weight:800;font-size:26px;letter-spacing:.08em;background:rgba(255,255,255,.9)">MAKIETA POGLĄDOWA<div style="font-weight:600;font-size:16px;letter-spacing:.02em;margin-top:2px">nie jest zrzutem ekranu aplikacji</div></div>
    </div>
   </div></div>`;
 }
