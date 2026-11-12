@@ -67,3 +67,6 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Ekrany: `czesc3_ekrany/plan.json` → `czesc3_wideo/F1–F5` (weryfikacja, „Wymagają uwagi”, Sporządź projekt, Sporządzam projekt…, kalendarz w trakcie).
 - Sc. 09 bez ruchu (kadry z powolnym najazdem): Kling niewykonany, fal bez środków (12.11). Do wymiany: B9, B10, B11, B8 (uśmiechy).
 - Montaż: `narzedzia/montaz_odc01_cz3.py` → `podglady/odc01_czesc3.mp4` (47,8 s). Gwar cichnie na pauzie przed „komputerku”, sc. 09 spokojne biuro, karta „9:24”.
+- Poprawka dźwięku sc. 08–09 (uwaga użytkownika: od 33 s rozmowy bez głosu, potem cisza): tło biura przegenerowane i wyrównane,
+  rozmowy przez telefon słyszalne. Głosy `odc01_s09_basia-1bbd0769`, `s09_kuba-929ba7c4`, `s09_helena-a6ee12c5`;
+  HeyGen: Basia 1ee5913c842d4919a8e40f942d9e0857, Kuba 73328c0962da44438de980eae4bb5169, Helena 47dc9d6210c340a5915c75d96d183918.

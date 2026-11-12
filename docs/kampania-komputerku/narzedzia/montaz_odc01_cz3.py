@@ -33,12 +33,13 @@ UJ = [
  ('s08_marta.mp4', 0, None, True, None, 0, 0, MARTA),
  ('F3_sporzadz.mp4', 0, 1.8, False, None, 0, 0, None),
  ('F4_sporzadzam.mp4', 0, 2.4, False, None, 0, 0, None),
- # sc. 09 „Kancelaria nie przestaje pracować”
- (f'{V1}/t1_basia_telefon.mp4', 0.3, 1.6, True, None, 0, 0, None),
- ('F5_kalendarz.mp4', 0, 2.2, False, None, 0, 0, None),
- (f'{KA}/b9_kuba_tel_2.jpg', 0, 1.7, True, None, 0, 0, None),
- (f'{KA}/b10_marta_dok_2.jpg', 0, 1.7, True, None, 0, 0, None),
- (f'{KA}/b11_helena_rozm_2.jpg', 0, 1.7, True, None, 0, 0, None),
+ # sc. 09 „Kancelaria nie przestaje pracować”: każda rozmowa słyszalna, bez zmyślonych szczegółów
+ ('s09_basia.mp4', 0, 3.1, True, None, 0, 0, None),
+ ('F5_kalendarz.mp4', 0, 2.3, False, None, 0, 0, None),
+ ('s09_basia.mp4', 6.45, 3.05, True, None, 0, 0, None),
+ ('s09_kuba.mp4', 0, None, True, None, 0, 0, None),
+ (f'{KA}/b10_marta_dok_2.jpg', 0, 1.5, True, None, 0, 0, None),
+ ('s09_helena.mp4', 0, None, True, None, 0, 0, None),
  (f'{KA}/b8_marta_kuba_1.jpg', 0, 2.6, True, 'czas_0924.png', 0.7, 2.4, None),
 ]
 def dl(f):
@@ -75,11 +76,16 @@ DZ = [
  (start[8], f'{V3}/s07_helena_2.mp4', 0, UJ[8][2], 1.5),
  (start[10], f'{V3}/s08_marta.mp4', 0, UJ[10][2], 1.5),
  (start[11] + 1.1, f'{V3}/sfx_klik.mp3', 0, 0.5, 1.0),
- (S9 + 0.05, f'{V1}/sfx_telefon.mp3', 0, 1.0, 0.45),
- (start[18] + 0.3, f'{V3}/sfx_zegar.mp3', 0, 2.3, 0.9),
- (0, f'{V1}/amb_recepcja_petla.mp3', 0, S8, 0.32),
- (S8, f'{V1}/amb_recepcja_petla.mp3', 0, S9 - S8, 0.1),
- (S9, f'{V3}/amb_biuro.mp3', 0, DL - S9, 0.45),
+ (S9 - 0.8, f'{V1}/sfx_telefon.mp3', 0, 1.0, 0.5),
+ (start[13], f'{A}/odc01_s09_basia.mp3', 0, 5.4, 1.5),
+ (start[15], f'{A}/odc01_s09_basia.mp3', 6.45, 3.05, 1.5),
+ (start[16], f'{V3}/s09_kuba.mp4', 0, UJ[16][2], 1.5),
+ (start[18], f'{V3}/s09_helena.mp4', 0, UJ[18][2], 1.3),
+ (start[19] + 0.3, f'{V3}/sfx_zegar.mp3', 0, 2.3, 0.9),
+ (0, f'{V3}/amb_recepcja_n.mp3', 0, S8 + 0.4, 0.9),
+ (S8, f'{V3}/amb_recepcja_n.mp3', 5, S9 - S8 + 0.4, 0.75),
+ (S9 - 0.2, f'{V3}/amb_recepcja_n.mp3', 15, DL - S9 + 0.2, 0.55),
+ (S9 - 0.2, f'{V3}/amb_biuro_petla.mp3', 0, DL - S9 + 0.2, 0.8),
 ]
 inp = ['-i', f'{T}/obraz.mp4']; fc = []
 for i, (st, f, ss, d, g) in enumerate(DZ, 1):
