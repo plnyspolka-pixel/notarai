@@ -1,0 +1,101 @@
+{
+  "opis": "Część 1, krok A: kadry. Zlecenia dla fal (submit_jobs). Koszt: 12 obrazów x 0,15 USD = 1,80 USD.",
+  "requests": [
+    {
+      "index": 0,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-klient-ref-a",
+      "input": {
+        "prompt": "Photograph of a NEW fictional person who does not resemble any real or famous person: Pan Zenon, 66, elderly client of the notary office who brings documents. Face: long friendly face, fair weathered skin, light-blue eyes, neat grey moustache, smile lines. Hair: short thinning grey hair combed to the side. Build: tall, slightly stooped, slim. Always wears: olive-green quilted jacket over a blue-and-white checked shirt, dark-grey trousers, brown leather document folder in hand. They stand in the office from image 1 near the secretary desk by the printer, waist-up, 50mm lens, vertical 9:16, looking at camera, relaxed neutral expression, mouth closed, both hands visible and free (not touching furniture). An ordinary believable person with natural skin, slight asymmetry and real-life imperfections, not a model. Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab229f8/CE86Cym9NTMsX3eMMlDfK_mgcXu1qE.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 3
+      }
+    },
+    {
+      "index": 1,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-b1-zegar-a",
+      "input": {
+        "prompt": "Same office as image 1 (secretary corner with walnut desk, grey printer, tall black steel windows). Extreme close-up, 85mm lens, vertical 9:16: a small round classic brass desk clock standing on the dark walnut secretary desk, cream dial with simple black hour tick marks and NO numerals, black hands clearly showing 8:57 (minute hand three minutes before twelve, hour hand almost at nine), thin red second hand. Shallow depth of field, the secretary corner softly blurred behind. Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No numerals. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab22a0e/FbWlseOf7mjn9W-jZFC3w_JGyRKbcL.png",
+          "https://v3b.fal.media/files/b/0ab22a02/M12Hr8Iq-2rLcsnnxE5zx_RrjfzNLN.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 2
+      }
+    },
+    {
+      "index": 2,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-b2-telefon-a",
+      "input": {
+        "prompt": "Same office as image 1 (secretary corner). Close-up, 85mm lens, vertical 9:16: a classic dark-grey office desk telephone with a corded handset resting in its cradle on the dark walnut secretary desk, next to the edge of a monitor and a small stack of plain white envelopes; a tiny red call indicator light glows on the phone. Shallow depth of field, the room softly blurred behind. Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No brand names. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab22a0e/FbWlseOf7mjn9W-jZFC3w_JGyRKbcL.png",
+          "https://v3b.fal.media/files/b/0ab22a02/M12Hr8Iq-2rLcsnnxE5zx_RrjfzNLN.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 2
+      }
+    },
+    {
+      "index": 3,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-b4-drukarka-a",
+      "input": {
+        "prompt": "Same office as image 1. Close-up, 50mm lens, vertical 9:16: the grey office laser printer standing on the dark walnut sideboard in the secretary corner, a plain blank white sheet of paper halfway out of the output slot, a few blank sheets in the tray. Tall black steel window softly blurred behind. Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No brand names. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab22a0e/FbWlseOf7mjn9W-jZFC3w_JGyRKbcL.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 1
+      }
+    },
+    {
+      "index": 4,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-t1-basia-telefon-a",
+      "input": {
+        "prompt": "Place the person from image 2 into the exact scene of image 1. The person must be identical to images 2 and 3: same face, hair, outfit and accessories (Basia, 51, office secretary of the notary office. Face: fuller round face, light olive skin, expressive dark eyes, tortoiseshell glasses. Hair: dark-brown hair pinned up in a loose bun. Build: medium height, sturdy. Always wears: light beige knit cardigan, navy-and-cream patterned silk scarf, small gold earrings). Keep the camera position, framing, lens, furniture, materials and light of image 1 unchanged; only add the person and a classic dark-grey corded office desk telephone on the small walnut desk, with correct real-world scale and perspective. Pose and action: she stands at her small desk beside the printer, turned three-quarters to camera, holding the telephone handset to her left ear with her left hand, the curly cord hanging down, her right hand free and relaxed, eyes glancing toward camera, busy but composed, mouth closed. Medium shot, waist-up, face fully visible, sharp and well lit. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab22a0e/FbWlseOf7mjn9W-jZFC3w_JGyRKbcL.png",
+          "https://v3b.fal.media/files/b/0ab22a28/IGOI2FD4Erf8Z8Vj9mvGf_c7vJogx5.png",
+          "https://v3b.fal.media/files/b/0ab21637/iWi4ReWP4MYLCcMLRu2jf_hoitsF1G.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 2
+      }
+    },
+    {
+      "index": 5,
+      "endpoint_id": "fal-ai/nano-banana-pro/edit",
+      "submission_key": "odc01-cz1-t3-marta-teczka-a",
+      "input": {
+        "prompt": "Place the person from image 2 into the room of image 1. The person must be identical to images 2 and 3: same face, hair, outfit and accessories (Marta, 38, notary. Face: oval face, light skin, warm brown eyes, subtle professional make-up. Hair: shoulder-length dark-brown hair with soft waves. Build: slim, energetic. Always wears: navy blazer, white top, small gold hoop earrings). Same room, furniture, materials and light as image 1, but the camera is closer: medium shot, 50mm lens, vertical 9:16, Marta about two metres from camera in the middle of the room, the main walnut desk and bookshelves softly behind her. Pose and action: she walks briskly toward camera-right, holding a closed light-brown cardboard case folder in her left hand against her side, right hand free, head turned slightly to camera-right as if calling to someone, face fully visible, sharp and well lit, mouth closed. Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light. Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation. No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+        "image_urls": [
+          "https://v3b.fal.media/files/b/0ab229f8/CE86Cym9NTMsX3eMMlDfK_mgcXu1qE.png",
+          "https://v3b.fal.media/files/b/0ab22a28/SEK_J0AoQRKjNVqe95jFa_7R50gaKS.png",
+          "https://v3b.fal.media/files/b/0ab21637/eGGNXp3r2_H8nQF6P8eD1_o2uQyCcZ.png"
+        ],
+        "aspect_ratio": "9:16",
+        "resolution": "2K",
+        "output_format": "png",
+        "num_images": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "slug": "klient",
+  "imie": "Pan Zenon",
+  "wiek": 66,
+  "rola": "klient epizodyczny (przynosi dokumenty, wchodzi do kancelarii)",
+  "rola_en": "elderly client of the notary office who brings documents",
+  "wyglad": {
+    "twarz": "long friendly face, fair weathered skin, light-blue eyes, neat grey moustache, smile lines",
+    "wlosy": "short thinning grey hair combed to the side",
+    "sylwetka": "tall, slightly stooped, slim"
+  },
+  "stroj": {
+    "opis": "olive-green quilted jacket over a blue-and-white checked shirt, dark-grey trousers, brown leather document folder in hand",
+    "kolory": {
+      "kurtka": "#5B6142",
+      "koszula": "#9DB4D6",
+      "teczka": "#6B4A2E"
+    }
+  },
+  "rekwizyty": [
+    "brązowa skórzana teczka na dokumenty"
+  ],
+  "charakter": "uprzejmy, lekko zakłopotany, że przeszkadza; zawsze 'tylko na chwilę'",
+  "relacje": "zna Basię z poprzednich wizyt",
+  "strefa": "sekretariat i wejście",
+  "strefa_opis_en": "secretary desk by the printer",
+  "kadry": [
+    {
+      "kamera": "K3",
+      "glowny": true,
+      "poza_en": "He stands at the secretary's small desk facing the camera three-quarters, holding a brown leather document folder against his chest with one hand, the other hand relaxed, polite apologetic smile, mouth closed."
+    },
+    {
+      "kamera": "K7",
+      "glowny": false,
+      "poza_en": "He steps in through the half-open double door, one hand on the door handle, the other holding a brown leather document folder, looking into the room with a polite smile."
+    }
+  ],
+  "glos": {
+    "opis_voice_design_en": "Polish man in his mid sixties, retired engineer, polite and slightly apologetic, warm baritone with a light rasp, unhurried, natural spoken Polish of a native speaker, not a voice-over, close mic in a quiet office.",
+    "elevenlabs_voice_id": null
+  },
+  "ruch": {
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v",
+    "motion_prompt_baza": "Polite elderly man, small apologetic nods, gentle smile, slight forward lean, calm natural breathing.",
+    "gesty_typowe": [],
+    "unikac": []
+  },
+  "heygen": {
+    "avatar_id": null
+  },
+  "pliki": {
+    "ref": null,
+    "arkusz": null
+  },
+  "status": "szkic"
+}
