@@ -61,9 +61,13 @@
     "silnik_gest": "avatar_v"
   },
   "glos": {
-    "opis_voice_design_en": null,
-    "elevenlabs_voice_id": "XxH7vHpT0p7INeJx8ihA",
-    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id"
+    "opis_voice_design_en": "Polish woman in her early fifties, office manager who has seen everything. Native Polish speaker from Warsaw. Low, slightly raspy, lived-in voice with motherly warmth underneath. Sardonic and deadpan: delivers sarcasm quietly, almost under her breath, with long dry pauses and a little exhale before the punchline. Speaks at an easy, measured pace, very natural and spontaneous, like talking to a colleague across a desk, never theatrical or announcer-like. Realistic close microphone in a small quiet office.",
+    "elevenlabs_voice_id": "vqyfbWoOfYmPoa0QNkKB",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id",
+    "elevenlabs_voice_id_v1": "XxH7vHpT0p7INeJx8ihA",
+    "model_voice_design": "eleven_ttv_v3",
+    "model_tts": "eleven_v3 (Text to Dialogue, stability 0.5)",
+    "przepis": "glosy.md"
   },
   "heygen": {
     "avatar_id": null,

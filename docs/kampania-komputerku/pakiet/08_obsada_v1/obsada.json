@@ -138,31 +138,47 @@
   ],
   "postacie": {
     "helena": {
-      "elevenlabs_voice_id": "IUhsOeEtgXvOVX7dbZPU",
+      "elevenlabs_voice_id": "0YMlrD87k6Saqi6L1Joy",
       "heygen_avatar_id": "a035e6556c9bd974af5700c86cf3c7a2",
-      "zdjecie_avatara": "kadry/helena_przy_biurku.jpg"
+      "zdjecie_avatara": "kadry/helena_przy_biurku.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "IUhsOeEtgXvOVX7dbZPU"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
     },
     "marta": {
-      "elevenlabs_voice_id": "BDuEI9b2twykxFyFIbv4",
+      "elevenlabs_voice_id": "rOIbi11t4PdzPrW90No0",
       "heygen_avatar_id": "18e4f2b5c26f30dd99be62807b38f79f",
       "zdjecie_avatara": "kadry/marta_przy_biurku.jpg",
       "heygen_avatar_odrzucone": [
         "46737e32a13d85b828fdd289d2f86c85",
         "8d7659468d92ec57903a5570d604483c"
-      ]
+      ],
+      "elevenlabs_voice_id_odrzucone": [
+        "BDuEI9b2twykxFyFIbv4"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
     },
     "basia": {
-      "elevenlabs_voice_id": "XxH7vHpT0p7INeJx8ihA",
+      "elevenlabs_voice_id": "vqyfbWoOfYmPoa0QNkKB",
       "heygen_avatar_id": "bcfed60999bda078a1a57f273118066b",
-      "zdjecie_avatara": "kadry/basia_przy_drukarce.jpg"
+      "zdjecie_avatara": "kadry/basia_przy_drukarce.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "XxH7vHpT0p7INeJx8ihA"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
     },
     "kuba": {
-      "elevenlabs_voice_id": "4tlWcR8SYaOZ0nfbKuq6",
+      "elevenlabs_voice_id": "l49KzmmcER7qYZfvh1NN",
       "heygen_avatar_id": "5b719637ef986ab613aa0d4e2cb07f80",
-      "zdjecie_avatara": "kadry/kuba_z_teczka.jpg"
+      "zdjecie_avatara": "kadry/kuba_z_teczka.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "4tlWcR8SYaOZ0nfbKuq6"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
     }
   },
-  "glosy_uwaga": "Głosy ElevenLabs (konto Finance You) z Voice Design eleven_ttv_v3, wybrany pierwszy z 3 podglądów; nazwy „NotarAI Komputerku v1 - <Imię>”. Awatary HeyGen: photo avatar z kadru zbliżenia.",
+  "glosy_uwaga": "Głosy v2 od 12.11.2026: Voice Design eleven_ttv_v3 z dopracowanym opisem, 2 serie × 3 podglądy, wybór po pomiarach i transkrypcji; nazwy „NotarAI Komputerku v2 - <Imię>”. Sceny nagrywane jako Text to Dialogue (eleven_v3, stability 0.5) i cięte na kwestie — przepis w glosy.md. Głosy v1 zostały na koncie (pole elevenlabs_voice_id_odrzucone).",
   "odcinek_1_ujecia": [
     {
       "id": "u1",
