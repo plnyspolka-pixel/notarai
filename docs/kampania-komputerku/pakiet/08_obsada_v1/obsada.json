@@ -183,42 +183,74 @@
     {
       "id": "u1",
       "postac": "basia",
-      "heygen_video_id": "8c7ad269bfa4919d66e476975acd9635",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/8c7ad269bfa4919d66e476975acd9635-acaafc28.mp4",
+      "heygen_video_id": "7adf4bdf903fb9283570bfa55d80f16c",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u1-basia-v2-16697f37.mp4",
       "sekundy": 4.98,
       "audio": "glosy_v2/nowe_w1/u1_basia.mp3",
       "glosy": "v2",
-      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "8c7ad269bfa4919d66e476975acd9635",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/8c7ad269bfa4919d66e476975acd9635-acaafc28.mp4"
+      },
+      "heygen_avatar_id": "1e4d13ee1029a1f179e9bd725b200dfa",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
     },
     {
       "id": "u2",
       "postac": "kuba",
-      "heygen_video_id": "08c989e8e3c7ac780dcc4ec35568f223",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/08c989e8e3c7ac780dcc4ec35568f223-7977a045.mp4",
+      "heygen_video_id": "e716504ad74414a552ed3e4b22856a4f",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u2-kuba-v2-8e7109e8.mp4",
       "sekundy": 3.58,
       "audio": "glosy_v2/nowe_w1/u2_kuba.mp3",
       "glosy": "v2",
-      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "08c989e8e3c7ac780dcc4ec35568f223",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/08c989e8e3c7ac780dcc4ec35568f223-7977a045.mp4"
+      },
+      "heygen_avatar_id": "ba3a449e3fac77633c11b7a52acdf95f",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
     },
     {
       "id": "u3",
       "postac": "basia",
-      "heygen_video_id": "ba05844a6b4faf223bf2df1bd4c63a7c",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/ba05844a6b4faf223bf2df1bd4c63a7c-ac1f0093.mp4",
+      "heygen_video_id": "a44f41fdd08c6b12c196ced636370ba9",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u3-basia-v2-81d67c73.mp4",
       "sekundy": 4.86,
       "audio": "glosy_v2/nowe_w1/u3_basia.mp3",
       "glosy": "v2",
-      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "ba05844a6b4faf223bf2df1bd4c63a7c",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/ba05844a6b4faf223bf2df1bd4c63a7c-ac1f0093.mp4"
+      },
+      "heygen_avatar_id": "1e4d13ee1029a1f179e9bd725b200dfa",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
     },
     {
       "id": "u4",
       "postac": "marta",
-      "heygen_video_id": "e5595f3a0ed7a628fbb6ff74c49c4ca8",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/e5595f3a0ed7a628fbb6ff74c49c4ca8-118dcde8.mp4",
+      "heygen_video_id": "1ef434fce20eb2fc42efc06146dba8ec",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u4-marta-v2-10201726.mp4",
       "sekundy": 3.39,
       "audio": "glosy_v2/nowe_w1/u4_marta.mp3",
       "glosy": "v2",
-      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "e5595f3a0ed7a628fbb6ff74c49c4ca8",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/e5595f3a0ed7a628fbb6ff74c49c4ca8-118dcde8.mp4"
+      },
+      "heygen_avatar_id": "76568ce3a95191687ca7288be833801b",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
     },
     {
       "id": "u5",
@@ -259,5 +291,6 @@
       "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
     }
   ],
-  "odcinek_1_podglad": "podglady/odc1_podglad_v2.mp4 (narzedzia/sklej_podglad_v2.sh); poprzedni: podglady/odc1_podglad_u1-u5.mp4"
+  "odcinek_1_podglad": "podglady/odc1_podglad_v2.mp4 (narzedzia/sklej_podglad_v2.sh); poprzedni: podglady/odc1_podglad_u1-u5.mp4",
+  "uwaga_v3": "12.11.2026: ujęcia u1–u4 przerenderowane na awatarach obsady-v2 (kadry kancelarii-v2) silnikiem heygen-avatar-6-turbo z motion_prompt; audio głosy v2 bez zmian. Podgląd: podglady/odc1_podglad_v3.mp4. Karty postaci: pakiet/10_obsada_v2."
 }

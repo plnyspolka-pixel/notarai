@@ -117,12 +117,14 @@ Wyniki testów są w `awatary.md`. Zasady produkcyjne:
 
 | Postać | Strefa / kamera główna | ref + arkusz | Kadr w kancelarii-v2 | Głos | Awatar v2 |
 |---|---|---|---|---|---|
-| Helena | biurko główne / K2 | z obsady-v1 (zatwierdzone) | do akceptacji | `0YMlrD87k6Saqi6L1Joy` (v2) | po akceptacji kadru |
-| Marta | stół roboczy / K5 (K4) | jw. | do akceptacji | `rOIbi11t4PdzPrW90No0` (v2) | jw. |
-| Basia | sekretariat / K3 | jw. | do akceptacji | `vqyfbWoOfYmPoa0QNkKB` (v2) | jw. |
-| Kuba | biblioteka / K6 (K7) | jw. | do akceptacji | `l49KzmmcER7qYZfvh1NN` (v2) | jw. |
+| Helena | biurko główne / K2 | z obsady-v1 (zatwierdzone) | zatwierdzony 12.11 | `0YMlrD87k6Saqi6L1Joy` (v2) | `b10e796650c8b09ae190f57aad4f81e1` |
+| Marta | stół roboczy / K5 (K4) | jw. | zatwierdzony 12.11 | `rOIbi11t4PdzPrW90No0` (v2) | `76568ce3a95191687ca7288be833801b` |
+| Basia | sekretariat / K3 | jw. | zatwierdzony 12.11 | `vqyfbWoOfYmPoa0QNkKB` (v2) | `1e4d13ee1029a1f179e9bd725b200dfa` |
+| Kuba | biblioteka / K6 (K7) | jw. | zatwierdzony 12.11 | `l49KzmmcER7qYZfvh1NN` (v2) | `ba3a449e3fac77633c11b7a52acdf95f` |
 
 Głosy v2 i przepis nagrywania sceny (Text to Dialogue → cięcie → HeyGen z czystą mową): [`glosy.md`](glosy.md). Stan na żywo pokazuje `python3 narzedzia/kancelaria.py status`.
+
+Odcinek 1 na obsadzie v2: `podglady/odc1_podglad_v3.mp4` (u1–u4: Avatar 6 Turbo + motion_prompt, głosy v2; składa `narzedzia/sklej_podglad_v3.sh`).
 
 ## 6. Ściąga poleceń
 

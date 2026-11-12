@@ -32,7 +32,7 @@
       "poza_en": "She sits at the walnut work table behind the open laptop (lid back to camera), body turned slightly toward camera, hands relaxed beside the laptop, confident slight smile.",
       "plik": "kadr_K5m.jpg",
       "fal_url": "https://v3b.fal.media/files/b/0ab22a28/SEK_J0AoQRKjNVqe95jFa_7R50gaKS.png",
-      "zatwierdzony": null
+      "zatwierdzony": "2026-11-12 właściciel"
     },
     {
       "kamera": "K5",
@@ -41,7 +41,7 @@
       "kadrowanie": "plan (postać w scenografii)",
       "plik": "kadr_K5.jpg",
       "fal_url": "https://v3b.fal.media/files/b/0ab22a19/q_szEiEvX1ZGwzwcRst7c_wOU1pHMo.png",
-      "zatwierdzony": null
+      "zatwierdzony": "2026-11-12 właściciel"
     },
     {
       "kamera": "K4",
@@ -72,8 +72,9 @@
     "przepis": "glosy.md"
   },
   "heygen": {
-    "avatar_id": null,
-    "avatar_v1": "18e4f2b5c26f30dd99be62807b38f79f"
+    "avatar_id": "76568ce3a95191687ca7288be833801b",
+    "avatar_v1": "18e4f2b5c26f30dd99be62807b38f79f",
+    "utworzony": "2026-11-12, POST /v3/avatars type=photo z kadru głównego"
   },
   "pliki": {
     "ref": {
@@ -87,5 +88,5 @@
       "zatwierdzony": "obsada-v1"
     }
   },
-  "status": "migracja z obsada-v1: ref i arkusz zatwierdzone, kadry do wygenerowania w kancelaria-v2"
+  "status": "zatwierdzona (kancelaria-v2, awatar v2)"
 }
