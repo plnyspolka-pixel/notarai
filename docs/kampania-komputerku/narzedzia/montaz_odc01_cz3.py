@@ -23,6 +23,13 @@ UJ = [
  ('F1_weryfikacja.mp4', 0, 2.4, False, None, 0, 0, None),
  ('F2_wymagaja_uwagi.mp4', 0, 3.0, False, None, 0, 0, None),
  ('s06_marta_2.mp4', 2.7, 1.82, True, None, 0, 0, MARTA),
+ # EKW: Kuba pobiera treść księgi i dopisuje wynik w rozmowie o sprawie
+ ('s06_kuba_ekw_1.mp4', 0, 1.72, True, None, 0, 0, KUBA),
+ ('H1_ekw_numer.mp4', 0, 2.0, False, None, 0, 0, None),
+ ('H2_ekw_pobieram.mp4', 0, 1.4, False, None, 0, 0, None),
+ ('H3_ekw_dzialy.mp4', 0, 2.6, False, None, 0, 0, None),
+ ('s06_kuba_ekw_2.mp4', 2.85, 1.38, True, None, 0, 0, KUBA),
+ ('H4_rozmowa.mp4', 0, 2.6, False, None, 0, 0, None),
  ('s06_kuba_2.mp4', 0, 1.16, True, None, 0, 0, KUBA),
  # sc. 07 „Pani rejent chce to dzisiaj”
  ('s07_helena_1.mp4', 0, 5.72, True, 'karta_helena.png', 0.3, 2.6, HELENA),
@@ -62,7 +69,7 @@ for i, (f, ss, d, logo, w, a, b, kd) in enumerate(UJ):
 DL = t
 open(f'{T}/l.txt', 'w').write(''.join(f"file '{x}'\n" for x in lista))
 sh('ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', f'{T}/l.txt', '-c', 'copy', f'{T}/obraz.mp4')
-S8, S9 = start[9], start[13]
+S8, S9 = start[15], start[19]
 A = f'{V3}/audio'
 # (start, plik, ss, t, głośność, [zanik_na_końcu])
 DZ = [
@@ -70,18 +77,23 @@ DZ = [
  (start[1], f'{V3}/s06_marta_1.mp4', 0, 4.76, 1.5),
  (start[2] + 1.7, f'{P}/czesc2_wideo/sfx_tap.mp3', 0, 0.5, 0.8),
  (start[3] + 0.3, f'{A}/odc01_s06_marta_2.mp3', 0, 4.68, 1.5),
- (start[5], f'{V3}/s06_kuba_2.mp4', 0, 1.16, 1.5),
- (start[6], f'{V3}/s07_helena_1.mp4', 0, 5.72, 1.5),
- (start[7], f'{V3}/s07_marta.mp4', 0, 3.8, 1.5),
- (start[8], f'{V3}/s07_helena_2.mp4', 0, UJ[8][2], 1.5),
- (start[10], f'{V3}/s08_marta.mp4', 0, UJ[10][2], 1.5),
- (start[11] + 1.1, f'{V3}/sfx_klik.mp3', 0, 0.5, 1.0),
+ (start[5], f'{V3}/s06_kuba_ekw_1.mp4', 0, 1.72, 1.5),
+ (start[6] + 1.3, f'{P}/czesc2_wideo/sfx_tap.mp3', 0, 0.5, 0.8),
+ (start[8] + 0.3, f'{V3}/s06_kuba_ekw_2.mp4', 0, 1.8, 1.5),
+ (start[9], f'{V3}/s06_kuba_ekw_2.mp4', 2.85, 1.38, 1.5),
+ (start[10] + 0.2, f'{V3}/sfx_klik.mp3', 0, 0.5, 0.8),
+ (start[11], f'{V3}/s06_kuba_2.mp4', 0, 1.16, 1.5),
+ (start[12], f'{V3}/s07_helena_1.mp4', 0, 5.72, 1.5),
+ (start[13], f'{V3}/s07_marta.mp4', 0, 3.8, 1.5),
+ (start[14], f'{V3}/s07_helena_2.mp4', 0, UJ[14][2], 1.5),
+ (start[16], f'{V3}/s08_marta.mp4', 0, UJ[16][2], 1.5),
+ (start[17] + 1.1, f'{V3}/sfx_klik.mp3', 0, 0.5, 1.0),
  (S9 - 0.8, f'{V1}/sfx_telefon.mp3', 0, 1.0, 0.5),
- (start[13], f'{A}/odc01_s09_basia.mp3', 0, 5.4, 1.5),
- (start[15], f'{A}/odc01_s09_basia.mp3', 6.45, 3.05, 1.5),
- (start[16], f'{V3}/s09_kuba.mp4', 0, UJ[16][2], 1.5),
- (start[18], f'{V3}/s09_helena.mp4', 0, UJ[18][2], 1.3),
- (start[19] + 0.3, f'{V3}/sfx_zegar.mp3', 0, 2.3, 0.9),
+ (start[19], f'{A}/odc01_s09_basia.mp3', 0, 5.4, 1.5),
+ (start[21], f'{A}/odc01_s09_basia.mp3', 6.45, 3.05, 1.5),
+ (start[22], f'{V3}/s09_kuba.mp4', 0, UJ[22][2], 1.5),
+ (start[24], f'{V3}/s09_helena.mp4', 0, UJ[24][2], 1.3),
+ (start[25] + 0.3, f'{V3}/sfx_zegar.mp3', 0, 2.3, 0.9),
  (0, f'{V3}/amb_recepcja_n.mp3', 0, S8 + 0.4, 0.9),
  (S8, f'{V3}/amb_recepcja_n.mp3', 5, S9 - S8 + 0.4, 0.75),
  (S9 - 0.2, f'{V3}/amb_recepcja_n.mp3', 15, DL - S9 + 0.2, 0.55),

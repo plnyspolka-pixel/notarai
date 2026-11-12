@@ -86,3 +86,10 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Tło gabinetu: gwar recepcji przytłumiony filtrem (wygenerowane tło pokoju było nieme). Napis końcowy: warstwa `outro_napis.png`.
 - Montaż: `narzedzia/montaz_odc01_cz4.py` → `podglady/odc01_czesc4.mp4` (51,8 s). Część 3 przemontowana z klipami Kling (uśmiechy, Marta z dokumentami).
 - Renderer warstw: fonty przez `goto` do pliku (przez `setContent` Montserrat się nie ładował); karty imion do ponownego użycia w pełnym montażu.
+
+# Zmiana 12.11 wieczorem: EKW w sc. 06 (decyzja użytkownika)
+- Kuba pobiera treść KW z EKW (prawdziwa karta „Księga wieczysta z EKW”, serwer demo `--atrapa-ekw`: księga fikcyjna, bez połączenia z EKW)
+  i dopisuje w „Rozmowie o sprawie”: działy III i IV bez wpisów. Projekt sporządzony ponownie (Bedrock) z tą rozmową.
+- Sc. 11: Helena zatrzymuje się przy § 5 (termin wydania lokalu) zamiast § 2.
+- Głosy: Kuba `s06_kuba_ekw_1b-cd7e9fca` („z e-ka-wu”; wersja `ekw_1-ecd65c67` czytała „z KW”), `s06_kuba_ekw_2-aa6b640a`, Helena `s11_helena_1b-1f78aae6`.
+- HeyGen: Kuba EKW 1 588ec89120784a6bb84e40c1d0ed0420, Kuba EKW 2 90af25d780d74637a8bd2f57120696a4, Helena § 5 dc5d165531bd4d5693c7955df18b177f.

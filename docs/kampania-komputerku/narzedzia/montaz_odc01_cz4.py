@@ -25,7 +25,7 @@ UJ = [
  ('s10_kuba.mp4', 0, 1.96, True, None, 0, 0, KUBA),
  ('G4_pobierz_word.mp4', 0, 1.8, False, None, 0, 0, None),
  # sc. 11 „Dobrze, że nie zgaduje”
- ('s11_helena_1.mp4', 0, 6.0, True, None, 0, 0, None),
+ ('s11_helena_1.mp4', 0, 6.6, True, None, 0, 0, None),
  ('s11_marta.mp4', 0, 2.0, True, None, 0, 0, None),
  ('s11_helena_2.mp4', 0, 5.0, True, None, 0, 0, None),
  # sc. 12 „Pani Irena prosiła…”
@@ -67,7 +67,7 @@ DZ = [
  (start[3] + 0.3, f'{V4}/s10_marta.mp4', 2.05, 1.67, 1.5),
  (start[4], f'{V4}/s10_kuba.mp4', 0, 1.96, 1.5),
  (start[5] + 1.0, f'{V3}/sfx_klik.mp3', 0, 0.5, 1.0),
- (start[6], f'{V4}/s11_helena_1.mp4', 0, 6.0, 1.5),
+ (start[6], f'{V4}/s11_helena_1.mp4', 0, 6.6, 1.5),
  (start[7], f'{V4}/s11_marta.mp4', 0, 2.0, 1.5),
  (start[8], f'{V4}/s11_helena_2.mp4', 0, 5.0, 1.5),
  (start[9], f'{V4}/s12_basia_1.mp4', 0, 7.35, 1.5),
