@@ -20,7 +20,7 @@ from datetime import date, datetime
 import magazyn
 
 PLIK = "kalendarz"
-RODZAJE = ("sprzedaż", "darowizna", "dział spadku", "poświadczenie podpisów",
+RODZAJE = ("sprzedaż", "sprzedaż nieruchomości", "darowizna", "dział spadku", "poświadczenie podpisów",
            "testament", "pełnomocnictwo notarialne", "inne")
 _GODZINA = r"([01]\d|2[0-3]):[0-5]\d"
 MAKS_TELEFONOW = 10

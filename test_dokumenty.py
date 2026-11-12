@@ -352,3 +352,26 @@ def test_projekt_docx_ma_oznaczenie_ai_w_metadanych(tmp_path):
     assert "sztucznej inteligencji" in wl.comments
     assert "AI-generated" in wl.keywords
     assert wl.author == "notarai"
+
+
+class TestZnacznikiWWordzie:
+    """Znaczniki <<BRAK>> i <<WYBOR>> zostaja w pliku bez zmian, wyroznione
+    zakreslaczem - notariusz nie przeoczy ich ani w Wordzie, ani na wydruku."""
+
+    def test_znaczniki_zakreslone_i_tresc_bez_zmian(self, tmp_path):
+        from docx import Document
+        from docx.enum.text import WD_COLOR_INDEX
+        from dokumenty import tekst_na_docx
+
+        tekst = ("§ 1. Irena Nowak oświadcza, że lokal ma powierzchnię <<BRAK: powierzchnia lokalu>> m².\n"
+                 "§ 2. Cena zostanie zapłacona <<WYBOR: przelewem przed aktem / gotówką przy akcie>>.")
+        cel = tekst_na_docx(tekst, tmp_path / "projekt.docx")
+        akapity = [a for a in Document(cel).paragraphs if a.text]
+        assert [a.text for a in akapity] == tekst.split("\n")
+        przebiegi = {p.text: p for a in akapity for p in a.runs}
+        brak = przebiegi["<<BRAK: powierzchnia lokalu>>"]
+        wybor = przebiegi["<<WYBOR: przelewem przed aktem / gotówką przy akcie>>"]
+        assert brak.font.highlight_color == WD_COLOR_INDEX.YELLOW and brak.bold
+        assert wybor.font.highlight_color == WD_COLOR_INDEX.TURQUOISE and wybor.bold
+        zwykly = przebiegi["§ 1. Irena Nowak oświadcza, że lokal ma powierzchnię "]
+        assert zwykly.font.highlight_color is None and not zwykly.bold

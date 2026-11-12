@@ -297,7 +297,22 @@ select{font:inherit;padding:8px 10px;border:1px solid var(--linia2);border-radiu
   .hurtowe-form{grid-template-columns:1fr}
   .hurtowe-dzien{grid-template-columns:minmax(120px,1fr) minmax(74px,1fr) 18px minmax(74px,1fr);gap:4px}
 }
+.projekt mark.brak{background:#fff1a8;color:#5c4300;outline:1px solid #e0b400;font-weight:600}
+.projekt mark.wybor{background:#c9efee;color:#0a4f4c;outline:1px solid #2aa6a1;font-weight:600}
+.powiadomienie{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;gap:10px;align-items:center;max-width:min(460px,calc(100vw - 32px));
+  background:var(--karta);border:1px solid var(--linia);border-radius:var(--r2);padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.18);font-size:14px}
+.powiadomienie[hidden]{display:none}.powiadomienie span{flex:1}
+/* stanowiska w zespole: serwer i tak odmowi (403), wiec nie pokazujemy przyciskow */
+body.bez-sprawy_ai [data-upr~="sprawy_ai"],body.bez-projekt [data-upr~="projekt"],body.bez-rejestry [data-upr~="rejestry"],
+body.bez-usun_plik [data-upr~="usun_plik"],body.bez-usun_sprawe [data-upr~="usun_sprawe"],body.bez-kancelaria [data-upr~="kancelaria"],
+body.bez-usun_sprawe .sprawa-el .kosz,body.bez-usun_plik #pliki-lista .zal-el button{display:none!important}
+.tylko-bez-upr{display:none}
+body.bez-projekt .tylko-bez-upr[data-bez-upr="projekt"]{display:inline}
+.znacznik.stanowisko{background:var(--akcent-tlo);color:var(--akcent)}
 /* kalendarz */
+.kal-sprawa-wiersz{display:flex;gap:8px;align-items:center}.kal-sprawa-wiersz select{flex:1;min-width:0}
+.kal-do-sprawy{display:flex;gap:8px;align-items:center;margin:4px 0}.kal-do-sprawy button,.kal-sprawa-wiersz button{width:auto;flex:none}
+.oznaczenie-sprawy{display:inline-block;font:12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--akcent-tlo);color:var(--akcent);white-space:nowrap}
 input[type=date],input[type=time],input[type=tel],input[type=search],textarea.pole-tekst{font:inherit;padding:9px 12px;
   border:1px solid var(--linia2);background:var(--tlo);color:var(--tekst);border-radius:var(--r2);width:100%}
 textarea.pole-tekst{resize:vertical;min-height:60px}
@@ -629,22 +644,22 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
   <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 notarai</div>
   <button id="btn-kokpit" type="button" class="kokpit-link" aria-label="Panel główny NotarAI" title="Panel główny NotarAI"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg> Panel główny</button>
-  <div class="nowa" id="btn-nowa"><span>+</span>Nowa sprawa</div>
+  <div class="nowa" id="btn-nowa" data-upr="sprawy_ai"><span>+</span>Nowa sprawa</div>
   <div class="sekcja-t">Etapy</div>
   <div class="krok aktywny" data-etap="1"><b><span>1</span></b>Materiały sprawy</div>
   <div class="krok" data-etap="2"><b><span>2</span></b>Weryfikacja odczytu</div>
   <div class="krok" data-etap="3"><b><span>3</span></b>Projekt dokumentu</div>
   <div class="sekcja-t">Narzędzia</div>
-  <div class="krok" data-etap="4"><b><span>✓</span></b>Sprawdzenia</div>
-  <div class="krok" data-etap="5"><b><span>▶</span></b>Klikamy</div>
+  <div class="krok" data-etap="4" data-upr="rejestry"><b><span>✓</span></b>Sprawdzenia</div>
+  <div class="krok" data-etap="5" data-upr="rejestry"><b><span>▶</span></b>Klikamy</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
   <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
   <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
-  <div class="krok" data-etap="9"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
-  <div class="krok" data-etap="10"><b><span>§</span></b>Księgi i repertoria</div>
-  <div class="krok" data-etap="11"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
+  <div class="krok" data-etap="9" data-upr="kancelaria"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
+  <div class="krok" data-etap="10" data-upr="kancelaria"><b><span>§</span></b>Księgi i repertoria</div>
+  <div class="krok" data-etap="11" data-upr="kancelaria"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -819,7 +834,7 @@ notarai</div>
 
 <!-- ===== 2 ===== -->
 <section id="etap2" hidden>
-  <h1>Weryfikacja odczytu</h1>
+  <h1>Weryfikacja odczytu <span class="oznaczenie-sprawy" id="oznaczenie2" title="Oznaczenie sprawy - to samo w kalendarzu i na telefonie"></span></h1>
   <p class="pod" style="margin-bottom:4px"><label class="etykieta" style="display:inline;margin-right:8px">Nazwa sprawy:</label><input class="sygn-edit" id="nazwa2" placeholder="z nazwisk stron (kliknij, żeby zmienić)" style="width:320px"></p>
   <p class="pod" style="margin-bottom:8px"><label class="etykieta" style="display:inline;margin-right:8px">Sygnatura sprawy:</label><input class="sygn-edit" id="sygn2" placeholder="np. Rep. A 412/2026 (kliknij, żeby nadać)" style="width:320px"></p>
   <p class="pod">Sprawdź, co model odczytał ze skanów. Czerwone pola wymagają uwagi: błędna suma kontrolna, niska pewność albo brak danych.</p>
@@ -828,7 +843,7 @@ notarai</div>
     <p class="podsum" id="podsum2"></p>
     <div id="ostrzezenia"></div>
   </div></div>
-  <div class="karta">
+  <div class="karta" data-upr="sprawy_ai">
     <h2>Rozmowa o sprawie</h2>
     <div class="czat" id="czat2"></div>
     <div class="composer czat-composer">
@@ -852,7 +867,8 @@ notarai</div>
     </div>
     <div id="pola"></div>
     <div class="pasek przyklejony">
-      <button id="btn-generuj">Sporządź projekt</button>
+      <button id="btn-generuj" data-upr="projekt">Sporządź projekt</button>
+      <span class="stan tylko-bez-upr" data-bez-upr="projekt">Podgląd: projekt sporządza notariusz albo aplikant.</span>
       <span class="stan" id="stan2"></span>
     </div>
   </div>
@@ -876,6 +892,12 @@ notarai</div>
   <div class="pasek" style="margin-top:8px"><span class="stan" id="stan-pliki"></span></div>
 </div>
 
+<!-- Powiadomienie o pracy w tle (np. projekt gotowy, gdy notariusz jest w kalendarzu). -->
+<div class="powiadomienie" id="powiadomienie" role="status" aria-live="polite" hidden>
+  <span></span><button type="button" data-akcja></button>
+  <button type="button" class="wtorny okragly" title="Zamknij" onclick="this.parentElement.hidden=true">×</button>
+</div>
+
 <!-- Zdjecia zostaja w przegladarce, dopoki notariusz nie kliknie "Wyslij". -->
 <dialog class="okno aparat" id="okno-aparat">
   <div class="aparat-gora">
@@ -897,7 +919,7 @@ notarai</div>
 
 <!-- ===== 3 ===== -->
 <section id="etap3" hidden>
-  <h1>Projekt dokumentu</h1>
+  <h1>Projekt dokumentu <span class="oznaczenie-sprawy" id="oznaczenie3" title="Oznaczenie sprawy - to samo w kalendarzu i na telefonie"></span></h1>
   <p class="pod">Znaczniki <code>&lt;&lt;BRAK&gt;&gt;</code> i <code>&lt;&lt;WYBOR&gt;&gt;</code> to miejsca, których nie dało się wypełnić z dokumentów. Projekt wymaga sprawdzenia przez notariusza.</p>
   <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 </div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
@@ -910,7 +932,7 @@ notarai</div>
       <span class="stan" id="stan3"></span>
     </div>
   </div>
-  <div class="karta">
+  <div class="karta" data-upr="projekt">
     <h2>Poprawki do projektu</h2>
     <p class="pod" style="margin-bottom:12px">Napisz albo nagraj, co zmienić („§3: cała cena przelewem przed aktem”, „usuń pouczenie o KRO”). Projekt zostanie sporządzony ponownie z uwzględnieniem całej rozmowy.</p>
     <div class="czat" id="czat3"></div>
@@ -952,7 +974,7 @@ notarai</div>
     <div id="spr-lista"></div>
     <div id="spr-info" class="ostrzez" hidden></div>
     <div class="pasek">
-      <button id="btn-krz" title="Wyszukuje każdy wykryty numer PESEL w krz.ms.gov.pl i zapisuje zrzuty do sprawy">Sprawdź wszystkie w KRZ</button>
+      <button id="btn-krz" data-upr="rejestry" title="Wyszukuje każdy wykryty numer PESEL w krz.ms.gov.pl i zapisuje zrzuty do sprawy">Sprawdź wszystkie w KRZ</button>
       <span class="stan" id="spr-bez-przegladarki" hidden>Wpisywanie do rejestru dzieje się w przeglądarce na Twoim komputerze, więc robi to pomocnik notarai. Uruchom go - przycisk włączy się sam. Stan pomocnika widzisz po lewej.</span>
       <span class="stan" id="stan4"></span>
     </div>
@@ -1162,7 +1184,7 @@ notarai</div>
               <button type="button" class="wtorny maly" id="kal-dodaj-tel">+ Dodaj kolejny telefon</button></div>
             <div class="pole"><span class="etykieta">Czynność</span><div class="kal-rodzaje" id="kal-rodzaje"></div></div>
             <div class="pole" id="kal-inne-pole" hidden><label class="etykieta" for="kal-rodzaj-inny">Jaka to czynność?</label><input type="text" id="kal-rodzaj-inny"></div>
-            <div class="pole"><label class="etykieta" for="kal-sprawa">Sprawa <span class="wskaz">opcjonalna</span></label><select id="kal-sprawa" style="width:100%"></select></div>
+            <div class="pole"><label class="etykieta" for="kal-sprawa">Sprawa <span class="wskaz">opcjonalna</span></label><div class="kal-sprawa-wiersz"><select id="kal-sprawa"></select><button type="button" class="wtorny maly" id="kal-otworz-sprawe" hidden>Otwórz sprawę</button></div></div>
             <div class="pole"><label class="etykieta" for="kal-uwagi">Uwagi <span class="wskaz">opcjonalne</span></label><textarea class="pole-tekst" id="kal-uwagi"></textarea></div>
             <div id="kal-osoby"></div>
             <div class="pasek">
@@ -1624,6 +1646,7 @@ notarai</div>
   <div id="zespol-lista"></div>
   <div class="dol" id="zespol-zapros" hidden>
     <input type="email" id="zespol-email" placeholder="e-mail osoby z kancelarii" spellcheck="false" autocomplete="off">
+    <select id="zespol-stanowisko" aria-label="Stanowisko"><option value="">bez stanowiska</option><option value="notariusz">notariusz</option><option value="aplikant">aplikant</option><option value="sekretariat">sekretariat</option></select>
     <button id="btn-zespol-zapros">Zaproś</button>
   </div>
   <div class="dol"><span class="stan" id="stan-zespol"></span></div>
@@ -1760,6 +1783,15 @@ notarai</div>
 const $ = (id) => document.getElementById(id);
 const OSIOL = '<img class="osiol" src="/static/notarai-symbol.svg" alt="">';
 let sprawa = null, poleceniePierwotne = "", najdalej = 1, sprawyLista = [];
+// Uprawnienia stanowiska (stanowiska.py); null = wszystko (tryb lokalny, wlasciciel).
+let uprawnienia = null;
+const UPRAWNIENIA = ["sprawy_ai", "projekt", "rejestry", "usun_plik", "usun_sprawe", "kancelaria"];
+const moze = u => !uprawnienia || uprawnienia.includes(u);
+function zastosujUprawnienia(lista){
+  uprawnienia = Array.isArray(lista) ? lista : null;
+  UPRAWNIENIA.forEach(u => document.body.classList.toggle("bez-" + u, !moze(u)));
+  document.querySelectorAll("#pola input").forEach(w => w.readOnly = !moze("projekt"));
+}
 // Zmiana pokolenia unieważnia odpowiedzi asynchroniczne poprzedniej sesji.
 let pokolenieSesji = 0;
 let pokolenieListy = 0, pokolenieOtwierania = 0;
@@ -2246,6 +2278,14 @@ function pokaz(numer){
   $("btn-aparat-gora").hidden = plikiSprawy.hidden;
   $("tytul-tel").textContent = sprawa && sprawa.id && numer > 0 && numer <= 3
     ? (sprawa.nazwa || sprawa.sygnatura || "sprawa " + sprawa.id.slice(0, 6)) : "notarai";
+  $("oznaczenie2").textContent = $("oznaczenie3").textContent = sprawa && sprawa.id ? oznaczenieSprawy(sprawa) : "";
+  // Adres #sprawa=<id> otwiera te sama sprawe na innym urzadzeniu (telefon).
+  // Przed otwarciem pierwszej sprawy adresu nie ruszamy - to on ja wskazuje.
+  if (!dysk.aktywny && sprawa && sprawa.id && !location.hash.startsWith("#polacz=")) {
+    const cel = numer === 2 || numer === 3 ? "#sprawa=" + sprawa.id : "";
+    if (location.hash !== cel && (cel || location.hash.startsWith("#sprawa=")))
+      history.replaceState(null, "", location.pathname + location.search + cel);
+  }
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
   if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
@@ -2380,7 +2420,11 @@ async function wczytajSprawe(id){
   $("polecenie").value = w.polecenie || "";
   rysujCzat(); rysujPola(w);
   najdalej = 2;
-  if (w.projekt) {
+  const wToku = !dysk.aktywny && w.projekt_stan && w.projekt_stan.stan === "w_toku";
+  if (wToku) { sledzProjekt(id, w.projekt_stan.od); ankietujProjekt(id); }
+  else if (!projektyWToku.has(id)) $("btn-generuj").disabled = false;
+  else pokazPostepProjektu(id);
+  if (w.projekt && !wToku && !projektyWToku.has(id)) {
     najdalej = 3;
     pokazProjekt(w);
     pokaz(3);
@@ -2416,8 +2460,20 @@ async function rysujPlikiSprawy(){
       lista = await odp.json();
     }
   } catch { $("pliki-lista").innerHTML = '<span class="stan blad">Nie udało się pobrać listy plików.</span>'; return; }
-  if (sprawa && sprawa.id === id) pokazPliki(lista);
+  if (!sprawa || sprawa.id !== id) return;
+  const odcisk = id + JSON.stringify(lista);
+  if (odcisk === odciskPlikow && $("pliki-lista").childElementCount) return;   // bez migania listy
+  odciskPlikow = odcisk;
+  pokazPliki(lista);
 }
+let odciskPlikow = "";
+// Zdjecie zrobione telefonem pojawia sie na komputerze w otwartej sprawie
+// bez ponownego klikania - lista plikow odswieza sie sama, gdy karta jest widoczna.
+setInterval(() => {
+  if (document.visibilityState !== "visible" || dysk.aktywny || $("pliki-sprawy").hidden || $("okno-aparat").open) return;
+  rysujPlikiSprawy();
+}, 15000);
+window.addEventListener("focus", () => { if (!$("pliki-sprawy").hidden && !dysk.aktywny) rysujPlikiSprawy(); });
 function rozmiarPliku(b){
   return b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1024 / 1024).toFixed(1).replace(".", ",") + " MB";
 }
@@ -2721,6 +2777,7 @@ async function uruchomTrybPracy(){
     window.odswiezKokpit?.([], 'Przed użyciem spraw zaakceptuj umowę powierzenia danych w sekcji Dokumenty.');
   } else {
     rysujListeSpraw();
+    otworzSpraweZAdresu();
   }
   wczytajZespol();
   wczytajAbonament().then(obsluzPowrotZPlatnosci);
@@ -2741,6 +2798,7 @@ async function wczytajZespol(){
     if (!odp.ok) return;
     zespol = await odp.json();
   } catch { return; }
+  zastosujUprawnienia(zespol.uprawnienia);
   $("kto").textContent = zespol.ja;
   $("kto").title = zespol.kancelaria;
   $("kto").hidden = false;
@@ -2775,6 +2833,10 @@ function rysujZespol(){
     d.innerHTML = `<span class="kropka ${o.dolaczyl ? "jest" : ""}"></span>
       <div><b>${escape(o.email)}${ja ? " (Ty)" : ""}</b><small>${escape(opis)}</small></div>
       ${o.rola === "wlasciciel" ? '<span class="znacznik">właściciel</span>' : ""}
+      ${wlasciciel ? '<select data-stanowisko aria-label="Stanowisko"><option value="">bez stanowiska</option>'
+          + (zespol.stanowiska || []).map(x => '<option value="' + x + '"' + (o.stanowisko === x ? " selected" : "") + ">" + x + "</option>").join("")
+          + "</select>"
+        : (o.stanowisko ? '<span class="znacznik stanowisko">' + escape(o.stanowisko) + "</span>" : "")}
       ${wlasciciel && !ja && !o.dolaczyl ? '<button class="wtorny" data-ponow>Wyślij ponownie</button>' : ""}
       ${wlasciciel && !ja && o.rola !== "wlasciciel" ? '<button class="odnosnik-maly" data-usun>Usuń</button>' : ""}`;
     const sciezka = "/api/zespol/" + encodeURIComponent(o.email);
@@ -2788,6 +2850,18 @@ function rysujZespol(){
         if (!odp.ok) throw new Error(w.detail || "Nie udało się wysłać.");
         stan($("stan-zespol"), "Wysłano nowe hasło tymczasowe na " + o.email + ".");
       } catch (e) { stan($("stan-zespol"), e.message, true); ponow.disabled = false; }
+    };
+    const wybor = d.querySelector("[data-stanowisko]");
+    if (wybor) wybor.onchange = async () => {
+      stan($("stan-zespol"), "Zapisuję…", false, true);
+      try {
+        const odp = await api(sciezka + "/stanowisko", {method: "PUT",
+          headers: {"Content-Type": "application/json"}, body: JSON.stringify({stanowisko: wybor.value})});
+        const w = await odp.json().catch(() => ({}));
+        if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać.");
+        stan($("stan-zespol"), "Stanowisko zapisane: " + (w.stanowisko || "bez stanowiska") + ".");
+        await wczytajZespol();
+      } catch (e) { stan($("stan-zespol"), e.message, true); }
     };
     const usun = d.querySelector("[data-usun]");
     if (usun) usun.onclick = async () => {
@@ -3297,7 +3371,7 @@ $("btn-zespol-zapros").onclick = async () => {
   stan($("stan-zespol"), "Wysyłam zaproszenie…", false, true);
   try {
     const odp = await api("/api/zespol", {method: "POST",
-      headers: {"Content-Type": "application/json"}, body: JSON.stringify({email})});
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({email, stanowisko: $("zespol-stanowisko").value})});
     const w = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(w.detail || "Nie udało się zaprosić.");
     $("zespol-email").value = "";
@@ -3563,7 +3637,14 @@ function obsluzKodZAdresu(){
     stan($("stan-pomocnik"), e.message, true);
   });
 }
-window.addEventListener("hashchange", () => { if (token && $("brama").hidden) obsluzKodZAdresu(); });
+window.addEventListener("hashchange", () => { if (token && $("brama").hidden) { obsluzKodZAdresu(); otworzSpraweZAdresu(); } });
+
+/* #sprawa=<id>: ta sama sprawa na telefonie i na komputerze (np. z kalendarza). */
+function otworzSpraweZAdresu(){
+  const traf = location.hash.match(/^#sprawa=([A-Za-z0-9]+)$/);
+  if (!traf || dysk.aktywny || (sprawa && sprawa.id === traf[1])) return;
+  wczytajSprawe(traf[1]);
+}
 
 async function pokazPotwierdzenie(kod){
   const odp = await api("/api/urzadzenia/kod/" + encodeURIComponent(kod));
@@ -3915,8 +3996,12 @@ async function czytajStrumien(odp, naPostep = () => {}) {
         throw new Error(w.blad);
       }
     }
-    if (done) throw new Error("Połączenie z serwerem przerwane w trakcie pracy. Za kilka minut " +
-                              "otwórz sprawę z listy - wynik mógł się zapisać. Potem spróbuj ponownie.");
+    if (done) {
+      const blad = new Error("Połączenie z serwerem przerwane w trakcie pracy. Za kilka minut " +
+                             "otwórz sprawę z listy - wynik mógł się zapisać. Potem spróbuj ponownie.");
+      blad.przerwane = true;
+      throw blad;
+    }
   }
 }
 
@@ -4038,7 +4123,8 @@ function rysujPola(wynik){
     const wejscie = document.createElement("input");
     wejscie.type = "text";
     wejscie.value = pole.wartosc ?? "";
-    wejscie.placeholder = "do uzupełnienia ręcznie";
+    wejscie.placeholder = moze("projekt") ? "do uzupełnienia ręcznie" : "";
+    wejscie.readOnly = !moze("projekt");
     wejscie.dataset.indeks = i;
     wiersz.append(naglowek, wejscie);
     const uwagi = [];
@@ -4200,11 +4286,30 @@ $("btn-generuj").onclick = async () => {
         rozbieznosci: edytowanaSprawa.rozbieznosci || [],
       });
     } else {
-      const odp = await api("/api/sprawy/" + sprawa.id + "/projekt", {
-        method:"POST", headers:{"Content-Type":"application/json", "Accept": "application/x-ndjson"},
-        body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
-      });
-      wynik = await czytajStrumien(odp);
+      // Projekt pisze sie do kilkunastu minut. Stan zyje przy sprawie na
+      // serwerze: mozna pracowac w innych widokach, odswiezyc strone albo
+      // zajrzec z telefonu - wynik zapisze sie w sprawie tak czy inaczej.
+      const id = sprawa.id;
+      sledzProjekt(id);
+      let odp;
+      try {
+        odp = await api("/api/sprawy/" + id + "/projekt", {
+          method:"POST", headers:{"Content-Type":"application/json", "Accept": "application/x-ndjson"},
+          body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
+        });
+      } catch { ankietujProjekt(id); return; }
+      if (odp.status === 409) { ankietujProjekt(id); return; }   // juz sie pisze, np. z drugiego urzadzenia
+      try {
+        wynik = await czytajStrumien(odp);
+      } catch (e) {
+        if (e.przerwane) { ankietujProjekt(id); return; }        // serwer pisze dalej
+        koniecSledzenia(id);
+        throw e;
+      }
+      koniecSledzenia(id);
+      if (sesjaZadania !== pokolenieSesji) return;
+      await projektGotowy(id, wynik);
+      return;
     }
     if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
         numerSprawy !== pokolenieOtwierania) return;
@@ -4223,13 +4328,91 @@ $("btn-generuj").onclick = async () => {
   } catch (e) {
     stan($("stan2"), e.message, true);
   } finally {
-    $("btn-generuj").disabled = false;
+    if (!(sprawa && projektyWToku.has(sprawa.id))) $("btn-generuj").disabled = false;
   }
 };
+
+/* Projekt w toku: zegar w statusie, a gdy nie ma strumienia (zerwane
+   polaczenie, odswiezona strona, drugie urzadzenie) - pytanie serwera co 10 s.
+   Po zakonczeniu nie przerzucamy nikogo na sile: kto jest gdzie indziej,
+   dostaje powiadomienie z przyciskiem. */
+const projektyWToku = new Map();   // id sprawy -> {od, zegar, ankieta}
+function czasTrwania(sek){ return Math.floor(sek / 60) + ":" + String(sek % 60).padStart(2, "0"); }
+function pokazPostepProjektu(id){
+  const p = projektyWToku.get(id);
+  if (!p || !sprawa || sprawa.id !== id) return;
+  const sek = Math.max(0, Math.round((Date.now() - p.od) / 1000));
+  stan($("stan2"), "Sporządzam projekt… " + czasTrwania(sek)
+    + " · duży akt trwa do kilkunastu minut, możesz w tym czasie pracować w innych widokach.", false, true);
+  $("btn-generuj").disabled = true;
+}
+function sledzProjekt(id, odIso){
+  if (projektyWToku.has(id)) return pokazPostepProjektu(id);
+  const p = {od: odIso ? new Date(odIso).getTime() : Date.now()};
+  p.zegar = setInterval(() => pokazPostepProjektu(id), 1000);
+  projektyWToku.set(id, p);
+  pokazPostepProjektu(id);
+}
+function koniecSledzenia(id){
+  const p = projektyWToku.get(id);
+  if (!p) return;
+  clearInterval(p.zegar); clearInterval(p.ankieta);
+  projektyWToku.delete(id);
+  if (sprawa && sprawa.id === id) $("btn-generuj").disabled = false;
+}
+function ankietujProjekt(id){
+  const p = projektyWToku.get(id);
+  if (!p || p.ankieta) return;
+  p.ankieta = setInterval(async () => {
+    try {
+      const odp = await api("/api/sprawy/" + id + "/projekt/stan");
+      if (!odp.ok) return;
+      const st = await odp.json();
+      if (st.stan === "w_toku") return;
+      koniecSledzenia(id);
+      if (st.stan === "gotowy") await projektGotowy(id, null);
+      else if (sprawa && sprawa.id === id) stan($("stan2"), st.komunikat || "Projekt nie powstał. Spróbuj ponownie.", true);
+    } catch { /* chwilowy brak sieci - zapytamy za 10 s */ }
+  }, 10000);
+}
+async function projektGotowy(id, wynik){
+  const tuJestem = sprawa && sprawa.id === id && !$("etap2").hidden;
+  if (tuJestem) {
+    if (!wynik) {
+      const odp = await api("/api/sprawy/" + id);
+      if (!odp.ok) return;
+      const w = await odp.json();
+      wynik = {tekst: w.projekt, brakujace: w.brakujace, do_wyboru: w.do_wyboru, zgodnosc: w.zgodnosc};
+    }
+    sprawa.projekt = wynik.tekst;
+    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
+                  zgodnosc: wynik.zgodnosc});
+    stan($("stan3"), ""); stan($("stan2"), "");
+    pokaz(3);
+    api("/api/sprawy/" + id).then(r => r.json()).then(w => {
+      if (!sprawa || sprawa.id !== id) return;
+      sprawa.nazwa = w.nazwa;
+      $("nazwa2").value = w.nazwa || "";
+    }).catch(() => {});
+  } else {
+    if (sprawa && sprawa.id === id) stan($("stan2"), "Projekt gotowy.");
+    pokazPowiadomienie("Projekt gotowy: " + nazwaSprawy(id) + " (" + oznaczenieSprawyId(id) + ")",
+                       "Otwórz projekt", () => wczytajSprawe(id));
+  }
+  rysujListeSpraw();
+}
+function pokazPowiadomienie(tekst, przycisk, akcja){
+  const k = $("powiadomienie");
+  k.querySelector("span").textContent = tekst;
+  const b = k.querySelector("[data-akcja]");
+  b.textContent = przycisk;
+  b.onclick = () => { k.hidden = true; akcja(); };
+  k.hidden = false;
+}
 function pokazProjekt(w){
   $("projekt").innerHTML = escape(w.projekt)
-    .replace(/&lt;&lt;BRAK:([^&]*?)&gt;&gt;/g, '<mark>&lt;&lt;BRAK:$1&gt;&gt;</mark>')
-    .replace(/&lt;&lt;WYBOR:([^&]*?)&gt;&gt;/g, '<mark>&lt;&lt;WYBOR:$1&gt;&gt;</mark>');
+    .replace(/&lt;&lt;BRAK:([^&]*?)&gt;&gt;/g, '<mark class="brak" title="Brak danych - do uzupełnienia przez notariusza">&lt;&lt;BRAK:$1&gt;&gt;</mark>')
+    .replace(/&lt;&lt;WYBOR:([^&]*?)&gt;&gt;/g, '<mark class="wybor" title="Wariant do rozstrzygnięcia przez notariusza">&lt;&lt;WYBOR:$1&gt;&gt;</mark>');
   const uwagi = [];
   if (w.brakujace) uwagi.push(w.brakujace + " miejsc bez danych");
   if (w.do_wyboru) uwagi.push(w.do_wyboru + " wariantów do rozstrzygnięcia");
@@ -5061,7 +5244,7 @@ $("btn-dodaj-osobe").onclick = async () => {
 /* ---------- 6: kalendarz ---------- */
 // Okno dnia: polgodzinne okienka od 8:30 do 18:00. Zaznaczone okienka sa
 // zawsze ciagiem - rezerwacja trwa od pierwszego do konca ostatniego.
-const RODZAJE = ["sprzedaż", "darowizna", "dział spadku", "poświadczenie podpisów", "testament", "pełnomocnictwo notarialne", "inne"];
+const RODZAJE = ["sprzedaż", "sprzedaż nieruchomości", "darowizna", "dział spadku", "poświadczenie podpisów", "testament", "pełnomocnictwo notarialne", "inne"];
 const OD = 8 * 60 + 30, DO = 18 * 60, KROK = 30;
 // kalData - dzien, wokol ktorego rysujemy miesiac / tydzien / dzien.
 let wpisyKal = [], opisyDni = {}, kalData = new Date(), widok = "miesiac";
@@ -5133,6 +5316,20 @@ const dzienWidoczny = () => !$("kal-okno").hidden || widok === "dzien";
 function nazwaSprawy(id){
   const s = sprawyLista.find(x => x.id === id);
   return s ? (s.nazwa || s.sygnatura || "sprawa " + id.slice(0, 6)) : "sprawa " + id.slice(0, 6);
+}
+// Oznaczenie sprawy - to samo w kalendarzu, w naglowku sprawy i na telefonie.
+function oznaczenieSprawy(s){
+  return s ? (s.sygnatura || "nr " + String(s.id || "").slice(0, 6)) : "";
+}
+function oznaczenieSprawyId(id){
+  return oznaczenieSprawy(sprawyLista.find(x => x.id === id) || {id});
+}
+// Z terminu do sprawy: zamykamy okno dnia (z pytaniem o niezapisane zmiany).
+function otworzSpraweZTerminu(id){
+  if (!id) return;
+  if (dzienWidoczny() && !porzucic()) return;
+  $("kal-okno").hidden = true; edytowany = null; przenoszenie = false;
+  wczytajSprawe(id);
 }
 function nazwaRodzaju(w){ return w.rodzaj === "inne" ? w.rodzaj_inny : (w.rodzaj || ""); }
 function opisWpisu(w){
@@ -5255,6 +5452,9 @@ function rysujNajblizsze(){
     const kiedy = new Date(w.data + "T00:00").toLocaleDateString("pl-PL", {weekday:"long", day:"numeric", month:"long"});
     d.innerHTML = '<div class="kiedy">' + escape(kiedy) + (w.godzina ? ", godz. " + escape(godzinyWpisu(w)) : "") + "</div>"
       + '<div class="co">' + escape(opisWpisu(w)) + (w.sprawa && opisWpisu(w) !== nazwaSprawy(w.sprawa) ? ' <span class="stan">· ' + escape(nazwaSprawy(w.sprawa)) + "</span>" : "") + "</div>"
+      + (w.sprawa && sprawyLista.some(x => x.id === w.sprawa)
+        ? '<div class="kal-do-sprawy"><span class="oznaczenie-sprawy">' + escape(oznaczenieSprawyId(w.sprawa)) + '</span>'
+          + ' <button type="button" class="wtorny maly" data-otworz-sprawe>Otwórz sprawę</button></div>' : "")
       + (telefonyWpisu(w).length ? '<div class="tel">' + telefonyWpisu(w).map(linkTelefonu).join(" · ") + "</div>" : "")
       + (w.uwagi ? '<div class="stan">' + escape(w.uwagi) + "</div>" : "")
       + (w.sprawa ? listaTelefonow(w.sprawa) : "");
@@ -5263,6 +5463,8 @@ function rysujNajblizsze(){
       if (widok === "dzien") $("kal-dzien-miejsce").scrollIntoView({behavior:"smooth"});
       otworzDzien(w.data, w);
     };
+    const doSprawy = d.querySelector("[data-otworz-sprawe]");
+    if (doSprawy) doSprawy.onclick = () => otworzSpraweZTerminu(w.sprawa);
     podepnijUzupelnij(d);
     k.appendChild(d);
   });
@@ -5462,6 +5664,8 @@ function rysujRodzaje(){
 }
 function rysujOsobyTerminu(){
   const id = $("kal-sprawa").value, k = $("kal-osoby");
+  $("kal-otworz-sprawe").hidden = !id;
+  $("kal-otworz-sprawe").title = id ? "Sprawa " + oznaczenieSprawyId(id) : "";
   k.innerHTML = id ? '<span class="etykieta">Strony czynności z tej sprawy</span>' + listaTelefonow(id) : "";
   podepnijUzupelnij(k);
 }
@@ -5497,6 +5701,7 @@ function przesunDzien(o){
   otworzDzien(iso(d));
 }
 $("kal-sprawa").onchange = rysujOsobyTerminu;
+$("kal-otworz-sprawe").onclick = () => otworzSpraweZTerminu($("kal-sprawa").value);
 $("kal-wstecz").onclick = () => przesunWidok(-1);
 $("kal-dalej").onclick  = () => przesunWidok(1);
 $("kal-dzis").onclick   = () => {

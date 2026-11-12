@@ -104,6 +104,50 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
     go opublikuje.
 - **W kodzie:** `giif.TERMIN_DNI`, `docs/ksiegi-i-giif.md`, `giif_xml.CRWDE`.
 
+## NA-7. Odcinek 01 — czas projektu aktu z prawdziwym modelem (Bedrock)
+
+- **Status:** czeka
+- **Brakuje:** poświadczeń AWS z dostępem do Bedrock w eu-central-1 na
+  stanowisku, z którego nagrywamy (w sesji, w której powstał kod, ich nie było).
+  Lokalnie zmierzono tylko narzut aplikacji na atrapie modelu: 0,3–0,5 s.
+- **Na żywo:**
+  1. `python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01`
+  2. `python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo '<hasło demo>'`
+     (bez `--atrapa-modelu`), zalogować się jako Marta, sprawa „Nowak - Nowak”,
+     „Sporządź projekt”.
+  3. Zapisać czas z dziennika serwera (`projekt sporzadzony w N s`) i sprawdzić,
+     że projekt ma 2× `<<BRAK>>` (data aktu, dowód kupującego) i warianty
+     `<<WYBOR>>` z § 2 i § 4, a raport zasad pokazuje „kwoty słownie”.
+  4. Na czas nagrania: przejście do kalendarza w trakcie, powiadomienie, DOCX.
+- **W kodzie:** nic — ewentualnie tekst statusu w `pokazPostepProjektu`
+  (`static/index.html`), jeśli czas odbiega od „do kilkunastu minut”.
+- **Zamknięte, gdy:** czas zapisany w `docs/odcinek-01-luki.md`, a projekt
+  z modelu przejrzał notariusz.
+
+## NA-8. Odcinek 01 — przebieg na app.notarai.pl (S3 + Cognito, dwa urządzenia)
+
+- **Status:** czeka
+- **Brakuje:** wdrożenia gałęzi `claude/odcinek-01-ekrany` (po scaleniu do
+  `master`) i kancelarii demo na app.notarai.pl z czterema kontami na
+  prawdziwych skrzynkach (zaproszenia Cognito).
+- **Na żywo:**
+  1. W panelu /admin założyć kancelarię demo (np. „Kancelaria pod Siódemką
+     DEMO”), właściciel akceptuje umowę powierzenia sam (to oświadczenie,
+     nie skrypt).
+  2. Właściciel zaprasza 3 osoby w „Zespół kancelarii”, od razu ze
+     stanowiskiem (notariusz / aplikant / sekretariat).
+  3. Dane sprawy: `PIECZAPP_MAGAZYN=s3 PIECZAPP_S3_BUCKET=<bucket> python
+     scripts/demo_odcinek01.py przygotuj --kancelaria <id kancelarii demo>`
+     (profil `notarai-admin`, eu-central-1; same dane fikcyjne).
+  4. Telefon (Kuba): link `https://app.notarai.pl/#sprawa=e01demo00001`,
+     zdjęcie aparatem → „Wyślij”; komputer Marty: plik pojawia się w ≤ 15 s.
+  5. Marta: „Sporządź projekt”, przejście do kalendarza, odświeżenie strony
+     w trakcie (status ma przetrwać), powiadomienie, „Pobierz jako Word”.
+  6. Basia: brak „Sporządź projekt”; Kuba: brak „Księgi”/„GIIF”.
+- **W kodzie:** nic, chyba że wyjdą różnice S3 (np. opóźnienie `projekt-stan.json`
+  między kopiami aplikacji).
+- **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

@@ -249,6 +249,23 @@ def _kontekst(linia: str, pozycja: int, przed: int = 6, po: int = 3) -> str:
 _CUDZYSLOWY = re.compile("[\"'„”“»«]")
 
 
+# Miejsca do uzupelnienia przez notariusza. W Wordzie maja byc nie do
+# przeoczenia takze na wydruku: zakreslacz i pogrubienie, inny kolor dla
+# braku danych i dla wariantu do wyboru. Tresc znacznika zostaje bez zmian.
+ZNACZNIK_PROJEKTU = re.compile(r"(<<(?:BRAK|WYBOR):.*?>>)")
+
+
+def _wyroznij_znacznik(przebieg, kawalek: str) -> None:
+    from docx.enum.text import WD_COLOR_INDEX
+    if kawalek.startswith("<<BRAK:"):
+        przebieg.font.highlight_color = WD_COLOR_INDEX.YELLOW
+    elif kawalek.startswith("<<WYBOR:"):
+        przebieg.font.highlight_color = WD_COLOR_INDEX.TURQUOISE
+    else:
+        return
+    przebieg.bold = True
+
+
 def tekst_na_docx(tekst: str, cel: Path) -> Path:
     """Zapisuje projekt aktu jako .docx. Puste linie rozdzielaja akapity."""
     dokument = Document()
@@ -262,9 +279,14 @@ def tekst_na_docx(tekst: str, cel: Path) -> Path:
         if not tresc:
             continue
         wyrownaj_srodek = tresc.isupper() and len(tresc) < 80
-        przebieg = akapit.add_run(tresc.strip())
+        for kawalek in ZNACZNIK_PROJEKTU.split(tresc.strip()):
+            if not kawalek:
+                continue
+            przebieg = akapit.add_run(kawalek)
+            if wyrownaj_srodek:
+                przebieg.bold = True
+            _wyroznij_znacznik(przebieg, kawalek)
         if wyrownaj_srodek:
-            przebieg.bold = True
             akapit.alignment = 1
 
     _oznacz_jako_ai(dokument)

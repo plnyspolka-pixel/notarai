@@ -15,6 +15,8 @@
 - `infra/wyslij-kod.ps1` — wysyła zacommitowane zmiany na GitHub (przepina `origin` ze starego CodeCommit, jeśli trzeba)
 - `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
+- `stanowiska.py` — stanowisko osoby w zespole (notariusz / aplikant / sekretariat): co może zrobić w sprawach; serwer odmawia 403, UI chowa przyciski. Nadaje właściciel w oknie „Zespół kancelarii”. Osoba bez stanowiska i właściciel mają pełne uprawnienia.
+- `scripts/demo_odcinek01.py` — fikcyjne dane demo i lokalny serwer z kontami 4 ról do nagrania odcinka 01 (`docs/odcinek-01-luki.md`)
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 

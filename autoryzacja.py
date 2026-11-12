@@ -35,6 +35,7 @@ from pydantic import BaseModel
 import logowanie
 import magazyn
 import platnosci
+import stanowiska
 import tokenomia
 import urzadzenia
 
@@ -222,6 +223,16 @@ async def middleware(request: Request, call_next):
         return JSONResponse({"detail": "Wlasciciel kancelarii musi najpierw zaakceptowac Regulamin "
                                        "i umowe powierzenia.", "umowa": True}, 428)
 
+    # Stanowisko osoby (notariusz / aplikant / sekretariat) ogranicza to, co
+    # moze zrobic w sprawach. Dostep serwisowy ma wlasny zakres (wyzej).
+    if email and not id_serwisu:
+        uprawnienie = stanowiska.wymagane(request.method, sciezka)
+        if uprawnienie:
+            osoba = _osoba_w_kancelarii(kancelaria, email)
+            if uprawnienie not in stanowiska.uprawnienia(osoba):
+                return JSONResponse({"detail": stanowiska.odmowa(uprawnienie, (osoba or {}).get("stanowisko", "")),
+                                     "uprawnienie": uprawnienie}, 403)
+
     znacznik = magazyn.kancelaria_var.set(kancelaria)
     znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
     try:
@@ -233,6 +244,13 @@ async def middleware(request: Request, call_next):
     finally:
         magazyn.kancelaria_var.reset(znacznik)
         magazyn.przechowywanie_var.reset(znacznik_p)
+
+
+def _osoba_w_kancelarii(kancelaria: str, email: str) -> dict | None:
+    for wpis in _wczytaj_rejestr().values():
+        if wpis["id"] == kancelaria:
+            return _osoba(wpis, email)
+    return None
 
 
 def _oplacona(kancelaria: str) -> bool:
@@ -915,14 +933,46 @@ def _wymagaj_wlasciciela(wpis: dict, email: str) -> None:
 
 class Zaproszenie(BaseModel):
     email: str
+    # Tylko przy zapraszaniu do zespolu kancelarii; puste = bez stanowiska.
+    stanowisko: str = ""
 
 
 @router_zespolu.get("")
 def moj_zespol(request: Request):
     _, _, wpis, email = _moja_kancelaria(request)
+    osoba = _osoba(wpis, email) or {}
     return {"ja": email, "kancelaria": wpis["nazwa"],
             "jestem_wlascicielem": email in _wlasciciele(wpis),
+            "moje_stanowisko": osoba.get("stanowisko", ""),
+            "uprawnienia": sorted(stanowiska.uprawnienia(osoba or None)),
+            "stanowiska": list(stanowiska.STANOWISKA),
             "osoby": _zespol(wpis)}
+
+
+class Stanowisko(BaseModel):
+    stanowisko: str = ""
+
+
+@router_zespolu.put("/{adres}/stanowisko")
+def ustaw_stanowisko(request: Request, adres: str, dane: Stanowisko):
+    """Wlasciciel nadaje osobie stanowisko: notariusz, aplikant, sekretariat.
+    Puste = bez stanowiska (pelne uprawnienia, jak przed ta zmiana)."""
+    rejestr, _, wpis, email = _moja_kancelaria(request)
+    _wymagaj_wlasciciela(wpis, email)
+    osoba = _osoba(wpis, _poprawny_email(adres))
+    if osoba is None:
+        raise HTTPException(404, "Tej osoby nie ma w zespole.")
+    try:
+        nowe = stanowiska.sprawdz(dane.stanowisko)
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    if nowe:
+        osoba["stanowisko"] = nowe
+    else:
+        osoba.pop("stanowisko", None)
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: zmieniono stanowisko osoby (%s)", wpis["id"], nowe or "brak")
+    return {"email": osoba["email"], "stanowisko": nowe}
 
 
 @router_zespolu.post("", status_code=201)
@@ -930,7 +980,15 @@ def zapros_do_zespolu(request: Request, dane: Zaproszenie):
     _wymagaj_logowania()
     rejestr, skrot, wpis, email = _moja_kancelaria(request)
     _wymagaj_wlasciciela(wpis, email)
-    return _zapros(rejestr, skrot, dane.email, "czlonek")
+    try:
+        stanowisko = stanowiska.sprawdz(dane.stanowisko)
+    except ValueError as blad:
+        raise HTTPException(400, str(blad))
+    osoba = _zapros(rejestr, skrot, dane.email, "czlonek")
+    if stanowisko:
+        osoba["stanowisko"] = stanowisko
+        _zapisz_rejestr(rejestr)
+    return osoba
 
 
 @router_zespolu.post("/{adres}/ponow")

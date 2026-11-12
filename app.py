@@ -653,12 +653,82 @@ class ZadanieGenerowania(BaseModel):
     z_rozmowa: bool = True
 
 
+# Stan sporzadzania projektu lezy przy sprawie (i w S3), nie w przegladarce:
+# duzy akt pisze sie kilkanascie minut, a w tym czasie notariusz przechodzi do
+# kalendarza, odswieza strone albo otwiera sprawe na drugim urzadzeniu. Serwer
+# konczy prace takze wtedy, gdy przegladarka sie rozlaczy.
+PROJEKT_STAN = "projekt-stan.json"
+# "w toku" starsze niz to (np. po restarcie kontenera) nie blokuje nowego projektu.
+PROJEKT_MAKS_S = 2 * 3600
+
+
+def _teraz_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _stan_projektu(katalog: Path) -> dict:
+    plik = katalog / PROJEKT_STAN
+    try:
+        stan = json.loads(plik.read_text("utf-8")) if plik.exists() else {}
+    except ValueError:
+        stan = {}
+    if stan.get("stan") == "w_toku":
+        try:
+            trwa = (datetime.now() - datetime.fromisoformat(stan["od"])).total_seconds()
+        except (KeyError, ValueError):
+            trwa = PROJEKT_MAKS_S + 1
+        if trwa > PROJEKT_MAKS_S:
+            stan = {"stan": "przerwany", "od": stan.get("od", "")}
+        else:
+            stan["sekund"] = int(trwa)
+    return stan or {"stan": "brak"}
+
+
+def _zapisz_stan_projektu(katalog: Path, stan: dict) -> None:
+    _zapisz_json(katalog / PROJEKT_STAN, stan)
+    magazyn.utrwal_sprawe(katalog)
+
+
+@app.get("/api/sprawy/{identyfikator}/projekt/stan")
+def stan_projektu(identyfikator: str):
+    """Czy projekt tej sprawy sie sporzadza, od kiedy i czym sie skonczyl."""
+    return _stan_projektu(_katalog_sprawy(identyfikator))
+
+
 @app.post("/api/sprawy/{identyfikator}/projekt")
 async def generuj_projekt(request: Request, identyfikator: str, zadanie: ZadanieGenerowania):
     """Wypelnienie wzoru zatwierdzonymi danymi. Duzy akt pisze sie ponad kwadrans,
-    wiec przegladarka dostaje strumien ze znakami zycia (jak przy odczycie)."""
-    return await _wykonaj(request, lambda postep: _generuj_projekt(identyfikator, zadanie),
-                          "projekt")
+    wiec przegladarka dostaje strumien ze znakami zycia (jak przy odczycie),
+    a stan pracy zapisujemy przy sprawie (GET .../projekt/stan)."""
+    katalog = _katalog_sprawy(identyfikator)
+    stan = _stan_projektu(katalog)
+    if stan.get("stan") == "w_toku":
+        raise HTTPException(409, "Projekt tej sprawy już się sporządza (od "
+                                 + stan.get("od", "")[11:16] + "). Wynik pojawi się sam.")
+    poczatek = _teraz_iso()
+    _zapisz_stan_projektu(katalog, {"stan": "w_toku", "od": poczatek})
+
+    def praca(postep) -> dict:
+        start = datetime.now()
+        if postep:
+            postep("projekt", 0, 1)
+        try:
+            wynik = _generuj_projekt(identyfikator, zadanie)
+        except HTTPException as blad:
+            _zapisz_stan_projektu(katalog, {"stan": "blad", "od": poczatek, "do": _teraz_iso(),
+                                            "komunikat": str(blad.detail)[:300], "kod": blad.status_code})
+            raise
+        except BaseException:
+            _zapisz_stan_projektu(katalog, {"stan": "blad", "od": poczatek, "do": _teraz_iso(),
+                                            "komunikat": "Blad serwera (projekt).", "kod": 500})
+            raise
+        sekund = int((datetime.now() - start).total_seconds())
+        _zapisz_stan_projektu(katalog, {"stan": "gotowy", "od": poczatek, "do": _teraz_iso(),
+                                        "sekund": sekund})
+        log.info("sprawa %s: projekt sporzadzony w %d s", identyfikator, sekund)
+        return {**wynik, "sekund": sekund}
+
+    return await _wykonaj(request, praca, "projekt")
 
 
 def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
@@ -805,6 +875,7 @@ def wczytaj_sprawe(identyfikator: str):
         "plik": f"/api/sprawy/{identyfikator}/plik" if (katalog / "projekt.docx").exists() else None,
         "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator),
         "zgodnosc": zgodnosc,
+        "projekt_stan": _stan_projektu(katalog),
     }
 
 
