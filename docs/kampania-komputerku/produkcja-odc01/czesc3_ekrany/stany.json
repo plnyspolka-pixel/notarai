@@ -1,0 +1,137 @@
+[
+ {
+  "nazwa": "W1_weryfikacja",
+  "plik": "W1_weryfikacja.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 514.984375,
+   "y": 731.671875,
+   "width": 146.609375,
+   "height": 27
+  }
+ },
+ {
+  "nazwa": "W2_wymagaja_uwagi",
+  "plik": "W2_wymagaja_uwagi.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 425.671875,
+   "width": 926,
+   "height": 144.765625
+  }
+ },
+ {
+  "nazwa": "W3_przed_sporzadz",
+  "plik": "W3_przed_sporzadz.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 847,
+   "width": 152.171875,
+   "height": 39
+  }
+ },
+ {
+  "nazwa": "W4_sporzadzam",
+  "plik": "W4_sporzadzam.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 558.171875,
+   "y": 856.09375,
+   "width": 731.34375,
+   "height": 20.796875
+  }
+ },
+ {
+  "nazwa": "W5_kalendarz_w_trakcie",
+  "plik": "W5_kalendarz_w_trakcie.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": null
+ },
+ {
+  "nazwa": "W6_powiadomienie",
+  "plik": "W6_powiadomienie.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 964,
+   "y": 817.21875,
+   "width": 460,
+   "height": 66.78125
+  }
+ },
+ {
+  "nazwa": "W7_projekt",
+  "plik": "W7_projekt.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 336.90625,
+   "width": 926,
+   "height": 560
+  }
+ },
+ {
+  "nazwa": "W8_projekt_brak",
+  "plik": "W8_projekt_brak.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 459.921875,
+   "y": 477.90625,
+   "width": 143.28125,
+   "height": 14
+  }
+ },
+ {
+  "nazwa": "W9_projekt_wybor",
+  "plik": "W9_projekt_wybor.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 701.09375,
+   "y": 801.90625,
+   "width": 555.078125,
+   "height": 14
+  }
+ },
+ {
+  "nazwa": "W10_pobierz_word",
+  "plik": "W10_pobierz_word.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 430.90625,
+   "width": 159.515625,
+   "height": 39
+  }
+ }
+]

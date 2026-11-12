@@ -44,3 +44,12 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
   s05 Marta b75235f02b534a579e0956b9c1294d01, s05 Basia 2f8d855cd15d4033837662f9cd4f7b00.
 - Kling: Marta podchodzi 01a1d07b-f679-7990-b949-bebec8514f28, zdjęcie telefonem 01a1d07b-f625-7163-a7ea-dc877c2657fe, Kuba czeka 01a1d07b-f60e-7ac0-ab0e-442fbe3fd94d.
 - Montaż: `narzedzia/montaz_odc01_cz2.py` → `podglady/odc01_czesc2.mp4` (38,5 s). Pauza strategiczna: po „…z następną sprawą” gwar cichnie, 0,9 s ciszy, potem telefon.
+
+# Część 3 — prawdziwy projekt z Bedrock (NA-7)
+
+- Dostęp: klucz API Amazon Bedrock (eu-central-1) zapisany jako sekret sieciowy środowiska „pieczapp”, wstrzykiwany przez pośrednika
+  tylko do `bedrock-runtime.eu-central-1.amazonaws.com`; w procesie `AWS_BEARER_TOKEN_BEDROCK=proxy-injected` (zaślepka), boto3 ≥ 1.40.
+- Model: `eu.anthropic.claude-opus-4-6-v1` (profil EU). **Czas sporządzenia projektu: 153 s** (1 wywołanie, we 4594 / wy 13652 tokenów, koszt 1,48 zł).
+- Projekt v1 (`czesc3_ekrany/projekt_NOWAK_KACZMAREK_v1.docx`, tekst `projekt_tekst.txt`): zgodny z kanonem — Helena Radecka, Kaczmarkowie,
+  56,40 m², 640 000 zł; `<<BRAK>>`: data aktu, sposób zapłaty ceny, termin wydania lokalu; `<<WYBOR>>` w § 2 (stan działów III/IV).
+- Zrzuty stanów sc. 06–10 (W1–W10) do animacji: `czesc3_ekrany/`, skrypt `narzedzia/nagraj_ekrany_odc01_cz3.js`.
