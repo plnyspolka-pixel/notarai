@@ -37,5 +37,5 @@ Wybór zrobiono na podstawie pomiarów i transkrypcji. Ostateczna ocena należy 
 
 ## Koszt
 
-- ElevenLabs: 8 serii Voice Design (24 podglądy), 3 dialogi, 1 efekt dźwiękowy. Wszystko mieści się w limicie znaków planu Creator: przed pracą zużyte było 10 tys. z 697 tys., a cała praca to kilka tysięcy znaków.
-- HeyGen: 4 rendery, razem ok. 17 s audio.
+- ElevenLabs: 8 serii Voice Design (24 podglądy), 3 dialogi, 1 efekt dźwiękowy. Zużycie: 3,0 tys. znaków (z 10,2 do 13,2 tys. na limit 697 tys. planu Creator), bez dopłat.
+- HeyGen: 4 rendery photo avatar, razem 16,8 s (silnik v3_audio, jak w v1). Szacunek: ok. 0,7–1,4 USD.
