@@ -30,7 +30,7 @@ definiuje postać, nie jest generowane od nowa w odcinku.
 |---|---|---|
 | Twarz i strój | 4 zdjęcia wzorcowe (`pakiet/02_bohaterowie/*_ref.jpg`) + arkusz postaci: przód, ¾, profil, 3 emocje — wygenerowany raz w fal (Nano Banana Pro edit z referencją) i **zatwierdzony przez człowieka** | tylko wskazanie pliku wzorca |
 | Scenografia | 6–8 **klatek wzorcowych pokoju** (plan ogólny przy biurku Heleny, Basia przy drukarce, Marta przez ramię z laptopem, Kuba z teczką, detal rekwizytu) według `plan_kancelarii.svg` | klatka startowa ujęcia = jedna z nich albo jej edycja (gest, rekwizyt) |
-| Głos | 4 głosy ElevenLabs zaprojektowane raz (Voice Design z opisu: wiek, barwa, tempo, polszczyzna) i zapisane jako stałe `voice_id` + stałe ustawienia (stability, similarity, style, speed) i jeden model (`eleven_v3`) | tylko `voice_id`; tekst kwestii z tagami emocji v3 (np. `[ironicznie]`) |
+| Głos | 4 głosy ElevenLabs (obsada głosowa v2, Voice Design z opisu sposobu mówienia) i stałe `voice_id`; scena nagrywana w całości przez Text to Dialogue (`eleven_v3`, stability 0.5), potem cięta na kwestie. Przepis: **`glosy.md`** | tylko `voice_id`; tekst kwestii z tagami v3 po angielsku (np. `[deadpan]`, `[sighs]`, `[short pause]`) |
 | Awatar mówiący | każda postać = osobny **HeyGen talking photo** z jej zdjęcia wzorcowego (jak dziś „domyślne awatary” Studia) | identyfikator awatara z katalogu |
 | Prompt | stały prompt bazowy + negatyw z `PROMPTY_PRODUKCYJNE.md`; zmienia się tylko opis akcji | doklejany automatycznie |
 | Grafika | PNG z `pakiet/03_plansze_video` i `04_grafika_systemowa`, tekst z `render_plansz.js` | podmiana tytułu odcinka i ponowny render |

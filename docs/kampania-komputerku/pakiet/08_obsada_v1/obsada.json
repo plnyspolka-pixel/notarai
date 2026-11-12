@@ -183,30 +183,42 @@
     {
       "id": "u1",
       "postac": "basia",
-      "heygen_video_id": "16a47fa74b04d59cf4bccd1add59458a",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/16a47fa74b04d59cf4bccd1add59458a-b1a380f5.mp4",
-      "sekundy": 4.25
+      "heygen_video_id": "8c7ad269bfa4919d66e476975acd9635",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/8c7ad269bfa4919d66e476975acd9635-acaafc28.mp4",
+      "sekundy": 4.98,
+      "audio": "glosy_v2/nowe_w1/u1_basia.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
     },
     {
       "id": "u2",
       "postac": "kuba",
-      "heygen_video_id": "48dfcb8e3c3df21a592e64f42aff5f9c",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/48dfcb8e3c3df21a592e64f42aff5f9c-100973d4.mp4",
-      "sekundy": 2.48
+      "heygen_video_id": "08c989e8e3c7ac780dcc4ec35568f223",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/08c989e8e3c7ac780dcc4ec35568f223-7977a045.mp4",
+      "sekundy": 3.58,
+      "audio": "glosy_v2/nowe_w1/u2_kuba.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
     },
     {
       "id": "u3",
       "postac": "basia",
-      "heygen_video_id": "277604080409d31d3a536cb0802bfdd1",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/277604080409d31d3a536cb0802bfdd1-9085413c.mp4",
-      "sekundy": 3.88
+      "heygen_video_id": "ba05844a6b4faf223bf2df1bd4c63a7c",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/ba05844a6b4faf223bf2df1bd4c63a7c-ac1f0093.mp4",
+      "sekundy": 4.86,
+      "audio": "glosy_v2/nowe_w1/u3_basia.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
     },
     {
       "id": "u4",
       "postac": "marta",
-      "heygen_video_id": "46b0cea24ef6255fecc245d7662193fd",
-      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/46b0cea24ef6255fecc245d7662193fd-811ee76d.mp4",
-      "sekundy": 3.69
+      "heygen_video_id": "e5595f3a0ed7a628fbb6ff74c49c4ca8",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/e5595f3a0ed7a628fbb6ff74c49c4ca8-118dcde8.mp4",
+      "sekundy": 3.39,
+      "audio": "glosy_v2/nowe_w1/u4_marta.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)"
     },
     {
       "id": "u5",
@@ -216,5 +228,36 @@
       "sekundy": 9.6,
       "narzedzie": "narzedzia/nagraj_komputerku.js"
     }
-  ]
+  ],
+  "odcinek_1_ujecia_odrzucone": [
+    {
+      "id": "u1",
+      "heygen_video_id": "16a47fa74b04d59cf4bccd1add59458a",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/16a47fa74b04d59cf4bccd1add59458a-b1a380f5.mp4",
+      "sekundy": 4.25,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u2",
+      "heygen_video_id": "48dfcb8e3c3df21a592e64f42aff5f9c",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/48dfcb8e3c3df21a592e64f42aff5f9c-100973d4.mp4",
+      "sekundy": 2.48,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u3",
+      "heygen_video_id": "277604080409d31d3a536cb0802bfdd1",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/277604080409d31d3a536cb0802bfdd1-9085413c.mp4",
+      "sekundy": 3.88,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u4",
+      "heygen_video_id": "46b0cea24ef6255fecc245d7662193fd",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/46b0cea24ef6255fecc245d7662193fd-811ee76d.mp4",
+      "sekundy": 3.69,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    }
+  ],
+  "odcinek_1_podglad": "podglady/odc1_podglad_v2.mp4 (narzedzia/sklej_podglad_v2.sh); poprzedni: podglady/odc1_podglad_u1-u5.mp4"
 }
