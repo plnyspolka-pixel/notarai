@@ -96,3 +96,9 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Poprawka (decyzja użytkownika): bez ręcznego dopisywania. Kuba: „Dział trzeci i czwarty bez wpisów. Projekt sam to uwzględni.” (`s06_kuba_ekw_2b-03781af1`,
   HeyGen a8dd8c3009074c85a479b94d90bfb895); ujęcie „Rozmowa o sprawie” usunięte z montażu. Funkcję w kodzie robi sesja
   session_015k5XGBVzUU48yKskLFFgRm („Projekt aktu z treścią księgi pobranej z EKW”); po wdrożeniu nagrać projekt ponownie bez dopisku w rozmowie.
+
+# Poprawki dźwięku i zapowiedź odc. 02 (12.11 wieczorem)
+- Długopis: z pliku SFX tylko sam klik (bez szumu tła, który był podbity 4×). Sc. 01: dwa dzwonki telefonu (drugi ciszej, przytłumiony, w tle ujęcia z Pawłem).
+- Muzyka: `czesc4_wideo/muz_intryga.mp3` (ElevenLabs compose, fortepian i smyczki) od wahania Basi przed „bez syna” do czerni; `muz_zapowiedz_wolniej.mp3` (rosnące napięcie, 0,8×) pod zapowiedzią.
+- Zapowiedź odc. 02 „Proszę nie przy nim”: plansza „W następnym odcinku” na ujęciu Pawła pod drzwiami (fal `fu-dBUQBs0BebaKwIBhsN`, Kling 01a1d156-5d8e-7a03-868b-74657656c0a1),
+  Helena „Pani Ireno… jakiego terminu pani naprawdę chce?” (`odc02_zapowiedz_helena-b37425d0`, HeyGen 209c977f267b4dc9be26ebb5b9244e0f), plansza tytułu `zap_tytul.png`. Irena tylko poza kadrem.

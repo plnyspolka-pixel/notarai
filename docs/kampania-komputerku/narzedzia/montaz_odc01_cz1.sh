@@ -22,7 +22,7 @@ ujecie "$V/b4_drukarka.mp4" 1.0 0.9 c4.mp4
 ujecie "$V/b5_basia_chwileczke.mp4" 0.3 2.8 c5.mp4
 printf "file '%s'\n" c1.mp4 c2.mp4 c3.mp4 c4.mp4 c5.mp4 > l1.txt; ffmpeg -v error -y -f concat -safe 0 -i l1.txt -c copy cold_v.mp4
 ffmpeg -v error -y -i cold_v.mp4 -i "$K/produkcja-odc01/czesc3_wideo/amb_recepcja_n.mp3" -i "$V/sfx_telefon.mp3" -i "$V/sfx_drzwi.mp3" -i "$V/sfx_drukarka.mp3" -i "$V/kuba_zza_kadru.mp3" -filter_complex \
- "[1:a]atrim=0:7.5,volume=1.0[a1];[2:a]adelay=300|300,volume=0.9[a2];[3:a]adelay=2100|2100,volume=0.8[a3];[4:a]adelay=4000|4000,volume=0.7[a4];[5:a]adelay=4200|4200,volume=1.6,aecho=0.6:0.5:35:0.15[a5];\
+ "[1:a]atrim=0:7.5,volume=1.0[a1];[2:a]atrim=0.3:1.75,asetpts=PTS-STARTPTS,afade=t=out:st=1.25:d=0.2,asplit[r1][r2];[r1]adelay=300|300,volume=0.9[a2a];[r2]adelay=2350|2350,volume=0.4,lowpass=f=3500[a2b];[a2a][a2b]amix=inputs=2:normalize=0[a2];[3:a]adelay=2100|2100,volume=0.8[a3];[4:a]adelay=4000|4000,volume=0.7[a4];[5:a]adelay=4200|4200,volume=1.6,aecho=0.6:0.5:35:0.15[a5];\
 [a1][a2][a3][a4][a5]amix=inputs=5:duration=first:normalize=0,aformat=sample_rates=48000:channel_layouts=stereo[a]" \
  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -t 7.5 cold.mp4
 # --- intro 5 ---
