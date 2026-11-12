@@ -1,7 +1,9 @@
 # Intro serii „Kancelaria pod Siódemką” — wersja ciepła (v2)
 
 > **Wybrane przez właściciela (12.11.2026): `INTRO_5_komputerku_9x16.mp4`** — obowiązujące intro serii. Pozostałe cztery zostają jako warianty.
-> Podgląd odcinka 1 z tym intro: `../podglady/odc1_podglad_v2_z_intro.mp4` (37,5 s, 720x1280).
+> **Outro serii (decyzja 12.11.2026): `OUTRO_siodemka_9x16.mp4`**: intro 1 „Siódemka” z pierwszej serii (v1), z podtytułem `notarai.pl` zamiast tytułu odcinka (wymóg biblii: plansza końcowa zawiera notarai.pl). Zastępuje dawną planszę `OUTRO_komputerku.png`.
+> Render: `EPIZOD="notarai.pl" node narzedzia/render_intro.js <fonty> <wyjscie> 1`.
+> Podgląd odcinka 1: intro 5, odcinek bez starej planszy, outro „Siódemka”: `../podglady/odc1_podglad_v2_z_intro.mp4` (40,6 s, 720x1280).
 
 Stan: 12.11.2026. Pięć intro 9:16 (1080x1920, 30 kl./s), 7,6–9 s, dźwięk -16 LUFS.
 Założenie: **ciepło i powitanie** — postacie same witają widza, złote światło z okna, miękkie przenikania,
