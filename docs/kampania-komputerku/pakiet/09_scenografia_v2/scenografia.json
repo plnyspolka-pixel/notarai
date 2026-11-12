@@ -1,0 +1,386 @@
+{
+  "wersja": "kancelaria-v2",
+  "opis": "Jedna kanoniczna kancelaria serii „Komputerku…”. Plik jest źródłem prawdy: plan (plan.svg/png), prompty plansz i kadrów postaci składa z niego narzedzia/kancelaria.py. Zmiana czegokolwiek = nowa wersja (kancelaria-v3), nigdy cicha podmiana w trakcie sezonu.",
+  "uklad_wspolrzednych": "cm; x rośnie na wschód (w prawo na planie), y na północ (w górę planu); (0,0) = narożnik południowo-zachodni. Azymut kamery: 0 = patrzy na północ, 90 = na wschód.",
+  "pokoj": {
+    "szerokosc_cm": 650,
+    "glebokosc_cm": 500,
+    "wysokosc_cm": 340
+  },
+  "referencja_stylu_fal_url": "https://v3b.fal.media/files/b/0ab21630/SLHTc0BziOjEzq4l4NFAN_kancelaria_zespol.jpg",
+  "kolory": {
+    "orzech_meble": "#5A3A22",
+    "parkiet_dab_miodowy": "#B98A52",
+    "sciany_kremowe": "#EFE6D6",
+    "sztukateria_biala": "#F7F3EA",
+    "mosiadz": "#B08D57",
+    "skora_koniak": "#8A4B2A",
+    "dywan_granat": "#1F2A44",
+    "dywan_krem": "#E8DCC4",
+    "ramy_okien_czarne": "#1C1C1C",
+    "tapicerka_krzesel_krem": "#D9CBB0"
+  },
+  "bloki_promptu": {
+    "pokoj": "A single fixed fictional notary office on the first floor of a pre-war Kraków tenement building: a rectangular room 6.5 m wide and 5 m deep with a 3.4 m ceiling and white plaster crown moulding. Floor: honey-oak herringbone parquet (satin), with a muted navy-and-cream wool rug under the main desk. Walls: warm cream plaster. WEST wall: floor-to-ceiling built-in dark-walnut bookcases along the whole wall, filled with dark-blue, burgundy and bottle-green leather-bound law volumes and a few grey archive binders, with integrated warm LED shelf lighting. NORTH wall (behind the main desk): dark-walnut wainscoting up to 90 cm, above it cream plaster with one large framed abstract landscape painting in muted ochre and slate blue, flanked by two brass wall sconces; a tall fiddle-leaf fig in a terracotta pot in the north-east corner; a panelled dark-walnut double door with brass handles in the north-west corner. EAST wall: three tall black steel-framed windows with a grid of small panes, sheer off-white linen curtains pulled to the sides, deep stone sills with small potted plants, a cream tenement facade visible across the street. CENTRE of the room: a large dark-walnut executive desk with a panelled front, facing south, with a brass dome desk lamp, a closed silver laptop, a black pen pot and a leather desk pad; a high-back cognac leather chair behind it and two cream upholstered visitor chairs in front of it. SOUTH-WEST area: a rectangular dark-walnut work table for two with two cognac leather chairs and an open silver laptop. SOUTH-EAST corner by the windows: the secretary station - a low dark-walnut sideboard cabinet with a grey multifunction office printer on top, a small dark-walnut writing desk with a monitor and a wire letter tray, a cognac swivel chair.",
+    "materialy": "All furniture is the same dark walnut; all metal accents are satin brass; all leather is cognac; the floor is always honey-oak herringbone parquet.",
+    "swiatlo": "Late-morning soft overcast daylight from the east windows (neutral 5600K), warm 3000K practical lamps switched on, gentle falloff, no hard sun beams, no coloured or teal light.",
+    "styl": "Photorealistic documentary-commercial cinematography, full-frame camera, natural colours, mild contrast, natural skin texture, no HDR look, no stylisation.",
+    "negatyw": "No text, no letters, no logos, no readable documents, no legal seals, no national emblems, no screen content (screens are plain light grey), no extra rooms, no change of furniture, colours, materials or window shape.",
+    "uklad": "Room layout for orientation: floor-to-ceiling walnut bookcases on the west wall; the main walnut desk in the centre facing south with the cognac chair behind it and two cream visitor chairs in front on the navy-and-cream rug; on the north wall walnut wainscoting, the abstract painting between two brass sconces and the walnut double door in the north-west corner; three tall black steel-framed windows on the east wall; fiddle-leaf fig in the north-east corner; walnut work table in the south-west; secretary station with the grey printer on a walnut sideboard in the south-east corner."
+  },
+  "strefy": [
+    {
+      "id": "biblioteka",
+      "nazwa": "Biblioteka (ściana zachodnia)",
+      "rect": [
+        0,
+        40,
+        45,
+        500
+      ],
+      "kolor": "#E8EFFB"
+    },
+    {
+      "id": "drzwi",
+      "nazwa": "Drzwi dwuskrzydłowe",
+      "rect": [
+        55,
+        485,
+        175,
+        500
+      ],
+      "kolor": "#D9E5F4"
+    },
+    {
+      "id": "obraz",
+      "nazwa": "Obraz + kinkiety",
+      "rect": [
+        270,
+        488,
+        430,
+        500
+      ],
+      "kolor": "#D9E5F4"
+    },
+    {
+      "id": "fikus",
+      "nazwa": "Fikus",
+      "rect": [
+        590,
+        440,
+        645,
+        495
+      ],
+      "kolor": "#DDF0DD"
+    },
+    {
+      "id": "okna",
+      "nazwa": "Okna x3 (ściana wschodnia)",
+      "rect": [
+        630,
+        60,
+        650,
+        470
+      ],
+      "kolor": "#EDF2FA"
+    },
+    {
+      "id": "biurko_glowne",
+      "nazwa": "Biurko główne (Helena)",
+      "rect": [
+        245,
+        270,
+        445,
+        360
+      ],
+      "kolor": "#D2E1FA"
+    },
+    {
+      "id": "fotel_heleny",
+      "nazwa": "Fotel",
+      "rect": [
+        320,
+        370,
+        370,
+        420
+      ],
+      "kolor": "#E9D8C8"
+    },
+    {
+      "id": "krzesla_gosci",
+      "nazwa": "Krzesła gości",
+      "rect": [
+        270,
+        200,
+        420,
+        245
+      ],
+      "kolor": "#F1EADC"
+    },
+    {
+      "id": "dywan",
+      "nazwa": "Dywan",
+      "rect": [
+        215,
+        180,
+        475,
+        440
+      ],
+      "kolor": "#EEF1F7"
+    },
+    {
+      "id": "stol_roboczy",
+      "nazwa": "Stół roboczy (Marta / Kuba)",
+      "rect": [
+        70,
+        60,
+        230,
+        150
+      ],
+      "kolor": "#EDF2FA"
+    },
+    {
+      "id": "sekretariat",
+      "nazwa": "Sekretariat: komoda z drukarką + biurko (Basia)",
+      "rect": [
+        470,
+        20,
+        625,
+        120
+      ],
+      "kolor": "#D8F2FC"
+    }
+  ],
+  "kamery": [
+    {
+      "id": "K1",
+      "nazwa": "Plan ogólny (master)",
+      "uzycie": "kadr A, sceny grupowe, ujęcie matki",
+      "pozycja": [
+        325,
+        25
+      ],
+      "wysokosc_cm": 150,
+      "azymut": 0,
+      "obiektyw_mm": 28,
+      "format": "9:16",
+      "widac": "Camera stands at the south wall in the middle of the room, 1.5 m high, looking north. Frame left: the west walnut bookcases receding. Frame centre: the main walnut desk with the cognac chair behind it and the two cream visitor chairs with their backs to camera, the rug, behind it the north wall with wainscoting, the abstract painting between two brass sconces, the double door at far left of the north wall. Frame right: the east windows with linen curtains and the fiddle-leaf fig in the north-east corner."
+    },
+    {
+      "id": "K2",
+      "nazwa": "Biurko główne - zbliżenie",
+      "uzycie": "kadr B 85 mm osoby za biurkiem głównym",
+      "pozycja": [
+        345,
+        170
+      ],
+      "wysokosc_cm": 120,
+      "azymut": 0,
+      "obiektyw_mm": 85,
+      "format": "9:16",
+      "widac": "Camera at seated eye level in front of the main desk, looking north at the cognac high-back chair behind the desk. Desk edge, brass dome lamp at frame right, leather desk pad. Background softly out of focus: north-wall walnut wainscoting, part of the abstract painting and one brass sconce, a hint of window light from the right."
+    },
+    {
+      "id": "K3",
+      "nazwa": "Sekretariat - drukarka",
+      "uzycie": "kadr B/medium osoby przy drukarce",
+      "pozycja": [
+        400,
+        75
+      ],
+      "wysokosc_cm": 150,
+      "azymut": 100,
+      "obiektyw_mm": 50,
+      "format": "9:16",
+      "widac": "Camera inside the room looking east-south-east at the secretary station in the south-east corner: the low walnut sideboard with the grey multifunction printer on top at frame centre-right, the small walnut writing desk with a monitor (plain grey screen) and wire letter tray, the cognac swivel chair. Background: the southernmost tall black steel-framed window with linen curtain and potted plants on the stone sill, soft daylight from the window side."
+    },
+    {
+      "id": "K4",
+      "nazwa": "Stół roboczy - przez ramię",
+      "uzycie": "kadr C przez ramię z laptopem",
+      "pozycja": [
+        210,
+        160
+      ],
+      "wysokosc_cm": 140,
+      "azymut": 225,
+      "obiektyw_mm": 50,
+      "format": "9:16",
+      "widac": "Camera stands behind the empty cognac leather chair at the south-west walnut work table, slightly above it, looking south-west down over the chair back at the table top: the open silver laptop (plain light-grey screen), a leather notebook and a fountain pen. Background: the west walnut bookcases with leather law volumes, softly out of focus. The chair is empty; nobody is in the frame, no arms, no shoulders. (The over-the-shoulder person is added later in a separate step.)"
+    },
+    {
+      "id": "K5",
+      "nazwa": "Stół roboczy - en face",
+      "uzycie": "kadr B osoby przy stole roboczym",
+      "pozycja": [
+        150,
+        260
+      ],
+      "wysokosc_cm": 120,
+      "azymut": 180,
+      "obiektyw_mm": 50,
+      "format": "9:16",
+      "widac": "Camera north of the south-west work table looking south at the person seated at it: walnut table top in the foreground with the open silver laptop (screen facing the person, back of the lid to camera), a cognac leather chair. Background: the corner where the west bookcases meet the south wall of cream plaster, a framed small landscape print, warm shelf light."
+    },
+    {
+      "id": "K6",
+      "nazwa": "Biblioteka",
+      "uzycie": "osoba stojąca przy regałach, rozmowa w biegu",
+      "pozycja": [
+        260,
+        250
+      ],
+      "wysokosc_cm": 150,
+      "azymut": 270,
+      "obiektyw_mm": 50,
+      "format": "9:16",
+      "widac": "Camera in the middle of the room looking west at the floor-to-ceiling walnut bookcases filling the frame: rows of dark-blue, burgundy and bottle-green leather-bound law volumes and grey archive binders, warm shelf lighting, honey-oak herringbone parquet at the bottom of the frame."
+    },
+    {
+      "id": "K7",
+      "nazwa": "Wejście - drzwi",
+      "uzycie": "wejścia i wyjścia postaci, gość w drzwiach",
+      "pozycja": [
+        520,
+        150
+      ],
+      "wysokosc_cm": 150,
+      "azymut": 315,
+      "obiektyw_mm": 35,
+      "format": "9:16",
+      "widac": "Camera in the south-east part of the room looking north-west across the room: the panelled dark-walnut double door with brass handles in the north-west corner at frame centre, the west bookcases on frame left, the end of the main desk and one cream visitor chair in the foreground right, the rug and herringbone parquet."
+    },
+    {
+      "id": "K8",
+      "nazwa": "Okno - przebitka",
+      "uzycie": "przebitka, ustanowienie miejsca, przejście czasu",
+      "pozycja": [
+        450,
+        300
+      ],
+      "wysokosc_cm": 150,
+      "azymut": 90,
+      "obiektyw_mm": 35,
+      "format": "9:16",
+      "widac": "Camera looking east at the middle tall black steel-framed window with the grid of small panes, sheer linen curtains, deep stone sill with small potted plants, the fiddle-leaf fig at frame left edge, a cream pre-war tenement facade with ornate cornices across the street, soft overcast daylight."
+    },
+    {
+      "id": "K9",
+      "nazwa": "Detal biurka",
+      "uzycie": "detal rekwizytu, wstawki",
+      "pozycja": [
+        345,
+        230
+      ],
+      "wysokosc_cm": 160,
+      "azymut": 0,
+      "obiektyw_mm": 85,
+      "format": "9:16",
+      "widac": "High angle detail of the main walnut desk top: leather desk pad, a fountain pen, a hard-cover folder, a cup of coffee on a saucer, the base of the brass dome lamp, shallow depth of field."
+    }
+  ],
+  "plansze": {
+    "_opis": "Plansze = puste kadry z każdej kamery (bez ludzi). Kolejność generowania: K1 (matka) -> karta materiałów -> pozostałe kamery z referencją [K1, karta materiałów, plan z zaznaczoną kamerą]. fal_url wypełnia `kancelaria.py zapisz`.",
+    "K1": {
+      "plik": "plansze/K1.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab229f8/CE86Cym9NTMsX3eMMlDfK_mgcXu1qE.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "materialy": {
+      "plik": "plansze/materialy.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a02/M12Hr8Iq-2rLcsnnxE5zx_RrjfzNLN.png",
+      "rozmiar": [
+        2752,
+        1536
+      ],
+      "zatwierdzona": null
+    },
+    "K2": {
+      "plik": "plansze/K2.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0e/lZyOcDq5VtRqZ2ZUamj-A_FTfTbyyE.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K3": {
+      "plik": "plansze/K3.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0e/FbWlseOf7mjn9W-jZFC3w_JGyRKbcL.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K4": {
+      "plik": "plansze/K4.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a1a/j96MBf5DSk0C_fAYEMp4Q_yaHh5MO8.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K5": {
+      "plik": "plansze/K5.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0e/dIPTsSza_W6qCBMSpK2f-_pe4fPTvW.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K6": {
+      "plik": "plansze/K6.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0e/CQDCUb0IBqojmvxNRVE5n_QavbVYu6.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K7": {
+      "plik": "plansze/K7.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0d/Xe_zHn2-qxt51XmOg1VyE_K3lThvJ8.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K8": {
+      "plik": "plansze/K8.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0e/RJZTGUWrIdzAshNFIaFLw_xhEls2qL.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    },
+    "K9": {
+      "plik": "plansze/K9.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a0d/1DtYE33JXlYyu1UzVTQRV_qTkTZW7d.png",
+      "rozmiar": [
+        1536,
+        2752
+      ],
+      "zatwierdzona": null
+    }
+  },
+  "plan_fal_url": {
+    "K1": "https://v3b.fal.media/files/b/0ab229f3/yh3PQt-MNPvZInvrya_Rl_kancelaria_v2_plan_K1.png",
+    "K2": "https://v3b.fal.media/files/b/0ab229f3/DWhaMG0AQg6FkddlsAlKi_kancelaria_v2_plan_K2.png",
+    "K3": "https://v3b.fal.media/files/b/0ab229f3/1Vj0PgO36OxUv6eLEs9rV_kancelaria_v2_plan_K3.png",
+    "K4": "https://v3b.fal.media/files/b/0ab229f3/yBgstnGgRzCgwEB0eNMW-_kancelaria_v2_plan_K4.png",
+    "K5": "https://v3b.fal.media/files/b/0ab229f3/Bgyj-ItNSJUPTBC8ZV3Iu_kancelaria_v2_plan_K5.png",
+    "K6": "https://v3b.fal.media/files/b/0ab229f3/rF2XtoKt73qsFnzo49-ZW_kancelaria_v2_plan_K6.png",
+    "K7": "https://v3b.fal.media/files/b/0ab229f3/Q-m8DLeB4tySHvzcR7-zr_kancelaria_v2_plan_K7.png",
+    "K8": "https://v3b.fal.media/files/b/0ab229f3/3PLE6A2JDcHs0i5MVLPfw_kancelaria_v2_plan_K8.png",
+    "K9": "https://v3b.fal.media/files/b/0ab229f3/rZzxWSsLkDKFoTKan1OYa_kancelaria_v2_plan_K9.png"
+  }
+}

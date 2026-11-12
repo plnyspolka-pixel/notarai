@@ -1,0 +1,85 @@
+{
+  "slug": "basia",
+  "imie": "Basia",
+  "wiek": 51,
+  "rola": "sekretariat kancelarii",
+  "rola_en": "office secretary of the notary office",
+  "wyglad": {
+    "twarz": "fuller round face, light olive skin, expressive dark eyes, tortoiseshell glasses",
+    "wlosy": "dark-brown hair pinned up in a loose bun",
+    "sylwetka": "medium height, sturdy"
+  },
+  "stroj": {
+    "opis": "light beige knit cardigan, navy-and-cream patterned silk scarf, small gold earrings",
+    "kolory": {
+      "sweter": "#C9B49A",
+      "apaszka": "#1F2A44"
+    }
+  },
+  "rekwizyty": [
+    "koperty",
+    "książka nadawcza",
+    "segregator",
+    "drukarka"
+  ],
+  "charakter": "zna procesy, sucha ironia, kompetentna (nigdy nieudolna)",
+  "relacje": "Basia ⇄ Marta: praktyka kontra automatyzacja; matkuje Kubie",
+  "strefa": "sekretariat",
+  "strefa_opis_en": "secretary station with the printer in the south-east corner",
+  "kadry": [
+    {
+      "kamera": "K3m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "She stands beside the printer on the walnut sideboard, turned three-quarters to camera, a stack of plain white envelopes on the sideboard next to her, hands relaxed in front of her, looking at camera over her glasses with a calm, slightly ironic expression.",
+      "plik": "kadr_K3m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/IGOI2FD4Erf8Z8Vj9mvGf_c7vJogx5.png",
+      "zatwierdzony": null
+    },
+    {
+      "kamera": "K3",
+      "glowny": false,
+      "poza_en": "She stands beside the printer on the walnut sideboard, turned three-quarters to camera, a stack of plain white envelopes on the sideboard next to her, hands relaxed in front of her, looking at camera over her glasses with a calm, slightly ironic expression.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K3.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a19/mBi1uFcW0yvt8GOW3zJbB_JrJJfHrY.png",
+      "zatwierdzony": null
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Dry ironic secretary. Looks over the top of her glasses, raises eyebrows, small sceptical head tilts, occasional short wave of the hand toward the printer or envelopes.",
+    "gesty_typowe": [
+      "spojrzenie znad okularów",
+      "przechylenie głowy",
+      "machnięcie dłonią w stronę drukarki"
+    ],
+    "unikac": [
+      "krzyk",
+      "bezradność"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": null,
+    "elevenlabs_voice_id": "XxH7vHpT0p7INeJx8ihA",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id"
+  },
+  "heygen": {
+    "avatar_id": null,
+    "avatar_v1": "bcfed60999bda078a1a57f273118066b"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/BNiu7VcTe6RXfEBs7LUu3_basia_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/iWi4ReWP4MYLCcMLRu2jf_hoitsF1G.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "migracja z obsada-v1: ref i arkusz zatwierdzone, kadry do wygenerowania w kancelaria-v2"
+}

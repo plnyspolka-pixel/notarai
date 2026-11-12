@@ -1,0 +1,87 @@
+{
+  "slug": "marta",
+  "imie": "Marta",
+  "wiek": 38,
+  "rola": "notariuszka, pokazuje działanie programu",
+  "rola_en": "Polish notary who demonstrates the software",
+  "wyglad": {
+    "twarz": "oval face, light skin, warm brown eyes, subtle professional make-up",
+    "wlosy": "shoulder-length dark-brown hair with soft waves",
+    "sylwetka": "slim, energetic posture"
+  },
+  "stroj": {
+    "opis": "navy blazer, white top, small gold hoop earrings",
+    "kolory": {
+      "marynarka": "#1F2A44",
+      "top": "#FFFFFF"
+    }
+  },
+  "rekwizyty": [
+    "laptop",
+    "tablet"
+  ],
+  "charakter": "naturalny uśmiech, szybka gestykulacja, entuzjazm do narzędzi",
+  "relacje": "Basia ⇄ Marta: praktyka kontra automatyzacja",
+  "strefa": "stol_roboczy",
+  "strefa_opis_en": "south-west walnut work table with an open laptop",
+  "kadry": [
+    {
+      "kamera": "K5m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "She sits at the walnut work table behind the open laptop (lid back to camera), body turned slightly toward camera, hands relaxed beside the laptop, confident slight smile.",
+      "plik": "kadr_K5m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/SEK_J0AoQRKjNVqe95jFa_7R50gaKS.png",
+      "zatwierdzony": null
+    },
+    {
+      "kamera": "K5",
+      "glowny": false,
+      "poza_en": "She sits at the walnut work table behind the open laptop (lid back to camera), body turned slightly toward camera, hands relaxed beside the laptop, confident slight smile.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K5.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a19/q_szEiEvX1ZGwzwcRst7c_wOU1pHMo.png",
+      "zatwierdzony": null
+    },
+    {
+      "kamera": "K4",
+      "glowny": false,
+      "poza_en": "Seen from behind her right shoulder, she types on the open laptop with a plain light-grey screen; her face in three-quarter profile."
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Energetic, friendly expert. Lively facial expressions, quick confident nods, frequent small hand gestures toward the laptop or toward the listener.",
+    "gesty_typowe": [
+      "wskazanie laptopa",
+      "szybkie skinienie",
+      "uśmiech"
+    ],
+    "unikac": [
+      "przesadna euforia"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": null,
+    "elevenlabs_voice_id": "BDuEI9b2twykxFyFIbv4",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id"
+  },
+  "heygen": {
+    "avatar_id": null,
+    "avatar_v1": "18e4f2b5c26f30dd99be62807b38f79f"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/eNdyu6DSMISfANRXtyIXY_marta_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/eGGNXp3r2_H8nQF6P8eD1_o2uQyCcZ.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "migracja z obsada-v1: ref i arkusz zatwierdzone, kadry do wygenerowania w kancelaria-v2"
+}

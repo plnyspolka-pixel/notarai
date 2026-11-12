@@ -1,5 +1,7 @@
 # Kampania „Komputerku…” — koncepcja produkcji powtarzalnej
 
+> **Aktualne (12.11.2026): kancelaria-v2 / obsada-v2.** Scenografia z jednego źródła prawdy (plan, materiały, 9 stałych kamer) i powtarzalny proces wprowadzania postaci: [`KANCELARIA_I_POSTACIE.md`](KANCELARIA_I_POSTACIE.md), narzędzie `narzedzia/kancelaria.py`. Silniki awatarów i koszty: [`awatary.md`](awatary.md). Obsada v1 (`pakiet/08_obsada_v1`) zostaje jako archiwum.
+
 Stan: 11.11.2026. Pakiet graficzny: `pakiet/` (start: `pakiet/README_START_TUTAJ.md`).
 Scenariusze sezonu 1: `scenariusze.md`. Szablon odcinka: `odcinek-szablon.json`.
 Render plansz: `narzedzia/render_plansz.js`.

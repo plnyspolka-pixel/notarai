@@ -1,0 +1,88 @@
+{
+  "slug": "kuba",
+  "imie": "Kuba",
+  "wiek": 28,
+  "rola": "aplikant notarialny",
+  "rola_en": "notary trainee",
+  "wyglad": {
+    "twarz": "youthful face, light skin, light stubble, brown eyes",
+    "wlosy": "short dark curly hair",
+    "sylwetka": "slim, tall, active posture"
+  },
+  "stroj": {
+    "opis": "white shirt with sleeves rolled to the forearm, dark charcoal waistcoat, dark trousers, wristwatch",
+    "kolory": {
+      "kamizelka": "#3A3A3D",
+      "koszula": "#FFFFFF"
+    }
+  },
+  "rekwizyty": [
+    "cienka teczka",
+    "notatnik",
+    "długopis"
+  ],
+  "charakter": "ciekawy, czasem nerwowy uśmiech; zadaje pytania, które edukują widza",
+  "relacje": "Kuba ⇄ Helena: nauka i kontrola; Basia go matkuje",
+  "strefa": "biblioteka",
+  "strefa_opis_en": "west wall walnut bookcases",
+  "kadry": [
+    {
+      "kamera": "K6m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "He stands in front of the walnut bookcases, holding a thin folder loosely in one hand at his side, the other hand free, slightly nervous friendly smile, looking at camera.",
+      "plik": "kadr_K6m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/STgSOkpOiQI0vO-6hw_kd_j95hI522.png",
+      "zatwierdzony": null
+    },
+    {
+      "kamera": "K6",
+      "glowny": false,
+      "poza_en": "He stands in front of the walnut bookcases, holding a thin folder loosely in one hand at his side, the other hand free, slightly nervous friendly smile, looking at camera.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K6.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a1a/paX5OPCEcgTA2GkcperaO_Z0QKwaY0.png",
+      "zatwierdzony": null
+    },
+    {
+      "kamera": "K7",
+      "glowny": false,
+      "poza_en": "He has just stepped in through the open walnut double door, holding a thin folder, looking toward the desk with a curious expression."
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Curious, slightly nervous trainee. Quick glances, hopeful raised eyebrows, small shrugs, shifting weight, hand gestures with the folder.",
+    "gesty_typowe": [
+      "wzruszenie ramion",
+      "uniesione brwi",
+      "gest teczką"
+    ],
+    "unikac": [
+      "pewność siebie szefa"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": null,
+    "elevenlabs_voice_id": "4tlWcR8SYaOZ0nfbKuq6",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id"
+  },
+  "heygen": {
+    "avatar_id": null,
+    "avatar_v1": "5b719637ef986ab613aa0d4e2cb07f80"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/RFawKQWXxTiqwpQ_fDosr_kuba_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/oWArIj-EQQk-IjPqZ0z0b_oSvTT4Jx.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "migracja z obsada-v1: ref i arkusz zatwierdzone, kadry do wygenerowania w kancelaria-v2"
+}
