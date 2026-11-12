@@ -85,6 +85,20 @@ Sprawdzono 07.11.2026.
 - Sekrety w chmurze: `notarai/finyou` (infra/zapisz-sekret-finyou.ps1, adres
   parametrem `FinyouAdres`) albo `notarai/apify` (infra/zapisz-sekret-apify.ps1).
   Bez zadnego z nich karta w interfejsie jest ukryta.
+- **Tresc ksiegi w projekcie aktu.** `POST /api/sprawy/{id}/projekt` sam
+  wczytuje ksiegi sprawy (`ekw.do_projektu`) i przekazuje je modelowi jako
+  osobny blok "TRESC KSIEGI WIECZYSTEJ ... Z EKW (nie odpis urzedowy, pobrano
+  ...)" z dzialami I-O, I-Sp, II, III, IV (`prompty.blok_ksiag`). Gdy pola
+  odczytu albo polecenie wymieniaja numery KW, do projektu ida tylko ksiegi
+  o tych numerach; gdy zadnego numeru nie ma - wszystkie ksiegi sprawy.
+  Ksiega rozstrzyga warianty o stanie ksiegi (dzialy III/IV, wlasciciel,
+  oznaczenie lokalu) bez `<<WYBOR>>`. `ekw.porownaj_z_polami` porownuje
+  numer KW, wlasciciela (dzial II) i powierzchnie (dzial I-O) z polami
+  odczytu; rozbieznosc trafia do modelu z poleceniem zostawienia
+  `<<WYBOR: ...>>`. Odpowiedz i `GET /api/sprawy/{id}` maja `zrodla`
+  (`ksiegi`, `ksiegi_pobrano`, `weryfikacja`), zapisane w
+  `projekt-zrodla.json`. W logach tylko identyfikator sprawy i liczby
+  (ksiegi, rozbieznosci). Bez ksiegi projekt powstaje jak dotad.
 
 ## Krajowy Rejestr Zadluzonych (KRZ)
 

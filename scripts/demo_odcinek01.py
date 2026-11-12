@@ -394,8 +394,18 @@ def atrapa_projektu(sekund: float):
     """Wypelnia wzor danymi z pol bez modelu. Tylko do prob i zrzutow."""
     import re
 
-    def sporzadz(wzor, dane, opis, legenda=None, rozmowa=None, personalizacja=""):
+    def sporzadz(wzor, dane, opis, legenda=None, rozmowa=None, personalizacja="", ksiegi=""):
         time.sleep(sekund)
+        # Tresc ksiegi z EKW (prompty.blok_ksiag) rozstrzyga warianty o dzialach
+        # III/IV - tak jak instrukcja dla modelu: puste oba = pierwszy wariant.
+        puste = {d: bool(re.search(rf"--- DZIAL {d}:[^\n]*\nBRAK WPISOW", ksiegi or ""))
+                 for d in ("III", "IV")}
+
+        def wariant(m):
+            pierwszy, drugi = m.group(2).strip(), m.group(3).strip()
+            if ksiegi and re.search(r"dzia[lł]\w*\s+(III|IV)", pierwszy, re.I):
+                return m.group(1) + (pierwszy if all(puste.values()) else drugi)
+            return f"{m.group(1)}<<WYBOR: {pierwszy} / {drugi}>>"
         legenda = legenda or {}
         wartosci = {}
         for pole in dane:
@@ -406,8 +416,7 @@ def atrapa_projektu(sekund: float):
         for kod in sorted(legenda, key=len, reverse=True):
             wartosc = wartosci.get(kod) or f"<<BRAK: {legenda[kod]['opis']}>>"
             tekst = re.sub(rf"(?<!\w){re.escape(kod)}(?!\w)", lambda _: wartosc, tekst)
-        tekst = re.sub(r"(\s*)([^.\n]*?) // ([^\n]*)",
-                       lambda m: f"{m.group(1)}<<WYBOR: {m.group(2).strip()} / {m.group(3).strip()}>>", tekst)
+        tekst = re.sub(r"(\s*)([^.\n]*?) // ([^\n]*)", wariant, tekst)
         return ZNAK_ATRAPY + "\n\n" + tekst
     return sporzadz
 

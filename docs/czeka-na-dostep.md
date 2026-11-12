@@ -148,6 +148,33 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
+## NA-9. Treść księgi z EKW w projekcie aktu — prawdziwy dostawca i model
+
+- **Status:** czeka
+- **Brakuje:** skonfigurowanego dostawcy treści KW (Finance You:
+  `PIECZAPP_FINYOU_URL` + `PIECZAPP_FINYOU_TOKEN` z sekretu `notarai/finyou`,
+  po podpisaniu umowy powierzenia) i Bedrock w eu-central-1; księgi testowej,
+  którą notariusz może legalnie pobrać (najlepiej dwie: bez wpisów w III/IV
+  i z hipoteką w IV).
+- **Na żywo:**
+  1. Sprawa z wzorem aktu, w którym § 2 ma warianty „w dziale III i IV nie ma
+     wpisów // w dziale IV wpisana jest hipoteka…” (np. wzór z demo odc. 01).
+  2. „Sprawdzenia” → „Księga wieczysta z EKW” → pobrać księgę bez wpisów
+     w III/IV. Komunikat ma mówić, że treść trafi do projektu.
+  3. „Sporządź projekt”: § 2 bez `<<WYBOR>>`, z pierwszym wariantem; nad
+     projektem „Uwzględniono treść księgi … z EKW (pobrano …)”.
+  4. Powtórzyć z księgą z hipoteką w dziale IV: drugi wariant, treść
+     hipoteki (kwota, wierzyciel) z księgi.
+  5. Celowo zmienić w polach odczytu właściciela albo powierzchnię:
+     projekt ma `<<WYBOR: rozbieżność księga / dane odczytu …>>`, informacja
+     nad projektem wymienia to pole.
+  6. CloudWatch: wpisy `projekt z trescia ksiag EKW=n, rozbieznosci=m` —
+     bez numeru KW, nazwisk i treści działów.
+- **W kodzie:** `ekw.do_projektu`, `ekw.porownaj_z_polami`,
+  `prompty.blok_ksiag` / `ZASADY_KSIEG`; ewentualnie dostroić heurystykę
+  porównania do nazw pól z prawdziwych wzorów kancelarii.
+- **Zamknięte, gdy:** kroki 3–6 przechodzą na prawdziwym dostawcy i modelu.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

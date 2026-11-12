@@ -483,12 +483,14 @@ def _przypisz_nazwy(odczytane: list[dict], pola: list[str]) -> list[dict]:
 
 def sporzadz_projekt(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    rozmowa: list[dict] | None = None, personalizacja: str = "",
+    rozmowa: list[dict] | None = None, personalizacja: str = "", ksiegi: str = "",
 ) -> str:
     """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy.
-    `personalizacja`: zasady i styl kancelarii (blok tekstu do polecenia)."""
+    `personalizacja`: zasady i styl kancelarii (blok tekstu do polecenia).
+    `ksiegi`: tresc ksiag z EKW (prompty.blok_ksiag) - osobne zrodlo stanu ksiegi."""
     ustalenia = _ustalenia(rozmowa or [])
-    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia, personalizacja)}]
+    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia, personalizacja,
+                                                    ksiegi=ksiegi)}]
     return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc))
 
 

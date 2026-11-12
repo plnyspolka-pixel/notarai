@@ -922,7 +922,8 @@ notarai</div>
   <h1>Projekt dokumentu <span class="oznaczenie-sprawy" id="oznaczenie3" title="Oznaczenie sprawy - to samo w kalendarzu i na telefonie"></span></h1>
   <p class="pod">Znaczniki <code>&lt;&lt;BRAK&gt;&gt;</code> i <code>&lt;&lt;WYBOR&gt;&gt;</code> to miejsca, których nie dało się wypełnić z dokumentów. Projekt wymaga sprawdzenia przez notariusza.</p>
   <div class="wiad"><div class="aw"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
-</div><div class="tresc"><p class="podsum" id="podsum3"></p></div></div>
+</div><div class="tresc"><p class="podsum" id="podsum3"></p>
+    <p class="pod" id="zrodla3" hidden></p></div></div>
   <div class="karta">
     <div class="zgodnosc" id="zgodnosc3" hidden aria-live="polite"></div>
     <div class="projekt" id="projekt"></div>
@@ -4315,7 +4316,7 @@ $("btn-generuj").onclick = async () => {
         numerSprawy !== pokolenieOtwierania) return;
     sprawa.projekt = wynik.tekst;
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
-                  zgodnosc: wynik.zgodnosc});
+                  zgodnosc: wynik.zgodnosc, zrodla: wynik.zrodla});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3); rysujListeSpraw();
     if (!dysk.aktywny) {
@@ -4382,11 +4383,12 @@ async function projektGotowy(id, wynik){
       const odp = await api("/api/sprawy/" + id);
       if (!odp.ok) return;
       const w = await odp.json();
-      wynik = {tekst: w.projekt, brakujace: w.brakujace, do_wyboru: w.do_wyboru, zgodnosc: w.zgodnosc};
+      wynik = {tekst: w.projekt, brakujace: w.brakujace, do_wyboru: w.do_wyboru, zgodnosc: w.zgodnosc,
+               zrodla: w.zrodla};
     }
     sprawa.projekt = wynik.tekst;
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
-                  zgodnosc: wynik.zgodnosc});
+                  zgodnosc: wynik.zgodnosc, zrodla: wynik.zrodla});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3);
     api("/api/sprawy/" + id).then(r => r.json()).then(w => {
@@ -4421,6 +4423,27 @@ function pokazProjekt(w){
     : "Projekt gotowy do sprawdzenia. Wszystkie miejsca wzoru wypełnione z dokumentów.";
   // Raport zasad kancelarii nad projektem (personalizacja.js).
   window.pokazZgodnosc?.(w.zgodnosc);
+  pokazZrodlaProjektu(w.zrodla);
+}
+/* Z czego powstal projekt: tresc ksiag z EKW pobranych do sprawy i krotka
+   weryfikacja pol odczytu (potwierdzone / rozbieznosci oznaczone WYBOR). */
+function pokazZrodlaProjektu(z){
+  const el = $("zrodla3");
+  const ksiegi = (z && z.ksiegi) || [];
+  if (!ksiegi.length) { el.hidden = true; el.textContent = ""; return; }
+  const opis = ksiegi.map(n => {
+    const kiedy = ((z.ksiegi_pobrano || {})[n] || "").replace("T", " ").slice(0, 16);
+    return n + (kiedy ? " z EKW (pobrano " + kiedy + ")" : " z EKW");
+  });
+  let tekst = "Uwzględniono treść " + (ksiegi.length > 1 ? "ksiąg " : "księgi ") + opis.join(", ") + ".";
+  const wer = z.weryfikacja || [];
+  const potw = new Set(wer.filter(w => w.stan === "potwierdza").map(w => w.pole)).size;
+  const rozb = wer.filter(w => w.stan === "rozbieznosc");
+  if (potw) tekst += " Księga potwierdza " + potw + (potw === 1 ? " pole" : " pól") + " odczytu.";
+  if (rozb.length) tekst += " Rozbieżności z odczytem (" + rozb.map(w => w.pole).join(", ")
+    + ") zostawiono do rozstrzygnięcia jako WYBOR.";
+  el.textContent = tekst;
+  el.hidden = false;
 }
 function zapiszPlik(dane, nazwa){
   const adres = URL.createObjectURL(dane);
@@ -4598,7 +4621,8 @@ $("btn-ekw").onclick = async () => {
     rysujHistorie(sprawdzenia);
     await rysujKsiegi();
     $("ekw-numer").value = "";
-    stan($("stan-ekw"), "Pobrano. Porównaj treść działów ze źródłem przed użyciem w akcie.");
+    stan($("stan-ekw"), "Pobrano. Treść księgi zostanie uwzględniona w projekcie aktu "
+      + "(stan działów III/IV, właściciel, oznaczenie). Porównaj ją ze źródłem.");
   } catch (e) { stan($("stan-ekw"), e.message, true); }
   finally { $("btn-ekw").disabled = false; }
 };

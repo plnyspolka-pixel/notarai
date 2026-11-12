@@ -318,10 +318,11 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
 
 def polecenie_generowania(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
-    ustalenia: str = "", personalizacja: str = "",
+    ustalenia: str = "", personalizacja: str = "", ksiegi: str = "",
 ) -> str:
     """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
-    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py)."""
+    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py).
+    `ksiegi` to tresc ksiag z EKW (blok_ksiag); pusty = projekt jak dotad."""
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
@@ -338,6 +339,8 @@ def polecenie_generowania(
         )
     czesci.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
     czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
+    if ksiegi:
+        czesci.append(ksiegi)
     if ustalenia:
         czesci.append(ustalenia)
     if personalizacja:
@@ -351,6 +354,50 @@ def polecenie_generowania(
         "wymieniony w poleceniu, nawet jesli wzor przewiduje tylko jeden."
         if opis else "Sporzadz projekt dokumentu."
     )
+    return "\n\n".join(czesci)
+
+
+ZASADY_KSIEG = """ZASADY UZYCIA TRESCI KSIEGI Z EKW (dotycza wylacznie stanu ksiegi):
+a) Tresc ksiegi ponizej ROZSTRZYGA warianty wzoru dotyczace stanu ksiegi: \
+wpisy w dziale III i IV (np. "w dziale III i IV nie ma wpisow // w dziale IV \
+wpisana jest hipoteka ..."), wlasciciela z dzialu II, oznaczenie nieruchomosci \
+lub lokalu z dzialu I-O, sad i numer ksiegi. Wybierz wariant zgodny z ksiega \
+i usun pozostale - BEZ znacznika <<WYBOR>>. Dzial oznaczony "BRAK WPISOW" \
+oznacza, ze nie ma w nim zadnych wpisow.
+b) Gdy dzial III lub IV ma wpisy, przytocz je w tresci z ksiegi (regula 13: \
+dzial III w calosci; hipoteka z dzialu IV z kwota, rodzajem i wierzycielem).
+c) ROZBIEZNOSC: gdy ksiega i DANE ZWALIDOWANE / polecenie podaja co innego \
+(np. inny wlasciciel, inna powierzchnia, inny numer lokalu, inny udzial), NIE \
+zgaduj i nie wybieraj sam - wstaw w tym miejscu <<WYBOR: rozbieznosc ksiega \
+<numer KW> / dane odczytu - opis>>. Wykryte automatycznie rozbieznosci sa \
+wymienione ponizej; kazda z nich MUSI dostac znacznik <<WYBOR>>.
+d) Ksiega z EKW nie jest odpisem urzedowym; nie powoluj sie na nia w akcie \
+jako na odpis, chyba ze wzor tak stanowi. Inne dokumenty (wypis, odpis \
+przedlozony przez strony) opisuj tak, jak w danych.
+e) Przy kilku ksiegach kazda opisuj wylacznie jej wlasna trescia (regula 10)."""
+
+
+def blok_ksiag(ksiegi: list[dict], weryfikacja: list[dict] | None = None) -> str:
+    """Tresc ksiag z EKW jako osobne zrodlo w poleceniu generowania."""
+    if not ksiegi:
+        return ""
+    czesci = [ZASADY_KSIEG]
+    for k in ksiegi:
+        pobrano = str(k.get("pobrano") or "").replace("T", " ")
+        linie = [f"TRESC KSIEGI WIECZYSTEJ {k['numer_kw']} Z EKW "
+                 f"(nie odpis urzedowy, pobrano {pobrano or 'brak daty'})",
+                 f"Sad: {k.get('sad') or 'brak danych'}",
+                 f"Typ: {k.get('typ') or 'brak danych'}"]
+        for d in k.get("dzialy") or []:
+            linie.append(f"--- DZIAL {d.get('oznaczenie')}: {d.get('tytul') or ''} ---")
+            linie.append("BRAK WPISOW" if d.get("pusty") else str(d.get("tekst") or ""))
+        linie.append(f"--- KONIEC KSIEGI {k['numer_kw']} ---")
+        czesci.append("\n".join(linie))
+    rozbieznosci = [w for w in weryfikacja or [] if w.get("stan") == "rozbieznosc"]
+    if rozbieznosci:
+        czesci.append("WYKRYTE ROZBIEZNOSCI KSIEGA / DANE ODCZYTU (kazda = <<WYBOR: ...>>, nie zgaduj):\n"
+                      + "\n".join(f"- pole \"{w['pole']}\", KW {w['ksiega']}: {w['opis']}"
+                                   for w in rozbieznosci))
     return "\n\n".join(czesci)
 
 

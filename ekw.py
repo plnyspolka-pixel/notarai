@@ -462,3 +462,123 @@ def wczytaj(identyfikator: str) -> list[dict]:
         except (ValueError, OSError):
             log.warning("sprawa %s: uszkodzony zapis ksiegi", identyfikator)
     return sorted(ksiegi, key=lambda k: k.get("pobrano", ""), reverse=True)
+
+
+# ── Tresc ksiegi jako zrodlo projektu aktu ───────────────────────────────────
+# Pobrana ksiega trafia do modelu przy sporzadzaniu projektu, zeby notariusz nie
+# przepisywal jej recznie. Model dostaje ja jako osobne zrodlo (prompty.blok_ksiag),
+# a my porownujemy ja z polami odczytu - to podpowiedz, nie rozstrzygniecie.
+
+_NUMER_KW = re.compile(r"\b([A-Z0-9]{4})\s*/\s*(\d{8})\s*/\s*(\d)\b", re.I)
+
+
+def numery_w_tekscie(tekst: str) -> set[str]:
+    """Numery KW wystepujace w tekscie, w postaci znormalizowanej."""
+    return {f"{a}/{b}/{c}".upper() for a, b, c in _NUMER_KW.findall(tekst or "")}
+
+
+def do_projektu(identyfikator: str, pola: list[dict], polecenie: str = "") -> list[dict]:
+    """Ksiegi sprawy, ktore maja trafic do projektu.
+
+    Gdy pola odczytu albo polecenie wymieniaja numery KW, bierzemy tylko ksiegi
+    o tych numerach (np. pobrana przez pomylke inna ksiega nie trafi do aktu).
+    Gdy zaden numer KW nie wystepuje - wszystkie ksiegi pobrane do tej sprawy.
+    Przy kilku pobraniach tej samej ksiegi zostaje najnowsze.
+    """
+    ksiegi = wczytaj(identyfikator)
+    if not ksiegi:
+        return []
+    znane = set()
+    for pole in pola or []:
+        znane |= numery_w_tekscie(str(pole.get("wartosc") or ""))
+    znane |= numery_w_tekscie(polecenie)
+    wynik, widziane = [], set()
+    for k in ksiegi:  # od najnowszej
+        numer = k.get("numer_kw")
+        if not numer or numer in widziane or not isinstance(k.get("dzialy"), list):
+            continue
+        if znane and numer not in znane:
+            continue
+        widziane.add(numer)
+        wynik.append(k)
+    return wynik
+
+
+def _bez_ogonkow(tekst: str) -> str:
+    import unicodedata
+    tekst = unicodedata.normalize("NFKD", (tekst or "").replace("ł", "l").replace("Ł", "L"))
+    return "".join(z for z in tekst if not unicodedata.combining(z)).lower()
+
+
+def _tekst_dzialu(ksiega: dict, oznaczenie: str) -> str:
+    for d in ksiega.get("dzialy") or []:
+        if d.get("oznaczenie") == oznaczenie:
+            return "" if d.get("pusty") else str(d.get("tekst") or "")
+    return ""
+
+
+_POLE_WLASCICIEL = re.compile(r"wlasciciel|zbyw|sprzeda|darczyn|darujac", re.I)
+_POLE_POWIERZCHNIA = re.compile(r"powierzchn|obszar|metraz", re.I)
+_LICZBA = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _liczby(tekst: str) -> set[str]:
+    wynik = set()
+    tekst = re.sub(r"m\s*2\b|m²|\b\d+\s*/\s*\d+\b", " ", tekst or "")  # jednostka i udzialy to nie powierzchnia
+    for l in _LICZBA.findall(tekst):
+        try:
+            wynik.add(f"{float(l.replace(',', '.')):g}")
+        except ValueError:
+            pass
+    return wynik
+
+
+def porownaj_z_polami(ksiegi: list[dict], pola: list[dict]) -> list[dict]:
+    """Weryfikacja odczytu tresci ksiegi - heurystyka, ostroznie.
+
+    Zwraca [{"pole", "ksiega", "stan": "potwierdza"|"rozbieznosc", "opis"}].
+    Sprawdzamy tylko to, co da sie porownac pewnie: numer KW, wlasciciela
+    (wszystkie slowa wartosci w dziale II) i powierzchnie (liczba w dziale I-O).
+    Opis nie zawiera wartosci pol - idzie do interfejsu i do modelu, nie do logow.
+    """
+    wyniki: list[dict] = []
+    if not ksiegi:
+        return wyniki
+    for pole in pola or []:
+        nazwa, wartosc = str(pole.get("nazwa") or ""), str(pole.get("wartosc") or "").strip()
+        if not wartosc or nazwa.startswith("STALE: zestawienie"):
+            continue
+        nazwa_n = _bez_ogonkow(nazwa)
+        numery = numery_w_tekscie(wartosc)
+        for k in ksiegi:
+            numer = k["numer_kw"]
+            if numery and numer in numery:
+                wyniki.append({"pole": nazwa, "ksiega": numer, "stan": "potwierdza",
+                               "opis": "numer księgi zgodny z pobraną treścią"})
+                continue
+            if len(ksiegi) > 1 and numery and numer not in numery:
+                continue  # pole dotyczy innej ksiegi sprawy
+            if _POLE_WLASCICIEL.search(nazwa_n):
+                dz2 = _bez_ogonkow(_tekst_dzialu(k, "II"))
+                slowa = [s for s in re.findall(r"[^\W\d_]{3,}", _bez_ogonkow(wartosc))]
+                # Tylko imie i nazwisko (albo dwie osoby); adres w polu dalby falszywy alarm.
+                if not dz2 or not slowa or len(slowa) > 5:
+                    continue
+                if all(s in dz2 for s in slowa):
+                    wyniki.append({"pole": nazwa, "ksiega": numer, "stan": "potwierdza",
+                                   "opis": "osoba wpisana w dziale II"})
+                else:
+                    wyniki.append({"pole": nazwa, "ksiega": numer, "stan": "rozbieznosc",
+                                   "opis": "w dziale II księgi wpisany jest inny właściciel niż w polu odczytu"})
+            elif _POLE_POWIERZCHNIA.search(nazwa_n):
+                dz1 = _tekst_dzialu(k, "I-O")
+                z_pola = _liczby(wartosc)
+                if not dz1 or not z_pola:
+                    continue
+                if z_pola & _liczby(dz1):
+                    wyniki.append({"pole": nazwa, "ksiega": numer, "stan": "potwierdza",
+                                   "opis": "powierzchnia jak w dziale I-O"})
+                else:
+                    wyniki.append({"pole": nazwa, "ksiega": numer, "stan": "rozbieznosc",
+                                   "opis": "w dziale I-O księgi jest inna powierzchnia niż w polu odczytu"})
+    return wyniki

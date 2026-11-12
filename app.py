@@ -584,26 +584,30 @@ async def projekt_bez_zapisu(
 
 
 def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
-              etykieta: str) -> tuple[str, dict]:
+              etykieta: str, ksiegi: str = "") -> tuple[str, dict]:
     """Projekt z modelu po kontroli zasad kancelarii: (tekst, raport zgodnosci).
-    Tokenomia: projekt w cenie do 40 tys. znakow wzoru, dalej doplata."""
+    Tokenomia: projekt w cenie do 40 tys. znakow wzoru, dalej doplata.
+    `ksiegi`: blok z trescia ksiag z EKW (prompty.blok_ksiag), pusty = bez ksiag."""
     platna = tokenomia.akcja("projekt", 1, etykieta)
     platna.dodaj("projekt_dodatek", tokenomia.jednostki_projektu(len(analiza["tresc"])))
     with platna:
-        return _sporzadz_bez_oplaty(analiza, pola, polecenie, rozmowa, etykieta)
+        return _sporzadz_bez_oplaty(analiza, pola, polecenie, rozmowa, etykieta, ksiegi)
 
 
 def _sporzadz_bez_oplaty(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
-                         etykieta: str) -> tuple[str, dict]:
+                         etykieta: str, ksiegi: str = "") -> tuple[str, dict]:
     """Zasady i styl kancelarii ida do modelu razem ze wzorem, a gotowy projekt
     przechodzi przez personalizacja.skontroluj() ZANIM trafi do notariusza.
     Bledy modelu zamieniamy na odpowiedzi HTTP.
     """
     rodzaje = personalizacja.rodzaje_sprawy(analiza["tresc"], polecenie)
     ustawienia, blok = personalizacja.przygotuj(rodzaje)
+    # Bez ksiag wywolanie zostaje dokladnie takie jak dotad.
+    dodatkowe = {"ksiegi": ksiegi} if ksiegi else {}
     try:
         projekt = bedrock.sporzadz_projekt(
-            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa, personalizacja=blok
+            analiza["tresc"], pola, polecenie, analiza["legenda"], rozmowa, personalizacja=blok,
+            **dodatkowe,
         )
     except bedrock.Przeciazenie as blad:
         log.error("%s: projekt przerwany, limit zapytan Bedrock", etykieta)
@@ -739,8 +743,16 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
 
     analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
     rozmowa = _wczytaj_rozmowe(katalog) if zadanie.z_rozmowa else []
+    # Tresc ksiag z EKW pobranych do sprawy - osobne zrodlo stanu ksiegi,
+    # zeby notariusz nie przepisywal wyniku recznie. W logach tylko liczby.
+    ksiegi = ekw.do_projektu(identyfikator, zadanie.pola, zadanie.polecenie)
+    weryfikacja = ekw.porownaj_z_polami(ksiegi, zadanie.pola)
+    if ksiegi:
+        log.info("sprawa %s: projekt z trescia ksiag EKW=%d, rozbieznosci=%d", identyfikator,
+                 len(ksiegi), sum(1 for w in weryfikacja if w["stan"] == "rozbieznosc"))
     projekt, zgodnosc = _sporzadz(analiza, zadanie.pola, zadanie.polecenie, rozmowa,
-                                  f"sprawa {identyfikator}")
+                                  f"sprawa {identyfikator}", prompty.blok_ksiag(ksiegi, weryfikacja))
+    zrodla = _zrodla_projektu(ksiegi, weryfikacja)
 
     cel = katalog / "projekt.docx"
     dokumenty.tekst_na_docx(projekt, cel)
@@ -758,6 +770,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
                 meta["nazwa"] = nowa
                 _zapisz_json(meta_plik, meta)
     _zapisz_json(katalog / "zgodnosc.json", zgodnosc)
+    _zapisz_json(katalog / PROJEKT_ZRODLA, zrodla)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: projekt zapisany", identyfikator)
 
@@ -767,6 +780,19 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
         "do_wyboru": projekt.count("<<WYBOR:"),
         "plik": f"/api/sprawy/{identyfikator}/plik",
         "zgodnosc": zgodnosc,
+        "zrodla": zrodla,
+    }
+
+
+# Z czego powstal ostatni projekt (ksiegi z EKW, weryfikacja pol) - do widoku projektu.
+PROJEKT_ZRODLA = "projekt-zrodla.json"
+
+
+def _zrodla_projektu(ksiegi: list[dict], weryfikacja: list[dict]) -> dict:
+    return {
+        "ksiegi": [k["numer_kw"] for k in ksiegi],
+        "ksiegi_pobrano": {k["numer_kw"]: k.get("pobrano", "") for k in ksiegi},
+        "weryfikacja": weryfikacja,
     }
 
 
@@ -855,6 +881,11 @@ def wczytaj_sprawe(identyfikator: str):
     projekt = projekt_plik.read_text("utf-8") if projekt_plik.exists() else None
     zgodnosc_plik = katalog / "zgodnosc.json"
     zgodnosc = json.loads(zgodnosc_plik.read_text("utf-8")) if projekt and zgodnosc_plik.exists() else None
+    zrodla_plik = katalog / PROJEKT_ZRODLA
+    try:
+        zrodla = json.loads(zrodla_plik.read_text("utf-8")) if projekt and zrodla_plik.exists() else None
+    except ValueError:
+        zrodla = None
     return {
         "id": meta.get("id", identyfikator),
         "nazwa": _nazwa(katalog, meta),
@@ -875,6 +906,7 @@ def wczytaj_sprawe(identyfikator: str):
         "plik": f"/api/sprawy/{identyfikator}/plik" if (katalog / "projekt.docx").exists() else None,
         "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator),
         "zgodnosc": zgodnosc,
+        "zrodla": zrodla,
         "projekt_stan": _stan_projektu(katalog),
     }
 
