@@ -2,7 +2,7 @@
   "obsada": "notarai-komputerku-v1",
   "wygenerowano": "2026-11-11",
   "model": "fal-ai/nano-banana-pro/edit (2K)",
-  "koszt_usd": 2.1,
+  "koszt_usd": 2.25,
   "uwaga": "Wygenerowane w konektorze fal (konto Finance You), tak jak klipy hooków Studia. Do systemu serii wpisuje się je przez seria_kadr_zapisz z adresem fal_url albo plikiem z repo — narzędzie kopiuje obraz do Storage studio-media. FAL_KEY w aplikacji nie jest potrzebny.",
   "kadry": [
     {
@@ -92,9 +92,9 @@
         "marta"
       ],
       "plik": "kadry/marta_zblizenie.jpg",
-      "fal_url": "https://v3b.fal.media/files/b/0ab21b7e/_ZuD60iSrOZpp5bC2LeLv_marta_zblizenie.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21b89/fHoc3JHtBFsxDxt0285Ir_vxbnpTvo.png",
       "zatwierdzony": null,
-      "uwaga": "kadr z generacji 01a1cd50 przycięty do zbliżenia pod awatar HeyGen"
+      "uwaga": "natywne zbliżenie 2K (próba 2); próba 1 (przycięty plan) odrzucona — miękka i z artefaktami na biurku"
     }
   ],
   "arkusze": [
@@ -133,8 +133,9 @@
     },
     "marta": {
       "elevenlabs_voice_id": "BDuEI9b2twykxFyFIbv4",
-      "heygen_avatar_id": "46737e32a13d85b828fdd289d2f86c85",
-      "zdjecie_avatara": "kadry/marta_zblizenie.jpg"
+      "heygen_avatar_id": "8d7659468d92ec57903a5570d604483c",
+      "zdjecie_avatara": "kadry/marta_zblizenie.jpg",
+      "heygen_avatar_odrzucony": "46737e32a13d85b828fdd289d2f86c85"
     },
     "basia": {
       "elevenlabs_voice_id": "XxH7vHpT0p7INeJx8ihA",
@@ -147,5 +148,11 @@
       "zdjecie_avatara": "kadry/kuba_z_teczka.jpg"
     }
   },
-  "glosy_uwaga": "Głosy ElevenLabs (konto Finance You) z Voice Design eleven_ttv_v3, wybrany pierwszy z 3 podglądów; nazwy „NotarAI Komputerku v1 - <Imię>”. Awatary HeyGen: photo avatar z kadru zbliżenia."
+  "glosy_uwaga": "Głosy ElevenLabs (konto Finance You) z Voice Design eleven_ttv_v3, wybrany pierwszy z 3 podglądów; nazwy „NotarAI Komputerku v1 - <Imię>”. Awatary HeyGen: photo avatar z kadru zbliżenia.",
+  "test_lancucha": {
+    "ujecie": "odc.1 u1 (Basia)",
+    "heygen_video_id": "16a47fa74b04d59cf4bccd1add59458a",
+    "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/16a47fa74b04d59cf4bccd1add59458a-b1a380f5.mp4",
+    "sekundy": 4.25
+  }
 }
