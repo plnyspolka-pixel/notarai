@@ -38,7 +38,8 @@
   ],
   "glos": {
     "opis_voice_design_en": "Polish man in his mid sixties, retired engineer, polite and slightly apologetic, warm baritone with a light rasp, unhurried, natural spoken Polish of a native speaker, not a voice-over, close mic in a quiet office.",
-    "elevenlabs_voice_id": null
+    "elevenlabs_voice_id": "xu17wWrBQRmEysbBcctv",
+    "uwaga": "Wariant 1 wybrany przez właściciela 12.11.2026 i obowiązujący wszędzie. Głos dE7Z2RQjmIv2sPucFAhv (wariant 3) NIE używać."
   },
   "ruch": {
     "silnik_domyslny": "heygen-avatar-6-turbo",
@@ -54,5 +55,5 @@
     "ref": null,
     "arkusz": null
   },
-  "status": "szkic"
+  "status": "poza kanonem (archiwum) — w sc. 02 i 04 występuje Paweł Nowak"
 }

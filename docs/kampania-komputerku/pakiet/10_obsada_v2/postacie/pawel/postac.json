@@ -1,0 +1,59 @@
+{
+  "slug": "pawel",
+  "imie": "Paweł Nowak",
+  "wiek": 45,
+  "rola": "syn Ireny Nowak; osoba kontaktowa, NIE pełnomocnik i NIE strona aktu",
+  "rola_en": "son of the seller, helping his mother organise the sale of her flat",
+  "wyglad": {
+    "twarz": "square friendly face, fair skin, grey-blue eyes, short neatly trimmed dark-blond stubble, faint crow's feet",
+    "wlosy": "short dark-blond hair, first light grey at the temples, side part",
+    "sylwetka": "medium height, solid build, upright, energetic"
+  },
+  "stroj": {
+    "opis": "open charcoal wool overcoat over a light-blue button-down shirt, no tie, dark jeans; carries a clear plastic document sleeve with a single paper certificate and a smartphone",
+    "kolory": {
+      "plaszcz": "#3A3D42",
+      "koszula": "#A9C4E0"
+    }
+  },
+  "rekwizyty": [
+    "przezroczysta koszulka z papierowym zaświadczeniem od zarządcy",
+    "smartfon"
+  ],
+  "charakter": "życzliwy, uprzejmy, ale nadmiernie zaangażowany: wszystko chce dopilnować sam, mówi szybko i rzeczowo",
+  "relacje": "syn Ireny Nowak; Irena prosi o rozmowę bez niego (cliffhanger odc. 01)",
+  "strefa": "sekretariat i wejście",
+  "strefa_opis_en": "secretary desk by the printer",
+  "kadry": [
+    {
+      "kamera": "K3",
+      "glowny": true,
+      "poza_en": "He stands at the secretary's small desk facing camera three-quarters, holding a clear plastic document sleeve with a single paper certificate in his left hand, the other hand relaxed, friendly businesslike smile, mouth closed."
+    },
+    {
+      "kamera": "K7",
+      "glowny": false,
+      "poza_en": "He steps in briskly through the half-open double door, holding a clear plastic document sleeve, looking into the room."
+    }
+  ],
+  "glos": {
+    "opis_voice_design_en": "(wariant 1 z Voice Design, wybór właściciela)",
+    "elevenlabs_voice_id": "xu17wWrBQRmEysbBcctv"
+  },
+  "ruch": {
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v",
+    "motion_prompt_baza": "Friendly, energetic man in his fifties, quick purposeful nods, slightly over-eager, natural breathing.",
+    "gesty_typowe": [],
+    "unikac": []
+  },
+  "heygen": {
+    "avatar_id": null
+  },
+  "pliki": {
+    "ref": null,
+    "arkusz": null
+  },
+  "status": "szkic — twarz do akceptacji",
+  "zrodlo": "sezon1/BIBLIA_INTRYGI_SEZONU_1.md §2.7"
+}
