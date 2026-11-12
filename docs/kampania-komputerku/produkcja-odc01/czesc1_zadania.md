@@ -93,3 +93,6 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Sc. 11: Helena zatrzymuje się przy § 5 (termin wydania lokalu) zamiast § 2.
 - Głosy: Kuba `s06_kuba_ekw_1b-cd7e9fca` („z e-ka-wu”; wersja `ekw_1-ecd65c67` czytała „z KW”), `s06_kuba_ekw_2-aa6b640a`, Helena `s11_helena_1b-1f78aae6`.
 - HeyGen: Kuba EKW 1 588ec89120784a6bb84e40c1d0ed0420, Kuba EKW 2 90af25d780d74637a8bd2f57120696a4, Helena § 5 dc5d165531bd4d5693c7955df18b177f.
+- Poprawka (decyzja użytkownika): bez ręcznego dopisywania. Kuba: „Dział trzeci i czwarty bez wpisów. Projekt sam to uwzględni.” (`s06_kuba_ekw_2b-03781af1`,
+  HeyGen a8dd8c3009074c85a479b94d90bfb895); ujęcie „Rozmowa o sprawie” usunięte z montażu. Funkcję w kodzie robi sesja
+  session_015k5XGBVzUU48yKskLFFgRm („Projekt aktu z treścią księgi pobranej z EKW”); po wdrożeniu nagrać projekt ponownie bez dopisku w rozmowie.

@@ -46,7 +46,7 @@ Obowiązuje we wszystkich materiałach: wideo, dialogi, dane demo w NotarAI, mai
 
 ## Zmiana 12.11.2026 (decyzja właściciela): EKW w sc. 06
 - Po wskazaniu pól do sprawdzenia Kuba mówi „Księgę pobiorę od razu z EKW”, w „Sprawdzeniach” wpisuje numer WA4M/00077777/2 i klika „Pobierz z EKW”.
-  Widać działy księgi, III i IV „brak wpisów”. Kuba: „Dział trzeci i czwarty bez wpisów. Dopiszę to w sprawie.” i dopisuje to w „Rozmowie o sprawie”.
-- Projekt sporządza się z tą rozmową: § 2 bez wariantu („w dziale III i IV księgi wieczystej nie ma wpisów”). Zostają BRAK: data aktu, sposób zapłaty, termin wydania; WYBÓR: § 3 (małżeństwo kupujących).
+  Widać działy księgi, III i IV „brak wpisów”. Kuba: „Dział trzeci i czwarty bez wpisów. Projekt sam to uwzględni.” (bez ręcznego dopisywania).
+- Projekt sam uwzględnia treść pobranej księgi: § 2 bez wariantu („w dziale III i IV księgi wieczystej nie ma wpisów”). Zostają BRAK: data aktu, sposób zapłaty, termin wydania; WYBÓR: § 3 (małżeństwo kupujących).
 - Sc. 11: Helena zatrzymuje się przy § 5 (termin wydania lokalu, główny konflikt sezonu).
-- Granica: na nagraniu treść księgi pochodzi z atrapy dostawcy (dane demonstracyjne, opis w karcie). W produkcji treść pobiera dostawca (Finance You / Apify), nie odpis urzędowy; projekt nie czyta księgi sam, korzysta z rozmowy o sprawie.
+- Granica: na nagraniu treść księgi pochodzi z atrapy dostawcy (dane demonstracyjne, opis w karcie). W produkcji treść pobiera dostawca (Finance You / Apify), nie odpis urzędowy. Uwzględnianie księgi w projekcie: w realizacji (sesja kodu „Projekt aktu z treścią księgi pobranej z EKW”); zrzuty projektu z 12.11 powstały jeszcze przez rozmowę o sprawie, do ponownego nagrania po wdrożeniu.
