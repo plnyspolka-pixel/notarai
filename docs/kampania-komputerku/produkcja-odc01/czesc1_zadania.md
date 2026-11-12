@@ -31,3 +31,16 @@ Pan Zenon: kwestia do ponownego nagrania głosem 1 `xu17wWrBQRmEysbBcctv` z konk
 ## Montaż
 `narzedzia/montaz_odc01_cz1.sh` → `podglady/odc01_czesc1.mp4` (31,4 s): sc. 01 (7,5 s) → intro 5 (8 s) → sc. 02 (15,9 s).
 Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57”). Efekty: ElevenLabs SFX (telefon, drzwi, drukarka, gwar recepcji).
+
+# Część 2 (sc. 03–05)
+
+- Ekrany: prawdziwa aplikacja z gałęzi `claude/odcinek-01-ekrany`, dane demo poprawione pod kanon (sprawa „NOWAK — KACZMAREK”, S-041-2026,
+  kupujący Kaczmarkowie, Paweł jako kontakt, 56,40 m², 640 000 zł, akt 17.11 11:30; pola „wymagają uwagi”: sposób zapłaty, termin wydania, data aktu).
+  Nagranie: `narzedzia/nagraj_ekrany_odc01_cz2.js` (zrzuty 2×/3× + ramki elementów), sztuczna kamera = fikcyjne zaświadczenie D08.
+  Animacja: `narzedzia/render_ekrany_odc.js` + `czesc2_ekrany/plan.json`. Podpis „Prawdziwy ekran NotarAI · dane demonstracyjne”.
+- Kadry (fal): T4 Basia przy monitorze `9ROXn_wlT2Slaqx4_iwjS`, T5 Marta za Basią `1ajZAqsVE2o2c7RSNJpMa`, T6 Basia z kartką i telefonem `yxoltoSD3LNDEPLijZUjg`,
+  B6 zdjęcie telefonem `gmW501fg86qyvHQsy_LH7`, B7 Kuba czeka `GxgmQAIJhF61elFLGCyAZ`.
+- HeyGen Avatar 6: s03 Basia 6e1e59751029468796849168836036b2, s04 Paweł 258faf4c35b0492cb64960001e151dab, s04 Basia 91f99b0bed0e47638c1e951ace644a21,
+  s05 Marta b75235f02b534a579e0956b9c1294d01, s05 Basia 2f8d855cd15d4033837662f9cd4f7b00.
+- Kling: Marta podchodzi 01a1d07b-f679-7990-b949-bebec8514f28, zdjęcie telefonem 01a1d07b-f625-7163-a7ea-dc877c2657fe, Kuba czeka 01a1d07b-f60e-7ac0-ab0e-442fbe3fd94d.
+- Montaż: `narzedzia/montaz_odc01_cz2.py` → `podglady/odc01_czesc2.mp4` (38,5 s). Pauza strategiczna: po „…z następną sprawą” gwar cichnie, 0,9 s ciszy, potem telefon.

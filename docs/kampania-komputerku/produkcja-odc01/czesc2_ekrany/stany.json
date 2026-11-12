@@ -1,0 +1,128 @@
+[
+ {
+  "nazwa": "K1_kalendarz_termin",
+  "plik": "K1_kalendarz_termin.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 519.25,
+   "y": 455.140625,
+   "width": 112.75,
+   "height": 27
+  }
+ },
+ {
+  "nazwa": "K2_sprawa_otwarta",
+  "plik": "K2_sprawa_otwarta.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 738.234375,
+   "y": 89,
+   "width": 79,
+   "height": 18
+  }
+ },
+ {
+  "nazwa": "M1_pliki_puste",
+  "plik": "M1_pliki_puste.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 367,
+   "y": 480.15625,
+   "width": 984,
+   "height": 281.359375
+  }
+ },
+ {
+  "nazwa": "P1_sprawa_telefon",
+  "plik": "P1_sprawa_telefon.png",
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ramka": {
+   "x": 284.90625,
+   "y": 118,
+   "width": 81.5,
+   "height": 18
+  }
+ },
+ {
+  "nazwa": "P2_pliki_telefon",
+  "plik": "P2_pliki_telefon.png",
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ramka": {
+   "x": 31,
+   "y": 582.734375,
+   "width": 328,
+   "height": 135.5625
+  }
+ },
+ {
+  "nazwa": "P3_aparat",
+  "plik": "P3_aparat.png",
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ramka": {
+   "x": 161,
+   "y": 764,
+   "width": 68,
+   "height": 68
+  }
+ },
+ {
+  "nazwa": "P4_wyslij",
+  "plik": "P4_wyslij.png",
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ramka": {
+   "x": 279.90625,
+   "y": 778.5,
+   "width": 98.09375,
+   "height": 39
+  }
+ },
+ {
+  "nazwa": "P5_zdjecie_w_sprawie",
+  "plik": "P5_zdjecie_w_sprawie.png",
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ramka": {
+   "x": 31,
+   "y": 370.375,
+   "width": 328,
+   "height": 36.59375
+  }
+ },
+ {
+  "nazwa": "M2_zdjecie_u_marty",
+  "plik": "M2_zdjecie_u_marty.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 546.546875,
+   "width": 926,
+   "height": 51
+  }
+ }
+]

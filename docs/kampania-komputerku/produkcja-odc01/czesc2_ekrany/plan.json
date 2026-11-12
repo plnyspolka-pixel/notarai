@@ -1,0 +1,11 @@
+[
+ {"nazwa":"E1_kalendarz","stan":"K1_kalendarz_termin","t":2.8,"panel":true,"z0":0.55,"z1":0.42,"kx":560,"ky":470,"tap":2.0},
+ {"nazwa":"E2_sprawa","stan":"K2_sprawa_otwarta","t":2.6,"panel":true,"z0":0.55,"z1":0.45,"kx":620,"ky":200,"hl":0.5},
+ {"nazwa":"E3_tel_sprawa","stan":"P1_sprawa_telefon","t":1.6,"z0":1,"z1":0.92,"ky":330},
+ {"nazwa":"E4_tel_aparatem","stan":"P2_pliki_telefon","t":1.4,"z0":1,"z1":1,"tap":0.8},
+ {"nazwa":"E5_tel_migawka","stan":"P3_aparat","t":1.5,"z0":1,"z1":0.95,"tap":0.9},
+ {"nazwa":"E6_tel_wyslij","stan":"P4_wyslij","t":1.4,"z0":1,"z1":1,"tap":0.8},
+ {"nazwa":"E7_tel_zdjecie","stan":"P5_zdjecie_w_sprawie","t":1.6,"z0":1,"z1":0.9,"hl":0.3},
+ {"nazwa":"E8_marta_puste","stan":"M1_pliki_puste","t":1.0,"panel":true,"z0":0.45,"z1":0.45,"kx":700,"ky":580},
+ {"nazwa":"E9_marta_zdjecie","stan":"M2_zdjecie_u_marty","t":2.0,"panel":true,"z0":0.45,"z1":0.4,"kx":700,"ky":580,"hl":0.2}
+]

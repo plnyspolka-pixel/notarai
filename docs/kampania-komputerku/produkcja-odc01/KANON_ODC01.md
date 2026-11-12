@@ -34,5 +34,12 @@ Obowiązuje we wszystkich materiałach: wideo, dialogi, dane demo w NotarAI, mai
 - Bez powtórzeń tych samych fraz w kolejnych kwestiach (np. „od zarządcy” pada raz, w sc. 02; dalej „to”, „ten papier”). Mówimy jak ludzie, nie jak formularz.
 - Konkret zamiast ogólników: zawsze wiadomo, jaki dokument i do której sprawy.
 
+## Zasady montażu: pauzy (decyzja właściciela 12.11.2026)
+- Pauza jest narzędziem dramaturgicznym, nie dziurą: stosujemy ją w momentach strategicznych, dla podkreślenia napięcia.
+- Najmocniej działa, gdy widz jest już zaangażowany (po ekspozycji, nie w pierwszych sekundach haka).
+- Formy: 0,4–0,8 s „oddechu” przed ważną kwestią albo po niej; zatrzymanie na twarzy, która reaguje, zanim padnie odpowiedź; wyciszenie gwaru i muzyki do ciszy pokoju (room tone), a potem jeden konkretny dźwięk (telefon, długopis odłożony na biurko).
+- Rytm odcinka 01: początek gęsty i szybki (chaos 8:57), od sceny 08 wolniej; największa pauza w sc. 12 przed „…bez syna” i po niej, do odłożenia długopisu przez Helenę.
+- Nie wstawiamy pauz mechanicznie po każdej kwestii; jedna, dwie dobrze postawione na scenę.
+
 ## Głos
 - Paweł Nowak: **`7KAMhhzp05frisJC5L7o`** (nowy głos 45-latka, „głos 1” z drugiej sesji Voice Design, wybór właściciela). Głos `xu17…` (Pan Zenon) nie jest używany.
