@@ -13,7 +13,8 @@ const czas = (t1, t2) => `<div style="position:absolute;left:0;right:0;bottom:25
  <div style="font-weight:700;font-size:40px;letter-spacing:.14em;text-transform:uppercase;opacity:.92">${t1}</div>
  <div style="font-weight:800;font-size:120px;letter-spacing:-.03em;line-height:1.05">${t2}</div></div>`;
 const W = { karta_basia: karta('Basia', 'sekretariat'), karta_pawel: karta('Paweł Nowak', 'syn pani Ireny'),
-  karta_marta: karta('Marta', 'notariuszka'), karta_kuba: karta('Kuba', 'aplikant'), czas_0857: czas('Poniedziałek', '8:57') };
+  karta_marta: karta('Marta', 'notariuszka'), karta_kuba: karta('Kuba', 'aplikant'), czas_0857: czas('Poniedziałek', '8:57'),
+  karta_helena: karta('Helena Radecka', 'notariusz'), czas_0924: czas('Poniedziałek', '9:24') };
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
   for (const [n, h] of Object.entries(W)) {

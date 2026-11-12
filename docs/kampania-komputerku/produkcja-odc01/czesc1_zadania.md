@@ -53,3 +53,17 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Projekt v1 (`czesc3_ekrany/projekt_NOWAK_KACZMAREK_v1.docx`, tekst `projekt_tekst.txt`): zgodny z kanonem — Helena Radecka, Kaczmarkowie,
   56,40 m², 640 000 zł; `<<BRAK>>`: data aktu, sposób zapłaty ceny, termin wydania lokalu; `<<WYBOR>>` w § 2 (stan działów III/IV).
 - Zrzuty stanów sc. 06–10 (W1–W10) do animacji: `czesc3_ekrany/`, skrypt `narzedzia/nagraj_ekrany_odc01_cz3.js`.
+
+# Część 3 (sc. 06–09)
+
+- Kadry (fal nano-banana-pro/edit): T7 Kuba przy stole `LHR2puHRhfdDL` (1), `QKaozzIERvygUw` (2); B8 Marta i Kuba `dDD7yluCUPzvIh15ZAvps`;
+  T8 Helena z okularami `A6_V0a8VjKanVqCyygv6w`; B9 Kuba dzwoni `eu6QvDcODP5KgR0T-bvZx`; B10 Marta z dokumentami `Jqo20bOq2Tyhg`;
+  B11 Helena przy telefonie `Dj7njE2LmrPs81WatPCyU`. Zegar 9:24 (nano-banana/edit) odrzucony: wskazówki źle, przeskok czasu kartą „9:24”.
+- Głosy: `odc01_s06_kuba_1-353c2f05`, `s06_marta_1-e00e426f`, `s06_marta_2-9c0976e8`, `s06_kuba_2-906f2990`, `s07_helena_1-fd0d85f6`,
+  `s07_marta-96d239a6`, `s07_helena_2-b492e934`, `s08_marta-37e70e1a` (transkrypcja zgodna).
+- HeyGen Avatar 6: s06 Kuba 1 819ed00ede8b4a748e776d63ece766ca, s06 Marta 1 cb42dd6b3140486bbabc0cf5c64f4c6c, s06 Marta 2 0ef6f5777926408c8a1af2686d42daf8,
+  s06 Kuba 2 966d6c1480324a51b1223fc8112f507f, s07 Helena 1 d2f5f78957f84730851d68beadba0181, s07 Marta f0a4df9736cb45ffaa1dc8cd69a9a927,
+  s07 Helena 2 8b6068a04b4d4b8dbf0c0f4f157533cb, s08 Marta 6110609869e249bcbd5a01f66d3a8b26.
+- Ekrany: `czesc3_ekrany/plan.json` → `czesc3_wideo/F1–F5` (weryfikacja, „Wymagają uwagi”, Sporządź projekt, Sporządzam projekt…, kalendarz w trakcie).
+- Sc. 09 bez ruchu (kadry z powolnym najazdem): Kling niewykonany, fal bez środków (12.11). Do wymiany: B9, B10, B11, B8 (uśmiechy).
+- Montaż: `narzedzia/montaz_odc01_cz3.py` → `podglady/odc01_czesc3.mp4` (47,8 s). Gwar cichnie na pauzie przed „komputerku”, sc. 09 spokojne biuro, karta „9:24”.

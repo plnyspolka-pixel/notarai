@@ -7,7 +7,7 @@ Każda część: **A. kadry** (akceptacja) → **B. wideo** (akceptacja) → mon
 |---|---|---|---|---|
 | 1 | Trzęsienie ziemi (sc. 01) → intro → sc. 02 | nie | ok. 5 USD | kadry: zlecenia gotowe (`czesc1_kadry.json`), czekają na środki w fal |
 | 2 | sc. 03–05: kalendarz, klient z dokumentem, zdjęcie telefonem | tak (kalendarz, telefon, aparat, pliki) | ok. 5 USD | czeka na część 1 i sesję „funkcje pod odcinek 01” |
-| 3 | sc. 06–09: weryfikacja odczytu, Helena, „Komputerku…”, przeskok 8:57 → 9:24 | tak (weryfikacja, Sporządź projekt) | ok. 5 USD | czeka |
+| 3 | sc. 06–09: weryfikacja odczytu, Helena, „Komputerku…”, przeskok 8:57 → 9:24 | tak (weryfikacja, Sporządź projekt) | ok. 5 USD | do akceptacji (podglady/odc01_czesc3.mp4, 47,8 s) |
 | 4 | sc. 10–12 + outro: projekt i Word, Helena, pani Irena „bez syna” | tak (projekt, Word) | ok. 4 USD | czeka |
 
 ## Część 1: ujęcia

@@ -1,0 +1,7 @@
+[
+ {"nazwa":"F1_weryfikacja","stan":"W1_weryfikacja","t":2.4,"panel":true,"z0":0.62,"z1":0.52,"kx":760,"ky":600,"tap":1.7},
+ {"nazwa":"F2_wymagaja_uwagi","stan":"W2_wymagaja_uwagi","t":3.0,"panel":true,"z0":0.7,"z1":0.64,"kx":860,"ky":600,"cx":860,"cy":775,"hl":0.4},
+ {"nazwa":"F3_sporzadz","stan":"W3_przed_sporzadz","t":1.8,"panel":true,"z0":0.5,"z1":0.42,"kx":700,"ky":720,"tap":1.1},
+ {"nazwa":"F4_sporzadzam","stan":"W4_sporzadzam","t":2.4,"panel":true,"z0":0.55,"z1":0.5,"kx":900,"ky":780,"hl":0.3},
+ {"nazwa":"F5_kalendarz","stan":"W5_kalendarz_w_trakcie","t":2.2,"panel":true,"z0":0.32,"z1":0.28,"kx":600,"ky":715,"cx":580,"cy":615}
+]
