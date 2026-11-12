@@ -1,5 +1,5 @@
 diff --git a/scripts/demo_odcinek01.py b/scripts/demo_odcinek01.py
-index 4bf58fb..a88728b 100644
+index 4bf58fb..c19ee5e 100644
 --- a/scripts/demo_odcinek01.py
 +++ b/scripts/demo_odcinek01.py
 @@ -9,8 +9,8 @@ prawdziwych dokumentow (bez wizerunku dowodu osobistego).
@@ -218,3 +218,74 @@ index 4bf58fb..a88728b 100644
          osoby.ustaw_telefon(osoby._identyfikator("p:" + osoba["pesel"]), telefon["numer"])
  
      obecne = {z["tekst"] for z in zasady.wczytaj().get("zasady", [])}
+@@ -412,7 +423,43 @@ def atrapa_projektu(sekund: float):
+     return sporzadz
+ 
+ 
+-def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None) -> None:
++def atrapa_ekw(sekund: float):
++    """Fikcyjna ksiega dla numeru z demo (zgodna z odpisem w sprawie), bez polaczenia z EKW.
++    Interfejs i zapis w sprawie sa prawdziwe; podmieniony jest tylko dostawca tresci."""
++    import ekw
++
++    def pobierz(numer, klient=None):
++        time.sleep(sekund)
++        if numer != KW:
++            raise ekw.BladEKW("nie_znaleziono", "Ksiegi o tym numerze nie ma w danych demo")
++        dzialy = [
++            ("I-O", "DZIAŁ I-O - OZNACZENIE NIERUCHOMOŚCI", False,
++             "Lokal mieszkalny nr 6, " + ADRES_LOKALU + "\nPowierzchnia użytkowa: 56,40 m²\nIzby: 3, kuchnia, łazienka, przedpokój"),
++            ("I-Sp", "DZIAŁ I-SP - SPIS PRAW ZWIĄZANYCH Z WŁASNOŚCIĄ", False,
++             "Udział w nieruchomości wspólnej: 564/10000"),
++            ("II", "DZIAŁ II - WŁASNOŚĆ", False,
++             f"Właściciel: {IRENA['imie']}, córka Stanisława i Zofii, PESEL {IRENA['pesel']}\n"
++             "Podstawa nabycia: umowa sprzedaży, Rep. A nr 3157/2009 z dnia 14.05.2009 r."),
++            ("III", "DZIAŁ III - PRAWA, ROSZCZENIA I OGRANICZENIA", True, ""),
++            ("IV", "DZIAŁ IV - HIPOTEKA", True, ""),
++        ]
++        return {
++            "numer_kw": numer, "kod_sadu": numer[:4],
++            "sad": "Sąd Rejonowy dla Warszawy-Mokotowa w Warszawie, VI Wydział Ksiąg Wieczystych",
++            "typ": "lokal mieszkalny", "widok": "aktualna",
++            "dzialy": [{"oznaczenie": o, "tytul": t, "pusty": p, "tekst": "BRAK WPISÓW" if p else x}
++                       for o, t, p, x in dzialy],
++            "pobrano": datetime.now().isoformat(timespec="seconds"),
++            "zrodlo": "DANE DEMONSTRACYJNE (atrapa dostawcy, bez połączenia z EKW)",
++            "dostawca": "demo",
++        }
++    ekw.dostepne = lambda: True
++    ekw.dostawca = lambda: "demo"
++    ekw.zrodlo = lambda: "DANE DEMONSTRACYJNE (atrapa dostawcy, bez połączenia z EKW)"
++    ekw.pobierz = pobierz
++
++
++def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None, ekw_s: float | None = None) -> None:
+     if os.getenv("PIECZAPP_MAGAZYN", "lokalny") != "lokalny" or os.getenv("PIECZAPP_COGNITO_POOL"):
+         sys.exit("Serwer demo dziala tylko lokalnie (PIECZAPP_MAGAZYN=lokalny, bez puli Cognito).")
+     if len(haslo) < 8:
+@@ -427,6 +474,9 @@ def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None)
+     if atrapa is not None:
+         bedrock.sporzadz_projekt = atrapa_projektu(atrapa)
+         print(f"  UWAGA: atrapa modelu ({atrapa:g} s) - projekt NIE pochodzi z Bedrock.")
++    if ekw_s is not None:
++        atrapa_ekw(ekw_s)
++        print(f"  UWAGA: atrapa dostawcy EKW ({ekw_s:g} s) - ksiega demo, bez polaczenia z EKW.")
+     import app as aplikacja
+     assert autoryzacja.MULTI, "tryb wielu kancelarii nie wlaczyl sie"
+     print(f"\n  NotarAI demo odc. 01 -> http://{host}:{port}   (dane: {katalog})")
+@@ -451,12 +501,14 @@ def main() -> None:
+     s.add_argument("--port", type=int, default=8000)
+     s.add_argument("--atrapa-modelu", type=float, metavar="SEKUND", default=None,
+                    help="projekt bez Bedrock po tylu sekundach (tylko proby i zrzuty)")
++    s.add_argument("--atrapa-ekw", type=float, metavar="SEKUND", default=None,
++                   help="ksiega demo z EKW po tylu sekundach, bez polaczenia z EKW (do nagrania)")
+     args = parser.parse_args()
+     if args.polecenie == "przygotuj":
+         dzien = date.fromisoformat(args.dzien) if args.dzien else date.today()
+         print(json.dumps(przygotuj(args.dane, args.kancelaria, dzien), ensure_ascii=False, indent=2))
+     else:
+-        serwer(args.dane, args.haslo, args.host, args.port, args.atrapa_modelu)
++        serwer(args.dane, args.haslo, args.host, args.port, args.atrapa_modelu, args.atrapa_ekw)
+ 
+ 
+ if __name__ == "__main__":

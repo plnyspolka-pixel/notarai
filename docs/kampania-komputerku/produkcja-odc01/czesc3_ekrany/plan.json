@@ -1,7 +1,106 @@
 [
- {"nazwa":"F1_weryfikacja","stan":"W1_weryfikacja","t":2.4,"panel":true,"z0":0.62,"z1":0.52,"kx":760,"ky":600,"tap":1.7},
- {"nazwa":"F2_wymagaja_uwagi","stan":"W2_wymagaja_uwagi","t":3.0,"panel":true,"z0":0.7,"z1":0.64,"kx":860,"ky":600,"cx":860,"cy":775,"hl":0.4},
- {"nazwa":"F3_sporzadz","stan":"W3_przed_sporzadz","t":1.8,"panel":true,"z0":0.5,"z1":0.42,"kx":700,"ky":720,"tap":1.1},
- {"nazwa":"F4_sporzadzam","stan":"W4_sporzadzam","t":2.4,"panel":true,"z0":0.55,"z1":0.5,"kx":900,"ky":780,"hl":0.3},
- {"nazwa":"F5_kalendarz","stan":"W5_kalendarz_w_trakcie","t":2.2,"panel":true,"z0":0.32,"z1":0.28,"kx":600,"ky":715,"cx":580,"cy":615}
+{
+"nazwa": "F1_weryfikacja",
+"stan": "W1_weryfikacja",
+"t": 2.4,
+"panel": true,
+"z0": 0.62,
+"z1": 0.52,
+"kx": 760,
+"ky": 600,
+"tap": 1.7
+},
+{
+"nazwa": "F2_wymagaja_uwagi",
+"stan": "W2_wymagaja_uwagi",
+"t": 3.0,
+"panel": true,
+"z0": 0.7,
+"z1": 0.64,
+"kx": 860,
+"ky": 600,
+"cx": 860,
+"cy": 775,
+"hl": 0.4
+},
+{
+"nazwa": "F3_sporzadz",
+"stan": "W3_przed_sporzadz",
+"t": 1.8,
+"panel": true,
+"z0": 0.5,
+"z1": 0.42,
+"kx": 700,
+"ky": 720,
+"tap": 1.1
+},
+{
+"nazwa": "F4_sporzadzam",
+"stan": "W4_sporzadzam",
+"t": 2.4,
+"panel": true,
+"z0": 0.55,
+"z1": 0.5,
+"kx": 900,
+"ky": 780,
+"hl": 0.3
+},
+{
+"nazwa": "F5_kalendarz",
+"stan": "W5_kalendarz_w_trakcie",
+"t": 2.2,
+"panel": true,
+"z0": 0.32,
+"z1": 0.28,
+"kx": 600,
+"ky": 715,
+"cx": 580,
+"cy": 615
+},
+{
+"nazwa": "H1_ekw_numer",
+"stan": "E2_ekw_numer",
+"t": 2.0,
+"panel": true,
+"z0": 0.56,
+"z1": 0.5,
+"kx": 745,
+"ky": 700,
+"tap": 1.3
+},
+{
+"nazwa": "H2_ekw_pobieram",
+"stan": "E3_ekw_pobieram",
+"t": 1.4,
+"panel": true,
+"z0": 0.5,
+"z1": 0.48,
+"kx": 745,
+"ky": 720,
+"hl": 0.1
+},
+{
+"nazwa": "H3_ekw_dzialy",
+"stan": "E5_ekw_dzialy",
+"t": 2.6,
+"panel": true,
+"z0": 0.68,
+"z1": 0.63,
+"kx": 855,
+"ky": 750,
+"hl": 0.5
+},
+{
+"nazwa": "H4_rozmowa",
+"stan": "R2_odpowiedz",
+"t": 2.6,
+"panel": true,
+"z0": 0.66,
+"z1": 0.6,
+"kx": 860,
+"ky": 600,
+"cx": 600,
+"cy": 440,
+"tap": 0.3
+}
 ]

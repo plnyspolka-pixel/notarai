@@ -25,5 +25,5 @@ Każda część: **A. kadry** (akceptacja) → **B. wideo** (akceptacja) → mon
 
 Głos Kuby zza kadru (sc. 01) i kwestie sc. 02: ElevenLabs, głosy obsady v2; głos Pana Zenona: Voice Design z `postac.json`.
 
-**Cały odcinek (12.11.2026):** `podglady/ODC01_Poniedzialek_857.mp4`, 3:00, skrypt `narzedzia/montaz_odc01_calosc.sh`.
+**Cały odcinek (12.11.2026):** `podglady/ODC01_Poniedzialek_857.mp4`, 3:13 (z EKW w sc. 06), skrypt `narzedzia/montaz_odc01_calosc.sh`.
 Tło dźwiękowe we wszystkich częściach na wyrównanym gwarze recepcji (`czesc3_wideo/amb_recepcja_n.mp3`), karty imion w Montserrat.
