@@ -1,0 +1,47 @@
+[
+{
+"nazwa": "G1_powiadomienie",
+"stan": "W6_powiadomienie",
+"t": 2.2,
+"panel": true,
+"z0": 0.42,
+"z1": 0.38,
+"kx": 1170,
+"ky": 770,
+"cx": 1330,
+"cy": 850,
+"tap": 1.4
+},
+{
+"nazwa": "G2_projekt",
+"stan": "W7_projekt",
+"t": 2.6,
+"panel": true,
+"z0": 0.66,
+"z1": 0.6,
+"kx": 860,
+"ky": 270
+},
+{
+"nazwa": "G3_wybor_brak",
+"stan": "W9_projekt_wybor",
+"t": 3.2,
+"panel": true,
+"z0": 0.42,
+"z1": 0.36,
+"kx": 860,
+"ky": 790,
+"hl": 0.5
+},
+{
+"nazwa": "G4_pobierz_word",
+"stan": "W10_pobierz_word",
+"t": 1.8,
+"panel": true,
+"z0": 0.5,
+"z1": 0.44,
+"kx": 700,
+"ky": 420,
+"tap": 1.0
+}
+]

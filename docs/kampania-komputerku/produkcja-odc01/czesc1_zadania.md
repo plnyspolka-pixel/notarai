@@ -70,3 +70,19 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Poprawka dźwięku sc. 08–09 (uwaga użytkownika: od 33 s rozmowy bez głosu, potem cisza): tło biura przegenerowane i wyrównane,
   rozmowy przez telefon słyszalne. Głosy `odc01_s09_basia-1bbd0769`, `s09_kuba-929ba7c4`, `s09_helena-a6ee12c5`;
   HeyGen: Basia 1ee5913c842d4919a8e40f942d9e0857, Kuba 73328c0962da44438de980eae4bb5169, Helena 47dc9d6210c340a5915c75d96d183918.
+
+# Część 4 (sc. 10–12 + outro)
+
+- Kadry: T9 Helena z wydrukiem `TTHHkzt_0BRnEnQQ7p2Ts` (szeroki `edM7Xf0mdN6YZY0jyv6rz`), T10 Marta w gabinecie `9cMuQuoJUXimYOI4s6m2O`,
+  T11 Basia w drzwiach `i_5BZ3PI1llbdP2MHGv0n`, B13 długopis `ZFTtgkW58_aloypyblJ97`.
+- Głosy: s10 Marta `3cda8c3b`, s10 Kuba `74615429`, s11 Helena 1 `8b4d9f4f`, s11 Marta `ed4c7028`, s11 Helena 2 `8a3926e0`,
+  s12 Basia 1 `8a05eda4`, s12 Helena `6961549d`, s12 Basia 2 `basia_2b-88d330a8` („bez sena” w `basia_2-12e42ede` odrzucone).
+- HeyGen: s10 Marta 16a71f398f6d4f128595c9b52ca8bca7, s10 Kuba 5ef4454b3f1d4e3f9ccefbf4ed1cf30a, s11 Helena 1 8fae1a793ee74867826aa5f0250f2505,
+  s11 Marta f4fd5ec2836446bdaf7cd3a335861098, s11 Helena 2 2d8b6247f6404aa6993f2b47f171bdb6, s12 Basia 1 b527819c37894f5b8b81e5614e6bf591,
+  s12 Helena 6a9cd589294d447f821ae15059a5c3b2, s12 Basia 2 7b57394856814273ace7b000394f78e1.
+- Kling: długopis 01a1d0f1-5869-71f3-9e58-cae786f7a41c; część 3: Marta z dokumentami 01a1d0ee-8e21-7c01-97cb-478dbf0afe93, uśmiechy 01a1d0ee-8e15-7883-abe9-0925454280f4.
+- HeyGen s12 Helena „Oczywiście”: pierwsze podejście 6a9cd589… nieudane (za krótkie nagranie); ponownie z ciszą na końcach d6c2ef4b21554821a0ca82caffa15182.
+- Ekrany: `czesc3_ekrany/plan_cz4.json` → `czesc4_wideo/G1–G4` (powiadomienie, projekt, WYBÓR/BRAK, Pobierz jako Word).
+- Tło gabinetu: gwar recepcji przytłumiony filtrem (wygenerowane tło pokoju było nieme). Napis końcowy: warstwa `outro_napis.png`.
+- Montaż: `narzedzia/montaz_odc01_cz4.py` → `podglady/odc01_czesc4.mp4` (51,8 s). Część 3 przemontowana z klipami Kling (uśmiechy, Marta z dokumentami).
+- Renderer warstw: fonty przez `goto` do pliku (przez `setContent` Montserrat się nie ładował); karty imion do ponownego użycia w pełnym montażu.

@@ -28,7 +28,7 @@ UJ = [
  ('s07_helena_1.mp4', 0, 5.72, True, 'karta_helena.png', 0.3, 2.6, HELENA),
  ('s07_marta.mp4', 0, 3.8, True, None, 0, 0, MARTA),
  ('s07_helena_2.mp4', 0, None, True, None, 0, 0, HELENA),
- (f'{KA}/b8_marta_kuba_2.jpg', 0, 1.7, True, None, 0, 0, None),
+ ('b8_usmiechy.mp4', 1.0, 2.0, True, None, 0, 0, None),
  # sc. 08 „Komputerku…”: zwolnienie, krótka cisza przed kwestią
  ('s08_marta.mp4', 0, None, True, None, 0, 0, MARTA),
  ('F3_sporzadz.mp4', 0, 1.8, False, None, 0, 0, None),
@@ -38,7 +38,7 @@ UJ = [
  ('F5_kalendarz.mp4', 0, 2.3, False, None, 0, 0, None),
  ('s09_basia.mp4', 6.45, 3.05, True, None, 0, 0, None),
  ('s09_kuba.mp4', 0, None, True, None, 0, 0, None),
- (f'{KA}/b10_marta_dok_2.jpg', 0, 1.5, True, None, 0, 0, None),
+ ('b10_marta_dok.mp4', 1.0, 1.6, True, None, 0, 0, None),
  ('s09_helena.mp4', 0, None, True, None, 0, 0, None),
  (f'{KA}/b8_marta_kuba_1.jpg', 0, 2.6, True, 'czas_0924.png', 0.7, 2.4, None),
 ]

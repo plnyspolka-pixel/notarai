@@ -14,13 +14,16 @@ const czas = (t1, t2) => `<div style="position:absolute;left:0;right:0;bottom:25
  <div style="font-weight:800;font-size:120px;letter-spacing:-.03em;line-height:1.05">${t2}</div></div>`;
 const W = { karta_basia: karta('Basia', 'sekretariat'), karta_pawel: karta('Paweł Nowak', 'syn pani Ireny'),
   karta_marta: karta('Marta', 'notariuszka'), karta_kuba: karta('Kuba', 'aplikant'), czas_0857: czas('Poniedziałek', '8:57'),
-  karta_helena: karta('Helena Radecka', 'notariusz'), czas_0924: czas('Poniedziałek', '9:24') };
+  karta_helena: karta('Helena Radecka', 'notariusz'), czas_0924: czas('Poniedziałek', '9:24'),
+  outro_napis: `<div style="position:absolute;left:92px;right:92px;top:1105px;color:#fff;font-weight:700;font-size:44px;line-height:1.25;letter-spacing:-.01em">Mniej chaosu.<br>Więcej czasu na to, co ważne.</div>
+   <div style="position:absolute;left:92px;top:1790px;color:#fff;font-weight:500;font-size:36px;opacity:.9">Ciąg dalszy nastąpi…</div>` };
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
   for (const [n, h] of Object.entries(W)) {
-    await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${h}</body></html>`);
+    const tmp = path.resolve(OUT, '_w.html'); fs.writeFileSync(tmp, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${h}</body></html>`);
+    await p.goto('file://' + tmp);
     await p.evaluate(() => document.fonts.ready);
     await p.screenshot({ path: path.join(OUT, n + '.png'), omitBackground: true });
   }
-  await b.close();
+  fs.rmSync(path.resolve(OUT, '_w.html'), { force: true }); await b.close();
 })();
