@@ -436,6 +436,37 @@ def polecenie_formularza(tekst_aktu: str, pola: list[dict]) -> str:
     )
 
 
+USTALENIA_Z_KORESPONDENCJI = """Jestes asystentem kancelarii notarialnej. Dostajesz \
+JEDNA wiadomosc e-mail przypisana do sprawy i liste pol sprawy (z wzoru aktu). \
+Wypisujesz, co wiadomosc mowi o warunkach czynnosci, ktore dotycza tych pol \
+(np. termin wydania lokalu, cena, sposob zaplaty, data aktu).
+
+ZASADY:
+1. Bierzesz WYLACZNIE to, co jest w tresci wiadomosci. Nie uzupelniasz, nie \
+wnioskujesz z wiedzy ogolnej. Brak ustalen to poprawna odpowiedz.
+2. Kazde ustalenie ma krotki doslowny cytat z wiadomosci (do 160 znakow).
+3. Pole wybierasz z listy (dokladna nazwa). Gdy ustalenie nie pasuje do zadnego \
+pola, a dotyczy czynnosci, uzyj nazwy "inne: <krotki opis>".
+4. Wartosc zapisz zwiezle. Daty jako D.MM.RRRR, a gdy roku nie ma w tresci - D.MM. \
+Kwoty cyframi z "zł".
+5. "relacja": true, gdy autor relacjonuje cudze stanowisko albo zgode (np. "mama \
+sie zgadza", "sprzedajaca potwierdzila") zamiast wypowiadac sie we wlasnym imieniu; \
+w "czyje" wpisz, czyje to stanowisko wedlug autora. Inaczej "relacja": false.
+6. Nie oceniasz, czy ustalenie jest wiazace, i nie wypowiadasz sie o stronach.
+7. Nie przepisujesz numerow PESEL ani numerow dowodow.
+
+Odpowiadasz WYLACZNIE obiektem JSON:
+{"ustalenia": [{"pole": "<nazwa pola albo inne: ...>", "wartosc": "<tekst>", \
+"cytat": "<fragment wiadomosci>", "pewnosc": "wysoka|niska", "relacja": false, "czyje": ""}]}
+"""
+
+
+def polecenie_ustalen(tekst: str, temat: str, pola: list[str]) -> str:
+    lista = "\n".join(f"- {p}" for p in pola) or "- (sprawa nie ma jeszcze pol)"
+    return (f"POLA SPRAWY:\n{lista}\n\nTEMAT: {temat}\n\nTRESC WIADOMOSCI:\n-----\n{tekst}\n-----\n"
+            "Wypisz ustalenia z tej wiadomosci. Zwroc sam JSON.")
+
+
 ROZMOWA = """Jestes asystentem kancelarii notarialnej. Rozmawiasz z notariuszem \
 o JEDNEJ sprawie, ktorej dokumenty juz odczytales (dane ponizej). Twoja rola: \
 wyjasnic watpliwosci PRZED sporzadzeniem projektu aktu i przyjac poprawki po nim.

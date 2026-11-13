@@ -148,7 +148,49 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
-## NA-9. Pierwszy zakup pakietu kredytów na żywo (przez Finance You / TPay)
+## NA-9. Poczta do spraw — prawdziwa skrzynka IMAP kancelarii
+
+- **Status:** czeka
+- **Brakuje:** skrzynki testowej kancelarii (IMAP, TLS) z hasłem aplikacji
+  i wdrożenia stosu aplikacji z polityką `sekrety-skrzynki-pocztowej`
+  (`infra/notarai-aplikacja.yaml`, sekret `notarai-skrzynka-<kancelaria>`).
+- **Na żywo:**
+  1. Właściciel kancelarii wpisuje w „Poczta do przypisania” sam adres e-mail
+     i hasło (sprawdzić po jednej skrzynce: Onet/WP/Interia, home.pl albo nazwa.pl,
+     Gmail z hasłem aplikacji); kreator ma sam znaleźć serwer. Sprawdzamy, że
+     sekret powstał w Secrets Manager (eu-central-1) i że hasła nie ma w S3 ani w logach.
+  2. Na skrzynkę wysyłamy z kont testowych 3 maile jak w demo
+     (`scripts/demo_odcinek01_skrzynka/`, bez prawdziwych danych klientów).
+  3. „Sprawdź skrzynkę”: propozycje (sygnatura, adres, wątek) i to, że w programie
+     pocztowym maile nadal są „nieprzeczytane” (BODY.PEEK).
+  4. Przypisanie jednym kliknięciem, pliki w „Plikach sprawy”, „Wyciągnij
+     ustalenia” na prawdziwym modelu (Bedrock): komunikat przy polu, pole puste,
+     projekt z `<<BRAK>>`.
+  5. Logi CloudWatch z tego czasu: brak tematów, treści, adresów i nazwisk.
+- **W kodzie:** `korespondencja.DostawcaImap` (np. nietypowe odpowiedzi serwera,
+  foldery z polskimi znakami — modified UTF-7), prompt `USTALENIA_Z_KORESPONDENCJI`.
+- **Zamknięte, gdy:** przebieg działa na prawdziwej skrzynce, a notariusz
+  potwierdza, że ustalenia i ich źródła są trafne.
+
+## NA-10. Poczta do spraw — logowanie przez Microsoft 365 i Google (OAuth)
+
+- **Status:** czeka
+- **Brakuje:** rejestracji aplikacji w Microsoft Entra i Google Cloud (konto
+  właściciela notarai) oraz sekretu `notarai/oauth-poczty`
+  (`infra\zapisz-sekret-oauth-poczty.ps1`), potem `infra\3-wdroz-aplikacje.ps1`.
+  Google: zakres `https://mail.google.com/` jest zastrzeżony — weryfikacja aplikacji
+  (do tego czasu tylko użytkownicy testowi).
+- **Na żywo:**
+  1. Kancelaria z Microsoft 365 wpisuje adres → „Zaloguj przez Microsoft” → zgoda →
+     powrót do aplikacji „Skrzynka podłączona”. Jeśli tenant blokuje zgodę
+     użytkownika — sprawdzić komunikat i ścieżkę zgody administratora.
+  2. Po godzinie (wygaśnięcie tokenu dostępu) „Sprawdź skrzynkę” nadal działa
+     (odświeżenie tokenu, rotacja zapisana w sekrecie).
+  3. „Odłącz skrzynkę” kasuje sekret; to samo dla konta Google testowego.
+- **W kodzie:** `skrzynki.OAUTH`, `korespondencja.oauth_start/oauth_powrot`.
+- **Zamknięte, gdy:** obie ścieżki działają na produkcji na skrzynkach testowych.
+
+## NA-11. Pierwszy zakup pakietu kredytów na żywo (przez Finance You / TPay)
 
 - **Status:** czeka
 - **Brakuje:** wdrożenia gałęzi `claude/tokenomia-tpay-integration-52zu6a` w obu
