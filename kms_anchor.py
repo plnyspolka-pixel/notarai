@@ -16,7 +16,7 @@ from typing import Callable, Any
 
 import rlp
 from eth_utils import keccak, to_checksum_address
-from eth_keys.keys import Signature
+from eth_keys import keys
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 
@@ -55,7 +55,7 @@ def sign_digest_kms(kms_client:Any,key_id:str,digest:bytes,public64:bytes)->tupl
         raise PublisherError("Invalid secp256k1 signature")
     s=min(s,ORDER-s)
     for parity in (0,1):
-        recovered=Signature(vrs=(parity,r,s)).recover_public_key_from_msg_hash(digest)
+        recovered=keys.Signature(vrs=(parity,r,s)).recover_public_key_from_msg_hash(digest)
         if recovered.to_bytes()==public64:return parity,r,s
     raise PublisherError("Signature recovery does not match the KMS public key")
 
