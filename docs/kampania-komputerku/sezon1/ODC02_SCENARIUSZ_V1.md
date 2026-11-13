@@ -97,7 +97,7 @@ Kuba otwiera mail Pawła: „Mama się zgadza, 1 grudnia aktualny.” Marta i Ku
 
 Helena staje w drzwiach.
 
-**HELENA:** Pani Irena potwierdziła mi osobiście: wydanie piętnastego stycznia. Sprzedaż chce przeprowadzić.
+**HELENA:** Pani Irena potwierdziła mi osobiście: chce sprzedać, ale klucze odda dopiero piętnastego stycznia.
 
 Marta wpisuje w „Rozmowie o sprawie”: *„Sprzedająca osobiście (17.11, rozmowa z notariuszem): wydanie lokalu 15 stycznia 2027. Termin 1 grudnia nie był przez nią zaakceptowany.”*
 Asystent odpowiada (prawdziwa odpowiedź modelu).

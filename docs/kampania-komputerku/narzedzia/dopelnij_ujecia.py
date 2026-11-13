@@ -11,9 +11,12 @@ for v in sorted(glob.glob(os.path.join(D, '*.mp4'))):
     n = os.path.basename(v)[:-4]
     if n.endswith('_heygen'): continue
     kand = [p for p in glob.glob(os.path.join(A, f'odc0?_{n}*.mp3')) if not p.endswith(('_pad.mp3', '_tel.mp3'))]
-    kand = [p for p in kand if os.path.basename(p)[6:-4].rstrip('b').rstrip('_') == n or os.path.basename(p)[6:-4] == n]
+    # wersje poprawione: <nazwa>.mp3, <nazwa>b.mp3, <nazwa>_b.mp3, <nazwa>_c.mp3 ... — bierzemy najpóźniejszą literę;
+    # odrzucone nagrania przenosimy do audio/odrzucone/
+    import re
+    kand = [p for p in kand if re.fullmatch(re.escape(n) + r'(_?[b-z])?', os.path.basename(p)[6:-4])]
     if not kand: continue
-    a = sorted(kand, key=lambda p: (p.endswith(('b.mp3', '_b.mp3')), p))[-1]   # wersja „b” = poprawiona
+    a = sorted(kand, key=lambda p: os.path.basename(p)[6:-4])[-1]
     zr = os.path.join(D, n + '_heygen.mp4')
     src = zr if os.path.exists(zr) else v
     vd, ad = dl(src), dl(a)
