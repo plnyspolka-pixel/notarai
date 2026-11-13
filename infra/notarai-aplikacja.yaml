@@ -66,13 +66,14 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
-  StripeSekretArn:
+  TpaySekretArn:
     Type: String
     Default: ""
     Description: >-
-      Pelny ARN sekretu notarai/stripe (klucze klucz i webhook), zalozonego
-      skryptem zapisz-sekret-stripe.ps1 - wartosci nie trafiaja do szablonu.
-      Puste = platnosci wylaczone, nikogo nie blokujemy.
+      Pelny ARN sekretu notarai/tpay (klucze client_id, client_secret i kod),
+      zalozonego skryptem zapisz-sekret-tpay.ps1 - wartosci nie trafiaja do
+      szablonu. Puste = zakup pakietow kredytow wylaczony (kredyty startowe
+      i dopisywane przez administratora dzialaja dalej).
   ApifySekretArn:
     Type: String
     Default: ""
@@ -98,23 +99,25 @@ Parameters:
     Type: String
     Default: ""
     Description: Adres API Finance You (np. https://finyou.pl). Jawny, nie jest sekretem.
-  StripeCena:
+  TpayApi:
     Type: String
-    Default: ""
-    AllowedPattern: "^(price_[A-Za-z0-9]+)?$"
-    Description: Identyfikator ceny abonamentu w Stripe (price_...). Jawny, nie jest sekretem.
-  CenaAbonamentu:
+    Default: https://api.tpay.com
+    AllowedValues: ["https://api.tpay.com", "https://openapi.sandbox.tpay.com"]
+    Description: Adres Open API TPay (produkcja albo sandbox).
+  StawkaVat:
     Type: String
-    Default: ""
-    AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
-    Description: Cena miesiaca abonamentu w zl do wyswietlenia (Fundacja zwolniona z VAT), np. 600.00.
+    Default: "0"
+    AllowedValues: ["0", "0.23"]
+    Description: >-
+      VAT doliczany do ceny pakietu kredytow. 0 = Fundacja zwolniona
+      podmiotowo (art. 113 ust. 1 ustawy o VAT); 0.23 po utracie zwolnienia.
   Tokenomia:
     Type: String
-    Default: "false"
+    Default: "true"
     AllowedValues: ["true", "false"]
     Description: >-
-      Czy kancelarie placa kredytami za czynnosci z modelem (tokenomia.py,
-      docs/tokenomia.md). false = koszty tylko liczone w logach i panelu admina.
+      Kredyty sa jedynym sposobem zakupu (tokenomia.py, docs/tokenomia.md).
+      false tylko awaryjnie = nikt nie placi, koszty liczone w logach.
   Rejestracja:
     Type: String
     Default: "true"
@@ -136,12 +139,12 @@ Parameters:
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
-    Description: Adres aplikacji - tu wraca platnik ze Stripe.
+    Description: Adres aplikacji - tu wraca platnik z TPay i tu TPay wysyla powiadomienia.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
-  MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
+  MamyTpay: !Not [!Equals [!Ref TpaySekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
@@ -200,14 +203,14 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
         - !If
-          - MamyStripe
-          - PolicyName: sekret-stripe
+          - MamyTpay
+          - PolicyName: sekret-tpay
             PolicyDocument:
               Version: "2012-10-17"
               Statement:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
-                  Resource: !Ref StripeSekretArn
+                  Resource: !Ref TpaySekretArn
           - !Ref AWS::NoValue
         - !If
           - MamyApify
@@ -475,12 +478,12 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
-            - Name: PIECZAPP_ABONAMENT_ZL
-              Value: !Ref CenaAbonamentu
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
-            - Name: STRIPE_CENA
-              Value: !Ref StripeCena
+            - Name: TPAY_API
+              Value: !Ref TpayApi
+            - Name: PIECZAPP_VAT
+              Value: !Ref StawkaVat
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
             - Name: PIECZAPP_TOKENOMIA
@@ -496,16 +499,21 @@ Resources:
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
-            # Klucze Stripe z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
+            # Klucze TPay z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
             - !If
-              - MamyStripe
-              - Name: STRIPE_KLUCZ
-                ValueFrom: !Sub "${StripeSekretArn}:klucz::"
+              - MamyTpay
+              - Name: TPAY_CLIENT_ID
+                ValueFrom: !Sub "${TpaySekretArn}:client_id::"
               - !Ref AWS::NoValue
             - !If
-              - MamyStripe
-              - Name: STRIPE_WEBHOOK_SEKRET
-                ValueFrom: !Sub "${StripeSekretArn}:webhook::"
+              - MamyTpay
+              - Name: TPAY_CLIENT_SECRET
+                ValueFrom: !Sub "${TpaySekretArn}:client_secret::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyTpay
+              - Name: TPAY_KOD_BEZPIECZENSTWA
+                ValueFrom: !Sub "${TpaySekretArn}:kod::"
               - !Ref AWS::NoValue
             # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
             - !If

@@ -104,7 +104,7 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    GitHub zmienia tylko tag obrazu; pozostałe parametry stosu (certyfikat,
    sekrety, e-mail, cena) zostają z poprzedniego wdrożenia. Etap 2 i 3 z
    komputera dalej działają: są potrzebne, gdy dochodzi nowy sekret
-   (np. `notarai/stripe`) albo zmieniasz parametr, np. liczbę kopii czy cenę.
+   (np. `notarai/tpay`) albo zmieniasz parametr, np. liczbę kopii czy stawkę VAT.
    Bezpieczeństwo: każdy, kto może pushować na `master`, wdraża na produkcję.
    Warto włączyć w GitHubie ochronę gałęzi `master` (Settings -> Branches)
    z wymogiem zielonych testów.
@@ -183,10 +183,18 @@ Czego żadna automatyka nie załatwi:
 
 ## Kredyty za czynności (tokenomia)
 
-Koszt każdej czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny
-w kredytach wynikają z kosztu z narzutem co najmniej 100%. Włącza parametr stosu
-`Tokenomia=true` (zmienna `PIECZAPP_TOKENOMIA`); bez niego koszty są tylko liczone.
-Cennik, plany, symulacja i trzy modele biznesowe: `docs/tokenomia.md`.
+Kredyty są jedynym sposobem zakupu notarai — nie ma abonamentu. Koszt każdej
+czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny w kredytach
+wynikają z kosztu z narzutem co najmniej 100%. Nowa kancelaria dostaje 150 kr
+startowych, potem właściciel kupuje pakiety przez TPay (`platnosci.py`):
+1. sekret: `powershell -ExecutionPolicy Bypass -File infra\zapisz-sekret-tpay.ps1`
+   (Client ID, Client Secret, kod bezpieczeństwa powiadomień),
+2. wdrożenie: `infra\3-wdroz-aplikacje.ps1` (parametry `-TpayApi`, `-Vat`),
+3. w panelu TPay adres powiadomień `https://app.notarai.pl/api/tpay/powiadomienie`.
+
+Brak kredytów blokuje tylko czynności płatne (HTTP 402), nie dostęp do spraw.
+Sprzedaż do faktur: panel `/admin` → „Sprzedaż kredytów do faktur (CSV)”.
+Cennik, symulacja, modele biznesowe i faktury: `docs/tokenomia.md`.
 
 ## Pliki w chmurze albo u kancelarii
 

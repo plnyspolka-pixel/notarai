@@ -148,6 +148,35 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
+## NA-9. TPay — pierwszy zakup pakietu kredytów na żywo (sandbox, potem produkcja)
+
+- **Status:** czeka
+- **Brakuje:** konta sprzedawcy TPay (Client ID, Client Secret, kod
+  bezpieczeństwa powiadomień) — najpierw sandbox, potem produkcja — oraz
+  decyzji o § 7 Regulaminu (`docs/projekt-regulamin-par7-kredyty.md`, 14 dni
+  wcześniej e-mail do kancelarii).
+- **Na żywo:**
+  1. Przed wdrożeniem: w panelu Stripe anulować trwające subskrypcje abonamentu
+     notarai (aplikacja już ich nie obsługuje — bez tego Stripe dalej pobierałby
+     opłaty) i usunąć webhook `notarai-aplikacja`; kancelariom, które zapłaciły
+     za bieżący okres, dopisać w `/admin` kredyty za niewykorzystaną część.
+  2. `infra\zapisz-sekret-tpay.ps1` z kluczami sandbox,
+     `infra\3-wdroz-aplikacje.ps1 -TpayApi https://openapi.sandbox.tpay.com`.
+  3. Na kancelarii demo właściciel: „Kredyty” → pakiet 100 kr → płatność testowa
+     w TPay → powrót; saldo rośnie o 100 w ≤ 1 min.
+  4. W panelu TPay „Wyślij ponownie powiadomienie” — saldo bez zmian (raz).
+  5. Zwrot transakcji w sandboxie — saldo maleje o 100 (raz).
+  6. `/admin` → „Sprzedaż kredytów do faktur (CSV)” — wiersz z NIP-em, nazwą
+     pozycji i adnotacją o zwolnieniu z VAT.
+  7. Jeżeli odczyt `GET /transactions/{id}` w TPay zwraca inny status niż
+     `correct` dla opłaconej transakcji — poprawić `platnosci.OPLACONA`.
+  8. Produkcja: klucze produkcyjne, `-TpayApi https://api.tpay.com`, zakup
+     pakietu 100 kr kartą/BLIK-iem, wystawienie pierwszej faktury.
+- **W kodzie:** `platnosci.py` (bramka), `tokenomia.py` (`kup_pakiet`,
+  `powiadomienie_tpay`, `admin_sprzedaz`).
+- **Zamknięte, gdy:** prawdziwy zakup na produkcji dopisuje kredyty raz
+  i jest z niego wystawiona faktura.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

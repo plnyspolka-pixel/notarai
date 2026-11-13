@@ -31,8 +31,11 @@ ktore trzymaja pliki u siebie. Zapis warunkowy (If-Match), jak pliki
 kancelarii w magazyn.py. Zero danych osobowych: w historii tylko akcja,
 liczba jednostek, kredyty, koszt i identyfikator sprawy.
 
-Wlaczenie: PIECZAPP_TOKENOMIA=true. Bez tego licznik nadal liczy koszty
-(logi i panel admina), ale niczego nie pobiera ani nie blokuje.
+Kredyty sa jedynym sposobem zakupu notarai - nie ma abonamentu. Nowa
+kancelaria dostaje KREDYTY_PROBNE na przetestowanie wszystkich funkcji,
+potem dokupuje pakiety przez TPay (platnosci.py). Wylaczenie tylko awaryjne:
+PIECZAPP_TOKENOMIA=false - licznik nadal liczy koszty (logi i panel admina),
+ale niczego nie pobiera ani nie blokuje.
 """
 from __future__ import annotations
 
@@ -51,7 +54,7 @@ from fastapi import HTTPException
 
 log = logging.getLogger("pieczapp.tokenomia")
 
-WLACZONA = os.getenv("PIECZAPP_TOKENOMIA", "false").lower() == "true"
+WLACZONA = os.getenv("PIECZAPP_TOKENOMIA", "true").lower() == "true"
 
 # --- koszty jednostkowe -------------------------------------------------------
 
@@ -82,7 +85,7 @@ NARZUT_NA_BLEDY = float(os.getenv("PIECZAPP_NARZUT_NA_BLEDY", "0.15"))
 # Minimalny narzut na kazdej akcji (1.0 = 100%, cena = 2 x koszt).
 NARZUT = float(os.getenv("PIECZAPP_NARZUT", "1.0"))
 # Cena katalogowa kredytu (zl netto) i najnizsza cena, po jakiej kredyt
-# sprzedajemy w jakimkolwiek planie albo pakiecie (patrz PLANY, PAKIETY).
+# sprzedajemy w jakimkolwiek pakiecie (patrz PAKIETY).
 CENA_KREDYTU_ZL = 1.00
 NAJNIZSZA_CENA_KREDYTU_ZL = 0.80
 # Kredyty liczymy z dokladnoscia do pol kredytu.
@@ -227,38 +230,30 @@ def cennik() -> list[dict]:
             for a in AKCJE.values()]
 
 
-# --- plany i pakiety ------------------------------------------------------------
+# --- pakiety ---------------------------------------------------------------------
 
-# Abonament: cena miesieczna netto i pula kredytow odnawiana co okres.
-# Kredyty z puli nie przechodza na kolejny miesiac; dokupione - waza 12 miesiecy.
-# Pule dobrane do zuzycia: typowa sprawa to ok. 65-80 kr. (symulacja), wiec
-# Start ~4 sprawy, Kancelaria ~9, Pro ~25, Kancelaria+ ~60 spraw miesiecznie.
-# Plan "kancelaria" odpowiada obecnej cenie abonamentu w Stripe (600 zl).
-PLANY: dict[str, dict] = {
-    "start": {"nazwa": "Start", "cena_zl": 290, "pula": 300, "uzytkownikow": 2, "gb": 20},
-    "kancelaria": {"nazwa": "Kancelaria", "cena_zl": 600, "pula": 700, "uzytkownikow": 6, "gb": 100},
-    "pro": {"nazwa": "Pro", "cena_zl": 1500, "pula": 1875, "uzytkownikow": 20, "gb": 300},
-    "pro_plus": {"nazwa": "Kancelaria+", "cena_zl": 3600, "pula": 4500, "uzytkownikow": 50, "gb": 1000},
-}
-# Pakiety kredytow (platnosc jednorazowa). Najwiekszy pakiet = najnizsza cena kredytu.
+# Jedyny sposob zakupu: jednorazowy pakiet kredytow (ceny netto, VAT doliczany
+# przy platnosci). Dokupione kredyty nie przepadaja co miesiac. Typowa sprawa
+# to ok. 65-80 kr. (symulacja), wiec pakiety to ok. 1 / 6 / 25 spraw.
+# Najwiekszy pakiet = najnizsza cena kredytu (NAJNIZSZA_CENA_KREDYTU_ZL).
 PAKIETY: dict[str, dict] = {
     "100": {"kredyty": 100, "cena_zl": 100},
     "500": {"kredyty": 500, "cena_zl": 450},
     "2000": {"kredyty": 2000, "cena_zl": 1600},
 }
-PLAN_DOMYSLNY = os.getenv("PIECZAPP_PLAN_DOMYSLNY", "kancelaria")
 # Debet: tyle kredytow ponizej zera kancelaria moze zejsc, zeby nie przerwac
-# czynnosci w srodku (jak karencja abonamentu w platnosci.py).
+# czynnosci w srodku aktu.
 DEBET_KREDYTOW = float(os.getenv("PIECZAPP_DEBET_KREDYTOW", "30"))
-# Kredyty na start dla nowej kancelarii (okres probny).
+# Kredyty startowe dla nowej kancelarii: ok. dwie pelne sprawy (odczyt
+# ~14 stron, zestawienie, kilka tur rozmowy, projekt aktu, KW, formularz),
+# czyli kazda platna funkcja da sie sprawdzic co najmniej raz. Koszt dla nas:
+# ok. 45 zl na kancelarie (koszt AI typowej sprawy ok. 22 zl).
 KREDYTY_PROBNE = float(os.getenv("PIECZAPP_KREDYTY_PROBNE", "150"))
 
 
 def najnizsza_cena_kredytu() -> float:
-    """Efektywna cena kredytu w kazdym planie i pakiecie - minimum."""
-    ceny = [p["cena_zl"] / p["pula"] for p in PLANY.values()]
-    ceny += [p["cena_zl"] / p["kredyty"] for p in PAKIETY.values()]
-    return min(ceny)
+    """Efektywna cena kredytu w kazdym pakiecie - minimum."""
+    return min(p["cena_zl"] / p["kredyty"] for p in PAKIETY.values())
 
 
 # --- licznik kosztow biezacej akcji ---------------------------------------------
@@ -329,8 +324,10 @@ def _miesiac() -> str:
 
 
 def _pusty_portfel() -> dict:
-    return {"plan": None, "pula": 0.0, "doladowane": 0.0, "przetworzone": [],
-            "historia": [], "miesiace": {}}
+    # "pula" to kredyty startowe (i dawna pula abonamentu), "doladowane" -
+    # kupione w pakietach i dopisane przez administratora.
+    return {"pula": 0.0, "doladowane": 0.0, "przetworzone": [],
+            "historia": [], "miesiace": {}, "zamowienia": {}}
 
 
 def _klucz(kancelaria: str) -> str:
@@ -422,7 +419,7 @@ def _zaksieguj_miesiac(portfel: dict, akcja: str, kredyty: float, koszt: float) 
 
 
 def _pobierz(portfel: dict, kredyty: float) -> None:
-    """Najpierw pula abonamentu (przepada co miesiac), potem dokupione."""
+    """Najpierw kredyty startowe, potem dokupione."""
     z_puli = min(max(0.0, float(portfel.get("pula", 0))), kredyty)
     portfel["pula"] = round(float(portfel.get("pula", 0)) - z_puli, 2)
     portfel["doladowane"] = round(float(portfel.get("doladowane", 0)) - (kredyty - z_puli), 2)
@@ -439,8 +436,8 @@ def _jednorazowo(portfel: dict, znacznik: str) -> bool:
 
 
 def doladuj(kancelaria: str, kredyty: float, powod: str, znacznik: str = "") -> dict | None:
-    """Dopisuje dokupione kredyty. `znacznik` (np. id sesji Stripe) chroni przed
-    podwojnym zaksiegowaniem powtorzonego webhooka."""
+    """Dopisuje dokupione kredyty. `znacznik` (np. numer zamowienia) chroni przed
+    podwojnym zaksiegowaniem powtorzonego powiadomienia."""
     def zmiana(p):
         if znacznik and not _jednorazowo(p, znacznik):
             return p
@@ -448,25 +445,6 @@ def doladuj(kancelaria: str, kredyty: float, powod: str, znacznik: str = "") -> 
         _wpis(p, {"akcja": "doladowanie", "kredyty": kredyty, "powod": powod})
         return p
     log.info("tokenomia: kancelaria %s, doladowanie %g kr. (%s)", kancelaria, kredyty, powod)
-    return zmien_portfel(kancelaria, zmiana, utworz=True)
-
-
-def odnow_pule(kancelaria: str, plan: str, znacznik: str = "") -> dict | None:
-    """Nowy okres abonamentu: pula = pula planu (niewykorzystana przepada)."""
-    if plan not in PLANY:
-        plan = PLAN_DOMYSLNY
-
-    def zmiana(p):
-        if znacznik and not _jednorazowo(p, znacznik):
-            return p
-        p["plan"] = plan
-        # Ujemna pula (debet) przechodzi na dokupione, zeby nie zniknela.
-        if float(p.get("pula", 0)) < 0:
-            p["doladowane"] = round(float(p.get("doladowane", 0)) + float(p["pula"]), 2)
-        p["pula"] = float(PLANY[plan]["pula"])
-        _wpis(p, {"akcja": "odnowienie_puli", "kredyty": PLANY[plan]["pula"], "plan": plan})
-        return p
-    log.info("tokenomia: kancelaria %s, odnowiona pula planu %s", kancelaria, plan)
     return zmien_portfel(kancelaria, zmiana, utworz=True)
 
 
@@ -488,10 +466,21 @@ def _kancelaria() -> str:
 
 
 def egzekwowana(kancelaria: str) -> dict | None:
-    """Portfel, jesli tokenomia obowiazuje te kancelarie; inaczej None."""
+    """Portfel, jesli tokenomia obowiazuje te kancelarie; inaczej None.
+    Kancelaria bez portfela (np. zalozona przed tokenomia) dostaje przy
+    pierwszej czynnosci portfel z kredytami startowymi - nikt nie pracuje
+    poza kredytami."""
     if not WLACZONA or kancelaria in ("", "lokalna"):
         return None
-    return wczytaj_portfel(kancelaria)
+    return wczytaj_portfel(kancelaria) or zaloz_portfel_probny(kancelaria)
+
+
+def aktywna(kancelaria: str) -> bool:
+    """Kancelaria z dodatnim saldem (albo poza tokenomia). Zastepuje dawny
+    "oplacony abonament" tam, gdzie liczy sie, czy kancelaria jest klientem
+    (archiwum gieldy, rezerwacje klientow)."""
+    portfel = egzekwowana(kancelaria)
+    return portfel is None or saldo(portfel) > 0
 
 
 def sprawdz(kod: str, ilosc: float = 1) -> float:
@@ -659,27 +648,61 @@ def saldo_kancelarii() -> float | None:
     return None if portfel is None else saldo(portfel)
 
 
-def _widok_portfela(portfel: dict | None) -> dict:
+# Nazwa pozycji na fakturze za pakiet. Kredyty to bon jednego przeznaczenia
+# (art. 2 pkt 41 i art. 8a ustawy o VAT): wiadomo, na jakie uslugi i gdzie sie
+# je wymieni, wiec sprzedaz pakietu jest sprzedaza uslugi w dniu zaplaty, a
+# faktura - zwykla faktura (nie zaliczkowa). Dopoki Uslugodawca jest zwolniony
+# podmiotowo z VAT, faktura ma adnotacje ADNOTACJA_ZW. Szczegoly: docs/tokenomia.md.
+TYTUL_FAKTURY = ("Bon jednego przeznaczenia - pakiet {kredyty} kredytów na usługi "
+                 "platformy notarai (oprogramowanie w modelu SaaS dla kancelarii notarialnej)")
+ADNOTACJA_ZW = "Sprzedaż zwolniona z VAT na podstawie art. 113 ust. 1 ustawy o podatku od towarów i usług"
+ZAMOWIENIA_MAKS = 200
+
+
+def tytul_faktury(kredyty: float) -> str:
+    return TYTUL_FAKTURY.format(kredyty=f"{kredyty:g}")
+
+
+def _zakupy(portfel: dict | None) -> list[dict]:
+    zam = (portfel or {}).get("zamowienia") or {}
+    return [{k: z.get(k) for k in ("pakiet", "kredyty", "netto", "brutto", "status", "utworzono", "oplacono")}
+            | {"zamowienie": n} for n, z in zam.items() if z.get("status") in ("oplacone", "zwrot")][-24:]
+
+
+def _widok_portfela(portfel: dict | None, moge_kupic: bool = False) -> dict:
+    import platnosci
     return {
         "wlaczona": WLACZONA,
         "egzekwowana": portfel is not None,
         "saldo": None if portfel is None else saldo(portfel),
         "pula": None if portfel is None else portfel.get("pula", 0),
         "doladowane": None if portfel is None else portfel.get("doladowane", 0),
-        "plan": None if portfel is None else portfel.get("plan"),
         "debet": DEBET_KREDYTOW,
+        "kredyty_probne": KREDYTY_PROBNE,
         "cena_kredytu_zl": CENA_KREDYTU_ZL,
+        "vat": float(platnosci.VAT),
         "cennik": [{k: c[k] for k in ("kod", "nazwa", "jednostka", "kredyty")} for c in cennik()],
-        "plany": PLANY,
-        "pakiety": PAKIETY,
+        "pakiety": {kod: {**p, "brutto_zl": float(platnosci.brutto(p["cena_zl"]))} for kod, p in PAKIETY.items()},
+        "platnosci_wlaczone": platnosci.wlaczone(),
+        "moge_kupic": moge_kupic,
         "miesiac": podsumowanie_miesiaca(portfel) if portfel else None,
         "historia": (portfel or {}).get("historia", [])[-50:],
+        "zakupy": _zakupy(portfel),
     }
 
 
+def _czy_wlasciciel(request: Request) -> bool:
+    import autoryzacja
+    email = getattr(request.state, "email", "")
+    if not email or getattr(request.state, "serwis", False):
+        return False
+    _, wpis = autoryzacja._znajdz(autoryzacja._wczytaj_rejestr(), getattr(request.state, "kancelaria", ""))
+    return bool(wpis) and email in autoryzacja._wlasciciele(wpis)
+
+
 @router.get("")
-def moje_kredyty():
-    return _widok_portfela(egzekwowana(_kancelaria()))
+def moje_kredyty(request: Request):
+    return _widok_portfela(egzekwowana(_kancelaria()), _czy_wlasciciel(request))
 
 
 class ZakupPakietu(BaseModel):
@@ -688,34 +711,109 @@ class ZakupPakietu(BaseModel):
 
 @router.post("/pakiet", status_code=201)
 def kup_pakiet(request: Request, dane: ZakupPakietu):
-    """Strona platnosci Stripe za pakiet kredytow (platnosc jednorazowa)."""
+    """Transakcja TPay za pakiet kredytow. Zamowienie zapisujemy w portfelu
+    przed przekierowaniem - powiadomienie TPay dopisze kredyty dopiero po
+    zaplacie i tylko w kwocie z zamowienia."""
+    import secrets
+
     import autoryzacja
     import platnosci
     if dane.pakiet not in PAKIETY:
         raise HTTPException(400, "Nie ma takiego pakietu")
     _, _, wpis, email = autoryzacja._moja_kancelaria(request)
     if email not in autoryzacja._wlasciciele(wpis):
-        raise HTTPException(403, "Kredyty kupuje wlasciciel kancelarii.")
+        raise HTTPException(403, "Kredyty kupuje właściciel kancelarii.")
+    if not platnosci.wlaczone():
+        raise HTTPException(503, "Płatności nie są skonfigurowane na tym serwerze.")
     pakiet = PAKIETY[dane.pakiet]
+    numer = secrets.token_hex(8)
+    kwota = platnosci.brutto(pakiet["cena_zl"])
+    zamowienie = {"pakiet": dane.pakiet, "kredyty": pakiet["kredyty"], "netto": f"{pakiet['cena_zl']:.2f}",
+                  "brutto": str(kwota), "status": "nowe", "utworzono": _teraz()}
+
+    def zapisz(p):
+        zam = p.setdefault("zamowienia", {})
+        zam[numer] = zamowienie
+        for stary in list(zam)[:-ZAMOWIENIA_MAKS]:
+            del zam[stary]
+        return p
+    zmien_portfel(wpis["id"], zapisz, utworz=True)
     try:
-        return platnosci.utworz_checkout_kredytow(
-            wpis["id"], email, (wpis.get("stripe") or {}).get("klient", ""),
-            dane.pakiet, pakiet["kredyty"], pakiet["cena_zl"])
+        wynik = platnosci.utworz_transakcje(
+            kwota, f"notarai - {pakiet['kredyty']:g} kredytów", f"{wpis['id']}:{numer}", email,
+            wpis.get("nazwa") or "")
     except platnosci.BladPlatnosci as blad:
+        zmien_portfel(wpis["id"], lambda p: p["zamowienia"][numer].update(status="blad"))
         raise HTTPException(502, str(blad))
 
+    def z_transakcja(p):
+        p["zamowienia"][numer].update(transakcja=wynik["transakcja"], tytul=wynik["tytul"])
+    zmien_portfel(wpis["id"], z_transakcja)
+    return {"adres": wynik["adres"], "zamowienie": numer}
 
-def z_platnosci_stripe(sesja: dict) -> bool:
-    """checkout.session.completed za pakiet. True = to byl zakup kredytow
-    (webhook nie dotyka wtedy subskrypcji)."""
-    meta = sesja.get("metadata") or {}
-    if meta.get("typ") != "kredyty":
-        return False
-    pakiet = PAKIETY.get(meta.get("pakiet", ""))
-    if pakiet and meta.get("kancelaria") and sesja.get("payment_status") == "paid":
-        doladuj(meta["kancelaria"], float(pakiet["kredyty"]), f"pakiet {meta['pakiet']}",
-                znacznik=sesja.get("id", ""))
-    return True
+
+router_tpay = APIRouter(prefix="/api/tpay", tags=["tpay"])
+
+
+@router_tpay.post("/powiadomienie")
+async def powiadomienie_tpay(request: Request):
+    """Powiadomienie TPay o transakcji. Sciezka otwarta dla kazdego, wiec
+    wierzymy tylko sumie kontrolnej i potwierdzeniu z API TPay. Odpowiedz
+    "TRUE" konczy ponawianie; blad 5xx - TPay ponowi pozniej."""
+    from fastapi.responses import PlainTextResponse
+
+    import platnosci
+    pola = {k: str(v) for k, v in (await request.form()).items()}
+    try:
+        platnosci.sprawdz_powiadomienie(pola)
+    except platnosci.BladPodpisu as blad:
+        log.warning("tpay: odrzucono powiadomienie (%s)", blad)
+        return PlainTextResponse("FALSE", 400)
+    kancelaria, _, numer = pola.get("tr_crc", "").rpartition(":")
+    portfel = wczytaj_portfel(kancelaria) if kancelaria else None
+    zamowienie = ((portfel or {}).get("zamowienia") or {}).get(numer)
+    if zamowienie is None:
+        # Podpisane, ale nie nasze (np. inny sklep na tym koncie TPay).
+        log.warning("tpay: powiadomienie %s bez znanego zamowienia", pola.get("tr_id"))
+        return PlainTextResponse("TRUE")
+    status = pola.get("tr_status", "").lower()
+
+    if status == "true":
+        if platnosci.grosze(pola.get("tr_paid") or 0) < platnosci.grosze(zamowienie["brutto"]):
+            log.warning("tpay: zamowienie %s oplacone kwota nizsza niz cena", numer)
+            return PlainTextResponse("TRUE")
+        try:
+            potwierdzenie = platnosci.pobierz_transakcje(zamowienie.get("transakcja") or pola.get("tr_id", ""))
+        except platnosci.BladPlatnosci:
+            return PlainTextResponse("FALSE", 503)
+        if str(potwierdzenie.get("status", "")).lower() != platnosci.OPLACONA:
+            log.warning("tpay: zamowienie %s - TPay nie potwierdza wplaty (%s)", numer, potwierdzenie.get("status"))
+            return PlainTextResponse("FALSE", 409)
+
+        def oplac(p):
+            z = p["zamowienia"][numer]
+            if not _jednorazowo(p, f"tpay:{numer}"):
+                return p
+            z.update(status="oplacone", oplacono=_teraz(), tytul=pola.get("tr_id") or z.get("tytul"))
+            p["doladowane"] = round(float(p.get("doladowane", 0)) + float(z["kredyty"]), 2)
+            _wpis(p, {"akcja": "doladowanie", "kredyty": float(z["kredyty"]), "powod": f"pakiet {z['pakiet']}",
+                      "zamowienie": numer})
+            return p
+        zmien_portfel(kancelaria, oplac)
+        log.info("tokenomia: kancelaria %s, oplacony pakiet %s", kancelaria, zamowienie["pakiet"])
+    elif status == "chargeback":
+        # Zwrot wplaty: odbieramy kredyty z pakietu (saldo moze zejsc ponizej zera).
+        def zwrot(p):
+            z = p["zamowienia"][numer]
+            if z.get("status") != "oplacone" or not _jednorazowo(p, f"tpay-zwrot:{numer}"):
+                return p
+            z.update(status="zwrot")
+            p["doladowane"] = round(float(p.get("doladowane", 0)) - float(z["kredyty"]), 2)
+            _wpis(p, {"akcja": "zwrot", "kredyty": -float(z["kredyty"]), "zamowienie": numer})
+            return p
+        zmien_portfel(kancelaria, zwrot)
+        log.warning("tokenomia: kancelaria %s, zwrot pakietu %s", kancelaria, zamowienie["pakiet"])
+    return PlainTextResponse("TRUE")
 
 
 class Doladowanie(BaseModel):
@@ -745,7 +843,33 @@ def admin_tokenomia(request: Request):
         portfel = wczytaj_portfel(wpis["id"])
         if portfel:
             kancelarie.append({"id": wpis["id"], "nazwa": wpis.get("nazwa"), "saldo": saldo(portfel),
-                               "plan": portfel.get("plan"), "miesiac": podsumowanie_miesiaca(portfel)})
+                               "miesiac": podsumowanie_miesiaca(portfel)})
     return {"wlaczona": WLACZONA, "narzut_min": NARZUT, "kurs_usd": KURS_USD_PLN,
             "premia_regionalna": PREMIA_REGIONALNA, "najnizsza_cena_kredytu": najnizsza_cena_kredytu(),
             "cennik": cennik(), "kalibracja": kalibracja(minimum=5), "kancelarie": kancelarie}
+
+
+@router_admina.get("/sprzedaz")
+def admin_sprzedaz(request: Request, miesiac: str = ""):
+    """Oplacone pakiety do zafakturowania: nabywca z rejestru kancelarii,
+    nazwa pozycji, netto / VAT / brutto. `miesiac` = RRRR-MM (domyslnie biezacy)."""
+    import autoryzacja
+    from decimal import Decimal
+    autoryzacja._wymagaj_admina(request)
+    miesiac = miesiac or _miesiac()
+    wiersze = []
+    for wpis in autoryzacja._wczytaj_rejestr().values():
+        portfel = wczytaj_portfel(wpis["id"])
+        for numer, z in ((portfel or {}).get("zamowienia") or {}).items():
+            if z.get("status") not in ("oplacone", "zwrot") or not (z.get("oplacono") or "").startswith(miesiac):
+                continue
+            dane = wpis.get("dane") or {}
+            wiersze.append({
+                "zamowienie": numer, "transakcja_tpay": z.get("tytul"), "oplacono": z.get("oplacono"),
+                "status": z["status"], "kancelaria": wpis["id"], "nabywca": wpis.get("nazwa"),
+                "nip": dane.get("nip", ""), "adres": dane.get("adres", ""),
+                "email": ", ".join(autoryzacja._wlasciciele(wpis)),
+                "pozycja": tytul_faktury(float(z["kredyty"])), "netto": z["netto"],
+                "vat": str(Decimal(z["brutto"]) - Decimal(z["netto"])), "brutto": z["brutto"],
+                "adnotacja": ADNOTACJA_ZW if Decimal(z["brutto"]) == Decimal(z["netto"]) else ""})
+    return {"miesiac": miesiac, "sprzedaz": sorted(wiersze, key=lambda w: w["oplacono"] or "")}

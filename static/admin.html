@@ -182,6 +182,9 @@ a.odnosnik-a:hover{color:var(--tekst)}
     <p class="pod" id="licznik"></p>
     <div class="pasek"><button class="wtorny maly" id="btn-rejestr-umow">Rejestr umów (CSV)</button>
       <span class="stan">wykaz administratorów do rejestru art. 30 ust. 2 RODO, z umowami zakończonymi w ostatnich 5 latach</span></div>
+    <div class="pasek"><button class="wtorny maly" id="btn-sprzedaz">Sprzedaż kredytów do faktur (CSV)</button>
+      <input type="month" id="sprzedaz-miesiac" aria-label="Miesiąc sprzedaży">
+      <span class="stan" id="stan-sprzedaz">opłacone w TPay pakiety: nabywca, NIP, nazwa pozycji, kwoty i adnotacja o zwolnieniu z VAT</span></div>
     <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
     <div id="lista"><span class="stan praca">Ładuję…</span></div>
     <h1 style="margin-top:40px">Administratorzy</h1>
@@ -443,6 +446,25 @@ $("btn-rejestr-umow").onclick = async () => {
   a.click();
 };
 
+$("sprzedaz-miesiac").value = new Date().toISOString().slice(0, 7);
+$("btn-sprzedaz").onclick = async () => {
+  const miesiac = $("sprzedaz-miesiac").value;
+  try {
+    const w = await api("/api/admin/sprzedaz?miesiac=" + encodeURIComponent(miesiac));
+    const kolumny = [["oplacono", "data zapłaty"], ["nabywca", "nabywca"], ["nip", "NIP"], ["adres", "adres"],
+      ["email", "e-mail"], ["pozycja", "nazwa pozycji na fakturze"], ["netto", "netto"], ["vat", "VAT"],
+      ["brutto", "brutto"], ["adnotacja", "adnotacja"], ["status", "status"], ["transakcja_tpay", "transakcja TPay"], ["zamowienie", "zamówienie"]];
+    const pole = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const csv = [kolumny.map(k => pole(k[1])).join(";")]
+      .concat(w.sprzedaz.map(r => kolumny.map(k => pole(r[k[0]])).join(";"))).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], {type: "text/csv"}));
+    a.download = "notarai-sprzedaz-" + w.miesiac + ".csv";
+    a.click();
+    stan($("stan-sprzedaz"), w.sprzedaz.length + " pozycji w " + w.miesiac);
+  } catch (e) { stan($("stan-sprzedaz"), e.message, true); }
+};
+
 function opisOsoby(o){
   if (o.dolaczyl) return "w zespole od " + data(o.dolaczyl);
   if (o.zaproszono) return "zaproszenie wysłane " + data(o.zaproszono) + " · jeszcze się nie zalogował(a)";
@@ -458,8 +480,8 @@ function kartaKancelarii(k){
       <span class="znacznik ${k.aktywna ? "ok" : "wyl"}">${k.aktywna ? "aktywna" : "wyłączona"}</span>
       <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki na komputerze kancelarii" : "pliki w chmurze"}</span>
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
-      <span class="znacznik ${k.oplacono_do && k.oplacono_do < new Date().toISOString().slice(0, 10) ? "wyl" : ""}"
-            title="Abonament w Stripe">${k.oplacono_do ? "opłacono do " + escape(k.oplacono_do) : "bez abonamentu"}</span>
+      <span class="znacznik ${k.kredyty !== null && k.kredyty !== undefined && k.kredyty <= 0 ? "wyl" : ""}"
+            title="Saldo kredytów (tokenomia)">${k.kredyty === null || k.kredyty === undefined ? "bez portfela kredytów" : String(k.kredyty).replace(".", ",") + " kr."}</span>
       <span class="znacznik ${k.umowa ? "ok" : "wyl"}" title="Regulamin i umowa powierzenia">${k.umowa ? "umowa od " + data(k.umowa) : "umowa niezaakceptowana"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
     ${zespol.length ? "" : `<div class="zapros"><input type="email" placeholder="e-mail notariusza" spellcheck="false">
@@ -471,7 +493,7 @@ function kartaKancelarii(k){
     <div class="stopka-kanc">
       <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
       ${k.serwis_do && k.aktywna && czyJwt(token) ? '<button class="wtorny maly" data-akcja="serwis">Otwórz sprawy (dostęp serwisowy)</button>' : ""}
-      <button class="odnosnik" data-akcja="abonament">Termin abonamentu…</button>
+      <button class="odnosnik" data-akcja="kredyty">Dopisz kredyty…</button>
       ${k.aktywna ? "" : '<button class="odnosnik" data-akcja="usun">Usuń wszystkie dane…</button>'}
     </div>
 `;
@@ -536,14 +558,15 @@ function kartaKancelarii(k){
     } catch (e) { stan(st, e.message, true); }
   };
 
-  d.querySelector('[data-akcja="abonament"]').onclick = async () => {
-    const termin = prompt("Do kiedy „" + k.nazwa + "” ma opłacony abonament? (RRRR-MM-DD)\n\n"
-      + "Np. okres próbny albo przelew poza Stripe. Puste pole = kancelaria nie płaci w aplikacji "
-      + "(umowa poza systemem) i nic jej nie blokujemy.", k.oplacono_do || "");
-    if (termin === null) return;
+  d.querySelector('[data-akcja="kredyty"]').onclick = async () => {
+    const ile = prompt("Ile kredytów dopisać „" + k.nazwa + "”?\n\n"
+      + "Np. przelew poza TPay, reklamacja albo umowa indywidualna. Liczba ujemna odejmuje kredyty.", "100");
+    if (ile === null || !ile.trim()) return;
+    const powod = prompt("Powód (widoczny w historii kancelarii):", "recznie");
+    if (powod === null) return;
     try {
-      await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/abonament",
-                {method: "PUT", body: JSON.stringify({oplacono_do: termin.trim()})});
+      await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/kredyty",
+                {method: "POST", body: JSON.stringify({kredyty: Number(ile.replace(",", ".")), powod: powod.trim() || "recznie"})});
       await odswiez();
     } catch (e) { stan(st, e.message, true); }
   };

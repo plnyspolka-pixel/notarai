@@ -522,13 +522,13 @@ a.przycisk[aria-disabled="true"]{opacity:.45;pointer-events:none}
 #okno-zespol input{text-transform:none;font:14px var(--sans);width:auto;flex:1;min-width:200px}
 .znacznik{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--ok-tlo);color:var(--ok);flex:none}
 .znacznik.alarm{background:var(--alarm-tlo);color:var(--alarm)}
-#abonament-termin{font:500 22px var(--serif);margin:4px 0 2px}
 #abonament-historia{font-size:12.5px;color:var(--tekst3);margin-top:10px}
 #abonament-historia div{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid var(--linia)}
 #kredyty-saldo{font:500 22px var(--serif);margin:4px 0 2px}
 #kredyty-cennik{font-size:12.5px;color:var(--tekst3);margin-top:8px}
 #kredyty-cennik div{display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-top:1px solid var(--linia)}
 #kredyty-pakiety{display:flex;flex-wrap:wrap;gap:8px}
+#kredyty-pakiety-opis{font-size:12.5px;color:var(--tekst3);margin:6px 0 10px}
 .komputer .odnosnik-maly{background:none;border:0;color:var(--tekst3);text-decoration:underline;padding:5px 4px;font-weight:400}
 .komputer .odnosnik-maly:hover:not(:disabled){background:none;color:var(--alarm)}
 
@@ -683,7 +683,7 @@ notarai</div>
     <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
-    <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
+    <button class="wyloguj" id="btn-abonament" hidden>Kredyty</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
     <button class="wyloguj" id="btn-komplet" hidden title="Wszystkie dokumenty prawne kancelarii w jednym pliku">Pobierz komplet dokumentów</button>
     <button class="wyloguj" id="btn-wyloguj" hidden>Wyloguj</button>
@@ -787,7 +787,7 @@ notarai</div>
   </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-abonament" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-word"/></svg>
-   <span><strong>Abonament</strong><small>Plan i rozliczenia</small></span>
+   <span><strong>Kredyty</strong><small>Saldo, cennik i zakup pakietów</small></span>
   </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-pomocnik" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-spark"/></svg>
@@ -1669,25 +1669,19 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-zespol">Zamknij</button></div>
 </dialog>
 
-<!-- Abonament: subskrypcja miesieczna w Stripe, faktury ze Stripe e-mailem.
-     Zarzadza wlasciciel; pozostali widza tylko termin. -->
+<!-- Kredyty (tokenomia.py): jedyny sposob zakupu notarai - bez abonamentu.
+     Kazda czynnosc z modelem kosztuje kredyty wg cennika ponizej; nieudana - nic.
+     Pakiety kupuje wlasciciel przez TPay; pozostali widza saldo i cennik. -->
 <dialog class="okno" id="okno-abonament">
-  <h2>Abonament kancelarii</h2>
+  <h2>Kredyty kancelarii</h2>
   <p id="abonament-opis"></p>
-  <div id="abonament-termin"></div>
-  <div class="dol" id="abonament-zaplac" hidden>
-    <button id="btn-zaplac">Włącz abonament</button>
-    <button class="wtorny" id="btn-portal" hidden>Karta, faktury, rezygnacja</button>
-  </div>
-  <div id="abonament-historia"></div>
-  <!-- Kredyty (tokenomia.py): pula z abonamentu + dokupione pakiety. Kazda
-       czynnosc z modelem kosztuje kredyty wg cennika ponizej; nieudana - nic. -->
   <section id="abonament-kredyty" hidden>
-    <h3>Kredyty</h3>
     <div id="kredyty-saldo"></div>
     <p id="kredyty-opis"></p>
     <div class="dol" id="kredyty-pakiety" hidden></div>
+    <p id="kredyty-pakiety-opis" hidden></p>
     <details><summary>Cennik czynności</summary><div id="kredyty-cennik"></div></details>
+    <div id="abonament-historia"></div>
   </section>
   <div class="dol"><span class="stan" id="stan-abonament"></span></div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-abonament">Zamknij</button></div>
@@ -1939,9 +1933,9 @@ async function api(adres, opcje = {}){
   }
   if (odp.status === 428) sprawdzDokumenty();   // brak zaakceptowanej umowy
   if (odp.status === 402) {
-    // Abonament wygasl: zamiast bledu w srodku pracy - okno z platnoscia.
+    // Brak kredytow: zamiast samego bledu - okno z saldem i pakietami.
     wczytajAbonament().then(() => {
-      if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
+      if (kredyty && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
     });
   }
   // Gdy aplikacja nie odpowie, posrednik AWS (ALB) oddaje strone bledu w HTML.
@@ -2745,7 +2739,7 @@ async function uruchomTrybPracy(){
   if (rozpoczecieSesji !== pokolenieSesji) return;
   pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
   if (SERWIS) {
-    // Obsluga notarai widzi sprawy, nie zespol, abonament ani dokumenty
+    // Obsluga notarai widzi sprawy, nie zespol, kredyty ani dokumenty
     // kancelarii - tych serwer i tak jej nie pokaze.
     $("kto").textContent = "Dostęp serwisowy: " + SERWIS;
     $("kto").title = "Wejście za zgodą kancelarii, do czasu, który wskazała";
@@ -3385,12 +3379,13 @@ $("zespol-email").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); $("btn-zespol-zapros").click(); }
 });
 
-/* ---------- abonament (Stripe) ----------
-   Termin przesuwa serwer po webhooku od Stripe, nie powrot przegladarki:
-   powrot "ok" znaczy tylko, ze platnik skonczyl na stronie Stripe. */
-let abonament = null;
+/* ---------- kredyty (TPay) ----------
+   Kredyty dopisuje serwer po powiadomieniu z TPay, nie powrot przegladarki:
+   powrot "ok" znaczy tylko, ze platnik skonczyl na stronie TPay. */
 let kredyty = null;
 const kr = n => String(Math.round(n * 10) / 10).replace(".", ",");
+const zl = n => Number(n).toLocaleString("pl-PL", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const dataPl = d => new Date(d).toLocaleDateString("pl-PL", {day: "numeric", month: "long", year: "numeric"});
 
 function rysujKredyty(){
   const k = kredyty;
@@ -3398,16 +3393,25 @@ function rysujKredyty(){
   if (!k || !k.egzekwowana) return;
   $("kredyty-saldo").innerHTML = escape(kr(k.saldo)) + " kr."
     + (k.saldo < 0 ? ' <span class="znacznik alarm">debet</span>' : "");
-  $("kredyty-opis").textContent = "Z abonamentu: " + kr(k.pula) + " kr. (odnawia się co miesiąc), dokupione: "
-    + kr(k.doladowane) + " kr. 1 kredyt = " + kr(k.cena_kredytu_zl) + " zł netto w cenie katalogowej."
-    + " Czynność, która się nie uda, nic nie kosztuje.";
+  $("kredyty-opis").textContent = (k.pula > 0 ? "Startowe: " + kr(k.pula) + " kr., kupione: " + kr(k.doladowane) + " kr. " : "")
+    + "1 kredyt = " + kr(k.cena_kredytu_zl) + " zł netto w cenie katalogowej, taniej w większych pakietach."
+    + " Kredyty nie wygasają co miesiąc. Czynność, która się nie uda, nic nie kosztuje.";
+  const mogeKupic = k.platnosci_wlaczone && k.moge_kupic;
   const pakiety = $("kredyty-pakiety");
-  pakiety.hidden = !(abonament && abonament.platnosci_wlaczone && abonament.moge_zaplacic);
+  pakiety.hidden = !mogeKupic;
+  $("kredyty-pakiety-opis").hidden = !mogeKupic;
+  $("kredyty-pakiety-opis").textContent = (k.vat > 0 ? "Ceny brutto (z " + Math.round(k.vat * 100) + "% VAT)." : "Ceny końcowe — usługodawca jest zwolniony z VAT.")
+    + " Płatność przez TPay: BLIK, przelew albo karta. Fakturę wystawiamy na dane kancelarii.";
   pakiety.innerHTML = Object.entries(k.pakiety).map(([kod, p]) =>
-    `<button class="wtorny" data-pakiet="${escape(kod)}">${escape(kr(p.kredyty))} kr. — ${escape(kr(p.cena_zl))} zł</button>`).join("");
+    `<button class="wtorny" data-pakiet="${escape(kod)}">${escape(kr(p.kredyty))} kr. — ${escape(zl(p.brutto_zl))} zł</button>`).join("");
   pakiety.querySelectorAll("button").forEach(b => b.onclick = () => kupPakiet(b.dataset.pakiet, b));
   $("kredyty-cennik").innerHTML = k.cennik.map(c =>
     `<div><span>${escape(c.nazwa)}</span><span>${c.kredyty ? escape(kr(c.kredyty)) + " kr. / " + escape(c.jednostka) : "bez opłaty"}</span></div>`).join("");
+  const zakupy = (k.zakupy || []).filter(z => z.status === "oplacone");
+  $("abonament-historia").innerHTML = zakupy.length
+    ? "<b>Zakupy</b>" + zakupy.slice().reverse().map(z =>
+        `<div><span>${escape(dataPl(z.oplacono))}</span><span>${escape(kr(z.kredyty))} kr. · ${escape(zl(z.brutto))} zł</span></div>`).join("")
+    : "";
 }
 
 async function kupPakiet(kod, przycisk){
@@ -3418,139 +3422,73 @@ async function kupPakiet(kod, przycisk){
                                                 body: JSON.stringify({pakiet: kod})});
     const w = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
-    location.assign(w.adres);   // strona Stripe
+    try { sessionStorage.setItem(KLUCZ_PRZED_PLATNOSCIA, String(kredyty.saldo)); } catch { /* prywatne okno */ }
+    location.assign(w.adres);   // strona TPay, nie nasze /api - tu przekierowanie jest w porządku
   } catch (e) { stan($("stan-abonament"), e.message, true); przycisk.disabled = false; }
 }
-const KLUCZ_PRZED_PLATNOSCIA = "notarai_termin_przed_platnoscia";
+const KLUCZ_PRZED_PLATNOSCIA = "notarai_saldo_przed_platnoscia";
 
 async function wczytajAbonament(){
-  try {
-    const odp = await api("/api/abonament");
-    if (!odp.ok) return;
-    abonament = await odp.json();
-  } catch { return; }
   try {
     const k = await api("/api/kredyty");
     kredyty = k.ok ? await k.json() : null;
   } catch { kredyty = null; }
-  $("btn-abonament").hidden = !abonament.platnosci_wlaczone && !abonament.wymagany && !(kredyty && kredyty.egzekwowana);
-  if (abonament.wymagany && (abonament.po_terminie || abonament.dni_do_konca <= 5)) {
-    $("btn-abonament").textContent = abonament.po_terminie ? "Abonament wygasł" : "Abonament kończy się";
-  } else {
-    $("btn-abonament").textContent = "Abonament";
+  $("btn-abonament").hidden = !(kredyty && kredyty.egzekwowana);
+  if (kredyty && kredyty.egzekwowana) {
+    $("btn-abonament").textContent = kredyty.saldo <= 0 ? "Brak kredytów" : "Kredyty: " + kr(kredyty.saldo);
   }
   if ($("okno-abonament").open) rysujAbonament();
 }
 
-const dataPl = d => new Date(d).toLocaleDateString("pl-PL", {day: "numeric", month: "long", year: "numeric"});
-
 function rysujAbonament(){
   rysujKredyty();
-  const a = abonament;
-  const termin = $("abonament-termin");
-  if (!a.wymagany) {
-    $("abonament-opis").textContent = "Kancelaria korzysta z notarai na podstawie umowy — nie trzeba niczego opłacać w aplikacji.";
-    termin.textContent = "";
-  } else {
-    $("abonament-opis").textContent = a.po_terminie
-      ? (a.wazny ? "Termin minął. Kilka dni możesz jeszcze pracować — opłać abonament, żeby nie stracić dostępu."
-                 : "Abonament wygasł. Sprawy są bezpieczne, wrócą zaraz po opłaceniu.")
-      : "Opłacono do:";
-    termin.innerHTML = escape(dataPl(a.oplacono_do))
-      + (a.po_terminie ? ' <span class="znacznik alarm">po terminie</span>' : "");
+  const k = kredyty;
+  let opis = "";
+  if (k && k.egzekwowana) {
+    opis = k.saldo <= 0
+      ? "Kredyty się skończyły. Sprawy, kalendarz i dokumenty są dostępne jak zawsze — dokup pakiet, żeby dalej czytać skany, rozmawiać o sprawie i tworzyć projekty."
+      : "Płacisz tylko za czynności, z których korzystasz. Bez abonamentu i bez opłat miesięcznych.";
+    if (!k.moge_kupic) opis += " Pakiety kupuje właściciel kancelarii.";
+    else if (!k.platnosci_wlaczone) opis += " Zakup online jest chwilowo niedostępny — napisz na kontakt@notarai.pl.";
   }
-  $("abonament-zaplac").hidden = !(a.platnosci_wlaczone && a.moge_zaplacic);
-  // Trwajaca subskrypcja: zamiast drugiej - portal Stripe.
-  $("btn-zaplac").hidden = !!a.subskrypcja;
-  $("btn-portal").hidden = !a.subskrypcja;
-  $("btn-zaplac").textContent = "Włącz abonament — " + a.cena.replace(".", ",") + " zł / miesiąc";
-  let dopisek = "";
-  if (a.subskrypcja) {
-    dopisek = a.konczy_sie ? "Abonament został wypowiedziany i nie odnowi się."
-      : a.subskrypcja === "past_due" ? "Ostatnie obciążenie karty się nie udało — zmień kartę."
-      : "Abonament odnawia się co miesiąc z karty, faktura przychodzi e-mailem.";
-  } else if (a.platnosci_wlaczone && a.moge_zaplacic) {
-    dopisek = "Opłata pobierana co miesiąc z karty, faktura przychodzi e-mailem.";
-  }
-  if (a.platnosci_wlaczone && !a.moge_zaplacic) dopisek += " Abonamentem zarządza właściciel kancelarii.";
-  dopisek = dopisek.trim();
-  if (dopisek) {
-    // "Oplacono do:" ma stac tuz nad data, wiec dopisek idzie przed nim.
-    const opis = $("abonament-opis");
-    opis.textContent = opis.textContent === "Opłacono do:"
-      ? dopisek + " Opłacono do:" : opis.textContent + " " + dopisek;
-  }
-  const wplaty = a.historia.filter(p => p.status === "true");
-  $("abonament-historia").innerHTML = wplaty.length
-    ? "<b>Faktury</b>" + wplaty.slice().reverse().map(p =>
-        `<div><span>${escape(dataPl(p.data))}</span><span>${escape(String(p.kwota).replace(".", ","))} zł`
-        + (p.faktura && /^https:\/\//.test(p.faktura)
-            ? ` · <a href="${escape(p.faktura)}" target="_blank" rel="noopener">faktura</a>` : "")
-        + `</span></div>`).join("")
-    : "";
+  $("abonament-opis").textContent = opis;
 }
 
 $("btn-abonament").onclick = async () => {
   stan($("stan-abonament"), "");
-  if (abonament) rysujAbonament();
+  if (kredyty) rysujAbonament();
   $("okno-abonament").showModal();
   await wczytajAbonament();
 };
 $("btn-zamknij-abonament").onclick = () => $("okno-abonament").close();
-$("btn-zaplac").onclick = async () => {
-  $("btn-zaplac").disabled = true;
-  stan($("stan-abonament"), "Łączę z bramką płatności…", false, true);
-  try {
-    const odp = await api("/api/abonament", {method: "POST"});
-    const w = await odp.json().catch(() => ({}));
-    if (!odp.ok) throw new Error(w.detail || "Nie udało się rozpocząć płatności.");
-    // Webhook Stripe czesto dochodzi, zanim platnik wroci - porownujemy
-    // wiec z terminem sprzed platnosci, nie z tym po powrocie.
-    try { sessionStorage.setItem(KLUCZ_PRZED_PLATNOSCIA, abonament.oplacono_do || ""); } catch { /* prywatne okno */ }
-    location.assign(w.adres);   // strona Stripe, nie nasze /api - tu przekierowanie jest w porządku
-  } catch (e) { stan($("stan-abonament"), e.message, true); $("btn-zaplac").disabled = false; }
-};
-$("btn-portal").onclick = async () => {
-  $("btn-portal").disabled = true;
-  stan($("stan-abonament"), "Otwieram portal Stripe…", false, true);
-  try {
-    const odp = await api("/api/abonament/portal", {method: "POST"});
-    const w = await odp.json().catch(() => ({}));
-    if (!odp.ok) throw new Error(w.detail || "Nie udało się otworzyć portalu.");
-    location.assign(w.adres);
-  } catch (e) { stan($("stan-abonament"), e.message, true); $("btn-portal").disabled = false; }
-};
 
-/* Powrot ze Stripe: ?platnosc=ok albo ?platnosc=blad. Webhook moze dojsc
-   kilka sekund po platniku, wiec chwile odpytujemy. */
+/* Powrot z TPay: ?kredyty=ok albo ?kredyty=blad. Powiadomienie TPay moze
+   dojsc kilka sekund po platniku, wiec chwile odpytujemy saldo. */
 async function obsluzPowrotZPlatnosci(){
-  const wynik = new URLSearchParams(location.search).get("platnosc");
-  if (!wynik || !abonament) return;
+  const wynik = new URLSearchParams(location.search).get("kredyty");
+  if (!wynik || !kredyty) return;
   history.replaceState(null, "", location.pathname + location.hash);
-  let przed = abonament.oplacono_do;
+  let przed = kredyty.saldo;
   try {
-    const zapamietany = sessionStorage.getItem(KLUCZ_PRZED_PLATNOSCIA);
-    if (zapamietany !== null) przed = zapamietany || null;
+    const zapamietane = sessionStorage.getItem(KLUCZ_PRZED_PLATNOSCIA);
+    if (zapamietane !== null) przed = Number(zapamietane);
     sessionStorage.removeItem(KLUCZ_PRZED_PLATNOSCIA);
-  } catch { /* bez pamieci karty porownujemy z biezacym terminem */ }
+  } catch { /* bez pamieci karty porownujemy z biezacym saldem */ }
   rysujAbonament();
   $("okno-abonament").showModal();
   if (wynik !== "ok") {
     stan($("stan-abonament"), "Płatność nie została dokończona. Możesz spróbować ponownie.", true);
     return;
   }
-  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie ze Stripe…", false, true);
+  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie z TPay…", false, true);
   for (let i = 0; i <= 20; i++) {
     if (i) { await new Promise(r => setTimeout(r, 3000)); await wczytajAbonament(); }
-    // Przy trwajacym okresie probnym termin sie nie zmienia - wtedy
-    // potwierdzeniem jest sama subskrypcja.
-    if (abonament.oplacono_do !== przed || ["active", "trialing"].includes(abonament.subskrypcja)) {
-      stan($("stan-abonament"), "Abonament włączony, opłacony do " + dataPl(abonament.oplacono_do)
-        + ". Faktura przyjdzie e-mailem.");
+    if (kredyty && kredyty.saldo > przed) {
+      stan($("stan-abonament"), "Kredyty dopisane, saldo: " + kr(kredyty.saldo) + " kr. Faktura przyjdzie e-mailem.");
       return;
     }
   }
-  stan($("stan-abonament"), "Stripe jeszcze nie potwierdził płatności. Zwykle trwa to chwilę — termin zmieni się sam.");
+  stan($("stan-abonament"), "TPay jeszcze nie potwierdził płatności. Zwykle trwa to chwilę — saldo zmieni się samo.");
 }
 
 /* ---------- pomocnik na komputerze notariusza ----------
@@ -3991,7 +3929,7 @@ async function czytajStrumien(odp, naPostep = () => {}) {
       else if (w.blad) {
         // Brak kredytow w trakcie pracy w tle: okno z saldem i pakietami.
         if (w.kod === 402) wczytajAbonament().then(() => {
-          if (abonament && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
+          if (kredyty && !$("okno-abonament").open) { rysujAbonament(); $("okno-abonament").showModal(); }
         });
         throw new Error(w.blad);
       }

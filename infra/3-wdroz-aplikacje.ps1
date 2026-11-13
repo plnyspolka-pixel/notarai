@@ -16,10 +16,10 @@ param(
     # CloudFormation zapamieta poprzednia wartosc.
     [string]$Email  = "plnyspolka@gmail.com",
     [int]$Kopie     = 2,
-    # Cena miesiaca abonamentu w zl brutto (do wyswietlenia) i jej
-    # identyfikator w Stripe. Puste = zostaja poprzednie.
-    [string]$Cena   = "600.00",
-    [string]$StripeCena = "price_1UTzcA4iRvhgqNnm2sgVZWBh",
+    # Bramka TPay: produkcja albo sandbox (https://openapi.sandbox.tpay.com).
+    [string]$TpayApi = "https://api.tpay.com",
+    # VAT doliczany do pakietow kredytow: "0" = Fundacja zwolniona z VAT.
+    [ValidateSet("0", "0.23")][string]$Vat = "0",
     # Adres API Finance You (dostawca tresci ksiag wieczystych); uzywany, gdy
     # istnieje sekret notarai/finyou.
     [string]$FinyouAdres = "https://finyou.pl",
@@ -105,20 +105,22 @@ if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
     Write-Host "   logowanie uzytkownikow: brak stosu notarai-logowanie, zostaje sam token kancelarii" -ForegroundColor Yellow
 }
 
-# Platnosci Stripe: sekret notarai/stripe zaklada infra\zapisz-sekret-stripe.ps1
-# (klucze klucz i webhook). Czytamy tylko jego ARN - wartosc zostaje w AWS.
-if (Czy-Aws secretsmanager describe-secret --secret-id notarai/stripe) {
-    $stripeArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/stripe --query ARN --output text
-    $parametry += "StripeSekretArn=$stripeArn"
-    if ($StripeCena) { $parametry += "StripeCena=$StripeCena" }
-    if ($Cena) { $parametry += "CenaAbonamentu=$Cena" }
-    Write-Host "   platnosci Stripe: sekret notarai/stripe$(if ($Cena) { ", cena $Cena zl" })"
+# Kredyty sa jedynym sposobem zakupu (tokenomia.py), pakiety kupuje sie przez TPay.
+$parametry += "Tokenomia=true"
+$parametry += "TpayApi=$TpayApi"
+$parametry += "StawkaVat=$Vat"
+# Platnosci TPay: sekret notarai/tpay zaklada infra\zapisz-sekret-tpay.ps1
+# (client_id, client_secret, kod). Czytamy tylko jego ARN - wartosc zostaje w AWS.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/tpay) {
+    $tpayArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/tpay --query ARN --output text
+    $parametry += "TpaySekretArn=$tpayArn"
+    Write-Host "   platnosci TPay: sekret notarai/tpay, $TpayApi, VAT $Vat"
 } else {
-    Write-Host "   platnosci Stripe: brak sekretu notarai/stripe, platnosci wylaczone" -ForegroundColor Yellow
+    Write-Host "   platnosci TPay: brak sekretu notarai/tpay - zakup pakietow wylaczony" -ForegroundColor Yellow
 }
 
 # Ksiegi wieczyste z EKW: sekret notarai/apify zaklada infra\zapisz-sekret-apify.ps1
-# (klucz token). Jak przy Stripe czytamy tylko ARN - wartosc zostaje w AWS.
+# (klucz token). Jak przy TPay czytamy tylko ARN - wartosc zostaje w AWS.
 if (Czy-Aws secretsmanager describe-secret --secret-id notarai/apify) {
     $apifyArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/apify --query ARN --output text
     $parametry += "ApifySekretArn=$apifyArn"

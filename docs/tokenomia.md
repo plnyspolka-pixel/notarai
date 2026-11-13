@@ -1,8 +1,12 @@
 # Tokenomia notarai: koszty, kredyty, modele biznesowe
 
-Stan na 08.11.2026. Kod: `tokenomia.py`, symulacja: `scripts/symulacja_tokenomii.py`,
-testy: `test_tokenomia.py`. Domyślnie wyłączona (`PIECZAPP_TOKENOMIA=false`): koszty
-są liczone w logach i w panelu admina, ale nikt nie płaci kredytami.
+Stan na 13.11.2026. Kod: `tokenomia.py`, bramka: `platnosci.py` (TPay), symulacja:
+`scripts/symulacja_tokenomii.py`, testy: `test_tokenomia.py`, `test_platnosci.py`.
+
+**Decyzja 13.11.2026: kredyty są jedynym sposobem zakupu (model B, sekcja 5).**
+Abonament Stripe usunięty z aplikacji. Tokenomia domyślnie włączona
+(`PIECZAPP_TOKENOMIA=true`; `false` tylko awaryjnie). Nowa kancelaria dostaje
+150 kr startowych, potem kupuje pakiety przez TPay. Szczegóły: sekcja 8.
 
 ## 1. Skąd biorą się koszty
 
@@ -118,7 +122,7 @@ Zasady:
   dokończenia aktu w połowie pracy (jak karencja abonamentu).
 - Brak kredytów = HTTP 402 z komunikatem; przeglądarka otwiera okno Abonament
   z saldem, cennikiem i pakietami (także przy odczycie strumieniowym).
-- Kolejność zużycia: najpierw pula z abonamentu (przepada co okres), potem dokupione.
+- Kolejność zużycia: najpierw kredyty startowe, potem dokupione (nie wygasają co miesiąc).
 - Każde wywołanie modelu jest liczone (`bedrock._rozmowa` → `tokenomia.dolicz`),
   także w wątkach równoległego odczytu stron. Obok ceny zapisujemy rzeczywisty koszt.
   W logu: akcja, liczba wywołań, tokeny, koszt, kredyty. Zero danych osobowych.
@@ -127,16 +131,17 @@ Zasady:
   dla kancelarii, które trzymają pliki u siebie (to dane rozliczeniowe, nie sprawy).
 
 API:
-- `GET /api/kredyty` – saldo, pula, dokupione, cennik (bez kosztów), plany, pakiety, historia,
-- `POST /api/kredyty/pakiet {"pakiet": "500"}` – strona płatności Stripe (tylko właściciel),
+- `GET /api/kredyty` – saldo, startowe, dokupione, cennik (bez kosztów), pakiety z ceną
+  do zapłaty, historia, zakupy, `moge_kupic`,
+- `POST /api/kredyty/pakiet {"pakiet": "500"}` – transakcja TPay (tylko właściciel),
+- `POST /api/tpay/powiadomienie` – powiadomienie TPay (otwarte, weryfikacja niżej),
+- `GET /api/admin/sprzedaz?miesiac=RRRR-MM` – opłacone pakiety do faktur,
 - `GET /api/admin/tokenomia` – cennik z kosztami P50/P90, kalibracja z pomiarów,
   wynik miesiąca każdej kancelarii (kredyty, koszt, zrealizowany narzut),
 - `POST /api/admin/kancelarie/{id}/kredyty {"kredyty": 250, "powod": "..."}` – ręczna korekta.
 
-Stripe: pakiet to płatność jednorazowa (`mode=payment`, faktura), kredyty dopisuje
-webhook `checkout.session.completed` dopiero przy `payment_status=paid`, raz na sesję.
-Opłacona faktura abonamentu (`invoice.paid`) odnawia pulę planu, raz na fakturę.
-Nowa kancelaria dostaje 150 kr próbnych.
+TPay: patrz sekcja 8. Nowa kancelaria dostaje 150 kr startowych; kancelaria założona
+przed tokenomią dostaje je przy pierwszej czynności.
 
 ### Kalibracja
 
@@ -165,7 +170,10 @@ bez kosztów stałych platformy):
 
 Koszty stałe platformy (ok. 550 zł/mies.) pokrywa marża jednej średniej kancelarii.
 
-### Model A: abonament z pulą kredytów + dokupowanie (zalecany na start)
+> Wyniki w tabeli to symulacja z 08.11.2026 (model B liczony po cenie pakietu 500).
+> Skrypt liczy teraz B jako najtańszy zestaw pakietów; od 13.11.2026 obowiązuje B.
+
+### Model A: abonament z pulą kredytów + dokupowanie (porzucony 13.11.2026)
 
 | Plan | Cena / mies. | Pula | zł / kr | Dla kogo |
 |---|---:|---:|---:|---|
@@ -246,3 +254,76 @@ i 10 tur rozmowy, nadwyżka w kredytach.
 3. Ogłosić kancelariom cennik i plany (min. 30 dni przed – zmiana Regulaminu).
 4. Parametr stosu `Tokenomia=true` (etap 3 wdrożenia). Istniejące kancelarie: pula planu
    przy najbliższej fakturze; do tego czasu można dopisać kredyty w panelu admina.
+
+
+## 8. Zakup przez TPay i faktura (od 13.11.2026)
+
+### Przepływ płatności
+
+1. Właściciel w oknie „Kredyty” wybiera pakiet. Serwer zapisuje zamówienie
+   w portfelu (`zamowienia[numer]`: pakiet, kredyty, netto, kwota do zapłaty,
+   status `nowe`) i zakłada transakcję TPay (`POST /transactions`,
+   `hiddenDescription = "<kancelaria>:<numer>"`).
+2. Przeglądarka idzie na stronę TPay (BLIK, przelew, karta), wraca na `/?kredyty=ok`
+   i czeka na saldo — powrót niczego nie potwierdza.
+3. TPay wysyła `POST /api/tpay/powiadomienie` (formularz). Kredyty dopisujemy, gdy:
+   - `md5sum = md5(id + tr_id + tr_amount + tr_crc + kod bezpieczeństwa)` się zgadza,
+   - `tr_crc` wskazuje nasze zamówienie, a `tr_paid` ≥ kwoty z zamówienia,
+   - `GET /transactions/{transactionId}` w TPay zwraca status `correct`
+     (wyciek kodu bezpieczeństwa nie wystarczy, żeby dopisać kredyty),
+   - zamówienie nie było jeszcze opłacone (powtórzone powiadomienie = nic).
+4. Odpowiedź `TRUE` kończy ponawianie. Błąd sprawdzenia w API TPay → 5xx, TPay ponowi.
+   `tr_status=CHARGEBACK` (zwrot) odbiera kredyty pakietu, raz.
+
+Uwaga: TPay zaleca dodatkowo weryfikację podpisu JWS (`X-JWS-Signature`). Nie jest
+wdrożona, bo krok 3 (zapytanie TPay wprost) daje tę samą pewność bez biblioteki
+kryptograficznej. Lista IP TPay nie istnieje (adresy są dynamiczne).
+
+### Pakiety (ceny = kwoty do zapłaty, dopóki Fundacja jest zwolniona z VAT)
+
+| Pakiet | Cena | zł / kr | ok. spraw |
+|---|---:|---:|---:|
+| 100 kr | 100 zł | 1,00 | 1 |
+| 500 kr | 450 zł | 0,90 | 6 |
+| 2 000 kr | 1 600 zł | 0,80 | 25 |
+
+Kredyty startowe: **150 kr** (ok. dwie pełne sprawy: odczyt ~14 stron, zestawienie,
+4 tury rozmowy, projekt, KW, formularz, kroki asystenta, przesyłka — test
+`test_kredyty_startowe_wystarcza_na_przetestowanie_kazdej_funkcji`). Koszt AI dla
+nas ok. 45 zł na kancelarię.
+
+### VAT
+
+Usługodawcą jest Fundacja Krzewienia Edukacji Finansowej, zwolniona podmiotowo
+(art. 113 ust. 1 ustawy o VAT, Regulamin § 7). Dlatego `PIECZAPP_VAT=0` i cena
+pakietu to kwota do zapłaty. Limit zwolnienia to 240 000 zł sprzedaży w roku
+(od 2026 r.) — przy kilku średnich kancelariach (ok. 4 800 zł/mies. każda) limit
+skończy się w ciągu roku. Wtedy: `StawkaVat=0.23` w stosie i zmiana Regulaminu
+(§ 14, 14 dni).
+
+### Faktura: nazwa pozycji
+
+Kredyty to **bon jednego przeznaczenia** (art. 2 pkt 41 ustawy o VAT): w chwili
+sprzedaży wiadomo, na jakie usługi (platforma notarai), gdzie (Polska) i według
+jakiej stawki się je wymieni. Sprzedaż bonu jednego przeznaczenia jest
+traktowana jak sprzedaż samej usługi (art. 8a ust. 1), więc fakturę wystawia się
+po zapłacie, jako zwykłą fakturę (nie zaliczkową), a późniejsze zużywanie
+kredytów nie wymaga już żadnych dokumentów.
+
+Nazwa pozycji (`tokenomia.TYTUL_FAKTURY`):
+
+> Bon jednego przeznaczenia - pakiet 500 kredytów na usługi platformy notarai
+> (oprogramowanie w modelu SaaS dla kancelarii notarialnej)
+
+Dopóki Fundacja jest zwolniona: stawka „zw”, adnotacja „Sprzedaż zwolniona z VAT na
+podstawie art. 113 ust. 1 ustawy o podatku od towarów i usług”. Nie używać słów
+„tokeny” ani „abonament” (pierwsze kojarzy się z kryptoaktywami, drugie
+z usługą ciągłą, której już nie ma).
+
+Faktury nie wystawia ani TPay, ani aplikacja. Panel `/admin` → „Sprzedaż kredytów
+do faktur (CSV)” daje komplet danych na każdą wpłatę: nabywca, NIP, adres, e-mail
+właściciela, nazwa pozycji, kwoty, adnotacja, numer transakcji TPay. Przy
+zwolnieniu z VAT faktura jest obowiązkowa tylko na żądanie nabywcy, ale
+kancelarie (przedsiębiorcy) jej potrzebują — warto wystawiać zawsze. Do
+potwierdzenia z księgową: kwalifikacja kredytów jako bonu jednego przeznaczenia
+i ewentualny obowiązek KSeF dla podatnika zwolnionego.
