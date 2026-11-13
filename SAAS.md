@@ -294,12 +294,15 @@ Demo (dane fikcyjne, domena `.test`):
   przeciążona (429) - importer ponawia, a stara migawka zostaje.
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.
-- Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa
-  (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
+- Równoległy zapis tej samej sprawy z dwóch miejsc: każda kopia aplikacji wysyła
+  do S3 tylko pliki, które sama zmieniła (skróty w `.s3-skroty`), więc zmiany
+  w różnych plikach się nie nadpisują. Ten sam plik zmieniony naraz w dwóch
+  miejscach: ostatni wygrywa (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
+  Korespondencja ma osobny plik na każdą wiadomość, więc ustalenia z różnych maili
+  nie kolidują.
 - Kontener w publicznej podsieci domyślnego VPC, bez NAT: wejście blokuje grupa
   bezpieczeństwa (tylko ruch z load balancera). Prywatne podsieci z NAT to
   osobny, stały koszt; warto przy większej skali.
 - Dwie kopie aplikacji. Przed odczytem sprawy każda porównuje znacznik wersji
   z ETagiem pliku w S3 i odświeża swoją pamięć podręczną, gdy druga kopia
-  zapisała zmianę. Nadal obowiązuje zasada: przy równoczesnym zapisie tej samej
-  sprawy z dwóch miejsc ostatni wygrywa.
+  zapisała zmianę, i dociąga tylko pliki, które się zmieniły.

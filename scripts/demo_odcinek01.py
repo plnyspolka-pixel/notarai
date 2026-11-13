@@ -328,7 +328,7 @@ def _sprawa_kalendarz_zasady(dzien: date) -> dict:
         prompty.kontekst_rozmowy(pola, BRAKI, ROZBIEZNOSCI, "Umowa sprzedaży lokalu mieszkalnego."), encoding="utf-8")
     aplikacja._zapisz_rozmowe(katalog, [])
     # Korespondencja: osoby sprawy z rolami; maile czekaja w skrzynce testowej.
-    aplikacja._zapisz_json(katalog / korespondencja.PLIK_SPRAWY, {"osoby": OSOBY_KORESPONDENCJI, "wiadomosci": []})
+    korespondencja._zapisz_sprawy(katalog, {"osoby": OSOBY_KORESPONDENCJI, "wiadomosci": []})
     magazyn.utrwal_sprawe(katalog)
     magazyn.zmien_plik_kancelarii(korespondencja.PLIK_SKRZYNKI,
                                   lambda d: (d.clear(), d.update(korespondencja._pusta_skrzynka())), {})

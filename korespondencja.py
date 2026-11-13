@@ -634,17 +634,50 @@ def _norm(tekst: str) -> str:
     return "-" + re.sub(r"[^0-9A-ZĄĆĘŁŃÓŚŹŻ]+", "-", (tekst or "").upper()).strip("-") + "-"
 
 
-def wczytaj_sprawy_korespondencji(katalog: Path) -> dict:
-    plik = katalog / PLIK_SPRAWY
+# Uklad w sprawie: korespondencja/osoby.json i korespondencja/wiadomosci/<id>.json.
+# Kazda wiadomosc w osobnym pliku - zmiana jednej (np. ustalenia) nie dotyka
+# pozostalych, takze gdy dwie kopie aplikacji zapisuja sprawe naraz (magazyn
+# wysyla do S3 tylko zmienione pliki). Stary pojedynczy korespondencja.json
+# czytamy nadal i przenosimy przy pierwszym zapisie.
+KATALOG_KORESPONDENCJI = "korespondencja"
+
+
+def _wczytaj_plik(plik: Path):
     try:
-        dane = json.loads(plik.read_text("utf-8")) if plik.exists() else {}
+        return json.loads(plik.read_text("utf-8")) if plik.is_file() else None
     except ValueError:
-        dane = {}
-    return {"osoby": dane.get("osoby", []), "wiadomosci": dane.get("wiadomosci", [])}
+        return None
+
+
+def wczytaj_sprawy_korespondencji(katalog: Path) -> dict:
+    stary = _wczytaj_plik(katalog / PLIK_SPRAWY) or {}
+    folder = katalog / KATALOG_KORESPONDENCJI
+    osoby = _wczytaj_plik(folder / "osoby.json")
+    wiadomosci = {w["id"]: w for w in stary.get("wiadomosci", []) if w.get("id")}
+    folder_w = folder / "wiadomosci"
+    if folder_w.is_dir():
+        for plik in sorted(folder_w.glob("*.json")):
+            w = _wczytaj_plik(plik)
+            if w and w.get("id"):
+                wiadomosci[w["id"]] = w
+    lista = sorted(wiadomosci.values(), key=lambda w: (w.get("przypisano") or "", w["id"]))
+    return {"osoby": osoby if osoby is not None else stary.get("osoby", []), "wiadomosci": lista}
+
+
+def _zapisz_json_plik(plik: Path, dane) -> None:
+    plik.parent.mkdir(parents=True, exist_ok=True)
+    tresc = json.dumps(dane, ensure_ascii=False, indent=2)
+    if not plik.is_file() or plik.read_text("utf-8") != tresc:
+        plik.write_text(tresc, encoding="utf-8")
 
 
 def _zapisz_sprawy(katalog: Path, dane: dict) -> None:
-    (katalog / PLIK_SPRAWY).write_text(json.dumps(dane, ensure_ascii=False, indent=2), encoding="utf-8")
+    folder = katalog / KATALOG_KORESPONDENCJI
+    _zapisz_json_plik(folder / "osoby.json", dane["osoby"])
+    for w in dane["wiadomosci"]:
+        if not re.fullmatch(r"[A-Za-z0-9]+", str(w.get("id", ""))):
+            raise ValueError("Nieprawidłowy identyfikator wiadomości")
+        _zapisz_json_plik(folder / "wiadomosci" / f"{w['id']}.json", w)
 
 
 # Odczyt-zmiana-zapis korespondencja.json pod blokada sprawy: kilka przypisan
@@ -667,6 +700,8 @@ def _zmien_sprawe(katalog: Path, zmiana):
         wynik = zmiana(dane)
         _zapisz_sprawy(katalog, dane)
         magazyn.utrwal_sprawe(katalog)
+        if (katalog / PLIK_SPRAWY).exists():       # przeniesione do nowego ukladu
+            magazyn.usun_plik_sprawy(katalog, PLIK_SPRAWY)
         return wynik
 
 

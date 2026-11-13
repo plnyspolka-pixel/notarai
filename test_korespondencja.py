@@ -818,3 +818,41 @@ def test_rozne_zapisy_daty_to_jedna_grupa_i_autorzy_nie_sa_w_braku_potwierdzenia
     assert grupa["wartosc"] == "1.12.2026"
     assert [z["imie"] for z in grupa["zrodla"]] == ["Robert Kaczmarek", "Paweł Nowak", "Joanna Kaczmarek"]
     assert [o["imie"] for o in grupa["brak_potwierdzenia"]] == ["Irena Nowak"]
+
+
+def test_kazda_wiadomosc_w_osobnym_pliku_i_przeniesienie_starego(srodowisko):
+    k, katalog, _ = srodowisko
+    assert (katalog / korespondencja.PLIK_SPRAWY).exists()          # stary uklad z danych testu
+    assert k.get(f"/api/sprawy/{SPRAWA}/korespondencja").json()["osoby"] == OSOBY
+    w = przypisz(k, po_temacie(pobierz(k)["wiadomosci"], SYGNATURA))
+    assert not (katalog / korespondencja.PLIK_SPRAWY).exists(), "przeniesiony do nowego ukladu"
+    assert json.loads((katalog / "korespondencja" / "osoby.json").read_text("utf-8")) == OSOBY
+    assert json.loads((katalog / "korespondencja" / "wiadomosci" / f"{w['id']}.json").read_text("utf-8"))["id"] == w["id"]
+    assert k.get(f"/api/sprawy/{SPRAWA}/korespondencja").json()["osoby"] == OSOBY
+
+
+def test_dwie_kopie_aplikacji_ustalenia_roznych_wiadomosci(srodowisko, monkeypatch, tmp_path):
+    """Kopia A i kopia B (osobne dyski, wspolne S3) wyciagaja ustalenia z roznych
+    wiadomosci tej samej sprawy - oba wyniki zostaja w S3."""
+    import shutil
+
+    import magazyn
+    from test_magazyn import AtrapaS3
+    k, katalog, _ = srodowisko
+    lista = pobierz(k)["wiadomosci"]
+    ids = [przypisz(k, po_temacie(lista, f))["id"] for f in ("Warunki transakcji - ul.", f"{SYGNATURA} - termin")]
+    monkeypatch.setattr(bedrock, "wyciagnij_ustalenia", atrapa_ustalen(USTALENIA))
+    s3 = AtrapaS3()
+    monkeypatch.setattr(magazyn, "TRYB", "s3")
+    monkeypatch.setattr(magazyn, "BUCKET", "testowy")
+    monkeypatch.setattr(magazyn, "_s3", s3)
+    magazyn.utrwal_sprawe(katalog)
+    kopia_b = tmp_path / "kontener-b" / katalog.name
+    shutil.copytree(katalog, kopia_b)                       # B ma zsynchronizowana kopie
+    korespondencja.wyciagnij_ustalenia(katalog, ids[0])     # kopia A zapisuje
+    # Najgorszy przypadek: B nie zdazyla dociagnac zmiany A i zapisuje swoja wiadomosc.
+    monkeypatch.setattr(magazyn, "pobierz_sprawe", lambda kat: True)
+    korespondencja.wyciagnij_ustalenia(kopia_b, ids[1])
+    stany = {json.loads(d)["id"]: json.loads(d)["ustalenia_stan"]
+             for kl, d in s3.obiekty.items() if "/korespondencja/wiadomosci/" in kl}
+    assert stany == {ids[0]: "gotowe", ids[1]: "gotowe"}

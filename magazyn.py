@@ -105,6 +105,45 @@ def _klucz(id_sprawy: str, wzgledna: str) -> str:
 # kopie za aktualna i notariusz nie mogl wrocic do wlasnego projektu.
 _ZNACZNIK = ".s3-znacznik"
 
+# Skroty plikow z ostatniej synchronizacji: {sciezka wzgledna: [sha256 tresci,
+# ETag w S3]}. Dzieki nim do S3 idzie tylko to, co ta kopia aplikacji naprawde
+# zmienila, a z S3 schodzi tylko to, co zmienila druga. Bez tego kopia ze stara
+# wersja pliku (np. w trakcie kilkunastominutowego projektu) nadpisywala przy
+# zapisie nowsze zmiany drugiej kopii w innych plikach tej samej sprawy.
+_SKROTY = ".s3-skroty"
+_POMIJANE = (_ZNACZNIK, _SKROTY)
+
+
+def _wczytaj_skroty(katalog: Path) -> dict:
+    plik = katalog / _SKROTY
+    try:
+        return json.loads(plik.read_text("utf-8")) if plik.exists() else {}
+    except ValueError:
+        return {}
+
+
+def _zapisz_skroty(katalog: Path, skroty: dict) -> None:
+    (katalog / _SKROTY).write_text(json.dumps(skroty, sort_keys=True), encoding="utf-8")
+
+
+def _sha(dane: bytes) -> str:
+    return hashlib.sha256(dane).hexdigest()
+
+
+def _uzgodnij_znacznik(katalog: Path, skroty: dict) -> None:
+    """Znacznik = odcisk S3 tylko wtedy, gdy lokalna kopia zgadza sie z S3 co do
+    kazdego pliku. Inaczej odcisk tego, co znamy - nastepny odczyt dociagnie zmiany."""
+    prefiks = _klucz(katalog.name, "")
+    znane = {prefiks + wzgledna: etag for wzgledna, (_, etag) in skroty.items()}
+    try:
+        spis = _spis_s3(katalog.name)
+    except Exception:  # noqa: BLE001 - S3 chwilowo nie odpowiada
+        spis = None
+    if spis is not None and dict(spis) == znane:
+        _zapisz_znacznik(katalog, _sygnatura(spis))
+    else:
+        _zapisz_znacznik(katalog, _sygnatura(list(znane.items())) or "nieuzgodniony")
+
 
 def _zapisz_znacznik(katalog: Path, sygnatura: str) -> None:
     if sygnatura:
@@ -146,20 +185,27 @@ def utrwal_sprawe(katalog: Path) -> None:
     if TRYB != "s3":
         return
     id_sprawy = katalog.name
-    wyslane: list[tuple[str, str]] = []
+    skroty = _wczytaj_skroty(katalog)
+    wyslane = 0
     for plik in sorted(katalog.rglob("*")):
-        if not plik.is_file() or plik.name == _ZNACZNIK:
+        if not plik.is_file() or plik.name in _POMIJANE:
             continue
-        klucz = _klucz(id_sprawy, plik.relative_to(katalog).as_posix())
+        wzgledna = plik.relative_to(katalog).as_posix()
+        dane = plik.read_bytes()
+        sha = _sha(dane)
+        if (skroty.get(wzgledna) or [None])[0] == sha:
+            continue   # bez zmian od ostatniej synchronizacji - nie nadpisujemy cudzych zmian
         odpowiedz_put = _klient_s3().put_object(
             Bucket=BUCKET,
-            Key=klucz,
-            Body=plik.read_bytes(),
+            Key=_klucz(id_sprawy, wzgledna),
+            Body=dane,
             **_szyfrowanie(),
         )
-        wyslane.append((klucz, (odpowiedz_put or {}).get("ETag", "")))
-    _zapisz_znacznik(katalog, _sygnatura(wyslane))
-    log.info("sprawa %s: utrwalono %d plikow do S3", id_sprawy, len(wyslane))
+        skroty[wzgledna] = [sha, (odpowiedz_put or {}).get("ETag", "")]
+        wyslane += 1
+    _zapisz_skroty(katalog, skroty)
+    _uzgodnij_znacznik(katalog, skroty)
+    log.info("sprawa %s: utrwalono %d plikow do S3", id_sprawy, wyslane)
 
 
 def pobierz_sprawe(katalog: Path) -> bool:
@@ -189,19 +235,35 @@ def pobierz_sprawe(katalog: Path) -> bool:
         # Sprawy nie ma jeszcze w S3 - wlasnie powstaje na tym kontenerze.
         return katalog.is_dir()
 
+    prefiks = _klucz(id_sprawy, "")
+    skroty = _wczytaj_skroty(katalog)
     if (katalog / "sprawa.json").exists() and _sygnatura(spis) == _znacznik(katalog):
+        if not skroty:
+            # Sprawa zsynchronizowana przed skrotami: kopia zgodna z S3, wiec
+            # skroty biezacych plikow sa skrotami z ostatniej synchronizacji.
+            for klucz, etag in spis:
+                plik = katalog / klucz[len(prefiks):]
+                if klucz[len(prefiks):] and plik.is_file():
+                    skroty[klucz[len(prefiks):]] = [_sha(plik.read_bytes()), etag]
+            _zapisz_skroty(katalog, skroty)
         return True
 
-    prefiks = _klucz(id_sprawy, "")
-    for klucz, _ in spis:
+    pobrane = 0
+    for klucz, etag in spis:
         wzgledna = klucz[len(prefiks):]
         if not wzgledna:
             continue
         cel = katalog / wzgledna
+        if (skroty.get(wzgledna) or [None, None])[1] == etag and cel.is_file():
+            continue   # ten plik sie nie zmienil
+        dane = _klient_s3().get_object(Bucket=BUCKET, Key=klucz)["Body"].read()
         cel.parent.mkdir(parents=True, exist_ok=True)
-        cel.write_bytes(_klient_s3().get_object(Bucket=BUCKET, Key=klucz)["Body"].read())
+        cel.write_bytes(dane)
+        skroty[wzgledna] = [_sha(dane), etag]
+        pobrane += 1
+    _zapisz_skroty(katalog, skroty)
     _zapisz_znacznik(katalog, _sygnatura(spis))
-    log.info("sprawa %s: pobrano %d plikow z S3", id_sprawy, len(spis))
+    log.info("sprawa %s: pobrano %d z %d plikow z S3", id_sprawy, pobrane, len(spis))
     return True
 
 
@@ -239,7 +301,10 @@ def usun_plik_sprawy(katalog: Path, wzgledna: str) -> None:
                   for o in strona.get(rodzaj, []) if o["Key"] == klucz]
         if wersje:
             klient.delete_objects(Bucket=BUCKET, Delete={"Objects": wersje, "Quiet": True})
-    _zapisz_znacznik(katalog, _sygnatura(_spis_s3(katalog.name)))
+    skroty = _wczytaj_skroty(katalog)
+    skroty.pop(wzgledna, None)
+    _zapisz_skroty(katalog, skroty)
+    _uzgodnij_znacznik(katalog, skroty)
 
 
 def _usun_wszystkie_wersje(prefiks: str) -> int:

@@ -377,3 +377,78 @@ class TestUsuwanieKancelarii:
         with pytest.raises(ValueError):
             magazyn.usun_kancelarie(zly, tmp)
         assert "kancelarie/admin/kancelarie.json" in atrapa.obiekty
+
+
+class TestTylkoZmienionePliki:
+    """Dwie kopie aplikacji zapisuja te sama sprawe: kazda wysyla tylko to, co sama
+    zmienila, wiec nie nadpisuje nowszych zmian drugiej w innych plikach."""
+
+    def test_stara_kopia_nie_nadpisuje_zmian_drugiej(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            a, b = tmp / "a" / "abc123", tmp / "b" / "abc123"
+            a.mkdir(parents=True)
+            (a / "sprawa.json").write_text('{"id": "abc123"}', encoding="utf-8")
+            (a / "odczyt.json").write_text('{"wersja": 1}', encoding="utf-8")
+            (a / "projekt.txt").write_text("v1", encoding="utf-8")
+            magazyn.utrwal_sprawe(a)
+            assert magazyn.pobierz_sprawe(b) is True
+
+            # A poprawia odczyt; B (z kopia sprzed tej zmiany) zapisuje projekt.
+            (a / "odczyt.json").write_text('{"wersja": 2}', encoding="utf-8")
+            magazyn.utrwal_sprawe(a)
+            (b / "projekt.txt").write_text("v2 z kopii B", encoding="utf-8")
+            magazyn.utrwal_sprawe(b)
+
+            klucz = lambda n: f"kancelarie/kowalski/sprawy/abc123/{n}"  # noqa: E731
+            assert atrapa.obiekty[klucz("odczyt.json")] == b'{"wersja": 2}', "B nie moze cofnac zmiany A"
+            assert atrapa.obiekty[klucz("projekt.txt")] == "v2 z kopii B".encode()
+            # Obie kopie dociagaja zmiane drugiej.
+            assert magazyn.pobierz_sprawe(b) and json.loads((b / "odczyt.json").read_text())["wersja"] == 2
+            assert magazyn.pobierz_sprawe(a) and (a / "projekt.txt").read_text("utf-8") == "v2 z kopii B"
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_wysyla_i_pobiera_tylko_zmienione(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            a, b = tmp / "a" / "abc123", tmp / "b" / "abc123"
+            (a / "skany").mkdir(parents=True)
+            (a / "sprawa.json").write_text("{}", encoding="utf-8")
+            for i in range(5):
+                (a / "skany" / f"s{i}.png").write_bytes(b"PNG" * (i + 1))
+            magazyn.utrwal_sprawe(a)
+            magazyn.pobierz_sprawe(b)
+            wyslane = []
+            oryginal = atrapa.put_object
+            atrapa.put_object = lambda **kw: wyslane.append(kw["Key"]) or oryginal(**kw)
+            (a / "sprawa.json").write_text('{"nazwa": "x"}', encoding="utf-8")
+            magazyn.utrwal_sprawe(a)
+            assert [k.rsplit("/", 1)[1] for k in wyslane] == ["sprawa.json"]
+            przed = atrapa.pobrania
+            assert magazyn.pobierz_sprawe(b) is True
+            assert atrapa.pobrania - przed == 1, "skany sie nie zmienily - nie schodza ponownie"
+            assert not any(magazyn._SKROTY in k for k in atrapa.obiekty)
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+
+    def test_sprawa_sprzed_skrotow_nie_jest_wysylana_od_nowa(self, magazyn_s3):
+        magazyn, atrapa, tmp = magazyn_s3
+        zn = magazyn.kancelaria_var.set("kowalski")
+        try:
+            a = tmp / "a" / "abc123"
+            a.mkdir(parents=True)
+            (a / "sprawa.json").write_text("{}", encoding="utf-8")
+            (a / "odczyt.json").write_text("{}", encoding="utf-8")
+            magazyn.utrwal_sprawe(a)
+            (a / magazyn._SKROTY).unlink()              # stan sprzed tej zmiany
+            assert magazyn.pobierz_sprawe(a) is True    # znacznik zgodny - skroty z plikow
+            wyslane = []
+            oryginal = atrapa.put_object
+            atrapa.put_object = lambda **kw: wyslane.append(kw["Key"]) or oryginal(**kw)
+            magazyn.utrwal_sprawe(a)
+            assert wyslane == []
+        finally:
+            magazyn.kancelaria_var.reset(zn)
