@@ -43,3 +43,22 @@ def test_cross_language_fixture():
     salt = "00" * 32
     expected = pe.commitment(payload, salt)
     assert pe.commitment({"version": 1, "event": "issued"}, salt) == expected
+
+
+def test_shared_finance_you_unicode_vector():
+    payload = {"event": "exclusive_grant", "investor_ref": "I-TEST-001",
+               "project_ref": "FY-TEST-001", "version": 1, "active": True,
+               "notes": "zażółć gęślą jaźń"}
+    digest = pe.commitment(payload, "00" * 32)
+    assert digest == "6e4c84cb4f0df196c2848047068b1ed4677d44b843617e3a0bc0fbe7110873b5"
+    assert pe.merkle_batch([digest])["root"] == (
+        "b2a7abc7603e99ec0ddeb425140f62c7fbef92f6f88a05ceaf528b3700808bb7"
+    )
+
+def test_nonportable_floats_large_ints_unicode_keys_and_surrogates_are_rejected():
+    for payload in (
+        {"amount": 1.5}, {"value": 2**53},
+        {"🪙": "test"}, {"event": "\\ud800"},
+    ):
+        with pytest.raises(ValueError):
+            pe.commitment(payload, "00" * 32)
