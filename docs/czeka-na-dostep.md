@@ -233,6 +233,8 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   w `docs/kampania-komputerku/narzedzia/gpu/` powstały bez dostępu do karty, więc nazwy
   plików modeli (Comfy-Org, lightx2v) i węzłów ComfyUI nie były uruchomione.
 - **Na żywo:**
+  0. Najpierw `infra/5-budzet-i-limit-gpu.ps1` (budżet Bedrock + wniosek o limit GPU spot;
+     AWS odpowiada w 1–2 dni) – dotyczy wariantu AWS; RunPod go nie potrzebuje.
   1. Pod RTX 4090 (Community, 0,34 USD/h) z Network Volume w `/workspace`, port 8188;
      `bash runpod_4090.sh`, potem `bash runpod_4090.sh start`. Zapisać, które nazwy
      plików trzeba było poprawić.
