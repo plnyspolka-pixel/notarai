@@ -60,6 +60,7 @@ _REGULY = [
     (("DELETE",), _SPRAWA, "usun_sprawe"),
     # Dowody kryptograficzne zawieraja prywatne metadane i sole; tylko notariusz/wlasciciel.
     (None, r"/api/dowody(/.*)?", "kancelaria"),
+    (None, r"/api/sealed(/.*)?", "kancelaria"),
     (None, r"/api/giif(/.*)?", "kancelaria"),
     (_ZAPIS, r"/api/ksiegi-kancelarii(/.*)?", "kancelaria"),
     (_ZAPIS, r"/api/personalizacja(/.*)?", "kancelaria"),

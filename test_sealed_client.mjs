@@ -1,0 +1,38 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { sealBytes, openSealedBytes, associatedData } from "./static/sealed-client.mjs";
+
+const encoder = new TextEncoder();
+const phrase = "correct horse battery staple test";
+const office = "office-demo-001";
+
+test("client encrypts and decrypts while envelope contains no cleartext", async () => {
+  const original = encoder.encode("Akt fikcyjny. Dane testowe: Lorem ipsum.");
+  const sealed = await sealBytes(original, phrase, office);
+  assert.equal(sealed.schema, "notarai.sealed.v1");
+  assert.equal(sealed.tenantRef, office);
+  assert.ok(!JSON.stringify(sealed).includes("Akt fikcyjny"));
+  assert.deepEqual(await openSealedBytes(sealed, phrase), original);
+});
+test("GCM rejects wrong key, modified ciphertext and cross-tenant replay", async () => {
+  const sealed = await sealBytes(encoder.encode("fictional"), phrase, office);
+  await assert.rejects(() => openSealedBytes(sealed, "wrong password is too long"));
+  const modified = {...sealed, ciphertext: sealed.ciphertext.slice(0, -1) + (sealed.ciphertext.endsWith("A")?"B":"A")};
+  await assert.rejects(() => openSealedBytes(modified, phrase));
+  await assert.rejects(() => openSealedBytes({...sealed, tenantRef:"other-office"}, phrase));
+  await assert.rejects(() => openSealedBytes({...sealed, documentId:"00000000-0000-4000-8000-000000000001"}, phrase));
+});
+test("same payload always uses unique random salt and nonce", async () => {
+  const original = encoder.encode("fictional");
+  const [a,b] = await Promise.all([sealBytes(original,phrase,office),sealBytes(original,phrase,office)]);
+  assert.notEqual(a.salt,b.salt);
+  assert.notEqual(a.nonce,b.nonce);
+  assert.notEqual(a.ciphertext,b.ciphertext);
+});
+test("rejects short weak passphrase, bad sizes, malformed identifiers", async () => {
+  await assert.rejects(() => sealBytes(encoder.encode("data"),"short",office));
+  await assert.rejects(() => sealBytes(new Uint8Array(0),phrase,office));
+  assert.throws(() => associatedData("../evil",office));
+  const sealed = await sealBytes(encoder.encode("test"),phrase,office);
+  await assert.rejects(() => openSealedBytes({...sealed,iterations:1},phrase));
+});
