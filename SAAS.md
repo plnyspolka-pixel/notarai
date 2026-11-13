@@ -224,20 +224,47 @@ projektu** — w „Weryfikacji odczytu” pojawia się tylko komunikat, np. „
 1.12 (Paweł Nowak — osoba kontaktowa, 9.11). Brak potwierdzenia: Irena Nowak
 (sprzedająca).”, a projekt nadal ma w tym miejscu `<<BRAK>>`.
 
-Konfiguracja skrzynki (okno „Poczta do przypisania” → „Ustawienia skrzynki”,
-uprawnienie `kancelaria`): serwer IMAP, port (993, TLS), użytkownik, folder.
-Skrzynka otwierana tylko do odczytu (`BODY.PEEK[]` — wiadomości nie zmieniają
-stanu „przeczytana”).
-- **Chmura:** hasło zapisuje się wyłącznie w AWS Secrets Manager jako
-  `notarai-skrzynka-<kancelaria>` (polityka `sekrety-skrzynki-pocztowej`
-  w `infra/notarai-aplikacja.yaml`, region eu-central-1). Nie wraca do przeglądarki,
-  nie trafia do S3 ani do logów. Wymaga ponownego wdrożenia stosu aplikacji.
-- **Lokalnie:** zmienna `PIECZAPP_SKRZYNKA_HASLO` ustawiana w sesji (nie w `.env`
-  w repozytorium).
-- Microsoft 365 / Gmail (OAuth): interfejs dostawcy (`nowe`, `pobierz`) jest gotowy,
-  dojdzie jako kolejna klasa obok `DostawcaImap`.
-- Logi: tylko identyfikatory, liczby i statusy — bez tematów, treści, adresów i nazwisk.
-- Test na żywo z prawdziwą skrzynką: `docs/czeka-na-dostep.md` (NA-9).
+Podpięcie skrzynki (okno „Poczta do przypisania”, uprawnienie `kancelaria`) to
+**jeden adres e-mail** (`skrzynki.py`):
+1. Rozpoznanie dostawcy: znane domeny (Gmail, Microsoft 365/Outlook, Onet, WP, o2,
+   Interia, iCloud, Yahoo, GMX, Zoho), dla własnej domeny rekord MX (Google
+   Workspace, Microsoft 365, OVH), autokonfiguracja poczty (plik autoconfig domeny
+   i baza Thunderbirda), na końcu host MX / `imap.` / `mail.` — tylko z ważnym
+   certyfikatem TLS. Na zewnątrz idzie wyłącznie domena kancelarii.
+2. Logowanie: **„Zaloguj przez Microsoft” / „Zaloguj przez Google”** (OAuth 2.0 +
+   PKCE, IMAP XOAUTH2) albo hasło / hasło aplikacji. Microsoft nie przyjmuje haseł
+   w IMAP — dla Microsoft 365 i Outlook.com OAuth jest jedyną drogą. Kreator podaje
+   konkretną podpowiedź (np. hasło aplikacji Google, włączenie IMAP w Onet/WP/Interii).
+3. Test logowania przed zapisem, wybór folderu z listy (polskie nazwy z UTF-7 IMAP),
+   TLS (993) albo STARTTLS (143) — nigdy bez szyfrowania.
+4. Skrzynka sprawdza się sama (przy otwarciu aplikacji i co 5 minut, na serwerze
+   najwyżej raz na 3 minuty na kancelarię); pierwsze podpięcie bierze tylko ostatnie
+   30 dni (`PIECZAPP_SKRZYNKA_DNI`). Tylko do odczytu (`BODY.PEEK[]`).
+
+Dostęp do skrzynki:
+- **Chmura:** hasło albo token odświeżający OAuth wyłącznie w AWS Secrets Manager
+  jako `notarai-skrzynka-<kancelaria>` (polityka `sekrety-skrzynki-pocztowej`
+  w `infra/notarai-aplikacja.yaml`, eu-central-1). Nie wraca do przeglądarki, nie
+  trafia do S3 ani do logów. „Odłącz skrzynkę” kasuje sekret.
+- **Lokalnie:** w pamięci procesu (do restartu); na stałe zmienna
+  `PIECZAPP_SKRZYNKA_HASLO` ustawiona w sesji (nie w `.env` w repozytorium).
+- Powrót z logowania: `/api/korespondencja/oauth/powrot` (jedyna otwarta ścieżka
+  poczty; kancelarię wskazuje stan podpisany HMAC z kluczem z sekretu admina,
+  jednorazowy, ważny 15 minut).
+
+Włączenie przycisków Microsoft / Google (raz, administrator konta):
+1. Microsoft Entra → App registrations → nowa aplikacja „notarai poczta”, konta
+   w dowolnej organizacji i osobiste konta Microsoft, przekierowanie (Web)
+   `https://app.notarai.pl/api/korespondencja/oauth/powrot`, uprawnienie delegowane
+   Office 365 Exchange Online → `IMAP.AccessAsUser.All`, sekret klienta.
+2. Google Cloud → OAuth client (Web application), to samo przekierowanie, zakres
+   `https://mail.google.com/` (zakres zastrzeżony: do czasu weryfikacji Google
+   aplikacja działa dla dodanych użytkowników testowych; do tego czasu Gmail
+   działa hasłem aplikacji).
+3. `infra\zapisz-sekret-oauth-poczty.ps1` (sekret `notarai/oauth-poczty`), potem
+   `infra\3-wdroz-aplikacje.ps1` — parametr `OAuthPocztySekretArn` ustawi się sam.
+   Bez tego kreator działa na hasło IMAP, a przycisków po prostu nie ma.
+- Test na żywo: `docs/czeka-na-dostep.md` (NA-9, NA-10).
 
 Demo (dane fikcyjne, domena `.test`):
 

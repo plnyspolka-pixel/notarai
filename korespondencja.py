@@ -29,25 +29,32 @@ Hasla do skrzynki: w chmurze wylacznie AWS Secrets Manager
 RODO: tresc, tematy, adresy i nazwiska z korespondencji nie trafiaja do
 logow - logujemy identyfikatory, liczby i statusy.
 """
+import base64
 import email
 import email.policy
 import email.utils
 import html
 import imaplib
+import hashlib
+import hmac
 import json
 import logging
 import os
 import re
+import secrets
 import ssl
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 import config
 import magazyn
+import skrzynki
 
 log = logging.getLogger("pieczapp.korespondencja")
 
@@ -62,6 +69,11 @@ MAKS_ZNANYCH = 5000
 MAKS_TEKSTU = 20000
 # Katalog z plikami .eml zamiast prawdziwej skrzynki (demo, testy). Tylko lokalnie.
 KATALOG_DEMO = os.getenv("PIECZAPP_SKRZYNKA_KATALOG", "")
+# Ile dni wstecz czytamy skrzynke (pierwsze podpiecie nie zaciaga calej historii).
+DNI_WSTECZ = int(os.getenv("PIECZAPP_SKRZYNKA_DNI", "30"))
+# Samoczynne sprawdzanie skrzynki (przy otwarciu aplikacji i co kilka minut) nie
+# czesciej niz raz na tyle sekund na kancelarie.
+ODSTEP_S = int(os.getenv("PIECZAPP_SKRZYNKA_ODSTEP", "180"))
 
 # Rola nadawcy w sprawie. „strona” i „kupujacy” to strony czynnosci - tylko
 # one moga potwierdzic ustalenie; reszta to zrodla posrednie.
@@ -78,8 +90,8 @@ STRONY = ("strona", "kupujacy")
 _KW = re.compile(r"\b[A-Z]{2}\d[A-Z]/\d{8}/\d\b")
 
 
-class BladSkrzynki(RuntimeError):
-    """Problem z polaczeniem albo odczytem skrzynki - tresc do pokazania."""
+# Problem z polaczeniem albo odczytem skrzynki - tresc do pokazania w aplikacji.
+BladSkrzynki = skrzynki.BladPolaczenia
 
 
 # --- parsowanie .eml ---------------------------------------------------------
@@ -162,37 +174,68 @@ class DostawcaKatalog:
 
 
 class DostawcaImap:
-    """IMAP po TLS (domyslnie port 993), skrzynka otwierana tylko do odczytu.
+    """IMAP po TLS (993) albo STARTTLS (143), skrzynka otwierana tylko do odczytu.
 
+    Logowanie haslem albo tokenem OAuth (XOAUTH2 - Microsoft 365, Google).
     Pobieramy BODY.PEEK[], wiec wiadomosci nie zmieniaja stanu „przeczytana”
     w programie pocztowym kancelarii. Identyfikator = UIDVALIDITY:UID.
+    Sprawdzamy tylko ostatnie DNI_WSTECZ dni - pierwsze podpiecie nie zaciaga
+    calej historii skrzynki.
     """
 
     rodzaj = "imap"
     polacz = staticmethod(imaplib.IMAP4_SSL)   # testy podstawiaja atrape
 
-    def __init__(self, host: str, port: int, uzytkownik: str, haslo: str, folder: str = "INBOX"):
-        if not host or not uzytkownik or not haslo:
-            raise BladSkrzynki("Skrzynka nie jest skonfigurowana (serwer, użytkownik, hasło).")
+    def __init__(self, host: str, port: int, uzytkownik: str, haslo: str = "", folder: str = "INBOX",
+                 tls: str = "ssl", token=None, pomoc: str = ""):
+        if not host or not uzytkownik or not (haslo or token):
+            raise BladSkrzynki("Skrzynka nie jest podłączona. Podłącz ją w „Poczcie do przypisania”.")
+        if tls not in ("ssl", "starttls"):
+            raise BladSkrzynki("Łączymy się tylko szyfrowanie (TLS albo STARTTLS).")
         self.host, self.port, self.uzytkownik, self.haslo = host, int(port or 993), uzytkownik, haslo
-        self.folder = folder or "INBOX"
+        self.folder, self.tls, self.token, self.pomoc = folder or "INBOX", tls, token, pomoc
+
+    def _otworz(self):
+        if self.tls == "starttls":
+            return skrzynki.polacz_imap(self.host, self.port, "starttls")
+        try:
+            return self.polacz(self.host, self.port, ssl_context=ssl.create_default_context(), timeout=CZAS)
+        except ssl.SSLCertVerificationError:
+            raise BladSkrzynki(f"Serwer {self.host} nie ma poprawnego certyfikatu - ze względów bezpieczeństwa "
+                               "nie wysyłamy do niego hasła.") from None
+        except (OSError, imaplib.IMAP4.error) as blad:
+            raise BladSkrzynki(f"Nie udało się połączyć z serwerem {self.host}:{self.port} "
+                               f"({type(blad).__name__}). Sprawdź nazwę serwera albo spróbuj za chwilę.") from None
+
+    def _zaloguj(self):
+        imap = self._otworz()
+        try:
+            skrzynki.zaloguj(imap, self.uzytkownik, self.haslo, self.token() if self.token else "", self.pomoc)
+        except Exception:
+            _wyloguj(imap)
+            raise
+        return imap
 
     def _sesja(self):
-        try:
-            imap = self.polacz(self.host, self.port, ssl_context=ssl.create_default_context(), timeout=CZAS)
-        except (OSError, imaplib.IMAP4.error) as blad:
-            raise BladSkrzynki(f"Brak połączenia z serwerem poczty ({type(blad).__name__}).") from None
-        try:
-            imap.login(self.uzytkownik, self.haslo)
-        except imaplib.IMAP4.error:
-            raise BladSkrzynki("Serwer poczty odrzucił użytkownika lub hasło.") from None
+        imap = self._zaloguj()
         typ, _ = imap.select(_cytuj(self.folder), readonly=True)
         if typ != "OK":
-            imap.logout()
-            raise BladSkrzynki("Nie ma takiego folderu w skrzynce.")
+            _wyloguj(imap)
+            raise BladSkrzynki("Nie ma takiego folderu w skrzynce - wybierz folder ponownie.")
         odp = imap.response("UIDVALIDITY")[1]
         waznosc = (odp[0].decode() if odp and odp[0] else "0") if odp else "0"
         return imap, waznosc
+
+    def sprawdz(self) -> dict:
+        """Test w kreatorze: logowanie, lista folderow, liczba wiadomosci w wybranym."""
+        imap = self._zaloguj()
+        try:
+            lista = skrzynki.foldery(imap)
+            typ, dane = imap.select(_cytuj(self.folder), readonly=True)
+            liczba = int(dane[0]) if typ == "OK" and dane and dane[0] and dane[0].isdigit() else 0
+            return {"foldery": lista, "wiadomosci": liczba}
+        finally:
+            _wyloguj(imap)
 
     @staticmethod
     def _tresc(dane) -> bytes:
@@ -204,7 +247,7 @@ class DostawcaImap:
     def nowe(self, znane: set[str], limit: int = NA_RAZ) -> list[tuple[str, bytes]]:
         imap, waznosc = self._sesja()
         try:
-            typ, dane = imap.uid("SEARCH", None, "ALL")
+            typ, dane = imap.uid("SEARCH", None, "SINCE", skrzynki.data_imap(DNI_WSTECZ))
             if typ != "OK":
                 raise BladSkrzynki("Serwer poczty nie zwrócił listy wiadomości.")
             uidy = [u.decode() for u in (dane[0] or b"").split()]
@@ -216,10 +259,7 @@ class DostawcaImap:
                     wynik.append((f"{waznosc}:{uid}", self._tresc(dane)))
             return wynik
         finally:
-            try:
-                imap.logout()
-            except (OSError, imaplib.IMAP4.error):
-                pass
+            _wyloguj(imap)
 
     def pobierz(self, identyfikator: str) -> bytes:
         waznosc_wiad, _, uid = identyfikator.partition(":")
@@ -233,17 +273,23 @@ class DostawcaImap:
                 raise BladSkrzynki("Tej wiadomości nie ma już w skrzynce.")
             return tresc
         finally:
-            try:
-                imap.logout()
-            except (OSError, imaplib.IMAP4.error):
-                pass
+            _wyloguj(imap)
+
+
+def _wyloguj(imap) -> None:
+    try:
+        imap.logout()
+    except (OSError, imaplib.IMAP4.error):
+        pass
 
 
 def _cytuj(folder: str) -> str:
     return '"' + folder.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-# --- haslo: Secrets Manager w chmurze, zmienna srodowiskowa lokalnie ----------
+# --- dostep do skrzynki: Secrets Manager w chmurze, pamiec procesu lokalnie ---------
+# Sekret notarai-skrzynka-<kancelaria> to JSON: {"haslo": ...} albo
+# {"oauth": "microsoft|google", "refresh_token": ...}. Nigdy w S3, nigdy w logach.
 
 
 class SejfSkrzynki:
@@ -259,24 +305,24 @@ class SejfSkrzynki:
     def _brak(blad: Exception) -> bool:
         return type(blad).__name__ == "ResourceNotFoundException" or "ResourceNotFound" in str(getattr(blad, "response", ""))
 
-    def wczytaj(self, kancelaria: str) -> str:
+    def wczytaj(self, kancelaria: str) -> dict:
         try:
             odp = self._klient().get_secret_value(SecretId=self.nazwa(kancelaria))
         except Exception as blad:  # noqa: BLE001
             if self._brak(blad):
-                return ""
+                return {}
             raise
-        return json.loads(odp["SecretString"]).get("haslo", "")
+        return json.loads(odp["SecretString"])
 
-    def zapisz(self, kancelaria: str, haslo: str) -> None:
-        klient, nazwa, tresc = self._klient(), self.nazwa(kancelaria), json.dumps({"haslo": haslo})
+    def zapisz(self, kancelaria: str, dane: dict) -> None:
+        klient, nazwa, tresc = self._klient(), self.nazwa(kancelaria), json.dumps(dane)
         try:
             klient.put_secret_value(SecretId=nazwa, SecretString=tresc)
         except Exception as blad:  # noqa: BLE001
             if not self._brak(blad):
                 raise
             klient.create_secret(Name=nazwa, SecretString=tresc,
-                                 Description="notarai - haslo skrzynki pocztowej kancelarii (IMAP)",
+                                 Description="notarai - dostep do skrzynki pocztowej kancelarii (haslo albo token OAuth)",
                                  Tags=[{"Key": "projekt", "Value": "notarai"}, {"Key": "kancelaria", "Value": kancelaria}])
 
     def usun(self, kancelaria: str) -> None:
@@ -287,28 +333,60 @@ class SejfSkrzynki:
                 raise
 
 
+class SejfPamieci:
+    """Tryb lokalny: dostep trzymany tylko w pamieci procesu (znika po restarcie),
+    nigdy w pliku. Haslo na stale - zmienna PIECZAPP_SKRZYNKA_HASLO."""
+
+    def __init__(self):
+        self.dane: dict[str, dict] = {}
+
+    def wczytaj(self, kancelaria: str) -> dict:
+        return dict(self.dane.get(kancelaria, {}))
+
+    def zapisz(self, kancelaria: str, dane: dict) -> None:
+        self.dane[kancelaria] = dict(dane)
+
+    def usun(self, kancelaria: str) -> None:
+        self.dane.pop(kancelaria, None)
+
+
 sejf = SejfSkrzynki()
+sejf_lokalny = SejfPamieci()
 
 
 def _w_chmurze() -> bool:
     return magazyn.TRYB == "s3"
 
 
+def _sejf():
+    return sejf if _w_chmurze() else sejf_lokalny
+
+
+def dostep() -> dict:
+    dane = _sejf().wczytaj(magazyn.kancelaria())
+    if not dane and not _w_chmurze() and os.getenv("PIECZAPP_SKRZYNKA_HASLO"):
+        return {"haslo": os.getenv("PIECZAPP_SKRZYNKA_HASLO")}
+    return dane
+
+
 def haslo() -> str:
-    if _w_chmurze():
-        return sejf.wczytaj(magazyn.kancelaria())
-    return os.getenv("PIECZAPP_SKRZYNKA_HASLO", "")
+    return dostep().get("haslo", "")
 
 
 # --- ustawienia i dostawca ----------------------------------------------------
 
 
 def _ustawienia_domyslne() -> dict:
-    return {"dostawca": "", "host": "", "port": 993, "uzytkownik": "", "folder": "INBOX", "haslo_zapisane": False}
+    return {"dostawca": "", "metoda": "", "email": "", "nazwa": "", "host": "", "port": 993, "tls": "ssl",
+            "uzytkownik": "", "folder": "INBOX", "pomoc": "", "oauth": "", "polaczono": ""}
 
 
 def ustawienia() -> dict:
     return {**_ustawienia_domyslne(), **magazyn.wczytaj_plik_kancelarii(PLIK_USTAWIEN, {})}
+
+
+def podlaczona() -> bool:
+    return bool(KATALOG_DEMO and not _w_chmurze()) or ustawienia()["dostawca"] == "imap"
 
 
 def dostawca():
@@ -316,9 +394,150 @@ def dostawca():
     if KATALOG_DEMO and not _w_chmurze():
         return DostawcaKatalog(KATALOG_DEMO)
     u = ustawienia()
-    if u["dostawca"] == "imap":
-        return DostawcaImap(u["host"], u["port"], u["uzytkownik"], haslo(), u["folder"])
-    raise BladSkrzynki("Skrzynka kancelarii nie jest skonfigurowana.")
+    if u["dostawca"] != "imap":
+        raise BladSkrzynki("Skrzynka kancelarii nie jest podłączona.")
+    d = dostep()
+    token = None
+    if d.get("oauth"):
+        kancelaria = magazyn.kancelaria()
+
+        def token():
+            def zapisz_nowy(nowy):
+                _sejf().zapisz(kancelaria, {**d, "refresh_token": nowy})
+            return skrzynki.token_dostepu(kancelaria, d["oauth"], d["refresh_token"], zapisz_nowy)
+    return DostawcaImap(u["host"], u["port"], u["uzytkownik"], d.get("haslo", ""), u["folder"], u["tls"],
+                        token=token, pomoc=u.get("pomoc", ""))
+
+
+def _zapisz_ustawienia(nowe: dict) -> None:
+    def zmiana(u):
+        u.clear()
+        u.update({**_ustawienia_domyslne(), **nowe})
+    magazyn.zmien_plik_kancelarii(PLIK_USTAWIEN, zmiana, {})
+
+
+def polacz_haslem(email: str, haslo_: str, host: str = "", port: int = 0, tls: str = "",
+                  uzytkownik: str = "") -> dict:
+    """Kreator: adres + haslo. Serwer wykrywamy sami, chyba ze podano go recznie.
+    Zapisujemy dopiero po udanym logowaniu."""
+    email = email.strip().lower()
+    wykryte = skrzynki.wykryj(email)
+    if wykryte["tylko_oauth"] and not host:
+        raise BladSkrzynki(wykryte["pomoc"])
+    host = (host or wykryte["host"]).strip().lower()
+    if not host:
+        raise BladSkrzynki("Nie udało się ustalić serwera poczty tej domeny. Rozwiń „Ustawienia ręczne” "
+                           "i wpisz serwer IMAP (poda go firma hostingowa).")
+    tls = tls or wykryte["tls"]
+    port = int(port or (wykryte["port"] if host == wykryte["host"] else (993 if tls == "ssl" else 143)))
+    lokalna = email.split("@")[0]
+    kandydaci = [uzytkownik] if uzytkownik else (
+        [lokalna, email] if wykryte.get("uzytkownik") == "lokalna" else [email, lokalna])
+    ostatni = None
+    for kto in kandydaci:
+        try:
+            wynik = DostawcaImap(host, port, kto, haslo_, "INBOX", tls, pomoc=wykryte["pomoc"]).sprawdz()
+        except BladSkrzynki as blad:
+            ostatni = blad
+            if "odrzucił logowanie" not in str(blad):
+                break             # brak polaczenia - inny uzytkownik nic nie zmieni
+            continue
+        _sejf().zapisz(magazyn.kancelaria(), {"haslo": haslo_})
+        _zapisz_ustawienia({"dostawca": "imap", "metoda": "haslo", "email": email, "nazwa": wykryte["nazwa"],
+                            "host": host, "port": port, "tls": tls, "uzytkownik": kto, "folder": "INBOX",
+                            "pomoc": wykryte["pomoc"], "polaczono": datetime.now().isoformat(timespec="seconds")})
+        log.info("skrzynka %s: podlaczona haslem (%s)", magazyn.kancelaria(), wykryte["dostawca"])
+        return wynik
+    log.info("skrzynka %s: proba podlaczenia nieudana (%s)", magazyn.kancelaria(), wykryte["dostawca"])
+    raise ostatni
+
+
+# --- OAuth: start w przegladarce, powrot bez sesji (stan podpisany) -----------------
+
+_KLUCZ_LOKALNY = secrets.token_bytes(32)
+
+
+def _klucz_stanu() -> bytes:
+    baza = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
+    return hashlib.sha256(b"notarai-oauth-poczty:" + baza.encode()).digest() if baza else _KLUCZ_LOKALNY
+
+
+def _podpisz(dane: dict) -> str:
+    tresc = base64.urlsafe_b64encode(json.dumps(dane, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    podpis = hmac.new(_klucz_stanu(), tresc.encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{tresc}.{podpis}"
+
+
+def _sprawdz_podpis(stan: str) -> dict:
+    tresc, _, podpis = (stan or "").partition(".")
+    if not tresc or not hmac.compare_digest(podpis, hmac.new(_klucz_stanu(), tresc.encode(), hashlib.sha256).hexdigest()[:32]):
+        raise BladSkrzynki("Nieprawidłowy powrót z logowania - zacznij podłączanie od nowa.")
+    dane = json.loads(base64.urlsafe_b64decode(tresc + "=" * (-len(tresc) % 4)))
+    if dane.get("do", 0) < time.time():
+        raise BladSkrzynki("Logowanie trwało za długo - zacznij podłączanie od nowa.")
+    return dane
+
+
+def oauth_start(dostawca_oauth: str, email: str = "") -> str:
+    if dostawca_oauth not in skrzynki.OAUTH or not skrzynki.oauth_dostepne()[dostawca_oauth]:
+        raise BladSkrzynki("Logowanie przez tego dostawcę nie jest jeszcze włączone w notarai.")
+    weryfikator, wyzwanie = skrzynki.pkce()
+    nonce = secrets.token_urlsafe(16)
+
+    def zmiana(u):
+        u["oauth_oczekuje"] = {"nonce": nonce, "weryfikator": weryfikator, "dostawca": dostawca_oauth,
+                               "email": email.strip().lower(), "do": time.time() + 900}
+    magazyn.zmien_plik_kancelarii(PLIK_USTAWIEN, zmiana, {})
+    stan = _podpisz({"k": magazyn.kancelaria(), "n": nonce, "do": time.time() + 900})
+    return skrzynki.adres_logowania(dostawca_oauth, stan, wyzwanie, email)
+
+
+def oauth_powrot(kod: str, stan: str) -> str:
+    """Wymiana kodu na token, test IMAP (XOAUTH2), zapis. Zwraca kancelarie."""
+    dane = _sprawdz_podpis(stan)
+    znacznik = magazyn.kancelaria_var.set(dane["k"])
+    try:
+        oczekuje = magazyn.wczytaj_plik_kancelarii(PLIK_USTAWIEN, {}).get("oauth_oczekuje") or {}
+        if not oczekuje or not hmac.compare_digest(oczekuje.get("nonce", ""), dane["n"]):
+            raise BladSkrzynki("To logowanie zostało już użyte albo zastąpione nowszym - zacznij od nowa.")
+        rodzaj = oczekuje["dostawca"]
+        tokeny = skrzynki.wymien_kod(rodzaj, kod, oczekuje["weryfikator"])
+        email = tokeny["email"] or oczekuje.get("email", "")
+        if not email:
+            raise BladSkrzynki("Dostawca nie podał adresu skrzynki - spróbuj ponownie.")
+        host = skrzynki.OAUTH[rodzaj]["host"]
+        skrzynki._TOKENY[dane["k"]] = (tokeny["access_token"], tokeny["wygasa"])
+        DostawcaImap(host, 993, email, folder="INBOX", token=lambda: tokeny["access_token"]).sprawdz()
+        _sejf().zapisz(dane["k"], {"oauth": rodzaj, "refresh_token": tokeny["refresh_token"]})
+        d = skrzynki.ZNANI["microsoft" if rodzaj == "microsoft" else "gmail"]
+        _zapisz_ustawienia({"dostawca": "imap", "metoda": "oauth", "oauth": rodzaj, "email": email,
+                            "nazwa": d["nazwa"], "host": host, "port": 993, "tls": "ssl", "uzytkownik": email,
+                            "folder": "INBOX", "polaczono": datetime.now().isoformat(timespec="seconds")})
+        log.info("skrzynka %s: podlaczona przez OAuth (%s)", dane["k"], rodzaj)
+        return dane["k"]
+    finally:
+        magazyn.kancelaria_var.reset(znacznik)
+
+
+def odlacz() -> None:
+    _sejf().usun(magazyn.kancelaria())
+    skrzynki._TOKENY.pop(magazyn.kancelaria(), None)
+    _zapisz_ustawienia({})
+    log.info("skrzynka %s: odlaczona", magazyn.kancelaria())
+
+
+def zmien_folder(folder: str) -> dict:
+    folder = (folder or "").strip()
+    if not folder:
+        raise ValueError("Wybierz folder")
+    u = ustawienia()
+    if u["dostawca"] != "imap":
+        raise BladSkrzynki("Najpierw podłącz skrzynkę.")
+    proba = dostawca()
+    proba.folder = folder
+    _wyloguj(proba._sesja()[0])          # folder musi dac sie otworzyc
+    _zapisz_ustawienia({**u, "folder": folder})
+    return ustawienia()
 
 
 # --- skrzynka „Do przypisania” -------------------------------------------------
@@ -377,6 +596,34 @@ def pobierz_nowe() -> dict:
     dodane = _zmien_skrzynke(zmiana) if wpisy else 0
     log.info("skrzynka %s: pobrano %d, nowych do przypisania %d", magazyn.kancelaria(), len(pobrane), dodane)
     return {"pobrano": len(pobrane), "nowe": dodane}
+
+
+def sprawdz_samoczynnie() -> dict:
+    """Sprawdzenie skrzynki bez klikania (otwarcie aplikacji, co kilka minut).
+    Najwyzej raz na ODSTEP_S na kancelarie; blad zapisujemy, zamiast przerywac."""
+    if not podlaczona():
+        return {"sprawdzono": False}
+    stan = wczytaj_skrzynke()
+    try:
+        ostatnio = datetime.fromisoformat(stan.get("sprawdzono") or "2000-01-01T00:00:00")
+    except ValueError:
+        ostatnio = datetime(2000, 1, 1)
+    if (datetime.now() - ostatnio).total_seconds() < ODSTEP_S:
+        return {"sprawdzono": False, "blad": stan.get("blad", "")}
+    teraz = datetime.now().isoformat(timespec="seconds")
+
+    def zaznacz(blad):
+        def zmiana(d):
+            d["sprawdzono"], d["blad"] = teraz, blad
+        _zmien_skrzynke(zmiana)
+    zaznacz(stan.get("blad", ""))        # druga kopia aplikacji nie sprawdza rownolegle
+    try:
+        wynik = pobierz_nowe()
+    except BladSkrzynki as blad:
+        zaznacz(str(blad))
+        return {"sprawdzono": True, "blad": str(blad)}
+    zaznacz("")
+    return {"sprawdzono": True, **wynik, "blad": ""}
 
 
 # --- dane spraw do dopasowania -------------------------------------------------
@@ -725,13 +972,21 @@ def _wykonaj(funkcja, *argumenty):
         raise HTTPException(400, str(blad))
 
 
-class UstawieniaSkrzynki(BaseModel):
-    dostawca: str = "imap"
-    host: str = ""
-    port: int = 993
+class Wykrycie(BaseModel):
+    email: str
+
+
+class PolaczenieHaslem(BaseModel):
+    email: str
+    haslo: str
+    host: str = ""           # puste = wykryj samodzielnie
+    port: int = 0
+    tls: str = ""
     uzytkownik: str = ""
-    folder: str = "INBOX"
-    haslo: str = ""          # puste = bez zmiany hasla
+
+
+class Folder(BaseModel):
+    folder: str
 
 
 class Przypisanie(BaseModel):
@@ -751,20 +1006,32 @@ class OsobyKorespondencji(BaseModel):
 
 
 def _publiczne_ustawienia() -> dict:
-    u = ustawienia()
-    return {**u, "chmura": _w_chmurze(), "demo": bool(KATALOG_DEMO and not _w_chmurze()),
-            "haslo_lokalne": bool(os.getenv("PIECZAPP_SKRZYNKA_HASLO")) and not _w_chmurze(),
-            "role": ROLE}
+    u = {k: v for k, v in ustawienia().items() if k != "oauth_oczekuje"}
+    return {**u, "podlaczona": podlaczona(), "chmura": _w_chmurze(), "demo": bool(KATALOG_DEMO and not _w_chmurze()),
+            "trwale": _w_chmurze() or bool(os.getenv("PIECZAPP_SKRZYNKA_HASLO")),
+            "oauth_dostepne": skrzynki.oauth_dostepne(), "dni_wstecz": DNI_WSTECZ, "role": ROLE}
 
 
 @router.get("/api/korespondencja")
-def lista_do_przypisania():
-    return _wykonaj(lambda: {"wiadomosci": do_przypisania(), "ustawienia": _publiczne_ustawienia()})
+def lista_do_przypisania(odswiez: bool = False):
+    def lista():
+        wynik = sprawdz_samoczynnie() if odswiez else {}
+        stan = wczytaj_skrzynke()
+        return {"wiadomosci": do_przypisania(), "ustawienia": _publiczne_ustawienia(),
+                "sprawdzono": stan.get("sprawdzono", ""), "blad": stan.get("blad", ""), "nowe": wynik.get("nowe", 0)}
+    return _wykonaj(lista)
 
 
 @router.post("/api/korespondencja/pobierz")
 def sprawdz_skrzynke():
-    return _wykonaj(lambda: {**pobierz_nowe(), "wiadomosci": do_przypisania()})
+    def teraz():
+        wynik = pobierz_nowe()
+
+        def zmiana(d):
+            d["sprawdzono"], d["blad"] = datetime.now().isoformat(timespec="seconds"), ""
+        _zmien_skrzynke(zmiana)
+        return {**wynik, "wiadomosci": do_przypisania()}
+    return _wykonaj(teraz)
 
 
 @router.get("/api/korespondencja/ustawienia")
@@ -772,26 +1039,54 @@ def pokaz_ustawienia():
     return _publiczne_ustawienia()
 
 
-@router.put("/api/korespondencja/ustawienia")
-def zapisz_ustawienia(dane: UstawieniaSkrzynki):
-    def zapis():
-        if dane.dostawca not in ("imap", ""):
-            raise ValueError("Na razie obsługujemy skrzynki IMAP (Microsoft 365 i Gmail przez OAuth - wkrótce).")
-        if dane.haslo:
-            if not _w_chmurze():
-                raise ValueError("Lokalnie hasło skrzynki podaj w zmiennej PIECZAPP_SKRZYNKA_HASLO "
-                                 "(nie w pliku commitowanym do repozytorium).")
-            sejf.zapisz(magazyn.kancelaria(), dane.haslo)
+@router.post("/api/korespondencja/wykryj")
+def wykryj_skrzynke(dane: Wykrycie):
+    return _wykonaj(lambda: {**skrzynki.wykryj(dane.email), "oauth_dostepne": skrzynki.oauth_dostepne()})
 
-        def zmiana(u):
-            u.update({"dostawca": dane.dostawca, "host": dane.host.strip(), "port": int(dane.port or 993),
-                      "uzytkownik": dane.uzytkownik.strip(), "folder": dane.folder.strip() or "INBOX"})
-            if dane.haslo:
-                u["haslo_zapisane"] = True
-        magazyn.zmien_plik_kancelarii(PLIK_USTAWIEN, zmiana, {})
-        log.info("skrzynka %s: zapisano ustawienia (dostawca %s)", magazyn.kancelaria(), dane.dostawca or "brak")
-        return _publiczne_ustawienia()
-    return _wykonaj(zapis)
+
+@router.post("/api/korespondencja/polacz")
+def polacz_skrzynke(dane: PolaczenieHaslem):
+    def polacz():
+        wynik = polacz_haslem(dane.email, dane.haslo, dane.host, dane.port, dane.tls, dane.uzytkownik)
+        return {**_publiczne_ustawienia(), **wynik}
+    return _wykonaj(polacz)
+
+
+@router.put("/api/korespondencja/folder")
+def ustaw_folder(dane: Folder):
+    return _wykonaj(lambda: {**_publiczne_ustawienia(), **zmien_folder(dane.folder)})
+
+
+@router.get("/api/korespondencja/foldery")
+def lista_folderow():
+    return _wykonaj(lambda: dostawca().sprawdz() if ustawienia()["dostawca"] == "imap" else {"foldery": []})
+
+
+@router.delete("/api/korespondencja/polaczenie")
+def odlacz_skrzynke():
+    _wykonaj(odlacz)
+    return _publiczne_ustawienia()
+
+
+@router.get("/api/korespondencja/oauth/start/{dostawca_oauth}")
+def zacznij_oauth(dostawca_oauth: str, email: str = ""):
+    return _wykonaj(lambda: {"adres": oauth_start(dostawca_oauth, email)})
+
+
+@router.get("/api/korespondencja/oauth/powrot")
+def powrot_oauth(code: str = "", state: str = "", error: str = "", error_description: str = ""):
+    """Przekierowanie od Microsoft/Google. Bez sesji aplikacji - kancelarie wskazuje
+    podpisany stan. Wynik wraca do aplikacji w adresie (bez danych dostepu)."""
+    from urllib.parse import quote
+    if error or not code:
+        komunikat = "Logowanie przerwane albo odmówione." + (" Administrator Microsoft 365 może musieć zatwierdzić dostęp."
+                                                             if "consent" in (error_description or "").lower() else "")
+        return RedirectResponse("/#poczta=blad&komunikat=" + quote(komunikat), status_code=303)
+    try:
+        oauth_powrot(code, state)
+    except BladSkrzynki as blad:
+        return RedirectResponse("/#poczta=blad&komunikat=" + quote(str(blad)), status_code=303)
+    return RedirectResponse("/#poczta=polaczona", status_code=303)
 
 
 @router.post("/api/korespondencja/{id_wiad}/pomin")

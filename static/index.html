@@ -431,7 +431,17 @@ button.maly{padding:5px 10px;font-size:12.5px}
 .kor-osoba{display:grid;grid-template-columns:1.2fr 1.4fr 1fr 1.4fr auto;gap:6px;margin-top:6px}
 .kor-osoba input,.kor-osoba select{font:inherit;font-size:13px;padding:5px 8px}
 @media(max-width:820px){.kor-osoba{grid-template-columns:1fr 1fr}}
-.skrz-pola{display:grid;grid-template-columns:2fr 1fr 2fr 1fr;gap:10px}
+.skrz-pola{display:grid;grid-template-columns:2fr 1fr 1fr 2fr;gap:10px;margin-top:8px}
+.skrz-wiersz{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.skrz-wiersz input{flex:1;min-width:220px}
+.skrz-dostawca{margin:14px 0 4px;font-size:15px}
+.skrz-dostawca small{color:var(--tekst3);font-size:12.5px;margin-left:6px}
+.skrz-oauth{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.skrz-oauth button{min-width:240px}
+.skrz-lub{color:var(--tekst3);font-size:12.5px;margin:8px 0 4px}
+.skrz-pola select,.kor-akcje select#skrz-folder{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
+#skrzynka-polaczona .kor-gora b{color:var(--ok)}
+body.bez-kancelaria .tylko-bez-upr[data-bez-upr="kancelaria"]{display:block}
 @media(max-width:820px){.skrz-pola{grid-template-columns:1fr 1fr}}
 .kal-rodzaje{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .kal-rodzaj{font:400 13.5px var(--sans);padding:9px 10px;border-radius:8px;background:var(--tlo);color:var(--tekst);
@@ -1174,17 +1184,43 @@ notarai</div>
     <div class="pasek" style="margin-top:0"><button id="btn-skrzynka-sprawdz">Sprawdź skrzynkę</button><span class="stan" id="stan12"></span></div>
     <div id="skrzynka-lista"></div>
   </div>
-  <details class="karta" id="skrzynka-ustawienia" data-upr="kancelaria"><summary><b>Ustawienia skrzynki</b> — serwer IMAP kancelarii (połączenie szyfrowane TLS)</summary>
-    <p class="pod" id="skrzynka-opis"></p>
-    <div class="skrz-pola">
-      <div class="pole"><label class="etykieta" for="skrz-host">Serwer IMAP</label><input id="skrz-host" placeholder="np. imap.twojadomena.pl"></div>
-      <div class="pole"><label class="etykieta" for="skrz-port">Port</label><input id="skrz-port" type="number" value="993"></div>
-      <div class="pole"><label class="etykieta" for="skrz-uzytkownik">Użytkownik</label><input id="skrz-uzytkownik" autocomplete="off"></div>
-      <div class="pole"><label class="etykieta" for="skrz-folder">Folder</label><input id="skrz-folder" value="INBOX"></div>
+  <div class="karta" id="skrzynka-podlacz" hidden>
+    <h2>Podłącz skrzynkę kancelarii</h2>
+    <p class="pod tylko-bez-upr" data-bez-upr="kancelaria">Skrzynkę podłącza notariusz (właściciel kancelarii) — tutaj, jednym adresem e-mail.</p>
+    <div data-upr="kancelaria">
+      <p class="pod" style="margin-top:0">Wpisz adres skrzynki — serwer poczty rozpoznamy sami (Gmail, Microsoft 365, Onet, WP, Interia, o2, iCloud, home.pl, nazwa.pl, OVH i każda inna skrzynka IMAP). Czytamy ją tylko do odczytu: nic nie wysyłamy, niczego nie kasujemy, wiadomości zostają „nieprzeczytane”. Bierzemy pocztę z ostatnich <span id="skrz-dni">30</span> dni.</p>
+      <label class="etykieta" for="skrz-email">Adres e-mail skrzynki</label>
+      <div class="skrz-wiersz"><input id="skrz-email" type="email" placeholder="np. biuro@kancelaria.pl" autocomplete="off"><button id="skrz-dalej">Dalej</button></div>
+      <div id="skrz-wykryto" hidden>
+        <p class="skrz-dostawca"><b id="skrz-nazwa"></b><small id="skrz-zrodlo"></small></p>
+        <div class="skrz-oauth" id="skrz-oauth"></div>
+        <div id="skrz-haslo-blok">
+          <p class="skrz-lub" id="skrz-lub" hidden>albo hasłem:</p>
+          <p class="pod" id="skrz-pomoc" style="margin:4px 0 8px"></p>
+          <label class="etykieta" for="skrz-haslo">Hasło skrzynki (albo hasło aplikacji)</label>
+          <div class="skrz-wiersz"><input id="skrz-haslo" type="password" autocomplete="new-password"><button id="skrz-polacz">Połącz</button></div>
+        </div>
+        <details id="skrz-reczne" style="margin-top:10px"><summary>Ustawienia ręczne serwera (zwykle niepotrzebne)</summary>
+          <div class="skrz-pola">
+            <div class="pole"><label class="etykieta" for="skrz-host">Serwer IMAP</label><input id="skrz-host"></div>
+            <div class="pole"><label class="etykieta" for="skrz-port">Port</label><input id="skrz-port" type="number" value="993"></div>
+            <div class="pole"><label class="etykieta" for="skrz-tls">Szyfrowanie</label><select id="skrz-tls"><option value="ssl">TLS (993)</option><option value="starttls">STARTTLS (143)</option></select></div>
+            <div class="pole"><label class="etykieta" for="skrz-uzytkownik">Użytkownik</label><input id="skrz-uzytkownik" placeholder="zwykle pełny adres e-mail"></div>
+          </div>
+        </details>
+      </div>
+      <div class="pasek"><span class="stan" id="stan-skrz"></span></div>
     </div>
-    <div class="pole" id="skrz-haslo-pole" style="margin-top:10px"><label class="etykieta" for="skrz-haslo">Hasło (albo hasło aplikacji)</label><input id="skrz-haslo" type="password" autocomplete="new-password" placeholder="puste = bez zmiany"></div>
-    <div class="pasek"><button id="skrz-zapisz">Zapisz ustawienia</button><span class="stan" id="stan-skrz"></span></div>
-  </details>
+  </div>
+  <div class="karta" id="skrzynka-polaczona" hidden>
+    <div class="kor-gora"><b>✓ Skrzynka podłączona</b><span id="skrz-pol-email"></span><small id="skrz-pol-nazwa"></small></div>
+    <p class="pod" id="skrz-pol-opis" style="margin:6px 0 0"></p>
+    <div class="kor-akcje" data-upr="kancelaria">
+      <label class="etykieta" for="skrz-folder" style="margin:0">Folder</label><select id="skrz-folder"></select>
+      <button type="button" class="wtorny" id="skrz-odlacz">Odłącz skrzynkę</button>
+      <span class="stan" id="stan-skrz-pol"></span>
+    </div>
+  </div>
 </section>
 
 <!-- ===== 6: kalendarz ===== -->
@@ -2847,6 +2883,7 @@ async function uruchomTrybPracy(){
   } else {
     rysujListeSpraw();
     odswiezLicznikPoczty();
+    powrotZLogowaniaPoczty();
     otworzSpraweZAdresu();
   }
   wczytajZespol();
@@ -5854,33 +5891,29 @@ function ustawLicznikPoczty(n){ $("licznik-poczty").hidden = !n; $("licznik-pocz
 async function odswiezLicznikPoczty(){
   if (dysk.aktywny) return;
   try {
-    const odp = await api("/api/korespondencja");
-    if (odp.ok) { skrzynka = await odp.json(); ustawLicznikPoczty(skrzynka.wiadomosci.length); }
+    const odp = await api("/api/korespondencja?odswiez=1");
+    if (odp.ok) { skrzynka = await odp.json(); ustawLicznikPoczty(skrzynka.wiadomosci.length);
+      if (!$("etap12").hidden) pokazSkrzynke(); }
   } catch { /* licznik nie jest konieczny */ }
 }
 async function rysujSkrzynke(){
   stan($("stan12"), "Wczytuję…", false, true);
   try {
-    const odp = await api("/api/korespondencja");
+    const odp = await api("/api/korespondencja?odswiez=1");
     const w = await odp.json();
     if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
     skrzynka = w;
     if (!sprawyLista.length) await rysujListeSpraw();
     pokazSkrzynke();
-    stan($("stan12"), skrzynka.wiadomosci.length ? "Do przypisania: " + skrzynka.wiadomosci.length : "Skrzynka „Do przypisania” jest pusta.");
+    if (!skrzynka.blad) stan($("stan12"), skrzynka.wiadomosci.length ? "Do przypisania: " + skrzynka.wiadomosci.length
+      : skrzynka.ustawienia && skrzynka.ustawienia.podlaczona ? "Brak wiadomości do przypisania." : "Podłącz skrzynkę poniżej.");
   } catch (e) { stan($("stan12"), e.message, true); }
 }
 function pokazSkrzynke(){
   ustawLicznikPoczty(skrzynka.wiadomosci.length);
-  const u = skrzynka.ustawienia || {};
-  $("skrzynka-opis").textContent = u.demo ? "Tryb demo: wiadomości z katalogu testowego (pliki .eml), bez łączenia z serwerem poczty."
-    : u.chmura ? "Hasło zapisujemy wyłącznie w AWS Secrets Manager (eu-central-1); nie wraca do przeglądarki. " + (u.haslo_zapisane ? "Hasło jest zapisane." : "Hasło nie jest jeszcze zapisane.")
-    : "Na tym komputerze hasło podaje się w zmiennej środowiskowej PIECZAPP_SKRZYNKA_HASLO (nie w pliku w repozytorium). " + (u.haslo_lokalne ? "Zmienna jest ustawiona." : "Zmienna nie jest ustawiona.");
-  $("skrz-haslo-pole").hidden = !u.chmura;
-  if (document.activeElement?.closest?.("#skrzynka-ustawienia") == null) {
-    $("skrz-host").value = u.host || ""; $("skrz-port").value = u.port || 993;
-    $("skrz-uzytkownik").value = u.uzytkownik || ""; $("skrz-folder").value = u.folder || "INBOX";
-  }
+  $("btn-skrzynka-sprawdz").hidden = !(skrzynka.ustawienia && skrzynka.ustawienia.podlaczona);
+  $("skrzynka-lista").closest(".karta").hidden = !(skrzynka.ustawienia && skrzynka.ustawienia.podlaczona) && !skrzynka.wiadomosci.length;
+  pokazUstawieniaSkrzynki(skrzynka.ustawienia || {});
   const k = $("skrzynka-lista");
   k.innerHTML = skrzynka.wiadomosci.length ? "" : '<p class="pod">Brak wiadomości do przypisania. Kliknij „Sprawdź skrzynkę”, żeby pobrać nowe.</p>';
   skrzynka.wiadomosci.forEach(w => {
@@ -5961,19 +5994,134 @@ async function pominWiadomosc(wid){
     pokazSkrzynke();
   } catch (e) { stan($("stan12"), e.message, true); }
 }
-$("skrz-zapisz").onclick = async () => {
-  stan($("stan-skrz"), "Zapisuję…", false, true);
+// --- kreator podpiecia skrzynki ---
+let skrzWykryto = null;
+function pokazUstawieniaSkrzynki(u){
+  const pol = !!u.podlaczona;
+  $("skrzynka-podlacz").hidden = pol;
+  $("skrzynka-polaczona").hidden = !pol;
+  $("skrz-dni").textContent = u.dni_wstecz || 30;
+  if (!pol) return;
+  $("skrz-pol-email").textContent = u.demo ? "skrzynka testowa (pliki .eml)" : u.email;
+  $("skrz-pol-nazwa").textContent = u.demo ? "tryb demo" : (u.nazwa || "") + (u.metoda === "oauth" ? " · logowanie przez " + (u.oauth === "google" ? "Google" : "Microsoft") : "");
+  let opis = "Sprawdzamy ją same co kilka minut, gdy aplikacja jest otwarta.";
+  if (skrzynka.sprawdzono) opis += " Ostatnio: " + skrzynka.sprawdzono.replace("T", " ").slice(0, 16) + ".";
+  if (!u.demo && !u.trwale) opis += " Uwaga: na tym komputerze dostęp jest pamiętany do restartu serwera (na stałe: zmienna PIECZAPP_SKRZYNKA_HASLO).";
+  $("skrz-pol-opis").textContent = opis;
+  if (skrzynka.blad) stan($("stan12"), skrzynka.blad, true);
+  $("skrz-folder").closest(".kor-akcje").hidden = !!u.demo;
+  if (!$("skrz-folder").options.length && !u.demo) {
+    $("skrz-folder").innerHTML = '<option value="' + escape(u.folder) + '">' + escape(u.folder === "INBOX" ? "Odebrane" : u.folder) + "</option>";
+  }
+}
+async function wyslijJson(adres, metoda, dane){
+  const odp = await api(adres, {method: metoda, headers: {"Content-Type": "application/json"}, body: dane ? JSON.stringify(dane) : undefined});
+  const w = await odp.json().catch(() => ({}));
+  if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+  return w;
+}
+$("skrz-dalej").onclick = async () => {
+  const email = $("skrz-email").value.trim();
+  if (!email) return stan($("stan-skrz"), "Wpisz adres e-mail skrzynki.", true);
+  stan($("stan-skrz"), "Rozpoznaję serwer poczty…", false, true);
   try {
-    const odp = await api("/api/korespondencja/ustawienia", {method: "PUT", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({dostawca: "imap", host: $("skrz-host").value, port: +$("skrz-port").value || 993,
-                            uzytkownik: $("skrz-uzytkownik").value, folder: $("skrz-folder").value, haslo: $("skrz-haslo").value})});
-    const w = await odp.json();
-    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
-    $("skrz-haslo").value = "";
-    skrzynka.ustawienia = w; pokazSkrzynke();
-    stan($("stan-skrz"), "Zapisano. Kliknij „Sprawdź skrzynkę”.");
+    const w = skrzWykryto = await wyslijJson("/api/korespondencja/wykryj", "POST", {email});
+    $("skrz-wykryto").hidden = false;
+    $("skrz-nazwa").textContent = w.nazwa;
+    $("skrz-zrodlo").textContent = w.host ? "serwer " + w.host + (w.zrodlo ? " · " + w.zrodlo : "") : "";
+    $("skrz-pomoc").textContent = w.pomoc || "";
+    $("skrz-host").value = w.host || ""; $("skrz-port").value = w.port || 993;
+    $("skrz-tls").value = w.tls || "ssl"; $("skrz-uzytkownik").value = "";
+    $("skrz-reczne").open = !w.host;
+    const oauth = $("skrz-oauth"); oauth.innerHTML = "";
+    const dostepne = w.oauth_dostepne || {};
+    if (w.oauth && dostepne[w.oauth]) {
+      const b = document.createElement("button"); b.type = "button";
+      b.textContent = w.oauth === "google" ? "Zaloguj przez Google" : "Zaloguj przez Microsoft";
+      b.onclick = () => zacznijOauth(w.oauth, email);
+      oauth.appendChild(b);
+    }
+    const zOauth = !!oauth.childElementCount;
+    $("skrz-haslo-blok").hidden = w.tylko_oauth;
+    $("skrz-lub").hidden = !zOauth;
+    if (w.tylko_oauth && !zOauth) {
+      stan($("stan-skrz"), "Microsoft wymaga logowania przez Microsoft, a ono nie jest jeszcze włączone w notarai. Napisz do nas — włączymy je dla kancelarii.", true);
+      $("skrz-haslo-blok").hidden = false;     // np. Exchange z wlaczonym haslem
+    } else {
+      stan($("stan-skrz"), zOauth ? "Najprościej: kliknij przycisk logowania." : "Wpisz hasło i kliknij „Połącz”.");
+    }
+    (zOauth ? oauth.firstElementChild : $("skrz-haslo")).focus();
   } catch (e) { stan($("stan-skrz"), e.message, true); }
 };
+$("skrz-email").onkeydown = e => { if (e.key === "Enter") $("skrz-dalej").click(); };
+$("skrz-haslo").onkeydown = e => { if (e.key === "Enter") $("skrz-polacz").click(); };
+$("skrz-polacz").onclick = async () => {
+  const haslo = $("skrz-haslo").value;
+  if (!haslo) return stan($("stan-skrz"), "Wpisz hasło skrzynki.", true);
+  const reczne = skrzWykryto && $("skrz-host").value.trim() !== (skrzWykryto.host || "");
+  const btn = $("skrz-polacz"); btn.disabled = true;
+  stan($("stan-skrz"), "Łączę się i sprawdzam logowanie…", false, true);
+  try {
+    const w = await wyslijJson("/api/korespondencja/polacz", "POST", {
+      email: $("skrz-email").value.trim(), haslo,
+      host: reczne || $("skrz-reczne").open ? $("skrz-host").value.trim() : "",
+      port: $("skrz-reczne").open ? +$("skrz-port").value || 0 : 0,
+      tls: $("skrz-reczne").open ? $("skrz-tls").value : "",
+      uzytkownik: $("skrz-reczne").open ? $("skrz-uzytkownik").value.trim() : ""});
+    $("skrz-haslo").value = "";
+    wypelnijFoldery(w.foldery, w.folder);
+    skrzynka.ustawienia = w;
+    pokazUstawieniaSkrzynki(w);
+    stan($("stan-skrz-pol"), "Połączono. W folderze jest " + w.wiadomosci + " wiadomości — pobieram nowe…");
+    $("btn-skrzynka-sprawdz").click();
+  } catch (e) { stan($("stan-skrz"), e.message, true); }
+  finally { btn.disabled = false; }
+};
+async function zacznijOauth(dostawca, email){
+  try {
+    const w = await wyslijJson("/api/korespondencja/oauth/start/" + dostawca + "?email=" + encodeURIComponent(email), "GET");
+    location.href = w.adres;           // po zalogowaniu wracamy do #poczta=...
+  } catch (e) { stan($("stan-skrz"), e.message, true); }
+}
+function wypelnijFoldery(lista, wybrany){
+  if (!lista || !lista.length) return;
+  $("skrz-folder").innerHTML = lista.map(f => '<option value="' + escape(f.id) + '"' + (f.id === wybrany ? " selected" : "") + ">" + escape(f.nazwa) + "</option>").join("");
+}
+$("skrz-folder").onfocus = async () => {
+  if ($("skrz-folder").dataset.wczytane) return;
+  try {
+    const w = await wyslijJson("/api/korespondencja/foldery", "GET");
+    $("skrz-folder").dataset.wczytane = "1";
+    wypelnijFoldery(w.foldery, (skrzynka.ustawienia || {}).folder);
+  } catch (e) { stan($("stan-skrz-pol"), e.message, true); }
+};
+$("skrz-folder").onchange = async () => {
+  try {
+    const w = await wyslijJson("/api/korespondencja/folder", "PUT", {folder: $("skrz-folder").value});
+    skrzynka.ustawienia = w;
+    stan($("stan-skrz-pol"), "Folder zmieniony.");
+  } catch (e) { stan($("stan-skrz-pol"), e.message, true); }
+};
+$("skrz-odlacz").onclick = async () => {
+  if (!confirm("Odłączyć skrzynkę? Dostęp (hasło albo token) zostanie usunięty z notarai. Wiadomości przypisane do spraw zostają.")) return;
+  try {
+    const w = await wyslijJson("/api/korespondencja/polaczenie", "DELETE");
+    skrzynka.ustawienia = w; $("skrz-folder").innerHTML = ""; delete $("skrz-folder").dataset.wczytane;
+    pokazUstawieniaSkrzynki(w);
+    stan($("stan-skrz"), "Skrzynka odłączona.");
+  } catch (e) { stan($("stan-skrz-pol"), e.message, true); }
+};
+// Powrot z logowania Microsoft/Google: #poczta=polaczona albo #poczta=blad&komunikat=...
+function powrotZLogowaniaPoczty(){
+  const m = location.hash.match(/^#poczta=(polaczona|blad)(?:&komunikat=(.*))?$/);
+  if (!m) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  pokaz(12);
+  if (m[1] === "polaczona") setTimeout(() => $("btn-skrzynka-sprawdz").click(), 300);
+  else stan($("stan-skrz"), decodeURIComponent(m[2] || "Nie udało się podłączyć skrzynki."), true);
+}
+// Samoczynne sprawdzanie: co 5 minut, gdy karta jest widoczna (serwer i tak ogranicza czestotliwosc).
+setInterval(() => { if (document.visibilityState === "visible" && token !== undefined) odswiezLicznikPoczty(); }, 5 * 60 * 1000);
 
 async function wyciagnijUstalenia(idSprawy, wid, el){
   stan(el, "Czytam wiadomość i wypisuję ustalenia (ze źródłem)…", false, true);

@@ -4,6 +4,7 @@
 Dane zmyslone (zestaw Nowak / Kaczmarek z odcinka 01, domena .test).
 Model zastapiony atrapa - zaden test nie wola Bedrock.
 """
+import imaplib
 import json
 import logging
 import ssl
@@ -441,44 +442,53 @@ def test_uprawnienia_stanowisk():
     assert stanowiska.wymagane("POST", "/api/korespondencja/pobierz") is None
 
 
-class TestUstawienia:
-    def test_lokalnie_haslo_tylko_ze_zmiennej_srodowiskowej(self, srodowisko, monkeypatch):
-        k, _, _ = srodowisko
+class TestDostep:
+    def test_lokalnie_dostep_tylko_w_pamieci_albo_zmiennej(self, srodowisko, monkeypatch):
         monkeypatch.setattr(korespondencja, "KATALOG_DEMO", "")
-        odp = k.put("/api/korespondencja/ustawienia", json={"host": "imap.kancelaria.test", "uzytkownik": "sekretariat",
-                                                            "haslo": "tajne-haslo-123"})
-        assert odp.status_code == 400 and "PIECZAPP_SKRZYNKA_HASLO" in odp.json()["detail"]
-        odp = k.put("/api/korespondencja/ustawienia", json={"host": "imap.kancelaria.test", "uzytkownik": "sekretariat"})
-        assert odp.status_code == 200 and odp.json()["host"] == "imap.kancelaria.test"
-        for plik in config.DANE.rglob("*.json"):
-            assert "tajne-haslo-123" not in plik.read_text("utf-8")
+        monkeypatch.setattr(korespondencja, "sejf_lokalny", korespondencja.SejfPamieci())
+        monkeypatch.setattr(korespondencja.DostawcaImap, "polacz", staticmethod(AtrapaImap))
+        k, _, _ = srodowisko
+        odp = k.post("/api/korespondencja/polacz", json={"email": "biuro@onet.pl", "haslo": "tajne-haslo-123"})
+        assert odp.status_code == 200, odp.text
+        assert "tajne-haslo-123" not in odp.text
+        for plik in config.DANE.rglob("*"):
+            if plik.is_file():
+                assert b"tajne-haslo-123" not in plik.read_bytes(), plik
+        assert korespondencja.haslo() == "tajne-haslo-123"         # pamiec procesu
+        korespondencja.sejf_lokalny.dane.clear()
         monkeypatch.setenv("PIECZAPP_SKRZYNKA_HASLO", "z-env")
-        dost = korespondencja.dostawca()
-        assert isinstance(dost, korespondencja.DostawcaImap) and dost.haslo == "z-env" and dost.port == 993
+        assert korespondencja.dostawca().haslo == "z-env"
 
     def test_w_chmurze_haslo_w_secrets_manager_i_nie_wraca(self, srodowisko, monkeypatch):
         k, _, _ = srodowisko
         zapisane = {}
 
         class Sejf:
-            def zapisz(self, kancelaria, haslo):
-                zapisane[kancelaria] = haslo
+            def zapisz(self, kancelaria, dane):
+                zapisane[kancelaria] = dane
 
             def wczytaj(self, kancelaria):
-                return zapisane.get(kancelaria, "")
+                return zapisane.get(kancelaria, {})
+
+            def usun(self, kancelaria):
+                zapisane.pop(kancelaria, None)
         monkeypatch.setattr(korespondencja, "sejf", Sejf())
         monkeypatch.setattr(korespondencja, "_w_chmurze", lambda: True)
+        monkeypatch.setattr(korespondencja.DostawcaImap, "polacz", staticmethod(AtrapaImap))
         monkeypatch.setenv("PIECZAPP_SKRZYNKA_HASLO", "nie-uzywane-w-chmurze")
-        odp = k.put("/api/korespondencja/ustawienia", json={"host": "imap.kancelaria.test", "uzytkownik": "s",
-                                                            "haslo": "tajne-haslo-123"})
-        assert odp.status_code == 200 and odp.json()["haslo_zapisane"] is True
+        odp = k.post("/api/korespondencja/polacz", json={"email": "biuro@wp.pl", "haslo": "tajne-haslo-123"})
+        assert odp.status_code == 200, odp.text
+        wynik = odp.json()
+        assert wynik["podlaczona"] and wynik["host"] == "imap.wp.pl" and wynik["uzytkownik"] == "biuro@wp.pl"
+        assert [f["nazwa"] for f in wynik["foldery"]] == ["Odebrane", "Kancelaria/Sprawy", "Wysłane"]
         assert "tajne-haslo-123" not in odp.text and "tajne-haslo-123" not in k.get("/api/korespondencja/ustawienia").text
-        assert zapisane == {"lokalna": "tajne-haslo-123"}
-        assert korespondencja.haslo() == "tajne-haslo-123"
+        assert zapisane == {"lokalna": {"haslo": "tajne-haslo-123"}}
         assert korespondencja.dostawca().haslo == "tajne-haslo-123"   # katalog demo nie dziala w chmurze
+        assert k.delete("/api/korespondencja/polaczenie").json()["podlaczona"] is False
+        assert zapisane == {}
 
     def test_nazwa_sekretu_z_prefiksem_notarai(self):
-        assert korespondencja.sejf.nazwa("kancelaria pod/siódemką") .startswith("notarai-skrzynka-kancelaria-pod-")
+        assert korespondencja.sejf.nazwa("kancelaria pod/siódemką").startswith("notarai-skrzynka-kancelaria-pod-")
 
 
 class AtrapaImap:
@@ -489,7 +499,17 @@ class AtrapaImap:
 
     def login(self, uzytkownik, haslo):
         self.polecenia.append(("login", uzytkownik))
+        if haslo == "zle":
+            raise imaplib.IMAP4.error(b"[ALERT] Application-specific password required")
         return "OK", [b""]
+
+    def authenticate(self, mechanizm, funkcja):
+        AtrapaImap.xoauth = (mechanizm, funkcja(b""))
+        return "OK", [b""]
+
+    def list(self):
+        return "OK", [b'(\\HasNoChildren) "/" "INBOX"', b'(\\HasNoChildren) "/" "Wys&AUI-ane"',
+                      b'(\\Noselect \\HasChildren) "/" "Kancelaria"', b'(\\HasNoChildren) "/" "Kancelaria/Sprawy"']
 
     def select(self, folder, readonly=False):
         assert readonly is True and folder == '"INBOX"'
@@ -501,6 +521,7 @@ class AtrapaImap:
     def uid(self, polecenie, *argumenty):
         self.polecenia.append((polecenie,) + argumenty)
         if polecenie == "SEARCH":
+            assert argumenty[1] == "SINCE"         # tylko ostatnie dni, nie cala historia
             return "OK", [b"7 9"]
         assert argumenty[1] == "(BODY.PEEK[])"        # bez oznaczania jako przeczytane
         tresc = self.maile.get(argumenty[0].encode())
@@ -540,3 +561,204 @@ def test_dane_demo_odcinka_01():
     assert d05["nadawca"]["imie"] == "Robert Kaczmarek" and "1 grudnia" in d05["tekst"] and d05["zalaczniki"]
     assert d10["in_reply_to"] == [d05["message_id"]] and "Mama się zgadza, 1 grudnia aktualny" in d10["tekst"]
     assert d09["nadawca"]["imie"] == "Joanna Kaczmarek" and "30 listopada" in d09["tekst"] and SYGNATURA in d09["temat"]
+
+
+# --- kreator: wykrywanie, OAuth, samoczynne sprawdzanie --------------------------------
+
+import httpx  # noqa: E402
+
+import skrzynki  # noqa: E402
+
+
+class TestWykrywanie:
+    @pytest.mark.parametrize("email,host,dostawca", [
+        ("biuro@gmail.com", "imap.gmail.com", "gmail"),
+        ("kancelaria@op.pl", "imap.poczta.onet.pl", "onet"),
+        ("notariusz@interia.pl", "poczta.interia.pl", "interia"),
+        ("biuro@wp.pl", "imap.wp.pl", "wp"),
+        ("biuro@outlook.com", "outlook.office365.com", "microsoft"),
+    ])
+    def test_znani_dostawcy_bez_siegania_do_sieci(self, email, host, dostawca, monkeypatch):
+        monkeypatch.setattr(skrzynki, "rekordy_mx", lambda d: pytest.fail("bez DNS dla znanych domen"))
+        w = skrzynki.wykryj(email)
+        assert (w["host"], w["dostawca"], w["port"], w["tls"]) == (host, dostawca, 993, "ssl")
+
+    def test_microsoft_tylko_oauth_z_podpowiedzia(self):
+        w = skrzynki.wykryj("biuro@hotmail.com")
+        assert w["tylko_oauth"] and w["oauth"] == "microsoft" and "Zaloguj przez Microsoft" in w["pomoc"]
+
+    def test_wlasna_domena_w_google_workspace_i_microsoft_365_po_mx(self, monkeypatch):
+        monkeypatch.setattr(skrzynki, "rekordy_mx", lambda d: {
+            "kancelaria-a.pl": ["aspmx.l.google.com"],
+            "kancelaria-b.pl": ["kancelaria-b-pl.mail.protection.outlook.com"]}[d])
+        assert skrzynki.wykryj("biuro@kancelaria-a.pl")["dostawca"] == "gmail"
+        b = skrzynki.wykryj("biuro@kancelaria-b.pl")
+        assert b["dostawca"] == "microsoft" and b["zrodlo"] == "rekord MX domeny"
+
+    def test_autokonfiguracja_thunderbirda(self, monkeypatch):
+        xml = (b'<clientConfig><emailProvider id="hosting.test"><incomingServer type="pop3"><hostname>pop.x</hostname>'
+               b'<socketType>SSL</socketType></incomingServer><incomingServer type="imap">'
+               b'<hostname>imap.%EMAILDOMAIN%</hostname><port>143</port><socketType>STARTTLS</socketType>'
+               b'<username>%EMAILLOCALPART%</username></incomingServer></emailProvider></clientConfig>')
+        adresy = []
+
+        def odpowiedz(zadanie):
+            adresy.append(str(zadanie.url))
+            return httpx.Response(200, content=xml) if "thunderbird" in zadanie.url.host else httpx.Response(404)
+        monkeypatch.setattr(skrzynki, "TRANSPORT", httpx.MockTransport(odpowiedz))
+        monkeypatch.setattr(skrzynki, "rekordy_mx", lambda d: ["mx.hosting.test"])
+        w = skrzynki.wykryj("biuro@kancelaria-c.pl")
+        assert (w["host"], w["port"], w["tls"], w["uzytkownik"]) == ("imap.kancelaria-c.pl", 143, "starttls", "lokalna")
+        assert adresy[-1] == "https://autoconfig.thunderbird.net/v1.1/kancelaria-c.pl"
+        assert all("biuro" not in a for a in adresy)          # na zewnatrz tylko domena
+
+    def test_autokonfiguracja_bez_szyfrowania_odrzucona(self):
+        xml = (b'<clientConfig><incomingServer type="imap"><hostname>imap.x.pl</hostname>'
+               b'<socketType>plain</socketType></incomingServer></clientConfig>')
+        assert skrzynki._z_autoconfig(xml, "x.pl") is None
+
+    def test_proby_tylko_z_certyfikatem(self, monkeypatch):
+        monkeypatch.setattr(skrzynki, "rekordy_mx", lambda d: ["serwer1234.hosting.test"])
+        monkeypatch.setattr(skrzynki, "autoconfig", lambda d: None)
+        sprawdzone = []
+        monkeypatch.setattr(skrzynki, "ma_certyfikat", lambda h, p=993: sprawdzone.append(h) or h == "mail.kancelaria-d.pl")
+        w = skrzynki.wykryj("biuro@kancelaria-d.pl")
+        assert sprawdzone == ["serwer1234.hosting.test", "imap.kancelaria-d.pl", "mail.kancelaria-d.pl"]
+        assert w["host"] == "mail.kancelaria-d.pl" and w["dostawca"] == "inny"
+
+    def test_nic_nie_znaleziono_to_pusty_host_do_wpisania(self, monkeypatch):
+        monkeypatch.setattr(skrzynki, "rekordy_mx", lambda d: [])
+        monkeypatch.setattr(skrzynki, "autoconfig", lambda d: None)
+        monkeypatch.setattr(skrzynki, "ma_certyfikat", lambda h, p=993: False)
+        assert skrzynki.wykryj("biuro@kancelaria-e.pl")["host"] == ""
+
+    def test_zly_adres(self):
+        with pytest.raises(skrzynki.BladPolaczenia):
+            skrzynki.wykryj("to nie adres")
+
+    def test_foldery_imap_utf7(self):
+        assert skrzynki.dekoduj_utf7("Wys&AUI-ane") == "Wysłane"
+        assert skrzynki.dekoduj_utf7("Kosz &- inne") == "Kosz & inne"
+        assert skrzynki.dekoduj_utf7("Spo&AUI-eczno&AVs-ci") == "Społeczności"
+
+
+class TestPolaczenieHaslem:
+    def test_gmail_bez_hasla_aplikacji_dostaje_podpowiedz(self, srodowisko, monkeypatch):
+        monkeypatch.setattr(korespondencja.DostawcaImap, "polacz", staticmethod(AtrapaImap))
+        k, _, _ = srodowisko
+        odp = k.post("/api/korespondencja/polacz", json={"email": "biuro@gmail.com", "haslo": "zle"})
+        assert odp.status_code == 502 and "hasło aplikacji" in odp.json()["detail"]
+        assert k.get("/api/korespondencja/ustawienia").json()["podlaczona"] is True   # demo - katalog
+        monkeypatch.setattr(korespondencja, "KATALOG_DEMO", "")
+        assert k.get("/api/korespondencja/ustawienia").json()["podlaczona"] is False  # nic nie zapisano
+
+    def test_microsoft_haslem_odsylany_do_logowania(self, srodowisko):
+        k, _, _ = srodowisko
+        odp = k.post("/api/korespondencja/polacz", json={"email": "biuro@outlook.com", "haslo": "x"})
+        assert odp.status_code == 502 and "Zaloguj przez Microsoft" in odp.json()["detail"]
+
+    def test_uprawnienia_kreatora(self):
+        for sciezka in ("/api/korespondencja/wykryj", "/api/korespondencja/polacz"):
+            assert stanowiska.wymagane("POST", sciezka) == "kancelaria"
+        assert stanowiska.wymagane("DELETE", "/api/korespondencja/polaczenie") == "kancelaria"
+        assert stanowiska.wymagane("PUT", "/api/korespondencja/folder") == "kancelaria"
+        assert stanowiska.wymagane("GET", "/api/korespondencja/oauth/start/microsoft") == "kancelaria"
+        assert stanowiska.wymagane("GET", "/api/korespondencja") is None
+
+
+class TestOAuth:
+    @pytest.fixture
+    def oauth(self, srodowisko, monkeypatch):
+        monkeypatch.setenv("PIECZAPP_OAUTH_MS_KLIENT", "klient-ms")
+        monkeypatch.setenv("PIECZAPP_OAUTH_MS_SEKRET", "sekret-ms")
+        monkeypatch.setenv("PIECZAPP_ADRES", "https://app.notarai.test")
+        monkeypatch.setattr(korespondencja, "KATALOG_DEMO", "")
+        monkeypatch.setattr(korespondencja, "sejf_lokalny", korespondencja.SejfPamieci())
+        monkeypatch.setattr(korespondencja.DostawcaImap, "polacz", staticmethod(AtrapaImap))
+        monkeypatch.setattr(skrzynki, "_TOKENY", {})
+        zadania = []
+        id_token = "x." + __import__("base64").urlsafe_b64encode(
+            json.dumps({"preferred_username": "Biuro@Kancelaria-B.pl"}).encode()).decode().rstrip("=") + ".y"
+
+        def token(zadanie):
+            from urllib.parse import parse_qs
+            dane = {k: v[0] for k, v in parse_qs(zadanie.content.decode()).items()}
+            zadania.append(dane)
+            if dane["grant_type"] == "authorization_code":
+                return httpx.Response(200, json={"access_token": "dostep-1", "refresh_token": "odswiez-1",
+                                                 "expires_in": 3600, "id_token": id_token})
+            return httpx.Response(200, json={"access_token": "dostep-2", "refresh_token": "odswiez-2", "expires_in": 3600})
+        monkeypatch.setattr(skrzynki, "TRANSPORT", httpx.MockTransport(token))
+        return srodowisko[0], zadania
+
+    def test_bez_konfiguracji_przycisku_nie_ma(self, srodowisko, monkeypatch):
+        monkeypatch.delenv("PIECZAPP_OAUTH_MS_KLIENT", raising=False)
+        k, _, _ = srodowisko
+        assert k.post("/api/korespondencja/wykryj", json={"email": "a@outlook.com"}).json()["oauth_dostepne"]["microsoft"] is False
+        assert k.get("/api/korespondencja/oauth/start/microsoft").status_code == 502
+
+    def test_pelny_przebieg_microsoft(self, oauth):
+        from urllib.parse import parse_qs, urlparse
+        k, zadania = oauth
+        assert k.post("/api/korespondencja/wykryj", json={"email": "a@outlook.com"}).json()["oauth_dostepne"]["microsoft"]
+        adres = k.get("/api/korespondencja/oauth/start/microsoft", params={"email": "biuro@kancelaria-b.pl"}).json()["adres"]
+        q = {k_: v[0] for k_, v in parse_qs(urlparse(adres).query).items()}
+        assert adres.startswith("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?")
+        assert q["client_id"] == "klient-ms" and q["code_challenge_method"] == "S256"
+        assert q["redirect_uri"] == "https://app.notarai.test/api/korespondencja/oauth/powrot"
+        assert "IMAP.AccessAsUser.All" in q["scope"] and "offline_access" in q["scope"]
+        odp = k.get("/api/korespondencja/oauth/powrot", params={"code": "kod-1", "state": q["state"]},
+                    follow_redirects=False)
+        assert odp.status_code == 303 and odp.headers["location"] == "/#poczta=polaczona"
+        assert zadania[0]["code_verifier"] and zadania[0]["client_secret"] == "sekret-ms"
+        u = k.get("/api/korespondencja/ustawienia").json()
+        assert u["podlaczona"] and u["metoda"] == "oauth" and u["email"] == "biuro@kancelaria-b.pl"
+        assert "oauth_oczekuje" not in u and "odswiez-1" not in json.dumps(u)
+        assert AtrapaImap.xoauth == ("XOAUTH2", b"user=biuro@kancelaria-b.pl\x01auth=Bearer dostep-1\x01\x01")
+        # Ponowne uzycie tego samego powrotu jest odrzucone? Stan zuzyty po zapisie ustawien.
+        odp = k.get("/api/korespondencja/oauth/powrot", params={"code": "kod-1", "state": q["state"]},
+                    follow_redirects=False)
+        assert "poczta=blad" in odp.headers["location"]
+        # Odswiezenie tokenu z rotacja: nowy refresh token trafia do sejfu.
+        skrzynki._TOKENY.clear()
+        korespondencja.dostawca().sprawdz()
+        assert zadania[-1]["grant_type"] == "refresh_token" and zadania[-1]["refresh_token"] == "odswiez-1"
+        assert korespondencja.sejf_lokalny.dane["lokalna"]["refresh_token"] == "odswiez-2"
+
+    def test_podrobiony_stan_odrzucony(self, oauth):
+        k, zadania = oauth
+        adres = k.get("/api/korespondencja/oauth/start/microsoft").json()["adres"]
+        from urllib.parse import parse_qs, urlparse
+        stan = parse_qs(urlparse(adres).query)["state"][0]
+        tresc, podpis = stan.split(".")
+        zly = __import__("base64").urlsafe_b64encode(json.dumps({"k": "inna-kancelaria", "n": "x", "do": 9e9}).encode()).decode().rstrip("=")
+        odp = k.get("/api/korespondencja/oauth/powrot", params={"code": "k", "state": f"{zly}.{podpis}"},
+                    follow_redirects=False)
+        assert "poczta=blad" in odp.headers["location"] and zadania == []
+
+    def test_odmowa_u_dostawcy(self, oauth):
+        k, _ = oauth
+        odp = k.get("/api/korespondencja/oauth/powrot", params={"error": "access_denied", "error_description": "AADSTS65001 consent"},
+                    follow_redirects=False)
+        assert "poczta=blad" in odp.headers["location"] and "Administrator" in __import__("urllib.parse").parse.unquote(odp.headers["location"])
+
+    def test_powrot_jest_otwarty_w_trybie_wielu_kancelarii(self):
+        import autoryzacja
+        assert "/api/korespondencja/oauth/powrot" in autoryzacja._OTWARTE
+        assert not any(o.startswith("/api/korespondencja") and o != "/api/korespondencja/oauth/powrot"
+                       for o in autoryzacja._OTWARTE)
+
+
+def test_samoczynne_sprawdzanie_z_ograniczeniem(srodowisko):
+    k, _, _ = srodowisko
+    pierwsze = k.get("/api/korespondencja", params={"odswiez": True}).json()
+    assert len(pierwsze["wiadomosci"]) == 4 and pierwsze["nowe"] == 4 and pierwsze["sprawdzono"]
+    drugie = k.get("/api/korespondencja", params={"odswiez": True}).json()
+    assert drugie["nowe"] == 0 and drugie["sprawdzono"] == pierwsze["sprawdzono"]   # za wczesnie - bez sprawdzania
+
+
+def test_samoczynne_sprawdzanie_zapisuje_blad_zamiast_przerywac(srodowisko, monkeypatch):
+    k, _, _ = srodowisko
+    monkeypatch.setattr(korespondencja, "KATALOG_DEMO", "/nie/ma/takiego/katalogu")
+    odp = k.get("/api/korespondencja", params={"odswiez": True})
+    assert odp.status_code == 200 and "nie istnieje" in odp.json()["blad"]

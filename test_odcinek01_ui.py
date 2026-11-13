@@ -228,11 +228,14 @@ def test_poczta_do_przypisania_i_ustalenia_ze_zrodlem(serwer_demo):
         basia = zaloguj(przegladarka.new_context(**BIURKO), adres, "basia@kancelaria-demo.test")
         basia.click('.krok[data-etap="12"]')
         basia.wait_for_selector("#etap12:not([hidden])")
-        basia.click("#btn-skrzynka-sprawdz")
-        basia.locator("#stan12", has_text="Nowe wiadomości: 3").wait_for()
-        assert basia.inner_text("#licznik-poczty") == "3"
+        # Skrzynka sprawdza sie sama po otwarciu okna - bez klikania.
         maile = basia.locator("#skrzynka-lista .kor-el")
-        assert maile.count() == 3
+        maile.nth(2).wait_for()
+        assert maile.count() == 3 and basia.inner_text("#licznik-poczty") == "3"
+        assert basia.locator("#skrzynka-polaczona").is_visible()          # demo: skrzynka testowa podlaczona
+        assert "tryb demo" in basia.inner_text("#skrzynka-polaczona")
+        basia.click("#btn-skrzynka-sprawdz")
+        basia.locator("#stan12", has_text="Brak nowych wiadomości").wait_for()
         d09 = maile.filter(has_text="najem")
         assert SYGNATURA in d09.locator(".propozycja").first.inner_text()
         assert "pewność: wysoka" in d09.locator(".propozycja").first.inner_text()
@@ -282,4 +285,32 @@ def test_poczta_do_przypisania_i_ustalenia_ze_zrodlem(serwer_demo):
         assert next(p for p in sprawa["pola"] if p["nazwa"].startswith("www:"))["wartosc"] is None
         for strona in (basia, marta):
             assert strona.bledy == [], strona.bledy
+        przegladarka.close()
+
+
+def test_kreator_podlaczenia_skrzynki(serwer_demo):
+    """Helena (wlascicielka) wpisuje tylko adres - aplikacja rozpoznaje dostawce
+    i podpowiada, jak sie zalogowac (bez prawdziwego logowania do poczty)."""
+    adres = serwer_demo
+    with playwright.sync_playwright() as p:
+        try:
+            przegladarka = p.chromium.launch()
+        except Exception as blad:  # noqa: BLE001
+            pytest.skip(f"Brak Chromium dla Playwright: {blad}")
+        helena = zaloguj(przegladarka.new_context(**BIURKO), adres, "helena@kancelaria-demo.test")
+        helena.click('.krok[data-etap="12"]')
+        helena.wait_for_selector("#etap12:not([hidden])")
+        # W demo skrzynka testowa jest podlaczona - kreator pokazujemy po wylaczeniu trybu demo w przegladarce.
+        helena.evaluate("pokazUstawieniaSkrzynki({podlaczona: false, dni_wstecz: 30})")
+        helena.fill("#skrz-email", "biuro@gmail.com")
+        helena.click("#skrz-dalej")
+        helena.locator("#skrz-nazwa", has_text="Gmail").wait_for()
+        assert "hasło aplikacji" in helena.inner_text("#skrz-pomoc")
+        assert helena.locator("#skrz-haslo").is_visible()
+        zrzut(helena, "15-kreator-skrzynki-gmail.png")
+        helena.fill("#skrz-email", "biuro@outlook.com")
+        helena.click("#skrz-dalej")
+        helena.locator("#skrz-nazwa", has_text="Microsoft").wait_for()
+        assert "logowania przez Microsoft" in helena.inner_text("#stan-skrz")
+        assert helena.bledy == [], helena.bledy
         przegladarka.close()

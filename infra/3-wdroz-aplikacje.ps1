@@ -138,6 +138,16 @@ if (Czy-Aws secretsmanager describe-secret --secret-id notarai/finyou) {
     Write-Host "   ksiegi z EKW przez Finance You: brak sekretu notarai/finyou" -ForegroundColor Yellow
 }
 
+# Logowanie przez Microsoft / Google przy podpinaniu skrzynek kancelarii
+# (skrzynki.py): sekret notarai/oauth-poczty z infra\zapisz-sekret-oauth-poczty.ps1.
+if (Czy-Aws secretsmanager describe-secret --secret-id notarai/oauth-poczty) {
+    $oauthArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/oauth-poczty --query ARN --output text
+    $parametry += "OAuthPocztySekretArn=$oauthArn"
+    Write-Host "   skrzynki kancelarii: logowanie przez Microsoft/Google (sekret notarai/oauth-poczty)"
+} else {
+    Write-Host "   skrzynki kancelarii: tylko haslo IMAP (brak sekretu notarai/oauth-poczty)" -ForegroundColor Yellow
+}
+
 # Leady z formularzy Meta (meta_leady.py): sekret notarai/meta, JSON z kluczami
 # verify, app_secret, token. Zaklada go wlasciciel konta Meta w Secrets Manager.
 if (Czy-Aws secretsmanager describe-secret --secret-id notarai/meta) {

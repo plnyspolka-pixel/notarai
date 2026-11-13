@@ -53,6 +53,8 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
             "/kalkulator", "/api/taksa", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
             "/notariusze", "/api/notariusze",
+            # powrot z logowania Microsoft/Google przy podpinaniu skrzynki (podpisany stan)
+            "/api/korespondencja/oauth/powrot",
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania
             "/poswiadczenia")
 

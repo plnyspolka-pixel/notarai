@@ -62,7 +62,8 @@ _REGULY = [
     (None, r"/api/giif(/.*)?", "kancelaria"),
     (_ZAPIS, r"/api/ksiegi-kancelarii(/.*)?", "kancelaria"),
     (_ZAPIS, r"/api/personalizacja(/.*)?", "kancelaria"),
-    (_ZAPIS, r"/api/korespondencja/ustawienia", "kancelaria"),
+    (_ZAPIS, r"/api/korespondencja/(ustawienia|wykryj|polacz|polaczenie|folder)", "kancelaria"),
+    (("GET",), r"/api/korespondencja/oauth/start/.+", "kancelaria"),
 ]
 _SKOMPILOWANE = [(m, re.compile(w + r"/?"), u) for m, w, u in _REGULY]
 
