@@ -18,11 +18,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install pytest
+      - run: python -m pip install pytest fastapi==0.115.6 pydantic>=2.0
       # Repository-wide conftest imports AWS modules; run pure crypto tests in isolation.
       - run: |
           mkdir -p "$RUNNER_TEMP/notarai-proof-tests"
-          cp proof_engine.py test_proof_engine.py test_dowody_policy.py test_sealed_vault.py sealed_vault.py stanowiska.py autoryzacja.py "$RUNNER_TEMP/notarai-proof-tests/"
+          cp proof_engine.py test_proof_engine.py test_dowody_policy.py test_sealed_vault.py test_sealed_api.py sealed_vault.py stanowiska.py autoryzacja.py "$RUNNER_TEMP/notarai-proof-tests/"
           cd "$RUNNER_TEMP/notarai-proof-tests"
           python -m pytest -q
       - uses: actions/setup-node@v4
