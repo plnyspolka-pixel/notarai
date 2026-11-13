@@ -1,5 +1,8 @@
 # EP07 — Pokaż mi to na komputerze
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Po trudnym dniu Zosia zauważa, że sami nie jedli od rana. Kuba proponuje wspólny posiłek, zamiast kolejnego wykładu o narzędziu. Żart obsługuje romans poza kancelarią. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 25.11.2026 · **Czas:** 76 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
