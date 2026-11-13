@@ -41,7 +41,7 @@ def _decode(value: str, expected_length: int | None = None) -> bytes:
 
 
 class SealedEnvelope(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid")
     schema_name: str = Field(alias="schema")
     documentId: uuid.UUID
     tenantRef: str = Field(min_length=1, max_length=120)
