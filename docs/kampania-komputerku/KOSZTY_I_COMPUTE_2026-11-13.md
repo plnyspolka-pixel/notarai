@@ -39,6 +39,22 @@ Wniosek: najpierw tokeny i abonamenty, dopiero potem GPU.
 6. **Pułapki licencyjne UE:** HunyuanVideo / HunyuanVideo-Avatar (licencja wyklucza UE), MiniMax H3 (wyklucza UE),
    FLUX.1 dev/Kontext, Qwen-Image-2.1, XTTS v2, F5-TTS PL - niekomercyjne. Nie używać.
 
+## 3a. Wariant bez zakładania nowych kont (wszystko na rachunku AWS aplikacji)
+RunPod/Modal są najtańsze, ale wymagają nowego konta z kartą. Ten sam efekt da się osiągnąć na koncie AWS,
+które już płaci za Bedrock i ECS:
+- **GPU:** `infra/notarai-gpu-komfy.yaml` – instancja spot `g6.xlarge` (L4 24 GB, ok. 0,3 USD/h we Frankfurcie;
+  `g6e.xlarge` L40S 48 GB ok. 0,9 USD/h) z ComfyUI postawionym tym samym skryptem co na RunPod, dyskiem na modele,
+  dostępem przez SSM i automatycznym stopem po `TtlMinutes`. Wymaga limitu (quota) na instancje G w eu-central-1 –
+  nowe konta mają 0 vCPU i trzeba złożyć wniosek w Service Quotas (jednorazowo, zwykle 1–2 dni).
+  Deploy: `aws cloudformation deploy --stack-name notarai-gpu-komfy --template-file infra/notarai-gpu-komfy.yaml
+  --parameter-overrides VpcId=... SubnetId=... AllowedCidr=<IP>/32 --capabilities CAPABILITY_NAMED_IAM`.
+  **Nieprzetestowane** – pierwszy deploy z `TtlMinutes=60`; po paczce `aws ec2 stop-instances`, na stałe `delete-stack`.
+- **Lektor:** `narzedzia/tts_polly.py` – Amazon Polly, polskie głosy Ola (neural/generative) i Ewa; 12 mies. darmowe
+  1 mln znaków neural miesięcznie, potem 16 USD/1M; Speech Marks dają visemy do rigu 2D bez osobnego rozpoznawania mowy.
+  Jakość niżej niż ElevenLabs v3, wystarczająca na narrację i głosy epizodyczne; główna obsada zostaje w ElevenLabs.
+- **Czego to nie załatwia:** klucz Bedrock w środowisku sesji nie daje uprawnień do EC2/Polly – do deployu potrzebna
+  rola lub profil AWS operatora (ten sam, którym wdrażacie `notarai-aplikacja`).
+
 ## 4. Dieta tokenowa dla pracy koncepcyjnej (biblia, scenariusze, pakiety)
 - Jedno zapytanie = jeden artefakt w JSON/Markdown, z biblią w cache (`odcinek_json.py` jest wzorem).
 - Sonnet 4.6 do pierwszej wersji, Opus 4.6 z `effort: low` tylko do kontroli continuity; Haiku 4.5 do napisów,

@@ -243,7 +243,9 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   4. Osobno: 10 kwestii po polsku przez EchoMimicV3 i InfiniteTalk, odsłuch z dźwiękiem;
      decyzja, czy „mówiące w planie” schodzą z Kling Avatar v2 Pro.
   5. **Usunąć pod** po teście (dysk zostaje).
-- **Gdzie w kodzie:** `docs/kampania-komputerku/narzedzia/gpu/`, `koszty_odcinka.py` (TORY["gpu_4090"]),
+- **Alternatywa bez nowego konta:** stos `infra/notarai-gpu-komfy.yaml` (spot g6.xlarge na rachunku AWS
+  aplikacji; wymaga limitu na instancje G w eu-central-1 i profilu AWS operatora) – te same kroki 2–5.
+- **Gdzie w kodzie:** `docs/kampania-komputerku/narzedzia/gpu/`, `infra/notarai-gpu-komfy.yaml`, `koszty_odcinka.py` (TORY["gpu_4090"]),
   `KOSZTY_I_COMPUTE_2026-11-13.md` §3 pkt 2 i 4.
 - **Zamknięte, gdy:** paczka klipów z jednego odcinka przeszła end-to-end, a zmierzony koszt
   klipu jest w `koszty_log.csv` i w dokumencie kosztów.
