@@ -50,8 +50,8 @@ Marta wpisuje w „Poprawkach do projektu” (tekst na ekranie): „§ 5: wydani
 sprzedająca opróżni lokal. Termin potwierdziła sprzedająca osobiście 17.11, kupujący jeszcze nie — oznacz do potwierdzenia przez kupujących. Własność przechodzi
 z chwilą zawarcia aktu.” → „Popraw i sporządź ponownie” → projekt v2 (to, co faktycznie zwróci model).
 **MARTA:** Najpierw ustalmy, co naprawdę potwierdziły strony.
-**KUBA:** Pani Irena potwierdziła piętnasty stycznia. Kaczmarkowie jeszcze nie.
-**MARTA:** Zaproponujmy im poddanie się egzekucji co do wydania lokalu. Wtedy czekanie do stycznia będzie dla nich bezpieczne.
+**KUBA:** Pani Irena zgodziła się na piętnasty stycznia. Kaczmarkowie jeszcze nie.
+**MARTA:** Zaproponujmy, żeby pani Irena poddała się egzekucji co do wydania lokalu. Wtedy kupujący mogą spokojnie czekać do stycznia.
 
 ## Sc. 04 — „Nie synowi” (drzwi gabinetu)
 
@@ -64,5 +64,11 @@ Muzyka intrygi, Basia zamyka drzwi.
 ## Zapowiedź odc. 04 „Wczoraj tego nie było”
 
 **KUBA:** W tej księdze jest wzmianka. Wczoraj jej nie było.
-**HELENA:** Wzmianka to jeszcze nie wpis. Sprawdźmy, czego dotyczy.
+**HELENA:** Ta wzmianka to jeszcze nie wpis. Sprawdźmy, czego dotyczy.
 Plansza tytułu odc. 04, rosnące napięcie, outro.
+
+## Montaż (stan po produkcji)
+
+Kolejność w sc. 03: zasady kancelarii → „Ta zasada…” → „Najpierw ustalmy…” → Kuba → poprawka § 5 w systemie → „Popraw i sporządź ponownie”
+→ § 5 projektu v2 (prawdziwa odpowiedź modelu, z oznaczeniem „do potwierdzenia przez kupujących”) → propozycja Marty.
+Sc. 02: kwestia Kuby zza kadru na zbliżeniu kartki, potem jego nieruchomy kadr (największa pauza). Szczegóły: `produkcja-odc03/ZADANIA.md`.
