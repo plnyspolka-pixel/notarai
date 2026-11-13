@@ -111,7 +111,7 @@ app.include_router(notariusze.router_admina)
 app.include_router(poswiadczenia.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
-app.include_router(tokenomia.router_tpay)
+app.include_router(tokenomia.router_platnosci)
 app.middleware("http")(kalkulator.cors)
 
 

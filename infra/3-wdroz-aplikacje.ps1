@@ -16,8 +16,6 @@ param(
     # CloudFormation zapamieta poprzednia wartosc.
     [string]$Email  = "plnyspolka@gmail.com",
     [int]$Kopie     = 2,
-    # Bramka TPay: produkcja albo sandbox (https://openapi.sandbox.tpay.com).
-    [string]$TpayApi = "https://api.tpay.com",
     # VAT doliczany do pakietow kredytow: "0" = Fundacja zwolniona z VAT.
     [ValidateSet("0", "0.23")][string]$Vat = "0",
     # Adres API Finance You (dostawca tresci ksiag wieczystych); uzywany, gdy
@@ -107,20 +105,13 @@ if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
 
 # Kredyty sa jedynym sposobem zakupu (tokenomia.py), pakiety kupuje sie przez TPay.
 $parametry += "Tokenomia=true"
-$parametry += "TpayApi=$TpayApi"
 $parametry += "StawkaVat=$Vat"
-# Platnosci TPay: sekret notarai/tpay zaklada infra\zapisz-sekret-tpay.ps1
-# (client_id, client_secret, kod). Czytamy tylko jego ARN - wartosc zostaje w AWS.
-if (Czy-Aws secretsmanager describe-secret --secret-id notarai/tpay) {
-    $tpayArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/tpay --query ARN --output text
-    $parametry += "TpaySekretArn=$tpayArn"
-    Write-Host "   platnosci TPay: sekret notarai/tpay, $TpayApi, VAT $Vat"
-} else {
-    Write-Host "   platnosci TPay: brak sekretu notarai/tpay - zakup pakietow wylaczony" -ForegroundColor Yellow
-}
+# Pakiety kupuje sie przez Finance You (konto TPay Fundacji, faktury KSeF) tym
+# samym sekretem notarai/finyou co tresc KW - osobnego sekretu TPay nie ma.
+Write-Host "   platnosci: przez Finance You (sekret notarai/finyou), VAT $Vat"
 
 # Ksiegi wieczyste z EKW: sekret notarai/apify zaklada infra\zapisz-sekret-apify.ps1
-# (klucz token). Jak przy TPay czytamy tylko ARN - wartosc zostaje w AWS.
+# (klucz token). Czytamy tylko ARN - wartosc zostaje w AWS.
 if (Czy-Aws secretsmanager describe-secret --secret-id notarai/apify) {
     $apifyArn = Uruchom-Aws secretsmanager describe-secret --secret-id notarai/apify --query ARN --output text
     $parametry += "ApifySekretArn=$apifyArn"

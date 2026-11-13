@@ -66,14 +66,6 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
-  TpaySekretArn:
-    Type: String
-    Default: ""
-    Description: >-
-      Pelny ARN sekretu notarai/tpay (klucze client_id, client_secret i kod),
-      zalozonego skryptem zapisz-sekret-tpay.ps1 - wartosci nie trafiaja do
-      szablonu. Puste = zakup pakietow kredytow wylaczony (kredyty startowe
-      i dopisywane przez administratora dzialaja dalej).
   ApifySekretArn:
     Type: String
     Default: ""
@@ -99,11 +91,6 @@ Parameters:
     Type: String
     Default: ""
     Description: Adres API Finance You (np. https://finyou.pl). Jawny, nie jest sekretem.
-  TpayApi:
-    Type: String
-    Default: https://api.tpay.com
-    AllowedValues: ["https://api.tpay.com", "https://openapi.sandbox.tpay.com"]
-    Description: Adres Open API TPay (produkcja albo sandbox).
   StawkaVat:
     Type: String
     Default: "0"
@@ -139,12 +126,11 @@ Parameters:
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
-    Description: Adres aplikacji - tu wraca platnik z TPay i tu TPay wysyla powiadomienia.
+    Description: Adres aplikacji - tu wraca platnik z TPay i tu Finance You sygnalizuje platnosc.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
-  MamyTpay: !Not [!Equals [!Ref TpaySekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
@@ -202,16 +188,6 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
-        - !If
-          - MamyTpay
-          - PolicyName: sekret-tpay
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: Allow
-                  Action: secretsmanager:GetSecretValue
-                  Resource: !Ref TpaySekretArn
-          - !Ref AWS::NoValue
         - !If
           - MamyApify
           - PolicyName: sekret-apify
@@ -480,8 +456,6 @@ Resources:
               Value: !Ref KlientLogowania
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
-            - Name: TPAY_API
-              Value: !Ref TpayApi
             - Name: PIECZAPP_VAT
               Value: !Ref StawkaVat
             - Name: PIECZAPP_REJESTRACJA
@@ -499,22 +473,6 @@ Resources:
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
-            # Klucze TPay z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
-            - !If
-              - MamyTpay
-              - Name: TPAY_CLIENT_ID
-                ValueFrom: !Sub "${TpaySekretArn}:client_id::"
-              - !Ref AWS::NoValue
-            - !If
-              - MamyTpay
-              - Name: TPAY_CLIENT_SECRET
-                ValueFrom: !Sub "${TpaySekretArn}:client_secret::"
-              - !Ref AWS::NoValue
-            - !If
-              - MamyTpay
-              - Name: TPAY_KOD_BEZPIECZENSTWA
-                ValueFrom: !Sub "${TpaySekretArn}:kod::"
-              - !Ref AWS::NoValue
             # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
             - !If
               - MamyApify

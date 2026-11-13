@@ -3401,7 +3401,7 @@ function rysujKredyty(){
   pakiety.hidden = !mogeKupic;
   $("kredyty-pakiety-opis").hidden = !mogeKupic;
   $("kredyty-pakiety-opis").textContent = (k.vat > 0 ? "Ceny brutto (z " + Math.round(k.vat * 100) + "% VAT)." : "Ceny końcowe — usługodawca jest zwolniony z VAT.")
-    + " Płatność przez TPay: BLIK, przelew albo karta. Fakturę wystawiamy na dane kancelarii.";
+    + " Płatność przez TPay: BLIK, przelew albo karta. Faktura na NIP kancelarii trafia do KSeF i na e-mail.";
   pakiety.innerHTML = Object.entries(k.pakiety).map(([kod, p]) =>
     `<button class="wtorny" data-pakiet="${escape(kod)}">${escape(kr(p.kredyty))} kr. — ${escape(zl(p.brutto_zl))} zł</button>`).join("");
   pakiety.querySelectorAll("button").forEach(b => b.onclick = () => kupPakiet(b.dataset.pakiet, b));
@@ -3410,7 +3410,8 @@ function rysujKredyty(){
   const zakupy = (k.zakupy || []).filter(z => z.status === "oplacone");
   $("abonament-historia").innerHTML = zakupy.length
     ? "<b>Zakupy</b>" + zakupy.slice().reverse().map(z =>
-        `<div><span>${escape(dataPl(z.oplacono))}</span><span>${escape(kr(z.kredyty))} kr. · ${escape(zl(z.brutto))} zł</span></div>`).join("")
+        `<div><span>${escape(dataPl(z.oplacono))}</span><span>${escape(kr(z.kredyty))} kr. · ${escape(zl(z.brutto))} zł`
+        + (z.faktura ? ` · faktura ${escape(z.faktura)}` : "") + `</span></div>`).join("")
     : "";
 }
 
@@ -3480,11 +3481,11 @@ async function obsluzPowrotZPlatnosci(){
     stan($("stan-abonament"), "Płatność nie została dokończona. Możesz spróbować ponownie.", true);
     return;
   }
-  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie z TPay…", false, true);
+  stan($("stan-abonament"), "Dziękujemy! Czekam na potwierdzenie płatności…", false, true);
   for (let i = 0; i <= 20; i++) {
     if (i) { await new Promise(r => setTimeout(r, 3000)); await wczytajAbonament(); }
     if (kredyty && kredyty.saldo > przed) {
-      stan($("stan-abonament"), "Kredyty dopisane, saldo: " + kr(kredyty.saldo) + " kr. Faktura przyjdzie e-mailem.");
+      stan($("stan-abonament"), "Kredyty dopisane, saldo: " + kr(kredyty.saldo) + " kr. Faktura trafi do KSeF i na e-mail.");
       return;
     }
   }

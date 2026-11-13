@@ -186,14 +186,13 @@ Czego żadna automatyka nie załatwi:
 Kredyty są jedynym sposobem zakupu notarai — nie ma abonamentu. Koszt każdej
 czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny w kredytach
 wynikają z kosztu z narzutem co najmniej 100%. Nowa kancelaria dostaje 150 kr
-startowych, potem właściciel kupuje pakiety przez TPay (`platnosci.py`):
-1. sekret: `powershell -ExecutionPolicy Bypass -File infra\zapisz-sekret-tpay.ps1`
-   (Client ID, Client Secret, kod bezpieczeństwa powiadomień),
-2. wdrożenie: `infra\3-wdroz-aplikacje.ps1` (parametry `-TpayApi`, `-Vat`),
-3. w panelu TPay adres powiadomień `https://app.notarai.pl/api/tpay/powiadomienie`.
+startowych, potem właściciel kupuje pakiety. Płatność idzie przez Finance You
+(`platnosci.py`): to samo konto TPay Fundacji i te same faktury KSeF co sprzedaż
+Finance You, ten sam sekret `notarai/finyou` co treść KW. Po stronie Finance You:
+`/api/public/partner-platnosci` (repozytorium finyou, `src/lib/partner-payments/`).
 
 Brak kredytów blokuje tylko czynności płatne (HTTP 402), nie dostęp do spraw.
-Sprzedaż do faktur: panel `/admin` → „Sprzedaż kredytów do faktur (CSV)”.
+Uzgodnienie sprzedaży: panel `/admin` → „Sprzedaż kredytów (CSV)” (z numerami faktur).
 Cennik, symulacja, modele biznesowe i faktury: `docs/tokenomia.md`.
 
 ## Pliki w chmurze albo u kancelarii

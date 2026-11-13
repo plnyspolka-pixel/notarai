@@ -46,11 +46,11 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Sciezki bez logowania: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
-# powiadomienie TPay (TPay nie ma tokenu, zaufanie daje suma kontrolna
-# i potwierdzenie z API TPay). Rejestracja
+# sygnal platnosci z Finance You (bez tokenu; niczego z niego nie bierzemy
+# poza numerem zamowienia - stan czytamy sami tokenem partnera). Rejestracja
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/tpay/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
+            "/api/pomocnik/parowanie", "/api/finyou/platnosc", "/rejestracja", "/api/rejestracja", "/dokumenty/",
             "/kalkulator", "/api/taksa", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
             "/notariusze", "/api/notariusze",
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania

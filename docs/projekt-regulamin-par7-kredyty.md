@@ -25,13 +25,15 @@ w życie. Po decyzji: podmienić § 7 w `02-regulamin.md`, zmienić „Wersja z 
 4. Nowa Kancelaria otrzymuje bezpłatnie 150 kredytów na zapoznanie się z Usługą.
    Kredyty startowe nie podlegają wymianie na pieniądze.
 5. Właściciel kupuje kredyty w pakietach w aplikacji, płacąc z góry za
-   pośrednictwem Krajowego Integratora Płatności S.A. (Tpay). Ceny pakietów są
+   pośrednictwem Krajowego Integratora Płatności S.A. (Tpay), na rachunek
+   Usługodawcy obsługiwany w serwisie Finance You. Ceny pakietów są
    podane w aplikacji przed zakupem. Usługodawca korzysta ze zwolnienia z podatku
    VAT (art. 113 ust. 1 ustawy o podatku od towarów i usług), więc ceny nie
    zawierają VAT. Gdy zwolnienie przestanie przysługiwać, zmiana cen wymaga
    trybu z § 14.
 6. Kredyty dopisuje się po potwierdzeniu wpłaty przez Tpay. Fakturę za pakiet
-   Usługodawca wysyła e-mailem na adres Właściciela.
+   Usługodawca wystawia w Krajowym Systemie e-Faktur i wysyła e-mailem na adres
+   Właściciela.
 7. Kupione kredyty nie wygasają przez 24 miesiące od zakupu i nie przepadają
    z końcem miesiąca. Niewykorzystane kredyty nie podlegają zwrotowi, z wyjątkiem
    rozwiązania umowy przez Usługodawcę z przyczyn, za które Kancelaria nie

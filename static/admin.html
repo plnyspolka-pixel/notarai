@@ -182,9 +182,9 @@ a.odnosnik-a:hover{color:var(--tekst)}
     <p class="pod" id="licznik"></p>
     <div class="pasek"><button class="wtorny maly" id="btn-rejestr-umow">Rejestr umów (CSV)</button>
       <span class="stan">wykaz administratorów do rejestru art. 30 ust. 2 RODO, z umowami zakończonymi w ostatnich 5 latach</span></div>
-    <div class="pasek"><button class="wtorny maly" id="btn-sprzedaz">Sprzedaż kredytów do faktur (CSV)</button>
+    <div class="pasek"><button class="wtorny maly" id="btn-sprzedaz">Sprzedaż kredytów (CSV)</button>
       <input type="month" id="sprzedaz-miesiac" aria-label="Miesiąc sprzedaży">
-      <span class="stan" id="stan-sprzedaz">opłacone w TPay pakiety: nabywca, NIP, nazwa pozycji, kwoty i adnotacja o zwolnieniu z VAT</span></div>
+      <span class="stan" id="stan-sprzedaz">opłacone pakiety z numerem faktury z Finance You (KSeF) — do uzgodnienia sprzedaży</span></div>
     <div class="szukaj" id="pole-szukaj" hidden><input type="text" id="szukaj" placeholder="Szukaj po nazwie albo adresie"></div>
     <div id="lista"><span class="stan praca">Ładuję…</span></div>
     <h1 style="margin-top:40px">Administratorzy</h1>
@@ -453,7 +453,7 @@ $("btn-sprzedaz").onclick = async () => {
     const w = await api("/api/admin/sprzedaz?miesiac=" + encodeURIComponent(miesiac));
     const kolumny = [["oplacono", "data zapłaty"], ["nabywca", "nabywca"], ["nip", "NIP"], ["adres", "adres"],
       ["email", "e-mail"], ["pozycja", "nazwa pozycji na fakturze"], ["netto", "netto"], ["vat", "VAT"],
-      ["brutto", "brutto"], ["adnotacja", "adnotacja"], ["status", "status"], ["transakcja_tpay", "transakcja TPay"], ["zamowienie", "zamówienie"]];
+      ["brutto", "brutto"], ["adnotacja", "adnotacja"], ["faktura", "faktura (Finance You / KSeF)"], ["status", "status"], ["transakcja_tpay", "transakcja TPay"], ["zamowienie", "zamówienie"]];
     const pole = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const csv = [kolumny.map(k => pole(k[1])).join(";")]
       .concat(w.sprzedaz.map(r => kolumny.map(k => pole(r[k[0]])).join(";"))).join("\r\n");

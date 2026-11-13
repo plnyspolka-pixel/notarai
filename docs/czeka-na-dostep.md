@@ -148,34 +148,36 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
-## NA-9. TPay — pierwszy zakup pakietu kredytów na żywo (sandbox, potem produkcja)
+## NA-9. Pierwszy zakup pakietu kredytów na żywo (przez Finance You / TPay)
 
 - **Status:** czeka
-- **Brakuje:** konta sprzedawcy TPay (Client ID, Client Secret, kod
-  bezpieczeństwa powiadomień) — najpierw sandbox, potem produkcja — oraz
-  decyzji o § 7 Regulaminu (`docs/projekt-regulamin-par7-kredyty.md`, 14 dni
-  wcześniej e-mail do kancelarii).
+- **Brakuje:** wdrożenia gałęzi `claude/tokenomia-tpay-integration-52zu6a` w obu
+  repozytoriach (notarai i finyou, z migracją `partner_credit_orders`) oraz decyzji
+  o § 7 Regulaminu (`docs/projekt-regulamin-par7-kredyty.md`, 14 dni wcześniej
+  e-mail do kancelarii).
 - **Na żywo:**
-  1. Przed wdrożeniem: w panelu Stripe anulować trwające subskrypcje abonamentu
-     notarai (aplikacja już ich nie obsługuje — bez tego Stripe dalej pobierałby
-     opłaty) i usunąć webhook `notarai-aplikacja`; kancelariom, które zapłaciły
-     za bieżący okres, dopisać w `/admin` kredyty za niewykorzystaną część.
-  2. `infra\zapisz-sekret-tpay.ps1` z kluczami sandbox,
-     `infra\3-wdroz-aplikacje.ps1 -TpayApi https://openapi.sandbox.tpay.com`.
-  3. Na kancelarii demo właściciel: „Kredyty” → pakiet 100 kr → płatność testowa
-     w TPay → powrót; saldo rośnie o 100 w ≤ 1 min.
-  4. W panelu TPay „Wyślij ponownie powiadomienie” — saldo bez zmian (raz).
-  5. Zwrot transakcji w sandboxie — saldo maleje o 100 (raz).
-  6. `/admin` → „Sprzedaż kredytów do faktur (CSV)” — wiersz z NIP-em, nazwą
-     pozycji i adnotacją o zwolnieniu z VAT.
-  7. Jeżeli odczyt `GET /transactions/{id}` w TPay zwraca inny status niż
-     `correct` dla opłaconej transakcji — poprawić `platnosci.OPLACONA`.
-  8. Produkcja: klucze produkcyjne, `-TpayApi https://api.tpay.com`, zakup
-     pakietu 100 kr kartą/BLIK-iem, wystawienie pierwszej faktury.
-- **W kodzie:** `platnosci.py` (bramka), `tokenomia.py` (`kup_pakiet`,
-  `powiadomienie_tpay`, `admin_sprzedaz`).
-- **Zamknięte, gdy:** prawdziwy zakup na produkcji dopisuje kredyty raz
-  i jest z niego wystawiona faktura.
+  1. Przed wdrożeniem notarai: w panelu Stripe anulować trwające subskrypcje
+     abonamentu notarai (aplikacja już ich nie obsługuje — bez tego Stripe dalej
+     pobierałby opłaty) i usunąć webhook `notarai-aplikacja`; kancelariom, które
+     zapłaciły za bieżący okres, dopisać w `/admin` kredyty za niewykorzystaną część.
+  2. Finance You: migracja `20261113120000_partner_credit_orders.sql`; w env
+     opcjonalnie `PARTNER_PLATNOSCI_TOKEN` (bez niego działa `KW_PARTNER_TOKEN`)
+     i `PARTNER_PLATNOSCI_ORIGINS` (domyślnie `https://app.notarai.pl`).
+     Sprawdzić, że podmiot Fundacji w module księgowym ma stawkę „zw”.
+  3. notarai: sekret `notarai/finyou` i `FinyouAdres` już są (treść KW) — wystarczy
+     wdrożenie `infra\3-wdroz-aplikacje.ps1`.
+  4. Kancelaria demo, właściciel: „Kredyty” → pakiet 100 kr → BLIK → powrót; saldo
+     rośnie o 100 w ≤ 1 min, w oknie widać numer faktury.
+  5. W panelu TPay „Wyślij ponownie powiadomienie” — saldo bez zmian (raz).
+  6. Faktura: jest w KSeF na NIP kancelarii demo, e-mail doszedł, pozycja
+     „Bon jednego przeznaczenia - pakiet 100 kredytów…”, stawka „zw”.
+  7. Zwrot w panelu TPay — w Finance You `refunded`, w notarai saldo −100 (raz);
+     korekta faktury ręcznie w module księgowym.
+- **W kodzie:** notarai `platnosci.py`, `tokenomia.py` (`kup_pakiet`,
+  `uzgodnij_zamowienie`, `ping_platnosci`); finyou `src/lib/partner-payments/`,
+  `src/routes/api/public/partner-platnosci.ts`, `webhook-core.server.ts` (prefiks `NOTARAI:`).
+- **Zamknięte, gdy:** prawdziwy zakup na produkcji dopisuje kredyty raz i ma
+  fakturę w KSeF.
 
 ---
 

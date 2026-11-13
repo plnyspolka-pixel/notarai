@@ -1,12 +1,13 @@
 # Tokenomia notarai: koszty, kredyty, modele biznesowe
 
-Stan na 13.11.2026. Kod: `tokenomia.py`, bramka: `platnosci.py` (TPay), symulacja:
+Stan na 13.11.2026. Kod: `tokenomia.py`, płatności: `platnosci.py` (przez Finance You), symulacja:
 `scripts/symulacja_tokenomii.py`, testy: `test_tokenomia.py`, `test_platnosci.py`.
 
 **Decyzja 13.11.2026: kredyty są jedynym sposobem zakupu (model B, sekcja 5).**
 Abonament Stripe usunięty z aplikacji. Tokenomia domyślnie włączona
 (`PIECZAPP_TOKENOMIA=true`; `false` tylko awaryjnie). Nowa kancelaria dostaje
-150 kr startowych, potem kupuje pakiety przez TPay. Szczegóły: sekcja 8.
+150 kr startowych, potem kupuje pakiety przez Finance You (konto TPay Fundacji).
+Szczegóły: sekcja 8.
 
 ## 1. Skąd biorą się koszty
 
@@ -133,14 +134,14 @@ Zasady:
 API:
 - `GET /api/kredyty` – saldo, startowe, dokupione, cennik (bez kosztów), pakiety z ceną
   do zapłaty, historia, zakupy, `moge_kupic`,
-- `POST /api/kredyty/pakiet {"pakiet": "500"}` – transakcja TPay (tylko właściciel),
-- `POST /api/tpay/powiadomienie` – powiadomienie TPay (otwarte, weryfikacja niżej),
-- `GET /api/admin/sprzedaz?miesiac=RRRR-MM` – opłacone pakiety do faktur,
+- `POST /api/kredyty/pakiet {"pakiet": "500"}` – zamówienie w Finance You, adres TPay (tylko właściciel),
+- `POST /api/finyou/platnosc` – sygnał z Finance You (otwarty, nic nie przesądza),
+- `GET /api/admin/sprzedaz?miesiac=RRRR-MM` – opłacone pakiety z numerami faktur,
 - `GET /api/admin/tokenomia` – cennik z kosztami P50/P90, kalibracja z pomiarów,
   wynik miesiąca każdej kancelarii (kredyty, koszt, zrealizowany narzut),
 - `POST /api/admin/kancelarie/{id}/kredyty {"kredyty": 250, "powod": "..."}` – ręczna korekta.
 
-TPay: patrz sekcja 8. Nowa kancelaria dostaje 150 kr startowych; kancelaria założona
+Płatności: patrz sekcja 8. Nowa kancelaria dostaje 150 kr startowych; kancelaria założona
 przed tokenomią dostaje je przy pierwszej czynności.
 
 ### Kalibracja
@@ -256,28 +257,33 @@ i 10 tur rozmowy, nadwyżka w kredytach.
    przy najbliższej fakturze; do tego czasu można dopisać kredyty w panelu admina.
 
 
-## 8. Zakup przez TPay i faktura (od 13.11.2026)
+## 8. Zakup przez Finance You (TPay) i faktura (od 13.11.2026)
+
+### Dlaczego przez Finance You
+
+Sprzedawcą notarai i Finance You jest ta sama Fundacja (NIP 9462747637). Finance You
+ma już jej konto TPay, weryfikację powiadomień w API TPay i automatyczne faktury
+w KSeF. notarai nie ma więc osobnego konta TPay ani kluczy TPay: zakłada zamówienie
+w Finance You tym samym tokenem partnera co treść KW (sekret `notarai/finyou`).
 
 ### Przepływ płatności
 
-1. Właściciel w oknie „Kredyty” wybiera pakiet. Serwer zapisuje zamówienie
-   w portfelu (`zamowienia[numer]`: pakiet, kredyty, netto, kwota do zapłaty,
-   status `nowe`) i zakłada transakcję TPay (`POST /transactions`,
-   `hiddenDescription = "<kancelaria>:<numer>"`).
-2. Przeglądarka idzie na stronę TPay (BLIK, przelew, karta), wraca na `/?kredyty=ok`
-   i czeka na saldo — powrót niczego nie potwierdza.
-3. TPay wysyła `POST /api/tpay/powiadomienie` (formularz). Kredyty dopisujemy, gdy:
-   - `md5sum = md5(id + tr_id + tr_amount + tr_crc + kod bezpieczeństwa)` się zgadza,
-   - `tr_crc` wskazuje nasze zamówienie, a `tr_paid` ≥ kwoty z zamówienia,
-   - `GET /transactions/{transactionId}` w TPay zwraca status `correct`
-     (wyciek kodu bezpieczeństwa nie wystarczy, żeby dopisać kredyty),
-   - zamówienie nie było jeszcze opłacone (powtórzone powiadomienie = nic).
-4. Odpowiedź `TRUE` kończy ponawianie. Błąd sprawdzenia w API TPay → 5xx, TPay ponowi.
-   `tr_status=CHARGEBACK` (zwrot) odbiera kredyty pakietu, raz.
+1. Właściciel w oknie „Kredyty” wybiera pakiet. notarai zapisuje zamówienie w portfelu
+   (`zamowienia[numer]`: pakiet, kredyty, kwota, status `nowe`) i woła
+   `POST {finyou}/api/public/partner-platnosci` z numerem `<kancelaria>:<numer>`,
+   kwotą, nazwą pozycji faktury i danymi nabywcy (nazwa, e-mail właściciela, NIP, adres).
+2. Finance You zapisuje zamówienie (`partner_credit_orders`), tworzy transakcję TPay
+   (`hiddenDescription = NOTARAI:<id>`) i oddaje adres płatności. Przeglądarka idzie
+   na TPay (BLIK, przelew, karta) i wraca na `/?kredyty=ok`.
+3. TPay powiadamia wspólny webhook Finance You. Finance You pobiera transakcję z API
+   TPay, sprawdza kwotę, oznacza zamówienie `paid` (raz), wystawia fakturę (KSeF),
+   wysyła ją e-mailem nabywcy i „pinguje” `POST /api/finyou/platnosc`.
+4. notarai na ping (albo przy otwarciu okna „Kredyty”, gdy ping zginie) czyta stan
+   `GET {finyou}/api/public/partner-platnosci?zamowienie=...` tokenem partnera
+   i dopisuje kredyty raz, gdy status `paid` i kwota, zapłata oraz liczba kredytów
+   zgadzają się z zamówieniem. `refunded` odbiera kredyty (raz), `failed` zamyka zamówienie.
 
-Uwaga: TPay zaleca dodatkowo weryfikację podpisu JWS (`X-JWS-Signature`). Nie jest
-wdrożona, bo krok 3 (zapytanie TPay wprost) daje tę samą pewność bez biblioteki
-kryptograficznej. Lista IP TPay nie istnieje (adresy są dynamiczne).
+Ping jest otwarty i nic nie przesądza: fałszywy ping najwyżej wywoła odczyt stanu.
 
 ### Pakiety (ceny = kwoty do zapłaty, dopóki Fundacja jest zwolniona z VAT)
 
@@ -320,10 +326,9 @@ podstawie art. 113 ust. 1 ustawy o podatku od towarów i usług”. Nie używać
 „tokeny” ani „abonament” (pierwsze kojarzy się z kryptoaktywami, drugie
 z usługą ciągłą, której już nie ma).
 
-Faktury nie wystawia ani TPay, ani aplikacja. Panel `/admin` → „Sprzedaż kredytów
-do faktur (CSV)” daje komplet danych na każdą wpłatę: nabywca, NIP, adres, e-mail
-właściciela, nazwa pozycji, kwoty, adnotacja, numer transakcji TPay. Przy
-zwolnieniu z VAT faktura jest obowiązkowa tylko na żądanie nabywcy, ale
-kancelarie (przedsiębiorcy) jej potrzebują — warto wystawiać zawsze. Do
-potwierdzenia z księgową: kwalifikacja kredytów jako bonu jednego przeznaczenia
-i ewentualny obowiązek KSeF dla podatnika zwolnionego.
+Fakturę wystawia automatycznie Finance You (moduł księgowy, KSeF) z nazwą pozycji
+przysłaną przez notarai; stawkę bierze z ustawień podmiotu Fundacji (zwolnienie →
+„zw”). Numer faktury wraca do notarai i widać go w oknie „Kredyty”. Panel `/admin` →
+„Sprzedaż kredytów (CSV)” służy do uzgodnienia sprzedaży (nabywca, NIP, kwoty,
+numer faktury, transakcja TPay). Do potwierdzenia z księgową: kwalifikacja
+kredytów jako bonu jednego przeznaczenia.

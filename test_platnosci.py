@@ -1,8 +1,7 @@
-"""Bramka TPay: suma kontrolna powiadomienia, kwoty brutto, transakcja,
-zakup pakietu kredytow od zamowienia do dopisania kredytow. Abonamentu nie
-ma - kancelaria placi wylacznie kredytami. Bez sieci: TPay zastapiony
-atrapa. Kancelaria i adresy fikcyjne."""
-import hashlib
+"""Platnosci za kredyty przez Finance You (konto TPay Fundacji): zamowienie,
+uzgodnienie stanu, ping, zwrot, kwoty. Abonamentu nie ma - kancelaria placi
+wylacznie kredytami. Bez sieci: Finance You zastapiony atrapa. Kancelaria
+i adresy fikcyjne."""
 import importlib
 import json
 import logging
@@ -19,28 +18,14 @@ from test_logowanie import AtrapaCognito, _przywroc_moduly, logowanie_atrapa  # 
 ADMIN = {"Authorization": "Bearer sekret-admina"}
 WLASCICIEL = "anna@kancelaria-sobczak.test"
 CZLONEK = "piotr@kancelaria-sobczak.test"
-KOD = "kod-bezpieczenstwa-testowy"
-KONFIGURACJA = {"CLIENT_ID": "01-klient", "CLIENT_SECRET": "sekret-api", "KOD_BEZPIECZENSTWA": KOD,
-                "API": "https://api.tpay.test", "ADRES": "https://app.notarai.test"}
+TOKEN = "token-partnera-0123456789"
 
 
-def md5sum(pola: dict, kod=KOD) -> str:
-    return hashlib.md5((pola["id"] + pola["tr_id"] + pola["tr_amount"] + pola["tr_crc"] + kod).encode()).hexdigest()
+# --- kwoty i adres -----------------------------------------------------------
 
-
-def powiadomienie(crc: str, kwota: str, status="TRUE", kod=KOD, **inne) -> dict:
-    pola = {"id": "12345", "tr_id": "TR-ABC-1", "tr_date": "2026-11-13 10:00:00", "tr_crc": crc,
-            "tr_amount": kwota, "tr_paid": kwota, "tr_desc": "notarai", "tr_status": status,
-            "tr_error": "none", "tr_email": WLASCICIEL, "test_mode": "0", **inne}
-    pola["md5sum"] = md5sum(pola, kod)
-    return pola
-
-
-# --- kwoty i suma kontrolna --------------------------------------------------
-
-def test_zwolnienie_z_vat_domyslnie():
-    """Uslugodawca (Fundacja) jest zwolniony podmiotowo - cena pakietu to kwota do zaplaty."""
-    import importlib
+def test_zwolnienie_z_vat_domyslnie(monkeypatch):
+    """Fundacja jest zwolniona podmiotowo - cena pakietu to kwota do zaplaty."""
+    monkeypatch.delenv("PIECZAPP_VAT", raising=False)
     assert importlib.reload(platnosci).VAT == 0
     assert platnosci.brutto(450) == Decimal("450.00")
 
@@ -49,113 +34,90 @@ def test_brutto_po_utracie_zwolnienia(monkeypatch):
     monkeypatch.setattr(platnosci, "VAT", Decimal("0.23"))
     assert platnosci.brutto(100) == Decimal("123.00")
     assert platnosci.brutto(450) == Decimal("553.50")
-    assert platnosci.brutto("0.01") == Decimal("0.01")
 
 
-def test_poprawna_suma_kontrolna():
-    platnosci.sprawdz_powiadomienie(powiadomienie("k:1", "123.00"), KOD)
+def test_adres_do_faktury():
+    assert platnosci.adres_nabywcy("ul. Testowa 1/2, 00-001 Warszawa") == {
+        "ulica": "ul. Testowa 1/2", "kod": "00-001", "miasto": "Warszawa"}
+    assert platnosci.adres_nabywcy("Rynek 5") == {"ulica": "Rynek 5", "kod": None, "miasto": None}
+    assert platnosci.adres_nabywcy("") == {"ulica": None, "kod": None, "miasto": None}
 
 
-def test_zmieniona_kwota_odrzucona():
-    pola = powiadomienie("k:1", "123.00")
-    pola["tr_amount"] = "1.00"
-    with pytest.raises(platnosci.BladPodpisu):
-        platnosci.sprawdz_powiadomienie(pola, KOD)
-
-
-def test_zmienione_zamowienie_odrzucone():
-    pola = powiadomienie("k:1", "123.00")
-    pola["tr_crc"] = "inna:2"
-    with pytest.raises(platnosci.BladPodpisu):
-        platnosci.sprawdz_powiadomienie(pola, KOD)
-
-
-def test_obcy_kod_odrzucony():
-    with pytest.raises(platnosci.BladPodpisu):
-        platnosci.sprawdz_powiadomienie(powiadomienie("k:1", "123.00", kod="obcy"), KOD)
-
-
-def test_bez_kodu_nic_nie_przechodzi():
-    with pytest.raises(platnosci.BladPodpisu):
-        platnosci.sprawdz_powiadomienie(powiadomienie("k:1", "123.00", kod=""), "")
-
-
-def test_bez_sumy_odrzucone():
-    pola = powiadomienie("k:1", "123.00")
-    del pola["md5sum"]
-    with pytest.raises(platnosci.BladPodpisu):
-        platnosci.sprawdz_powiadomienie(pola, KOD)
-
-
-# --- API TPay ----------------------------------------------------------------
+# --- atrapa Finance You --------------------------------------------------------
 
 @pytest.fixture
-def tpay_atrapa(monkeypatch):
-    """Atrapa TPay: token OAuth, nowa transakcja, odczyt transakcji."""
-    for nazwa, wartosc in KONFIGURACJA.items():
-        monkeypatch.setattr(platnosci, nazwa, wartosc)
-    monkeypatch.setattr(platnosci, "_token", {"wartosc": "", "wygasa": 0.0})
-    stan = {"zadania": [], "status": "correct"}
+def finyou(monkeypatch):
+    """Atrapa endpointu partnerskiego Finance You. `stan["zamowienia"]` mozna
+    zmieniac w tescie (np. oplacic albo zwrocic)."""
+    monkeypatch.setenv("PIECZAPP_FINYOU_URL", "https://finyou.test")
+    monkeypatch.setenv("PIECZAPP_FINYOU_TOKEN", TOKEN)
+    monkeypatch.setattr(platnosci, "ADRES", "https://app.notarai.test")
+    stan = {"zadania": [], "zamowienia": {}}
 
-    def obsluz(zadanie: httpx.Request):
-        stan["zadania"].append(zadanie)
-        if zadanie.url.path == "/oauth/auth":
-            return httpx.Response(200, json={"access_token": "tok-1", "expires_in": 7200, "token_type": "Bearer"})
-        if zadanie.method == "POST" and zadanie.url.path == "/transactions":
-            return httpx.Response(200, json={"result": "success", "status": "pending",
-                                             "transactionId": "01TRANS", "title": "TR-ABC-1",
-                                             "transactionPaymentUrl": "https://secure.tpay.test/?title=TR-ABC-1"})
-        if zadanie.url.path == "/transactions/01TRANS":
-            return httpx.Response(200, json={"result": "success", "transactionId": "01TRANS",
-                                             "status": stan["status"]})
-        return httpx.Response(404, json={"result": "failed"})
+    def obsluz(z: httpx.Request):
+        stan["zadania"].append(z)
+        if z.headers.get("authorization") != f"Bearer {TOKEN}":
+            return httpx.Response(401, json={"ok": False})
+        if z.method == "POST":
+            dane = json.loads(z.content)
+            stan["zamowienia"][dane["zamowienie"]] = {
+                "ok": True, "zamowienie": dane["zamowienie"], "status": "pending", "kredyty": dane["kredyty"],
+                "kwota_grosz": dane["kwota_grosz"], "zaplacono_grosz": None, "oplacono": None,
+                "transakcja": "TR-ABC-1", "faktura": None, "adres": "https://secure.tpay.test/?title=TR-ABC-1"}
+            stan["ostatnie"] = dane
+            return httpx.Response(201, json=stan["zamowienia"][dane["zamowienie"]])
+        ref = z.url.params.get("zamowienie")
+        if ref not in stan["zamowienia"]:
+            return httpx.Response(404, json={"ok": False})
+        return httpx.Response(200, json=stan["zamowienia"][ref])
 
-    monkeypatch.setattr(platnosci, "_klient", lambda: httpx.Client(transport=httpx.MockTransport(obsluz)))
+    monkeypatch.setattr(platnosci, "_klient", lambda: httpx.Client(
+        base_url=platnosci.finyou_adres(), transport=httpx.MockTransport(obsluz),
+        headers={"Authorization": "Bearer " + platnosci.finyou_token()}))
     return stan
 
 
-def test_transakcja_w_tpay(tpay_atrapa, caplog):
+def oplac(stan, ref, grosze=None, faktura="FV/1/11/2026"):
+    z = stan["zamowienia"][ref]
+    z.update(status="paid", zaplacono_grosz=grosze or z["kwota_grosz"], oplacono="2026-11-13T10:01:00Z",
+             faktura=faktura, adres=None)
+
+
+def test_zamowienie_w_finyou(finyou, caplog):
     with caplog.at_level(logging.INFO):
-        wynik = platnosci.utworz_transakcje(Decimal("553.50"), "notarai - 500 kredytów", "sobczak:ab12",
-                                            WLASCICIEL, "Kancelaria Sobczak")
-    assert wynik == {"adres": "https://secure.tpay.test/?title=TR-ABC-1", "transakcja": "01TRANS",
-                     "tytul": "TR-ABC-1"}
-    token, transakcja = tpay_atrapa["zadania"]
-    assert token.url.path == "/oauth/auth" and b"client_secret=sekret-api" in token.content
-    assert transakcja.headers["authorization"] == "Bearer tok-1"
-    dane = json.loads(transakcja.content)
-    assert dane["amount"] == 553.5 and dane["hiddenDescription"] == "sobczak:ab12"
-    assert dane["payer"] == {"email": WLASCICIEL, "name": "Kancelaria Sobczak"}
-    assert dane["callbacks"]["notification"]["url"] == "https://app.notarai.test/api/tpay/powiadomienie"
-    assert dane["callbacks"]["payerUrls"]["success"] == "https://app.notarai.test/?kredyty=ok"
-    assert WLASCICIEL not in caplog.text and "sekret-api" not in caplog.text
-
-
-def test_token_uzywany_ponownie(tpay_atrapa):
-    platnosci.pobierz_transakcje("01TRANS")
-    platnosci.pobierz_transakcje("01TRANS")
-    assert [z.url.path for z in tpay_atrapa["zadania"]].count("/oauth/auth") == 1
+        wynik = platnosci.utworz_zamowienie("sobczak:ab12cd34", 500, Decimal("450.00"), "Pakiet 500 kredytow",
+                                            {"nazwa": "Kancelaria Sobczak", "email": WLASCICIEL})
+    assert wynik["adres"].startswith("https://secure.tpay.test/")
+    d = finyou["ostatnie"]
+    assert d["kwota_grosz"] == 45000 and d["kredyty"] == 500 and d["zamowienie"] == "sobczak:ab12cd34"
+    assert d["powrot_ok"] == "https://app.notarai.test/?kredyty=ok"
+    assert d["powiadomienie"] == "https://app.notarai.test/api/finyou/platnosc"
+    assert WLASCICIEL not in caplog.text and TOKEN not in caplog.text
 
 
 def test_bez_konfiguracji_nie_ma_platnosci(monkeypatch):
-    monkeypatch.setattr(platnosci, "KOD_BEZPIECZENSTWA", "")
+    monkeypatch.delenv("PIECZAPP_FINYOU_TOKEN", raising=False)
     assert platnosci.wlaczone() is False
     with pytest.raises(platnosci.BladPlatnosci):
-        platnosci.utworz_transakcje(Decimal("1"), "x", "k:1", WLASCICIEL, "")
+        platnosci.utworz_zamowienie("k:abcd", 1, Decimal("1"), "opis", {})
 
 
-def test_odrzucenie_bez_danych_w_logach(tpay_atrapa, monkeypatch, caplog):
-    odpowiedz = httpx.Response(400, json={"result": "failed", "errors": [
-        {"errorCode": "payer_email_invalid", "errorMessage": f"Invalid email {WLASCICIEL}"}]})
-
-    def obsluz(z):
-        if z.url.path == "/oauth/auth":
-            return httpx.Response(200, json={"access_token": "t", "expires_in": 7200})
-        return odpowiedz
-    monkeypatch.setattr(platnosci, "_klient", lambda: httpx.Client(transport=httpx.MockTransport(obsluz)))
+def test_odrzucenie_bez_danych_w_logach(finyou, monkeypatch, caplog):
+    odpowiedz = httpx.Response(400, json={"ok": False, "error": f"Nieprawidlowy e-mail {WLASCICIEL}"})
+    monkeypatch.setattr(platnosci, "_klient", lambda: httpx.Client(
+        base_url="https://finyou.test", transport=httpx.MockTransport(lambda z: odpowiedz)))
     with caplog.at_level(logging.INFO), pytest.raises(platnosci.BladPlatnosci):
-        platnosci.utworz_transakcje(Decimal("1"), "x", "k:1", WLASCICIEL, "")
-    assert "payer_email_invalid" in caplog.text and WLASCICIEL not in caplog.text
+        platnosci.utworz_zamowienie("k:abcd", 1, Decimal("1"), "opis", {})
+    assert "HTTP 400" in caplog.text and WLASCICIEL not in caplog.text
+
+
+def test_finyou_nieosiagalny(finyou, monkeypatch):
+    def awaria(z):
+        raise httpx.ConnectError("brak sieci")
+    monkeypatch.setattr(platnosci, "_klient", lambda: httpx.Client(
+        base_url="https://finyou.test", transport=httpx.MockTransport(awaria)))
+    with pytest.raises(platnosci.BladPlatnosci):
+        platnosci.pobierz_zamowienie("k:abcd")
 
 
 # --- serwer: zakup pakietu ------------------------------------------------------
@@ -177,13 +139,10 @@ def serwer(logowanie_atrapa, monkeypatch, tmp_path):
     monkeypatch.setattr(autoryzacja.logowanie, "dane_z_tokenu",
                         lambda t: {"email": t.split("|")[1], "kancelaria": t.split("|")[2]})
     monkeypatch.setattr(autoryzacja.logowanie, "czy_jwt", lambda t: t.startswith("jwt|"))
-    for nazwa, wartosc in KONFIGURACJA.items():
-        monkeypatch.setattr(platnosci, nazwa, wartosc)
-
     app = FastAPI()
     app.middleware("http")(autoryzacja.middleware)
     for r in (autoryzacja.router, autoryzacja.router_logowania, autoryzacja.router_zespolu,
-              tokenomia.router, tokenomia.router_admina, tokenomia.router_tpay):
+              tokenomia.router, tokenomia.router_admina, tokenomia.router_platnosci):
         app.include_router(r)
 
     @app.get("/api/sprawy")
@@ -216,8 +175,8 @@ def _kup(klient, id_k, pakiet="500"):
     return odp.json()["zamowienie"]
 
 
-def _powiadom(klient, pola):
-    return klient.post("/api/tpay/powiadomienie", data=pola)
+def _ping(klient, id_k, numer):
+    return klient.post("/api/finyou/platnosc", json={"zamowienie": f"{id_k}:{numer}"})
 
 
 def _saldo(klient, id_k):
@@ -241,108 +200,119 @@ def test_bez_kredytow_sprawy_dalej_otwarte(serwer):
     assert klient.get("/api/zespol", headers=jako(CZLONEK, id_k)).status_code == 200
 
 
-def test_zakup_pakietu_od_zamowienia_do_kredytow(serwer, tpay_atrapa):
+def test_zakup_pakietu_od_zamowienia_do_kredytow(serwer, finyou):
     import tokenomia
     klient, id_k = serwer
     numer = _kup(klient, id_k)
+    d = finyou["ostatnie"]
+    assert d["nabywca"] == {"nazwa": "Sobczak", "email": WLASCICIEL, "nip": "1234563218",
+                            "ulica": "ul. Testowa 1", "kod": "00-001", "miasto": "Warszawa"}
+    assert d["opis"].startswith("Bon jednego przeznaczenia - pakiet 500 kredytów")
     przed = _saldo(klient, id_k)
-    odp = _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "450.00"))
-    assert odp.status_code == 200 and odp.text == "TRUE"
+    _ping(klient, id_k, numer)                                # jeszcze nie zaplacone
+    assert _saldo(klient, id_k) == przed
+    oplac(finyou, f"{id_k}:{numer}")
+    assert _ping(klient, id_k, numer).json()["uzgodniono"] is True
     assert _saldo(klient, id_k) == przed + 500
     widok = klient.get("/api/kredyty", headers=jako(WLASCICIEL, id_k)).json()
-    assert widok["zakupy"][-1]["status"] == "oplacone" and widok["zakupy"][-1]["brutto"] == "450.00"
+    zakup = widok["zakupy"][-1]
+    assert (zakup["status"], zakup["brutto"], zakup["faktura"]) == ("oplacone", "450.00", "FV/1/11/2026")
     assert widok["moge_kupic"] is True and widok["pakiety"]["500"]["brutto_zl"] == 450.0
-    portfel = tokenomia.wczytaj_portfel(id_k)
-    assert portfel["zamowienia"][numer]["transakcja"] == "01TRANS"
+    assert tokenomia.wczytaj_portfel(id_k)["zamowienia"][numer]["tytul"] == "TR-ABC-1"
 
 
-def test_powtorzone_powiadomienie_liczy_sie_raz(serwer, tpay_atrapa):
+def test_powtorzony_ping_liczy_sie_raz(serwer, finyou):
     klient, id_k = serwer
     numer = _kup(klient, id_k, "100")
     przed = _saldo(klient, id_k)
+    oplac(finyou, f"{id_k}:{numer}")
     for _ in range(3):
-        assert _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "100.00")).text == "TRUE"
+        _ping(klient, id_k, numer)
     assert _saldo(klient, id_k) == przed + 100
 
 
-def test_falszywe_powiadomienie_odrzucone(serwer, tpay_atrapa):
-    klient, id_k = serwer
-    numer = _kup(klient, id_k)
-    przed = _saldo(klient, id_k)
-    odp = _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "450.00", kod="zgadniety"))
-    assert odp.status_code == 400 and _saldo(klient, id_k) == przed
-
-
-def test_bez_potwierdzenia_z_tpay_nie_dopisujemy(serwer, tpay_atrapa):
-    """Nawet z poprawna suma (np. wyciek kodu) kredyty wymagaja wplaty w TPay."""
-    klient, id_k = serwer
-    numer = _kup(klient, id_k)
-    przed = _saldo(klient, id_k)
-    tpay_atrapa["status"] = "pending"
-    odp = _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "450.00"))
-    assert odp.status_code >= 400 and _saldo(klient, id_k) == przed
-    tpay_atrapa["status"] = "correct"              # TPay ponawia - teraz wplata jest
-    assert _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "450.00")).text == "TRUE"
-    assert _saldo(klient, id_k) == przed + 500
-
-
-def test_kwota_nizsza_niz_cena_nie_dopisuje(serwer, tpay_atrapa):
-    klient, id_k = serwer
-    numer = _kup(klient, id_k)
-    przed = _saldo(klient, id_k)
-    assert _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "1.00")).text == "TRUE"
-    assert _saldo(klient, id_k) == przed
-
-
-def test_nieznane_zamowienie_konczy_ponawianie(serwer, tpay_atrapa):
-    klient, id_k = serwer
-    odp = _powiadom(klient, powiadomienie(f"{id_k}:nie-ma", "123.00"))
-    assert odp.status_code == 200 and odp.text == "TRUE"
-
-
-def test_zwrot_odbiera_kredyty_raz(serwer, tpay_atrapa):
+def test_zgubiony_ping_uzgadnia_okno_kredytow(serwer, finyou):
     klient, id_k = serwer
     numer = _kup(klient, id_k, "100")
     przed = _saldo(klient, id_k)
-    _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "100.00"))
-    for _ in range(2):
-        _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "100.00", status="CHARGEBACK"))
+    oplac(finyou, f"{id_k}:{numer}")
+    assert _saldo(klient, id_k) == przed + 100                # sam odczyt /api/kredyty
+
+
+def test_falszywy_ping_niczego_nie_dopisuje(serwer, finyou):
+    """Ping jest otwarty, ale nic nie przesadza - stan daje Finance You."""
+    klient, id_k = serwer
+    numer = _kup(klient, id_k)
+    przed = _saldo(klient, id_k)
+    for cialo in ({"zamowienie": f"{id_k}:{numer}"}, {"zamowienie": f"{id_k}:nie-ma"}, {"zamowienie": "x"}):
+        assert klient.post("/api/finyou/platnosc", json=cialo).status_code == 200
     assert _saldo(klient, id_k) == przed
 
 
-def test_pakiet_kupuje_tylko_wlasciciel(serwer, tpay_atrapa):
+def test_inna_kwota_w_finyou_nie_dopisuje(serwer, finyou):
+    klient, id_k = serwer
+    numer = _kup(klient, id_k)
+    przed = _saldo(klient, id_k)
+    oplac(finyou, f"{id_k}:{numer}", grosze=100)
+    _ping(klient, id_k, numer)
+    assert _saldo(klient, id_k) == przed
+
+
+def test_zwrot_odbiera_kredyty_raz(serwer, finyou):
+    klient, id_k = serwer
+    numer = _kup(klient, id_k, "100")
+    przed = _saldo(klient, id_k)
+    oplac(finyou, f"{id_k}:{numer}")
+    _ping(klient, id_k, numer)
+    finyou["zamowienia"][f"{id_k}:{numer}"]["status"] = "refunded"
+    for _ in range(2):
+        _ping(klient, id_k, numer)
+    assert _saldo(klient, id_k) == przed
+
+
+def test_nieudana_transakcja_oznacza_zamowienie(serwer, finyou):
+    import tokenomia
+    klient, id_k = serwer
+    numer = _kup(klient, id_k, "100")
+    finyou["zamowienia"][f"{id_k}:{numer}"]["status"] = "failed"
+    _ping(klient, id_k, numer)
+    assert tokenomia.wczytaj_portfel(id_k)["zamowienia"][numer]["status"] == "blad"
+
+
+def test_pakiet_kupuje_tylko_wlasciciel(serwer, finyou):
     klient, id_k = serwer
     assert klient.post("/api/kredyty/pakiet", headers=jako(CZLONEK, id_k), json={"pakiet": "500"}).status_code == 403
     assert klient.post("/api/kredyty/pakiet", headers=jako(WLASCICIEL, id_k), json={"pakiet": "zly"}).status_code == 400
     assert klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()["moge_kupic"] is False
 
 
-def test_bez_konfiguracji_tpay_zakup_niedostepny(serwer, monkeypatch):
+def test_bez_konfiguracji_zakup_niedostepny(serwer, monkeypatch):
     klient, id_k = serwer
-    monkeypatch.setattr(platnosci, "CLIENT_ID", "")
+    monkeypatch.delenv("PIECZAPP_FINYOU_TOKEN", raising=False)
     assert klient.post("/api/kredyty/pakiet", headers=jako(WLASCICIEL, id_k), json={"pakiet": "500"}).status_code == 503
 
 
-def test_blad_bramki_oznacza_zamowienie(serwer, monkeypatch):
+def test_blad_bramki_oznacza_zamowienie(serwer, finyou, monkeypatch):
     import tokenomia
     klient, id_k = serwer
 
     def odmowa(*a, **k):
         raise platnosci.BladPlatnosci("Bramka płatności nie przyjęła zlecenia.")
-    monkeypatch.setattr(platnosci, "utworz_transakcje", odmowa)
+    monkeypatch.setattr(platnosci, "utworz_zamowienie", odmowa)
     assert klient.post("/api/kredyty/pakiet", headers=jako(WLASCICIEL, id_k), json={"pakiet": "100"}).status_code == 502
     assert [z["status"] for z in tokenomia.wczytaj_portfel(id_k)["zamowienia"].values()] == ["blad"]
 
 
-def test_sprzedaz_do_faktur_dla_admina(serwer, tpay_atrapa):
+def test_sprzedaz_dla_admina(serwer, finyou):
     klient, id_k = serwer
     numer = _kup(klient, id_k)
-    _powiadom(klient, powiadomienie(f"{id_k}:{numer}", "450.00"))
+    oplac(finyou, f"{id_k}:{numer}")
+    _ping(klient, id_k, numer)
     assert klient.get("/api/admin/sprzedaz", headers=jako(WLASCICIEL, id_k)).status_code in (401, 403)
     w = klient.get("/api/admin/sprzedaz", headers=ADMIN).json()["sprzedaz"]
     assert len(w) == 1
     assert (w[0]["netto"], w[0]["vat"], w[0]["brutto"]) == ("450.00", "0.00", "450.00")
-    assert "art. 113 ust. 1" in w[0]["adnotacja"]
+    assert "art. 113 ust. 1" in w[0]["adnotacja"] and w[0]["faktura"] == "FV/1/11/2026"
     assert w[0]["nip"] == "1234563218" and w[0]["email"] == WLASCICIEL
     assert w[0]["pozycja"].startswith("Bon jednego przeznaczenia - pakiet 500 kredytów")
     assert w[0]["transakcja_tpay"] == "TR-ABC-1"

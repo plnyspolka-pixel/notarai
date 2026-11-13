@@ -33,7 +33,7 @@ liczba jednostek, kredyty, koszt i identyfikator sprawy.
 
 Kredyty sa jedynym sposobem zakupu notarai - nie ma abonamentu. Nowa
 kancelaria dostaje KREDYTY_PROBNE na przetestowanie wszystkich funkcji,
-potem dokupuje pakiety przez TPay (platnosci.py). Wylaczenie tylko awaryjne:
+potem dokupuje pakiety przez Finance You / TPay (platnosci.py). Wylaczenie tylko awaryjne:
 PIECZAPP_TOKENOMIA=false - licznik nadal liczy koszty (logi i panel admina),
 ale niczego nie pobiera ani nie blokuje.
 """
@@ -665,7 +665,8 @@ def tytul_faktury(kredyty: float) -> str:
 
 def _zakupy(portfel: dict | None) -> list[dict]:
     zam = (portfel or {}).get("zamowienia") or {}
-    return [{k: z.get(k) for k in ("pakiet", "kredyty", "netto", "brutto", "status", "utworzono", "oplacono")}
+    return [{k: z.get(k) for k in ("pakiet", "kredyty", "netto", "brutto", "status", "utworzono", "oplacono",
+                                   "faktura")}
             | {"zamowienie": n} for n, z in zam.items() if z.get("status") in ("oplacone", "zwrot")][-24:]
 
 
@@ -702,7 +703,11 @@ def _czy_wlasciciel(request: Request) -> bool:
 
 @router.get("")
 def moje_kredyty(request: Request):
-    return _widok_portfela(egzekwowana(_kancelaria()), _czy_wlasciciel(request))
+    kancelaria = _kancelaria()
+    portfel = egzekwowana(kancelaria)
+    if portfel and _uzgodnij_oczekujace(kancelaria, portfel):
+        portfel = wczytaj_portfel(kancelaria)
+    return _widok_portfela(portfel, _czy_wlasciciel(request))
 
 
 class ZakupPakietu(BaseModel):
@@ -711,9 +716,9 @@ class ZakupPakietu(BaseModel):
 
 @router.post("/pakiet", status_code=201)
 def kup_pakiet(request: Request, dane: ZakupPakietu):
-    """Transakcja TPay za pakiet kredytow. Zamowienie zapisujemy w portfelu
-    przed przekierowaniem - powiadomienie TPay dopisze kredyty dopiero po
-    zaplacie i tylko w kwocie z zamowienia."""
+    """Zamowienie pakietu w Finance You (konto TPay Fundacji). Zapisujemy je
+    w portfelu przed przekierowaniem - kredyty dopisze dopiero potwierdzony
+    stan "paid" z Finance You, w kwocie z zamowienia."""
     import secrets
 
     import autoryzacja
@@ -738,74 +743,60 @@ def kup_pakiet(request: Request, dane: ZakupPakietu):
             del zam[stary]
         return p
     zmien_portfel(wpis["id"], zapisz, utworz=True)
+    dane_firmy = wpis.get("dane") or {}
+    nabywca = {"nazwa": wpis.get("nazwa") or wpis["id"], "email": email,
+               "nip": (dane_firmy.get("nip") or "").replace("-", "") or None,
+               **platnosci.adres_nabywcy(dane_firmy.get("adres", ""))}
     try:
-        wynik = platnosci.utworz_transakcje(
-            kwota, f"notarai - {pakiet['kredyty']:g} kredytów", f"{wpis['id']}:{numer}", email,
-            wpis.get("nazwa") or "")
+        wynik = platnosci.utworz_zamowienie(f"{wpis['id']}:{numer}", pakiet["kredyty"], kwota,
+                                            tytul_faktury(pakiet["kredyty"]), nabywca)
     except platnosci.BladPlatnosci as blad:
         zmien_portfel(wpis["id"], lambda p: p["zamowienia"][numer].update(status="blad"))
         raise HTTPException(502, str(blad))
-
-    def z_transakcja(p):
-        p["zamowienia"][numer].update(transakcja=wynik["transakcja"], tytul=wynik["tytul"])
-    zmien_portfel(wpis["id"], z_transakcja)
+    zmien_portfel(wpis["id"], lambda p: p["zamowienia"][numer].update(transakcja=wynik.get("transakcja")))
     return {"adres": wynik["adres"], "zamowienie": numer}
 
 
-router_tpay = APIRouter(prefix="/api/tpay", tags=["tpay"])
-
-
-@router_tpay.post("/powiadomienie")
-async def powiadomienie_tpay(request: Request):
-    """Powiadomienie TPay o transakcji. Sciezka otwarta dla kazdego, wiec
-    wierzymy tylko sumie kontrolnej i potwierdzeniu z API TPay. Odpowiedz
-    "TRUE" konczy ponawianie; blad 5xx - TPay ponowi pozniej."""
-    from fastapi.responses import PlainTextResponse
-
+def uzgodnij_zamowienie(kancelaria: str, numer: str) -> str | None:
+    """Czyta stan zamowienia z Finance You i ksieguje zmiane: oplacone =
+    kredyty pakietu (raz), zwrot = odebranie kredytow (raz). Zwraca status
+    z Finance You albo None, gdy nie ma czego uzgadniac."""
     import platnosci
-    pola = {k: str(v) for k, v in (await request.form()).items()}
-    try:
-        platnosci.sprawdz_powiadomienie(pola)
-    except platnosci.BladPodpisu as blad:
-        log.warning("tpay: odrzucono powiadomienie (%s)", blad)
-        return PlainTextResponse("FALSE", 400)
-    kancelaria, _, numer = pola.get("tr_crc", "").rpartition(":")
-    portfel = wczytaj_portfel(kancelaria) if kancelaria else None
+    portfel = wczytaj_portfel(kancelaria)
     zamowienie = ((portfel or {}).get("zamowienia") or {}).get(numer)
-    if zamowienie is None:
-        # Podpisane, ale nie nasze (np. inny sklep na tym koncie TPay).
-        log.warning("tpay: powiadomienie %s bez znanego zamowienia", pola.get("tr_id"))
-        return PlainTextResponse("TRUE")
-    status = pola.get("tr_status", "").lower()
+    if zamowienie is None or zamowienie.get("status") == "blad":
+        return None
+    stan = platnosci.pobierz_zamowienie(f"{kancelaria}:{numer}")
+    if stan is None:
+        return None
+    status = stan.get("status")
+    faktura = stan.get("faktura")
 
-    if status == "true":
-        if platnosci.grosze(pola.get("tr_paid") or 0) < platnosci.grosze(zamowienie["brutto"]):
-            log.warning("tpay: zamowienie %s oplacone kwota nizsza niz cena", numer)
-            return PlainTextResponse("TRUE")
-        try:
-            potwierdzenie = platnosci.pobierz_transakcje(zamowienie.get("transakcja") or pola.get("tr_id", ""))
-        except platnosci.BladPlatnosci:
-            return PlainTextResponse("FALSE", 503)
-        if str(potwierdzenie.get("status", "")).lower() != platnosci.OPLACONA:
-            log.warning("tpay: zamowienie %s - TPay nie potwierdza wplaty (%s)", numer, potwierdzenie.get("status"))
-            return PlainTextResponse("FALSE", 409)
+    if status == "paid":
+        if int(stan.get("kwota_grosz") or 0) != int(platnosci.grosze(zamowienie["brutto"]) * 100) \
+                or int(stan.get("zaplacono_grosz") or 0) < int(platnosci.grosze(zamowienie["brutto"]) * 100) \
+                or int(stan.get("kredyty") or 0) != int(zamowienie["kredyty"]):
+            log.warning("tokenomia: zamowienie %s - kwota albo pakiet nie zgadza sie z Finance You", numer)
+            return status
 
         def oplac(p):
             z = p["zamowienia"][numer]
-            if not _jednorazowo(p, f"tpay:{numer}"):
+            if faktura:
+                z["faktura"] = faktura
+            if not _jednorazowo(p, f"platnosc:{numer}"):
                 return p
-            z.update(status="oplacone", oplacono=_teraz(), tytul=pola.get("tr_id") or z.get("tytul"))
+            z.update(status="oplacone", oplacono=stan.get("oplacono") or _teraz(),
+                     tytul=stan.get("transakcja") or z.get("transakcja"))
             p["doladowane"] = round(float(p.get("doladowane", 0)) + float(z["kredyty"]), 2)
             _wpis(p, {"akcja": "doladowanie", "kredyty": float(z["kredyty"]), "powod": f"pakiet {z['pakiet']}",
                       "zamowienie": numer})
             return p
         zmien_portfel(kancelaria, oplac)
         log.info("tokenomia: kancelaria %s, oplacony pakiet %s", kancelaria, zamowienie["pakiet"])
-    elif status == "chargeback":
-        # Zwrot wplaty: odbieramy kredyty z pakietu (saldo moze zejsc ponizej zera).
+    elif status == "refunded":
         def zwrot(p):
             z = p["zamowienia"][numer]
-            if z.get("status") != "oplacone" or not _jednorazowo(p, f"tpay-zwrot:{numer}"):
+            if z.get("status") != "oplacone" or not _jednorazowo(p, f"zwrot:{numer}"):
                 return p
             z.update(status="zwrot")
             p["doladowane"] = round(float(p.get("doladowane", 0)) - float(z["kredyty"]), 2)
@@ -813,7 +804,50 @@ async def powiadomienie_tpay(request: Request):
             return p
         zmien_portfel(kancelaria, zwrot)
         log.warning("tokenomia: kancelaria %s, zwrot pakietu %s", kancelaria, zamowienie["pakiet"])
-    return PlainTextResponse("TRUE")
+    elif status == "failed" and zamowienie.get("status") == "nowe":
+        zmien_portfel(kancelaria, lambda p: p["zamowienia"][numer].update(status="blad"))
+    return status
+
+
+def _uzgodnij_oczekujace(kancelaria: str, portfel: dict, maks: int = 3) -> bool:
+    """Gdy ping z Finance You zginie: przy otwarciu okna "Kredyty" sprawdzamy
+    swieze, nieoplacone zamowienia (z ostatnich 3 dni, najwyzej kilka)."""
+    import platnosci
+    if not platnosci.wlaczone():
+        return False
+    granica = datetime.fromtimestamp(time.time() - 3 * 86400, timezone.utc).isoformat(timespec="seconds")
+    oczekujace = [n for n, z in (portfel.get("zamowienia") or {}).items()
+                  if z.get("status") == "nowe" and (z.get("utworzono") or "") >= granica][-maks:]
+    zmiana = False
+    for numer in oczekujace:
+        try:
+            zmiana |= uzgodnij_zamowienie(kancelaria, numer) in ("paid", "failed")
+        except platnosci.BladPlatnosci:
+            break
+    return zmiana
+
+
+router_platnosci = APIRouter(prefix="/api/finyou", tags=["platnosci"])
+
+
+class PingPlatnosci(BaseModel):
+    zamowienie: str
+
+
+@router_platnosci.post("/platnosc")
+def ping_platnosci(dane: PingPlatnosci):
+    """Sygnal z Finance You, ze zamowienie zmienilo stan. Sciezka otwarta,
+    wiec niczego z niej nie bierzemy poza numerem - stan czytamy sami
+    tokenem partnera. Zawsze 200 (Finance You nie ponawia)."""
+    import platnosci
+    kancelaria, _, numer = dane.zamowienie.rpartition(":")
+    if not kancelaria or not numer or len(dane.zamowienie) > 130:
+        return {"odebrano": False}
+    try:
+        status = uzgodnij_zamowienie(kancelaria, numer)
+    except platnosci.BladPlatnosci:
+        status = None
+    return {"odebrano": True, "uzgodniono": status is not None}
 
 
 class Doladowanie(BaseModel):
@@ -851,8 +885,8 @@ def admin_tokenomia(request: Request):
 
 @router_admina.get("/sprzedaz")
 def admin_sprzedaz(request: Request, miesiac: str = ""):
-    """Oplacone pakiety do zafakturowania: nabywca z rejestru kancelarii,
-    nazwa pozycji, netto / VAT / brutto. `miesiac` = RRRR-MM (domyslnie biezacy)."""
+    """Oplacone pakiety (uzgodnienie sprzedazy): nabywca z rejestru kancelarii,
+    nazwa pozycji, kwoty, numer faktury z Finance You (KSeF). `miesiac` = RRRR-MM."""
     import autoryzacja
     from decimal import Decimal
     autoryzacja._wymagaj_admina(request)
@@ -865,7 +899,8 @@ def admin_sprzedaz(request: Request, miesiac: str = ""):
                 continue
             dane = wpis.get("dane") or {}
             wiersze.append({
-                "zamowienie": numer, "transakcja_tpay": z.get("tytul"), "oplacono": z.get("oplacono"),
+                "zamowienie": numer, "transakcja_tpay": z.get("tytul"), "faktura": z.get("faktura"),
+                "oplacono": z.get("oplacono"),
                 "status": z["status"], "kancelaria": wpis["id"], "nabywca": wpis.get("nazwa"),
                 "nip": dane.get("nip", ""), "adres": dane.get("adres", ""),
                 "email": ", ".join(autoryzacja._wlasciciele(wpis)),
