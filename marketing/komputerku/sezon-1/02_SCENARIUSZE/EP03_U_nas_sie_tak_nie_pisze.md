@@ -1,5 +1,8 @@
 # EP03 — U nas się tak nie pisze
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Po uwadze Heleny do języka projektu Marta półżartem sugeruje dokarmienie komputerka; Helena odpowiada, że najpierw powinien nauczyć się pisać zgodnie ze stylem kancelarii. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 18.11.2026 · **Czas:** 68 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
