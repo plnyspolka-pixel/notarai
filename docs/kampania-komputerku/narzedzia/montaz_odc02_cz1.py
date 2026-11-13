@@ -25,7 +25,8 @@ UJ = [
  ('CZERN', 0, 0.4, False, None, 0, 0, None),
  # trzęsienie ziemi: wtorek 10:12
  (f'{V}/t_pawel_telefon.mp4', 0, None, True, 'czas_wt_1012.png', 0.2, 2.4, None),
- (f'{V}/b1_drzwi.mp4', 1.5, 3.0, True, None, 0, 0, None),
+ (f'{V}/b1_drzwi.mp4', 0.0, 2.2, True, None, 0, 0, None),
+ ('CZERN', 0, 0.5, False, None, 0, 0, None),
  # intro
  ('INTRO', 0, None, False, None, 0, 0, None),
  # sc. 01: recepcja, dwie minuty wcześniej
@@ -53,7 +54,7 @@ for i, (f, ss, d, logo, w, a, b, kd) in enumerate(UJ):
 DL = t
 open(f'{T}/l.txt', 'w').write(''.join(f"file '{x}'\n" for x in lista))
 sh('ffmpeg', '-nostdin', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', f'{T}/l.txt', '-c', 'copy', f'{T}/obraz.mp4')
-TZ, IN, S1 = start[6], start[8], start[9]
+TZ, IN, S1 = start[6], start[9], start[10]
 AMB = f'{P1}/czesc3_wideo/amb_recepcja_n.mp3'; MUZ = f'{P1}/czesc4_wideo/muz_intryga.mp3'
 # (start, plik, ss, t, głośność)
 DZ = [
@@ -62,13 +63,13 @@ DZ = [
  (start[3], UJ[3][0], 3.7, 1.6, 1.6),                                      # Basia: „…bez syna.”
  (start[4] + 1.0, f'{P1}/czesc4_wideo/sfx_dlugopis.mp3', 1.27, 0.25, 2.2),  # tylko klik pióra
  (TZ, f'{V}/t_pawel_telefon.mp4', 0, UJ[6][2], 1.5),
- (start[7] + 1.9, f'{P1}/czesc1_wideo/sfx_drzwi.mp3', 0, 1.2, 0.7),         # drzwi gabinetu się zamykają
+ (start[8] + 0.05, f'{P1}/czesc1_wideo/sfx_drzwi.mp3', 0, 1.0, 0.7),        # klik zamykanych drzwi na czerni (nie widać niedomkniętych drzwi)
  (TZ, AMB, 0, IN - TZ + 0.3, 0.8),
  (IN, INTRO, 0, dl(INTRO), 1.0),
- (S1, f'{V}/s01_basia_1.mp4', 0, UJ[9][2], 1.5),
- (start[10], f'{V}/s01_basia_2.mp4', 0, UJ[10][2], 1.5),
- (start[11], f'{V}/s01_pawel.mp4', 0.2, 1.9, 1.5),
- (start[12], f'{V}/s01_irena_lada.mp4', 0, UJ[12][2], 1.5),
+ (S1, f'{V}/s01_basia_1.mp4', 0, UJ[10][2], 1.5),
+ (start[11], f'{V}/s01_basia_2.mp4', 0, UJ[11][2], 1.5),
+ (start[12], f'{V}/s01_pawel.mp4', 0.2, 1.9, 1.5),
+ (start[13], f'{V}/s01_irena_lada.mp4', 0, UJ[13][2], 1.5),
  (S1, AMB, 12, DL - S1, 0.9),
 ]
 inp = ['-i', f'{T}/obraz.mp4']; fc = []
