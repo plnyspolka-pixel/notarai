@@ -47,16 +47,42 @@ Wniosek: najpierw tokeny i abonamenty, dopiero potem GPU.
 - Bedrock batch inference daje −50 % przy generowaniu całego sezonu naraz (wejście z S3, wynik do 24 h) -
   do wdrożenia, gdy produkcja ruszy seryjnie.
 
-## 5. Koszt odcinka 35 s po zmianach (`koszty_odcinka.py policz`)
-| Tor | USD / odcinek | 8 odcinków |
-|---|---|---|
-| obecny (ElevenLabs + Nano Banana Pro + HeyGen + Kling Avatar + Kling 2.5) | 5,79 | 46 |
-| tani hostowany (Chirp 3 HD + Seedream 4 + HeyGen Turbo + WaveSpeed InfiniteTalk + Replicate Wan 2.2) | 2,05 | 16 |
-| własne GPU (Qwen-Image-Edit + Wan 2.2 + EchoMimic/InfiniteTalk; HeyGen Turbo na zbliżenia) | 1,09 | 9 |
+## 5. Koszt odcinka: do tej pory i po zmianach (na prawdziwych odcinkach sezonu 1)
 
-Do tego: rozpisanie odcinka 0,13 USD (zmierzone, z cache) zamiast 1–10 USD, abonamenty −51 USD/mies. (ElevenLabs Creator, HeyGen Creator).
+Wyliczenie `narzedzia/sezon_koszty.py --markdown` na 8 szkicach `odcinki/EP01–EP08.json` rozpisanych
+13.11.2026 (Sonnet 4.6, powtórki ×2). Odcinki wyszły dłuższe niż 35 s z koncepcji (78–187 s), więc kwoty są
+wyższe niż w `README.md` §5, ale proporcje między torami takie same.
 
-Wygenerowane `odcinki/EP01.json` i `EP02.json` są **szkicami do autoryzacji** (pole `_produkcja` zawiera model, zużycie tokenów i uwagi walidatora); nie zastępują scenariuszy kanonicznych z `marketing/komputerku/sezon-1/02_SCENARIUSZE/`.
+| Odcinek | Czas | Ujęć | obecny | tani hostowany | gpu_4090 | LLM (zmierzony) |
+|---|---|---|---|---|---|---|
+| EP01 „Poniedziałek, 8:57” | 187 s | 42 | 26,57 $ | 10,64 $ | 6,01 $ | 0,30 $ |
+| EP02 „Proszę nie przy nim” | 111 s | 23 | 17,17 $ | 7,45 $ | 4,86 $ | 0,13 $ |
+| EP03 „U nas się tak nie pisze” | 78 s | 19 | 11,33 $ | 5,20 $ | 3,52 $ | 0,21 $ |
+| EP04 „Wczoraj tego nie było” | 102 s | 18 | 12,64 $ | 5,64 $ | 3,71 $ | 0,10 $ |
+| EP05 „Przyszło mailem” | 96 s | 21 | 12,83 $ | 5,41 $ | 3,48 $ | 0,12 $ |
+| EP06 „Kto ma tę sprawę?” | 112 s | 26 | 19,52 $ | 7,44 $ | 4,11 $ | 0,13 $ |
+| EP07 „Pokaż mi to na komputerze” | 104 s | 22 | 15,05 $ | 5,29 $ | 2,54 $ | 0,11 $ |
+| EP08 „To moja decyzja” | 106 s | 25 | 19,86 $ | 7,76 $ | 4,41 $ | 0,14 $ |
+| **Sezon (8 odc.)** | | | **134,97 $** | **54,83 $** | **32,63 $** | **1,24 $** |
+| Średnio na odcinek | | | 16,87 $ | 6,85 $ | 4,08 $ | 0,15 $ |
+
+LLM: EP01 i EP03 zapisały cache (31 374 tokeny), pozostałe czytały go z cache (0,10–0,14 $ za odcinek).
+
+### Do tej pory kontra teraz (średni odcinek sezonu, ok. 110 s)
+| Składnik | Do tej pory | Teraz: tani hostowany | Teraz: własne GPU |
+|---|---|---|---|
+| Wideo, klatki, awatary, głos | 16,87 $ (ElevenLabs + Nano Banana Pro + HeyGen + Kling Avatar + Kling 2.5) | 6,85 $ | 4,08 $ (z czego 3,3 $ to zbliżenia HeyGen) |
+| Rozpisanie odcinka (LLM) | 1–10 $ (sesja agentowa czytająca biblię od nowa) | 0,15 $ (zmierzone) | 0,15 $ (zmierzone) |
+| Abonamenty na odcinek (przy 8 odc./mies.) | ~10 $ (ElevenLabs Creator 22 + HeyGen Creator 29 + Descript ~30 = ~81 $/mies.) | ~4 $ (Descript zostaje; HeyGen PAYG; ElevenLabs Starter 5 $ albo Chirp 0 $) | ~5 $ (jak obok + dysk sieciowy 7 $/mies.) |
+| **Razem na odcinek** | **28–37 $** | **~11 $** | **~9 $** |
+| **Sezon 8 odcinków** | **220–300 $** | **~90 $** | **~75 $** |
+
+Najtańszy tor (własne GPU) zostawia w HeyGen Avatar 6 Turbo ok. 80 % kosztu wideo. Dalsze cięcie wymaga
+zaliczenia polskiego lip-syncu przez EchoMimicV3 / InfiniteTalk (NA-11 pkt 4) - wtedy odcinek spada do ~2 $.
+Nie liczymy czasu ludzi, który po tych zmianach staje się głównym kosztem.
+
+Wygenerowane `odcinki/EP01–EP08.json` są **szkicami do autoryzacji** (pole `_produkcja` zawiera model, zużycie tokenów
+i uwagi walidatora); nie zastępują scenariuszy kanonicznych z `marketing/komputerku/sezon-1/02_SCENARIUSZE/`.
 
 ## 6. Ryzyka
 - Skrypty GPU powstały bez dostępu do karty - nazwy plików modeli i węzłów ComfyUI do potwierdzenia przy pierwszym

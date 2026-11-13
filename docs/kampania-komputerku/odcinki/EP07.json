@@ -1,0 +1,426 @@
+{
+  "seria": "komputerku",
+  "odcinek": 7,
+  "tytul": "Pokaż mi to na komputerze",
+  "funkcja_notarai": "Mobilny kokpit sprawy w trybie chmurowym; przygotowanie projektu (app.py, docs/ochrona-danych.md)",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Helena wychodzi z budynku, zatrzymuje się przed wejściem, wyciąga telefon",
+      "czas_s": 5,
+      "prompt_delta": "senior woman in burgundy blazer pausing outside building entrance checking phone screen",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Sprawdźmy, co mamy.",
+      "kwestia_v3": "[quiet, focused] Sprawdźmy, co mamy.",
+      "emocja": "skupienie, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Helena glancing down at phone screen outdoors, calm focused expression"
+    },
+    {
+      "id": "u3",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Mobilny frontend NotarAI: lista spraw, widoczna sprawa NOWAK–KACZMAREK S-041-2026; status projektu Word zapisany, brak oznaczenia sprawa zakończona; data i godzina odczytu widoczne"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Projekt jest. Czekam jeszcze na potwierdzenie terminu wydania.",
+      "kwestia_v3": "[calm, matter-of-fact] Projekt jest. [short pause] Czekam jeszcze na potwierdzenie terminu wydania.",
+      "emocja": "rzeczowość, lekka czujność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "Helena reading mobile case status screen outdoors, slight nod, measured expression"
+    },
+    {
+      "id": "u5",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Sprawdzam źródła.",
+      "kwestia_v3": "[focused, brisk] Sprawdzam źródła.",
+      "emocja": "koncentracja, profesjonalizm",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Marta at laptop, phone to ear, glancing at screen with focused expression"
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Marto, pokaż mi, co jest już potwierdzone. Bez założeń.",
+      "kwestia_v3": "[firm, calm] Marto, pokaż mi, co jest już potwierdzone. [short pause] Bez założeń.",
+      "emocja": "stanowczość, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "Helena speaking into phone outdoors, direct tone, slight emphasis on last phrase"
+    },
+    {
+      "id": "u7",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena, Paweł, Joanna i Robert siedzą przy stole w kancelarii, spokojne skupienie",
+      "czas_s": 5,
+      "prompt_delta": "four people seated around notary table in warm office, calm attentive posture",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:irena",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena Nowak, 73 lata, siwa, spokojny wyraz twarzy, siedzi przy stole",
+      "kwestia": "Potrzebuję czasu do piętnastego stycznia.",
+      "kwestia_v3": "[calm, resolute] Potrzebuję czasu do piętnastego stycznia.",
+      "emocja": "spokój, determinacja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "elderly woman at notary table speaking calmly with quiet resolve"
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:joanna",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: Joanna Kaczmarek, 34 lata, ciemne włosy, siedzi przy stole naprzeciwko Ireny",
+      "kwestia": "Udało nam się przedłużyć najem.",
+      "kwestia_v3": "[relieved, warm] Udało nam się przedłużyć najem.",
+      "emocja": "ulga, życzliwość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "young woman at notary table with relieved warm expression nodding"
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:pawel",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł Nowak, 45 lat, ciemne włosy, siedzi obok matki, lekko pochylony",
+      "kwestia": "Mamo, przepraszam, że wszystko przyspieszyłem.",
+      "kwestia_v3": "[subdued, sincere] Mamo, przepraszam, że wszystko przyspieszyłem.",
+      "emocja": "skrucha, szczerość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "middle-aged man at notary table leaning slightly toward elderly woman, sincere apologetic expression"
+    },
+    {
+      "id": "u11",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: CU Ireny, delikatny uśmiech, spokój",
+      "czas_s": 5,
+      "prompt_delta": "close-up elderly woman at table gentle accepting smile quiet relief",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "kuba",
+      "kamera": "K4",
+      "klatka_startowa": "kadr_K6m.jpg",
+      "kwestia": "Piętnasty stycznia. Ustalony już ze wszystkimi.",
+      "kwestia_v3": "[confident, slightly relieved] Piętnasty stycznia. [short pause] Ustalony już ze wszystkimi.",
+      "emocja": "ulga, pewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "young man at desk pointing to document note with relieved confident expression"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Zapisz źródło, nie tylko datę.",
+      "kwestia_v3": "[firm, instructive] Zapisz źródło, nie tylko datę.",
+      "emocja": "stanowczość, spokojny autorytet",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Marta gesturing toward screen instructing colleague with calm authority"
+    },
+    {
+      "id": "u14",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Sprawa NOWAK–KACZMAREK S-041-2026: pole terminu wydania lokalu zaktualizowane na 15.01.2027, widoczne źródło wpisu jako notatka D11 (nie mail Pawła); cena 640 000 zł niezmieniona"
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Komputerku, przygotujmy kolejną wersję. Na tych ustaleniach.",
+      "kwestia_v3": "[confident, matter-of-fact] Komputerku, przygotujmy kolejną wersję. [short pause] Na tych ustaleniach.",
+      "emocja": "pewność, skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "grafika": [
+        "dymek_komputerku",
+        "status_slucham"
+      ],
+      "prompt_delta": "authentic word drafting UI after verified data update Marta clicking generate button"
+    },
+    {
+      "id": "u16",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Generowanie projektu Word: pasek postępu, po chwili status projekt_sprzedaz_NOWAK_KACZMAREK_v2.docx gotowy do pobrania i kontroli; widoczny komunikat projekt do weryfikacji notariusza"
+    },
+    {
+      "id": "u17",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "kuba",
+      "kamera": "K4",
+      "klatka_startowa": "kadr_K6m.jpg",
+      "kwestia": "Pomocnik działa tutaj, na naszym komputerze.",
+      "kwestia_v3": "[curious, demonstrating] Pomocnik działa tutaj, na naszym komputerze.",
+      "emocja": "ciekawość, demonstracja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "young man pointing at local computer screen showing browser helper interface"
+    },
+    {
+      "id": "u18",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Lokalny pomocnik kancelarii: panel przeglądarki z dozwolonymi portalami; brak przycisku automatycznego wysłania ani podpisania; widoczna informacja o konieczności ręcznego zatwierdzenia"
+    },
+    {
+      "id": "u19",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "A decyzje i podpisy zostają przy nas.",
+      "kwestia_v3": "[calm, emphatic] A decyzje i podpisy zostają przy nas.",
+      "emocja": "spokojny nacisk, pewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Marta turning from screen to colleague with calm emphatic expression"
+    },
+    {
+      "id": "u20",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K8",
+      "klatka_startowa": "DO_WYGENEROWANIA: Helena na zewnątrz, chowa telefon do kieszeni, pochmurny dzień, ulica",
+      "czas_s": 5,
+      "prompt_delta": "senior professional pockets phone after checking office case progress overcast daylight street",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u21",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Dobrze. Jutro sprawdzę to na spokojnie.",
+      "kwestia_v3": "[calm, satisfied] Dobrze. [short pause] Jutro sprawdzę to na spokojnie.",
+      "emocja": "spokój, umiarkowana ulga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Helena outdoors pocketing phone calm satisfied expression walking toward building entrance"
+    },
+    {
+      "id": "u22",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/CLIFFHANGER_EP07.png",
+      "czas_s": 7,
+      "grafika": [
+        "data_piatek_27_listopada",
+        "kontur_dokumentu"
+      ],
+      "co_widac": "Plansza: napis PIĄTEK, 27 LISTOPADA nad konturem dokumentu; pytanie: Czy wszystko jest gotowe do podpisania?"
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 5,
+      "tekst": "25 listopada 2026"
+    },
+    {
+      "od_s": 5,
+      "do_s": 8,
+      "tekst": "Sprawdźmy, co mamy."
+    },
+    {
+      "od_s": 8,
+      "do_s": 15,
+      "tekst": "NotarAI · NOWAK–KACZMAREK\nProjekt Word · do weryfikacji"
+    },
+    {
+      "od_s": 15,
+      "do_s": 20,
+      "tekst": "Projekt jest.\nCzekam na potwierdzenie terminu wydania."
+    },
+    {
+      "od_s": 20,
+      "do_s": 23,
+      "tekst": "Sprawdzam źródła."
+    },
+    {
+      "od_s": 23,
+      "do_s": 28,
+      "tekst": "Marto, pokaż mi,\nco jest już potwierdzone. Bez założeń."
+    },
+    {
+      "od_s": 28,
+      "do_s": 38,
+      "tekst": "Przy stole: Irena, Paweł,\nJoanna i Robert Kaczmarkowie"
+    },
+    {
+      "od_s": 38,
+      "do_s": 42,
+      "tekst": "Potrzebuję czasu\ndo piętnastego stycznia."
+    },
+    {
+      "od_s": 42,
+      "do_s": 45,
+      "tekst": "Udało nam się przedłużyć najem."
+    },
+    {
+      "od_s": 45,
+      "do_s": 49,
+      "tekst": "Mamo, przepraszam,\nże wszystko przyspieszyłem."
+    },
+    {
+      "od_s": 49,
+      "do_s": 54,
+      "tekst": ""
+    },
+    {
+      "od_s": 54,
+      "do_s": 58,
+      "tekst": "Piętnasty stycznia.\nUstalony już ze wszystkimi."
+    },
+    {
+      "od_s": 58,
+      "do_s": 61,
+      "tekst": "Zapisz źródło, nie tylko datę."
+    },
+    {
+      "od_s": 61,
+      "do_s": 68,
+      "tekst": "Termin wydania: 15.01.2027\nŹródło: notatka D11 · cena: 640 000 zł"
+    },
+    {
+      "od_s": 68,
+      "do_s": 73,
+      "tekst": "Komputerku, przygotujmy\nkolejną wersję. Na tych ustaleniach."
+    },
+    {
+      "od_s": 73,
+      "do_s": 80,
+      "tekst": "projekt_sprzedaz_NOWAK_KACZMAREK_v2.docx\n— projekt do weryfikacji notariusza"
+    },
+    {
+      "od_s": 80,
+      "do_s": 84,
+      "tekst": "Pomocnik działa tutaj,\nna naszym komputerze."
+    },
+    {
+      "od_s": 84,
+      "do_s": 89,
+      "tekst": "Lokalny pomocnik · portale dozwolone\nPodpisanie i wysyłka: ręcznie"
+    },
+    {
+      "od_s": 89,
+      "do_s": 93,
+      "tekst": "A decyzje i podpisy zostają przy nas."
+    },
+    {
+      "od_s": 93,
+      "do_s": 98,
+      "tekst": ""
+    },
+    {
+      "od_s": 98,
+      "do_s": 102,
+      "tekst": "Dobrze. Jutro sprawdzę to na spokojnie."
+    },
+    {
+      "od_s": 102,
+      "do_s": 109,
+      "tekst": "PIĄTEK, 27 LISTOPADA\nCzy wszystko jest gotowe do podpisania?"
+    }
+  ],
+  "kontrola": [
+    "Przed nagraniem: przetestować mobilny frontend NotarAI na koncie demo w trybie SaaS — sprawdzić logowanie, uprawnienia i widoczność sprawy NOWAK–KACZMAREK S-041-2026 na telefonie.",
+    "Ekran telefonu (u3): upewnić się, że status projektu Word jest rzeczywiście dostępny w mobilnym kokpicie i nie jest oznaczony jako 'sprawa zakończona' — nie montować fikcyjnego ekranu.",
+    "Ekran aktualizacji warunków (u14): pole terminu wydania musi pokazywać 15.01.2027 jako źródło notatki D11, nie maila Pawła — zgodnie z kanonem dokumentów.",
+    "Cena 640 000 zł i powierzchnia 56,40 m² muszą być widoczne w każdym ujęciu ekranu sprawy NOWAK–KACZMAREK.",
+    "Scena przy stole (u7–u11): Paweł nie może być przedstawiony jako pełnomocnik Ireny ani jako strona aktu; jego przeprosiny dotyczą wyłącznie pośpiechu komunikacyjnego.",
+    "Joanna potwierdza przedłużenie najmu — nie wolno sugerować, że umowa sprzedaży została już zawarta ani że własność przeszła na kupujących.",
+    "Lokalny pomocnik (u17–u19): ekran musi pokazywać rzeczywisty interfejs pomocnik/klikamy.py; nie wolno pokazywać przycisku automatycznego wysłania wniosku KW ani podpisania dokumentu.",
+    "Ujęcie u15 ('Komputerku…'): Marta musi kliknąć w UI — brak bezdotykowego wake-word; nie sugerować głosowego sterowania zdalnym komputerem z telefonu.",
+    "Projekt v2 (u16): komunikat na ekranie musi zawierać informację 'projekt do weryfikacji notariusza', nie 'akt gotowy do podpisania'.",
+    "Helena poza kancelarią (u1, u20, u21): nie wolno sugerować dokonania czynności notarialnej przez telefon ani zdalnego wysłania wniosku KW.",
+    "Plansza końcowa (u22): data 'Piątek, 27 listopada' jest fikcyjnym terminem fabularnym — nie przedstawiać jako gwarantowanego terminu prawnego.",
+    "Sprawdzić continuity: termin wydania lokalu 15 stycznia 2027 r. dotyczy wydania, nie przeniesienia własności — nie mylić tych pojęć w napisach ani dialogach.",
+    "Dane demonstracyjne: syntetyczne PESEL, numery KW i dane stron — żadnych rzeczywistych danych klientów na ekranach.",
+    "Przed emisją: autoryzacja praktykującego notariusza dla całego odcinka zgodnie z wymogami biblii intrygi pkt 12.3."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4542,
+      "outputTokens": 6101,
+      "totalTokens": 42017,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 46.1
+  }
+}
