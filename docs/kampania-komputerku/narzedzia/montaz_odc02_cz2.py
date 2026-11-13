@@ -27,7 +27,7 @@ start = []; t = 0; lista = []
 for i, (f, ss, d, logo, w, a, b, kd) in enumerate(UJ):
     if d is None:
         d = round(dl(f) - ss - 0.05, 2); UJ[i] = (f, ss, d, logo, w, a, b, kd)
-    start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
+    d = round(d * 30) / 30; start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
     inp = ['-ss', str(ss), '-t', str(d), '-i', f]; fc = f'[0:v]{kd or kadr()}[v0]'
     last = 'v0'; k = 1
     if logo: inp += ['-i', LOGO]; fc += f';[{k}:v]scale=1080:1920[l];[{last}][l]overlay=0:0[v1]'; last = 'v1'; k += 1

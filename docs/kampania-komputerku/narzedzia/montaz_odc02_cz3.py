@@ -52,13 +52,13 @@ start = []; t = 0; lista = []
 for i, (f, ss, d, logo, w, a, b, kd) in enumerate(UJ):
     if d is None:
         d = round(dl(f) - ss - 0.05, 2); UJ[i] = (f, ss, d, logo, w, a, b, kd)
-    start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
+    d = round(d * 30) / 30; start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
     if f == 'CZERN':
         inp = ['-f', 'lavfi', '-t', str(d), '-i', 'color=c=black:s=1080x1920:r=30']; fc = '[0:v]setsar=1[v0]'
     elif f == 'OUTRO':
         inp = ['-i', OUTRO]; fc = f'[0:v]tpad=stop_mode=clone:stop_duration={d - dl(OUTRO) + 0.1:.2f},fps=30,setsar=1[v0]'
     elif f.endswith('.jpg'):
-        n = int(d * 30); inp = ['-loop', '1', '-t', str(d), '-i', f]
+        n = int(d * 30); inp = ['-framerate', '30', '-loop', '1', '-t', str(d), '-i', f]
         fc = f"[0:v]scale=1620:2880,zoompan=z='1.0+0.06*on/{n}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,setsar=1[v0]"
     else:
         inp = ['-ss', str(ss), '-t', str(d), '-i', f]; fc = f'[0:v]{kd or kadr()}[v0]'

@@ -54,10 +54,10 @@ start = []; t = 0; lista = []
 for i, (f, ss, d, logo, w, a, b, kd) in enumerate(UJ):
     src = f if f.startswith('/') else f'{V3}/{f}'
     if d is None: d = round(dl(src) - ss - 0.05, 2)
-    UJ[i] = (f, ss, d, logo, w, a, b, kd); start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
+    UJ[i] = (f, ss, d, logo, w, a, b, kd); d = round(d * 30) / 30; start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
     if src.endswith(('.png', '.jpg')):
         n = int(d * 30)
-        inp = ['-loop', '1', '-t', str(d), '-i', src]
+        inp = ['-framerate', '30', '-loop', '1', '-t', str(d), '-i', src]
         fc = (f"[0:v]scale=1620:2880,zoompan=z='1.0+0.07*on/{n}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,setsar=1[v0]")
     else:
         inp = ['-ss', str(ss), '-t', str(d), '-i', src]; fc = f'[0:v]{kd or kadr()}[v0]'

@@ -33,7 +33,7 @@ UJ = [
 ]
 start = []; t = 0; lista = []
 for i, (f, ss, d, logo, w, a, b) in enumerate(UJ):
-    start.append(t); t += d; src = f if f.startswith('/') else f'{V2}/{f}'; out = f'{T}/v{i:02d}.mp4'
+    d = round(d * 30) / 30; start.append(t); t += d; src = f if f.startswith('/') else f'{V2}/{f}'; out = f'{T}/v{i:02d}.mp4'
     inp = ['-ss', str(ss), '-t', str(d), '-i', src]; fc = f'[0:v]{SC}[v0]'; last = 'v0'; n = 1
     if logo: inp += ['-i', LOGO]; fc += f';[{n}:v]scale=1080:1920[l];[{last}][l]overlay=0:0[v1]'; last = 'v1'; n += 1
     if w: inp += ['-loop', '1', '-t', str(d), '-i', f'{WL}/{w}']; fc += f';[{n}:v]format=rgba,fade=t=in:st={a}:d=0.2:alpha=1,fade=t=out:st={b}:d=0.2:alpha=1[w];[{last}][w]overlay=0:0[v2]'; last = 'v2'
