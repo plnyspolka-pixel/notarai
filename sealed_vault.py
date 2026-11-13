@@ -31,6 +31,8 @@ def _decode(value: str, expected_length: int | None = None) -> bytes:
         raise ValueError("Invalid base64url")
     try:
         data = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        if base64.urlsafe_b64encode(data).decode("ascii").rstrip("=") != value:
+            raise ValueError("Non-canonical base64url")
     except (ValueError, binascii.Error) as error:
         raise ValueError("Invalid base64url") from error
     if expected_length is not None and len(data) != expected_length:
