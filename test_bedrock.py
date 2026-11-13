@@ -578,3 +578,88 @@ class TestWyborProfiluAWS:
         import config as modul_config
         importlib.reload(modul_config)
         assert modul_config.PROFIL_AWS == ""
+
+class TestBledyPrzejscioweIKomunikaty:
+    """Bledy w trakcie strumienia maja kody mala litera; przejsciowe ponawiamy;
+    notariusz dostaje komunikat po polsku, nie tekst wyjatku boto."""
+
+    @staticmethod
+    def _blad(kod, tresc="x"):
+        from botocore.exceptions import ClientError
+        return ClientError({"Error": {"Code": kod, "Message": tresc}}, "ConverseStream")
+
+    def test_dlawienie_w_strumieniu_mala_litera(self, monkeypatch):
+        from unittest.mock import MagicMock
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("throttlingException", "Too many requests")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(bedrock.Przeciazenie):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == 1, "dlawienia nie ponawiamy tu - czeka wywolujacy"
+
+    def test_blad_przejsciowy_ponowiony_i_udany(self, monkeypatch):
+        from unittest.mock import MagicMock
+        przerwy = []
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: przerwy.append(s))
+        klient = MagicMock()
+        klient.converse_stream.side_effect = [
+            self._blad("modelStreamErrorException"),
+            self._blad("ServiceUnavailableException"),
+            _jako_strumien({"output": {"message": {"content": [{"text": "gotowe"}]}}, "usage": {}}),
+        ]
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        assert bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10) == "gotowe"
+        assert klient.converse_stream.call_count == 3
+        assert przerwy == [bedrock.PRZERWA_PONOWIENIA, 2 * bedrock.PRZERWA_PONOWIENIA]
+
+    def test_blad_przejsciowy_po_wyczerpaniu_prob_wychodzi(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ClientError
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: None)
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("InternalServerException")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(ClientError):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == bedrock.PROB_WYWOLANIA
+
+    def test_blad_trwaly_bez_ponowien(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ClientError
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("ValidationException", "Input is too long")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(ClientError):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == 1
+
+    def test_zerwane_polaczenie_ponowione(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ReadTimeoutError
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: None)
+        klient = MagicMock()
+        klient.converse_stream.side_effect = [
+            ReadTimeoutError(endpoint_url="https://bedrock"),
+            _jako_strumien({"output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}),
+        ]
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        assert bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10) == "ok"
+
+    @pytest.mark.parametrize("kod, tresc, oczekiwane", [
+        ("ValidationException", "Input is too long for requested model.", "Podziel skany"),
+        ("ValidationException", "image exceeds max pixels", "skanów"),
+        ("ValidationException", "The provided model identifier is invalid.", "notarai"),
+        ("ValidationException", "coś innego", "Model odrzucił zapytanie"),
+        ("AccessDeniedException", "You don't have access", "nie ma dostępu do modelu"),
+        ("modelTimeoutException", "x", "spróbuj ponownie"),
+        ("ExpiredTokenException", "x", "poświadczenia"),
+        ("CokolwiekInnego", "x", "Błąd modelu"),
+    ])
+    def test_opis_bledu_po_polsku(self, kod, tresc, oczekiwane):
+        opis = bedrock.opis_bledu(self._blad(kod, tresc))
+        assert oczekiwane.lower() in opis.lower()
+        assert "ConverseStream" not in opis
+
+    def test_opis_bledu_wlasnych_wyjatkow_bez_zmian(self):
+        assert bedrock.opis_bledu(ValueError("Odpowiedz ucieta")) == "Odpowiedz ucieta"
+        assert bedrock.opis_bledu(bedrock.Przeciazenie("Model przeciazony")) == "Model przeciazony"

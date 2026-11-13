@@ -96,10 +96,40 @@ Zmienne środowiskowe, wszystkie opcjonalne:
 | `PIECZAPP_ROWNOLEGLE` | `2` | ile paczek stron czytanych jednocześnie |
 | `PIECZAPP_MAX_WYJSCIE` | `128000` | limit odpowiedzi modelu w tokenach (maksimum Opus 4.6) |
 | `PIECZAPP_MYSLENIE` | `1` | `0` wyłącza myślenie modelu |
-| `PIECZAPP_WYSILEK` | `max` | domyślny wysiłek myślenia; przełącznik „Dokładność odczytu” zmienia go dla sprawy |
+| `PIECZAPP_WYSILEK` | `max` | wysiłek myślenia dla wywołań bez przełącznika (rozmowa, projekt); odczyt skanów bierze dokładność z ustawień kancelarii (niżej) |
 
 Aplikacja odmawia startu, jeśli model nie jest profilem `eu.` — zabezpieczenie
 przed przypadkowym wyjściem poza Unię Europejską.
+
+### Ustawienia kancelarii (w aplikacji)
+
+Przycisk „Ustawienia kancelarii” (stopka menu albo kafelek w panelu głównym).
+Zapis w pliku kancelarii `ustawienia.json` (lokalnie w `dane/`, w chmurze w S3
+obok kalendarza i zasad), więc obowiązuje na każdym komputerze kancelarii.
+Zmienia je notariusz (właściciel kancelarii); w trybie lokalnym każdy.
+
+- **Domyślna dokładność odczytu** — od niej zaczyna się przełącznik przy każdej
+  nowej sprawie, nie trzeba go klikać ani pamiętać. `Automatyczna` (domyślnie)
+  dobiera dokładność do dokumentów: gdy każda strona to PDF z warstwą tekstową
+  (wydruk z EKW, rejestru gruntów, pisma z systemów), czyta szybko; skany
+  i zdjęcia czyta z wysoką dokładnością. Maksymalną wybiera się ręcznie do
+  trudnych spraw. Przy sprawie przełącznik można zmienić tylko dla niej albo
+  jednym kliknięciem „Ustaw jako domyślną dla kancelarii”. Po odczycie w
+  podsumowaniu widać, jaka dokładność została użyta i dlaczego.
+- **Nazwa pliku Word** — wzór z polami w klamrach, domyślnie
+  `{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}`, czyli np.
+  `Sobczak - Pawlak - sprzedaż - Zalesie.docx`. Pola: `{zbywca}`, `{nabywca}`,
+  `{strony}`, `{czynnosc}`, `{miejscowosc}`, `{sygnatura}`, `{data}`, `{nazwa}`.
+  Pole bez danych znika razem ze swoim myślnikiem; znaki niedozwolone w nazwach
+  plików są usuwane. W folderze sprawy plik dalej nazywa się `projekt.docx`
+  (po nim poznajemy etap sprawy) — wzór dotyczy nazwy pobieranego pliku.
+
+Projekt w Wordzie powstaje **na pliku wzoru**: strona i marginesy, nagłówki,
+stopki, style, czcionka, kapitaliki, wyrównania i odstępy są kancelarii, a każdy
+akapit projektu dostaje formatowanie najbardziej podobnego akapitu wzoru
+(`dokumenty.tekst_na_docx(..., wzor=...)`). Wzór w `.txt` daje jak dotąd
+Times New Roman 12. Znaczniki `<<BRAK>>` i `<<WYBOR>>` są dalej zakreślone,
+a zakreślenia ze wzoru (np. żółte `??`) nie przechodzą do projektu.
 
 Zmiana `PIECZAPP_HOST` na `0.0.0.0` wystawia aplikację na sieć. Rób to
 świadomie i nigdy nie przekierowuj tego portu na routerze.

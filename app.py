@@ -62,6 +62,7 @@ import leady
 import meta_leady
 import wizyty
 import transkrypcja
+import ustawienia_kancelarii
 import walidacja
 
 logging.basicConfig(
@@ -92,6 +93,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 app.include_router(kalkulator.router)
 app.include_router(przesylki.router)
 app.include_router(personalizacja.router)
+app.include_router(ustawienia_kancelarii.router)
 app.include_router(poczta_polska.router)
 app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
@@ -217,8 +219,9 @@ def strona_glowna():
     return strona.replace("Sprawdzam, gdzie zapisywane są dane…", gdzie)
 
 
-# Przelacznik "Dokladnosc odczytu"; nieznana wartosc = ustawienie domyslne.
-WYSILKI = {"max", "high", "medium"}
+# Przelacznik "Dokladnosc odczytu" (max / high / medium / auto) rozstrzyga
+# ustawienia_kancelarii.dokladnosc_odczytu(): pusta lub nieznana wartosc to
+# domyslna kancelarii, "auto" dobiera dokladnosc po dokumentach sprawy.
 
 
 def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
@@ -233,11 +236,11 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
     analiza = dokumenty.analizuj_wzor(tekst_wzoru)
     pola_wzoru = analiza["pola"]
     strony = dokumenty.opisz_strony(sciezki_skanow)
-    wysilek = wysilek if wysilek in WYSILKI else config.WYSILEK
+    wysilek, powod_dokladnosci = ustawienia_kancelarii.dokladnosc_odczytu(wysilek, strony)
 
-    log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d wysilek=%s",
+    log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d wysilek=%s (%s)",
              etykieta, sciezka_wzoru.name, len(pola_wzoru),
-             len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek)
+             len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek, powod_dokladnosci)
 
     # Tokenomia: strony (cena zalezna od dokladnosci) + zestawienie z pytaniami.
     # Saldo sprawdzamy przed pierwszym wywolaniem, pobieramy po udanym odczycie.
@@ -262,6 +265,7 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
         "rozbieznosci": odczyt.get("rozbieznosci", []),
         "stron": len(strony),
         "wysilek": wysilek,
+        "dokladnosc_opis": ustawienia_kancelarii.opis_wyboru(wysilek, powod_dokladnosci),
         "transkrypcje": transkrypcje,
         "kontekst": kontekst,
         "rozmowa": [{"rola": "asystent", "tresc": pytania,
@@ -279,7 +283,7 @@ def _odczytaj_i_zapytaj(strony, pola_wzoru, polecenie, analiza, postep, wysilek,
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("%s: blad odczytu (%s)", etykieta, dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {blad}")
+        raise HTTPException(502, bedrock.opis_bledu(blad))
 
     pola = _zwaliduj(odczyt.get("pola", []))
     kontekst = prompty.kontekst_rozmowy(
@@ -445,14 +449,17 @@ def _zapisz_nowa_sprawe(katalog: Path, identyfikator: str, sciezka_wzoru: Path,
         "braki": wynik["braki"],
         "rozbieznosci": wynik["rozbieznosci"],
         "stron": wynik["stron"],
+        "wysilek": wynik["wysilek"],
+        "dokladnosc_opis": wynik["dokladnosc_opis"],
         "warianty": analiza["warianty"],
         "rozmowa": rozmowa,
     }
 
 
 @app.get("/api/ustawienia")
-def ustawienia_kancelarii():
-    """Co przegladarka musi wiedziec o tej kancelarii, zeby wybrac tryb pracy."""
+def ustawienia_dla_przegladarki():
+    """Co przegladarka musi wiedziec o tej kancelarii, zeby wybrac tryb pracy.
+    (Nazwa inna niz modul ustawienia_kancelarii, zeby go nie przesłonić.)"""
     return {
         "przechowywanie": magazyn.przechowywanie_var.get(),
         "kancelaria": magazyn.kancelaria(),
@@ -471,6 +478,8 @@ def ustawienia_kancelarii():
         "ekw": ekw.dostepne(),
         # Saldo kredytow, gdy kancelaria placi za akcje (tokenomia); inaczej None.
         "kredyty": tokenomia.saldo_kancelarii(),
+        # Ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word.
+        "ogolne": ustawienia_kancelarii.wczytaj(),
     }
 
 
@@ -526,6 +535,8 @@ async def odczyt_bez_zapisu(
             "braki": wynik["braki"],
             "rozbieznosci": wynik["rozbieznosci"],
             "stron": wynik["stron"],
+            "wysilek": wynik["wysilek"],
+            "dokladnosc_opis": wynik["dokladnosc_opis"],
             "warianty": analiza["warianty"],
             "legenda": analiza["legenda"],
             "pola_wzoru": wynik["pola_wzoru"],
@@ -566,8 +577,9 @@ async def projekt_bez_zapisu(
             analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
             projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
             cel = katalog / "projekt.docx"
-            dokumenty.tekst_na_docx(projekt, cel)
+            dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru)
             dane = cel.read_bytes()
+            nazwa_pliku = _nazwa_pliku_projektu(lista_pol, analiza, polecenie)
         finally:
             shutil.rmtree(katalog, ignore_errors=True)
 
@@ -578,10 +590,24 @@ async def projekt_bez_zapisu(
             "brakujace": projekt.count("<<BRAK:"),
             "do_wyboru": projekt.count("<<WYBOR:"),
             "docx": base64.b64encode(dane).decode("ascii"),
+            "nazwa_pliku": nazwa_pliku,
             "zgodnosc": zgodnosc,
         }
 
     return await _wykonaj(request, praca, "projekt")
+
+
+def _nazwa_pliku_projektu(pola: list[dict], analiza: dict, polecenie: str, meta: dict | None = None,
+                          identyfikator: str = "") -> str:
+    """Nazwa pliku Word wg wzoru kancelarii (ustawienia ogolne), bez rozszerzenia.
+    Rodzaj czynnosci rozpoznajemy ze wzoru i polecenia tak jak przy zasadach."""
+    meta = meta or {}
+    rodzaje = personalizacja.rodzaje_sprawy(analiza.get("tresc", ""), polecenie)
+    return nazwy.nazwa_pliku(
+        ustawienia_kancelarii.wczytaj()["nazwa_pliku"], pola, meta.get("skany") or [], rodzaje,
+        sygnatura=meta.get("sygnatura", ""), utworzono=meta.get("utworzono", ""),
+        nazwa=meta.get("nazwa", ""), identyfikator=identyfikator or meta.get("id", ""),
+    )
 
 
 def _sporzadz(analiza: dict, pola: list[dict], polecenie: str, rozmowa: list[dict],
@@ -611,7 +637,7 @@ def _sporzadz_bez_oplaty(analiza: dict, pola: list[dict], polecenie: str, rozmow
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("%s: blad generowania (%s)", etykieta, dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {blad}")
+        raise HTTPException(502, bedrock.opis_bledu(blad))
     return personalizacja.skontroluj(projekt, ustawienia, rodzaje)
 
 
@@ -637,7 +663,7 @@ def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("rozmowa bez zapisu: blad (%s)", dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
+        raise HTTPException(502, bedrock.opis_bledu(blad))
     return {"odpowiedz": odpowiedz}
 
 
@@ -744,20 +770,24 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
                                   f"sprawa {identyfikator}")
 
     cel = katalog / "projekt.docx"
-    dokumenty.tekst_na_docx(projekt, cel)
+    dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru)
     (katalog / "projekt.txt").write_text(projekt, encoding="utf-8")
     odczyt_plik = katalog / "odczyt.json"
     stary = json.loads(odczyt_plik.read_text("utf-8")) if odczyt_plik.exists() else {}
     stary["pola"] = zadanie.pola  # wersja po poprawkach notariusza
     _zapisz_json(odczyt_plik, stary)
     meta_plik = katalog / "sprawa.json"
+    meta: dict = {}
     if meta_plik.exists():
         meta = json.loads(meta_plik.read_text("utf-8"))
         if not meta.get("nazwa_reczna"):
             nowa = nazwy.nazwa_sprawy(zadanie.pola, meta.get("skany") or [])
             if nowa:
                 meta["nazwa"] = nowa
-                _zapisz_json(meta_plik, meta)
+        # Nazwa pliku Word wg wzoru kancelarii - liczona przy kazdym projekcie,
+        # bo dane stron moga sie zmienic po poprawkach notariusza.
+        meta["nazwa_pliku"] = _nazwa_pliku_projektu(zadanie.pola, analiza, zadanie.polecenie, meta, identyfikator)
+        _zapisz_json(meta_plik, meta)
     _zapisz_json(katalog / "zgodnosc.json", zgodnosc)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: projekt zapisany", identyfikator)
@@ -767,23 +797,46 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
         "brakujace": projekt.count("<<BRAK:"),
         "do_wyboru": projekt.count("<<WYBOR:"),
         "plik": f"/api/sprawy/{identyfikator}/plik",
+        "nazwa_pliku": meta.get("nazwa_pliku") or f"projekt-{identyfikator}",
         "zgodnosc": zgodnosc,
     }
 
 
 @app.get("/api/sprawy/{identyfikator}/plik")
 def pobierz(identyfikator: str):
-    plik = _katalog_sprawy(identyfikator) / "projekt.docx"
+    katalog = _katalog_sprawy(identyfikator)
+    plik = katalog / "projekt.docx"
     if not plik.exists():
         raise HTTPException(404, "Projekt nie zostal jeszcze wygenerowany")
     return FileResponse(
         plik,
-        filename=f"projekt-{identyfikator}.docx",
+        filename=_nazwa_pliku_sprawy(katalog, identyfikator) + ".docx",
         media_type=(
             "application/vnd.openxmlformats-officedocument."
             "wordprocessingml.document"
         ),
     )
+
+
+def _nazwa_pliku_sprawy(katalog: Path, identyfikator: str) -> str:
+    """Nazwa pliku Word sprawy: zapisana przy projekcie, a dla starszych spraw
+    wyliczana z odczytu i wzoru (bez zapisu - nic sie nie zmienia na dysku)."""
+    meta_plik = katalog / "sprawa.json"
+    try:
+        meta = json.loads(meta_plik.read_text("utf-8")) if meta_plik.exists() else {}
+    except ValueError:
+        meta = {}
+    if meta.get("nazwa_pliku"):
+        return meta["nazwa_pliku"]
+    try:
+        odczyt_plik = katalog / "odczyt.json"
+        pola = json.loads(odczyt_plik.read_text("utf-8")).get("pola", []) if odczyt_plik.exists() else []
+        sciezka_wzoru = next(katalog.glob("wzor.*"), None)
+        analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru)) if sciezka_wzoru else {}
+        return _nazwa_pliku_projektu(pola, analiza, meta.get("polecenie", ""), meta, identyfikator)
+    except Exception as blad:  # noqa: BLE001 - nazwa nie moze zablokowac pobrania
+        log.warning("sprawa %s: nazwa pliku niewyliczona (%s)", identyfikator, type(blad).__name__)
+        return f"projekt-{identyfikator}"
 
 
 # --- Lista spraw i powrot do sprawy -----------------------------------------
@@ -874,6 +927,9 @@ def wczytaj_sprawe(identyfikator: str):
         "brakujace": projekt.count("<<BRAK:") if projekt else 0,
         "do_wyboru": projekt.count("<<WYBOR:") if projekt else 0,
         "plik": f"/api/sprawy/{identyfikator}/plik" if (katalog / "projekt.docx").exists() else None,
+        "nazwa_pliku": (meta.get("nazwa_pliku") or _nazwa_pliku_sprawy(katalog, identyfikator))
+        if (katalog / "projekt.docx").exists() else None,
+        "wysilek": meta.get("wysilek", ""),
         "sprawdzenia": rejestry.wczytaj_sprawdzenia(identyfikator),
         "zgodnosc": zgodnosc,
         "projekt_stan": _stan_projektu(katalog),
@@ -1174,7 +1230,7 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("sprawa %s: blad rozmowy (%s)", identyfikator, dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
+        raise HTTPException(502, bedrock.opis_bledu(blad))
     rozmowa.append({"rola": "uzytkownik", "tresc": tresc, "czas": teraz})
     rozmowa.append({"rola": "asystent", "tresc": odpowiedz, "czas": datetime.now().isoformat(timespec="seconds")})
     _zapisz_rozmowe(katalog, rozmowa)
@@ -1267,7 +1323,7 @@ def dopasuj_formularz(system: str, zadanie: ZadanieDopasowania):
         raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
     except Exception as blad:
         log.error("formularz %s: blad dopasowania (%s)", system, dziennik.opis_bledu(blad))
-        raise HTTPException(502, f"Bedrock: {type(blad).__name__}")
+        raise HTTPException(502, bedrock.opis_bledu(blad))
 
     return {
         "system": mapowanie.system,

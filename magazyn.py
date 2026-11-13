@@ -331,7 +331,9 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     "zasady", "styl",
                     "ksiegi_notarialne", "giif", "giif_ustawienia", "leady",
                     # korespondencja e-mail: skrzynka „Do przypisania” i ustawienia (bez hasla)
-                    "skrzynka", "skrzynka_ustawienia")  # wizyty: w obszarze administracyjnym
+                    "skrzynka", "skrzynka_ustawienia",
+                    # ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word
+                    "ustawienia")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 

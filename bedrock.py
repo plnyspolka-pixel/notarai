@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 import config
 import dokumenty
@@ -87,9 +87,79 @@ class NiepoprawnyJson(ValueError):
 PROB_ZESTAWIENIA = 3
 
 
-# Kody, ktore Bedrock zwraca przy wyczerpanym limicie zapytan.
-_PRZECIAZENIE = {"ThrottlingException", "TooManyRequestsException",
-                 "ServiceQuotaExceededException"}
+# Kody, ktore Bedrock zwraca przy wyczerpanym limicie zapytan. Porownujemy
+# malymi literami: przed strumieniem przychodzi "ThrottlingException", a juz
+# w trakcie strumienia - "throttlingException" (EventStreamError).
+_PRZECIAZENIE = {"throttlingexception", "toomanyrequestsexception",
+                 "servicequotaexceededexception"}
+
+# Bledy przejsciowe po stronie AWS: ponowienie zwykle pomaga, przerwanie
+# odczytu po kilkudziesieciu minutach pracy - nie.
+_PRZEJSCIOWE = {"serviceunavailableexception", "internalserverexception",
+                "modeltimeoutexception", "modelerrorexception", "modelnotreadyexception",
+                "modelstreamerrorexception"}
+# Bledy polaczenia botocore (nie ClientError), rowniez przejsciowe.
+_PRZEJSCIOWE_POLACZENIA = ("ReadTimeoutError", "ConnectTimeoutError", "EndpointConnectionError",
+                           "ConnectionClosedError", "ResponseStreamingError", "IncompleteReadError")
+# Ile razy wywolujemy model przy bledzie przejsciowym i ile czekamy (s * nr proby).
+PROB_WYWOLANIA = 3
+PRZERWA_PONOWIENIA = 5
+
+
+def _kod_bledu(blad: BaseException) -> str:
+    """Kod bledu AWS malymi literami ("" dla wyjatkow spoza boto)."""
+    odpowiedz = getattr(blad, "response", None) or {}
+    return str(odpowiedz.get("Error", {}).get("Code", "")).lower()
+
+
+def _tresc_bledu(blad: BaseException) -> str:
+    odpowiedz = getattr(blad, "response", None) or {}
+    return str(odpowiedz.get("Error", {}).get("Message", "") or blad)
+
+
+def _przejsciowy(blad: BaseException) -> bool:
+    if isinstance(blad, ClientError):
+        return _kod_bledu(blad) in _PRZEJSCIOWE
+    return isinstance(blad, BotoCoreError) and type(blad).__name__ in _PRZEJSCIOWE_POLACZENIA
+
+
+def opis_bledu(blad: BaseException) -> str:
+    """Komunikat dla notariusza zamiast surowego tekstu wyjatku boto.
+
+    Boto mowi po angielsku, nazwa operacji i kodem; notariusz ma wiedziec, co
+    zrobic: poczekac, podzielic sprawe, poprawic skan albo zglosic blad do
+    notarai. Bez tresci sprawy - tylko rodzaj bledu i ustawienia modelu.
+    """
+    if isinstance(blad, (Przeciazenie, ValueError)):
+        return str(blad)   # nasze wyjatki sa juz po polsku
+    kod = _kod_bledu(blad)
+    tresc = _tresc_bledu(blad)
+    plaska = tresc.lower()
+    if kod == "validationexception":
+        if "too long" in plaska or "input length" in plaska or ("token" in plaska and "exceed" in plaska):
+            return ("Sprawa jest za duża na jedno zapytanie do modelu. Podziel skany na mniejsze "
+                    "sprawy (mniej stron naraz) i spróbuj ponownie.")
+        if "image" in plaska:
+            return ("Jeden ze skanów ma obraz, którego model nie przyjął (za duży albo w nieobsługiwanym "
+                    "formacie). Zapisz go jako PDF lub JPG i spróbuj ponownie.")
+        if "model" in plaska and any(w in plaska for w in ("identifier", "not supported", "isn't supported",
+                                                            "on-demand", "inference profile", "doesn't support")):
+            return (f"Model {config.MODEL} nie jest dostępny w tej postaci na koncie AWS notarai. "
+                    "To ustawienie po stronie notarai, nie Twoje - zgłoś błąd, sprawa jest zapisana.")
+        return (f"Model odrzucił zapytanie ({tresc.strip() or 'ValidationException'}). "
+                "Jeśli błąd się powtarza, zgłoś go do notarai.")
+    if kod in {"accessdeniedexception", "resourcenotfoundexception"}:
+        return (f"Konto AWS notarai nie ma dostępu do modelu {config.MODEL} w regionie {config.REGION}. "
+                "To ustawienie po stronie notarai, nie Twoje - zgłoś błąd, sprawa jest zapisana.")
+    if kod in {"expiredtokenexception", "unrecognizedclientexception", "invalidsignatureexception"} \
+            or type(blad).__name__ in ("NoCredentialsError", "PartialCredentialsError"):
+        return ("Aplikacja straciła poświadczenia do AWS. Spróbuj ponownie za chwilę; jeśli błąd "
+                "się powtarza, zgłoś go do notarai.")
+    if _przejsciowy(blad):
+        return ("Model Bedrock chwilowo nie odpowiada (zakłócenie po stronie AWS). Odczekaj kilka "
+                "minut i spróbuj ponownie - sprawa i skany są zapisane.")
+    return (f"Błąd modelu ({kod or type(blad).__name__}). Spróbuj ponownie; jeśli błąd się "
+            "powtarza, zgłoś go do notarai.")
 
 
 def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = None,
@@ -122,8 +192,25 @@ def _rozmowa(
     """Jedno wywolanie modelu. `historia` to wczesniejsze tury [{"role","content"}].
 
     Odpowiedz odbieramy strumieniem: dlugie odpowiedzi z mysleniem potrafia
-    trwac dluzej, niz wytrzymuje zwykle wywolanie.
+    trwac dluzej, niz wytrzymuje zwykle wywolanie. Blad przejsciowy AWS
+    (takze w trakcie strumienia, czego botocore sam nie ponawia) powtarzamy
+    do PROB_WYWOLANIA razy, zanim przerwiemy prace.
     """
+    for proba in range(1, PROB_WYWOLANIA + 1):
+        try:
+            return _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model)
+        except Przeciazenie:
+            raise
+        except (ClientError, BotoCoreError) as blad:
+            if not _przejsciowy(blad) or proba == PROB_WYWOLANIA:
+                raise
+            log.warning("Bedrock: blad przejsciowy %s, ponawiam (%d)",
+                        _kod_bledu(blad) or type(blad).__name__, proba)
+            time.sleep(PRZERWA_PONOWIENIA * proba)
+    raise RuntimeError("nieosiagalne")   # pragma: no cover
+
+
+def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model) -> str:
     max_tokenow = max_tokenow or config.MAX_WYJSCIE
     myslenie = config.MYSLENIE if myslenie is None else myslenie
     model = model or config.MODEL
@@ -154,7 +241,7 @@ def _rozmowa(
         # Ponawianie zrobil juz klient boto3. Jesli mimo to nie przeszlo,
         # limit jest wyczerpany na dluzej - mowimy o tym wprost, zamiast
         # pokazywac notariuszowi nazwe wyjatku.
-        if blad.response.get("Error", {}).get("Code") in _PRZECIAZENIE:
+        if _kod_bledu(blad) in _PRZECIAZENIE:
             log.warning("Bedrock odrzucil zadanie z powodu limitu zapytan")
             raise Przeciazenie(
                 "Model jest chwilowo przeciazony (limit zapytan na koncie AWS). "
@@ -314,8 +401,8 @@ def _transkrybuj_z_ponowieniem(paczka: list[dict], wysilek: str | None = None, p
                         paczka[0]["strona"], len(paczka), proba)
             time.sleep(60 * proba)
         except ClientError as blad:
-            kod = blad.response.get("Error", {}).get("Code", "")
-            if kod in {"ValidationException", "AccessDeniedException"} or proba == proby:
+            kod = _kod_bledu(blad)
+            if kod in {"validationexception", "accessdeniedexception"} or proba == proby:
                 raise
             log.warning("paczka od strony %d (%d str.): %s, ponawiam (%d)",
                         paczka[0]["strona"], len(paczka), kod, proba)

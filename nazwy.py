@@ -6,6 +6,11 @@ Kolejnosc zrodel:
      najpierw strona zbywajaca, potem nabywajaca,
   3. nazwy plikow skanow w konwencji kancelarii "Nazwisko Imie - Nazwisko Imie - ...".
 Brak wyniku -> None (interfejs pokaze numer sprawy).
+
+Nazwa pliku Word (nazwa_pliku): wg wzoru kancelarii z polami w klamrach, np.
+"{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}" -> "Sobczak - Pawlak - sprzedaż - Zalesie".
+Puste pola znikaja razem ze swoim separatorem, znaki niedozwolone w nazwach
+plikow sa usuwane. Nic tu nie trafia do logow.
 """
 import re
 
@@ -103,7 +108,6 @@ def nazwiska_z_plikow(nazwy_plikow: list[str]) -> list[str]:
 
 def nazwa_sprawy(pola: list[dict] | None, pliki: list[str] | None = None) -> str | None:
     pola = pola or []
-    znalezione: list[tuple[int, int, int, str]] = []
 
     for pole in pola:
         nazwa = str(pole.get("nazwa", ""))
@@ -113,6 +117,16 @@ def nazwa_sprawy(pola: list[dict] | None, pliki: list[str] | None = None) -> str
             if gotowe:
                 return " – ".join(dict.fromkeys(gotowe[:MAX_NAZWISK]))
 
+    znalezione = _nazwiska_wg_rol(pola)
+    nazwiska = _bez_form_odmienionych(n for *_, n in sorted(znalezione))
+    if not nazwiska:
+        nazwiska = nazwiska_z_plikow(pliki or [])
+    return " – ".join(nazwiska[:MAX_NAZWISK]) if nazwiska else None
+
+
+def _nazwiska_wg_rol(pola: list[dict]) -> list[tuple[int, int, int, str]]:
+    """[(priorytet roli, kolejnosc pola, kolejnosc w polu, nazwisko)] z pol rol."""
+    znalezione: list[tuple[int, int, int, str]] = []
     for kolejnosc, pole in enumerate(pola):
         nazwa = str(pole.get("nazwa", ""))
         wartosc = pole.get("wartosc")
@@ -124,8 +138,171 @@ def nazwa_sprawy(pola: list[dict] | None, pliki: list[str] | None = None) -> str
                 for i, n in enumerate(nazwiska_z_wartosci(str(wartosc), tylko_nazwisko=tylko)):
                     znalezione.append((priorytet, kolejnosc, i, n))
                 break
+    return znalezione
 
-    nazwiska = _bez_form_odmienionych(n for *_, n in sorted(znalezione))
-    if not nazwiska:
-        nazwiska = nazwiska_z_plikow(pliki or [])
-    return " – ".join(nazwiska[:MAX_NAZWISK]) if nazwiska else None
+
+def nazwiska_stron(pola: list[dict] | None, pliki: list[str] | None = None) -> dict[str, list[str]]:
+    """{"zbywcy": [...], "nabywcy": [...], "inni": [...]} - nazwiska stron wg roli.
+
+    Pole "STALE: nazwiska stron" (zbywajacy, potem nabywajacy, oddzielone " - ")
+    ma pierwszenstwo: pierwsze nazwisko to zbywca, reszta to nabywcy. Bez pol -
+    nazwy plikow skanow w konwencji kancelarii (tak samo: pierwszy zbywa).
+    """
+    pola = pola or []
+    for pole in pola:
+        nazwa = str(pole.get("nazwa", ""))
+        if nazwa.startswith("STALE: nazwiska stron") and pole.get("wartosc"):
+            gotowe = list(dict.fromkeys(
+                _ladnie(s) for s in re.split(r"\s*[-–,;/]\s*|\s+i\s+", str(pole["wartosc"]))
+                if SLOWO.match(s.strip()) and s.strip().lower() not in NIE_NAZWISKA))
+            if gotowe:
+                return {"zbywcy": gotowe[:1], "nabywcy": gotowe[1:MAX_NAZWISK + 1], "inni": []}
+
+    wg_rol: dict[int, list[str]] = {0: [], 1: [], 2: []}
+    for priorytet, _, _, nazwisko in sorted(_nazwiska_wg_rol(pola)):
+        wg_rol[priorytet].append(nazwisko)
+    wynik = {klucz: _bez_form_odmienionych(wg_rol[p])[:MAX_NAZWISK]
+             for klucz, p in (("zbywcy", 0), ("nabywcy", 1), ("inni", 2))}
+    if not any(wynik.values()):
+        z_plikow = nazwiska_z_plikow(pliki or [])
+        wynik = {"zbywcy": z_plikow[:1], "nabywcy": z_plikow[1:MAX_NAZWISK + 1], "inni": []}
+    return wynik
+
+
+# ---------------------------------------------------------------------------
+# Nazwa pliku Word wg wzoru kancelarii
+# ---------------------------------------------------------------------------
+DOMYSLNY_WZOR_NAZWY = "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}"
+
+# Pola do wstawienia we wzorze nazwy (klucz -> opis dla interfejsu).
+POLA_NAZWY = {
+    "zbywca": "nazwisko zbywcy (sprzedającego, darczyńcy, spadkodawcy)",
+    "nabywca": "nazwisko nabywcy (kupującego, obdarowanego, spadkobiercy)",
+    "strony": "wszystkie nazwiska stron",
+    "czynnosc": "rodzaj czynności (sprzedaż, darowizna, pełnomocnictwo…)",
+    "miejscowosc": "miejscowość położenia nieruchomości",
+    "sygnatura": "sygnatura sprawy",
+    "data": "data założenia sprawy (RRRR-MM-DD)",
+    "nazwa": "nazwa sprawy z listy spraw",
+}
+
+# Rodzaj czynnosci (kategorie.RODZAJE) -> krotkie slowo do nazwy pliku.
+ETYKIETY_CZYNNOSCI = {
+    "sprzedaz": "sprzedaż", "sprzedaz_rolna": "sprzedaż", "darowizna": "darowizna",
+    "zamiana": "zamiana", "przedwstepna": "umowa przedwstępna", "deweloperska": "umowa deweloperska",
+    "odrebna_wlasnosc": "odrębna własność lokalu", "sluzebnosc": "służebność", "hipoteka": "hipoteka",
+    "poddanie_egzekucji": "poddanie się egzekucji", "pelnomocnictwo": "pełnomocnictwo",
+    "testament": "testament", "poswiadczenie_dziedziczenia": "poświadczenie dziedziczenia",
+    "dzial_spadku": "dział spadku", "zniesienie_wspolwlasnosci": "zniesienie współwłasności",
+    "podzial_majatku": "podział majątku", "intercyza": "umowa majątkowa", "dozywocie": "dożywocie",
+    "spolka": "spółka", "protokol": "protokół", "oswiadczenie": "oświadczenie",
+}
+
+_POLE_WZORU = re.compile(r"\{\s*([a-zA-Z_]+)\s*\}")
+_NIEDOZWOLONE_W_NAZWIE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_SEPARATOR = r"[\s]*[-–—_|,;·.]+[\s]*"
+_PUSTE = "\x00"
+MAX_DLUGOSC_NAZWY = 120
+_PRZYKLAD = {
+    "zbywca": "Sobczak", "nabywca": "Pawlak", "strony": "Sobczak - Pawlak", "czynnosc": "sprzedaż",
+    "miejscowosc": "Zalesie", "sygnatura": "A 123/2026", "data": "2026-11-13", "nazwa": "Sobczak – Pawlak",
+}
+
+
+def nieznane_pola_wzoru(wzor: str) -> list[str]:
+    return sorted({p for p in _POLE_WZORU.findall(wzor or "") if p not in POLA_NAZWY})
+
+
+def czynnosc_z_rodzajow(rodzaje: list[str] | None) -> str:
+    """Pierwszy rozpoznany rodzaj czynnosci jako slowo do nazwy ("inny" -> pusto)."""
+    for rodzaj in rodzaje or []:
+        if rodzaj in ETYKIETY_CZYNNOSCI:
+            return ETYKIETY_CZYNNOSCI[rodzaj]
+    return ""
+
+
+def miejscowosc_z_pol(pola: list[dict] | None) -> str:
+    """Miejscowosc polozenia nieruchomosci: pole STALE, a gdy go nie ma - inne
+    pole o miejscowosci/obrebie (nie adres ani zamieszkanie strony)."""
+    kandydaci: list[tuple[int, str]] = []
+    for pole in pola or []:
+        nazwa = str(pole.get("nazwa", ""))
+        wartosc = str(pole.get("wartosc") or "").strip()
+        if not wartosc or nazwa.startswith("??"):
+            continue
+        plaska = nazwa.lower()
+        if plaska.startswith("stale: miejscowosc polozenia"):
+            kandydaci.append((0, wartosc))
+        elif re.search(r"miejscowo|obr[eę]b", plaska) and not re.search(r"zamieszk|adres|siedzib|urodz|strony|zbywc|nabywc", plaska):
+            kandydaci.append((1, wartosc))
+    for _, wartosc in sorted(kandydaci, key=lambda k: k[0]):
+        pierwsza = wartosc.splitlines()[0]
+        pierwsza = re.split(r"[:(,;|]|\s[-–]\s|\s+dz\.|\s+dzia[łl]", pierwsza)[0]
+        pierwsza = re.sub(r"^(w|we|obr[eę]b|miejscowo[śs][ćc])\s+", "", pierwsza.strip(), flags=re.I)
+        slowa = [s for s in re.findall(rf"[{LITERY}]+(?:-[{LITERY}]+)*", pierwsza) if s.lower() not in NIE_NAZWISKA]
+        if slowa:
+            return " ".join(_ladnie(s) if s.islower() or s.isupper() else s for s in slowa[:3])
+    return ""
+
+
+def bezpieczna_nazwa_pliku(tekst: str) -> str:
+    """Bez znakow niedozwolonych w Windows/macOS, bez kropek i spacji na koncach."""
+    tekst = re.sub(r"\s*[/\\:]\s*", "-", tekst or "")   # A 123/2026 -> A 123-2026
+    tekst = _NIEDOZWOLONE_W_NAZWIE.sub("", tekst)
+    tekst = re.sub(r"\s+", " ", tekst).strip(" .-–—_")
+    return tekst[:MAX_DLUGOSC_NAZWY].rstrip(" .-–—_")
+
+
+def _polacz_nazwiska(nazwiska: list[str]) -> str:
+    if len(nazwiska) <= 1:
+        return "".join(nazwiska)
+    return ", ".join(nazwiska[:-1]) + " i " + nazwiska[-1]
+
+
+def wartosci_nazwy(pola: list[dict] | None, pliki: list[str] | None = None, rodzaje: list[str] | None = None,
+                   sygnatura: str = "", utworzono: str = "", nazwa: str = "") -> dict[str, str]:
+    """Wartosci wszystkich pol wzoru nazwy dla jednej sprawy (puste = brak danych)."""
+    strony = nazwiska_stron(pola, pliki)
+    wszystkie = list(dict.fromkeys(strony["zbywcy"] + strony["nabywcy"] + strony["inni"]))
+    return {
+        "zbywca": _polacz_nazwiska(strony["zbywcy"]),
+        "nabywca": _polacz_nazwiska(strony["nabywcy"]),
+        "strony": " - ".join(wszystkie[:MAX_NAZWISK]),
+        "czynnosc": czynnosc_z_rodzajow(rodzaje),
+        "miejscowosc": miejscowosc_z_pol(pola),
+        "sygnatura": (sygnatura or "").strip(),
+        "data": (utworzono or "")[:10],
+        "nazwa": (nazwa or "").strip(),
+    }
+
+
+def wypelnij_wzor_nazwy(wzor: str, wartosci: dict[str, str]) -> str:
+    """Wzor z polami -> nazwa (bez rozszerzenia). Puste pole znika razem
+    z separatorem obok; nieznane pole liczy sie jak puste."""
+    tekst = _POLE_WZORU.sub(lambda m: bezpieczna_nazwa_pliku(wartosci.get(m.group(1), "")) or _PUSTE,
+                            wzor or DOMYSLNY_WZOR_NAZWY)
+    # Puste pole zabiera separator PRZED soba ("A - <puste> - B" -> "A - B"),
+    # a na poczatku wzoru - separator za soba ("<puste> - B" -> "B").
+    for _ in range(len(tekst)):   # az nic sie nie zmienia
+        nowy = re.sub(_SEPARATOR + _PUSTE, "", tekst)
+        nowy = re.sub("^" + _PUSTE + _SEPARATOR, "", nowy)
+        if nowy == tekst:
+            break
+        tekst = nowy
+    return bezpieczna_nazwa_pliku(tekst.replace(_PUSTE, ""))
+
+
+def nazwa_pliku(wzor: str, pola: list[dict] | None, pliki: list[str] | None = None,
+                rodzaje: list[str] | None = None, sygnatura: str = "", utworzono: str = "",
+                nazwa: str = "", identyfikator: str = "") -> str:
+    """Nazwa pliku Word z projektem (bez rozszerzenia). Gdy ze wzoru nic nie
+    wychodzi (sprawa bez odczytanych stron) - "projekt-<id>"."""
+    wynik = wypelnij_wzor_nazwy(wzor, wartosci_nazwy(pola, pliki, rodzaje, sygnatura, utworzono, nazwa))
+    if not wynik:
+        wynik = bezpieczna_nazwa_pliku(f"projekt-{identyfikator}") if identyfikator else "projekt"
+    return wynik
+
+
+def przyklad_nazwy(wzor: str) -> str:
+    """Podglad wzoru na przykladowych danych (dla okna ustawien)."""
+    return (wypelnij_wzor_nazwy(wzor, _PRZYKLAD) or "projekt") + ".docx"
