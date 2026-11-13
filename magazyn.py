@@ -330,7 +330,7 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     # klauzul po pseudonimizacji - bez danych klientow)
                     "zasady", "styl",
                     "ksiegi_notarialne", "giif", "giif_ustawienia", "leady",
-                    "ethereum_dowody", "sealed_vault")  # wizyty: w obszarze administracyjnym
+                    "ethereum_dowody", "sealed_vault", "sealed_vault_v2")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
