@@ -1,0 +1,11 @@
+{
+  "schema": "notarai.sealed.v1",
+  "documentId": "123e4567-e89b-42d3-a456-426614174000",
+  "tenantRef": "office-demo",
+  "algorithm": "AES-256-GCM",
+  "kdf": "PBKDF2-SHA256",
+  "iterations": 600000,
+  "salt": "AAECAwQFBgcICQoLDA0ODw",
+  "nonce": "AAECAwQFBgcICQoL",
+  "ciphertext": "qXuihgl6BnmREICDzZhF-wxpK9ck5WODYYcpaTVYJUU3vkKXTWY3T0Ei5-A9K4FIAPB7r6hGi4XnLSqrTudhA40"
+}
