@@ -14,7 +14,7 @@ import re
 import uuid
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 import magazyn
 
@@ -41,6 +41,7 @@ def _decode(value: str, expected_length: int | None = None) -> bytes:
 
 
 class SealedEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
     schema_name: str = Field(alias="schema")
     documentId: uuid.UUID
     tenantRef: str = Field(min_length=1, max_length=120)
@@ -85,20 +86,23 @@ def store_document(envelope: SealedEnvelope):
         raise HTTPException(409, "Local-only office: vault storage disabled")
     _valid(envelope)
     serial = envelope.model_dump(by_alias=True, mode="json")
-    digest = hashlib.sha256(envelope.ciphertext.encode("ascii")).hexdigest()
+    import json
+    # Bind every authenticated envelope field, not just ciphertext bytes.
+    canonical = json.dumps(serial, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def insert(state):
         documents = state.setdefault("documents", {})
         key = str(envelope.documentId)
         existing = documents.get(key)
         if existing:
-            if existing["ciphertext_sha256"] == digest:
-                return {"documentId": key, "ciphertext_sha256": digest, "created": False}
+            if existing["envelope_sha256"] == digest:
+                return {"documentId": key, "envelope_sha256": digest, "created": False}
             raise HTTPException(409, "Sealed document ID already used for another version")
         if len(documents) >= MAX_OBJECTS:
             raise HTTPException(413, "Office Sealed POC quota reached")
-        documents[key] = {"envelope": serial, "ciphertext_sha256": digest}
-        return {"documentId": key, "ciphertext_sha256": digest, "created": True}
+        documents[key] = {"envelope": serial, "envelope_sha256": digest}
+        return {"documentId": key, "envelope_sha256": digest, "created": True}
     return magazyn.zmien_plik_kancelarii(VAULT, insert, {"documents": {}})
 
 
