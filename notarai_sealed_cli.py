@@ -35,6 +35,8 @@ def _decoded(value: str, expected: int | None = None) -> bytes:
     if not isinstance(value, str) or not RE_B64.fullmatch(value):
         raise ValueError("Invalid base64url")
     data = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    if _encoded(data) != value:
+        raise ValueError("Non-canonical base64url")
     if expected is not None and len(data) != expected:
         raise ValueError("Incorrect metadata length")
     return data
