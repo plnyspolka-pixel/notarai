@@ -58,7 +58,7 @@ def test_shared_finance_you_unicode_vector():
 def test_nonportable_floats_large_ints_unicode_keys_and_surrogates_are_rejected():
     for payload in (
         {"amount": 1.5}, {"value": 2**53},
-        {"🪙": "test"}, {"event": "\\ud800"},
+        {"🪙": "test"}, {"event": chr(0xD800)},
     ):
         with pytest.raises(ValueError):
             pe.commitment(payload, "00" * 32)
