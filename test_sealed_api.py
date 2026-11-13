@@ -78,8 +78,13 @@ def test_cross_office_replay_is_rejected(vault):
 
 def test_malformed_metadata_is_rejected(vault):
     v,office,records=vault
-    for changes in ({"salt":enc(b"short")},{"nonce":enc(b"short")},
-                    {"iterations":1},{"schema":"other-version"}):
+    from pydantic import ValidationError
+    for changes in ({"salt":enc(b"short")},{"nonce":enc(b"short")}):
+        data=demo(v).model_dump(by_alias=True, mode="json")
+        data.update(changes)
+        with pytest.raises(ValidationError):
+            v.SealedEnvelope.model_validate(data)
+    for changes in ({"iterations":1},{"schema":"other-version"}):
         data=demo(v).model_dump(by_alias=True, mode="json")
         data.update(changes)
         with pytest.raises(HTTPException) as exc:
