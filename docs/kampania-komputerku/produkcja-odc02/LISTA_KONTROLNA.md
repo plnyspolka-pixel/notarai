@@ -49,3 +49,7 @@ Część pozycji sprawdza automat: `narzedzia/kontrola_odcinka.py <plik.mp4>` (d
 | D2 | Dwa okna wyboru głosu, sprzeczne decyzje | Głos/twarz wybieram raz, zapisuję ID w `postac.json`; nigdy dwóch równoległych wyborów. |
 | D3 | Drogie warianty | Wariant oszczędny: HeyGen Turbo, 1 wariant kadru, bank ujęć, jedno podejście; poprawki tylko wskazanych ujęć. |
 | D4 | Klucz z odrzuconego zlecenia fal | Po odmowie — nowy klucz zlecenia. |
+
+## E. Współpraca
+| E1 | Pytania o drobne wybory (twarz, głos) | Takie decyzje podejmuję sam i zapisuję; pytam tylko o rzeczy, które zmieniają fabułę lub koszt. |
+| E2 | Intro z podtytułem „Odcinek 1 · Księga nadawcza w pięć minut” (wartość domyślna) | Intro renderuję dla każdego odcinka z `EPIZOD="Odcinek N · Tytuł"` jako `intro/INTRO_5_komputerku_9x16_odcNN.mp4`; sprawdzam podtytuł w arkuszu klatek. |

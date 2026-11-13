@@ -15,6 +15,13 @@ const czas = (t1, t2) => `<div style="position:absolute;left:0;right:0;bottom:25
 const W = { karta_basia: karta('Basia', 'sekretariat'), karta_pawel: karta('Paweł Nowak', 'syn pani Ireny'),
   karta_marta: karta('Marta', 'notariuszka'), karta_kuba: karta('Kuba', 'aplikant'), czas_0857: czas('Poniedziałek', '8:57'),
   karta_helena: karta('Helena Radecka', 'notariusz'), czas_0924: czas('Poniedziałek', '9:24'),
+  pop_naglowek: `<div style="position:absolute;left:0;right:0;top:300px;text-align:center;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.7)">
+   <div style="font-weight:700;font-size:40px;letter-spacing:.24em;text-transform:uppercase">W poprzednim odcinku</div>
+   <div style="width:90px;height:5px;margin:22px auto 0;border-radius:3px;background:linear-gradient(90deg,#1C1CC0,#00BFE8)"></div></div>`,
+  czas_wt_1012: czas('Wtorek', '10:12'),
+  czas_dwie_min: `<div style="position:absolute;left:0;right:0;bottom:250px;text-align:center;color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.6)">
+   <div style="font-weight:700;font-size:44px;letter-spacing:.14em;text-transform:uppercase">Dwie minuty wcześniej</div></div>`,
+  karta_irena: karta('Irena Nowak', 'sprzedająca'),
   zap_naglowek: `<div style="position:absolute;left:0;right:0;top:300px;text-align:center;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.7)">
    <div style="font-weight:700;font-size:40px;letter-spacing:.24em;text-transform:uppercase">W następnym odcinku</div>
    <div style="width:90px;height:5px;margin:22px auto 0;border-radius:3px;background:linear-gradient(90deg,#1C1CC0,#00BFE8)"></div></div>`,

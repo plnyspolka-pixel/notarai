@@ -26,7 +26,7 @@ ffmpeg -v error -y -i cold_v.mp4 -i "$K/produkcja-odc01/czesc3_wideo/amb_recepcj
 [a1][a2][a3][a4][a5]amix=inputs=5:duration=first:normalize=0,aformat=sample_rates=48000:channel_layouts=stereo[a]" \
  -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -t 7.5 cold.mp4
 # --- intro 5 ---
-ffmpeg -v error -y -i "$K/intro/INTRO_5_komputerku_9x16.mp4" -vf "$SC" $ENC -c:a aac -ar 48000 -ac 2 -b:a 192k intro.mp4
+ffmpeg -v error -y -i "$K/intro/INTRO_5_komputerku_9x16_odc01.mp4" -vf "$SC" $ENC -c:a aac -ar 48000 -ac 2 -b:a 192k intro.mp4
 # --- sc. 02 ---
 ujecie "$V/t1_basia_telefon.mp4" 0 3.88 d1.mp4 "$WL/karta_basia.png" 0.3 3.2
 ujecie "$V/b2_telefon.mp4" 2.5 0.8 d2.mp4
