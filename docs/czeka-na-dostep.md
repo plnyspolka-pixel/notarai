@@ -226,7 +226,7 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 `docs/testy-z-notariuszem-ksiegi.md`.
 
-## NA-11. Stanowisko GPU do ujęć bez mowy (RunPod 4090 + ComfyUI + Wan 2.2)
+## NA-12. Stanowisko GPU do ujęć bez mowy (RunPod 4090 + ComfyUI + Wan 2.2)
 
 - **Status:** czeka
 - **Brakuje:** konta RunPod (albo Modal) z saldem i dysku sieciowego 100 GB; skrypty

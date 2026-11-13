@@ -78,7 +78,7 @@ LLM: EP01 i EP03 zapisały cache (31 374 tokeny), pozostałe czytały go z cache
 | **Sezon 8 odcinków** | **220–300 $** | **~90 $** | **~75 $** |
 
 Najtańszy tor (własne GPU) zostawia w HeyGen Avatar 6 Turbo ok. 80 % kosztu wideo. Dalsze cięcie wymaga
-zaliczenia polskiego lip-syncu przez EchoMimicV3 / InfiniteTalk (NA-11 pkt 4) - wtedy odcinek spada do ~2 $.
+zaliczenia polskiego lip-syncu przez EchoMimicV3 / InfiniteTalk (NA-12 pkt 4) - wtedy odcinek spada do ~2 $.
 Nie liczymy czasu ludzi, który po tych zmianach staje się głównym kosztem.
 
 Wygenerowane `odcinki/EP01–EP08.json` są **szkicami do autoryzacji** (pole `_produkcja` zawiera model, zużycie tokenów
