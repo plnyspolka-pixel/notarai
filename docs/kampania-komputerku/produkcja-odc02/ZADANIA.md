@@ -10,3 +10,11 @@ Wariant oszczędny: HeyGen `heygen-avatar-6-turbo`, 1 wariant kadru, bank ujęć
   Irena 7d162b72777d4ca58576ff13cc45a242, Paweł 306c11390e454289bccf683e9328e4c3. Kling drzwi 01a1d25e-be38-7ce0-9e57-a77bdb004744.
 
 Sesje kodu: „Projekt aktu z treścią księgi pobranej z EKW” (session_015k5XGBVzUU48yKskLFFgRm), „Odczyt maili do sprawy” (session_015k5XGCEbnm5fDerbZCevwP).
+
+## Część 2 (sc. 02, gabinet)
+- Kadry: Irena w fotelu `1c5d8kI-BBxSMeo5LYxPZ`, Helena bez okularów (okulary na wydruku) `-GoF6C7YwRT80KS5b8JUK`, zbliżenie okularów `WyEpAm7lIDdPAlCxxzrmA`.
+  Helena w okularach: kadr z odc. 01 `TTHHkzt_0BRnEnQQ7p2Ts`.
+- Głosy: Helena `s02_helena_1-4b709c3c`, `_2b-5b515e84` („pierwsze grudnia” w `_2-cb7411aa` odrzucone), `_3-63148c1e`, `_4-b915591d`;
+  Irena `s02_irena_1-720689fd`, `_2-9a9da053`, `_3-92c05980`, `_4-381daa5f` (+ cisza).
+- HeyGen Turbo: Helena 1 c4aca6fb444d490eafe16659139399e6, 2 ab86545062704f2b89063ad6a7e76ac7, 3 88fa12c3b9a84ad88491a0d0a731773d, 4 fcf7c77f9b02484c8e656b49074cc182;
+  Irena 1 23460bb971884dfbaaefb0488b901be5, 2 3a322e76dc4a4e2580a9c197d5d9ad32, 3 af4090a4017b4fee8e3188a99acc5e8d. Kling okulary 01a1d278-dad3-74e0-8225-3b1427cce90e.
