@@ -51,6 +51,28 @@ Parameters:
     Type: Number
     Default: 150
     Description: Miesieczny budzet. Ostrzezenie przy 80 procentach i prognozie przekroczenia.
+  BudzetBedrockUsd:
+    Type: Number
+    Default: 60
+    Description: >-
+      Miesieczny budzet samego Amazon Bedrock (modele Claude: skany, rozmowy, projekty,
+      narzedzia kampanii). Osobny od calego rachunku, bo to jedyna pozycja, ktora rosnie
+      z uzyciem. Ostrzezenie przy 80 procentach i prognozie przekroczenia.
+  LimitTokenowBedrockDzien:
+    Type: Number
+    Default: 5000000
+    Description: >-
+      Dzienny limit tokenow Bedrock (wejscie + wyjscie, oba modele) dla alarmu
+      notarai-bedrock-tokeny. 5 mln tokenow to ok. 25-60 USD dziennie na Opus 4.6;
+      typowy dzien kancelarii to ulamek tego. Alarm nic nie blokuje, tylko powiadamia.
+  ModelGlowny:
+    Type: String
+    Default: eu.anthropic.claude-opus-4-6-v1
+    Description: Profil modelu, ktorym aplikacja czyta skany i pisze projekty (config.MODEL) - wymiar ModelId alarmu.
+  ModelKalkulatora:
+    Type: String
+    Default: eu.anthropic.claude-sonnet-4-6
+    Description: Profil modelu publicznego kalkulatora taksy (tokenomia.MODEL_KALKULATORA) - wymiar ModelId alarmu.
   Administratorzy:
     Type: String
     Default: plnyspolka@gmail.com
@@ -733,6 +755,123 @@ Resources:
           Subscribers:
             - SubscriptionType: EMAIL
               Address: !Ref EmailAlarmowy
+
+  # Bedrock to jedyna pozycja rachunku, ktora rosnie z uzyciem (tokeny). Osobny
+  # budzet lapie petle ponowien, zbyt wysoki effort i nieoczekiwany ruch, zanim
+  # zobaczy to budzet calego konta.
+  BudzetBedrock:
+    Condition: MamyEmail
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: notarai-bedrock-miesieczny
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref BudzetBedrockUsd
+          Unit: USD
+        CostFilters:
+          Service:
+            - Amazon Bedrock
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailAlarmowy
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailAlarmowy
+
+  # Spalanie tokenow dzien po dniu: suma wejscia i wyjscia obu modeli (metryki
+  # AWS/Bedrock maja wymiar ModelId = identyfikator profilu "eu.").
+  AlarmTokenowBedrock:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-bedrock-tokeny
+      AlarmDescription: Dzienna suma tokenow Bedrock (wejscie + wyjscie) przekroczyla limit
+      Metrics:
+        - Id: we1
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Bedrock
+              MetricName: InputTokenCount
+              Dimensions:
+                - Name: ModelId
+                  Value: !Ref ModelGlowny
+            Period: 86400
+            Stat: Sum
+        - Id: wy1
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Bedrock
+              MetricName: OutputTokenCount
+              Dimensions:
+                - Name: ModelId
+                  Value: !Ref ModelGlowny
+            Period: 86400
+            Stat: Sum
+        - Id: we2
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Bedrock
+              MetricName: InputTokenCount
+              Dimensions:
+                - Name: ModelId
+                  Value: !Ref ModelKalkulatora
+            Period: 86400
+            Stat: Sum
+        - Id: wy2
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Bedrock
+              MetricName: OutputTokenCount
+              Dimensions:
+                - Name: ModelId
+                  Value: !Ref ModelKalkulatora
+            Period: 86400
+            Stat: Sum
+        - Id: razem
+          Label: Tokeny Bedrock dziennie
+          Expression: FILL(we1, 0) + FILL(wy1, 0) + FILL(we2, 0) + FILL(wy2, 0)
+          ReturnData: true
+      EvaluationPeriods: 1
+      Threshold: !Ref LimitTokenowBedrockDzien
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
+
+  # Dlawienie (ThrottlingException) - uzytkownicy widza "model przeciazony";
+  # po kilku w 5 minut warto podniesc limit zapytan w Service Quotas.
+  AlarmDlawieniaBedrock:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-bedrock-dlawienie
+      AlarmDescription: Bedrock odrzuca zapytania z powodu limitu (InvocationThrottles)
+      Namespace: AWS/Bedrock
+      MetricName: InvocationThrottles
+      Dimensions:
+        - Name: ModelId
+          Value: !Ref ModelGlowny
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
 
 Outputs:
   TematAlarmow:
