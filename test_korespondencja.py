@@ -415,6 +415,19 @@ class TestUstalenia:
         assert kw["myslenie"] is False and WWW in tresc[0]["text"]
         assert bedrock._wyciagnij_ustalenia("  ", "", [WWW]) == []
 
+    def test_model_podaje_nazwe_pola_bez_kodu_albo_sam_kod(self, monkeypatch):
+        """Na prawdziwym modelu: „termin wydania lokalu” albo „www” zamiast pelnej nazwy."""
+        odpowiedz = json.dumps({"ustalenia": [
+            {"pole": "termin wydania lokalu", "wartosc": "1.12", "cytat": "1 grudnia"},
+            {"pole": "„Termin  wydania lokalu”", "wartosc": "1.12", "cytat": "x"},
+            {"pole": "www", "wartosc": "1.12", "cytat": "y"},
+            {"pole": "ccc", "wartosc": "640 000 zł", "cytat": "cena"},
+            {"pole": "Inne: koniec najmu", "wartosc": "30.11", "cytat": "najem"},
+            {"pole": "termin zapłaty", "wartosc": "x", "cytat": ""}]})
+        monkeypatch.setattr(bedrock, "_rozmowa", lambda *a, **kw: odpowiedz)
+        wynik = bedrock._wyciagnij_ustalenia("tekst", "temat", [WWW, "ccc: cena"])
+        assert [u["pole"] for u in wynik] == [WWW, WWW, WWW, "ccc: cena", "inne: koniec najmu"]
+
 
 # --- logi, uprawnienia, ustawienia, IMAP -------------------------------------------------
 
@@ -762,3 +775,46 @@ def test_samoczynne_sprawdzanie_zapisuje_blad_zamiast_przerywac(srodowisko, monk
     monkeypatch.setattr(korespondencja, "KATALOG_DEMO", "/nie/ma/takiego/katalogu")
     odp = k.get("/api/korespondencja", params={"odswiez": True})
     assert odp.status_code == 200 and "nie istnieje" in odp.json()["blad"]
+
+
+def test_rownolegle_ustalenia_nie_gubia_sie(srodowisko, monkeypatch):
+    """Trzy „Przypisz” szybko po sobie: model odpowiada rownolegle, kazdy wynik zostaje."""
+    import threading
+    import time as czas
+    k, katalog, _ = srodowisko
+    lista = pobierz(k)["wiadomosci"]
+    ids = [przypisz(k, po_temacie(lista, f))["id"] for f in ("Warunki transakcji - ul.", "Re: Warunki", f"{SYGNATURA} - termin")]
+    wszyscy = threading.Barrier(3)
+
+    def model(tekst, temat, pola):
+        wszyscy.wait(5)             # wszystkie trzy przeczytaly plik, zanim ktorykolwiek zapisze
+        czas.sleep(0.05)
+        return atrapa_ustalen(USTALENIA)(tekst, temat, pola)
+    monkeypatch.setattr(bedrock, "wyciagnij_ustalenia", model)
+    watki = [threading.Thread(target=korespondencja.wyciagnij_ustalenia, args=(katalog, i)) for i in ids]
+    for w in watki:
+        w.start()
+    for w in watki:
+        w.join(10)
+    stan = k.get(f"/api/sprawy/{SPRAWA}/korespondencja").json()
+    assert sorted(w["ustalenia_stan"] for w in stan["wiadomosci"]) == ["gotowe"] * 3
+    assert sorted(len(w["ustalenia"]) for w in stan["wiadomosci"]) == [1, 1, 2]
+
+
+@pytest.mark.parametrize("wartosc,klucz", [
+    ("1.12", "data:1.12"), ("1.12.", "data:1.12"), ("01.12.2026", "data:1.12"), ("1 grudnia 2026 r.", "data:1.12"),
+    ("1 grudnia", "data:1.12"), ("30.11", "data:30.11"), ("640 000 zł", "640 000 zł")])
+def test_normalizacja_wartosci(wartosc, klucz):
+    assert korespondencja._klucz_wartosci(wartosc) == klucz
+
+
+def test_rozne_zapisy_daty_to_jedna_grupa_i_autorzy_nie_sa_w_braku_potwierdzenia():
+    u = lambda w, relacja=False: [{"pole": WWW, "wartosc": w, "relacja": relacja}]  # noqa: E731
+    dane = {"osoby": OSOBY, "wiadomosci": [
+        {"id": "a", "nadawca": {"email": OSOBY[2]["email"]}, "data": "2026-11-06", "ustalenia": u("1 grudnia 2026 r.")},
+        {"id": "b", "nadawca": {"email": OSOBY[3]["email"]}, "data": "2026-11-09", "ustalenia": u("1.12.", True)},
+        {"id": "c", "nadawca": {"email": OSOBY[1]["email"]}, "data": "2026-11-10", "ustalenia": u("1.12.2026")}]}
+    (grupa,) = korespondencja.ustalenia_pol(dane)[WWW]
+    assert grupa["wartosc"] == "1.12.2026"
+    assert [z["imie"] for z in grupa["zrodla"]] == ["Robert Kaczmarek", "Paweł Nowak", "Joanna Kaczmarek"]
+    assert [o["imie"] for o in grupa["brak_potwierdzenia"]] == ["Irena Nowak"]

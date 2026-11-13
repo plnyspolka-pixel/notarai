@@ -580,6 +580,22 @@ def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
 MAX_TOKENOW_USTALEN = 4000
 
 
+def _klucz_pola(nazwa: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[\"'„”“«»]", "", nazwa or "")).strip().lower()
+
+
+def _dopasowania_pol(pola: list[str]) -> dict:
+    """{klucz: pelna nazwa} - z pelnej nazwy, z czesci po „:” i z samego kodu („www”)."""
+    wynik = {}
+    for nazwa in pola:
+        kod, _, opis = nazwa.partition(":")
+        for wariant in (nazwa, opis, kod) if opis else (nazwa,):
+            klucz = _klucz_pola(wariant)
+            if klucz:
+                wynik.setdefault(klucz, nazwa)
+    return wynik
+
+
 def wyciagnij_ustalenia(tekst: str, temat: str, pola: list[str]) -> list[dict]:
     """Ustalenia z jednej wiadomosci e-mail dot. pol sprawy (korespondencja.py).
 
@@ -593,12 +609,17 @@ def wyciagnij_ustalenia(tekst: str, temat: str, pola: list[str]) -> list[dict]:
                       [{"text": prompty.polecenie_ustalen(tekst, temat, pola)}],
                       max_tokenow=MAX_TOKENOW_USTALEN, myslenie=False)
     wynik = _wczytaj_json_z_naprawa(surowa)
-    nazwy = set(pola)
+    dopasowania = _dopasowania_pol(pola)
     ustalenia = []
     for u in wynik.get("ustalenia") or []:
-        pole = str(u.get("pole", "")).strip()
+        surowe = str(u.get("pole", "")).strip()
         wartosc = str(u.get("wartosc") or "").strip()
-        if not wartosc or not (pole in nazwy or pole.startswith("inne:")):
+        if surowe.lower().startswith("inne:"):
+            pole = "inne:" + surowe[5:]
+        else:
+            # Model bywa niedokladny: pelna nazwa, sama nazwa bez kodu albo sam kod.
+            pole = dopasowania.get(_klucz_pola(surowe))
+        if not wartosc or not pole:
             continue
         ustalenia.append({
             "pole": pole, "wartosc": wartosc[:200], "cytat": str(u.get("cytat", ""))[:200],
