@@ -30,12 +30,9 @@ Irena Nowak jest sprzedającą. Paweł Nowak jest jej synem i organizatorem, **n
 | 07 „Wrócę za godzinę” | Marta jest poza kancelarią, a prośba o zmianę w projekcie przychodzi teraz; pytanie czy można działać zdalnie bez utraty kontroli | Mobilny dostęp w wariancie SaaS; polecenia lokalnego pomocnika **tylko jeśli przejdą test E2E** | Wejście do samochodu, miasto nocą, przystanek / parking, pierwszy kontakt Marty z Aleksandrem |
 | 08 „To moja decyzja” | Irena świadomie rozstrzyga, nie przez cudowne odkrycie AI; Helena docenia to, co uporządkowano | Finalny projekt do kontroli, źródła materiałów, brak automatycznej finalizacji prawnej | Irena samotnie wychodzi z kancelarii; wieczorne miasto. Finał: Helena otrzymuje zawiadomienie o planowanej wizytacji |
 
-## Wątek romansowy — slow burn, bez obciążania etyki zawodowej
-Nowa postać dopiero jako **delikatny teaser EP07–08**: **Aleksander Wysocki (41)**, niezależny specjalista od bezpieczeństwa systemów i dawny znajomy Marty ze studiów. Działający poza strukturą organów kontroli i poza transakcją Ireny. Nie jest klientem kancelarii, kupującym, wizytatorem ani pełnomocnikiem; brak romantycznej relacji z osobą, którą Marta zawodowo obsługuje lub ocenia.
-- Pierwsze spotkanie: kawa na stacji / przystanek po pracy, niedokończona rozmowa, dawny konflikt osobisty.
-- Zakończenie S1: Marta odkłada niesendowaną wiadomość do niego; odbiorca chce poznać przyczynę rozstania.
-- S2: powrót i napięcie związane z zaufaniem. Aleksander **nie uzyskuje automatycznie dostępu** do żadnych rzeczywistych spraw; każdy zakres ewentualnej pomocy technicznej podlega podstawie prawnej, umowom i kontroli uprawnień.
-- Nie rozciągać relacji kosztem profesjonalnej fabuły; romantyzm poprzez subtelne wybory, spojrzenia i konsekwencje.
+## Wątek romantyczny — obowiązujący kanon
+
+Romans **Kuby Maja i Zofii Lewickiej**, aplikantki w małej kancelarii swojej cioci, Teresy Janickiej. Ich znajomość zaczęła się na szkoleniu aplikantów; osią konfliktu jest przepracowanie, aspiracje Zosi i lojalność wobec Teresy. **Nie wprowadzamy Aleksandra ani romansu Marty.** Pełna ciągłość: [05_REZYSERIA_V5_THRILLER_ROMANS.md](05_REZYSERIA_V5_THRILLER_ROMANS.md). Powracający żart: [08_MOTYW_KARMIENIE_KOMPUTERKA.md](08_MOTYW_KARMIENIE_KOMPUTERKA.md).
 
 ## Produkt i bezpieczeństwo w narracji
 **Funkcja istotna dla marketingu ≠ funkcja potwierdzona w produkcji.**
