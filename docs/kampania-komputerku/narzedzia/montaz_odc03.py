@@ -73,7 +73,7 @@ for i, u in enumerate(UJ):
     if u['t'] is None:
         if f.endswith(('.png', '.jpg')): u['t'] = round(dl(u['glos'][0]) + 0.35, 2)
         else: u['t'] = round(dl(INTRO if f == 'INTRO' else f) - u['ss'] - 0.05, 2)
-    d = u['t']; start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
+    d = u['t']; d = round(d * 30) / 30; start.append(t); t += d; out = f'{T}/v{i:02d}.mp4'
     if f == 'CZERN':
         inp = ['-f', 'lavfi', '-t', str(d), '-i', 'color=c=black:s=1080x1920:r=30']; fc = '[0:v]setsar=1[v0]'
     elif f == 'INTRO':
@@ -82,7 +82,7 @@ for i, u in enumerate(UJ):
         inp = ['-i', OUTRO]; fc = f'[0:v]tpad=stop_mode=clone:stop_duration={d - dl(OUTRO) + 0.1:.2f},fps=30,setsar=1[v0]'
     elif f.endswith(('.png', '.jpg')):
         z0, z1, fx, fy = u['zoom'] or (1.0, 1.06, 0.5, 0.5); n = int(d * 30)
-        inp = ['-loop', '1', '-t', str(d), '-i', f]
+        inp = ['-framerate', '30', '-loop', '1', '-t', str(d), '-i', f]
         fc = (f"[0:v]scale=1620:2880:force_original_aspect_ratio=increase,crop=1620:2880,zoompan=z='{z0}+({z1}-{z0})*on/{n}'"
               f":x='max(0,min(iw-iw/zoom,iw*{fx}-iw/zoom/2))':y='max(0,min(ih-ih/zoom,ih*{fy}-ih/zoom/2))':d=1:s=1080x1920:fps=30,setsar=1[v0]")
     else:
@@ -94,6 +94,10 @@ for i, u in enumerate(UJ):
         fc += f";[{k}:v]format=rgba,fade=t=in:st={u['wa']}:d=0.3:alpha=1{f',fade=t=out:st={u['wb']}:d=0.3:alpha=1' if u['wb'] < 90 else ''}[w];[{last}][w]overlay=0:0[v2]"; last = 'v2'
     sh('ffmpeg', '-nostdin', '-v', 'error', '-y', *inp, '-filter_complex', fc, '-map', f'[{last}]', '-an', '-t', str(d), *ENC, out); lista.append(out)
 DL = t
+# C8: obraz musi trwać tyle co oś dźwięku (inaczej synchronizacja ust „siada” i rozjeżdża się z każdym ujęciem)
+kl = sum(int(subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v', '-count_packets', '-show_entries', 'stream=nb_read_packets',
+                             '-of', 'csv=p=0', x], capture_output=True, text=True).stdout) for x in lista) / 30
+assert abs(kl - DL) < 0.07, f'obraz {kl:.2f} s, dźwięk {DL:.2f} s — rozjazd synchronizacji'
 open(f'{T}/l.txt', 'w').write(''.join(f"file '{x}'\n" for x in lista))
 sh('ffmpeg', '-nostdin', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', f'{T}/l.txt', '-c', 'copy', f'{T}/obraz.mp4')
 TZ, IN, S1, S2, PZ, S3, S4, CZ, ZS, SO = (start[i] for i in (4, 8, 9, 11, 17, 19, 27, 30, 31, 34))
