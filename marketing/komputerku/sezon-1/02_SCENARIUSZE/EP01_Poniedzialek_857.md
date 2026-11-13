@@ -1,4 +1,7 @@
 # NotarAI — Kancelaria pod Siódemką / Sezon 1
+
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Basia pyta «A komputerka ktoś nakarmił?». Kuba rozgląda się, jakby szukał zwierzęcia. Krótki motyw do dogrania na istniejących kadrach K3/K6 — nie przerenderowywać pilota tylko dla żartu. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
 ## Wszystkie scenariusze w jednym pliku Markdown
 **Wersja V4, 12 listopada 2026 · 8 odcinków · status: do autoryzacji prawnej i produktowej.**
 
