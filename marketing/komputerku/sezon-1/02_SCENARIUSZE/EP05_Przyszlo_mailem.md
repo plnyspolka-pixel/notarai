@@ -1,5 +1,8 @@
 # EP05 — Przyszło mailem
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Zosia Lewicka słyszy powiedzenie po raz pierwszy, pyta Kubę, czy karmią komputer. Kuba tłumaczy mechanizm kredytów. Pierwsza naturalna iskra romantyczna; nie dopisywać innej relacji. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 20.11.2026 · **Czas:** 70 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
