@@ -36,3 +36,17 @@
 Najpierw: signed installer, pełna mapa ścieżek plaintext, AEAD per-file DEK i key custody, niezależna weryfikacja builda oraz sealed flow testy end-to-end na fikcyjnych danych.
 
 **Nie merge'ować i nie deployować automatycznie.** Licencja/kwalifikacja, bezpieczeństwo prawdziwych aktów i kontrola dostępu wymagają osobnego przeglądu.
+
+## Aktualizacja implementacji — Sealed v2 i KMS (13.11.2026)
+
+**DONE na gałęzi:**
+- `notarai_sealed_v2.py`: lokalny klient CLI, losowy DEK AES-256-GCM na dokument, X25519/HKDF/AES-GCM opakowanie dla wielu uprawnionych osób, klucze prywatne w zaszyfrowanym PKCS8 na urządzeniu kancelarii, bez przesyłania plaintextu do operatora;
+- `rotate_recipients`: tworzy nowy dokument z nowym DEK i nowym UUID; odwołany klucz nie odszyfruje nowej wersji. Stare skopiowane wersje pozostają poza zakresem technicznego cofnięcia;
+- `sealed_vault_v2.py` + FastAPI: wyłącznie zaszyfrowane v2, strict schema, brak pól na plaintext, isolation po kancelarii, blokady dostępu operatora serwisowego;
+- `sealed_release.py`: weryfikator Ed25519 podpisu release i SHA-256 każdego pliku, klucz wydawcy poza GitHub;
+- `.github/workflows/sealed-local-client.yml`: proces **ręcznego** budowania lokalnego pliku wykonywalnego dla Windows i Linux z poświadczeniem pochodzenia GitHub OIDC. Workflow nie został uruchomiony w tym zadaniu, nie ma jeszcze Authenticode/certyfikatu wydawcy;
+- `kms_anchor.py`: EIP-1559 + AWS KMS ECC_SECG_P256K1, testy offline; sealer NotarAI domyślnie przygotowuje Sepolia, nie Mainnet; potwierdza transakcję oddzielnym RPC.
+
+**BLOCKED (nie przedstawiać jako wdrożone):** podpis wydania kluczem rzeczywistego wydawcy, Authenticode Windows i podpisany aktualizator; TPM/HSM dla prywatnych kluczy kancelarii; migracja całego istniejącego obiegu aktów do Sealed; audyt wszystkich logów i kanałów AI; faktyczny KMS/IAM/RPC z kluczem testowym; automatyczny sealer/publisher; eIDAS/QTSP.
+
+Praca pozostaje w `wdrazamy-ethereum`, bez Mainnet, wdrożenia produkcyjnego i bez transmisji prawdziwych aktów. Runbook: `docs/ETHEREUM-PUBLISHER-RUNBOOK.md`, instrukcja lokalna: `docs/SEALED-LOCAL-CLIENT.md`.
