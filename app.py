@@ -62,6 +62,7 @@ import meta_leady
 import wizyty
 import transkrypcja
 import walidacja
+import dowody_ethereum
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,6 +112,7 @@ app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
+app.include_router(dowody_ethereum.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.middleware("http")(kalkulator.cors)
