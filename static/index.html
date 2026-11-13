@@ -116,6 +116,22 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
   box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .przelacznik input:focus-visible + label{outline:2px solid var(--akcent);outline-offset:1px}
 .opis-dokl{font-size:12.5px;color:var(--tekst3);margin-top:7px;line-height:1.45}
+.dokl-domyslna{font-size:12.5px;color:var(--tekst3);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
+.odnosnik-maly{background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--tekst2);
+  text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:0}
+.odnosnik-maly:hover:not(:disabled){background:none;color:var(--tekst);border-color:transparent}
+/* okno ustawien kancelarii */
+#okno-ustawienia{width:min(640px,calc(100vw - 32px))}
+#okno-ustawienia input[type=text]{text-transform:none;width:100%;font:14px var(--mono);padding:9px 10px;
+  border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
+#okno-ustawienia .przelacznik input{width:auto}
+#okno-ustawienia h3{margin-top:18px}
+.ust-pola{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ust-pola button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
+.ust-pola button:hover:not(:disabled){background:var(--tlo2);color:var(--tekst);border-color:var(--akcent)}
+.ust-podglad{margin-top:10px;font-size:13px;color:var(--tekst2);line-height:1.6}
+.ust-podglad code{font:13px var(--mono);color:var(--tekst);background:var(--tlo);padding:2px 6px;border-radius:6px}
+.ust-podglad .zle{color:#b4231c}
 
 .composer{border:1px solid var(--linia2);border-radius:18px;background:var(--karta);
   padding:14px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
@@ -481,7 +497,9 @@ body.bez-kancelaria .tylko-bez-upr[data-bez-upr="kancelaria"]{display:block}
 .brama h2{font:500 19px/1.3 var(--serif);margin:0 0 8px}
 .brama p{color:var(--tekst2);font-size:14px;margin:0 0 20px}
 .brama input{font-family:var(--mono);font-size:13px}
-.brama .dol{display:flex;align-items:center;gap:12px;margin-top:16px}
+.brama .dol{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+/* Przycisk logowania ma byc nie do przeoczenia: cala szerokosc, wiekszy. */
+.brama .dol button{flex:1 1 100%;min-height:48px;font-size:15.5px;font-weight:600;border-radius:var(--r2)}
 .wyloguj{margin-top:10px;font-size:11.5px;color:var(--tekst3);cursor:pointer;
   background:none;border:0;padding:0;font-weight:400;text-align:left}
 .wyloguj:hover{color:var(--tekst2);background:none}
@@ -723,6 +741,7 @@ notarai</div>
     <a class="wyloguj" id="link-kalkulator" href="/kalkulator" target="_blank" rel="noopener" style="text-decoration:none">Kalkulator taksy</a>
     <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
+    <button class="wyloguj" id="btn-ustawienia">Ustawienia kancelarii</button>
     <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
     <button class="wyloguj" id="btn-abonament" hidden>Abonament</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
@@ -826,6 +845,10 @@ notarai</div>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg>
    <span><strong>Zespół kancelarii</strong><small>Dostępy i uprawnienia</small></span>
   </button>
+  <button type="button" class="kokpit-module" data-kokpit-nav="#btn-ustawienia" hidden>
+   <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-spark"/></svg>
+   <span><strong>Ustawienia kancelarii</strong><small>Dokładność odczytu, nazwy plików Word</small></span>
+  </button>
   <button type="button" class="kokpit-module" data-kokpit-nav="#btn-abonament" hidden>
    <svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-word"/></svg>
    <span><strong>Abonament</strong><small>Plan i rozliczenia</small></span>
@@ -855,11 +878,17 @@ notarai</div>
     <div class="dokladnosc">
       <span class="etykieta" id="dokl-etykieta">Dokładność odczytu</span>
       <div class="przelacznik" role="radiogroup" aria-labelledby="dokl-etykieta">
-        <input type="radio" name="wysilek" id="wys-max" value="max" checked><label for="wys-max">Maksymalna</label>
+        <input type="radio" name="wysilek" id="wys-auto" value="auto" checked><label for="wys-auto">Automatyczna</label>
+        <input type="radio" name="wysilek" id="wys-max" value="max"><label for="wys-max">Maksymalna</label>
         <input type="radio" name="wysilek" id="wys-high" value="high"><label for="wys-high">Wysoka</label>
         <input type="radio" name="wysilek" id="wys-medium" value="medium"><label for="wys-medium">Szybka</label>
       </div>
       <div class="opis-dokl" id="opis-dokl"></div>
+      <!-- Przelacznik zaczyna od ustawienia kancelarii (serwer), wiec nie trzeba
+           go pamietac przy kazdej sprawie ani na kazdym komputerze. -->
+      <div class="dokl-domyslna"><span id="dokl-domyslna-info"></span>
+        <button type="button" class="odnosnik-maly" id="btn-dokl-domyslna" hidden>Ustaw jako domyślną dla kancelarii</button>
+        <button type="button" class="odnosnik-maly" id="btn-ustawienia-etap1">Ustawienia kancelarii…</button></div>
     </div>
   </div>
 
@@ -1736,6 +1765,29 @@ notarai</div>
   <p class="pod">Dni nieczynne ustawione w kalendarzu nadal blokują rezerwacje. Godziny podawaj co 30 minut (strefa Warszawa).</p>
   <p class="stan" id="hurtowe-komunikat" role="status" aria-live="polite"></p>
   <div class="dol"><button id="hurtowe-zapisz">Zapisz ustawienia</button><button id="hurtowe-zamknij" class="wtorny">Zamknij</button></div>
+</dialog>
+
+<!-- Ustawienia ogolne kancelarii: to, co notariusz ustawia raz, zamiast
+     klikac przy kazdej sprawie. Zapis na serwerze (plik kancelarii), wiec
+     obowiazuja na kazdym komputerze; zmienia je wlasciciel kancelarii. -->
+<dialog class="okno" id="okno-ustawienia" aria-labelledby="ustawienia-tytul">
+  <h2 id="ustawienia-tytul">Ustawienia kancelarii</h2>
+  <p id="ustawienia-opis">Obowiązują w całej kancelarii, na każdym komputerze.</p>
+  <h3>Domyślna dokładność odczytu</h3>
+  <p>Od niej zaczyna się przełącznik przy każdej nowej sprawie. Przy konkretnej sprawie możesz wybrać inną.</p>
+  <div class="przelacznik" role="radiogroup" aria-label="Domyślna dokładność odczytu">
+    <input type="radio" name="ust-wysilek" id="ust-wys-auto" value="auto"><label for="ust-wys-auto">Automatyczna</label>
+    <input type="radio" name="ust-wysilek" id="ust-wys-max" value="max"><label for="ust-wys-max">Maksymalna</label>
+    <input type="radio" name="ust-wysilek" id="ust-wys-high" value="high"><label for="ust-wys-high">Wysoka</label>
+    <input type="radio" name="ust-wysilek" id="ust-wys-medium" value="medium"><label for="ust-wys-medium">Szybka</label>
+  </div>
+  <div class="opis-dokl" id="ust-opis-dokl"></div>
+  <h3>Nazwa pliku Word z projektem</h3>
+  <p>Wzór nazwy pliku, który pobierasz po sporządzeniu projektu. Kliknij pole, żeby je wstawić. Pole bez danych znika razem ze swoim myślnikiem.</p>
+  <input type="text" id="ust-nazwa-pliku" spellcheck="false" autocomplete="off" maxlength="200" aria-label="Wzór nazwy pliku">
+  <div class="ust-pola" id="ust-pola" aria-label="Pola do wstawienia"></div>
+  <div class="ust-podglad">Przykład: <code id="ust-przyklad"></code><span id="ust-przyklad-uwaga"></span></div>
+  <div class="dol"><button id="ust-zapisz">Zapisz ustawienia</button><button class="wtorny" id="ust-zamknij">Zamknij</button><span class="stan" id="stan-ustawienia"></span></div>
 </dialog>
 
 <!-- Zespol: kazdy widzi, kto ma dostep do spraw kancelarii; wlasciciel
@@ -2845,6 +2897,8 @@ async function uruchomTrybPracy(){
       if (ustawienia.transkrypcja === false) {
         document.querySelectorAll(".narz").forEach(n => n.hidden = true);
       }
+      // Domyslna dokladnosc odczytu i wzor nazwy pliku: ustawienia kancelarii.
+      zastosujUstawieniaOgolne(ustawienia.ogolne);
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -2855,6 +2909,7 @@ async function uruchomTrybPracy(){
     $("kto").textContent = "Dostęp serwisowy: " + SERWIS;
     $("kto").title = "Wejście za zgodą kancelarii, do czasu, który wskazała";
     $("kto").hidden = false;
+    $("btn-ustawienia").hidden = true;
     rysujListeSpraw();
     return;
   }
@@ -4054,25 +4109,165 @@ async function zapiszSpraweNaDysku(wynik, wzor, skany){
   await dysk.zapiszPlik(katalog, "kontekst.txt", wynik.kontekst || "");
 }
 
-/* ---------- dokladnosc odczytu ---------- */
+/* ---------- dokladnosc odczytu ----------
+   Przelacznik zaczyna od domyslnej dokladnosci kancelarii (ustawienia na
+   serwerze), wiec jest taka sama na kazdym komputerze i nie trzeba o niej
+   pamietac. Zmiana przy sprawie dotyczy tej sprawy; "Ustaw jako domyslna"
+   zapisuje ja w ustawieniach. Gdy kancelaria trzyma pliki u siebie, serwer
+   nic nie zapisuje - domyslna pamieta ta przegladarka. */
 const OPISY_DOKL = {
+  auto: "Dobieram sama: dokumenty elektroniczne (PDF z tekstem) czytam szybko, skany i zdjęcia z wysoką dokładnością. Maksymalną wybierz ręcznie do trudnych spraw.",
   max: "Model najdłużej analizuje każdą stronę. Do dużych i trudnych spraw: tabele, kilka ksiąg, wyblakły maszynopis. Najwolniej i najdrożej.",
   high: "Krócej myśli nad każdą stroną. Zwykle wystarcza przy czytelnych skanach. Szybciej i taniej.",
   medium: "Najszybciej i najtaniej. Do prostych spraw z kilkoma wyraźnymi dokumentami. Sprawdzaj uważniej numery i tabele.",
 };
+const NAZWY_DOKL = {auto: "automatyczna", max: "maksymalna", high: "wysoka", medium: "szybka"};
+const KLUCZ_USTAWIEN_LOKALNYCH = "notarai-ustawienia";
+let ustawieniaOgolne = {dokladnosc: "auto", nazwa_pliku: "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}", moge_zmieniac: true};
 function wybranaDokladnosc() {
-  return (document.querySelector('input[name="wysilek"]:checked') || {}).value || "max";
+  return (document.querySelector('input[name="wysilek"]:checked') || {}).value || "auto";
 }
-function opiszDokladnosc() { $("opis-dokl").textContent = OPISY_DOKL[wybranaDokladnosc()]; }
-try {
-  const zapisana = localStorage.getItem("notarai-wysilek");
-  if (zapisana && OPISY_DOKL[zapisana]) $("wys-" + zapisana).checked = true;
-} catch (e) {}
-document.querySelectorAll('input[name="wysilek"]').forEach(r => r.onchange = () => {
+function ustawDokladnosc(wartosc) {
+  if (OPISY_DOKL[wartosc]) $("wys-" + wartosc).checked = true;
   opiszDokladnosc();
-  try { localStorage.setItem("notarai-wysilek", wybranaDokladnosc()); } catch (e) {}
-});
+}
+function opiszDokladnosc() {
+  const w = wybranaDokladnosc(), domyslna = ustawieniaOgolne.dokladnosc;
+  $("opis-dokl").textContent = OPISY_DOKL[w];
+  $("dokl-domyslna-info").textContent = w === domyslna
+    ? "Domyślne ustawienie kancelarii."
+    : "Tylko dla tej sprawy; domyślnie kancelaria czyta z dokładnością: " + NAZWY_DOKL[domyslna] + ".";
+  $("btn-dokl-domyslna").hidden = w === domyslna || ustawieniaOgolne.moge_zmieniac === false;
+}
+function zastosujUstawieniaOgolne(ogolne) {
+  if (ogolne) ustawieniaOgolne = Object.assign({}, ustawieniaOgolne, ogolne);
+  if (dysk.aktywny) {
+    // Serwer niczego nie zapisuje dla tej kancelarii - ustawienia sa w przegladarce.
+    try { Object.assign(ustawieniaOgolne, JSON.parse(localStorage.getItem(KLUCZ_USTAWIEN_LOKALNYCH) || "{}")); } catch (e) {}
+    ustawieniaOgolne.moge_zmieniac = true;
+  }
+  ustawDokladnosc(ustawieniaOgolne.dokladnosc);
+}
+document.querySelectorAll('input[name="wysilek"]').forEach(r => r.onchange = opiszDokladnosc);
+$("btn-dokl-domyslna").onclick = async () => {
+  $("btn-dokl-domyslna").disabled = true;
+  try {
+    await zapiszUstawieniaOgolne({dokladnosc: wybranaDokladnosc()});
+    stan($("stan1"), "Zapisane: od teraz każda nowa sprawa zaczyna od dokładności „" + NAZWY_DOKL[wybranaDokladnosc()] + "”.");
+  } catch (e) {
+    stan($("stan1"), e.message, true);
+  } finally { $("btn-dokl-domyslna").disabled = false; }
+};
+$("btn-ustawienia-etap1").onclick = () => $("btn-ustawienia").click();
 opiszDokladnosc();
+
+/* ---------- ustawienia kancelarii (okno) ---------- */
+const POLA_NAZWY_DOMYSLNE = {
+  zbywca: "nazwisko zbywcy (sprzedającego, darczyńcy, spadkodawcy)",
+  nabywca: "nazwisko nabywcy (kupującego, obdarowanego, spadkobiercy)",
+  strony: "wszystkie nazwiska stron",
+  czynnosc: "rodzaj czynności (sprzedaż, darowizna, pełnomocnictwo…)",
+  miejscowosc: "miejscowość położenia nieruchomości",
+  sygnatura: "sygnatura sprawy",
+  data: "data założenia sprawy (RRRR-MM-DD)",
+  nazwa: "nazwa sprawy z listy spraw",
+};
+const PRZYKLAD_NAZWY = {zbywca: "Sobczak", nabywca: "Pawlak", strony: "Sobczak - Pawlak", czynnosc: "sprzedaż",
+  miejscowosc: "Zalesie", sygnatura: "A 123-2026", data: new Date().toISOString().slice(0, 10), nazwa: "Sobczak – Pawlak"};
+let polaNazwy = POLA_NAZWY_DOMYSLNE;
+// Ten sam algorytm, co nazwy.wypelnij_wzor_nazwy na serwerze: puste pole
+// znika razem z separatorem obok. Tu tylko do podgladu w oknie.
+function podgladNazwy(wzor, wartosci) {
+  const PUSTE = "\u0000", nieznane = [];
+  let t = (wzor || "").replace(/\{\s*([a-zA-Z_]+)\s*\}/g, (_, pole) => {
+    if (!(pole in polaNazwy)) { nieznane.push(pole); return PUSTE; }
+    return (wartosci[pole] || "").replace(/[<>:"/\\|?*]/g, "") || PUSTE;
+  });
+  const sep = "[\\s]*[-–—_|,;·.]+[\\s]*";
+  for (let i = 0; i < 50; i++) {
+    const nowy = t.replace(new RegExp(sep + PUSTE, "g"), "").replace(new RegExp("^" + PUSTE + sep), "");
+    if (nowy === t) break; t = nowy;
+  }
+  t = t.replace(/\u0000/g, "").replace(/\s+/g, " ").replace(/^[\s.\-–—_]+|[\s.\-–—_]+$/g, "");
+  return {nazwa: (t || "projekt") + ".docx", nieznane};
+}
+function rysujPodgladNazwy() {
+  const {nazwa, nieznane} = podgladNazwy($("ust-nazwa-pliku").value, PRZYKLAD_NAZWY);
+  $("ust-przyklad").textContent = nazwa;
+  $("ust-przyklad-uwaga").innerHTML = nieznane.length
+    ? ' <span class="zle">Nieznane pole: ' + nieznane.map(n => "{" + escape(n) + "}").join(", ") + "</span>" : "";
+  $("ust-zapisz").disabled = nieznane.length > 0 || ustawieniaOgolne.moge_zmieniac === false;
+}
+function rysujUstawienia() {
+  const u = ustawieniaOgolne;
+  if ($("ust-wys-" + u.dokladnosc)) $("ust-wys-" + u.dokladnosc).checked = true;
+  $("ust-opis-dokl").textContent = OPISY_DOKL[u.dokladnosc] || "";
+  $("ust-nazwa-pliku").value = u.nazwa_pliku || "";
+  const pola = $("ust-pola"); pola.innerHTML = "";
+  for (const [klucz, opis] of Object.entries(polaNazwy)) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = "{" + klucz + "}"; b.title = opis;
+    b.onclick = () => {
+      const pole = $("ust-nazwa-pliku"), p = pole.selectionStart ?? pole.value.length, k = pole.selectionEnd ?? p;
+      const przed = pole.value.slice(0, p), po = pole.value.slice(k);
+      const lacznik = przed && !/[\s\-–—_|,;·.]$/.test(przed) ? " - " : "";
+      pole.value = przed + lacznik + "{" + klucz + "}" + po;
+      pole.focus(); rysujPodgladNazwy();
+    };
+    pola.appendChild(b);
+  }
+  const tylkoOdczyt = u.moge_zmieniac === false;
+  document.querySelectorAll('#okno-ustawienia input').forEach(i => i.disabled = tylkoOdczyt);
+  $("ustawienia-opis").textContent = dysk.aktywny
+    ? "Ta kancelaria trzyma pliki u siebie, więc ustawienia pamięta ta przeglądarka."
+    : tylkoOdczyt ? "Ustawienia zmienia notariusz - właściciel kancelarii. Możesz je przeglądać."
+    : "Obowiązują w całej kancelarii, na każdym komputerze.";
+  rysujPodgladNazwy();
+}
+async function zapiszUstawieniaOgolne(zmiany) {
+  if (dysk.aktywny) {
+    Object.assign(ustawieniaOgolne, zmiany);
+    try { localStorage.setItem(KLUCZ_USTAWIEN_LOKALNYCH, JSON.stringify({dokladnosc: ustawieniaOgolne.dokladnosc, nazwa_pliku: ustawieniaOgolne.nazwa_pliku})); } catch (e) {}
+  } else {
+    const odp = await api("/api/ustawienia/ogolne", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(zmiany)});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać ustawień (" + odp.status + ").");
+    Object.assign(ustawieniaOgolne, w);
+  }
+  if (zmiany.dokladnosc) ustawDokladnosc(zmiany.dokladnosc); else opiszDokladnosc();
+}
+$("btn-ustawienia").onclick = async () => {
+  stan($("stan-ustawienia"), "");
+  rysujUstawienia();
+  $("okno-ustawienia").showModal();
+  if (dysk.aktywny) return;
+  try {
+    const odp = await api("/api/ustawienia/ogolne");
+    if (!odp.ok) return;
+    const w = await odp.json();
+    if (w.pola_nazwy) polaNazwy = w.pola_nazwy;
+    Object.assign(ustawieniaOgolne, w);
+    rysujUstawienia(); opiszDokladnosc();
+  } catch (e) { /* okno pokazuje to, co juz mamy */ }
+};
+document.querySelectorAll('input[name="ust-wysilek"]').forEach(r => r.onchange = () => {
+  $("ust-opis-dokl").textContent = OPISY_DOKL[r.value];
+});
+$("ust-nazwa-pliku").oninput = rysujPodgladNazwy;
+$("ust-nazwa-pliku").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("ust-zapisz").click(); } };
+$("ust-zamknij").onclick = () => $("okno-ustawienia").close();
+$("ust-zapisz").onclick = async () => {
+  const dokladnosc = (document.querySelector('input[name="ust-wysilek"]:checked') || {}).value || ustawieniaOgolne.dokladnosc;
+  const nazwa_pliku = $("ust-nazwa-pliku").value.trim();
+  $("ust-zapisz").disabled = true;
+  stan($("stan-ustawienia"), "Zapisuję…", false, true);
+  try {
+    await zapiszUstawieniaOgolne({dokladnosc, nazwa_pliku});
+    rysujUstawienia();
+    stan($("stan-ustawienia"), "Zapisane. Przykład nazwy: " + podgladNazwy(ustawieniaOgolne.nazwa_pliku, PRZYKLAD_NAZWY).nazwa);
+  } catch (e) {
+    stan($("stan-ustawienia"), e.message, true);
+  } finally { $("ust-zapisz").disabled = false; }
+};
 
 /* Odczyt i projekt duzej sprawy trwaja dluzej niz kwadrans, a posrednik (ALB)
    zrywa polaczenie po kwadransie ciszy. Serwer przysyla wiec linie JSON:
@@ -4200,10 +4395,13 @@ function zastosujFiltr(){
 function rysujPola(wynik){
   const wypelnione = wynik.pola.filter(p => p.wartosc).length;
   const uwaga = wynik.pola.filter(p => p.wymaga_uwagi).length;
+  const dokladnosc = wynik.dokladnosc_opis
+    || (wynik.wysilek && NAZWY_DOKL[wynik.wysilek] ? `Dokładność ${NAZWY_DOKL[wynik.wysilek]}.` : "");
   $("podsum2").textContent =
     `Przejrzałam ${wynik.stron} stron skanów. Wzór ma ${wynik.pola.length} miejsc do wypełnienia; `
     + `odczytałam ${wypelnione}, ${uwaga} wymaga Twojej uwagi.`
-    + (wynik.warianty ? ` We wzorze jest ${wynik.warianty} miejsc z wariantami do wyboru.` : "");
+    + (wynik.warianty ? ` We wzorze jest ${wynik.warianty} miejsc z wariantami do wyboru.` : "")
+    + (dokladnosc ? " " + dokladnosc : "");
 
   const ostrzezenia = $("ostrzezenia");
   ostrzezenia.innerHTML = "";
@@ -4389,6 +4587,11 @@ $("btn-generuj").onclick = async () => {
       const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
       await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
       await dysk.zapiszPlik(katalog, "projekt.txt", wynik.tekst);
+      if (wynik.nazwa_pliku) {
+        edytowanaSprawa.nazwa_pliku = wynik.nazwa_pliku;
+        const meta = await dysk.czytajJson(katalog, "sprawa.json");
+        if (meta) await dysk.zapiszJson(katalog, "sprawa.json", Object.assign(meta, {nazwa_pliku: wynik.nazwa_pliku}));
+      }
       await dysk.zapiszJson(katalog, "odczyt.json", {
         pola: edytowanaSprawa.pola, braki: edytowanaSprawa.braki || [],
         rozbieznosci: edytowanaSprawa.rozbieznosci || [],
@@ -4429,7 +4632,7 @@ $("btn-generuj").onclick = async () => {
     if (!dysk.aktywny) {
       api("/api/sprawy/" + edytowanaSprawa.id).then(r => r.json()).then(w => {
         if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa) return;
-        sprawa.nazwa = w.nazwa;
+        sprawa.nazwa = w.nazwa; sprawa.nazwa_pliku = w.nazwa_pliku;
         $("nazwa2").value = w.nazwa || "";
       }).catch(() => {});
     }
@@ -4493,13 +4696,14 @@ async function projektGotowy(id, wynik){
       wynik = {tekst: w.projekt, brakujace: w.brakujace, do_wyboru: w.do_wyboru, zgodnosc: w.zgodnosc};
     }
     sprawa.projekt = wynik.tekst;
+    if (wynik.nazwa_pliku) sprawa.nazwa_pliku = wynik.nazwa_pliku;
     pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
                   zgodnosc: wynik.zgodnosc});
     stan($("stan3"), ""); stan($("stan2"), "");
     pokaz(3);
     api("/api/sprawy/" + id).then(r => r.json()).then(w => {
       if (!sprawa || sprawa.id !== id) return;
-      sprawa.nazwa = w.nazwa;
+      sprawa.nazwa = w.nazwa; sprawa.nazwa_pliku = w.nazwa_pliku;
       $("nazwa2").value = w.nazwa || "";
     }).catch(() => {});
   } else {
@@ -4536,12 +4740,26 @@ function zapiszPlik(dane, nazwa){
   a.href = adres; a.download = nazwa; a.click();
   setTimeout(() => URL.revokeObjectURL(adres), 10000);
 }
+/* Nazwa pobieranego pliku: wzor kancelarii (ustawienia), np.
+   "Sobczak - Pawlak - sprzedaz - Zalesie.docx". Serwer podaje ja w naglowku
+   Content-Disposition i w danych sprawy; w folderze sprawy plik dalej nazywa
+   sie projekt.docx, bo po tej nazwie poznajemy etap sprawy. */
+function nazwaPlikuProjektu(){
+  return (sprawa && sprawa.nazwa_pliku ? sprawa.nazwa_pliku : "projekt-" + (sprawa ? sprawa.id : "")) + ".docx";
+}
+function nazwaPlikuZOdpowiedzi(odp){
+  const naglowek = odp.headers.get("content-disposition") || "";
+  const utf = naglowek.match(/filename\*=utf-8''([^;]+)/i);
+  if (utf) { try { return decodeURIComponent(utf[1].trim()); } catch (e) { /* zwykla nazwa ponizej */ } }
+  const zwykla = naglowek.match(/filename="?([^";]+)"?/i);
+  return zwykla ? zwykla[1].trim() : "";
+}
 $("btn-pobierz").onclick = async () => {
   if (dysk.aktywny) {
     // Plik jest juz u notariusza - otwieramy go z dysku zamiast pobierac z serwera.
     try {
       const katalog = await dysk.katalogSprawy(sprawa.id);
-      zapiszPlik(await (await katalog.getFileHandle("projekt.docx")).getFile(), "projekt.docx");
+      zapiszPlik(await (await katalog.getFileHandle("projekt.docx")).getFile(), nazwaPlikuProjektu());
     } catch (e) {
       stan($("stan3"), "Nie znalazłem projektu w folderze sprawy: " + e.message, true);
     }
@@ -4556,7 +4774,7 @@ $("btn-pobierz").onclick = async () => {
       const tresc = await odp.json().catch(() => ({}));
       throw new Error(tresc.detail || "serwer odpowiedzial " + odp.status);
     }
-    zapiszPlik(await odp.blob(), "projekt-" + sprawa.id + ".docx");
+    zapiszPlik(await odp.blob(), nazwaPlikuZOdpowiedzi(odp) || nazwaPlikuProjektu());
     stan($("stan3"), "");
   } catch (e) {
     stan($("stan3"), "Nie udało się pobrać projektu: " + e.message, true);

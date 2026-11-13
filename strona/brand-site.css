@@ -34,8 +34,13 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
 .brand-nav a { text-decoration: none; font-size: 13px; font-weight: 675; color: #19315d; transition: color .17s; white-space: nowrap; }
 .brand-nav a:hover, .brand-nav a:focus-visible { color: #1778c9; }
 .brand-header__actions { display: flex; align-items: center; gap: 17px; }
-.brand-login { color: #0f2d65; text-decoration: none; font-weight: 720; font-size: 13px; white-space: nowrap; }
-.brand-login:hover { color: #1681ce; }
+/* "Zaloguj się" to przycisk, nie link w tekście: kancelaria, która ma już
+   konto, wraca na stronę po to, żeby wejść do aplikacji. */
+.brand-login { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 9px 18px; border-radius: 11px; border: 1.5px solid #2b52d9; color: #0f2d65; background: #fff; text-decoration: none; font-weight: 750; font-size: 13px; white-space: nowrap; transition: background .19s ease, color .19s ease, transform .19s ease; }
+.brand-login .brand-icon { width: 16px; height: 16px; }
+.brand-login:hover { background: #2b52d9; color: #fff; transform: translateY(-1px); }
+.brand-hero__login { display: inline-block; margin-top: 14px; color: #0f2d65; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: #9fb6e4; }
+.brand-hero__login:hover { color: #2b52d9; text-decoration-color: #2b52d9; }
 .brand-btn { display: inline-flex; align-items: center; justify-content: center; gap: 13px; min-height: 51px; padding: 13px 24px; border-radius: 13px; text-decoration: none; font-size: 14px; font-weight: 750; border: 1px solid transparent; box-shadow: 0 15px 27px -15px rgba(27,74,190,.42); transition: transform .19s ease, box-shadow .19s ease, background .19s ease; }
 .brand-btn:hover { transform: translateY(-2px); box-shadow: 0 18px 29px -14px rgba(26,74,192,.48); }
 .brand-btn--primary { color: white !important; background: linear-gradient(112deg,#2225ae 0%,#294dd5 66%,#247ed9 100%); }
@@ -168,7 +173,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-nav a { padding: 13px 8px; border-bottom: 1px solid #eff3fa; font-size: 14px; }
   .brand-nav a:last-child { border-bottom: 0; }
   .brand-header__actions { margin-left: auto; }
-  .brand-header__actions .brand-login { display: none; }
   .brand-hero__inner { grid-template-columns: 1fr; padding-top: 64px; }
   .brand-hero h1 { max-width: 730px; font-size: clamp(40px,7vw,65px); }
   .brand-hero__subtitle { max-width: 650px; }
@@ -182,6 +186,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-logo__word { font-size: 23px; }
   .brand-header__actions .brand-btn { min-height: 37px; padding: 8px 11px; font-size: 11px; }
   .brand-header__actions .brand-btn .brand-icon { display: none; }
+  .brand-header__actions .brand-login { min-height: 37px; padding: 8px 11px; font-size: 11px; }
+  .brand-header__actions .brand-login .brand-icon { display: none; }
   .brand-hero__inner { padding: 42px 0 78px; }
   .brand-eyebrow { font-size: 9px; gap: 9px; margin-bottom: 23px; }
   .brand-hero h1 { font-size: clamp(35px,9vw,54px); letter-spacing: -.055em; margin-bottom: 16px; }

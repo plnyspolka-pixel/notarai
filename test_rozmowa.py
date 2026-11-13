@@ -102,7 +102,9 @@ class TestProjektStrumieniem:
             odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
                               json={"pola": [], "polecenie": ""})
         ostatnia = _linie(odp)[-1]
-        assert ostatnia["kod"] == 502 and ostatnia["blad"].startswith("Bedrock:")
+        # Komunikat po polsku z rodzajem bledu, bez tresci wyjatku (ta moze niesc dane).
+        assert ostatnia["kod"] == 502 and ostatnia["blad"].startswith("Błąd modelu (RuntimeError)")
+        assert "85031512337" not in ostatnia["blad"]
         assert "85031512337" not in caplog.text
 
     def test_limit_zapytan_w_strumieniu(self, klient, tmp_path):

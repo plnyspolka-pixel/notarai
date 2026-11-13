@@ -1,14 +1,20 @@
 """Konwersje dokumentow. Wszystko lokalnie, bez zewnetrznych binariow."""
 import io
+import logging
 import re
+from copy import deepcopy
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import fitz  # PyMuPDF
 from docx import Document
+from docx.oxml.ns import qn
 from docx.shared import Pt
 from PIL import Image
 
 import config
+
+log = logging.getLogger("pieczapp.dokumenty")
 
 OBRAZY = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
@@ -47,6 +53,33 @@ def opisz_strony(sciezki: list[Path]) -> list[dict]:
                 "(zmienna PIECZAPP_MAX_STRON)."
             )
     return strony
+
+
+def udzial_warstwy_tekstowej(strony: list[dict]) -> float:
+    """Ulamek stron sprawy z warstwa tekstowa PDF (co najmniej PROG_TEKSTU znakow).
+
+    Bez renderowania - sam tekst z PDF, wiec dla kilkuset stron trwa chwile.
+    Obrazy (zdjecia, TIFF) nie maja warstwy tekstowej. Sluzy automatycznemu
+    doborowi dokladnosci odczytu (ustawienia_kancelarii.dokladnosc_odczytu).
+    """
+    if not strony:
+        return 0.0
+    z_tekstem = 0
+    otwarte: dict[Path, fitz.Document] = {}
+    try:
+        for strona in strony:
+            sciezka = Path(strona["sciezka"])
+            if sciezka.suffix.lower() != ".pdf":
+                continue
+            pdf = otwarte.get(sciezka)
+            if pdf is None:
+                pdf = otwarte[sciezka] = fitz.open(sciezka)
+            if len(pdf[strona["strona"] - 1].get_text("text").strip()) >= PROG_TEKSTU:
+                z_tekstem += 1
+    finally:
+        for pdf in otwarte.values():
+            pdf.close()
+    return z_tekstem / len(strony)
 
 
 def obrazy_strony(strona: dict) -> dict:
@@ -266,8 +299,23 @@ def _wyroznij_znacznik(przebieg, kawalek: str) -> None:
     przebieg.bold = True
 
 
-def tekst_na_docx(tekst: str, cel: Path) -> Path:
-    """Zapisuje projekt aktu jako .docx. Puste linie rozdzielaja akapity."""
+def tekst_na_docx(tekst: str, cel: Path, wzor: Path | None = None) -> Path:
+    """Zapisuje projekt aktu jako .docx. Puste linie rozdzielaja akapity.
+
+    Gdy wzor jest plikiem Word, projekt powstaje NA TYM PLIKU: strona
+    i marginesy, naglowki i stopki, style, czcionka, kapitaliki i odstepy sa
+    wzoru, a kazdy akapit projektu dostaje formatowanie najbardziej podobnego
+    akapitu wzoru (_docx_na_wzorze). Dzieki temu plik otwiera sie w Wordzie
+    tak, jak kancelaria pisze swoje akty, zamiast w Times New Roman 12.
+    Bez wzoru Word (albo gdy wzor to .txt) - zapis domyslny jak dotad.
+    """
+    if wzor is not None and Path(wzor).suffix.lower() == ".docx" and Path(wzor).exists():
+        try:
+            return _docx_na_wzorze(tekst, cel, Path(wzor))
+        except Exception as blad:  # noqa: BLE001 - projekt musi powstac, choc bez szaty wzoru
+            log.warning("formatowanie projektu ze wzoru nieudane (%s), zapis domyslny",
+                        type(blad).__name__)
+
     dokument = Document()
     styl = dokument.styles["Normal"]
     styl.font.name = "Times New Roman"
@@ -287,6 +335,178 @@ def tekst_na_docx(tekst: str, cel: Path) -> Path:
                 przebieg.bold = True
             _wyroznij_znacznik(przebieg, kawalek)
         if wyrownaj_srodek:
+            akapit.alignment = 1
+
+    _oznacz_jako_ai(dokument)
+    cel.parent.mkdir(parents=True, exist_ok=True)
+    dokument.save(cel)
+    return cel
+
+
+# --- Projekt na pliku wzoru --------------------------------------------------
+# Model pisze projekt akapit po akapicie wedlug wzoru, wiec akapity projektu
+# odpowiadaja akapitom wzoru (z wypelnionymi miejscami). Dopasowujemy je po
+# podobienstwie tekstu, idac przez wzor do przodu, i kopiujemy formatowanie
+# akapitu (wyrownanie, wciecia, odstepy, styl) oraz dominujace formatowanie
+# znakow (czcionka, rozmiar, kapitaliki, pogrubienie). Akapit bez pary dostaje
+# formatowanie dominujace w calym wzorze - nigdy obce.
+
+OKNO_DOPASOWANIA = 60      # ile akapitow wzoru w przod porownujemy z akapitem projektu
+PROG_DOPASOWANIA = 0.45    # ponizej tego podobienstwa akapit uznajemy za nowy
+_DLUGOSC_POROWNANIA = 160  # poczatek akapitu wystarcza, zeby go rozpoznac
+_ZACZYNA_NUMEREM = re.compile(r"^\s*(\d+[.)]|§\s*\d+|[a-z][.)]|[IVX]+[.)])\s")
+_PLACEHOLDERY = re.compile(r"\?\?|\{\{[^{}]*\}\}|\[[^\[\]]*\]")
+_W_RPR_DO_USUNIECIA = ("w:highlight", "w:shd", "w:rPrChange")
+
+
+def _norm(tekst: str) -> str:
+    tekst = _PLACEHOLDERY.sub(" ", tekst.lower())
+    return re.sub(r"\s+", " ", tekst).strip()[:_DLUGOSC_POROWNANIA]
+
+
+def _tekst_elementu(element) -> str:
+    return "".join(t.text or "" for t in element.iter(qn("w:t")))
+
+
+def _czysty_rpr(rpr):
+    """Kopia formatowania znakow bez zakreslen wzoru (nasze znaczniki maja wlasne)."""
+    if rpr is None:
+        return None
+    kopia = deepcopy(rpr)
+    for nazwa in _W_RPR_DO_USUNIECIA:
+        for el in kopia.findall(qn(nazwa)):
+            kopia.remove(el)
+    return kopia
+
+
+def _dominujace_rpr(elementy_p) -> object | None:
+    """Formatowanie znakow, ktore we wskazanych akapitach obejmuje najwiecej tekstu."""
+    liczniki: dict[str, tuple[int, object]] = {}
+    for p in elementy_p:
+        for r in p.iter(qn("w:r")):
+            ile = len(_tekst_elementu(r).strip())
+            if not ile:
+                continue
+            rpr = r.find(qn("w:rPr"))
+            klucz = str(rpr.xml) if rpr is not None else ""
+            stary = liczniki.get(klucz, (0, rpr))
+            liczniki[klucz] = (stary[0] + ile, rpr)
+    if not liczniki:
+        return None
+    _, rpr = max(liczniki.values(), key=lambda w: w[0])
+    return _czysty_rpr(rpr)
+
+
+def _dominujace_ppr(elementy_p):
+    """Formatowanie akapitu najczestsze (wg liczby znakow) we wzorze."""
+    liczniki: dict[str, tuple[int, object]] = {}
+    for p in elementy_p:
+        ile = len(_tekst_elementu(p).strip())
+        if not ile:
+            continue
+        ppr = p.find(qn("w:pPr"))
+        klucz = str(ppr.xml) if ppr is not None else ""
+        stary = liczniki.get(klucz, (0, ppr))
+        liczniki[klucz] = (stary[0] + ile, ppr)
+    if not liczniki:
+        return None
+    _, ppr = max(liczniki.values(), key=lambda w: w[0])
+    return ppr
+
+
+class _Szablon:
+    """Akapity wzoru do dopasowywania akapitow projektu, w kolejnosci."""
+
+    def __init__(self, dokument):
+        self.akapity: list[tuple[str, object, str]] = []   # (znormalizowany, w:p, tekst)
+        for akapit in dokument.paragraphs:
+            tekst = akapit.text.strip()
+            if tekst:
+                self.akapity.append((_norm(tekst), akapit._p, tekst))
+        self.ostatni = 0
+        elementy = [a[1] for a in self.akapity]
+        self.domyslny_ppr = _dominujace_ppr(elementy)
+        self.domyslny_rpr = _dominujace_rpr(elementy)
+
+    def dopasuj(self, tekst: str) -> tuple[object, str] | None:
+        """(w:p wzoru, jego tekst) najbardziej podobny do akapitu projektu albo None."""
+        szukany = _norm(tekst)
+        if not szukany or not self.akapity:
+            return None
+        poczatek = max(0, self.ostatni - 5)
+        koniec = min(len(self.akapity), self.ostatni + OKNO_DOPASOWANIA)
+        najlepszy, wynik = None, PROG_DOPASOWANIA
+        for i in range(poczatek, koniec):
+            wzorzec = self.akapity[i][0]
+            if wzorzec == szukany:
+                najlepszy, wynik = i, 1.0
+                break
+            m = SequenceMatcher(None, szukany, wzorzec, autojunk=False)
+            if m.real_quick_ratio() < wynik or m.quick_ratio() < wynik:
+                continue
+            r = m.ratio()
+            if r > wynik:
+                najlepszy, wynik = i, r
+        if najlepszy is None:
+            return None
+        self.ostatni = najlepszy + 1
+        return self.akapity[najlepszy][1], self.akapity[najlepszy][2]
+
+
+def _skopiuj_ppr(akapit, ppr, tresc: str, tekst_wzoru: str) -> None:
+    if ppr is None:
+        return
+    kopia = deepcopy(ppr)
+    # Podzial sekcji nalezy do wzoru, nie do akapitu projektu.
+    for el in kopia.findall(qn("w:sectPr")):
+        kopia.remove(el)
+    # Numeracja automatyczna Worda + numer wpisany w tresci = podwojny numer.
+    numpr = kopia.find(qn("w:numPr"))
+    if numpr is not None and _ZACZYNA_NUMEREM.match(tresc) and not _ZACZYNA_NUMEREM.match(tekst_wzoru):
+        kopia.remove(numpr)
+    istniejacy = akapit._p.find(qn("w:pPr"))
+    if istniejacy is not None:
+        akapit._p.remove(istniejacy)
+    akapit._p.insert(0, kopia)
+
+
+def _docx_na_wzorze(tekst: str, cel: Path, wzor: Path) -> Path:
+    dokument = Document(wzor)
+    szablon = _Szablon(dokument)
+
+    # Tresc wzoru znika, zostaja ustawienia sekcji (strona, marginesy,
+    # naglowki, stopki), style, czcionki i numeracja.
+    body = dokument.element.body
+    for element in list(body):
+        if element.tag != qn("w:sectPr"):
+            body.remove(element)
+
+    for linia in tekst.split("\n"):
+        tresc = linia.rstrip()
+        akapit = dokument.add_paragraph()
+        if not tresc:
+            continue
+        para = szablon.dopasuj(tresc)
+        if para is not None:
+            element, tekst_wzoru = para
+            _skopiuj_ppr(akapit, element.find(qn("w:pPr")), tresc, tekst_wzoru)
+            rpr = _dominujace_rpr([element])
+            if rpr is None:
+                rpr = szablon.domyslny_rpr
+        else:
+            _skopiuj_ppr(akapit, szablon.domyslny_ppr, tresc, "")
+            rpr = szablon.domyslny_rpr
+        naglowek = para is None and tresc.isupper() and len(tresc) < 80
+        for kawalek in ZNACZNIK_PROJEKTU.split(tresc.strip()):
+            if not kawalek:
+                continue
+            przebieg = akapit.add_run(kawalek)
+            if rpr is not None:
+                przebieg._r.insert(0, deepcopy(rpr))
+            if naglowek:
+                przebieg.bold = True
+            _wyroznij_znacznik(przebieg, kawalek)
+        if naglowek:
             akapit.alignment = 1
 
     _oznacz_jako_ai(dokument)

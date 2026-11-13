@@ -375,3 +375,133 @@ class TestZnacznikiWWordzie:
         assert wybor.font.highlight_color == WD_COLOR_INDEX.TURQUOISE and wybor.bold
         zwykly = przebiegi["§ 1. Irena Nowak oświadcza, że lokal ma powierzchnię "]
         assert zwykly.font.highlight_color is None and not zwykly.bold
+
+
+class TestDocxNaWzorze:
+    """Projekt w Wordzie powstaje na pliku wzoru: czcionka, kapitaliki, odstepy,
+    marginesy i stopka sa kancelarii, a nie domyslne Times New Roman 12."""
+
+    @staticmethod
+    def _wzor(tmp_path):
+        from docx import Document
+        from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+        from docx.shared import Cm, Pt
+        d = Document()
+        sekcja = d.sections[0]
+        sekcja.left_margin = Cm(3)
+        sekcja.footer.paragraphs[0].text = "Kancelaria Notarialna - stopka wzoru"
+        d.styles["Normal"].font.name = "Garamond"
+        d.styles["Normal"].font.size = Pt(13)
+
+        def akapit(tekst, **o):
+            p = d.add_paragraph()
+            r = p.add_run(tekst)
+            r.font.name = "Garamond"
+            r.bold = o.get("bold")
+            r.italic = o.get("italic")
+            r.font.small_caps = o.get("caps")
+            if o.get("size"):
+                r.font.size = Pt(o["size"])
+            if o.get("hl"):
+                r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+            if o.get("center"):
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            if o.get("indent"):
+                p.paragraph_format.first_line_indent = Cm(o["indent"])
+            return p
+        akapit("aaa - zbywca (Jan Kowalski)")
+        akapit("")
+        akapit("AKT NOTARIALNY", bold=True, caps=True, center=True, size=16)
+        akapit("Dnia ?? roku przed notariuszem ?? stawili się:", indent=1.25)
+        akapit("§ 1.", bold=True, center=True)
+        akapit("aaa oświadcza, że jest właścicielem // współwłaścicielem nieruchomości położonej w ??.", indent=1.25)
+        akapit("??", hl=True)
+        akapit("Koszty aktu ponosi aaa.", italic=True)
+        sciezka = tmp_path / "wzor.docx"
+        d.save(sciezka)
+        return sciezka
+
+    PROJEKT = ("AKT NOTARIALNY\n"
+               "Dnia 13.11.2026 roku przed notariuszem Ewą Przykładową stawili się:\n"
+               "§ 1.\n"
+               "Jan Kowalski oświadcza, że jest <<WYBOR: właścicielem / współwłaścicielem>> nieruchomości położonej w Zalesiu.\n"
+               "§ 2.\n"
+               "Cena wynosi <<BRAK: cena>> zł.\n"
+               "NOWY NAGŁÓWEK BEZ PARY WE WZORZE\n"
+               "Koszty aktu ponosi Jan Kowalski.")
+
+    def test_formatowanie_akapitow_ze_wzoru(self, tmp_path):
+        from docx import Document
+        from docx.enum.text import WD_COLOR_INDEX
+        cel = tekst_na_docx(self.PROJEKT, tmp_path / "projekt.docx", wzor=self._wzor(tmp_path))
+        d = Document(cel)
+        a = {p.text: p for p in d.paragraphs if p.text.strip()}
+        naglowek = a["AKT NOTARIALNY"].runs[0]
+        assert naglowek.font.name == "Garamond" and naglowek.font.size.pt == 16
+        assert naglowek.bold and naglowek.font.small_caps and a["AKT NOTARIALNY"].alignment == 1
+        dnia = a["Dnia 13.11.2026 roku przed notariuszem Ewą Przykładową stawili się:"]
+        assert round(dnia.paragraph_format.first_line_indent.cm, 2) == 1.25
+        assert a["§ 1."].alignment == 1 and a["§ 1."].runs[0].bold
+        assert a["§ 2."].alignment == 1 and a["§ 2."].runs[0].bold, "podobny akapit dostaje te same formatowanie"
+        assert a["Koszty aktu ponosi Jan Kowalski."].runs[0].italic
+        # znaczniki projektu zakreslone, zakreslenia wzoru nie przeciekaja
+        wybor = next(r for r in a["Jan Kowalski oświadcza, że jest <<WYBOR: właścicielem / współwłaścicielem>> nieruchomości położonej w Zalesiu."].runs if "<<WYBOR" in r.text)
+        assert wybor.font.highlight_color == WD_COLOR_INDEX.TURQUOISE and wybor.bold
+        brak = next(r for r in a["Cena wynosi <<BRAK: cena>> zł."].runs if "<<BRAK" in r.text)
+        assert brak.font.highlight_color == WD_COLOR_INDEX.YELLOW
+        for p in d.paragraphs:
+            for r in p.runs:
+                if "<<" not in r.text:
+                    assert r.font.highlight_color is None, p.text
+        # akapit bez pary: wielkie litery -> naglowek, czcionka dalej wzoru
+        nowy = a["NOWY NAGŁÓWEK BEZ PARY WE WZORZE"]
+        assert nowy.alignment == 1 and nowy.runs[0].bold and nowy.runs[0].font.name == "Garamond"
+
+    def test_strona_stopka_i_metadane_ai(self, tmp_path):
+        from docx import Document
+        cel = tekst_na_docx(self.PROJEKT, tmp_path / "projekt.docx", wzor=self._wzor(tmp_path))
+        d = Document(cel)
+        assert round(d.sections[0].left_margin.cm, 1) == 3.0
+        assert d.sections[0].footer.paragraphs[0].text == "Kancelaria Notarialna - stopka wzoru"
+        assert "sztucznej inteligencji" in d.core_properties.comments
+        assert "aaa - zbywca" not in "\n".join(p.text for p in d.paragraphs), "legenda wzoru nie trafia do projektu"
+        assert "??" not in "\n".join(p.text for p in d.paragraphs)
+
+    def test_tresc_projektu_bez_zmian(self, tmp_path):
+        cel = tekst_na_docx(self.PROJEKT, tmp_path / "projekt.docx", wzor=self._wzor(tmp_path))
+        assert wzor_na_tekst(cel).strip() == self.PROJEKT.strip()
+
+    def test_bez_wzoru_word_zapis_domyslny(self, tmp_path):
+        from docx import Document
+        (tmp_path / "wzor.txt").write_text("Dnia ?? stawil sie ??", "utf-8")
+        for wzor in (None, tmp_path / "wzor.txt", tmp_path / "nie-ma.docx"):
+            cel = tekst_na_docx("AKT NOTARIALNY\nTreść.", tmp_path / "p.docx", wzor=wzor)
+            d = Document(cel)
+            assert d.styles["Normal"].font.name == "Times New Roman"
+            assert d.paragraphs[0].runs[0].bold
+
+    def test_uszkodzony_wzor_nie_blokuje_projektu(self, tmp_path):
+        zly = tmp_path / "wzor.docx"
+        zly.write_bytes(b"to nie jest docx")
+        cel = tekst_na_docx("AKT NOTARIALNY\nTreść.", tmp_path / "p.docx", wzor=zly)
+        assert "Treść." in wzor_na_tekst(cel)
+
+    def test_numeracja_worda_nie_dubluje_numeru_z_tresci(self, tmp_path):
+        from docx import Document
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        d = Document()
+        p = d.add_paragraph("Strona zbywa nieruchomość.")
+        numpr = OxmlElement("w:numPr")
+        for nazwa, wartosc in (("w:ilvl", "0"), ("w:numId", "1")):
+            el = OxmlElement(nazwa)
+            el.set(qn("w:val"), wartosc)
+            numpr.append(el)
+        p._p.get_or_add_pPr().append(numpr)
+        assert p._p.find(qn("w:pPr")).find(qn("w:numPr")) is not None
+        wzor = tmp_path / "wzor.docx"
+        d.save(wzor)
+        cel = tekst_na_docx("1. Strona zbywa nieruchomość w Zalesiu.", tmp_path / "p.docx", wzor=wzor)
+        akapit = Document(cel).paragraphs[0]
+        assert akapit.text.startswith("1. ")
+        assert akapit._p.find(qn("w:pPr")).find(qn("w:numPr")) is None

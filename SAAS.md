@@ -21,6 +21,14 @@
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
+- `ustawienia_kancelarii.py` — ustawienia ogólne kancelarii (plik kancelarii `ustawienia`,
+  `GET/PUT /api/ustawienia/ogolne`): domyślna dokładność odczytu z trybem automatycznym
+  (PDF z warstwą tekstową → szybko, skany → wysoka) i wzór nazwy pliku Word
+  (`nazwy.nazwa_pliku`, np. `{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}`). Okno
+  „Ustawienia kancelarii” w aplikacji; zmienia właściciel. Przy okazji projekt DOCX
+  powstaje na pliku wzoru (`dokumenty.tekst_na_docx(..., wzor=)`), a błędy Bedrock
+  wracają do notariusza po polsku z radą (`bedrock.opis_bledu`), błędy przejściowe
+  w strumieniu są ponawiane.
 - `poswiadczenia.py` + `static/poswiadczenia.html` — poświadczenie kopii: zdjęcie z telefonu
   albo skan z kopiarki (PDF, także kilka dokumentów w jednym skanie) → opis do repertorium A
   (krótka treść czynności, liczba stron, cechy dokumentu do klauzuli, taksa § 13 pkt 2/3).
