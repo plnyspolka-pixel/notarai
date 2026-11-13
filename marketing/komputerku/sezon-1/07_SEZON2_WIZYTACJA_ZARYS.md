@@ -29,7 +29,7 @@ Po zwykłym zawiadomieniu o planowanej wizytacji Helena jest przekonana, że kan
 - Helena: strach nie przed wizytatorem, lecz przed tym, czy potrafi uzasadnić każdą decyzję i organizację pracy. Prawdziwa siła to transparentność.
 - Basia: od osoby, która „wszystko pamiętała”, do osoby, która potrafi wszystko odnaleźć i wyjaśnić bez paniki.
 - Kuba: odkrywa, że zatuszowanie drobnej pomyłki byłoby gorsze od jej udokumentowania.
-- Marta–Aleksander: zaufanie osobiste budowane powoli. Aleksander nie kontroluje kancelarii, nie jest uprawnionym wizytatorem i **nie dostaje wglądu w tajne akta tylko dlatego, że zna Martę**.
+- Kuba–Zosia: ich relacja staje się próbą zaufania podczas zawodowego napięcia. Zosia pracuje w oddzielnej kancelarii z ciocią Teresą; ani ona, ani Teresa nie otrzymują dostępu do akt kancelarii Heleny z tytułu bliskości z Kubą. Teresa ma własny problem z koordynacją pracy dwóch osób. Wątek „nakarmienia komputerka” wraca dopiero przy scenach oddechu, nie podczas kontroli tajemnicy.
 
 ## Warunki prawnego green light
 - Recenzja przez praktykującego notariusza, najlepiej znającego praktykę wizytacji.
