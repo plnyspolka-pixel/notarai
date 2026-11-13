@@ -1,5 +1,8 @@
 # EP08 — To moja decyzja
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Helena po opanowaniu sprawy odruchowo pyta, czy «nakarmili komputerka na jutro». Zespół wymienia spojrzenia: to nieformalny dowód, że zaakceptowała narzędzie. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 27.11.2026 · **Czas:** 96 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
