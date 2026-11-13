@@ -135,12 +135,25 @@ jobs:
           # sposobem zakupu - bez tego stos trzymalby dawne "false"). Pozostale
           # parametry (certyfikat, VPC, sekrety Apify/Finance You, e-mail)
           # CloudFormation bierze z poprzedniego wdrozenia.
+          # Alarmy i budzety (notarai-alarmy, notarai-miesieczny, notarai-bedrock-*) ida
+          # na EmailAlarmowy. Gdy stos go nie ma, bierzemy pierwszy adres z parametru
+          # Administratorzy - zeby alarm nie trafial w pustke. Raz ustawiony zostaje.
+          email=$(aws cloudformation describe-stacks --stack-name notarai-aplikacja \
+            --query "Stacks[0].Parameters[?ParameterKey=='EmailAlarmowy'].ParameterValue | [0]" --output text 2>/dev/null || true)
+          if [ -z "$email" ] || [ "$email" = "None" ]; then
+            admini=$(aws cloudformation describe-stacks --stack-name notarai-aplikacja \
+              --query "Stacks[0].Parameters[?ParameterKey=='Administratorzy'].ParameterValue | [0]" --output text 2>/dev/null || true)
+            email=$(printf '%s' "$admini" | tr ',' '\n' | head -1 | tr -d ' ')
+            echo "EmailAlarmowy byl pusty - alarmy pojda na pierwszego administratora (potwierdz subskrypcje z maila AWS)."
+          fi
+          email_param=()
+          if [ -n "$email" ] && [ "$email" != "None" ]; then email_param=("EmailAlarmowy=$email"); fi
           aws cloudformation deploy --stack-name notarai-aplikacja \
             --template-file infra/notarai-aplikacja.yaml \
             --role-arn "$ROLA_CLOUDFORMATION" \
             --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "TagObrazu=$TAG" "Tokenomia=true"
+            --parameter-overrides "TagObrazu=$TAG" "Tokenomia=true" "${email_param[@]}"
 
       - name: Sprawdz, czy dziala nowa wersja
         run: |
