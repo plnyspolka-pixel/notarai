@@ -8,6 +8,7 @@ import uuid
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 def enc(data):
@@ -98,3 +99,23 @@ def test_local_only_policy_blocks_cloud_vault(vault):
     with pytest.raises(HTTPException) as exc:
         v.store_document(demo(v))
     assert exc.value.status_code==409
+
+
+def test_forbids_unknown_fields_that_could_contain_plaintext(vault):
+    v, office, records = vault
+    data=demo(v).model_dump(by_alias=True, mode="json")
+    data["plaintext"]="should-never-be-accepted"
+    with pytest.raises(ValidationError):
+        v.SealedEnvelope.model_validate(data)
+    assert records=={}
+
+
+def test_nonce_change_cannot_be_treated_as_idempotent_reupload(vault):
+    v, office, records = vault
+    envelope=demo(v)
+    v.store_document(envelope)
+    modified=demo(v,document_id=envelope.documentId)
+    modified.nonce=enc(bytes(range(1,13)))
+    with pytest.raises(HTTPException) as error:
+        v.store_document(modified)
+    assert error.value.status_code==409
