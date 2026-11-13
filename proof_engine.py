@@ -29,14 +29,25 @@ def canonical_json(payload: dict) -> bytes:
 
     Protocol callers must not use floats, NaN, dates or undefined values.
     """
+    import re
     def check(value):
-        if value is None or isinstance(value, (str, bool, int)):
+        if value is None or isinstance(value, (bool, int)):
+            if isinstance(value, int) and not -(2**53 - 1) <= value <= (2**53 - 1):
+                raise ValueError("Unsafe JSON integer")
+            return
+        if isinstance(value, str):
+            try:
+                value.encode("utf-8", errors="strict")
+            except UnicodeEncodeError as error:
+                raise ValueError("Invalid Unicode in evidence") from error
             return
         if isinstance(value, list):
             for item in value:
                 check(item)
             return
         if isinstance(value, dict) and all(isinstance(k, str) for k in value):
+            if any(not re.fullmatch(r"[A-Za-z0-9_.:-]+", key) for key in value):
+                raise ValueError("Invalid evidence key")
             for item in value.values():
                 check(item)
             return
