@@ -131,15 +131,16 @@ jobs:
       - name: Aktualizacja stosu notarai-aplikacja
         run: |
           set -euo pipefail
-          # Zmieniamy tylko tag obrazu. Pozostale parametry (certyfikat, VPC,
-          # sekrety Stripe/Apify/Finance You, e-mail) CloudFormation bierze
-          # z poprzedniego wdrozenia.
+          # Zmieniamy tag obrazu i wymuszamy Tokenomia=true (kredyty sa jedynym
+          # sposobem zakupu - bez tego stos trzymalby dawne "false"). Pozostale
+          # parametry (certyfikat, VPC, sekrety Apify/Finance You, e-mail)
+          # CloudFormation bierze z poprzedniego wdrozenia.
           aws cloudformation deploy --stack-name notarai-aplikacja \
             --template-file infra/notarai-aplikacja.yaml \
             --role-arn "$ROLA_CLOUDFORMATION" \
             --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "TagObrazu=$TAG"
+            --parameter-overrides "TagObrazu=$TAG" "Tokenomia=true"
 
       - name: Sprawdz, czy dziala nowa wersja
         run: |
