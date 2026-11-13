@@ -1,0 +1,23 @@
+name: NotarAI Ethereum proof engine
+on:
+  push:
+    branches: [wdrazamy-ethereum]
+  pull_request:
+    paths:
+      - 'proof_engine.py'
+      - 'dowody_ethereum.py'
+      - 'test_proof_engine.py'
+      - '.github/workflows/ethereum-proof-tests.yml'
+jobs:
+  proof-unit-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q test_proof_engine.py
+      - run: python -m py_compile proof_engine.py dowody_ethereum.py
