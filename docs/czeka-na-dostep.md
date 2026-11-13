@@ -148,6 +148,25 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
+## NA-9. Wyższe limity AWS pod testy na wielu kancelariach
+
+- **Status:** czeka
+- **Brakuje:** dostępu IAM z prawem `servicequotas:*` (profil `notarai-admin`).
+  Sesje w chmurze mają tylko klucz API Bedrock (samo wywoływanie modelu),
+  więc wniosków o limity nie mogą złożyć.
+- **Na żywo:**
+  1. `powershell -ExecutionPolicy Bypass -File infra\zwieksz-limity.ps1 -Profil notarai-admin`
+     — podgląd obecnych limitów Bedrock (Opus 4.6, cross-region, TPM/RPM)
+     i Fargate vCPU oraz tego, o co skrypt zawnioskuje.
+  2. To samo z `-Wyslij` — składa wnioski (Bedrock ×4, Fargate 32 vCPU).
+  3. Limity oznaczone „NIE DA SIE przez Service Quotas” zgłosić w AWS
+     Support (Service limit increase, Bedrock, eu-central-1).
+  4. Po zatwierdzeniu: `LiczbaKopii` w stosie `notarai-aplikacja` (max 6).
+- **W kodzie:** nic; ewentualnie mniej ponowień w `bedrock.py`, jeśli
+  dławienie zniknie.
+- **Zamknięte, gdy:** wnioski mają status APPROVED, a test z kilkoma
+  kancelariami naraz nie dostaje `ThrottlingException`.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
