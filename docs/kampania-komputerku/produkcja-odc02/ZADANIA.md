@@ -27,7 +27,7 @@ Sesje kodu: „Projekt aktu z treścią księgi pobranej z EKW” (session_015k5
   Helena `s03_helena_b-e7a7806f` („Dedanie” odrzucone), `s04_helena-76ad0de4`; Basia `s04_basia-ce30a31a`, `s06_basia-0c98d6b7`;
   Paweł `s05_pawel-75dfe34f`; Irena `s05_irena-8f55102f`; Joanna `s06_joanna_1-09112c9c`, `_2-9d0619b5`; zapowiedź odc. 03: `odc03_zap_kuba/helena/marta`.
 - HeyGen Turbo: Kuba 1 6ab5f32165b14cfcad22c297899e3121, Marta 1 7ea2e1cd275f4106a9c7fc0cc3d64f9e, Kuba 2 6b61c5d072c44af9ba7268e94403db6b,
-  Helena s03 38315f5c44bf4f9ca0f6a4ea67afa3d1, Marta 2 d2740189dcbe419e81704467076278fa, Helena s04 e2b0a4b7a2a94ff8bc9244b67e26195e,
+  Helena s03 b0dc3f894b134470bca48b34f686069d (kwestia „chce sprzedać, ale klucze odda dopiero 15 stycznia”; wcześniej 38315f5c…), Marta 2 d2740189dcbe419e81704467076278fa, Helena s04 e2b0a4b7a2a94ff8bc9244b67e26195e,
   Basia s04 9df4f1e6927a4f368c6888b68e3c6b76, Paweł s05 667fab7f8a3d4c858a4112707583f077, Irena s05 0e6dc655e73e4e6a9091b8f084a0cbfb,
   Basia s06 9d4dd32e11a64ede9b61ca23ce74c6ce, zapowiedź: Kuba 7d31da91800a47e7ae06e9007e93de69, Helena 19704df0ea414d19896e5e3080ad4b44, Marta 7c8cdb22e38449c9a60160628f1dd993.
 
