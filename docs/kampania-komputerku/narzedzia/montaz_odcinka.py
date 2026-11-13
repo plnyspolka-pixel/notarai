@@ -58,7 +58,7 @@ def plansza_brak(sciezka, uid, opis):
 
 
 def napis_filtr(tekst, plik_txt):
-    linie = textwrap.wrap(tekst, 30)[:4]   # 30 znakow DejaVu Bold 46 px miesci sie w 1080 px z marginesem
+    linie = textwrap.wrap(tekst, 30)[:5]   # 30 znakow DejaVu Bold 46 px miesci sie w 1080 px z marginesem
     open(plik_txt, "w", encoding="utf-8").write("\n".join(linie))
     return (f"drawtext=fontfile={FONT}:textfile='{plik_txt}':fontsize=46:fontcolor=white:line_spacing=12:"
             f"box=1:boxcolor=0x071D49@0.72:boxborderw=22:x=(w-text_w)/2:y=h-400-text_h")
