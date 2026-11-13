@@ -30,3 +30,8 @@ Sesje kodu: „Projekt aktu z treścią księgi pobranej z EKW” (session_015k5
   Helena s03 38315f5c44bf4f9ca0f6a4ea67afa3d1, Marta 2 d2740189dcbe419e81704467076278fa, Helena s04 e2b0a4b7a2a94ff8bc9244b67e26195e,
   Basia s04 9df4f1e6927a4f368c6888b68e3c6b76, Paweł s05 667fab7f8a3d4c858a4112707583f077, Irena s05 0e6dc655e73e4e6a9091b8f084a0cbfb,
   Basia s06 9d4dd32e11a64ede9b61ca23ce74c6ce, zapowiedź: Kuba 7d31da91800a47e7ae06e9007e93de69, Helena 19704df0ea414d19896e5e3080ad4b44, Marta 7c8cdb22e38449c9a60160628f1dd993.
+
+## Cały odcinek
+`podglady/ODC02_Prosze_nie_przy_nim.mp4` — 3:12, skrypt `narzedzia/montaz_odc02_calosc.sh`, kontrola dźwięku bez uwag.
+Sesje kodu: EKW w projekcie — gotowe (`claude/ekw-w-projekcie`, 1e01ffa); poczta do spraw — gotowe z poprawkami z nagrania (`claude/poczta-sprawy`, b749b10).
+Obie gałęzie czekają na decyzję o scaleniu do master. Odc. 01: nagrać projekt na nowym kodzie (bez dopisku), gdy EKW trafi do master.
