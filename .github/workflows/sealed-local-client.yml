@@ -1,0 +1,39 @@
+name: NotarAI Sealed local client — attested build (not Authenticode)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  local-client:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned major toolchain
+        run: python -m pip install "cryptography>=43,<47" "pyinstaller>=6,<7"
+      - name: Create offline executable
+        run: python -m PyInstaller --clean --noconfirm --onefile --name notarai-sealed-v2 notarai_sealed_v2.py
+      - name: Generate public SHA256 checksums
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+          from sealed_release import manifest, stable_json
+          files=list(Path("dist").glob("notarai-sealed-v2*"))
+          Path("dist/manifest.json").write_bytes(stable_json(manifest(files)))
+      - name: Attest build provenance with GitHub OIDC
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/notarai-sealed-v2*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notarai-sealed-v2-${{ matrix.os }}-UNSIGNED
+          path: dist/
+          if-no-files-found: error
