@@ -1,0 +1,123 @@
+[
+ {
+  "nazwa": "M1_poczta_do_przypisania",
+  "plik": "M1_poczta_do_przypisania.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 411,
+   "y": 394,
+   "width": 896,
+   "height": 112.796875
+  }
+ },
+ {
+  "nazwa": "M2_przed_przypisaniem",
+  "plik": "M2_przed_przypisaniem.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 1137.4375,
+   "y": 435.390625,
+   "width": 169.5625,
+   "height": 39
+  }
+ },
+ {
+  "nazwa": "M3_przypisane",
+  "plik": "M3_przypisane.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 567.421875,
+   "y": 265.5,
+   "width": 575.578125,
+   "height": 20.796875
+  }
+ },
+ {
+  "nazwa": "R1_wpis_marty",
+  "plik": "R1_wpis_marty.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 411,
+   "y": 525.671875,
+   "width": 896,
+   "height": 56
+  }
+ },
+ {
+  "nazwa": "R2_odpowiedz",
+  "plik": "R2_odpowiedz.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 577.640625,
+   "width": 926,
+   "height": 322.03125
+  }
+ },
+ {
+  "nazwa": "C1_kalendarz",
+  "plik": "C1_kalendarz.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": null
+ },
+ {
+  "nazwa": "K1_korespondencja",
+  "plik": "K1_korespondencja.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 61.90625,
+   "width": 926,
+   "height": 849.953125
+  }
+ },
+ {
+  "nazwa": "K2_mail_pawla",
+  "plik": "K2_mail_pawla.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 280.296875,
+   "width": 926,
+   "height": 260.78125
+  }
+ },
+ {
+  "nazwa": "K3_pole_termin_wydania",
+  "plik": "K3_pole_termin_wydania.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 411,
+   "y": 614.4375,
+   "width": 896,
+   "height": 50.375
+  }
+ }
+]

@@ -1,0 +1,77 @@
+[
+{
+"nazwa": "N1_poczta",
+"stan": "M1_poczta_do_przypisania",
+"t": 2.6,
+"panel": true,
+"z0": 0.62,
+"z1": 0.54,
+"kx": 780,
+"ky": 300,
+"hl": 0.6
+},
+{
+"nazwa": "N2_przypisz",
+"stan": "M2_przed_przypisaniem",
+"t": 1.6,
+"panel": true,
+"z0": 0.52,
+"z1": 0.5,
+"kx": 900,
+"ky": 330,
+"tap": 0.9
+},
+{
+"nazwa": "N3_korespondencja",
+"stan": "K1_korespondencja",
+"t": 2.6,
+"panel": true,
+"z0": 0.62,
+"z1": 0.55,
+"kx": 860,
+"ky": 330
+},
+{
+"nazwa": "N4_mail_pawla",
+"stan": "K2_mail_pawla",
+"t": 2.8,
+"panel": true,
+"z0": 0.66,
+"z1": 0.62,
+"hl": 0.5,
+"kx": 860,
+"ky": 420
+},
+{
+"nazwa": "N5_wpis_marty",
+"stan": "R1_wpis_marty",
+"t": 2.2,
+"panel": true,
+"z0": 0.55,
+"z1": 0.5,
+"hl": 0.3
+},
+{
+"nazwa": "N6_odpowiedz",
+"stan": "R2_odpowiedz",
+"t": 2.6,
+"panel": true,
+"z0": 0.62,
+"z1": 0.56,
+"kx": 860,
+"ky": 560
+},
+{
+"nazwa": "N7_kalendarz",
+"stan": "C1_kalendarz",
+"t": 2.2,
+"panel": true,
+"z0": 0.32,
+"z1": 0.28,
+"kx": 600,
+"ky": 700,
+"cx": 580,
+"cy": 615,
+"tap": 1.4
+}
+]

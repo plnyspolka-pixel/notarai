@@ -18,3 +18,15 @@ Sesje kodu: „Projekt aktu z treścią księgi pobranej z EKW” (session_015k5
   Irena `s02_irena_1-720689fd`, `_2-9a9da053`, `_3-92c05980`, `_4-381daa5f` (+ cisza).
 - HeyGen Turbo: Helena 1 c4aca6fb444d490eafe16659139399e6, 2 ab86545062704f2b89063ad6a7e76ac7, 3 88fa12c3b9a84ad88491a0d0a731773d, 4 fcf7c77f9b02484c8e656b49074cc182;
   Irena 1 23460bb971884dfbaaefb0488b901be5, 2 3a322e76dc4a4e2580a9c197d5d9ad32, 3 af4090a4017b4fee8e3188a99acc5e8d. Kling okulary 01a1d278-dad3-74e0-8225-3b1427cce90e.
+
+## Część 3 (sc. 03–06, zapowiedź odc. 03, outro)
+- Ekrany (gałąź `claude/poczta-sprawy` + `claude/ekw-w-projekcie`, scalone lokalnie do nagrania; Bedrock; skrzynka testowa): `cz3_ekrany/` M1–M3, K1–K3, R1–R2, C1.
+  Błędy funkcji znalezione przy nagraniu i zgłoszone sesji maili: nazwy pól bez kodu (`przyjeto=0`), wyścig zapisu ustaleń, grupowanie dat.
+  K3 (komunikat przy polu) pominięty: model przypisał „1 grudnia aktualny” do daty aktu.
+- Głosy: Kuba `s03_kuba_1b-5ca798e7` („grudnie” w `_1-922d8afb` odrzucone), `s03_kuba_2-0845ac4e`; Marta `s03_marta_1-ebc7e54e`, `_2-3beebb8b`;
+  Helena `s03_helena_b-e7a7806f` („Dedanie” odrzucone), `s04_helena-76ad0de4`; Basia `s04_basia-ce30a31a`, `s06_basia-0c98d6b7`;
+  Paweł `s05_pawel-75dfe34f`; Irena `s05_irena-8f55102f`; Joanna `s06_joanna_1-09112c9c`, `_2-9d0619b5`; zapowiedź odc. 03: `odc03_zap_kuba/helena/marta`.
+- HeyGen Turbo: Kuba 1 6ab5f32165b14cfcad22c297899e3121, Marta 1 7ea2e1cd275f4106a9c7fc0cc3d64f9e, Kuba 2 6b61c5d072c44af9ba7268e94403db6b,
+  Helena s03 38315f5c44bf4f9ca0f6a4ea67afa3d1, Marta 2 d2740189dcbe419e81704467076278fa, Helena s04 e2b0a4b7a2a94ff8bc9244b67e26195e,
+  Basia s04 9df4f1e6927a4f368c6888b68e3c6b76, Paweł s05 667fab7f8a3d4c858a4112707583f077, Irena s05 0e6dc655e73e4e6a9091b8f084a0cbfb,
+  Basia s06 9d4dd32e11a64ede9b61ca23ce74c6ce, zapowiedź: Kuba 7d31da91800a47e7ae06e9007e93de69, Helena 19704df0ea414d19896e5e3080ad4b44, Marta 7c8cdb22e38449c9a60160628f1dd993.
