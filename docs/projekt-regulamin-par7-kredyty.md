@@ -1,10 +1,8 @@
 # Projekt zmiany Regulaminu: § 7 Opłaty (kredyty zamiast abonamentu)
 
-**Status:** projekt do decyzji. Obowiązujący tekst to `docs/prawne/02-regulamin.md`
-(§ 7 opisuje abonament Stripe). Zmiana Regulaminu wymaga trybu z § 14: e-mail
-do Właściciela i komunikat w aplikacji **co najmniej 14 dni** przed wejściem
-w życie. Po decyzji: podmienić § 7 w `02-regulamin.md`, zmienić „Wersja z dnia”
-(aplikacja poprosi o ponowną akceptację) i stronę `strona/regulamin/`.
+**Status:** wdrożone 13.11.2026 w `docs/prawne/02-regulamin.md` i na stronie
+`strona/regulamin/` (ważność kupionych kredytów: 12 miesięcy). Obowiązujący tekst
+jest tam; poniżej pierwotny projekt (24 miesiące), zostawiony do historii.
 
 ---
 

@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI NOTARAI
 
-Wersja z dnia 24.10.2026.
+Wersja z dnia 13.11.2026.
 
 Ta polityka dotyczy danych, które Fundacja przetwarza **jako administrator**:
 danych użytkowników usługi, osób kontaktujących się z nami i odwiedzających
@@ -28,7 +28,7 @@ siedziby.
 | Notariusz zawierający umowę, osoba wysyłająca formularz rejestracji | imię i nazwisko notariusza (notariuszy), nazwa i adres kancelarii, NIP, e-mail | zawarcie i wykonanie umowy, rozliczenia | art. 6 ust. 1 lit. b i c (przepisy podatkowe i rachunkowe) | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku, oraz do przedawnienia roszczeń |
 | Osoba akceptująca Regulamin i umowę powierzenia | data i godzina akceptacji, wersje dokumentów, e-mail, adres IP | wykazanie zawarcia umowy i umowy powierzenia (rozliczalność, art. 5 ust. 2 i art. 28 ust. 9 RODO) | art. 6 ust. 1 lit. c i f | czas umowy i 5 lat po jej zakończeniu |
 | Użytkownicy | data potwierdzenia zapoznania się z instrukcją AI, data przyjęcia oceny skutków przez notariusza | wykazanie kompetencji w zakresie AI (art. 4 rozporządzenia (UE) 2024/1689) i dokumentacji kancelarii | art. 6 ust. 1 lit. c i f | do usunięcia konta albo kancelarii |
-| Właściciel kancelarii opłacający abonament | e-mail płatnika, identyfikator klienta i subskrypcji w Stripe, status i daty płatności, faktury; danych karty Fundacja nie otrzymuje | prowadzenie abonamentu, rozliczenia | art. 6 ust. 1 lit. b i c | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku |
+| Właściciel kancelarii kupujący kredyty | e-mail płatnika, nazwa, NIP i adres kancelarii, numer zamówienia i transakcji Tpay, kwota, status i data płatności, faktura; danych karty ani rachunku Fundacja nie otrzymuje | sprzedaż pakietów kredytów, faktury (KSeF), rozliczenia | art. 6 ust. 1 lit. b i c | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku |
 | Osoby piszące do nas | e-mail, imię i nazwisko, treść wiadomości | odpowiedź, obsługa reklamacji i zgłoszeń | art. 6 ust. 1 lit. f | do zakończenia sprawy, nie dłużej niż 3 lata |
 | Odwiedzający stronę notarai.pl | adres IP, czas wizyty i dane techniczne przeglądarki w dziennikach serwera hostingu AZ.pl | wyświetlenie strony, bezpieczeństwo | art. 6 ust. 1 lit. f | zgodnie z zasadami dostawcy hostingu |
 
@@ -50,17 +50,18 @@ wymagana zgoda.
    Frankfurcie.
 2. AZ.pl Sp. z o.o. (Szczecin) - hosting strony notarai.pl, domena
    i skrzynka kontakt@notarai.pl.
-3. Stripe Payments Europe, Limited (Dublin, Irlandia) - obsługa płatności
-   kartą, subskrypcji i faktur. Stripe przetwarza dane płatnicze także jako
-   odrębny administrator, na zasadach swojej polityki prywatności
-   (stripe.com/pl/privacy). Dane karty podaje się bezpośrednio Stripe.
-4. Organy publiczne, gdy wynika to z przepisów.
+3. Krajowy Integrator Płatności S.A. (Poznań) - Tpay, obsługa płatności za
+   pakiety kredytów (BLIK, przelew, karta). Tpay przetwarza dane płatnicze
+   także jako odrębny administrator, na zasadach swojej polityki prywatności
+   (tpay.com). Dane karty i rachunku podaje się bezpośrednio Tpay.
+4. Dostawcy systemu sprzedaży i fakturowania Fundacji prowadzonego w serwisie
+   Finance You - zamówienia pakietów kredytów, płatności i faktury; faktury
+   trafiają do Krajowego Systemu e-Faktur (Ministerstwo Finansów).
+5. Organy publiczne, gdy wynika to z przepisów.
 
 Dane użytkowników usługi są przechowywane w Europejskim Obszarze
 Gospodarczym. AWS należy do grupy z siedzibą w USA i stosuje certyfikację
-w ramach EU-U.S. Data Privacy Framework. Stripe może przekazywać dane
-płatnicze do Stripe, Inc. w USA na podstawie EU-U.S. Data Privacy Framework
-oraz standardowych klauzul umownych zatwierdzonych przez Komisję Europejską.
+w ramach EU-U.S. Data Privacy Framework.
 
 ## 5. Twoje prawa
 
