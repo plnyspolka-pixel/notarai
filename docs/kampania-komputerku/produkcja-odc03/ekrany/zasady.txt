@@ -1,0 +1,94 @@
+notarai
+Panel główny
++
+Nowa sprawa
+ETAPY
+1
+Materiały sprawy
+2
+Weryfikacja odczytu
+3
+Projekt dokumentu
+NARZĘDZIA
+✓
+Sprawdzenia
+▶
+Klikamy
+▦
+Kalendarz
+☎
+Osoby i telefony
+✉
+Przesyłki i korespondencja
+@
+Poczta do przypisania
+3
+⎘
+Poświadczenie kopii
+✎
+Styl i zasady kancelarii
+§
+Księgi i repertoria
+!
+Zgłoszenia GIIF
+SPRAWY
+NOWAK — KACZMAREK
+S-041-2026 · 2026-11-13 14:12 · 3 str. · projekt · 1 spr.
+×
+Model przez Bedrock w regionie eu-central-1. Skany i projekty zostaja na tym komputerze. Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
+helena@kancelaria-demo.test
+Kalkulator taksy
+Zapytania klientów
+Zespół kancelarii
+Rezerwacje hurtowe
+Abonament
+Dokumenty
+Pobierz komplet dokumentów
+Wyloguj
+Styl i zasady kancelarii
+
+Każdy projekt, zanim go zobaczysz, przechodzi przez zasady Twojej kancelarii. Piszesz je zwykłym zdaniem, a notarai sam rozpoznaje, czego dotyczą, w jakich aktach obowiązują i jak ich pilnować.
+
+2
+zasady pilnowane
+2
+poprawiam sam, bez Ciebie
+0
+aktów w nauce stylu
+Nieprzekraczalne zasady
+Enter - dodaj · Shift+Enter - nowa linia
+Dodaj zasadę
+Na przykład:
+Zamiast „w/w” pisz „wyżej wymieniony”
+Kwoty zawsze cyframi i słownie
+Daty zapisuj jak 03.12.2025 r.
+Nigdy nie używaj słowa „niniejszy”
+Po § zawsze spacja
+AA
+SŁOWNICTWO I SFORMUŁOWANIA
+Aa
+Zamiast „w/w” pisz „wyżej wymieniony”.
+Zamiast „w/w” piszę „wyżej wymieniony” - poprawiam sam
+nieprzekraczalna
+poprawiam sam
+w każdym dokumencie
+×
+ZŁ
+ZAPIS KWOT
+zł
+Kwoty zawsze cyframi i słownie.
+Każda kwota cyframi i słownie, np. „250.000,00 zł (dwieście pięćdziesiąt tysięcy złotych)” - dopisuję sam
+nieprzekraczalna
+poprawiam sam
+w każdym dokumencie
+×
+Zawsze pilnuję też budowy aktu (5 z 5)
+Naucz notarai swojego stylu
+
+Wrzuć swoje wcześniejsze akty. Rozbiorę je na klauzule, rozpoznam rodzaj czynności i części aktu, policzę Twoje nawyki i zaproponuję zasady. Dane osobowe usuwam przed zapisem - zostaje sam sposób redagowania, a plików nie przechowuję.
+
+⇪
+Przeciągnij tu akty albo kliknij, żeby wybrać
+.docx, .pdf z tekstem, .txt · do 30 naraz
+Sprawdź dowolny tekst
+Sprawdź z zasadami

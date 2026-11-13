@@ -1,0 +1,6 @@
+[
+{"nazwa": "E1_zasady", "stan": "Z1_styl_i_zasady", "t": 3.4, "panel": true, "z0": 0.7, "z1": 0.56, "kx": 780, "ky": 600, "hl": 0.9},
+{"nazwa": "E2_poprawka", "stan": "P2_poprawka", "t": 3.6, "panel": true, "z0": 0.68, "z1": 0.64, "kx": 860, "ky": 440, "hl": 0.6},
+{"nazwa": "E3_sporzadz", "stan": "P3_sporzadzam_ponownie", "t": 1.7, "panel": true, "z0": 0.58, "z1": 0.54, "kx": 900, "ky": 560, "tap": 0.6},
+{"nazwa": "E4_par5_v2", "stan": "P4b_par5_v2", "t": 4.2, "panel": true, "z0": 0.72, "z1": 0.64, "kx": 858, "ky": 520, "hl": 1.2}
+]

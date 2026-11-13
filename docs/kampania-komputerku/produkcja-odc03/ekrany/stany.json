@@ -1,0 +1,58 @@
+[
+ {
+  "nazwa": "P2_poprawka",
+  "plik": "P2_poprawka.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 411,
+   "y": 422.046875,
+   "width": 896,
+   "height": 56
+  }
+ },
+ {
+  "nazwa": "P3_sporzadzam_ponownie",
+  "plik": "P3_sporzadzam_ponownie.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 1075.5,
+   "y": 645.203125,
+   "width": 231.5,
+   "height": 39
+  }
+ },
+ {
+  "nazwa": "P4b_par5_v2",
+  "plik": "P4b_par5_v2.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 427,
+   "y": 573.15625,
+   "width": 860.546875,
+   "height": 69
+  }
+ },
+ {
+  "nazwa": "Z1_styl_i_zasady",
+  "plik": "Z1_styl_i_zasady.png",
+  "viewport": {
+   "width": 1440,
+   "height": 900
+  },
+  "ramka": {
+   "x": 396,
+   "y": 600,
+   "width": 922,
+   "height": 92
+  }
+ }
+]
