@@ -1,6 +1,12 @@
 name: NotarAI Sealed local client — attested build (not Authenticode)
 on:
   workflow_dispatch:
+  push:
+    branches: [wdrazamy-ethereum]
+    paths:
+      - 'notarai_sealed_v2.py'
+      - 'sealed_release.py'
+      - '.github/workflows/sealed-local-client.yml'
 permissions:
   contents: read
   id-token: write
