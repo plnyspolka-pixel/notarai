@@ -34,3 +34,10 @@ W Ethereum publikujemy tylko 32 bajty zbiorczego root. Bez PESEL, nazw aktów, d
 4. Ustalić cykl automatycznego seal/publish/verify i obsługę reorgów.
 5. Wykonać testy end-to-end w SaaS, w tym RLS/tenant isolation, problemy przy awarii S3 i wielowątkowość.
 6. Oddzielnie ocenić wymogi eIDAS 2 / kwalifikowanego rejestru elektronicznego.
+
+## Potwierdzenie Ethereum
+- `POST /api/dowody/partie/{batch_id}/potwierdz` z `{"tx_hash":"0x..."}` pobiera potwierdzenie transakcji z ustawionego po stronie operatora `NOTARAI_ETH_RPC_URL` i weryfikuje adresy `NOTARAI_ETH_SENDER`, `NOTARAI_ETH_RECIPIENT`, sieć Mainnet, calldata i 12 potwierdzeń.
+- Dopiero pozytywna weryfikacja zmienia stan partii na `confirmed`. To odczyt RPC, nie wysyłka transakcji. Wszystkie trzy zmienne środowiskowe należy konfigurować bez sekretów w repozytorium.
+- `.github/workflows/ethereum-proof-tests.yml`: testy modułu kryptograficznego i kompilacja składni Python. Testy nie sprawdzają jeszcze połączenia z AWS S3, KMS i rzeczywistym Ethereum.
+
+**Wymagane przed produkcją**: osobny podpisujący, bezpieczne odtwarzanie danych, reguły retencji i kompletne testy dostępu do dokumentów w trybie wielokancelaryjnym.
