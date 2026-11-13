@@ -3,7 +3,7 @@ import copy
 import json
 import pytest
 from cryptography.exceptions import InvalidTag
-from notarai_sealed_v2 import make_office_key,seal_bytes,open_envelope,grant_recipient,write_new
+from notarai_sealed_v2 import make_office_key,seal_bytes,open_envelope,grant_recipient,rotate_recipients,write_new
 
 PASS="This is a fictional recovery password 2026, kept offline"
 TENANT="office-fictional-1"
@@ -67,3 +67,18 @@ def test_private_key_is_encrypted_and_new_file_does_not_overwrite(tmp_path):
     write_new(str(dest),json.dumps(k).encode(),private=True)
     with pytest.raises(FileExistsError):
         write_new(str(dest),b"replaced")
+
+
+def test_revoked_key_cannot_open_new_ciphertext_after_rotation():
+    p_owner,k_owner=key()
+    p_staff,k_staff=key()
+    original=seal_bytes(b"Fictional document",TENANT,[p_owner,p_staff])
+    assert open_envelope(original,k_staff,PASS)==b"Fictional document"
+    rotated=rotate_recipients(original,k_owner,PASS,[p_owner])
+    assert rotated["documentId"]!=original["documentId"]
+    assert rotated["ciphertext"]!=original["ciphertext"]
+    assert open_envelope(rotated,k_owner,PASS)==b"Fictional document"
+    with pytest.raises(ValueError):
+        open_envelope(rotated,k_staff,PASS)
+    # Old copies are not magically erased by key rotation:
+    assert open_envelope(original,k_staff,PASS)==b"Fictional document"
