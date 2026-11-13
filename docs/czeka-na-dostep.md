@@ -190,6 +190,37 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 - **W kodzie:** `skrzynki.OAUTH`, `korespondencja.oauth_start/oauth_powrot`.
 - **Zamknięte, gdy:** obie ścieżki działają na produkcji na skrzynkach testowych.
 
+## NA-11. Pierwszy zakup pakietu kredytów na żywo (przez Finance You / TPay)
+
+- **Status:** czeka
+- **Brakuje:** wdrożenia gałęzi `claude/tokenomia-tpay-integration-52zu6a` w obu
+  repozytoriach (notarai i finyou, z migracją `partner_credit_orders`) oraz decyzji
+  o § 7 Regulaminu (`docs/projekt-regulamin-par7-kredyty.md`, 14 dni wcześniej
+  e-mail do kancelarii).
+- **Na żywo:**
+  1. Przed wdrożeniem notarai: w panelu Stripe anulować trwające subskrypcje
+     abonamentu notarai (aplikacja już ich nie obsługuje — bez tego Stripe dalej
+     pobierałby opłaty) i usunąć webhook `notarai-aplikacja`; kancelariom, które
+     zapłaciły za bieżący okres, dopisać w `/admin` kredyty za niewykorzystaną część.
+  2. Finance You: migracja `20261113120000_partner_credit_orders.sql`; w env
+     opcjonalnie `PARTNER_PLATNOSCI_TOKEN` (bez niego działa `KW_PARTNER_TOKEN`)
+     i `PARTNER_PLATNOSCI_ORIGINS` (domyślnie `https://app.notarai.pl`).
+     Sprawdzić, że podmiot Fundacji w module księgowym ma stawkę „zw”.
+  3. notarai: sekret `notarai/finyou` i `FinyouAdres` już są (treść KW) — wystarczy
+     wdrożenie `infra\3-wdroz-aplikacje.ps1`.
+  4. Kancelaria demo, właściciel: „Kredyty” → pakiet 100 kr → BLIK → powrót; saldo
+     rośnie o 100 w ≤ 1 min, w oknie widać numer faktury.
+  5. W panelu TPay „Wyślij ponownie powiadomienie” — saldo bez zmian (raz).
+  6. Faktura: jest w KSeF na NIP kancelarii demo, e-mail doszedł, pozycja
+     „Bon jednego przeznaczenia - pakiet 100 kredytów…”, stawka „zw”.
+  7. Zwrot w panelu TPay — w Finance You `refunded`, w notarai saldo −100 (raz);
+     korekta faktury ręcznie w module księgowym.
+- **W kodzie:** notarai `platnosci.py`, `tokenomia.py` (`kup_pakiet`,
+  `uzgodnij_zamowienie`, `ping_platnosci`); finyou `src/lib/partner-payments/`,
+  `src/routes/api/public/partner-platnosci.ts`, `webhook-core.server.ts` (prefiks `NOTARAI:`).
+- **Zamknięte, gdy:** prawdziwy zakup na produkcji dopisuje kredyty raz i ma
+  fakturę w KSeF.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

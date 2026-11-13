@@ -35,7 +35,6 @@ import autoryzacja
 import dokumenty_prawne
 import logowanie
 import notariusze
-import platnosci
 import tokenomia
 import walidacja
 
@@ -121,7 +120,7 @@ class Rejestracja(DaneKancelarii):
 @router.get("")
 def informacje():
     return {"wlaczona": WLACZONA and logowanie.wlaczone(), **_wersje(),
-            "cena": platnosci.cena(), "okres_probny_dni": platnosci.OKRES_PROBNY_DNI}
+            "kredyty_probne": tokenomia.KREDYTY_PROBNE if tokenomia.WLACZONA else 0}
 
 
 @router.post("", status_code=201)
@@ -161,8 +160,6 @@ def zarejestruj(dane: Rejestracja, request: Request):
         "umowa": _zapis_akceptacji(email, adres_ip, "formularz rejestracji"),
         "zespol": [{"email": email, "rola": "wlasciciel", "zaproszono": teraz, "dolaczyl": None}],
     }
-    if platnosci.wlaczone():
-        wpis["oplacono_do"] = platnosci.na_probe()
     # Geokodowanie adresu w rejestrze prywatnym; publikacja wymaga decyzji wlasciciela.
     notariusze.ustal_polozenie(wpis)
     # Klucz wpisu to losowy skrot; do spraw wchodzi sie tylko logujac sie.

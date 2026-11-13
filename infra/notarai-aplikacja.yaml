@@ -66,13 +66,6 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
-  StripeSekretArn:
-    Type: String
-    Default: ""
-    Description: >-
-      Pelny ARN sekretu notarai/stripe (klucze klucz i webhook), zalozonego
-      skryptem zapisz-sekret-stripe.ps1 - wartosci nie trafiaja do szablonu.
-      Puste = platnosci wylaczone, nikogo nie blokujemy.
   ApifySekretArn:
     Type: String
     Default: ""
@@ -107,23 +100,20 @@ Parameters:
     Type: String
     Default: ""
     Description: Adres API Finance You (np. https://finyou.pl). Jawny, nie jest sekretem.
-  StripeCena:
+  StawkaVat:
     Type: String
-    Default: ""
-    AllowedPattern: "^(price_[A-Za-z0-9]+)?$"
-    Description: Identyfikator ceny abonamentu w Stripe (price_...). Jawny, nie jest sekretem.
-  CenaAbonamentu:
-    Type: String
-    Default: ""
-    AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
-    Description: Cena miesiaca abonamentu w zl do wyswietlenia (Fundacja zwolniona z VAT), np. 600.00.
+    Default: "0"
+    AllowedValues: ["0", "0.23"]
+    Description: >-
+      VAT doliczany do ceny pakietu kredytow. 0 = Fundacja zwolniona
+      podmiotowo (art. 113 ust. 1 ustawy o VAT); 0.23 po utracie zwolnienia.
   Tokenomia:
     Type: String
-    Default: "false"
+    Default: "true"
     AllowedValues: ["true", "false"]
     Description: >-
-      Czy kancelarie placa kredytami za czynnosci z modelem (tokenomia.py,
-      docs/tokenomia.md). false = koszty tylko liczone w logach i panelu admina.
+      Kredyty sa jedynym sposobem zakupu (tokenomia.py, docs/tokenomia.md).
+      false tylko awaryjnie = nikt nie placi, koszty liczone w logach.
   Rejestracja:
     Type: String
     Default: "true"
@@ -145,12 +135,11 @@ Parameters:
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
-    Description: Adres aplikacji - tu wraca platnik ze Stripe.
+    Description: Adres aplikacji - tu wraca platnik z TPay i tu Finance You sygnalizuje platnosc.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
-  MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
@@ -209,16 +198,6 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
-        - !If
-          - MamyStripe
-          - PolicyName: sekret-stripe
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: Allow
-                  Action: secretsmanager:GetSecretValue
-                  Resource: !Ref StripeSekretArn
-          - !Ref AWS::NoValue
         - !If
           - MamyApify
           - PolicyName: sekret-apify
@@ -512,12 +491,10 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
-            - Name: PIECZAPP_ABONAMENT_ZL
-              Value: !Ref CenaAbonamentu
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
-            - Name: STRIPE_CENA
-              Value: !Ref StripeCena
+            - Name: PIECZAPP_VAT
+              Value: !Ref StawkaVat
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
             - Name: PIECZAPP_TOKENOMIA
@@ -533,17 +510,6 @@ Resources:
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
-            # Klucze Stripe z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
-            - !If
-              - MamyStripe
-              - Name: STRIPE_KLUCZ
-                ValueFrom: !Sub "${StripeSekretArn}:klucz::"
-              - !Ref AWS::NoValue
-            - !If
-              - MamyStripe
-              - Name: STRIPE_WEBHOOK_SEKRET
-                ValueFrom: !Sub "${StripeSekretArn}:webhook::"
-              - !Ref AWS::NoValue
             # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
             - !If
               - MamyApify

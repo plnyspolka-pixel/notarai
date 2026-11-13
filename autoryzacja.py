@@ -34,7 +34,6 @@ from pydantic import BaseModel
 
 import logowanie
 import magazyn
-import platnosci
 import stanowiska
 import tokenomia
 import urzadzenia
@@ -47,10 +46,11 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # Sciezki bez logowania: strona, statyki, zdrowie, panel admina
 # (panel ma wlasny token), logowanie i odzyskiwanie hasla, favicon oraz
 # laczenie pomocnika (pomocnik nie ma jeszcze tokenu - po to sie laczy) i
-# webhook Stripe (Stripe nie ma tokenu, zaufanie daje podpis). Rejestracja
+# sygnal platnosci z Finance You (bez tokenu; niczego z niego nie bierzemy
+# poza numerem zamowienia - stan czytamy sami tokenem partnera). Rejestracja
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
-            "/api/pomocnik/parowanie", "/api/stripe/", "/rejestracja", "/api/rejestracja", "/dokumenty/",
+            "/api/pomocnik/parowanie", "/api/finyou/platnosc", "/rejestracja", "/api/rejestracja", "/dokumenty/",
             "/kalkulator", "/api/taksa", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
             "/notariusze", "/api/notariusze",
             # powrot z logowania Microsoft/Google przy podpinaniu skrzynki (podpisany stan)
@@ -58,24 +58,20 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania
             "/poswiadczenia")
 
-# Po terminie abonamentu te sciezki zostaja otwarte: bez nich wlasciciel nie
-# moglby zaplacic ani zobaczyc, kto z zespolu ma dostep.
-_BEZ_ABONAMENTU = ("/api/abonament", "/api/zespol", "/api/kredyty")
-
 # Bez zaakceptowanej umowy powierzenia nie przetwarzamy spraw (Regulamin
 # § 6 ust. 4). Otwarte zostaje to, co potrzebne do jej zaakceptowania.
-_BEZ_UMOWY = _BEZ_ABONAMENTU + ("/api/dokumenty", "/api/ustawienia")
+_BEZ_UMOWY = ("/api/zespol", "/api/kredyty", "/api/dokumenty", "/api/ustawienia")
 
 # Token pomocnika otwiera tylko to, czego pomocnik potrzebuje. Wykradziony z
 # komputera notariusza nie pozwala przegladac spraw.
 _DLA_POMOCNIKA = "/api/pomocnik/"
 
 # Dostep serwisowy: administrator wskazuje kancelarie tym naglowkiem. Nie
-# siega po to, co nalezy do kancelarii jako klienta - zespol, abonament,
+# siega po to, co nalezy do kancelarii jako klienta - zespol, kredyty,
 # akceptacje dokumentow, pomocnika - ani po sam dostep serwisowy, zeby nie
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
-_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/abonament", "/api/kredyty", "/api/dokumenty",
+_POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/kredyty", "/api/dokumenty",
                   "/api/pomocnik", "/api/mapa", "/api/zapytania",
                   # Repertorium i zgloszenia AML - tajemnica notarialna, art. 18 PrNot.
                   "/api/ksiegi-kancelarii", "/api/giif")
@@ -203,7 +199,7 @@ async def middleware(request: Request, call_next):
         # Administrator w sprawach kancelarii: tylko gdy ta kancelaria sama
         # wlaczyla dostep serwisowy i tylko do czasu, ktory wskazala.
         if sciezka.startswith(_POZA_SERWISEM):
-            return JSONResponse({"detail": "Dostep serwisowy nie obejmuje zespolu, abonamentu, "
+            return JSONResponse({"detail": "Dostep serwisowy nie obejmuje zespolu, kredytow, "
                                            "dokumentow ani pomocnika kancelarii."}, 403)
         email = _wejscie_serwisowe(token, id_serwisu, sciezka, request.method)
         if not email:
@@ -216,9 +212,6 @@ async def middleware(request: Request, call_next):
         return JSONResponse({"detail": "Zaloguj sie, zeby korzystac z aplikacji."}, 401)
     if komputer and not sciezka.startswith(_DLA_POMOCNIKA):
         return JSONResponse({"detail": "Token pomocnika sluzy tylko pomocnikowi."}, 403)
-    if not sciezka.startswith(_BEZ_ABONAMENTU) and not _oplacona(kancelaria):
-        return JSONResponse({"detail": "Abonament kancelarii wygasl. Wlasciciel moze go oplacic "
-                                       "w oknie Abonament.", "abonament": True}, 402)
     # Dotyczy ludzi. Pomocnik to automatyzacja kancelarii, ktora i tak
     # zaczyna dzialac dopiero po zalogowaniu wlasciciela.
     if email and not sciezka.startswith(_BEZ_UMOWY) and not umowa_zawarta(kancelaria):
@@ -256,11 +249,10 @@ def _osoba_w_kancelarii(kancelaria: str, email: str) -> dict | None:
 
 
 def _oplacona(kancelaria: str) -> bool:
-    """Bez skonfigurowanych platnosci nikogo nie blokujemy."""
-    if not platnosci.wlaczone():
-        return True
-    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
-    return wpis is None or platnosci.stan(wpis)["wazny"]
+    """Kancelaria jest klientem: ma dodatnie saldo kredytow (tokenomia.py).
+    Abonamentu nie ma - za czynnosci placi sie kredytami, a brak kredytow
+    blokuje tylko czynnosci platne (HTTP 402), nie dostep do spraw."""
+    return tokenomia.aktywna(kancelaria)
 
 
 def umowa_zawarta(kancelaria: str) -> bool:
@@ -563,13 +555,18 @@ def lista_kancelarii(request: Request):
     return [
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
          "przechowywanie": w.get("przechowywanie", "chmura"),
-         "oplacono_do": w.get("oplacono_do"),
+         "kredyty": _saldo_kredytow(w["id"]),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
          "serwis_do": (_serwis_trwa(w) or {}).get("do"),
          "mapa": _stan_mapy(w)}
         for w in rejestr.values()
     ]
+
+
+def _saldo_kredytow(id_k: str) -> float | None:
+    portfel = tokenomia.wczytaj_portfel(id_k)
+    return None if portfel is None else tokenomia.saldo(portfel)
 
 
 def _stan_mapy(wpis: dict) -> dict:
@@ -615,10 +612,8 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
         "aktywna": True,
         "przechowywanie": dane.przechowywanie,
     }
-    # Z platnosciami nowa kancelaria dostaje okres probny, potem placi sama.
-    if platnosci.wlaczone():
-        rejestr[skrot]["oplacono_do"] = platnosci.na_probe()
     _zapisz_rejestr(rejestr)
+    # Kredyty startowe na przetestowanie funkcji; dalej kancelaria kupuje pakiety.
     if tokenomia.WLACZONA:
         tokenomia.zaloz_portfel_probny(id_k)
     log.info("kancelaria dodana: %s, pliki: %s", id_k, dane.przechowywanie)
@@ -702,33 +697,6 @@ def przywroc_kancelarie(request: Request, id_k: str):
     _zapisz_rejestr(rejestr)
     log.info("kancelaria przywrocona: %s", id_k)
     return {"id": id_k, "aktywna": True}
-
-
-class TerminAbonamentu(BaseModel):
-    # "RRRR-MM-DD" albo pusty: kancelaria bez abonamentu w Stripe (np. umowa
-    # i faktura poza systemem) - wtedy nic jej nie blokujemy.
-    oplacono_do: str = ""
-
-
-@router.put("/kancelarie/{id_k}/abonament")
-def ustaw_abonament(request: Request, id_k: str, dane: TerminAbonamentu):
-    """Recznie: okres probny, przedluzenie po przelewie, zwolnienie z oplat."""
-    _wymagaj_admina(request)
-    rejestr = _wczytaj_rejestr()
-    _, wpis = _znajdz(rejestr, id_k)
-    if wpis is None:
-        raise HTTPException(404, "Nie znaleziono kancelarii")
-    if dane.oplacono_do:
-        try:
-            date.fromisoformat(dane.oplacono_do)
-        except ValueError:
-            raise HTTPException(400, "Data w postaci RRRR-MM-DD")
-        wpis["oplacono_do"] = dane.oplacono_do
-    else:
-        wpis.pop("oplacono_do", None)
-    _zapisz_rejestr(rejestr)
-    log.info("kancelaria %s: abonament ustawiony recznie", id_k)
-    return {"id": id_k, "oplacono_do": wpis.get("oplacono_do")}
 
 
 class PotwierdzenieUsuniecia(BaseModel):
@@ -1199,171 +1167,3 @@ def usun_admina(request: Request, email: str):
     return {"usunieto": True}
 
 
-# --- abonament (Stripe) ------------------------------------------------------
-# Kancelaria ma w Stripe subskrypcje miesieczna. Termin trzymamy w jej wpisie
-# rejestru ("oplacono_do"), dane Stripe w "stripe" (klient, subskrypcja,
-# status), a oplacone faktury w "platnosci" - po identyfikatorze faktury
-# poznajemy powtorzony webhook.
-
-router_abonamentu = APIRouter(prefix="/api/abonament", tags=["abonament"])
-
-# Subskrypcja w tych stanach jeszcze trwa - nowej nie zakladamy, tylko
-# kierujemy do portalu (np. past_due: trzeba zmienic karte).
-_TRWA = ("active", "trialing", "past_due", "unpaid", "incomplete")
-
-
-def _subskrypcja(wpis: dict) -> dict:
-    return dict(wpis.get("stripe") or {})
-
-
-@router_abonamentu.get("")
-def moj_abonament(request: Request):
-    kancelaria = getattr(request.state, "kancelaria", None)
-    if not kancelaria:
-        # Lokalny tryb bez sesji SaaS: panel nie pokazuje abonamentu.
-        return {"platnosci_wlaczone": False, "wymagany": False, "po_terminie": False,
-                "dni_do_konca": None, "cena": platnosci.cena(), "moge_zaplacic": False,
-                "subskrypcja": None, "konczy_sie": False, "historia": []}
-    _, wpis = _znajdz(_wczytaj_rejestr(), kancelaria)
-    if wpis is None:
-        raise HTTPException(404, "Nie znaleziono kancelarii")
-    email = getattr(request.state, "email", "")
-    sub = _subskrypcja(wpis)
-    return {**platnosci.stan(wpis), "platnosci_wlaczone": platnosci.wlaczone(),
-            "cena": platnosci.cena(),
-            "moge_zaplacic": bool(email) and email in _wlasciciele(wpis),
-            "subskrypcja": sub.get("status") if sub.get("status") in _TRWA else None,
-            "konczy_sie": bool(sub.get("anulowana")),
-            "historia": [{k: p.get(k) for k in ("data", "kwota", "status", "oplacono_do", "faktura")}
-                         for p in wpis.get("platnosci", [])[-12:]]}
-
-
-def _wlasciciel_placi(request: Request) -> dict:
-    if not platnosci.wlaczone():
-        raise HTTPException(503, "Platnosci nie sa skonfigurowane na tym serwerze.")
-    _, _, wpis, email = _moja_kancelaria(request)
-    if email not in _wlasciciele(wpis):
-        raise HTTPException(403, "Abonamentem zarzadza wlasciciel kancelarii.")
-    return {"wpis": wpis, "email": email}
-
-
-@router_abonamentu.post("", status_code=201)
-def zaplac(request: Request):
-    """Strona platnosci Stripe zakladajaca subskrypcje; gdy subskrypcja juz
-    trwa - portal klienta, zeby nie obciazyc kancelarii dwa razy."""
-    dane = _wlasciciel_placi(request)
-    wpis, sub = dane["wpis"], _subskrypcja(dane["wpis"])
-    try:
-        if sub.get("klient") and sub.get("status") in _TRWA:
-            return platnosci.utworz_portal(sub["klient"])
-        return platnosci.utworz_checkout(wpis["id"], dane["email"], sub.get("klient", ""),
-                                         wpis.get("oplacono_do"))
-    except platnosci.BladPlatnosci as blad:
-        raise HTTPException(502, str(blad))
-
-
-@router_abonamentu.post("/portal", status_code=201)
-def portal(request: Request):
-    """Portal klienta Stripe: zmiana karty, faktury, rezygnacja."""
-    sub = _subskrypcja(_wlasciciel_placi(request)["wpis"])
-    if not sub.get("klient"):
-        raise HTTPException(409, "Kancelaria nie ma jeszcze abonamentu w Stripe.")
-    try:
-        return platnosci.utworz_portal(sub["klient"])
-    except platnosci.BladPlatnosci as blad:
-        raise HTTPException(502, str(blad))
-
-
-router_stripe = APIRouter(prefix="/api/stripe", tags=["stripe"])
-
-
-def _kancelaria_stripe(rejestr: dict, id_k: str, klient: str) -> dict | None:
-    """Po metadanych, a gdy ich brak - po kliencie Stripe zapisanym wczesniej."""
-    if id_k:
-        return _znajdz(rejestr, id_k)[1]
-    if klient:
-        return next((w for w in rejestr.values() if _subskrypcja(w).get("klient") == klient), None)
-    return None
-
-
-@router_stripe.post("/webhook")
-async def webhook_stripe(request: Request):
-    """Zdarzenia Stripe. Wierzymy tylko podpisowi - ta sciezka jest otwarta
-    dla kazdego. 2xx konczy ponawianie; blad podpisu - 400."""
-    global _CACHE
-    tresc = await request.body()
-    try:
-        zdarzenie = platnosci.odczytaj_zdarzenie(tresc, request.headers.get("stripe-signature", ""))
-    except platnosci.BladPodpisu as blad:
-        log.warning("stripe: odrzucono webhook (%s)", blad)
-        return JSONResponse({"odebrano": False}, 400)
-
-    typ = zdarzenie["type"]
-    obiekt = (zdarzenie.get("data") or {}).get("object") or {}
-    # Zakup pakietu kredytow to platnosc jednorazowa - subskrypcji nie dotyka.
-    if typ == "checkout.session.completed" and tokenomia.z_platnosci_stripe(obiekt):
-        return {"odebrano": True}
-    _CACHE = None          # druga kopia aplikacji mogla przed chwila zmienic rejestr
-    rejestr = _wczytaj_rejestr()
-
-    if typ == "checkout.session.completed":
-        id_k = obiekt.get("client_reference_id") or (obiekt.get("metadata") or {}).get("kancelaria", "")
-        klient = obiekt.get("customer") or ""
-        subskrypcja = obiekt.get("subscription") or ""
-    elif typ.startswith("invoice."):
-        id_k, klient = platnosci.kancelaria_faktury(obiekt), obiekt.get("customer") or ""
-        subskrypcja = platnosci.subskrypcja_faktury(obiekt)
-    elif typ.startswith("customer.subscription."):
-        id_k = (obiekt.get("metadata") or {}).get("kancelaria", "")
-        klient, subskrypcja = obiekt.get("customer") or "", obiekt.get("id") or ""
-    else:
-        return {"odebrano": True}
-
-    wpis = _kancelaria_stripe(rejestr, id_k, klient)
-    if wpis is None:
-        # Podpisane, ale nie nasze (np. inny produkt na tym koncie Stripe).
-        log.warning("stripe: %s bez znanej kancelarii", typ)
-        return {"odebrano": True}
-    sub = wpis.setdefault("stripe", {})
-    if klient:
-        sub["klient"] = klient
-    if subskrypcja:
-        sub["subskrypcja"] = subskrypcja
-
-    if typ == "checkout.session.completed":
-        # Bez platnosci teraz = trwa okres probny; dokladny stan i tak
-        # przyjdzie w customer.subscription.updated.
-        platne = obiekt.get("payment_status")
-        sub["status"] = {"paid": "active", "no_payment_required": "trialing"}.get(platne, "incomplete")
-    elif typ.startswith("customer.subscription."):
-        sub["status"] = "canceled" if typ.endswith(".deleted") else obiekt.get("status", "")
-        sub["anulowana"] = bool(obiekt.get("cancel_at_period_end") or obiekt.get("cancel_at"))
-        log.info("stripe: kancelaria %s, subskrypcja %s", wpis["id"], sub["status"])
-    elif typ == "invoice.paid":
-        historia = wpis.setdefault("platnosci", [])
-        if any(p.get("faktura_id") == obiekt.get("id") for p in historia):
-            return {"odebrano": True}
-        koniec = platnosci.koniec_okresu(obiekt)
-        # Starsza faktura doszla po nowszej - terminu nie cofamy.
-        if koniec and koniec > (wpis.get("oplacono_do") or ""):
-            wpis["oplacono_do"] = koniec
-        if obiekt.get("amount_paid"):
-            sub["status"] = "active"
-            historia.append({"faktura_id": obiekt.get("id"), "status": "true", "data": _teraz(),
-                             "kwota": f"{obiekt['amount_paid'] / 100:.2f}",
-                             "faktura": obiekt.get("hosted_invoice_url"),
-                             "oplacono_do": wpis.get("oplacono_do")})
-        else:
-            # Faktura zerowa (okres probny) - termin tak, wpis w historii nie.
-            historia.append({"faktura_id": obiekt.get("id"), "status": "proba", "data": _teraz()})
-        log.info("stripe: kancelaria %s oplacona do %s", wpis["id"], wpis.get("oplacono_do"))
-        # Nowy okres abonamentu = nowa pula kredytow planu (raz na fakture).
-        if tokenomia.WLACZONA:
-            tokenomia.odnow_pule(wpis["id"], wpis.get("plan") or tokenomia.PLAN_DOMYSLNY,
-                                 znacznik=obiekt.get("id", ""))
-    elif typ == "invoice.payment_failed":
-        # Stripe sam ponawia i wysyla e-mail; my tylko odnotowujemy.
-        log.warning("stripe: kancelaria %s, nieudane obciazenie", wpis["id"])
-
-    _zapisz_rejestr(rejestr)
-    return {"odebrano": True}

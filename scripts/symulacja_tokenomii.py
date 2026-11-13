@@ -171,6 +171,26 @@ PROFILE = {
 }
 
 
+# Plany abonamentowe z wersji cennika sprzed 13.11.2026 - tylko do porownania
+# (model A). W aplikacji obowiazuja wylacznie pakiety kredytow (model B).
+PLANY_HISTORYCZNE: dict[str, dict] = {
+    "start": {"nazwa": "Start", "cena_zl": 290, "pula": 300},
+    "kancelaria": {"nazwa": "Kancelaria", "cena_zl": 600, "pula": 700},
+    "pro": {"nazwa": "Pro", "cena_zl": 1500, "pula": 1875},
+    "pro_plus": {"nazwa": "Kancelaria+", "cena_zl": 3600, "pula": 4500},
+}
+
+
+def _dokup(brak: float) -> float:
+    """Najtanszy pasujacy zestaw pakietow na brakujace kredyty."""
+    dokup = 0.0
+    while brak > 0:
+        pak = t.PAKIETY["2000"] if brak > 900 else t.PAKIETY["500"] if brak > 100 else t.PAKIETY["100"]
+        dokup += pak["cena_zl"]
+        brak -= pak["kredyty"]
+    return dokup
+
+
 def ekonomia_modeli(ziarno: int = 11) -> dict:
     """Miesieczny wynik na jednej kancelarii w trzech modelach biznesowych."""
     gen = random.Random(ziarno)
@@ -187,17 +207,13 @@ def ekonomia_modeli(ziarno: int = 11) -> dict:
         # A. Abonament z pula + dokupowanie pakietow; kancelaria wybiera
         # najtanszy dla siebie plan (tak zachowa sie racjonalny klient).
         def koszt_planu(p: dict) -> float:
-            brak, dokup = max(0.0, potrzeba_kr - p["pula"]), 0.0
-            while brak > 0:                              # najtanszy pasujacy pakiet
-                pak = t.PAKIETY["2000"] if brak > 900 else t.PAKIETY["500"] if brak > 100 else t.PAKIETY["100"]
-                dokup += pak["cena_zl"]
-                brak -= pak["kredyty"]
-            return p["cena_zl"] + dokup
-        plan = min(t.PLANY, key=lambda k: koszt_planu(t.PLANY[k]))
-        przychod_a = koszt_planu(t.PLANY[plan])
+            return p["cena_zl"] + _dokup(max(0.0, potrzeba_kr - p["pula"]))
+        plan = min(PLANY_HISTORYCZNE, key=lambda k: koszt_planu(PLANY_HISTORYCZNE[k]))
+        przychod_a = koszt_planu(PLANY_HISTORYCZNE[plan])
         wynik.setdefault("plan_wybrany", {})[profil] = plan
-        # B. Tylko pakiety (pay-as-you-go), bez abonamentu
-        przychod_b = potrzeba_kr * (t.PAKIETY["500"]["cena_zl"] / t.PAKIETY["500"]["kredyty"])
+        # B. Tylko pakiety (pay-as-you-go), bez abonamentu - model obowiazujacy.
+        # Kancelaria kupuje najtanszy zestaw pakietow na swoje zuzycie.
+        przychod_b = _dokup(potrzeba_kr)
         # C. Oplata za sprawe (akt) z limitem w cenie + oplata platformowa.
         # Ponad limit (stron, tur) dolicza sie kredyty po cenie katalogowej.
         nadwyzka = statistics.mean(nadwyzka_kredytow(s) for s in proba) * t.CENA_KREDYTU_ZL
@@ -216,8 +232,8 @@ def ekonomia_modeli(ziarno: int = 11) -> dict:
                 "cena_za_sprawe_zl": round(przychod / spraw, 1),
             }
         wynik["modele"][f"{profil} ({spraw} spraw/mies.)"] = modele
-    # Prog rentownosci kosztow stalych przy modelu A, kancelaria srednia.
-    srednia = wynik["modele"][f"srednia ({PROFILE['srednia']} spraw/mies.)"]["A_abonament_z_pula"]
+    # Prog rentownosci kosztow stalych przy modelu B (obowiazujacym), kancelaria srednia.
+    srednia = wynik["modele"][f"srednia ({PROFILE['srednia']} spraw/mies.)"]["B_pakiety"]
     wynik["prog_rentownosci_kancelarii"] = math.ceil(KOSZT_STALY_ZL / max(1, srednia["marza_po_wsparciu_zl"]))
     return wynik
 
@@ -243,7 +259,7 @@ def _drukuj() -> None:
                   f"narzut {m['narzut_na_koszcie_ai'] * 100:5.0f}%  marza po wsparciu "
                   f"{m['marza_po_wsparciu_zl']:7.0f} zl  ({m['cena_za_sprawe_zl']} zl/sprawe)")
     print(f"\nKoszty stale {KOSZT_STALY_ZL:.0f} zl/mies. pokrywa {e['prog_rentownosci_kancelarii']} "
-          "kancelaria(e) srednia(e) w modelu A.")
+          "kancelaria(e) srednia(e) w modelu B (same pakiety - obowiazujacy).")
 
 
 if __name__ == "__main__":

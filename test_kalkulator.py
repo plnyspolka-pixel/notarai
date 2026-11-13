@@ -284,8 +284,8 @@ class TestBedrock:
 
 
 class TestTrybLokalny:
-    def test_abonament_bez_logowania_nie_wywala_500(self, klient):
-        """Strona aplikacji w trybie lokalnym pyta o abonament; wczesniej leciał AttributeError."""
-        odp = klient.get("/api/abonament")
+    def test_kredyty_bez_logowania_nie_wywala_500(self, klient):
+        """Strona aplikacji w trybie lokalnym pyta o kredyty; stanowisko lokalne nie placi."""
+        odp = klient.get("/api/kredyty")
         assert odp.status_code == 200
-        assert odp.json()["platnosci_wlaczone"] is False and odp.json()["wymagany"] is False
+        assert odp.json()["egzekwowana"] is False and odp.json()["moge_kupic"] is False
