@@ -102,3 +102,10 @@ Warstwy: `narzedzia/render_warstwy_odc.js` (karty imion, „Poniedziałek 8:57�
 - Muzyka: `czesc4_wideo/muz_intryga.mp3` (ElevenLabs compose, fortepian i smyczki) od wahania Basi przed „bez syna” do czerni; `muz_zapowiedz_wolniej.mp3` (rosnące napięcie, 0,8×) pod zapowiedzią.
 - Zapowiedź odc. 02 „Proszę nie przy nim”: plansza „W następnym odcinku” na ujęciu Pawła pod drzwiami (fal `fu-dBUQBs0BebaKwIBhsN`, Kling 01a1d156-5d8e-7a03-868b-74657656c0a1),
   Helena „Pani Ireno… jakiego terminu pani naprawdę chce?” (`odc02_zapowiedz_helena-b37425d0`, HeyGen 209c977f267b4dc9be26ebb5b9244e0f), plansza tytułu `zap_tytul.png`. Irena tylko poza kadrem.
+
+# Poprawki ciągłości (13.11)
+- Basia przy komputerze: klawiatura była przed drukarką. Nowe kadry: T4b `5EyGHeQaLrUPNYB07fjJG` (monitor i klawiatura przed nią, drukarka z boku),
+  T5b `trg_HxP7ELKrSTIb79Thq`. HeyGen s03 Basia 65d7a939ca3543df87abe187f9370f5d, Kling t5 01a1d243-129d-7be0-afd4-b0d72f65372a.
+- Helena sc. 07: okulary jednocześnie na twarzy i w dłoni. Kadr T8b `CJLSYNYhttUeJH5Jqts7W` (okulary tylko w dłoni);
+  HeyGen s07 Helena 1 38a4bf53bc7147c6838a9023517a5e7c, Helena 2 0e3170ad037643769ab5e1c11ba962b7.
+- Zapowiedź: Helena miała „zdjąć okulary”, a okulary zostały na twarzy. Nowe ujęcie bez tego gestu 468f680e7617458aa456f048fee954f9.
