@@ -22,7 +22,7 @@ jobs:
       # Repository-wide conftest imports AWS modules; run pure crypto tests in isolation.
       - run: |
           mkdir -p "$RUNNER_TEMP/notarai-proof-tests"
-          cp proof_engine.py test_proof_engine.py test_dowody_policy.py test_sealed_vault.py test_sealed_api.py test_sealed_cli.py sealed_vault.py notarai_sealed_cli.py stanowiska.py autoryzacja.py "$RUNNER_TEMP/notarai-proof-tests/"
+          cp proof_engine.py test_proof_engine.py test_dowody_policy.py test_sealed_vault.py test_sealed_api.py test_sealed_cli.py test_sealed_v2.py test_sealed_release.py sealed_vault.py notarai_sealed_cli.py notarai_sealed_v2.py sealed_release.py stanowiska.py autoryzacja.py "$RUNNER_TEMP/notarai-proof-tests/"
           mkdir -p "$RUNNER_TEMP/notarai-proof-tests/tests/fixtures"
           cp tests/fixtures/sealed-envelope-v1.json "$RUNNER_TEMP/notarai-proof-tests/tests/fixtures/"
           cd "$RUNNER_TEMP/notarai-proof-tests"
@@ -31,4 +31,4 @@ jobs:
         with:
           node-version: '22'
       - run: node --test test_sealed_client.mjs
-      - run: python -m py_compile proof_engine.py dowody_ethereum.py sealed_vault.py notarai_sealed_cli.py
+      - run: python -m py_compile proof_engine.py dowody_ethereum.py sealed_vault.py notarai_sealed_cli.py notarai_sealed_v2.py sealed_release.py
