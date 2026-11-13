@@ -16,6 +16,7 @@
 - `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
 - `stanowiska.py` — stanowisko osoby w zespole (notariusz / aplikant / sekretariat): co może zrobić w sprawach; serwer odmawia 403, UI chowa przyciski. Nadaje właściciel w oknie „Zespół kancelarii”. Osoba bez stanowiska i właściciel mają pełne uprawnienia.
+- `korespondencja.py` — poczta e-mail do spraw: IMAP (TLS) albo katalog .eml, propozycje przypisania, pliki sprawy, ustalenia ze źródłem (sekcja „Poczta e-mail do spraw”)
 - `scripts/demo_odcinek01.py` — fikcyjne dane demo i lokalny serwer z kontami 4 ról do nagrania odcinka 01 (`docs/odcinek-01-luki.md`)
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
@@ -205,6 +206,44 @@ Przy `u-klienta`:
 - sprawdzenia w rejestrach są w tym trybie ukryte, bo zapisują ślad w sprawie
   po stronie serwera,
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
+
+## Poczta e-mail do spraw (korespondencja.py)
+
+Okno „Poczta do przypisania”: notarai czyta skrzynkę kancelarii i dla każdej
+wiadomości proponuje sprawę (sygnatura, numer KW, adres nadawcy/adresata znany
+w sprawie, odpowiedź w wątku już przypisanym, nazwiska stron) — z uzasadnieniem
+i pewnością. **Nic nie trafia do sprawy bez kliknięcia „Przypisz do sprawy”.**
+Po przypisaniu `.eml` i załączniki są w „Plikach sprawy” (z nadawcą, datą,
+tematem i rolą nadawcy), a metadane w `{sprawa}/korespondencja.json`.
+
+Ustalenia z treści wyciąga model (Bedrock, eu-central-1) osobnym kliknięciem
+(uprawnienie `sprawy_ai`). Ustalenie ma źródło: kto napisał, jaka jest jego rola
+(strona / kupujący / pełnomocnik / osoba kontaktowa / bank / inny) i czy relacjonuje
+cudze stanowisko („mama się zgadza”). **Ustalenia nie zmieniają pól odczytu ani
+projektu** — w „Weryfikacji odczytu” pojawia się tylko komunikat, np. „W korespondencji:
+1.12 (Paweł Nowak — osoba kontaktowa, 9.11). Brak potwierdzenia: Irena Nowak
+(sprzedająca).”, a projekt nadal ma w tym miejscu `<<BRAK>>`.
+
+Konfiguracja skrzynki (okno „Poczta do przypisania” → „Ustawienia skrzynki”,
+uprawnienie `kancelaria`): serwer IMAP, port (993, TLS), użytkownik, folder.
+Skrzynka otwierana tylko do odczytu (`BODY.PEEK[]` — wiadomości nie zmieniają
+stanu „przeczytana”).
+- **Chmura:** hasło zapisuje się wyłącznie w AWS Secrets Manager jako
+  `notarai-skrzynka-<kancelaria>` (polityka `sekrety-skrzynki-pocztowej`
+  w `infra/notarai-aplikacja.yaml`, region eu-central-1). Nie wraca do przeglądarki,
+  nie trafia do S3 ani do logów. Wymaga ponownego wdrożenia stosu aplikacji.
+- **Lokalnie:** zmienna `PIECZAPP_SKRZYNKA_HASLO` ustawiana w sesji (nie w `.env`
+  w repozytorium).
+- Microsoft 365 / Gmail (OAuth): interfejs dostawcy (`nowe`, `pobierz`) jest gotowy,
+  dojdzie jako kolejna klasa obok `DostawcaImap`.
+- Logi: tylko identyfikatory, liczby i statusy — bez tematów, treści, adresów i nazwisk.
+- Test na żywo z prawdziwą skrzynką: `docs/czeka-na-dostep.md` (NA-9).
+
+Demo (dane fikcyjne, domena `.test`):
+
+    python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01
+    python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo 'Demo-Odc01!' \
+        --atrapa-modelu 3 --skrzynka-demo scripts/demo_odcinek01_skrzynka
 
 ## Znane granice (uczciwie)
 - Listy sankcyjne i PEP leżą jako migawki JSON w S3 (`<prefiks>/admin/listy_aml/`), a indeks

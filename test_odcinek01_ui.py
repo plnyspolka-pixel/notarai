@@ -2,7 +2,7 @@
 
 Serwer demo (scripts/demo_odcinek01.py) w osobnym procesie: tryb wielu
 kancelarii z logowaniem, cztery konta (Helena, Marta - notariusze, Kuba -
-aplikant, Basia - sekretariat), fikcyjna sprawa Nowak. Model zastapiony
+aplikant, Basia - sekretariat), fikcyjna sprawa NOWAK — KACZMAREK (S-041-2026). Model zastapiony
 atrapa (projekt oznaczony „PRÓBA NAGRANIA”), wiec test nie wola Bedrock.
 
 Sceny: 03 kalendarz -> sprawa (Basia), 04 ta sama sprawa na telefonie (Kuba),
@@ -27,7 +27,7 @@ playwright = pytest.importorskip("playwright.sync_api")
 
 HASLO = "Demo-Odc01!"
 SPRAWA = "e01demo00001"
-SYGNATURA = "KPS 47/2026"
+SYGNATURA = "S-041-2026"
 ATRAPA_S = 3.0
 TELEFON = {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touch": True,
            "device_scale_factor": 2}
@@ -47,7 +47,8 @@ def serwer_demo(tmp_path_factory):
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     proces = subprocess.Popen([sys.executable, str(skrypt), "serwer", "--dane", str(dane), "--haslo", HASLO,
-                               "--port", str(port), "--atrapa-modelu", str(ATRAPA_S)],
+                               "--port", str(port), "--atrapa-modelu", str(ATRAPA_S),
+                               "--skrzynka-demo", str(Path(__file__).parent / "scripts" / "demo_odcinek01_skrzynka")],
                               env=srodowisko, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     adres = f"http://127.0.0.1:{port}"
     import urllib.request
@@ -181,7 +182,7 @@ def test_scenariusz_odcinka_01(serwer_demo):
         marta.click("#powiadomienie [data-akcja]")
         marta.wait_for_selector("#etap3:not([hidden])")
         assert marta.locator("#projekt mark.brak").count() >= 2
-        assert marta.locator("#projekt mark.wybor").count() == 2
+        assert marta.locator("#projekt mark.wybor").count() == 1             # kanon: tylko § 2 (hipoteka)
         assert "PRÓBA NAGRANIA" in marta.inner_text("#projekt")             # atrapa nie udaje modelu
         zrzut(marta, "10-projekt-dokumentu.png")
         print(f"\nczas projektu (atrapa {ATRAPA_S:g} s): {czas:.1f} s, narzut aplikacji {czas - ATRAPA_S:.1f} s")
@@ -194,8 +195,8 @@ def test_scenariusz_odcinka_01(serwer_demo):
         plik = Document(io.BytesIO(Path(pobranie.value.path()).read_bytes()))
         zakreslone = [(r.text, r.font.highlight_color) for a in plik.paragraphs for r in a.runs
                       if r.font.highlight_color]
-        assert ("<<BRAK: dowód osobisty kupującego>>", WD_COLOR_INDEX.YELLOW) in zakreslone
-        assert sum(1 for _, k in zakreslone if k == WD_COLOR_INDEX.TURQUOISE) == 2
+        assert ("<<BRAK: termin wydania lokalu>>", WD_COLOR_INDEX.YELLOW) in zakreslone
+        assert sum(1 for _, k in zakreslone if k == WD_COLOR_INDEX.TURQUOISE) == 1
         if ZRZUTY:
             Path(ZRZUTY, "projekt-demo-atrapa.docx").write_bytes(Path(pobranie.value.path()).read_bytes())
 
@@ -210,5 +211,75 @@ def test_scenariusz_odcinka_01(serwer_demo):
         zrzut(helena, "11-zespol-stanowiska.png")
 
         for strona in (basia, marta, kuba, helena):
+            assert strona.bledy == [], strona.bledy
+        przegladarka.close()
+
+
+def test_poczta_do_przypisania_i_ustalenia_ze_zrodlem(serwer_demo):
+    """Skrzynka testowa (3 maile .eml): Basia przypisuje maile do sprawy jednym
+    kliknieciem, Marta wyciaga ustalenia (atrapa modelu). Przy polu „termin
+    wydania” widac zrodla i brak potwierdzenia sprzedajacej; pole zostaje puste."""
+    adres = serwer_demo
+    with playwright.sync_playwright() as p:
+        try:
+            przegladarka = p.chromium.launch()
+        except Exception as blad:  # noqa: BLE001
+            pytest.skip(f"Brak Chromium dla Playwright: {blad}")
+        basia = zaloguj(przegladarka.new_context(**BIURKO), adres, "basia@kancelaria-demo.test")
+        basia.click('.krok[data-etap="12"]')
+        basia.wait_for_selector("#etap12:not([hidden])")
+        basia.click("#btn-skrzynka-sprawdz")
+        basia.locator("#stan12", has_text="Nowe wiadomości: 3").wait_for()
+        assert basia.inner_text("#licznik-poczty") == "3"
+        maile = basia.locator("#skrzynka-lista .kor-el")
+        assert maile.count() == 3
+        d09 = maile.filter(has_text="najem")
+        assert SYGNATURA in d09.locator(".propozycja").first.inner_text()
+        assert "pewność: wysoka" in d09.locator(".propozycja").first.inner_text()
+        zrzut(basia, "12-poczta-do-przypisania.png")
+        # Nic nie jest przypisane, dopoki Basia nie kliknie.
+        naglowki = {"Authorization": "Bearer " + basia.evaluate("token")}
+        assert basia.request.get(f"{adres}/api/sprawy/{SPRAWA}/korespondencja", headers=naglowki).json()["wiadomosci"] == []
+        import re
+        for temat in ("Warunki transakcji", "Re: Warunki transakcji", SYGNATURA):
+            el = maile.filter(has=basia.locator(".kor-temat", has_text=re.compile("^" + re.escape(temat)))).first
+            if temat == "Re: Warunki transakcji":
+                assert "odpowiedź w wątku" in el.locator(".propozycja").first.inner_text()
+            przed = maile.count()
+            el.locator(".propozycja button").first.click()
+            basia.wait_for_function(f"document.querySelectorAll('#skrzynka-lista .kor-el').length === {przed - 1}")
+        assert basia.locator("#licznik-poczty").is_hidden()
+
+        marta = zaloguj(przegladarka.new_context(**BIURKO), adres, "marta@kancelaria-demo.test", "#sprawa=" + SPRAWA)
+        marta.wait_for_selector("#etap2:not([hidden]), #etap3:not([hidden])")
+        if marta.locator("#etap3").is_visible():          # po scenariuszu projekt juz jest
+            marta.click('.krok[data-etap="2"]')
+            marta.wait_for_selector("#etap2:not([hidden])")
+        karta = marta.locator("#korespondencja-sprawy")
+        karta.locator(".kor-el").nth(2).wait_for()
+        assert "osoba kontaktowa" in karta.locator(".kor-el", has_text="Paweł Nowak").inner_text()
+        for i in range(3):
+            karta.locator(".kor-el").nth(i).get_by_role("button", name="Wyciągnij ustalenia").click()
+            marta.locator("#stan-kor", has_text="Pola sprawy bez zmian").wait_for()
+            stan = marta.locator("#stan-kor")
+            stan.evaluate("e => e.textContent = ''")
+        wiersz = marta.locator("#pola .wiersz", has_text="www: termin wydania lokalu")
+        komunikat = wiersz.locator(".komunikat.korespondencja")
+        komunikat.wait_for()
+        tekst = komunikat.inner_text()
+        assert "W korespondencji: 1.12" in tekst
+        assert "Paweł Nowak — osoba kontaktowa, 9.11" in tekst and "Robert Kaczmarek — kupujący, 6.11" in tekst
+        assert "Brak potwierdzenia: Irena Nowak (sprzedająca)" in tekst
+        assert "relacjonuje" in tekst and "[atrapa modelu]" in tekst
+        assert wiersz.locator("input").input_value() == ""                 # pole nie zostalo wypelnione
+        assert marta.locator("#pliki-lista .zal-el", has_text="e-mail: Robert Kaczmarek (kupujący)").count() == 2
+        wiersz.scroll_into_view_if_needed()
+        zrzut(marta, "13-weryfikacja-ustalenie-z-korespondencji.png")
+        karta.scroll_into_view_if_needed()
+        zrzut(marta, "14-korespondencja-sprawy.png")
+        sprawa = marta.request.get(f"{adres}/api/sprawy/{SPRAWA}",
+                                   headers={"Authorization": "Bearer " + marta.evaluate("token")}).json()
+        assert next(p for p in sprawa["pola"] if p["nazwa"].startswith("www:"))["wartosc"] is None
+        for strona in (basia, marta):
             assert strona.bledy == [], strona.bledy
         przegladarka.close()

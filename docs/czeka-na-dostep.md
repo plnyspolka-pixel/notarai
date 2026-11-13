@@ -148,6 +148,29 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   między kopiami aplikacji).
 - **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
 
+## NA-9. Poczta do spraw — prawdziwa skrzynka IMAP kancelarii
+
+- **Status:** czeka
+- **Brakuje:** skrzynki testowej kancelarii (IMAP, TLS) z hasłem aplikacji
+  i wdrożenia stosu aplikacji z polityką `sekrety-skrzynki-pocztowej`
+  (`infra/notarai-aplikacja.yaml`, sekret `notarai-skrzynka-<kancelaria>`).
+- **Na żywo:**
+  1. Właściciel kancelarii wpisuje w „Poczta do przypisania” → „Ustawienia
+     skrzynki” serwer, użytkownika i hasło; sprawdzamy, że sekret powstał
+     w Secrets Manager (eu-central-1) i że hasła nie ma w S3 ani w logach.
+  2. Na skrzynkę wysyłamy z kont testowych 3 maile jak w demo
+     (`scripts/demo_odcinek01_skrzynka/`, bez prawdziwych danych klientów).
+  3. „Sprawdź skrzynkę”: propozycje (sygnatura, adres, wątek) i to, że w programie
+     pocztowym maile nadal są „nieprzeczytane” (BODY.PEEK).
+  4. Przypisanie jednym kliknięciem, pliki w „Plikach sprawy”, „Wyciągnij
+     ustalenia” na prawdziwym modelu (Bedrock): komunikat przy polu, pole puste,
+     projekt z `<<BRAK>>`.
+  5. Logi CloudWatch z tego czasu: brak tematów, treści, adresów i nazwisk.
+- **W kodzie:** `korespondencja.DostawcaImap` (np. nietypowe odpowiedzi serwera,
+  foldery z polskimi znakami — modified UTF-7), prompt `USTALENIA_Z_KORESPONDENCJI`.
+- **Zamknięte, gdy:** przebieg działa na prawdziwej skrzynce, a notariusz
+  potwierdza, że ustalenia i ich źródła są trafne.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

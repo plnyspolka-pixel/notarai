@@ -306,6 +306,23 @@ Resources:
                   - secretsmanager:TagResource
                 Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-poczta-*"
 
+        # Skrzynka e-mail kancelarii (korespondencja.py): haslo IMAP kazdej
+        # kancelarii w osobnym sekrecie notarai-skrzynka-<kancelaria>.
+        # Kod nigdy nie zwraca hasla do przegladarki ani nie zapisuje go w S3.
+        - PolicyName: sekrety-skrzynki-pocztowej
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:TagResource
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-skrzynka-*"
+
   # ---------------- siec ----------------
   GrupaLoadBalancera:
     Type: AWS::EC2::SecurityGroup

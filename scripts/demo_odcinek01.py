@@ -9,12 +9,20 @@ prawdziwych dokumentow (bez wizerunku dowodu osobistego).
 Co zaklada `przygotuj` (powtarzalnie - drugi raz nadpisuje to samo):
 - kancelarie demo z czterema osobami: Helena (wlascicielka, notariusz),
   Marta (notariusz), Kuba (aplikant), Basia (sekretariat),
-- sprawe „Nowak - Nowak” (sprzedaz lokalu: Irena Nowak sprzedaje synowi
-  Pawlowi) z wzorem aktu kancelarii, skanami i wczesniejszym odczytem,
+- sprawe „NOWAK — KACZMAREK” (sprzedaz lokalu: Irena Nowak sprzedaje
+  Joannie i Robertowi Kaczmarkom; syn Pawel tylko kontakt) z wzorem aktu kancelarii, skanami i wczesniejszym odczytem,
   w ktorym 2 pola wymagaja uwagi (rozbiezna powierzchnia, brak dowodu syna),
 - termin w kalendarzu: jutro 11:30-12:30, „sprzedaż nieruchomości”,
   powiazany ze sprawa, plus dwa inne terminy tego dnia (bez spraw),
-- dwie zasady kancelarii (kwoty slownie, bez „w/w”).
+- dwie zasady kancelarii (kwoty slownie, bez „w/w”),
+- osoby sprawy do korespondencji (role: sprzedajaca - strona, kupujacy,
+  Pawel - osoba kontaktowa) i pusta skrzynke „Do przypisania”.
+
+Skrzynka testowa: `serwer --skrzynka-demo scripts/demo_odcinek01_skrzynka`
+czyta maile .eml z katalogu zamiast z IMAP (3 fikcyjne maile, domena .test:
+D05 warunki od Roberta, D10 „Mama się zgadza” od Pawla, D09 najem Joanny).
+Przy `--atrapa-modelu` ustalenia z maili wyciaga regula (oznaczona jako
+atrapa), nie Bedrock.
 
 Uzycie (tryb lokalny, osobny katalog danych - nie miesza sie z dane/):
     python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01
@@ -53,7 +61,7 @@ sys.path.insert(0, str(KORZEN))
 KANCELARIA = "kancelaria-pod-siodemka"
 NAZWA_KANCELARII = "Kancelaria Notarialna pod Siódemką (DEMO)"
 SPRAWA = "e01demo00001"
-SYGNATURA = "KPS 47/2026"
+SYGNATURA = "S-041-2026"
 DOMENA = "kancelaria-demo.test"   # .test - domena zastrzezona, poczta nigdzie nie trafi
 ZESPOL = [
     # email, rola administracyjna, stanowisko, imie (do wyswietlenia w skrypcie)
@@ -80,47 +88,64 @@ def numer_kw(kod: str, numer: str) -> str:
     return f"{kod}/{numer}/{suma % 10}"
 
 
-# Irena Nowak ur. 12.03.1958 (kobieta: przedostatnia cyfra parzysta),
-# Pawel Nowak ur. 21.07.1986 (mezczyzna: nieparzysta).
-IRENA = {"imie": "Irena Nowak", "pesel": pesel("5803120748"), "ojciec": "Stanisław", "matka": "Zofia"}
-PAWEL = {"imie": "Paweł Nowak", "pesel": pesel("8607210515"), "ojciec": "Jan", "matka": "Irena"}
+# Kanon sezonu 1 (docs/kampania-komputerku/sezon1/BIBLIA_INTRYGI_SEZONU_1.md):
+# Irena Nowak (73, wdowa, jedyna wlascicielka) sprzedaje lokal 56,40 m2 za 640 000 zl
+# malzonkom Joannie (34) i Robertowi (36) Kaczmarkom. Pawel Nowak (45, syn) jest
+# osoba kontaktowa - NIE strona aktu i NIE pelnomocnik. Kobieta: przedostatnia cyfra PESEL parzysta.
+IRENA = {"imie": "Irena Nowak", "pesel": pesel("5303120748"), "ojciec": "Stanisław", "matka": "Zofia"}
+JOANNA = {"imie": "Joanna Kaczmarek", "pesel": pesel("9205140426"), "ojciec": "Marek", "matka": "Ewa"}
+ROBERT = {"imie": "Robert Kaczmarek", "pesel": pesel("9008230517"), "ojciec": "Andrzej", "matka": "Barbara"}
 KW = numer_kw("WA4M", "00077777")
-ADRES_LOKALU = "ul. Siódemki 7 m. 12, 00-777 Warszawa"
-ADRES_PAWLA = "ul. Ogrodowa 17 m. 3, 00-717 Warszawa"
+ADRES_LOKALU = "ul. Kasztanowa 14 m. 6, 00-714 Warszawa"
+ADRES_KUPUJACYCH = "ul. Ogrodowa 17 m. 3, 00-717 Warszawa"
+# Adresy e-mail w domenie .test - zastrzezonej, poczta nigdzie nie trafi.
+DOMENA_KLIENTOW = "poczta-demo.test"
+OSOBY_KORESPONDENCJI = [
+    {"imie": "Irena Nowak", "email": f"irena.nowak@{DOMENA_KLIENTOW}", "rola": "strona", "opis": "sprzedająca"},
+    {"imie": "Joanna Kaczmarek", "email": f"joanna.kaczmarek@{DOMENA_KLIENTOW}", "rola": "kupujacy", "opis": "kupująca"},
+    {"imie": "Robert Kaczmarek", "email": f"robert.kaczmarek@{DOMENA_KLIENTOW}", "rola": "kupujacy", "opis": "kupujący"},
+    {"imie": "Paweł Nowak", "email": f"pawel.nowak@{DOMENA_KLIENTOW}", "rola": "kontakt",
+     "opis": "syn sprzedającej - nie jest stroną ani pełnomocnikiem"},
+]
+SKRZYNKA_DEMO = KORZEN / "scripts" / "demo_odcinek01_skrzynka"
 TELEFONY = [{"imie": "Irena Nowak", "numer": "+48 123 456 701"},
-            {"imie": "Paweł Nowak (syn)", "numer": "+48 123 456 702"}]
+            {"imie": "Joanna Kaczmarek", "numer": "+48 123 456 703"},
+            {"imie": "Robert Kaczmarek", "numer": "+48 123 456 704"},
+            {"imie": "Paweł Nowak (syn, kontakt - nie strona)", "numer": "+48 123 456 702"}]
 
 WZOR = """aaa – sprzedająca (Jan Kowalski)
 ppp – PESEL sprzedającej
 aad – adres sprzedającej
 bbb – kupujący (Jan Kowalski)
-pp2 – PESEL kupującego
-bbd – adres kupującego
-dd2 – dowód osobisty kupującego
+pp2 – PESEL kupującej
+pp3 – PESEL kupującego
+bbd – adres kupujących
 lll – adres lokalu
 mmm – powierzchnia użytkowa lokalu
 ggg – nr kw
 nab – podstawa nabycia lokalu przez sprzedającą
 ccc – cena
+zap – sposób zapłaty ceny
+www – termin wydania lokalu
 zzz – data aktu
 
 Repertorium A nr ________/2026
 
 AKT NOTARIALNY
 
-Dnia zzz roku w Kancelarii Notarialnej pod Siódemką w Warszawie, przed notariuszem Martą Siódmą, stawili się:
+Dnia zzz roku w Kancelarii Notarialnej pod Siódemką, przed notariuszem Heleną Radecką, stawili się:
 1. aaa, córka Stanisława i Zofii, PESEL ppp, zamieszkała aad,
-2. bbb, syn Jana i Ireny, PESEL pp2, legitymujący się dowodem osobistym dd2, zamieszkały bbd.
+2. bbb, PESEL pp2 i PESEL pp3, zamieszkali bbd.
 Tożsamość stawających notariusz ustaliła na podstawie okazanych dowodów osobistych.
 
 UMOWA SPRZEDAŻY
 
-§ 1. aaa oświadcza, że jest właścicielką samodzielnego lokalu mieszkalnego położonego przy lll, o powierzchni użytkowej mmm m², dla którego Sąd Rejonowy dla Warszawy-Mokotowa w Warszawie prowadzi księgę wieczystą nr ggg; lokal nabyła na podstawie nab.
+§ 1. aaa oświadcza, że jest jedyną właścicielką samodzielnego lokalu mieszkalnego położonego przy lll, o powierzchni użytkowej mmm m², dla którego Sąd Rejonowy dla Warszawy-Mokotowa w Warszawie prowadzi księgę wieczystą nr ggg; lokal nabyła na podstawie nab.
 § 2. aaa oświadcza, że w dziale III i IV księgi wieczystej nie ma wpisów // w dziale IV księgi wieczystej wpisana jest hipoteka, która zostanie wykreślona przed wydaniem lokalu.
-§ 3. aaa sprzedaje bbb lokal opisany w § 1 za cenę ccc zł, a bbb lokal ten kupuje.
-§ 4. Cena została zapłacona przed podpisaniem tego aktu // Cena zostanie zapłacona przelewem w terminie 7 dni od dnia zawarcia umowy.
-§ 5. Wydanie lokalu nastąpi w dniu podpisania tego aktu.
-§ 6. Koszty tego aktu ponosi kupujący.
+§ 3. aaa sprzedaje bbb lokal opisany w § 1 za cenę ccc zł, a kupujący lokal ten kupują do majątku wspólnego.
+§ 4. zap.
+§ 5. Wydanie lokalu nastąpi www.
+§ 6. Koszty tego aktu ponoszą kupujący.
 § 7. Akt ten został odczytany, przyjęty i podpisany.
 """
 
@@ -130,8 +155,8 @@ SKANY = {
         "Odpis zwykły księgi wieczystej",
         f"Numer księgi: {KW}",
         "Sąd Rejonowy dla Warszawy-Mokotowa, VI Wydział Ksiąg Wieczystych",
-        "Dział I-O: lokal mieszkalny nr 12, " + ADRES_LOKALU,
-        "Powierzchnia użytkowa: 48,02 m²",
+        "Dział I-O: lokal mieszkalny nr 6, " + ADRES_LOKALU,
+        "Powierzchnia użytkowa: 56,40 m²",
         f"Dział II: właściciel - {IRENA['imie']}, córka Stanisława i Zofii, PESEL {IRENA['pesel']}",
         "Dział III: brak wpisów.   Dział IV: brak wpisów.",
     ],
@@ -139,46 +164,50 @@ SKANY = {
         "DOKUMENT FIKCYJNY - DANE DEMO (NotarAI)",
         "Wypis aktu notarialnego Rep. A nr 3157/2009 z dnia 14.05.2009 r.",
         "Umowa sprzedaży lokalu mieszkalnego",
-        f"Kupująca: {IRENA['imie']}, PESEL {IRENA['pesel']}",
-        "Lokal mieszkalny nr 12 przy ul. Siódemki 7 w Warszawie,",
-        "powierzchnia użytkowa 48,20 m², księga wieczysta " + KW,
+        f"Kupująca: {IRENA['imie']}, wdowa, PESEL {IRENA['pesel']}",
+        "Lokal mieszkalny nr 6 przy ul. Kasztanowej 14 w Warszawie,",
+        "powierzchnia użytkowa 56,40 m², księga wieczysta " + KW,
         "zamieszkała: " + ADRES_LOKALU,
     ],
-    "skan-3-dane-stron.png": [
+    "skan-3-dane-kupujacych.png": [
         "DOKUMENT FIKCYJNY - DANE DEMO (NotarAI)",
-        "Notatka sekretariatu: dane stron przekazane przez klientkę",
-        f"Sprzedająca: {IRENA['imie']}, PESEL {IRENA['pesel']}, tel. {TELEFONY[0]['numer']}",
-        f"Kupujący (syn): {PAWEL['imie']}, PESEL {PAWEL['pesel']}, tel. {TELEFONY[1]['numer']}",
-        "Adres kupującego: " + ADRES_PAWLA,
-        "Cena uzgodniona: 385 000 zł",
-        "Dowód osobisty syna: dosłać przed aktem.",
+        "Formularz danych kupujących (przekazali kupujący)",
+        f"Kupujący: {JOANNA['imie']}, PESEL {JOANNA['pesel']}",
+        f"          {ROBERT['imie']}, PESEL {ROBERT['pesel']}",
+        "Małżonkowie, wspólność majątkowa. Adres: " + ADRES_KUPUJACYCH,
+        "Cena robocza: 640 000 zł; część ceny z kredytu bankowego kupujących",
+        "Termin wydania lokalu: do uzgodnienia ze sprzedającą",
     ],
 }
 
-# Wczesniejszy odczyt skanow: dwa pola wymagaja uwagi - rozbiezna powierzchnia
-# (akt nabycia 48,20 m², KW 48,02 m²) i brak dowodu osobistego kupujacego.
+# Wczesniejszy odczyt (piatek 13.11): pola wymagajace uwagi wynikaja z braku
+# potwierdzenia w zrodlach - termin wydania, sposob zaplaty z kredytu, data aktu.
+# Termin 1 grudnia NIE jest w skanach (krazy tylko w korespondencji, D05).
 POLA = [
     {"nazwa": "aaa: sprzedająca", "wartosc": IRENA["imie"], "zrodlo": "skan-1-odpis-kw.png, s. 1"},
     {"nazwa": "ppp: PESEL sprzedającej", "wartosc": IRENA["pesel"], "zrodlo": "skan-1-odpis-kw.png, s. 1"},
     {"nazwa": "aad: adres sprzedającej", "wartosc": ADRES_LOKALU, "zrodlo": "skan-2-akt-nabycia.png, s. 1"},
-    {"nazwa": "bbb: kupujący", "wartosc": PAWEL["imie"], "zrodlo": "skan-3-dane-stron.png, s. 1"},
-    {"nazwa": "pp2: PESEL kupującego", "wartosc": PAWEL["pesel"], "zrodlo": "skan-3-dane-stron.png, s. 1"},
-    {"nazwa": "bbd: adres kupującego", "wartosc": ADRES_PAWLA, "zrodlo": "skan-3-dane-stron.png, s. 1"},
-    {"nazwa": "dd2: dowód osobisty kupującego", "wartosc": None, "zrodlo": "",
-     "uwaga": "W materiałach nie ma dowodu osobistego kupującego - notatka: „dosłać przed aktem”."},
+    {"nazwa": "bbb: kupujący", "wartosc": "Joanna Kaczmarek i Robert Kaczmarek", "zrodlo": "skan-3-dane-kupujacych.png, s. 1"},
+    {"nazwa": "pp2: PESEL kupującej", "wartosc": JOANNA["pesel"], "zrodlo": "skan-3-dane-kupujacych.png, s. 1"},
+    {"nazwa": "pp3: PESEL kupującego", "wartosc": ROBERT["pesel"], "zrodlo": "skan-3-dane-kupujacych.png, s. 1"},
+    {"nazwa": "bbd: adres kupujących", "wartosc": ADRES_KUPUJACYCH, "zrodlo": "skan-3-dane-kupujacych.png, s. 1"},
     {"nazwa": "lll: adres lokalu", "wartosc": ADRES_LOKALU, "zrodlo": "skan-1-odpis-kw.png, s. 1"},
-    {"nazwa": "mmm: powierzchnia użytkowa lokalu", "wartosc": "48,02", "zrodlo": "skan-1-odpis-kw.png, s. 1",
-     "pewnosc": "niska", "uwaga": "Rozbieżność: odpis KW 48,02 m², akt nabycia 48,20 m²."},
+    {"nazwa": "mmm: powierzchnia użytkowa lokalu", "wartosc": "56,40", "zrodlo": "skan-1-odpis-kw.png, s. 1"},
     {"nazwa": "ggg: nr kw", "wartosc": KW, "zrodlo": "skan-1-odpis-kw.png, s. 1"},
     {"nazwa": "nab: podstawa nabycia lokalu przez sprzedającą",
      "wartosc": "umowy sprzedaży z dnia 14 maja 2009 roku, Rep. A nr 3157/2009",
      "zrodlo": "skan-2-akt-nabycia.png, s. 1"},
-    {"nazwa": "ccc: cena", "wartosc": "385 000,00", "zrodlo": "skan-3-dane-stron.png, s. 1"},
+    {"nazwa": "ccc: cena", "wartosc": "640 000,00", "zrodlo": "skan-3-dane-kupujacych.png, s. 1"},
+    {"nazwa": "zap: sposób zapłaty ceny", "wartosc": None, "zrodlo": "skan-3-dane-kupujacych.png, s. 1",
+     "pewnosc": "niska", "uwaga": "Część ceny z kredytu kupujących - mechanizm zapłaty nieuzgodniony, brak dokumentów banku."},
+    {"nazwa": "www: termin wydania lokalu", "wartosc": None, "zrodlo": "skan-3-dane-kupujacych.png, s. 1",
+     "uwaga": "W materiałach: „do uzgodnienia ze sprzedającą”. Brak potwierdzenia terminu przez sprzedającą."},
     {"nazwa": "zzz: data aktu", "wartosc": None, "zrodlo": "",
      "uwaga": "Data aktu - z kalendarza kancelarii, po potwierdzeniu terminu."},
 ]
-BRAKI = ["Dowód osobisty kupującego (Paweł Nowak) - dosłać przed aktem."]
-ROZBIEZNOSCI = ["Powierzchnia użytkowa lokalu: odpis KW 48,02 m², akt nabycia Rep. A 3157/2009 48,20 m²."]
+BRAKI = ["Termin wydania lokalu - brak potwierdzenia przez sprzedającą.",
+         "Dokumenty banku kupujących dotyczące części ceny z kredytu."]
+ROZBIEZNOSCI = []
 INNI_W_KALENDARZU = ("Zielińska", "Wiśniewscy")
 ZASADY = ["Kwoty zawsze cyframi i słownie.", "Zamiast „w/w” pisz „wyżej wymieniony”."]
 
@@ -233,8 +262,8 @@ def _zespol_w_rejestrze() -> None:
     import dokumenty_prawne
     teraz = autoryzacja._teraz()
     wpis["nazwa"] = NAZWA_KANCELARII
-    wpis["dane"] = {"notariusze": "Helena Siódma, Marta Siódma (DEMO)",
-                    "adres": "ul. Siódemki 7, 00-777 Warszawa (DEMO)", "nip": ""}
+    wpis["dane"] = {"notariusze": "Helena Radecka, Marta Domańska (DEMO)",
+                    "adres": "Kancelaria pod Siódemką (DEMO, adres fikcyjny)", "nip": ""}
     # Dane demo: akceptacja odnotowana jako przygotowanie nagrania, nie jako
     # oswiadczenie zadnej osoby. Bez niej aplikacja nie wpuscilaby do spraw.
     wpis["umowa"] = {"regulamin": dokumenty_prawne.wersja("regulamin"), "umowa": dokumenty_prawne.wersja("umowa"),
@@ -267,6 +296,7 @@ def _sprawa_kalendarz_zasady(dzien: date) -> dict:
     import config
     import dokumenty
     import kalendarz
+    import korespondencja
     import magazyn
     import osoby
     import prompty
@@ -285,9 +315,9 @@ def _sprawa_kalendarz_zasady(dzien: date) -> dict:
     pola = aplikacja._zwaliduj(sorted(POLA, key=lambda p: kolejnosc[p["nazwa"]]))
     utworzono = datetime.combine(dzien - timedelta(days=3), datetime.min.time()).replace(hour=14, minute=12)
     aplikacja._zapisz_json(katalog / "sprawa.json", {
-        "id": SPRAWA, "nazwa": "Nowak - Nowak", "nazwa_reczna": True, "sygnatura": SYGNATURA,
+        "id": SPRAWA, "nazwa": "NOWAK — KACZMAREK", "nazwa_reczna": True, "sygnatura": SYGNATURA,
         "utworzono": utworzono.isoformat(timespec="seconds"),
-        "polecenie": "Umowa sprzedaży lokalu mieszkalnego: Irena Nowak sprzedaje synowi Pawłowi.",
+        "polecenie": "Umowa sprzedaży lokalu mieszkalnego: Irena Nowak sprzedaje lokal Joannie i Robertowi Kaczmarkom.",
         "wzor": "wzor.txt", "skany": list(SKANY), "stron": len(SKANY), "wysilek": "high",
         "pola_wzoru": analiza["pola"], "legenda": analiza["legenda"], "warianty": analiza["warianty"],
     })
@@ -297,7 +327,11 @@ def _sprawa_kalendarz_zasady(dzien: date) -> dict:
     (katalog / "kontekst.txt").write_text(
         prompty.kontekst_rozmowy(pola, BRAKI, ROZBIEZNOSCI, "Umowa sprzedaży lokalu mieszkalnego."), encoding="utf-8")
     aplikacja._zapisz_rozmowe(katalog, [])
+    # Korespondencja: osoby sprawy z rolami; maile czekaja w skrzynce testowej.
+    aplikacja._zapisz_json(katalog / korespondencja.PLIK_SPRAWY, {"osoby": OSOBY_KORESPONDENCJI, "wiadomosci": []})
     magazyn.utrwal_sprawe(katalog)
+    magazyn.zmien_plik_kancelarii(korespondencja.PLIK_SKRZYNKI,
+                                  lambda d: (d.clear(), d.update(korespondencja._pusta_skrzynka())), {})
 
     jutro = (dzien + timedelta(days=1)).isoformat()
     # Poprzednie terminy demo usuwamy, zeby skrypt byl powtarzalny.
@@ -307,13 +341,13 @@ def _sprawa_kalendarz_zasady(dzien: date) -> dict:
     kalendarz.dodaj({"data": jutro, "godzina": "09:00", "koniec": "09:30", "rodzaj": "poświadczenie podpisów",
                      "uczestnicy": "Zielińska"})
     termin = kalendarz.dodaj({"data": jutro, "godzina": "11:30", "koniec": "12:30",
-                              "rodzaj": "sprzedaż nieruchomości", "uczestnicy": "Irena Nowak, Paweł Nowak",
+                              "rodzaj": "sprzedaż nieruchomości", "uczestnicy": "Irena Nowak; Joanna i Robert Kaczmarkowie",
                               "telefony": TELEFONY, "sprawa": SPRAWA,
-                              "uwagi": "Syn dosyła dowód osobisty przed aktem."})
+                              "uwagi": "Kontakt organizacyjny: Paweł Nowak (syn) - nie jest stroną."})
     kalendarz.dodaj({"data": jutro, "godzina": "13:30", "koniec": "14:30", "rodzaj": "darowizna",
                      "uczestnicy": "Wiśniewscy"})
     # Telefony stron w „Osobach i telefonach” - bez nich termin ma czerwony pasek.
-    for osoba, telefon in ((IRENA, TELEFONY[0]), (PAWEL, TELEFONY[1])):
+    for osoba, telefon in ((IRENA, TELEFONY[0]), (JOANNA, TELEFONY[1]), (ROBERT, TELEFONY[2])):
         osoby.ustaw_telefon(osoby._identyfikator("p:" + osoba["pesel"]), telefon["numer"])
 
     obecne = {z["tekst"] for z in zasady.wczytaj().get("zasady", [])}
@@ -412,7 +446,81 @@ def atrapa_projektu(sekund: float):
     return sporzadz
 
 
-def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None) -> None:
+def atrapa_ekw(sekund: float):
+    """Fikcyjna ksiega dla numeru z demo (zgodna z odpisem w sprawie), bez polaczenia z EKW.
+    Interfejs i zapis w sprawie sa prawdziwe; podmieniony jest tylko dostawca tresci."""
+    import ekw
+
+    def pobierz(numer, klient=None):
+        time.sleep(sekund)
+        if numer != KW:
+            raise ekw.BladEKW("nie_znaleziono", "Ksiegi o tym numerze nie ma w danych demo")
+        dzialy = [
+            ("I-O", "DZIAŁ I-O - OZNACZENIE NIERUCHOMOŚCI", False,
+             "Lokal mieszkalny nr 6, " + ADRES_LOKALU + "\nPowierzchnia użytkowa: 56,40 m²\nIzby: 3, kuchnia, łazienka, przedpokój"),
+            ("I-Sp", "DZIAŁ I-SP - SPIS PRAW ZWIĄZANYCH Z WŁASNOŚCIĄ", False,
+             "Udział w nieruchomości wspólnej: 564/10000"),
+            ("II", "DZIAŁ II - WŁASNOŚĆ", False,
+             f"Właściciel: {IRENA['imie']}, córka Stanisława i Zofii, PESEL {IRENA['pesel']}\n"
+             "Podstawa nabycia: umowa sprzedaży, Rep. A nr 3157/2009 z dnia 14.05.2009 r."),
+            ("III", "DZIAŁ III - PRAWA, ROSZCZENIA I OGRANICZENIA", True, ""),
+            ("IV", "DZIAŁ IV - HIPOTEKA", True, ""),
+        ]
+        return {
+            "numer_kw": numer, "kod_sadu": numer[:4],
+            "sad": "Sąd Rejonowy dla Warszawy-Mokotowa w Warszawie, VI Wydział Ksiąg Wieczystych",
+            "typ": "lokal mieszkalny", "widok": "aktualna",
+            "dzialy": [{"oznaczenie": o, "tytul": t, "pusty": p, "tekst": "BRAK WPISÓW" if p else x}
+                       for o, t, p, x in dzialy],
+            "pobrano": datetime.now().isoformat(timespec="seconds"),
+            "zrodlo": "DANE DEMONSTRACYJNE (atrapa dostawcy, bez połączenia z EKW)",
+            "dostawca": "demo",
+        }
+    ekw.dostepne = lambda: True
+    ekw.dostawca = lambda: "demo"
+    ekw.zrodlo = lambda: "DANE DEMONSTRACYJNE (atrapa dostawcy, bez połączenia z EKW)"
+    ekw.pobierz = pobierz
+
+
+def atrapa_ustalen():
+    """Ustalenia z maili bez modelu: daty przy „wydani…” / „najem”, cena.
+    Kazde ustalenie oznaczone `atrapa` - interfejs pokazuje, ze to nie model."""
+    import re
+    miesiace = {"stycznia": 1, "lutego": 2, "marca": 3, "kwietnia": 4, "maja": 5, "czerwca": 6, "lipca": 7,
+                "sierpnia": 8, "września": 9, "października": 10, "listopada": 11, "grudnia": 12}
+    wzor_daty = re.compile(r"(\d{1,2})\s+(" + "|".join(miesiace) + r")(?:\s+(\d{4}))?")
+
+    def data(m, z_rokiem=True):
+        return f"{int(m.group(1))}.{miesiace[m.group(2)]:02d}" + (f".{m.group(3)}" if m.group(3) and z_rokiem else "")
+
+    def wyciagnij(tekst, temat, pola):
+        wynik = []
+        www = next((p for p in pola if p.startswith("www:")), None)
+        ccc = next((p for p in pola if p.startswith("ccc:")), None)
+        for zdanie in re.split(r"(?<=[.!?])\s+|\n+", tekst):
+            if zdanie.lstrip().startswith(">"):
+                continue        # cytat poprzedniej wiadomosci - to nie slowa autora
+            relacja = bool(re.search(r"\b(mama|sprzedająca)\b.*\bzgadza", zdanie, re.I))
+            for m in wzor_daty.finditer(zdanie):
+                if "najem" in zdanie.lower() and m.group(2) == "listopada":
+                    pole = "inne: koniec najmu kupujących"
+                elif www and ("wydani" in zdanie.lower() or "aktualny" in zdanie.lower()):
+                    pole = www
+                else:
+                    continue
+                wynik.append({"pole": pole, "wartosc": data(m, z_rokiem=pole != www),
+                              "cytat": zdanie.strip()[:160], "pewnosc": "wysoka", "relacja": relacja,
+                              "czyje": "mama autora (sprzedająca)" if relacja else "", "atrapa": True})
+            cena = re.search(r"cena:\s*([\d ]+zł)", zdanie)
+            if ccc and cena:
+                wynik.append({"pole": ccc, "wartosc": cena.group(1).strip(), "cytat": zdanie.strip()[:160],
+                              "pewnosc": "wysoka", "relacja": False, "czyje": "", "atrapa": True})
+        return wynik
+    return wyciagnij
+
+
+def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None, ekw_s: float | None = None,
+           skrzynka: str | None = None) -> None:
     if os.getenv("PIECZAPP_MAGAZYN", "lokalny") != "lokalny" or os.getenv("PIECZAPP_COGNITO_POOL"):
         sys.exit("Serwer demo dziala tylko lokalnie (PIECZAPP_MAGAZYN=lokalny, bez puli Cognito).")
     if len(haslo) < 8:
@@ -426,7 +534,17 @@ def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None)
     LogowanieDemo(haslo).podepnij()
     if atrapa is not None:
         bedrock.sporzadz_projekt = atrapa_projektu(atrapa)
-        print(f"  UWAGA: atrapa modelu ({atrapa:g} s) - projekt NIE pochodzi z Bedrock.")
+        bedrock.wyciagnij_ustalenia = atrapa_ustalen()
+        print(f"  UWAGA: atrapa modelu ({atrapa:g} s) - projekt i ustalenia z maili NIE pochodza z Bedrock.")
+    if skrzynka:
+        import korespondencja
+        if not Path(skrzynka).is_dir():
+            sys.exit(f"Nie ma katalogu skrzynki testowej: {skrzynka}")
+        korespondencja.KATALOG_DEMO = str(Path(skrzynka).resolve())
+        print(f"  Skrzynka testowa: maile .eml z {skrzynka} (bez IMAP).")
+    if ekw_s is not None:
+        atrapa_ekw(ekw_s)
+        print(f"  UWAGA: atrapa dostawcy EKW ({ekw_s:g} s) - ksiega demo, bez polaczenia z EKW.")
     import app as aplikacja
     assert autoryzacja.MULTI, "tryb wielu kancelarii nie wlaczyl sie"
     print(f"\n  NotarAI demo odc. 01 -> http://{host}:{port}   (dane: {katalog})")
@@ -451,12 +569,16 @@ def main() -> None:
     s.add_argument("--port", type=int, default=8000)
     s.add_argument("--atrapa-modelu", type=float, metavar="SEKUND", default=None,
                    help="projekt bez Bedrock po tylu sekundach (tylko proby i zrzuty)")
+    s.add_argument("--atrapa-ekw", type=float, metavar="SEKUND", default=None,
+                   help="ksiega demo z EKW po tylu sekundach, bez polaczenia z EKW (do nagrania)")
+    s.add_argument("--skrzynka-demo", metavar="KATALOG", default=None,
+                   help=f"skrzynka testowa: maile .eml z katalogu zamiast IMAP (np. {SKRZYNKA_DEMO.relative_to(KORZEN)})")
     args = parser.parse_args()
     if args.polecenie == "przygotuj":
         dzien = date.fromisoformat(args.dzien) if args.dzien else date.today()
         print(json.dumps(przygotuj(args.dane, args.kancelaria, dzien), ensure_ascii=False, indent=2))
     else:
-        serwer(args.dane, args.haslo, args.host, args.port, args.atrapa_modelu)
+        serwer(args.dane, args.haslo, args.host, args.port, args.atrapa_modelu, args.atrapa_ekw, args.skrzynka_demo)
 
 
 if __name__ == "__main__":

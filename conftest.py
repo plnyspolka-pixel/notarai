@@ -37,7 +37,7 @@ def _bez_poczty_w_testach():
 
 @pytest.fixture(autouse=True)
 def _bez_modelu_przy_kontroli_zasad():
-    """Kontrola zasad kancelarii po projekcie nie wola prawdziwego Bedrock.
+    """Kontrola zasad kancelarii po projekcie (i ustalenia z korespondencji) nie wola prawdziwego Bedrock.
     Testy poprawki przez model podstawiaja wlasne funkcje.
 
     Bez monkeypatch - z tego samego powodu co wyzej (kolejnosc sprzatania).
@@ -46,7 +46,7 @@ def _bez_modelu_przy_kontroli_zasad():
 
     def brak(*_a, **_k):
         raise RuntimeError("test: brak modelu")
-    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne
-    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = brak
+    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia
+    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = bedrock.wyciagnij_ustalenia = brak
     yield
-    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne = oryginaly
+    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia = oryginaly

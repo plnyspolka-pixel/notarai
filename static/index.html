@@ -403,6 +403,36 @@ button.maly{padding:5px 10px;font-size:12.5px}
 .zal-el small{color:var(--tekst3);flex:none}
 #pliki-sprawy .wprowadz{margin-top:6px}
 #pliki-sprawy .etykieta{margin-top:16px}
+/* Korespondencja e-mail: skrzynka „Do przypisania” i karta w sprawie */
+.kor-el{border:1px solid var(--linia);border-radius:var(--r2);padding:12px 14px;margin-bottom:10px;background:var(--tlo)}
+.kor-gora{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;font-size:13.5px}
+.kor-gora b{font-weight:600}
+.kor-gora small{color:var(--tekst3)}
+.kor-temat{font-weight:500;margin:4px 0 2px;overflow-wrap:anywhere}
+.kor-zal{font-size:12.5px;color:var(--tekst2);margin-top:4px}
+.kor-tresc{white-space:pre-wrap;font:12.5px/1.5 var(--sans);background:var(--karta);border:1px solid var(--linia);
+  border-radius:var(--r2);padding:10px 12px;margin:6px 0 0;max-height:320px;overflow:auto}
+.kor-el details summary{cursor:pointer;font-size:12.5px;color:var(--tekst2);margin-top:6px}
+.rola-chip{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;border:1px solid var(--linia2);color:var(--tekst2);white-space:nowrap}
+.rola-chip.r-strona,.rola-chip.r-kupujacy{border-color:var(--ok);color:var(--ok)}
+.rola-chip.r-kontakt,.rola-chip.r-inny{border-color:var(--alarm);color:var(--alarm)}
+.propozycja{border-top:1px dashed var(--linia2);margin-top:10px;padding-top:8px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.propozycja .opis{flex:1;min-width:220px;font-size:13px}
+.propozycja ul{margin:3px 0 0 16px;padding:0;color:var(--tekst2);font-size:12.5px}
+.pewnosc{font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--akcent-tlo);color:var(--akcent)}
+.pewnosc.niska{background:transparent;border:1px solid var(--linia2);color:var(--tekst3)}
+.kor-akcje{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.kor-akcje select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst);max-width:260px}
+.kor-ustalenia{margin:8px 0 0;padding:0;list-style:none;font-size:13px}
+.kor-ustalenia li{padding:4px 0;border-top:1px solid var(--linia)}
+.kor-ustalenia q{color:var(--tekst2);font-size:12.5px}
+.komunikat.korespondencja{color:var(--tekst);background:var(--akcent-tlo);border-radius:8px;padding:6px 9px}
+.komunikat.korespondencja b{font-weight:600}
+.kor-osoba{display:grid;grid-template-columns:1.2fr 1.4fr 1fr 1.4fr auto;gap:6px;margin-top:6px}
+.kor-osoba input,.kor-osoba select{font:inherit;font-size:13px;padding:5px 8px}
+@media(max-width:820px){.kor-osoba{grid-template-columns:1fr 1fr}}
+.skrz-pola{display:grid;grid-template-columns:2fr 1fr 2fr 1fr;gap:10px}
+@media(max-width:820px){.skrz-pola{grid-template-columns:1fr 1fr}}
 .kal-rodzaje{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .kal-rodzaj{font:400 13.5px var(--sans);padding:9px 10px;border-radius:8px;background:var(--tlo);color:var(--tekst);
   border:1px solid var(--linia2);text-align:left}
@@ -655,6 +685,7 @@ notarai</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
   <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
+  <div class="krok" data-etap="12"><b><span>@</span></b>Poczta do przypisania<span class="licznik" id="licznik-poczty" hidden title="Wiadomości e-mail czekające na przypisanie do sprawy"></span></div>
   <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
   <div class="krok" data-etap="9" data-upr="kancelaria"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
@@ -892,6 +923,18 @@ notarai</div>
   <div class="pasek" style="margin-top:8px"><span class="stan" id="stan-pliki"></span></div>
 </div>
 
+<!-- Korespondencja sprawy: jak Pliki sprawy - jedna karta przenoszona do etapu 2 albo 3. -->
+<div class="karta" id="korespondencja-sprawy" hidden>
+  <h2>Korespondencja sprawy</h2>
+  <p class="pod" style="margin-top:0">E-maile przypisane do tej sprawy. Ustalenia z korespondencji mają źródło i <b>nie zmieniają pól odczytu ani projektu</b> — pole wpisujesz sam, gdy strona potwierdzi.</p>
+  <div id="kor-lista"></div>
+  <details id="kor-osoby-blok"><summary>Osoby w korespondencji i ich role</summary>
+    <div id="kor-osoby"></div>
+    <div class="pasek"><button type="button" class="wtorny" id="kor-osoba-dodaj">Dodaj osobę</button><button type="button" id="kor-osoby-zapisz">Zapisz osoby</button></div>
+  </details>
+  <div class="pasek"><span class="stan" id="stan-kor"></span></div>
+</div>
+
 <!-- Powiadomienie o pracy w tle (np. projekt gotowy, gdy notariusz jest w kalendarzu). -->
 <div class="powiadomienie" id="powiadomienie" role="status" aria-live="polite" hidden>
   <span></span><button type="button" data-akcja></button>
@@ -1121,6 +1164,27 @@ notarai</div>
   <div class="karta" id="giif-edycja" hidden></div>
   <div class="karta" id="giif-karta" hidden></div>
   <details class="karta" id="giif-ustawienia"><summary><b>Ustawienia GIIF kancelarii</b> — NIP, urząd skarbowy i kody ze słowników SI*GIIF</summary><div id="giif-ustawienia-pola"></div></details>
+</section>
+
+<!-- ===== 12: poczta e-mail do przypisania (korespondencja.py) ===== -->
+<section id="etap12" hidden>
+  <h1>Poczta do przypisania</h1>
+  <p class="pod">notarai czyta skrzynkę kancelarii i dla każdej wiadomości proponuje sprawę — z uzasadnieniem i pewnością. Nic nie trafia do sprawy bez Twojego kliknięcia „Przypisz do sprawy”. Wiadomość i załączniki lądują wtedy w „Plikach sprawy”, a ustalenia z treści — w „Korespondencji sprawy”, ze źródłem: kto to napisał i czy jest stroną.</p>
+  <div class="karta">
+    <div class="pasek" style="margin-top:0"><button id="btn-skrzynka-sprawdz">Sprawdź skrzynkę</button><span class="stan" id="stan12"></span></div>
+    <div id="skrzynka-lista"></div>
+  </div>
+  <details class="karta" id="skrzynka-ustawienia" data-upr="kancelaria"><summary><b>Ustawienia skrzynki</b> — serwer IMAP kancelarii (połączenie szyfrowane TLS)</summary>
+    <p class="pod" id="skrzynka-opis"></p>
+    <div class="skrz-pola">
+      <div class="pole"><label class="etykieta" for="skrz-host">Serwer IMAP</label><input id="skrz-host" placeholder="np. imap.twojadomena.pl"></div>
+      <div class="pole"><label class="etykieta" for="skrz-port">Port</label><input id="skrz-port" type="number" value="993"></div>
+      <div class="pole"><label class="etykieta" for="skrz-uzytkownik">Użytkownik</label><input id="skrz-uzytkownik" autocomplete="off"></div>
+      <div class="pole"><label class="etykieta" for="skrz-folder">Folder</label><input id="skrz-folder" value="INBOX"></div>
+    </div>
+    <div class="pole" id="skrz-haslo-pole" style="margin-top:10px"><label class="etykieta" for="skrz-haslo">Hasło (albo hasło aplikacji)</label><input id="skrz-haslo" type="password" autocomplete="new-password" placeholder="puste = bez zmiany"></div>
+    <div class="pasek"><button id="skrz-zapisz">Zapisz ustawienia</button><span class="stan" id="stan-skrz"></span></div>
+  </details>
 </section>
 
 <!-- ===== 6: kalendarz ===== -->
@@ -2261,7 +2325,7 @@ function pokaz(numer){
   $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
-  [1,2,3,4,5,6,7,8,9,10,11].forEach(n => $("etap"+n).hidden = (n !== numer));
+  [1,2,3,4,5,6,7,8,9,10,11,12].forEach(n => $("etap"+n).hidden = (n !== numer));
   if (numer <= 3) najdalej = Math.max(najdalej, numer);
   document.querySelectorAll(".krok").forEach(k => {
     const n = +k.dataset.etap;
@@ -2274,6 +2338,9 @@ function pokaz(numer){
   const plikiSprawy = $("pliki-sprawy");
   plikiSprawy.hidden = !(sprawa && sprawa.id && (numer === 2 || numer === 3));
   if (!plikiSprawy.hidden) { $("etap" + numer).appendChild(plikiSprawy); rysujPlikiSprawy(); }
+  const korSprawy = $("korespondencja-sprawy");
+  korSprawy.hidden = plikiSprawy.hidden || dysk.aktywny;
+  if (!korSprawy.hidden) { $("etap" + numer).appendChild(korSprawy); rysujKorespondencje(); }
   // Na telefonie aparat jest pod reka w pasku u gory, bez przewijania do kart.
   $("btn-aparat-gora").hidden = plikiSprawy.hidden;
   $("tytul-tel").textContent = sprawa && sprawa.id && numer > 0 && numer <= 3
@@ -2289,6 +2356,7 @@ function pokaz(numer){
   if (numer === 6) rysujKalendarz();
   if (numer === 7) rysujOsoby();
   if (numer === 8) { rysujPrzesylki(); rysujPoczte(); }
+  if (numer === 12) rysujSkrzynke();
   if (numer === 9) window.rysujPersonalizacje?.();
   if (numer === 10) window.rysujKsiegiKancelarii?.();
   if (numer === 11) window.rysujGiif?.();
@@ -2485,7 +2553,8 @@ function pokazPliki(lista){
     d.className = "zal-el";
     d.innerHTML = '<a href="#" title="Pobierz"></a><small></small><button type="button" class="wtorny okragly" title="Usuń plik">×</button>';
     d.querySelector("a").textContent = p.nazwa;
-    d.querySelector("small").textContent = rozmiarPliku(p.rozmiar) + " · " + (p.dodano || "").replace("T", " ").slice(0, 16);
+    d.querySelector("small").textContent = (p.email ? "e-mail: " + p.email.nadawca + " (" + p.email.rola + "), "
+      + krotkaData(p.email.data) + " · " : "") + rozmiarPliku(p.rozmiar) + " · " + (p.dodano || "").replace("T", " ").slice(0, 16);
     d.querySelector("a").onclick = e => { e.preventDefault(); pobierzZalacznik(p.nazwa); };
     d.querySelector("button").onclick = () => usunZalacznik(p.nazwa);
     k.appendChild(d);
@@ -2767,7 +2836,7 @@ async function uruchomTrybPracy(){
     const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
     if (krokSprawdzen) krokSprawdzen.hidden = true;
     // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"], .krok[data-etap="10"], .krok[data-etap="11"]').forEach(k => k.hidden = true);
+    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"], .krok[data-etap="10"], .krok[data-etap="11"], .krok[data-etap="12"]').forEach(k => k.hidden = true);
   }
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
@@ -2777,6 +2846,7 @@ async function uruchomTrybPracy(){
     window.odswiezKokpit?.([], 'Przed użyciem spraw zaakceptuj umowę powierzenia danych w sekcji Dokumenty.');
   } else {
     rysujListeSpraw();
+    odswiezLicznikPoczty();
     otworzSpraweZAdresu();
   }
   wczytajZespol();
@@ -4150,6 +4220,7 @@ function rysujPola(wynik){
   document.querySelectorAll("#etap2 .chip").forEach(x => x.classList.toggle("on", x.dataset.f === filtr));
   zastosujFiltr();
   stan($("stan2"), uwaga ? uwaga + " z " + wynik.pola.length + " pól wymaga uwagi" : "Wszystkie pola odczytane bez zastrzeżeń");
+  dopiszUstaleniaDoPol();
 }
 
 /* ---------- rozmowa ---------- */
@@ -5764,6 +5835,270 @@ $("kal-usun").onclick = async () => {
 
 function escape(t){
   return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+/* ---------- 12: poczta do przypisania + korespondencja sprawy ----------
+   Serwer (korespondencja.py) liczy propozycje; przypisanie jest zawsze klikniete
+   przez czlowieka. Ustalenia z maili maja zrodlo i nie wchodza do pol ani projektu. */
+var ROLE_KOR = {strona: "strona", kupujacy: "kupujący", pelnomocnik: "pełnomocnik",
+                  kontakt: "osoba kontaktowa", bank: "bank", inny: "inny"};
+var skrzynka = {wiadomosci: [], ustawienia: null};   // var: pokaz() moze wolac przed ta linia
+var korespondencja = null;      // {id sprawy, dane} - karta i komunikaty przy polach
+function krotkaData(iso){ return iso ? (+iso.slice(8, 10)) + "." + iso.slice(5, 7) : ""; }
+function chipRoli(rola){ return '<span class="rola-chip r-' + escape(rola || "inny") + '">' + escape(ROLE_KOR[rola] || "inny") + "</span>"; }
+function opcjeRol(wybrana, pusta){
+  return (pusta ? '<option value="">rola nadawcy: z danych sprawy</option>' : "")
+    + Object.entries(ROLE_KOR).map(([k, v]) => '<option value="' + k + '"' + (k === wybrana ? " selected" : "") + ">" + escape(v) + "</option>").join("");
+}
+function ustawLicznikPoczty(n){ $("licznik-poczty").hidden = !n; $("licznik-poczty").textContent = n || ""; }
+async function odswiezLicznikPoczty(){
+  if (dysk.aktywny) return;
+  try {
+    const odp = await api("/api/korespondencja");
+    if (odp.ok) { skrzynka = await odp.json(); ustawLicznikPoczty(skrzynka.wiadomosci.length); }
+  } catch { /* licznik nie jest konieczny */ }
+}
+async function rysujSkrzynke(){
+  stan($("stan12"), "Wczytuję…", false, true);
+  try {
+    const odp = await api("/api/korespondencja");
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    skrzynka = w;
+    if (!sprawyLista.length) await rysujListeSpraw();
+    pokazSkrzynke();
+    stan($("stan12"), skrzynka.wiadomosci.length ? "Do przypisania: " + skrzynka.wiadomosci.length : "Skrzynka „Do przypisania” jest pusta.");
+  } catch (e) { stan($("stan12"), e.message, true); }
+}
+function pokazSkrzynke(){
+  ustawLicznikPoczty(skrzynka.wiadomosci.length);
+  const u = skrzynka.ustawienia || {};
+  $("skrzynka-opis").textContent = u.demo ? "Tryb demo: wiadomości z katalogu testowego (pliki .eml), bez łączenia z serwerem poczty."
+    : u.chmura ? "Hasło zapisujemy wyłącznie w AWS Secrets Manager (eu-central-1); nie wraca do przeglądarki. " + (u.haslo_zapisane ? "Hasło jest zapisane." : "Hasło nie jest jeszcze zapisane.")
+    : "Na tym komputerze hasło podaje się w zmiennej środowiskowej PIECZAPP_SKRZYNKA_HASLO (nie w pliku w repozytorium). " + (u.haslo_lokalne ? "Zmienna jest ustawiona." : "Zmienna nie jest ustawiona.");
+  $("skrz-haslo-pole").hidden = !u.chmura;
+  if (document.activeElement?.closest?.("#skrzynka-ustawienia") == null) {
+    $("skrz-host").value = u.host || ""; $("skrz-port").value = u.port || 993;
+    $("skrz-uzytkownik").value = u.uzytkownik || ""; $("skrz-folder").value = u.folder || "INBOX";
+  }
+  const k = $("skrzynka-lista");
+  k.innerHTML = skrzynka.wiadomosci.length ? "" : '<p class="pod">Brak wiadomości do przypisania. Kliknij „Sprawdź skrzynkę”, żeby pobrać nowe.</p>';
+  skrzynka.wiadomosci.forEach(w => {
+    const d = document.createElement("div");
+    d.className = "kor-el";
+    const zal = (w.zalaczniki || []).map(z => escape(z.nazwa) + " (" + rozmiarPliku(z.rozmiar) + ")").join(", ");
+    d.innerHTML = '<div class="kor-gora"><b></b><small></small><small></small></div>'
+      + '<div class="kor-temat"></div>'
+      + (zal ? '<div class="kor-zal">📎 ' + zal + "</div>" : "")
+      + '<details><summary>Treść wiadomości</summary><div class="kor-tresc"></div></details>';
+    d.querySelector(".kor-gora b").textContent = w.nadawca.imie || w.nadawca.email;
+    d.querySelectorAll(".kor-gora small")[0].textContent = w.nadawca.email;
+    d.querySelectorAll(".kor-gora small")[1].textContent = (w.data || "").replace("T", " ").slice(0, 16);
+    d.querySelector(".kor-temat").textContent = w.temat || "(bez tematu)";
+    d.querySelector(".kor-tresc").textContent = w.tekst || "";
+    (w.propozycje || []).forEach((p, i) => {
+      const r = document.createElement("div");
+      r.className = "propozycja";
+      r.innerHTML = '<div class="opis">Proponowana sprawa: <b></b> <span class="pewnosc' + (p.pewnosc === "niska" ? " niska" : "") + '">pewność: ' + escape(p.pewnosc) + "</span><ul></ul></div>"
+        + '<button type="button"' + (i ? ' class="wtorny"' : "") + ">Przypisz do sprawy</button>";
+      r.querySelector("b").textContent = (p.nazwa || "sprawa " + p.sprawa.slice(0, 6)) + (p.sygnatura ? " · " + p.sygnatura : "");
+      r.querySelector("ul").innerHTML = p.uzasadnienie.map(t => "<li>" + escape(t) + "</li>").join("");
+      r.querySelector("button").onclick = () => przypiszWiadomosc(w.id, p.sprawa, d.querySelector(".kor-rola").value, r.querySelector("button"));
+      d.appendChild(r);
+    });
+    const akcje = document.createElement("div");
+    akcje.className = "kor-akcje";
+    akcje.innerHTML = (w.propozycje || []).length ? "" : '<span class="stan">Brak propozycji — wybierz sprawę ręcznie.</span>';
+    akcje.innerHTML += '<select class="kor-rola" title="Rola nadawcy w sprawie">' + opcjeRol("", true) + "</select>"
+      + '<select class="kor-inna" title="Inna sprawa"><option value="">— inna sprawa —</option>'
+      + sprawyLista.map(s => '<option value="' + escape(s.id) + '">' + escape(oznaczenieSprawy(s) || s.nazwa || s.id) + "</option>").join("") + "</select>"
+      + '<button type="button" class="wtorny kor-przypisz-inna">Przypisz do wybranej</button>'
+      + '<button type="button" class="wtorny kor-pomin" title="Usuń z listy „Do przypisania” (wiadomość zostaje w skrzynce pocztowej)">Pomiń</button>';
+    akcje.querySelector(".kor-przypisz-inna").onclick = e => {
+      const cel = akcje.querySelector(".kor-inna").value;
+      if (!cel) return stan($("stan12"), "Wybierz sprawę z listy.", true);
+      przypiszWiadomosc(w.id, cel, akcje.querySelector(".kor-rola").value, e.target);
+    };
+    akcje.querySelector(".kor-pomin").onclick = () => pominWiadomosc(w.id);
+    d.appendChild(akcje);
+    k.appendChild(d);
+  });
+}
+$("btn-skrzynka-sprawdz").onclick = async () => {
+  const btn = $("btn-skrzynka-sprawdz"); btn.disabled = true;
+  stan($("stan12"), "Sprawdzam skrzynkę…", false, true);
+  try {
+    const odp = await api("/api/korespondencja/pobierz", {method: "POST"});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    skrzynka.wiadomosci = w.wiadomosci;
+    pokazSkrzynke();
+    stan($("stan12"), w.nowe ? "Nowe wiadomości: " + w.nowe : "Brak nowych wiadomości.");
+  } catch (e) { stan($("stan12"), e.message, true); }
+  finally { btn.disabled = false; }
+};
+async function przypiszWiadomosc(wid, idSprawy, rola, btn){
+  if (btn) btn.disabled = true;
+  stan($("stan12"), "Przypisuję do sprawy…", false, true);
+  try {
+    const odp = await api("/api/korespondencja/" + wid + "/przypisz", {method: "POST",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({sprawa: idSprawy, rola: rola || null})});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    skrzynka.wiadomosci = skrzynka.wiadomosci.filter(x => x.id !== wid);
+    pokazSkrzynke();
+    stan($("stan12"), "Przypisano do sprawy " + nazwaSprawy(idSprawy) + ". Plik wiadomości jest w „Plikach sprawy”.");
+    // Propozycje innych wiadomosci moga sie zmienic (np. odpowiedz w tym watku).
+    rysujSkrzynke();
+    if (moze("sprawy_ai")) wyciagnijUstalenia(idSprawy, wid, $("stan12"));
+  } catch (e) { stan($("stan12"), e.message, true); if (btn) btn.disabled = false; }
+}
+async function pominWiadomosc(wid){
+  try {
+    const odp = await api("/api/korespondencja/" + wid + "/pomin", {method: "POST"});
+    if (!odp.ok) throw new Error((await odp.json()).detail || "Błąd serwera");
+    skrzynka.wiadomosci = skrzynka.wiadomosci.filter(x => x.id !== wid);
+    pokazSkrzynke();
+  } catch (e) { stan($("stan12"), e.message, true); }
+}
+$("skrz-zapisz").onclick = async () => {
+  stan($("stan-skrz"), "Zapisuję…", false, true);
+  try {
+    const odp = await api("/api/korespondencja/ustawienia", {method: "PUT", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({dostawca: "imap", host: $("skrz-host").value, port: +$("skrz-port").value || 993,
+                            uzytkownik: $("skrz-uzytkownik").value, folder: $("skrz-folder").value, haslo: $("skrz-haslo").value})});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    $("skrz-haslo").value = "";
+    skrzynka.ustawienia = w; pokazSkrzynke();
+    stan($("stan-skrz"), "Zapisano. Kliknij „Sprawdź skrzynkę”.");
+  } catch (e) { stan($("stan-skrz"), e.message, true); }
+};
+
+async function wyciagnijUstalenia(idSprawy, wid, el){
+  stan(el, "Czytam wiadomość i wypisuję ustalenia (ze źródłem)…", false, true);
+  try {
+    const odp = await api("/api/sprawy/" + idSprawy + "/korespondencja/" + wid + "/ustalenia", {method: "POST"});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    const m = w.wiadomosci.find(x => x.id === wid);
+    stan(el, "Ustalenia z wiadomości: " + ((m && m.ustalenia.length) || 0) + ". Pola sprawy bez zmian — ustalenia są w „Korespondencji sprawy”.");
+    if (sprawa && sprawa.id === idSprawy) { korespondencja = {id: idSprawy, dane: w}; pokazKorespondencje(); dopiszUstaleniaDoPol(); }
+  } catch (e) { stan(el, e.message, true); }
+}
+async function rysujKorespondencje(){
+  if (!sprawa || !sprawa.id || dysk.aktywny) return;
+  const id = sprawa.id;
+  try {
+    const odp = await api("/api/sprawy/" + id + "/korespondencja");
+    if (!odp.ok) throw new Error();
+    const dane = await odp.json();
+    if (!sprawa || sprawa.id !== id) return;
+    korespondencja = {id, dane};
+    pokazKorespondencje(); dopiszUstaleniaDoPol();
+  } catch { $("kor-lista").innerHTML = '<span class="stan blad">Nie udało się pobrać korespondencji.</span>'; }
+}
+function zrodloUstalenia(z){
+  // Strona: opis z danych sprawy („sprzedająca”, „kupująca”); reszta: sama rola.
+  const opis = (z.rola === "strona" || z.rola === "kupujacy") && z.opis ? z.opis : z.rola_opis;
+  return z.imie + " — " + opis + ", " + krotkaData(z.data);
+}
+function pokazKorespondencje(){
+  const dane = korespondencja.dane, k = $("kor-lista");
+  k.innerHTML = dane.wiadomosci.length ? "" : '<p class="pod">Brak przypisanych e-maili. Przychodzące wiadomości czekają w „Poczcie do przypisania”.</p>';
+  dane.wiadomosci.forEach(w => {
+    const d = document.createElement("div");
+    d.className = "kor-el";
+    d.innerHTML = '<div class="kor-gora"><b></b>' + chipRoli(w.rola) + "<small></small></div>"
+      + '<div class="kor-temat"></div>'
+      + '<div class="kor-zal"></div><ul class="kor-ustalenia"></ul><div class="kor-akcje"></div>';
+    d.querySelector(".kor-gora b").textContent = (w.nadawca.imie || w.nadawca.email);
+    d.querySelector(".kor-gora small").textContent = (w.data || "").replace("T", " ").slice(0, 16);
+    d.querySelector(".kor-temat").textContent = w.temat || "(bez tematu)";
+    const pliki = [w.plik].concat(w.zalaczniki || []);
+    const zal = d.querySelector(".kor-zal");
+    pliki.forEach((n, i) => {
+      const a = document.createElement("a"); a.href = "#"; a.textContent = (i ? "📎 " : "✉ ") + n;
+      a.onclick = e => { e.preventDefault(); pobierzZalacznik(n); };
+      zal.append(a, document.createTextNode("  "));
+    });
+    const ul = d.querySelector(".kor-ustalenia");
+    (w.ustalenia || []).forEach(u => {
+      const li = document.createElement("li");
+      li.innerHTML = "<b></b>: <span></span> " + (u.relacja ? '<span class="rola-chip r-inny" title="Autor relacjonuje cudze stanowisko - to nie jest potwierdzenie tej osoby">relacja: </span> ' : "")
+        + (u.atrapa ? '<span class="rola-chip">atrapa modelu</span> ' : "") + "<br><q></q>";
+      li.querySelector("b").textContent = u.pole.replace(/^[^:]+:\s*/, "");
+      li.querySelector("span").textContent = u.wartosc;
+      if (u.relacja) li.querySelector(".r-inny").textContent += u.czyje || "cudze stanowisko";
+      li.querySelector("q").textContent = u.cytat;
+      ul.appendChild(li);
+    });
+    const akcje = d.querySelector(".kor-akcje");
+    if (w.ustalenia_stan === "gotowe" && !(w.ustalenia || []).length) akcje.innerHTML = '<span class="stan">Brak ustaleń dotyczących pól sprawy.</span>';
+    if (w.ustalenia_stan !== "gotowe" || moze("sprawy_ai")) {
+      if (w.ustalenia_stan === "blad") akcje.innerHTML += '<span class="stan blad">Model nie odpowiedział.</span>';
+      if (w.ustalenia_stan === "czeka" && !moze("sprawy_ai")) akcje.innerHTML += '<span class="stan">Ustalenia wyciągnie notariusz albo aplikant.</span>';
+      if (moze("sprawy_ai")) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "wtorny";
+        b.textContent = w.ustalenia_stan === "gotowe" ? "Wyciągnij ustalenia ponownie" : "Wyciągnij ustalenia";
+        b.onclick = () => wyciagnijUstalenia(korespondencja.id, w.id, $("stan-kor"));
+        akcje.appendChild(b);
+      }
+    }
+    k.appendChild(d);
+  });
+  rysujOsobyKorespondencji(dane.osoby);
+}
+function rysujOsobyKorespondencji(osoby){
+  const k = $("kor-osoby"); k.innerHTML = "";
+  osoby.forEach(o => dodajWierszOsoby(o));
+}
+function dodajWierszOsoby(o){
+  const r = document.createElement("div"); r.className = "kor-osoba";
+  r.innerHTML = '<input placeholder="imię i nazwisko" data-k="imie"><input placeholder="e-mail" data-k="email">'
+    + '<select data-k="rola">' + opcjeRol(o.rola || "inny") + '</select><input placeholder="opis, np. sprzedająca" data-k="opis">'
+    + '<button type="button" class="wtorny okragly" title="Usuń osobę">×</button>';
+  ["imie", "email", "opis"].forEach(n => r.querySelector('[data-k="' + n + '"]').value = o[n] || "");
+  r.querySelector("button").onclick = () => r.remove();
+  $("kor-osoby").appendChild(r);
+}
+$("kor-osoba-dodaj").onclick = () => dodajWierszOsoby({rola: "strona"});
+$("kor-osoby-zapisz").onclick = async () => {
+  if (!korespondencja) return;
+  const osoby = [...$("kor-osoby").querySelectorAll(".kor-osoba")].map(r =>
+    Object.fromEntries([...r.querySelectorAll("[data-k]")].map(e => [e.dataset.k, e.value.trim()])));
+  try {
+    const odp = await api("/api/sprawy/" + korespondencja.id + "/korespondencja/osoby", {method: "PUT",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({osoby})});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    korespondencja.dane = w; pokazKorespondencje(); dopiszUstaleniaDoPol();
+    stan($("stan-kor"), "Zapisano osoby. Role decydują, czyje potwierdzenie się liczy.");
+  } catch (e) { stan($("stan-kor"), e.message, true); }
+};
+// Przy polu w „Weryfikacji odczytu”: co mowi korespondencja i kto tego NIE potwierdzil.
+// Tylko komunikat - wartosc pola i projekt zostaja bez zmian.
+function dopiszUstaleniaDoPol(){
+  document.querySelectorAll("#pola .komunikat.korespondencja").forEach(e => e.remove());
+  if (!korespondencja || !sprawa || korespondencja.id !== sprawa.id) return;
+  const ustalenia = korespondencja.dane.ustalenia_pol || {};
+  document.querySelectorAll("#pola .wiersz").forEach(wiersz => {
+    const pole = sprawa.pola[wiersz.dataset.indeks];
+    (ustalenia[pole && pole.nazwa] || []).forEach(g => {
+      const d = document.createElement("div");
+      d.className = "komunikat korespondencja";
+      const zrodla = g.zrodla.map(zrodloUstalenia).join("; ");
+      let tekst = "W korespondencji: <b>" + escape(g.wartosc) + "</b> (" + escape(zrodla) + ").";
+      const relacje = g.zrodla.filter(z => z.relacja);
+      if (relacje.length) tekst += " " + relacje.map(z => escape(z.imie) + " relacjonuje stanowisko: " + escape(z.czyje || "innej osoby")).join("; ") + " — to nie jest potwierdzenie tej osoby.";
+      tekst += g.potwierdzone
+        ? " Strony potwierdziły to w korespondencji — po sprawdzeniu wpisz wartość ręcznie."
+        : " <b>Brak potwierdzenia" + (g.brak_potwierdzenia.length ? ": " + g.brak_potwierdzenia.map(o => escape(o.imie) + (o.opis ? " (" + escape(o.opis) + ")" : "")).join(", ") : " strony") + ".</b>";
+      if (g.zrodla.some(z => z.atrapa)) tekst += " [atrapa modelu]";
+      d.innerHTML = tekst;
+      wiersz.appendChild(d);
+    });
+  });
 }
 
 /* ---------- 8: przesylki i korespondencja ----------

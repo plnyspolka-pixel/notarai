@@ -37,6 +37,7 @@ import ksiegi_notarialne
 import formularze
 import kalendarz
 import kalkulator
+import korespondencja
 import krz
 import urzadzenia
 import zlecenia
@@ -98,6 +99,7 @@ app.include_router(sledzenie.router)
 app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
 app.include_router(teczka.router)
+app.include_router(korespondencja.router)
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
@@ -949,8 +951,11 @@ def _spis_zalacznikow(katalog: Path) -> list[dict]:
     folder = katalog / ZALACZNIKI
     if not folder.is_dir():
         return []
+    # Pliki z przypisanych e-maili maja metadane: nadawca, rola w sprawie, data, temat.
+    z_poczty = korespondencja.opis_plikow(katalog)
     return [{"nazwa": p.name, "rozmiar": p.stat().st_size,
-             "dodano": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")}
+             "dodano": datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
+             **({"email": z_poczty[p.name]} if p.name in z_poczty else {})}
             for p in sorted(folder.iterdir(), key=lambda p: p.name.lower()) if p.is_file()]
 
 
