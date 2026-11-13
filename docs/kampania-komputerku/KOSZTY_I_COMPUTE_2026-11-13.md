@@ -17,7 +17,7 @@ Wniosek: najpierw tokeny i abonamenty, dopiero potem GPU.
 ## 2. Co zostało wdrożone w tym PR
 | Narzędzie | Co robi | Oszczędność |
 |---|---|---|
-| `narzedzia/odcinek_json.py` | scenariusz EPxx.md → `odcinki/EPxx.json` jednym wywołaniem Bedrock; biblia + prompty + obsada + kamery (≈ 26 tys. tokenów) jako stały prefiks za punktem cache | rozpisanie odcinka ≈ 0,08 USD (Sonnet 4.6) zamiast 1–10 USD w sesji agentowej; `--dry-run` liczy bez klucza |
+| `narzedzia/odcinek_json.py` | scenariusz EPxx.md → `odcinki/EPxx.json` jednym wywołaniem Bedrock (wymuszone narzędzie = zawsze poprawny JSON); biblia + prompty + obsada + kamery (31 374 tokeny) jako stały prefiks za punktem cache | **zmierzone 13.11.2026 (Sonnet 4.6):** EP01 0,30 USD z zapisem cache, EP02 0,13 USD z odczytem cache (cache odczyt 31 374, pełne wejście 4 825) zamiast 1–10 USD w sesji agentowej; `--dry-run` liczy bez klucza |
 | `narzedzia/koszty_odcinka.py` | wycena odcinek.json w trzech torach (obecny / tani hostowany / własne GPU) + log realnych wydatków | pokazuje, że tor GPU jest ~80 % tańszy, a tani hostowany ~65 % |
 | `narzedzia/gpu/` | RunPod 4090 + ComfyUI + Wan 2.2 I2V z LoRA 4-krokową; paczka ujęć bez mowy z odcinek.json, każdy klip od razu na dysk i do logu kosztów | klip 5 s ≈ 0,01–0,02 USD zamiast 0,35 USD (Kling 2.5 Turbo Pro) |
 | `bedrock.py` + `prompty.py` (aplikacja) | punkty cache w rozmowie o sprawie i na wzorze aktu | rozmowa o sprawie ok. 4× tańsza; wzór kancelarii czytany z cache |
@@ -54,7 +54,9 @@ Wniosek: najpierw tokeny i abonamenty, dopiero potem GPU.
 | tani hostowany (Chirp 3 HD + Seedream 4 + HeyGen Turbo + WaveSpeed InfiniteTalk + Replicate Wan 2.2) | 2,05 | 16 |
 | własne GPU (Qwen-Image-Edit + Wan 2.2 + EchoMimic/InfiniteTalk; HeyGen Turbo na zbliżenia) | 1,09 | 9 |
 
-Do tego: rozpisanie odcinka 0,08 USD zamiast 1–10 USD, abonamenty −51 USD/mies. (ElevenLabs Creator, HeyGen Creator).
+Do tego: rozpisanie odcinka 0,13 USD (zmierzone, z cache) zamiast 1–10 USD, abonamenty −51 USD/mies. (ElevenLabs Creator, HeyGen Creator).
+
+Wygenerowane `odcinki/EP01.json` i `EP02.json` są **szkicami do autoryzacji** (pole `_produkcja` zawiera model, zużycie tokenów i uwagi walidatora); nie zastępują scenariuszy kanonicznych z `marketing/komputerku/sezon-1/02_SCENARIUSZE/`.
 
 ## 6. Ryzyka
 - Skrypty GPU powstały bez dostępu do karty - nazwy plików modeli i węzłów ComfyUI do potwierdzenia przy pierwszym

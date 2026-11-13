@@ -10,8 +10,8 @@ scenografię i obsadę (300–800 tys. tokenów), składamy JEDNO zapytanie Bedr
 
 Prefiks jest identyczny dla wszystkich odcinków, więc od drugiego odcinka
 Bedrock czyta go z pamięci podręcznej za ok. 10% ceny (Sonnet 4.6: prefiks
-≥ 1024 tokenów; Opus 4.6 / Haiku 4.5: ≥ 4096). Odpowiedź to gotowy
-odcinek.json w schemacie ../odcinek-szablon.json, rozszerzony o `prompt_delta`
+≥ 1024 tokenów; Opus 4.6 / Haiku 4.5: ≥ 4096). Odpowiedź przychodzi jako wymuszone wywołanie narzędzia
+(zawsze poprawny JSON) w schemacie ../odcinek-szablon.json, rozszerzony o `prompt_delta`
 (dopisek do promptu bazowego), `kwestia_v3` (tekst z tagami ElevenLabs v3) i `napisy`.
 
 Skrypt nie trzyma kluczy: boto3 bierze poświadczenia AWS z profilu/środowiska
@@ -48,7 +48,59 @@ SZABLON = os.path.join(ROOT, "odcinek-szablon.json")
 
 REGION = os.getenv("AWS_REGION", "eu-central-1")
 MODEL = os.getenv("ODCINEK_MODEL", "eu.anthropic.claude-sonnet-4-6")
-MAX_WYJSCIE = 8000
+MAX_WYJSCIE = 12000
+# Odpowiedz przychodzi jako WYMUSZONE wywolanie narzedzia (toolChoice), wiec Bedrock
+# oddaje juz sparsowany JSON zgodny ze schematem - skladnia nie moze sie zepsuc
+# (zwykly tekst JSON z modelu psul sie na cudzyslowach w kwestiach).
+SCHEMAT_ODCINKA = {
+    "type": "object",
+    "properties": {
+        "seria": {"type": "string"},
+        "odcinek": {"type": "integer"},
+        "tytul": {"type": "string"},
+        "funkcja_notarai": {"type": "string"},
+        "format_glowny": {"type": "string"},
+        "adaptacje": {"type": "array", "items": {"type": "string"}},
+        "obsada_wersja": {"type": "string"},
+        "scenografia_wersja": {"type": "string"},
+        "warstwy": {"type": "object"},
+        "ujecia": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "typ": {"type": "string", "enum": ["mowiace", "bez_mowy", "ekran", "plansza"]},
+                    "czas_s": {"type": "number"},
+                    "postac": {"type": "string"},
+                    "kadr": {"type": "string"},
+                    "kamera": {"type": "string"},
+                    "klatka_startowa": {"type": "string"},
+                    "kwestia": {"type": "string"},
+                    "kwestia_v3": {"type": "string"},
+                    "emocja": {"type": "string"},
+                    "ruch_kamery": {"type": "string"},
+                    "prompt_delta": {"type": "string"},
+                    "zrodlo": {"type": "string"},
+                    "co_widac": {"type": "string"},
+                    "grafika": {"type": "array", "items": {"type": "string"}},
+                    "plik": {"type": "string"},
+                },
+                "required": ["id", "typ", "czas_s"],
+            },
+        },
+        "napisy": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"od_s": {"type": "number"}, "do_s": {"type": "number"}, "tekst": {"type": "string"}},
+                "required": ["od_s", "do_s", "tekst"],
+            },
+        },
+        "kontrola": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["seria", "odcinek", "tytul", "ujecia", "napisy", "kontrola"],
+}
 # USD za 1M tokenów (wejście, wyjście); odczyt z cache 10%, zapis 125%.
 CENY = [("claude-opus-4", 5.0, 25.0), ("claude-sonnet-4", 3.0, 15.0), ("claude-haiku-4", 1.0, 5.0),
         ("claude-sonnet-5", 2.0, 10.0), ("claude-opus-5-5", 4.0, 20.0), ("claude-haiku-5", 0.10, 0.50)]
@@ -134,6 +186,12 @@ def zlecenie(ep: str, model: str) -> dict:
         "messages": [{"role": "user", "content": tresc}],
         "inferenceConfig": {"maxTokens": MAX_WYJSCIE},
     }
+    z["toolConfig"] = {
+        "tools": [{"toolSpec": {"name": "zapisz_odcinek",
+                                "description": "Zapisuje rozpisany odcinek (odcinek.json) do produkcji.",
+                                "inputSchema": {"json": SCHEMAT_ODCINKA}}}],
+        "toolChoice": {"tool": {"name": "zapisz_odcinek"}},
+    }
     if not _NOWA_GENERACJA.search(model):
         z["inferenceConfig"]["temperature"] = 0
     return z
@@ -170,12 +228,22 @@ def szacunek(z: dict, odcinkow: int = 8) -> str:
 def wywolaj(z: dict) -> tuple[dict, dict]:
     import boto3  # dopiero tu: --dry-run dziala bez boto3
     klient = boto3.client("bedrock-runtime", region_name=REGION)
-    odp = klient.converse(**z)
-    tekst = "".join(b.get("text", "") for b in odp["output"]["message"]["content"])
-    tekst = re.sub(r"^```(?:json)?\s*|\s*```$", "", tekst.strip(), flags=re.M)
-    poczatek, koniec = tekst.find("{"), tekst.rfind("}")
-    dane = json.loads(tekst[poczatek:koniec + 1])
-    return dane, odp.get("usage", {})
+    # Strumieniem, jak bedrock.py w aplikacji: odpowiedz na kilka tysiecy tokenow
+    # trwa dluzej, niz proxy i klient trzymaja zwykle (nie-strumieniowe) wywolanie.
+    czesci, uzycie, powod = [], {}, None
+    for zdarzenie in klient.converse_stream(**z)["stream"]:
+        if "contentBlockDelta" in zdarzenie:
+            delta = zdarzenie["contentBlockDelta"]["delta"]
+            if "toolUse" in delta:                      # wejscie narzedzia = nasz JSON, kawalkami
+                czesci.append(delta["toolUse"].get("input", ""))
+        elif "messageStop" in zdarzenie:
+            powod = zdarzenie["messageStop"].get("stopReason")
+        elif "metadata" in zdarzenie:
+            uzycie = zdarzenie["metadata"].get("usage", {})
+    tekst = "".join(czesci)
+    if powod == "max_tokens":
+        raise RuntimeError(f"odpowiedz ucieta przy {MAX_WYJSCIE} tokenach - zwieksz MAX_WYJSCIE")
+    return json.loads(tekst), uzycie
 
 
 def sprawdz(dane: dict, ep: str) -> list[str]:

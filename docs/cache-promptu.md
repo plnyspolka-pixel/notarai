@@ -31,6 +31,17 @@ przy ponad ~28 % ponowień) ani pętli `nastepny_krok` (prompt za krótki).
   turze rozmowy `cache_odczyt` jest 0, kontekst sprawy ma mniej niż 4096 tokenów (małe sprawy) albo
   minęło >5 min od poprzedniej tury (TTL cache 5 minut, odnawiany każdym odczytem).
 
+## Sprawdzone na żywo (13.11.2026)
+Dwa identyczne wywołania `eu.anthropic.claude-opus-4-6-v1` w eu-central-1 z prefiksem ~27 tys. tokenów
+i jednym `cachePoint`:
+
+| Wywołanie | inputTokens | cacheWriteInputTokens | cacheReadInputTokens | czas |
+|---|---|---|---|---|
+| 1 | 15 | 27 304 | 0 | 2,2 s |
+| 2 | 15 | 0 | 27 304 | 1,4 s |
+
+Czyli profil EU + Opus 4.6 przyjmuje punkty cache, a drugi odczyt kosztował 10 % pierwszego.
+
 ## Co to daje
 Rozmowa o sprawie z kontekstem 20 tys. tokenów i 10 turami: dawniej ~220 tys. tokenów wejścia po
 pełnej cenie, teraz ~25 tys. po pełnej + ~200 tys. po 10 %, czyli ok. **4× tańsza rozmowa**.
