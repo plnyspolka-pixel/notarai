@@ -316,42 +316,58 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
     return "\n\n".join(czesci)
 
 
-def polecenie_generowania(
+def polecenie_generowania_bloki(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
     ustalenia: str = "", personalizacja: str = "",
-) -> str:
-    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
-    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py)."""
+) -> tuple[str, str]:
+    """Polecenie generowania w dwu blokach: (staly, zmienny).
+
+    Staly blok to konwencja wzoru, legenda i sam wzor - identyczny dla kolejnych
+    spraw kancelarii na tym samym wzorze, wiec bedrock.py stawia za nim punkt
+    cache (Bedrock czyta go wtedy za ok. 10% ceny). Zmienny blok to dane sprawy,
+    ustalenia z rozmowy, personalizacja i polecenie uzytkownika.
+    `ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
+    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py).
+    """
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
         wiersze.append(f"- {pole['nazwa']}: {wartosc if wartosc else 'BRAK'}")
-    czesci = []
+    stale = []
     if legenda:
-        czesci.append(KONWENCJA_WZORU)
-        czesci.append(
+        stale.append(KONWENCJA_WZORU)
+        stale.append(
             "LEGENDA:\n"
             + "\n".join(
                 f"- {kod}: {wpis['opis']}" + (f" (np. {wpis['przyklad']})" if wpis.get("przyklad") else "")
                 for kod, wpis in legenda.items()
             )
         )
-    czesci.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
-    czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
+    stale.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
+    zmienne = ["DANE ZWALIDOWANE:\n" + "\n".join(wiersze)]
     if ustalenia:
-        czesci.append(ustalenia)
+        zmienne.append(ustalenia)
     if personalizacja:
-        czesci.append(personalizacja)
-    czesci.append(
+        zmienne.append(personalizacja)
+    zmienne.append(
         "POLECENIE UZYTKOWNIKA (rozstrzygajace; kazda pozycja musi byc wykonana - regula 17):\n"
         f"{opis or '(brak)'}"
     )
-    czesci.append(
+    zmienne.append(
         "Sporzadz projekt dokumentu. Uwzglednij kazdy element przedmiotu czynnosci "
         "wymieniony w poleceniu, nawet jesli wzor przewiduje tylko jeden."
         if opis else "Sporzadz projekt dokumentu."
     )
-    return "\n\n".join(czesci)
+    return "\n\n".join(stale), "\n\n".join(zmienne)
+
+
+def polecenie_generowania(
+    wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
+    ustalenia: str = "", personalizacja: str = "",
+) -> str:
+    """Cale polecenie generowania jako jeden tekst (bloki z polecenie_generowania_bloki)."""
+    staly, zmienny = polecenie_generowania_bloki(wzor, dane, opis, legenda, ustalenia, personalizacja)
+    return staly + "\n\n" + zmienny
 
 
 POPRAWA_ZASAD = """Jestes asystentem kancelarii notarialnej. Dostajesz PROJEKT \

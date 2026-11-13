@@ -57,3 +57,8 @@ strona-kopie/
 strona/notariusz/
 strona/blog/
 strona/sitemap.xml
+
+# Narzedzia kampanii: zlecenia i wyniki generowane lokalnie (nie commitujemy)
+docs/kampania-komputerku/odcinki/*.zlecenie.json
+docs/kampania-komputerku/wyjscie/
+docs/kampania-komputerku/narzedzia/koszty_log.csv

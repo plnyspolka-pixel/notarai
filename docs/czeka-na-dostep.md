@@ -225,3 +225,27 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 `docs/testy-z-notariuszem-ksiegi.md`.
+
+## NA-12. Stanowisko GPU do ujęć bez mowy (RunPod 4090 + ComfyUI + Wan 2.2)
+
+- **Status:** czeka
+- **Brakuje:** konta RunPod (albo Modal) z saldem i dysku sieciowego 100 GB; skrypty
+  w `docs/kampania-komputerku/narzedzia/gpu/` powstały bez dostępu do karty, więc nazwy
+  plików modeli (Comfy-Org, lightx2v) i węzłów ComfyUI nie były uruchomione.
+- **Na żywo:**
+  1. Pod RTX 4090 (Community, 0,34 USD/h) z Network Volume w `/workspace`, port 8188;
+     `bash runpod_4090.sh`, potem `bash runpod_4090.sh start`. Zapisać, które nazwy
+     plików trzeba było poprawić.
+  2. `klipy_batch.py ../../odcinki/EP01.json --comfy <url> --powtorzenia 1` na 2–3 ujęciach
+     bez mowy; porównać `wan22_i2v_lightning.json` z szablonem „Wan 2.2 14B I2V” w ComfyUI.
+  3. Zmierzyć sekundy GPU na klip (log w `narzedzia/koszty_log.csv`) i wpisać realny mnożnik
+     do `koszty_odcinka.py` (tor `gpu_4090`).
+  4. Osobno: 10 kwestii po polsku przez EchoMimicV3 i InfiniteTalk, odsłuch z dźwiękiem;
+     decyzja, czy „mówiące w planie” schodzą z Kling Avatar v2 Pro.
+  5. **Usunąć pod** po teście (dysk zostaje).
+- **Alternatywa bez nowego konta:** stos `infra/notarai-gpu-komfy.yaml` (spot g6.xlarge na rachunku AWS
+  aplikacji; wymaga limitu na instancje G w eu-central-1 i profilu AWS operatora) – te same kroki 2–5.
+- **Gdzie w kodzie:** `docs/kampania-komputerku/narzedzia/gpu/`, `infra/notarai-gpu-komfy.yaml`, `koszty_odcinka.py` (TORY["gpu_4090"]),
+  `KOSZTY_I_COMPUTE_2026-11-13.md` §3 pkt 2 i 4.
+- **Zamknięte, gdy:** paczka klipów z jednego odcinka przeszła end-to-end, a zmierzony koszt
+  klipu jest w `koszty_log.csv` i w dokumencie kosztów.

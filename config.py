@@ -61,6 +61,11 @@ def przyjmuje_temperature(model: str = "") -> bool:
 MAX_WYJSCIE = int(os.getenv("PIECZAPP_MAX_WYJSCIE", "128000"))
 WYSILEK = os.getenv("PIECZAPP_WYSILEK", "max")  # low | medium | high | max
 MYSLENIE = os.getenv("PIECZAPP_MYSLENIE", "1") != "0"
+# Cache promptu w Bedrock (punkty cachePoint stawia bedrock.py): "0" wylacza.
+# Opus 4.6 i Haiku 4.5 zapisuja w cache prefiks od 4096 tokenow, Sonnet 4.6 od
+# 1024; krotszy prefiks jest po cichu ignorowany (bez bledu i bez kosztu).
+# Odczyt z cache kosztuje ok. 10% ceny wejscia, zapis 125% (tokenomia.py).
+CACHE_PROMPTU = os.getenv("PIECZAPP_CACHE_PROMPTU", "1") != "0"
 
 # Zasady kancelarii: projekt naruszajacy zasade nieprzekraczalna dostaje jedna
 # ture poprawki przez model, a wytyczne opisowe - kontrole przez model. To do

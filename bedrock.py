@@ -60,6 +60,42 @@ _ADAPTACYJNE = re.compile(r"claude-(opus|sonnet|haiku)-(4-[6-9]|5)|claude-fable-
 # Limit odpowiedzi w rozmowie o sprawie i w podsumowaniu ustalen.
 MAX_TOKENOW_ROZMOWY = config.MAX_WYJSCIE
 
+# ---------------------------------------------------------------- cache promptu
+# Punkt cache Converse API: wszystko przed nim Bedrock zapisuje w pamieci
+# podrecznej, a przy nastepnym wywolaniu z identycznym prefiksem czyta za ok. 10%
+# ceny wejscia (zapis kosztuje 125%; tokenomia.py liczy oba). Prefiks krotszy niz
+# minimum modelu (Opus 4.6 i Haiku 4.5: 4096 tokenow, Sonnet 4.6: 1024) jest po
+# cichu ignorowany - bez bledu i bez kosztu. Dlatego punkty stawiamy tylko tam,
+# gdzie ten sam duzy prefiks wraca do modelu:
+#  - rozmowa o sprawie: kontekst sprawy i cala historia ida w kazdej turze,
+#  - projekt aktu: ten sam wzor kancelarii dla kolejnych spraw.
+# Prompty systemowe (300-2100 tokenow) sa za krotkie, zeby je cache'owac.
+PUNKT_CACHE: dict = {"cachePoint": {"type": "default"}}
+# Gdy Bedrock odrzuci cachePoint (model albo region bez cache promptu), wylaczamy
+# punkty do konca procesu, zeby nie placic za nieudane wywolanie przy kazdej turze.
+_cache_wylaczony = False
+
+
+def _cache_dozwolony() -> bool:
+    return config.CACHE_PROMPTU and not _cache_wylaczony
+
+
+def _bez_punktow_cache(wiadomosci: list[dict]) -> list[dict]:
+    """Te same tury bez blokow cachePoint (tresc blokow bez zmian)."""
+    return [{**w, "content": [b for b in w["content"] if "cachePoint" not in b]}
+            for w in wiadomosci]
+
+
+def _ma_punkty_cache(wiadomosci: list[dict]) -> bool:
+    return any("cachePoint" in b for w in wiadomosci for b in w["content"])
+
+
+def _odrzucony_punkt_cache(blad: ClientError, zadanie: dict) -> bool:
+    """Czy blad to odmowa Bedrock dla cachePoint (a nie inny blad walidacji)."""
+    return (_kod_bledu(blad) == "validationexception"
+            and "cache" in _tresc_bledu(blad).lower()
+            and _ma_punkty_cache(zadanie["messages"]))
+
 
 def _klient():
     # Bez nazwy profilu boto3 bierze poswiadczenia ze standardowego lancucha:
@@ -184,6 +220,23 @@ def _parametry_modelu(max_tokenow: int, myslenie: bool, wysilek: str | None = No
     return ustawienia, dodatkowe
 
 
+def _strumien(zadanie: dict) -> tuple[list[str], str | None, dict]:
+    """Jedno wywolanie converse_stream: (czesci tekstu, powod zatrzymania, uzycie)."""
+    czesci: list[str] = []
+    powod = None
+    uzycie: dict = {}
+    odpowiedz = _klient().converse_stream(**zadanie)
+    for zdarzenie in odpowiedz["stream"]:
+        if "contentBlockDelta" in zdarzenie:
+            # tylko tekst odpowiedzi; bloki myslenia (reasoningContent) pomijamy
+            czesci.append(zdarzenie["contentBlockDelta"]["delta"].get("text", ""))
+        elif "messageStop" in zdarzenie:
+            powod = zdarzenie["messageStop"].get("stopReason")
+        elif "metadata" in zdarzenie:
+            uzycie = zdarzenie["metadata"].get("usage", {})
+    return czesci, powod, uzycie
+
+
 def _rozmowa(
     system: str, tresc: list[dict], max_tokenow: int | None = None,
     historia: list[dict] | None = None, myslenie: bool | None = None,
@@ -211,11 +264,14 @@ def _rozmowa(
 
 
 def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model) -> str:
+    global _cache_wylaczony
     max_tokenow = max_tokenow or config.MAX_WYJSCIE
     myslenie = config.MYSLENIE if myslenie is None else myslenie
     model = model or config.MODEL
     ustawienia, dodatkowe = _parametry_modelu(max_tokenow, myslenie, wysilek, model)
     wiadomosci = list(historia or []) + [{"role": "user", "content": tresc}]
+    if not _cache_dozwolony():
+        wiadomosci = _bez_punktow_cache(wiadomosci)
     zadanie = {
         "modelId": model,
         "system": [{"text": system}],
@@ -224,19 +280,17 @@ def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model)
     }
     if dodatkowe:
         zadanie["additionalModelRequestFields"] = dodatkowe
-    czesci: list[str] = []
-    powod = None
-    uzycie: dict = {}
     try:
-        odpowiedz = _klient().converse_stream(**zadanie)
-        for zdarzenie in odpowiedz["stream"]:
-            if "contentBlockDelta" in zdarzenie:
-                # tylko tekst odpowiedzi; bloki myslenia (reasoningContent) pomijamy
-                czesci.append(zdarzenie["contentBlockDelta"]["delta"].get("text", ""))
-            elif "messageStop" in zdarzenie:
-                powod = zdarzenie["messageStop"].get("stopReason")
-            elif "metadata" in zdarzenie:
-                uzycie = zdarzenie["metadata"].get("usage", {})
+        try:
+            czesci, powod, uzycie = _strumien(zadanie)
+        except ClientError as blad:
+            if not _odrzucony_punkt_cache(blad, zadanie):
+                raise
+            _cache_wylaczony = True
+            log.warning("Bedrock odrzucil punkt cache (%s) - cache promptu wylaczony, powtarzam bez punktow",
+                        blad.response.get("Error", {}).get("Message"))
+            zadanie["messages"] = _bez_punktow_cache(zadanie["messages"])
+            czesci, powod, uzycie = _strumien(zadanie)
     except ClientError as blad:
         # Ponawianie zrobil juz klient boto3. Jesli mimo to nie przeszlo,
         # limit jest wyczerpany na dluzej - mowimy o tym wprost, zamiast
@@ -249,9 +303,11 @@ def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model)
             ) from blad
         raise
     log.info(
-        "wywolanie modelu: wejscie=%s wyjscie=%s",
+        "wywolanie modelu: wejscie=%s wyjscie=%s cache_odczyt=%s cache_zapis=%s",
         uzycie.get("inputTokens"),
         uzycie.get("outputTokens"),
+        uzycie.get("cacheReadInputTokens"),
+        uzycie.get("cacheWriteInputTokens"),
     )
     # Koszt wywolania do licznika biezacej akcji (tokenomia) - same liczby tokenow.
     tokenomia.dolicz(model, uzycie)
@@ -575,7 +631,10 @@ def sporzadz_projekt(
     """Przebieg 2 - wypelnienie wzoru zwalidowanymi danymi i ustaleniami z rozmowy.
     `personalizacja`: zasady i styl kancelarii (blok tekstu do polecenia)."""
     ustalenia = _ustalenia(rozmowa or [])
-    tresc = [{"text": prompty.polecenie_generowania(wzor, dane, opis, legenda, ustalenia, personalizacja)}]
+    # Wzor kancelarii (blok staly) przed punktem cache: kolejne sprawy na tym
+    # samym wzorze czytaja go z cache; dane sprawy i polecenie ida po punkcie.
+    staly, zmienny = prompty.polecenie_generowania_bloki(wzor, dane, opis, legenda, ustalenia, personalizacja)
+    tresc = [{"text": staly}, PUNKT_CACHE, {"text": zmienny}]
     return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc))
 
 
@@ -834,8 +893,9 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
     Kontekst sprawy (odczytane dane) wchodzi jako pierwsza tura uzytkownika,
     zeby nie powielac go w kazdej wiadomosci.
     """
+    # Punkt cache za kontekstem: od drugiej tury kontekst sprawy wraca z cache.
     tury = [
-        {"role": "user", "content": [{"text": kontekst + "\n\n" + prompty.PIERWSZE_PYTANIA}]},
+        {"role": "user", "content": [{"text": kontekst + "\n\n" + prompty.PIERWSZE_PYTANIA}, PUNKT_CACHE]},
     ]
     for w in historia:
         rola = "user" if w["rola"] == "uzytkownik" else "assistant"
@@ -843,6 +903,13 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
             tury[-1]["content"].append({"text": w["tresc"]})
         else:
             tury.append({"role": rola, "content": [{"text": w["tresc"]}]})
+    # Drugi punkt za ostatnia odpowiedzia asystenta: cala dotychczasowa rozmowa
+    # jest prefiksem nastepnej tury, wiec czytamy ja z cache zamiast placic
+    # za nia od nowa (limit Bedrock to 4 punkty na wywolanie - uzywamy 2).
+    for tura in reversed(tury[1:]):
+        if tura["role"] == "assistant":
+            tura["content"].append(PUNKT_CACHE)
+            break
     if wiadomosc is None:
         # pierwsza tura: pytania wstepne - kontekst juz jest ostatnia tura uzytkownika
         ostatnia = tury.pop()

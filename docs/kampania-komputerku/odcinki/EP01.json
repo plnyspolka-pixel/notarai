@@ -1,0 +1,770 @@
+{
+  "seria": "komputerku",
+  "odcinek": 1,
+  "tytul": "Poniedziałek, 8:57",
+  "funkcja_notarai": "Sporządzanie projektu aktu notarialnego z własnego wzoru kancelarii i uprzednio odczytanych dokumentów (app.py POST /api/sprawy/{id}/projekt, docs/styl-i-zasady.md)",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: zegar ścienny pokazujący 8:57, recepcja kancelarii w tle, ciepłe światło poranne",
+      "czas_s": 5,
+      "prompt_delta": "wall clock showing 8:57, reception desk background, warm morning light, no characters in foreground",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u2",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K3",
+      "klatka_startowa": "DO_WYGENEROWANIA: słuchawka telefonu na biurku sekretariatu, drukarka w tle, drzwi wejściowe",
+      "czas_s": 5,
+      "prompt_delta": "phone handset on reception desk, printer in background, entrance door visible, no characters",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "postac": "kuba",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kadr_K6.jpg",
+      "kwestia": "Basiu, gdzie są dokumenty do jutrzejszej sprzedaży?",
+      "kwestia_v3": "[curious, slightly urgent] Basiu, gdzie są dokumenty do jutrzejszej sprzedaży?",
+      "emocja": "lekka niecierpliwość, pytający ton",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Tak, jutro o jedenastej trzydzieści. Termin jest zapisany.",
+      "kwestia_v3": "[confident, matter-of-fact] Tak, jutro o jedenastej trzydzieści. [short pause] Termin jest zapisany.",
+      "emocja": "profesjonalna, skupiona, rozmawia przez telefon",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u5",
+      "typ": "mowiace",
+      "postac": "gosc:pawel",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: mężczyzna ok. 45 lat w drzwiach kancelarii, trzyma kopertę z dokumentem, uśmiecha się uprzejmie",
+      "kwestia": "Dzień dobry. Ja tylko na chwilę, przyniosłem jeszcze dokument.",
+      "kwestia_v3": "[polite, slightly hurried] Dzień dobry. Ja tylko na chwilę, [short pause] przyniosłem jeszcze dokument.",
+      "emocja": "uprzejmy, lekko spieszący się",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "man mid-40s at entrance door holding envelope, polite smile, natural office light from windows"
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Dzień dobry. Już się panem zajmuję.",
+      "kwestia_v3": "[warm, professional] Dzień dobry. [short pause] Już się panem zajmuję.",
+      "emocja": "uprzejma, wielozadaniowa",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u7",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5.jpg",
+      "kwestia": "Basiu, sprawa pani Ireny?",
+      "kwestia_v3": "[focused, brisk] Basiu, sprawa pani Ireny?",
+      "emocja": "skupiona, operacyjna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Już sprawdzam.",
+      "kwestia_v3": "[deadpan, efficient] Już sprawdzam.",
+      "emocja": "opanowana, przeciążona ale profesjonalna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u9",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Kalendarz kancelarii — zaplanowany termin: wtorek 17 listopada, godz. 11:30, sprzedaż nieruchomości, sprawa NOWAK — KACZMAREK, identyfikator S-041-2026",
+      "grafika": [
+        "overlay_kalendarz_termin"
+      ]
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Irena Nowak. Jutro, jedenasta trzydzieści. Teczka jest założona.",
+      "kwestia_v3": "[confident, matter-of-fact] Irena Nowak. [short pause] Jutro, jedenasta trzydzieści. [short pause] Teczka jest założona.",
+      "emocja": "pewna, informuje Martę",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5
+    },
+    {
+      "id": "u11",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Dobrze. Zobaczmy, co już mamy.",
+      "kwestia_v3": "[focused, brisk] Dobrze. [short pause] Zobaczmy, co już mamy.",
+      "emocja": "rzeczowa, przechodzi do działania",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "postac": "gosc:pawel",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: mężczyzna ok. 45 lat przy recepcji, podaje papierowy dokument Basi, teczka na blacie",
+      "kwestia": "To ten dokument, o który pani prosiła.",
+      "kwestia_v3": "[polite, helpful] To ten dokument, o który pani prosiła.",
+      "emocja": "pomocny, uprzejmy",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "man mid-40s handing paper document across reception desk to Basia, document visible but no legible text"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Dziękuję. Dołączę go do sprawy. Proszę zaczekać chwilę.",
+      "kwestia_v3": "[warm, professional] Dziękuję. [short pause] Dołączę go do sprawy. [short pause] Proszę zaczekać chwilę.",
+      "emocja": "uprzejma, skupiona",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5
+    },
+    {
+      "id": "u14",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Mobilny widok sprawy NOWAK — KACZMAREK w NotarAI na telefonie — lista plików sprawy, przycisk Aparat / Dodaj plik",
+      "grafika": [
+        "overlay_telefon_sprawa"
+      ]
+    },
+    {
+      "id": "u15",
+      "typ": "bez_mowy",
+      "kadr": "C_przez_ramie",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: dłonie Basi trzymające telefon, ekran pokazuje UI aparatu NotarAI, dokument na blacie gotowy do sfotografowania",
+      "czas_s": 5,
+      "prompt_delta": "Basia hands holding smartphone, NotarAI camera UI on screen, paper document flat on desk below phone, over-shoulder angle",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u16",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Ekran telefonu: podgląd aparatu NotarAI, naciśnięcie przycisku Wyślij, komunikat potwierdzający dodanie pliku do sprawy",
+      "grafika": [
+        "overlay_aparat_wyslij"
+      ]
+    },
+    {
+      "id": "u17",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Komputer Marty — lista plików sprawy NOWAK — KACZMAREK, nowy plik JPG (zaświadczenie zarządcy D08/D04) widoczny na liście z datą i godziną dodania",
+      "grafika": [
+        "overlay_plik_nowy"
+      ]
+    },
+    {
+      "id": "u18",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Widzę. Zdjęcie jest już w teczce.",
+      "kwestia_v3": "[confident, matter-of-fact] Widzę. [short pause] Zdjęcie jest już w teczce.",
+      "emocja": "spokojna satysfakcja, potwierdza",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u19",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "To dobrze, bo za chwilę zadzwonią z następną sprawą.",
+      "kwestia_v3": "[deadpan, dry] To dobrze, [short pause] bo za chwilę zadzwonią z następną sprawą.",
+      "emocja": "sucha ironia, zmęczenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u20",
+      "typ": "mowiace",
+      "postac": "kuba",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Mamy już wszystko do projektu?",
+      "kwestia_v3": "[curious, slightly uncertain] Mamy już wszystko do projektu?",
+      "emocja": "dociekliwy, lekko niepewny",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u21",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Do pierwszej wersji — mamy materiały odczytane w piątek. Sprawdźmy jeszcze pola.",
+      "kwestia_v3": "[focused, matter-of-fact] Do pierwszej wersji — mamy materiały odczytane w piątek. [short pause] Sprawdźmy jeszcze pola.",
+      "emocja": "rzeczowa, precyzyjna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6
+    },
+    {
+      "id": "u22",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Widok Weryfikacji odczytu w sprawie NOWAK — KACZMAREK — dane wyciągnięte z wcześniej przetworzonych skanów, filtr Wymagają uwagi, widoczne oznaczone pola z brakami lub niepewnymi wartościami",
+      "grafika": [
+        "overlay_weryfikacja_odczytu",
+        "status_wymagaja_uwagi"
+      ]
+    },
+    {
+      "id": "u23",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Tutaj trzeba coś potwierdzić. Tego nie uzupełniamy na wyczucie.",
+      "kwestia_v3": "[firm, matter-of-fact] Tutaj trzeba coś potwierdzić. [short pause] Tego nie uzupełniamy na wyczucie.",
+      "emocja": "stanowcza, zawodowa",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5
+    },
+    {
+      "id": "u24",
+      "typ": "mowiace",
+      "postac": "kuba",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Dopytam klienta.",
+      "kwestia_v3": "[confident, decisive] Dopytam klienta.",
+      "emocja": "zdecydowany, bierze odpowiedzialność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u25",
+      "typ": "mowiace",
+      "postac": "helena",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "Marto, chciałabym dziś przejrzeć projekt na jutro. Bez zostawiania tego na ostatnią chwilę.",
+      "kwestia_v3": "[calm, authoritative] Marto, chciałabym dziś przejrzeć projekt na jutro. [short pause] Bez zostawiania tego na ostatnią chwilę.",
+      "emocja": "spokojna stanowczość, wymagająca",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6
+    },
+    {
+      "id": "u26",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Dane są już odczytane. Przygotuję pierwszą wersję na naszym wzorze.",
+      "kwestia_v3": "[confident, reassuring] Dane są już odczytane. [short pause] Przygotuję pierwszą wersję na naszym wzorze.",
+      "emocja": "pewna, operacyjna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5
+    },
+    {
+      "id": "u27",
+      "typ": "mowiace",
+      "postac": "helena",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "Pierwszą wersję — dobrze. Potem ją sprawdzimy.",
+      "kwestia_v3": "[calm, deliberate] Pierwszą wersję — dobrze. [short pause] Potem ją sprawdzimy.",
+      "emocja": "aprobata z zastrzeżeniem, kontrolująca",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u28",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "No dobrze, komputerku. Bierzemy się za akt.",
+      "kwestia_v3": "[warm, slightly amused] No dobrze, komputerku. [short pause] Bierzemy się za akt.",
+      "emocja": "lekki uśmiech, skupienie, naturalny nawyk",
+      "ruch_kamery": "statyczna",
+      "grafika": [
+        "dymek_komputerku"
+      ],
+      "czas_s": 4
+    },
+    {
+      "id": "u29",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Kursor Marty klika przycisk Sporządź projekt w sprawie NOWAK — KACZMAREK, pojawia się komunikat Sporządzam projekt…",
+      "grafika": [
+        "status_sporzadzam_projekt"
+      ]
+    },
+    {
+      "id": "u30",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: plan ogólny kancelarii — Basia przy telefonie, Kuba rozmawia z klientem przy biurku, Marta przegląda dokumenty, Helena w tle w gabinecie",
+      "czas_s": 10,
+      "prompt_delta": "wide master shot, Basia on phone at reception, Kuba talking to client at desk, Marta reviewing papers, Helena visible through office doorway, parallel activity, calm professional atmosphere",
+      "ruch_kamery": "powolny panoramiczny ruch w lewo"
+    },
+    {
+      "id": "u31",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal zegara ściennego pokazującego 9:24",
+      "czas_s": 3,
+      "prompt_delta": "close detail of wall clock showing 9:24, warm light, shallow depth of field",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u32",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Widok Projekt dokumentu w sprawie NOWAK — KACZMAREK — wygenerowany projekt aktu sprzedaży z oznaczonymi miejscami wymagającymi uzupełnienia lub weryfikacji (znaczniki braków i wariantów), przycisk Pobierz jako Word",
+      "grafika": [
+        "overlay_projekt_dokumentu",
+        "status_gotowe"
+      ]
+    },
+    {
+      "id": "u33",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Projekt jest. Zostały miejsca do wyjaśnienia.",
+      "kwestia_v3": "[confident, matter-of-fact] Projekt jest. [short pause] Zostały miejsca do wyjaśnienia.",
+      "emocja": "spokojna satysfakcja, rzeczowa",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u34",
+      "typ": "mowiace",
+      "postac": "kuba",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Przynajmniej wiadomo dokładnie, czego szukamy.",
+      "kwestia_v3": "[slightly relieved, dry] Przynajmniej wiadomo dokładnie, czego szukamy.",
+      "emocja": "ulga z nutą humoru",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u35",
+      "typ": "mowiace",
+      "postac": "helena",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "Tu jeszcze trzeba wyjaśnić stan faktyczny.",
+      "kwestia_v3": "[calm, precise] Tu jeszcze trzeba wyjaśnić stan faktyczny.",
+      "emocja": "skupiona, analityczna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u36",
+      "typ": "mowiace",
+      "postac": "marta",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Dlatego zostawił to do sprawdzenia.",
+      "kwestia_v3": "[matter-of-fact, calm] Dlatego zostawił to do sprawdzenia.",
+      "emocja": "rzeczowa, bez defensywności",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u37",
+      "typ": "mowiace",
+      "postac": "helena",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "I bardzo dobrze. Dokumentów się nie uzupełnia domysłami.",
+      "kwestia_v3": "[calm, approving, deliberate] I bardzo dobrze. [short pause] Dokumentów się nie uzupełnia domysłami.",
+      "emocja": "aprobata, zawodowa zasada",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5
+    },
+    {
+      "id": "u38",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Pani rejent, dzwoniła jeszcze pani Irena. Chciałaby z panią porozmawiać przed jutrzejszą czynnością.",
+      "kwestia_v3": "[calm, professional, slightly careful] Pani rejent, dzwoniła jeszcze pani Irena. [short pause] Chciałaby z panią porozmawiać przed jutrzejszą czynnością.",
+      "emocja": "spokojna, dyskretna, ostrożna",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6
+    },
+    {
+      "id": "u39",
+      "typ": "mowiace",
+      "postac": "helena",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "Oczywiście.",
+      "kwestia_v3": "[calm, open] Oczywiście.",
+      "emocja": "spokojna gotowość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3
+    },
+    {
+      "id": "u40",
+      "typ": "mowiace",
+      "postac": "basia",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "Powiedziała, że najlepiej… bez syna.",
+      "kwestia_v3": "[hesitant, careful] Powiedziała, że najlepiej… [short pause] bez syna.",
+      "emocja": "delikatna, dyskretna, lekkie wahanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4
+    },
+    {
+      "id": "u41",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "czas_s": 3,
+      "prompt_delta": "Helena medium close-up, slowly sets down pen on desk, neutral expression shifting to quiet thought, no dialogue",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u42",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/OUTRO_komputerku.png",
+      "czas_s": 4
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 5,
+      "tekst": "Poniedziałek, 8:57"
+    },
+    {
+      "od_s": 10,
+      "do_s": 14,
+      "tekst": "Basiu, gdzie są dokumenty\ndo jutrzejszej sprzedaży?"
+    },
+    {
+      "od_s": 14,
+      "do_s": 18,
+      "tekst": "Tak, jutro o jedenastej trzydzieści.\nTermin jest zapisany."
+    },
+    {
+      "od_s": 18,
+      "do_s": 22,
+      "tekst": "Dzień dobry. Ja tylko na chwilę,\nprzyniosłem jeszcze dokument."
+    },
+    {
+      "od_s": 22,
+      "do_s": 25,
+      "tekst": "Dzień dobry.\nJuż się panem zajmuję."
+    },
+    {
+      "od_s": 25,
+      "do_s": 28,
+      "tekst": "Basiu, sprawa pani Ireny?"
+    },
+    {
+      "od_s": 28,
+      "do_s": 31,
+      "tekst": "Już sprawdzam."
+    },
+    {
+      "od_s": 31,
+      "do_s": 36,
+      "tekst": "Kalendarz — jutro, 11:30\nNOWAK — KACZMAREK / sprzedaż lokalu"
+    },
+    {
+      "od_s": 36,
+      "do_s": 41,
+      "tekst": "Irena Nowak. Jutro, jedenasta trzydzieści.\nTeczka jest założona."
+    },
+    {
+      "od_s": 41,
+      "do_s": 44,
+      "tekst": "Dobrze. Zobaczmy, co już mamy."
+    },
+    {
+      "od_s": 44,
+      "do_s": 47,
+      "tekst": "To ten dokument,\no który pani prosiła."
+    },
+    {
+      "od_s": 47,
+      "do_s": 52,
+      "tekst": "Dziękuję. Dołączę go do sprawy.\nProszę zaczekać chwilę."
+    },
+    {
+      "od_s": 52,
+      "do_s": 57,
+      "tekst": "Pliki sprawy — aparat → Wyślij"
+    },
+    {
+      "od_s": 57,
+      "do_s": 62,
+      "tekst": "Nowy plik w teczce — widoczny\nna komputerze Marty"
+    },
+    {
+      "od_s": 62,
+      "do_s": 65,
+      "tekst": "Widzę. Zdjęcie jest już w teczce."
+    },
+    {
+      "od_s": 65,
+      "do_s": 69,
+      "tekst": "To dobrze, bo za chwilę zadzwonią\nz następną sprawą."
+    },
+    {
+      "od_s": 69,
+      "do_s": 72,
+      "tekst": "Mamy już wszystko do projektu?"
+    },
+    {
+      "od_s": 72,
+      "do_s": 78,
+      "tekst": "Do pierwszej wersji — mamy materiały\nodczytane w piątek. Sprawdźmy pola."
+    },
+    {
+      "od_s": 78,
+      "do_s": 85,
+      "tekst": "Weryfikacja odczytu —\npola wymagające uwagi"
+    },
+    {
+      "od_s": 85,
+      "do_s": 90,
+      "tekst": "Tutaj trzeba coś potwierdzić.\nTego nie uzupełniamy na wyczucie."
+    },
+    {
+      "od_s": 90,
+      "do_s": 93,
+      "tekst": "Dopytam klienta."
+    },
+    {
+      "od_s": 93,
+      "do_s": 99,
+      "tekst": "Marto, chciałabym dziś przejrzeć\nprojekt na jutro."
+    },
+    {
+      "od_s": 99,
+      "do_s": 104,
+      "tekst": "Dane są odczytane. Przygotuję\npierwszą wersję na naszym wzorze."
+    },
+    {
+      "od_s": 104,
+      "do_s": 108,
+      "tekst": "Pierwszą wersję — dobrze.\nPotem ją sprawdzimy."
+    },
+    {
+      "od_s": 108,
+      "do_s": 112,
+      "tekst": "No dobrze, komputerku.\nBierzemy się za akt."
+    },
+    {
+      "od_s": 112,
+      "do_s": 117,
+      "tekst": "Sporządzam projekt…"
+    },
+    {
+      "od_s": 117,
+      "do_s": 127,
+      "tekst": "Kancelaria pracuje równolegle\n— czas: 8:57 → 9:24"
+    },
+    {
+      "od_s": 127,
+      "do_s": 130,
+      "tekst": "9:24"
+    },
+    {
+      "od_s": 130,
+      "do_s": 137,
+      "tekst": "Projekt dokumentu —\nmiejsca do wyjaśnienia oznaczone"
+    },
+    {
+      "od_s": 137,
+      "do_s": 141,
+      "tekst": "Projekt jest.\nZostały miejsca do wyjaśnienia."
+    },
+    {
+      "od_s": 141,
+      "do_s": 145,
+      "tekst": "Przynajmniej wiadomo dokładnie,\nczego szukamy."
+    },
+    {
+      "od_s": 145,
+      "do_s": 149,
+      "tekst": "Tu jeszcze trzeba wyjaśnić\nstan faktyczny."
+    },
+    {
+      "od_s": 149,
+      "do_s": 152,
+      "tekst": "Dlatego zostawił to do sprawdzenia."
+    },
+    {
+      "od_s": 152,
+      "do_s": 157,
+      "tekst": "I bardzo dobrze. Dokumentów się\nnie uzupełnia domysłami."
+    },
+    {
+      "od_s": 157,
+      "do_s": 163,
+      "tekst": "Pani rejent, dzwoniła pani Irena.\nChciałaby porozmawiać przed jutrem."
+    },
+    {
+      "od_s": 163,
+      "do_s": 166,
+      "tekst": "Oczywiście."
+    },
+    {
+      "od_s": 166,
+      "do_s": 170,
+      "tekst": "Powiedziała, że najlepiej…\nbez syna."
+    },
+    {
+      "od_s": 170,
+      "do_s": 173,
+      "tekst": ""
+    },
+    {
+      "od_s": 173,
+      "do_s": 177,
+      "tekst": "NotarAI\nMniej chaosu. Więcej czasu na to, co ważne."
+    },
+    {
+      "od_s": 177,
+      "do_s": 181,
+      "tekst": "Kancelaria pod Siódemką\n— ciąg dalszy nastąpi."
+    }
+  ],
+  "kontrola": [
+    "Paweł Nowak (gosc:pawel) NIE jest pełnomocnikiem Ireny ani współwłaścicielem — nie nadawać mu żadnej roli prawnej w dialogu ani opisie ujęcia.",
+    "Dokument przyniesiony przez Pawła to D08: zaświadczenie od zarządcy nieruchomości dotyczące rozliczeń eksploatacyjnych — nie bankowa umowa kredytu ani żaden inny dokument.",
+    "D04 to fotografia D08 wykonana przez Basię — jeden dokument, dwa pliki; nie sugerować, że to dwa odrębne zaświadczenia.",
+    "Zdjęcie dodane przez Basię (u15–u16) jest załącznikiem sprawy; NIE jest automatycznie włączane do wcześniejszego odczytu ani nie uruchamia ponownego OCR.",
+    "Projekt w u29–u32 korzysta z dokumentów odczytanych w piątek (D13), nie z nowo dodanego zdjęcia.",
+    "Marta w u28–u29 KLIKA przycisk Sporządź projekt po wypowiedzeniu 'Komputerku' — brak aktywnego wake-word; widz musi widzieć kliknięcie.",
+    "Termin czynności: wtorek 17 listopada, godz. 11:30 — pokazać dokładnie tę datę i godzinę w ekranie kalendarza (u9).",
+    "Identyfikator sprawy na ekranach: S-041-2026, nazwa: NOWAK — KACZMAREK / sprzedaż lokalu — spójne we wszystkich ujęciach ekranowych.",
+    "Montażowy skok czasu: zegar 8:57 (u1) → zegar 9:24 (u31) — nie sugerować, że projekt generuje się natychmiastowo.",
+    "Projekt Word (u32) musi zawierać oznaczone miejsca wymagające uzupełnienia — pokazać tylko stany rzeczywiście uzyskiwalne w demonstracji na danych fikcyjnych.",
+    "Prośba Ireny 'bez syna' (u40) — Basia przekazuje informację dyskretnie, bez diagnozy, oskarżenia ani sugestii przestępstwa.",
+    "Wszystkie dane na ekranach (nazwiska, numery KW, PESEL, ceny, adresy) muszą być fikcyjne i wewnętrznie spójne z kanonem: cena 640 000 zł, powierzchnia 56,40 m².",
+    "Ekrany produktu (u9, u14, u16, u17, u22, u29, u32) muszą być nagrane z rzeczywistego konta demonstracyjnego app.notarai.pl — bez makiet udających UI.",
+    "Mobilny dostęp do sprawy (u14) wymaga potwierdzenia działania na telefonie w wybranym trybie przechowywania danych (SaaS lub lokalny).",
+    "Plik dodany przez Basię na telefonie musi być widoczny na komputerze Marty (u17) — potwierdzić synchronizację między urządzeniami przed nagraniem.",
+    "Logotyp i identyfikacja wizualna: wyłącznie oryginalna paleta NotarAI (granat #071D49, niebieski #2B52D9, turkus #00CFFF, Montserrat) — bez burgundowego ani złotego wariantu.",
+    "Helena nie popełnia rażącego błędu prawnego w żadnej kwestii — jej uwagi (u35, u37) są merytorycznie poprawne i wymagają autoryzacji notariusza przed nagraniem.",
+    "Projekt aktu (u32–u37) jest wyraźnie projektem do weryfikacji, nie dokumentem gotowym do podpisu — żaden dialog ani grafika nie może sugerować inaczej.",
+    "Przed nagraniem: przygotować fikcyjną sprawę S-041-2026 z odczytanymi materiałami i wzorem aktu w NotarAI; przeprowadzić pełne generowanie projektu i zmierzyć rzeczywisty czas.",
+    "Przed nagraniem: zatwierdzić materiał przez redaktora prawnego i praktykującego notariusza zgodnie z wymogami biblii (rozdz. 12.3)."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 8062,
+      "outputTokens": 10794,
+      "totalTokens": 50230,
+      "cacheReadInputTokens": 0,
+      "cacheWriteInputTokens": 31374,
+      "cacheDetails": [
+        {
+          "ttl": "5m",
+          "inputTokens": 31374
+        }
+      ]
+    },
+    "uwagi": [],
+    "czas_s": 82.5
+  }
+}

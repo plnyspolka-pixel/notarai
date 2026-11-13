@@ -1,0 +1,493 @@
+{
+  "seria": "komputerku",
+  "odcinek": 8,
+  "tytul": "To moja decyzja",
+  "funkcja_notarai": "Projekt aktu, kontrola danych, własny wzór i archiwum sprawy (README.md, app.py, docs/styl-i-zasady.md)",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "D_detal",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: zbliżenie na dwie papierowe notatki na biurku Heleny — T1 z przekreśloną datą 1 XII i T2 z datą 15 I; ręka Heleny spoczywa obok",
+      "czas_s": 5,
+      "prompt_delta": "close-up two synthetic transaction notes on walnut desk, one date crossed out, one confirmed, older woman's hand resting beside papers, calm morning light"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Teraz to są ustalenia stron.",
+      "kwestia_v3": "[quiet, calm] Teraz to są ustalenia stron.",
+      "emocja": "skupienie, cicha ulga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "senior notary looks down at papers with quiet relief, minimal expression, soft natural light"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadr_K3m.jpg",
+      "kwestia": "Strony potwierdziły przyjście.",
+      "kwestia_v3": "[matter-of-fact, calm] Strony potwierdziły przyjście.",
+      "emocja": "rzeczowość, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "secretary glances at calendar on screen, composed and efficient, reception desk"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "kuba",
+      "kamera": "K4",
+      "klatka_startowa": "kadr_K6m.jpg",
+      "kwestia": "Materiały do kontroli są razem.",
+      "kwestia_v3": "[confident, matter-of-fact] Materiały do kontroli są razem.",
+      "emocja": "spokojne skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "young male applicant hands over organised file folder to colleague, calm hallway, match cut rhythm"
+    },
+    {
+      "id": "u5",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Tu już mamy uzgodniony termin. Teraz całość do kontroli.",
+      "kwestia_v3": "[focused, matter-of-fact] Tu już mamy uzgodniony termin. [short pause] Teraz całość do kontroli.",
+      "emocja": "profesjonalne skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "notary reviews Word document draft on laptop screen, points to confirmed date field, composed posture"
+    },
+    {
+      "id": "u6",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Projekt dokumentu v2 (D15) otwarty w sprawie NOWAK — KACZMAREK S-041-2026; widoczny raport zgodności ze stylem kancelarii i oznaczone pola źródłowe; termin wydania 15.01.2027 uzupełniony; brak czerwonych znaczników braków",
+      "grafika": [
+        "status_projekt_v2",
+        "status_zgodnosc_stylu"
+      ]
+    },
+    {
+      "id": "u7",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "postac": "helena",
+      "kamera": "K1",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Wreszcie wiem, skąd mamy każdą z tych informacji.",
+      "kwestia_v3": "[calm, reflective] Wreszcie wiem, skąd mamy każdą z tych informacji.",
+      "emocja": "spokojne zadowolenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "senior notary and younger notary stand at main desk reviewing organised file, warm natural light, medium two-shot"
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "I gdzie jeszcze trzeba spojrzeć.",
+      "kwestia_v3": "[calm, slightly wry] I gdzie jeszcze trzeba spojrzeć.",
+      "emocja": "lekki uśmiech, profesjonalizm",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "younger notary gives a small knowing smile, holding open file, soft office light"
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:pawel",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł Nowak (mężczyzna ok. 45 lat, ciemne włosy, marynarka) siedzi obok matki Ireny w poczekalni kancelarii, pochyla się lekko ku niej",
+      "kwestia": "Mamo, chciałem ci pomóc. Zacząłem decydować za ciebie.",
+      "kwestia_v3": "[hesitant, sincere] Mamo, chciałem ci pomóc. [short pause] Zacząłem decydować za ciebie.",
+      "emocja": "skrucha, szczerość bez defensywności",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "middle-aged man speaks quietly to elderly mother in waiting room, sincere remorse, leaning slightly forward"
+    },
+    {
+      "id": "u10",
+      "typ": "bez_mowy",
+      "kadr": "D_detal",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal dłoni Ireny na poręczy krzesła w poczekalni",
+      "czas_s": 3,
+      "prompt_delta": "close-up elderly woman's hand resting on chair armrest in waiting room, still and calm"
+    },
+    {
+      "id": "u11",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:irena",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena Nowak (kobieta ok. 73 lat, siwe włosy, elegancki sweter) patrzy na syna spokojnie i ciepło",
+      "kwestia": "Wiem. Teraz mi po prostu pomóż spokojnie się przeprowadzić.",
+      "kwestia_v3": "[warm, calm, resolved] Wiem. [short pause] Teraz mi po prostu pomóż spokojnie się przeprowadzić.",
+      "emocja": "spokój, ciepło, stanowczość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "elderly woman looks at son with calm warmth and quiet resolve, waiting room, natural light"
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "postac": "helena",
+      "kamera": "K1",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Własność i wydanie lokalu to nie to samo. Termin wydania ustalili państwo na piętnastego stycznia, zgadza się?",
+      "kwestia_v3": "[measured, clear, professional] Własność i wydanie lokalu to nie to samo. [short pause] Termin wydania ustalili państwo na piętnastego stycznia, zgadza się?",
+      "emocja": "profesjonalna powaga, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 8,
+      "prompt_delta": "senior notary addresses all parties at main desk, wide dignified shot, explains key transaction terms clearly"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:irena",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena Nowak siedzi naprzeciwko Heleny przy biurku, wyprostowana, spokojny wyraz twarzy",
+      "kwestia": "Tak. To moja decyzja.",
+      "kwestia_v3": "[calm, firm, resolved] Tak. [short pause] To moja decyzja.",
+      "emocja": "spokojne zdecydowanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "elderly woman seated at notary desk, calm and firm expression, direct eye contact, decisive moment"
+    },
+    {
+      "id": "u14",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:joanna",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Joanna Kaczmarek (kobieta ok. 34 lat, jasne włosy, żakiet) siedzi obok męża Roberta przy biurku Heleny",
+      "kwestia": "Przedłużyliśmy najem. To dla nas teraz jasne.",
+      "kwestia_v3": "[relieved, calm] Przedłużyliśmy najem. [short pause] To dla nas teraz jasne.",
+      "emocja": "ulga, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "young woman buyer seated at notary desk, relieved calm expression, husband beside her"
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:robert",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Robert Kaczmarek (mężczyzna ok. 36 lat, krótkie ciemne włosy, koszula) siedzi obok żony Joanny",
+      "kwestia": "Tak, możemy poczekać do piętnastego stycznia.",
+      "kwestia_v3": "[calm, matter-of-fact] Tak, możemy poczekać do piętnastego stycznia.",
+      "emocja": "spokojne potwierdzenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "male buyer nods calmly confirming revised handover date, seated at notary desk, natural light"
+    },
+    {
+      "id": "u16",
+      "typ": "bez_mowy",
+      "kadr": "D_detal",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal teczki sprawy NOWAK — KACZMAREK zamykanej na biurku Heleny",
+      "czas_s": 5,
+      "prompt_delta": "close-up synthetic case file folder being closed on walnut desk, soft sound implied, warm light, no legible text"
+    },
+    {
+      "id": "u17",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: zamknięte drzwi gabinetu Heleny widziane z korytarza",
+      "czas_s": 3,
+      "prompt_delta": "closed notary office door seen from corridor, time passing implied, quiet professional atmosphere"
+    },
+    {
+      "id": "u18",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: strony — Irena, Paweł, Joanna i Robert — wychodzą z gabinetu Heleny do korytarza",
+      "czas_s": 5,
+      "prompt_delta": "all parties leaving notary office through corridor door, calm and composed, transaction completed off camera"
+    },
+    {
+      "id": "u19",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:irena",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena Nowak zatrzymuje się przy wyjściu i odwraca do Heleny stojącej w progu gabinetu",
+      "kwestia": "Dziękuję, że pani mnie wysłuchała.",
+      "kwestia_v3": "[warm, heartfelt, quiet] Dziękuję, że pani mnie wysłuchała.",
+      "emocja": "wdzięczność, ciepło",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "elderly woman pauses at exit, turns to notary with genuine gratitude, close-up face, real breath, quiet"
+    },
+    {
+      "id": "u20",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Od tego tu jestem.",
+      "kwestia_v3": "[warm, calm, understated] Od tego tu jestem.",
+      "emocja": "spokojne ciepło, godność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "senior notary stands in office doorway, calm warm smile, quiet professional dignity"
+    },
+    {
+      "id": "u21",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "No i jak, pani rejent, nasz komputerek?",
+      "kwestia_v3": "[light, slightly playful] No i jak, pani rejent, nasz komputerek?",
+      "emocja": "lekka żartobliwość, rozluźnienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "younger notary collects documents with a light smile, asks senior colleague a casual question, relaxed atmosphere"
+    },
+    {
+      "id": "u22",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Przydał się. Ale ostatnie słowo wciąż należy do nas.",
+      "kwestia_v3": "[dry, calm, matter-of-fact] Przydał się. [short pause] Ale ostatnie słowo wciąż należy do nas.",
+      "emocja": "suchy spokój, lekki uśmiech",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "senior notary gives a dry calm smile, opens new case file on desk, measured and confident"
+    },
+    {
+      "id": "u23",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Komputerku, zobaczmy, co jest w następnej teczce.",
+      "kwestia_v3": "[calm, natural, slightly amused] Komputerku, zobaczmy, co jest w następnej teczce.",
+      "emocja": "naturalny nawyk, lekki uśmiech",
+      "ruch_kamery": "statyczna",
+      "grafika": [
+        "dymek_komputerku"
+      ],
+      "czas_s": 4,
+      "prompt_delta": "silver-haired senior notary casually opens next case on laptop with a small smile, natural click visible, colleague surprised in background"
+    },
+    {
+      "id": "u24",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "czas_s": 3,
+      "prompt_delta": "younger notary reacts with surprised delight in background, second plane, natural expression"
+    },
+    {
+      "id": "u25",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/OUTRO_komputerku.png",
+      "czas_s": 4
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 5,
+      "tekst": ""
+    },
+    {
+      "od_s": 5,
+      "do_s": 8,
+      "tekst": "Teraz to są ustalenia stron."
+    },
+    {
+      "od_s": 8,
+      "do_s": 11,
+      "tekst": "Strony potwierdziły przyjście."
+    },
+    {
+      "od_s": 11,
+      "do_s": 14,
+      "tekst": "Materiały do kontroli są razem."
+    },
+    {
+      "od_s": 14,
+      "do_s": 19,
+      "tekst": "Tu już mamy uzgodniony termin.\nTeraz całość do kontroli."
+    },
+    {
+      "od_s": 19,
+      "do_s": 26,
+      "tekst": ""
+    },
+    {
+      "od_s": 26,
+      "do_s": 30,
+      "tekst": "Wreszcie wiem, skąd mamy\nkażdą z tych informacji."
+    },
+    {
+      "od_s": 30,
+      "do_s": 33,
+      "tekst": "I gdzie jeszcze trzeba spojrzeć."
+    },
+    {
+      "od_s": 33,
+      "do_s": 38,
+      "tekst": "Mamo, chciałem ci pomóc.\nZacząłem decydować za ciebie."
+    },
+    {
+      "od_s": 38,
+      "do_s": 41,
+      "tekst": ""
+    },
+    {
+      "od_s": 41,
+      "do_s": 46,
+      "tekst": "Wiem. Teraz mi po prostu\npomóż spokojnie się przeprowadzić."
+    },
+    {
+      "od_s": 46,
+      "do_s": 54,
+      "tekst": "Własność i wydanie lokalu\nto nie to samo."
+    },
+    {
+      "od_s": 54,
+      "do_s": 58,
+      "tekst": "Termin wydania ustalili państwo\nna piętnastego stycznia, zgadza się?"
+    },
+    {
+      "od_s": 58,
+      "do_s": 62,
+      "tekst": "Tak. To moja decyzja."
+    },
+    {
+      "od_s": 62,
+      "do_s": 66,
+      "tekst": "Przedłużyliśmy najem.\nTo dla nas teraz jasne."
+    },
+    {
+      "od_s": 66,
+      "do_s": 70,
+      "tekst": "Tak, możemy poczekać\ndo piętnastego stycznia."
+    },
+    {
+      "od_s": 70,
+      "do_s": 75,
+      "tekst": ""
+    },
+    {
+      "od_s": 75,
+      "do_s": 78,
+      "tekst": ""
+    },
+    {
+      "od_s": 78,
+      "do_s": 83,
+      "tekst": ""
+    },
+    {
+      "od_s": 83,
+      "do_s": 87,
+      "tekst": "Dziękuję, że pani mnie wysłuchała."
+    },
+    {
+      "od_s": 87,
+      "do_s": 90,
+      "tekst": "Od tego tu jestem."
+    },
+    {
+      "od_s": 90,
+      "do_s": 94,
+      "tekst": "No i jak, pani rejent, nasz komputerek?"
+    },
+    {
+      "od_s": 94,
+      "do_s": 99,
+      "tekst": "Przydał się. Ale ostatnie słowo\nwciąż należy do nas."
+    },
+    {
+      "od_s": 99,
+      "do_s": 103,
+      "tekst": "Komputerku, zobaczmy,\nco jest w następnej teczce."
+    },
+    {
+      "od_s": 103,
+      "do_s": 106,
+      "tekst": ""
+    },
+    {
+      "od_s": 106,
+      "do_s": 110,
+      "tekst": "Mniej chaosu.\nWięcej czasu na to, co ważne."
+    }
+  ],
+  "kontrola": [
+    "Sprawdzić, czy ekran u6 pokazuje wyłącznie funkcje rzeczywiście dostępne w NotarAI: projekt Word (D15), raport zgodności ze stylem kancelarii i oznaczone pola źródłowe — bez komunikatów 'zatwierdzone przez AI' ani automatycznego konkludowania.",
+    "Zweryfikować, że w ujęciu u12 i u13 dialog Heleny i Ireny nie sugeruje, że przeniesienie własności następuje przy wydaniu kluczy 15 stycznia — wydanie lokalu i przeniesienie własności to odrębne zdarzenia (kanon pkt 7).",
+    "Upewnić się, że w żadnym ujęciu nie pojawia się cena inna niż 640 000 zł ani powierzchnia inna niż 56,40 m².",
+    "Sprawdzić, że termin wydania lokalu we wszystkich rekwizytach i dialogach to 15 stycznia 2027 r. (T2), a data 1 grudnia nie pojawia się jako obowiązująca.",
+    "Zweryfikować, że Paweł w ujęciu u9 nie jest przedstawiany jako pełnomocnik ani strona aktu — wyłącznie jako syn towarzyszący matce.",
+    "Przed nagraniem ujęcia u16–u18 (upływ czasu / czynność poza kamerą) uzyskać zatwierdzenie praktykującego notariusza co do zgodności fabuły: płatność, finansowanie bankowe kupujących, stwierdzenie tożsamości, odczytanie aktu i ewentualny wniosek KW nie mogą być zasymulowane jako automatyczne.",
+    "Sprawdzić, że w ujęciu u23 ('Komputerku') widoczne jest ręczne kliknięcie lub otwarcie interfejsu — brak wake word / nasłuchu 24/7; nie sugerować głosowego wyzwalania bez wdrożonej integracji.",
+    "Zweryfikować, że grafika 'dymek_komputerku' w u23 pochodzi z pakietu 03_plansze_video i nie zawiera wymyślonego logo NotarAI ani elementów niezgodnych z identyfikacją wizualną (granat #071D49, niebieski #2B52D9, cyjan #00CFFF, Montserrat).",
+    "Upewnić się, że nazwa sprawy we wszystkich rekwizytach ekranowych brzmi 'NOWAK — KACZMAREK' z identyfikatorem S-041-2026, bez wariantów pisowni.",
+    "Sprawdzić continuity: projekt v2 (D15) pojawia się w u6 dopiero po uzgodnieniu warunków T2 — nie wcześniej niż w EP07 według osi czasu sezonu.",
+    "Zweryfikować, że postacie gościnne (Irena, Paweł, Joanna, Robert) mają wygenerowane klatki startowe zgodne z opisami z biblii intrygi (wiek, wygląd) i nie są mylone między ujęciami.",
+    "Przed emisją uzyskać autoryzację prawną praktykującego notariusza dla całego odcinka, w szczególności scen E08S06 i E08S08 dotyczących przebiegu czynności notarialnej.",
+    "Sprawdzić, że napisy nie przekraczają 42 znaków w wierszu i są zsynchronizowane z czas_s ujęć.",
+    "Zweryfikować, że dane demonstracyjne na ekranie u6 są syntetyczne: brak prawdziwych numerów PESEL, KW, rachunków bankowych ani danych osobowych."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 5560,
+      "outputTokens": 7265,
+      "totalTokens": 44199,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 58.9
+  }
+}
