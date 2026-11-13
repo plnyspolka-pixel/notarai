@@ -1,5 +1,8 @@
 # EP02 — Proszę nie przy nim
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Kuba na zapleczu półgłosem pyta Basię, czy komputerek dalej głodny. Dyskretny beat poza rozmową Ireny; nie przerywać sceny objętej tajemnicą. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 17.11.2026 · **Czas:** 78 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
