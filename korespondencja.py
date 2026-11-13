@@ -43,6 +43,7 @@ import os
 import re
 import secrets
 import ssl
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -646,6 +647,29 @@ def _zapisz_sprawy(katalog: Path, dane: dict) -> None:
     (katalog / PLIK_SPRAWY).write_text(json.dumps(dane, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+# Odczyt-zmiana-zapis korespondencja.json pod blokada sprawy: kilka przypisan
+# i ustalen naraz (kilka klikniec w krotkim czasie) nie gubi cudzych zmian.
+_BLOKADY: dict[str, threading.Lock] = {}
+_BLOKADA_BLOKAD = threading.Lock()
+
+
+def _blokada(katalog: Path) -> threading.Lock:
+    with _BLOKADA_BLOKAD:
+        return _BLOKADY.setdefault(str(katalog.resolve()), threading.Lock())
+
+
+def _zmien_sprawe(katalog: Path, zmiana):
+    """zmiana(dane) zmienia dane w miejscu; zapis i utrwalenie w S3 pod blokada,
+    na swiezo odczytanym pliku (takze po zmianie z drugiej kopii aplikacji)."""
+    with _blokada(katalog):
+        magazyn.pobierz_sprawe(katalog)
+        dane = wczytaj_sprawy_korespondencji(katalog)
+        wynik = zmiana(dane)
+        _zapisz_sprawy(katalog, dane)
+        magazyn.utrwal_sprawe(katalog)
+        return wynik
+
+
 def _czytaj_json(plik: Path) -> dict:
     try:
         return json.loads(plik.read_text("utf-8")) if plik.exists() else {}
@@ -783,39 +807,41 @@ def przypisz(id_wiad: str, katalog: Path, rola: str | None = None, kto: str = ""
     if wpis.get("message_id") and p["message_id"] != wpis["message_id"]:
         raise BladSkrzynki("W skrzynce pod tym numerem jest teraz inna wiadomość - sprawdź skrzynkę ponownie.")
 
-    dane = wczytaj_sprawy_korespondencji(katalog)
-    nadawca = p["nadawca"]
-    osoba = next((o for o in dane["osoby"] if nadawca["email"]
-                  and (o.get("email") or "").lower() == nadawca["email"]), None)
-    if osoba is None and nadawca["email"]:
-        osoba = {"imie": nadawca["imie"], "email": nadawca["email"], "rola": rola or "inny", "opis": ""}
-        dane["osoby"].append(osoba)
-    elif osoba is not None and rola:
-        osoba["rola"] = rola          # rola wskazana przy zatwierdzeniu jest rozstrzygajaca
-    rola = rola or (osoba or {}).get("rola") or "inny"
+    def dopisz(dane):
+        nadawca = p["nadawca"]
+        osoba = next((o for o in dane["osoby"] if nadawca["email"]
+                      and (o.get("email") or "").lower() == nadawca["email"]), None)
+        if osoba is None and nadawca["email"]:
+            osoba = {"imie": nadawca["imie"], "email": nadawca["email"], "rola": rola or "inny", "opis": ""}
+            dane["osoby"].append(osoba)
+        elif osoba is not None and rola:
+            osoba["rola"] = rola          # rola wskazana przy zatwierdzeniu jest rozstrzygajaca
+        rola_w = rola or (osoba or {}).get("rola") or "inny"
 
-    folder = katalog / ZALACZNIKI
-    folder.mkdir(exist_ok=True)
-    dzien = (p["data"] or datetime.now().isoformat())[:10]
-    kto_pisze = nadawca["imie"] or nadawca["email"].split("@")[0]
-    plik_eml = _wolna(folder, _bezpieczna_nazwa(f"{dzien} e-mail {kto_pisze} - {p['temat'] or 'bez tematu'}"[:100]) + ".eml")
-    plik_eml.write_bytes(surowa)
-    pliki_zal = []
-    for z in p["zalaczniki"]:
-        cel = _wolna(folder, _bezpieczna_nazwa(f"{dzien} zał. {z['nazwa']}"))
-        cel.write_bytes(z["dane"])
-        pliki_zal.append(cel.name)
+        folder = katalog / ZALACZNIKI
+        folder.mkdir(exist_ok=True)
+        dzien = (p["data"] or datetime.now().isoformat())[:10]
+        kto_pisze = nadawca["imie"] or nadawca["email"].split("@")[0]
+        plik_eml = _wolna(folder, _bezpieczna_nazwa(f"{dzien} e-mail {kto_pisze} - {p['temat'] or 'bez tematu'}"[:100]) + ".eml")
+        plik_eml.write_bytes(surowa)
+        pliki_zal = []
+        for z in p["zalaczniki"]:
+            cel = _wolna(folder, _bezpieczna_nazwa(f"{dzien} zał. {z['nazwa']}"))
+            cel.write_bytes(z["dane"])
+            pliki_zal.append(cel.name)
 
-    wiadomosc = {
-        "id": id_wiad, "message_id": p["message_id"], "in_reply_to": p["in_reply_to"],
-        "nadawca": nadawca, "adresaci": p["adresaci"], "rola": rola, "data": p["data"], "temat": p["temat"],
-        "plik": plik_eml.name, "zalaczniki": pliki_zal, "przypisal": kto,
-        "przypisano": datetime.now().isoformat(timespec="seconds"),
-        "ustalenia": [], "ustalenia_stan": "czeka",
-    }
-    dane["wiadomosci"].append(wiadomosc)
-    _zapisz_sprawy(katalog, dane)
-    magazyn.utrwal_sprawe(katalog)
+        wiadomosc = {
+            "id": id_wiad, "message_id": p["message_id"], "in_reply_to": p["in_reply_to"],
+            "nadawca": nadawca, "adresaci": p["adresaci"], "rola": rola_w, "data": p["data"], "temat": p["temat"],
+            "plik": plik_eml.name, "zalaczniki": pliki_zal, "przypisal": kto,
+            "przypisano": datetime.now().isoformat(timespec="seconds"),
+            "ustalenia": [], "ustalenia_stan": "czeka",
+        }
+        dane["wiadomosci"].append(wiadomosc)
+        return wiadomosc
+
+    wiadomosc = _zmien_sprawe(katalog, dopisz)
+    pliki_zal = wiadomosc["zalaczniki"]
 
     def zmiana(s):
         s["wiadomosci"] = [w for w in s["wiadomosci"] if w.get("id") != id_wiad]
@@ -849,25 +875,62 @@ def wyciagnij_ustalenia(katalog: Path, id_wiad: str) -> dict:
         raise BladSkrzynki("Plik wiadomości został usunięty z plików sprawy.")
     p = parsuj(plik.read_bytes())
     pola = _pola_sprawy(katalog)
+    def ustaw(zmiany):
+        # Model odpowiada kilka sekund - zapisujemy tylko te wiadomosc, na swiezym pliku.
+        def zmiana(d):
+            biezaca = next((w for w in d["wiadomosci"] if w.get("id") == id_wiad), None)
+            if biezaca is None:
+                raise KeyError(id_wiad)
+            biezaca.update(zmiany)
+            return biezaca
+        return _zmien_sprawe(katalog, zmiana)
+
     try:
         ustalenia = bedrock.wyciagnij_ustalenia(p["tekst"], p["temat"], pola)
     except Exception:
-        wiad["ustalenia_stan"] = "blad"
-        _zapisz_sprawy(katalog, dane)
-        magazyn.utrwal_sprawe(katalog)
+        ustaw({"ustalenia_stan": "blad"})
         log.warning("sprawa %s: ustalenia z wiadomosci %s - blad modelu", katalog.name, id_wiad)
         raise
-    wiad["ustalenia"] = ustalenia
-    wiad["ustalenia_stan"] = "gotowe"
-    wiad["ustalenia_z"] = datetime.now().isoformat(timespec="seconds")
-    _zapisz_sprawy(katalog, dane)
-    magazyn.utrwal_sprawe(katalog)
+    wiad = ustaw({"ustalenia": ustalenia, "ustalenia_stan": "gotowe",
+                  "ustalenia_z": datetime.now().isoformat(timespec="seconds")})
     log.info("sprawa %s: ustalenia z wiadomosci %s: %d", katalog.name, id_wiad, len(ustalenia))
     return wiad
 
 
+_MIESIACE = {"stycznia": 1, "lutego": 2, "marca": 3, "kwietnia": 4, "maja": 5, "czerwca": 6, "lipca": 7,
+             "sierpnia": 8, "września": 9, "wrzesnia": 9, "października": 10, "pazdziernika": 10,
+             "listopada": 11, "grudnia": 12}
+_DATA_LICZBY = re.compile(r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{4}|\d{2}))?\.?(?:\s*r\.?)?")
+_DATA_SLOWNIE = re.compile(r"(\d{1,2})\s+(" + "|".join(_MIESIACE) + r")(?:\s+(\d{4}))?(?:\s*r\.?)?")
+
+
+def _data(wartosc: str) -> tuple[int, int, str] | None:
+    """(dzien, miesiac, rok albo "") dla „1.12”, „1.12.”, „01.12.2026”, „1 grudnia 2026 r.”."""
+    tekst = re.sub(r"\s+", " ", str(wartosc or "")).strip().lower()
+    for wzor, miesiac in ((_DATA_LICZBY, int), (_DATA_SLOWNIE, _MIESIACE.get)):
+        m = wzor.fullmatch(tekst)
+        if m:
+            d, mies = int(m.group(1)), miesiac(m.group(2))
+            if 1 <= d <= 31 and mies and 1 <= mies <= 12:
+                rok = m.group(3) or ""
+                return d, mies, ("20" + rok if len(rok) == 2 else rok)
+    return None
+
+
 def _klucz_wartosci(wartosc: str) -> str:
+    data = _data(wartosc)
+    if data:
+        # Ten sam dzien i miesiac to jedna grupa - z rokiem albo bez.
+        return f"data:{data[0]}.{data[1]:02d}"
     return re.sub(r"\s+", " ", str(wartosc or "")).strip().lower().rstrip(".")
+
+
+def _pokaz_wartosc(wartosci: list[str]) -> str:
+    daty = [d for d in map(_data, wartosci) if d]
+    if not daty:
+        return wartosci[0]
+    roki = {d[2] for d in daty if d[2]}
+    return f"{daty[0][0]}.{daty[0][1]:02d}" + (f".{roki.pop()}" if len(roki) == 1 else "")
 
 
 def ustalenia_pol(dane: dict) -> dict:
@@ -884,7 +947,8 @@ def ustalenia_pol(dane: dict) -> dict:
             if not pole or not wartosc:
                 continue
             grupa = wynik.setdefault(pole, {}).setdefault(_klucz_wartosci(wartosc), {
-                "wartosc": wartosc, "zrodla": []})
+                "wartosc": wartosc, "wartosci": [], "zrodla": []})
+            grupa["wartosci"].append(wartosc)
             grupa["zrodla"].append({
                 "wiadomosc": w["id"], "imie": osoba.get("imie") or (w.get("nadawca") or {}).get("imie") or adres,
                 "email": adres, "rola": rola, "rola_opis": ROLE.get(rola, "inny"), "opis": osoba.get("opis", ""),
@@ -903,6 +967,7 @@ def ustalenia_pol(dane: dict) -> dict:
                                         "rola_opis": ROLE.get(o.get("rola"), "")}
                                        for o in strony if (o.get("email") or "").lower() not in potwierdzajacy]
             g["potwierdzone"] = bool(strony) and not g["brak_potwierdzenia"]
+            g["wartosc"] = _pokaz_wartosc(g.pop("wartosci"))
             g["zrodla"].sort(key=lambda z: z["data"])
             gotowe[pole].append(g)
     return gotowe
@@ -923,10 +988,7 @@ def ustaw_osoby(katalog: Path, osoby: list[dict]) -> list[dict]:
             raise ValueError("Nieznana rola osoby")
         czyste.append({"imie": str(o.get("imie", "")).strip()[:120], "email": str(o.get("email", "")).strip().lower()[:200],
                        "rola": rola, "opis": str(o.get("opis", "")).strip()[:120]})
-    dane = wczytaj_sprawy_korespondencji(katalog)
-    dane["osoby"] = czyste
-    _zapisz_sprawy(katalog, dane)
-    magazyn.utrwal_sprawe(katalog)
+    _zmien_sprawe(katalog, lambda d: d.__setitem__("osoby", czyste))
     log.info("sprawa %s: osob w korespondencji %d", katalog.name, len(czyste))
     return czyste
 
