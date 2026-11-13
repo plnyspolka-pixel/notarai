@@ -577,6 +577,43 @@ def wyciagnij_do_formularza(tekst_aktu: str, pola: list[dict]) -> list[dict]:
     ]
 
 
+MAX_TOKENOW_USTALEN = 4000
+
+
+def wyciagnij_ustalenia(tekst: str, temat: str, pola: list[str]) -> list[dict]:
+    """Ustalenia z jednej wiadomosci e-mail dot. pol sprawy (korespondencja.py).
+
+    Bez myslenia i z krotka odpowiedzia: to wypisanie cytatow, nie wnioskowanie.
+    Zrodlo (kto napisal, jaka ma role) dopisuje korespondencja.py, nie model.
+    Wynik nigdy nie trafia do pol odczytu ani do projektu.
+    """
+    if not (tekst or "").strip():
+        return []
+    surowa = _rozmowa(prompty.USTALENIA_Z_KORESPONDENCJI,
+                      [{"text": prompty.polecenie_ustalen(tekst, temat, pola)}],
+                      max_tokenow=MAX_TOKENOW_USTALEN, myslenie=False)
+    wynik = _wczytaj_json_z_naprawa(surowa)
+    nazwy = set(pola)
+    ustalenia = []
+    for u in wynik.get("ustalenia") or []:
+        pole = str(u.get("pole", "")).strip()
+        wartosc = str(u.get("wartosc") or "").strip()
+        if not wartosc or not (pole in nazwy or pole.startswith("inne:")):
+            continue
+        ustalenia.append({
+            "pole": pole, "wartosc": wartosc[:200], "cytat": str(u.get("cytat", ""))[:200],
+            "pewnosc": "wysoka" if u.get("pewnosc") == "wysoka" else "niska",
+            "relacja": bool(u.get("relacja")), "czyje": str(u.get("czyje", ""))[:80],
+        })
+    log.info("ustalenia z korespondencji: zwrocono=%d przyjeto=%d",
+             len(wynik.get("ustalenia") or []), len(ustalenia))
+    return ustalenia
+
+
+# Testy podmieniaja wyciagnij_ustalenia (conftest) - tu zostaje prawdziwa funkcja.
+_wyciagnij_ustalenia = wyciagnij_ustalenia
+
+
 def _oczysc_projekt(tekst: str) -> str:
     """Usuwa naglowki markdown i ogrodzenia kodu, ktore model czasem dopisuje."""
     linie = []

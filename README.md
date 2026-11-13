@@ -104,6 +104,14 @@ przed przypadkowym wyjściem poza Unię Europejską.
 Zmiana `PIECZAPP_HOST` na `0.0.0.0` wystawia aplikację na sieć. Rób to
 świadomie i nigdy nie przekierowuj tego portu na routerze.
 
+## Poczta e-mail do spraw
+
+Okno „Poczta do przypisania” czyta skrzynkę kancelarii (IMAP po TLS, tylko do
+odczytu) i proponuje sprawę dla każdej wiadomości; przypisuje dopiero kliknięcie.
+Hasło skrzynki lokalnie podajesz w zmiennej `PIECZAPP_SKRZYNKA_HASLO` (ustawionej
+w sesji, nie w pliku w repozytorium); w chmurze — wyłącznie AWS Secrets Manager.
+Szczegóły: `SAAS.md`, sekcja „Poczta e-mail do spraw”.
+
 ## Dostęp do AWS bez codziennego logowania
 
 `aws login` daje sesję na maksymalnie 12 godzin i tego nie da się wydłużyć.

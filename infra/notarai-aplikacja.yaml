@@ -94,6 +94,15 @@ Parameters:
       Pelny ARN sekretu notarai/meta (JSON z kluczami verify, app_secret,
       token). Wlacza webhook leadow z formularzy Meta /api/meta/leadgen
       (meta_leady.py). Puste = wylaczone.
+  OAuthPocztySekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/oauth-poczty (JSON: ms_klient, ms_sekret,
+      google_klient, google_sekret), zalozonego skryptem
+      zapisz-sekret-oauth-poczty.ps1. Wlacza przyciski "Zaloguj przez
+      Microsoft" / "Zaloguj przez Google" przy podpinaniu skrzynki kancelarii
+      (skrzynki.py). Puste = tylko logowanie haslem do IMAP.
   FinyouAdres:
     Type: String
     Default: ""
@@ -145,6 +154,7 @@ Conditions:
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
+  MamyOAuthPoczty: !Not [!Equals [!Ref OAuthPocztySekretArn, ""]]
   MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
 
 Resources:
@@ -239,6 +249,16 @@ Resources:
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref MetaSekretArn
           - !Ref AWS::NoValue
+        - !If
+          - MamyOAuthPoczty
+          - PolicyName: sekret-oauth-poczty
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref OAuthPocztySekretArn
+          - !Ref AWS::NoValue
 
   # Rola zadania: kod aplikacji. Tylko bucket spraw i Bedrock w UE.
   RolaZadania:
@@ -305,6 +325,23 @@ Resources:
                   - secretsmanager:DeleteSecret
                   - secretsmanager:TagResource
                 Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-poczta-*"
+
+        # Skrzynka e-mail kancelarii (korespondencja.py): haslo IMAP kazdej
+        # kancelarii w osobnym sekrecie notarai-skrzynka-<kancelaria>.
+        # Kod nigdy nie zwraca hasla do przegladarki ani nie zapisuje go w S3.
+        - PolicyName: sekrety-skrzynki-pocztowej
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:TagResource
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-skrzynka-*"
 
   # ---------------- siec ----------------
   GrupaLoadBalancera:
@@ -533,6 +570,27 @@ Resources:
               - MamyMeta
               - Name: PIECZAPP_META_TOKEN
                 ValueFrom: !Sub "${MetaSekretArn}:token::"
+              - !Ref AWS::NoValue
+            # Aplikacje OAuth (Microsoft Entra, Google) do podpinania skrzynek kancelarii.
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_MS_KLIENT
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:ms_klient::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_MS_SEKRET
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:ms_sekret::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_GOOGLE_KLIENT
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:google_klient::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_GOOGLE_SEKRET
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:google_sekret::"
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
