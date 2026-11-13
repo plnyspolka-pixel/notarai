@@ -5,7 +5,7 @@ import os
 import pytest
 import rlp
 from eth_utils import keccak
-from eth_keys.keys import Signature
+from eth_keys import keys
 from cryptography.hazmat.primitives import hashes,serialization
 from cryptography.hazmat.primitives.asymmetric import ec,utils
 from kms_anchor import (
@@ -34,7 +34,7 @@ def test_kms_signature_uses_public_key_recovery_and_low_s():
     digest=keccak(b"proof-event")
     y,r,s=sign_digest_kms(kms,"mock",digest,pub)
     assert s<=ORDER//2
-    assert Signature(vrs=(y,r,s)).recover_public_key_from_msg_hash(digest).to_bytes()==pub
+    assert keys.Signature(vrs=(y,r,s)).recover_public_key_from_msg_hash(digest).to_bytes()==pub
     assert address.startswith("0x")
 
 def test_signed_root_is_single_36_byte_calldata_and_zero_value():
