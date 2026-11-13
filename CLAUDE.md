@@ -58,3 +58,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
   dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
   i commitem (nie usuwaj).
+
+### Dostęp do AWS w sesji chmurowej Claude
+- Gdy w środowisku są zmienne `NOTARAI_AWS_ACCESS_KEY_ID` i
+  `NOTARAI_AWS_SECRET_ACCESS_KEY`, zacznij od `source infra/aws-z-env.sh`:
+  instaluje AWS CLI, zapisuje profil `notarai-admin` i wyłącza atrapy
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` ustawiane przez chmurę. Potem
+  AWS CLI działa bez `aws login` i bez konektora AWS.
+- Gdy tych zmiennych nie ma, nie proś o logowanie w czacie: wskaż
+  `infra\USTAW_DOSTEP_CLAUDE.bat` i sekcję „Claude w chmurze” w README.md.

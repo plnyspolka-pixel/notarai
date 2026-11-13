@@ -136,6 +136,40 @@ Zasady bezpieczeństwa, bo klucz nie wygasa sam:
 - jeśli laptop zginie, natychmiast dezaktywuj klucz w konsoli IAM
   (użytkownik `pieczapp-claude`, zakładka *Security credentials*).
 
+## Claude w chmurze (claude.ai/code) bez logowania do AWS
+
+Sesje Claude w chmurze nie mają Twojej sesji `aws login`, a konektor AWS w
+claude.ai loguje się jako root i wygasa po około dobie - stąd ciągłe prośby
+o logowanie. Rozwiązanie na stałe: osobny użytkownik IAM `notarai-claude`
+ze stałym kluczem (szablon `infra\notarai-claude-iam.yaml`): pełna obsługa
+infrastruktury projektu (stosy `notarai-*`, ECS, ECR, CodeBuild, Secrets
+Manager, Service Quotas, Bedrock, Cognito, ACM, SES) w `eu-central-1`,
+bez prawa do plików spraw kancelarii (bucket `notarai-sprawy`) i bez prawa
+do zakładania innych użytkowników czy kluczy.
+
+Konfiguracja jednorazowa:
+
+1. Dwuklik w `infra\USTAW_DOSTEP_CLAUDE.bat` (albo z parametrem: nazwa
+   profilu administratora, domyślnie `notarai-admin`). Skrypt loguje Cię
+   ostatni raz, zakłada stos `notarai-claude-iam`, tworzy klucz, zapisuje go
+   w `~\.aws\credentials` jako profile `notarai-claude` i `default`
+   i kopiuje sekret klucza do schowka.
+2. W claude.ai: Code -> Settings -> Environments -> środowisko, w którym
+   pracujesz nad notarai -> Edit -> Environment variables. Dodaj:
+   `NOTARAI_AWS_ACCESS_KEY_ID` (skrypt wypisuje) i
+   `NOTARAI_AWS_SECRET_ACCESS_KEY` (Ctrl+V ze schowka). Nazwy są celowo inne
+   niż `AWS_*`, bo środowisko chmurowe ustawia własne, nieprawidłowe atrapy
+   `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
+3. W nowej sesji Claude uruchamia `source infra/aws-z-env.sh` (instaluje AWS
+   CLI, zapisuje profil `notarai-admin`, wyłącza atrapy) i dalej działa bez
+   logowania. Ta sama zasada obowiązuje Claude Code na komputerze: profil
+   `default` ma już stały klucz, więc `infra\*.ps1` nie proszą o `aws login`.
+
+Bezpieczeństwo: klucz nie wygasa sam. Gdy wycieknie - w konsoli IAM
+(użytkownik `notarai-claude`, *Security credentials*) dezaktywuj go i uruchom
+skrypt ponownie; rotuj raz na kilka miesięcy. Wdrożenia z GitHub Actions
+dalej idą przez OIDC bez żadnych kluczy.
+
 ## Gdy coś nie działa
 
 **`python` nie jest rozpoznawany** — Python nie jest w PATH. Przeinstaluj

@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - uzytkownik IAM notarai-claude ze stalym kluczem dla Claude
+  (sesje chmurowe claude.ai/code, Claude Code na komputerze, AWS CLI), zeby
+  nie logowac sie do AWS co 12 godzin. Uprawnienia: pelna obsluga zasobow
+  projektu (stosy notarai-*, ECS, ECR, CodeBuild, Secrets Manager notarai/*,
+  Service Quotas, Bedrock, Cognito, ACM, SES, logi) w regionie eu-central-1.
+  Celowo BEZ odczytu plikow spraw kancelarii (bucket notarai-sprawy) - RODO.
+  Klucz dostepu NIE jest tworzony w szablonie (trafilby do wyjsc stosu);
+  tworzy go skrypt USTAW_DOSTEP_CLAUDE.bat.
+
+Parameters:
+  NazwaUzytkownika:
+    Type: String
+    Default: notarai-claude
+    Description: Nazwa uzytkownika IAM (prefiks notarai-)
+    AllowedPattern: "^notarai-[a-z0-9-]+$"
+  BucketSpraw:
+    Type: String
+    Default: notarai-sprawy
+    Description: Bucket z plikami spraw - odczyt i zapis obiektow sa ZABRONIONE
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+
+Resources:
+  PolitykaOperatora:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: notarai-claude-operator
+      Description: notarai - obsluga infrastruktury projektu bez dostepu do danych spraw
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: UslugiProjektuWRegionieUE
+            Effect: Allow
+            Action:
+              - cloudformation:*
+              - ecs:*
+              - ecr:*
+              - codebuild:*
+              - logs:*
+              - cloudwatch:*
+              - elasticloadbalancing:*
+              - ec2:Describe*
+              - ec2:CreateSecurityGroup
+              - ec2:DeleteSecurityGroup
+              - ec2:AuthorizeSecurityGroup*
+              - ec2:RevokeSecurityGroup*
+              - ec2:CreateTags
+              - application-autoscaling:*
+              - secretsmanager:*
+              - ssm:GetParameter*
+              - ssm:PutParameter
+              - cognito-idp:*
+              - acm:*
+              - ses:*
+              - bedrock:*
+              - servicequotas:*
+              - backup:*
+              - sns:*
+              - events:*
+              - lambda:*
+              - apigateway:*
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+              - s3:ListBucket
+              - s3:GetBucket*
+              - s3:PutBucket*
+              - s3:CreateBucket
+              - s3:PutLifecycleConfiguration
+              - s3:PutEncryptionConfiguration
+              - s3:PutBucketPolicy
+              - s3:GetEncryptionConfiguration
+              - s3:GetLifecycleConfiguration
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion:
+                  - eu-central-1
+          - Sid: UslugiGlobalne
+            Effect: Allow
+            Action:
+              - sts:GetCallerIdentity
+              - iam:Get*
+              - iam:List*
+              - iam:SimulatePrincipalPolicy
+              - iam:CreateServiceLinkedRole
+              - support:*
+              - ce:Get*
+              - ce:Describe*
+              - budgets:View*
+              - freetier:Get*
+              - account:Get*
+              - health:Describe*
+            Resource: "*"
+          - Sid: RoleIPolitykiProjektu
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:UpdateRole
+              - iam:UpdateAssumeRolePolicy
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:PassRole
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+              - iam:TagPolicy
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-*"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:role/pieczapp-*"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:policy/notarai-*"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:policy/pieczapp-*"
+          - Sid: DostawcaOidcGithub
+            Effect: Allow
+            Action:
+              - iam:CreateOpenIDConnectProvider
+              - iam:GetOpenIDConnectProvider
+              - iam:UpdateOpenIDConnectProviderThumbprint
+              - iam:AddClientIDToOpenIDConnectProvider
+              - iam:TagOpenIDConnectProvider
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+          - Sid: PlikiPomocniczeProjektu
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:GetObjectVersion
+              - s3:ListMultipartUploadParts
+              - s3:AbortMultipartUpload
+            Resource:
+              - !Sub "arn:aws:s3:::notarai-zrodla-${AWS::AccountId}/*"
+              - "arn:aws:s3:::notarai-strona*/*"
+              - "arn:aws:s3:::notarai-kopia*/*"
+              - "arn:aws:s3:::notarai-logi*/*"
+          - Sid: ZakazDostepuDoDanychSpraw
+            Effect: Deny
+            Action:
+              - s3:GetObject*
+              - s3:PutObject*
+              - s3:DeleteObject*
+              - s3:RestoreObject
+              - s3:ListBucket
+              - s3:ListBucketVersions
+            Resource:
+              - !Sub "arn:aws:s3:::${BucketSpraw}"
+              - !Sub "arn:aws:s3:::${BucketSpraw}/*"
+          - Sid: ZakazOdczytuSekretowAplikacji
+            Effect: Deny
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:BatchGetSecretValue
+            Resource: !Sub "arn:aws:secretsmanager:eu-central-1:${AWS::AccountId}:secret:notarai/admin-token*"
+          - Sid: ZakazZmianWlasnychUprawnien
+            Effect: Deny
+            Action:
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:AttachUserPolicy
+              - iam:DetachUserPolicy
+              - iam:PutUserPolicy
+              - iam:DeleteUserPolicy
+              - iam:CreateAccessKey
+              - iam:UpdateAccessKey
+              - iam:CreateLoginProfile
+              - iam:UpdateLoginProfile
+              - iam:AttachGroupPolicy
+              - iam:PutGroupPolicy
+            Resource: "*"
+          - Sid: WlasnyKluczTylkoUsuniecie
+            Effect: Allow
+            Action:
+              - iam:DeleteAccessKey
+              - iam:ListAccessKeys
+              - iam:GetAccessKeyLastUsed
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:user/${NazwaUzytkownika}"
+
+  Uzytkownik:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref NazwaUzytkownika
+      ManagedPolicyArns:
+        - !Ref PolitykaOperatora
+      Tags:
+        - Key: projekt
+          Value: notarai
+        - Key: przeznaczenie
+          Value: claude-bez-logowania
+
+Outputs:
+  UzytkownikArn:
+    Value: !GetAtt Uzytkownik.Arn
+  Polityka:
+    Value: !Ref PolitykaOperatora
