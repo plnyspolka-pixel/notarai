@@ -64,6 +64,7 @@ import transkrypcja
 import walidacja
 import dowody_ethereum
 import sealed_vault
+import sealed_vault_v2
 
 logging.basicConfig(
     level=logging.INFO,
@@ -115,6 +116,7 @@ app.include_router(notariusze.router_admina)
 app.include_router(poswiadczenia.router)
 app.include_router(dowody_ethereum.router)
 app.include_router(sealed_vault.router)
+app.include_router(sealed_vault_v2.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.middleware("http")(kalkulator.cors)
