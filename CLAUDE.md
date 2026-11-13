@@ -1,3 +1,5 @@
+> **Gałąź `wdrazamy-ethereum`:** główne polecenie kontynuacji projektu znajduje się w [CLAUDE_ETHEREUM_MISSION.md](CLAUDE_ETHEREUM_MISSION.md). Przeczytaj przed pracą nad Ethereum, dowodami poufności lub tajemnicą notarialną. Nie traktuj POC jako QTSP i nie wdrażaj na produkcję bez zgody.
+
 # AWS Guidance
 
 - Prefer the AWS MCP Server for AWS interactions — it provides sandboxed
