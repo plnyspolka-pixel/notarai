@@ -108,6 +108,8 @@ Pierwszy odcinek złożony end-to-end z chmury, bez komputera operatora: `odcink
 (głosy v2, 10 kwestii) → fal (Seedream 4 klatki przebitek z plansz K8/K9, Kling 2.5 Turbo Std przebitki,
 **Kling AI Avatar v2 Standard** ujęcia mówiące) → plansze zastępcze ekranów → `narzedzia/montaz_odcinka.py`
 (1080×1920, napisy z kwestii, ambience, loudnorm). Wynik: `wyjscie/EP04/EP04_szkic.mp4` (poza repo).
+Podgląd do obejrzenia w przeglądarce (prywatny artefakt, lżejszy plik 10 MB, lista ujęć i źródła klipów):
+https://claude.ai/artifact/NceJgELqX9cqjb1GLux6Ds
 
 | Pozycja | Koszt |
 |---|---|
