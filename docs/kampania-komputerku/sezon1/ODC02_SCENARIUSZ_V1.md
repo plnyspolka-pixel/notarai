@@ -13,9 +13,9 @@ oraz kanon odc. 01 (`produkcja-odc01/KANON_ODC01.md`).
 - **Czego NIE pokazujemy:** przemocy, wyłudzenia, demencji, „nieporadności” Ireny, zarzutów wobec Pawła, formalnej odmowy z art. 81.
   Helena przekłada czynność, bo warunki nie są uzgodnione (art. 80 § 2: czuwanie nad interesami stron i wyjaśnienia).
 - **Paweł** nie jest pełnomocnikiem ani współwłaścicielem. Nie wchodzi do gabinetu. Nie jest czarnym charakterem: martwi się o matkę.
-- **Funkcje NotarAI (tylko prawdziwe):** „Pliki sprawy” (dokument D05 dołączony wcześniej ręcznie), „Rozmowa o sprawie” (wpis Marty
-  i prawdziwa odpowiedź asystenta), „Weryfikacja odczytu” (pole terminu wydania), „Kalendarz” (termin 17.11 11:30).
-  Bez automatycznego importu maili (feature gate z biblii).
+- **Funkcje NotarAI:** odczyt maili ze skrzynki i przypisanie do sprawy ze źródłem ustaleń (zlecone do kodu 13.11, sesja
+  „Odczyt maili do sprawy”), „Rozmowa o sprawie” (wpis Marty i prawdziwa odpowiedź asystenta), „Weryfikacja odczytu” (pole terminu wydania),
+  „Kalendarz” (termin 17.11 11:30). Zasada: czego brakuje w kodzie — zlecam w nowej sesji i pokazuję gotowe.
 - **Nowe postacie:** Irena Nowak (73, twarz i głos do wyboru), Joanna Kaczmarek (34, tylko głos przez telefon).
 
 ## Struktura
@@ -83,22 +83,29 @@ Najważniejsza pauza odcinka: Helena odkłada okulary na wydruk.
 
 ## Sc. 03 — „Skąd ten pierwszy grudnia?” (biurko Marty)
 
-Marta i Kuba przy laptopie. Kuba otwiera „Pliki sprawy”.
+Marta i Kuba przy laptopie. Kuba otwiera kartę „Korespondencja sprawy”: NotarAI sam przeczytał skrzynkę kancelarii i przypisał do sprawy
+trzy wiadomości (D05, D09, D10). Przy każdej nadawca z rolą w sprawie i wyciągnięte ustalenie.
 
-**KUBA:** Mam. „Warunki transakcji”. Od pana Roberta, przesłane przez Pawła. Wydanie: pierwszy grudnia.
+**KUBA:** Skrzynka sama przypisała do sprawy trzy maile. Pierwszy grudnia jest w każdym.
 
-**MARTA:** A od pani Ireny?
+**MARTA:** Kto to pisał?
 
-**KUBA** (przewija listę, chwila ciszy): Nic.
+**KUBA:** Pan Robert, Paweł i pani Joanna. [pauza] Pani Irena — ani słowa.
+
+Na ekranie przy polu terminu wydania: „W korespondencji: 1.12 — Paweł Nowak (osoba kontaktowa), Robert Kaczmarek (kupujący). Brak potwierdzenia sprzedającej.”
+Kuba otwiera mail Pawła: „Mama się zgadza, 1 grudnia aktualny.” Marta i Kuba wymieniają spojrzenia.
 
 Helena staje w drzwiach.
 
 **HELENA:** Pani Irena potwierdziła mi osobiście: wydanie piętnastego stycznia. Sprzedaż chce przeprowadzić.
 
 Marta wpisuje w „Rozmowie o sprawie”: *„Sprzedająca osobiście (17.11, rozmowa z notariuszem): wydanie lokalu 15 stycznia 2027. Termin 1 grudnia nie był przez nią zaakceptowany.”*
-Asystent odpowiada (prawdziwa odpowiedź modelu, zostawiamy to, co faktycznie zwróci — np. pytanie, czy kupujący znają nowy termin).
+Asystent odpowiada (prawdziwa odpowiedź modelu).
 
 **MARTA:** Pierwszy grudnia był w mailach. W zgodzie stron — nie.
+
+**Funkcja NotarAI:** odczyt maili ze skrzynki kancelarii, propozycja przypisania do sprawy, ustalenia z podaniem źródła i roli nadawcy
+(w realizacji: sesja kodu „Odczyt maili do sprawy”; ekrany nagrywam po wdrożeniu). Ustalenie z maila nie staje się potwierdzonym polem projektu.
 
 ## Sc. 04 — „Dziś nie podpisujemy” (gabinet / recepcja)
 
