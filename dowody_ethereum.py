@@ -6,6 +6,7 @@ store. This branch does not broadcast anything to Ethereum or operate QTSP.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import uuid
 from pathlib import Path, PurePosixPath
@@ -18,6 +19,14 @@ import magazyn
 import proof_engine
 
 router = APIRouter(prefix="/api/dowody", tags=["kryptograficzne dowody"])
+
+def _anchoring_chain_id() -> int:
+    """Use Sepolia by default; explicit configured chain for later confirmation."""
+    value = int(os.getenv("NOTARAI_ETH_CHAIN_ID", "11155111"))
+    if value not in (11155111, 31337, 1):
+        raise HTTPException(503, "Unsupported Ethereum chain")
+    return value
+
 REJESTR = "ethereum_dowody"
 MATTER = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 EXT = {".docx", ".pdf", ".txt", ".odt", ".rtf"}
@@ -95,7 +104,7 @@ def make_batch(data: BatchRequest):
         record = {"id": batch_id, "root": batch["root"],
                   "created_at": proof_engine.utc_timestamp(),
                   "event_count": len(pending), "status": "prepared",
-                  "ethereum_tx_hash": None, "chain_id": 1,
+                  "ethereum_tx_hash": None, "chain_id": _anchoring_chain_id(),
                   "calldata": proof_engine.anchor_calldata(batch["root"])}
         state.setdefault("batches", []).append(record)
         return record
@@ -159,7 +168,7 @@ def confirm_anchor(batch_id: str, data: ConfirmAnchorRequest):
     try:
         proof = proof_engine.verify_ethereum_anchor(
             rpc_url=rpc, tx_hash=data.tx_hash, root=match["root"],
-            sender=sender, recipient=recipient, chain_id=1,
+            sender=sender, recipient=recipient, chain_id=int(match["chain_id"]),
         )
     except Exception as error:
         # No network error details or configured RPC URL in the response.
