@@ -53,3 +53,4 @@ Część pozycji sprawdza automat: `narzedzia/kontrola_odcinka.py <plik.mp4>` (d
 ## E. Współpraca
 | E1 | Pytania o drobne wybory (twarz, głos) | Takie decyzje podejmuję sam i zapisuję; pytam tylko o rzeczy, które zmieniają fabułę lub koszt. |
 | E2 | Intro z podtytułem „Odcinek 1 · Księga nadawcza w pięć minut” (wartość domyślna) | Intro renderuję dla każdego odcinka z `EPIZOD="Odcinek N · Tytuł"` jako `intro/INTRO_5_komputerku_9x16_odcNN.mp4`; sprawdzam podtytuł w arkuszu klatek. |
+| C7 | Ucięte końcówki kwestii („…sprzedaż chce przeprowadzić”): HeyGen oddaje wideo ok. 0,16 s krótsze niż głos | Po pobraniu ujęć zawsze `narzedzia/dopelnij_ujecia.py <katalog>` (pełny głos + przytrzymana ostatnia klatka); w montażu długość ujęć z pliku (`None`), nie wpisana na sztywno. |

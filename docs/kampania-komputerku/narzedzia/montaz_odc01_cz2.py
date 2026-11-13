@@ -14,9 +14,9 @@ UJ = [
  ('t5_marta_podchodzi.mp4', 0.5, 1.8, True, None, 0, 0),
  ('s03_basia.mp4', 0, 1.4, True, None, 0, 0),
  ('E1_kalendarz.mp4', 0, 2.8, False, None, 0, 0),
- ('s03_basia.mp4', 4.2, 1.92, True, None, 0, 0),
+ ('s03_basia.mp4', 4.2, 2.28, True, None, 0, 0),
  ('E2_sprawa.mp4', 0, 2.6, False, None, 0, 0),
- ('s04_pawel.mp4', 0, 1.9, True, None, 0, 0),
+ ('s04_pawel.mp4', 0, 3.0, True, None, 0, 0),
  ('s04_basia.mp4', 0, 3.4, True, None, 0, 0),
  ('b7_kuba_czeka.mp4', 0.5, 1.6, True, 'karta_kuba.png', 0.1, 1.3),
  ('E3_tel_sprawa.mp4', 0, 1.6, False, None, 0, 0),
@@ -27,8 +27,8 @@ UJ = [
  ('E7_tel_zdjecie.mp4', 0, 1.6, False, None, 0, 0),
  ('E8_marta_puste.mp4', 0, 1.0, False, None, 0, 0),
  ('E9_marta_zdjecie.mp4', 0, 2.0, False, None, 0, 0),
- ('s05_marta.mp4', 0, 2.04, True, None, 0, 0),
- ('s05_basia.mp4', 0, 4.6, True, None, 0, 0),
+ ('s05_marta.mp4', 0, 2.4, True, None, 0, 0),
+ ('s05_basia.mp4', 0, 4.96, True, None, 0, 0),
  (f'{V1}/b2_telefon.mp4', 0.5, 1.9, True, None, 0, 0),
 ]
 start = []; t = 0; lista = []
@@ -44,15 +44,15 @@ sh('ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', f'{T}/l.tx
 P = start[18]  # początek pauzy
 # (start, plik, ss, t, głośność)
 DZ = [
- (start[1], f'{V2}/s03_basia.mp4', 0, 6.12, 1.5),
+ (start[1], f'{V2}/s03_basia.mp4', 0, 6.48, 1.5),
  (start[4] + 0.4, f'{V2}/s03_marta_vo.mp3', 0, 2.2, 1.5),
- (start[5], f'{V2}/s04_pawel.mp4', 0, 1.9, 1.5),
- (start[6], f'{V2}/s04_basia.mp4', 0, 4.68, 1.5),
+ (start[5], f'{V2}/s04_pawel.mp4', 0, 3.0, 1.5),
+ (start[6], f'{V2}/s04_basia.mp4', 0, 5.04, 1.5),
  (start[10] + 0.8, f'{V2}/sfx_tap.mp3', 0, 0.5, 0.8),
  (start[11] + 0.9, f'{V2}/sfx_migawka.mp3', 0, 0.6, 0.9),
  (start[12] + 0.8, f'{V2}/sfx_tap.mp3', 0, 0.5, 0.8),
- (start[16], f'{V2}/s05_marta.mp4', 0, 2.04, 1.5),
- (start[17], f'{V2}/s05_basia.mp4', 0, 4.6, 1.5),
+ (start[16], f'{V2}/s05_marta.mp4', 0, 2.4, 1.5),
+ (start[17], f'{V2}/s05_basia.mp4', 0, 4.96, 1.5),
  (P + 0.9, f'{V1}/sfx_telefon.mp3', 0, 1.0, 1.0),
  (0, f'{K}/produkcja-odc01/czesc3_wideo/amb_recepcja_n.mp3', 0, P, 0.85),
 ]

@@ -28,15 +28,15 @@ ffmpeg -v error -y -i cold_v.mp4 -i "$K/produkcja-odc01/czesc3_wideo/amb_recepcj
 # --- intro 5 ---
 ffmpeg -v error -y -i "$K/intro/INTRO_5_komputerku_9x16_odc01.mp4" -vf "$SC" $ENC -c:a aac -ar 48000 -ac 2 -b:a 192k intro.mp4
 # --- sc. 02 ---
-ujecie "$V/t1_basia_telefon.mp4" 0 3.88 d1.mp4 "$WL/karta_basia.png" 0.3 3.2
+ujecie "$V/t1_basia_telefon.mp4" 0 4.24 d1.mp4 "$WL/karta_basia.png" 0.3 3.2
 ujecie "$V/b2_telefon.mp4" 2.5 0.8 d2.mp4
-ujecie "$V/t2_pawel.mp4" 0 5.95 d3.mp4 "$WL/karta_pawel.png" 0.5 3.4
-ujecie "$V/t1_basia_zajmuje.mp4" 0 2.28 d4.mp4
-ujecie "$V/t3_marta.mp4" 0 1.64 d5.mp4 "$WL/karta_marta.png" 0.05 1.4
-ujecie "$V/t1_basia_sprawdzam.mp4" 0 1.24 d6.mp4
+ujecie "$V/t2_pawel.mp4" 0 6.64 d3.mp4 "$WL/karta_pawel.png" 0.5 3.4
+ujecie "$V/t1_basia_zajmuje.mp4" 0 2.64 d4.mp4
+ujecie "$V/t3_marta.mp4" 0 2.0 d5.mp4 "$WL/karta_marta.png" 0.05 1.4
+ujecie "$V/t1_basia_sprawdzam.mp4" 0 1.6 d6.mp4
 printf "file '%s'\n" d1.mp4 d2.mp4 d3.mp4 d4.mp4 d5.mp4 d6.mp4 > l2.txt; ffmpeg -v error -y -f concat -safe 0 -i l2.txt -c copy sc2_v.mp4
 # dźwięk sc. 02: kwestie z ujęć HeyGen ułożone w czasie + ambience + drugi dzwonek
-for f in t1_basia_telefon:0:3.88 t2_pawel:0:5.95 t1_basia_zajmuje:0:2.28 t3_marta:0:1.64 t1_basia_sprawdzam:0:1.24; do n=${f%%:*}; r=${f#*:}; d=${r#*:};
+for f in t1_basia_telefon:0:4.24 t2_pawel:0:6.64 t1_basia_zajmuje:0:2.64 t3_marta:0:2.0 t1_basia_sprawdzam:0:1.6; do n=${f%%:*}; r=${f#*:}; d=${r#*:};
   ffmpeg -v error -y -i "$V/$n.mp4" -vn -t $d -af "aformat=sample_rates=48000:channel_layouts=stereo,apad=whole_dur=$d" "$n.wav"; done
 ffmpeg -v error -y -f lavfi -t 0.8 -i anullsrc=r=48000:cl=stereo cisza08.wav
 printf "file '%s'\n" t1_basia_telefon.wav cisza08.wav t2_pawel.wav t1_basia_zajmuje.wav t3_marta.wav t1_basia_sprawdzam.wav > la.txt
