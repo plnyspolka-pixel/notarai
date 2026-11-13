@@ -518,6 +518,9 @@ def _tekst_dzialu(ksiega: dict, oznaczenie: str) -> str:
 
 
 _POLE_WLASCICIEL = re.compile(r"wlasciciel|zbyw|sprzeda|darczyn|darujac", re.I)
+# Pola o osobie, ale nie o tym, kto jest wlascicielem (adres, dokument, PESEL...).
+_POLE_INNE_O_OSOBIE = re.compile(r"adres|zamieszk|pesel|dowod|dokument|rodzic|ojciec|matk|"
+                                 r"cywil|urodz|obywatel|telefon|mail|nip|regon|udzial|cena|kwot", re.I)
 _POLE_POWIERZCHNIA = re.compile(r"powierzchn|obszar|metraz", re.I)
 _LICZBA = re.compile(r"\d+(?:[.,]\d+)?")
 
@@ -558,7 +561,7 @@ def porownaj_z_polami(ksiegi: list[dict], pola: list[dict]) -> list[dict]:
                 continue
             if len(ksiegi) > 1 and numery and numer not in numery:
                 continue  # pole dotyczy innej ksiegi sprawy
-            if _POLE_WLASCICIEL.search(nazwa_n):
+            if _POLE_WLASCICIEL.search(nazwa_n) and not _POLE_INNE_O_OSOBIE.search(nazwa_n):
                 dz2 = _bez_ogonkow(_tekst_dzialu(k, "II"))
                 slowa = [s for s in re.findall(r"[^\W\d_]{3,}", _bez_ogonkow(wartosc))]
                 # Tylko imie i nazwisko (albo dwie osoby); adres w polu dalby falszywy alarm.

@@ -150,7 +150,7 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 
 ## NA-9. Treść księgi z EKW w projekcie aktu — prawdziwy dostawca i model
 
-- **Status:** czeka
+- **Status:** w toku (model sprawdzony, czeka dostawca)
 - **Brakuje:** skonfigurowanego dostawcy treści KW (Finance You:
   `PIECZAPP_FINYOU_URL` + `PIECZAPP_FINYOU_TOKEN` z sekretu `notarai/finyou`,
   po podpisaniu umowy powierzenia) i Bedrock w eu-central-1; księgi testowej,
@@ -174,6 +174,20 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
   `prompty.blok_ksiag` / `ZASADY_KSIEG`; ewentualnie dostroić heurystykę
   porównania do nazw pól z prawdziwych wzorów kancelarii.
 - **Zamknięte, gdy:** kroki 3–6 przechodzą na prawdziwym dostawcy i modelu.
+- **2026-11-13, przebieg z prawdziwym modelem (Bedrock eu-central-1,
+  `eu.anthropic.claude-opus-4-6-v1`), dostawca EKW = atrapa z demo odc. 01:**
+  sprawa `e01demo00001`, księga demo z działami III i IV bez wpisów, bez
+  dopisku w rozmowie, 15 pól odczytu.
+  - Pierwszy przebieg (139 s, 3 BRAK / 1 WYBOR): § 2 poprawny, ale
+    porównanie uznało pole „aad: adres sprzedającej” za właściciela →
+    fałszywa rozbieżność i zbędny `<<WYBOR>>`. Poprawione (pola o adresie,
+    PESEL, dokumencie itp. nie są porównywane z działem II) + test.
+  - Drugi przebieg (143 s, 3 BRAK / 0 WYBOR): „§ 2. … w dziale III i IV
+    księgi wieczystej nie ma wpisów.” bez znacznika; BRAK: data aktu,
+    sposób zapłaty, termin wydania. Widok projektu: „Uwzględniono treść
+    księgi WA4M/00077777/2 z EKW (pobrano …). Księga potwierdza 3 pola
+    odczytu.” Kontrola zasad: 7/7. Log serwera bez numeru KW i danych stron.
+  - Zostaje: krok 2 i 4–6 z prawdziwym dostawcą (Finance You) i CloudWatch.
 
 ---
 

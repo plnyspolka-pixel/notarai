@@ -4439,7 +4439,8 @@ function pokazZrodlaProjektu(z){
   const wer = z.weryfikacja || [];
   const potw = new Set(wer.filter(w => w.stan === "potwierdza").map(w => w.pole)).size;
   const rozb = wer.filter(w => w.stan === "rozbieznosc");
-  if (potw) tekst += " Księga potwierdza " + potw + (potw === 1 ? " pole" : " pól") + " odczytu.";
+  const formaPola = n => n === 1 ? " pole" : ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? " pola" : " pól");
+  if (potw) tekst += " Księga potwierdza " + potw + formaPola(potw) + " odczytu.";
   if (rozb.length) tekst += " Rozbieżności z odczytem (" + rozb.map(w => w.pole).join(", ")
     + ") zostawiono do rozstrzygnięcia jako WYBOR.";
   el.textContent = tekst;

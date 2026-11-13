@@ -166,6 +166,15 @@ class TestPorownanie:
                                    "Jan Testowy zamieszkaly w Warszawie przy ulicy Dlugiej"}])
         assert w == []
 
+    def test_adres_sprzedajacej_to_nie_wlasciciel(self):
+        # Przebieg na prawdziwym modelu (demo odc. 01): pole "aad: adres sprzedającej"
+        # dawalo falszywa rozbieznosc wlasciciela i niepotrzebny <<WYBOR>>.
+        w = ekw.porownaj_z_polami([ksiega()], [
+            {"nazwa": "aad: adres sprzedającej", "wartosc": "ul. Ogrodowa 7 m. 6, Warszawa"},
+            {"nazwa": "PESEL sprzedającego", "wartosc": "44051401359"},
+            {"nazwa": "aaa: sprzedająca", "wartosc": "Jan Testowy"}])
+        assert [(x["pole"], x["stan"]) for x in w] == [("aaa: sprzedająca", "potwierdza")]
+
     def test_polskie_znaki_i_wielkosc_liter(self):
         w = ekw.porownaj_z_polami([ksiega(dzial2="ŁUKASZ ŻÓŁTY, udział 1/1")],
                                   [{"nazwa": "Właściciel", "wartosc": "Łukasz Żółty"}])
