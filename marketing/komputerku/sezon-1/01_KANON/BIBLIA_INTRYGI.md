@@ -702,3 +702,18 @@ W każdym odcinku musi być możliwe wskazanie:
 **Ostateczna teza sezonu:** wartością NotarAI nie jest tylko szybciej przygotowany projekt aktu. Jest nią kancelaria, w której profesjonalna wiedza notariusza nie ginie pośród telefonów, terminów, załączników, wersji dokumentów i pytań całego zespołu.
 
 **Koniec biblii intrygi sezonu 1 — wersja 1.0.**
+
+---
+
+## ANEKS KANONU V5 — druga kancelaria, romans i „karmienie komputerka” (13.11.2026)
+
+Ten aneks **uzupełnia i ma pierwszeństwo** nad starszymi sugestiami pobocznych romansów. Nie zmienia prawdy o Irenie, Pawle, Kaczmarkach, powierzchni, cenie i dacie wydania lokalu.
+
+- **Kuba Maj**: aplikant z kancelarii Heleny.
+- **Zofia „Zosia” Lewicka**: aplikantka z drugiej kancelarii. Dziewięć miesięcy wcześniej poznali się na szkoleniu aplikantów. Zosia przerwała ich pierwszą kawę, bo zadzwoniła ciocia. Kuba błędnie odczytał to jako odrzucenie.
+- **Teresa Janicka**: ciocia Zosi, notariuszka; tylko ona i Zosia obsługują jej małą, przeciążoną kancelarię. Zosia chce w przyszłości własnej kancelarii **po spełnieniu wymogów zawodowych i powołaniu**, ale nie chce zostawić Teresy bez pomocy.
+- **Relacja:** powolny romans Kuba–Zosia, bez udostępniania klientowskich akt między kancelariami, bez uczuciowego konfliktu interesów. Dawna propozycja Marta–Aleksander nie jest kanoniczna.
+- **Stały gag:** „A komputerka ktoś nakarmił?” = metafora zasilenia konta kredytami. Fraza pochodzi od Basi, stopniowo przejmują ją Kuba, Marta, Zosia, Teresa i w finale Helena. Dokładna mapa S1/S2: 08_MOTYW_KARMIENIE_KOMPUTERKA.md.
+- **Płatności:** kod rozliczania istnieje, ale tokenomia jest domyślnie wyłączona; nie tworzyć fikcyjnych ekranów działającego doładowania, nie sugerować pobierania opłaty za obowiązki notariusza.
+
+Dodatkowe zasady reżyserskie: 05_REZYSERIA_V5_THRILLER_ROMANS.md.
