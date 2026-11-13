@@ -23,6 +23,8 @@ jobs:
       - run: |
           mkdir -p "$RUNNER_TEMP/notarai-proof-tests"
           cp proof_engine.py test_proof_engine.py test_dowody_policy.py test_sealed_vault.py test_sealed_api.py test_sealed_cli.py sealed_vault.py notarai_sealed_cli.py stanowiska.py autoryzacja.py "$RUNNER_TEMP/notarai-proof-tests/"
+          mkdir -p "$RUNNER_TEMP/notarai-proof-tests/tests/fixtures"
+          cp tests/fixtures/sealed-envelope-v1.json "$RUNNER_TEMP/notarai-proof-tests/tests/fixtures/"
           cd "$RUNNER_TEMP/notarai-proof-tests"
           python -m pytest -q
       - uses: actions/setup-node@v4
