@@ -1,5 +1,8 @@
 # EP06 — Kto ma tę sprawę?
 
+> **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Ciocia Teresa Janicka w swojej dwuosobowej kancelarii pyta rzeczowo, ile «komputerek» kosztuje miesięcznie. Rozmowa dotyczy organizacji pracy, a nie obietnicy darmowej automatyzacji. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
+
+
 **Data fabularna:** 23.11.2026 · **Czas:** 80 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
