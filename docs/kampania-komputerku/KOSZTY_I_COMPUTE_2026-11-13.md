@@ -52,6 +52,9 @@ które już płaci za Bedrock i ECS:
 - **Lektor:** `narzedzia/tts_polly.py` – Amazon Polly, polskie głosy Ola (neural/generative) i Ewa; 12 mies. darmowe
   1 mln znaków neural miesięcznie, potem 16 USD/1M; Speech Marks dają visemy do rigu 2D bez osobnego rozpoznawania mowy.
   Jakość niżej niż ElevenLabs v3, wystarczająca na narrację i głosy epizodyczne; główna obsada zostaje w ElevenLabs.
+- **Start jednym poleceniem:** `infra/5-budzet-i-limit-gpu.ps1` (Windows) albo `infra/5-budzet-i-limit-gpu.sh` –
+  zakłada alarm budżetowy Bedrock (`infra/notarai-budzet.yaml`, 80 % wydanych / 100 % prognozy na e-mail) i składa
+  wniosek o limit instancji G spot. Oba kroki są darmowe.
 - **Czego to nie załatwia:** klucz Bedrock w środowisku sesji nie daje uprawnień do EC2/Polly – do deployu potrzebna
   rola lub profil AWS operatora (ten sam, którym wdrażacie `notarai-aplikacja`).
 

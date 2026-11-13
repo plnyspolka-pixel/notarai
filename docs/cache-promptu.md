@@ -42,6 +42,9 @@ i jednym `cachePoint`:
 
 Czyli profil EU + Opus 4.6 przyjmuje punkty cache, a drugi odczyt kosztował 10 % pierwszego.
 
+Drugi test (ten sam dzień) z punktem także w turze **asystenta**, jak w `rozmawiaj`: zapis 27 329 → odczyt 27 329,
+pełnopłatne wejście 26 tokenów (sama nowa wiadomość). Bedrock przyjmuje `cachePoint` w treści asystenta.
+
 ## Co to daje
 Rozmowa o sprawie z kontekstem 20 tys. tokenów i 10 turami: dawniej ~220 tys. tokenów wejścia po
 pełnej cenie, teraz ~25 tys. po pełnej + ~200 tys. po 10 %, czyli ok. **4× tańsza rozmowa**.
