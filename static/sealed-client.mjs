@@ -9,7 +9,7 @@ const SCHEMA = "notarai.sealed.v1";
 const ROUNDS = 600_000;
 const MAX_BYTES = 4 * 1024 * 1024;
 const B64URL = /^[A-Za-z0-9_-]+$/;
-const HEX_ID = /^[a-f0-9-]{36}$/i;
+const HEX_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
 function bytesToB64Url(bytes) {
   let binary = "";
@@ -19,7 +19,9 @@ function bytesToB64Url(bytes) {
 function b64UrlToBytes(value) {
   if (typeof value !== "string" || !B64URL.test(value)) throw new Error("Invalid base64url");
   const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
-  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  const decoded = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  if (bytesToB64Url(decoded) !== value) throw new Error("Non-canonical base64url");
+  return decoded;
 }
 function validText(value, name, max) {
   if (typeof value !== "string" || !value || value.length > max ||
