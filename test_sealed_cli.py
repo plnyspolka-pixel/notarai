@@ -48,3 +48,11 @@ def test_weak_passphrase_and_big_file_are_rejected():
         sealed.seal_bytes(CONTENT,"short",TENANT)
     with pytest.raises(ValueError):
         sealed.seal_bytes(b"x"*(sealed.LIMIT+1),PASSWORD,TENANT)
+
+def test_decrypts_same_fixture_as_the_webcrypto_javascript_client():
+    import json
+    from pathlib import Path
+    path = Path(__file__).parent / "tests" / "fixtures" / "sealed-envelope-v1.json"
+    envelope = json.loads(path.read_text("utf-8"))
+    actual = sealed.open_envelope(envelope, "Fictional test password 123", expected_office="office-demo")
+    assert actual == b"Fictional notarial document. No real client data."
