@@ -131,3 +131,57 @@ def verify(data: VerifyRequest):
     return {"integrity_valid": valid,
             "ethereum_verified": False,
             "note": "Weryfikacja Ethereum wymaga potwierdzonej transakcji i odrebnego sprawdzenia RPC"}
+
+
+class ConfirmAnchorRequest(BaseModel):
+    tx_hash: str = Field(min_length=66, max_length=66)
+
+
+@router.post("/partie/{batch_id}/potwierdz")
+def confirm_anchor(batch_id: str, data: ConfirmAnchorRequest):
+    """Verifies an EXISTING transaction on trusted RPC, then stores proof.
+    Never sends tokens or signs with a private key.
+    """
+    import os
+    try:
+        uuid.UUID(batch_id)
+    except ValueError:
+        raise HTTPException(400, "Niepoprawny identyfikator partii")
+    rpc = os.getenv("NOTARAI_ETH_RPC_URL", "")
+    sender = os.getenv("NOTARAI_ETH_SENDER", "")
+    recipient = os.getenv("NOTARAI_ETH_RECIPIENT", "")
+    if not rpc or not sender or not recipient:
+        raise HTTPException(503, "Nie skonfigurowano zaufanego Ethereum RPC i adresow")
+    rows = _read_state().get("batches", [])
+    match = next((r for r in rows if r["id"] == batch_id), None)
+    if match is None:
+        raise HTTPException(404, "Nie znaleziono partii")
+    try:
+        proof = proof_engine.verify_ethereum_anchor(
+            rpc_url=rpc, tx_hash=data.tx_hash, root=match["root"],
+            sender=sender, recipient=recipient, chain_id=1,
+        )
+    except Exception as error:
+        # No network error details or configured RPC URL in the response.
+        raise HTTPException(502, "Nie udalo sie potwierdzic transakcji w Ethereum") from error
+    if not proof.get("confirmed"):
+        return {"confirmed": False, "reason": proof.get("reason"),
+                "confirmations": proof.get("confirmations", 0)}
+
+    def record(state):
+        entry = next((r for r in state.get("batches", []) if r["id"] == batch_id), None)
+        if not entry or entry["root"] != match["root"]:
+            raise HTTPException(409, "Partia zmienila sie podczas weryfikacji")
+        if entry.get("ethereum_tx_hash") not in (None, data.tx_hash):
+            raise HTTPException(409, "Partia potwierdzona inna transakcja")
+        entry.update({
+            "ethereum_tx_hash": data.tx_hash,
+            "status": "confirmed",
+            "block_number": proof.get("blockNumber"),
+            "confirmations_at_check": proof["confirmations"],
+            "confirmed_at": proof_engine.utc_timestamp(),
+        })
+        return entry
+    return magazyn.zmien_plik_kancelarii(
+        REJESTR, record, {"proofs": [], "batches": []},
+    )
