@@ -415,6 +415,19 @@ class TestUstalenia:
         assert kw["myslenie"] is False and WWW in tresc[0]["text"]
         assert bedrock._wyciagnij_ustalenia("  ", "", [WWW]) == []
 
+    def test_model_podaje_nazwe_pola_bez_kodu_albo_sam_kod(self, monkeypatch):
+        """Na prawdziwym modelu: „termin wydania lokalu” albo „www” zamiast pelnej nazwy."""
+        odpowiedz = json.dumps({"ustalenia": [
+            {"pole": "termin wydania lokalu", "wartosc": "1.12", "cytat": "1 grudnia"},
+            {"pole": "„Termin  wydania lokalu”", "wartosc": "1.12", "cytat": "x"},
+            {"pole": "www", "wartosc": "1.12", "cytat": "y"},
+            {"pole": "ccc", "wartosc": "640 000 zł", "cytat": "cena"},
+            {"pole": "Inne: koniec najmu", "wartosc": "30.11", "cytat": "najem"},
+            {"pole": "termin zapłaty", "wartosc": "x", "cytat": ""}]})
+        monkeypatch.setattr(bedrock, "_rozmowa", lambda *a, **kw: odpowiedz)
+        wynik = bedrock._wyciagnij_ustalenia("tekst", "temat", [WWW, "ccc: cena"])
+        assert [u["pole"] for u in wynik] == [WWW, WWW, WWW, "ccc: cena", "inne: koniec najmu"]
+
 
 # --- logi, uprawnienia, ustawienia, IMAP -------------------------------------------------
 
