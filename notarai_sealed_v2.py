@@ -202,6 +202,17 @@ def grant_recipient(envelope: dict, owner_key: dict, password: str, new_public: 
     return new_envelope
 
 
+def rotate_recipients(envelope: dict, owner_key: dict, password: str,
+                      remaining_public_keys: list[dict]) -> dict:
+    """Client-side revocation: NEW file UUID, NEW random DEK and fresh ciphertext.
+
+    The removed recipient cannot open the NEW encrypted version. Previously
+    downloaded copies or cached old DEKs cannot be revoked retroactively.
+    """
+    plaintext = open_envelope(envelope, owner_key, password)
+    return seal_bytes(plaintext, envelope["tenantRef"], remaining_public_keys)
+
+
 def write_new(path: str, content: bytes, private: bool = False):
     flags=os.O_WRONLY|os.O_CREAT|os.O_EXCL
     fd=os.open(path,flags,0o600 if private else 0o644)
@@ -236,6 +247,13 @@ def main(argv: list[str] | None = None) -> int:
     grant.add_argument("--private-key",required=True)
     grant.add_argument("--new-recipient",required=True)
     grant.add_argument("--office",required=True)
+    rotate=sub.add_parser("rotate")
+    rotate.add_argument("--office",required=True)
+    rotate.add_argument("--input",required=True)
+    rotate.add_argument("--output",required=True)
+    rotate.add_argument("--private-key",required=True)
+    rotate.add_argument("--recipient",required=True,action="append",
+                        help="Remaining, still-authorized recipient public key JSON")
     args=parser.parse_args(argv)
     try:
         if args.command=="keygen":
@@ -249,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             recipient_keys=[json.loads(Path(p).read_text("utf-8")) for p in args.recipient]
             result=seal_bytes(Path(args.input).read_bytes(),args.office,recipient_keys)
             write_new(args.output,json.dumps(result,separators=(",",":"),ensure_ascii=False).encode())
-        elif args.command in ("decrypt","grant"):
+        elif args.command in ("decrypt","grant","rotate"):
             envelope=json.loads(Path(args.input).read_text("utf-8"))
             if envelope.get("tenantRef")!=args.office: raise ValueError("Wrong office")
             private=json.loads(Path(args.private_key).read_text("utf-8"))
@@ -257,9 +275,13 @@ def main(argv: list[str] | None = None) -> int:
             if args.command=="decrypt":
                 result=open_envelope(envelope,private,password)
                 write_new(args.output,result,private=True)
-            else:
+            elif args.command=="grant":
                 pub=json.loads(Path(args.new_recipient).read_text("utf-8"))
                 result=grant_recipient(envelope,private,password,pub)
+                write_new(args.output,json.dumps(result,separators=(",",":"),ensure_ascii=False).encode())
+            else:
+                publics=[json.loads(Path(p).read_text("utf-8")) for p in args.recipient]
+                result=rotate_recipients(envelope,private,password,publics)
                 write_new(args.output,json.dumps(result,separators=(",",":"),ensure_ascii=False).encode())
         print("Success (offline). No network calls.")
         return 0
