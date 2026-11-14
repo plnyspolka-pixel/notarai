@@ -70,7 +70,7 @@ SCHEMAT_ODCINKA = {
                 "type": "object",
                 "properties": {
                     "id": {"type": "string"},
-                    "typ": {"type": "string", "enum": ["mowiace", "bez_mowy", "ekran", "plansza"]},
+                    "typ": {"type": "string", "enum": ["mowiace", "bez_mowy", "ekran", "plansza", "dokument"]},
                     "czas_s": {"type": "number"},
                     "postac": {"type": "string"},
                     "kadr": {"type": "string"},
@@ -81,6 +81,9 @@ SCHEMAT_ODCINKA = {
                     "emocja": {"type": "string"},
                     "ruch_kamery": {"type": "string"},
                     "prompt_delta": {"type": "string"},
+                    "dozwolony_tekst": {"type": "string"},
+                    "szablon": {"type": "string", "enum": ["porownanie_kw", "notatka"]},
+                    "dane": {"type": "object"},
                     "zrodlo": {"type": "string"},
                     "co_widac": {"type": "string"},
                     "grafika": {"type": "array", "items": {"type": "string"}},
@@ -118,7 +121,7 @@ POLECENIE = """Rozpisz powyzszy scenariusz na odcinek.json.
 
 Reguly:
 1. Schemat jak w szablonie: seria, odcinek, tytul, funkcja_notarai, format_glowny "9x16", adaptacje, obsada_wersja "obsada-v2", scenografia_wersja "kancelaria-v2", warstwy, ujecia[].
-2. Kazde ujecie ma: id (u1, u2, ...), typ (mowiace | bez_mowy | ekran | plansza), czas_s (liczba sekund; dla mowiace szacuj ok. 15 znakow/s, min. 3).
+2. Kazde ujecie ma: id (u1, u2, ...), typ (mowiace | bez_mowy | ekran | plansza | dokument), czas_s (liczba sekund; dla mowiace szacuj ok. 15 znakow/s, min. 3).
 3. mowiace: postac (slug z obsady: helena, marta, basia, kuba; postacie goscinne jako "gosc:<imie>"), kadr (B_85mm dla zblizen do kamery, A_plan_ogolny lub C_przez_ramie dla ujec w planie), kamera (K1..K9 z listy), klatka_startowa (sciezka wzorcowa z kadrow postaci albo "DO_WYGENEROWANIA: <opis>"), kwestia (dokladnie ze scenariusza), kwestia_v3 (ta sama kwestia z tagami ElevenLabs v3 wg zasad z glosy.md, po polsku), emocja, ruch_kamery.
 4. bez_mowy: kadr, kamera, klatka_startowa, czas_s (5 albo 10), prompt_delta.
 5. ekran: zrodlo "nagranie app.notarai.pl, konto demo, dane testowe", czas_s, co_widac (funkcja z matrycy w scenariuszu; tylko stany rzeczywiscie uzyskiwalne w aplikacji).
@@ -126,6 +129,8 @@ Reguly:
 7. napisy: lista {od_s, do_s, tekst} dla calego odcinka, wiersze do 42 znakow, czasy spojne z czas_s ujec.
 8. Dodaj "kontrola": lista zdan, ktore trzeba sprawdzic przed nagraniem (continuity, funkcje produktu, dane fikcyjne) - wylacznie z tresci scenariusza i biblii.
 9. Zaden element nie moze sugerowac funkcji nieistniejacej w produkcie ani lamac kanonu (Pawel nie jest pelnomocnikiem; 640 000 zl; 56,40 m2; wydanie 15 stycznia).
+10. ZERO TEKSTU w ujeciach generowanych (mowiace, bez_mowy): modele obrazu i wideo nie pisza po polsku, wychodzi belkot. W klatka_startowa i prompt_delta nie wolno prosic o czytelne daty, nazwiska, naglowki, etykiety teczek, notatki ani ekrany z trescia; papiery opisuj jako puste, zamkniete, odwrocone albo poza ostroscia. Jedyny wyjatek: krotki napis do 8 znakow (np. "1 XII") - wtedy wpisz go dokladnie w pole dozwolony_tekst tego ujecia.
+11. Gdy widz MA cos przeczytac (porownanie dwoch odczytow KW, notatka, wydruk): typ "dokument" z polami szablon ("porownanie_kw" | "notatka"), dane (slownik pol szablonu; wylacznie dane fikcyjne i demonstracyjne, numer KW nieistniejacy) i czas_s 4-6. Te warstwe renderuje montaz (dokumenty.py), nie generator.
 Zwroc sam JSON."""
 
 

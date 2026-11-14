@@ -4,7 +4,8 @@
 Dla każdego ujęcia z JSON szuka pliku:
   mowiace  → klipy/<id>_*.mp4 (awatar; czas = długość klipu)
   bez_mowy → klipy/<id>_*.mp4 (przebitka; przycięta do czas_s)
-  ekran    → plansze/<id>_ekran.png (czas_s; plansza zastępcza, UI nie generujemy)
+  dokument → plansze/<id>_dokument.png (warstwa czytelna z dokumenty.py; powolne zbliżenie na `fokus`)
+  ekran    → plansze/<id>_ekran.png (czas_s; plansza zastępcza z dokumenty.py, UI nie generujemy)
   plansza  → plansze/<id>_outro.png (czas_s)
 Brak pliku → plansza „ujęcie w produkcji" (żeby dało się montować częściowo).
 Wszystko do 1080x1920 @25 fps, AAC 48 kHz; napisy z `kwestia` wypalane na ujęciach mówiących
@@ -23,6 +24,8 @@ import textwrap
 
 TU = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TU, ".."))
+sys.path.insert(0, TU)
+import dokumenty  # noqa: E402  (warstwa czytelna: dokumenty, notatki, plansze ekranów)
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 AMBIENCE = os.path.join(ROOT, "glosy_v2", "zrodla", "ambience_kancelaria_22s.mp3")
 W, H, FPS = 1080, 1920, 25
@@ -86,6 +89,15 @@ def segment(wejscie, wyjscie, czas, obraz, napis_txt=None):
     run(cmd)
 
 
+def segment_zoompan(png, wyjscie, czas, meta):
+    """Nieruchomy obraz (2160×3840) z powolnym zbliżeniem na punkt `fokus` (ułamki szer./wys.) do `zoom`."""
+    fx, fy = meta.get("fokus", [0.5, 0.5]); zoom = float(meta.get("zoom", 1.3)); n = max(1, int(czas * FPS))
+    vf = (f"zoompan=z='1+({zoom}-1)*on/{n}':x='(iw-iw/zoom)*{fx}':y='(ih-ih/zoom)*{fy}':d=1:s={W}x{H}:fps={FPS},format=yuv420p")
+    run(["ffmpeg", "-y", "-loop", "1", "-framerate", str(FPS), "-t", f"{czas:.3f}", "-i", png,
+         "-f", "lavfi", "-t", f"{czas:.3f}", "-i", "anullsrc=r=48000:cl=stereo",
+         "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "128k", "-shortest", wyjscie])
+
+
 def ma_audio(p):
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type",
                           "-of", "csv=p=0", p], capture_output=True, text=True).stdout
@@ -124,10 +136,17 @@ def main(a):
             else:
                 p = os.path.join(tmp, f"{uid}_brak.png"); plansza_brak(p, uid, u.get("prompt_delta", ""))
                 segment(p, cel, czas_plan, True); raport.append((uid, typ, f"{czas_plan:.1f}s", "BRAK → plansza"))
+        elif typ == "dokument":
+            src = os.path.join(plansze, f"{uid}_dokument.png"); meta_p = os.path.splitext(src)[0] + ".json"
+            if os.path.exists(src):
+                meta = json.load(open(meta_p)) if os.path.exists(meta_p) else {}
+            else:
+                src, meta = dokumenty.renderuj(ep, u, baza)
+            segment_zoompan(src, cel, czas_plan, meta); raport.append((uid, typ, f"{czas_plan:.1f}s", os.path.basename(src) + " (zbliżenie)"))
         elif typ == "ekran":
             src = os.path.join(plansze, f"{uid}_ekran.png")
             if not os.path.exists(src):
-                src = os.path.join(tmp, f"{uid}_brak.png"); plansza_brak(src, uid, u.get("co_widac", ""))
+                src, _ = dokumenty.renderuj(ep, u, baza)
             segment(src, cel, czas_plan, True); raport.append((uid, typ, f"{czas_plan:.1f}s", os.path.basename(src)))
         else:  # plansza
             src = os.path.join(plansze, f"{uid}_outro.png")

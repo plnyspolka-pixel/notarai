@@ -120,6 +120,29 @@ https://claude.ai/artifact/NceJgELqX9cqjb1GLux6Ds
 | HeyGen Avatar 6 Turbo: 1 ujęcie (9 odrzuconych: „Insufficient credit, requires api credits") | 0,07 $ |
 | **Razem** | **3,51 $ ≈ 13 zł** (kalkulator „obecny tor" dla tego odcinka: 12,64 $) |
 
+### 5b. Runda poprawek EP04 (14.11.2026) – skąd wziął się bełkot i co z tym zrobiono
+
+Po obejrzeniu szkicu: pseudo-tekst na „wydrukach” (u2, u9), na etykiecie teczki (u1, u17) i – najgorsze –
+dorobione przez Kling Avatar fałszywe napisy pod kwestią Marty (u6). Przyczyna była w scenariuszu: `prompt_delta`
+prosiło o „widoczne daty w nagłówkach”, „oznaczenie wzmianki na dokumencie”, „ekran z timestampem”, a modele
+obrazu nie piszą po polsku. Stąd zasada ZERO TEKSTU, bramka kontroli i tor poprawek (README §3a).
+
+| Ujęcie | Problem | Metoda | Koszt |
+|---|---|---|---|
+| u9 | dokument po pseudo-angielsku, widz ma przeczytać różnicę odczytów | `dokument` (porownanie_kw renderowane w PIL, zbliżenie w montażu) | 0,00 $ |
+| u2 | bełkot na dwóch wydrukach | `klatka`: Seedream BEZ TEKSTU → QC klatki (ok) → Kling i2v | 0,03 + 0,21 $ |
+| u17 | bełkot na etykiecie; potrzebny napis „1 XII” | `klatka` z `dozwolony_tekst` (Seedream napisał „1 XII” poprawnie, QC potwierdziło) → Kling i2v | 0,03 + 0,21 $ |
+| u1, u3 | drobna etykieta / znak na rekwizycie | `rozmyj` (boksy z OCR) | 0,00 $ |
+| u6 | fałszywe napisy pod kwestią (prompt prosił o ekran z timestampem) | `kadruj` (0 $) + ponowny Kling Avatar z czystym promptem | 0,18 $ |
+| u5, u7, u15 | plansze zastępcze z tekstem wychodzącym poza kadr | `dokumenty.py --plansze` (zawijanie w px) | 0,00 $ |
+| wszystkie | kontrola 2–3 klatek/klip, Sonnet 4.6 + OCR | `kontrola_ujec.py` | 0,21 $ |
+| **Razem runda poprawek** | | | **0,87 $** |
+
+EP04 po poprawkach: **4,38 $** (3,51 + 0,87) wobec 12,64 $ na starym torze. Gdyby zasada ZERO TEKSTU
+obowiązywała od początku, runda kosztowałaby tylko kontrolę (~0,2 $): u2/u17 powstałyby od razu bez tekstu,
+u9 od razu jako warstwa czytelna, a u6 bez „ekranu z timestampem” w prompcie.
+Bramka kontroli na klatce startowej (0,01 $) chroni przed płaceniem 0,21 $ za wideo z bełkotem.
+
 Wnioski: (1) HeyGen API ma osobną pulę „api credits", wyczerpaną mimo salda portfela – doładować albo
 zostać przy Kling Avatar (0,056 $/s, stabilna twarz, bez `motion_prompt`); (2) `fal_url` zapisane w
 `scenografia.json` i `postac.json` wygasają – do fal podawać stałe adresy `raw.githubusercontent.com`
