@@ -16,7 +16,7 @@ permissions:
 jobs:
   offline-foundation:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
       AWS_EC2_METADATA_DISABLED: "true"
     steps:
@@ -24,8 +24,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install only pytest
-        run: python -m pip install --disable-pip-version-check 'pytest>=8,<10'
+      - name: Install application test dependencies (no optional local models)
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/agent-forge-ci-requirements.txt
+          python -m pip install --disable-pip-version-check -r /tmp/agent-forge-ci-requirements.txt
       - name: Compile Agent Forge modules
         run: python -m compileall -q tools/agent_factory
       - name: Run offline foundation security and regression tests
