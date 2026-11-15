@@ -162,7 +162,7 @@ def na_html(md: str) -> tuple[str, str]:
                 wiersze.append([k.strip() for k in linie[i].strip().strip("|").split("|")])
                 i += 1
             naglowek, cialo = wiersze[0], [w for w in wiersze[2:]]
-            wynik.append('<div class="tabela"><table><thead><tr>'
+            wynik.append('<div class="tabela" tabindex="0" role="region" aria-label="Tabela — przewiń w poziomie"><table><thead><tr>'
                          + "".join(f"<th>{wiersz(k)}</th>" for k in naglowek)
                          + "</tr></thead><tbody>"
                          + "".join("<tr>" + "".join(f"<td>{wiersz(k)}</td>" for k in w) + "</tr>" for w in cialo)
