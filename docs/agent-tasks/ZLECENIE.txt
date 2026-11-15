@@ -1,0 +1,7 @@
+# Zadania dla agenta kodującego - po jednym pliku w wierszu. Push na gałąź koder/* uruchamia
+# .github/workflows/koder.yml, który wykona je na wynajętym GPU i odłoży gałęzie agent/*.
+docs/agent-tasks/sample.md
+docs/agent-tasks/k2-testy-salad-vllm.md
+docs/agent-tasks/k3-check-json.md
+docs/agent-tasks/k4-runner-lista-zadan.md
+docs/agent-tasks/k5-taksa-granice.md

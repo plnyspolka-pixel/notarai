@@ -5,6 +5,7 @@ Polecenia:
   up --pay              utwórz grupę z vLLM (płatne od chwili stanu `running`)
   status                stan grupy i tego, czy model już odpowiada
   proxy                 127.0.0.1:PORT -> brama Salad (dokleja klucz); po terminie usuwa grupę
+Całość bez komputera operatora uruchamia workflow .github/workflows/koder.yml.
   down                  usuń grupę (zawsze na koniec)
 
 Zasady: węzły Salad to cudze komputery poza UE -> wyłącznie kod z publicznego repo i dane
@@ -33,9 +34,12 @@ NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,61}[a-z0-9]$")
 DNS_RE = re.compile(r"^[a-z0-9.-]+\.salad\.cloud$", re.I)
 STATE = Path(__file__).resolve().parents[2] / ".agent-forge" / "salad-koder.json"
 
-# Domyślny model: mieści się w 32 GB (18 GB wag) z kontekstem 64k; Apache 2.0, bez bramki.
-DEFAULT_MODEL = "cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
-DEFAULT_PARSER = "qwen3_xml"  # wg docs.vllm.ai/features/tool_calling (10.11.2026)
+# Domyślny model: Qwen3.8-27B w 4 bitach (19,5 GB wag, Apache 2.0, bez bramki) - najmocniejszy
+# otwarty model do pracy agentowej mieszczący się na jednej karcie 32 GB (przegląd 16.11.2026).
+# Zapas dla kart 24 GB: cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit z parserem qwen3_xml.
+DEFAULT_MODEL = "RedHatAI/Qwen3.8-27B-INT4"
+DEFAULT_PARSER = "qwen3_coder"  # wg recipes.vllm.ai/Qwen/Qwen3.8-27B
+DEFAULT_VLLM_ARGS = "--kv-cache-dtype fp8 --language-model-only --enforce-eager --reasoning-parser qwen3"
 DEFAULT_IMAGE = "vllm/vllm-openai:latest"
 SERVED_NAME = "koder"
 PORT = 8000
@@ -115,13 +119,17 @@ def gpu_classes(keys: dict, priority: str) -> list[dict]:
 
 
 def create_body(name: str, gpu_id: str, args, deadline: datetime) -> dict:
+    # `timeout` w kontenerze: drugi bezpiecznik - po terminie vLLM kończy pracę sam, nawet
+    # gdyby nikt nie usunął grupy (restart_policy=never).
+    seconds = max(60, int((deadline - datetime.now(timezone.utc)).total_seconds()) + 900)
     command = [
-        "vllm", "serve", args.model,
+        "timeout", str(seconds), "vllm", "serve", args.model,
         "--host", "::", "--port", str(PORT),  # brama Salad łączy się po IPv6
         "--served-model-name", SERVED_NAME,
         "--max-model-len", str(args.context),
         "--gpu-memory-utilization", "0.90",
         "--enable-auto-tool-choice", "--tool-call-parser", args.parser,
+        *args.vllm_args.split(),
     ]
     return {
         "name": name,
@@ -324,9 +332,9 @@ def cmd_proxy(keys: dict, args) -> int:
     if not dns:
         cmd_down(keys, args)
         raise SaladError("Model nie wstał przed terminem - grupa usunięta")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(keys, dns))
+    server = ThreadingHTTPServer((args.bind, args.port), make_handler(keys, dns))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(f"GOTOWE: http://127.0.0.1:{args.port}/v1 (model `{SERVED_NAME}`)", flush=True)
+    print(f"GOTOWE: http://{args.bind}:{args.port}/v1 (model `{SERVED_NAME}`)", flush=True)
     try:
         while datetime.now(timezone.utc) < deadline:
             time.sleep(5)
@@ -349,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--model", default=DEFAULT_MODEL)
     up.add_argument("--parser", default=DEFAULT_PARSER)
     up.add_argument("--image", default=DEFAULT_IMAGE)
+    up.add_argument("--vllm-args", default=DEFAULT_VLLM_ARGS, help="dodatkowe flagi vllm serve")
     up.add_argument("--context", type=int, default=65536)
     up.add_argument("--minutes", type=int, default=120)
     up.add_argument("--max-usd", type=float, default=2.0)
@@ -357,6 +366,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     px = sub.add_parser("proxy")
     px.add_argument("--port", type=int, default=8000)
+    px.add_argument("--bind", default="127.0.0.1",
+                    help="0.0.0.0 tylko w kontenerze-bramie w wewnętrznej sieci Dockera")
     sub.add_parser("down")
     args = p.parse_args(argv)
     try:

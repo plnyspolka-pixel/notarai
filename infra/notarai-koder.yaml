@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - rola dla GitHub Actions uruchamiajacego agenta kodujacego na
+  wynajetym GPU (SaladCloud). Jedyne uprawnienie to odczyt sekretu z kluczem
+  dostawcy GPU. Bez dostepu do danych kancelarii, aplikacji i wdrozen.
+
+Parameters:
+  Repozytorium:
+    Type: String
+    Description: >-
+      Repozytorium GitHub w formacie pola sub tokenu OIDC, tak samo jak w
+      stosie notarai-github (np. wlasciciel@id/repo@id).
+  PrzedrostekGalezi:
+    Type: String
+    Default: koder/
+    Description: Tylko galezie o tym przedrostku dostaja poswiadczenia.
+  NazwaSekretu:
+    Type: String
+    Default: notarai/salad
+    Description: Sekret Secrets Manager z kluczem, organizacja i projektem Salad (JSON).
+
+Resources:
+  RolaKoder:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-github-koder
+      Description: notarai - GitHub Actions czyta klucz dostawcy GPU dla agenta kodujacego
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                # Pull requesty i forki nie dostana poswiadczen - tylko push
+                # na galaz koder/* w tym repozytorium.
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repozytorium}:ref:refs/heads/${PrzedrostekGalezi}*"
+      Policies:
+        - PolicyName: odczyt-klucza-gpu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: KluczDostawcyGpu
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${NazwaSekretu}-*"
+
+Outputs:
+  RolaArn:
+    Description: ARN roli do wpisania w workflow koder.yml
+    Value: !GetAtt RolaKoder.Arn
