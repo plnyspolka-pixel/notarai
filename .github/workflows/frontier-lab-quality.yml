@@ -1,0 +1,29 @@
+name: Frontier Engineering Lab (offline)
+on:
+  push:
+    paths:
+      - 'frontier-lab/**'
+      - '.github/workflows/frontier-lab-quality.yml'
+  pull_request:
+    paths:
+      - 'frontier-lab/**'
+      - '.github/workflows/frontier-lab-quality.yml'
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Catalog integrity
+        run: python3 frontier-lab/tools/catalog.py check
+      - name: Unit tests
+        run: python3 -m unittest discover -s frontier-lab/tests -v
+      - name: Synthetic demos (no network)
+        run: |
+          python3 frontier-lab/tools/uplift_demo.py >/dev/null
+          python3 frontier-lab/tools/hashchain.py demo >/dev/null
