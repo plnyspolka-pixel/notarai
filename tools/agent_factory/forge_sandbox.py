@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import uuid
 from pathlib import Path
 import re
 import shutil
@@ -96,6 +97,7 @@ def docker_command(workspace: Path, config: DockerTestConfig) -> list[str]:
         raise ForgeError("Unsafe workspace path")
     return [
         "docker", "run", "--rm", "--pull", "never",
+        "--log-driver", "none",
         "--network", "none", "--read-only",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
         "--pids-limit", "64", "--memory", "512m", "--cpus", "1",
@@ -131,20 +133,31 @@ def run_docker_tests(workspace: Path, config: DockerTestConfig,
         )
         if image_check.returncode != 0:
             raise ForgeError("Pinned Docker image is not cached; downloads disabled")
-        completed = subprocess.run(
-            cmd, env=env, check=False, capture_output=True,
-            timeout=config.timeout_s,
-        )
+        name = "agent-forge-test-" + uuid.uuid4().hex[:16]
+        # Disable Docker daemon logs and suppress untrusted stdout to avoid
+        # unbounded output retained by Docker or the Python parent.
+        cmd = cmd[:2] + ["--name", name] + cmd[2:]
+        try:
+            completed = subprocess.run(
+                cmd, env=env, check=False, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, timeout=config.timeout_s,
+            )
+        except subprocess.TimeoutExpired as exc:
+            # Killing the Docker CLI may leave the daemon-managed container.
+            # Use the exact generated name, never a pattern or user-supplied ID.
+            try:
+                subprocess.run(
+                    ["docker", "rm", "--force", name], env=env, check=False,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                raise ForgeError("Docker timeout; container cleanup unconfirmed") from exc
+            raise ForgeError("Docker test timed out; force removal requested") from exc
         return {
             "passed": completed.returncode == 0,
             "exit_code": completed.returncode,
-            "stdout_sha256": __import__("hashlib").sha256(completed.stdout).hexdigest(),
-            "stderr_sha256": __import__("hashlib").sha256(completed.stderr).hexdigest(),
             "runtime": "docker-offline",
             "output_stored": False,
         }
-    except subprocess.TimeoutExpired as exc:
-        # Docker CLI timeout does not guarantee descendants/container are gone.
-        raise ForgeError("Docker test timed out; inspect for surviving container") from exc
     except OSError as exc:
         raise ForgeError("Docker test launch failed") from exc

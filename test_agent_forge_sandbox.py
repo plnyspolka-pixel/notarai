@@ -100,3 +100,35 @@ def test_docker_runtime_is_mocked_never_executed(tmp_path, monkeypatch):
     assert len(calls) == 2
     assert calls[0][:3] == ["docker", "image", "inspect"]
     assert calls[1][:2] == ["docker", "run"]
+
+def test_docker_run_disables_daemon_logs(tmp_path):
+    root = stage_solution(tmp_path, "synthetic-008",
+                          "def solve(xs): return sum(xs)\n")
+    command = docker_command(root, DockerTestConfig(image=PINNED))
+    assert "--log-driver" in command
+    assert command[command.index("--log-driver")+1] == "none"
+
+
+def test_timeout_attempts_explicit_container_cleanup(tmp_path, monkeypatch):
+    import subprocess
+    import tools.agent_factory.forge_sandbox as module
+    monkeypatch.setenv(OPT_IN_ENV, OPT_IN_VALUE)
+    root = stage_solution(tmp_path, "synthetic-009",
+                          "def solve(xs): return sum(xs)\n")
+    monkeypatch.setattr(module.shutil, "which", lambda *_: "/usr/bin/docker")
+    calls = []
+    class FakeResult:
+        returncode = 0
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if len(calls) == 2:
+            raise subprocess.TimeoutExpired(args, 5)
+        return FakeResult()
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    with pytest.raises(ForgeError, match="force removal"):
+        run_docker_tests(root, DockerTestConfig(image=PINNED),
+                         operator_opt_in=True)
+    assert calls[0][:3] == ["docker", "image", "inspect"]
+    assert "--name" in calls[1]
+    assert calls[2][:3] == ["docker", "rm", "--force"]
+    assert calls[2][3] == calls[1][calls[1].index("--name")+1]
