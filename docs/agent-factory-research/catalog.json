@@ -2,7 +2,7 @@
   "schema_version": 1,
   "verified_at": "2026-11-15",
   "scope": "github-repo-metadata-only",
-  "total": 55,
+  "total": 73,
   "entries": [
     {
       "id": "karpathy/autoresearch",
@@ -553,6 +553,186 @@
       "repo_status": "public_repo_exists_not_archived_2026-11-15",
       "readme_sampled": false,
       "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/Self-HPO",
+      "repo": "https://github.com/MSR-Orchard/Self-HPO",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Koewolucja model policy + harness, RL z dowodami empirycznymi",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/WildAWM",
+      "repo": "https://github.com/MSR-Orchard/WildAWM",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Syntetyczne całe komputery: GUI/MCP/CLI, 341 środowisk i zadania OOD",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/execcritic",
+      "repo": "https://github.com/MSR-Orchard/execcritic",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Testy wygenerowane z kontraktu i feedback do napraw kodu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/trace",
+      "repo": "https://github.com/MSR-Orchard/trace",
+      "category": "data-and-rl",
+      "priority": "R&D",
+      "summary": "Credit assignment przy granicy narzędzi w długich trajektoriach",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/SecureVibe",
+      "repo": "https://github.com/MSR-Orchard/SecureVibe",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Trening agentów z nagrodą uwzględniającą bezpieczeństwo kodowania",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/SecureVibeEval",
+      "repo": "https://github.com/MSR-Orchard/SecureVibeEval",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Benchmarki bezpieczeństwa agentów kodujących",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "wbopan/retro-harness",
+      "repo": "https://github.com/wbopan/retro-harness",
+      "category": "autonomous-research",
+      "priority": "P0",
+      "summary": "RHO: retrospektywna optymalizacja harnessu bez etykiet",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "WecoAI/SpecBench",
+      "repo": "https://github.com/WecoAI/SpecBench",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Rozdzielenie testów widocznych i ukrytych, wykrywanie reward hackingu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "liuxuannan/AgentHallu",
+      "repo": "https://github.com/liuxuannan/AgentHallu",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Diagnoza pierwotnego błędu w trajektoriach agentów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "Continual-Intelligence/SEAL",
+      "repo": "https://github.com/Continual-Intelligence/SEAL",
+      "category": "model-internals",
+      "priority": "R&D",
+      "summary": "Samodzielnie tworzone aktualizacje treningowe i zmiany wag modelu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "openai/mle-bench",
+      "repo": "https://github.com/openai/mle-bench",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Benchmark autonomicznej inżynierii ML, wiele seedów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "FujitsuResearch/AgenTRIM",
+      "repo": "https://github.com/FujitsuResearch/AgenTRIM",
+      "category": "optimization-and-observability",
+      "priority": "R&D",
+      "summary": "Narzędzie badawcze do oceny modyfikacji narzędzi agentowych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "ParsaEsmati/videodiffusionphysics",
+      "repo": "https://github.com/ParsaEsmati/videodiffusionphysics",
+      "category": "video-world-models",
+      "priority": "R&D",
+      "summary": "NeurIPS 2026: badanie reprezentacji fizyki w latentach modeli wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "ChristianInterno/GeoPhys",
+      "repo": "https://github.com/ChristianInterno/GeoPhys",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: metryki geometrii ruchu i selekcji filmów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "vinesmsuic/PhyProbe",
+      "repo": "https://github.com/vinesmsuic/PhyProbe",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: skoring błędów fizycznych w wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "tiangexiang/HumanScore",
+      "repo": "https://github.com/tiangexiang/HumanScore",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: biomechanika i jakość ludzkiego ruchu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "google-deepmind/physics-iq-benchmark",
+      "repo": "https://github.com/google-deepmind/physics-iq-benchmark",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Weryfikacja zgodności z fizyką na realnych scenach",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "cjj826/LongJudgeBench",
+      "repo": "https://github.com/cjj826/LongJudgeBench",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Weryfikacja ocen semantycznych długich odpowiedzi",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
     }
   ]
 }
