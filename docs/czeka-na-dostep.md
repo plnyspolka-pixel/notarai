@@ -251,3 +251,27 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `KOSZTY_I_COMPUTE_2026-11-13.md` §3 pkt 2 i 4.
 - **Zamknięte, gdy:** paczka klipów z jednego odcinka przeszła end-to-end, a zmierzony koszt
   klipu jest w `koszty_log.csv` i w dokumencie kosztów.
+
+## NA-13. Publikacja notarai.pl z GitHuba — pierwsze uruchomienie na żywo
+
+- **Status:** czeka
+- **Brakuje:** jednorazowej aktualizacji stosu `notarai-github` przez administratora konta AWS
+  (rola GitHuba musi dostać odczyt sekretu `notarai/strona-ftp`). Workflow powstał bez dostępu
+  do AWS i do hostingu az.pl, więc nie był uruchomiony na żywo.
+- **Na żywo:**
+  1. Administrator: `powershell -ExecutionPolicy Bypass -File infra\4-polacz-github.ps1`
+     (aktualizuje istniejący stos; dodaje uprawnienie `SekretFtpStrony`).
+  2. GitHub → Actions → „NotarAI - publikacja notarai.pl” → Run workflow (gałąź `master`).
+     Pierwszy przebieg wysyła całą stronę (ok. 640 plików, 25 MB) i zostawia na serwerze
+     spis `.notarai-publikacja.json`.
+  3. Sprawdzić w logu: krok „Porownaj ze stanem na serwerze” podaje liczbę plików, audyt jest
+     zielony, „Sprawdz strone po publikacji” przechodzi. Zapisać, czy az.pl przyjmuje FTPS
+     z adresów GitHuba (gdyby odrzucał, wariant zapasowy: przeniesienie strony na S3 + CloudFront).
+  4. Uruchomić workflow drugi raz bez zmian: ma zakończyć się z „Zmienionych plików: 0”
+     i niczego nie wysłać.
+  5. Otworzyć https://notarai.pl/ i https://notarai.pl/kalkulator/ oraz jedną stronę miejscowości.
+- **Gdzie w kodzie:** `.github/workflows/strona.yml`, `infra/strona_ftp.py` (`roznice`, `wyslij-zmiany`),
+  `infra/notarai-github.yaml` (Sid `SekretFtpStrony`), `test_strona_ftp.py`.
+- **Zamknięte, gdy:** dwa kolejne przebiegi na żywo zachowały się jak w krokach 3 i 4, a zmiana
+  w `strona/` scalona do `master` pojawiła się na notarai.pl bez udziału człowieka.
+

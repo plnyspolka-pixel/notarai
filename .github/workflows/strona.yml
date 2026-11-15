@@ -1,0 +1,168 @@
+name: NotarAI - publikacja notarai.pl
+
+# Po kazdym zielonym przebiegu testow na master: generuje katalog kancelarii,
+# blog i sitemap, sprawdza strone audytem Web Factory i wysyla na hosting az.pl
+# tylko pliki nowe i zmienione. Gdy nic sie nie zmienilo, konczy bez wysylki.
+# Recznie: Actions -> "NotarAI - publikacja notarai.pl" -> Run workflow (master).
+#
+# Poswiadczenia AWS przez OIDC (rola notarai-github-wdrozenie); haslo FTPS jest
+# czytane z Secrets Manager na czas jednego kroku i nie trafia do logow.
+# Uprawnienie do sekretu nadaje jednorazowo infra/4-polacz-github.ps1.
+# Z serwera nic nie jest usuwane. Wycofanie zmiany: revert commita na master.
+
+on:
+  workflow_run:
+    workflows: ["NotarAI - testy kodu"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Jedna publikacja naraz; kolejna czeka, nie przerywa trwajacej.
+concurrency:
+  group: notarai-strona
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_EC2_METADATA_DISABLED: "true"
+  AWS_KONTO: "127621462971"
+  ROLA_GITHUB: arn:aws:iam::127621462971:role/notarai-github-wdrozenie
+  SEKRET_FTP: notarai/strona-ftp
+
+jobs:
+  publikacja:
+    name: Generowanie, audyt i wysylka zmian
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    if: >-
+      github.ref == 'refs/heads/master' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'master'
+        )
+      )
+    steps:
+      - name: Pobierz kod (dokladnie przetestowany commit)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instaluj zaleznosci bez opcjonalnych lokalnych modeli / przegladarki
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-requirements-ci.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r /tmp/notarai-requirements-ci.txt
+
+      - name: Generuj katalog kancelarii, blog i sitemap
+        run: |
+          set -euo pipefail
+          python seo/generuj.py
+          python seo/blog.py zbuduj
+          for plik in index.html notariusz/index.html blog/index.html sitemap.xml kalkulator/index.html; do
+            test -s "strona/$plik" || { echo "::error::Brak wymaganego pliku strona/$plik. Nic nie wyslano."; exit 1; }
+          done
+
+      - name: Poswiadczenia AWS przez OIDC
+        run: |
+          set -euo pipefail
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          if ! dane=$(aws sts assume-role-with-web-identity \
+                --role-arn "$ROLA_GITHUB" \
+                --role-session-name "github-strona-${GITHUB_RUN_ID}" \
+                --web-identity-token "$token" \
+                --duration-seconds 3600 \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text); then
+            echo "::error::Brak dostepu do roli $ROLA_GITHUB. Uruchom raz na komputerze: powershell -ExecutionPolicy Bypass -File infra\\4-polacz-github.ps1"
+            exit 1
+          fi
+          read -r kid ksec ksesja <<< "$dane"
+          echo "::add-mask::$ksec"
+          echo "::add-mask::$ksesja"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$ksec"
+            echo "AWS_SESSION_TOKEN=$ksesja"
+          } >> "$GITHUB_ENV"
+          konto=$(aws sts get-caller-identity --query Account --output text)
+          if [ "$konto" != "$AWS_KONTO" ]; then
+            echo "::error::AWS wskazuje konto $konto, oczekiwane $AWS_KONTO."
+            exit 1
+          fi
+
+      - name: Porownaj ze stanem na serwerze
+        id: roznice
+        run: |
+          set -euo pipefail
+          # Haslo zyje tylko w tym kroku: zmienna procesu, zamaskowana w logach.
+          if ! sekret=$(aws secretsmanager get-secret-value --secret-id "$SEKRET_FTP" --query SecretString --output text 2>/tmp/sekret-blad.txt); then
+            if grep -q "AccessDenied" /tmp/sekret-blad.txt; then
+              echo "::error::Rola GitHuba nie moze jeszcze czytac sekretu $SEKRET_FTP. Uruchom raz na komputerze: powershell -ExecutionPolicy Bypass -File infra\\4-polacz-github.ps1"
+            else
+              echo "::error::Nie udalo sie odczytac sekretu $SEKRET_FTP z Secrets Manager."
+            fi
+            exit 1
+          fi
+          haslo=$(printf '%s' "$sekret" | jq -er .password)
+          echo "::add-mask::$haslo"
+          sekret=
+          NOTARAI_FTP_HASLO="$haslo" python -I infra/strona_ftp.py roznice strona auto | tee /tmp/roznice.txt
+          liczba=$(grep -E '^ZMIENIONE=[0-9]+$' /tmp/roznice.txt | tail -1 | cut -d= -f2)
+          test -n "$liczba" || { echo "::error::Nie udalo sie ustalic liczby zmienionych plikow."; exit 1; }
+          echo "zmienione=$liczba" >> "$GITHUB_OUTPUT"
+          echo "Zmienionych plikow: $liczba" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Node.js 22
+        if: steps.roznice.outputs.zmienione != '0'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Audyt strony przed wysylka (Web Factory, tryb scisly)
+        if: steps.roznice.outputs.zmienione != '0'
+        working-directory: tools/web-factory
+        env:
+          # Audyt nie potrzebuje dostepu do AWS.
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          python3 -m http.server 5173 --bind 127.0.0.1 --directory ../../strona &
+          sleep 2
+          npm run audit:strona
+
+      - name: Wyslij zmienione pliki na az.pl
+        if: steps.roznice.outputs.zmienione != '0'
+        run: |
+          set -euo pipefail
+          sekret=$(aws secretsmanager get-secret-value --secret-id "$SEKRET_FTP" --query SecretString --output text)
+          haslo=$(printf '%s' "$sekret" | jq -er .password)
+          echo "::add-mask::$haslo"
+          sekret=
+          NOTARAI_FTP_HASLO="$haslo" python -I infra/strona_ftp.py wyslij-zmiany strona auto | tee /tmp/wyslane.txt
+          echo "Wyslano plikow: $(grep -E '^ZMIENIONE=[0-9]+$' /tmp/wyslane.txt | tail -1 | cut -d= -f2)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sprawdz strone po publikacji
+        if: steps.roznice.outputs.zmienione != '0'
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 4 --retry-delay 3 --max-time 20 -o /tmp/notarai.html https://notarai.pl/
+          grep -q "brand-site.css" /tmp/notarai.html || { echo "::error::Strona glowna notarai.pl nie wyglada na opublikowana wersje."; exit 1; }
+          curl -fsS --retry 2 --max-time 20 -o /dev/null https://notarai.pl/kalkulator/

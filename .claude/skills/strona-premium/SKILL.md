@@ -77,8 +77,16 @@ niezatwierdzonego hosta.
 - Wzorce wizualne (`--write-baseline`) zapisuje się dopiero po akceptacji wyglądu
   przez użytkownika.
 
-## 6. Czego nie robić bez pytania
+## 6. Publikacja
 
-- Nie wdrażaj na produkcję i nie zmieniaj przepływów logowania, rejestracji ani API.
+Strona notarai.pl publikuje się sama: po scaleniu do `master` i zielonych testach workflow
+`.github/workflows/strona.yml` generuje katalog i blog, powtarza audyt z punktu 5 i wysyła
+na hosting tylko zmienione pliki. Nie wysyłaj plików ręcznie i nie proś o to użytkownika.
+Wynik sprawdź w Actions („NotarAI - publikacja notarai.pl”). Wycofanie zmiany: revert commita.
+
+## 7. Czego nie robić bez pytania
+
+- Nie scalaj do `master` bez zgody użytkownika (scalenie publikuje stronę i wdraża aplikację)
+  i nie zmieniaj przepływów logowania, rejestracji ani API.
 - Nie usuwaj wpisów z `.dockerignore`.
 - Nie podmieniaj tokenów marki ani logo.

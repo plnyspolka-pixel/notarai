@@ -42,6 +42,13 @@ py -3 seo\blog.py zbuduj    strona/blog/* z seo/blog/*.md
 infra\strona.ps1 wyslij     robi oba kroki i wysyła katalog strona\ na az.pl
 ```
 
+Publikacja automatyczna: po każdym zielonym przebiegu testów na `master` workflow
+`.github/workflows/strona.yml` wykonuje oba kroki generowania, sprawdza stronę audytem
+Web Factory i wysyła na az.pl tylko pliki nowe i zmienione (spis skrótów leży na serwerze
+w `.notarai-publikacja.json`). Z serwera nic nie jest usuwane; wycofanie zmiany to revert
+commita. `infra\strona.ps1 wyslij` zostaje jako droga ręczna. Pierwsze uruchomienie na żywo:
+`docs/czeka-na-dostep.md`, pozycja NA-13.
+
 Katalogi `strona/notariusz/`, `strona/blog/` i `sitemap.xml` nie są w git
 (generowane). Po pierwszej publikacji zgłoś `https://notarai.pl/sitemap.xml`
 w Google Search Console i Bing Webmaster Tools.
@@ -135,8 +142,9 @@ Bez tych kroków zgłoszenia działają, tylko bez e-maili.
   automatycznie odrzucony (sprawa 179409642200625) - trzeba odwołać się w AWS
   Support Center z opisem użycia. Do tego czasu SES wysyła tylko na
   zweryfikowane adresy; aplikacja loguje nieudane wysyłki bez treści.
-- Strona statyczna (az.pl): z chmury nie ma dostępu FTPS, wysyłka
-  `infra\strona.ps1 wyslij` ze stanowiska.
+- Strona statyczna (az.pl): publikacja z GitHuba po scaleniu do `master`
+  (`.github/workflows/strona.yml`, NA-13 — do potwierdzenia na żywo, czy az.pl
+  przyjmuje FTPS z adresów GitHuba); ręcznie `infra\strona.ps1 wyslij` ze stanowiska.
 - Blog: 9 artykułów opublikowanych (wszystkie sprawdzone pod kątem kwot;
   w artykule o umowie deweloperskiej tabela taksy przeliczona kalkulatorem,
   bo model policzył ją źle, i poprawiony podział kosztów według ustawy

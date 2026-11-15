@@ -7,9 +7,19 @@ wypisuje hasla i nie zapisuje go nigdzie.
     strona_ftp.py lista [katalog]
     strona_ftp.py kopia <katalog_zdalny> <katalog_lokalny>
     strona_ftp.py wyslij <katalog_lokalny> <katalog_zdalny>
+    strona_ftp.py roznice <katalog_lokalny> <katalog_zdalny>
+    strona_ftp.py wyslij-zmiany <katalog_lokalny> <katalog_zdalny>
+
+"roznice" i "wyslij-zmiany" porownuja skroty SHA-256 plikow lokalnych ze spisem
+zostawionym na serwerze przy poprzedniej publikacji (MANIFEST). Wysylane sa
+tylko pliki nowe i zmienione; z serwera nic nie jest usuwane. Uzywa ich
+publikacja z GitHuba (.github/workflows/strona.yml).
 """
 
 import ftplib
+import hashlib
+import io
+import json
 import os
 import posixpath
 import sys
@@ -88,6 +98,76 @@ def wyslij(ftp, lokalny, zdalny):
             print(f"  wyslano {posixpath.join(cel, nazwa)}")
 
 
+# Spis opublikowanych plikow (sciezka -> SHA-256). Zawiera wylacznie skroty
+# plikow publicznych, wiec moze lezec w katalogu strony.
+MANIFEST = ".notarai-publikacja.json"
+
+
+def skroty_lokalne(lokalny):
+    """Sciezka wzgledna (z ukosnikami) -> SHA-256, dla plikow, ktore wysyla "wyslij"."""
+    wynik = {}
+    for korzen, katalogi, pliki in os.walk(lokalny):
+        katalogi[:] = sorted(k for k in katalogi if not k.startswith("."))
+        for nazwa in sorted(pliki):
+            if nazwa.startswith("."):
+                continue
+            pelna = os.path.join(korzen, nazwa)
+            wzgledna = os.path.relpath(pelna, lokalny).replace(os.sep, "/")
+            skrot = hashlib.sha256()
+            with open(pelna, "rb") as f:
+                for kawalek in iter(lambda: f.read(1 << 16), b""):
+                    skrot.update(kawalek)
+            wynik[wzgledna] = skrot.hexdigest()
+    return wynik
+
+
+def czytaj_manifest(ftp, zdalny):
+    """Spis z poprzedniej publikacji; pusty, gdy go nie ma albo jest nieczytelny."""
+    czesci = []
+    try:
+        ftp.retrbinary(f"RETR {posixpath.join(zdalny, MANIFEST)}", czesci.append)
+        dane = json.loads(b"".join(czesci).decode("utf-8"))
+    except (ftplib.error_perm, OSError, ValueError):
+        return {}
+    pliki = dane.get("pliki") if isinstance(dane, dict) else None
+    if not isinstance(pliki, dict):
+        return {}
+    return {str(k): str(v) for k, v in pliki.items()}
+
+
+def zmienione(lokalne, zdalne):
+    """Pliki nowe i o innej tresci niz przy poprzedniej publikacji, posortowane."""
+    return sorted(sciezka for sciezka, skrot in lokalne.items() if zdalne.get(sciezka) != skrot)
+
+
+def wyslij_zmiany(ftp, lokalny, zdalny):
+    lokalne = skroty_lokalne(lokalny)
+    if "index.html" not in lokalne:
+        raise RuntimeError("Brak index.html w katalogu do publikacji. Nic nie wyslano.")
+    do_wyslania = zmienione(lokalne, czytaj_manifest(ftp, zdalny))
+    zalozone = set()
+    for sciezka in do_wyslania:
+        katalog = posixpath.dirname(sciezka)
+        czesc = ""
+        for element in [e for e in katalog.split("/") if e]:
+            czesc = posixpath.join(czesc, element)
+            if czesc in zalozone:
+                continue
+            try:
+                ftp.mkd(posixpath.join(zdalny, czesc))
+            except ftplib.error_perm:
+                pass
+            zalozone.add(czesc)
+        with open(os.path.join(lokalny, *sciezka.split("/")), "rb") as f:
+            ftp.storbinary(f"STOR {posixpath.join(zdalny, sciezka)}", f)
+        print(f"  wyslano {sciezka}")
+    # Spis zapisujemy na koncu: przerwana publikacja powtorzy sie od zera roznic.
+    if do_wyslania:
+        tresc = json.dumps({"pliki": lokalne}, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ftp.storbinary(f"STOR {posixpath.join(zdalny, MANIFEST)}", io.BytesIO(tresc))
+    return do_wyslania
+
+
 def znajdz_katalog_strony(ftp):
     """Znajdz katalog publikacji notarai.pl bez zakladania, ze to root FTPS.
 
@@ -141,6 +221,16 @@ def main(argv):
         elif argv[0] == "wyslij" and len(argv) == 3:
             cel = znajdz_katalog_strony(ftp) if argv[2] == "auto" else argv[2]
             wyslij(ftp, argv[1], cel)
+        elif argv[0] in ("roznice", "wyslij-zmiany") and len(argv) == 3:
+            cel = znajdz_katalog_strony(ftp) if argv[2] == "auto" else argv[2]
+            if argv[0] == "roznice":
+                lista_zmian = zmienione(skroty_lokalne(argv[1]), czytaj_manifest(ftp, cel))
+                for sciezka in lista_zmian[:40]:
+                    print(f"  do wyslania {sciezka}")
+            else:
+                lista_zmian = wyslij_zmiany(ftp, argv[1], cel)
+            # Ostatni wiersz czyta workflow.
+            print(f"ZMIENIONE={len(lista_zmian)}")
         else:
             sys.exit(__doc__)
     finally:
