@@ -1,0 +1,65 @@
+{
+  "purpose": "Candidate libraries. Review exact package versions and licenses before adding to production.",
+  "approvedForEvaluation": [
+    {
+      "name": "Puck",
+      "repo": "https://github.com/puckeditor/puck",
+      "category": "visual-editor",
+      "license": "MIT"
+    },
+    {
+      "name": "React Aria",
+      "repo": "https://github.com/adobe/react-spectrum",
+      "category": "a11y-primitives",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "Zag",
+      "repo": "https://github.com/chakra-ui/zag",
+      "category": "state-machines",
+      "license": "MIT"
+    },
+    {
+      "name": "Motion",
+      "repo": "https://github.com/motiondivision/motion",
+      "category": "animation",
+      "license": "MIT"
+    },
+    {
+      "name": "OGL",
+      "repo": "https://github.com/oframe/ogl",
+      "category": "webgl",
+      "license": "Unlicense"
+    },
+    {
+      "name": "GPU Curtains",
+      "repo": "https://github.com/martinlaxenaire/gpu-curtains",
+      "category": "webgpu",
+      "license": "MIT"
+    },
+    {
+      "name": "Spark",
+      "repo": "https://github.com/sparkjsdev/spark",
+      "category": "3d-gaussian-splatting",
+      "license": "MIT"
+    },
+    {
+      "name": "Argos",
+      "repo": "https://github.com/argos-ci/argos",
+      "category": "visual-regression",
+      "license": "check repository components"
+    }
+  ],
+  "requiresSeparateLegalReview": [
+    {
+      "name": "Theatre.js Studio",
+      "repo": "https://github.com/theatre-js/theatre",
+      "reason": "Studio AGPL-3.0; core Apache-2.0"
+    },
+    {
+      "name": "Plasmic",
+      "repo": "https://github.com/plasmicapp/plasmic",
+      "reason": "Mixed licensing across components"
+    }
+  ]
+}

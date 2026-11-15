@@ -1,0 +1,29 @@
+name: Web Factory static checks
+
+on:
+  pull_request:
+    paths:
+      - 'tools/web-factory/**'
+      - '.github/workflows/web-factory-quality.yml'
+  push:
+    branches:
+      - 'feature/web-factory-*'
+    paths:
+      - 'tools/web-factory/**'
+      - '.github/workflows/web-factory-quality.yml'
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: tools/web-factory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: npm run check
