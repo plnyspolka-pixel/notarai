@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { allowSubresource, parseAllowlist, readArgs, slug, validateTarget } from '../src/policy.mjs';
-import { escapeHtml, evaluateViewport, summarise } from '../src/quality.mjs';
+import { allowSubresource, isStubbed, parseStubs, parseAllowlist, parseBudgets, parseExcludes, parsePaths, parseVariants, readArgs, slug, validateTarget, VIEWPORTS } from '../src/policy.mjs';
+import { collectRuns, escapeHtml, evaluateViewport, renderHtml, summarise } from '../src/quality.mjs';
 
 test('local http target is permitted', () => {
   assert.equal(validateTarget('http://127.0.0.1:5173/demo').pathname, '/demo');
@@ -51,4 +51,68 @@ test('critical accessibility, JS exceptions and visual regression fail a viewpor
 
 test('HTML report escapes dynamic content', () => {
   assert.equal(escapeHtml('<script>"x"</script>'), '&lt;script&gt;&quot;x&quot;&lt;/script&gt;');
+});
+
+test('extra paths must stay on the target origin', () => {
+  const target = new URL('http://localhost:5173/');
+  assert.deepEqual(parsePaths(undefined, target), ['/']);
+  assert.deepEqual(parsePaths('/, /kalkulator/,/', target), ['/', '/kalkulator/']);
+  assert.throws(() => parsePaths('//evil.example/x', target), /same-origin/);
+  assert.throws(() => parsePaths('https://evil.example/x', target), /same-origin/);
+  assert.throws(() => parsePaths('kalkulator', target), /same-origin/);
+});
+
+test('variants and budgets are validated', () => {
+  assert.deepEqual(parseVariants(), ['base', 'motion', 'dark']);
+  assert.deepEqual(parseVariants('base,motion'), ['base', 'motion']);
+  assert.throws(() => parseVariants('base,sparkle'), /Unknown variant/);
+  assert.equal(parseBudgets({}).cls, 0.1);
+  assert.equal(parseBudgets({ 'budget-kb': '800' }).weightKb, 800);
+  assert.throws(() => parseBudgets({ 'budget-cls': '-1' }), /between/);
+  assert.equal(VIEWPORTS.small.width, 320);
+});
+
+test('overflow and budget overruns fail a run; non-compared variants are not unbaselined', () => {
+  const budgets = { cls: 0.1, lcpMs: 2500, weightKb: 1500 };
+  const ok = { accessibility: [], consoleErrors: [], pageErrors: [], failedRequests: [],
+    visual: { status: 'not-compared' }, metrics: { lcpMs: 400, cls: 0.02, weightKb: 300, overflowPx: 0 } };
+  assert.equal(evaluateViewport(ok, 0.015, budgets).pass, true);
+  assert.equal(evaluateViewport(ok, 0.015, budgets).visualUnbaselined, false);
+  assert.equal(evaluateViewport({ ...ok, metrics: { ...ok.metrics, overflowPx: 12 } }, 0.015, budgets).pass, false);
+  assert.equal(evaluateViewport({ ...ok, metrics: { ...ok.metrics, cls: 0.4 } }, 0.015, budgets).pass, false);
+  assert.equal(evaluateViewport({ ...ok, metrics: { ...ok.metrics, weightKb: 4000 } }, 0.015, budgets).pass, false);
+  assert.equal(evaluateViewport({ ...ok, visual: { status: 'no-baseline' } }, 0.015, budgets).visualUnbaselined, true);
+});
+
+test('v2 reports are summarised per page and rendered with escaping', () => {
+  const run = { screenshot: 'images/home/desktop-base.png', accessibility: [], consoleErrors: ['<b>x</b>'],
+    pageErrors: [], failedRequests: [], blockedResources: ['https://cdn.example/a.js'], visual: { status: 'no-baseline' } };
+  const report = { name: 'demo', createdAt: 'now', pages: { '/': { runs: { 'desktop-base': run } }, '/a/': { runs: { 'desktop-base': { ...run, consoleErrors: [] } } } } };
+  assert.equal(collectRuns(report).length, 2);
+  report.summary = summarise(report, 0.015);
+  assert.equal(report.summary.pagesChecked, 2);
+  assert.equal(report.summary.pass, false);
+  assert.equal(report.summary.blockedThirdParty, 2);
+  const html = renderHtml(report);
+  assert.ok(html.includes('&lt;b&gt;x&lt;/b&gt;'));
+  assert.ok(!html.includes('<b>x</b>'));
+});
+
+test('accessibility exclusions accept only plain selectors', () => {
+  assert.deepEqual(parseExcludes('.brand-logo__word, #x'), ['.brand-logo__word', '#x']);
+  assert.deepEqual(parseExcludes(), []);
+  assert.throws(() => parseExcludes('<script>'), /plain CSS/);
+});
+
+test('stubbed backends are answered locally and third-party requests fail the gate', () => {
+  const target = new URL('http://localhost:5173/');
+  const stubs = parseStubs({ 'stub-hosts': 'app.example.org', 'stub-paths': '/api/' });
+  assert.equal(isStubbed('https://app.example.org/api/x', target, stubs), true);
+  assert.equal(isStubbed('http://localhost:5173/api/taksa?x=1', target, stubs), true);
+  assert.equal(isStubbed('http://localhost:5173/style.css', target, stubs), false);
+  assert.equal(isStubbed('https://other.example/api/', target, stubs), false);
+  assert.throws(() => parseStubs({ 'stub-paths': 'api' }), /path prefixes/);
+  const run = { accessibility: [], consoleErrors: [], pageErrors: [], failedRequests: [], blockedResources: ['https://cdn.example/x.js'] };
+  assert.equal(evaluateViewport(run).pass, false);
+  assert.equal(evaluateViewport({ ...run, blockedResources: [] }).pass, true);
 });

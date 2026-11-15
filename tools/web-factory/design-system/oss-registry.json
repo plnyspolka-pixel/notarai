@@ -1,65 +1,428 @@
 {
-  "purpose": "Candidate libraries. Review exact package versions and licenses before adding to production.",
+  "purpose": "Biblioteki dopuszczone do oceny w stronach NotarAI i Finance You. Wpis nie zwalnia z przeczytania pliku LICENSE zainstalowanej wersji.",
+  "reviewedAt": "2026-11-15",
+  "licenseEvidenceLegend": {
+    "primary-source": "licencja odczytana z repozytorium lub rejestru npm w dniu przeglądu",
+    "secondary-source": "licencja znana ze źródła wtórnego; przed użyciem potwierdzić w repozytorium",
+    "unverified": "niepotwierdzone; nie instalować bez sprawdzenia"
+  },
   "approvedForEvaluation": [
     {
-      "name": "Puck",
-      "repo": "https://github.com/puckeditor/puck",
-      "category": "visual-editor",
-      "license": "MIT"
+      "name": "Motion",
+      "repo": "https://github.com/motiondivision/motion",
+      "category": "animation",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Jeden pakiet dla React (motion/react) i czystego JS. Motion+ jest płatne i niepotrzebne."
+    },
+    {
+      "name": "GSAP",
+      "repo": "https://github.com/greensock/GSAP",
+      "category": "animation",
+      "license": "własnościowa GreenSock/Webflow (bezpłatna)",
+      "commercialUse": "tak, z zastrzeżeniem",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "secondary-source",
+      "note": "Darmowy razem z dawnymi wtyczkami Club, ale licencja nie jest otwarta i Webflow może ją zmienić. Zakaz użycia w narzędziach no-code konkurujących z Webflow."
+    },
+    {
+      "name": "anime.js",
+      "repo": "https://github.com/juliangarnier/anime",
+      "category": "animation",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "html",
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "W pełni otwarta alternatywa dla GSAP w czystym HTML (ok. 40 kB gzip)."
+    },
+    {
+      "name": "Lenis",
+      "repo": "https://github.com/darkroomengineering/lenis",
+      "category": "smooth-scroll",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Nie działa z CSS scroll-snap. Na stronie kancelarii nie stosować: płynne przewijanie zmienia natywne zachowanie."
+    },
+    {
+      "name": "AutoAnimate",
+      "repo": "https://github.com/formkit/auto-animate",
+      "category": "animation",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source"
+    },
+    {
+      "name": "Embla Carousel",
+      "repo": "https://github.com/davidjerleke/embla-carousel",
+      "category": "carousel",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Ostatnie wydanie IV.2025; sprawdzić aktywność przed użyciem."
+    },
+    {
+      "name": "Magic UI",
+      "repo": "https://github.com/magicuidesign/magicui",
+      "category": "react-components",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Instalacja przez rejestr shadcn. Dokumentacja opisuje tylko Next.js; sprawdzić importy pod Vite."
+    },
+    {
+      "name": "Motion Primitives",
+      "repo": "https://github.com/ibelick/motion-primitives",
+      "category": "react-components",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source"
+    },
+    {
+      "name": "Kokonut UI",
+      "repo": "https://github.com/kokonut-labs/kokonutui",
+      "category": "react-components",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Istnieje płatna wersja Pro."
+    },
+    {
+      "name": "Cult UI",
+      "repo": "https://github.com/nolly-studio/cult-ui",
+      "category": "react-components",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Rejestr oznaczony 15.11.2026 jako zdegradowany; możliwe błędy CLI."
+    },
+    {
+      "name": "Tailark",
+      "repo": "https://github.com/tailark/blocks",
+      "category": "react-sections",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Gotowe sekcje (hero, cennik, opinie). Rejestr oznaczony 15.11.2026 jako zdegradowany."
+    },
+    {
+      "name": "HeroUI",
+      "repo": "https://github.com/heroui-inc/heroui",
+      "category": "react-components",
+      "license": "Apache-2.0",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source"
+    },
+    {
+      "name": "React Bits",
+      "repo": "https://github.com/DavidHDev/react-bits",
+      "category": "react-components",
+      "license": "MIT + Commons Clause",
+      "commercialUse": "tak na własnej stronie; zakaz odsprzedaży i redystrybucji komponentów",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source"
+    },
+    {
+      "name": "Animate UI",
+      "repo": "https://github.com/imskyleen/animate-ui",
+      "category": "react-components",
+      "license": "MIT + Commons Clause",
+      "commercialUse": "tak na własnej stronie; zakaz odsprzedaży i redystrybucji komponentów",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source"
     },
     {
       "name": "React Aria",
       "repo": "https://github.com/adobe/react-spectrum",
       "category": "a11y-primitives",
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source"
     },
     {
       "name": "Zag",
       "repo": "https://github.com/chakra-ui/zag",
       "category": "state-machines",
-      "license": "MIT"
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source"
     },
     {
-      "name": "Motion",
-      "repo": "https://github.com/motiondivision/motion",
-      "category": "animation",
-      "license": "MIT"
+      "name": "Paper Shaders",
+      "repo": "https://github.com/paper-design/shaders",
+      "category": "shader-backgrounds",
+      "license": "Apache-2.0",
+      "commercialUse": "tak, po sprawdzeniu wersji",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Repozytorium podaje Apache-2.0, jedna kopia dokumentacji wymienia PolyForm Shield. Sprawdzić LICENSE zainstalowanej wersji i przypiąć ją (wersje 0.0.x)."
     },
     {
       "name": "OGL",
       "repo": "https://github.com/oframe/ogl",
       "category": "webgl",
-      "license": "Unlicense"
+      "license": "Unlicense",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Ok. 29 kB; własne shadery."
     },
     {
-      "name": "GPU Curtains",
-      "repo": "https://github.com/martinlaxenaire/gpu-curtains",
-      "category": "webgpu",
-      "license": "MIT"
+      "name": "cobe",
+      "repo": "https://github.com/shuding/cobe",
+      "category": "webgl-globe",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Ok. 5 kB."
     },
     {
-      "name": "Spark",
-      "repo": "https://github.com/sparkjsdev/spark",
-      "category": "3d-gaussian-splatting",
-      "license": "MIT"
+      "name": "curtains.js",
+      "repo": "https://github.com/martinlaxenaire/curtainsjs",
+      "category": "webgl-images",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "html",
+        "react"
+      ],
+      "licenseEvidence": "secondary-source"
+    },
+    {
+      "name": "three.js",
+      "repo": "https://github.com/mrdoob/three.js",
+      "category": "3d",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "150-170 kB gzip. Ładować leniwie po wyświetleniu treści; WebGPU i TSL zmieniają się między wydaniami, więc przypinać wersję."
+    },
+    {
+      "name": "React Three Fiber",
+      "repo": "https://github.com/pmndrs/react-three-fiber",
+      "category": "3d",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Na produkcję wersja 9 z WebGL; wersja 10 jest w fazie alfa."
+    },
+    {
+      "name": "Basecoat",
+      "repo": "https://github.com/hunvreus/basecoat",
+      "category": "html-components",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Komponenty w stylu shadcn dla czystego HTML; wymaga Tailwind."
+    },
+    {
+      "name": "Lucide",
+      "repo": "https://github.com/lucide-icons/lucide",
+      "category": "icons",
+      "license": "ISC",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "secondary-source",
+      "note": "Wklejać jako inline SVG."
+    },
+    {
+      "name": "Montserrat",
+      "repo": "https://github.com/JulietaUla/Montserrat",
+      "category": "font",
+      "license": "SIL OFL 1.1",
+      "commercialUse": "tak",
+      "stack": [
+        "react",
+        "html"
+      ],
+      "licenseEvidence": "primary-source",
+      "note": "Krój marki. Serwować z własnego serwera (pakiet @fontsource-variable/montserrat), podzbiory latin i latin-ext."
+    },
+    {
+      "name": "Puck",
+      "repo": "https://github.com/puckeditor/puck",
+      "category": "visual-editor",
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "react"
+      ],
+      "licenseEvidence": "secondary-source",
+      "note": "Edytor stron; nie na obecnym etapie."
     },
     {
       "name": "Argos",
       "repo": "https://github.com/argos-ci/argos",
       "category": "visual-regression",
-      "license": "check repository components"
+      "license": "MIT",
+      "commercialUse": "tak",
+      "stack": [
+        "ci"
+      ],
+      "licenseEvidence": "secondary-source",
+      "note": "Dopiero gdy powstanie duża biblioteka komponentów."
     }
   ],
   "requiresSeparateLegalReview": [
     {
       "name": "Theatre.js Studio",
       "repo": "https://github.com/theatre-js/theatre",
-      "reason": "Studio AGPL-3.0; core Apache-2.0"
+      "reason": "Studio na AGPL-3.0, rdzeń na Apache-2.0; brak wydań od 2024"
     },
     {
       "name": "Plasmic",
       "repo": "https://github.com/plasmicapp/plasmic",
-      "reason": "Mixed licensing across components"
+      "reason": "Mieszane licencje; katalog platform/ na AGPL"
+    },
+    {
+      "name": "Aceternity UI",
+      "repo": "https://ui.aceternity.com",
+      "reason": "Licencja własna: wolno w gotowym produkcie, nie wolno rozpowszechniać ani sprzedawać szablonów"
+    },
+    {
+      "name": "coss ui (dawniej Origin UI)",
+      "repo": "https://coss.com/ui",
+      "reason": "Zgłaszana licencja AGPLv3, niepotwierdzona u źródła"
+    },
+    {
+      "name": "21st.dev",
+      "repo": "https://github.com/21st-dev",
+      "reason": "Licencja ustalana osobno przez autora każdego komponentu"
+    },
+    {
+      "name": "Fontshare",
+      "repo": "https://www.fontshare.com",
+      "reason": "Darmowe komercyjnie, ale bez prawa redystrybucji: nie commitować plików krojów do repozytorium"
+    },
+    {
+      "name": "unDraw",
+      "repo": "https://undraw.co/license",
+      "reason": "Licencja własna: zakaz dystrybucji w paczkach"
+    }
+  ],
+  "doNotUse": [
+    {
+      "name": "Typed.js",
+      "reason": "GPL-3.0 albo płatna licencja komercyjna"
+    },
+    {
+      "name": "ScrollReveal",
+      "reason": "GPL-3.0"
+    },
+    {
+      "name": "Animate.css",
+      "reason": "Hippocratic License 2.1 z dodatkowymi warunkami prawnymi"
+    },
+    {
+      "name": "whatamesh",
+      "reason": "Brak pliku licencji; kod pochodzi ze strony Stripe"
+    },
+    {
+      "name": "Shadertoy (kod shaderów)",
+      "reason": "Domyślnie CC BY-NC-SA, czyli tylko użytek niekomercyjny"
+    },
+    {
+      "name": "LYGIA",
+      "reason": "Licencja Prosperity/Patron; użycie komercyjne wymaga osobnych uprawnień"
+    },
+    {
+      "name": "Spline",
+      "reason": "Płatny plan do usunięcia logo; zależność od zewnętrznego runtime"
+    },
+    {
+      "name": "Unicorn Studio",
+      "reason": "Plan darmowy tylko niekomercyjny"
+    },
+    {
+      "name": "Vanta.js",
+      "reason": "Przypięty do starego three.js r134, ok. 120 kB"
+    },
+    {
+      "name": "AOS",
+      "reason": "Porzucony od 2018"
+    },
+    {
+      "name": "Lost Pixel",
+      "reason": "Repozytorium zarchiwizowane 2026-04-22"
+    },
+    {
+      "name": "Własny kursor, przejmowanie przewijania",
+      "reason": "Najczęściej krytykowane efekty; pogarszają użyteczność"
     }
   ]
 }
