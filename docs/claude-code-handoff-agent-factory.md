@@ -69,3 +69,7 @@ Never state "deployed" or "complete" if only code or documentation exists. Work 
 ## Verified 2026-11-15: Fable 5.2 Bedrock EU data-residency blocker
 
 AWS model-card regional matrix lists Fable 5.2 in eu-central-1 via **Global cross-region** only; **no In-Region or EU Geo** profile. Global is NOT EU-residency assurance. Accordingly Fable 5.2 MUST NOT receive NotarAI case/customer data, regulated prompts or screenshots via this route. EU-only workflow must use a separately verified model/profile and effective policies, or remain blocked. Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5-2.html . Public Anthropic Fable API also requires retention review. Code-only synthetic tasks are a separate authorization decision.
+
+## Research track — further instructions
+
+Before expanding to RL, evolutionary agent harnesses, data generation, world models or GPU kernels, read [docs/agent-factory-research/CLAUDE_CODE_TASK.md](agent-factory-research/CLAUDE_CODE_TASK.md) and [docs/agent-factory-research/experiments.md](agent-factory-research/experiments.md). These are optional, gated research tasks, not authorization for paid GPU work or production integration.
