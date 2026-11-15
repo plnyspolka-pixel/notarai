@@ -20,8 +20,11 @@ nie trafia na produkcję bez przejścia audytu z punktu 5.
 - Istniejące style: `strona/brand-site.css` (strona główna), `strona/style.css` (podstrony).
 - Część podstron powstaje z generatorów: `seo/strona.py`, `seo/lead_strona.py`,
   `seo/teczka_strona.py`, `dokumenty_prawne.py`. Poprawkę w wygenerowanym HTML wprowadź
-  także w generatorze. Nie uruchamiaj `infra/strona_dokumenty.py` przy okazji: generator
-  nagłówka jest starszy niż pliki w repozytorium i cofa logo.
+  także w generatorze, a po zmianie generatora sprawdź `git diff -- strona`, czy nie ruszył
+  niczego poza zamierzoną poprawką.
+- Propozycja nowej strony głównej: `strona/v2/` (`premium.css`, `premium.js`). Plik
+  `strona/v2/index.html` jest generowany z obecnej strony głównej poleceniem
+  `python3 tools/web-factory/v2/buduj.py`; nie edytuj go ręcznie. Kroje leżą w `strona/fonts/`.
 
 ## 2. Zasady wyglądu
 
@@ -48,7 +51,7 @@ nie trafia na produkcję bez przejścia audytu z punktu 5.
 ## 4. RODO i bezpieczeństwo
 
 - Zero żądań do obcych serwerów: kroje, skrypty, obrazy i ikony z własnej domeny.
-  Montserrat (OFL 1.1) leży w `tools/web-factory/galeria/fonts/`.
+  Montserrat (OFL 1.1) leży w `strona/fonts/`.
 - Żadnych danych osobowych, akt ani zrzutów z produkcji w przykładach i testach.
 - Audyt uruchamiaj na serwerze lokalnym. Wywołania API zastępuj atrapami
   (`--stub-hosts`, `--stub-paths`), nie kieruj ich na produkcję.

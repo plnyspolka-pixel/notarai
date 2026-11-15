@@ -9,7 +9,7 @@
     "test": "node --test tests/*.test.mjs",
     "check": "node --check src/audit.mjs && node --check src/policy.mjs && node --check src/quality.mjs && node --check src/mcp.mjs",
     "mcp": "node src/mcp.mjs",
-    "audit:strona": "node src/audit.mjs --url=http://127.0.0.1:5173/ --name=notarai --strict --a11y-exclude=.brand-logo__word --stub-hosts=app.notarai.pl --stub-paths=/api/ --paths=/,/kalkulator/,/lead/,/przygotuj-sprawe/,/instrukcja-ai/,/regulamin/,/prywatnosc/,/umowa-powierzenia/,/zasady-kolejnosci/,/wizyta/odwolaj/",
+    "audit:strona": "node src/audit.mjs --url=http://127.0.0.1:5173/ --name=notarai --strict --a11y-exclude=.brand-logo__word --stub-hosts=app.notarai.pl --stub-paths=/api/ --paths=/,/v2/,/kalkulator/,/lead/,/przygotuj-sprawe/,/instrukcja-ai/,/regulamin/,/prywatnosc/,/umowa-powierzenia/,/zasady-kolejnosci/,/wizyta/odwolaj/",
     "serve:strona": "python3 -m http.server 5173 --bind 127.0.0.1 --directory ../../strona"
   },
   "dependencies": {

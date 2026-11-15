@@ -1,0 +1,593 @@
+<!doctype html>
+<!-- Plik generowany: python3 tools/web-factory/v2/buduj.py. Nie edytuj ręcznie. -->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai - asystent kancelarii notarialnej</title>
+<meta name="description" content="NotarAI: pomocnik kancelarii i narzędzia dla klientów. Kalkulator kosztów notarialnych, wyszukiwarka notariuszy i zgłoszenia wizyt.">
+<meta name="theme-color" content="#071d49">
+<link rel="icon" type="image/svg+xml" href="../logo-mark.svg">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../brand-site.css">
+<link rel="preload" href="../fonts/montserrat-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="premium.css">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://notarai.pl/">
+</head>
+<body class="v2">
+<div class="p-postep" aria-hidden="true"></div>
+
+<!-- Lightweight inline icon sprite, no external UI library. -->
+<svg class="brand-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <symbol id="bi-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="bi-play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7V5Z"/></symbol>
+  <symbol id="bi-shield" viewBox="0 0 24 24"><path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="bi-chip" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></symbol>
+  <symbol id="bi-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="bi-scales" viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 7h8L6 7Zm12 0-4 7h8l-4-7Z"/></symbol>
+  <symbol id="bi-file" viewBox="0 0 24 24"><path d="M13 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M13 2v8h8M7 14h10M7 18h7"/></symbol>
+  <symbol id="bi-fileplus" viewBox="0 0 24 24"><path d="M13 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M13 2v8h8m-9 4v6m-3-3h6"/></symbol>
+  <symbol id="bi-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></symbol>
+  <symbol id="bi-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m0 4a5 5 0 0 1 4 5v1"/></symbol>
+  <symbol id="bi-stack" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5Zm-10 10 10 5 10-5M2 17l10 5 10-5"/></symbol>
+  <symbol id="bi-spark" viewBox="0 0 24 24"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/><path d="m19 2 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></symbol>
+  <symbol id="bi-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M9 2h6l1 3 3 1 3 4-2 3 1 3-4 3-3-1-3 2-4-2-1-3-3-2 1-5 3-1 2-5Z"/></symbol>
+  <symbol id="bi-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="bi-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+</svg>
+
+<header class="brand-header">
+  <div class="szer brand-header__inner">
+    <a class="brand-logo" href="../" aria-label="notarai — strona główna">
+      <img class="brand-logo__mark" src="../logo-mark.svg" width="47" height="47" alt="">
+      <span class="brand-logo__word">notar<strong>ai</strong></span>
+    </a>
+
+    <nav id="brand-primary-nav" class="brand-nav" aria-label="Nawigacja główna">
+      <a href="#dla-klientow">Dla klientów</a>
+      <a href="#hurtowe">Rezerwacje B2B</a>
+      <a href="#klikamy">Rozwiązania</a>
+      <a href="#latwo">Jak to działa</a>
+      <a href="#dane">Bezpieczeństwo</a>
+      <a href="#cennik">Cennik</a>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+
+    <div class="brand-header__actions">
+      <a class="brand-login" href="https://app.notarai.pl"><svg class="brand-icon" aria-hidden="true"><use href="#bi-user"/></svg> Zaloguj się</a>
+      <a class="brand-btn brand-btn--primary brand-btn--small" href="https://app.notarai.pl/rejestracja">
+        Załóż konto <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+      </a>
+    </div>
+    <button class="brand-menu-toggle" id="brand-menu-toggle" aria-label="Otwórz menu" aria-expanded="false" aria-controls="brand-primary-nav" type="button">
+      <svg class="brand-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+
+<!-- Hero visual derived from the approved NotarAI brand identity. -->
+<section class="brand-hero" aria-labelledby="brand-hero-heading">
+  <div class="szer brand-hero__inner">
+    <div class="brand-hero__copy">
+      <p class="brand-eyebrow"><span>Legal-tech</span><b></b><span>Notariat</span><b></b><span>AI</span></p>
+      <h1 id="brand-hero-heading">Nowoczesna obsługa notarialna <span class="p-akcent">z mocą AI</span></h1>
+      <p class="brand-hero__subtitle">notarai pomaga kancelariom przygotowywać projekty aktów na własnych wzorach, odczytywać dokumenty i wykonywać rutynowe czynności w rejestrach. Ty sprawdzasz wynik i podejmujesz decyzję.</p>
+      <div class="brand-hero__actions">
+        <a class="brand-btn brand-btn--primary" href="https://app.notarai.pl/rejestracja">
+          Zacznij od 150 kredytów za darmo <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+        </a>
+        <a class="brand-btn brand-btn--secondary" href="#latwo">
+          <svg class="brand-icon" aria-hidden="true"><use href="#bi-play"/></svg> Zobacz, jak to działa
+        </a>
+      </div>
+      <p class="brand-hero__disclaimer">Bez karty płatniczej na start. Każdy projekt wymaga weryfikacji notariusza.</p>
+      <a class="brand-hero__login" href="https://app.notarai.pl">Masz już konto? Zaloguj się do aplikacji</a>
+      <ul class="brand-hero__trust">
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-shield"/></svg> Dane w UE</li>
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-chip"/></svg> AI dla notariatu</li>
+        <li><svg class="brand-icon" aria-hidden="true"><use href="#bi-clock"/></svg> Mniej rutynowych czynności</li>
+      </ul>
+    </div>
+
+    <div class="brand-hero__visual">
+      <div class="brand-floater" aria-hidden="true">
+        <svg class="brand-icon"><use href="#bi-spark"/></svg>
+        <div><strong>Asystent AI</strong><span>Odczyt i przygotowanie projektu do kontroli</span></div>
+      </div>
+      <div class="brand-dashboard" role="img" aria-label="Poglądowa makieta panelu kancelarii: przykładowe sprawy, statusy oraz etapy przygotowania projektu.">
+        <div class="brand-dashboard__rail" aria-hidden="true">
+          <img src="../logo-mark.svg" alt="">
+          <span class="brand-dashboard__rail-item on"><svg class="brand-icon"><use href="#bi-home"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-file"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-users"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-stack"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-shield"/></svg></span>
+          <span class="brand-dashboard__rail-item"><svg class="brand-icon"><use href="#bi-settings"/></svg></span>
+        </div>
+        <div class="brand-dashboard__body">
+          <div class="brand-dashboard__top">
+            <div><h2>Witaj w notarai</h2><p>Dokumenty i sprawy kancelarii w jednym miejscu.</p></div>
+            <span class="brand-dashboard__avatar" aria-hidden="true">N</span>
+          </div>
+          <div class="brand-dashboard__main">
+            <div class="brand-dashboard__cases">
+              <div class="brand-dashboard__cases-head">
+                <strong>Moje sprawy</strong>
+                <span>Przykładowe dane</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Sprzedaż nieruchomości</strong><small>Projekt do sprawdzenia</small></span>
+                <span class="brand-status">Projekt</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Umowa darowizny</strong><small>Weryfikacja danych</small></span>
+                <span class="brand-status brand-status--progress">Weryfikacja</span>
+              </div>
+              <div class="brand-dashboard__case">
+                <span class="brand-dashboard__file"><svg class="brand-icon" aria-hidden="true"><use href="#bi-file"/></svg></span>
+                <span class="brand-dashboard__case-name"><strong>Pełnomocnictwo</strong><small>Zapisane w sprawie</small></span>
+                <span class="brand-status brand-status--done">Zakończone</span>
+              </div>
+            </div>
+            <div class="brand-dashboard__metric">
+              <svg class="brand-icon" aria-hidden="true"><use href="#bi-spark"/></svg>
+              <strong>Od skanów<br>do projektu</strong>
+              <span>AI przygotowuje materiał. Notariusz weryfikuje i zatwierdza.</span>
+            </div>
+          </div>
+          <div class="brand-dashboard__flow" aria-hidden="true">
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-fileplus"/></svg><span>Dodaj pliki</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-spark"/></svg><span>Odczyt AI</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-shield"/></svg><span>Sprawdź dane</span></div>
+            <span class="brand-dashboard__arrow">→</span>
+            <div class="brand-dashboard__step"><svg class="brand-icon"><use href="#bi-file"/></svg><span>Projekt Word</span></div>
+          </div>
+          <p class="brand-dashboard__caption">WIZUALIZACJA POGLĄDOWA • NIE JEST TO ZRZUT AKTUALNEGO PANELU</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="brand-hero__pixel p1" aria-hidden="true"></span>
+  <span class="brand-hero__pixel p2" aria-hidden="true"></span>
+  <span class="brand-hero__pixel p3" aria-hidden="true"></span>
+  <span class="brand-hero__wave" aria-hidden="true"></span>
+</section>
+
+<section class="brand-benefits" aria-label="Najważniejsze cechy rozwiązania">
+  <div class="szer brand-benefits__row">
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-scales"/></svg><div><strong>Prawo i zaufanie</strong><p>Kontrola decyzji pozostaje po stronie notariusza.</p></div></div>
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-chip"/></svg><div><strong>Technologia AI</strong><p>Odczyt skanów i projekty na własnych wzorach.</p></div></div>
+    <div class="brand-benefit"><svg class="brand-icon" aria-hidden="true"><use href="#bi-clock"/></svg><div><strong>Wygoda i efektywność</strong><p>Powtarzalne etapy obsługi w jednym procesie.</p></div></div>
+  </div>
+</section>
+
+<!-- KLIKAMY -->
+<section id="klikamy" class="sekcja ciemna">
+  <div class="szer">
+    <p class="znacznik jasny">Klikamy za Ciebie</p>
+    <h2>Piszesz, co ma się stać.<br>notarai klika. Ty patrzysz i decydujesz.</h2>
+    <p class="wstep">Portale rejestrów wymagają dziesiątek kliknięć przy każdej sprawie. Opisz zadanie zwykłym językiem, a notarai przejdzie je krok po kroku w&nbsp;prawdziwej przeglądarce Chrome na Twoim komputerze, obok okna aplikacji. Przy każdym kroku widać, co zostało zrobione i dlaczego.</p>
+
+    <div class="siatka trzy">
+      <article class="karta ciemna">
+        <h3>Zatrzymuje się przed tym, co ważne</h3>
+        <p>Przyciski, które wysyłają, składają, podpisują, płacą albo usuwają, agent rozpoznaje i ich nie klika. Oddaje wtedy stery Tobie, a formularz przed wysłaniem sprawdzasz samodzielnie.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Nie dotyka haseł</h3>
+        <p>Do pól hasła i PIN-u nie wpisuje niczego. Do portali logujesz się samodzielnie, swoim sposobem.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Tylko zatwierdzone adresy</h3>
+        <p>Agent nie wychodzi poza strony, na które się zgodzisz. Treść strony traktuje jako informację, a nie polecenie.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Formularze z treści aktu</h3>
+        <p>Wartości do formularzy rejestrowych bierze z danych sprawy i aktu. Przy każdej pokazuje cytat, z którego ją wziął.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Wybiera, nie zgaduje</h3>
+        <p>Klika w konkretny element strony z listy, a nie „w punkt na obrazku”. W formularzu urzędowym to różnica między pomyłką a jej brakiem.</p>
+      </article>
+      <article class="karta ciemna">
+        <h3>Twój komputer, Twoja sesja</h3>
+        <p>Pomocnik działa na Windows w kancelarii. Łączysz go z kontem jednym kodem i niczego nie otwierasz na zewnątrz.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- LATWOSC OBSLUGI -->
+<section id="latwo" class="sekcja">
+  <div class="szer">
+    <h2>Trzy kroki do projektu aktu</h2>
+    <ol class="kroki">
+      <li>
+        <span class="nr">1</span>
+        <h3>Wgraj materiały</h3>
+        <p>Wzór aktu (.docx) i skany: dowody, wypisy, odpisy z księgi wieczystej. Krótko opisz, czego potrzebujesz.</p>
+      </li>
+      <li>
+        <span class="nr">2</span>
+        <h3>Sprawdź odczyt</h3>
+        <p>Pola wymagające uwagi są oznaczone na czerwono: błędna suma kontrolna PESEL lub NIP, niska pewność, brak danych.</p>
+      </li>
+      <li>
+        <span class="nr">3</span>
+        <h3>Pobierz projekt</h3>
+        <p>Projekt w Wordzie, na Twoim wzorze. Miejsca, których nie dało się wypełnić, są wprost zaznaczone w tekście.</p>
+      </li>
+    </ol>
+
+    <ul class="zalety">
+      <li><strong>Działa w przeglądarce.</strong> Do projektów aktów nic nie instalujesz. Pomocnik jest potrzebny tylko do klikania w rejestrach.</li>
+      <li><strong>Twoje wzory.</strong> Pracujesz na własnych plikach Word, bez przepisywania szablonów do nowego systemu.</li>
+      <li><strong>Poprawki zwykłym językiem.</strong> „Dodaj pełnomocnika”, „zmień sposób zapłaty”, a projekt się aktualizuje.</li>
+      <li><strong>Cały zespół.</strong> Osobne konta dla notariusza i pracowników kancelarii.</li>
+      <li><strong>Bez ciągłego logowania.</strong> Sesja odnawia się sama do 30 dni na zaufanym komputerze.</li>
+      <li><strong>Ślad audytowy.</strong> Sprawdzenia w rejestrach zapisują się w sprawie razem ze zrzutem ekranu.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- BEZPIECZENSTWO -->
+<section id="dane" class="sekcja tlo2">
+  <div class="szer">
+    <h2>Dane klientów kancelarii pod kontrolą</h2>
+    <p class="wstep">Pracujesz na danych objętych tajemnicą notarialną. Dlatego każde zdanie poniżej opisuje rzeczywiste ustawienie usługi, a nie obietnicę marketingową.</p>
+
+    <div class="siatka trzy">
+      <article class="karta">
+        <h3>Wyłącznie Unia Europejska</h3>
+        <p>Sprawy leżą w AWS we Frankfurcie. Model działa w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm. Dane nie opuszczają Unii.</p>
+      </article>
+      <article class="karta">
+        <h3>Model niczego nie zapamiętuje</h3>
+        <p>Rejestrowanie wywołań modelu w Amazon Bedrock jest wyłączone. AWS nie przechowuje treści zapytań i nie używa ich do trenowania, a model nie uczy się na sprawach kancelarii.</p>
+      </article>
+      <article class="karta">
+        <h3>Albo pliki tylko u Ciebie</h3>
+        <p>Możesz wybrać tryb, w którym sprawy zapisują się w folderze na komputerze kancelarii. Skany przechodzą przez serwer tylko na czas odczytu i nie zostaje po nich żaden plik.</p>
+      </article>
+      <article class="karta">
+        <h3>Szyfrowanie i wersje</h3>
+        <p>Pliki są szyfrowane, dostępne wyłącznie przez HTTPS i wersjonowane, więc przypadkowe nadpisanie da się cofnąć.</p>
+      </article>
+      <article class="karta">
+        <h3>Logi bez danych osobowych</h3>
+        <p>W dziennikach nie ma numerów PESEL, nazwisk, adresów ani treści dokumentów. Pilnują tego testy automatyczne, także przy błędach.</p>
+      </article>
+      <article class="karta">
+        <h3>Usuwanie od ręki</h3>
+        <p>Usunięcie sprawy natychmiast kasuje skany, odczyty i projekt razem ze wszystkimi wersjami. Z zaszyfrowanych kopii zapasowych znikają najpóźniej po 21 dniach.</p>
+      </article>
+    </div>
+
+    <div class="ramka">
+      <div>
+        <h3>Czego notarai nie robi</h3>
+        <ul>
+          <li>Nie tworzy dokumentu gotowego do podpisu. Każdy projekt wymaga sprawdzenia i akceptacji notariusza.</li>
+          <li>Nie loguje się za Ciebie do systemów urzędowych.</li>
+          <li>Nie składa, nie podpisuje i nie wysyła wniosków w Twoim imieniu.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Podstawa prawna</h3>
+        <ul>
+          <li>Umowa powierzenia przetwarzania danych z każdą kancelarią.</li>
+          <li>Zobowiązanie do tajemnicy w zakresie art. 18 Prawa o notariacie.</li>
+          <li><a href="#zgodnosc">Szczegóły: role, terminy, dokumenty</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ZGODNOSC -->
+<section id="zgodnosc" class="sekcja">
+  <div class="szer">
+    <p class="znacznik">Zgodność</p>
+    <h2>RODO, tajemnica notarialna i AI.<br>Konkretnie, punkt po punkcie.</h2>
+    <p class="wstep">Poniżej opisujemy, kto za co odpowiada, do czego zobowiązuje nas umowa powierzenia i&nbsp;co pozostaje po stronie kancelarii. Wszystkie dokumenty dostajesz do wglądu przed podpisaniem umowy.</p>
+
+    <h3 class="podtytul">Role w przetwarzaniu danych</h3>
+    <ol class="role">
+      <li>
+        <span class="rola-nazwa">Administrator</span>
+        <strong>Kancelaria notarialna</strong>
+        <p>Decyduje o celach i sposobie przetwarzania danych klientów. Wydaje polecenia przez umowę, ustawienia i&nbsp;czynności w aplikacji.</p>
+      </li>
+      <li>
+        <span class="rola-nazwa">Podmiot przetwarzający, art. 28 RODO</span>
+        <strong>Fundacja Krzewienia Edukacji Finansowej im.&nbsp;Pieczaka</strong>
+        <p>Dostawca usługi notarai. Przetwarza dane wyłącznie na udokumentowane polecenie kancelarii.</p>
+      </li>
+      <li>
+        <span class="rola-nazwa">Dalszy podmiot przetwarzający</span>
+        <strong>Amazon Web Services EMEA SARL, Luksemburg</strong>
+        <p>Infrastruktura, magazyn plików, logowanie użytkowników i model językowy w Amazon Bedrock. Działa na podstawie AWS GDPR Data Processing Addendum.</p>
+      </li>
+    </ol>
+    <p class="przypis">Anthropic, twórca modelu Claude, nie jest podmiotem przetwarzającym. Model działa w infrastrukturze AWS, a jego dostawca nie ma dostępu do zapytań ani odpowiedzi.</p>
+
+    <div class="tematy">
+      <details class="p-temat" name="zgodnosc" open>
+        <summary><h3>Do czego zobowiązuje nas umowa powierzenia</h3></summary>
+        <ul>
+          <li>Zakaz wykorzystywania danych do celów własnych, w tym do trenowania, dostrajania, testowania i oceny modeli AI.</li>
+          <li>Przetwarzanie wyłącznie na terytorium Europejskiego Obszaru Gospodarczego.</li>
+          <li>Zgłoszenie naruszenia ochrony danych kancelarii w ciągu <strong>24 godzin</strong> od jego stwierdzenia.</li>
+          <li>Informacja o nowym dalszym podmiocie przetwarzającym co najmniej <strong>30 dni</strong> wcześniej, z prawem sprzeciwu i wypowiedzenia bez opłat.</li>
+          <li>Prawo do audytu raz w roku, z 14-dniowym wyprzedzeniem, a po naruszeniu także bez tego limitu.</li>
+          <li>Po zakończeniu usługi usunięcie wszystkich danych w ciągu <strong>30 dni</strong>, z potwierdzeniem e-mailem. Na wniosek przekazujemy wcześniej kopię danych.</li>
+        </ul>
+      </details>
+      <details class="p-temat" name="zgodnosc">
+        <summary><h3>Tajemnica notarialna</h3></summary>
+        <ul>
+          <li>Umowa zobowiązuje Fundację do zachowania w tajemnicy okoliczności spraw w zakresie nie mniejszym niż art. 18 Prawa o notariacie, bezterminowo.</li>
+          <li>Dostęp do danych mogą mieć wyłącznie osoby z imiennym upoważnieniem i zobowiązaniem do poufności.</li>
+          <li>Do treści spraw zaglądamy tylko na Twoją prośbę albo gdy to konieczne do usunięcia awarii. W drugim przypadku informujemy Cię w ciągu 3 dni roboczych.</li>
+          <li>Gdy organ zażąda danych, informujemy kancelarię, kierujemy żądającego do niej i kwestionujemy żądania, które uznamy za niezgodne z prawem.</li>
+        </ul>
+      </details>
+      <details class="p-temat" name="zgodnosc">
+        <summary><h3>Dane nie wyjeżdżają z UE</h3></summary>
+        <ul>
+          <li>Pliki są przechowywane we Frankfurcie, a model działa w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm. Aplikacja nie uruchomi się z konfiguracją spoza UE.</li>
+          <li>Rejestrowanie wywołań modelu jest wyłączone. AWS nie przechowuje treści zapytań i nie używa ich do trenowania.</li>
+          <li>AWS należy do grupy z siedzibą w USA. Dostęp na podstawie prawa państwa trzeciego obejmują zobowiązania AWS z umowy powierzenia oraz certyfikacja EU-U.S. Data Privacy Framework.</li>
+        </ul>
+      </details>
+      <details class="p-temat" name="zgodnosc">
+        <summary><h3>Środki bezpieczeństwa, art. 32 RODO</h3></summary>
+        <ul>
+          <li>Szyfrowanie plików AES-256, transmisja wyłącznie przez TLS.</li>
+          <li>Indywidualne konta w Amazon Cognito z hasłem o długości co najmniej 12 znaków. Uwierzytelnianie dwuskładnikowe jest w przygotowaniu.</li>
+          <li>Rozdzielenie kancelarii realizuje aplikacja, w ramach wspólnego magazynu. Jeśli potrzebujesz osobnej instalacji, porozmawiajmy.</li>
+          <li>Codzienna kopia zapasowa w sejfie z blokadą usunięcia. Każda kopia wygasa po 21 dniach.</li>
+          <li>Aplikacja ma uprawnienia tylko do magazynu spraw i modelu. Testy prowadzimy wyłącznie na danych fikcyjnych.</li>
+          <li>Infrastruktura AWS ma certyfikaty ISO/IEC 27001, 27017, 27018 i 27701 oraz raporty SOC 2.</li>
+        </ul>
+      </details>
+      <details class="p-temat" name="zgodnosc">
+        <summary><h3>Sztuczna inteligencja</h3></summary>
+        <ul>
+          <li>Każdy wynik jest projektem. Pola niepewne, z błędną sumą kontrolną albo bez danych są wyróżnione, a braki zostają w tekście jako widoczne znaczniki.</li>
+          <li>Decyzje podejmuje notariusz. Kancelaria nie podejmuje wobec klientów decyzji opartych wyłącznie na zautomatyzowanym przetwarzaniu (art. 22 RODO).</li>
+          <li>Klikamy rozpoznaje przyciski wysyłania, podpisu i płatności i ich nie klika, a do pól haseł nic nie wpisuje. Do rejestrów notariusz loguje się własnymi danymi.</li>
+        </ul>
+      </details>
+      <details class="p-temat pakiet" name="zgodnosc">
+        <summary><h3>Dokumenty bez papierologii</h3></summary>
+        <ul>
+          <li>Umowę powierzenia zawierasz przy rejestracji, razem z Regulaminem. Bez podpisów i bez wysyłania dokumentów.</li>
+          <li>Ocena skutków dla ochrony danych (DPIA) czeka w aplikacji, wypełniona danymi kancelarii. Przyjmujesz ją jednym kliknięciem.</li>
+          <li>Instrukcję AI każda osoba z zespołu potwierdza przy pierwszym logowaniu.</li>
+          <li>Gotowy wpis do rejestru czynności przetwarzania i wzór klauzuli informacyjnej dla klientów.</li>
+        </ul>
+        <a class="przycisk drugi" href="../umowa-powierzenia/">Przeczytaj umowę powierzenia</a>
+      </details>
+    </div>
+
+    <div class="ramka">
+      <div>
+        <h3>Co należy do kancelarii</h3>
+        <ul>
+          <li>Zaakceptować umowę powierzenia przy rejestracji. Bez niej aplikacja nie przyjmie żadnej sprawy.</li>
+          <li>Przyjąć w aplikacji gotową ocenę skutków (DPIA) i dopisać notarai do rejestru czynności przetwarzania.</li>
+          <li>Uzupełnić klauzulę informacyjną dla klientów.</li>
+          <li>Zakładać konta tylko upoważnionym pracownikom i usuwać je w dniu zakończenia pracy.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Dobra praktyka</h3>
+        <ul>
+          <li>Usuwać sprawy po zakończeniu czynności. notarai nie jest repertorium ani archiwum notarialnym.</li>
+          <li>W trybie „pliki u kancelarii” zadbać o kopię zapasową folderu i szyfrowanie dysku, np. BitLocker.</li>
+          <li>Nie przekazywać nikomu, także nam, haseł ani kart do systemów urzędowych.</li>
+          <li>Sprawdzić, czy izba notarialna wydała wytyczne dotyczące chmury i narzędzi AI.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="przypis">Ten opis ma charakter informacyjny. Prawa i obowiązki stron określają Regulamin i umowa powierzenia przetwarzania danych.</p>
+  </div>
+</section>
+
+<!-- Public tools and lead generation built in separate customer-facing modules. -->
+<section id="dla-klientow" class="sekcja klient-sekcja">
+  <div class="szer">
+    <p class="znacznik">Dla klientów kancelarii · bez logowania</p>
+    <h2>Od pytania o koszt do wizyty u notariusza</h2>
+    <p class="wstep">Sprawdź orientacyjny koszt czynności, przygotuj dokumenty i wybierz kancelarię, do której wyślesz zapytanie. Każda prośba o wizytę wymaga potwierdzenia przez kancelarię.</p>
+    <div class="siatka klient-grid">
+      <article class="karta klient-karta">
+        <span class="klient-nr">01</span>
+        <h3>Policz koszt czynności</h3>
+        <p>Taksa, wypisy, PCC i opłaty sądowe. Opisz sprawę asystentowi AI lub skorzystaj z formularza.</p>
+        <a class="klient-link" href="../kalkulator/">Otwórz bezpłatny kalkulator <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">02</span>
+        <h3>Znajdź kancelarię</h3>
+        <p>Wykaz kancelarii według miejscowości, informacje kontaktowe i przydatne wskazówki przed wizytą.</p>
+        <a class="klient-link" href="../notariusz/">Znajdź notariusza w swojej okolicy <span aria-hidden="true">→</span></a>
+        <a class="klient-link" href="https://app.notarai.pl/notariusze">Zobacz interaktywną mapę kancelarii NotarAI <span aria-hidden="true">→</span></a>
+      </article>
+      <article class="karta klient-karta">
+        <span class="klient-nr">03</span>
+        <h3>Wyślij prośbę o wizytę</h3>
+        <p>Wybierz kancelarię, opisz czynność i podaj kontakt. Kancelaria oddzwoni lub potwierdzi proponowany termin.</p>
+        <a class="klient-link" href="../notariusz/">Wybierz kancelarię i wyślij zapytanie <span aria-hidden="true">→</span></a>
+      </article>
+    </div>
+    <div class="klient-info">
+      <div><strong>Przygotuj się przed spotkaniem</strong><p>Zobacz wyjaśnienia dotyczące dokumentów i kosztów czynności w naszym poradniku.</p></div>
+      <a class="przycisk drugi" href="../blog/">Czytaj poradniki</a>
+    </div>
+  </div>
+</section>
+<section class="sekcja klient-konwersja tlo2">
+  <div class="szer cennik">
+    <div>
+      <p class="znacznik">Dla kancelarii notarialnych</p>
+      <h2>Zapytania klientów bezpośrednio w panelu</h2>
+      <p class="wstep">Kiedy klient wybierze kancelarię korzystającą z NotarAI, jego zapytanie trafi do panelu „Zapytania klientów”. Możesz oddzwonić, ustalić termin, a zaakceptowaną wizytę dodać do kalendarza.</p>
+      <p class="przypis">Zgłoszenie jest prośbą o kontakt, nie automatyczną rezerwacją. Powiadomienia e-mail zależą od konfiguracji poczty.</p>
+    </div>
+    <div class="karta klient-cta">
+      <h3>Jeden system od pierwszego kontaktu do aktu</h3>
+      <ul>
+        <li>Zapytania i statusy kontaktu</li>
+        <li>Kalendarz i telefony stron czynności</li>
+        <li>Odczyt skanów i projekt dokumentu Word</li>
+        <li>Asystent rejestrów z kontrolą notariusza</li>
+      </ul>
+      <a class="przycisk pelny" href="https://app.notarai.pl/rejestracja">Załóż konto kancelarii</a>
+    </div>
+  </div>
+</section>
+
+<!-- REZERWACJE B2B -->
+<section id="hurtowe" class="sekcja brand-booking" aria-labelledby="hurtowe-tytul">
+  <div class="szer brand-booking__layout">
+    <div>
+      <p class="znacznik">Nowość · dla klientów hurtowych</p>
+      <h2 id="hurtowe-tytul">Umawianie wizyt notarialnych przez API i MCP</h2>
+      <p class="wstep">Biura nieruchomości, deweloperzy, kancelarie prawne i firmy obsługujące wiele transakcji mogą rezerwować spotkania bez wymiany maili i telefonów. NotarAI pokazuje dostępność tylko tych kancelarii, które wyraziły zgodę na przyjmowanie rezerwacji B2B.</p>
+      <div class="brand-booking__actions">
+        <a class="brand-btn brand-btn--primary" href="https://app.notarai.pl/hurtowe">Przejdź do rezerwacji partnera
+          <svg class="brand-icon" aria-hidden="true"><use href="#bi-arrow"/></svg>
+        </a>
+        <a class="brand-btn brand-btn--secondary" href="mailto:kontakt@notarai.pl?subject=Dostep%20hurtowy%20API%20MCP">Uzyskaj dostęp B2B</a>
+      </div>
+      <p class="brand-booking__note">Dostęp wyłącznie dla autoryzowanych firm. W panelu partnera potrzebny jest indywidualny klucz API.</p>
+    </div>
+    <div class="brand-booking__features" aria-label="Funkcje rezerwacji">
+      <article><span>01</span><div><h3>Wolne terminy w jednym miejscu</h3><p>Wyszukaj kancelarię i zobacz dostępne godziny bez ujawniania cudzych rezerwacji.</p></div></article>
+      <article><span>02</span><div><h3>Potwierdzenie bez telefonu</h3><p>Wybierz termin. Rezerwacja trafia bezpośrednio do kalendarza kancelarii.</p></div></article>
+      <article><span>03</span><div><h3>Integracja z Twoim systemem</h3><p>REST API, obsługa agentów AI przez MCP oraz zmiana i odwoływanie własnych wizyt.</p></div></article>
+      <article><span>04</span><div><h3>Kontrola po stronie notariusza</h3><p>Kancelaria wybiera godziny, długość wizyt i w każdej chwili może wyłączyć dostęp B2B.</p></div></article>
+    </div>
+  </div>
+</section>
+
+<!-- CENNIK -->
+<section id="cennik" class="sekcja">
+  <div class="szer p-cennik">
+    <div>
+      <h2>Płacisz za to, z czego korzystasz</h2>
+      <p class="wstep">Bez abonamentu. Odczyt skanu, rozmowa o sprawie czy projekt aktu kosztują kredyty, a czynność, która się nie uda, nic nie kosztuje. Pakiety kupujesz w aplikacji (BLIK, przelew, karta), fakturę dostajesz e-mailem. Jesteśmy zwolnieni z VAT, więc cena pakietu to cała kwota.</p>
+    </div>
+    <div class="p-pakiety">
+      <article class="p-pakiet p-pakiet--start">
+        <small>Na start</small>
+        <strong>150 kr.</strong>
+        <b>0 zł</b>
+        <span>Za darmo, bez karty.</span>
+        <a class="przycisk pelny" href="https://app.notarai.pl/rejestracja">Załóż konto i wypróbuj</a>
+      </article>
+      <article class="p-pakiet">
+        <small>Pakiet</small>
+        <strong>100 kr.</strong>
+        <b>100 zł</b>
+        <span>1,00 zł za kredyt</span>
+      </article>
+      <article class="p-pakiet">
+        <small>Pakiet</small>
+        <strong>500 kr.</strong>
+        <b>450 zł</b>
+        <span>0,90 zł za kredyt</span>
+      </article>
+      <article class="p-pakiet">
+        <small>Pakiet</small>
+        <strong>2000 kr.</strong>
+        <b>1600 zł</b>
+        <span>0,80 zł za kredyt</span>
+      </article>
+    </div>
+    <ul class="p-cennik__uwagi">
+      <li>Typowa sprawa z projektem aktu: ok. 65–80 kredytów</li>
+      <li>Kalendarz, sprawy i konta dla całego zespołu bez opłat</li>
+    </ul>
+  </div>
+</section>
+
+<!-- KONTAKT -->
+<section id="kontakt" class="sekcja kontakt tlo2">
+  <div class="szer">
+    <h2>Zobacz notarai na przykładowej sprawie</h2>
+    <p class="wstep">Załóż konto sam, w dwie minuty, albo napisz, a pokażemy cały przebieg, od skanów do projektu i rejestrów.</p>
+    <div class="akcje">
+      <a class="przycisk" href="https://app.notarai.pl/rejestracja">Załóż konto kancelarii</a>
+      <a class="przycisk drugi" href="mailto:kontakt@notarai.pl?subject=Prezentacja%20notarai">kontakt@notarai.pl</a>
+      <a class="przycisk drugi" href="https://app.notarai.pl">Mam już konto</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="stopka">
+  <div class="szer">
+    <div class="brand-footer__top">
+      <a class="brand-logo brand-logo--inverse" href="../" aria-label="notarai — strona główna">
+        <img class="brand-logo__mark" src="../logo-mark.svg" width="43" height="43" alt="">
+        <span class="brand-logo__word">notar<strong>ai</strong></span>
+      </a>
+      <nav class="brand-footer__links" aria-label="Dokumenty i kontakt">
+        <a href="../kalkulator/">Kalkulator</a>
+        <a href="../notariusz/">Kancelarie notarialne</a>
+        <a href="../blog/">Poradniki</a>
+        <a href="../regulamin/">Regulamin</a>
+        <a href="../umowa-powierzenia/">Umowa powierzenia</a>
+        <a href="../instrukcja-ai/">Instrukcja AI</a>
+        <a href="../prywatnosc/">Polityka prywatności</a>
+        <a href="mailto:kontakt@notarai.pl">Kontakt</a>
+      </nav>
+    </div>
+    <div class="brand-footer__bottom">
+      <p>Usługę notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul. Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
+      <p>Każdy dokument przygotowany w systemie jest projektem do weryfikacji przez notariusza.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  const toggle = document.getElementById('brand-menu-toggle');
+  const nav = document.getElementById('brand-primary-nav');
+  if (!toggle || !nav) return;
+  function closeMenu() {
+    nav.classList.remove('is-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Otwórz menu');
+  }
+  toggle.addEventListener('click', function () {
+    const isOpen = !nav.classList.contains('is-open');
+    nav.classList.toggle('is-open', isOpen);
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    toggle.setAttribute('aria-label', isOpen ? 'Zamknij menu' : 'Otwórz menu');
+  });
+  nav.addEventListener('click', function (event) {
+    if (event.target.closest('a')) closeMenu();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeMenu();
+  });
+  document.addEventListener('click', function (event) {
+    if (!toggle.contains(event.target) && !nav.contains(event.target)) closeMenu();
+  });
+})();
+</script>
+<script src="premium.js" defer></script>
+</body>
+</html>
