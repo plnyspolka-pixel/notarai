@@ -65,3 +65,7 @@ Respect ALL instructions in root CLAUDE.md. In conflicts, prioritize data protec
 Report: completed code/commit hashes, passed/failed tests, actual endpoints and providers verified, effective GPU/LLM costs, isolation evidence, staging deployment URL if actually deployed, blocked steps, secrets/permissions needed **by name only**, and explicit request for authorization before production release.
 
 Never state "deployed" or "complete" if only code or documentation exists. Work actively as far as available permissions allow; leave auditable issues for external dependencies.
+
+## Verified 2026-11-15: Fable 5.2 Bedrock EU data-residency blocker
+
+AWS model-card regional matrix lists Fable 5.2 in eu-central-1 via **Global cross-region** only; **no In-Region or EU Geo** profile. Global is NOT EU-residency assurance. Accordingly Fable 5.2 MUST NOT receive NotarAI case/customer data, regulated prompts or screenshots via this route. EU-only workflow must use a separately verified model/profile and effective policies, or remain blocked. Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5-2.html . Public Anthropic Fable API also requires retention review. Code-only synthetic tasks are a separate authorization decision.
