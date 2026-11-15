@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { allowSubresource, isStubbed, parseStubs, parseAllowlist, parseBudgets, parseExcludes, parsePaths, parseVariants, readArgs, slug, validateTarget, VIEWPORTS } from '../src/policy.mjs';
-import { collectRuns, escapeHtml, evaluateViewport, renderHtml, summarise } from '../src/quality.mjs';
+import { collectRuns, failureLines, escapeHtml, evaluateViewport, renderHtml, summarise } from '../src/quality.mjs';
 
 test('local http target is permitted', () => {
   assert.equal(validateTarget('http://127.0.0.1:5173/demo').pathname, '/demo');
@@ -115,4 +115,12 @@ test('stubbed backends are answered locally and third-party requests fail the ga
   const run = { accessibility: [], consoleErrors: [], pageErrors: [], failedRequests: [], blockedResources: ['https://cdn.example/x.js'] };
   assert.equal(evaluateViewport(run).pass, false);
   assert.equal(evaluateViewport({ ...run, blockedResources: [] }).pass, true);
+});
+
+test('failing runs are explained in one line each', () => {
+  const run = { accessibility: [{ id: 'label', impact: 'critical' }], consoleErrors: [], pageErrors: [], failedRequests: [],
+    blockedResources: [], metrics: { lcpMs: 3000, cls: 0, weightKb: 10, overflowPx: 0 } };
+  const lines = failureLines({ pages: { '/x/': { runs: { 'mobile-base': run } } } }, 0.015, { cls: 0.1, lcpMs: 2500, weightKb: 1500 });
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^\/x\/ \[mobile-base\] LCP 3000ms > 2500ms; a11y: label$/);
 });

@@ -54,5 +54,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-factory-report
-          path: tools/web-factory/artifacts/web-factory/notarai
+          # Bez zrzutów ekranu: raport tekstowy wystarcza do diagnozy, a zrzuty ważą ponad 100 MB.
+          path: |
+            tools/web-factory/artifacts/web-factory/notarai/report.json
+            tools/web-factory/artifacts/web-factory/notarai/index.html
           retention-days: 7

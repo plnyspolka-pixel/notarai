@@ -53,6 +53,29 @@ export function summarise(report, threshold, budgets) {
   };
 }
 
+// One line per failing run, so a red CI job explains itself without downloading the report.
+export function failureLines(report, threshold, budgets, limit = 40) {
+  const lines = [];
+  for (const { pagePath, key, run } of collectRuns(report)) {
+    const check = evaluateViewport(run, threshold, budgets);
+    if (check.pass) continue;
+    const reasons = [...check.overBudget];
+    if (check.severeAccessibility) {
+      reasons.push('a11y: ' + (run.accessibility || [])
+        .filter(item => ['critical', 'serious'].includes(item.impact)).map(item => item.id).join(', '));
+    }
+    if (check.runtimeErrors) reasons.push('runtime: ' + [...(run.consoleErrors || []), ...(run.pageErrors || [])][0]);
+    if (check.brokenRequests) reasons.push('failed request: ' + run.failedRequests[0]);
+    if (check.blockedThirdParty) reasons.push('third-party: ' + run.blockedResources[0]);
+    if (check.changedPixels !== null && check.changedPixels > threshold) {
+      reasons.push('visual diff ' + (100 * check.changedPixels).toFixed(2) + '%');
+    }
+    lines.push(pagePath + ' [' + key + '] ' + reasons.join('; ').slice(0, 300));
+    if (lines.length >= limit) break;
+  }
+  return lines;
+}
+
 export function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')

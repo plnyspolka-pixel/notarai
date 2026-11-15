@@ -10,7 +10,7 @@ import {
   allowSubresource, isStubbed, parseBudgets, parseExcludes, parsePaths, parseStubs, parseVariants, readArgs, slug,
   validateTarget, VARIANTS, VIEWPORTS,
 } from './policy.mjs';
-import { renderHtml, summarise } from './quality.mjs';
+import { failureLines, renderHtml, summarise } from './quality.mjs';
 
 const { PNG } = pngjs;
 
@@ -268,6 +268,7 @@ async function main() {
   await fs.writeFile(path.join(outputDir, 'index.html'), renderHtml(report));
   console.log('Web Factory report: ' + path.join(outputDir, 'index.html'));
   console.log(JSON.stringify(report.summary));
+  for (const line of failureLines(report, threshold, budgets)) console.log('FAIL ' + line);
   if (args.strict && !report.summary.pass) process.exitCode = 1;
 }
 
