@@ -63,6 +63,16 @@ Only the `base` variant is compared; `motion` and `dark` screenshots are for rev
 
 **Important:** No approved baseline means the visual regression status is "unbaselined"; it is not treated as evidence of pixel-level similarity.
 
+## Wzornik efektów (galeria)
+
+`galeria/index.html` holds 13 working effects in NotarAI brand colours and type, in plain HTML and CSS
+with no third-party requests. Each has a fallback for browsers without the feature and honours
+reduced motion. Copy from it instead of writing an effect from scratch.
+
+    python3 -m http.server 5174 --bind 127.0.0.1 --directory galeria
+
+The agent-facing rules for building pages with these pieces are in `.claude/skills/strona-premium/SKILL.md`.
+
 ## Demo (visual concept, never production)
 
 From tools/web-factory:
