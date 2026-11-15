@@ -158,10 +158,13 @@ async function auditRun({ browser, target, pagePath, viewportName, variantName, 
       if (!variant.baseline) await scrollThrough(page);
       run.metrics = await page.evaluate(readMetrics);
       await page.addScriptTag({ content: axe.source });
-      run.accessibility = await page.evaluate(async excluded => {
+      run.accessibility = await page.evaluate(async ({ excluded, midAnimation }) => {
         const scope = excluded.length ? { exclude: excluded.map(selector => [selector]) } : document;
         const outcome = await window.axe.run(scope, {
           runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] },
+          // Off-screen elements sit at the first frame of their scroll animation, so their
+          // contrast is meaningless here; the base and dark variants measure it at rest.
+          rules: midAnimation ? { 'color-contrast': { enabled: false } } : {},
         });
         return outcome.violations.map(item => ({
           id: item.id,
@@ -170,7 +173,7 @@ async function auditRun({ browser, target, pagePath, viewportName, variantName, 
           nodes: item.nodes.length,
           targets: item.nodes.slice(0, 8).map(node => String(node.target?.[0] ?? '').slice(0, 120)),
         }));
-      }, parseExcludes(args['a11y-exclude']));
+      }, { excluded: parseExcludes(args['a11y-exclude']), midAnimation: variant.reducedMotion !== 'reduce' });
     } catch (error) {
       run.pageErrors.push('Audit or navigation failed: ' + String(error.message).slice(0, 300));
     }

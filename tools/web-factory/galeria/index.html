@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Wzornik NotarAI</title>
+<style>
+/* Układ: arkusz okazów. Każdy wzór to jedna pozycja repertorium: z lewej opis i decyzja, z prawej działający efekt. */
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/montserrat-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/montserrat-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@property --kat { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --ax { syntax: "<percentage>"; inherits: false; initial-value: 18%; }
+@property --ay { syntax: "<percentage>"; inherits: false; initial-value: 22%; }
+@property --bx { syntax: "<percentage>"; inherits: false; initial-value: 82%; }
+@property --by { syntax: "<percentage>"; inherits: false; initial-value: 70%; }
+
+:root {
+  /* Jeden wygląd, jasny, zgodny z marką: strona notarai.pl nie ma trybu ciemnego. */
+  color-scheme: light;
+  --navy: #071d49; --deep: #061437; --indigo: #1c1cc0; --blue: #2b52d9; --azure: #2197d3; --cyan: #00cfff;
+  --link: #0072ad; --muted: #56678a; --bg: #f5f7fc; --surface: #ffffff; --stroke: #d9e5f4;
+  --ok: #1e6b43; --no: #a3283c;
+  --display: "Montserrat", "Segoe UI", Arial, sans-serif;
+  --body: "Montserrat", "Segoe UI", Arial, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+  --r-btn: 13px; --r-card: 18px;
+  --ease: cubic-bezier(.16,1,.3,1);
+  --cien: 0 32px 70px -35px rgba(10,40,91,.28);
+  interpolate-size: allow-keywords;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--navy); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+.gutter { max-width: 1180px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.03em; line-height: 1.08; }
+p { margin: 0; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.eti { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ikona { width: 20px; height: 20px; flex: none; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 18px; border-radius: var(--r-btn); border: 1px solid var(--stroke); background: var(--surface); color: var(--navy); font-weight: 700; font-size: 14px; transition: transform .16s var(--ease), box-shadow .16s var(--ease); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 12px 22px -14px rgba(27,74,190,.5); }
+.btn--glowny { color: #fff; border-color: transparent; background: linear-gradient(112deg,#2225ae 0%,#294dd5 66%,#247ed9 100%); }
+
+/* pasek postępu czytania (wzór 2) */
+.postep { position: fixed; inset: env(safe-area-inset-top, 0px) 0 auto 0; height: 3px; z-index: 20; background: linear-gradient(90deg, var(--blue), var(--cyan)); transform-origin: 0 50%; transform: scaleX(0); }
+@supports (animation-timeline: scroll()) {
+  .postep { animation: postep linear both; animation-timeline: scroll(root); }
+  @keyframes postep { to { transform: scaleX(1); } }
+}
+
+.czolo { padding-block: 56px 28px; display: grid; gap: 18px; }
+.czolo h1 { font-size: clamp(2.3rem, 6.4vw, 4.6rem); font-weight: 800; max-width: 14ch; }
+.czolo h1 em { font-style: normal; color: var(--blue); }
+.czolo p { max-width: 62ch; color: var(--muted); font-size: 1.05rem; }
+.legenda { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legenda b { color: var(--navy); }
+
+.okaz { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 28px; padding-block: 40px; border-top: 1px solid var(--stroke); }
+.okaz__opis { display: grid; gap: 12px; align-content: start; }
+.okaz__opis h2 { font-size: 1.5rem; font-weight: 750; }
+.okaz__opis p { color: var(--muted); font-size: 14.5px; }
+.okaz dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+.okaz dt { color: var(--muted); }
+.okaz dd { margin: 0; font-weight: 600; }
+.glos { display: flex; gap: 8px; flex-wrap: wrap; }
+.glos button { min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--stroke); background: var(--surface); color: var(--navy); font-weight: 700; font-size: 13px; }
+.glos button[aria-pressed="true"][data-glos="tak"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.glos button[aria-pressed="true"][data-glos="nie"] { background: var(--no); border-color: var(--no); color: #fff; }
+.scena { min-width: 0; background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--r-card); padding: clamp(16px, 3vw, 30px); box-shadow: var(--cien); display: grid; gap: 16px; align-content: start; }
+.scena--goła { padding: 0; overflow: hidden; }
+.pasek { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (max-width: 820px) { .okaz { grid-template-columns: minmax(0, 1fr); gap: 18px; padding-block: 30px; } }
+
+/* 1 — przejścia widoków */
+.sprawy { display: grid; gap: 10px; }
+.sprawa { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; text-align: left; width: 100%; padding: 14px 16px; border: 1px solid var(--stroke); border-radius: 14px; background: var(--bg); color: var(--navy); }
+.sprawa b { font-weight: 700; }
+.sprawa small { color: var(--muted); font: 500 12px var(--mono); }
+.teczka { border: 1px solid var(--stroke); border-radius: 14px; padding: 22px; background: linear-gradient(160deg, #fff, #eef4ff); display: grid; gap: 12px; }
+.teczka h3 { font-size: 1.6rem; }
+.teczka ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+::view-transition-group(tytul) { animation-duration: .45s; animation-timing-function: var(--ease); }
+
+/* 2 — odsłanianie przy przewijaniu */
+.kroki { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.krok { border: 1px solid var(--stroke); border-radius: 14px; padding: 16px; background: var(--bg); display: grid; gap: 6px; }
+.krok b { font-size: 15px; }
+.krok span { color: var(--muted); font-size: 13.5px; }
+@media (prefers-reduced-motion: no-preference) { @supports (animation-timeline: view()) {
+  .krok { animation: wjazd linear both; animation-timeline: view(); animation-range: entry 5% entry 70%; }
+  @keyframes wjazd { from { opacity: .25; transform: translateY(26px) scale(.97); } to { opacity: 1; transform: none; } }
+} }
+
+/* 3 — kaskada */
+.dok { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 10px; }
+.dok > span { min-width: 0; display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--stroke); background: var(--bg); font-weight: 600; font-size: 14px; }
+.dok.gra > span { animation: wskok .55s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@supports (order: sibling-index()) { .dok.gra > span { animation-delay: calc((sibling-index() - 1) * 70ms); } }
+@keyframes wskok { from { opacity: 0; transform: translateY(14px) scale(.94); } to { opacity: 1; transform: none; } }
+
+/* 4 — tło gradientowe */
+.zorza { position: relative; min-height: 300px; padding: clamp(22px, 5vw, 48px); display: grid; align-content: end; gap: 12px; color: #fff; background-color: var(--deep);
+  background-image: radial-gradient(ellipse 60% 70% at var(--ax) var(--ay), oklch(62% .2 262 / .95), transparent 62%), radial-gradient(ellipse 55% 60% at var(--bx) var(--by), oklch(80% .14 215 / .8), transparent 60%), radial-gradient(ellipse 80% 60% at 50% 110%, oklch(45% .22 275 / .9), transparent 70%); }
+.zorza h3 { font-size: clamp(1.7rem, 4.4vw, 2.9rem); font-weight: 800; max-width: 16ch; }
+.zorza p { max-width: 46ch; color: #d6e2fb; }
+.zorza.gra { animation: dryf 16s ease-in-out infinite alternate; }
+@keyframes dryf { to { --ax: 68%; --ay: 60%; --bx: 26%; --by: 30%; } }
+
+/* 5 — ziarno */
+.ziarno { display: grid; grid-template-columns: 1fr 1fr; min-height: 220px; }
+.ziarno > div { position: relative; display: grid; place-items: end start; padding: 16px; color: #fff; font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  background: radial-gradient(ellipse 80% 90% at 20% 20%, #2b52d9, transparent 65%), radial-gradient(ellipse 70% 80% at 85% 80%, #2197d3, transparent 60%), var(--deep); }
+.ziarno > div + div::before { content: ""; position: absolute; inset: 0; opacity: .32; mix-blend-mode: overlay; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.ziarno span { position: relative; }
+
+/* 6 — ramka cennika */
+.cennik { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: stretch; }
+.plan { border: 2px solid var(--stroke); border-radius: var(--r-card); padding: 20px; display: grid; gap: 8px; align-content: start; background: var(--surface); }
+.plan b { font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.plan span { color: var(--muted); font-size: 14px; }
+.plan--polecany { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, conic-gradient(from var(--kat), var(--cyan), var(--blue), var(--indigo), var(--azure), var(--cyan)) border-box; box-shadow: 0 24px 50px -30px rgba(43,82,217,.7); }
+.plan--polecany.gra { animation: obrot 7s linear infinite; }
+@keyframes obrot { to { --kat: 360deg; } }
+
+/* 7 — płynny nagłówek */
+.plynny { container-type: inline-size; border: 1px dashed var(--stroke); border-radius: 14px; padding: 18px; max-width: 100%; }
+.plynny h3 { font-size: clamp(1.5rem, 10.5cqi, 5.2rem); font-weight: 800; letter-spacing: -.045em; line-height: 1; }
+.plynny h3 em { font-style: normal; color: var(--blue); }
+@supports (text-box: trim-both cap alphabetic) { .plynny h3 { text-box: trim-both cap alphabetic; } }
+.suwak { display: flex; gap: 12px; align-items: center; font-size: 13px; color: var(--muted); }
+.suwak input { flex: 1; min-width: 0; accent-color: var(--blue); }
+
+/* 8 — akordeon */
+.faq { display: grid; gap: 8px; }
+.faq details { border: 1px solid var(--stroke); border-radius: 14px; background: var(--bg); }
+.faq summary { list-style: none; cursor: pointer; padding: 15px 18px; font-weight: 700; display: flex; justify-content: space-between; gap: 14px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font: 600 20px/1 var(--mono); color: var(--blue); transition: rotate .3s var(--ease); }
+.faq details[open] summary::after { rotate: 45deg; }
+.faq details p { padding: 0 18px 16px; color: var(--muted); max-width: 65ch; }
+.faq details::details-content { block-size: 0; overflow: clip; transition: block-size .38s var(--ease), content-visibility .38s allow-discrete; }
+.faq details[open]::details-content { block-size: auto; }
+
+/* 9 — dymek i okno */
+.kotwica { anchor-name: --kredyt; }
+.dymek { margin: 0; inset: auto; position-anchor: --kredyt; top: calc(anchor(bottom) + 10px); left: anchor(left); max-width: min(320px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid var(--stroke); border-radius: 14px; background: var(--surface); color: var(--navy); box-shadow: var(--cien); font-size: 14px;
+  opacity: 0; translate: 0 -6px; transition: opacity .22s, translate .22s var(--ease), overlay .22s allow-discrete, display .22s allow-discrete; }
+@supports not (top: anchor(bottom)) { .dymek { inset: 0; margin: auto; height: fit-content; } }
+.dymek:popover-open { opacity: 1; translate: 0 0; }
+@starting-style { .dymek:popover-open { opacity: 0; translate: 0 -6px; } }
+.okno { border: 0; border-radius: var(--r-card); padding: 26px; width: min(440px, calc(100vw - 32px)); color: var(--navy); box-shadow: 0 40px 90px -30px rgba(6,20,55,.6);
+  opacity: 0; scale: .96; transition: opacity .25s, scale .25s var(--ease), overlay .25s allow-discrete, display .25s allow-discrete; }
+.okno[open] { opacity: 1; scale: 1; }
+@starting-style { .okno[open] { opacity: 0; scale: .96; } }
+.okno::backdrop { background: rgba(6,20,55,.5); backdrop-filter: blur(3px); }
+.okno h3 { font-size: 1.35rem; margin-bottom: 8px; }
+.okno p { color: var(--muted); margin-bottom: 18px; }
+
+/* 10 — karuzela */
+.karuzela { display: grid; grid-auto-flow: column; grid-auto-columns: min(82%, 380px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 6px; scroll-marker-group: after; }
+.ekran { scroll-snap-align: start; border: 1px solid var(--stroke); border-radius: 14px; background: var(--bg); padding: 14px; display: grid; gap: 10px; min-height: 190px; align-content: start; }
+.ekran i { display: block; height: 9px; border-radius: 6px; background: #dbe6f7; }
+.ekran i:nth-of-type(2) { width: 72%; } .ekran i:nth-of-type(3) { width: 88%; } .ekran i:nth-of-type(4) { width: 54%; background: #b9cdf4; }
+.karuzela::scroll-marker-group { display: flex; gap: 8px; justify-content: center; padding-top: 12px; }
+.ekran::scroll-marker { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #c3d3ee; }
+.ekran::scroll-marker:target-current { background: var(--blue); }
+
+/* 11 — bento */
+.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kafel { container-type: inline-size; border: 1px solid var(--stroke); border-radius: 16px; padding: 18px; background: var(--bg); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.kafel--a { grid-column: span 2; grid-row: span 2; background: linear-gradient(150deg, var(--navy), #12348f); color: #fff; border-color: transparent; }
+.kafel--b { grid-column: span 2; }
+.kafel b { font-size: 15.5px; }
+.kafel span { color: var(--muted); font-size: 13.5px; }
+.kafel--a span { color: #cfdcfa; }
+.kafel--a b { font-size: clamp(1.2rem, 9cqi, 2rem); letter-spacing: -.03em; line-height: 1.1; }
+.kafel .ikona { width: 26px; height: 26px; color: var(--blue); }
+.kafel--a .ikona { color: var(--cyan); }
+@media (max-width: 640px) { .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kafel--a { grid-row: auto; } }
+@media (max-width: 380px) { .bento { grid-template-columns: minmax(0, 1fr); } .kafel--a, .kafel--b { grid-column: auto; } }
+
+/* 12 — odsłonięcie nagłówka */
+.odslona { font-size: clamp(1.8rem, 5.6vw, 3.6rem); font-weight: 800; letter-spacing: -.04em; line-height: 1.08; }
+.odslona .s { display: inline-block; overflow: clip; overflow-clip-margin: .12em; vertical-align: top; padding-bottom: .12em; margin-bottom: -.12em; }
+.odslona .s > span { display: inline-block; }
+.odslona.gra .s > span { animation: wynurz .8s var(--ease) both; animation-delay: calc(var(--i) * 55ms); }
+.odslona em { font-style: normal; color: var(--blue); }
+@keyframes wynurz { from { transform: translateY(115%) rotate(4deg); } to { transform: none; } }
+
+/* 13 — ikony */
+.ikony { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.ikony .ikona { width: 30px; height: 30px; color: var(--blue); }
+.lista { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 14.5px; }
+.lista li { display: flex; gap: 10px; align-items: center; }
+.lista .ikona { color: var(--ok); }
+
+.wynik { margin-block: 20px 60px; padding: 24px; border-radius: var(--r-card); background: var(--navy); color: #fff; display: grid; gap: 14px; }
+.wynik h2 { font-size: 1.4rem; }
+.wynik output { font: 500 14px/1.7 var(--mono); color: #d6e2fb; overflow-wrap: anywhere; }
+.wynik .btn { justify-self: start; }
+.poza { padding-block: 0 70px; color: var(--muted); font-size: 14px; max-width: 78ch; display: grid; gap: 8px; }
+.poza b { color: var(--navy); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="postep" aria-hidden="true"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 1v4m6-4v4M9 19v4m6-4v4M1 9h4m-4 6h4m14-6h4m-4 6h4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-scales" viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 7h8L6 7Zm12 0-4 7h8l-4-7Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M13 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M13 2v8h8M7 14h10M7 18h7"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m0 4a5 5 0 0 1 4 5v1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></symbol>
+</svg>
+
+<main class="gutter">
+  <header class="czolo">
+    <span class="eti">Repertorium W · 13 wzorów · stan na 15.11.2026</span>
+    <h1>Wzornik efektów dla <em>notarai.pl</em></h1>
+    <p>Trzynaście działających efektów w barwach i kroju marki. Żaden nie ładuje niczego z obcego serwera, a dwanaście nie potrzebuje ani jednej biblioteki. Przy każdym zaznacz „Biorę” albo „Odpada”; na dole zbierze się lista do skopiowania.</p>
+    <div class="legenda">
+      <span><b>Koszt</b> to dodatkowe kilobajty, które pobiera odwiedzający.</span>
+      <span><b>Zapas</b> to wygląd w przeglądarce bez danej funkcji.</span>
+    </div>
+  </header>
+
+  <section class="okaz" id="w1" data-nr="1" data-nazwa="Przejścia widoków">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 1/13</span>
+      <h2>Przejścia widoków</h2>
+      <p>Tytuł sprawy płynnie przechodzi z listy do teczki. Między podstronami ten sam efekt włączają dwie linijki CSS.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>zwykłe przełączenie</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena" id="vt">
+      <div class="sprawy" id="vt-lista">
+        <button type="button" class="sprawa" data-tytul="Umowa sprzedaży lokalu" data-rep="Rep. A 1204/2026"><svg class="ikona"><use href="#i-file"/></svg><b>Umowa sprzedaży lokalu</b><small>Rep. A 1204/2026</small></button>
+        <button type="button" class="sprawa" data-tytul="Pełnomocnictwo" data-rep="Rep. A 1205/2026"><svg class="ikona"><use href="#i-file"/></svg><b>Pełnomocnictwo</b><small>Rep. A 1205/2026</small></button>
+        <button type="button" class="sprawa" data-tytul="Akt poświadczenia dziedziczenia" data-rep="Rep. A 1206/2026"><svg class="ikona"><use href="#i-file"/></svg><b>Akt poświadczenia dziedziczenia</b><small>Rep. A 1206/2026</small></button>
+      </div>
+      <div class="teczka" id="vt-teczka" hidden>
+        <span class="eti" id="vt-rep"></span>
+        <h3 id="vt-tytul"></h3>
+        <ul><li>Wzór kancelarii dopasowany do sprawy</li><li>Dokumenty stron odczytane i sprawdzone</li><li>Projekt czeka na weryfikację notariusza</li></ul>
+        <div class="pasek"><button type="button" class="btn" id="vt-wroc">Wróć do listy</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w2" data-nr="2" data-nazwa="Odsłanianie przy przewijaniu">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 2/13</span>
+      <h2>Odsłanianie przy przewijaniu</h2>
+      <p>Karty wjeżdżają w rytm przewijania, a u góry strony rośnie pasek postępu. Przewiń tę sekcję w górę i w dół.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>karty widoczne od razu</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="kroki">
+        <div class="krok"><span class="eti">Krok 1</span><b>Wybierasz wzór</b><span>Własny wzór aktu kancelarii.</span></div>
+        <div class="krok"><span class="eti">Krok 2</span><b>Wgrywasz dokumenty</b><span>Dowody, odpisy, wypisy.</span></div>
+        <div class="krok"><span class="eti">Krok 3</span><b>Powstaje projekt</b><span>Dane trafiają we właściwe miejsca.</span></div>
+        <div class="krok"><span class="eti">Krok 4</span><b>Sprawdzasz wynik</b><span>Decyzję podejmuje notariusz.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w3" data-nr="3" data-nazwa="Kaskada w siatce">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 3/13</span>
+      <h2>Kaskada w siatce</h2>
+      <p>Elementy pojawiają się jeden po drugim. Opóźnienie liczy sama przeglądarka z pozycji elementu.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>to samo, opóźnienie wpisane ręcznie</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="dok" id="kaskada">
+        <span style="--i:0"><svg class="ikona"><use href="#i-check"/></svg>Dowód osobisty</span>
+        <span style="--i:1"><svg class="ikona"><use href="#i-check"/></svg>Odpis KW</span>
+        <span style="--i:2"><svg class="ikona"><use href="#i-check"/></svg>Wypis z rejestru</span>
+        <span style="--i:3"><svg class="ikona"><use href="#i-check"/></svg>Zaświadczenie</span>
+        <span style="--i:4"><svg class="ikona"><use href="#i-check"/></svg>Umowa przedwstępna</span>
+        <span style="--i:5"><svg class="ikona"><use href="#i-check"/></svg>Pełnomocnictwo</span>
+      </div>
+      <div class="pasek"><button type="button" class="btn" data-odtworz="kaskada">Odtwórz</button></div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w4" data-nr="4" data-nazwa="Żywe tło gradientowe">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 4/13</span>
+      <h2>Żywe tło gradientowe</h2>
+      <p>Plamy koloru marki powoli dryfują pod nagłówkiem. Bez WebGL; poza ekranem animacja się zatrzymuje.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>nieruchomy gradient</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena scena--goła">
+      <div class="zorza" data-petla>
+        <h3>Projekt aktu w kilka minut</h3>
+        <p>Na własnych wzorach kancelarii. Każdy projekt wymaga weryfikacji notariusza.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w5" data-nr="5" data-nazwa="Ziarno">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 5/13</span>
+      <h2>Ziarno</h2>
+      <p>Delikatny szum zdejmuje z gradientu plastikową gładkość. Po lewej bez ziarna, po prawej z ziarnem.</p>
+      <dl><dt>Koszt</dt><dd>ok. 0,3 kB</dd><dt>Zapas</dt><dd>nie dotyczy, działa wszędzie</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena scena--goła">
+      <div class="ziarno"><div><span>Bez ziarna</span></div><div><span>Z ziarnem</span></div></div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w6" data-nr="6" data-nazwa="Świecąca ramka">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 6/13</span>
+      <h2>Świecąca ramka</h2>
+      <p>Obracający się gradient wyróżnia jedną kartę. Stosować tylko raz na ekran. Liczby poniżej są przykładowe, poza pakietem startowym.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>nieruchoma kolorowa ramka</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="cennik">
+        <div class="plan"><span class="eti">Przykład</span><b>500</b><span>kredytów dla kancelarii, która zaczyna</span></div>
+        <div class="plan plan--polecany" data-petla><span class="eti">Na start</span><b>150</b><span>kredytów za darmo, bez karty płatniczej</span></div>
+        <div class="plan"><span class="eti">Przykład</span><b>2000</b><span>kredytów dla kancelarii z kilkoma stanowiskami</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w7" data-nr="7" data-nazwa="Płynny nagłówek">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 7/13</span>
+      <h2>Płynny nagłówek</h2>
+      <p>Wielkość liter dopasowuje się do szerokości miejsca, a wiersze łamią się równo. Przesuń suwak.</p>
+      <dl><dt>Koszt</dt><dd>0 kB (krój marki już jest)</dd><dt>Zapas</dt><dd>stała wielkość</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="plynny" id="plynny"><h3>Zażółć gęślą jaźń <em>z mocą AI</em></h3></div>
+      <label class="suwak" for="szer">Szerokość <input type="range" id="szer" min="35" max="100" value="100"></label>
+    </div>
+  </section>
+
+  <section class="okaz" id="w8" data-nr="8" data-nazwa="Pytania i odpowiedzi">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 8/13</span>
+      <h2>Pytania i odpowiedzi</h2>
+      <p>Otwarcie jednego pytania zamyka poprzednie, a wysokość zmienia się płynnie. Działa bez JavaScriptu.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>otwiera się bez animacji</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="faq">
+        <details name="faq" open><summary>Czy AI podpisuje akt za notariusza?</summary><p>Nie. Asystent przygotowuje projekt, a każdy projekt wymaga weryfikacji notariusza, który podejmuje decyzję.</p></details>
+        <details name="faq"><summary>Gdzie są przetwarzane dane kancelarii?</summary><p>W Unii Europejskiej. Aplikacja i pliki działają we Frankfurcie, a model językowy wyłącznie w regionach UE.</p></details>
+        <details name="faq"><summary>Ile kosztuje wypróbowanie?</summary><p>Na start dostajesz 150 kredytów za darmo, bez podawania karty płatniczej.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w9" data-nr="9" data-nazwa="Dymek i okno">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 9/13</span>
+      <h2>Dymek i okno</h2>
+      <p>Podpowiedź trzyma się przycisku, a okno potwierdzenia łagodnie wchodzi i wychodzi. Oba zamyka klawisz Esc.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>dymek na środku ekranu</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="pasek">
+        <button type="button" class="btn kotwica" popovertarget="dymek">Co to jest kredyt?</button>
+        <button type="button" class="btn btn--glowny" id="okno-otworz">Odwołaj wizytę</button>
+      </div>
+      <div class="dymek" id="dymek" popover>Kredyt to jednostka rozliczeniowa. Przygotowanie projektu lub odczyt dokumentu zużywa określoną liczbę kredytów.</div>
+      <dialog class="okno" id="okno" aria-labelledby="okno-t">
+        <h3 id="okno-t">Odwołać wizytę?</h3>
+        <p>Termin wróci do kalendarza kancelarii. To okno jest tylko pokazem i niczego nie odwołuje.</p>
+        <div class="pasek"><button type="button" class="btn btn--glowny" data-zamknij>Tak, odwołaj</button><button type="button" class="btn" data-zamknij>Zostaw termin</button></div>
+      </dialog>
+    </div>
+  </section>
+
+  <section class="okaz" id="w10" data-nr="10" data-nazwa="Karuzela">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 10/13</span>
+      <h2>Karuzela</h2>
+      <p>Ekrany przesuwają się palcem lub myszą i zatrzymują równo. Kropki pod spodem dorysowuje sama przeglądarka.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>bez kropek (Safari, Firefox)</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="karuzela" tabindex="0" role="region" aria-label="Ekrany aplikacji">
+        <div class="ekran"><b>Wzory aktów</b><i></i><i></i><i></i><i></i></div>
+        <div class="ekran"><b>Odczyt dokumentu</b><i></i><i></i><i></i><i></i></div>
+        <div class="ekran"><b>Księga wieczysta</b><i></i><i></i><i></i><i></i></div>
+        <div class="ekran"><b>Kalendarz wizyt</b><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w11" data-nr="11" data-nazwa="Siatka bento">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 11/13</span>
+      <h2>Siatka bento</h2>
+      <p>Kafle różnej wielkości zamiast rzędu jednakowych kart. Każdy kafel sam dobiera układ do swojej szerokości.</p>
+      <dl><dt>Koszt</dt><dd>0 kB</dd><dt>Zapas</dt><dd>nie dotyczy, działa wszędzie</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="bento">
+        <div class="kafel kafel--a"><svg class="ikona"><use href="#i-spark"/></svg><b>Projekt aktu na własnym wzorze</b><span>Asystent wypełnia wzór kancelarii danymi z dokumentów stron.</span></div>
+        <div class="kafel kafel--b"><svg class="ikona"><use href="#i-file"/></svg><b>Odczyt dokumentów</b><span>Dowody, odpisy i wypisy zamienione w dane.</span></div>
+        <div class="kafel"><svg class="ikona"><use href="#i-scales"/></svg><b>Rejestry</b><span>Rutynowe czynności.</span></div>
+        <div class="kafel"><svg class="ikona"><use href="#i-shield"/></svg><b>Dane w UE</b><span>Frankfurt.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w12" data-nr="12" data-nazwa="Odsłonięcie nagłówka">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 12/13</span>
+      <h2>Odsłonięcie nagłówka</h2>
+      <p>Słowa wynurzają się zza niewidocznej krawędzi. Efekt na jeden nagłówek, przy wejściu na stronę.</p>
+      <dl><dt>Koszt</dt><dd>ok. 0,4 kB własnego kodu</dd><dt>Zapas</dt><dd>nagłówek widoczny od razu</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <h3 class="odslona" id="odslona">Nowoczesna obsługa notarialna <em>z mocą AI</em></h3>
+      <div class="pasek"><button type="button" class="btn" data-odtworz="odslona">Odtwórz</button></div>
+    </div>
+  </section>
+
+  <section class="okaz" id="w13" data-nr="13" data-nazwa="Ikony z własnego zestawu">
+    <div class="okaz__opis">
+      <span class="eti">Rep. W nr 13/13</span>
+      <h2>Ikony z własnego zestawu</h2>
+      <p>Ikony już używane na notarai.pl, wklejone w stronę. Przyjmują kolor tekstu i ostro skalują się do każdej wielkości.</p>
+      <dl><dt>Koszt</dt><dd>ok. 0,2 kB na ikonę</dd><dt>Zapas</dt><dd>nie dotyczy, działa wszędzie</dd></dl>
+      <div class="glos"><button type="button" data-glos="tak" aria-pressed="false">Biorę</button><button type="button" data-glos="nie" aria-pressed="false">Odpada</button></div>
+    </div>
+    <div class="scena">
+      <div class="ikony">
+        <svg class="ikona" role="img" aria-label="Tarcza"><use href="#i-shield"/></svg><svg class="ikona" role="img" aria-label="Układ scalony"><use href="#i-chip"/></svg><svg class="ikona" role="img" aria-label="Zegar"><use href="#i-clock"/></svg><svg class="ikona" role="img" aria-label="Waga"><use href="#i-scales"/></svg><svg class="ikona" role="img" aria-label="Dokument"><use href="#i-file"/></svg><svg class="ikona" role="img" aria-label="Osoby"><use href="#i-users"/></svg>
+        <button type="button" class="btn btn--glowny">Załóż konto <svg class="ikona"><use href="#i-arrow"/></svg></button>
+      </div>
+      <ul class="lista">
+        <li><svg class="ikona"><use href="#i-check"/></svg>Bez karty płatniczej na start</li>
+        <li><svg class="ikona"><use href="#i-check"/></svg>Dane przetwarzane w Unii Europejskiej</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wynik" aria-labelledby="wynik-t">
+    <h2 id="wynik-t">Twój wybór</h2>
+    <output id="wynik" for="w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13">Nic jeszcze nie zaznaczono.</output>
+    <button type="button" class="btn" id="kopiuj">Skopiuj wybór</button>
+  </section>
+
+  <section class="poza">
+    <p><b>Czego tu celowo nie ma.</b> Własnego kursora i przejmowania przewijania, bo to najczęściej krytykowane efekty. Bibliotek na licencjach GPL lub niekomercyjnych. Teł z płatnych usług. Scen 3D, które na stronie kancelarii spowalniałyby pierwszy ekran bez korzyści dla klienta.</p>
+    <p>Krój Montserrat (SIL OFL 1.1) jest serwowany z tego samego serwera co strona.</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  const ruch = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // 1 — przejście widoków
+  const lista = document.getElementById('vt-lista'), teczka = document.getElementById('vt-teczka');
+  const tytul = document.getElementById('vt-tytul'), rep = document.getElementById('vt-rep');
+  let zrodlo = null;
+  const przejdz = zmiana => (ruch && document.startViewTransition) ? document.startViewTransition(zmiana) : zmiana();
+  lista.addEventListener('click', e => {
+    const b = e.target.closest('.sprawa'); if (!b) return;
+    zrodlo = b.querySelector('b');
+    zrodlo.style.viewTransitionName = 'tytul';
+    przejdz(() => {
+      zrodlo.style.viewTransitionName = '';
+      tytul.textContent = b.dataset.tytul; rep.textContent = b.dataset.rep;
+      tytul.style.viewTransitionName = 'tytul';
+      lista.hidden = true; teczka.hidden = false;
+    });
+  });
+  document.getElementById('vt-wroc').addEventListener('click', () => {
+    przejdz(() => {
+      tytul.style.viewTransitionName = '';
+      teczka.hidden = true; lista.hidden = false;
+      if (zrodlo) zrodlo.style.viewTransitionName = 'tytul';
+    });
+    setTimeout(() => { if (zrodlo) zrodlo.style.viewTransitionName = ''; }, 700);
+  });
+
+  // 3 i 12 — odtwarzanie
+  const odslona = document.getElementById('odslona');
+  let i = 0;
+  const tnij = wezel => {
+    for (const dziecko of [...wezel.childNodes]) {
+      if (dziecko.nodeType === 3) {
+        const kawalki = document.createDocumentFragment();
+        for (const czesc of dziecko.textContent.split(/(\s+)/)) {
+          if (!czesc.trim()) { kawalki.append(czesc); continue; }
+          const s = document.createElement('span'); s.className = 's';
+          const w = document.createElement('span'); w.style.setProperty('--i', i++); w.textContent = czesc;
+          s.append(w); kawalki.append(s);
+        }
+        dziecko.replaceWith(kawalki);
+      } else if (dziecko.nodeType === 1) tnij(dziecko);
+    }
+  };
+  odslona.setAttribute('aria-label', odslona.textContent);
+  tnij(odslona);
+  const odtworz = el => { el.classList.remove('gra'); void el.offsetWidth; el.classList.add('gra'); };
+  document.querySelectorAll('[data-odtworz]').forEach(b => b.addEventListener('click', () => odtworz(document.getElementById(b.dataset.odtworz))));
+
+  // 4 i 6 — pętle grają tylko na ekranie
+  if (ruch && 'IntersectionObserver' in window) {
+    const oko = new IntersectionObserver(wpisy => wpisy.forEach(w => w.target.classList.toggle('gra', w.isIntersecting)));
+    document.querySelectorAll('[data-petla]').forEach(el => oko.observe(el));
+  }
+
+  // 7 — suwak szerokości
+  const plynny = document.getElementById('plynny');
+  document.getElementById('szer').addEventListener('input', e => { plynny.style.width = e.target.value + '%'; });
+
+  // 9 — okno
+  const okno = document.getElementById('okno');
+  document.getElementById('okno-otworz').addEventListener('click', () => okno.showModal());
+  okno.addEventListener('click', e => { if (e.target === okno || e.target.closest('[data-zamknij]')) okno.close(); });
+
+  // głosowanie
+  const KLUCZ = 'wzornik-notarai';
+  let glosy = {};
+  try { glosy = JSON.parse(localStorage.getItem(KLUCZ) || '{}'); } catch { glosy = {}; }
+  const wynik = document.getElementById('wynik');
+  const pokaz = () => {
+    const tak = [], nie = [];
+    document.querySelectorAll('.okaz').forEach(o => {
+      const g = glosy[o.dataset.nr];
+      o.querySelectorAll('.glos button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.glos === g)));
+      if (g === 'tak') tak.push(o.dataset.nr + ' ' + o.dataset.nazwa);
+      if (g === 'nie') nie.push(o.dataset.nr + ' ' + o.dataset.nazwa);
+    });
+    wynik.textContent = (tak.length || nie.length)
+      ? 'Biorę: ' + (tak.join(', ') || 'nic') + '. Odpada: ' + (nie.join(', ') || 'nic') + '.'
+      : 'Nic jeszcze nie zaznaczono.';
+  };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.glos button'); if (!b) return;
+    const nr = b.closest('.okaz').dataset.nr;
+    glosy[nr] = glosy[nr] === b.dataset.glos ? undefined : b.dataset.glos;
+    try { localStorage.setItem(KLUCZ, JSON.stringify(glosy)); } catch { /* wybór zostaje tylko na tej wizycie */ }
+    pokaz();
+  });
+  const kopiuj = document.getElementById('kopiuj');
+  kopiuj.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(wynik.textContent); kopiuj.textContent = 'Skopiowano'; }
+    catch { const z = document.createRange(); z.selectNodeContents(wynik); const s = getSelection(); s.removeAllRanges(); s.addRange(z); kopiuj.textContent = 'Zaznaczono — skopiuj ręcznie'; }
+    setTimeout(() => { kopiuj.textContent = 'Skopiuj wybór'; }, 2200);
+  });
+  pokaz();
+})();
+</script>
+</body>
+</html>
