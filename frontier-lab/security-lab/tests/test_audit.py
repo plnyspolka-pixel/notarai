@@ -2,7 +2,15 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from auditlab.audit import append, verify, new_key, make_checkpoint, verify_checkpoint
+import sys
+# Root pytest collects this module as well as the dedicated Security Lab runner.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+try:
+    from auditlab.audit import append, verify, new_key, make_checkpoint, verify_checkpoint
+except ModuleNotFoundError as exc:
+    if exc.name == "cryptography":
+        raise unittest.SkipTest("Optional cryptography dependency; signed audit tests run in the separate security CI job") from exc
+    raise
 
 class AuditLabTests(unittest.TestCase):
     def test_chain_and_signed_checkpoint(self):
