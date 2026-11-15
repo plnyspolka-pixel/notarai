@@ -1,0 +1,37 @@
+{
+  "job_id": "demo-001",
+  "tenant_id": "synthetic-demo",
+  "project": "notarial-mini-series-poc",
+  "model": "ltx-2.5",
+  "workflow_version": "poc-v1",
+  "budget_usd": 15,
+  "language": "pl",
+  "target_aspect_ratio": "9:16",
+  "characters": [
+    {
+      "character_id": "applicant-a",
+      "voice_id": "voice-a",
+      "description": "Fikcyjny aplikant notarialny, jasnoniebieska koszula",
+      "rights_verified": true
+    }
+  ],
+  "scenes": [
+    {
+      "scene_id": "office-001",
+      "location": "fikcyjna kancelaria",
+      "shots": [
+        {
+          "shot_id": "office-001-001",
+          "character_ids": [
+            "applicant-a"
+          ],
+          "prompt": "A fictional notarial office, medium shot, character looks at computer, cinematic warm lighting",
+          "duration_seconds": 5,
+          "seed": 42,
+          "dialogue_text": "Komputerek znowu jest głodny?",
+          "voice_id": "voice-a"
+        }
+      ]
+    }
+  ]
+}
