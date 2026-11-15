@@ -22,3 +22,9 @@ Do not treat open GitHub access as an OSI license. Code license, model weights, 
 
 ## Claim hygiene
 Document **what was implemented** separately from what was researched, intended, or claimed by external authors. Do not cite benchmarks as ours. Never promote synthetic demos to observed revenue, conversion, security or model capability results.
+
+## Preserved original user research files
+Directory: frontier-lab/research-archives/. Seven long-form Markdown research files and two JSONL atlases (57 military/government records, 39 Big Tech AI records) were copied from previous research Library files. The two JSONL exports were parsed successfully during import. No new peer review, replication or automatic license clearance is implied.
+
+## Preserved original engineering starter files
+The security-lab files were ported from high_assurance_security_starter.zip after inspecting its contents. The original ZIP's 2 Python unit tests passed in this session; the branch's Signed Audit Research Lab CI also passed. The older 10 Claude skills were adapted from Claude_Agent_Factory_skills_2026-11-15.zip and placed in .claude/skills/. The demonstration video schema/fixture was reconstructed from the same archive. No deployment or production customer data is involved.
