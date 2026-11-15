@@ -159,9 +159,17 @@ def run(args: argparse.Namespace) -> int:
     )
     print(f"Worker branch: {worker_branch}\nWorktree: {worktree}")
     print("No auto push, merge, secrets or production deployment. Review manually.")
+    # Never inherit the operator HOME or Codex credential store.
+    worker_home = workspace_base / (token + "-home")
+    worker_home.mkdir(mode=0o700)
+    worker_env = restricted_env()
+    worker_env["HOME"] = str(worker_home)
+    worker_env["CODEX_HOME"] = str(worker_home / ".codex")
+    worker_env["XDG_CONFIG_HOME"] = str(worker_home / ".config")
+    worker_env["XDG_CACHE_HOME"] = str(worker_home / ".cache")
     try:
         proc = subprocess.run(
-            cmd, cwd=worktree, env=restricted_env(),
+            cmd, cwd=worktree, env=worker_env,
             check=False, timeout=args.timeout,
         )
         return proc.returncode
