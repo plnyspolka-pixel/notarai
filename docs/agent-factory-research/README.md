@@ -34,3 +34,9 @@ Przed jakimkolwiek treningiem zbierz bazowe wyniki agentów na wspólnych, odtwa
 Projekt NotarAI ma publiczne repozytorium. Nigdy nie umieszczaj w nim danych osobowych, prawdziwych zrzutów ekranu, sekretów ani surowych sesji. Zasady RODO, eu-central-1 i dostępność modelu w zatwierdzonej trasie Bedrock mają nadrzędność.
 
 **Brak automatycznego merge, deploy, płatności GPU i instalowania niezweryfikowanych repozytoriów.**
+
+## Big Tech frontier / 2026-11-15
+
+- [BIGTECH_FRONTIER_2026-11-15.md](BIGTECH_FRONTIER_2026-11-15.md): źródłowy przegląd badań Google, Meta, OpenAI, Anthropic, NVIDIA, Microsoft, AWS, IBM i Snowflake, z oceną ograniczeń.
+- [bigtech-evidence.json](bigtech-evidence.json): maszynowo czytelne badania, gotowość kodu oraz ryzyko przejścia od publikacji do produktu.
+- Katalog catalog.json zawiera obecnie 87 unikalnych repozytoriów. Nie wolno interpretować oznaczenia P0 jako autoryzacji do uruchomienia ani wdrożenia.

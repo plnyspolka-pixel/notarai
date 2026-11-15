@@ -2,7 +2,7 @@
   "schema_version": 1,
   "verified_at": "2026-11-15",
   "scope": "github-repo-metadata-only",
-  "total": 73,
+  "total": 87,
   "entries": [
     {
       "id": "karpathy/autoresearch",
@@ -733,6 +733,146 @@
       "repo_status": "public_repo_exists_not_archived_2026-11-15",
       "readme_sampled": false,
       "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "google-deepmind/code-verification",
+      "repo": "https://github.com/google-deepmind/code-verification",
+      "category": "formal-methods",
+      "priority": "P1",
+      "summary": "Lean artifacts for formally verified Signal binary security properties; not an open model prover",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "facebookresearch/cwm",
+      "repo": "https://github.com/facebookresearch/cwm",
+      "category": "model-internals",
+      "priority": "P1",
+      "summary": "Open-weights 32B Code World Model trained on execution trajectories",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "facebookresearch/vjepa2",
+      "repo": "https://github.com/facebookresearch/vjepa2",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Video JEPA 2.1 dense temporal world representations",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "NVIDIA-NeMo/Gym",
+      "repo": "https://github.com/NVIDIA-NeMo/Gym",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Stateful environment and evaluator platform with reverify and trajectory capture",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "openai/monitorability-evals",
+      "repo": "https://github.com/openai/monitorability-evals",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Released subset of CoT monitorability data and metrics",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "meridianlabs-ai/inspect_petri",
+      "repo": "https://github.com/meridianlabs-ai/inspect_petri",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Petri auditor scaffold: hypotheses and simulated target conversations",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "dogwood-policy/dogwood",
+      "repo": "https://github.com/dogwood-policy/dogwood",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Temporal policy DSL; reference interpreter only",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "dogwood-policy/dogwood-local-engine",
+      "repo": "https://github.com/dogwood-policy/dogwood-local-engine",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Incremental temporal tool authorization engine with persisted event history",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "strands-agents/box",
+      "repo": "https://github.com/strands-agents/box",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Agent sandbox with mediated OS capabilities and temporal authorization",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "amazon-science/ExTS",
+      "repo": "https://github.com/amazon-science/ExTS",
+      "category": "autonomous-research",
+      "priority": "P1",
+      "summary": "Budget-aware candidate expansion policy for evolutionary and tree search",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "aws-bench/aws-bench",
+      "repo": "https://github.com/aws-bench/aws-bench",
+      "category": "data-and-rl",
+      "priority": "P2",
+      "summary": "Isolated real-AWS task evaluation; may incur cloud cost",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "Snowflake-Labs/agent-world-model",
+      "repo": "https://github.com/Snowflake-Labs/agent-world-model",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "1000 executable SQL-backed synthetic tool environments",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "meta-pytorch/OpenEnv",
+      "repo": "https://github.com/meta-pytorch/OpenEnv",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Public environment runtime referenced by AWM",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "hydro-project/infinity",
+      "repo": "https://github.com/hydro-project/infinity",
+      "category": "agent-runtime",
+      "priority": "P1",
+      "summary": "AWS/UC Berkeley research runtime for suspend/resume agent concurrency",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
     }
   ]
 }
