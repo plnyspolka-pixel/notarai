@@ -128,3 +128,14 @@ def test_cli_reports_json(capsys):
     assert main([]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["interpretation"] == "exploratory_only"
+
+@pytest.mark.parametrize("key,value", [
+    ("source", ["synthetic_demo"]),
+    ("split", {"holdout": True}),
+    ("source", None),
+])
+def test_unhashable_or_invalid_metadata_is_rejected(key, value):
+    data = make_data()
+    data["provenance"][key] = value
+    with pytest.raises(ForgeError):
+        compare_paired(data)

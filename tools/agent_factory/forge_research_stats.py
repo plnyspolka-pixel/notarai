@@ -42,9 +42,9 @@ def validate_experiment(dataset: dict[str, Any]) -> list[dict[str, Any]]:
     meta = dataset["provenance"]
     if not isinstance(meta, dict) or set(meta) != META_FIELDS:
         raise ForgeError("Provenance must be complete")
-    if meta["source"] not in {"synthetic_demo", "measured"}:
+    if not isinstance(meta["source"], str) or meta["source"] not in {"synthetic_demo", "measured"}:
         raise ForgeError("Unknown provenance source")
-    if meta["split"] not in {"development", "holdout"}:
+    if not isinstance(meta["split"], str) or meta["split"] not in {"development", "holdout"}:
         raise ForgeError("Unknown evaluation split")
     for key in ("dataset_sha256", "evaluator_sha256"):
         if not isinstance(meta[key], str) or not HEX.fullmatch(meta[key]):
