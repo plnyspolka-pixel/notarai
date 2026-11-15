@@ -14,6 +14,7 @@ Designed for reuse in Finance You.
 - Local-only navigation by default; remote hosts and third-party assets require exact explicit allowlists.
 - Sample DTCG-style token file and OSS component evaluation registry.
 - Node built-in unit tests and standalone GitHub Actions check.
+- MCP v2 server for Claude Code: audit_page, list_oss_components, read_design_tokens.
 
 ## Run locally
 
@@ -41,6 +42,31 @@ To fail the command on serious accessibility/runtime/network errors or visual di
     npm run audit -- --url=http://127.0.0.1:5173 --name=notarai --strict --visual-threshold=0.015
 
 **Important:** No approved baseline means the visual regression status is "unbaselined"; it is not treated as evidence of pixel-level similarity.
+
+## Demo (visual concept, never production)
+
+From tools/web-factory:
+
+    python3 -m http.server 5173 --directory demo
+
+Then open http://127.0.0.1:5173 in a browser or run the audit command above.
+The fixture is an independent premium UI experiment, not the live NotarAI homepage.
+
+## Claude Code / Codex MCP interface
+
+The MCP server uses the official stable v2 split TypeScript SDK and stdio transport.
+Install dependencies (`npm install`) and point your MCP client at the absolute path to `src/mcp.mjs` using Node.
+See `mcp.example.json` for a connector configuration example; merge it into your existing MCP config rather than overwriting it.
+
+    npm run mcp
+
+Available read/audit tools:
+- `audit_page(url, name?)` — runs the same locally constrained Playwright audit and returns result paths and metrics.
+- `list_oss_components(category?)` — returns a versioned, reviewed candidate registry.
+- `read_design_tokens()` — supplies token definitions for agent-generated UI.
+
+There is deliberately no MCP tool to update baselines or deploy code. A human must approve visual baselines.
+Remote staging access is opt-in by an operator through `WEB_FACTORY_ALLOW_REMOTE=true` and `WEB_FACTORY_ALLOWED_HOSTS=exact.hostname`.
 
 ## Safely audit a staging deployment
 
@@ -80,7 +106,7 @@ This is a *development test harness*, not a security boundary for arbitrary untr
 - [x] Machine-readable design tokens and OSS component manifest.
 - [ ] Connect real NotarAI staging/local URL and capture approved baselines.
 - [ ] Add screenshot-to-token extraction with a reviewed parser.
-- [ ] Build an agent tool interface on top of audit reports.
+- [x] Add an MCP v2 read/audit interface (no deploy/write permissions).
 - [ ] Integrate typography and focus-state checks.
 - [ ] Add design proposal evaluation with human approval before merge.
 
