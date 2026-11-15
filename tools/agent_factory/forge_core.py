@@ -65,11 +65,11 @@ def validate_task(task: Mapping[str, Any]) -> None:
     required = {"schema_version", "classification", "task_id", "operation", "values"}
     if set(task) != required:
         raise ForgeError("Task schema fields do not match")
-    if task["schema_version"] != 1 or task["classification"] != "synthetic":
+    if type(task["schema_version"]) is not int or task["schema_version"] != 1 or task["classification"] != "synthetic":
         raise ForgeError("Only schema 1 synthetic tasks are allowed")
     if not isinstance(task["task_id"], str) or not TASK_ID.fullmatch(task["task_id"]):
         raise ForgeError("Invalid task ID")
-    if task["operation"] not in {"sum_integers", "count_integers", "max_integer"}:
+    if not isinstance(task["operation"], str) or task["operation"] not in {"sum_integers", "count_integers", "max_integer"}:
         raise ForgeError("Unapproved fixture operation")
     values = task["values"]
     if not isinstance(values, list) or not 1 <= len(values) <= 128:
@@ -80,7 +80,7 @@ def validate_task(task: Mapping[str, Any]) -> None:
 
 def validate_rubric(rubric: Mapping[str, Any], task: Mapping[str, Any]) -> None:
     required = {"schema_version", "task_id", "task_sha256", "assertions"}
-    if set(rubric) != required or rubric.get("schema_version") != 1:
+    if set(rubric) != required or type(rubric.get("schema_version")) is not int or rubric.get("schema_version") != 1:
         raise ForgeError("Invalid rubric schema")
     if rubric.get("task_id") != task["task_id"] or rubric.get("task_sha256") != digest(task):
         raise ForgeError("Rubric/task integrity mismatch")
@@ -191,7 +191,7 @@ class RunStore:
 
     def register(self, manifest: Mapping[str, str]) -> bool:
         run_id = manifest["run_id"]
-        if not RUN_ID.fullmatch(run_id):
+        if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id):
             raise ForgeError("Invalid run ID")
         fingerprint = digest(manifest)
         with self.conn:

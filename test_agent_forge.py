@@ -184,3 +184,13 @@ def test_cli_prohibits_model_worker(tmp_path):
         with pytest.raises(ForgeError):
             execute_offline(store, root, "fixture-run-007", "task.json", "rubric.json",
                             RunPolicy(adapter="codex-vllm"))
+
+def test_malformed_json_types_are_rejected():
+    task = {"schema_version": 1, "classification": "synthetic",
+            "task_id": "task-001", "operation": ["sum_integers"], "values": [1]}
+    with pytest.raises(ForgeError):
+        validate_task(task)
+    task["operation"] = "sum_integers"
+    task["schema_version"] = True
+    with pytest.raises(ForgeError):
+        validate_task(task)
