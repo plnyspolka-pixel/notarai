@@ -66,3 +66,7 @@ Never claim deployment complete before CI, security review, model calls and stag
 - https://docs.vllm.ai/en/latest/serving/integrations/codex/
 - https://code.claude.com/docs/en/llm-gateway
 - https://platform.claude.com/docs/en/models/fable-5-2/overview
+
+## Verified 2026-11-15: Fable 5.2 Bedrock EU data-residency blocker
+
+AWS model-card regional matrix lists Fable 5.2 in eu-central-1 via **Global cross-region** only; **no In-Region or EU Geo** profile. Global is NOT EU-residency assurance. Accordingly Fable 5.2 MUST NOT receive NotarAI case/customer data, regulated prompts or screenshots via this route. EU-only workflow must use a separately verified model/profile and effective policies, or remain blocked. Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-fable-5-2.html . Public Anthropic Fable API also requires retention review. Code-only synthetic tasks are a separate authorization decision.
