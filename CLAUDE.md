@@ -58,3 +58,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
   dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
   i commitem (nie usuwaj).
+
+## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)
+
+- Architektura i zasady: docs/agent-factory.md.
+- **Polecenie dla Claude Code:** docs/claude-code-handoff-agent-factory.md. Przy pracach agentowych przeczytaj je w całości, realizuj kolejne etapy i testuj rezultaty.
+- Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję.
