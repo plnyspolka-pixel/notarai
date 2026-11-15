@@ -69,11 +69,14 @@ export function slug(value) {
 
 export function readArgs(args) {
   const result = {};
+  const allowed = new Set(['url','name','out','baseline','write-baseline','allow-remote','allow-hosts','asset-hosts','visual-threshold','strict']);
   for (let index = 0; index < args.length; index++) {
     const item = args[index];
     if (!item.startsWith('--')) throw new Error('Unexpected argument: ' + item);
     const withoutPrefix = item.slice(2);
     const equals = withoutPrefix.indexOf('=');
+    const option = equals >= 0 ? withoutPrefix.slice(0, equals) : withoutPrefix;
+    if (!allowed.has(option)) throw new Error('Unknown option --' + option);
     if (equals >= 0) {
       result[withoutPrefix.slice(0, equals)] = withoutPrefix.slice(equals + 1);
     } else if (['allow-remote', 'write-baseline', 'strict'].includes(withoutPrefix)) {
@@ -86,8 +89,6 @@ export function readArgs(args) {
     }
   }
   if (!result.url) throw new Error('Missing required --url');
-  const allowed = new Set(['url','name','out','baseline','write-baseline','allow-remote','allow-hosts','asset-hosts','visual-threshold','strict']);
-  for (const key of Object.keys(result)) if (!allowed.has(key)) throw new Error('Unknown option --' + key);
   if (result['visual-threshold'] !== undefined) {
     const number = Number(result['visual-threshold']);
     if (!Number.isFinite(number) || number < 0 || number > 1) throw new Error('visual-threshold must be between 0 and 1');
