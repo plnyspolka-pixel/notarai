@@ -7,6 +7,7 @@ on:
       - "test_agent_forge.py"
       - "test_agent_forge_llm.py"
       - "test_agent_forge_scheduler.py"
+      - "test_agent_forge_sandbox.py"
       - "test_agent_factory.py"
       - "docs/agent-factory-research/**"
       - ".github/workflows/agent-forge.yml"
@@ -33,7 +34,7 @@ jobs:
       - name: Compile Agent Forge modules
         run: python -m compileall -q tools/agent_factory
       - name: Run offline foundation security and regression tests
-        run: python -m pytest -q test_agent_forge.py test_agent_forge_llm.py test_agent_forge_scheduler.py test_agent_factory.py
+        run: python -m pytest -q test_agent_forge.py test_agent_forge_llm.py test_agent_forge_scheduler.py test_agent_forge_sandbox.py test_agent_factory.py
       - name: Run three-task synthetic benchmark
         run: python -m tools.agent_factory.forge_benchmark --prefix ci-benchmark
       - name: Demonstrate one queued offline job
