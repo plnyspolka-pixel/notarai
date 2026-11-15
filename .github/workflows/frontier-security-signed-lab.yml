@@ -1,0 +1,25 @@
+name: Signed Audit Research Lab
+on:
+  push:
+    paths:
+      - 'frontier-lab/security-lab/**'
+      - '.github/workflows/frontier-security-signed-lab.yml'
+  pull_request:
+    paths:
+      - 'frontier-lab/security-lab/**'
+      - '.github/workflows/frontier-security-signed-lab.yml'
+permissions:
+  contents: read
+jobs:
+  signed-log-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned dependency
+        run: python3 -m pip install -r frontier-lab/security-lab/requirements.txt
+      - name: Signed audit demo tests
+        run: cd frontier-lab/security-lab && python3 -m unittest discover -s tests -v
