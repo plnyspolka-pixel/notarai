@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "task_id": "count-fixture-001",
+  "operation": "count_integers",
+  "values": [0, 10, -4, 33, 9]
+}

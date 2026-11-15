@@ -1,0 +1,17 @@
+model
+  schema 1.1
+
+type user
+
+type case
+  relations
+    define reader: [user]
+    define editor: [user]
+    define can_read: reader or editor
+    define can_write: editor
+
+type document
+  relations
+    define parent: [case]
+    define can_read: can_read from parent
+    define can_write: can_write from parent

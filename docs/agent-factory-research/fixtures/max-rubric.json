@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "task_id": "max-fixture-001",
+  "task_sha256": "723b8510ed1521a9bd8c7df57f735c61ad3be964ac8837a85cd5810702c61800",
+  "assertions": [
+    {"path": "answer", "operator": "equals", "expected": 23}
+  ]
+}

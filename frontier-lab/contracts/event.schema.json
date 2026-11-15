@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/frontier-lab/event.schema.json",
+  "title": "Research-only synthetic/non-identifying event envelope",
+  "description": "Schema is a validation contract, not authorization or GDPR compliance. No personal data may be put on this bus.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_type",
+    "actor_type",
+    "purpose",
+    "source_project",
+    "occurred_at",
+    "synthetic",
+    "metrics"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "experiment_assigned",
+        "experiment_outcome",
+        "agent_job_completed",
+        "web_audit_completed",
+        "policy_decision"
+      ]
+    },
+    "actor_type": {
+      "type": "string",
+      "enum": [
+        "sandbox_agent",
+        "test_runner",
+        "synthetic_actor"
+      ]
+    },
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "research_evaluation",
+        "synthetic_quality_assurance",
+        "sandbox_policy_test"
+      ]
+    },
+    "source_project": {
+      "type": "string",
+      "enum": [
+        "notarai_synthetic",
+        "financeyou_synthetic",
+        "lab"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "maxProperties": 16
+    }
+  }
+}
