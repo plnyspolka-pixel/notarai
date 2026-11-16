@@ -255,3 +255,47 @@ class TestPrezentacja:
         for ident in list(taksa.RODZAJE_WG_ID) + list(taksa.STALE_WG_ID):
             assert ident in opis
         assert "PESEL" not in opis
+
+
+# ---------------------------------------------------------------- granice progow
+# Progi czytane z danych modulu (tabela z taksa.TABELE), nie zaszczepione w teście.
+# Dla kazdego progu sprawdzane sa trzy punkty: dokladnie na progu, o 1 grosz
+# nizej i o 1 grosz wyzej. Warunki: stawka jest niemalejaca i ciagla na progu
+# (stawka(progu+1 grosz) - stawka(progu) <= 1 grosz, czyli brak skoku w gore).
+
+
+def _punkty_graniczne():
+    """Lista (tabela, progi) - progi to gorne granice pasm z tabeli stawek."""
+    punkty = []
+    for klucz, tabela in taksa.TABELE.items():
+        granice = [g for g, _baza, _ponad, _proc in tabela["progi"] if g is not None]
+        punkty.append((klucz, tuple(granice)))
+    return punkty
+
+
+@pytest.mark.parametrize("klucz_tabeli, granice", _punkty_graniczne(),
+                         ids=[f"{k}_progi_{'+_'.join(str(g) for g in gr)}"
+                              for k, gr in _punkty_graniczne()])
+@pytest.mark.parametrize("grupa1", [False, True], ids=["grupa_podstawowa", "grupa1"])
+def test_granice_progow_nimalejaca_i_ciagla(klucz_tabeli, granice, grupa1):
+    """Stawka przy kazdym progu: punkt na progu, -1 grosz, +1 grosz.
+
+    - stawka(progu - 1 grosz) <= stawka(progu) <= stawka(progu + 1 grosz),
+    - rownolegle: stawka(progu + 1 grosz) <= stawka(progu - 1 grosz) + 2 grosze,
+      co razem z niemalejoscia oznacza, ze skok na progu nie przekracza 1 grosza.
+    """
+    dzien = NOWE if klucz_tabeli == "2026" else STARE
+    for progu in granice:
+        w_dol = Decimal(progu) - taksa.GROSZ
+        w_gore = Decimal(progu) + taksa.GROSZ
+        s_dol, _ = taksa.stawka_podstawowa(w_dol, dzien, grupa1=grupa1)
+        s_na, _ = taksa.stawka_podstawowa(Decimal(progu), dzien, grupa1=grupa1)
+        s_gore, _ = taksa.stawka_podstawowa(w_gore, dzien, grupa1=grupa1)
+        assert s_dol <= s_na <= s_gore, (
+            f"tabela {klucz_tabeli}, prog {progu}, grupa1={grupa1}: "
+            f"stawka maleje: {s_dol} > {s_na} lub {s_na} > {s_gore}"
+        )
+        assert s_gore - s_na <= taksa.GROSZ, (
+            f"tabela {klucz_tabeli}, prog {progu}, grupa1={grupa1}: "
+            f"nieciągłość na progu: skok {s_gore} - {s_na} > 1 grosz"
+        )
