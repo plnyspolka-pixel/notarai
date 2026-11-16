@@ -242,6 +242,13 @@ class TestPrezentacja:
         assert taksa.zl(0) == "0,00 zł"
         assert taksa.zl(12633690.126) == "12 633 690,13 zł"
 
+    def test_format_zl_bez_waluty(self):
+        assert taksa.zl(0, waluta=False) == "0,00"
+        assert taksa.zl(1234.5, waluta=False) == "1\u00a0234,50"
+        assert taksa.zl(1000000, waluta=False) == "1\u00a0000\u00a0000,00"
+        for x in (0, 1234.5, 1000000):
+            assert taksa.zl(x) == taksa.zl(x, waluta=False) + "\u00a0z\u0142"
+
     def test_tekst_z_podpisem(self):
         w = taksa.oblicz({"data": "2026-11-07", "stale": [{"id": "testament"}]})
         tekst = taksa.tekst_kalkulacji(w, "Kancelaria X, tel. 123")

@@ -624,15 +624,20 @@ def oblicz(parametry: dict) -> dict:
 
 # ---------------------------------------------------------------- prezentacja
 
-def zl(x) -> str:
-    """1234.5 -> '1 234,50 zł' (twarde spacje jak w C.A.R.)."""
+def zl(x, waluta: bool = True) -> str:
+    """1234.5 -> '1 234,50 zł' (twarde spacje jak w C.A.R.).
+
+    waluta=False: sama liczba, bez twardej spacji i 'zł' na końcu."""
     calkowite, grosze_ = f"{grosze(x):.2f}".split(".")
     with_sep = ""
     for i, cyfra in enumerate(reversed(calkowite)):
         if i and i % 3 == 0:
             with_sep = " " + with_sep
         with_sep = cyfra + with_sep
-    return f"{with_sep},{grosze_} zł"
+    liczba = f"{with_sep},{grosze_}"
+    if not waluta:
+        return liczba
+    return f"{liczba} zł"
 
 
 ZASTRZEZENIE = ("Kwoty są szacunkowe i liczone według maksymalnych stawek z rozporządzenia; "
