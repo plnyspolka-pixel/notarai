@@ -21,3 +21,13 @@ jobs:
           python-version: "3.11"
       - run: python -m unittest discover -s private_ai_tests -v
       - run: python -m compileall -q private_ai
+  policy-as-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1
+        with:
+          version: "1.22.4"
+      - name: OPA allow/deny regression (trusted PDP inputs only)
+        run: opa test private_ai/policies -v --fail-on-empty
