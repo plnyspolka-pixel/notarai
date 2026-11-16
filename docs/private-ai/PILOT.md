@@ -12,6 +12,8 @@ events stored in S3 Object Lock (COMPLIANCE 30 days) via S3 VPC gateway endpoint
 
 Implementation:
 - private_ai/ingress.py: SHA-256 pinning of the ONE allowed synthetic fixture;
+  reject any user-controlled prompt other than the exact hardcoded synthetic prompt;
+  accept only image/png + document_analysis;
   reject absent/forged/mismatched API Gateway/IAM context,
   unexpected fields and caller-provided tenant/model/classification.
 - private_ai/lambda_entry.py: gateway adapter and S3 metadata audit sink;

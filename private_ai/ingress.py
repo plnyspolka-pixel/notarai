@@ -14,6 +14,7 @@ from .gateway import DocumentGateway, DocumentRequest
 from .policy import Principal, Classification, PolicyDenied
 
 VALID_ROLE = re.compile(r"^arn:aws:iam::([0-9]{12}):role/([A-Za-z0-9+=,.@_-]{1,64})$")
+PILOT_PROMPT = "Describe the shapes and colors of this synthetic geometric test image."
 ALLOWED_FIELDS = {"request_id", "purpose", "prompt", "media_type", "document_base64"}
 MAX_BODY = 9 * 1024 * 1024
 
@@ -66,6 +67,9 @@ def parse_request(event):
 def process_event(event, *, allowed_role, api_id, tenant_id, gateway, expected_fixture_sha256):
     identity = verified_caller(event, allowed_role=allowed_role, api_id=api_id, tenant_id=tenant_id)
     body, content = parse_request(event)
+    # Do not accept arbitrary text — confidential content can be in prompts too.
+    if (body["prompt"] != PILOT_PROMPT or body["purpose"] != "document_analysis" or body["media_type"] != "image/png":
+        raise PolicyDenied("Only the fixed synthetic pilot operation is allowed")
     # Exactly one SHA256-pinned synthetic image can reach the pilot model.
     # This is a containment gate, not a generic document classifier.
     if (not isinstance(expected_fixture_sha256, str)

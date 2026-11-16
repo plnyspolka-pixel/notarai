@@ -1,12 +1,12 @@
 """Synthetic IAM, tenant and audit regressions. No network and no secrets."""
 import base64
-import hashlib
+from private_ai.synthetic import png_fixture, fixture_sha256
 import json
 import unittest
 from unittest.mock import Mock
 
 from private_ai import DocumentGateway, Deployment, PolicyDenied
-from private_ai.ingress import process_event
+from private_ai.ingress import process_event, PILOT_PROMPT
 from private_ai.lambda_entry import S3AuditSink
 
 ROLE = "arn:aws:iam::123456789012:role/private-ai-pilot-caller"
@@ -38,9 +38,9 @@ class IngressTests(unittest.TestCase):
         self.payload = {
             "request_id": "request_00002",
             "purpose": "document_analysis",
-            "prompt": "synthetic fake document",
-            "media_type": "application/pdf",
-            "document_base64": base64.b64encode(b"%PDF-1.7 synthetic").decode(),
+            "prompt": PILOT_PROMPT,
+            "media_type": "image/png",
+            "document_base64": base64.b64encode(png_fixture()).decode(),
         }
         self.event = {
             "version": "2.0",
@@ -57,7 +57,7 @@ class IngressTests(unittest.TestCase):
     def call(self, **overrides):
         kwargs = {"allowed_role": ROLE, "api_id": "example123",
                   "tenant_id": "tenant_one", "gateway": self.gateway,
-                  "expected_fixture_sha256": hashlib.sha256(b"%PDF-1.7 synthetic").hexdigest()}
+                  "expected_fixture_sha256": fixture_sha256()}
         kwargs.update(overrides)
         return process_event(self.event, **kwargs)
 
@@ -110,8 +110,18 @@ class IngressTests(unittest.TestCase):
         self.event["body"] = json.dumps(self.payload)
         self.deny()
 
+    def test_secret_text_prompt_denied(self):
+        self.payload["prompt"] = PILOT_PROMPT + " Actual customer name and PESEL"
+        self.event["body"] = json.dumps(self.payload)
+        self.deny()
+
     def test_other_document_denied_even_from_valid_caller(self):
         self.payload["document_base64"] = base64.b64encode(b"%PDF-1.7 other input").decode()
+        self.event["body"] = json.dumps(self.payload)
+        self.deny()
+
+    def test_wrong_document_purpose_denied(self):
+        self.payload["purpose"] = "document_extraction"
         self.event["body"] = json.dumps(self.payload)
         self.deny()
 
@@ -136,7 +146,7 @@ class IngressTests(unittest.TestCase):
             "event": "authorized",
         }
         sink.record(ev)
-        self.assertNotIn("synthetic fake document", str(s3.put_object.call_args))
+        self.assertNotIn(PILOT_PROMPT, str(s3.put_object.call_args))
         with self.assertRaises(ValueError):
             sink.record({**ev, "prompt": "secret"})
         self.assertEqual(s3.put_object.call_count, 1)
