@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 from tools.agent_factory.runner import (
+    MAX_TASK_BYTES,
     PolicyError,
     codex_command,
+    list_tasks,
     load_task,
     restricted_env,
     validate_endpoint,
@@ -61,6 +63,20 @@ def test_task_confined_to_committed_subtree(tmp_path):
     symlink.symlink_to(other)
     with pytest.raises(PolicyError):
         load_task(symlink, root)
+
+
+def test_list_tasks_skips_symlinks_and_oversized(tmp_path):
+    root = tmp_path / "repo"
+    tasks = root / "docs" / "agent-tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "ok.md").write_text("Zadanie syntetyczne", encoding="utf-8")
+    (tasks / "huge.md").write_bytes(b"x" * (MAX_TASK_BYTES + 1))
+    (tasks / "inne.txt").write_text("nie markdown", encoding="utf-8")
+    # Dowiazanie do poprawnego pliku .md tez musi zostac pominiete.
+    (tasks / "link.md").symlink_to(tasks / "ok.md")
+    assert list_tasks(root) == ["docs/agent-tasks/ok.md"]
+    # Brak katalogu: pusta lista, bez bladów.
+    assert list_tasks(tmp_path / "brak") == []
 
 
 def test_env_does_not_forward_credentials(monkeypatch):

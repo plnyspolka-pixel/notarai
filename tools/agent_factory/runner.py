@@ -74,6 +74,36 @@ def load_task(path: Path, repo: Path) -> str:
     return text
 
 
+def list_tasks(repo: Path) -> list[str]:
+    """List committed task files (docs/agent-tasks/*.md), sorted by name.
+
+    Symlinks and files larger than MAX_TASK_BYTES are skipped. Paths are
+    relative to the repo root and always use forward slashes.
+    """
+    tasks_dir = repo / "docs" / "agent-tasks"
+    if not tasks_dir.is_dir():
+        return []
+    names = []
+    for entry in tasks_dir.iterdir():
+        if entry.is_symlink():
+            continue
+        if not entry.is_file() or entry.suffix != ".md":
+            continue
+        try:
+            if entry.stat().st_size > MAX_TASK_BYTES:
+                continue
+        except OSError:
+            continue
+        names.append(entry.relative_to(repo).as_posix())
+    return sorted(names)
+
+
+def list_tasks_cli(args: argparse.Namespace) -> int:
+    for name in list_tasks(Path(args.repo)):
+        print(name)
+    return 0
+
+
 def codex_command(model: str, endpoint: str, prompt: str) -> list[str]:
     """Use argv, never a shell; keep network and privilege escalation disabled."""
     model = validate_model(model)
@@ -183,6 +213,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Private, review-gated coding worker")
     sub = parser.add_subparsers(dest="action", required=True)
     doc = sub.add_parser("doctor", help="Non-invasive readiness checks")
+    tasks_cmd = sub.add_parser("tasks", help="List task files under docs/agent-tasks")
+    tasks_cmd.add_argument("--repo", default=".", help="Repo root (default: cwd)")
     run_cmd = sub.add_parser("run", help="Codex/vLLM in isolated git worktree")
     run_cmd.add_argument("--task", required=True, help="docs/agent-tasks/*.md")
     run_cmd.add_argument("--model", required=True, help="vLLM --served-model-name")
@@ -191,6 +223,8 @@ def main() -> int:
     run_cmd.add_argument("--execute", action="store_true", help="Actually run agent")
     args = parser.parse_args()
     try:
+        if args.action == "tasks":
+            return list_tasks_cli(args)
         if args.action == "doctor":
             print(json.dumps({
                 "git": bool(shutil.which("git")),
