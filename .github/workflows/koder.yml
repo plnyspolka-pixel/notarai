@@ -22,20 +22,28 @@ env:
   AWS_EC2_METADATA_DISABLED: "true"
   KODER_ROLE: arn:aws:iam::127621462971:role/notarai-github-koder
   KODER_MODEL: RedHatAI/Qwen3.8-27B-INT4
-  KODER_MINUTES: "100"
+  KODER_MINUTES: "120"
   KODER_MAX_USD: "1.5"
+  KODER_PARALLEL: "3"   # ile zadan naraz na jednej karcie
   NOTARAI_SALAD_ENV: /home/runner/work/_temp/salad.env
 
 jobs:
   koder:
     name: Zadania na modelu z SaladCloud
     runs-on: ubuntu-latest
-    timeout-minutes: 140
+    timeout-minutes: 150
     steps:
       - name: Pobierz kod
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Kontrola kart zadan (bez kart dla agenta nie wynajmujemy karty)
+        run: |
+          python3 tools/agent_factory/koder/karta.py lint || true
+          if ! grep -lE '^tor: koder' docs/agent-tasks/kolejka/*.md > /dev/null 2>&1; then
+            echo "Brak kart o torze koder w docs/agent-tasks/kolejka - koncze bez kosztow"; exit 1
+          fi
 
       - name: Klucz dostawcy GPU z Secrets Manager (OIDC, bez kluczy AWS w repo)
         run: |
@@ -54,13 +62,23 @@ jobs:
           umask 077
           jq -r 'to_entries[] | "\(.key)=\(.value)"' <<<"$SECRET" > "$NOTARAI_SALAD_ENV"
 
+      - name: Zbuduj obraz robotnika i sprawdz go na sucho (zanim zaczniemy placic za karte)
+        run: |
+          set -uo pipefail
+          docker build -q -t koder-agent -f tools/agent_factory/koder/Dockerfile .
+          docker run --rm --network none -e MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT=1 \
+            -v "$PWD/tools/agent_factory/koder:/cfg:ro" koder-agent \
+            timeout 120 mini -c mini.yaml -c /cfg/mini.yaml -y --exit-immediately \
+            -t "proba" -o /tmp/p.traj.json < /dev/null > "$RUNNER_TEMP/sucho.log" 2>&1 || true
+          tail -n 12 "$RUNNER_TEMP/sucho.log" | cut -c1-300
+          if grep -qE "EOFError|No such option|Usage: mini|ValidationError|ModuleNotFoundError" "$RUNNER_TEMP/sucho.log"; then
+            echo "Robotnik nie startuje bez pytan - przerywam przed wynajmem karty"; exit 1
+          fi
+
       - name: Wynajmij karte i uruchom model
         run: |
           python3 tools/agent_factory/salad_vllm.py up --pay --model "$KODER_MODEL" \
             --minutes "$KODER_MINUTES" --max-usd "$KODER_MAX_USD"
-
-      - name: Zbuduj obraz robotnika
-        run: docker build -q -t koder-agent -f tools/agent_factory/koder/Dockerfile .
 
       - name: Brama do modelu w wewnetrznej sieci Dockera
         run: |
@@ -103,9 +121,4 @@ jobs:
           git -c user.name="koder (agent)" -c user.email="koder@users.noreply.github.com" \
             commit -q -m "koder: wyniki przebiegu $GITHUB_RUN_ID ($KODER_MODEL)"
           git push -q origin "agent/$GITHUB_RUN_ID-wyniki"
-          {
-            echo "### Koder - przebieg $GITHUB_RUN_ID ($KODER_MODEL)"
-            echo '```json'
-            cat "$OUT/wyniki.jsonl" 2>/dev/null || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$OUT/WYNIKI.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
