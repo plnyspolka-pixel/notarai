@@ -87,11 +87,15 @@ jobs:
           if [ ! -e "$CPU_PILOT_OUT/result.json" ]; then
             printf '{"status":"INCOMPLETE","model_calls":"unknown","tasks_passed":null,"reason":"workflow failed; inspect job logs; no performance claim"}\n' > "$CPU_PILOT_OUT/result.json"
           fi
+      - name: Print graded trial summary (synthetic results only)
+        if: always()
+        run: |
+          if [ -f "$CPU_PILOT_OUT/result.json" ]; then cat "$CPU_PILOT_OUT/result.json"; fi
       - name: Upload actual model trial evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark30-qwen-cpu-${{ github.run_id }}
-          path: ${{ runner.temp }}/benchmark30-qwen-pilot/
+          path: /tmp/benchmark30-qwen-pilot/
           if-no-files-found: warn
           retention-days: 14
