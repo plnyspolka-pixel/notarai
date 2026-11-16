@@ -44,18 +44,36 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  WorkerSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: private-ai test Lambda - egress deny by default
-      VpcId: !Ref VpcId
-      SecurityGroupEgress: []
   BedrockSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Bedrock VPC endpoint - pilot Lambda only
       VpcId: !Ref VpcId
-      SecurityGroupEgress: []
+      # A bare [] can create a temporary/default allow-all egress rule.
+      # Explicitly permit only an unused documentation IP and port.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 1
+          ToPort: 1
+          CidrIp: 192.0.2.255/32
+          Description: Placeholder to prevent AWS default allow-all egress
+  WorkerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: private-ai pilot Lambda - strict outbound allowlist
+      VpcId: !Ref VpcId
+      # The two explicit rules exist AT SG CREATION (no default allow-all).
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !GetAtt BedrockSG.GroupId
+          Description: Bedrock Runtime PrivateLink only
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId: !Ref S3PrefixListId
+          Description: Regional Amazon S3 gateway endpoint only
   EndpointIngress:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
@@ -64,22 +82,6 @@ Resources:
       FromPort: 443
       ToPort: 443
       SourceSecurityGroupId: !GetAtt WorkerSG.GroupId
-  BedrockEgress:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      GroupId: !GetAtt WorkerSG.GroupId
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      DestinationSecurityGroupId: !GetAtt BedrockSG.GroupId
-  S3Egress:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      GroupId: !GetAtt WorkerSG.GroupId
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      DestinationPrefixListId: !Ref S3PrefixListId
 
   BedrockEndpoint:
     Type: AWS::EC2::VPCEndpoint
@@ -164,7 +166,7 @@ Resources:
 
   PilotLambda:
     Type: AWS::Lambda::Function
-    DependsOn: [BedrockEndpoint, AuditS3Endpoint, BedrockEgress, S3Egress]
+    DependsOn: [BedrockEndpoint, AuditS3Endpoint, EndpointIngress]
     Properties:
       Description: Synthetic documents only; no banking or medical records
       Runtime: python3.12
