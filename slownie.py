@@ -62,6 +62,8 @@ def liczba_slownie(n: int) -> str:
 
 def parsuj_kwote(tekst: str) -> tuple[int, int]:
     """'250.000,00 zł' / '250 000,5' / '1000' -> (zlote, grosze)."""
+    if not any(c.isdigit() for c in tekst):
+        raise ValueError("Brak kwoty w tekście")
     czysty = re.sub(r"[^\d,]", "", tekst.replace(".", "").replace(" ", ""))
     if "," in czysty:
         zl, gr = czysty.split(",", 1)
