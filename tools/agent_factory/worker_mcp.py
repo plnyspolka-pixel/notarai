@@ -11,9 +11,7 @@ import sys
 from tools.agent_factory.worker_pool import (
     WorkerPolicyError, capabilities, delegate, validate_batch
 )
-from tools.agent_factory.worker_learning_followup import (
-    HINTS, read_observed_weak_families, targeted_packet
-)
+from tools.agent_factory.learning_decisions import next_learning_actions
 
 PROTOCOL_VERSION = "2025-06-18"
 JOB_SCHEMA = {
@@ -112,19 +110,7 @@ def response(message: dict) -> dict | None:
         elif name == "worker_learning_targets":
             if args:
                 raise WorkerPolicyError("no arguments accepted")
-            tasks = read_observed_weak_families()
-            data = {
-                "status": "diagnostic_synthetic_cpu_evidence_only",
-                "source_run": 43928286658,
-                "lesson_count": len(tasks),
-                "proposed_jobs": [targeted_packet(task, "targeted_lesson")
-                                  for task in tasks],
-                "lesson_descriptions": {
-                    task["chain"]: HINTS[task["chain"]] for task in tasks
-                },
-                "requires": "lead approval, independent grading and unseen replication",
-                "not_training_data": True
-            }
+            data = next_learning_actions()
         elif name == "validate_worker_batch":
             if set(args) != {"jobs"}:
                 raise WorkerPolicyError("exact jobs field required")

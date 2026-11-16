@@ -29,3 +29,6 @@ To reproduce the CPU pilot without a rented GPU, run the opt-in workflow `.githu
 
 
 When diagnosing weaknesses, first call `worker_learning_targets`. It returns the latest checked-in synthetic-only failure categories and two proposed targeted work packets. This is **evidence for an experiment**, not signed training data and not proof of improvement. The lead can edit and dispatch these tasks, but must independently verify the resulting code and avoid passing hidden tests to cheap workers.
+
+
+Latest diagnostic (CPU follow-up run 43930520281): `worker_learning_targets` now returns **routing decisions**, not requests to re-run the same benchmark blindly. Persistent catalog failure should be handled by Claude/Codex or on a newly designed non-leaking task. One scrub success requires fresh, unseen independent tests. Never feed the benchmark evaluation solutions into LoRA training. Obtain new accepted non-benchmark work before making a training corpus.

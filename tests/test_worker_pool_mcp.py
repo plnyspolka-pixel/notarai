@@ -105,7 +105,10 @@ def test_mcp_discloses_diagnostic_next_lessons_not_trained_weights():
                        "params": {"name": "worker_learning_targets",
                                   "arguments": {}}})
     plan = json.loads(answer["result"]["content"][0]["text"])
-    assert plan["lesson_count"] == 2
-    assert plan["not_training_data"] is True
-    assert {j["id"] for j in plan["proposed_jobs"]} == {"T01", "T26"}
-    assert all(j["data_class"] == "synthetic" for j in plan["proposed_jobs"])
+    assert plan["training_eligible"] is False
+    assert plan["tasks_to_retrain_on"] == []
+    routes = {j["task_id"]: j["recommended_owner"] for j in plan["decisions"]}
+    assert routes == {
+        "T01": "claude_or_codex_lead",
+        "T26": "independent_evaluator"
+    }
