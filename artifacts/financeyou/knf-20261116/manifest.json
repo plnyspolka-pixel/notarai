@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "description": "Zaszyfrowana scalona baza pośredników finansowych Finance You, 76 663 unikalne adresy; brak notariuszy w tym zestawie. Uwaga: wiele emaili niezweryfikowanych / wywnioskowanych.",
+  "dataset_date": "2026-09-30",
+  "created_date": "2026-11-16",
+  "encryption": "AES-256-GCM",
+  "ciphertext_filename": "financeyou_posrednicy_76663_2026-11-16.aesgcm",
+  "ciphertext_bytes": 4170201,
+  "ciphertext_sha256": "70cd705ea2784f792e68c1cd9202dc0e26fdc9a4b37b6ff56a49ac72c912ab5d",
+  "decoded_zip_sha256": "4c07573cb2781d7c2ea32060f5ee3eaec8ea6f92c360f7b531cebaa2b6fe8454",
+  "layout": "FYKNF01 magic (7 bytes) + AES-GCM nonce (12 bytes) + ciphertext incl. 16-byte auth tag",
+  "key_location": "Key is NOT published in GitHub; obtain separately from dataset owner.",
+  "parts": [
+    {
+      "index": 0,
+      "file": "part-000.bin",
+      "size": 384000,
+      "sha256": "2ffb63389268470b6bb8a1ab1b173b3737910330b839f1006aa50a1dd928b72b",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-000.bin"
+    },
+    {
+      "index": 1,
+      "file": "part-001.bin",
+      "size": 384000,
+      "sha256": "cafbd96c155630d94fa63019e53929d175f96371dfe6597e765f63e1ce2ccfc9",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-001.bin"
+    },
+    {
+      "index": 2,
+      "file": "part-002.bin",
+      "size": 384000,
+      "sha256": "ce095434306d0ef00464177a0d30f737dc6babb0c747007f44a8ef5cc9e64b7b",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-002.bin"
+    },
+    {
+      "index": 3,
+      "file": "part-003.bin",
+      "size": 384000,
+      "sha256": "10b177010faa2349414f9cb957c9960b547be7ca9b449e18238242bc5569594f",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-003.bin"
+    },
+    {
+      "index": 4,
+      "file": "part-004.bin",
+      "size": 384000,
+      "sha256": "5c9c670c2f9216d27fe7321cad63c97db71d05cbf624634d438bfdd845d2f4e8",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-004.bin"
+    },
+    {
+      "index": 5,
+      "file": "part-005.bin",
+      "size": 384000,
+      "sha256": "4ef63c5d78c1f3b30da3b29af3819412be799199f14a926cf53f1ff74bcca9ce",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-005.bin"
+    },
+    {
+      "index": 6,
+      "file": "part-006.bin",
+      "size": 384000,
+      "sha256": "f5401fafd9e2a940c014f5e58be304d0865e5536d21ea7eaf003c0a5dbd75d7b",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-006.bin"
+    },
+    {
+      "index": 7,
+      "file": "part-007.bin",
+      "size": 384000,
+      "sha256": "631bcde9212f046da7609fc96d2a0dcf3ae00f0c191743ad74d16290eea334c9",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-007.bin"
+    },
+    {
+      "index": 8,
+      "file": "part-008.bin",
+      "size": 384000,
+      "sha256": "cfa65b5d9c9a69903cb1e0bcdba20fe0acd8ed431995fea1300a81da7e6101d6",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-008.bin"
+    },
+    {
+      "index": 9,
+      "file": "part-009.bin",
+      "size": 384000,
+      "sha256": "ec670ba2f5bd0082995c0a6688794e19386730eebe2515983ed748298d895d39",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-009.bin"
+    },
+    {
+      "index": 10,
+      "file": "part-010.bin",
+      "size": 330201,
+      "sha256": "dc35d65a5ec44cbc70b572eb8e223e89e0a38f29132f1ec7c7180d6d103a3f1b",
+      "url": "https://raw.githubusercontent.com/plnyspolka-pixel/notarai/4df6d30fe2a6584ab403a12330161c40341ecd52/artifacts/financeyou/knf-20261116/parts/part-010.bin"
+    }
+  ]
+}

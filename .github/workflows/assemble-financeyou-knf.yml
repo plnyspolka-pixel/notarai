@@ -1,0 +1,38 @@
+name: Assemble encrypted Finance You KNF download
+on:
+  push:
+    branches:
+      - assets/financeyou-knf-encrypted-20261116
+    paths:
+      - ".github/workflows/assemble-financeyou-knf.yml"
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            artifacts/financeyou/knf-20261116/
+          sparse-checkout-cone-mode: false
+      - name: Join and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts/financeyou/knf-20261116
+          cat parts/part-*.bin > financeyou_posrednicy_76663_2026-11-16.aesgcm
+          echo "70cd705ea2784f792e68c1cd9202dc0e26fdc9a4b37b6ff56a49ac72c912ab5d  financeyou_posrednicy_76663_2026-11-16.aesgcm" | sha256sum -c -
+      - name: Commit the encrypted binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f artifacts/financeyou/knf-20261116/financeyou_posrednicy_76663_2026-11-16.aesgcm
+          if ! git diff --cached --quiet; then
+            git commit -m "assets: assemble immutable encrypted KNF dataset download"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
