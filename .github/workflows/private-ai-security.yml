@@ -1,0 +1,23 @@
+name: Private AI security regression
+on:
+  pull_request:
+    paths:
+      - "private_ai/**"
+      - "private_ai_tests/**"
+      - "docs/private-ai/**"
+      - ".github/workflows/private-ai-security.yml"
+  push:
+    branches: ["feature/private-ai-**"]
+permissions:
+  contents: read
+jobs:
+  synthetic-denial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m unittest discover -s private_ai_tests -v
+      - run: python -m compileall -q private_ai
