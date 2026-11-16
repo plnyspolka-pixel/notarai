@@ -1,0 +1,1 @@
+{"id": "styl-przewaga-testy", "karta": "docs/agent-tasks/kolejka/styl-przewaga-testy.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 24, "sekundy": 418, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_styl.py"], "galaz": "agent/43865344638-styl-przewaga-testy", "zaliczone": true}

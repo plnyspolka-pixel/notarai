@@ -1,0 +1,1 @@
+{"id": "walidacja-kwota-zl", "karta": "docs/agent-tasks/kolejka/walidacja-kwota-zl.md", "exit_status": "LimitsExceeded", "agent_exit": 0, "kroki": 40, "sekundy": 817, "test_zaliczony": false, "poza_zakresem": [], "zmienione": ["walidacja.py"], "galaz": "agent/43865344638-walidacja-kwota-zl", "zaliczone": false}

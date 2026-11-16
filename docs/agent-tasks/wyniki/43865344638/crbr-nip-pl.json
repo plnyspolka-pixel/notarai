@@ -1,0 +1,1 @@
+{"id": "crbr-nip-pl", "karta": "docs/agent-tasks/kolejka/crbr-nip-pl.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 7, "sekundy": 102, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["crbr.py", "test_crbr.py"], "galaz": "agent/43865344638-crbr-nip-pl", "zaliczone": true}

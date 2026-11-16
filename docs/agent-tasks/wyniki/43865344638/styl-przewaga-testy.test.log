@@ -1,0 +1,10 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0
+rootdir: /repo
+configfile: pytest.ini
+plugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0
+collected 13 items
+
+test_styl.py [32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                                               [100%][0m
+
+[32m============================== [32m[1m13 passed[0m[32m in 0.55s[0m[32m ==============================[0m

@@ -1,0 +1,1 @@
+{"id": "klauzule-zapora-testy", "karta": "docs/agent-tasks/kolejka/klauzule-zapora-testy.md", "exit_status": "LimitsExceeded", "agent_exit": 0, "kroki": 40, "sekundy": 573, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_klauzule.py"], "galaz": "agent/43865344638-klauzule-zapora-testy", "zaliczone": false}

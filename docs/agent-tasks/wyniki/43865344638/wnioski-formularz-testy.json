@@ -1,0 +1,1 @@
+{"id": "wnioski-formularz-testy", "karta": "docs/agent-tasks/kolejka/wnioski-formularz-testy.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 13, "sekundy": 388, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_wnioski_kw_formularz.py"], "galaz": "agent/43865344638-wnioski-formularz-testy", "zaliczone": true}

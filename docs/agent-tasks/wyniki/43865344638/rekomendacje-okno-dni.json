@@ -1,0 +1,1 @@
+{"id": "rekomendacje-okno-dni", "karta": "docs/agent-tasks/kolejka/rekomendacje-okno-dni.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 7, "sekundy": 70, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["rekomendacje.py", "test_rekomendacje.py"], "galaz": "agent/43865344638-rekomendacje-okno-dni", "zaliczone": true}

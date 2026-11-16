@@ -1,0 +1,1 @@
+{"id": "wnioski-repc-testy", "karta": "docs/agent-tasks/kolejka/wnioski-repc-testy.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 11, "sekundy": 138, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_wnioski_kw.py"], "galaz": "agent/43865344638-wnioski-repc-testy", "zaliczone": true}

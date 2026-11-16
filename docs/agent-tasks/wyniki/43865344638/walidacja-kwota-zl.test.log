@@ -1,0 +1,130 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0
+rootdir: /repo
+configfile: pytest.ini
+plugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0
+collected 69 items
+
+test_walidacja.py [32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31m [ 78%]
+[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31m                                                          [100%][0m
+
+=================================== FAILURES ===================================
+[31m[1m____________________ TestKwota.test_kwota_poprawna_integer _____________________[0m
+[1m[31mtest_walidacja.py[0m:192: in test_kwota_poprawna_integer
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1000[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_____________________ TestKwota.test_kwota_poprawna_float ______________________[0m
+[1m[31mtest_walidacja.py[0m:197: in test_kwota_poprawna_float
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1234.56[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m______________________ TestKwota.test_kwota_z_przecinkiem ______________________[0m
+[1m[31mtest_walidacja.py[0m:202: in test_kwota_z_przecinkiem
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1234,56[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_______________________ TestKwota.test_kwota_z_waluta_zl _______________________[0m
+[1m[31mtest_walidacja.py[0m:207: in test_kwota_z_waluta_zl
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1234.56 zl[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m______________________ TestKwota.test_kwota_z_waluta_pln _______________________[0m
+[1m[31mtest_walidacja.py[0m:212: in test_kwota_z_waluta_pln
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1234.56 PLN[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_______________________ TestKwota.test_kwota_ze_spacjami _______________________[0m
+[1m[31mtest_walidacja.py[0m:217: in test_kwota_ze_spacjami
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1 234.56[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_________________________ TestKwota.test_kwota_z_nbsp __________________________[0m
+[1m[31mtest_walidacja.py[0m:223: in test_kwota_z_nbsp
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m1 234.56[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_________________________ TestKwota.test_kwota_ujemna __________________________[0m
+[1m[31mtest_walidacja.py[0m:228: in test_kwota_ujemna
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m-100[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m__________________________ TestKwota.test_kwota_zero ___________________________[0m
+[1m[31mtest_walidacja.py[0m:233: in test_kwota_zero
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m0[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m___________________ TestKwota.test_kwota_niepoprawny_format ____________________[0m
+[1m[31mtest_walidacja.py[0m:238: in test_kwota_niepoprawny_format
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33mabc[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m__________________________ TestKwota.test_kwota_pusta __________________________[0m
+[1m[31mtest_walidacja.py[0m:243: in test_kwota_pusta
+    [0mpoprawny, komunikat = kwota([33m"[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mwalidacja.py[0m:77: in kwota
+    [0m[94mreturn[39;49;00m [94mTrue[39;49;00m, [33mf[39;49;00m[33m"[39;49;00m[33m{[39;49;00mliczba[33m:[39;49;00m[33m.2f[39;49;00m[33m}[39;49;00m[33m zl[39;49;00m[33m"[39;49;00m[90m[39;49;00m
+[1m[31mE   NameError: name 'liczba' is not defined[0m
+[31m[1m_______________________ TestSprawdzPole.test_pole_z_cena _______________________[0m
+[1m[31mtest_walidacja.py[0m:269: in test_pole_z_cena
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m______________________ TestSprawdzPole.test_pole_z_kwota _______________________[0m
+[1m[31mtest_walidacja.py[0m:273: in test_pole_z_kwota
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m_____________________ TestSprawdzPole.test_pole_z_wartosc ______________________[0m
+[1m[31mtest_walidacja.py[0m:277: in test_pole_z_wartosc
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m_________ TestSprawdzPole.test_odmienione_nazwy_kwot[wartosc rynkowa] __________[0m
+[1m[31mtest_walidacja.py[0m:342: in test_odmienione_nazwy_kwot
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m________ TestSprawdzPole.test_odmienione_nazwy_kwot[warto\u015b\u0107] _________[0m
+[1m[31mtest_walidacja.py[0m:342: in test_odmienione_nazwy_kwot
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m______________ TestSprawdzPole.test_odmienione_nazwy_kwot[kwoty] _______________[0m
+[1m[31mtest_walidacja.py[0m:342: in test_odmienione_nazwy_kwot
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m_______________ TestSprawdzPole.test_odmienione_nazwy_kwot[ceny] _______________[0m
+[1m[31mtest_walidacja.py[0m:342: in test_odmienione_nazwy_kwot
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[31m[1m________________ TestSprawdzPole.test_pole_kwota_z_separatorami ________________[0m
+[1m[31mtest_walidacja.py[0m:352: in test_pole_kwota_z_separatorami
+    [0m[94massert[39;49;00m poprawny [95mis[39;49;00m [94mTrue[39;49;00m[90m[39;49;00m
+[1m[31mE   assert None is True[0m
+[36m[1m=========================== short test summary info ============================[0m
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_poprawna_integer[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_poprawna_float[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_z_przecinkiem[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_z_waluta_zl[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_z_waluta_pln[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_ze_spacjami[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_z_nbsp[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_ujemna[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_zero[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_niepoprawny_format[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestKwota::test_kwota_pusta[0m - NameError: name 'liczba' is not defined
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_pole_z_cena[0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_pole_z_kwota[0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_pole_z_wartosc[0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_odmienione_nazwy_kwot[wartosc rynkowa][0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_odmienione_nazwy_kwot[warto\u015b\u0107][0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_odmienione_nazwy_kwot[kwoty][0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_odmienione_nazwy_kwot[ceny][0m - assert None is True
+[31mFAILED[0m test_walidacja.py::[1mTestSprawdzPole::test_pole_kwota_z_separatorami[0m - assert None is True
+[31m======================== [31m[1m19 failed[0m, [32m50 passed[0m[31m in 0.75s[0m[31m =========================[0m

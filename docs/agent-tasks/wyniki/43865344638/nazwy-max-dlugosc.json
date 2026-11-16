@@ -1,0 +1,1 @@
+{"id": "nazwy-max-dlugosc", "karta": "docs/agent-tasks/kolejka/nazwy-max-dlugosc.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 7, "sekundy": 109, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["nazwy.py", "test_nazwy.py"], "galaz": "agent/43865344638-nazwy-max-dlugosc", "zaliczone": true}

@@ -1,0 +1,1 @@
+{"id": "kategorie-granice-slow", "karta": "docs/agent-tasks/kolejka/kategorie-granice-slow.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 14, "sekundy": 209, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["kategorie.py", "test_kategorie_zakres.py"], "galaz": "agent/43865344638-kategorie-granice-slow", "zaliczone": true}

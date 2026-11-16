@@ -1,0 +1,1 @@
+{"id": "slownie-grosze-ulamek", "karta": "docs/agent-tasks/kolejka/slownie-grosze-ulamek.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 8, "sekundy": 105, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["slownie.py", "test_slownie_grosze.py"], "galaz": "agent/43865344638-slownie-grosze-ulamek", "zaliczone": true}

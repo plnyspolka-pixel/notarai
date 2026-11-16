@@ -1,0 +1,1 @@
+{"id": "wnioski-dzial-iv", "karta": "docs/agent-tasks/kolejka/wnioski-dzial-iv.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 6, "sekundy": 54, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_wnioski_kw_dzialy.py", "wnioski_kw.py"], "galaz": "agent/43865344638-wnioski-dzial-iv", "zaliczone": true}

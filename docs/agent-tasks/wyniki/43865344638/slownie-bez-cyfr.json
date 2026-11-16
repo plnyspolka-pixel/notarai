@@ -1,0 +1,1 @@
+{"id": "slownie-bez-cyfr", "karta": "docs/agent-tasks/kolejka/slownie-bez-cyfr.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 11, "sekundy": 132, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["slownie.py", "test_slownie_bledy.py"], "galaz": "agent/43865344638-slownie-bez-cyfr", "zaliczone": true}

@@ -1,0 +1,1 @@
+{"id": "nazwy-wzor-testy", "karta": "docs/agent-tasks/kolejka/nazwy-wzor-testy.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 10, "sekundy": 150, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["test_nazwy.py"], "galaz": "agent/43865344638-nazwy-wzor-testy", "zaliczone": true}

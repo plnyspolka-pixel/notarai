@@ -1,0 +1,1 @@
+{"id": "crbr-wspolne-czyszczenie", "karta": "docs/agent-tasks/kolejka/crbr-wspolne-czyszczenie.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 7, "sekundy": 117, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["crbr.py"], "galaz": "agent/43865344638-crbr-wspolne-czyszczenie", "zaliczone": true}

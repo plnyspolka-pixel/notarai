@@ -1,0 +1,1 @@
+{"id": "taksa-kwota-kropki", "karta": "docs/agent-tasks/kolejka/taksa-kwota-kropki.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 16, "sekundy": 138, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["taksa.py", "test_taksa.py"], "galaz": "agent/43865344638-taksa-kwota-kropki", "zaliczone": true}

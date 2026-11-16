@@ -1,0 +1,1 @@
+{"id": "taksa-zl-bez-waluty", "karta": "docs/agent-tasks/kolejka/taksa-zl-bez-waluty.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 10, "sekundy": 186, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["taksa.py", "test_taksa.py"], "galaz": "agent/43865344638-taksa-zl-bez-waluty", "zaliczone": true}

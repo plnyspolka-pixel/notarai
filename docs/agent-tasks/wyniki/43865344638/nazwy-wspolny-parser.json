@@ -1,0 +1,1 @@
+{"id": "nazwy-wspolny-parser", "karta": "docs/agent-tasks/kolejka/nazwy-wspolny-parser.md", "exit_status": "Submitted", "agent_exit": 0, "kroki": 11, "sekundy": 153, "test_zaliczony": true, "poza_zakresem": [], "zmienione": ["nazwy.py"], "galaz": "agent/43865344638-nazwy-wspolny-parser", "zaliczone": true}
