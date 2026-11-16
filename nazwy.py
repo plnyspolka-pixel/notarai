@@ -32,6 +32,13 @@ def _ladnie(slowo: str) -> str:
     return "-".join(cz[:1].upper() + cz[1:].lower() for cz in slowo.split("-"))
 
 
+def _nazwiska_ze_stalego(wartosc) -> list[str]:
+    """Nazwiska z pola "STALE: nazwiska stron": po filtrze i _ladnie,
+    bez usuwania powtórzeń ani przycinania."""
+    return [_ladnie(s) for s in re.split(r"\s*[-–,;/]\s*|\s+i\s+", str(wartosc))
+            if SLOWO.match(s.strip()) and s.strip().lower() not in NIE_NAZWISKA]
+
+
 def _pole_z_osoba(nazwa: str) -> bool:
     """Czy pole zawiera samo imie i nazwisko strony (a nie np. jej PESEL, KW czy adres)."""
     if re.match(r"^[a-z]{2}[a-z0-9]:\s*\S+(\s+\S+)?\s*$", nazwa):   # kod legendy: "aaa: zbywca"
@@ -112,8 +119,7 @@ def nazwa_sprawy(pola: list[dict] | None, pliki: list[str] | None = None) -> str
     for pole in pola:
         nazwa = str(pole.get("nazwa", ""))
         if nazwa.startswith("STALE: nazwiska stron") and pole.get("wartosc"):
-            gotowe = [_ladnie(s) for s in re.split(r"\s*[-–,;/]\s*|\s+i\s+", str(pole["wartosc"]))
-                      if SLOWO.match(s.strip()) and s.strip().lower() not in NIE_NAZWISKA]
+            gotowe = _nazwiska_ze_stalego(pole["wartosc"])
             if gotowe:
                 return " – ".join(dict.fromkeys(gotowe[:MAX_NAZWISK]))
 
@@ -152,9 +158,7 @@ def nazwiska_stron(pola: list[dict] | None, pliki: list[str] | None = None) -> d
     for pole in pola:
         nazwa = str(pole.get("nazwa", ""))
         if nazwa.startswith("STALE: nazwiska stron") and pole.get("wartosc"):
-            gotowe = list(dict.fromkeys(
-                _ladnie(s) for s in re.split(r"\s*[-–,;/]\s*|\s+i\s+", str(pole["wartosc"]))
-                if SLOWO.match(s.strip()) and s.strip().lower() not in NIE_NAZWISKA))
+            gotowe = list(dict.fromkeys(_nazwiska_ze_stalego(pole["wartosc"])))
             if gotowe:
                 return {"zbywcy": gotowe[:1], "nabywcy": gotowe[1:MAX_NAZWISK + 1], "inni": []}
 
