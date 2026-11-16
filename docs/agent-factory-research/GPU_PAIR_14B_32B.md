@@ -37,6 +37,9 @@ CI: .github/workflows/worker-gpu-pair-preflight.yml runs offline on source chang
 
 Published prices on November 16, 2026 for Lowest tier: RTX 3090 $0.090 per running GPU-hour; RTX 5090 $0.250 per running GPU-hour. Live availability, interruptions, taxes, fees and actual billed uptime may vary. Source: https://salad.com/pricing/
 
+
+GitHub limitation: workflow_dispatch requires the workflow definition to exist on the repository default branch (currently master). This workflow is presently only on a DRAFT feature PR and will not expose a manual Run button until reviewed and placed on the default branch. Do not merge this PR merely to start paid resources; obtain approval for the small dispatcher separately or trigger the CLI script from a controlled disposable runner with the same opt-in and secrets.
+
 ## Evidence and limitations
 
 Outputs: acceptance by eight independent synthetic oracle cases per work packet, request latency, completion and prompt tokens, failure categories, model aliases, source digests, and explicitly unknown actual provider billing. Require at least a few dozen tasks before any recommendation. These are TEN correlated algorithm families, not 200 unrelated problems. Keep heldout contracts untested until development strategy is frozen.
