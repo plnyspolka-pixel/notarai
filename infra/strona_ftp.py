@@ -1,15 +1,20 @@
 """Strona notarai.pl na hostingu az.pl - lista, kopia i wysylka plikow przez FTPS.
 
 Haslo przychodzi wylacznie ze zmiennej NOTARAI_FTP_HASLO, ktora uzupelnia
-asm-exec z sekretu notarai/strona-ftp (patrz infra/strona.ps1). Skrypt nie
+infra/strona.ps1 (na komputerze) albo workflow .github/workflows/strona.yml
+(GitHub Actions) z sekretu notarai/strona-ftp w AWS Secrets Manager. Skrypt nie
 wypisuje hasla i nie zapisuje go nigdzie.
 
     strona_ftp.py lista [katalog]
     strona_ftp.py kopia <katalog_zdalny> <katalog_lokalny>
     strona_ftp.py wyslij <katalog_lokalny> <katalog_zdalny>
+    strona_ftp.py wyslij-zmiany <katalog_lokalny> <katalog_zdalny> [katalog_kopii]
 """
 
 import ftplib
+import hashlib
+import io
+import json
 import os
 import posixpath
 import sys
@@ -88,6 +93,85 @@ def wyslij(ftp, lokalny, zdalny):
             print(f"  wyslano {posixpath.join(cel, nazwa)}")
 
 
+MANIFEST = "notarai-manifest.json"
+
+
+def pliki_lokalne(lokalny):
+    """{sciezka_wzgledna: sha256} dla plikow strony (bez ukrytych)."""
+    wynik = {}
+    for korzen, katalogi, pliki in os.walk(lokalny):
+        katalogi[:] = sorted(k for k in katalogi if not k.startswith("."))
+        for nazwa in sorted(pliki):
+            if nazwa.startswith(".") or nazwa == MANIFEST:
+                continue
+            sciezka = os.path.join(korzen, nazwa)
+            wzgledna = os.path.relpath(sciezka, lokalny).replace(os.sep, "/")
+            with open(sciezka, "rb") as f:
+                wynik[wzgledna] = hashlib.sha256(f.read()).hexdigest()
+    return wynik
+
+
+def pobierz_manifest(ftp, zdalny):
+    czesci = []
+    try:
+        ftp.retrbinary(f"RETR {posixpath.join(zdalny, MANIFEST)}", czesci.append)
+    except ftplib.error_perm:
+        return {}
+    try:
+        dane = json.loads(b"".join(czesci).decode("utf-8"))
+    except ValueError:
+        return {}
+    return dane if isinstance(dane, dict) else {}
+
+
+def do_wyslania(lokalne, zdalne):
+    """Pliki nowe albo zmienione wzgledem manifestu z serwera."""
+    return sorted(p for p, h in lokalne.items() if zdalne.get(p) != h)
+
+
+def wyslij_zmiany(ftp, lokalny, zdalny, kopia_dir=None):
+    """Wysyla tylko pliki, ktorych skrot rozni sie od manifestu na serwerze.
+
+    Przed nadpisaniem pobiera dotychczasowa wersje pliku do kopia_dir
+    (jesli podano). Manifest wysylany jest na koncu, wiec przerwana
+    wysylka zostanie dokonczona przy nastepnym uruchomieniu.
+    Plikow usunietych lokalnie nie kasuje na serwerze.
+    """
+    lokalne = pliki_lokalne(lokalny)
+    zdalne = pobierz_manifest(ftp, zdalny)
+    zmienione = do_wyslania(lokalne, zdalne)
+    print(f"  plikow strony: {len(lokalne)}, do wyslania: {len(zmienione)}")
+    utworzone = set()
+    for wzgledna in zmienione:
+        cel = posixpath.join(zdalny, wzgledna)
+        katalog = posixpath.dirname(cel)
+        sciezka = ""
+        for czesc in [c for c in katalog.split("/") if c]:
+            sciezka += "/" + czesc
+            if sciezka in utworzone:
+                continue
+            try:
+                ftp.mkd(sciezka)
+            except ftplib.error_perm:
+                pass
+            utworzone.add(sciezka)
+        if kopia_dir:
+            lok = os.path.join(kopia_dir, *wzgledna.split("/"))
+            os.makedirs(os.path.dirname(lok), exist_ok=True)
+            try:
+                with open(lok, "wb") as f:
+                    ftp.retrbinary(f"RETR {cel}", f.write)
+            except ftplib.error_perm:
+                os.remove(lok)  # pliku jeszcze nie bylo na serwerze
+        with open(os.path.join(lokalny, *wzgledna.split("/")), "rb") as f:
+            ftp.storbinary(f"STOR {cel}", f)
+        print(f"  wyslano {cel}")
+    if zmienione or lokalne != zdalne:
+        ftp.storbinary(f"STOR {posixpath.join(zdalny, MANIFEST)}",
+                       io.BytesIO(json.dumps(lokalne, indent=0, sort_keys=True).encode("utf-8")))
+    return zmienione
+
+
 def znajdz_katalog_strony(ftp):
     """Znajdz katalog publikacji notarai.pl bez zakladania, ze to root FTPS.
 
@@ -141,6 +225,9 @@ def main(argv):
         elif argv[0] == "wyslij" and len(argv) == 3:
             cel = znajdz_katalog_strony(ftp) if argv[2] == "auto" else argv[2]
             wyslij(ftp, argv[1], cel)
+        elif argv[0] == "wyslij-zmiany" and len(argv) in (3, 4):
+            cel = znajdz_katalog_strony(ftp) if argv[2] == "auto" else argv[2]
+            wyslij_zmiany(ftp, argv[1], cel, argv[3] if len(argv) == 4 else None)
         else:
             sys.exit(__doc__)
     finally:
