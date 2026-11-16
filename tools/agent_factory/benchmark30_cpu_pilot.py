@@ -1,0 +1,129 @@
+"""Actual, bounded CPU-model pilot for T01-T03. Not the 30-task benchmark.
+
+A local GGUF LLM writes candidate code. The candidate is parsed (never executed)
+on this runner, then graded by the independent benchmark30_docker scorer in a
+network-disabled container on an ephemeral public-repository GitHub Actions VM.
+No external model API, API key, cloud secret or customer data is used.
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+import time
+
+from tools.agent_factory.benchmark30 import MANIFEST, SOURCE_STUB, prepare, read_json, validate
+from tools.agent_factory.benchmark30_docker import grade
+
+
+def extract_python(response: str) -> str:
+    """Conservatively accept Python source, optionally wrapped in one code fence."""
+    match = re.fullmatch(r"\s*\x60\x60\x60(?:python|py)?\s*\n(.*?)\n\x60\x60\x60\s*", response, re.S | re.I)
+    code = (match.group(1) if match else response).strip() + "\n"
+    if not code.strip() or len(code.encode("utf-8")) > 32768:
+        raise ValueError("empty or oversized candidate")
+    ast.parse(code, filename="candidate.py")  # Parsing only; NEVER import/exec here.
+    return code
+
+
+def run_pilot(model_path: Path, output: Path, image: str) -> dict:
+    if not model_path.is_file() or model_path.stat().st_size < 100_000_000:
+        raise ValueError("GGUF file unavailable or implausibly small")
+    if output.exists():
+        raise ValueError("refusing to overwrite pilot outputs")
+    validate()
+    if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+        raise ValueError("only allowed on disposable GitHub-hosted runners")
+    if os.environ.get("AGENT_BENCH30_ISOLATED_VM_APPROVED") != "SYNTHETIC_DISPOSABLE_VM_ONLY":
+        raise ValueError("explicit disposable VM opt-in missing")
+    from llama_cpp import Llama  # imported after checking execution environment
+
+    llm = Llama(model_path=str(model_path), n_ctx=4096, n_threads=4,
+                n_gpu_layers=0, verbose=False, seed=20261116)
+    output.mkdir(parents=True)
+    # Workspaces must never be placed in the repository tree.
+    with tempfile.TemporaryDirectory(prefix="bench30-real-model-", dir=os.environ["RUNNER_TEMP"]) as tmp:
+        work = Path(tmp) / "work"
+        prepare(work)
+        solution = work / "catalog" / "solution.py"
+        tasks = [t for t in read_json(MANIFEST)["tasks"] if t["id"] in ("T01", "T02", "T03")]
+        assert [t["id"] for t in tasks] == ["T01", "T02", "T03"]
+        rows = []
+        started = time.monotonic()
+        for task in tasks:
+            stage = task["step"]
+            prior_specs = "\n".join(f"{t['id']}: {t['request']}" for t in tasks[:stage])
+            existing = solution.read_text(encoding="utf-8")
+            prompt = (
+                "Implement Python code in solution.py. Provide ONLY the full standalone source file, "
+                "no markdown, no explanations. Implement def normalize_catalog(rows). "
+                "Use standard-library Python only. Preserve previous requirements. "
+                "Never use filesystem, network, subprocess or imports beyond standard library.\n\n"
+                "Cumulative task specifications:\n" + prior_specs +
+                "\n\nCurrent solution.py:\n" + existing +
+                "\nReturn the complete revised Python source file."
+            )
+            t0 = time.monotonic()
+            usage = {}
+            syntax_ok = False
+            try:
+                response = llm.create_chat_completion(
+                    messages=[{"role": "system", "content": "You write correct, minimal, secure Python code. Reply with code only."},
+                              {"role": "user", "content": prompt}],
+                    max_tokens=650, temperature=0.0, top_p=1.0
+                )
+                usage = response.get("usage", {})
+                raw = response["choices"][0]["message"]["content"]
+                code = extract_python(raw)
+                syntax_ok = True
+                solution.write_text(code, encoding="utf-8")
+                outcome = grade(workspace=work, chain="catalog", upto=stage, image=image)
+            except Exception as exc:
+                outcome = {"status": "failed", "reason": type(exc).__name__,
+                           "passed": False, "verification": "not-completed"}
+            rows.append({
+                "task_id": task["id"], "chain": "catalog", "step": stage,
+                "real_model_inference": True, "syntax_ok": syntax_ok,
+                "passed": bool(outcome.get("passed", False)),
+                "verifier": outcome, "wall_time_s": round(time.monotonic() - t0, 3),
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "candidate_sha256": hashlib.sha256(solution.read_bytes()).hexdigest()
+            })
+        result = {
+            "type": "actual-cpu-llm-pilot; not full 30-task benchmark",
+            "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu",
+            "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+            "verifier_image": image, "workflow_sha": os.environ.get("GITHUB_SHA"),
+            "source_of_tasks": "T01-T03 (one cumulative chain)",
+            "tasks_attempted": len(rows), "tasks_passed": sum(int(row["passed"]) for row in rows),
+            "model_calls": len(rows), "elapsed_s": round(time.monotonic() - started, 3),
+            "gpu_rental_pln": 0, "paid_model_api_pln": 0,
+            "github_standard_public_runner_minutes": "free subject to GitHub policy",
+            "verifier_attestation": "local docker report only; NOT independently signed",
+            "no_production_permissions": True,
+            "rows": rows
+        }
+        (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({key: result[key] for key in ["type","tasks_attempted","tasks_passed","model_calls","elapsed_s"]}))
+        return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-path", type=Path, required=True)
+    parser.add_argument("--image", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    a = parser.parse_args()
+    run_pilot(a.model_path, a.output, a.image)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
