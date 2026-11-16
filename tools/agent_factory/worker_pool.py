@@ -37,6 +37,19 @@ MODEL = re.compile(r"[A-Za-z0-9._/:-]{1,140}\Z")
 IDENT = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 ALLOWED_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".json", ".md", ".yml", ".yaml"}
 MAX_JOBS = 6
+ROLE_GUIDANCE = {
+    "implementer": "Provide actual source code, not a Boolean or a description.",
+    "test-designer": "Provide concrete tests with expected outcomes. Do not pretend tests ran.",
+    "reviewer": "Provide a meaningful review containing edge cases, specific risks and next checks; never answer with a bare Boolean.",
+    "bug-triage": "Describe a suspected cause, missing evidence and next diagnostic step.",
+    "documentation": "Write usable documentation and an example.",
+    "research-assistant": "List hypotheses and needed evidence; never invent citations.",
+}
+MINIMUM_RESULT = {
+    "implementer": 20, "test-designer": 70, "reviewer": 70,
+    "bug-triage": 60, "documentation": 70, "research-assistant": 60,
+}
+
 OPT_IN = "AGENT_FORGE_ALLOW_LOCAL_WORKERS"
 OPT_VALUE = "I_APPROVE_SYNTHETIC_LOOPBACK_WORKERS"
 
@@ -120,6 +133,24 @@ def endpoint_config() -> tuple[int, str, str]:
     return port, model, raw
 
 
+def proposal_quality(role: str, content: str) -> tuple[bool, str]:
+    """Cheap structural gate; never confuses format with functional success."""
+    if role not in ROLES or not isinstance(content, str):
+        return False, "invalid-output"
+    value = content.strip()
+    if len(value) < MINIMUM_RESULT[role]:
+        return False, "too-short-for-role"
+    if value.lower() in {"true", "false", "yes", "no", "done", "ok", "none"}:
+        return False, "placeholder-output"
+    if role == "implementer":
+        if not re.search(r"\b(def|class|function|const|export)\b", value):
+            return False, "not-source-code"
+    if role == "test-designer":
+        if not re.search(r"(?i)\b(test|assert|input|expected|case)\b", value):
+            return False, "missing-test-details"
+    return True, "basic-format-ok"
+
+
 def _generate(job: dict, port: int, model: str, timeout: int) -> dict:
     instruction = (
         "You are one low-cost specialist working for a senior AI engineer. "
@@ -131,6 +162,7 @@ def _generate(job: dict, port: int, model: str, timeout: int) -> dict:
         "This response is untrusted and must be reviewed by the senior."
     )
     prompt = (
+        "Required role output: " + ROLE_GUIDANCE[job["role"]] + "\n\n" +
         "Task:\n" + job["instruction"] + "\n\n"
         "Allowed paths (informational only, you cannot write to them):\n" +
         json.dumps(job["paths"]) + "\n\n"
@@ -162,6 +194,15 @@ def _generate(job: dict, port: int, model: str, timeout: int) -> dict:
         if not isinstance(answer, str) or len(answer) > 16_000:
             raise WorkerPolicyError("malformed model response")
         usage = payload.get("usage") or {}
+        accepted, why = proposal_quality(job["role"], answer)
+        if not accepted:
+            return {
+                "id": job["id"], "role": job["role"],
+                "status": "rejected_low_quality", "reason": why,
+                "elapsed_ms": round((time.monotonic() - start) * 1000),
+                "model": model,
+                "next_action": "lead should re-specify or take over; not a usable proposal"
+            }
         return {
             "id": job["id"], "role": job["role"], "status": "proposed_unverified",
             "content": answer, "sha256": hashlib.sha256(answer.encode()).hexdigest(),
