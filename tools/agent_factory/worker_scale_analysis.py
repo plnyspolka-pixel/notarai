@@ -25,16 +25,22 @@ def combine(root: Path) -> dict:
         raise ValueError("missing real-model trial status")
     split=first.get("split")
     per_family=first.get("per_family")
-    if split not in ("development","heldout") or type(per_family)is not int or not 1<=per_family<=10:
+    start_variant=first.get("start_variant",0)
+    if split not in ("development","heldout") or type(per_family)is not int or not 1<=per_family<=10 or
+            type(start_variant)is not int or not 0<=start_variant<=9 or
+            start_variant+per_family>10:
         raise ValueError("invalid corpus slice")
-    expected={t["id"]:t for t in tasks(split) if t["variant"]%10<per_family}
+    expected={t["id"]:t for t in tasks(split)
+              if start_variant<=t["variant"]%10<start_variant+per_family}
     all_rows=[]
     seen_shards=set()
     for report in loaded:
         if (report.get("shard") in seen_shards or type(report.get("shard"))is not int or
                 report["shard"] not in range(5) or report.get("model")!=first.get("model") or
                 report.get("suite")!=VERSION or report.get("split")!=split or
-                report.get("per_family")!=per_family or report.get("weight_training") is not False or
+                report.get("per_family")!=per_family or
+                report.get("start_variant",0)!=start_variant or
+                report.get("weight_training") is not False or
                 report.get("benchmark_evaluation_not_training") is not True or
                 report.get("premium_claude_codex_calls")!=0 or
                 report.get("gpu_calls")!=0):
@@ -109,6 +115,7 @@ def combine(root: Path) -> dict:
     report={
         "status":"OBSERVATIONAL_PAIRED_CPU_CORPUS_NOT_MODEL_TRAINING",
         "model":first["model"],"suite":VERSION,"split":split,
+        "start_variant":start_variant,"per_family":per_family,
         "parameterized_contracts":len(expected),
         "independent_algorithm_families":len(fam),
         "actual_model_calls":len(all_rows),"oracle_checks":sum(row["tests"] for row in all_rows),
