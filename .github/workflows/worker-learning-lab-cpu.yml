@@ -1,0 +1,109 @@
+name: Worker Army - CPU learning A/B (6 families)
+
+on:
+  push:
+    branches:
+      - feature/agent-factory-learning-loop-20261116
+    paths:
+      - ".github/workflows/worker-learning-lab-cpu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-cpu-learning-research
+  cancel-in-progress: false
+
+jobs:
+  delegated-coding-methods:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      AGENT_FORGE_ALLOW_LOCAL_WORKERS: I_APPROVE_SYNTHETIC_LOOPBACK_WORKERS
+      AGENT_FORGE_WORKER_ENDPOINT: http://127.0.0.1:8000/v1
+      AGENT_FORGE_WORKER_MODEL: qwen2.5-coder-7b
+      AGENT_BENCH30_ISOLATED_VM_APPROVED: SYNTHETIC_DISPOSABLE_VM_ONLY
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install synthetic test dependencies and local CPU inference
+        timeout-minutes: 15
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/learning-lab-dependencies.txt
+          python -m pip install -r /tmp/learning-lab-dependencies.txt
+          python -m pip install "huggingface_hub>=0.34,<1.0"
+          CMAKE_ARGS="-DGGML_NATIVE=OFF" python -m pip install "llama-cpp-python[server]==0.3.16" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Verify learning lab integrity offline
+        run: |
+          python -m pytest -q tests/test_worker_learning_lab.py tests/test_worker_pool_mcp.py
+      - name: Download pinned open model and isolated verifier
+        timeout-minutes: 12
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi, hf_hub_download
+          repo = "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+          revision = HfApi().model_info(repo).sha
+          assert len(revision) == 40
+          path = hf_hub_download(
+              repo_id=repo,
+              filename="qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+              revision=revision,
+              local_dir="/tmp/worker-learning-model"
+          )
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("MODEL_PATH=" + path + "\n")
+          print("Pinned model revision:", revision)
+          PY
+          docker pull python:3.12-slim
+          DIGEST="$(docker image inspect python:3.12-slim --format '{{index .RepoDigests 0}}')"
+          echo "$DIGEST" | grep -Eq '^[a-z0-9._/-]+@sha256:[a-f0-9]{64}$'
+          echo "GRADER_IMAGE=$DIGEST" >> "$GITHUB_ENV"
+      - name: Compare two orchestration styles on one model and six synthetic families
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          python -m llama_cpp.server --model "$MODEL_PATH" \
+            --model_alias qwen2.5-coder-7b \
+            --host 127.0.0.1 --port 8000 --chat_format chatml \
+            --n_threads 4 --n_ctx 4096 \
+            > "$RUNNER_TEMP/worker-learning-server.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:8000/v1/models >/dev/null; then READY=1; break; fi
+            if ! kill -0 "$PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "Model server did not become ready"; tail -40 "$RUNNER_TEMP/worker-learning-server.log"; exit 1
+          fi
+          python -m tools.agent_factory.worker_learning_lab \
+            --image "$GRADER_IMAGE" \
+            --output /tmp/worker-learning-results
+      - name: Save failure provenance without fabricated scores
+        if: failure()
+        run: |
+          mkdir -p /tmp/worker-learning-results
+          if [ ! -f /tmp/worker-learning-results/learning-report.json ]; then
+            printf '{"status":"INCOMPLETE","actual_model_results":null,"training_performed":false}\n' \
+              > /tmp/worker-learning-results/learning-report.json
+          fi
+      - name: Export lesson plan and graded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-learning-cpu
+          path: /tmp/worker-learning-results/
+          retention-days: 30
+          if-no-files-found: warn

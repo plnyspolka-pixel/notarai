@@ -1,0 +1,143 @@
+name: Worker Army - real CPU delegated workers smoke
+
+on:
+  push:
+    branches:
+      - feature/agent-factory-learning-loop-20261116
+    paths:
+      - ".github/workflows/worker-army-real-cpu.yml"
+      - "tools/agent_factory/worker_pool.py"
+      - "tools/agent_factory/worker_mcp.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-low-cost-delegation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      AGENT_FORGE_ALLOW_LOCAL_WORKERS: I_APPROVE_SYNTHETIC_LOOPBACK_WORKERS
+      AGENT_FORGE_WORKER_ENDPOINT: http://127.0.0.1:8000/v1
+      AGENT_FORGE_WORKER_MODEL: qwen2.5-coder-1.5b
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU inference server
+        timeout-minutes: 12
+        run: |
+          python -m pip install "huggingface_hub>=0.34,<1.0"
+          CMAKE_ARGS="-DGGML_NATIVE=OFF" python -m pip install "llama-cpp-python[server]==0.3.16" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Download pinned public synthetic-experiment model
+        timeout-minutes: 6
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi, hf_hub_download
+          repo = "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
+          revision = HfApi().model_info(repo).sha
+          assert len(revision) == 40
+          model = hf_hub_download(
+              repo_id=repo,
+              filename="qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+              revision=revision, local_dir="/tmp/worker-model")
+          with open(os.environ["GITHUB_ENV"], "a") as out:
+              out.write("MODEL_PATH=" + model + "\n")
+          print("Pin:", revision)
+          PY
+      - name: Start local inference and delegate three synthetic specialist jobs
+        timeout-minutes: 9
+        run: |
+          set -euo pipefail
+          python -m llama_cpp.server --model "$MODEL_PATH" \
+            --model_alias qwen2.5-coder-1.5b \
+            --host 127.0.0.1 --port 8000 \
+            --chat_format chatml --n_threads 4 --n_ctx 4096 \
+            > "$RUNNER_TEMP/worker-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 100); do
+            if curl -fsS --max-time 1 http://127.0.0.1:8000/v1/models > /dev/null; then READY=1; break; fi
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then echo "Local worker model did not become ready"; tail -60 "$RUNNER_TEMP/worker-server.log"; exit 1; fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          jobs = [
+              {"id": "task_write", "role": "implementer",
+               "instruction": "Write a Python def is_even(n) returning a bool for integer n. Output only source.",
+               "context": "A new tiny synthetic module has no existing implementation.",
+               "paths": ["synthetic/even.py"], "data_class": "synthetic"},
+              {"id": "task_tests", "role": "test-designer",
+               "instruction": "Propose a few tests for a Python is_even(n) -> bool function.",
+               "context": "Synthetic inputs only: integer parity, negatives and zero.",
+               "paths": ["synthetic/test_even.py"], "data_class": "synthetic"},
+              {"id": "task_review", "role": "reviewer",
+               "instruction": "Review def is_even(n): return n % 2 == 0 and note edge cases.",
+               "context": "Synthetic Python example, integer argument contract.",
+               "paths": ["synthetic/even.py"], "data_class": "synthetic"}
+          ]
+          messages = [
+              {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+              {"jsonrpc": "2.0", "method": "notifications/initialized"},
+              {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+               "params": {"name": "worker_pool_status", "arguments": {}}},
+              {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+               "params": {"name": "delegate_workers", "arguments": {"jobs": jobs}}}
+          ]
+          client = subprocess.run(
+              [sys.executable, "-m", "tools.agent_factory.worker_mcp"],
+              input="".join(json.dumps(m) + "\n" for m in messages),
+              text=True, capture_output=True, timeout=180, check=True)
+          responses = [json.loads(row) for row in client.stdout.splitlines()]
+          assert [row["id"] for row in responses] == [1, 2, 3]
+          pool = json.loads(responses[1]["result"]["content"][0]["text"])
+          results = json.loads(responses[2]["result"]["content"][0]["text"])
+          assert pool["enabled"] is True
+          assert results["workers_attempted"] == 3
+          assert results["proposals"] >= 1, results
+          assert all(
+              x["status"] in {"proposed_unverified", "rejected_low_quality"}
+              for x in results["results"]
+          )
+          assert all(
+              x.get("content") for x in results["results"]
+              if x["status"] == "proposed_unverified"
+          )
+          out = Path("/tmp/worker-army-evidence")
+          out.mkdir()
+          (out / "proposals.json").write_text(
+              json.dumps(results, ensure_ascii=False, indent=2) + "\n")
+          (out / "summary.json").write_text(json.dumps({
+              "status": "REAL_CPU_RESPONSES_WITH_ROLE_QUALITY_GATE_NOT_VERIFIED_CODE",
+              "model": pool["model"],
+              "workers": 3, "proposals": results["proposals"],
+              "rejected": 3 - results["proposals"],
+              "gpu_calls": 0, "premium_model_calls": 0,
+              "notes": "One CPU inference server, three parallel specialist requests; no lead Claude/Codex run."
+          }, indent=2) + "\n")
+          print("Real CPU requests:", results["workers_attempted"],
+                "usable proposals:", results["proposals"],
+                "rejected:", 3 - results["proposals"])
+          PY
+      - name: Upload offline experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-army-real-cpu
+          path: /tmp/worker-army-evidence/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "kind": "observed_cpu_method_ab",
+  "github_run_id": 43928286658,
+  "source_commit": "b76dd59bdd4123832469f22e9a1e8bc923fa7ce4",
+  "source_link": "https://github.com/plnyspolka-pixel/notarai/actions/runs/43928286658",
+  "model": "qwen2.5-coder-7b",
+  "data_class": "synthetic",
+  "evidence": "local_docker_verifier_not_signed",
+  "training_eligible": false,
+  "arms": {
+    "plain_delegation": {
+      "accepted": 1,
+      "tasks": 6,
+      "checks_passed": 5,
+      "checks_total": 13,
+      "wall_s": 126.37
+    },
+    "contract_scaffold": {
+      "accepted": 4,
+      "tasks": 6,
+      "checks_passed": 11,
+      "checks_total": 13,
+      "wall_s": 198.21
+    }
+  },
+  "weak_families": [
+    {
+      "task_id": "T01",
+      "family": "catalog",
+      "plain_passed": false,
+      "scaffold_passed": false,
+      "weakness": "partial_requirements_or_edge_cases"
+    },
+    {
+      "task_id": "T26",
+      "family": "scrub",
+      "plain_passed": false,
+      "scaffold_passed": false,
+      "weakness": "partial_requirements_or_edge_cases"
+    }
+  ],
+  "limitations": "Single paired synthetic experiment; never train on its held-out grader cases; no human-approved signed corpus."
+}

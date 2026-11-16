@@ -64,3 +64,8 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Architektura i zasady: docs/agent-factory.md.
 - **Polecenie dla Claude Code:** docs/claude-code-handoff-agent-factory.md. Przy pracach agentowych przeczytaj je w całości, realizuj kolejne etapy i testuj rezultaty.
 - Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję.
+
+
+## Agent Factory: optional low-cost worker army
+
+For bounded **synthetic or individually approved public** coding/research tasks, Claude may use the project MCP server `agent-forge-workers` (skill: `.claude/skills/worker-army/SKILL.md`). Claude remains architect, integrator and final reviewer. Delegate only validated packets to local CPU/GPU inference; worker responses are untrusted proposals, never proof of passing tests. Do NOT transfer client data, secrets, private sources or risky auth/payment/AML/production files to workers. If no local model is explicitly enabled, continue ordinary Claude Code work; never claim a GPU was started. Independent verification plus human approval are required before synthetic examples enter the training pipeline.

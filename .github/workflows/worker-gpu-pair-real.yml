@@ -1,0 +1,129 @@
+name: Worker Army - Qwen 14B vs 32B approved GPU endpoints
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Exact opt-in to paid GPU inference"
+        type: string
+        required: true
+      per_family:
+        description: "Contracts per family (1 = 40 calls; 4 = 160)"
+        type: choice
+        options: ["1", "2", "4"]
+        default: "1"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qwen-gpu-size-pair-benchmark
+  cancel-in-progress: false
+
+jobs:
+  pair-comparison:
+    if: inputs.confirm == 'I_APPROVE_TWO_SYNTHETIC_GPU_MODEL_TRIALS'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        shard: [0,1,2,3,4]
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+      AGENT_BENCH30_ISOLATED_VM_APPROVED: SYNTHETIC_DISPOSABLE_VM_ONLY
+      AGENT_GPU_PAIR_APPROVAL: I_APPROVE_TWO_SYNTHETIC_GPU_MODEL_TRIALS
+      AGENT_GPU_14B_ENDPOINT: ${{ secrets.AGENT_GPU_14B_ENDPOINT }}
+      AGENT_GPU_14B_TOKEN: ${{ secrets.AGENT_GPU_14B_TOKEN }}
+      AGENT_GPU_32B_ENDPOINT: ${{ secrets.AGENT_GPU_32B_ENDPOINT }}
+      AGENT_GPU_32B_TOKEN: ${{ secrets.AGENT_GPU_32B_TOKEN }}
+      AGENT_GPU_ALLOWED_HOSTS: ${{ vars.AGENT_GPU_ALLOWED_HOSTS }}
+      AGENT_GPU_14B_MODEL: ${{ vars.AGENT_GPU_14B_MODEL }}
+      AGENT_GPU_32B_MODEL: ${{ vars.AGENT_GPU_32B_MODEL }}
+      AGENT_GPU_14B_AUTH_HEADER: ${{ vars.AGENT_GPU_14B_AUTH_HEADER }}
+      AGENT_GPU_32B_AUTH_HEADER: ${{ vars.AGENT_GPU_32B_AUTH_HEADER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check both GPU inference endpoints before requesting model calls
+        run: |
+          python - <<'PY'
+          from tools.agent_factory.gpu_pair_benchmark import parse_endpoint
+          a=parse_endpoint("14B")
+          b=parse_endpoint("32B")
+          assert a.host != b.host
+          print("Two HTTPS inference endpoints allowlisted. Credentials never printed.")
+          PY
+      - name: Install verifier dependencies (no generated code on host)
+        timeout-minutes: 8
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/gpu-pair-req.txt
+          python -m pip install -r /tmp/gpu-pair-req.txt
+      - name: Pin independent no-network Docker verifier
+        timeout-minutes: 4
+        run: |
+          docker pull python:3.12-slim
+          DIGEST="$(docker image inspect python:3.12-slim --format '{{index .RepoDigests 0}}')"
+          echo "$DIGEST" | grep -Eq '^[a-z0-9._/-]+@sha256:[a-f0-9]{64}$'
+          echo "GRADER_IMAGE=$DIGEST" >> "$GITHUB_ENV"
+      - name: Compare model size and work-packet method on identical synthetic cases
+        timeout-minutes: 24
+        run: |
+          python -m tools.agent_factory.gpu_pair_benchmark \
+            --image "$GRADER_IMAGE" \
+            --output /tmp/gpu-pair-results \
+            --shard ${{ matrix.shard }} \
+            --per-family ${{ inputs.per_family }} \
+            --split development
+      - name: Never invent scores for incomplete runs
+        if: failure()
+        run: |
+          mkdir -p /tmp/gpu-pair-results
+          if [ ! -f /tmp/gpu-pair-results/results.json ]; then
+            printf '{"status":"INCOMPLETE","real_model_results":null,"actual_gpu_cost_usd":null}\n' > /tmp/gpu-pair-results/results.json
+          fi
+      - name: Publish paired results and explicit unknown billing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-pair-shard-${{ matrix.shard }}
+          path: /tmp/gpu-pair-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate-study:
+    needs: pair-comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gpu-pair-shard-*
+          path: /tmp/gpu-pair-shards
+          merge-multiple: false
+      - name: Strictly validate and aggregate five paired shards
+        run: |
+          python -m tools.agent_factory.gpu_pair_analysis \
+            --root /tmp/gpu-pair-shards \
+            --output /tmp/gpu-pair-final/results.json
+      - name: Preserve cross-model, cross-method evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-pair-final-14b-vs-32b
+          path: /tmp/gpu-pair-final/results.json
+          retention-days: 30

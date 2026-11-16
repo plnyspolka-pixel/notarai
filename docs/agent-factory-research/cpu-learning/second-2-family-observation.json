@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "observed_cpu_targeted_followup",
+  "github_run_id": 43930520281,
+  "source_commit": "ba83b7c8f39efd4e060f73eece99a609717f68a8",
+  "source_link": "https://github.com/plnyspolka-pixel/notarai/actions/runs/43930520281",
+  "parent_observation_run": 43928286658,
+  "model": "qwen2.5-coder-7b",
+  "data_class": "synthetic",
+  "evidence": "local_docker_verifier_not_signed",
+  "training_eligible": false,
+  "arms": {
+    "contract_scaffold": {
+      "accepted": 0,
+      "tasks": 2,
+      "checks_passed": 2,
+      "checks_total": 4,
+      "wall_s": 63.63
+    },
+    "targeted_lesson": {
+      "accepted": 1,
+      "tasks": 2,
+      "checks_passed": 3,
+      "checks_total": 4,
+      "wall_s": 66.47
+    }
+  },
+  "family_results": [
+    {
+      "task_id": "T01",
+      "family": "catalog",
+      "contract_scaffold_passed": false,
+      "targeted_lesson_passed": false,
+      "next_route": "lead_escalation_or_new_unseen_tasks"
+    },
+    {
+      "task_id": "T26",
+      "family": "scrub",
+      "contract_scaffold_passed": false,
+      "targeted_lesson_passed": true,
+      "next_route": "fresh_unseen_validation_not_training"
+    }
+  ],
+  "limitations": "Single paired tiny synthetic follow-up; not signed; candidate source from fixed benchmark is evaluation-only and must not enter training."
+}
