@@ -40,12 +40,25 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tasks: int = 3) -> dict:
+
+PUBLIC_INPUT_CONTRACTS = {
+    "catalog": "INPUT: rows is a list of dictionaries with keys 'id' and 'name'. OUTPUT: list of dictionaries. Handle invalid entries without mutating input.",
+    "permissions": "INPUT: request is one Python dictionary: request['role'], request['action']; optional request['tenant'], request['actor_tenant'], request['approved'], request['now'], request['expires_at'], request['revoked']. Never split request as a string. OUTPUT: a Python bool.",
+    "slots": "INPUT: request is one Python dictionary with integer start, end, duration, step; optional blocked list of [start,end] integer pairs. OUTPUT: list of integer start times. A valid slot must FIT before end.",
+    "deps": "INPUT: request is one Python dictionary with request['imports'] mapping module names to dependency-name lists, and request['changed'] a list of module names. OUTPUT: sorted list of existing affected module names.",
+    "ledger": "INPUT: events is list of dictionaries {id,key,op,value,rev}. Put writes event['value'] to key, delete removes it, rev is integer; skip malformed entries. OUTPUT: dictionary key to value.",
+    "scrub": "INPUT: text is one Python string. OUTPUT: Python string with selected credential patterns replaced by exact redaction markers, preserving ordinary text."
+}
+
+
+def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tasks: int = 3, repair_attempts: int = 0) -> dict:
     if not model_path.is_file() or model_path.stat().st_size < 100_000_000:
         raise ValueError("GGUF file unavailable or implausibly small")
     if output.exists():
         raise ValueError("refusing to overwrite pilot outputs")
     validate()
+    if repair_attempts not in (0, 1, 2):
+        raise ValueError("retry budget must be 0, 1 or 2")
     if max_tasks not in (3, 30):
         raise ValueError("only three-task smoke test or full thirty-task baseline are allowed")
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -85,31 +98,86 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tas
             t0 = time.monotonic()
             usage = {}
             syntax_ok = False
-            try:
-                response = llm.create_chat_completion(
-                    messages=[{"role": "system", "content": "You write correct, minimal, secure Python code. Reply with code only."},
-                              {"role": "user", "content": prompt}],
-                    max_tokens=650, temperature=0.0, top_p=1.0
+            attempts = []
+            best_code = existing
+            best_result = {"status": "failed", "passed": False, "passed_ids": [], "failed_ids": []}
+            best_score = -1
+            feedback = ""
+            if repair_attempts:
+                prompt = (
+                    "Write an IMPLEMENTATION, not a plan, of the exact Python function "
+                    + task["entrypoint"] + ". The initial stub raising NotImplementedError "
+                    "is NEVER an acceptable solution. Do not return unchanged code when "
+                    "a new requirement is added. Provide the COMPLETE executable module "
+                    "and NO explanations. Use Python standard library only.\\n\\n"
+                    "Public input/output contract (NOT a test case): "
+                    + PUBLIC_INPUT_CONTRACTS[chain] + "\\n\\n"
+                    "All requirements to preserve for this chain, in stage order:\\n"
+                    + prior_specs + "\\n\\nExisting code:\\n" + existing
                 )
-                usage = response.get("usage", {})
-                raw = response["choices"][0]["message"]["content"]
-                code = extract_python(raw)
-                syntax_ok = True
-                solution.write_text(code, encoding="utf-8")
-                (output / (task["id"] + ".py")).write_text(code, encoding="utf-8")
-                outcome = grade(workspace=work, chain=chain, upto=stage, image=image)
-            except Exception as exc:
-                outcome = {"status": "failed", "reason": type(exc).__name__,
-                           "passed": False, "verification": "not-completed"}
+            for attempt in range(repair_attempts + 1):
+                request = prompt
+                if attempt:
+                    request += (
+                        "\\n\\nYour previous attempt DID NOT PASS independent checks. "
+                        "Repair its actual implementation. Preserve previously working "
+                        "behavior. Do not remove or loosen requirements. "
+                        "Tests are intentionally not disclosed. "
+                        + feedback + "\\nCurrent candidate source:\\n"
+                        + solution.read_text(encoding="utf-8")
+                    )
+                attempt_start = time.monotonic()
+                try:
+                    response = llm.create_chat_completion(
+                        messages=[{"role": "system", "content": "You implement correct Python. Return only source code; never merely echo a stub."},
+                                  {"role": "user", "content": request}],
+                        max_tokens=900 if repair_attempts else 650,
+                        temperature=0.15 if attempt else 0.0, top_p=1.0
+                    )
+                    usage = response.get("usage", {})
+                    code = extract_python(response["choices"][0]["message"]["content"])
+                    syntax_ok = True
+                    solution.write_text(code, encoding="utf-8")
+                    result = grade(workspace=work, chain=chain, upto=stage, image=image)
+                except Exception as exc:
+                    result = {"status": "failed", "passed": False,
+                              "passed_ids": [], "failed_ids": [],
+                              "reason": type(exc).__name__, "verification": "not-completed"}
+                score = len(result.get("passed_ids", []))
+                attempts.append({
+                    "attempt": attempt + 1, "passed": bool(result.get("passed")),
+                    "passed_count": score, "failed_case_ids": result.get("failed_ids", []),
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "wall_time_s": round(time.monotonic() - attempt_start, 3)
+                })
+                if score > best_score or (result.get("passed") and not best_result.get("passed")):
+                    best_score, best_code, best_result = score, solution.read_text(encoding="utf-8"), result
+                if result.get("passed"):
+                    break
+                feedback = (
+                    f"Stage {stage}: {score} verified cases passed; "
+                    f"{len(result.get('failed_ids', []))} failed. "
+                    f"Failed case IDs: {result.get('failed_ids', [])}. "
+                    f"Failure category: {result.get('reason', 'incorrect behavior')}. "
+                    "Review data types, edge conditions and all previous requirements."
+                )
+            solution.write_text(best_code, encoding="utf-8")
+            (output / (task["id"] + ".py")).write_text(best_code, encoding="utf-8")
+            outcome = best_result
             rows.append({
                 "task_id": task["id"], "chain": chain, "step": stage,
                 "real_model_inference": True, "syntax_ok": syntax_ok,
                 "passed": bool(outcome.get("passed", False)),
                 "verifier": outcome, "wall_time_s": round(time.monotonic() - t0, 3),
-                "prompt_tokens": usage.get("prompt_tokens"),
-                "completion_tokens": usage.get("completion_tokens"),
+                "prompt_tokens": sum(x.get("prompt_tokens") or 0 for x in attempts),
+                "completion_tokens": sum(x.get("completion_tokens") or 0 for x in attempts),
+                "attempts": attempts,
+                "first_attempt_passed": bool(attempts and attempts[0]["passed"]),
                 "candidate_sha256": hashlib.sha256(solution.read_bytes()).hexdigest()
             })
+            print(json.dumps({"task": task["id"], "passed": rows[-1]["passed"],
+                              "attempts": len(attempts), "checks_passed": best_score}), flush=True)
         result = {
             "type": "actual-cpu-llm-30-task-baseline" if max_tasks == 30 else "actual-cpu-llm-pilot; not full 30-task benchmark",
             "model": model_id,
@@ -117,7 +185,10 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tas
             "verifier_image": image, "workflow_sha": os.environ.get("GITHUB_SHA"),
             "source_of_tasks": "30 tasks / 6 five-stage chains" if max_tasks == 30 else "T01-T03 (one cumulative chain)",
             "tasks_attempted": len(rows), "tasks_passed": sum(int(row["passed"]) for row in rows),
-            "model_calls": len(rows), "elapsed_s": round(time.monotonic() - started, 3),
+            "model_calls": sum(len(row["attempts"]) for row in rows),
+            "repair_attempts": repair_attempts,
+            "tasks_passed_at_first_attempt": sum(int(row["first_attempt_passed"]) for row in rows),
+            "elapsed_s": round(time.monotonic() - started, 3),
             "gpu_rental_pln": 0, "paid_model_api_pln": 0,
             "github_standard_public_runner_minutes": "free subject to GitHub policy",
             "verifier_attestation": "local docker report only; NOT independently signed",
@@ -135,9 +206,10 @@ def main() -> int:
     parser.add_argument("--image", required=True)
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu")
     parser.add_argument("--max-tasks", type=int, default=3, choices=(3, 30))
+    parser.add_argument("--repair-attempts", type=int, choices=(0, 1, 2), default=0)
     parser.add_argument("--output", type=Path, required=True)
     a = parser.parse_args()
-    run_pilot(a.model_path, a.output, a.image, a.model_id, a.max_tasks)
+    run_pilot(a.model_path, a.output, a.image, a.model_id, a.max_tasks, a.repair_attempts)
     return 0
 
 
