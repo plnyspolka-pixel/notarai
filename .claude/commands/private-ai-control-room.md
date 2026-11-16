@@ -1,5 +1,11 @@
 # Claude Code mission: PRIVATE AI CONTROL ROOM
 
+## NADRZĘDNY CEL PRODUKTOWY: MATERIAŁ SPRZEDAŻOWY
+
+Decyzja właściciela projektu 2026-11-16: **Control Room jest przede wszystkim narzędziem sprzedaży i budowania zaufania kupującego** — "coś w stylu dowodu społecznego". Projektuj go najpierw jako zrozumiały dla klienta **Trust Center / interaktywny dowód działania zabezpieczeń**, a dopiero potem jako szczegółowy panel audytowy.
+
+OBOWIĄZKOWO przeczytaj i realizuj `docs/private-ai/CONTROL_ROOM_SALES_BRIEF.md` przed każdą zmianą UX. Pierwsze 5 sekund mają odpowiedzieć: co dzieje się z danymi, kto ma dostęp, co jest blokowane i jakie są sprawdzalne dowody. Hero sprzedażowy, scenariusze demonstracyjne, czytelna podróż dokumentu, warstwowe szczegóły dla audytora i naturalne CTA B2B. Metryki, certyfikaty, logotypy klientów i testimoniale wolno publikować tylko z rzeczywistym potwierdzeniem. Nie zamieniaj syntetycznego DEMO w sugerowany dowód produkcyjny. Chronić prawdziwe dane i pokazywać ograniczenia audytu.
+
 ## Intencja użytkownika
 
 Wybuduj atrakcyjny, prosty i audytowalny panel, który pokazuje DOKŁADNIE:
