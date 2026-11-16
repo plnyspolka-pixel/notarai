@@ -30,13 +30,18 @@ _NS_USLUGA = "http://www.mf.gov.pl/uslugiBiznesowe/uslugiESB/AP/ApiPrzegladoweCR
 _NS_SCHEMAT = "http://www.mf.gov.pl/schematy/AP/ApiPrzegladoweCRBR/2022/12/01"
 
 
+def _cyfry(tekst: str | None) -> str:
+    """Usun spacje, myslniki, kropki i podkreslenia; zwróck reszte znakow."""
+    return re.sub(r"[\s\-_.]", "", tekst or "")
+
+
 def normalizuj_nip(tekst: str | None) -> str | None:
-    cyfry = re.sub(r"[\s\-_.]", "", tekst or "")
+    cyfry = _cyfry(tekst)
     return cyfry if re.fullmatch(r"\d{10}", cyfry) else None
 
 
 def normalizuj_krs(tekst: str | None) -> str | None:
-    cyfry = re.sub(r"[\s\-_.]", "", tekst or "")
+    cyfry = _cyfry(tekst)
     return cyfry.zfill(10) if re.fullmatch(r"\d{1,10}", cyfry) else None
 
 
