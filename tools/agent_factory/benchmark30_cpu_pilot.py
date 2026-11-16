@@ -40,12 +40,14 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def run_pilot(model_path: Path, output: Path, image: str, model_id: str) -> dict:
+def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tasks: int = 3) -> dict:
     if not model_path.is_file() or model_path.stat().st_size < 100_000_000:
         raise ValueError("GGUF file unavailable or implausibly small")
     if output.exists():
         raise ValueError("refusing to overwrite pilot outputs")
     validate()
+    if max_tasks not in (3, 30):
+        raise ValueError("only three-task smoke test or full thirty-task baseline are allowed")
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise ValueError("only allowed on disposable GitHub-hosted runners")
     if os.environ.get("AGENT_BENCH30_ISOLATED_VM_APPROVED") != "SYNTHETIC_DISPOSABLE_VM_ONLY":
@@ -59,18 +61,21 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str) -> dict
     with tempfile.TemporaryDirectory(prefix="bench30-real-model-", dir=os.environ["RUNNER_TEMP"]) as tmp:
         work = Path(tmp) / "work"
         prepare(work)
-        solution = work / "catalog" / "solution.py"
-        tasks = [t for t in read_json(MANIFEST)["tasks"] if t["id"] in ("T01", "T02", "T03")]
-        assert [t["id"] for t in tasks] == ["T01", "T02", "T03"]
+        tasks = read_json(MANIFEST)["tasks"][:max_tasks]
+        assert len(tasks) == max_tasks
         rows = []
         started = time.monotonic()
         for task in tasks:
-            stage = task["step"]
-            prior_specs = "\n".join(f"{t['id']}: {t['request']}" for t in tasks[:stage])
+            stage, chain = task["step"], task["chain"]
+            solution = work / chain / "solution.py"
+            prior_specs = "\n".join(
+                f"{t['id']}: {t['request']}"
+                for t in tasks if t["chain"] == chain and t["step"] <= stage
+            )
             existing = solution.read_text(encoding="utf-8")
             prompt = (
                 "Implement Python code in solution.py. Provide ONLY the full standalone source file, "
-                "no markdown, no explanations. Implement def normalize_catalog(rows). "
+                "no markdown, no explanations. Implement " + task["entrypoint"] + ". "
                 "Use standard-library Python only. Preserve previous requirements. "
                 "Never use filesystem, network, subprocess or imports beyond standard library.\n\n"
                 "Cumulative task specifications:\n" + prior_specs +
@@ -92,12 +97,12 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str) -> dict
                 syntax_ok = True
                 solution.write_text(code, encoding="utf-8")
                 (output / (task["id"] + ".py")).write_text(code, encoding="utf-8")
-                outcome = grade(workspace=work, chain="catalog", upto=stage, image=image)
+                outcome = grade(workspace=work, chain=chain, upto=stage, image=image)
             except Exception as exc:
                 outcome = {"status": "failed", "reason": type(exc).__name__,
                            "passed": False, "verification": "not-completed"}
             rows.append({
-                "task_id": task["id"], "chain": "catalog", "step": stage,
+                "task_id": task["id"], "chain": chain, "step": stage,
                 "real_model_inference": True, "syntax_ok": syntax_ok,
                 "passed": bool(outcome.get("passed", False)),
                 "verifier": outcome, "wall_time_s": round(time.monotonic() - t0, 3),
@@ -106,11 +111,11 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str) -> dict
                 "candidate_sha256": hashlib.sha256(solution.read_bytes()).hexdigest()
             })
         result = {
-            "type": "actual-cpu-llm-pilot; not full 30-task benchmark",
+            "type": "actual-cpu-llm-30-task-baseline" if max_tasks == 30 else "actual-cpu-llm-pilot; not full 30-task benchmark",
             "model": model_id,
             "model_sha256": file_sha256(model_path),
             "verifier_image": image, "workflow_sha": os.environ.get("GITHUB_SHA"),
-            "source_of_tasks": "T01-T03 (one cumulative chain)",
+            "source_of_tasks": "30 tasks / 6 five-stage chains" if max_tasks == 30 else "T01-T03 (one cumulative chain)",
             "tasks_attempted": len(rows), "tasks_passed": sum(int(row["passed"]) for row in rows),
             "model_calls": len(rows), "elapsed_s": round(time.monotonic() - started, 3),
             "gpu_rental_pln": 0, "paid_model_api_pln": 0,
@@ -129,9 +134,10 @@ def main() -> int:
     parser.add_argument("--model-path", type=Path, required=True)
     parser.add_argument("--image", required=True)
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu")
+    parser.add_argument("--max-tasks", type=int, default=3, choices=(3, 30))
     parser.add_argument("--output", type=Path, required=True)
     a = parser.parse_args()
-    run_pilot(a.model_path, a.output, a.image, a.model_id)
+    run_pilot(a.model_path, a.output, a.image, a.model_id, a.max_tasks)
     return 0
 
 
