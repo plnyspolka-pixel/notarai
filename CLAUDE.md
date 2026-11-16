@@ -69,3 +69,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
   dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
   i commitem (nie usuwaj).
+### Publikacja (bez FTP z ręki)
+- Zmiany w `strona/` (notarai.pl) i `seo/` publikuje sam GitHub:
+  `.github/workflows/strona.yml` po zielonych testach na `master` generuje
+  katalog, blog i sitemap i wysyła na az.pl przez FTPS tylko zmienione pliki.
+  Aplikację (`static/`, kod Pythona) wdraża `.github/workflows/wdrozenie.yml`.
+- Gdy użytkownik prosi o zmianę strony lub frontendu: zrób zmianę, puść
+  testy, commit, push i pull request do `master`; po scaleniu wszystko idzie
+  na stronę samo. Nie uruchamiaj `infra\strona.ps1` ani FTP ręcznie, chyba
+  że workflow nie działa (wtedy to wysyłka awaryjna).

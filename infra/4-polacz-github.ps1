@@ -7,7 +7,8 @@
 # (notarai-github-wdrozenie, notarai-cloudformation). Zadnych kluczy dostepu -
 # GitHub dostaje poswiadczenia waznie godzine, tylko dla galezi master.
 # Od tej chwili kazdy push na master, po zielonych testach, sam buduje obraz
-# i podmienia aplikacje (.github/workflows/wdrozenie.yml).
+# i podmienia aplikacje (.github/workflows/wdrozenie.yml), a strone notarai.pl
+# wysyla na az.pl przez FTPS (.github/workflows/strona.yml).
 param(
     [string]$Profil = "",
     [string]$Region = "eu-central-1",
@@ -66,6 +67,7 @@ Uruchom-Aws cloudformation deploy --stack-name notarai-github `
 Write-Host ""
 Write-Host "== Gotowe" -ForegroundColor Green
 Write-Host "   Od teraz: commit + push na master (albo merge pull requesta)."
-Write-Host "   GitHub sam uruchomi testy, zbuduje obraz i podmieni aplikacje."
+Write-Host "   GitHub sam uruchomi testy, zbuduje obraz i podmieni aplikacje,"
+Write-Host "   a strone notarai.pl wygeneruje i wysle na az.pl (zmienione pliki)."
 Write-Host "   Postep: https://github.com/plnyspolka-pixel/notarai/actions"
 Write-Host "   Reczne wdrozenie: Actions -> 'NotarAI - wdrozenie na app.notarai.pl' -> Run workflow."
