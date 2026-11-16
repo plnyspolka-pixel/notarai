@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - nadzor nad kontem AWS (eu-central-1): trwaly slad operacji
+  administracyjnych (CloudTrail z kontrola integralnosci plikow) i e-mail
+  o kazdej operacji, ktora otwiera czlowiekowi droge do tresci spraw.
+  Opcjonalnie wykrywanie zagrozen (GuardDuty z ochrona S3).
+  Slad zawiera wylacznie operacje na zasobach (kto, kiedy, co zmienil) - bez
+  tresci spraw i bez danych klientow kancelarii.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    why: >-
+      Bez sladu (trail) historia zdarzen CloudTrail znika po 90 dniach, a
+      regula notarai-zmiana-polityki-bucketa ze stosu notarai-s3 nie dostaje
+      zadnych zdarzen ("AWS API Call via CloudTrail" wymaga sladu). Procedura
+      naruszen (docs/prawne/05) zaklada, ze da sie ustalic, kto i kiedy mial
+      dostep - to wymaga trwalego sladu i wykrywania.
+    must:
+      - Tylko zdarzenia zarzadcze. Zdarzen danych S3 nie wlaczac - nazwy
+        obiektow w buckecie spraw to nazwiska stron.
+      - Bucket sladu tylko w eu-central-1, nigdy publiczny.
+
+Parameters:
+  EmailZabezpieczen:
+    Type: String
+    Default: ""
+    Description: >-
+      Adres na powiadomienia nadzoru. Po wdrozeniu potwierdz subskrypcje
+      linkiem z wiadomosci od AWS. Pusty = bez powiadomien.
+  BucketSpraw:
+    Type: String
+    Default: notarai-sprawy
+    Description: Bucket spraw ze stosu notarai-s3 - pilnujemy zmian jego zabezpieczen.
+  WykrywanieZagrozen:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      true wlacza GuardDuty (platne wg liczby zdarzen; pierwsze 30 dni bez
+      oplat, w konsoli widac wtedy prognoze kosztu).
+  DniSladu:
+    Type: Number
+    Default: 365
+    MinValue: 90
+    MaxValue: 1825
+    Description: Ile dni trzymac pliki sladu CloudTrail.
+
+Conditions:
+  MamyEmail: !Not [!Equals [!Ref EmailZabezpieczen, ""]]
+  MamyWykrywanie: !Equals [!Ref WykrywanieZagrozen, "true"]
+
+Resources:
+  BucketSladu:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "notarai-slad-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: wygasanie-sladu
+            Status: Enabled
+            ExpirationInDays: !Ref DniSladu
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: porzucone-uploady
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: projekt
+          Value: notarai
+        - Key: dane-osobowe
+          Value: "nie"
+
+  PolitykaBucketaSladu:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketSladu
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt BucketSladu.Arn
+              - !Sub "${BucketSladu.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: CloudTrailSprawdzaAcl
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt BucketSladu.Arn
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/notarai-slad"
+          - Sid: CloudTrailZapisuje
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "${BucketSladu.Arn}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/notarai-slad"
+                s3:x-amz-acl: bucket-owner-full-control
+
+  Slad:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: PolitykaBucketaSladu
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: >-
+          Wszystkie regiony w jednym sladzie: zasob zalozony przez pomylke
+          albo przez intruza poza UE tez zostawi wpis. Kontrola integralnosci
+          pozwala wykazac, ze plikow sladu nikt nie zmienil.
+        must:
+          - Nie dodawac EventSelectors ze zdarzeniami danych S3 dla bucketa spraw.
+    Properties:
+      TrailName: notarai-slad
+      S3BucketName: !Ref BucketSladu
+      IsLogging: true
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  Wykrywanie:
+    Type: AWS::GuardDuty::Detector
+    Condition: MamyWykrywanie
+    Properties:
+      Enable: true
+      FindingPublishingFrequency: FIFTEEN_MINUTES
+      Features:
+        - Name: S3_DATA_EVENTS
+          Status: ENABLED
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  TematNadzoru:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: notarai-nadzor
+      DisplayName: notarai nadzor
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  PolitykaTematu:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref TematNadzoru
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EventBridge
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref TematNadzoru
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/notarai-*"
+
+  SubskrypcjaNadzoru:
+    Type: AWS::SNS::Subscription
+    Condition: MamyEmail
+    Properties:
+      TopicArn: !Ref TematNadzoru
+      Protocol: email
+      Endpoint: !Ref EmailZabezpieczen
+
+  # Znaleziska GuardDuty od sredniej wagi wzwyz (4.0+): m.in. wylaczenie sladu,
+  # nietypowe uzycie kluczy IAM, podejrzany dostep do S3.
+  RegulaZnalezisk:
+    Type: AWS::Events::Rule
+    Condition: MamyWykrywanie
+    Properties:
+      Name: notarai-znaleziska-guardduty
+      Description: Znaleziska GuardDuty o wadze sredniej i wyzszej
+      EventPattern:
+        source:
+          - aws.guardduty
+        detail-type:
+          - GuardDuty Finding
+        detail:
+          severity:
+            - numeric: [">=", 4]
+      Targets:
+        - Arn: !Ref TematNadzoru
+          Id: powiadomienie
+
+  # Tresc spraw czyta wylacznie rola aplikacji (polityka bucketa w notarai-s3).
+  # Czlowiek moze sie do niej dostac tylko przez zmiane zabezpieczen bucketa,
+  # wejscie do kontenera albo zmiane roli aplikacji. Dwie reguly nizej wysylaja
+  # e-mail od razu; zmiany roli (IAM jest usluga globalna, jej zdarzenia nie
+  # trafiaja do regul we Frankfurcie) wychwytuje infra/raport_dostepu.py,
+  # ktory czyta caly slad.
+  RegulaZabezpieczenBucketa:
+    Type: AWS::Events::Rule
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: >-
+          Umowa powierzenia par. 5: tresc spraw czyta tylko algorytm. Kazda
+          zmiana zabezpieczen bucketa spraw musi byc od razu widoczna.
+        must:
+          - Liste operacji zmieniac jednoczesnie tu i w infra/raport_dostepu.py.
+    Properties:
+      Name: notarai-zabezpieczenia-bucketa-spraw
+      Description: Zmiana zabezpieczen bucketa spraw
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - s3.amazonaws.com
+          eventName:
+            - PutBucketPolicy
+            - DeleteBucketPolicy
+            - PutBucketAcl
+            - PutBucketPublicAccessBlock
+            - DeleteBucketPublicAccessBlock
+            - PutBucketReplication
+          requestParameters:
+            bucketName:
+              - !Ref BucketSpraw
+      Targets:
+        - Arn: !Ref TematNadzoru
+          Id: powiadomienie
+
+  RegulaWejsciaISladu:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-wejscie-do-kontenera-i-slad
+      Description: Wejscie do kontenera aplikacji albo wylaczenie lub zmiana sladu
+      EventPattern:
+        source:
+          - aws.ecs
+          - aws.cloudtrail
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventName:
+            - ExecuteCommand
+            - StopLogging
+            - DeleteTrail
+            - UpdateTrail
+            - PutEventSelectors
+      Targets:
+        - Arn: !Ref TematNadzoru
+          Id: powiadomienie
+
+Outputs:
+  BucketSladu:
+    Description: Bucket z plikami sladu CloudTrail
+    Value: !Ref BucketSladu
+  Slad:
+    Description: ARN sladu CloudTrail
+    Value: !GetAtt Slad.Arn
+  TematNadzoru:
+    Description: Temat SNS z powiadomieniami o znaleziskach
+    Value: !Ref TematNadzoru

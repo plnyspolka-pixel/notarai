@@ -25,6 +25,9 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: notarai
+      # Konta kancelarii to takze przypisanie do kancelarii (custom:kancelaria);
+      # pula nie moze zniknac jednym poleceniem delete-user-pool.
+      DeletionProtection: ACTIVE
       # Logowanie adresem e-mail, bez osobnej nazwy uzytkownika.
       UsernameAttributes: [email]
       AutoVerifiedAttributes: [email]

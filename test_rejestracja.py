@@ -389,4 +389,5 @@ class TestDanychKancelarii:
         k = _id(klient)
         odp = klient.post("/api/dokumenty/dane", headers=jako("ewa@kancelaria-sobczak.test", k),
                           json={"notariusze": "Ewa Pawlak", "adres": "ul. Długa 7, 20-002 Lublin"})
-        assert odp.status_code in (403, 404)
+        # Adres spoza zespolu nie ma zadnego dostepu (401), a nie tylko braku roli.
+        assert odp.status_code in (401, 403, 404)

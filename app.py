@@ -79,6 +79,7 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 # Tryb SaaS: token logowania na /api/* + panel admina. W trybie lokalnym
 # middleware przepuszcza wszystko, a panel admina wymaga PIECZAPP_ADMIN_TOKEN.
 app.middleware("http")(autoryzacja.middleware)
+app.middleware("http")(autoryzacja.naglowki_bezpieczenstwa)
 app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)

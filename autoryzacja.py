@@ -115,6 +115,12 @@ def _wczytaj_rejestr() -> dict:
     return dane
 
 
+def _uniewaznij_rejestr() -> None:
+    """Porzuca kopie rejestru w pamieci - po zmianie, ktorej nie zapisujemy."""
+    global _CACHE
+    _CACHE = None
+
+
 def _zapisz_rejestr(dane: dict) -> None:
     global _CACHE, _CACHE_S
     tresc = json.dumps(dane, ensure_ascii=False, indent=2)
@@ -152,12 +158,27 @@ def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None, str]:
         # tozsamosci jest wazny jeszcze kilka godzin.
         if not _aktywna(dane["kancelaria"]):
             return None, None, ""
+        # Osoba usunieta z zespolu traci dostep od razu, nie dopiero po
+        # wygasnieciu tokenu. Adres spoza zespolu (np. zmieniony w Cognito z
+        # pominieciem aplikacji) nie dostaje niczego.
+        if not _w_zespole(dane["kancelaria"], dane["email"].lower()):
+            return None, None, ""
         return dane["kancelaria"], None, dane["email"].lower()
     if urzadzenia.czy_token_pomocnika(token):
         komputer = urzadzenia.z_tokenu(token)
         if komputer and _aktywna(komputer["kancelaria"]):
             return komputer["kancelaria"], komputer["id"], ""
     return None, None, ""
+
+
+def _w_zespole(kancelaria: str, email: str) -> bool:
+    """Czy adres nalezy do zespolu kancelarii. Kancelaria bez spisu zespolu
+    (konta sprzed zespolow) przepuszcza - pierwsze logowanie zaklada spis."""
+    for wpis in _wczytaj_rejestr().values():
+        if wpis["id"] == kancelaria:
+            zespol = wpis.get("zespol") or []
+            return not zespol or any(o["email"] == email for o in zespol)
+    return False
 
 
 def _aktywna(kancelaria: str) -> bool:
@@ -239,6 +260,21 @@ async def middleware(request: Request, call_next):
     finally:
         magazyn.kancelaria_var.reset(znacznik)
         magazyn.przechowywanie_var.reset(znacznik_p)
+
+
+async def naglowki_bezpieczenstwa(request: Request, call_next):
+    """Naglowki ochronne na kazdej odpowiedzi: tylko HTTPS, bez zgadywania typu
+    pliku, bez osadzania aplikacji w cudzej ramce, bez sciezek w Referer."""
+    odp = await call_next(request)
+    for nazwa, wartosc in (
+        ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Referrer-Policy", "strict-origin-when-cross-origin"),
+        ("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"),
+    ):
+        odp.headers.setdefault(nazwa, wartosc)
+    return odp
 
 
 def _osoba_w_kancelarii(kancelaria: str, email: str) -> dict | None:
@@ -546,6 +582,16 @@ class NowaKancelaria(BaseModel):
     # Adres notariusza. Podany - od razu zakladamy mu konto wlasciciela
     # i wysylamy zaproszenie, wiec cale wdrozenie to jeden formularz.
     email: str = ""
+
+
+@router.get("/serwis/dziennik")
+def dziennik_dostepu_serwisowego(request: Request):
+    """Caly dziennik dostepu serwisowego z wynikiem sprawdzenia lancucha.
+    Same identyfikatory i adresy administratorow - bez tresci spraw."""
+    _wymagaj_admina(request)
+    import dziennik_serwisu
+    lista = dziennik_serwisu.wpisy()
+    return {"sprawdzenie": dziennik_serwisu.sprawdz(lista), "wpisy": lista}
 
 
 @router.get("/kancelarie")
@@ -870,6 +916,10 @@ def _odnotuj_dolaczenie(token: str) -> None:
         email = dane["email"].lower()
         osoba = _osoba(wpis, email)
         if osoba is None:
+            # Dopisujemy tylko do kancelarii bez spisu zespolu. Gdy spis juz
+            # jest, nieznany adres nie dolacza sam - zaprasza wlasciciel.
+            if wpis.get("zespol"):
+                return
             osoba = {"email": email, "rola": "czlonek", "zaproszono": None, "dolaczyl": None}
             wpis.setdefault("zespol", []).append(osoba)
         if osoba.get("dolaczyl"):
@@ -1019,6 +1069,7 @@ def _zakres_zadania(sciezka: str, metoda: str) -> tuple[str, str, bool]:
 
 
 def _wejscie_serwisowe(token: str, id_k: str, sciezka: str = "", metoda: str = "GET") -> str:
+    import dziennik_serwisu
     """E-mail administratora, ktoremu kancelaria id_k otworzyla dostep, albo
     pusty. Token awaryjny nie wystarcza: dostep musi wskazywac osobe.
 
@@ -1037,7 +1088,8 @@ def _wejscie_serwisowe(token: str, id_k: str, sciezka: str = "", metoda: str = "
         return ""
     uzyli = trwa.setdefault("uzyli", [])
     osoba = next((u for u in uzyli if u["email"] == email), None)
-    if osoba is None:
+    nowa = osoba is None
+    if nowa:
         osoba = {"email": email, "od": _teraz()}
         uzyli.append(osoba)
         log.info("kancelaria %s: administrator wszedl w ramach dostepu serwisowego", id_k)
@@ -1049,7 +1101,16 @@ def _wejscie_serwisowe(token: str, id_k: str, sciezka: str = "", metoda: str = "
     if sprawa and sprawa not in sprawy:
         sprawy.append(sprawa)
     osoba["zmiany"] = bool(osoba.get("zmiany")) or zmiana
-    if json.dumps(osoba, sort_keys=True) != przed:
+    if nowa or json.dumps(osoba, sort_keys=True) != przed:
+        # Najpierw wpis w dzienniku nie do nadpisania, potem dostep. Gdy wpisu
+        # nie da sie zapisac, administrator nie wchodzi.
+        try:
+            dziennik_serwisu.dopisz("wejscie" if nowa else "zakres", id_k, kto=email,
+                                    obszar=obszar, sprawa=sprawa, zmiana=zmiana)
+        except dziennik_serwisu.BladDziennika as blad:
+            log.error("kancelaria %s: dziennik serwisu niedostepny (%s) - odmowa dostepu", id_k, blad)
+            _uniewaznij_rejestr()
+            return ""
         _zapisz_rejestr(rejestr)
     return email
 
@@ -1085,6 +1146,13 @@ def wlacz_serwis(request: Request, dane: WlaczenieSerwisu):
     if trwa:
         trwa["odwolano"] = _teraz()
     do = (datetime.now() + timedelta(hours=dane.godziny)).isoformat(timespec="seconds")
+    import dziennik_serwisu
+    try:
+        dziennik_serwisu.dopisz("wlaczono", wpis["id"], kto=email, do=do)
+    except dziennik_serwisu.BladDziennika as blad:
+        log.error("kancelaria %s: dziennik serwisu niedostepny (%s)", wpis["id"], blad)
+        _uniewaznij_rejestr()
+        raise HTTPException(503, "Nie udało się zapisać włączenia w dzienniku dostępu. Spróbuj za chwilę.")
     lista.append({"wlaczyl": email, "od": _teraz(), "do": do, "odwolano": None, "uzyli": []})
     _zapisz_rejestr(rejestr)
     log.info("kancelaria %s: wlaczono dostep serwisowy na %d h", wpis["id"], dane.godziny)
@@ -1101,6 +1169,12 @@ def odwolaj_serwis(request: Request):
         trwa["odwolano"] = _teraz()
         _zapisz_rejestr(rejestr)
         log.info("kancelaria %s: odwolano dostep serwisowy", wpis["id"])
+        # Odwolanie ma zadzialac takze wtedy, gdy dziennik chwilowo nie przyjmuje wpisow.
+        import dziennik_serwisu
+        try:
+            dziennik_serwisu.dopisz("odwolano", wpis["id"], kto=email)
+        except dziennik_serwisu.BladDziennika as blad:
+            log.error("kancelaria %s: odwolania nie zapisano w dzienniku serwisu (%s)", wpis["id"], blad)
     return _opis_serwisu(wpis)
 
 

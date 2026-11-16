@@ -150,3 +150,33 @@ dalszy podmiot przetwarzający, na warunkach umowy powierzenia AWS.
   ale leży na tym samym koncie AWS. Kopia na drugim koncie wymaga AWS
   Organizations - do rozważenia przy kilkunastu kancelariach.
 - MFA dla użytkowników w Cognito.
+- Nadzór konta AWS: stos `infra/notarai-nadzor.yaml` wdrożony 15.11.2026
+  (ślad CloudTrail `notarai-slad` we wszystkich regionach z kontrolą
+  integralności, bucket `notarai-slad-<konto>`, e-mail o zmianie zabezpieczeń
+  bucketa spraw, wejściu do kontenera i zmianie śladu). Wcześniej na koncie
+  nie było śladu, więc reguła `notarai-zmiana-polityki-bucketa` ze stosu
+  `notarai-s3` nie dostawała zdarzeń. GuardDuty jest w szablonie, ale
+  wyłączone (`WykrywanieZagrozen=false`). Subskrypcję tematu `notarai-nadzor`
+  trzeba potwierdzić linkiem z maila od AWS.
+- Raport dostępu do treści spraw: `py -3 infra/raport_dostepu.py --od ... --do ...`
+  czyta ślad, sprawdza jego podpisy i wypisuje każdą operację, która otwiera
+  człowiekowi drogę do treści spraw. Wynik `BRAK_OPERACJI` to dowód dla
+  kancelarii za dany okres; zakres i ograniczenia są w nagłówku skryptu.
+  Nie obiecywać na tej podstawie, że „żaden człowiek nie widział danych".
+- Dostęp serwisowy jest objęty tym samym raportem: każde włączenie, wejście
+  administratora, poszerzenie zakresu i odwołanie trafia do dziennika
+  spiętego skrótami (`dziennik_serwisu.py`, zapis bez możliwości nadpisania)
+  i zostawia świadka w logach CloudWatch. Bez wpisu w dzienniku administrator
+  nie wchodzi. Raport czyta świadków i sprawdza ciągłość łańcucha; logi są
+  trzymane 90 dni, więc raport sporządzać co najmniej raz na kwartał.
+  Po pierwszym wdrożeniu sprawdzić na produkcji zapis warunkowy do S3
+  (kancelaria demo: włączyć dostęp, wejść, odwołać, uruchomić raport).
+- Klucze dostępu IAM bez MFA: `claude-admin` (AdministratorAccess),
+  `pieczapp-app` (klucz z 26.07.2026), `finyou-remotion-studio` (dwa klucze).
+  Wymienić stare, usunąć nieużywane; dla administratora docelowo logowanie
+  krótkotrwałe (IAM Identity Center) zamiast stałego klucza.
+- Blokady publicznego dostępu S3 na poziomie konta nie włączamy, dopóki na
+  tym koncie jest bucket Remotion (`remotionlambda-...`) z publicznymi plikami.
+- Ochrona przed usunięciem: pula Cognito (`DeletionProtection`) i load
+  balancer (`deletion_protection.enabled`) - w szablonach od 15.11.2026,
+  wchodzi przy najbliższym wdrożeniu stosów `notarai-logowanie` i `notarai-aplikacja`.

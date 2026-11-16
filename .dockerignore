@@ -26,3 +26,10 @@ htmlcov/
 
 # Rozszerzenie przegladarki trafia do sklepu Chrome/Edge, nie do obrazu serwera.
 rozszerzenie/
+
+# Aplikacja mobilna, kopie strony z az.pl i robocze wyniki (moga zawierac
+# dane spraw) - serwer ich nie potrzebuje.
+mobilna/
+node_modules/
+strona-kopie/
+Claude outputs/

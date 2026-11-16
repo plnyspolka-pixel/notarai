@@ -152,7 +152,12 @@ def _usun_stare(dane: dict) -> None:
 
 def kancelarie_notarai() -> dict[int, str]:
     """id z bazy -> id kancelarii w notarai. Powiazania z panelu admina maja
-    pierwszenstwo; reszte dopasowujemy po e-mailu osoby z zespolu."""
+    pierwszenstwo; reszte dopasowujemy po e-mailu wlasciciela kancelarii.
+
+    Liczy sie tylko wlasciciel, ktory sie zalogowal: haslo tymczasowe przyszlo
+    na ten adres, wiec to dowod, ze skrzynka jest jego. Samo zaproszenie do
+    zespolu niczego nie dowodzi - zaprosic mozna dowolny adres, takze adres
+    cudzej kancelarii z bazy, a wtedy jej zapytania trafilyby do zapraszajacego."""
     global _CACHE_NOTARAI
     if time.monotonic() - _CACHE_NOTARAI[0] < 60:
         return _CACHE_NOTARAI[1]
@@ -167,7 +172,8 @@ def kancelarie_notarai() -> dict[int, str]:
         if not wpis.get("aktywna", True):
             continue
         for osoba in wpis.get("zespol", []):
-            emaile[osoba["email"].lower()] = wpis["id"]
+            if osoba.get("rola") == "wlasciciel" and osoba.get("dolaczyl"):
+                emaile[osoba["email"].lower()] = wpis["id"]
     for ident, k in baza()["kancelarie"].items():
         if k.get("email") and k["email"] in emaile:
             wynik[ident] = emaile[k["email"]]

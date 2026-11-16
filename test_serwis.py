@@ -168,3 +168,71 @@ def test_wylaczona_kancelaria_zamyka_dostep(srodowisko):
     klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
     klient.delete(f"/api/admin/kancelarie/{k}", headers=ADMIN)
     assert klient.get("/api/sprawy", headers=serwisant(k)).status_code == 403
+
+
+# --- dziennik nie do nadpisania -------------------------------------------------
+
+
+@pytest.fixture
+def dziennik(srodowisko):
+    import dziennik_serwisu
+    importlib.reload(dziennik_serwisu)
+    return dziennik_serwisu
+
+
+def test_kazde_zdarzenie_serwisu_trafia_do_dziennika(srodowisko, dziennik, caplog):
+    klient, k, _ = srodowisko
+    with caplog.at_level("INFO", logger="pieczapp.serwis"):
+        klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={"godziny": 2})
+        klient.get("/api/sprawy", headers=serwisant(k))
+        klient.get("/api/sprawy", headers=serwisant(k))            # nic nowego - bez wpisu
+        klient.get("/api/sprawy/7f3a91c2", headers=serwisant(k))   # nowa sprawa - wpis
+        klient.delete("/api/serwis", headers=jako(WLASCICIEL, k))
+    odp = klient.get("/api/admin/serwis/dziennik", headers=ADMIN).json()
+    assert [w["rodzaj"] for w in odp["wpisy"]] == ["wlaczono", "wejscie", "zakres", "odwolano"]
+    assert odp["wpisy"][2]["sprawa"] == "7f3a91c2" and odp["wpisy"][1]["kto"] == SERWISANT
+    assert odp["sprawdzenie"]["caly"] is True and odp["sprawdzenie"]["wpisow"] == 4
+    swiadkowie = [r.getMessage() for r in caplog.records if r.getMessage().startswith("serwis-dziennik")]
+    assert len(swiadkowie) == 4
+    assert "@" not in "".join(swiadkowie)
+    assert not any(c.isdigit() for s in swiadkowie for c in s.split("skrot=")[1])
+
+
+def test_dziennik_dostepny_tylko_dla_administratora(srodowisko, dziennik):
+    klient, k, _ = srodowisko
+    assert klient.get("/api/admin/serwis/dziennik", headers=jako(WLASCICIEL, k)).status_code == 401
+
+
+def test_zmiana_albo_usuniecie_wpisu_zrywa_lancuch(srodowisko, dziennik):
+    klient, k, _ = srodowisko
+    klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
+    klient.get("/api/sprawy/7f3a91c2", headers=serwisant(k))
+    klient.delete("/api/serwis", headers=jako(WLASCICIEL, k))
+    lista = dziennik.wpisy()
+    assert dziennik.sprawdz(lista)["caly"]
+    zmieniona = [dict(w) for w in lista]
+    zmieniona[1]["sprawa"] = "inna"
+    assert not dziennik.sprawdz(zmieniona)["caly"]
+    assert not dziennik.sprawdz([lista[0], lista[2]])["caly"]
+    assert not dziennik.sprawdz(lista[1:])["caly"]
+
+
+def test_wpisu_nie_da_sie_nadpisac(srodowisko, dziennik):
+    klient, k, _ = srodowisko
+    klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
+    assert dziennik._zapisz_nowy(1, {"nr": 1}) is False
+    assert dziennik.wpisy()[0]["rodzaj"] == "wlaczono"
+
+
+def test_bez_wpisu_w_dzienniku_administrator_nie_wchodzi(srodowisko, dziennik, monkeypatch):
+    klient, k, aut = srodowisko
+    klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={})
+
+    def awaria(*a, **kw):
+        raise OSError("dysk")
+    monkeypatch.setattr(dziennik, "_zapisz_nowy", awaria)
+    assert klient.get("/api/sprawy", headers=serwisant(k)).status_code == 403
+    assert klient.get("/api/serwis", headers=jako(WLASCICIEL, k)).json()["historia"][0]["uzyli"] == []
+    # wlaczenie tez wymaga wpisu, odwolanie - nie
+    assert klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={}).status_code == 503
+    assert klient.delete("/api/serwis", headers=jako(WLASCICIEL, k)).json()["wlaczony"] is False
