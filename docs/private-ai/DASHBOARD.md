@@ -1,5 +1,7 @@
 # Private AI Control Room — panel pochodzenia danych
 
+**Wiodący cel produktowy:** sprzedaż B2B i wzbudzanie zaufania przez czytelny, sprawdzalny pokaz kontroli danych. Dziennik zdarzeń i zaawansowany audyt są warstwą dowodową, nie główną narracją pierwszego ekranu. Wymagania UX/marketingu i reguły prawdziwości twierdzeń: [`CONTROL_ROOM_SALES_BRIEF.md`](./CONTROL_ROOM_SALES_BRIEF.md).
+
 Status 2026-11-16: **PROTOTYP OFFLINE, TYLKO DANE SYNTETYCZNE**.
 
 ## Gotowy kod
