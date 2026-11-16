@@ -32,7 +32,15 @@ def extract_python(response: str) -> str:
     return code
 
 
-def run_pilot(model_path: Path, output: Path, image: str) -> dict:
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def run_pilot(model_path: Path, output: Path, image: str, model_id: str) -> dict:
     if not model_path.is_file() or model_path.stat().st_size < 100_000_000:
         raise ValueError("GGUF file unavailable or implausibly small")
     if output.exists():
@@ -83,6 +91,7 @@ def run_pilot(model_path: Path, output: Path, image: str) -> dict:
                 code = extract_python(raw)
                 syntax_ok = True
                 solution.write_text(code, encoding="utf-8")
+                (output / (task["id"] + ".py")).write_text(code, encoding="utf-8")
                 outcome = grade(workspace=work, chain="catalog", upto=stage, image=image)
             except Exception as exc:
                 outcome = {"status": "failed", "reason": type(exc).__name__,
@@ -98,8 +107,8 @@ def run_pilot(model_path: Path, output: Path, image: str) -> dict:
             })
         result = {
             "type": "actual-cpu-llm-pilot; not full 30-task benchmark",
-            "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu",
-            "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
+            "model": model_id,
+            "model_sha256": file_sha256(model_path),
             "verifier_image": image, "workflow_sha": os.environ.get("GITHUB_SHA"),
             "source_of_tasks": "T01-T03 (one cumulative chain)",
             "tasks_attempted": len(rows), "tasks_passed": sum(int(row["passed"]) for row in rows),
@@ -119,9 +128,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=Path, required=True)
     parser.add_argument("--image", required=True)
+    parser.add_argument("--model-id", default="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu")
     parser.add_argument("--output", type=Path, required=True)
     a = parser.parse_args()
-    run_pilot(a.model_path, a.output, a.image)
+    run_pilot(a.model_path, a.output, a.image, a.model_id)
     return 0
 
 
