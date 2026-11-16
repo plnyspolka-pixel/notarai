@@ -73,6 +73,22 @@ class TestTabela:
         assert taksa.placa_minimalna(date(2040, 3, 1)) == 4806   # ostatnia znana
 
 
+class TestKwota:
+    @pytest.mark.parametrize("wartosc, oczekiwana", [
+        ("250.000,00 zł", "250000.00"),
+        ("1.250.000", "1250000"),
+        ("1234.56", "1234.56"),
+        ("450 000,50", "450000.50"),
+        ("abc", "0"),
+        ("12 345,67", "12345.67"),
+        ("1.000.000", "1000000"),
+        ("-100", "0"),
+        (1234.56, "1234.56"),
+    ])
+    def test_parsowanie(self, wartosc, oczekiwana):
+        assert taksa.kwota(wartosc) == Decimal(oczekiwana)
+
+
 class TestObliczSprzedaz:
     def test_sprzedaz_mieszkania_jak_w_car(self):
         """450 000 zl, 1/2 stawki, 6 wypisow po 6 stron, PCC 2 %, wpis wlasnosci."""

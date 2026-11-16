@@ -304,7 +304,12 @@ def kwota(x) -> Decimal:
         wynik = x
     else:
         try:
-            wynik = Decimal(str(x).replace(" ", "").replace(" ", "").replace("zł", "").replace(",", "."))
+            tekst = str(x).replace(" ", "").replace(" ", "").replace("zł", "")
+            if "," in tekst:
+                tekst = tekst.replace(".", "").replace(",", ".")
+            elif tekst.count(".") > 1:
+                tekst = tekst.replace(".", "")
+            wynik = Decimal(tekst)
         except Exception:
             return Decimal("0")
     if not wynik.is_finite() or wynik < 0:
