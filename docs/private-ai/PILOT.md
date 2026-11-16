@@ -42,8 +42,13 @@ Implementation:
 7. Build ZIP locally: python tools/private_ai/build_pilot_zip.py;
    inspect its SHA256, scan dependencies, upload immutable artifact to
    reviewed S3 code bucket, then deploy stack only after explicit approval.
-8. Test AWS_IAM SigV4 with synthetic PDFs, negative caller tests, VPC Flow Logs,
-   outbound egress denial, DNS resolution, Bedrock routing and error paths.
+8. Test signed AWS_IAM + negative canaries against a live staging endpoint,
+   using only the hash-pinned synthetic PNG; run:
+   `python tools/private_ai/smoke_pilot.py --api-url https://API_ID.execute-api.eu-central-1.amazonaws.com/v1/documents --expected-account ACCOUNT_ID`.
+   The caller must first assume the exact role configured by CallerRoleName.
+   Check VPC Flow Logs, S3 Object Lock retention, Bedrock destination Regions,
+   endpoint/DNS routing and explicit Internet egress denial separately.
+   A passing smoke alone is not residency evidence.
 9. Verify actual S3 retention, separate-account backup, audit access rights,
    CloudTrail and key revocation; add externally witnessed signed checkpoints.
 
