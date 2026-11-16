@@ -48,6 +48,7 @@ def _cfg(family: str, variant: int) -> dict:
         return {"direction": ("upstream", "downstream")[variant % 2],
                 "depth": ("direct", "transitive")[variant // 2 % 2],
                 "include_changed": bool(variant // 4 % 2),
+                "limit": variant // 8,
                 "ignore_missing": True}
     if family == "eventlog":
         return {"by_revision": bool(variant % 2),
@@ -74,9 +75,9 @@ def _prompt(family: str, cfg: dict) -> str:
         "records": "solve(data): data is list of dicts with id and integer score. Ignore malformed records (id must be nonempty string, score must be exact int). For repeated IDs keep the {dedup} valid record. Keep records with score >= {minimum}. Return list of ID strings sorted by score {order}, with ID as ascending tiebreaker.",
         "authorization": "solve(data): data is dictionary with role, action, optional actor_tenant, resource_tenant and approved. Reader may read; {writer} may read/write; admin may read/write/delete. Unknown action/role denies. Tenant equality required? {tenant} (if required, both tenant values must be nonempty strings and equal). Delete requires approved is exactly True? {approval}. Return bool, fail closed on malformed input.",
         "timeslots": "solve(data): dict with integer start,end,duration,step and optional blocked list of integer [start,end] pairs. Return ascending valid start times. A slot [t,t+duration) must fit before or at end and not intersect any blocked interval after extending each blocked interval by {gap} minutes on each side. If cap={cap} is nonzero return at most cap results. Invalid data returns [].",
-        "dependencies": "solve(data): dict with imports mapping module -> list of imported module names and changed list. Follow edges in {direction} direction ({depth}); include changed named modules? {include_changed}. Ignore unknown module names. Return sorted unique list of affected known module names; no infinite loops on cycles.",
+        "dependencies": "solve(data): dict with imports mapping module -> list of imported module names and changed list. Follow edges in {direction} direction ({depth}); include changed named modules? {include_changed}. Ignore unknown module names. Return sorted unique list of affected known module names, restricted to at most {limit} entries when limit > 0. Avoid infinite loops on cycles.",
         "eventlog": "solve(data): list of event dictionaries with string id,key, op set/delete, integer rev and optional value. Ignore malformed entries and invalid revision types. Apply only rev>=0? {skip_negative}. Ignore duplicate event IDs? {dedup_event_id}. Choose newest rev per key? {by_revision} (if true, only events with strictly higher rev than existing key history apply; else apply in input order). set stores value (missing value defaults to {default_value}); delete removes key. Return dict of live keys with sorted key insertion order.",
-        "redaction": "solve(data): data is a text string. Replace credential strings matching sk-[A-Za-z0-9] of length >= 8 after prefix? {tokens}; replace emails matching ASCII local@domain.tld? {emails}; replace stand-alone exactly 11-digit identifiers? {ids11}. Use exact marker {marker} for each enabled category. Preserve all nonmatching text. Nonstring input returns empty string.",
+        "redaction": "solve(data): data is a text string. Replace credential strings matching the literal prefix sk- followed by at least 8 ASCII alphanumeric chars? {tokens}; replace emails matching ASCII local@domain.tld? {emails}; replace stand-alone exactly 11-digit identifiers? {ids11}. Use exact marker {marker} for each enabled category. Preserve all nonmatching text. Nonstring input returns empty string.",
         "slugs": "solve(data): data is text string. Strip surrounding whitespace, lowercase English ASCII letters, replace runs of NON-alphanumeric ASCII chars with separator {separator}, strip leading/trailing separators. Convert result to uppercase? {uppercase}. Truncate final result to {max_chars} characters, then strip trailing separators. For nonstring return empty string. Keep only letters a-z and digits 0-9.",
         "intervals": "solve(data): data is list of [start,end] pairs with exact integer endpoints and start<end. Ignore malformed pairs. Remove ranges shorter than {minimum_length}. Merge overlapping half-open intervals, also merge exactly touching intervals? {merge_touching}. Return sorted list of integer [start,end] pairs.",
     }[family]
@@ -208,7 +209,8 @@ def oracle(family: str, cfg: dict, data):
             if cfg["depth"]=="direct":
                 break
             todo = candidate
-        return sorted(touched)
+        result = sorted(touched)
+        return result[:cfg["limit"]] if cfg["limit"] else result
     if family == "eventlog":
         if not isinstance(data,list):
             return {}
