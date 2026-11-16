@@ -1,0 +1,103 @@
+name: Benchmark30 - full 30-task Qwen 7B CPU baseline
+
+on:
+  push:
+    branches:
+      - research/coding-agents-100-foundation-20261116
+    paths:
+      - .github/workflows/benchmark30-qwen7b-full.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark30-cpu-pilot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qwen-cpu-real-inference:
+    name: Qwen2.5-Coder-7B - 30 tasks, 6 cumulative chains
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+      AGENT_BENCH30_ISOLATED_VM_APPROVED: SYNTHETIC_DISPOSABLE_VM_ONLY
+      CPU_PILOT_OUT: /tmp/benchmark30-qwen7b-full
+    steps:
+      - name: Checkout synthetic research suite (do not retain GitHub credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install local inference runtime (no paid APIs)
+        timeout-minutes: 12
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "huggingface_hub>=0.34,<1.0"
+          CMAKE_ARGS="-DGGML_NATIVE=OFF" python -m pip install "llama-cpp-python==0.3.16" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Download pinned upstream Qwen open model
+        timeout-minutes: 12
+        id: model
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi, hf_hub_download
+          repo = "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+          info = HfApi().model_info(repo)
+          revision = info.sha
+          assert len(revision) == 40
+          path = hf_hub_download(
+              repo_id=repo,
+              filename="qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+              revision=revision,
+              local_dir=os.environ["RUNNER_TEMP"] + "/qwen-model"
+          )
+          print("Downloaded upstream model revision", revision)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as handle:
+              handle.write("model_path=" + path + "\n")
+              handle.write("model_revision=" + revision + "\n")
+          PY
+      - name: Pull verifier image and pin its content digest
+        timeout-minutes: 4
+        id: verifier
+        run: |
+          docker pull python:3.12-slim
+          DIGEST="$(docker image inspect python:3.12-slim --format '{{index .RepoDigests 0}}')"
+          echo "$DIGEST" | grep -Eq '^([a-z0-9._/-]+)@sha256:[a-f0-9]{64}$'
+          echo "image=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Verifier image pinned: $DIGEST"
+      - name: Execute 30 real model inferences and isolated cumulative tests
+        timeout-minutes: 45
+        run: |
+          python -m tools.agent_factory.benchmark30_cpu_pilot \
+            --model-path "${{ steps.model.outputs.model_path }}" \
+            --model-id "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF / q4_k_m / cpu" \
+            --max-tasks 30 \
+            --image "${{ steps.verifier.outputs.image }}" \
+            --output "$CPU_PILOT_OUT"
+      - name: Record provenance on failure without fabricated results
+        if: failure()
+        run: |
+          mkdir -p "$CPU_PILOT_OUT"
+          if [ ! -e "$CPU_PILOT_OUT/result.json" ]; then
+            printf '{"status":"INCOMPLETE","model_calls":"unknown","tasks_passed":null,"reason":"workflow failed; inspect job logs; no performance claim"}\n' > "$CPU_PILOT_OUT/result.json"
+          fi
+      - name: Print graded trial summary (synthetic results only)
+        if: always()
+        run: |
+          if [ -f "$CPU_PILOT_OUT/result.json" ]; then cat "$CPU_PILOT_OUT/result.json"; fi
+      - name: Upload actual model trial evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark30-qwen-cpu-${{ github.run_id }}
+          path: /tmp/benchmark30-qwen7b-full/
+          if-no-files-found: warn
+          retention-days: 14
