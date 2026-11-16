@@ -35,7 +35,8 @@ jobs:
   strona:
     name: Generowanie + wysylka FTPS
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Pierwsza pelna wysylka (ok. 640 plikow) trwa dluzej; kolejne to minuty.
+    timeout-minutes: 90
     if: >-
       github.ref == 'refs/heads/master' && (
         github.event_name == 'workflow_dispatch' || (
@@ -108,7 +109,9 @@ jobs:
           if [ -z "$haslo" ]; then echo "::error::W sekrecie brak pola password."; exit 1; fi
           echo "::add-mask::$haslo"
           mkdir -p "$RUNNER_TEMP/kopia"
-          NOTARAI_FTP_HASLO="$haslo" python -I infra/strona_ftp.py wyslij-zmiany strona auto "$RUNNER_TEMP/kopia" \
+          # 4 polaczenia naraz; manifest zapisywany co 50 plikow, wiec
+          # przerwana wysylka rusza przy nastepnym uruchomieniu od miejsca przerwania.
+          NOTARAI_FTP_WATKI=4 NOTARAI_FTP_HASLO="$haslo" python -I infra/strona_ftp.py wyslij-zmiany strona auto "$RUNNER_TEMP/kopia" \
             | tee "$RUNNER_TEMP/wysylka.txt"
           unset haslo
           {
