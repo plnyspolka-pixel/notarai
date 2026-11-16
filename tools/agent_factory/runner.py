@@ -68,7 +68,10 @@ def load_task(path: Path, repo: Path) -> str:
         raise PolicyError("Task file not found")
     if task_path.stat().st_size > MAX_TASK_BYTES:
         raise PolicyError("Task exceeds size limit")
-    text = task_path.read_text(encoding="utf-8").strip()
+    try:
+        text = task_path.read_text(encoding="utf-8").strip()
+    except UnicodeDecodeError:
+        raise PolicyError("Task must be valid UTF-8 text")
     if not text or "\x00" in text:
         raise PolicyError("Empty or invalid task")
     return text

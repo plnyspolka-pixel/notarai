@@ -63,6 +63,16 @@ def test_task_confined_to_committed_subtree(tmp_path):
         load_task(symlink, root)
 
 
+def test_task_non_utf8_bytes_rejected(tmp_path):
+    root = tmp_path / "repo"
+    tasks = root / "docs" / "agent-tasks"
+    tasks.mkdir(parents=True)
+    binary = tasks / "binary.md"
+    binary.write_bytes(b"\xff\xfe\x00not-utf8")
+    with pytest.raises(PolicyError):
+        load_task(binary, root)
+
+
 def test_env_does_not_forward_credentials(monkeypatch):
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "not-for-workers")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "not-for-workers")
