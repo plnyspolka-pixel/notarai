@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch
 import pytest
 from tools.agent_factory.worker_pool import (
-    WorkerPolicyError, capabilities, delegate, validate_batch, validate_job, endpoint_config
+    WorkerPolicyError, capabilities, delegate, validate_batch, validate_job, endpoint_config, proposal_quality
 )
 from tools.agent_factory.worker_mcp import response, TOOLS
 
@@ -91,3 +91,11 @@ def test_mcp_declares_three_tools_without_starting_gpu():
 
 def test_mcp_notifications_have_no_response():
     assert response({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
+
+
+def test_role_quality_gate_rejects_vacuous_review_and_empty_source():
+    assert proposal_quality("reviewer", "False")[0] is False
+    assert proposal_quality("implementer", "No")[0] is False
+    assert proposal_quality("implementer", "def is_even(n):\n    return n % 2 == 0\n")[0] is True
+    assert proposal_quality("test-designer", "Two expected cases: input 2 -> True and input 3 -> False; tests cover zero and negatives.")[0] is True
+    assert proposal_quality("test-designer", "Probably good enough")[0] is False
