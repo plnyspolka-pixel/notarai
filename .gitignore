@@ -64,3 +64,4 @@ strona/sitemap.xml
 docs/kampania-komputerku/odcinki/*.zlecenie.json
 docs/kampania-komputerku/wyjscie/
 docs/kampania-komputerku/narzedzia/koszty_log.csv
+.private-ai-build/

@@ -20,6 +20,10 @@ Parameters:
     Type: String
     Default: eu.anthropic.claude-opus-4-6-v1
     AllowedPattern: '^eu\.[a-z0-9][a-z0-9.-]{3,120}$'
+  FixtureSha256:
+    Type: String
+    AllowedPattern: '^[0-9a-f]{64}$'
+    Description: Hash of the ONLY approved synthetic PNG staging document
   PackageBucket: {Type: String}
   PackageKey: {Type: String}
 
@@ -185,6 +189,7 @@ Resources:
         Variables:
           PRIVATE_AI_MODEL_ID: !Ref ModelId
           PRIVATE_AI_TENANT: !Ref TenantId
+          PRIVATE_AI_FIXTURE_SHA256: !Ref FixtureSha256
           PRIVATE_AI_ALLOWED_ROLE_ARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/${CallerRoleName}"
           PRIVATE_AI_AUDIT_BUCKET: !Ref AuditBucket
           PRIVATE_AI_GATEWAY_API_ID: !Ref PilotApi

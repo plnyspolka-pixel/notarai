@@ -11,7 +11,8 @@ general Internet egress; Bedrock EU inference profile; metadata-only audit
 events stored in S3 Object Lock (COMPLIANCE 30 days) via S3 VPC gateway endpoint.
 
 Implementation:
-- private_ai/ingress.py: reject absent/forged/mismatched API Gateway/IAM context,
+- private_ai/ingress.py: SHA-256 pinning of the ONE allowed synthetic fixture;
+  reject absent/forged/mismatched API Gateway/IAM context,
   unexpected fields and caller-provided tenant/model/classification.
 - private_ai/lambda_entry.py: gateway adapter and S3 metadata audit sink;
   no user prompts/responses/documents in S3 audit events or errors.
@@ -34,19 +35,21 @@ Implementation:
    role may call execute-api:Invoke only on the exact pilot POST route.
 5. Review CloudFormation by cfn-lint + AWS validate-template and inspect
    IAM/VPC/S3 access before approval.
-6. Build ZIP locally: python tools/private_ai/build_pilot_zip.py;
+6. Generate synthetic PNG: `python tools/private_ai/make_fixture.py`;
+   pass printed hash as `FixtureSha256`. The pilot must reject all other files.
+7. Build ZIP locally: python tools/private_ai/build_pilot_zip.py;
    inspect its SHA256, scan dependencies, upload immutable artifact to
    reviewed S3 code bucket, then deploy stack only after explicit approval.
-7. Test AWS_IAM SigV4 with synthetic PDFs, negative caller tests, VPC Flow Logs,
+8. Test AWS_IAM SigV4 with synthetic PDFs, negative caller tests, VPC Flow Logs,
    outbound egress denial, DNS resolution, Bedrock routing and error paths.
-8. Verify actual S3 retention, separate-account backup, audit access rights,
+9. Verify actual S3 retention, separate-account backup, audit access rights,
    CloudTrail and key revocation; add externally witnessed signed checkpoints.
 
 ## Non-negotiable limitations
 
-- No claim that classification is robust: pilot sets INTERNAL for every upload
-  and does not detect confidential content. This is NOT a data-loss-prevention
-  system; real customer files must be rejected operationally until reviewed.
+- The pilot accepts only one exact SHA-256-pinned synthetic image and labels it
+  INTERNAL. It is NOT a generic data-loss-prevention classifier or protection
+  for future general-purpose client uploads.
 - Only one IAM role and one test tenant. Scale-out requires real identity
   lifecycle, OpenFGA resource-level authorization, and per-tenant encryption.
 - S3 Object Lock is NOT a cryptographic or independent audit witness, and its

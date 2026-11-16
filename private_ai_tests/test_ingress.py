@@ -1,5 +1,6 @@
 """Synthetic IAM, tenant and audit regressions. No network and no secrets."""
 import base64
+import hashlib
 import json
 import unittest
 from unittest.mock import Mock
@@ -55,7 +56,8 @@ class IngressTests(unittest.TestCase):
 
     def call(self, **overrides):
         kwargs = {"allowed_role": ROLE, "api_id": "example123",
-                  "tenant_id": "tenant_one", "gateway": self.gateway}
+                  "tenant_id": "tenant_one", "gateway": self.gateway,
+                  "expected_fixture_sha256": hashlib.sha256(b"%PDF-1.7 synthetic").hexdigest()}
         kwargs.update(overrides)
         return process_event(self.event, **kwargs)
 
@@ -105,6 +107,11 @@ class IngressTests(unittest.TestCase):
 
     def test_signed_url_not_an_attachment(self):
         self.payload["document_base64"] = "https://example.test/secret.pdf"
+        self.event["body"] = json.dumps(self.payload)
+        self.deny()
+
+    def test_other_document_denied_even_from_valid_caller(self):
+        self.payload["document_base64"] = base64.b64encode(b"%PDF-1.7 other input").decode()
         self.event["body"] = json.dumps(self.payload)
         self.deny()
 

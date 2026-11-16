@@ -6,6 +6,8 @@ must restrict invocation to IAM-authenticated API Gateway.
 """
 import base64
 import binascii
+import hashlib
+import hmac
 import json
 import re
 from .gateway import DocumentGateway, DocumentRequest
@@ -61,9 +63,15 @@ def parse_request(event):
     return body, content
 
 
-def process_event(event, *, allowed_role, api_id, tenant_id, gateway):
+def process_event(event, *, allowed_role, api_id, tenant_id, gateway, expected_fixture_sha256):
     identity = verified_caller(event, allowed_role=allowed_role, api_id=api_id, tenant_id=tenant_id)
     body, content = parse_request(event)
+    # Exactly one SHA256-pinned synthetic image can reach the pilot model.
+    # This is a containment gate, not a generic document classifier.
+    if (not isinstance(expected_fixture_sha256, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", expected_fixture_sha256)
+            or not hmac.compare_digest(hashlib.sha256(content).hexdigest(), expected_fixture_sha256)):
+        raise PolicyDenied("Document is not the pinned synthetic pilot fixture")
     req = DocumentRequest(
         tenant_id=identity.tenant_id,
         request_id=body["request_id"],

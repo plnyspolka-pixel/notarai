@@ -8,6 +8,7 @@ on:
       - ".github/workflows/private-ai-security.yml"
       - "infra/private-ai-pilot.yaml"
       - "tools/private_ai/build_pilot_zip.py"
+      - "tools/private_ai/make_fixture.py"
   push:
     branches: ["feature/private-ai-**"]
 permissions:
@@ -23,6 +24,7 @@ jobs:
           python-version: "3.11"
       - run: python -m unittest discover -s private_ai_tests -v
       - run: python -m compileall -q private_ai
+      - run: python tools/private_ai/make_fixture.py --verify-only
   policy-as-code:
     runs-on: ubuntu-latest
     timeout-minutes: 5

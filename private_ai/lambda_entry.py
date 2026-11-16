@@ -64,6 +64,7 @@ def lambda_handler(event, context):
             allowed_role=os.environ["PRIVATE_AI_ALLOWED_ROLE_ARN"],
             api_id=os.environ["PRIVATE_AI_GATEWAY_API_ID"],
             tenant_id=os.environ["PRIVATE_AI_TENANT"],
+            expected_fixture_sha256=os.environ["PRIVATE_AI_FIXTURE_SHA256"],
             gateway=gateway,
         )
         return _response(200, result)
