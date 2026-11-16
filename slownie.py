@@ -71,9 +71,12 @@ def parsuj_kwote(tekst: str) -> tuple[int, int]:
     return int(zl or 0), int(gr)
 
 
-def slownie_kwoty(tekst: str) -> str:
+def slownie_kwoty(tekst: str, grosze_slownie: bool = True) -> str:
     zl, gr = parsuj_kwote(tekst)
     wynik = f"{liczba_slownie(zl)} {forma(zl, 'złoty', 'złote', 'złotych')}"
-    if gr:
-        wynik += f" {liczba_slownie(gr)} {forma(gr, 'grosz', 'grosze', 'groszy')}"
+    if grosze_slownie:
+        if gr:
+            wynik += f" {liczba_slownie(gr)} {forma(gr, 'grosz', 'grosze', 'groszy')}"
+    else:
+        wynik += f" {gr:02d}/100"
     return wynik
