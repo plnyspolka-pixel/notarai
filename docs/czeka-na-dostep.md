@@ -251,3 +251,32 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `KOSZTY_I_COMPUTE_2026-11-13.md` §3 pkt 2 i 4.
 - **Zamknięte, gdy:** paczka klipów z jednego odcinka przeszła end-to-end, a zmierzony koszt
   klipu jest w `koszty_log.csv` i w dokumencie kosztów.
+
+
+## NA-13. Private AI Data Lineage Control Room — staging AWS i dowody rzeczywiste
+
+- **Status:** czeka
+- **Prace gotowe bez dostępu:** osobny demonstracyjny panel offline
+  (private_ai_dashboard/), model metadanych z kontrolą tenantów
+  (private_ai/lineage.py), testy, projekt AWS Private AI i read-only preflight;
+  zlecenie do Claude Code w .claude/commands/private-ai-control-room.md.
+- **Brakuje:** zatwierdzonego, oddzielnego konta/staging VPC AWS w eu-central-1,
+  rolą IAM najmniejszego uprawnienia, prywatnych podsieci, potwierdzonego modelu
+  Bedrock, kosztów oraz zgody na utworzenie zasobów. Nie używać produkcyjnych
+  dokumentów ani szerokich istniejących uprawnień wdrożeniowych.
+- **Na żywo (dopiero po potwierdzeniu środowiska):**
+  1. Read-only preflight GetInferenceProfile, AZ/subnet/VPC/route-table, IAM account;
+     zapisać konkretną listę regionów docelowych; UK i Szwajcaria odrzucone.
+  2. Review AWS CloudFormation + IAM least privilege + S3 Object Lock i
+     kosztorys, osobna akceptacja przed utworzeniem zasobów.
+  3. Uruchomić syntetyczny hash-pinned test SigV4 i sprawdzić Flow Logs,
+     PrivateLink, czas i status zdarzeń, CloudTrail i audit bucket.
+  4. Negative tests: inny tenant, inny IAM role, nieznany hash dokumentu,
+     dopisany poufny prompt, zmieniona destynacja, brak audytu, brak PDP.
+  5. Potwierdzić brak egress na inne hosty; odrębny read model metadanych,
+     testy RBAC i pseudonimizacji, audyt bez treści klienta.
+  6. Osobny przegląd wdrożenia panelu za auth, bez wystawiania go
+     publicznie oraz bez automatycznego mergowania PR #389 Finance You.
+- **Zamknięte, gdy:** kompletny runbook testu, dowód wykonanych pomiarów
+  sieciowych, wyniki regresji i zatwierdzona ścieżka do produkcji. Brak
+  zewnętrznego audytu/certyfikacji należy nadal komunikować.
