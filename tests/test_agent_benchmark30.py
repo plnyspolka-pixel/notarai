@@ -117,7 +117,7 @@ def test_docker_must_be_pinned_and_no_elevated_flags(tmp_path):
     assert '--network' in args and 'none' in args
     assert '--read-only' in args and 'ALL' in args
     assert 'privileged' not in ' '.join(args)
-    assert all('/home/' not in x and '/.ssh' not in x and 'docker.sock' not in x for x in args)
+    # GitHub Actions legitimately checks out repositories under /home/runner/.\n    # Inspect mount destinations and privileged paths, not the runner's source path.\n    mounts = [args[i+1] for i, value in enumerate(args[:-1]) if value == '--mount']\n    assert all('dst=/home/' not in x and 'dst=/.ssh' not in x and 'docker.sock' not in x for x in mounts)
 
 
 def test_docker_grade_denies_without_disposable_vm_opt_in(tmp_path, monkeypatch):
