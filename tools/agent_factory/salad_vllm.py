@@ -197,10 +197,16 @@ def model_ready(keys: dict, dns: str) -> bool:
 # ---------------------------------------------------------------- polecenia
 
 def cmd_check(keys: dict, args) -> int:
-    for c in gpu_classes(keys, args.priority):
+    gpus = gpu_classes(keys, args.priority)
+    names = [g["name"] for g in our_groups(keys)]
+    if getattr(args, "json", False):
+        payload = {"gpu": [{"name": c["name"], "vram": c["vram"], "usd_h": c["usd_h"]} for c in gpus],
+                   "groups": names}
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0
+    for c in gpus:
         print(f"{c['name']:<28}{c['usd_h']:.3f} USD/h")
-    mine = our_groups(keys)
-    print("Nasze grupy:", ", ".join(g["name"] for g in mine) or "brak")
+    print("Nasze grupy:", ", ".join(names) or "brak")
     return 0
 
 
@@ -351,7 +357,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="vLLM na SaladCloud dla agenta kodującego")
     p.add_argument("--priority", default="high", choices=["high", "medium", "low", "batch"])
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("check")
+    ch = sub.add_parser("check")
+    ch.add_argument("--json", action="store_true", help="wypisz wynik jako jeden obiekt JSON")
     up = sub.add_parser("up")
     up.add_argument("--pay", action="store_true")
     up.add_argument("--model", default=DEFAULT_MODEL)
