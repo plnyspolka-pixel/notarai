@@ -6,6 +6,8 @@ on:
       - feature/agent-factory-learning-loop-20261116
     paths:
       - ".github/workflows/worker-army-real-cpu.yml"
+      - "tools/agent_factory/worker_pool.py"
+      - "tools/agent_factory/worker_mcp.py"
   workflow_dispatch:
 
 permissions:
@@ -106,23 +108,30 @@ jobs:
           results = json.loads(responses[2]["result"]["content"][0]["text"])
           assert pool["enabled"] is True
           assert results["workers_attempted"] == 3
-          assert results["proposals"] == 3, results
+          assert results["proposals"] >= 1, results
           assert all(
-              x["status"] == "proposed_unverified" and x.get("content")
+              x["status"] in {"proposed_unverified", "rejected_low_quality"}
               for x in results["results"]
+          )
+          assert all(
+              x.get("content") for x in results["results"]
+              if x["status"] == "proposed_unverified"
           )
           out = Path("/tmp/worker-army-evidence")
           out.mkdir()
           (out / "proposals.json").write_text(
               json.dumps(results, ensure_ascii=False, indent=2) + "\n")
           (out / "summary.json").write_text(json.dumps({
-              "status": "THREE_REAL_CPU_MODEL_PROPOSALS_NOT_VERIFIED_CODE",
+              "status": "REAL_CPU_RESPONSES_WITH_ROLE_QUALITY_GATE_NOT_VERIFIED_CODE",
               "model": pool["model"],
               "workers": 3, "proposals": results["proposals"],
+              "rejected": 3 - results["proposals"],
               "gpu_calls": 0, "premium_model_calls": 0,
               "notes": "One CPU inference server, three parallel specialist requests; no lead Claude/Codex run."
           }, indent=2) + "\n")
-          print("Real CPU work packets returned:", results["proposals"])
+          print("Real CPU requests:", results["workers_attempted"],
+                "usable proposals:", results["proposals"],
+                "rejected:", 3 - results["proposals"])
           PY
       - name: Upload offline experiment evidence
         if: always()
