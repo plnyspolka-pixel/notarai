@@ -1,0 +1,82 @@
+name: Benchmark30 - isolated offline preflight
+
+on:
+  push:
+    branches:
+      - research/coding-agents-100-foundation-20261116
+    paths:
+      - ".github/workflows/benchmark30-research-preflight.yml"
+      - "tools/agent_factory/benchmark30*.py"
+      - "tools/agent_factory/research_foundation.py"
+      - "docs/agent-factory-research/benchmark30/**"
+      - "tests/test_agent_benchmark30.py"
+      - "tests/test_research_foundation.py"
+  pull_request:
+    paths:
+      - ".github/workflows/benchmark30-research-preflight.yml"
+      - "tools/agent_factory/benchmark30*.py"
+      - "docs/agent-factory-research/benchmark30/**"
+      - "tests/test_agent_benchmark30.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench30-preflight-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-research-benchmark:
+    name: Benchmark30 — 30 tasks / 61 cases / harness tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - name: Checkout branch (no credentials retained)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install "pytest>=8,<9"
+      - name: Validate frozen benchmark inputs
+        run: |
+          mkdir -p benchmark30-results
+          python -m tools.agent_factory.benchmark30 validate | tee benchmark30-results/validate.json
+          python -m tools.agent_factory.benchmark30 plan | tee benchmark30-results/plan.json
+      - name: Run benchmark infrastructure and safety tests
+        run: |
+          set -o pipefail
+          python -m pytest -q tests/test_agent_benchmark30.py tests/test_research_foundation.py | tee benchmark30-results/pytest.txt
+      - name: Record run provenance and explicit model-run status
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          result = {
+              "kind": "benchmark30-offline-preflight",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              "model_execution": "not_started",
+              "gpu_execution": "not_started",
+              "claude_execution": "not_started",
+              "cost_savings": "unknown",
+              "note": "These checks do not measure any LLM's ability to code."
+          }
+          pathlib.Path("benchmark30-results").mkdir(exist_ok=True)
+          pathlib.Path("benchmark30-results/provenance.json").write_text(json.dumps(result, indent=2) + "\n")
+          PY
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark30-preflight-${{ github.run_id }}
+          path: benchmark30-results/
+          if-no-files-found: error
+          retention-days: 30
