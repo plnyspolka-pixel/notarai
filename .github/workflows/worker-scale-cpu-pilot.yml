@@ -1,4 +1,4 @@
-name: Worker Army - 40-contract real CPU A/B pilot
+name: Worker Army - 40-contract real CPU A/B pilot (guarded v2)
 
 on:
   push:
