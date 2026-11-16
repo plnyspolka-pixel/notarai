@@ -1,0 +1,110 @@
+name: Worker Army - 60-contract real CPU A/B extension
+
+on:
+  push:
+    branches:
+      - feature/agent-factory-learning-loop-20261116
+    paths:
+      - ".github/workflows/worker-scale-cpu-remaining.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  same-model-paired-worker-methods:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [0, 1, 2, 3, 4]
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      AGENT_FORGE_ALLOW_LOCAL_WORKERS: I_APPROVE_SYNTHETIC_LOOPBACK_WORKERS
+      AGENT_FORGE_WORKER_ENDPOINT: http://127.0.0.1:8000/v1
+      AGENT_FORGE_WORKER_MODEL: qwen2.5-coder-7b
+      AGENT_BENCH30_ISOLATED_VM_APPROVED: SYNTHETIC_DISPOSABLE_VM_ONLY
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install local CPU inference, offline grader and test dependencies
+        timeout-minutes: 15
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/worker-scale-req.txt
+          python -m pip install -r /tmp/worker-scale-req.txt
+          python -m pip install "huggingface_hub>=0.34,<1.0"
+          CMAKE_ARGS="-DGGML_NATIVE=OFF" python -m pip install "llama-cpp-python[server]==0.3.16" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Verify contract corpus and grader logic without model calls
+        run: |
+          python -m pytest -q tests/test_worker_scale_corpus.py tests/test_worker_scale_sandbox.py tests/test_worker_scale_runner.py
+      - name: Download immutable Qwen coder model and pin Docker grader image
+        timeout-minutes: 12
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import hf_hub_download
+          revision = "13fb94bfda8c8cf22497dc57b78f391a9acb426a"
+          path = hf_hub_download(
+              repo_id="Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+              filename="qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+              revision=revision,
+              local_dir="/tmp/worker-scale-model")
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write("MODEL_PATH=" + path + "\n")
+          print("Pinned model revision:", revision)
+          PY
+          docker pull python:3.12-slim
+          DIGEST="$(docker image inspect python:3.12-slim --format '{{index .RepoDigests 0}}')"
+          echo "$DIGEST" | grep -Eq '^[a-z0-9._/-]+@sha256:[a-f0-9]{64}$'
+          echo "GRADER_IMAGE=$DIGEST" >> "$GITHUB_ENV"
+          echo "Pinned grading image: $DIGEST"
+      - name: Run Qwen7B on 12 new contracts in each shard (no pilot repetitions)
+        timeout-minutes: 38
+        run: |
+          set -euo pipefail
+          python -m llama_cpp.server --model "$MODEL_PATH" \
+            --model_alias qwen2.5-coder-7b \
+            --host 127.0.0.1 --port 8000 --chat_format chatml \
+            --n_threads 4 --n_ctx 4096 \
+            > "$RUNNER_TEMP/worker-scale-model.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 120); do
+            if curl -fsS --max-time 1 http://127.0.0.1:8000/v1/models > /dev/null; then READY=1; break; fi
+            if ! kill -0 "$PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "Local CPU model did not become ready"
+            tail -30 "$RUNNER_TEMP/worker-scale-model.log"
+            exit 1
+          fi
+          python -m tools.agent_factory.worker_scale_runner \
+            --image "$GRADER_IMAGE" --out /tmp/worker-scale-results \
+            --shard ${{ matrix.shard }} --per-family 6 --start-variant 4 --split development
+      - name: Record failure without inventing model results
+        if: failure()
+        run: |
+          mkdir -p /tmp/worker-scale-results
+          if [ ! -f /tmp/worker-scale-results/results.json ]; then
+            printf '{"status":"INCOMPLETE","scored_tasks":null,"model_calls":null,"training_performed":false}\n' > /tmp/worker-scale-results/results.json
+          fi
+      - name: Publish per-shard actual model evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scale-cpu-remaining-shard-${{ matrix.shard }}
+          path: /tmp/worker-scale-results/
+          if-no-files-found: warn
+          retention-days: 30
