@@ -26,7 +26,7 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONNOUSERSITE: "1"
       AGENT_BENCH30_ISOLATED_VM_APPROVED: SYNTHETIC_DISPOSABLE_VM_ONLY
-      CPU_PILOT_OUT: ${{ runner.temp }}/benchmark30-qwen-pilot
+      CPU_PILOT_OUT: /tmp/benchmark30-qwen-pilot
     steps:
       - name: Checkout synthetic research suite (do not retain GitHub credentials)
         uses: actions/checkout@v4
