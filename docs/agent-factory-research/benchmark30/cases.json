@@ -1,0 +1,1301 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "tests": [
+    {
+      "id": "T01-C01",
+      "task_id": "T01",
+      "chain": "catalog",
+      "step": 1,
+      "args": [
+        [
+          {
+            "id": 1,
+            "name": "Oak"
+          },
+          {
+            "id": 2,
+            "name": "Birch"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "2",
+          "name": "birch"
+        },
+        {
+          "id": "1",
+          "name": "oak"
+        }
+      ]
+    },
+    {
+      "id": "T01-C02",
+      "task_id": "T01",
+      "chain": "catalog",
+      "step": 1,
+      "args": [
+        [
+          {
+            "id": "x",
+            "name": "Zed"
+          },
+          {
+            "id": "a",
+            "name": "Able"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "a",
+          "name": "able"
+        },
+        {
+          "id": "x",
+          "name": "zed"
+        }
+      ]
+    },
+    {
+      "id": "T02-C01",
+      "task_id": "T02",
+      "chain": "catalog",
+      "step": 2,
+      "args": [
+        [
+          {
+            "id": "X",
+            "name": "  Red   FOX "
+          },
+          {
+            "id": "Y",
+            "name": "blue FOX"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "Y",
+          "name": "blue fox"
+        },
+        {
+          "id": "X",
+          "name": "red fox"
+        }
+      ]
+    },
+    {
+      "id": "T02-C02",
+      "task_id": "T02",
+      "chain": "catalog",
+      "step": 2,
+      "args": [
+        [
+          {
+            "id": "7",
+            "name": " MiXeD Case "
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "7",
+          "name": "mixed case"
+        }
+      ]
+    },
+    {
+      "id": "T03-C01",
+      "task_id": "T03",
+      "chain": "catalog",
+      "step": 3,
+      "args": [
+        [
+          {
+            "id": 2,
+            "name": "old"
+          },
+          {
+            "id": "2",
+            "name": "NEW"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "2",
+          "name": "new"
+        }
+      ]
+    },
+    {
+      "id": "T03-C02",
+      "task_id": "T03",
+      "chain": "catalog",
+      "step": 3,
+      "args": [
+        [
+          {
+            "id": "x",
+            "name": "Alpha"
+          },
+          {
+            "id": "y",
+            "name": "Gamma"
+          },
+          {
+            "id": "x",
+            "name": "Beta"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "x",
+          "name": "beta"
+        },
+        {
+          "id": "y",
+          "name": "gamma"
+        }
+      ]
+    },
+    {
+      "id": "T04-C01",
+      "task_id": "T04",
+      "chain": "catalog",
+      "step": 4,
+      "args": [
+        [
+          {
+            "name": "no id"
+          },
+          {
+            "id": 3,
+            "name": " ok "
+          },
+          null
+        ]
+      ],
+      "expected": [
+        {
+          "id": "3",
+          "name": "ok"
+        }
+      ]
+    },
+    {
+      "id": "T04-C02",
+      "task_id": "T04",
+      "chain": "catalog",
+      "step": 4,
+      "args": [
+        [
+          {
+            "id": null,
+            "name": "nil"
+          },
+          {
+            "id": 5,
+            "name": "   "
+          },
+          {
+            "id": "ok",
+            "name": " Valid  "
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "ok",
+          "name": "valid"
+        }
+      ]
+    },
+    {
+      "id": "T05-C01",
+      "task_id": "T05",
+      "chain": "catalog",
+      "step": 5,
+      "args": [
+        [
+          {
+            "id": "b",
+            "name": "same"
+          },
+          {
+            "id": "a",
+            "name": "same"
+          },
+          {
+            "id": "c",
+            "name": "other"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "c",
+          "name": "other"
+        },
+        {
+          "id": "a",
+          "name": "same"
+        },
+        {
+          "id": "b",
+          "name": "same"
+        }
+      ]
+    },
+    {
+      "id": "T05-C02",
+      "task_id": "T05",
+      "chain": "catalog",
+      "step": 5,
+      "args": [
+        [
+          {
+            "id": "a",
+            "name": "Alpha"
+          },
+          {
+            "id": 2,
+            "name": "beta"
+          },
+          {
+            "id": "2",
+            "name": "GAMMA"
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "id": "a",
+          "name": "alpha"
+        },
+        {
+          "id": "2",
+          "name": "gamma"
+        }
+      ]
+    },
+    {
+      "id": "T06-C01",
+      "task_id": "T06",
+      "chain": "permissions",
+      "step": 1,
+      "args": [
+        {
+          "role": "viewer",
+          "action": "read"
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T06-C02",
+      "task_id": "T06",
+      "chain": "permissions",
+      "step": 1,
+      "args": [
+        {
+          "role": "viewer",
+          "action": "write"
+        }
+      ],
+      "expected": false
+    },
+    {
+      "id": "T06-C03",
+      "task_id": "T06",
+      "chain": "permissions",
+      "step": 1,
+      "args": [
+        {
+          "role": "admin",
+          "action": "write"
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T07-C01",
+      "task_id": "T07",
+      "chain": "permissions",
+      "step": 2,
+      "args": [
+        {
+          "role": "editor",
+          "action": "write",
+          "tenant": "a",
+          "actor_tenant": "a"
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T07-C02",
+      "task_id": "T07",
+      "chain": "permissions",
+      "step": 2,
+      "args": [
+        {
+          "role": "admin",
+          "action": "read",
+          "tenant": "b",
+          "actor_tenant": "a"
+        }
+      ],
+      "expected": false
+    },
+    {
+      "id": "T08-C01",
+      "task_id": "T08",
+      "chain": "permissions",
+      "step": 3,
+      "args": [
+        {
+          "role": "admin",
+          "action": "delete",
+          "approved": true
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T08-C02",
+      "task_id": "T08",
+      "chain": "permissions",
+      "step": 3,
+      "args": [
+        {
+          "role": "admin",
+          "action": "delete",
+          "approved": "yes"
+        }
+      ],
+      "expected": false
+    },
+    {
+      "id": "T09-C01",
+      "task_id": "T09",
+      "chain": "permissions",
+      "step": 4,
+      "args": [
+        {
+          "role": "editor",
+          "action": "write",
+          "now": 20,
+          "expires_at": 21
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T09-C02",
+      "task_id": "T09",
+      "chain": "permissions",
+      "step": 4,
+      "args": [
+        {
+          "role": "editor",
+          "action": "write",
+          "now": 20,
+          "expires_at": 20
+        }
+      ],
+      "expected": false
+    },
+    {
+      "id": "T10-C01",
+      "task_id": "T10",
+      "chain": "permissions",
+      "step": 5,
+      "args": [
+        {
+          "role": "admin",
+          "action": "delete",
+          "approved": true,
+          "revoked": true
+        }
+      ],
+      "expected": false
+    },
+    {
+      "id": "T10-C02",
+      "task_id": "T10",
+      "chain": "permissions",
+      "step": 5,
+      "args": [
+        {
+          "role": "admin",
+          "action": "delete",
+          "approved": true,
+          "revoked": false,
+          "tenant": "a",
+          "actor_tenant": "a"
+        }
+      ],
+      "expected": true
+    },
+    {
+      "id": "T11-C01",
+      "task_id": "T11",
+      "chain": "slots",
+      "step": 1,
+      "args": [
+        {
+          "start": 540,
+          "end": 600,
+          "duration": 30,
+          "step": 15
+        }
+      ],
+      "expected": [
+        540,
+        555,
+        570
+      ]
+    },
+    {
+      "id": "T11-C02",
+      "task_id": "T11",
+      "chain": "slots",
+      "step": 1,
+      "args": [
+        {
+          "start": 0,
+          "end": 30,
+          "duration": 45,
+          "step": 15
+        }
+      ],
+      "expected": []
+    },
+    {
+      "id": "T12-C01",
+      "task_id": "T12",
+      "chain": "slots",
+      "step": 2,
+      "args": [
+        {
+          "start": 540,
+          "end": 660,
+          "duration": 30,
+          "step": 30,
+          "blocked": [
+            [
+              570,
+              600
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        540,
+        600,
+        630
+      ]
+    },
+    {
+      "id": "T12-C02",
+      "task_id": "T12",
+      "chain": "slots",
+      "step": 2,
+      "args": [
+        {
+          "start": 500,
+          "end": 560,
+          "duration": 20,
+          "step": 20,
+          "blocked": [
+            [
+              500,
+              520
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        520,
+        540
+      ]
+    },
+    {
+      "id": "T13-C01",
+      "task_id": "T13",
+      "chain": "slots",
+      "step": 3,
+      "args": [
+        {
+          "start": 540,
+          "end": 630,
+          "duration": 30,
+          "step": 30,
+          "blocked": [
+            [
+              570,
+              600
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        540,
+        600
+      ]
+    },
+    {
+      "id": "T13-C02",
+      "task_id": "T13",
+      "chain": "slots",
+      "step": 3,
+      "args": [
+        {
+          "start": 0,
+          "end": 100,
+          "duration": 20,
+          "step": 20,
+          "blocked": [
+            [
+              40,
+              60
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        0,
+        20,
+        60,
+        80
+      ]
+    },
+    {
+      "id": "T14-C01",
+      "task_id": "T14",
+      "chain": "slots",
+      "step": 4,
+      "args": [
+        {
+          "start": 0,
+          "end": 120,
+          "duration": 20,
+          "step": 20,
+          "blocked": [
+            [
+              10,
+              50
+            ],
+            [
+              40,
+              70
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        80,
+        100
+      ]
+    },
+    {
+      "id": "T14-C02",
+      "task_id": "T14",
+      "chain": "slots",
+      "step": 4,
+      "args": [
+        {
+          "start": 0,
+          "end": 90,
+          "duration": 15,
+          "step": 15,
+          "blocked": [
+            [
+              0,
+              15
+            ],
+            [
+              60,
+              90
+            ]
+          ]
+        }
+      ],
+      "expected": [
+        15,
+        30,
+        45
+      ]
+    },
+    {
+      "id": "T15-C01",
+      "task_id": "T15",
+      "chain": "slots",
+      "step": 5,
+      "args": [
+        {
+          "start": 0,
+          "end": 60,
+          "duration": 0,
+          "step": 15,
+          "blocked": []
+        }
+      ],
+      "expected": []
+    },
+    {
+      "id": "T15-C02",
+      "task_id": "T15",
+      "chain": "slots",
+      "step": 5,
+      "args": [
+        {
+          "start": 0,
+          "end": 120,
+          "duration": 30,
+          "step": 30,
+          "blocked": [
+            [
+              80,
+              70
+            ]
+          ]
+        }
+      ],
+      "expected": []
+    },
+    {
+      "id": "T16-C01",
+      "task_id": "T16",
+      "chain": "deps",
+      "step": 1,
+      "args": [
+        {
+          "imports": {
+            "a": [
+              "b"
+            ],
+            "b": [],
+            "c": []
+          },
+          "changed": [
+            "b"
+          ]
+        }
+      ],
+      "expected": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "T16-C02",
+      "task_id": "T16",
+      "chain": "deps",
+      "step": 1,
+      "args": [
+        {
+          "imports": {
+            "service": [
+              "util"
+            ],
+            "util": []
+          },
+          "changed": [
+            "service"
+          ]
+        }
+      ],
+      "expected": [
+        "service"
+      ]
+    },
+    {
+      "id": "T17-C01",
+      "task_id": "T17",
+      "chain": "deps",
+      "step": 2,
+      "args": [
+        {
+          "imports": {
+            "ui": [
+              "api"
+            ],
+            "api": [
+              "core"
+            ],
+            "core": []
+          },
+          "changed": [
+            "core"
+          ]
+        }
+      ],
+      "expected": [
+        "api",
+        "core",
+        "ui"
+      ]
+    },
+    {
+      "id": "T17-C02",
+      "task_id": "T17",
+      "chain": "deps",
+      "step": 2,
+      "args": [
+        {
+          "imports": {
+            "x": [
+              "y"
+            ],
+            "y": [
+              "z"
+            ],
+            "z": [],
+            "extra": []
+          },
+          "changed": [
+            "z"
+          ]
+        }
+      ],
+      "expected": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "T18-C01",
+      "task_id": "T18",
+      "chain": "deps",
+      "step": 3,
+      "args": [
+        {
+          "imports": {
+            "a": [
+              "b"
+            ],
+            "b": [
+              "a"
+            ],
+            "c": [
+              "b"
+            ]
+          },
+          "changed": [
+            "b"
+          ]
+        }
+      ],
+      "expected": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "id": "T18-C02",
+      "task_id": "T18",
+      "chain": "deps",
+      "step": 3,
+      "args": [
+        {
+          "imports": {
+            "a": [
+              "a"
+            ],
+            "b": [
+              "a"
+            ]
+          },
+          "changed": [
+            "a"
+          ]
+        }
+      ],
+      "expected": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "T19-C01",
+      "task_id": "T19",
+      "chain": "deps",
+      "step": 4,
+      "args": [
+        {
+          "imports": {
+            "a": [
+              "missing"
+            ],
+            "b": []
+          },
+          "changed": [
+            "missing"
+          ]
+        }
+      ],
+      "expected": []
+    },
+    {
+      "id": "T19-C02",
+      "task_id": "T19",
+      "chain": "deps",
+      "step": 4,
+      "args": [
+        {
+          "imports": {
+            "a": [
+              "b"
+            ],
+            "b": [
+              "external"
+            ]
+          },
+          "changed": [
+            "external",
+            "b"
+          ]
+        }
+      ],
+      "expected": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "id": "T20-C01",
+      "task_id": "T20",
+      "chain": "deps",
+      "step": 5,
+      "args": [
+        {
+          "imports": {
+            "z": [
+              "y"
+            ],
+            "x": [
+              "y"
+            ],
+            "y": []
+          },
+          "changed": [
+            "y",
+            "y"
+          ]
+        }
+      ],
+      "expected": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "T20-C02",
+      "task_id": "T20",
+      "chain": "deps",
+      "step": 5,
+      "args": [
+        {
+          "imports": {
+            "t": [
+              "s"
+            ],
+            "s": [
+              "r"
+            ],
+            "r": []
+          },
+          "changed": [
+            "r",
+            "t"
+          ]
+        }
+      ],
+      "expected": [
+        "r",
+        "s",
+        "t"
+      ]
+    },
+    {
+      "id": "T21-C01",
+      "task_id": "T21",
+      "chain": "ledger",
+      "step": 1,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "put",
+            "value": 4,
+            "rev": 1
+          }
+        ]
+      ],
+      "expected": {
+        "a": 4
+      }
+    },
+    {
+      "id": "T21-C02",
+      "task_id": "T21",
+      "chain": "ledger",
+      "step": 1,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "x",
+            "op": "put",
+            "value": "one",
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "y",
+            "op": "put",
+            "value": "two",
+            "rev": 1
+          }
+        ]
+      ],
+      "expected": {
+        "x": "one",
+        "y": "two"
+      }
+    },
+    {
+      "id": "T22-C01",
+      "task_id": "T22",
+      "chain": "ledger",
+      "step": 2,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "put",
+            "value": 1,
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "delete",
+            "rev": 2
+          }
+        ]
+      ],
+      "expected": {}
+    },
+    {
+      "id": "T22-C02",
+      "task_id": "T22",
+      "chain": "ledger",
+      "step": 2,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "delete",
+            "rev": 2
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "put",
+            "value": 9,
+            "rev": 1
+          }
+        ]
+      ],
+      "expected": {}
+    },
+    {
+      "id": "T23-C01",
+      "task_id": "T23",
+      "chain": "ledger",
+      "step": 3,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "put",
+            "value": 1,
+            "rev": 1
+          },
+          {
+            "id": "1",
+            "key": "b",
+            "op": "put",
+            "value": 2,
+            "rev": 2
+          }
+        ]
+      ],
+      "expected": {
+        "a": 1
+      }
+    },
+    {
+      "id": "T23-C02",
+      "task_id": "T23",
+      "chain": "ledger",
+      "step": 3,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "x",
+            "op": "put",
+            "value": 4,
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "x",
+            "op": "put",
+            "value": 5,
+            "rev": 2
+          },
+          {
+            "id": "2",
+            "key": "x",
+            "op": "delete",
+            "rev": 3
+          }
+        ]
+      ],
+      "expected": {
+        "x": 5
+      }
+    },
+    {
+      "id": "T24-C01",
+      "task_id": "T24",
+      "chain": "ledger",
+      "step": 4,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "put",
+            "value": "new",
+            "rev": 4
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "put",
+            "value": "old",
+            "rev": 3
+          }
+        ]
+      ],
+      "expected": {
+        "a": "new"
+      }
+    },
+    {
+      "id": "T24-C02",
+      "task_id": "T24",
+      "chain": "ledger",
+      "step": 4,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "a",
+            "op": "put",
+            "value": 9,
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "put",
+            "value": 0,
+            "rev": true
+          }
+        ]
+      ],
+      "expected": {
+        "a": 9
+      }
+    },
+    {
+      "id": "T25-C01",
+      "task_id": "T25",
+      "chain": "ledger",
+      "step": 5,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "z",
+            "op": "put",
+            "value": 1,
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "put",
+            "value": 2,
+            "rev": 1
+          }
+        ]
+      ],
+      "expected": {
+        "a": 2,
+        "z": 1
+      }
+    },
+    {
+      "id": "T25-C02",
+      "task_id": "T25",
+      "chain": "ledger",
+      "step": 5,
+      "args": [
+        [
+          {
+            "id": "1",
+            "key": "q",
+            "op": "unknown",
+            "rev": 1
+          },
+          {
+            "id": "2",
+            "key": "a",
+            "op": "put",
+            "value": 3,
+            "rev": 2
+          },
+          {
+            "id": "3",
+            "key": "z",
+            "op": "put",
+            "value": 4,
+            "rev": 3
+          }
+        ]
+      ],
+      "expected": {
+        "a": 3,
+        "z": 4
+      }
+    },
+    {
+      "id": "T26-C01",
+      "task_id": "T26",
+      "chain": "scrub",
+      "step": 1,
+      "args": [
+        "token sk-abcde12345 present"
+      ],
+      "expected": "token [REDACTED_TOKEN] present"
+    },
+    {
+      "id": "T26-C02",
+      "task_id": "T26",
+      "chain": "scrub",
+      "step": 1,
+      "args": [
+        "hello ordinary content"
+      ],
+      "expected": "hello ordinary content"
+    },
+    {
+      "id": "T27-C01",
+      "task_id": "T27",
+      "chain": "scrub",
+      "step": 2,
+      "args": [
+        "mail alice@example.test and bob@sample.org"
+      ],
+      "expected": "mail [REDACTED_EMAIL] and [REDACTED_EMAIL]"
+    },
+    {
+      "id": "T27-C02",
+      "task_id": "T27",
+      "chain": "scrub",
+      "step": 2,
+      "args": [
+        "sk-abcdefg used by jane@lab.org"
+      ],
+      "expected": "[REDACTED_TOKEN] used by [REDACTED_EMAIL]"
+    },
+    {
+      "id": "T28-C01",
+      "task_id": "T28",
+      "chain": "scrub",
+      "step": 3,
+      "args": [
+        "id 12345678901 is synthetic"
+      ],
+      "expected": "id [REDACTED_ID] is synthetic"
+    },
+    {
+      "id": "T28-C02",
+      "task_id": "T28",
+      "chain": "scrub",
+      "step": 3,
+      "args": [
+        "numbers 1234567890 or 123456789012"
+      ],
+      "expected": "numbers 1234567890 or 123456789012"
+    },
+    {
+      "id": "T29-C01",
+      "task_id": "T29",
+      "chain": "scrub",
+      "step": 4,
+      "args": [
+        "Authorization: Bearer abcdefg.123456789-xyz"
+      ],
+      "expected": "Authorization: [REDACTED_BEARER]"
+    },
+    {
+      "id": "T29-C02",
+      "task_id": "T29",
+      "chain": "scrub",
+      "step": 4,
+      "args": [
+        "bearer abcde123 and sk-xxxxxx"
+      ],
+      "expected": "[REDACTED_BEARER] and [REDACTED_TOKEN]"
+    },
+    {
+      "id": "T30-C01",
+      "task_id": "T30",
+      "chain": "scrub",
+      "step": 5,
+      "args": [
+        "No secrets or private data anywhere"
+      ],
+      "expected": "No secrets or private data anywhere"
+    },
+    {
+      "id": "T30-C02",
+      "task_id": "T30",
+      "chain": "scrub",
+      "step": 5,
+      "args": [
+        "sk-abcde12345 alice@example.test Bearer abcdefghi 12345678901"
+      ],
+      "expected": "[REDACTED_TOKEN] [REDACTED_EMAIL] [REDACTED_BEARER] [REDACTED_ID]"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{"task_id":"example-1","base_commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","variant":"baseline","accepted":false,"cost_pln":1.0}
+{"task_id":"example-1","base_commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","variant":"candidate","accepted":true,"cost_pln":1.5}
+{"task_id":"example-2","base_commit":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","variant":"baseline","accepted":true,"cost_pln":1.0}
+{"task_id":"example-2","base_commit":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","variant":"candidate","accepted":true,"cost_pln":0.9}

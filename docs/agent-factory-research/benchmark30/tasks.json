@@ -1,0 +1,602 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "benchmark": "coding-agents-30-long-horizon-v1",
+  "description": "6 chains x 5 sequential coding edits; test each checkpoint cumulatively. Not hidden, not calibrated to real-world task difficulty.",
+  "tasks": [
+    {
+      "id": "T01",
+      "chain": "catalog",
+      "step": 1,
+      "path": "catalog/solution.py",
+      "entrypoint": "normalize_catalog(rows)",
+      "title": "Clean collection",
+      "request": "Implement normalize_catalog(rows): accept a list of valid {id,name} records. Return records with id as string and normalized name, preserving all entries in deterministic alphabetical name order.",
+      "acceptance": [
+        "Valid items are returned with id and name",
+        "Strings are preserved semantically"
+      ],
+      "research": [
+        "2303.12570"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T02",
+      "chain": "catalog",
+      "step": 2,
+      "path": "catalog/solution.py",
+      "entrypoint": "normalize_catalog(rows)",
+      "title": "Whitespace and case",
+      "request": "Extend catalog normalization: collapse repeated whitespace and casefold names. Preserve behavior required by stage 1 and do not mutate input rows.",
+      "acceptance": [
+        "Whitespace normalization",
+        "Case-insensitive name representation"
+      ],
+      "research": [
+        "2607.25431"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T03",
+      "chain": "catalog",
+      "step": 3,
+      "path": "catalog/solution.py",
+      "entrypoint": "normalize_catalog(rows)",
+      "title": "Deduplication",
+      "request": "Extend catalog normalization: duplicate ids use the LAST valid record. IDs are normalized to strings before equality, and earlier stages must remain correct.",
+      "acceptance": [
+        "Last valid record wins",
+        "Integer and string ids align"
+      ],
+      "research": [
+        "2610.04838"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T04",
+      "chain": "catalog",
+      "step": 4,
+      "path": "catalog/solution.py",
+      "entrypoint": "normalize_catalog(rows)",
+      "title": "Malformed entries",
+      "request": "Extend catalog normalization: ignore malformed or missing-id records, empty ids or empty names without exceptions. Preserve earlier behavior.",
+      "acceptance": [
+        "Invalid items discarded",
+        "No mutation of source list"
+      ],
+      "research": [
+        "2609.04167"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T05",
+      "chain": "catalog",
+      "step": 5,
+      "path": "catalog/solution.py",
+      "entrypoint": "normalize_catalog(rows)",
+      "title": "Stable order",
+      "request": "Finalize catalog: deterministic sort by normalized name and id; identical content in any input order should produce identical output for distinct ids. Preserve all earlier requirements.",
+      "acceptance": [
+        "Deterministic sorting",
+        "No regression through five iterations"
+      ],
+      "research": [
+        "2611.07166"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "T06",
+      "chain": "permissions",
+      "step": 1,
+      "path": "permissions/solution.py",
+      "entrypoint": "decide(request)",
+      "title": "Role ACL",
+      "request": "Implement decide(request) returning a boolean. Viewer may read, editor may read/write, admin may read/write/delete. Unknown actions or roles deny by default.",
+      "acceptance": [
+        "Explicit allow matrix",
+        "Unknown requests denied"
+      ],
+      "research": [
+        "2609.04167"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T07",
+      "chain": "permissions",
+      "step": 2,
+      "path": "permissions/solution.py",
+      "entrypoint": "decide(request)",
+      "title": "Tenant boundary",
+      "request": "Add tenant isolation: where a resource tenant is supplied, actor_tenant must match. Keep role matrix unchanged. Deny unknown tenant identity.",
+      "acceptance": [
+        "Cross-tenant blocked",
+        "Matching tenant allowed"
+      ],
+      "research": [
+        "2509.22040"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T08",
+      "chain": "permissions",
+      "step": 3,
+      "path": "permissions/solution.py",
+      "entrypoint": "decide(request)",
+      "title": "Approval required",
+      "request": "Add explicit approval gate: delete requires approved is exactly True; truthy strings do not qualify. Preserve previous authorization checks.",
+      "acceptance": [
+        "Delete needs approval",
+        "Approval not inferred from string"
+      ],
+      "research": [
+        "2609.04167"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T09",
+      "chain": "permissions",
+      "step": 4,
+      "path": "permissions/solution.py",
+      "entrypoint": "decide(request)",
+      "title": "Expiring access",
+      "request": "When expires_at is provided, require integer now and expires_at and strict now < expires_at. Preserve previous rules.",
+      "acceptance": [
+        "Expiry equal to now denied",
+        "Invalid timestamps denied"
+      ],
+      "research": [
+        "2610.19298"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T10",
+      "chain": "permissions",
+      "step": 5,
+      "path": "permissions/solution.py",
+      "entrypoint": "decide(request)",
+      "title": "Revocations",
+      "request": "If revoked is exactly True, authorization is denied even for admin with a valid permit. Preserve previous behavior and fail closed.",
+      "acceptance": [
+        "Revocations override grants",
+        "No privilege escalation"
+      ],
+      "research": [
+        "2607.20759"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "T11",
+      "chain": "slots",
+      "step": 1,
+      "path": "slots/solution.py",
+      "entrypoint": "slots(request)",
+      "title": "Basic time grid",
+      "request": "Implement slots(request) producing integer start times. request includes start,end,duration,step in minutes, and return every valid position within [start,end).",
+      "acceptance": [
+        "End boundary excluded for non-fitting slots",
+        "Deterministic step grid"
+      ],
+      "research": [
+        "2605.24110"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T12",
+      "chain": "slots",
+      "step": 2,
+      "path": "slots/solution.py",
+      "entrypoint": "slots(request)",
+      "title": "Blocked intervals",
+      "request": "Add blocked as half-open [start,end] minute pairs; no returned slot may intersect an occupied interval. Preserve basic behavior.",
+      "acceptance": [
+        "Blocking removes overlaps",
+        "Nonconflicting slots retained"
+      ],
+      "research": [
+        "2607.00990"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T13",
+      "chain": "slots",
+      "step": 3,
+      "path": "slots/solution.py",
+      "entrypoint": "slots(request)",
+      "title": "Boundary cases",
+      "request": "Handle meetings touching block endpoints as nonoverlapping: slot ending exactly when a block begins or starting at block end is valid.",
+      "acceptance": [
+        "Half-open interval semantics",
+        "No off-by-one overlap"
+      ],
+      "research": [
+        "2610.03984"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T14",
+      "chain": "slots",
+      "step": 4,
+      "path": "slots/solution.py",
+      "entrypoint": "slots(request)",
+      "title": "Multiple blockers",
+      "request": "Support several overlapping or disjoint blocks without duplicating slots. Output ascending and preserve all prior behavior.",
+      "acceptance": [
+        "Multiple blocks honored",
+        "Stable ascending output"
+      ],
+      "research": [
+        "2609.09133"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T15",
+      "chain": "slots",
+      "step": 5,
+      "path": "slots/solution.py",
+      "entrypoint": "slots(request)",
+      "title": "Invalid input",
+      "request": "Reject malformed start/end/duration/step and malformed blocked intervals by returning [] without raising exceptions. Keep all prior cases.",
+      "acceptance": [
+        "Fail closed on malformed inputs",
+        "No regression"
+      ],
+      "research": [
+        "2609.04167"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "T16",
+      "chain": "deps",
+      "step": 1,
+      "path": "deps/solution.py",
+      "entrypoint": "affected(request)",
+      "title": "Direct dependents",
+      "request": "Implement affected(request): graph imports maps module to dependencies, changed lists modified modules. Return changed modules and direct dependents, sorted, ignoring unknown changed names.",
+      "acceptance": [
+        "Reverse dependency lookup",
+        "Changed modules included"
+      ],
+      "research": [
+        "2602.20048"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T17",
+      "chain": "deps",
+      "step": 2,
+      "path": "deps/solution.py",
+      "entrypoint": "affected(request)",
+      "title": "Transitive impact",
+      "request": "Follow reverse import edges transitively, not just direct dependents. Deterministic result for the same graph.",
+      "acceptance": [
+        "Indirect dependents included",
+        "No unrelated modules"
+      ],
+      "research": [
+        "2607.25431"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T18",
+      "chain": "deps",
+      "step": 3,
+      "path": "deps/solution.py",
+      "entrypoint": "affected(request)",
+      "title": "Cycles",
+      "request": "Handle dependency cycles and self-imports without infinite loops or duplicated results.",
+      "acceptance": [
+        "Cycle termination",
+        "No duplicates"
+      ],
+      "research": [
+        "2605.16352"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T19",
+      "chain": "deps",
+      "step": 4,
+      "path": "deps/solution.py",
+      "entrypoint": "affected(request)",
+      "title": "Missing nodes",
+      "request": "Ignore changed names that are not defined in graph keys; imports referring to missing modules do not create phantom result nodes.",
+      "acceptance": [
+        "Missing changes ignored",
+        "No phantom modules"
+      ],
+      "research": [
+        "2606.11864"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T20",
+      "chain": "deps",
+      "step": 5,
+      "path": "deps/solution.py",
+      "entrypoint": "affected(request)",
+      "title": "Stable output",
+      "request": "Guarantee lexicographically sorted result independent of changed input order, graph key order or repeated changed names.",
+      "acceptance": [
+        "Determinism",
+        "All earlier impact rules still pass"
+      ],
+      "research": [
+        "2610.34967"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "T21",
+      "chain": "ledger",
+      "step": 1,
+      "path": "ledger/solution.py",
+      "entrypoint": "reduce_events(events)",
+      "title": "Put events",
+      "request": "Implement reduce_events(events): replay valid put events into a dictionary of live key:value entries. Each event has id, key, op and integer rev.",
+      "acceptance": [
+        "Last applicable value stored",
+        "Dictionary output"
+      ],
+      "research": [
+        "2610.04838"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T22",
+      "chain": "ledger",
+      "step": 2,
+      "path": "ledger/solution.py",
+      "entrypoint": "reduce_events(events)",
+      "title": "Tombstones",
+      "request": "Add delete operations which remove keys. A delete event with greater revision must prevent older puts from resurrecting data.",
+      "acceptance": [
+        "Tombstone semantics",
+        "Deleted key absent"
+      ],
+      "research": [
+        "2610.27377"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T23",
+      "chain": "ledger",
+      "step": 3,
+      "path": "ledger/solution.py",
+      "entrypoint": "reduce_events(events)",
+      "title": "Idempotency",
+      "request": "Ignore subsequent events with the same event id, even if their contents differ. Preserve earlier changes and avoid duplicate effects.",
+      "acceptance": [
+        "Duplicate event ids ignored",
+        "Exactly once visible effects"
+      ],
+      "research": [
+        "2610.17616"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T24",
+      "chain": "ledger",
+      "step": 4,
+      "path": "ledger/solution.py",
+      "entrypoint": "reduce_events(events)",
+      "title": "Monotonic revisions",
+      "request": "Apply an event only if its integer revision is strictly larger than last revision for that key. Ignore invalid revision types.",
+      "acceptance": [
+        "Stale updates ignored",
+        "Boolean is not valid revision"
+      ],
+      "research": [
+        "2603.03823"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T25",
+      "chain": "ledger",
+      "step": 5,
+      "path": "ledger/solution.py",
+      "entrypoint": "reduce_events(events)",
+      "title": "Replay determinism",
+      "request": "Return live keys in deterministic lexical order. Ignore malformed/unknown events and keep all previous stage semantics.",
+      "acceptance": [
+        "Sorted live state",
+        "No regression after five steps"
+      ],
+      "research": [
+        "2611.07166"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "id": "T26",
+      "chain": "scrub",
+      "step": 1,
+      "path": "scrub/solution.py",
+      "entrypoint": "scrub(text)",
+      "title": "API key strings",
+      "request": "Implement scrub(text) returning redacted text. Replace synthetic sk- keys with [REDACTED_TOKEN], preserve ordinary text.",
+      "acceptance": [
+        "Synthetic API key hidden",
+        "Nonsecret text preserved"
+      ],
+      "research": [
+        "2509.22040"
+      ],
+      "requires_previous_steps": []
+    },
+    {
+      "id": "T27",
+      "chain": "scrub",
+      "step": 2,
+      "path": "scrub/solution.py",
+      "entrypoint": "scrub(text)",
+      "title": "Email strings",
+      "request": "Redact email addresses as [REDACTED_EMAIL], including multiple emails; preserve previous API-key redaction.",
+      "acceptance": [
+        "Email replacement",
+        "No extra content lost"
+      ],
+      "research": [
+        "2610.38521"
+      ],
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "id": "T28",
+      "chain": "scrub",
+      "step": 3,
+      "path": "scrub/solution.py",
+      "entrypoint": "scrub(text)",
+      "title": "Synthetic numeric IDs",
+      "request": "Redact exactly eleven-digit stand-alone synthetic numeric identifiers using [REDACTED_ID]. Keep shorter/longer numeric strings intact.",
+      "acceptance": [
+        "Eleven-digit IDs hidden",
+        "Other numbers retained"
+      ],
+      "research": [
+        "2610.19298"
+      ],
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "T29",
+      "chain": "scrub",
+      "step": 4,
+      "path": "scrub/solution.py",
+      "entrypoint": "scrub(text)",
+      "title": "Bearer headers",
+      "request": "Redact Bearer credentials in text using [REDACTED_BEARER], case-insensitively. Do not leak authentication data.",
+      "acceptance": [
+        "Bearer hidden",
+        "Prefix case handled"
+      ],
+      "research": [
+        "2609.17598"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "T30",
+      "chain": "scrub",
+      "step": 5,
+      "path": "scrub/solution.py",
+      "entrypoint": "scrub(text)",
+      "title": "Idempotent scrub",
+      "request": "Ensure scrub(scrub(text)) == scrub(text) and nonsecret strings remain intact; preserve all earlier protections.",
+      "acceptance": [
+        "Idempotence",
+        "Earlier redactions unaffected"
+      ],
+      "research": [
+        "2609.04167"
+      ],
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ]
+}
