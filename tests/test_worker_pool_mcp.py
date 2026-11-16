@@ -71,14 +71,14 @@ def test_endpoint_rejects_external_hosts_or_http_redirects():
                 endpoint_config()
 
 
-def test_mcp_declares_three_tools_without_starting_gpu():
+def test_mcp_declares_four_tools_without_starting_gpu():
     assert {tool["name"] for tool in TOOLS} == {
-        "worker_pool_status", "delegate_workers", "validate_worker_batch"
+        "worker_pool_status", "delegate_workers", "validate_worker_batch", "worker_learning_targets"
     }
     r = response({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert r["result"]["capabilities"]["tools"] is not None
     x = response({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-    assert len(x["result"]["tools"]) == 3
+    assert len(x["result"]["tools"]) == 4
     y = response({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                   "params": {"name": "validate_worker_batch",
                              "arguments": {"jobs": [packet()]}}})
@@ -99,3 +99,13 @@ def test_role_quality_gate_rejects_vacuous_review_and_empty_source():
     assert proposal_quality("implementer", "def is_even(n):\n    return n % 2 == 0\n")[0] is True
     assert proposal_quality("test-designer", "Two expected cases: input 2 -> True and input 3 -> False; tests cover zero and negatives.")[0] is True
     assert proposal_quality("test-designer", "Probably good enough")[0] is False
+
+def test_mcp_discloses_diagnostic_next_lessons_not_trained_weights():
+    answer = response({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+                       "params": {"name": "worker_learning_targets",
+                                  "arguments": {}}})
+    plan = json.loads(answer["result"]["content"][0]["text"])
+    assert plan["lesson_count"] == 2
+    assert plan["not_training_data"] is True
+    assert {j["id"] for j in plan["proposed_jobs"]} == {"T01", "T26"}
+    assert all(j["data_class"] == "synthetic" for j in plan["proposed_jobs"])

@@ -85,3 +85,8 @@ This establishes a **repeatable method for learning how to delegate** and automa
 For a role-specific specialization, first gather adequately diverse independent examples of that role, review for correctness and safety, sign through the separate grading/review authority, export with `learning_loop.py`, and only then consider GPU QLoRA. Do not use the fixed benchmark's evaluation cases as training labels or claim progress based on a single six-task study.
 
 Research priority: improve orchestration and feedback before expanding model sizes; new lessons should be supported by paired independently graded evidence, not merely by increasing model output length.
+
+
+### Learning feedback to the lead
+
+The project MCP server exposes an additional `worker_learning_targets` tool. It uses a versioned, non-sensitive summary of real CPU trial results (GitHub Actions run 43928286658) to suggest targeted experiments on the two remaining difficult synthetic families. It makes **zero model calls**. Claude/Codex remains responsible for deciding whether to delegate or escalate, and any new worker output is initially untrusted.

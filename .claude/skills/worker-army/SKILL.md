@@ -26,3 +26,6 @@ Docs: `docs/agent-factory-research/WORKER_ARMY_LEARNING_LOOP.md`.
 Read the latest `learning-report.json` and `NEXT_LESSONS.md` from the **Worker Army - CPU learning A/B** GitHub Actions artifact. Treat findings as local diagnostic evidence, not general research conclusions or verified training data. Compare the same model's plain delegation and explicit-contract delegation; if both fail, schedule a better-scoped follow-up and consider handing the task to Claude. Only independently tested synthetic candidates go to `pending_review`, where human approval and an independent evidence signature are still required before LoRA export. Do not put grader fixtures into a worker's prompt or train on the evaluation set.
 
 To reproduce the CPU pilot without a rented GPU, run the opt-in workflow `.github/workflows/worker-learning-lab-cpu.yml`. Preserve its task definitions across A/B comparisons.
+
+
+When diagnosing weaknesses, first call `worker_learning_targets`. It returns the latest checked-in synthetic-only failure categories and two proposed targeted work packets. This is **evidence for an experiment**, not signed training data and not proof of improvement. The lead can edit and dispatch these tasks, but must independently verify the resulting code and avoid passing hidden tests to cheap workers.

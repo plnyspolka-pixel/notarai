@@ -11,9 +11,11 @@ on:
       - "tools/agent_factory/worker_mcp.py"
       - "tools/agent_factory/learning_loop.py"
       - "tools/agent_factory/worker_learning_lab.py"
+      - "tools/agent_factory/worker_learning_followup.py"
       - "tests/test_worker_pool_mcp.py"
       - "tests/test_learning_loop.py"
       - "tests/test_worker_learning_lab.py"
+      - "tests/test_worker_learning_followup.py"
       - "tests/test_train_qlora_safety.py"
       - "tools/agent_factory/train_qlora.py"
       - ".claude/skills/worker-army/SKILL.md"
@@ -52,10 +54,10 @@ jobs:
           python -m pip install -r /tmp/worker-army-ci-requirements.txt
       - name: Compile worker and learning modules
         run: |
-          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py tools/agent_factory/train_qlora.py tools/agent_factory/worker_learning_lab.py
+          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py tools/agent_factory/train_qlora.py tools/agent_factory/worker_learning_lab.py tools/agent_factory/worker_learning_followup.py
       - name: Test delegation guardrails, MCP contract and trusted training corpus
         run: |
-          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py tests/test_train_qlora_safety.py tests/test_worker_learning_lab.py
+          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py tests/test_train_qlora_safety.py tests/test_worker_learning_lab.py tests/test_worker_learning_followup.py
       - name: Verify stdio MCP handshake and tool discovery without a model
         run: |
           python - <<'PY'
@@ -75,7 +77,7 @@ jobs:
               text=True, capture_output=True, timeout=10, check=True)
           answers = [json.loads(x) for x in result.stdout.splitlines()]
           assert [a["id"] for a in answers] == [1, 2, 3]
-          assert len(answers[1]["result"]["tools"]) == 3
+          assert len(answers[1]["result"]["tools"]) == 4
           assert json.loads(answers[2]["result"]["content"][0]["text"])["enabled"] is False
           print("MCP tool discovery verified; no GPU, model or external calls.")
           PY
