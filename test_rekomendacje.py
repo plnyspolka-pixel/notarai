@@ -88,3 +88,12 @@ def test_losowa_historia_wyrownuje_sie():
     przewaga = Counter(z["baza_id"] for z in historia)
     nastepne = [r.przydziel([1, 2, 3], historia, "x", teraz)]
     assert nastepne[0] == min([1, 2, 3], key=lambda k: przewaga.get(k, 0))
+
+def test_przydzial_okno_dni_jako_parametr():
+    teraz = datetime(2026, 11, 8, 12)
+    sprzed_10 = (teraz - timedelta(days=10)).isoformat(timespec="seconds")
+    historia = [{"baza_id": 1, "utworzono": sprzed_10, "przydzial": {"sposob": "kolejka"}}]
+    # przydzial sprzed 10 dni jest w oknie 30 dni - liczy sie i dostaje kolejna kancelarie
+    assert r.przydziel([1, 2], historia, "x", teraz, okno_dni=30) == 2
+    # w oknie 5 dni przydzial jest poza oknem - wynik to czista rotacja
+    assert r.przydziel([1, 2], historia, "x", teraz, okno_dni=5) == min([1, 2], key=lambda k: r.los(teraz.date(), "x", k))

@@ -59,7 +59,7 @@ def kolejnosc(kancelarie: list[dict], kontekst: str = "", dzien: date | None = N
 
 
 def przydziel(kandydaci: list, wczesniejsze: list[dict], kontekst: str,
-              teraz: datetime | None = None) -> object | None:
+              teraz: datetime | None = None, okno_dni: int = OKNO_DNI) -> object | None:
     """Kancelaria dla zgloszenia bez wybranej kancelarii.
 
     kandydaci    - identyfikatory kancelarii w miejscowosci (z kontaktem),
@@ -69,7 +69,7 @@ def przydziel(kandydaci: list, wczesniejsze: list[dict], kontekst: str,
     if not kandydaci:
         return None
     teraz = teraz or datetime.now()
-    granica = (teraz - timedelta(days=OKNO_DNI)).isoformat(timespec="seconds")
+    granica = (teraz - timedelta(days=okno_dni)).isoformat(timespec="seconds")
     licznik = {k: 0 for k in kandydaci}
     for z in wczesniejsze:
         if (z.get("przydzial") or {}).get("sposob") == "kolejka" and z.get("utworzono", "") >= granica \
