@@ -1,0 +1,1112 @@
+{
+  "info": {
+    "model_stats": {
+      "instance_cost": 0.0,
+      "api_calls": 11
+    },
+    "config": {
+      "agent": {
+        "system_template": "You are a helpful assistant that can interact with a computer.\n",
+        "instance_template": "Please solve this issue: {{task}}\n\nYou can execute bash commands and edit files to implement the necessary changes.\n\n## Recommended Workflow\n\nThis workflow should be done step-by-step so that you can iterate on your changes and any possible problems.\n\n1. Analyze the codebase by finding and reading relevant files\n2. Create a script to reproduce the issue\n3. Edit the source code to resolve the issue\n4. Verify your fix works by running your script again\n5. Test edge cases to ensure your fix is robust\n6. Submit your changes and finish your work by issuing the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.\n   Do not combine it with any other command. <important>After this command, you cannot continue working on this task.</important>\n\n## Command Execution Rules\n\nYou are operating in an environment where\n\n1. You issue at least one command\n2. The system executes the command(s) in a subshell\n3. You see the result(s)\n4. You write your next command(s)\n\nEach response should include:\n\n1. **Reasoning text** where you explain your analysis and plan\n2. At least one tool call with your command\n\n**CRITICAL REQUIREMENTS:**\n\n- Your response SHOULD include reasoning text explaining what you're doing\n- Your response MUST include AT LEAST ONE bash tool call\n- Directory or environment variable changes are not persistent. Every action is executed in a new subshell.\n- However, you can prefix any action with `MY_ENV_VAR=MY_VALUE cd /path/to/working/dir && ...` or write/load environment variables from files\n- Submit your changes and finish your work by issuing the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.\n  Do not combine it with any other command. <important>After this command, you cannot continue working on this task.</important>\n\nExample of a CORRECT response:\n<example_response>\nI need to understand the structure of the repository first. Let me check what files are in the current directory to get a better understanding of the codebase.\n\n[Makes bash tool call with {\"command\": \"ls -la\"} as arguments]\n</example_response>\n\n<system_information>\n{{system}} {{release}} {{version}} {{machine}}\n</system_information>\n\n## Useful command examples\n\n### Create a new file:\n\n```bash\ncat <<'EOF' > newfile.py\nimport numpy as np\nhello = \"world\"\nprint(hello)\nEOF\n```\n\n### Edit files with sed:\n\n{%- if system == \"Darwin\" -%}\n<important>\nYou are on MacOS. For all the below examples, you need to use `sed -i ''` instead of `sed -i`.\n</important>\n{%- endif -%}\n\n```bash\n# Replace all occurrences\nsed -i 's/old_string/new_string/g' filename.py\n\n# Replace only first occurrence\nsed -i 's/old_string/new_string/' filename.py\n\n# Replace first occurrence on line 1\nsed -i '1s/old_string/new_string/' filename.py\n\n# Replace all occurrences in lines 1-10\nsed -i '1,10s/old_string/new_string/g' filename.py\n```\n\n### View file content:\n\n```bash\n# View specific lines with numbers\nnl -ba filename.py | sed -n '10,20p'\n```\n\n### Any other command you want to run\n\n```bash\nanything\n```\n",
+        "step_limit": 40,
+        "cost_limit": 0.0,
+        "wall_time_limit_seconds": 0,
+        "max_consecutive_format_errors": 3,
+        "output_path": "/out/k3.traj.json",
+        "mode": "yolo",
+        "whitelist_actions": [],
+        "confirm_exit": false
+      },
+      "agent_type": "minisweagent.agents.interactive.InteractiveAgent",
+      "model": {
+        "model_name": "hosted_vllm/koder",
+        "model_kwargs": {
+          "drop_params": true,
+          "api_base": "http://brama:8000/v1",
+          "max_tokens": 4096,
+          "timeout": 95,
+          "extra_body": {
+            "chat_template_kwargs": {
+              "enable_thinking": false
+            }
+          }
+        },
+        "litellm_model_registry": null,
+        "set_cache_control": null,
+        "cost_tracking": "ignore_errors",
+        "format_error_template": "{% if finish_reason is defined and (finish_reason == \"length\" or (finish_reason == \"tool_calls\" and not has_tool_calls)) -%}\nYour previous response reached the output token limit (finish_reason={{ finish_reason }}) before you produced a tool call, so it was cut off. Respond more concisely and finish with exactly one bash tool call. If you need to think more, do so briefly.\n{%- else -%}\nTool call error:\n\n<error>\n{{error}}\n</error>\n\nHere is general guidance on how to submit correct toolcalls:\n\nEvery response needs to use the 'bash' tool at least once to execute commands.\n\nCall the bash tool with your command as the argument:\n- Tool: bash\n- Arguments: {\"command\": \"your_command_here\"}\n\nIf you want to end the task, please issue the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`\nwithout any other command.\n{%- endif %}\n",
+        "observation_template": "{%- if output.output | length < 10000 -%}\n{\n  \"returncode\": {{ output.returncode }},\n  \"output\": {{ output.output | tojson }}\n  {%- if output.exception_info %}, \"exception_info\": {{ output.exception_info | tojson }}{% endif %}\n}\n{%- else -%}\n{\n  \"returncode\": {{ output.returncode }},\n  \"output_head\": {{ output.output[:5000] | tojson }},\n  \"output_tail\": {{ output.output[-5000:] | tojson }},\n  \"elided_chars\": {{ output.output | length - 10000 }},\n  \"warning\": \"Output too long.\"\n  {%- if output.exception_info %}, \"exception_info\": {{ output.exception_info | tojson }}{% endif %}\n}\n{%- endif -%}\n",
+        "multimodal_regex": ""
+      },
+      "model_type": "minisweagent.models.litellm_model.LitellmModel",
+      "environment": {
+        "cwd": "",
+        "env": {
+          "PAGER": "cat",
+          "MANPAGER": "cat",
+          "LESS": "-R",
+          "PIP_PROGRESS_BAR": "off",
+          "TQDM_DISABLE": "1"
+        },
+        "timeout": 180
+      },
+      "environment_type": "minisweagent.environments.local.LocalEnvironment"
+    },
+    "mini_version": "2.4.6",
+    "exit_status": "Submitted",
+    "submission": ""
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant that can interact with a computer."
+    },
+    {
+      "role": "user",
+      "content": "Please solve this issue: # K3 - check --json\n\nZakres: tools/agent_factory/salad_vllm.py oraz test_salad_vllm_check.py (nowy).\n\nDodaj do polecenia `check` flag\u0119 `--json`. Z flag\u0105 polecenie wypisuje jeden obiekt JSON:\n{\"gpu\": [{\"name\": ..., \"vram\": ..., \"usd_h\": ...}, ...], \"groups\": [\"nazwa\", ...]} i nic poza nim.\nBez flagi wynik ma pozosta\u0107 taki jak dot\u0105d. Dodaj test, kt\u00f3ry podmienia gpu_classes i our_groups\n(monkeypatch), wywo\u0142uje cmd_check i sprawdza oba tryby przez capsys. Bez po\u0142\u0105cze\u0144 sieciowych.\n\nSprawdzenie: python -m pytest -q test_salad_vllm_check.py\n\nZasady: tylko dane syntetyczne; nie czytaj dane/, .env ani \u017cadnych kluczy; bez sieci i bez instalowania paczek. Zmieniaj wy\u0142\u0105cznie wymienione pliki. Na koniec podaj: zmienione pliki, wynik test\u00f3w, ograniczenia.\n\nYou can execute bash commands and edit files to implement the necessary changes.\n\n## Recommended Workflow\n\nThis workflow should be done step-by-step so that you can iterate on your changes and any possible problems.\n\n1. Analyze the codebase by finding and reading relevant files\n2. Create a script to reproduce the issue\n3. Edit the source code to resolve the issue\n4. Verify your fix works by running your script again\n5. Test edge cases to ensure your fix is robust\n6. Submit your changes and finish your work by issuing the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.\n   Do not combine it with any other command. <important>After this command, you cannot continue working on this task.</important>\n\n## Command Execution Rules\n\nYou are operating in an environment where\n\n1. You issue at least one command\n2. The system executes the command(s) in a subshell\n3. You see the result(s)\n4. You write your next command(s)\n\nEach response should include:\n\n1. **Reasoning text** where you explain your analysis and plan\n2. At least one tool call with your command\n\n**CRITICAL REQUIREMENTS:**\n\n- Your response SHOULD include reasoning text explaining what you're doing\n- Your response MUST include AT LEAST ONE bash tool call\n- Directory or environment variable changes are not persistent. Every action is executed in a new subshell.\n- However, you can prefix any action with `MY_ENV_VAR=MY_VALUE cd /path/to/working/dir && ...` or write/load environment variables from files\n- Submit your changes and finish your work by issuing the following command: `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.\n  Do not combine it with any other command. <important>After this command, you cannot continue working on this task.</important>\n\nExample of a CORRECT response:\n<example_response>\nI need to understand the structure of the repository first. Let me check what files are in the current directory to get a better understanding of the codebase.\n\n[Makes bash tool call with {\"command\": \"ls -la\"} as arguments]\n</example_response>\n\n<system_information>\nLinux 7.0.0-1019-azure #20-Ubuntu SMP PREEMPT Mon Oct 19 22:41:16 UTC 2026 x86_64\n</system_information>\n\n## Useful command examples\n\n### Create a new file:\n\n```bash\ncat <<'EOF' > newfile.py\nimport numpy as np\nhello = \"world\"\nprint(hello)\nEOF\n```\n\n### Edit files with sed:```bash\n# Replace all occurrences\nsed -i 's/old_string/new_string/g' filename.py\n\n# Replace only first occurrence\nsed -i 's/old_string/new_string/' filename.py\n\n# Replace first occurrence on line 1\nsed -i '1s/old_string/new_string/' filename.py\n\n# Replace all occurrences in lines 1-10\nsed -i '1,10s/old_string/new_string/g' filename.py\n```\n\n### View file content:\n\n```bash\n# View specific lines with numbers\nnl -ba filename.py | sed -n '10,20p'\n```\n\n### Any other command you want to run\n\n```bash\nanything\n```"
+    },
+    {
+      "content": "Let me look at the repository structure and the relevant file.",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"find . -name \\\"salad_vllm*\\\" -o -name \\\"test_salad*\\\" 2>/dev/null | grep -v node_modules; ls\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-a538850d18257409",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "find . -name \"salad_vllm*\" -o -name \"test_salad*\" 2>/dev/null | grep -v node_modules; ls",
+            "tool_call_id": "chatcmpl-tool-a538850d18257409"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-b00af2fc47e32de6",
+          "created": 1794789406,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "Let me look at the repository structure and the relevant file.",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"find . -name \\\"salad_vllm*\\\" -o -name \\\"test_salad*\\\" 2>/dev/null | grep -v node_modules; ls\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-a538850d18257409",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 71,
+            "prompt_tokens": 1240,
+            "total_tokens": 1311,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789415.5567732
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"./tools/agent_factory/salad_vllm.py\\nCLAUDE.md\\nDockerfile\\nREADME.md\\nSAAS.md\\nSPEC.md\\nTESTY.md\\nUTWORZ_SKROT.bat\\naml.py\\naml_dopasowanie.py\\naml_listy.py\\napp.py\\nautoryzacja.py\\nbedrock.py\\nconfig.py\\nconftest.py\\ncrbr.py\\ndocs\\ndokumenty.py\\ndokumenty_prawne.py\\ndziennik.py\\nekw.py\\nformularze\\ngiif.py\\ngiif_xml.py\\ngiif_xsd\\ninfra\\nkalendarz.py\\nkalkulator.py\\nkategorie.py\\nklauzule.py\\nkorespondencja.py\\nkrz.py\\nkrz_portal.py\\nksiegi_notarialne.py\\nleady.py\\nlogowanie.py\\nmagazyn.py\\nmarketing\\nmeta_leady.py\\nnazwy.py\\nnotariusze.py\\nosoby.py\\npersonalizacja.py\\nplatnosci.py\\npoczta_polska.py\\npomocnik\\nposwiadczenia.py\\nprobki\\nprompty.py\\nprzebieg_testowy.py\\nprzesylki.py\\npytest.ini\\nrejestracja.py\\nrejestry.py\\nrekomendacje.py\\nrequirements.txt\\nrezerwacje_hurtowe.py\\nrezerwacje_klientow.py\\nscripts\\nseo\\nskrzynki.py\\nsledzenie.py\\nslownie.py\\nstanowiska.py\\nstatic\\nstrona\\nstyl.py\\ntaksa.py\\nteczka.py\\ntest_administratorzy.py\\ntest_agent_factory.py\\ntest_agent_forge.py\\ntest_agent_forge_llm.py\\ntest_agent_forge_research.py\\ntest_agent_forge_sandbox.py\\ntest_agent_forge_scheduler.py\\ntest_aml_api.py\\ntest_aml_dopasowanie.py\\ntest_aml_listy.py\\ntest_aparat_ui.py\\ntest_autoryzacja.py\\ntest_bedrock.py\\ntest_bez_zapisu.py\\ntest_brand_landing.py\\ntest_crbr.py\\ntest_dokumenty.py\\ntest_dopasowanie.py\\ntest_duze_sprawy.py\\ntest_dziennik.py\\ntest_ekw.py\\ntest_ekw_finyou.py\\ntest_formularze.py\\ntest_kalendarz.py\\ntest_kalendarz_ui.py\\ntest_kalkulator.py\\ntest_klikamy_serwer.py\\ntest_kokpit.py\\ntest_korespondencja.py\\ntest_krz.py\\ntest_ksiegi_notarialne.py\\ntest_ksiegi_s3.py\\ntest_ksiegi_ui.py\\ntest_leady.py\\ntest_logowanie.py\\ntest_magazyn.py\\ntest_motyw_ui.py\\ntest_nazwy.py\\ntest_notariusze.py\\ntest_odcinek01_ui.py\\ntest_osoby.py\\ntest_personalizacja.py\\ntest_personalizacja_ui.py\\ntest_platnosci.py\\ntest_poczta_polska.py\\ntest_pomocnik_cdp.py\\ntest_pomocnik_klient.py\\ntest_pomocnik_klikamy.py\\ntest_pomocnik_okno.py\\ntest_pomocnik_wykonanie.py\\ntest_pomocnik_zadania.py\\ntest_poswiadczenia.py\\ntest_projekt_w_tle.py\\ntest_przebieg.bat\\ntest_przesylki.py\\ntest_przesylki_ui.py\\ntest_rejestracja.py\\ntest_rekomendacje.py\\ntest_rezerwacje_hurtowe.py\\ntest_rezerwacje_klientow.py\\ntest_rozmowa.py\\ntest_seo.py\\ntest_serwis.py\\ntest_sledzenie.py\\ntest_stanowiska.py\\ntest_strona_ftp.py\\ntest_taksa.py\\ntest_teczka.py\\ntest_tokenomia.py\\ntest_unified_ux.py\\ntest_urzadzenia.py\\ntest_ustawienia_kancelarii.py\\ntest_walidacja.py\\ntest_wizyty.py\\ntest_wygoda.py\\ntest_wzor_kancelarii.py\\ntest_zespol.py\\ntest_zlecenia.py\\ntokenomia.py\\ntools\\ntranskrypcja.py\\nuruchom.bat\\nuruchom_przegladarke.bat\\nuruchom_testy.bat\\nurzadzenia.py\\nustawienia_kancelarii.py\\nwalidacja.py\\nwizyty.py\\nwnioski_kw.py\\nzasady.py\\nzlecenia.py\\n\"\n}",
+      "extra": {
+        "raw_output": "./tools/agent_factory/salad_vllm.py\nCLAUDE.md\nDockerfile\nREADME.md\nSAAS.md\nSPEC.md\nTESTY.md\nUTWORZ_SKROT.bat\naml.py\naml_dopasowanie.py\naml_listy.py\napp.py\nautoryzacja.py\nbedrock.py\nconfig.py\nconftest.py\ncrbr.py\ndocs\ndokumenty.py\ndokumenty_prawne.py\ndziennik.py\nekw.py\nformularze\ngiif.py\ngiif_xml.py\ngiif_xsd\ninfra\nkalendarz.py\nkalkulator.py\nkategorie.py\nklauzule.py\nkorespondencja.py\nkrz.py\nkrz_portal.py\nksiegi_notarialne.py\nleady.py\nlogowanie.py\nmagazyn.py\nmarketing\nmeta_leady.py\nnazwy.py\nnotariusze.py\nosoby.py\npersonalizacja.py\nplatnosci.py\npoczta_polska.py\npomocnik\nposwiadczenia.py\nprobki\nprompty.py\nprzebieg_testowy.py\nprzesylki.py\npytest.ini\nrejestracja.py\nrejestry.py\nrekomendacje.py\nrequirements.txt\nrezerwacje_hurtowe.py\nrezerwacje_klientow.py\nscripts\nseo\nskrzynki.py\nsledzenie.py\nslownie.py\nstanowiska.py\nstatic\nstrona\nstyl.py\ntaksa.py\nteczka.py\ntest_administratorzy.py\ntest_agent_factory.py\ntest_agent_forge.py\ntest_agent_forge_llm.py\ntest_agent_forge_research.py\ntest_agent_forge_sandbox.py\ntest_agent_forge_scheduler.py\ntest_aml_api.py\ntest_aml_dopasowanie.py\ntest_aml_listy.py\ntest_aparat_ui.py\ntest_autoryzacja.py\ntest_bedrock.py\ntest_bez_zapisu.py\ntest_brand_landing.py\ntest_crbr.py\ntest_dokumenty.py\ntest_dopasowanie.py\ntest_duze_sprawy.py\ntest_dziennik.py\ntest_ekw.py\ntest_ekw_finyou.py\ntest_formularze.py\ntest_kalendarz.py\ntest_kalendarz_ui.py\ntest_kalkulator.py\ntest_klikamy_serwer.py\ntest_kokpit.py\ntest_korespondencja.py\ntest_krz.py\ntest_ksiegi_notarialne.py\ntest_ksiegi_s3.py\ntest_ksiegi_ui.py\ntest_leady.py\ntest_logowanie.py\ntest_magazyn.py\ntest_motyw_ui.py\ntest_nazwy.py\ntest_notariusze.py\ntest_odcinek01_ui.py\ntest_osoby.py\ntest_personalizacja.py\ntest_personalizacja_ui.py\ntest_platnosci.py\ntest_poczta_polska.py\ntest_pomocnik_cdp.py\ntest_pomocnik_klient.py\ntest_pomocnik_klikamy.py\ntest_pomocnik_okno.py\ntest_pomocnik_wykonanie.py\ntest_pomocnik_zadania.py\ntest_poswiadczenia.py\ntest_projekt_w_tle.py\ntest_przebieg.bat\ntest_przesylki.py\ntest_przesylki_ui.py\ntest_rejestracja.py\ntest_rekomendacje.py\ntest_rezerwacje_hurtowe.py\ntest_rezerwacje_klientow.py\ntest_rozmowa.py\ntest_seo.py\ntest_serwis.py\ntest_sledzenie.py\ntest_stanowiska.py\ntest_strona_ftp.py\ntest_taksa.py\ntest_teczka.py\ntest_tokenomia.py\ntest_unified_ux.py\ntest_urzadzenia.py\ntest_ustawienia_kancelarii.py\ntest_walidacja.py\ntest_wizyty.py\ntest_wygoda.py\ntest_wzor_kancelarii.py\ntest_zespol.py\ntest_zlecenia.py\ntokenomia.py\ntools\ntranskrypcja.py\nuruchom.bat\nuruchom_przegladarke.bat\nuruchom_testy.bat\nurzadzenia.py\nustawienia_kancelarii.py\nwalidacja.py\nwizyty.py\nwnioski_kw.py\nzasady.py\nzlecenia.py\n",
+        "returncode": 0,
+        "timestamp": 1794789415.5668373,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-a538850d18257409",
+      "role": "tool"
+    },
+    {
+      "content": null,
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"cat tools/agent_factory/salad_vllm.py\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-9d8a6db0380afd11",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "cat tools/agent_factory/salad_vllm.py",
+            "tool_call_id": "chatcmpl-tool-9d8a6db0380afd11"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-85adb61d6e2eaf25",
+          "created": 1794789412,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": null,
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"cat tools/agent_factory/salad_vllm.py\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-9d8a6db0380afd11",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 37,
+            "prompt_tokens": 2383,
+            "total_tokens": 2420,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789419.3649035
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output_head\": \"\\\"\\\"\\\"Model koduj\\u0105cy (vLLM) na wynaj\\u0119tym GPU SaladCloud + lokalny po\\u015brednik dla runnera.\\n\\nPolecenia:\\n  check                 karty, ceny i nasze grupy (nic nie kosztuje)\\n  up --pay              utw\\u00f3rz grup\\u0119 z vLLM (p\\u0142atne od chwili stanu `running`)\\n  status                stan grupy i tego, czy model ju\\u017c odpowiada\\n  proxy                 127.0.0.1:PORT -\\u003e brama Salad (dokleja klucz); po terminie usuwa grup\\u0119\\nCa\\u0142o\\u015b\\u0107 bez komputera operatora uruchamia workflow .github/workflows/koder.yml.\\n  down                  usu\\u0144 grup\\u0119 (zawsze na koniec)\\n\\nZasady: w\\u0119z\\u0142y Salad to cudze komputery poza UE -\\u003e wy\\u0142\\u0105cznie kod z publicznego repo i dane\\nsyntetyczne, nigdy `dane/`, `.env` ani nic o klientach. Klucz Salad tylko ze \\u015brodowiska albo\\nz pliku wskazanego w NOTARAI_SALAD_ENV (poza repo); nie trafia do log\\u00f3w ani do kontenera.\\nNarz\\u0119dzie rusza wy\\u0142\\u0105cznie grupy o nazwie zaczynaj\\u0105cej si\\u0119 od `notarai-koder`.\\n\\\"\\\"\\\"\\nfrom __future__ import annotations\\n\\nimport argparse\\nfrom datetime import datetime, timedelta, timezone\\nimport http.client\\nfrom http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\\nimport json\\nimport os\\nfrom pathlib import Path\\nimport re\\nimport sys\\nimport threading\\nimport time\\n\\nAPI_HOST = \\\"api.salad.com\\\"\\nAPI_BASE = \\\"/api/public\\\"\\nLABEL = \\\"notarai-koder\\\"\\nNAME_RE = re.compile(r\\\"^[a-z][a-z0-9-]{0,61}[a-z0-9]$\\\")\\nDNS_RE = re.compile(r\\\"^[a-z0-9.-]+\\\\.salad\\\\.cloud$\\\", re.I)\\nSTATE = Path(__file__).resolve().parents[2] / \\\".agent-forge\\\" / \\\"salad-koder.json\\\"\\n\\n# Domy\\u015blny model: Qwen3.8-27B w 4 bitach (19,5 GB wag, Apache 2.0, bez bramki) - najmocniejszy\\n# otwarty model do pracy agentowej mieszcz\\u0105cy si\\u0119 na jednej karcie 32 GB (przegl\\u0105d 16.11.2026).\\n# Zapas dla kart 24 GB: cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit z parserem qwen3_xml.\\nDEFAULT_MODEL = \\\"RedHatAI/Qwen3.8-27B-INT4\\\"\\nDEFAULT_PARSER = \\\"qwen3_coder\\\"  # wg recipes.vllm.ai/Qwen/Qwen3.8-27B\\nDEFAULT_VLLM_ARGS = \\\"--kv-cache-dtype fp8 --language-model-only --enforce-eager --reasoning-parser qwen3\\\"\\nDEFAULT_IMAGE = \\\"vllm/vllm-openai:latest\\\"\\nSERVED_NAME = \\\"koder\\\"\\nPORT = 8000\\nHOP = {\\\"connection\\\", \\\"keep-alive\\\", \\\"proxy-authenticate\\\", \\\"proxy-authorization\\\", \\\"te\\\",\\n       \\\"trailers\\\", \\\"transfer-encoding\\\", \\\"upgrade\\\", \\\"host\\\", \\\"content-length\\\"}\\n\\n\\nclass SaladError(RuntimeError):\\n    pass\\n\\n\\ndef load_keys() -\\u003e dict[str, str]:\\n    keys = {k: os.environ.get(k, \\\"\\\") for k in (\\\"SALAD_API_KEY\\\", \\\"SALAD_ORG\\\", \\\"SALAD_PROJECT\\\")}\\n    path = os.environ.get(\\\"NOTARAI_SALAD_ENV\\\")\\n    if path and Path(path).is_file():\\n        for line in Path(path).read_text(encoding=\\\"utf-8\\\").splitlines():\\n            m = re.match(r\\\"^(SALAD_API_KEY|SALAD_ORG|SALAD_PROJECT)=(.*)$\\\", line.strip())\\n            if m and not keys[m.group(1)]:\\n                keys[m.group(1)] = m.group(2).strip().strip(\\u0027\\\"\\u0027).strip(\\\"\\u0027\\\")\\n    keys[\\\"SALAD_PROJECT\\\"] = keys[\\\"SALAD_PROJECT\\\"] or \\\"default\\\"\\n    if not keys[\\\"SALAD_API_KEY\\\"]:\\n        raise SaladError(\\\"Brak SALAD_API_KEY (\\u015brodowisko albo plik z NOTARAI_SALAD_ENV)\\\")\\n    for k in (\\\"SALAD_ORG\\\", \\\"SALAD_PROJECT\\\"):\\n        if not NAME_RE.fullmatch(keys[k]):\\n            raise SaladError(f\\\"Z\\u0142a albo pusta warto\\u015b\\u0107 {k}\\\")\\n    return keys\\n\\n\\ndef api(keys: dict, method: str, path: str, body: dict | None = None, allow404: bool = False):\\n    conn = http.client.HTTPSConnection(API_HOST, timeout=30)\\n    try:\\n        headers = {\\\"Salad-Api-Key\\\": keys[\\\"SALAD_API_KEY\\\"], \\\"Accept\\\": \\\"application/json\\\"}\\n        data = None\\n        if body is not None:\\n            data = json.dumps(body).encode(\\\"utf-8\\\")\\n            headers[\\\"Content-Type\\\"] = \\\"application/json\\\"\\n        conn.request(method, API_BASE + path, body=data, headers=headers)\\n        res = conn.getresponse()\\n        text = res.read().decode(\\\"utf-8\\\", \\\"replace\\\")\\n        if res.status == 404 and allow404:\\n            return None\\n        if res.status \\u003e= 300:\\n            raise SaladError(f\\\"Salad HTTP {res.status} {method} {path}: {text[:300]}\\\")\\n        try:\\n            return json.loads(text) if text else {}\\n        except ValueError:\\n            return {}\\n    finally:\\n        conn.close()\\n\\n\\ndef groups_path(keys: dict) -\\u003e str:\\n    return f\\\"/organizations/{keys[\\u0027SALAD_ORG\\u0027]}/projects/{keys[\\u0027SALAD_PROJECT\\u0027]}/containers\\\"\\n\\n\\ndef group_path(keys: dict, name: str) -\\u003e str:\\n    if not NAME_RE.fullmatch(name) or not name.startswith(LABEL):\\n        raise SaladError(f\\\"Grupa {name} nie jest nasza - nie ruszam\\\")\\n    return f\\\"{groups_path(keys)}/{name}\\\"\\n\\n\\ndef our_groups(keys: dict) -\\u003e list[dict]:\\n    items = (api(keys, \\\"GET\\\", groups_path(keys)) or {}).get(\\\"items\\\") or []\\n    return [g for g in items if str(g.get(\\\"name\\\", \\\"\\\")).startswith(LABEL)]\\n\\n\\ndef gpu_classes(keys: dict, priority: str) -\\u003e list[dict]:\\n    items = (api(keys, \\\"GET\\\", f\\\"/organizations/{keys[\\u0027SALAD_ORG\\u0027]}/gpu-classes\\\") or {}).get(\\\"items\\\") or []\\n    out = []\\n    for c in items:\\n        m = re.search(r\\\"\\\\((\\\\d+)\\\\s*GB\\\\)\\\", str(c.get(\\\"name\\\", \\\"\\\")))\\n        price = next((float(p[\\\"price\\\"]) for p in c.get(\\\"prices\\\") or []\\n                      if p.get(\\\"priority\\\") == priority), None)\\n        if m and price is not None:\\n            out.\",\n  \"output_tail\": \"s: str):\\n    class Proxy(BaseHTTPRequestHandler):\\n        protocol_version = \\\"HTTP/1.1\\\"\\n\\n        def log_message(self, fmt, *a):  # \\u015bcie\\u017cka i kod, bez tre\\u015bci \\u017c\\u0105da\\u0144\\n            sys.stderr.write(\\\"proxy %s %s\\\\n\\\" % (self.command, fmt % a))\\n\\n        def _forward(self):\\n            if not self.path.startswith(\\\"/v1/\\\"):\\n                self.send_error(404)\\n                return\\n            length = int(self.headers.get(\\\"Content-Length\\\") or 0)\\n            if length \\u003e 8 * 1024 * 1024:\\n                self.send_error(413)\\n                return\\n            body = self.rfile.read(length) if length else None\\n            headers = {k: v for k, v in self.headers.items()\\n                       if k.lower() not in HOP and k.lower() != \\\"authorization\\\"}\\n            headers[\\\"Salad-Api-Key\\\"] = keys[\\\"SALAD_API_KEY\\\"]\\n            conn = http.client.HTTPSConnection(dns, timeout=130)\\n            try:\\n                conn.request(self.command, self.path, body=body, headers=headers)\\n                res = conn.getresponse()\\n                self.send_response(res.status)\\n                for k, v in res.getheaders():\\n                    if k.lower() not in HOP:\\n                        self.send_header(k, v)\\n                self.send_header(\\\"Transfer-Encoding\\\", \\\"chunked\\\")\\n                self.send_header(\\\"Connection\\\", \\\"close\\\")\\n                self.end_headers()\\n                while True:\\n                    chunk = res.read1(65536)\\n                    if not chunk:\\n                        break\\n                    self.wfile.write(b\\\"%x\\\\r\\\\n%s\\\\r\\\\n\\\" % (len(chunk), chunk))\\n                    self.wfile.flush()\\n                self.wfile.write(b\\\"0\\\\r\\\\n\\\\r\\\\n\\\")\\n            except (OSError, http.client.HTTPException) as exc:\\n                sys.stderr.write(f\\\"proxy b\\u0142\\u0105d: {type(exc).__name__}\\\\n\\\")\\n                try:\\n                    self.send_error(502)\\n                except OSError:\\n                    pass\\n            finally:\\n                conn.close()\\n                self.close_connection = True\\n\\n        do_GET = do_POST = _forward\\n\\n    return Proxy\\n\\n\\ndef cmd_proxy(keys: dict, args) -\\u003e int:\\n    st = read_state()\\n    deadline = datetime.fromisoformat(st[\\\"deadline\\\"])\\n    print(f\\\"Czekam na model w grupie {st[\\u0027name\\u0027]} (termin {deadline:%H:%M} UTC)...\\\")\\n    last = \\\"\\\"\\n    dns = None\\n    while datetime.now(timezone.utc) \\u003c deadline:\\n        d = describe(keys, st[\\\"name\\\"])\\n        if d is None:\\n            raise SaladError(\\\"Grupa znikn\\u0119\\u0142a\\\")\\n        if d[\\\"state\\\"] != last:\\n            print(\\\"... Salad:\\\", d[\\\"state\\\"], flush=True)\\n            last = d[\\\"state\\\"]\\n        if d[\\\"dns\\\"] and d[\\\"state\\\"] == \\\"running\\\" and model_ready(keys, d[\\\"dns\\\"]):\\n            dns = d[\\\"dns\\\"]\\n            break\\n        time.sleep(15)\\n    if not dns:\\n        cmd_down(keys, args)\\n        raise SaladError(\\\"Model nie wsta\\u0142 przed terminem - grupa usuni\\u0119ta\\\")\\n    server = ThreadingHTTPServer((args.bind, args.port), make_handler(keys, dns))\\n    threading.Thread(target=server.serve_forever, daemon=True).start()\\n    print(f\\\"GOTOWE: http://{args.bind}:{args.port}/v1 (model `{SERVED_NAME}`)\\\", flush=True)\\n    try:\\n        while datetime.now(timezone.utc) \\u003c deadline:\\n            time.sleep(5)\\n        print(\\\"Termin min\\u0105\\u0142 - usuwam grup\\u0119.\\\")\\n    except KeyboardInterrupt:\\n        print(\\\"Przerwano - usuwam grup\\u0119.\\\")\\n    finally:\\n        server.shutdown()\\n        cmd_down(keys, args)\\n    return 0\\n\\n\\ndef main(argv: list[str] | None = None) -\\u003e int:\\n    p = argparse.ArgumentParser(description=\\\"vLLM na SaladCloud dla agenta koduj\\u0105cego\\\")\\n    p.add_argument(\\\"--priority\\\", default=\\\"high\\\", choices=[\\\"high\\\", \\\"medium\\\", \\\"low\\\", \\\"batch\\\"])\\n    sub = p.add_subparsers(dest=\\\"cmd\\\", required=True)\\n    sub.add_parser(\\\"check\\\")\\n    up = sub.add_parser(\\\"up\\\")\\n    up.add_argument(\\\"--pay\\\", action=\\\"store_true\\\")\\n    up.add_argument(\\\"--model\\\", default=DEFAULT_MODEL)\\n    up.add_argument(\\\"--parser\\\", default=DEFAULT_PARSER)\\n    up.add_argument(\\\"--image\\\", default=DEFAULT_IMAGE)\\n    up.add_argument(\\\"--vllm-args\\\", default=DEFAULT_VLLM_ARGS, help=\\\"dodatkowe flagi vllm serve\\\")\\n    up.add_argument(\\\"--context\\\", type=int, default=65536)\\n    up.add_argument(\\\"--minutes\\\", type=int, default=120)\\n    up.add_argument(\\\"--max-usd\\\", type=float, default=2.0)\\n    up.add_argument(\\\"--max-hourly\\\", type=float, default=1.0)\\n    up.add_argument(\\\"--min-vram\\\", type=int, default=32)\\n    sub.add_parser(\\\"status\\\")\\n    px = sub.add_parser(\\\"proxy\\\")\\n    px.add_argument(\\\"--port\\\", type=int, default=8000)\\n    px.add_argument(\\\"--bind\\\", default=\\\"127.0.0.1\\\",\\n                    help=\\\"0.0.0.0 tylko w kontenerze-bramie w wewn\\u0119trznej sieci Dockera\\\")\\n    sub.add_parser(\\\"down\\\")\\n    args = p.parse_args(argv)\\n    try:\\n        keys = load_keys()\\n        return {\\\"check\\\": cmd_check, \\\"up\\\": cmd_up, \\\"status\\\": cmd_status,\\n                \\\"proxy\\\": cmd_proxy, \\\"down\\\": cmd_down}[args.cmd](keys, args)\\n    except (SaladError, OSError, http.client.HTTPException) as exc:\\n        print(f\\\"BLOCKED: {exc}\\\", file=sys.stderr)\\n        return 2\\n\\n\\nif __name__ == \\\"__main__\\\":\\n    raise SystemExit(main())\\n\",\n  \"elided_chars\": 5851,\n  \"warning\": \"Output too long.\"\n}",
+      "extra": {
+        "raw_output": "\"\"\"Model koduj\u0105cy (vLLM) na wynaj\u0119tym GPU SaladCloud + lokalny po\u015brednik dla runnera.\n\nPolecenia:\n  check                 karty, ceny i nasze grupy (nic nie kosztuje)\n  up --pay              utw\u00f3rz grup\u0119 z vLLM (p\u0142atne od chwili stanu `running`)\n  status                stan grupy i tego, czy model ju\u017c odpowiada\n  proxy                 127.0.0.1:PORT -> brama Salad (dokleja klucz); po terminie usuwa grup\u0119\nCa\u0142o\u015b\u0107 bez komputera operatora uruchamia workflow .github/workflows/koder.yml.\n  down                  usu\u0144 grup\u0119 (zawsze na koniec)\n\nZasady: w\u0119z\u0142y Salad to cudze komputery poza UE -> wy\u0142\u0105cznie kod z publicznego repo i dane\nsyntetyczne, nigdy `dane/`, `.env` ani nic o klientach. Klucz Salad tylko ze \u015brodowiska albo\nz pliku wskazanego w NOTARAI_SALAD_ENV (poza repo); nie trafia do log\u00f3w ani do kontenera.\nNarz\u0119dzie rusza wy\u0142\u0105cznie grupy o nazwie zaczynaj\u0105cej si\u0119 od `notarai-koder`.\n\"\"\"\nfrom __future__ import annotations\n\nimport argparse\nfrom datetime import datetime, timedelta, timezone\nimport http.client\nfrom http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport sys\nimport threading\nimport time\n\nAPI_HOST = \"api.salad.com\"\nAPI_BASE = \"/api/public\"\nLABEL = \"notarai-koder\"\nNAME_RE = re.compile(r\"^[a-z][a-z0-9-]{0,61}[a-z0-9]$\")\nDNS_RE = re.compile(r\"^[a-z0-9.-]+\\.salad\\.cloud$\", re.I)\nSTATE = Path(__file__).resolve().parents[2] / \".agent-forge\" / \"salad-koder.json\"\n\n# Domy\u015blny model: Qwen3.8-27B w 4 bitach (19,5 GB wag, Apache 2.0, bez bramki) - najmocniejszy\n# otwarty model do pracy agentowej mieszcz\u0105cy si\u0119 na jednej karcie 32 GB (przegl\u0105d 16.11.2026).\n# Zapas dla kart 24 GB: cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit z parserem qwen3_xml.\nDEFAULT_MODEL = \"RedHatAI/Qwen3.8-27B-INT4\"\nDEFAULT_PARSER = \"qwen3_coder\"  # wg recipes.vllm.ai/Qwen/Qwen3.8-27B\nDEFAULT_VLLM_ARGS = \"--kv-cache-dtype fp8 --language-model-only --enforce-eager --reasoning-parser qwen3\"\nDEFAULT_IMAGE = \"vllm/vllm-openai:latest\"\nSERVED_NAME = \"koder\"\nPORT = 8000\nHOP = {\"connection\", \"keep-alive\", \"proxy-authenticate\", \"proxy-authorization\", \"te\",\n       \"trailers\", \"transfer-encoding\", \"upgrade\", \"host\", \"content-length\"}\n\n\nclass SaladError(RuntimeError):\n    pass\n\n\ndef load_keys() -> dict[str, str]:\n    keys = {k: os.environ.get(k, \"\") for k in (\"SALAD_API_KEY\", \"SALAD_ORG\", \"SALAD_PROJECT\")}\n    path = os.environ.get(\"NOTARAI_SALAD_ENV\")\n    if path and Path(path).is_file():\n        for line in Path(path).read_text(encoding=\"utf-8\").splitlines():\n            m = re.match(r\"^(SALAD_API_KEY|SALAD_ORG|SALAD_PROJECT)=(.*)$\", line.strip())\n            if m and not keys[m.group(1)]:\n                keys[m.group(1)] = m.group(2).strip().strip('\"').strip(\"'\")\n    keys[\"SALAD_PROJECT\"] = keys[\"SALAD_PROJECT\"] or \"default\"\n    if not keys[\"SALAD_API_KEY\"]:\n        raise SaladError(\"Brak SALAD_API_KEY (\u015brodowisko albo plik z NOTARAI_SALAD_ENV)\")\n    for k in (\"SALAD_ORG\", \"SALAD_PROJECT\"):\n        if not NAME_RE.fullmatch(keys[k]):\n            raise SaladError(f\"Z\u0142a albo pusta warto\u015b\u0107 {k}\")\n    return keys\n\n\ndef api(keys: dict, method: str, path: str, body: dict | None = None, allow404: bool = False):\n    conn = http.client.HTTPSConnection(API_HOST, timeout=30)\n    try:\n        headers = {\"Salad-Api-Key\": keys[\"SALAD_API_KEY\"], \"Accept\": \"application/json\"}\n        data = None\n        if body is not None:\n            data = json.dumps(body).encode(\"utf-8\")\n            headers[\"Content-Type\"] = \"application/json\"\n        conn.request(method, API_BASE + path, body=data, headers=headers)\n        res = conn.getresponse()\n        text = res.read().decode(\"utf-8\", \"replace\")\n        if res.status == 404 and allow404:\n            return None\n        if res.status >= 300:\n            raise SaladError(f\"Salad HTTP {res.status} {method} {path}: {text[:300]}\")\n        try:\n            return json.loads(text) if text else {}\n        except ValueError:\n            return {}\n    finally:\n        conn.close()\n\n\ndef groups_path(keys: dict) -> str:\n    return f\"/organizations/{keys['SALAD_ORG']}/projects/{keys['SALAD_PROJECT']}/containers\"\n\n\ndef group_path(keys: dict, name: str) -> str:\n    if not NAME_RE.fullmatch(name) or not name.startswith(LABEL):\n        raise SaladError(f\"Grupa {name} nie jest nasza - nie ruszam\")\n    return f\"{groups_path(keys)}/{name}\"\n\n\ndef our_groups(keys: dict) -> list[dict]:\n    items = (api(keys, \"GET\", groups_path(keys)) or {}).get(\"items\") or []\n    return [g for g in items if str(g.get(\"name\", \"\")).startswith(LABEL)]\n\n\ndef gpu_classes(keys: dict, priority: str) -> list[dict]:\n    items = (api(keys, \"GET\", f\"/organizations/{keys['SALAD_ORG']}/gpu-classes\") or {}).get(\"items\") or []\n    out = []\n    for c in items:\n        m = re.search(r\"\\((\\d+)\\s*GB\\)\", str(c.get(\"name\", \"\")))\n        price = next((float(p[\"price\"]) for p in c.get(\"prices\") or []\n                      if p.get(\"priority\") == priority), None)\n        if m and price is not None:\n            out.append({\"id\": c[\"id\"], \"name\": c[\"name\"], \"vram\": int(m.group(1)), \"usd_h\": price})\n    return sorted(out, key=lambda x: (-x[\"vram\"], x[\"usd_h\"]))\n\n\ndef create_body(name: str, gpu_id: str, args, deadline: datetime) -> dict:\n    # `timeout` w kontenerze: drugi bezpiecznik - po terminie vLLM ko\u0144czy prac\u0119 sam, nawet\n    # gdyby nikt nie usun\u0105\u0142 grupy (restart_policy=never).\n    seconds = max(60, int((deadline - datetime.now(timezone.utc)).total_seconds()) + 900)\n    command = [\n        \"timeout\", str(seconds), \"vllm\", \"serve\", args.model,\n        \"--host\", \"::\", \"--port\", str(PORT),  # brama Salad \u0142\u0105czy si\u0119 po IPv6\n        \"--served-model-name\", SERVED_NAME,\n        \"--max-model-len\", str(args.context),\n        \"--gpu-memory-utilization\", \"0.90\",\n        \"--enable-auto-tool-choice\", \"--tool-call-parser\", args.parser,\n        *args.vllm_args.split(),\n    ]\n    return {\n        \"name\": name,\n        \"display_name\": name,\n        \"container\": {\n            \"image\": args.image,\n            \"command\": command,\n            \"priority\": args.priority,\n            \"resources\": {\n                \"cpu\": 8, \"memory\": 32 * 1024, \"gpu_classes\": [gpu_id],\n                \"storage_amount\": 50 * 1024 ** 3,\n            },\n            \"environment_variables\": {\"KODER_DEADLINE\": deadline.isoformat()},\n        },\n        \"autostart_policy\": True,\n        \"restart_policy\": \"never\",\n        \"replicas\": 1,\n        \"networking\": {\n            \"protocol\": \"http\", \"port\": PORT, \"auth\": True,\n            \"load_balancer\": \"round_robin\", \"single_connection_limit\": False,\n            \"client_request_timeout\": 100000, \"server_response_timeout\": 100000,\n        },\n    }\n\n\ndef save_state(data: dict) -> None:\n    STATE.parent.mkdir(parents=True, exist_ok=True)\n    STATE.write_text(json.dumps(data, indent=2), encoding=\"utf-8\")\n\n\ndef read_state() -> dict:\n    if not STATE.is_file():\n        raise SaladError(\"Brak zapisanej grupy - najpierw `up --pay`\")\n    return json.loads(STATE.read_text(encoding=\"utf-8\"))\n\n\ndef describe(keys: dict, name: str) -> dict | None:\n    g = api(keys, \"GET\", group_path(keys, name), allow404=True)\n    if g is None:\n        return None\n    inst = ((api(keys, \"GET\", group_path(keys, name) + \"/instances\", allow404=True) or {})\n            .get(\"instances\") or [{}])[0]\n    dns = str((g.get(\"networking\") or {}).get(\"dns\") or \"\").replace(\"https://\", \"\").strip(\"/\")\n    return {\n        \"name\": name,\n        \"state\": inst.get(\"state\") or (g.get(\"current_state\") or {}).get(\"status\") or \"pending\",\n        \"dns\": dns if DNS_RE.fullmatch(dns) else None,\n        \"deadline\": ((g.get(\"container\") or {}).get(\"environment_variables\") or {}).get(\"KODER_DEADLINE\"),\n    }\n\n\ndef model_ready(keys: dict, dns: str) -> bool:\n    conn = http.client.HTTPSConnection(dns, timeout=20)\n    try:\n        conn.request(\"GET\", \"/v1/models\", headers={\"Salad-Api-Key\": keys[\"SALAD_API_KEY\"]})\n        res = conn.getresponse()\n        body = res.read(4096)\n        return res.status == 200 and SERVED_NAME.encode() in body\n    except (OSError, http.client.HTTPException):\n        return False\n    finally:\n        conn.close()\n\n\n# ---------------------------------------------------------------- polecenia\n\ndef cmd_check(keys: dict, args) -> int:\n    for c in gpu_classes(keys, args.priority):\n        print(f\"{c['name']:<28}{c['usd_h']:.3f} USD/h\")\n    mine = our_groups(keys)\n    print(\"Nasze grupy:\", \", \".join(g[\"name\"] for g in mine) or \"brak\")\n    return 0\n\n\ndef cmd_up(keys: dict, args) -> int:\n    if our_groups(keys):\n        raise SaladError(\"Nasza grupa ju\u017c istnieje - `status` albo `down`\")\n    offers = [c for c in gpu_classes(keys, args.priority)\n              if c[\"vram\"] >= args.min_vram and c[\"usd_h\"] <= args.max_hourly]\n    if not offers:\n        raise SaladError(\"Brak karty spe\u0142niaj\u0105cej --min-vram / --max-hourly\")\n    offer = offers[0]\n    minutes = min(args.minutes, int(args.max_usd / offer[\"usd_h\"] * 60))\n    if minutes < 20:\n        raise SaladError(\"Bud\u017cet nie starcza na 20 minut pracy\")\n    print(f\"Plan: {offer['name']} {offer['usd_h']:.2f} USD/h, do {minutes} min, \"\n          f\"najwy\u017cej {minutes / 60 * offer['usd_h']:.2f} USD; model {args.model}\")\n    if not args.pay:\n        print(\"PLAN (bez --pay nic nie tworz\u0119).\")\n        return 0\n    now = datetime.now(timezone.utc)\n    deadline = now + timedelta(minutes=minutes)\n    name = f\"{LABEL}-{now:%Y%m%dt%H%M}\"\n    api(keys, \"POST\", groups_path(keys), create_body(name, offer[\"id\"], args, deadline))\n    save_state({\"name\": name, \"deadline\": deadline.isoformat(), \"usd_h\": offer[\"usd_h\"],\n                \"gpu\": offer[\"name\"], \"model\": args.model, \"created\": now.isoformat()})\n    print(f\"Utworzono {name}; termin {deadline:%H:%M} UTC. Dalej: status, potem proxy.\")\n    return 0\n\n\ndef cmd_status(keys: dict, args) -> int:\n    st = read_state()\n    d = describe(keys, st[\"name\"])\n    if d is None:\n        print(\"Grupy ju\u017c nie ma.\")\n        return 1\n    ready = bool(d[\"dns\"]) and d[\"state\"] == \"running\" and model_ready(keys, d[\"dns\"])\n    print(json.dumps({**d, \"model_ready\": ready}, indent=2))\n    return 0 if ready else 3\n\n\ndef cmd_down(keys: dict, args) -> int:\n    names = [g[\"name\"] for g in our_groups(keys)]\n    for name in names:\n        api(keys, \"DELETE\", group_path(keys, name), allow404=True)\n        print(f\"Usuni\u0119to {name}\")\n    if not names:\n        print(\"Nie by\u0142o czego usuwa\u0107.\")\n    if STATE.is_file():\n        st = read_state()\n        try:\n            mins = (datetime.now(timezone.utc) - datetime.fromisoformat(st[\"created\"])).total_seconds() / 60\n            print(f\"Czas od utworzenia: {mins:.0f} min, g\u00f3rna granica kosztu \"\n                  f\"{mins / 60 * st['usd_h']:.2f} USD (Salad nalicza tylko stan running).\")\n        except (KeyError, ValueError):\n            pass\n        STATE.unlink()\n    return 0\n\n\ndef make_handler(keys: dict, dns: str):\n    class Proxy(BaseHTTPRequestHandler):\n        protocol_version = \"HTTP/1.1\"\n\n        def log_message(self, fmt, *a):  # \u015bcie\u017cka i kod, bez tre\u015bci \u017c\u0105da\u0144\n            sys.stderr.write(\"proxy %s %s\\n\" % (self.command, fmt % a))\n\n        def _forward(self):\n            if not self.path.startswith(\"/v1/\"):\n                self.send_error(404)\n                return\n            length = int(self.headers.get(\"Content-Length\") or 0)\n            if length > 8 * 1024 * 1024:\n                self.send_error(413)\n                return\n            body = self.rfile.read(length) if length else None\n            headers = {k: v for k, v in self.headers.items()\n                       if k.lower() not in HOP and k.lower() != \"authorization\"}\n            headers[\"Salad-Api-Key\"] = keys[\"SALAD_API_KEY\"]\n            conn = http.client.HTTPSConnection(dns, timeout=130)\n            try:\n                conn.request(self.command, self.path, body=body, headers=headers)\n                res = conn.getresponse()\n                self.send_response(res.status)\n                for k, v in res.getheaders():\n                    if k.lower() not in HOP:\n                        self.send_header(k, v)\n                self.send_header(\"Transfer-Encoding\", \"chunked\")\n                self.send_header(\"Connection\", \"close\")\n                self.end_headers()\n                while True:\n                    chunk = res.read1(65536)\n                    if not chunk:\n                        break\n                    self.wfile.write(b\"%x\\r\\n%s\\r\\n\" % (len(chunk), chunk))\n                    self.wfile.flush()\n                self.wfile.write(b\"0\\r\\n\\r\\n\")\n            except (OSError, http.client.HTTPException) as exc:\n                sys.stderr.write(f\"proxy b\u0142\u0105d: {type(exc).__name__}\\n\")\n                try:\n                    self.send_error(502)\n                except OSError:\n                    pass\n            finally:\n                conn.close()\n                self.close_connection = True\n\n        do_GET = do_POST = _forward\n\n    return Proxy\n\n\ndef cmd_proxy(keys: dict, args) -> int:\n    st = read_state()\n    deadline = datetime.fromisoformat(st[\"deadline\"])\n    print(f\"Czekam na model w grupie {st['name']} (termin {deadline:%H:%M} UTC)...\")\n    last = \"\"\n    dns = None\n    while datetime.now(timezone.utc) < deadline:\n        d = describe(keys, st[\"name\"])\n        if d is None:\n            raise SaladError(\"Grupa znikn\u0119\u0142a\")\n        if d[\"state\"] != last:\n            print(\"... Salad:\", d[\"state\"], flush=True)\n            last = d[\"state\"]\n        if d[\"dns\"] and d[\"state\"] == \"running\" and model_ready(keys, d[\"dns\"]):\n            dns = d[\"dns\"]\n            break\n        time.sleep(15)\n    if not dns:\n        cmd_down(keys, args)\n        raise SaladError(\"Model nie wsta\u0142 przed terminem - grupa usuni\u0119ta\")\n    server = ThreadingHTTPServer((args.bind, args.port), make_handler(keys, dns))\n    threading.Thread(target=server.serve_forever, daemon=True).start()\n    print(f\"GOTOWE: http://{args.bind}:{args.port}/v1 (model `{SERVED_NAME}`)\", flush=True)\n    try:\n        while datetime.now(timezone.utc) < deadline:\n            time.sleep(5)\n        print(\"Termin min\u0105\u0142 - usuwam grup\u0119.\")\n    except KeyboardInterrupt:\n        print(\"Przerwano - usuwam grup\u0119.\")\n    finally:\n        server.shutdown()\n        cmd_down(keys, args)\n    return 0\n\n\ndef main(argv: list[str] | None = None) -> int:\n    p = argparse.ArgumentParser(description=\"vLLM na SaladCloud dla agenta koduj\u0105cego\")\n    p.add_argument(\"--priority\", default=\"high\", choices=[\"high\", \"medium\", \"low\", \"batch\"])\n    sub = p.add_subparsers(dest=\"cmd\", required=True)\n    sub.add_parser(\"check\")\n    up = sub.add_parser(\"up\")\n    up.add_argument(\"--pay\", action=\"store_true\")\n    up.add_argument(\"--model\", default=DEFAULT_MODEL)\n    up.add_argument(\"--parser\", default=DEFAULT_PARSER)\n    up.add_argument(\"--image\", default=DEFAULT_IMAGE)\n    up.add_argument(\"--vllm-args\", default=DEFAULT_VLLM_ARGS, help=\"dodatkowe flagi vllm serve\")\n    up.add_argument(\"--context\", type=int, default=65536)\n    up.add_argument(\"--minutes\", type=int, default=120)\n    up.add_argument(\"--max-usd\", type=float, default=2.0)\n    up.add_argument(\"--max-hourly\", type=float, default=1.0)\n    up.add_argument(\"--min-vram\", type=int, default=32)\n    sub.add_parser(\"status\")\n    px = sub.add_parser(\"proxy\")\n    px.add_argument(\"--port\", type=int, default=8000)\n    px.add_argument(\"--bind\", default=\"127.0.0.1\",\n                    help=\"0.0.0.0 tylko w kontenerze-bramie w wewn\u0119trznej sieci Dockera\")\n    sub.add_parser(\"down\")\n    args = p.parse_args(argv)\n    try:\n        keys = load_keys()\n        return {\"check\": cmd_check, \"up\": cmd_up, \"status\": cmd_status,\n                \"proxy\": cmd_proxy, \"down\": cmd_down}[args.cmd](keys, args)\n    except (SaladError, OSError, http.client.HTTPException) as exc:\n        print(f\"BLOCKED: {exc}\", file=sys.stderr)\n        return 2\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n",
+        "returncode": 0,
+        "timestamp": 1794789419.3705473,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-9d8a6db0380afd11",
+      "role": "tool"
+    },
+    {
+      "content": null,
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"grep -n \\\"cmd_check\\\" -A 40 tools/agent_factory/salad_vllm.py | head -70\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-85ec835ba83e8e4a",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "grep -n \"cmd_check\" -A 40 tools/agent_factory/salad_vllm.py | head -70",
+            "tool_call_id": "chatcmpl-tool-85ec835ba83e8e4a"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-b35d5c0c2aa537d7",
+          "created": 1794789416,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": null,
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"grep -n \\\"cmd_check\\\" -A 40 tools/agent_factory/salad_vllm.py | head -70\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-85ec835ba83e8e4a",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 53,
+            "prompt_tokens": 5941,
+            "total_tokens": 5994,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789425.0565414
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"199:def cmd_check(keys: dict, args) -\\u003e int:\\n200-    for c in gpu_classes(keys, args.priority):\\n201-        print(f\\\"{c[\\u0027name\\u0027]:\\u003c28}{c[\\u0027usd_h\\u0027]:.3f} USD/h\\\")\\n202-    mine = our_groups(keys)\\n203-    print(\\\"Nasze grupy:\\\", \\\", \\\".join(g[\\\"name\\\"] for g in mine) or \\\"brak\\\")\\n204-    return 0\\n205-\\n206-\\n207-def cmd_up(keys: dict, args) -\\u003e int:\\n208-    if our_groups(keys):\\n209-        raise SaladError(\\\"Nasza grupa ju\\u017c istnieje - `status` albo `down`\\\")\\n210-    offers = [c for c in gpu_classes(keys, args.priority)\\n211-              if c[\\\"vram\\\"] \\u003e= args.min_vram and c[\\\"usd_h\\\"] \\u003c= args.max_hourly]\\n212-    if not offers:\\n213-        raise SaladError(\\\"Brak karty spe\\u0142niaj\\u0105cej --min-vram / --max-hourly\\\")\\n214-    offer = offers[0]\\n215-    minutes = min(args.minutes, int(args.max_usd / offer[\\\"usd_h\\\"] * 60))\\n216-    if minutes \\u003c 20:\\n217-        raise SaladError(\\\"Bud\\u017cet nie starcza na 20 minut pracy\\\")\\n218-    print(f\\\"Plan: {offer[\\u0027name\\u0027]} {offer[\\u0027usd_h\\u0027]:.2f} USD/h, do {minutes} min, \\\"\\n219-          f\\\"najwy\\u017cej {minutes / 60 * offer[\\u0027usd_h\\u0027]:.2f} USD; model {args.model}\\\")\\n220-    if not args.pay:\\n221-        print(\\\"PLAN (bez --pay nic nie tworz\\u0119).\\\")\\n222-        return 0\\n223-    now = datetime.now(timezone.utc)\\n224-    deadline = now + timedelta(minutes=minutes)\\n225-    name = f\\\"{LABEL}-{now:%Y%m%dt%H%M}\\\"\\n226-    api(keys, \\\"POST\\\", groups_path(keys), create_body(name, offer[\\\"id\\\"], args, deadline))\\n227-    save_state({\\\"name\\\": name, \\\"deadline\\\": deadline.isoformat(), \\\"usd_h\\\": offer[\\\"usd_h\\\"],\\n228-                \\\"gpu\\\": offer[\\\"name\\\"], \\\"model\\\": args.model, \\\"created\\\": now.isoformat()})\\n229-    print(f\\\"Utworzono {name}; termin {deadline:%H:%M} UTC. Dalej: status, potem proxy.\\\")\\n230-    return 0\\n231-\\n232-\\n233-def cmd_status(keys: dict, args) -\\u003e int:\\n234-    st = read_state()\\n235-    d = describe(keys, st[\\\"name\\\"])\\n236-    if d is None:\\n237-        print(\\\"Grupy ju\\u017c nie ma.\\\")\\n238-        return 1\\n239-    ready = bool(d[\\\"dns\\\"]) and d[\\\"state\\\"] == \\\"running\\\" and model_ready(keys, d[\\\"dns\\\"])\\n--\\n375:        return {\\\"check\\\": cmd_check, \\\"up\\\": cmd_up, \\\"status\\\": cmd_status,\\n376-                \\\"proxy\\\": cmd_proxy, \\\"down\\\": cmd_down}[args.cmd](keys, args)\\n377-    except (SaladError, OSError, http.client.HTTPException) as exc:\\n378-        print(f\\\"BLOCKED: {exc}\\\", file=sys.stderr)\\n379-        return 2\\n380-\\n381-\\n382-if __name__ == \\\"__main__\\\":\\n383-    raise SystemExit(main())\\n\"\n}",
+      "extra": {
+        "raw_output": "199:def cmd_check(keys: dict, args) -> int:\n200-    for c in gpu_classes(keys, args.priority):\n201-        print(f\"{c['name']:<28}{c['usd_h']:.3f} USD/h\")\n202-    mine = our_groups(keys)\n203-    print(\"Nasze grupy:\", \", \".join(g[\"name\"] for g in mine) or \"brak\")\n204-    return 0\n205-\n206-\n207-def cmd_up(keys: dict, args) -> int:\n208-    if our_groups(keys):\n209-        raise SaladError(\"Nasza grupa ju\u017c istnieje - `status` albo `down`\")\n210-    offers = [c for c in gpu_classes(keys, args.priority)\n211-              if c[\"vram\"] >= args.min_vram and c[\"usd_h\"] <= args.max_hourly]\n212-    if not offers:\n213-        raise SaladError(\"Brak karty spe\u0142niaj\u0105cej --min-vram / --max-hourly\")\n214-    offer = offers[0]\n215-    minutes = min(args.minutes, int(args.max_usd / offer[\"usd_h\"] * 60))\n216-    if minutes < 20:\n217-        raise SaladError(\"Bud\u017cet nie starcza na 20 minut pracy\")\n218-    print(f\"Plan: {offer['name']} {offer['usd_h']:.2f} USD/h, do {minutes} min, \"\n219-          f\"najwy\u017cej {minutes / 60 * offer['usd_h']:.2f} USD; model {args.model}\")\n220-    if not args.pay:\n221-        print(\"PLAN (bez --pay nic nie tworz\u0119).\")\n222-        return 0\n223-    now = datetime.now(timezone.utc)\n224-    deadline = now + timedelta(minutes=minutes)\n225-    name = f\"{LABEL}-{now:%Y%m%dt%H%M}\"\n226-    api(keys, \"POST\", groups_path(keys), create_body(name, offer[\"id\"], args, deadline))\n227-    save_state({\"name\": name, \"deadline\": deadline.isoformat(), \"usd_h\": offer[\"usd_h\"],\n228-                \"gpu\": offer[\"name\"], \"model\": args.model, \"created\": now.isoformat()})\n229-    print(f\"Utworzono {name}; termin {deadline:%H:%M} UTC. Dalej: status, potem proxy.\")\n230-    return 0\n231-\n232-\n233-def cmd_status(keys: dict, args) -> int:\n234-    st = read_state()\n235-    d = describe(keys, st[\"name\"])\n236-    if d is None:\n237-        print(\"Grupy ju\u017c nie ma.\")\n238-        return 1\n239-    ready = bool(d[\"dns\"]) and d[\"state\"] == \"running\" and model_ready(keys, d[\"dns\"])\n--\n375:        return {\"check\": cmd_check, \"up\": cmd_up, \"status\": cmd_status,\n376-                \"proxy\": cmd_proxy, \"down\": cmd_down}[args.cmd](keys, args)\n377-    except (SaladError, OSError, http.client.HTTPException) as exc:\n378-        print(f\"BLOCKED: {exc}\", file=sys.stderr)\n379-        return 2\n380-\n381-\n382-if __name__ == \"__main__\":\n383-    raise SystemExit(main())\n",
+        "returncode": 0,
+        "timestamp": 1794789425.0626018,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-85ec835ba83e8e4a",
+      "role": "tool"
+    },
+    {
+      "content": null,
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"cat conftest.py; ls tools/agent_factory/; cat pytest.ini; ls tools/agent_factory/*.py 2>/dev/null; find . -path ./node_modules -prune -o -name \\\"__init__.py\\\" -print | head\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-a958df38757103c1",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "cat conftest.py; ls tools/agent_factory/; cat pytest.ini; ls tools/agent_factory/*.py 2>/dev/null; find . -path ./node_modules -prune -o -name \"__init__.py\" -print | head",
+            "tool_call_id": "chatcmpl-tool-a958df38757103c1"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-a41939aa5e384c4d",
+          "created": 1794789422,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": null,
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"cat conftest.py; ls tools/agent_factory/; cat pytest.ini; ls tools/agent_factory/*.py 2>/dev/null; find . -path ./node_modules -prune -o -name \\\"__init__.py\\\" -print | head\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-a958df38757103c1",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 78,
+            "prompt_tokens": 7081,
+            "total_tokens": 7159,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789431.446629
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"\\\"\\\"\\\"Wsp\\u00f3lne funkcje pomocnicze dla test\\u00f3w.\\\"\\\"\\\"\\nfrom walidacja import WAGI_PESEL\\n\\n\\ndef z_suma_kontrolna(dziesiec_cyfr: str) -\\u003e str:\\n    \\\"\\\"\\\"Dodaje cyfr\\u0119 kontroln\\u0105 PESEL do 10-cyfrowego prefiksu.\\\"\\\"\\\"\\n    suma = sum(int(c) * w for c, w in zip(dziesiec_cyfr, WAGI_PESEL))\\n    return dziesiec_cyfr + str((10 - suma % 10) % 10)\\n\\n\\nimport pytest  # noqa: E402\\n\\n\\n@pytest.fixture(autouse=True)\\ndef _bez_poczty_w_testach():\\n    \\\"\\\"\\\"Zaden test nie laczy sie z prawdziwa Poczta Polska.\\n\\n    Sledzenie odpowiada \\\"brak w systemie\\\", e-Nadawca - bledem; testy, ktore\\n    potrzebuja konkretnych odpowiedzi, podstawiaja wlasny transport.\\n    \\\"\\\"\\\"\\n    import httpx\\n    import poczta_polska\\n    import sledzenie\\n\\n    def brak(zadanie):\\n        if \\\"sledzenie\\\" in zadanie.url.host or \\\"tt.poczta-polska.pl\\\" == zadanie.url.host:\\n            return httpx.Response(200, text=(\\n                \\u0027\\u003ce:Envelope xmlns:e=\\\"http://schemas.xmlsoap.org/soap/envelope/\\\"\\u003e\\u003ce:Body\\u003e\\u003cr\\u003e\\u003creturn\\u003e\\u0027\\n                \\u0027\\u003cnumer\\u003eX\\u003c/numer\\u003e\\u003cstatus\\u003e-1\\u003c/status\\u003e\\u003c/return\\u003e\\u003c/r\\u003e\\u003c/e:Body\\u003e\\u003c/e:Envelope\\u003e\\u0027))\\n        return httpx.Response(503, text=\\\"test: brak Poczty\\\")\\n    # Bez fixture monkeypatch: wspolna instancja zmienilaby kolejnosc sprzatania\\n    # (cofniecie zmiennych srodowiska po przeladowaniu modulow w innych testach).\\n    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = httpx.MockTransport(brak)\\n    yield\\n    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = None\\n\\n\\n@pytest.fixture(autouse=True)\\ndef _bez_modelu_przy_kontroli_zasad():\\n    \\\"\\\"\\\"Kontrola zasad kancelarii po projekcie (i ustalenia z korespondencji) nie wola prawdziwego Bedrock.\\n    Testy poprawki przez model podstawiaja wlasne funkcje.\\n\\n    Bez monkeypatch - z tego samego powodu co wyzej (kolejnosc sprzatania).\\n    \\\"\\\"\\\"\\n    import bedrock\\n\\n    def brak(*_a, **_k):\\n        raise RuntimeError(\\\"test: brak modelu\\\")\\n    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia\\n    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = bedrock.wyciagnij_ustalenia = brak\\n    yield\\n    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia = oryginaly\\nbrowser_smoke.py\\nforge_benchmark.py\\nforge_cli.py\\nforge_core.py\\nforge_llm.py\\nforge_llm_cli.py\\nforge_research_cli.py\\nforge_research_stats.py\\nforge_sandbox.py\\nforge_sandbox_cli.py\\nforge_scheduler.py\\nforge_scheduler_cli.py\\nkoder\\nrunner.py\\nsalad_vllm.py\\n[pytest]\\n# Konfiguracja pytest dla pieczapp\\n\\n# Wzorce plikow testowych\\npython_files = test_*.py\\npython_classes = Test*\\npython_functions = test_*\\n\\n# Opcje wyswietlania\\naddopts =\\n    -v\\n    --strict-markers\\n    --tb=short\\n    --color=yes\\n\\n# Katalogi ignorowane\\nnorecursedirs = .git .venv venv dane build dist *.egg-info\\n\\n# Markery (na przyszlosc)\\nmarkers =\\n    slow: testy wymagajace wiecej czasu\\n    integration: testy integracyjne\\n    unit: testy jednostkowe\\n\\n# Ostrzezenia\\nfilterwarnings =\\n    error\\n    ignore::DeprecationWarning\\n    ignore::PendingDeprecationWarning\\ntools/agent_factory/browser_smoke.py\\ntools/agent_factory/forge_benchmark.py\\ntools/agent_factory/forge_cli.py\\ntools/agent_factory/forge_core.py\\ntools/agent_factory/forge_llm.py\\ntools/agent_factory/forge_llm_cli.py\\ntools/agent_factory/forge_research_cli.py\\ntools/agent_factory/forge_research_stats.py\\ntools/agent_factory/forge_sandbox.py\\ntools/agent_factory/forge_sandbox_cli.py\\ntools/agent_factory/forge_scheduler.py\\ntools/agent_factory/forge_scheduler_cli.py\\ntools/agent_factory/runner.py\\ntools/agent_factory/salad_vllm.py\\n./seo/__init__.py\\n./formularze/__init__.py\\n./pomocnik/__init__.py\\n\"\n}",
+      "extra": {
+        "raw_output": "\"\"\"Wsp\u00f3lne funkcje pomocnicze dla test\u00f3w.\"\"\"\nfrom walidacja import WAGI_PESEL\n\n\ndef z_suma_kontrolna(dziesiec_cyfr: str) -> str:\n    \"\"\"Dodaje cyfr\u0119 kontroln\u0105 PESEL do 10-cyfrowego prefiksu.\"\"\"\n    suma = sum(int(c) * w for c, w in zip(dziesiec_cyfr, WAGI_PESEL))\n    return dziesiec_cyfr + str((10 - suma % 10) % 10)\n\n\nimport pytest  # noqa: E402\n\n\n@pytest.fixture(autouse=True)\ndef _bez_poczty_w_testach():\n    \"\"\"Zaden test nie laczy sie z prawdziwa Poczta Polska.\n\n    Sledzenie odpowiada \"brak w systemie\", e-Nadawca - bledem; testy, ktore\n    potrzebuja konkretnych odpowiedzi, podstawiaja wlasny transport.\n    \"\"\"\n    import httpx\n    import poczta_polska\n    import sledzenie\n\n    def brak(zadanie):\n        if \"sledzenie\" in zadanie.url.host or \"tt.poczta-polska.pl\" == zadanie.url.host:\n            return httpx.Response(200, text=(\n                '<e:Envelope xmlns:e=\"http://schemas.xmlsoap.org/soap/envelope/\"><e:Body><r><return>'\n                '<numer>X</numer><status>-1</status></return></r></e:Body></e:Envelope>'))\n        return httpx.Response(503, text=\"test: brak Poczty\")\n    # Bez fixture monkeypatch: wspolna instancja zmienilaby kolejnosc sprzatania\n    # (cofniecie zmiennych srodowiska po przeladowaniu modulow w innych testach).\n    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = httpx.MockTransport(brak)\n    yield\n    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = None\n\n\n@pytest.fixture(autouse=True)\ndef _bez_modelu_przy_kontroli_zasad():\n    \"\"\"Kontrola zasad kancelarii po projekcie (i ustalenia z korespondencji) nie wola prawdziwego Bedrock.\n    Testy poprawki przez model podstawiaja wlasne funkcje.\n\n    Bez monkeypatch - z tego samego powodu co wyzej (kolejnosc sprzatania).\n    \"\"\"\n    import bedrock\n\n    def brak(*_a, **_k):\n        raise RuntimeError(\"test: brak modelu\")\n    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia\n    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = bedrock.wyciagnij_ustalenia = brak\n    yield\n    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, bedrock.wyciagnij_ustalenia = oryginaly\nbrowser_smoke.py\nforge_benchmark.py\nforge_cli.py\nforge_core.py\nforge_llm.py\nforge_llm_cli.py\nforge_research_cli.py\nforge_research_stats.py\nforge_sandbox.py\nforge_sandbox_cli.py\nforge_scheduler.py\nforge_scheduler_cli.py\nkoder\nrunner.py\nsalad_vllm.py\n[pytest]\n# Konfiguracja pytest dla pieczapp\n\n# Wzorce plikow testowych\npython_files = test_*.py\npython_classes = Test*\npython_functions = test_*\n\n# Opcje wyswietlania\naddopts =\n    -v\n    --strict-markers\n    --tb=short\n    --color=yes\n\n# Katalogi ignorowane\nnorecursedirs = .git .venv venv dane build dist *.egg-info\n\n# Markery (na przyszlosc)\nmarkers =\n    slow: testy wymagajace wiecej czasu\n    integration: testy integracyjne\n    unit: testy jednostkowe\n\n# Ostrzezenia\nfilterwarnings =\n    error\n    ignore::DeprecationWarning\n    ignore::PendingDeprecationWarning\ntools/agent_factory/browser_smoke.py\ntools/agent_factory/forge_benchmark.py\ntools/agent_factory/forge_cli.py\ntools/agent_factory/forge_core.py\ntools/agent_factory/forge_llm.py\ntools/agent_factory/forge_llm_cli.py\ntools/agent_factory/forge_research_cli.py\ntools/agent_factory/forge_research_stats.py\ntools/agent_factory/forge_sandbox.py\ntools/agent_factory/forge_sandbox_cli.py\ntools/agent_factory/forge_scheduler.py\ntools/agent_factory/forge_scheduler_cli.py\ntools/agent_factory/runner.py\ntools/agent_factory/salad_vllm.py\n./seo/__init__.py\n./formularze/__init__.py\n./pomocnik/__init__.py\n",
+        "returncode": 0,
+        "timestamp": 1794789431.4590924,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-a958df38757103c1",
+      "role": "tool"
+    },
+    {
+      "content": null,
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"head -40 test_agent_factory.py\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-8ffce8fb7b422889",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "head -40 test_agent_factory.py",
+            "tool_call_id": "chatcmpl-tool-8ffce8fb7b422889"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-90e5bbb41f2dbd96",
+          "created": 1794789428,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": null,
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"head -40 test_agent_factory.py\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-8ffce8fb7b422889",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 33,
+            "prompt_tokens": 8501,
+            "total_tokens": 8534,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789434.9303846
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"\\\"\\\"\\\"No external services, cloud credentials or browsers required.\\\"\\\"\\\"\\nimport argparse\\nfrom pathlib import Path\\n\\nimport pytest\\n\\nfrom tools.agent_factory.runner import (\\n    PolicyError,\\n    codex_command,\\n    load_task,\\n    restricted_env,\\n    validate_endpoint,\\n    validate_model,\\n)\\nfrom tools.agent_factory.browser_smoke import BrowserPolicyError, local_origin\\n\\n\\n@pytest.mark.parametrize(\\\"value\\\", [\\n    \\\"https://external.example/v1\\\",\\n    \\\"http://gpu.example:8000/v1\\\",\\n    \\\"http://127.0.0.1:8000/admin\\\",\\n    \\\"http://127.0.0.1:8000/v1?token=secret\\\",\\n    \\\"http://user:pw@localhost:8000/v1\\\",\\n    \\\"file:///etc/passwd\\\",\\n])\\ndef test_reject_non_local_endpoints(value):\\n    with pytest.raises(PolicyError):\\n        validate_endpoint(value)\\n\\n\\ndef test_allow_local_tunnel():\\n    assert validate_endpoint(\\\"http://127.0.0.1:8000/v1\\\") == \\\"http://127.0.0.1:8000/v1\\\"\\n\\n\\ndef test_model_identifier():\\n    assert validate_model(\\\"qwen3-coder\\\") == \\\"qwen3-coder\\\"\\n    with pytest.raises(PolicyError):\\n        validate_model(\\\"model; cat /etc/passwd\\\")\\n\\n\\n\"\n}",
+      "extra": {
+        "raw_output": "\"\"\"No external services, cloud credentials or browsers required.\"\"\"\nimport argparse\nfrom pathlib import Path\n\nimport pytest\n\nfrom tools.agent_factory.runner import (\n    PolicyError,\n    codex_command,\n    load_task,\n    restricted_env,\n    validate_endpoint,\n    validate_model,\n)\nfrom tools.agent_factory.browser_smoke import BrowserPolicyError, local_origin\n\n\n@pytest.mark.parametrize(\"value\", [\n    \"https://external.example/v1\",\n    \"http://gpu.example:8000/v1\",\n    \"http://127.0.0.1:8000/admin\",\n    \"http://127.0.0.1:8000/v1?token=secret\",\n    \"http://user:pw@localhost:8000/v1\",\n    \"file:///etc/passwd\",\n])\ndef test_reject_non_local_endpoints(value):\n    with pytest.raises(PolicyError):\n        validate_endpoint(value)\n\n\ndef test_allow_local_tunnel():\n    assert validate_endpoint(\"http://127.0.0.1:8000/v1\") == \"http://127.0.0.1:8000/v1\"\n\n\ndef test_model_identifier():\n    assert validate_model(\"qwen3-coder\") == \"qwen3-coder\"\n    with pytest.raises(PolicyError):\n        validate_model(\"model; cat /etc/passwd\")\n\n\n",
+        "returncode": 0,
+        "timestamp": 1794789434.9358513,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-8ffce8fb7b422889",
+      "role": "tool"
+    },
+    {
+      "content": "Now I'll modify `cmd_check` to support `--json`, and add the `--json` flag to the `check` subparser.",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"python - <<'EOF'\\nfrom pathlib import Path\\np = Path(\\\"tools/agent_factory/salad_vllm.py\\\")\\nsrc = p.read_text(encoding=\\\"utf-8\\\")\\nold = '''def cmd_check(keys: dict, args) -> int:\\n    for c in gpu_classes(keys, args.priority):\\n        print(f\\\"{c['name']:<28}{c['usd_h']:.3f} USD/h\\\")\\n    mine = our_groups(keys)\\n    print(\\\"Nasze grupy:\\\", \\\", \\\".join(g[\\\"name\\\"] for g in mine) or \\\"brak\\\")\\n    return 0\\n'''\\nnew = '''def cmd_check(keys: dict, args) -> int:\\n    gpus = gpu_classes(keys, args.priority)\\n    names = [g[\\\"name\\\"] for g in our_groups(keys)]\\n    if getattr(args, \\\"json\\\", False):\\n        payload = {\\\"gpu\\\": [{\\\"name\\\": c[\\\"name\\\"], \\\"vram\\\": c[\\\"vram\\\"], \\\"usd_h\\\": c[\\\"usd_h\\\"]} for c in gpus],\\n                   \\\"groups\\\": names}\\n        print(json.dumps(payload, ensure_ascii=False))\\n        return 0\\n    for c in gpus:\\n        print(f\\\"{c['name']:<28}{c['usd_h']:.3f} USD/h\\\")\\n    print(\\\"Nasze grupy:\\\", \\\", \\\".join(names) or \\\"brak\\\")\\n    return 0\\n'''\\nassert old in src\\nsrc = src.replace(old, new)\\nold2 = '    sub.add_parser(\\\"check\\\")\\\\n'\\nnew2 = '    ch = sub.add_parser(\\\"check\\\")\\\\n    ch.add_argument(\\\"--json\\\", action=\\\"store_true\\\", help=\\\"wypisz wynik jako jeden obiekt JSON\\\")\\\\n'\\nassert old2 in src\\nsrc = src.replace(old2, new2)\\np.write_text(src, encoding=\\\"utf-8\\\")\\nprint(\\\"ok\\\")\\nEOF\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-88e3849caa049f07",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "python - <<'EOF'\nfrom pathlib import Path\np = Path(\"tools/agent_factory/salad_vllm.py\")\nsrc = p.read_text(encoding=\"utf-8\")\nold = '''def cmd_check(keys: dict, args) -> int:\n    for c in gpu_classes(keys, args.priority):\n        print(f\"{c['name']:<28}{c['usd_h']:.3f} USD/h\")\n    mine = our_groups(keys)\n    print(\"Nasze grupy:\", \", \".join(g[\"name\"] for g in mine) or \"brak\")\n    return 0\n'''\nnew = '''def cmd_check(keys: dict, args) -> int:\n    gpus = gpu_classes(keys, args.priority)\n    names = [g[\"name\"] for g in our_groups(keys)]\n    if getattr(args, \"json\", False):\n        payload = {\"gpu\": [{\"name\": c[\"name\"], \"vram\": c[\"vram\"], \"usd_h\": c[\"usd_h\"]} for c in gpus],\n                   \"groups\": names}\n        print(json.dumps(payload, ensure_ascii=False))\n        return 0\n    for c in gpus:\n        print(f\"{c['name']:<28}{c['usd_h']:.3f} USD/h\")\n    print(\"Nasze grupy:\", \", \".join(names) or \"brak\")\n    return 0\n'''\nassert old in src\nsrc = src.replace(old, new)\nold2 = '    sub.add_parser(\"check\")\\n'\nnew2 = '    ch = sub.add_parser(\"check\")\\n    ch.add_argument(\"--json\", action=\"store_true\", help=\"wypisz wynik jako jeden obiekt JSON\")\\n'\nassert old2 in src\nsrc = src.replace(old2, new2)\np.write_text(src, encoding=\"utf-8\")\nprint(\"ok\")\nEOF",
+            "tool_call_id": "chatcmpl-tool-88e3849caa049f07"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-a59eea00765c76f1",
+          "created": 1794789432,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "Now I'll modify `cmd_check` to support `--json`, and add the `--json` flag to the `check` subparser.",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"python - <<'EOF'\\nfrom pathlib import Path\\np = Path(\\\"tools/agent_factory/salad_vllm.py\\\")\\nsrc = p.read_text(encoding=\\\"utf-8\\\")\\nold = '''def cmd_check(keys: dict, args) -> int:\\n    for c in gpu_classes(keys, args.priority):\\n        print(f\\\"{c['name']:<28}{c['usd_h']:.3f} USD/h\\\")\\n    mine = our_groups(keys)\\n    print(\\\"Nasze grupy:\\\", \\\", \\\".join(g[\\\"name\\\"] for g in mine) or \\\"brak\\\")\\n    return 0\\n'''\\nnew = '''def cmd_check(keys: dict, args) -> int:\\n    gpus = gpu_classes(keys, args.priority)\\n    names = [g[\\\"name\\\"] for g in our_groups(keys)]\\n    if getattr(args, \\\"json\\\", False):\\n        payload = {\\\"gpu\\\": [{\\\"name\\\": c[\\\"name\\\"], \\\"vram\\\": c[\\\"vram\\\"], \\\"usd_h\\\": c[\\\"usd_h\\\"]} for c in gpus],\\n                   \\\"groups\\\": names}\\n        print(json.dumps(payload, ensure_ascii=False))\\n        return 0\\n    for c in gpus:\\n        print(f\\\"{c['name']:<28}{c['usd_h']:.3f} USD/h\\\")\\n    print(\\\"Nasze grupy:\\\", \\\", \\\".join(names) or \\\"brak\\\")\\n    return 0\\n'''\\nassert old in src\\nsrc = src.replace(old, new)\\nold2 = '    sub.add_parser(\\\"check\\\")\\\\n'\\nnew2 = '    ch = sub.add_parser(\\\"check\\\")\\\\n    ch.add_argument(\\\"--json\\\", action=\\\"store_true\\\", help=\\\"wypisz wynik jako jeden obiekt JSON\\\")\\\\n'\\nassert old2 in src\\nsrc = src.replace(old2, new2)\\np.write_text(src, encoding=\\\"utf-8\\\")\\nprint(\\\"ok\\\")\\nEOF\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-88e3849caa049f07",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 476,
+            "prompt_tokens": 8901,
+            "total_tokens": 9377,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789465.430981
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"ok\\n\"\n}",
+      "extra": {
+        "raw_output": "ok\n",
+        "returncode": 0,
+        "timestamp": 1794789465.4576755,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-88e3849caa049f07",
+      "role": "tool"
+    },
+    {
+      "content": "Now create the test file:",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"cat <<'EOF' > test_salad_vllm_check.py\\n\\\"\\\"\\\"Polecenie `check` z flag\u0105 `--json` - bez sieci, dane syntetyczne.\\\"\\\"\\\"\\nimport argparse\\nimport json\\n\\nimport pytest\\n\\nfrom tools.agent_factory import salad_vllm\\n\\nKEYS = {\\\"SALAD_API_KEY\\\": \\\"x\\\", \\\"SALAD_ORG\\\": \\\"org\\\", \\\"SALAD_PROJECT\\\": \\\"proj\\\"}\\n\\nSYNTHETIC_GPUS = [\\n    {\\\"id\\\": \\\"g1\\\", \\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n    {\\\"id\\\": \\\"g2\\\", \\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n]\\nSYNTHETIC_GROUPS = [\\n    {\\\"name\\\": \\\"notarai-koder-20260101t1200\\\"},\\n    {\\\"name\\\": \\\"notarai-koder-20260102t1300\\\"},\\n]\\n\\n\\n@pytest.fixture()\\ndef syntetyczne(monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: list(SYNTHETIC_GPUS))\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: list(SYNTHETIC_GROUPS))\\n\\n\\ndef _args(**kw):\\n    a = argparse.Namespace(cmd=\\\"check\\\", priority=\\\"high\\\")\\n    for k, v in kw.items():\\n        setattr(a, k, v)\\n    return a\\n\\n\\ndef test_check_json(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    dane = json.loads(out)\\n    assert dane == {\\n        \\\"gpu\\\": [\\n            {\\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n            {\\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n        ],\\n        \\\"groups\\\": [\\\"notarai-koder-20260101t1200\\\", \\\"notarai-koder-20260102t1300\\\"],\\n    }\\n    # dok\u0142adnie jeden obiekt JSON - nic poza nim\\n    assert out.strip() and out.strip().startswith(\\\"{\\\") and out.strip().endswith(\\\"}\\\")\\n    assert json.JSONDecodeError not in type(None)\\n\\n\\ndef test_check_zwyklie(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args())\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    lines = out.strip().splitlines()\\n    assert \\\"NVIDIA H100 SXM (80 GB)\\\" in lines[0] and \\\"1.900 USD/h\\\" in lines[0]\\n    assert \\\"NVIDIA L40S (48 GB)\\\" in lines[1] and \\\"1.100 USD/h\\\" in lines[1]\\n    assert lines[2] == \\\"Nasze grupy: notarai-koder-20260101t1200, notarai-koder-20260102t1300\\\"\\n\\n\\ndef test_check_json_puste(syntetyczne, capsys, monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: [])\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: [])\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    assert json.loads(out) == {\\\"gpu\\\": [], \\\"groups\\\": []}\\nEOF\\npython -m pytest -q test_salad_vllm_check.py\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-968f473f8ca26bd2",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "cat <<'EOF' > test_salad_vllm_check.py\n\"\"\"Polecenie `check` z flag\u0105 `--json` - bez sieci, dane syntetyczne.\"\"\"\nimport argparse\nimport json\n\nimport pytest\n\nfrom tools.agent_factory import salad_vllm\n\nKEYS = {\"SALAD_API_KEY\": \"x\", \"SALAD_ORG\": \"org\", \"SALAD_PROJECT\": \"proj\"}\n\nSYNTHETIC_GPUS = [\n    {\"id\": \"g1\", \"name\": \"NVIDIA H100 SXM (80 GB)\", \"vram\": 80, \"usd_h\": 1.9},\n    {\"id\": \"g2\", \"name\": \"NVIDIA L40S (48 GB)\", \"vram\": 48, \"usd_h\": 1.1},\n]\nSYNTHETIC_GROUPS = [\n    {\"name\": \"notarai-koder-20260101t1200\"},\n    {\"name\": \"notarai-koder-20260102t1300\"},\n]\n\n\n@pytest.fixture()\ndef syntetyczne(monkeypatch):\n    monkeypatch.setattr(salad_vllm, \"gpu_classes\", lambda keys, priority: list(SYNTHETIC_GPUS))\n    monkeypatch.setattr(salad_vllm, \"our_groups\", lambda keys: list(SYNTHETIC_GROUPS))\n\n\ndef _args(**kw):\n    a = argparse.Namespace(cmd=\"check\", priority=\"high\")\n    for k, v in kw.items():\n        setattr(a, k, v)\n    return a\n\n\ndef test_check_json(syntetyczne, capsys):\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\n    out = capsys.readouterr().out\n    assert rc == 0\n    dane = json.loads(out)\n    assert dane == {\n        \"gpu\": [\n            {\"name\": \"NVIDIA H100 SXM (80 GB)\", \"vram\": 80, \"usd_h\": 1.9},\n            {\"name\": \"NVIDIA L40S (48 GB)\", \"vram\": 48, \"usd_h\": 1.1},\n        ],\n        \"groups\": [\"notarai-koder-20260101t1200\", \"notarai-koder-20260102t1300\"],\n    }\n    # dok\u0142adnie jeden obiekt JSON - nic poza nim\n    assert out.strip() and out.strip().startswith(\"{\") and out.strip().endswith(\"}\")\n    assert json.JSONDecodeError not in type(None)\n\n\ndef test_check_zwyklie(syntetyczne, capsys):\n    rc = salad_vllm.cmd_check(KEYS, _args())\n    out = capsys.readouterr().out\n    assert rc == 0\n    lines = out.strip().splitlines()\n    assert \"NVIDIA H100 SXM (80 GB)\" in lines[0] and \"1.900 USD/h\" in lines[0]\n    assert \"NVIDIA L40S (48 GB)\" in lines[1] and \"1.100 USD/h\" in lines[1]\n    assert lines[2] == \"Nasze grupy: notarai-koder-20260101t1200, notarai-koder-20260102t1300\"\n\n\ndef test_check_json_puste(syntetyczne, capsys, monkeypatch):\n    monkeypatch.setattr(salad_vllm, \"gpu_classes\", lambda keys, priority: [])\n    monkeypatch.setattr(salad_vllm, \"our_groups\", lambda keys: [])\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\n    out = capsys.readouterr().out\n    assert rc == 0\n    assert json.loads(out) == {\"gpu\": [], \"groups\": []}\nEOF\npython -m pytest -q test_salad_vllm_check.py",
+            "tool_call_id": "chatcmpl-tool-968f473f8ca26bd2"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-9bfb67229dff3c1a",
+          "created": 1794789462,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "Now create the test file:",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"cat <<'EOF' > test_salad_vllm_check.py\\n\\\"\\\"\\\"Polecenie `check` z flag\u0105 `--json` - bez sieci, dane syntetyczne.\\\"\\\"\\\"\\nimport argparse\\nimport json\\n\\nimport pytest\\n\\nfrom tools.agent_factory import salad_vllm\\n\\nKEYS = {\\\"SALAD_API_KEY\\\": \\\"x\\\", \\\"SALAD_ORG\\\": \\\"org\\\", \\\"SALAD_PROJECT\\\": \\\"proj\\\"}\\n\\nSYNTHETIC_GPUS = [\\n    {\\\"id\\\": \\\"g1\\\", \\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n    {\\\"id\\\": \\\"g2\\\", \\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n]\\nSYNTHETIC_GROUPS = [\\n    {\\\"name\\\": \\\"notarai-koder-20260101t1200\\\"},\\n    {\\\"name\\\": \\\"notarai-koder-20260102t1300\\\"},\\n]\\n\\n\\n@pytest.fixture()\\ndef syntetyczne(monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: list(SYNTHETIC_GPUS))\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: list(SYNTHETIC_GROUPS))\\n\\n\\ndef _args(**kw):\\n    a = argparse.Namespace(cmd=\\\"check\\\", priority=\\\"high\\\")\\n    for k, v in kw.items():\\n        setattr(a, k, v)\\n    return a\\n\\n\\ndef test_check_json(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    dane = json.loads(out)\\n    assert dane == {\\n        \\\"gpu\\\": [\\n            {\\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n            {\\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n        ],\\n        \\\"groups\\\": [\\\"notarai-koder-20260101t1200\\\", \\\"notarai-koder-20260102t1300\\\"],\\n    }\\n    # dok\u0142adnie jeden obiekt JSON - nic poza nim\\n    assert out.strip() and out.strip().startswith(\\\"{\\\") and out.strip().endswith(\\\"}\\\")\\n    assert json.JSONDecodeError not in type(None)\\n\\n\\ndef test_check_zwyklie(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args())\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    lines = out.strip().splitlines()\\n    assert \\\"NVIDIA H100 SXM (80 GB)\\\" in lines[0] and \\\"1.900 USD/h\\\" in lines[0]\\n    assert \\\"NVIDIA L40S (48 GB)\\\" in lines[1] and \\\"1.100 USD/h\\\" in lines[1]\\n    assert lines[2] == \\\"Nasze grupy: notarai-koder-20260101t1200, notarai-koder-20260102t1300\\\"\\n\\n\\ndef test_check_json_puste(syntetyczne, capsys, monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: [])\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: [])\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    assert json.loads(out) == {\\\"gpu\\\": [], \\\"groups\\\": []}\\nEOF\\npython -m pytest -q test_salad_vllm_check.py\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-968f473f8ca26bd2",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 953,
+            "prompt_tokens": 9415,
+            "total_tokens": 10368,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789525.216738
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 1,\n  \"output\": \"\\u001b[1m============================= test session starts ==============================\\u001b[0m\\nplatform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0\\nrootdir: /repo\\nconfigfile: pytest.ini\\nplugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0\\ncollected 3 items\\n\\ntest_salad_vllm_check.py \\u001b[31mF\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[31m                                             [100%]\\u001b[0m\\n\\n=================================== FAILURES ===================================\\n\\u001b[31m\\u001b[1m_______________________________ test_check_json ________________________________\\u001b[0m\\n\\u001b[1m\\u001b[31mtest_salad_vllm_check.py\\u001b[0m:48: in test_check_json\\n    \\u001b[0m\\u001b[94massert\\u001b[39;49;00m json.JSONDecodeError \\u001b[95mnot\\u001b[39;49;00m \\u001b[95min\\u001b[39;49;00m \\u001b[96mtype\\u001b[39;49;00m(\\u001b[94mNone\\u001b[39;49;00m)\\u001b[90m\\u001b[39;49;00m\\n\\u001b[1m\\u001b[31mE   TypeError: argument of type \\u0027type\\u0027 is not iterable\\u001b[0m\\n\\u001b[36m\\u001b[1m=========================== short test summary info ============================\\u001b[0m\\n\\u001b[31mFAILED\\u001b[0m test_salad_vllm_check.py::\\u001b[1mtest_check_json\\u001b[0m - TypeError: argument of type \\u0027type\\u0027 is not iterable\\n\\u001b[31m========================= \\u001b[31m\\u001b[1m1 failed\\u001b[0m, \\u001b[32m2 passed\\u001b[0m\\u001b[31m in 0.58s\\u001b[0m\\u001b[31m ==========================\\u001b[0m\\n\"\n}",
+      "extra": {
+        "raw_output": "\u001b[1m============================= test session starts ==============================\u001b[0m\nplatform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0\nrootdir: /repo\nconfigfile: pytest.ini\nplugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0\ncollected 3 items\n\ntest_salad_vllm_check.py \u001b[31mF\u001b[0m\u001b[32m.\u001b[0m\u001b[32m.\u001b[0m\u001b[31m                                             [100%]\u001b[0m\n\n=================================== FAILURES ===================================\n\u001b[31m\u001b[1m_______________________________ test_check_json ________________________________\u001b[0m\n\u001b[1m\u001b[31mtest_salad_vllm_check.py\u001b[0m:48: in test_check_json\n    \u001b[0m\u001b[94massert\u001b[39;49;00m json.JSONDecodeError \u001b[95mnot\u001b[39;49;00m \u001b[95min\u001b[39;49;00m \u001b[96mtype\u001b[39;49;00m(\u001b[94mNone\u001b[39;49;00m)\u001b[90m\u001b[39;49;00m\n\u001b[1m\u001b[31mE   TypeError: argument of type 'type' is not iterable\u001b[0m\n\u001b[36m\u001b[1m=========================== short test summary info ============================\u001b[0m\n\u001b[31mFAILED\u001b[0m test_salad_vllm_check.py::\u001b[1mtest_check_json\u001b[0m - TypeError: argument of type 'type' is not iterable\n\u001b[31m========================= \u001b[31m\u001b[1m1 failed\u001b[0m, \u001b[32m2 passed\u001b[0m\u001b[31m in 0.58s\u001b[0m\u001b[31m ==========================\u001b[0m\n",
+        "returncode": 1,
+        "timestamp": 1794789526.4003046,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-968f473f8ca26bd2",
+      "role": "tool"
+    },
+    {
+      "content": "A leftover bogus assertion line to remove:",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"sed -i '/assert json.JSONDecodeError not in type(None)/d' test_salad_vllm_check.py && python -m pytest -q test_salad_vllm_check.py\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-a09f8b8fbdc0ac4f",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "sed -i '/assert json.JSONDecodeError not in type(None)/d' test_salad_vllm_check.py && python -m pytest -q test_salad_vllm_check.py",
+            "tool_call_id": "chatcmpl-tool-a09f8b8fbdc0ac4f"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-802083f67173cd71",
+          "created": 1794789524,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "A leftover bogus assertion line to remove:",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"sed -i '/assert json.JSONDecodeError not in type(None)/d' test_salad_vllm_check.py && python -m pytest -q test_salad_vllm_check.py\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-a09f8b8fbdc0ac4f",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 73,
+            "prompt_tokens": 11111,
+            "total_tokens": 11184,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789532.7466686
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"\\u001b[1m============================= test session starts ==============================\\u001b[0m\\nplatform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0\\nrootdir: /repo\\nconfigfile: pytest.ini\\nplugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0\\ncollected 3 items\\n\\ntest_salad_vllm_check.py \\u001b[32m.\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[32m                                             [100%]\\u001b[0m\\n\\n\\u001b[32m============================== \\u001b[32m\\u001b[1m3 passed\\u001b[0m\\u001b[32m in 0.46s\\u001b[0m\\u001b[32m ===============================\\u001b[0m\\n\"\n}",
+      "extra": {
+        "raw_output": "\u001b[1m============================= test session starts ==============================\u001b[0m\nplatform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0\nrootdir: /repo\nconfigfile: pytest.ini\nplugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0\ncollected 3 items\n\ntest_salad_vllm_check.py \u001b[32m.\u001b[0m\u001b[32m.\u001b[0m\u001b[32m.\u001b[0m\u001b[32m                                             [100%]\u001b[0m\n\n\u001b[32m============================== \u001b[32m\u001b[1m3 passed\u001b[0m\u001b[32m in 0.46s\u001b[0m\u001b[32m ===============================\u001b[0m\n",
+        "returncode": 0,
+        "timestamp": 1794789533.8074937,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-a09f8b8fbdc0ac4f",
+      "role": "tool"
+    },
+    {
+      "content": "All three tests pass. Let me verify the CLI wiring works and check the final diff:",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"python -c \\\"\\nimport sys\\nsys.argv = ['salad_vllm.py', 'check', '--help']\\nfrom tools.agent_factory import salad_vllm\\ntry:\\n    salad_vllm.main(['check','--help'])\\nexcept SystemExit as e:\\n    pass\\n\\\" 2>&1; nl -ba tools/agent_factory/salad_vllm.py | sed -n '195,215p'; git diff 2>/dev/null | head -50\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-9020a8d576bf5ee1",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "python -c \"\nimport sys\nsys.argv = ['salad_vllm.py', 'check', '--help']\nfrom tools.agent_factory import salad_vllm\ntry:\n    salad_vllm.main(['check','--help'])\nexcept SystemExit as e:\n    pass\n\" 2>&1; nl -ba tools/agent_factory/salad_vllm.py | sed -n '195,215p'; git diff 2>/dev/null | head -50",
+            "tool_call_id": "chatcmpl-tool-9020a8d576bf5ee1"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-954b542ea2303cf5",
+          "created": 1794789531,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "All three tests pass. Let me verify the CLI wiring works and check the final diff:",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"python -c \\\"\\nimport sys\\nsys.argv = ['salad_vllm.py', 'check', '--help']\\nfrom tools.agent_factory import salad_vllm\\ntry:\\n    salad_vllm.main(['check','--help'])\\nexcept SystemExit as e:\\n    pass\\n\\\" 2>&1; nl -ba tools/agent_factory/salad_vllm.py | sed -n '195,215p'; git diff 2>/dev/null | head -50\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-9020a8d576bf5ee1",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 152,
+            "prompt_tokens": 11500,
+            "total_tokens": 11652,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789544.428317
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"usage: salad_vllm.py check [-h] [--json]\\n\\noptions:\\n  -h, --help  show this help message and exit\\n  --json      wypisz wynik jako jeden obiekt JSON\\n   195\\t\\n   196\\t\\n   197\\t# ---------------------------------------------------------------- polecenia\\n   198\\t\\n   199\\tdef cmd_check(keys: dict, args) -\\u003e int:\\n   200\\t    gpus = gpu_classes(keys, args.priority)\\n   201\\t    names = [g[\\\"name\\\"] for g in our_groups(keys)]\\n   202\\t    if getattr(args, \\\"json\\\", False):\\n   203\\t        payload = {\\\"gpu\\\": [{\\\"name\\\": c[\\\"name\\\"], \\\"vram\\\": c[\\\"vram\\\"], \\\"usd_h\\\": c[\\\"usd_h\\\"]} for c in gpus],\\n   204\\t                   \\\"groups\\\": names}\\n   205\\t        print(json.dumps(payload, ensure_ascii=False))\\n   206\\t        return 0\\n   207\\t    for c in gpus:\\n   208\\t        print(f\\\"{c[\\u0027name\\u0027]:\\u003c28}{c[\\u0027usd_h\\u0027]:.3f} USD/h\\\")\\n   209\\t    print(\\\"Nasze grupy:\\\", \\\", \\\".join(names) or \\\"brak\\\")\\n   210\\t    return 0\\n   211\\t\\n   212\\t\\n   213\\tdef cmd_up(keys: dict, args) -\\u003e int:\\n   214\\t    if our_groups(keys):\\n   215\\t        raise SaladError(\\\"Nasza grupa ju\\u017c istnieje - `status` albo `down`\\\")\\n\"\n}",
+      "extra": {
+        "raw_output": "usage: salad_vllm.py check [-h] [--json]\n\noptions:\n  -h, --help  show this help message and exit\n  --json      wypisz wynik jako jeden obiekt JSON\n   195\t\n   196\t\n   197\t# ---------------------------------------------------------------- polecenia\n   198\t\n   199\tdef cmd_check(keys: dict, args) -> int:\n   200\t    gpus = gpu_classes(keys, args.priority)\n   201\t    names = [g[\"name\"] for g in our_groups(keys)]\n   202\t    if getattr(args, \"json\", False):\n   203\t        payload = {\"gpu\": [{\"name\": c[\"name\"], \"vram\": c[\"vram\"], \"usd_h\": c[\"usd_h\"]} for c in gpus],\n   204\t                   \"groups\": names}\n   205\t        print(json.dumps(payload, ensure_ascii=False))\n   206\t        return 0\n   207\t    for c in gpus:\n   208\t        print(f\"{c['name']:<28}{c['usd_h']:.3f} USD/h\")\n   209\t    print(\"Nasze grupy:\", \", \".join(names) or \"brak\")\n   210\t    return 0\n   211\t\n   212\t\n   213\tdef cmd_up(keys: dict, args) -> int:\n   214\t    if our_groups(keys):\n   215\t        raise SaladError(\"Nasza grupa ju\u017c istnieje - `status` albo `down`\")\n",
+        "returncode": 0,
+        "timestamp": 1794789544.4998417,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-9020a8d576bf5ee1",
+      "role": "tool"
+    },
+    {
+      "content": "Let me also run the pre-existing agent_factory tests to make sure nothing broke, and view the final test file:",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"python -m pytest -q test_agent_factory.py test_salad_vllm_check.py 2>&1 | tail -3; cat test_salad_vllm_check.py\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-b1b3c2802ae69151",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "python -m pytest -q test_agent_factory.py test_salad_vllm_check.py 2>&1 | tail -3; cat test_salad_vllm_check.py",
+            "tool_call_id": "chatcmpl-tool-b1b3c2802ae69151"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-aa839d0c403abf98",
+          "created": 1794789542,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "Let me also run the pre-existing agent_factory tests to make sure nothing broke, and view the final test file:",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"python -m pytest -q test_agent_factory.py test_salad_vllm_check.py 2>&1 | tail -3; cat test_salad_vllm_check.py\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-b1b3c2802ae69151",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 85,
+            "prompt_tokens": 12144,
+            "total_tokens": 12229,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789550.7909582
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": 0,\n  \"output\": \"test_salad_vllm_check.py \\u001b[32m.\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[32m.\\u001b[0m\\u001b[32m                                             [100%]\\u001b[0m\\n\\n\\u001b[32m============================== \\u001b[32m\\u001b[1m19 passed\\u001b[0m\\u001b[32m in 0.54s\\u001b[0m\\u001b[32m ==============================\\u001b[0m\\n\\\"\\\"\\\"Polecenie `check` z flag\\u0105 `--json` - bez sieci, dane syntetyczne.\\\"\\\"\\\"\\nimport argparse\\nimport json\\n\\nimport pytest\\n\\nfrom tools.agent_factory import salad_vllm\\n\\nKEYS = {\\\"SALAD_API_KEY\\\": \\\"x\\\", \\\"SALAD_ORG\\\": \\\"org\\\", \\\"SALAD_PROJECT\\\": \\\"proj\\\"}\\n\\nSYNTHETIC_GPUS = [\\n    {\\\"id\\\": \\\"g1\\\", \\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n    {\\\"id\\\": \\\"g2\\\", \\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n]\\nSYNTHETIC_GROUPS = [\\n    {\\\"name\\\": \\\"notarai-koder-20260101t1200\\\"},\\n    {\\\"name\\\": \\\"notarai-koder-20260102t1300\\\"},\\n]\\n\\n\\n@pytest.fixture()\\ndef syntetyczne(monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: list(SYNTHETIC_GPUS))\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: list(SYNTHETIC_GROUPS))\\n\\n\\ndef _args(**kw):\\n    a = argparse.Namespace(cmd=\\\"check\\\", priority=\\\"high\\\")\\n    for k, v in kw.items():\\n        setattr(a, k, v)\\n    return a\\n\\n\\ndef test_check_json(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    dane = json.loads(out)\\n    assert dane == {\\n        \\\"gpu\\\": [\\n            {\\\"name\\\": \\\"NVIDIA H100 SXM (80 GB)\\\", \\\"vram\\\": 80, \\\"usd_h\\\": 1.9},\\n            {\\\"name\\\": \\\"NVIDIA L40S (48 GB)\\\", \\\"vram\\\": 48, \\\"usd_h\\\": 1.1},\\n        ],\\n        \\\"groups\\\": [\\\"notarai-koder-20260101t1200\\\", \\\"notarai-koder-20260102t1300\\\"],\\n    }\\n    # dok\\u0142adnie jeden obiekt JSON - nic poza nim\\n    assert out.strip() and out.strip().startswith(\\\"{\\\") and out.strip().endswith(\\\"}\\\")\\n\\n\\ndef test_check_zwyklie(syntetyczne, capsys):\\n    rc = salad_vllm.cmd_check(KEYS, _args())\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    lines = out.strip().splitlines()\\n    assert \\\"NVIDIA H100 SXM (80 GB)\\\" in lines[0] and \\\"1.900 USD/h\\\" in lines[0]\\n    assert \\\"NVIDIA L40S (48 GB)\\\" in lines[1] and \\\"1.100 USD/h\\\" in lines[1]\\n    assert lines[2] == \\\"Nasze grupy: notarai-koder-20260101t1200, notarai-koder-20260102t1300\\\"\\n\\n\\ndef test_check_json_puste(syntetyczne, capsys, monkeypatch):\\n    monkeypatch.setattr(salad_vllm, \\\"gpu_classes\\\", lambda keys, priority: [])\\n    monkeypatch.setattr(salad_vllm, \\\"our_groups\\\", lambda keys: [])\\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\\n    out = capsys.readouterr().out\\n    assert rc == 0\\n    assert json.loads(out) == {\\\"gpu\\\": [], \\\"groups\\\": []}\\n\"\n}",
+      "extra": {
+        "raw_output": "test_salad_vllm_check.py \u001b[32m.\u001b[0m\u001b[32m.\u001b[0m\u001b[32m.\u001b[0m\u001b[32m                                             [100%]\u001b[0m\n\n\u001b[32m============================== \u001b[32m\u001b[1m19 passed\u001b[0m\u001b[32m in 0.54s\u001b[0m\u001b[32m ==============================\u001b[0m\n\"\"\"Polecenie `check` z flag\u0105 `--json` - bez sieci, dane syntetyczne.\"\"\"\nimport argparse\nimport json\n\nimport pytest\n\nfrom tools.agent_factory import salad_vllm\n\nKEYS = {\"SALAD_API_KEY\": \"x\", \"SALAD_ORG\": \"org\", \"SALAD_PROJECT\": \"proj\"}\n\nSYNTHETIC_GPUS = [\n    {\"id\": \"g1\", \"name\": \"NVIDIA H100 SXM (80 GB)\", \"vram\": 80, \"usd_h\": 1.9},\n    {\"id\": \"g2\", \"name\": \"NVIDIA L40S (48 GB)\", \"vram\": 48, \"usd_h\": 1.1},\n]\nSYNTHETIC_GROUPS = [\n    {\"name\": \"notarai-koder-20260101t1200\"},\n    {\"name\": \"notarai-koder-20260102t1300\"},\n]\n\n\n@pytest.fixture()\ndef syntetyczne(monkeypatch):\n    monkeypatch.setattr(salad_vllm, \"gpu_classes\", lambda keys, priority: list(SYNTHETIC_GPUS))\n    monkeypatch.setattr(salad_vllm, \"our_groups\", lambda keys: list(SYNTHETIC_GROUPS))\n\n\ndef _args(**kw):\n    a = argparse.Namespace(cmd=\"check\", priority=\"high\")\n    for k, v in kw.items():\n        setattr(a, k, v)\n    return a\n\n\ndef test_check_json(syntetyczne, capsys):\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\n    out = capsys.readouterr().out\n    assert rc == 0\n    dane = json.loads(out)\n    assert dane == {\n        \"gpu\": [\n            {\"name\": \"NVIDIA H100 SXM (80 GB)\", \"vram\": 80, \"usd_h\": 1.9},\n            {\"name\": \"NVIDIA L40S (48 GB)\", \"vram\": 48, \"usd_h\": 1.1},\n        ],\n        \"groups\": [\"notarai-koder-20260101t1200\", \"notarai-koder-20260102t1300\"],\n    }\n    # dok\u0142adnie jeden obiekt JSON - nic poza nim\n    assert out.strip() and out.strip().startswith(\"{\") and out.strip().endswith(\"}\")\n\n\ndef test_check_zwyklie(syntetyczne, capsys):\n    rc = salad_vllm.cmd_check(KEYS, _args())\n    out = capsys.readouterr().out\n    assert rc == 0\n    lines = out.strip().splitlines()\n    assert \"NVIDIA H100 SXM (80 GB)\" in lines[0] and \"1.900 USD/h\" in lines[0]\n    assert \"NVIDIA L40S (48 GB)\" in lines[1] and \"1.100 USD/h\" in lines[1]\n    assert lines[2] == \"Nasze grupy: notarai-koder-20260101t1200, notarai-koder-20260102t1300\"\n\n\ndef test_check_json_puste(syntetyczne, capsys, monkeypatch):\n    monkeypatch.setattr(salad_vllm, \"gpu_classes\", lambda keys, priority: [])\n    monkeypatch.setattr(salad_vllm, \"our_groups\", lambda keys: [])\n    rc = salad_vllm.cmd_check(KEYS, _args(json=True))\n    out = capsys.readouterr().out\n    assert rc == 0\n    assert json.loads(out) == {\"gpu\": [], \"groups\": []}\n",
+        "returncode": 0,
+        "timestamp": 1794789551.8812714,
+        "exception_info": ""
+      },
+      "tool_call_id": "chatcmpl-tool-b1b3c2802ae69151",
+      "role": "tool"
+    },
+    {
+      "content": "All done and verified. Submitting.",
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"command\": \"echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\"}",
+            "name": "bash"
+          },
+          "id": "chatcmpl-tool-af27acff19446957",
+          "type": "function"
+        }
+      ],
+      "function_call": null,
+      "provider_specific_fields": {
+        "reasoning": null,
+        "refusal": null
+      },
+      "extra": {
+        "actions": [
+          {
+            "command": "echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT",
+            "tool_call_id": "chatcmpl-tool-af27acff19446957"
+          }
+        ],
+        "response": {
+          "id": "chatcmpl-a391fd91474575b7",
+          "created": 1794789549,
+          "model": "koder",
+          "object": "chat.completion",
+          "system_fingerprint": "vllm-0.33.0-c152ff41",
+          "choices": [
+            {
+              "finish_reason": "tool_calls",
+              "index": 0,
+              "message": {
+                "content": "All done and verified. Submitting.",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"command\": \"echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\"}",
+                      "name": "bash"
+                    },
+                    "id": "chatcmpl-tool-af27acff19446957",
+                    "type": "function"
+                  }
+                ],
+                "function_call": null,
+                "provider_specific_fields": {
+                  "reasoning": null,
+                  "refusal": null
+                }
+              },
+              "provider_specific_fields": {
+                "stop_reason": null,
+                "routed_experts": null,
+                "token_ids": null,
+                "weight_versions": null
+              }
+            }
+          ],
+          "usage": {
+            "completion_tokens": 42,
+            "prompt_tokens": 13384,
+            "total_tokens": 13426,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "prompt_tokens_details": null
+          },
+          "service_tier": null,
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null
+        },
+        "cost": 0.0,
+        "timestamp": 1794789555.8289962
+      }
+    },
+    {
+      "content": "{\n  \"returncode\": -1,\n  \"output\": \"\", \"exception_info\": \"action was not executed\"\n}",
+      "extra": {
+        "raw_output": "",
+        "returncode": -1,
+        "timestamp": 1794789555.8338249,
+        "exception_info": "action was not executed"
+      },
+      "tool_call_id": "chatcmpl-tool-af27acff19446957",
+      "role": "tool"
+    },
+    {
+      "role": "exit",
+      "content": "",
+      "extra": {
+        "exit_status": "Submitted",
+        "submission": ""
+      }
+    }
+  ],
+  "trajectory_format": "mini-swe-agent-1.1"
+}

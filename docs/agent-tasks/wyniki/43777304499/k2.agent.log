@@ -1,0 +1,1569 @@
+This is mini-swe-agent version 2.4.6.
+Check the v2 migration guide at https://klieret.short.gy/mini-v2-migration
+Loading global config from '/tmp/.config/mini-swe-agent/.env'
+Warning: Input is not a terminal (fd=0).
+Building agent config from specs: ['mini.yaml', '/cfg/mini.yaml']
+[92m00:29:06 - LiteLLM:WARNING[0m: get_model_cost_map.py:454 - LiteLLM: Failed to fetch remote model cost map from https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json: [Errno -3] Temporary failure in name resolution. Falling back to local backup.
+
+System:
+You are a helpful assistant that can interact with a computer.
+
+User:
+Please solve this issue: # K2 - testy jednostkowe salad_vllm
+
+Zakres: nowy plik test_salad_vllm.py (w katalogu głównym repo). Nie zmieniaj 
+tools/agent_factory/salad_vllm.py.
+
+Napisz testy pytest dla tools/agent_factory/salad_vllm.py bez żadnych połączeń 
+sieciowych:
+1. group_path odrzuca nazwę bez przedrostka notarai-koder i nazwę z 
+niedozwolonymi znakami, przyjmuje poprawną.
+2. create_body: polecenie zawiera --host :: , port 8000, --served-model-name 
+koder i wybrany parser;
+   networking ma auth True i oba limity czasu 100000; zmienna KODER_DEADLINE 
+jest w formacie ISO.
+3. load_keys: brak klucza daje SaladError; wartości z pliku wskazanego przez 
+NOTARAI_SALAD_ENV są czytane,
+   a zmienne środowiskowe mają pierwszeństwo (użyj monkeypatch i tmp_path, 
+kluczy zmyślonych).
+4. gpu_classes z podmienioną funkcją api: czyta VRAM z nazw "RTX 5090 (32 GB)" i
+"AMD RX 7900 XTX (24GB)",
+   pomija klasy bez ceny dla danego priorytetu, sortuje malejąco po VRAM.
+
+Sprawdzenie: python -m pytest -q test_salad_vllm.py
+
+Zasady: tylko dane syntetyczne; nie czytaj dane/, .env ani żadnych kluczy; bez 
+sieci i bez instalowania paczek. Zmieniaj wyłącznie wymienione pliki. Na koniec 
+podaj: zmienione pliki, wynik testów, ograniczenia.
+
+You can execute bash commands and edit files to implement the necessary changes.
+
+## Recommended Workflow
+
+This workflow should be done step-by-step so that you can iterate on your 
+changes and any possible problems.
+
+1. Analyze the codebase by finding and reading relevant files
+2. Create a script to reproduce the issue
+3. Edit the source code to resolve the issue
+4. Verify your fix works by running your script again
+5. Test edge cases to ensure your fix is robust
+6. Submit your changes and finish your work by issuing the following command: 
+`echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.
+   Do not combine it with any other command. <important>After this command, you 
+cannot continue working on this task.</important>
+
+## Command Execution Rules
+
+You are operating in an environment where
+
+1. You issue at least one command
+2. The system executes the command(s) in a subshell
+3. You see the result(s)
+4. You write your next command(s)
+
+Each response should include:
+
+1. **Reasoning text** where you explain your analysis and plan
+2. At least one tool call with your command
+
+**CRITICAL REQUIREMENTS:**
+
+- Your response SHOULD include reasoning text explaining what you're doing
+- Your response MUST include AT LEAST ONE bash tool call
+- Directory or environment variable changes are not persistent. Every action is 
+executed in a new subshell.
+- However, you can prefix any action with `MY_ENV_VAR=MY_VALUE cd 
+/path/to/working/dir && ...` or write/load environment variables from files
+- Submit your changes and finish your work by issuing the following command: 
+`echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`.
+  Do not combine it with any other command. <important>After this command, you 
+cannot continue working on this task.</important>
+
+Example of a CORRECT response:
+<example_response>
+I need to understand the structure of the repository first. Let me check what 
+files are in the current directory to get a better understanding of the 
+codebase.
+
+[Makes bash tool call with {"command": "ls -la"} as arguments]
+</example_response>
+
+<system_information>
+Linux 7.0.0-1019-azure #20-Ubuntu SMP PREEMPT Mon Oct 19 22:41:16 UTC 2026 
+x86_64
+</system_information>
+
+## Useful command examples
+
+### Create a new file:
+
+```bash
+cat <<'EOF' > newfile.py
+import numpy as np
+hello = "world"
+print(hello)
+EOF
+```
+
+### Edit files with sed:```bash
+# Replace all occurrences
+sed -i 's/old_string/new_string/g' filename.py
+
+# Replace only first occurrence
+sed -i 's/old_string/new_string/' filename.py
+
+# Replace first occurrence on line 1
+sed -i '1s/old_string/new_string/' filename.py
+
+# Replace all occurrences in lines 1-10
+sed -i '1,10s/old_string/new_string/g' filename.py
+```
+
+### View file content:
+
+```bash
+# View specific lines with numbers
+nl -ba filename.py | sed -n '10,20p'
+```
+
+### Any other command you want to run
+
+```bash
+anything
+```
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 1, $0.00):
+Let me start by exploring the repository structure and reading the target file.
+
+```
+find / -name "salad_vllm.py" -not -path "*/proc/*" 2>/dev/null; ls
+```
+
+Tool:
+<returncode>
+0
+<output>
+/repo/tools/agent_factory/salad_vllm.py
+CLAUDE.md
+Dockerfile
+README.md
+SAAS.md
+SPEC.md
+TESTY.md
+UTWORZ_SKROT.bat
+aml.py
+aml_dopasowanie.py
+aml_listy.py
+app.py
+autoryzacja.py
+bedrock.py
+config.py
+conftest.py
+crbr.py
+docs
+dokumenty.py
+dokumenty_prawne.py
+dziennik.py
+ekw.py
+formularze
+giif.py
+giif_xml.py
+giif_xsd
+infra
+kalendarz.py
+kalkulator.py
+kategorie.py
+klauzule.py
+korespondencja.py
+krz.py
+krz_portal.py
+ksiegi_notarialne.py
+leady.py
+logowanie.py
+magazyn.py
+marketing
+meta_leady.py
+nazwy.py
+notariusze.py
+osoby.py
+personalizacja.py
+platnosci.py
+poczta_polska.py
+pomocnik
+poswiadczenia.py
+probki
+prompty.py
+przebieg_testowy.py
+przesylki.py
+pytest.ini
+rejestracja.py
+rejestry.py
+rekomendacje.py
+requirements.txt
+rezerwacje_hurtowe.py
+rezerwacje_klientow.py
+scripts
+seo
+skrzynki.py
+sledzenie.py
+slownie.py
+stanowiska.py
+static
+strona
+styl.py
+taksa.py
+teczka.py
+test_administratorzy.py
+test_agent_factory.py
+test_agent_forge.py
+test_agent_forge_llm.py
+test_agent_forge_research.py
+test_agent_forge_sandbox.py
+test_agent_forge_scheduler.py
+test_aml_api.py
+test_aml_dopasowanie.py
+test_aml_listy.py
+test_aparat_ui.py
+test_autoryzacja.py
+test_bedrock.py
+test_bez_zapisu.py
+test_brand_landing.py
+test_crbr.py
+test_dokumenty.py
+test_dopasowanie.py
+test_duze_sprawy.py
+test_dziennik.py
+test_ekw.py
+test_ekw_finyou.py
+test_formularze.py
+test_kalendarz.py
+test_kalendarz_ui.py
+test_kalkulator.py
+test_klikamy_serwer.py
+test_kokpit.py
+test_korespondencja.py
+test_krz.py
+test_ksiegi_notarialne.py
+test_ksiegi_s3.py
+test_ksiegi_ui.py
+test_leady.py
+test_logowanie.py
+test_magazyn.py
+test_motyw_ui.py
+test_nazwy.py
+test_notariusze.py
+test_odcinek01_ui.py
+test_osoby.py
+test_personalizacja.py
+test_personalizacja_ui.py
+test_platnosci.py
+test_poczta_polska.py
+test_pomocnik_cdp.py
+test_pomocnik_klient.py
+test_pomocnik_klikamy.py
+test_pomocnik_okno.py
+test_pomocnik_wykonanie.py
+test_pomocnik_zadania.py
+test_poswiadczenia.py
+test_projekt_w_tle.py
+test_przebieg.bat
+test_przesylki.py
+test_przesylki_ui.py
+test_rejestracja.py
+test_rekomendacje.py
+test_rezerwacje_hurtowe.py
+test_rezerwacje_klientow.py
+test_rozmowa.py
+test_seo.py
+test_serwis.py
+test_sledzenie.py
+test_stanowiska.py
+test_strona_ftp.py
+test_taksa.py
+test_teczka.py
+test_tokenomia.py
+test_unified_ux.py
+test_urzadzenia.py
+test_ustawienia_kancelarii.py
+test_walidacja.py
+test_wizyty.py
+test_wygoda.py
+test_wzor_kancelarii.py
+test_zespol.py
+test_zlecenia.py
+tokenomia.py
+tools
+transkrypcja.py
+uruchom.bat
+uruchom_przegladarke.bat
+uruchom_testy.bat
+urzadzenia.py
+ustawienia_kancelarii.py
+walidacja.py
+wizyty.py
+wnioski_kw.py
+zasady.py
+zlecenia.py
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 2, $0.00):
+```
+cat /repo/tools/agent_factory/salad_vllm.py
+```
+
+```
+cat /repo/conftest.py /repo/pytest.ini 2>/dev/null; head -50 /repo/TESTY.md
+```
+
+Tool:
+<returncode>
+0
+<output_head>
+"""Model kodujący (vLLM) na wynajętym GPU SaladCloud + lokalny pośrednik dla 
+runnera.
+
+Polecenia:
+  check                 karty, ceny i nasze grupy (nic nie kosztuje)
+  up --pay              utwórz grupę z vLLM (płatne od chwili stanu `running`)
+  status                stan grupy i tego, czy model już odpowiada
+  proxy                 127.0.0.1:PORT -> brama Salad (dokleja klucz); po 
+terminie usuwa grupę
+Całość bez komputera operatora uruchamia workflow .github/workflows/koder.yml.
+  down                  usuń grupę (zawsze na koniec)
+
+Zasady: węzły Salad to cudze komputery poza UE -> wyłącznie kod z publicznego 
+repo i dane
+syntetyczne, nigdy `dane/`, `.env` ani nic o klientach. Klucz Salad tylko ze 
+środowiska albo
+z pliku wskazanego w NOTARAI_SALAD_ENV (poza repo); nie trafia do logów ani do 
+kontenera.
+Narzędzie rusza wyłącznie grupy o nazwie zaczynającej się od `notarai-koder`.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timedelta, timezone
+import http.client
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import threading
+import time
+
+API_HOST = "api.salad.com"
+API_BASE = "/api/public"
+LABEL = "notarai-koder"
+NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,61}[a-z0-9]$")
+DNS_RE = re.compile(r"^[a-z0-9.-]+\.salad\.cloud$", re.I)
+STATE = Path(__file__).resolve().parents[2] / ".agent-forge" / 
+"salad-koder.json"
+
+# Domyślny model: Qwen3.8-27B w 4 bitach (19,5 GB wag, Apache 2.0, bez bramki) -
+najmocniejszy
+# otwarty model do pracy agentowej mieszczący się na jednej karcie 32 GB 
+(przegląd 16.11.2026).
+# Zapas dla kart 24 GB: cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit z 
+parserem qwen3_xml.
+DEFAULT_MODEL = "RedHatAI/Qwen3.8-27B-INT4"
+DEFAULT_PARSER = "qwen3_coder"  # wg recipes.vllm.ai/Qwen/Qwen3.8-27B
+DEFAULT_VLLM_ARGS = "--kv-cache-dtype fp8 --language-model-only --enforce-eager 
+--reasoning-parser qwen3"
+DEFAULT_IMAGE = "vllm/vllm-openai:latest"
+SERVED_NAME = "koder"
+PORT = 8000
+HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", 
+"te",
+       "trailers", "transfer-encoding", "upgrade", "host", "content-length"}
+
+
+class SaladError(RuntimeError):
+    pass
+
+
+def load_keys() -> dict[str, str]:
+    keys = {k: os.environ.get(k, "") for k in ("SALAD_API_KEY", "SALAD_ORG", 
+"SALAD_PROJECT")}
+    path = os.environ.get("NOTARAI_SALAD_ENV")
+    if path and Path(path).is_file():
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^(SALAD_API_KEY|SALAD_ORG|SALAD_PROJECT)=(.*)$", 
+line.strip())
+            if m and not keys[m.group(1)]:
+                keys[m.group(1)] = m.group(2).strip().strip('"').strip("'")
+    keys["SALAD_PROJECT"] = keys["SALAD_PROJECT"] or "default"
+    if not keys["SALAD_API_KEY"]:
+        raise SaladError("Brak SALAD_API_KEY (środowisko albo plik z 
+NOTARAI_SALAD_ENV)")
+    for k in ("SALAD_ORG", "SALAD_PROJECT"):
+        if not NAME_RE.fullmatch(keys[k]):
+            raise SaladError(f"Zła albo pusta wartość {k}")
+    return keys
+
+
+def api(keys: dict, method: str, path: str, body: dict | None = None, allow404: 
+bool = False):
+    conn = http.client.HTTPSConnection(API_HOST, timeout=30)
+    try:
+        headers = {"Salad-Api-Key": keys["SALAD_API_KEY"], "Accept": 
+"application/json"}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        conn.request(method, API_BASE + path, body=data, headers=headers)
+        res = conn.getresponse()
+        text = res.read().decode("utf-8", "replace")
+        if res.status == 404 and allow404:
+            return None
+        if res.status >= 300:
+            raise SaladError(f"Salad HTTP {res.status} {method} {path}: 
+{text[:300]}")
+        try:
+            return json.loads(text) if text else {}
+        except ValueError:
+            return {}
+    finally:
+        conn.close()
+
+
+def groups_path(keys: dict) -> str:
+    return 
+f"/organizations/{keys['SALAD_ORG']}/projects/{keys['SALAD_PROJECT']}/containers
+"
+
+
+def group_path(keys: dict, name: str) -> str:
+    if not NAME_RE.fullmatch(name) or not name.startswith(LABEL):
+        raise SaladError(f"Grupa {name} nie jest nasza - nie ruszam")
+    return f"{groups_path(keys)}/{name}"
+
+
+def our_groups(keys: dict) -> list[dict]:
+    items = (api(keys, "GET", groups_path(keys)) or {}).get("items") or []
+    return [g for g in items if str(g.get("name", "")).startswith(LABEL)]
+
+
+def gpu_classes(keys: dict, priority: str) -> list[dict]:
+    items = (api(keys, "GET", f"/organizations/{keys['SALAD_ORG']}/gpu-classes")
+or {}).get("items") or []
+    out = []
+    for c in items:
+        m = re.search(r"\((\d+)\s*GB\)", str(c.get("name", "")))
+        price = next((float(p["price"]) for p in c.get("prices") or []
+                      if p.get("priority") == priority), None)
+        if m and price is not None:
+            out.
+<output_tail>
+s: str):
+    class Proxy(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt, *a):  # ścieżka i kod, bez treści żądań
+            sys.stderr.write("proxy %s %s\n" % (self.command, fmt % a))
+
+        def _forward(self):
+            if not self.path.startswith("/v1/"):
+                self.send_error(404)
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 8 * 1024 * 1024:
+                self.send_error(413)
+                return
+            body = self.rfile.read(length) if length else None
+            headers = {k: v for k, v in self.headers.items()
+                       if k.lower() not in HOP and k.lower() != "authorization"}
+            headers["Salad-Api-Key"] = keys["SALAD_API_KEY"]
+            conn = http.client.HTTPSConnection(dns, timeout=130)
+            try:
+                conn.request(self.command, self.path, body=body, 
+headers=headers)
+                res = conn.getresponse()
+                self.send_response(res.status)
+                for k, v in res.getheaders():
+                    if k.lower() not in HOP:
+                        self.send_header(k, v)
+                self.send_header("Transfer-Encoding", "chunked")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                while True:
+                    chunk = res.read1(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(b"%x\r\n%s\r\n" % (len(chunk), chunk))
+                    self.wfile.flush()
+                self.wfile.write(b"0\r\n\r\n")
+            except (OSError, http.client.HTTPException) as exc:
+                sys.stderr.write(f"proxy błąd: {type(exc).__name__}\n")
+                try:
+                    self.send_error(502)
+                except OSError:
+                    pass
+            finally:
+                conn.close()
+                self.close_connection = True
+
+        do_GET = do_POST = _forward
+
+    return Proxy
+
+
+def cmd_proxy(keys: dict, args) -> int:
+    st = read_state()
+    deadline = datetime.fromisoformat(st["deadline"])
+    print(f"Czekam na model w grupie {st['name']} (termin {deadline:%H:%M} 
+UTC)...")
+    last = ""
+    dns = None
+    while datetime.now(timezone.utc) < deadline:
+        d = describe(keys, st["name"])
+        if d is None:
+            raise SaladError("Grupa zniknęła")
+        if d["state"] != last:
+            print("... Salad:", d["state"], flush=True)
+            last = d["state"]
+        if d["dns"] and d["state"] == "running" and model_ready(keys, d["dns"]):
+            dns = d["dns"]
+            break
+        time.sleep(15)
+    if not dns:
+        cmd_down(keys, args)
+        raise SaladError("Model nie wstał przed terminem - grupa usunięta")
+    server = ThreadingHTTPServer((args.bind, args.port), make_handler(keys, 
+dns))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    print(f"GOTOWE: http://{args.bind}:{args.port}/v1 (model `{SERVED_NAME}`)", 
+flush=True)
+    try:
+        while datetime.now(timezone.utc) < deadline:
+            time.sleep(5)
+        print("Termin minął - usuwam grupę.")
+    except KeyboardInterrupt:
+        print("Przerwano - usuwam grupę.")
+    finally:
+        server.shutdown()
+        cmd_down(keys, args)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="vLLM na SaladCloud dla agenta 
+kodującego")
+    p.add_argument("--priority", default="high", choices=["high", "medium", 
+"low", "batch"])
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("check")
+    up = sub.add_parser("up")
+    up.add_argument("--pay", action="store_true")
+    up.add_argument("--model", default=DEFAULT_MODEL)
+    up.add_argument("--parser", default=DEFAULT_PARSER)
+    up.add_argument("--image", default=DEFAULT_IMAGE)
+    up.add_argument("--vllm-args", default=DEFAULT_VLLM_ARGS, help="dodatkowe 
+flagi vllm serve")
+    up.add_argument("--context", type=int, default=65536)
+    up.add_argument("--minutes", type=int, default=120)
+    up.add_argument("--max-usd", type=float, default=2.0)
+    up.add_argument("--max-hourly", type=float, default=1.0)
+    up.add_argument("--min-vram", type=int, default=32)
+    sub.add_parser("status")
+    px = sub.add_parser("proxy")
+    px.add_argument("--port", type=int, default=8000)
+    px.add_argument("--bind", default="127.0.0.1",
+                    help="0.0.0.0 tylko w kontenerze-bramie w wewnętrznej sieci 
+Dockera")
+    sub.add_parser("down")
+    args = p.parse_args(argv)
+    try:
+        keys = load_keys()
+        return {"check": cmd_check, "up": cmd_up, "status": cmd_status,
+                "proxy": cmd_proxy, "down": cmd_down}[args.cmd](keys, args)
+    except (SaladError, OSError, http.client.HTTPException) as exc:
+        print(f"BLOCKED: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+<elided_chars>
+5851
+<warning>
+Output too long.
+
+Tool:
+<returncode>
+0
+<output>
+"""Wspólne funkcje pomocnicze dla testów."""
+from walidacja import WAGI_PESEL
+
+
+def z_suma_kontrolna(dziesiec_cyfr: str) -> str:
+    """Dodaje cyfrę kontrolną PESEL do 10-cyfrowego prefiksu."""
+    suma = sum(int(c) * w for c, w in zip(dziesiec_cyfr, WAGI_PESEL))
+    return dziesiec_cyfr + str((10 - suma % 10) % 10)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _bez_poczty_w_testach():
+    """Zaden test nie laczy sie z prawdziwa Poczta Polska.
+
+    Sledzenie odpowiada "brak w systemie", e-Nadawca - bledem; testy, ktore
+    potrzebuja konkretnych odpowiedzi, podstawiaja wlasny transport.
+    """
+    import httpx
+    import poczta_polska
+    import sledzenie
+
+    def brak(zadanie):
+        if "sledzenie" in zadanie.url.host or "tt.poczta-polska.pl" == 
+zadanie.url.host:
+            return httpx.Response(200, text=(
+                '<e:Envelope 
+xmlns:e="http://schemas.xmlsoap.org/soap/envelope/"><e:Body><r><return>'
+                '<numer>X</numer><status>-1</status></return></r></e:Body></e:En
+velope>'))
+        return httpx.Response(503, text="test: brak Poczty")
+    # Bez fixture monkeypatch: wspolna instancja zmienilaby kolejnosc sprzatania
+    # (cofniecie zmiennych srodowiska po przeladowaniu modulow w innych 
+testach).
+    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = httpx.MockTransport(brak)
+    yield
+    sledzenie.TRANSPORT = poczta_polska.TRANSPORT = None
+
+
+@pytest.fixture(autouse=True)
+def _bez_modelu_przy_kontroli_zasad():
+    """Kontrola zasad kancelarii po projekcie (i ustalenia z korespondencji) nie
+wola prawdziwego Bedrock.
+    Testy poprawki przez model podstawiaja wlasne funkcje.
+
+    Bez monkeypatch - z tego samego powodu co wyzej (kolejnosc sprzatania).
+    """
+    import bedrock
+
+    def brak(*_a, **_k):
+        raise RuntimeError("test: brak modelu")
+    oryginaly = bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, 
+bedrock.wyciagnij_ustalenia
+    bedrock.popraw_wg_zasad = bedrock.sprawdz_wytyczne = 
+bedrock.wyciagnij_ustalenia = brak
+    yield
+    bedrock.popraw_wg_zasad, bedrock.sprawdz_wytyczne, 
+bedrock.wyciagnij_ustalenia = oryginaly
+[pytest]
+# Konfiguracja pytest dla pieczapp
+
+# Wzorce plikow testowych
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+
+# Opcje wyswietlania
+addopts =
+    -v
+    --strict-markers
+    --tb=short
+    --color=yes
+
+# Katalogi ignorowane
+norecursedirs = .git .venv venv dane build dist *.egg-info
+
+# Markery (na przyszlosc)
+markers =
+    slow: testy wymagajace wiecej czasu
+    integration: testy integracyjne
+    unit: testy jednostkowe
+
+# Ostrzezenia
+filterwarnings =
+    error
+    ignore::DeprecationWarning
+    ignore::PendingDeprecationWarning
+# Testy pieczapp
+
+Testy automatyczne dla walidatorów, wykrywania pól i przepływu z Bedrock.
+
+## Uruchomienie
+
+### Windows
+
+Dwuklik w `uruchom_testy.bat` lub w konsoli:
+
+```cmd
+uruchom_testy.bat
+```
+
+### Ręcznie (po skonfigurowaniu środowiska)
+
+```bash
+# Aktywuj środowisko wirtualne
+.venv\Scripts\activate
+
+# Uruchom wszystkie testy
+pytest
+
+# Uruchom konkretny plik testów
+pytest test_walidacja.py
+
+# Uruchom z większą szczegółowością
+pytest -v
+
+# Uruchom konkretny test
+pytest test_walidacja.py::TestPesel::test_pesel_poprawny_xx_wiek
+
+# Pokaż print'y nawet gdy test przechodzi
+pytest -s
+```
+
+## Struktura testów
+
+```
+test_walidacja.py    - Testy walidatorów (PESEL, NIP, KW, kwoty)
+test_dokumenty.py    - Testy wykrywania pól ze wzoru i konwersji dokumentów
+test_bedrock.py      - Testy przepływu z atrapą Bedrock (bez prawdziwego modelu)
+test_ekw.py          - Księga wieczysta z EKW przez Apify: atrapa klienta HTTP, 
+zapis do sprawy, ślad audytowy, endpointy
+test_ekw_finyou.py   - Księga wieczysta przez Finance You (API partnerskie): 
+wybór dostawcy, dopytywanie, błędy
+pytest.ini           - Konfiguracja pytest
+generuj_testowe.py   - Pomocniczy skrypt do generowania poprawnych numerów 
+testowych
+```
+
+## Pokrycie testów
+
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 3, $0.00):
+Let me see the full middle section of the file, particularly `create_body` and 
+`gpu_classes`.
+
+```
+nl -ba /repo/tools/agent_factory/salad_vllm.py | sed -n '110,220p'
+```
+
+Tool:
+<returncode>
+0
+<output>
+   110      items = (api(keys, "GET", 
+f"/organizations/{keys['SALAD_ORG']}/gpu-classes") or {}).get("items") or []
+   111      out = []
+   112      for c in items:
+   113          m = re.search(r"\((\d+)\s*GB\)", str(c.get("name", "")))
+   114          price = next((float(p["price"]) for p in c.get("prices") or []
+   115                        if p.get("priority") == priority), None)
+   116          if m and price is not None:
+   117              out.append({"id": c["id"], "name": c["name"], "vram": 
+int(m.group(1)), "usd_h": price})
+   118      return sorted(out, key=lambda x: (-x["vram"], x["usd_h"]))
+   119  
+   120  
+   121  def create_body(name: str, gpu_id: str, args, deadline: datetime) -> 
+dict:
+   122      # `timeout` w kontenerze: drugi bezpiecznik - po terminie vLLM 
+kończy pracę sam, nawet
+   123      # gdyby nikt nie usunął grupy (restart_policy=never).
+   124      seconds = max(60, int((deadline - 
+datetime.now(timezone.utc)).total_seconds()) + 900)
+   125      command = [
+   126          "timeout", str(seconds), "vllm", "serve", args.model,
+   127          "--host", "::", "--port", str(PORT),  # brama Salad łączy się po
+IPv6
+   128          "--served-model-name", SERVED_NAME,
+   129          "--max-model-len", str(args.context),
+   130          "--gpu-memory-utilization", "0.90",
+   131          "--enable-auto-tool-choice", "--tool-call-parser", args.parser,
+   132          *args.vllm_args.split(),
+   133      ]
+   134      return {
+   135          "name": name,
+   136          "display_name": name,
+   137          "container": {
+   138              "image": args.image,
+   139              "command": command,
+   140              "priority": args.priority,
+   141              "resources": {
+   142                  "cpu": 8, "memory": 32 * 1024, "gpu_classes": [gpu_id],
+   143                  "storage_amount": 50 * 1024 ** 3,
+   144              },
+   145              "environment_variables": {"KODER_DEADLINE": 
+deadline.isoformat()},
+   146          },
+   147          "autostart_policy": True,
+   148          "restart_policy": "never",
+   149          "replicas": 1,
+   150          "networking": {
+   151              "protocol": "http", "port": PORT, "auth": True,
+   152              "load_balancer": "round_robin", "single_connection_limit": 
+False,
+   153              "client_request_timeout": 100000, "server_response_timeout":
+100000,
+   154          },
+   155      }
+   156  
+   157  
+   158  def save_state(data: dict) -> None:
+   159      STATE.parent.mkdir(parents=True, exist_ok=True)
+   160      STATE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+   161  
+   162  
+   163  def read_state() -> dict:
+   164      if not STATE.is_file():
+   165          raise SaladError("Brak zapisanej grupy - najpierw `up --pay`")
+   166      return json.loads(STATE.read_text(encoding="utf-8"))
+   167  
+   168  
+   169  def describe(keys: dict, name: str) -> dict | None:
+   170      g = api(keys, "GET", group_path(keys, name), allow404=True)
+   171      if g is None:
+   172          return None
+   173      inst = ((api(keys, "GET", group_path(keys, name) + "/instances", 
+allow404=True) or {})
+   174              .get("instances") or [{}])[0]
+   175      dns = str((g.get("networking") or {}).get("dns") or 
+"").replace("https://", "").strip("/")
+   176      return {
+   177          "name": name,
+   178          "state": inst.get("state") or (g.get("current_state") or 
+{}).get("status") or "pending",
+   179          "dns": dns if DNS_RE.fullmatch(dns) else None,
+   180          "deadline": ((g.get("container") or 
+{}).get("environment_variables") or {}).get("KODER_DEADLINE"),
+   181      }
+   182  
+   183  
+   184  def model_ready(keys: dict, dns: str) -> bool:
+   185      conn = http.client.HTTPSConnection(dns, timeout=20)
+   186      try:
+   187          conn.request("GET", "/v1/models", headers={"Salad-Api-Key": 
+keys["SALAD_API_KEY"]})
+   188          res = conn.getresponse()
+   189          body = res.read(4096)
+   190          return res.status == 200 and SERVED_NAME.encode() in body
+   191      except (OSError, http.client.HTTPException):
+   192          return False
+   193      finally:
+   194          conn.close()
+   195  
+   196  
+   197  # ---------------------------------------------------------------- 
+polecenia
+   198  
+   199  def cmd_check(keys: dict, args) -> int:
+   200      for c in gpu_classes(keys, args.priority):
+   201          print(f"{c['name']:<28}{c['usd_h']:.3f} USD/h")
+   202      mine = our_groups(keys)
+   203      print("Nasze grupy:", ", ".join(g["name"] for g in mine) or "brak")
+   204      return 0
+   205  
+   206  
+   207  def cmd_up(keys: dict, args) -> int:
+   208      if our_groups(keys):
+   209          raise SaladError("Nasza grupa już istnieje - `status` albo 
+`down`")
+   210      offers = [c for c in gpu_classes(keys, args.priority)
+   211                if c["vram"] >= args.min_vram and c["usd_h"] <= 
+args.max_hourly]
+   212      if not offers:
+   213          raise SaladError("Brak karty spełniającej --min-vram / 
+--max-hourly")
+   214      offer = offers[0]
+   215      minutes = min(args.minutes, int(args.max_usd / offer["usd_h"] * 60))
+   216      if minutes < 20:
+   217          raise SaladError("Budżet nie starcza na 20 minut pracy")
+   218      print(f"Plan: {offer['name']} {offer['usd_h']:.2f} USD/h, do 
+{minutes} min, "
+   219            f"najwyżej {minutes / 60 * offer['usd_h']:.2f} USD; model 
+{args.model}")
+   220      if not args.pay:
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 4, $0.00):
+Let me check how existing tests import modules from `tools/agent_factory`.
+
+```
+head -30 /repo/test_agent_factory.py; ls /repo/tools /repo/tools/agent_factory
+```
+
+Tool:
+<returncode>
+0
+<output>
+"""No external services, cloud credentials or browsers required."""
+import argparse
+from pathlib import Path
+
+import pytest
+
+from tools.agent_factory.runner import (
+    PolicyError,
+    codex_command,
+    load_task,
+    restricted_env,
+    validate_endpoint,
+    validate_model,
+)
+from tools.agent_factory.browser_smoke import BrowserPolicyError, local_origin
+
+
+@pytest.mark.parametrize("value", [
+    "https://external.example/v1",
+    "http://gpu.example:8000/v1",
+    "http://127.0.0.1:8000/admin",
+    "http://127.0.0.1:8000/v1?token=secret",
+    "http://user:pw@localhost:8000/v1",
+    "file:///etc/passwd",
+])
+def test_reject_non_local_endpoints(value):
+    with pytest.raises(PolicyError):
+        validate_endpoint(value)
+
+
+/repo/tools:
+agent_factory
+
+/repo/tools/agent_factory:
+browser_smoke.py
+forge_benchmark.py
+forge_cli.py
+forge_core.py
+forge_llm.py
+forge_llm_cli.py
+forge_research_cli.py
+forge_research_stats.py
+forge_sandbox.py
+forge_sandbox_cli.py
+forge_scheduler.py
+forge_scheduler_cli.py
+koder
+runner.py
+salad_vllm.py
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 5, $0.00):
+Let me check the top of the file for any imports that could be problematic in 
+tests.
+
+```
+sed -n '1,40p' /repo/tools/agent_factory/salad_vllm.py; ls 
+/repo/tools/agent_factory/__init__.py /repo/tools/__init__.py 2>&1; python3 -c 
+"import sys; print(sys.version)"; python3 -m pytest --version
+```
+
+Tool:
+<returncode>
+0
+<output>
+"""Model kodujący (vLLM) na wynajętym GPU SaladCloud + lokalny pośrednik dla 
+runnera.
+
+Polecenia:
+  check                 karty, ceny i nasze grupy (nic nie kosztuje)
+  up --pay              utwórz grupę z vLLM (płatne od chwili stanu `running`)
+  status                stan grupy i tego, czy model już odpowiada
+  proxy                 127.0.0.1:PORT -> brama Salad (dokleja klucz); po 
+terminie usuwa grupę
+Całość bez komputera operatora uruchamia workflow .github/workflows/koder.yml.
+  down                  usuń grupę (zawsze na koniec)
+
+Zasady: węzły Salad to cudze komputery poza UE -> wyłącznie kod z publicznego 
+repo i dane
+syntetyczne, nigdy `dane/`, `.env` ani nic o klientach. Klucz Salad tylko ze 
+środowiska albo
+z pliku wskazanego w NOTARAI_SALAD_ENV (poza repo); nie trafia do logów ani do 
+kontenera.
+Narzędzie rusza wyłącznie grupy o nazwie zaczynającej się od `notarai-koder`.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timedelta, timezone
+import http.client
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import threading
+import time
+
+API_HOST = "api.salad.com"
+API_BASE = "/api/public"
+LABEL = "notarai-koder"
+NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,61}[a-z0-9]$")
+DNS_RE = re.compile(r"^[a-z0-9.-]+\.salad\.cloud$", re.I)
+STATE = Path(__file__).resolve().parents[2] / ".agent-forge" / 
+"salad-koder.json"
+
+# Domyślny model: Qwen3.8-27B w 4 bitach (19,5 GB wag, Apache 2.0, bez bramki) -
+najmocniejszy
+# otwarty model do pracy agentowej mieszczący się na jednej karcie 32 GB 
+(przegląd 16.11.2026).
+# Zapas dla kart 24 GB: cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit z 
+parserem qwen3_xml.
+DEFAULT_MODEL = "RedHatAI/Qwen3.8-27B-INT4"
+ls: cannot access '/repo/tools/agent_factory/__init__.py': No such file or 
+directory
+ls: cannot access '/repo/tools/__init__.py': No such file or directory
+3.12.16 (main, Nov  5 2026, 07:58:20) [GCC 14.2.0]
+pytest 8.3.4
+
+────────────────────────────────────────────────────────────────────────────────
+Retrying <unknown> in 4 seconds as it raised Timeout: litellm.Timeout: Timeout Error: Hosted_vllmException - litellm.Timeout: Connection timed out after 95.0 seconds..
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+mini-swe-agent (step 6, $0.00):
+Now I have a full picture. Let me write the test file.
+
+```
+cat <<'EOF' > /repo/test_salad_vllm.py
+"""Testy jednostkowe tools/agent_factory/salad_vllm.py - bez sieci i bez kluczy.
+
+Tylko dane syntetyczne; nie czyta `dane/`, `.env` ani prawdziwych kluczy.
+"""
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from tools.agent_factory.salad_vllm import (
+    SaladError,
+    create_body,
+    gpu_classes,
+    group_path,
+    load_keys,
+)
+
+KEYS = {"SALAD_API_KEY": "klucz-testowy", "SALAD_ORG": "org-test", 
+"SALAD_PROJECT": "projekt-test"}
+
+
+# ------------------------------------------------------------------ group_path
+
+@pytest.mark.parametrize("name", [
+    "koder-test",        # brak przedrostka notarai-koder
+    "notarai-koder!",    # niedozwolony znak
+    "Notarai-koder-x",   # wielka litera - razi wzorzec nazwy
+    "notarai_koder",     # podkreślenie
+])
+def test_group_path_odrzucenie(name):
+    with pytest.raises(SaladError):
+        group_path(KEYS, name)
+
+
+def test_group_path_poprawna():
+    sciezka = group_path(KEYS, "notarai-koder-7")
+    assert sciezka == 
+"/organizations/org-test/projects/projekt-test/containers/notarai-koder-7"
+
+
+# ------------------------------------------------------------------ create_body
+
+class Args:
+    model = "syntetyczny/model-8B"
+    parser = "syntetyczny_xml"
+    image = "vllm/syntetyczny:1"
+    context = 32768
+    priority = "high"
+    vllm_args = "--reasoning-parser syntetyczny"
+
+
+def test_create_body_command_i_deadline():
+    deadline = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    body = create_body("notarai-koder-1", "gpu-test", Args(), deadline)
+
+    cmd = body["container"]["command"]
+    assert "--host" in cmd and cmd[cmd.index("--host") + 1] == "::"
+    assert "--port" in cmd and cmd[cmd.index("--port") + 1] == "8000"
+    assert "--served-model-name" in cmd and cmd[cmd.index("--served-model-name")
++ 1] == "koder"
+    assert "--tool-call-parser" in cmd
+    assert cmd[cmd.index("--tool-call-parser") + 1] == "syntetyczny_xml"
+
+    assert body["name"] == "notarai-koder-1"
+    assert body["container"]["resources"]["gpu_classes"] == ["gpu-test"]
+    # KODER_DEADLINE w formacie ISO
+    from datetime import datetime as dt
+    assert 
+dt.fromisoformat(body["container"]["environment_variables"]["KODER_DEADLINE"]) 
+== deadline
+
+
+def test_create_body_networking():
+    deadline = datetime.now(timezone.utc) + timedelta(hours=2)
+    body = create_body("notarai-koder-1", "gpu-test", Args(), deadline)
+    net = body["networking"]
+    assert net["auth"] is True
+    assert net["client_request_timeout"] == 100000
+    assert net["server_response_timeout"] == 100000
+    assert net["port"] == 8000
+
+
+# ------------------------------------------------------------------ load_keys
+
+def test_load_keys_brak_klucza(monkeypatch):
+    for z in ("SALAD_API_KEY", "SALAD_ORG", "SALAD_PROJECT", 
+"NOTARAI_SALAD_ENV"):
+        monkeypatch.delenv(z, raising=False)
+    with pytest.raises(SaladError):
+        load_keys()
+
+
+def test_load_keys_plik_i_priorytet_srodowiska(monkeypatch, tmp_path):
+    plik = tmp_path / "salad.test.env"
+    plik.write_text(
+        "SALAD_API_KEY=z_pliku_api\n"
+        "SALAD_ORG=z_pliku_org\n"
+        "SALAD_PROJECT=z_pliku_projekt\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NOTARAI_SALAD_ENV", str(plik))
+    monkeypatch.delenv("SALAD_API_KEY", raising=False)
+    # środowisko ma pierwszeństwo przed plikiem
+    monkeypatch.setenv("SALAD_API_KEY", "ze_srodowiska_api")
+
+    keys = load_keys()
+    assert keys["SALAD_API_KEY"] == "ze_srodowiska_api"
+    assert keys["SALAD_ORG"] == "z_pliku_org"
+    assert keys["SALAD_PROJECT"] == "z_pliku_projekt"
+
+
+def test_load_keys_wszystko_z_pliku(monkeypatch, tmp_path):
+    plik = tmp_path / "tylko.env"
+    plik.write_text(
+        "SALAD_API_KEY=tylko_plik\nSALAD_ORG=org-x\nSALAD_PROJECT=projekt-x\n",
+        encoding="utf-8",
+    )
+    for z in ("SALAD_API_KEY", "SALAD_ORG", "SALAD_PROJECT"):
+        monkeypatch.delenv(z, raising=False)
+    monkeypatch.setenv("NOTARAI_SALAD_ENV", str(plik))
+    keys = load_keys()
+    assert keys == {"SALAT_API_KEY": None, "SALAD_API_KEY": "tylko_plik",
+                    "SALAD_ORG": "org-x", "SALAD_PROJECT": "projekt-x"}
+EOF
+echo done
+```
+
+Tool:
+<returncode>
+0
+<output>
+done
+
+────────────────────────────────────────────────────────────────────────────────
+Retrying <unknown> in 4 seconds as it raised Timeout: litellm.Timeout: Timeout Error: Hosted_vllmException - litellm.Timeout: Connection timed out after 95.0 seconds..
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+mini-swe-agent (step 7, $0.00):
+I made a typo in the last test (an extra bogus key). Let me fix it and add the 
+gpu_classes tests.
+
+```
+cd /repo && python3 - <<'EOF'
+import re
+src = open('test_salad_vllm.py').read()
+bad = '''    keys = load_keys()
+    assert keys == {"SALAT_API_KEY": None, "SALAD_API_KEY": "tylko_plik",
+                    "SALAD_ORG": "org-x", "SALAD_PROJECT": "projekt-x"}
+'''
+good = '''    keys = load_keys()
+    assert keys == {"SALAD_API_KEY": "tylko_plik", "SALAD_ORG": "org-x",
+                    "SALAD_PROJECT": "projekt-x"}
+'''
+assert bad in src
+open('test_salad_vllm.py','w').write(src.replace(bad, good))
+print("ok")
+EOF
+cat <<'EOF' >> /repo/test_salad_vllm.py
+
+
+# ------------------------------------------------------------------ gpu_classes
+
+def test_gpu_classes(monkeypatch):
+    import tools.agent_factory.salad_vllm as mod
+    items = {
+        "items": [
+            {"id": "a", "name": "AMD RX 7900 XTX (24GB)",
+             "prices": [{"priority": "high", "price": "2.50"},
+                        {"priority": "low", "price": "1.00"}]},
+            {"id": "b", "name": "RTX 5090 (32 GB)",
+             "prices": [{"priority": "high", "price": "3.20"}]},
+            # bez ceny dla priorytetu "high" - musi być pominięte
+            {"id": "c", "name": "RTX 4090 (24 GB)",
+             "prices": [{"priority": "low", "price": "1.80"}]},
+            # bez podanego VRAM - pominięte
+            {"id": "d", "name": "MysticCard", "prices": [{"priority": "high", 
+"price": "9.99"}]},
+        ]
+    }
+    widziane = []
+
+    def api_podmiana(keys, method, path, body=None, allow404=False):
+        widziane.append((method, path))
+        return items
+
+    monkeypatch.setattr(mod, "api", api_podmiana)
+    out = mod.gpu_classes(KEYS, "high")
+
+    assert [c["name"] for c in out] == ["RTX 5090 (32 GB)", "AMD RX 7900 XTX 
+(24GB)"]
+    assert [c["vram"] for c in out] == [32, 24]          # sortowanie malejąco 
+po VRAM
+    assert [c["usd_h"] for c in out] == [3.20, 2.50]
+    assert [c["id"] for c in out] == ["b", "a"]
+    assert (mod.api is not None)  # sanity
+EOF
+python3 -m pytest -q /repo/test_salad_vllm.py 2>&1 | tail -20
+```
+
+Tool:
+<returncode>
+0
+<output>
+ok
+[1m============================= test session starts 
+==============================[0m
+platform linux -- Python 3.12.16, pytest-8.3.4, pluggy-1.7.0
+rootdir: /repo
+configfile: pytest.ini
+plugins: platformdirs-4.14.5, anyio-4.16.0, mock-3.14.0
+collected 11 items
+
+test_salad_vllm.py 
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[32m.[0m
+[32m.[0m[31m                                           [100%][0m
+
+=================================== FAILURES ===================================
+[31m[1m__________________ test_load_keys_plik_i_priorytet_srodowiska 
+__________________[0m
+[1m[31mtest_salad_vllm.py[0m:99: in test_load_keys_plik_i_priorytet_srodowiska
+    [0mkeys = load_keys()[90m[39;49;00m
+[1m[31mtools/agent_factory/salad_vllm.py[0m:67: in load_keys
+    [0m[94mraise[39;49;00m SaladError([33mf[39;49;00m[33m"[39;49;00m[33mZła albo
+pusta wartość 
+[39;49;00m[33m{[39;49;00mk[33m}[39;49;00m[33m"[39;49;00m)[90m[39;49;00m
+[1m[31mE   tools.agent_factory.salad_vllm.SaladError: Zła albo pusta wartość 
+SALAD_ORG[0m
+[36m[1m=========================== short test summary info 
+============================[0m
+[31mFAILED[0m 
+test_salad_vllm.py::[1mtest_load_keys_plik_i_priorytet_srodowiska[0m - 
+tools.agent_factory.salad_vllm.SaladError: Zła albo pusta wartość SALAD_ORG
+[31m========================= [31m[1m1 failed[0m, [32m10 passed[0m[31m in
+0.54s[0m[31m =========================[0m
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 8, $0.00):
+The file value `z_pliku_org` fails the NAME_RE (needs a valid name pattern). Let
+me use valid synthetic names in the env file.
+
+```
+cd /repo && sed -i 's/SALAD_API_KEY=z_pliku_api/SALAD_API_KEY=klucz-z-pliku/; 
+s/SALAD_ORG=z_pliku_org/SALAD_ORG=org-z-pliku/; 
+s/SALAD_PROJECT=z_pliku_projekt/SALAD_PROJECT=projekt-z-pliku/; s/== 
+"z_pliku_org"/== "org-z-pliku"/; s/== "z_pliku_projekt"/== "projekt-z-pliku"/' 
+test_salad_vllm.py && python3 -m pytest -q test_salad_vllm.py 2>&1 | tail -5
+```
+
+Tool:
+<returncode>
+0
+<output>
+collected 11 items
+
+test_salad_vllm.py 
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m
+[32m.[0m[32m                                           [100%][0m
+
+[32m============================== [32m[1m11 passed[0m[32m in 0.44s[0m[32m
+==============================[0m
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 9, $0.00):
+All 11 tests pass. Let me verify the final test file and run the full check once
+more.
+
+```
+cd /repo && cat test_salad_vllm.py
+```
+
+Tool:
+<returncode>
+0
+<output>
+"""Testy jednostkowe tools/agent_factory/salad_vllm.py - bez sieci i bez kluczy.
+
+Tylko dane syntetyczne; nie czyta `dane/`, `.env` ani prawdziwych kluczy.
+"""
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from tools.agent_factory.salad_vllm import (
+    SaladError,
+    create_body,
+    gpu_classes,
+    group_path,
+    load_keys,
+)
+
+KEYS = {"SALAD_API_KEY": "klucz-testowy", "SALAD_ORG": "org-test", 
+"SALAD_PROJECT": "projekt-test"}
+
+
+# ------------------------------------------------------------------ group_path
+
+@pytest.mark.parametrize("name", [
+    "koder-test",        # brak przedrostka notarai-koder
+    "notarai-koder!",    # niedozwolony znak
+    "Notarai-koder-x",   # wielka litera - razi wzorzec nazwy
+    "notarai_koder",     # podkreślenie
+])
+def test_group_path_odrzucenie(name):
+    with pytest.raises(SaladError):
+        group_path(KEYS, name)
+
+
+def test_group_path_poprawna():
+    sciezka = group_path(KEYS, "notarai-koder-7")
+    assert sciezka == 
+"/organizations/org-test/projects/projekt-test/containers/notarai-koder-7"
+
+
+# ------------------------------------------------------------------ create_body
+
+class Args:
+    model = "syntetyczny/model-8B"
+    parser = "syntetyczny_xml"
+    image = "vllm/syntetyczny:1"
+    context = 32768
+    priority = "high"
+    vllm_args = "--reasoning-parser syntetyczny"
+
+
+def test_create_body_command_i_deadline():
+    deadline = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    body = create_body("notarai-koder-1", "gpu-test", Args(), deadline)
+
+    cmd = body["container"]["command"]
+    assert "--host" in cmd and cmd[cmd.index("--host") + 1] == "::"
+    assert "--port" in cmd and cmd[cmd.index("--port") + 1] == "8000"
+    assert "--served-model-name" in cmd and cmd[cmd.index("--served-model-name")
++ 1] == "koder"
+    assert "--tool-call-parser" in cmd
+    assert cmd[cmd.index("--tool-call-parser") + 1] == "syntetyczny_xml"
+
+    assert body["name"] == "notarai-koder-1"
+    assert body["container"]["resources"]["gpu_classes"] == ["gpu-test"]
+    # KODER_DEADLINE w formacie ISO
+    from datetime import datetime as dt
+    assert 
+dt.fromisoformat(body["container"]["environment_variables"]["KODER_DEADLINE"]) 
+== deadline
+
+
+def test_create_body_networking():
+    deadline = datetime.now(timezone.utc) + timedelta(hours=2)
+    body = create_body("notarai-koder-1", "gpu-test", Args(), deadline)
+    net = body["networking"]
+    assert net["auth"] is True
+    assert net["client_request_timeout"] == 100000
+    assert net["server_response_timeout"] == 100000
+    assert net["port"] == 8000
+
+
+# ------------------------------------------------------------------ load_keys
+
+def test_load_keys_brak_klucza(monkeypatch):
+    for z in ("SALAD_API_KEY", "SALAD_ORG", "SALAD_PROJECT", 
+"NOTARAI_SALAD_ENV"):
+        monkeypatch.delenv(z, raising=False)
+    with pytest.raises(SaladError):
+        load_keys()
+
+
+def test_load_keys_plik_i_priorytet_srodowiska(monkeypatch, tmp_path):
+    plik = tmp_path / "salad.test.env"
+    plik.write_text(
+        "SALAD_API_KEY=klucz-z-pliku\n"
+        "SALAD_ORG=org-z-pliku\n"
+        "SALAD_PROJECT=projekt-z-pliku\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NOTARAI_SALAD_ENV", str(plik))
+    monkeypatch.delenv("SALAD_API_KEY", raising=False)
+    # środowisko ma pierwszeństwo przed plikiem
+    monkeypatch.setenv("SALAD_API_KEY", "ze_srodowiska_api")
+
+    keys = load_keys()
+    assert keys["SALAD_API_KEY"] == "ze_srodowiska_api"
+    assert keys["SALAD_ORG"] == "org-z-pliku"
+    assert keys["SALAD_PROJECT"] == "projekt-z-pliku"
+
+
+def test_load_keys_wszystko_z_pliku(monkeypatch, tmp_path):
+    plik = tmp_path / "tylko.env"
+    plik.write_text(
+        "SALAD_API_KEY=tylko_plik\nSALAD_ORG=org-x\nSALAD_PROJECT=projekt-x\n",
+        encoding="utf-8",
+    )
+    for z in ("SALAD_API_KEY", "SALAD_ORG", "SALAD_PROJECT"):
+        monkeypatch.delenv(z, raising=False)
+    monkeypatch.setenv("NOTARAI_SALAD_ENV", str(plik))
+    keys = load_keys()
+    assert keys == {"SALAD_API_KEY": "tylko_plik", "SALAD_ORG": "org-x",
+                    "SALAD_PROJECT": "projekt-x"}
+
+
+# ------------------------------------------------------------------ gpu_classes
+
+def test_gpu_classes(monkeypatch):
+    import tools.agent_factory.salad_vllm as mod
+    items = {
+        "items": [
+            {"id": "a", "name": "AMD RX 7900 XTX (24GB)",
+             "prices": [{"priority": "high", "price": "2.50"},
+                        {"priority": "low", "price": "1.00"}]},
+            {"id": "b", "name": "RTX 5090 (32 GB)",
+             "prices": [{"priority": "high", "price": "3.20"}]},
+            # bez ceny dla priorytetu "high" - musi być pominięte
+            {"id": "c", "name": "RTX 4090 (24 GB)",
+             "prices": [{"priority": "low", "price": "1.80"}]},
+            # bez podanego VRAM - pominięte
+            {"id": "d", "name": "MysticCard", "prices": [{"priority": "high", 
+"price": "9.99"}]},
+        ]
+    }
+    widziane = []
+
+    def api_podmiana(keys, method, path, body=None, allow404=False):
+        widziane.append((method, path))
+        return items
+
+    monkeypatch.setattr(mod, "api", api_podmiana)
+    out = mod.gpu_classes(KEYS, "high")
+
+    assert [c["name"] for c in out] == ["RTX 5090 (32 GB)", "AMD RX 7900 XTX 
+(24GB)"]
+    assert [c["vram"] for c in out] == [32, 24]          # sortowanie malejąco 
+po VRAM
+    assert [c["usd_h"] for c in out] == [3.20, 2.50]
+    assert [c["id"] for c in out] == ["b", "a"]
+    assert (mod.api is not None)  # sanity
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 10, $0.00):
+Let me clean up the unused `widziane` variable and run final verification, 
+including confirming no network is used.
+
+```
+cd /repo && python3 - <<'EOF'
+src = open('test_salad_vllm.py').read()
+src = src.replace("""    widziane = []
+
+    def api_podmiana(keys, method, path, body=None, allow404=False):
+        widziane.append((method, path))
+        return items
+""", """    def api_podmiana(keys, method, path, body=None, allow404=False):
+        return items
+""")
+open('test_salad_vllm.py','w').write(src)
+print("cleaned")
+EOF
+python3 -m pytest -q test_salad_vllm.py 2>&1 | tail -4
+echo "--- git status ---"
+git status --porcelain
+```
+
+Tool:
+<returncode>
+128
+<output>
+cleaned
+
+test_salad_vllm.py 
+[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m
+[32m.[0m[32m                                           [100%][0m
+
+[32m============================== [32m[1m11 passed[0m[32m in 0.44s[0m[32m
+==============================[0m
+--- git status ---
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+
+────────────────────────────────────────────────────────────────────────────────
+
+mini-swe-agent (step 11, $0.00):
+All 11 tests pass. The task is complete.
+
+## Podsumowanie
+
+**Zmienione pliki:**
+- `test_salad_vllm.py` (nowy plik w katalogu głównym repo) — jedyne, co 
+zmieniłem; `tools/agent_factory/salad_vllm.py` nie dotknąłem.
+
+**Wynik testów:**
+- `python -m pytest -q test_salad_vllm.py` → **11 passed** (11 tests passed in 
+~0.44 s).
+
+**Co testują te testy (wszystko na danych syntetycznych, bez sieci):**
+1. `group_path` — odrzuca (`SaladError`) nazwę bez przedrostka `notarai-koder`, 
+nazwę z niedozwolonymi znakami (oraz wielką literą/podkreśleniem); przyjmuje 
+poprawną i buduje właściwą ścieżkę.
+2. `create_body` — komenda zawiera `--host ::`, port `8000`, 
+`--served-model-name koder` i wybrany parser (`--tool-call-parser`); 
+`networking` ma `auth True` i oba limity `100000`; `KODER_DEADLINE` w formacie 
+ISO (weryfikowane przez `datetime.fromisoformat`).
+3. `load_keys` — brak klucza daje `SaladError`; wartości z pliku wskazanego 
+przez `NOTARAI_SALAD_ENV` są czytane, a zmienne środowiskowe mają pierwszeństwo 
+(monkeypatch + tmp_path, zmyślone klucze).
+4. `gpu_classes` z podmienioną funkcją `api` (monkeypatch) — czyta VRAM z "RTX 
+5090 (32 GB)" i "AMD RX 7900 XTX (24GB)", pomija klasy bez ceny dla danego 
+priorytetu i bez VRAM, sortuje malejąco po VRAM.
+
+**Ograniczenia:**
+- Testy uruchamiam tylko w środowisku bez internetu; `load_keys` i `gpu_classes`
+nie otwierają żadnego połączenia (API podmienione monkeypatch-em, plik z 
+kluczymi w `tmp_path`).
+- Nie instalowałem żadnych paczek, nie czytałem `dane/`, `.env` ani prawdziwych 
+kluczy — użyłem wyłącznie syntetycznych wartości.
+- Repo nie jest w git, więc nie mogłem wygenerować diffa `git`; zmiana ogranicza
+się do nowego pliku `test_salad_vllm.py`.
+
+```
+echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT
+```
+
+Tool:
+<returncode>
+-1
+<output>
+
+<exception_info>
+action was not executed
+
+Exit:
+
+Saved trajectory to '/out/k2.traj.json'
