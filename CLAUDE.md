@@ -44,6 +44,17 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Obraz Dockera nie może zawierać `dane/` ani `.env` (pilnuje tego
   `.dockerignore`; nie usuwaj z niego tych wpisów).
 
+### ElevenLabs: tylko silnik v3 lub nowszy (twarda reguła, 16.11.2026)
+- Każda generacja głosu w ElevenLabs (lektor TTS, dialog, agenci rozmowni,
+  projektowanie głosu, zamiana mowy) używa modelu v3 lub nowszego:
+  `eleven_v4`, `eleven_v4_turbo`, `eleven_v3`, `eleven_v3_conversational`
+  (projektowanie głosu: `eleven_ttv_v3`). NIGDY `eleven_multilingual_v2`,
+  `eleven_flash_v2_5`, `eleven_turbo_v2_5` ani innych v1/v2 - także przy
+  pracy przez konektor ElevenLabs, narzędzia MCP `fu` i skrypty.
+- Gdy narzędzie albo model nie daje wyboru v3+, przerwij i zgłoś to,
+  zamiast schodzić na niższy silnik. Domyślnie: lektor `eleven_v4`,
+  agenci `eleven_v4_turbo`.
+
 ### Konwencje
 - Zasoby nazywaj z prefiksem: notarai-
 - Infrastrukturę definiuj jako kod (CloudFormation w `infra/`), nie przez
