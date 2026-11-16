@@ -1,0 +1,228 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SYNTHETIC STAGING ONLY. IAM API -> Lambda private subnets ->
+  Bedrock Runtime PrivateLink; S3 Object Lock audit. Never auto-deploy.
+
+Parameters:
+  VpcId: {Type: "AWS::EC2::VPC::Id"}
+  PrivateSubnetIds: {Type: "List<AWS::EC2::Subnet::Id>"}
+  PrivateRouteTableIds: {Type: CommaDelimitedList}
+  S3PrefixListId:
+    Type: String
+    AllowedPattern: '^pl-[a-z0-9]+$'
+  CallerRoleName:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9+=,.@_-]{1,64}$'
+  TenantId:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9_-]{3,64}$'
+  ModelId:
+    Type: String
+    Default: eu.anthropic.claude-opus-4-6-v1
+    AllowedPattern: '^eu\.[a-z0-9][a-z0-9.-]{3,120}$'
+  PackageBucket: {Type: String}
+  PackageKey: {Type: String}
+
+Resources:
+  AuditBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration: {Status: Enabled}
+      ObjectLockEnabled: true
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention: {Mode: COMPLIANCE, Days: 30}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WorkerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: private-ai test Lambda - egress deny by default
+      VpcId: !Ref VpcId
+      SecurityGroupEgress: []
+  BedrockSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Bedrock VPC endpoint - pilot Lambda only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress: []
+  EndpointIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BedrockSG.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !GetAtt WorkerSG.GroupId
+  BedrockEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt WorkerSG.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationSecurityGroupId: !GetAtt BedrockSG.GroupId
+  S3Egress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt WorkerSG.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      DestinationPrefixListId: !Ref S3PrefixListId
+
+  BedrockEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VpcId
+      PrivateDnsEnabled: true
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.bedrock-runtime"
+      SubnetIds: !Ref PrivateSubnetIds
+      SecurityGroupIds: [!GetAtt BedrockSG.GroupId]
+
+  AuditS3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref VpcId
+      RouteTableIds: !Ref PrivateRouteTableIds
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub "${AuditBucket.Arn}/events/*"
+
+  AuditBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AuditBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnforceTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt AuditBucket.Arn, !Sub "${AuditBucket.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": "false"}}
+          - Sid: EndpointOnlyAuditWrites
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub "${AuditBucket.Arn}/events/*"
+            Condition:
+              StringNotEquals: {"aws:SourceVpce": !Ref AuditS3Endpoint}
+
+  PilotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: PrivateLinkEUOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    "aws:RequestedRegion": eu-central-1
+                    "aws:SourceVpce": !Ref BedrockEndpoint
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "${AuditBucket.Arn}/events/*"
+                Condition:
+                  StringEquals: {"aws:SourceVpce": !Ref AuditS3Endpoint}
+
+  PilotApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: private-ai-synthetic-eu
+      ProtocolType: HTTP
+
+  PilotLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: [BedrockEndpoint, AuditS3Endpoint, BedrockEgress, S3Egress]
+    Properties:
+      Description: Synthetic documents only; no banking or medical records
+      Runtime: python3.12
+      Handler: private_ai.lambda_entry.lambda_handler
+      Role: !GetAtt PilotRole.Arn
+      Timeout: 28
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 2
+      Code:
+        S3Bucket: !Ref PackageBucket
+        S3Key: !Ref PackageKey
+      VpcConfig:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds: [!GetAtt WorkerSG.GroupId]
+      Environment:
+        Variables:
+          PRIVATE_AI_MODEL_ID: !Ref ModelId
+          PRIVATE_AI_TENANT: !Ref TenantId
+          PRIVATE_AI_ALLOWED_ROLE_ARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/${CallerRoleName}"
+          PRIVATE_AI_AUDIT_BUCKET: !Ref AuditBucket
+          PRIVATE_AI_GATEWAY_API_ID: !Ref PilotApi
+
+  PilotIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PilotApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt PilotLambda.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 29000
+
+  PilotRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PilotApi
+      AuthorizationType: AWS_IAM
+      RouteKey: "POST /v1/documents"
+      Target: !Sub "integrations/${PilotIntegration}"
+
+  PilotStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref PilotApi
+      StageName: "$default"
+      AutoDeploy: true
+
+  PilotPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PilotLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PilotApi}/*/POST/v1/documents"
+
+Outputs:
+  PilotApiUrl:
+    Value: !Sub "https://${PilotApi}.execute-api.${AWS::Region}.amazonaws.com/v1/documents"
+  AuditBucketName:
+    Value: !Ref AuditBucket
+  NotReady:
+    Value: "SYNTHETIC STAGING ONLY - NOT CERTIFIED OR DEPLOYED"
