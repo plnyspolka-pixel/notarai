@@ -1,7 +1,7 @@
 """Nazwa sprawy z nazwisk stron. Dane zmyslone albo z nazw plikow testowych."""
 from nazwy import (DOMYSLNY_WZOR_NAZWY, MAX_DLUGOSC_NAZWY, bezpieczna_nazwa_pliku, czynnosc_z_rodzajow,
                    miejscowosc_z_pol, nazwa_pliku, nazwa_sprawy, nazwiska_stron, nazwiska_z_plikow,
-                   nazwiska_z_wartosci, nieznane_pola_wzoru, przyklad_nazwy)
+                   nazwiska_z_wartosci, nieznane_pola_wzoru, przyklad_nazwy, wypelnij_wzor_nazwy)
 
 
 class TestWartosci:
@@ -147,3 +147,31 @@ class TestNazwaPliku:
     def test_przyklad_dla_okna_ustawien(self):
         assert przyklad_nazwy(DOMYSLNY_WZOR_NAZWY) == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"
         assert przyklad_nazwy("") == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"
+
+
+class TestWypelnijWzorNazwy:
+    def test_wszystkie_pola_wypełnione_w_kolejności_wzoru(self):
+        wynik = wypelnij_wzor_nazwy("{sygnatura} - {zbywca} - {nabywca}",
+                                    {"zbywca": "Sobczak", "nabywca": "Pawlak", "sygnatura": "A 123/2026"})
+        assert wynik == "A 123-2026 - Sobczak - Pawlak"
+
+    def test_puste_pole_w_srodku_znika_z_separatorem_przed_soba(self):
+        assert wypelnij_wzor_nazwy("{zbywca} - {czynnosc} - {miejscowosc}",
+                                    {"zbywca": "A", "miejscowosc": "B"}) == "A - B"
+
+    def test_puste_pole_na_poczatku_znika_z_separatorem_za_soba(self):
+        assert wypelnij_wzor_nazwy("{czynnosc} - {nabywca}", {"nabywca": "B"}) == "B"
+
+    def test_pole_spoza_slowownika_jak_puste(self):
+        assert wypelnij_wzor_nazwy("{zbywca} - {klient} - {nabywca}",
+                                    {"zbywca": "A", "nabywca": "B"}) == "A - B"
+
+    def test_pusty_wzor_domyslny(self):
+        assert wypelnij_wzor_nazwy("", {"zbywca": "X", "nabywca": "Y", "czynnosc": "Z", "miejscowosc": "W"}) == \
+            wypelnij_wzor_nazwy(DOMYSLNY_WZOR_NAZWY,
+                                {"zbywca": "X", "nabywca": "Y", "czynnosc": "Z", "miejscowosc": "W"})
+
+    def test_znaki_niedozwolone_w_wartosci_nie_trafiaja_do_wyniku(self):
+        wynik = wypelnij_wzor_nazwy("{sygnatura} - {miejscowosc}", {"sygnatura": "A 123/2026", "miejscowosc": "a:b"})
+        assert wynik == "A 123-2026 - a-b"
+        assert "/" not in wynik and ":" not in wynik
