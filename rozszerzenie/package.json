@@ -1,0 +1,6 @@
+{
+  "name": "notarai-rozszerzenie",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test testy/silnik.test.mjs testy/kolejka.test.mjs" }
+}

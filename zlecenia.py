@@ -31,7 +31,9 @@ log = logging.getLogger("pieczapp.zlecenia")
 
 WAZNOSC_MINUT = int(os.getenv("PIECZAPP_ZLECENIE_MINUT", "30"))
 RODZAJE = ("krz", "formularz", "klikamy")
-STANY = ("czeka", "wykonane")
+# "w_toku": zlecenie zlozone przez rozszerzenie przegladarki, ktore samo je
+# wykonuje - pomocnik (.exe) nie ma go odbierac, wiec nie moze "czekac".
+STANY = ("czeka", "w_toku", "wykonane")
 
 
 def dostepne() -> bool:
@@ -59,16 +61,18 @@ def _przeterminowane(zlecenie: dict) -> bool:
     return _teraz() - zlozono > timedelta(minutes=WAZNOSC_MINUT)
 
 
-def zloz(rodzaj: str, sprawa: str, tresc: dict) -> dict:
+def zloz(rodzaj: str, sprawa: str, tresc: dict, stan: str = "czeka") -> dict:
     """Sklada zlecenie i zwraca je. Nie czeka na pomocnika."""
     if rodzaj not in RODZAJE:
         raise ValueError(f"Nieznany rodzaj zlecenia: {rodzaj}")
+    if stan not in STANY:
+        raise ValueError(f"Nieznany stan zlecenia: {stan}")
     kancelaria = magazyn.kancelaria()
     zlecenie = {
         "id": uuid.uuid4().hex[:12],
         "rodzaj": rodzaj,
         "sprawa": sprawa,
-        "stan": "czeka",
+        "stan": stan,
         "zlozono": _teraz().isoformat(timespec="seconds"),
         "tresc": tresc,
     }

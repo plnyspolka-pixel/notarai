@@ -23,3 +23,6 @@ htmlcov/
 *.bak
 .vscode/
 .idea/
+
+# Rozszerzenie przegladarki trafia do sklepu Chrome/Edge, nie do obrazu serwera.
+rozszerzenie/

@@ -39,6 +39,7 @@ import kalendarz
 import kalkulator
 import korespondencja
 import krz
+import krz_portal
 import urzadzenia
 import zlecenia
 import magazyn
@@ -1357,7 +1358,31 @@ def wypelnij_formularz(identyfikator: str, system: str, zadanie: ZadanieFormular
         if not zadanie.potwierdzam:
             raise HTTPException(400, "Tryb faktyczny wymaga jawnego potwierdzenia")
         if not formularze.silnik.czy_mozna_sterowac():
-            raise HTTPException(409, BRAK_PRZEGLADARKI)
+            # Serwer nie ma przegladarki: pola wpisze rozszerzenie w przegladarce
+            # notariusza, tam gdzie jest zalogowany. Dostaje gotowe kroki i samo
+            # jeszcze raz sprawdza strone, przycisk wysylki i pola hasla.
+            if not zlecenia.dostepne():
+                raise HTTPException(409, BRAK_PRZEGLADARKI)
+            plan = formularze.zaplanuj(mapowanie, dane)
+            if mapowanie.status != "gotowe":
+                plan.tryb = "faktyczny"
+                plan.bledy.append("Mapowanie ma status 'szkic' - tryb faktyczny zablokowany")
+                return _raport_formularza(plan, mapowanie)
+            if not _pomocnik_pod_reka():
+                raise HTTPException(409, BRAK_POMOCNIKA)
+            zlecenie = zlecenia.zloz("formularz", identyfikator, {
+                "system": mapowanie.system,
+                "adres": mapowanie.adres,
+                "gotowosc": mapowanie.gotowosc,
+                "przycisk_wysylki": mapowanie.przycisk_wysylki,
+                "status_mapowania": mapowanie.status,
+                "tryb": "faktyczny",
+                "kroki": [{"pole": k.pole, "selektor": k.selektor, "typ": k.typ,
+                           "wartosc": k.wartosc} for k in plan.kroki],
+            })
+            log.info("sprawa %s: formularz %s zlecony rozszerzeniu, zlecenie %s",
+                     identyfikator, system, zlecenie["id"])
+            return JSONResponse({"zlecenie": zlecenie["id"], "stan": "czeka"}, status_code=202)
         try:
             pw, strona = formularze.silnik.aktywna_strona()
         except RuntimeError as blad:
@@ -1368,6 +1393,10 @@ def wypelnij_formularz(identyfikator: str, system: str, zadanie: ZadanieFormular
             pw.stop()
     log.info("sprawa %s: formularz %s tryb=%s pol=%d bledy=%d",
              identyfikator, system, raport.tryb, len(raport.kroki), len(raport.bledy))
+    return _raport_formularza(raport, mapowanie)
+
+
+def _raport_formularza(raport, mapowanie) -> dict:
     return {
         "system": raport.system,
         "tryb": raport.tryb,
@@ -1446,6 +1475,9 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
             raise HTTPException(409, BRAK_POMOCNIKA)
         zlecenie = zlecenia.zloz("krz", identyfikator, {
             "osoby": [{"pesel": o.pesel, "etykieta": o.etykieta} for o in zadanie.osoby],
+            # Dla rozszerzenia przegladarki: zakladki i wzorce rozpoznawania
+            # wyniku. Pomocnik (.exe) ma je u siebie i to pole pomija.
+            "portal": krz_portal.opis_portalu(),
         })
         return JSONResponse({"zlecenie": zlecenie["id"], "stan": "czeka"}, status_code=202)
     try:
@@ -1882,6 +1914,7 @@ def stan_zlecenia(identyfikator: str, zlecenie: str):
 class RaportPomocnika(BaseModel):
     sprawdzenia: list[ZadanieSprawdzenia] = []
     bledy: list[str] = []
+    kroki: list[dict] = []      # tylko zlecenie "formularz": pole, wykonano, uwaga
 
 
 # --- Klikamy: model prowadzi przegladarke notariusza ------------------------
@@ -1924,9 +1957,13 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     """Pomocnik pokazuje, co widzi na stronie; model mowi, co zrobic dalej."""
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
-    _odnotuj_pomocnika(request)
-    if not zlecenia.wynik(zlecenie):
+    stan = zlecenia.wynik(zlecenie)
+    if not stan:
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    # Polecenie wpisane w panelu rozszerzenia nie znaczy jeszcze, ze ktos
+    # odbiera kolejke: obecnosc odnotowuje dopiero pytanie o zlecenia.
+    if stan.get("stan") != "w_toku":
+        _odnotuj_pomocnika(request)
     try:
         with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
             krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
@@ -1935,6 +1972,59 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.
     log.info("zlecenie %s: krok %s", zlecenie, krok.get("akcja") or "brak")
     return krok
+
+
+# --- Klikamy z panelu rozszerzenia przegladarki ------------------------------
+# Rozszerzenie (rozszerzenie/) pokazuje pole polecenia obok strony urzedu, w
+# zwyklej przegladarce notariusza. Samo sklada zlecenie i samo je wykonuje, a
+# o kazdy krok pyta model tym samym punktem co pomocnik. Laczy sie z kancelaria
+# tak samo jak pomocnik (kod + "Polacz"), wiec ma token tylko do /api/pomocnik/.
+
+
+class ZadaniePanelu(BaseModel):
+    cel: str
+    host: str = ""
+
+
+class KoniecPanelu(BaseModel):
+    krokow: int = 0
+    wynik: str = ""
+
+
+WYNIKI_PANELU = ("koniec", "pytanie", "zatrzymano", "przerwano")
+
+
+@app.post("/api/pomocnik/klikamy", status_code=201)
+def klikanie_z_panelu(zadanie: ZadaniePanelu):
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    cel = zadanie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co zrobic na tej stronie")
+    host = zadanie.host.strip().lower()[:200]
+    zlecenie = zlecenia.zloz("klikamy", "", {
+        "cel": cel[:1000],
+        "dozwolone_hosty": [host] if host else [],
+    }, stan="w_toku")
+    # Bez tresci polecenia w logach - potrafi niesc dane stron czynnosci.
+    log.info("panel: zlecono klikanie, zlecenie %s", zlecenie["id"])
+    return {"zlecenie": zlecenie["id"]}
+
+
+@app.post("/api/pomocnik/klikamy/{zlecenie}/koniec")
+def koniec_klikania_z_panelu(zlecenie: str, koniec: KoniecPanelu):
+    """Rozszerzenie skonczylo. Zapisujemy liczby, nigdy tresc krokow ani strony."""
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    stan = zlecenia.wynik(zlecenie)
+    if not stan or stan.get("stan") != "w_toku":
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    wynik = koniec.wynik if koniec.wynik in WYNIKI_PANELU else "przerwano"
+    zlecenia.zapisz_wynik(zlecenie, {"krokow": max(0, min(koniec.krokow, 1000)),
+                                     "wynik": wynik})
+    log.info("panel: zlecenie %s zakonczone, krokow=%d wynik=%s",
+             zlecenie, koniec.krokow, wynik)
+    return {"stan": "wykonane"}
 
 
 def _odnotuj_pomocnika(request: Request, wersja: str = "") -> None:
@@ -2100,9 +2190,26 @@ def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika)
     stan = zlecenia.wynik(zlecenie)
     if not stan:
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    # Kolejke moga odpytywac naraz pomocnik i rozszerzenie przegladarki. Drugi
+    # raport do tego samego zlecenia nie dopisuje wpisow po raz drugi.
+    if stan.get("stan") == "wykonane":
+        return {"stan": "wykonane", "zapisano": 0}
 
     identyfikator = stan["sprawa"]
     katalog = _katalog_sprawy(identyfikator)
+    if stan.get("rodzaj") == "formularz":
+        # Bez wartosci pol: serwer je zna, bo sam je przyslal, a raport zostaje
+        # w zleceniu. Nazwa pola i to, czy wpisano - nic wiecej.
+        kroki = [{"pole": str(k.get("pole", ""))[:120], "wykonano": bool(k.get("wykonano")),
+                  "uwaga": str(k.get("uwaga", ""))[:200]} for k in raport.kroki[:200]]
+        zlecenia.zapisz_wynik(zlecenie, {
+            "system": (stan.get("tresc") or {}).get("system", ""), "tryb": "faktyczny",
+            "kroki": kroki, "bledy": [str(b)[:300] for b in raport.bledy[:50]],
+            "zatrzymano_przed": "przyciskiem wysylki - wysyla czlowiek",
+        })
+        log.info("zlecenie %s: formularz, wpisano %d z %d pol, bledow=%d", zlecenie,
+                 sum(k["wykonano"] for k in kroki), len(kroki), len(raport.bledy))
+        return {"stan": "wykonane", "zapisano": 0}
     zapisane = 0
     for wpis in raport.sprawdzenia:
         try:

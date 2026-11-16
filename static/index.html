@@ -5138,6 +5138,12 @@ async function formularzDlaOsoby(osoba, tryb){
   });
   const wynik = await odp.json();
   if (!odp.ok) throw new Error(wynik.detail || "Błąd serwera");
+  // W chmurze pola wpisuje rozszerzenie w Twojej przeglądarce: czekamy na jego raport.
+  if (odp.status === 202 && wynik.zlecenie) {
+    const raport = (await poczekajNaZlecenie(wynik.zlecenie)).raport || {};
+    return {kroki: raport.kroki || [], bledy: raport.bledy || [],
+            zatrzymano_przed: raport.zatrzymano_przed || "przyciskiem wysyłki"};
+  }
   return wynik;
 }
 async function wpiszWRejestrze(osoba){
