@@ -69,6 +69,7 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
   dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
   i commitem (nie usuwaj).
+
 ### Publikacja (bez FTP z ręki)
 - Zmiany w `strona/` (notarai.pl) i `seo/` publikuje sam GitHub:
   `.github/workflows/strona.yml` po zielonych testach na `master` generuje
