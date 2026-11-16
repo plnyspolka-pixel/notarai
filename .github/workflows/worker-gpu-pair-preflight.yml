@@ -1,0 +1,49 @@
+name: Worker Army - GPU Pair Safe Preflight
+
+on:
+  push:
+    branches:
+      - feature/agent-factory-learning-loop-20261116
+    paths:
+      - ".github/workflows/worker-gpu-pair-preflight.yml"
+      - "tools/agent_factory/gpu_pair_benchmark.py"
+      - "tests/test_gpu_pair_benchmark.py"
+  pull_request:
+    paths:
+      - ".github/workflows/worker-gpu-pair-preflight.yml"
+      - "tools/agent_factory/gpu_pair_benchmark.py"
+      - "tests/test_gpu_pair_benchmark.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install local test dependencies (no inference)
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/gpu-pair-test-req.txt
+          python -m pip install -r /tmp/gpu-pair-test-req.txt
+      - name: Compile endpoint client and verify authorization and scope boundaries
+        run: |
+          python -m compileall -q tools/agent_factory/gpu_pair_benchmark.py
+          python -m pytest -q tests/test_gpu_pair_benchmark.py \
+            tests/test_worker_scale_corpus.py \
+            tests/test_worker_scale_runner.py \
+            tests/test_worker_scale_sandbox.py
+      - name: Explicit no-GPU status
+        run: |
+          echo "Verified GPU pair client and 1600 synthetic oracle checks."
+          echo "NO SaladCloud instance was started; NO model inference was invoked."
