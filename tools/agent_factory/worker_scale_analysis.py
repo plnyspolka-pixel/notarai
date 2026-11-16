@@ -26,9 +26,10 @@ def combine(root: Path) -> dict:
     split=first.get("split")
     per_family=first.get("per_family")
     start_variant=first.get("start_variant",0)
-    if split not in ("development","heldout") or type(per_family)is not int or not 1<=per_family<=10 or
-            type(start_variant)is not int or not 0<=start_variant<=9 or
-            start_variant+per_family>10:
+    if (split not in ("development","heldout") or
+            type(per_family) is not int or not 1<=per_family<=10 or
+            type(start_variant) is not int or not 0<=start_variant<=9 or
+            start_variant+per_family>10):
         raise ValueError("invalid corpus slice")
     expected={t["id"]:t for t in tasks(split)
               if start_variant<=t["variant"]%10<start_variant+per_family}
