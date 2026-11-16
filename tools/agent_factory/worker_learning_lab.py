@@ -162,6 +162,7 @@ def evaluate(*, image: str, output: Path, timeout: int = 75) -> dict:
         raise WorkerPolicyError("refusing to overwrite learning-lab results")
     output.mkdir(parents=True, mode=0o700)
     rows = []
+    review_queue = []
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="worker-learning-", dir=os.environ["RUNNER_TEMP"]) as tmp:
         base = Path(tmp)
@@ -188,6 +189,26 @@ def evaluate(*, image: str, output: Path, timeout: int = 75) -> dict:
                             workspace=work, chain=task["chain"], upto=1, image=image
                         )
                         passed = scored.get("passed") is True
+                        if passed:
+                            # Store only passing SYNTHETIC code for separate human review.
+                            # Local sandbox verification is not authenticated training proof.
+                            pending = output / "pending_review"
+                            pending.mkdir(exist_ok=True, mode=0o700)
+                            candidate_name = task["id"] + "__" + arm + ".py"
+                            destination = pending / candidate_name
+                            destination.write_text(candidate, encoding="utf-8")
+                            os.chmod(destination, 0o600)
+                            review_queue.append({
+                                "id": task["id"], "role": "implementer",
+                                "family": task["chain"], "arm": arm,
+                                "candidate_file": "pending_review/" + candidate_name,
+                                "candidate_sha256": hashlib.sha256(candidate.encode()).hexdigest(),
+                                "verifier_passed": True,
+                                "verifier_name": "LOCAL_DOCKER_UNATTESTED",
+                                "reviewer_approved": False,
+                                "independently_signed": False,
+                                "training_eligible": False
+                            })
                         passed_tests = len(scored.get("passed_ids", []))
                         tests = scored.get("tests") or 0
                         cause = "graded"
@@ -214,6 +235,7 @@ def evaluate(*, image: str, output: Path, timeout: int = 75) -> dict:
                     "checks": f"{passed_tests}/{tests}", "cause": cause,
                 }), flush=True)
     result = summarize(rows, model)
+    result["pending_review_candidates"] = len(review_queue)
     result["runner_commit"] = os.environ.get("GITHUB_SHA")
     result["verifier_image"] = image
     result["total_wall_time_s"] = round(time.monotonic() - started, 2)
@@ -221,6 +243,12 @@ def evaluate(*, image: str, output: Path, timeout: int = 75) -> dict:
     result["premium_claude_codex_calls"] = 0
     result["no_training_invoked"] = True
     result["observations"] = rows
+    (output / "pending-review-index.json").write_text(
+        json.dumps({
+            "status": "HUMAN_REVIEW_REQUIRED_DO_NOT_TRAIN",
+            "candidate_count": len(review_queue), "items": review_queue
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     (output / "learning-report.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8"
