@@ -61,13 +61,15 @@ def job_for(task: dict, arm: str) -> dict:
     })
 
 
-def select_tasks(shard: int, per_family: int, split: str) -> list[dict]:
+def select_tasks(shard: int, per_family: int, split: str, start_variant: int = 0) -> list[dict]:
     if type(shard) is not int or not 0<=shard<5:
         raise WorkerPolicyError("expected shard 0..4")
     if type(per_family) is not int or not 1<=per_family<=10:
         raise WorkerPolicyError("expected between one and ten contracts per family")
     if split not in ("development","heldout"):
         raise WorkerPolicyError("invalid split")
+    if type(start_variant) is not int or not 0 <= start_variant <= 9 or start_variant + per_family > 10:
+        raise WorkerPolicyError("within-split variant range must fit 0..9")
     selected=set(FAMILIES[shard*2:shard*2+2])
     by_family={f:[] for f in selected}
     for t in tasks(split):
@@ -76,14 +78,15 @@ def select_tasks(shard: int, per_family: int, split: str) -> list[dict]:
     result=[]
     for family in FAMILIES[shard*2:shard*2+2]:
         current=by_family[family]
-        if len(current)<per_family:
+        if len(current)<start_variant+per_family:
             raise WorkerPolicyError("family has insufficient contracts")
-        result.extend(current[:per_family])
+        result.extend(current[start_variant:start_variant+per_family])
     return result
 
 
 def evaluate(image: str, output: Path, *, shard: int=0,
-             per_family: int=4, split: str="development") -> dict:
+             per_family: int=4, split: str="development",
+             start_variant: int=0) -> dict:
     if (os.environ.get("GITHUB_ACTIONS")!="true"
             or os.environ.get("RUNNER_ENVIRONMENT")!="github-hosted"
             or os.environ.get("AGENT_BENCH30_ISOLATED_VM_APPROVED")!=
@@ -92,7 +95,7 @@ def evaluate(image: str, output: Path, *, shard: int=0,
         raise WorkerPolicyError("only on explicitly approved disposable synthetic CI worker")
     port,model,_=endpoint_config()
     report=summary()
-    selected=select_tasks(shard,per_family,split)
+    selected=select_tasks(shard,per_family,split,start_variant)
     dest=Path(output).expanduser().resolve()
     if dest.exists() or dest.is_symlink():
         raise WorkerPolicyError("do not overwrite prior results")
@@ -157,7 +160,7 @@ def evaluate(image: str, output: Path, *, shard: int=0,
     result={
         "schema_version":1,"status":"ACTUAL_CPU_MODEL_AB_SYNTHETIC_NOT_TRAINING",
         "suite":report["suite"],"model":model,
-        "shard":shard,"per_family":per_family,"split":split,
+        "shard":shard,"per_family":per_family,"start_variant":start_variant,"split":split,
         "algorithmic_families":len({t["family"] for t in selected}),
         "parameterized_contracts":len(selected),
         "total_model_calls":len(rows),"verifier":"disposable_sandbox_not_signed",
@@ -182,10 +185,12 @@ def main() -> int:
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--shard",type=int,required=True)
     p.add_argument("--per-family",type=int,default=4)
+    p.add_argument("--start-variant",type=int,default=0)
     p.add_argument("--split",choices=("development","heldout"),default="development")
     a=p.parse_args()
     try:
-        evaluate(a.image,a.out,shard=a.shard,per_family=a.per_family,split=a.split)
+        evaluate(a.image,a.out,shard=a.shard,per_family=a.per_family,split=a.split,
+                 start_variant=a.start_variant)
         return 0
     except (WorkerPolicyError,ValueError,OSError,KeyError,TypeError) as exc:
         print("BLOCKED:",type(exc).__name__,flush=True)

@@ -52,3 +52,20 @@ def test_rejects_invalid_expansion(shard,limit,split):
 def test_rejects_unknown_arm():
     with pytest.raises(WorkerPolicyError):
         job_for(select_tasks(0,1,"development")[0],"fake")
+
+
+def test_pilot_and_remaining_dev_variants_cover_full_development_bank():
+    ids=set()
+    for shard in range(5):
+        pilot=select_tasks(shard,4,"development",start_variant=0)
+        remaining=select_tasks(shard,6,"development",start_variant=4)
+        left={x["id"] for x in pilot}
+        right={x["id"] for x in remaining}
+        assert not left & right
+        ids.update(left|right)
+    assert len(ids)==100
+
+
+def test_invalid_study_window_is_rejected():
+    with pytest.raises(WorkerPolicyError):
+        select_tasks(0,6,"development",start_variant=5)
