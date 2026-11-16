@@ -97,3 +97,33 @@ jobs:
           path: /tmp/gpu-pair-results/
           if-no-files-found: warn
           retention-days: 30
+
+  aggregate-study:
+    needs: pair-comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: gpu-pair-shard-*
+          path: /tmp/gpu-pair-shards
+          merge-multiple: false
+      - name: Strictly validate and aggregate five paired shards
+        run: |
+          python -m tools.agent_factory.gpu_pair_analysis \
+            --root /tmp/gpu-pair-shards \
+            --output /tmp/gpu-pair-final/results.json
+      - name: Preserve cross-model, cross-method evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-pair-final-14b-vs-32b
+          path: /tmp/gpu-pair-final/results.json
+          retention-days: 30

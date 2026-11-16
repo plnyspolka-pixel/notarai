@@ -8,6 +8,8 @@ on:
       - ".github/workflows/worker-gpu-pair-preflight.yml"
       - "tools/agent_factory/gpu_pair_benchmark.py"
       - "tests/test_gpu_pair_benchmark.py"
+      - "tests/test_gpu_pair_analysis.py"
+      - "tools/agent_factory/gpu_pair_analysis.py"
   pull_request:
     paths:
       - ".github/workflows/worker-gpu-pair-preflight.yml"
@@ -38,8 +40,8 @@ jobs:
           python -m pip install -r /tmp/gpu-pair-test-req.txt
       - name: Compile endpoint client and verify authorization and scope boundaries
         run: |
-          python -m compileall -q tools/agent_factory/gpu_pair_benchmark.py
-          python -m pytest -q tests/test_gpu_pair_benchmark.py \
+          python -m compileall -q tools/agent_factory/gpu_pair_benchmark.py tools/agent_factory/gpu_pair_analysis.py
+          python -m pytest -q tests/test_gpu_pair_benchmark.py tests/test_gpu_pair_analysis.py \
             tests/test_worker_scale_corpus.py \
             tests/test_worker_scale_runner.py \
             tests/test_worker_scale_sandbox.py
