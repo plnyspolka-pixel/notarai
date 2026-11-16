@@ -353,7 +353,7 @@ def czesci_w_zdaniu(tekst: str) -> list[str]:
 
 # Krotsze wzorce do odczytania zakresu ze zdania zasady.
 _ZAKRES_RODZAJOW = [(n, re.compile(w)) for n, w in [
-    ("sprzedaz_rolna", r"roln"),
+    ("sprzedaz_rolna", r"\broln"),
     ("sprzedaz", r"sprzeda"),
     ("darowizna", r"darowiz|darowan"),
     ("zamiana", r"zamian(y|ach|ie)\b"),
@@ -371,7 +371,7 @@ _ZAKRES_RODZAJOW = [(n, re.compile(w)) for n, w in [
     ("podzial_majatku", r"podzia\w* majatk"),
     ("intercyza", r"intercyz|majatkow\w* malzensk|rozdzielnos"),
     ("dozywocie", r"dozywoc"),
-    ("spolka", r"spolk|spolek"),
+    ("spolka", r"\bspolk|\bspolek"),
     ("protokol", r"protokol|zgromadzen|uchwal"),
     ("oswiadczenie", r"(odrzuceni|przyjeci)\w* spadk"),
 ]]
