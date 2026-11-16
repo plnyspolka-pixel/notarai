@@ -12,6 +12,9 @@ on:
       - "tools/agent_factory/learning_loop.py"
       - "tests/test_worker_pool_mcp.py"
       - "tests/test_learning_loop.py"
+      - "tests/test_train_qlora_safety.py"
+      - "tools/agent_factory/train_qlora.py"
+      - ".claude/skills/worker-army/SKILL.md"
       - "docs/agent-factory-research/WORKER_ARMY_LEARNING_LOOP.md"
   pull_request:
     paths:
@@ -47,10 +50,10 @@ jobs:
           python -m pip install -r /tmp/worker-army-ci-requirements.txt
       - name: Compile worker and learning modules
         run: |
-          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py
+          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py tools/agent_factory/train_qlora.py
       - name: Test delegation guardrails, MCP contract and trusted training corpus
         run: |
-          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py
+          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py tests/test_train_qlora_safety.py
       - name: Verify stdio MCP handshake and tool discovery without a model
         run: |
           python - <<'PY'
