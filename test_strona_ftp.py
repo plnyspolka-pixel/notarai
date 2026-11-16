@@ -1,5 +1,6 @@
 """Offline regression checks for detecting NotarAI document root on FTPS."""
 import ftplib
+import json
 
 import pytest
 
@@ -77,6 +78,9 @@ class FakeFtpZapis:
     def mkd(self, sciezka):
         raise ftplib.error_perm("550 exists")
 
+    def quit(self):
+        pass
+
 
 def _strona(tmp_path, pliki):
     for nazwa, tresc in pliki.items():
@@ -111,3 +115,34 @@ def test_wyslij_zmiany_drugi_raz_tylko_zmienione(tmp_path):
     ftp.wyslane.clear()
     assert strona_ftp.wyslij_zmiany(ftp, lokalny, "/") == []
     assert ftp.wyslane == []
+
+
+def test_przerwana_wysylka_rusza_od_miejsca_przerwania(tmp_path):
+    lokalny = _strona(tmp_path, {f"p{i}.html": b"x%d" % i for i in range(5)})
+
+    class Zrywa(FakeFtpZapis):
+        def storbinary(self, command, f):
+            if command.endswith("p3.html"):
+                raise OSError("polaczenie zerwane")
+            super().storbinary(command, f)
+
+    ftp = Zrywa()
+    with pytest.raises(OSError):
+        strona_ftp.wyslij_zmiany(ftp, lokalny, "/", co_ile=1)
+    # Nowe polaczenie: wysyla tylko to, czego brakuje.
+    ftp2 = FakeFtpZapis(ftp.pliki)
+    assert strona_ftp.wyslij_zmiany(ftp2, lokalny, "/") == ["p3.html", "p4.html"]
+
+
+def test_wysylka_rownolegla(tmp_path):
+    lokalny = _strona(tmp_path, {f"d{i % 3}/p{i}.html": b"x%d" % i for i in range(20)})
+    ftp = FakeFtpZapis({"/d0/p0.html": b"stare"})
+    kopia = tmp_path / "kopia"
+    zmienione = strona_ftp.wyslij_zmiany(ftp, lokalny, "/", str(kopia),
+                                         polacz_fn=lambda: ftp, watki=4, co_ile=5)
+    assert len(zmienione) == 20
+    assert ftp.pliki["/d1/p1.html"] == b"x1"
+    assert (kopia / "d0" / "p0.html").read_bytes() == b"stare"
+    manifest = json.loads(ftp.pliki[f"/{strona_ftp.MANIFEST}"])
+    assert len(manifest) == 20
+    assert strona_ftp.wyslij_zmiany(ftp, lokalny, "/") == []
