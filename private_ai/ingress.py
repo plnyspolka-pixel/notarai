@@ -68,7 +68,7 @@ def process_event(event, *, allowed_role, api_id, tenant_id, gateway, expected_f
     identity = verified_caller(event, allowed_role=allowed_role, api_id=api_id, tenant_id=tenant_id)
     body, content = parse_request(event)
     # Do not accept arbitrary text — confidential content can be in prompts too.
-    if (body["prompt"] != PILOT_PROMPT or body["purpose"] != "document_analysis" or body["media_type"] != "image/png":
+    if (body["prompt"] != PILOT_PROMPT or body["purpose"] != "document_analysis" or body["media_type"] != "image/png"):
         raise PolicyDenied("Only the fixed synthetic pilot operation is allowed")
     # Exactly one SHA256-pinned synthetic image can reach the pilot model.
     # This is a containment gate, not a generic document classifier.
