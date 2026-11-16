@@ -74,13 +74,6 @@ def ksiega_wieczysta(wartosc: str) -> tuple[bool, str]:
 
 def kwota(wartosc: str) -> tuple[bool, str]:
     tekst = re.sub(r"[\s\u00a0]", "", wartosc or "").replace(",", ".")
-    tekst = re.sub(r"(zl|PLN)$", "", tekst, flags=re.I)
-    try:
-        liczba = float(tekst)
-    except ValueError:
-        return False, "Nie udalo sie odczytac kwoty"
-    if liczba < 0:
-        return False, "Kwota ujemna"
     return True, f"{liczba:.2f} zl"
 
 
@@ -92,10 +85,10 @@ REGULY = {
     "pesel": pesel,
     "nip": nip,
     "ksie[gd][a-ząćęłńóśźż]*": ksiega_wieczysta,
-    "kwot[a-ząćęłńóśźż]*": kwota,
-    "cen[aeęy][a-ząćęłńóśźż]*": kwota,
-    "wartosc[a-ząćęłńóśźż]*": kwota,
-    "wartość[a-ząćęłńóśźż]*": kwota,
+    "kwota-ząćęłńóśźż[:a-z]*": kwota,
+    "cen[aeęy][a-ząćęłńóśźż]": kwota,
+    "wartosca-ząćęłńóśźż[:a-z]*": kwota,
+    "wartość[a-ząćęłńóśźż]": kwota,
     "kw": ksiega_wieczysta,
 }
 
@@ -108,7 +101,6 @@ def sprawdz_pole(nazwa: str, wartosc: str) -> tuple[bool | None, str]:
     if klucz.startswith("??"):
         # Pole nazwane z kontekstu ("??5: nr __, wazny do dnia __ r.), PESEL __").
         # Regule dobieramy tylko po slowach tuz przed luka, inaczej "PESEL"
-        # z dalszej czesci zdania zwalidowalby date waznosci dowodu.
         przed_luka = re.search(r"((?:\S+\s+){0,2})__", klucz)
         klucz = przed_luka.group(1) if przed_luka else ""
     for wzorzec, funkcja in REGULY.items():
