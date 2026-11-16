@@ -63,6 +63,12 @@ class TestNormalizacja:
     def test_nip_i_krs(self):
         assert crbr.normalizuj_nip("526-104-08-28") == "5261040828"
         assert crbr.normalizuj_nip("123") is None
+        assert crbr.normalizuj_nip("PL 526-025-09-95") == "5260250995"
+        assert crbr.normalizuj_nip("pl5260250995") == "5260250995"
+        assert crbr.normalizuj_nip("DE5260250995") is None
+        assert crbr.normalizuj_nip("PL") is None
+        assert crbr.normalizuj_nip(None) is None
+        assert crbr.normalizuj_nip("PL 123") is None
         assert crbr.normalizuj_krs("12345") == "0000012345"
         assert crbr.normalizuj_krs("abc") is None
 

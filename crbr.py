@@ -31,7 +31,8 @@ _NS_SCHEMAT = "http://www.mf.gov.pl/schematy/AP/ApiPrzegladoweCRBR/2022/12/01"
 
 
 def normalizuj_nip(tekst: str | None) -> str | None:
-    cyfry = re.sub(r"[\s\-_.]", "", tekst or "")
+    tekst = re.sub(r"^PL\s*", "", (tekst or "").strip(), flags=re.IGNORECASE)
+    cyfry = re.sub(r"[\s\-_.]", "", tekst)
     return cyfry if re.fullmatch(r"\d{10}", cyfry) else None
 
 
