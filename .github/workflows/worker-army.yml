@@ -41,7 +41,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install "pytest==8.3.4"
+      - name: Install application test dependencies without optional local models
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/worker-army-ci-requirements.txt
+          python -m pip install -r /tmp/worker-army-ci-requirements.txt
       - name: Compile worker and learning modules
         run: |
           python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py
