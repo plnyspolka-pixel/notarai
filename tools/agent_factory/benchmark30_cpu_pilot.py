@@ -51,7 +51,19 @@ PUBLIC_INPUT_CONTRACTS = {
 }
 
 
-def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tasks: int = 3, repair_attempts: int = 0) -> dict:
+# Illustrative examples authored from the published natural-language specifications.
+# They are NOT copied from the independent grader's cases.json.
+PUBLIC_EXAMPLES = {
+    "T01": {"input": [{"id": 9, "name": "Tiger"}, {"id": 7, "name": "Ant"}],
+            "output": [{"id": "7", "name": "ant"}, {"id": "9", "name": "tiger"}]},
+    "T02": {"input": [{"id": "q", "name": "  MiXeD    Words  "}],
+            "output": [{"id": "q", "name": "mixed words"}]},
+    "T03": {"input": [{"id": "8", "name": "FIRST"}, {"id": 8, "name": "LAST"}],
+            "output": [{"id": "8", "name": "last"}]},
+}
+
+
+def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tasks: int = 3, repair_attempts: int = 0, examples: bool = False) -> dict:
     if not model_path.is_file() or model_path.stat().st_size < 100_000_000:
         raise ValueError("GGUF file unavailable or implausibly small")
     if output.exists():
@@ -109,21 +121,34 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tas
                     + task["entrypoint"] + ". The initial stub raising NotImplementedError "
                     "is NEVER an acceptable solution. Do not return unchanged code when "
                     "a new requirement is added. Provide the COMPLETE executable module "
-                    "and NO explanations. Use Python standard library only.\\n\\n"
+                    "and NO explanations. Use Python standard library only.\n\n"
                     "Public input/output contract (NOT a test case): "
-                    + PUBLIC_INPUT_CONTRACTS[chain] + "\\n\\n"
-                    "All requirements to preserve for this chain, in stage order:\\n"
-                    + prior_specs + "\\n\\nExisting code:\\n" + existing
+                    + PUBLIC_INPUT_CONTRACTS[chain] + "\n\n"
+                    "All requirements to preserve for this chain, in stage order:\n"
+                    + prior_specs + "\n\nExisting code:\n" + existing
                 )
+                if examples:
+                    examples_for_chain = [
+                        PUBLIC_EXAMPLES[t["id"]] for t in tasks
+                        if t["chain"] == chain and t["step"] <= stage
+                        and t["id"] in PUBLIC_EXAMPLES
+                    ]
+                    prompt += (
+                        "\n\nILLUSTRATIVE PUBLIC EXAMPLES (not grading tests), "
+                        "for this chain up to the current stage: "
+                        + json.dumps(examples_for_chain, ensure_ascii=False)
+                        + "\nIn particular, for duplicate IDs the LAST valid record wins. "
+                        "A previous correct version must not be degraded."
+                    )
             for attempt in range(repair_attempts + 1):
                 request = prompt
                 if attempt:
                     request += (
-                        "\\n\\nYour previous attempt DID NOT PASS independent checks. "
+                        "\n\nYour previous attempt DID NOT PASS independent checks. "
                         "Repair its actual implementation. Preserve previously working "
                         "behavior. Do not remove or loosen requirements. "
                         "Tests are intentionally not disclosed. "
-                        + feedback + "\\nCurrent candidate source:\\n"
+                        + feedback + "\nCurrent candidate source:\n"
                         + solution.read_text(encoding="utf-8")
                     )
                 attempt_start = time.monotonic()
@@ -187,6 +212,7 @@ def run_pilot(model_path: Path, output: Path, image: str, model_id: str, max_tas
             "tasks_attempted": len(rows), "tasks_passed": sum(int(row["passed"]) for row in rows),
             "model_calls": sum(len(row["attempts"]) for row in rows),
             "repair_attempts": repair_attempts,
+            "public_examples_enabled": examples,
             "tasks_passed_at_first_attempt": sum(int(row["first_attempt_passed"]) for row in rows),
             "elapsed_s": round(time.monotonic() - started, 3),
             "gpu_rental_pln": 0, "paid_model_api_pln": 0,
@@ -207,9 +233,10 @@ def main() -> int:
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF / q4_k_m / cpu")
     parser.add_argument("--max-tasks", type=int, default=3, choices=(3, 30))
     parser.add_argument("--repair-attempts", type=int, choices=(0, 1, 2), default=0)
+    parser.add_argument("--public-examples", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     a = parser.parse_args()
-    run_pilot(a.model_path, a.output, a.image, a.model_id, a.max_tasks, a.repair_attempts)
+    run_pilot(a.model_path, a.output, a.image, a.model_id, a.max_tasks, a.repair_attempts, a.public_examples)
     return 0
 
 
