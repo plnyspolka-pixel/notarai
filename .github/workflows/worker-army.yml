@@ -10,8 +10,10 @@ on:
       - "tools/agent_factory/worker_pool.py"
       - "tools/agent_factory/worker_mcp.py"
       - "tools/agent_factory/learning_loop.py"
+      - "tools/agent_factory/worker_learning_lab.py"
       - "tests/test_worker_pool_mcp.py"
       - "tests/test_learning_loop.py"
+      - "tests/test_worker_learning_lab.py"
       - "tests/test_train_qlora_safety.py"
       - "tools/agent_factory/train_qlora.py"
       - ".claude/skills/worker-army/SKILL.md"
@@ -50,10 +52,10 @@ jobs:
           python -m pip install -r /tmp/worker-army-ci-requirements.txt
       - name: Compile worker and learning modules
         run: |
-          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py tools/agent_factory/train_qlora.py
+          python -m compileall -q tools/agent_factory/worker_pool.py tools/agent_factory/worker_mcp.py tools/agent_factory/learning_loop.py tools/agent_factory/train_qlora.py tools/agent_factory/worker_learning_lab.py
       - name: Test delegation guardrails, MCP contract and trusted training corpus
         run: |
-          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py tests/test_train_qlora_safety.py
+          python -m pytest -q tests/test_worker_pool_mcp.py tests/test_learning_loop.py tests/test_train_qlora_safety.py tests/test_worker_learning_lab.py
       - name: Verify stdio MCP handshake and tool discovery without a model
         run: |
           python - <<'PY'

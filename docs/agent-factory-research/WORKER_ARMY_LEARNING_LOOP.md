@@ -69,3 +69,19 @@ python -m tools.agent_factory.train_qlora \
 ```
 
 This is a **training command available for later authorized use**, not evidence that fine-tuning has already been performed. It verifies checksums, split separation and approval before importing GPU libraries and downloading weights. Assistant-only loss concentrates learning on accepted worker answers. No trained adapter is automatically promoted or deployed.
+
+
+## Experiment-driven lessons: CPU first
+
+The source for diagnosing missing skills is `tools/agent_factory/worker_learning_lab.py`. A GitHub Actions workflow runs the SAME Qwen2.5-Coder 7B model on six disjoint synthetic coding families under two distinct instruction styles:
+
+1. `plain_delegation`: job description and function stub only.
+2. `contract_scaffold`: identical task, plus explicit public input/output contract and instruction constraints; hidden grading cases are NEVER included.
+
+Both use `benchmark30_docker.grade` in a no-network isolated container. The output artifact contains `learning-report.json` with paired acceptance and per-family diagnoses and `NEXT_LESSONS.md` with suggested exercises. Only synthetic code that passes the independent local grader is written to `pending_review/`, with an index explicitly flagging **not human approved, not independently signed, not training eligible**. All failures remain in the diagnostic report.
+
+This establishes a **repeatable method for learning how to delegate** and automatically constructing a future **human-reviewed** LoRA candidate queue. It is not self-modifying model weights, a Claude Opus run, or an end-to-end coding agent benchmark.
+
+For a role-specific specialization, first gather adequately diverse independent examples of that role, review for correctness and safety, sign through the separate grading/review authority, export with `learning_loop.py`, and only then consider GPU QLoRA. Do not use the fixed benchmark's evaluation cases as training labels or claim progress based on a single six-task study.
+
+Research priority: improve orchestration and feedback before expanding model sizes; new lessons should be supported by paired independently graded evidence, not merely by increasing model output length.

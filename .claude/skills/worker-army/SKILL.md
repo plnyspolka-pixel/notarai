@@ -19,3 +19,10 @@ You are the LEAD SOFTWARE ENGINEER. Low-cost local workers are disposable specia
 Worker MCP tools are optional and require explicit local opt-in. If unavailable, preserve the main development workflow and report what connection is missing.
 
 Docs: `docs/agent-factory-research/WORKER_ARMY_LEARNING_LOOP.md`.
+
+
+## After each real worker test
+
+Read the latest `learning-report.json` and `NEXT_LESSONS.md` from the **Worker Army - CPU learning A/B** GitHub Actions artifact. Treat findings as local diagnostic evidence, not general research conclusions or verified training data. Compare the same model's plain delegation and explicit-contract delegation; if both fail, schedule a better-scoped follow-up and consider handing the task to Claude. Only independently tested synthetic candidates go to `pending_review`, where human approval and an independent evidence signature are still required before LoRA export. Do not put grader fixtures into a worker's prompt or train on the evaluation set.
+
+To reproduce the CPU pilot without a rented GPU, run the opt-in workflow `.github/workflows/worker-learning-lab-cpu.yml`. Preserve its task definitions across A/B comparisons.
