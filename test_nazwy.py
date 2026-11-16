@@ -129,6 +129,12 @@ class TestNazwaPliku:
         assert bezpieczna_nazwa_pliku(" a/b\\c:d*e ") == "a-b-c-de"
         assert len(bezpieczna_nazwa_pliku("x" * 500)) == MAX_DLUGOSC_NAZWY
 
+    def test_max_dlugosc_jako_parametr(self):
+        assert len(bezpieczna_nazwa_pliku("a" * 50, max_dlugosc=10)) == 10
+        assert bezpieczna_nazwa_pliku("Kowalski - Nowak", max_dlugosc=11) == "Kowalski"
+        przyklad = "Sobczak - Pawlak - sprzeda" + "ż" * 130
+        assert bezpieczna_nazwa_pliku(przyklad) == bezpieczna_nazwa_pliku(przyklad, max_dlugosc=MAX_DLUGOSC_NAZWY)
+
     def test_nieznane_pole_wykryte_i_pomijane(self):
         assert nieznane_pola_wzoru("{zbywca} - {klient}") == ["klient"]
         assert nazwa_pliku("{zbywca} - {klient}", self.POLA) == "Sobczak"
