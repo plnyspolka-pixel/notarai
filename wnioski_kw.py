@@ -33,7 +33,7 @@ DZIALY = {
     "I-Sp": "Dział I-Sp - spis praw związanych z własnością",
     "II": "Dział II - własność i użytkowanie wieczyste",
     "III": "Dział III - prawa, roszczenia i ograniczenia",
-    "IV": "Dzial IV - hipoteka",
+    "IV": "Dział IV - hipoteka",
 }
 
 # Rodzaj zadania -> (dzial, klucz oplaty z taksa.OPLATY_SADOWE, opis dla notariusza)
