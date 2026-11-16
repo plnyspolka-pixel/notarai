@@ -46,7 +46,7 @@ jobs:
           mkdir -p scale-preflight
           python -m compileall -q tools/agent_factory/worker_scale_*.py
           python -m tools.agent_factory.worker_scale_corpus | tee scale-preflight/summary.json
-          python -m pytest -q tests/test_worker_scale_corpus.py tests/test_worker_scale_sandbox.py tests/test_worker_scale_runner.py | tee scale-preflight/tests.txt
+          python -m pytest -q tests/test_worker_scale_*.py | tee scale-preflight/tests.txt
       - name: Store offline evidence
         if: always()
         uses: actions/upload-artifact@v4
