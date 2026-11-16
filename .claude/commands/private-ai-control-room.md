@@ -60,7 +60,10 @@ WORM w niezależnym koncie, niezależny verifier podpisów/hash chain,
 rollback/fork/truncation i rotacja. Dopiero wtedy status verified.
 Dla denied/error zbuduj bezpieczne kody przyczyn, SLA, eskalacje.
 
-Faza F. AWS: przed deploymentem sprawdź read-only preflight,
+Faza F. AWS: rozpocznij od osobnej, gotowej do wykonania instrukcji
+`.claude/commands/private-ai-aws-staging.md` (komenda Claude Code:
+`/private-ai-aws-staging`). Wykonaj tamtą checklistę po kolei.
+Przed deploymentem sprawdź read-only preflight,
 GetInferenceProfile destinations, VPC/PrivateLink/Flow Logs, CloudTrail,
 retencję, tożsamości OIDC. Żadnych prawdziwych dokumentów w stagingu.
 Nowe zasoby i koszty wymagają osobnej zgody operatora. Nie używaj
