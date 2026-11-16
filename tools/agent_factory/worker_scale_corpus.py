@@ -100,8 +100,11 @@ def make_task(family: str, variant: int) -> dict:
 def tasks(split: str = "all") -> list[dict]:
     if split not in ("all", "development", "heldout"):
         raise ValueError("invalid split")
-    return [task for family in FAMILIES for v in range(20)
-            if (task := make_task(family, v))["split"] == split]
+    records = [make_task(family, variant)
+               for family in FAMILIES for variant in range(COUNT_PER_FAMILY)]
+    return records if split == "all" else [
+        task for task in records if task["split"] == split
+    ]
 
 
 def oracle(family: str, cfg: dict, data):
