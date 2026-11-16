@@ -7,6 +7,8 @@ from datetime import date
 
 WAGI_PESEL = (1, 3, 7, 9, 1, 3, 7, 9, 1, 3)
 WAGI_NIP = (6, 5, 7, 2, 3, 4, 5, 6, 7)
+WAGI_REGON_9 = (8, 9, 2, 3, 4, 5, 6, 7)
+WAGI_REGON_14 = (2, 4, 8, 5, 0, 9, 7, 3, 6, 1, 2, 4, 8)
 
 _ZNAKI_KW = "0123456789XABCDEFGHIJKLMNOPRSTUWYZ"
 
@@ -53,6 +55,23 @@ def nip(wartosc: str) -> tuple[bool, str]:
     return True, "NIP poprawny"
 
 
+def regon(wartosc: str) -> tuple[bool, str]:
+    cyfry = re.sub(r"\D", "", wartosc or "")
+    if len(cyfry) not in (9, 14):
+        return False, "REGON musi miec 9 albo 14 cyfr"
+
+    if len(cyfry) == 9:
+        suma = sum(int(c) * w for c, w in zip(cyfry[:8], WAGI_REGON_9))
+    else:
+        suma = sum(int(c) * w for c, w in zip(cyfry[:8], WAGI_REGON_9))
+        if (suma % 11) % 10 != int(cyfry[8]):
+            return False, "Bledna cyfra kontrolna REGON"
+        suma = sum(int(c) * w for c, w in zip(cyfry[:13], WAGI_REGON_14))
+    if (suma % 11) % 10 != int(cyfry[-1]):
+        return False, "Bledna cyfra kontrolna REGON"
+    return True, "REGON poprawny"
+
+
 def ksiega_wieczysta(wartosc: str) -> tuple[bool, str]:
     """Format: XXXX/00000000/C - kod wydzialu, numer, cyfra kontrolna."""
     tekst = (wartosc or "").upper().replace(" ", "")
@@ -91,6 +110,7 @@ def kwota(wartosc: str) -> tuple[bool, str]:
 REGULY = {
     "pesel": pesel,
     "nip": nip,
+    "regon": regon,
     "ksie[gd][a-ząćęłńóśźż]*": ksiega_wieczysta,
     "kwot[a-ząćęłńóśźż]*": kwota,
     "cen[aeęy][a-ząćęłńóśźż]*": kwota,

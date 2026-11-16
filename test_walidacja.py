@@ -8,7 +8,7 @@ Przypadki brzegowe:
 """
 import pytest
 from datetime import date
-from walidacja import pesel, nip, ksiega_wieczysta, kwota, sprawdz_pole
+from walidacja import pesel, nip, regon, ksiega_wieczysta, kwota, sprawdz_pole
 from conftest import z_suma_kontrolna
 
 
@@ -352,3 +352,46 @@ class TestSprawdzPole:
         assert poprawny is True
         poprawny, _ = sprawdz_pole("cena-brutto", "500")
         assert poprawny is True
+
+
+class TestRegon:
+    """Testy walidacji numeru REGON."""
+
+    def test_regon_9_cyfr_poprawny(self):
+        poprawny, komunikat = regon("123456785")
+        assert poprawny is True
+        assert komunikat == "REGON poprawny"
+
+    def test_regon_9_cyfr_bledna_kontrolna(self):
+        poprawny, komunikat = regon("123456786")
+        assert poprawny is False
+        assert komunikat == "Bledna cyfra kontrolna REGON"
+
+    def test_regon_14_cyfr_poprawny(self):
+        poprawny, komunikat = regon("12345678512347")
+        assert poprawny is True
+        assert komunikat == "REGON poprawny"
+
+    def test_regon_14_cyfr_bledna_kontrolna(self):
+        poprawny, komunikat = regon("12345678512348")
+        assert poprawny is False
+        assert komunikat == "Bledna cyfra kontrolna REGON"
+
+    def test_regon_zla_dlugosc(self):
+        poprawny, komunikat = regon("12345")
+        assert poprawny is False
+        assert "9 albo 14 cyfr" in komunikat
+
+    def test_regon_z_formatowaniem(self):
+        # Spacje i myslniki powinny byc usuniete
+        poprawny, _ = regon("123-456-785")
+        assert poprawny is True
+
+    def test_regon_pusty(self):
+        poprawny, _ = regon("")
+        assert poprawny is False
+
+    def test_pole_z_regon(self):
+        poprawny, komunikat = sprawdz_pole("REGON", "123456785")
+        assert poprawny is True
+        assert komunikat == "REGON poprawny"
