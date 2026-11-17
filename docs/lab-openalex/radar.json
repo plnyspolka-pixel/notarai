@@ -148,6 +148,31 @@
       "nazwa": "Zbiory: wywoływanie narzędzi",
       "kierunek": "zbiory-dla-agentow",
       "zapytanie": "function calling OR tool use benchmark dataset LLM"
+    },
+    {
+      "nazwa": "Wideo: skalowanie w czasie wnioskowania",
+      "kierunek": "generowanie-wideo",
+      "zapytanie": "test-time scaling video diffusion"
+    },
+    {
+      "nazwa": "Wideo: synchronizacja ust wielojęzyczna",
+      "kierunek": "generowanie-wideo",
+      "zapytanie": "talking head lip sync multilingual"
+    },
+    {
+      "nazwa": "Wideo: modele nagrody i preferencje ludzi",
+      "kierunek": "generowanie-wideo",
+      "zapytanie": "video reward model human preference"
+    },
+    {
+      "nazwa": "Wideo: interpolacja klatki pierwszej i ostatniej",
+      "kierunek": "generowanie-wideo",
+      "zapytanie": "first last frame video interpolation"
+    },
+    {
+      "nazwa": "Wideo: optymalizacja promptu text-to-video",
+      "kierunek": "generowanie-wideo",
+      "zapytanie": "prompt optimization text-to-video"
     }
   ]
 }
