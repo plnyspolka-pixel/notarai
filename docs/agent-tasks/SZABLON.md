@@ -6,6 +6,7 @@ zakres:
   - test_modul.py
 sprawdzenie: python -m pytest -q test_modul.py
 kroki: 40
+rodzaj: zmiana  # zmiana | refaktor | testy; ukryte testy w docs/agent-tasks/ukryte/<id>/ (docs/koder.md)
 ---
 # Jedno zdanie: co ma być zrobione
 

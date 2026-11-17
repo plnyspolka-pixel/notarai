@@ -74,7 +74,30 @@ nie przejdzie `karta.py lint` i workflow ją pominie.
 ## Kiedy wynik kodera jest zaliczony
 
 Automatycznie, wszystkie naraz: agent zakończył sam (`Submitted`), test z karty przechodzi
-w świeżym kontenerze bez sieci, coś zostało zmienione i nic poza zakresem karty.
+w świeżym kontenerze bez sieci, **ukryte testy przechodzą**, coś zostało zmienione i nic poza
+zakresem karty.
+
+### Ukryte testy (od 17.11.2026)
+
+Agenci zgłaszają jako ukończone ok. 70% zadań, które faktycznie się nie udały, a gdy widzą
+testy, potrafią się do nich dopasować (laboratorium OpenAlex, `docs/lab-openalex/STAN-WIEDZY.md`,
+działy C2 i D2). Dlatego każdą kartę toru `koder` Claude pisze razem z katalogiem
+`docs/agent-tasks/ukryte/<id>/`, którego agent nie widzi (kopia dla agenta powstaje bez niego
+i bez `.git`):
+
+| `rodzaj:` w karcie | Co Claude dokłada do `ukryte/<id>/` | Warunek przed startem agenta | Zaliczenie |
+|---|---|---|---|
+| `zmiana` (domyślny) | `test_*.py` – testy zachowania docelowego, inne przypadki niż w treści karty; opcjonalnie `*.patch` | ukryte testy **oblewają** kod bazowy | ukryte testy przechodzą |
+| `refaktor` | `test_*.py` + co najmniej jedna łatka `*.patch` zmieniająca zachowanie | ukryte testy przechodzą na bazie, a **oblewają** każdą łatkę | ukryte testy przechodzą |
+| `testy` | co najmniej jedna łatka `*.patch` z celowym błędem w module | łatki dają się nałożyć | test z karty **oblewa** każdą łatkę |
+
+Łatki to „test sabotażu”: celowo złe rozwiązanie, które musi zostać odrzucone. Karta, która nie
+przejdzie warunku przed startem, jest wadliwa – agent jej nie dostaje (oszczędza czas GPU),
+a karta wraca do Claude. Logika: `tools/agent_factory/koder/ukryte.py`; lokalnie bez Dockera:
+`KODER_OCENA=lokalnie python tools/agent_factory/koder/ukryte.py przed <karta> <katalog>`.
+
+W `WYNIKI.md` jest kolumna „Ukryte” i licznik **fałszywych sukcesów** (agent zgłosił koniec,
+widoczny test zielony, ukryte czerwone) – to miara W6 dla każdego modelu.
 Niezaliczone zadanie nie jest ponawiane na GPU – przechodzi do Claude.
 Zaliczone i tak czyta Claude przed złożeniem pull requesta: test mówi, że działa, nie że jest dobrze.
 

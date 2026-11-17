@@ -13,6 +13,10 @@ Pełny opis: `docs/koder.md`. Skrót postępowania:
 2. Napisz karty w `docs/agent-tasks/kolejka/<id>.md` według `docs/agent-tasks/SZABLON.md`.
    Przed napisaniem karty przeczytaj kod, którego dotyczy: podaj funkcję, przykład wejście -> wynik
    i sprawdź, że polecenie z pola `sprawdzenie` dziś działa.
+   Do każdej karty napisz ukryte testy w `docs/agent-tasks/ukryte/<id>/` (rodzaj karty
+   i co tam włożyć: `docs/koder.md`, „Ukryte testy”): inne przypadki niż w treści karty
+   i co najmniej jedną łatkę sabotażu `*.patch`, gdy rodzaj tego wymaga. Sprawdź lokalnie:
+   `KODER_OCENA=lokalnie python tools/agent_factory/koder/ukryte.py przed <karta> .`
 3. `python tools/agent_factory/koder/karta.py lint` musi przejść.
 4. Powiedz użytkownikowi, ile kart idzie na który tor i jaki jest limit kosztu, potem wypchnij
    gałąź `koder/<paczka>` (to wynajmuje kartę - płatne, limit w `.github/workflows/koder.yml`).

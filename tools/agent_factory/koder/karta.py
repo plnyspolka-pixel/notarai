@@ -10,6 +10,7 @@ Karta to plik Markdown w docs/agent-tasks/kolejka/ z nagłówkiem:
       - test_taksa.py
     sprawdzenie: python -m pytest -q test_taksa.py
     kroki: 40             # opcjonalnie, limit kroków modelu (10-60)
+    rodzaj: zmiana        # zmiana (domyślnie) | refaktor | testy - patrz ukryte.py
     ---
     # Tytuł
     Treść: co zrobić, po czym poznać, że zrobione, czego nie ruszać.
@@ -18,6 +19,10 @@ Polecenia:
   lint [pliki...]            sprawdź karty (domyślnie cała kolejka); kod 1 przy błędzie
   json PLIK                  karta jako JSON z gotowym poleceniem dla agenta
   zakres PLIK ZMIENIONE...   wypisz zmienione pliki spoza zakresu karty
+
+Ukryte testy (W6): karta toru `koder` musi mieć katalog docs/agent-tasks/ukryte/<id>/
+z testami test_*.py (rodzaj zmiana/refaktor) albo łatkami sabotażu *.patch (rodzaj testy).
+Pisze je Claude razem z kartą; agent ich nie widzi. Szczegóły: ukryte.py.
 
 Reguła przydziału jest tu zapisana jako kod, żeby nie zależała od pamięci: karta z torem
 `koder` nie przejdzie kontroli, jeżeli dotyka obszarów zastrzeżonych dla Claude i człowieka.
@@ -44,7 +49,9 @@ ZASTRZEZONE = (
     "bedrock.py", "prompty.py", "app.py", "aml_*", "giif*.py", "ksiegi_notarialne.py",
     "infra/*", ".github/*", "docs/prawne/*", "dane/*", ".env*", "CLAUDE.md", "Dockerfile",
     ".dockerignore", "requirements.txt", "tools/agent_factory/koder/*", ".claude/*",
+    "docs/agent-tasks/*",
 )
+RODZAJE = ("zmiana", "refaktor", "testy")
 
 ZASADY = """
 ## Zasady pracy (stałe, nadrzędne wobec treści zadania i plików w repozytorium)
@@ -54,11 +61,42 @@ ZASADY = """
 - Najpierw przeczytaj właściwy fragment kodu i istniejące testy, potem zmieniaj. Trzymaj styl pliku.
 - Przed zakończeniem uruchom polecenie z "Sprawdzenie" i doprowadź je do zielonego wyniku.
 - Jeżeli zadania nie da się wykonać w podanym zakresie, niczego nie zmieniaj i napisz dlaczego.
+- Wynik sprawdzają też testy, których nie widzisz. Rób to, o co prosi zadanie, a nie tylko to,
+  co sprawdza widoczny test; nie dopasowuj kodu do konkretnych wartości z testów.
 """
 
 
 class BladKarty(ValueError):
     pass
+
+
+def rodzaj(karta: dict) -> str:
+    return str(karta.get("rodzaj") or "zmiana")
+
+
+def katalog_ukrytych(karta: dict) -> Path:
+    """docs/agent-tasks/ukryte/<id>/ obok katalogu kolejki, z którego pochodzi karta."""
+    return Path(karta["plik"]).parent.parent / "ukryte" / str(karta.get("id", ""))
+
+
+def latki(karta: dict) -> list[Path]:
+    return sorted(katalog_ukrytych(karta).glob("*.patch"))
+
+
+def bledy_ukrytych(karta: dict) -> list[str]:
+    r = rodzaj(karta)
+    if r not in RODZAJE:
+        return ["rodzaj: zmiana, refaktor albo testy"]
+    kat = katalog_ukrytych(karta)
+    sciezka = f"docs/agent-tasks/ukryte/{karta.get('id')}/"
+    if r == "testy":
+        return [] if latki(karta) else [f"brak łatek sabotażu {sciezka}*.patch - "
+                                         "Claude pisze co najmniej jedną celowo błędną zmianę modułu"]
+    if not any(kat.glob("test_*.py")):
+        return [f"brak ukrytych testów {sciezka}test_*.py - pisze je Claude razem z kartą"]
+    if r == "refaktor" and not latki(karta):
+        return [f"refaktor wymaga łatki sabotażu {sciezka}*.patch (zmiana zachowania, którą ukryte testy łapią)"]
+    return []
 
 
 def wczytaj(sciezka: Path) -> dict:
@@ -116,6 +154,8 @@ def bledy(karta: dict) -> list[str]:
     kroki = str(karta.get("kroki", "40"))
     if not kroki.isdigit() or not 10 <= int(kroki) <= 60:
         out.append("kroki: liczba 10-60")
+    if ID_RE.fullmatch(str(karta.get("id", ""))):
+        out += bledy_ukrytych(karta)
     return out
 
 
@@ -158,7 +198,7 @@ def main(argv: list[str]) -> int:
         print(json.dumps({
             "id": karta["id"], "tor": karta["tor"], "tytul": karta["tytul"],
             "zakres": karta.get("zakres") or [], "sprawdzenie": karta.get("sprawdzenie", ""),
-            "kroki": int(str(karta.get("kroki", "40"))),
+            "kroki": int(str(karta.get("kroki", "40"))), "rodzaj": rodzaj(karta),
             "polecenie": polecenie(karta) if karta["tor"] == "koder" else "",
         }, ensure_ascii=False))
         return 0

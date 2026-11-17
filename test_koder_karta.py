@@ -19,8 +19,14 @@ Treść.
 """
 
 
-def _karta(tmp_path: Path, tekst: str, nazwa: str = "przyklad-ok.md") -> dict:
-    p = tmp_path / nazwa
+def _karta(tmp_path: Path, tekst: str, nazwa: str = "przyklad-ok.md", ukryte: bool = True) -> dict:
+    kolejka = tmp_path / "docs" / "agent-tasks" / "kolejka"
+    kolejka.mkdir(parents=True, exist_ok=True)
+    if ukryte:
+        kat = kolejka.parent / "ukryte" / Path(nazwa).stem
+        kat.mkdir(parents=True, exist_ok=True)
+        (kat / "test_ukryty.py").write_text("def test_x():\n    assert True\n", encoding="utf-8")
+    p = kolejka / nazwa
     p.write_text(tekst, encoding="utf-8")
     return karta.wczytaj(p)
 
@@ -65,3 +71,18 @@ def test_pliki_poza_zakresem(tmp_path):
 def test_brak_naglowka(tmp_path):
     with pytest.raises(karta.BladKarty):
         _karta(tmp_path, "# Samo zadanie\n")
+
+
+def test_karta_koder_bez_ukrytych_testow_jest_odrzucana(tmp_path):
+    k = _karta(tmp_path, DOBRA, ukryte=False)
+    assert any("ukrytych testów" in b for b in karta.bledy(k))
+
+
+def test_karta_testy_wymaga_latki_sabotazu(tmp_path):
+    k = _karta(tmp_path, DOBRA.replace("---\n# Tytuł", "rodzaj: testy\n---\n# Tytuł"))
+    assert any("łatek sabotażu" in b for b in karta.bledy(k))
+
+
+def test_agent_nie_dostaje_katalogu_zadan_w_zakresie(tmp_path):
+    k = _karta(tmp_path, DOBRA.replace("  - taksa.py", "  - docs/agent-tasks/ukryte/x.py"))
+    assert any("zastrzeżony" in b for b in karta.bledy(k))
