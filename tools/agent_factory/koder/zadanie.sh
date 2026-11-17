@@ -15,6 +15,7 @@ mkdir -p "$W" && git -C "$ROOT" archive HEAD | tar -x -C "$W"
 # Ukryte testy i łatki sabotażu (W6) nie trafiają do kopii agenta; .git też nie (archive).
 rm -rf "$W/docs/agent-tasks/ukryte"; chmod -R a+rwX "$W"
 UKR="$ROOT/tools/agent_factory/koder/ukryte.py"
+export KODER_STAN="${KODER_STAN:-$ROOT/.agent-forge/salad-koder.json}"
 
 # Przed pracą agenta: ukryte testy muszą coś sprawdzać (np. oblewać kod bazowy przy zmianie).
 python3 "$UKR" przed "$ROOT/$KARTA" "$W" > "$OUT/$ID.przed.json" 2> "$OUT/$ID.przed.log"   || echo '{"ok": false, "powod": "kontrola ukrytych testów nie zadziałała"}' > "$OUT/$ID.przed.json"
@@ -60,6 +61,10 @@ fi
 G=(git --git-dir="$T/.git" --work-tree="$W" -c core.hooksPath=/dev/null -c core.fsmonitor=false)
 "${G[@]}" add -A
 mapfile -t ZM < <("${G[@]}" diff --cached --name-only)
+# W3/K5: nowe importy spoza stdlib, repo i requirements.txt (zmyślone paczki). Sprawdzamy
+# na repo bazowym ($T, zaufany klon), nie na kopii agenta.
+"${G[@]}" diff --cached | python3 "$ROOT/tools/agent_factory/koder/bramka_zaleznosci.py" "$T" > "$OUT/$ID.zaleznosci.json" 2>/dev/null
+[ -s "$OUT/$ID.zaleznosci.json" ] || echo '{"powod": "bramka_nie_zadzialala", "naruszenia": []}' > "$OUT/$ID.zaleznosci.json"
 POZA="$(python3 "$ROOT/tools/agent_factory/koder/karta.py" zakres "$ROOT/$KARTA" "${ZM[@]}" | tr '\n' ' ')"
 if [ "${#ZM[@]}" -gt 0 ]; then
   "${G[@]}" -c user.name="koder (agent)" -c user.email="koder@users.noreply.github.com" \
@@ -91,10 +96,52 @@ wynik = {
     "ukryte_zaliczone": bool(ukr.get("ukryte_zaliczone")), "wykryte": ukr.get("wykryte"),
     "karta_wadliwa": None,
 }
+try:
+    zal = json.load(open(f"{out}/{tid}.zaleznosci.json", encoding="utf-8"))
+except Exception:
+    zal = {"powod": "bramka_nie_zadzialala", "naruszenia": []}
+wynik["nowe_zaleznosci"] = sorted({n["modul"] for n in zal.get("naruszenia") or []})
 wynik["zaliczone"] = bool(status == "Submitted" and wynik["test_zaliczony"] and wynik["ukryte_zaliczone"]
-                          and zm and not wynik["poza_zakresem"])
+                          and zm and not wynik["poza_zakresem"] and not zal.get("powod"))
+# W7: dozwolony wynik „ZMIANA NIEPOTRZEBNA” - potwierdzony tylko, gdy nic nie zmieniono, a testy
+# (także ukryte) przechodzą na niezmienionym kodzie. Inaczej osobny powód odrzucenia.
+wynik["niepotrzebna"] = None
+try:
+    import os as _os
+    sys.path.insert(0, _os.path.join(_os.environ["ROOT"], "tools/agent_factory/koder"))
+    import lint_karty as lk
+    traj = json.load(open(f"{out}/{tid}.traj.json", encoding="utf-8"))
+    tekst = str((traj.get("info") or {}).get("submission") or "") + " ".join(
+        str(m.get("content", "")) for m in (traj.get("messages") or [])[-2:] if isinstance(m, dict))
+    if lk.deklaruje_niepotrzebna(tekst):
+        stan, _ = lk.wynik_niepotrzebnej(zm, wynik["test_zaliczony"] and wynik["ukryte_zaliczone"])
+        wynik["niepotrzebna"] = stan  # "niepotrzebna" albo "odrzucone"
+except Exception:
+    pass
 # Miara W6: agent zgłosił koniec, widoczny test zielony, a ukryte testy go odrzucają.
 wynik["falszywy_sukces"] = bool(status == "Submitted" and wynik["test_zaliczony"] and not wynik["ukryte_zaliczone"])
 print(json.dumps(wynik, ensure_ascii=False))
+
+# Manifest przebiegu + dziennik JSONL (bez promptów i treści plików) - pomiar „przed/po”.
+try:
+    import os
+    sys.path.insert(0, os.path.join(os.environ["ROOT"], "tools/agent_factory/koder"))
+    import manifest as mf
+    powody = [k for k, zle in (("status", status != "Submitted"), ("test", not wynik["test_zaliczony"]),
+                               ("ukryte", not wynik["ukryte_zaliczone"]), ("brak_zmian", not zm),
+                               ("poza_zakresem", bool(wynik["poza_zakresem"])),
+                               (zal.get("powod") or "", bool(zal.get("powod")))) if zle]
+    m = mf.manifest(os.path.join(os.environ["ROOT"], karta), mf.stan_silnika(os.environ.get("KODER_STAN")),
+                    os.environ["ROOT"])
+    if wynik["niepotrzebna"] == "odrzucone":
+        powody.append("niepotrzebna_niepotwierdzona")
+    werdykt = ("zaliczone" if wynik["zaliczone"] else
+               "niepotrzebna" if wynik["niepotrzebna"] == "niepotrzebna" else "odrzucone")
+    r = mf.rekord_zadania(tid, werdykt, powody, m,
+                          traj=f"{out}/{tid}.traj.json", sekundy=int(sec),
+                          nowe_zaleznosci=wynik["nowe_zaleznosci"])
+    mf.dopisz_dziennik(mf.sciezka_dziennika(out), r)
+except Exception as e:  # dziennik nigdy nie zmienia wyniku zadania
+    print(f"dziennik: {e}", file=sys.stderr)
 PY
 echo "$ID: $(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("ZALICZONE" if d["zaliczone"] else "do Claude", "|", d["exit_status"], "| test", d["test_zaliczony"], "| ukryte", d["ukryte_zaliczone"], "| poza zakresem", d["poza_zakresem"], "|", d["sekundy"], "s")' "$OUT/$ID.json")"

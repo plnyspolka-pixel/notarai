@@ -22,6 +22,9 @@ print(f"# Koder - przebieg {run}\n\nModel: {model}. Zaliczone {len(ok)} z {len(w
       f"łączny czas pracy agentów {sum(x['sekundy'] for x in w) // 60} min.\n")
 print(f"**Fałszywe sukcesy (W6):** {len(falszywe)} z {len(zgloszone)} zgłoszonych jako gotowe "
       f"z zielonym widocznym testem odrzuciły ukryte testy. Karty wadliwe (agent nie startował): {len(wadliwe)}.\n")
+nowe = sorted({m for x in w for m in (x.get("nowe_zaleznosci") or [])})
+print(f"**Nowe zależności (K5):** {sum(len(x.get('nowe_zaleznosci') or []) for x in w)} w {len(w)} zadaniach"
+      + (f" - {', '.join(nowe)}" if nowe else "") + chr(10))
 print("| Zadanie | Wynik | Kroki | Czas | Test | Ukryte | Poza zakresem | Gałąź |\n|---|---|---|---|---|---|---|---|")
 def wynik(x):
     if x.get("karta_wadliwa"):

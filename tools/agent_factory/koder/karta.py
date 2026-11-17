@@ -35,6 +35,12 @@ from pathlib import Path
 import re
 import sys
 
+try:  # import jako pakiet (testy) albo jako skrypt (zadanie.sh)
+    from . import lint_karty
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lint_karty
+
 KOLEJKA = Path("docs/agent-tasks/kolejka")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")
 SPRAWDZENIE_RE = re.compile(r"^python -m pytest -q( [A-Za-z0-9_./-]+){1,4}$")
@@ -63,7 +69,7 @@ ZASADY = """
 - Jeżeli zadania nie da się wykonać w podanym zakresie, niczego nie zmieniaj i napisz dlaczego.
 - Wynik sprawdzają też testy, których nie widzisz. Rób to, o co prosi zadanie, a nie tylko to,
   co sprawdza widoczny test; nie dopasowuj kodu do konkretnych wartości z testów.
-"""
+""" + lint_karty.ZASADA_NIEPOTRZEBNA + chr(10)
 
 
 class BladKarty(ValueError):
@@ -154,6 +160,7 @@ def bledy(karta: dict) -> list[str]:
     kroki = str(karta.get("kroki", "40"))
     if not kroki.isdigit() or not 10 <= int(kroki) <= 60:
         out.append("kroki: liczba 10-60")
+    out += lint_karty.bledy(karta)  # W7: bez kart otwartych bez kryteriów akceptacji
     if ID_RE.fullmatch(str(karta.get("id", ""))):
         out += bledy_ukrytych(karta)
     return out

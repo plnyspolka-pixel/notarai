@@ -44,6 +44,10 @@ Dobra karta dla kodera odpowiada na cztery pytania bez zgadywania: **gdzie** (pl
 **co ma się zmienić** (zachowanie przed i po, najlepiej na przykładzie wejście → wynik),
 **po czym poznać koniec** (test), **czego nie ruszać**. Wzór: `docs/agent-tasks/SZABLON.md`.
 
+**Dlaczego karta jest krótka:** w naszym pomiarze na 100 parach zwykłe polecenie dało 27/100,
+a „ustrukturyzowany kontrakt” 13/100 przy +35–40% tokenów (gałąź learning-loop, 16.11.2026).
+Sekcji nie dokładamy bez pomiaru A/B (`docs/lab-openalex/PROTOKOL-POMIARU.md` w laboratorium).
+
 ## Reguła przydziału: koder czy Claude
 
 Zadanie idzie do **kodera**, gdy spełnia wszystkie warunki:
@@ -76,6 +80,18 @@ nie przejdzie `karta.py lint` i workflow ją pominie.
 Automatycznie, wszystkie naraz: agent zakończył sam (`Submitted`), test z karty przechodzi
 w świeżym kontenerze bez sieci, **ukryte testy przechodzą**, coś zostało zmienione i nic poza
 zakresem karty.
+
+Dodatkowe bramki (od 17.11.2026):
+- **Karta otwarta** (tytuł albo punkt od „popraw”, „zrefaktoruj”, „ulepsz”, „uporządkuj”…) musi
+  mieć `## Kryteria akceptacji` z 1–3 punktami, inaczej nie przejdzie `karta.py lint` (W7).
+- **„Zmiana niepotrzebna”** to dozwolony wynik, liczony osobno (`niepotrzebna`), jeśli agent
+  niczego nie zmienił, a testy, także ukryte, przechodzą na niezmienionym kodzie. Inaczej
+  odrzucenie z powodem `niepotrzebna_niepotwierdzona`.
+- **Nowa zależność:** diff z importem spoza stdlib, repozytorium i `requirements.txt` jest
+  odrzucany (`nowa_zaleznosc`, miara K5 w `WYNIKI.md`), bo modele zmyślają nazwy paczek (S051).
+- **Dziennik:** każde zadanie zostawia wiersz w `dziennik.jsonl` z manifestem silnika (model,
+  vLLM, dtype, kwantyzacja, kontekst, prefix caching, GPU, sha uprzęży, sha karty, skrót
+  ukrytych testów) i powodami decyzji. Bez promptów i treści plików; koszt nieznany = `null`.
 
 ### Ukryte testy (od 17.11.2026)
 
