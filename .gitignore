@@ -48,6 +48,9 @@ Claude outputs/
 # Skille projektu sa wersjonowane, reszta katalogu zostaje lokalna.
 .claude/*
 !.claude/skills/
+# Strażnik sekretów (hooki) i wspólne ustawienia hooków też są wersjonowane.
+!.claude/hooks/
+!.claude/settings.json
 
 # Srodowisko budowania pomocnika (.exe) - infra/zbuduj-pomocnika.ps1
 .venv-pomocnik/

@@ -1,0 +1,75 @@
+# Skan sekretów i zależności (laboratorium: W3, D053, P016–P020).
+# Zasada: nowy sekret w PR = blokada; stare znaleziska w historii i podatne
+# zależności = raport (bez blokowania, dopóki nie przejrzymy listy).
+# Akcje przypięte po SHA commita, gitleaks po wersji i sumie kontrolnej (S051).
+name: bezpieczenstwo
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "17 5 * * 1" # poniedziałek 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bezpieczenstwo-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: "8.29.1"
+  GITLEAKS_SHA256: "e4eb209d04e20339d77122a3bdf9cd41351255cfb27ebcb75e85325e04f88924"
+
+jobs:
+  sekrety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Instalacja gitleaks (wersja i suma przypięte)
+        run: |
+          f="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+          echo "${GITLEAKS_SHA256}  $f" | sha256sum -c -
+          tar -xzf "$f" gitleaks && sudo mv gitleaks /usr/local/bin/
+      - name: Nowe commity w PR (blokuje)
+        if: github.event_name == 'pull_request'
+        run: gitleaks git --redact --no-banner --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+      - name: Ostatni push na master (blokuje)
+        if: github.event_name == 'push'
+        run: gitleaks git --redact --no-banner --log-opts="${{ github.event.before }}..${{ github.sha }}"
+      - name: Cała historia (raport, nie blokuje)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: gitleaks git --redact --no-banner --exit-code 0 --report-format json --report-path gitleaks.json && jq length gitleaks.json
+
+  zaleznosci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Audyt zależności Pythona (raport, nie blokuje)
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet "pip-audit==2.9.0"
+          pip-audit -r requirements.txt --progress-spinner off | tee audyt.txt
+      - name: Podsumowanie
+        if: always()
+        run: |
+          {
+            echo "### Audyt zależności (pip-audit)"
+            echo '```'
+            tail -n 40 audyt.txt 2>/dev/null || echo "brak wyniku"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
