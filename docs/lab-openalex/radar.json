@@ -1,0 +1,153 @@
+{
+  "opis": "Tematy obserwowane przez radar laboratorium. Zapytanie to wyszukiwanie OpenAlex (tytuł, streszczenie, pełny tekst). min_cytowan odsiewa szum przy szerokich tematach.",
+  "ostatni_przebieg": "2026-11-17",
+  "tematy": [
+    {
+      "nazwa": "Prompt injection w agentach",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "prompt injection LLM agents defense"
+    },
+    {
+      "nazwa": "Bezpieczeństwo MCP i narzędzi agentów",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "model context protocol security tool poisoning"
+    },
+    {
+      "nazwa": "Piaskownice i polityki dla agentów",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "sandbox least privilege policy enforcement autonomous LLM agents"
+    },
+    {
+      "nazwa": "LLM do wykrywania podatności i fuzzingu",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "large language model vulnerability detection fuzzing"
+    },
+    {
+      "nazwa": "Łańcuch dostaw modeli i pakietów",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "LLM supply chain backdoor poisoning package hallucination"
+    },
+    {
+      "nazwa": "Prywatność przy dostrajaniu",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "fine-tuning privacy memorization PII leakage language models"
+    },
+    {
+      "nazwa": "Kanały boczne w serwowaniu LLM",
+      "kierunek": "bezpieczenstwo",
+      "zapytanie": "side channel LLM serving KV cache timing attack"
+    },
+    {
+      "nazwa": "Agenci kodujący — harness i samodoskonalenie",
+      "kierunek": "agenci",
+      "zapytanie": "coding agents harness self-improvement SWE-bench"
+    },
+    {
+      "nazwa": "RL z weryfikowalną nagrodą dla małych modeli",
+      "kierunek": "trening",
+      "zapytanie": "reinforcement learning verifiable rewards small language models code"
+    },
+    {
+      "nazwa": "Destylacja trajektorii agentów",
+      "kierunek": "trening",
+      "zapytanie": "distillation agent trajectories small model"
+    },
+    {
+      "nazwa": "Dostrajanie na jednej karcie",
+      "kierunek": "trening",
+      "zapytanie": "parameter-efficient fine-tuning LoRA single GPU memory"
+    },
+    {
+      "nazwa": "Kwantyzacja i dekodowanie spekulatywne",
+      "kierunek": "serwowanie",
+      "zapytanie": "speculative decoding quantization LLM inference efficiency"
+    },
+    {
+      "nazwa": "Kaskady i routing modeli",
+      "kierunek": "serwowanie",
+      "zapytanie": "LLM routing cascade cost model selection"
+    },
+    {
+      "nazwa": "Ewaluacja agentów i statystyka",
+      "kierunek": "ewaluacja",
+      "zapytanie": "LLM agent evaluation reproducibility statistical significance benchmark contamination"
+    },
+    {
+      "nazwa": "Polskie modele językowe",
+      "kierunek": "trening",
+      "zapytanie": "Polish language model benchmark Bielik PLLuM"
+    },
+    {
+      "nazwa": "Zbiory: polskie teksty prawne",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "Polish legal OR Polish law OR Polish contracts OR Polish court"
+    },
+    {
+      "nazwa": "Zbiory: ryzyko kredytowe i niespłacalność",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "loan default OR credit risk OR mortgage default OR P2P lending"
+    },
+    {
+      "nazwa": "Zbiory: wycena i ceny nieruchomości",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "automated valuation OR house prices OR real estate listings"
+    },
+    {
+      "nazwa": "Zbiory: zaufanie do AI w reklamie i finansach",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "AI disclosure advertising trust OR virtual spokesperson OR AI influencer"
+    },
+    {
+      "nazwa": "Zbiory: synchronizacja ust i mowa polska",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "lip sync OR talking head OR audio-visual speech OR Polish speech"
+    },
+    {
+      "nazwa": "Zbiory: fałszywe dokumenty i nadużycia",
+      "kierunek": "zbiory-danych",
+      "typ": "dataset",
+      "zapytanie": "identity document forgery OR loan fraud OR synthetic identity"
+    },
+    {
+      "nazwa": "Przepisy treningu agentów (agentic RL)",
+      "kierunek": "trening",
+      "zapytanie": "agentic reinforcement learning multi-turn tool use recipe"
+    },
+    {
+      "nazwa": "Nagrody i weryfikatory dla agentów",
+      "kierunek": "trening",
+      "zapytanie": "process reward model verifier coding agents"
+    },
+    {
+      "nazwa": "Uczenie z doświadczenia bez treningu",
+      "kierunek": "trening",
+      "zapytanie": "agent memory experience reflection skill library prompt optimization"
+    },
+    {
+      "nazwa": "Praca z agentami — badania programistów",
+      "kierunek": "praca-z-agentami",
+      "zapytanie": "developers agentic coding tools empirical study pull requests"
+    },
+    {
+      "nazwa": "Pliki instrukcji dla agentów",
+      "kierunek": "praca-z-agentami",
+      "zapytanie": "AGENTS.md OR CLAUDE.md OR cursor rules context files coding agents"
+    },
+    {
+      "nazwa": "Zbiory: trajektorie i środowiska agentów",
+      "kierunek": "zbiory-dla-agentow",
+      "zapytanie": "agent trajectories dataset OR executable environments dataset software engineering",
+      "typ": "dataset"
+    },
+    {
+      "nazwa": "Zbiory: wywoływanie narzędzi",
+      "kierunek": "zbiory-dla-agentow",
+      "zapytanie": "function calling OR tool use benchmark dataset LLM"
+    }
+  ]
+}
