@@ -1,0 +1,61 @@
+name: Web Factory static checks
+
+on:
+  pull_request:
+    paths:
+      - 'tools/web-factory/**'
+      - 'strona/**'
+      - '.github/workflows/web-factory-quality.yml'
+  push:
+    branches:
+      - 'feature/web-factory-*'
+    paths:
+      - 'tools/web-factory/**'
+      - '.github/workflows/web-factory-quality.yml'
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: tools/web-factory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: npm run check
+
+  site-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: tools/web-factory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Serve the public site locally
+        run: |
+          python3 -m http.server 5173 --bind 127.0.0.1 --directory ../../strona &
+          sleep 2
+      - name: Strict audit of every public page
+        run: npm run audit:strona
+      - name: Keep the report when the gate fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-factory-report
+          # Bez zrzutów ekranu: raport tekstowy wystarcza do diagnozy, a zrzuty ważą ponad 100 MB.
+          path: |
+            tools/web-factory/artifacts/web-factory/notarai/report.json
+            tools/web-factory/artifacts/web-factory/notarai/index.html
+          retention-days: 7

@@ -44,6 +44,17 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Obraz Dockera nie może zawierać `dane/` ani `.env` (pilnuje tego
   `.dockerignore`; nie usuwaj z niego tych wpisów).
 
+### ElevenLabs: tylko silnik v3 lub nowszy (twarda reguła, 16.11.2026)
+- Każda generacja głosu w ElevenLabs (lektor TTS, dialog, agenci rozmowni,
+  projektowanie głosu, zamiana mowy) używa modelu v3 lub nowszego:
+  `eleven_v4`, `eleven_v4_turbo`, `eleven_v3`, `eleven_v3_conversational`
+  (projektowanie głosu: `eleven_ttv_v3`). NIGDY `eleven_multilingual_v2`,
+  `eleven_flash_v2_5`, `eleven_turbo_v2_5` ani innych v1/v2 - także przy
+  pracy przez konektor ElevenLabs, narzędzia MCP `fu` i skrypty.
+- Gdy narzędzie albo model nie daje wyboru v3+, przerwij i zgłoś to,
+  zamiast schodzić na niższy silnik. Domyślnie: lektor `eleven_v4`,
+  agenci `eleven_v4_turbo`.
+
 ### Konwencje
 - Zasoby nazywaj z prefiksem: notarai-
 - Infrastrukturę definiuj jako kod (CloudFormation w `infra/`), nie przez
@@ -58,6 +69,16 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Każde nowe zadanie, którego nie da się skończyć bez dostępu z zewnątrz,
   dopisz tam jako kolejną pozycję; po zrobieniu oznacz `zrobione` z datą
   i commitem (nie usuwaj).
+
+### Publikacja (bez FTP z ręki)
+- Zmiany w `strona/` (notarai.pl) i `seo/` publikuje sam GitHub:
+  `.github/workflows/strona.yml` po zielonych testach na `master` generuje
+  katalog, blog i sitemap i wysyła na az.pl przez FTPS tylko zmienione pliki.
+  Aplikację (`static/`, kod Pythona) wdraża `.github/workflows/wdrozenie.yml`.
+- Gdy użytkownik prosi o zmianę strony lub frontendu: zrób zmianę, puść
+  testy, commit, push i pull request do `master`; po scaleniu wszystko idzie
+  na stronę samo. Nie uruchamiaj `infra\strona.ps1` ani FTP ręcznie, chyba
+  że workflow nie działa (wtedy to wysyłka awaryjna).
 
 ## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)
 

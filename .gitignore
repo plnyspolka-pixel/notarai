@@ -45,7 +45,9 @@ desktop.ini
 Claude outputs/
 
 # Lokalna konfiguracja Claude Code (uprawnienia, launch.json)
-.claude/
+# Skille projektu sa wersjonowane, reszta katalogu zostaje lokalna.
+.claude/*
+!.claude/skills/
 
 # Srodowisko budowania pomocnika (.exe) - infra/zbuduj-pomocnika.ps1
 .venv-pomocnik/
