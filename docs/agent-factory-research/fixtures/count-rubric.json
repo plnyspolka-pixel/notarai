@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "task_id": "count-fixture-001",
+  "task_sha256": "c02119b17556ef5fa25d3807317a4b9e8d5f9ea99cef39405b06bbbfa4dbacbf",
+  "assertions": [
+    {"path": "answer", "operator": "equals", "expected": 5}
+  ]
+}

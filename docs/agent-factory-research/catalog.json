@@ -1,0 +1,878 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-11-15",
+  "scope": "github-repo-metadata-only",
+  "total": 87,
+  "entries": [
+    {
+      "id": "karpathy/autoresearch",
+      "repo": "https://github.com/karpathy/autoresearch",
+      "category": "autonomous-research",
+      "priority": "P0",
+      "summary": "Autonomiczne cykle: zmiana kodu treningowego, pomiar, selekcja i dziennik prób",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "SakanaAI/ShinkaEvolve",
+      "repo": "https://github.com/SakanaAI/ShinkaEvolve",
+      "category": "autonomous-research",
+      "priority": "P0",
+      "summary": "Ewolucyjne poszukiwanie wariantów programów z funkcją oceny",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "README deklaruje Apache-2.0"
+    },
+    {
+      "id": "SakanaAI/AI-Scientist-v2",
+      "repo": "https://github.com/SakanaAI/AI-Scientist-v2",
+      "category": "autonomous-research",
+      "priority": "P1",
+      "summary": "Hipotezy, eksperymenty, analiza wyników i raporty",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "algorithmicsuperintelligence/openevolve",
+      "repo": "https://github.com/algorithmicsuperintelligence/openevolve",
+      "category": "autonomous-research",
+      "priority": "P1",
+      "summary": "Populacyjna ewolucja kodu i selekcja na podstawie testów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "facebookresearch/hyperagents",
+      "repo": "https://github.com/facebookresearch/hyperagents",
+      "category": "autonomous-research",
+      "priority": "R&D",
+      "summary": "Samodoskonalenie agenta oraz sposobu prowadzenia optymalizacji; licencja non-commercial",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "README zawiera znacznik CC BY-NC-SA 4.0; nie zakładać prawa do komercyjnego wdrożenia"
+    },
+    {
+      "id": "PrimeIntellect-ai/prime-agent",
+      "repo": "https://github.com/PrimeIntellect-ai/prime-agent",
+      "category": "autonomous-research",
+      "priority": "P0",
+      "summary": "Recursive Language Model, trwały REPL i continual harness",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "belt-sh/skillos",
+      "repo": "https://github.com/belt-sh/skillos",
+      "category": "autonomous-research",
+      "priority": "R&D",
+      "summary": "Eksperyment nad trenowaniem selekcji, aktualizacji i usuwania skilli",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Wysoki koszt replikacji (H100), poziom badawczy, nie automatyzować bez budżetu"
+    },
+    {
+      "id": "RealLcz/MGM",
+      "repo": "https://github.com/RealLcz/MGM",
+      "category": "autonomous-research",
+      "priority": "R&D",
+      "summary": "Mendel Goedel Machine: wieloliniowa ewolucja i łączenie agentów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "ViktorAxelsen/MemSkill",
+      "repo": "https://github.com/ViktorAxelsen/MemSkill",
+      "category": "autonomous-research",
+      "priority": "P1",
+      "summary": "Uczenie strategii zapamiętywania i dostosowywania pamięci",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "NVIDIA-NeMo/DataDesigner",
+      "repo": "https://github.com/NVIDIA-NeMo/DataDesigner",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Syntetyczne dane, walidatory, połączenie z narzędziami i ślady interakcji MCP",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "README deklaruje Apache-2.0, ale zależności i dane mają własne warunki"
+    },
+    {
+      "id": "NVIDIA-NeMo/Curator",
+      "repo": "https://github.com/NVIDIA-NeMo/Curator",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Czyszczenie, filtrowanie i deduplikacja zbiorów multimodalnych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "allenai/dolma",
+      "repo": "https://github.com/allenai/dolma",
+      "category": "data-and-rl",
+      "priority": "R&D",
+      "summary": "Duże potoki przetwarzania korpusów treningowych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "argilla-io/distilabel",
+      "repo": "https://github.com/argilla-io/distilabel",
+      "category": "data-and-rl",
+      "priority": "P2",
+      "summary": "Dane instruktażowe i preferencyjne; zweryfikować aktywność maintainerów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "RUC-NLPIR/Agent-World",
+      "repo": "https://github.com/RUC-NLPIR/Agent-World",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Stanowe, wykonywalne środowiska narzędzi oraz weryfikowalne zadania",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "README wskazuje MIT; licencje datasetów sprawdzić osobno"
+    },
+    {
+      "id": "microsoft/agent-lightning",
+      "repo": "https://github.com/microsoft/agent-lightning",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Uczenie agentów na podstawie ich śladów, nagród i wyników",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "rllm-org/rllm",
+      "repo": "https://github.com/rllm-org/rllm",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Agentic RL z testami i środowiskami wykonywalnymi",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "LegoX/Lego-RL",
+      "repo": "https://github.com/LegoX/Lego-RL",
+      "category": "data-and-rl",
+      "priority": "P2",
+      "summary": "RL dla agentów kodujących i danych trajektorii",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "PrimeIntellect-ai/verifiers",
+      "repo": "https://github.com/PrimeIntellect-ai/verifiers",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Definicje środowisk, funkcji nagrody i weryfikatorów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "ServiceNow/BrowserGym",
+      "repo": "https://github.com/ServiceNow/BrowserGym",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Kontrolowane benchmarki zadań przeglądarkowych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "UKGovernmentBEIS/inspect_ai",
+      "repo": "https://github.com/UKGovernmentBEIS/inspect_ai",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Rygorystyczne ewaluacje i testowanie zachowania agentów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "CYWang735/Video-Coder",
+      "repo": "https://github.com/CYWang735/Video-Coder",
+      "category": "video-world-models",
+      "priority": "P0",
+      "summary": "Agent buduje scenę Blender Python, renderuje draft i steruje generatorem wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Kod, model i dataset mogą mieć różne licencje: zweryfikować osobno"
+    },
+    {
+      "id": "Lightricks/LTX-2",
+      "repo": "https://github.com/Lightricks/LTX-2",
+      "category": "video-world-models",
+      "priority": "P0",
+      "summary": "Rodzina LTX, generowanie wideo/audio, modele i workflowy",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Licencja wag/modeli oraz próg komercyjny wymagają osobnego audytu"
+    },
+    {
+      "id": "Comfy-Org/comfy-mcp",
+      "repo": "https://github.com/Comfy-Org/comfy-mcp",
+      "category": "video-world-models",
+      "priority": "P0",
+      "summary": "Sterowanie ComfyUI przez MCP i monitorowanie zadań",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "Westlake-AGI-Lab/WorldinWorld",
+      "repo": "https://github.com/Westlake-AGI-Lab/WorldinWorld",
+      "category": "video-world-models",
+      "priority": "R&D",
+      "summary": "Zmiana trajektorii kamery i rekonstrukcja nowych ujęć z wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "TencentARC/VerseCrafter",
+      "repo": "https://github.com/TencentARC/VerseCrafter",
+      "category": "video-world-models",
+      "priority": "R&D",
+      "summary": "Sterowanie geometrią 4D, kamerą i ruchem obiektów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "microsoft/World-R1",
+      "repo": "https://github.com/microsoft/World-R1",
+      "category": "video-world-models",
+      "priority": "R&D",
+      "summary": "RL dla modeli wideo z geometrią i oceną trajektorii kamery",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "NVIDIA/Cosmos",
+      "repo": "https://github.com/NVIDIA/Cosmos",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Modele świata, warunkowanie symulacjami i geometrią",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "DepthAnything/Video-Depth-Anything",
+      "repo": "https://github.com/DepthAnything/Video-Depth-Anything",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Spójna czasowo estymacja głębi materiału wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "Vchitect/VBench",
+      "repo": "https://github.com/Vchitect/VBench",
+      "category": "video-world-models",
+      "priority": "P0",
+      "summary": "Benchmark jakości, ruchu i zgodności wygenerowanego wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "remotion-dev/remotion",
+      "repo": "https://github.com/remotion-dev/remotion",
+      "category": "video-world-models",
+      "priority": "P0",
+      "summary": "Programowy montaż, napisy, animacje i render końcowy",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "pipecat-ai/pipecat",
+      "repo": "https://github.com/pipecat-ai/pipecat",
+      "category": "voice",
+      "priority": "P1",
+      "summary": "Streaming agentów głosowych i telefonicznych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "livekit/agents",
+      "repo": "https://github.com/livekit/agents",
+      "category": "voice",
+      "priority": "P1",
+      "summary": "Agenci realtime w audio/wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "OpenHands/OpenHands",
+      "repo": "https://github.com/OpenHands/OpenHands",
+      "category": "agent-runtime",
+      "priority": "P0",
+      "summary": "Runtime programistycznego agenta z narzędziami i środowiskiem",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "langchain-ai/deepagents",
+      "repo": "https://github.com/langchain-ai/deepagents",
+      "category": "agent-runtime",
+      "priority": "P0",
+      "summary": "Planowanie, delegowanie, skille, pamięć i subagenci",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "temporalio/temporal",
+      "repo": "https://github.com/temporalio/temporal",
+      "category": "agent-runtime",
+      "priority": "P1",
+      "summary": "Trwałe workflowy, retry, idempotencja i wznawianie",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "vercel-labs/agent-browser",
+      "repo": "https://github.com/vercel-labs/agent-browser",
+      "category": "agent-runtime",
+      "priority": "P1",
+      "summary": "Skryptowalny agent przeglądarkowy; tylko sandbox i allowlist",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "skypilot-org/skypilot",
+      "repo": "https://github.com/skypilot-org/skypilot",
+      "category": "compute",
+      "priority": "P0",
+      "summary": "Orkiestracja wynajętych GPU; wybór operatora, przerywanie i koszty",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "dstackai/dstack",
+      "repo": "https://github.com/dstackai/dstack",
+      "category": "compute",
+      "priority": "P1",
+      "summary": "Zadania GPU i usługi modeli na różnych chmurach",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "OpenBMB/ForgeKernel",
+      "repo": "https://github.com/OpenBMB/ForgeKernel",
+      "category": "compute",
+      "priority": "R&D",
+      "summary": "Agent profiluje i ewolucyjnie poprawia jądra GPU",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "README deklaruje Apache-2.0"
+    },
+    {
+      "id": "Dao-AILab/flash-attention",
+      "repo": "https://github.com/Dao-AILab/flash-attention",
+      "category": "compute",
+      "priority": "P1",
+      "summary": "Optymalizowane implementacje attention",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "deepseek-ai/DeepGEMM",
+      "repo": "https://github.com/deepseek-ai/DeepGEMM",
+      "category": "compute",
+      "priority": "R&D",
+      "summary": "GPU kernels, zwłaszcza GEMM i MoE",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "flashinfer-ai/flashinfer",
+      "repo": "https://github.com/flashinfer-ai/flashinfer",
+      "category": "compute",
+      "priority": "P1",
+      "summary": "Jądra do inferencji i zarządzania KV cache",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "linkedin/Liger-Kernel",
+      "repo": "https://github.com/linkedin/Liger-Kernel",
+      "category": "compute",
+      "priority": "P2",
+      "summary": "Oszczędniejsze operatory dla treningu/post-treningu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "kvcache-ai/Mooncake",
+      "repo": "https://github.com/kvcache-ai/Mooncake",
+      "category": "compute",
+      "priority": "R&D",
+      "summary": "Rozproszone serwowanie, rozdzielenie prefill/decode i cache",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "fthrvi/nakshatra",
+      "repo": "https://github.com/fthrvi/nakshatra",
+      "category": "compute",
+      "priority": "R&D",
+      "summary": "Heterogeniczna inferencja modelu rozłożona na wiele maszyn",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "stanfordnlp/dspy",
+      "repo": "https://github.com/stanfordnlp/dspy",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Programatyczna optymalizacja promptów i pipeline'ów LLM",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "gepa-ai/gepa",
+      "repo": "https://github.com/gepa-ai/gepa",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Feedback-driven ewolucyjna optymalizacja instrukcji",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "getzep/graphiti",
+      "repo": "https://github.com/getzep/graphiti",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Pamięć wiedzy i relacji z komponentem czasowym",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "letta-ai/frontiermemory",
+      "repo": "https://github.com/letta-ai/frontiermemory",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Ewaluacja czy pamięć poprawia późniejsze wykonywanie zadań",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "hamza-dev-tech/agent-memory-bench",
+      "repo": "https://github.com/hamza-dev-tech/agent-memory-bench",
+      "category": "optimization-and-observability",
+      "priority": "P2",
+      "summary": "Benchmark pamięci, odporności i kosztów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "langfuse/langfuse",
+      "repo": "https://github.com/langfuse/langfuse",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Ślady agentów, metryki, ewaluacje i koszt",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "promptfoo/promptfoo",
+      "repo": "https://github.com/promptfoo/promptfoo",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Testy regresji, prompt injection i bezpieczeństwa agentów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "TransformerLensOrg/TransformerLens",
+      "repo": "https://github.com/TransformerLensOrg/TransformerLens",
+      "category": "model-internals",
+      "priority": "R&D",
+      "summary": "Interpretowalność i interwencje w aktywacjach transformerów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "ndif-team/nnsight",
+      "repo": "https://github.com/ndif-team/nnsight",
+      "category": "model-internals",
+      "priority": "R&D",
+      "summary": "Inspekcja i eksperymentalna edycja aktywacji modelu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "arcee-ai/mergekit",
+      "repo": "https://github.com/arcee-ai/mergekit",
+      "category": "model-internals",
+      "priority": "R&D",
+      "summary": "Scalanie wag kompatybilnych modeli i ewaluacja kombinacji",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Sprawdzić licencję kodu, wag, danych i API przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/Self-HPO",
+      "repo": "https://github.com/MSR-Orchard/Self-HPO",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Koewolucja model policy + harness, RL z dowodami empirycznymi",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/WildAWM",
+      "repo": "https://github.com/MSR-Orchard/WildAWM",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Syntetyczne całe komputery: GUI/MCP/CLI, 341 środowisk i zadania OOD",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/execcritic",
+      "repo": "https://github.com/MSR-Orchard/execcritic",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Testy wygenerowane z kontraktu i feedback do napraw kodu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/trace",
+      "repo": "https://github.com/MSR-Orchard/trace",
+      "category": "data-and-rl",
+      "priority": "R&D",
+      "summary": "Credit assignment przy granicy narzędzi w długich trajektoriach",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/SecureVibe",
+      "repo": "https://github.com/MSR-Orchard/SecureVibe",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Trening agentów z nagrodą uwzględniającą bezpieczeństwo kodowania",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "MSR-Orchard/SecureVibeEval",
+      "repo": "https://github.com/MSR-Orchard/SecureVibeEval",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Benchmarki bezpieczeństwa agentów kodujących",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "wbopan/retro-harness",
+      "repo": "https://github.com/wbopan/retro-harness",
+      "category": "autonomous-research",
+      "priority": "P0",
+      "summary": "RHO: retrospektywna optymalizacja harnessu bez etykiet",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "WecoAI/SpecBench",
+      "repo": "https://github.com/WecoAI/SpecBench",
+      "category": "optimization-and-observability",
+      "priority": "P0",
+      "summary": "Rozdzielenie testów widocznych i ukrytych, wykrywanie reward hackingu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "liuxuannan/AgentHallu",
+      "repo": "https://github.com/liuxuannan/AgentHallu",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Diagnoza pierwotnego błędu w trajektoriach agentów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "Continual-Intelligence/SEAL",
+      "repo": "https://github.com/Continual-Intelligence/SEAL",
+      "category": "model-internals",
+      "priority": "R&D",
+      "summary": "Samodzielnie tworzone aktualizacje treningowe i zmiany wag modelu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "openai/mle-bench",
+      "repo": "https://github.com/openai/mle-bench",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Benchmark autonomicznej inżynierii ML, wiele seedów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "FujitsuResearch/AgenTRIM",
+      "repo": "https://github.com/FujitsuResearch/AgenTRIM",
+      "category": "optimization-and-observability",
+      "priority": "R&D",
+      "summary": "Narzędzie badawcze do oceny modyfikacji narzędzi agentowych",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "ParsaEsmati/videodiffusionphysics",
+      "repo": "https://github.com/ParsaEsmati/videodiffusionphysics",
+      "category": "video-world-models",
+      "priority": "R&D",
+      "summary": "NeurIPS 2026: badanie reprezentacji fizyki w latentach modeli wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "ChristianInterno/GeoPhys",
+      "repo": "https://github.com/ChristianInterno/GeoPhys",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: metryki geometrii ruchu i selekcji filmów",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "vinesmsuic/PhyProbe",
+      "repo": "https://github.com/vinesmsuic/PhyProbe",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: skoring błędów fizycznych w wideo",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "tiangexiang/HumanScore",
+      "repo": "https://github.com/tiangexiang/HumanScore",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "NeurIPS 2026: biomechanika i jakość ludzkiego ruchu",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "google-deepmind/physics-iq-benchmark",
+      "repo": "https://github.com/google-deepmind/physics-iq-benchmark",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Weryfikacja zgodności z fizyką na realnych scenach",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "cjj826/LongJudgeBench",
+      "repo": "https://github.com/cjj826/LongJudgeBench",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Weryfikacja ocen semantycznych długich odpowiedzi",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": false,
+      "legal_note": "Konieczna weryfikacja licencji kodu, wag i danych przed użyciem"
+    },
+    {
+      "id": "google-deepmind/code-verification",
+      "repo": "https://github.com/google-deepmind/code-verification",
+      "category": "formal-methods",
+      "priority": "P1",
+      "summary": "Lean artifacts for formally verified Signal binary security properties; not an open model prover",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "facebookresearch/cwm",
+      "repo": "https://github.com/facebookresearch/cwm",
+      "category": "model-internals",
+      "priority": "P1",
+      "summary": "Open-weights 32B Code World Model trained on execution trajectories",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "facebookresearch/vjepa2",
+      "repo": "https://github.com/facebookresearch/vjepa2",
+      "category": "video-world-models",
+      "priority": "P1",
+      "summary": "Video JEPA 2.1 dense temporal world representations",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "NVIDIA-NeMo/Gym",
+      "repo": "https://github.com/NVIDIA-NeMo/Gym",
+      "category": "data-and-rl",
+      "priority": "P0",
+      "summary": "Stateful environment and evaluator platform with reverify and trajectory capture",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "openai/monitorability-evals",
+      "repo": "https://github.com/openai/monitorability-evals",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Released subset of CoT monitorability data and metrics",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "meridianlabs-ai/inspect_petri",
+      "repo": "https://github.com/meridianlabs-ai/inspect_petri",
+      "category": "optimization-and-observability",
+      "priority": "P1",
+      "summary": "Petri auditor scaffold: hypotheses and simulated target conversations",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "dogwood-policy/dogwood",
+      "repo": "https://github.com/dogwood-policy/dogwood",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Temporal policy DSL; reference interpreter only",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "dogwood-policy/dogwood-local-engine",
+      "repo": "https://github.com/dogwood-policy/dogwood-local-engine",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Incremental temporal tool authorization engine with persisted event history",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "strands-agents/box",
+      "repo": "https://github.com/strands-agents/box",
+      "category": "high-assurance-platforms",
+      "priority": "P0",
+      "summary": "Agent sandbox with mediated OS capabilities and temporal authorization",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "amazon-science/ExTS",
+      "repo": "https://github.com/amazon-science/ExTS",
+      "category": "autonomous-research",
+      "priority": "P1",
+      "summary": "Budget-aware candidate expansion policy for evolutionary and tree search",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "aws-bench/aws-bench",
+      "repo": "https://github.com/aws-bench/aws-bench",
+      "category": "data-and-rl",
+      "priority": "P2",
+      "summary": "Isolated real-AWS task evaluation; may incur cloud cost",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "Snowflake-Labs/agent-world-model",
+      "repo": "https://github.com/Snowflake-Labs/agent-world-model",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "1000 executable SQL-backed synthetic tool environments",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "meta-pytorch/OpenEnv",
+      "repo": "https://github.com/meta-pytorch/OpenEnv",
+      "category": "data-and-rl",
+      "priority": "P1",
+      "summary": "Public environment runtime referenced by AWM",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    },
+    {
+      "id": "hydro-project/infinity",
+      "repo": "https://github.com/hydro-project/infinity",
+      "category": "agent-runtime",
+      "priority": "P1",
+      "summary": "AWS/UC Berkeley research runtime for suspend/resume agent concurrency",
+      "repo_status": "public_repo_exists_not_archived_2026-11-15",
+      "readme_sampled": true,
+      "legal_note": "Independent license, trust boundary, dependency and checkpoint reviews before use"
+    }
+  ]
+}

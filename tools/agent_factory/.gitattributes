@@ -1,0 +1,2 @@
+*.sh text eol=lf
+tools/agent_factory/koder/* text eol=lf
