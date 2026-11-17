@@ -194,6 +194,20 @@ def model_ready(keys: dict, dns: str) -> bool:
         conn.close()
 
 
+def vllm_version(keys: dict, dns: str) -> str | None:
+    """Wersja vLLM z działającego serwera - do manifestu przebiegu (obraz to `latest`)."""
+    conn = http.client.HTTPSConnection(dns, timeout=20)
+    try:
+        conn.request("GET", "/version", headers={"Salad-Api-Key": keys["SALAD_API_KEY"]})
+        res = conn.getresponse()
+        wersja = json.loads(res.read(4096) or b"{}").get("version") if res.status == 200 else None
+        return str(wersja)[:40] if wersja else None
+    except (OSError, http.client.HTTPException, ValueError, AttributeError):
+        return None
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------- polecenia
 
 def cmd_check(keys: dict, args) -> int:
@@ -224,8 +238,11 @@ def cmd_up(keys: dict, args) -> int:
     deadline = now + timedelta(minutes=minutes)
     name = f"{LABEL}-{now:%Y%m%dt%H%M}"
     api(keys, "POST", groups_path(keys), create_body(name, offer["id"], args, deadline))
+    # Ustawienia silnika zapisane do manifestu każdego zadania (koder/bramki.py).
     save_state({"name": name, "deadline": deadline.isoformat(), "usd_h": offer["usd_h"],
-                "gpu": offer["name"], "model": args.model, "created": now.isoformat()})
+                "gpu": offer["name"], "model": args.model, "created": now.isoformat(),
+                "image": args.image, "context": args.context, "vllm_args": args.vllm_args,
+                "parser": args.parser})
     print(f"Utworzono {name}; termin {deadline:%H:%M} UTC. Dalej: status, potem proxy.")
     return 0
 
@@ -332,6 +349,9 @@ def cmd_proxy(keys: dict, args) -> int:
     if not dns:
         cmd_down(keys, args)
         raise SaladError("Model nie wstał przed terminem - grupa usunięta")
+    wersja = vllm_version(keys, dns)
+    if wersja:
+        save_state({**read_state(), "vllm_version": wersja})
     server = ThreadingHTTPServer((args.bind, args.port), make_handler(keys, dns))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"GOTOWE: http://{args.bind}:{args.port}/v1 (model `{SERVED_NAME}`)", flush=True)
