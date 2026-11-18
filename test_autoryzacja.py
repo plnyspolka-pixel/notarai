@@ -186,3 +186,33 @@ def test_sonda_zdrowia_nie_zdradza_konfiguracji(monkeypatch, tmp_path):
     admin = klient.get("/zdrowie", headers={"Authorization": "Bearer sekret-admina"}).json()
     assert admin["status"] == "ok"
     assert {"magazyn", "multi", "model", "region"} <= set(admin)
+
+
+class TestRejestrPrzyBledzieS3:
+    """Chwilowy blad S3 to nie "brak rejestru": kiedys wracal pusty slownik,
+    a najblizszy zapis nadpisywal nim wszystkie kancelarie."""
+
+    def _s3(self, monkeypatch, blad):
+        import autoryzacja
+        import magazyn
+
+        class Klient:
+            def get_object(self, **_):
+                raise blad
+
+        monkeypatch.setattr(magazyn, "TRYB", "s3")
+        monkeypatch.setattr(magazyn, "_klient_s3", lambda: Klient())
+        monkeypatch.setattr(autoryzacja, "_CACHE", None)
+        return autoryzacja
+
+    def test_dlawienie_podnosi_blad(self, monkeypatch):
+        from botocore.exceptions import ClientError
+        a = self._s3(monkeypatch, ClientError({"Error": {"Code": "SlowDown"}}, "GetObject"))
+        with pytest.raises(ClientError):
+            a._wczytaj_rejestr()
+        assert a._CACHE is None
+
+    def test_brak_pliku_to_pusty_rejestr(self, monkeypatch):
+        from botocore.exceptions import ClientError
+        a = self._s3(monkeypatch, ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject"))
+        assert a._wczytaj_rejestr() == {}

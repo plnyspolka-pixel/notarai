@@ -603,7 +603,7 @@ def wczytaj_migawke(zrodlo: str) -> dict | None:
         try:
             odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz_s3(zrodlo))
         except Exception as blad:  # noqa: BLE001
-            if type(blad).__name__ == "NoSuchKey" or magazyn._kod_bledu(blad) in ("NoSuchKey", "404"):
+            if magazyn.brak_obiektu(blad):
                 return None
             raise
         return json.loads(odp["Body"].read().decode("utf-8"))

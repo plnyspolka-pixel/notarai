@@ -100,7 +100,7 @@ def _czytaj_bajty(ident: str, nazwa: str) -> bytes | None:
         try:
             return magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz(ident, nazwa))["Body"].read()
         except Exception as blad:  # noqa: BLE001
-            if type(blad).__name__ == "NoSuchKey" or magazyn._kod_bledu(blad) in ("NoSuchKey", "404"):
+            if magazyn.brak_obiektu(blad):
                 return None
             raise
     sciezka = _lokalnie(ident) / nazwa

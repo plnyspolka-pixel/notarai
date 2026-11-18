@@ -421,7 +421,7 @@ def _czytaj_s3(nazwa: str) -> tuple[object | None, str]:
     try:
         odp = _klient_s3().get_object(Bucket=BUCKET, Key=_klucz_kancelarii(nazwa))
     except Exception as blad:  # noqa: BLE001
-        if type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404"):
+        if brak_obiektu(blad):
             return None, ""
         raise
     return json.loads(odp["Body"].read().decode("utf-8")), odp.get("ETag", "")
@@ -429,6 +429,13 @@ def _czytaj_s3(nazwa: str) -> tuple[object | None, str]:
 
 def _kod_bledu(blad: Exception) -> str:
     return str(getattr(blad, "response", {}).get("Error", {}).get("Code", ""))
+
+
+def brak_obiektu(blad: Exception) -> bool:
+    """Czy blad S3 oznacza, ze obiektu po prostu nie ma. Kazdy inny blad
+    (dlawienie, brak uprawnien, 5xx) trzeba podniesc: potraktowany jak
+    "pusty plik" konczyl sie zapisem pustego stanu na miejsce prawdziwego."""
+    return type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404")
 
 
 def wczytaj_plik_kancelarii(nazwa: str, domyslne):

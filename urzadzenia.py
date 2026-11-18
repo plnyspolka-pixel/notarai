@@ -79,7 +79,7 @@ def _czytaj(klucz: str) -> dict | None:
     try:
         odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=klucz)
     except Exception as blad:  # noqa: BLE001
-        if type(blad).__name__ in ("NoSuchKey", "ClientError"):
+        if magazyn.brak_obiektu(blad):
             return None
         raise
     return json.loads(odp["Body"].read().decode("utf-8"))

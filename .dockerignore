@@ -23,3 +23,18 @@ htmlcov/
 *.bak
 .vscode/
 .idea/
+
+# Rzeczy spoza dzialania aplikacji (obraz byl przez nie o ok. 80 MB wiekszy).
+# Z docs/ aplikacja czyta tylko docs/prawne (dokumenty_prawne.py).
+docs/*
+!docs/prawne
+marketing/
+tools/
+scripts/
+probki/
+tests/
+test_*.py
+conftest.py
+pytest.ini
+infra/
+.github/

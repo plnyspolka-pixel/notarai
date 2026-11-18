@@ -309,7 +309,7 @@ class BrakKredytow(HTTPException):
         self.potrzeba, self.saldo = potrzeba, saldo
         super().__init__(402, (
             f"Brak kredytów: ta czynność kosztuje {potrzeba:g} kr., saldo {saldo:g} kr. "
-            "Dokup pakiet w oknie Abonament albo poczekaj na odnowienie puli."))
+            "Dokup pakiet w oknie Kredyty."))
 
     def __str__(self) -> str:
         return self.detail
@@ -347,7 +347,7 @@ def _czytaj_s3(kancelaria: str) -> tuple[dict | None, str]:
     try:
         odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz(kancelaria))
     except Exception as blad:  # noqa: BLE001
-        if type(blad).__name__ == "NoSuchKey" or magazyn._kod_bledu(blad) in ("NoSuchKey", "404"):
+        if magazyn.brak_obiektu(blad):
             return None, ""
         raise
     return json.loads(odp["Body"].read().decode("utf-8")), odp.get("ETag", "")
@@ -783,7 +783,8 @@ def uzgodnij_zamowienie(kancelaria: str, numer: str) -> str | None:
             z = p["zamowienia"][numer]
             if faktura:
                 z["faktura"] = faktura
-            if not _jednorazowo(p, f"platnosc:{numer}"):
+            # Status chroni tez wtedy, gdy znacznik wypadl juz z listy ostatnich 200.
+            if z.get("status") == "oplacone" or not _jednorazowo(p, f"platnosc:{numer}"):
                 return p
             z.update(status="oplacone", oplacono=stan.get("oplacono") or _teraz(),
                      tytul=stan.get("transakcja") or z.get("transakcja"))

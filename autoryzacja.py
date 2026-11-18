@@ -105,7 +105,7 @@ def _wczytaj_rejestr() -> dict:
             odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=_klucz_s3())
             dane = json.loads(odp["Body"].read().decode("utf-8"))
         except Exception as blad:  # brak pliku = brak kancelarii
-            if type(blad).__name__ not in ("NoSuchKey", "ClientError"):
+            if not magazyn.brak_obiektu(blad):
                 raise
     else:
         plik = _plik_lokalny()
@@ -340,7 +340,7 @@ def _wczytaj_admin_json(nazwa: str) -> list:
                 Bucket=magazyn.BUCKET, Key=f"{magazyn.PREFIKS}/admin/{nazwa}")
             return json.loads(odp["Body"].read().decode("utf-8"))
         except Exception as blad:
-            if type(blad).__name__ not in ("NoSuchKey", "ClientError"):
+            if not magazyn.brak_obiektu(blad):
                 raise
             return []
     import config

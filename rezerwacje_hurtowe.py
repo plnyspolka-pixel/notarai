@@ -155,7 +155,7 @@ def _partnerzy() -> list[dict]:
     try:
         obj = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=key)
     except Exception as exc:
-        if magazyn._kod_bledu(exc) in ("NoSuchKey", "404"):
+        if magazyn.brak_obiektu(exc):
             return []
         raise
     return json.loads(obj["Body"].read().decode("utf-8"))
@@ -181,7 +181,7 @@ def _mutuj_partnerow(funkcja):
             dane = json.loads(obj["Body"].read().decode("utf-8"))
             warunek = {"IfMatch": obj["ETag"]}
         except Exception as exc:
-            if magazyn._kod_bledu(exc) not in ("NoSuchKey", "404"):
+            if not magazyn.brak_obiektu(exc):
                 raise
             dane, warunek = [], {"IfNoneMatch": "*"}
         wynik = funkcja(dane)

@@ -37,13 +37,11 @@ pytest -s
 ## Struktura testów
 
 ```
-test_walidacja.py    - Testy walidatorów (PESEL, NIP, KW, kwoty)
-test_dokumenty.py    - Testy wykrywania pól ze wzoru i konwersji dokumentów
-test_bedrock.py      - Testy przepływu z atrapą Bedrock (bez prawdziwego modelu)
-test_ekw.py          - Księga wieczysta z EKW przez Apify: atrapa klienta HTTP, zapis do sprawy, ślad audytowy, endpointy
-test_ekw_finyou.py   - Księga wieczysta przez Finance You (API partnerskie): wybór dostawcy, dopytywanie, błędy
+test_<modul>.py      - Testy modułu <modul>.py (ten sam katalog; jeden plik testów na moduł)
+test_*_ui.py         - Testy interfejsu w przeglądarce (wymagają playwright; bez niego są pomijane)
+tests/               - Testy narzędzi z tools/
+conftest.py          - Wspólne pomocniki i zabezpieczenia (np. żaden test nie łączy się z Pocztą Polską)
 pytest.ini           - Konfiguracja pytest
-generuj_testowe.py   - Pomocniczy skrypt do generowania poprawnych numerów testowych
 ```
 
 ## Pokrycie testów
@@ -90,7 +88,7 @@ generuj_testowe.py   - Pomocniczy skrypt do generowania poprawnych numerów test
 4. **Nazwy testów opisują co testują** - `test_pesel_xix_wiek`, nie `test_1`
 5. **Grupuj testy w klasy** - `TestPesel`, `TestNip`, itp.
 6. **Jeden test = jedna asercja (tam gdzie to możliwe)**
-7. **Używaj poprawnych numerów kontrolnych** - sprawdź `generuj_testowe.py`
+7. **Używaj poprawnych numerów kontrolnych** - PESEL buduje `z_suma_kontrolna` z `conftest.py`
 
 ## Dodawanie nowych testów
 
