@@ -327,7 +327,7 @@ def _sprawdz_zgloszenie(dane: Zgloszenie) -> dict:
     return {
         "id": uuid.uuid4().hex[:12],
         "utworzono": _teraz(),
-        "zrodlo": dane.zrodlo if dane.zrodlo in ("strona", "kalkulator", "inne") else "inne",
+        "zrodlo": dane.zrodlo if dane.zrodlo in ("strona", "kalkulator", "agent_glosowy", "inne") else "inne",
         "miejscowosc": slug,
         "miejscowosc_nazwa": miejscowosc["nazwa"] if miejscowosc else (kancelaria or {}).get("miejscowosc", ""),
         "baza_id": kancelaria["id"] if kancelaria else None,
@@ -351,17 +351,21 @@ def zgloszenie(dane: Zgloszenie, request: Request):
     return przyjmij(dane, request)
 
 
-def przyjmij(dane: Zgloszenie, request: Request, dodatki: dict | None = None) -> dict:
+def przyjmij(dane: Zgloszenie, request: Request | None, dodatki: dict | None = None,
+             klucz_limitu: str | None = None) -> dict:
     """Walidacja, przydzial, zapis i powiadomienia. `dodatki` dopisuje do
-    zgloszenia np. pelne zapytanie z teczki klienta (teczka.py)."""
+    zgloszenia np. pelne zapytanie z teczki klienta (teczka.py).
+    `klucz_limitu` zastepuje adres IP w limicie zgloszen - agent glosowy
+    (agent_glosowy.py) dzwoni z adresow ElevenLabs wspolnych dla wszystkich
+    rozmow, wiec liczy limit na rozmowe."""
     if dane.strona:
         return {"id": "", "notarai": False, "komunikat": "Dziękujemy."}
     z = _sprawdz_zgloszenie(dane)
     z.update(dodatki or {})
+    klucz = klucz_limitu or autoryzacja.adres_klienta(request)
     if z["baza_id"] is None and DOWOLNA == "gielda":
-        return _na_gielde(z, request)
-    limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
-                           "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
+        return _na_gielde(z, klucz)
+    limit_zgloszen.sprawdz(klucz, "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
     klienci = kancelarie_notarai()
 
     def dodaj(d):
@@ -399,10 +403,9 @@ def przyjmij(dane: Zgloszenie, request: Request, dodatki: dict | None = None) ->
     return {"id": z["id"], "notarai": bool(z["kancelaria_id"]), "komunikat": komunikat}
 
 
-def _na_gielde(z: dict, request: Request) -> dict:
+def _na_gielde(z: dict, klucz: str) -> dict:
     import leady
-    limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
-                           "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
+    limit_zgloszen.sprawdz(klucz, "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
     opis = "\n".join(x for x in (z.get("wiadomosc", ""), f"Preferowany termin: {z['termin']}" if z.get("termin") else "",
                                   f"Wartość: {taksa.zl(z['wartosc'])}" if z.get("wartosc") else "") if x)
     lead = leady.nowy(klient=z["klient"], sprawa=z["czynnosc"], opis=opis, miejscowosc=z["miejscowosc"],

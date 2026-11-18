@@ -55,6 +55,8 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             "/notariusze", "/api/notariusze",
             # powrot z logowania Microsoft/Google przy podpinaniu skrzynki (podpisany stan)
             "/api/korespondencja/oauth/powrot",
+            # webhooki agenta glosowego - wlasny token i limity (agent_glosowy.py)
+            "/api/agent-glosowy",
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania
             "/poswiadczenia")
 
