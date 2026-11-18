@@ -267,10 +267,17 @@ def kancelarie(d: Szukaj, request: Request):
     nazwa = b["miejscowosci"][slug]["nazwa"]
     return {"znaleziono": True, "miejscowosc": nazwa, "miejscowosc_id": slug, "liczba": len(kolejnosc),
             "kancelarie": lista, "kolejnosc": "neutralna (codzienna rotacja, jak na notarai.pl)",
-            "do_powiedzenia": (f"W miejscowości {nazwa} mam {len(kolejnosc)} kancelarii. "
-                               + ("Kilka pierwszych z dzisiejszej kolejności: "
-                                  + "; ".join(k["nazwa"] for k in lista) + "."
-                                  if lista else "Żadna nie przyjmuje teraz rezerwacji online."))}
+            "do_powiedzenia": _opis_listy(nazwa, len(kolejnosc), lista, d.tylko_rezerwacja_online)}
+
+
+def _opis_listy(nazwa: str, liczba: int, lista: list[dict], tylko_online: bool) -> str:
+    if not lista:
+        return (f"W miejscowości {nazwa} żadna kancelaria nie przyjmuje teraz rezerwacji online. "
+                "Mogę przekazać prośbę o kontakt - kancelaria oddzwoni i ustali termin."
+                if tylko_online else f"Nie mam kancelarii z danymi kontaktowymi w miejscowości {nazwa}.")
+    jakie = "z rezerwacją online " if tylko_online else ""
+    return (f"W miejscowości {nazwa} mam {liczba} kancelarii {jakie}. Kilka pierwszych z dzisiejszej "
+            "kolejności: " + "; ".join(k["nazwa"] for k in lista) + ".").replace("  ", " ")
 
 
 class Terminy(BaseModel):
