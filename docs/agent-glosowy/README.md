@@ -19,7 +19,8 @@ Asystentka „Ola” obsługuje dwie grupy rozmówców:
 ## ElevenLabs
 - Agent: `agent_5501m7611p1nfarsk1k4x9h49bhk` („notarai — asystentka głosowa Ola”), język pl,
   LLM claude-sonnet-4-6, strefa Europe/Warsaw, głos `8EWWaNTDrqObI22Gvo1q`,
-  TTS `eleven_v4_turbo` (reguła CLAUDE.md: tylko silnik v3+).
+  TTS `eleven_v4_turbo` (reguła CLAUDE.md: tylko silnik v3+), tryb ekspresyjny
+  wyłączony - inaczej model wstawia do wypowiedzi tagi typu `[happy]`.
 - Baza wiedzy: `TgZJyH1K9d7ALS1vPlBu`.
 - Sekret nagłówka `X-Notarai-Agent`: `notarai_agent_glosowy_token` (`m7LyXuWa80Xqs9Dll4UY`).
 - Narzędzia (webhook, POST na https://app.notarai.pl/api/agent-glosowy/...):
