@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "task_id": "sum-fixture-001",
+  "task_sha256": "d1e838bb35f15d3e72e809f6cb23756693106fa42bbcc56c248bc7a0439a1cdb",
+  "assertions": [
+    {"path": "answer", "operator": "equals", "expected": 10}
+  ]
+}

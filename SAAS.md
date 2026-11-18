@@ -15,9 +15,20 @@
 - `infra/wyslij-kod.ps1` — wysyła zacommitowane zmiany na GitHub (przepina `origin` ze starego CodeCommit, jeśli trzeba)
 - `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
+- `stanowiska.py` — stanowisko osoby w zespole (notariusz / aplikant / sekretariat): co może zrobić w sprawach; serwer odmawia 403, UI chowa przyciski. Nadaje właściciel w oknie „Zespół kancelarii”. Osoba bez stanowiska i właściciel mają pełne uprawnienia.
+- `korespondencja.py` — poczta e-mail do spraw: IMAP (TLS) albo katalog .eml, propozycje przypisania, pliki sprawy, ustalenia ze źródłem (sekcja „Poczta e-mail do spraw”)
+- `scripts/demo_odcinek01.py` — fikcyjne dane demo i lokalny serwer z kontami 4 ról do nagrania odcinka 01 (`docs/odcinek-01-luki.md`)
 - `infra/2-zbuduj-obraz.ps1`, `infra/3-wdroz-aplikacje.ps1` — etapy wdrożenia jednym poleceniem
 - `test_magazyn.py`, `test_autoryzacja.py` — 10 testów (cały zestaw: 204 przechodzą, 1 pominięty)
 
+- `ustawienia_kancelarii.py` — ustawienia ogólne kancelarii (plik kancelarii `ustawienia`,
+  `GET/PUT /api/ustawienia/ogolne`): domyślna dokładność odczytu z trybem automatycznym
+  (PDF z warstwą tekstową → szybko, skany → wysoka) i wzór nazwy pliku Word
+  (`nazwy.nazwa_pliku`, np. `{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}`). Okno
+  „Ustawienia kancelarii” w aplikacji; zmienia właściciel. Przy okazji projekt DOCX
+  powstaje na pliku wzoru (`dokumenty.tekst_na_docx(..., wzor=)`), a błędy Bedrock
+  wracają do notariusza po polsku z radą (`bedrock.opis_bledu`), błędy przejściowe
+  w strumieniu są ponawiane.
 - `poswiadczenia.py` + `static/poswiadczenia.html` — poświadczenie kopii: zdjęcie z telefonu
   albo skan z kopiarki (PDF, także kilka dokumentów w jednym skanie) → opis do repertorium A
   (krótka treść czynności, liczba stron, cechy dokumentu do klauzuli, taksa § 13 pkt 2/3).
@@ -102,7 +113,7 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
    GitHub zmienia tylko tag obrazu; pozostałe parametry stosu (certyfikat,
    sekrety, e-mail, cena) zostają z poprzedniego wdrożenia. Etap 2 i 3 z
    komputera dalej działają: są potrzebne, gdy dochodzi nowy sekret
-   (np. `notarai/stripe`) albo zmieniasz parametr, np. liczbę kopii czy cenę.
+   (np. `notarai/tpay`) albo zmieniasz parametr, np. liczbę kopii czy stawkę VAT.
    Bezpieczeństwo: każdy, kto może pushować na `master`, wdraża na produkcję.
    Warto włączyć w GitHubie ochronę gałęzi `master` (Settings -> Branches)
    z wymogiem zielonych testów.
@@ -181,10 +192,17 @@ Czego żadna automatyka nie załatwi:
 
 ## Kredyty za czynności (tokenomia)
 
-Koszt każdej czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny
-w kredytach wynikają z kosztu z narzutem co najmniej 100%. Włącza parametr stosu
-`Tokenomia=true` (zmienna `PIECZAPP_TOKENOMIA`); bez niego koszty są tylko liczone.
-Cennik, plany, symulacja i trzy modele biznesowe: `docs/tokenomia.md`.
+Kredyty są jedynym sposobem zakupu notarai — nie ma abonamentu. Koszt każdej
+czynności z modelem jest liczony z tokenów (`tokenomia.py`), a ceny w kredytach
+wynikają z kosztu z narzutem co najmniej 100%. Nowa kancelaria dostaje 150 kr
+startowych, potem właściciel kupuje pakiety. Płatność idzie przez Finance You
+(`platnosci.py`): to samo konto TPay Fundacji i te same faktury KSeF co sprzedaż
+Finance You, ten sam sekret `notarai/finyou` co treść KW. Po stronie Finance You:
+`/api/public/partner-platnosci` (repozytorium finyou, `src/lib/partner-payments/`).
+
+Brak kredytów blokuje tylko czynności płatne (HTTP 402), nie dostęp do spraw.
+Uzgodnienie sprzedaży: panel `/admin` → „Sprzedaż kredytów (CSV)” (z numerami faktur).
+Cennik, symulacja, modele biznesowe i faktury: `docs/tokenomia.md`.
 
 ## Pliki w chmurze albo u kancelarii
 
@@ -204,6 +222,71 @@ Przy `u-klienta`:
   po stronie serwera,
 - za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
 
+## Poczta e-mail do spraw (korespondencja.py)
+
+Okno „Poczta do przypisania”: notarai czyta skrzynkę kancelarii i dla każdej
+wiadomości proponuje sprawę (sygnatura, numer KW, adres nadawcy/adresata znany
+w sprawie, odpowiedź w wątku już przypisanym, nazwiska stron) — z uzasadnieniem
+i pewnością. **Nic nie trafia do sprawy bez kliknięcia „Przypisz do sprawy”.**
+Po przypisaniu `.eml` i załączniki są w „Plikach sprawy” (z nadawcą, datą,
+tematem i rolą nadawcy), a metadane w `{sprawa}/korespondencja.json`.
+
+Ustalenia z treści wyciąga model (Bedrock, eu-central-1) osobnym kliknięciem
+(uprawnienie `sprawy_ai`). Ustalenie ma źródło: kto napisał, jaka jest jego rola
+(strona / kupujący / pełnomocnik / osoba kontaktowa / bank / inny) i czy relacjonuje
+cudze stanowisko („mama się zgadza”). **Ustalenia nie zmieniają pól odczytu ani
+projektu** — w „Weryfikacji odczytu” pojawia się tylko komunikat, np. „W korespondencji:
+1.12 (Paweł Nowak — osoba kontaktowa, 9.11). Brak potwierdzenia: Irena Nowak
+(sprzedająca).”, a projekt nadal ma w tym miejscu `<<BRAK>>`.
+
+Podpięcie skrzynki (okno „Poczta do przypisania”, uprawnienie `kancelaria`) to
+**jeden adres e-mail** (`skrzynki.py`):
+1. Rozpoznanie dostawcy: znane domeny (Gmail, Microsoft 365/Outlook, Onet, WP, o2,
+   Interia, iCloud, Yahoo, GMX, Zoho), dla własnej domeny rekord MX (Google
+   Workspace, Microsoft 365, OVH), autokonfiguracja poczty (plik autoconfig domeny
+   i baza Thunderbirda), na końcu host MX / `imap.` / `mail.` — tylko z ważnym
+   certyfikatem TLS. Na zewnątrz idzie wyłącznie domena kancelarii.
+2. Logowanie: **„Zaloguj przez Microsoft” / „Zaloguj przez Google”** (OAuth 2.0 +
+   PKCE, IMAP XOAUTH2) albo hasło / hasło aplikacji. Microsoft nie przyjmuje haseł
+   w IMAP — dla Microsoft 365 i Outlook.com OAuth jest jedyną drogą. Kreator podaje
+   konkretną podpowiedź (np. hasło aplikacji Google, włączenie IMAP w Onet/WP/Interii).
+3. Test logowania przed zapisem, wybór folderu z listy (polskie nazwy z UTF-7 IMAP),
+   TLS (993) albo STARTTLS (143) — nigdy bez szyfrowania.
+4. Skrzynka sprawdza się sama (przy otwarciu aplikacji i co 5 minut, na serwerze
+   najwyżej raz na 3 minuty na kancelarię); pierwsze podpięcie bierze tylko ostatnie
+   30 dni (`PIECZAPP_SKRZYNKA_DNI`). Tylko do odczytu (`BODY.PEEK[]`).
+
+Dostęp do skrzynki:
+- **Chmura:** hasło albo token odświeżający OAuth wyłącznie w AWS Secrets Manager
+  jako `notarai-skrzynka-<kancelaria>` (polityka `sekrety-skrzynki-pocztowej`
+  w `infra/notarai-aplikacja.yaml`, eu-central-1). Nie wraca do przeglądarki, nie
+  trafia do S3 ani do logów. „Odłącz skrzynkę” kasuje sekret.
+- **Lokalnie:** w pamięci procesu (do restartu); na stałe zmienna
+  `PIECZAPP_SKRZYNKA_HASLO` ustawiona w sesji (nie w `.env` w repozytorium).
+- Powrót z logowania: `/api/korespondencja/oauth/powrot` (jedyna otwarta ścieżka
+  poczty; kancelarię wskazuje stan podpisany HMAC z kluczem z sekretu admina,
+  jednorazowy, ważny 15 minut).
+
+Włączenie przycisków Microsoft / Google (raz, administrator konta):
+1. Microsoft Entra → App registrations → nowa aplikacja „notarai poczta”, konta
+   w dowolnej organizacji i osobiste konta Microsoft, przekierowanie (Web)
+   `https://app.notarai.pl/api/korespondencja/oauth/powrot`, uprawnienie delegowane
+   Office 365 Exchange Online → `IMAP.AccessAsUser.All`, sekret klienta.
+2. Google Cloud → OAuth client (Web application), to samo przekierowanie, zakres
+   `https://mail.google.com/` (zakres zastrzeżony: do czasu weryfikacji Google
+   aplikacja działa dla dodanych użytkowników testowych; do tego czasu Gmail
+   działa hasłem aplikacji).
+3. `infra\zapisz-sekret-oauth-poczty.ps1` (sekret `notarai/oauth-poczty`), potem
+   `infra\3-wdroz-aplikacje.ps1` — parametr `OAuthPocztySekretArn` ustawi się sam.
+   Bez tego kreator działa na hasło IMAP, a przycisków po prostu nie ma.
+- Test na żywo: `docs/czeka-na-dostep.md` (NA-9, NA-10).
+
+Demo (dane fikcyjne, domena `.test`):
+
+    python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01
+    python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo 'Demo-Odc01!' \
+        --atrapa-modelu 3 --skrzynka-demo scripts/demo_odcinek01_skrzynka
+
 ## Znane granice (uczciwie)
 - Listy sankcyjne i PEP leżą jako migawki JSON w S3 (`<prefiks>/admin/listy_aml/`), a indeks
   buduje się w pamięci każdej kopii aplikacji (sekundy). Odświeża je wątek w tle co 6 h;
@@ -211,12 +294,15 @@ Przy `u-klienta`:
   przeciążona (429) - importer ponawia, a stara migawka zostaje.
 - Rejestr kancelarii w JSON (S3) — wystarczy do ~kilkudziesięciu kancelarii;
   przy większej skali przenieś do DynamoDB/RDS.
-- Równoległy zapis tej samej sprawy z dwóch przeglądarek: ostatni wygrywa
-  (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
+- Równoległy zapis tej samej sprawy z dwóch miejsc: każda kopia aplikacji wysyła
+  do S3 tylko pliki, które sama zmieniła (skróty w `.s3-skroty`), więc zmiany
+  w różnych plikach się nie nadpisują. Ten sam plik zmieniony naraz w dwóch
+  miejscach: ostatni wygrywa (wersjonowanie S3 pozwala odzyskać poprzednią wersję).
+  Korespondencja ma osobny plik na każdą wiadomość, więc ustalenia z różnych maili
+  nie kolidują.
 - Kontener w publicznej podsieci domyślnego VPC, bez NAT: wejście blokuje grupa
   bezpieczeństwa (tylko ruch z load balancera). Prywatne podsieci z NAT to
   osobny, stały koszt; warto przy większej skali.
 - Dwie kopie aplikacji. Przed odczytem sprawy każda porównuje znacznik wersji
   z ETagiem pliku w S3 i odświeża swoją pamięć podręczną, gdy druga kopia
-  zapisała zmianę. Nadal obowiązuje zasada: przy równoczesnym zapisie tej samej
-  sprawy z dwóch miejsc ostatni wygrywa.
+  zapisała zmianę, i dociąga tylko pliki, które się zmieniły.

@@ -1,0 +1,90 @@
+{
+  "slug": "basia",
+  "imie": "Basia",
+  "wiek": 51,
+  "rola": "sekretariat kancelarii",
+  "rola_en": "office secretary of the notary office",
+  "wyglad": {
+    "twarz": "fuller round face, light olive skin, expressive dark eyes, tortoiseshell glasses",
+    "wlosy": "dark-brown hair pinned up in a loose bun",
+    "sylwetka": "medium height, sturdy"
+  },
+  "stroj": {
+    "opis": "light beige knit cardigan, navy-and-cream patterned silk scarf, small gold earrings",
+    "kolory": {
+      "sweter": "#C9B49A",
+      "apaszka": "#1F2A44"
+    }
+  },
+  "rekwizyty": [
+    "koperty",
+    "książka nadawcza",
+    "segregator",
+    "drukarka"
+  ],
+  "charakter": "zna procesy, sucha ironia, kompetentna (nigdy nieudolna)",
+  "relacje": "Basia ⇄ Marta: praktyka kontra automatyzacja; matkuje Kubie",
+  "strefa": "sekretariat",
+  "strefa_opis_en": "secretary station with the printer in the south-east corner",
+  "kadry": [
+    {
+      "kamera": "K3m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "She stands beside the printer on the walnut sideboard, turned three-quarters to camera, a stack of plain white envelopes on the sideboard next to her, hands relaxed in front of her, looking at camera over her glasses with a calm, slightly ironic expression.",
+      "plik": "kadr_K3m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/IGOI2FD4Erf8Z8Vj9mvGf_c7vJogx5.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    },
+    {
+      "kamera": "K3",
+      "glowny": false,
+      "poza_en": "She stands beside the printer on the walnut sideboard, turned three-quarters to camera, a stack of plain white envelopes on the sideboard next to her, hands relaxed in front of her, looking at camera over her glasses with a calm, slightly ironic expression.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K3.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a19/mBi1uFcW0yvt8GOW3zJbB_JrJJfHrY.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Dry ironic secretary. Looks over the top of her glasses, raises eyebrows, small sceptical head tilts, occasional short wave of the hand toward the printer or envelopes.",
+    "gesty_typowe": [
+      "spojrzenie znad okularów",
+      "przechylenie głowy",
+      "machnięcie dłonią w stronę drukarki"
+    ],
+    "unikac": [
+      "krzyk",
+      "bezradność"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": "Polish woman in her early fifties, office manager who has seen everything. Native Polish speaker from Warsaw. Low, slightly raspy, lived-in voice with motherly warmth underneath. Sardonic and deadpan: delivers sarcasm quietly, almost under her breath, with long dry pauses and a little exhale before the punchline. Speaks at an easy, measured pace, very natural and spontaneous, like talking to a colleague across a desk, never theatrical or announcer-like. Realistic close microphone in a small quiet office.",
+    "elevenlabs_voice_id": "vqyfbWoOfYmPoa0QNkKB",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id",
+    "elevenlabs_voice_id_v1": "XxH7vHpT0p7INeJx8ihA",
+    "model_voice_design": "eleven_ttv_v3",
+    "model_tts": "eleven_v3 (Text to Dialogue, stability 0.5)",
+    "przepis": "glosy.md"
+  },
+  "heygen": {
+    "avatar_id": "1e4d13ee1029a1f179e9bd725b200dfa",
+    "avatar_v1": "bcfed60999bda078a1a57f273118066b",
+    "utworzony": "2026-11-12, POST /v3/avatars type=photo z kadru głównego"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/BNiu7VcTe6RXfEBs7LUu3_basia_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/iWi4ReWP4MYLCcMLRu2jf_hoitsF1G.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "zatwierdzona (kancelaria-v2, awatar v2)"
+}

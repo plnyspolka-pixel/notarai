@@ -1,0 +1,68 @@
+{
+  "documents": [
+    {
+      "file": "BIBLIA_SEZONU_V4",
+      "pages": 25,
+      "docx_structural": "PASS",
+      "pdf_text": "PASS",
+      "docx_native_render": "NOT_AVAILABLE",
+      "text_docx_pdf_match": "PASS",
+      "xml_and_zip": "PASS",
+      "raster_pages": 25,
+      "pdf_visual_review": "PASS"
+    },
+    {
+      "file": "BRAND_PRODUCTION_V4",
+      "pages": 8,
+      "docx_structural": "PASS",
+      "pdf_text": "PASS",
+      "docx_native_render": "NOT_AVAILABLE",
+      "text_docx_pdf_match": "PASS",
+      "xml_and_zip": "PASS",
+      "raster_pages": 8,
+      "pdf_visual_review": "PASS"
+    },
+    {
+      "file": "AUTORYZACJA_V4",
+      "pages": 6,
+      "docx_structural": "PASS",
+      "pdf_text": "PASS",
+      "docx_native_render": "NOT_AVAILABLE",
+      "text_docx_pdf_match": "PASS",
+      "xml_and_zip": "PASS",
+      "raster_pages": 6,
+      "pdf_visual_review": "PASS"
+    }
+  ],
+  "checks": 72,
+  "episodes": 8,
+  "features": 13,
+  "assets": [
+    {
+      "file": "sygnet_oryginalny_repo.svg",
+      "source": "https://github.com/plnyspolka-pixel/notarai/blob/5e58dd03b79ba1228657ec858b3116e84e5f659d/static/notarai-symbol.svg",
+      "git_blob_sha1": "476d23cb07e59fc7b6214acb0a42e0b151ec5ff3",
+      "verified": true
+    },
+    {
+      "file": "logo_kampanijne_PR20.png",
+      "source": "https://github.com/plnyspolka-pixel/notarai/blob/5e58dd03b79ba1228657ec858b3116e84e5f659d/docs/kampania-komputerku/pakiet/01_marki/logo_kampanijne_poziome_light.png",
+      "git_blob_sha1": "444da4b0e8c5f80202ea63cc57be70c706d35472",
+      "verified": true
+    }
+  ],
+  "csv": "PASS: UTF-8 BOM, separator średnik, 8/13/72 rekordy, równa liczba kolumn, BLOCK",
+  "gate_default": "PASS: brak zgód, dowodów i materiałów blokuje publikację",
+  "gate_tests": "PASS: kompletna atrapa, zmieniony hash, wygasła zgoda, domyślny BLOCK; atrapy wyłącznie w work",
+  "pdf_visual_review": "PASS: przejrzano podglądy wszystkich 39 stron; poprawiono parser nagłówków i wybór aktualnego logo przed końcową kontrolą.",
+  "limitations": [
+    "Nie wykonano natywnego renderu DOCX: brak LibreOffice soffice.exe.",
+    "Nie wykonano testów aplikacji i integracji.",
+    "Nie przeprowadzono autoryzacji prawnej finalnych publikacji.",
+    "Baseline dotyczy wskazanego head PR; późniejsze zmiany wymagają przeglądu."
+  ],
+  "gate_checklist_tests": "PASS: 72 wymagane kontrole na odcinek, domyślny BLOCK, kompletna atrapa PASS, niezamknięta kontrola i zmiana hash blokują.",
+  "verification_date": "2026-11-12",
+  "native_docx_layout_verified": false,
+  "publication_authorized": false
+}

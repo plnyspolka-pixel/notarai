@@ -146,7 +146,7 @@ def test_administrator_nie_przedluzy_sobie_dostepu(srodowisko):
     klient, k, _ = srodowisko
     klient.post("/api/serwis", headers=jako(WLASCICIEL, k), json={"godziny": 1})
     for metoda, adres in (("post", "/api/serwis"), ("get", "/api/zespol"),
-                          ("post", "/api/zespol"), ("get", "/api/abonament"),
+                          ("post", "/api/zespol"), ("get", "/api/kredyty"), ("post", "/api/kredyty/pakiet"),
                           ("post", "/api/dokumenty/umowa"), ("get", "/api/pomocnik/zlecenia")):
         dodatki = {"json": {"godziny": 168}} if metoda == "post" else {}
         odp = getattr(klient, metoda)(adres, headers=serwisant(k), **dodatki)

@@ -1,0 +1,17 @@
+:root {
+  --notarai-deep: #061744;
+  --notarai-navy: #071D49;
+  --notarai-ink: #0D193C;
+  --notarai-indigo: #1C1CC0;
+  --notarai-blue: #2B52D9;
+  --notarai-azure: #2197D3;
+  --notarai-cyan: #00CFFF;
+  --notarai-bg: #F5F7FC;
+  --notarai-white: #FFFFFF;
+  --notarai-stroke: #D9E5F4;
+  --notarai-muted: #647392;
+  --notarai-success: #23764B;
+  --notarai-alert: #B52E44;
+  --notarai-font: Montserrat, "Segoe UI", Arial, sans-serif;
+  --notarai-gradient: linear-gradient(115deg, #1C1CC0, #2463CC 54%, #2197D3 100%);
+}

@@ -1,6 +1,6 @@
 """Tokenomia: cennik z narzutem >= 100%, licznik tokenow, portfel kredytow,
-pobieranie w punktach API, pakiety ze Stripe i symulacja ekonomii.
-Bez AWS i bez sieci: Bedrock i Stripe zastapione atrapami."""
+pobieranie w punktach API i symulacja ekonomii. Zakup pakietow przez TPay:
+test_platnosci.py. Bez AWS i bez sieci: Bedrock zastapiony atrapa."""
 import os
 import sys
 import threading
@@ -44,11 +44,39 @@ def test_najnizsza_cena_kredytu_nie_schodzi_ponizej_zalozenia_cennika():
     assert t.najnizsza_cena_kredytu() >= t.NAJNIZSZA_CENA_KREDYTU_ZL - 1e-9
 
 
-def test_wieksze_pakiety_i_plany_sa_tansze_za_kredyt():
+def test_wieksze_pakiety_sa_tansze_za_kredyt():
     ceny = [p["cena_zl"] / p["kredyty"] for p in sorted(t.PAKIETY.values(), key=lambda p: p["kredyty"])]
     assert ceny == sorted(ceny, reverse=True)
-    ceny = [p["cena_zl"] / p["pula"] for p in sorted(t.PLANY.values(), key=lambda p: p["cena_zl"])]
-    assert ceny == sorted(ceny, reverse=True)
+
+
+def test_nie_ma_abonamentu_tylko_kredyty():
+    assert not hasattr(t, "PLANY") and not hasattr(t, "odnow_pule")
+
+
+def test_tokenomia_domyslnie_wlaczona(monkeypatch):
+    import importlib
+    monkeypatch.delenv("PIECZAPP_TOKENOMIA", raising=False)
+    try:
+        assert importlib.reload(t).WLACZONA is True
+    finally:
+        importlib.reload(t)
+
+
+def test_kredyty_startowe_wystarcza_na_przetestowanie_kazdej_funkcji():
+    """Pelna sprawa (14 stron, zestawienie, 4 tury, projekt, KW, formularz,
+    kilka krokow asystenta, przesylka) miesci sie w kredytach startowych
+    co najmniej raz - z zapasem na druga sprawe."""
+    a = t.AKCJE
+    sprawa = (14 * a["odczyt_strony_max"].kredyty() + a["zalozenie_sprawy"].kredyty()
+              + 4 * a["rozmowa_tura"].kredyty() + a["projekt"].kredyty() + a["ekw_ksiega"].kredyty()
+              + a["formularz"].kredyty() + 5 * a["asystent_krok"].kredyty() + a["przesylka"].kredyty())
+    assert t.KREDYTY_PROBNE >= 1.5 * sprawa
+    assert t.KREDYTY_PROBNE <= 3 * sprawa                       # nie rozdajemy miesiaca pracy
+
+
+def test_tytul_faktury():
+    assert t.tytul_faktury(500) == ("Bon jednego przeznaczenia - pakiet 500 kredytów na usługi platformy "
+                                    "notarai (oprogramowanie w modelu SaaS dla kancelarii notarialnej)")
 
 
 def test_koszt_tokenow():
@@ -127,10 +155,24 @@ def test_bez_akcji_licznik_niczego_nie_liczy():
 
 # --- portfel --------------------------------------------------------------------
 
-def test_kancelaria_bez_portfela_nie_jest_blokowana(portfele):
+def test_kancelaria_bez_portfela_dostaje_kredyty_startowe_i_placi(portfele):
     with t.akcja("projekt") as a:
         pass
-    assert a.pobrano == 0 and t.wczytaj_portfel(KANCELARIA) is None
+    assert a.pobrano == t.AKCJE["projekt"].kredyty()
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == pytest.approx(t.KREDYTY_PROBNE - a.pobrano)
+
+
+def test_lokalne_stanowisko_nie_placi(portfele, monkeypatch):
+    monkeypatch.setattr(t, "_kancelaria", lambda: "lokalna")
+    with t.akcja("projekt") as a:
+        pass
+    assert a.pobrano == 0 and t.wczytaj_portfel("lokalna") is None
+
+
+def test_aktywna_to_dodatnie_saldo(portfele):
+    assert t.aktywna(KANCELARIA) is True                      # kredyty startowe
+    t.doladuj(KANCELARIA, -t.KREDYTY_PROBNE, "test")
+    assert t.aktywna(KANCELARIA) is False
 
 
 def test_pobranie_po_udanej_akcji(portfele):
@@ -173,22 +215,12 @@ def test_debet_pozwala_dokonczyc_czynnosc(portfele, monkeypatch):
     assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == pytest.approx(1 - t.AKCJE["projekt"].kredyty())
 
 
-def test_najpierw_pula_abonamentu_potem_dokupione(portfele):
-    t.odnow_pule(KANCELARIA, "start", znacznik="in_1")
+def test_najpierw_kredyty_startowe_potem_dokupione(portfele):
+    t.zaloz_portfel_probny(KANCELARIA)
     t.doladuj(KANCELARIA, 100, "pakiet")
     portfel = t.wczytaj_portfel(KANCELARIA)
-    pula = t.PLANY["start"]["pula"]
-    t._pobierz(portfel, pula + 50)
+    t._pobierz(portfel, t.KREDYTY_PROBNE + 50)
     assert portfel["pula"] == 0 and portfel["doladowane"] == 50
-
-
-def test_odnowienie_puli_raz_na_fakture_i_debet_nie_znika(portfele):
-    t.odnow_pule(KANCELARIA, "start", znacznik="in_1")
-    t.zmien_portfel(KANCELARIA, lambda p: p.update(pula=-12.0))
-    t.odnow_pule(KANCELARIA, "start", znacznik="in_2")
-    t.odnow_pule(KANCELARIA, "start", znacznik="in_2")      # powtorzony webhook
-    portfel = t.wczytaj_portfel(KANCELARIA)
-    assert portfel["pula"] == t.PLANY["start"]["pula"] and portfel["doladowane"] == -12.0
 
 
 def test_kredyty_probne_tylko_raz(portfele):
@@ -214,46 +246,6 @@ def test_obciazenie_po_wykonaniu(portfele):
     t.doladuj(KANCELARIA, 10, "test")
     assert t.obciaz("przesylka", 4) == 4 * t.AKCJE["przesylka"].kredyty()
     assert t.obciaz("przesylka", 0) == 0
-
-
-# --- Stripe: pakiety kredytow ------------------------------------------------------
-
-def _sesja(stan="paid", identyfikator="cs_1"):
-    return {"id": identyfikator, "payment_status": stan,
-            "metadata": {"typ": "kredyty", "kancelaria": KANCELARIA, "pakiet": "500"}}
-
-
-def test_zaplacony_pakiet_dopisuje_kredyty_raz(portfele):
-    assert t.z_platnosci_stripe(_sesja()) is True
-    assert t.z_platnosci_stripe(_sesja()) is True          # powtorzony webhook
-    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 500
-
-
-def test_niezaplacony_pakiet_nic_nie_dopisuje(portfele):
-    assert t.z_platnosci_stripe(_sesja("unpaid")) is True
-    assert t.wczytaj_portfel(KANCELARIA) is None
-
-
-def test_sesja_abonamentu_to_nie_pakiet(portfele):
-    assert t.z_platnosci_stripe({"id": "cs_2", "payment_status": "paid", "metadata": {}}) is False
-
-
-def test_checkout_pakietu_w_stripe(monkeypatch):
-    import platnosci
-    for k, v in {"KLUCZ": "sk_test", "WEBHOOK_SEKRET": "whsec", "CENA_ID": "price_x",
-                 "ADRES": "https://app.notarai.test"}.items():
-        monkeypatch.setattr(platnosci, k, v)
-    wyslane = {}
-
-    def stripe(sciezka, dane):
-        wyslane.update(dane)
-        return {"url": "https://checkout.stripe.test/s"}
-    monkeypatch.setattr(platnosci, "_stripe", stripe)
-    wynik = platnosci.utworz_checkout_kredytow("k1", "a@b.test", "", "500", 500, 450)
-    assert wynik["adres"].startswith("https://checkout.stripe.test")
-    assert wyslane["mode"] == "payment"
-    assert wyslane["line_items"][0]["price_data"]["unit_amount"] == 45000
-    assert wyslane["metadata"] == {"kancelaria": "k1", "typ": "kredyty", "pakiet": "500"}
 
 
 # --- punkty API --------------------------------------------------------------------
@@ -369,19 +361,15 @@ def test_kazdy_model_biznesowy_ma_narzut_100_procent_na_kosztach_ai():
             assert m["marza_po_wsparciu_zl"] > 0, (profil, nazwa)
 
 
-# --- webhook Stripe i konta kancelarii (pelny przeplyw z test_platnosci) --------------
+# --- konta kancelarii (pelny przeplyw zakupu w test_platnosci) ------------------------
 
-from test_platnosci import (ADMIN, CZLONEK, WLASCICIEL, _faktura, _wyslij, jako,  # noqa: E402,F401
-                            _przywroc_moduly, logowanie_atrapa, serwer, stripe_atrapa)
+from test_platnosci import (ADMIN, CZLONEK, WLASCICIEL, jako,  # noqa: E402,F401
+                            _przywroc_moduly, logowanie_atrapa, serwer)
 
 
 @pytest.fixture
-def serwer_z_kredytami(serwer, monkeypatch):
-    monkeypatch.setattr(t, "WLACZONA", True)
-    klient, id_k = serwer
-    klient.app.include_router(t.router)
-    klient.app.include_router(t.router_admina)
-    return klient, id_k
+def serwer_z_kredytami(serwer):
+    return serwer
 
 
 def test_nowa_kancelaria_dostaje_kredyty_probne(serwer_z_kredytami):
@@ -390,44 +378,15 @@ def test_nowa_kancelaria_dostaje_kredyty_probne(serwer_z_kredytami):
     assert t.saldo(t.wczytaj_portfel(odp.json()["id"])) == t.KREDYTY_PROBNE
 
 
-def test_oplacona_faktura_odnawia_pule_planu(serwer_z_kredytami):
-    klient, id_k = serwer_z_kredytami
-    assert _wyslij(klient, "invoice.paid", _faktura(id_k, "in_7")).status_code == 200
-    assert _wyslij(klient, "invoice.paid", _faktura(id_k, "in_7")).status_code == 200
-    portfel = t.wczytaj_portfel(id_k)
-    assert portfel["pula"] == t.PLANY[t.PLAN_DOMYSLNY]["pula"] and portfel["plan"] == t.PLAN_DOMYSLNY
-    assert sum(1 for w in portfel["historia"] if w["akcja"] == "odnowienie_puli") == 1
-
-
-def test_pakiet_z_webhooka_nie_rusza_subskrypcji(serwer_z_kredytami):
-    import autoryzacja
-    klient, id_k = serwer_z_kredytami
-    sesja = {"id": "cs_9", "payment_status": "paid", "customer": "cus_9", "mode": "payment",
-             "metadata": {"typ": "kredyty", "kancelaria": id_k, "pakiet": "100"}}
-    assert _wyslij(klient, "checkout.session.completed", sesja).status_code == 200
-    portfel = t.wczytaj_portfel(id_k)
-    assert portfel["doladowane"] == 100
-    wpis = autoryzacja._znajdz(autoryzacja._wczytaj_rejestr(), id_k)[1]
-    assert not (wpis.get("stripe") or {}).get("status")
-
-
-def test_pakiet_kupuje_tylko_wlasciciel(serwer_z_kredytami, stripe_atrapa):
-    klient, id_k = serwer_z_kredytami
-    assert klient.post("/api/kredyty/pakiet", headers=jako(CZLONEK, id_k), json={"pakiet": "500"}).status_code == 403
-    assert klient.post("/api/kredyty/pakiet", headers=jako(WLASCICIEL, id_k), json={"pakiet": "zly"}).status_code == 400
-    odp = klient.post("/api/kredyty/pakiet", headers=jako(WLASCICIEL, id_k), json={"pakiet": "500"})
-    assert odp.status_code == 201 and odp.json()["adres"].startswith("https://checkout.stripe.com/")
-
-
 def test_admin_doladowuje_i_widzi_marze(serwer_z_kredytami):
     klient, id_k = serwer_z_kredytami
     odp = klient.post(f"/api/admin/kancelarie/{id_k}/kredyty", headers=ADMIN, json={"kredyty": 250})
-    assert odp.status_code == 200 and odp.json()["saldo"] == 250
+    assert odp.status_code == 200 and odp.json()["saldo"] == 250 + t.KREDYTY_PROBNE
     assert klient.post(f"/api/admin/kancelarie/{id_k}/kredyty", headers=jako(WLASCICIEL, id_k),
                        json={"kredyty": 250}).status_code in (401, 403)
     widok = klient.get("/api/admin/tokenomia", headers=ADMIN).json()
     assert widok["najnizsza_cena_kredytu"] >= t.NAJNIZSZA_CENA_KREDYTU_ZL
-    assert any(k["id"] == id_k and k["saldo"] == 250 for k in widok["kancelarie"])
+    assert any(k["id"] == id_k and k["saldo"] == 250 + t.KREDYTY_PROBNE for k in widok["kancelarie"])
     assert "koszt_p90_zl" in widok["cennik"][0]
 
 
@@ -435,4 +394,4 @@ def test_kancelaria_widzi_swoje_kredyty(serwer_z_kredytami):
     klient, id_k = serwer_z_kredytami
     t.doladuj(id_k, 42, "test")
     widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
-    assert widok["saldo"] == 42 and widok["egzekwowana"]
+    assert widok["saldo"] == 42 + t.KREDYTY_PROBNE and widok["egzekwowana"]

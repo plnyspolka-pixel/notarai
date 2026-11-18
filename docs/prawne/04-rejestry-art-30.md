@@ -10,7 +10,7 @@ zmianie i udostępnia Prezesowi UODO na żądanie. Zwolnienie z art. 30 ust. 5
 RODO nie ma zastosowania, bo przetwarzanie nie ma charakteru sporadycznego
 i obejmuje dane z art. 9 i 10 RODO.
 
-Data ostatniej aktualizacji: 24.10.2026.
+Data ostatniej aktualizacji: 13.11.2026.
 
 ---
 
@@ -45,7 +45,7 @@ się Prezesowi UODO na żądanie; nie trzyma się go w repozytorium kodu.
 |---|---|---|---|---|---|---|---|---|
 | 1 | Konta użytkowników notarai | prowadzenie kont, logowanie, zaproszenia | notariusze, pracownicy kancelarii | e-mail, imię i nazwisko, kancelaria, rola, daty, dane logowania | AWS EMEA SARL | brak | do usunięcia konta + 90 dni | Załącznik nr 2 do umowy powierzenia, część C |
 | 2 | Dzienniki bezpieczeństwa | bezpieczeństwo usługi, wykrywanie awarii i nadużyć | użytkownicy | IP, identyfikatory techniczne, czas, kody błędów | AWS EMEA SARL | brak | 90 dni | jw., część E |
-| 3 | Umowy z kancelariami i rozliczenia | zawarcie i wykonanie umowy, księgowość | notariusze, osoby reprezentujące | dane identyfikacyjne i kontaktowe, NIP, dane do faktur | Stripe Payments Europe, Limited (faktury), organy podatkowe; księgowość prowadzi Fundacja sama | brak | 5 lat podatkowych + przedawnienie roszczeń | dostęp imienny, poczta z MFA |
+| 3 | Umowy z kancelariami i rozliczenia | zawarcie i wykonanie umowy, księgowość | notariusze, osoby reprezentujące | dane identyfikacyjne i kontaktowe, NIP, dane do faktur | Krajowy Integrator Płatności S.A. (Tpay), dostawcy systemu sprzedaży i fakturowania Fundacji (serwis Finance You), KSeF, organy podatkowe; księgowość prowadzi Fundacja sama | brak | 5 lat podatkowych + przedawnienie roszczeń | dostęp imienny, poczta z MFA |
 | 4 | Korespondencja, reklamacje, zgłoszenia DSA | obsługa zapytań | osoby kontaktujące się | e-mail, imię i nazwisko, treść | AZ.pl Sp. z o.o., ul. Zbożowa 4, 70-653 Szczecin (poczta kontakt@notarai.pl) | brak | do zakończenia sprawy, max 3 lata | jw. |
 | 5 | Osoby upoważnione Fundacji | upoważnienia, poufność | członkowie zarządu, współpracownicy | imię i nazwisko, zakres upoważnienia, data złożenia oświadczenia | brak | brak | czas współpracy + 5 lat | wykaz w pliku 06, w prywatnym repozytorium z ograniczonym dostępem |
 | 6 | Akceptacje Regulaminu i umowy powierzenia | wykazanie zawarcia umów | osoby wysyłające formularz rejestracji, Właściciele | e-mail, adres IP, data, wersje dokumentów, dane kancelarii | AWS EMEA SARL | brak | czas umowy + 5 lat | Załącznik nr 2, część C |

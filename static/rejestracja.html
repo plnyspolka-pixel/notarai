@@ -137,9 +137,10 @@ fetch("/api/rejestracja").then(o => o.json()).then(info => {
   if (!info.wlaczona) {
     $("wstep").textContent = "Rejestracja jest chwilowo wyłączona. Napisz na kontakt@notarai.pl, a założymy konto za Ciebie.";
     $("wyslij").disabled = true;
-  } else if (info.okres_probny_dni && info.cena) {
-    const cena = Number(info.cena).toLocaleString("pl-PL", {maximumFractionDigits: 2}) + " zł";
-    $("wstep").textContent = `${info.okres_probny_dni} dni za darmo, bez karty, potem ${cena} miesięcznie za całą kancelarię. ` +
+  } else if (info.kredyty_probne) {
+    const kr = Number(info.kredyty_probne).toLocaleString("pl-PL", {maximumFractionDigits: 1});
+    $("wstep").textContent = `Na start ${kr} kredytów za darmo, bez karty i bez abonamentu — wystarczy na przetestowanie wszystkich funkcji na dwóch sprawach. ` +
+      "Potem płacisz tylko za to, z czego korzystasz: dokupujesz pakiety kredytów. " +
       "Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.";
   }
 }).catch(() => {});

@@ -102,7 +102,9 @@ class TestProjektStrumieniem:
             odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
                               json={"pola": [], "polecenie": ""})
         ostatnia = _linie(odp)[-1]
-        assert ostatnia["kod"] == 502 and ostatnia["blad"].startswith("Bedrock:")
+        # Komunikat po polsku z rodzajem bledu, bez tresci wyjatku (ta moze niesc dane).
+        assert ostatnia["kod"] == 502 and ostatnia["blad"].startswith("Błąd modelu (RuntimeError)")
+        assert "85031512337" not in ostatnia["blad"]
         assert "85031512337" not in caplog.text
 
     def test_limit_zapytan_w_strumieniu(self, klient, tmp_path):
@@ -116,6 +118,12 @@ class TestProjektStrumieniem:
         odp = klient.post("/api/sprawy/abc123/projekt", headers=STRUMIEN,
                           json={"pola": [], "polecenie": ""})
         assert _linie(odp)[-1]["kod"] == 404
+
+
+def _tekst(tresc: list[dict]) -> str:
+    """Caly tekst polecenia: bloki tekstu bez punktow cache (sporzadz_projekt dzieli
+    polecenie na blok staly ze wzorem i zmienny z danymi i ustaleniami)."""
+    return "\n\n".join(b["text"] for b in tresc if "text" in b)
 
 
 class TestUstalenia:
@@ -140,7 +148,7 @@ class TestUstalenia:
         podsumowanie, generowanie = r.call_args_list
         assert podsumowanie.args[0] == prompty.PODSUMOWANIE_ROZMOWY
         assert "NOTARIUSZ: Jednak 450 000" in podsumowanie.args[1][0]["text"]
-        prompt = generowanie.args[1][0]["text"]
+        prompt = _tekst(generowanie.args[1])
         assert "- Cena: 450 000 zl" in prompt
         assert "400 000" not in prompt and "NOTARIUSZ:" not in prompt
 
@@ -148,7 +156,7 @@ class TestUstalenia:
         with patch("bedrock._rozmowa", return_value="AKT") as r:
             bedrock.sporzadz_projekt("WZOR", [], "", rozmowa=[{"rola": "asystent", "tresc": "?"}])
         assert r.call_count == 1
-        assert "USTALENIA" not in r.call_args.args[1][0]["text"]
+        assert "USTALENIA" not in _tekst(r.call_args.args[1])
 
     def test_nieudane_podsumowanie_daje_pelny_zapis(self, caplog):
         rozmowa = [{"rola": "uzytkownik", "tresc": "Zaplata gotowka, PESEL 44051401359"}]
@@ -162,7 +170,7 @@ class TestUstalenia:
 
         with patch("bedrock._rozmowa", side_effect=atrapa) as r:
             assert bedrock.sporzadz_projekt("WZOR", [], "", rozmowa=rozmowa) == "AKT"
-        assert "NOTARIUSZ: Zaplata gotowka" in r.call_args.args[1][0]["text"]
+        assert "NOTARIUSZ: Zaplata gotowka" in _tekst(r.call_args.args[1])
         assert "podsumowanie rozmowy nieudane" in caplog.text
         assert "44051401359" not in caplog.text
 

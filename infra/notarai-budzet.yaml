@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai-budzet: miesieczny budzet kosztow Amazon Bedrock (modele Claude aplikacji i narzedzi
+  kampanii) z alarmem e-mail przy 80% wydanych i 100% prognozowanych. Budzet nic nie blokuje -
+  tylko ostrzega; chroni przed niespodzianka po petli ponowien albo zbyt wysokim effort.
+Parameters:
+  Email:
+    Type: String
+    Description: Adres, na ktory AWS Budgets wysle alarm (potwierdz subskrypcje z maila AWS).
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  LimitUsd:
+    Type: Number
+    Default: 60
+    MinValue: 5
+    Description: Miesieczny limit kosztu Bedrock w USD (po przekroczeniu 80% i prognozie 100% - e-mail).
+Resources:
+  BudzetBedrock:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: notarai-bedrock-miesiac
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref LimitUsd
+          Unit: USD
+        CostFilters:
+          Service:
+            - Amazon Bedrock
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref Email
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref Email
+  BudzetCalosc:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: notarai-konto-miesiac
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref LimitUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 150
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref Email
+Outputs:
+  Konsola:
+    Value: https://us-east-1.console.aws.amazon.com/billing/home#/budgets
+    Description: Budzety sa globalne (us-east-1 w konsoli), niezaleznie od regionu stosu.

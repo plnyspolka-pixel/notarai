@@ -18,7 +18,8 @@ Asystentka „Ola” obsługuje dwie grupy rozmówców:
 
 ## ElevenLabs
 - Agent: `agent_5501m7611p1nfarsk1k4x9h49bhk` („notarai — asystentka głosowa Ola”), język pl,
-  LLM claude-sonnet-4-6, strefa Europe/Warsaw, głos `8EWWaNTDrqObI22Gvo1q`.
+  LLM claude-sonnet-4-6, strefa Europe/Warsaw, głos `8EWWaNTDrqObI22Gvo1q`,
+  TTS `eleven_v4_turbo` (reguła CLAUDE.md: tylko silnik v3+).
 - Baza wiedzy: `TgZJyH1K9d7ALS1vPlBu`.
 - Sekret nagłówka `X-Notarai-Agent`: `notarai_agent_glosowy_token` (`m7LyXuWa80Xqs9Dll4UY`).
 - Narzędzia (webhook, POST na https://app.notarai.pl/api/agent-glosowy/...):
@@ -51,4 +52,4 @@ Zmiana promptu: edytuj `prompt.md`, a potem tę samą treść w ElevenLabs
   (prompt) - kancelaria dostaje imię, kontakt i krótki opis sprawy, tak jak
   z formularza strony.
 - ElevenLabs przechowuje transkrypcje rozmów (ustawienie retencji w agencie).
-  ElevenLabs jest dalszym odbiorcą danych z rozmowy - patrz `docs/czeka-na-dostep.md` NA-7
+  ElevenLabs jest dalszym odbiorcą danych z rozmowy - patrz `docs/czeka-na-dostep.md` NA-13

@@ -1,0 +1,502 @@
+{
+  "seria": "komputerku",
+  "odcinek": 6,
+  "tytul": "Kto ma tę sprawę?",
+  "funkcja_notarai": "Sprawdzenie KRZ przez lokalnego pomocnika w osobnej sprawie (krz.py, rejestry.py)",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: recepcja, Basia przy telefonie, Marta i Kuba wchodzą z różnych stron jednocześnie",
+      "czas_s": 3,
+      "prompt_delta": "busy reception, three colleagues converging simultaneously, overlapping motion, natural morning light",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "postac": "basia",
+      "klatka_startowa": "kadr_K3m.jpg",
+      "kwestia": "Jedno po drugim, proszę…",
+      "kwestia_v3": "[tired, dry] Jedno po drugim, proszę…",
+      "emocja": "zmęczenie, opanowanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Basia on phone, hand raised slightly gesturing patience, receiver at ear"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "postac": "kuba",
+      "klatka_startowa": "kadr_K6m.jpg",
+      "kwestia": "Która teczka jest teraz pilna?",
+      "kwestia_v3": "[hesitant, urgent] Która teczka jest teraz pilna?",
+      "emocja": "niepewność, pośpiech",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Kuba holding paper folder, leaning toward reception desk, questioning look"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "postac": "marta",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Najpierw terminy.",
+      "kwestia_v3": "[confident, matter-of-fact] Najpierw terminy.",
+      "emocja": "spokój, decyzyjność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Marta standing, index finger raised decisively, slight forward lean"
+    },
+    {
+      "id": "u5",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Kokpit Moje sprawy — lista spraw demonstracyjnych, widoczne wpisy: NOWAK — KACZMAREK (S-041-2026) oraz odrębna sprawa do sprawdzenia KRZ; filtrowanie listy przez Martę",
+      "grafika": [
+        "status_sprawdzam"
+      ]
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "postac": "marta",
+      "klatka_startowa": "DO_WYGENEROWANIA: Marta przy laptopie, ekran z listą spraw, Kuba stoi obok",
+      "kwestia": "Sprawa Nowak jest tu. Borowska jest osobno. A to jest sprawa do KRZ.",
+      "kwestia_v3": "[confident, matter-of-fact] Sprawa Nowak jest tu. [short pause] Borowska jest osobno. [short pause] A to jest sprawa do KRZ.",
+      "emocja": "rzeczowość, skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "Marta pointing at laptop screen showing cases list, Kuba leaning in to look, over-the-shoulder framing"
+    },
+    {
+      "id": "u7",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K3",
+      "klatka_startowa": "DO_WYGENEROWANIA: Basia przy stanowisku, ekran kalendarza widoczny, odkłada słuchawkę",
+      "czas_s": 3,
+      "prompt_delta": "secretary at desk, calendar on screen, hanging up phone, calm transition",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u8",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Kalendarz kancelarii — widoczny termin sprawy NOWAK — KACZMAREK, dane kontaktowe stron (fikcyjne), oznaczenie wymagające potwierdzenia od stron",
+      "grafika": [
+        "status_sprawdzam"
+      ]
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "postac": "basia",
+      "klatka_startowa": "kadr_K3m.jpg",
+      "kwestia": "Kontakt mam. Termin widzę. Teraz potrzebujemy potwierdzenia od stron.",
+      "kwestia_v3": "[confident, matter-of-fact] Kontakt mam. [short pause] Termin widzę. [short pause] Teraz potrzebujemy potwierdzenia od stron.",
+      "emocja": "opanowanie, profesjonalizm",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "Basia looking at calendar screen, finger resting on desk, composed expression"
+    },
+    {
+      "id": "u10",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: Kuba siada przy swoim komputerze, Marta stoi obok, oboje patrzą na ekran",
+      "czas_s": 3,
+      "prompt_delta": "Kuba sitting at local workstation, Marta standing beside, both focused on screen",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u11",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Lokalny pomocnik NotarAI — uruchomienie sprawdzenia KRZ dla odrębnej fikcyjnej sprawy demonstracyjnej; widoczny pasek postępu lub komunikat oczekiwania na odpowiedź portalu; brak prawdziwych danych osobowych",
+      "grafika": [
+        "status_sprawdzam"
+      ]
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "postac": "kuba",
+      "klatka_startowa": "DO_WYGENEROWANIA: Kuba przy komputerze, ekran z pomocnikiem KRZ, Marta za jego ramieniem",
+      "kwestia": "Sprawdzenie ruszyło przez pomocnika na tym komputerze.",
+      "kwestia_v3": "[hesitant, shy] Sprawdzenie ruszyło przez pomocnika na tym komputerze.",
+      "emocja": "skupienie, lekka niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Kuba at local computer, KRZ assistant visible on screen, pointing at monitor"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "postac": "marta",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Zapisz wynik, a potem go ocenimy.",
+      "kwestia_v3": "[confident, matter-of-fact] Zapisz wynik, [short pause] a potem go ocenimy.",
+      "emocja": "spokój, precyzja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Marta over Kuba's shoulder, calm instructive expression, slight nod"
+    },
+    {
+      "id": "u14",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Historia sprawdzeń w odrębnej sprawie demonstracyjnej — widoczna data, godzina i status próby sprawdzenia KRZ; brak danych osobowych; ślad audytowy zapisany w teczce sprawy",
+      "grafika": [
+        "status_gotowe"
+      ]
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "postac": "marta",
+      "klatka_startowa": "DO_WYGENEROWANIA: Marta przy ekranie z historią sprawdzeń, Kuba obok",
+      "kwestia": "Dobrze. Mamy datę i wynik próby sprawdzenia. Teraz weryfikacja.",
+      "kwestia_v3": "[confident, matter-of-fact] Dobrze. [short pause] Mamy datę i wynik próby sprawdzenia. [short pause] Teraz weryfikacja.",
+      "emocja": "rzeczowość, ostrożność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "Marta reviewing audit log on screen, deliberate calm gesture toward result entry"
+    },
+    {
+      "id": "u16",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł stoi na korytarzu, Marta wychodzi z pokoju, oboje zatrzymują się",
+      "czas_s": 3,
+      "prompt_delta": "adult man waiting in corridor, notary colleague approaches, quiet private moment",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u17",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "postac": "gosc:Pawel",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł w korytarzu, trzyma kartkę — fikcyjne potwierdzenie rezerwacji D21, twarz skupiona",
+      "kwestia": "Znalazłem mamie mieszkanie bez schodów. Zapłaciłem za rezerwację. I potem zacząłem wszystko przyspieszać.",
+      "kwestia_v3": "[hesitant, shy] Znalazłem mamie mieszkanie bez schodów. [short pause] Zapłaciłem za rezerwację. [short pause] I potem zacząłem wszystko przyspieszać.",
+      "emocja": "wstyd, szczerość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 8,
+      "prompt_delta": "adult son confesses he reserved ground-floor flat with his own money, holding paper confirmation, corridor setting"
+    },
+    {
+      "id": "u18",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal — dłoń Pawła trzyma fikcyjne potwierdzenie rezerwacji D21, papier lekko zmięty",
+      "czas_s": 3,
+      "prompt_delta": "close detail of hand holding crumpled reservation confirmation paper, desk surface background",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u19",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "postac": "marta",
+      "klatka_startowa": "kadr_K5m.jpg",
+      "kwestia": "Chciał pan jej pomóc. Ale to pani Irena decyduje, czy i kiedy.",
+      "kwestia_v3": "[confident, matter-of-fact] Chciał pan jej pomóc. [short pause] Ale to pani Irena decyduje, [short pause] czy i kiedy.",
+      "emocja": "spokój, empatia, stanowczość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "Marta in corridor, calm empathetic expression, measured tone, no aggression"
+    },
+    {
+      "id": "u20",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "postac": "gosc:Pawel",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł w korytarzu, patrzy w dół, twarz skupiona, papier w dłoni",
+      "kwestia": "Wiem. Teraz już wiem.",
+      "kwestia_v3": "[hesitant, shy] Wiem. [short pause] Teraz już wiem.",
+      "emocja": "wstyd, refleksja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "adult man in corridor, downward gaze, quiet shame, paper still in hand"
+    },
+    {
+      "id": "u21",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: gabinet Heleny, Helena siedzi przy biurku, Marta wchodzi i zamyka drzwi",
+      "czas_s": 3,
+      "prompt_delta": "Marta entering Helena's office, closing door quietly, Helena looks up from desk",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u22",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "postac": "helena",
+      "klatka_startowa": "kadr_K2m.jpg",
+      "kwestia": "Nie jest źle mieć dobry zamiar. Trzeba jeszcze zostawić drugiemu człowiekowi decyzję.",
+      "kwestia_v3": "[confident, matter-of-fact] Nie jest źle mieć dobry zamiar. [short pause] Trzeba jeszcze zostawić drugiemu człowiekowi decyzję.",
+      "emocja": "spokój, mądrość, powaga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 7,
+      "prompt_delta": "Helena at main desk, direct calm gaze, thoughtful measured expression, static portrait"
+    },
+    {
+      "id": "u23",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł wychodzi przez drzwi kancelarii, Basia patrzy za nim zza biurka",
+      "czas_s": 5,
+      "prompt_delta": "somber adult man leaving legal office through front door, secretary calmly finishes note at desk",
+      "ruch_kamery": "statyczna"
+    },
+    {
+      "id": "u24",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "postac": "basia",
+      "klatka_startowa": "kadr_K3m.jpg",
+      "kwestia": "Jedno po drugim.",
+      "kwestia_v3": "[tired, dry] Jedno po drugim.",
+      "emocja": "cicha satysfakcja, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Basia calmly finishing handwritten note, phone ringing again, unhurried composure"
+    },
+    {
+      "id": "u25",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/{format}/NAPIS_CZY_ODWAZY_SIE.png",
+      "czas_s": 4,
+      "grafika": [
+        "napis_pytanie_koncowe"
+      ]
+    },
+    {
+      "id": "u26",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/{format}/OUTRO_komputerku.png",
+      "czas_s": 3
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 3,
+      "tekst": "Poniedziałek, 23 listopada 2026"
+    },
+    {
+      "od_s": 3,
+      "do_s": 6,
+      "tekst": "Jedno po drugim, proszę…"
+    },
+    {
+      "od_s": 6,
+      "do_s": 9,
+      "tekst": "Która teczka jest teraz pilna?"
+    },
+    {
+      "od_s": 9,
+      "do_s": 12,
+      "tekst": "Najpierw terminy."
+    },
+    {
+      "od_s": 12,
+      "do_s": 17,
+      "tekst": "Moje sprawy — lista spraw kancelarii"
+    },
+    {
+      "od_s": 17,
+      "do_s": 23,
+      "tekst": "Sprawa Nowak jest tu.\nBorowska jest osobno."
+    },
+    {
+      "od_s": 23,
+      "do_s": 26,
+      "tekst": "A to jest sprawa do KRZ."
+    },
+    {
+      "od_s": 26,
+      "do_s": 29,
+      "tekst": "Kalendarz — termin do potwierdzenia"
+    },
+    {
+      "od_s": 29,
+      "do_s": 34,
+      "tekst": "Kontakt mam. Termin widzę."
+    },
+    {
+      "od_s": 34,
+      "do_s": 38,
+      "tekst": "Teraz potrzebujemy potwierdzenia\nod stron."
+    },
+    {
+      "od_s": 38,
+      "do_s": 41,
+      "tekst": "Lokalny pomocnik — sprawdzenie KRZ"
+    },
+    {
+      "od_s": 41,
+      "do_s": 46,
+      "tekst": "Sprawdzenie ruszyło przez pomocnika\nna tym komputerze."
+    },
+    {
+      "od_s": 46,
+      "do_s": 50,
+      "tekst": "Zapisz wynik, a potem go ocenimy."
+    },
+    {
+      "od_s": 50,
+      "do_s": 55,
+      "tekst": "Historia sprawdzeń — data i status próby"
+    },
+    {
+      "od_s": 55,
+      "do_s": 60,
+      "tekst": "Mamy datę i wynik próby sprawdzenia.\nTeraz weryfikacja."
+    },
+    {
+      "od_s": 60,
+      "do_s": 63,
+      "tekst": "Korytarz kancelarii"
+    },
+    {
+      "od_s": 63,
+      "do_s": 68,
+      "tekst": "Znalazłem mamie mieszkanie\nbez schodów."
+    },
+    {
+      "od_s": 68,
+      "do_s": 71,
+      "tekst": "Zapłaciłem za rezerwację."
+    },
+    {
+      "od_s": 71,
+      "do_s": 74,
+      "tekst": "I potem zacząłem wszystko przyspieszać."
+    },
+    {
+      "od_s": 74,
+      "do_s": 77,
+      "tekst": "D21 — fikcyjne potwierdzenie rezerwacji"
+    },
+    {
+      "od_s": 77,
+      "do_s": 83,
+      "tekst": "Chciał pan jej pomóc."
+    },
+    {
+      "od_s": 83,
+      "do_s": 87,
+      "tekst": "Ale to pani Irena decyduje,\nczy i kiedy."
+    },
+    {
+      "od_s": 87,
+      "do_s": 91,
+      "tekst": "Wiem. Teraz już wiem."
+    },
+    {
+      "od_s": 91,
+      "do_s": 94,
+      "tekst": "Gabinet Heleny"
+    },
+    {
+      "od_s": 94,
+      "do_s": 101,
+      "tekst": "Nie jest źle mieć dobry zamiar.\nTrzeba jeszcze zostawić drugiemu\nczłowiekowi decyzję."
+    },
+    {
+      "od_s": 101,
+      "do_s": 106,
+      "tekst": "Paweł wychodzi. Basia kończy notatkę."
+    },
+    {
+      "od_s": 106,
+      "do_s": 109,
+      "tekst": "Jedno po drugim."
+    },
+    {
+      "od_s": 109,
+      "do_s": 113,
+      "tekst": "Czy odważy się powiedzieć to matce?"
+    },
+    {
+      "od_s": 113,
+      "do_s": 116,
+      "tekst": ""
+    }
+  ],
+  "kontrola": [
+    "Sprawdzić, czy kokpit /api/sprawy zwraca listę spraw z filtrowaniem w aktualnej wersji demo — nie montować fikcyjnego ekranu przydziałów zadań do pracowników.",
+    "Sprawdzić, czy lokalny pomocnik KRZ (/api/sprawy/{id}/krz) działa na środowisku testowym i czy portal KRZ jest dostępny podczas nagrania.",
+    "Upewnić się, że w ujęciach ekranowych nie pojawiają się prawdziwe numery PESEL, numery KW ani dane osobowe — wyłącznie dane syntetyczne demonstracyjne.",
+    "Wynik sprawdzenia KRZ pokazywać jako materiał do oceny przez notariusza, nie jako automatyczną decyzję o dopuszczalności czynności.",
+    "Sprawa Borowskiej i sprawa do KRZ muszą być wyraźnie odrębne od sprawy NOWAK — KACZMAREK (S-041-2026); nie łączyć wzmianki z KW Ireny.",
+    "Dokument D21 (potwierdzenie rezerwacji Pawła) musi być fikcyjny — nie zawierać prawdziwych danych adresowych, kwot ani nazw deweloperów.",
+    "Paweł nie jest pełnomocnikiem Ireny i nie podejmuje decyzji w jej imieniu — żadna kwestia ani grafika nie może sugerować inaczej.",
+    "Cena 640 000 zł, powierzchnia 56,40 m² i termin wydania lokalu 15 stycznia 2027 r. muszą być zachowane we wszystkich ujęciach dotyczących sprawy NOWAK — KACZMAREK.",
+    "Nie pokazywać globalnej tablicy przydziałów zadań do pracowników jako istniejącej funkcji — jeśli UI jej nie ma, ograniczyć się do kalendarza i listy spraw.",
+    "Sprawdzić continuity: data fabularna to poniedziałek 23.11.2026 — zegar, oświetlenie i rekwizyty muszą być spójne z porankiem roboczym.",
+    "Przed nagraniem zweryfikować z praktykującym notariuszem, że scena E06S07 (rozmowa Marty z Pawłem) nie sugeruje winy karnej ani formalnej odmowy czynności z art. 81 Prawa o notariacie.",
+    "Upewnić się, że ślad audytowy KRZ (historia sprawdzeń) jest rzeczywiście generowany przez aplikację i widoczny w demo — nie montować statycznego screenshota jako wyniku dynamicznego.",
+    "Napis końcowy 'Czy odważy się powiedzieć to matce?' nie może zdradzać finału odcinka 7 ani 8 w materiale mailingowym."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4570,
+      "outputTokens": 6960,
+      "totalTokens": 42904,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 50.7
+  }
+}

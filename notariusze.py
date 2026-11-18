@@ -33,7 +33,6 @@ from pydantic import BaseModel
 
 import autoryzacja
 import dziennik
-import platnosci
 import rekomendacje
 
 log = logging.getLogger("pieczapp.notariusze")

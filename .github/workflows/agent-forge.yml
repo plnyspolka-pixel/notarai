@@ -1,0 +1,53 @@
+name: Agent Forge - isolated foundation tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/agent_factory/**"
+      - "test_agent_forge.py"
+      - "test_agent_forge_llm.py"
+      - "test_agent_forge_scheduler.py"
+      - "test_agent_forge_sandbox.py"
+      - "test_agent_forge_research.py"
+      - "test_agent_factory.py"
+      - "docs/agent-factory-research/**"
+      - ".github/workflows/agent-forge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install application test dependencies (no optional local models)
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/agent-forge-ci-requirements.txt
+          python -m pip install --disable-pip-version-check -r /tmp/agent-forge-ci-requirements.txt
+      - name: Compile Agent Forge modules
+        run: python -m compileall -q tools/agent_factory
+      - name: Run offline foundation security and regression tests
+        run: python -m pytest -q test_agent_forge.py test_agent_forge_llm.py test_agent_forge_scheduler.py test_agent_forge_sandbox.py test_agent_forge_research.py test_agent_factory.py
+      - name: Run three-task synthetic benchmark
+        run: python -m tools.agent_factory.forge_benchmark --prefix ci-benchmark
+      - name: Demonstrate one queued offline job
+        run: |
+          python -m tools.agent_factory.forge_scheduler_cli submit --job-id ci-job-001
+          python -m tools.agent_factory.forge_scheduler_cli tick
+          python -m tools.agent_factory.forge_scheduler_cli list
+      - name: Verify academic paired comparison (synthetic demo)
+        run: python -m tools.agent_factory.forge_research_cli
+      - name: Validate catalog
+        run: python -m tools.agent_factory.forge_cli doctor
+      - name: Run safe synthetic experiment
+        run: |
+          python -m tools.agent_factory.forge_cli demo --run-id ci-fixture-001
+          python -m tools.agent_factory.forge_cli report

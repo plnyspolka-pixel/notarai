@@ -66,7 +66,7 @@ def test_real_conversion_links_and_existing_legal_sections():
         assert href in _parse().links
     for anchor in ("klikamy", "latwo", "dane", "zgodnosc", "cennik", "kontakt"):
         assert anchor in _parse().ids
-    assert "600 zł" in HTML
+    assert "150 kredytów" in HTML and "abonament" not in HTML.lower().replace("bez abonamentu", "")
     assert "KRS 0001140846" in HTML
 
 

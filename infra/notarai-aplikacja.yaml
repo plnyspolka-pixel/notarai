@@ -66,13 +66,6 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
-  StripeSekretArn:
-    Type: String
-    Default: ""
-    Description: >-
-      Pelny ARN sekretu notarai/stripe (klucze klucz i webhook), zalozonego
-      skryptem zapisz-sekret-stripe.ps1 - wartosci nie trafiaja do szablonu.
-      Puste = platnosci wylaczone, nikogo nie blokujemy.
   ApifySekretArn:
     Type: String
     Default: ""
@@ -102,27 +95,33 @@ Parameters:
       zapisz-sekret-agenta-glosowego.ps1. Gdy jest, webhooki agenta glosowego
       ElevenLabs (/api/agent-glosowy, agent_glosowy.py) wymagaja naglowka
       X-Notarai-Agent. Puste = trasy otwarte jak publiczne formularze strony.
+  OAuthPocztySekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/oauth-poczty (JSON: ms_klient, ms_sekret,
+      google_klient, google_sekret), zalozonego skryptem
+      zapisz-sekret-oauth-poczty.ps1. Wlacza przyciski "Zaloguj przez
+      Microsoft" / "Zaloguj przez Google" przy podpinaniu skrzynki kancelarii
+      (skrzynki.py). Puste = tylko logowanie haslem do IMAP.
   FinyouAdres:
     Type: String
     Default: ""
     Description: Adres API Finance You (np. https://finyou.pl). Jawny, nie jest sekretem.
-  StripeCena:
+  StawkaVat:
     Type: String
-    Default: ""
-    AllowedPattern: "^(price_[A-Za-z0-9]+)?$"
-    Description: Identyfikator ceny abonamentu w Stripe (price_...). Jawny, nie jest sekretem.
-  CenaAbonamentu:
-    Type: String
-    Default: ""
-    AllowedPattern: "^([0-9]+(\\.[0-9]{1,2})?)?$"
-    Description: Cena miesiaca abonamentu w zl do wyswietlenia (Fundacja zwolniona z VAT), np. 600.00.
+    Default: "0"
+    AllowedValues: ["0", "0.23"]
+    Description: >-
+      VAT doliczany do ceny pakietu kredytow. 0 = Fundacja zwolniona
+      podmiotowo (art. 113 ust. 1 ustawy o VAT); 0.23 po utracie zwolnienia.
   Tokenomia:
     Type: String
-    Default: "false"
+    Default: "true"
     AllowedValues: ["true", "false"]
     Description: >-
-      Czy kancelarie placa kredytami za czynnosci z modelem (tokenomia.py,
-      docs/tokenomia.md). false = koszty tylko liczone w logach i panelu admina.
+      Kredyty sa jedynym sposobem zakupu (tokenomia.py, docs/tokenomia.md).
+      false tylko awaryjnie = nikt nie placi, koszty liczone w logach.
   Rejestracja:
     Type: String
     Default: "true"
@@ -144,15 +143,15 @@ Parameters:
   AdresPubliczny:
     Type: String
     Default: https://app.notarai.pl
-    Description: Adres aplikacji - tu wraca platnik ze Stripe.
+    Description: Adres aplikacji - tu wraca platnik z TPay i tu Finance You sygnalizuje platnosc.
 
 Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
-  MamyStripe: !Not [!Equals [!Ref StripeSekretArn, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
+  MamyOAuthPoczty: !Not [!Equals [!Ref OAuthPocztySekretArn, ""]]
   MamyAgentaGlosowego: !Not [!Equals [!Ref AgentGlosowySekretArn, ""]]
   MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
 
@@ -209,16 +208,6 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
         - !If
-          - MamyStripe
-          - PolicyName: sekret-stripe
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: Allow
-                  Action: secretsmanager:GetSecretValue
-                  Resource: !Ref StripeSekretArn
-          - !Ref AWS::NoValue
-        - !If
           - MamyApify
           - PolicyName: sekret-apify
             PolicyDocument:
@@ -247,6 +236,16 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref MetaSekretArn
+          - !Ref AWS::NoValue
+        - !If
+          - MamyOAuthPoczty
+          - PolicyName: sekret-oauth-poczty
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref OAuthPocztySekretArn
           - !Ref AWS::NoValue
         - !If
           - MamyAgentaGlosowego
@@ -324,6 +323,23 @@ Resources:
                   - secretsmanager:DeleteSecret
                   - secretsmanager:TagResource
                 Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-poczta-*"
+
+        # Skrzynka e-mail kancelarii (korespondencja.py): haslo IMAP kazdej
+        # kancelarii w osobnym sekrecie notarai-skrzynka-<kancelaria>.
+        # Kod nigdy nie zwraca hasla do przegladarki ani nie zapisuje go w S3.
+        - PolicyName: sekrety-skrzynki-pocztowej
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:TagResource
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-skrzynka-*"
 
   # ---------------- siec ----------------
   GrupaLoadBalancera:
@@ -494,12 +510,10 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
-            - Name: PIECZAPP_ABONAMENT_ZL
-              Value: !Ref CenaAbonamentu
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
-            - Name: STRIPE_CENA
-              Value: !Ref StripeCena
+            - Name: PIECZAPP_VAT
+              Value: !Ref StawkaVat
             - Name: PIECZAPP_REJESTRACJA
               Value: !Ref Rejestracja
             - Name: PIECZAPP_TOKENOMIA
@@ -515,17 +529,6 @@ Resources:
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
-            # Klucze Stripe z sekretu JSON: <arn>:<klucz>:: (wersja biezaca).
-            - !If
-              - MamyStripe
-              - Name: STRIPE_KLUCZ
-                ValueFrom: !Sub "${StripeSekretArn}:klucz::"
-              - !Ref AWS::NoValue
-            - !If
-              - MamyStripe
-              - Name: STRIPE_WEBHOOK_SEKRET
-                ValueFrom: !Sub "${StripeSekretArn}:webhook::"
-              - !Ref AWS::NoValue
             # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
             - !If
               - MamyApify
@@ -552,6 +555,27 @@ Resources:
               - MamyMeta
               - Name: PIECZAPP_META_TOKEN
                 ValueFrom: !Sub "${MetaSekretArn}:token::"
+              - !Ref AWS::NoValue
+            # Aplikacje OAuth (Microsoft Entra, Google) do podpinania skrzynek kancelarii.
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_MS_KLIENT
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:ms_klient::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_MS_SEKRET
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:ms_sekret::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_GOOGLE_KLIENT
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:google_klient::"
+              - !Ref AWS::NoValue
+            - !If
+              - MamyOAuthPoczty
+              - Name: PIECZAPP_OAUTH_GOOGLE_SEKRET
+                ValueFrom: !Sub "${OAuthPocztySekretArn}:google_sekret::"
               - !Ref AWS::NoValue
             # Token webhookow agenta glosowego ElevenLabs (agent_glosowy.py).
             - !If

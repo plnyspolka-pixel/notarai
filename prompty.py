@@ -316,42 +316,58 @@ def polecenie_ekstrakcji(pola: list[str], opis: str, legenda: dict | None = None
     return "\n\n".join(czesci)
 
 
-def polecenie_generowania(
+def polecenie_generowania_bloki(
     wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
     ustalenia: str = "", personalizacja: str = "",
-) -> str:
-    """`ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
-    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py)."""
+) -> tuple[str, str]:
+    """Polecenie generowania w dwu blokach: (staly, zmienny).
+
+    Staly blok to konwencja wzoru, legenda i sam wzor - identyczny dla kolejnych
+    spraw kancelarii na tym samym wzorze, wiec bedrock.py stawia za nim punkt
+    cache (Bedrock czyta go wtedy za ok. 10% ceny). Zmienny blok to dane sprawy,
+    ustalenia z rozmowy, personalizacja i polecenie uzytkownika.
+    `ustalenia` to gotowy blok z rozmowy: podsumowanie albo zapis rozmowy.
+    `personalizacja` to zasady i styl kancelarii (zasady.py, styl.py).
+    """
     wiersze = []
     for pole in dane:
         wartosc = pole.get("wartosc")
         wiersze.append(f"- {pole['nazwa']}: {wartosc if wartosc else 'BRAK'}")
-    czesci = []
+    stale = []
     if legenda:
-        czesci.append(KONWENCJA_WZORU)
-        czesci.append(
+        stale.append(KONWENCJA_WZORU)
+        stale.append(
             "LEGENDA:\n"
             + "\n".join(
                 f"- {kod}: {wpis['opis']}" + (f" (np. {wpis['przyklad']})" if wpis.get("przyklad") else "")
                 for kod, wpis in legenda.items()
             )
         )
-    czesci.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
-    czesci.append("DANE ZWALIDOWANE:\n" + "\n".join(wiersze))
+    stale.append("WZOR DOKUMENTU:\n-----\n" f"{wzor}\n" "-----")
+    zmienne = ["DANE ZWALIDOWANE:\n" + "\n".join(wiersze)]
     if ustalenia:
-        czesci.append(ustalenia)
+        zmienne.append(ustalenia)
     if personalizacja:
-        czesci.append(personalizacja)
-    czesci.append(
+        zmienne.append(personalizacja)
+    zmienne.append(
         "POLECENIE UZYTKOWNIKA (rozstrzygajace; kazda pozycja musi byc wykonana - regula 17):\n"
         f"{opis or '(brak)'}"
     )
-    czesci.append(
+    zmienne.append(
         "Sporzadz projekt dokumentu. Uwzglednij kazdy element przedmiotu czynnosci "
         "wymieniony w poleceniu, nawet jesli wzor przewiduje tylko jeden."
         if opis else "Sporzadz projekt dokumentu."
     )
-    return "\n\n".join(czesci)
+    return "\n\n".join(stale), "\n\n".join(zmienne)
+
+
+def polecenie_generowania(
+    wzor: str, dane: list[dict], opis: str, legenda: dict | None = None,
+    ustalenia: str = "", personalizacja: str = "",
+) -> str:
+    """Cale polecenie generowania jako jeden tekst (bloki z polecenie_generowania_bloki)."""
+    staly, zmienny = polecenie_generowania_bloki(wzor, dane, opis, legenda, ustalenia, personalizacja)
+    return staly + "\n\n" + zmienny
 
 
 POPRAWA_ZASAD = """Jestes asystentem kancelarii notarialnej. Dostajesz PROJEKT \
@@ -434,6 +450,37 @@ def polecenie_formularza(tekst_aktu: str, pola: list[dict]) -> str:
         f"{opis_pol}\n\n"
         "Dla kazdego pola z listy podaj wartosc z aktu albo null. Zwroc sam JSON."
     )
+
+
+USTALENIA_Z_KORESPONDENCJI = """Jestes asystentem kancelarii notarialnej. Dostajesz \
+JEDNA wiadomosc e-mail przypisana do sprawy i liste pol sprawy (z wzoru aktu). \
+Wypisujesz, co wiadomosc mowi o warunkach czynnosci, ktore dotycza tych pol \
+(np. termin wydania lokalu, cena, sposob zaplaty, data aktu).
+
+ZASADY:
+1. Bierzesz WYLACZNIE to, co jest w tresci wiadomosci. Nie uzupelniasz, nie \
+wnioskujesz z wiedzy ogolnej. Brak ustalen to poprawna odpowiedz.
+2. Kazde ustalenie ma krotki doslowny cytat z wiadomosci (do 160 znakow).
+3. Pole wybierasz z listy (dokladna nazwa). Gdy ustalenie nie pasuje do zadnego \
+pola, a dotyczy czynnosci, uzyj nazwy "inne: <krotki opis>".
+4. Wartosc zapisz zwiezle. Daty jako D.MM.RRRR, a gdy roku nie ma w tresci - D.MM. \
+Kwoty cyframi z "zł".
+5. "relacja": true, gdy autor relacjonuje cudze stanowisko albo zgode (np. "mama \
+sie zgadza", "sprzedajaca potwierdzila") zamiast wypowiadac sie we wlasnym imieniu; \
+w "czyje" wpisz, czyje to stanowisko wedlug autora. Inaczej "relacja": false.
+6. Nie oceniasz, czy ustalenie jest wiazace, i nie wypowiadasz sie o stronach.
+7. Nie przepisujesz numerow PESEL ani numerow dowodow.
+
+Odpowiadasz WYLACZNIE obiektem JSON:
+{"ustalenia": [{"pole": "<nazwa pola albo inne: ...>", "wartosc": "<tekst>", \
+"cytat": "<fragment wiadomosci>", "pewnosc": "wysoka|niska", "relacja": false, "czyje": ""}]}
+"""
+
+
+def polecenie_ustalen(tekst: str, temat: str, pola: list[str]) -> str:
+    lista = "\n".join(f"- {p}" for p in pola) or "- (sprawa nie ma jeszcze pol)"
+    return (f"POLA SPRAWY:\n{lista}\n\nTEMAT: {temat}\n\nTRESC WIADOMOSCI:\n-----\n{tekst}\n-----\n"
+            "Wypisz ustalenia z tej wiadomosci. Zwroc sam JSON.")
 
 
 ROZMOWA = """Jestes asystentem kancelarii notarialnej. Rozmawiasz z notariuszem \

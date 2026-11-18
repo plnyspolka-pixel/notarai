@@ -1,0 +1,441 @@
+{
+  "seria": "komputerku",
+  "odcinek": 5,
+  "tytul": "Przyszło mailem",
+  "funkcja_notarai": "Pliki sprawy: ręczne dołączenie korespondencji (POST /api/sprawy/{id}/pliki); Ewidencja terminów; Rozmowa o sprawie i sprawdzanie źródeł",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "ekran",
+      "zrodlo": "nagranie klienta pocztowego, konto demo, dane testowe — NIE NotarAI",
+      "czas_s": 6,
+      "co_widac": "Skrzynka odbiorcza zewnętrznego klienta poczty; dwie wiadomości: D09 (Joanna Kaczmarek — koniec najmu, prośba o wydanie 1 grudnia) i D10 (Paweł Nowak — robocze ustalenia z datą 1 grudnia); nadawcy i tematy fikcyjne, brak prawdziwych danych osobowych",
+      "grafika": [
+        "etykieta_zrodlo_poczta"
+      ],
+      "prompt_delta": "email client inbox showing two contradictory fictitious property transaction messages, no real names"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "Dwa maile. Ten sam lokal. Zupełnie inne oczekiwania.",
+      "kwestia_v3": "[deadpan] Dwa maile. Ten sam lokal. [short pause] Zupełnie inne oczekiwania.",
+      "emocja": "suchy komentarz, lekkie zmęczenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Basia at reception desk glancing at screen, dry expression, two email previews visible"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
+      "kwestia": "Zakładają — to nie znaczy, że sprzedająca się zgodziła.",
+      "kwestia_v3": "[confident, matter-of-fact] Zakładają — [short pause] to nie znaczy, że sprzedająca się zgodziła.",
+      "emocja": "rzeczowa, stanowcza",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Marta at workstation, pointing at screen, firm expression, Basia standing beside her"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "A wszyscy czytali to jak ustalenie.",
+      "kwestia_v3": "[tired, dry] A wszyscy czytali to jak ustalenie.",
+      "emocja": "rezygnacja, ironia",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Basia slight resigned shrug, deadpan look toward Marta"
+    },
+    {
+      "id": "u5",
+      "typ": "bez_mowy",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "DO_WYGENEROWANIA: Basia przy biurku, zapisuje wiadomość jako plik PDF lub .eml w kliencie pocztowym, kursor na opcji eksportu",
+      "czas_s": 5,
+      "prompt_delta": "over-shoulder view of secretary exporting email to PDF in mail client, cursor on save option"
+    },
+    {
+      "id": "u6",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 9,
+      "co_widac": "NotarAI — sprawa NOWAK–KACZMAREK S-041-2026 → zakładka Pliki sprawy → przycisk 'Z pliku' → okno wyboru pliku → wybrany plik email_KACZMAREK_najem_i_wydanie.eml (D09) → plik pojawia się na liście załączników sprawy z datą i nazwą",
+      "grafika": [
+        "status_wgrywanie",
+        "status_gotowe"
+      ],
+      "prompt_delta": "NotarAI case files tab, manual file upload dialog, newly added email attachment appearing in list"
+    },
+    {
+      "id": "u7",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "Niech to będzie przy sprawie, nie w piątym wątku na poczcie.",
+      "kwestia_v3": "[confident, matter-of-fact] Niech to będzie przy sprawie, [short pause] nie w piątym wątku na poczcie.",
+      "emocja": "satysfakcja, ulga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Basia satisfied nod after uploading file, slight smile"
+    },
+    {
+      "id": "u8",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: poczekalnia kancelarii — Robert patrzy na kalendarz w telefonie, Joanna trzyma złożone dokumenty najmu na kolanach, oboje siedzą, atmosfera oczekiwania",
+      "czas_s": 5,
+      "prompt_delta": "waiting area, husband checking phone calendar, wife holding rental documents, quiet tension"
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:robert",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Robert Kaczmarek, 36 lat, ciemne włosy, marynarka, siedzi w poczekalni, patrzy na telefon",
+      "kwestia": "Wynajem kończy nam się z końcem listopada.",
+      "kwestia_v3": "[hesitant, shy] Wynajem kończy nam się z końcem listopada.",
+      "emocja": "niepokój, powściągliwość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "male buyer mid-30s glancing at phone calendar in waiting room, worried expression"
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:joanna",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Joanna Kaczmarek, 34 lata, jasne włosy, żakiet, siedzi w poczekalni, trzyma dokumenty",
+      "kwestia": "Ale pani Irena też musi się gdzieś przeprowadzić.",
+      "kwestia_v3": "[hesitant, shy] Ale pani Irena też musi się gdzieś przeprowadzić.",
+      "emocja": "empatia, lekki niepokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "female buyer mid-30s holding rental papers, empathetic expression toward husband"
+    },
+    {
+      "id": "u11",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_biurko.png",
+      "kwestia": "Mamy projekt warunków. Nie mamy jeszcze wspólnego ustalenia.",
+      "kwestia_v3": "[confident, matter-of-fact] Mamy projekt warunków. [short pause] Nie mamy jeszcze wspólnego ustalenia.",
+      "emocja": "spokojna rzeczowość, powaga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "Helena at main desk, calm authoritative posture, buyers seated across from her"
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:joanna",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Joanna Kaczmarek w gabinecie Heleny, naprzeciwko biurka, lekko pochylona do przodu",
+      "kwestia": "Czyli termin wydania jest nadal otwarty?",
+      "kwestia_v3": "[hesitant, shy] Czyli termin wydania jest nadal otwarty?",
+      "emocja": "zaskoczenie, niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "female buyer leaning forward slightly, surprised questioning look at notary"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_biurko.png",
+      "kwestia": "Tak.",
+      "kwestia_v3": "[confident, matter-of-fact] Tak.",
+      "emocja": "spokój, jednoznaczność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "Helena single calm affirmative nod, direct eye contact"
+    },
+    {
+      "id": "u14",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 8,
+      "co_widac": "NotarAI — sprawa NOWAK–KACZMAREK S-041-2026 → zakładka Pliki sprawy; widoczne: D05 warunki_transakcji_T1_email.pdf (oznaczony jako 'wersja robocza — nie potwierdzona przez sprzedającą') oraz nowo dodany email_KACZMAREK_najem_i_wydanie.eml (D09); Kuba zaznacza w notatce roboczej źródło dokumentu",
+      "grafika": [
+        "etykieta_zrodlo_korespondencja",
+        "znacznik_do_weryfikacji"
+      ],
+      "prompt_delta": "NotarAI case files list showing provisional terms file and newly added email, source labels visible"
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "kuba",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kuba_biblioteka.png",
+      "kwestia": "Znalezione. To wersja z korespondencji, nie potwierdzona przez panią Irenę.",
+      "kwestia_v3": "[confident, matter-of-fact] Znalezione. [short pause] To wersja z korespondencji, nie potwierdzona przez panią Irenę.",
+      "emocja": "skupienie, zawodowa satysfakcja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "Kuba over-shoulder at workstation, pointing at source label on screen, focused expression"
+    },
+    {
+      "id": "u16",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł Nowak, 45 lat, wchodzi do recepcji, trzyma wydrukowaną wiadomość lub kopertę, Basia siedzi przy biurku",
+      "czas_s": 5,
+      "prompt_delta": "man mid-40s entering reception holding printed email, secretary looks up from desk"
+    },
+    {
+      "id": "u17",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "kwestia": "Czy pani Irena mówiła panu, że potwierdziła pierwszy grudnia?",
+      "kwestia_v3": "[confident, matter-of-fact] Czy pani Irena mówiła panu, [short pause] że potwierdziła pierwszy grudnia?",
+      "emocja": "spokojne, bezpośrednie pytanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "Basia direct calm gaze at visitor, hands resting on desk"
+    },
+    {
+      "id": "u18",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "gosc:pawel",
+      "kamera": "K5",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł Nowak, 45 lat, ciemne włosy z siwizną, sweter, stoi przy ladzie recepcji, lekko spuszcza wzrok",
+      "kwestia": "Myślałem, że to już… załatwione.",
+      "kwestia_v3": "[hesitant, shy] Myślałem, że to już… [short pause] załatwione.",
+      "emocja": "zawahanie, wstyd, niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "son mid-40s at reception counter, eyes dropping, hesitant pause before answering"
+    },
+    {
+      "id": "u19",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal — telefon Pawła w dłoni, ekran pokazuje powiadomienie z fikcyjną etykietą 'Rezerwacja mieszkania', Paweł chowa aparat do kieszeni",
+      "czas_s": 5,
+      "prompt_delta": "close detail of phone screen showing fictional apartment reservation reminder, hand pocketing device"
+    },
+    {
+      "id": "u20",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/NAPIS_pytanie_EP05.png",
+      "czas_s": 4,
+      "grafika": [
+        "napis_pytanie_dlaczego_pawel"
+      ]
+    },
+    {
+      "id": "outro",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/OUTRO_komputerku.png",
+      "czas_s": 3
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 6,
+      "tekst": "Dwie wiadomości. Ten sam lokal."
+    },
+    {
+      "od_s": 6,
+      "do_s": 10,
+      "tekst": "Dwa maile. Ten sam lokal."
+    },
+    {
+      "od_s": 10,
+      "do_s": 14,
+      "tekst": "Zupełnie inne oczekiwania."
+    },
+    {
+      "od_s": 14,
+      "do_s": 18,
+      "tekst": "Zakładają — to nie znaczy,"
+    },
+    {
+      "od_s": 18,
+      "do_s": 22,
+      "tekst": "że sprzedająca się zgodziła."
+    },
+    {
+      "od_s": 22,
+      "do_s": 25,
+      "tekst": "A wszyscy czytali to jak ustalenie."
+    },
+    {
+      "od_s": 25,
+      "do_s": 34,
+      "tekst": "Niech to będzie przy sprawie,"
+    },
+    {
+      "od_s": 34,
+      "do_s": 38,
+      "tekst": "nie w piątym wątku na poczcie."
+    },
+    {
+      "od_s": 38,
+      "do_s": 43,
+      "tekst": "[poczekalnia]"
+    },
+    {
+      "od_s": 43,
+      "do_s": 46,
+      "tekst": "Wynajem kończy nam się"
+    },
+    {
+      "od_s": 46,
+      "do_s": 50,
+      "tekst": "z końcem listopada."
+    },
+    {
+      "od_s": 50,
+      "do_s": 54,
+      "tekst": "Ale pani Irena też musi się"
+    },
+    {
+      "od_s": 54,
+      "do_s": 58,
+      "tekst": "gdzieś przeprowadzić."
+    },
+    {
+      "od_s": 58,
+      "do_s": 63,
+      "tekst": "Mamy projekt warunków."
+    },
+    {
+      "od_s": 63,
+      "do_s": 66,
+      "tekst": "Nie mamy jeszcze wspólnego ustalenia."
+    },
+    {
+      "od_s": 66,
+      "do_s": 69,
+      "tekst": "Czyli termin wydania jest nadal otwarty?"
+    },
+    {
+      "od_s": 69,
+      "do_s": 72,
+      "tekst": "Tak."
+    },
+    {
+      "od_s": 72,
+      "do_s": 80,
+      "tekst": "[pliki sprawy — NotarAI]"
+    },
+    {
+      "od_s": 80,
+      "do_s": 85,
+      "tekst": "Znalezione. To wersja z korespondencji,"
+    },
+    {
+      "od_s": 85,
+      "do_s": 90,
+      "tekst": "nie potwierdzona przez panią Irenę."
+    },
+    {
+      "od_s": 90,
+      "do_s": 95,
+      "tekst": "[recepcja]"
+    },
+    {
+      "od_s": 95,
+      "do_s": 99,
+      "tekst": "Czy pani Irena mówiła panu,"
+    },
+    {
+      "od_s": 99,
+      "do_s": 103,
+      "tekst": "że potwierdziła pierwszy grudnia?"
+    },
+    {
+      "od_s": 103,
+      "do_s": 107,
+      "tekst": "Myślałem, że to już… załatwione."
+    },
+    {
+      "od_s": 107,
+      "do_s": 112,
+      "tekst": "[telefon Pawła — powiadomienie]"
+    },
+    {
+      "od_s": 112,
+      "do_s": 116,
+      "tekst": "Dlaczego tak mu zależy na czasie?"
+    },
+    {
+      "od_s": 116,
+      "do_s": 120,
+      "tekst": ""
+    }
+  ],
+  "kontrola": [
+    "Sprawdzić, czy klient pocztowy użyty w u1 i u5 jest wyraźnie odróżniony od interfejsu NotarAI — brak automatycznego importu maili to warunek kanoniczny (biblia, rozdz. 13).",
+    "Zweryfikować, że w ujęciu ekranu u6 ścieżka 'Pliki sprawy → Z pliku' istnieje i działa w aktualnej wersji app.notarai.pl (POST /api/sprawy/{id}/pliki) przed nagraniem.",
+    "Upewnić się, że w u6 i u14 nazwa sprawy brzmi dokładnie 'NOWAK — KACZMAREK' i identyfikator 'S-041-2026' — continuity z biblią.",
+    "W u14 etykieta przy D05 musi brzmieć 'wersja robocza — nie potwierdzona przez sprzedającą'; nie wolno oznaczać go jako 'uzgodnione przez Irenę'.",
+    "Paweł (u16–u18) nie może być opisany ani traktowany jako pełnomocnik Ireny — brak pełnomocnictwa to kanon nienaruszalny.",
+    "W u19 ekran telefonu Pawła pokazuje wyłącznie fikcyjną etykietę 'Rezerwacja mieszkania' (D21) — bez prawdziwych numerów kont, kwot ani danych osobowych.",
+    "Postacie gościnne (Robert, Joanna, Paweł) muszą być obsadzone aktorami lub wygenerowane z fikcyjnymi rysami — żadnych prawdziwych twarzy ani danych.",
+    "Cena 640 000 zł i powierzchnia 56,40 m² nie pojawiają się w tym odcinku wprost, ale jeśli jakikolwiek rekwizyt ekranowy je pokazuje, muszą być zgodne z kanonem.",
+    "Termin wydania lokalu w każdym widocznym dokumencie to 15 stycznia 2027 r. (T2) — wersja T1 z datą 1 grudnia może być widoczna tylko jako 'wersja robocza / nieuzgodniona'.",
+    "Ujęcie u14 nie może sugerować, że NotarAI automatycznie sklasyfikował lub zinterpretował treść maila — klasyfikacja jest ręczna (Kuba zaznacza w notatce).",
+    "Montaż skrótowy sceny w gabinecie Heleny (u11–u13) nie może sugerować, że rozmowa z kupującymi trwała 5 sekund i była kompletną poradą prawną.",
+    "Przed nagraniem zweryfikować z notariuszem, że dialog Heleny z kupującymi (u11–u13) jest zgodny z art. 80 Prawa o notariacie.",
+    "Sprawdzić, czy w u6 plik po wgraniu pojawia się na liście z datą i nazwą — test end-to-end na koncie demo przed nagraniem.",
+    "Napis końcowy 'Dlaczego tak mu zależy na czasie?' (u20) nie może sugerować przestępstwa — tylko pytanie dramaturgiczne zgodne z biblią (brak czarnego charakteru).",
+    "Seed ElevenLabs v3 dla tego odcinka zapisać przy scenie; zalecana wartość: 25 (do potwierdzenia przed nagraniem głosów)."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4295,
+      "outputTokens": 6448,
+      "totalTokens": 42117,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 50.8
+  }
+}

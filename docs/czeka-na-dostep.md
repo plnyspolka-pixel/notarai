@@ -104,7 +104,155 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
     go opublikuje.
 - **W kodzie:** `giif.TERMIN_DNI`, `docs/ksiegi-i-giif.md`, `giif_xml.CRWDE`.
 
-## NA-7. Agent głosowy ElevenLabs — token webhooków, widżet i RODO
+## NA-7. Odcinek 01 — czas projektu aktu z prawdziwym modelem (Bedrock)
+
+- **Status:** czeka
+- **Brakuje:** poświadczeń AWS z dostępem do Bedrock w eu-central-1 na
+  stanowisku, z którego nagrywamy (w sesji, w której powstał kod, ich nie było).
+  Lokalnie zmierzono tylko narzut aplikacji na atrapie modelu: 0,3–0,5 s.
+- **Na żywo:**
+  1. `python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01`
+  2. `python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo '<hasło demo>'`
+     (bez `--atrapa-modelu`), zalogować się jako Marta, sprawa „Nowak - Nowak”,
+     „Sporządź projekt”.
+  3. Zapisać czas z dziennika serwera (`projekt sporzadzony w N s`) i sprawdzić,
+     że projekt ma 2× `<<BRAK>>` (data aktu, dowód kupującego) i warianty
+     `<<WYBOR>>` z § 2 i § 4, a raport zasad pokazuje „kwoty słownie”.
+  4. Na czas nagrania: przejście do kalendarza w trakcie, powiadomienie, DOCX.
+- **W kodzie:** nic — ewentualnie tekst statusu w `pokazPostepProjektu`
+  (`static/index.html`), jeśli czas odbiega od „do kilkunastu minut”.
+- **Zamknięte, gdy:** czas zapisany w `docs/odcinek-01-luki.md`, a projekt
+  z modelu przejrzał notariusz.
+
+## NA-8. Odcinek 01 — przebieg na app.notarai.pl (S3 + Cognito, dwa urządzenia)
+
+- **Status:** czeka
+- **Brakuje:** wdrożenia gałęzi `claude/odcinek-01-ekrany` (po scaleniu do
+  `master`) i kancelarii demo na app.notarai.pl z czterema kontami na
+  prawdziwych skrzynkach (zaproszenia Cognito).
+- **Na żywo:**
+  1. W panelu /admin założyć kancelarię demo (np. „Kancelaria pod Siódemką
+     DEMO”), właściciel akceptuje umowę powierzenia sam (to oświadczenie,
+     nie skrypt).
+  2. Właściciel zaprasza 3 osoby w „Zespół kancelarii”, od razu ze
+     stanowiskiem (notariusz / aplikant / sekretariat).
+  3. Dane sprawy: `PIECZAPP_MAGAZYN=s3 PIECZAPP_S3_BUCKET=<bucket> python
+     scripts/demo_odcinek01.py przygotuj --kancelaria <id kancelarii demo>`
+     (profil `notarai-admin`, eu-central-1; same dane fikcyjne).
+  4. Telefon (Kuba): link `https://app.notarai.pl/#sprawa=e01demo00001`,
+     zdjęcie aparatem → „Wyślij”; komputer Marty: plik pojawia się w ≤ 15 s.
+  5. Marta: „Sporządź projekt”, przejście do kalendarza, odświeżenie strony
+     w trakcie (status ma przetrwać), powiadomienie, „Pobierz jako Word”.
+  6. Basia: brak „Sporządź projekt”; Kuba: brak „Księgi”/„GIIF”.
+- **W kodzie:** nic, chyba że wyjdą różnice S3 (np. opóźnienie `projekt-stan.json`
+  między kopiami aplikacji).
+- **Zamknięte, gdy:** cały scenariusz przechodzi na produkcji na danych demo.
+
+## NA-9. Poczta do spraw — prawdziwa skrzynka IMAP kancelarii
+
+- **Status:** czeka
+- **Brakuje:** skrzynki testowej kancelarii (IMAP, TLS) z hasłem aplikacji
+  i wdrożenia stosu aplikacji z polityką `sekrety-skrzynki-pocztowej`
+  (`infra/notarai-aplikacja.yaml`, sekret `notarai-skrzynka-<kancelaria>`).
+- **Na żywo:**
+  1. Właściciel kancelarii wpisuje w „Poczta do przypisania” sam adres e-mail
+     i hasło (sprawdzić po jednej skrzynce: Onet/WP/Interia, home.pl albo nazwa.pl,
+     Gmail z hasłem aplikacji); kreator ma sam znaleźć serwer. Sprawdzamy, że
+     sekret powstał w Secrets Manager (eu-central-1) i że hasła nie ma w S3 ani w logach.
+  2. Na skrzynkę wysyłamy z kont testowych 3 maile jak w demo
+     (`scripts/demo_odcinek01_skrzynka/`, bez prawdziwych danych klientów).
+  3. „Sprawdź skrzynkę”: propozycje (sygnatura, adres, wątek) i to, że w programie
+     pocztowym maile nadal są „nieprzeczytane” (BODY.PEEK).
+  4. Przypisanie jednym kliknięciem, pliki w „Plikach sprawy”, „Wyciągnij
+     ustalenia” na prawdziwym modelu (Bedrock): komunikat przy polu, pole puste,
+     projekt z `<<BRAK>>`.
+  5. Logi CloudWatch z tego czasu: brak tematów, treści, adresów i nazwisk.
+- **W kodzie:** `korespondencja.DostawcaImap` (np. nietypowe odpowiedzi serwera,
+  foldery z polskimi znakami — modified UTF-7), prompt `USTALENIA_Z_KORESPONDENCJI`.
+- **Zamknięte, gdy:** przebieg działa na prawdziwej skrzynce, a notariusz
+  potwierdza, że ustalenia i ich źródła są trafne.
+
+## NA-10. Poczta do spraw — logowanie przez Microsoft 365 i Google (OAuth)
+
+- **Status:** czeka
+- **Brakuje:** rejestracji aplikacji w Microsoft Entra i Google Cloud (konto
+  właściciela notarai) oraz sekretu `notarai/oauth-poczty`
+  (`infra\zapisz-sekret-oauth-poczty.ps1`), potem `infra\3-wdroz-aplikacje.ps1`.
+  Google: zakres `https://mail.google.com/` jest zastrzeżony — weryfikacja aplikacji
+  (do tego czasu tylko użytkownicy testowi).
+- **Na żywo:**
+  1. Kancelaria z Microsoft 365 wpisuje adres → „Zaloguj przez Microsoft” → zgoda →
+     powrót do aplikacji „Skrzynka podłączona”. Jeśli tenant blokuje zgodę
+     użytkownika — sprawdzić komunikat i ścieżkę zgody administratora.
+  2. Po godzinie (wygaśnięcie tokenu dostępu) „Sprawdź skrzynkę” nadal działa
+     (odświeżenie tokenu, rotacja zapisana w sekrecie).
+  3. „Odłącz skrzynkę” kasuje sekret; to samo dla konta Google testowego.
+- **W kodzie:** `skrzynki.OAUTH`, `korespondencja.oauth_start/oauth_powrot`.
+- **Zamknięte, gdy:** obie ścieżki działają na produkcji na skrzynkach testowych.
+
+## NA-11. Pierwszy zakup pakietu kredytów na żywo (przez Finance You / TPay)
+
+- **Status:** czeka
+- **Brakuje:** wdrożenia gałęzi `claude/tokenomia-tpay-integration-52zu6a` w obu
+  repozytoriach (notarai i finyou, z migracją `partner_credit_orders`) oraz decyzji
+  o § 7 Regulaminu (`docs/projekt-regulamin-par7-kredyty.md`, 14 dni wcześniej
+  e-mail do kancelarii).
+- **Na żywo:**
+  1. Przed wdrożeniem notarai: w panelu Stripe anulować trwające subskrypcje
+     abonamentu notarai (aplikacja już ich nie obsługuje — bez tego Stripe dalej
+     pobierałby opłaty) i usunąć webhook `notarai-aplikacja`; kancelariom, które
+     zapłaciły za bieżący okres, dopisać w `/admin` kredyty za niewykorzystaną część.
+  2. Finance You: migracja `20261113120000_partner_credit_orders.sql`; w env
+     opcjonalnie `PARTNER_PLATNOSCI_TOKEN` (bez niego działa `KW_PARTNER_TOKEN`)
+     i `PARTNER_PLATNOSCI_ORIGINS` (domyślnie `https://app.notarai.pl`).
+     Sprawdzić, że podmiot Fundacji w module księgowym ma stawkę „zw”.
+  3. notarai: sekret `notarai/finyou` i `FinyouAdres` już są (treść KW) — wystarczy
+     wdrożenie `infra\3-wdroz-aplikacje.ps1`.
+  4. Kancelaria demo, właściciel: „Kredyty” → pakiet 100 kr → BLIK → powrót; saldo
+     rośnie o 100 w ≤ 1 min, w oknie widać numer faktury.
+  5. W panelu TPay „Wyślij ponownie powiadomienie” — saldo bez zmian (raz).
+  6. Faktura: jest w KSeF na NIP kancelarii demo, e-mail doszedł, pozycja
+     „Bon jednego przeznaczenia - pakiet 100 kredytów…”, stawka „zw”.
+  7. Zwrot w panelu TPay — w Finance You `refunded`, w notarai saldo −100 (raz);
+     korekta faktury ręcznie w module księgowym.
+- **W kodzie:** notarai `platnosci.py`, `tokenomia.py` (`kup_pakiet`,
+  `uzgodnij_zamowienie`, `ping_platnosci`); finyou `src/lib/partner-payments/`,
+  `src/routes/api/public/partner-platnosci.ts`, `webhook-core.server.ts` (prefiks `NOTARAI:`).
+- **Zamknięte, gdy:** prawdziwy zakup na produkcji dopisuje kredyty raz i ma
+  fakturę w KSeF.
+
+---
+
+Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
+`docs/testy-z-notariuszem-ksiegi.md`.
+
+## NA-12. Stanowisko GPU do ujęć bez mowy (RunPod 4090 + ComfyUI + Wan 2.2)
+
+- **Status:** czeka
+- **Brakuje:** konta RunPod (albo Modal) z saldem i dysku sieciowego 100 GB; skrypty
+  w `docs/kampania-komputerku/narzedzia/gpu/` powstały bez dostępu do karty, więc nazwy
+  plików modeli (Comfy-Org, lightx2v) i węzłów ComfyUI nie były uruchomione.
+- **Na żywo:**
+  0. Najpierw `infra/5-budzet-i-limit-gpu.ps1` (budżet Bedrock + wniosek o limit GPU spot;
+     AWS odpowiada w 1–2 dni) – dotyczy wariantu AWS; RunPod go nie potrzebuje.
+  1. Pod RTX 4090 (Community, 0,34 USD/h) z Network Volume w `/workspace`, port 8188;
+     `bash runpod_4090.sh`, potem `bash runpod_4090.sh start`. Zapisać, które nazwy
+     plików trzeba było poprawić.
+  2. `klipy_batch.py ../../odcinki/EP01.json --comfy <url> --powtorzenia 1` na 2–3 ujęciach
+     bez mowy; porównać `wan22_i2v_lightning.json` z szablonem „Wan 2.2 14B I2V” w ComfyUI.
+  3. Zmierzyć sekundy GPU na klip (log w `narzedzia/koszty_log.csv`) i wpisać realny mnożnik
+     do `koszty_odcinka.py` (tor `gpu_4090`).
+  4. Osobno: 10 kwestii po polsku przez EchoMimicV3 i InfiniteTalk, odsłuch z dźwiękiem;
+     decyzja, czy „mówiące w planie” schodzą z Kling Avatar v2 Pro.
+  5. **Usunąć pod** po teście (dysk zostaje).
+- **Alternatywa bez nowego konta:** stos `infra/notarai-gpu-komfy.yaml` (spot g6.xlarge na rachunku AWS
+  aplikacji; wymaga limitu na instancje G w eu-central-1 i profilu AWS operatora) – te same kroki 2–5.
+- **Gdzie w kodzie:** `docs/kampania-komputerku/narzedzia/gpu/`, `infra/notarai-gpu-komfy.yaml`, `koszty_odcinka.py` (TORY["gpu_4090"]),
+  `KOSZTY_I_COMPUTE_2026-11-13.md` §3 pkt 2 i 4.
+- **Zamknięte, gdy:** paczka klipów z jednego odcinka przeszła end-to-end, a zmierzony koszt
+  klipu jest w `koszty_log.csv` i w dokumencie kosztów.
+
+## NA-13. Agent głosowy ElevenLabs — token webhooków, widżet i RODO
 
 - **Status:** w toku (agent działa, webhooki wdrożone; bez tokenu i bez widżetu)
 - **Brakuje:**

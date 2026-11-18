@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "source": "synthetic_demo",
+    "split": "holdout",
+    "dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluator_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "baseline_id": "synthetic-baseline",
+    "candidate_id": "synthetic-candidate"
+  },
+  "observations": [
+    {
+      "task_id": "case-a",
+      "seed": 0,
+      "baseline_success": false,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-a",
+      "seed": 1,
+      "baseline_success": true,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-b",
+      "seed": 0,
+      "baseline_success": false,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-b",
+      "seed": 1,
+      "baseline_success": false,
+      "candidate_success": false,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-c",
+      "seed": 0,
+      "baseline_success": true,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-c",
+      "seed": 1,
+      "baseline_success": false,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-d",
+      "seed": 0,
+      "baseline_success": true,
+      "candidate_success": false,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    },
+    {
+      "task_id": "case-d",
+      "seed": 1,
+      "baseline_success": true,
+      "candidate_success": true,
+      "baseline_cost_cents": 0,
+      "candidate_cost_cents": 0,
+      "baseline_latency_ms": 12,
+      "candidate_latency_ms": 10,
+      "baseline_policy_violations": 0,
+      "candidate_policy_violations": 0
+    }
+  ]
+}

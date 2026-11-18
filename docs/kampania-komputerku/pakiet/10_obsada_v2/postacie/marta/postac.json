@@ -1,0 +1,92 @@
+{
+  "slug": "marta",
+  "imie": "Marta",
+  "wiek": 38,
+  "rola": "notariuszka, pokazuje działanie programu",
+  "rola_en": "Polish notary who demonstrates the software",
+  "wyglad": {
+    "twarz": "oval face, light skin, warm brown eyes, subtle professional make-up",
+    "wlosy": "shoulder-length dark-brown hair with soft waves",
+    "sylwetka": "slim, energetic posture"
+  },
+  "stroj": {
+    "opis": "navy blazer, white top, small gold hoop earrings",
+    "kolory": {
+      "marynarka": "#1F2A44",
+      "top": "#FFFFFF"
+    }
+  },
+  "rekwizyty": [
+    "laptop",
+    "tablet"
+  ],
+  "charakter": "naturalny uśmiech, szybka gestykulacja, entuzjazm do narzędzi",
+  "relacje": "Basia ⇄ Marta: praktyka kontra automatyzacja",
+  "strefa": "stol_roboczy",
+  "strefa_opis_en": "south-west walnut work table with an open laptop",
+  "kadry": [
+    {
+      "kamera": "K5m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "She sits at the walnut work table behind the open laptop (lid back to camera), body turned slightly toward camera, hands relaxed beside the laptop, confident slight smile.",
+      "plik": "kadr_K5m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/SEK_J0AoQRKjNVqe95jFa_7R50gaKS.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    },
+    {
+      "kamera": "K5",
+      "glowny": false,
+      "poza_en": "She sits at the walnut work table behind the open laptop (lid back to camera), body turned slightly toward camera, hands relaxed beside the laptop, confident slight smile.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K5.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a19/q_szEiEvX1ZGwzwcRst7c_wOU1pHMo.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    },
+    {
+      "kamera": "K4",
+      "glowny": false,
+      "poza_en": "Seen from behind her right shoulder, she types on the open laptop with a plain light-grey screen; her face in three-quarter profile."
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Energetic, friendly expert. Lively facial expressions, quick confident nods, frequent small hand gestures toward the laptop or toward the listener.",
+    "gesty_typowe": [
+      "wskazanie laptopa",
+      "szybkie skinienie",
+      "uśmiech"
+    ],
+    "unikac": [
+      "przesadna euforia"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": "Native Polish woman, 38, modern notary. Clear, confident mid-range voice, warm and friendly but decisive. Speaks briskly with crisp diction and firm falling intonation at the end of commands, like someone used to being in charge; light smile in the voice, no drama. Natural, conversational, not a commercial voice-over. Standard Polish accent. Close microphone in a quiet office, dry, intimate.",
+    "elevenlabs_voice_id": "rOIbi11t4PdzPrW90No0",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id",
+    "elevenlabs_voice_id_v1": "BDuEI9b2twykxFyFIbv4",
+    "model_voice_design": "eleven_ttv_v3",
+    "model_tts": "eleven_v3 (Text to Dialogue, stability 0.5)",
+    "przepis": "glosy.md"
+  },
+  "heygen": {
+    "avatar_id": "76568ce3a95191687ca7288be833801b",
+    "avatar_v1": "18e4f2b5c26f30dd99be62807b38f79f",
+    "utworzony": "2026-11-12, POST /v3/avatars type=photo z kadru głównego"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/eNdyu6DSMISfANRXtyIXY_marta_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/eGGNXp3r2_H8nQF6P8eD1_o2uQyCcZ.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "zatwierdzona (kancelaria-v2, awatar v2)"
+}

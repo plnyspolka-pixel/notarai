@@ -1,0 +1,336 @@
+{
+  "seria": "komputerku",
+  "odcinek": 4,
+  "tytul": "Wczoraj tego nie było",
+  "funkcja_notarai": "Pobieranie aktualnej treści KW przez skonfigurowanego dostawcę (ekw.py); pliki sprawy; ręczne zestawienie odczytów z dwiema datami",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "kuba",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Marta… tego wczoraj nie było.",
+      "kwestia_v3": "[surprised, tense] Marta… [short pause] tego wczoraj nie było.",
+      "emocja": "zaskoczenie, napięcie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "trainee suddenly straightening up comparing two dated printed property register extracts on desk"
+    },
+    {
+      "id": "u2",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: dwa datowane wydruki KW na biurku Kuby, jeden starszy jeden nowszy, widoczne daty w nagłówkach",
+      "czas_s": 5,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "cinematic detail two dated synthetic property register printouts side by side on walnut desk"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Borowska? Nie Nowak?",
+      "kwestia_v3": "[focused, clarifying] Borowska? [short pause] Nie Nowak?",
+      "emocja": "skupienie, upewnianie się",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "notary looking up attentively from laptop screen toward trainee"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "kuba",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Borowska. Inna teczka.",
+      "kwestia_v3": "[matter-of-fact, calm] Borowska. [short pause] Inna teczka.",
+      "emocja": "spokój, precyzja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "trainee holding separate case folder clearly labelled BOROWSKA distinct from NOWAK-KACZMAREK"
+    },
+    {
+      "id": "u5",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Lista spraw w kokpicie NotarAI; widoczne dwie odrębne sprawy z fikcyjnymi etykietami BOROWSKA i NOWAK — KACZMAREK; żaden numer nie sugeruje rzeczywistej księgi wieczystej",
+      "grafika": [
+        "status_sprawdzam"
+      ]
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Sprawdzamy stan aktualny i skąd pochodzi odczyt.",
+      "kwestia_v3": "[confident, matter-of-fact] Sprawdzamy stan aktualny [short pause] i skąd pochodzi odczyt.",
+      "emocja": "profesjonalizm, skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "over-the-shoulder notary entering fictitious KW number in EKW reading module with source timestamp visible"
+    },
+    {
+      "id": "u7",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 8,
+      "co_widac": "Moduł EKW w NotarAI: pole numeru fikcyjnej demonstracyjnej KW, widoczne źródło dostawcy i znacznik czasu pobrania; wynik zawiera działy I–IV syntetycznej księgi demonstracyjnej",
+      "grafika": [
+        "status_pobieranie_kw"
+      ]
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "kuba",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "Na tym odczycie jest wzmianka. Na starszym jej nie ma.",
+      "kwestia_v3": "[hesitant, careful] Na tym odczycie jest wzmianka. [short pause] Na starszym jej nie ma.",
+      "emocja": "ostrożność, niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "trainee pointing at annotation marking on newer synthetic property extract compared to older one"
+    },
+    {
+      "id": "u9",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: zbliżenie na dwa datowane wydruki syntetyczne, widoczne rubryki i oznaczenie wzmianki na nowszym dokumencie, kontrast neutralny",
+      "czas_s": 5,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "two dated synthetic property extracts manually reviewed annotation highlighted on newer document neutral lighting"
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "marta",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "To dopiero sygnał do weryfikacji.",
+      "kwestia_v3": "[calm, authoritative] To dopiero sygnał do weryfikacji.",
+      "emocja": "spokój, powaga zawodowa",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "notary calmly clarifying limitation of registry annotation to trainee"
+    },
+    {
+      "id": "u11",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "helena",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/kadr_K2m.jpg",
+      "kwestia": "Wzmianka mówi nam, że coś wpłynęło do systemu. Trzeba ustalić, czego dotyczy. Nie zgadujemy.",
+      "kwestia_v3": "[measured, professional] Wzmianka mówi nam, że coś wpłynęło do systemu. [short pause] Trzeba ustalić, czego dotyczy. [short pause] Nie zgadujemy.",
+      "emocja": "spokój, autorytet, precyzja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 8,
+      "prompt_delta": "senior notary at main desk calmly explaining registry annotation limitation professional composure"
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "basia",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/kadr_K3m.jpg",
+      "kwestia": "A pani Nowak? Mam już od nich nowe wiadomości.",
+      "kwestia_v3": "[busy, slightly impatient] A pani Nowak? [short pause] Mam już od nich nowe wiadomości.",
+      "emocja": "zapracowanie, lekka niecierpliwość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "receptionist at printer area holding phone receiver looking toward notary"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "postac": "marta",
+      "kamera": "K4",
+      "klatka_startowa": "kadry/kadr_K5m.jpg",
+      "kwestia": "Za chwilę do tego wrócę. Najpierw zapiszę źródło dla Borowskiej.",
+      "kwestia_v3": "[focused, calm] Za chwilę do tego wrócę. [short pause] Najpierw zapiszę źródło dla Borowskiej.",
+      "emocja": "skupienie, porządek",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "notary at laptop saving case file entry for Borowska case before switching to Nowak matter"
+    },
+    {
+      "id": "u14",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K8",
+      "klatka_startowa": "DO_WYGENEROWANIA: przebitka okno kancelarii, naturalne światło dzienne, spokojny kadr oddzielający dwie sceny",
+      "czas_s": 5,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "window cutaway soft natural daylight transitional shot between two office scenes"
+    },
+    {
+      "id": "u15",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 8,
+      "co_widac": "Teczka sprawy BOROWSKA w NotarAI: Marta zapisuje pobrany plik KW z metadanymi — źródło dostawcy, data i godzina pobrania; wcześniejszy eksport widoczny jako osobny plik z inną datą",
+      "grafika": [
+        "status_zapisano_zrodlo"
+      ]
+    },
+    {
+      "id": "u16",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "postac": "kuba",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kadr_K6m.jpg",
+      "kwestia": "A skoro tu coś się zmieniło… to kiedy ostatnio sprawdzaliśmy, co naprawdę uzgodniono w sprawie pani Ireny?",
+      "kwestia_v3": "[thoughtful, slowly realising] A skoro tu coś się zmieniło… [short pause] to kiedy ostatnio sprawdzaliśmy, [short pause] co naprawdę uzgodniono w sprawie pani Ireny?",
+      "emocja": "refleksja, niepokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 9,
+      "prompt_delta": "trainee looking at two case folders informal date note 1 XII visible emerging from under folder"
+    },
+    {
+      "id": "u17",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal biurka — kartka z datą 1 XII wyłania się spod teczki BOROWSKA, obok teczka NOWAK — KACZMAREK",
+      "czas_s": 5,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "desk detail handwritten note date 1 XII emerging from under Borowska folder beside Nowak-Kaczmarek folder"
+    },
+    {
+      "id": "u18",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/OUTRO_ep04_email_teaser.png",
+      "czas_s": 4,
+      "prompt_delta": "email teaser text under consistent blue NotarAI logo endcard dark navy background"
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 4,
+      "tekst": "Marta… tego wczoraj nie było."
+    },
+    {
+      "od_s": 13,
+      "do_s": 17,
+      "tekst": "Borowska? Nie Nowak?"
+    },
+    {
+      "od_s": 17,
+      "do_s": 21,
+      "tekst": "Borowska. Inna teczka."
+    },
+    {
+      "od_s": 28,
+      "do_s": 33,
+      "tekst": "Sprawdzamy stan aktualny\ni skąd pochodzi odczyt."
+    },
+    {
+      "od_s": 41,
+      "do_s": 47,
+      "tekst": "Na tym odczycie jest wzmianka.\nNa starszym jej nie ma."
+    },
+    {
+      "od_s": 52,
+      "do_s": 56,
+      "tekst": "To dopiero sygnał do weryfikacji."
+    },
+    {
+      "od_s": 56,
+      "do_s": 60,
+      "tekst": "Wzmianka mówi nam,\nże coś wpłynęło do systemu."
+    },
+    {
+      "od_s": 60,
+      "do_s": 64,
+      "tekst": "Trzeba ustalić, czego dotyczy."
+    },
+    {
+      "od_s": 64,
+      "do_s": 68,
+      "tekst": "Nie zgadujemy."
+    },
+    {
+      "od_s": 68,
+      "do_s": 73,
+      "tekst": "A pani Nowak? Mam już\nod nich nowe wiadomości."
+    },
+    {
+      "od_s": 73,
+      "do_s": 79,
+      "tekst": "Za chwilę do tego wrócę.\nNajpierw zapiszę źródło dla Borowskiej."
+    },
+    {
+      "od_s": 92,
+      "do_s": 101,
+      "tekst": "A skoro tu coś się zmieniło…\nto kiedy ostatnio sprawdzaliśmy,"
+    },
+    {
+      "od_s": 101,
+      "do_s": 106,
+      "tekst": "co naprawdę uzgodniono\nw sprawie pani Ireny?"
+    },
+    {
+      "od_s": 111,
+      "do_s": 115,
+      "tekst": "Wszystko zaczęło się\nod jednej wiadomości."
+    }
+  ],
+  "kontrola": [
+    "Sprawdzić, czy fikcyjny numer KW w ujęciu u7 nie pokrywa się z żadną rzeczywistą księgą wieczystą — użyć wyłącznie numeru demonstracyjnego.",
+    "Przed nagraniem u11 uzyskać autoryzację praktykującego notariusza co do dokładnego wariantu wzmianki, jej rubryki i możliwej interpretacji prawnej.",
+    "Potwierdzić dostępność endpointu /api/sprawy/{id}/ekw i skonfigurowanego dostawcy (Finance You/Apify) w środowisku demo przed nagraniem u7.",
+    "Upewnić się, że ekran w u5 i u7 nie zawiera żadnych rzeczywistych danych osobowych, numerów PESEL ani prawdziwych numerów KW.",
+    "Sprawdzić, że w ujęciach u5 i u15 nie pojawia się żaden komunikat sugerujący automatyczny diff KW ani alarm wzmianki — funkcja nie jest wdrożona.",
+    "Zweryfikować continuity: sprawa BOROWSKA jest odrębna od NOWAK — KACZMAREK; wzmianka nie dotyczy mieszkania Ireny Nowak.",
+    "Upewnić się, że w żadnym ujęciu nie pada cena, powierzchnia ani termin wydania dotyczący sprawy Ireny — jeśli pojawia się teczka NOWAK — KACZMAREK, dane muszą być zgodne z kanonem: 640 000 zł, 56,40 m², wydanie 15.01.2027.",
+    "Sprawdzić, że kartka z datą 1 XII w u17 jest rekwizytem ręcznym (notatka robocza), a nie wydrukiem systemowym sugerującym uzgodnienie przez Irenę.",
+    "Potwierdzić, że u15 pokazuje dwa osobne pliki z różnymi datami (bieżący odczyt i wcześniejszy eksport) — system nie przechowuje automatycznie historycznych wersji KW.",
+    "Zweryfikować, że plansza u18 nie zdradza puenty odcinka ani sekretu Pawła zgodnie z zasadami mailingu.",
+    "Sprawdzić seed ElevenLabs v3 dla tego odcinka i zapisać go przy scenariuszu przed nagraniem kwestii.",
+    "Upewnić się, że Paweł Nowak nie pojawia się w tym odcinku jako pełnomocnik ani współwłaściciel — kanon niezmieniony."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4405,
+      "outputTokens": 5079,
+      "totalTokens": 40858,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 38.8
+  }
+}

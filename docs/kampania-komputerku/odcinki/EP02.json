@@ -1,0 +1,456 @@
+{
+  "seria": "komputerku",
+  "odcinek": 2,
+  "tytul": "Proszę nie przy nim",
+  "funkcja_notarai": "Weryfikacja danych i zatrzymanie projektu do wyjaśnienia; Kalendarz: ręczna zmiana planowanego terminu; historia rozmowy jako zapis roboczy",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena stoi przed drzwiami gabinetu, ściska złożoną kartkę, korytarz spokojny",
+      "czas_s": 5,
+      "prompt_delta": "elderly woman at notary office hallway door clutching folded note, restrained anxiety, 85mm"
+    },
+    {
+      "id": "u2",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena przy drzwiach gabinetu, twarz w zbliżeniu, kartka w dłoni",
+      "postac": "gosc:irena",
+      "kwestia": "Nie chciałabym, żeby Paweł teraz był przy tej rozmowie.",
+      "kwestia_v3": "[hesitant, quiet] Nie chciałabym, żeby Paweł teraz był przy tej rozmowie.",
+      "emocja": "powstrzymywany niepokój, determinacja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "elderly client speaking quietly at hallway door, restrained anxiety, close-up hands with folded note"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_biurko.png",
+      "postac": "helena",
+      "kwestia": "Proszę powiedzieć własnymi słowami, jak wyobraża sobie pani tę sprzedaż.",
+      "kwestia_v3": "[calm, attentive] Proszę powiedzieć własnymi słowami, jak wyobraża sobie pani tę sprzedaż.",
+      "emocja": "skupienie, pełna uwaga, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "senior notary at desk, laptop closed, attentive listening posture, serious two shot"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena siedzi naprzeciwko Heleny w gabinecie, ujęcie zza ramienia Ireny",
+      "postac": "gosc:irena",
+      "kwestia": "Sprzedać chcę. Ale nie tak szybko się wyprowadzić.",
+      "kwestia_v3": "[sincere, measured] Sprzedać chcę. [short pause] Ale nie tak szybko się wyprowadzić.",
+      "emocja": "szczerość, ulga z wypowiedzenia",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "elderly property seller speaking honestly to notary, over-the-shoulder from client side, serious two shot"
+    },
+    {
+      "id": "u5",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena mówi do Heleny, twarz spokojna, ręce złożone na kolanach",
+      "postac": "gosc:irena",
+      "kwestia": "Syn mówił o grudniu, ale ja mówiłam o połowie stycznia.",
+      "kwestia_v3": "[matter-of-fact, calm] Syn mówił o grudniu, ale ja mówiłam o połowie stycznia.",
+      "emocja": "spokojne stwierdzenie faktu",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "elderly woman calmly stating conflicting dates to notary, composed expression, 85mm"
+    },
+    {
+      "id": "u6",
+      "typ": "bez_mowy",
+      "kadr": "D_detal",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal kartki z odręcznymi datami 1 XII i 15 I, bez danych osobowych",
+      "czas_s": 5,
+      "prompt_delta": "two handwritten conflicting move-out dates on confidential case note, no real data, desk detail"
+    },
+    {
+      "id": "u7",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_biurko.png",
+      "postac": "helena",
+      "kwestia": "Rozumiem. Musimy to wyjaśnić ze wszystkimi stronami.",
+      "kwestia_v3": "[confident, matter-of-fact] Rozumiem. [short pause] Musimy to wyjaśnić ze wszystkimi stronami.",
+      "emocja": "profesjonalny spokój, zdecydowanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "senior notary making handwritten note, calm decisive expression, 85mm"
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "postac": "basia",
+      "kwestia": "Pani rejent wszystko z nią spokojnie wyjaśni.",
+      "kwestia_v3": "[reassuring, deadpan] Pani rejent wszystko z nią spokojnie wyjaśni.",
+      "emocja": "dyskretne uspokojenie, neutralność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "secretary at reception desk reassuring waiting visitor, calm professional expression"
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K1",
+      "klatka_startowa": "DO_WYGENEROWANIA: Paweł stoi przy recepcji, sprawdza telefon, czeka",
+      "postac": "gosc:pawel",
+      "kwestia": "Mama długo rozmawia?",
+      "kwestia_v3": "[hesitant, quiet] Mama długo rozmawia?",
+      "emocja": "życzliwa niecierpliwość, niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "middle-aged adult son waiting respectfully in notary office reception, checking phone"
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
+      "postac": "marta",
+      "kwestia": "Właśnie. Źródło to nie zawsze zgoda strony.",
+      "kwestia_v3": "[confident, matter-of-fact] Właśnie. [short pause] Źródło to nie zawsze zgoda strony.",
+      "emocja": "rzeczowość, spokojne pouczenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "notary at laptop explaining data source distinction to trainee, over-the-shoulder screen visible"
+    },
+    {
+      "id": "u11",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kuba_biblioteka.png",
+      "postac": "kuba",
+      "kwestia": "Czyli data z maila nie może być traktowana jako potwierdzona przez sprzedającą?",
+      "kwestia_v3": "[hesitant, curious] Czyli data z maila nie może być traktowana jako potwierdzona przez sprzedającą?",
+      "emocja": "zrozumienie, lekkie zaskoczenie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "young notary trainee holding printed terms sheet, questioning expression, 85mm"
+    },
+    {
+      "id": "u12",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 7,
+      "co_widac": "Sprawa NOWAK — KACZMAREK S-041-2026, zakładka weryfikacji odczytu, filtr Wymagają uwagi; pole terminu wydania lokalu oznaczone jako nierozstrzygnięte; dokument D05 warunki T1 widoczny jako załącznik roboczy",
+      "grafika": [
+        "status_wymaga_uwagi"
+      ]
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_biurko.png",
+      "postac": "helena",
+      "kwestia": "Nie musimy się spieszyć kosztem jasności ustaleń. Dziś tej umowy nie podpiszemy.",
+      "kwestia_v3": "[calm, firm] Nie musimy się spieszyć kosztem jasności ustaleń. [short pause] Dziś tej umowy nie podpiszemy.",
+      "emocja": "spokojne zdecydowanie, troska",
+      "ruch_kamery": "statyczna",
+      "czas_s": 7,
+      "prompt_delta": "senior notary explaining transaction postponement to elderly client, serious calm expression, medium shot"
+    },
+    {
+      "id": "u14",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena siedzi naprzeciwko Heleny, wyraz ulgi na twarzy",
+      "postac": "gosc:irena",
+      "kwestia": "Dziękuję.",
+      "kwestia_v3": "[relieved, sincere] Dziękuję.",
+      "emocja": "ulga, wdzięczność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "elderly client visibly relieved after notary decision, sincere gratitude, 85mm"
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_przy_drukarce.png",
+      "postac": "basia",
+      "kwestia": "W kalendarzu już poprawiłam. Stara teczka zostaje.",
+      "kwestia_v3": "[matter-of-fact, dry] W kalendarzu już poprawiłam. [short pause] Stara teczka zostaje.",
+      "emocja": "rzeczowość, profesjonalna satysfakcja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "secretary confirming calendar update at reception computer, composed professional expression"
+    },
+    {
+      "id": "u16",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 6,
+      "co_widac": "Kalendarz kancelarii; termin wtorek 17.11 godz. 11:30 przy sprawie NOWAK — KACZMAREK S-041-2026 ręcznie edytowany; nowa data do ustalenia; identyfikator sprawy niezmieniony",
+      "grafika": [
+        "status_termin_zmieniony"
+      ]
+    },
+    {
+      "id": "u17",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
+      "postac": "marta",
+      "kwestia": "Tak. Nie zaczynamy wszystkiego od nowa.",
+      "kwestia_v3": "[confident, matter-of-fact] Tak. [short pause] Nie zaczynamy wszystkiego od nowa.",
+      "emocja": "spokojne potwierdzenie, kontrola sytuacji",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "notary reviewing case list on screen after rescheduling, reassured expression, over-the-shoulder"
+    },
+    {
+      "id": "u18",
+      "typ": "mowiace",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena i Paweł stoją w korytarzu, Irena wychodzi z gabinetu",
+      "postac": "gosc:pawel",
+      "kwestia": "I co teraz?",
+      "kwestia_v3": "[hesitant, quiet] I co teraz?",
+      "emocja": "niepewność, troska",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "adult son and elderly mother in notary hallway, complex loving relationship, wide two shot"
+    },
+    {
+      "id": "u19",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K7",
+      "klatka_startowa": "DO_WYGENEROWANIA: Irena w korytarzu, spokojny wyraz twarzy, patrzy na syna",
+      "postac": "gosc:irena",
+      "kwestia": "Porozmawiamy, ale w domu. Spokojnie.",
+      "kwestia_v3": "[calm, gentle but firm] Porozmawiamy, ale w domu. [short pause] Spokojnie.",
+      "emocja": "spokojne przejęcie inicjatywy, ciepło",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "elderly woman calmly reasserting agency to adult son in hallway, gentle but firm expression, 85mm"
+    },
+    {
+      "id": "u20",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kuba_biblioteka.png",
+      "postac": "kuba",
+      "kwestia": "Tylko… skąd oni wszyscy wzięli tę datę?",
+      "kwestia_v3": "[hesitant, puzzled] Tylko… [short pause] skąd oni wszyscy wzięli tę datę?",
+      "emocja": "zdziwienie, dociekliwość",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "young trainee holding provisional terms memo, puzzled expression, 85mm"
+    },
+    {
+      "id": "u21",
+      "typ": "bez_mowy",
+      "kadr": "D_detal",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: zbliżenie kartki z warunkami T1, odręczna data 1 XII, oznaczenie robocze niepotwierdzone",
+      "czas_s": 5,
+      "prompt_delta": "close-up provisional terms memo dated December 1 clearly marked unconfirmed, desk detail, no real data"
+    },
+    {
+      "id": "u22",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_laptop_przez_ramie.png",
+      "czas_s": 5,
+      "prompt_delta": "notary looking at unconfirmed terms note with thoughtful expression, 85mm"
+    },
+    {
+      "id": "u23",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/9x16/OUTRO_komputerku.png",
+      "czas_s": 6,
+      "grafika": [
+        "napis_czyja_data",
+        "OUTRO_9x16"
+      ]
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 5,
+      "tekst": "17 listopada 2026, kancelaria"
+    },
+    {
+      "od_s": 5,
+      "do_s": 10,
+      "tekst": "Nie chciałabym, żeby Paweł\nteraz był przy tej rozmowie."
+    },
+    {
+      "od_s": 10,
+      "do_s": 15,
+      "tekst": "Proszę powiedzieć własnymi słowami,\njak wyobraża sobie pani tę sprzedaż."
+    },
+    {
+      "od_s": 15,
+      "do_s": 20,
+      "tekst": "Sprzedać chcę.\nAle nie tak szybko się wyprowadzić."
+    },
+    {
+      "od_s": 20,
+      "do_s": 25,
+      "tekst": "Syn mówił o grudniu,\nale ja mówiłam o połowie stycznia."
+    },
+    {
+      "od_s": 25,
+      "do_s": 30,
+      "tekst": "1 XII — 15 I"
+    },
+    {
+      "od_s": 30,
+      "do_s": 34,
+      "tekst": "Rozumiem. Musimy to wyjaśnić\nze wszystkimi stronami."
+    },
+    {
+      "od_s": 34,
+      "do_s": 38,
+      "tekst": "Pani rejent wszystko z nią\nspokojnie wyjaśni."
+    },
+    {
+      "od_s": 38,
+      "do_s": 41,
+      "tekst": "Mama długo rozmawia?"
+    },
+    {
+      "od_s": 41,
+      "do_s": 45,
+      "tekst": "Właśnie. Źródło to nie zawsze\nzgoda strony."
+    },
+    {
+      "od_s": 45,
+      "do_s": 51,
+      "tekst": "Czyli data z maila nie może być\ntraktowana jako potwierdzona\nprzez sprzedającą?"
+    },
+    {
+      "od_s": 51,
+      "do_s": 58,
+      "tekst": "Sprawa NOWAK — KACZMAREK\nWymagają uwagi: termin wydania"
+    },
+    {
+      "od_s": 58,
+      "do_s": 65,
+      "tekst": "Nie musimy się spieszyć kosztem\njasności ustaleń.\nDziś tej umowy nie podpiszemy."
+    },
+    {
+      "od_s": 65,
+      "do_s": 68,
+      "tekst": "Dziękuję."
+    },
+    {
+      "od_s": 68,
+      "do_s": 73,
+      "tekst": "W kalendarzu już poprawiłam.\nStara teczka zostaje."
+    },
+    {
+      "od_s": 73,
+      "do_s": 79,
+      "tekst": "Kalendarz: termin 17.11 → do ustalenia\nS-041-2026 bez zmian"
+    },
+    {
+      "od_s": 79,
+      "do_s": 83,
+      "tekst": "Tak. Nie zaczynamy\nwszystkiego od nowa."
+    },
+    {
+      "od_s": 83,
+      "do_s": 86,
+      "tekst": "I co teraz?"
+    },
+    {
+      "od_s": 86,
+      "do_s": 91,
+      "tekst": "Porozmawiamy, ale w domu.\nSpokojnie."
+    },
+    {
+      "od_s": 91,
+      "do_s": 95,
+      "tekst": "Tylko… skąd oni wszyscy\nwzięli tę datę?"
+    },
+    {
+      "od_s": 95,
+      "do_s": 100,
+      "tekst": "Warunki T1 — robocze,\nniepotwierdzone"
+    },
+    {
+      "od_s": 100,
+      "do_s": 105,
+      "tekst": ""
+    },
+    {
+      "od_s": 105,
+      "do_s": 111,
+      "tekst": "Czyja data trafiła do projektu?"
+    }
+  ],
+  "kontrola": [
+    "Potwierdzić, że Paweł nie jest przedstawiany jako pełnomocnik ani strona aktu — żadna kwestia ani grafika nie może sugerować jego umocowania prawnego.",
+    "Sprawdzić, że w ujęciu u12 (ekran) widoczne pola odpowiadają rzeczywistemu stanowi aplikacji NotarAI na koncie demo — zakładka weryfikacji odczytu i filtr Wymagają uwagi muszą istnieć w bieżącej wersji kodu.",
+    "Sprawdzić, że w ujęciu u16 (ekran kalendarza) edycja terminu jest ręczna i nie sugeruje automatycznej zmiany — zgodnie z kalendarz.py bez automatyzacji.",
+    "Upewnić się, że w żadnym ujęciu ekranowym nie pojawia się cena inna niż 640 000 zł, powierzchnia inna niż 56,40 m² ani termin wydania inny niż 15 stycznia 2027 r. (po ustaleniach T2).",
+    "Zweryfikować, że dokument D05 (warunki T1 z datą 1 grudnia) jest oznaczony jako roboczy i niepotwierdzone — nigdy jako ustalenie sprzedającej.",
+    "Upewnić się, że przełożenie planowanej czynności nie jest opisane ani wizualizowane jako formalna odmowa z art. 81 Prawa o notariacie.",
+    "Sprawdzić, że identyfikator sprawy S-041-2026 i nazwa NOWAK — KACZMAREK są spójne we wszystkich ujęciach ekranowych i rekwizytach.",
+    "Zweryfikować, że żaden ekran produktu nie pokazuje funkcji automatycznego importu maila ani automatycznego porównania wersji KW — obie funkcje są oznaczone w biblii jako Do wdrożenia.",
+    "Upewnić się, że Irena nie jest przedstawiana jako osoba z ograniczoną zdolnością do czynności prawnych — jej decyzja o przełożeniu wynika z własnej woli, nie z nieporadności.",
+    "Sprawdzić continuity z EP01: projekt D14 v1 istnieje, termin wtorek 17.11 godz. 11:30 był zaplanowany i teraz jest zmieniany, nie tworzony od nowa.",
+    "Zweryfikować, że wszystkie dane na ekranach demo są syntetyczne — brak prawdziwych numerów PESEL, KW, rachunków bankowych ani nazwisk rzeczywistych stron.",
+    "Potwierdzić u praktykującego notariusza zgodność sceny E02S06 z art. 80 Prawa o notariacie oraz prawidłowość przedstawienia przełożenia czynności.",
+    "Sprawdzić, że gag nakarmić komputerka (beat Kuby i Basi na zapleczu) nie przerywa sceny prywatnej rozmowy Ireny z Heleną — zgodnie z notą dramaturgiczną V5.",
+    "Upewnić się, że plansza końcowa u23 używa zatwierdzonego pliku OUTRO_komputerku.png i nie zawiera nowego, wygenerowanego logo NotarAI."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4825,
+      "outputTokens": 6863,
+      "totalTokens": 43062,
+      "cacheReadInputTokens": 31374,
+      "cacheWriteInputTokens": 0
+    },
+    "uwagi": [],
+    "czas_s": 53.2
+  }
+}

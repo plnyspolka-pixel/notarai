@@ -1,0 +1,88 @@
+{
+  "slug": "helena",
+  "imie": "Helena",
+  "wiek": 56,
+  "rola": "pani rejent, właścicielka kancelarii",
+  "rola_en": "Polish notary, owner of the office",
+  "wyglad": {
+    "twarz": "oval face, light skin, fine lines, calm grey-blue eyes, dark-red rectangular glasses",
+    "wlosy": "silver-grey jaw-length bob",
+    "sylwetka": "medium height, upright posture"
+  },
+  "stroj": {
+    "opis": "burgundy blazer, cream silk blouse with a soft bow, minimal gold jewellery (small hoops, thin watch)",
+    "kolory": {
+      "marynarka": "#6E1F2A",
+      "bluzka": "#EFE4D2"
+    }
+  },
+  "rekwizyty": [
+    "pióro wieczne",
+    "teczka w twardej oprawie"
+  ],
+  "charakter": "spokojna, stanowcza, doświadczenie; kontroluje wynik",
+  "relacje": "Helena ⇄ Marta: doświadczenie kontra nowa metoda; Kuba ⇄ Helena: nauka i kontrola",
+  "strefa": "biurko_glowne",
+  "strefa_opis_en": "main walnut desk in the centre of the room",
+  "kadry": [
+    {
+      "kamera": "K2m",
+      "glowny": true,
+      "kadrowanie": "medium (źródło awatara HeyGen)",
+      "poza_en": "She sits upright in the cognac high-back chair behind the main desk, forearms lightly on the desk edge, hands open and relaxed, looking at camera with calm authority.",
+      "plik": "kadr_K2m.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a28/PmNpdeH1b2AHhEcVSymoi_XezDEJ2v.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    },
+    {
+      "kamera": "K2",
+      "glowny": false,
+      "poza_en": "She sits upright in the cognac high-back chair behind the main desk, forearms lightly on the desk edge, hands open and relaxed, looking at camera with calm authority.",
+      "kadrowanie": "plan (postać w scenografii)",
+      "plik": "kadr_K2.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab22a19/t1ZzlTEQNel0eGqAKBHQE_R6C1wbdJ.png",
+      "zatwierdzony": "2026-11-12 właściciel"
+    }
+  ],
+  "ruch": {
+    "motion_prompt_baza": "Calm, dignified notary. Small deliberate head nods, measured eyebrow movement, occasional slow open-palm gesture at chest height; mostly still shoulders.",
+    "gesty_typowe": [
+      "skinienie głową",
+      "uniesienie brwi znad okularów",
+      "otwarta dłoń na wysokości piersi"
+    ],
+    "unikac": [
+      "szybkie gesty",
+      "szeroki uśmiech"
+    ],
+    "silnik_domyslny": "heygen-avatar-6-turbo",
+    "silnik_gest": "avatar_v"
+  },
+  "glos": {
+    "opis_voice_design_en": "Polish woman in her mid fifties, distinguished head of a notary office, kind but firm. Deep, slightly smoky mature voice, composed and reassuring, speaks slowly and deliberately with thoughtful pauses, gentle downward cadence. Occasionally a dry, teasing remark said completely deadpan. Natural spoken Polish of a native speaker, intimate and real, not theatrical, not a voice-over. Close mic, quiet office ambience.",
+    "elevenlabs_voice_id": "0YMlrD87k6Saqi6L1Joy",
+    "uwaga": "głosy prowadzi osobna sesja; tu tylko odczyt voice_id",
+    "elevenlabs_voice_id_v1": "IUhsOeEtgXvOVX7dbZPU",
+    "model_voice_design": "eleven_ttv_v3",
+    "model_tts": "eleven_v3 (Text to Dialogue, stability 0.5)",
+    "przepis": "glosy.md"
+  },
+  "heygen": {
+    "avatar_id": "b10e796650c8b09ae190f57aad4f81e1",
+    "avatar_v1": "a035e6556c9bd974af5700c86cf3c7a2",
+    "utworzony": "2026-11-12, POST /v3/avatars type=photo z kadru głównego"
+  },
+  "pliki": {
+    "ref": {
+      "plik": "ref.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21631/sapm6pAEqOgqU6YTInAwY_helena_ref.jpg",
+      "zatwierdzony": "obsada-v1"
+    },
+    "arkusz": {
+      "plik": "arkusz.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/QjnG21HOJuCTJDRmBbq8P_DGeK5pku.png",
+      "zatwierdzony": "obsada-v1"
+    }
+  },
+  "status": "zatwierdzona (kancelaria-v2, awatar v2)"
+}

@@ -1,0 +1,397 @@
+{
+  "seria": "komputerku",
+  "odcinek": 3,
+  "tytul": "U nas się tak nie pisze",
+  "funkcja_notarai": "Styl i zasady kancelarii; ponowna kontrola projektu (docs/styl-i-zasady.md)",
+  "format_glowny": "9x16",
+  "adaptacje": [
+    "16x9",
+    "1x1"
+  ],
+  "obsada_wersja": "obsada-v2",
+  "scenografia_wersja": "kancelaria-v2",
+  "warstwy": {
+    "znaczek_ai": true,
+    "logo_w_rogu": true,
+    "belki_z_imionami": true,
+    "napisy": "z_czasow_lektora"
+  },
+  "ujecia": [
+    {
+      "id": "u1",
+      "typ": "bez_mowy",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "DO_WYGENEROWANIA: Helena pochyla się nad wydrukiem projektu, unosi brew, trzyma czerwony długopis nad skrótem w/w",
+      "czas_s": 3,
+      "emocja": "dezaprobata, skupienie",
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "silver-haired notary leaning over printed draft, red pen hovering over abbreviation, disapproving raised eyebrow"
+    },
+    {
+      "id": "u2",
+      "typ": "bez_mowy",
+      "kadr": "A_plan_ogolny",
+      "kamera": "K9",
+      "klatka_startowa": "DO_WYGENEROWANIA: detal czerwonego zakreślenia skrótu w/w na kartce projektu, długopis Heleny",
+      "czas_s": 2,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "cinematic close-up of red pen circling abbreviation on printed legal draft, warm desk light"
+    },
+    {
+      "id": "u3",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_kadr_K2m.jpg",
+      "postac": "helena",
+      "kwestia": "Kubo… od kiedy tak się u nas pisze?",
+      "kwestia_v3": "[dry, measured] Kubo… [short pause] od kiedy tak się u nas pisze?",
+      "emocja": "spokojna dezaprobata, ironia",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "senior notary looking up from draft toward trainee, calm but pointed expression"
+    },
+    {
+      "id": "u4",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kuba_kadr_K6m.jpg",
+      "postac": "kuba",
+      "kwestia": "Tak było w materiale wejściowym.",
+      "kwestia_v3": "[hesitant, slightly defensive] Tak było w materiale wejściowym.",
+      "emocja": "zakłopotanie, próba obrony",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "young trainee caught off guard, slightly defensive posture, holding folder"
+    },
+    {
+      "id": "u5",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_kadr_K2m.jpg",
+      "postac": "helena",
+      "kwestia": "Dlatego materiał wejściowy nie jest jeszcze naszym projektem.",
+      "kwestia_v3": "[confident, matter-of-fact] Dlatego materiał wejściowy [short pause] nie jest jeszcze naszym projektem.",
+      "emocja": "spokojna stanowczość, pedagogiczny ton",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "senior notary making clear distinction, calm authoritative gesture toward printed draft"
+    },
+    {
+      "id": "u6",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_kadr_K5m.jpg",
+      "postac": "marta",
+      "kwestia": "Komputerku, u nas tego skrótu nie używamy.",
+      "kwestia_v3": "[confident, matter-of-fact] Komputerku, u nas tego skrótu nie używamy.",
+      "emocja": "rzeczowość, skupienie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "grafika": [
+        "dymek_komputerku",
+        "status_slucham"
+      ],
+      "prompt_delta": "notary colleague typing style rule into desktop UI, hand on keyboard, authentic screen visible"
+    },
+    {
+      "id": "u7",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Widok modułu Styl i zasady kancelarii: dodawanie lub edycja reguły zastępowania skrótu w/w pełną formą; zapis reguły w interfejsie",
+      "grafika": [
+        "status_sprawdzam"
+      ]
+    },
+    {
+      "id": "u8",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_kadr_K2m.jpg",
+      "postac": "helena",
+      "kwestia": "I proszę, żeby już tak zostało.",
+      "kwestia_v3": "[dry, measured] I proszę, [short pause] żeby już tak zostało.",
+      "emocja": "aprobata, lekka ironia",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "senior notary giving brief approving nod toward screen, slight wry expression"
+    },
+    {
+      "id": "u9",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kuba_kadr_K6m.jpg",
+      "postac": "kuba",
+      "kwestia": "A jeśli zasada się nie zastosuje?",
+      "kwestia_v3": "[hesitant, curious] A jeśli zasada się nie zastosuje?",
+      "emocja": "ciekawość, lekka niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "young trainee asking cautious question, leaning slightly toward screen"
+    },
+    {
+      "id": "u10",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_kadr_K5m.jpg",
+      "postac": "marta",
+      "kwestia": "Raport nam to pokaże. I sprawdzimy sami.",
+      "kwestia_v3": "[confident, matter-of-fact] Raport nam to pokaże. [short pause] I sprawdzimy sami.",
+      "emocja": "rzeczowość, spokój",
+      "ruch_kamery": "statyczna",
+      "czas_s": 4,
+      "prompt_delta": "notary colleague pointing at compliance report on screen, calm reassuring tone"
+    },
+    {
+      "id": "u11",
+      "typ": "ekran",
+      "zrodlo": "nagranie app.notarai.pl, konto demo, dane testowe",
+      "czas_s": 5,
+      "co_widac": "Raport zgodności ze stylem kancelarii: lista sprawdzonych reguł, oznaczenia zastosowanych i niesprawdzonych pozycji; projekt NOWAK–KACZMAREK w tle",
+      "grafika": [
+        "status_gotowe"
+      ]
+    },
+    {
+      "id": "u12",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K3",
+      "klatka_startowa": "kadry/basia_kadr_K3m.jpg",
+      "postac": "basia",
+      "kwestia": "Jeszcze naucz go odbierać telefony.",
+      "kwestia_v3": "[deadpan] Jeszcze naucz go odbierać telefony.",
+      "emocja": "suchy humor, ironia",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "secretary reaching for ringing phone receiver, deadpan sideways glance at colleague"
+    },
+    {
+      "id": "u13",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_kadr_K5m.jpg",
+      "postac": "marta",
+      "kwestia": "Nie obiecuję cudów.",
+      "kwestia_v3": "[dry, amused] Nie obiecuję cudów.",
+      "emocja": "rozbawienie, lekka rezygnacja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "notary colleague smiling wryly, gently moving coffee cup away from keyboard"
+    },
+    {
+      "id": "u14",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_kadr_K2m.jpg",
+      "postac": "helena",
+      "kwestia": "Sformułowanie poprawione. Ale daty komputer za nas nie uzgodni.",
+      "kwestia_v3": "[confident, matter-of-fact] Sformułowanie poprawione. [short pause] Ale daty komputer za nas nie uzgodni.",
+      "emocja": "spokojna stanowczość, merytoryczna uwaga",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "senior notary pointing at unresolved date field in printed Word draft, serious focused expression"
+    },
+    {
+      "id": "u15",
+      "typ": "mowiace",
+      "kadr": "C_przez_ramie",
+      "kamera": "K5",
+      "klatka_startowa": "kadry/marta_kadr_K5m.jpg",
+      "postac": "marta",
+      "kwestia": "I nie powinien.",
+      "kwestia_v3": "[confident, matter-of-fact] I nie powinien.",
+      "emocja": "spokojne przekonanie",
+      "ruch_kamery": "statyczna",
+      "czas_s": 3,
+      "prompt_delta": "notary colleague nodding in firm agreement, hands resting on desk"
+    },
+    {
+      "id": "u16",
+      "typ": "bez_mowy",
+      "kadr": "C_przez_ramie",
+      "kamera": "K4",
+      "klatka_startowa": "DO_WYGENEROWANIA: Kuba przy biurku zestawia dwa dokumenty obok siebie: wydruk D05 i wcześniejszy materiał; palec wskazuje na datę 1 grudnia",
+      "czas_s": 5,
+      "ruch_kamery": "statyczna",
+      "prompt_delta": "young trainee comparing two printed documents side by side, finger pointing at date discrepancy"
+    },
+    {
+      "id": "u17",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K6",
+      "klatka_startowa": "kadry/kuba_kadr_K6m.jpg",
+      "postac": "kuba",
+      "kwestia": "Mam tę datę w podsumowaniu. Nie mam jej potwierdzenia od pani Ireny.",
+      "kwestia_v3": "[hesitant, careful] Mam tę datę w podsumowaniu. [short pause] Nie mam jej potwierdzenia od pani Ireny.",
+      "emocja": "skupienie, rzetelna niepewność",
+      "ruch_kamery": "statyczna",
+      "czas_s": 6,
+      "prompt_delta": "young trainee reporting document discrepancy, holding two papers, earnest expression"
+    },
+    {
+      "id": "u18",
+      "typ": "mowiace",
+      "kadr": "B_85mm",
+      "kamera": "K2",
+      "klatka_startowa": "kadry/helena_kadr_K2m.jpg",
+      "postac": "helena",
+      "kwestia": "Dobrze, że wiemy, czego nie wiemy.",
+      "kwestia_v3": "[calm, measured] Dobrze, [short pause] że wiemy, czego nie wiemy.",
+      "emocja": "spokój, aprobata, refleksja",
+      "ruch_kamery": "statyczna",
+      "czas_s": 5,
+      "prompt_delta": "experienced notary setting down glasses, calm approving expression, hands folded on desk"
+    },
+    {
+      "id": "u19",
+      "typ": "plansza",
+      "plik": "pakiet/03_plansze_video/{format}/CLIFFHANGER_E03.png",
+      "czas_s": 5,
+      "grafika": [
+        "overlay_pytanie_e03"
+      ],
+      "co_widac": "Na tle rozmazanej korespondencji napis: Kto potwierdził termin, którego nie potwierdzono?"
+    }
+  ],
+  "napisy": [
+    {
+      "od_s": 0,
+      "do_s": 3,
+      "tekst": ""
+    },
+    {
+      "od_s": 3,
+      "do_s": 5,
+      "tekst": ""
+    },
+    {
+      "od_s": 5,
+      "do_s": 9,
+      "tekst": "Kubo… od kiedy tak się u nas pisze?"
+    },
+    {
+      "od_s": 9,
+      "do_s": 12,
+      "tekst": "Tak było w materiale wejściowym."
+    },
+    {
+      "od_s": 12,
+      "do_s": 17,
+      "tekst": "Dlatego materiał wejściowy\nnie jest jeszcze naszym projektem."
+    },
+    {
+      "od_s": 17,
+      "do_s": 21,
+      "tekst": "Komputerku, u nas tego skrótu\nnie używamy."
+    },
+    {
+      "od_s": 21,
+      "do_s": 26,
+      "tekst": ""
+    },
+    {
+      "od_s": 26,
+      "do_s": 30,
+      "tekst": "I proszę, żeby już tak zostało."
+    },
+    {
+      "od_s": 30,
+      "do_s": 33,
+      "tekst": "A jeśli zasada się nie zastosuje?"
+    },
+    {
+      "od_s": 33,
+      "do_s": 37,
+      "tekst": "Raport nam to pokaże.\nI sprawdzimy sami."
+    },
+    {
+      "od_s": 37,
+      "do_s": 42,
+      "tekst": ""
+    },
+    {
+      "od_s": 42,
+      "do_s": 45,
+      "tekst": "Jeszcze naucz go odbierać telefony."
+    },
+    {
+      "od_s": 45,
+      "do_s": 48,
+      "tekst": "Nie obiecuję cudów."
+    },
+    {
+      "od_s": 48,
+      "do_s": 54,
+      "tekst": "Sformułowanie poprawione.\nAle daty komputer za nas nie uzgodni."
+    },
+    {
+      "od_s": 54,
+      "do_s": 57,
+      "tekst": "I nie powinien."
+    },
+    {
+      "od_s": 57,
+      "do_s": 62,
+      "tekst": ""
+    },
+    {
+      "od_s": 62,
+      "do_s": 68,
+      "tekst": "Mam tę datę w podsumowaniu.\nNie mam jej potwierdzenia od pani Ireny."
+    },
+    {
+      "od_s": 68,
+      "do_s": 73,
+      "tekst": "Dobrze, że wiemy, czego nie wiemy."
+    },
+    {
+      "od_s": 73,
+      "do_s": 78,
+      "tekst": "Kto potwierdził termin,\nktórego nie potwierdzono?"
+    }
+  ],
+  "kontrola": [
+    "Sprawdzić, czy moduł Styl i zasady kancelarii (personalizacja.py) rzeczywiście zapisuje regułę zastępowania skrótu i generuje raport zgodności — pokazywać wyłącznie stany uzyskane w teście na syntetycznej teczce.",
+    "Upewnić się, że ekran u7 i u11 pochodzi z realnego nagrania app.notarai.pl na koncie demo z danymi testowymi — nie montować fikcyjnego interfejsu.",
+    "Projekt widoczny w scenach musi konsekwentnie nosić tytuł NOWAK — KACZMAREK, cenę 640 000 zł i powierzchnię 56,40 m²; data wydania lokalu w projekcie to 15.01.2027 (wersja T2 dopiero po uzgodnieniu — w tej scenie pole terminu wydania pozostaje nierozstrzygnięte).",
+    "Paweł Nowak nie jest pełnomocnikiem Ireny — żaden rekwizyt ani dialog nie może sugerować inaczej.",
+    "Data 1 grudnia w dokumencie D05 to robocza propozycja kupujących, nie potwierdzone zobowiązanie Ireny — Kuba musi to wyraźnie odróżnić w u17.",
+    "Polecenie Marty Komputerku w u6 musi być poprzedzone widocznym kliknięciem lub interakcją z UI — nie pokazywać bezdotykowego wykonania ani wake-word.",
+    "Raport zgodności w u11: jeśli system zwróci status nie sprawdzono dla którejś reguły, pokazać ten status bez retuszu.",
+    "Sprawdzić continuity z EP01 i EP02: projekt v1 (D14) istnieje od poniedziałku; w EP03 (środa 18.11) Marta i Kuba pracują nad poprawkami — nie sugerować, że projekt powstaje od zera.",
+    "Scena E03S05 (u12–u13): program nie jest przedstawiany jako automatyczny telefonista — dialog Basi i Marty musi to potwierdzać.",
+    "Wszystkie dane na ekranach produktu muszą być syntetyczne: fikcyjne PESEL, fikcyjny numer KW, fikcyjne dane stron — żadnych rzeczywistych danych osobowych.",
+    "Przed nagraniem uzyskać autoryzację praktykującego notariusza dla treści dialogów dotyczących stylu redakcyjnego i granicy kompetencji AI.",
+    "Sprawdzić, czy czas_s ujęć mowiace jest spójny z długością kwestii (ok. 15 znaków/s) i czy napisy mieszczą się w 42 znakach na wiersz."
+  ],
+  "_produkcja": {
+    "model": "eu.anthropic.claude-sonnet-4-6",
+    "uzycie": {
+      "inputTokens": 4332,
+      "outputTokens": 5415,
+      "totalTokens": 41121,
+      "cacheReadInputTokens": 0,
+      "cacheWriteInputTokens": 31374,
+      "cacheDetails": [
+        {
+          "ttl": "5m",
+          "inputTokens": 31374
+        }
+      ]
+    },
+    "uwagi": [],
+    "czas_s": 41.5
+  }
+}

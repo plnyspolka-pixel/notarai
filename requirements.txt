@@ -12,6 +12,8 @@ PyYAML>=6.0
 PyJWT[crypto]>=2.10
 playwright>=1.49
 httpx>=0.27
+# Kreator skrzynki pocztowej: rekord MX domeny kancelarii (skrzynki.py).
+dnspython>=2.6
 faster-whisper>=1.1
 # Pomocnik na komputerze notariusza steruje przegladarka przez CDP.
 websocket-client>=1.8

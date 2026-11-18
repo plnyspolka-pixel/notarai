@@ -124,7 +124,7 @@ class TestGielda:
         g = k.get("/api/gielda").json()
         assert g["otwarte"] == [] and g["archiwum"][0]["klient"]["email"] == "z@klient.test"
 
-    def test_archiwum_zamkniete_bez_abonamentu(self, k, monkeypatch):
+    def test_archiwum_zamkniete_bez_kredytow(self, k, monkeypatch):
         lead = _lead()
         monkeypatch.setattr(leady, "_teraz", lambda: datetime.now() + timedelta(hours=2))
         monkeypatch.setattr(autoryzacja, "_oplacona", lambda id_k: False)
@@ -139,7 +139,7 @@ class TestGielda:
         odp = k.post(f"/api/gielda/{lead['id']}/odpowiedz", json={"tresc": "Możemy jutro"})
         assert odp.status_code == 200 and odp.json()["odpowiedz"]["w_oknie"] is False
 
-    def test_w_oknie_odpowiedz_w_aplikacji_bez_abonamentu(self, k, monkeypatch):
+    def test_w_oknie_odpowiedz_w_aplikacji_bez_kredytow(self, k, monkeypatch):
         lead = _lead()
         monkeypatch.setattr(autoryzacja, "_oplacona", lambda id_k: False)
         odp = k.post(f"/api/gielda/{lead['id']}/odpowiedz", json={"tresc": "Zapraszamy"})

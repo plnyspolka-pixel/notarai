@@ -143,9 +143,9 @@ def test_modules_use_existing_authorized_navigation():
     for label in ("Rejestry i weryfikacja", "Formularze urzędowe",
                   "Kalendarz", "Osoby i telefony", "Przesyłki i korespondencja", "Dokumenty i RODO",
                   "Zespół kancelarii", "Abonament", "Pomocnik lokalny",
-                  "Księgi i repertoria", "Zgłoszenia GIIF"):
+                  "Księgi i repertoria", "Zgłoszenia GIIF", "Ustawienia kancelarii"):
         assert label in HTML
-    assert HTML.count("data-kokpit-nav=") == 11
+    assert HTML.count("data-kokpit-nav=") == 12
     assert "element.click(); // Wykorzystuje dotychczasowe kontrole" in DASHBOARD
     assert "button.hidden = !element || element.hidden" in DASHBOARD
     assert ".kokpit-module[hidden] { display:none!important; }" in CSS

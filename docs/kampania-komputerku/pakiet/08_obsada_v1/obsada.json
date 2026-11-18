@@ -1,0 +1,296 @@
+{
+  "obsada": "notarai-komputerku-v1",
+  "wygenerowano": "2026-11-11",
+  "model": "fal-ai/nano-banana-pro/edit (2K)",
+  "koszt_usd": 2.55,
+  "uwaga": "Wygenerowane w konektorze fal (konto Finance You), tak jak klipy hooków Studia. Do systemu serii wpisuje się je przez seria_kadr_zapisz z adresem fal_url albo plikiem z repo — narzędzie kopiuje obraz do Storage studio-media. FAL_KEY w aplikacji nie jest potrzebny.",
+  "kadry": [
+    {
+      "slug": "plan_ogolny_biurko",
+      "rodzaj": "plan_ogolny",
+      "postacie": [
+        "helena",
+        "marta",
+        "kuba",
+        "basia"
+      ],
+      "plik": "kadry/plan_ogolny_biurko.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/Lsjz4bDzKXj0_QOGAn2cw_SHL2G5wa.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "pusty_pokoj",
+      "rodzaj": "plan_ogolny",
+      "postacie": [],
+      "plik": "kadry/pusty_pokoj.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/BCIlw25RLJgWId4O9Im0g_ihFHZBx0.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "plan_ogolny_drukarka",
+      "rodzaj": "plan_ogolny",
+      "postacie": [
+        "basia",
+        "kuba"
+      ],
+      "plik": "kadry/plan_ogolny_drukarka.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/6YQvJpy6cl7U6JS_51-PZ_fBtYF8Ab.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "helena_przy_biurku",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "helena"
+      ],
+      "plik": "kadry/helena_przy_biurku.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/aHBQXv9ku-4WEwNCeRTxN_1cLWgcqQ.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "basia_przy_drukarce",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "basia"
+      ],
+      "plik": "kadry/basia_przy_drukarce.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21641/ePb4b2sGoStmmSwQC_xqX_ZxoSryMx.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "marta_laptop_przez_ramie",
+      "rodzaj": "przez_ramie",
+      "postacie": [
+        "marta"
+      ],
+      "plik": "kadry/marta_laptop_przez_ramie.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21639/Da1JKh5WcBUyEkX8r81hF_8HigaeSD.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "kuba_z_teczka",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "kuba"
+      ],
+      "plik": "kadry/kuba_z_teczka.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21639/UuEI3UJ8FiG5RP14n5A-b_8ug2uafu.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "detal_biurko",
+      "rodzaj": "detal",
+      "postacie": [],
+      "plik": "kadry/detal_biurko.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/VcXEUmhp-LVFIPvWdpezu_zVbZ1iOm.png",
+      "zatwierdzony": null
+    },
+    {
+      "slug": "marta_zblizenie",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "marta"
+      ],
+      "plik": "kadry/marta_zblizenie.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21b89/fHoc3JHtBFsxDxt0285Ir_vxbnpTvo.png",
+      "zatwierdzony": null,
+      "uwaga": "natywne zbliżenie 2K (próba 2); próba 1 (przycięty plan) odrzucona — miękka i z artefaktami na biurku"
+    },
+    {
+      "slug": "marta_przy_biurku",
+      "rodzaj": "zblizenie",
+      "postacie": [
+        "marta"
+      ],
+      "plik": "kadry/marta_przy_biurku.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21ba2/j8lPNZ96_bGh3Nio3p6lS_JrJenZuo.png",
+      "zatwierdzony": null,
+      "uwaga": "Marta przy biurku z laptopem i książkami w realnej skali (wariant A z 2); zastępuje przycięte zbliżenie"
+    }
+  ],
+  "arkusze": [
+    {
+      "postac": "helena",
+      "plik": "arkusze/arkusz_helena.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/QjnG21HOJuCTJDRmBbq8P_DGeK5pku.png"
+    },
+    {
+      "postac": "marta",
+      "plik": "arkusze/arkusz_marta.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/eGGNXp3r2_H8nQF6P8eD1_o2uQyCcZ.png"
+    },
+    {
+      "postac": "basia",
+      "plik": "arkusze/arkusz_basia.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/iWi4ReWP4MYLCcMLRu2jf_hoitsF1G.png"
+    },
+    {
+      "postac": "kuba",
+      "plik": "arkusze/arkusz_kuba.jpg",
+      "fal_url": "https://v3b.fal.media/files/b/0ab21637/oWArIj-EQQk-IjPqZ0z0b_oSvTT4Jx.png"
+    }
+  ],
+  "odrzucone": [
+    {
+      "slug": "basia_przy_drukarce",
+      "powod": "inna twarz i inne biuro niż wzorzec; zastąpione próbą 2"
+    }
+  ],
+  "postacie": {
+    "helena": {
+      "elevenlabs_voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "heygen_avatar_id": "a035e6556c9bd974af5700c86cf3c7a2",
+      "zdjecie_avatara": "kadry/helena_przy_biurku.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "IUhsOeEtgXvOVX7dbZPU"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
+    },
+    "marta": {
+      "elevenlabs_voice_id": "rOIbi11t4PdzPrW90No0",
+      "heygen_avatar_id": "18e4f2b5c26f30dd99be62807b38f79f",
+      "zdjecie_avatara": "kadry/marta_przy_biurku.jpg",
+      "heygen_avatar_odrzucone": [
+        "46737e32a13d85b828fdd289d2f86c85",
+        "8d7659468d92ec57903a5570d604483c"
+      ],
+      "elevenlabs_voice_id_odrzucone": [
+        "BDuEI9b2twykxFyFIbv4"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
+    },
+    "basia": {
+      "elevenlabs_voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "heygen_avatar_id": "bcfed60999bda078a1a57f273118066b",
+      "zdjecie_avatara": "kadry/basia_przy_drukarce.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "XxH7vHpT0p7INeJx8ihA"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
+    },
+    "kuba": {
+      "elevenlabs_voice_id": "l49KzmmcER7qYZfvh1NN",
+      "heygen_avatar_id": "5b719637ef986ab613aa0d4e2cb07f80",
+      "zdjecie_avatara": "kadry/kuba_z_teczka.jpg",
+      "elevenlabs_voice_id_odrzucone": [
+        "4tlWcR8SYaOZ0nfbKuq6"
+      ],
+      "glos_wersja": "v2 (glosy.md)"
+    }
+  },
+  "glosy_uwaga": "Głosy v2 od 12.11.2026: Voice Design eleven_ttv_v3 z dopracowanym opisem, 2 serie × 3 podglądy, wybór po pomiarach i transkrypcji; nazwy „NotarAI Komputerku v2 - <Imię>”. Sceny nagrywane jako Text to Dialogue (eleven_v3, stability 0.5) i cięte na kwestie — przepis w glosy.md. Głosy v1 zostały na koncie (pole elevenlabs_voice_id_odrzucone).",
+  "odcinek_1_ujecia": [
+    {
+      "id": "u1",
+      "postac": "basia",
+      "heygen_video_id": "7adf4bdf903fb9283570bfa55d80f16c",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u1-basia-v2-16697f37.mp4",
+      "sekundy": 4.98,
+      "audio": "glosy_v2/nowe_w1/u1_basia.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "8c7ad269bfa4919d66e476975acd9635",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/8c7ad269bfa4919d66e476975acd9635-acaafc28.mp4"
+      },
+      "heygen_avatar_id": "1e4d13ee1029a1f179e9bd725b200dfa",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
+    },
+    {
+      "id": "u2",
+      "postac": "kuba",
+      "heygen_video_id": "e716504ad74414a552ed3e4b22856a4f",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u2-kuba-v2-8e7109e8.mp4",
+      "sekundy": 3.58,
+      "audio": "glosy_v2/nowe_w1/u2_kuba.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "08c989e8e3c7ac780dcc4ec35568f223",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/08c989e8e3c7ac780dcc4ec35568f223-7977a045.mp4"
+      },
+      "heygen_avatar_id": "ba3a449e3fac77633c11b7a52acdf95f",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
+    },
+    {
+      "id": "u3",
+      "postac": "basia",
+      "heygen_video_id": "a44f41fdd08c6b12c196ced636370ba9",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u3-basia-v2-81d67c73.mp4",
+      "sekundy": 4.86,
+      "audio": "glosy_v2/nowe_w1/u3_basia.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "ba05844a6b4faf223bf2df1bd4c63a7c",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/ba05844a6b4faf223bf2df1bd4c63a7c-ac1f0093.mp4"
+      },
+      "heygen_avatar_id": "1e4d13ee1029a1f179e9bd725b200dfa",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
+    },
+    {
+      "id": "u4",
+      "postac": "marta",
+      "heygen_video_id": "1ef434fce20eb2fc42efc06146dba8ec",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/komputerku-odc1-u4-marta-v2-10201726.mp4",
+      "sekundy": 3.39,
+      "audio": "glosy_v2/nowe_w1/u4_marta.mp3",
+      "glosy": "v2",
+      "zrodlo_audio": "Text to Dialogue eleven_v3 seed 23 (glosy_v2/zrodla/dialog_w1_v3_seed23.mp3)",
+      "poprzednie_v2_glosy": {
+        "heygen_video_id": "e5595f3a0ed7a628fbb6ff74c49c4ca8",
+        "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/e5595f3a0ed7a628fbb6ff74c49c4ca8-118dcde8.mp4"
+      },
+      "heygen_avatar_id": "76568ce3a95191687ca7288be833801b",
+      "silnik": "heygen-avatar-6-turbo + motion_prompt",
+      "scenografia": "kancelaria-v2",
+      "awatar": "obsada-v2"
+    },
+    {
+      "id": "u5",
+      "typ": "ekran",
+      "opis": "prawdziwa aplikacja NotarAI (widok Przesyłki, układ telefonu) na danych testowych + pasek trybu Komputerku; na końcu prawdziwy PDF pocztowej książki nadawczej",
+      "plik": "podglady/u5_ekran_komputerku_1080x1920.mp4",
+      "sekundy": 9.6,
+      "narzedzie": "narzedzia/nagraj_komputerku.js"
+    }
+  ],
+  "odcinek_1_ujecia_odrzucone": [
+    {
+      "id": "u1",
+      "heygen_video_id": "16a47fa74b04d59cf4bccd1add59458a",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/16a47fa74b04d59cf4bccd1add59458a-b1a380f5.mp4",
+      "sekundy": 4.25,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u2",
+      "heygen_video_id": "48dfcb8e3c3df21a592e64f42aff5f9c",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/48dfcb8e3c3df21a592e64f42aff5f9c-100973d4.mp4",
+      "sekundy": 2.48,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u3",
+      "heygen_video_id": "277604080409d31d3a536cb0802bfdd1",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/277604080409d31d3a536cb0802bfdd1-9085413c.mp4",
+      "sekundy": 3.88,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    },
+    {
+      "id": "u4",
+      "heygen_video_id": "46b0cea24ef6255fecc245d7662193fd",
+      "plik": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/mcp/heygen/2026-11/46b0cea24ef6255fecc245d7662193fd-811ee76d.mp4",
+      "sekundy": 3.69,
+      "powod": "głosy v1, kwestia generowana osobno; zastąpione głosami v2 (12.11.2026)"
+    }
+  ],
+  "odcinek_1_podglad": "podglady/odc1_podglad_v2.mp4 (narzedzia/sklej_podglad_v2.sh); poprzedni: podglady/odc1_podglad_u1-u5.mp4",
+  "uwaga_v3": "12.11.2026: ujęcia u1–u4 przerenderowane na awatarach obsady-v2 (kadry kancelarii-v2) silnikiem heygen-avatar-6-turbo z motion_prompt; audio głosy v2 bez zmian. Podgląd: podglady/odc1_podglad_v3.mp4. Karty postaci: pakiet/10_obsada_v2."
+}

@@ -168,7 +168,7 @@ def test_kilka_telefonow(strona):
     strona.locator("#kal-dodaj-tel").click()
     strona.locator("#kal-telefony .imie").nth(1).fill("Ewa")
     strona.locator("#kal-telefony .numer").nth(1).fill("601 200 300")
-    strona.locator(".kal-rodzaj", has_text="Sprzedaż").click()
+    strona.locator(".kal-rodzaj").get_by_text("Sprzedaż", exact=True).click()
     strona.locator("#kal-zapisz").click()
     strona.locator("#stan6", has_text="Zapisano").wait_for(state="attached")
 

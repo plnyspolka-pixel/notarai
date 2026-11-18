@@ -1,5 +1,7 @@
 """Nazwa sprawy z nazwisk stron. Dane zmyslone albo z nazw plikow testowych."""
-from nazwy import nazwa_sprawy, nazwiska_z_plikow, nazwiska_z_wartosci
+from nazwy import (DOMYSLNY_WZOR_NAZWY, MAX_DLUGOSC_NAZWY, bezpieczna_nazwa_pliku, czynnosc_z_rodzajow,
+                   miejscowosc_z_pol, nazwa_pliku, nazwa_sprawy, nazwiska_stron, nazwiska_z_plikow,
+                   nazwiska_z_wartosci, nieznane_pola_wzoru, przyklad_nazwy)
 
 
 class TestWartosci:
@@ -78,3 +80,70 @@ class TestRdzen:
         from nazwy import _ten_sam_rdzen
         assert _ten_sam_rdzen("Sobczak", "Sobczaka") and _ten_sam_rdzen("Pawlak", "Pawlakowi")
         assert _ten_sam_rdzen("Kowalska", "Kowalskiej") and not _ten_sam_rdzen("Nowak", "Nowicki")
+
+
+class TestNazwiskaStron:
+    def test_pole_stale_pierwszy_zbywa(self):
+        pola = [{"nazwa": "STALE: nazwiska stron czynnosci", "wartosc": "Sobczak - Pawlak - Nowak"}]
+        assert nazwiska_stron(pola) == {"zbywcy": ["Sobczak"], "nabywcy": ["Pawlak", "Nowak"], "inni": []}
+
+    def test_z_pol_rol(self):
+        pola = [{"nazwa": "bbb: nabywcy", "wartosc": "Marian i Anna małżonkowie Nowak"},
+                {"nazwa": "aaa: zbywca", "wartosc": "TOMASZ PIOTR SOBCZAK, STANISŁAW, HALINA, 85031512337"}]
+        assert nazwiska_stron(pola) == {"zbywcy": ["Sobczak"], "nabywcy": ["Nowak"], "inni": []}
+
+    def test_z_plikow_gdy_brak_pol(self):
+        assert nazwiska_stron([], ["Sobczak Tomasz - Pawlak Grzegorz - sprzedaż RI - Zalesie.pdf"]) == \
+            {"zbywcy": ["Sobczak"], "nabywcy": ["Pawlak"], "inni": []}
+
+
+class TestNazwaPliku:
+    POLA = [{"nazwa": "STALE: nazwiska stron czynnosci - SAME nazwiska", "wartosc": "Sobczak - Pawlak"},
+            {"nazwa": "STALE: miejscowosc polozenia nieruchomosci - obreb", "wartosc": "Zalesie: dz. 12/3, 14\nBorki: 5"}]
+
+    def test_domyslny_wzor_jak_w_kancelarii(self):
+        assert nazwa_pliku(DOMYSLNY_WZOR_NAZWY, self.POLA, rodzaje=["sprzedaz_rolna"]) == "Sobczak - Pawlak - sprzedaż - Zalesie"
+
+    def test_puste_pole_znika_z_myslnikiem(self):
+        assert nazwa_pliku(DOMYSLNY_WZOR_NAZWY, self.POLA, rodzaje=["inny"]) == "Sobczak - Pawlak - Zalesie"
+        tylko_zbywca = [{"nazwa": "aaa: zbywca", "wartosc": "Jan Kowalski"}]
+        assert nazwa_pliku(DOMYSLNY_WZOR_NAZWY, tylko_zbywca) == "Kowalski"
+
+    def test_bez_danych_numer_sprawy(self):
+        assert nazwa_pliku(DOMYSLNY_WZOR_NAZWY, [], identyfikator="abc123") == "projekt-abc123"
+        assert nazwa_pliku(DOMYSLNY_WZOR_NAZWY, []) == "projekt"
+
+    def test_inne_pola_i_wlasny_separator(self):
+        wynik = nazwa_pliku("{sygnatura}_{data}_{nazwa}", self.POLA, sygnatura="A 123/2026",
+                            utworzono="2026-11-13T10:00:00", nazwa="Sobczak – Pawlak")
+        assert wynik == "A 123-2026_2026-11-13_Sobczak – Pawlak"
+
+    def test_kilku_nabywcow(self):
+        pola = [{"nazwa": "STALE: nazwiska stron czynnosci", "wartosc": "Sobczak - Pawlak - Nowak"}]
+        assert nazwa_pliku("{zbywca} - {nabywca}", pola) == "Sobczak - Pawlak i Nowak"
+        assert nazwa_pliku("{strony}", pola) == "Sobczak - Pawlak - Nowak"
+
+    def test_znaki_niedozwolone_w_nazwie_pliku(self):
+        pola = [{"nazwa": "STALE: miejscowosc polozenia nieruchomosci", "wartosc": 'Zalesie "Dolne"?'}]
+        assert "?" not in nazwa_pliku("{miejscowosc}", pola) and '"' not in nazwa_pliku("{miejscowosc}", pola)
+        assert bezpieczna_nazwa_pliku(" a/b\\c:d*e ") == "a-b-c-de"
+        assert len(bezpieczna_nazwa_pliku("x" * 500)) == MAX_DLUGOSC_NAZWY
+
+    def test_nieznane_pole_wykryte_i_pomijane(self):
+        assert nieznane_pola_wzoru("{zbywca} - {klient}") == ["klient"]
+        assert nazwa_pliku("{zbywca} - {klient}", self.POLA) == "Sobczak"
+
+    def test_czynnosc_z_rodzajow(self):
+        assert czynnosc_z_rodzajow(["darowizna", "sprzedaz"]) == "darowizna"
+        assert czynnosc_z_rodzajow(["inny"]) == ""
+        assert czynnosc_z_rodzajow(None) == ""
+
+    def test_miejscowosc_z_pola_legendy_bez_adresu_strony(self):
+        pola = [{"nazwa": "adres zamieszkania zbywcy - miejscowość", "wartosc": "Warszawa"},
+                {"nazwa": "ccc: miejscowość położenia nieruchomości", "wartosc": "Zalesie Górne (gmina Piaseczno)"}]
+        assert miejscowosc_z_pol(pola) == "Zalesie Górne"
+        assert miejscowosc_z_pol([]) == ""
+
+    def test_przyklad_dla_okna_ustawien(self):
+        assert przyklad_nazwy(DOMYSLNY_WZOR_NAZWY) == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"
+        assert przyklad_nazwy("") == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"

@@ -578,3 +578,191 @@ class TestWyborProfiluAWS:
         import config as modul_config
         importlib.reload(modul_config)
         assert modul_config.PROFIL_AWS == ""
+
+class TestBledyPrzejscioweIKomunikaty:
+    """Bledy w trakcie strumienia maja kody mala litera; przejsciowe ponawiamy;
+    notariusz dostaje komunikat po polsku, nie tekst wyjatku boto."""
+
+    @staticmethod
+    def _blad(kod, tresc="x"):
+        from botocore.exceptions import ClientError
+        return ClientError({"Error": {"Code": kod, "Message": tresc}}, "ConverseStream")
+
+    def test_dlawienie_w_strumieniu_mala_litera(self, monkeypatch):
+        from unittest.mock import MagicMock
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("throttlingException", "Too many requests")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(bedrock.Przeciazenie):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == 1, "dlawienia nie ponawiamy tu - czeka wywolujacy"
+
+    def test_blad_przejsciowy_ponowiony_i_udany(self, monkeypatch):
+        from unittest.mock import MagicMock
+        przerwy = []
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: przerwy.append(s))
+        klient = MagicMock()
+        klient.converse_stream.side_effect = [
+            self._blad("modelStreamErrorException"),
+            self._blad("ServiceUnavailableException"),
+            _jako_strumien({"output": {"message": {"content": [{"text": "gotowe"}]}}, "usage": {}}),
+        ]
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        assert bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10) == "gotowe"
+        assert klient.converse_stream.call_count == 3
+        assert przerwy == [bedrock.PRZERWA_PONOWIENIA, 2 * bedrock.PRZERWA_PONOWIENIA]
+
+    def test_blad_przejsciowy_po_wyczerpaniu_prob_wychodzi(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ClientError
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: None)
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("InternalServerException")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(ClientError):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == bedrock.PROB_WYWOLANIA
+
+    def test_blad_trwaly_bez_ponowien(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ClientError
+        klient = MagicMock()
+        klient.converse_stream.side_effect = self._blad("ValidationException", "Input is too long")
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        with pytest.raises(ClientError):
+            bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10)
+        assert klient.converse_stream.call_count == 1
+
+    def test_zerwane_polaczenie_ponowione(self, monkeypatch):
+        from unittest.mock import MagicMock
+        from botocore.exceptions import ReadTimeoutError
+        monkeypatch.setattr(bedrock.time, "sleep", lambda s: None)
+        klient = MagicMock()
+        klient.converse_stream.side_effect = [
+            ReadTimeoutError(endpoint_url="https://bedrock"),
+            _jako_strumien({"output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}),
+        ]
+        monkeypatch.setattr(bedrock, "_klient", lambda: klient)
+        assert bedrock._rozmowa("s", [{"text": "x"}], max_tokenow=10) == "ok"
+
+    @pytest.mark.parametrize("kod, tresc, oczekiwane", [
+        ("ValidationException", "Input is too long for requested model.", "Podziel skany"),
+        ("ValidationException", "image exceeds max pixels", "skanów"),
+        ("ValidationException", "The provided model identifier is invalid.", "notarai"),
+        ("ValidationException", "coś innego", "Model odrzucił zapytanie"),
+        ("AccessDeniedException", "You don't have access", "nie ma dostępu do modelu"),
+        ("modelTimeoutException", "x", "spróbuj ponownie"),
+        ("ExpiredTokenException", "x", "poświadczenia"),
+        ("CokolwiekInnego", "x", "Błąd modelu"),
+    ])
+    def test_opis_bledu_po_polsku(self, kod, tresc, oczekiwane):
+        opis = bedrock.opis_bledu(self._blad(kod, tresc))
+        assert oczekiwane.lower() in opis.lower()
+        assert "ConverseStream" not in opis
+
+    def test_opis_bledu_wlasnych_wyjatkow_bez_zmian(self):
+        assert bedrock.opis_bledu(ValueError("Odpowiedz ucieta")) == "Odpowiedz ucieta"
+        assert bedrock.opis_bledu(bedrock.Przeciazenie("Model przeciazony")) == "Model przeciazony"
+
+
+# ---------------------------------------------------------------- cache promptu
+
+from botocore.exceptions import ClientError  # noqa: E402
+import config  # noqa: E402
+import tokenomia  # noqa: E402
+
+
+@pytest.fixture
+def cache_wlaczony(monkeypatch):
+    monkeypatch.setattr(config, "CACHE_PROMPTU", True)
+    monkeypatch.setattr(bedrock, "_cache_wylaczony", False)
+    yield
+    bedrock._cache_wylaczony = False
+
+
+def _punkty(tury: list[dict]) -> int:
+    return sum(1 for t in tury for b in t["content"] if "cachePoint" in b)
+
+
+class TestCachePromptu:
+    """Punkty cache Bedrock (cachePoint) tam, gdzie ten sam duzy prefiks wraca do modelu."""
+
+    def test_pierwsza_tura_rozmowy_konczy_kontekst_punktem_cache(self, mock_bedrock_client, cache_wlaczony):
+        mock_bedrock_client.converse.return_value = _odpowiedz("1. Pytanie?")
+        bedrock.rozmawiaj("KONTEKST SPRAWY", [], None)
+        tury = mock_bedrock_client.converse.call_args.kwargs["messages"]
+        assert len(tury) == 1 and tury[0]["role"] == "user"
+        assert tury[0]["content"][0]["text"].startswith("KONTEKST SPRAWY")
+        assert tury[0]["content"][1] == bedrock.PUNKT_CACHE
+        assert _punkty(tury) == 1
+
+    def test_kolejna_tura_czyta_kontekst_i_historie_z_cache(self, mock_bedrock_client, cache_wlaczony):
+        mock_bedrock_client.converse.return_value = _odpowiedz("Odpowiedz")
+        historia = [
+            {"rola": "asystent", "tresc": "1. Kto sprzedaje?"},
+            {"rola": "uzytkownik", "tresc": "Irena Nowak"},
+            {"rola": "asystent", "tresc": "Dziekuje."},
+        ]
+        bedrock.rozmawiaj("KONTEKST SPRAWY", historia, "Jaka cena?")
+        tury = mock_bedrock_client.converse.call_args.kwargs["messages"]
+        assert tury[0]["content"][1] == bedrock.PUNKT_CACHE  # za kontekstem sprawy
+        assert tury[-2]["role"] == "assistant" and tury[-2]["content"][-1] == bedrock.PUNKT_CACHE
+        assert tury[-1] == {"role": "user", "content": [{"text": "Jaka cena?"}]}
+        assert _punkty(tury) == 2
+        assert [t["role"] for t in tury] == ["user", "assistant", "user", "assistant", "user"]
+
+    def test_projekt_ma_wzor_przed_punktem_cache_a_dane_po(self, mock_bedrock_client, cache_wlaczony):
+        mock_bedrock_client.converse.return_value = _odpowiedz("PROJEKT")
+        wzor, dane, opis = "Dnia {{data}} ...", [{"nazwa": "data", "wartosc": "2026-07-24"}], "akt sprzedazy"
+        legenda = {"KW": {"opis": "numer ksiegi"}}
+        bedrock.sporzadz_projekt(wzor, dane, opis, legenda=legenda)
+        tresc = mock_bedrock_client.converse.call_args.kwargs["messages"][0]["content"]
+        assert [next(iter(b)) for b in tresc] == ["text", "cachePoint", "text"]
+        assert "WZOR DOKUMENTU" in tresc[0]["text"] and "LEGENDA" in tresc[0]["text"]
+        assert "DANE ZWALIDOWANE" not in tresc[0]["text"]
+        assert "DANE ZWALIDOWANE" in tresc[2]["text"] and "akt sprzedazy" in tresc[2]["text"]
+        # Model czyta dokladnie ten sam tekst, co przy dawnym jednoblokowym poleceniu.
+        assert tresc[0]["text"] + "\n\n" + tresc[2]["text"] == bedrock.prompty.polecenie_generowania(
+            wzor, dane, opis, legenda=legenda)
+
+    def test_wylaczony_cache_nie_wysyla_punktow(self, mock_bedrock_client, monkeypatch):
+        monkeypatch.setattr(config, "CACHE_PROMPTU", False)
+        mock_bedrock_client.converse.return_value = _odpowiedz("ok")
+        bedrock.rozmawiaj("KONTEKST", [{"rola": "asystent", "tresc": "?"}], "pytanie")
+        tury = mock_bedrock_client.converse.call_args.kwargs["messages"]
+        assert _punkty(tury) == 0
+        assert tury[0]["content"] == [{"text": "KONTEKST\n\n" + bedrock.prompty.PIERWSZE_PYTANIA}]
+
+    def test_odmowa_bedrock_dla_cachepoint_wylacza_cache_i_powtarza(self, mock_bedrock_client, cache_wlaczony):
+        odmowa = ClientError({"Error": {"Code": "ValidationException",
+                                        "Message": "This model doesn't support cachePoint"}}, "Converse")
+        mock_bedrock_client.converse.side_effect = [odmowa, _odpowiedz("ok")]
+        assert bedrock.rozmawiaj("KONTEKST", [], "pytanie") == "ok"
+        assert mock_bedrock_client.converse.call_count == 2
+        drugie = mock_bedrock_client.converse.call_args_list[1].kwargs["messages"]
+        assert _punkty(drugie) == 0
+        assert bedrock._cache_wylaczony is True
+        # Kolejne wywolania ida od razu bez punktow - bez drugiego nieudanego zadania.
+        mock_bedrock_client.converse.side_effect = None
+        mock_bedrock_client.converse.return_value = _odpowiedz("ok2")
+        bedrock.rozmawiaj("KONTEKST", [], "pytanie")
+        assert mock_bedrock_client.converse.call_count == 3
+        assert _punkty(mock_bedrock_client.converse.call_args.kwargs["messages"]) == 0
+
+    def test_inny_blad_walidacji_nie_jest_polykany(self, mock_bedrock_client, cache_wlaczony):
+        blad = ClientError({"Error": {"Code": "ValidationException", "Message": "max_tokens too large"}}, "Converse")
+        mock_bedrock_client.converse.side_effect = blad
+        with pytest.raises(ClientError):
+            bedrock.rozmawiaj("KONTEKST", [], "pytanie")
+        assert mock_bedrock_client.converse.call_count == 1
+        assert bedrock._cache_wylaczony is False
+
+    def test_tokenomia_liczy_odczyt_cache_jako_10_procent_wejscia(self):
+        model = "eu.anthropic.claude-opus-4-6-v1"
+        licznik = tokenomia.Licznik()
+        licznik.dodaj(model, {"inputTokens": 1000, "outputTokens": 100,
+                              "cacheReadInputTokens": 20000, "cacheWriteInputTokens": 0})
+        bez_cache = tokenomia.koszt_tokenow_zl(model, 21000, 100)
+        assert licznik.cache_odczyt == 20000
+        assert licznik.koszt_zl == pytest.approx(tokenomia.koszt_tokenow_zl(model, 1000, 100, cache_odczyt=20000))
+        assert licznik.koszt_zl < bez_cache * 0.25

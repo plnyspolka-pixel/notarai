@@ -14,7 +14,7 @@ def test_client_journey_routes():
         assert "app.include_router(" + router + ")" in app
     assert '@app.get("/notariusze"' in app
     assert '"/api/notariusze"' in auth
-    assert '"/api/mapa"' not in auth.split("_OTWARTE =", 1)[1].split("_BEZ_ABONAMENTU =", 1)[0]
+    assert '"/api/mapa"' not in auth.split("_OTWARTE =", 1)[1].split("_BEZ_UMOWY =", 1)[0]
     assert '"/api/zapytania"' in auth.split("_POZA_SERWISEM =", 1)[1].split("_SERWIS_MAKS_GODZIN", 1)[0]
 
 def test_no_public_map_without_explicit_optin():
