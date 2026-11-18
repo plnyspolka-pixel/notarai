@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "task_id": "sum-fixture-001",
+  "operation": "sum_integers",
+  "values": [7, -2, 5]
+}

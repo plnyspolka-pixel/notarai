@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "web-factory": {
+      "command": "node",
+      "args": [
+        "/ABSOLUTE/PATH/notarai/tools/web-factory/src/mcp.mjs"
+      ],
+      "env": {
+        "WEB_FACTORY_ALLOW_REMOTE": "false",
+        "WEB_FACTORY_ALLOWED_HOSTS": "",
+        "WEB_FACTORY_ASSET_HOSTS": ""
+      }
+    }
+  }
+}

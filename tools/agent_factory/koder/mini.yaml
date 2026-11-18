@@ -1,0 +1,19 @@
+# Nakładka na domyślny mini.yaml (mini-swe-agent 2.4.6): model z bramy w wewnętrznej sieci.
+agent:
+  step_limit: 40
+  cost_limit: 0
+  mode: yolo
+  confirm_exit: false
+model:
+  model_name: "hosted_vllm/koder"
+  cost_tracking: "ignore_errors"
+  model_kwargs:
+    api_base: "http://brama:8000/v1"
+    drop_params: true
+    max_tokens: 4096      # brama Salad ucina żądania po 100 s
+    timeout: 95
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: false
+environment:
+  timeout: 180

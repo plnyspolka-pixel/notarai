@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import agent_glosowy
 import aml
 import aml_listy
 import bedrock
@@ -118,6 +119,8 @@ app.include_router(poswiadczenia.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
+# Agent glosowy (ElevenLabs): webhooki narzedzi, wlasne limity i token.
+app.include_router(agent_glosowy.router)
 app.middleware("http")(kalkulator.cors)
 
 

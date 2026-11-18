@@ -62,7 +62,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
 .brand-hero h1 span { color: #058fce; background: linear-gradient(110deg,#026dca,#00b3df); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .brand-hero__subtitle { max-width: 545px; margin: 0; color: #586b90; line-height: 1.85; font-size: clamp(15px,1.35vw,17px); }
 .brand-hero__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
-.brand-hero__disclaimer { margin-top: 18px; color: #72809b; font-size: 11px; line-height: 1.6; }
+.brand-hero__disclaimer { margin-top: 18px; color: #5f6f8e; font-size: 11px; line-height: 1.6; }
 .brand-hero__trust { display: flex; flex-wrap: wrap; gap: 13px 20px; margin: 43px 0 0; padding: 0; list-style: none; }
 .brand-hero__trust li { display: inline-flex; gap: 9px; align-items: center; color: #274068; font-size: 12px; font-weight: 700; line-height: 1.45; }
 .brand-hero__trust .brand-icon { width: 22px; height: 22px; color: #1484ce; stroke-width: 1.6; }
@@ -121,7 +121,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
 .brand-benefit:last-child { border: 0; }
 .brand-benefit .brand-icon { width: 32px; height: 32px; padding: 5px; box-sizing: content-box; color: #0683c9; stroke-width: 1.7; }
 .brand-benefit strong { display: block; font-size: 14px; line-height: 1.45; color: #0b2756; }
-.brand-benefit p { margin: 4px 0 0; color: #6c7b98; font-size: 12px; line-height: 1.5; }
+.brand-benefit p { margin: 4px 0 0; color: #5f6f8e; font-size: 12px; line-height: 1.5; }
 
 .sekcja { border-color: #e5edf7; }
 .sekcja:not(.ciemna) { background: #fff; }
@@ -188,7 +188,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-header__actions .brand-btn .brand-icon { display: none; }
   .brand-header__actions .brand-login { min-height: 37px; padding: 8px 11px; font-size: 11px; }
   .brand-header__actions .brand-login .brand-icon { display: none; }
-  .brand-hero__inner { padding: 42px 0 78px; }
+  .brand-hero__inner { padding-top: 42px; padding-bottom: 78px; }
   .brand-eyebrow { font-size: 9px; gap: 9px; margin-bottom: 23px; }
   .brand-hero h1 { font-size: clamp(35px,9vw,54px); letter-spacing: -.055em; margin-bottom: 16px; }
   .brand-hero__subtitle { font-size: 14px; line-height: 1.8; }
@@ -230,6 +230,18 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
   .brand-footer__top { align-items: flex-start; flex-direction: column; }
   .brand-footer__links { gap: 10px 18px; }
 }
+/* Telefony 320-380 px: nagłówek musi zmieścić logo, logowanie i przycisk menu bez przewijania w bok. */
+@media (max-width: 380px) {
+  .brand-header__inner { gap: 8px; }
+  .brand-logo { gap: 6px; }
+  .brand-logo__mark { width: 30px; height: 30px; }
+  .brand-logo__word { font-size: 21px; }
+  .brand-header__actions { gap: 6px; }
+  /* Logowanie zostaje w pierwszym ekranie (link pod przyciskami), więc w nagłówku ustępuje miejsca. */
+  .brand-header__actions .brand-login { display: none; }
+  .brand-header__actions .brand-btn { white-space: nowrap; }
+  .brand-menu-toggle { width: 40px; height: 40px; flex: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .brand-btn, .brand-nav a { transition: none; }
@@ -255,7 +267,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
 .klient-cta h3{color:#0b285a;font-size:20px!important;}
 .klient-cta ul{margin:20px 0 24px;padding-left:20px;color:#38557b;font-size:14px;line-height:2;}
 .klient-cta li::marker{color:#09a3db;}
-.brand-nav a[href="#dla-klientow"]{color:#007fc1;font-weight:850;}
+.brand-nav a[href="#dla-klientow"]{color:#0072ad;font-weight:850;}
 @media(max-width:900px){.klient-grid{grid-template-columns:repeat(2,1fr);}.klient-karta:last-child{grid-column:span 2;min-height:0;}}
 @media(max-width:620px){.klient-grid{grid-template-columns:1fr;}.klient-karta:last-child{grid-column:auto;}.klient-karta{min-height:0;}.klient-info{align-items:flex-start;flex-direction:column;}.klient-info .przycisk{width:100%;text-align:center;}}
 
@@ -265,7 +277,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--brand-cyan); ou
 .brand-booking h2{color:#071d49;font-weight:820;letter-spacing:-.045em;max-width:600px}
 .brand-booking .wstep{color:#586d8c;max-width:620px}
 .brand-booking__actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:30px}
-.brand-booking__note{font-size:12px;color:#687e9e;line-height:1.65;margin-top:18px}
+.brand-booking__note{font-size:12px;color:#5f6f8e;line-height:1.65;margin-top:18px}
 .brand-booking__features{background:#fff;border:1px solid #dbeaf9;box-shadow:0 35px 70px -50px #153a76;border-radius:20px;padding:24px}
 .brand-booking__features article{display:flex;gap:17px;padding:18px 8px}
 .brand-booking__features article+article{border-top:1px solid #e8eff7}

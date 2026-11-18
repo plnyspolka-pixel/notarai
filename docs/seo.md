@@ -135,8 +135,10 @@ Bez tych kroków zgłoszenia działają, tylko bez e-maili.
   automatycznie odrzucony (sprawa 179409642200625) - trzeba odwołać się w AWS
   Support Center z opisem użycia. Do tego czasu SES wysyła tylko na
   zweryfikowane adresy; aplikacja loguje nieudane wysyłki bez treści.
-- Strona statyczna (az.pl): z chmury nie ma dostępu FTPS, wysyłka
-  `infra\strona.ps1 wyslij` ze stanowiska.
+- Strona statyczna (az.pl): publikuje ją GitHub Actions
+  (`.github/workflows/strona.yml`) po każdym zielonym pushu na master -
+  generuje katalog, blog i sitemap i wysyła przez FTPS tylko zmienione pliki.
+  `infra\strona.ps1 wyslij` zostaje jako wysyłka awaryjna ze stanowiska.
 - Blog: 9 artykułów opublikowanych (wszystkie sprawdzone pod kątem kwot;
   w artykule o umowie deweloperskiej tabela taksy przeliczona kalkulatorem,
   bo model policzył ją źle, i poprawiony podział kosztów według ustawy

@@ -62,7 +62,7 @@ def szkielet(tytul: str, opis: str, tresc: str, sciezka: str, jsonld: list | Non
 <style>
 /* Tokeny marki NotarAI wspolne z witryna i kalkulatorem. */
 :root {{ --tlo:#f6f9ff; --tlo2:#edf4ff; --karta:#fff; --linia:#d8e5f6;
-  --tekst:#102a58; --tekst2:#566b8c; --tekst3:#8497af;
+  --tekst:#102a58; --tekst2:#566b8c; --tekst3:#5f6f8e;
   --akcent:#1e5cc3; --akcent2:#079bd1; --akcent-tlo:#e9f3ff;
   --serif:Montserrat,"Segoe UI",Arial,sans-serif;
   --sans:Montserrat,"Segoe UI",Arial,sans-serif; color-scheme:light; }}
