@@ -98,6 +98,11 @@ class TestKancelarie:
         d = _post(k, "kancelarie", miejscowosc="Lublin", tylko_rezerwacja_online=True).json()
         assert [x["kancelaria_id"] for x in d["kancelarie"]] == [1]
 
+    def test_brak_rezerwacji_online_proponuje_kontakt(self, k):
+        d = _post(k, "kancelarie", miejscowosc="Puławy", tylko_rezerwacja_online=True).json()
+        assert d["liczba"] == 0 and "żadna kancelaria nie przyjmuje" in d["do_powiedzenia"]
+        assert "prośbę o kontakt" in d["do_powiedzenia"] and "0 kancelarii" not in d["do_powiedzenia"]
+
     def test_nieznana_miejscowosc_z_podpowiedzia(self, k):
         d = _post(k, "kancelarie", miejscowosc="Atlantyda").json()
         assert d["znaleziono"] is False and "Nie znalazłam" in d["do_powiedzenia"]
