@@ -4,7 +4,8 @@ Description: >-
   krotkotrwale poswiadczenia przez OIDC (bez kluczy dostepu), wylacznie dla
   galezi master repozytorium plnyspolka-pixel/notarai. Rola GitHuba buduje
   obraz i zleca CloudFormation aktualizacje stosu notarai-aplikacja; zmiany
-  w zasobach wykonuje osobna rola CloudFormation.
+  w zasobach wykonuje osobna rola CloudFormation. Odczytuje tez haslo FTPS
+  strony notarai.pl (publikacja strony po pushu na master).
 
   Wdraza administrator konta raz: infra\4-polacz-github.ps1
 
@@ -134,6 +135,12 @@ Resources:
                 Effect: Allow
                 Action: ecs:DescribeTaskDefinition
                 Resource: "*"
+              # .github/workflows/strona.yml - haslo FTPS do hostingu az.pl
+              # (strona notarai.pl). Tylko ten jeden sekret.
+              - Sid: HasloFtpsStrony
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/strona-ftp-??????"
 
   # Rola, ktora CloudFormation wykonuje zmiany w stosie notarai-aplikacja.
   # Zakres: wylacznie zasoby z prefiksem notarai.

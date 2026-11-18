@@ -1,0 +1,45 @@
+# W5: radar laboratorium co tydzień (OpenAlex, bez klucza, ok. 0,03 USD/przebieg).
+# Wynik: plik radar/<data>.md jako artefakt + podsumowanie przebiegu.
+# Radar niczego nie dopisuje do rejestrów — selekcję robi człowiek albo Claude
+# w poniedziałkowym przeglądzie (tools/lab_openalex/weryfikuj.py przed wpisem).
+# Uwaga: GitHub uruchamia `schedule` tylko z gałęzi domyślnej.
+name: lab-radar
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # poniedziałek 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      od:
+        description: "Data początkowa RRRR-MM-DD (domyślnie 7 dni temu)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Radar
+        env:
+          OD: ${{ inputs.od }}
+        run: |
+          od="${OD:-$(date -u -d '7 days ago' +%F)}"
+          python tools/lab_openalex/radar.py --od "$od" | tee wynik.json
+      - name: Podsumowanie
+        run: |
+          f=$(ls -t docs/lab-openalex/radar/*.md | head -1)
+          { echo "### Radar laboratorium"; echo; head -c 60000 "$f"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: radar
+          path: docs/lab-openalex/radar/*.md
+          retention-days: 90

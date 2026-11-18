@@ -48,6 +48,9 @@ Claude outputs/
 # Skille projektu sa wersjonowane, reszta katalogu zostaje lokalna.
 .claude/*
 !.claude/skills/
+# Strażnik sekretów (hooki) i wspólne ustawienia hooków też są wersjonowane.
+!.claude/hooks/
+!.claude/settings.json
 
 # Srodowisko budowania pomocnika (.exe) - infra/zbuduj-pomocnika.ps1
 .venv-pomocnik/
@@ -65,3 +68,6 @@ docs/kampania-komputerku/odcinki/*.zlecenie.json
 docs/kampania-komputerku/wyjscie/
 docs/kampania-komputerku/narzedzia/koszty_log.csv
 .private-ai-build/
+
+# Agent Forge offline research state (never commit run outputs)
+.agent-forge/

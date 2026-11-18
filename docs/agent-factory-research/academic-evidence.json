@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-15",
+  "collection_method": "Targeted systematic search across official paper landing pages, venues and repositories; not a formal exhaustive systematic review",
+  "claim_status": "AUTHOR_CLAIMS_UNREPRODUCED_LOCALLY",
+  "items": [
+    {
+      "id": "self-hpo",
+      "title": "Self-HPO: Self-Evolving Coding Agents via Harness-Policy Optimization",
+      "evidence_level": "preprint_primary",
+      "published": "2026-10-19",
+      "source": "https://arxiv.org/abs/2610.22791",
+      "code": "https://github.com/MSR-Orchard/Self-HPO",
+      "claim": "61.0 to 69.5 SWE-bench Verified for studied Qwen3.5-35B-A3B configuration",
+      "limitation": "Matched baselines and source-trained changes; substantial RL compute and potential benchmark dependency",
+      "topic": "harness-policy-coevolution"
+    },
+    {
+      "id": "rho",
+      "title": "Evolving Agents in the Dark: Retrospective Harness Optimization via Self-Preference",
+      "evidence_level": "peer_reviewed_findings_emnlp_2026",
+      "published": "2026-10",
+      "source": "https://aclanthology.org/2026.findings-emnlp.2439/",
+      "code": "https://github.com/wbopan/retro-harness",
+      "claim": "59% to 78% SWE-bench Pro in authors' matched-call setting",
+      "limitation": "Self-preference is not an external verifier; risk of selection and overfitting",
+      "topic": "harness-adaptation"
+    },
+    {
+      "id": "retro-empirical",
+      "title": "How Do Coding-Agent Harnesses Self-Evolve? An Empirical Study of Retrospective Adaptation",
+      "evidence_level": "preprint_primary",
+      "published": "2026-10-26",
+      "source": "https://arxiv.org/abs/2610.34938",
+      "code": null,
+      "claim": "Among seven targeted problems, two eliminated and one reduced; four not improved",
+      "limitation": "Small sample and subjective coding, but direct negative evidence relevant to deployment",
+      "topic": "harness-adaptation"
+    },
+    {
+      "id": "wildawm",
+      "title": "Agent World Model in the Wild",
+      "evidence_level": "preprint_primary",
+      "published": "2026-10-19",
+      "source": "https://arxiv.org/abs/2610.26828",
+      "code": "https://github.com/MSR-Orchard/WildAWM",
+      "claim": "341 released task-environment pairs and gains across eight OOD benchmarks per authors",
+      "limitation": "Synthetic-to-real transfer and verifier robustness not guaranteed",
+      "topic": "synthetic-worlds"
+    },
+    {
+      "id": "autoenv",
+      "title": "AutoEnvScaling: Automating the Data Flywheel with Terminal Agents",
+      "evidence_level": "preprint_primary",
+      "published": "2026-10-09",
+      "source": "https://arxiv.org/abs/2610.14163",
+      "code": null,
+      "claim": "Terminal-Bench 2.1 41.1 to 53.3 in one proposer/solver setting",
+      "limitation": "Cost of generating valid environments and verifier overfitting",
+      "topic": "synthetic-worlds"
+    },
+    {
+      "id": "execcritic",
+      "title": "ExecCritic: Learn to Test, Test to Improve for Coding Agents",
+      "evidence_level": "preprint_primary",
+      "published": "2026-09",
+      "source": "https://arxiv.org/abs/2609.09133",
+      "code": "https://github.com/MSR-Orchard/execcritic",
+      "claim": "72.6% SWE-bench Verified, +11.4 points against no-generated-test baseline in authors' setup",
+      "limitation": "Generated tests and independent official verification must be isolated",
+      "topic": "evaluation"
+    },
+    {
+      "id": "trace",
+      "title": "TRACE: Turn-level Reward Assignment via Credit Estimation",
+      "evidence_level": "preprint_primary",
+      "published": "2026-07",
+      "source": "https://www.microsoft.com/en-us/research/publication/trace-turn-level-reward-assignment-via-credit-estimation-for-long-horizon-agents/",
+      "code": "https://github.com/MSR-Orchard/trace",
+      "claim": "BrowseComp-Plus 7.2 to 35.6 for Qwen3-4B per authors",
+      "limitation": "Needs gold-answer probability reference; reward may not generalize to open-ended code",
+      "topic": "credit-assignment"
+    },
+    {
+      "id": "seal",
+      "title": "Self-Adapting Language Models",
+      "evidence_level": "peer_reviewed_neurips_2025",
+      "published": "2025-12",
+      "source": "https://proceedings.neurips.cc/paper_files/paper/2025/hash/6b41e04c41726e2a60e456d0a2b961ab-Abstract-Conference.html",
+      "code": "https://github.com/Continual-Intelligence/SEAL",
+      "claim": "RL-guided self-edits enabling persistent weight adaptation in knowledge and few-shot experiments",
+      "limitation": "Updates weights, unlike modifying prompts; expensive and high catastrophic forgetting risk",
+      "topic": "weight-adaptation"
+    },
+    {
+      "id": "securevibe",
+      "title": "SecureVibe: Making Vibe Coding More Secure",
+      "evidence_level": "preprint_primary",
+      "published": "2026-09",
+      "source": "https://www.microsoft.com/en-us/research/publication/securevibe-making-vibe-coding-more-secure/",
+      "code": "https://github.com/MSR-Orchard/SecureVibe",
+      "claim": "+6.9pp security pass@1 BaxBench in authors' tests",
+      "limitation": "Transfer to NotarAI not established; must measure false negatives and capability",
+      "topic": "security"
+    },
+    {
+      "id": "specbench",
+      "title": "SpecBench: Measuring Reward Hacking in Long-Horizon Coding Agents",
+      "evidence_level": "preprint_primary",
+      "published": "2026-05-20",
+      "source": "https://arxiv.org/abs/2605.21384",
+      "code": "https://github.com/WecoAI/SpecBench",
+      "claim": "Gap between visible and held-out compositional tests; grows with task length in study",
+      "limitation": "Specific systems tasks; no universal reward-hacking rate inferred",
+      "topic": "reward-hacking"
+    },
+    {
+      "id": "reward-hacking-benchmark",
+      "title": "Reward Hacking Benchmark: Measuring Exploits in LLM Agents with Tool Use",
+      "evidence_level": "peer_reviewed_icml_2026",
+      "published": "2026-07",
+      "source": "https://proceedings.mlr.press/v306/thaman26a.html",
+      "code": null,
+      "claim": "Observed exploit range 0 to 13.9% across studied models and tasks",
+      "limitation": "Specific tool environments and model versions; no generic safety guarantees",
+      "topic": "reward-hacking"
+    },
+    {
+      "id": "judge-reliability",
+      "title": "All Verdicts are Not Equal: Rethinking LLM Judge Reliability",
+      "evidence_level": "peer_reviewed_aacl_2026",
+      "published": "2026-11",
+      "source": "https://aclanthology.org/2026.aacl-long.207/",
+      "code": null,
+      "claim": "Repeated and order-swapped evaluations yield materially different verdicts",
+      "limitation": "Requires independent labels; judge consistency alone not validity",
+      "topic": "evaluation"
+    },
+    {
+      "id": "agenthallu",
+      "title": "AgentHallu: Benchmarking Automated Hallucination Attribution",
+      "evidence_level": "peer_reviewed_emnlp_2026",
+      "published": "2026-10",
+      "source": "https://aclanthology.org/2026.emnlp-main.925/",
+      "code": "https://github.com/liuxuannan/AgentHallu",
+      "claim": "693 annotated trajectories; best model 41.1% erroneous-step localization",
+      "limitation": "Taxonomy and label transfer to agentic coding must be validated",
+      "topic": "failure-attribution"
+    },
+    {
+      "id": "trident",
+      "title": "Agent-Trident: A Three-Level Progressive Diagnostic Benchmark",
+      "evidence_level": "peer_reviewed_findings_emnlp_2026",
+      "published": "2026-10",
+      "source": "https://aclanthology.org/2026.findings-emnlp.1862/",
+      "code": null,
+      "claim": "1120 samples, seven task structures; best CCM 42.79%",
+      "limitation": "Composite metric depends on chosen bottleneck aggregation",
+      "topic": "failure-attribution"
+    },
+    {
+      "id": "backends-reproducibility",
+      "title": "The Silent Hyperparameter: Quantifying the Impact of Inference Backends",
+      "evidence_level": "preprint_primary",
+      "published": "2026-05-19",
+      "source": "https://arxiv.org/abs/2605.19537",
+      "code": null,
+      "claim": "Up to 16.6 percentage-point benchmark shift across backends in controlled experiments",
+      "limitation": "Preprint; needs replication on exact hardware versions",
+      "topic": "systems"
+    },
+    {
+      "id": "prefix-cache-instability",
+      "title": "Bursts That Outlast Themselves: Persistent Degradation in Prefix-Cached Agent Serving",
+      "evidence_level": "preprint_primary",
+      "published": "2026-11-10",
+      "source": "https://arxiv.org/abs/2611.13412",
+      "code": null,
+      "claim": "Burst-triggered persistent performance collapse in studied vLLM/SGLang configurations",
+      "limitation": "Small controlled system test; practical threshold hardware-dependent",
+      "topic": "systems"
+    },
+    {
+      "id": "dual-pool",
+      "title": "Dual-Pool Token-Budget Routing for Cost-Efficient LLM Serving",
+      "evidence_level": "preprint_primary",
+      "published": "2026-04-09",
+      "source": "https://arxiv.org/abs/2604.08075",
+      "code": null,
+      "claim": "31-42% GPU-hours reduction for authors' fleet workloads",
+      "limitation": "Large-scale serving results cannot be directly extrapolated to one rented GPU",
+      "topic": "systems"
+    },
+    {
+      "id": "mle-bench",
+      "title": "MLE-bench: Evaluating Machine Learning Agents",
+      "evidence_level": "benchmark_release",
+      "published": "2024-2026",
+      "source": "https://github.com/openai/mle-bench",
+      "code": "https://github.com/openai/mle-bench",
+      "claim": "75 Kaggle competitions; maintainers recommend >=3 seeds",
+      "limitation": "Evaluation can be very costly; leaderboard temporarily paused April 2026",
+      "topic": "scientific-benchmarking"
+    },
+    {
+      "id": "pvbench",
+      "title": "PVBench: Quantifying Physical Plausibility in Video Generation",
+      "evidence_level": "preprint_primary",
+      "published": "2026-10-19",
+      "source": "https://arxiv.org/abs/2610.26711",
+      "code": null,
+      "claim": "600 prompts, 46 dimensions in seven domains; specialized physical measurements",
+      "limitation": "Metric extraction may fail on stylized or short clips; calibrate human agreement",
+      "topic": "video-physics"
+    },
+    {
+      "id": "geophys",
+      "title": "GeoPhys: The Geometry of Physical Plausibility",
+      "evidence_level": "peer_reviewed_neurips_2026",
+      "published": "2026",
+      "source": "https://github.com/ChristianInterno/GeoPhys",
+      "code": "https://github.com/ChristianInterno/GeoPhys",
+      "claim": "Frozen-encoder trajectory geometry used as video physical-consistency score",
+      "limitation": "Domain transfer and calibration required; not a complete cinematic judge",
+      "topic": "video-physics"
+    },
+    {
+      "id": "latent-physics",
+      "title": "The Invisible Hand of Physics: When Video Diffusion Models Know More Than They Show",
+      "evidence_level": "peer_reviewed_neurips_2026",
+      "published": "2026",
+      "source": "https://github.com/ParsaEsmati/videodiffusionphysics",
+      "code": "https://github.com/ParsaEsmati/videodiffusionphysics",
+      "claim": "Probes physical properties encoded in video diffusion latent features, including LTX-Video",
+      "limitation": "Experimental interpretability tool, not plug-and-play production generator",
+      "topic": "video-world-models"
+    },
+    {
+      "id": "human-score",
+      "title": "HumanScore: Benchmarking Human Motions in Generated Videos",
+      "evidence_level": "peer_reviewed_neurips_2026",
+      "published": "2026",
+      "source": "https://github.com/tiangexiang/HumanScore",
+      "code": "https://github.com/tiangexiang/HumanScore",
+      "claim": "Biomechanics-based measures of human movement for generated video",
+      "limitation": "Requires validation for animated or nonhuman characters",
+      "topic": "video-physics"
+    },
+    {
+      "id": "metr-productivity",
+      "title": "METR: Developer Productivity Experiment Design Update",
+      "evidence_level": "research_org_report",
+      "published": "2026-02-24",
+      "source": "https://metr.org/blog/2026-02-24-uplift-update/",
+      "code": null,
+      "claim": "Earlier 2025 RCT showed slowdown; 2026 follow-up impacted by selection bias",
+      "limitation": "Cannot generalize effect to current tools; user-workflow-specific experiments necessary",
+      "topic": "economic-value"
+    },
+    {
+      "id": "princeton-evaluation",
+      "title": "Emerging Trends in AI Agent Evaluation",
+      "evidence_level": "research_survey",
+      "published": "2026",
+      "source": "https://sage.cs.princeton.edu/trends/",
+      "code": null,
+      "claim": "Recommends repeated task runs, uncertainty and correctly distinguishing pass@k from pass^k",
+      "limitation": "Survey recommendations, not an efficacy benchmark",
+      "topic": "evaluation"
+    }
+  ]
+}

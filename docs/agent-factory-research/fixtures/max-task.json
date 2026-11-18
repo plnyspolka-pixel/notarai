@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "task_id": "max-fixture-001",
+  "operation": "max_integer",
+  "values": [-15, 23, 20, 0, 11]
+}

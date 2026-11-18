@@ -104,6 +104,12 @@ class Rezerwacja(wizyty.Zgloszenie):
 
 @router.post("/rezerwacja", status_code=201)
 def rezerwuj(dane: Rezerwacja, request: Request):
+    return zarezerwuj(dane, autoryzacja.adres_klienta(request))
+
+
+def zarezerwuj(dane: Rezerwacja, klucz_limitu: str) -> dict:
+    """Rezerwacja z limitem liczonym na `klucz_limitu` (adres IP strony albo
+    identyfikator rozmowy agenta glosowego)."""
     if dane.strona:
         return {"id": "", "komunikat": "Dziękujemy."}
     if dane.kancelaria in (None, ""):
@@ -111,7 +117,7 @@ def rezerwuj(dane: Rezerwacja, request: Request):
     z = wizyty._sprawdz_zgloszenie(dane)
     if not z["klient"]["email"]:
         raise HTTPException(400, "Podaj e-mail: wyślemy potwierdzenie i link do odwołania wizyty.")
-    wizyty.limit_zgloszen.sprawdz(autoryzacja.adres_klienta(request),
+    wizyty.limit_zgloszen.sprawdz(klucz_limitu,
                                   "Za dużo zgłoszeń naraz. Spróbuj za godzinę albo zadzwoń do kancelarii.")
     wynik = biuro_online(z["baza_id"])
     if not wynik:
