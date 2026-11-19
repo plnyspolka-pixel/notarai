@@ -25,17 +25,23 @@ uruchomiona usługa produkcyjna:
    Wysłanie wymaga funkcji `approve`, która musi sprawdzać podpis
    użytkownika, związek z jobId/formId/digest i jednokrotność zgody.
    Nie ma domyślnej pozytywnej implementacji callbacka.
-5. `confidential/demo_browser.py` i `test_confidential.py`:
-   demo z fikcyjnym formularzem lokalnym i testy fail-closed.
+5. `confidential/demo_browser.py`, `test_confidential.py` i
+   `test_confidential_worker.py`: demonstrator lokalnego formularza,
+   testy fail-closed i izolacji zakresu kancelarii.
 6. `confidential/router.py`: zaszyfrowane dokumenty do S3 na ścieżce
    kancelarii, autoryzacja imiennego użytkownika SaaS, tylko z jawną
    flagą `PIECZAPP_CONFIDENTIAL_ENABLED=true`; domyślnie wyłączone.
 7. `test_confidential_interop.py`: interoperacyjność szyfrowania
    WebCrypto (Node 22) z Python AES-GCM/RSA-OAEP.
-8. `infra/notarai-confidential-task.yaml`: osobna definicja taska
-   ECS Managed Instances / CONFIDENTIAL_SANDBOX. Wymaga gotowej polityki
-   atestacji i KMS PCR17. CloudFormation celowo nie tworzy klastra,
-   capacity provider, usługi ani zasobów z danymi klientów.
+8. `confidential/worker.py` + `confidential/Dockerfile`: jednorazowy
+   proces wewnątrz Nitro, odbierający wskaźnik zadania z dedykowanej
+   kolejki SQS, odczytujący nieprzezroczysty envelope z S3, wywołujący
+   natywny atestowany KMS i uzupełniający WYŁĄCZNIE fikcyjny formularz
+   local-demo (preview bez submit). Osobny obraz kontenera Chromium.
+9. `infra/notarai-confidential-task.yaml`: definicja taska ECS Managed
+   Instances / CONFIDENTIAL_SANDBOX z minimalnym IAM KMS/S3/SQS i ograniczeniem
+   do jednego tenantId. Nie tworzy uruchomionej usługi, klastra, capacity
+   providera ani magazynu danych. Wymaga polityki KMS PCR17.
 
 ## Architektura docelowa (granice zaufania)
 
@@ -83,9 +89,9 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
    oraz `ecs-nitro-sandbox-genpolicy --task-definition task.json --output pcrs`.
    Wstawić envelope i PCR17 do szablonu CloudFormation, upewnić się,
    że key policy ma warunek PCR17. Sprawdzić spójność przez `--check`.
-7. Podłączyć transport ciphertext -> guest: przez uwierzytelniony
-   kanał TLS, nie przez argumenty poleceń, logi, zmienne środowiskowe,
-   nie przez niezaufany agent. Jeden job = jedna kancelaria i jawna zgoda.
+7. Uwierzytelnić endpoint zlecający zadania i dodać zapis do SQS (wyłącznie
+   identyfikatory jobId/tenantId/caseId/objectId). Guest sam czyta ciphertext
+   z S3, nigdy plaintext z API. Jeden job = jedna kancelaria i jawna zgoda.
 8. Zbudować rejestr sprawdzonych adapterów portali, każda domena osobno.
    Zablokować zewnętrzne skrypty, iframe'y, otwarcia popupów, pobieranie
    plików, nieautoryzowany egress i nieznane redirecty.
@@ -127,10 +133,21 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
 
 ## Ograniczenia obecnego etapu
 
-- Nie ma jeszcze połączenia API uploadu z kolejką zadań ani live-view guest.
+- API uploadu ciphertext istnieje; brak jeszcze autoryzowanego endpointu
+  dodającego wiadomość do SQS i zewnętrznego uruchamiania Nitro task.
+- Worker połączony z SQS/S3/KMS i fikcyjnym formularzem w kodzie, ale NIE
+  został uruchomiony na prawdziwym Nitro Sandbox ani w AWS.
+- Uwaga: polityka obecnego bucketa S3 w `infra/notarai-s3.yaml` jawnie
+  odmawia `GetObject` wszystkim poza dotychczasową rolą aplikacji i backupu.
+  Przed testem w AWS trzeba dopuścić nową ROLĘ KONKRETNEGO confidential task
+  w bucket policy; samo `s3:GetObject` w IAM nowego taska nie wystarczy.
+  Najpierw przeprowadzić test na osobnym buckecie, bez danych klientów.
 - Brak podpisanej, odpornej na replay autoryzacji wysłania formularzy;
   tryb produkcyjny może jedynie przygotować podgląd (preview).
-- Obraz zadania i capacity provider nie są utworzone ani wdrożone.
+- Kod obrazu w `confidential/Dockerfile` istnieje; obraz w ECR ani
+  capacity provider nie zostały utworzone i wdrożone.
+- Przed użyciem obrazu zweryfikować biblioteki natywne Chrome, ustawienia
+  tmpfs i /dev/shm. Dopiero potem wyliczać PCR17 z jego ostatecznego digest.
 - Parser rzeczywistych aktów i gotowe adaptery urzędowych formularzy
   pozostają w istniejących modułach NotarAI i wymagają integracji.
 - Dokument nie stwierdza wykonania testu produkcyjnego AWS.
