@@ -1,0 +1,65 @@
+name: NotarAI Confidential - AWS read-only preflight
+on:
+  push:
+    branches: [master]
+    paths:
+      - "infra/notarai-confidential-*.yaml"
+      - ".github/workflows/confidential-aws-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: AWS CloudFormation ValidateTemplate (no resource mutations)
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_REGION: eu-central-1
+      EXPECTED_ACCOUNT: "127621462971"
+      BOOTSTRAP_ROLE: arn:aws:iam::127621462971:role/notarai-github-wdrozenie
+    steps:
+      - uses: actions/checkout@v7
+      - name: Authenticate using existing GitHub OIDC deployment role
+        run: |
+          set -euo pipefail
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          credentials=$(aws sts assume-role-with-web-identity \
+            --role-arn "$BOOTSTRAP_ROLE" \
+            --role-session-name "confidential-preflight-${GITHUB_RUN_ID}" \
+            --web-identity-token "$token" \
+            --duration-seconds 900 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)
+          read -r kid secret session <<< "$credentials"
+          echo "::add-mask::$secret"
+          echo "::add-mask::$session"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$secret"
+            echo "AWS_SESSION_TOKEN=$session"
+          } >> "$GITHUB_ENV"
+      - name: Confirm account and region
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+          test "$AWS_REGION" = "eu-central-1"
+      - name: Validate CloudFormation only
+        run: |
+          set -euo pipefail
+          for file in infra/notarai-confidential-{staging,ecr,demo-kms,capacity-base,task}.yaml; do
+            echo "VALIDATE $file"
+            aws cloudformation validate-template \
+              --region eu-central-1 \
+              --template-body "file://$file" --query Description --output text
+          done
+          {
+            echo "### Nitro pilot CloudFormation validated in actual AWS account"
+            echo "- Region: eu-central-1"
+            echo "- No stacks or cloud resources were created or modified"
+          } >> "$GITHUB_STEP_SUMMARY"
