@@ -138,3 +138,77 @@ Official AWS references:
 - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-ecs-taskdefinition-trustedexecutionconfiguration.html
 - https://docs.aws.amazon.com/kms/latest/developerguide/conditions-nitro-enclave.html
+
+
+## Bootstrap v2: osobny ECS Managed Instances (PR #51)
+
+AWS CloudFormation nie wystawia jeszcze parametru `nitroEnclavesEnabled`
+w `AWS::ECS::CapacityProvider InstanceLaunchTemplate`. Dlatego dodano
+`infra/notarai-confidential-capacity-base.yaml` (IAM, profile EC2, cluster,
+security group) i skrypt `render_confidential_capacity.py` tworzący żądanie
+`ecs create-capacity-provider` z `nitroEnclavesEnabled=true`.
+
+Poza repozytorium, na autoryzowanym stanowisku AWS:
+
+```sh
+# Tylko STS i ValidateTemplate, bez zmian:
+python scripts/confidential_pilot_bootstrap.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin \
+  --tenant pilot01 --vpc vpc-xxxxxxxxxxxxxxxxx \
+  --subnet subnet-xxxxxxxxxxxxxxxxx
+
+# Utworzenie testowego magazynu S3, SQS, ECR, RSA KMS, ról i cluster:
+python scripts/confidential_pilot_bootstrap.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin \
+  --tenant pilot01 --vpc vpc-xxxxxxxxxxxxxxxxx \
+  --subnet subnet-xxxxxxxxxxxxxxxxx --apply
+```
+
+Wybrać prywatną podsieć z NAT lub VPC Endpoints. Testowy security group
+dopuszcza outbound HTTPS do 0.0.0.0/0. Nie używać rzeczywistych danych
+przed kontrolą egress na poziomie sieci. Instancja pilota m6i.xlarge jest
+zgodna z AWS Nitro Sandboxes; wymaga dostępności i limitów w wybranej AZ.
+
+### Weryfikacja syntetyczna E2E
+
+Po przygotowaniu obrazu ECR, finalnej attestation policy/PCR17 i
+`notarai-confidential-task`:
+
+```sh
+# Domyślnie no-op:
+python scripts/confidential_pilot_fixture.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin --tenant pilot01
+
+# Zaszyfruj JEDYNIE fikcyjny formularz i umieść metadane w SQS:
+python scripts/confidential_pilot_fixture.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin --tenant pilot01 --apply
+```
+
+Wynik daje identyfikator `job_id`. Start pojedynczego taska:
+
+```sh
+# Domyślnie no-op:
+python scripts/confidential_pilot_run.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin --tenant pilot01 \
+  --subnet subnet-xxxxxxxxxxxxxxxxx --job-id <32-hex-job-id>
+
+# Jeden task EC2, sprawdzenie CONFIDENTIAL_SANDBOX/CONFIGURED,
+# kodu zakończenia 0 i statusu preview_completed w S3:
+python scripts/confidential_pilot_run.py \
+  --account <AWS_ACCOUNT_ID> --profile notarai-admin --tenant pilot01 \
+  --subnet subnet-xxxxxxxxxxxxxxxxx --job-id <32-hex-job-id> --apply
+```
+
+Nie wykonałem tych komend na koncie AWS. Bez rzeczywistego wyniku Nitro
+i atestowanego odszyfrowania nie deklarować zakończonego wdrożenia.
+
+### Warunki przejścia do produkcji
+
+Wymagane niezależne przypięcie klucza KMS po stronie kancelarii; podpisana
+zgoda notariusza, niezawodny status/timeout i idempotencja; egress na poziomie
+VPC/proxy; osobne adaptery portali; audyt danych i logów; obsługa rotacji
+PCR17 oraz awaryjnej utraty kluczy. Obecna implementacja robi wyłącznie
+fikcyjny lokalny formularz i NIE wysyła dokumentów do urzędów.
+
+Staging RSA KMS jest administracyjnie modyfikowalny przez właściciela
+konta AWS, co nie oznacza bezwzględnej gwarancji Zero Knowledge.

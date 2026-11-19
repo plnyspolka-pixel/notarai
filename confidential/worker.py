@@ -129,6 +129,16 @@ def main() -> int:
             bucket, tenant, case_id, object_id, kms_key_arn
         )
         asyncio.run(_prepare_fictional_form(job_id, values))
+        # Status contains no documents, form values, URL, name, or PESEL.
+        session.client("s3").put_object(
+            Bucket=bucket,
+            Key=f"kancelarie/{tenant}/confidential-results/{job_id}.json",
+            Body=json.dumps({
+                "version": 1, "job_id": job_id, "status": "preview_completed",
+                "fields_filled": 2, "submitted": False,
+            }, separators=(",", ":")).encode("ascii"),
+            ContentType="application/json", ServerSideEncryption="AES256",
+        )
         sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=message["ReceiptHandle"])
         print("confidential-worker: fictional preview completed")
         return 0

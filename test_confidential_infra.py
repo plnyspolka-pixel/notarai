@@ -66,3 +66,123 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     assert any(s.get("Action") == "s3:GetObject" for s in statements)
     assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
                s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
+
+
+def test_dedicated_nitro_capacity_roles_and_sg():
+    t = template("notarai-confidential-capacity-base.yaml")
+    resources = t["Resources"]
+    assert "ConfidentialCluster" in resources
+    assert "ManagedInfrastructureRole" in resources
+    assert "ManagedInstanceProfile" in resources
+    assert "ManagedInstanceRole" in resources
+    role = resources["ManagedInstanceRole"]["Properties"]
+    # AWS policy for Managed Instances only passes ecsInstanceRole*.
+    assert role["RoleName"]["Sub"].startswith("ecsInstanceRole")
+    assert "AmazonECSInstanceRolePolicyForManagedInstances" in role["ManagedPolicyArns"][0]
+    infra = resources["ManagedInfrastructureRole"]["Properties"]
+    assert "AmazonECSInfrastructureRolePolicyForManagedInstances" in infra["ManagedPolicyArns"][0]
+    sg = resources["PilotSecurityGroup"]["Properties"]
+    assert "SecurityGroupIngress" not in sg
+    assert all(rule["FromPort"] == 443 and rule["ToPort"] == 443
+               for rule in sg["SecurityGroupEgress"])
+    assert all(x["Type"] != "AWS::ECS::Service" for x in resources.values())
+
+
+def test_nitro_provider_uses_ecs_api_flag_and_only_approved_instance_types():
+    import pytest
+    from scripts.render_confidential_capacity import render_capacity_provider
+
+    payload = render_capacity_provider(
+        account="111122223333", tenant="pilot01",
+        subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0"
+    )
+    assert payload["cluster"] == "notarai-confidential-pilot01"
+    provider = payload["managedInstancesProvider"]
+    launch = provider["instanceLaunchTemplate"]
+    assert launch["nitroEnclavesEnabled"] is True
+    assert launch["capacityOptionType"] == "ON_DEMAND"
+    assert launch["instanceRequirements"]["allowedInstanceTypes"] == ["m6i.xlarge"]
+    assert launch["ec2InstanceProfileArn"].endswith("/ecsInstanceProfileNotaraiConfidentialpilot01")
+    with pytest.raises(ValueError):
+        render_capacity_provider(
+            account="111122223333", tenant="pilot01",
+            subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0",
+            instance_type="t3.large"
+        )
+    with pytest.raises(ValueError):
+        render_capacity_provider(
+            account="111122223333", tenant="demo/../root",
+            subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0"
+        )
+
+
+def test_pilot_bootstrap_is_dry_run_and_rejects_wrong_account(monkeypatch):
+    import pytest
+    import scripts.confidential_pilot_bootstrap as pilot
+
+    seen = []
+
+    def fake_cli(args, profile, *, capture=True):
+        seen.append(args)
+        if args[:2] == ["sts", "get-caller-identity"]:
+            return "111122223333"
+        if args[:2] == ["cloudformation", "validate-template"]:
+            return "{}"
+        raise AssertionError("unexpected mutation called during dry run")
+
+    monkeypatch.setattr(pilot, "cli", fake_cli)
+    pilot.bootstrap(
+        profile="pilot", account="111122223333", tenant="pilot01",
+        vpc="vpc-0123456789abcdef0",
+        subnets=["subnet-0123456789abcdef0"], apply=False,
+    )
+    assert len(seen) == 5
+    assert not any(x[1] in {"deploy", "create-capacity-provider"} for x in seen)
+
+    seen.clear()
+    with pytest.raises(RuntimeError, match="account mismatch"):
+        pilot.bootstrap(
+            profile="pilot", account="999988887777", tenant="pilot01",
+            vpc="vpc-0123456789abcdef0",
+            subnets=["subnet-0123456789abcdef0"], apply=True,
+        )
+    assert len(seen) == 1
+
+
+def test_policy_generator_matches_cloudformation_guest_runtime():
+    """Prevent drift between measured task spec and the actual ECS deployment."""
+    from scripts.render_confidential_taskdef import make_task
+
+    image = "111122223333.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-pilot01@sha256:" + "f" * 64
+    task = make_task(
+        account="111122223333", tenant="pilot01", image=image,
+        kms_key_arn="arn:aws:kms:eu-central-1:111122223333:key/12345678-abcd",
+        bucket="ntr-cf-pilot01-111122223333-eu-central-1",
+        queue="https://sqs.eu-central-1.amazonaws.com/111122223333/notarai-confidential-pilot01.fifo",
+    )
+    t = template("notarai-confidential-task.yaml")
+    c = t["Resources"]["ConfidentialTaskDefinition"]["Properties"]
+    assert task["family"] == "notarai-confidential-pilot01"
+    assert task["networkMode"] == c["NetworkMode"]
+    assert task["requiresCompatibilities"] == c["RequiresCompatibilities"]
+    assert task["cpu"] == c["Cpu"]
+    assert task["memory"] == c["Memory"]
+
+    observed = task["containerDefinitions"][0]
+    expected = c["ContainerDefinitions"][0]
+    for py, cfn in (
+        ("name", "Name"), ("essential", "Essential"), ("cpu", "Cpu"),
+        ("memory", "Memory"), ("user", "User"),
+        ("readonlyRootFilesystem", "ReadonlyRootFilesystem"),
+    ):
+        assert observed[py] == expected[cfn]
+    py_linux, aws_linux = observed["linuxParameters"], expected["LinuxParameters"]
+    assert py_linux["initProcessEnabled"] == aws_linux["InitProcessEnabled"]
+    assert py_linux["sharedMemorySize"] == aws_linux["SharedMemorySize"]
+    assert py_linux["tmpfs"][0]["containerPath"] == aws_linux["Tmpfs"][0]["ContainerPath"]
+    assert py_linux["tmpfs"][0]["size"] == aws_linux["Tmpfs"][0]["Size"]
+    assert py_linux["tmpfs"][0]["mountOptions"] == aws_linux["Tmpfs"][0]["MountOptions"]
+    assert [v["name"] for v in observed["environment"]] == [
+        v["Name"] for v in expected["Environment"]
+    ]
+    assert c["TrustedExecutionConfiguration"]["IsolationMode"] == "CONFIDENTIAL_SANDBOX"
