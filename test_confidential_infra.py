@@ -66,3 +66,51 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     assert any(s.get("Action") == "s3:GetObject" for s in statements)
     assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
                s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
+
+
+def test_dedicated_nitro_capacity_roles_and_sg():
+    t = template("notarai-confidential-capacity-base.yaml")
+    resources = t["Resources"]
+    assert "ConfidentialCluster" in resources
+    assert "ManagedInfrastructureRole" in resources
+    assert "ManagedInstanceProfile" in resources
+    assert "ManagedInstanceRole" in resources
+    role = resources["ManagedInstanceRole"]["Properties"]
+    # AWS policy for Managed Instances only passes ecsInstanceRole*.
+    assert role["RoleName"]["Sub"].startswith("ecsInstanceRole")
+    assert "AmazonECSInstanceRolePolicyForManagedInstances" in role["ManagedPolicyArns"][0]
+    infra = resources["ManagedInfrastructureRole"]["Properties"]
+    assert "AmazonECSInfrastructureRolePolicyForManagedInstances" in infra["ManagedPolicyArns"][0]
+    sg = resources["PilotSecurityGroup"]["Properties"]
+    assert "SecurityGroupIngress" not in sg
+    assert all(rule["FromPort"] == 443 and rule["ToPort"] == 443
+               for rule in sg["SecurityGroupEgress"])
+    assert all(x["Type"] != "AWS::ECS::Service" for x in resources.values())
+
+
+def test_nitro_provider_uses_ecs_api_flag_and_only_approved_instance_types():
+    import pytest
+    from scripts.render_confidential_capacity import render_capacity_provider
+
+    payload = render_capacity_provider(
+        account="111122223333", tenant="pilot01",
+        subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0"
+    )
+    assert payload["cluster"] == "notarai-confidential-pilot01"
+    provider = payload["managedInstancesProvider"]
+    launch = provider["instanceLaunchTemplate"]
+    assert launch["nitroEnclavesEnabled"] is True
+    assert launch["capacityOptionType"] == "ON_DEMAND"
+    assert launch["instanceRequirements"]["allowedInstanceTypes"] == ["m6i.xlarge"]
+    assert launch["ec2InstanceProfileArn"].endswith("/ecsInstanceProfileNotaraiConfidentialpilot01")
+    with pytest.raises(ValueError):
+        render_capacity_provider(
+            account="111122223333", tenant="pilot01",
+            subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0",
+            instance_type="t3.large"
+        )
+    with pytest.raises(ValueError):
+        render_capacity_provider(
+            account="111122223333", tenant="demo/../root",
+            subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0"
+        )
