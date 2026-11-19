@@ -35,7 +35,18 @@ jobs:
           grep -vE '^(faster-whisper|playwright|boto3)' requirements.txt > /tmp/notarai-core-ci.txt
           python -m pip install -r /tmp/notarai-core-ci.txt -r confidential/requirements.txt pytest PyYAML cfn-lint
       - name: Walidacja szablonow CloudFormation
-        run: cfn-lint --regions eu-central-1 --template infra/notarai-confidential-*.yaml
+        run: |
+          cfn-lint --regions eu-central-1 --template \
+            infra/notarai-confidential-capacity-base.yaml \
+            infra/notarai-confidential-demo-kms.yaml \
+            infra/notarai-confidential-ecr.yaml \
+            infra/notarai-confidential-staging.yaml
+          # Current cfn-lint resource schema has not yet shipped AWS' new
+          # TrustedExecutionConfiguration, although CloudFormation officially supports it.
+          # Ignore E3002 ONLY for the Nitro task template. Unit tests assert
+          # that the precise expected property is present.
+          cfn-lint --regions eu-central-1 --ignore-checks E3002 \
+            --template infra/notarai-confidential-task.yaml
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
