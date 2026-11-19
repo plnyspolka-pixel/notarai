@@ -6,26 +6,33 @@ Dodano opt-in moduły bez zmian działającej aplikacji, polityk produkcyjnych
 ani migracji danych. Są to działające biblioteki i testy jednostkowe, **nie**
 uruchomiona usługa produkcyjna:
 
-1. \`static/confidential-crypto.js\`: szyfrowanie dokumentu w przeglądarce
+1. `static/confidential-crypto.js`: szyfrowanie dokumentu w przeglądarce
    AES-256-GCM, indywidualny losowy DEK, AES AAD wiążący kancelarię, sprawę
    i dokument; RSA-OAEP-SHA256 pakuje DEK publicznym kluczem KMS.
    Wymagany przypięty (niezależnie potwierdzony) fingerprint klucza KMS.
-2. \`confidential/envelope.py\`: ścisła walidacja formatu, kontrola AAD,
+2. `confidential/envelope.py`: ścisła walidacja formatu, kontrola AAD,
    bezpieczne błędy, deszyfrowanie wyłącznie przez wstrzyknięty moduł
    zwalniający klucz w poufnym środowisku.
-3. \`confidential/attested_kms.py\`: jawny adapter AWS KMS Decrypt z
-   \`Recipient.AttestationDocument\`; fail-closed, nie przyjmuje
-   \`Plaintext\`. Sam fizyczny dostawca atestacji NSM oraz otwieranie
-   \`CiphertextForRecipient\` (CMS) w guest to osobny adapter natywny.
-4. \`confidential/form_engine.py\`: zapora egress w Playwright,
+3. `confidential/attested_kms.py`: jawny adapter AWS KMS Decrypt z
+   `Recipient.AttestationDocument`; fail-closed, nie przyjmuje
+   `Plaintext`. Zintegrowano także `confidential/nitro_unwrapper.py` i natywny
+   `confidential/nsm_recipient.py` (AWS sample MIT-0), który generuje
+   dokument NSM z `/dev/nsm` i otwiera CMS w pamięci guest.
+   Wymaga wciąż zweryfikowania na rzeczywistym ECS Nitro Sandbox.
+4. `confidential/form_engine.py`: zapora egress w Playwright,
    allowlista dokładnych originów, selektory tylko ze zweryfikowanego
    adaptera strony, walidacja wartości; podgląd bez wysyłki domyślnie.
-   Wysłanie wymaga funkcji \`approve\`, która musi sprawdzać podpis
+   Wysłanie wymaga funkcji `approve`, która musi sprawdzać podpis
    użytkownika, związek z jobId/formId/digest i jednokrotność zgody.
    Nie ma domyślnej pozytywnej implementacji callbacka.
-5. \`confidential/demo_browser.py\` i \`test_confidential.py\`:
+5. `confidential/demo_browser.py` i `test_confidential.py`:
    demo z fikcyjnym formularzem lokalnym i testy fail-closed.
-6. \`infra/notarai-confidential-task.yaml\`: osobna definicja taska
+6. `confidential/router.py`: zaszyfrowane dokumenty do S3 na ścieżce
+   kancelarii, autoryzacja imiennego użytkownika SaaS, tylko z jawną
+   flagą `PIECZAPP_CONFIDENTIAL_ENABLED=true`; domyślnie wyłączone.
+7. `test_confidential_interop.py`: interoperacyjność szyfrowania
+   WebCrypto (Node 22) z Python AES-GCM/RSA-OAEP.
+8. `infra/notarai-confidential-task.yaml`: osobna definicja taska
    ECS Managed Instances / CONFIDENTIAL_SANDBOX. Wymaga gotowej polityki
    atestacji i KMS PCR17. CloudFormation celowo nie tworzy klastra,
    capacity provider, usługi ani zasobów z danymi klientów.
@@ -58,23 +65,24 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
 2. Przygotować odrębny obraz kontenera worker (Chromium + Playwright)
    z niewrażliwymi testami i zbudować jako image immutable digest.
    Pobrać natywne runtime/NSM narzędzia tylko ze sprawdzonego źródła.
-3. Uzupełnić rzeczywisty NSM \`AttestationProvider\` wewnątrz guest:
-   generowanie efemerycznej pary RSA, \`/dev/nsm\`, signed document,
-   lokalne otwarcie CMS \`CiphertextForRecipient\` bez wypisywania DEK.
-   Bez tego nie uruchamiać realnych spraw.
+3. Zintegrowany `NitroKMSUnwrapper` z dostawcą NSM/CMS przetestować
+   na rzeczywistym confidential task, weryfikując PCR17, KMS Recipient,
+   odpowiedź CMS oraz brak niechronionych ścieżek Decrypt. Kod oparto
+   na oficjalnym przykładzie AWS (MIT-0), ale nie był jeszcze uruchamiany
+   na sprzętowej infrastrukturze użytkownika.
 4. Utworzyć osobny customer-approved key KMS RSA_3072 (ENCRYPT_DECRYPT).
    Publiczny SPKI oraz odcisk SHA-256 potwierdzić kancelarii.
    KMS **key policy**, nie tylko IAM task role, MUSI wymusić
-   \`kms:RecipientAttestation:PCR17\` i
-   \`kms:RecipientAttestation:PCR8:ServiceName=ecs.amazonaws.com\`.
+   `kms:RecipientAttestation:PCR17` i
+   `kms:RecipientAttestation:PCR8:ServiceName=ecs.amazonaws.com`.
 5. Utworzyć capacity provider ECS Managed Instances z
-   \`nitroEnclavesEnabled=true\`. Użyć awsvpc, dedykowanej grupy SG,
+   `nitroEnclavesEnabled=true`. Użyć awsvpc, dedykowanej grupy SG,
    z ograniczonym egress i bez ECS Exec/dostępu do logowania danych.
 6. Z finalnego task definition wygenerować policy i PCR:
-   \`ecs-nitro-sandbox-genpolicy --task-definition task.json\`
-   oraz \`ecs-nitro-sandbox-genpolicy --task-definition task.json --output pcrs\`.
+   `ecs-nitro-sandbox-genpolicy --task-definition task.json`
+   oraz `ecs-nitro-sandbox-genpolicy --task-definition task.json --output pcrs`.
    Wstawić envelope i PCR17 do szablonu CloudFormation, upewnić się,
-   że key policy ma warunek PCR17. Sprawdzić spójność przez \`--check\`.
+   że key policy ma warunek PCR17. Sprawdzić spójność przez `--check`.
 7. Podłączyć transport ciphertext -> guest: przez uwierzytelniony
    kanał TLS, nie przez argumenty poleceń, logi, zmienne środowiskowe,
    nie przez niezaufany agent. Jeden job = jedna kancelaria i jawna zgoda.
@@ -83,7 +91,7 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
    plików, nieautoryzowany egress i nieznane redirecty.
 9. Dodać kryptograficznie podpisywane (przez użytkownika) i nieodtwarzalne
    zgody na złożenie wniosku, z audytem jedynie metadanych/hash.
-   Nie używać prostego parametru bool \`approved=true\` z API.
+   Nie używać prostego parametru bool `approved=true` z API.
 10. Włączyć Bedrock tylko w wyraźnie autoryzowanych zadaniach z profilem
     EU i Zero Data Retention; każda zawartość przekazana do modelu
     opuszcza guest. Zweryfikować retencję modelu, prompt cache i logi.
@@ -92,10 +100,10 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
 
 ## Walidacja lokalna
 
-- \`python -m pytest -q test_confidential.py\` (przy zależnościach
+- `python -m pytest -q test_confidential.py test_confidential_interop.py` (przy zależnościach
   z głównego requirements.txt).
-- \`python -m playwright install chromium\`
-- \`python -m confidential.demo_browser\`
+- `python -m playwright install chromium`
+- `python -m confidential.demo_browser`
 
 ## Oficjalna dokumentacja AWS (stan 19.11.2026)
 
@@ -116,3 +124,13 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
   WebSocket, subresource, przekierowania i pobranie pliku.
 - Degradacja AWS / timeout powoduje bezpieczne przerwanie zadania.
 - Podpis i wysyłka do urzędu dopiero zgodnie z procedurą notarialną.
+
+## Ograniczenia obecnego etapu
+
+- Nie ma jeszcze połączenia API uploadu z kolejką zadań ani live-view guest.
+- Brak podpisanej, odpornej na replay autoryzacji wysłania formularzy;
+  tryb produkcyjny może jedynie przygotować podgląd (preview).
+- Obraz zadania i capacity provider nie są utworzone ani wdrożone.
+- Parser rzeczywistych aktów i gotowe adaptery urzędowych formularzy
+  pozostają w istniejących modułach NotarAI i wymagają integracji.
+- Dokument nie stwierdza wykonania testu produkcyjnego AWS.
