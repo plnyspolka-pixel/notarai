@@ -147,3 +147,42 @@ def test_pilot_bootstrap_is_dry_run_and_rejects_wrong_account(monkeypatch):
             subnets=["subnet-0123456789abcdef0"], apply=True,
         )
     assert len(seen) == 1
+
+
+def test_policy_generator_matches_cloudformation_guest_runtime():
+    """Prevent drift between measured task spec and the actual ECS deployment."""
+    from scripts.render_confidential_taskdef import make_task
+
+    image = "111122223333.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-pilot01@sha256:" + "f" * 64
+    task = make_task(
+        account="111122223333", tenant="pilot01", image=image,
+        kms_key_arn="arn:aws:kms:eu-central-1:111122223333:key/12345678-abcd",
+        bucket="ntr-cf-pilot01-111122223333-eu-central-1",
+        queue="https://sqs.eu-central-1.amazonaws.com/111122223333/notarai-confidential-pilot01.fifo",
+    )
+    t = template("notarai-confidential-task.yaml")
+    c = t["Resources"]["ConfidentialTaskDefinition"]["Properties"]
+    assert task["family"] == "notarai-confidential-pilot01"
+    assert task["networkMode"] == c["NetworkMode"]
+    assert task["requiresCompatibilities"] == c["RequiresCompatibilities"]
+    assert task["cpu"] == c["Cpu"]
+    assert task["memory"] == c["Memory"]
+
+    observed = task["containerDefinitions"][0]
+    expected = c["ContainerDefinitions"][0]
+    for py, cfn in (
+        ("name", "Name"), ("essential", "Essential"), ("cpu", "Cpu"),
+        ("memory", "Memory"), ("user", "User"),
+        ("readonlyRootFilesystem", "ReadonlyRootFilesystem"),
+    ):
+        assert observed[py] == expected[cfn]
+    py_linux, aws_linux = observed["linuxParameters"], expected["LinuxParameters"]
+    assert py_linux["initProcessEnabled"] == aws_linux["InitProcessEnabled"]
+    assert py_linux["sharedMemorySize"] == aws_linux["SharedMemorySize"]
+    assert py_linux["tmpfs"][0]["containerPath"] == aws_linux["Tmpfs"][0]["ContainerPath"]
+    assert py_linux["tmpfs"][0]["size"] == aws_linux["Tmpfs"][0]["Size"]
+    assert py_linux["tmpfs"][0]["mountOptions"] == aws_linux["Tmpfs"][0]["MountOptions"]
+    assert [v["name"] for v in observed["environment"]] == [
+        v["Name"] for v in expected["Environment"]
+    ]
+    assert c["TrustedExecutionConfiguration"]["IsolationMode"] == "CONFIDENTIAL_SANDBOX"
