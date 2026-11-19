@@ -1,0 +1,26 @@
+# Build only for the separate Nitro guest; not used by existing Fargate app.
+# Pin by immutable digest in the AWS task definition after an audited build.
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp \
+    TMPDIR=/tmp
+
+WORKDIR /opt/notarai
+
+COPY confidential/requirements.txt /opt/notarai/confidential/requirements.txt
+RUN pip install --no-cache-dir -r confidential/requirements.txt \
+    && python -m playwright install --with-deps chromium
+
+COPY confidential/ /opt/notarai/confidential/
+
+# The guest doesn't need the root account to run browser and KMS clients.
+RUN useradd --uid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin notarai \
+    && chmod -R a+rX /opt/notarai \
+    && chmod -R a+rX /ms-playwright
+USER 10001:10001
+
+CMD ["python", "-m", "confidential.worker"]
