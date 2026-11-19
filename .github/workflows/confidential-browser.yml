@@ -6,6 +6,8 @@ on:
       - 'confidential/**'
       - 'static/confidential-crypto.js'
       - 'test_confidential*.py'
+      - 'infra/notarai-confidential*.yaml'
+      - 'scripts/render_confidential_*.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -31,7 +33,9 @@ jobs:
       - name: Instalacja bibliotek workera i zaleznosci aplikacji do testow
         run: |
           grep -vE '^(faster-whisper|playwright|boto3)' requirements.txt > /tmp/notarai-core-ci.txt
-          python -m pip install -r /tmp/notarai-core-ci.txt -r confidential/requirements.txt pytest PyYAML
+          python -m pip install -r /tmp/notarai-core-ci.txt -r confidential/requirements.txt pytest PyYAML cfn-lint
+      - name: Walidacja szablonow CloudFormation
+        run: cfn-lint --regions eu-central-1 infra/notarai-confidential-*.yaml
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
