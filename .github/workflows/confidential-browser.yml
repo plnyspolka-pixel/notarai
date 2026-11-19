@@ -30,7 +30,7 @@ jobs:
           node-version: '22'
       - name: Instalacja bibliotek workera i zaleznosci aplikacji do testow
         run: |
-          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-core-ci.txt
+          grep -vE '^(faster-whisper|playwright|boto3)' requirements.txt > /tmp/notarai-core-ci.txt
           python -m pip install -r /tmp/notarai-core-ci.txt -r confidential/requirements.txt pytest PyYAML
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
