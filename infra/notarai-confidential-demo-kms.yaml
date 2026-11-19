@@ -46,12 +46,13 @@ Resources:
             Resource: "*"
           - Sid: AllowOnlyAttestedTaskToDecrypt
             Effect: Allow
-            Principal:
-              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-confidential-${TenantId}"
+            Principal: "*"
             Action:
               - kms:Decrypt
             Resource: "*"
             Condition:
+              ArnEquals:
+                aws:PrincipalArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-confidential-${TenantId}"
               StringEqualsIgnoreCase:
                 kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
                 kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
