@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.exceptions import InvalidTag
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _MAX_CIPHER_BYTES = 25 * 1024 * 1024
@@ -82,4 +83,7 @@ class Envelope:
         dek = unwrapper.unwrap(self.wrapped_dek, self.kms_key_arn)
         if not isinstance(dek, bytes) or len(dek) != 32:
             raise InvalidEnvelope("invalid released data key")
-        return AESGCM(dek).decrypt(self.nonce, self.ciphertext, self.associated_data())
+        try:
+            return AESGCM(dek).decrypt(self.nonce, self.ciphertext, self.associated_data())
+        except InvalidTag as exc:
+            raise InvalidEnvelope("document authentication failed") from exc
