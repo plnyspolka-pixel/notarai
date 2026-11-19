@@ -89,9 +89,11 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
    oraz `ecs-nitro-sandbox-genpolicy --task-definition task.json --output pcrs`.
    Wstawić envelope i PCR17 do szablonu CloudFormation, upewnić się,
    że key policy ma warunek PCR17. Sprawdzić spójność przez `--check`.
-7. Uwierzytelnić endpoint zlecający zadania i dodać zapis do SQS (wyłącznie
-   identyfikatory jobId/tenantId/caseId/objectId). Guest sam czyta ciphertext
-   z S3, nigdy plaintext z API. Jeden job = jedna kancelaria i jawna zgoda.
+7. Endpoint POST `/api/confidential/preview/...` wysyła do SQS jedynie
+   jobId/tenantId/caseId/objectId, wyłącznie dla przypiętej kancelarii.
+   Nadać istniejącej roli aplikacji tylko `sqs:SendMessage` do dedykowanej
+   kolejki oraz utworzyć kolejkę i uruchamianie pojedynczych tasków ECS.
+   Guest czyta ciphertext z S3 i nie otrzymuje plaintext z API.
 8. Zbudować rejestr sprawdzonych adapterów portali, każda domena osobno.
    Zablokować zewnętrzne skrypty, iframe'y, otwarcia popupów, pobieranie
    plików, nieautoryzowany egress i nieznane redirecty.
@@ -133,8 +135,12 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
 
 ## Ograniczenia obecnego etapu
 
-- API uploadu ciphertext istnieje; brak jeszcze autoryzowanego endpointu
-  dodającego wiadomość do SQS i zewnętrznego uruchamiania Nitro task.
+- API uploadu ciphertext i autoryzowany endpoint
+  `POST /api/confidential/preview/{case_id}/{object_id}` dodający do SQS
+  wyłącznie metadata zadania już istnieją. Wymaga `PIECZAPP_CONFIDENTIAL_ENABLED`,
+  `PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN`, `PIECZAPP_CONFIDENTIAL_JOB_TENANT`,
+  `PIECZAPP_CONFIDENTIAL_JOB_QUEUE_URL` oraz uprawnienia `sqs:SendMessage`
+  na roli aplikacji. Brak jeszcze uruchamiania zadania ECS przez scheduler.
 - Worker połączony z SQS/S3/KMS i fikcyjnym formularzem w kodzie, ale NIE
   został uruchomiony na prawdziwym Nitro Sandbox ani w AWS.
 - Uwaga: polityka obecnego bucketa S3 w `infra/notarai-s3.yaml` jawnie
@@ -151,3 +157,10 @@ bezwarunkowo end-to-end Zero Knowledge wobec wszystkich podmiotów.
 - Parser rzeczywistych aktów i gotowe adaptery urzędowych formularzy
   pozostają w istniejących modułach NotarAI i wymagają integracji.
 - Dokument nie stwierdza wykonania testu produkcyjnego AWS.
+
+## Uruchomienie zadania jest nadal wyłączone
+
+Endpoint do kolejki wymaga jawnej flagi, osobnego tenantId, KMS key i EU SQS URL.
+Nie ma jeszcze provisioningu SQS, uruchomienia ECS Managed Instances ani polityki
+bazy S3 dla nowej roli. Nie używać prawdziwych dokumentów. Worker wykonuje wyłącznie
+fikcyjny formularz local-demo bez wysyłania go do jakiegokolwiek urzędu.
