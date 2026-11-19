@@ -83,6 +83,10 @@ app.include_router(autoryzacja.router)
 app.include_router(autoryzacja.router_logowania)
 app.include_router(autoryzacja.router_zespolu)
 app.include_router(autoryzacja.router_serwisu)
+# Ciphertext-only confidential API: off until KMS fingerprint/policy are provisioned.
+if os.getenv("PIECZAPP_CONFIDENTIAL_ENABLED", "").lower() == "true":
+    from confidential.router import router as confidential_router
+    app.include_router(confidential_router)
 app.include_router(rejestracja.router)
 app.include_router(rejestracja.router_dokumentow)
 app.include_router(rezerwacje_hurtowe.router_biuro)

@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: NotarAI confidential guest container image repository, test stage only
+Parameters:
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+Resources:
+  ConfidentialGuestRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Sub "notarai-confidential-${TenantId}"
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep last 8 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":8},"action":{"type":"expire"}}]}
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt ConfidentialGuestRepository.RepositoryUri

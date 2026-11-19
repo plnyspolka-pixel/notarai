@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - opt-in ECS Nitro confidential task for one test tenant.
+  Does not create capacity provider, cluster or running service.
+Parameters:
+  ContainerImage:
+    Type: String
+    Description: Immutable ECR image URI pinned to an audited digest
+    AllowedPattern: "^.+@sha256:[a-f0-9]{64}$"
+  AttestationPolicyBase64:
+    Type: String
+    Description: Policy generated for the final image by ecs-nitro-sandbox-genpolicy
+    MinLength: 16
+  ExpectedPCR17:
+    Type: String
+    Description: Exact PCR17 from ecs-nitro-sandbox-genpolicy --output pcrs
+    AllowedPattern: "^[0-9a-fA-F]{96}$"
+  ConfidentialKmsKeyArn:
+    Type: String
+    Description: Approved RSA KMS key with attestation-gated key policy
+    AllowedPattern: "^arn:aws:kms:eu-[a-z0-9-]+:[0-9]{12}:key/[A-Za-z0-9-]+$"
+  TenantId:
+    Type: String
+    AllowedPattern: "^[A-Za-z0-9_-]{1,32}$"
+    Description: One test tenant, never mix kancelarie
+  EncryptedBucketName:
+    Type: String
+    Description: Existing ciphertext-only bucket. Bucket policy must permit this task role.
+  JobQueueArn:
+    Type: String
+    Description: Dedicated SQS queue ARN with metadata-only messages
+  JobQueueUrl:
+    Type: String
+    Description: Dedicated SQS queue URL within EU AWS region
+Resources:
+  ConfidentialTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-execution-${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  ConfidentialTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: notarai-confidential-least-privilege
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AttestedKmsDecrypt
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: !Ref ConfidentialKmsKeyArn
+                Condition:
+                  StringEqualsIgnoreCase:
+                    kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
+                    kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
+              - Sid: ReadOnlyOwnCiphertexts
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
+              - Sid: ConsumeOwnQueue
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !Ref JobQueueArn
+  ConfidentialTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "notarai-confidential-${TenantId}"
+      RequiresCompatibilities:
+        - MANAGED_INSTANCES
+      NetworkMode: awsvpc
+      Cpu: "2048"
+      Memory: "4096"
+      ExecutionRoleArn: !GetAtt ConfidentialTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ConfidentialTaskRole.Arn
+      TrustedExecutionConfiguration:
+        IsolationMode: CONFIDENTIAL_SANDBOX
+        AttestationPolicy: !Ref AttestationPolicyBase64
+      ContainerDefinitions:
+        - Name: confidential-browser
+          Image: !Ref ContainerImage
+          Essential: true
+          Cpu: 2048
+          Memory: 4096
+          User: "10001:10001"
+          ReadonlyRootFilesystem: true
+          Environment:
+            - Name: NOTARAI_CONFIDENTIAL_REQUIRED
+              Value: "1"
+            - Name: NOTARAI_CONFIDENTIAL_TENANT
+              Value: !Ref TenantId
+            - Name: NOTARAI_CONFIDENTIAL_BUCKET
+              Value: !Ref EncryptedBucketName
+            - Name: NOTARAI_CONFIDENTIAL_QUEUE_URL
+              Value: !Ref JobQueueUrl
+            - Name: NOTARAI_CONFIDENTIAL_KMS_KEY_ARN
+              Value: !Ref ConfidentialKmsKeyArn
+            - Name: AWS_REGION
+              Value: eu-central-1
+            - Name: HOME
+              Value: /tmp
+            - Name: XDG_CACHE_HOME
+              Value: /tmp
+            - Name: TMPDIR
+              Value: /tmp
+          LinuxParameters:
+            InitProcessEnabled: true
+            SharedMemorySize: 256
+            Tmpfs:
+              - ContainerPath: /tmp
+                Size: 512
+                MountOptions: [rw, nosuid, nodev]
+          # No shared volumes, no stdout of plaintext, no log driver.
+Outputs:
+  TaskDefinitionArn:
+    Value: !Ref ConfidentialTaskDefinition
+  TaskRoleArn:
+    Value: !GetAtt ConfidentialTaskRole.Arn

@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI confidential preview staging - separate encrypted S3 bucket and
+  SQS FIFO queue in EU. No change to existing NotarAI app or IAM roles.
+Parameters:
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+    Description: Fictional test tenant ID, never a production kancelaria
+Resources:
+  DemoBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "ntr-cf-${TenantId}-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+  DemoBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DemoBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt DemoBucket.Arn
+              - !Sub "${DemoBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+  DemoDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "notarai-confidential-${TenantId}-dead.fifo"
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+  DemoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "notarai-confidential-${TenantId}.fifo"
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 86400
+      VisibilityTimeout: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DemoDeadLetterQueue.Arn
+        maxReceiveCount: 3
+Outputs:
+  BucketName:
+    Value: !Ref DemoBucket
+  BucketArn:
+    Value: !GetAtt DemoBucket.Arn
+  QueueArn:
+    Value: !GetAtt DemoQueue.Arn
+  QueueUrl:
+    Value: !Ref DemoQueue
+  DeadLetterQueueArn:
+    Value: !GetAtt DemoDeadLetterQueue.Arn

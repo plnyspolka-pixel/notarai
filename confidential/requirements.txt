@@ -1,0 +1,7 @@
+# Optional Nitro guest-only dependencies. Do not install on Fargate web app.
+# Versions aligned with tested AWS sample current as of 2026-11-19.
+asn1crypto==1.5.1
+boto3==1.43.118
+cbor2==6.1.5
+cryptography==50.0.2
+playwright>=1.49
