@@ -149,6 +149,7 @@ dialog.umow .wynik.blad {{ background: var(--alarm-tlo, #fbeceb); }}
 @media (max-width: 760px) {{ .kanc, .kroki-u, .wpisy {{ grid-template-columns: 1fr; }} dialog.umow .dwie {{ grid-template-columns: 1fr; }} }}
 {css}
 </style>
+<script src="/analityka.js" defer></script>
 </head>
 <body>
 

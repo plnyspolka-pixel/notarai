@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI NOTARAI
 
-Wersja z dnia 13.11.2026.
+Wersja z dnia 19.11.2026.
 
 Ta polityka dotyczy danych, które Fundacja przetwarza **jako administrator**:
 danych użytkowników usługi, osób kontaktujących się z nami i odwiedzających
@@ -31,13 +31,22 @@ siedziby.
 | Właściciel kancelarii kupujący kredyty | e-mail płatnika, nazwa, NIP i adres kancelarii, numer zamówienia i transakcji Tpay, kwota, status i data płatności, faktura; danych karty ani rachunku Fundacja nie otrzymuje | sprzedaż pakietów kredytów, faktury (KSeF), rozliczenia | art. 6 ust. 1 lit. b i c | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku |
 | Osoby piszące do nas | e-mail, imię i nazwisko, treść wiadomości | odpowiedź, obsługa reklamacji i zgłoszeń | art. 6 ust. 1 lit. f | do zakończenia sprawy, nie dłużej niż 3 lata |
 | Odwiedzający stronę notarai.pl | adres IP, czas wizyty i dane techniczne przeglądarki w dziennikach serwera hostingu AZ.pl | wyświetlenie strony, bezpieczeństwo | art. 6 ust. 1 lit. f | zgodnie z zasadami dostawcy hostingu |
+| Odwiedzający stronę notarai.pl, którzy zgodzili się na pliki cookie analityczne | identyfikator przeglądarki zapisany w pliku cookie, odwiedzone podstrony, kliknięcia i ruchy kursora, nagranie przebiegu wizyty (bez treści wpisywanej w formularze, która jest ukrywana), przybliżona lokalizacja z adresu IP, typ urządzenia i przeglądarki | statystyki odwiedzin, mapy kliknięć i analiza korzystania ze strony w celu jej ulepszania | art. 6 ust. 1 lit. a (zgoda) | do cofnięcia zgody, nie dłużej niż 1 rok; nagrania 30 dni |
 
 Podanie danych jest dobrowolne, ale bez adresu e-mail nie da się założyć
 konta.
 
 ## 3. Pliki cookie
 
-Strona notarai.pl nie używa plików cookie analitycznych ani reklamowych.
+Strona notarai.pl nie używa plików cookie reklamowych. Pliki cookie
+analityczne narzędzia PostHog włączamy wyłącznie po wyrażeniu zgody
+w banerze wyświetlanym przy pierwszej wizycie. Bez zgody strona nie wysyła
+danych do PostHog, a w pamięci przeglądarki zapisuje tylko samą decyzję
+o zgodzie. Na stronach przygotowania sprawy i obsługi wizyt nie nagrywamy
+przebiegu wizyty. Zgodę można w każdej chwili zmienić lub cofnąć:
+[ustawienia plików cookie](#cookies). Cofnięcie zgody nie wpływa na zgodność
+z prawem przetwarzania przed jej cofnięciem.
+
 Aplikacja app.notarai.pl używa wyłącznie plików cookie i pamięci przeglądarki
 niezbędnych do logowania i utrzymania sesji (w tym bezpiecznego pliku cookie
 odnawiającego logowanie przez okres do 30 dni). Na ich użycie nie jest
@@ -57,7 +66,9 @@ wymagana zgoda.
 4. Dostawcy systemu sprzedaży i fakturowania Fundacji prowadzonego w serwisie
    Finance You - zamówienia pakietów kredytów, płatności i faktury; faktury
    trafiają do Krajowego Systemu e-Faktur (Ministerstwo Finansów).
-5. Organy publiczne, gdy wynika to z przepisów.
+5. PostHog Inc. (USA) - analityka strony notarai.pl za zgodą odwiedzającego;
+   dane przechowywane w chmurze PostHog w Unii Europejskiej (Frankfurt).
+6. Organy publiczne, gdy wynika to z przepisów.
 
 Dane użytkowników usługi są przechowywane w Europejskim Obszarze
 Gospodarczym. AWS należy do grupy z siedzibą w USA i stosuje certyfikację

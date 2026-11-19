@@ -39,6 +39,7 @@ SZABLON = """<!doctype html>
 <title>{tytul} - notarai</title>
 <link rel="icon" type="image/svg+xml" href="../logo-mark.svg">
 <link rel="stylesheet" href="../style.css">
+<script src="/analityka.js" defer></script>
 </head>
 <body>
 <header class="naglowek">
