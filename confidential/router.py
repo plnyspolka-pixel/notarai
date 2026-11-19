@@ -89,6 +89,48 @@ async def store(request: Request, case_id: str, object_id: str):
     return JSONResponse({"stored": True}, headers={"Cache-Control": "no-store"})
 
 
+@router.post("/preview/{case_id}/{object_id}")
+def queue_preview(request: Request, case_id: str, object_id: str):
+    """Queue a PREVIEW-only job for a specifically configured test tenant.
+
+    This never starts an ECS task, submits a form, or shares plaintext.
+    The isolated ECS task must be started by the separately provisioned runner.
+    """
+    import uuid
+    import boto3
+    import magazyn
+
+    tenant = _scope(request)
+    key = _key(tenant, case_id, object_id)
+    if tenant != os.getenv("PIECZAPP_CONFIDENTIAL_JOB_TENANT"):
+        raise HTTPException(403, "Kolejka nie jest przypisana do tej kancelarii.")
+    queue_url = os.getenv("PIECZAPP_CONFIDENTIAL_JOB_QUEUE_URL", "")
+    queue_pattern = r"https://sqs\.eu-[a-z0-9-]+\.amazonaws\.com/[0-9]{12}/notarai-confidential-[A-Za-z0-9_-]+(?:\.fifo)?"
+    if not re.fullmatch(queue_pattern, queue_url):
+        raise HTTPException(503, "Kolejka poufnych zadan nie jest skonfigurowana.")
+    _approved_key()  # never enqueue before an approved key has been provisioned
+    try:
+        magazyn._klient_s3().head_object(Bucket=magazyn.BUCKET, Key=key)
+    except Exception as exc:
+        if type(exc).__name__ in ("NoSuchKey", "ClientError"):
+            raise HTTPException(404, "Nie znaleziono zaszyfrowanego dokumentu.")
+        raise
+    job_id = uuid.uuid4().hex
+    metadata = json.dumps({
+        "tenant_id": tenant, "case_id": case_id, "object_id": object_id,
+        "job_id": job_id,
+    }, separators=(",", ":"))
+    sqs = boto3.client("sqs", region_name="eu-central-1")
+    options = {"QueueUrl": queue_url, "MessageBody": metadata}
+    if queue_url.endswith(".fifo"):
+        options.update(MessageGroupId=tenant, MessageDeduplicationId=job_id)
+    sqs.send_message(**options)
+    return JSONResponse(
+        {"queued": True, "job_id": job_id, "mode": "preview-only"},
+        status_code=202, headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/envelopes/{case_id}/{object_id}")
 def retrieve(request: Request, case_id: str, object_id: str):
     import magazyn
