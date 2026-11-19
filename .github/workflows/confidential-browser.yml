@@ -53,3 +53,30 @@ jobs:
         run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
+
+  guest-image-smoke:
+    name: Obraz Nitro guest / Chromium (test lokalny)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Zbuduj produkcyjny obraz workera bez wysyłania do AWS
+        run: docker build --file confidential/Dockerfile --tag notarai-confidential:smoke .
+      - name: Uruchom Chromium na fikcyjnym formularzu wewnątrz kontenera
+        run: |
+          docker run --rm \
+            --network none --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            --shm-size 256m \
+            --entrypoint python \
+            notarai-confidential:smoke -m confidential.demo_browser
+      - name: Zweryfikuj, że worker odmawia pracy bez prawdziwej atestacji
+        run: |
+          if docker run --rm --network none \
+            --entrypoint python \
+            notarai-confidential:smoke -m confidential.worker; then
+            echo "::error::Worker zadziałał bez sprzętowej atestacji!"
+            exit 1
+          fi
