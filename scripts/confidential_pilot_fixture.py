@@ -103,10 +103,6 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     Envelope.parse(envelope)
     object_key = f"kancelarie/{tenant}/confidential/pilot01/synthetic01.json"
     object_body = json.dumps(envelope, separators=(",", ":"))
-    aws(profile, [
-        "s3api", "put-object", "--bucket", bucket, "--key", object_key,
-        "--body", "/dev/stdin", "--server-side-encryption", "AES256",
-    ]) if False else None  # AWS CLI cannot safely stream JSON via stdin as file://
     # boto3 uses the same configured profile and has native binary upload.
     import boto3
     sess = boto3.Session(profile_name=profile, region_name=REGION)
