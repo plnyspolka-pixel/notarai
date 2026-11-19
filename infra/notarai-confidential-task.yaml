@@ -74,6 +74,10 @@ Resources:
                 Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
+              - Sid: WriteMetadataOnlyResults
+                Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential-results/*"
               - Sid: ConsumeOwnQueue
                 Effect: Allow
                 Action:
