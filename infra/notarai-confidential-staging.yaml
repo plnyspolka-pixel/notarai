@@ -5,7 +5,7 @@ Description: >-
 Parameters:
   TenantId:
     Type: String
-    AllowedPattern: "^[A-Za-z0-9_-]{1,32}$"
+    AllowedPattern: "^[a-z0-9]{1,12}$"
     Description: Fictional test tenant ID, never a production kancelaria
 Resources:
   DemoBucket:
@@ -13,7 +13,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub "notarai-confidential-demo-${TenantId}-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "ntr-cf-${TenantId}-${AWS::AccountId}-${AWS::Region}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
