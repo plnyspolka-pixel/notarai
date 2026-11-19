@@ -32,7 +32,6 @@ def test_webcrypto_encrypts_a_document_the_confidential_guest_can_read():
     js = r"""
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-globalThis.crypto = webcrypto;
 const source = await readFile(process.env.MODULE_PATH, 'utf8');
 const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const args = JSON.parse(process.env.TEST_INPUT);
@@ -65,7 +64,6 @@ def test_mismatched_key_fingerprint_fails_before_encryption():
     js = r"""
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-globalThis.crypto = webcrypto;
 const source = await readFile(process.env.MODULE_PATH, 'utf8');
 const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const key = await crypto.subtle.generateKey(
