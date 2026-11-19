@@ -114,3 +114,36 @@ def test_nitro_provider_uses_ecs_api_flag_and_only_approved_instance_types():
             account="111122223333", tenant="demo/../root",
             subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0"
         )
+
+
+def test_pilot_bootstrap_is_dry_run_and_rejects_wrong_account(monkeypatch):
+    import pytest
+    import scripts.confidential_pilot_bootstrap as pilot
+
+    seen = []
+
+    def fake_cli(args, profile, *, capture=True):
+        seen.append(args)
+        if args[:2] == ["sts", "get-caller-identity"]:
+            return "111122223333"
+        if args[:2] == ["cloudformation", "validate-template"]:
+            return "{}"
+        raise AssertionError("unexpected mutation called during dry run")
+
+    monkeypatch.setattr(pilot, "cli", fake_cli)
+    pilot.bootstrap(
+        profile="pilot", account="111122223333", tenant="pilot01",
+        vpc="vpc-0123456789abcdef0",
+        subnets=["subnet-0123456789abcdef0"], apply=False,
+    )
+    assert len(seen) == 5
+    assert not any(x[1] in {"deploy", "create-capacity-provider"} for x in seen)
+
+    seen.clear()
+    with pytest.raises(RuntimeError, match="account mismatch"):
+        pilot.bootstrap(
+            profile="pilot", account="999988887777", tenant="pilot01",
+            vpc="vpc-0123456789abcdef0",
+            subnets=["subnet-0123456789abcdef0"], apply=True,
+        )
+    assert len(seen) == 1
