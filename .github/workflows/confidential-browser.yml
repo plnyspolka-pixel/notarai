@@ -1,0 +1,38 @@
+name: NotarAI Confidential Browser - chromium smoke
+
+on:
+  pull_request:
+    paths:
+      - 'confidential/**'
+      - 'static/confidential-crypto.js'
+      - 'test_confidential*.py'
+      - '.github/workflows/confidential-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Chromium Playwright (fikcyjne dane)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_DEFAULT_REGION: eu-central-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Instalacja bibliotek workera
+        run: python -m pip install -r confidential/requirements.txt pytest PyYAML
+      - name: Przeglądarka Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Testy kryptografii, formularzy i szablonów AWS
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py
+      - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
+        run: python -m confidential.demo_browser
