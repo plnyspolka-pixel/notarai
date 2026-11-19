@@ -35,7 +35,7 @@ jobs:
           grep -vE '^(faster-whisper|playwright|boto3)' requirements.txt > /tmp/notarai-core-ci.txt
           python -m pip install -r /tmp/notarai-core-ci.txt -r confidential/requirements.txt pytest PyYAML cfn-lint
       - name: Walidacja szablonow CloudFormation
-        run: cfn-lint --regions eu-central-1 infra/notarai-confidential-*.yaml
+        run: cfn-lint --regions eu-central-1 --template infra/notarai-confidential-*.yaml
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
