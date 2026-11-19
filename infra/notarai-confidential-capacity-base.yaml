@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI: isolated pilot ECS Managed Instances cluster, roles and security group.
+  No capacity provider or EC2 instances are created by this template.
+Parameters:
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+    Default: pilot01
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+Resources:
+  ConfidentialCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "notarai-confidential-${TenantId}"
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Project
+          Value: NotarAI-Confidential-Pilot
+  ManagedInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # ECS infrastructure policy permits PassRole only for ecsInstanceRole*.
+      RoleName: !Sub "ecsInstanceRoleNotaraiConfidential${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonECSInstanceRolePolicyForManagedInstances
+  ManagedInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "ecsInstanceProfileNotaraiConfidential${TenantId}"
+      Roles:
+        - !Ref ManagedInstanceRole
+  ManagedInfrastructureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-infra-${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForManagedInstances
+      Policies:
+        - PolicyName: PassOnlyPilotInstanceRole
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt ManagedInstanceRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ec2.amazonaws.com
+  PilotSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NotarAI pilot ECS Nitro instances - no inbound traffic
+      VpcId: !Ref VpcId
+      # Outbound 443 for AWS APIs/ECR via NAT or endpoints. Before real
+      # data, replace with VPC endpoint security groups and proxy allowlist.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Test stage only - HTTPS AWS dependencies
+      Tags:
+        - Key: Project
+          Value: NotarAI-Confidential-Pilot
+Outputs:
+  ClusterName:
+    Value: !Ref ConfidentialCluster
+  InfrastructureRoleArn:
+    Value: !GetAtt ManagedInfrastructureRole.Arn
+  InstanceProfileArn:
+    Value: !GetAtt ManagedInstanceProfile.Arn
+  InstanceSecurityGroupId:
+    Value: !GetAtt PilotSecurityGroup.GroupId
+  InstanceRoleArn:
+    Value: !GetAtt ManagedInstanceRole.Arn
