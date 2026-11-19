@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'">
+  <title>Private AI · Centrum przepływu danych — DEMO</title>
+  <link rel="stylesheet" href="./dashboard.css">
+  <script src="./dashboard.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Menu panelu">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">◈</span><div><b>Private<span>AI</span></b><small>CONTROL ROOM</small></div></div>
+      <div class="workspace"><span class="workspace-circle">N</span><span><strong>Organizacja DEMO</strong><small>Środowisko syntetyczne</small></span><span class="chevron">⌄</span></div>
+      <div class="section-label">MONITOROWANIE</div>
+      <nav class="side-nav" id="nav-main" aria-label="Widoki panelu">
+        <button type="button" data-view="overview" aria-current="page"><span aria-hidden="true">▦</span> Centrum dowodzenia</button>
+        <button type="button" data-view="ledger"><span aria-hidden="true">☷</span> Dziennik zdarzeń</button>
+        <button type="button" data-view="incidents"><span aria-hidden="true">◇</span> Incydenty i blokady <span id="nav-alert-count" class="nav-count">0</span></button>
+      </nav>
+      <div class="section-label">BEZPIECZEŃSTWO</div>
+      <div class="sidebar-note"><span class="dot dot-teal"></span><span>Widoczność oparta na zdarzeniach. Brak zdarzenia <em>nie</em> dowodzi braku przepływu.</span></div>
+      <div class="sidebar-bottom"><span class="monogram">AI</span><div><strong>Prywatna przestrzeń</strong><small>Kontrola tenantów · RBAC · Audyt</small></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumbs">Zaufanie i bezpieczeństwo <span>/</span> <b id="crumb">Centrum dowodzenia</b></div>
+        <div class="top-actions"><span class="demo-chip">● DEMO · dane syntetyczne</span><span class="divider-v"></span><label for="persona-select">Widok roli</label><select id="persona-select" aria-label="Symulowany zakres uprawnień"><option value="auditor">Audytor organizacji</option><option value="operator">Operator U-104</option><option value="owner">Administrator organizacji</option></select></div>
+      </header>
+      <div class="page">
+        <div class="page-heading"><div><div class="eyebrow"><span class="square-mark">◇</span> PRIVATE AI / DATA LINEAGE</div><h1 id="page-title">Widzisz, co dzieje się<br>z Twoimi danymi.</h1><p id="page-subtitle">Pełna ścieżka pochodzenia, przetwarzania i kontroli dokumentów — bez ujawniania ich treści.</p></div><button type="button" id="export-btn" class="export-btn"><span aria-hidden="true">⇩</span> Eksportuj raport JSON</button></div>
+        <div class="notice" role="status"><span class="notice-icon">i</span><div><strong>Interaktywny prototyp — bez danych klientów i połączeń sieciowych.</strong><span>Wartości są symulowane. Status „zarejestrowane” nie oznacza niezależnej atestacji. Produkt nie jest jeszcze wdrożony.</span></div></div>
+        <section id="metrics-section" class="metrics" aria-label="Wskaźniki">
+          <article class="metric"><div class="metric-label">Zdarzenia <span>↗</span></div><div class="metric-value" id="metric-all">—</div><div class="metric-caption">w bieżącym widoku</div></article>
+          <article class="metric"><div class="metric-label">Zakończone operacje <span>✓</span></div><div class="metric-value" id="metric-success">—</div><div class="metric-caption">bez stwierdzonej blokady</div></article>
+          <article class="metric accent-alert"><div class="metric-label">Zablokowane <span>!</span></div><div class="metric-value" id="metric-denied">—</div><div class="metric-caption">odmowy polityki / egress</div></article>
+          <article class="metric accent-neutral"><div class="metric-label">Brak dowodu <span>○</span></div><div class="metric-value" id="metric-unknown">—</div><div class="metric-caption">wymaga dalszej weryfikacji</div></article>
+        </section>
+        <section class="layout-grid" id="overview-section">
+          <article class="panel flow-panel">
+            <div class="panel-header"><div><div class="eyebrow">ŚCIEŻKA PRZETWARZANIA</div><h2>Podróż danych</h2><p>Wybierz zdarzenie, aby prześledzić jego drogę.</p></div><span class="outline-pill">Środowisko testowe</span></div>
+            <div class="flow" aria-label="Przepływ dokumentu">
+              <div class="flow-step"><div class="step-icon indigo">↥</div><small>WEJŚCIE</small><b id="flow-source">Portal klienta</b><span>Źródło danych</span></div>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <div class="flow-step"><div class="step-icon cyan">♙</div><small>POLITYKA</small><b>Kontrola dostępu</b><span>Organizacja · cel · uprawnienia</span></div>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <div class="flow-step"><div class="step-icon violet">✧</div><small>OPERACJA</small><b id="flow-target">EU Bedrock</b><span id="flow-region">Frankfurt / UE</span></div>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <div class="flow-step"><div class="step-icon emerald">◉</div><small>DOWODY</small><b id="flow-evidence">Zdarzenie odnotowane</b><span>Metadane bez dokumentu</span></div>
+            </div>
+            <div class="flow-footer"><div><span class="footer-dot"></span> Odtworzenie zdarzeń</div><span id="flow-selected">Wybierz pozycję z dziennika</span></div>
+          </article>
+          <article class="panel side-panel">
+            <div class="panel-header"><div><div class="eyebrow">WGLĄD W UPRAWNIENIA</div><h2>Kto miał dostęp?</h2></div></div>
+            <div class="persona-row"><div class="avatar light-blue">U</div><div><b>Użytkownik</b><small>Własne dokumenty i zadania</small></div><span class="status-pip ok"></span></div>
+            <div class="persona-row"><div class="avatar light-purple">A</div><div><b>Agent AI</b><small>Tylko delegowane operacje</small></div><span class="status-pip neutral"></span></div>
+            <div class="persona-row"><div class="avatar light-orange">R</div><div><b>Audytor</b><small>Metadane tej organizacji</small></div><span class="status-pip ok"></span></div>
+            <div class="privacy-foot"><b>Granica organizacji</b><span>Brak widoczności cudzych tenantów. Widok ról powyżej to demonstracja, nie rzeczywiste uwierzytelnianie.</span></div>
+          </article>
+        </section>
+        <section class="panel events-panel" id="events-section">
+          <div class="panel-header events-head"><div><div class="eyebrow">OBSERVABILITY / ACTIVITY LOG</div><h2 id="events-title">Dziennik aktywności</h2><p>Co, kiedy, skąd i dokąd — z informacją o stanie dowodu.</p></div><span id="count-label" class="outline-pill">— zdarzeń</span></div>
+          <div class="filters"><label class="search-wrap" for="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="Szukaj identyfikatora, agenta, źródła…"></label><select id="filter-state" aria-label="Filtruj według wyniku"><option value="all">Wszystkie wyniki</option><option value="success">Zakończone</option><option value="blocked">Zablokowane</option><option value="pending">W toku</option><option value="error">Błąd</option></select><select id="filter-proof" aria-label="Filtruj według dowodów"><option value="all">Wszystkie dowody</option><option value="observed">Zarejestrowane</option><option value="declared">Deklarowane</option><option value="unknown">Brak dowodu</option></select></div>
+          <div class="table-scroll"><table><thead><tr><th>Zdarzenie / czas</th><th>Dokument i aktor</th><th>Źródło → cel</th><th>Operacja</th><th>Wynik</th><th>Dowód</th></tr></thead><tbody id="events-body"></tbody></table></div>
+          <div class="table-footer"><span>Kliknij wiersz, by prześledzić pojedyncze zdarzenie.</span><span id="footer-count">—</span></div>
+        </section>
+        <section class="details-row" id="details-section">
+          <article class="panel detail-card"><div class="panel-header"><div><div class="eyebrow">PROVENANCE / TRACE</div><h2>Ślad wybranego zdarzenia</h2></div><span id="detail-result" class="outline-pill">Wybierz zdarzenie</span></div><div id="detail-fields" class="detail-grid"><p class="empty">Wybierz pozycję w tabeli.</p></div></article>
+          <article class="panel trust-card"><div class="panel-header"><div><div class="eyebrow">PROOF / INTEGRITY</div><h2>Co potrafimy udowodnić?</h2></div></div><div class="proof-item"><span class="proof-icon">1</span><div><strong>Zdarzenie</strong><p>Rejestrujemy bezpieczne metadane i znaczniki czasu, a nie treść dokumentu.</p></div></div><div class="proof-item"><span class="proof-icon">2</span><div><strong>Decyzja polityki</strong><p>Odróżniamy obserwację, deklarację i brak informacji.</p></div></div><div class="proof-item"><span class="proof-icon">3</span><div><strong>Niezależny dowód</strong><p>Podpisy HSM i zewnętrzny świadek nie są jeszcze podłączone. Nie udajemy certyfikacji.</p></div></div></article>
+        </section>
+        <footer class="site-footer"><span>Private AI · Data Lineage Control Room</span><span>Tryb lokalny DEMO · brak integracji produkcyjnych</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

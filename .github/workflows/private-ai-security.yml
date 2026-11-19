@@ -1,0 +1,54 @@
+name: Private AI security regression
+on:
+  pull_request:
+    paths:
+      - "private_ai/**"
+      - "private_ai_tests/**"
+      - "private_ai_dashboard/**"
+      - ".claude/commands/private-ai-control-room.md"
+      - "docs/private-ai/**"
+      - ".github/workflows/private-ai-security.yml"
+      - "infra/private-ai-pilot.yaml"
+      - "tools/private_ai/build_pilot_zip.py"
+      - "tools/private_ai/make_fixture.py"
+  push:
+    branches: ["feature/private-ai-**"]
+permissions:
+  contents: read
+jobs:
+  synthetic-denial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m unittest discover -s private_ai_tests -v
+      - run: python -m compileall -q private_ai
+      - name: Offline dashboard JavaScript syntax
+        run: node --check private_ai_dashboard/dashboard.js
+      - run: python tools/private_ai/make_fixture.py --verify-only
+  policy-as-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1
+        with:
+          version: "1.22.4"
+      - name: OPA allow/deny regression (trusted PDP inputs only)
+        run: opa test private_ai/policies -v --fail-on-empty
+  infrastructure-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install cfn-lint==1.60.1
+      - name: Validate EU pilot CloudFormation template offline
+        run: cfn-lint infra/private-ai-pilot.yaml
+      - name: Verify minimal Lambda archive builds
+        run: python tools/private_ai/build_pilot_zip.py
