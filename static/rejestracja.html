@@ -56,6 +56,9 @@ button:disabled{opacity:.45;cursor:default}
 .sukces{background:var(--ok-tlo);border:1px solid var(--ok);border-radius:var(--r2);padding:14px 16px}
 .sukces p{color:var(--tekst);margin:0 0 8px}
 .male{font-size:12.5px;color:var(--tekst3);margin-top:18px}
+.male.blad{color:var(--alarm)}
+#google-wejscie{margin:14px 0 18px;padding-bottom:16px;border-bottom:1px solid rgba(128,128,128,.25)}
+#google-wejscie .male{margin-top:10px}
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
 </head>
@@ -65,6 +68,11 @@ button:disabled{opacity:.45;cursor:default}
 
   <form id="formularz" novalidate>
     <h1>Załóż konto kancelarii</h1>
+    <!-- Szybsza droga: konto Google. Dane kancelarii i akceptacja umowy - po wejściu. -->
+    <div id="google-wejscie" hidden>
+      <div id="google-przycisk"></div>
+      <p class="male" id="google-stan">Jedno kliknięcie zakłada konto bez hasła. Dane kancelarii podasz i Regulamin z umową powierzenia zaakceptujesz po wejściu do aplikacji. Albo wypełnij formularz poniżej.</p>
+    </div>
     <p id="wstep">14 dni za darmo, bez karty. Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.</p>
 
     <div class="pole">
@@ -143,6 +151,43 @@ fetch("/api/rejestracja").then(o => o.json()).then(info => {
       "Potem płacisz tylko za to, z czego korzystasz: dokupujesz pakiety kredytów. " +
       "Po rejestracji dostaniesz e-mail z hasłem tymczasowym. Umowa powierzenia zawiera się razem z akceptacją Regulaminu, bez podpisów i bez wysyłania dokumentów.";
   }
+}).catch(() => {});
+
+/* Konto Google: przycisk i pasek One Tap. Serwer sprawdza token i ustawia
+   sesje (ciasteczko odnawiania), wiec wystarczy przejsc do aplikacji. */
+async function poGoogle(odp){
+  if (!odp || !odp.credential) return;
+  $("google-stan").textContent = "Zakładam konto…";
+  try {
+    const wynik = await fetch("/api/logowanie/google", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({credential: odp.credential}),
+    });
+    const dane = await wynik.json().catch(() => ({}));
+    if (!wynik.ok) throw new Error(dane.detail || "Nie udało się wejść kontem Google.");
+    location.href = "/";
+  } catch (blad) {
+    $("google-stan").textContent = blad.message;
+    $("google-stan").classList.add("blad");
+  }
+}
+
+fetch("/api/logowanie/google").then(o => o.json()).then(info => {
+  if (!info.wlaczone || !info.klient) return;
+  const s = document.createElement("script");
+  s.src = "https://accounts.google.com/gsi/client?hl=pl";
+  s.async = true;
+  s.onload = () => {
+    google.accounts.id.initialize({
+      client_id: info.klient, callback: poGoogle, context: "signup",
+      auto_select: false, cancel_on_tap_outside: false, itp_support: true, use_fedcm_for_prompt: true,
+    });
+    google.accounts.id.renderButton($("google-przycisk"),
+      {theme: "outline", size: "large", text: "signup_with", shape: "rectangular", locale: "pl", width: 300});
+    $("google-wejscie").hidden = false;
+    google.accounts.id.prompt();
+  };
+  document.head.appendChild(s);
 }).catch(() => {});
 
 $("formularz").onsubmit = async e => {

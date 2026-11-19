@@ -66,6 +66,16 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
+  GoogleKlient:
+    Type: String
+    Default: ""
+    Description: >-
+      Identyfikator klienta OAuth Google (publiczny) dla logowania kontem Google
+      i paska One Tap. Puste = logowanie przez Google wylaczone.
+  GoogleKluczSekretArn:
+    Type: String
+    Default: ""
+    Description: Wynik KluczLogowaniaGoogleArn ze stosu notarai-logowanie.
   ApifySekretArn:
     Type: String
     Default: ""
@@ -149,6 +159,9 @@ Conditions:
   MamyEmail: !Not [!Equals [!Ref EmailAlarmowy, ""]]
   MamyLogowanie: !Not [!Equals [!Ref PulaLogowania, ""]]
   MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
+  MamyGoogle: !And
+    - !Not [!Equals [!Ref GoogleKlient, ""]]
+    - !Not [!Equals [!Ref GoogleKluczSekretArn, ""]]
   MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
   MamyMeta: !Not [!Equals [!Ref MetaSekretArn, ""]]
   MamyOAuthPoczty: !Not [!Equals [!Ref OAuthPocztySekretArn, ""]]
@@ -207,6 +220,16 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
+        - !If
+          - MamyGoogle
+          - PolicyName: sekret-logowania-google
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref GoogleKluczSekretArn
+          - !Ref AWS::NoValue
         - !If
           - MamyApify
           - PolicyName: sekret-apify
@@ -291,6 +314,10 @@ Resources:
                   Action:
                     - cognito-idp:AdminCreateUser
                     - cognito-idp:AdminDeleteUser
+                    # Wejscie kontem Google: sprawdzenie, czy konto istnieje,
+                    # i konto bez hasla tymczasowego (haslo losowe).
+                    - cognito-idp:AdminGetUser
+                    - cognito-idp:AdminSetUserPassword
                   Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${PulaLogowania}"
           - !Ref AWS::NoValue
 
@@ -510,6 +537,8 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
+            - Name: PIECZAPP_GOOGLE_KLIENT
+              Value: !Ref GoogleKlient
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
             - Name: PIECZAPP_VAT
@@ -529,6 +558,12 @@ Resources:
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
+            # Klucz podpisu dowodu logowania kontem Google (wspolny z Cognito).
+            - !If
+              - MamyGoogle
+              - Name: PIECZAPP_GOOGLE_KLUCZ
+                ValueFrom: !Ref GoogleKluczSekretArn
+              - !Ref AWS::NoValue
             # Token dostawcy EKW (ekw.py) z sekretu JSON notarai/apify.
             - !If
               - MamyApify

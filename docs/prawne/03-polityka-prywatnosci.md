@@ -24,6 +24,7 @@ siedziby.
 | Kogo dotyczy | Dane | Cel | Podstawa (RODO) | Jak długo |
 |---|---|---|---|---|
 | Użytkownicy usługi (notariusze, pracownicy kancelarii) | e-mail, imię i nazwisko (jeżeli podane), kancelaria, rola, daty zaproszenia i dołączenia, dane logowania (hasło przechowywane w postaci zabezpieczonej przez AWS Cognito) | założenie i prowadzenie konta, logowanie, zaproszenia, reset hasła | art. 6 ust. 1 lit. b (umowa z kancelarią - wobec notariusza) oraz lit. f (prawnie uzasadniony interes: obsługa kont pracowników kancelarii) | do usunięcia konta, a potem do 90 dni |
+| Osoby zakładające konto albo logujące się kontem Google (przycisk i podpowiedź „Kontynuuj jako…”) | adres e-mail konta Google, imię i nazwisko z profilu Google, potwierdzenie tożsamości wydane przez Google; hasła do konta Google nie otrzymujemy | założenie konta kancelarii i logowanie bez hasła | art. 6 ust. 1 lit. b (umowa z kancelarią - wobec notariusza) oraz lit. f (prawnie uzasadniony interes: wygodne i bezpieczne logowanie) | do usunięcia konta, a potem do 90 dni |
 | Użytkownicy | adres IP, czas i rodzaj żądań, identyfikatory techniczne w dziennikach | bezpieczeństwo, wykrywanie nadużyć i awarii | art. 6 ust. 1 lit. f | 90 dni |
 | Notariusz zawierający umowę, osoba wysyłająca formularz rejestracji | imię i nazwisko notariusza (notariuszy), nazwa i adres kancelarii, NIP, e-mail | zawarcie i wykonanie umowy, rozliczenia | art. 6 ust. 1 lit. b i c (przepisy podatkowe i rachunkowe) | czas umowy, następnie 5 lat od końca roku, w którym upłynął termin płatności podatku, oraz do przedawnienia roszczeń |
 | Osoba akceptująca Regulamin i umowę powierzenia | data i godzina akceptacji, wersje dokumentów, e-mail, adres IP | wykazanie zawarcia umowy i umowy powierzenia (rozliczalność, art. 5 ust. 2 i art. 28 ust. 9 RODO) | art. 6 ust. 1 lit. c i f | czas umowy i 5 lat po jej zakończeniu |
@@ -39,10 +40,12 @@ konta.
 ## 3. Pliki cookie
 
 Strona notarai.pl nie używa plików cookie reklamowych. Pliki cookie
-analityczne narzędzia PostHog włączamy wyłącznie po wyrażeniu zgody
+analityczne narzędzia PostHog oraz podpowiedź logowania kontem Google
+(„Kontynuuj jako…”, plik cookie `g_state` zapamiętujący m.in. zamknięcie
+podpowiedzi, do 6 miesięcy) włączamy wyłącznie po wyrażeniu zgody
 w banerze wyświetlanym przy pierwszej wizycie. Bez zgody strona nie wysyła
-danych do PostHog, a w pamięci przeglądarki zapisuje tylko samą decyzję
-o zgodzie. Na stronach przygotowania sprawy i obsługi wizyt nie nagrywamy
+danych do PostHog ani do Google, a w pamięci przeglądarki zapisuje tylko
+samą decyzję o zgodzie. Na stronach przygotowania sprawy i obsługi wizyt nie nagrywamy
 przebiegu wizyty. Zgodę można w każdej chwili zmienić lub cofnąć:
 [ustawienia plików cookie](#cookies). Cofnięcie zgody nie wpływa na zgodność
 z prawem przetwarzania przed jej cofnięciem.
@@ -50,7 +53,11 @@ z prawem przetwarzania przed jej cofnięciem.
 Aplikacja app.notarai.pl używa wyłącznie plików cookie i pamięci przeglądarki
 niezbędnych do logowania i utrzymania sesji (w tym bezpiecznego pliku cookie
 odnawiającego logowanie przez okres do 30 dni). Na ich użycie nie jest
-wymagana zgoda.
+wymagana zgoda. Na ekranie logowania i rejestracji aplikacja wczytuje skrypt
+Google potrzebny do logowania kontem Google (przycisk i podpowiedź
+„Kontynuuj jako…”); Google otrzymuje wtedy adres IP i dane techniczne
+przeglądarki oraz może zapisać plik cookie `g_state`. Po zalogowaniu skrypt
+Google nie jest używany.
 
 ## 4. Odbiorcy
 
@@ -68,7 +75,12 @@ wymagana zgoda.
    trafiają do Krajowego Systemu e-Faktur (Ministerstwo Finansów).
 5. PostHog Inc. (USA) - analityka strony notarai.pl za zgodą odwiedzającego;
    dane przechowywane w chmurze PostHog w Unii Europejskiej (Frankfurt).
-6. Organy publiczne, gdy wynika to z przepisów.
+6. Google Ireland Limited (Irlandia) - logowanie kontem Google: potwierdzenie
+   tożsamości osoby, która sama wybrała ten sposób logowania. Google działa
+   tu jako odrębny administrator, na zasadach swojej polityki prywatności
+   (policies.google.com/privacy), i może przekazywać dane do USA w ramach
+   EU-U.S. Data Privacy Framework.
+7. Organy publiczne, gdy wynika to z przepisów.
 
 Dane użytkowników usługi są przechowywane w Europejskim Obszarze
 Gospodarczym. AWS należy do grupy z siedzibą w USA i stosuje certyfikację

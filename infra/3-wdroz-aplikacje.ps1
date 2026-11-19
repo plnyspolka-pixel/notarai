@@ -18,6 +18,9 @@ param(
     [int]$Kopie     = 2,
     # VAT doliczany do pakietow kredytow: "0" = Fundacja zwolniona z VAT.
     [ValidateSet("0", "0.23")][string]$Vat = "0",
+    # Identyfikator klienta OAuth Google (publiczny) dla logowania kontem Google
+    # i paska One Tap. Podaj raz - potem CloudFormation pamieta poprzednia wartosc.
+    [string]$GoogleKlient = "",
     # Adres API Finance You (dostawca tresci ksiag wieczystych); uzywany, gdy
     # istnieje sekret notarai/finyou.
     [string]$FinyouAdres = "https://finyou.pl",
@@ -99,6 +102,13 @@ if (Czy-Aws cloudformation describe-stacks --stack-name notarai-logowanie) {
     $parametry += "PulaLogowania=$pula"
     $parametry += "KlientLogowania=$klientId"
     Write-Host "   logowanie uzytkownikow: pula $pula"
+    # Logowanie kontem Google: klucz wspolny z Cognito (sam ARN - wartosc zostaje w AWS).
+    $kluczGoogle = Wyjscie notarai-logowanie KluczLogowaniaGoogleArn
+    if ($kluczGoogle -and $kluczGoogle -ne "None") {
+        $parametry += "GoogleKluczSekretArn=$kluczGoogle"
+        if ($GoogleKlient) { $parametry += "GoogleKlient=$GoogleKlient" }
+        Write-Host "   logowanie kontem Google: klucz ze stosu notarai-logowanie"
+    }
 } else {
     Write-Host "   logowanie uzytkownikow: brak stosu notarai-logowanie, zostaje sam token kancelarii" -ForegroundColor Yellow
 }

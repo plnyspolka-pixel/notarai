@@ -27,8 +27,11 @@ import threading
 import time
 from collections import deque
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from urllib.parse import parse_qs
+
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 import autoryzacja
@@ -169,6 +172,127 @@ def zarejestruj(dane: Rejestracja, request: Request):
         tokenomia.zaloz_portfel_probny(id_k)
     log.info("rejestracja: nowa kancelaria %s, pliki: %s", id_k, dane.przechowywanie)
     return odpowiedz
+
+
+# --- wejscie kontem Google (pasek One Tap i przycisk) -----------------------
+#
+# Jedno klikniecie loguje istniejace konto albo zaklada nowa kancelarie.
+# Nowa kancelaria powstaje BEZ zawartej umowy powierzenia: wlasciciel podaje
+# dane i akceptuje Regulamin przy pierwszym wejsciu (jak w kancelarii zalozonej
+# przez administratora), a do tego czasu middleware nie wpuszcza do spraw.
+
+router_google = APIRouter(prefix="/api/logowanie/google", tags=["logowanie"])
+
+# Skad wolno przyslac token: aplikacja i strona notarai.pl. Przegladarka
+# dopisuje Origin do kazdego POST z obcej strony, wiec cudza witryna nie
+# zaloguje notariusza na podstawione konto.
+_STRONY = tuple(a.strip().rstrip("/") for a in os.getenv(
+    "PIECZAPP_GOOGLE_STRONY", "https://notarai.pl,https://www.notarai.pl").split(",") if a.strip())
+
+
+def _zrodlo_dozwolone(request: Request, wymagane: bool) -> None:
+    zrodlo = request.headers.get("origin", "").rstrip("/")
+    if not zrodlo:
+        if wymagane:
+            raise HTTPException(403, "Logowanie przez Google działa tylko ze strony notarai.")
+        return
+    u_nas = f"{request.headers.get('x-forwarded-proto', request.url.scheme)}://{request.headers.get('host', '')}"
+    if zrodlo not in (u_nas, os.getenv("PIECZAPP_ADRES", "").rstrip("/"), *_STRONY):
+        raise HTTPException(403, "Logowanie przez Google działa tylko ze strony notarai.")
+
+
+def _zaloz_kancelarie_google(email: str, osoba: str, adres_ip: str) -> None:
+    if not WLACZONA:
+        raise HTTPException(403, "Nie ma konta dla tego adresu Google, a rejestracja jest "
+                                 "wyłączona. Napisz na kontakt@notarai.pl.")
+    _limit(adres_ip)
+    nazwa = (f"Kancelaria {osoba}" if len(osoba) >= 3 else "Kancelaria notarialna")[:120]
+    rejestr = autoryzacja._wczytaj_rejestr()
+    id_k = autoryzacja.nowy_identyfikator(rejestr, nazwa)
+    try:
+        logowanie.utworz_uzytkownika_bez_hasla(email, id_k)
+    except logowanie.BladLogowania:
+        raise HTTPException(409, "Ten adres ma już konto w notarai. Spróbuj ponownie.")
+    rejestr[autoryzacja._sha(secrets.token_hex(32))] = {
+        "id": id_k, "nazwa": nazwa, "aktywna": True, "przechowywanie": "chmura",
+        "zalozono_przez": "google",
+        "zespol": [{"email": email, "rola": "wlasciciel",
+                    "zaproszono": autoryzacja._teraz(), "dolaczyl": None}],
+    }
+    autoryzacja._zapisz_rejestr(rejestr)
+    if tokenomia.WLACZONA:
+        tokenomia.zaloz_portfel_probny(id_k)
+    log.info("rejestracja przez Google: nowa kancelaria %s", id_k)
+
+
+def _wejdz_przez_google(token_google: str, request: Request) -> dict:
+    """Wynik jak z logowania haslem: {"token", "wygasa_za", "odnowienie", "nowe_konto"}."""
+    if not logowanie.google_wlaczone():
+        raise HTTPException(503, "Logowanie przez Google nie jest włączone.")
+    try:
+        osoba = logowanie.dane_z_google(token_google)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(401, str(blad))
+    email = autoryzacja._poprawny_email(osoba["email"])
+    konto = logowanie.stan_konta(email)
+    nowe = konto is None
+    if nowe:
+        _zaloz_kancelarie_google(email, osoba["nazwa"], autoryzacja.adres_klienta(request))
+        stan = ""
+    else:
+        if not konto["aktywne"]:
+            raise HTTPException(403, "To konto jest wyłączone. Napisz na kontakt@notarai.pl.")
+        # Administratorzy panelu wchodza haslem - jedno klikniecie to za malo.
+        if konto["kancelaria"].startswith("_"):
+            raise HTTPException(403, "Na to konto zaloguj się adresem e-mail i hasłem.")
+        if not osoba["pewny"]:
+            raise HTTPException(403, "Ten adres ma już konto w notarai, a Google nie jest dostawcą "
+                                     "tej skrzynki. Zaloguj się adresem e-mail i hasłem.")
+        stan = konto["stan"]
+    try:
+        wynik = logowanie.zaloguj_bez_hasla(email, stan)
+    except logowanie.BladLogowania as blad:
+        raise HTTPException(401, str(blad))
+    autoryzacja._odnotuj_dolaczenie(wynik.get("token", ""))
+    return {**wynik, "nowe_konto": nowe}
+
+
+class TokenGoogle(BaseModel):
+    credential: str
+
+
+@router_google.get("")
+def google_informacje(request: Request, odpowiedz: Response):
+    """Publiczny identyfikator klienta dla skryptu Google: ekran logowania
+    aplikacji i pasek na stronie notarai.pl (stad naglowek CORS tylko dla niej)."""
+    zrodlo = request.headers.get("origin", "").rstrip("/")
+    if zrodlo in _STRONY:
+        odpowiedz.headers["Access-Control-Allow-Origin"] = zrodlo
+        odpowiedz.headers["Vary"] = "Origin"
+    wlaczone = logowanie.google_wlaczone()
+    return {"wlaczone": wlaczone, "klient": logowanie.GOOGLE_KLIENT if wlaczone else ""}
+
+
+@router_google.post("")
+def google_zaloguj(dane: TokenGoogle, request: Request, odpowiedz: Response):
+    """Ekran logowania i rejestracji w aplikacji (ten sam adres)."""
+    _zrodlo_dozwolone(request, wymagane=False)
+    return autoryzacja._dla_przegladarki(request, odpowiedz, _wejdz_przez_google(dane.credential, request))
+
+
+@router_google.post("/powrot")
+async def google_powrot(request: Request):
+    """Pasek na stronie notarai.pl: przegladarka przysyla token formularzem i
+    laduje w aplikacji juz zalogowana (ciasteczko odnawiania), bez tokenu w adresie."""
+    _zrodlo_dozwolone(request, wymagane=True)
+    pola = parse_qs((await request.body()).decode("utf-8", "replace"))
+    cel = RedirectResponse("/", status_code=303)
+    try:
+        wynik = await run_in_threadpool(_wejdz_przez_google, (pola.get("credential") or [""])[0], request)
+    except HTTPException as blad:
+        return RedirectResponse(f"/?google={blad.status_code}", status_code=303)
+    autoryzacja._ustaw_ciastko(request, cel, wynik.get("odnowienie", ""))
+    return cel
 
 
 # --- dokumenty po zalogowaniu ---------------------------------------------

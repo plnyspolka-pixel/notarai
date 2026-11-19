@@ -120,6 +120,25 @@ a odczyt skanów przez model trwa kilka minut. Docker lokalnie nie jest potrzebn
 7. Logowanie użytkowników (opcjonalne, ale zalecane):
    `aws cloudformation deploy --stack-name notarai-logowanie --template-file infra/notarai-logowanie.yaml --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai --profile notarai-admin --region eu-central-1`
    Potem etap 3 jeszcze raz - skrypt sam wykryje stos i poda aplikacji dane puli.
+   Logowanie kontem Google (przycisk i pasek One Tap „Kontynuuj jako…” na
+   app.notarai.pl oraz, po zgodzie na cookies, na notarai.pl):
+   - w Google Cloud utwórz klienta OAuth typu „Aplikacja internetowa” z
+     „Authorized JavaScript origins”: `https://app.notarai.pl`,
+     `https://notarai.pl`, `https://www.notarai.pl` (sekret klienta nie jest
+     potrzebny; nazwa aplikacji na ekranie zgody to to, co zobaczy użytkownik
+     w pasku),
+   - wdróż ponownie stos `notarai-logowanie` (dochodzi funkcja wyzwania
+     Cognito, klucz `notarai/logowanie-google` i przepływ `ALLOW_CUSTOM_AUTH`),
+   - etap 3 z parametrem `-GoogleKlient <identyfikator>.apps.googleusercontent.com`
+     (wystarczy raz; puste = logowanie przez Google wyłączone).
+   Jak to działa: aplikacja sprawdza token Google (`logowanie.dane_z_google`),
+   a sesję wydaje Cognito za podpisany przez nią krótkotrwały dowód (HMAC,
+   `logowanie.dowod_logowania` = funkcja Lambda w szablonie). Nowy adres
+   zakłada kancelarię bez zawartej umowy - właściciel podaje dane i akceptuje
+   Regulamin przy pierwszym wejściu (wymaga `Rejestracja=true`). Do
+   istniejącego konta wpuszczamy tylko, gdy Google jest dostawcą skrzynki
+   (gmail albo Google Workspace); administratorzy panelu wchodzą hasłem.
+   Testy: `test_logowanie_google.py`.
    Konta zakłada administrator:
    `curl -X POST https://app.notarai.pl/api/admin/uzytkownicy -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" -d '{"email":"notariusz@kancelaria.pl","kancelaria":"kancelaria-x"}'`
    Użytkownik dostaje e-mail z hasłem tymczasowym i ustawia własne przy pierwszym logowaniu.

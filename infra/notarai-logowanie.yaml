@@ -3,8 +3,10 @@ Description: >-
   notarai - logowanie uzytkownikow kancelarii (Amazon Cognito, eu-central-1).
   Hasla przechowuje i weryfikuje Cognito; aplikacja nigdy ich nie zapisuje.
   Odzyskiwanie hasla kodem na e-mail, wymuszona zmiana hasla przy pierwszym
-  logowaniu. Rejestracja wylacznie przez administratora - kancelarie zakladamy
-  swiadomie, po podpisaniu umowy powierzenia przetwarzania danych.
+  logowaniu. Konta zaklada wylacznie aplikacja (AdminCreateUser): z panelu
+  administratora, z formularza rejestracji albo po wejsciu kontem Google.
+  Logowanie kontem Google: aplikacja sprawdza token Google, a Cognito wydaje
+  sesje za podpisany przez nia dowod (wlasne wyzwanie, funkcja Lambda ponizej).
 
 Parameters:
   DlugoscHasla:
@@ -74,8 +76,136 @@ Resources:
           StringAttributeConstraints:
             MinLength: "1"
             MaxLength: "64"
+      # Logowanie bez hasla (konto Google): trzy wyzwalacze obsluguje jedna funkcja.
+      # Dotyczy tylko przeplywu CUSTOM_AUTH - logowanie haslem dziala jak dotad.
+      LambdaConfig:
+        DefineAuthChallenge: !GetAtt FunkcjaWyzwania.Arn
+        CreateAuthChallenge: !GetAtt FunkcjaWyzwania.Arn
+        VerifyAuthChallengeResponse: !GetAtt FunkcjaWyzwania.Arn
       UserPoolTags:
         projekt: notarai
+
+  # Klucz wspolny aplikacji i funkcji wyzwania. Generuje go AWS; nikt nie musi
+  # go znac. Aplikacja dostaje go jako sekret zadania (notarai-aplikacja.yaml).
+  KluczLogowaniaGoogle:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: notarai/logowanie-google
+      Description: notarai - klucz podpisu dowodu logowania kontem Google (aplikacja i Cognito)
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  RolaFunkcjiWyzwania:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-logowanie-wyzwanie
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: klucz-logowania-google
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref KluczLogowaniaGoogle
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  # Zero danych osobowych w logach: funkcja niczego nie wypisuje.
+  FunkcjaWyzwania:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: notarai-logowanie-wyzwanie
+      Description: notarai - wyzwanie Cognito dla logowania kontem Google (dowod HMAC z aplikacji)
+      Runtime: python3.13
+      Handler: index.handler
+      Timeout: 5
+      MemorySize: 128
+      Role: !GetAtt RolaFunkcjiWyzwania.Arn
+      Environment:
+        Variables:
+          KLUCZ_ARN: !Ref KluczLogowaniaGoogle
+      Tags:
+        - Key: projekt
+          Value: notarai
+      Code:
+        ZipFile: |
+          import hashlib
+          import hmac
+          import os
+          import time
+
+          OKNO = 120  # sekund waznosci dowodu
+          _klucz = None
+
+
+          def klucz():
+              global _klucz
+              if _klucz is None:
+                  import boto3
+                  _klucz = boto3.client("secretsmanager").get_secret_value(
+                      SecretId=os.environ["KLUCZ_ARN"])["SecretString"]
+              return _klucz
+
+
+          def dowod_poprawny(email, odpowiedz, sekret, teraz=None):
+              # Ta sama regula co logowanie.dowod_logowania w aplikacji.
+              znacznik, _, podpis = str(odpowiedz or "").partition(".")
+              if not znacznik.isdigit() or not email or not sekret:
+                  return False
+              teraz = time.time() if teraz is None else teraz
+              if abs(teraz - int(znacznik)) > OKNO:
+                  return False
+              wzor = hmac.new(sekret.encode(), f"{email.lower()}|{znacznik}".encode(),
+                              hashlib.sha256).hexdigest()
+              return hmac.compare_digest(wzor, podpis)
+
+
+          def handler(event, context):
+              zrodlo = event.get("triggerSource", "")
+              zadanie, odp = event["request"], event["response"]
+              if zrodlo.startswith("DefineAuthChallenge"):
+                  sesja = zadanie.get("session") or []
+                  odp["issueTokens"] = False
+                  odp["failAuthentication"] = False
+                  if zadanie.get("userNotFound"):
+                      odp["failAuthentication"] = True
+                  elif not sesja:
+                      odp["challengeName"] = "CUSTOM_CHALLENGE"
+                  elif (len(sesja) == 1 and sesja[0].get("challengeName") == "CUSTOM_CHALLENGE"
+                        and sesja[0].get("challengeResult") is True):
+                      odp["issueTokens"] = True
+                  else:
+                      odp["failAuthentication"] = True
+              elif zrodlo.startswith("CreateAuthChallenge"):
+                  odp["publicChallengeParameters"] = {}
+                  odp["privateChallengeParameters"] = {"rodzaj": "dowod-aplikacji"}
+                  odp["challengeMetadata"] = "dowod-aplikacji"
+              elif zrodlo.startswith("VerifyAuthChallengeResponse"):
+                  email = (zadanie.get("userAttributes") or {}).get("email", "")
+                  odp["answerCorrect"] = dowod_poprawny(email, zadanie.get("challengeAnswer"), klucz())
+              return event
+
+  PozwolenieCognito:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FunkcjaWyzwania
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*"
 
   # Klient dla naszego wlasnego ekranu logowania: bez sekretu, bo hasla
   # przechodza przez nasz backend, a nie przez przegladarke uzytkownika.
@@ -88,6 +218,8 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_PASSWORD_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+        # Logowanie kontem Google: wyzwanie rozstrzyga FunkcjaWyzwania.
+        - ALLOW_CUSTOM_AUTH
       # Bledne logowanie nie zdradza, czy taki adres istnieje.
       PreventUserExistenceErrors: ENABLED
       AccessTokenValidity: 8
@@ -111,3 +243,6 @@ Outputs:
   KlientId:
     Description: Ustaw jako PIECZAPP_COGNITO_KLIENT w definicji zadania
     Value: !Ref KlientAplikacji
+  KluczLogowaniaGoogleArn:
+    Description: Parametr GoogleKluczSekretArn stosu notarai-aplikacja
+    Value: !Ref KluczLogowaniaGoogle

@@ -503,6 +503,9 @@ body.bez-kancelaria .tylko-bez-upr[data-bez-upr="kancelaria"]{display:block}
 .wyloguj{margin-top:10px;font-size:11.5px;color:var(--tekst3);cursor:pointer;
   background:none;border:0;padding:0;font-weight:400;text-align:left}
 .wyloguj:hover{color:var(--tekst2);background:none}
+.brama .google-albo{margin:16px 0 10px;font-size:12px;color:var(--tekst3);text-align:center}
+.brama #google-przycisk{display:flex;justify-content:center;min-height:44px}
+.brama .google-opis{margin:10px 0 0;font-size:12px;color:var(--tekst3)}
 .brama .odnosnik{display:block;margin-top:12px;padding:0;border:0;background:none;
   color:var(--tekst2);font-size:13px;font-weight:400;text-align:left;cursor:pointer;
   text-decoration:underline;text-underline-offset:3px}
@@ -1619,6 +1622,12 @@ notarai</div>
         <button id="btn-zaloguj">Zaloguj</button>
         <span class="stan" id="stan-brama"></span>
       </div>
+      <!-- Wejście kontem Google: przycisk wstawia skrypt Google, gdy serwer ma je włączone -->
+      <div id="google-wejscie" hidden>
+        <div class="google-albo">albo</div>
+        <div id="google-przycisk"></div>
+        <p class="google-opis">Nie masz konta? Wejście kontem Google założy konto kancelarii; Regulamin i umowę powierzenia zaakceptujesz w następnym kroku.</p>
+      </div>
       <button class="odnosnik" id="btn-zapomnialem">Nie pamiętam hasła</button>
       <a class="odnosnik" href="/rejestracja">Nie masz konta? Załóż konto kancelarii, 14 dni za darmo</a>
     </div>
@@ -2145,10 +2154,65 @@ function wyczyscDanePoWylogowaniu(){
   window.odswiezKokpit?.([], "Zaloguj się, aby zobaczyć sprawy kancelarii.");
 }
 
+/* Wejscie kontem Google: przycisk na ekranie logowania i pasek One Tap
+   ("Kontynuuj jako..."). Skrypt Google ladujemy dopiero, gdy otwiera sie brama
+   i serwer potwierdzi, ze logowanie przez Google jest wlaczone. Token z Google
+   sprawdza serwer; przegladarka dostaje zwykla sesje, jak po hasle. */
+let googleGotowe = null;   // null = jeszcze nie probowano
+let bladGoogle = new URLSearchParams(location.search).get("google");
+if (bladGoogle) history.replaceState(null, "", location.pathname + location.hash);
+
+function komunikatGoogle(kod){
+  if (kod === "403") return "Na to konto zaloguj się adresem e-mail i hasłem. W razie kłopotów napisz na kontakt@notarai.pl.";
+  if (kod === "429") return "Za dużo prób naraz. Spróbuj za godzinę.";
+  return "Logowanie przez Google nie powiodło się. Spróbuj ponownie.";
+}
+
+async function poGoogle(odp){
+  if (!odp || !odp.credential) return;
+  stan($("stan-brama"), "Sprawdzam…", false, true);
+  try {
+    const wynik = await wyslijLogowanie("/api/logowanie/google", {credential: odp.credential});
+    wpusc(wynik.token);
+  } catch (e) {
+    stan($("stan-brama"), e.message, true);
+  }
+}
+
+async function przygotujGoogle(){
+  if (googleGotowe === null) {
+    googleGotowe = false;
+    try {
+      const info = await (await fetch("/api/logowanie/google")).json();
+      if (!info.wlaczone || !info.klient) return;
+      await new Promise((ok, zle) => {
+        const s = document.createElement("script");
+        s.src = "https://accounts.google.com/gsi/client?hl=pl";
+        s.async = true; s.onload = ok; s.onerror = zle;
+        document.head.appendChild(s);
+      });
+      google.accounts.id.initialize({
+        client_id: info.klient, callback: poGoogle, context: "signin",
+        // Nikogo nie logujemy bez klikniecia - takze po powrocie na strone.
+        auto_select: false, cancel_on_tap_outside: false,
+        itp_support: true, use_fedcm_for_prompt: true,
+      });
+      google.accounts.id.renderButton($("google-przycisk"),
+        {theme: "outline", size: "large", text: "continue_with", shape: "rectangular", locale: "pl", width: 300});
+      $("google-wejscie").hidden = false;
+      googleGotowe = true;
+    } catch { return; }   // bloker reklam albo brak sieci: zostaje logowanie haslem
+  }
+  if (googleGotowe && !$("brama").hidden && !token) google.accounts.id.prompt();
+}
+
 function otworzBrame(komunikat){
   wyczyscDanePoWylogowaniu();
   $("brama").hidden = false;
   pokazWidok("widok-logowanie");
+  if (!komunikat && bladGoogle) komunikat = komunikatGoogle(bladGoogle);
+  bladGoogle = null;
+  przygotujGoogle();
   stan($("stan-brama"), komunikat || "", !!komunikat);
   $("pole-haslo").value = "";
   ($("pole-email").value ? $("pole-haslo") : $("pole-email")).focus();
@@ -2156,6 +2220,7 @@ function otworzBrame(komunikat){
 }
 
 function wpusc(nowyToken){
+  window.google?.accounts?.id?.cancel();
   pokolenieSesji++;
   ustawToken(nowyToken);
   $("brama").hidden = true;
@@ -2173,6 +2238,7 @@ $("btn-wyloguj").onclick = async () => {
   // Serwer uniewaznia token odnawiania - inaczej wylogowanie trwaloby tylko
   // do nastepnego odswiezenia strony.
   try { await fetch("/api/logowanie/wyloguj", {method: "POST"}); } catch { /* offline */ }
+  window.google?.accounts?.id?.disableAutoSelect();
   ustawToken("");
   otworzBrame("Wylogowano.");
 };

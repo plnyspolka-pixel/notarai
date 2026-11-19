@@ -77,6 +77,7 @@
     el.innerHTML =
       "<p>Za Twoją zgodą używamy plików cookie analitycznych (PostHog, serwery w UE), żeby widzieć, " +
       "jak korzystasz ze strony, i ją ulepszać. Wpisywane dane są ukryte. " +
+      "Zgoda włącza też podpowiedź logowania kontem Google. " +
       '<a href="/prywatnosc/">Polityka prywatności</a>.</p>' +
       '<div class="zc-akcje"><button type="button" class="zc-tak">Akceptuję</button>' +
       '<button type="button" class="zc-nie">Tylko niezbędne</button></div>';
