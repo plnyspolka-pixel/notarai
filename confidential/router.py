@@ -28,6 +28,9 @@ def _scope(request: Request) -> str:
     if not getattr(request.state, "email", None) or getattr(request.state, "serwis", False):
         raise HTTPException(403, "Wymagane osobiste logowanie do kancelarii.")
     tenant = getattr(request.state, "kancelaria", "")
+    allowed = os.getenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", "")
+    if not allowed or tenant != allowed:
+        raise HTTPException(403, "Poufny tryb nie jest wlaczony dla tej kancelarii.")
     if not isinstance(tenant, str) or not _ID.fullmatch(tenant):
         raise HTTPException(403, "Brak uprawnien kancelarii.")
     return tenant
@@ -37,6 +40,14 @@ def _key(tenant: str, case_id: str, object_id: str) -> str:
     if not _ID.fullmatch(case_id) or not _ID.fullmatch(object_id):
         raise HTTPException(400, "Nieprawidlowy identyfikator.")
     return "kancelarie/" + tenant + "/confidential/" + case_id + "/" + object_id + ".json"
+
+
+def _bucket() -> str:
+    """Dedicated ciphertext-only bucket: never fall back to existing case storage."""
+    bucket = os.getenv("PIECZAPP_CONFIDENTIAL_BUCKET", "")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{2,62}", bucket):
+        raise HTTPException(503, "Oddzielny magazyn poufny nie jest skonfigurowany.")
+    return bucket
 
 
 def _approved_key() -> str:
@@ -81,7 +92,7 @@ async def store(request: Request, case_id: str, object_id: str):
         "ciphertext": base64.b64encode(envelope.ciphertext).decode("ascii"),
     })
     magazyn._klient_s3().put_object(
-        Bucket=magazyn.BUCKET, Key=key,
+        Bucket=_bucket(), Key=key,
         Body=json.dumps(payload, separators=(",", ":")).encode(),
         ContentType="application/json",
         **magazyn._szyfrowanie(),
@@ -110,7 +121,7 @@ def queue_preview(request: Request, case_id: str, object_id: str):
         raise HTTPException(503, "Kolejka poufnych zadan nie jest skonfigurowana.")
     _approved_key()  # never enqueue before an approved key has been provisioned
     try:
-        magazyn._klient_s3().head_object(Bucket=magazyn.BUCKET, Key=key)
+        magazyn._klient_s3().head_object(Bucket=_bucket(), Key=key)
     except Exception as exc:
         if type(exc).__name__ in ("NoSuchKey", "ClientError"):
             raise HTTPException(404, "Nie znaleziono zaszyfrowanego dokumentu.")
@@ -137,7 +148,7 @@ def retrieve(request: Request, case_id: str, object_id: str):
     tenant = _scope(request)
     key = _key(tenant, case_id, object_id)
     try:
-        body = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=key)["Body"].read()
+        body = magazyn._klient_s3().get_object(Bucket=_bucket(), Key=key)["Body"].read()
     except Exception as exc:
         # Never leak AWS error details, identifiers or object contents.
         if type(exc).__name__ in ("NoSuchKey", "ClientError"):
