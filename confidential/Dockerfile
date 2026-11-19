@@ -11,6 +11,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /opt/notarai
 
+# Playwright's bundled Node binary needs libatomic even before install --with-deps.
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY confidential/requirements.txt /opt/notarai/confidential/requirements.txt
 RUN pip install --no-cache-dir -r confidential/requirements.txt \
     && python -m playwright install --with-deps chromium
