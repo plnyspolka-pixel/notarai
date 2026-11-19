@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI confidential staging asymmetric KMS key. Test data ONLY.
+  This key is AWS-account administered, NOT a customer-held zero-knowledge key.
+Parameters:
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  ExpectedPCR17:
+    Type: String
+    AllowedPattern: "^[0-9a-fA-F]{96}$"
+    Default: "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    Description: Initial deny-all value. Replace ONLY after checking the policy and attested workload.
+Resources:
+  DemoRsaKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub "NotarAI confidential staging RSA key for ${TenantId} - synthetic data ONLY"
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: RSA_3072
+      MultiRegion: false
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAccountToAdministerKeyOnly
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: "*"
+          - Sid: AllowOnlyAttestedTaskToDecrypt
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-confidential-${TenantId}"
+            Action:
+              - kms:Decrypt
+            Resource: "*"
+            Condition:
+              StringEqualsIgnoreCase:
+                kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
+                kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
+Outputs:
+  KeyArn:
+    Value: !GetAtt DemoRsaKey.Arn
+  KeyId:
+    Value: !Ref DemoRsaKey
