@@ -7,9 +7,6 @@ Parameters:
     Type: String
     Description: Immutable ECR image URI pinned to an audited digest
     AllowedPattern: "^.+@sha256:[a-f0-9]{64}$"
-  TaskExecutionRoleArn:
-    Type: String
-    Description: Dedicated ECS task execution role, restricted to ECR image pull
   AttestationPolicyBase64:
     Type: String
     Description: Policy generated for the final image by ecs-nitro-sandbox-genpolicy
@@ -36,6 +33,19 @@ Parameters:
     Type: String
     Description: Dedicated SQS queue URL within EU AWS region
 Resources:
+  ConfidentialTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-execution-${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
   ConfidentialTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -80,7 +90,7 @@ Resources:
       NetworkMode: awsvpc
       Cpu: "2048"
       Memory: "4096"
-      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      ExecutionRoleArn: !GetAtt ConfidentialTaskExecutionRole.Arn
       TaskRoleArn: !GetAtt ConfidentialTaskRole.Arn
       TrustedExecutionConfiguration:
         IsolationMode: CONFIDENTIAL_SANDBOX
