@@ -157,3 +157,38 @@ def retrieve(request: Request, case_id: str, object_id: str):
     if len(body) > _MAX_BODY:
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
     return JSONResponse(json.loads(body), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/jobs/{job_id}")
+def preview_status(request: Request, job_id: str):
+    """Read one tenant-scoped job completion marker (never its plaintext)."""
+    import magazyn
+    tenant = _scope(request)
+    if not _ID.fullmatch(job_id):
+        raise HTTPException(400, "Nieprawidlowy identyfikator zadania.")
+    key = f"kancelarie/{tenant}/confidential-results/{job_id}.json"
+    try:
+        object_response = magazyn._klient_s3().get_object(
+            Bucket=_bucket(), Key=key
+        )
+        data = object_response["Body"].read(2048)
+    except Exception as exc:
+        if type(exc).__name__ in ("NoSuchKey", "ClientError"):
+            return JSONResponse(
+                {"job_id": job_id, "status": "pending"},
+                headers={"Cache-Control": "no-store"},
+            )
+        raise
+    try:
+        result = json.loads(data)
+    except (TypeError, ValueError):
+        raise HTTPException(500, "Niespojna informacja o wykonaniu zadania.")
+    if (
+        not isinstance(result, dict) or
+        set(result) != {"version", "job_id", "status", "fields_filled", "submitted"} or
+        result["job_id"] != job_id or
+        result["status"] != "preview_completed" or
+        result["submitted"] is not False
+    ):
+        raise HTTPException(500, "Nieprawidlowy status poufnego zadania.")
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
