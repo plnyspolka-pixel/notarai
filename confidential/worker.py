@@ -117,7 +117,7 @@ def main() -> int:
         sqs = session.client("sqs")
         incoming = sqs.receive_message(
             QueueUrl=queue_url, MaxNumberOfMessages=1, WaitTimeSeconds=10,
-            VisibilityTimeout=120,
+            VisibilityTimeout=900,
         ).get("Messages", [])
         if not incoming:
             print("confidential-worker: no job")
