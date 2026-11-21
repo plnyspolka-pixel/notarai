@@ -70,13 +70,31 @@ def _verified_pcr17(profile: str, task_arn: str) -> str:
 
 
 def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
-              job_id: str, apply: bool = False) -> bool:
+              job_id: str, apply: bool = False,
+              vpc: str | None = None, route_table: str | None = None,
+              guest_sg: str | None = None, endpoint_sg: str | None = None,
+              s3_prefix: str | None = None,
+              dynamodb_prefix: str | None = None) -> bool:
     if (not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant)
             or not _SUBNET.fullmatch(subnet) or not _JOB.fullmatch(job_id)):
         raise ValueError("invalid pilot configuration")
     if not apply:
         print("DRY RUN: one synthetic Nitro task would be launched; no resources changed.")
         return False
+    if not all(isinstance(v, str) and v for v in (
+        vpc, route_table, guest_sg, endpoint_sg,
+        s3_prefix, dynamodb_prefix,
+    )):
+        raise RuntimeError("private network proof required before AWS task launch")
+    # No broad base-stack SG may be used for the real test. Independently
+    # inspect the VPC/subnet/route table and restrictive endpoints first.
+    from scripts.verify_confidential_private_network import verify
+    verify(
+        account=account, profile=profile, vpc=vpc, subnet=subnet,
+        route_table=route_table, guest_sg=guest_sg,
+        endpoint_sg=endpoint_sg, s3_prefix=s3_prefix,
+        dynamodb_prefix=dynamodb_prefix, check=True,
+    )
     if aws(profile, ["sts", "get-caller-identity"]).get("Account") != account:
         raise RuntimeError("AWS account mismatch")
     suffix = f"notarai-confidential-{tenant}"
@@ -116,7 +134,18 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
     except (KeyError, ValueError, TypeError, PilotPreflightRejected) as exc:
         raise RuntimeError("confidential pilot preflight rejected launch") from exc
 
-    sg = base["InstanceSecurityGroupId"]
+    sg = guest_sg
+    if sg == base.get("InstanceSecurityGroupId"):
+        raise RuntimeError("broad bootstrap security group cannot launch Nitro pilot")
+    actual_groups = (
+        capacity_response.get("capacityProviders", [{}])[0]
+        .get("managedInstancesProvider", {})
+        .get("instanceLaunchTemplate", {})
+        .get("networkConfiguration", {})
+        .get("securityGroups")
+    )
+    if actual_groups != [sg]:
+        raise RuntimeError("capacity provider uses an unverified or broad SG")
     networking = {"awsvpcConfiguration": {
         "subnets": [subnet], "securityGroups": [sg],
         "assignPublicIp": "DISABLED",
@@ -177,11 +206,20 @@ def main():
     p.add_argument("--tenant", default="pilot01")
     p.add_argument("--subnet", required=True)
     p.add_argument("--job-id", required=True)
+    p.add_argument("--vpc")
+    p.add_argument("--route-table")
+    p.add_argument("--guest-sg")
+    p.add_argument("--endpoint-sg")
+    p.add_argument("--s3-prefix")
+    p.add_argument("--dynamodb-prefix")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     run_pilot(
         profile=args.profile, account=args.account, tenant=args.tenant,
         subnet=args.subnet, job_id=args.job_id, apply=args.apply,
+        vpc=args.vpc, route_table=args.route_table,
+        guest_sg=args.guest_sg, endpoint_sg=args.endpoint_sg,
+        s3_prefix=args.s3_prefix, dynamodb_prefix=args.dynamodb_prefix,
     )
 
 
