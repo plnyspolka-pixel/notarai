@@ -78,7 +78,8 @@ def outputs(profile: str, stack: str) -> dict[str, str]:
 
 
 def create_fixture(*, profile: str, account: str, tenant: str,
-                   apply: bool = False) -> str | None:
+                   apply: bool = False,
+                   shared_compute: bool = False) -> str | None:
     if not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant):
         raise ValueError("invalid account or pilot tenant")
     if not apply:
@@ -87,8 +88,14 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     identity = aws(profile, ["sts", "get-caller-identity"])
     if identity.get("Account") != account:
         raise RuntimeError("AWS account mismatch")
-    stage = outputs(profile, "notarai-confidential-staging")
-    keyinfo = outputs(profile, "notarai-confidential-demo-kms")
+    stage = outputs(
+        profile, f"notarai-confidential-staging-{tenant}"
+        if shared_compute else "notarai-confidential-staging",
+    )
+    keyinfo = outputs(
+        profile, f"notarai-confidential-demo-kms-{tenant}"
+        if shared_compute else "notarai-confidential-demo-kms",
+    )
     bucket, queue, key = stage["BucketName"], stage["QueueUrl"], keyinfo["KeyArn"]
     if not bucket.startswith(f"ntr-cf-{tenant}-{account}-eu-central-1"):
         raise RuntimeError("unexpected pilot bucket")
@@ -150,6 +157,8 @@ def main():
     p.add_argument("--account", required=True)
     p.add_argument("--profile", required=True)
     p.add_argument("--tenant", default="pilot01")
+    p.add_argument("--shared-compute", action="store_true",
+                   help="Use per-tenant data/KMS stacks in shared regional Nitro fabric")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     create_fixture(
