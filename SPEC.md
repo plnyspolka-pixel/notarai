@@ -41,9 +41,7 @@ niezależnie od tego, jak dobrze działa reszta.
 4. **Żadnych poświadczeń w kodzie ani w plikach konfiguracyjnych.** Login,
    hasło, certyfikat, token — nic z tego nie trafia do repozytorium, do `.env`
    ani do bazy. Używaj Windows Credential Manager przez bibliotekę `keyring`.
-5. **Nie omijaj CAPTCHA ani innych zabezpieczeń przed automatyzacją.** Jeśli
-   system stawia CAPTCHA, przekaż sterowanie człowiekowi i poczekaj.
-6. **Nie wymyślaj danych.** W żadnym miejscu model nie może uzupełnić
+5. **Nie wymyślaj danych.** W żadnym miejscu model nie może uzupełnić
    brakującej wartości domysłem. Brak zostaje brakiem i jest widoczny.
 
 ## 3. Zadanie A — sprawdzanie w rejestrach

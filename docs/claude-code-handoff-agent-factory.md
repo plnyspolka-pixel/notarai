@@ -40,7 +40,7 @@ Respect ALL instructions in root CLAUDE.md. In conflicts, prioritize data protec
 - Explicit allowlist of staging origins; enforce DNS/IP verification against rebinding, redirects, subresources, WebSockets and open redirects at both browser and network levels. Block local metadata/internal addresses. No arbitrary URL navigation and no plugin download.
 - Start with synthetic login on staging; no user's persistent Chrome profile or customer session. Separate non-privileged read-only browsing from scoped form editing. All write operations on high-risk systems require human review.
 - Browser recordings/screen captures can contain PII: redact, encrypt with retention cap, exclude from git/CI artifacts by default.
-- Add end-to-end tests of navigation, input, form state, error correction and safe stop before submit. No CAPTCHA bypass or unauthorized access.
+- Add end-to-end tests of navigation, input, form state, error correction and safe stop before submit. No unauthorized access.
 
 ### P3 — Staging deployment and operational controls
 - If infrastructure is required, define it in CloudFormation under infra/ following existing naming standard and region eu-central-1. No changes to existing application endpoints, KMS keys, S3 customer buckets, production ECS or IAM roles without explicit sign-off.
