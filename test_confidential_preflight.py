@@ -117,6 +117,12 @@ def test_valid_synthetic_control_plane_is_accepted():
     lambda t, c, k: k["Statement"].append({
         "Effect": "Allow", "Principal": "*", "Action": ["kms:*"]
     }),
+    lambda t, c, k: k["Statement"].append({
+        "Effect": "Allow", "Principal": "*", "Action": ["kms:De*"]
+    }),
+    lambda t, c, k: k["Statement"].append({
+        "Effect": "Allow", "Principal": "*", "NotAction": ["kms:Encrypt"]
+    }),
 ])
 def test_rejects_drift_before_task_launch(tamper):
     task, capacity, key = copy.deepcopy(sample())
