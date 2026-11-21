@@ -302,5 +302,9 @@ def test_cloudformation_schedule_disabled_and_no_live_service():
     assert any(item.get("Action") == "ecs:RunTask" for item in statements)
     assert any(item.get("Action") == "iam:PassRole" and
                len(item["Resource"]) == 2 for item in statements)
-    assert not any(item.get("Action") in {"sqs:ReceiveMessage", "sqs:DeleteMessage"}
-                   for item in statements)
+    actions = []
+    for item in statements:
+        value = item.get("Action", [])
+        actions.extend([value] if isinstance(value, str) else value)
+    assert "sqs:ReceiveMessage" not in actions
+    assert "sqs:DeleteMessage" not in actions
