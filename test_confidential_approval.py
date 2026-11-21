@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from confidential.signed_approval import (
-    ApprovalIntent, ApprovalRejected, DynamoApprovalLedger, EnrolledCredential,
+    ApprovalIntent, ApprovalRejected, DynamoApprovalLedger, DynamoCredentialRegistry, EnrolledCredential,
     SignedApprovalGate, verify_and_consume,
 )
 from confidential.form_engine import BlockedAction, fill_form
@@ -281,3 +281,70 @@ def test_canonical_encoding_and_validation_are_deterministic():
 def test_invalid_table_scope_rejected():
     with pytest.raises(ApprovalRejected):
         DynamoApprovalLedger(FakeDynamo(), table_name="notarai-users", tenant_id=TENANT)
+
+
+class CredentialDynamo:
+    def __init__(self, record):
+        self.record = record
+        self.call = None
+        self.offline = False
+
+    def get_item(self, **kwargs):
+        if self.offline:
+            raise RuntimeError("synthetic unavailable")
+        self.call = kwargs
+        if kwargs["Key"]["pk"]["S"] != self.record.get("pk", {}).get("S"):
+            return {}
+        return {"Item": self.record}
+
+
+def test_readonly_credential_registry_and_cross_tenant_rejection():
+    private, _, _ = signing()
+    raw = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    client = CredentialDynamo({
+        "pk": {"S": f"KEY#{TENANT}#{KEY}"},
+        "tenant_id": {"S": TENANT},
+        "actor_id": {"S": ACTOR},
+        "key_id": {"S": KEY},
+        "role": {"S": "notary"},
+        "active": {"BOOL": True},
+        "ed25519_public_key": {
+            "S": base64.b64encode(raw).decode("ascii")
+        },
+    })
+    reg = DynamoCredentialRegistry(
+        client, table_name=f"notarai-confidential-credentials-{TENANT}",
+        tenant_id=TENANT,
+    )
+    cred = reg.get(TENANT, KEY)
+    assert cred.active is True and cred.ed25519_public_key == raw
+    assert client.call["ConsistentRead"] is True
+    assert client.call["TableName"].endswith(TENANT)
+    assert reg.get("other_tenant", KEY) is None
+    assert reg.get(TENANT, "unregistered_key_0002") is None
+    client.record["tenant_id"] = {"S": "other_tenant"}
+    with pytest.raises(ApprovalRejected):
+        reg.get(TENANT, KEY)
+    client.offline = True
+    with pytest.raises(ApprovalRejected, match="unavailable"):
+        reg.get(TENANT, KEY)
+
+
+def test_approval_table_cloudformation_does_not_grant_submit_or_write_access():
+    from test_confidential_infra import ROOT, CloudFormationLoader
+    import yaml
+
+    template = yaml.load(
+        (ROOT / "notarai-confidential-approval-ledger.yaml").read_text("utf-8"),
+        Loader=CloudFormationLoader,
+    )
+    resources = template["Resources"]
+    assert {"ApprovalLedger", "CredentialRegistry"} <= set(resources)
+    assert all(resource["Type"] == "AWS::DynamoDB::Table"
+               for resource in resources.values())
+    for resource in resources.values():
+        assert resource["DeletionPolicy"] == "Retain"
+        assert resource["Properties"]["PointInTimeRecoverySpecification"][
+            "PointInTimeRecoveryEnabled"
+        ]
+        assert resource["Properties"]["SSESpecification"]["SSEEnabled"] is True
