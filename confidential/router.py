@@ -223,3 +223,37 @@ def preview_status(request: Request, job_id: str):
     except JobRejected:
         raise HTTPException(404, "Zadanie nie jest dostepne.") from None
     return JSONResponse(status, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/control/jobs")
+def control_room_jobs(request: Request):
+    """Recent AUTO metadata for notary/owner; no retry, submit or approval.
+
+    GSI results are eventually consistent and never authoritative for
+    irreversible operations. The server derives the tenant and identity,
+    ignoring all user-supplied tenant or role claims.
+    """
+    import boto3
+    import autoryzacja
+    from confidential.control_room import (
+        ControlRoom, ControlRoomRejected, authorized_notary,
+    )
+
+    tenant = _scope(request)
+    principal = autoryzacja._osoba_w_kancelarii(
+        tenant, getattr(request.state, "email", "")
+    )
+    if not authorized_notary(principal):
+        raise HTTPException(403, "Panel AUTO wymaga uprawnien notariusza.")
+    args = list(request.query_params.multi_items())
+    if args not in ([], [("limit", "5")], [("limit", "10")], [("limit", "20")]):
+        raise HTTPException(400, "Panel AUTO akceptuje tylko limit 5, 10 lub 20.")
+    limit = int(args[0][1]) if args else 10
+    try:
+        payload = ControlRoom(
+            boto3.client("dynamodb", region_name="eu-central-1"),
+            tenant=tenant,
+        ).recent(limit=limit)
+    except ControlRoomRejected:
+        raise HTTPException(503, "Podglad operacji AUTO jest chwilowo niedostepny.") from None
+    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
