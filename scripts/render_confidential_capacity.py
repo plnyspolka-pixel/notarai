@@ -6,8 +6,8 @@ This script does NOT call AWS. Review generated JSON before any cloud changes.
 
 Usage:
  python scripts/render_confidential_capacity.py --tenant pilot01 \
-   --account 123456789012 --subnet subnet-aaaabbbb11112222 \
-   --instance-sg sg-aaaabbbb11112222 --output /tmp/pilot-capacity.json
+   --account 123456789012 --subnet subnet-0aaaabbbb11112222 \
+   --instance-sg sg-0aaaabbbb11112222 --output /tmp/pilot-capacity.json
  aws ecs create-capacity-provider --cli-input-json file:///tmp/pilot-capacity.json \
    --region eu-central-1 --profile notarai-admin
 """
@@ -22,7 +22,15 @@ _TENANT = re.compile(r"[a-z0-9]{1,12}")
 _ACCOUNT = re.compile(r"\d{12}")
 _SUBNET = re.compile(r"subnet-(?:[0-9a-f]{8}|[0-9a-f]{17})")
 _SG = re.compile(r"sg-(?:[0-9a-f]{8}|[0-9a-f]{17})")
-_ALLOWED_INSTANCE_TYPES = {"m6i.xlarge", "m6i.2xlarge", "c6i.2xlarge"}
+# ECS CreateCapacityProvider wymaga vCpuCount i memoryMiB w instanceRequirements
+# (pola required w modelu API); allowedInstanceTypes tylko zaweza wybor.
+# Wartosci = dokladny rozmiar typu, zeby zakres nie dopuscil niczego innego.
+_INSTANCE_SHAPES = {
+    "m6i.xlarge": (4, 16384),
+    "m6i.2xlarge": (8, 32768),
+    "c6i.2xlarge": (8, 16384),
+}
+_ALLOWED_INSTANCE_TYPES = set(_INSTANCE_SHAPES)
 
 
 def render_capacity_provider(
@@ -39,6 +47,7 @@ def render_capacity_provider(
         raise ValueError("invalid security group ID")
     if instance_type not in _ALLOWED_INSTANCE_TYPES:
         raise ValueError("instance type outside audited Nitro Sandbox allowlist")
+    vcpus, memory_mib = _INSTANCE_SHAPES[instance_type]
     suffix = f"notarai-confidential-{tenant}"
     return {
         "name": suffix,
@@ -53,6 +62,8 @@ def render_capacity_provider(
                 },
                 "storageConfiguration": {"storageSizeGiB": 40},
                 "instanceRequirements": {
+                    "vCpuCount": {"min": vcpus, "max": vcpus},
+                    "memoryMiB": {"min": memory_mib, "max": memory_mib},
                     "allowedInstanceTypes": [instance_type],
                     "bareMetal": "excluded",
                     "burstablePerformance": "excluded",

@@ -103,6 +103,17 @@ def test_nitro_provider_uses_ecs_api_flag_and_only_approved_instance_types():
     assert launch["nitroEnclavesEnabled"] is True
     assert launch["capacityOptionType"] == "ON_DEMAND"
     assert launch["instanceRequirements"]["allowedInstanceTypes"] == ["m6i.xlarge"]
+    # Model API ECS: vCpuCount i memoryMiB sa wymagane, bez nich AWS CLI
+    # odrzuca zadanie jeszcze przed wyslaniem (walidacja parametrow).
+    assert launch["instanceRequirements"]["vCpuCount"] == {"min": 4, "max": 4}
+    assert launch["instanceRequirements"]["memoryMiB"] == {"min": 16384, "max": 16384}
+    bigger = render_capacity_provider(
+        account="111122223333", tenant="pilot01",
+        subnets=["subnet-0123456789abcdef0"], instance_sg="sg-0123456789abcdef0",
+        instance_type="c6i.2xlarge",
+    )["managedInstancesProvider"]["instanceLaunchTemplate"]["instanceRequirements"]
+    assert bigger["vCpuCount"] == {"min": 8, "max": 8}
+    assert bigger["memoryMiB"] == {"min": 16384, "max": 16384}
     assert launch["ec2InstanceProfileArn"].endswith("/ecsInstanceProfileNotaraiConfidentialpilot01")
     with pytest.raises(ValueError):
         render_capacity_provider(
