@@ -18,15 +18,23 @@ BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{2,62}$")
 
 
 def make_task(account: str, tenant: str, image: str, kms_key_arn: str,
-              bucket: str, queue: str) -> dict:
+              bucket: str, queue: str, shared_image: bool = False) -> dict:
     for pattern, value in (
         (ACCOUNT, account), (TENANT, tenant), (IMAGE, image),
         (KMS, kms_key_arn), (BUCKET, bucket), (QUEUE, queue),
     ):
         if not pattern.fullmatch(value):
             raise ValueError("invalid staging identifier")
-    if not image.startswith(f"{account}.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-{tenant}@"):
-        raise ValueError("image does not belong to selected staging tenant/account")
+    if type(shared_image) is not bool:
+        raise ValueError("invalid shared image mode")
+    expected_repo = (
+        "notarai-confidential-shared" if shared_image
+        else f"notarai-confidential-{tenant}"
+    )
+    if not image.startswith(
+        f"{account}.dkr.ecr.eu-central-1.amazonaws.com/{expected_repo}@"
+    ):
+        raise ValueError("image does not belong to approved tenant or shared repository")
     if not kms_key_arn.startswith(f"arn:aws:kms:eu-central-1:{account}:"):
         raise ValueError("unexpected KMS key account")
     if not queue.startswith(f"https://sqs.eu-central-1.amazonaws.com/{account}/notarai-confidential-{tenant}.fifo"):
@@ -81,10 +89,13 @@ def main():
     parser.add_argument("--kms-key-arn", required=True)
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--queue", required=True)
+    parser.add_argument("--shared-image", action="store_true",
+                        help="Use the one regional immutable ECR repository")
     parser.add_argument("--output", type=Path, default=Path("confidential-taskdef.json"))
     args = parser.parse_args()
     task = make_task(
-        args.account, args.tenant, args.image, args.kms_key_arn, args.bucket, args.queue
+        args.account, args.tenant, args.image, args.kms_key_arn,
+        args.bucket, args.queue, shared_image=args.shared_image,
     )
     args.output.write_text(json.dumps(task, indent=2) + "\n", encoding="utf-8")
     print("Rendered task definition (contains no document or secret data).")
