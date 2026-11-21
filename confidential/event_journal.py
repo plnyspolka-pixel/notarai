@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 
@@ -72,7 +73,7 @@ def transition(record: dict, *, tenant: str, source_arn: str) -> dict | None:
     if not isinstance(source_arn, str) or not re.fullmatch(
         r"arn:aws:dynamodb:eu-central-1:[0-9]{12}:"
         r"table/notarai-confidential-jobs-" + re.escape(tenant) +
-        r"/stream/[0-9T:.-]+", source_arn,
+        r"/stream/[0-9TZ:.-]+", source_arn,
     ):
         raise JournalRejected("untrusted stream origin")
     if not isinstance(record, dict) or record.get("eventSource") != "aws:dynamodb":
@@ -89,7 +90,7 @@ def transition(record: dict, *, tenant: str, source_arn: str) -> dict | None:
     time_raw = dynamo.get("ApproximateCreationDateTime")
     if (
         type(time_raw) not in (int, float) or
-        time_raw < 0 or time_raw > 2**53-1
+        not math.isfinite(time_raw) or time_raw < 0 or time_raw > 2**53-1
     ):
         raise JournalRejected("invalid event timestamp")
     ts = int(time_raw)
