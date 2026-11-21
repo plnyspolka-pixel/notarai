@@ -6,6 +6,8 @@ on:
       - 'confidential/**'
       - 'static/confidential-crypto.js'
       - 'static/confidential-auto.js'
+      - 'static/confidential-control-room.js'
+      - 'test_confidential_control_room_js.js'
       - 'test_confidential_auto_js.js'
       - 'static/index.html'
       - 'test_confidential*.py'
@@ -71,11 +73,13 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_control_room.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
           node test_confidential_auto_js.js
+          node --check static/confidential-control-room.js
+          node test_confidential_control_room_js.js
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
 
