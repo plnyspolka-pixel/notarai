@@ -98,8 +98,8 @@ def test_kms_fail_closed_for_plaintext_or_wrong_key():
 
 
 class Route:
-    def __init__(self, url):
-        self.request = type("Request", (), {"url": url})()
+    def __init__(self, url, method="GET"):
+        self.request = type("Request", (), {"url": url, "method": method})()
         self.action = None
 
     async def abort(self):
@@ -121,12 +121,29 @@ class Locator:
         self.page.clicks.append(self.selector)
 
 
+class FakeContext:
+    def __init__(self, page):
+        self.page = page
+        self.websocket_filter = None
+        self.init_script = None
+
+    async def route(self, pattern, callback):
+        self.page.filter = callback
+
+    async def route_web_socket(self, pattern, callback):
+        self.websocket_filter = callback
+
+    async def add_init_script(self, *, script):
+        self.init_script = script
+
+
 class Page:
     def __init__(self):
         self.url = ""
         self.fills = []
         self.clicks = []
         self.filter = None
+        self.context = FakeContext(self)
 
     async def route(self, pattern, callback):
         self.filter = callback
@@ -168,7 +185,7 @@ def test_form_submit_requires_external_approval_and_restricts_fields():
         async def approve(job, form_id, digest):
             return job == "job-2" and form_id == "fixture" and len(digest) == 64
         result = await fill_form(page, form(), {"name": "Fictional"}, job_id="job-2",
-                                 submit=True, approve=approve)
+                                 submit=True, approve=approve, execution_mode="supervised")
         assert result.submitted and page.clicks == ["#submit"]
         with pytest.raises(BlockedAction):
             await fill_form(Page(), form(), {"admin": "abuse"}, job_id="job-2")
