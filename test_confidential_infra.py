@@ -186,3 +186,53 @@ def test_policy_generator_matches_cloudformation_guest_runtime():
         v["Name"] for v in expected["Environment"]
     ]
     assert c["TrustedExecutionConfiguration"]["IsolationMode"] == "CONFIDENTIAL_SANDBOX"
+
+
+def test_persistent_preview_ledger_and_guest_dynamodb_permissions_are_scoped():
+    t = template("notarai-confidential-job-ledger.yaml")
+    resource = t["Resources"]["PreviewJobs"]
+    assert resource["Type"] == "AWS::DynamoDB::Table"
+    assert resource["DeletionPolicy"] == "Retain"
+    assert resource["Properties"]["PointInTimeRecoverySpecification"]["PointInTimeRecoveryEnabled"]
+    assert resource["Properties"]["SSESpecification"]["SSEEnabled"]
+    assert "AWS::IAM::Role" not in {v["Type"] for v in t["Resources"].values()}
+    task = template("notarai-confidential-task.yaml")
+    role = task["Resources"]["ConfidentialTaskRole"]["Properties"]
+    statements = role["Policies"][0]["PolicyDocument"]["Statement"]
+    ledger_rule = [
+        item for item in statements
+        if "dynamodb:UpdateItem" in item.get("Action", [])
+    ]
+    assert len(ledger_rule) == 1
+    assert set(ledger_rule[0]["Action"]) == {
+        "dynamodb:GetItem", "dynamodb:UpdateItem"
+    }
+    assert ledger_rule[0]["Resource"]["Sub"].endswith(
+        "/notarai-confidential-jobs-${TenantId}"
+    )
+    assert not any("dynamodb:PutItem" in x.get("Action", [])
+                   for x in statements)
+
+
+def test_broad_egress_bootstrap_apply_is_disabled(monkeypatch):
+    import scripts.confidential_pilot_bootstrap as pilot
+    import pytest
+
+    calls = []
+    def fake_cli(args, profile, *, capture=True):
+        calls.append(args)
+        if args[:2] == ["sts", "get-caller-identity"]:
+            return "111122223333"
+        if args[:2] == ["cloudformation", "validate-template"]:
+            return "{}"
+        raise AssertionError("AWS write unexpectedly attempted")
+    monkeypatch.setattr(pilot, "cli", fake_cli)
+    with pytest.raises(RuntimeError, match="insecure broad-egress bootstrap"):
+        pilot.bootstrap(
+            profile="pilot", account="111122223333", tenant="pilot01",
+            vpc="vpc-0123456789abcdef0",
+            subnets=["subnet-0123456789abcdef0"], apply=True,
+        )
+    assert len(calls) == 5
+    assert not any(a[1] in ("deploy", "create-capacity-provider")
+                   for a in calls)
