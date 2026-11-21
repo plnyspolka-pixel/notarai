@@ -42,7 +42,9 @@ Resources:
           Description: S3 via dedicated gateway endpoint only
       Tags:
         - Key: Purpose
-          Value: notarai-synthetic-confidential-egress
+          Value: !Sub "notarai-confidential-${TenantId}-egress"
+        - Key: PilotIsolationAcknowledgement
+          Value: !Ref PilotAcknowledgement
   InterfaceEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
