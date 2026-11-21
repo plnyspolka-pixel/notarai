@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import ipaddress
 import json
 import re
 import time
@@ -49,6 +50,12 @@ def _valid_origin(value: object) -> bool:
         port = url.port
     except ValueError:
         return False
+    try:
+        ipaddress.ip_address(hostname or "")
+    except ValueError:
+        pass
+    else:
+        return False  # no direct IPv4/IPv6 destination, including loopback
     return (
         url.scheme == "https"
         and hostname is not None
