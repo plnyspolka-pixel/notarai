@@ -54,6 +54,12 @@ def expected_task():
                 {"name": "NOTARAI_CONFIDENTIAL_TENANT", "value": TENANT},
                 {"name": "NOTARAI_CONFIDENTIAL_QUEUE_URL", "value": QUEUE},
                 {"name": "AWS_REGION", "value": "eu-central-1"},
+                {"name": "NOTARAI_CONFIDENTIAL_BUCKET", "value": "notarai-ciphertext-pilot01"},
+                {"name": "NOTARAI_CONFIDENTIAL_KMS_KEY_ARN",
+                 "value": f"arn:aws:kms:eu-central-1:{ACCOUNT}:key/12345678-abcd"},
+                {"name": "HOME", "value": "/tmp"},
+                {"name": "XDG_CACHE_HOME", "value": "/tmp"},
+                {"name": "TMPDIR", "value": "/tmp"},
             ],
         }],
     }}
@@ -94,6 +100,15 @@ class ECSFake:
         assert kwargs["desiredStatus"] == "RUNNING" and kwargs["family"] == FAMILY
         return {"taskArns": self.running}
 
+    def describe_tasks(self, **kwargs):
+        assert kwargs["cluster"] == FAMILY
+        status = getattr(self, "last_status", "PENDING")
+        return {"tasks": [{
+            "taskArn": kwargs["tasks"][0],
+            "lastStatus": status,
+            "desiredStatus": "STOPPED" if status == "STOPPED" else "RUNNING",
+        }]}
+
     def run_task(self, **kwargs):
         self.calls.append(kwargs)
         assert kwargs["count"] == 1
@@ -131,19 +146,31 @@ class DynamoFake:
             raise ConditionalFailure()
         self.item = copy.deepcopy(kwargs["Item"])
 
+    def get_item(self, **kwargs):
+        assert kwargs["ConsistentRead"] is True
+        return {"Item": copy.deepcopy(self.item)} if self.item else {}
+
     def update_item(self, **kwargs):
         assert self.item["token"]["S"] == kwargs["ExpressionAttributeValues"][":token"]["S"]
-        self.item["state"] = kwargs["ExpressionAttributeValues"][":state"]
+        args = kwargs["ExpressionAttributeValues"]
+        if ":finished" in args:
+            assert self.item["state"]["S"] == "launched"
+            self.item["state"] = args[":finished"]
+            self.item["lease_until"] = args[":expired"]
+        else:
+            self.item["state"] = args[":state"]
+            if ":arn" in args:
+                self.item["task_arn"] = args[":arn"]
         self.updated = True
 
 
-def tick(ecs=None, sqs=None, ddb=None, now=1000):
+def tick(ecs=None, sqs=None, ddb=None, now=1000, token="a" * 32):
     ecs = ecs or ECSFake()
     sqs = sqs or SQSFake()
     ddb = ddb or DynamoFake()
     state = dispatch_once(
         config(), sqs=sqs, ecs=ecs, dynamodb=ddb,
-        clock=lambda: now, token_factory=lambda: "a" * 32
+        clock=lambda: now, token_factory=lambda: token
     )
     return state, ecs, sqs, ddb
 
@@ -170,6 +197,23 @@ def test_existing_guest_prevents_launch():
     state, _, _, ddb = tick(ecs=ecs)
     assert state == "already_running"
     assert not ecs.calls and ddb.item is None
+
+
+def test_finished_worker_lease_is_released_for_next_preview():
+    ecs, sqs, ddb = ECSFake(), SQSFake(), DynamoFake()
+    assert tick(ecs, sqs, ddb)[0] == "launched"
+    ecs.last_status = "STOPPED"
+    assert tick(ecs, sqs, ddb, now=1050, token="b" * 32)[0] == "launched"
+    assert len(ecs.calls) == 2
+    assert ddb.item["token"]["S"] == "b" * 32
+
+
+def test_pending_worker_never_releases_lease():
+    ecs, sqs, ddb = ECSFake(), SQSFake(), DynamoFake()
+    assert tick(ecs, sqs, ddb)[0] == "launched"
+    ecs.last_status = "PENDING"
+    assert tick(ecs, sqs, ddb, now=1050)[0] == "lease_held"
+    assert len(ecs.calls) == 1
 
 
 def test_duplicate_dispatch_does_not_launch_twice():
