@@ -57,7 +57,7 @@ class FormResult:
     origin: str
 
 
-Approval = Callable[[str, str, str], Awaitable[bool]]
+Approval = Callable[[str, str, str, str], Awaitable[bool]]
 
 # Defense-in-depth: prevent DOM form submission even if a portal injects JS
 # that programmatically submits a form. The network gate independently denies
@@ -93,7 +93,7 @@ async def fill_form(
     """External approve callback must validate a fresh user-signed approval.
 
     This function never issues an approval itself. The callback must verify
-    the exact job_id + form_id + digest and reject replay; a Boolean supplied
+    the exact job_id + form_id + digest + observed destination origin\n    and reject replay; a Boolean supplied
     by an untrusted API request is NOT an authorization.
     """
     form.validate(loopback_for_tests)
@@ -159,8 +159,15 @@ async def fill_form(
     if submit:
         if not form.submit_selector or approve is None:
             raise BlockedAction("submission requires signed user approval")
-        if not await approve(job_id, form.form_id, digest):
+        # Pass the BROWSER-OBSERVED origin, not a value controlled by the
+        # signing request. The approval gate must bind this exact destination.
+        observed_origin = _origin(page.url, loopback_for_tests)
+        if observed_origin not in allowed:
+            raise BlockedAction("untrusted final form origin")
+        if not await approve(job_id, form.form_id, digest, observed_origin):
             raise BlockedAction("user approval rejected")
+        if _origin(page.url, loopback_for_tests) != observed_origin:
+            raise BlockedAction("form origin changed after authorization")
         await page.locator(form.submit_selector).click(timeout=10000)
         did_submit = True
     return FormResult(form.form_id, len(values), digest, did_submit, _origin(page.url, loopback_for_tests))
