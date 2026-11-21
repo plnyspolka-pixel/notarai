@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI synthetic preview audit journal from a dedicated DynamoDB stream.
+  Stream trigger defaults DISABLED; no customer data, signing or submits.
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  JobStreamArn:
+    Type: String
+    Description: Exact output from notarai-confidential-job-ledger JobStreamArn
+    AllowedPattern: "^arn:aws:dynamodb:eu-central-1:[0-9]{12}:table/notarai-confidential-jobs-[a-z0-9]{1,12}/stream/[0-9TZ:.-]+$"
+  CodeBucket:
+    Type: String
+    Description: Exact pilot code artifact bucket (never customer document bucket)
+    AllowedPattern: "^ntr-cf-code-[a-z0-9]{1,12}-[0-9]{12}-eu-central-1$"
+  CodeKey:
+    Type: String
+    Description: Audited immutable zip artifact key, pinned to SHA256
+    AllowedPattern: "^confidential-audit/[0-9a-f]{64}\\.zip$"
+  AuditTriggerEnabled:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+Conditions:
+  EnableAudit: !Equals [!Ref AuditTriggerEnabled, "true"]
+Resources:
+  AuditEvents:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "notarai-confidential-events-${TenantId}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: NotarAI
+        - Key: Scope
+          Value: confidential-synthetic-status-journal
+  AuditDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "notarai-confidential-audit-${TenantId}-dead"
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+  AuditLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/notarai-confidential-audit-${TenantId}"
+      RetentionInDays: 14
+  AuditExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-audit-${TenantId}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SyntheticStatusStreamOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadSingleJobStream
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams
+                Resource: !Ref JobStreamArn
+              - Sid: AppendAndDeduplicateOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                Resource: !GetAtt AuditEvents.Arn
+              - Sid: SendFailedAuditBatchToDlq
+                Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt AuditDeadLetterQueue.Arn
+              - Sid: WriteOnlyOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt AuditLogGroup.Arn
+  AuditFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "notarai-confidential-audit-${TenantId}"
+      Runtime: python3.12
+      Handler: confidential.event_journal.lambda_handler
+      Role: !GetAtt AuditExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      MemorySize: 128
+      Timeout: 30
+      Environment:
+        Variables:
+          NOTARAI_AUDIT_TENANT: !Ref TenantId
+          NOTARAI_JOB_STREAM_ARN: !Ref JobStreamArn
+  AuditSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Ref JobStreamArn
+      FunctionName: !Ref AuditFunction
+      StartingPosition: TRIM_HORIZON
+      BatchSize: 10
+      BisectBatchOnFunctionError: true
+      MaximumRetryAttempts: 3
+      MaximumRecordAgeInSeconds: 3600
+      DestinationConfig:
+        OnFailure:
+          Destination: !GetAtt AuditDeadLetterQueue.Arn
+      Enabled: !If [EnableAudit, true, false]
+Outputs:
+  AuditTableName:
+    Value: !Ref AuditEvents
+  AuditTableArn:
+    Value: !GetAtt AuditEvents.Arn
+  AuditFunctionName:
+    Value: !Ref AuditFunction
+  AuditDlqUrl:
+    Value: !Ref AuditDeadLetterQueue
