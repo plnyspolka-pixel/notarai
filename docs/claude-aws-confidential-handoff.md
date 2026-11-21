@@ -294,11 +294,17 @@ zakończonym pilocie zaproponuj bezpieczne usunięcie testowej sieci.
 - ECS instance networking: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-awsvpc-mode.html
 
 
-### Dodatkowy warunek produkcyjny (nie dotyczy fikcyjnego testu)
+### Przypięcie niezmiennej wersji S3: wdrożone w kodzie, wymaga testu AWS
 
-Dalsze wdrożenie wymaga **przypięcia konkretnej wersji obiektu S3 do jobu**:
-obecny envelope pod kluczem case/object można nadpisać po zakolejkowaniu.
-Claude ma dodać Versioning + immutability binding (`VersionId` i/lub
-SHA-256 ciphertext) do zamówienia oraz weryfikację przed decrypt, zanim
-kiedykolwiek dopuści się prawdziwe dokumenty albo podpisane oświadczenia.
-Opis problemu: `docs/confidential-job-lifecycle.md`.
+Pilot wymaga włączonego S3 Versioning. Backend przy queue_preview bierze
+VersionId z HeadObject, zapisuje go do zlecenia DynamoDB i metadanych SQS.
+Guest sprawdza identyczny VersionId w atomowym claim przed decrypt
+i czyta S3 GetObject z tym właśnie VersionId.
+
+**Test negatywny dla Claude'a:** na fikcyjnych danych wyślij zlecenie,
+nadpisz envelope nowszą wersją przed wykonaniem workera i sprawdź, że
+worker czyta przypiętą pierwotną wersję, a brak lub fałszywy VersionId
+powoduje odmowę przed odszyfrowaniem. Przed użyciem dokumentów klienta
+trzeba dodatkowo powiązać zatwierdzoną przez notariusza wersję treści
+z formalnym podpisem i potwierdzeniem odbioru portalu.
+Patrz `docs/confidential-job-lifecycle.md`.
