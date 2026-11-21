@@ -689,6 +689,26 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
   border:1px solid var(--ok);border-radius:10px;color:var(--tekst)}
 #notarai-confidential-auto strong{font-size:12px;line-height:1.35}
 #notarai-confidential-auto small{font-size:11px;line-height:1.35;color:var(--tekst2)}
+
+/* Confidential pilot: read-only notarial AUTO workload sidebar. */
+#notarai-confidential-ops{margin:4px 10px 12px;padding:10px 12px;
+  border:1px solid var(--linia,#9993);border-radius:10px;
+  color:var(--tekst);font-size:12px;display:flex;flex-direction:column;gap:8px}
+#notarai-confidential-ops .ntr-ops-head{display:flex;align-items:center;
+  justify-content:space-between;gap:8px}
+#notarai-confidential-ops .ntr-ops-heading{font-weight:700}
+#notarai-confidential-ops button{font:inherit;padding:5px 8px;
+  border:1px solid var(--linia,#9995);border-radius:6px;
+  background:transparent;color:inherit;cursor:pointer}
+#notarai-confidential-ops .ntr-ops-summary{font-weight:600}
+#notarai-confidential-ops .ntr-ops-list{list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:5px;max-height:240px;overflow:auto}
+#notarai-confidential-ops .ntr-ops-list li{display:flex;gap:2px;flex-direction:column;
+  padding:7px 8px;border-radius:6px;background:var(--tlo2,#8881)}
+#notarai-confidential-ops .ntr-ops-id,#notarai-confidential-ops .ntr-ops-footnote{
+  font-size:10px;color:var(--tekst2)}
+#notarai-confidential-ops .ntr-ops-warning{font-size:11px;font-weight:600}
+#notarai-confidential-ops .ntr-ops-attention{border-left:3px solid #d19b34}
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
 <link rel="stylesheet" href="/static/kokpit.css">
@@ -6800,5 +6820,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/personalizacja.js"></script>
 <script src="/static/ksiegi.js"></script>
 <script src="/static/confidential-auto.js"></script>
+<script src="/static/confidential-control-room.js"></script>
 </body>
 </html>
