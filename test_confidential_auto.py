@@ -14,7 +14,8 @@ from starlette.datastructures import QueryParams
 
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 from confidential.form_engine import BlockedAction, fill_form
-from confidential.router import automatic_policy, queue_preview
+from confidential.router import automatic_policy, queue_preview, preview_status
+from test_confidential_job_ledger import FakeDdb
 from test_confidential import Page, Route, form
 
 
@@ -174,10 +175,14 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
         def send_message(self, **kwargs):
             self.calls.append(kwargs)
     sqs = SQS()
+    ddb = FakeDdb()
     import boto3
     module = sys.modules["magazyn"]
     module._klient_s3 = lambda: S3()
-    monkeypatch.setattr(boto3, "client", lambda *a, **k: sqs)
+    monkeypatch.setattr(
+        boto3, "client",
+        lambda name, **k: ddb if name == "dynamodb" else sqs,
+    )
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_JOB_TENANT", "pilot01")
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_BUCKET", "notarai-ciphertext-pilot01")
     monkeypatch.setenv(
@@ -203,3 +208,18 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     assert set(msg) == {"tenant_id", "case_id", "object_id", "job_id"}
     assert "mode" not in msg and "submit" not in msg
     assert sqs.calls[0]["MessageGroupId"] == "pilot01"
+    assert len(ddb.rows) == 1
+    assert next(iter(ddb.rows.values()))["state"]["S"] == "queued"
+    job_status = json.loads(preview_status(RequestFake(), body["job_id"]).body)
+    assert job_status["status"] == "queued"
+    assert job_status["submitted"] is False
+
+
+def test_unknown_job_returns_404_from_tenant_scoped_ledger(monkeypatch):
+    setup_tenant(monkeypatch)
+    import boto3
+    ddb = FakeDdb()
+    monkeypatch.setattr(boto3, "client", lambda name, **k: ddb)
+    with pytest.raises(HTTPException) as exc:
+        preview_status(RequestFake(), "missingjob")
+    assert exc.value.status_code == 404
