@@ -55,7 +55,7 @@ def _verified_pcr17(profile: str, task_arn: str) -> str:
             raise RuntimeError("official ECS attestation policy verification failed") from exc
         if args[-1] == "pcrs":
             match = re.search(
-                r'"kms:RecipientAttestation:PCR17"\\s*:\\s*"([0-9a-fA-F]{96})"',
+                r'"kms:RecipientAttestation:PCR17"\s*:\s*"([0-9a-fA-F]{96})"',
                 result.stdout,
             )
             if match is None or match.group(1).lower() == "0" * 96:
