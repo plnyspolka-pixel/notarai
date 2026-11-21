@@ -16,6 +16,7 @@ from http.server import ThreadingHTTPServer
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
+from confidential.job_ledger import PreviewJobLedger
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -109,43 +110,84 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
     return data["fields"]
 
 
+def _process_one(session, tenant: str, bucket: str, queue_url: str,
+                 kms_key_arn: str) -> int:
+    sqs = session.client("sqs")
+    incoming = sqs.receive_message(
+        QueueUrl=queue_url, MaxNumberOfMessages=1, WaitTimeSeconds=10,
+        VisibilityTimeout=900,
+    ).get("Messages", [])
+    if not incoming:
+        print("confidential-worker: no job")
+        return 0
+    message = incoming[0]
+    case_id, object_id, job_id = _parse_message(message["Body"], tenant)
+    ledger = PreviewJobLedger(session.client("dynamodb"), tenant=tenant)
+    claim = ledger.claim(
+        job_id=job_id, case_id=case_id, object_id=object_id,
+    )
+    if claim.state == "completed":
+        # Redelivery after successful preview and uncertain SQS acknowledgement.
+        # No decryption, browser run or external effect is repeated.
+        sqs.delete_message(
+            QueueUrl=queue_url, ReceiptHandle=message["ReceiptHandle"]
+        )
+        return 0
+    if claim.state == "busy":
+        # Another worker owns the lease. Leave message unacknowledged.
+        return 0
+    if claim.state != "claimed":
+        # queue_uncertain / exhausted retry: retained for DLQ + manual review.
+        return 1
+    try:
+        values = _load_decrypted_form(
+            session.client("s3"), session.client("kms"),
+            bucket, tenant, case_id, object_id, kms_key_arn,
+        )
+        asyncio.run(_prepare_fictional_form(job_id, values))
+        # Synthetic status marker contains no documents, values, names,
+        # URLs, screenshots, or personal identifiers.
+        session.client("s3").put_object(
+            Bucket=bucket,
+            Key=f"kancelarie/{tenant}/confidential-results/{job_id}.json",
+            Body=json.dumps({
+                "version": 1, "job_id": job_id,
+                "status": "preview_completed", "fields_filled": 2,
+                "submitted": False,
+            }, separators=(",", ":")).encode("ascii"),
+            ContentType="application/json", ServerSideEncryption="AES256",
+        )
+        # Finalize only AFTER S3 marker exists, then acknowledge SQS.
+        ledger.complete(job_id=job_id, token=claim.token)
+    except Exception:
+        # A retryable preview may repeat after SQS visibility timeout.
+        # Future irreversible actions must NEVER use this retry protocol.
+        try:
+            ledger.fail(
+                job_id=job_id, token=claim.token, attempts=claim.attempts,
+            )
+        except Exception:
+            pass  # unknown outcome: retain queue item for reconciliation
+        raise
+    sqs.delete_message(
+        QueueUrl=queue_url, ReceiptHandle=message["ReceiptHandle"]
+    )
+    print("confidential-worker: fictional AUTO preview completed")
+    return 0
+
+
 def main() -> int:
     try:
         tenant, bucket, queue_url, kms_key_arn = _config()
         import boto3
         session = boto3.Session(region_name="eu-central-1")
-        sqs = session.client("sqs")
-        incoming = sqs.receive_message(
-            QueueUrl=queue_url, MaxNumberOfMessages=1, WaitTimeSeconds=10,
-            VisibilityTimeout=900,
-        ).get("Messages", [])
-        if not incoming:
-            print("confidential-worker: no job")
-            return 0
-        message = incoming[0]
-        case_id, object_id, job_id = _parse_message(message["Body"], tenant)
-        values = _load_decrypted_form(
-            session.client("s3"), session.client("kms"),
-            bucket, tenant, case_id, object_id, kms_key_arn
+        return _process_one(session, tenant, bucket, queue_url, kms_key_arn)
+    except Exception as exc:  # NEVER include untrusted exception contents!
+        print(
+            "confidential-worker: failed (" + type(exc).__name__ + ")",
+            file=sys.stderr,
         )
-        asyncio.run(_prepare_fictional_form(job_id, values))
-        # Status contains no documents, form values, URL, name, or PESEL.
-        session.client("s3").put_object(
-            Bucket=bucket,
-            Key=f"kancelarie/{tenant}/confidential-results/{job_id}.json",
-            Body=json.dumps({
-                "version": 1, "job_id": job_id, "status": "preview_completed",
-                "fields_filled": 2, "submitted": False,
-            }, separators=(",", ":")).encode("ascii"),
-            ContentType="application/json", ServerSideEncryption="AES256",
-        )
-        sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=message["ReceiptHandle"])
-        print("confidential-worker: fictional preview completed")
-        return 0
-    except Exception as exc:  # NEVER include untrusted exception content!
-        print("confidential-worker: failed (" + type(exc).__name__ + ")", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
