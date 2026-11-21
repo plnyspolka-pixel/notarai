@@ -264,9 +264,7 @@ def test_cloudformation_append_only_audit_resources_are_disabled_by_default():
     assert trigger["StartingPosition"] == "TRIM_HORIZON"
     assert trigger["MaximumRetryAttempts"] == 3
     assert trigger["BisectBatchOnFunctionError"] is True
-    assert trigger["Enabled"]["Fn::If"][0] == "EnableAudit" or (
-        trigger["Enabled"].get("If", [None])[0] == "EnableAudit"
-    )
+    assert trigger["Enabled"].get("If", [None])[0] == "EnableAudit"
     role = resources["AuditExecutionRole"]["Properties"]["Policies"][0][
         "PolicyDocument"]["Statement"
     ]
