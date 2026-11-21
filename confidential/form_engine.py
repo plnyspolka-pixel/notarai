@@ -1,7 +1,7 @@
 """Deterministic, site-scoped browser form filling with explicit approval.
 
 No arbitrary scripts from an LLM, selectors chosen only by trusted adapters.
-No automatic submission. This code is intended to execute in Nitro guest.
+AUTO preparation is the default and cannot submit, even if an approval\ncallback was injected. This code is intended to execute in Nitro guest.
 """
 from __future__ import annotations
 
@@ -59,6 +59,25 @@ class FormResult:
 
 Approval = Callable[[str, str, str], Awaitable[bool]]
 
+# Defense-in-depth: prevent DOM form submission even if a portal injects JS
+# that programmatically submits a form. The network gate independently denies
+# non-read HTTP methods in AUTO; VPC egress restrictions remain mandatory.
+_AUTO_DOM_GUARD = """
+(() => {
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+  for (const method of ['submit', 'requestSubmit']) {
+    Object.defineProperty(HTMLFormElement.prototype, method, {
+      configurable: false,
+      writable: false,
+      value: function() { throw new Error('NotarAI AUTO: submit blocked'); }
+    });
+  }
+})();
+"""
+
 
 async def fill_form(
     page,
@@ -68,6 +87,7 @@ async def fill_form(
     job_id: str,
     submit: bool = False,
     approve: Approval | None = None,
+    execution_mode: str = "auto",
     loopback_for_tests: bool = False,
 ) -> FormResult:
     """External approve callback must validate a fresh user-signed approval.
@@ -77,6 +97,12 @@ async def fill_form(
     by an untrusted API request is NOT an authorization.
     """
     form.validate(loopback_for_tests)
+    if execution_mode not in ("auto", "supervised"):
+        raise BlockedAction("unsupported browser execution mode")
+    # This check runs before any browser action or callback. A signed consent
+    # does not silently change AUTO into an external-write capable mode.
+    if execution_mode == "auto" and submit:
+        raise BlockedAction("AUTO mode never submits forms")
     if not isinstance(job_id, str) or not job_id or len(job_id) > 100:
         raise BlockedAction("missing job identity")
     if set(values) != set(form.selectors) or any(
@@ -86,17 +112,38 @@ async def fill_form(
     allowed = {_origin(u, loopback_for_tests) for u in form.allowed_origins}
 
     async def restrict(route):
+        # Route interception prevents HTTP writes even from the page's own
+        # malicious JavaScript, redirects, XHR/fetch or form POSTs.
         try:
             requested_origin = _origin(route.request.url, loopback_for_tests)
-        except BlockedAction:
+            method = route.request.method
+        except (BlockedAction, AttributeError, ValueError):
             await route.abort()
             return
-        if requested_origin in allowed:
-            await route.continue_()
-        else:
+        if (requested_origin not in allowed or
+                not isinstance(method, str) or
+                (execution_mode == "auto" and method not in ("GET", "HEAD"))):
             await route.abort()
+        else:
+            await route.continue_()
 
-    await page.route("**/*", restrict)
+    if execution_mode == "auto":
+        # CONTEXT routing covers the initial request of popup pages too,
+        # unlike page.route(), and blocks WebSocket connections entirely.
+        context = getattr(page, "context", None)
+        if (context is None or not callable(getattr(context, "route", None)) or
+                not callable(getattr(context, "route_web_socket", None)) or
+                not callable(getattr(context, "add_init_script", None))):
+            raise BlockedAction("AUTO browser context safety controls missing")
+        async def close_websocket(ws):
+            await ws.close()
+        await context.route("**/*", restrict)
+        await context.route_web_socket("**/*", close_websocket)
+        await context.add_init_script(script=_AUTO_DOM_GUARD)
+    else:
+        # Supervised mode is not used by the confidential worker. It only
+        # supports controlled synthetic tests of the signed approval gate.
+        await page.route("**/*", restrict)
     await page.goto(form.url, wait_until="domcontentloaded", timeout=30000)
     if _origin(page.url, loopback_for_tests) not in allowed:
         raise BlockedAction("destination redirected outside allowlist")
