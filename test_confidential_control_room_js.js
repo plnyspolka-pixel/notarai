@@ -56,7 +56,8 @@ async function main() {
   assert.equal(calls[0].options.cache, "no-store");
   assert.equal(calls[0].options.credentials, "same-origin");
   assert.equal(Object.hasOwn(calls[0].options, "body"), false);
-  assert.deepEqual(Object.keys(api).sort(), ["fetchJobs", "refresh"].sort());
+  assert.deepEqual(Object.keys(api).sort(),
+    ["fetchJobs", "fetchHistory", "refresh"].sort());
 
   for (const altered of [
     {can_submit: true}, {thinking_enabled: true},
@@ -77,6 +78,31 @@ async function main() {
       ...fixture(), jobs: [{...fixture().jobs[0], ...job}]
     });
     await assert.rejects(unsafe.api.fetchJobs());
+  }
+
+  const eventFixture = {
+    version: 1, read_only: true, job_id: "abc012",
+    more_available: false,
+    events: [{
+      timestamp: 1800000000, from: "queued", to: "running",
+      attempts: 1, event: "0123456789ab"
+    }],
+  };
+  const history = setup(eventFixture);
+  const event = await history.api.fetchHistory("abc012");
+  assert.equal(event.events[0].to, "running");
+  assert.equal(history.calls[0].path,
+    "/api/confidential/control/jobs/abc012/history");
+  assert.equal(history.calls[0].options.method, "GET");
+  assert.equal(Object.hasOwn(history.calls[0].options, "body"), false);
+  await assert.rejects(history.api.fetchHistory("../other"));
+  for (const change of [
+    {read_only: false},
+    {job_id: "other"},
+    {events: [{...eventFixture.events[0], to: "submitted"}]},
+    {events: [{...eventFixture.events[0], event: "bad"}]},
+  ]) {
+    await assert.rejects(setup({...eventFixture, ...change}).api.fetchHistory("abc012"));
   }
 
   const unauthorized = setup(null, 403);
