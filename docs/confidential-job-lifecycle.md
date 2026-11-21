@@ -55,12 +55,17 @@ To **nie** jest exactly-once dla czynności zewnętrznych. Tylko
 przygotowanie fikcyjnego podglądu może być ponowione, ponieważ
 nie ma skutków prawnych. Żadnej automatycznej retry dla `send/sign`.
 
-**Wersjonowanie S3 nie jest jeszcze zintegrowane z job ID.**
-Obecny klucz case/object może być nadpisany między umieszczeniem
-w kolejce a odczytem przez worker. Przed przetwarzaniem prawdziwych
-danych trzeba włączyć S3 Versioning, przypinać VersionId lub
-kryptograficzny digest do zlecenia i wymuszać jego zgodność w workerze.
-Nie deklarować związania podpisanej zgody z treścią przed tym etapem.
+**Przypięcie wersji zaszyfrowanego obiektu jest zaimplementowane w kodzie
+pilota.** Staging bucket wymaga S3 Versioning. API bierze niepusty
+`VersionId` z HeadObject, zapisuje go w DDB i w metadanych SQS.
+Worker sprawdza wersję w atomowym claim i odczytuje
+`GetObject(VersionId=...)`. Nie ma cichego fallbacku do latest/null.
+
+**Nadal potrzebne:** prawdziwy test AWS VersionId, wersjonowanie
+obowiązujące przed pierwszym zapisem oraz niezależne powiązanie
+zrecenzowanej przez notariusza wersji dokumentu z późniejszą zgodą
+i kwalifikowanym podpisem. Nie deklarować gotowości operacji prawnych
+na podstawie samego S3 VersionId.
 
 Operator musi ręcznie wyjaśniać `queue_uncertain` i
 `needs_review` bez zgadywania wyniku z portalu. Wszystkie testy AWS
