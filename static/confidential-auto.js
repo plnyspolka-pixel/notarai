@@ -65,7 +65,8 @@
     if (!response.ok) throw new Error('Cannot read AUTO preview status');
     const result = await response.json();
     if (!result || result.job_id !== jobId ||
-        (result.status !== 'pending' && result.status !== 'preview_completed') ||
+        !['queued', 'queue_uncertain', 'running', 'retryable',
+          'preview_completed', 'needs_review'].includes(result.status) ||
         result.submitted === true || result.can_submit === true) {
       throw new Error('Unsafe AUTO preview status');
     }
