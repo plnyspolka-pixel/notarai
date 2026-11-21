@@ -268,6 +268,23 @@ def test_signed_callback_binds_exact_browser_values_and_prevents_replay():
     asyncio.run(run())
 
 
+def test_signed_gate_rejects_wrong_browser_observed_origin():
+    private, registry, ddb = signing()
+    gate = SignedApprovalGate(
+        signed=sign(private), registry=registry,
+        ledger=DynamoApprovalLedger(
+            ddb, table_name=f"notarai-confidential-approvals-{TENANT}",
+            tenant_id=TENANT,
+        ),
+        tenant_id=TENANT, actor_id=ACTOR,
+        job_id=JOB, form_id=FORM, origin=ORIGIN,
+        document_digest=DOC, now=TIME,
+    )
+    with pytest.raises(ApprovalRejected, match="scope"):
+        asyncio.run(gate.callback(JOB, FORM, form_digest(), "https://attacker.example"))
+    assert not ddb.keys
+
+
 def test_canonical_encoding_and_validation_are_deterministic():
     intent = ApprovalIntent.parse(payload())
     assert intent.signed_bytes().startswith(b"notarai.confidential.approval.v1\n")
