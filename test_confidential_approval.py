@@ -348,3 +348,9 @@ def test_approval_table_cloudformation_does_not_grant_submit_or_write_access():
             "PointInTimeRecoveryEnabled"
         ]
         assert resource["Properties"]["SSESpecification"]["SSEEnabled"] is True
+
+def test_signed_origin_never_accepts_loopback_or_private_ip_literals():
+    for origin in ("https://127.0.0.1", "https://10.0.0.1",
+                   "https://169.254.169.254", "https://[::1]"):
+        with pytest.raises(ApprovalRejected, match="destination"):
+            ApprovalIntent.parse(payload(origin=origin))
