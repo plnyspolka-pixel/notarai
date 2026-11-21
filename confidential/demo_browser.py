@@ -21,6 +21,8 @@ HTML = b"""<!doctype html><html><body>
 
 
 class Handler(BaseHTTPRequestHandler):
+    post_count = 0
+
     def do_GET(self):
         if self.path != "/":
             self.send_error(404)
@@ -32,6 +34,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(HTML)
 
     def do_POST(self):
+        Handler.post_count += 1
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Fictional test submitted")
@@ -61,18 +64,20 @@ async def main():
             )
             assert not result.submitted
             assert await page.locator("#name").input_value() == "Fictional Person"
-            async def approved(job, form, digest):
-                return job == "demo-1" and form == "local-demo"
-            result = await fill_form(
-                page, template,
-                {"name": "Fictional Person", "reference": "DEMO-123"},
-                job_id="demo-1", submit=True, approve=approved,
-                loopback_for_tests=True,
-            )
-            assert result.submitted
+            # AUTO is the default. Even a physical click and a scripted
+            # POST must not reach the local test server.
+            Handler.post_count = 0
+            await page.locator("#submit").click(timeout=10000)
+            blocked = await page.evaluate("""async () => {
+                try {
+                    await fetch("/done", {method: "POST", body: "SYNTHETIC"});
+                    return false;
+                } catch (_) { return true; }
+            }""")
+            assert blocked and Handler.post_count == 0
             await context.close()
             await browser.close()
-        print("Local browser form demo passed (no customer data)")
+        print("Local AUTO preview passed: form filled, submission and HTTP POST blocked")
     finally:
         server.shutdown()
         server.server_close()
