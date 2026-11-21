@@ -9,6 +9,7 @@ on:
       - 'infra/notarai-confidential*.yaml'
       - 'scripts/render_confidential_*.py'
       - 'scripts/confidential_pilot_*.py'
+      - 'scripts/package_confidential_dispatch.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -39,6 +40,7 @@ jobs:
         run: |
           cfn-lint --regions eu-central-1 --template \
             infra/notarai-confidential-capacity-base.yaml \
+            infra/notarai-confidential-dispatch.yaml \
             infra/notarai-confidential-demo-kms.yaml \
             infra/notarai-confidential-ecr.yaml \
             infra/notarai-confidential-staging.yaml
@@ -50,10 +52,12 @@ jobs:
             --template infra/notarai-confidential-task.yaml
       - name: Offline smoke CLI pilota (bez AWS)
         run: python scripts/confidential_pilot_run.py --help >/dev/null
+      - name: Wytworz weryfikowalny pakiet Lambda (offline)
+        run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
 
