@@ -53,6 +53,7 @@ jobs:
             infra/notarai-confidential-approval-ledger.yaml \
             infra/notarai-confidential-demo-kms.yaml \
             infra/notarai-confidential-ecr.yaml \
+            infra/notarai-confidential-github.yaml \
             infra/notarai-confidential-staging.yaml
           # Current cfn-lint resource schema has not yet shipped AWS' new
           # TrustedExecutionConfiguration, although CloudFormation officially supports it.

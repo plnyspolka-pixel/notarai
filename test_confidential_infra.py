@@ -248,3 +248,40 @@ def test_broad_egress_bootstrap_apply_is_disabled(monkeypatch):
     assert len(calls) == 5
     assert not any(a[1] in ("deploy", "create-capacity-provider")
                    for a in calls)
+
+
+def test_github_image_role_can_only_push_to_pilot_ecr_from_one_branch():
+    doc = template("notarai-confidential-github.yaml")
+    assert set(doc["Resources"]) == {"GuestImagePushRole"}
+    role = doc["Resources"]["GuestImagePushRole"]["Properties"]
+    assert "ManagedPolicyArns" not in role
+    trust = role["AssumeRolePolicyDocument"]["Statement"]
+    assert len(trust) == 1 and trust[0]["Action"] == "sts:AssumeRoleWithWebIdentity"
+    condition = trust[0]["Condition"]
+    assert set(condition) == {"StringEquals"}  # no StringLike wildcards
+    assert condition["StringEquals"]["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
+    sub = condition["StringEquals"]["token.actions.githubusercontent.com:sub"]["Sub"]
+    assert sub == "repo:${Repository}:ref:refs/heads/${Branch}"
+    assert "*" not in doc["Parameters"]["Branch"]["AllowedPattern"].replace("]{1,200}", "")
+    statements = role["Policies"][0]["PolicyDocument"]["Statement"]
+    for statement in statements:
+        actions = statement["Action"] if isinstance(statement["Action"], list) else [statement["Action"]]
+        assert all(action.startswith("ecr:") for action in actions)
+        assert not any("Delete" in action or "Policy" in action for action in actions)
+        if statement["Resource"] == "*":
+            assert actions == ["ecr:GetAuthorizationToken"]
+        else:
+            assert statement["Resource"]["Sub"].endswith(":repository/notarai-confidential-${TenantId}")
+
+
+def test_guest_image_workflow_pushes_only_from_pilot_branch_after_smoke():
+    text = (ROOT.parent / ".github" / "workflows" / "confidential-image.yml").read_text("utf-8")
+    workflow = yaml.safe_load(text)
+    triggers = workflow[True] if True in workflow else workflow["on"]
+    assert set(triggers) == {"push"}
+    assert triggers["push"]["branches"] == ["feature/confidential-job-ledger-aws-handoff-20261121"]
+    assert "notarai-confidential-github-image-pilot01" in text
+    assert "notarai-github-wdrozenie" not in text
+    assert "get-secret-value" not in text
+    assert text.index("confidential.demo_browser") < text.index("docker push")
+    assert text.index("confidential.worker") < text.index("docker push")

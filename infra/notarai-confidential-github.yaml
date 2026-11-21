@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI confidential pilot - GitHub Actions OIDC role that may only push the
+  guest image to the pilot ECR repository. Separate from notarai-github-wdrozenie;
+  grants no access to the production application, buckets, secrets or IAM.
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  Repository:
+    Type: String
+    Default: plnyspolka-pixel@288798782/notarai@1449623737
+    Description: GitHub repository in the token sub format owner@id/name@id (immutable ids).
+    AllowedPattern: "^[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+$"
+  Branch:
+    Type: String
+    Description: The only branch whose workflow runs may push the guest image.
+    AllowedPattern: "^[A-Za-z0-9_./-]{1,200}$"
+Resources:
+  GuestImagePushRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "notarai-confidential-github-image-${TenantId}"
+      Description: NotarAI confidential pilot - GitHub Actions pushes the guest image to one ECR repository
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repository}:ref:refs/heads/${Branch}"
+      Policies:
+        - PolicyName: push-guest-image
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: EcrLogin
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: PushPilotGuestImageOnly
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-${TenantId}"
+Outputs:
+  GuestImagePushRoleArn:
+    Value: !GetAtt GuestImagePushRole.Arn

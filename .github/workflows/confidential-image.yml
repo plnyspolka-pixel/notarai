@@ -1,0 +1,109 @@
+name: NotarAI Confidential - obraz guest do ECR (pilot, dane fikcyjne)
+
+# Buduje obraz Nitro guest i wypycha go do prywatnego repo ECR pilota pod
+# niezmiennym tagiem. Rola OIDC (infra/notarai-confidential-github.yaml) moze
+# tylko to: nie ma dostepu do aplikacji produkcyjnej, bucketow ani sekretow.
+on:
+  push:
+    branches:
+      - feature/confidential-job-ledger-aws-handoff-20261121
+    paths:
+      - 'confidential/**'
+      - '.dockerignore'
+      - '.github/workflows/confidential-image.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: confidential-image
+  cancel-in-progress: false
+
+jobs:
+  push-guest-image:
+    name: Zbuduj, sprawdz i wypchnij obraz guest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_REGION: eu-central-1
+      AWS_EC2_METADATA_DISABLED: 'true'
+      EXPECTED_ACCOUNT: "127621462971"
+      PUSH_ROLE: arn:aws:iam::127621462971:role/notarai-confidential-github-image-pilot01
+      ECR_REPOSITORY: notarai-confidential-pilot01
+    steps:
+      - uses: actions/checkout@v7
+      - name: Zbuduj obraz workera
+        run: docker build --file confidential/Dockerfile --tag notarai-confidential:pilot .
+      - name: Obraz nie zawiera dane/ ani .env
+        run: |
+          set -euo pipefail
+          if docker run --rm --network none --entrypoint sh notarai-confidential:pilot -c \
+            'test -e /opt/notarai/dane || test -e /opt/notarai/.env || test -e /opt/notarai/confidential/.env'; then
+            echo "::error::Obraz zawiera dane/ albo .env"
+            exit 1
+          fi
+      - name: Chromium na fikcyjnym formularzu wewnatrz kontenera (bez sieci)
+        run: |
+          docker run --rm \
+            --network none --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            --shm-size 256m \
+            --entrypoint python \
+            notarai-confidential:pilot -m confidential.demo_browser
+      - name: Worker odmawia pracy bez sprzetowej atestacji
+        run: |
+          if docker run --rm --network none \
+            --entrypoint python \
+            notarai-confidential:pilot -m confidential.worker; then
+            echo "::error::Worker zadzialal bez sprzetowej atestacji!"
+            exit 1
+          fi
+      - name: Poswiadczenia OIDC roli push (tylko repo ECR pilota)
+        run: |
+          set -euo pipefail
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          credentials=$(aws sts assume-role-with-web-identity \
+            --role-arn "$PUSH_ROLE" \
+            --role-session-name "confidential-image-${GITHUB_RUN_ID}" \
+            --web-identity-token "$token" \
+            --duration-seconds 900 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)
+          read -r kid secret session <<< "$credentials"
+          echo "::add-mask::$secret"
+          echo "::add-mask::$session"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$secret"
+            echo "AWS_SESSION_TOKEN=$session"
+          } >> "$GITHUB_ENV"
+      - name: Potwierdz konto i region
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+          test "$AWS_REGION" = "eu-central-1"
+      - name: Wypchnij pod niezmiennym tagiem i zapisz digest
+        run: |
+          set -euo pipefail
+          registry="${EXPECTED_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          tag="pilot-${GITHUB_SHA::12}"
+          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+               --image-ids imageTag="$tag" >/dev/null 2>&1; then
+            echo "Tag $tag juz istnieje (repo IMMUTABLE), pomijam push."
+          else
+            aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+            docker tag notarai-confidential:pilot "$registry/$ECR_REPOSITORY:$tag"
+            docker push "$registry/$ECR_REPOSITORY:$tag"
+            docker logout "$registry"
+          fi
+          digest=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$tag" --query 'imageDetails[0].imageDigest' --output text)
+          {
+            echo "### Obraz guest pilota"
+            echo "- tag: \`$tag\`"
+            echo "- digest: \`$digest\`"
+            echo "- URI: \`$registry/$ECR_REPOSITORY@$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
