@@ -130,9 +130,12 @@ def _verify_task(ecs, config: DispatcherConfig) -> None:
     launch = (provider[0].get("managedInstancesProvider") or {}).get(
         "instanceLaunchTemplate"
     ) or {}
+    instance_network = launch.get("networkConfiguration") or {}
     if (provider[0].get("status") != "ACTIVE" or
-            launch.get("nitroEnclavesEnabled") is not True):
-        raise UnsafeDispatch("Nitro-capable instances unavailable")
+            launch.get("nitroEnclavesEnabled") is not True or
+            instance_network.get("securityGroups") != [config.security_group] or
+            config.subnet not in (instance_network.get("subnets") or [])):
+        raise UnsafeDispatch("Nitro capacity provider is outside private pilot network")
 
 
 def _active_guest_count(ecs, config: DispatcherConfig) -> int:
