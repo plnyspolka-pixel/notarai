@@ -309,10 +309,10 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 `docs/testy-z-notariuszem-ksiegi.md`.
 
-## NA-14. Nitro Confidential Browser — test sprzętowy i formularz fikcyjny
+## NA-15. Nitro Confidential Browser — test sprzętowy i formularz fikcyjny
 
 - **Status:** czeka
 - **Brakuje:** dostępu wdrożeniowego do AWS ECS Managed Instances eu-central-1, stworzonego capacity provider z Nitro Sandboxes oraz klucza KMS z polityką PCR17; nie przesyłać kluczy do rozmowy.
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
-- **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
+- **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`, `confidential/pilot_preflight.py`, `scripts/confidential_pilot_run.py` (PR #52, read-only preflight).
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
