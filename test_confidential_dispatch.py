@@ -92,7 +92,13 @@ class ECSFake:
         return {"capacityProviders": [{
             "name": FAMILY, "status": "ACTIVE",
             "managedInstancesProvider": {
-                "instanceLaunchTemplate": {"nitroEnclavesEnabled": True}
+                "instanceLaunchTemplate": {
+                    "nitroEnclavesEnabled": True,
+                    "networkConfiguration": {
+                        "subnets": [config().subnet],
+                        "securityGroups": [config().security_group],
+                    },
+                },
             },
         }]}
 
@@ -265,6 +271,21 @@ def test_unapproved_task_definition_blocks_lease_and_launch(modify):
     with pytest.raises(UnsafeDispatch):
         tick(ecs=ecs, ddb=ddb)
     assert ddb.item is None and not ecs.calls
+
+
+def test_capacity_provider_with_broad_or_wrong_sg_is_rejected():
+    ecs = ECSFake()
+    original = ecs.describe_capacity_providers
+    def wrong_provider(**kwargs):
+        payload = original(**kwargs)
+        payload["capacityProviders"][0]["managedInstancesProvider"][
+            "instanceLaunchTemplate"
+        ]["networkConfiguration"]["securityGroups"] = ["sg-fffffffffffffffff"]
+        return payload
+    ecs.describe_capacity_providers = wrong_provider
+    with pytest.raises(UnsafeDispatch, match="private"):
+        tick(ecs=ecs)
+    assert not ecs.calls
 
 
 def test_invalid_target_blocks_without_aws():
