@@ -74,7 +74,8 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
               vpc: str | None = None, route_table: str | None = None,
               guest_sg: str | None = None, endpoint_sg: str | None = None,
               s3_prefix: str | None = None,
-              dynamodb_prefix: str | None = None) -> bool:
+              dynamodb_prefix: str | None = None,
+              shared_compute: bool = False) -> bool:
     if (not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant)
             or not _SUBNET.fullmatch(subnet) or not _JOB.fullmatch(job_id)):
         raise ValueError("invalid pilot configuration")
@@ -88,20 +89,41 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         raise RuntimeError("private network proof required before AWS task launch")
     # No broad base-stack SG may be used for the real test. Independently
     # inspect the VPC/subnet/route table and restrictive endpoints first.
-    from scripts.verify_confidential_private_network import verify
-    verify(
-        account=account, profile=profile, vpc=vpc, subnet=subnet,
-        route_table=route_table, guest_sg=guest_sg,
-        endpoint_sg=endpoint_sg, s3_prefix=s3_prefix,
-        dynamodb_prefix=dynamodb_prefix, check=True,
-    )
+    if type(shared_compute) is not bool:
+        raise RuntimeError("invalid shared compute selector")
+    if shared_compute:
+        # Live read-only verification proves the single, tenant-neutral VPC
+        # stack, AWS-owned gateway prefixes and required PrivateLink services.
+        from scripts.verify_confidential_shared_fabric import verify as verify_shared
+        verify_shared(profile=profile, account=account, check=True)
+        fabric = outputs(profile, "notarai-confidential-shared-fabric")
+        if (fabric.get("SharedVpcId") != vpc or
+                fabric.get("SharedPrivateSubnetId") != subnet or
+                fabric.get("SharedRouteTableId") != route_table or
+                fabric.get("SharedRuntimeSecurityGroupId") != guest_sg or
+                fabric.get("SharedEndpointSecurityGroupId") != endpoint_sg):
+            raise RuntimeError("shared endpoint fabric does not match submitted network")
+    else:
+        from scripts.verify_confidential_private_network import verify
+        verify(
+            account=account, profile=profile, vpc=vpc, subnet=subnet,
+            route_table=route_table, guest_sg=guest_sg,
+            endpoint_sg=endpoint_sg, s3_prefix=s3_prefix,
+            dynamodb_prefix=dynamodb_prefix, check=True,
+        )
     if aws(profile, ["sts", "get-caller-identity"]).get("Account") != account:
         raise RuntimeError("AWS account mismatch")
     suffix = f"notarai-confidential-{tenant}"
-    base = outputs(profile, "notarai-confidential-capacity-base")
+    compute = "notarai-confidential-shared" if shared_compute else suffix
+    base = outputs(
+        profile,
+        "notarai-confidential-shared-capacity" if shared_compute
+        else "notarai-confidential-capacity-base",
+    )
     stack = outputs(profile, "notarai-confidential-task")
     stage = outputs(profile, "notarai-confidential-staging")
-    if base.get("ClusterName") != suffix:
+    expected_key = "SharedClusterName" if shared_compute else "ClusterName"
+    if base.get(expected_key) != compute:
         raise RuntimeError("unexpected ECS cluster")
     task_def = stack.get("TaskDefinitionArn", "")
     if not task_def.startswith(
@@ -117,7 +139,7 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         profile, ["ecs", "describe-task-definition", "--task-definition", task_def]
     )
     capacity_response = aws(
-        profile, ["ecs", "describe-capacity-providers", "--capacity-providers", suffix]
+        profile, ["ecs", "describe-capacity-providers", "--capacity-providers", compute]
     )
     policy_response = aws(
         profile, ["kms", "get-key-policy", "--key-id", kms_arn,
@@ -130,12 +152,13 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
             account=account, tenant=tenant, task_arn=task_def,
             kms_key_arn=kms_arn, bucket=stage["BucketName"],
             queue_url=stage["QueueUrl"], expected_pcr17=guest_pcr17,
+            shared_pool=shared_compute,
         )
     except (KeyError, ValueError, TypeError, PilotPreflightRejected) as exc:
         raise RuntimeError("confidential pilot preflight rejected launch") from exc
 
     sg = guest_sg
-    if sg == base.get("InstanceSecurityGroupId"):
+    if not shared_compute and sg == base.get("InstanceSecurityGroupId"):
         raise RuntimeError("broad bootstrap security group cannot launch Nitro pilot")
     actual_groups = (
         capacity_response.get("capacityProviders", [{}])[0]
@@ -151,9 +174,9 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         "assignPublicIp": "DISABLED",
     }}
     tasks = aws(profile, [
-        "ecs", "run-task", "--cluster", suffix,
+        "ecs", "run-task", "--cluster", compute,
         "--task-definition", task_def,
-        "--capacity-provider-strategy", f"capacityProvider={suffix},weight=1",
+        "--capacity-provider-strategy", f"capacityProvider={compute},weight=1",
         "--network-configuration", json.dumps(networking),
         "--count", "1",
     ])
@@ -168,12 +191,12 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         raise RuntimeError("task was not launched with required confidential attestation")
     # AWS waiter requires additional time; never busy-loop indefinitely.
     subprocess.run(
-        ["aws", "ecs", "wait", "tasks-stopped", "--cluster", suffix, "--tasks", arn,
+        ["aws", "ecs", "wait", "tasks-stopped", "--cluster", compute, "--tasks", arn,
          "--profile", profile, "--region", _REGION, "--no-cli-pager"],
         check=True, capture_output=True, text=True, timeout=900,
     )
     report = aws(profile, [
-        "ecs", "describe-tasks", "--cluster", suffix, "--tasks", arn
+        "ecs", "describe-tasks", "--cluster", compute, "--tasks", arn
     ])
     current = report["tasks"][0]
     if current.get("trustedExecutionSummary", {}).get("isolationMode") != "CONFIDENTIAL_SANDBOX":
@@ -212,6 +235,8 @@ def main():
     p.add_argument("--endpoint-sg")
     p.add_argument("--s3-prefix")
     p.add_argument("--dynamodb-prefix")
+    p.add_argument("--shared-compute", action="store_true",
+                   help="Explicitly use tenant-neutral regional ECS shared fabric")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     run_pilot(
@@ -220,6 +245,7 @@ def main():
         vpc=args.vpc, route_table=args.route_table,
         guest_sg=args.guest_sg, endpoint_sg=args.endpoint_sg,
         s3_prefix=args.s3_prefix, dynamodb_prefix=args.dynamodb_prefix,
+        shared_compute=args.shared_compute,
     )
 
 
