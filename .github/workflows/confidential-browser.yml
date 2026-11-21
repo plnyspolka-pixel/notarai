@@ -48,6 +48,8 @@ jobs:
           # that the precise expected property is present.
           cfn-lint --regions eu-central-1 --ignore-checks E3002 \
             --template infra/notarai-confidential-task.yaml
+      - name: Offline smoke CLI pilota (bez AWS)
+        run: python scripts/confidential_pilot_run.py --help >/dev/null
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
