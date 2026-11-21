@@ -14,6 +14,8 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub "ntr-cf-${TenantId}-${AWS::AccountId}-${AWS::Region}"
+      VersioningConfiguration:
+        Status: Enabled
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
