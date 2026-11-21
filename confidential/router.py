@@ -257,3 +257,31 @@ def control_room_jobs(request: Request):
     except ControlRoomRejected:
         raise HTTPException(503, "Podglad operacji AUTO jest chwilowo niedostepny.") from None
     return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/control/jobs/{job_id}/history")
+def control_room_history(request: Request, job_id: str):
+    """Notary-only operational journal. NOT an official portal receipt."""
+    import boto3
+    import autoryzacja
+    from confidential.control_room import authorized_notary
+    from confidential.event_journal import DynamoJobJournal, JournalRejected
+
+    tenant = _scope(request)
+    person = autoryzacja._osoba_w_kancelarii(
+        tenant, getattr(request.state, "email", "")
+    )
+    if not authorized_notary(person):
+        raise HTTPException(403, "Historia AUTO wymaga uprawnien notariusza.")
+    if not isinstance(job_id, str) or not _ID.fullmatch(job_id):
+        raise HTTPException(400, "Nieprawidlowe ID zadania.")
+    if list(request.query_params.multi_items()):
+        raise HTTPException(400, "Historia AUTO nie akceptuje parametrow.")
+    try:
+        data = DynamoJobJournal(
+            boto3.client("dynamodb", region_name="eu-central-1"),
+            tenant=tenant,
+        ).for_job(job_id)
+    except JournalRejected:
+        raise HTTPException(503, "Historia AUTO jest niedostepna.") from None
+    return JSONResponse(data, headers={"Cache-Control": "no-store"})
