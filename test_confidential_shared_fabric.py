@@ -204,3 +204,124 @@ def test_shared_dispatch_cloudformation_stays_deny_by_default():
     run_rule = next(x for x in rule if x["Sid"] == "StartOnlyPinnedTask")
     assert run_rule["Resource"] == {"Ref": "TaskDefinitionArn"}
     assert "ecs:cluster" in run_rule["Condition"]["ArnEquals"]
+
+
+def _mock_aws_inventory():
+    return {
+        "account": ACCOUNT,
+        "ids": {
+            "VpcId": "vpc-0123456789abcdef0",
+            "SubnetId": SUBNET,
+            "RouteTableId": "rtb-0123456789abcdef0",
+            "RuntimeGroupId": SG,
+            "EndpointGroupId": "sg-11111111111111111",
+            "S3Prefix": "pl-0123456789abcdef0",
+            "DynamoDbPrefix": "pl-11111111111111111",
+        },
+    }
+
+
+def _inventory():
+    data = _mock_aws_inventory()
+    ids = data["ids"]
+    data.update({
+        "vpcs": [{"VpcId": ids["VpcId"], "State": "available",
+                  "IsDefault": False}],
+        "subnets": [{"VpcId": ids["VpcId"], "SubnetId": SUBNET,
+                     "MapPublicIpOnLaunch": False}],
+        "route_tables": [{
+            "VpcId": ids["VpcId"],
+            "RouteTableId": ids["RouteTableId"],
+            "Associations": [{"SubnetId": SUBNET}],
+            "Routes": [
+                {"DestinationCidrBlock": "10.253.0.0/16", "GatewayId": "local"},
+                {"DestinationPrefixListId": ids["S3Prefix"],
+                 "VpcEndpointId": "vpce-0123456789abcdef0"},
+                {"DestinationPrefixListId": ids["DynamoDbPrefix"],
+                 "VpcEndpointId": "vpce-11111111111111111"},
+            ],
+        }],
+        "security_groups": [
+            {"GroupId": SG, "VpcId": ids["VpcId"], "IpPermissions": [],
+             "IpPermissionsEgress": [
+                 {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+                  "UserIdGroupPairs": [{"GroupId": ids["EndpointGroupId"]}]},
+                 {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+                  "PrefixListIds": [{"PrefixListId": ids["S3Prefix"]}]},
+                 {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+                  "PrefixListIds": [{"PrefixListId": ids["DynamoDbPrefix"]}]},
+             ]},
+            {"GroupId": ids["EndpointGroupId"], "VpcId": ids["VpcId"],
+             "IpPermissions": [
+                 {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+                  "UserIdGroupPairs": [{"GroupId": SG}]}
+             ]},
+        ],
+        "aws_prefix_lists": [
+            {"PrefixListId": ids["S3Prefix"],
+             "PrefixListName": "com.amazonaws.eu-central-1.s3",
+             "OwnerId": "AWS"},
+            {"PrefixListId": ids["DynamoDbPrefix"],
+             "PrefixListName": "com.amazonaws.eu-central-1.dynamodb",
+             "OwnerId": "AWS"},
+        ],
+        "endpoints": [
+            {"VpcId": ids["VpcId"],
+             "ServiceName": "com.amazonaws.eu-central-1." + service,
+             "VpcEndpointType": "Interface", "State": "available",
+             "PrivateDnsEnabled": True,
+             "SubnetIds": [SUBNET],
+             "Groups": [{"GroupId": ids["EndpointGroupId"]}]}
+            for service in REQUIRED
+        ],
+    })
+    return data
+
+
+def test_live_metadata_validator_accepts_only_one_shared_private_fabric():
+    from confidential.shared_fabric import validate_fabric
+    actual = validate_fabric(**_inventory())
+    assert actual["network"] == "shared"
+    assert actual["tenant_specific_networks"] == 0
+    assert actual["can_submit"] is False
+    assert actual["interface_services"] == sorted(REQUIRED)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda d: d["vpcs"][0].update(IsDefault=True),
+    lambda d: d["subnets"][0].update(MapPublicIpOnLaunch=True),
+    lambda d: d["route_tables"][0]["Routes"].append(
+        {"DestinationCidrBlock": "0.0.0.0/0", "NatGatewayId": "nat-untrusted"}
+    ),
+    lambda d: d["route_tables"][0]["Routes"].append(
+        {"DestinationCidrBlock": "10.20.0.0/16", "TransitGatewayId": "tgw-untrusted"}
+    ),
+    lambda d: d["security_groups"][0]["IpPermissions"].append(
+        {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443}
+    ),
+    lambda d: d["security_groups"][0]["IpPermissionsEgress"].append(
+        {"IpProtocol": "-1", "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}
+    ),
+    lambda d: d["security_groups"][0]["IpPermissionsEgress"][0][
+        "UserIdGroupPairs"][0].update(GroupId="sg-99999999999999999"),
+    lambda d: d["aws_prefix_lists"][0].update(OwnerId="untrusted"),
+    lambda d: d["endpoints"].pop(),
+    lambda d: d["endpoints"][0].update(PrivateDnsEnabled=False),
+    lambda d: d["endpoints"][0].update(State="pending"),
+])
+def test_unapproved_public_routes_and_endpoint_drift_fail_closed(mutate):
+    import copy
+    from confidential.shared_fabric import validate_fabric, SharedFabricRejected
+    data = copy.deepcopy(_inventory())
+    mutate(data)
+    with pytest.raises(SharedFabricRejected):
+        validate_fabric(**data)
+
+
+def test_no_aws_calls_until_explicit_shared_preflight_check():
+    from scripts.verify_confidential_shared_fabric import verify
+
+    def reject_session(**kwargs):
+        raise AssertionError("unexpected AWS call")
+    assert verify(profile="test", account=ACCOUNT,
+                  session_factory=reject_session)["aws_calls"] == 0
