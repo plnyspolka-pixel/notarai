@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 
 router = APIRouter(prefix="/api/confidential", tags=["confidential"])
 _MAX_BODY = 35 * 1024 * 1024
@@ -100,12 +101,24 @@ async def store(request: Request, case_id: str, object_id: str):
     return JSONResponse({"stored": True}, headers={"Cache-Control": "no-store"})
 
 
-@router.post("/preview/{case_id}/{object_id}")
-def queue_preview(request: Request, case_id: str, object_id: str):
-    """Queue a PREVIEW-only job for a specifically configured test tenant.
+@router.get("/policy")
+def automatic_policy(request: Request):
+    """Read-only server policy for a signed-in confidential pilot tenant.
 
-    This never starts an ECS task, submits a form, or shares plaintext.
-    The isolated ECS task must be started by the separately provisioned runner.
+    This endpoint exposes no toggle that could enable filing or signatures.
+    """
+    _scope(request)
+    return JSONResponse(
+        DEFAULT_AUTO.public(), headers={"Cache-Control": "no-store"}
+    )
+
+
+@router.post("/preview/{case_id}/{object_id}")
+async def queue_preview(request: Request, case_id: str, object_id: str):
+    """AUTO is the default and the *only* accepted pilot preparation mode.
+
+    Body, submit flags and supervised mode are rejected before any AWS call.
+    It never signs, clicks Submit, sends to a portal, or shares plaintext.
     """
     import uuid
     import boto3
@@ -113,6 +126,15 @@ def queue_preview(request: Request, case_id: str, object_id: str):
 
     tenant = _scope(request)
     key = _key(tenant, case_id, object_id)
+    # Never silently ignore `{"submit": true}`, `mode=supervised` or
+    # any future/unknown parameter. Parsing is strict and fail-closed.
+    try:
+        policy = validate_preview_options(request.query_params, has_body=False)
+        async for part in request.stream():
+            if part:
+                raise UnsafeAutoRequest("preview body must be empty")
+    except UnsafeAutoRequest:
+        raise HTTPException(400, "Dostepne jest tylko AUTO bez wysylania i bez danych w body.")
     if tenant != os.getenv("PIECZAPP_CONFIDENTIAL_JOB_TENANT"):
         raise HTTPException(403, "Kolejka nie jest przypisana do tej kancelarii.")
     queue_url = os.getenv("PIECZAPP_CONFIDENTIAL_JOB_QUEUE_URL", "")
@@ -137,7 +159,9 @@ def queue_preview(request: Request, case_id: str, object_id: str):
         options.update(MessageGroupId=tenant, MessageDeduplicationId=job_id)
     sqs.send_message(**options)
     return JSONResponse(
-        {"queued": True, "job_id": job_id, "mode": "preview-only"},
+        {"queued": True, "job_id": job_id, "mode": policy.mode,
+         "operation": "preview-only", "thinking_enabled": False,
+         "can_submit": False},
         status_code=202, headers={"Cache-Control": "no-store"},
     )
 
@@ -191,4 +215,7 @@ def preview_status(request: Request, job_id: str):
         result["submitted"] is not False
     ):
         raise HTTPException(500, "Nieprawidlowy status poufnego zadania.")
-    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {**result, "mode": "auto", "can_submit": False},
+        headers={"Cache-Control": "no-store"}
+    )
