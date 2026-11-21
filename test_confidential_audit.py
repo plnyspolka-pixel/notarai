@@ -68,11 +68,14 @@ class Session:
     def __init__(self, account=ACCOUNT, status="queued"):
         self.ddb = FakeDdb()
         ledger = PreviewJobLedger(self.ddb, tenant=TENANT)
-        ledger.create(job_id=JOB, case_id="case01", object_id="obj01", now=100)
+        ledger.create(
+            job_id=JOB, case_id="case01", object_id="obj01",
+            s3_version="v000001", now=100,
+        )
         if status == "preview_completed":
             ticket = ledger.claim(
                 job_id=JOB, case_id="case01", object_id="obj01",
-                token="a" * 32, now=101,
+                s3_version="v000001", token="a" * 32, now=101,
             )
             ledger.complete(job_id=JOB, token=ticket.token)
         self.clients = {
