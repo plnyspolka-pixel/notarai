@@ -45,6 +45,7 @@ def _one(data: Mapping, field: str) -> dict:
 def validate_private_egress(
     *, vpc_id: str, subnet_id: str, private_route_table_id: str,
     guest_sg_id: str, endpoint_sg_id: str, s3_prefix_list_id: str,
+    dynamodb_prefix_list_id: str,
     subnet_response: Mapping, route_response: Mapping,
     group_response: Mapping, endpoints_response: Mapping,
 ) -> None:
@@ -52,6 +53,7 @@ def validate_private_egress(
         (vpc_id, "vpc-"), (subnet_id, "subnet-"),
         (private_route_table_id, "rtb-"), (guest_sg_id, "sg-"),
         (endpoint_sg_id, "sg-"), (s3_prefix_list_id, "pl-"),
+        (dynamodb_prefix_list_id, "pl-"),
     ):
         _require(_id(value, prefix), "unexpected pilot network identifier")
     subnet = _one(subnet_response, "Subnets")
@@ -70,13 +72,14 @@ def validate_private_egress(
         _require(item.get("DestinationCidrBlock") != "0.0.0.0/0" and
                  item.get("DestinationIpv6CidrBlock") != "::/0",
                  "pilot subnet has unrestricted default egress")
-    _require(
-        any(item.get("DestinationPrefixListId") == s3_prefix_list_id and
-            isinstance(item.get("VpcEndpointId"), str) and
-            item["VpcEndpointId"].startswith("vpce-")
-            for item in route.get("Routes", [])),
-        "S3 gateway endpoint route unavailable",
-    )
+    for prefix in (s3_prefix_list_id, dynamodb_prefix_list_id):
+        _require(
+            any(item.get("DestinationPrefixListId") == prefix and
+                isinstance(item.get("VpcEndpointId"), str) and
+                item["VpcEndpointId"].startswith("vpce-")
+                for item in route.get("Routes", [])),
+            "required gateway endpoint route unavailable",
+        )
 
     groups = group_response.get("SecurityGroups")
     _require(isinstance(groups, list) and len(groups) == 2,
@@ -89,8 +92,8 @@ def validate_private_egress(
              "cross-VPC security group")
     _require(not guest.get("IpPermissions"), "guest security group permits inbound")
     egress = guest.get("IpPermissionsEgress")
-    _require(isinstance(egress, list) and len(egress) == 2,
-             "guest outbound must have exactly two PrivateLink/S3 rules")
+    _require(isinstance(egress, list) and len(egress) == 3,
+             "guest outbound must have exactly three PrivateLink/gateway rules")
     seen = set()
     for rule in egress:
         _require(rule.get("IpProtocol") == "tcp" and
@@ -107,10 +110,11 @@ def validate_private_egress(
                      "guest egress points to external security group")
             seen.add("interface")
         if prefixes:
-            _require(prefixes[0].get("PrefixListId") == s3_prefix_list_id,
-                     "guest S3 prefix list mismatch")
-            seen.add("s3")
-    _require(seen == {"interface", "s3"},
+            prefix = prefixes[0].get("PrefixListId")
+            _require(prefix in (s3_prefix_list_id, dynamodb_prefix_list_id),
+                     "guest gateway prefix list mismatch")
+            seen.add("s3" if prefix == s3_prefix_list_id else "dynamodb")
+    _require(seen == {"interface", "s3", "dynamodb"},
              "missing or duplicated private egress rule")
     ingress = endpoint.get("IpPermissions") or []
     _require(len(ingress) == 1 and
