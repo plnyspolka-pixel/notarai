@@ -101,12 +101,26 @@ def _verify_task(ecs, config: DispatcherConfig) -> None:
         raise UnsafeDispatch("unverified Nitro guest task definition")
     env = guest.get("environment") or []
     values = {v.get("name"): v.get("value") for v in env if isinstance(v, dict)}
-    if len(env) != len(values) or values.get("NOTARAI_CONFIDENTIAL_REQUIRED") != "1":
+    required_env = {
+        "NOTARAI_CONFIDENTIAL_REQUIRED", "NOTARAI_CONFIDENTIAL_TENANT",
+        "NOTARAI_CONFIDENTIAL_BUCKET", "NOTARAI_CONFIDENTIAL_QUEUE_URL",
+        "NOTARAI_CONFIDENTIAL_KMS_KEY_ARN", "AWS_REGION",
+        "HOME", "XDG_CACHE_HOME", "TMPDIR",
+    }
+    if (len(env) != len(required_env) or set(values) != required_env or
+            values.get("NOTARAI_CONFIDENTIAL_REQUIRED") != "1"):
         raise UnsafeDispatch("guest environment is not pinned")
+    kms = values["NOTARAI_CONFIDENTIAL_KMS_KEY_ARN"]
+    bucket = values["NOTARAI_CONFIDENTIAL_BUCKET"]
     if (values.get("NOTARAI_CONFIDENTIAL_TENANT") != config.tenant or
             values.get("NOTARAI_CONFIDENTIAL_QUEUE_URL") != config.queue_url or
-            values.get("AWS_REGION") != REGION):
-        raise UnsafeDispatch("guest is pointed at another queue or tenant")
+            values.get("AWS_REGION") != REGION or
+            not isinstance(kms, str) or
+            not kms.startswith(f"arn:aws:kms:{REGION}:{config.account}:key/") or
+            not isinstance(bucket, str) or not re.fullmatch(
+                r"[a-z0-9][a-z0-9.-]{2,62}", bucket
+            )):
+        raise UnsafeDispatch("guest is pointed at another queue, key or tenant")
 
     provider = ecs.describe_capacity_providers(
         capacityProviders=[config.capacity_provider]
