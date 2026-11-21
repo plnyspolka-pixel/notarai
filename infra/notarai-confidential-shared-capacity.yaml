@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Shared NotarAI ECS Nitro compute control plane, not tenant-specific.
+  All kancelarie use one capacity pool, each task has own Nitro Sandbox,
+  task role, queue, attested KMS key and isolated ENI. No running tasks
+  or capacity provider is created by this stack.
+Resources:
+  SharedConfidentialCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: notarai-confidential-shared
+      ClusterSettings:
+        - Name: containerInsights
+          Value: disabled
+      Tags:
+        - Key: Project
+          Value: NotarAI
+        - Key: Scope
+          Value: confidential-regional-shared-pool
+  SharedManagedInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ecsInstanceRoleNotaraiConfidentialShared
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonECSInstanceRolePolicyForManagedInstances
+  SharedManagedInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: ecsInstanceProfileNotaraiConfidentialShared
+      Roles: [!Ref SharedManagedInstanceRole]
+  SharedManagedInfrastructureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-confidential-shared-infra
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForManagedInstances
+      Policies:
+        - PolicyName: PassOnlySharedManagedInstanceRole
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt SharedManagedInstanceRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ec2.amazonaws.com
+Outputs:
+  SharedClusterName:
+    Value: !Ref SharedConfidentialCluster
+  SharedInstanceProfileArn:
+    Value: !GetAtt SharedManagedInstanceProfile.Arn
+  SharedInfrastructureRoleArn:
+    Value: !GetAtt SharedManagedInfrastructureRole.Arn
