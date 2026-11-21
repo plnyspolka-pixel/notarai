@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
+from confidential.job_ledger import PreviewJobLedger, JobRejected
 
 router = APIRouter(prefix="/api/confidential", tags=["confidential"])
 _MAX_BODY = 35 * 1024 * 1024
@@ -153,11 +154,26 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
         "tenant_id": tenant, "case_id": case_id, "object_id": object_id,
         "job_id": job_id,
     }, separators=(",", ":"))
+    # Durable reservation MUST precede delivery. A job absent from this
+    # table can never cause Nitro to decrypt a document.
+    ledger = PreviewJobLedger(
+        boto3.client("dynamodb", region_name="eu-central-1"), tenant=tenant,
+    )
+    try:
+        ledger.create(job_id=job_id, case_id=case_id, object_id=object_id)
+    except JobRejected:
+        raise HTTPException(503, "Rejestr zadan nie jest dostepny.") from None
     sqs = boto3.client("sqs", region_name="eu-central-1")
     options = {"QueueUrl": queue_url, "MessageBody": metadata}
     if queue_url.endswith(".fifo"):
         options.update(MessageGroupId=tenant, MessageDeduplicationId=job_id)
-    sqs.send_message(**options)
+    try:
+        sqs.send_message(**options)
+    except Exception:
+        ledger.mark_queue_uncertain(job_id)
+        raise HTTPException(
+            503, "Wysylka do kolejki niepotwierdzona. Zadanie wymaga weryfikacji."
+        ) from None
     return JSONResponse(
         {"queued": True, "job_id": job_id, "mode": policy.mode,
          "operation": "preview-only", "thinking_enabled": False,
@@ -185,37 +201,16 @@ def retrieve(request: Request, case_id: str, object_id: str):
 
 @router.get("/jobs/{job_id}")
 def preview_status(request: Request, job_id: str):
-    """Read one tenant-scoped job completion marker (never its plaintext)."""
-    import magazyn
+    """Read tenant-bound durable metadata. Do not fetch/decrypt the document."""
+    import boto3
     tenant = _scope(request)
     if not _ID.fullmatch(job_id):
         raise HTTPException(400, "Nieprawidlowy identyfikator zadania.")
-    key = f"kancelarie/{tenant}/confidential-results/{job_id}.json"
-    try:
-        object_response = magazyn._klient_s3().get_object(
-            Bucket=_bucket(), Key=key
-        )
-        data = object_response["Body"].read(2048)
-    except Exception as exc:
-        if type(exc).__name__ in ("NoSuchKey", "ClientError"):
-            return JSONResponse(
-                {"job_id": job_id, "status": "pending"},
-                headers={"Cache-Control": "no-store"},
-            )
-        raise
-    try:
-        result = json.loads(data)
-    except (TypeError, ValueError):
-        raise HTTPException(500, "Niespojna informacja o wykonaniu zadania.")
-    if (
-        not isinstance(result, dict) or
-        set(result) != {"version", "job_id", "status", "fields_filled", "submitted"} or
-        result["job_id"] != job_id or
-        result["status"] != "preview_completed" or
-        result["submitted"] is not False
-    ):
-        raise HTTPException(500, "Nieprawidlowy status poufnego zadania.")
-    return JSONResponse(
-        {**result, "mode": "auto", "can_submit": False},
-        headers={"Cache-Control": "no-store"}
+    ledger = PreviewJobLedger(
+        boto3.client("dynamodb", region_name="eu-central-1"), tenant=tenant,
     )
+    try:
+        status = ledger.status(job_id)
+    except JobRejected:
+        raise HTTPException(404, "Zadanie nie jest dostepne.") from None
+    return JSONResponse(status, headers={"Cache-Control": "no-store"})
