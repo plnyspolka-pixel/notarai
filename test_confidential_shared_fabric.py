@@ -137,6 +137,13 @@ def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
     assert c.lease_table.endswith("pilot01")
 
     class SharedECS(ECSFake):
+        def __init__(self):
+            super().__init__()
+            self.definition["taskDefinition"]["containerDefinitions"][0]["image"] = (
+                f"{ACCOUNT}.dkr.ecr.eu-central-1.amazonaws.com/"
+                "notarai-confidential-shared@sha256:" + "f" * 64
+            )
+
         def describe_capacity_providers(self, **kwargs):
             assert kwargs == {"capacityProviders": [SHARED]}
             return {"capacityProviders": [{
@@ -188,6 +195,43 @@ def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
     wrong = replace(c, shared_pool=False)
     with pytest.raises(UnsafeDispatch):
         wrong.validate()
+
+
+def test_shared_ecr_digest_is_identical_for_distinct_tenant_tasks():
+    from scripts.render_confidential_taskdef import make_task
+    shared_img = (
+        f"{ACCOUNT}.dkr.ecr.eu-central-1.amazonaws.com/"
+        "notarai-confidential-shared@sha256:" + "a" * 64
+    )
+    def make(tenant):
+        return make_task(
+            ACCOUNT, tenant, shared_img,
+            f"arn:aws:kms:eu-central-1:{ACCOUNT}:key/12345678-abcd",
+            f"notarai-ciphertext-{tenant}",
+            f"https://sqs.eu-central-1.amazonaws.com/{ACCOUNT}/"
+            f"notarai-confidential-{tenant}.fifo",
+            shared_image=True,
+        )
+    one, two = make("pilot01"), make("pilot02")
+    assert one["containerDefinitions"][0]["image"] == shared_img
+    assert two["containerDefinitions"][0]["image"] == shared_img
+    assert one["taskRoleArn"] != two["taskRoleArn"]
+    assert one["family"] != two["family"]
+    assert one["containerDefinitions"][0]["environment"] != (
+        two["containerDefinitions"][0]["environment"]
+    )
+    with pytest.raises(ValueError):
+        make_task(
+            ACCOUNT, "pilot01", shared_img,
+            f"arn:aws:kms:eu-central-1:{ACCOUNT}:key/12345678-abcd",
+            "notarai-ciphertext-pilot01",
+            f"https://sqs.eu-central-1.amazonaws.com/{ACCOUNT}/"
+            "notarai-confidential-pilot01.fifo",
+        )
+    t = template("notarai-confidential-shared-ecr.yaml")
+    repo = t["Resources"]["SharedBrowserImage"]
+    assert repo["Properties"]["RepositoryName"] == "notarai-confidential-shared"
+    assert repo["Properties"]["ImageTagMutability"] == "IMMUTABLE"
 
 
 def test_shared_dispatch_cloudformation_stays_deny_by_default():
