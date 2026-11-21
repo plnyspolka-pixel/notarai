@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Synthetic NotarAI Confidential Browser: dedicated private endpoints and
+  guest outbound-only SG. No ECS tasks, no IAM changes, no production deploy.
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  PilotAcknowledgement:
+    Type: String
+    AllowedValues: ["dedicated-pilot-route-table"]
+    Description: Operator verifies subnet and route table serve ONLY isolated pilot
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  PilotRouteTableId:
+    Type: String
+    AllowedPattern: "^rtb-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: Dedicated pilot subnet route table ONLY; S3 gateway adds routes
+  S3GatewayPrefixListId:
+    Type: String
+    AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: AWS-managed com.amazonaws.eu-central-1.s3 prefix list, verify ID
+Resources:
+  GuestPrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Dedicated confidential pilot guest - outbound endpoints only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !GetAtt InterfaceEndpointSecurityGroup.GroupId
+          Description: AWS PrivateLink interface endpoints only
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId: !Ref S3GatewayPrefixListId
+          Description: S3 via dedicated gateway endpoint only
+      Tags:
+        - Key: Purpose
+          Value: notarai-synthetic-confidential-egress
+  InterfaceEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: AWS PrivateLink endpoint ENIs for confidential pilot
+      VpcId: !Ref VpcId
+  GuestToEndpointIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt InterfaceEndpointSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt GuestPrivateSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      Description: Confidential pilot guests to PrivateLink HTTPS
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Gateway
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      RouteTableIds:
+        - !Ref PilotRouteTableId
+  KmsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.kms"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  SqsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  EcsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  EcsAgentEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs-agent"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  EcsTelemetryEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs-telemetry"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  StsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sts"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+  LogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      SubnetIds: [!Ref PrivateSubnetId]
+      SecurityGroupIds: [!GetAtt InterfaceEndpointSecurityGroup.GroupId]
+      PrivateDnsEnabled: true
+Outputs:
+  PilotGuestSecurityGroupId:
+    Value: !GetAtt GuestPrivateSecurityGroup.GroupId
+  PilotEndpointSecurityGroupId:
+    Value: !GetAtt InterfaceEndpointSecurityGroup.GroupId
+  S3EndpointId:
+    Value: !Ref S3GatewayEndpoint
