@@ -1,0 +1,232 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI shared private Confidential Fabric (region eu-central-1).
+  ONE VPC and ONE set of AWS service endpoints across ALL notarial tenants.
+  No Internet Gateway, NAT, public IPs, tenants, documents or running tasks.
+Parameters:
+  SharedNetworkName:
+    Type: String
+    Default: notarai
+    AllowedPattern: "^[a-z][a-z0-9-]{1,18}$"
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Confirm supported ECS Nitro Managed Instances capacity in selected AZ
+  EnableStsEndpoint:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Enable only after packet/SDK audit proves inside-VPC STS calls
+  EnableLogsEndpoint:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Enable if host/guest really ships CloudWatch logs
+  EnableSignerEndpoint:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Only when using AWS Signer profile verification instead of pinned digest
+  S3PrefixListId:
+    Type: String
+    AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: Verify AWS-owned com.amazonaws.eu-central-1.s3 via EC2 DescribeManagedPrefixLists
+  DynamoDbPrefixListId:
+    Type: String
+    AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: Verify AWS-owned com.amazonaws.eu-central-1.dynamodb
+Conditions:
+  WithSts: !Equals [!Ref EnableStsEndpoint, "true"]
+  WithLogs: !Equals [!Ref EnableLogsEndpoint, "true"]
+  WithSigner: !Equals [!Ref EnableSignerEndpoint, "true"]
+Resources:
+  SharedVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.253.0.0/16
+      InstanceTenancy: default
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${SharedNetworkName}-confidential-shared-vpc"
+        - Key: Owner
+          Value: notarai-confidential-shared-fabric
+  SharedPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SharedVpc
+      CidrBlock: 10.253.1.0/24
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Ref AvailabilityZone
+      Tags:
+        - Key: Name
+          Value: !Sub "${SharedNetworkName}-confidential-shared-private"
+  SharedRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SharedVpc
+  SharedRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SharedPrivateSubnet
+      RouteTableId: !Ref SharedRouteTable
+  SharedEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTTPS AWS service endpoints for all NotarAI Nitro tasks
+      VpcId: !Ref SharedVpc
+      SecurityGroupEgress: []
+  SharedRuntimeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NO inbound, endpoint-only outbound, shared by Nitro task ENIs and ECS hosts
+      VpcId: !Ref SharedVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !Ref SharedEndpointSecurityGroup
+          Description: Only AWS PrivateLink endpoints
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId: !Ref S3PrefixListId
+          Description: S3 Gateway VPCE only
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId: !Ref DynamoDbPrefixListId
+          Description: DynamoDB Gateway VPCE only
+  SharedEndpointIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SharedEndpointSecurityGroup
+      SourceSecurityGroupId: !Ref SharedRuntimeSecurityGroup
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      Description: Allow only confidential worker and instance source SG
+  S3Gateway:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      RouteTableIds: [!Ref SharedRouteTable]
+  DynamoDbGateway:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Gateway
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      RouteTableIds: [!Ref SharedRouteTable]
+  KmsSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.kms"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  SqsSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  EcrApiSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  EcrDkrSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  EcsSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  EcsAgentSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs-agent"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  EcsTelemetrySharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs-telemetry"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  StsSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: WithSts
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sts"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  LogsSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: WithLogs
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+  SignerSharedEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: WithSigner
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref SharedVpc
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.signer"
+      SubnetIds: [!Ref SharedPrivateSubnet]
+      SecurityGroupIds: [!Ref SharedEndpointSecurityGroup]
+      PrivateDnsEnabled: true
+Outputs:
+  SharedVpcId:
+    Value: !Ref SharedVpc
+  SharedPrivateSubnetId:
+    Value: !Ref SharedPrivateSubnet
+  SharedRouteTableId:
+    Value: !Ref SharedRouteTable
+  SharedRuntimeSecurityGroupId:
+    Value: !Ref SharedRuntimeSecurityGroup
+  SharedEndpointSecurityGroupId:
+    Value: !Ref SharedEndpointSecurityGroup
+  SharedS3GatewayId:
+    Value: !Ref S3Gateway
+  SharedDynamoDbGatewayId:
+    Value: !Ref DynamoDbGateway
+  NetworkScope:
+    Value: regional-notarai-shared
