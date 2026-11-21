@@ -12,6 +12,11 @@ Parameters:
     Default: "false"
     AllowedValues: ["false", "true"]
     Description: Explicit operator opt-in after Nitro hardware validation
+  SharedCompute:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: Use one regional capacity provider and cluster across all kancelarie
   CodeBucket:
     Type: String
     Description: Operator-controlled artifact bucket in eu-central-1
@@ -41,6 +46,7 @@ Parameters:
     Description: Pilot Nitro task security group - egress to be tightened
 Conditions:
   EnableScheduler: !Equals [!Ref DispatchEnabled, "true"]
+  UseSharedPool: !Equals [!Ref SharedCompute, "true"]
 Resources:
   DispatchLeaseTable:
     Type: AWS::DynamoDB::Table
@@ -92,7 +98,10 @@ Resources:
               - Sid: ListOnlyPilotTasks
                 Effect: Allow
                 Action: ecs:ListTasks
-                Resource: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-${TenantId}"
+                Resource: !If
+                  - UseSharedPool
+                  - !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+                  - !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-${TenantId}"
               - Sid: ValidateEcsRuntime
                 Effect: Allow
                 Action:
@@ -106,7 +115,10 @@ Resources:
                 Resource: !Ref TaskDefinitionArn
                 Condition:
                   ArnEquals:
-                    ecs:cluster: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-${TenantId}"
+                    ecs:cluster: !If
+                      - UseSharedPool
+                      - !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+                      - !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-${TenantId}"
               - Sid: PassOnlyGuestTaskRoles
                 Effect: Allow
                 Action: iam:PassRole
@@ -136,8 +148,15 @@ Resources:
           NOTARAI_DISPATCH_ENABLED: !Ref DispatchEnabled
           NOTARAI_ACCOUNT: !Ref AWS::AccountId
           NOTARAI_TENANT: !Ref TenantId
-          NOTARAI_CLUSTER: !Sub "notarai-confidential-${TenantId}"
-          NOTARAI_CAPACITY_PROVIDER: !Sub "notarai-confidential-${TenantId}"
+          NOTARAI_CLUSTER: !If
+            - UseSharedPool
+            - notarai-confidential-shared
+            - !Sub "notarai-confidential-${TenantId}"
+          NOTARAI_CAPACITY_PROVIDER: !If
+            - UseSharedPool
+            - notarai-confidential-shared
+            - !Sub "notarai-confidential-${TenantId}"
+          NOTARAI_SHARED_POOL: !Ref SharedCompute
           NOTARAI_TASK_DEFINITION_ARN: !Ref TaskDefinitionArn
           NOTARAI_WORK_QUEUE_URL: !Ref WorkQueueUrl
           NOTARAI_PRIVATE_SUBNET: !Ref PrivateSubnetId
