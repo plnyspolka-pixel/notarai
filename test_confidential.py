@@ -182,8 +182,9 @@ def test_form_submit_requires_external_approval_and_restricts_fields():
         with pytest.raises(BlockedAction):
             await fill_form(page, form(), {"name": "Fictional"}, job_id="job-2", submit=True)
         assert not page.clicks
-        async def approve(job, form_id, digest):
-            return job == "job-2" and form_id == "fixture" and len(digest) == 64
+        async def approve(job, form_id, digest, origin):
+            return (job == "job-2" and form_id == "fixture" and
+                    len(digest) == 64 and origin == "https://forms.example.test")
         result = await fill_form(page, form(), {"name": "Fictional"}, job_id="job-2",
                                  submit=True, approve=approve, execution_mode="supervised")
         assert result.submitted and page.clicks == ["#submit"]
