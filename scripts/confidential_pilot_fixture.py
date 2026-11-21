@@ -110,16 +110,21 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     # boto3 uses the same configured profile and has native binary upload.
     import boto3
     sess = boto3.Session(profile_name=profile, region_name=REGION)
-    sess.client("s3").put_object(
+    uploaded = sess.client("s3").put_object(
         Bucket=bucket, Key=object_key, Body=object_body.encode("ascii"),
         ContentType="application/json", ServerSideEncryption="AES256",
     )
+    from confidential.job_ledger import validate_version_id
+    s3_version = validate_version_id(uploaded.get("VersionId"))
     job_id = uuid.uuid4().hex
     # Same ordered lifecycle as the SaaS API; a duplicate or unknown SQS
     # message cannot cause decryption in the verified Nitro guest.
     from confidential.job_ledger import PreviewJobLedger
     ledger = PreviewJobLedger(sess.client("dynamodb"), tenant=tenant)
-    ledger.create(job_id=job_id, case_id="pilot01", object_id="synthetic01")
+    ledger.create(
+        job_id=job_id, case_id="pilot01", object_id="synthetic01",
+        s3_version=s3_version,
+    )
     try:
         sess.client("sqs").send_message(
             QueueUrl=queue,
@@ -128,6 +133,7 @@ def create_fixture(*, profile: str, account: str, tenant: str,
             MessageBody=json.dumps({
                 "tenant_id": tenant, "case_id": "pilot01",
                 "object_id": "synthetic01", "job_id": job_id,
+                "s3_version": s3_version,
             }, separators=(",", ":")),
         )
     except Exception:
