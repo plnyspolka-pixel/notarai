@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
+
+from confidential.pilot_preflight import validate_preflight
 
 _REGION = "eu-central-1"
 _ACCOUNT = re.compile(r"\d{12}")
@@ -35,6 +38,32 @@ def outputs(profile: str, stack: str) -> dict[str, str]:
     return {x["OutputKey"]: x["OutputValue"] for x in stacks[0].get("Outputs", [])}
 
 
+def _verified_pcr17(profile: str, task_arn: str) -> str:
+    """Use the official AWS policy generator, never guess PCR17."""
+    env = dict(os.environ, AWS_PROFILE=profile, AWS_DEFAULT_REGION=_REGION)
+    for args in (
+        ["ecs-nitro-sandbox-genpolicy", "--check", "--task-definition", task_arn],
+        ["ecs-nitro-sandbox-genpolicy", "--task-definition", task_arn,
+         "--output", "pcrs"],
+    ):
+        try:
+            result = subprocess.run(
+                args, env=env, capture_output=True, text=True,
+                check=True, timeout=180,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError("official ECS attestation policy verification failed") from exc
+        if args[-1] == "pcrs":
+            match = re.search(
+                r'"kms:RecipientAttestation:PCR17"\\s*:\\s*"([0-9a-fA-F]{96})"',
+                result.stdout,
+            )
+            if match is None or match.group(1).lower() == "0" * 96:
+                raise RuntimeError("could not verify nonzero PCR17 from AWS generator")
+            return match.group(1).lower()
+    raise RuntimeError("attestation policy verification unavailable")
+
+
 def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
               job_id: str, apply: bool = False) -> bool:
     if (not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant)
@@ -56,6 +85,32 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         f"arn:aws:ecs:{_REGION}:{account}:task-definition/{suffix}:"
     ):
         raise RuntimeError("task definition not validated")
+    # Independent read-only checks run BEFORE any chargeable ECS task is launched.
+    from confidential.pilot_preflight import PilotPreflightRejected
+    key_stacks = outputs(profile, "notarai-confidential-demo-kms")
+    kms_arn = key_stacks.get("KeyArn", "")
+    guest_pcr17 = _verified_pcr17(profile, task_def)
+    task_response = aws(
+        profile, ["ecs", "describe-task-definition", "--task-definition", task_def]
+    )
+    capacity_response = aws(
+        profile, ["ecs", "describe-capacity-providers", "--capacity-providers", suffix]
+    )
+    policy_response = aws(
+        profile, ["kms", "get-key-policy", "--key-id", kms_arn,
+                  "--policy-name", "default"]
+    )
+    try:
+        key_policy = json.loads(policy_response["Policy"])
+        validate_preflight(
+            task_response, capacity_response, key_policy,
+            account=account, tenant=tenant, task_arn=task_def,
+            kms_key_arn=kms_arn, bucket=stage["BucketName"],
+            queue_url=stage["QueueUrl"], expected_pcr17=guest_pcr17,
+        )
+    except (KeyError, ValueError, TypeError, PilotPreflightRejected) as exc:
+        raise RuntimeError("confidential pilot preflight rejected launch") from exc
+
     sg = base["InstanceSecurityGroupId"]
     networking = {"awsvpcConfiguration": {
         "subnets": [subnet], "securityGroups": [sg],
