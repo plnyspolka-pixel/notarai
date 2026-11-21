@@ -39,6 +39,7 @@ def validate_preflight(
     bucket: str,
     queue_url: str,
     expected_pcr17: str,
+    shared_pool: bool = False,
 ) -> None:
     """Reject mismatched task, unpinned images, broad KMS grants and no-Nitro capacity."""
     _require(bool(_ACCOUNT.fullmatch(account) and _TENANT.fullmatch(tenant)),
@@ -127,7 +128,10 @@ def validate_preflight(
     _require(isinstance(providers, list) and len(providers) == 1,
              "wrong capacity provider")
     provider = providers[0]
-    _require(provider.get("name") == prefix and provider.get("status") == "ACTIVE",
+    _require(type(shared_pool) is bool, "invalid compute sharing policy")
+    expected_provider = "notarai-confidential-shared" if shared_pool else prefix
+    _require(provider.get("name") == expected_provider and
+             provider.get("status") == "ACTIVE",
              "Nitro capacity provider unavailable")
     launch = (provider.get("managedInstancesProvider") or {}).get(
         "instanceLaunchTemplate"
