@@ -58,6 +58,38 @@
     return result;
   }
 
+  async function fetchHistory(jobId) {
+    if (typeof jobId !== 'string' || !ID.test(jobId)) {
+      throw new TypeError('Invalid job ID for history');
+    }
+    const response = await fetch(
+      '/api/confidential/control/jobs/' + encodeURIComponent(jobId) + '/history', {
+        method: 'GET', credentials: 'same-origin', cache: 'no-store',
+        headers: {Accept: 'application/json'}
+      }
+    );
+    if (!response.ok) throw new Error('AUTO history unavailable');
+    const data = await response.json();
+    if (!data || data.version !== 1 || data.read_only !== true ||
+        data.job_id !== jobId || !Array.isArray(data.events) ||
+        data.events.length > 20 || typeof data.more_available !== 'boolean') {
+      throw new Error('Unsafe AUTO history response');
+    }
+    const validStates = [...ALLOWED, 'none', 'deleted'];
+    for (const event of data.events) {
+      if (!event || !validStates.includes(event.from) ||
+          !validStates.includes(event.to) ||
+          !Number.isSafeInteger(event.timestamp) || event.timestamp < 0 ||
+          !Number.isInteger(event.attempts) || event.attempts < 0 ||
+          event.attempts > 3 ||
+          typeof event.event !== 'string' ||
+          !/^[a-f0-9]{12}$/.test(event.event)) {
+        throw new Error('Untrusted AUTO history item');
+      }
+    }
+    return data;
+  }
+
   function line(parent, text, className) {
     const element = document.createElement('span');
     if (className) element.className = className;
@@ -110,6 +142,40 @@
         line(item, REASONS[job.attention_reason] || 'Sprawdź stan zadania',
           'ntr-ops-warning');
       }
+      const historyButton = document.createElement('button');
+      historyButton.type = 'button';
+      historyButton.textContent = 'Historia';
+      historyButton.setAttribute('aria-label',
+        'Pokaż historię zadania ' + suffix);
+      historyButton.addEventListener('click', async () => {
+        historyButton.disabled = true;
+        try {
+          const data = await fetchHistory(job.job_id);
+          const existing = item.querySelector('.ntr-ops-history');
+          if (existing) existing.remove();
+          const detail = document.createElement('div');
+          detail.className = 'ntr-ops-history';
+          if (data.events.length === 0) {
+            line(detail, 'Brak zapisanych zdarzeń', 'ntr-ops-footnote');
+          }
+          for (const event of data.events) {
+            const from = event.from === 'none' ? 'start' :
+              (NAMES[event.from] || 'Usunięte');
+            const to = NAMES[event.to] || 'Usunięte';
+            const when = new Date(event.timestamp * 1000).toLocaleString('pl-PL');
+            line(detail, when + ' · ' + from + ' → ' + to,
+              'ntr-ops-history-event');
+          }
+          item.appendChild(detail);
+        } catch (_) {
+          const existing = item.querySelector('.ntr-ops-history');
+          if (existing) existing.remove();
+          line(item, 'Historia chwilowo niedostępna', 'ntr-ops-footnote');
+        } finally {
+          historyButton.disabled = false;
+        }
+      });
+      item.appendChild(historyButton);
       items.appendChild(item);
     });
     section.appendChild(items);
@@ -137,7 +203,7 @@
   }
 
   window.NotarAIConfidentialControlRoom = Object.freeze({
-    fetchJobs, refresh: refreshPanel
+    fetchJobs, fetchHistory, refresh: refreshPanel
   });
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', refreshPanel, {once: true});
