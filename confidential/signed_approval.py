@@ -350,8 +350,13 @@ class SignedApprovalGate:
         self._document = document_digest
         self._now = now
 
-    async def callback(self, job_id: str, form_id: str, form_digest: str) -> bool:
-        if job_id != self._job or form_id != self._form:
+    async def callback(
+        self, job_id: str, form_id: str, form_digest: str, observed_origin: str
+    ) -> bool:
+        if (
+            job_id != self._job or form_id != self._form
+            or observed_origin != self._origin
+        ):
             raise ApprovalRejected("approval callback scope mismatch")
         verify_and_consume(
             self._signed, registry=self._registry, ledger=self._ledger,
