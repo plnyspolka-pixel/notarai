@@ -20,6 +20,7 @@ nigdy adresow klientow. W logach - tylko domena dostawcy i status.
 import base64
 import hashlib
 import imaplib
+import ipaddress
 import logging
 import os
 import re
@@ -146,8 +147,12 @@ def autoconfig(dom: str) -> dict | None:
     adresy = [f"https://autoconfig.{dom}/mail/config-v1.1.xml",
               f"https://{dom}/.well-known/autoconfig/mail/config-v1.1.xml",
               f"https://autoconfig.thunderbird.net/v1.1/{dom}"]
-    with httpx.Client(timeout=CZAS_PROBY, transport=TRANSPORT, follow_redirects=True) as klient:
+    # Bez podazania za przekierowaniami i tylko do adresow publicznych: domene
+    # podaje uzytkownik, a zapytanie wychodzi z naszej sieci.
+    with httpx.Client(timeout=CZAS_PROBY, transport=TRANSPORT, follow_redirects=False) as klient:
         for adres in adresy:
+            if not host_publiczny(httpx.URL(adres).host):
+                continue
             try:
                 odp = klient.get(adres)
             except httpx.HTTPError:
@@ -230,7 +235,29 @@ def wykryj(email: str) -> dict:
 # --- polaczenie IMAP --------------------------------------------------------------
 
 
+PORTY_IMAP = (993, 143)
+
+
+def host_publiczny(host: str) -> bool:
+    """False, gdy nazwa wskazuje adres wewnetrzny (siec prywatna, petla,
+    metadane chmury). Serwer nie moze sluzyc do zagladania we wlasna siec.
+    Nazwa, ktorej DNS nie zna, przechodzi - polaczenie i tak sie nie uda."""
+    try:
+        adresy = {a[4][0] for a in socket.getaddrinfo(host, None)}
+    except (OSError, UnicodeError):
+        return True
+    return all(ipaddress.ip_address(a.split("%")[0]).is_global for a in adresy)
+
+
+def sprawdz_serwer(host: str, port: int) -> None:
+    if int(port) not in PORTY_IMAP:
+        raise BladPolaczenia("Łączymy się tylko z portami poczty IMAP: 993 albo 143.")
+    if not host_publiczny(host):
+        raise BladPolaczenia("Ten adres serwera poczty nie jest dozwolony.")
+
+
 def polacz_imap(host: str, port: int, tls: str):
+    sprawdz_serwer(host, port)
     kontekst = ssl.create_default_context()
     try:
         if tls == "starttls":

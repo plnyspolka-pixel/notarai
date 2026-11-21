@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<header>
+  <img src="ikony/48.png" alt="" width="24" height="24">
+  <h1>notarai</h1>
+  <span id="znaczek" class="znaczek"></span>
+</header>
+
+<!-- Laczenie z kancelaria: widoczne tylko, dopoki przegladarka nie ma tokenu. -->
+<section id="widok-laczenie" hidden>
+  <h2>Połącz tę przeglądarkę z kancelarią</h2>
+  <p>Otwórz notarai i kliknij <b>Połącz</b>. Ten sam kod zobaczysz tam na ekranie - nic nie trzeba przepisywać.</p>
+  <div id="kod" class="kod" aria-live="polite">…</div>
+  <button id="btn-otworz">Otwórz notarai</button>
+  <p id="stan-laczenia" class="stan" aria-live="polite"></p>
+</section>
+
+<section id="widok-praca" hidden>
+  <p class="strona">Pracuję na stronie: <b id="host">—</b></p>
+  <form id="formularz">
+    <label for="cel">Co mam zrobić na tej stronie?</label>
+    <textarea id="cel" rows="4" maxlength="1000"
+      placeholder="np. znajdź działkę 123/4 w obrębie Słoneczna i otwórz jej księgę wieczystą"></textarea>
+    <div class="przyciski">
+      <button id="btn-wykonaj" type="submit">Wykonaj</button>
+      <button id="btn-stop" type="button" class="wtorny" hidden>Zatrzymaj</button>
+    </div>
+  </form>
+
+  <!-- Zlecenie z notarai (KRZ, formularz, polecenie ze sprawy) czeka na zgode na strone. -->
+  <div id="zgoda" class="uwaga" hidden>
+    <p><b id="zgoda-tytul"></b></p>
+    <p id="zgoda-opis"></p>
+    <div class="przyciski">
+      <button id="btn-zgoda" type="button">Zezwól i wykonaj</button>
+      <button id="btn-odmowa" type="button" class="wtorny">Odrzuć</button>
+    </div>
+  </div>
+
+  <div id="ramki" class="uwaga" hidden>
+    <p>Część tej strony pochodzi z innego adresu: <b id="ramki-hosty"></b>. Jeśli formularz jest właśnie tam, zezwól mi na niego i uruchom polecenie jeszcze raz.</p>
+    <button id="btn-ramki" type="button" class="wtorny">Zezwól</button>
+  </div>
+
+  <div id="wynik" class="wynik" hidden aria-live="polite"></div>
+  <ol id="kroki" class="kroki" aria-live="polite"></ol>
+
+  <footer>
+    <p>Dopóki ten panel jest otwarty, wykonuję też zlecenia ze spraw w notarai: sprawdzenia w KRZ i wypełnianie formularzy.</p>
+    <p>Asystent nigdy nie wysyła, nie składa, nie podpisuje i nie wpisuje haseł ani PIN-u. Podpis elektroniczny składasz samodzielnie, tak jak zawsze.</p>
+    <button id="btn-odlacz" type="button" class="odnosnik">Odłącz tę przeglądarkę od kancelarii</button>
+  </footer>
+</section>
+
+<script type="module" src="panel.js"></script>
+</body>
+</html>

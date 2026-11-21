@@ -28,7 +28,7 @@ BAZA = {
 }
 # "lokalna" = kancelaria biezaca w trybie lokalnym, wiec jej zapytania widac bez logowania.
 REJESTR = {"skrot-a": {"id": "lokalna", "nazwa": "Kancelaria Testowa", "aktywna": True,
-                       "zespol": [{"email": "anna@kancelaria-testowa.test", "rola": "wlasciciel"},
+                       "zespol": [{"email": "anna@kancelaria-testowa.test", "rola": "wlasciciel", "dolaczyl": "2026-10-01T09:00:00"},
                                   {"email": "asystent@kancelaria-testowa.test", "rola": "pracownik"}]}}
 
 ZGLOSZENIE = {"imie": "Zenobiusz", "telefon": "600 700 800", "email": "zenobiusz@klient.test",

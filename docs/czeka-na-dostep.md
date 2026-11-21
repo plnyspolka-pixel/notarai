@@ -276,6 +276,34 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Zamknięte, gdy:** token wymagany (`GET /api/agent-glosowy` → `token_wymagany: true`),
   widżet albo numer opublikowany, polityka prywatności zaktualizowana.
 
+## NA-14. Rozszerzenie przeglądarki — sklep, prawdziwy Chrome/Edge i podpis kwalifikowany
+
+- **Status:** czeka
+- **Brakuje:** konta dewelopera w Chrome Web Store i Edge Add-ons (publikacja
+  `rozszerzenie/`), a do próby podpisu: notariusza z kartą/podpisem i kontem
+  w portalu urzędowym.
+- **Na żywo:**
+  1. Załadować `rozszerzenie/` w prawdziwym Chrome i Edge („Załaduj rozpakowane”),
+     połączyć kodem z kancelarią na app.notarai.pl — w testach automatycznych
+     interfejs `chrome.*` jest podstawiony, więc to pierwsze prawdziwe uruchomienie.
+  2. Sprawdzić panel boczny, okno zgody na stronę i pracę w ramce z innego adresu (KRZ).
+  2a. Zlecić ze sprawy „Sprawdź w KRZ” przy otwartym panelu: prawdziwy
+     krz.ms.gov.pl (publiczny, bez logowania) nie był jeszcze przechodzony przez
+     rozszerzenie - sprawdzić zgodę na ramkę formularza, zakładki i rozpoznanie
+     wyniku; zdecydować, czy brak zrzutu ekranu jest do przyjęcia.
+  2b. Wypełnianie formularzy przez rozszerzenie ruszy dopiero, gdy mapowania
+     dostaną status `gotowe` (NA-1, NA-4) - wtedy przejść jeden formularz na żywo.
+  3. Z notariuszem: przejść formularz danymi pokazowymi do kroku podpisu;
+     asystent ma się zatrzymać, a notariusz podpisać sam (wtyczka podpisu, PIN).
+     Zapisać, jak portal nazywa przyciski podpisu i wysyłki — dopisać do
+     `WYSYLKA_ZRODLO` w `rozszerzenie/silnik.js`, jeśli któryś się prześlizgnie.
+  4. Opublikować w sklepach; adres pozycji wpiąć w kreator instalacji w
+     `static/index.html` (dziś kreator zna tylko pomocnika `.exe`).
+- **W kodzie:** `rozszerzenie/`, `app.py` (`/api/pomocnik/klikamy`),
+  `test_rozszerzenie.py`, `test_rozszerzenie_ui.py`.
+- **Zamknięte, gdy:** rozszerzenie z sklepu łączy się z kancelarią, a próba
+  z notariuszem kończy się jego własnym podpisem bez udziału asystenta.
+
 ---
 
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:

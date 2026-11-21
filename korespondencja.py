@@ -200,6 +200,10 @@ class DostawcaImap:
         if self.tls == "starttls":
             return skrzynki.polacz_imap(self.host, self.port, "starttls")
         try:
+            skrzynki.sprawdz_serwer(self.host, self.port)
+        except skrzynki.BladPolaczenia as blad:
+            raise BladSkrzynki(str(blad)) from None
+        try:
             return self.polacz(self.host, self.port, ssl_context=ssl.create_default_context(), timeout=CZAS)
         except ssl.SSLCertVerificationError:
             raise BladSkrzynki(f"Serwer {self.host} nie ma poprawnego certyfikatu - ze względów bezpieczeństwa "

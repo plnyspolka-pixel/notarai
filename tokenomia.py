@@ -44,6 +44,7 @@ import json
 import logging
 import math
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -841,7 +842,10 @@ def ping_platnosci(dane: PingPlatnosci):
     tokenem partnera. Zawsze 200 (Finance You nie ponawia)."""
     import platnosci
     kancelaria, _, numer = dane.zamowienie.rpartition(":")
-    if not kancelaria or not numer or len(dane.zamowienie) > 130:
+    # Sciezka otwarta: identyfikator kancelarii trafia do nazwy pliku / klucza,
+    # wiec przyjmujemy tylko znaki, z ktorych skladamy identyfikatory.
+    if (not numer or len(dane.zamowienie) > 130
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", kancelaria)):
         return {"odebrano": False}
     try:
         status = uzgodnij_zamowienie(kancelaria, numer)

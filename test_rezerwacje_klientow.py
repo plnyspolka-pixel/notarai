@@ -23,7 +23,7 @@ REJESTR = {"skrot-a": {"id": "lokalna", "nazwa": "Kancelaria Testowa", "aktywna"
                        "umowa": {"zaakceptowano": "2026-11-01"}, "na_mapie": True,
                        "dane": {"notariusze": "Anna Testowa", "adres": "ul. Próbna 1, Lublin"},
                        "mapa": {"adres": "ul. Próbna 1, Lublin", "lat": 51.25, "lon": 22.57},
-                       "zespol": [{"email": "anna@kancelaria-testowa.test", "rola": "wlasciciel"}]}}
+                       "zespol": [{"email": "anna@kancelaria-testowa.test", "rola": "wlasciciel", "dolaczyl": "2026-10-01T09:00:00"}]}}
 POLITYKA = {"wlaczone": False, "klienci": True, "miasto": "Lublin", "adres": "ul. Próbna 1, Lublin",
             "godziny": {str(i): ["09:00", "12:00"] for i in range(7)}, "czas_minut": 60,
             "wyprzedzenie_godzin": 1, "max_dni": 30}

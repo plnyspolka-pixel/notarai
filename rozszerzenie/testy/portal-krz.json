@@ -1,0 +1,22 @@
+{
+ "adres": "https://krz.ms.gov.pl/",
+ "zakladki": {
+  "prowadzaca": "Osoba fizyczna prowadząca działalność gospodarczą",
+  "nieprowadzaca": "Osoba fizyczna nieprowadząca działalności gospodarczej"
+ },
+ "odstep_s": 2.0,
+ "wzorce": {
+  "brak": {
+   "zrodlo": "nie zosta[łl]y znalezione|[żz]adne pozycje|brak wynik|nie znaleziono|nie odnaleziono",
+   "flagi": "i"
+  },
+  "wpis": {
+   "zrodlo": "upad[łl]o|restruktur|zakaz prowadzenia|egzekuc|nr sprawy|numer sprawy|data wszcz",
+   "flagi": "i"
+  },
+  "stale": {
+   "zrodlo": "Przejd[źz] do kryteri[óo]w wyszukiwania|Podmiot nieb[ęe]d[ąa]cy osob[ąa] fizyczn[ąa]|Osoba fizyczna (nie)?prowadz[ąa]ca dzia[łl]alno[śs][ćc]i? gospodarcz[ąe]j?|Sygnatura|Poprzednia zak[łl]adka|Nast[ęe]pna zak[łl]adka|zak[łl]adka \\d z \\d|\\d / \\d|INFORMACJA O KRYTERIACH WYSZUKIWANIA.*?w trakcie post[ęe]powania\\.",
+   "flagi": "is"
+  }
+ }
+}

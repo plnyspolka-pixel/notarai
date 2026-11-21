@@ -47,6 +47,28 @@ WZORCE_WPIS = re.compile(
     r"upad[łl]o|restruktur|zakaz prowadzenia|egzekuc|nr sprawy|numer sprawy|data wszcz", re.I)
 
 
+def _wzorzec(wyrazenie: re.Pattern) -> dict:
+    flagi = ("i" if wyrazenie.flags & re.I else "") + ("s" if wyrazenie.flags & re.S else "")
+    return {"zrodlo": wyrazenie.pattern, "flagi": flagi}
+
+
+def opis_portalu() -> dict:
+    """Ta sama wiedza o portalu dla rozszerzenia przegladarki (rozszerzenie/krz.js).
+
+    Rozszerzenie rozpoznaje wynik u notariusza - tekst strony nie wraca na
+    serwer - ale wzorcow nie trzyma u siebie. Dostaje je ze zleceniem, zeby po
+    zmianie portalu wystarczylo poprawic ten jeden plik. Wyrazenia musza byc
+    zrozumiale takze dla JavaScriptu; pilnuje tego test rozszerzenia.
+    """
+    return {
+        "adres": ADRES,
+        "zakladki": dict(ZAKLADKI),
+        "odstep_s": ODSTEP_S,
+        "wzorce": {"brak": _wzorzec(WZORCE_BRAK), "wpis": _wzorzec(WZORCE_WPIS),
+                   "stale": _wzorzec(STALE_TEKSTY)},
+    }
+
+
 class StronaKRZ(Protocol):
     """To, czego modul potrzebuje od przegladarki - Playwright, CDP albo atrapa."""
     def otworz(self) -> None: ...

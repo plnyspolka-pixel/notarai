@@ -1,0 +1,46 @@
+:root {
+  --tlo: #faf9f5; --karta: #fff; --tekst: #1f1e1b; --cichy: #6b6a66;
+  --kreska: #e4e2da; --akcent: #c96442; --dobrze: #15803d; --uwaga: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tlo: #1f1e1b; --karta: #2a2926; --tekst: #f1efe8; --cichy: #a9a79f;
+          --kreska: #3d3b36; --akcent: #e08a6b; --dobrze: #4ade80; --uwaga: #fbbf24; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 14px; background: var(--tlo); color: var(--tekst);
+       font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+h1 { font-size: 17px; margin: 0; flex: 1; }
+h2 { font-size: 15px; margin: 0 0 6px; }
+p { margin: 0 0 10px; }
+.znaczek { font-size: 12px; color: var(--cichy); }
+.znaczek.polaczony { color: var(--dobrze); }
+.kod { font: 700 30px/1.2 Consolas, monospace; color: var(--akcent);
+       letter-spacing: 2px; margin: 10px 0 12px; }
+.stan { color: var(--cichy); font-size: 13px; margin-top: 10px; }
+.strona { color: var(--cichy); font-size: 13px; overflow-wrap: anywhere; }
+.strona b { color: var(--tekst); }
+label { display: block; font-weight: 600; margin-bottom: 4px; }
+textarea { width: 100%; padding: 8px; border: 1px solid var(--kreska); border-radius: 8px;
+           background: var(--karta); color: var(--tekst); font: inherit; resize: vertical; }
+textarea:focus-visible, button:focus-visible { outline: 2px solid var(--akcent); outline-offset: 1px; }
+.przyciski { display: flex; gap: 8px; margin: 8px 0 12px; }
+button { padding: 7px 14px; border: 1px solid var(--akcent); border-radius: 8px;
+         background: var(--akcent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .55; cursor: default; }
+button.wtorny { background: transparent; color: var(--tekst); border-color: var(--kreska); }
+button.odnosnik { border: 0; background: none; color: var(--cichy); padding: 0;
+                  font-weight: 400; text-decoration: underline; }
+.uwaga, .wynik { border: 1px solid var(--kreska); border-left: 4px solid var(--uwaga);
+                 background: var(--karta); border-radius: 8px; padding: 10px; margin-bottom: 12px;
+                 overflow-wrap: anywhere; }
+.wynik.koniec { border-left-color: var(--dobrze); }
+.wynik b { display: block; margin-bottom: 2px; }
+.kroki { list-style: none; margin: 0; padding: 0; }
+.kroki li { border-top: 1px solid var(--kreska); padding: 7px 0; overflow-wrap: anywhere; }
+.kroki .co { font-weight: 600; }
+.kroki .mysl { color: var(--cichy); font-size: 13px; }
+.kroki .nie { color: var(--uwaga); font-size: 13px; }
+footer { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--kreska);
+         color: var(--cichy); font-size: 12px; }
+[hidden] { display: none !important; }
