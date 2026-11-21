@@ -32,6 +32,7 @@ def test_staging_bucket_and_queue_are_independent_of_live_application():
                for x in t["Resources"].values())
     bucket = t["Resources"]["DemoBucket"]["Properties"]
     assert all(bucket["PublicAccessBlockConfiguration"].values())
+    assert bucket["VersioningConfiguration"]["Status"] == "Enabled"
     assert bucket["BucketEncryption"]["ServerSideEncryptionConfiguration"][0]["ServerSideEncryptionByDefault"]["SSEAlgorithm"] == "AES256"
     assert t["Resources"]["DemoQueue"]["Properties"]["SqsManagedSseEnabled"]
 
