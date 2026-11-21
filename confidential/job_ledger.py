@@ -17,6 +17,7 @@ from dataclasses import dataclass
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _TENANT = re.compile(r"^[a-z0-9]{1,12}$")
 _TOKEN = re.compile(r"^[a-f0-9]{32}$")
+_VERSION = re.compile(r"^[A-Za-z0-9._~+/=-]{1,1024}$")
 _MAX_ATTEMPTS = 3
 _LEASE_SECONDS = 900
 _STATES = frozenset({
@@ -27,6 +28,15 @@ _STATES = frozenset({
 
 class JobRejected(ValueError):
     """No client identifiers or exception messages included in denial text."""
+
+
+def validate_version_id(value: object) -> str:
+    """Require a real opaque S3 VersionId, never the unversioned null marker."""
+    if (not isinstance(value, str) or not _VERSION.fullmatch(value) or
+            value == "null"):
+        raise JobRejected("immutable S3 object version required")
+    return value
+
 
 
 @dataclass(frozen=True)
@@ -64,14 +74,16 @@ class PreviewJobLedger:
             raise JobRejected("wrong job tenant")
         if item.get("job_id", {}).get("S") != job_id:
             raise JobRejected("wrong job identifier")
+        validate_version_id(item.get("s3_version", {}).get("S"))
         state = item.get("state", {}).get("S")
         if state not in _STATES or item.get("submitted", {}).get("BOOL") is not False:
             raise JobRejected("untrusted job state")
         return item
 
     def create(self, *, job_id: str, case_id: str, object_id: str,
-               now: int | None = None) -> None:
+               s3_version: str, now: int | None = None) -> None:
         pk = self._pk(job_id)
+        validate_version_id(s3_version)
         if not all(isinstance(x, str) and _ID.fullmatch(x)
                    for x in (case_id, object_id)):
             raise JobRejected("invalid job scope")
@@ -83,6 +95,7 @@ class PreviewJobLedger:
             "job_id": {"S": job_id},
             "case_id": {"S": case_id},
             "object_id": {"S": object_id},
+            "s3_version": {"S": s3_version},
             "state": {"S": "queued"},
             "submitted": {"BOOL": False},
             "attempts": {"N": "0"},
@@ -134,17 +147,20 @@ class PreviewJobLedger:
         }
 
     def claim(self, *, job_id: str, case_id: str, object_id: str,
-              now: int | None = None, token: str | None = None) -> Claim:
+              s3_version: str, now: int | None = None,
+              token: str | None = None) -> Claim:
         if not all(isinstance(x, str) and _ID.fullmatch(x)
                    for x in (case_id, object_id)):
             raise JobRejected("invalid message scope")
+        validate_version_id(s3_version)
         ts = int(time.time()) if now is None else now
         token = secrets.token_hex(16) if token is None else token
         if type(ts) is not int or ts < 0 or not _TOKEN.fullmatch(token):
             raise JobRejected("invalid claim identity")
         prior = self._record(job_id)
         if (prior.get("case_id", {}).get("S") != case_id or
-                prior.get("object_id", {}).get("S") != object_id):
+                prior.get("object_id", {}).get("S") != object_id or
+                prior.get("s3_version", {}).get("S") != s3_version):
             raise JobRejected("message is not the reserved job")
         state = prior["state"]["S"]
         attempts = int(prior.get("attempts", {}).get("N", "-1"))
@@ -164,6 +180,7 @@ class PreviewJobLedger:
             ":job": {"S": job_id},
             ":case": {"S": case_id},
             ":object": {"S": object_id},
+            ":version": {"S": s3_version},
             ":false": {"BOOL": False},
             ":zero": {"N": "0"},
             ":limit": {"N": str(_MAX_ATTEMPTS)},
@@ -185,7 +202,8 @@ class PreviewJobLedger:
                 ConditionExpression=(
                     "attribute_exists(pk) AND tenant_id = :tenant "
                     "AND job_id = :job AND case_id = :case "
-                    "AND object_id = :object AND submitted = :false "
+                    "AND object_id = :object AND s3_version = :version "
+                    "AND submitted = :false "
                     "AND attempts < :limit AND "
                     "(#s = :queued OR #s = :retryable OR "
                     "(#s = :running AND lease_until < :now))"
@@ -200,9 +218,9 @@ class PreviewJobLedger:
             ).get("Code")
             if code == "ConditionalCheckFailedException":
                 current = self._record(job_id)
-                if current.get("case_id", {}).get("S") != case_id or (
-                    current.get("object_id", {}).get("S") != object_id
-                ):
+                if (current.get("case_id", {}).get("S") != case_id or
+                        current.get("object_id", {}).get("S") != object_id or
+                        current.get("s3_version", {}).get("S") != s3_version):
                     raise JobRejected("job scope drift") from None
                 if current["state"]["S"] == "preview_completed":
                     return Claim("completed", attempts=int(
