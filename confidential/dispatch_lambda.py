@@ -17,6 +17,8 @@ def handler(event, context):
         return {"state": "ignored"}
     import boto3
 
+    if os.environ.get("NOTARAI_SHARED_POOL", "false") not in ("true", "false"):
+        raise RuntimeError("invalid shared compute configuration")
     config = DispatcherConfig(
         account=os.environ["NOTARAI_ACCOUNT"],
         tenant=os.environ["NOTARAI_TENANT"],
@@ -27,6 +29,7 @@ def handler(event, context):
         subnet=os.environ["NOTARAI_PRIVATE_SUBNET"],
         security_group=os.environ["NOTARAI_INSTANCE_SECURITY_GROUP"],
         lease_table=os.environ["NOTARAI_LEASE_TABLE"],
+        shared_pool=os.environ.get("NOTARAI_SHARED_POOL", "false") == "true",
     )
     session = boto3.session.Session(region_name="eu-central-1")
     try:
