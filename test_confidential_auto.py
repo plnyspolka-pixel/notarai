@@ -170,6 +170,7 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     class S3:
         def head_object(self, **kwargs):
             assert kwargs["Key"] == "kancelarie/pilot01/confidential/case01/scan01.json"
+            return {"VersionId": "v000001"}
     class SQS:
         calls = []
         def send_message(self, **kwargs):
@@ -205,11 +206,13 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     assert body["can_submit"] is False
     assert len(sqs.calls) == 1
     msg = json.loads(sqs.calls[0]["MessageBody"])
-    assert set(msg) == {"tenant_id", "case_id", "object_id", "job_id"}
+    assert set(msg) == {"tenant_id", "case_id", "object_id", "job_id", "s3_version"}
+    assert msg["s3_version"] == "v000001"
     assert "mode" not in msg and "submit" not in msg
     assert sqs.calls[0]["MessageGroupId"] == "pilot01"
     assert len(ddb.rows) == 1
     assert next(iter(ddb.rows.values()))["state"]["S"] == "queued"
+    assert next(iter(ddb.rows.values()))["s3_version"]["S"] == "v000001"
     job_status = json.loads(preview_status(RequestFake(), body["job_id"]).body)
     assert job_status["status"] == "queued"
     assert job_status["submitted"] is False
