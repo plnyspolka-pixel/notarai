@@ -107,6 +107,52 @@ Nie liczymy czasu ludzi, który po tych zmianach staje się głównym kosztem.
 Wygenerowane `odcinki/EP01–EP08.json` są **szkicami do autoryzacji** (pole `_produkcja` zawiera model, zużycie tokenów
 i uwagi walidatora); nie zastępują scenariuszy kanonicznych z `marketing/komputerku/sezon-1/02_SCENARIUSZE/`.
 
+## 5a. Zrealizowany szkic EP04 „Wczoraj tego nie było" (13.11.2026, 90,9 s, 18 ujęć)
+Pierwszy odcinek złożony end-to-end z chmury, bez komputera operatora: `odcinki/EP04.json` → ElevenLabs v3
+(głosy v2, 10 kwestii) → fal (Seedream 4 klatki przebitek z plansz K8/K9, Kling 2.5 Turbo Std przebitki,
+**Kling AI Avatar v2 Standard** ujęcia mówiące) → plansze zastępcze ekranów → `narzedzia/montaz_odcinka.py`
+(1080×1920, napisy z kwestii, ambience, loudnorm). Wynik: `wyjscie/EP04/EP04_szkic.mp4` (poza repo).
+Podgląd do obejrzenia w przeglądarce (prywatny artefakt, lżejszy plik 10 MB, lista ujęć i źródła klipów):
+https://claude.ai/artifact/NceJgELqX9cqjb1GLux6Ds
+
+| Pozycja | Koszt |
+|---|---|
+| TTS (901 znaków, w planie Creator) | 0,00 $ |
+| Klatki przebitek Seedream 4 (4 + 4 odrzucone przez wygasłe linki fal) | 0,24 $ |
+| Przebitki Kling 2.5 Turbo Std, 4 × 5 s | 0,84 $ |
+| Ujęcia mówiące Kling AI Avatar v2 Std, 9 ujęć, 42 s | 2,36 $ |
+| HeyGen Avatar 6 Turbo: 1 ujęcie (9 odrzuconych: „Insufficient credit, requires api credits") | 0,07 $ |
+| **Razem** | **3,51 $ ≈ 13 zł** (kalkulator „obecny tor" dla tego odcinka: 12,64 $) |
+
+### 5b. Runda poprawek EP04 (14.11.2026) – skąd wziął się bełkot i co z tym zrobiono
+
+Po obejrzeniu szkicu: pseudo-tekst na „wydrukach” (u2, u9), na etykiecie teczki (u1, u17) i – najgorsze –
+dorobione przez Kling Avatar fałszywe napisy pod kwestią Marty (u6). Przyczyna była w scenariuszu: `prompt_delta`
+prosiło o „widoczne daty w nagłówkach”, „oznaczenie wzmianki na dokumencie”, „ekran z timestampem”, a modele
+obrazu nie piszą po polsku. Stąd zasada ZERO TEKSTU, bramka kontroli i tor poprawek (README §3a).
+
+| Ujęcie | Problem | Metoda | Koszt |
+|---|---|---|---|
+| u9 | dokument po pseudo-angielsku, widz ma przeczytać różnicę odczytów | `dokument` (porownanie_kw renderowane w PIL, zbliżenie w montażu) | 0,00 $ |
+| u2 | bełkot na dwóch wydrukach | `klatka`: Seedream BEZ TEKSTU → QC klatki (ok) → Kling i2v | 0,03 + 0,21 $ |
+| u17 | bełkot na etykiecie; potrzebny napis „1 XII” | `klatka` z `dozwolony_tekst` (Seedream napisał „1 XII” poprawnie, QC potwierdziło) → Kling i2v | 0,03 + 0,21 $ |
+| u1, u3 | drobna etykieta / znak na rekwizycie | `rozmyj` (boksy z OCR) | 0,00 $ |
+| u6 | fałszywe napisy pod kwestią (prompt prosił o ekran z timestampem) | `kadruj` (0 $) + ponowny Kling Avatar z czystym promptem | 0,18 $ |
+| u5, u7, u15 | plansze zastępcze z tekstem wychodzącym poza kadr | `dokumenty.py --plansze` (zawijanie w px) | 0,00 $ |
+| wszystkie | kontrola 2–3 klatek/klip, Sonnet 4.6 + OCR | `kontrola_ujec.py` | 0,21 $ |
+| **Razem runda poprawek** | | | **0,87 $** |
+
+EP04 po poprawkach: **4,38 $** (3,51 + 0,87) wobec 12,64 $ na starym torze. Gdyby zasada ZERO TEKSTU
+obowiązywała od początku, runda kosztowałaby tylko kontrolę (~0,2 $): u2/u17 powstałyby od razu bez tekstu,
+u9 od razu jako warstwa czytelna, a u6 bez „ekranu z timestampem” w prompcie.
+Bramka kontroli na klatce startowej (0,01 $) chroni przed płaceniem 0,21 $ za wideo z bełkotem.
+
+Wnioski: (1) HeyGen API ma osobną pulę „api credits", wyczerpaną mimo salda portfela – doładować albo
+zostać przy Kling Avatar (0,056 $/s, stabilna twarz, bez `motion_prompt`); (2) `fal_url` zapisane w
+`scenografia.json` i `postac.json` wygasają – do fal podawać stałe adresy `raw.githubusercontent.com`
+z publicznego repo (zrobione w tym szkicu) albo wgrywać pliki ponownie; (3) ekrany u5/u7/u15 to plansze
+zastępcze – do podmiany na nagranie aplikacji; (4) szkic jest materiałem **do autoryzacji**, nie do emisji.
+
 ## 6. Ryzyka
 - Skrypty GPU powstały bez dostępu do karty - nazwy plików modeli i węzłów ComfyUI do potwierdzenia przy pierwszym
   uruchomieniu (`narzedzia/gpu/README.md`).

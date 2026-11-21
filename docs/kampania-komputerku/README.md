@@ -82,6 +82,45 @@ Kiedy HeyGen, a kiedy fal w kroku 3a:
 - **fal (Kling AI Avatar / OmniHuman)** — gdy postać mówi w ujęciu z planu
   (A, C), bo animuje całą klatkę ze scenografią, nie tylko twarz.
 
+## 3a. Kontrola jakości i poprawki (zasada ZERO TEKSTU)
+
+Modele obrazu i wideo nie piszą po polsku: każda data, nagłówek, etykieta teczki czy notatka,
+o którą poprosi prompt, wychodzi jako bełkot, a awatary potrafią same „dorobić” napisy pod
+kwestią. Dlatego od EP04 obowiązuje jedna zasada i dwa narzędzia.
+
+**Zasada.** W ujęciach generowanych (`mowiace`, `bez_mowy`) nie ma niczego do przeczytania:
+papiery są puste, zamknięte, odwrócone albo poza ostrością; ekrany nie są widoczne. Jedyny
+wyjątek to krótki napis do 8 znaków (np. „1 XII") zapisany w polu `dozwolony_tekst` ujęcia,
+który kontrola musi rozpoznać dokładnie. Wszystko, co widz MA przeczytać, jest ujęciem typu
+`dokument` (szablony `porownanie_kw`, `notatka`) albo `ekran` i renderuje je `dokumenty.py`
+po polsku, za 0 USD. Reguły 10–11 w `odcinek_json.py` pilnują tego już przy rozpisywaniu
+scenariusza; `montaz_odcinka.py` robi na warstwie czytelnej powolne zbliżenie na `fokus`.
+
+**Bramka kontroli** – `narzedzia/kontrola_ujec.py EP04` ogląda 2–3 klatki każdego klipu:
+OCR lokalnie (RapidOCR, 0 USD, daje dokładne boksy) i Claude Sonnet 4.6 na Bedrock
+eu-central-1 (ok. 0,01 USD/klatkę, Haiku 4.5 jest 3× tańszy, ale nie widzi drobnego tekstu).
+Sprawdza tekst i pseudo-tekst, wiarygodność dokumentów, artefakty dłoni. Wynik:
+`wyjscie/EPxx/kontrola.json` z werdyktem ujęcia i zaleceniem. Klatkę startową przebitki
+sprawdzamy ZANIM zapłacimy za wideo (`poprawki.py … zapisz-klatke`). Pełna kontrola odcinka
+kosztuje ok. 0,15–0,30 USD, czyli mniej niż jedna nieudana przebitka.
+
+**Tor poprawek** – `narzedzia/poprawki.py EP04 --auto` wykonuje zalecenia od najtańszej metody:
+
+| metoda | koszt | kiedy |
+|---|---|---|
+| `rozmyj` | 0 USD | drobna etykieta/nadruk na rekwizycie w tle (boksy z OCR) |
+| `kadruj` | 0 USD | pseudo-napisy przy dolnej krawędzi ujęcia mówiącego: przycięcie od dołu, powrót do 9:16 |
+| `dokument` | 0 USD | widz ma coś przeczytać: ujęcie staje się warstwą czytelną z `dokumenty.py` |
+| `plansza` | 0 USD | ostateczność, żeby montaż się domknął |
+| `klatka` | 0,03 + 0,21 USD | bełkot zajmuje dużą część kadru: nowa klatka startowa z promptem BEZ TEKSTU → QC klatki → Kling i2v |
+| `awatar` | 0,056 USD/s | poważny artefakt albo duży tekst w ujęciu mówiącym: ponowny Kling Avatar z czystą klatką |
+
+Metody płatne skrypt zapisuje jako gotowe zlecenia JSON (`wyjscie/EPxx/zlecenia/`), bo klucz fal
+jest w konektorze; wynik wraca przez `zapisz-klatke` / `zapisz-klip`, które od razu robią QC.
+Każda poprawka archiwizuje stary klip (`klipy/archiwum/<nazwa>_vN.mp4`) i dopisuje wiersz do
+`wyjscie/EPxx/poprawki.log`. Po poprawkach ponowny montaż jest darmowy. Uwagi redaktora w
+rodzaju „u9 dokument nie po polsku” mapują się wprost na `poprawki.py EP04 u9 dokument "…"`.
+
 ## 4. Oznaczenie treści AI
 
 Tak jak w rolkach Finance You: **tylko mały znaczek „AI”** w prawym górnym
