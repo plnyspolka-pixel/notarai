@@ -111,15 +111,24 @@ def create_fixture(*, profile: str, account: str, tenant: str,
         ContentType="application/json", ServerSideEncryption="AES256",
     )
     job_id = uuid.uuid4().hex
-    sess.client("sqs").send_message(
-        QueueUrl=queue,
-        MessageGroupId=tenant,
-        MessageDeduplicationId=job_id,
-        MessageBody=json.dumps({
-            "tenant_id": tenant, "case_id": "pilot01",
-            "object_id": "synthetic01", "job_id": job_id,
-        }, separators=(",", ":")),
-    )
+    # Same ordered lifecycle as the SaaS API; a duplicate or unknown SQS
+    # message cannot cause decryption in the verified Nitro guest.
+    from confidential.job_ledger import PreviewJobLedger
+    ledger = PreviewJobLedger(sess.client("dynamodb"), tenant=tenant)
+    ledger.create(job_id=job_id, case_id="pilot01", object_id="synthetic01")
+    try:
+        sess.client("sqs").send_message(
+            QueueUrl=queue,
+            MessageGroupId=tenant,
+            MessageDeduplicationId=job_id,
+            MessageBody=json.dumps({
+                "tenant_id": tenant, "case_id": "pilot01",
+                "object_id": "synthetic01", "job_id": job_id,
+            }, separators=(",", ":")),
+        )
+    except Exception:
+        ledger.mark_queue_uncertain(job_id)
+        raise RuntimeError("synthetic queue delivery uncertain; review job ledger") from None
     print("Queued synthetic encrypted form preview.")
     print("job_id:", job_id)
     print("Only fictional data was uploaded; no task was launched.")
