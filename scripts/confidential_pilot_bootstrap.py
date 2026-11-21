@@ -5,7 +5,7 @@ Default: READ-ONLY PLAN (calls STS and CloudFormation ValidateTemplate).
 --apply: Creates ONLY uniquely named pilot stacks and a dedicated capacity
 provider, but does not schedule tasks or release plaintext keys.
 
-Requires AWS CLI v2 whose ECS model supports nitroEnclavesEnabled.
+Deprecated --apply path: pilot capacity must use a private-only SG from\ninfra/notarai-confidential-private-egress.yaml. This script intentionally\nrefuses provisioning until it is refactored to accept independently verified\nprivate network outputs. Use docs/claude-aws-confidential-handoff.md.\n\nRequires AWS CLI v2 whose ECS model supports nitroEnclavesEnabled.
 Usage:
  python scripts/confidential_pilot_bootstrap.py --account 123456789012 \
    --profile notarai-admin --vpc vpc-0123456789abcdef0 \
@@ -77,8 +77,15 @@ def bootstrap(*, profile: str, account: str, tenant: str, vpc: str,
 
     if not apply:
         print("DRY RUN: all pilot templates validated in AWS; no resources created.")
-        print("Re-run with --apply to provision only isolated pilot stacks and capacity provider.")
+        print("Provision via docs/claude-aws-confidential-handoff.md; broad SG bootstrap is disabled.")
         return
+
+    # Historical bootstrap bound the ECS capacity provider to a test SG with
+    # outbound HTTPS 0.0.0.0/0. Do not provision that path even on fictional
+    # data: the new isolated pilot MUST use a validated private-only SG.
+    raise RuntimeError(
+        "insecure broad-egress bootstrap --apply disabled; use private-only AWS runbook"
+    )
 
     for name, filename in templates.items():
         argv = [
