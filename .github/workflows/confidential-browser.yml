@@ -17,6 +17,7 @@ on:
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/audit_confidential_pilot.py'
+      - 'scripts/package_confidential_audit.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -49,6 +50,7 @@ jobs:
             infra/notarai-confidential-capacity-base.yaml \
             infra/notarai-confidential-private-egress.yaml \
             infra/notarai-confidential-job-ledger.yaml \
+            infra/notarai-confidential-audit.yaml \
             infra/notarai-confidential-network-base.yaml \
             infra/notarai-confidential-artifacts.yaml \
             infra/notarai-confidential-dispatch.yaml \
@@ -70,10 +72,12 @@ jobs:
         run: python scripts/audit_confidential_pilot.py --help >/dev/null
       - name: Wytworz weryfikowalny pakiet Lambda (offline)
         run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
+      - name: Deterministyczna paczka Lambda do audytu (offline)
+        run: python scripts/package_confidential_audit.py --output /tmp/notarai-audit.zip
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_control_room.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_control_room.py test_confidential_event_journal.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
