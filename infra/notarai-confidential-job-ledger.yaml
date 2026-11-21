@@ -42,6 +42,8 @@ Resources:
               - updated_at
               - lease_until
               - submitted
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       SSESpecification:
         SSEEnabled: true
       PointInTimeRecoverySpecification:
@@ -58,3 +60,5 @@ Outputs:
     Value: !GetAtt PreviewJobs.Arn
   JobControlRoomIndexName:
     Value: TenantCreatedAtIndex
+  JobStreamArn:
+    Value: !GetAtt PreviewJobs.StreamArn
