@@ -11,7 +11,12 @@ import json
 import os
 import re
 import subprocess
+import sys
+from pathlib import Path
 
+# This operator CLI is also invoked as "python scripts/confidential_pilot_run.py".
+# Python does not put the repository root on sys.path in that invocation.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from confidential.pilot_preflight import validate_preflight
 
 _REGION = "eu-central-1"
