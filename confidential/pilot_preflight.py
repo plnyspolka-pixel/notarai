@@ -54,7 +54,7 @@ def validate_preflight(
     _require(kms_key_arn.startswith(f"arn:aws:kms:{_REGION}:{account}:key/"),
              "wrong KMS key ARN")
     _require(bool(re.fullmatch(
-        rf"https://sqs\\.{_REGION}\\.amazonaws\\.com/{account}/{prefix}\\.fifo",
+        rf"https://sqs\.{_REGION}\.amazonaws\.com/{account}/{prefix}\.fifo",
         queue_url,
     )), "wrong SQS queue")
     _require(bool(re.fullmatch(r"[a-z0-9][a-z0-9.-]{2,62}", bucket)),
