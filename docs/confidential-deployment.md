@@ -212,3 +212,32 @@ fikcyjny lokalny formularz i NIE wysyła dokumentów do urzędów.
 
 Staging RSA KMS jest administracyjnie modyfikowalny przez właściciela
 konta AWS, co nie oznacza bezwzględnej gwarancji Zero Knowledge.
+
+## Bootstrap v3: strict preflight before synthetic Nitro task (2026-11-21)
+
+`scripts/confidential_pilot_run.py --apply` now **refuses** to call
+`ecs run-task` unless it can verify the registered ECS task, single pinned
+ECR digest, task role and execution role, immutable container security posture,
+exact tenant/queue/KMS environment, an ACTIVE capacity provider with
+`nitroEnclavesEnabled=true`, and a unique KMS decrypt grant restricted to
+the same role and PCR17 with `PCR8:ServiceName=ecs.amazonaws.com`.
+
+The launcher invokes the official `ecs-nitro-sandbox-genpolicy` binary
+twice: `--check` for drift, then `--output pcrs` to extract a non-zero
+PCR17. It requires a verified official binary on the operator machine;
+missing tooling, missing permissions, mismatched policies or missing
+AWS metadata fail closed. This is a read-only check until the explicit
+`--apply` reaches `ecs run-task`, **not** a simulation of Nitro hardware.
+
+Test locally without AWS:
+```sh
+python -m pytest -q test_confidential_preflight.py
+```
+
+This preflight does **not** verify network egress confinement, job-to-task
+correlation, one-time user-signed approval, CloudTrail/KMS actual attestations
+or hardware execution results. It must never be used as evidence of
+production-ready secrecy. Continue using only fictional test records.
+
+Official specification:
+https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
