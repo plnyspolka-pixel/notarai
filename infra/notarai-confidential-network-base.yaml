@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI confidential synthetic-only pilot VPC. Independent VPC, DNS,
+  one private subnet and dedicated route table. No IGW, NAT, VPN, peering,
+  transit gateway, public IP, ECS resources or existing VPC modifications.
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Choose an AZ with m6i.xlarge Nitro Managed Instances capacity
+Resources:
+  PilotVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.254.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "notarai-confidential-${TenantId}-vpc"
+        - Key: Scope
+          Value: synthetic-confidential-pilot
+  PilotPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PilotVpc
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: 10.254.1.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "notarai-confidential-${TenantId}-private"
+        - Key: Scope
+          Value: synthetic-confidential-pilot
+  PilotPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref PilotVpc
+      Tags:
+        - Key: Name
+          Value: !Sub "notarai-confidential-${TenantId}-private-routes"
+  PrivateSubnetRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PilotPrivateSubnet
+      RouteTableId: !Ref PilotPrivateRouteTable
+Outputs:
+  PilotVpcId:
+    Value: !Ref PilotVpc
+  PrivateSubnetId:
+    Value: !Ref PilotPrivateSubnet
+  PrivateRouteTableId:
+    Value: !Ref PilotPrivateRouteTable
