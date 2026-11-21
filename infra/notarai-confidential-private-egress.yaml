@@ -23,6 +23,10 @@ Parameters:
     Type: String
     AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
     Description: AWS-managed com.amazonaws.eu-central-1.s3 prefix list, verify ID
+  DynamoDbGatewayPrefixListId:
+    Type: String
+    AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: AWS-managed com.amazonaws.eu-central-1.dynamodb prefix list
 Resources:
   GuestPrivateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -40,6 +44,11 @@ Resources:
           ToPort: 443
           DestinationPrefixListId: !Ref S3GatewayPrefixListId
           Description: S3 via dedicated gateway endpoint only
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId: !Ref DynamoDbGatewayPrefixListId
+          Description: DynamoDB job claims through dedicated gateway endpoint only
       Tags:
         - Key: Purpose
           Value: !Sub "notarai-confidential-${TenantId}-egress"
@@ -65,6 +74,14 @@ Resources:
       VpcId: !Ref VpcId
       VpcEndpointType: Gateway
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      RouteTableIds:
+        - !Ref PilotRouteTableId
+  DynamoDbGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Gateway
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
       RouteTableIds:
         - !Ref PilotRouteTableId
   KmsEndpoint:
@@ -155,3 +172,5 @@ Outputs:
     Value: !GetAtt InterfaceEndpointSecurityGroup.GroupId
   S3EndpointId:
     Value: !Ref S3GatewayEndpoint
+  DynamoDbEndpointId:
+    Value: !Ref DynamoDbGatewayEndpoint
