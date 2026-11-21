@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  ONE immutable audited browser image repository shared by all
+  tenant-isolated ECS Nitro task definitions (different KMS, role, queue).
+Resources:
+  SharedBrowserImage:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: notarai-confidential-shared
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep last 20 immutable audited images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":20},"action":{"type":"expire"}}]}
+      Tags:
+        - Key: Purpose
+          Value: notarai-confidential-regional-shared-image
+Outputs:
+  SharedBrowserRepositoryUri:
+    Value: !GetAtt SharedBrowserImage.RepositoryUri
+  SharedBrowserRepositoryArn:
+    Value: !GetAtt SharedBrowserImage.Arn
