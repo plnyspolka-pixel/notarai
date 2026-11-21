@@ -28,3 +28,50 @@ def test_no_hardware_means_no_work(monkeypatch):
     monkeypatch.setattr("confidential.worker.os.path.exists", lambda path: False)
     with pytest.raises(RuntimeError, match="hardware attestation required"):
         _config()
+
+
+def test_decrypt_reads_only_exact_s3_version(monkeypatch):
+    from confidential.worker import _load_decrypted_form
+    import confidential.worker as worker
+    import confidential.nitro_unwrapper as nitro
+
+    seen = []
+    class Body:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def read(self, limit):
+            return b'{"fictional":"ciphertext"}'
+    class S3:
+        def get_object(self, **kwargs):
+            seen.append(kwargs)
+            return {"Body": Body()}
+    class FakeEnvelope:
+        tenant_id = "pilot01"
+        case_id = "case01"
+        object_id = "scan01"
+        kms_key_arn = "arn:aws:kms:eu-central-1:111122223333:key/pilot"
+        def open_inside_attested_task(self, unwrap):
+            return b'{"form_id":"local-demo","fields":{"name":"FAKE","reference":"X"}}'
+
+    monkeypatch.setattr(worker.Envelope, "parse", lambda contents: FakeEnvelope())
+    monkeypatch.setattr(nitro, "NitroKMSUnwrapper", lambda kms, key: object())
+    fields = _load_decrypted_form(
+        S3(), object(), "fixture-bucket", "pilot01",
+        "case01", "scan01", FakeEnvelope.kms_key_arn,
+        "versionABC123",
+    )
+    assert fields["name"] == "FAKE"
+    assert seen == [{
+        "Bucket": "fixture-bucket",
+        "Key": "kancelarie/pilot01/confidential/case01/scan01.json",
+        "VersionId": "versionABC123",
+    }]
+    seen.clear()
+    with pytest.raises(ValueError):
+        _load_decrypted_form(
+            S3(), object(), "fixture-bucket", "pilot01", "case01",
+            "scan01", FakeEnvelope.kms_key_arn, "null",
+        )
+    assert seen == []
