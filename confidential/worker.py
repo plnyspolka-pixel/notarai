@@ -16,7 +16,7 @@ from http.server import ThreadingHTTPServer
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
-from confidential.job_ledger import PreviewJobLedger
+from confidential.job_ledger import PreviewJobLedger, validate_version_id
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -70,23 +70,32 @@ async def _prepare_fictional_form(job_id: str, values: dict) -> None:
         server.server_close()
 
 
-def _parse_message(body: str, tenant: str) -> tuple[str, str, str]:
+def _parse_message(body: str, tenant: str) -> tuple[str, str, str, str]:
     msg = json.loads(body)
-    if not isinstance(msg, dict) or set(msg) != {"tenant_id", "case_id", "object_id", "job_id"}:
+    if not isinstance(msg, dict) or set(msg) != {
+        "tenant_id", "case_id", "object_id", "job_id", "s3_version"
+    }:
         raise ValueError("invalid job message")
     if msg["tenant_id"] != tenant:
         raise ValueError("cross-tenant job denied")
     for field in ("case_id", "object_id", "job_id"):
         if not isinstance(msg[field], str) or not _ID.fullmatch(msg[field]):
             raise ValueError("invalid job identity")
-    return msg["case_id"], msg["object_id"], msg["job_id"]
+    return (
+        msg["case_id"], msg["object_id"], msg["job_id"],
+        validate_version_id(msg["s3_version"]),
+    )
 
 
 def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
-                         object_id: str, key_arn: str) -> dict:
+                         object_id: str, key_arn: str,
+                         s3_version: str) -> dict:
     from confidential.nitro_unwrapper import NitroKMSUnwrapper
     object_key = "kancelarie/" + tenant + "/confidential/" + case_id + "/" + object_id + ".json"
-    result = s3.get_object(Bucket=bucket, Key=object_key)
+    result = s3.get_object(
+        Bucket=bucket, Key=object_key,
+        VersionId=validate_version_id(s3_version),
+    )
     with result["Body"] as stream:
         ciphertext = stream.read(35 * 1024 * 1024 + 1)
     if len(ciphertext) > 35 * 1024 * 1024:
@@ -121,10 +130,13 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         print("confidential-worker: no job")
         return 0
     message = incoming[0]
-    case_id, object_id, job_id = _parse_message(message["Body"], tenant)
+    case_id, object_id, job_id, s3_version = _parse_message(
+        message["Body"], tenant
+    )
     ledger = PreviewJobLedger(session.client("dynamodb"), tenant=tenant)
     claim = ledger.claim(
         job_id=job_id, case_id=case_id, object_id=object_id,
+        s3_version=s3_version,
     )
     if claim.state == "completed":
         # Redelivery after successful preview and uncertain SQS acknowledgement.
@@ -143,6 +155,7 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         values = _load_decrypted_form(
             session.client("s3"), session.client("kms"),
             bucket, tenant, case_id, object_id, kms_key_arn,
+            s3_version,
         )
         asyncio.run(_prepare_fictional_form(job_id, values))
         # Synthetic status marker contains no documents, values, names,
