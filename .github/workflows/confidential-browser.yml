@@ -8,6 +8,7 @@ on:
       - 'test_confidential*.py'
       - 'infra/notarai-confidential*.yaml'
       - 'scripts/render_confidential_*.py'
+      - 'scripts/confidential_pilot_*.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -50,7 +51,7 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
 
