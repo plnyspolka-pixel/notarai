@@ -1,5 +1,7 @@
-"""Safe, preview-only Nitro guest scheduler for one isolated pilot tenant.
+"""Safe, preview-only Nitro guest scheduler with optional SHARED capacity pool.
 
+Multiple tenants may run on one ECS Nitro capacity provider, but each
+scheduler retains its own fixed task family, roles, queue, lease and KMS key.
 This scheduler DOES NOT consume SQS messages: the existing pinned guest worker
 must be the sole SQS consumer. This avoids ECS container env/command overrides
 which otherwise change default Nitro container admission measurements.
@@ -38,13 +40,17 @@ class DispatcherConfig:
     subnet: str
     security_group: str
     lease_table: str
+    shared_pool: bool = False
 
     def validate(self) -> None:
         if not _ACCOUNT.fullmatch(self.account) or not _TENANT.fullmatch(self.tenant):
             raise UnsafeDispatch("invalid pilot identity")
         family = f"notarai-confidential-{self.tenant}"
         arn_prefix = f"arn:aws:ecs:{REGION}:{self.account}:task-definition/{family}:"
-        if (self.cluster != family or self.capacity_provider != family or
+        if type(self.shared_pool) is not bool:
+            raise UnsafeDispatch("invalid shared compute selector")
+        pool = "notarai-confidential-shared" if self.shared_pool else family
+        if (self.cluster != pool or self.capacity_provider != pool or
                 not self.task_definition_arn.startswith(arn_prefix) or
                 not self.task_definition_arn[len(arn_prefix):].isdigit()):
             raise UnsafeDispatch("unapproved ECS task target")
