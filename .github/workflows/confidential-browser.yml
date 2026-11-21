@@ -14,6 +14,7 @@ on:
       - 'scripts/confidential_pilot_*.py'
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
+      - 'scripts/audit_confidential_pilot.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -63,12 +64,14 @@ jobs:
         run: python scripts/confidential_pilot_run.py --help >/dev/null
       - name: Dry-run parametry sieci prywatnej (bez AWS)
         run: python scripts/verify_confidential_private_network.py --help >/dev/null
+      - name: Sprawdz read-only audit pilota (bez AWS)
+        run: python scripts/audit_confidential_pilot.py --help >/dev/null
       - name: Wytworz weryfikowalny pakiet Lambda (offline)
         run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
