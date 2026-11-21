@@ -92,8 +92,9 @@ def validate_preflight(
              "unexpected sidecar")
     container = containers[0]
     image = container.get("image", "")
+    repository = "notarai-confidential-shared" if shared_pool else prefix
     expected_image_start = (
-        f"{account}.dkr.ecr.{_REGION}.amazonaws.com/{prefix}@sha256:"
+        f"{account}.dkr.ecr.{_REGION}.amazonaws.com/{repository}@sha256:"
     )
     _require(isinstance(image, str) and image.startswith(expected_image_start) and
              bool(re.fullmatch(r"[0-9a-f]{64}", image[len(expected_image_start):])),
