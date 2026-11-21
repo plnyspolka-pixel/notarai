@@ -16,7 +16,7 @@ import re
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _TENANT = re.compile(r"^[a-z0-9]{1,12}$")
-_EVENT = re.compile(r"^[A-Za-z0-9:/._+-]{1,300}$")
+_EVENT = re.compile(r"^[A-Za-z0-9:._+-]{1,300}$")
 _STATES = frozenset({
     "queued", "queue_uncertain", "running", "retryable",
     "preview_completed", "needs_review",
