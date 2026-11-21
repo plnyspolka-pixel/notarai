@@ -18,6 +18,7 @@ ROUTE = "rtb-0123456789abcdef0"
 GUEST = "sg-0123456789abcdef0"
 ENDPOINT = "sg-11111111111111111"
 S3 = "pl-0123456789abcdef0"
+DDB = "pl-11111111111111111"
 AWS = (
     "kms", "sqs", "ecr.api", "ecr.dkr", "ecs", "ecs-agent",
     "ecs-telemetry", "sts", "logs",
@@ -35,6 +36,8 @@ def synthetic():
             {"DestinationCidrBlock": "10.0.0.0/16", "GatewayId": "local"},
             {"DestinationPrefixListId": S3,
              "VpcEndpointId": "vpce-0123456789abcdef0"},
+            {"DestinationPrefixListId": DDB,
+             "VpcEndpointId": "vpce-11111111111111111"},
         ],
     }]}
     groups = {"SecurityGroups": [
@@ -46,6 +49,9 @@ def synthetic():
                  "PrefixListIds": [], "IpRanges": [], "Ipv6Ranges": []},
                 {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
                  "PrefixListIds": [{"PrefixListId": S3}],
+                 "UserIdGroupPairs": [], "IpRanges": [], "Ipv6Ranges": []},
+                {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+                 "PrefixListIds": [{"PrefixListId": DDB}],
                  "UserIdGroupPairs": [], "IpRanges": [], "Ipv6Ranges": []},
             ],
         },
@@ -76,6 +82,7 @@ def check(parts):
         vpc_id=VPC, subnet_id=SUBNET, private_route_table_id=ROUTE,
         guest_sg_id=GUEST, endpoint_sg_id=ENDPOINT,
         s3_prefix_list_id=S3,
+        dynamodb_prefix_list_id=DDB,
         subnet_response=subnet, route_response=route,
         group_response=groups, endpoints_response=endpoints,
     )
@@ -124,9 +131,10 @@ def test_staging_cloudformation_never_allows_public_guest_egress():
     )
     resources = template["Resources"]
     assert "S3GatewayEndpoint" in resources
+    assert "DynamoDbGatewayEndpoint" in resources
     sg = resources["GuestPrivateSecurityGroup"]["Properties"]
     assert "SecurityGroupIngress" not in sg
-    assert len(sg["SecurityGroupEgress"]) == 2
+    assert len(sg["SecurityGroupEgress"]) == 3
     assert all(rule["FromPort"] == 443 and rule["ToPort"] == 443
                and "CidrIp" not in rule and "CidrIpv6" not in rule
                for rule in sg["SecurityGroupEgress"])
@@ -153,5 +161,6 @@ def test_network_operator_cli_never_calls_aws_without_check(monkeypatch):
     assert verify(
         account="111122223333", profile="pilot", vpc=VPC,
         subnet=SUBNET, route_table=ROUTE, guest_sg=GUEST,
-        endpoint_sg=ENDPOINT, s3_prefix=S3, check=False
+        endpoint_sg=ENDPOINT, s3_prefix=S3,
+        dynamodb_prefix=DDB, check=False
     ) is False
