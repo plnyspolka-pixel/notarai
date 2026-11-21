@@ -120,8 +120,14 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         "notarai-confidential-shared-capacity" if shared_compute
         else "notarai-confidential-capacity-base",
     )
-    stack = outputs(profile, "notarai-confidential-task")
-    stage = outputs(profile, "notarai-confidential-staging")
+    stack = outputs(
+        profile, f"notarai-confidential-task-{tenant}"
+        if shared_compute else "notarai-confidential-task",
+    )
+    stage = outputs(
+        profile, f"notarai-confidential-staging-{tenant}"
+        if shared_compute else "notarai-confidential-staging",
+    )
     expected_key = "SharedClusterName" if shared_compute else "ClusterName"
     if base.get(expected_key) != compute:
         raise RuntimeError("unexpected ECS cluster")
@@ -132,7 +138,10 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         raise RuntimeError("task definition not validated")
     # Independent read-only checks run BEFORE any chargeable ECS task is launched.
     from confidential.pilot_preflight import PilotPreflightRejected
-    key_stacks = outputs(profile, "notarai-confidential-demo-kms")
+    key_stacks = outputs(
+        profile, f"notarai-confidential-demo-kms-{tenant}"
+        if shared_compute else "notarai-confidential-demo-kms",
+    )
     kms_arn = key_stacks.get("KeyArn", "")
     guest_pcr17 = _verified_pcr17(profile, task_def)
     task_response = aws(
