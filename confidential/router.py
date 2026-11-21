@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
-from confidential.job_ledger import PreviewJobLedger, JobRejected
+from confidential.job_ledger import PreviewJobLedger, JobRejected, validate_version_id
 
 router = APIRouter(prefix="/api/confidential", tags=["confidential"])
 _MAX_BODY = 35 * 1024 * 1024
@@ -144,15 +144,21 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
         raise HTTPException(503, "Kolejka poufnych zadan nie jest skonfigurowana.")
     _approved_key()  # never enqueue before an approved key has been provisioned
     try:
-        magazyn._klient_s3().head_object(Bucket=_bucket(), Key=key)
+        object_head = magazyn._klient_s3().head_object(Bucket=_bucket(), Key=key)
     except Exception as exc:
         if type(exc).__name__ in ("NoSuchKey", "ClientError"):
             raise HTTPException(404, "Nie znaleziono zaszyfrowanego dokumentu.")
         raise
+    # Only a fully versioned S3 bucket can bind the queued job to the
+    # immutable ciphertext bytes later loaded by the Nitro guest.
+    try:
+        s3_version = validate_version_id(object_head.get("VersionId"))
+    except JobRejected:
+        raise HTTPException(503, "Magazyn nie gwarantuje niezmiennej wersji dokumentu.") from None
     job_id = uuid.uuid4().hex
     metadata = json.dumps({
         "tenant_id": tenant, "case_id": case_id, "object_id": object_id,
-        "job_id": job_id,
+        "job_id": job_id, "s3_version": s3_version,
     }, separators=(",", ":"))
     # Durable reservation MUST precede delivery. A job absent from this
     # table can never cause Nitro to decrypt a document.
@@ -160,7 +166,10 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
         boto3.client("dynamodb", region_name="eu-central-1"), tenant=tenant,
     )
     try:
-        ledger.create(job_id=job_id, case_id=case_id, object_id=object_id)
+        ledger.create(
+            job_id=job_id, case_id=case_id, object_id=object_id,
+            s3_version=s3_version,
+        )
     except JobRejected:
         raise HTTPException(503, "Rejestr zadan nie jest dostepny.") from None
     sqs = boto3.client("sqs", region_name="eu-central-1")
