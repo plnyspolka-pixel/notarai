@@ -85,6 +85,12 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !Ref JobQueueArn
+              - Sid: ClaimAndFinalizeOwnPreviewJobs
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub "arn:aws:dynamodb:eu-central-1:${AWS::AccountId}:table/notarai-confidential-jobs-${TenantId}"
   ConfidentialTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
