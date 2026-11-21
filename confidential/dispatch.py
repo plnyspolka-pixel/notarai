@@ -10,7 +10,6 @@ this path for form submission or other irreversible operations.
 """
 from __future__ import annotations
 
-import hashlib
 import re
 import secrets
 import time
@@ -137,6 +136,48 @@ def _active_guest_count(ecs, config: DispatcherConfig) -> int:
     return len(response.get("taskArns", []))
 
 
+def _release_finished_lease(ecs, dynamodb, config: DispatcherConfig,
+                            now: int) -> None:
+    """Unlock a finished worker after ECS confirms STOPPED; never by guess."""
+    key = {"pk": {"S": f"TENANT#{config.tenant}"}}
+    record = dynamodb.get_item(
+        TableName=config.lease_table, Key=key, ConsistentRead=True
+    ).get("Item") or {}
+    if (record.get("state", {}).get("S") != "launched" or
+            not record.get("task_arn", {}).get("S")):
+        return
+    arn = record["task_arn"]["S"]
+    if not arn.startswith(f"arn:aws:ecs:{REGION}:{config.account}:task/"):
+        raise UnsafeDispatch("ledger has wrong ECS task")
+    task_report = ecs.describe_tasks(cluster=config.cluster, tasks=[arn])
+    tasks = task_report.get("tasks") or []
+    if (task_report.get("failures") or len(tasks) != 1 or
+            tasks[0].get("taskArn") != arn or
+            tasks[0].get("lastStatus") != "STOPPED" or
+            tasks[0].get("desiredStatus") != "STOPPED"):
+        return
+    try:
+        dynamodb.update_item(
+            TableName=config.lease_table,
+            Key=key,
+            UpdateExpression="SET #s = :finished, lease_until = :expired",
+            ConditionExpression="token = :token AND #s = :launched",
+            ExpressionAttributeNames={"#s": "state"},
+            ExpressionAttributeValues={
+                ":token": record["token"],
+                ":launched": {"S": "launched"},
+                ":finished": {"S": "finished"},
+                ":expired": {"N": str(now - 1)},
+            },
+        )
+    except Exception as exc:
+        # Another invocation may have changed the lease; it must win.
+        if (getattr(exc, "response", {}) or {}).get("Error", {}).get(
+            "Code"
+        ) != "ConditionalCheckFailedException":
+            raise
+
+
 def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
                   clock=time.time, token_factory=None) -> str:
     """Launch at most one verified, unmodified preview guest per lease.
@@ -162,6 +203,7 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
         return "already_running"
 
     now = int(clock())
+    _release_finished_lease(ecs, dynamodb, config, now)
     token = token_factory()
     if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
         raise UnsafeDispatch("invalid idempotency token")
