@@ -10,13 +10,16 @@ egress isolation.
 ## New restricted staging network
 
 `infra/notarai-confidential-private-egress.yaml` builds a distinct
-`GuestPrivateSecurityGroup` with **exactly** two egress rules:
+`GuestPrivateSecurityGroup` with **exactly** three egress rules:
 
 1. HTTPS 443 to an interface-endpoint SG containing approved AWS
    PrivateLink services (KMS, SQS, ECR API/DKR, ECS, ECS Agent,
    ECS Telemetry, STS, CloudWatch Logs).
 2. HTTPS 443 to the AWS-managed S3 PrefixList through a Gateway endpoint
    whose route is installed in an isolated pilot route table.
+3. HTTPS 443 to AWS-managed DynamoDB PrefixList through a dedicated Gateway
+   endpoint, used for one-time job claims and result status. This is not
+   public internet egress.
 
 There are no guest inbound rules, NAT, internet gateways, public CIDR
 outbound rules, or running ECS resources created by this template.
@@ -51,12 +54,13 @@ after explicit account verification. No secrets are fetched.
    python scripts/verify_confidential_private_network.py \
      --account <ACCOUNT_ID> --profile notarai-admin \
      --vpc vpc-... --subnet subnet-... --route-table rtb-... \
-     --guest-sg sg-... --endpoint-sg sg-... --s3-prefix pl-... --check
+     --guest-sg sg-... --endpoint-sg sg-... --s3-prefix pl-... \\
+     --dynamodb-prefix pl-... --check
    ```
 6. Pass **only** the validated `PilotGuestSecurityGroupId` to the
    separate private pilot task/managed-instance capacity provider;
    do not rely on the old broad SG.
-7. Verify ECS startup, ECR image pulling, SQS/KMS/S3 operations, effective
+7. Verify ECS startup, ECR image pulling, SQS/KMS/S3/DynamoDB operations, effective
    attested measurements (PCR17), and denied outbound attempts with
    fictional data. If any required AWS data-plane connection fails, do
    not silently restore Internet egress.
@@ -93,3 +97,13 @@ Official AWS sources:
 - https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html
 - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/vpc-endpoints.html
 - https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-awsvpc-mode.html
+
+
+## Follow-on PR #57: production-unsafe bootstrap is disabled
+
+The older `scripts/confidential_pilot_bootstrap.py --apply` is now a hard
+error to prevent generating a provider from its original outbound 0/0 SG.
+Use `docs/claude-aws-confidential-handoff.md` and the separate private
+network CloudFormation stack. The synthetic worker now uses a new DynamoDB
+lifecycle ledger, requiring DynamoDB Gateway VPCE, its managed prefix
+list and least-privilege IAM on the exact tenant table.
