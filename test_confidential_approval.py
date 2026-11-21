@@ -249,20 +249,20 @@ def test_signed_callback_binds_exact_browser_values_and_prevents_replay():
     async def run():
         p1 = Page()
         result = await fill_form(
-            p1, form(), data, job_id=JOB, submit=True, approve=gate.callback
+            p1, form(), data, job_id=JOB, submit=True, approve=gate.callback, execution_mode="supervised"
         )
         assert result.submitted is True and p1.clicks == ["#submit"]
         p2 = Page()
         with pytest.raises(ApprovalRejected, match="used"):
             await fill_form(
-                p2, form(), data, job_id=JOB, submit=True, approve=gate.callback
+                p2, form(), data, job_id=JOB, submit=True, approve=gate.callback, execution_mode="supervised"
             )
         assert p2.clicks == []
         p3 = Page()
         with pytest.raises(ApprovalRejected, match="scope"):
             await fill_form(
                 p3, form(), {"name": "CHANGED"}, job_id=JOB,
-                submit=True, approve=gate.callback
+                submit=True, approve=gate.callback, execution_mode="supervised"
             )
         assert p3.clicks == []
     asyncio.run(run())
