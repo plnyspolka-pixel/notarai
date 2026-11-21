@@ -68,8 +68,9 @@ def _verify_task(ecs, config: DispatcherConfig) -> None:
         taskDefinition=config.task_definition_arn
     )["taskDefinition"]
     family = f"notarai-confidential-{config.tenant}"
+    repo = "notarai-confidential-shared" if config.shared_pool else family
     expected_repo = (
-        f"{config.account}.dkr.ecr.{REGION}.amazonaws.com/{family}@sha256:"
+        f"{config.account}.dkr.ecr.{REGION}.amazonaws.com/{repo}@sha256:"
     )
     containers = definition.get("containerDefinitions") or []
     if len(containers) != 1:
