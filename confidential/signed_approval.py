@@ -144,6 +144,60 @@ class ApprovalLedger(Protocol):
     def consume(self, intent: ApprovalIntent, signature: bytes) -> None: ...
 
 
+class DynamoCredentialRegistry:
+    """Read-only enrollment directory. A signed user request cannot enroll a key.
+
+    A separate, independently authenticated and user-verified enrollment
+    ceremony must populate this table. This module never creates credentials.
+    """
+
+    def __init__(self, client, *, table_name: str, tenant_id: str):
+        if (
+            not isinstance(tenant_id, str) or
+            not re.fullmatch(r"[a-z0-9]{1,12}", tenant_id) or
+            table_name != "notarai-confidential-credentials-" + tenant_id
+        ):
+            raise ApprovalRejected("invalid credential registry")
+        self._ddb = client
+        self._table = table_name
+        self._tenant = tenant_id
+
+    def get(self, tenant_id: str, key_id: str) -> EnrolledCredential | None:
+        if tenant_id != self._tenant or not _KEY_ID.fullmatch(key_id):
+            return None
+        try:
+            record = self._ddb.get_item(
+                TableName=self._table,
+                Key={"pk": {"S": f"KEY#{tenant_id}#{key_id}"}},
+                ConsistentRead=True,
+            ).get("Item") or {}
+        except Exception:
+            raise ApprovalRejected("signing key registry unavailable") from None
+        if not record:
+            return None
+        try:
+            pub = base64.b64decode(
+                record["ed25519_public_key"]["S"], validate=True
+            )
+            cred = EnrolledCredential(
+                tenant_id=record["tenant_id"]["S"],
+                actor_id=record["actor_id"]["S"],
+                key_id=record["key_id"]["S"],
+                ed25519_public_key=pub,
+                role=record["role"]["S"],
+                active=record["active"]["BOOL"] is True,
+            )
+        except (KeyError, TypeError, ValueError, binascii.Error):
+            raise ApprovalRejected("invalid registered credential") from None
+        if (
+            cred.tenant_id != tenant_id or cred.key_id != key_id
+            or not _ID.fullmatch(cred.actor_id)
+            or len(cred.ed25519_public_key) != 32
+        ):
+            raise ApprovalRejected("registered credential has invalid scope")
+        return cred
+
+
 def verify_and_consume(
     signed: Mapping[str, object],
     *,
