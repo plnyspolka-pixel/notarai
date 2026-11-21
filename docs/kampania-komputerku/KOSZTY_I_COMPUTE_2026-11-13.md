@@ -55,6 +55,10 @@ które już płaci za Bedrock i ECS:
 - **Start jednym poleceniem:** `infra/5-budzet-i-limit-gpu.ps1` (Windows) albo `infra/5-budzet-i-limit-gpu.sh` –
   zakłada alarm budżetowy Bedrock (`infra/notarai-budzet.yaml`, 80 % wydanych / 100 % prognozy na e-mail) i składa
   wniosek o limit instancji G spot. Oba kroki są darmowe.
+- **Budżet i alarmy bez skryptu (wdrożone z GitHuba przez stos `notarai-aplikacja`):** budżet `notarai-bedrock-miesieczny`
+  (60 USD, e-mail przy 80 % i prognozie 100 %), alarm `notarai-bedrock-tokeny` (suma tokenów obu modeli > 5 mln dziennie)
+  i `notarai-bedrock-dlawienie` (ThrottlingException). Progi to parametry stosu `BudzetBedrockUsd`, `LimitTokenowBedrockDzien`.
+  Workflow wdrożenia uzupełnia pusty `EmailAlarmowy` pierwszym adresem z `Administratorzy`.
 - **Czego to nie załatwia:** klucz Bedrock w środowisku sesji nie daje uprawnień do EC2/Polly – do deployu potrzebna
   rola lub profil AWS operatora (ten sam, którym wdrażacie `notarai-aplikacja`).
 
