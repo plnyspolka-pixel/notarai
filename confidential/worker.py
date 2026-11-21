@@ -57,7 +57,7 @@ async def _prepare_fictional_form(job_id: str, values: dict) -> None:
             try:
                 result = await fill_form(
                     page, form, values, job_id=job_id,
-                    submit=False, loopback_for_tests=True,
+                    submit=False, execution_mode="auto", loopback_for_tests=True,
                 )
                 if result.submitted or result.filled_fields != 2:
                     raise RuntimeError("unexpected demo result")
