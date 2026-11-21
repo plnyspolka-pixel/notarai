@@ -54,6 +54,7 @@ class FakeDdb:
                 and row["job_id"]["S"] == values[":job"]["S"]
                 and row["case_id"]["S"] == values[":case"]["S"]
                 and row["object_id"]["S"] == values[":object"]["S"]
+                and row["s3_version"]["S"] == values[":version"]["S"]
                 and row["submitted"]["BOOL"] is False
                 and attempts < int(values[":limit"]["N"])
                 and (state in ("queued", "retryable") or
@@ -88,7 +89,7 @@ def make():
     client = FakeDdb()
     ledger = PreviewJobLedger(client, tenant="pilot01")
     ledger.create(
-        job_id="abc012", case_id="case01", object_id="object01", now=100
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001", now=100
     )
     return client, ledger
 
@@ -102,10 +103,10 @@ def test_create_idempotency_and_tenant_scoping():
     }
     with pytest.raises(JobRejected):
         ledger.create(job_id="abc012", case_id="case01",
-                      object_id="object01", now=101)
+                      object_id="object01", s3_version="v000001", now=101)
     with pytest.raises(JobRejected):
         ledger.claim(job_id="abc012", case_id="wrong",
-                     object_id="object01", now=101, token="a" * 32)
+                     object_id="object01", s3_version="v000001", now=101, token="a" * 32)
     other = PreviewJobLedger(client, tenant="other")
     with pytest.raises(JobRejected):
         other.status("abc012")
@@ -114,12 +115,12 @@ def test_create_idempotency_and_tenant_scoping():
 def test_claim_release_replay_and_completion_are_conditional():
     _, ledger = make()
     first = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=101, token="a" * 32,
     )
     assert first.state == "claimed" and first.attempts == 1
     held = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=102, token="b" * 32,
     )
     assert held.state == "busy"
@@ -127,7 +128,7 @@ def test_claim_release_replay_and_completion_are_conditional():
         ledger.complete(job_id="abc012", token="b" * 32)
     ledger.complete(job_id="abc012", token=first.token)
     complete = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=1500, token="c" * 32,
     )
     assert complete.state == "completed"
@@ -137,16 +138,16 @@ def test_claim_release_replay_and_completion_are_conditional():
 def test_expired_lease_can_retry_preview_only_not_a_submission():
     _, ledger = make()
     claim = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=100, token="a" * 32,
     )
     pending = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=1000, token="b" * 32,
     )
     assert pending.state == "busy"  # equality is not enough to steal a lease
     again = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=1001, token="b" * 32,
     )
     assert again.state == "claimed" and again.attempts == 2
@@ -155,16 +156,26 @@ def test_expired_lease_can_retry_preview_only_not_a_submission():
     ledger.fail(job_id="abc012", token=again.token, attempts=again.attempts)
     assert ledger.status("abc012")["status"] == "retryable"
     third = ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=1002, token="c" * 32,
     )
     assert third.state == "claimed" and third.attempts == 3
     ledger.fail(job_id="abc012", token=third.token, attempts=3)
     assert ledger.status("abc012")["status"] == "needs_review"
     assert ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=10000, token="d" * 32,
     ).state == "needs_review"
+
+
+def test_wrong_s3_version_is_denied_even_when_object_key_matches():
+    _, ledger = make()
+    with pytest.raises(JobRejected, match="reserved job"):
+        ledger.claim(
+            job_id="abc012", case_id="case01", object_id="object01",
+            s3_version="v000002", now=101, token="a" * 32,
+        )
+    assert ledger.status("abc012")["attempts"] == 0
 
 
 def test_uncertain_sqs_publish_fails_closed_with_no_worker_claim():
@@ -172,7 +183,7 @@ def test_uncertain_sqs_publish_fails_closed_with_no_worker_claim():
     ledger.mark_queue_uncertain("abc012")
     assert ledger.status("abc012")["status"] == "queue_uncertain"
     assert ledger.claim(
-        job_id="abc012", case_id="case01", object_id="object01",
+        job_id="abc012", case_id="case01", object_id="object01", s3_version="v000001",
         now=101, token="a" * 32,
     ).state == "needs_review"
     ledger.mark_queue_uncertain("abc012")  # never reset back to queued
@@ -180,7 +191,7 @@ def test_uncertain_sqs_publish_fails_closed_with_no_worker_claim():
     client.fail_next_write = True
     with pytest.raises(JobRejected):
         ledger.create(job_id="another", case_id="case01",
-                      object_id="object01", now=102)
+                      object_id="object01", s3_version="v000001", now=102)
 
 
 class FakeQueue:
@@ -224,6 +235,7 @@ def test_worker_claims_before_decrypt_then_completes_and_deletes(monkeypatch):
         "Body": json.dumps({
             "tenant_id": "pilot01", "case_id": "case01",
             "object_id": "object01", "job_id": "abc012",
+            "s3_version": "v000001",
         }),
         "ReceiptHandle": "fictional",
     })
@@ -261,6 +273,7 @@ def test_worker_fails_before_decryption_if_job_is_not_registered(monkeypatch):
         "Body": json.dumps({
             "tenant_id": "pilot01", "case_id": "case01",
             "object_id": "object01", "job_id": "abc012",
+            "s3_version": "v000001",
         }), "ReceiptHandle": "fictional",
     })
     session = FakeSession(client, queue, FakeS3())
@@ -280,6 +293,7 @@ def test_worker_failure_keeps_sqs_unacknowledged_for_bounded_retry(monkeypatch):
         "Body": json.dumps({
             "tenant_id": "pilot01", "case_id": "case01",
             "object_id": "object01", "job_id": "abc012",
+            "s3_version": "v000001",
         }), "ReceiptHandle": "fictional",
     })
     session = FakeSession(client, queue, FakeS3())
