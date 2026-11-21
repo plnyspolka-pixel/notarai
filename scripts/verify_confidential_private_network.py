@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from confidential.private_egress import validate_private_egress
 
 
