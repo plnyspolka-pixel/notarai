@@ -18,6 +18,7 @@ from confidential.private_egress import validate_private_egress
 def verify(
     *, account: str, profile: str, vpc: str, subnet: str,
     route_table: str, guest_sg: str, endpoint_sg: str, s3_prefix: str,
+    dynamodb_prefix: str,
     check: bool = False,
 ) -> bool:
     if not re.fullmatch(r"[0-9]{12}", account):
@@ -43,6 +44,7 @@ def verify(
         vpc_id=vpc, subnet_id=subnet, private_route_table_id=route_table,
         guest_sg_id=guest_sg, endpoint_sg_id=endpoint_sg,
         s3_prefix_list_id=s3_prefix,
+        dynamodb_prefix_list_id=dynamodb_prefix,
         subnet_response=subnet_data, route_response=route_data,
         group_response=groups, endpoints_response=endpoints,
     )
@@ -54,7 +56,7 @@ def verify(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ("account", "profile", "vpc", "subnet", "route-table",
-                "guest-sg", "endpoint-sg", "s3-prefix"):
+                "guest-sg", "endpoint-sg", "s3-prefix", "dynamodb-prefix"):
         parser.add_argument("--" + arg, required=True)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
@@ -62,7 +64,8 @@ def main() -> None:
         account=args.account, profile=args.profile, vpc=args.vpc,
         subnet=args.subnet, route_table=args.route_table,
         guest_sg=args.guest_sg, endpoint_sg=args.endpoint_sg,
-        s3_prefix=args.s3_prefix, check=args.check,
+        s3_prefix=args.s3_prefix, dynamodb_prefix=args.dynamodb_prefix,
+        check=args.check,
     )
 
 
