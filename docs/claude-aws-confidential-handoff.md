@@ -52,7 +52,8 @@ python -m pytest -q test_confidential.py test_confidential_worker.py \
   test_confidential_interop.py test_confidential_infra.py \
   test_confidential_preflight.py test_confidential_dispatch.py \
   test_confidential_approval.py test_confidential_auto.py \
-  test_confidential_egress.py test_confidential_job_ledger.py
+  test_confidential_egress.py test_confidential_job_ledger.py \
+  test_confidential_audit.py
 node test_confidential_auto_js.js
 python -m confidential.demo_browser
 python scripts/confidential_pilot_run.py --help
@@ -228,6 +229,10 @@ i odpowiednie prywatne subnets.
   stop code 0, tylko `preview_completed`, `submitted=false`,
   S3 marker i DynamoDB status; SQS powinien zostać usunięty po
   potwierdzeniu sukcesu.
+- Uruchom `python scripts/audit_confidential_pilot.py --profile "$AWS_PROFILE"
+  --account "$ACCOUNT" --tenant pilot01 --job-id "$JOB_ID" --check`.
+  Porównaj metadane DDB, SQS visible/inflight/DLQ, ECS active i istnienie
+  S3 result marker bez pobierania treści dokumentów.
 - Uruchom testy awarii: obca kancelaria, brak rejestru job, podrobiona
   wiadomość SQS, podmiana KMS PCR/digest, brak VPCE, konkurencyjny
   job claim, duplikat SQS, brak zgody na wysłanie. W przypadku awarii
@@ -287,3 +292,13 @@ zakończonym pilocie zaproponuj bezpieczne usunięcie testowej sieci.
 - DynamoDB gateway endpoint: https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-ddb.html
 - KMS attestation keys: https://docs.aws.amazon.com/kms/latest/developerguide/conditions-nitro-enclave.html
 - ECS instance networking: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-awsvpc-mode.html
+
+
+### Dodatkowy warunek produkcyjny (nie dotyczy fikcyjnego testu)
+
+Dalsze wdrożenie wymaga **przypięcia konkretnej wersji obiektu S3 do jobu**:
+obecny envelope pod kluczem case/object można nadpisać po zakolejkowaniu.
+Claude ma dodać Versioning + immutability binding (`VersionId` i/lub
+SHA-256 ciphertext) do zamówienia oraz weryfikację przed decrypt, zanim
+kiedykolwiek dopuści się prawdziwe dokumenty albo podpisane oświadczenia.
+Opis problemu: `docs/confidential-job-lifecycle.md`.
