@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import fnmatch
 import re
 from collections.abc import Mapping
 
@@ -140,17 +141,17 @@ def validate_preflight(
     for statement in statements:
         if not isinstance(statement, dict) or statement.get("Effect") != "Allow":
             continue
+        # Allow + NotAction can grant Decrypt implicitly, even when
+        # a literal kms:Decrypt string never appears in the statement.
+        _require("NotAction" not in statement and "NotResource" not in statement,
+                 "implicit KMS decrypt permissions forbidden")
         actions = statement.get("Action", [])
         if isinstance(actions, str):
             actions = [actions]
-        if not isinstance(actions, list):
-            raise PilotPreflightRejected("unrecognized KMS actions")
-        if any(
-            isinstance(action, str) and
-            (action.lower() in {"kms:decrypt", "kms:*", "*"} or
-             action.lower().startswith("kms:decry"))
-            for action in actions
-        ):
+        _require(isinstance(actions, list) and
+                 all(isinstance(action, str) for action in actions),
+                 "unrecognized KMS actions")
+        if any(fnmatch.fnmatchcase("kms:decrypt", action.lower()) for action in actions):
             decrypt_allow.append(statement)
     _require(len(decrypt_allow) == 1, "KMS decrypt grants must be unique")
     grant = decrypt_allow[0]
