@@ -147,12 +147,14 @@ def assess_custody_storage(*, identity: dict, custody_account: str,
                 "RestrictPublicBuckets",
             )
         ),
+        # Reference pilot uses custodian-owned SSE-S3 only. A cross-account
+        # KMS CMK would need a separate ownership/policy inspection.
         "encryption_enabled": any(
             isinstance(rule, dict) and
             isinstance(rule.get("ApplyServerSideEncryptionByDefault"), dict) and
             rule["ApplyServerSideEncryptionByDefault"].get(
                 "SSEAlgorithm"
-            ) in ("AES256", "aws:kms")
+            ) == "AES256"
             for rule in enc_rules
         ),
         "bucket_owner_enforced": any(
