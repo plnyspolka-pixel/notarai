@@ -49,11 +49,22 @@ def statements(policy):
             policy.get("Version") == "2012-10-17" and
             isinstance(policy.get("Statement"), list),
             "invalid IAM document")
-    for s in policy["Statement"]:
-        require(isinstance(s, dict) and
-                set(s) == {"Sid", "Effect", "Action", "Resource"},
+    forms = (
+        {"Sid", "Effect", "Action", "Resource"},
+        {"Sid", "Effect", "NotAction", "Resource"},
+        {"Sid", "Effect", "Action", "NotResource"},
+    )
+    for statement in policy["Statement"]:
+        require(isinstance(statement, dict) and
+                set(statement) in forms and
+                statement.get("Effect") in ("Allow", "Deny") and
+                isinstance(statement.get("Sid"), str),
                 "unreviewed IAM statement fields")
-        actions(s)
+        if "Action" in statement:
+            actions(statement)
+        else:
+            require(statement["Effect"] == "Deny", "NotAction Allow forbidden")
+            actions({"Action": statement["NotAction"]})
     return policy["Statement"]
 
 
@@ -102,16 +113,31 @@ def validate_observer_template(template: Mapping):
     rows = statements(boundary["Properties"]["PolicyDocument"])
     denies = [r for r in rows if r["Effect"] == "Deny"]
     allows = [r for r in rows if r["Effect"] == "Allow"]
-    require(len(denies) == 1 and
-            denies[0]["Sid"] == "ExplicitlyDenyEscalation" and
-            denies[0]["Resource"] == "*", "explicit Deny missing")
-    denied = actions(denies[0])
+    required_sids = {
+        "ExplicitlyDenyEscalation",
+        "DenyEverythingExceptObserverActions",
+        "DenyReadOutsideOwnCluster",
+        "DenyReadOutsideOwnEcr",
+        "DenyReadOutsideOwnQueue",
+    }
+    require(len(denies) == 5 and
+            {r.get("Sid") for r in denies} == required_sids,
+            "explicit deny coverage incomplete")
+    by_sid = {r["Sid"]: r for r in denies}
+    escalations = by_sid["ExplicitlyDenyEscalation"]
+    require(set(escalations) == {"Sid", "Effect", "Action", "Resource"} and
+            escalations["Resource"] == "*", "explicit escalation Deny missing")
+    denied = actions(escalations)
     require(all(a <= denied for a in SCENARIOS.values()) and
             {"kms:Decrypt", "ecs:RunTask", "ecs:ExecuteCommand",
              "iam:DeleteRolePermissionsBoundary",
              "cloudformation:UpdateStack", "sso:*",
              "identitystore:*"} <= denied, "critical Deny missing")
-    require(len(allows) == 3, "extra observer policy permission")
+    notaction = by_sid["DenyEverythingExceptObserverActions"]
+    require(set(notaction) == {"Sid", "Effect", "NotAction", "Resource"} and
+            notaction["Resource"] == "*" and
+            actions({"Action": notaction["NotAction"]}) == READ_ACTIONS,
+            "explicit deny of non-observer actions missing")
     exact_resources = {
         "ecs:ListTasks":
             "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared",
@@ -120,6 +146,17 @@ def validate_observer_template(template: Mapping):
         "sqs:GetQueueAttributes":
             "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-${TenantId}.fifo",
     }
+    scoped = {
+        "ecs:ListTasks": "DenyReadOutsideOwnCluster",
+        "ecr:DescribeImages": "DenyReadOutsideOwnEcr",
+        "sqs:GetQueueAttributes": "DenyReadOutsideOwnQueue",
+    }
+    for action, sid in scoped.items():
+        require(by_sid[sid] == {
+            "Sid": sid, "Effect": "Deny", "Action": action,
+            "NotResource": {"Sub": exact_resources[action]},
+        }, "resource-based session grant can escape observer boundary")
+    require(len(allows) == 3, "extra observer policy permission")
     observed = set()
     for s in allows:
         a = actions(s)
