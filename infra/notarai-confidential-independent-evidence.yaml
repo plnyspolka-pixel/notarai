@@ -67,12 +67,14 @@ Resources:
         Statement:
           - Sid: DenyAllOperatorAccountAccess
             Effect: Deny
-            Principal:
-              AWS: !Sub "arn:aws:iam::${OperatorAccountId}:root"
+            Principal: "*"
             Action: "s3:*"
             Resource:
               - !GetAtt IndependentEvidenceBucket.Arn
               - !Sub "${IndependentEvidenceBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                aws:PrincipalAccount: !Ref OperatorAccountId
           - Sid: DenyInsecureTransport
             Effect: Deny
             Principal: "*"
