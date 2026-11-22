@@ -127,9 +127,23 @@ def verify_live(*, manifest: dict, operator_profile: str, custody_profile: str,
     if not isinstance(bucket, str) or not bucket:
         raise ProofRejected("synthetic staging bucket unavailable")
     marker = f"kancelarie/{manifest['tenant']}/confidential-results/{manifest['job_id']}.json"
-    marker_exists = operator.client("s3").head_object(
-        Bucket=bucket, Key=marker,
-    ).get("ContentLength", -1) > 0
+    # Read the tiny synthetic result marker and reject a success without
+    # an explicit no-submit flag. No document, ciphertext or PII is read.
+    obj = operator.client("s3").get_object(Bucket=bucket, Key=marker)
+    if obj.get("ContentLength", 0) > 2048:
+        raise ProofRejected("guest marker size invalid")
+    with obj["Body"] as stream:
+        try:
+            marker_document = json.loads(stream.read(2049))
+        except (ValueError, UnicodeDecodeError):
+            raise ProofRejected("guest marker invalid") from None
+    marker_exists = marker_document == {
+        "version": 1, "job_id": manifest["job_id"],
+        "status": "preview_completed", "fields_filled": 2,
+        "submitted": False,
+    }
+    if not marker_exists:
+        raise ProofRejected("guest result was not verified as no-submit")
 
     start = datetime.strptime(manifest["started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=timezone.utc,
@@ -189,12 +203,16 @@ def verify_live(*, manifest: dict, operator_profile: str, custody_profile: str,
         _verify_external_signature(payload, auditor_signature_file,
                                    auditor_public_key_file,
                                    auditor_public_key_sha256)
+        # A signature over event IDs does not prove the attack preconditions.
+        # In particular CloudTrail cannot independently show that a task was
+        # launched *without* signed release, nor that an image was maliciously
+        # changed. SEC-05/06 and a separately witnessed signed per-case runbook
+        # are still necessary. Never turn this partial proof into hardware PASS.
         summary.update({
-            "status": "PASS",
-            "reason": "signed_live_hardware_evidence",
-            "hardware_attestation_verified": True,
-            # A live hardware proof does NOT prove Organizations/root independence
-            # or full product Zero Operator Access/Zero Knowledge.
+            "status": "BLOCKED",
+            "reason": "six_live_attack_preconditions_not_independently_verified",
+            "audit_signature_verified": True,
+            "hardware_attestation_verified": False,
             "zero_operator_access_proven": False,
             "production_enabled": False,
         })
