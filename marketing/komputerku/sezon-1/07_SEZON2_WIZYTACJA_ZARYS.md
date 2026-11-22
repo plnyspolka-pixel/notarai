@@ -25,6 +25,10 @@ Po zwykłym zawiadomieniu o planowanej wizytacji Helena jest przekonana, że kan
 | 207 „Wyjaśnienia” | Helena wyjaśnia kolejność działań i dokumentuje korekty, bez ukrywania uchybienia | Rzetelne wyjaśnienia, protokół i dalszy tryb | Teczki, weryfikacje, przygotowanie dokumentacji |
 | 208 „Protokół” | Realistyczne zakończenie czynności; ocena odbywa się w ustawowym trybie, bez filmowego wyroku na miejscu | Art. 44 §3, art. 45 PrNot; odpowiedzialność nie znika przez AI | Narzędzie wspiera porządek, decyzje i kontrolę zachowują ludzie |
 
+## Prawdziwe sprawy na sezon 2 (decyzja 23.11.2026)
+- **P01:** osoba ucharakteryzowana na starszą właścicielkę mieszkania próbuje podpisać pełnomocnictwo do zbycia; notariusz porównuje zdjęcie w dowodzie i wychwytuje rozbieżność. Notariusz wypada korzystnie; przestępstwa nie wykrywa AI. Źródło: komunikat policji z katalogu PR #93 (`03-sprawy-karne-i-interwencje.md`), przed użyciem sprawdzić dalszy tok sprawy.
+- Kandydaci: P03 (nieudana próba przekupienia notariusza), P02 (zatrzymanie w kancelarii przy próbie sprzedaży cudzego mieszkania), H19 (działka pominięta w akcie z 1973 r.). Szczegóły: `13_THRILLER_PRAWNICZY_Z_BADAN.md`.
+
 ## Emocjonalne podwątki
 - Helena: strach nie przed wizytatorem, lecz przed tym, czy potrafi uzasadnić każdą decyzję i organizację pracy. Prawdziwa siła to transparentność.
 - Basia: od osoby, która „wszystko pamiętała”, do osoby, która potrafi wszystko odnaleźć i wyjaśnić bez paniki.
