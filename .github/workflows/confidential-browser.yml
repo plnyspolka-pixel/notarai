@@ -92,6 +92,10 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
         run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_adversarial_e2e.py
+      - name: SEC-12 testy krytyczne bez pominiec + JUnit XML
+        run: |
+          python -m pytest -q --junitxml=/tmp/notarai-sec12-tests.xml test_confidential_adversarial_e2e.py
+          python -c 'import xml.etree.ElementTree as ET; root=ET.parse("/tmp/notarai-sec12-tests.xml").getroot(); suites=([root] if root.tag=="testsuite" else list(root.findall("testsuite"))); counts={name:sum(int(x.get(name,0)) for x in suites) for name in ("tests","failures","errors","skipped")}; assert counts["tests"]>=65 and counts["failures"]==0 and counts["errors"]==0 and counts["skipped"]==0, counts; print("SEC12 tests verified:", counts)'
       - name: SEC-12 synthetic matrix / NO_GO bez dowodu sprzetowego
         run: |
           python scripts/run_confidential_adversarial_e2e.py --offline
@@ -105,7 +109,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sec12-offline-matrix
-          path: /tmp/notarai-sec12-gate.json
+          path: |
+            /tmp/notarai-sec12-gate.json
+            /tmp/notarai-sec12-tests.xml
           retention-days: 30
           if-no-files-found: error
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
