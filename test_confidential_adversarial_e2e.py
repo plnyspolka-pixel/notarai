@@ -367,3 +367,16 @@ def test_dispatch_entrypoint_denies_nonpilot_without_aws(tenant):
     blocked = ForbiddenClient()
     with pytest.raises(UnsafeDispatch, match="only synthetic pilot"):
         dispatch_once(config, sqs=blocked, ecs=blocked, dynamodb=blocked)
+
+
+@pytest.mark.parametrize("tenant", ("office01", "notary01"))
+def test_direct_worker_cannot_bypass_scope_by_skipping_config(tenant):
+    from confidential.worker import _process_one
+
+    class ForbiddenSession:
+        def client(self, service):
+            raise AssertionError("AWS must not be accessed")
+
+    with pytest.raises(ValueError, match="only synthetic pilot"):
+        _process_one(ForbiddenSession(), tenant, "fake-bucket",
+                     "fake-queue", "fake-kms")
