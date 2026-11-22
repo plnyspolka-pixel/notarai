@@ -155,6 +155,11 @@ class S3ForTests:
     def __init__(self):
         self.writes = {}
         self.ddb = FakeDocumentDdb()
+    def head_object(self, **kw):
+        item = self.writes[kw["Key"]]
+        return {"VersionId": "actualS3version01",
+                "Metadata": item.get("Metadata", {}),
+                "ContentLength": len(item["Body"])}
     def get_object(self, **kw):
         from io import BytesIO
         item = self.writes[kw["Key"]]
@@ -682,3 +687,76 @@ def test_independent_document_origin_receipt_denies_operator_forgery(keys):
     with pytest.raises(UntrustedDocumentOrigin):
         verify_document_origin(**{**args,
             "expected_ciphertext_sha256": forged_sha})
+
+
+def test_ciphertext_raw_bytes_preserved_and_duplicate_json_keys_rejected(keys, monkeypatch):
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    wire = json.dumps(payload, indent=2).encode("ascii") + b"\n"
+    returned = asyncio.run(router.store(
+        RequestForTests("pilot01", wire), "case01", "scan01",
+    ))
+    assert json.loads(returned.body)["ciphertext_sha256"] == hashlib.sha256(wire).hexdigest()
+    assert next(iter(s3.writes.values()))["Body"] == wire
+    dupe = wire.replace(b'"version": 2,', b'"version": 2, "version": 2,', 1)
+    # JSON parser ambiguity must be caught BEFORE S3/DDB reservation.
+    s3_new = S3ForTests()
+    setup_backend(monkeypatch, s3_new, keys[1], "pilot01")
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(router.store(
+            RequestForTests("pilot01", dupe), "case01", "scan01",
+        ))
+    assert exc.value.status_code == 400
+    assert not s3_new.writes and not s3_new.ddb.rows
+
+
+def test_signed_receipt_upload_matches_exact_encrypted_bytes(keys, monkeypatch):
+    from confidential.document_authenticity import canonical_origin_receipt
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    wire = json.dumps(payload, separators=(",", ":")).encode("ascii")
+    result = asyncio.run(router.store(
+        RequestForTests("pilot01", wire), "case01", "scan01",
+    ))
+    stored = json.loads(result.body)
+    signer = ed25519.Ed25519PrivateKey.generate()
+    receipt = {
+        "schema": "notarai.document-origin.v1",
+        "tenant_id": "pilot01", "case_id": "case01",
+        "object_id": "scan01",
+        "document_version": payload["document_version"],
+        "s3_version": stored["s3_version"],
+        "ciphertext_sha256": stored["ciphertext_sha256"],
+        "kms_key_arn": ARN, "key_pin": keys[1],
+        "issuer_id": "synthetic_issuer", "expires_at": 2000000000,
+    }
+    bundle = {
+        "schema": "notarai.signed-origin-receipt.v1", "receipt": receipt,
+        "signature_b64": base64.b64encode(
+            signer.sign(canonical_origin_receipt(receipt))
+        ).decode("ascii"),
+    }
+    body = json.dumps(bundle, separators=(",", ":")).encode("ascii")
+    accepted = asyncio.run(router.store_origin_receipt(
+        RequestForTests("pilot01", body), "case01", "scan01",
+    ))
+    assert json.loads(accepted.body) == {
+        "stored": True, "signature_verified": False,
+    }
+    assert any(k.endswith(".origin.json") for k in s3.writes)
+    with pytest.raises(HTTPException) as err:
+        asyncio.run(router.store_origin_receipt(
+            RequestForTests("pilot01", body), "case01", "scan01",
+        ))
+    assert err.value.status_code == 409
+    with pytest.raises(HTTPException) as err:
+        asyncio.run(router.store_origin_receipt(
+            RequestForTests("pilot01", json.dumps(
+                {**bundle, "receipt": {
+                    **receipt, "ciphertext_sha256": "0" * 64,
+                }}
+            ).encode("ascii")), "case01", "scan01",
+        ))
+    assert err.value.status_code == 409
