@@ -81,3 +81,49 @@ def test_duplicate_or_changed_source_is_not_admitted():
     rows = list(offline_matrix(now=NOW))
     rows[0] = {**rows[0], "source": "AWS"}
     assert evaluate_gate(tuple(rows))["offline_matrix"] == "FAIL"
+
+def test_real_worker_parser_rejects_cross_tenant_and_invalid_versions():
+    import json
+    from confidential.worker import _parse_message
+    message = {"tenant_id": "pilot02", "case_id": "case01",
+               "object_id": "object01", "job_id": "job01", "s3_version": "v001"}
+    with pytest.raises(ValueError):
+        _parse_message(json.dumps(message), "pilot01")
+    with pytest.raises(ValueError):
+        _parse_message(json.dumps({**message, "s3_version": "null"}), "pilot02")
+
+
+def test_real_auto_api_rejects_submission_and_untrusted_flags():
+    from confidential.auto_mode import UnsafeAutoRequest, validate_preview_options
+    class Params:
+        def __init__(self, items):
+            self.items = items
+        def multi_items(self):
+            return self.items
+    for params in ([("submit", "true")], [("mode", "supervised")],
+                   [("approved", "true")], [("mode", "auto"), ("submit", "false")]):
+        with pytest.raises(UnsafeAutoRequest):
+            validate_preview_options(Params(params), has_body=False)
+
+
+def test_real_form_adapter_refuses_auto_submit_before_browser_interaction():
+    import asyncio
+    from confidential.form_engine import BlockedAction, fill_form, TrustedForm
+    form = TrustedForm("test", "https://forms.example.test/",
+        ("https://forms.example.test",), {"name": "#name"}, "#send")
+    async def rejected():
+        with pytest.raises(BlockedAction):
+            await fill_form(object(), form, {"name": "FICTIONAL"},
+                            job_id="fictional", submit=True)
+    asyncio.run(rejected())
+
+
+def test_real_custodian_release_rejects_modified_signed_digest():
+    from confidential.release_approval import verify_release
+    from confidential.operator_boundary import BoundaryDenied
+    from test_confidential_release_approval import signed_case
+    data = signed_case()
+    assert verify_release(**data)["zero_operator_access_proven"] is False
+    data["envelope"]["payload"]["image_sha256"] = "0" * 64
+    with pytest.raises(BoundaryDenied):
+        verify_release(**data)

@@ -4,7 +4,7 @@
 
 ## Co wykonano w tej gałęzi
 - `confidential/adversarial_gate.py`: deterministyczna macierz 19 prób na fikcyjnych `pilot01` i `pilot02`. Dwa scenariusze pozytywne, 13 prób obejścia i cztery awarie. Przetwarza wyłącznie metadane fikcyjne.
-- `test_confidential_adversarial_e2e.py`: testy 13 odmów, czterech awarii, oddzielnych tożsamości KMS/IAM, kompletności raportu i zakazu automatycznego GO.
+- `test_confidential_adversarial_e2e.py`: testy 13 odmów, czterech awarii, oddzielnych tożsamości KMS/IAM, kompletności raportu i zakazu automatycznego GO. Dodatkowe testy **rzeczywistych funkcji aplikacji**: `worker._parse_message`, `auto_mode.validate_preview_options`, `form_engine.fill_form`, `release_approval.verify_release`; nadal bez AWS.
 - `scripts/run_confidential_adversarial_e2e.py --offline`: offline, exit 0 przy wszystkich testach kontraktowych. `--check`: exit 2 / BLOCKED, gdy brak dowodów live. Nie ma przełącznika obchodzącego to zachowanie.
 - CI uruchamia test oraz weryfikuje `--check` zwracający odmowę.
 
