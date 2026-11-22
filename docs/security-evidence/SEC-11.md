@@ -148,3 +148,33 @@ nieoczekiwanym sukcesie.
 
 K1–K4 nadal wymagają zielonego CI dla najnowszego commita;
 K5–K6 dodatkowo rzeczywistych testów infrastruktury.
+
+
+## Niezależne podpisywanie manifestu (kod offline, testy syntetyczne)
+
+Nowe pliki: scripts/custodian_sign_confidential_evidence.py i
+test_confidential_custody_signer.py. Audytor/kustosz uruchamia signer
+wyłącznie na własnej stacji, nie na koncie/VM operatora NotarAI.
+
+Wymagania: zaszyfrowany PKCS#8 PEM Ed25519 jako plik owner-only 0600;
+hasło tylko przez dedykowany deskryptor pliku (FD > 2) z lokalnego
+sejfowego kanału, NIE przez argument CLI, zmienną środowiskową, mail
+ani GitHub. Manifest wejściowy zawiera tylko dozwolone techniczne dane.
+Wyjście: nowy plik podpisanej paczki 0600, O_EXCL (bez nadpisania).
+Publiczny fingerprint dystrybuować NIEZALEŻNIE poza NotarAI.
+
+~~~bash
+# FD 3 musi dostarczać hasło z niezależnego kanału kustosza,
+# zakończone LF; nigdy nie umieszczać hasła w shell history.
+python scripts/custodian_sign_confidential_evidence.py \
+  --manifest reviewed-manifest.json \
+  --encrypted-key custodian-encrypted-ed25519.pem \
+  --output signed-bundle.json \
+  --password-fd 3
+~~~
+
+Następnie custody archive zapisuje kopię, SHA manifestu, numer
+wersji/łańcucha i niezależny HEAD SHA; audytor offline wykonuje
+scripts/verify_confidential_evidence.py. Sam poprawny podpis wciąż
+nie dowodzi realnej konfiguracji IAM/Nitro/WORM. Bez aktualnego CI i
+niezależnego live audytu K2, K5 i K6 pozostają BLOCKED.
