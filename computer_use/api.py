@@ -61,7 +61,7 @@ def _caller(request: Request) -> TenantIdentity:
 def _service(tenant: str) -> JobControl:
     """No tenant config or AWS credentials supplied from browser or model."""
     for key in ("NOTARAI_VE_JOBS_TABLE", "NOTARAI_VE_TENANTS_TABLE",
-                "NOTARAI_VE_PAYLOAD_BUCKET"):
+                "NOTARAI_VE_PAYLOAD_BUCKET", "NOTARAI_VE_SETTINGS_TABLE"):
         if not os.getenv(key):
             raise HTTPException(503, "Brak konfiguracji centrum zadan.")
     import boto3
@@ -89,6 +89,7 @@ def _service(tenant: str) -> JobControl:
     )
     return JobControl(
         table=session.resource("dynamodb").Table(os.environ["NOTARAI_VE_JOBS_TABLE"]),
+        settings_table=session.resource("dynamodb").Table(os.environ["NOTARAI_VE_SETTINGS_TABLE"]),
         sqs=session.client("sqs"),
         payloads=store,
         queue_resolver=lambda scoped_tenant: (
