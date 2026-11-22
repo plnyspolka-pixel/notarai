@@ -86,6 +86,14 @@ Implemented: guest redirects stdout/stderr to /dev/null **before** KMS unwrap (f
 Implemented: guest startup refuses work if Linux core dumps/ptrace dumpability
 cannot be disabled or if `/tmp` is not a mounted `tmpfs`; Chromium profile,
 XDG config/cache and `TMPDIR` point to a fresh unique folder in that tmpfs.
+Inherited TLS session-key logging (`SSLKEYLOGFILE`), Playwright debug
+logging (`PWDEBUG`/`PLAYWRIGHT_DEBUG`) and Chrome file logging
+(`CHROME_LOG_FILE`) are disabled or set to `/dev/null` at guest startup.
+Browser `HOME`, XDG config/cache/state/data/runtime, `TMPDIR`, `TMP` and
+`TEMP` are redirected to the verified, private tmpfs folder during each
+browser run. A supplementary regression covers initially closed standard
+file descriptors; it is not a guarantee against third-party custom log sinks.
+
 Read-only guest filesystem, no mounted persistent volumes, no container log
 driver, no downloads or traces; screenshot/preview data are never persisted
 by the fictional guest. No persistence of decrypted PDF or model output is
