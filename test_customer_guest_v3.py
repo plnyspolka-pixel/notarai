@@ -148,3 +148,35 @@ def test_pcr_manifest_requires_out_of_band_signature(tmp_path):
     from cryptography.exceptions import InvalidSignature
     with pytest.raises(InvalidSignature):
         _pinned_policy(args, tenant="pilot01", now=1900000000)
+
+
+def test_local_origin_cli_signs_exact_s3_version(tmp_path, fixture):
+    from confidential.customer_origin import verify_customer_origin
+    owner, env, _, _ = fixture
+    signer = ed25519.Ed25519PrivateKey.generate()
+    signer_private = tmp_path / "signer.pem"
+    signer_private.write_bytes(pem(signer))
+    envelope_path = tmp_path / "envelope.json"
+    envelope_path.write_text(json.dumps(env))
+    output = tmp_path / "origin.json"
+    assert main([
+        "origin", "--envelope", str(envelope_path),
+        "--s3-version", "SyntheticVer01", "--issuer-id", "notary01",
+        "--signing-private-key", str(signer_private),
+        "--expires-at", "2000000000", "--output", str(output),
+    ]) == 0
+    bundle = json.loads(output.read_bytes())
+    assert bundle["schema"] == "notarai.customer-origin-bundle.v1"
+    verify_customer_origin(
+        env, bundle["receipt"], base64.b64decode(bundle["signature_b64"]),
+        pinned_notary_signing_public_raw=signer.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw),
+        expected_issuer_id="notary01", expected_s3_version="SyntheticVer01",
+        now=1900000010,
+    )
+    assert main([
+        "origin", "--envelope", str(envelope_path),
+        "--s3-version", "OtherVersion", "--issuer-id", "notary01",
+        "--signing-private-key", str(signer_private),
+        "--expires-at", "2000000000", "--output", str(output),
+    ]) == 1
