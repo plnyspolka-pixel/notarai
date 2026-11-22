@@ -1,6 +1,6 @@
 # SEC-06 — [SEC-06] Niezależny kustosz kluczy KMS: konto, onboarding, rotacja, odebranie uprawnień
 
-**Status: PLANNED (BRAK IMPLEMENTACJI).** P0; zależności: SEC-01, SEC-02, #61, #62
+**Status: IMPLEMENTACJA CZĘŚCIOWA / DRAFT — NIE ZAMYKAĆ.** P0; zależności: SEC-01, SEC-02, #61, #62. Wdrożenie i audyt AWS NIEPOTWIERDZONE.
 
 ## Zakres
 1. Zdefiniuj i zweryfikuj niezależność AWS account kustosza: Organization management, root, SSO, IAM, billing delegation, key admin oraz CloudFormation execution roles nie mogą być kontrolowane przez NotarAI.
@@ -30,3 +30,12 @@
 **Ten draft PR zawiera wyłącznie plan.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
 **Ograniczenia:** tylko fikcyjne pilot01/pilot02; eu-central-1; produkcja OFF; żadnych podpisów, wysyłek, składania wniosków ani dostępu do prawdziwych dokumentów. AWS only w autoryzowanej sesji, niezależna zgoda kustosza obowiązkowa. Bez plaintext/PII w logs, debug, CI, proxy. Testy offline ≠ real hardware proof. Skuteczność sprawdź regresją + fail-closed negatywnymi testami; nie polegaj tylko na „documentation review”.
 **Dostarcz:** kod/IaC + testy + zanonimizowane dowody + checklistę niezależnego audytu + status PASS/BLOCKED/UNVERIFIED; nie obiecuj produkcji ani Zero Knowledge/ZERO Operator Access bez dowodu.
+
+## PR #71 — dostarczony kod i dowody (2026-11-22)
+
+- `confidential/custody_ops.py`: signed ENROLL/FREEZE/REVOKE/ROTATE/UNFREEZE/MARK_LOST, fingerprint z zewnętrznego kanału, monotonically versioned state, deny dla starego KMS/tenanta, generator polityki deny-only i walidator snapshotu KMS.
+- `scripts/verify_confidential_custody_independence.py`: domyślny dry-run (0 AWS calls), opcjonalny tylko-odczytowy audyt Organizations i IAM role trusts z oddzielnych profili; nie utożsamia dwóch kont z niezależnością.
+- `test_confidential_independent_custody_ops.py`: fikcyjni pilot01/pilot02, co najmniej 5 mutacji KMS, 12 mutacji organizacyjnych, podpisy/replay, freeze/revocation/fallback, rotacja i utrata klucza.
+- `docs/security-evidence/SEC-06.md`: K1–K6 ze statusem BLOCKED/UNVERIFIED, jawne warunki audytu i testów live. Testy CI nie zastępują odmów KMS.
+
+**BLOKERY:** realnie niezależny custody AWS/Organizations/SSO i podpisany audyt; realna polityka KMS/CloudTrail i sprawdzenie jej skuteczności przez atak; dostarczone publiczne dowody CI dla finalnego HEAD. Implementacja nie jest wpięta w produkcyjny scheduler ani wypuszczona do użytkowników. Produkcja OFF, wyłącznie synthetic, AUTO bez podpisania/wysłania.
