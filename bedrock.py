@@ -291,8 +291,8 @@ def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model)
             if not _odrzucony_punkt_cache(blad, zadanie):
                 raise
             _cache_wylaczony = True
-            log.warning("Bedrock odrzucil punkt cache (%s) - cache promptu wylaczony, powtarzam bez punktow",
-                        blad.response.get("Error", {}).get("Message"))
+            # Provider error messages may contain prompt fragments; do not log them.
+            log.warning("Bedrock cachePoint rejected; retrying once without cache")
             zadanie["messages"] = _bez_punktow_cache(zadanie["messages"])
             czesci, powod, uzycie = _strumien(zadanie)
     except ClientError as blad:
