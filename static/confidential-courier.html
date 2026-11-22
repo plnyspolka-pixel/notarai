@@ -11,6 +11,11 @@
 <p>Wybierz wyłącznie plik <code>.encrypted.json</code> utworzony przez niezależnie zweryfikowanego klienta szyfrującego. Nie wybieraj tutaj oryginalnego dokumentu.</p>
 <label>Plik zaszyfrowanej koperty<input type="file" id="encrypted" accept=".json,application/json"></label>
 <button id="store" type="button">Zapisz ciphertext w kancelarii</button>
+<p>Po zapisaniu pliku wyślij kustoszowi SHA-256 i wersję S3 do niezależnego podpisania.
+Podpis musi powstać poza aplikacją NotarAI — klucz podpisujący nigdy nie trafia do serwera.</p>
+<label>Niezależnie podpisane potwierdzenie pochodzenia
+<input type="file" id="receipt-file" accept=".json,application/json"></label>
+<button id="receipt-store" type="button" disabled>Zapisz podpis pochodzenia</button>
 <button id="preview" type="button" disabled>Uruchom podgląd bez wysyłania</button>
 <p id="status" role="status" aria-live="polite"></p>
 </body></html>
