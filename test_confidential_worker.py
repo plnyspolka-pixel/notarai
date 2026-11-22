@@ -49,6 +49,8 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
             return {"Body": Body()}
     class FakeEnvelope:
         version = 2
+        document_version = "a" * 32
+        public_key_sha256 = "A" * 43 + "="
         tenant_id = "pilot01"
         case_id = "case01"
         object_id = "scan01"
@@ -57,12 +59,19 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
             return b'{"form_id":"local-demo","fields":{"name":"FAKE","reference":"X"}}'
 
     monkeypatch.setattr(worker.Envelope, "parse", lambda contents: FakeEnvelope())
+    checked = []
+    class FakeRegistry:
+        def require_guest(self, **kwargs):
+            checked.append(kwargs)
+    registry = FakeRegistry()
     monkeypatch.setattr(nitro, "NitroKMSUnwrapper", lambda kms, key: object())
     fields = _load_decrypted_form(
         S3(), object(), "fixture-bucket", "pilot01",
         "case01", "scan01", FakeEnvelope.kms_key_arn,
-        "versionABC123",
+        "versionABC123", registry,
     )
+    assert checked[0]["s3_version"] == "versionABC123"
+    assert checked[0]["document_version"] == "a" * 32
     assert fields["name"] == "FAKE"
     assert seen == [{
         "Bucket": "fixture-bucket",
@@ -73,6 +82,6 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
     with pytest.raises(ValueError):
         _load_decrypted_form(
             S3(), object(), "fixture-bucket", "pilot01", "case01",
-            "scan01", FakeEnvelope.kms_key_arn, "null",
+            "scan01", FakeEnvelope.kms_key_arn, "null", registry,
         )
     assert seen == []
