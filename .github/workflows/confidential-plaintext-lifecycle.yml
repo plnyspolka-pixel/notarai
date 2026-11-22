@@ -30,8 +30,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Install synthetic test requirements (NO AWS / NO real documents)
-        run: python -m pip install pytest PyYAML cryptography fastapi
+      - name: Install app fixture dependencies and synthetic test requirements (NO AWS credentials)
+        run: |
+          grep -vE '^(faster-whisper|playwright|boto3)' requirements.txt > /tmp/notarai-sec10-core.txt
+          python -m pip install -r /tmp/notarai-sec10-core.txt -r confidential/requirements.txt
+          python -m pip install pytest PyYAML
       - name: Static syntax
         run: python -m py_compile confidential/plaintext_lifecycle.py confidential/worker.py scripts/verify_confidential_plaintext_lifecycle.py test_confidential_plaintext_lifecycle.py
       - name: AWS metadata audit stays offline without --check
