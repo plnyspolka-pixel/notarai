@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from confidential.cloudtrail_readonly import PacedCloudTrail
 from confidential.nitro_witness import verify_independent_witnesses
 from confidential.nitro_denial_matrix import (
     KMS_CASES, EARLY_CASES, DenialEvidenceRejected, incomplete_audit_result,
@@ -88,7 +89,7 @@ def audit_live(*, matrix: dict, operator_profile: str, custody_profile: str,
     end = datetime.strptime(matrix["ended_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=timezone.utc,
     ) + timedelta(minutes=2)
-    trail = operator.client("cloudtrail")
+    trail = PacedCloudTrail(operator.client("cloudtrail"))
     observed = {}
     for case in sorted(KMS_CASES):
         record = _lookup(trail, matrix["trials"][case]["event_id"], start, end)
