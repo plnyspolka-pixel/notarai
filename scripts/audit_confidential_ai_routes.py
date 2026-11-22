@@ -86,7 +86,7 @@ _JS_RISKS = (
     # This is a conservative static policy; runtime network verification
     # is still required for K1/K2.
     ("js-risk-untrusted-fetch", re.compile(
-        r"\b(?:window\.)?fetch\s*\(\s*(?!['\"\x60]/api/confidential/)")),
+        r"\b(?:window\.)?fetch\s*\((?!\s*['\"\x60]/api/confidential/)")),
     ("js-risk-absolute-fetch", re.compile(
         r"\b(?:window\.)?fetch\s*\(\s*['\"\x60](?:https?:)?//")),
     ("js-risk-websocket", re.compile(r"\b(?:new\s+)?WebSocket\s*\(")),
