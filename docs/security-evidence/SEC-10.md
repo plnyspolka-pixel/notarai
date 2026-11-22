@@ -135,7 +135,9 @@ for `pilot01`/`pilot02`, provide ALL of:
 
 The script validates AWS identity and EU region before reading only ECS task
 definition, S3 versioning/lifecycle/**object version counts** (no object
-body/keys output), SQS retention/redrive, DDB PITR and CloudTrail trail count.
+body/keys output), SQS main and exact synthetic DLQ retention/redrive, DDB
+PITR, CloudTrail trail count and CloudWatch **log group retention metadata**
+for the synthetic tenant prefix.
 It never reads object bodies, queued messages, CloudTrail event bodies,
 CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
 a forensic assertion about memory or plaintext absence. No AWS read has been
