@@ -16,6 +16,7 @@ if __package__ in (None, ""):
 
 from confidential.custody_storage import (
     StorageAuditRejected, assess_custody_storage, read_only_inventory,
+    read_only_fixture_retention,
 )
 
 
@@ -26,9 +27,13 @@ def main(argv=None) -> int:
     parser.add_argument("--bucket", required=True, help="independent evidence bucket")
     parser.add_argument("--profile", help="optional AWS CLI SSO profile of independent custodian")
     parser.add_argument("--min-retention-days", type=int, default=30)
+    parser.add_argument("--fixture-key", help="optional synthetic fixture key for retention check")
+    parser.add_argument("--fixture-version", help="optional existing fixture S3 VersionId")
     parser.add_argument("--run-read-only", action="store_true",
                         help="explicitly enable STS/S3 read-only queries")
     args = parser.parse_args(argv)
+    if bool(args.fixture_key) != bool(args.fixture_version):
+        parser.error("fixture key and version must be supplied together")
     if not args.run_read_only:
         print(json.dumps({
             "configuration_status": "UNVERIFIED", "assurance_status": "BLOCKED",
@@ -48,8 +53,17 @@ def main(argv=None) -> int:
             operator_account=args.operator_account, bucket=args.bucket,
             data=data, required_retention_days=args.min_retention_days,
         )
-        print(json.dumps(report.as_dict(), sort_keys=True, separators=(",", ":")))
-        return 4 if report.configuration_status == "PASS" else 2
+        result = report.as_dict()
+        if args.fixture_key and report.configuration_status == "PASS":
+            fixture = read_only_fixture_retention(
+                session, bucket=args.bucket, custody_account=args.custody_account,
+                fixture_key=args.fixture_key, fixture_version=args.fixture_version,
+            )
+            result["fixture_checks"] = fixture
+            if not all(fixture.values()):
+                result["configuration_status"] = "FAIL"
+        print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+        return 4 if result["configuration_status"] == "PASS" else 2
     except (StorageAuditRejected, Exception):
         # Never echo AWS exceptions (may include identifiers or policy snippets).
         print(json.dumps({
