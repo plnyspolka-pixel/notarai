@@ -75,7 +75,8 @@ versioned state and out-of-band pinned public key SHA256 are mandatory.
       --current-state-file /secure/pilot01-state.json \
       --custody-profile INDEPENDENT_CUSTODY_SIGNER \
       --signing-key-arn EXTERNAL_CUSTODY_SIGNING_KEY_ARN \
-      --pinned-public-key-sha256 INDEPENDENTLY_PINNED_SHA256
+      --pinned-public-key-sha256 INDEPENDENTLY_PINNED_SHA256 \
+      --pinned-current-state-sha256 EXTERNALLY_PINNED_CUSTODY_LEDGER_STATE_HASH
 
 This is a dry-run: zero AWS calls, no signature. An authorized custodian may add
 --approve-action --output /secure/signed-pilot01-action.json; the tool
@@ -123,3 +124,11 @@ NotarAI-controlled GitHub OIDC trust in the custody account from being
 misrepresented as independent custody. AWS-managed service-linked roles can
 pass the limited static filter; ownership and permission checks still need
 a separate independent assessor and never become VERIFIED automatically.
+
+## Mandatory state pin before KMS signing
+
+The signing tool refuses `--approve-action` unless the custodian explicitly supplies `--pinned-current-state-sha256` matching the canonical digest of the current state, obtained from the independent custodian ledger rather than the operator-provided JSON. For first ENROLL this is 64 zeros, representing no prior approved record; creation still requires conditional put in the independent ledger. A mismatched/stale/missing pin is rejected **before any AWS call**. This is an out-of-band precondition, **not** an implemented live CAS ledger or evidence of institutional independence.
+
+## Offline two-tenant onboarding
+
+Use `scripts/prepare_confidential_custody_onboarding.py --pilot01-binding /secure/pilot01.json --pilot02-binding /secure/pilot02.json --output /secure/onboarding-plan.json`. It validates distinct keys, task ARN, PCR17, release and policy SHA for both synthetic tenants and produces unsigned, tenant-bound ENROLL plans. It performs zero AWS calls and creates no KMS resources or grants. The external custodian must provision, audit, sign and activate each tenant separately, including a real conditional state ledger and hardware negative tests.
