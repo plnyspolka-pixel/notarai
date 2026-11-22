@@ -5,6 +5,10 @@ on:
       - 'confidential/customer_nitro_attestation.py'
       - 'confidential/customer_attested_release.py'
       - 'confidential/customer_guest_v3.py'
+      - 'confidential/customer_v3_transport.py'
+      - 'confidential/job_ledger.py'
+      - 'confidential/document_registry.py'
+      - 'test_customer_v3_transport.py'
       - 'confidential/nsm_recipient.py'
       - 'scripts/customer_attested_release.py'
       - 'test_customer_attestation.py'
@@ -37,5 +41,5 @@ jobs:
           AWS_ACCESS_KEY_ID: ''
           AWS_SECRET_ACCESS_KEY: ''
         run: |
-          python -m compileall -q confidential/customer_nitro_attestation.py confidential/customer_attested_release.py confidential/customer_guest_v3.py scripts/customer_attested_release.py
-          python -m pytest -q --noconftest test_customer_release.py test_customer_attestation.py test_customer_guest_v3.py test_three_zero_gate.py test_three_zero_aws_audit.py
+          python -m compileall -q confidential/customer_nitro_attestation.py confidential/customer_attested_release.py confidential/customer_guest_v3.py scripts/customer_attested_release.py confidential/customer_v3_transport.py
+          python -m pytest -q --noconftest test_customer_release.py test_customer_attestation.py test_customer_guest_v3.py test_three_zero_gate.py test_three_zero_aws_audit.py test_customer_v3_transport.py
