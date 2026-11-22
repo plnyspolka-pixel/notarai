@@ -15,6 +15,7 @@ on:
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/verify_confidential_egress_live.py'
+      - 'scripts/probe_confidential_adversarial_browser.py'
       - 'scripts/verify_confidential_shared_fabric.py'
       - 'scripts/verify_confidential_operator_boundary.py'
       - 'scripts/verify_confidential_release.py'
@@ -100,6 +101,8 @@ jobs:
           node test_confidential_auto_js.js
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
+      - name: SEC-08 - odpornosc na wrogi HTML i JS (lokalny Chromium)
+        run: python scripts/probe_confidential_adversarial_browser.py
 
   guest-image-smoke:
     name: Obraz Nitro guest / Chromium (test lokalny)
