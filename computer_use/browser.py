@@ -36,7 +36,7 @@ class WebDomStrategy:
     def supports(self, request: AutomationRequest) -> bool:
         if request.app_id != self.profile.app_id or not self.profile.start_url:
             return False
-        if request.action not in {'read_field', 'fill_draft_field'}:
+        if request.action not in {'read_field', 'fill_draft_field', 'navigate_to'}:
             return False
         key = request.payload.get('field')
         definition = self.profile.field(key, kind='browser') if isinstance(key, str) else None
@@ -44,6 +44,11 @@ class WebDomStrategy:
             return False
         if request.action == 'read_field':
             return request.risk is Risk.READ_ONLY
+        if request.action == 'navigate_to':
+            expected = request.payload.get('expected_field')
+            return (request.risk is Risk.DRAFT and definition.allow_navigation
+                    and isinstance(expected, str) and
+                    self.profile.field(expected, kind='browser') is not None)
         return request.risk is Risk.DRAFT and definition.allow_draft_fill and definition.value_mode == 'input'
 
     def perform(self, request: AutomationRequest) -> StrategyResult:
@@ -52,6 +57,7 @@ class WebDomStrategy:
         if definition is None or self.profile.start_url is None or not self.supports(request):
             return StrategyResult(AttemptStatus.UNAVAILABLE, clean_state_confirmed=True)
         draft = request.action == 'fill_draft_field'
+        navigation = request.action == 'navigate_to'
         if draft:
             value = request.payload.get('value')
             if not isinstance(value, str) or len(value) > 2000:
@@ -74,6 +80,15 @@ class WebDomStrategy:
                 if locator.count() != 1:
                     return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
                                           clean_state_confirmed=True, diagnostic_code='non_unique_locator')
+                if navigation:
+                    locator.click(timeout=5000)
+                    expected = self.profile.field(request.payload['expected_field'], kind='browser')
+                    next_locator = (page.locator(expected.selector) if expected.kind == 'css'
+                                    else page.get_by_role(expected.role, name=expected.selector, exact=True))
+                    if not self.profile.is_allowed_url(page.url) or next_locator.count() != 1:
+                        return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code='navigation_not_verified')
+                    return StrategyResult(AttemptStatus.SUCCESS, postcondition_verified=True,
+                                          data={'target': key, 'expected_field_visible': True})
                 if draft:
                     locator.fill(value, timeout=5000)
                     observed = locator.input_value(timeout=5000)
@@ -92,7 +107,7 @@ class WebDomStrategy:
                                       data={'field': key, 'value': observed})
         except Exception:
             # A fill may have changed UI or autosaved before the error; never retry.
-            if draft:
-                return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code='draft_effect_unknown')
+            if draft or navigation:
+                return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code='ui_effect_unknown')
             return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
                                   clean_state_confirmed=True, diagnostic_code='browser_read_failed')
