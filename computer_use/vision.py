@@ -240,7 +240,7 @@ class VisualStrategy:
     def supports(self, request: AutomationRequest) -> bool:
         if not self.enabled or request.app_id != self.profile.app_id or not self.profile.windows_app:
             return False
-        if request.action not in {"read_field", "fill_draft_field"}:
+        if request.action not in {"read_field", "fill_draft_field", "navigate_to"}:
             return False
         key = request.payload.get("field")
         if not isinstance(key, str):
@@ -252,6 +252,11 @@ class VisualStrategy:
             return False
         if request.action == "read_field":
             return request.risk is Risk.READ_ONLY
+        if request.action == "navigate_to":
+            expected = request.payload.get("expected_field")
+            return (request.risk is Risk.DRAFT and el.allow_navigation
+                    and isinstance(expected, str) and
+                    self.profile.field(expected, kind="visual") is not None)
         return (request.risk is Risk.DRAFT and el.allow_draft_fill
                 and el.value_mode == "input")
 
@@ -259,6 +264,7 @@ class VisualStrategy:
         if not self.supports(request):
             return StrategyResult(AttemptStatus.UNAVAILABLE, clean_state_confirmed=True)
         draft = request.action == "fill_draft_field"
+        navigation = request.action == "navigate_to"
         field = request.payload["field"]
         el = self.profile.field(field, kind="visual")
         value = request.payload.get("value") if draft else None
@@ -269,12 +275,12 @@ class VisualStrategy:
         try:
             frame = self.desktop.capture(self.profile.windows_app)
             first = self.vision.locate(frame.png, el.selector,
-                                       mode="locate" if draft else "read",
+                                       mode="locate" if (draft or navigation) else "read",
                                        frame_digest=frame.digest)
             if first.frame_digest != frame.digest or first.confidence < self.min_confidence:
                 return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
                                       clean_state_confirmed=True, diagnostic_code="low_visual_confidence")
-            if not draft:
+            if not draft and not navigation:
                 if not isinstance(first.value, str):
                     return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
                                           clean_state_confirmed=True, diagnostic_code="vision_value_missing")
@@ -296,8 +302,20 @@ class VisualStrategy:
             # the model only points at its location.
             self.desktop.click(self.profile.windows_app, frame, first.x, first.y)
             acted = True
-            self.desktop.type_literal(self.profile.windows_app, value)
+            if draft:
+                self.desktop.type_literal(self.profile.windows_app, value)
             next_frame = self.desktop.capture(self.profile.windows_app)
+            if navigation:
+                expected = self.profile.field(request.payload["expected_field"], kind="visual")
+                if next_frame.digest == frame.digest:
+                    return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code="navigation_screen_unchanged")
+                check = self.vision.locate(next_frame.png, expected.selector,
+                                           mode="read", frame_digest=next_frame.digest)
+                if (check.frame_digest != next_frame.digest or
+                        check.confidence < self.min_confidence or check.value is None):
+                    return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code="navigation_not_verified")
+                return StrategyResult(AttemptStatus.SUCCESS, postcondition_verified=True,
+                                      data={"target": field, "expected_field_visible": True})
             observed = self.vision.locate(next_frame.png, el.selector,
                                           mode="verify", frame_digest=next_frame.digest)
             if (observed.frame_digest != next_frame.digest or
