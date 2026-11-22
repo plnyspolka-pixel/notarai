@@ -74,6 +74,27 @@ Resources:
               - sso:*
               - identitystore:*
             Resource: "*"
+          # Explicit Deny is necessary: grants to an assumed-role SESSION in
+          # resource policies can bypass an implicit permissions-boundary deny.
+          - Sid: DenyEverythingExceptObserverActions
+            Effect: Deny
+            NotAction:
+              - ecs:ListTasks
+              - ecr:DescribeImages
+              - sqs:GetQueueAttributes
+            Resource: "*"
+          - Sid: DenyReadOutsideOwnCluster
+            Effect: Deny
+            Action: ecs:ListTasks
+            NotResource: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+          - Sid: DenyReadOutsideOwnEcr
+            Effect: Deny
+            Action: ecr:DescribeImages
+            NotResource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/notarai-confidential-shared"
+          - Sid: DenyReadOutsideOwnQueue
+            Effect: Deny
+            Action: sqs:GetQueueAttributes
+            NotResource: !Sub "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-${TenantId}.fifo"
           - Sid: ObserveOnlyOwnPilotTasks
             Effect: Allow
             Action: ecs:ListTasks
