@@ -131,7 +131,10 @@ app.middleware("http")(kalkulator.cors)
 @app.exception_handler(Exception)
 async def _nieobsluzony(request: Request, blad: Exception):
     """Blad, ktorego nie zlapal endpoint: do dziennika, bez tresci wyjatku."""
-    log.error("%s %s: nieobsluzony blad (%s)", request.method, request.url.path,
+    # Log the registered route template, never the URL path with case/PII values.
+    metoda = request.method if request.method in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"} else "OTHER"
+    route = getattr(request.scope.get("route"), "path", "<unmatched>")
+    log.error("%s %s: nieobsluzony blad (%s)", metoda, route,
               dziennik.opis_bledu(blad))
     return JSONResponse({"detail": "Blad serwera."}, status_code=500)
 
