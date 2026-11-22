@@ -523,6 +523,8 @@ def test_k3_low_level_kms_rejects_non_arn_prefix_and_type_confusion():
     '{"value":NaN}',
     '{"value":Infinity}',
     '{"value":-Infinity}',
+    '{"value":1e10000}',
+    '{"value":-1e10000}',
     '{"deep":[{"x":1,"x":2}]}',
     '{"broken":',
 ])
@@ -561,3 +563,11 @@ def test_k3_sqs_duplicate_identity_denied_before_claim():
     with pytest.raises(ValueError, match="invalid JSON structure"):
         _parse_message(good.replace('"job_id":"job01"', '"job_id":NaN'),
                        "pilot01")
+
+
+@pytest.mark.parametrize("payload", [None, True, 100, {"tenant_id": "pilot01"}])
+def test_k3_json_protocol_rejects_non_wire_types_without_echo(payload):
+    from confidential.envelope import InvalidEnvelope, strict_json_loads
+    with pytest.raises(InvalidEnvelope) as err:
+        strict_json_loads(payload)
+    assert str(err.value) == "invalid JSON structure"
