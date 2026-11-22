@@ -10,6 +10,8 @@ Outputs only booleans/counts and does NOT mark Zero Knowledge verified.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
 import re
 import sys
@@ -47,6 +49,18 @@ def inspect_task_definition(task: dict) -> dict:
     tmpfs = container.get("linuxParameters", {}).get("tmpfs", [])
     runtime = task.get("trustedExecutionConfiguration", {})
     image = container.get("image", "")
+    # The AWS API requires a base64 policy envelope when running a
+    # CONFIDENTIAL_SANDBOX task; checking isolationMode alone is insufficient.
+    # This validates presence/shape ONLY, never policy authority or attestation.
+    envelope = runtime.get("attestationPolicy")
+    policy_shape_ok = False
+    if isinstance(envelope, str):
+        try:
+            policy_shape_ok = len(base64.b64decode(
+                envelope, validate=True
+            )) >= 16
+        except (ValueError, binascii.Error):
+            pass
     result = {
         "guest_readonly": container.get("readonlyRootFilesystem") is True,
         "one_ephemeral_tmpfs": (
@@ -56,6 +70,10 @@ def inspect_task_definition(task: dict) -> dict:
         "persistent_mounts_absent": not container.get("mountPoints") and not task.get("volumes"),
         "log_driver_absent": "logConfiguration" not in container,
         "nitro_sandbox_declared": runtime.get("isolationMode") == "CONFIDENTIAL_SANDBOX",
+        "attestation_policy_envelope_present": policy_shape_ok,
+        "ecs_managed_instances_only": task.get("requiresCompatibilities") == ["MANAGED_INSTANCES"],
+        "awsvpc_network": task.get("networkMode") == "awsvpc",
+        "guest_is_nonroot": container.get("user") == "10001:10001",
         "image_is_digest_pinned": bool(re.fullmatch(r".+@sha256:[0-9a-f]{64}", image)),
     }
     return result
