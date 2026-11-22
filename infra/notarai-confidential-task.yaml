@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  notarai - opt-in ECS Nitro confidential task for one test tenant.
+  NotarAI customer-owned v3 ECS Nitro preview task (KMS-free release).
+  Requires independent customer grant and image-pinned origin key.
   Does not create capacity provider, cluster or running service.
 Parameters:
   ContainerImage:
@@ -11,17 +12,9 @@ Parameters:
     Type: String
     Description: Policy generated for the final image by ecs-nitro-sandbox-genpolicy
     MinLength: 16
-  ExpectedPCR17:
-    Type: String
-    Description: Exact PCR17 from ecs-nitro-sandbox-genpolicy --output pcrs
-    AllowedPattern: "^[0-9a-fA-F]{96}$"
-  ConfidentialKmsKeyArn:
-    Type: String
-    Description: Approved RSA KMS key with attestation-gated key policy
-    AllowedPattern: "^arn:aws:kms:eu-[a-z0-9-]+:[0-9]{12}:key/[A-Za-z0-9-]+$"
   TenantId:
     Type: String
-    AllowedPattern: "^[A-Za-z0-9_-]{1,32}$"
+    AllowedPattern: "^[a-z0-9]{1,12}$"
     Description: One test tenant, never mix kancelarie
   EncryptedBucketName:
     Type: String
@@ -62,18 +55,28 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Sid: AttestedKmsDecrypt
-                Effect: Allow
-                Action: kms:Decrypt
-                Resource: !Ref ConfidentialKmsKeyArn
-                Condition:
-                  StringEqualsIgnoreCase:
-                    kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
-                    kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
               - Sid: ReadOnlyOwnCiphertexts
                 Effect: Allow
-                Action: s3:GetObject
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
                 Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
+              - Sid: ReadCustomerChallengeAndEncryptedGrant
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential-control/*/challenge.json"
+                  - !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential-control/*/grant.json"
+              - Sid: PublishAttestationOnly
+                Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential-control/*/attestation.cbor"
+              - Sid: ReadWriteTenantOneShotLedger
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub "arn:aws:dynamodb:eu-central-1:${AWS::AccountId}:table/notarai-confidential-jobs-${TenantId}"
               - Sid: WriteMetadataOnlyResults
                 Effect: Allow
                 Action: s3:PutObject
@@ -103,6 +106,7 @@ Resources:
         - Name: confidential-browser
           Image: !Ref ContainerImage
           Essential: true
+          Command: ["python", "-m", "confidential.customer_v3_worker"]
           Cpu: 2048
           Memory: 4096
           User: "10001:10001"
@@ -116,8 +120,10 @@ Resources:
               Value: !Ref EncryptedBucketName
             - Name: NOTARAI_CONFIDENTIAL_QUEUE_URL
               Value: !Ref JobQueueUrl
-            - Name: NOTARAI_CONFIDENTIAL_KMS_KEY_ARN
-              Value: !Ref ConfidentialKmsKeyArn
+            - Name: NOTARAI_3ZERO_MODE
+              Value: customer-v3
+            - Name: AWS_ACCOUNT_ID
+              Value: !Ref AWS::AccountId
             - Name: AWS_REGION
               Value: eu-central-1
             - Name: HOME
