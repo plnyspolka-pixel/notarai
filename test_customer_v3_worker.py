@@ -13,6 +13,7 @@ from confidential.customer_attested_release import challenge_user_data
 from confidential.customer_release import _json, envelope_sha256
 from confidential.customer_v3_worker import (
     DispatchDenied, _challenge, _message, _trust_from_image,
+    _grant_if_present,
     process_queued_v3,
 )
 from test_customer_v3_execution import create_case
@@ -39,6 +40,16 @@ def _setup(monkeypatch):
     }
     _put_control(s3, "job01", "challenge.json", _json(context))
     _put_control(s3, "job01", "grant.json", _json(args["grant"]))
+
+    # Simulate the only S3 ListBucket scope granted to Nitro guest: an exact
+    # customer grant key. A missing key returns an empty listing, NOT a 403
+    # error from a forbidden GetObject on a key that doesn't yet exist.
+    def list_grant(*, Bucket, Prefix, MaxKeys):
+        assert Bucket == "synthetic-three-zero"
+        assert Prefix == "kancelarie/pilot01/confidential-control/job01/grant.json"
+        assert MaxKeys == 1
+        return {"Contents": [{"Key": Prefix}]} if Prefix in s3.items else {}
+    monkeypatch.setattr(s3, "list_objects_v2", list_grant, raising=False)
 
     # create_case has already attested its *synthetic* guest; use that exact
     # ephemeral recipient to verify the real asymmetric unwrap in this test.
@@ -147,3 +158,38 @@ def test_origin_trust_bake_requires_explicit_key(tmp_path):
     assert _trust_from_image(destination) == ("notary01", public)
     with pytest.raises(FileExistsError):
         bake(issuer_id="notary01", signing_public_b64=encoded, target=destination)
+
+def test_absent_grant_is_pending_not_403_or_any_unauthorized_get(monkeypatch):
+    args, ddb, s3, sqs, _, seen = _setup(monkeypatch)
+    grant_key = "kancelarie/pilot01/confidential-control/job01/grant.json"
+    del s3.items[grant_key]
+    original_get = s3.get_object
+    def reject_get_if_missing(**kwargs):
+        if kwargs["Key"] == grant_key:
+            raise AssertionError("missing grant was requested with GetObject; AWS returns 403")
+        return original_get(**kwargs)
+    monkeypatch.setattr(s3, "get_object", reject_get_if_missing)
+    assert _grant_if_present(s3, "synthetic-three-zero", grant_key) is None
+    with pytest.raises(DispatchDenied):
+        asyncio.run(process_queued_v3(
+            s3=s3, ddb=ddb, tenant="pilot01", bucket="synthetic-three-zero",
+            body=sqs.messages[0]["MessageBody"], now=1001, poll_seconds=0,
+        ))
+    assert not seen
+    assert "release_consumed_sha256" not in ddb.rows["JOB#pilot01#job01"]
+    assert "kancelarie/pilot01/confidential-control/job01/attestation.cbor" in s3.items
+
+
+def test_grant_poll_rejects_prefix_confusion_and_denied_list(monkeypatch):
+    _, _, s3, _, _, _ = _setup(monkeypatch)
+    key = "kancelarie/pilot01/confidential-control/job01/grant.json"
+    monkeypatch.setattr(s3, "list_objects_v2",
+                        lambda **kwargs: {"Contents": [{"Key": key + ".attacker"}]})
+    with pytest.raises(DispatchDenied):
+        _grant_if_present(s3, "synthetic-three-zero", key)
+    def forbidden_list(**kwargs):
+        raise PermissionError("403 AccessDenied")
+    monkeypatch.setattr(s3, "list_objects_v2", forbidden_list)
+    with pytest.raises(DispatchDenied, match="customer v3 dispatch denied"):
+        _grant_if_present(s3, "synthetic-three-zero", key)
+
