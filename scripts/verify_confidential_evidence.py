@@ -64,7 +64,7 @@ def main(argv=None) -> int:
         return 2
     print(json.dumps(result.as_dict(), sort_keys=True, separators=(",", ":")))
     # NEVER make a signature-only PASS into production readiness by exit code.
-    if result.integrity_status == "FAIL":
+    if result.integrity_status == "FAIL" or result.assurance_status == "FAIL":
         return 2
     if result.integrity_status == "EXPIRED":
         return 3
