@@ -22,10 +22,9 @@ This procedure does not authorize production or advertising strict Zero Knowledg
    reserves the document in DynamoDB before upload, stores ciphertext in
    versioned S3 and atomically binds the resulting S3 VersionId.
 4. **Nitro guest** gets a queued immutable S3 version and validates its
-   registry hash before the existing `NitroKMSUnwrapper` calls KMS with
-   Recipient attestation. **Before production** guest MUST also verify the
-   external issuer receipt; see `confidential/document_authenticity.py`.
-   This signature check is now wired into the guest BEFORE KMS unwrap.
+   registry hash and checks the independent Ed25519 origin receipt with
+   its release-pinned issuer key **before** calling the Nitro KMS Recipient
+   unwrap path. No API can override this guest root.
    The guest refuses all jobs if its independent issuer root is absent.
 5. Any legal form may be **previewed only**. AUTO has no authority to submit,
    sign, send applications or make irreversible third-party changes.
@@ -234,3 +233,50 @@ control. Merely running the included signing CLI, using an operator-provided
 public key or accepting a GitHub CI result does not establish this.
 Zero Knowledge and Zero Operator Access remain **BLOCKED** until
 external custody and hardware evidence pass.
+
+## Recovery release — two separately pinned signers
+
+The recovery request schema is notarai.recovery.v2 (not v1). Its two
+independent Ed25519 signatures authorize ONLY the EXACT original
+ciphertext SHA-256, original S3 VersionId, original KMS public key pin,
+source tenant/case/object/version, target tenant/new object/new key pin,
+request nonce and expiry. Two valid signatures from keys supplied by the
+NotarAI operator are NOT sufficient: the public verification keys must be
+baked into a separately authorized, measured Nitro image.
+
+The independent custody party prepares the two-key root outside the
+operator repository using the new tool:
+
+- python -m scripts.package_confidential_recovery_root --help
+- Supply separately reviewed custody/trustee Ed25519 public PEM files,
+  their TWO different SHA-256 SPKI DER fingerprints, exact old KMS
+  ARN and old RSA public pin, tenant and root expiry.
+- Place the output at confidential/trusted-recovery-root.json only in
+  an independent isolated release build, pass Docker build arg
+  NOTARAI_TRUSTED_RECOVERY_ROOT_SHA256 as the independently checked
+  SHA-256 hash. Check final immutable container digest and Nitro PCR.
+- No operator account, GitHub CI or NotarAI support can issue/rewrite
+  the release root. Without it the migration rejects before KMS unwrap.
+
+The one-time authorization ledger must use a genuinely separate AWS
+account: CustodyRecoveryNonceLedger verifies STS caller Account before
+acquiring a DynamoDB client from that SAME account-scoped boto3 session.
+Never put independent-custody long-lived credentials or administrative
+roles inside the NotarAI workload account. A secure, attested provision
+of the custody session/one-time approval capability is still missing;
+software tests with mock STS alone cannot prove this boundary.
+
+Key revocation is NOT the same as deleting one ciphertext. The 'revoke'
+signature is authorization data only and does not call AWS KMS.
+Disabling an RSA KMS key used for many documents blocks all of them.
+Introduce independently approved key-wide scope, legal retention review,
+audited custody administration, and verified backout before enabling such
+an operation. Never label K5 PASS on this implementation alone.
+
+Offline regression commands:
+
+- python -m pytest -q test_confidential_recovery_trust.py
+- python -m pytest -q test_confidential_zk_client_encryption.py
+- python -m scripts.package_confidential_recovery_root --help
+
+Actual attested Nitro and independent KMS tests remain BLOCKED.
