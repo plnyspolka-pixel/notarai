@@ -210,11 +210,18 @@ def test_k4_enroll_freeze_revoke_fail_closed_without_old_operator_fallback():
     enrolled = apply(None, signed_event(
         private, action="ENROLL",
         changes={x: initial[x] for x in _IDENTITY_FIELDS}), pub, pin)
-    assert enrolled == initial
-    assert authorize_binding_preview(enrolled, binding(enrolled))[
+    assert enrolled == {**initial, "state": "FROZEN"}
+    with pytest.raises(BoundaryDenied):
+        authorize_binding_preview(enrolled, binding(initial))
+    # Enrollment is a separate approval from the subsequent activation.
+    activated = apply(enrolled, signed_event(
+        private, action="UNFREEZE", previous=enrolled), pub, pin)
+    assert activated["state"] == "ACTIVE"
+    assert activated["revision"] == 2
+    assert authorize_binding_preview(activated, binding(activated))[
         "kms_decrypt_performed"] is False
-    frozen = apply(enrolled, signed_event(
-        private, action="FREEZE", previous=enrolled), pub, pin)
+    frozen = apply(activated, signed_event(
+        private, action="FREEZE", previous=activated), pub, pin)
     assert frozen["state"] == "FROZEN"
     with pytest.raises(BoundaryDenied):
         authorize_binding_preview(frozen, binding(initial))
@@ -726,6 +733,10 @@ def test_k3_two_tenant_bootstrap_produces_two_unsigned_independent_plans():
     assert len({p["expected_signing_key_arn"] for p in plan[
         "review_packages"]}) == 2
     assert all(p["unsigned_event_payload"]["action"] == "ENROLL"
+               for p in plan["review_packages"])
+    assert all(len(p["proposed_key_policy"]["Statement"]) == 2
+               for p in plan["review_packages"])
+    assert all("kms:Decrypt" not in str(p["proposed_key_policy"])
                for p in plan["review_packages"])
     assert all("signature_b64" not in p for p in plan["review_packages"])
 
