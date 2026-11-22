@@ -21,7 +21,12 @@ def setup_synthetic(tmp_path):
     ))
     key_file.chmod(0o600)
     manifest_file = tmp_path / "manifest.json"
-    manifest_file.write_text(json.dumps(fixture_manifest()), encoding="utf-8")
+    manifest = fixture_manifest()
+    # Signer accepts honest UNVERIFIED/MOCK records; it must refuse MOCK PASS.
+    for record in manifest["checks"].values():
+        record["status"] = "UNVERIFIED"
+        record["artifact_sha256"] = None
+    manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
     return private, key_file, manifest_file, tmp_path / "signed.json"
 
 
@@ -115,4 +120,15 @@ def test_persistent_password_file_descriptor_is_refused(tmp_path):
             )
     finally:
         os.close(descriptor)
+    assert not output.exists()
+
+
+def test_signer_refuses_signed_mock_pass_even_with_valid_schema(tmp_path):
+    _, key_file, manifest_file, output = setup_synthetic(tmp_path)
+    payload = json.loads(manifest_file.read_text(encoding="utf-8"))
+    payload["checks"]["kms_attested_decrypt"]["status"] = "PASS"
+    payload["checks"]["kms_attested_decrypt"]["artifact_sha256"] = "6" * 64
+    manifest_file.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="mock PASS"):
+        sign_local(manifest_file, key_file, output)
     assert not output.exists()
