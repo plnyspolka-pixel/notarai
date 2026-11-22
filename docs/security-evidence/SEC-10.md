@@ -197,7 +197,11 @@ The script validates AWS identity and EU region before reading only ECS task
 definition, S3 versioning/lifecycle/**object version counts** (no object
 body/keys output), SQS main and exact synthetic DLQ retention/redrive, DDB
 PITR, CloudTrail trail count and CloudWatch **log group retention metadata**
-for the synthetic tenant prefix.
+for the synthetic tenant prefix. S3 is additionally checked for actual
+`eu-central-1` bucket location, bucket-level replication configuration,
+Object Lock configuration and delete-marker counts on the **first** page.
+The script distinguishes `none-reported` from `unverified` permissions,
+and never claims complete S3 deletion based on a single page.
 It never reads object bodies, queued messages, CloudTrail event bodies,
 CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
 a forensic assertion about memory or plaintext absence. No AWS read has been
