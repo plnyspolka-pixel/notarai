@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: NotarAI Virtual Employee shared metadata and encrypted payload bucket (eu-central-1).
+Resources:
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      Tags:
+        - Key: Application
+          Value: notarai-virtual-employee
+  TenantsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Application
+          Value: notarai-virtual-employee
+  PayloadBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      Tags:
+        - Key: Application
+          Value: notarai-virtual-employee
+  PayloadBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: PayloadBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyNonTLS
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - Fn::GetAtt: [PayloadBucket, Arn]
+              - Fn::Sub: '${PayloadBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+          - Sid: DenyUnencryptedObjectWrite
+            Effect: Deny
+            Principal: '*'
+            Action: s3:PutObject
+            Resource:
+              Fn::Sub: '${PayloadBucket.Arn}/virtual-employee/*'
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+Outputs:
+  JobsTableName:
+    Value:
+      Ref: JobsTable
+  JobsTableArn:
+    Value:
+      Fn::GetAtt: [JobsTable, Arn]
+  TenantsTableName:
+    Value:
+      Ref: TenantsTable
+  PayloadBucketName:
+    Value:
+      Ref: PayloadBucket
+  PayloadBucketArn:
+    Value:
+      Fn::GetAtt: [PayloadBucket, Arn]
