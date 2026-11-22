@@ -11,6 +11,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-02
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Pełny rejestr uprawnień:** tabela `principal→action→resource→account` obejmuje ECS, `iam:PassRole`, ECR, KMS, CloudFormation, GitHub OIDC, AWS root, SSO i Organizations; brak nieopisanej roli z możliwością eskalacji.
 - [ ] **K2.** **IaC least privilege:** w workload operator nie dostaje `kms:PutKeyPolicy`, `kms:CreateGrant` ani dostępu administratora custody; role runtime nie mają nieuzasadnionego `Action:*`/`Resource:*`.
 - [ ] **K3.** **6 prób eskalacji = 6 odmów:** podmiana ECR, nadużycie PassRole, przejęcie CloudFormation execution role, `PutKeyPolicy`, OIDC spoof i `sts:AssumeRole` do custody.
