@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # This operator CLI is also invoked as "python scripts/confidential_pilot_run.py".
@@ -43,29 +44,66 @@ def outputs(profile: str, stack: str) -> dict[str, str]:
     return {x["OutputKey"]: x["OutputValue"] for x in stacks[0].get("Outputs", [])}
 
 
-def _verified_pcr17(profile: str, task_arn: str) -> str:
-    """Use the official AWS policy generator, never guess PCR17."""
-    env = dict(os.environ, AWS_PROFILE=profile, AWS_DEFAULT_REGION=_REGION)
-    for args in (
-        ["ecs-nitro-sandbox-genpolicy", "--check", "--task-definition", task_arn],
-        ["ecs-nitro-sandbox-genpolicy", "--task-definition", task_arn,
-         "--output", "pcrs"],
-    ):
+_PCR17_LINE = re.compile(
+    r'"kms:RecipientAttestation:PCR17"\s*:\s*"([0-9a-fA-F]{96})"'
+)
+
+
+def _pcr17_from_generator_output(text: str) -> str:
+    match = _PCR17_LINE.search(text)
+    if match is None or match.group(1).lower() == "0" * 96:
+        raise RuntimeError("could not verify nonzero PCR17 from AWS generator")
+    return match.group(1).lower()
+
+
+def _verified_pcr17(profile: str, task_arn: str,
+                    attestation_dir: str | None = None) -> str:
+    """Use the official AWS policy generator, never guess PCR17.
+
+    The generator (0.1.x) only supports --check on a local file, so the
+    registered task definition is fetched first. When the operator machine
+    cannot reach the image registry, ``attestation_dir`` may point at the
+    output of the signature-verified generator run in the build pipeline
+    (attestation-policy.b64 + pcrs.txt); the registered task definition must
+    then carry exactly that policy envelope, which is what PCR17 measures.
+    """
+    described = aws(
+        profile, ["ecs", "describe-task-definition", "--task-definition", task_arn]
+    )
+    registered = (
+        described.get("taskDefinition", {})
+        .get("trustedExecutionConfiguration", {})
+        .get("attestationPolicy")
+    )
+    if not isinstance(registered, str) or not registered:
+        raise RuntimeError("registered task definition has no attestation policy")
+    if attestation_dir is not None:
         try:
-            result = subprocess.run(
-                args, env=env, capture_output=True, text=True,
-                check=True, timeout=180,
-            )
-        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            envelope = (Path(attestation_dir) / "attestation-policy.b64").read_text("ascii").strip()
+            pcrs = (Path(attestation_dir) / "pcrs.txt").read_text("utf-8")
+        except (OSError, UnicodeError) as exc:
             raise RuntimeError("official ECS attestation policy verification failed") from exc
-        if args[-1] == "pcrs":
-            match = re.search(
-                r'"kms:RecipientAttestation:PCR17"\s*:\s*"([0-9a-fA-F]{96})"',
-                result.stdout,
-            )
-            if match is None or match.group(1).lower() == "0" * 96:
-                raise RuntimeError("could not verify nonzero PCR17 from AWS generator")
-            return match.group(1).lower()
+        if not envelope or envelope != registered.strip():
+            raise RuntimeError("registered attestation policy differs from generator output")
+        return _pcr17_from_generator_output(pcrs)
+    env = dict(os.environ, AWS_PROFILE=profile, AWS_DEFAULT_REGION=_REGION)
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(tmp) / "registered-taskdef.json"
+        local.write_text(json.dumps(described), "utf-8")
+        for args in (
+            ["ecs-nitro-sandbox-genpolicy", "--check", "--task-definition", str(local)],
+            ["ecs-nitro-sandbox-genpolicy", "--task-definition", str(local),
+             "--output", "pcrs"],
+        ):
+            try:
+                result = subprocess.run(
+                    args, env=env, capture_output=True, text=True,
+                    check=True, timeout=180,
+                )
+            except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+                raise RuntimeError("official ECS attestation policy verification failed") from exc
+            if args[-1] == "pcrs":
+                return _pcr17_from_generator_output(result.stdout)
     raise RuntimeError("attestation policy verification unavailable")
 
 
@@ -80,7 +118,8 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
               custody_profile: str | None = None,
               custody_release_file: str | None = None,
               custodian_public_key_file: str | None = None,
-              custodian_public_key_sha256: str | None = None) -> bool:
+              custodian_public_key_sha256: str | None = None,
+              attestation_dir: str | None = None) -> bool:
     if (not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant)
             or not _SUBNET.fullmatch(subnet) or not _JOB.fullmatch(job_id)):
         raise ValueError("invalid pilot configuration")
@@ -163,7 +202,7 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
             if shared_compute else "notarai-confidential-demo-kms",
         )
         kms_arn = key_stacks.get("KeyArn", "")
-    guest_pcr17 = _verified_pcr17(profile, task_def)
+    guest_pcr17 = _verified_pcr17(profile, task_def, attestation_dir)
     task_response = aws(
         profile, ["ecs", "describe-task-definition", "--task-definition", task_def]
     )
@@ -299,6 +338,8 @@ def main():
                    help="Public ECDSA key delivered independently of NotarAI")
     p.add_argument("--custodian-public-key-sha256",
                    help="Pin obtained out-of-band from independent custodian")
+    p.add_argument("--attestation-dir",
+                   help="output of the signature-verified generator run in the build pipeline")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     run_pilot(
@@ -313,6 +354,7 @@ def main():
         custody_release_file=args.custody_release_file,
         custodian_public_key_file=args.custodian_public_key_file,
         custodian_public_key_sha256=args.custodian_public_key_sha256,
+        attestation_dir=args.attestation_dir,
     )
 
 

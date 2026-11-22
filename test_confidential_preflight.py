@@ -136,11 +136,19 @@ def test_zero_pcr_is_deny_all():
         check(*sample(), pcr="0" * 96)
 
 
+def _registered(policy="ZW52ZWxvcGU="):
+    return {"taskDefinition": {"trustedExecutionConfiguration": {
+        "isolationMode": "CONFIDENTIAL_SANDBOX", "attestationPolicy": policy,
+    }}}
+
+
 def test_official_generator_is_required_and_pcr_is_extracted(monkeypatch):
     calls = []
 
     def fake_run(argv, **kwargs):
         calls.append(argv)
+        # The released generator supports --check only on a local file.
+        assert not argv[argv.index("--task-definition") + 1].startswith("arn:")
         if argv[-1] == "pcrs":
             return subprocess.CompletedProcess(
                 argv, 0, stdout=json.dumps({
@@ -151,6 +159,7 @@ def test_official_generator_is_required_and_pcr_is_extracted(monkeypatch):
             )
         return subprocess.CompletedProcess(argv, 0, stdout="Policy in sync")
 
+    monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: _registered())
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
     assert runner._verified_pcr17("demo-profile", TASK_ARN) == PCR
     assert len(calls) == 2
@@ -160,6 +169,27 @@ def test_official_generator_is_required_and_pcr_is_extracted(monkeypatch):
 def test_missing_policy_generator_blocks_verification(monkeypatch):
     def missing(*args, **kwargs):
         raise FileNotFoundError("no synthetic policy tool")
+    monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: _registered())
     monkeypatch.setattr(runner.subprocess, "run", missing)
     with pytest.raises(RuntimeError, match="verification failed"):
         runner._verified_pcr17("demo-profile", TASK_ARN)
+
+
+def test_pipeline_generator_output_must_match_registered_policy(monkeypatch, tmp_path):
+    (tmp_path / "attestation-policy.b64").write_text("ZW52ZWxvcGU=\n", "ascii")
+    (tmp_path / "pcrs.txt").write_text(
+        '--- KMS Key Policy Condition ---\n"Condition": {"StringEqualsIgnoreCase": {\n'
+        f'"kms:RecipientAttestation:PCR17": "{PCR}",\n'
+        '"kms:RecipientAttestation:PCR8:ServiceName": "ecs.amazonaws.com"}}\n', "utf-8")
+
+    def no_generator(*args, **kwargs):
+        raise AssertionError("local generator must not run when pipeline output is used")
+    monkeypatch.setattr(runner.subprocess, "run", no_generator)
+    monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: _registered())
+    assert runner._verified_pcr17("demo-profile", TASK_ARN, str(tmp_path)) == PCR
+    monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: _registered("b3RoZXI="))
+    with pytest.raises(RuntimeError, match="differs from generator output"):
+        runner._verified_pcr17("demo-profile", TASK_ARN, str(tmp_path))
+    monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: {"taskDefinition": {}})
+    with pytest.raises(RuntimeError, match="no attestation policy"):
+        runner._verified_pcr17("demo-profile", TASK_ARN, str(tmp_path))

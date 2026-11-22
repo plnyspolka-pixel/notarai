@@ -162,3 +162,11 @@ jobs:
           name: confidential-attestation-${{ github.sha }}
           path: /tmp/attestation/
           retention-days: 14
+      - name: Podsumowanie atestacji (wartosci niesekretne dla KMS i stacka task)
+        run: |
+          set -euo pipefail
+          out=/tmp/attestation
+          echo "IMAGE_URI=$IMAGE_URI"
+          echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
+          echo "ENVELOPE_SHA256=$(tr -d '\n' < "$out/attestation-policy.b64" | sha256sum | cut -d' ' -f1)"
+          echo "ENVELOPE_BEGIN"; tr -d '\n' < "$out/attestation-policy.b64" | fold -w 160; echo; echo "ENVELOPE_END"
