@@ -170,7 +170,7 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     class S3:
         def head_object(self, **kwargs):
             assert kwargs["Key"] == "kancelarie/pilot01/confidential/case01/scan01.json"
-            return {"VersionId": "v000001", "Metadata": {
+            return {"VersionId": "v000001", "ContentLength": 120, "Metadata": {
                 "document-version": "a" * 32,
                 "content-sha256": "b" * 64,
             }}
