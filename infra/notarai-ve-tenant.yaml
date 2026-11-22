@@ -1,0 +1,314 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  NotarAI Virtual Employee per-tenant Windows VM, tenant-specific IAM/KMS and
+  FIFO queue. Deploy only after licensing, network design and EU privacy review.
+Parameters:
+  TenantTechnicalId:
+    Type: String
+    MinLength: 3
+    MaxLength: 48
+    AllowedPattern: '[a-zA-Z0-9_-]+'
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  AllowedEndpointCidr:
+    Type: String
+    Description: Private interface endpoint CIDR; do not pass 0.0.0.0/0.
+    AllowedPattern: '(?!(?:0\.0\.0\.0/0)$)[0-9.]+/[0-9]{1,2}'
+  S3PrefixListId:
+    Type: String
+    Description: Region-specific AWS managed S3 Gateway Endpoint prefix list id.
+  DynamoDbPrefixListId:
+    Type: String
+    Description: Region-specific DynamoDB Gateway Endpoint prefix list id.
+  ApprovedWindowsAmi:
+    Type: AWS::EC2::Image::Id
+    Description: Legal Windows image supported by the office software.
+  WindowsEbsKmsKeyArn:
+    Type: String
+    Description: Existing approved CMK with EC2/EBS grant permissions.
+  SharedJobsTableArn:
+    Type: String
+  SharedPayloadBucketName:
+    Type: String
+  SharedSettingsTableArn:
+    Type: String
+  AppTaskRoleArn:
+    Type: String
+    Description: Existing NotarAI ECS task role allowed to assume TenantControllerRole.
+  ApprovedEUModelResources:
+    Type: CommaDelimitedList
+    Description: >-
+      Exact Bedrock EU inference profile + foundation model ARNs; only granted
+      when explicit vision opt-in is configured on the worker.
+  WorkerInstanceType:
+    Type: String
+    Default: t3.xlarge
+    AllowedValues: [t3.large, t3.xlarge, m6i.large, m6i.xlarge]
+Resources:
+  TenantPayloadKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description:
+        Fn::Sub: 'notarai-ve-tenant-${TenantTechnicalId}-payload'
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountIAMKeyPolicies
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: kms:*
+            Resource: '*'
+  TenantDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Fn::Sub: 'notarai-ve-${TenantTechnicalId}-dlq.fifo'
+      FifoQueue: true
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+  TenantJobQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Fn::Sub: 'notarai-ve-${TenantTechnicalId}.fifo'
+      FifoQueue: true
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 180
+      ReceiveMessageWaitTimeSeconds: 10
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt: [TenantDeadLetterQueue, Arn]
+        maxReceiveCount: 3
+      Tags:
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+  TenantControllerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                Ref: AppTaskRoleArn
+            Action:
+              - sts:AssumeRole
+              - sts:TagSession
+      Policies:
+        - PolicyName: tenant-limited-control
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: TenantJobPartitionOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                Resource:
+                  Ref: SharedJobsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: TenantSettingsControlOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  Ref: SharedSettingsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: TenantQueueProducerOnly
+                Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  Fn::GetAtt: [TenantJobQueue, Arn]
+              - Sid: TenantPayloadObjectsOnly
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  Fn::Sub: 'arn:aws:s3:::${SharedPayloadBucketName}/virtual-employee/tenants/${TenantTechnicalId}/jobs/*'
+              - Sid: TenantPayloadKeyOnly
+                Effect: Allow
+                Action:
+                  - kms:GenerateDataKey
+                  - kms:Decrypt
+                Resource:
+                  Fn::GetAtt: [TenantPayloadKey, Arn]
+  TenantRobotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: tenant-limited-execution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: TenantJobPartitionOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  Ref: SharedJobsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: ReadTenantSettingsOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  Ref: SharedSettingsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: TenantQueueConsumerOnly
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:ChangeMessageVisibility
+                  - sqs:GetQueueAttributes
+                Resource:
+                  Fn::GetAtt: [TenantJobQueue, Arn]
+              - Sid: TenantPayloadObjectsOnly
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  Fn::Sub: 'arn:aws:s3:::${SharedPayloadBucketName}/virtual-employee/tenants/${TenantTechnicalId}/jobs/*'
+              - Sid: TenantPayloadKeyOnly
+                Effect: Allow
+                Action:
+                  - kms:GenerateDataKey
+                  - kms:Decrypt
+                Resource:
+                  Fn::GetAtt: [TenantPayloadKey, Arn]
+              - Sid: ApprovedBedrockEUOnly
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  Ref: ApprovedEUModelResources
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+  TenantRobotProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - Ref: TenantRobotRole
+  TenantRobotSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Private notarial VM; no inbound; endpoint-only outgoing 443.
+      VpcId:
+        Ref: VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp:
+            Ref: AllowedEndpointCidr
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId:
+            Ref: S3PrefixListId
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationPrefixListId:
+            Ref: DynamoDbPrefixListId
+      Tags:
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+  TenantWindowsVM:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: ApprovedWindowsAmi
+      InstanceType:
+        Ref: WorkerInstanceType
+      IamInstanceProfile:
+        Ref: TenantRobotProfile
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: false
+          SubnetId:
+            Ref: PrivateSubnetId
+          GroupSet:
+            - Fn::GetAtt: [TenantRobotSG, GroupId]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 100
+            VolumeType: gp3
+            Encrypted: true
+            KmsKeyId:
+              Ref: WindowsEbsKmsKeyArn
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: 'notarai-ve-${TenantTechnicalId}'
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+Outputs:
+  QueueUrl:
+    Value:
+      Ref: TenantJobQueue
+  QueueArn:
+    Value:
+      Fn::GetAtt: [TenantJobQueue, Arn]
+  ControllerRoleArn:
+    Value:
+      Fn::GetAtt: [TenantControllerRole, Arn]
+  RobotRoleArn:
+    Value:
+      Fn::GetAtt: [TenantRobotRole, Arn]
+  TenantKmsKeyArn:
+    Value:
+      Fn::GetAtt: [TenantPayloadKey, Arn]
+  TenantVmInstanceId:
+    Value:
+      Ref: TenantWindowsVM

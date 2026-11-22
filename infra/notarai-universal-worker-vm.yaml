@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  NotarAI Universal Computer Agent: isolated Windows test VM per kancelaria,
+  private subnet only, SSM-managed, no public RDP. NOT a production deployment.
+Parameters:
+  TenantTechnicalId:
+    Type: String
+    MinLength: 3
+    MaxLength: 48
+    AllowedPattern: '[a-zA-Z0-9_-]+'
+    Description: Technical tenant identifier, no client names or PII.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet with SSM/SSMMessages VPC endpoints, DNS enabled.
+  ApprovedWindowsAmi:
+    Type: AWS::EC2::Image::Id
+    Description: Licensed, verified Windows AMI supported by target software.
+  EbsKmsKeyArn:
+    Type: String
+    Description: Existing CMK authorized for EBS encryption and EC2 service use.
+  AllowedPrivateEgressCidr:
+    Type: String
+    Description: CIDR of trusted private VPC endpoints only, not 0.0.0.0/0.
+  WorkerInstanceType:
+    Type: String
+    Default: t3.xlarge
+    AllowedValues: [t3.large, t3.xlarge, m6i.large, m6i.xlarge]
+Resources:
+  RobotSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NotarAI isolated Windows worker - no inbound traffic
+      VpcId:
+        Ref: VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp:
+            Ref: AllowedPrivateEgressCidr
+      Tags:
+        - Key: Application
+          Value: notarai-universal-agent
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+  RobotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Application
+          Value: notarai-universal-agent
+  RobotInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - Ref: RobotRole
+  RobotVm:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: ApprovedWindowsAmi
+      InstanceType:
+        Ref: WorkerInstanceType
+      IamInstanceProfile:
+        Ref: RobotInstanceProfile
+      Monitoring: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: false
+          SubnetId:
+            Ref: PrivateSubnetId
+          GroupSet:
+            - Fn::GetAtt: [RobotSecurityGroup, GroupId]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 100
+            VolumeType: gp3
+            DeleteOnTermination: true
+            Encrypted: true
+            KmsKeyId:
+              Ref: EbsKmsKeyArn
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: 'notarai-worker-${TenantTechnicalId}'
+        - Key: Application
+          Value: notarai-universal-agent
+        - Key: TenantTechnicalId
+          Value:
+            Ref: TenantTechnicalId
+Outputs:
+  RobotInstanceId:
+    Value:
+      Ref: RobotVm
+  RobotSecurityGroupId:
+    Value:
+      Fn::GetAtt: [RobotSecurityGroup, GroupId]

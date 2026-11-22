@@ -1,0 +1,40 @@
+name: Universal Computer Use — szybkie testy bez AWS
+
+on:
+  pull_request:
+    paths:
+      - 'computer_use/**'
+      - 'tests/test_computer_use_*.py'
+      - 'infra/notarai-ve-*.yaml'
+      - '.github/workflows/computer-use-ci.yml'
+  push:
+    branches:
+      - 'feature/virtual-employee-architecture-20261122'
+    paths:
+      - 'computer_use/**'
+      - 'tests/test_computer_use_*.py'
+      - 'infra/notarai-ve-*.yaml'
+      - '.github/workflows/computer-use-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safe-engine:
+    name: Computer Use — isolated unit and policy checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install project dependencies without optional model/browser runtimes
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-computer-use-ci-reqs.txt
+          python -m pip install --disable-pip-version-check -r /tmp/notarai-computer-use-ci-reqs.txt
+      - name: Syntax check
+        run: python -m compileall -q computer_use
+      - name: Unit and security isolation tests
+        run: python -m pytest -q tests/test_computer_use_*.py

@@ -85,3 +85,39 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Architektura i zasady: docs/agent-factory.md.
 - **Polecenie dla Claude Code:** docs/claude-code-handoff-agent-factory.md. Przy pracach agentowych przeczytaj je w całości, realizuj kolejne etapy i testuj rezultaty.
 - Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję.
+
+
+## NotarAI Universal Computer Agent — zasady rozwoju (22.11.2026)
+- **Cel:** możliwie uniwersalna obsługa autoryzowanego oprogramowania kancelaryjnego, bez oddzielnych pisanych od zera adapterów dla każdego producenta.
+- **Najważniejszy dokument:** `docs/fallback-policy.md`; architektura: `docs/universal-computer-agent.md`. PR demonstratora: #63.
+- **Dwa łańcuchy fallbacków:** (A) minimum wdrożenia: API -> browser worker -> hostowana Windows VM -> VM w sieci kancelarii -> wąski connector -> człowiek; (B) wykonanie: native API -> web DOM -> Windows UIA -> UIA+vision -> visual computer use -> pokazanie procedury -> handoff.
+- Każda metoda ma `supports`, wykonanie oraz weryfikację. **Nie ponawiaj niepewnego zapisu**, nie próbuj innej metody po odmowie autoryzacji ani bez potwierdzenia braku efektów ubocznych.
+- W kodzie: `computer_use/fallback_router.py` i `tests/test_computer_use_fallback_router.py` to czysty, provider-agnostic fundament, NIE działająca integracja z Windows/Playwright. Nie twierdź, że agent obsługuje aplikacje produkcyjne bez E2E.
+- Przy integracji z dowolną aplikacją najpierw wykorzystaj istniejące wspólne backendi i profile GUI; osobne specjalne obejście dopiero po niepowodzeniu generycznych dróg, z testem regresji.
+- Nie instaluj NotarAI na PC notariusza, jeśli jest możliwe legalne odizolowane środowisko wykonawcze. Nie obiecuj braku zmian w lokalnej infrastrukturze, jeżeli baza jest dostępna tylko lokalnie.
+
+## Computer Use MVP — implementacja 22.11.2026
+- Przeczytaj **`docs/computer-use-implementation.md`** oraz **`docs/fallback-policy.md`** przed dalszą rozbudową.
+- Kod: `computer_use/fallback_router.py`, `deployment.py`, `profiles.py`, `profile_loader.py`, `browser.py`, `winapp.py`, `discovery.py`, `worker.py`. Żaden program kancelaryjny nie jest zależnością architektury.
+- Testy: `python -m pytest -q tests/test_computer_use*` (w CI wymagane bieżące zielone testy; ostatnie lokalne: 61 testów, 3 subtesty).
+- Windows diagnostyka: `python -m examples.computer_use_windows_probe --app notepad` na **testowej** Windows VM z WinApp CLI, bez danych klientów; wypisuje wyłącznie liczniki.
+- Obecnie faktycznie zaimplementowano wybór środowiska, profile podpisane i tenant-bound, routing fallback, read-only oficjalne API/DOM/UIA, kontrolowane draft fill i read-only UIA discovery. **Nie ma jeszcze Windows VM, modelu vision, live end-to-end ani brokera produkcyjnego**.
+- Nie odblokowywać zapisu repertorium, wysyłki, podpisów, CAPTCHA/2FA, bezpośredniej pracy na DB ani arbitralnych poleceń powłoki. Każdy kolejny backend musi przejść negatywne testy izolacji tenantów, braku PII i niepewnego zapisu.
+
+- Testowa infrastruktura IaC: `infra/notarai-universal-worker-vm.yaml` (brak deployu, Windows/licencja/SSM endpoints wymagają potwierdzenia). Testy statyczne: `tests/test_computer_use_infra.py`.
+
+
+## Universal Computer Use — stan implementacji 2026-11-22 (PR #63)
+
+**Dokument nadrzędny: `docs/computer-use-production-readiness.md`.** Nie oznaczaj PR za production-ready bez potwierdzonych G1–G6. Dalsze implementacje muszą zmieniać kod / testy i utrzymywać te bramki, nie tylko dodawać plan.
+
+Obecne moduły:
+- `computer_use/vision.py`: aktywny po opt-in agent obrazu (in-memory screenshot, weryfikacja procesu Windows, EU Bedrock Converse, restrykcyjny wybór pól, no blind replay), **nieprzetestowany live na VM**.
+- `computer_use/workflows.py`: podpisywane krótkie (do 12 kroków) procedury na różne programy, bez kodowania adaptera dla konkretnego producenta.
+- `computer_use/session_lock.py`: mutex Windows dla sesji GUI (ponad procesami) + `worker.py`: tenant, allowlist, kolejność fallback.
+- `computer_use/jobs.py`, `payloads.py`, `daemon.py`, `runtime.py`: tenantowe zlecenia i wykonywanie: SQS FIFO, DynamoDB conditional claim, S3 SSE-KMS, kill switch z osobnej tabeli, opisy i payload w rozdzielonych magazynach. `runtime.py` uruchamia proces tylko z podpisanym profilem i tożsamością tenantu z bezpiecznej konfiguracji VM.
+- `computer_use/api.py`: konsola webowa `/virtual-employee` z `static/virtual_employee.*`, role z istniejącego Cognito, wgląd do zatwierdzanych danych, warunkowa akceptacja, stop/start, anulowanie i ręczne uzgodnienie niepewnych zadań.
+- `infra/notarai-ve-control-plane.yaml` / `infra/notarai-ve-tenant.yaml`: odseparowane kolejki/IAM/tenant KMS/Windows VM. **Są szablonami, brak faktycznego deploymentu.**
+- `tests/test_computer_use_*.py`, `.github/workflows/computer-use-ci.yml`: testy unitowe, bezpieczeństwa i szybki CI. Nie twierdzić, że testy live Windows przeszły.
+
+**Blokery produkcyjne:** legalna instalacja programu i Windows VM w UE, dostęp do jego bazy, indywidualne konto robota, uruchomienie wszystkich kontrolowanych AWS zasobów, integracja z sekretami i podpisanym profilem, rzeczywiste testy UIA/vision i izolacji IAM/S3/KMS, audyt przepływu danych. Screenshot może zawierać dane osobowe; nigdy nie włączać wizji bez aprobaty kancelarii oraz prawidłowej konfiguracji EU Bedrock/egress. Unikać określenia 'zero knowledge' bez dowodu.

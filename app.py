@@ -120,6 +120,10 @@ app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
+# Wirtualny pracownik: web console + Cognito-bound control APIs, feature disabled by default.
+from computer_use import api as virtual_employee_api
+app.include_router(virtual_employee_api.router)
+app.include_router(virtual_employee_api.page_router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)

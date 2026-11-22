@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NotarAI — wirtualny pracownik</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; script-src 'self'; style-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'">
+<link rel="icon" href="/static/notarai-symbol.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/virtual_employee.css">
+</head>
+<body>
+<main>
+<header>
+  <div class="brand"><img src="/static/notarai-symbol.svg" alt=""> <span>notarai</span></div>
+  <a href="/">Powrót do kancelarii</a>
+</header>
+<div class="title">
+  <div><h1>Wirtualny pracownik</h1><p>Jedna konsola do obsługi programów kancelaryjnych</p></div>
+  <button id="refresh" type="button" class="secondary">Odśwież</button>
+</div>
+<p id="alert" role="status" aria-live="polite" class="notice">Sprawdzanie dostępu…</p>
+<section class="grid">
+  <article>
+    <h2>Stan wykonawcy</h2>
+    <p id="workerState" class="status">Nie ustalono</p>
+    <div class="buttons">
+      <button id="stopWorker" class="danger" type="button" disabled>Wstrzymaj pracownika</button>
+      <button id="startWorker" class="secondary" type="button" disabled>Włącz pracownika</button>
+    </div>
+    <p class="hint">Zatrzymanie blokuje przejmowanie nowych zadań. Trwająca czynność zostaje bezpiecznie zatrzymana przy najbliższym punkcie kontroli.</p>
+  </article>
+  <article>
+    <h2>Nowe zadanie</h2>
+    <form id="newJob">
+      <label>Identyfikator programu<input name="app_id" required maxlength="80" pattern="[A-Za-z0-9_-]{2,80}" placeholder="np. program_testowy"></label>
+      <label>Operacja<select name="action"><option value="read_field">Odczytaj pole</option><option value="fill_draft_field">Uzupełnij szkic (wymaga akceptacji)</option></select></label>
+      <label>Klucz pola z zatwierdzonego profilu<input name="field" required maxlength="80" pattern="[A-Za-z0-9_-]{2,80}" placeholder="np. numer_repertorium"></label>
+      <label id="draftLabel" hidden>Treść szkicu<input name="value" maxlength="2000" autocomplete="off"></label>
+      <button type="submit">Dodaj zadanie</button>
+    </form>
+    <p class="hint">Dostępne są tylko operacje z zatwierdzonego profilu aplikacji. Podpisy, wysyłka i czynności formalne pozostają po stronie notariusza.</p>
+  </article>
+</section>
+<section class="jobs">
+  <div class="jobsTitle"><h2>Kolejka i historia zadań</h2><span>Odświeżanie ręczne — bez zbierania danych w tle</span></div>
+  <div class="tableWrap">
+    <table><thead><tr><th>Zadanie</th><th>Program</th><th>Operacja</th><th>Stan</th><th>Data</th><th>Działania</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="6">Brak danych</td></tr></tbody></table>
+  </div>
+</section>
+<dialog id="resultDialog"><h2>Wynik zadania</h2><pre id="resultText"></pre><form method="dialog"><button>Zamknij</button></form></dialog>
+<footer>NotarAI Virtual Employee — czynności wykonywane w odizolowanym środowisku kancelarii. Brak podglądu danych innych kancelarii.</footer>
+</main>
+<script src="/static/virtual_employee.js" defer></script>
+</body>
+</html>

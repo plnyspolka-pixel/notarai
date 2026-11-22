@@ -316,3 +316,33 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+
+## NA-15. NotarAI Virtual Employee — pierwsza instalacja testowa Windows VM
+
+- **Status:** czeka (architektura przygotowana; bez VM i bez integracji z programem kancelaryjnym)
+- **Brakuje:** dostępu do testowej licencji i instalatora programu kancelaryjnego (preferowany Notaris, alternatywnie Wolters Kluwer), możliwości uruchomienia zgodnie z licencją na VM oraz fikcyjnych danych spraw. Trzeba potwierdzić wspieraną wersję Windows i tryb łączenia z bazą.
+- **Na żywo:**
+  1. Uruchomić VM na wspieranym/licencjonowanym Windows w UE, oddzielne konto operatora AI, bez dostępu do produkcyjnych danych.
+  2. Zainstalować program i utworzyć fikcyjną sprawę testową.
+  3. Uruchomić WinApp CLI `inspect/search` i zinwentaryzować kontrolki UIA, strukturę formularza oraz tabel.
+  4. Sprawdzić znalezienie sprawy, odczyt pól, wypełnienie niezapisanego formularza i eksport dokumentu.
+  5. Zasymulować utratę/rozłączenie sesji Windows i błędny ekran; agent ma bezpiecznie zatrzymać zadanie, nie wykonać niezweryfikowanego zapisu.
+  6. Zweryfikować brak danych osobowych w logach oraz brak możliwości pracy na koncie innej kancelarii.
+- **W dokumentacji:** `docs/virtual-employee-architecture.md`.
+- **Zamknięte, gdy:** co najmniej jedna prawdziwa aplikacja kancelaryjna została przeprowadzona przez test end-to-end na fikcyjnych danych, z raportem kontroli GUI i licencjonowania.
+
+
+## NA-16. RejNET Office — pierwszy test uniwersalnego agenta na Windows VM
+
+- **Status:** czeka (specyfikacja: `docs/rejnet-office-overlay.md`; brak uruchomionej VM i instalacji RejNET Office).
+- **Brakuje:** legalnego testowego instalatora/stanowiska RejNET Office, wersji aplikacji, warunków licencji dla VM/automatyzacji, testowej bazy z fikcyjnymi danymi oraz informacji o połączeniu klient–baza.
+- **Na żywo:**
+  1. Potwierdzić producenta i identyfikator wersji, obsługiwany Windows, licencję stanowiska i miejsce danych.
+  2. Uruchomić Windows VM w UE, dedykowane konto operatora i testowy RejNET Office z fikcyjnymi rekordami.
+  3. `WinApp CLI`/UIA: zinwentaryzować okna, menu Repertorium A, pole wyszukiwania, tabelę, szczegóły sprawy, eksport. Nie zapisywać nazwisk ani treści spraw.
+  4. Przeprowadzić read-only: wyszukanie, otwarcie fikcyjnej sprawy, odczyt kontrolowanych pól, eksport dokumentu testowego (jeśli dostępny).
+  5. Przetestować wypełnienie formularza bez trwałego zapisu; zatrzymać przed podpisem/wysyłką.
+  6. Zasymulować rozłączenie sesji, zmianę okna i niejednoznaczny wynik; robot ma zakończyć w `needs_reconciliation` bez powtórnego zapisu.
+- **W kodzie:** generyczny silnik Computer Use i wyuczony profil RejNET bez odrębnego adaptera; następnie powtórzyć na innym programie kancelaryjnym. Zob. `docs/universal-computer-agent.md`.
+- **Zamknięte, gdy:** demonstrator NotarAI -> kolejka -> Windows VM -> RejNET Office -> wynik działa end-to-end na fikcyjnych danych; ten sam engine bez osobnego adaptera obsłuży drugą aplikację kancelaryjną, z audytem bez PII i dokumentacją licencji.
