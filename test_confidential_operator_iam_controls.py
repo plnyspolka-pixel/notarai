@@ -63,7 +63,7 @@ def test_remove_critical_deny_is_rejected(permission):
         "AssumeRolePolicyDocument"]["Statement"][0].update(
             Principal={"AWS": "*"}),
     lambda x: x["Resources"]["OperatorGuardrail"]["Properties"][
-        "PolicyDocument"]["Statement"][1].update(Resource="*"),
+        "PolicyDocument"]["Statement"][5].update(Resource="*"),
     lambda x: x["Parameters"]["TenantId"].update(
         AllowedValues=["pilot01", "production"]),
     lambda x: x["Conditions"].pop("DifferentAccount"),
@@ -297,7 +297,7 @@ def test_expected_aws_boundary_policy_matches_validated_iac():
     )
     a = expected_policy("111122223333", "pilot01")
     assert a["Version"] == "2012-10-17"
-    assert len(a["Statement"]) == 4
+    assert len(a["Statement"]) == 8
     assert a["Statement"][0]["Effect"] == "Deny"
     assert a["Statement"][0]["Resource"] == "*"
     assert a["Statement"][-1]["Resource"] == (
@@ -380,3 +380,26 @@ def test_source_graph_deterministic_redacted_and_fails_closed(tmp_path):
     (tmp_path / "infra").mkdir()
     with pytest.raises(ValueError, match="missing required"):
         build_manifest(tmp_path)
+
+
+
+@pytest.mark.parametrize("attack", [
+    lambda stmts: stmts.pop(1),
+    lambda stmts: stmts.pop(2),
+    lambda stmts: stmts.pop(3),
+    lambda stmts: stmts.pop(4),
+    lambda stmts: stmts[1]["NotAction"].append("iam:PassRole"),
+    lambda stmts: stmts[1]["NotAction"].remove("ecr:DescribeImages"),
+    lambda stmts: stmts[2].update(NotResource="*"),
+    lambda stmts: stmts[3].update(NotResource="*"),
+    lambda stmts: stmts[4].update(NotResource="*"),
+    lambda stmts: stmts[4].update(Action="s3:GetObject"),
+])
+def test_resource_policy_session_bypass_is_explicitly_denied(attack):
+    """Resource policies can bypass implicit boundary Deny on role sessions."""
+    t = observer()
+    statements = t["Resources"]["OperatorGuardrail"]["Properties"][
+        "PolicyDocument"]["Statement"]
+    attack(statements)
+    with pytest.raises(GuardrailError):
+        validate_observer_template(t)
