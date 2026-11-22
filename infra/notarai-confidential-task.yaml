@@ -72,7 +72,9 @@ Resources:
                     kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
               - Sid: ReadOnlyOwnCiphertexts
                 Effect: Allow
-                Action: s3:GetObject
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
                 Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
               - Sid: WriteMetadataOnlyResults
                 Effect: Allow
