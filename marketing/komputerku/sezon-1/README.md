@@ -21,6 +21,7 @@ Mikroserial edukacyjno-fabularny dla notariuszy promujący NotarAI: sporządzani
 - **Pierwsze sekundy odcinka, czołówka, tytuły, wersje 7 i 15 s:** `10_OTWARCIA_PIERWSZE_SEKUNDY.md`.
 - **Humor z badań: wzór żartu, powracający żart, głos i montaż puenty, test żartów z panelem:** `11_HUMOR_Z_BADAN.md`.
 - **Romans Kuby i Zosi z badań: beaty sezonu, kręcenie na awatarach, granice:** `12_ROMANS_Z_BADAN.md`.
+- **Thriller prawniczy: 12 obowiązkowych punktów, mapa prawdziwych spraw na EP01–EP08, harmonogram odsłaniania:** `13_THRILLER_PRAWNICZY_Z_BADAN.md`.
 - **Aktualny audyt wykonanych materiałów:** `04_AUDYT_PRODUKCJI_2026-11-13.md`.
 
 Te ustalenia uzupełniają dokumentację V4. Nie przerenderowywać już istniejących klipów bez oceny montażowej. Wszelkie twierdzenia o płatnościach, zdalnych poleceniach i funkcjach muszą odpowiadać działającemu produktowi.

@@ -22,6 +22,7 @@ Dwa kierunki:
 | [OTWARCIA.md](OTWARCIA.md) | jak zacząć mocno: czołówki, zimne otwarcia, pierwsze sekundy reklam, pierwsze wrażenie, tytuły i tematy maili (rejestry `otwarcia-*.jsonl`, OR/OE/OU, 176 prac) |
 | [HUMOR.md](HUMOR.md) | co śmieszy i jak to zrobić: mechanizmy humoru, komedia na ekranie, humor w perswazji i pracy, język, pomiar śmieszności, żarty pisane przez AI (rejestry `humor-*.jsonl`, HM/HE/HP/HJ, 215 prac) |
 | [ROMANS.md](ROMANS.md) | jak prowadzić wątek romansowy: struktura i napięcie, psychologia przyciągania, widzowie, bliskość na ekranie, romans w pracy (rejestry `romans-*.jsonl`, RN/RP/RW/RE, 216 prac) |
+| [THRILLER-PRAWNICZY.md](THRILLER-PRAWNICZY.md) | thriller prawniczy: konwencje gatunku, eksperymenty nad napięciem i zagadką, realizm dla widowni prawniczej, opowiadanie na prawdziwych sprawach (rejestry `thriller-*.jsonl`, TG/TS/TR, 166 prac) |
 | `zrodla/*.jsonl` | rejestry prac (każda z identyfikatorem OpenAlex): `bezpieczenstwo` (S, 62), `llm-agenci` (L, 71), `trening-agentow` (T, 77), `praca-z-agentami` (P, 57), `zbiory-dla-agentow` (D, 85); `zbiory-danych` — rejestr dziedzinowy drugiej sesji |
 | `weryfikacja/*.jsonl` | wynik weryfikacji rejestrów — także starszych, z gałęzi laboratorium |
 | [radar.json](radar.json) | tematy obserwowane co tydzień |
