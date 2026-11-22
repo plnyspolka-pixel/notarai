@@ -24,12 +24,14 @@ def test_opis_pomija_tresc_zwyklego_wyjatku():
     assert PESEL not in opis and "Sobczak" not in opis
 
 
-def test_opis_podaje_kod_i_komunikat_aws():
+def test_opis_podaje_kod_aws_ale_nigdy_surowy_komunikat():
     blad = ClientError({"Error": {"Code": "ValidationException",
-                                  "Message": "messages.0.content: too many images"}},
+                                  "Message": "messages.0.content: " + PLIK_SKANU + " " + PESEL}},
                        "ConverseStream")
     opis = dziennik.opis_bledu(_wyjatek(blad))
-    assert "ValidationException: messages.0.content: too many images" in opis
+    assert "ClientError ValidationException" in opis
+    assert PLIK_SKANU not in opis and PESEL not in opis
+    assert "messages.0.content" not in opis
 
 
 def test_opis_wskazuje_typ_przyczyny_bez_jej_tresci():
