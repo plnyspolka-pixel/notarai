@@ -187,9 +187,15 @@ def _aws_fixture():
                 f"notarai-confidential-{tenant}:7")
     task = {
         "taskDefinitionArn": task_arn,
-        "trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+        "requiresCompatibilities": ["MANAGED_INSTANCES"],
+        "networkMode": "awsvpc",
+        "trustedExecutionConfiguration": {
+            "isolationMode": "CONFIDENTIAL_SANDBOX",
+            "attestationPolicy": "U1lOVEhFVElDLU5PVEEtUkVBTC1BVFRFU1RBVElPTg==",
+        },
         "containerDefinitions": [{
             "image": "example@sha256:" + "a" * 64,
+            "user": "10001:10001",
             "readonlyRootFilesystem": True,
             "linuxParameters": {"tmpfs": [{"containerPath": "/tmp",
                                            "mountOptions": ["rw", "nosuid", "nodev"]}]},
@@ -602,3 +608,30 @@ def test_result_inventory_enforces_single_allowlisted_prefix():
         scan_version_metadata(reader, account=account, tenant=tenant,
                               bucket=bucket, subprefix="../../private")
     assert len(prefixes) == 2
+
+
+@pytest.mark.parametrize("change,missing_control", [
+    ({"requiresCompatibilities": ["FARGATE"]}, "ecs_managed_instances_only"),
+    ({"requiresCompatibilities": ["EC2"]}, "ecs_managed_instances_only"),
+    ({"networkMode": "bridge"}, "awsvpc_network"),
+    ({"trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX"}},
+     "attestation_policy_envelope_present"),
+    ({"trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX",
+                                        "attestationPolicy": "not base64 %%" }},
+     "attestation_policy_envelope_present"),
+    ({"containerDefinitions": [{
+        "image": "example@sha256:" + "a" * 64,
+        "user": "0:0", "readonlyRootFilesystem": True,
+        "linuxParameters": {"tmpfs": [{
+            "containerPath": "/tmp", "mountOptions": ["rw", "nosuid", "nodev"],
+        }]},
+    }]}, "guest_is_nonroot"),
+])
+def test_task_definition_requires_managed_confidential_attested_guest(
+    change, missing_control
+):
+    from scripts.verify_confidential_plaintext_lifecycle import inspect_task_definition
+    _, _, _, good = _aws_fixture()
+    changed = {**good, **change}
+    controls = inspect_task_definition(changed)
+    assert controls[missing_control] is False
