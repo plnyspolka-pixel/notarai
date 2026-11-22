@@ -95,3 +95,11 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - W kodzie: `computer_use/fallback_router.py` i `tests/test_computer_use_fallback_router.py` to czysty, provider-agnostic fundament, NIE działająca integracja z Windows/Playwright. Nie twierdź, że agent obsługuje aplikacje produkcyjne bez E2E.
 - Przy integracji z dowolną aplikacją najpierw wykorzystaj istniejące wspólne backendi i profile GUI; osobne specjalne obejście dopiero po niepowodzeniu generycznych dróg, z testem regresji.
 - Nie instaluj NotarAI na PC notariusza, jeśli jest możliwe legalne odizolowane środowisko wykonawcze. Nie obiecuj braku zmian w lokalnej infrastrukturze, jeżeli baza jest dostępna tylko lokalnie.
+
+## Computer Use MVP — implementacja 22.11.2026
+- Przeczytaj **`docs/computer-use-implementation.md`** oraz **`docs/fallback-policy.md`** przed dalszą rozbudową.
+- Kod: `computer_use/fallback_router.py`, `deployment.py`, `profiles.py`, `profile_loader.py`, `browser.py`, `winapp.py`, `discovery.py`, `worker.py`. Żaden program kancelaryjny nie jest zależnością architektury.
+- Testy: `python -m pytest -q tests/test_computer_use*` (w CI wymagane bieżące zielone testy; ostatnie lokalne: 51 testów, 3 subtesty).
+- Windows diagnostyka: `python -m examples.computer_use_windows_probe --app notepad` na **testowej** Windows VM z WinApp CLI, bez danych klientów; wypisuje wyłącznie liczniki.
+- Obecnie faktycznie zaimplementowano wybór środowiska, profile podpisane i tenant-bound, routing fallback, read-only DOM/UIA, kontrolowane draft fill i read-only UIA discovery. **Nie ma jeszcze Windows VM, modelu vision, live end-to-end ani brokera produkcyjnego**.
+- Nie odblokowywać zapisu repertorium, wysyłki, podpisów, CAPTCHA/2FA, bezpośredniej pracy na DB ani arbitralnych poleceń powłoki. Każdy kolejny backend musi przejść negatywne testy izolacji tenantów, braku PII i niepewnego zapisu.
