@@ -23,12 +23,12 @@
 **Docelowy test, który należy dodać:** `python -m pytest -q test_confidential_zk_client_encryption.py` — 0 failed, 0 skipped krytycznych scenariuszy.
 
 ### Wspólny warunek zamknięcia
-- [ ] Link do **zielonego CI dla aktualnego SHA**, wynik komendy testowej (passed/failed/skipped), zanonimizowany raport w `docs/security-evidence/SEC-03.md` (lub artefakcie CI), oraz linki do testów każdego K1–K6. Nazwę planowanego testu trzeba dopiero wdrożyć; sam opis nie zalicza kryterium.
+- [ ] Link do **zielonego CI dla aktualnego SHA**, wynik komendy testowej (passed/failed/skipped), zanonimizowany raport w `docs/security-evidence/SEC-03.md` (lub artefakcie CI), oraz linki do testów każdego K1–K6. Testy zostały dodane, ale wynik aktualnego SHA i niezależne dowody nadal muszą być osobno zweryfikowane.
 - [ ] Dla każdego kryterium jawny status `PASS`, `FAIL` lub `BLOCKED` z dowodem, datą i wykonawcą. Brak realnego dostępu AWS = `BLOCKED`, nie `PASS`. Zero plaintext, danych osobowych, sekretów i DEK w artefaktach.
 - [ ] W żadnym kodzie dodanym przez PR nie ma możliwości wysyłania ani podpisywania formularzy w AUTO. Testy CI i wykonany PR NIE oznaczają potwierdzenia komercyjnych twierdzeń Zero Trust / Zero Operator Access / Zero Knowledge.
 
 ## Zasady pracy w nowej konwersacji
-To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działającego dowodu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
+To jest **PR implementacyjny, nadal DRAFT**. Kod i testy syntetyczne są w repozytorium; dowody z rzeczywistych kont AWS, odrębnego kustosza i sprzętowego Nitro są nadal BLOCKED. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
 
 Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; produkcja wyłączona; AUTO preview nie wysyła, nie podpisuje i nie składa wniosków. Nie podnoś operatorowi uprawnień custody, nie loguj PII/plaintext/sekretów i nie wprowadzaj sieciowego 0.0.0.0/0 dla guest. Każdą własność security potwierdź testami pozytywnymi i **negatywnymi**; brak konta/narzędzi oznacz BLOCKED, a nie PASS. Sama dokumentacja lub CI nie stanowi dowodu sprzętowego. Zapisz kod + testy + wyniki + wymaganą niezależną atestację w PR.
 
@@ -40,3 +40,13 @@ Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; pro
 Kod został zapisany bezpośrednio na gałęzi tego PR. Moduły: `static/confidential-crypto.js`, `confidential/envelope.py`, `confidential/router.py`, `confidential/worker.py`, `confidential/client_release.py`, `confidential/zk_recovery.py`. Test obowiązkowy: `test_confidential_zk_client_encryption.py` (CI).
 
 **Statusy K1–K6 i ograniczenia:** `docs/security-evidence/SEC-03.md`. Żadnego K1–K6 nie oznaczamy PASS na podstawie samych testów offline. W szczególności niezależna dystrybucja klienta, custody account i realna atestacja Nitro nadal są `BLOCKED`. To nadal PR draft, nie dowód komercyjnego ZK/ZOA.
+
+
+## Aktualizacja SEC-03: odrębne klucze approverów i dowód źródła
+
+- Migracja akceptuje tylko notarai.recovery.v2, wiążące dokładny SHA-256 oryginalnego ciphertextu, S3 VersionId, stary KMS pin oraz nowy cel/klucz.
+- Oba klucze Ed25519 dla autoryzacji są pobierane z niezależnego, obrazo-pinanego trusted-recovery-root.json. Nigdy od wywołującego (mitigacja fałszywych dwóch podpisów operatora).
+- Rejestr nonce sprawdza STS konta kustosza i używa jego sesji DynamoDB. Produkcyjny kanał dostępu do odrębnego kustosza nadal wymaga zatwierdzonej atestowanej integracji; żadnych poświadczeń kustosza w NotarAI.
+- Skrypt package_confidential_recovery_root.py przyjmuje dwa niezależnie pozyskane fingerprinty SPKI i generuje publiczny root do osobnego measured image build.
+- Testy negatywne test_confidential_recovery_trust.py i test_confidential_zk_client_encryption.py obejmują rogue signers, wrong SHA/S3, wrong pin, expired clock, replay i brak root.
+- K5 pozostaje BLOCKED, bo odzyskiwanie nie jest jeszcze połączone z rzeczywistym KMS/legitymacją prawną i nie ma bezpiecznego key-wide revoke. Współdzielonego klucza KMS nie można wyłączać jako odpowiednika revocation jednego dokumentu.
