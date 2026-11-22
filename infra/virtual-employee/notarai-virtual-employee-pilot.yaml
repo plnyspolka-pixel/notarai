@@ -25,12 +25,20 @@ Parameters:
     Default: 100
     MinValue: 70
     MaxValue: 200
+  LegacyEc2Messages:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Paid legacy endpoint only if needed by an older SSM Agent
   VpcCidr:
     Type: String
     Default: 10.77.0.0/16
   PrivateSubnetCidr:
     Type: String
     Default: 10.77.10.0/24
+
+Conditions:
+  EnableLegacyMessages: !Equals [!Ref LegacyEc2Messages, 'true']
 
 Resources:
   PilotVpc:
@@ -121,6 +129,7 @@ Resources:
       SecurityGroupIds: [!GetAtt EndpointSecurityGroup.GroupId]
 
   Ec2MessagesEndpoint:
+    Condition: EnableLegacyMessages
     Type: AWS::EC2::VPCEndpoint
     Properties:
       VpcId: !Ref PilotVpc
@@ -156,7 +165,6 @@ Resources:
     DependsOn:
       - SsmEndpoint
       - SsmMessagesEndpoint
-      - Ec2MessagesEndpoint
       - EndpointHttpsIngress
     Properties:
       ImageId: !Ref WindowsAmi
