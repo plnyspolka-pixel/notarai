@@ -11,11 +11,13 @@
 | [02-instytucje-obciazenia-zmiany.md](02-instytucje-obciazenia-zmiany.md) | **36** | KRN, MS, MF, KAS, ELI: dane statystyczne, przerwy systemów, obowiązki, nowe schematy raportowania, taksa, interpelacje, projekty |
 | [03-sprawy-karne-i-interwencje.md](03-sprawy-karne-i-interwencje.md) | **20** | Oficjalne komunikaty Policji, CBA i prokuratur o oszustwach, zatrzymaniach, aktach oskarżenia, wyroku i umorzeniu, z wyraźnym statusem |
 | [04-przepisy-podstawowe.md](04-przepisy-podstawowe.md) | **37** | Artykuły i aktualne urzędowe teksty Prawa o notariacie, KC, KPC, KW i AML |
+| [05-nietypowe-i-humorystyczne-realia.md](05-nietypowe-i-humorystyczne-realia.md) | **15** | Nietypowe, czasem komiczne sytuacje w kancelarii, sygnatury sądowe, jedna relacja podpisana, jedna anonimowa anegdota oraz dwa zdarzenia pokrewne z brakiem dostępu do notariusza; dokładne etykiety wiarygodności |
 
-**Razem: 161 rekordów referencyjnych (124 rekordy orzecznictwa/zdarzeń/komunikatów + 37 przepisów).** Nie oznacza to 161 niezależnych spraw. Niektóre dokumenty odnoszą się do tego samego śledztwa lub orzeczenia. Zachować to rozróżnienie przy liczeniu zdarzeń.
+**Razem: 176 pozycji referencyjnych, w tym 15 dodatkowych rekordów atypowych/humorystycznych (częściowo powtarzających sprawy z pozostałych rejestrów).** Nie oznacza to 176 niezależnych spraw ani 176 zweryfikowanych przypadków; dokumenty mają różne poziomy wiarygodności. Niektóre dokumenty odnoszą się do tego samego śledztwa lub orzeczenia. Zachować to rozróżnienie przy liczeniu zdarzeń.
 
 ## Główne obszary faktograficzne
 
+0. Nietypowe sytuacje z życia kancelarii: bezpośrednio udokumentowane orzeczenia, relacje i anegdoty oznaczone osobno; żadnych wymyślonych dialogów.
 1. Sprawy rodzinne i testamentowe: swoboda testowania, choroba, głuchota, odcisk palca, czynności w szpitalu lub poza kancelarią.
 2. Ochrona uczestników czynności: weryfikacja tożsamości, zastrzeżony PESEL, obowiązek wyjaśnienia skutków czynności, odmowa.
 3. Ryzyko transakcji: fałszywe pełnomocnictwa, nieprawidłowości w cenie i zapłacie, dożywocie, pierwokup, zabezpieczenia, KW.
@@ -39,6 +41,7 @@
 - **SAOS** daje tekst rozstrzygnięcia, ale nie zawsze kompletną historię procesową lub informację o prawomocności. Sygnatury i linki są materiałem do dalszej lektury, a nie autoryzowanym opisem pełnych akt.
 - **SN: strony zagadnień prawnych** mogą zawierać pytanie, a nie tezę uchwały. Odczytywać stan sprawy i datę rozstrzygnięcia.
 - **Interpelacja** dokumentuje problem podniesiony przez parlamentarzystę, nie dowodzi skali lub jednolitości praktyki sądowej.
+- **Humor i anegdoty**: rejestr 05 ma stopnie A/B/C. Nie traktować anonimowego wpisu internetowego jako zdarzenia potwierdzonego. Dwa przykłady z badania IWS nie mają udziału notariusza. Przypadki z orzeczeń bywają poważnymi konfliktami — humor ma wynikać z nietypowego kontekstu, a nie krzywdy człowieka.
 - **Duplikaty dokumentów**: P06/P07/P08/P10 — różne etapy rozległego śledztwa o lichwę mieszkaniową; P12/P13 — źródła tej samej sprawy. Nie liczyć jako niezależnych zdarzeń.
 - Dokument ma wyłącznie charakter badawczy. Przed publikacją lub wykorzystaniem w komunikacji zewnętrznej potrzebny jest przegląd całości uzasadnień i ewentualnych nowszych rozstrzygnięć.
 - Nie przenosić z orzeczeń wrażliwych danych prywatnych ani szczegółów pozwalających identyfikować osoby fizyczne; zachować prawo cytatu i warunki licencyjne źródeł.
@@ -56,7 +59,7 @@
 ## Kryteria uznania tego PR za gotowy
 
 - [x] Jedna gałąź i jeden PR wyłącznie na dokumentację.
-- [x] Ponad 100 faktograficznych rekordów/źródeł z odsyłaczami.
+- [x] Ponad 100 rekordów/źródeł z odsyłaczami, w tym oddzielnie oznaczone anegdoty niepotwierdzone.
 - [x] Rozdzielenie orzecznictwa, komunikatów, aktów i postępowań karnych.
 - [x] Linki do konkretnych sygnatur lub oficjalnych komunikatów.
 - [x] Wyraźnie oznaczone etapy postępowań i brak założenia prawomocności.
