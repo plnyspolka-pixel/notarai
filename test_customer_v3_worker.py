@@ -128,3 +128,22 @@ def test_trust_file_strictly_image_pinned_format(tmp_path):
                     '"issuer_id":"evil","public_ed25519_b64":"abc"}')
     with pytest.raises(ValueError):
         _trust_from_image(file)
+
+
+def test_origin_trust_bake_requires_explicit_key(tmp_path):
+    from confidential.bake_trust import bake
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives import serialization
+    public = Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    encoded = base64.b64encode(public).decode("ascii")
+    destination = tmp_path / "trust" / "customer-origin-v1.json"
+    with pytest.raises(ValueError):
+        bake(issuer_id="", signing_public_b64=encoded, target=destination)
+    with pytest.raises(ValueError):
+        bake(issuer_id="notary01", signing_public_b64="bad", target=destination)
+    assert not destination.exists()
+    bake(issuer_id="notary01", signing_public_b64=encoded, target=destination)
+    assert _trust_from_image(destination) == ("notary01", public)
+    with pytest.raises(FileExistsError):
+        bake(issuer_id="notary01", signing_public_b64=encoded, target=destination)
