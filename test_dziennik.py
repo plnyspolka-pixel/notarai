@@ -60,7 +60,7 @@ def test_nieobsluzony_blad_trafia_do_dziennika_bez_tresci(caplog):
     assert odp.status_code == 500
     assert PESEL not in odp.body.decode()
     wpisy = [r.getMessage() for r in caplog.records if "nieobsluzony" in r.getMessage()]
-    assert wpisy and wpisy[0].startswith("POST /api/sprawy: nieobsluzony blad (RuntimeError")
+    assert wpisy and wpisy[0].startswith("POST <unmatched>: nieobsluzony blad (RuntimeError")
     assert PESEL not in wpisy[0]
 
 
