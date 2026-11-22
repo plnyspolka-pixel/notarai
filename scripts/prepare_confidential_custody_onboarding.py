@@ -30,7 +30,7 @@ def prepare_two_tenant_onboarding(*, bindings: list[dict],
         if not isinstance(binding, dict) or set(binding) != _IDENTITY_FIELDS:
             raise BoundaryDenied("tenant binding schema invalid")
         states.append(validate_state({
-            **binding, "schema": _SCHEMA, "state": "ACTIVE",
+            **binding, "schema": _SCHEMA, "state": "FROZEN",
             "generation": 1, "revision": 1,
         }))
     checked = validate_pilot_inventory(states)
