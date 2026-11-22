@@ -2,6 +2,7 @@
 import json
 
 import pytest
+from botocore.exceptions import ClientError
 
 from scripts.audit_confidential_sec04_live import (
     audit, validate_kms_attestation_policy,
@@ -47,11 +48,14 @@ def guarded_policy():
 
 class FakeAWS:
     def __init__(self, *, account=ACCOUNT, bucket_region="eu-central-1",
-                 fail_region=False, policy=None):
+                 fail_region=False, policy=None, replication=False,
+                 grants=None):
         self.account = account
         self.bucket_region = bucket_region
         self.fail_region = fail_region
         self.policy = guarded_policy() if policy is None else policy
+        self.replication = replication
+        self.grants = [] if grants is None else grants
         self.calls = []
 
     def client(self, name):
@@ -63,34 +67,44 @@ class FakeAWS:
         self.calls.append("sts:GetCallerIdentity")
         return {"Account": self.account}
 
-    def get_bucket_location(self, *, Bucket):
+    def get_bucket_location(self, *, Bucket, ExpectedBucketOwner):
         self.calls.append("s3:GetBucketLocation")
-        assert Bucket == BUCKET
+        assert Bucket == BUCKET and ExpectedBucketOwner == ACCOUNT
         if self.fail_region:
             raise RuntimeError("FICTIONAL-PERSONAL-DOCUMENT-CANARY")
         return {"LocationConstraint": self.bucket_region}
 
-    def get_bucket_versioning(self, *, Bucket):
+    def get_bucket_versioning(self, *, Bucket, ExpectedBucketOwner):
         self.calls.append("s3:GetBucketVersioning")
-        assert Bucket == BUCKET
+        assert Bucket == BUCKET and ExpectedBucketOwner == ACCOUNT
         return {"Status": "Enabled"}
 
-    def get_public_access_block(self, *, Bucket):
+    def get_public_access_block(self, *, Bucket, ExpectedBucketOwner):
         self.calls.append("s3:GetPublicAccessBlock")
-        assert Bucket == BUCKET
+        assert Bucket == BUCKET and ExpectedBucketOwner == ACCOUNT
         return {"PublicAccessBlockConfiguration": {
             "BlockPublicAcls": True, "IgnorePublicAcls": True,
             "BlockPublicPolicy": True, "RestrictPublicBuckets": True,
         }}
 
-    def get_bucket_encryption(self, *, Bucket):
+    def get_bucket_encryption(self, *, Bucket, ExpectedBucketOwner):
         self.calls.append("s3:GetBucketEncryption")
-        assert Bucket == BUCKET
+        assert Bucket == BUCKET and ExpectedBucketOwner == ACCOUNT
         return {"ServerSideEncryptionConfiguration": {
             "Rules": [{"ApplyServerSideEncryptionByDefault": {
                 "SSEAlgorithm": "AES256"
             }}],
         }}
+
+    def get_bucket_replication(self, *, Bucket, ExpectedBucketOwner):
+        self.calls.append("s3:GetBucketReplication")
+        assert Bucket == BUCKET and ExpectedBucketOwner == ACCOUNT
+        if self.replication:
+            return {"ReplicationConfiguration": {"Rules": [{"ID": "cross-region"}]}}
+        raise ClientError({
+            "Error": {"Code": "ReplicationConfigurationNotFoundError",
+                      "Message": "no configuration"}
+        }, "GetBucketReplication")
 
     def describe_key(self, *, KeyId):
         self.calls.append("kms:DescribeKey")
@@ -105,6 +119,11 @@ class FakeAWS:
         self.calls.append("kms:GetKeyPolicy")
         assert KeyId == KMS and PolicyName == "default"
         return {"Policy": json.dumps(self.policy)}
+
+    def list_grants(self, *, KeyId, Limit):
+        self.calls.append("kms:ListGrants")
+        assert KeyId == KMS and Limit == 100
+        return {"Grants": self.grants, "Truncated": False}
 
     def get_queue_attributes(self, *, QueueUrl, AttributeNames):
         self.calls.append("sqs:GetQueueAttributes")
@@ -169,6 +188,10 @@ def test_sec04_wrong_s3_region_is_fail_not_pass():
 
 @pytest.mark.parametrize("mutation", [
     {"Statement": [{"Effect": "Allow", "Action": ["kms:*"], "Resource": "*"}]},
+    {"Statement": [
+        guarded_policy()["Statement"][0],
+        {"Effect": "Allow", "NotAction": ["kms:Encrypt"], "Resource": "*"},
+    ]},
     {"Statement": [{"Effect": "Allow", "Action": ["kms:Decrypt"], "Resource": "*"}]},
     {"Statement": []},
     None,
@@ -208,3 +231,21 @@ def test_sec04_invalid_scopes_rejected_without_aws(override):
     with pytest.raises(ValueError):
         audit(**params(**override), check=True,
               session_factory=lambda **kw: pytest.fail("AWS reached"))
+
+
+def test_sec04_active_decrypt_grant_does_not_pass_attestation_policy():
+    aws = FakeAWS(grants=[{
+        "Operations": ["Decrypt"], "GranteePrincipal": "FICTIONAL-OPERATOR"
+    }])
+    report = audit(**params(), check=True, session_factory=lambda **kw: aws)
+    assert report["checks"]["kms_attested_policy"] == "PASS"
+    assert report["checks"]["kms_decrypt_grants"] == "FAIL"
+    assert report["strict_zero_knowledge_verified"] is False
+
+
+def test_sec04_cross_region_replication_not_allowed():
+    aws = FakeAWS(replication=True)
+    report = audit(**params(), check=True, session_factory=lambda **kw: aws)
+    assert report["checks"]["s3_region"] == "PASS"
+    assert report["checks"]["s3_no_replication"] == "FAIL"
+    assert report["strict_zero_knowledge_verified"] is False
