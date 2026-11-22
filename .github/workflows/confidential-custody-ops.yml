@@ -6,6 +6,7 @@ on:
       - "confidential/custody_ops.py"
       - "scripts/verify_confidential_custody_independence.py"
       - "scripts/custodian_sign_confidential_operation.py"
+      - "scripts/plan_confidential_custody_operation.py"
       - "test_confidential_independent_custody_ops.py"
       - "docs/security-evidence/SEC-06.md"
       - ".github/workflows/confidential-custody-ops.yml"
@@ -30,11 +31,13 @@ jobs:
       - name: Install offline dependencies only
         run: python -m pip install pytest==8.3.4 cryptography PyYAML boto3
       - name: Compile independent custody modules
-        run: python -m py_compile confidential/custody_ops.py scripts/verify_confidential_custody_independence.py scripts/custodian_sign_confidential_operation.py test_confidential_independent_custody_ops.py
+        run: python -m py_compile confidential/custody_ops.py scripts/verify_confidential_custody_independence.py scripts/custodian_sign_confidential_operation.py scripts/plan_confidential_custody_operation.py test_confidential_independent_custody_ops.py
       - name: Check synthetic custody tests and legacy KMS boundary
         run: python -m pytest -q --noconftest test_confidential_independent_custody_ops.py test_confidential_operator_boundary.py
       - name: Independent custody KMS signer CLI (must require explicit approval)
-        run: python scripts/custodian_sign_confidential_operation.py --help > /dev/null
+        run: |
+          python scripts/custodian_sign_confidential_operation.py --help > /dev/null
+          python scripts/plan_confidential_custody_operation.py --help > /dev/null
       - name: Confirm audit mode is inert without --check
         run: |
           python scripts/verify_confidential_custody_independence.py \
