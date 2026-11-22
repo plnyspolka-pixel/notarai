@@ -171,3 +171,11 @@ python scripts/check_nitro_org_separation.py --verify-live \
 Jeśli obie strony należą do **tej samej** AWS Organization, kontrola kończy się odmową. Konta należące do różnych organizacji (lub standalone) mogą spełniać ten pojedynczy warunek architektoniczny, ale **to nie dowodzi** niezależnych administratorów, braku możliwości `AssumeRole`, dostępu do root, kontroli nad credential brokerem ani odrębnego beneficjenta ostatecznego. Narzędzie zwraca stale `status=BLOCKED`, `zero_operator_access_proven=false`, `hardware_attestation_verified=false`. W raporcie publikowane są wyłącznie skróty SHA256 identyfikatorów Organization, nie pełne identyfikatory.
 
 Dodatkowe wymagane dowody poza kodem: niezależny właściciel root obu kont, MFA i kontrola ról organizacyjnych, przegląd uprawnień IAM Identity Center/STS trust, ścieżka eskalacji AWS Support oraz legalny i organizacyjny rozdział administracji. Oświadczenia i pliki z dostępem nie powinny trafić do GitHub. Brak zgodności tych warunków pozostawia K4–K6 w statusie BLOCKED.
+
+## CloudTrail: limity usługi i niezawodność audytu
+
+Oba narzędzia audytujące zdarzenia KMS, `scripts/run_nitro_attestation_e2e.py` i `scripts/audit_nitro_denials.py`, korzystają teraz ze wspólnego `confidential/cloudtrail_readonly.py`. Utrzymuje on odstęp minimum 550 ms pomiędzy odczytami `LookupEvents` dla **danego konta AWS i regionu**. AWS dopuszcza maksymalnie 2 wywołania na sekundę; przekroczenie skutkuje throttlingiem, nie dowodem odmowy KMS. Mechanizm rozdziela limiter konta workload i kustosza, nie pozwala na zapis do AWS oraz maksymalnie dwukrotnie ponawia wyłącznie rozpoznane błędy throttlingu. Inne błędy AWS są odmową audytu, nigdy oznaczeniem `PASS`.
+
+Nowy moduł testowy `test_confidential_nitro_cloudtrail_pacing.py` sprawdza wymuszone tempo 4 odczytów, retry, niezwłoczne odrzucenie `AccessDeniedException`, nieprawidłowe strony odpowiedzi i brak wrażliwych szczegółów w błędach. Dokumentacja limitu: https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_LookupEvents.html.
+
+**Uwaga dowodowa:** CloudTrail LookupEvents nie stanowi samodzielnego dowodu, że nigdy nie nastąpiło niedozwolone wywołanie. Brak zdarzenia może wynikać z opóźnień lub niepełnej konfiguracji ścieżki logowania. Dla finalnego K2 wymagamy niezależnego śladu kontrolnego, szczególnie dla odmowy przed RunTask.
