@@ -1,0 +1,40 @@
+name: SEC-10 plaintext lifecycle / synthetic privacy gate
+
+on:
+  pull_request:
+    paths:
+      - 'confidential/plaintext_lifecycle.py'
+      - 'confidential/worker.py'
+      - 'confidential/Dockerfile'
+      - 'test_confidential_plaintext_lifecycle.py'
+      - 'infra/notarai-confidential-task.yaml'
+      - 'docs/security-evidence/SEC-10.md'
+      - '.github/workflows/confidential-plaintext-lifecycle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-privacy:
+    name: SEC-10 six failure paths / no plaintext
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_DEFAULT_REGION: eu-central-1
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install synthetic test requirements (NO AWS / NO real documents)
+        run: python -m pip install pytest PyYAML cryptography fastapi
+      - name: Static syntax
+        run: python -m py_compile confidential/plaintext_lifecycle.py confidential/worker.py test_confidential_plaintext_lifecycle.py
+      - name: Synthetic privacy tests
+        run: python -m pytest -q test_confidential_plaintext_lifecycle.py
+      - name: Confirm no AWS session required
+        run: |
+          echo "SEC-10: Offline only; this workflow is NOT hardware or independent auditor evidence."
