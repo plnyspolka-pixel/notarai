@@ -538,10 +538,12 @@ def test_k4_planner_requires_approved_tenant_frozen_rotation_and_no_recovery():
         {"action": "UNFREEZE"},
         {"action": "ROTATE"},
         {"action": "ENROLL"},
-        {"action": "FREEZE", "tenant": "pilot02"},
     ):
         with pytest.raises(BoundaryDenied):
             plan_operation(tenant="pilot01", state=s, clock=NOW, **kwargs)
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="FREEZE", tenant="pilot02", state=s,
+                       clock=NOW)
     with pytest.raises(BoundaryDenied):
         plan_operation(action="FREEZE", tenant="pilot01", state=s,
                        ttl_minutes=0, clock=NOW)
