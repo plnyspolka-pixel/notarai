@@ -266,3 +266,110 @@ def test_wrong_pcr_invalid_ciphertext_cannot_mask_unexplained_failure():
     )
     with pytest.raises(ProofRejected):
         assess(data)
+
+
+@pytest.mark.parametrize("include_audit_signature", [False, True])
+def test_full_mock_aws_evidence_never_becomes_hardware_verified(
+    monkeypatch, tmp_path, include_audit_signature,
+):
+    """Even one allow, six denials, a fake AWS snapshot and a valid auditor
+    signature cannot make mock test preconditions into a hardware proof."""
+    import base64
+    import io
+    from scripts import confidential_pilot_run as pilot_runner
+    from scripts import verify_confidential_release as release_checker
+
+    manifest, events, custody_event, task, release = fixtures()
+    payload = assess((manifest, events, custody_event, task, release))
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    pem = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    fp = public_key_fingerprint(pem)
+    pub_file = tmp_path / "auditor.pub"
+    sig_file = tmp_path / "auditor.sig"
+    pub_file.write_bytes(pem)
+    sig_file.write_text(base64.b64encode(private_key.sign(
+        canonical_bytes(payload), ec.ECDSA(hashes.SHA256()),
+    )).decode())
+
+    monkeypatch.setattr(
+        release_checker, "check_release", lambda **kwargs: release,
+    )
+    monkeypatch.setattr(
+        pilot_runner, "outputs", lambda profile, stack: {
+            "BucketName": "synthetic-ciphertexts-only",
+        },
+    )
+
+    class FakeSts:
+        def __init__(self, account):
+            self.account = account
+
+        def get_caller_identity(self):
+            return {"Account": self.account}
+
+    class FakeEcs:
+        def describe_tasks(self, **kwargs):
+            return {"tasks": [task]}
+
+    class FakeS3:
+        def get_object(self, **kwargs):
+            body = json.dumps({
+                "version": 1, "job_id": manifest["job_id"],
+                "status": "preview_completed", "fields_filled": 2,
+                "submitted": False,
+            }).encode()
+            return {"ContentLength": len(body), "Body": io.BytesIO(body)}
+
+    class FakeTrail:
+        def __init__(self, custody_account):
+            self.custody_account = custody_account
+
+        def lookup_events(self, **kwargs):
+            attr = kwargs["LookupAttributes"][0]
+            if self.custody_account:
+                assert attr["AttributeKey"] == "EventName"
+                return {"Events": [{"CloudTrailEvent": json.dumps(custody_event)}]}
+            eid = attr["AttributeValue"]
+            return {"Events": [{"CloudTrailEvent": json.dumps(events[eid])}]}
+
+    class FakeSession:
+        def __init__(self, profile_name, region_name):
+            assert region_name == "eu-central-1"
+            self.custody_account = profile_name == "custody-ro"
+
+        def client(self, name):
+            if name == "sts":
+                return FakeSts(
+                    manifest["custody_account"] if self.custody_account else
+                    manifest["workload_account"]
+                )
+            if name == "ecs":
+                return FakeEcs()
+            if name == "s3":
+                return FakeS3()
+            if name == "cloudtrail":
+                return FakeTrail(self.custody_account)
+            raise AssertionError("unexpected AWS client in mock")
+
+    result = cli.verify_live(
+        manifest=manifest,
+        operator_profile="workload-ro",
+        custody_profile="custody-ro",
+        release_envelope={},
+        custodian_public_key=b"synthetic",
+        custodian_public_key_sha256="0" * 64,
+        session_factory=FakeSession,
+        auditor_signature_file=str(sig_file) if include_audit_signature else None,
+        auditor_public_key_file=str(pub_file) if include_audit_signature else None,
+        auditor_public_key_sha256=fp if include_audit_signature else None,
+    )
+    assert result["status"] == "BLOCKED"
+    assert result["hardware_attestation_verified"] is False
+    assert result["zero_operator_access_proven"] is False
+    assert result["production_enabled"] is False
+    if include_audit_signature:
+        assert result["audit_signature_verified"] is True
+        assert result["reason"] == "six_live_attack_preconditions_not_independently_verified"
