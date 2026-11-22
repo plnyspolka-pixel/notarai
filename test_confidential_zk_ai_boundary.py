@@ -484,3 +484,34 @@ def test_k2_confidential_mode_refuses_external_llm_even_with_forged_approval(mon
     with pytest.raises(AIBoundaryDenied, match="BEDROCK_OUTSIDE_NITRO_DENIED"):
         enforce_bedrock_dispatch(model_id=MODEL, region="eu-central-1",
                                  pinned_model=MODEL)
+
+
+@pytest.mark.parametrize("region", ["eu-west-1", "eu-north-1", "us-east-1"])
+def test_k3_low_level_kms_region_policy_is_pinned_before_any_decrypt(region):
+    from confidential.envelope import Envelope, InvalidEnvelope
+    from confidential.attested_kms import AttestedKMSUnwrapper
+    from confidential.nitro_unwrapper import NitroKMSUnwrapper
+    from test_confidential import make_document, FakeKMS, FakeProvider
+    _, key, sample = make_document()
+    arn = sample["kms_key_arn"].replace("eu-central-1", region)
+    with pytest.raises(InvalidEnvelope):
+        Envelope.parse({**sample, "kms_key_arn": arn})
+    client = FakeKMS()
+    with pytest.raises(ValueError, match="eu-central-1"):
+        AttestedKMSUnwrapper(client, FakeProvider(key), arn)
+    with pytest.raises(ValueError, match="eu-central-1"):
+        NitroKMSUnwrapper(client, arn)
+    assert client.calls == []
+
+
+def test_k3_low_level_kms_rejects_non_arn_prefix_and_type_confusion():
+    from confidential.attested_kms import AttestedKMSUnwrapper
+    from confidential.nitro_unwrapper import NitroKMSUnwrapper
+    for invalid in ("arn:aws:kms:eu-central-1:111122223333:key/ok/extra",
+                    "arn:aws:kms:eu-central-1:111122223333:key/",
+                    "arn:aws:kms:eu-central-1:111122223333:alias/pilot",
+                    None, True, 101):
+        with pytest.raises(ValueError):
+            AttestedKMSUnwrapper(object(), object(), invalid)
+        with pytest.raises(ValueError):
+            NitroKMSUnwrapper(object(), invalid)
