@@ -112,7 +112,7 @@ def test_write_success_and_unrelated_errors_never_count_as_denied(
     {"fixture_key": "client-data/real-object"},
     {"fixture_key": "sec11-fixture/../../x"},
     {"fixture_version": "null"},
-    {"fixture_version": "../wrong"},
+    {"fixture_version": "v*invalid"},
     {"bucket": ""},
 ])
 def test_unsafe_parameters_are_rejected_before_any_write(overrides):
