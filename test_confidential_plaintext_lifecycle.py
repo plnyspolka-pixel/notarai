@@ -365,3 +365,40 @@ def test_guest_process_fails_closed_if_dumpability_cannot_be_disabled(monkeypatc
     monkeypatch.setattr(lifecycle, "assert_tmpfs", lambda: None)
     with pytest.raises(UnsafeGuestRuntime, match="dumpable"):
         lifecycle.harden_guest_process()
+
+
+def test_stdio_redirection_targets_only_devnull_before_plaintext(monkeypatch):
+    import confidential.plaintext_lifecycle as lifecycle
+    calls = []
+    monkeypatch.setattr(lifecycle.os, "open",
+                        lambda path, flags: (calls.append(("open", path)), 93)[1])
+    monkeypatch.setattr(lifecycle.os, "dup2",
+                        lambda source, dest: calls.append(("dup2", source, dest)))
+    monkeypatch.setattr(lifecycle.os, "close",
+                        lambda fd: calls.append(("close", fd)))
+    lifecycle.silence_guest_stdio()
+    assert calls == [
+        ("open", "/dev/null"), ("dup2", 93, 1), ("dup2", 93, 2), ("close", 93)
+    ]
+
+
+def test_stdio_redirection_fails_closed_before_decrypt(monkeypatch):
+    import confidential.plaintext_lifecycle as lifecycle
+    calls = []
+    monkeypatch.setattr(lifecycle.os, "open", lambda path, flags: 93)
+    def deny(source, dest):
+        calls.append(dest)
+        raise OSError("synthetic forbidden stdio")
+    monkeypatch.setattr(lifecycle.os, "dup2", deny)
+    monkeypatch.setattr(lifecycle.os, "close", lambda fd: calls.append("closed"))
+    with pytest.raises(UnsafeGuestRuntime) as err:
+        lifecycle.silence_guest_stdio()
+    assert str(err.value) == "guest output suppression failed"
+    assert calls == [1, "closed"]
+
+
+def test_worker_redirection_precedes_decryption_in_source():
+    import inspect
+    import confidential.worker as worker
+    source = inspect.getsource(worker._process_one)
+    assert source.index("silence_guest_stdio()") < source.index("_load_decrypted_form(")
