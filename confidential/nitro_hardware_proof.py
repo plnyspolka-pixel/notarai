@@ -165,9 +165,14 @@ def check_cloudtrail_event(event: Mapping, *, manifest: Mapping,
         return {"event_id": event_id, "kms_result": "ALLOW",
                 "pcr17": manifest["expected_pcr17"]}
     error = event.get("errorCode")
+    allowed = {"notfoundexception", "kmsinvalidstateexception"}
+    if case == "wrong_key":
+        # AWS Decrypt with an incompatible KMS key can return IncorrectKey;
+        # InvalidCiphertext only counts for this specifically scoped trial.
+        allowed |= {"incorrectkeyexception", "invalidciphertextexception"}
     require(isinstance(error, str) and
             (error.lower().startswith("accessdenied") or
-             error.lower() in ("notfoundexception", "kmsinvalidstateexception")),
+             error.lower() in allowed),
             "negative attempt did not produce a KMS denial")
     return {"event_id": event_id, "kms_result": "DENY"}
 
