@@ -1,0 +1,60 @@
+# SEC-07 — NotarAI PR #72: hardware Nitro/KMS
+
+**Status at 2026-11-22: PARTIAL IMPLEMENTATION; LIVE HARDWARE EVIDENCE BLOCKED.**
+This document is the evidence register, not proof that hardware tests ran.
+PR: https://github.com/plnyspolka-pixel/notarai/pull/72
+Dependencies: SEC-05 / PR #70, SEC-06 / PR #71 and custody sign-off / PR #65.
+Pending external access is already registered in docs/czeka-na-dostep.md as NA-15.
+
+**Constraints:** only synthetic pilot01/pilot02, eu-central-1, zero customer PII or document content, production disabled, preview-only, no form submission/signature. Do not start chargeable AWS resources from this PR.
+
+## Status of measurable requirements
+
+| Criterion | Status | Actual proof required | Code/available evidence |
+| --- | --- | --- | --- |
+| K1: Positive real NSM/KMS decrypt | BLOCKED | ECS confidential task exited 0, exact task revision and image digest, PCR17, KMS recipient and guest unwrap | Offline validation of ECS / CloudTrail metadata only |
+| K2: Six live denials | BLOCKED | Separately witnessed ordinary host, wrong PCR17, altered image, cross-tenant/role, unsigned release and wrong key; each attempt denied | Six synthetic negative-test categories, no executed AWS attacks |
+| K3: No plaintext DEK outside guest | BLOCKED | Live KMS response uses only CiphertextForRecipient, guest unwrap and operator-side log/data leak check | Mock Plaintext rejection test only |
+| K4: Two independent AWS accounts | BLOCKED | Read-only snapshots of identity/Organizations/root/SSO, KMS policy, grants, ECS task and CloudTrail from both accounts | Dual-account readonly audit implementation, not executed |
+| K5: Reproducible cryptographic report | BLOCKED | Timestamped job, exact image/PCR17/key policy/task hashes, 1+6 trial links, canonical SHA256 and custodian/auditor signature | Canonicalization and ECDSA signature verification implementation |
+| K6: Hardware proof gate | BLOCKED | Real K1-K5, independently verified trials with two identities; mock/CI can never set verified=true | Offline dry-run returns BLOCKED, hardware=false |
+
+**No row has live evidence or an independent auditor signature.** Hardware and commercial zero-operator-access or zero-knowledge claims remain unverified. Do not mark PR DONE, merge, or enable production until all K1-K6 PASS with 0 failed, 0 blocked, 0 unverified, non-skipped critical tests and green CI on current HEAD.
+
+## Implemented code and reproducibility
+
+- confidential/nitro_hardware_proof.py: strict evidence schema, exact region/tenant/account/image/PCR/job binding; KMS CloudTrail checks, cross-account positive sharedEventID, ECS confidential task exit code, SHA256 of canonical synthetic-only report.
+- scripts/run_nitro_attestation_e2e.py: --check is offline, returns BLOCKED and exit 2 without any AWS call; --verify-live runs read-only dual-account AWS queries, signed-release verification, ECS and CloudTrail lookup. It never deploys, calls KMS Decrypt, changes KMS policy, runs ECS tasks or creates a signature.
+- test_confidential_nitro_hardware_plan.py: synthetic positive and denial fixtures, six missing/successful-denial regressions, tamper failures, KMS Plaintext guard, auditor ECDSA signature integrity and offline fail-closed checks.
+
+Target command: python -m pytest -q test_confidential_nitro_hardware_plan.py
+Offline safety check: python scripts/run_nitro_attestation_e2e.py --check
+The safety check must exit with code 2; this is expected, not a security-test failure.
+
+CI evidence for current HEAD: NOT YET VERIFIED. Never cite an earlier green run as proof for the final HEAD.
+
+## Independent AWS hardware test runbook — NOT EXECUTED
+
+1. Independently controlled custodian account and a separate workload account are required. Auditor independently verifies IAM/Organizations/root/SSO control, not just different account numbers. Custodian chooses release key and holds its signing key outside NotarAI control.
+2. Resolve SEC-05 and SEC-06 admission and custody blockers. Obtain exact approved OCI image@sha256, ECS task definition ARN and revision, role, KMS RSA key ARN and current KMS policy/grants hash. Generate PCR17 with official AWS ecs-nitro-sandbox-genpolicy --check and --output pcrs; do not invent it.
+3. Independently authorize one synthetic task for pilot01 in eu-central-1. Use existing guarded runner only with a fresh, independently signed release and approved private-network controls. Run Nitro NSM /dev/nsm => KMS Recipient => CiphertextForRecipient => guest unwrap, then verify fictional preview result with submitted=false and ECS exitCode=0.
+4. With an independent witness and safe isolated synthetic jobs, conduct all six negative cases separately:
+   a. ordinary_host: no NSM Recipient; no plaintext release;
+   b. wrong_pcr17: NSM task measured with different PCR17; KMS deny;
+   c. altered_image: different OCI digest and policy; reject by release gate/KMS, record exact digest/PCR binding;
+   d. cross_tenant_or_role: pilot02 or unauthorized task role against pilot01 key; deny;
+   e. unsigned_release: missing independently signed release must stop all allowed launch paths; verify direct RunTask cannot result in authorized DEK, beyond app-layer check;
+   f. wrong_key: use a truly different custodian KMS key ARN and record denial.
+5. Download CloudTrail observations read-only from *both* AWS accounts using independent audit identities. For successful cross-account calls, correlate by sharedEventID; cross-account AccessDenied is logged only on caller side. Preserve original raw events outside NotarAI-controlled repository, and import only sanitized event IDs and SHA digests.
+6. Auditor crosschecks the conditions of each trial, snapshots of grants/policy/role/task, guest logs and leaked-plaintext checks. The manifest includes schema, region, tenant, workload_account, custody_account, task_definition_arn, task_arn, kms_key_arn, image_sha256, expected_pcr17, job_id, positive_event_id, denied_event_ids, started_at, ended_at. UTC only.
+7. Read-only CLI command after these trials:
+   python scripts/run_nitro_attestation_e2e.py --verify-live --manifest manifest.json --operator-profile AUDITOR_WORKLOAD_RO --custody-profile AUDITOR_CUSTODY_RO --release-file release.json --custodian-public-key-file external-release.pub --custodian-public-key-sha256 PIN_HEX
+   Audit payload SHA is computed using domain-separated canonical JSON; an independent auditor signs exactly the resulting payload with ECDSA P-256. The pinned public key arrives out of band, never from NotarAI.
+8. Attach the independent signed evidence and links per K1-K6 to this register; audit and review false positives, retention, tamper, rollback and grant revocation. Production and marketing remain OFF until separately authorized.
+
+**Important evidentiary limitation:** six operator-labeled AccessDenied event IDs do not by themselves prove the six attack preconditions. Hardware verification MUST remain BLOCKED until the independent reviewer verifies the actual inputs and release, not just the names of tests in a JSON document.
+
+Reference AWS docs:
+https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
+https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html
+https://docs.aws.amazon.com/kms/latest/developerguide/logging-using-cloudtrail.html
