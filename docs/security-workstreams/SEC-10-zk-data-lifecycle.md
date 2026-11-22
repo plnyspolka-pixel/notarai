@@ -1,6 +1,15 @@
 # SEC-10 — [SEC-10] Zero Knowledge: cykl życia plaintext, retencja, logi, kopie i usuwanie
 
-**Status: PLANNED (NOT IMPLEMENTED).** P0; zależności: SEC-03, SEC-04, SEC-08
+**Status: PARTIALLY IMPLEMENTED / DRAFT — evidence gate BLOCKED (2026-11-22).** P0; zależności: SEC-03, SEC-04, SEC-08
+
+## Zmiany w gałęzi SEC-10
+- `confidential/plaintext_lifecycle.py`: proces gościa fail-closed bez core dump i dumpable/ptrace; kontrola rzeczywistego mount typu tmpfs; osobny ulotny profil Chromium oraz offline skaner syntetycznych artefaktów.
+- `confidential/worker.py`: twarda bramka procesu przed zleceniem, profil na tmpfs i defensywne czyszczenie referencji po pracy (nie należy tego mylić z zerowaniem RAM).
+- `test_confidential_plaintext_lifecycle.py`: sześć syntetycznych ścieżek, wykrywanie wycieku, odmowy trwałego storage, brak awaryjnego API decrypt, kontrola IAM i CloudFormation.
+- `.github/workflows/confidential-plaintext-lifecycle.yml`: niezależna bramka testów syntetycznych bez AWS.
+- `docs/security-evidence/SEC-10.md`: 18 lokalizacji potencjalnych danych, tabela retencji/odtwarzania, rozdzielenie prawnych i technicznych okresów, jawne K1–K6 BLOCKED.
+
+**Granica rozwiązania:** symulowane wyjątki, statyczne CloudFormation i brak logów z mocka nie wystarczają do potwierdzenia zachowania rzeczywistego browser crash/SIGKILL, hardware Nitro, AWS snapshots ani uprawnień personelu. Wymagany odrębny live audit read-only i zatwierdzenie przez niezależnego kustosza.
 
 ## Zakres
 1. Zmapuj w jakich procesach dokument występuje jawnie: browser RAM, model context, PDF preview, exception, crashdump, screenshot, metrics, tmpfs, stdout/stderr, support, cache i backup.
