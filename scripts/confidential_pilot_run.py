@@ -75,10 +75,26 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
               guest_sg: str | None = None, endpoint_sg: str | None = None,
               s3_prefix: str | None = None,
               dynamodb_prefix: str | None = None,
-              shared_compute: bool = False) -> bool:
+              shared_compute: bool = False,
+              external_custody_key_arn: str | None = None,
+              custody_profile: str | None = None,
+              custody_release_file: str | None = None,
+              custodian_public_key_file: str | None = None,
+              custodian_public_key_sha256: str | None = None) -> bool:
     if (not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant)
             or not _SUBNET.fullmatch(subnet) or not _JOB.fullmatch(job_id)):
         raise ValueError("invalid pilot configuration")
+    external_arguments = (
+        external_custody_key_arn, custody_profile, custody_release_file,
+        custodian_public_key_file, custodian_public_key_sha256,
+    )
+    using_external_key = any(v is not None for v in external_arguments)
+    if using_external_key and (
+        not shared_compute or not all(
+            isinstance(v, str) and bool(v) for v in external_arguments
+        ) or custody_profile == profile
+    ):
+        raise RuntimeError("external custody requires shared compute and an independent signed release")
     if not apply:
         print("DRY RUN: one synthetic Nitro task would be launched; no resources changed.")
         return False
@@ -138,11 +154,15 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         raise RuntimeError("task definition not validated")
     # Independent read-only checks run BEFORE any chargeable ECS task is launched.
     from confidential.pilot_preflight import PilotPreflightRejected
-    key_stacks = outputs(
-        profile, f"notarai-confidential-demo-kms-{tenant}"
-        if shared_compute else "notarai-confidential-demo-kms",
-    )
-    kms_arn = key_stacks.get("KeyArn", "")
+    if using_external_key:
+        # The external key is NOT fetched from an operator-controlled stack.
+        kms_arn = external_custody_key_arn
+    else:
+        key_stacks = outputs(
+            profile, f"notarai-confidential-demo-kms-{tenant}"
+            if shared_compute else "notarai-confidential-demo-kms",
+        )
+        kms_arn = key_stacks.get("KeyArn", "")
     guest_pcr17 = _verified_pcr17(profile, task_def)
     task_response = aws(
         profile, ["ecs", "describe-task-definition", "--task-definition", task_def]
@@ -150,21 +170,45 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
     capacity_response = aws(
         profile, ["ecs", "describe-capacity-providers", "--capacity-providers", compute]
     )
-    policy_response = aws(
-        profile, ["kms", "get-key-policy", "--key-id", kms_arn,
-                  "--policy-name", "default"]
-    )
     try:
-        key_policy = json.loads(policy_response["Policy"])
+        custody_approval = None
+        if using_external_key:
+            # This is a live cross-account KMS/ECS check plus an ECDSA
+            # signature verified against the independent custodian's
+            # out-of-band pinned public key. NO KMS decrypt occurs here.
+            from scripts.verify_confidential_release import check_release
+            with open(custody_release_file, encoding="utf-8") as file:
+                receipt = json.load(file)
+            trusted_public_key = Path(custodian_public_key_file).read_bytes()
+            custody_approval = check_release(
+                operator_profile=profile, custody_profile=custody_profile,
+                tenant=tenant, task_definition_arn=task_def,
+                kms_key_arn=kms_arn, pcr17=guest_pcr17,
+                image_sha256=(
+                    task_response["taskDefinition"]["containerDefinitions"][0][
+                        "image"
+                    ].rsplit("@sha256:", 1)[-1]
+                ), receipt=receipt, trusted_public_key_pem=trusted_public_key,
+                trusted_public_key_sha256=custodian_public_key_sha256,
+                check=True,
+            )
+            key_policy = None
+        else:
+            policy_response = aws(
+                profile, ["kms", "get-key-policy", "--key-id", kms_arn,
+                          "--policy-name", "default"]
+            )
+            key_policy = json.loads(policy_response["Policy"])
         validate_preflight(
             task_response, capacity_response, key_policy,
             account=account, tenant=tenant, task_arn=task_def,
             kms_key_arn=kms_arn, bucket=stage["BucketName"],
             queue_url=stage["QueueUrl"], expected_pcr17=guest_pcr17,
-            shared_pool=shared_compute,
+            shared_pool=shared_compute, custody_approval=custody_approval,
         )
-    except (KeyError, ValueError, TypeError, PilotPreflightRejected) as exc:
-        raise RuntimeError("confidential pilot preflight rejected launch") from exc
+    except Exception:
+        # No AWS/identity/receipt content in error text. No RunTask on failure.
+        raise RuntimeError("confidential pilot preflight rejected launch") from None
 
     sg = guest_sg
     if not shared_compute and sg == base.get("InstanceSecurityGroupId"):
@@ -246,6 +290,15 @@ def main():
     p.add_argument("--dynamodb-prefix")
     p.add_argument("--shared-compute", action="store_true",
                    help="Explicitly use tenant-neutral regional ECS shared fabric")
+    p.add_argument("--external-custody-key-arn")
+    p.add_argument("--custody-profile",
+                   help="Independent KMS account READ-ONLY profile")
+    p.add_argument("--custody-release-file",
+                   help="Externally signed approval for this exact Nitro release")
+    p.add_argument("--custodian-public-key-file",
+                   help="Public ECDSA key delivered independently of NotarAI")
+    p.add_argument("--custodian-public-key-sha256",
+                   help="Pin obtained out-of-band from independent custodian")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     run_pilot(
@@ -255,6 +308,11 @@ def main():
         guest_sg=args.guest_sg, endpoint_sg=args.endpoint_sg,
         s3_prefix=args.s3_prefix, dynamodb_prefix=args.dynamodb_prefix,
         shared_compute=args.shared_compute,
+        external_custody_key_arn=args.external_custody_key_arn,
+        custody_profile=args.custody_profile,
+        custody_release_file=args.custody_release_file,
+        custodian_public_key_file=args.custodian_public_key_file,
+        custodian_public_key_sha256=args.custodian_public_key_sha256,
     )
 
 
