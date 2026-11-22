@@ -16,6 +16,8 @@ from cryptography.exceptions import InvalidTag
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _MAX_CIPHER_BYTES = 25 * 1024 * 1024
+_DOC_VERSION = re.compile(r"^[a-f0-9]{32}$")
+_FINGERPRINT = re.compile(r"^[A-Za-z0-9+/]{43}=$")
 
 
 class InvalidEnvelope(ValueError):
@@ -43,6 +45,9 @@ class Envelope:
     nonce: bytes
     wrapped_dek: bytes
     ciphertext: bytes
+    version: int = 1
+    document_version: str | None = None
+    public_key_sha256: str | None = None
 
     @classmethod
     def parse(cls, payload: Mapping[str, Any]) -> "Envelope":
@@ -50,8 +55,23 @@ class Envelope:
             raise InvalidEnvelope("invalid envelope")
         keys = {"version", "algorithm", "tenant_id", "case_id", "object_id",
                 "kms_key_arn", "nonce", "wrapped_dek", "ciphertext"}
-        if set(payload) != keys or type(payload.get("version")) is not int or payload["version"] != 1:
+        version = payload.get("version")
+        if type(version) is not int or version not in (1, 2):
             raise InvalidEnvelope("unsupported envelope version or fields")
+        expected_keys = keys if version == 1 else keys | {"document_version", "public_key_sha256"}
+        if set(payload) != expected_keys:
+            raise InvalidEnvelope("unsupported envelope version or fields")
+        document_version = None
+        fingerprint = None
+        if version == 2:
+            document_version = payload["document_version"]
+            fingerprint = payload["public_key_sha256"]
+            if not isinstance(document_version, str) or not _DOC_VERSION.fullmatch(document_version):
+                raise InvalidEnvelope("invalid logical document version")
+            if not isinstance(fingerprint, str) or not _FINGERPRINT.fullmatch(fingerprint):
+                raise InvalidEnvelope("invalid public key pin")
+            if len(_b64(fingerprint, 32)) != 32:
+                raise InvalidEnvelope("invalid public key pin")
         if payload["algorithm"] != "AES-256-GCM+RSA-OAEP-SHA256":
             raise InvalidEnvelope("unsupported envelope algorithm")
         for key in ("tenant_id", "case_id", "object_id"):
@@ -68,9 +88,15 @@ class Envelope:
         if len(nonce) != 12 or len(dek) not in (256, 384, 512) or len(ciphertext) < 17:
             raise InvalidEnvelope("invalid cryptographic field length")
         return cls(payload["tenant_id"], payload["case_id"], payload["object_id"],
-                   arn, nonce, dek, ciphertext)
+                   arn, nonce, dek, ciphertext, version, document_version, fingerprint)
 
     def associated_data(self) -> bytes:
+        if self.version == 2:
+            # document_version is a client-generated logical version, not the
+            # S3 VersionId (which does not exist until *after* upload).
+            return ("notarai-v2|" + self.tenant_id + "|" + self.case_id + "|" +
+                    self.object_id + "|" + self.document_version + "|" +
+                    self.kms_key_arn + "|" + self.public_key_sha256).encode("ascii")
         return ("notarai-v1|" + self.tenant_id + "|" + self.case_id + "|" + self.object_id).encode("ascii")
 
     def open_inside_attested_task(self, unwrapper: Any) -> bytes:
