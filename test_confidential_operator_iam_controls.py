@@ -148,3 +148,87 @@ def test_break_glass_negative_cases(mutation):
     mutation(record)
     with pytest.raises(GuardrailError):
         validate_break_glass_procedure(record)
+
+
+def test_read_only_inventory_never_contacts_aws_without_opt_in():
+    from scripts.confidential_operator_iam_evidence import inventory
+    called = []
+    def factory(**kwargs):
+        called.append(kwargs)
+        raise AssertionError("no AWS session should be created")
+    with pytest.raises(GuardrailError):
+        inventory(operator_profile="one", custody_profile="other",
+                  tenant="pilot01", session_factory=factory)
+    assert not called
+
+
+class FakeAws:
+    def __init__(self, profile_name, region_name):
+        assert region_name == "eu-central-1"
+        self.ops = profile_name == "operator"
+    def client(self, name):
+        source = self
+        class C:
+            def get_caller_identity(self):
+                return {"Account": "111122223333" if source.ops
+                        else "444455556666"}
+            def get_role(self, **kw):
+                assert kw["RoleName"] == (
+                    "notarai-confidential-operator-observer-pilot01")
+                return {"Role": {
+                    "Arn": "arn:aws:iam::111122223333:role/operator-observer",
+                    "PermissionsBoundary": {"PermissionsBoundaryArn":
+                        "arn:aws:iam::111122223333:policy/boundary"},
+                }}
+            def get_policy(self, **kw):
+                return {"Policy": {"DefaultVersionId": "v1"}}
+            def get_policy_version(self, **kw):
+                return {"PolicyVersion": {"Document": {
+                    "Version": "2012-10-17", "Statement": [{"Effect": "Deny"}]}}}
+            def simulate_principal_policy(self, **kw):
+                assert len(kw["ActionNames"]) == 6
+                return {"EvaluationResults": [
+                    {"EvalActionName": a, "EvalDecision": "explicitDeny"}
+                    for a in kw["ActionNames"]
+                ]}
+            def describe_organization(self):
+                return {"Organization": {
+                    "Id": "o-ops" if source.ops else "o-custody",
+                    "ManagementAccountId": (
+                        "111122223333" if source.ops else "444455556666")}}
+        assert name in (("sts", "iam", "organizations") if self.ops
+                        else ("sts", "organizations"))
+        return C()
+
+
+def test_read_only_inventory_records_simulation_not_real_denial():
+    from scripts.confidential_operator_iam_evidence import inventory
+    report = inventory(operator_profile="operator", custody_profile="custody",
+                       tenant="pilot01", authorized_read_only=True,
+                       session_factory=FakeAws)
+    assert report["live_read_only_performed"] is True
+    assert report["policy_verified"] is True
+    assert len(report["policy_sha256"]) == 64
+    assert report["simulation_status"] == "SIMULATOR_DENIED_ALL_NOT_PROOF"
+    assert set(report["denial_by_scenario"].values()) == {"SIMULATED_DENY"}
+    assert report["actual_denial_verified"] is False
+    assert report["ownership_status"] == "BLOCKED"
+    assert report["root_sso_independent_attestation"] == "BLOCKED"
+    assert not report["zero_operator_access_proven"]
+    assert "111122223333" not in str(report)
+    assert "444455556666" not in str(report)
+
+
+def test_missing_iam_read_or_simulator_is_blocked_not_pass():
+    from scripts.confidential_operator_iam_evidence import inventory
+    class Refused(FakeAws):
+        def client(self, name):
+            if name == "iam":
+                raise PermissionError("not authorized")
+            return super().client(name)
+    report = inventory(operator_profile="operator", custody_profile="custody",
+                       tenant="pilot01", authorized_read_only=True,
+                       session_factory=Refused)
+    assert report["simulation_status"] == "BLOCKED"
+    assert report["actual_denial_verified"] is False
+    assert set(report["denial_by_scenario"].values()) == {"BLOCKED"}
