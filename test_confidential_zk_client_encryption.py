@@ -484,6 +484,7 @@ def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
                 raise RuntimeError("already used")
             self.seen.add(token)
     ledger = OneTimeLedger()
+    monkeypatch.setattr(migration, "CustodyRecoveryNonceLedger", OneTimeLedger)
     _pin_synthetic_recovery_root(monkeypatch, tmp_path, signer_a, signer_b, keys[1])
     opts = dict(
         original=original, source_envelope_wire=original_wire,
@@ -555,6 +556,7 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
         def claim_once(self, token):
             calls.append(token)
             raise RuntimeError("no external authority")
+    monkeypatch.setattr(migration, "CustodyRecoveryNonceLedger", Ledger)
     args = dict(
         original=original, source_envelope_wire=original_wire,
         source_s3_version="s3SyntheticVersion01",
@@ -626,9 +628,28 @@ def test_custody_recovery_nonce_is_single_use_and_fail_closed():
         CustodyRecoveryNonceLedger, RecoveryNonceDenied,
     )
     table = FakeDocumentDdb()
+    class Session:
+        def __init__(self, account):
+            self.account = account
+            self.clients = []
+        def client(self, name, **kwargs):
+            self.clients.append(name)
+            if name == "sts":
+                session = self
+                class STS:
+                    def get_caller_identity(self):
+                        return {"Account": session.account}
+                return STS()
+            if name == "dynamodb":
+                assert kwargs["region_name"] == "eu-central-1"
+                return table
+            raise AssertionError("wrong AWS service")
+    session = Session("111122223333")
     ledger = CustodyRecoveryNonceLedger(
-        table, tenant="pilot01", custody_account="111122223333",
+        session, tenant="pilot01", custody_account="111122223333",
+        workload_account="444455556666",
     )
+    assert session.clients == ["sts", "dynamodb"]
     ledger.claim_once("a" * 32)
     assert len(table.rows) == 1
     with pytest.raises(RecoveryNonceDenied):
@@ -636,9 +657,21 @@ def test_custody_recovery_nonce_is_single_use_and_fail_closed():
     with pytest.raises(RecoveryNonceDenied):
         ledger.claim_once("bad-identifier")
     assert len(table.rows) == 1
+    for account, workload in (
+        ("444455556666", "444455556666"),  # same AWS account
+        ("444455556666", "777788889999"),  # fake custody identity
+    ):
+        mismatched = Session(account)
+        with pytest.raises(RecoveryNonceDenied):
+            CustodyRecoveryNonceLedger(
+                mismatched, tenant="pilot01", custody_account="111122223333",
+                workload_account=workload,
+            )
+        assert "dynamodb" not in mismatched.clients
     with pytest.raises(RecoveryNonceDenied):
         CustodyRecoveryNonceLedger(
-            table, tenant="../bad", custody_account="111122223333",
+            session, tenant="../bad", custody_account="111122223333",
+            workload_account="444455556666",
         )
 
 
