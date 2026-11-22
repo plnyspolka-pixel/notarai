@@ -18,7 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from confidential.nitro_denial_matrix import (
     KMS_CASES, EARLY_CASES, DenialEvidenceRejected, incomplete_audit_result,
-    inspect_early_denial_receipt, inspect_kms_denial, validate_matrix,
+    inspect_early_denial_receipt, inspect_altered_image_ecs,
+    inspect_kms_denial, validate_matrix,
 )
 
 _MAX_BYTES = 32 * 1024
@@ -92,10 +93,28 @@ def audit_live(*, matrix: dict, operator_profile: str, custody_profile: str,
         early[case] = inspect_early_denial_receipt(
             case, receipts[case], matrix,
         )
+    # ECS stopped tasks are queryable for a limited time after execution.
+    # Re-fetch candidate image from ECS instead of trusting a receipt label.
+    ecs = operator.client("ecs")
+    altered_arn = receipts["altered_image"]["ecs_task_arn"]
+    cluster = altered_arn.split("/")[1]
+    task_result = ecs.describe_tasks(cluster=cluster, tasks=[altered_arn])
+    task_list = task_result.get("tasks", [])
+    if task_result.get("failures") or len(task_list) != 1:
+        raise DenialEvidenceRejected("altered-image ECS task unavailable")
+    candidate = task_list[0]
+    definition_result = ecs.describe_task_definition(
+        taskDefinition=candidate["taskDefinitionArn"],
+    )
+    ecs_observed = inspect_altered_image_ecs(
+        task=candidate, task_definition=definition_result.get("taskDefinition"),
+        receipt=receipts["altered_image"], matrix=matrix,
+    )
     return {
         **incomplete_audit_result(),
         "kms_cases_live_observed": len(observed),
         "early_case_metadata_validated": len(early),
+        "altered_image_ecs_metadata_observed": ecs_observed["ecs_metadata_observed"],
         "kms_observations": observed,
         "early_observations": early,
     }
