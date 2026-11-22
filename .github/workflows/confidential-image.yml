@@ -1,12 +1,13 @@
 name: NotarAI Confidential - obraz guest do ECR (pilot, dane fikcyjne)
 
-# Buduje obraz Nitro guest i wypycha go do prywatnego repo ECR pilota pod
+# Buduje obraz Nitro guest i wypycha go do JEDNEGO wspolnego repo ECR
+# notarai-confidential-shared (shared fabric, wszystkie tenanty) pod
 # niezmiennym tagiem. Rola OIDC (infra/notarai-confidential-github.yaml) moze
 # tylko to: nie ma dostepu do aplikacji produkcyjnej, bucketow ani sekretow.
 on:
   push:
     branches:
-      - feature/confidential-job-ledger-aws-handoff-20261121
+      - claude/shared-fabric-aws-pilot-20261122
     paths:
       - 'confidential/**'
       - '.dockerignore'
@@ -31,7 +32,7 @@ jobs:
       AWS_EC2_METADATA_DISABLED: 'true'
       EXPECTED_ACCOUNT: "127621462971"
       PUSH_ROLE: arn:aws:iam::127621462971:role/notarai-confidential-github-image-pilot01
-      ECR_REPOSITORY: notarai-confidential-pilot01
+      ECR_REPOSITORY: notarai-confidential-shared
     steps:
       - uses: actions/checkout@v7
       - name: Zbuduj obraz workera
@@ -89,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           registry="${EXPECTED_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          tag="pilot-${GITHUB_SHA::12}"
+          tag="shared-${GITHUB_SHA::12}"
           if aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
                --image-ids imageTag="$tag" >/dev/null 2>&1; then
             echo "Tag $tag juz istnieje (repo IMMUTABLE), pomijam push."

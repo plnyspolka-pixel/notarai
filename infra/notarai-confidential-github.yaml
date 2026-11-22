@@ -17,6 +17,16 @@ Parameters:
     Type: String
     Description: The only branch whose workflow runs may push the guest image.
     AllowedPattern: "^[A-Za-z0-9_./-]{1,200}$"
+  ImageRepository:
+    Type: String
+    AllowedValues: ["tenant", "shared"]
+    Default: tenant
+    Description: >-
+      Which ONE ECR repository the role may push to - the legacy per-tenant
+      repository or the single regional notarai-confidential-shared one.
+      Never both.
+Conditions:
+  PushToShared: !Equals [!Ref ImageRepository, "shared"]
 Resources:
   GuestImagePushRole:
     Type: AWS::IAM::Role
@@ -54,7 +64,10 @@ Resources:
                   - ecr:PutImage
                   - ecr:BatchGetImage
                   - ecr:DescribeImages
-                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-${TenantId}"
+                Resource: !If
+                  - PushToShared
+                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-shared"
+                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-${TenantId}"
 Outputs:
   GuestImagePushRoleArn:
     Value: !GetAtt GuestImagePushRole.Arn

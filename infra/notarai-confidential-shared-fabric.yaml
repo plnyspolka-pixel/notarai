@@ -11,6 +11,14 @@ Parameters:
   AvailabilityZone:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: Confirm supported ECS Nitro Managed Instances capacity in selected AZ
+  EnableCoreInterfaceEndpoints:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: >-
+      The seven hourly billed core Interface endpoints. "false" only parks the
+      network without them - no Nitro host can register or run a task until
+      this is "true" again (there is no NAT or Internet route to fall back on).
   EnableStsEndpoint:
     Type: String
     AllowedValues: ["true", "false"]
@@ -35,6 +43,7 @@ Parameters:
     AllowedPattern: "^pl-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
     Description: Verify AWS-owned com.amazonaws.eu-central-1.dynamodb
 Conditions:
+  WithCoreInterfaces: !Equals [!Ref EnableCoreInterfaceEndpoints, "true"]
   WithSts: !Equals [!Ref EnableStsEndpoint, "true"]
   WithLogs: !Equals [!Ref EnableLogsEndpoint, "true"]
   WithSigner: !Equals [!Ref EnableSignerEndpoint, "true"]
@@ -122,6 +131,7 @@ Resources:
       RouteTableIds: [!Ref SharedRouteTable]
   KmsSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -131,6 +141,7 @@ Resources:
       PrivateDnsEnabled: true
   SqsSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -140,6 +151,7 @@ Resources:
       PrivateDnsEnabled: true
   EcrApiSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -149,6 +161,7 @@ Resources:
       PrivateDnsEnabled: true
   EcrDkrSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -158,6 +171,7 @@ Resources:
       PrivateDnsEnabled: true
   EcsSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -167,6 +181,7 @@ Resources:
       PrivateDnsEnabled: true
   EcsAgentSharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc
@@ -176,6 +191,7 @@ Resources:
       PrivateDnsEnabled: true
   EcsTelemetrySharedEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    Condition: WithCoreInterfaces
     Properties:
       VpcEndpointType: Interface
       VpcId: !Ref SharedVpc

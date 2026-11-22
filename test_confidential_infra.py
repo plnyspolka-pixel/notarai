@@ -271,7 +271,15 @@ def test_github_image_role_can_only_push_to_pilot_ecr_from_one_branch():
         if statement["Resource"] == "*":
             assert actions == ["ecr:GetAuthorizationToken"]
         else:
-            assert statement["Resource"]["Sub"].endswith(":repository/notarai-confidential-${TenantId}")
+            # Exactly one repository per deployment: shared OR the tenant one.
+            flag, shared, tenant = statement["Resource"]["If"]
+            assert flag == "PushToShared"
+            assert shared["Sub"].endswith(":repository/notarai-confidential-shared")
+            assert tenant["Sub"].endswith(":repository/notarai-confidential-${TenantId}")
+            assert "*" not in shared["Sub"] and "*" not in tenant["Sub"]
+    assert doc["Parameters"]["ImageRepository"]["AllowedValues"] == ["tenant", "shared"]
+    assert doc["Conditions"] == {
+        "PushToShared": {"Equals": [{"Ref": "ImageRepository"}, "shared"]}}
 
 
 def test_guest_image_workflow_pushes_only_from_pilot_branch_after_smoke():
@@ -279,7 +287,9 @@ def test_guest_image_workflow_pushes_only_from_pilot_branch_after_smoke():
     workflow = yaml.safe_load(text)
     triggers = workflow[True] if True in workflow else workflow["on"]
     assert set(triggers) == {"push"}
-    assert triggers["push"]["branches"] == ["feature/confidential-job-ledger-aws-handoff-20261121"]
+    assert triggers["push"]["branches"] == ["claude/shared-fabric-aws-pilot-20261122"]
+    assert "ECR_REPOSITORY: notarai-confidential-shared" in text
+    assert "notarai-confidential-pilot01\n" not in text.replace("image-pilot01", "")
     assert "notarai-confidential-github-image-pilot01" in text
     assert "notarai-github-wdrozenie" not in text
     assert "get-secret-value" not in text

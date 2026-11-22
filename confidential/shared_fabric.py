@@ -26,6 +26,13 @@ class SharedFabricRejected(ValueError):
     """Sanitized error, never print raw VPC API responses."""
 
 
+_FOREIGN_ROUTE_TARGETS = (
+    "NatGatewayId", "TransitGatewayId", "VpcPeeringConnectionId",
+    "InstanceId", "NetworkInterfaceId", "EgressOnlyInternetGatewayId",
+    "LocalGatewayId", "CarrierGatewayId", "CoreNetworkArn",
+)
+
+
 def deny_if(ok: bool, message: str) -> None:
     if not ok:
         raise SharedFabricRejected(message)
@@ -74,9 +81,15 @@ def validate_fabric(
     for route in routes.get("Routes", []):
         prefix = route.get("DestinationPrefixListId")
         if prefix:
+            # EC2 DescribeRouteTables reports a gateway endpoint route target
+            # in GatewayId ("vpce-..."), not in VpcEndpointId (verified live
+            # 22.11.2026). Any other target type on the route is rejected.
+            target = route.get("GatewayId")
             deny_if(prefix in (ids["S3Prefix"], ids["DynamoDbPrefix"]) and
-                    isinstance(route.get("VpcEndpointId"), str) and
-                    route["VpcEndpointId"].startswith("vpce-"),
+                    isinstance(target, str) and
+                    bool(re.fullmatch(r"vpce-(?:[0-9a-f]{8}|[0-9a-f]{17})", target)) and
+                    route.get("State") == "active" and
+                    not any(route.get(k) for k in _FOREIGN_ROUTE_TARGETS),
                     "unapproved shared gateway route")
             seen_routes.add(prefix)
         else:
@@ -108,10 +121,16 @@ def validate_fabric(
             endpoint_group.get("VpcId") == ids["VpcId"] and
             not runtime.get("IpPermissions"),
             "untrusted shared security group inbound rules")
+    # EC2 DescribeSecurityGroups merges rules that share protocol and ports
+    # into ONE IpPermission entry carrying several destinations (verified
+    # live 22.11.2026), so count destinations, not entries. Every entry must
+    # be tcp/443 with no CIDR at all; the union of destinations must be
+    # exactly the endpoint group plus the two AWS gateway prefix lists.
     out = runtime.get("IpPermissionsEgress")
-    deny_if(isinstance(out, list) and len(out) == 3,
+    deny_if(isinstance(out, list) and 1 <= len(out) <= 3 and
+            all(isinstance(x, dict) for x in out),
             "shared runtime security group outbound is not strictly bounded")
-    targets = set()
+    targets = []
     for entry in out:
         deny_if(entry.get("IpProtocol") == "tcp" and
                 entry.get("FromPort") == 443 and entry.get("ToPort") == 443 and
@@ -119,17 +138,23 @@ def validate_fabric(
                 "shared runtime permits public CIDR outbound")
         groups_out = entry.get("UserIdGroupPairs") or []
         prefixes_out = entry.get("PrefixListIds") or []
-        deny_if(len(groups_out) + len(prefixes_out) == 1,
+        deny_if(len(groups_out) + len(prefixes_out) >= 1,
                 "unapproved shared destination rule")
-        if groups_out:
-            deny_if(groups_out[0].get("GroupId") == ids["EndpointGroupId"],
+        for pair in groups_out:
+            deny_if(isinstance(pair, dict) and
+                    pair.get("GroupId") == ids["EndpointGroupId"] and
+                    pair.get("UserId") in (None, account) and
+                    not pair.get("VpcPeeringConnectionId"),
                     "unapproved shared interface group")
-            targets.add("interface")
-        else:
-            pl = prefixes_out[0].get("PrefixListId")
+            targets.append("interface")
+        for item in prefixes_out:
+            pl = item.get("PrefixListId") if isinstance(item, dict) else None
             deny_if(pl in {ids["S3Prefix"], ids["DynamoDbPrefix"]},
                     "unapproved shared gateway destination")
-            targets.add(pl)
+            targets.append(pl)
+    deny_if(len(targets) == 3,
+            "shared runtime security group outbound is not strictly bounded")
+    targets = set(targets)
     deny_if(targets == {"interface", ids["S3Prefix"], ids["DynamoDbPrefix"]},
             "shared egress rules do not match expected endpoints")
 

@@ -23,6 +23,7 @@ REQUIRED = {
     "kms", "sqs", "ecr.api", "ecr.dkr", "ecs",
     "ecs-agent", "ecs-telemetry",
 }
+CORE_CONDITION = "WithCoreInterfaces"
 OPTIONAL = {
     "sts": "WithSts", "logs": "WithLogs", "signer": "WithSigner",
 }
@@ -72,11 +73,11 @@ def test_seven_shared_interface_endpoints_and_two_free_gateway_endpoints():
             full = item["Properties"]["ServiceName"]["Sub"].split(
                 "com.amazonaws.${AWS::Region}."
             )[-1]
-            if item.get("Condition"):
+            if item.get("Condition") == CORE_CONDITION:
+                core.add(full)
+            else:
                 optional.add(full)
                 assert item["Condition"] == OPTIONAL[full]
-            else:
-                core.add(full)
         else:
             raise AssertionError("unrecognized interface endpoint")
         assert item["Properties"]["PrivateDnsEnabled"] is True
@@ -90,6 +91,27 @@ def test_seven_shared_interface_endpoints_and_two_free_gateway_endpoints():
         "com.amazonaws.${AWS::Region}.s3",
         "com.amazonaws.${AWS::Region}.dynamodb",
     }
+
+
+def test_core_interface_endpoints_are_on_by_default_and_switch_as_one_set():
+    t = template("notarai-confidential-shared-fabric.yaml")
+    flag = t["Parameters"]["EnableCoreInterfaceEndpoints"]
+    assert flag["Default"] == "true"
+    assert flag["AllowedValues"] == ["true", "false"]
+    assert t["Conditions"][CORE_CONDITION] == {
+        "Equals": [{"Ref": "EnableCoreInterfaceEndpoints"}, "true"]}
+    gated = {
+        x["Properties"]["ServiceName"]["Sub"].split(
+            "com.amazonaws.${AWS::Region}.")[-1]
+        for x in t["Resources"].values()
+        if x.get("Condition") == CORE_CONDITION
+    }
+    assert gated == REQUIRED
+    # Gateways, VPC, subnet and security groups never depend on the switch.
+    for name in ("SharedVpc", "SharedPrivateSubnet", "SharedRouteTable",
+                 "SharedRuntimeSecurityGroup", "SharedEndpointSecurityGroup",
+                 "S3Gateway", "DynamoDbGateway"):
+        assert "Condition" not in t["Resources"][name]
 
 
 def test_shared_runtime_sg_no_inbound_and_prefix_list_only_egress():
@@ -280,9 +302,11 @@ def _inventory():
             "Routes": [
                 {"DestinationCidrBlock": "10.253.0.0/16", "GatewayId": "local"},
                 {"DestinationPrefixListId": ids["S3Prefix"],
-                 "VpcEndpointId": "vpce-0123456789abcdef0"},
+                 "GatewayId": "vpce-0123456789abcdef0", "State": "active",
+                 "Origin": "CreateRoute"},
                 {"DestinationPrefixListId": ids["DynamoDbPrefix"],
-                 "VpcEndpointId": "vpce-11111111111111111"},
+                 "GatewayId": "vpce-11111111111111111", "State": "active",
+                 "Origin": "CreateRoute"},
             ],
         }],
         "security_groups": [
@@ -340,6 +364,13 @@ def test_live_metadata_validator_accepts_only_one_shared_private_fabric():
     lambda d: d["route_tables"][0]["Routes"].append(
         {"DestinationCidrBlock": "10.20.0.0/16", "TransitGatewayId": "tgw-untrusted"}
     ),
+    # Gateway prefix-list routes must target an active vpce-, nothing else.
+    lambda d: d["route_tables"][0]["Routes"][1].update(GatewayId="igw-0123456789abcdef0"),
+    lambda d: d["route_tables"][0]["Routes"][1].update(State="blackhole"),
+    lambda d: d["route_tables"][0]["Routes"][1].update(NatGatewayId="nat-untrusted"),
+    lambda d: (d["route_tables"][0]["Routes"][1].pop("GatewayId"),
+               d["route_tables"][0]["Routes"][1].update(
+                   VpcEndpointId="vpce-0123456789abcdef0")),
     lambda d: d["security_groups"][0]["IpPermissions"].append(
         {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443}
     ),
@@ -369,3 +400,48 @@ def test_no_aws_calls_until_explicit_shared_preflight_check():
         raise AssertionError("unexpected AWS call")
     assert verify(profile="test", account=ACCOUNT,
                   session_factory=reject_session)["aws_calls"] == 0
+
+
+def _merged_egress(data):
+    """Real EC2 shape: one tcp/443 entry carrying all three destinations."""
+    ids = data["ids"]
+    runtime = next(g for g in data["security_groups"]
+                   if g["GroupId"] == ids["RuntimeGroupId"])
+    runtime["IpPermissionsEgress"] = [{
+        "IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+        "UserIdGroupPairs": [{"GroupId": ids["EndpointGroupId"],
+                              "UserId": data["account"]}],
+        "IpRanges": [], "Ipv6Ranges": [],
+        "PrefixListIds": [{"PrefixListId": ids["S3Prefix"]},
+                          {"PrefixListId": ids["DynamoDbPrefix"]}],
+    }]
+    return runtime["IpPermissionsEgress"][0]
+
+
+def test_runtime_egress_merged_by_ec2_into_one_entry_is_accepted():
+    import copy
+    from confidential.shared_fabric import validate_fabric
+    data = copy.deepcopy(_inventory())
+    _merged_egress(data)
+    assert validate_fabric(**data)["network"] == "shared"
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda e: e["IpRanges"].append({"CidrIp": "0.0.0.0/0"}),
+    lambda e: e["Ipv6Ranges"].append({"CidrIpv6": "::/0"}),
+    lambda e: e["PrefixListIds"].append({"PrefixListId": "pl-99999999"}),
+    lambda e: e["PrefixListIds"].pop(),
+    lambda e: e["PrefixListIds"].append(dict(e["PrefixListIds"][0])),
+    lambda e: e["UserIdGroupPairs"].append({"GroupId": "sg-99999999999999999"}),
+    lambda e: e["UserIdGroupPairs"][0].update(UserId="999999999999"),
+    lambda e: e["UserIdGroupPairs"].clear(),
+    lambda e: e.update(FromPort=0, ToPort=65535),
+    lambda e: e.update(IpProtocol="-1"),
+])
+def test_merged_runtime_egress_drift_fails_closed(mutate):
+    import copy
+    from confidential.shared_fabric import validate_fabric, SharedFabricRejected
+    data = copy.deepcopy(_inventory())
+    mutate(_merged_egress(data))
+    with pytest.raises(SharedFabricRejected):
+        validate_fabric(**data)
