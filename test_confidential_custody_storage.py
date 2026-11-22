@@ -221,3 +221,13 @@ def test_incomplete_encryption_rule_fails_closed_without_exception():
     outcome = audit(data)
     assert outcome.configuration_status == "FAIL"
     assert outcome.checks["encryption_enabled"] is False
+
+
+def test_unverified_external_kms_key_does_not_count_as_independent_encryption():
+    data = fixture_inventory()
+    data["encryption"]["ServerSideEncryptionConfiguration"]["Rules"][0][
+        "ApplyServerSideEncryptionByDefault"
+    ]["SSEAlgorithm"] = "aws:kms"
+    result = audit(data)
+    assert result.configuration_status == "FAIL"
+    assert result.checks["encryption_enabled"] is False
