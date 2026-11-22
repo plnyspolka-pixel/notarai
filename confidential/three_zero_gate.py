@@ -65,6 +65,8 @@ def validate_confidential_task_definition(payload: Mapping) -> dict:
         _deny()
     if c.get("readonlyRootFilesystem") is not True:
         _deny()
+    if c.get("command") != ["python", "-m", "confidential.customer_v3_worker"]:
+        _deny()
     if c.get("privileged") is True or c.get("user") in (None, "", "root", "0", "0:0"):
         _deny()
     if c.get("logConfiguration") or c.get("secrets") or c.get("secretOptions"):
@@ -85,6 +87,12 @@ def validate_confidential_task_definition(payload: Mapping) -> dict:
             _deny()
         values[k] = v
     if values.get("NOTARAI_CONFIDENTIAL_REQUIRED") != "1":
+        _deny()
+    if values.get("NOTARAI_3ZERO_MODE") != "customer-v3":
+        _deny()
+    if "NOTARAI_CONFIDENTIAL_KMS_KEY_ARN" in values:
+        _deny()
+    if values.get("AWS_ACCOUNT_ID") != image.split(".", 1)[0]:
         _deny()
     if values.get("AWS_REGION") != "eu-central-1":
         _deny()
