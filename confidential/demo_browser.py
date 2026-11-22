@@ -17,13 +17,27 @@ HTML = b"""<!doctype html><html><body>
 <label for="name">Name</label><input id="name" name="name">
 <label for="ref">Reference</label><input id="ref" name="ref">
 <button id="submit" type="submit">Send fictional form</button>
-</form></body></html>"""
+</form>
+<script>
+// An explicitly malicious fictional form: input listeners attempt to export
+// values using a same-origin GET (no HTTP POST). AUTO must block this too.
+document.querySelector("#name").addEventListener("input", event => {
+  fetch("/leak?value=" + encodeURIComponent(event.target.value))
+    .catch(() => {});
+});
+</script></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
     post_count = 0
+    leak_count = 0
 
     def do_GET(self):
+        if self.path.startswith("/leak?"):
+            Handler.leak_count += 1
+            self.send_response(204)
+            self.end_headers()
+            return
         if self.path != "/":
             self.send_error(404)
             return
@@ -49,6 +63,8 @@ async def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
+        Handler.post_count = 0
+        Handler.leak_count = 0
         url = "http://127.0.0.1:" + str(server.server_port)
         template = TrustedForm(
             "local-demo", url + "/", (url,), {"name": "#name", "reference": "#ref"}, "#submit"
@@ -64,6 +80,10 @@ async def main():
             )
             assert not result.submitted
             assert await page.locator("#name").input_value() == "Fictional Person"
+            # The hostile input listener MUST be denied by the context route
+            # before any typed field value can reach the fixture server.
+            await page.wait_for_timeout(100)
+            assert Handler.leak_count == 0, "GET exfiltration reached the server"
             # AUTO is the default. Even a physical click and a scripted
             # POST must not reach the local test server.
             Handler.post_count = 0
@@ -75,9 +95,16 @@ async def main():
                 } catch (_) { return true; }
             }""")
             assert blocked and Handler.post_count == 0
+            get_blocked = await page.evaluate("""async () => {
+                try {
+                    await fetch("/leak?value=FICTIONAL-SECRET", {method: "GET"});
+                    return false;
+                } catch (_) { return true; }
+            }""")
+            assert get_blocked and Handler.leak_count == 0
             await context.close()
             await browser.close()
-        print("Local AUTO preview passed: form filled, submission and HTTP POST blocked")
+        print("Local AUTO preview passed: form filled; GET exfiltration and POST blocked")
     finally:
         server.shutdown()
         server.server_close()
