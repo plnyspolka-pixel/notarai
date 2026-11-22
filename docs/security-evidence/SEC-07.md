@@ -88,3 +88,11 @@ python scripts/audit_nitro_denials.py --verify-live \
 ```
 
 This sub-audit only establishes that four KMS preconditions are reflected in live caller-account CloudTrail and that two early-denial receipts are **structurally** consistent; it **always returns BLOCKED**. It cannot prove the absence of RunTask/KMS calls from an operator-authored receipt alone. A separately retained independently signed record, ECS snapshots, official policy-generator measurements, KMS policy/grant snapshots, and authenticated primary AWS trails are still necessary. Do not label a synthetic mock as live.
+
+## Independent dual-witness provenance (implementation, no AWS run)
+
+The six-case matrix may now be bound to **two distinct ECDSA P-256 public keys**, independently pinned outside the operator's control. The module `confidential/nitro_witness.py` validates the domain-separated canonical witness payload and its two signatures; `test_confidential_nitro_witness.py` covers replacement, replay/expiry, same-identity signer, wrong pin and modified event/receipt hashes. Exactly six trial receipt hashes and four KMS event IDs are part of the signed scope. No private signing key is persisted or read by the application.
+
+The witness verifier intentionally returns `hardware_attestation_verified=false` even if both signatures are valid. A signature can authenticate that someone approved metadata, but cannot on its own prove that Nitro hardware executed or that a purportedly independent signer is actually independent of the NotarAI operator. A later review must independently validate real AWS evidence and witness employment/administration separation before updating K1–K6.
+
+Targeted offline CI: `.github/workflows/confidential-sec07.yml`, which installs only `pytest` and `cryptography`, runs the three SEC-07 test modules without AWS credentials, asserts both dry-run commands return `BLOCKED` (exit 2), and performs Python syntax checks. This check can satisfy offline implementation regression only, **not** hardware acceptance.
