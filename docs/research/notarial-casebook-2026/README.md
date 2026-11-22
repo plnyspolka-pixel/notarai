@@ -12,8 +12,9 @@
 | [03-sprawy-karne-i-interwencje.md](03-sprawy-karne-i-interwencje.md) | **20** | Oficjalne komunikaty Policji, CBA i prokuratur o oszustwach, zatrzymaniach, aktach oskarżenia, wyroku i umorzeniu, z wyraźnym statusem |
 | [04-przepisy-podstawowe.md](04-przepisy-podstawowe.md) | **37** | Artykuły i aktualne urzędowe teksty Prawa o notariacie, KC, KPC, KW i AML |
 | [05-nietypowe-i-humorystyczne-realia.md](05-nietypowe-i-humorystyczne-realia.md) | **15** | Nietypowe, czasem komiczne sytuacje w kancelarii, sygnatury sądowe, jedna relacja podpisana, jedna anonimowa anegdota oraz dwa zdarzenia pokrewne z brakiem dostępu do notariusza; dokładne etykiety wiarygodności |
+| [06-humor-absurd-orzecznictwo-druga-kwerenda.md](06-humor-absurd-orzecznictwo-druga-kwerenda.md) | **13** | Dalsze sprawy i fragmenty uzasadnień: świadome testowanie uwagi przez notariusza, absurdalne ceny transakcji, pomyłki numeracji, spóźnienia, gotówka, rola organów administracji; z odróżnieniem twierdzeń stron |
 
-**Razem: 176 pozycji referencyjnych, w tym 15 dodatkowych rekordów atypowych/humorystycznych (częściowo powtarzających sprawy z pozostałych rejestrów).** Nie oznacza to 176 niezależnych spraw ani 176 zweryfikowanych przypadków; dokumenty mają różne poziomy wiarygodności. Niektóre dokumenty odnoszą się do tego samego śledztwa lub orzeczenia. Zachować to rozróżnienie przy liczeniu zdarzeń.
+**Razem: 189 pozycji referencyjnych, w tym 28 dodatkowych rekordów atypowych/humorystycznych (częściowo powtarzających sprawy z pozostałych rejestrów).** Nie oznacza to 189 niezależnych spraw ani 189 zweryfikowanych przypadków; dokumenty mają różne poziomy wiarygodności. Niektóre dokumenty odnoszą się do tego samego śledztwa lub orzeczenia. Zachować to rozróżnienie przy liczeniu zdarzeń.
 
 ## Główne obszary faktograficzne
 
