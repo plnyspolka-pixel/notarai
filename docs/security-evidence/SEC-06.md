@@ -62,3 +62,25 @@ K5: invalid/expired/wrong-custodian signature, replay, stale revision, unsafe ro
 K6: missing Organizations evidence, IAM role trust bypass and unsigned independent ownership (live outstanding).
 
 Limitations: These files implement an offline custody control-plane preview and do NOT wire enforcement to the production scheduler or perform actual AWS mutations. A workload administrator can bypass a metadata preview without separate KMS policy and mandatory release gates. Production confidential mode remains OFF and AUTO no-submit/no-sign. No unconditional Zero Trust, Zero Operator Access or Zero Knowledge claim is warranted.
+
+
+## Custodian-side signed event CLI (synthetic; no key mutations)
+
+The external custodian can sign a locally reviewed event via its KMS
+SIGN_VERIFY P-256 key. Separate customer-approved action, current
+versioned state and out-of-band pinned public key SHA256 are mandatory.
+
+    python scripts/custodian_sign_confidential_operation.py \
+      --payload-file /secure/custody-action.json \
+      --current-state-file /secure/pilot01-state.json \
+      --custody-profile INDEPENDENT_CUSTODY_SIGNER \
+      --signing-key-arn EXTERNAL_CUSTODY_SIGNING_KEY_ARN \
+      --pinned-public-key-sha256 INDEPENDENTLY_PINNED_SHA256
+
+This is a dry-run: zero AWS calls, no signature. An authorized custodian may add
+--approve-action --output /secure/signed-pilot01-action.json; the tool
+checks custody STS identity, signing-key metadata, separately pinned
+public-key fingerprint, event schema, time, state hash and monotonic revision,
+then calls KMS Sign. It NEVER calls KMS Decrypt, PutKeyPolicy or CreateGrant.
+The actual policy update, grant inventory and independent ledger remain
+separate controlled actions. Do not place output receipts in GitHub/CI.
