@@ -305,3 +305,65 @@ def test_actual_worker_fault_injection_keeps_canary_out_of_logs(
     assert s3.markers == []
     assert ledger.status("abc012")["status"] == "retryable"
     assert ledger.status("abc012")["submitted"] is False
+
+
+@pytest.mark.parametrize("tenant", ("office01", "client01", "notary01"))
+def test_guest_entrypoint_denies_nonpilot_before_aws(monkeypatch, tenant):
+    import confidential.worker as worker
+
+    monkeypatch.setattr(worker.os.path, "exists", lambda path: path == "/dev/nsm")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_REQUIRED", "1")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_TENANT", tenant)
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_BUCKET", "synthetic-bucket")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_QUEUE_URL",
+                       "https://sqs.eu-central-1.amazonaws.com/111122223333/synthetic")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_KMS_KEY_ARN",
+                       "arn:aws:kms:eu-central-1:111122223333:key/synthetic")
+    with pytest.raises(RuntimeError, match="only synthetic pilot"):
+        worker._config()
+
+
+@pytest.mark.parametrize("tenant", ("pilot01", "pilot02"))
+def test_guest_entrypoint_keeps_synthetic_pilot_config(monkeypatch, tenant):
+    import confidential.worker as worker
+
+    monkeypatch.setattr(worker.os.path, "exists", lambda path: path == "/dev/nsm")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_REQUIRED", "1")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_TENANT", tenant)
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_BUCKET", "synthetic-bucket")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_QUEUE_URL",
+                       "https://sqs.eu-central-1.amazonaws.com/111122223333/synthetic")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_KMS_KEY_ARN",
+                       "arn:aws:kms:eu-central-1:111122223333:key/synthetic")
+    assert worker._config()[0] == tenant
+
+
+@pytest.mark.parametrize("tenant", ("office01", "client01", "notary01"))
+def test_dispatch_entrypoint_denies_nonpilot_without_aws(tenant):
+    from confidential.dispatch import (
+        DispatcherConfig, UnsafeDispatch, dispatch_once,
+    )
+
+    class ForbiddenClient:
+        def __getattr__(self, name):
+            raise AssertionError("AWS must not be accessed")
+
+    config = DispatcherConfig(
+        account="111122223333", tenant=tenant,
+        cluster="notarai-confidential-" + tenant,
+        capacity_provider="notarai-confidential-" + tenant,
+        task_definition_arn=(
+            "arn:aws:ecs:eu-central-1:111122223333:task-definition/"
+            "notarai-confidential-" + tenant + ":1"
+        ),
+        queue_url=(
+            "https://sqs.eu-central-1.amazonaws.com/111122223333/"
+            "notarai-confidential-" + tenant + ".fifo"
+        ),
+        subnet="subnet-0123456789abcdef0",
+        security_group="sg-0123456789abcdef0",
+        lease_table="notarai-confidential-dispatch-" + tenant,
+    )
+    blocked = ForbiddenClient()
+    with pytest.raises(UnsafeDispatch, match="only synthetic pilot"):
+        dispatch_once(config, sqs=blocked, ecs=blocked, dynamodb=blocked)
