@@ -18,13 +18,28 @@ class RecoveryNonceDenied(ValueError):
 
 
 class CustodyRecoveryNonceLedger:
-    def __init__(self, dynamodb, *, tenant: str, custody_account: str):
+    def __init__(self, custody_session, *, tenant: str, custody_account: str,
+                 workload_account: str):
         if not isinstance(tenant, str) or not _TENANT.fullmatch(tenant):
             raise RecoveryNonceDenied("invalid custodian tenant")
-        if not isinstance(custody_account, str) or not re.fullmatch(
-            r"[0-9]{12}", custody_account
-        ):
-            raise RecoveryNonceDenied("missing independent custody account")
+        if not all(isinstance(v, str) and re.fullmatch(r"[0-9]{12}", v)
+                   for v in (custody_account, workload_account)):
+            raise RecoveryNonceDenied("invalid AWS account scope")
+        if custody_account == workload_account:
+            raise RecoveryNonceDenied("custody must be independently controlled")
+        # STS and DynamoDB must be created from the SAME explicit AWS session.
+        # Never accept two unrelated, caller-supplied cloud clients, since that
+        # would allow a workload-owned DynamoDB table to masquerade as custody.
+        try:
+            principal = custody_session.client("sts").get_caller_identity()
+            account = principal.get("Account")
+            if account != custody_account:
+                raise RecoveryNonceDenied("external custody identity mismatch")
+            dynamodb = custody_session.client("dynamodb", region_name="eu-central-1")
+        except RecoveryNonceDenied:
+            raise
+        except Exception:
+            raise RecoveryNonceDenied("external custody identity unavailable") from None
         self._ddb = dynamodb
         self._tenant = tenant
         self._custody_account = custody_account
@@ -33,9 +48,9 @@ class CustodyRecoveryNonceLedger:
     def claim_once(self, request_id: str) -> None:
         if not isinstance(request_id, str) or not _TOKEN.fullmatch(request_id):
             raise RecoveryNonceDenied("invalid approval request")
-        # Callers MUST externally validate that the DDB client is an assumed
-        # custodian principal, not the operator account. A string account ID
-        # alone is not AWS identity proof.
+        # The custody session identity was verified before any DDB client
+        # was obtained. Separate AWS root/Organizations governance and Nitro
+        # key policy still need independent attestation and audit.
         try:
             self._ddb.put_item(
                 TableName=self._table,
