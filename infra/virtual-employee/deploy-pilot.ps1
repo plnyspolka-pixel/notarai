@@ -16,7 +16,8 @@ param(
     [Parameter(Mandatory=$true)][string]$KeyPairName,
     [ValidateSet('t3.large', 't3.xlarge', 'm6i.large', 'm6i.xlarge')]
     [string]$InstanceType = 't3.large',
-    [switch]$Apply
+    [switch]$Apply,
+    [switch]$LegacyEc2Messages
 )
 $ErrorActionPreference = 'Stop'
 if ($Region -ne 'eu-central-1') { throw 'Only eu-central-1 is allowed for this pilot' }
@@ -36,8 +37,9 @@ if (-not $Apply) {
     exit 0
 }
 $stackName = "notarai-ve-$TenantId"
-Write-Host "APPLY: $stackName in $Region (Windows EC2, 3 paid VPC endpoints, EBS)"
-& aws cloudformation deploy --stack-name $stackName --template-file $template --capabilities CAPABILITY_IAM --region $Region --profile $Profile --no-fail-on-empty-changeset --parameter-overrides "TenantId=$TenantId" "KeyPairName=$KeyPairName" "InstanceType=$InstanceType"
+$legacy = if ($LegacyEc2Messages) { "true" } else { "false" }
+Write-Host "APPLY: $stackName in $Region (Windows EC2, 2 paid SSM endpoints (legacy third optional), EBS)"
+& aws cloudformation deploy --stack-name $stackName --template-file $template --capabilities CAPABILITY_IAM --region $Region --profile $Profile --no-fail-on-empty-changeset --parameter-overrides "TenantId=$TenantId" "KeyPairName=$KeyPairName" "InstanceType=$InstanceType" "LegacyEc2Messages=$legacy"
 if ($LASTEXITCODE -ne 0) { throw 'CloudFormation deployment failed' }
 & aws cloudformation describe-stacks --stack-name $stackName --query 'Stacks[0].Outputs' --output table --region $Region --profile $Profile
 if ($LASTEXITCODE -ne 0) { throw 'Deployment finished but reading outputs failed' }
