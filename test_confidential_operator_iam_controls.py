@@ -232,3 +232,28 @@ def test_missing_iam_read_or_simulator_is_blocked_not_pass():
     assert report["simulation_status"] == "BLOCKED"
     assert report["actual_denial_verified"] is False
     assert set(report["denial_by_scenario"].values()) == {"BLOCKED"}
+
+
+@pytest.mark.parametrize("tamper", [
+    lambda doc: doc["Resources"]["GuestImagePushRole"]["Properties"][
+        "AssumeRolePolicyDocument"]["Statement"][0].update(
+            Principal={"AWS": "*"}),
+    lambda doc: doc["Resources"]["GuestImagePushRole"]["Properties"][
+        "AssumeRolePolicyDocument"]["Statement"][0].update(
+            Principal={"Federated": {"Sub":
+                "arn:aws:iam::${AWS::AccountId}:oidc-provider/attacker.example"}}),
+    lambda doc: doc["Resources"]["GuestImagePushRole"]["Properties"][
+        "Policies"][0]["PolicyDocument"]["Statement"][1]["Action"].append(
+            "iam:PassRole"),
+    lambda doc: doc["Resources"]["GuestImagePushRole"]["Properties"][
+        "Policies"][0]["PolicyDocument"]["Statement"][1].update(
+            Resource="*"),
+    lambda doc: doc["Resources"]["GuestImagePushRole"]["Properties"][
+        "Policies"].append({"PolicyName": "extra", "PolicyDocument": {
+            "Version": "2012-10-17", "Statement": []}}),
+])
+def test_oidc_publisher_tampering_rejected(tamper):
+    doc = template("notarai-confidential-github.yaml")
+    tamper(doc)
+    with pytest.raises(GuardrailError):
+        validate_image_oidc_template(doc)
