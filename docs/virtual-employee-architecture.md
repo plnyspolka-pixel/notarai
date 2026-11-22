@@ -2,7 +2,7 @@
 
 **Status:** decyzja architektoniczna / plan prototypu; **nie wdrożono** VM ani robota Windows.  
 **Data:** 2026-11-22  
-**Priorytet:** pierwszy nowy kierunek NotarAI.  
+**Priorytet:** pierwszy nowy kierunek NotarAI. **Pierwszy adapter: RejNET Office** (zob. `docs/rejnet-office-overlay.md`).  
 **Zasada produktu:** notariusz używa `app.notarai.pl`; nie instaluje NotarAI na własnym komputerze. Oddzielne środowisko Windows uruchamia istniejący program kancelaryjny, z odrębną tożsamością operatora automatycznego.
 
 ## 1. Co już istnieje i czego nie dublujemy
@@ -72,7 +72,7 @@ Nie pisać bezpośrednio do baz producentów przez SQL bez formalnie potwierdzon
 ## 7. Plan realizacji i bramki jakości
 
 ### Etap 0 — kwalifikacja (bez danych produkcyjnych)
-- [ ] Wybrać pierwszy program (Notaris jako kandydat, ewentualnie Wolters Kluwer) i ustalić numer wersji.
+- [ ] Pierwszy program: **RejNET Office** — uzyskać aktualną wersję testową; inne programy (Notaris, Wolters Kluwer) dopiero po pilotażu. Zob. `docs/rejnet-office-overlay.md`.
 - [ ] Potwierdzić zgodę/licencję producenta na VM, osobne stanowisko i automatyzację; warunki Windows Server vs Windows 11 i zdalnej bazy.
 - [ ] Zbudować listę 5 akcji do pomiaru UIA: uruchom, znajdź sprawę, odczytaj pole, wypełnij *testowy* formularz, eksportuj *testowy* dokument.
 - [ ] Przeprowadzić inspekcję UIA na testowym systemie i zapisać listę obsługiwanych AutomationPattern + przeszkody.
