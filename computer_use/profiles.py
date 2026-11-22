@@ -10,14 +10,14 @@ from urllib.parse import urlsplit
 
 @dataclass(frozen=True)
 class Element:
-    kind: str  # css, role, uia
+    kind: str  # css, role, uia, visual
     selector: str
     role: str | None = None
     value_mode: str = 'text'  # text or input
     allow_draft_fill: bool = False  # only after a verified non-persistent test
 
     def __post_init__(self):
-        if self.kind not in {'css', 'role', 'uia'} or not self.selector or len(self.selector) > 256:
+        if self.kind not in {'css', 'role', 'uia', 'visual'} or not self.selector or len(self.selector) > 256:
             raise ValueError('invalid approved selector')
         if self.value_mode not in {'text', 'input'}:
             raise ValueError('invalid value mode')
@@ -64,5 +64,5 @@ class AppProfile:
     def field(self, key: str, *, kind: str) -> Element | None:
         defined = self.fields.get(key)
         options = (defined,) if isinstance(defined, Element) else (defined or ())
-        allowed_kinds = {'css', 'role'} if kind == 'browser' else {'uia'}
+        allowed_kinds = {'css', 'role'} if kind == 'browser' else ({'uia'} if kind == 'uia' else {'visual'})
         return next((item for item in options if item.kind in allowed_kinds), None)
