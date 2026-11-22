@@ -89,6 +89,8 @@ jobs:
         run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
+      - name: SEC-04 walidacja tras AI bez wylaman w confidential
+        run: python scripts/audit_confidential_ai_routes.py --json > /tmp/notarai-sec04-ai-route-audit.json
       - name: Testy kryptografii, formularzy i szablonów AWS
         run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_zk_ai_boundary.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
