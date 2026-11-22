@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from confidential.cloudtrail_readonly import PacedCloudTrail
+from confidential.nitro_scope_binding import bind_positive_negative_scope
 from confidential.nitro_witness import verify_independent_witnesses
 from confidential.nitro_denial_matrix import (
     KMS_CASES, EARLY_CASES, DenialEvidenceRejected, incomplete_audit_result,
@@ -136,6 +137,7 @@ def main() -> int:
     group.add_argument("--verify-live", action="store_true",
                        help="Read-only AWS CloudTrail/STS; never triggers trials")
     parser.add_argument("--matrix")
+    parser.add_argument("--positive-manifest", help="Mandatory positive-run manifest for joint experiment scope")
     parser.add_argument("--operator-profile")
     parser.add_argument("--custody-profile")
     parser.add_argument("--altered-image-receipt")
@@ -153,10 +155,15 @@ def main() -> int:
         if args.check:
             print(json.dumps(incomplete_audit_result(), sort_keys=True))
             return 2
-        if (matrix is None or not args.operator_profile or
-                not args.custody_profile or not args.altered_image_receipt or
-                not args.unsigned_release_receipt):
-            raise DenialEvidenceRejected("live audit requires two profiles and receipts")
+        if (matrix is None or not args.positive_manifest or
+                not args.operator_profile or not args.custody_profile or
+                not args.altered_image_receipt or not args.unsigned_release_receipt):
+            raise DenialEvidenceRejected("live audit requires linked positive scope and two profiles")
+        # Fail before any network access if the two signed experiment scopes
+        # refer to different tenants, tasks, key, image, PCR17 or run windows.
+        joint_scope = bind_positive_negative_scope(
+            positive=_read_json(args.positive_manifest), negative=matrix,
+        )
         result = audit_live(
             matrix=matrix,
             operator_profile=args.operator_profile,
@@ -166,6 +173,8 @@ def main() -> int:
                 "unsigned_release": _read_json(args.unsigned_release_receipt),
             },
         )
+        result["positive_negative_scope_consistent"] = joint_scope["scope_consistent"]
+        result["scope_sha256"] = joint_scope["scope_sha256"]
         witness_inputs = (
             args.witness_payload,
             args.custodian_witness_signature,
