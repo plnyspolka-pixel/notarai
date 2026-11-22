@@ -256,3 +256,47 @@ def test_cli_emits_redacted_case_level_report_and_never_goes_live(
     assert all(row["submitted"] is False for row in output["cases"])
     assert output["commercial_go"] is False
     assert output["decision"] == "NO_GO"
+
+
+@pytest.mark.parametrize("failure", ("timeout", "browser_crash", "network_put"))
+def test_actual_worker_fault_injection_keeps_canary_out_of_logs(
+    monkeypatch, capsys, failure
+):
+    import json
+    import confidential.worker as worker
+    from test_confidential_job_ledger import (
+        FakeQueue, FakeS3, FakeSession, make,
+    )
+    marker = "FAKE-SEC12-CANARY-NOT-CLIENT-DATA"
+    ddb, ledger = make()
+    sqs = FakeQueue({"Body": json.dumps({
+        "tenant_id": "pilot01", "case_id": "case01",
+        "object_id": "object01", "job_id": "abc012",
+        "s3_version": "v000001",
+    }), "ReceiptHandle": "fictional"})
+    s3 = FakeS3()
+    session = FakeSession(ddb, sqs, s3)
+    monkeypatch.setattr(worker, "_load_decrypted_form",
+        lambda *args: {"name": marker, "reference": "SYNTHETIC"})
+    async def preview(*args):
+        if failure == "timeout":
+            raise TimeoutError("synthetic timeout " + marker)
+        if failure == "browser_crash":
+            raise RuntimeError("synthetic chromium crash " + marker)
+    monkeypatch.setattr(worker, "_prepare_fictional_form", preview)
+    if failure == "network_put":
+        def fail_store(**kwargs):
+            raise ConnectionError("synthetic network error " + marker)
+        monkeypatch.setattr(s3, "put_object", fail_store)
+    expected = ConnectionError if failure == "network_put" else (
+        TimeoutError if failure == "timeout" else RuntimeError
+    )
+    with pytest.raises(expected):
+        worker._process_one(session, "pilot01", "fixture-bucket",
+                            "fixture-queue", "fixture-kms")
+    stdout = capsys.readouterr()
+    assert marker not in stdout.out and marker not in stdout.err
+    assert sqs.deleted is False
+    assert s3.markers == []
+    assert ledger.status("abc012")["status"] == "retryable"
+    assert ledger.status("abc012")["submitted"] is False
