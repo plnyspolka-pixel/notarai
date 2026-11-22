@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  NotarAI VE optional synthetic-only SQS transport. Separate stack for an
+  existing private Windows EC2 pilot; no production backend or customer data.
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: '^[a-z][a-z0-9]{2,11}$'
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  EndpointSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  WindowsRoleName:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9+=,.@_/-]{1,64}$'
+    Description: Role name returned by NotarAI VE Windows pilot stack
+Resources:
+  PilotDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    Properties:
+      QueueName: !Sub 'notarai-ve-${TenantId}-dead.fifo'
+      FifoQueue: true
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Project
+          Value: notarai-virtual-employee
+        - Key: Environment
+          Value: synthetic-only
+  PilotJobQueue:
+    Type: AWS::SQS::Queue
+    DeletionPolicy: Delete
+    Properties:
+      QueueName: !Sub 'notarai-ve-${TenantId}-jobs.fifo'
+      FifoQueue: true
+      SqsManagedSseEnabled: true
+      ContentBasedDeduplication: false
+      MessageRetentionPeriod: 86400
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt PilotDeadLetterQueue.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: notarai-virtual-employee
+        - Key: Environment
+          Value: synthetic-only
+  SqsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sqs'
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnetId
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroupId
+  QueueAccessPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref PilotJobQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyPlaintext
+            Effect: Deny
+            Principal: '*'
+            Action: 'sqs:*'
+            Resource: !GetAtt PilotJobQueue.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+          - Sid: DenyConsumerOutsidePrivateEndpoint
+            Effect: Deny
+            Principal: '*'
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:ChangeMessageVisibility
+            Resource: !GetAtt PilotJobQueue.Arn
+            Condition:
+              StringNotEquals:
+                aws:sourceVpce: !Ref SqsEndpoint
+  WindowsConsumerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 'notarai-ve-${TenantId}-sqs-consumer'
+      Roles:
+        - !Ref WindowsRoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ReceiveTenantPilotQueueOnly
+            Effect: Allow
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueAttributes
+            Resource: !GetAtt PilotJobQueue.Arn
+            Condition:
+              StringEquals:
+                aws:sourceVpce: !Ref SqsEndpoint
+Outputs:
+  QueueUrl:
+    Value: !Ref PilotJobQueue
+  QueueArn:
+    Value: !GetAtt PilotJobQueue.Arn
+  EndpointId:
+    Value: !Ref SqsEndpoint
+  DeadLetterQueueUrl:
+    Value: !Ref PilotDeadLetterQueue
+  DeadLetterQueueArn:
+    Value: !GetAtt PilotDeadLetterQueue.Arn
