@@ -21,6 +21,9 @@ from test_customer_release_ledger import MemoryDdb
 
 
 class HybridDdb(MemoryDdb):
+    def _guard(self):
+        pass
+
     def update_item(self, **kw):
         pk = kw["Key"]["pk"]["S"]
         if pk.startswith("DOC#"):
