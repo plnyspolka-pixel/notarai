@@ -1,6 +1,6 @@
 # SEC-08 — [SEC-08] Ochrona plaintext: izolowany egress, antyeksfiltracja i bezpieczna przeglądarka
 
-**Status: PLANNED (BRAK IMPLEMENTACJI).** P0; zależności: SEC-01, SEC-04, SEC-07
+**Status: IN PROGRESS — kod i testy offline dodane, AWS K6 BLOCKED.** P0; zależności: SEC-01, SEC-04, SEC-07
 
 ## Zakres
 1. Zmapuj wszystkie drogi exfil: HTTPS, DNS, metadata, EC2 host, proxy, S3 presigned URLs, log drivers, stdout/stderr, telemetry, screenshots, model AI i zewnętrzne formularze.
@@ -29,6 +29,20 @@
 - [ ] Pozostaje AUTO preview-only / no-submit / no-sign i produkcja OFF. Ukończony PR lub zielony CI nie oznaczają komercyjnego `Zero Operator Access verified`.
 
 ## Polecenie dla nowej konwersacji
-**Ten draft PR zawiera wyłącznie plan.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
+**Ten draft PR ma już implementację offline; pozostaje otwarty do czasu dowodów K1–K6.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
 **Ograniczenia:** tylko fikcyjne pilot01/pilot02; eu-central-1; produkcja OFF; żadnych podpisów, wysyłek, składania wniosków ani dostępu do prawdziwych dokumentów. AWS only w autoryzowanej sesji, niezależna zgoda kustosza obowiązkowa. Bez plaintext/PII w logs, debug, CI, proxy. Testy offline ≠ real hardware proof. Skuteczność sprawdź regresją + fail-closed negatywnymi testami; nie polegaj tylko na „documentation review”.
 **Dostarcz:** kod/IaC + testy + zanonimizowane dowody + checklistę niezależnego audytu + status PASS/BLOCKED/UNVERIFIED; nie obiecuj produkcji ani Zero Knowledge/ZERO Operator Access bez dowodu.
+
+
+## SEC-08: bieżąca realizacja (2026-11-22)
+
+- [x] Guard `confidential/egress_guard.py`: tylko pierwszy GET do dokładnego URL, bez query, POST, obcych nagłówków i dalszych requestów po wejściu w DOM z danymi.
+- [x] Integracja guard w `confidential/form_engine.py`, blokada uruchomiona przed wypełnianiem pól.
+- [x] Testy syntetyczne `test_confidential_egress_adversarial.py`, dołączone do CI.
+- [x] Jawny skrypt `scripts/verify_confidential_egress_live.py --check` (zwraca kod 2/BLOCKED bez rzeczywistej próby Nitro).
+- [x] Rejestr dowodów, kanałów wycieku i audytu: `docs/security-evidence/SEC-08.md`.
+- [ ] Zewnętrzna kontrola DNS resolvera i ścieżki host/proxy; zabezpieczenie S3 endpoint policy i IAM.
+- [ ] Autoryzowany test aktywny na Nitro i niezależny dowód K6.
+- [ ] Zielony CI na aktualnym HEAD SHA; dowody K1-K6 6/6 PASS.
+
+**Ograniczenie:** zmiany browser-level nie stanowią niezależnego, sprzętowego ograniczenia egress. Zakaz claimu ZK/ZOA, bez realnych danych i bez produkcji.
