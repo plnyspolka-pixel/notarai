@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'confidential/**'
+      - 'docs/security-evidence/SEC-03.md'
+      - 'docs/security-workstreams/SEC-03-zk-client-encryption.md'
       - 'static/confidential-crypto.js'
       - 'static/confidential-auto.js'
       - 'test_confidential_auto_js.js'
