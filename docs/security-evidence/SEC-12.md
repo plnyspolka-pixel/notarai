@@ -39,3 +39,26 @@ The tests use invented tenant IDs only. Commercial admission remains NO_GO.
 The production transition must implement and audit a separate signed
 hardware/custody admission flow. Merely changing environment variables
 must never authorize that transition.
+
+
+## 22.11.2026 — dodatkowy hard stop przed produkcją
+
+Trzy różne entrypointy egzekwują listę `pilot01`/`pilot02`:
+`confidential.router._scope`, `confidential.worker._config` (oraz
+`_process_one` dla wywołań bezpośrednich), i
+`confidential.dispatch.DispatcherConfig.validate`. Próby użycia innych
+tenantów kończą się odmową przed jakimkolwiek wywołaniem SQS/ECS/KMS
+w tych punktach wejścia. Testy są syntetyczne, nie poświadczają uprawnień AWS.
+
+Workflow `confidential-browser.yml` publikuje artefakt
+`sec12-offline-matrix` zawierający 19 wierszy z typem, wynikiem,
+`source=MOCK`, `run_type=SYNTHETIC_ONLY`,
+`real_aws_calls=0` i `commercial_go=false`. Retencja: 30 dni.
+Ten artefakt ma ułatwić kontrolę regresji, NIE pełni funkcji
+niezależnie podpisanego dowodu ani audytu hardware.
+
+Ograniczenie: sama nazwa `pilot01`/`pilot02` NIE poświadcza,
+że w przesłanym szyfrogramie nie ma rzeczywistych danych osobowych.
+W pilocie wolno przekazywać **wyłącznie fikcyjne dane testowe**;
+bez niezależnego zatwierdzenia oraz dodatkowego dowodu dopuszczenia
+rzeczywistych danych weryfikacja K1–K6 pozostaje BLOCKED.
