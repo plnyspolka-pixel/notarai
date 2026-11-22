@@ -62,6 +62,7 @@ def inspect_task_definition(task: dict) -> dict:
 
 
 def scan_version_metadata(s3, *, bucket: str, account: str, tenant: str,
+                          subprefix: str = "confidential",
                           max_pages: int = 50) -> dict:
     """Complete bounded S3 version inventory; no object body or identifiers in output.
 
@@ -71,11 +72,13 @@ def scan_version_metadata(s3, *, bucket: str, account: str, tenant: str,
     """
     if type(max_pages) is not int or not 1 <= max_pages <= 100:
         raise UnsafeAudit("invalid S3 inventory page bound")
-    if tenant not in _TENANTS or not _ACCOUNT.fullmatch(account):
+    if tenant not in _TENANTS or not isinstance(account, str) or not _ACCOUNT.fullmatch(account):
         raise UnsafeAudit("invalid synthetic inventory scope")
+    if subprefix not in ("confidential", "confidential-results"):
+        raise UnsafeAudit("S3 inventory prefix outside synthetic pilot")
     if bucket != f"ntr-cf-{tenant}-{account}-{_REGION}":
         raise UnsafeAudit("S3 inventory outside synthetic pilot")
-    prefix = f"kancelarie/{tenant}/confidential/"
+    prefix = f"kancelarie/{tenant}/{subprefix}/"
     key_marker = None
     version_marker = None
     seen: set[tuple[str, str]] = set()
@@ -187,7 +190,12 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
 
     # Metadata only, all S3 pages; no body or identifiers printed.
     inventory = scan_version_metadata(
-        s3, bucket=bucket, account=account, tenant=tenant
+        s3, bucket=bucket, account=account, tenant=tenant,
+        subprefix="confidential",
+    )
+    result_inventory = scan_version_metadata(
+        s3, bucket=bucket, account=account, tenant=tenant,
+        subprefix="confidential-results",
     )
     queue = sqs.get_queue_attributes(
         QueueUrl=queue_url,
@@ -229,6 +237,10 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         "s3_bucket_object_lock_state": object_lock_state,
         "s3_lifecycle_rule_count": lifecycle_rule_count,
         **inventory,
+        "s3_result_inventory_complete": result_inventory["s3_inventory_complete"],
+        "s3_result_inventory_pages": result_inventory["s3_inventory_pages"],
+        "s3_result_version_count": result_inventory["s3_version_count"],
+        "s3_result_delete_marker_count": result_inventory["s3_delete_marker_count"],
         "sqs_retention_seconds": int(queue.get("MessageRetentionPeriod", "-1")),
         "sqs_has_redrive": "RedrivePolicy" in queue,
         "sqs_dlq_retention_seconds": dlq_retention,
