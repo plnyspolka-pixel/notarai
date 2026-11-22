@@ -1,7 +1,7 @@
 # NotarAI Universal Computer Agent — jeden silnik dla dowolnego programu kancelaryjnego
 
 **Status:** docelowy projekt MVP; **bez gotowego agenta, VM ani testu na żywym programie**.
-**Decyzja (2026-11-22):** nie tworzymy odrębnego adaptera programistycznego dla RejNET, Notaris, Wolters Kluwer i pozostałych systemów. Jeden uniwersalny silnik Computer Use pracuje na UI aplikacji. RejNET to wyłącznie **pierwsza aplikacja testowa**, nie zależność architektury.
+**Decyzja (2026-11-22):** nie tworzymy odrębnego adaptera programistycznego dla RejNET, Notaris, Wolters Kluwer i pozostałych systemów. **Wdrażanie i obsługa mają automatyczne fallbacki od najbardziej bezobsługowej metody**: dokument nadrzędny `docs/fallback-policy.md`. Jeden uniwersalny silnik Computer Use pracuje na UI aplikacji. RejNET to wyłącznie **pierwsza aplikacja testowa**, nie zależność architektury.
 
 ## 1. Reguła nadrzędna: minimum wdrożenia
 
