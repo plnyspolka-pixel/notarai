@@ -188,3 +188,16 @@ def test_policy_generator_matches_cloudformation_guest_runtime():
         v["Name"] for v in expected["Environment"]
     ]
     assert c["TrustedExecutionConfiguration"]["IsolationMode"] == "CONFIDENTIAL_SANDBOX"
+
+
+def test_legacy_kms_fixture_cannot_contact_aws_on_v3(monkeypatch):
+    import pytest
+    from scripts import confidential_pilot_fixture as legacy
+    def unexpected_aws(*args, **kwargs):
+        raise AssertionError("legacy KMS pilot attempted AWS access")
+    monkeypatch.setattr(legacy, "aws", unexpected_aws)
+    with pytest.raises(RuntimeError, match="Legacy KMS-v2 fixture disabled"):
+        legacy.create_fixture(
+            profile="pilot", account="111122223333",
+            tenant="pilot01", apply=True,
+        )
