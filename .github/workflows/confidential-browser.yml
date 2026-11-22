@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'confidential/**'
+      - 'docs/security-claims/**'
+      - 'docs/security-threat-model.md'
+      - 'docs/security-workstreams/SEC-01-threat-claims.md'
+      - 'scripts/audit_confidential_claims.py'
       - 'static/confidential-crypto.js'
       - 'static/confidential-auto.js'
       - 'test_confidential_auto_js.js'
@@ -83,6 +87,21 @@ jobs:
         run: |
           python scripts/custodian_sign_confidential_release.py --help >/dev/null
           python scripts/verify_confidential_release.py --help >/dev/null
+      - name: Roszczenia security bez dowodow pozostaja UNVERIFIED
+        run: |
+          python scripts/audit_confidential_claims.py > /tmp/notarai-security-claims.json
+          python - <<'PY'
+          import json
+          with open("/tmp/notarai-security-claims.json", encoding="utf-8") as file:
+              report = json.load(file)
+          assert len(report["claims"]) == 4
+          assert all(v["status"] == "UNVERIFIED" for v in report["claims"].values())
+          assert report["security_claims_commercially_verified"] is False
+          PY
+          if python scripts/audit_confidential_claims.py --require-all-pass >/dev/null; then
+            echo "::error::Security marketing gate falsely passed with no independent evidence"
+            exit 1
+          fi
       - name: Sprawdz read-only audit pilota (bez AWS)
         run: python scripts/audit_confidential_pilot.py --help >/dev/null
       - name: Wytworz weryfikowalny pakiet Lambda (offline)
@@ -90,7 +109,7 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_security_claims.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
