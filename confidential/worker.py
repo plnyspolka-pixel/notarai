@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
+from confidential.plaintext_lifecycle import harden_guest_process, ephemeral_browser_home
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -49,22 +50,33 @@ async def _prepare_fictional_form(job_id: str, values: dict) -> None:
             "local-demo", origin + "/", (origin,),
             {"name": "#name", "reference": "#ref"}, "#submit",
         )
-        async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=True)
-            context = await browser.new_context(
-                accept_downloads=False, service_workers="block", permissions=[],
-            )
-            page = await context.new_page()
-            try:
-                result = await fill_form(
-                    page, form, values, job_id=job_id,
-                    submit=False, execution_mode="auto", loopback_for_tests=True,
+        # Every browser profile, cache and temporary file lives on verified
+        # tmpfs. Never use a persistent user data dir, downloads or traces.
+        with ephemeral_browser_home():
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch(
+                    headless=True,
+                    args=["--disable-breakpad", "--disable-crash-reporter",
+                          "--disable-background-networking"],
                 )
-                if result.submitted or result.filled_fields != 2:
-                    raise RuntimeError("unexpected demo result")
-            finally:
-                await context.close()
-                await browser.close()
+                try:
+                    context = await browser.new_context(
+                        accept_downloads=False, service_workers="block",
+                        permissions=[],
+                    )
+                    try:
+                        page = await context.new_page()
+                        result = await fill_form(
+                            page, form, values, job_id=job_id,
+                            submit=False, execution_mode="auto",
+                            loopback_for_tests=True,
+                        )
+                        if result.submitted or result.filled_fields != 2:
+                            raise RuntimeError("unexpected demo result")
+                    finally:
+                        await context.close()
+                finally:
+                    await browser.close()
     finally:
         server.shutdown()
         server.server_close()
@@ -157,7 +169,13 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
             bucket, tenant, case_id, object_id, kms_key_arn,
             s3_version,
         )
-        asyncio.run(_prepare_fictional_form(job_id, values))
+        try:
+            asyncio.run(_prepare_fictional_form(job_id, values))
+        finally:
+            # Only best-effort reference release: Python immutable strings
+            # cannot be securely overwritten. One-job Nitro termination is
+            # the primary isolation boundary.
+            values.clear()
         # Synthetic status marker contains no documents, values, names,
         # URLs, screenshots, or personal identifiers.
         session.client("s3").put_object(
@@ -191,6 +209,7 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
 
 def main() -> int:
     try:
+        harden_guest_process()
         tenant, bucket, queue_url, kms_key_arn = _config()
         import boto3
         session = boto3.Session(region_name="eu-central-1")
