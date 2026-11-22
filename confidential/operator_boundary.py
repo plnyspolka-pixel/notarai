@@ -26,7 +26,8 @@ _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _UUID = re.compile(r"^[A-Za-z0-9-]+$")
 
 _CUSTODY_ADMIN = frozenset({
-    "kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy",
+    "kms:DescribeKey", "kms:GetKeyPolicy", "kms:ListKeyPolicies",
+    "kms:ListGrants", "kms:PutKeyPolicy",
     "kms:EnableKey", "kms:DisableKey", "kms:UpdateKeyDescription",
     "kms:ListResourceTags", "kms:TagResource", "kms:UntagResource",
     "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion",
