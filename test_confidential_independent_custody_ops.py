@@ -789,3 +789,29 @@ def test_k6_live_audit_cli_never_signals_success_while_external_proof_blocked(
         "--operator-profile", "operator-read",
         "--custody-profile", "external-read",
     ]) == 0
+
+
+
+def test_k1_k5_malformed_json_types_fail_with_boundary_denial_not_crash():
+    from scripts.custodian_sign_confidential_operation import sign_operation
+    private, pub, pin = signer()
+    s = state()
+    malformed = dict(s, state=[])
+    with pytest.raises(BoundaryDenied):
+        validate_state(malformed)
+    event = signed_event(private, action="FREEZE", previous=s)
+    tampered = copy.deepcopy(event)
+    tampered["payload"]["action"] = ["FREEZE"]
+    with pytest.raises(BoundaryDenied):
+        apply(s, tampered, pub, pin)
+    with pytest.raises(BoundaryDenied):
+        sign_operation(
+            payload=event["payload"], state=s,
+            custody_profile="custodian",
+            signing_key_arn=s["signing_key_arn"],
+            pinned_public_key_sha256=pin,
+            pinned_current_state_sha256=canonical_digest(s),
+            approve_action=True,
+            clock="not a datetime",
+            session_factory=lambda **kw: (_ for _ in ()).throw(
+                AssertionError("malformed clock must not call AWS")))
