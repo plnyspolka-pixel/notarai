@@ -59,6 +59,18 @@ def _approved_key() -> str:
     return arn
 
 
+def _approved_public_key_pin() -> str:
+    """Configured pin is an operator-side check, NOT an independent trust root."""
+    import base64
+    pin = os.getenv("PIECZAPP_CONFIDENTIAL_PUBLIC_KEY_SHA256", "")
+    try:
+        if len(base64.b64decode(pin, validate=True)) != 32:
+            raise ValueError("invalid pin size")
+    except (ValueError, TypeError):
+        raise HTTPException(503, "Brak poprawnego odcisku klucza kustosza.") from None
+    return pin
+
+
 @router.put("/envelopes/{case_id}/{object_id}")
 async def store(request: Request, case_id: str, object_id: str):
     import magazyn
@@ -76,16 +88,19 @@ async def store(request: Request, case_id: str, object_id: str):
         raise HTTPException(400, "Bledna struktura zaszyfrowanego dokumentu.")
     finally:
         data.clear()
-    if (envelope.tenant_id != tenant or envelope.case_id != case_id
-            or envelope.object_id != object_id
-            or envelope.kms_key_arn != _approved_key()):
+    if (envelope.version != 2 or envelope.tenant_id != tenant
+            or envelope.case_id != case_id or envelope.object_id != object_id
+            or envelope.kms_key_arn != _approved_key()
+            or envelope.public_key_sha256 != _approved_public_key_pin()):
         raise HTTPException(403, "Dokument nie odpowiada autoryzowanej kancelarii lub kluczowi.")
-    # The payload is opaque; no server-side crypto or plaintext transformation.
-    # The already validated envelope is serialised deterministically without PII.
+    # Do not accept new legacy v1 ciphertext without version/key binding.
+    # Validate structure without unwrapping DEK or logging request contents.
     payload = {
-        "version": 1, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
+        "version": 2, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
         "tenant_id": envelope.tenant_id, "case_id": envelope.case_id,
         "object_id": envelope.object_id, "kms_key_arn": envelope.kms_key_arn,
+        "document_version": envelope.document_version,
+        "public_key_sha256": envelope.public_key_sha256,
     }
     import base64
     payload.update({
@@ -93,13 +108,33 @@ async def store(request: Request, case_id: str, object_id: str):
         "wrapped_dek": base64.b64encode(envelope.wrapped_dek).decode("ascii"),
         "ciphertext": base64.b64encode(envelope.ciphertext).decode("ascii"),
     })
-    magazyn._klient_s3().put_object(
-        Bucket=_bucket(), Key=key,
-        Body=json.dumps(payload, separators=(",", ":")).encode(),
-        ContentType="application/json",
-        **magazyn._szyfrowanie(),
+    # No overwrite: a new document revision requires a new opaque object ID.
+    # S3 bucket versioning and durable job binding remain mandatory for Nitro.
+    try:
+        result = magazyn._klient_s3().put_object(
+            Bucket=_bucket(), Key=key,
+            Body=json.dumps(payload, separators=(",", ":")).encode("ascii"),
+            ContentType="application/json",
+            IfNoneMatch="*",
+            Metadata={"document-version": envelope.document_version},
+            **magazyn._szyfrowanie(),
+        )
+    except Exception as exc:
+        if (getattr(exc, "response", {}) or {}).get("Error", {}).get("Code") in (
+            "PreconditionFailed", "ConditionalRequestConflict",
+        ):
+            raise HTTPException(409, "Obiekt istnieje; uzyj nowego identyfikatora wersji.") from None
+        raise
+    try:
+        s3_version = validate_version_id(result.get("VersionId"))
+    except JobRejected:
+        # A prior put may have succeeded: do not retry or replace blindly.
+        raise HTTPException(503, "Magazyn nie potwierdzil wersji niezmiennego obiektu.") from None
+    return JSONResponse(
+        {"stored": True, "document_version": envelope.document_version,
+         "s3_version": s3_version},
+        headers={"Cache-Control": "no-store"},
     )
-    return JSONResponse({"stored": True}, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/policy")
