@@ -21,36 +21,61 @@ class WinAppStrategy:
         self._installed = installed
 
     def supports(self, request: AutomationRequest) -> bool:
-        if request.app_id != self.profile.app_id or request.risk is not Risk.READ_ONLY:
+        if request.app_id != self.profile.app_id or not self.profile.windows_app:
             return False
-        if not self.profile.windows_app or request.action != 'read_field':
+        if request.action not in {'read_field', 'fill_draft_field'}:
             return False
         key = request.payload.get('field')
-        if not isinstance(key, str) or self.profile.field(key, kind='uia') is None:
+        el = self.profile.field(key, kind='uia') if isinstance(key, str) else None
+        if el is None:
+            return False
+        if request.action == 'read_field':
+            if request.risk is not Risk.READ_ONLY:
+                return False
+        elif not (request.risk is Risk.DRAFT and el.allow_draft_fill and el.value_mode == 'input'):
             return False
         if self._installed is None:
             return os.name == 'nt' and shutil.which('winapp') is not None
         return self._installed
 
+    def _call(self, operation, selector, *args):
+        cmd = ['winapp', 'ui', operation, selector, *args,
+               '-a', self.profile.windows_app, '--json']
+        result = self._runner(cmd, shell=False, capture_output=True,
+                              text=True, timeout=12, check=False)
+        if result.returncode != 0:
+            return None
+        output = json.loads(result.stdout)
+        return output if isinstance(output, dict) else None
+
     def perform(self, request: AutomationRequest) -> StrategyResult:
         key = request.payload['field']
         el = self.profile.field(key, kind='uia')
-        if el is None or not self.profile.windows_app:
+        if el is None or not self.profile.windows_app or not self.supports(request):
             return StrategyResult(AttemptStatus.UNAVAILABLE, clean_state_confirmed=True)
-        cmd = ['winapp', 'ui', 'get-value', el.selector, '-a', self.profile.windows_app, '--json']
+        draft = request.action == 'fill_draft_field'
+        if draft:
+            value = request.payload.get('value')
+            if not isinstance(value, str) or len(value) > 2000:
+                return StrategyResult(AttemptStatus.POLICY_DENIED, diagnostic_code='invalid_draft_value')
         try:
-            result = self._runner(cmd, shell=False, capture_output=True,
-                                  text=True, timeout=12, check=False)
-            if result.returncode != 0:
-                return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
-                                      clean_state_confirmed=True, diagnostic_code='uia_not_available')
-            payload = json.loads(result.stdout)
-            value = payload.get('text')
-            if not isinstance(value, str):
-                return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
-                                      clean_state_confirmed=True, diagnostic_code='invalid_uia_envelope')
+            if draft and self._call('set-value', el.selector, value) is None:
+                # A nonzero return may occur after the UI already changed.
+                return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code='uia_draft_effect_unknown')
+            output = self._call('get-value', el.selector)
+            if output is None or not isinstance(output.get('text'), str):
+                status = AttemptStatus.UNKNOWN_EFFECT if draft else AttemptStatus.RECOVERABLE_FAILURE
+                return StrategyResult(status, clean_state_confirmed=not draft,
+                                      diagnostic_code='uia_not_readable')
+            observed = output['text']
+            if draft:
+                if observed != value:
+                    return StrategyResult(AttemptStatus.UNKNOWN_EFFECT, diagnostic_code='draft_not_verified')
+                return StrategyResult(AttemptStatus.SUCCESS, postcondition_verified=True,
+                                      data={'field': key, 'value_confirmed': True})
             return StrategyResult(AttemptStatus.SUCCESS, postcondition_verified=True,
-                                  data={'field': key, 'value': value})
+                                  data={'field': key, 'value': observed})
         except (ValueError, TypeError, OSError, subprocess.TimeoutExpired):
-            return StrategyResult(AttemptStatus.RECOVERABLE_FAILURE,
-                                  clean_state_confirmed=True, diagnostic_code='uia_read_failed')
+            status = AttemptStatus.UNKNOWN_EFFECT if draft else AttemptStatus.RECOVERABLE_FAILURE
+            return StrategyResult(status, clean_state_confirmed=not draft,
+                                  diagnostic_code='uia_operation_failed')
