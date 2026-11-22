@@ -619,3 +619,66 @@ def test_synthetic_operator_decrypt_probe_rejects_plaintext_and_bad_key_pin(keys
         run_probe(**{**values, "trusted_public_key_pin": "A" * 43 + "="})
     with pytest.raises(OperatorProbeRejected):
         run_probe(**{**values, "operator_sts": Sts("444455556666")})
+
+
+def test_independent_document_origin_receipt_denies_operator_forgery(keys):
+    from confidential.document_authenticity import (
+        canonical_origin_receipt, verify_document_origin, UntrustedDocumentOrigin,
+    )
+    payload, _ = envelope(keys)
+    wire = json.dumps(payload, separators=(",", ":")).encode("ascii")
+    sha = hashlib.sha256(wire).hexdigest()
+    signer = ed25519.Ed25519PrivateKey.generate()
+    public = signer.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    fields = {
+        "tenant_id": "pilot01", "case_id": "case01",
+        "object_id": "scan01", "document_version": payload["document_version"],
+        "s3_version": "actualS3version01", "ciphertext_sha256": sha,
+        "kms_key_arn": ARN, "key_pin": keys[1],
+        "issuer_id": "custody01",
+    }
+    receipt = {
+        "schema": "notarai.document-origin.v1",
+        **fields, "expires_at": 2000000000,
+    }
+    signature = signer.sign(canonical_origin_receipt(receipt))
+    args = dict(
+        receipt=receipt, signature=signature,
+        independent_issuer_public_key=public,
+        expected_tenant=fields["tenant_id"],
+        expected_case=fields["case_id"],
+        expected_object=fields["object_id"],
+        expected_document_version=fields["document_version"],
+        expected_s3_version=fields["s3_version"],
+        expected_ciphertext_sha256=fields["ciphertext_sha256"],
+        expected_key_arn=fields["kms_key_arn"],
+        expected_key_pin=fields["key_pin"],
+        expected_issuer_id=fields["issuer_id"],
+        now=1900000000,
+    )
+    assert verify_document_origin(**args) is None
+    for change in (
+        {"expected_ciphertext_sha256": "0" * 64},
+        {"expected_s3_version": "newS3version"},
+        {"expected_tenant": "pilot02"},
+        {"expected_issuer_id": "operator"},
+        {"now": 2000000000},
+        {"signature": b"0" * 64},
+        {"independent_issuer_public_key":
+            ed25519.Ed25519PrivateKey.generate().public_key().public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw,
+            )},
+    ):
+        with pytest.raises(UntrustedDocumentOrigin):
+            verify_document_origin(**{**args, **change})
+    # An operator with the PUBLIC RSA key can forge a valid *new* envelope.
+    # Without the custodian's private origin-signing key, its receipt fails.
+    forged, _ = envelope(keys)
+    forged_sha = hashlib.sha256(json.dumps(
+        forged, separators=(",", ":")).encode("ascii")).hexdigest()
+    assert forged_sha != sha
+    with pytest.raises(UntrustedDocumentOrigin):
+        verify_document_origin(**{**args,
+            "expected_ciphertext_sha256": forged_sha})
