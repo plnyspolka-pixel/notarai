@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../NotarAI.VirtualEmployee.Protocol/NotarAI.VirtualEmployee.Protocol.csproj" />
+    <Compile Include="../NotarAI.VirtualEmployee.Probe/LocalInboxProcessor.cs" Link="LocalInboxProcessor.cs" />
   </ItemGroup>
 </Project>
