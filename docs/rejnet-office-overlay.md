@@ -1,11 +1,11 @@
-# NotarAI × RejNET Office — nakładka AI / Virtual Employee
+# RejNET Office — pierwszy pilot uniwersalnego Computer Use agenta
 
 **Status:** projekt integracji, bez uruchomionej VM ani integracji produkcyjnej. **Data:** 2026-11-22.
-**Priorytet:** RejNET Office jest pierwszym docelowym adapterem dla NotarAI Virtual Employee (zastępuje robocze założenie „Notaris jako pierwszy” w etapie 0 `docs/virtual-employee-architecture.md`).
+**Priorytet:** RejNET Office jest **pierwszym programem testowym** dla generycznego silnika w `docs/universal-computer-agent.md`. **Nie piszemy kodowanego adaptera tylko do RejNET** i nie uzależniamy produktu od niego.
 
 ## 1. Rozróżnienie systemów i zakres
 
-- **RejNET Office** — program kancelaryjny dostawcy z `rejnet.pl`; przedmiot niniejszej integracji.
+- **RejNET Office** — program kancelaryjny dostawcy z `rejnet.pl`; pierwszy **test kompatybilności**, nie odrębna docelowa integracja.
 - **Rejestry Notarialne KRN** — odrębny system rejestrów dostępny przez `rejestry-notarialne.pl`; NIE jest RejNET Office, choć istnieją powiązania serwisowe.
 - Celem jest **nakładka nad istniejącym programem**, nie zastąpienie repertorium ani kopiowanie jego całej bazy.
 - Notariusz używa webowego NotarAI. Na komputerze notariusza **nie instalujemy naszego oprogramowania**. W dedykowanej VM Windows kancelarii działa RejNET Office, agent sesji Windows oraz interfejs do NotarAI.
@@ -37,7 +37,7 @@ Notariusz -> NotarAI Web (sprawa + zadanie + zatwierdzenia)
    -> Windows VM kancelarii (jedna kancelaria = jedna VM na MVP)
        -> Supervisor (usługa sesji, watchdog, health)
        -> Interactive Worker (dedykowane konto Windows)
-           -> RejNET Adapter (.NET UI Automation/FlaUI)
+           -> Universal Computer Use Engine + profil GUI RejNET (bez osobnego adaptera)
            -> RejNET Office (legalna kopia, osobne konto/stanowisko)
            -> Microsoft Word / eksport plików
        -> zatwierdzony prywatny dostęp do danych kancelarii, jeśli konieczny
@@ -48,7 +48,7 @@ Notariusz -> NotarAI Web (sprawa + zadanie + zatwierdzenia)
 
 **Panel webowy:** dwie karty: „Zadania” (wyniki, akceptacje, historia) oraz opcjonalny „Podgląd stanowiska” (bezpośredni widok kontrolowany z VM, ograniczony rolami, domyślnie wyłączony). To nie jest osadzanie aplikacji desktopowej w iframe. Operator NotarAI nie ma domyślnego dostępu do podglądu danych kancelarii.
 
-## 4. Zakres adaptera i stany
+## 4. Generyczne umiejętności i stany (konfigurowane na pilotażu RejNET)
 
 ### Wersja 0 — wyłącznie odczyt / rozpoznawanie (bez zapisu)
 - `rejnet.get_capabilities()`
