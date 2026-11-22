@@ -5,6 +5,7 @@ on:
     paths:
       - "confidential/custody_ops.py"
       - "confidential/custody_cas.py"
+      - "infra/notarai-confidential-custody-ledger-pilot.yaml"
       - "scripts/verify_confidential_custody_independence.py"
       - "scripts/verify_confidential_custody_kms.py"
       - "scripts/custodian_sign_confidential_operation.py"
