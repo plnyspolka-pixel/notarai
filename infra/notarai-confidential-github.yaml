@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   NotarAI confidential pilot - GitHub Actions OIDC role that may only push the
-  guest image to the pilot ECR repository. Separate from notarai-github-wdrozenie;
+  guest image to the pilot ECR repository and read it back for the attestation
+  policy generator. Separate from notarai-github-wdrozenie;
   grants no access to the production application, buckets, secrets or IAM.
 Parameters:
   TenantId:
@@ -53,6 +54,7 @@ Resources:
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
                   - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
                   - ecr:DescribeImages
                 Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-${TenantId}"
 Outputs:

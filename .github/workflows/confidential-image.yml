@@ -11,6 +11,8 @@ on:
       - 'confidential/**'
       - '.dockerignore'
       - '.github/workflows/confidential-image.yml'
+      - 'scripts/render_confidential_taskdef.py'
+      - 'infra/nitro-sandboxes-runtime-v1.pub'
 
 permissions:
   contents: read
@@ -32,6 +34,10 @@ jobs:
       EXPECTED_ACCOUNT: "127621462971"
       PUSH_ROLE: arn:aws:iam::127621462971:role/notarai-confidential-github-image-pilot01
       ECR_REPOSITORY: notarai-confidential-pilot01
+      GENPOLICY_VERSION: "0.1.4274.0"
+      PILOT_KMS_KEY_ARN: arn:aws:kms:eu-central-1:127621462971:key/5448f7b1-5a77-408e-b89f-d1e7b1d61504
+      PILOT_BUCKET: ntr-cf-pilot01-127621462971-eu-central-1
+      PILOT_QUEUE_URL: https://sqs.eu-central-1.amazonaws.com/127621462971/notarai-confidential-pilot01.fifo
     steps:
       - uses: actions/checkout@v7
       - name: Zbuduj obraz workera
@@ -90,20 +96,62 @@ jobs:
           set -euo pipefail
           registry="${EXPECTED_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           tag="pilot-${GITHUB_SHA::12}"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
           if aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
                --image-ids imageTag="$tag" >/dev/null 2>&1; then
             echo "Tag $tag juz istnieje (repo IMMUTABLE), pomijam push."
           else
-            aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
             docker tag notarai-confidential:pilot "$registry/$ECR_REPOSITORY:$tag"
             docker push "$registry/$ECR_REPOSITORY:$tag"
-            docker logout "$registry"
           fi
           digest=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
             --image-ids imageTag="$tag" --query 'imageDetails[0].imageDigest' --output text)
+          echo "IMAGE_URI=$registry/$ECR_REPOSITORY@$digest" >> "$GITHUB_ENV"
           {
             echo "### Obraz guest pilota"
             echo "- tag: \`$tag\`"
             echo "- digest: \`$digest\`"
             echo "- URI: \`$registry/$ECR_REPOSITORY@$digest\`"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Pobierz oficjalny generator polityki AWS i zweryfikuj podpis
+        run: |
+          set -euo pipefail
+          # Zrodlo i klucz publiczny: dokumentacja ECS "Getting the CLI tools".
+          base="https://d1uvmbvklg8rt.cloudfront.net/${GENPOLICY_VERSION}/x86_64"
+          mkdir -p /tmp/genpolicy && cd /tmp/genpolicy
+          for f in nitro-sandboxes-runtime.tar.gz SHA256SUM SHA256SUM.sig; do
+            curl -sSfL -o "$f" "$base/$f"
+          done
+          openssl dgst -sha384 -verify "$GITHUB_WORKSPACE/infra/nitro-sandboxes-runtime-v1.pub" \
+            -signature SHA256SUM.sig SHA256SUM
+          cp SHA256SUM SHA256SUM.signed
+          mkdir bin && tar -xzf nitro-sandboxes-runtime.tar.gz -C bin
+          sha256sum -c --ignore-missing SHA256SUM.signed
+          (cd bin && sha256sum -c ../SHA256SUM.signed --ignore-missing | grep 'ecs-nitro-sandbox-genpolicy: OK')
+          bin/ecs-nitro-sandbox-genpolicy --version
+      - name: Wyrenderuj definicje taska i wygeneruj polityke atestacji oraz PCR17
+        run: |
+          set -euo pipefail
+          out=/tmp/attestation && mkdir -p "$out"
+          python scripts/render_confidential_taskdef.py \
+            --account "$EXPECTED_ACCOUNT" --tenant pilot01 --image "$IMAGE_URI" \
+            --kms-key-arn "$PILOT_KMS_KEY_ARN" --bucket "$PILOT_BUCKET" --queue "$PILOT_QUEUE_URL" \
+            --output "$out/confidential-taskdef.json"
+          gen=/tmp/genpolicy/bin/ecs-nitro-sandbox-genpolicy
+          "$gen" --task-definition "$out/confidential-taskdef.json" > "$out/attestation-policy.b64"
+          "$gen" --task-definition "$out/confidential-taskdef.json" --output pcrs > "$out/pcrs.txt"
+          "$gen" --task-definition "$out/confidential-taskdef.json" --output policy > "$out/policy.cedar"
+          # Wartosci niesekretne (hash polityki i sama polityka), potrzebne do KMS i stacka task.
+          echo "IMAGE_URI_BEGIN"; echo "$IMAGE_URI"; echo "IMAGE_URI_END"
+          echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
+          echo "ENVELOPE_SHA256=$(sha256sum "$out/attestation-policy.b64" | cut -d' ' -f1)"
+          echo "ENVELOPE_BEGIN"; fold -w 200 "$out/attestation-policy.b64"; echo; echo "ENVELOPE_END"
+          echo "CEDAR_BEGIN"; cat "$out/policy.cedar"; echo "CEDAR_END"
+      - name: Wyloguj z rejestru
+        if: always()
+        run: docker logout "${EXPECTED_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: confidential-attestation-${{ github.sha }}
+          path: /tmp/attestation/
+          retention-days: 14
