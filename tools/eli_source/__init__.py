@@ -1,0 +1,1 @@
+"""Conservative, read-only access to Polish official ELI legal sources."""
