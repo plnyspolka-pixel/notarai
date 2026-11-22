@@ -74,7 +74,7 @@ def test_automatic_form_fill_does_not_click_submit():
         external = Route("https://evil.example.org/x", "GET")
         for item in (get, post, put, delete, external):
             await page.filter(item)
-        assert get.action == "continue"
+        assert get.action == "abort"
         assert all(item.action == "abort" for item in
                    (post, put, delete, external))
         class Socket:
