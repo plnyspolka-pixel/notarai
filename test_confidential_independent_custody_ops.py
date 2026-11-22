@@ -466,8 +466,9 @@ def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
         payload=event["payload"], state=state_before,
         custody_profile="custody",
         signing_key_arn=state_before["signing_key_arn"],
-        pinned_public_key_sha256=pin, approve_action=True,
-        session_factory=CustodySession, clock=NOW)
+        pinned_public_key_sha256=pin,
+        pinned_current_state_sha256=canonical_digest(state_before),
+        approve_action=True, session_factory=CustodySession, clock=NOW)
     assert result["aws_calls"] == 4
     assert result["status"] == "signed"
     updated = apply(state_before, result["envelope"], pub, pin)
@@ -479,7 +480,7 @@ def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
             custody_profile="custody", signing_key_arn=state_before[
                 "signing_key_arn"], pinned_public_key_sha256="f" * 64,
             pinned_current_state_sha256=canonical_digest(state_before),
-        approve_action=True, session_factory=CustodySession, clock=NOW)
+            approve_action=True, session_factory=CustodySession, clock=NOW)
 
     class WorkloadSession(CustodySession):
         def client(self, name):
@@ -493,7 +494,7 @@ def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
             custody_profile="custody", signing_key_arn=state_before[
                 "signing_key_arn"], pinned_public_key_sha256=pin,
             pinned_current_state_sha256=canonical_digest(state_before),
-        approve_action=True, session_factory=WorkloadSession, clock=NOW)
+            approve_action=True, session_factory=WorkloadSession, clock=NOW)
 
 
 def test_k5_kms_signer_rejects_operator_approval_minting_and_stale_version():
