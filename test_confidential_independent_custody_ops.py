@@ -596,3 +596,90 @@ def test_k4_planner_freeze_cannot_be_forged_as_signed_decision():
             s, {"payload": plan["unsigned_event_payload"],
                 "signature_b64": ""}, trusted_public_key_pem=pub,
             pinned_public_key_sha256=pin, clock=NOW)
+
+
+
+def test_k1_github_oidc_federation_and_saml_trust_blocked():
+    """A provider in the custody account can still trust operator CI."""
+    from scripts.verify_confidential_custody_independence import (
+        _scan_custody_role_trusts,
+    )
+    class FederatedSession:
+        def __init__(self, method):
+            self.method = method
+        def client(self, name):
+            assert name == "iam"
+            method = self.method
+            class Api:
+                def list_roles(self, **kwargs):
+                    return {"IsTruncated": False, "Roles": [{
+                        "Arn": f"arn:aws:iam::{CUSTODY}:role/external-oidc",
+                        "Path": "/",
+                        "AssumeRolePolicyDocument": {"Version": "2012-10-17",
+                            "Statement": [{"Effect": "Allow",
+                                "Action": method,
+                                "Principal": {"Federated":
+                                    f"arn:aws:iam::{CUSTODY}:"
+                                    "oidc-provider/token.actions.githubusercontent.com"},
+                                "Condition": {"StringLike": {
+                                    "token.actions.githubusercontent.com:sub":
+                                    "repo:plnyspolka-pixel/notarai:*"}}}]},
+                    }]}
+            return Api()
+    for method in ("sts:AssumeRoleWithWebIdentity", "sts:AssumeRoleWithSAML"):
+        with pytest.raises(BoundaryDenied):
+            _scan_custody_role_trusts(FederatedSession(method), WORKLOAD,
+                                     CUSTODY)
+
+
+def test_k1_third_party_aws_and_unmanaged_service_trust_denied():
+    from scripts.verify_confidential_custody_independence import (
+        _scan_custody_role_trusts,
+    )
+    class OtherTrust:
+        def __init__(self, group, principal, path="/"):
+            self.group, self.principal, self.path = group, principal, path
+        def client(self, name):
+            assert name == "iam"
+            group, principal, path = self.group, self.principal, self.path
+            class Api:
+                def list_roles(self, **kwargs):
+                    return {"IsTruncated": False, "Roles": [{
+                        "Arn": f"arn:aws:iam::{CUSTODY}:role/sensitive-admin",
+                        "Path": path,
+                        "AssumeRolePolicyDocument": {"Statement": [{
+                            "Effect": "Allow",
+                            "Action": "sts:AssumeRole",
+                            "Principal": {group: principal}}]},
+                    }]}
+            return Api()
+    for group, principal in (
+        ("AWS", "arn:aws:iam::999900001111:root"),
+        ("Service", "ecs-tasks.amazonaws.com"),
+        ("AWS", "*"),
+        ("AWS", f"arn:aws:iam::{WORKLOAD}:role/GitHubDeployment"),
+    ):
+        with pytest.raises(BoundaryDenied):
+            _scan_custody_role_trusts(
+                OtherTrust(group, principal), WORKLOAD, CUSTODY)
+
+
+def test_k1_only_service_linked_role_may_pass_service_static_screen():
+    from scripts.verify_confidential_custody_independence import (
+        _scan_custody_role_trusts,
+    )
+    class ServiceLinked:
+        def client(self, name):
+            class Api:
+                def list_roles(self, **kwargs):
+                    return {"IsTruncated": False, "Roles": [{
+                        "Arn": f"arn:aws:iam::{CUSTODY}:role/"
+                               "aws-service-role/organizations.amazonaws.com/"
+                               "AWSServiceRoleForOrganizations",
+                        "Path": "/aws-service-role/organizations.amazonaws.com/",
+                        "AssumeRolePolicyDocument": {"Statement": [{
+                            "Effect": "Allow", "Action": "sts:AssumeRole",
+                            "Principal": {"Service": "organizations.amazonaws.com"}}]},
+                    }]}
+            return Api()
+    assert _scan_custody_role_trusts(ServiceLinked(), WORKLOAD, CUSTODY) == 1
