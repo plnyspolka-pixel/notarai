@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-11
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Format dowodu:** maszynowy manifest wiąże tenant, UTC timestamp, region, source SHA, ECR digest, task ARN, PCR17, KMS policy hash, custody account, release ID, wyniki testów, właściciela i expiry; każda wymagana pozycja ma jawny status.
 - [ ] **K2.** **Podpis niezależny:** odrębny audytor/kustosz podpisuje hash kanonicznego manifestu. Offline verifier korzysta z klucza publicznego/fingerprint dostarczonych *poza* kontem operatora; modyfikacja dowodu, podpisu lub fingerprintu powoduje FAIL.
 - [ ] **K3.** **7 negatywnych testów:** podmieniony tenant, digest, PCR, key policy, data, usunięty test odmowy i przeterminowany manifest; wszystkie unieważniają wynik.
