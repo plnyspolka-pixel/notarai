@@ -1,0 +1,35 @@
+name: Confidential customer release - offline prototype
+on:
+  pull_request:
+    paths:
+      - 'confidential/customer_release.py'
+      - 'confidential/customer_origin.py'
+      - 'test_customer_release.py'
+      - '.github/workflows/confidential-customer-release.yml'
+  push:
+    branches:
+      - 'feature/confidential-customer-keys-minimal-20261122'
+    paths:
+      - 'confidential/customer_release.py'
+      - 'confidential/customer_origin.py'
+      - 'test_customer_release.py'
+      - '.github/workflows/confidential-customer-release.yml'
+permissions:
+  contents: read
+jobs:
+  customer-release-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install strictly local test dependencies
+        run: python -m pip install 'cryptography>=42,<47' 'pytest>=8,<10'
+      - name: Pure crypto tests: synthetic keys, no AWS access
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+          AWS_ACCESS_KEY_ID: ''
+          AWS_SECRET_ACCESS_KEY: ''
+        run: python -m pytest -q --noconftest test_customer_release.py

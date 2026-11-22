@@ -1,7 +1,7 @@
 # Vendored from aws-samples/sample-eks-nitro-sandbox
 # Source: examples/confidential/_shared/attested_recipient.py
 # License: MIT-0 (see confidential/AWS_SAMPLE_LICENSE)
-# Imported unchanged except this provenance header. Keep upstream security updates in sync.
+# Adapted to allow nonce/user_data binding for SEC-86. Keep upstream security updates in sync.
 
 """Ask AWS KMS to decrypt, and prove to it that the caller is this sandbox.
 
@@ -72,13 +72,24 @@ class _NsmMessage(ctypes.Structure):
     ]
 
 
-def _request_attestation(public_key: bytes) -> bytes:
-    """Return a signed attestation document carrying public_key, from /dev/nsm."""
+def _request_attestation(public_key: bytes, *, nonce: bytes | None = None,
+                         user_data: bytes | None = None) -> bytes:
+    """Return an NSM COSE attestation with OPTIONAL caller-provided challenge.
+
+    The old KMS Recipient flow continues to call this with public_key only.
+    Customer-owned release MUST supply a fresh nonce AND a job-bound user_data.
+    """
+    if not isinstance(public_key, bytes) or not 1 <= len(public_key) <= 1024:
+        raise ValueError("invalid NSM recipient public key")
+    if nonce is not None and (type(nonce) is not bytes or not 32 <= len(nonce) <= 512):
+        raise ValueError("invalid NSM challenge nonce")
+    if user_data is not None and (type(user_data) is not bytes or len(user_data) != 32):
+        raise ValueError("invalid NSM job binding")
     request = cbor2.dumps(
         {
             "Attestation": {
-                "user_data": None,
-                "nonce": None,
+                "user_data": user_data,
+                "nonce": nonce,
                 "public_key": public_key,
             }
         }
