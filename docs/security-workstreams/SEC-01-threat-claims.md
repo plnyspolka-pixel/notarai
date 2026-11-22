@@ -11,6 +11,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-01
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **4 twierdzenia:** maszynowa macierz JSON/YAML zawiera `zero_trust`, `zero_operator_access`, `confidential_computing`, `scoped_zero_knowledge`; każdy wpis ma `scope`, `trust_boundary`, `required_evidence`, `evidence_owner`, `negative_test`, `expires_at`, `status`. Brak pola → walidator odmawia.
 - [ ] **K2.** **Brak automatycznego PASS:** dla 4 twierdzeń bez dowodów status 4/4 = `UNVERIFIED`; samo zielone CI, opis PR lub test mock nigdy nie zmieniają statusu na `PASS`.
 - [ ] **K3.** **Minimum 10 ataków:** macierz obejmuje IAM/root, GitHub release, `kms:PutKeyPolicy`, custody Organizations/SSO, PCR/digest, cross-tenant, DNS/proxy, logi, AI i frontend; każdy ma test odmowy i właściciela.
