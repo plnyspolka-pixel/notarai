@@ -40,6 +40,7 @@ def validate_preflight(
     queue_url: str,
     expected_pcr17: str,
     shared_pool: bool = False,
+    custody_approval: Mapping | None = None,
 ) -> None:
     """Reject mismatched task, unpinned images, broad KMS grants and no-Nitro capacity."""
     _require(bool(_ACCOUNT.fullmatch(account) and _TENANT.fullmatch(tenant)),
@@ -53,8 +54,28 @@ def validate_preflight(
     )
     _require(task_arn.startswith(expected_arn_start) and
              task_arn[len(expected_arn_start):].isdigit(), "wrong ECS task ARN")
-    _require(kms_key_arn.startswith(f"arn:aws:kms:{_REGION}:{account}:key/"),
-             "wrong KMS key ARN")
+    # External key custody MUST be verified in the runner using
+    # two real AWS read-only identities and independent ECDSA release
+    # verification. Never accept a bare external key ARN as proof.
+    if custody_approval is None:
+        _require(kms_key_arn.startswith(f"arn:aws:kms:{_REGION}:{account}:key/"),
+                 "wrong KMS key ARN")
+    else:
+        _require(shared_pool is True and isinstance(custody_approval, Mapping),
+                 "external custody requires approved shared Nitro runtime")
+        custody = custody_approval.get("custody_account")
+        _require(isinstance(custody, str) and
+                 bool(_ACCOUNT.fullmatch(custody)) and custody != account and
+                 kms_key_arn.startswith(f"arn:aws:kms:{_REGION}:{custody}:key/") and
+                 custody_approval.get("operator_account") == account and
+                 custody_approval.get("tenant") == tenant and
+                 custody_approval.get("kms_key_arn") == kms_key_arn and
+                 custody_approval.get("task_definition_arn") == task_arn and
+                 custody_approval.get("expected_pcr17") == expected_pcr17.lower() and
+                 custody_approval.get("static_configuration_verified") is True and
+                 custody_approval.get("independent_release_signature_verified") is True and
+                 custody_approval.get("zero_operator_access_proven") is False,
+                 "externally held key release not independently verified")
     _require(bool(re.fullmatch(
         rf"https://sqs\.{_REGION}\.amazonaws\.com/{account}/{prefix}\.fifo",
         queue_url,
@@ -99,6 +120,13 @@ def validate_preflight(
     _require(isinstance(image, str) and image.startswith(expected_image_start) and
              bool(re.fullmatch(r"[0-9a-f]{64}", image[len(expected_image_start):])),
              "guest image is not an approved immutable digest")
+    if custody_approval is not None:
+        _require(custody_approval.get("image_sha256") ==
+                 image.rsplit("@sha256:", 1)[-1] and
+                 isinstance(custody_approval.get("release_id"), str) and
+                 bool(re.fullmatch(r"[a-f0-9]{32}",
+                                   custody_approval["release_id"])),
+                 "external release was signed for another image")
     _require(container.get("name") == "confidential-browser" and
              container.get("user") == "10001:10001" and
              container.get("readonlyRootFilesystem") is True and
@@ -140,6 +168,16 @@ def validate_preflight(
     _require(launch.get("nitroEnclavesEnabled") is True,
              "hardware Nitro sandbox capacity is disabled")
 
+    if custody_approval is not None:
+        # The signed release was verified against the live *external*
+        # key policy and its SHA256 by the custodian auditor. The operator
+        # profile is intentionally unable to read or change that key policy.
+        # Do not interpret this configuration gate as hardware attestation.
+        _require(key_policy is None,
+                 "untrusted operator-supplied external KMS policy forbidden")
+        return
+    _require(isinstance(key_policy, Mapping),
+             "missing operator-owned staging KMS policy")
     statements = key_policy.get("Statement")
     _require(isinstance(statements, list), "missing KMS key policy")
     decrypt_allow = []
