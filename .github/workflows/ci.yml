@@ -43,6 +43,8 @@ jobs:
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py
+      - name: SEC-04 audyt tras AI (tylko statyczny)
+        run: python scripts/audit_confidential_ai_routes.py --json > /tmp/notarai-sec04-ai-route-audit.json
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
 
