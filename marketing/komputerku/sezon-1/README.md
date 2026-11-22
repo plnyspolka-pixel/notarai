@@ -12,6 +12,7 @@ Mikroserial edukacyjno-fabularny dla notariuszy promujący NotarAI: sporządzani
 - **Sezon 2: wizytacja, tajemnica notarialna, druga kancelaria:** `07_SEZON2_WIZYTACJA_ZARYS.md`.
 - **Powracający żart „nakarmić komputerka”:** `08_MOTYW_KARMIENIE_KOMPUTERKA.md`.
 - **Recepta z badań (co trzyma widza, co zmienić w scenariuszach, publikacja, pomiar):** `09_RECEPTA_Z_BADAN.md`.
+- **Pierwsze sekundy odcinka, czołówka, tytuły, wersje 7 i 15 s:** `10_OTWARCIA_PIERWSZE_SEKUNDY.md`.
 - **Aktualny audyt wykonanych materiałów:** `04_AUDYT_PRODUKCJI_2026-11-13.md`.
 
 Te ustalenia uzupełniają dokumentację V4. Nie przerenderowywać już istniejących klipów bez oceny montażowej. Wszelkie twierdzenia o płatnościach, zdalnych poleceniach i funkcjach muszą odpowiadać działającemu produktowi.
