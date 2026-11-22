@@ -57,6 +57,7 @@ jobs:
             infra/notarai-confidential-job-ledger.yaml \
             infra/notarai-confidential-network-base.yaml \
             infra/notarai-confidential-artifacts.yaml \
+            infra/notarai-confidential-independent-evidence.yaml \
             infra/notarai-confidential-dispatch.yaml \
             infra/notarai-confidential-approval-ledger.yaml \
             infra/notarai-confidential-demo-kms.yaml \
