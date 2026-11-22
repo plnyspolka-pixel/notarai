@@ -109,3 +109,26 @@ def audit_no_plaintext_markers(root: Path, markers: tuple[bytes, ...]) -> int:
         if any(marker in data for marker in markers):
             raise UnsafeGuestRuntime("plaintext persisted in artifact")
     return count
+
+
+def silence_guest_stdio() -> None:
+    """Drop inherited stdout/stderr FDs before any plaintext is decrypted.
+
+    Runs in the one-job guest process and never restores the FDs. The worker
+    persists metadata-only status through the job ledger/S3 marker instead of
+    stdout. A failure to redirect is fatal before decrypting any document.
+    This does not prevent code from opening a new file/network log sink;
+    enforced egress and signed guest image are separate controls.
+    """
+    flags = os.O_WRONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    try:
+        devnull = os.open("/dev/null", flags)
+        try:
+            os.dup2(devnull, 1)
+            os.dup2(devnull, 2)
+        finally:
+            os.close(devnull)
+    except OSError:
+        raise UnsafeGuestRuntime("guest output suppression failed") from None
