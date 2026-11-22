@@ -44,6 +44,8 @@ def _scope(request: Request) -> str:
         raise HTTPException(403, "Poufny tryb nie jest wlaczony dla tej kancelarii.")
     if not isinstance(tenant, str) or not _ID.fullmatch(tenant):
         raise HTTPException(403, "Brak uprawnien kancelarii.")
+    if tenant not in ("pilot01", "pilot02"):
+        raise HTTPException(503, "Tryb dostepny tylko dla syntetycznego pilota.")
     return tenant
 
 
