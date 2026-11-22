@@ -108,6 +108,26 @@ driver, no downloads or traces; screenshot/preview data are never persisted
 by the fictional guest. No persistence of decrypted PDF or model output is
 implemented here.
 
+### ECS confidential sandbox prerequisites (AWS documented)
+
+AWS explicitly supports `CONFIDENTIAL_SANDBOX` **only on ECS Managed
+Instances**, not standalone ECS EC2 or Fargate launch types. The guest
+must use `awsvpc` networking and supply an attestation-policy envelope;
+the capacity provider must separately provision Nitro-Sandbox-capable
+instances with `nitroEnclavesEnabled=true`.
+Sources (AWS, verified 2026-11-22):
+- https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-getting-started.html
+- https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
+- https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TrustedExecutionConfiguration.html
+
+The template already declares `MANAGED_INSTANCES`,
+`CONFIDENTIAL_SANDBOX`, `awsvpc`, digest-pinned image and non-root user.
+The read-only auditor now reports independent pass/fail booleans for these
+properties, including a **syntactically present** base64 attestation policy
+envelope. This is NOT a check of the policy's semantics, signer, PCR value,
+running-task isolation, capacity provider or KMS key-policy evaluation.
+A production claim must verify those separately.
+
 **Still required**: audit actual deployed ECS task definition and host volumes;
 read-only scan of synthetic S3 object version history, backups and snapshots;
 confirm crash reporters cannot export to host/operator; validate these settings
