@@ -129,7 +129,7 @@ class FakeS3:
     def get_object(self, **kw):
         assert kw == {
             "Bucket": "custody-releases", "Key": "pilot01/release.json",
-            "VersionId": "version-a",
+            "VersionId": "version-a", "ExpectedBucketOwner": CUSTODY,
         }
         return {"Body": io.BytesIO(json.dumps(self.receipt).encode())}
 
