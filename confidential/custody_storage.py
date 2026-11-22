@@ -37,7 +37,7 @@ def _deny_for_operator(policy: dict, *, operator: str, bucket: str) -> bool:
     for statement in statements:
         if not isinstance(statement, dict):
             continue
-        if statement.get("Effect") != "Deny":
+        if statement.get("Effect") != "Deny" or ("NotAction" in statement or "NotResource" in statement):
             continue
         actions = statement.get("Action")
         actions = [actions] if isinstance(actions, str) else actions
@@ -52,9 +52,9 @@ def _deny_for_operator(policy: dict, *, operator: str, bucket: str) -> bool:
         principal = statement.get("Principal")
         if principal == "*":
             cond = statement.get("Condition", {})
-            if (isinstance(cond, dict) and isinstance(
-                cond.get("StringEquals"), dict
-            ) and cond["StringEquals"].get("aws:PrincipalAccount") == operator):
+            if (isinstance(cond, dict) and set(cond) == {"StringEquals"} and
+                    isinstance(cond["StringEquals"], dict) and
+                    cond["StringEquals"] == {"aws:PrincipalAccount": operator}):
                 return True
         elif isinstance(principal, dict):
             # ARN root denotes all IAM identities of that account for
@@ -62,9 +62,9 @@ def _deny_for_operator(policy: dict, *, operator: str, bucket: str) -> bool:
             # in the separate custody account (separate trust audit).
             arn = principal.get("AWS")
             arns = [arn] if isinstance(arn, str) else arn
-            if isinstance(arns, list) and (
+            if (not statement.get("Condition") and isinstance(arns, list) and (
                 "arn:aws:iam::" + operator + ":root"
-            ) in arns:
+            ) in arns):
                 return True
     return False
 
@@ -149,7 +149,8 @@ def assess_custody_storage(*, identity: dict, custody_account: str,
         ),
         "encryption_enabled": any(
             isinstance(rule, dict) and
-            rule.get("ApplyServerSideEncryptionByDefault", {}).get(
+            isinstance(rule.get("ApplyServerSideEncryptionByDefault"), dict) and
+            rule["ApplyServerSideEncryptionByDefault"].get(
                 "SSEAlgorithm"
             ) in ("AES256", "aws:kms")
             for rule in enc_rules
