@@ -90,6 +90,7 @@ def _validate_intent(payload: dict, state: dict | None, now: datetime) -> str:
 def sign_operation(*, payload: dict, state: dict | None,
                    custody_profile: str, signing_key_arn: str,
                    pinned_public_key_sha256: str,
+                   pinned_current_state_sha256: str | None = None,
                    approve_action: bool = False,
                    session_factory=None, clock: datetime | None = None) -> dict:
     if not custody_profile:
@@ -110,6 +111,13 @@ def sign_operation(*, payload: dict, state: dict | None,
     if not approve_action:
         return {"status": "dry-run", "aws_calls": 0,
                 "independent_custody_verified": False}
+    # The authoritative expected state hash must come independently from the
+    # custodian ledger, not from the operator-supplied JSON at signing time.
+    current_hash = canonical_digest(state) if state is not None else "0" * 64
+    if (not isinstance(pinned_current_state_sha256, str) or
+            not _HEX.fullmatch(pinned_current_state_sha256) or
+            pinned_current_state_sha256 != current_hash):
+        raise BoundaryDenied("independent custody ledger state pin missing or stale")
     if session_factory is None:
         import boto3
         session_factory = boto3.Session
@@ -161,6 +169,8 @@ def main(argv=None) -> int:
     parser.add_argument("--signing-key-arn", required=True)
     parser.add_argument("--pinned-public-key-sha256", required=True,
                         help="Fingerprint independently pinned by custodian")
+    parser.add_argument("--pinned-current-state-sha256",
+                        help="Expected state digest obtained OUT-OF-BAND from independent custodian ledger")
     parser.add_argument("--approve-action", action="store_true",
                         help="Explicitly execute KMS Sign in external account")
     parser.add_argument("--output",
@@ -176,6 +186,7 @@ def main(argv=None) -> int:
             payload=payload, state=state, custody_profile=args.custody_profile,
             signing_key_arn=args.signing_key_arn,
             pinned_public_key_sha256=args.pinned_public_key_sha256,
+            pinned_current_state_sha256=args.pinned_current_state_sha256,
             approve_action=args.approve_action)
         if args.approve_action:
             fd = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
