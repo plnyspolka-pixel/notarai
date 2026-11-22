@@ -25,7 +25,8 @@ This procedure does not authorize production or advertising strict Zero Knowledg
    registry hash before the existing `NitroKMSUnwrapper` calls KMS with
    Recipient attestation. **Before production** guest MUST also verify the
    external issuer receipt; see `confidential/document_authenticity.py`.
-   This last check is not currently enforced in the guest.
+   This signature check is now wired into the guest BEFORE KMS unwrap.
+   The guest refuses all jobs if its independent issuer root is absent.
 5. Any legal form may be **previewed only**. AUTO has no authority to submit,
    sign, send applications or make irreversible third-party changes.
 
@@ -119,3 +120,117 @@ client origin signing, cross-tenant isolation and egress controls.
 Actual evidence and unresolved K1–K6 statuses are in
 `docs/security-evidence/SEC-03.md`. Do not set PASS when any live dependency
 is missing.
+
+
+## Signed document origin: exact release and pilot sequence (SEC-03 continuation)
+
+### Release-custody prerequisite (no operator-created trust roots)
+
+The independently controlled custodian/notary keeps the origin issuer
+**Ed25519 private key** outside the NotarAI operator account and GitHub.
+The corresponding PEM public key and its SHA-256 SPKI DER fingerprint must
+be independently obtained and pinned by the custodian. Before measuring an
+attested guest image, the custodian generates a root file:
+
+```sh
+python -m scripts.package_confidential_origin_root \
+  --tenant pilot01 --issuer <AUTHENTICATED_EXTERNAL_ISSUER_ID> \
+  --issuer-public-key /secure/issuer-public.pem \
+  --independent-issuer-spki-sha256 <64_HEX_SHA256_OF_SPKI_DER> \
+  --kms-key-arn 'arn:aws:kms:eu-central-1:<ACCOUNT>:key/<KEY_ID>' \
+  --kms-key-pin '<PIN_BASE64_SHA256_KMS_SPKI>' \
+  --expires-at <UNIX_EXPIRY_SECONDS> \
+  --output /secure/release/trusted-origin-root.json
+```
+
+Copy this exact public root to `confidential/trusted-origin-root.json`
+**only in a custodian-reviewed isolated image build** (never the public
+repository). Build the guest with
+`--build-arg NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256=<SHA256_OF_ROOT_FILE>`.
+Independently inspect the final image digest/PCR and configure the *external*
+KMS key policy/attestation based on the approved digest and PCR. Passing a
+SHA-256 build argument alone does not prove independent custody.
+
+**Without the trust-root file, the guest now fails closed at startup before
+SQS reception and never unwraps a DEK.** Standard CI guest image lacks the
+custodian root by design. It is not a usable live pilot image.
+
+### Fictional AWS pilot: two discrete steps
+
+1. Stage a hardcoded fictional ciphertext document without enqueueing:
+
+```sh
+python -m scripts.confidential_pilot_fixture \
+  --account <OPERATOR_ACCOUNT> --profile <OPERATOR_PROFILE> \
+  --tenant pilot01 \
+  --ciphertext-output /secure/out/synthetic.encrypted.json --apply
+```
+
+Record the printed exact `ciphertext_sha256` and `s3_version`.
+The same encrypted bytes are written locally for independent review.
+**No message is sent to SQS at this stage.** Never reuse the object ID
+`synthetic01` after a failed or ambiguous staging operation.
+
+2. An authenticated notary/independent custodian reviews the encrypted
+file and S3 VersionId out of band. They issue an Ed25519-signed receipt
+on a separate trusted device, without contacting NotarAI:
+
+```sh
+python -m scripts.sign_confidential_origin_receipt \
+  --ciphertext-file /secure/out/synthetic.encrypted.json \
+  --output-file /secure/out/synthetic.origin.json \
+  --expected-sha256 <INDEPENDENTLY_VERIFIED_64_HEX_DIGEST> \
+  --verified-s3-version '<INDEPENDENTLY_VERIFIED_VERSION>' \
+  --issuer-id <AUTHENTICATED_EXTERNAL_ISSUER_ID> \
+  --expires-at <UNIX_EXPIRY_SECONDS> \
+  --signing-key /secure/issuer-private-ed25519.pem --encrypted-signing-key \
+  --approved-tenant pilot01 \
+  --approved-kms-key-arn 'arn:aws:kms:eu-central-1:<ACCOUNT>:key/<KEY_ID>' \
+  --approved-key-pin '<BASE64_SHA256_OF_APPROVED_KMS_PUBLIC_SPKI>'
+```
+
+The private signing key never goes to the web app, S3, SQS, a GitHub
+artifact, ChatGPT or the Nitro guest.
+
+3. Admit the independently signed synthetic receipt and enqueue one
+preview only after comparing the real S3 bytes and exact VersionId:
+
+```sh
+python -m scripts.confidential_pilot_origin_queue \
+  --account <OPERATOR_ACCOUNT> --profile <OPERATOR_PROFILE> \
+  --tenant pilot01 --ciphertext-file /secure/out/synthetic.encrypted.json \
+  --signed-origin /secure/out/synthetic.origin.json \
+  --immutable-s3-version '<S3_VERSION>' \
+  --trusted-issuer-pem /secure/issuer-public.pem \
+  --trusted-issuer-id <AUTHENTICATED_EXTERNAL_ISSUER_ID> \
+  --independent-issuer-spki-sha256 <64_HEX_SHA256_OF_SPKI_DER> --apply
+```
+
+The two-stage CLI requires explicit `--apply`; without it the second
+stage performs **zero AWS calls**. Ambiguous S3/ledger/SQS outcomes
+require human reconciliation, never automatic retries.
+
+4. The runtime guest reads the exact immutable S3 version, verifies its
+recorded SHA-256, fetches the signed `.origin.json` sidecar, and verifies
+the issuer Ed25519 signature using its **image-bundled pinned public key**.
+Only then may it invoke attested KMS Decrypt. No submit, send or signature
+to a third-party notarial portal is authorized.
+
+### Normal notary workflow
+
+The notary uses the independent no-network `client.html` to encrypt
+locally, then the operator-hosted
+`/static/confidential-courier.html` to upload ciphertext **only**.
+The web app displays SHA-256 and S3 VersionId, which must be independently
+checked and signed off-site by the authorized issuer. The notary then
+imports the signed `.origin.json` receipt; only then does the
+UI expose the optional preview queue action. The SaaS API reports
+`signature_verified: false`: verification authority remains in the
+attested guest with the independent root.
+
+**Live trust limitation:** the issuer must authenticate the notary and
+approve the exact ciphertext hash, object and version outside the operator's
+control. Merely running the included signing CLI, using an operator-provided
+public key or accepting a GitHub CI result does not establish this.
+Zero Knowledge and Zero Operator Access remain **BLOCKED** until
+external custody and hardware evidence pass.
