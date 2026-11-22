@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-06
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Oddzielna administracja:** dowód od niezależnej osoby/podmiotu wykazuje, że workload root, NotarAI IAM/SSO, GitHub OIDC i Organizations management nie administrują custody account ani signing/decrypt KMS key.
 - [ ] **K2.** **Przegląd polityk:** automatyczny walidator odrzuca `kms:PutKeyPolicy`, `kms:CreateGrant`, `kms:Decrypt`, wildcard grant lub assume-role dostępne operatorowi. 5 negatywnych przypadków i 0 niezatwierdzonych grantów.
 - [ ] **K3.** **Onboarding 2 tenantów:** pilot01 i pilot02 mają dwa osobne KMS keys / policy / PCR binding / release approval i nie mogą przejąć kluczy drugiego tenanta; pozytywny fixture i cross-tenant deny.
