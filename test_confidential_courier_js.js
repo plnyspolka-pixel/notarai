@@ -12,16 +12,20 @@ async function scenario() {
     textContent: "",
   });
   const elements = Object.fromEntries(
-    ["store", "preview", "encrypted", "status"].map(id => [id, control(id)])
+    ["store", "preview", "encrypted", "receipt-file", "receipt-store", "status"].map(id => [id, control(id)])
   );
   const sandbox = {
     document: { getElementById(id) { return elements[id]; } },
     fetch: async (url, args) => {
       requests.push({ url, args });
       return {ok: true, json: async () =>
-        args.method === "PUT"
-          ? {stored: true, s3_version: "s3Version001"}
-          : {operation: "preview-only", can_submit: false},
+        args.method === "PUT" && url.includes("/origin-receipts/")
+          ? {stored: true, signature_verified: false}
+          : args.method === "PUT"
+            ? {stored: true, s3_version: "s3Version001",
+               ciphertext_sha256: "b".repeat(64),
+               document_version: "a".repeat(32)}
+            : {operation: "preview-only", can_submit: false},
       };
     },
   };
@@ -59,13 +63,41 @@ async function scenario() {
   assert.equal(requests[0].url,
     "/api/confidential/envelopes/case01/scan01");
   assert.ok(!requests[0].args.body.includes("REAL PLAINTEXT"));
+  assert.equal(elements.preview.disabled, true);
+  const signed = {
+    schema: "notarai.signed-origin-receipt.v1",
+    signature_b64: "A".repeat(86) + "==",
+    receipt: {
+      schema: "notarai.document-origin.v1",
+      tenant_id: envelope.tenant_id, case_id: envelope.case_id,
+      object_id: envelope.object_id,
+      document_version: envelope.document_version,
+      s3_version: "s3Version001", ciphertext_sha256: "b".repeat(64),
+      kms_key_arn: envelope.kms_key_arn, key_pin: envelope.public_key_sha256,
+      issuer_id: "custodian", expires_at: 2000000000,
+    }
+  };
+  elements["receipt-file"].files = [asFile("scan01.origin.json",
+    JSON.stringify({...signed, receipt: {
+      ...signed.receipt, ciphertext_sha256: "0".repeat(64)
+    }})
+  )];
+  await handlers["receipt-store:click"]();
+  assert.equal(requests.length, 1);
+  elements["receipt-file"].files = [asFile(
+    "scan01.origin.json", JSON.stringify(signed)
+  )];
+  await handlers["receipt-store:click"]();
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url,
+    "/api/confidential/origin-receipts/case01/scan01");
   assert.equal(elements.preview.disabled, false);
   await handlers["preview:click"]();
-  assert.equal(requests.length, 2);
-  assert.equal(requests[1].args.method, "POST");
-  assert.equal(requests[1].url,
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].args.method, "POST");
+  assert.equal(requests[2].url,
     "/api/confidential/preview/case01/scan01");
-  assert.ok(!("submit" in requests[1].args));
+  assert.ok(!("submit" in requests[2].args));
   assert.match(elements.status.textContent, /nie zostanie wysłany/);
 }
 scenario().catch(error => { console.error(error); process.exit(1); });
