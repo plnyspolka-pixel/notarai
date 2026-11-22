@@ -119,21 +119,39 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     from confidential.envelope import Envelope
     Envelope.parse(envelope)
     object_key = f"kancelarie/{tenant}/confidential/pilot01/synthetic01.json"
-    object_body = json.dumps(envelope, separators=(",", ":"))
-    # boto3 uses the same configured profile and has native binary upload.
+    object_body = json.dumps(envelope, separators=(",", ":")).encode("ascii")
+    # Reserve document identity before S3. Never make a second upload after
+    # uncertain S3/registry outcomes (operator performs manual reconciliation).
     import boto3
+    from confidential.document_registry import DocumentVersionRegistry
+    from confidential.job_ledger import validate_version_id, PreviewJobLedger
     sess = boto3.Session(profile_name=profile, region_name=REGION)
-    uploaded = sess.client("s3").put_object(
-        Bucket=bucket, Key=object_key, Body=object_body.encode("ascii"),
-        ContentType="application/json", ServerSideEncryption="AES256",
+    ddb = sess.client("dynamodb")
+    registry = DocumentVersionRegistry(ddb, tenant=tenant)
+    digest = hashlib.sha256(object_body).hexdigest()
+    reg = dict(
+        case_id="pilot01", object_id="synthetic01",
+        document_version=envelope["document_version"],
+        ciphertext_sha256=digest, key_pin=envelope["public_key_sha256"],
     )
-    from confidential.job_ledger import validate_version_id
+    registry.reserve(**reg)
+    uploaded = sess.client("s3").put_object(
+        Bucket=bucket, Key=object_key, Body=object_body,
+        ContentType="application/json", ServerSideEncryption="AES256",
+        IfNoneMatch="*",
+        Metadata={"document-version": envelope["document_version"],
+                  "content-sha256": digest},
+    )
     s3_version = validate_version_id(uploaded.get("VersionId"))
+    registry.finalize(
+        case_id="pilot01", object_id="synthetic01",
+        document_version=envelope["document_version"],
+        ciphertext_sha256=digest, s3_version=s3_version,
+    )
+    registry.claim_preview(**reg, s3_version=s3_version)
     job_id = uuid.uuid4().hex
-    # Same ordered lifecycle as the SaaS API; a duplicate or unknown SQS
-    # message cannot cause decryption in the verified Nitro guest.
-    from confidential.job_ledger import PreviewJobLedger
-    ledger = PreviewJobLedger(sess.client("dynamodb"), tenant=tenant)
+    # The same ledger binds the immutable S3 version for the Nitro guest.
+    ledger = PreviewJobLedger(ddb, tenant=tenant)
     ledger.create(
         job_id=job_id, case_id="pilot01", object_id="synthetic01",
         s3_version=s3_version,
