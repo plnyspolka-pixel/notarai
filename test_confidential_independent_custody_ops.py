@@ -381,3 +381,31 @@ def test_k6_missing_live_organization_permissions_blocks_claim():
     with pytest.raises(BoundaryDenied):
         audit_aws(operator_profile="ops", custody_profile="custody",
                   check=True, session_factory=MissingOrg)
+
+
+def test_k4_rendered_revocation_policy_removes_decrypt_and_no_operator_fallback():
+    from confidential.custody_ops import (
+        render_kms_policy_target, verify_kms_policy_snapshot)
+    active = state()
+    active_policy = render_kms_policy_target(active)["target_policy"]
+    active["key_policy_sha256"] = canonical_digest(active_policy)
+    assert len(active_policy["Statement"]) == 3
+    assert verify_kms_policy_snapshot(
+        active, active_policy, [])["kms_policy_snapshot_checked"]
+    frozen = {**active, "state": "FROZEN", "revision": 2}
+    deny_policy = render_kms_policy_target(frozen)["target_policy"]
+    assert len(deny_policy["Statement"]) == 2
+    assert "kms:Decrypt" not in str(deny_policy)
+    assert "kms:CreateGrant" not in str(deny_policy)
+    assert verify_kms_policy_snapshot(
+        frozen, deny_policy, [])["kms_policy_snapshot_checked"]
+    with pytest.raises(BoundaryDenied):
+        verify_kms_policy_snapshot(frozen, active_policy, [])
+    with pytest.raises(BoundaryDenied):
+        verify_kms_policy_snapshot(frozen, deny_policy, [{
+            "GranteePrincipal": f"arn:aws:iam::{WORKLOAD}:root",
+            "Operations": ["Decrypt"]}])
+    revoked = {**frozen, "state": "REVOKED"}
+    assert render_kms_policy_target(revoked)["target_policy"] == deny_policy
+    lost = {**frozen, "state": "LOST"}
+    assert render_kms_policy_target(lost)["target_policy"] == deny_policy
