@@ -36,3 +36,21 @@ Nie zmieniaj całego VPC, nie twórz drugiego workera ani custodial KMS, nie do�
 
 ## Kontrakt z #72/#73/#74
 #72 potwierdza hardware live, #73 brak exfil w sieci, #74 izolację dwóch kancelarii. W tym PR trzeba zapewnić testowalne punkty kontrolne i wyłączenie funkcji do chwili tamtych dowodów.
+
+
+## INSTRUKCJA DLA CLAUDE OPUS — SESJA PR #90
+
+Jesteś wykonawcą *tego* PR. **Wykonaj kod + testy**, nie kończ na kolejnym planie. Twoim celem jest zrealizowanie kryteriów odbioru powyżej. Nie modyfikuj obszarów innych sesji. Zanim zapiszesz kod, otwórz [katalog OSS](https://github.com/plnyspolka-pixel/notarai/blob/plan/civil-confidential-civ01-clean-base-20261122/docs/roadmaps/CIV-OSS-reuse-map.md)] i sprawdź bazową gałąź oraz aktualny stan projektu.
+
+1. Zbadaj master: worker/router/dispatch/registry/job_ledger, oraz v3 guest #87; nie twórz drugiego backendu zadań.
+2. Dołącz guest v3 do aktualnych S3 VersionId/SQS/DDB i wymuś origin/tenant/job/nonce przed decryption.
+3. Wykonaj atomowe rezerwowanie grantu i odmowę przy duplikacie, crash i dwóch konkurencyjnych workerach; v2 nadal działa wyłącznie we własnym trybie.
+4. Przetestuj synthetic v3 E2E, minimum 15 odmów i brak plaintext w logach; przygotuj kontrakt z #89 bez live deploy.
+
+**Kod do obejrzenia, nie do kopiowania bez analizy:**
+
+- [AWS NSM API Apache-2.0](https://github.com/aws/aws-nitro-enclaves-nsm-api/tree/main/nsm-lib/src)
+- [AWS Nitro SDK C Apache-2.0](https://github.com/aws/aws-nitro-enclaves-sdk-c)
+- [Moto Apache-2.0 — testy S3/SQS/DDB, nie dowód Nitro](https://github.com/getmoto/moto)
+
+Przed skopiowaniem wybierz SHA/tag, przeczytaj licencję i zapisz notice. Przetestuj regresję i negatywne przypadki z definicji odbioru. Raport końcowy: zmienione pliki, ponownie użyte komponenty, testy PASS/FAIL/BLOCKED, dokładny SHA i link CI, blokady sprzętowe. Brak AWS deploy/realnych aktów bez oddzielnej zgody. **PR planistyczny pozostaje Draft do wykonania.**
