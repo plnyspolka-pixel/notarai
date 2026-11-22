@@ -109,9 +109,15 @@ def automatic_policy(request: Request):
     This endpoint exposes no toggle that could enable filing or signatures.
     """
     _scope(request)
-    return JSONResponse(
-        DEFAULT_AUTO.public(), headers={"Cache-Control": "no-store"}
-    )
+    # SEC-04: do not imply that EU Bedrock or a browser pilot is strict ZK.
+    policy = DEFAULT_AUTO.public()
+    policy["ai_inference"] = {
+        "confidential_llm_enabled": False,
+        "external_bedrock_allowed": False,
+        "zk_status": "BLOCKED",
+        "strict_zero_knowledge_verified": False,
+    }
+    return JSONResponse(policy, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/preview/{case_id}/{object_id}")
