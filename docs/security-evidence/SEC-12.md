@@ -26,3 +26,16 @@ Zbieracz dowodów musi być pod kontrolą innego podmiotu niż operator NotarAI.
 Sekwencja live: podpisany release → zaaprobowana wersja obrazu → atestacja Nitro/NSM → KMS Decrypt do recipienta → preview-only → audyt metadanych i canary → negatywne próby operatora na rolach, release i key-policy → awarie/retry. Wymaga dwóch realnie niezależnych tożsamości (operator + kustosz) i uprawnionego audytora. CI/syntetyk nie dowodzą niezależności.
 
 **GO/NO-GO:** jakiekolwiek FAIL/BLOCKED/UNVERIFIED/EXPIRED w K1–K6 ⇒ NO_GO. Po dopisaniu w przyszłości live-verifier należy weryfikować podpis kryptograficzny i fresh evidence poza kontem operatora; nie przyjmować boolowskich `verified=true` w JSON jako dowodu. Dane produkcyjne i wysyłki urzędowe poza zakresem.
+
+
+## Pilot-only admission added
+
+SEC-12 additionally rejects every tenant other than `pilot01` and `pilot02`
+with HTTP 503 even if an operator configures it in the tenant allowlist.
+This is an offline safety gate and a deliberate limitation: it prevents
+unverified confidential pilot endpoints from processing a real office.
+The tests use invented tenant IDs only. Commercial admission remains NO_GO.
+
+The production transition must implement and audit a separate signed
+hardware/custody admission flow. Merely changing environment variables
+must never authorize that transition.
