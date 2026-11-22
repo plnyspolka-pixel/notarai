@@ -47,7 +47,7 @@ class AppProfile:
 
     def is_allowed_url(self, url: str) -> bool:
         url_parts = urlsplit(url)
-        if url_parts.username or url_parts.password or url_parts.fragment:
+        if url_parts.username or url_parts.password:
             return False
         if url_parts.scheme == 'https':
             valid = bool(url_parts.hostname)
