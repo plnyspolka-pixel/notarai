@@ -64,7 +64,14 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     assert "ExecuteCommand" not in task
     role = t["Resources"]["ConfidentialTaskRole"]["Properties"]
     statements = role["Policies"][0]["PolicyDocument"]["Statement"]
-    assert any(s.get("Action") == "s3:GetObject" for s in statements)
+    # Pinned-version reads only: the worker always passes VersionId, which S3
+    # authorises through s3:GetObjectVersion; "latest" must stay unreadable.
+    reads = [s for s in statements if "GetObject" in str(s.get("Action"))]
+    assert [s["Action"] for s in reads] == ["s3:GetObjectVersion"]
+    assert reads[0]["Resource"]["Sub"].endswith(
+        "/kancelarie/${TenantId}/confidential/*")
+    assert not any(a in str(s.get("Action")) for s in statements
+                   for a in ("s3:GetObject\"", "s3:List", "s3:Delete", "s3:*"))
     assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
                s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
 

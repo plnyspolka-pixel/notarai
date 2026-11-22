@@ -79,9 +79,13 @@ Resources:
                   StringEqualsIgnoreCase:
                     kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
                     kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
-              - Sid: ReadOnlyOwnCiphertexts
+              # The guest only ever reads the exact S3 VersionId pinned in the
+              # job ledger, and a versioned read is authorised by
+              # s3:GetObjectVersion, not s3:GetObject (AccessDenied live,
+              # 22.11.2026). Without s3:GetObject it cannot read "latest".
+              - Sid: ReadOnlyOwnPinnedCiphertextVersions
                 Effect: Allow
-                Action: s3:GetObject
+                Action: s3:GetObjectVersion
                 Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
               - Sid: WriteMetadataOnlyResults
                 Effect: Allow
