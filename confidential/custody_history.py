@@ -60,6 +60,8 @@ def _json_object(value: object) -> dict:
             value, object_pairs_hook=_no_duplicate_keys,
             parse_constant=lambda v: (_ for _ in ()).throw(
                 BoundaryDenied("invalid ledger JSON constant")))
+    except BoundaryDenied:
+        raise
     except (ValueError, TypeError, UnicodeError):
         raise BoundaryDenied("custody ledger JSON invalid") from None
     _deny(isinstance(parsed, dict), "custody ledger JSON must be an object")
@@ -127,8 +129,6 @@ def verify_history(*, tenant: str, event_items: list[dict],
     prior_issued = None
     retired = []
     observed_key_arns = set()
-    generations = set()
-    all_signing_pins = set()
 
     for index, item in enumerate(event_items, 1):
         _deny(isinstance(item, dict) and set(item) == _EVENT_ATTRS,
@@ -159,8 +159,6 @@ def verify_history(*, tenant: str, event_items: list[dict],
               _HEX.fullmatch(root[1]) is not None and
               root[1] == public_key_fingerprint(root[0]),
               "missing or untrusted external generation signing pin")
-        all_signing_pins.add(root[1])
-        generations.add(generation)
         before_sha = canonical_digest(current) if current else "0" * 64
         _deny(_s(item, "previous_state_sha256") == before_sha,
               "custody historical state hash chain broken")
