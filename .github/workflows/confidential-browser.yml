@@ -7,6 +7,9 @@ on:
       - 'docs/security-evidence/SEC-03.md'
       - 'docs/security-workstreams/SEC-03-zk-client-encryption.md'
       - 'static/confidential-crypto.js'
+      - 'static/confidential-courier.js'
+      - 'static/confidential-courier.html'
+      - 'test_confidential_courier_js.js'
       - 'static/confidential-auto.js'
       - 'test_confidential_auto_js.js'
       - 'static/index.html'
@@ -105,6 +108,8 @@ jobs:
         run: |
           node --check static/confidential-auto.js
           node test_confidential_auto_js.js
+          node --check static/confidential-courier.js
+          node test_confidential_courier_js.js
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
       - name: Niezalezny offline klient — podpisany bundle i Chromium bez sieci
