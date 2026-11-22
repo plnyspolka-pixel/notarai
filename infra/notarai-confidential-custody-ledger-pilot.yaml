@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SEC-06, independently operated SYNTHETIC custody CAS ledger for pilot01/pilot02.
+  This is a template only. NEVER deploy from NotarAI CI, workload account,
+  production or operator-owned AWS Organizations. No customer data allowed.
+Parameters:
+  WorkloadAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+  CustodyAcknowledgement:
+    Type: String
+    AllowedValues:
+      - independently-held-custodian-account
+Conditions:
+  IndependentCustodyAccount: !Not
+    - !Equals [!Ref "AWS::AccountId", !Ref WorkloadAccountId]
+  EUFrankfurtOnly: !Equals [!Ref "AWS::Region", "eu-central-1"]
+  SafePilotBoundary: !And
+    - !Condition IndependentCustodyAccount
+    - !Condition EUFrankfurtOnly
+Resources:
+  SyntheticCustodyLedger:
+    Type: AWS::DynamoDB::Table
+    Condition: SafePilotBoundary
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: notarai-confidential-custody-ledger-pilot
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: alias/aws/dynamodb
+      AttributeDefinitions:
+        - AttributeName: tenant
+          AttributeType: S
+        - AttributeName: record
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant
+          KeyType: HASH
+        - AttributeName: record
+          KeyType: RANGE
+      Tags:
+        - Key: NotarAI-Scope
+          Value: synthetic-only
+        - Key: CustodyOwnership
+          Value: !Ref CustodyAcknowledgement
+Outputs:
+  CustodyLedgerTableArn:
+    Condition: SafePilotBoundary
+    Value: !GetAtt SyntheticCustodyLedger.Arn
+  CustodianAccount:
+    Condition: SafePilotBoundary
+    Value: !Ref "AWS::AccountId"
