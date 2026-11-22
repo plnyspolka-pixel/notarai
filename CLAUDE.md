@@ -99,7 +99,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 ## Computer Use MVP — implementacja 22.11.2026
 - Przeczytaj **`docs/computer-use-implementation.md`** oraz **`docs/fallback-policy.md`** przed dalszą rozbudową.
 - Kod: `computer_use/fallback_router.py`, `deployment.py`, `profiles.py`, `profile_loader.py`, `browser.py`, `winapp.py`, `discovery.py`, `worker.py`. Żaden program kancelaryjny nie jest zależnością architektury.
-- Testy: `python -m pytest -q tests/test_computer_use*` (w CI wymagane bieżące zielone testy; ostatnie lokalne: 51 testów, 3 subtesty).
+- Testy: `python -m pytest -q tests/test_computer_use*` (w CI wymagane bieżące zielone testy; ostatnie lokalne: 61 testów, 3 subtesty).
 - Windows diagnostyka: `python -m examples.computer_use_windows_probe --app notepad` na **testowej** Windows VM z WinApp CLI, bez danych klientów; wypisuje wyłącznie liczniki.
-- Obecnie faktycznie zaimplementowano wybór środowiska, profile podpisane i tenant-bound, routing fallback, read-only DOM/UIA, kontrolowane draft fill i read-only UIA discovery. **Nie ma jeszcze Windows VM, modelu vision, live end-to-end ani brokera produkcyjnego**.
+- Obecnie faktycznie zaimplementowano wybór środowiska, profile podpisane i tenant-bound, routing fallback, read-only oficjalne API/DOM/UIA, kontrolowane draft fill i read-only UIA discovery. **Nie ma jeszcze Windows VM, modelu vision, live end-to-end ani brokera produkcyjnego**.
 - Nie odblokowywać zapisu repertorium, wysyłki, podpisów, CAPTCHA/2FA, bezpośredniej pracy na DB ani arbitralnych poleceń powłoki. Każdy kolejny backend musi przejść negatywne testy izolacji tenantów, braku PII i niepewnego zapisu.
+
+- Testowa infrastruktura IaC: `infra/notarai-universal-worker-vm.yaml` (brak deployu, Windows/licencja/SSM endpoints wymagają potwierdzenia). Testy statyczne: `tests/test_computer_use_infra.py`.
