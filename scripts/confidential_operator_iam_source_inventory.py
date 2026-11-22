@@ -154,6 +154,28 @@ def build_manifest(root: Path = ROOT):
                         "logical_id": logical_id,
                         "reason": "AWS_MANAGED_OR_EXTERNALLY_ATTACHED_POLICY",
                     })
+            if typ == "AWS::IAM::Role":
+                for trust in _statements(
+                        props.get("AssumeRolePolicyDocument", {})):
+                    if not isinstance(trust, dict):
+                        raise ValueError("malformed IAM trust statement")
+                    for action in _actions(trust):
+                        rows.append({
+                            "path": rel,
+                            "logical_id": logical_id,
+                            "principal": _clean(
+                                trust.get("Principal", "UNRESOLVED")),
+                            "policy": "assume_role_trust",
+                            "sid": _clean(trust.get("Sid", "UNNAMED")),
+                            "effect": _clean(trust.get("Effect")),
+                            "action": _clean(action),
+                            "resource": _clean(
+                                props.get("RoleName") or logical_id),
+                            "account": account,
+                            "condition": _clean(
+                                trust.get("Condition", "NONE")),
+                            "scope": "SOURCE_ONLY",
+                        })
             for policy_name, policy in _policy_sources(resource):
                 statements = _statements(policy)
                 if not statements:
@@ -171,7 +193,9 @@ def build_manifest(root: Path = ROOT):
                             "path": rel,
                             "logical_id": logical_id,
                             "principal": _clean(
-                                props.get("RoleName") or logical_id),
+                                statement.get("Principal",
+                                              props.get("RoleName") or
+                                              props.get("Roles") or logical_id)),
                             "policy": policy_name,
                             "sid": _clean(statement.get("Sid", "UNNAMED")),
                             "effect": _clean(statement.get("Effect")),
