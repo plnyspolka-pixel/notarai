@@ -95,6 +95,34 @@ request must create an auditable *pending* record until all versions,
 PITR windows, replicas and legal holds are resolved. A legal hold may prohibit
 deletion; it must never silently add an operator escrow/backdoor.
 
+## K4a — dry-run retention and legal-hold decision gate
+
+`confidential/retention_gate.py` implements an **offline**, metadata-only
+`assess_retention()` guard, with negative tests in
+`test_confidential_retention_gate.py`. Its only positive outcome is
+`ready_for_independent_review` — **never** `deleted`, `purged`, or
+`approved_for_automatic_deletion`. No AWS calls/deletion capability exists
+in the module.
+
+A request remains `blocked` if any of the following is unresolved:
+- legally approved UTC retention deadline, or active/unknown legal hold;
+- complete, non-truncated S3 version inventory including delete markers;
+- replica inventory, recovered/reachable backup windows, DDB PITR window;
+- approved legal basis for preserving mandatory security/audit logs;
+- **independently verified** client/controller and custodian signatures;
+- freshness of evidence (24 hours maximum), signed policy/inventory digests.
+
+**Trust boundary:** these booleans/digests are NOT self-authenticating. The
+gate only accepts structured facts already verified by an independent source;
+future integration must enforce signatures and cannot rely on API request flags.
+Even if all checks report true, a reviewer must still collect independent
+proof of the actual purge operation and surviving copies. Do not confuse
+eligibility to *review* a removal with proof of removal.
+
+Tests: `python -m pytest -q test_confidential_retention_gate.py`.
+No true deletion test is possible without a separately authorized process and
+verified legal retention schedule.
+
 ## K5 — recovery and emergency handling
 
 Allowed only after **authenticated, independently cryptographically verified**
