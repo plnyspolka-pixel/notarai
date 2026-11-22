@@ -145,3 +145,14 @@ exception and returns only static error categories for `ValueError`
 and `Przeciazenie`. Offline tests use fictional document names and
 synthetic ID canaries. This mitigates one output/log channel; it does
 not prove complete PII-free monitoring or strict ZK.
+
+
+## Reproducible static evidence artifact (still NOT independent ZK proof)
+Both CI workflows now upload their SEC-04 route inventories as short-lived
+artifacts (14-day retention): `sec04-ai-routes-ci` and
+`sec04-ai-routes-confidential`. Only file paths, numeric lines and mechanism
+codes are included, never file contents, document text or model output.
+Client AUTO policy negative tests run in the general CI and confidential
+Chromium workflow. This closes the previous audit-report loss on runner
+shutdown; K1 remains BLOCKED because dynamic dependency and live egress
+coverage are not demonstrated.

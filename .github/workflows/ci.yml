@@ -43,8 +43,18 @@ jobs:
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py
-      - name: SEC-04 audyt tras AI (tylko statyczny)
+          node --check static/confidential-auto.js
+          node test_confidential_auto_js.js
+      - name: SEC-04 audyt tras AI (Python i JS, tylko statyczny)
         run: python scripts/audit_confidential_ai_routes.py --json > /tmp/notarai-sec04-ai-route-audit.json
+      - name: SEC-04 artefakt bez danych spraw (tylko plik / linia / mechanizm)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec04-ai-routes-ci
+          path: /tmp/notarai-sec04-ai-route-audit.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
 

@@ -1,6 +1,7 @@
 # SEC-04 — [SEC-04] Zero Knowledge: izolacja AI/LLM, inference i wyników
 
-**Status: PLANNED, not implemented.** Priorytet: P0
+**Status: IN PROGRESS / DRAFT — implemented controls and tests exist, not ZK verified.** Priorytet: P0
+**Dowody i otwarte ryzyka:** [SEC-04 evidence](../security-evidence/SEC-04.md)
 **Zależności:** SEC-01, SEC-03, #65
 
 ## Zakres
@@ -20,7 +21,7 @@
 - [ ] **K5.** **Retencja i telemetry:** dla każdej ścieżki określona retencja/podprocesorzy i brak dokumentów w logach/traces; brak dowodu retencji = `BLOCKED`.
 - [ ] **K6.** **Granica ZK:** test odmawia strict Zero Knowledge, jeśli inference ujawnia plaintext usłudze nieatestowanej; wskazany wariant confidential inference wymagający odrębnego dowodu.
 
-**Docelowy test do dodania:** `python -m pytest -q test_confidential_zk_ai_boundary.py` — 0 failed i 0 pominiętych testów krytycznych.
+**Test dodany:** `python -m pytest -q test_confidential_zk_ai_boundary.py`. Wymaga potwierdzenia CI aktualnego HEAD; 0 failed i 0 pominiętych scenariuszy krytycznych. Dodatkowo `node test_confidential_auto_js.js` i `python scripts/audit_confidential_ai_routes.py --json`.
 
 ### Wspólny warunek zamknięcia
 - [ ] Zielone CI dla aktualnego HEAD SHA; komenda, liczba `passed/failed/skipped`, dowód w `docs/security-evidence/SEC-04.md` (lub artefakcie CI).
@@ -28,7 +29,7 @@
 - [ ] Zero PII/plaintext/DEK w artefaktach, zero zmiany AUTO no-submit. CI nie ustanawia `Zero Knowledge verified`.
 
 ## Zasady pracy w nowej konwersacji
-To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działającego dowodu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
+To jest **otwarty PR implementacyjny (DRAFT)**. Kod polityki AI, kontrole logowania, walidacja wyniku Nitro oraz testy istnieją; brak dowodu produkcyjnej atestacji. Dalsze prace wykonuj na **tej konkretnej gałęzi PR**, bez tworzenia zbędnego nowego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
 
 Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; produkcja wyłączona; AUTO preview nie wysyła, nie podpisuje i nie składa wniosków. Nie podnoś operatorowi uprawnień custody, nie loguj PII/plaintext/sekretów i nie wprowadzaj sieciowego 0.0.0.0/0 dla guest. Każdą własność security potwierdź testami pozytywnymi i **negatywnymi**; brak konta/narzędzi oznacz BLOCKED, a nie PASS. Sama dokumentacja lub CI nie stanowi dowodu sprzętowego. Zapisz kod + testy + wyniki + wymaganą niezależną atestację w PR.
 
