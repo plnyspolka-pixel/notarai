@@ -126,7 +126,8 @@ def validate_manifest(manifest: Mapping, *, now: datetime | None = None) -> dict
 
 
 def check_cloudtrail_event(event: Mapping, *, manifest: Mapping,
-                           event_id: str, accepted: bool) -> dict:
+                           event_id: str, accepted: bool,
+                           case: str | None = None) -> dict:
     """Accept only AWS KMS events fetched independently, never event claims."""
     require(isinstance(event, dict) and
             event.get("eventID") == event_id and
@@ -134,8 +135,16 @@ def check_cloudtrail_event(event: Mapping, *, manifest: Mapping,
             event.get("eventName") == "Decrypt" and
             event.get("awsRegion") == _REGION,
             "KMS event identity mismatch")
-    require(event.get("requestParameters", {}).get("keyId") ==
-            manifest["kms_key_arn"], "KMS key mismatch")
+    key_id = (event.get("requestParameters") or {}).get("keyId")
+    if case == "wrong_key":
+        # This negative test MUST use a different key, not a denial
+        # on the approved key mislabeled as a wrong-key attack.
+        require(isinstance(key_id, str) and key_id != manifest["kms_key_arn"]
+                and key_id.startswith(
+                    f"arn:aws:kms:{_REGION}:{manifest['custody_account']}:key/"),
+                "wrong-key trial did not use a different custody key")
+    else:
+        require(key_id == manifest["kms_key_arn"], "KMS key mismatch")
     require(event.get("responseElements") is None,
             "unexpected KMS response data in CloudTrail")
     event_time = _timestamp(event.get("eventTime"))
@@ -226,7 +235,7 @@ def assemble_audit_payload(*, manifest: Mapping, workload_events: Mapping,
         event_id = manifest["denied_event_ids"][case]
         denials[case] = check_cloudtrail_event(
             workload_events[event_id], manifest=manifest,
-            event_id=event_id, accepted=False,
+            event_id=event_id, accepted=False, case=case,
         )
     return {
         "schema": SCHEMA,
