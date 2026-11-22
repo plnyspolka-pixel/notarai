@@ -46,3 +46,30 @@ jobs:
       - name: Confirm no AWS session required
         run: |
           echo "SEC-10: Offline only; this workflow is NOT hardware or independent auditor evidence."
+
+  ephemeral-runtime:
+    name: SEC-10 Linux tmpfs + kernel dump guard (NO Nitro claim)
+    runs-on: ubuntu-latest
+    needs: synthetic-privacy
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify readonly non-root guest guard in isolated local Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          # No AWS credentials, no network, no real customer data, no host writes.
+          output="$(docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --user 10001:10001 -e PYTHONDONTWRITEBYTECODE=1 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=32m \
+            --mount type=bind,src="$PWD/confidential",dst=/app/confidential,readonly \
+            --workdir /app --entrypoint python python:3.12-slim-bookworm \
+            -c 'from confidential.plaintext_lifecycle import harden_guest_process, silence_guest_stdio; harden_guest_process(); silence_guest_stdio(); print("synthetic marker should never leave guest")' 2>&1)"
+          if [ -n "$output" ]; then
+            echo "::error::Guest emitted unexpected stdout/stderr (content withheld)"
+            exit 1
+          fi
+          echo "Offline Linux guard passed; not a Nitro hardware validation"
