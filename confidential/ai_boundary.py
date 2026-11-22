@@ -87,6 +87,10 @@ def evaluate_inference(
         # This is explicitly a distinct external trust boundary, even in EU.
         if not policy.approved_external_processing:
             raise AIBoundaryDenied("EXTERNAL_PROCESSING_NOT_APPROVED")
+        if policy.classification == "case_plaintext" and not (
+            policy.retention_evidence and policy.processor_evidence
+        ):
+            raise AIBoundaryDenied("RETENTION_OR_PROCESSOR_EVIDENCE_MISSING")
         return BoundaryDecision(True, "UNVERIFIED", "aws-bedrock-outside-nitro",
                                 "EXTERNAL_PLAINTEXT_BOUNDARY")
 
