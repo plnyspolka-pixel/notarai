@@ -101,6 +101,8 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
     if len(ciphertext) > 35 * 1024 * 1024:
         raise ValueError("ciphertext object too large")
     env = Envelope.parse(json.loads(ciphertext))
+    if env.version != 2:
+        raise ValueError("legacy unversioned envelope is not allowed in Nitro guest")
     if (env.tenant_id, env.case_id, env.object_id, env.kms_key_arn) != (
         tenant, case_id, object_id, key_arn
     ):
