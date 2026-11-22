@@ -19,7 +19,7 @@ FIXTURE = {
 
 class VirtualEmployeeProtocolTests(unittest.TestCase):
     def test_reference_signature(self):
-        expected = "REPLACE_ME"
+        expected = "3001f34ea8457f39c5da9142fc6c2e2680956f5484a32082c030736c819ba7f0"
         self.assertEqual(hmac.new(KEY, canonical(FIXTURE), hashlib.sha256).hexdigest(), expected)
 
     def test_fixture_uses_signed_read_only_command(self):
