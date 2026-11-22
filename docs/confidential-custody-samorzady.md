@@ -10,7 +10,8 @@ Data: 22.11.2026. Dotyczy pomysłu właściciela z 22.11.2026 oraz architektury 
 **Kierunek, w którym budujemy (decyzja właściciela z 22.11.2026): pkt 5.7.** Dostęp do treści
 ma zależeć od algorytmu, a nie od zaufania do osoby lub instytucji: klucz zostaje u klienta,
 klient sam sprawdza atestację enklawy z publicznym rejestrem, a enklawa przyjmuje zlecenia
-tylko od kluczy poświadczonych podpisem kwalifikowanym notariusza. Warianty z kustoszem
+tylko od urządzeń kancelarii. **Notariusz niczego nie podpisuje podpisem kwalifikowanym**
+(decyzja z 22.11.2026: byłaby to bariera wejścia; pkt 5.7 lit. C). Warianty z kustoszem
 (5.2-5.5) są etapem przejściowym i tłem analizy.
 
 1. **Nie wręczać klucza kustosza żadnemu samorządowi ani organowi nadzoru.** Kustosz może
@@ -442,25 +443,47 @@ AWS Nitro, obecność pomiaru w publicznym rejestrze wydań (5.1), własną wart
 w dokumencie. Dopiero wtedy szyfruje klucz dokumentu do klucza enklawy. Przy niezgodności
 klucz nie jest wysyłany.
 
-**C. Enklawa sprawdza klienta przez podpis kwalifikowany.** Podpis kwalifikowany nie szyfruje
-(klucz na karcie lub u dostawcy służy tylko do podpisu), więc nie zastępuje elementu A.
-Rozwiązuje natomiast pytanie, skąd enklawa wie, że zlecenie pochodzi od notariusza:
+**C. Enklawa sprawdza klienta przez klucz kancelarii, bez podpisu kwalifikowanego.**
+Korzeniem zaufania jest klucz kancelarii z elementu A, nie certyfikat osoby.
 
-1. Notariusz jednorazowo podpisuje kwalifikowanie oświadczenie wiążące klucz urządzenia
-   z kancelarią. Operator nie może podstawić cudzego klucza.
-2. Codzienne zlecenia podpisuje klucz urządzenia (bez PIN-u przy każdym dokumencie). Zlecenie
-   wskazuje pomiar enklawy, zadanie i okres ważności. To także sposób na pracę w tle, gdy
-   notariusz jest offline.
-3. Dodanie urządzenia i odzyskanie dostępu wymagają podpisu kwalifikowanego, więc nie ma
-   ścieżki „operator resetuje dostęp”.
-4. Podpis kwalifikowany jest równoważny własnoręcznemu, więc każde przetworzenie jest
-   oświadczeniem notariusza, który osobiście odpowiada za tajemnicę.
+1. Klucz kancelarii poświadcza klucze urządzeń. Nowe urządzenie dodaje się z urządzenia już
+   działającego (np. kodem na ekranie) albo kodem odzyskiwania. Nie ma ścieżki „operator
+   resetuje dostęp”.
+2. Zlecenia podpisuje klucz urządzenia, niewidocznie dla użytkownika. Zlecenie wskazuje
+   pomiar enklawy, zadanie i okres ważności. To także sposób na pracę w tle, gdy notariusz
+   jest offline.
+3. Uprawnienia pracowników kancelarii to delegacje podpisane kluczem kancelarii, z zakresem
+   i terminem.
 
-Operator pośredniczy w przesyłaniu, ale nie może udawać ani enklawy (B), ani notariusza (C).
+Poufność nie zależy od tego elementu: nawet gdyby operator podstawił fałszywe urządzenie,
+nie ma ono klucza kancelarii i niczego nie odszyfruje. Element C chroni przed zlecaniem
+przetwarzania w cudzym imieniu.
+
+**Dlaczego nie podpis kwalifikowany.** Rozważono go jako korzeń zaufania (jednorazowe
+poświadczenie klucza urządzenia) i odrzucono jako warunek korzystania z usługi:
+- notariusze nie będą chcieli składać podpisu równoważnego własnoręcznemu na potrzeby
+  narzędzia programistycznego; to bariera, która zatrzyma wdrożenie;
+- nie jest potrzebny do poufności (akapit wyżej);
+- certyfikat zawiera dane osobowe, wymaga sprawdzania ważności i wymiany co 2-3 lata.
+Może wrócić wyłącznie jako dobrowolna opcja dla kancelarii, które same o to poproszą.
+
+**Zasady, żeby klient się nie bał.**
+- System nigdy nie trzyma jedynego egzemplarza dokumentu. Utrata klucza oznacza utratę kopii
+  roboczych w narzędziu, nie akt kancelarii.
+- Użytkownik nie widzi słowa „klucz”. Pierwsze uruchomienie przypomina aktywację aplikacji
+  bankowej; klucz sam przenosi się na drugie urządzenie kancelarii.
+- Kod odzyskiwania drukuje się raz i przechowuje w kancelarii, tak jak pieczęć.
+- Odzyskiwanie nie przechodzi przez operatora. Każda ścieżka „zadzwoń, zresetujemy”
+  przywraca zaufanie do operatora i unieważnia dowód.
+- W komunikacji: „Wasze dokumenty otwiera tylko wasza kancelaria. My nie możemy. Każdy może
+  to sprawdzić.” Szczegóły techniczne są dla izby, audytora i dociekliwych.
+
+Operator pośredniczy w przesyłaniu, ale nie może udawać enklawy (B) ani uzyskać klucza
+kancelarii (A).
 
 **Co dowodzi.** Treść może odszyfrować wyłącznie kod o pomiarze z publicznego rejestru,
-i wyłącznie na zlecenie klucza poświadczonego przez notariusza. Nie istnieje strona, która
-może to zmienić jednostronnie.
+i wyłącznie wtedy, gdy klucz wyda urządzenie kancelarii. Nie istnieje strona, która może to
+zmienić jednostronnie.
 
 **Czego nie dowodzi.**
 - Poprawności kodu. Rejestr i odtwarzalna kompilacja sprawiają, że każdy może go przeczytać
@@ -478,19 +501,14 @@ dla każdej własnej sesji, bo to jego oprogramowanie podjęło decyzję o wydan
 kopii nagłówków rejestru, żeby operator nie mógł pokazać różnym klientom różnych wersji.
 
 **Problemy do rozwiązania.**
-- Certyfikat kwalifikowany potwierdza tożsamość osoby, nie zawód. Powiązanie z notariuszem
-  wymaga urzędowego wykazu; nie sprawdzono, czy jest dostępny maszynowo.
-- Certyfikat zawiera dane osobowe (imię, nazwisko, zwykle identyfikator oparty na PESEL).
-  Podpisów kwalifikowanych nie wolno publikować w rejestrze ani zapisywać w logach;
-  weryfikacja wyłącznie w enklawie.
-- Enklawa nie ma ruchu wychodzącego do dostawców certyfikatów, więc potwierdzenie ważności
-  (OCSP lub CRL) i znacznik czasu dostarcza klient razem z poświadczeniem.
-- Lista zaufanych dostawców musi być w mierzonym obrazie i aktualizowana przez wydania.
-- Wymiana certyfikatu co 2-3 lata wymaga ponownego poświadczenia klucza urządzenia.
-- Wielu użytkowników w kancelarii (zastępca, asesor, pracownicy): delegacja podpisana przez
-  notariusza, z zakresem i terminem.
-- Podpisy w chmurze dostawcy, karty i czytniki różnią się integracją; do sprawdzenia na
-  prawdziwym sprzęcie.
+- Gdzie przechowywać klucz kancelarii, żeby był odporny na złośliwe oprogramowanie na
+  komputerze (magazyn sprzętowy, klucz bezpieczeństwa) i jednocześnie wygodny.
+- Pierwsze powiązanie klucza kancelarii z kontem kancelarii odbywa się przy rejestracji;
+  operator mógłby wtedy podstawić własny klucz dla nowej kancelarii. Klient powinien móc
+  porównać odcisk klucza na dwóch swoich urządzeniach.
+- Utrata wszystkich urządzeń i kodu odzyskiwania jednocześnie: kopie robocze przepadają.
+- Wielu użytkowników w kancelarii (zastępca, asesor, pracownicy): zakres i termin delegacji,
+  odbieranie uprawnień.
 - Odrzucono wyprowadzanie klucza szyfrującego z podpisu pod stałym tekstem: działa tylko dla
   części algorytmów, a wymiana certyfikatu oznaczałaby utratę dokumentów.
 - Odrzucono zamrożenie polityki klucza KMS jako rozwiązanie docelowe: właściciel konta
@@ -506,17 +524,16 @@ kopii nagłówków rejestru, żeby operator nie mógł pokazać różnym kliento
 | `confidential/envelope.py` | koperta wymaga `kms_key_arn` i klucza opakowanego RSA | nowa wersja koperty z odbiorcą-enklawą; stara zostaje na okres przejściowy |
 | `confidential/attested_kms.py`, `nitro_unwrapper.py` | jedyna droga do klucza dokumentu | ścieżka przejściowa; docelowo poza obiegiem dokumentów |
 | `confidential/worker.py`, `dispatch.py`, `job_ledger.py` | zadanie jednorazowe z kolejki, bez udziału klienta | sesja z klientem albo zadanie w tle na podstawie podpisanego zlecenia |
-| `confidential/signed_approval.py` | zgody Ed25519; rejestr kluczy w DynamoDB wypełniany osobną procedurą | korzeniem rejestru staje się poświadczenie podpisem kwalifikowanym, weryfikowane w enklawie |
-| brak | brak weryfikacji podpisów kwalifikowanych (XAdES/CAdES/PAdES) i listy zaufania | nowy moduł w obrazie enklawy |
-| `confidential/private_egress.py` | zamknięty ruch wychodzący | bez zmian; ważność certyfikatów dostarcza klient |
+| `confidential/signed_approval.py` | zgody Ed25519; rejestr kluczy w DynamoDB wypełniany osobną procedurą | klucze urządzeń poświadcza klucz kancelarii; enklawa weryfikuje łańcuch zamiast ufać rejestrowi operatora |
+| `confidential/private_egress.py` | zamknięty ruch wychodzący | bez zmian |
 | `confidential/release_approval.py`, `operator_boundary.py`, `pilot_preflight.py` | bramki kustosza dla ścieżki KMS | zostają dla ścieżki przejściowej; podpisy wydań zasilają rejestr |
 | brak | brak rejestru przejrzystości i odtwarzalnej kompilacji | nowe |
 
 **Etapy.**
 0. Rejestr przejrzystości i narzędzie weryfikacji (5.1). Niezależne od reszty.
 1. Atestacja z nonce klienta i weryfikator w rozszerzeniu, równolegle do ścieżki KMS.
-2. Poświadczenie klucza urządzenia podpisem kwalifikowanym; rejestr kluczy przestaje zależeć
-   od operatora.
+2. Klucz kancelarii poświadcza klucze urządzeń; rejestr kluczy przestaje zależeć od operatora.
+   Dodawanie urządzeń i kod odzyskiwania po stronie kancelarii.
 3. Wydanie klucza dokumentu bezpośrednio enklawie; KMS znika z obiegu dokumentów.
 4. Podpisane zlecenia dla zadań w tle i delegacje dla pracowników kancelarii.
 
@@ -609,8 +626,6 @@ prawdziwy.
    komercyjny na umowie, czy wstrzymujemy się z innymi kancelariami do etapu 3?
 8. Gdzie ma mieszkać klucz kancelarii i weryfikator: rozszerzenie przeglądarki, pomocnik,
    czy oba? Od tego zależy zakres etapu 1.
-9. Czy kancelaria pilotażowa udostępni prawdziwy podpis kwalifikowany do testu etapu 2
-   (`docs/czeka-na-dostep.md`, NA-17)?
 3. Czy rejestr przejrzystości ma być w pełni publiczny od pierwszego dnia, w tym z kodem
    źródłowym części działającej w Nitro (warunek odtwarzalnej kompilacji)?
 4. Czy masz istniejący kontakt w którejś izbie notarialnej lub w KRN, od którego można zacząć

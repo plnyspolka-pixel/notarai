@@ -329,10 +329,8 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **W kodzie:** PR #61, #62, #65; `docs/confidential-custody-samorzady.md` pkt 5.5 i 5.7.
 - **Zamknięte, gdy:** mamy raport z obu kont, podpisane wydanie zweryfikowane kluczem publicznym przekazanym poza NotarAI oraz wynik testów odszyfrowania.
 
-## NA-17. Podpis kwalifikowany notariusza jako korzeń zaufania (etap 2)
+## NA-17. Podpis kwalifikowany notariusza jako korzeń zaufania
 
-- **Status:** czeka
-- **Brakuje:** prawdziwego podpisu kwalifikowanego (karta z czytnikiem albo podpis w chmurze dostawcy) i notariusza, który złoży podpis testowy; ustalenia, czy urzędowy wykaz notariuszy jest dostępny maszynowo.
-- **Na żywo:** podpisać oświadczenie wiążące testowy klucz urządzenia z kancelarią; zweryfikować podpis, łańcuch do listy zaufania i dostarczone potwierdzenie ważności certyfikatu; sprawdzić, jakie dane osobowe zawiera certyfikat, i potwierdzić, że nie trafiają do logów ani do rejestru publicznego.
-- **W kodzie:** `confidential/signed_approval.py` (rejestr kluczy do zastąpienia); `docs/confidential-custody-samorzady.md` pkt 5.7.
-- **Zamknięte, gdy:** poświadczenie podpisane prawdziwym podpisem przechodzi weryfikację offline, a próby z certyfikatem wygasłym, odwołanym i obcym są odrzucane.
+- **Status:** wycofane 22.11.2026 (decyzja właściciela, przed rozpoczęciem prac)
+- **Powód:** notariusze nie będą chcieli podpisywać czegokolwiek podpisem kwalifikowanym na potrzeby narzędzia; nie jest to potrzebne do poufności. Korzeniem zaufania jest klucz kancelarii na urządzeniu (`docs/confidential-custody-samorzady.md` pkt 5.7 lit. C).
+- **Wraca tylko, gdy:** kancelaria sama poprosi o taką opcję.
