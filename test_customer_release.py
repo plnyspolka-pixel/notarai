@@ -1,9 +1,9 @@
 """Offline-only cryptographic regression. No AWS, Nitro or customer data."""
-import copy
 
 import pytest
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
+from confidential.customer_origin import sign_customer_origin
 from confidential.customer_release import (
     ReleaseDenied, seal_document, envelope_sha256, issue_job_release,
     open_preview_in_guest, parse_envelope, parse_grant,
@@ -31,8 +31,20 @@ def f():
                         object_id="scan01", document_version="a" * 32)
     release = issue_job_release(env, owner_priv, guest_pub, job_id="job01",
                                 issued_at=1900000000, expires_at=1900000300)
+    notary = ed25519.Ed25519PrivateKey.generate()
+    notary_private = notary.private_bytes(serialization.Encoding.PEM,
+                                         serialization.PrivateFormat.PKCS8,
+                                         serialization.NoEncryption())
+    pinned_pub = notary.public_key().public_bytes(serialization.Encoding.Raw,
+                                                 serialization.PublicFormat.Raw)
+    receipt, receipt_sig = sign_customer_origin(
+        env, s3_version="s3SyntheticVersion01", issuer_id="notary01",
+        expires_at=2000000000, trusted_client_signing_private_pem=notary_private)
     expected = dict(expected_tenant="pilot01", expected_case="case01",
-                    expected_object="scan01", expected_job="job01", now=1900000010)
+                    expected_object="scan01", expected_job="job01", now=1900000010,
+                    origin_receipt=receipt, origin_signature=receipt_sig,
+                    pinned_notary_signing_public_raw=pinned_pub,
+                    expected_issuer_id="notary01", expected_s3_version="s3SyntheticVersion01")
     return locals()
 
 
@@ -125,3 +137,34 @@ def test_explicit_job_binding_different_new_release(f):
     assert fresh["recipient_wrapped_dek_b64"] != f["release"]["recipient_wrapped_dek_b64"]
     with pytest.raises(ReleaseDenied):
         open_preview_in_guest(f["env"], fresh, f["guest_priv"], **f["expected"])
+
+
+def test_missing_origin_signature_blocks_before_key_unwrap(f):
+    with pytest.raises(ReleaseDenied):
+        open_valid(f, origin_signature=b"")
+
+
+def test_forged_origin_receipt_blocks(f):
+    changed = dict(f["receipt"], envelope_sha256="0" * 64)
+    with pytest.raises(ReleaseDenied):
+        open_valid(f, origin_receipt=changed)
+
+
+def test_wrong_pinned_notary_key_blocks(f):
+    other = ed25519.Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    with pytest.raises(ReleaseDenied):
+        open_valid(f, pinned_notary_signing_public_raw=other)
+
+
+def test_origin_wrong_version_or_issuer_blocks(f):
+    for key, val in (("expected_s3_version", "wrongS3version"),
+                     ("expected_issuer_id", "otherNotary")):
+        with pytest.raises(ReleaseDenied):
+            open_valid(f, **{key: val})
+
+
+def test_origin_expiry_blocks_before_lease_even_if_grant_valid(f):
+    receipt = dict(f["receipt"], expires_at=1900000005)
+    with pytest.raises(ReleaseDenied):
+        open_valid(f, origin_receipt=receipt)
