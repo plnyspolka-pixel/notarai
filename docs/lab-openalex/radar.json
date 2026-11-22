@@ -173,6 +173,21 @@
       "nazwa": "Wideo: optymalizacja promptu text-to-video",
       "kierunek": "generowanie-wideo",
       "zapytanie": "prompt optimization text-to-video"
+    },
+    {
+      "nazwa": "Narracja: mikrodramat pionowy",
+      "kierunek": "narracja-seriale",
+      "zapytanie": "micro-drama vertical short drama duanju audience"
+    },
+    {
+      "nazwa": "Narracja: zawieszenie akcji i powrót widza",
+      "kierunek": "narracja-seriale",
+      "zapytanie": "cliffhanger serial narrative continued viewing experiment"
+    },
+    {
+      "nazwa": "Narracja: marka w fabule i treści generowane przez AI",
+      "kierunek": "narracja-seriale",
+      "zapytanie": "branded entertainment product placement AI-generated video disclosure trust"
     }
   ]
 }

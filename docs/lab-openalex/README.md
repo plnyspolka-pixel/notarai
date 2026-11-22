@@ -18,6 +18,7 @@ Dwa kierunki:
 | [STAN-WIEDZY.md](STAN-WIEDZY.md) | stan wiedzy na dzień wpisu: co wiadomo, z jaką pewnością, co z tego wynika dla nas |
 | [KIERUNKI.md](KIERUNKI.md) | kolejne kierunki i eksperymenty laboratorium, z kosztem i miarą sukcesu |
 | [GENEROWANIE-WIDEO.md](GENEROWANIE-WIDEO.md) | generowanie obrazów i wideo na otwartych modelach: workflow, agenci, powtórki, ocena (rejestry `media-*.jsonl`, M/N/Q, 100 prac) — pod ai-clip |
+| [NARRACJA-SERIALE.md](NARRACJA-SERIALE.md) | co trzyma widza przy książce, filmie, serialu i telenoweli; edukacja przez rozrywkę, mikrodramy, marka w fabule (rejestry `narracja-*.jsonl`, TN/MD/EE/FS/KS, 265 prac) — pod mikroserial „Komputerku…” |
 | `zrodla/*.jsonl` | rejestry prac (każda z identyfikatorem OpenAlex): `bezpieczenstwo` (S, 62), `llm-agenci` (L, 71), `trening-agentow` (T, 77), `praca-z-agentami` (P, 57), `zbiory-dla-agentow` (D, 85); `zbiory-danych` — rejestr dziedzinowy drugiej sesji |
 | `weryfikacja/*.jsonl` | wynik weryfikacji rejestrów — także starszych, z gałęzi laboratorium |
 | [radar.json](radar.json) | tematy obserwowane co tydzień |
