@@ -64,8 +64,9 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     role = t["Resources"]["ConfidentialTaskRole"]["Properties"]
     statements = role["Policies"][0]["PolicyDocument"]["Statement"]
     assert any(s.get("Action") == "s3:GetObject" for s in statements)
-    assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
-               s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
+    assert not any("kms:Decrypt" in str(s.get("Action")) for s in statements)
+    assert any("dynamodb:UpdateItem" in s.get("Action", []) for s in statements)
+    assert container["Command"] == ["python", "-m", "confidential.customer_v3_worker"]
 
 
 def test_dedicated_nitro_capacity_roles_and_sg():
@@ -156,13 +157,13 @@ def test_policy_generator_matches_cloudformation_guest_runtime():
     image = "111122223333.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-pilot01@sha256:" + "f" * 64
     task = make_task(
         account="111122223333", tenant="pilot01", image=image,
-        kms_key_arn="arn:aws:kms:eu-central-1:111122223333:key/12345678-abcd",
         bucket="ntr-cf-pilot01-111122223333-eu-central-1",
         queue="https://sqs.eu-central-1.amazonaws.com/111122223333/notarai-confidential-pilot01.fifo",
     )
     t = template("notarai-confidential-task.yaml")
     c = t["Resources"]["ConfidentialTaskDefinition"]["Properties"]
     assert task["family"] == "notarai-confidential-pilot01"
+    assert task["containerDefinitions"][0]["command"] == c["ContainerDefinitions"][0]["Command"]
     assert task["networkMode"] == c["NetworkMode"]
     assert task["requiresCompatibilities"] == c["RequiresCompatibilities"]
     assert task["cpu"] == c["Cpu"]
