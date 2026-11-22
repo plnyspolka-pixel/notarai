@@ -1,0 +1,143 @@
+"""SEC-07 read-only audit of the four KMS-negative trials.
+
+An unsigned release should never reach RunTask, and a changed OCI image can
+be denied at ECS admission. Neither should be misrepresented by a fabricated
+KMS AccessDenied ID. Both need separate independent evidence and witnessing.
+
+The script never launches a task, calls KMS Decrypt or alters AWS.
+Exit 2 (BLOCKED) is intentional until the full independent hardware audit.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from confidential.nitro_denial_matrix import (
+    KMS_CASES, EARLY_CASES, DenialEvidenceRejected, incomplete_audit_result,
+    inspect_early_denial_receipt, inspect_kms_denial, validate_matrix,
+)
+
+_MAX_BYTES = 32 * 1024
+
+
+def _read_json(path: str) -> dict:
+    payload = Path(path).read_bytes()
+    if not payload or len(payload) > _MAX_BYTES:
+        raise DenialEvidenceRejected("audit input invalid")
+    value = json.loads(payload)
+    if not isinstance(value, dict):
+        raise DenialEvidenceRejected("audit input not an object")
+    return value
+
+
+def _lookup(trail, event_id: str, start: datetime, end: datetime) -> dict:
+    result = trail.lookup_events(
+        LookupAttributes=[{"AttributeKey": "EventId", "AttributeValue": event_id}],
+        StartTime=start, EndTime=end, MaxResults=50,
+    )
+    entries = result.get("Events", [])
+    if len(entries) != 1 or result.get("NextToken"):
+        raise DenialEvidenceRejected("CloudTrail negative event missing/ambiguous")
+    raw = entries[0].get("CloudTrailEvent", "")
+    if not isinstance(raw, str) or len(raw) > 128 * 1024:
+        raise DenialEvidenceRejected("CloudTrail negative record invalid")
+    return json.loads(raw)
+
+
+def audit_live(*, matrix: dict, operator_profile: str, custody_profile: str,
+               receipts: dict, session_factory=None) -> dict:
+    """Re-fetch four real KMS events and check two early receipt structures.
+
+    This does not establish independent witness provenance of early denials;
+    consequently, the return value can never be hardware PASS.
+    """
+    validate_matrix(matrix)
+    if (not operator_profile or not custody_profile or
+            operator_profile == custody_profile):
+        raise DenialEvidenceRejected("two distinct audit profiles required")
+    if session_factory is None:
+        import boto3
+        session_factory = boto3.Session
+    operator = session_factory(
+        profile_name=operator_profile, region_name="eu-central-1",
+    )
+    custody = session_factory(
+        profile_name=custody_profile, region_name="eu-central-1",
+    )
+    caller = operator.client("sts").get_caller_identity()
+    owner = custody.client("sts").get_caller_identity()
+    if (caller.get("Account") != matrix["workload_account"] or
+            owner.get("Account") != matrix["custody_account"]):
+        raise DenialEvidenceRejected("live AWS account mismatch")
+
+    start = datetime.strptime(matrix["started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc,
+    ) - timedelta(minutes=2)
+    end = datetime.strptime(matrix["ended_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc,
+    ) + timedelta(minutes=2)
+    trail = operator.client("cloudtrail")
+    observed = {}
+    for case in sorted(KMS_CASES):
+        record = _lookup(trail, matrix["trials"][case]["event_id"], start, end)
+        observed[case] = inspect_kms_denial(case, record, matrix)
+    if not isinstance(receipts, dict) or set(receipts) != set(EARLY_CASES):
+        raise DenialEvidenceRejected("early-denial receipts unavailable")
+    early = {}
+    for case in sorted(EARLY_CASES):
+        early[case] = inspect_early_denial_receipt(
+            case, receipts[case], matrix,
+        )
+    return {
+        **incomplete_audit_result(),
+        "kms_cases_live_observed": len(observed),
+        "early_case_metadata_validated": len(early),
+        "kms_observations": observed,
+        "early_observations": early,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--check", action="store_true",
+                       help="Offline check; never contacts AWS")
+    group.add_argument("--verify-live", action="store_true",
+                       help="Read-only AWS CloudTrail/STS; never triggers trials")
+    parser.add_argument("--matrix")
+    parser.add_argument("--operator-profile")
+    parser.add_argument("--custody-profile")
+    parser.add_argument("--altered-image-receipt")
+    parser.add_argument("--unsigned-release-receipt")
+    args = parser.parse_args()
+    try:
+        matrix = validate_matrix(_read_json(args.matrix)) if args.matrix else None
+        if args.check:
+            print(json.dumps(incomplete_audit_result(), sort_keys=True))
+            return 2
+        if (matrix is None or not args.operator_profile or
+                not args.custody_profile or not args.altered_image_receipt or
+                not args.unsigned_release_receipt):
+            raise DenialEvidenceRejected("live audit requires two profiles and receipts")
+        result = audit_live(
+            matrix=matrix,
+            operator_profile=args.operator_profile,
+            custody_profile=args.custody_profile,
+            receipts={
+                "altered_image": _read_json(args.altered_image_receipt),
+                "unsigned_release": _read_json(args.unsigned_release_receipt),
+            },
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 2
+    except Exception:
+        print(json.dumps(incomplete_audit_result(), sort_keys=True))
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
