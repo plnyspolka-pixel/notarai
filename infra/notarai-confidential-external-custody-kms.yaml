@@ -37,10 +37,10 @@ Resources:
       MultiRegion: false
       Enabled: true
       Tags:
-        - TagKey: CustodyScope
-          TagValue: !Ref CustodyAcknowledgement
-        - TagKey: TenantScope
-          TagValue: !Ref TenantId
+        - Key: CustodyScope
+          Value: !Ref CustodyAcknowledgement
+        - Key: TenantScope
+          Value: !Ref TenantId
       KeyPolicy:
         Version: "2012-10-17"
         Statement:
