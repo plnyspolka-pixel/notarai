@@ -1,0 +1,48 @@
+{
+  "snapshot_date": "2026-11-22",
+  "purpose": "Read-only provenance register; no code vendored or installed.",
+  "repositories": [
+    {
+      "name": "matematic-anonimizacja-pl",
+      "url": "https://github.com/matematicsolutions/matematic-anonimizacja-pl",
+      "commit": "52d178254c6794f75d6cab133a6655bf2fe0c4ae",
+      "license": "Apache-2.0 (LICENSE read)",
+      "status": "BENCHMARK_ONLY"
+    },
+    {
+      "name": "anon-legal-pl",
+      "url": "https://github.com/apiotrowski-afk/anon-legal-pl",
+      "commit": "f9802c3dcb88d777c567c2ffee85bfedabf5c92f",
+      "license": "Apache-2.0 (README read; verify LICENSE)",
+      "status": "BENCHMARK_ONLY"
+    },
+    {
+      "name": "stemma",
+      "url": "https://github.com/stemma-sh/stemma",
+      "commit": "c0f307927506ea691c04de26cca9f62ec9d9c268",
+      "license": "MIT OR Apache-2.0 (README read; verify LICENSE files)",
+      "status": "FUTURE_SEPARATE_POC"
+    },
+    {
+      "name": "FlaUI-MCP",
+      "url": "https://github.com/shanselman/FlaUI-MCP",
+      "commit": "b7039bf26d49d1dab3755ac1b352dbe5629aa61b",
+      "license": "MIT (README read; verify LICENSE)",
+      "status": "FUTURE_WINDOWS_VM_POC"
+    },
+    {
+      "name": "prawo-pl-mcp",
+      "url": "https://github.com/matematicsolutions/prawo-pl-mcp",
+      "commit": "09bcd8ca91434d26c73298526d5a196dc39d7b08",
+      "license": "UNVERIFIED",
+      "status": "FUTURE_SOURCE_GATE_POC"
+    },
+    {
+      "name": "edoreczenia-php",
+      "url": "https://github.com/b44x/edoreczenia-php",
+      "commit": "37fba934e89e62890e75286c04d8e0583bbfe20f",
+      "license": "UNVERIFIED",
+      "status": "OFFICIAL_INT_REQUIRED"
+    }
+  ]
+}
