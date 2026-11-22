@@ -121,3 +121,38 @@ When the independent custodian and auditor have already **each signed the exact 
 ```
 
 No private keys, temporary AWS credentials or raw CloudTrail events belong in GitHub. The CLI tests certificate/key mismatch, stale signature, cross-tenant binding and tampered receipt hashes. If signatures validate, it can report `witness_signatures_verified=true`, while **still returning `status=BLOCKED`, `hardware_attestation_verified=false` and exit status 2** until all independent AWS evidence and witness independence controls are satisfied. Do not misinterpret these two signatures as an external hardware attestation certificate.
+
+## Odtwarzalny pakiet podpisów dwóch niezależnych świadków (offline)
+
+Dodano `scripts/prepare_nitro_witness.py` oraz `test_confidential_nitro_prepare_witness.py`. Niezależny świadek używa **wcześniej zweryfikowanego** `negative-matrix.json`, pełnych identyfikatorów CloudTrail i własnoręcznie zweryfikowanych skrótów recepitów. Skrypt zapisuje pliki 0600 poza repozytorium: czytelny JSON i **kanoniczne bajty z prefiksem dziedzinowym**, które trzeba podpisać. Istniejące pliki nie są nadpisywane.
+
+```bash
+python scripts/prepare_nitro_witness.py \
+  --matrix /secure/negative-matrix.json \
+  --observed-at 2026-11-22T09:00:00Z \
+  --expires-at 2026-11-22T10:00:00Z \
+  --payload-out /secure/witness.json \
+  --signing-bytes-out /secure/witness.signing.bin
+```
+
+Każda niezależna strona **najpierw** weryfikuje obserwacje AWS poza kontrolą operatora i potwierdza niezależność administracyjną obydwu kont AWS. Sam skrypt **nie tworzy kluczy prywatnych, nie atestuje sprzętu, nie pobiera danych AWS i niczego nie podpisuje**.
+
+Dwóch świadków, na dwóch osobno zarządzanych stacjach roboczych, podpisuje te same bajty, każdy **innym posiadanym już prywatnym kluczem ECDSA P-256**:
+
+```bash
+# Wykonuje kustosz, z kluczem zabezpieczonym poza systemem NotarAI:
+openssl dgst -sha256 -sign /private/custodian-p256.pem \
+  -out /secure/custodian.der /secure/witness.signing.bin
+openssl base64 -A -in /secure/custodian.der -out /secure/custodian.b64
+
+# Audytor powtarza z INNYM kluczem prywatnym:
+openssl dgst -sha256 -sign /private/auditor-p256.pem \
+  -out /secure/auditor.der /secure/witness.signing.bin
+openssl base64 -A -in /secure/auditor.der -out /secure/auditor.b64
+```
+
+Pliki `.b64` z podpisami oraz niezależnie zweryfikowane klucze publiczne PEM przekazuje się do `scripts/audit_nitro_denials.py --verify-live`. Nie wolno przechowywać kluczy prywatnych, poświadczeń ani pełnych logów CloudTrail w repozytorium. Dowód ma ważność maksymalnie 24 h i zawiera skróty **wszystkich sześciu** prób. Zweryfikowanie obu podpisów nadal daje `BLOCKED`, nie certyfikat bezpieczeństwa sprzętowego.
+
+**Pozostałe dowody sprzętowe:** rzeczywiste uruchomienie zaufanego ECS Managed Instances `CONFIDENTIAL_SANDBOX`; polityka wygenerowana i zweryfikowana `ecs-nitro-sandbox-genpolicy --check`; przypięty digest obrazu, PCR17 i klucz KMS z `PCR8:ServiceName=ecs.amazonaws.com`; rzeczywisty wynik no-submit; CloudTrail z obu kont; niezależnie zatwierdzony release; administracyjny brak kontroli NotarAI nad kontem kustosza.
+
+Dokumentacja AWS: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html i https://docs.aws.amazon.com/kms/latest/developerguide/ct-nitro-enclave.html.
