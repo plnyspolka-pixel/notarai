@@ -11,6 +11,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-03
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **0 plaintext w backendzie:** test dwóch fikcyjnych dokumentów przechwytuje upload HTTP, logs i persistence; 0 wystąpień plaintext oraz DEK; backend otrzymuje ciphertext.
 - [ ] **K2.** **5 odmów AEAD/AAD:** fałszywy tenant, object ID, VersionId, zły tag oraz replay zawsze odrzucane; AAD obejmuje tenant+object+version i szyfrowanie używa unikalnego nonce.
 - [ ] **K3.** **Zarządzanie kluczami:** jawny przepływ utworzenia DEK, wrap, unwrap, rotation i revoke; serwer operatora nigdy nie otrzymuje niezaszyfrowanego DEK.
