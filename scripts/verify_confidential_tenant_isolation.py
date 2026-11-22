@@ -56,11 +56,24 @@ def _manifest(ecs, *, account: str, tenant: str) -> TenantBoundary:
         f"{account}.dkr.ecr.{_REGION}.amazonaws.com/{_SHARED}@sha256:"
     ):
         raise ValueError("unapproved shared image registry")
+    trust = definition.get("trustedExecutionConfiguration") or {}
     if (definition.get("status") != "ACTIVE" or
+            definition.get("family") != family or
             definition.get("networkMode") != "awsvpc" or
-            (definition.get("trustedExecutionConfiguration") or {}).get(
-                "isolationMode") != "CONFIDENTIAL_SANDBOX"):
+            definition.get("requiresCompatibilities") != ["MANAGED_INSTANCES"] or
+            definition.get("volumes") or
+            trust.get("isolationMode") != "CONFIDENTIAL_SANDBOX" or
+            not trust.get("attestationPolicy")):
         raise ValueError("unattested guest task definition")
+    if (guest.get("name") != "confidential-browser" or
+            guest.get("user") != "10001:10001" or
+            guest.get("readonlyRootFilesystem") is not True or
+            guest.get("privileged") is True or
+            any(guest.get(field) for field in (
+                "secrets", "environmentFiles", "mountPoints", "volumesFrom",
+                "portMappings", "logConfiguration", "entryPoint", "command",
+            ))):
+        raise ValueError("unapproved confidential guest extensions")
     return TenantBoundary(
         tenant=tenant, account=account, session_tenant=tenant,
         cluster=_SHARED, capacity_provider=_SHARED,
