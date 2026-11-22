@@ -79,7 +79,8 @@ def test_two_access_denied_are_reported_without_zoa_claim():
             "operator_overwrite_deny": "PASS",
             "operator_delete_deny": "PASS",
         },
-        "permission_denials_verified": True,
+        "both_access_denied_observed": True,
+        "independent_bucket_owner_verified": False,
         "zero_operator_access_proven": False,
     }
     assert [name for name, _ in s.s3.calls] == ["put_object", "delete_object"]
@@ -101,7 +102,8 @@ def test_write_success_and_unrelated_errors_never_count_as_denied(
     s = FakeSession(overwrite_exc=overwrite_exc, delete_exc=delete_exc)
     result = run_probe(s)
     assert tuple(result["results"].values()) == expected
-    assert result["permission_denials_verified"] is False
+    assert result["both_access_denied_observed"] is False
+    assert result["independent_bucket_owner_verified"] is False
     assert result["zero_operator_access_proven"] is False
 
 
