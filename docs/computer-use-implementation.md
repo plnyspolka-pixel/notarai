@@ -99,3 +99,25 @@ Szablon: `infra/notarai-universal-worker-vm.yaml`. Jedna VM na kancelarię, **br
 - Microsoft: https://learn.microsoft.com/en-us/windows/apps/dev-tools/winapp-cli/ui-automation
 - Playwright: https://playwright.dev/python/docs/locators
 - Repo: `docs/fallback-policy.md`, `docs/universal-computer-agent.md`.
+
+
+## Aktualizacja 2026-11-22 — kontrola produkcyjna, vision i jedna konsola
+
+Pełna lista bramek odbioru: **`docs/computer-use-production-readiness.md`**. Oprogramowanie poniżej jest zacommitowane, ale brak uruchomionej Windows VM oraz testu realnej kancelarii: **status = kod demonstracyjny/produkcyjnie ukierunkowany, nie usługa produkcyjna**.
+
+### Nowe moduły
+
+- `computer_use/vision.py`: okno Windows -> pamięciowy obraz PNG -> sprawdzony profil EU Bedrock -> model lokalizuje/odczytuje zatwierdzone pole -> opcjonalne kontrolowane kliknięcie i tekst -> ponowna inspekcja. Do modelu NIE wysyłamy promptu z niesprawdzoną treścią jako instrukcji systemowej. Osobny opt-in przed przesyłaniem obrazu, obróbka danych kancelarii tylko z zatwierdzonymi warunkami.
+- `computer_use/session_lock.py`: systemowy mutex sesji (wszystkie procesy robota na danym pulpicie); równolegle DDB atomic job claim dla niepowtarzalności konkretnego job_id.
+- `computer_use/workflows.py`: zatwierdzony, podpisany, ograniczony plan multi-step (read/navigate/fill draft) na zaufanym profilu. Nie ma arbitralnego shell/klik w podpisy/wysyłkę.
+- `computer_use/jobs.py`, `daemon.py`, `runtime.py`, `payloads.py`: kontrola wykonania ze stroną WWW; SQS FIFO z wiadomością wyłącznie job_id, DDB conditional claim, osobna tabela kill switch, payloady w S3 SSE-KMS z hash dla integralności, SESJE Windows z przypisaną kancelarią.
+- `computer_use/api.py` + `static/virtual_employee.html/css/js`: konsola zadań i zatwierdzania dokładnych wartości. W `app.py` oraz `autoryzacja.py` endpointy wpięto pod `PIECZAPP_VIRTUAL_EMPLOYEE_ENABLED=true` — na produkcji domyślnie wyłączone.
+- `infra/notarai-ve-control-plane.yaml`, `infra/notarai-ve-tenant.yaml`: zasoby AWS do ręcznej walidacji i osobnego provisioningu tenantów. Nie są automatycznie wdrożone. Każda kancelaria ma oddzielną kolejkę, klucz KMS i IAM/VM.
+
+### Istotne ograniczenia, żeby nie obiecywać więcej niż działa
+
+- Bez aktualnego legalnego instalatora, konta, bazy i Windows VM nie można zweryfikować rzeczywistych działań `winapp` ani GUI.
+- `runtime.py` obecnie startuje tenantowy worker dla podpisanego profilu Windows/browser. Native API ma działający provider Python, lecz do uruchomienia u konkretnego klienta trzeba jeszcze przekazać mu zaufany profil API i klienta autoryzacji z sekretami. Brak live testu.
+- Vision wymaga faktycznie dopuszczonego przez politykę modelu `eu.*`, sieciowego dostępu do Bedrock w regionie Frankfurt i zgody na przesłanie zawartości zrzutów.
+- Nie ma automatycznego provisioningu kancelarii, uzyskania licencji Windows, podłączenia baz, uruchomienia interaktywnej sesji po restarcie, pełnego alarmowania/outbox; według bramek G1–G6 są to nadal blokery.
+- Nie scalać PR na master ani nie aktywować dla prawdziwych danych, zanim nie przejdą testy bezpieczeństwa, CI oraz E2E na prawdziwej VM.
