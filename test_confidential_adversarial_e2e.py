@@ -127,3 +127,60 @@ def test_real_custodian_release_rejects_modified_signed_digest():
     data["envelope"]["payload"]["image_sha256"] = "0" * 64
     with pytest.raises(BoundaryDenied):
         verify_release(**data)
+
+
+@pytest.mark.parametrize("tenant,key_byte", [("pilot01", 1), ("pilot02", 2)])
+def test_synthetic_envelope_to_real_form_preview_for_two_tenants(tenant, key_byte):
+    """Real AES-GCM + real form validator; only a FAKE key-unwrapper and browser."""
+    import asyncio
+    import base64
+    import json
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from confidential.envelope import Envelope
+    from confidential.form_engine import TrustedForm, fill_form
+    from test_confidential import Page
+
+    key = bytes([key_byte]) * 32
+    nonce = bytes(range(12))
+    case_id, object_id = "fictional_case", "fictional_scan"
+    data = {"form_id": "local-demo",
+            "fields": {"name": "FICTIONAL-ONLY", "reference": tenant}}
+    authenticated_scope = f"notarai-v1|{tenant}|{case_id}|{object_id}".encode()
+    ciphertext = AESGCM(key).encrypt(nonce, json.dumps(data).encode(),
+                                      authenticated_scope)
+    key_arn = f"arn:aws:kms:eu-central-1:444455556666:key/synthetic-{tenant}"
+    payload = {
+        "version": 1, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
+        "tenant_id": tenant, "case_id": case_id, "object_id": object_id,
+        "kms_key_arn": key_arn,
+        "nonce": base64.b64encode(nonce).decode(),
+        "wrapped_dek": base64.b64encode(b"x" * 384).decode(),
+        "ciphertext": base64.b64encode(ciphertext).decode(),
+    }
+    envelope = Envelope.parse(payload)
+    class FakeAttestedKms:
+        def unwrap(self, wrapped, arn):
+            assert wrapped == b"x" * 384 and arn == key_arn
+            return key  # synthetic mock: NO hardware / real custody evidence
+    opened = json.loads(envelope.open_inside_attested_task(FakeAttestedKms()))
+    assert opened == data
+    if tenant == "pilot01":
+        wrong = {**payload, "tenant_id": "pilot02"}
+    else:
+        wrong = {**payload, "tenant_id": "pilot01"}
+    from confidential.envelope import InvalidEnvelope
+    with pytest.raises(InvalidEnvelope):
+        Envelope.parse(wrong).open_inside_attested_task(FakeAttestedKms())
+
+    async def preview():
+        form = TrustedForm("local-demo", "https://forms.example.test/app",
+            ("https://forms.example.test",),
+            {"name": "#name", "reference": "#reference"}, "#submit")
+        page = Page()
+        result = await fill_form(page, form, opened["fields"],
+                                 job_id="synthetic_job", submit=False)
+        assert result.filled_fields == 2
+        assert result.submitted is False and page.clicks == []
+        assert page.fills == [("#name", "FICTIONAL-ONLY"),
+                              ("#reference", tenant)]
+    asyncio.run(preview())
