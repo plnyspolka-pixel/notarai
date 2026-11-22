@@ -2,6 +2,9 @@
 // arbitrary command execution, file-content extraction or RejNET actions.
 using System.Diagnostics;
 using System.Security.Cryptography;
+using Amazon;
+using Amazon.Runtime;
+using Amazon.SQS;
 using FlaUI.Core.Definitions;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
@@ -28,9 +31,13 @@ if (args.Length == 1 && args[0] == "--once-local-inbox")
     return RunLocalInbox(continuous: false);
 if (args.Length == 1 && args[0] == "--serve-local-inbox")
     return RunLocalInbox(continuous: true);
+if (args.Length == 1 && args[0] == "--once-sqs")
+    return await RunSqs(continuous: false);
+if (args.Length == 1 && args[0] == "--serve-sqs")
+    return await RunSqs(continuous: true);
 if (args.Length != 2 || args[0] != "--run-verified-local-job")
 {
-    Console.WriteLine("Usage: --session-health | --inspect-notepad | --survey-ui <PID> | --run-verified-local-job <job.json> | --once-local-inbox | --serve-local-inbox");
+    Console.WriteLine("Usage: --session-health | --inspect-notepad | --survey-ui <PID> | --run-verified-local-job <job.json> | --once-local-inbox | --serve-local-inbox | --once-sqs | --serve-sqs");
     return 2;
 }
 
@@ -193,6 +200,56 @@ static int RunLocalInbox(bool continuous)
         return 6;
     }
     finally { CryptographicOperations.ZeroMemory(key); }
+}
+
+// This optional transport is only enabled explicitly after the separate
+// SQS pilot stack is provisioned. No static AWS credentials are stored.
+static async Task<int> RunSqs(bool continuous)
+{
+    var tenant = Environment.GetEnvironmentVariable("NOTARAI_VE_TENANT_ID");
+    var keyPath = Environment.GetEnvironmentVariable("NOTARAI_VE_HMAC_KEY_FILE");
+    var replay = Environment.GetEnvironmentVariable("NOTARAI_VE_REPLAY_DIR");
+    var outbox = Environment.GetEnvironmentVariable("NOTARAI_VE_OUTBOX_DIR");
+    var queueUrl = Environment.GetEnvironmentVariable("NOTARAI_VE_SQS_QUEUE_URL");
+    if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(keyPath) ||
+        string.IsNullOrWhiteSpace(replay) || string.IsNullOrWhiteSpace(outbox) ||
+        string.IsNullOrWhiteSpace(queueUrl) ||
+        !SqsDiagnosticPoller.ValidQueueUrl(queueUrl, tenant))
+    {
+        Console.Error.WriteLine("SQS pilot configuration missing or invalid");
+        return 6;
+    }
+    // Never accept static AWS credentials in the operator environment.
+    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID")) ||
+        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AWS_PROFILE")))
+    {
+        Console.Error.WriteLine("SQS worker requires EC2 role credentials, not AWS environment overrides");
+        return 6;
+    }
+    byte[] key = [];
+    try
+    {
+        key = File.ReadAllBytes(keyPath);
+        using var sqs = new AmazonSQSClient(RegionEndpoint.EUCentral1);
+        var poller = new SqsDiagnosticPoller(sqs, queueUrl, tenant, key, replay, outbox);
+        do
+        {
+            await poller.PollOnceAsync(ExecuteDiagnosticOperation, CancellationToken.None);
+        }
+        while (continuous);
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+        InvalidOperationException or ArgumentException or AmazonServiceException)
+    {
+        // Do not print AWS request details, message bodies, tenant data, or secret files.
+        Console.Error.WriteLine("Private SQS diagnostic channel unavailable");
+        return 6;
+    }
+    finally
+    {
+        CryptographicOperations.ZeroMemory(key);
+    }
 }
 
 static int ExecuteDiagnosticOperation(string operation) => operation switch
