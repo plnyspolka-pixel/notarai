@@ -253,3 +253,46 @@ na koncie kustosza, że wszystkie wcześniejsze manifesty nadal istnieją,
 ani że nie może zamaskować widoku latest. Niezależny łańcuch/head,
 audyt trust/IAM/SCP i rzeczywiste testy odmowy operatorowi pozostają
 obowiązkowe dla K5/K6.
+
+
+## Wykrywanie brakujących wpisów i shadow versions w pełnej historii S3
+
+Dodatkowe pliki: confidential/archive_history.py,
+test_confidential_archive_history.py,
+scripts/audit_confidential_archive_history.py. Audyt read-only
+pobiera przez ListObjectVersions (z paginacją) WSZYSTKIE wersje
+technicznego prefiksu sec11-evidence/pilot01/, a następnie porównuje
+je z niezależnie przechowywanym rejestrem VersionId kustosza.
+Wykrywa missing sequence, podmienioną wersję, kolejną wersję tego samego
+klucza (shadow latest), wszelkie delete markers i nieoczekiwane pliki.
+Nie czyta dokumentów notarialnych ani ich nazw. Samo spisanie aktualnych
+wersji z AWS nie jest niezależnym receipt, więc nie może służyć jako
+wejście referencyjne.
+
+Przykład independently provided JSON (identyfikatory tylko fikcyjne):
+
+~~~json
+[
+  {"sequence":1,"version_id":"syntheticVersionOne"},
+  {"sequence":2,"version_id":"syntheticVersionTwo"}
+]
+~~~
+
+Uruchomienie przez niezależnego kustosza:
+
+~~~bash
+python scripts/audit_confidential_archive_history.py \
+  --custody-account "$CUSTODY_ACCOUNT" \
+  --bucket "$INDEPENDENT_WORM_BUCKET" \
+  --tenant pilot01 \
+  --independent-receipt-json independent-versions.json \
+  --custody-auditor-profile "$CUSTODY_AUDITOR_SSO_PROFILE" \
+  --run-read-only
+~~~
+
+Brak jawnego --run-read-only oznacza brak wywołań AWS. PASS oznacza
+zgodność BIEŻĄCEJ, pełnej listy wersji z niezależnym receipt, ale
+assurance_status pozostaje BLOCKED. Ten test nie dowodzi, że operator
+nie miał tymczasowych uprawnień w przeszłości, ani że role custodian
+nie ufają operatorowi. K5 nadal wymaga live AccessDenied na dwóch
+operacjach i niezależnego audytu IAM/trust/CloudTrail.
