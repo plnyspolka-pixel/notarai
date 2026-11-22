@@ -4,7 +4,6 @@ IMPORTANT: This class does not authenticate a network request. The cloud
 control plane must authenticate the user and cryptographically bind a job to
 the tenant before it reaches the worker. Profiles are trusted deployment config.
 """
-from threading import Lock
 from typing import Callable, Mapping
 
 from .browser import WebDomStrategy
@@ -13,6 +12,7 @@ from .fallback_router import (ApprovalVerifier, AutomationRequest,
 from .profiles import AppProfile
 from .native_api import ApiProfile, NativeApiStrategy
 from .winapp import WinAppStrategy
+from .session_lock import SessionMutex
 from .vision import VisualStrategy
 
 
@@ -42,7 +42,7 @@ class TenantWorker:
         self._vision = vision_model
         self._visual_desktop = visual_desktop
         self._vision_enabled = visual_processing_enabled
-        self._exclusive_session = Lock()
+        self._exclusive_session = SessionMutex(tenant_id)
 
     def execute(self, request: AutomationRequest) -> AutomationResponse:
         if request.tenant_id != self._tenant_id:
