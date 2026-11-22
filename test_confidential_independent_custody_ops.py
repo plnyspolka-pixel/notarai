@@ -587,6 +587,14 @@ def test_k5_planner_rotation_requires_distinct_new_keys_and_freeze():
     assert len(plan["proposed_key_policy"]["Statement"]) == 2
     assert "kms:Decrypt" not in str(plan["proposed_key_policy"])
     assert plan["expected_signing_key_arn"] == before["signing_key_arn"]
+    targets = plan["required_kms_key_policy_targets"]
+    assert len(targets) == 2
+    assert {t["key_arn"] for t in targets} == {
+        before["decrypt_key_arn"], fresh["decrypt_key_arn"]}
+    assert all("kms:Decrypt" not in str(t["target_policy"]) for t in targets)
+    assert all(t["requires_no_grants"] for t in targets)
+    assert not plan["historical_decrypt_key_inventory_complete"]
+    assert not plan["historical_keys_effectively_denied_verified"]
     bad = dict(changes)
     bad["decrypt_key_arn"] = before["decrypt_key_arn"]
     with pytest.raises(BoundaryDenied):
