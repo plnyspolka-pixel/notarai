@@ -144,10 +144,14 @@ public static class JobAdmission
             return AdmissionResult.Reject("tenant_mismatch");
         if (!AllowedOperations.Contains(job.Operation))
             return AdmissionResult.Reject("operation_denied");
-        if (job.ExpiresAtUnix <= job.IssuedAtUnix ||
-            job.ExpiresAtUnix - job.IssuedAtUnix > 300 ||
-            job.IssuedAtUnix > now.ToUnixTimeSeconds() + 60 ||
-            job.ExpiresAtUnix <= now.ToUnixTimeSeconds())
+        var nowUnix = now.ToUnixTimeSeconds();
+        // Bound issued time first, before adding/subtracting timestamps.
+        // This prevents signed malformed long.MinValue/long.MaxValue overflow.
+        if (job.IssuedAtUnix < nowUnix - 300 ||
+            job.IssuedAtUnix > nowUnix + 60 ||
+            job.ExpiresAtUnix <= nowUnix ||
+            job.ExpiresAtUnix <= job.IssuedAtUnix ||
+            job.ExpiresAtUnix > job.IssuedAtUnix + 300)
             return AdmissionResult.Reject("expired_or_invalid_time");
 
         var expected = HMACSHA256.HashData(secret, Encoding.UTF8.GetBytes(Canonical(job)));
