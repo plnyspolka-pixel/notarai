@@ -120,3 +120,67 @@ def test_signature_is_bound_to_the_exact_six_cases():
     data["matrix"]["trials"]["wrong_pcr17"]["receipt_sha256"] = "9" * 64
     with pytest.raises(DenialEvidenceRejected):
         verify_independent_witnesses(**data)
+
+
+
+def test_audit_command_checks_two_signatures_and_never_enables_hardware(
+    tmp_path, monkeypatch, capsys,
+):
+    import json
+    import sys
+    from scripts import audit_nitro_denials as audit
+
+    fixture = signed_fixture()
+    files = {
+        "matrix": json.dumps(fixture["matrix"]),
+        "witness": json.dumps(fixture["payload"]),
+        "altered": "{}",
+        "unsigned": "{}",
+        "custody-sig": fixture["custodian_signature_b64"],
+        "custody-pub": fixture["custodian_public_key_pem"],
+        "auditor-sig": fixture["auditor_signature_b64"],
+        "auditor-pub": fixture["auditor_public_key_pem"],
+    }
+    for name, data in files.items():
+        path = tmp_path / name
+        if isinstance(data, bytes):
+            path.write_bytes(data)
+        else:
+            path.write_text(data, encoding="utf-8")
+    monkeypatch.setattr(audit, "audit_live", lambda **kwargs: {
+        "status": "BLOCKED",
+        "hardware_attestation_verified": False,
+        "production_enabled": False,
+        "kms_cases_live_observed": 4,
+        "early_case_metadata_validated": 2,
+    })
+    argv = [
+        "audit_nitro_denials.py", "--verify-live",
+        "--matrix", str(tmp_path / "matrix"),
+        "--operator-profile", "workload-ro",
+        "--custody-profile", "custody-ro",
+        "--altered-image-receipt", str(tmp_path / "altered"),
+        "--unsigned-release-receipt", str(tmp_path / "unsigned"),
+        "--witness-payload", str(tmp_path / "witness"),
+        "--custodian-witness-signature", str(tmp_path / "custody-sig"),
+        "--custodian-witness-public-key", str(tmp_path / "custody-pub"),
+        "--custodian-witness-public-key-sha256",
+        fixture["custodian_public_key_sha256"],
+        "--auditor-witness-signature", str(tmp_path / "auditor-sig"),
+        "--auditor-witness-public-key", str(tmp_path / "auditor-pub"),
+        "--auditor-witness-public-key-sha256",
+        fixture["auditor_public_key_sha256"],
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert audit.main() == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["witness_signatures_verified"] is True
+    assert output["status"] == "BLOCKED"
+    assert output["hardware_attestation_verified"] is False
+    assert output["production_enabled"] is False
+    # A malicious or modified signature must not produce a signed audit.
+    (tmp_path / "auditor-sig").write_text("invalid-sig")
+    assert audit.main() == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["hardware_attestation_verified"] is False
+    assert output.get("witness_signatures_verified") is not True
