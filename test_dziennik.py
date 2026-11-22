@@ -161,3 +161,13 @@ def test_bedrock_malicious_aws_error_code_is_not_reflected():
     assert raw_code not in description
     assert PESEL not in description
     assert bedrock._kod_bledu(error) == ""
+
+
+def test_bedrock_valueerror_filename_never_reflected_to_client():
+    import bedrock
+    msg = f"Nie udalo sie przepisac strony 1 pliku {PLIK_SKANU}, PESEL {PESEL}"
+    description = bedrock.opis_bledu(ValueError(msg))
+    assert PLIK_SKANU not in description and PESEL not in description
+    assert "Nie udalo" in description
+    overloaded = bedrock.opis_bledu(bedrock.Przeciazenie(msg))
+    assert PLIK_SKANU not in overloaded and PESEL not in overloaded

@@ -660,9 +660,11 @@ class TestBledyPrzejscioweIKomunikaty:
         assert oczekiwane.lower() in opis.lower()
         assert "ConverseStream" not in opis
 
-    def test_opis_bledu_wlasnych_wyjatkow_bez_zmian(self):
-        assert bedrock.opis_bledu(ValueError("Odpowiedz ucieta")) == "Odpowiedz ucieta"
-        assert bedrock.opis_bledu(bedrock.Przeciazenie("Model przeciazony")) == "Model przeciazony"
+    def test_opis_bledu_wlasnych_wyjatkow_bez_tresci(self):
+        assert "Odpowiedz ucieta" not in bedrock.opis_bledu(ValueError("Odpowiedz ucieta"))
+        assert "Model przeciazony" not in bedrock.opis_bledu(
+            bedrock.Przeciazenie("Model przeciazony"))
+        assert "Sprobuj ponownie" in bedrock.opis_bledu(ValueError("Odpowiedz ucieta"))
 
 
 # ---------------------------------------------------------------- cache promptu

@@ -134,3 +134,14 @@ clients. The report exports **only file/line/mechanism**, not code snippets.
 code loaded at runtime; synthetic JS checks and source scanning are NOT 100%
 coverage. K1 remains BLOCKED until dynamic runtime network observation and
 independent dependency inventory.
+
+
+## Legacy error-to-client content containment
+A real error path in `bedrock.py` previously constructed a
+`ValueError` that contained the scanned document filename. The legacy
+`bedrock.opis_bledu()` also reflected raw `ValueError` messages into
+FastAPI error responses. SEC-04 removes that filename from the
+exception and returns only static error categories for `ValueError`
+and `Przeciazenie`. Offline tests use fictional document names and
+synthetic ID canaries. This mitigates one output/log channel; it does
+not prove complete PII-free monitoring or strict ZK.

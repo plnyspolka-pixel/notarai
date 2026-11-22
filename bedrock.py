@@ -179,8 +179,12 @@ def opis_bledu(blad: BaseException) -> str:
     zrobic: poczekac, podzielic sprawe, poprawic skan albo zglosic blad do
     notarai. Bez tresci sprawy - tylko rodzaj bledu i ustawienia modelu.
     """
-    if isinstance(blad, (Przeciazenie, ValueError)):
-        return str(blad)   # nasze wyjatki sa juz po polsku
+    # Never reflect arbitrary ValueError text: it may contain a document
+    # filename, case content or OCR/page detail from untrusted data.
+    if isinstance(blad, Przeciazenie):
+        return "Model jest chwilowo przeciazony. Sprobuj ponownie za chwile."
+    if isinstance(blad, ValueError):
+        return "Nie udalo sie przetworzyc dokumentu. Sprobuj ponownie lub zglos problem."
     kod = _kod_bledu(blad)
     tresc = _tresc_bledu(blad)
     plaska = tresc.lower()
@@ -491,7 +495,9 @@ def _transkrybuj_z_ponowieniem(paczka: list[dict], wysilek: str | None = None, p
                 wyniki[i] = _transkrybuj_z_ponowieniem([paczka[i]], wysilek, proby)[0]
     for w in wyniki:
         if w.pop("brak", False):
-            raise ValueError(f"Nie udalo sie przepisac strony {w['strona']} pliku {w['dokument']}.")
+            # Never put document filenames or a model-supplied page label into
+            # exception strings; they can surface through framework traces.
+            raise ValueError("Nie udalo sie przepisac strony dokumentu.")
     return wyniki
 
 
