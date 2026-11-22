@@ -58,6 +58,27 @@ only, but still must be checked for accidental data inclusion.
 - A simulated exception is **not** evidence of a true SIGKILL/guest
   crash: those require independent live artifact capture under K6.
 
+### K2b — actual worker state machine with synthetic dependencies
+
+Added `test_confidential_worker_lifecycle_sec10.py` to execute the **real**
+`confidential.worker._process_one` function in six scenarios, substituting
+only SQS/S3/KMS/DynamoDB clients, the decrypted fictional form and local
+browser. It asserts:
+- stdout/stderr guard executes **before** decryption;
+- no synthetic plaintext/DEK in intercepted stdout/stderr or S3 result body;
+- plaintext field dict references are cleared on all post-decrypt paths;
+- success writes metadata-only S3 result, then completes the ledger, then
+  acknowledges SQS, in precisely that order;
+- exception, retry, browser crash, network error and timeout do not persist
+  a result or acknowledge SQS, but mark ledger failure; and
+- unclaimed jobs are never decrypted.
+
+This tests the actual one-job control flow, not a hardware browser SIGKILL,
+provider-level error telemetry, kernel memory cleanup or a genuine Nitro
+attestation. Those remain **K6 BLOCKED**.
+
+Command: `python -m pytest -q test_confidential_worker_lifecycle_sec10.py`.
+
 ## K3 — storage/runtime controls and verification gaps
 
 Implemented: guest redirects stdout/stderr to /dev/null **before** KMS unwrap (fail-closed if redirect fails). Operational state is stored as metadata in the ledger; this decreases the risk that vendor libraries print decrypted values to operator-visible streams. It does not prevent a compromised guest from opening new exfiltration channels, so independent signed release and network egress controls remain essential.\n\nImplemented: guest startup refuses work if Linux core dumps/ptrace dumpability
