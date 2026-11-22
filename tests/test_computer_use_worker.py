@@ -75,3 +75,24 @@ def test_busy_session_fails_without_dispatch():
         assert result.reason == 'session_busy'
     finally:
         agent._exclusive_session.release()
+
+
+def test_api_is_first_and_browser_not_invoked():
+    from computer_use.native_api import ApiField, ApiProfile
+    seen=[]
+    class API:
+        def get(self,url,**kwargs):
+            seen.append(url)
+            return SimpleNamespace(status_code=200, json=lambda:{'record':{'number':'A/2026'}})
+    worker=TenantWorker(tenant_id='a',profiles={
+        'case-app':AppProfile('case-app',start_url='https://demo.example.test/',
+                              fields={'number':Element('css','#case')})},
+        api_profiles={'case-app':ApiProfile('case-app','https://api.example.test/v1/',
+                                           fields={'number':ApiField('cases/current','record.number')})},
+        api_client_factory=lambda tenant,app: API(),
+        browser_page_factory=lambda: (_ for _ in ()).throw(AssertionError('browser should not open')),
+        winapp_installed=False)
+    result=worker.execute(req())
+    assert result.outcome==Outcome.COMPLETED
+    assert result.strategy=='native_api'
+    assert seen==['https://api.example.test/v1/cases/current']
