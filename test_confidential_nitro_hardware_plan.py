@@ -245,3 +245,24 @@ def test_wrong_key_negative_must_not_use_approved_key():
     )
     with pytest.raises(ProofRejected, match="different custody key"):
         assess(data)
+
+
+@pytest.mark.parametrize("aws_error", [
+    "IncorrectKeyException", "InvalidCiphertextException",
+    "AccessDeniedException",
+])
+def test_realistic_kms_wrong_key_failures_are_accepted_as_denial(aws_error):
+    data = list(fixtures())
+    manifest, events = data[:2]
+    events[manifest["denied_event_ids"]["wrong_key"]]["errorCode"] = aws_error
+    assert assess(data)["denials"]["wrong_key"]["kms_result"] == "DENY"
+
+
+def test_wrong_pcr_invalid_ciphertext_cannot_mask_unexplained_failure():
+    data = list(fixtures())
+    manifest, events = data[:2]
+    events[manifest["denied_event_ids"]["wrong_pcr17"]]["errorCode"] = (
+        "InvalidCiphertextException"
+    )
+    with pytest.raises(ProofRejected):
+        assess(data)
