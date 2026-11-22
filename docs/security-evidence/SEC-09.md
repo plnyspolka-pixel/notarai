@@ -18,6 +18,7 @@ Repository PR: https://github.com/plnyspolka-pixel/notarai/pull/74
   `s3:GetObjectVersion` required by an actual versioned S3 read in the
   worker, along with existing `s3:GetObject`. It does NOT broaden to
   `arn:aws:s3:::*/*`.
+- `confidential/dispatch.py` now refuses to release an ECS dispatch lease based solely on an unrelated STOPPED task: it verifies tenant-cluster ARN, pinned task definition, signed run's `startedBy` token and task ARN before freeing a lease. Synthetic regression in `test_confidential_dispatch.py` covers foreign task injection.
 - Neither plaintext nor document content is placed in the tests, manifest
   or proposed audit evidence. Worker stays `submitted=false`.
 
