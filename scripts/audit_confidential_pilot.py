@@ -23,7 +23,10 @@ def _count(value) -> int:
 
 
 def audit(*, profile: str, account: str, tenant: str,
-          job_id: str, check: bool = False, session_factory=None) -> dict:
+          job_id: str, check: bool = False, session_factory=None,
+          shared_compute: bool = False) -> dict:
+    if type(shared_compute) is not bool:
+        raise ValueError("invalid shared compute selector")
     if (not re.fullmatch(r"[0-9]{12}", account) or
         not re.fullmatch(r"[a-z0-9]{1,12}", tenant) or
         not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", job_id)):
@@ -39,7 +42,11 @@ def audit(*, profile: str, account: str, tenant: str,
     if session.client("sts").get_caller_identity().get("Account") != account:
         raise RuntimeError("unexpected AWS account")
     stage = session.client("cloudformation").describe_stacks(
-        StackName="notarai-confidential-staging",
+        # Shared fabric: per-tenant data stacks carry the tenant suffix and all
+        # tenants run in the one regional cluster; the task family stays
+        # tenant-specific so another tenant's tasks are never counted.
+        StackName=(f"notarai-confidential-staging-{tenant}"
+                   if shared_compute else "notarai-confidential-staging"),
     ).get("Stacks", [])
     if len(stage) != 1 or stage[0].get("StackStatus") not in (
         "CREATE_COMPLETE", "UPDATE_COMPLETE",
@@ -70,7 +77,8 @@ def audit(*, profile: str, account: str, tenant: str,
         AttributeNames=["ApproximateNumberOfMessages"],
     )["Attributes"]
     ecs = session.client("ecs").list_tasks(
-        cluster=prefix, family=prefix, desiredStatus="RUNNING",
+        cluster="notarai-confidential-shared" if shared_compute else prefix,
+        family=prefix, desiredStatus="RUNNING",
         maxResults=100,
     )
     if ecs.get("nextToken"):
@@ -114,10 +122,13 @@ def main() -> None:
     parser.add_argument("--tenant", default="pilot01")
     parser.add_argument("--job-id", required=True)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--shared-compute", action="store_true",
+                        help="Per-tenant stacks in the shared regional Nitro fabric")
     args = parser.parse_args()
     audit(
         profile=args.profile, account=args.account, tenant=args.tenant,
         job_id=args.job_id, check=args.check,
+        shared_compute=args.shared_compute,
     )
 
 

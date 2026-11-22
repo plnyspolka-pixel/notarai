@@ -143,12 +143,6 @@ jobs:
             "$gen" --task-definition "$out/confidential-taskdef.json" > "$out/attestation-policy.b64"
             "$gen" --task-definition "$out/confidential-taskdef.json" --output pcrs > "$out/pcrs.txt"
             "$gen" --task-definition "$out/confidential-taskdef.json" --output policy > "$out/policy.cedar"
-            echo "TENANT_BEGIN $tenant"
-            echo "IMAGE_URI=$IMAGE_URI"
-            echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
-            echo "ENVELOPE_SHA256=$(sha256sum "$out/attestation-policy.b64" | cut -d' ' -f1)"
-            echo "ENVELOPE_BEGIN"; fold -w 200 "$out/attestation-policy.b64"; echo; echo "ENVELOPE_END"
-            echo "TENANT_END $tenant"
           done <<'TENANTS'
           pilot02 18f6d691-c81d-43e2-9c82-628b956ba30c
           pilot03 97346e24-eba3-42a4-8b63-fc64606cde28
@@ -161,11 +155,15 @@ jobs:
           name: confidential-attestation-${{ github.sha }}
           path: /tmp/attestation/
           retention-days: 14
-      - name: Podsumowanie atestacji (wartosci niesekretne dla KMS i stacka task)
+      - name: Podsumowanie atestacji (wartosci niesekretne dla KMS i stackow task)
         run: |
           set -euo pipefail
-          out=/tmp/attestation
           echo "IMAGE_URI=$IMAGE_URI"
-          echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
-          echo "ENVELOPE_SHA256=$(tr -d '\n' < "$out/attestation-policy.b64" | sha256sum | cut -d' ' -f1)"
-          echo "ENVELOPE_BEGIN"; tr -d '\n' < "$out/attestation-policy.b64" | fold -w 160; echo; echo "ENVELOPE_END"
+          for out in /tmp/attestation/*/; do
+            tenant=$(basename "$out")
+            echo "TENANT_BEGIN $tenant"
+            echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
+            echo "ENVELOPE_SHA256=$(tr -d '\n' < "$out/attestation-policy.b64" | sha256sum | cut -d' ' -f1)"
+            echo "ENVELOPE_BEGIN"; tr -d '\n' < "$out/attestation-policy.b64" | fold -w 160; echo; echo "ENVELOPE_END"
+            echo "TENANT_END $tenant"
+          done

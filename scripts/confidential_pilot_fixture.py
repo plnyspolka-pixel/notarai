@@ -168,7 +168,7 @@ def main():
     args = p.parse_args()
     create_fixture(
         profile=args.profile, account=args.account, tenant=args.tenant,
-        apply=args.apply
+        apply=args.apply, shared_compute=args.shared_compute,
     )
 
 

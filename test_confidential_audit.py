@@ -132,3 +132,59 @@ def test_invalid_counts_are_rejected():
         _count("not-a-number")
     with pytest.raises(ValueError):
         _count(1)
+
+
+class SharedStage(Stage):
+    def describe_stacks(self, **kwargs):
+        assert kwargs["StackName"] == "notarai-confidential-staging-" + TENANT
+        return Stage.describe_stacks(
+            self, StackName="notarai-confidential-staging")
+
+
+class SharedECS:
+    def list_tasks(self, **kwargs):
+        assert kwargs["cluster"] == "notarai-confidential-shared"
+        assert kwargs["family"] == BASE  # never another tenant's tasks
+        assert kwargs["desiredStatus"] == "RUNNING"
+        return {"taskArns": []}
+
+
+def test_shared_compute_audit_reads_tenant_stack_and_shared_cluster():
+    session = Session()
+    session.clients["cloudformation"] = SharedStage()
+    session.clients["ecs"] = SharedECS()
+    result = audit(
+        profile="fictional", account=ACCOUNT, tenant=TENANT, job_id=JOB,
+        check=True, session_factory=lambda **kwargs: session,
+        shared_compute=True,
+    )
+    assert result["job_status"] == "queued"
+    assert result["ecs_active_count"] == 0
+    assert result["submitted"] is False
+    with pytest.raises(ValueError):
+        audit(profile="fictional", account=ACCOUNT, tenant=TENANT, job_id=JOB,
+              check=True, session_factory=lambda **kwargs: session,
+              shared_compute="yes")
+
+
+def test_fixture_and_audit_cli_forward_shared_compute(monkeypatch):
+    import sys
+    import scripts.confidential_pilot_fixture as fixture
+    import scripts.audit_confidential_pilot as auditor
+    seen = {}
+    monkeypatch.setattr(fixture, "create_fixture",
+                        lambda **kw: seen.setdefault("fixture", kw))
+    monkeypatch.setattr(auditor, "audit",
+                        lambda **kw: seen.setdefault("audit", kw))
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--account", ACCOUNT, "--profile", "fictional",
+        "--tenant", "pilot02", "--shared-compute"])
+    fixture.main()
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--account", ACCOUNT, "--profile", "fictional",
+        "--tenant", "pilot02", "--job-id", JOB, "--shared-compute"])
+    auditor.main()
+    assert seen["fixture"]["shared_compute"] is True
+    assert seen["fixture"]["tenant"] == "pilot02"
+    assert seen["fixture"]["apply"] is False
+    assert seen["audit"]["shared_compute"] is True
