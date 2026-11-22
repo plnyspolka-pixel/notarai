@@ -12,23 +12,20 @@ from pathlib import Path
 ACCOUNT = re.compile(r"^[0-9]{12}$")
 TENANT = re.compile(r"^[a-z0-9]{1,12}$")
 IMAGE = re.compile(r"^[0-9]{12}\.dkr\.ecr\.eu-central-1\.amazonaws\.com/notarai-confidential-[a-z0-9]+@sha256:[0-9a-f]{64}$")
-KMS = re.compile(r"^arn:aws:kms:eu-central-1:[0-9]{12}:key/[0-9a-zA-Z-]+$")
 QUEUE = re.compile(r"^https://sqs\.eu-central-1\.amazonaws\.com/[0-9]{12}/notarai-confidential-[a-z0-9]+\.fifo$")
 BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{2,62}$")
 
 
-def make_task(account: str, tenant: str, image: str, kms_key_arn: str,
+def make_task(account: str, tenant: str, image: str,
               bucket: str, queue: str) -> dict:
     for pattern, value in (
         (ACCOUNT, account), (TENANT, tenant), (IMAGE, image),
-        (KMS, kms_key_arn), (BUCKET, bucket), (QUEUE, queue),
+        (BUCKET, bucket), (QUEUE, queue),
     ):
         if not pattern.fullmatch(value):
             raise ValueError("invalid staging identifier")
     if not image.startswith(f"{account}.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-{tenant}@"):
         raise ValueError("image does not belong to selected staging tenant/account")
-    if not kms_key_arn.startswith(f"arn:aws:kms:eu-central-1:{account}:"):
-        raise ValueError("unexpected KMS key account")
     if not queue.startswith(f"https://sqs.eu-central-1.amazonaws.com/{account}/notarai-confidential-{tenant}.fifo"):
         raise ValueError("unexpected queue account or tenant")
 
@@ -37,7 +34,8 @@ def make_task(account: str, tenant: str, image: str, kms_key_arn: str,
         {"name": "NOTARAI_CONFIDENTIAL_TENANT", "value": tenant},
         {"name": "NOTARAI_CONFIDENTIAL_BUCKET", "value": bucket},
         {"name": "NOTARAI_CONFIDENTIAL_QUEUE_URL", "value": queue},
-        {"name": "NOTARAI_CONFIDENTIAL_KMS_KEY_ARN", "value": kms_key_arn},
+        {"name": "NOTARAI_3ZERO_MODE", "value": "customer-v3"},
+        {"name": "AWS_ACCOUNT_ID", "value": account},
         {"name": "AWS_REGION", "value": "eu-central-1"},
         {"name": "HOME", "value": "/tmp"},
         {"name": "XDG_CACHE_HOME", "value": "/tmp"},
@@ -55,6 +53,7 @@ def make_task(account: str, tenant: str, image: str, kms_key_arn: str,
             "name": "confidential-browser",
             "image": image,
             "essential": True,
+            "command": ["python", "-m", "confidential.customer_v3_worker"],
             "cpu": 2048,
             "memory": 4096,
             "user": "10001:10001",
@@ -78,13 +77,12 @@ def main():
     parser.add_argument("--account", required=True)
     parser.add_argument("--tenant", required=True)
     parser.add_argument("--image", required=True)
-    parser.add_argument("--kms-key-arn", required=True)
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--queue", required=True)
     parser.add_argument("--output", type=Path, default=Path("confidential-taskdef.json"))
     args = parser.parse_args()
     task = make_task(
-        args.account, args.tenant, args.image, args.kms_key_arn, args.bucket, args.queue
+        args.account, args.tenant, args.image, args.bucket, args.queue
     )
     args.output.write_text(json.dumps(task, indent=2) + "\n", encoding="utf-8")
     print("Rendered task definition (contains no document or secret data).")
