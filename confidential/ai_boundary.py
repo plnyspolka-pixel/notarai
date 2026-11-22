@@ -215,10 +215,10 @@ def validate_job_status(
             not _JOB_ID.fullmatch(expected_job_id) or
             status["job_id"] != expected_job_id):
         raise AIBoundaryDenied("JOB_SCOPE_MISMATCH")
-    if status["status"] not in {
+    if (not isinstance(status["status"], str) or status["status"] not in {
         "queued", "queue_uncertain", "running", "retryable",
         "preview_completed", "needs_review"
-    }:
+    }):
         raise AIBoundaryDenied("JOB_STATUS_SCHEMA_DENIED")
     if (type(status["attempts"]) is not int or
             not 0 <= status["attempts"] <= 3):
