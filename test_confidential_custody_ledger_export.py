@@ -140,21 +140,30 @@ def test_k6_custody_export_denies_partial_or_concurrent_reads(change):
 def test_k1_custody_export_has_pinned_tenant_and_table(invalid):
     tenant, table = invalid
     fake = FakeLedgerSession()
-    if tenant == "pilot02" and table == TABLE:
-        # Valid alternate tenant input can be scanned if caller has its
-        # corresponding data; our fixture mock enforces pilot01.
-        with pytest.raises(AssertionError):
-            fetch_ledger(
-                tenant=tenant, ledger_table_arn=table,
-                custody_profile="separate-custodian", check=True,
-                session_factory=fake)
-    else:
-        with pytest.raises(BoundaryDenied):
-            fetch_ledger(
-                tenant=tenant, ledger_table_arn=table,
-                custody_profile="separate-custodian", check=True,
-                session_factory=fake)
+    with pytest.raises(BoundaryDenied):
+        fetch_ledger(
+            tenant=tenant, ledger_table_arn=table,
+            custody_profile="separate-custodian", check=True,
+            session_factory=fake)
+    if table != TABLE:
         assert fake.calls == []
+
+
+def test_k6_ledger_read_can_succeed_with_truncated_history_but_replay_refuses():
+    from confidential.custody_history import verify_history
+    fake = FakeLedgerSession(omit_records=True)
+    export = fetch_ledger(
+        tenant="pilot01", ledger_table_arn=TABLE,
+        custody_profile="separate-custodian", check=True,
+        session_factory=fake)
+    assert export["status"] == "BLOCKED"
+    with pytest.raises(BoundaryDenied):
+        verify_history(
+            tenant="pilot01", event_items=export["event_items"],
+            state_item=export["state_item"],
+            trust_roots=fake.fixture["trust_roots"],
+            pinned_final_state_sha256=fake.fixture["pinned_final_state_sha256"],
+            clock=fake.fixture["clock"])
 
 
 def test_k6_read_only_export_not_equal_to_signed_history_replay():
