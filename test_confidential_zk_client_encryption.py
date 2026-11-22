@@ -307,6 +307,7 @@ def test_recovery_with_two_external_signers_but_no_plaintext_export():
     req = {
         "schema": "notarai.recovery.v1", "action": "rotate",
         "tenant_id": "pilot01", "case_id": "case01", "object_id": "scan01",
+        "target_tenant_id": "pilot01", "target_object_id": "scan02",
         "document_version": "a" * 32,
         "old_key_arn": ARN,
         "new_key_arn": ARN.replace("fictional", "successor"),
@@ -339,7 +340,8 @@ def test_recovery_with_two_external_signers_but_no_plaintext_export():
         with pytest.raises(RecoveryDenied):
             authorize_recovery(**{**valid, **change})
     revoke = {**req, "action": "revoke", "new_key_arn": "",
-              "new_key_sha256": ""}
+              "new_key_sha256": "", "target_tenant_id": "",
+              "target_object_id": ""}
     revoke_message = canonical_recovery_request(revoke)
     assert authorize_recovery(**{**valid,
         "request": revoke,
