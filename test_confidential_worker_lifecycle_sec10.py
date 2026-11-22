@@ -176,3 +176,47 @@ def test_worker_never_decrypts_when_untrusted_task_has_no_claim(monkeypatch):
                         lambda *args: (_ for _ in ()).throw(AssertionError("decrypt")))
     assert worker._process_one(Session(), TENANT, "bucket", "queue", KEY) == 1
     assert events == []
+
+
+def test_stdio_suppression_failure_denies_decrypt_and_marks_retry(monkeypatch):
+    events = []
+    body = json.dumps({
+        "tenant_id": TENANT, "case_id": "case01", "object_id": "object01",
+        "job_id": "job01", "s3_version": "version01",
+    })
+
+    class SQS:
+        def receive_message(self, **kwargs):
+            return {"Messages": [{"Body": body, "ReceiptHandle": "receipt"}]}
+        def delete_message(self, **kwargs):
+            raise AssertionError("failed job must not be acknowledged")
+
+    class Ledger:
+        def __init__(self, db, *, tenant):
+            assert tenant == TENANT
+        def claim(self, **kwargs):
+            return Claim("claimed", token="a" * 32, attempts=1)
+        def fail(self, **kwargs):
+            events.append("failed")
+        def complete(self, **kwargs):
+            raise AssertionError("must not finalize")
+
+    class Session:
+        def client(self, name):
+            if name == "sqs":
+                return SQS()
+            if name == "dynamodb":
+                return object()
+            raise AssertionError("no other AWS operations should execute")
+
+    def deny_stdout():
+        events.append("stdio.denied")
+        raise RuntimeError("guest output suppression failed")
+
+    monkeypatch.setattr(worker, "PreviewJobLedger", Ledger)
+    monkeypatch.setattr(worker, "silence_guest_stdio", deny_stdout)
+    monkeypatch.setattr(worker, "_load_decrypted_form",
+                        lambda *args: (_ for _ in ()).throw(AssertionError("decrypt")))
+    with pytest.raises(RuntimeError, match="output suppression"):
+        worker._process_one(Session(), TENANT, "bucket", "queue", KEY)
+    assert events == ["stdio.denied", "failed"]
