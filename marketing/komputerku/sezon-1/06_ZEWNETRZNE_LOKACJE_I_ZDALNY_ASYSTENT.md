@@ -9,7 +9,7 @@ Cel: dodać dynamikę i prawdziwe życie postaci, nie generując nowej scenograf
 | EXT02 | Klatka schodowa i drzwi kancelarii | Przejścia i reakcje, zawsze ta sama topografia | S1 EP02,06 |
 | EXT03 | Parking: samochód Marty, bok i wnętrze | Ten sam model, kolor, tablica **fikcyjna**, fotel i kokpit | S1 EP04,07; S2 EP01,04 |
 | EXT04 | Ulica nocna, mokry asfalt | Przejazd z zewnątrz / reflektory, bez danych lokalizacji | S1 EP03,07,08 |
-| EXT05 | Kawiarnia / okno przy stoliku | Pierwsza prywatna rozmowa Marty i Aleksandra | S1 EP07–08; S2 EP02,05 |
+| EXT05 | Kawiarnia / okno przy stoliku | Kuba i Zosia: przerwana kawa po szkoleniu (retrospekcja) i ten sam stolik przy pierwszym wspólnym posiłku | S1 EP03 (retrospekcja), EP07–08; S2 EP02,05 |
 | EXT06 | Korytarz budynku samorządu (niespecyficzny) | Bez emblematu sugerującego realną izbę czy urząd | S2 EP01,03 |
 | EXT07 | Park / nadrzeczny deptak | Krótkie rozmowy prywatne, oddech między napiętymi scenami | S2 EP03,06 |
 
