@@ -102,7 +102,7 @@ jobs:
       - name: End-to-end Playwright na lokalnym fikcyjnym formularzu
         run: python -m confidential.demo_browser
       - name: SEC-08 - odpornosc na wrogi HTML i JS (lokalny Chromium)
-        run: python scripts/probe_confidential_adversarial_browser.py
+        run: python -m scripts.probe_confidential_adversarial_browser
 
   guest-image-smoke:
     name: Obraz Nitro guest / Chromium (test lokalny)
