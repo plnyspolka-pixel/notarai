@@ -58,7 +58,7 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             # webhooki agenta glosowego - wlasny token i limity (agent_glosowy.py)
             "/api/agent-glosowy",
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania
-            "/poswiadczenia")
+            "/poswiadczenia", "/virtual-employee")
 
 # Bez zaakceptowanej umowy powierzenia nie przetwarzamy spraw (Regulamin
 # § 6 ust. 4). Otwarte zostaje to, co potrzebne do jej zaakceptowania.
