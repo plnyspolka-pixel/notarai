@@ -92,12 +92,13 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_signed_evidence.py test_confidential_custody_storage.py test_confidential_custody_denials.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_signed_evidence.py test_confidential_custody_storage.py test_confidential_custody_denials.py test_confidential_custody_signer.py
       - name: SEC-11 offline evidence verifier CLI
         run: |
           python scripts/verify_confidential_evidence.py --help >/dev/null
           python scripts/audit_confidential_evidence_storage.py --help >/dev/null
           python scripts/probe_confidential_evidence_operator_denials.py --help >/dev/null
+          python scripts/custodian_sign_confidential_evidence.py --help >/dev/null
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
