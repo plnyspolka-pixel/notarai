@@ -151,6 +151,7 @@ class Verification:
     check_status: dict[str, str]  # effective, independently confirmed only
     asserted_check_status: dict[str, str] = field(default_factory=dict)
     check_provenance: dict[str, str] = field(default_factory=dict)
+    failed_sequences: tuple[int, ...] = ()
     zero_operator_access_proven: bool = False
 
     def as_dict(self) -> dict:
@@ -161,6 +162,7 @@ class Verification:
             "check_status": self.check_status,
             "asserted_check_status": self.asserted_check_status,
             "check_provenance": self.check_provenance,
+            "failed_sequences": list(self.failed_sequences),
             "zero_operator_access_proven": False,
         }
 
@@ -240,7 +242,7 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
     previous = None
     baseline = None
     last_observed = None
-    seen_fail = False
+    failed_positions = []
     for position, bundle in enumerate(bundles, start=1):
         manifest = bundle.get("manifest") if isinstance(bundle, dict) else None
         if not isinstance(manifest, dict) or manifest.get("sequence") != position:
@@ -264,10 +266,11 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
         elif identity != baseline or observed <= last_observed:
             return Verification("FAIL", "BLOCKED", None, {})
         last_observed = observed
-        seen_fail = seen_fail or result.assurance_status == "FAIL"
+        if result.assurance_status == "FAIL":
+            failed_positions.append(position)
         previous = result.manifest_sha256
-    if seen_fail:
+    if failed_positions:
         return Verification("PASS", "FAIL", result.manifest_sha256,
                             result.check_status, result.asserted_check_status,
-                            result.check_provenance)
+                            result.check_provenance, tuple(failed_positions))
     return result
