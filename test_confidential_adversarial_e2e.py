@@ -288,14 +288,19 @@ def test_actual_worker_fault_injection_keeps_canary_out_of_logs(
         def fail_store(**kwargs):
             raise ConnectionError("synthetic network error " + marker)
         monkeypatch.setattr(s3, "put_object", fail_store)
-    expected = ConnectionError if failure == "network_put" else (
-        TimeoutError if failure == "timeout" else RuntimeError
+    import sys
+    from types import SimpleNamespace
+    monkeypatch.setattr(worker, "_config", lambda: (
+        "pilot01", "fixture-bucket", "fixture-queue", "fixture-kms",
+    ))
+    monkeypatch.setitem(
+        sys.modules, "boto3",
+        SimpleNamespace(Session=lambda **kwargs: session),
     )
-    with pytest.raises(expected):
-        worker._process_one(session, "pilot01", "fixture-bucket",
-                            "fixture-queue", "fixture-kms")
+    assert worker.main() == 1
     stdout = capsys.readouterr()
     assert marker not in stdout.out and marker not in stdout.err
+    assert "confidential-worker: failed (" in stdout.err
     assert sqs.deleted is False
     assert s3.markers == []
     assert ledger.status("abc012")["status"] == "retryable"
