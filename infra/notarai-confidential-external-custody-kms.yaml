@@ -61,10 +61,10 @@ Resources:
               - kms:ScheduleKeyDeletion
               - kms:CancelKeyDeletion
             Resource: "*"
-          - Sid: PublicKeyForAttestedWorkerOnly
+          - Sid: NotaraiPublicKeyOnly
             Effect: Allow
             Principal:
-              AWS: !Sub "arn:aws:iam::${WorkloadAccountId}:role/notarai-confidential-${TenantId}"
+              AWS: !Sub "arn:aws:iam::${WorkloadAccountId}:root"
             Action:
               - kms:GetPublicKey
               - kms:DescribeKey
