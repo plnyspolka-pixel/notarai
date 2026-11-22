@@ -51,6 +51,34 @@ jobs:
             [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
             if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
           }
+      - name: Windows PowerShell 5.1 signed fixture end-to-end
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 've-fixture-ci'
+          $inbox = Join-Path $root 'inbox'
+          New-Item -ItemType Directory -Force -Path $inbox | Out-Null
+          $keyPath = Join-Path $root 'fixture.hmac.bin'
+          $key = New-Object byte[] 32
+          $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+          $rng.GetBytes($key)
+          $rng.Dispose()
+          [IO.File]::WriteAllBytes($keyPath, $key)
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_TENANT_ID', 'pilot01', 'User')
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_HMAC_KEY_FILE', $keyPath, 'User')
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_INBOX_DIR', $inbox, 'User')
+          & ./infra/virtual-employee/make-local-diagnostic-job.ps1 -Operation probe.session
+          $files = @(Get-ChildItem -Path $inbox -Filter '*.json')
+          if ($files.Count -ne 1) { throw 'Expected exactly one signed fixture' }
+          $job = Get-Content -LiteralPath $files[0].FullName -Raw | ConvertFrom-Json
+          $fields = @('notarai-ve/v1', '1', $job.tenantId, $job.jobId, $job.operation,
+                      [string]$job.issuedAtUnix, [string]$job.expiresAtUnix, $job.nonce)
+          $bytes = [Text.Encoding]::UTF8.GetBytes([string]::Join("`n", [string[]]$fields))
+          $hmac = New-Object Security.Cryptography.HMACSHA256 -ArgumentList (, $key)
+          try { $actual = [BitConverter]::ToString($hmac.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() }
+          finally { $hmac.Dispose(); [Array]::Clear($key, 0, $key.Length) }
+          if ($actual -ne $job.signature) { throw 'Windows PowerShell signer invalid' }
+          Remove-Item -LiteralPath $root -Recurse -Force
   protocol-tests:
     name: Signed job protocol - adversarial offline checks
     runs-on: ubuntu-latest
