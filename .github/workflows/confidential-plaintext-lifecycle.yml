@@ -60,7 +60,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # No AWS credentials, no network, no real customer data, no host writes.
+          # Pull the publicly distributed test runtime before capturing guest output.
+          # No AWS credentials, no guest network, no real data or host writes.
+          docker pull python:3.12-slim-bookworm >/dev/null
           output="$(docker run --rm --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
             --user 10001:10001 -e PYTHONDONTWRITEBYTECODE=1 \
