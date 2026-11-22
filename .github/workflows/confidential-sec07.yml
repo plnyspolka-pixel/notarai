@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "confidential/nitro_*.py"
+      - "confidential/cloudtrail_readonly.py"
       - "scripts/audit_nitro_denials.py"
       - "scripts/run_nitro_attestation_e2e.py"
       - "scripts/prepare_nitro_witness.py"
@@ -40,9 +41,9 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest cryptography
       - name: Compile SEC-07 Python sources
         run: |
-          python -m py_compile confidential/nitro_hardware_proof.py confidential/nitro_denial_matrix.py confidential/nitro_witness.py confidential/nitro_organization_guard.py
+          python -m py_compile confidential/nitro_hardware_proof.py confidential/nitro_denial_matrix.py confidential/nitro_witness.py confidential/nitro_organization_guard.py confidential/cloudtrail_readonly.py
           python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py scripts/prepare_nitro_witness.py scripts/check_nitro_org_separation.py
-          python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py
+          python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py test_confidential_nitro_cloudtrail_pacing.py
       - name: Execute mandatory SEC-07 offline negative regressions
         run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py
       - name: Assert no offline fake hardware proof
