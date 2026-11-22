@@ -126,3 +126,31 @@ To jest tylko przykład polityki. Zewnętrzny AGT / OpenFGA to opcje, nie wymaga
 ## 6. Mapa PR i zamknięcia
 Centralny plan kolejności: [CIV-00](./CIV-00-confidential-delivery-map.md).
 Planowany łańcuch: #66 + #88 → #89/#90 → #91/#72 → #73/#74 → #75/#76 → #77 → #78; #69 osobno (AI), #63/#64 osobno (Windows). Otwarta gałąź custody #61/#62/#65/#70/#71 jest **LEGACY** dla customer-owned v3.
+
+
+
+## 7. Dodatkowe zweryfikowane komponenty — nie powielaj kodu
+
+Te repozytoria sprawdzono na GitHub 22.11.2026. Przed importem przypnij **konkretny commit SHA**, sprawdź licencję *pliku* i zgodność API; poniższe licencje są deklaracjami repozytoriów.
+
+| Zadanie | Gotowy kod | Licencja | Wytyczne dla Opusa |
+|---|---|---|---|
+| #89 CBOR w przeglądarce | [`kriszyp/cbor-x`](https://github.com/kriszyp/cbor-x) | MIT | Parser CBOR, ale **nie weryfikator COSE/X.509**. Nie pisz kolejnego CBOR parsera, jeśli ten spełnia testy kanoniczności, tagów i formatów |
+| #89/#76 opcjonalny standardowy JWS | [`panva/jose`](https://github.com/panva/jose) | MIT | Tylko jeśli wybrany kontrakt rzeczywiście używa JWS; nie zmieniaj bez powodu istniejącego Ed25519 receipt |
+| #72/#90 AWS NSM protokół | [`aws/aws-nitro-enclaves-nsm-api`](https://github.com/aws/aws-nitro-enclaves-nsm-api) | Apache-2.0 | Traktuj jako referencję źródłową; w NotarAI już istnieje `nsm_recipient.py` |
+| #72 dodatkowe API C | [`aws/aws-nitro-enclaves-sdk-c`](https://github.com/aws/aws-nitro-enclaves-sdk-c) | Apache-2.0 | Nie wnoś C SDK do Pythona, chyba że istniejący wrapper nie wystarcza |
+| #63/#73/#77 sterowanie Chromium i testy E2E | [`microsoft/playwright`](https://github.com/microsoft/playwright) | Apache-2.0 | Już używany w NotarAI, **reuse**, nie twórz nowego browser-drivera |
+| #87 cryptographic origin/API | [`confidential/nsm_recipient.py`](https://github.com/plnyspolka-pixel/notarai/blob/feature/sec86-customer-attested-release-20261122/confidential/nsm_recipient.py) | własny kod repo | Wystarcza NSM challenge z `nonce` i `user_data`; nie buduj nowego agenta w enklawie |
+
+**Ważny kontrakt wewnętrzny, zamiast ponownej implementacji:**
+```python
+from confidential.customer_attested_release import (
+    challenge_user_data, issue_attested_job_release,
+)
+# Decyzja o wydaniu DEK następuje dopiero po
+# pełnej lokalnej weryfikacji NSM; operator nie wybiera klucza guest.
+```
+
+**Weryfikacja bezpieczeństwa przykładu AWS Nitro LLM:** [`src/enclave/server.py`](https://github.com/aws-samples/aws-nitro-enclaves-llm/blob/main/src/enclave/server.py) zawiera `print(credentials)` i wzorzec decrypt przez KMS. Użyj tylko jako dowodu wykonalności technicznej inferencji w Nitro. **Nie kopiuj logowania poświadczeń ani operatorowego KMS** do ścieżki v3.
+
+**Jedyny katalog OSS:** ten plik. Każdy PR ma linkować do niego zamiast wklejać jego kopię; w opisie zadania zostaw tylko 2–5 najważniejszych *konkretnych linków*.
