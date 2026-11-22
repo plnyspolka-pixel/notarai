@@ -25,6 +25,7 @@ from confidential.customer_release import (
 from confidential.customer_attested_release import (
     challenge_user_data, issue_attested_job_release,
 )
+from confidential.customer_origin import sign_customer_origin
 
 _MAX_JSON = 36 * 1024 * 1024
 _MAX_POLICY = 8192
@@ -114,6 +115,13 @@ def main(argv=None) -> int:
     challenge.add_argument("--envelope", type=Path, required=True)
     challenge.add_argument("--job-id", required=True)
     challenge.add_argument("--output", type=Path, required=True)
+    origin = sub.add_parser("origin", help="sign immutable S3 VersionId outside operator app")
+    origin.add_argument("--envelope", type=Path, required=True)
+    origin.add_argument("--s3-version", required=True)
+    origin.add_argument("--issuer-id", required=True)
+    origin.add_argument("--signing-private-key", type=Path, required=True)
+    origin.add_argument("--expires-at", type=int, required=True)
+    origin.add_argument("--output", type=Path, required=True)
     release = sub.add_parser("release", help="verify hardware evidence before RSA rewrap")
     release.add_argument("--envelope", type=Path, required=True)
     release.add_argument("--challenge", type=Path, required=True)
@@ -128,6 +136,21 @@ def main(argv=None) -> int:
     try:
         env = parse_envelope(_json_file(args.envelope, _MAX_JSON))
         now = int(time.time())
+        if args.command == "origin":
+            if not now < args.expires_at <= now + 86400:
+                raise ReleaseDenied("customer origin denied")
+            receipt, signature = sign_customer_origin(
+                env, s3_version=args.s3_version, issuer_id=args.issuer_id,
+                expires_at=args.expires_at,
+                trusted_client_signing_private_pem=_read(args.signing_private_key, 8192),
+            )
+            _write_new(args.output, _canonical({
+                "schema": "notarai.customer-origin-bundle.v1",
+                "receipt": receipt,
+                "signature_b64": base64.b64encode(signature).decode("ascii"),
+            }) + b"\n")
+            print("Signed document origin saved; no private key exported.")
+            return 0
         if args.command == "challenge":
             nonce = os.urandom(32)
             ctx = {
