@@ -233,3 +233,26 @@ def test_api_admits_only_configured_synthetic_pilot(monkeypatch, tenant):
         email="synthetic@example.test", serwis=False, kancelaria=tenant,
     ))
     assert _scope(request) == tenant
+
+
+@pytest.mark.parametrize(("flag", "code"), [
+    ("--offline", 0), ("--check", 2),
+])
+def test_cli_emits_redacted_case_level_report_and_never_goes_live(
+    monkeypatch, capsys, flag, code
+):
+    import json
+    import sys
+    from scripts.run_confidential_adversarial_e2e import main
+
+    monkeypatch.setattr(sys, "argv", ["sec12", flag])
+    assert main() == code
+    output = json.loads(capsys.readouterr().out)
+    assert output["run_type"] == "SYNTHETIC_ONLY"
+    assert output["real_aws_calls"] == 0
+    assert output["scenario_count"] == len(SCENARIO_NAMES)
+    assert {row["case"] for row in output["cases"]} == set(SCENARIO_NAMES)
+    assert all(row["source"] == "MOCK" for row in output["cases"])
+    assert all(row["submitted"] is False for row in output["cases"])
+    assert output["commercial_go"] is False
+    assert output["decision"] == "NO_GO"
