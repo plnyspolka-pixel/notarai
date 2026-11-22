@@ -179,3 +179,113 @@ Validation: the PR CI includes Python/C# deterministic HMAC interop,
 adversarial schema/replay/tenant tests, local-inbox tests, Windows PowerShell
 fixture-signing validation, Windows compilation and an unsigned self-contained
 release artifact. None of those replace a real EC2/GUI/RejNET live trial.
+
+## Optional private SQS transport (synthetic diagnostics only)
+
+The previous file-spool prototype can now be connected to a **separate**
+Amazon SQS FIFO queue through an AWS PrivateLink interface endpoint.
+The CloudFormation bridge is defined in
+`infra/virtual-employee/notarai-ve-sqs-pilot.yaml`. It is **not deployed**
+and is disabled until an authorized AWS administrator explicitly uses
+`infra/virtual-employee/deploy-sqs-pilot.ps1 -Apply`.
+
+The bridge creates **one additional paid SQS VPC Endpoint**, a private
+tenant-scoped FIFO queue with SQS-managed encryption, a dead-letter FIFO
+queue, and a least-privilege EC2 IAM policy. The Windows instance
+can receive/acknowledge messages **only from the tenant queue via the
+specific VPC endpoint**. It has no `sqs:SendMessage` permission. The
+queue policy denies insecure transport and receipt/deletion outside the
+private VPC endpoint.
+
+### Pilot sequence
+
+1. Deploy the original Windows pilot stack first (with explicit approval).
+   Without `-Apply`, the next command validates but does not create SQS:
+   ```powershell
+   ./infra/virtual-employee/deploy-sqs-pilot.ps1 -Profile notarai-admin
+   ```
+   To create the **paid optional** SQS bridge:
+   ```powershell
+   ./infra/virtual-employee/deploy-sqs-pilot.ps1 -Profile notarai-admin -Apply
+   ```
+   Record its `QueueUrl`; no signing key or customer data is an output.
+
+2. Download the **CI-built signed-by-HMAC-job-compatible but unsigned EXE**
+   artifact, verify its SHA256 hash, and place it in the VM's protected
+   `bin` directory. The agent uses AWS SDK for .NET v4 with
+   `InstanceProfileAWSCredentials`, never static AWS keys.
+
+3. Log in as the dedicated non-admin Windows operator and configure paths
+   plus queue URL:
+   ```powershell
+   ./infra/virtual-employee/configure-operator-session.ps1 -TenantId pilot01 -SqsQueueUrl 'https://sqs.eu-central-1.amazonaws.com/ACCOUNT_ID/notarai-ve-pilot01-jobs.fifo'
+   ```
+   Use the real `QueueUrl` returned by CloudFormation, not the placeholder.
+   Confirm that queue URL, tenant ID and region match. Log off/in to refresh
+   the current-user environment.
+
+4. **Diagnostic only:** generate a signed job on the VM with
+   `make-local-diagnostic-job.ps1 -Operation probe.session`. The private
+   inbox now contains a single `<jobId>.json` envelope with no case data.
+   Transfer only this short-lived signed envelope (NOT the HMAC key) to an
+   authorized AWS administrator over an approved supervised channel.
+
+5. In the authorized administrator's AWS environment, dry-run then send
+   **one** synthetic job:
+   ```powershell
+   ./infra/virtual-employee/send-sqs-diagnostic.ps1 -JobFile 'PATH_TO_SYNTHETIC_JSON' -QueueUrl 'QUEUE_URL'
+   ./infra/virtual-employee/send-sqs-diagnostic.ps1 -JobFile 'PATH_TO_SYNTHETIC_JSON' -QueueUrl 'QUEUE_URL' -Apply
+   ```
+   A short-lived job may expire while being transferred; if so, regenerate.
+   The admin needs a narrowly delegated `sqs:SendMessage` permission to
+   this pilot queue. The EC2 VM consumer role does **not** have that action.
+
+6. Back in the **interactive** Windows operator session, run
+   `NotarAI.VirtualEmployee.Probe.exe --once-sqs`. A single message is
+   long-polled, HMAC-verified, checked for correct tenant/expiry/replay,
+   processed only if it matches the diagnostic allowlist, and written as
+   a metadata-only outcome to private `work/outbox`. **SQS DeleteMessage
+   happens only after the outcome file is persisted.** The message body is
+   never included in logs or stored in the outcome.
+
+7. After confirming manual behavior, optionally register the persistent
+   diagnostic SQS consumer for a *manually logged-in* non-admin operator:
+   ```powershell
+   ./infra/virtual-employee/register-interactive-session-probe.ps1 -ExecutablePath 'PATH_TO_VERIFIED_EXE' -ExpectedSha256 'EXPECTED_64_HEX_SHA256' -StartSqsWorker
+   ```
+   This registers `--serve-sqs` using Task Scheduler's interactive logon
+   principal, **not** Windows auto-logon, an unattended session or Session 0.
+   Remove it using `-Remove` from that same operator account.
+
+### At-most-once diagnostic contract
+
+The durable replay marker is written *before* execution. An OS crash between
+marking the job and persisting the status may cause a later delivery to be
+rejected as `duplicate`. This is therefore a conservative **at-most-once**
+diagnostic mechanism, **not transactional exactly-once execution**. Production
+RejNET writes require a job state machine, recoverable checkpoints,
+idempotency at the target-system boundary, operator approval, explicit
+results reconciliation and manual failure recovery.
+
+For cleanup, delete the optional `notarai-ve-pilot01-sqs` stack **before**
+deleting the original EC2 stack; its IAM policy references the VM role.
+Stopping EC2 does not stop the additional VPC endpoint's hourly charges.
+
+### Unfinished security dependencies
+
+- No backend publisher exists yet. The pilot sender is an authorized
+  administrative CLI command, **not** a production NotarAI feature.
+- The disposable HMAC signing key currently exists on the VM and can be
+  accessed by authorized Windows operators. It is **not** a production
+  Zero Operator Access or Zero Knowledge architecture.
+- For a production publisher, use an asymmetric signing design (backend KMS
+  private key; agent validates a pinned public key), tenant identity and
+  authorization in `app.notarai.pl`, with an authenticated result channel.
+- Local SQS result files are metadata only; they are not automatically
+  uploaded to the web app. The VM must still have an interactive
+  user session to perform UI Automation. RejNET Office itself has not
+  been tested or installed.
+
+AWS references: [SQS over VPC PrivateLink](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-sending-messages-from-vpc.html),
+[SQS least-privilege queue policies](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-least-privilege-policy.html)
+and [AWS SDK for .NET v4 SQS receive](https://docs.aws.amazon.com/sdk-for-net/v4/developer-guide/ReceiveMessage.html).
