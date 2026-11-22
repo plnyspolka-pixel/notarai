@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-07
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Prawdziwy pozytywny test:** na ECS Nitro Confidential Sandbox w eu-central-1 fikcyjny pilot01 odszyfrowuje tylko `CiphertextForRecipient` z KMS przez `/dev/nsm`; raport zawiera task revision, image@sha256, PCR17, KMS key ARN (redacted), czas i exit=0.
 - [ ] **K2.** **Minimum 6 odmów na AWS:** zwykłe EC2/host, zły PCR17, inny digest, cudzy tenant/role, niezależnie niezatwierdzony release i błędny key ARN — każda próba kończy się odmową decrypt/DEK. Test bez wykonania oznacz `BLOCKED`.
 - [ ] **K3.** **Brak jawnego KMS DEK:** test sprawdza, że rezultat nigdy nie zawiera `Plaintext` i nie loguje kluczy; tylko CMS przeznaczony dla efemerycznego guest.
