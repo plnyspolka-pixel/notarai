@@ -16,6 +16,7 @@ on:
       - 'scripts/confidential_pilot_*.py'
       - 'scripts/build_custodian_browser_client.py'
       - 'scripts/verify_custodian_client_browser.py'
+      - 'scripts/verify_sec03_operator_denial.py'
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/verify_confidential_shared_fabric.py'
@@ -58,6 +59,7 @@ jobs:
             infra/notarai-confidential-shared-capacity.yaml \
             infra/notarai-confidential-external-custody-kms.yaml \
             infra/notarai-confidential-custody-signing.yaml \
+            infra/notarai-confidential-custody-recovery.yaml \
             infra/notarai-confidential-job-ledger.yaml \
             infra/notarai-confidential-network-base.yaml \
             infra/notarai-confidential-artifacts.yaml \
@@ -89,6 +91,10 @@ jobs:
           python scripts/verify_confidential_release.py --help >/dev/null
       - name: Sprawdz read-only audit pilota (bez AWS)
         run: python scripts/audit_confidential_pilot.py --help >/dev/null
+      - name: SEC-03 — bezpieczny tryb CLI kustosza, bez AWS
+        run: |
+          python -m scripts.build_custodian_browser_client --help >/dev/null
+          python -m scripts.verify_sec03_operator_denial --help >/dev/null
       - name: Wytworz weryfikowalny pakiet Lambda (offline)
         run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
       - name: Przeglądarka Chromium
