@@ -2,7 +2,7 @@
 
 **Status:** decyzja architektoniczna / plan prototypu; **nie wdrożono** VM ani robota Windows.  
 **Data:** 2026-11-22  
-**Priorytet:** uniwersalny Computer Use agent dla dowolnego programu kancelaryjnego, bez osobnego adaptera per program (zob. `docs/universal-computer-agent.md`). **RejNET Office to pierwszy pilot kompatybilności**, nie zależność architektury.  
+**Priorytet:** uniwersalny Computer Use agent dla dowolnego programu kancelaryjnego, bez osobnego adaptera per program (zob. `docs/universal-computer-agent.md`). Dwa łańcuchy fallbacków (instalacja i wykonanie) w `docs/fallback-policy.md`. **RejNET Office to pierwszy pilot kompatybilności**, nie zależność architektury.  
 **Zasada produktu:** notariusz używa `app.notarai.pl`; nie instaluje NotarAI na własnym komputerze. Oddzielne środowisko Windows uruchamia istniejący program kancelaryjny, z odrębną tożsamością operatora automatycznego.
 
 ## 1. Co już istnieje i czego nie dublujemy
