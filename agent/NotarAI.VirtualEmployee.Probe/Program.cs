@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
 using NotarAI.VirtualEmployee.Protocol;
+using NotarAI.VirtualEmployee.Probe;
 
 if (!OperatingSystem.IsWindows())
 {
@@ -20,9 +21,13 @@ if (args.Length == 1 && args[0] == "--session-health")
     return ReportSession();
 if (args.Length == 1 && args[0] == "--inspect-notepad")
     return InspectNotepad();
+if (args.Length == 1 && args[0] == "--once-local-inbox")
+    return RunLocalInbox(continuous: false);
+if (args.Length == 1 && args[0] == "--serve-local-inbox")
+    return RunLocalInbox(continuous: true);
 if (args.Length != 2 || args[0] != "--run-verified-local-job")
 {
-    Console.WriteLine("Usage: --session-health OR --inspect-notepad OR --run-verified-local-job <local-job.json>");
+    Console.WriteLine("Usage: --session-health | --inspect-notepad | --run-verified-local-job <job.json> | --once-local-inbox | --serve-local-inbox");
     return 2;
 }
 
@@ -69,6 +74,54 @@ return admission.Operation switch
     "probe.session" => ReportSession(),
     "probe.notepad" => InspectNotepad(),
     _ => 7 // Defense-in-depth; never accept shell/script actions.
+};
+
+static int RunLocalInbox(bool continuous)
+{
+    var tenant = Environment.GetEnvironmentVariable("NOTARAI_VE_TENANT_ID");
+    var keyFile = Environment.GetEnvironmentVariable("NOTARAI_VE_HMAC_KEY_FILE");
+    var inbox = Environment.GetEnvironmentVariable("NOTARAI_VE_INBOX_DIR");
+    var outbox = Environment.GetEnvironmentVariable("NOTARAI_VE_OUTBOX_DIR");
+    var replay = Environment.GetEnvironmentVariable("NOTARAI_VE_REPLAY_DIR");
+    if (string.IsNullOrWhiteSpace(tenant) || string.IsNullOrWhiteSpace(keyFile) ||
+        string.IsNullOrWhiteSpace(inbox) || string.IsNullOrWhiteSpace(outbox) ||
+        string.IsNullOrWhiteSpace(replay))
+    {
+        Console.Error.WriteLine("Missing local inbox configuration");
+        return 6;
+    }
+    byte[] key = [];
+    try
+    {
+        key = File.ReadAllBytes(keyFile);
+        var worker = new LocalInboxProcessor(tenant, key, inbox, outbox, replay);
+        if (!continuous)
+        {
+            worker.Drain(ExecuteDiagnosticOperation);
+            return 0;
+        }
+        Console.WriteLine("Local diagnostic worker active in interactive session only");
+        // Process exits when the interactive user logs off. No auto-logon.
+        while (true)
+        {
+            worker.Drain(ExecuteDiagnosticOperation);
+            Thread.Sleep(TimeSpan.FromSeconds(3));
+        }
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                                InvalidOperationException or ArgumentException)
+    {
+        Console.Error.WriteLine("Local worker configuration or I/O unavailable");
+        return 6;
+    }
+    finally { CryptographicOperations.ZeroMemory(key); }
+}
+
+static int ExecuteDiagnosticOperation(string operation) => operation switch
+{
+    "probe.session" => ReportSession(),
+    "probe.notepad" => InspectNotepad(),
+    _ => 7
 };
 
 static int ReportSession()
