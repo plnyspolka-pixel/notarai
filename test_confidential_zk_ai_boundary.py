@@ -308,7 +308,7 @@ def test_integrity_worker_calls_result_validator_before_persistence():
     code = Path(__file__).with_name("confidential").joinpath(
         "worker.py").read_text(encoding="utf-8")
     assert code.index("marker = validate_worker_marker(") < code.index(
-        'session.client("s3").put_object('
+        's3.put_object('
     )
 
 

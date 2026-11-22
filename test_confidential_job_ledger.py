@@ -209,8 +209,13 @@ class FakeQueue:
 
 
 class FakeS3:
-    def __init__(self):
+    def __init__(self, region="eu-central-1"):
         self.markers = []
+        self.region = region
+
+    def get_bucket_location(self, *, Bucket):
+        assert Bucket in ("fictional-bucket", "bucket")
+        return {"LocationConstraint": self.region}
 
     def put_object(self, **kwargs):
         parsed = json.loads(kwargs["Body"])
@@ -304,3 +309,26 @@ def test_worker_failure_keeps_sqs_unacknowledged_for_bounded_retry(monkeypatch):
         _process_one(session, "pilot01", "bucket", "queue", "key")
     assert ledger.status("abc012")["status"] == "retryable"
     assert not queue.deleted
+
+
+def test_worker_wrong_bucket_region_stops_before_queue_or_decrypt(monkeypatch):
+    client, ledger = make()
+    queue = FakeQueue({
+        "Body": json.dumps({
+            "tenant_id": "pilot01", "case_id": "case01",
+            "object_id": "object01", "job_id": "abc012",
+            "s3_version": "v000001",
+        }),
+        "ReceiptHandle": "fictional",
+    })
+    s3 = FakeS3(region="eu-west-1")
+    session = FakeSession(client, queue, s3)
+    accessed = []
+    monkeypatch.setattr(
+        "confidential.worker._load_decrypted_form",
+        lambda *args: accessed.append("decrypt"),
+    )
+    with pytest.raises(RuntimeError, match="S3_REGION_DENIED"):
+        _process_one(session, "pilot01", "fictional-bucket", "queue-url", "kms-arn")
+    assert accessed == [] and not queue.deleted and not s3.markers
+    assert ledger.status("abc012")["status"] == "queued"
