@@ -21,6 +21,8 @@ on:
       - 'scripts/verify_custodian_client_browser.py'
       - 'scripts/verify_sec03_operator_denial.py'
       - 'scripts/sign_confidential_origin_receipt.py'
+      - 'scripts/package_confidential_origin_root.py'
+      - 'scripts/confidential_pilot_origin_queue.py'
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/verify_confidential_shared_fabric.py'
@@ -104,12 +106,14 @@ jobs:
           python -m scripts.build_custodian_browser_client --help >/dev/null
           python -m scripts.verify_sec03_operator_denial --help >/dev/null
           python -m scripts.sign_confidential_origin_receipt --help >/dev/null
+          python -m scripts.package_confidential_origin_root --help >/dev/null
+          python -m scripts.confidential_pilot_origin_queue --help >/dev/null
       - name: Wytworz weryfikowalny pakiet Lambda (offline)
         run: python scripts/package_confidential_dispatch.py --output /tmp/notarai-confidential-dispatch.zip
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_zk_client_encryption.py test_confidential_client_bundle.py test_confidential_origin_admission.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_zk_client_encryption.py test_confidential_client_bundle.py test_confidential_origin_admission.py test_confidential_pilot_origin_queue.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
