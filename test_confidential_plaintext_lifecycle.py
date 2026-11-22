@@ -309,3 +309,45 @@ def test_auditor_refuses_wrong_account_before_storage_calls():
             queue_url=(f"https://sqs.eu-central-1.amazonaws.com/{account}/"
                        f"notarai-confidential-{tenant}.fifo"),
         )
+
+
+def test_guest_process_hardening_calls_kernel_controls(monkeypatch):
+    import confidential.plaintext_lifecycle as lifecycle
+    invoked = []
+    class FakeLibc:
+        def __init__(self):
+            def prctl(*args):
+                invoked.append(("prctl", args))
+                return 0
+            self.prctl = prctl
+    monkeypatch.setattr(lifecycle.resource, "setrlimit",
+                        lambda limit, value: invoked.append(("setrlimit", limit, value)))
+    monkeypatch.setattr(lifecycle.resource, "getrlimit", lambda limit: (0, 0))
+    monkeypatch.setattr(lifecycle.ctypes, "CDLL", lambda *a, **k: FakeLibc())
+    monkeypatch.setattr(lifecycle.faulthandler, "disable",
+                        lambda: invoked.append(("disable",)))
+    monkeypatch.setattr(lifecycle.os, "umask",
+                        lambda mask: invoked.append(("umask", mask)))
+    monkeypatch.setattr(lifecycle, "assert_tmpfs",
+                        lambda: invoked.append(("tmpfs",)))
+    lifecycle.harden_guest_process()
+    assert ("setrlimit", lifecycle.resource.RLIMIT_CORE, (0, 0)) in invoked
+    assert ("prctl", (4, 0, 0, 0, 0)) in invoked
+    assert ("disable",) in invoked
+    assert ("umask", 0o077) in invoked
+    assert ("tmpfs",) in invoked
+
+
+def test_guest_process_fails_closed_if_dumpability_cannot_be_disabled(monkeypatch):
+    import confidential.plaintext_lifecycle as lifecycle
+    class FakeLibc:
+        def __init__(self):
+            def prctl(*args):
+                return -1
+            self.prctl = prctl
+    monkeypatch.setattr(lifecycle.resource, "setrlimit", lambda *args: None)
+    monkeypatch.setattr(lifecycle.resource, "getrlimit", lambda *args: (0, 0))
+    monkeypatch.setattr(lifecycle.ctypes, "CDLL", lambda *a, **k: FakeLibc())
+    monkeypatch.setattr(lifecycle, "assert_tmpfs", lambda: None)
+    with pytest.raises(UnsafeGuestRuntime, match="dumpable"):
+        lifecycle.harden_guest_process()
