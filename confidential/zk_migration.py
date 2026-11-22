@@ -22,6 +22,7 @@ from confidential.envelope import Envelope
 from confidential.nitro_unwrapper import NitroKMSUnwrapper
 from confidential.zk_recovery import authorize_recovery, RecoveryDenied
 from confidential.recovery_trust import load_recovery_trust_root
+from confidential.custody_nonce import CustodyRecoveryNonceLedger
 
 
 def _spki_from_pem(pem: str) -> tuple[rsa.RSAPublicKey, str]:
@@ -106,8 +107,8 @@ def reencrypt_inside_attested_nitro(
     public, pin = _spki_from_pem(replacement_kms_public_pem)
     if pin != recovery_request["new_key_sha256"]:
         raise RecoveryDenied("replacement key pin does not match approval")
-    if not hasattr(independent_one_time_ledger, "claim_once"):
-        raise RecoveryDenied("independent one-time recovery ledger required")
+    if not isinstance(independent_one_time_ledger, CustodyRecoveryNonceLedger):
+        raise RecoveryDenied("verified external custody ledger required")
     # MUST be implemented in the EXTERNALLY CONTROLLED CUSTODY account, not
     # the NotarAI operator account. Fail closed on ambiguous ledger outcome.
     try:
