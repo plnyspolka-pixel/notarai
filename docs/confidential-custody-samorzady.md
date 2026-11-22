@@ -7,6 +7,12 @@ Data: 22.11.2026. Dotyczy pomysłu właściciela z 22.11.2026 oraz architektury 
 
 ## 1. Wniosek w skrócie
 
+**Kierunek, w którym budujemy (decyzja właściciela z 22.11.2026): pkt 5.7.** Dostęp do treści
+ma zależeć od algorytmu, a nie od zaufania do osoby lub instytucji: klucz zostaje u klienta,
+klient sam sprawdza atestację enklawy z publicznym rejestrem, a enklawa przyjmuje zlecenia
+tylko od kluczy poświadczonych podpisem kwalifikowanym notariusza. Warianty z kustoszem
+(5.2-5.5) są etapem przejściowym i tłem analizy.
+
 1. **Nie wręczać klucza kustosza żadnemu samorządowi ani organowi nadzoru.** Kustosz może
    zmienić politykę klucza KMS, czyli technicznie może sobie przyznać `kms:Decrypt`. Organ,
    który ma jednocześnie taki klucz i ustawowe prawo żądania dokumentów, staje się zagrożeniem
@@ -26,6 +32,9 @@ Data: 22.11.2026. Dotyczy pomysłu właściciela z 22.11.2026 oraz architektury 
    dowodów. To wymaga ich zgody i rozmów (pkt 6.2).
 6. **Na stronie wolno pisać tylko o tym, co jest publicznie sprawdzalne**, bez nazw instytucji,
    które się nie zgodziły (pkt 6.3).
+7. **Podmiot powiązany z właścicielem operatora (osobiście, rodzinnie, kapitałowo) nie jest
+   niezależnym kustoszem cudzych kluczy**, nawet jeśli właściciel go nie prowadzi i nie
+   kontroluje. Może być kustoszem własnych danych i miejscem pilota technicznego (pkt 5.5).
 
 ## 2. Dwie role, których nie wolno mylić
 
@@ -414,18 +423,125 @@ obsługi IT. Wart zaoferowania jako opcja, nie jako model domyślny.
 | 5.3 Wielopodpis m-z-n | tak | sygnatariusze, pośrednio każdy | złożoność, automat do audytu |
 | 5.4 Kustosz komercyjny i świadek | tylko dla świadka | każdy | kustosza opłaca operator |
 | 5.5 Klient jako kustosz | nie | dany klient | wymaga kompetencji po stronie klienta |
+| 5.7 Bez kustosza treści (docelowy) | nie | każdy, a klient dla każdej swojej sesji | duża zmiana w kodzie; zależy od oprogramowania klienta |
+
+### 5.7 Kierunek docelowy: bez kustosza treści
+
+Kustosz jest potrzebny tylko dlatego, że dziś klucz dokumentu jest szyfrowany do klucza KMS,
+a o dostępie decyduje polityka tego klucza. Jeżeli klucz nigdy nie opuszcza klienta inaczej
+niż zaszyfrowany do konkretnej, sprawdzonej enklawy, nie ma polityki, którą ktoś mógłby
+zmienić. Konstrukcja składa się z trzech elementów.
+
+**A. Klucz u klienta.** Klucz kancelarii powstaje i zostaje na urządzeniu notariusza (magazyn
+kluczy rozszerzenia przeglądarki lub pomocnika, docelowo sprzętowy). Kopia zapasowa: drugi
+klucz albo podział na części między osoby z kancelarii.
+
+**B. Klient sprawdza enklawę.** Enklawa generuje klucz jednorazowy i uzyskuje dokument
+atestacji, który go zawiera. Oprogramowanie klienta weryfikuje: podpis i łańcuch certyfikatów
+AWS Nitro, obecność pomiaru w publicznym rejestrze wydań (5.1), własną wartość losową (nonce)
+w dokumencie. Dopiero wtedy szyfruje klucz dokumentu do klucza enklawy. Przy niezgodności
+klucz nie jest wysyłany.
+
+**C. Enklawa sprawdza klienta przez podpis kwalifikowany.** Podpis kwalifikowany nie szyfruje
+(klucz na karcie lub u dostawcy służy tylko do podpisu), więc nie zastępuje elementu A.
+Rozwiązuje natomiast pytanie, skąd enklawa wie, że zlecenie pochodzi od notariusza:
+
+1. Notariusz jednorazowo podpisuje kwalifikowanie oświadczenie wiążące klucz urządzenia
+   z kancelarią. Operator nie może podstawić cudzego klucza.
+2. Codzienne zlecenia podpisuje klucz urządzenia (bez PIN-u przy każdym dokumencie). Zlecenie
+   wskazuje pomiar enklawy, zadanie i okres ważności. To także sposób na pracę w tle, gdy
+   notariusz jest offline.
+3. Dodanie urządzenia i odzyskanie dostępu wymagają podpisu kwalifikowanego, więc nie ma
+   ścieżki „operator resetuje dostęp”.
+4. Podpis kwalifikowany jest równoważny własnoręcznemu, więc każde przetworzenie jest
+   oświadczeniem notariusza, który osobiście odpowiada za tajemnicę.
+
+Operator pośredniczy w przesyłaniu, ale nie może udawać ani enklawy (B), ani notariusza (C).
+
+**Co dowodzi.** Treść może odszyfrować wyłącznie kod o pomiarze z publicznego rejestru,
+i wyłącznie na zlecenie klucza poświadczonego przez notariusza. Nie istnieje strona, która
+może to zmienić jednostronnie.
+
+**Czego nie dowodzi.**
+- Poprawności kodu. Rejestr i odtwarzalna kompilacja sprawiają, że każdy może go przeczytać
+  i porównać; nie zastępują przeglądu.
+- Wiarygodności sprzętu i podpisu AWS, który jest korzeniem konstrukcji.
+- Braku wycieku dozwolonym kanałem (wyniki, logi, ruch wychodzący).
+- Uczciwości oprogramowania klienta, jeśli pochodzi od operatora bez niezależnej kontroli.
+  Weryfikator musi być w rozszerzeniu lub pomocniku, w wydaniach podpisanych, odtwarzalnych
+  i wpisanych do rejestru, a nie w kodzie strony pobieranym przy każdym wejściu.
+
+**Kto może korzystać z dowodu.** Każdy z rejestru (jak w 5.1); dodatkowo sam klient ma dowód
+dla każdej własnej sesji, bo to jego oprogramowanie podjęło decyzję o wydaniu klucza.
+
+**Rola instytucji.** Żadnej władzy nad kluczem. Sensowna rola to przechowywanie niezależnych
+kopii nagłówków rejestru, żeby operator nie mógł pokazać różnym klientom różnych wersji.
+
+**Problemy do rozwiązania.**
+- Certyfikat kwalifikowany potwierdza tożsamość osoby, nie zawód. Powiązanie z notariuszem
+  wymaga urzędowego wykazu; nie sprawdzono, czy jest dostępny maszynowo.
+- Certyfikat zawiera dane osobowe (imię, nazwisko, zwykle identyfikator oparty na PESEL).
+  Podpisów kwalifikowanych nie wolno publikować w rejestrze ani zapisywać w logach;
+  weryfikacja wyłącznie w enklawie.
+- Enklawa nie ma ruchu wychodzącego do dostawców certyfikatów, więc potwierdzenie ważności
+  (OCSP lub CRL) i znacznik czasu dostarcza klient razem z poświadczeniem.
+- Lista zaufanych dostawców musi być w mierzonym obrazie i aktualizowana przez wydania.
+- Wymiana certyfikatu co 2-3 lata wymaga ponownego poświadczenia klucza urządzenia.
+- Wielu użytkowników w kancelarii (zastępca, asesor, pracownicy): delegacja podpisana przez
+  notariusza, z zakresem i terminem.
+- Podpisy w chmurze dostawcy, karty i czytniki różnią się integracją; do sprawdzenia na
+  prawdziwym sprzęcie.
+- Odrzucono wyprowadzanie klucza szyfrującego z podpisu pod stałym tekstem: działa tylko dla
+  części algorytmów, a wymiana certyfikatu oznaczałaby utratę dokumentów.
+- Odrzucono zamrożenie polityki klucza KMS jako rozwiązanie docelowe: właściciel konta
+  prawdopodobnie może odzyskać dostęp przez wsparcie AWS (niezweryfikowane).
+
+**Co trzeba przestawić w kodzie (przegląd z 22.11.2026, bez zmian w kodzie).**
+
+| Miejsce | Stan dziś | Zmiana |
+|---|---|---|
+| `static/confidential-crypto.js` | szyfruje klucz dokumentu do klucza publicznego KMS, sprawdza tylko odcisk tego klucza | szyfrowanie do klucza enklawy po weryfikacji atestacji; przeniesienie do rozszerzenia |
+| `rozszerzenie/` | brak kodu poufnego przetwarzania | weryfikator atestacji i rejestru, magazyn klucza kancelarii, podpisywanie zleceń |
+| `confidential/nsm_recipient.py` | atestacja z `nonce: None`, `user_data: None`, odbiorcą jest KMS | nonce klienta i powiązanie z sesją w `user_data`; odbiorcą jest klient |
+| `confidential/envelope.py` | koperta wymaga `kms_key_arn` i klucza opakowanego RSA | nowa wersja koperty z odbiorcą-enklawą; stara zostaje na okres przejściowy |
+| `confidential/attested_kms.py`, `nitro_unwrapper.py` | jedyna droga do klucza dokumentu | ścieżka przejściowa; docelowo poza obiegiem dokumentów |
+| `confidential/worker.py`, `dispatch.py`, `job_ledger.py` | zadanie jednorazowe z kolejki, bez udziału klienta | sesja z klientem albo zadanie w tle na podstawie podpisanego zlecenia |
+| `confidential/signed_approval.py` | zgody Ed25519; rejestr kluczy w DynamoDB wypełniany osobną procedurą | korzeniem rejestru staje się poświadczenie podpisem kwalifikowanym, weryfikowane w enklawie |
+| brak | brak weryfikacji podpisów kwalifikowanych (XAdES/CAdES/PAdES) i listy zaufania | nowy moduł w obrazie enklawy |
+| `confidential/private_egress.py` | zamknięty ruch wychodzący | bez zmian; ważność certyfikatów dostarcza klient |
+| `confidential/release_approval.py`, `operator_boundary.py`, `pilot_preflight.py` | bramki kustosza dla ścieżki KMS | zostają dla ścieżki przejściowej; podpisy wydań zasilają rejestr |
+| brak | brak rejestru przejrzystości i odtwarzalnej kompilacji | nowe |
+
+**Etapy.**
+0. Rejestr przejrzystości i narzędzie weryfikacji (5.1). Niezależne od reszty.
+1. Atestacja z nonce klienta i weryfikator w rozszerzeniu, równolegle do ścieżki KMS.
+2. Poświadczenie klucza urządzenia podpisem kwalifikowanym; rejestr kluczy przestaje zależeć
+   od operatora.
+3. Wydanie klucza dokumentu bezpośrednio enklawie; KMS znika z obiegu dokumentów.
+4. Podpisane zlecenia dla zadań w tle i delegacje dla pracowników kancelarii.
+
+Do etapu 3 potrzebny jest kustosz ścieżki KMS. Na pilota: kancelaria pilotażowa jako kustosz
+wyłącznie własnych danych (5.5), na danych syntetycznych.
+
+**Do weryfikacji przed projektem szczegółowym:** okres ważności certyfikatów w dokumencie
+atestacji i wynikające z niego ograniczenia sesji; sposób dostarczenia atestacji klientowi
+(enklawa nie przyjmuje połączeń przychodzących); czy cały obecny przepływ zadań da się
+przestawić bez utraty funkcji.
 
 ## 6. Rekomendacja
 
 ### 6.1 Co zrobić najpierw (bez udziału instytucji)
 
-1. Przyjąć rozdział ról z pkt 2 i zrezygnować z koncepcji „klucz dla KRN”.
+1. Przyjąć rozdział ról z pkt 2 i zrezygnować z koncepcji „klucz dla KRN”. Przyjąć pkt 5.7
+   jako kierunek docelowy i budować etapami tam opisanymi.
 2. Zaprojektować i zbudować rejestr przejrzystości (5.1) wraz z narzędziem weryfikacji
    offline. Podpis wydań i weryfikator już istnieją; brakuje publikacji, łańcucha wpisów,
    znaczników czasu, zapisu dokumentów atestacji i odtwarzalnej kompilacji.
-3. Wybrać kustosza na pilota: podmiot komercyjny na umowie (5.4) albo pierwszy klient
-   pilotażowy jako kustosz własnego klucza (5.5). Bez tego konto custody nadal nie istnieje
-   i żaden dowód na żywo nie jest możliwy.
+3. Kustosz na okres przejściowy: kancelaria pilotażowa jako kustosz wyłącznie własnych danych
+   (5.5), na danych syntetycznych. Konto AWS zakłada i opłaca kancelaria, na własny adres
+   i z własnym MFA, poza organizacją AWS operatora; operator nie zna haseł, nie ma roli
+   administratora i nie podpisuje wydań w jej imieniu. Dla pozostałych kancelarii kustosz
+   pozostaje pytaniem otwartym do czasu etapu 3 z pkt 5.7 (`docs/czeka-na-dostep.md`, NA-16).
 4. Rozstrzygnąć kwestię 24-48 h ważności podpisu: albo kustosz ma automat podpisujący po
    świeżej weryfikacji obu kont, albo ważność trzeba inaczej związać z niezmiennością
    konfiguracji. To decyzja projektowa do osobnego przeglądu bezpieczeństwa.
@@ -487,10 +603,14 @@ prawdziwy.
 
 ## 7. Otwarte pytania do właściciela
 
-1. Czy akceptujesz rezygnację z przekazania klucza KRN na rzecz rozdziału: kustosz na umowie
-   lub klient, instytucje jako weryfikator lub świadek?
-2. Kto ma być kustoszem pilota: podmiot komercyjny czy pierwszy klient pilotażowy? Jaki budżet
-   miesięczny na tę rolę jest akceptowalny?
+1. Rozstrzygnięte 22.11.2026: kierunek docelowy to pkt 5.7; kustoszem pilota jest kancelaria
+   pilotażowa dla własnych danych.
+2. Kto ma być kustoszem ścieżki KMS dla pozostałych kancelarii do czasu etapu 3: podmiot
+   komercyjny na umowie, czy wstrzymujemy się z innymi kancelariami do etapu 3?
+8. Gdzie ma mieszkać klucz kancelarii i weryfikator: rozszerzenie przeglądarki, pomocnik,
+   czy oba? Od tego zależy zakres etapu 1.
+9. Czy kancelaria pilotażowa udostępni prawdziwy podpis kwalifikowany do testu etapu 2
+   (`docs/czeka-na-dostep.md`, NA-17)?
 3. Czy rejestr przejrzystości ma być w pełni publiczny od pierwszego dnia, w tym z kodem
    źródłowym części działającej w Nitro (warunek odtwarzalnej kompilacji)?
 4. Czy masz istniejący kontakt w którejś izbie notarialnej lub w KRN, od którego można zacząć
