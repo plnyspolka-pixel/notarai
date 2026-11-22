@@ -551,3 +551,71 @@ def test_readback_requires_durable_registry_digest_and_s3_version(keys, monkeypa
     with pytest.raises(HTTPException) as err:
         router.retrieve(req, "case01", "scan01")
     assert err.value.status_code == 409
+
+
+def test_custody_recovery_nonce_is_single_use_and_fail_closed():
+    from confidential.custody_nonce import (
+        CustodyRecoveryNonceLedger, RecoveryNonceDenied,
+    )
+    table = FakeDocumentDdb()
+    ledger = CustodyRecoveryNonceLedger(
+        table, tenant="pilot01", custody_account="111122223333",
+    )
+    ledger.claim_once("a" * 32)
+    assert len(table.rows) == 1
+    with pytest.raises(RecoveryNonceDenied):
+        ledger.claim_once("a" * 32)
+    with pytest.raises(RecoveryNonceDenied):
+        ledger.claim_once("bad-identifier")
+    assert len(table.rows) == 1
+    with pytest.raises(RecoveryNonceDenied):
+        CustodyRecoveryNonceLedger(
+            table, tenant="../bad", custody_account="111122223333",
+        )
+
+
+def test_synthetic_operator_decrypt_probe_rejects_plaintext_and_bad_key_pin(keys):
+    from scripts.verify_sec03_operator_denial import (
+        OperatorProbeRejected, run_probe,
+    )
+    der = keys[0].public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    arn = "arn:aws:kms:eu-central-1:444455556666:key/fixture"
+    class Sts:
+        def __init__(self, account):
+            self.account = account
+        def get_caller_identity(self):
+            return {"Account": self.account}
+    class Custody:
+        def get_public_key(self, **kwargs):
+            assert kwargs == {"KeyId": arn}
+            return {"KeyId": arn, "KeyUsage": "ENCRYPT_DECRYPT",
+                    "KeySpec": "RSA_3072", "PublicKey": der}
+    class Denied:
+        def decrypt(self, **kwargs):
+            class AwsDeny(Exception):
+                response = {"Error": {"Code": "AccessDeniedException"}}
+            raise AwsDeny()
+    values = dict(
+        operator_sts=Sts("111122223333"), operator_kms=Denied(),
+        custody_sts=Sts("444455556666"), custody_kms=Custody(),
+        expected_operator="111122223333",
+        expected_custody="444455556666",
+        key_arn=arn, trusted_public_key_pin=keys[1],
+    )
+    redacted = run_probe(**values)
+    assert redacted["unenclaved_decrypt_denied_for_test_principal"]
+    assert redacted["status"] == "BLOCKED"
+    assert redacted["global_operator_denial_proven"] is False
+    class Malicious:
+        def decrypt(self, **kwargs):
+            return {"Plaintext": b"synthetic-secret"}
+    result = run_probe(**{**values, "operator_kms": Malicious()})
+    assert result["status"] == "FAIL"
+    assert "Plaintext" not in str(result)
+    with pytest.raises(OperatorProbeRejected):
+        run_probe(**{**values, "trusted_public_key_pin": "A" * 43 + "="})
+    with pytest.raises(OperatorProbeRejected):
+        run_probe(**{**values, "operator_sts": Sts("444455556666")})
