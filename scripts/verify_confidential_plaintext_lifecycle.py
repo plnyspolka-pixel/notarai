@@ -61,6 +61,66 @@ def inspect_task_definition(task: dict) -> dict:
     return result
 
 
+def scan_version_metadata(s3, *, bucket: str, account: str, tenant: str,
+                          max_pages: int = 50) -> dict:
+    """Complete bounded S3 version inventory; no object body or identifiers in output.
+
+    Pagination markers are used solely as opaque request cursors. A malformed,
+    repeated or incomplete continuation fails closed. S3 remains authoritative;
+    this operation does not prove replica/backup purging or future consistency.
+    """
+    if type(max_pages) is not int or not 1 <= max_pages <= 100:
+        raise UnsafeAudit("invalid S3 inventory page bound")
+    if tenant not in _TENANTS or not _ACCOUNT.fullmatch(account):
+        raise UnsafeAudit("invalid synthetic inventory scope")
+    if bucket != f"ntr-cf-{tenant}-{account}-{_REGION}":
+        raise UnsafeAudit("S3 inventory outside synthetic pilot")
+    prefix = f"kancelarie/{tenant}/confidential/"
+    key_marker = None
+    version_marker = None
+    seen: set[tuple[str, str]] = set()
+    count = 0
+    markers = 0
+    for page in range(1, max_pages + 1):
+        kwargs = {
+            "Bucket": bucket, "ExpectedBucketOwner": account,
+            "Prefix": prefix, "MaxKeys": 1000,
+        }
+        if key_marker is not None:
+            kwargs["KeyMarker"] = key_marker
+            if version_marker:
+                kwargs["VersionIdMarker"] = version_marker
+        response = s3.list_object_versions(**kwargs)
+        if not isinstance(response, dict):
+            raise UnsafeAudit("S3 inventory response invalid")
+        versions = response.get("Versions", [])
+        deleted = response.get("DeleteMarkers", [])
+        truncated = response.get("IsTruncated")
+        if (not isinstance(versions, list) or not isinstance(deleted, list)
+                or type(truncated) is not bool):
+            raise UnsafeAudit("S3 inventory response invalid")
+        count += len(versions)
+        markers += len(deleted)
+        if not truncated:
+            return {
+                "s3_inventory_complete": True,
+                "s3_inventory_pages": page,
+                "s3_version_count": count,
+                "s3_delete_marker_count": markers,
+            }
+        next_key = response.get("NextKeyMarker")
+        next_version = response.get("NextVersionIdMarker", "")
+        if (not isinstance(next_key, str) or not next_key.startswith(prefix)
+                or not isinstance(next_version, str)):
+            raise UnsafeAudit("S3 inventory continuation missing")
+        cursor = (next_key, next_version)
+        if cursor in seen:
+            raise UnsafeAudit("S3 inventory pagination loop")
+        seen.add(cursor)
+        key_marker, version_marker = cursor
+    raise UnsafeAudit("S3 inventory exceeds bounded review")
+
+
 def read_only_audit(session, *, account: str, tenant: str, bucket: str,
                     queue_url: str, task_arn: str) -> dict:
     validate_scope(account=account, tenant=tenant, bucket=bucket,
@@ -125,10 +185,9 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
             raise UnsafeAudit("S3 lifecycle read unavailable") from None
         lifecycle_rule_count = 0
 
-    # Metadata only; no object bodies, values or identifiers printed/stored.
-    versions = s3.list_object_versions(
-        Bucket=bucket, ExpectedBucketOwner=account,
-        Prefix=f"kancelarie/{tenant}/confidential/", MaxKeys=1000
+    # Metadata only, all S3 pages; no body or identifiers printed.
+    inventory = scan_version_metadata(
+        s3, bucket=bucket, account=account, tenant=tenant
     )
     queue = sqs.get_queue_attributes(
         QueueUrl=queue_url,
@@ -169,9 +228,7 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         "s3_replication_state": replication_state,
         "s3_bucket_object_lock_state": object_lock_state,
         "s3_lifecycle_rule_count": lifecycle_rule_count,
-        "s3_version_count_on_first_page": len(versions.get("Versions", [])),
-        "s3_delete_marker_count_on_first_page": len(versions.get("DeleteMarkers", [])),
-        "s3_version_list_truncated": bool(versions.get("IsTruncated")),
+        **inventory,
         "sqs_retention_seconds": int(queue.get("MessageRetentionPeriod", "-1")),
         "sqs_has_redrive": "RedrivePolicy" in queue,
         "sqs_dlq_retention_seconds": dlq_retention,
