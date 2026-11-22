@@ -58,7 +58,7 @@ $final = Join-Path $inbox ($jobId + '.json')
 $temp = Join-Path $inbox ($jobId + '.tmp')
 if (Test-Path -LiteralPath $final) { throw 'Random job collision' }
 try {
-    [IO.File]::WriteAllText($temp, ($job | ConvertTo-Json -Compress -Depth 2), [Text.Encoding]::UTF8)
+    [IO.File]::WriteAllText($temp, ($job | ConvertTo-Json -Compress -Depth 2), [Text.UTF8Encoding]::new($false))
     [IO.File]::Move($temp, $final)
 }
 finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
