@@ -41,6 +41,7 @@ class DispatcherConfig:
     security_group: str
     lease_table: str
     shared_pool: bool = False
+    external_custody_key_arn: str = ""  # empty only for synthetic legacy tests
 
     def validate(self) -> None:
         if not _ACCOUNT.fullmatch(self.account) or not _TENANT.fullmatch(self.tenant):
@@ -61,6 +62,14 @@ class DispatcherConfig:
             raise UnsafeDispatch("invalid private networking identifiers")
         if self.lease_table != f"notarai-confidential-dispatch-{self.tenant}":
             raise UnsafeDispatch("unapproved lease ledger")
+        if self.external_custody_key_arn:
+            # Never reinterpret an invalid external key as permission to use
+            # the operator-owned demo key.
+            if (not self.shared_pool or not re.fullmatch(
+                r"arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+",
+                self.external_custody_key_arn
+            ) or self.external_custody_key_arn.split(":")[4] == self.account):
+                raise UnsafeDispatch("external custody key is not independent")
 
 
 def _verify_task(ecs, config: DispatcherConfig) -> None:
@@ -123,7 +132,9 @@ def _verify_task(ecs, config: DispatcherConfig) -> None:
             values.get("NOTARAI_CONFIDENTIAL_QUEUE_URL") != config.queue_url or
             values.get("AWS_REGION") != REGION or
             not isinstance(kms, str) or
-            not kms.startswith(f"arn:aws:kms:{REGION}:{config.account}:key/") or
+            (config.external_custody_key_arn and kms != config.external_custody_key_arn)
+            or (not config.external_custody_key_arn and
+                not kms.startswith(f"arn:aws:kms:{REGION}:{config.account}:key/")) or
             not isinstance(bucket, str) or not re.fullmatch(
                 r"[a-z0-9][a-z0-9.-]{2,62}", bucket
             )):
@@ -203,7 +214,7 @@ def _release_finished_lease(ecs, dynamodb, config: DispatcherConfig,
 
 
 def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
-                  clock=time.time, token_factory=None) -> str:
+                  release_gate=None, clock=time.time, token_factory=None) -> str:
     """Launch at most one verified, unmodified preview guest per lease.
 
     One SQS FIFO work queue stays owned by the guest, not the scheduler.
@@ -212,6 +223,8 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
     ambiguous failures. This deliberately fails toward no task launch.
     """
     config.validate()
+    if not callable(release_gate):
+        raise UnsafeDispatch("independent signed release gate is mandatory")
     token_factory = token_factory or (lambda: secrets.token_hex(16))
     depth = sqs.get_queue_attributes(
         QueueUrl=config.queue_url,
@@ -222,6 +235,11 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
     if int(depth) == 0:
         return "idle"
 
+    # No optional demo bypass or client-supplied "approved" Boolean.
+    try:
+        release_gate()
+    except Exception:
+        raise UnsafeDispatch("independent release authorization denied") from None
     _verify_task(ecs, config)
     if _active_guest_count(ecs, config):
         return "already_running"
@@ -256,6 +274,10 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
     state = "launch_uncertain"
     task_arn = None
     try:
+        # Recheck immediately before RunTask to reduce policy/image drift
+        # between first authorization and the acquired lease.
+        release_gate()
+        _verify_task(ecs, config)
         # Never set containerOverrides, command, launchType, or ECS Exec here.
         # Environment values remain pinned by the Nitro attestation policy.
         result = ecs.run_task(
