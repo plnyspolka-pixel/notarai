@@ -93,7 +93,8 @@ def validate_state(state: Mapping) -> dict:
         value = state[name]
         _require(isinstance(value, str) and _HEX64.fullmatch(value) is not None,
                  "release, image and policy digests must be pinned")
-    _require(state["state"] in {"ACTIVE", "FROZEN", "REVOKED", "LOST"},
+    _require(isinstance(state["state"], str) and
+             state["state"] in {"ACTIVE", "FROZEN", "REVOKED", "LOST"},
              "unknown custody state")
     _require(type(state["generation"]) is int and state["generation"] >= 1 and
              type(state["revision"]) is int and state["revision"] >= 1,
@@ -224,7 +225,7 @@ def apply_signed_action(
     payload = envelope["payload"]
     signed = _signed_event_bytes(payload)
     action = payload["action"]
-    _require(action in {"ENROLL", "FREEZE", "UNFREEZE", "REVOKE",
+    _require(isinstance(action, str) and action in {"ENROLL", "FREEZE", "UNFREEZE", "REVOKE",
                         "ROTATE", "MARK_LOST"}, "unknown custody operation")
     _require(isinstance(payload["tenant"], str) and
              _TENANT.fullmatch(payload["tenant"]) is not None,
