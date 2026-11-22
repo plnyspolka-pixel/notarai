@@ -29,7 +29,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub "notarai-sec11-custody-\${AWS::AccountId}-\${AWS::Region}"
+      BucketName: !Sub "notarai-sec11-custody-${AWS::AccountId}-${AWS::Region}"
       ObjectLockEnabled: true
       ObjectLockConfiguration:
         ObjectLockEnabled: Enabled
@@ -68,18 +68,18 @@ Resources:
           - Sid: DenyAllOperatorAccountAccess
             Effect: Deny
             Principal:
-              AWS: !Sub "arn:aws:iam::\${OperatorAccountId}:root"
+              AWS: !Sub "arn:aws:iam::${OperatorAccountId}:root"
             Action: "s3:*"
             Resource:
               - !GetAtt IndependentEvidenceBucket.Arn
-              - !Sub "\${IndependentEvidenceBucket.Arn}/*"
+              - !Sub "${IndependentEvidenceBucket.Arn}/*"
           - Sid: DenyInsecureTransport
             Effect: Deny
             Principal: "*"
             Action: "s3:*"
             Resource:
               - !GetAtt IndependentEvidenceBucket.Arn
-              - !Sub "\${IndependentEvidenceBucket.Arn}/*"
+              - !Sub "${IndependentEvidenceBucket.Arn}/*"
             Condition:
               Bool:
                 aws:SecureTransport: "false"
