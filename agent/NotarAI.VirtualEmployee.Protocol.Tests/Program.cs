@@ -1,5 +1,6 @@
 using System.Text.Json;
 using NotarAI.VirtualEmployee.Protocol;
+using NotarAI.VirtualEmployee.Probe;
 
 var failures = new List<string>();
 var checkedCount = 0;
@@ -54,6 +55,50 @@ try
     Check("replay file count", Directory.GetFiles(directory, "*.claimed").Length == 1);
 }
 finally { Directory.Delete(directory, recursive: true); }
+
+
+var spoolRoot = Path.Combine(Path.GetTempPath(), "notarai-ve-spool-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(spoolRoot);
+try
+{
+    var inbox = Path.Combine(spoolRoot, "inbox");
+    var outbox = Path.Combine(spoolRoot, "outbox");
+    var replayDir = Path.Combine(spoolRoot, "replay");
+    Directory.CreateDirectory(inbox);
+    Directory.CreateDirectory(outbox);
+    Directory.CreateDirectory(replayDir);
+    var spoolNow = DateTimeOffset.UtcNow;
+    var spoolJob = job with
+    {
+        JobId = "11111111111111111111111111111111",
+        IssuedAtUnix = spoolNow.ToUnixTimeSeconds() - 5,
+        ExpiresAtUnix = spoolNow.ToUnixTimeSeconds() + 50,
+        Signature = ""
+    };
+    spoolJob = spoolJob with { Signature = JobAdmission.SignForTest(spoolJob, secret) };
+    File.WriteAllText(Path.Combine(inbox, spoolJob.JobId + ".json"), Json(spoolJob));
+    var worker = new LocalInboxProcessor(tenant, secret, inbox, outbox, replayDir);
+    Check("spool processes valid job", worker.Drain(op => op == "probe.session" ? 0 : 7) == 1);
+    var outcome = File.ReadAllText(Path.Combine(outbox, spoolJob.JobId + ".status.json"));
+    Check("spool result metadata", outcome.Contains("\"completed\"", StringComparison.Ordinal));
+    Check("spool never echoes data", !outcome.Contains("payload", StringComparison.Ordinal));
+    Check("spool idempotent", worker.Drain(_ => 0) == 0);
+
+    var denied = job with
+    {
+        JobId = "22222222222222222222222222222222",
+        Operation = "shell.execute",
+        IssuedAtUnix = spoolNow.ToUnixTimeSeconds() - 5,
+        ExpiresAtUnix = spoolNow.ToUnixTimeSeconds() + 50,
+        Signature = ""
+    };
+    denied = denied with { Signature = JobAdmission.SignForTest(denied, secret) };
+    File.WriteAllText(Path.Combine(inbox, denied.JobId + ".json"), Json(denied));
+    Check("spool denies even signed shell", worker.Drain(_ => 0) == 1);
+    var deniedOutcome = File.ReadAllText(Path.Combine(outbox, denied.JobId + ".status.json"));
+    Check("spool denial reason", deniedOutcome.Contains("operation_denied", StringComparison.Ordinal));
+}
+finally { Directory.Delete(spoolRoot, recursive: true); }
 
 if (failures.Count != 0)
 {
