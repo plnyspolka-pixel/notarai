@@ -114,3 +114,16 @@ def test_errors_do_not_echo_sensitive_marker():
     with pytest.raises(EgressDenied) as exc:
         PreviewEgressGuard("https://" + MARKER + "@not-allowed.test/x")
     assert MARKER not in str(exc.value)
+
+
+def test_worker_exception_logging_never_prints_untrusted_marker(monkeypatch, capsys):
+    import confidential.worker as worker
+
+    def raise_unsafe():
+        raise RuntimeError(MARKER)
+
+    monkeypatch.setattr(worker, "_config", raise_unsafe)
+    assert worker.main() == 1
+    logs = capsys.readouterr()
+    assert MARKER not in logs.out + logs.err
+    assert "RuntimeError" in logs.err
