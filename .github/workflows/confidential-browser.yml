@@ -16,6 +16,7 @@ on:
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/verify_confidential_egress_live.py'
       - 'scripts/probe_confidential_adversarial_browser.py'
+      - 'test_confidential_dns_firewall.py'
       - 'scripts/verify_confidential_shared_fabric.py'
       - 'scripts/verify_confidential_operator_boundary.py'
       - 'scripts/verify_confidential_release.py'
@@ -52,6 +53,7 @@ jobs:
           cfn-lint --regions eu-central-1 --template \
             infra/notarai-confidential-capacity-base.yaml \
             infra/notarai-confidential-private-egress.yaml \
+            infra/notarai-confidential-dns-egress.yaml \
             infra/notarai-confidential-shared-fabric.yaml \
             infra/notarai-confidential-shared-capacity.yaml \
             infra/notarai-confidential-external-custody-kms.yaml \
@@ -94,7 +96,7 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_egress_adversarial.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_egress_adversarial.py test_confidential_dns_firewall.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
