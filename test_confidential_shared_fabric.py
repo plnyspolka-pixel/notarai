@@ -179,6 +179,7 @@ def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
 
     ecs = SharedECS()
     result = dispatch_once(c, sqs=SQSFake(), ecs=ecs, dynamodb=DynamoFake(),
+                           release_gate=lambda: None,  # synthetic fixture only
                            clock=lambda: 1000, token_factory=lambda: "a" * 32)
     assert result == "launched"
     assert len(ecs.calls) == 1
