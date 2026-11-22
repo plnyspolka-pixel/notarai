@@ -51,7 +51,7 @@ def main(argv=None) -> int:
             authorized=True,
         )
         print(json.dumps(result, sort_keys=True, separators=(",", ":")))
-        if result["permission_denials_verified"]:
+        if result["both_access_denied_observed"]:
             return 4  # still requires independent full audit for Zero Operator
         return 2
     except Exception:
