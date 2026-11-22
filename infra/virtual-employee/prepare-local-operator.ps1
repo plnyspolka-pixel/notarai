@@ -15,11 +15,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($me)
+$principal = [Security.Principal.WindowsPrincipal]::new($me)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'Run elevated as local VM administrator'
 }
-$operatorSid = (New-Object Security.Principal.NTAccount($OperatorAccount)).Translate([Security.Principal.SecurityIdentifier]).Value
+$operatorSid = ([Security.Principal.NTAccount]::new($OperatorAccount)).Translate([Security.Principal.SecurityIdentifier]).Value
 if ([string]::IsNullOrWhiteSpace($operatorSid)) { throw 'Cannot resolve operator SID' }
 
 function Set-PrivateAcl([string]$Path, [string]$OperatorRights, [bool]$Directory) {
