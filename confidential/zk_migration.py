@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
+import time
 import secrets
 from collections.abc import Mapping
 
@@ -19,6 +21,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from confidential.envelope import Envelope
 from confidential.nitro_unwrapper import NitroKMSUnwrapper
 from confidential.zk_recovery import authorize_recovery, RecoveryDenied
+from confidential.recovery_trust import load_recovery_trust_root
 
 
 def _spki_from_pem(pem: str) -> tuple[rsa.RSAPublicKey, str]:
@@ -35,10 +38,10 @@ def _spki_from_pem(pem: str) -> tuple[rsa.RSAPublicKey, str]:
 
 
 def reencrypt_inside_attested_nitro(
-    *, original: Envelope, unwrapper: NitroKMSUnwrapper,
+    *, original: Envelope, source_envelope_wire: bytes,
+    source_s3_version: str, unwrapper: NitroKMSUnwrapper,
     recovery_request: Mapping, custodian_signature: bytes,
-    trustee_signature: bytes, custodian_public_key: bytes,
-    trustee_public_key: bytes, replacement_kms_public_pem: str,
+    trustee_signature: bytes, replacement_kms_public_pem: str,
     independent_one_time_ledger, now: int,
 ) -> dict:
     """After a genuine Nitro/KMS unwrap, return only v2 ciphertext.
@@ -50,13 +53,46 @@ def reencrypt_inside_attested_nitro(
         raise RecoveryDenied("hardware-attested Nitro runtime required")
     if not isinstance(original, Envelope) or original.version != 2:
         raise RecoveryDenied("v2 document required")
+    # Never trust caller-supplied verification time for an expired approval.
+    # Runtime reads its own guest clock; tolerance is for testing skew only.
+    if type(now) is not int or abs(now - int(time.time())) > 120:
+        raise RecoveryDenied("untrusted recovery approval clock")
+    if (not isinstance(source_envelope_wire, bytes)
+            or not 0 < len(source_envelope_wire) <= 35 * 1024 * 1024):
+        raise RecoveryDenied("source ciphertext bytes required")
+    try:
+        def reject_duplicates(pairs):
+            values = {}
+            for key, val in pairs:
+                if key in values:
+                    raise ValueError("duplicate ciphertext field")
+                values[key] = val
+            return values
+        actual = Envelope.parse(json.loads(
+            source_envelope_wire, object_pairs_hook=reject_duplicates
+        ))
+    except (ValueError, TypeError):
+        raise RecoveryDenied("invalid immutable source ciphertext") from None
+    if actual != original:
+        raise RecoveryDenied("source ciphertext differs from approved envelope")
     if not isinstance(recovery_request, Mapping) or recovery_request.get("action") != "rotate":
         raise RecoveryDenied("only explicit key migration is supported")
     if (recovery_request.get("tenant_id") != original.tenant_id
             or recovery_request.get("case_id") != original.case_id
             or recovery_request.get("object_id") != original.object_id
             or recovery_request.get("document_version") != original.document_version
-            or recovery_request.get("old_key_arn") != original.kms_key_arn):
+            or recovery_request.get("old_key_arn") != original.kms_key_arn
+            or recovery_request.get("source_key_pin") != original.public_key_sha256
+            or recovery_request.get("source_s3_version") != source_s3_version
+            or recovery_request.get("source_ciphertext_sha256") !=
+                hashlib.sha256(source_envelope_wire).hexdigest()):
+        raise RecoveryDenied("original document identity mismatch")
+    # Public signing keys NEVER come from the operator/caller. They are
+    # released by the independent custodian into the measured Nitro image.
+    custodian_public_key, trustee_public_key = load_recovery_trust_root(
+        tenant=original.tenant_id, old_key_arn=original.kms_key_arn,
+        old_key_pin=original.public_key_sha256, now=now,
+    )
         raise RecoveryDenied("original document identity mismatch")
     if authorize_recovery(
         request=recovery_request, custodian_signature=custodian_signature,
