@@ -1,9 +1,8 @@
 """Logi (CloudWatch) bez danych osobowych.
 
 Dwie warstwy:
-- opis_bledu() - typ wyjatku, kod i komunikat AWS (opisuja zadanie, nie jego
-  tresc) oraz miejsca w kodzie. Sama nazwa wyjatku nie wystarcza, zeby po
-  fakcie ustalic, co sie stalo, a pelna tresc moze zawierac dane klienta.
+- opis_bledu() - typ wyjatku, allowlistowany kod AWS i miejsce w kodzie.
+  Surowy komunikat AWS moze zawierac dane klienta i jest pomijany.
 - wlacz_maskowanie() - kazdy wpis logu, z naszego kodu i z bibliotek, przed
   zapisem traci nazwy plikow (nazwa skanu to czesto nazwiska stron), numery
   PESEL i adresy e-mail, a traceback zamienia sie w opis_bledu(). To siatka
@@ -24,11 +23,14 @@ RAMEK = 6
 
 
 def opis_bledu(blad: BaseException) -> str:
-    """Typ, kod AWS i miejsce bledu, bez tresci wyjatku spoza AWS."""
+    """Typ, kontrolowany kod AWS i miejsce bledu; bez surowych komunikatow."""
     opis = type(blad).__name__
     if isinstance(blad, ClientError):
         b = blad.response.get("Error", {})
-        opis += f" {b.get('Code', '?')}: {b.get('Message', '')}"
+        code = b.get("Code", "")
+        if not isinstance(code, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", code):
+            code = "UnknownAWSCode"
+        opis += f" {code}"
     ramki = traceback.extract_tb(blad.__traceback__)
     # Ramki z naszego kodu mowia wiecej niz te z FastAPI i anyio.
     nasze = [r for r in ramki if Path(r.filename).resolve().is_relative_to(config.KORZEN.resolve())
