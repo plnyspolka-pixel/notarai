@@ -331,3 +331,44 @@ def test_same_account_identity_returns_blocked_not_success():
     assert result["simulation_status"] == "BLOCKED"
     assert result["actual_denial_verified"] is False
     assert result["ownership_status"] == "BLOCKED"
+
+
+
+def test_static_iam_source_graph_covers_known_escalation_principals():
+    from scripts.confidential_operator_iam_source_inventory import build_manifest
+    manifest = build_manifest()
+    assert manifest["verification"] == "STATIC_SOURCE_ONLY_NOT_DEPLOYED"
+    assert manifest["aws_calls"] == 0
+    assert manifest["all_real_world_criteria_pass"] is False
+    assert manifest["templates_inspected"] >= 12
+    assert len(manifest["roles"]) >= 8
+    assert len(manifest["sha256"]) == 64
+    assert len(manifest["live_evidence_gaps"]) >= 7
+    paths = {x["path"] for x in manifest["roles"]}
+    assert {"infra/notarai-confidential-task.yaml",
+            "infra/notarai-confidential-dispatch.yaml",
+            "infra/notarai-confidential-github.yaml",
+            "infra/notarai-confidential-shared-capacity.yaml"} <= paths
+    permissions = {
+        x["action"] for x in manifest["principal_action_resource_account"]}
+    assert {"iam:PassRole", "ecr:PutImage", "kms:Decrypt",
+            "kms:PutKeyPolicy", "sts:AssumeRole",
+            "sts:AssumeRoleWithWebIdentity"} <= permissions
+    assert any(x["policy"] == "assume_role_trust"
+               for x in manifest["principal_action_resource_account"])
+    assert any(x["account"] == "custody"
+               for x in manifest["principal_action_resource_account"])
+    assert "111122223333" not in str(manifest)
+    assert "444455556666" not in str(manifest)
+
+
+def test_source_graph_deterministic_redacted_and_fails_closed(tmp_path):
+    from scripts.confidential_operator_iam_source_inventory import (
+        _clean, build_manifest,
+    )
+    assert _clean("arn:aws:iam::111122223333:role/synthetic") == (
+        "arn:aws:iam::[ACCOUNT_ID]:role/synthetic")
+    assert build_manifest()["sha256"] == build_manifest()["sha256"]
+    (tmp_path / "infra").mkdir()
+    with pytest.raises(ValueError, match="missing required"):
+        build_manifest(tmp_path)
