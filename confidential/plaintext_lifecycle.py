@@ -73,11 +73,22 @@ def ephemeral_browser_home():
     """
     assert_tmpfs()
     with tempfile.TemporaryDirectory(prefix="notarai-guest-", dir="/tmp") as folder:
-        keys = ("HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "TMPDIR")
-        prior = {key: os.environ.get(key) for key in keys}
+        scratch_keys = (
+            "HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+            "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_RUNTIME_DIR",
+            "TMPDIR", "TMP", "TEMP",
+        )
+        # TLS session secrets, browser network traces and debug logs must
+        # never be written to an inherited path supplied by the launcher.
+        suppressed_keys = ("SSLKEYLOGFILE", "PWDEBUG", "PLAYWRIGHT_DEBUG")
+        all_keys = (*scratch_keys, *suppressed_keys, "CHROME_LOG_FILE")
+        prior = {key: os.environ.get(key) for key in all_keys}
         try:
-            for key in keys:
+            for key in scratch_keys:
                 os.environ[key] = folder
+            for key in suppressed_keys:
+                os.environ.pop(key, None)
+            os.environ["CHROME_LOG_FILE"] = "/dev/null"
             yield folder
         finally:
             for key, value in prior.items():
