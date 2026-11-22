@@ -58,6 +58,12 @@ def harden_guest_process() -> None:
             raise UnsafeGuestRuntime("dumpable process could not be disabled")
         faulthandler.disable()
         os.umask(0o077)
+        # Prevent stdlib ssl/OpenSSL from exporting session keys before or
+        # after the short-lived Chromium browser context. Do not restore
+        # inherited dangerous settings later in this one-shot guest.
+        for key in ("SSLKEYLOGFILE", "PWDEBUG", "PLAYWRIGHT_DEBUG"):
+            os.environ.pop(key, None)
+        os.environ["CHROME_LOG_FILE"] = "/dev/null"
         assert_tmpfs()
     except (OSError, ValueError, AttributeError):
         raise UnsafeGuestRuntime("guest process hardening failed") from None
