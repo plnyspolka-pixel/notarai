@@ -7,8 +7,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import cbor2
 import pytest
+cbor2 = pytest.importorskip('cbor2', reason='optional Nitro guest-only dependency')
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, utils
