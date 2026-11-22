@@ -66,6 +66,29 @@ def _read_optional(s3, bucket: str, key: str, maximum: int) -> bytes | None:
     return value
 
 
+def _grant_if_present(s3, bucket: str, key: str) -> bytes | None:
+    """Poll an exact S3 object without requiring 404 for missing GetObject.
+
+    S3 responds 403 (not 404) for an absent key if this IAM role has no
+    unrestricted ListBucket. Instead explicitly list ONLY the exact grant
+    prefix using a scoped IAM s3:prefix policy, then read when present.
+    Other errors always fail closed; no 403-as-not-found ambiguity.
+    """
+    try:
+        result = s3.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
+    except Exception:
+        _deny()
+    entries = result.get("Contents", [])
+    if not isinstance(entries, list) or len(entries) > 1:
+        _deny()
+    if not entries:
+        return None
+    if not isinstance(entries[0], dict) or entries[0].get("Key") != key:
+        _deny()
+    # Only after exact-key existence has been observed do we issue GetObject.
+    # A deletion/access denial race must fail closed, never retry as missing.
+    return _read_optional(s3, bucket, key, _MAX_CONTROL)
+
 def _b64(value: object, expected_size: int) -> bytes:
     if not isinstance(value, str):
         _deny()
@@ -183,10 +206,10 @@ async def process_queued_v3(*, s3, ddb, tenant: str, bucket: str,
     )
     grant_key = _control(tenant, job_id, "grant.json")
     start = time.monotonic()
-    grant_raw = _read_optional(s3, bucket, grant_key, _MAX_CONTROL)
+    grant_raw = _grant_if_present(s3, bucket, grant_key)
     while grant_raw is None and time.monotonic() - start < poll_seconds:
         pause(min(2, poll_seconds))
-        grant_raw = _read_optional(s3, bucket, grant_key, _MAX_CONTROL)
+        grant_raw = _grant_if_present(s3, bucket, grant_key)
     if grant_raw is None:
         _deny()
     grant = _strict_json(grant_raw)
