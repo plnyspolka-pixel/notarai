@@ -334,7 +334,8 @@ def render_kms_policy_target(state: Mapping) -> dict:
     """
     s = validate_state(state)
     admin_actions = [
-        "kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy",
+        "kms:DescribeKey", "kms:GetKeyPolicy", "kms:ListKeyPolicies",
+        "kms:ListGrants", "kms:PutKeyPolicy",
         "kms:EnableKey", "kms:DisableKey", "kms:UpdateKeyDescription",
         "kms:ListResourceTags", "kms:TagResource", "kms:UntagResource",
         "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion",
