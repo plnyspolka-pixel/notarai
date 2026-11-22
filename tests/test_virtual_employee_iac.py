@@ -37,6 +37,8 @@ def test_ssm_only_role_and_private_endpoints():
     assert role["ManagedPolicyArns"] == ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
     endpoints = [name for name, r in RESOURCES.items() if r["Type"] == "AWS::EC2::VPCEndpoint"]
     assert set(endpoints) == {"SsmEndpoint", "SsmMessagesEndpoint", "Ec2MessagesEndpoint"}
+    assert RESOURCES["Ec2MessagesEndpoint"]["Condition"] == "EnableLegacyMessages"
+    assert TEMPLATE["Parameters"]["LegacyEc2Messages"]["Default"] == "false"
     for name in endpoints:
         p = props(name)
         assert p["PrivateDnsEnabled"] is True
