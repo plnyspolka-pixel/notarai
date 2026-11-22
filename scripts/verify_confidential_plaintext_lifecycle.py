@@ -82,7 +82,40 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         raise UnsafeAudit("returned task definition not pinned")
     options = inspect_task_definition(task)
 
+    # Bucket names alone cannot prove storage locality. Verify the real
+    # regional placement before enumerating any synthetic object metadata.
+    bucket_region = s3.get_bucket_location(Bucket=bucket).get("LocationConstraint")
+    if bucket_region != _REGION:
+        raise UnsafeAudit("S3 bucket outside approved EU region")
     versioning = s3.get_bucket_versioning(Bucket=bucket).get("Status")
+    # Missing replication / object lock configuration is a distinct state.
+    # Unknown permissions must never be treated as "not configured".
+    try:
+        replication = s3.get_bucket_replication(Bucket=bucket).get(
+            "ReplicationConfiguration", {}
+        )
+        replication_state = "configured" if replication.get("Rules") else "unknown"
+    except Exception as exc:
+        code = (getattr(exc, "response", {}) or {}).get("Error", {}).get("Code")
+        if code in ("ReplicationConfigurationNotFoundError", "NoSuchReplicationConfiguration"):
+            replication_state = "none-reported"
+        elif code in ("AccessDenied", "AccessDeniedException"):
+            replication_state = "unverified"
+        else:
+            raise UnsafeAudit("S3 replication status unavailable") from None
+    try:
+        lock = s3.get_object_lock_configuration(Bucket=bucket).get(
+            "ObjectLockConfiguration", {}
+        )
+        object_lock_state = lock.get("ObjectLockEnabled", "unknown")
+    except Exception as exc:
+        code = (getattr(exc, "response", {}) or {}).get("Error", {}).get("Code")
+        if code in ("ObjectLockConfigurationNotFoundError", "NoSuchObjectLockConfiguration"):
+            object_lock_state = "not-configured"
+        elif code in ("AccessDenied", "AccessDeniedException"):
+            object_lock_state = "unverified"
+        else:
+            raise UnsafeAudit("S3 object lock status unavailable") from None
     try:
         lifecycle = s3.get_bucket_lifecycle_configuration(Bucket=bucket)
         lifecycle_rule_count = len(lifecycle.get("Rules", []))
@@ -130,9 +163,13 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         "region": _REGION,
         "account_matched": True,
         "task_controls": options,
+        "s3_bucket_region_verified": bucket_region == _REGION,
         "s3_versioning_enabled": versioning == "Enabled",
+        "s3_replication_state": replication_state,
+        "s3_bucket_object_lock_state": object_lock_state,
         "s3_lifecycle_rule_count": lifecycle_rule_count,
         "s3_version_count_on_first_page": len(versions.get("Versions", [])),
+        "s3_delete_marker_count_on_first_page": len(versions.get("DeleteMarkers", [])),
         "s3_version_list_truncated": bool(versions.get("IsTruncated")),
         "sqs_retention_seconds": int(queue.get("MessageRetentionPeriod", "-1")),
         "sqs_has_redrive": "RedrivePolicy" in queue,
