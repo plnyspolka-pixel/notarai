@@ -29,6 +29,7 @@ import config
 import dokumenty
 import prompty
 import tokenomia
+from confidential.ai_boundary import enforce_bedrock_dispatch
 
 log = logging.getLogger("pieczapp.bedrock")
 
@@ -225,6 +226,9 @@ def _strumien(zadanie: dict) -> tuple[list[str], str | None, dict]:
     czesci: list[str] = []
     powod = None
     uzycie: dict = {}
+    # SEC-04: fail before client/network use in confidential Nitro mode.
+    enforce_bedrock_dispatch(model_id=zadanie["modelId"], region=config.REGION,
+                             pinned_model=config.MODEL)
     odpowiedz = _klient().converse_stream(**zadanie)
     for zdarzenie in odpowiedz["stream"]:
         if "contentBlockDelta" in zdarzenie:
