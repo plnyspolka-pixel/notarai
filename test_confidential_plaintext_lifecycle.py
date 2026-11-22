@@ -281,7 +281,7 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
     assert all(report["task_controls"].values())
     assert report["s3_versioning_enabled"] and report["ddb_pitr_days"] == 35
     assert report["sqs_retention_seconds"] == 86400
-    assert len(calls) == 7
+    assert len(calls) == 8
     assert {name for _, name in calls} == {
         "get_caller_identity", "describe_task_definition",
         "get_bucket_versioning", "get_bucket_lifecycle_configuration",
