@@ -66,8 +66,10 @@ class TenantIdentity:
 
 
 class JobControl:
-    def __init__(self, *, table, sqs, payloads, queue_resolver, clock=time.time):
+    def __init__(self, *, table, sqs, payloads, queue_resolver,
+                 settings_table=None, clock=time.time):
         self.table = table
+        self.settings_table = settings_table
         self.sqs = sqs
         self.payloads = payloads  # encrypted S3 object adapter, not DDB
         self.queue_resolver = queue_resolver
@@ -281,16 +283,22 @@ class JobControl:
         return self.payloads.read(bound_tenant, job_id, "input", job["input_ref"])
 
     def kill_switch(self, *, bound_tenant: str) -> bool:
-        item = self.table.get_item(
+        # Crucially separate from the jobs table: the execution role can only
+        # GetItem from settings, never UpdateItem and never clear the kill switch.
+        if self.settings_table is None:
+            return True
+        item = self.settings_table.get_item(
             Key={"PK": _partition(bound_tenant), "SK": "CONFIG#WORKER"},
             ConsistentRead=True,
         ).get("Item", {})
-        return bool(item.get("disabled", True))  # default disabled on missing config
+        return bool(item.get("disabled", True))  # missing = disabled
 
     def set_kill_switch(self, caller: TenantIdentity, *, disabled: bool) -> None:
         if not caller.can_approve:
             raise PermissionError("notary_approval_required")
-        self.table.update_item(
+        if self.settings_table is None:
+            raise RuntimeError("settings_store_not_configured")
+        self.settings_table.update_item(
             Key={"PK": _partition(caller.tenant_id), "SK": "CONFIG#WORKER"},
             UpdateExpression="SET disabled = :disabled, updated_at = :now",
             ExpressionAttributeValues={
