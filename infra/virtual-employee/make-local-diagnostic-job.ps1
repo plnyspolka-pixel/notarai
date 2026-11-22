@@ -36,7 +36,7 @@ $payload = @(
 ) -join "`n"
 $key = [IO.File]::ReadAllBytes($keyPath)
 if ($key.Length -lt 32) { throw 'Invalid test key' }
-$hmac = New-Object Security.Cryptography.HMACSHA256 -ArgumentList (, $key)
+$hmac = [Security.Cryptography.HMACSHA256]::new($key)
 try {
     $signature = [BitConverter]::ToString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($payload))).Replace('-', '').ToLowerInvariant()
 }
