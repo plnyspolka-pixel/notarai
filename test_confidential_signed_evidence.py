@@ -251,3 +251,35 @@ def test_resigned_cross_scope_or_time_replay_cannot_splice_chain(identities, alt
         clock=NOW,
     )
     assert result.integrity_status == "FAIL"
+
+
+def test_signed_failure_is_reported_as_assurance_fail(identities):
+    key, _, _ = identities
+    m = fixture_manifest()
+    m["checks"]["kms_operator_deny"]["status"] = "FAIL"
+    outcome = verify(sign_manifest(m, key), identities)
+    assert outcome.integrity_status == "PASS"  # valid signature on bad result
+    assert outcome.assurance_status == "FAIL"
+    assert outcome.check_status["kms_operator_deny"] == "FAIL"
+    assert not outcome.zero_operator_access_proven
+
+
+def test_chain_retains_failure_from_earlier_immutable_entry(identities):
+    key, pub, pin = identities
+    one = fixture_manifest()
+    one["checks"]["kms_operator_deny"]["status"] = "FAIL"
+    two = fixture_manifest()
+    two["sequence"] = 2
+    two["previous_sha256"] = manifest_sha256(one)
+    two["release_id"] = "release02"
+    two["observed_at"] = at(NOW - timedelta(seconds=30))
+    bundles = [sign_manifest(one, key), sign_manifest(two, key)]
+    outcome = verify_chain(
+        bundles=bundles, trusted_public_key_raw=pub,
+        pinned_fingerprint=pin, trusted_head_sha256=manifest_sha256(two),
+        clock=NOW,
+    )
+    assert outcome.integrity_status == "PASS"
+    assert outcome.assurance_status == "FAIL"
+    assert outcome.failed_sequences == (1,)
+    assert outcome.as_dict()["failed_sequences"] == [1]
