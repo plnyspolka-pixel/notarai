@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.document_registry import DocumentVersionRegistry
+from confidential.origin_admission import load_trusted_origin_root, require_origin_receipt
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
 
@@ -34,6 +35,9 @@ def _config() -> tuple[str, str, str, str]:
         raise RuntimeError("invalid confidential task configuration")
     if not queue.startswith("https://sqs.eu-") or not bucket:
         raise RuntimeError("invalid EU queue/storage configuration")
+    # Refuse all job execution before receiving SQS without a release-pinned,
+    # custody-controlled origin public key embedded in the immutable guest.
+    load_trusted_origin_root(tenant=tenant, key_arn=key)
     return tenant, bucket, queue, key
 
 
@@ -109,12 +113,23 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
         tenant, case_id, object_id, key_arn
     ):
         raise ValueError("envelope does not belong to this task")
+    ciphertext_digest = hashlib.sha256(ciphertext).hexdigest()
     registry.require_guest(
         case_id=case_id, object_id=object_id,
         s3_version=s3_version,
-        ciphertext_sha256=hashlib.sha256(ciphertext).hexdigest(),
+        ciphertext_sha256=ciphertext_digest,
         document_version=env.document_version,
         key_pin=env.public_key_sha256,
+    )
+    # Critical: a valid RSA/AES envelope can be forged with the PUBLIC KMS
+    # key. Require independent issuer signature for exact S3 version+digest.
+    # Missing/modified receipts refuse to decrypt; no mock bypass in runtime.
+    require_origin_receipt(
+        s3, bucket=bucket, tenant=tenant, case_id=case_id,
+        object_id=object_id, s3_version=s3_version,
+        ciphertext_sha256=ciphertext_digest,
+        document_version=env.document_version,
+        key_arn=key_arn, public_key_sha256=env.public_key_sha256,
     )
     plaintext = env.open_inside_attested_task(NitroKMSUnwrapper(kms, key_arn))
     try:
