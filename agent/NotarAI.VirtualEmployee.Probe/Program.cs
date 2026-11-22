@@ -230,7 +230,8 @@ static async Task<int> RunSqs(bool continuous)
     try
     {
         key = File.ReadAllBytes(keyPath);
-        using var sqs = new AmazonSQSClient(RegionEndpoint.EUCentral1);
+        using var vmCredentials = new InstanceProfileAWSCredentials();
+        using var sqs = new AmazonSQSClient(vmCredentials, RegionEndpoint.EUCentral1);
         var poller = new SqsDiagnosticPoller(sqs, queueUrl, tenant, key, replay, outbox);
         do
         {
