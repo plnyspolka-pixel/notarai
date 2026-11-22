@@ -13,7 +13,7 @@ import re
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.envelope import Envelope, InvalidEnvelope, strict_json_loads
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 from confidential.job_ledger import PreviewJobLedger, JobRejected, validate_version_id
 from confidential.ai_boundary import AIBoundaryDenied, validate_job_status
@@ -76,7 +76,7 @@ async def store(request: Request, case_id: str, object_id: str):
             raise HTTPException(413, "Dokument zaszyfrowany jest za duzy.")
         data.extend(part)
     try:
-        envelope = Envelope.parse(json.loads(bytes(data)))
+        envelope = Envelope.parse(strict_json_loads(bytes(data)))
     except (ValueError, TypeError, InvalidEnvelope):
         raise HTTPException(400, "Bledna struktura zaszyfrowanego dokumentu.")
     finally:
@@ -223,7 +223,7 @@ def retrieve(request: Request, case_id: str, object_id: str):
     if len(body) > _MAX_BODY:
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
     try:
-        payload = json.loads(body)
+        payload = strict_json_loads(body)
         envelope = Envelope.parse(payload)
     except (ValueError, TypeError, InvalidEnvelope):
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.") from None

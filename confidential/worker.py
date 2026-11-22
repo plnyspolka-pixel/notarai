@@ -14,7 +14,7 @@ import sys
 import threading
 from http.server import ThreadingHTTPServer
 
-from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.envelope import Envelope, InvalidEnvelope, strict_json_loads
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
 from confidential.ai_boundary import validate_worker_marker
@@ -80,7 +80,7 @@ async def _prepare_fictional_form(job_id: str, values: dict) -> None:
 
 
 def _parse_message(body: str, tenant: str) -> tuple[str, str, str, str]:
-    msg = json.loads(body)
+    msg = strict_json_loads(body)
     if not isinstance(msg, dict) or set(msg) != {
         "tenant_id", "case_id", "object_id", "job_id", "s3_version"
     }:
@@ -109,14 +109,14 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
         ciphertext = stream.read(35 * 1024 * 1024 + 1)
     if len(ciphertext) > 35 * 1024 * 1024:
         raise ValueError("ciphertext object too large")
-    env = Envelope.parse(json.loads(ciphertext))
+    env = Envelope.parse(strict_json_loads(ciphertext))
     if (env.tenant_id, env.case_id, env.object_id, env.kms_key_arn) != (
         tenant, case_id, object_id, key_arn
     ):
         raise ValueError("envelope does not belong to this task")
     plaintext = env.open_inside_attested_task(NitroKMSUnwrapper(kms, key_arn))
     try:
-        data = json.loads(plaintext)
+        data = strict_json_loads(plaintext)
     finally:
         # Python bytes cannot be reliably scrubbed from memory; the entire
         # Nitro task must be terminated after processing its one job.

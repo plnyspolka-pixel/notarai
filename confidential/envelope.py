@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -20,6 +21,30 @@ _MAX_CIPHER_BYTES = 25 * 1024 * 1024
 
 class InvalidEnvelope(ValueError):
     """Invalid or tampered input: never include client values in this error."""
+
+
+def strict_json_loads(raw: str | bytes | bytearray) -> Any:
+    """Parse protocol JSON without ambiguous duplicate keys or NaN/Infinity.
+
+    The API and Nitro worker MUST use identical rules. Any parsing failure
+    becomes a fixed-message exception, never one containing case payload.
+    """
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in items:
+            if key in result:
+                raise InvalidEnvelope("invalid JSON structure")
+            result[key] = value
+        return result
+
+    def reject_constant(_: str) -> None:
+        raise InvalidEnvelope("invalid JSON structure")
+
+    try:
+        return json.loads(raw, object_pairs_hook=pairs,
+                          parse_constant=reject_constant)
+    except (ValueError, UnicodeError, RecursionError):
+        raise InvalidEnvelope("invalid JSON structure") from None
 
 
 def _b64(value: Any, max_bytes: int) -> bytes:
