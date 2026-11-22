@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'confidential/customer_release.py'
+      - 'confidential/customer_origin.py'
       - 'test_customer_release.py'
       - '.github/workflows/confidential-customer-release.yml'
   push:
@@ -10,6 +11,7 @@ on:
       - 'feature/confidential-customer-keys-minimal-20261122'
     paths:
       - 'confidential/customer_release.py'
+      - 'confidential/customer_origin.py'
       - 'test_customer_release.py'
       - '.github/workflows/confidential-customer-release.yml'
 permissions:
