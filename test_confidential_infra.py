@@ -65,6 +65,9 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     role = t["Resources"]["ConfidentialTaskRole"]["Properties"]
     statements = role["Policies"][0]["PolicyDocument"]["Statement"]
     assert any(s.get("Action") == "s3:GetObject" for s in statements)
+    region_grants = [s for s in statements if s.get("Action") == "s3:GetBucketLocation"]
+    assert len(region_grants) == 1
+    assert region_grants[0]["Resource"] == {"Sub": "arn:aws:s3:::${EncryptedBucketName}"}
     assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
                s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
 

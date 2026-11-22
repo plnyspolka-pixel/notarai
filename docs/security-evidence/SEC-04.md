@@ -170,3 +170,12 @@ instead of silently assuming residency. Offline negative tests cover
 **This is a code-level control, not a live independently attested AWS
 check.** The backend's own S3 bucket location and custody evidence remain
 unverified until SEC-07/SEC-11 proofs; K2/K6 remain BLOCKED.
+
+
+## Least-privilege IAM synchronization
+`infra/notarai-confidential-task.yaml` now explicitly grants the
+worker's task role `s3:GetBucketLocation` **only on its existing
+`EncryptedBucketName` bucket ARN**, not `s3:ListAllMyBuckets` and not
+a wildcard resource. An offline CloudFormation test checks this grant.
+This is an un-deployed template change and does not establish that the
+live IAM role already has permission.

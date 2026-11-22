@@ -70,6 +70,10 @@ Resources:
                   StringEqualsIgnoreCase:
                     kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
                     kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
+              - Sid: VerifyOwnBucketRegion
+                Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}"
               - Sid: ReadOnlyOwnCiphertexts
                 Effect: Allow
                 Action: s3:GetObject
