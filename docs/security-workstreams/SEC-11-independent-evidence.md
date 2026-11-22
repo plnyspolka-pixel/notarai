@@ -1,6 +1,6 @@
 # SEC-11 — [SEC-11] Niezależny rejestr dowodów: atestacje, release, KMS, IAM i audyt zmian
 
-**Status: PLANNED (NOT IMPLEMENTED).** P0; zależności: SEC-01, SEC-05, SEC-06, SEC-07
+**Status: PARTIALLY IMPLEMENTED (OFFLINE ONLY; LIVE AWS/WORM BLOCKED).** P0; zależności: SEC-01, SEC-05, SEC-06, SEC-07
 
 ## Zakres
 1. Zaprojektuj zewnętrzny, append-only repozytorium dowodowe pod kontrolą niezależnego audytora/kustosza (nie tylko logi aplikacji lub konto AWS operatora).
@@ -29,3 +29,7 @@
 ## Instrukcja dla osobnej konwersacji
 To **wyłącznie PR planistyczny**. Zrealizuj zadanie na istniejącej gałęzi tego PR, uzupełnij kod, testy, instrukcje i dowody w tym samym PR. Czytaj poprzednie #57, #60, #61, #62, #65 i odpowiednie SEC-nn; sprawdź aktualne SHA. Wszystkie SEC-nn bazują na #65 i nie wymagają edycji gałęzi pozostałych zadań. Jeśli potrzebna zmiana w pliku współdzielonym, udokumentuj integracyjne uzgodnienie i konflikt.
 Zakres danych: wyłącznie syntetyczne pilot01/pilot02, EU eu-central-1, produkcja OFF, no-submit/no-sign. Nie dotykaj prawdziwych spraw, nie wynoś plaintext ani sekretów do CloudWatch/GitHub/proxy. Nie wykonuj AWS write bez autoryzowanych tożsamości i zgody kustosza. Wyniki CI != real hardware evidence. Kryteria: kod + testy odmowy + dokumentacja, niezależny dowód i jawne FAIL/BLOCKED. Bez automatycznej deklaracji 'Verified Zero Knowledge/Zero Operator Access'.
+
+## Stan kodu (2026-11-22)
+
+Manifest podpisany Ed25519 i weryfikator offline: confidential/signed_evidence.py. CLI: scripts/verify_confidential_evidence.py. Testy: test_confidential_signed_evidence.py. WORM template do uruchomienia tylko na niezależnym koncie kustosza: infra/notarai-confidential-independent-evidence.yaml. Stan wymagań i runbook: docs/security-evidence/SEC-11.md. Sam podpis czy zielone CI nie dowodzą rzeczywistego działania Nitro ani niezależnej odmowy operatorowi. Nie ma autoryzacji produkcji ani zmian AWS.
