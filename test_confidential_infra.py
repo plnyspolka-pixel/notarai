@@ -295,3 +295,17 @@ def test_guest_image_workflow_pushes_only_from_pilot_branch_after_smoke():
     assert "get-secret-value" not in text
     assert text.index("confidential.demo_browser") < text.index("docker push")
     assert text.index("confidential.worker") < text.index("docker push")
+
+
+def test_guest_image_workflow_verifies_aws_generator_signature_before_running_it():
+    text = (ROOT.parent / ".github" / "workflows" / "confidential-image.yml").read_text("utf-8")
+    assert "d1uvmbvklg8rt.cloudfront.net/${GENPOLICY_VERSION}/x86_64" in text
+    assert "/latest/" not in text  # pinned release, not a moving target
+    verify = text.index("openssl dgst -sha384 -verify")
+    checksum = text.index("sha256sum -c")
+    first_run = text.index("bin/ecs-nitro-sandbox-genpolicy --version")
+    assert verify < checksum < first_run
+    assert "--skip-image-fetch" not in text and "--allow-unpinned-identity" not in text
+    assert "--allow-additional-env" not in text and "--allow-exec-command" not in text
+    key = (ROOT / "nitro-sandboxes-runtime-v1.pub").read_text("utf-8")
+    assert key.startswith("-----BEGIN PUBLIC KEY-----")
