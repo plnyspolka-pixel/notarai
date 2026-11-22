@@ -478,7 +478,8 @@ def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
             payload=event["payload"], state=state_before,
             custody_profile="custody", signing_key_arn=state_before[
                 "signing_key_arn"], pinned_public_key_sha256="f" * 64,
-            approve_action=True, session_factory=CustodySession, clock=NOW)
+            pinned_current_state_sha256=canonical_digest(state_before),
+        approve_action=True, session_factory=CustodySession, clock=NOW)
 
     class WorkloadSession(CustodySession):
         def client(self, name):
@@ -491,7 +492,8 @@ def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
             payload=event["payload"], state=state_before,
             custody_profile="custody", signing_key_arn=state_before[
                 "signing_key_arn"], pinned_public_key_sha256=pin,
-            approve_action=True, session_factory=WorkloadSession, clock=NOW)
+            pinned_current_state_sha256=canonical_digest(state_before),
+        approve_action=True, session_factory=WorkloadSession, clock=NOW)
 
 
 def test_k5_kms_signer_rejects_operator_approval_minting_and_stale_version():
@@ -729,3 +731,23 @@ def test_k3_two_tenant_bootstrap_denies_duplicate_keys_and_wrong_identity():
     ):
         with pytest.raises(BoundaryDenied):
             prepare_two_tenant_onboarding(bindings=[a, bad], clock=NOW)
+
+
+
+def test_k5_signer_requires_out_of_band_custody_state_version_pin():
+    from scripts.custodian_sign_confidential_operation import sign_operation
+    private, pub, pin = signer()
+    s = state()
+    event = signed_event(private, action="REVOKE", previous=s)
+    for pinned in (None, "0" * 64, "f" * 64):
+        with pytest.raises(BoundaryDenied,
+                           match="independent custody ledger state pin"):
+            sign_operation(
+                payload=event["payload"], state=s,
+                custody_profile="custody",
+                signing_key_arn=s["signing_key_arn"],
+                pinned_public_key_sha256=pin,
+                pinned_current_state_sha256=pinned,
+                approve_action=True, clock=NOW,
+                session_factory=lambda **kw: (_ for _ in ()).throw(
+                    AssertionError("must refuse before calling AWS")))
