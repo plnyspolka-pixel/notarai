@@ -27,13 +27,25 @@ from confidential.operator_iam_controls import (
 )
 
 _ACTIONS = {
-    "ecr_image_replacement": "ecr:PutImage",
-    "passrole_abuse": "iam:PassRole",
-    "cloudformation_execution_role": "cloudformation:ExecuteChangeSet",
-    "kms_policy_or_grant_mutation": "kms:PutKeyPolicy",
-    "oidc_trust_spoofing": "iam:UpdateAssumeRolePolicy",
-    "cross_account_custody_assumption": "sts:AssumeRole",
+    "ecr_image_replacement": (
+        "ecr:PutImage", "ecr:BatchDeleteImage",
+        "ecr:SetRepositoryPolicy"),
+    "passrole_abuse": ("iam:PassRole", "ecs:RunTask"),
+    "cloudformation_execution_role": (
+        "cloudformation:CreateStack", "cloudformation:ExecuteChangeSet",
+        "cloudformation:UpdateStack", "iam:PassRole"),
+    "kms_policy_or_grant_mutation": (
+        "kms:PutKeyPolicy", "kms:CreateGrant"),
+    "oidc_trust_spoofing": (
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateOpenIDConnectProviderThumbprint"),
+    "cross_account_custody_assumption": (
+        "sts:AssumeRole", "organizations:AttachPolicy"),
 }
+_ACTION_NAMES = tuple(sorted({
+    action for group in _ACTIONS.values() for action in group
+}))
+
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "infra" / "notarai-confidential-operator-iam.yaml"
 
@@ -147,7 +159,10 @@ def inventory(*, operator_profile: str, custody_profile: str, tenant: str,
     except Exception:
         return _blocked(cause="IDENTITY_READ_BLOCKED")
     if operator_id == custody_id:
-        return _blocked(collected=True, cause="SAME_ACCOUNT")
+        return {
+            **_blocked(collected=True, cause="SAME_ACCOUNT"),
+            "ownership_status": "FAIL",
+        }
     # No account ID included in output.
     require(all(re.fullmatch(r"[0-9]{12}", x)
                 for x in (operator_id, custody_id)),
@@ -186,7 +201,7 @@ def inventory(*, operator_profile: str, custody_profile: str, tenant: str,
         # resource-specific deny or SCP/Organizations assertion.
         response = iam.simulate_principal_policy(
             PolicySourceArn=role_arn,
-            ActionNames=list(_ACTIONS.values()),
+            ActionNames=list(_ACTION_NAMES),
             ResourceArns=["*"],
         )
         results = response.get("EvaluationResults")
@@ -195,21 +210,22 @@ def inventory(*, operator_profile: str, custody_profile: str, tenant: str,
         decisions = {}
         for item in results:
             require(isinstance(item, Mapping) and
-                    item.get("EvalActionName") in _ACTIONS.values() and
+                    item.get("EvalActionName") in _ACTION_NAMES and
                     item["EvalActionName"] not in decisions and
                     item.get("EvalDecision") in (
                         "explicitDeny", "implicitDeny", "allowed"),
                     "invalid or ambiguous simulation result")
             decisions[item["EvalActionName"]] = item["EvalDecision"]
-        require(set(decisions) == set(_ACTIONS.values()),
+        require(set(decisions) == set(_ACTION_NAMES),
                 "missing IAM simulation actions")
     except Exception:
         return _blocked(collected=True)
 
     outcomes = {
-        scenario: ("SIMULATED_DENY" if decisions[action] == "explicitDeny"
-                   else "BLOCKED")
-        for scenario, action in _ACTIONS.items()
+        scenario: ("SIMULATED_DENY"
+                   if all(decisions[action] == "explicitDeny"
+                          for action in action_names) else "BLOCKED")
+        for scenario, action_names in _ACTIONS.items()
     }
     operator_org = _read_org(ops)
     custody_org = _read_org(cust)
