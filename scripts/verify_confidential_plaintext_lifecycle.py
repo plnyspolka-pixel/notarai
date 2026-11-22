@@ -84,14 +84,14 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
 
     # Bucket names alone cannot prove storage locality. Verify the real
     # regional placement before enumerating any synthetic object metadata.
-    bucket_region = s3.get_bucket_location(Bucket=bucket).get("LocationConstraint")
+    bucket_region = s3.get_bucket_location(Bucket=bucket, ExpectedBucketOwner=account).get("LocationConstraint")
     if bucket_region != _REGION:
         raise UnsafeAudit("S3 bucket outside approved EU region")
-    versioning = s3.get_bucket_versioning(Bucket=bucket).get("Status")
+    versioning = s3.get_bucket_versioning(Bucket=bucket, ExpectedBucketOwner=account).get("Status")
     # Missing replication / object lock configuration is a distinct state.
     # Unknown permissions must never be treated as "not configured".
     try:
-        replication = s3.get_bucket_replication(Bucket=bucket).get(
+        replication = s3.get_bucket_replication(Bucket=bucket, ExpectedBucketOwner=account).get(
             "ReplicationConfiguration", {}
         )
         replication_state = "configured" if replication.get("Rules") else "unknown"
@@ -104,7 +104,7 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         else:
             raise UnsafeAudit("S3 replication status unavailable") from None
     try:
-        lock = s3.get_object_lock_configuration(Bucket=bucket).get(
+        lock = s3.get_object_lock_configuration(Bucket=bucket, ExpectedBucketOwner=account).get(
             "ObjectLockConfiguration", {}
         )
         object_lock_state = lock.get("ObjectLockEnabled", "unknown")
@@ -117,7 +117,7 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         else:
             raise UnsafeAudit("S3 object lock status unavailable") from None
     try:
-        lifecycle = s3.get_bucket_lifecycle_configuration(Bucket=bucket)
+        lifecycle = s3.get_bucket_lifecycle_configuration(Bucket=bucket, ExpectedBucketOwner=account)
         lifecycle_rule_count = len(lifecycle.get("Rules", []))
     except Exception as exc:
         code = (getattr(exc, "response", {}) or {}).get("Error", {}).get("Code")
@@ -127,7 +127,8 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
 
     # Metadata only; no object bodies, values or identifiers printed/stored.
     versions = s3.list_object_versions(
-        Bucket=bucket, Prefix=f"kancelarie/{tenant}/confidential/", MaxKeys=1000
+        Bucket=bucket, ExpectedBucketOwner=account,
+        Prefix=f"kancelarie/{tenant}/confidential/", MaxKeys=1000
     )
     queue = sqs.get_queue_attributes(
         QueueUrl=queue_url,
