@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-08
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Inwentaryzacja ujść:** lista obejmuje HTTP GET query, POST body, headers, redirect, DNS, S3 presigned URL, logi/stdout/stderr, screenshot, LLM, AWS API i metadata; każde ujście ma fail-closed mechanizm kontroli niezależny od samego Playwright.
 - [ ] **K2.** **Minimum 9 negatywnych testów:** po jednym dla GET query, POST, redirect, custom header, DNS tunneling, IPv6, S3 URL, model-output i log leakage; we wszystkich synthetic secret marker nie dociera do kolektora.
 - [ ] **K3.** **Ruch z guest:** bez zatwierdzonego egress porty i hosty niezaufane zablokowane w sieci, nie tylko w kodzie; w teście nie występuje wildcard `0.0.0.0/0` ani dostęp publiczny omijający proxy.
