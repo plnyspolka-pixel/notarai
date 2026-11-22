@@ -46,7 +46,7 @@ def enqueue_signed_synthetic(
     *, s3, ddb, sqs, tenant: str, bucket: str,
     queue_url: str, kms_key_arn: str, s3_version: str,
     ciphertext_file: Path, origin_receipt_file: Path,
-    trusted_issuer_public_key_pem: bytes,
+    trusted_issuer_public_key_pem: bytes, trusted_issuer_id: str,
     independent_issuer_spki_sha256: str, now: int | None = None,
     new_job_id=None,
 ) -> str:
@@ -61,6 +61,10 @@ def enqueue_signed_synthetic(
         f"https://sqs.{REGION}.amazonaws.com/"
     ) or not queue_url.endswith(f"/notarai-confidential-{tenant}.fifo"):
         raise ValueError("unexpected pilot queue")
+    if not isinstance(trusted_issuer_id, str) or not re.fullmatch(
+        r"[A-Za-z0-9_-]{1,80}", trusted_issuer_id
+    ):
+        raise ValueError("invalid independently verified issuer")
     validate_version_id(s3_version)
     now = int(time.time()) if now is None else now
     with ciphertext_file.open("rb") as f:
@@ -99,7 +103,7 @@ def enqueue_signed_synthetic(
         expected_object="synthetic01", expected_document_version=envelope.document_version,
         expected_s3_version=s3_version, expected_ciphertext_sha256=digest,
         expected_key_arn=kms_key_arn, expected_key_pin=envelope.public_key_sha256,
-        expected_issuer_id=receipt["issuer_id"], now=now,
+        expected_issuer_id=trusted_issuer_id, now=now,
     )
     object_key = f"kancelarie/{tenant}/confidential/pilot01/synthetic01.json"
     result = s3.get_object(Bucket=bucket, Key=object_key, VersionId=s3_version)
@@ -155,6 +159,7 @@ def main():
     parser.add_argument("--signed-origin", required=True, type=Path)
     parser.add_argument("--immutable-s3-version", required=True)
     parser.add_argument("--trusted-issuer-pem", required=True, type=Path)
+    parser.add_argument("--trusted-issuer-id", required=True)
     parser.add_argument("--independent-issuer-spki-sha256", required=True)
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
@@ -187,6 +192,7 @@ def main():
         ciphertext_file=args.ciphertext_file,
         origin_receipt_file=args.signed_origin,
         trusted_issuer_public_key_pem=args.trusted_issuer_pem.read_bytes(),
+        trusted_issuer_id=args.trusted_issuer_id,
         independent_issuer_spki_sha256=args.independent_issuer_spki_sha256,
     )
     print("Queued exactly one synthetic preview job; no form submission:", job)
