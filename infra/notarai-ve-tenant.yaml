@@ -37,6 +37,11 @@ Parameters:
   AppTaskRoleArn:
     Type: String
     Description: Existing NotarAI ECS task role allowed to assume TenantControllerRole.
+  ApprovedEUModelResources:
+    Type: CommaDelimitedList
+    Description: >-
+      Exact Bedrock EU inference profile + foundation model ARNs; only granted
+      when explicit vision opt-in is configured on the worker.
   WorkerInstanceType:
     Type: String
     Default: t3.xlarge
@@ -212,6 +217,15 @@ Resources:
                   - kms:Decrypt
                 Resource:
                   Fn::GetAtt: [TenantPayloadKey, Arn]
+              - Sid: ApprovedBedrockEUOnly
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  Ref: ApprovedEUModelResources
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
   TenantRobotProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
