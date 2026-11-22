@@ -166,7 +166,7 @@ def _verify_with_pinned_root(
         if not isinstance(envelope, (tuple, list)) or len(envelope) != 4:
             _deny()
         protected, unprotected, payload, signature = envelope
-        if (type(protected) is not bytes or type(unprotected) is not dict
+        if (type(protected) is not bytes or not isinstance(unprotected, Mapping)
                 or type(payload) is not bytes or type(signature) is not bytes
                 or len(signature) != 96 or 1 in unprotected):
             _deny()
