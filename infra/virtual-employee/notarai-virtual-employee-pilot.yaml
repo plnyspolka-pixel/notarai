@@ -221,6 +221,10 @@ Outputs:
     Value: !Ref PilotSubnet
   InstanceSecurityGroupId:
     Value: !GetAtt WindowsSecurityGroup.GroupId
+  EndpointSecurityGroupId:
+    Value: !GetAtt EndpointSecurityGroup.GroupId
+  WindowsRoleName:
+    Value: !Ref WindowsRole
   Region:
     Value: !Ref AWS::Region
   OperatorRunbook:
