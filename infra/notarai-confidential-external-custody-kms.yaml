@@ -51,6 +51,8 @@ Resources:
             Action:
               - kms:DescribeKey
               - kms:GetKeyPolicy
+              - kms:ListKeyPolicies
+              - kms:ListGrants
               - kms:PutKeyPolicy
               - kms:EnableKey
               - kms:DisableKey
