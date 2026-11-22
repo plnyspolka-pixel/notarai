@@ -153,6 +153,7 @@ class TestBackends(unittest.TestCase):
         good = AppProfile('demo', start_url='http://localhost:8055/demo', allow_http_loopback=True)
         self.assertTrue(good.is_allowed_url('http://localhost:8055/next'))
         self.assertFalse(good.is_allowed_url('http://127.0.0.1:8055/next'))
+        self.assertTrue(good.is_allowed_url('http://localhost:8055/demo#/sprawy'))
 
 
 if __name__ == '__main__':
