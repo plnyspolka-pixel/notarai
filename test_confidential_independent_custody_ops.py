@@ -140,6 +140,14 @@ def test_k1_governance_static_screen_never_claims_independence():
     lambda d: d["custody_admin_roles"][0]["trust_principals"].append(
         f"arn:aws:iam::{WORKLOAD}:root"),
     lambda d: d["custody_admin_roles"][0]["trust_principals"].append("*"),
+    lambda d: d["custody_admin_roles"][0]["trust_principals"].append(
+        f"arn:aws:iam::{CUSTODY}:oidc-provider/token.actions.githubusercontent.com"),
+    lambda d: d["custody_admin_roles"][0]["trust_principals"].append(
+        "arn:aws:iam::999900001111:root"),
+    lambda d: d["custody_sso_admin_principals"].append(
+        f"arn:aws:iam::{CUSTODY}:saml-provider/externally-managed"),
+    lambda d: d["custody_billing_delegates"].append(
+        "arn:aws:iam::999900001111:root"),
     lambda d: d["custody_sso_admin_principals"].append(
         f"arn:aws:iam::{WORKLOAD}:role/GitHubOIDC"),
     lambda d: d["custody_cloudformation_execution_roles"].append(
