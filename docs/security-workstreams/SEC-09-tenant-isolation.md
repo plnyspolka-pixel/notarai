@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-09
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Dwa niezależne piloty:** pilot01 i pilot02 mają osobne task roles, KMS keys, SQS FIFO, S3 namespace/version, job ledger i sesje API; używają tego samego ECS cluster/provider/VPC i tego samego zatwierdzonego digest.
 - [ ] **K2.** **Minimum 10 rzeczywistych odmów:** pilot01→pilot02 i pilot02→pilot01, każda dla KMS Decrypt, S3 GetObjectVersion, SQS ReceiveMessage, DynamoDB Get/UpdateItem oraz ECS RunTask/PassRole; wszystkie z `AccessDenied` albo równoważnym dowodem.
 - [ ] **K3.** **Tenant pod kontrolą serwera:** podmiana tenant ID, job ID, queue URL, task ARN, VersionId i body/query API nie może przełączyć wykonania na cudzą kancelarię; min. 6 testów input tampering.
