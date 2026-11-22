@@ -93,3 +93,83 @@ Sources: [AWS SSM PrivateLink](https://docs.aws.amazon.com/systems-manager/lates
 ### Endpoint cost optimization
 
 On current SSM Agent versions (>=3.3.40.0), `ssmmessages` is preferred; the legacy `ec2messages` endpoint is **disabled by default** to avoid unnecessary per-hour charges. To enable only when genuinely needed, use `-LegacyEc2Messages` with `deploy-pilot.ps1`. See [AWS Message API precedence](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html).
+
+## Signed local worker - second pilot increment (not deployed)
+
+The prototype now includes a **local-only signed job protocol** shared by a
+Python offline fixture generator and the Windows .NET worker. This is an
+authentication/transport building block, **not** a live production bridge.
+
+Exactly two diagnostic operations are allowed: `probe.session` and
+`probe.notepad` (read-only UI Automation). Every job must contain eight
+strictly typed fields: `schema=1`, `tenantId`, `jobId`, `operation`,
+`issuedAtUnix`, `expiresAtUnix`, `nonce` and lowercase hex `signature`.
+Unknown or repeated JSON keys, extra payloads, cross-tenant jobs and
+unknown operations are rejected. A 32+ byte HMAC-SHA256 signing key authenticates
+the canonical newline-joined fields:
+`notarai-ve/v1\n1\nTENANT\nJOBID\nOPERATION\nISSUED\nEXPIRES\nNONCE`.
+TTL is max 300 seconds, tolerance for issuer clock skew 60 seconds, and
+single-use job IDs are claimed with create-new durable marker files.
+The response contains only `jobId`, generic `status`/`code`, and a UTC
+timestamp; **not** screen text, document contents or credentials.
+
+### Pilot walkthrough on the isolated Windows VM
+
+1. Download the CI artifact `notarai-ve-windows-pilot-unsigned` from the PR
+   checks and its published SHA256. Transfer it through an approved,
+   authenticated, manually supervised channel to the VM. This is deliberately
+   **unsigned synthetic pilot code**; no production distribution yet.
+   Ensure Windows Defender remains enabled, and do not add exclusions.
+2. As VM administrator, create a dedicated **non-admin** Windows operator
+   account through an approved local-account process (do not put its password
+   in scripts). Place the verified executable under
+   `C:\ProgramData\NotarAI\VirtualEmployee\bin` and restrict write access
+   to admins; confirm SHA256 again on the VM.
+3. Still as administrator, run
+   `infra/virtual-employee/prepare-local-operator.ps1 -OperatorAccount '<MACHINE>\<OPERATOR>'`.
+   It generates a **disposable test key** on the VM and explicitly restricts
+   ACLs for system/admin/operator in `keys` and `work`; do not reuse it
+   for customers.
+4. Log in as that dedicated non-admin operator. Run
+   `infra/virtual-employee/configure-operator-session.ps1 -TenantId pilot01`.
+   It saves only paths and tenant ID in the user's environment, never the key
+   value. Log off and back in to refresh the Scheduled Task environment.
+5. With the operator's PowerShell 5.1 prompt, create a diagnostic test:
+   `infra/virtual-employee/make-local-diagnostic-job.ps1 -Operation probe.session`.
+   In the same interactive session, execute
+   `NotarAI.VirtualEmployee.Probe.exe --once-local-inbox`. Verify a
+   `*.status.json` was created in the private `work\outbox` and says
+   `completed` with `probe_success`. Run a second time: no second
+   execution. Change the signed message without recomputing the signature:
+   it must be rejected. Never test with real notary files.
+6. For a second test, open ordinary Windows Notepad, generate
+   `probe.notepad`, then run `--once-local-inbox`. The agent counts only
+   matching Notepad windows; **it does not read their text**.
+7. Optional, after manual tests, register the resident *diagnostic* worker
+   for the current interactive operator:
+   `infra/virtual-employee/register-interactive-session-probe.ps1 -ExecutablePath '<FULL_PATH_TO_EXE>' -ExpectedSha256 '<CI_SHA256>' -StartWorker`.
+   This uses Task Scheduler `Interactive` logon (not Session 0), never
+   Windows auto-logon, and stops when the user logs out. Without
+   `-StartWorker`, the task only runs a one-shot `--session-health` check.
+   Unregister it with `-Remove`.
+8. Monitor only generic results; remove the disposable key and test job
+   folders when retiring this synthetic pilot.
+
+### Still required before any real RejNET operations
+
+- Interactive-session lifecycle and recovery after RDP disconnect/reboot
+  **without** storing Windows passwords or weakening screen-lock policy.
+- Vendor permission/licence verification and Windows Server compatibility
+  of **RejNET Office**; test UIA3/FlaUI control identifiers on a fake case.
+- A private authenticated bridge from `app.notarai.pl`: per-tenant identity,
+  key lifecycle (AWS Secrets Manager/KMS or stronger), authorization,
+  idempotency, queue/endpoint policy, attested artifact delivery, rate limits,
+  audit, customer-side approvals for irreversible actions and egress control.
+- This HMAC proof-of-concept is **not** Zero Knowledge or Zero Operator Access:
+  an authorized operator who can read the VM's local test key can authenticate
+  a diagnostic job, and account admins control the Windows VM.
+
+Validation: the PR CI includes Python/C# deterministic HMAC interop,
+adversarial schema/replay/tenant tests, local-inbox tests, Windows PowerShell
+fixture-signing validation, Windows compilation and an unsigned self-contained
+release artifact. None of those replace a real EC2/GUI/RejNET live trial.
