@@ -8,10 +8,23 @@
 3. Sprawdź izolację w jednym wspólnym ECS Nitro cluster, capacity provider, VPC i obrazie przeglądarki; zweryfikuj brak podatności na confused deputy oraz eskalację przez task execution/instance profile.
 4. Zbierz zanonimizowane dowody z autoryzowanego live AWS, nie ujawniając kluczy, dokumentów i innych tenantów.
 
-## Kryteria odbioru
-- [ ] Zadanie fikcyjnego tenant A nie odszyfrowuje, nie pobiera i nie nadpisuje danych tenant B.
-- [ ] Odmowy potwierdzone z rzeczywistych IAM/KMS/S3/SQS i code-path; błąd ≠ sukces, jeśli test nie został wykonany.
-- [ ] Raport wiąże shared VPC z odrębnymi zasobami i rolami klientów.
+## Mierzalne kryteria zakończenia — SEC-09
+
+- [ ] **K1.** **Dwa niezależne piloty:** pilot01 i pilot02 mają osobne task roles, KMS keys, SQS FIFO, S3 namespace/version, job ledger i sesje API; używają tego samego ECS cluster/provider/VPC i tego samego zatwierdzonego digest.
+- [ ] **K2.** **Minimum 10 rzeczywistych odmów:** pilot01→pilot02 i pilot02→pilot01, każda dla KMS Decrypt, S3 GetObjectVersion, SQS ReceiveMessage, DynamoDB Get/UpdateItem oraz ECS RunTask/PassRole; wszystkie z `AccessDenied` albo równoważnym dowodem.
+- [ ] **K3.** **Tenant pod kontrolą serwera:** podmiana tenant ID, job ID, queue URL, task ARN, VersionId i body/query API nie może przełączyć wykonania na cudzą kancelarię; min. 6 testów input tampering.
+- [ ] **K4.** **Race/confused deputy:** równoległe zadania i duplicate delivery nie umożliwiają odebrania wyniku ani lease drugiej kancelarii; 2 kontrolowane próby współbieżne.
+- [ ] **K5.** **Pozytywne:** dla obu tenantów po jednym fikcyjnym zadaniu poprawnie kończącym preview, `submitted=false`, bez użycia wspólnej roli dostępu do obu danych.
+- [ ] **K6.** **Ślad audytowy:** identyfikatory ról/policy, hash konfiguracji i 10 odmów w zanonimizowanym raporcie AWS; jeśli wykonano wyłącznie mock, live izolacja `BLOCKED`.
+
+**Test offline do napisania:** `python -m pytest -q test_confidential_cross_tenant_isolation.py` — 0 failed i 0 skipped krytycznych.
+
+**Test realny do napisania (wymaga niezależnie autoryzowanego AWS):** `python scripts/verify_confidential_tenant_isolation.py --check` — bez realnego PASS punkt K6 pozostaje BLOCKED.
+
+### Wspólny warunek zamknięcia
+- [ ] Link do **zielonego CI dla aktualnego SHA**, dokładna komenda, liczba passed/failed/skipped i zanonimizowany raport w `docs/security-evidence/SEC-09.md` (lub równoważnym artefakcie). Testy opisane niżej należy dopiero wdrożyć; nazwa testu nie wystarcza.
+- [ ] Każdy K1–K6 ma `PASS/FAIL/BLOCKED`, datę, wykonawcę, link do dowodu. Brak realnej sesji AWS = `BLOCKED` dla punktów sprzętowych. Zero PII, plaintext, DEK, tokenów i sekretów w dowodach.
+- [ ] Pozostaje AUTO preview-only / no-submit / no-sign i produkcja OFF. Ukończony PR lub zielony CI nie oznaczają komercyjnego `Zero Operator Access verified`.
 
 ## Instrukcja dla osobnej konwersacji
 To **wyłącznie PR planistyczny**. Zrealizuj zadanie na istniejącej gałęzi tego PR, uzupełnij kod, testy, instrukcje i dowody w tym samym PR. Czytaj poprzednie #57, #60, #61, #62, #65 i odpowiednie SEC-nn; sprawdź aktualne SHA. Wszystkie SEC-nn bazują na #65 i nie wymagają edycji gałęzi pozostałych zadań. Jeśli potrzebna zmiana w pliku współdzielonym, udokumentuj integracyjne uzgodnienie i konflikt.
