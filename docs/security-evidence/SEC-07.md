@@ -105,3 +105,19 @@ Targeted offline CI: `.github/workflows/confidential-sec07.yml`, which installs 
 - For `unsigned_release`, require `RunTask=0` in an independently witnessed and signed control-plane trace; no fabricated KMS negative event. This remains BLOCKED without independent evidence of the blocked launch path, and cannot be inferred merely from a JSON count.
 
 These changes strengthen verifiability, but **all K1–K6 remain BLOCKED** until an authorized independent real AWS pilot exists and every negative scenario is witnessed.
+
+## Dual-witness audit CLI (read-only, prepared; LIVE still BLOCKED)
+
+When the independent custodian and auditor have already **each signed the exact same SEC-07 denial witness payload** using separately held P-256 keys, include the following arguments in the read-only v2 audit command:
+
+```bash
+  --witness-payload witness.json \
+  --custodian-witness-signature custody-signature.b64 \
+  --custodian-witness-public-key custody-public.pem \
+  --custodian-witness-public-key-sha256 EXTERNALLY_PINNED_CUSTODY_KEY_SHA256 \
+  --auditor-witness-signature auditor-signature.b64 \
+  --auditor-witness-public-key auditor-public.pem \
+  --auditor-witness-public-key-sha256 EXTERNALLY_PINNED_AUDITOR_KEY_SHA256
+```
+
+No private keys, temporary AWS credentials or raw CloudTrail events belong in GitHub. The CLI tests certificate/key mismatch, stale signature, cross-tenant binding and tampered receipt hashes. If signatures validate, it can report `witness_signatures_verified=true`, while **still returning `status=BLOCKED`, `hardware_attestation_verified=false` and exit status 2** until all independent AWS evidence and witness independence controls are satisfied. Do not misinterpret these two signatures as an external hardware attestation certificate.
