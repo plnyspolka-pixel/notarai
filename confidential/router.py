@@ -6,6 +6,7 @@ No task invocation or plaintext logging.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.document_registry import DocumentVersionRegistry, DocumentRegistryDenied
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 from confidential.job_ledger import PreviewJobLedger, JobRejected, validate_version_id
 
@@ -57,6 +59,14 @@ def _approved_key() -> str:
     if not arn:
         raise HTTPException(503, "Poufne szyfrowanie nie jest skonfigurowane.")
     return arn
+
+
+def _registry(tenant: str) -> DocumentVersionRegistry:
+    import boto3
+    return DocumentVersionRegistry(
+        boto3.client("dynamodb", region_name="eu-central-1"),
+        tenant=tenant,
+    )
 
 
 def _approved_public_key_pin() -> str:
@@ -108,15 +118,28 @@ async def store(request: Request, case_id: str, object_id: str):
         "wrapped_dek": base64.b64encode(envelope.wrapped_dek).decode("ascii"),
         "ciphertext": base64.b64encode(envelope.ciphertext).decode("ascii"),
     })
-    # No overwrite: a new document revision requires a new opaque object ID.
-    # S3 bucket versioning and durable job binding remain mandatory for Nitro.
+    # Reserve once in DynamoDB BEFORE touching S3. S3 IfNoneMatch alone is
+    # insufficient: a delete marker makes the key writable again.
+    wire = json.dumps(payload, separators=(",", ":")).encode("ascii")
+    digest = hashlib.sha256(wire).hexdigest()
+    registry = _registry(tenant)
+    try:
+        registry.reserve(
+            case_id=case_id, object_id=object_id,
+            document_version=envelope.document_version,
+            ciphertext_sha256=digest, key_pin=envelope.public_key_sha256,
+        )
+    except DocumentRegistryDenied:
+        raise HTTPException(409, "Tozsamosc dokumentu juz uzyta lub rejestr niedostepny.") from None
+    # New document revision requires a new opaque object ID.
     try:
         result = magazyn._klient_s3().put_object(
             Bucket=_bucket(), Key=key,
-            Body=json.dumps(payload, separators=(",", ":")).encode("ascii"),
+            Body=wire,
             ContentType="application/json",
             IfNoneMatch="*",
-            Metadata={"document-version": envelope.document_version},
+            Metadata={"document-version": envelope.document_version,
+                      "content-sha256": digest},
             **magazyn._szyfrowanie(),
         )
     except Exception as exc:
@@ -130,6 +153,15 @@ async def store(request: Request, case_id: str, object_id: str):
     except JobRejected:
         # A prior put may have succeeded: do not retry or replace blindly.
         raise HTTPException(503, "Magazyn nie potwierdzil wersji niezmiennego obiektu.") from None
+    try:
+        registry.finalize(
+            case_id=case_id, object_id=object_id,
+            document_version=envelope.document_version,
+            ciphertext_sha256=digest, s3_version=s3_version,
+        )
+    except DocumentRegistryDenied:
+        # Never retry S3 write if the finalization outcome was ambiguous.
+        raise HTTPException(503, "Wersja zapisana w S3, ale rejestr wymaga weryfikacji.") from None
     return JSONResponse(
         {"stored": True, "document_version": envelope.document_version,
          "s3_version": s3_version},
@@ -190,6 +222,19 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
         s3_version = validate_version_id(object_head.get("VersionId"))
     except JobRejected:
         raise HTTPException(503, "Magazyn nie gwarantuje niezmiennej wersji dokumentu.") from None
+    metadata_s3 = object_head.get("Metadata") or {}
+    if (not re.fullmatch(r"[a-f0-9]{32}", metadata_s3.get("document-version", ""))
+            or not re.fullmatch(r"[a-f0-9]{64}", metadata_s3.get("content-sha256", ""))):
+        raise HTTPException(503, "Brak silnego wiazania wersji zaszyfrowanego dokumentu.")
+    try:
+        _registry(tenant).claim_preview(
+            case_id=case_id, object_id=object_id,
+            document_version=metadata_s3["document-version"],
+            ciphertext_sha256=metadata_s3["content-sha256"],
+            s3_version=s3_version, key_pin=_approved_public_key_pin(),
+        )
+    except DocumentRegistryDenied:
+        raise HTTPException(409, "Odrzucono replay lub niezgodna wersje dokumentu.") from None
     job_id = uuid.uuid4().hex
     metadata = json.dumps({
         "tenant_id": tenant, "case_id": case_id, "object_id": object_id,
