@@ -15,12 +15,16 @@ TABLE = (f"arn:aws:dynamodb:eu-central-1:{CUSTODY}:table/"
          "notarai-confidential-custody-ledger-pilot")
 
 
-def make_history():
-    first_private, first_pem, first_pin = signer()
+def make_history(tenant="pilot01", first_number=1, overrides=None,
+                 first_signer=None):
+    first_private, first_pem, first_pin = (
+        first_signer if first_signer is not None else signer())
     second_private, second_pem, second_pin = signer()
-    base = state("pilot01", 1)
+    base = state(tenant, first_number)
+    if overrides:
+        base.update(overrides)
     envelopes = [
-        signed_event(first_private, action="ENROLL",
+        signed_event(first_private, action="ENROLL", tenant=tenant,
                      changes={k: base[k] for k in _IDENTITY_FIELDS}),
     ]
     current = None
@@ -45,9 +49,9 @@ def make_history():
     events.append(event)
     assert current["state"] == "FROZEN"
 
-    new = state("pilot01", 2)
+    new = state(tenant, first_number + 1)
     rotate = signed_event(
-        first_private, action="ROTATE", previous=current,
+        first_private, action="ROTATE", tenant=tenant, previous=current,
         changes={k: new[k] for k in _ROTATION_FIELDS})
     current, ledger_state, event = commit(
         rotate, current, first_pem, first_pin)
@@ -56,12 +60,12 @@ def make_history():
     assert current["state"] == "FROZEN"
 
     terminal = signed_event(
-        second_private, action="MARK_LOST", previous=current)
+        second_private, action="MARK_LOST", tenant=tenant, previous=current)
     current, ledger_state, event = commit(
         terminal, current, second_pem, second_pin)
     events.append(event)
     return {
-        "tenant": "pilot01",
+        "tenant": tenant,
         "event_items": events,
         "state_item": ledger_state,
         "trust_roots": {1: (first_pem, first_pin),
