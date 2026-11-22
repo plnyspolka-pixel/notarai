@@ -77,7 +77,13 @@ internal sealed class LocalInboxProcessor
                         code = result.Code;
                         if (result.Allowed)
                         {
-                            var exitCode = execute(result.Operation!);
+                            int exitCode;
+                            try { exitCode = execute(result.Operation!); }
+                            catch (Exception)
+                            {
+                                // No exception text or UI data in logs or result files.
+                                exitCode = 5;
+                            }
                             status = exitCode == 0 ? "completed" : "failed";
                             code = exitCode == 0 ? "probe_success" : "probe_failed";
                         }
