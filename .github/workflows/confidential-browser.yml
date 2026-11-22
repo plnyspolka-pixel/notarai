@@ -100,6 +100,7 @@ jobs:
           python scripts/probe_confidential_evidence_operator_denials.py --help >/dev/null
           python scripts/custodian_sign_confidential_evidence.py --help >/dev/null
           python scripts/audit_confidential_archive_version.py --help >/dev/null
+          python scripts/audit_confidential_archive_history.py --help >/dev/null
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
