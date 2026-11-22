@@ -258,7 +258,12 @@ class FakeS3:
     def put_object(self, **kwargs):
         parsed = json.loads(kwargs["Body"])
         assert parsed["submitted"] is False
-        assert parsed["status"] == "preview_completed"
+        # Exactly two marker kinds exist: the result and the failure report.
+        if kwargs["Key"].endswith(".failed.json"):
+            assert parsed["status"] == "failed"
+        else:
+            assert parsed["status"] == "preview_completed"
+        assert kwargs["ServerSideEncryption"] == "AES256"
         self.markers.append(kwargs)
 
 
@@ -347,6 +352,60 @@ def test_worker_failure_keeps_sqs_unacknowledged_for_bounded_retry(monkeypatch):
         _process_one(session, "pilot01", "bucket", "queue", "key")
     assert ledger.status("abc012")["status"] == "retryable"
     assert not queue.deleted
+    # The guest has no logs: it leaves ONE metadata-only failure marker.
+    failed = [m for m in session.clients["s3"].markers
+              if m["Key"].endswith("/abc012.failed.json")]
+    assert len(failed) == 1 and len(session.clients["s3"].markers) == 1
+    assert failed[0]["Key"] == "kancelarie/pilot01/confidential-results/abc012.failed.json"
+    report = json.loads(failed[0]["Body"])
+    assert "synthetic-only" not in failed[0]["Body"].decode("ascii")
+    assert report["status"] == "failed" and report["submitted"] is False
+    assert report["error"] == "RuntimeError" and report["job_id"] == "abc012"
+    assert set(report) <= {"version", "job_id", "status", "stage", "error",
+                           "submitted", "aws_error_code", "errno", "nsm_device"}
+
+
+def test_failure_marker_carries_only_codes_never_exception_text():
+    from confidential.worker import _failure_marker, _STAGES
+
+    class Denied(Exception):
+        response = {"Error": {"Code": "AccessDeniedException",
+                              "Message": "User arn:aws:sts::1:assumed-role/x is not authorized on key SECRET"}}
+    body = _failure_marker(Denied("Jan Kowalski 90010112345"), "attested_unwrap", "abc012")
+    report = json.loads(body)
+    assert report["stage"] == "attested_unwrap" and report["error"] == "Denied"
+    assert report["aws_error_code"] == "AccessDeniedException"
+    for leak in (b"Kowalski", b"90010112345", b"SECRET", b"arn:aws", b"not authorized"):
+        assert leak not in body
+    denied = json.loads(_failure_marker(PermissionError(13, "x /dev/nsm"), "attested_unwrap", "abc012"))
+    assert denied["errno"] == 13 and denied["error"] == "PermissionError"
+    odd = json.loads(_failure_marker(ValueError("x"), "<script>", "abc012"))
+    assert odd["stage"] == "unknown" and "attested_unwrap" in _STAGES
+    crafted = type("Evil", (Exception,), {"response": {"Error": {"Code": "a b; DROP"}}})
+    assert "aws_error_code" not in json.loads(_failure_marker(crafted(), "finalize", "abc012"))
+
+
+def test_failure_marker_write_error_never_masks_the_original_failure(monkeypatch):
+    client, ledger = make()
+    queue = FakeQueue({
+        "Body": json.dumps({
+            "tenant_id": "pilot01", "case_id": "case01",
+            "object_id": "object01", "job_id": "abc012",
+            "s3_version": "v000001",
+        }), "ReceiptHandle": "fictional",
+    })
+
+    class BrokenS3(FakeS3):
+        def put_object(self, **kwargs):
+            raise OSError("synthetic S3 outage")
+    session = FakeSession(client, queue, BrokenS3())
+
+    def failing_decrypt(*args):
+        raise RuntimeError("synthetic-only")
+    monkeypatch.setattr("confidential.worker._load_decrypted_form", failing_decrypt)
+    with pytest.raises(RuntimeError):
+        _process_one(session, "pilot01", "bucket", "queue", "key")
+    assert ledger.status("abc012")["status"] == "retryable" and not queue.deleted
 
 
 def test_fake_enforces_real_dynamodb_expression_rules():

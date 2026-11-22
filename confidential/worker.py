@@ -91,10 +91,44 @@ def _parse_message(body: str, tenant: str) -> tuple[str, str, str, str]:
     )
 
 
+def _failure_marker(exc: BaseException, stage: str, job_id: str) -> bytes:
+    """Metadata-only failure report: fixed stage word, exception CLASS name,
+    AWS error code / errno and the NSM device mode. Never exception text,
+    document content, field values, identifiers of people or URLs."""
+    report = {
+        "version": 1, "job_id": job_id, "status": "failed",
+        "stage": stage if stage in _STAGES else "unknown",
+        "error": type(exc).__name__[:60], "submitted": False,
+    }
+    code = (getattr(exc, "response", None) or {}).get("Error", {}).get("Code")
+    if isinstance(code, str) and re.fullmatch(r"[A-Za-z0-9.]{1,60}", code):
+        report["aws_error_code"] = code
+    if isinstance(exc, OSError) and isinstance(exc.errno, int):
+        report["errno"] = exc.errno
+    try:
+        info = os.stat("/dev/nsm")
+        report["nsm_device"] = {
+            "mode": oct(info.st_mode & 0o7777), "uid": info.st_uid,
+            "gid": info.st_gid, "process_uid": os.getuid(),
+            "process_gid": os.getgid(),
+            "readable": os.access("/dev/nsm", os.R_OK),
+            "writable": os.access("/dev/nsm", os.W_OK),
+        }
+    except OSError:
+        report["nsm_device"] = None
+    return json.dumps(report, separators=(",", ":"), sort_keys=True).encode("ascii")
+
+
+_STAGES = ("load_envelope", "attested_unwrap", "parse_payload",
+           "prepare_form", "result_marker", "finalize")
+
+
 def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
                          object_id: str, key_arn: str,
-                         s3_version: str) -> dict:
+                         s3_version: str, stage: list | None = None) -> dict:
     from confidential.nitro_unwrapper import NitroKMSUnwrapper
+    stage = [""] if stage is None else stage
+    stage[0] = "load_envelope"
     object_key = "kancelarie/" + tenant + "/confidential/" + case_id + "/" + object_id + ".json"
     result = s3.get_object(
         Bucket=bucket, Key=object_key,
@@ -109,7 +143,9 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
         tenant, case_id, object_id, key_arn
     ):
         raise ValueError("envelope does not belong to this task")
+    stage[0] = "attested_unwrap"
     plaintext = env.open_inside_attested_task(NitroKMSUnwrapper(kms, key_arn))
+    stage[0] = "parse_payload"
     try:
         data = json.loads(plaintext)
     finally:
@@ -155,13 +191,16 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
     if claim.state != "claimed":
         # queue_uncertain / exhausted retry: retained for DLQ + manual review.
         return 1
+    stage = [""]
     try:
         values = _load_decrypted_form(
             session.client("s3"), session.client("kms"),
             bucket, tenant, case_id, object_id, kms_key_arn,
-            s3_version,
+            s3_version, stage,
         )
+        stage[0] = "prepare_form"
         asyncio.run(_prepare_fictional_form(job_id, values))
+        stage[0] = "result_marker"
         # Synthetic status marker contains no documents, values, names,
         # URLs, screenshots, or personal identifiers.
         session.client("s3").put_object(
@@ -175,8 +214,20 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
             ContentType="application/json", ServerSideEncryption="AES256",
         )
         # Finalize only AFTER S3 marker exists, then acknowledge SQS.
+        stage[0] = "finalize"
         ledger.complete(job_id=job_id, token=claim.token)
-    except Exception:
+    except Exception as failure:
+        # The guest has no log driver by design, so leave a metadata-only
+        # reason next to the result markers. Best effort, never fatal.
+        try:
+            session.client("s3").put_object(
+                Bucket=bucket,
+                Key=f"kancelarie/{tenant}/confidential-results/{job_id}.failed.json",
+                Body=_failure_marker(failure, stage[0], job_id),
+                ContentType="application/json", ServerSideEncryption="AES256",
+            )
+        except Exception:
+            pass
         # A retryable preview may repeat after SQS visibility timeout.
         # Future irreversible actions must NEVER use this retry protocol.
         try:
