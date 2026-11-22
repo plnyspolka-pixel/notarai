@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
+import secrets
 import json
 import re
 import subprocess
@@ -46,7 +48,9 @@ def fixture_envelope(*, tenant: str, kms_arn: str, public_der: bytes) -> dict:
         "form_id": "local-demo",
         "fields": {"name": "FICTIONAL TEST PERSON", "reference": "DEMO-0001"},
     }, separators=(",", ":")).encode("utf-8")
-    aad = f"notarai-v1|{tenant}|{case}|{obj}".encode()
+    document_version = secrets.token_hex(16)
+    pin = base64.b64encode(hashlib.sha256(public_der).digest()).decode("ascii")
+    aad = f"notarai-v2|{tenant}|{case}|{obj}|{document_version}|{kms_arn}|{pin}".encode()
     cipher = AESGCM(dek).encrypt(nonce, payload, aad)
     wrapped = pub.encrypt(dek, padding.OAEP(
         mgf=padding.MGF1(hashes.SHA256()),
@@ -54,7 +58,9 @@ def fixture_envelope(*, tenant: str, kms_arn: str, public_der: bytes) -> dict:
     ))
     encoded = lambda data: base64.b64encode(data).decode("ascii")
     return {
-        "version": 1, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
+        "version": 2, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
+        "document_version": document_version,
+        "public_key_sha256": pin,
         "tenant_id": tenant, "case_id": case, "object_id": obj,
         "kms_key_arn": kms_arn, "nonce": encoded(nonce),
         "wrapped_dek": encoded(wrapped), "ciphertext": encoded(cipher),
