@@ -26,7 +26,7 @@ def test_k2_external_key_cloudformation_requires_both_aws_attestation_claims():
     assert rule["Action"] == "kms:Decrypt"
     assert rule["Effect"] == "Allow"
     assert rule["Principal"] == {
-        "AWS": {"Fn::Sub": "arn:aws:iam::${WorkloadAccountId}:role/"
+        "AWS": {"Sub": "arn:aws:iam::${WorkloadAccountId}:role/"
                "notarai-confidential-${TenantId}"}
     }
     gate = rule["Condition"]
