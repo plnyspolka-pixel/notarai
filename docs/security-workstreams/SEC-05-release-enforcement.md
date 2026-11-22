@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-05
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **100% ścieżek startu:** zmapowane wszystkie wywołania `ECS RunTask`, scheduler Lambda, CLI i API; każda produkcyjna ścieżka ma niezależną weryfikację release albo jest zablokowana przed decrypt.
 - [ ] **K2.** **7 odmów:** brak podpisu, podpis błędny, wygasły, zły tenant, PCR17, image digest i KMS policy hash => brak efektywnego decrypt/uruchomienia autoryzowanego zadania.
 - [ ] **K3.** **Bez downgrade:** nie ma przełączenia na operator-owned/demo KMS po błędzie custody; feature flag/parametr żądania klienta nie może wymusić starej ścieżki dla komercyjnego zadania.
