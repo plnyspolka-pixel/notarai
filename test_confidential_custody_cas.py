@@ -168,3 +168,34 @@ def test_k6_cas_plan_is_not_stored_does_not_sign_or_decrypt():
     assert plan["requires_separate_custody_aws_identity_check"] is True
     assert "Decrypt" not in str(plan)
     assert "PutKeyPolicy" not in str(plan)
+
+
+
+def test_k1_k4_custody_ledger_template_immutable_recovery_and_eu_only():
+    from test_confidential_infra import template
+    deployment = template("notarai-confidential-custody-ledger-pilot.yaml")
+    assert "SafePilotBoundary" in deployment["Conditions"]
+    assert "EUFrankfurtOnly" in deployment["Conditions"]
+    assert "IndependentCustodyAccount" in deployment["Conditions"]
+    resources = deployment["Resources"]
+    assert len(resources) == 1
+    ledger = resources["SyntheticCustodyLedger"]
+    assert ledger["Condition"] == "SafePilotBoundary"
+    assert ledger["DeletionPolicy"] == "Retain"
+    assert ledger["UpdateReplacePolicy"] == "Retain"
+    assert ledger["Type"] == "AWS::DynamoDB::Table"
+    properties = ledger["Properties"]
+    assert properties["TableName"] == "notarai-confidential-custody-ledger-pilot"
+    assert properties["DeletionProtectionEnabled"] is True
+    assert properties["PointInTimeRecoverySpecification"][
+        "PointInTimeRecoveryEnabled"] is True
+    assert properties["SSESpecification"]["SSEEnabled"] is True
+    assert properties["SSESpecification"]["SSEType"] == "KMS"
+    assert properties["SSESpecification"]["KMSMasterKeyId"] == "alias/aws/dynamodb"
+    assert properties["BillingMode"] == "PAY_PER_REQUEST"
+    assert properties["KeySchema"] == [
+        {"AttributeName": "tenant", "KeyType": "HASH"},
+        {"AttributeName": "record", "KeyType": "RANGE"},
+    ]
+    assert not any(item["Type"].startswith("AWS::IAM::")
+                   for item in resources.values())
