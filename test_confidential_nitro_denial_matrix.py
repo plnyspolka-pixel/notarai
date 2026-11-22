@@ -10,7 +10,8 @@ import pytest
 from confidential.nitro_denial_matrix import (
     CASES, EARLY_CASES, KMS_CASES, SCHEMA, DenialEvidenceRejected,
     incomplete_audit_result, inspect_early_denial_receipt,
-    inspect_kms_denial, kms_receipt_sha256, validate_matrix,
+    inspect_altered_image_ecs, inspect_kms_denial, kms_receipt_sha256,
+    validate_matrix,
 )
 
 
@@ -79,6 +80,10 @@ def sample():
             "run_task_count": 1 if case == "altered_image" else 0,
             "kms_decrypt_count": 0,
             "observation_sha256": "1" * 64,
+            "ecs_task_arn": (
+                f"arn:aws:ecs:eu-central-1:{op}:task/"
+                "notarai-confidential-shared/" + "a" * 32
+            ) if case == "altered_image" else None,
         }
         trials[case]["receipt_sha256"] = hashlib.sha256(
             json.dumps(receipt, sort_keys=True, ensure_ascii=True,
@@ -250,6 +255,36 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
                 "CloudTrailEvent": json.dumps(event_lookup[key]),
             }]}
 
+    class Ecs:
+        def describe_tasks(self, **kwargs):
+            calls.append("ecs:describe_tasks")
+            return {"tasks": [{
+                "taskArn": receipts["altered_image"]["ecs_task_arn"],
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:eu-central-1:111122223333:task-definition/"
+                    "notarai-confidential-pilot01:13"
+                ),
+                "lastStatus": "STOPPED",
+                "stoppedReason": "Sandbox policy denied unauthorized image",
+                "trustedExecutionSummary": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+                "containers": [{"name": "confidential-browser", "exitCode": 1}],
+            }]}
+
+        def describe_task_definition(self, **kwargs):
+            calls.append("ecs:describe_task_definition")
+            return {"taskDefinition": {
+                "taskDefinitionArn": kwargs["taskDefinition"],
+                "taskRoleArn": (
+                    "arn:aws:iam::111122223333:role/"
+                    "notarai-confidential-pilot01"
+                ),
+                "containerDefinitions": [{
+                    "name": "confidential-browser",
+                    "image": "fake.ecr.eu-central-1.amazonaws.com/image@sha256:" +
+                             receipts["altered_image"]["image_sha256"],
+                }],
+            }}
+
     class Session:
         def __init__(self, profile_name, region_name):
             assert region_name == "eu-central-1"
@@ -263,6 +298,8 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
                 )
             if name == "cloudtrail" and not self.custody:
                 return Trail()
+            if name == "ecs" and not self.custody:
+                return Ecs()
             raise AssertionError("non-readonly or unexpected AWS client")
 
     result = audit.audit_live(
@@ -272,10 +309,14 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
     )
     assert result["kms_cases_live_observed"] == 4
     assert result["early_case_metadata_validated"] == 2
+    assert result["altered_image_ecs_metadata_observed"] is True
     assert result["hardware_attestation_verified"] is False
     assert result["status"] == "BLOCKED"
     assert calls.count("cloudtrail:lookup_events") == 4
-    assert set(calls) == {"sts:get_caller_identity", "cloudtrail:lookup_events"}
+    assert set(calls) == {
+        "sts:get_caller_identity", "cloudtrail:lookup_events",
+        "ecs:describe_tasks", "ecs:describe_task_definition",
+    }
 
 
 
@@ -293,3 +334,43 @@ def test_recipient_tampering_changes_signed_receipt_even_if_case_is_valid():
     ] = "a" * 96
     with pytest.raises(DenialEvidenceRejected, match="independently pinned receipt"):
         inspect_kms_denial("wrong_pcr17", events["wrong_pcr17"], matrix)
+
+
+
+def test_ecs_admission_denial_requires_original_aws_task_and_failed_container():
+    matrix, _, receipts = sample()
+    receipt = receipts["altered_image"]
+    task_def = {
+        "taskDefinitionArn": (
+            "arn:aws:ecs:eu-central-1:111122223333:"
+            "task-definition/notarai-confidential-pilot01:13"
+        ),
+        "taskRoleArn": (
+            "arn:aws:iam::111122223333:role/notarai-confidential-pilot01"
+        ),
+        "containerDefinitions": [{
+            "name": "confidential-browser",
+            "image": "example@sha256:" + receipt["image_sha256"],
+        }],
+    }
+    task = {
+        "taskArn": receipt["ecs_task_arn"],
+        "taskDefinitionArn": task_def["taskDefinitionArn"],
+        "lastStatus": "STOPPED",
+        "stoppedReason": "Sandbox policy denied image",
+        "trustedExecutionSummary": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+        "containers": [{"name": "confidential-browser", "exitCode": 1}],
+    }
+    assert inspect_altered_image_ecs(
+        task=task, task_definition=task_def,
+        receipt=receipt, matrix=matrix,
+    )["ecs_metadata_observed"] is True
+    task["stoppedReason"] = "Essential container in task exited"
+    with pytest.raises(DenialEvidenceRejected):
+        inspect_altered_image_ecs(task=task, task_definition=task_def,
+                                  receipt=receipt, matrix=matrix)
+    task["stoppedReason"] = "Sandbox policy denied image"
+    task["containers"][0]["exitCode"] = 0
+    with pytest.raises(DenialEvidenceRejected):
+        inspect_altered_image_ecs(task=task, task_definition=task_def,
+                                  receipt=receipt, matrix=matrix)
