@@ -550,8 +550,10 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
     }
     message = canonical_recovery_request(req)
     _pin_synthetic_recovery_root(monkeypatch, tmp_path, a, b, keys[1])
+    calls = []
     class Ledger:
         def claim_once(self, token):
+            calls.append(token)
             raise RuntimeError("no external authority")
     args = dict(
         original=original, source_envelope_wire=original_wire,
@@ -566,9 +568,34 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
     monkeypatch.setattr(migration.os.path, "exists", lambda path: path == "/dev/nsm")
     with pytest.raises(RecoveryDenied, match="unavailable"):
         migration.reencrypt_inside_attested_nitro(**args)
-    with pytest.raises(RecoveryDenied):
-        migration.reencrypt_inside_attested_nitro(**{**args,
-            "recovery_request": {**req, "target_object_id": "scan03"}})
+    assert len(calls) == 1
+    # A signature must bind the exact source bytes and S3 VersionId.
+    for changed in (
+        {"source_envelope_wire": original_wire + b" "},
+        {"source_s3_version": "differentS3version"},
+        {"recovery_request": {**req, "source_ciphertext_sha256": "f" * 64}},
+        {"recovery_request": {**req, "source_s3_version": "otherVersion"}},
+        {"recovery_request": {**req, "source_key_pin": "A" * 43 + "="}},
+        {"recovery_request": {**req, "target_object_id": "scan03"}},
+    ):
+        with pytest.raises(RecoveryDenied):
+            migration.reencrypt_inside_attested_nitro(**{**args, **changed})
+    assert len(calls) == 1, "unapproved recovery touched external one-time ledger"
+    # Remove approved root: caller-created public keys and signatures MUST NOT
+    # authorize a migration when the independent release root is missing.
+    import confidential.recovery_trust as trust
+    trusted_path = trust._ROOT_PATH
+    monkeypatch.setattr(trust, "_ROOT_PATH", tmp_path / "missing-external-root.json")
+    with pytest.raises(RecoveryDenied, match="not provisioned"):
+        migration.reencrypt_inside_attested_nitro(**args)
+    assert len(calls) == 1
+    monkeypatch.setattr(trust, "_ROOT_PATH", trusted_path)
+    # A forged clock cannot revive an expired signed approval.
+    monkeypatch.setattr(migration.time, "time", lambda: 2000000001)
+    with pytest.raises(RecoveryDenied, match="clock"):
+        migration.reencrypt_inside_attested_nitro(**args)
+    assert len(calls) == 1
+    monkeypatch.setattr(migration.time, "time", lambda: 1900000000)
     with pytest.raises(RecoveryDenied):
         migration.reencrypt_inside_attested_nitro(**{**args,
             "replacement_kms_public_pem": keys[0].public_key().public_bytes(
