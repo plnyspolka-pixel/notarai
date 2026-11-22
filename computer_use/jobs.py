@@ -148,6 +148,26 @@ class JobControl:
         )
         return [_secure_summary(v) for v in response.get("Items", [])]
 
+    def approval_preview(self, caller: TenantIdentity, job_id: str) -> dict:
+        """Provide the FULL intended draft field/value to an authorized approver.
+
+        This data is never embedded in metadata listings or audit logs. The
+        response is private, non-cacheable at the HTTP boundary.
+        """
+        if not caller.can_approve:
+            raise PermissionError("notary_approval_required")
+        item = self._get_raw(caller.tenant_id, job_id)
+        if item["status"] != "waiting_for_approval" or item["risk"] != Risk.DRAFT.value:
+            raise JobConflict()
+        body = self.payloads.read(caller.tenant_id, job_id, "input", item["input_ref"])
+        if not isinstance(body, dict) or not isinstance(body.get("field"), str):
+            raise JobConflict()
+        value = body.get("value")
+        if not isinstance(value, str):
+            raise JobConflict()
+        return {"job_id": job_id, "app_id": item["app_id"], "action": item["action"],
+                "field": body["field"], "value": value}
+
     def approve(self, caller: TenantIdentity, job_id: str) -> dict:
         if not caller.can_approve:
             raise PermissionError("notary_approval_required")
