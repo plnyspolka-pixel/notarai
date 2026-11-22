@@ -149,10 +149,16 @@ Nie zostawiaj EC2 uruchomionych bez aktywnego testu.
    niezweryfikowanego CA do attested guest image.
 2. Pobierz image digest z ECR, używaj wyłącznie `@sha256:...`.
 3. Utwórz osobne syntetyczne tenanty `pilot01` i `pilot02`
-   z osobnymi S3 prefixami/kluczami KMS/SQS FIFO/DDB job ledger,
-   task IAM i attestation policy. Nie zakładaj, że obecne
-   jednokancelaryjne szablony wspierają onboarding drugiego tenanta
-   bez aktualizacji nazw stacków; popraw parametryzację IaC.
+   z osobnymi S3 bucketami/kluczami KMS/SQS FIFO/DDB job ledger,
+   task IAM i attestation policy. **Użyj istniejących per-tenant IaC
+   z parametrem `TenantId`, ale nazwij stacki odrębnie**:
+   `notarai-confidential-staging-pilot01` i `...-pilot02`,
+   `notarai-confidential-job-ledger-pilot01` / `...-pilot02`,
+   `notarai-confidential-demo-kms-pilot01` / `...-pilot02`,
+   `notarai-confidential-task-pilot01` / `...-pilot02`.
+   Zmiana nazwy stacka NIE tworzy nowych AWS VPCE, ECS provider,
+   klastra ani repo ECR. Worker fixture i runner mają w trybie
+   `--shared-compute` odczytywać te właśnie nazwy.
 4. Dla obu zleceń wygeneruj definicje:
    ```sh
    python scripts/render_confidential_taskdef.py --shared-image \
@@ -167,7 +173,9 @@ Nie zostawiaj EC2 uruchomionych bez aktywnego testu.
 5. Wygeneruj Cedar policy/PCR17 osobno dla definicji tenantów,
    dostosuj KMS decrypt do exact task role/valid PCR17. Zadbaj o
    negatywny test dostępu tenant1 do dokumentu/klucza tenant2.
-6. Worker testowy uruchamiaj przez
+6. Utwórz fikcyjny envelope przez
+   `scripts/confidential_pilot_fixture.py --shared-compute --tenant pilot01 --apply`
+   (i analogicznie pilot02). Worker testowy uruchamiaj przez
    `scripts/confidential_pilot_run.py --shared-compute --apply`
    z dokładnymi parametrami VPC/subnet/SG i weryfikacją read-only
    z `scripts/verify_confidential_shared_fabric.py --check`.
