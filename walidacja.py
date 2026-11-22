@@ -82,11 +82,11 @@ def kwota(wartosc: str) -> tuple[bool, str]:
     """
     if not isinstance(wartosc, str):
         return False, "Nie udalo sie odczytac kwoty"
-    tekst = re.sub(r"(?i)\\s*(?:zł|zl|pln)\\s*$", "", wartosc.strip())
-    tekst = re.sub(r"[\\s\\u00a0\\u202f]", "", tekst)
+    tekst = re.sub(r"(?i)\s*(?:zł|zl|pln)\s*$", "", wartosc.strip())
+    tekst = re.sub(r"[\s\u00a0\u202f]", "", tekst)
     if tekst.startswith("-") and re.fullmatch(r"-[0-9]+(?:[.,][0-9]{1,2})?", tekst):
         return False, "Kwota ujemna"
-    if not re.fullmatch(r"\\+?[0-9]{1,18}(?:[.,][0-9]{1,2})?", tekst):
+    if not re.fullmatch(r"\+?[0-9]{1,18}(?:[.,][0-9]{1,2})?", tekst):
         return False, "Nie udalo sie odczytac kwoty"
     try:
         liczba = Decimal(tekst.lstrip("+").replace(",", "."))
