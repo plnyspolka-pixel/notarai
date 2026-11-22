@@ -6,6 +6,7 @@ on:
       - "confidential/custody_ops.py"
       - "confidential/custody_cas.py"
       - "confidential/custody_history.py"
+      - "scripts/export_confidential_custody_ledger.py"
       - "infra/notarai-confidential-custody-ledger-pilot.yaml"
       - "scripts/verify_confidential_custody_independence.py"
       - "scripts/verify_confidential_custody_kms.py"
@@ -16,6 +17,7 @@ on:
       - "test_confidential_custody_kms_readonly.py"
       - "test_confidential_custody_cas.py"
       - "test_confidential_custody_history.py"
+      - "test_confidential_custody_ledger_export.py"
       - "docs/security-evidence/SEC-06.md"
       - ".github/workflows/confidential-custody-ops.yml"
   workflow_dispatch:
@@ -43,9 +45,9 @@ jobs:
       - name: Install offline dependencies only
         run: python -m pip install pytest==8.3.4 cryptography PyYAML boto3
       - name: Compile independent custody modules
-        run: python -m py_compile confidential/custody_ops.py confidential/custody_cas.py confidential/custody_history.py scripts/verify_confidential_custody_independence.py scripts/verify_confidential_custody_kms.py scripts/custodian_sign_confidential_operation.py scripts/plan_confidential_custody_operation.py scripts/prepare_confidential_custody_onboarding.py test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_cas.py test_confidential_custody_history.py
+        run: python -m py_compile confidential/custody_ops.py confidential/custody_cas.py confidential/custody_history.py scripts/verify_confidential_custody_independence.py scripts/verify_confidential_custody_kms.py scripts/export_confidential_custody_ledger.py scripts/custodian_sign_confidential_operation.py scripts/plan_confidential_custody_operation.py scripts/prepare_confidential_custody_onboarding.py test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_custody_ledger_export.py
       - name: Check synthetic custody tests and legacy KMS boundary
-        run: python -m pytest -q --noconftest test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_operator_boundary.py
+        run: python -m pytest -q --noconftest test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_custody_ledger_export.py test_confidential_operator_boundary.py
       - name: Independent custody KMS signer CLI (must require explicit approval)
         run: |
           python scripts/custodian_sign_confidential_operation.py --help > /dev/null
@@ -54,6 +56,7 @@ jobs:
           python scripts/verify_confidential_custody_kms.py --help > /dev/null
           python confidential/custody_cas.py --help > /dev/null
           python confidential/custody_history.py --help > /dev/null
+          python scripts/export_confidential_custody_ledger.py --help > /dev/null
       - name: Confirm audit mode is inert without --check
         run: |
           python scripts/verify_confidential_custody_independence.py \
