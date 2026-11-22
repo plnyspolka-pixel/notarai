@@ -32,7 +32,7 @@ evidence. All rows require tenant-specific AWS inspection before being signed of
 | External LLM request/output, embeddings, traces | YES if introduced | Provider/operator exposure possible | Current fictional form path does not call LLM; SEC-04 pending | AI provider / controller |
 | S3 object current ciphertext and versions | No intended plaintext; ciphertext + identifiers only | Operator may read ciphertext/metadata | Versioning enabled, bucket `Retain`, **NO automatic deletion** | Storage / controller |
 | S3 status marker | No, metadata-only | Operator may read job status | No lifecycle policy in current template | Application / storage |
-| DynamoDB job ledger and PITR | No intended plaintext; opaque IDs/status and timestamps | Operator may read metadata | PITR enabled; actual configured recovery period must be read from AWS; table Retain | Storage / controller |
+| DynamoDB job ledger and PITR | No intended plaintext; opaque IDs/status and timestamps | Operator may read metadata | PITR enabled; AWS defaults to 35 days when period is omitted, but live configuration MUST be read; table Retain | Storage / controller |
 | SQS and DLQ | No intended plaintext; opaque job references | Operator may read metadata | Main queue 86,400 s (1 d); DLQ 1,209,600 s (14 d) | Queue owner |
 | CloudTrail management/data event history | No intended plaintext, but potentially identifying resource/role IDs | Operator/auditor according to AWS policy | Unknown until live trail/bucket/log-group inventory | AWS security |
 | Volumes, snapshots, backups, cross-region replicas | YES if bad guest mount/log/backup policy | Potentially high | No shared volume in task template; AWS snapshots/backups not audited | AWS operator / custodian |
@@ -123,6 +123,30 @@ Recovery end-to-end remains **BLOCKED** until independent signed proofs and
 live negative tests are integrated. This branch intentionally adds no recovery
 endpoint or privileged decrypt fallback.
 
+## Read-only audit tool (not yet run in AWS)
+
+`python scripts/verify_confidential_plaintext_lifecycle.py` is dry-run by default,
+prints only that AWS calls are disabled. To opt into read-only metadata checks
+for `pilot01`/`pilot02`, provide ALL of:
+`--check --profile PROFILE --account 12_DIGITS --tenant pilot01
+--bucket ntr-cf-pilot01-ACCOUNT-eu-central-1
+--queue-url https://sqs.eu-central-1.amazonaws.com/ACCOUNT/notarai-confidential-pilot01.fifo
+--task-arn arn:aws:ecs:eu-central-1:ACCOUNT:task-definition/notarai-confidential-pilot01:REVISION`.
+
+The script validates AWS identity and EU region before reading only ECS task
+definition, S3 versioning/lifecycle/**object version counts** (no object
+body/keys output), SQS retention/redrive, DDB PITR and CloudTrail trail count.
+It never reads object bodies, queued messages, CloudTrail event bodies,
+CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
+a forensic assertion about memory or plaintext absence. No AWS read has been
+performed in this PR from this conversation.
+
+AWS documentation used to scope retention uncertainty:
+- DynamoDB PITR default 35 days; configurable 1–35:
+  https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Point-in-time-recovery.html
+- S3 delete markers do not delete all versions:
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/DeletingObjectVersions.html
+
 ## K6 — required external live evidence, NOT done
 
 Evidence bundle after authorized isolated AWS test, with sanitized identifiers:
@@ -145,7 +169,7 @@ Evidence bundle after authorized isolated AWS test, with sanitized identifiers:
 | Criterion | Status | Owner | Evidence/next required |
 |---|---|---|---|
 | K1 map of >=10 locations | BLOCKED | Security reviewer | Map above exists; operational AWS inventory and approval missing |
-| K2 six synthetic scenarios | BLOCKED | Engineering / CI | Test file committed; must verify current HEAD green CI and limitations |
+| K2 six synthetic scenarios | BLOCKED | Engineering / CI | Synthetic tests + read-only auditor committed; must verify current HEAD green CI and limitations |
 | K3 no persistent plaintext | BLOCKED | AWS operations | Static controls exist; actual guest/S3/snapshots audit missing |
 | K4 legally approved exact retention | BLOCKED | Controller / counsel / AWS | Template periods known; CloudTrail/LLM/PITR and legal approvals missing |
 | K5 recovery without operator backdoor | BLOCKED | Independent custodian | Negative static tests added; actual signed recovery/revocation not proven |
