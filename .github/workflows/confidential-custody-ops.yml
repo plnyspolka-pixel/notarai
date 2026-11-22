@@ -1,0 +1,50 @@
+name: NotarAI SEC-06 - independent custody offline denials
+
+on:
+  pull_request:
+    paths:
+      - "confidential/custody_ops.py"
+      - "scripts/verify_confidential_custody_independence.py"
+      - "test_confidential_independent_custody_ops.py"
+      - "docs/security-evidence/SEC-06.md"
+      - ".github/workflows/confidential-custody-ops.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  custody-denials:
+    name: SEC-06 K1-K6 synthetic checks (not AWS proof)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_DEFAULT_REGION: eu-central-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install offline dependencies only
+        run: python -m pip install pytest==8.3.4 cryptography PyYAML boto3
+      - name: Compile independent custody modules
+        run: python -m py_compile confidential/custody_ops.py scripts/verify_confidential_custody_independence.py test_confidential_independent_custody_ops.py
+      - name: Check synthetic custody tests and legacy KMS boundary
+        run: python -m pytest -q test_confidential_independent_custody_ops.py test_confidential_operator_boundary.py
+      - name: Confirm audit mode is inert without --check
+        run: |
+          python scripts/verify_confidential_custody_independence.py \
+            --operator-profile offline-workload \
+            --custody-profile offline-external-custody \
+            > /tmp/sec06-dryrun.json
+          python -c 'import json; x=json.load(open("/tmp/sec06-dryrun.json")); assert x["aws_calls"]==0 and x["status"]=="BLOCKED" and not x["independent_custody_verified"]'
+      - name: Record limitations
+        run: |
+          {
+            echo "## SEC-06: offline unit-tests only"
+            echo "- No AWS credentials or deployments."
+            echo "- No custodian ownership/root/SSO proof."
+            echo "- No KMS/Nitro attestation or live deny proof."
+            echo "- Production Zero Operator Access / Zero Knowledge claims remain BLOCKED."
+          } >> "$GITHUB_STEP_SUMMARY"
