@@ -58,11 +58,13 @@ def audit_offline(task_definition=None, bedrock_logging=None, task_runtime=None)
 def audit_live_readonly(*, profile: str, account: str, task_definition: str,
                         cluster: str | None = None, task_arn: str | None = None):
     """Fetch narrowly selected AWS metadata only, never underlying documents."""
-    if not ACCOUNT.fullmatch(account) or not TASK.fullmatch(task_definition):
+    if (not ACCOUNT.fullmatch(account) or not TASK.fullmatch(task_definition)
+            or ".." in task_definition):
         raise ValueError("invalid audit scope")
     if bool(cluster) != bool(task_arn):
         raise ValueError("cluster and task arn must be supplied together")
-    if cluster and (not TASK.fullmatch(cluster) or not TASK.fullmatch(task_arn)):
+    if cluster and (not TASK.fullmatch(cluster) or not TASK.fullmatch(task_arn)
+                    or ".." in cluster or ".." in task_arn):
         raise ValueError("invalid runtime scope")
     import boto3
 
