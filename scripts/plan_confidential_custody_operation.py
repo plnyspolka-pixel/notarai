@@ -70,7 +70,7 @@ def plan_operation(*, action: str, tenant: str,
     if action == "ENROLL":
         target = validate_state({
             **supplied, "schema": "notarai.confidential.custody-state.v1",
-            "state": "ACTIVE", "generation": 1, "revision": 1,
+            "state": "FROZEN", "generation": 1, "revision": 1,
         })
     elif action in {"FREEZE", "REVOKE", "MARK_LOST", "UNFREEZE"}:
         target = dict(state)
