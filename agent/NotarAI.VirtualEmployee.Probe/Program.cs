@@ -16,9 +16,9 @@ if (!OperatingSystem.IsWindows())
     Console.Error.WriteLine("Windows is required");
     return 2;
 }
-if (!Environment.UserInteractive || Process.GetCurrentProcess().SessionId == 0)
+if (!WindowsSessionGuard.IsReady())
 {
-    Console.Error.WriteLine("Interactive non-Session-0 Windows session required");
+    Console.Error.WriteLine("Unlocked, active Windows user desktop required");
     return 3;
 }
 if (args.Length == 1 && args[0] == "--session-health")
@@ -182,6 +182,7 @@ static int RunLocalInbox(bool continuous)
         var worker = new LocalInboxProcessor(tenant, key, inbox, outbox, replay);
         if (!continuous)
         {
+            if (!WindowsSessionGuard.IsReady()) return 3;
             worker.Drain(ExecuteDiagnosticOperation);
             return 0;
         }
@@ -189,7 +190,8 @@ static int RunLocalInbox(bool continuous)
         // Process exits when the interactive user logs off. No auto-logon.
         while (true)
         {
-            worker.Drain(ExecuteDiagnosticOperation);
+            if (WindowsSessionGuard.IsReady())
+                worker.Drain(ExecuteDiagnosticOperation);
             Thread.Sleep(TimeSpan.FromSeconds(3));
         }
     }
@@ -235,7 +237,12 @@ static async Task<int> RunSqs(bool continuous)
         var poller = new SqsDiagnosticPoller(sqs, queueUrl, tenant, key, replay, outbox);
         do
         {
-            await poller.PollOnceAsync(ExecuteDiagnosticOperation, CancellationToken.None);
+            if (WindowsSessionGuard.IsReady())
+                await poller.PollOnceAsync(ExecuteDiagnosticOperation, CancellationToken.None);
+            else if (!continuous)
+                return 3;
+            else
+                await Task.Delay(TimeSpan.FromSeconds(3));
         }
         while (continuous);
         return 0;
@@ -253,16 +260,21 @@ static async Task<int> RunSqs(bool continuous)
     }
 }
 
-static int ExecuteDiagnosticOperation(string operation) => operation switch
+static int ExecuteDiagnosticOperation(string operation)
 {
-    "probe.session" => ReportSession(),
-    "probe.notepad" => InspectNotepad(),
-    _ => 7
-};
+    if (!WindowsSessionGuard.IsReady()) return 3;
+    return operation switch
+    {
+        "probe.session" => ReportSession(),
+        "probe.notepad" => InspectNotepad(),
+        _ => 7
+    };
+}
 
 static int ReportSession()
 {
-    Console.WriteLine("Interactive session available; no application data accessed");
+    if (!WindowsSessionGuard.IsReady()) return 3;
+    Console.WriteLine("Unlocked interactive session available; no application data accessed");
     return 0;
 }
 
