@@ -326,3 +326,53 @@ proof that all roles / grants / other operator accounts are denied:
 Official AWS KMS references:
 - https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
 - https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html
+
+## K3/K4/K5: audit every generation and historical two-tenant isolation
+
+New read-only workflow: `scripts/audit_confidential_custody_all_keys.py`.
+It takes ONE independently pinned and signature-verified history, reconstructs
+every rotated decrypt key ARN, and visits each retired physical KMS key and
+the final current key. Retired keys MUST have exactly the deny-only
+custodian policy and ZERO grants; a key reported missing/inaccessible is
+BLOCKED, never treated as securely deleted. Current key policy must match
+the recorded lifecycle state. Any hidden grant on page two, a modified
+historical policy, foreign owner or mismatched key type fails the audit.
+
+Explicit **read-only** usage (run solely with independent AWS custody credentials):
+
+    python scripts/audit_confidential_custody_all_keys.py \
+      --tenant pilot01 \
+      --history-file /secure/pilot01-ledger-export.json \
+      --trust-roots-file /secure/pilot01-independent-roots.json \
+      --pinned-final-sha256 EXTERNALLY_PINNED_STATE_HASH \
+      --custody-profile independent-custodian-auditor \
+      --check --output /secure/pilot01-all-key-audit.json
+
+Without `--check`, this workflow replays the signed history offline and
+makes ZERO AWS calls. Even when every KMS snapshot matches, result is
+BLOCKED with `historical_keys_effectively_denied_verified=false` and
+`live_negative_decrypt_for_every_generation=false`. A snapshot never
+replaces KMS negative decrypt attempts, CloudTrail or custodian ownership.
+
+New independent offline test: 
+`scripts/verify_confidential_tenant_history_isolation.py`. It consumes
+two independently pinned histories for pilot01 and pilot02 and compares
+**every generation**, not just their latest binding. It rejects reuse
+across tenants of any decrypt/sign key ARN (including cross-role reuse),
+PCR17, task definition, release hash, policy hash or public signing
+trust-root fingerprint. Both pilots must retain consistent workload and
+custody account identity. CLI usage:
+
+    python scripts/verify_confidential_tenant_history_isolation.py \
+      --pilot01-history /secure/pilot01-ledger-export.json \
+      --pilot01-trust-roots /secure/pilot01-independent-roots.json \
+      --pilot01-final-sha256 EXTERNAL_PILOT01_SHA \
+      --pilot02-history /secure/pilot02-ledger-export.json \
+      --pilot02-trust-roots /secure/pilot02-independent-roots.json \
+      --pilot02-final-sha256 EXTERNAL_PILOT02_SHA \
+      --output /secure/two-tenant-lifetime-isolation.json
+
+Valid offline outcomes always return CLI code 3 with
+`independent_custody_verified=false` and `can_authorize_decrypt=false`.
+The approved evidence must be obtained and pinned by an external party;
+synthetic mock tests do not prove independently administered AWS custody.
