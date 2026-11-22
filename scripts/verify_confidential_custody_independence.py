@@ -220,7 +220,11 @@ def main(argv=None):
             json.dump(result, file, sort_keys=True, indent=2)
             file.write("\n")
     print(json.dumps(result, sort_keys=True))
-    # Structural check can succeed, but public release can never call it DONE.
+    # A successful read-only snapshot is NOT independent-custody proof.
+    # Never let an external deployment/marketing gate mistake exit 0 for
+    # externally signed AWS root/SSO/Organizations custody verification.
+    if args.check and result.get("independent_custody_verified") is not True:
+        return 3
     return 0
 
 
