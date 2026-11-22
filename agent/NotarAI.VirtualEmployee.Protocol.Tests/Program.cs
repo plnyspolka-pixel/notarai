@@ -2,6 +2,7 @@ using System.Text.Json;
 using NotarAI.VirtualEmployee.Protocol;
 
 var failures = new List<string>();
+var checkedCount = 0;
 var now = DateTimeOffset.FromUnixTimeSeconds(1_800_000_000);
 var secret = Enumerable.Range(0, 32).Select(x => (byte)x).ToArray();
 const string tenant = "pilot01";
@@ -15,8 +16,10 @@ var signed = job with { Signature = JobAdmission.SignForTest(job, secret) };
 
 void Check(string label, bool condition)
 {
+    checkedCount++;
     if (!condition) failures.Add(label);
 }
+Check("cross-language canonical signature", signed.Signature == "3001f34ea8457f39c5da9142fc6c2e2680956f5484a32082c030736c819ba7f0");
 Check("valid fixture", JobAdmission.Admit(Json(signed), tenant, secret, now, new MemoryGuard()).Allowed);
 var replay = new MemoryGuard();
 Check("first claim", JobAdmission.Admit(Json(signed), tenant, secret, now, replay).Allowed);
@@ -57,7 +60,7 @@ if (failures.Count != 0)
     foreach (var failure in failures) Console.Error.WriteLine("FAIL: " + failure);
     return 1;
 }
-Console.WriteLine("PASS: 14 protocol admission, replay and tenant-isolation checks");
+Console.WriteLine($"PASS: {checkedCount} protocol admission, replay and tenant-isolation checks");
 return 0;
 
 sealed class MemoryGuard : IReplayGuard
