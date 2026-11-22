@@ -315,3 +315,74 @@ def authorize_binding_preview(state: Mapping, request: Mapping) -> dict:
         "hardware_attestation_verified": False,
         "independent_custody_verified": False,
     }
+
+
+def render_kms_policy_target(state: Mapping) -> dict:
+    """Generate a custody-account change request, never apply it to AWS.
+
+    FREEZE/REVOKE/LOST remove all task Decrypt permissions. The independent
+    custodian must apply the policy and provide CloudTrail + ListGrants proof
+    before claiming effective revocation. An operator cannot use this as an
+    implicit authorize/decrypt endpoint.
+    """
+    s = validate_state(state)
+    admin_actions = [
+        "kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy",
+        "kms:EnableKey", "kms:DisableKey", "kms:UpdateKeyDescription",
+        "kms:ListResourceTags", "kms:TagResource", "kms:UntagResource",
+        "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion",
+    ]
+    statements = [
+        {
+            "Sid": "CustodyAdministratorOnly", "Effect": "Allow",
+            "Principal": {"AWS": f"arn:aws:iam::{s['custody_account']}:root"},
+            "Action": admin_actions, "Resource": "*",
+        },
+        {
+            "Sid": "NotaraiPublicKeyOnly", "Effect": "Allow",
+            "Principal": {"AWS": f"arn:aws:iam::{s['workload_account']}:root"},
+            "Action": ["kms:GetPublicKey", "kms:DescribeKey"], "Resource": "*",
+        },
+    ]
+    if s["state"] == "ACTIVE":
+        statements.append({
+            "Sid": "OnlyAttestedNitroTaskDecrypt", "Effect": "Allow",
+            "Principal": {"AWS": (
+                f"arn:aws:iam::{s['workload_account']}:"
+                f"role/notarai-confidential-{s['tenant']}")},
+            "Action": "kms:Decrypt", "Resource": "*",
+            "Condition": {"StringEqualsIgnoreCase": {
+                "kms:RecipientAttestation:PCR17": s["pcr17"],
+                "kms:RecipientAttestation:PCR8:ServiceName":
+                    "ecs.amazonaws.com"}},
+        })
+    target = {"Version": "2012-10-17", "Statement": statements}
+    return {
+        "target_policy": target,
+        "target_policy_sha256": canonical_digest(target),
+        "requires_independent_custodian_apply": True,
+        "kms_policy_changed": False,
+        "live_grants_audited": False,
+        "live_cloudtrail_verified": False,
+    }
+
+
+def verify_kms_policy_snapshot(state: Mapping, observed_policy: Mapping,
+                               observed_grants: list) -> dict:
+    """Instantaneous read-only snapshot, not a guarantee against future tamper."""
+    s = validate_state(state)
+    expected = render_kms_policy_target(s)["target_policy"]
+    _require(isinstance(observed_policy, Mapping) and
+             dict(observed_policy) == expected,
+             "custodian KMS key policy does not enforce lifecycle state")
+    _require(isinstance(observed_grants, list) and not observed_grants,
+             "unreviewed KMS grants remain")
+    if s["state"] == "ACTIVE":
+        _require(canonical_digest(dict(observed_policy)) ==
+                 s["key_policy_sha256"],
+                 "live KMS policy differs from custodian-approved release hash")
+    return {
+        "kms_policy_snapshot_checked": True,
+        "kms_decrypt_exercised": False,
+        "independent_custody_verified": False,
+    }
