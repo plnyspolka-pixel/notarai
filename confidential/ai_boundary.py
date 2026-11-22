@@ -15,12 +15,7 @@ _REGION = "eu-central-1"
 _MODEL = re.compile(r"^eu\.[A-Za-z0-9][A-Za-z0-9._:-]{2,160}$")
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _OPERATIONS = frozenset({"transcribe", "extract", "draft", "summarize", "classify", "embed", "ocr", "preview"})
-_PUBLIC_ENDPOINT = re.compile(r"(?i)(?:https?://|wss?://|ftp://)")
-_FORBIDDEN_KEYS = frozenset({
-    "content", "prompt", "messages", "completion", "response", "document",
-    "plaintext", "dek", "secret", "authorization", "headers", "url",
-    "body", "payload", "query", "text", "output", "input", "trace",
-})
+_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 class AIBoundaryDenied(PermissionError):
@@ -178,5 +173,26 @@ def safe_telemetry(event: Mapping[str, object]) -> dict[str, object]:
 
 def reject_untrusted_endpoint(endpoint: str | None) -> None:
     """No external tool/plugin endpoint is supported in confidential mode."""
-    if endpoint is not None or (isinstance(endpoint, str) and _PUBLIC_ENDPOINT.search(endpoint)):
+    if endpoint is not None:
         raise AIBoundaryDenied("EXTERNAL_ENDPOINT_DENIED")
+
+
+def validate_worker_marker(marker: Mapping[str, object]) -> dict[str, object]:
+    """Enforce the only metadata schema a Nitro preview worker may persist.
+
+    The preview marker does not contain source text, a model response, URL,
+    document name, fields or any feature enabling submission.
+    """
+    if not isinstance(marker, Mapping) or set(marker) != {
+        "version", "job_id", "status", "fields_filled", "submitted"
+    }:
+        raise AIBoundaryDenied("WORKER_RESULT_SCHEMA_DENIED")
+    if type(marker["version"]) is not int or marker["version"] != 1:
+        raise AIBoundaryDenied("WORKER_RESULT_SCHEMA_DENIED")
+    if not isinstance(marker["job_id"], str) or not _JOB_ID.fullmatch(marker["job_id"]):
+        raise AIBoundaryDenied("WORKER_RESULT_SCHEMA_DENIED")
+    if marker["status"] != "preview_completed" or marker["submitted"] is not False:
+        raise AIBoundaryDenied("UNSAFE_WORKER_RESULT")
+    if type(marker["fields_filled"]) is not int or not 0 <= marker["fields_filled"] <= 100:
+        raise AIBoundaryDenied("WORKER_RESULT_SCHEMA_DENIED")
+    return dict(marker)
