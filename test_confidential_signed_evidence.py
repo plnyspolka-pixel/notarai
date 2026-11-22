@@ -179,6 +179,7 @@ def test_chain_valid_only_with_externally_pinned_head(identities):
     two["sequence"] = 2
     two["previous_sha256"] = manifest_sha256(one)
     two["release_id"] = "release02"
+    two["observed_at"] = at(NOW - timedelta(seconds=30))
     bundles = [sign_manifest(one, key), sign_manifest(two, key)]
     head = manifest_sha256(two)
     assert verify_chain(bundles=bundles, trusted_public_key_raw=pub,
@@ -226,3 +227,27 @@ def test_valid_non_mock_assertions_still_need_independent_live_proof(identities)
     assert v.integrity_status == "PASS"
     assert v.assurance_status == "BLOCKED"
     assert v.zero_operator_access_proven is False
+
+
+@pytest.mark.parametrize("alter", [
+    lambda m: m.update(tenant="pilot02"),
+    lambda m: m.update(operator_account="000011112222"),
+    lambda m: m.update(custody_account="999900001111"),
+    lambda m: m.update(observed_at=at(NOW - timedelta(minutes=2))),
+])
+def test_resigned_cross_scope_or_time_replay_cannot_splice_chain(identities, alter):
+    key, pub, pin = identities
+    one = fixture_manifest()
+    two = fixture_manifest()
+    two["sequence"] = 2
+    two["previous_sha256"] = manifest_sha256(one)
+    two["release_id"] = "release02"
+    two["observed_at"] = at(NOW - timedelta(seconds=30))
+    alter(two)
+    bundles = [sign_manifest(one, key), sign_manifest(two, key)]
+    result = verify_chain(
+        bundles=bundles, trusted_public_key_raw=pub,
+        pinned_fingerprint=pin, trusted_head_sha256=manifest_sha256(two),
+        clock=NOW,
+    )
+    assert result.integrity_status == "FAIL"
