@@ -245,6 +245,9 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
             assert name in allow[self.service], "unexpected AWS operation"
             def call(**kwargs):
                 calls.append((self.service, name))
+                if self.service == "s3":
+                    assert kwargs["ExpectedBucketOwner"] == account
+                    assert kwargs["Bucket"] == f"ntr-cf-{tenant}-{account}-eu-central-1"
                 if name == "get_caller_identity":
                     return {"Account": account}
                 if name == "describe_task_definition":
