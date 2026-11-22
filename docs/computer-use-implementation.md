@@ -9,6 +9,7 @@ computer_use/
   fallback_router.py   # preferencje native_api > web_dom > windows_uia > vision > człowiek
   deployment.py        # dobór hostingu z potwierdzonych zdolności
   profiles.py          # uniwersalny, deklaratywny profil: web URL, Windows app, selektory
+  native_api.py        # oficjalne HTTPS API: zaufane GET + ograniczone mapowanie JSON
   profile_loader.py    # podpis HMAC-SHA256 + powiązanie profilu z tenantem
   browser.py           # Playwright: odczyt i testowane wypełnienie szkicu
   winapp.py            # Microsoft WinApp CLI: get-value / set-value + weryfikacja
@@ -21,13 +22,15 @@ tests/
   test_computer_use_worker.py
   test_computer_use_discovery.py
   test_computer_use_profile_loader.py
+  test_computer_use_native_api.py
+  test_computer_use_infra.py
 ```
 
 **Kluczowe:** kod jest niezależny od producenta programu i nie zawiera osobnych adapterów dla RejNET/Notaris/Wolters Kluwer. Zmieniamy profil i środowisko, nie implementację.
 
 ## Fallbacki — wykonanie
 
-1. Oficjalne API/import/export (router przewiduje provider, ale jeszcze go NIE zaimplementowano).
+1. Oficjalne HTTPS API: zaimplementowany generyczny **read-only** provider z konfigurowalną ścieżką i JSON key, wstrzykniętym klientem autoryzacji i blokadą przekierowań. Import, eksport i modyfikacje **nie są jeszcze obsługiwane**.
 2. Playwright, jeśli program jest webowy, wspiera zaufany profil i autoryzowany kontekst przeglądarki.
 3. WinApp CLI UI Automation, jeśli program jest desktopowy i działa w uprawnionej sesji Windows.
 4. UIA+vision, pełny Computer Use, uczenie z demonstracji — **zaplanowane, jeszcze bez backendów**.
@@ -77,6 +80,10 @@ Nazwy kontrolek są **przykładowe**; należy sprawdzić je na rzeczywistej, uru
 ## Profil podpisany i zakres zaufania
 
 `load_verified_profile(raw, signature, signing_key, tenant_id=...)` waliduje schemat, HMAC i tenant oraz tworzy `AppProfile`. Klucz HMAC musi pochodzić z runtime secrets/KMS (nigdy z repozytorium, promptu ani modelu). Kod **nie tworzy** podpisów na podstawie niezaufanej konfiguracji. Nie zmienia podpisanych profili automatycznie po wykryciu nowego interfejsu.
+
+## Infrastructure-as-code test VM
+
+Szablon: `infra/notarai-universal-worker-vm.yaml`. Jedna VM na kancelarię, **brak publicznego IP i RDP**, EBS zaszyfrowany istniejącym CMK, IMDSv2, rola jedynie SSM, jawnie ograniczony egress HTTPS. Jest to **szablon bez uruchomionego stacka**. Wymaga legalnego Windows AMI, prywatnego subnetu, przygotowanych VPC endpointów SSM/SSMMessages (oraz ewentualnie EC2Messages), klucza KMS i potwierdzenia licencji programu. SSM daje administrowanie VM, **nie zastępuje interaktywnej sesji Windows** potrzebnej dla części automatyzacji GUI.
 
 ## Ograniczenia / kolejne prace
 
