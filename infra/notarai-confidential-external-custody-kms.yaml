@@ -36,6 +36,11 @@ Resources:
       KeySpec: RSA_3072
       MultiRegion: false
       Enabled: true
+      Tags:
+        - TagKey: CustodyScope
+          TagValue: !Ref CustodyAcknowledgement
+        - TagKey: TenantScope
+          TagValue: !Ref TenantId
       KeyPolicy:
         Version: "2012-10-17"
         Statement:
