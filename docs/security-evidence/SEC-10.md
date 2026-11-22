@@ -73,6 +73,17 @@ read-only scan of synthetic S3 object version history, backups and snapshots;
 confirm crash reporters cannot export to host/operator; validate these settings
 after measuring the exact production guest image digest.
 
+### Additional Linux runtime smoke
+
+The separate CI `ephemeral-runtime` job runs the actual kernel guard in a
+local read-only, network-disabled, non-root Docker container with a
+specifically mounted `/tmp` tmpfs. It also proves that a synthetic stdout
+string and stderr are not observable by the CI host after `silence_guest_stdio`.
+This is stronger than static CloudFormation inspection but is **NOT an AWS
+Nitro attestation**, not an actual browser crash test and not a host-memory
+forensic scan. The job must be green for the current HEAD before claiming
+the *offline* runtime smoke has passed.
+
 ## K4 — retention and deletion: verified template values vs policy decisions
 
 | Store | Template-declared period | Deletion approach and dependency |
