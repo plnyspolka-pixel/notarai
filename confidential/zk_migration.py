@@ -94,7 +94,6 @@ def reencrypt_inside_attested_nitro(
         tenant=original.tenant_id, old_key_arn=original.kms_key_arn,
         old_key_pin=original.public_key_sha256, now=now,
     )
-        raise RecoveryDenied("original document identity mismatch")
     if authorize_recovery(
         request=recovery_request, custodian_signature=custodian_signature,
         trustee_signature=trustee_signature,
