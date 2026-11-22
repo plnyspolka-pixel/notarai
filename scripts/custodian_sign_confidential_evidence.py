@@ -30,6 +30,9 @@ def sign_from_files(*, manifest_path: Path, key_path: Path, output_path: Path,
     """Sign a strict metadata-only manifest and create a new 0600 bundle."""
     if type(password_fd) is not int or password_fd < 3:
         raise ValueError("password pipe descriptor required")
+    fd_mode = os.fstat(password_fd).st_mode
+    if not (stat.S_ISFIFO(fd_mode) or stat.S_ISSOCK(fd_mode)):
+        raise ValueError("password must come from transient pipe or socket")
     if manifest_path.is_symlink() or key_path.is_symlink() or output_path.is_symlink():
         raise ValueError("symlink not allowed")
     if key_path.resolve() == output_path.resolve():
