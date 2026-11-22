@@ -81,6 +81,7 @@ Use `python -m pytest -q test_confidential_nitro_denial_matrix.py` to check meta
 ```bash
 python scripts/audit_nitro_denials.py --verify-live \
   --matrix negative-matrix.json \
+  --positive-manifest positive-manifest.json \
   --operator-profile AUDITOR_WORKLOAD_RO \
   --custody-profile AUDITOR_CUSTODY_RO \
   --altered-image-receipt altered-image.json \
@@ -193,3 +194,7 @@ python scripts/check_nitro_scope.py \
 Sukces strukturalnej spójności drukuje `scope_consistent=true`, ale **zawsze** `status=BLOCKED`, `hardware_attestation_verified=false` i exit code 2. Zły zakres daje `scope_consistent=false`. Istniejące K2/K6 na podstawie samego v1 manifestu z sześcioma EventId KMS są **niepoprawnym modelem**: w poprawnym v2 są cztery realne zdarzenia KMS i dwie inne granice odmowy (ECS admission oraz custody release gate). V1 może być wykorzystany jako zakres pozytywnego testu, ale v1 negatywne EventId nie zastępują dowodów v2.
 
 Testy: `test_confidential_nitro_scope_binding.py` (podmiana klucza, regionu, kont, obrazu, czasu, job ID i ponowne użycie pozytywnego KMS EventId).
+
+### Fail-closed integration of both run scopes
+
+The actual negative live audit (`scripts/audit_nitro_denials.py --verify-live`) now **requires** `--positive-manifest` as an argument. It calls `bind_positive_negative_scope` and rejects inconsistent identifiers **before creating any AWS client or making any network call**. The report includes a domain-separated `scope_sha256` and `positive_negative_scope_consistent=true`, but still returns `BLOCKED` for hardware status. The prior standalone offline command remains useful for preflight and has not been promoted to proof. The positive manifest's legacy six KMS denial fields are not used to close the v2 negative cases.
