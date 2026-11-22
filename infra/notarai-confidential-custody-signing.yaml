@@ -11,6 +11,10 @@ Parameters:
     Type: String
     AllowedPattern: "^arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9+=,.@_/-]+$"
     Description: Pre-existing independent reviewer role in custody account
+  CustodianAuditRoleArn:
+    Type: String
+    AllowedPattern: "^arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9+=,.@_/-]+$"
+    Description: Read-only external auditor; MUST differ from independent signer
   CustodyAcknowledgement:
     Type: String
     AllowedValues: ["independent-release-approval"]
@@ -20,9 +24,16 @@ Conditions:
   SignerIsCustodyPrincipal: !Equals
     - !Select [4, !Split [":", !Ref CustodianSignerRoleArn]]
     - !Ref AWS::AccountId
+  AuditorIsCustodyPrincipal: !Equals
+    - !Select [4, !Split [":", !Ref CustodianAuditRoleArn]]
+    - !Ref AWS::AccountId
+  RolesAreSeparate: !Not
+    - !Equals [!Ref CustodianAuditRoleArn, !Ref CustodianSignerRoleArn]
   ValidExternalSigner: !And
     - !Condition IsExternalCustody
     - !Condition SignerIsCustodyPrincipal
+    - !Condition AuditorIsCustodyPrincipal
+    - !Condition RolesAreSeparate
 Resources:
   CustodianReleaseKey:
     Type: AWS::KMS::Key
@@ -65,6 +76,15 @@ Resources:
               AWS: !Ref CustodianSignerRoleArn
             Action:
               - kms:Sign
+              - kms:GetPublicKey
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: AuditVerifyWithoutSigning
+            Effect: Allow
+            Principal:
+              AWS: !Ref CustodianAuditRoleArn
+            Action:
+              - kms:Verify
               - kms:GetPublicKey
               - kms:DescribeKey
             Resource: "*"
