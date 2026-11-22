@@ -225,6 +225,9 @@ the relevant controller and custodian signatures, and then calls the
 existing eligibility-for-review gate.
 
 Tests: `python -m pytest -q test_confidential_signed_retention_evidence.py`.
+An independent signer integration contract with exact canonical JSON, domain-separated
+bytes, key pinning and replay/revocation obligations is in
+[`SEC-10-signed-evidence-protocol.md`](../security-workstreams/SEC-10-signed-evidence-protocol.md).
 Synthetic signing keys exist **only in tests**. Negative cases cover
 signature replacement, role confusion, tampered hold/retention, changed
 AWS account/tenant/request, unsupported fields, replay to a **different**
