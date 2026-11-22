@@ -134,6 +134,38 @@ def _caller_role(event: Mapping) -> str:
     return issuer.get("arn", "") if isinstance(issuer, Mapping) else ""
 
 
+def kms_receipt_sha256(case: str, event: Mapping) -> str:
+    """Canonical digest of a whitelisted KMS log projection, with no PII/raw log.
+
+    This is what the independent witness signs. A human-entered hash or a
+    different CloudTrail event cannot be swapped in after the audit.
+    """
+    req = event.get("requestParameters") or {}
+    recipient = (event.get("additionalEventData") or {}).get("recipient") or {}
+    if not isinstance(req, Mapping) or not isinstance(recipient, Mapping):
+        raise DenialEvidenceRejected("KMS receipt fields invalid")
+    key = req.get("keyId")
+    if not isinstance(key, str) or not _KMS.fullmatch(key):
+        raise DenialEvidenceRejected("KMS key identity for receipt invalid")
+    projection = {
+        "schema": "notarai.confidential.kms-denial-receipt.v1",
+        "case": case,
+        "event_id": event.get("eventID"),
+        "request_id": event.get("requestID"),
+        "event_time": event.get("eventTime"),
+        "caller_account": (event.get("userIdentity") or {}).get("accountId"),
+        "caller_role": _caller_role(event),
+        "key_arn_sha256": hashlib.sha256(key.encode("ascii")).hexdigest(),
+        "error_code": event.get("errorCode"),
+        "recipient_module_present": bool(recipient.get("attestationDocumentModuleId")),
+        "recipient_pcr17": recipient.get("attestationDocumentEnclavePCR17"),
+    }
+    return hashlib.sha256(json.dumps(
+        projection, sort_keys=True, ensure_ascii=True,
+        separators=(",", ":"), allow_nan=False,
+    ).encode("utf-8")).hexdigest()
+
+
 def inspect_kms_denial(case: str, event: Mapping, matrix: Mapping) -> dict:
     """Validate observed KMS request semantics, not just a case label."""
     validate_matrix(matrix)
@@ -150,6 +182,9 @@ def inspect_kms_denial(case: str, event: Mapping, matrix: Mapping) -> dict:
             utc(matrix["started_at"]) <= utc(event.get("eventTime")) <=
             utc(matrix["ended_at"]),
             "KMS denial does not match independently recorded AWS event")
+    require(isinstance(event.get("requestID"), str) and
+            _UUID.fullmatch(event["requestID"]) is not None,
+            "KMS requestID missing or invalid")
     code = event.get("errorCode")
     errors = {"accessdeniedexception", "accessdenied", "accessdeniedexceptionv2"}
     if case == "wrong_key":
@@ -195,13 +230,16 @@ def inspect_kms_denial(case: str, event: Mapping, matrix: Mapping) -> dict:
         require(role == alternative, "cross-tenant test did not use the other tenant role")
     elif case == "wrong_key":
         require(role == current_role, "wrong-key test role must be task role")
+    receipt_digest = kms_receipt_sha256(case, event)
+    require(receipt_digest == trial["receipt_sha256"],
+            "KMS CloudTrail metadata differs from independently pinned receipt")
     return {
         "case": case,
         "boundary": "kms",
         "event_id": event["eventID"],
         "error_code": code,
         "precondition_observed": True,
-        "receipt_sha256": trial["receipt_sha256"],
+        "receipt_sha256": receipt_digest,
     }
 
 
