@@ -78,8 +78,12 @@ def probe_operator_denials(*, session, operator_account: str,
             results[name] = "FAIL"
     return {
         "results": results,
-        "permission_denials_verified": all(
+        # A 403 can also result from an incorrect ExpectedBucketOwner.
+        # This is an observed probe only: the independent read-only audit
+        # must establish custody ownership before K5 is considered PASS.
+        "both_access_denied_observed": all(
             v == "PASS" for v in results.values()
         ),
+        "independent_bucket_owner_verified": False,
         "zero_operator_access_proven": False,
     }
