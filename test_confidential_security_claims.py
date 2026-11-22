@@ -328,3 +328,10 @@ def test_malformed_evidence_policy_cannot_hijack_verifier():
     data["claims"][0]["required_evidence"][0]["owner"] = ["not", "hashable"]
     with pytest.raises(ClaimsRejected):
         validate_policy(data)
+
+
+def test_independent_witnesses_cannot_share_same_signing_key():
+    _, roots, receipts = fixtures()
+    roots["independent_custodian"] = copy.deepcopy(roots["independent_auditor"])
+    with pytest.raises(ClaimsRejected, match="share a signing key"):
+        evaluate(receipts, roots)
