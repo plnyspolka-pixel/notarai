@@ -203,3 +203,14 @@ call site. Negative tests reject variable, external and unrelated-path
 destinations. This prevents a class of accidental or malicious dynamic
 egress paths, but source-string scanning is not a full JS AST and is
 not substitute for CSP/browser network tests or independent egress proof.
+
+
+## Runtime emergency feature revocation
+`confidential.router._scope()` now re-reads the global
+`PIECZAPP_CONFIDENTIAL_ENABLED` flag on **every** API request.
+Previously `app.py` only checked this flag when mounting the router at
+startup, so a runtime flag change alone would not revoke an already
+mounted confidential endpoint. An offline API regression test covers
+policy, preview queue and status paths under a revoked flag. This
+is an application-level kill switch, not tamper-proof authority against
+a hostile backend operator or a substitute for independent custody.

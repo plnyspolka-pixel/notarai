@@ -25,6 +25,10 @@ _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 def _scope(request: Request) -> str:
     import autoryzacja
     import magazyn
+    # An imported router remains mounted after a runtime flag change.
+    # Re-check every request; revocation must not require a process restart.
+    if os.getenv("PIECZAPP_CONFIDENTIAL_ENABLED", "").lower() != "true":
+        raise HTTPException(503, "Poufny pilot jest wylaczony.")
     if not autoryzacja.MULTI or magazyn.TRYB != "s3":
         raise HTTPException(503, "Funkcja dostepna tylko w bezpiecznym SaaS.")
     if not getattr(request.state, "email", None) or getattr(request.state, "serwis", False):

@@ -133,6 +133,7 @@ class RequestFake:
 
 
 def setup_tenant(monkeypatch):
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ENABLED", "true")
     monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
     monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(TRYB="s3"))
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", "pilot01")
@@ -226,3 +227,20 @@ def test_unknown_job_returns_404_from_tenant_scoped_ledger(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         preview_status(RequestFake(), "missingjob")
     assert exc.value.status_code == 404
+
+
+def test_runtime_confidential_kill_switch_revokes_all_api_access(monkeypatch):
+    setup_tenant(monkeypatch)
+    assert automatic_policy(RequestFake()).status_code == 200
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ENABLED", "false")
+    with pytest.raises(HTTPException) as policy_error:
+        automatic_policy(RequestFake())
+    assert policy_error.value.status_code == 503
+    with pytest.raises(HTTPException) as queue_error:
+        run(queue_preview(RequestFake(), "case01", "scan01"))
+    assert queue_error.value.status_code == 503
+    with pytest.raises(HTTPException) as status_error:
+        preview_status(RequestFake(), "job01")
+    assert status_error.value.status_code == 503
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ENABLED", "TRUE")
+    assert automatic_policy(RequestFake()).status_code == 200
