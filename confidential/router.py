@@ -54,7 +54,7 @@ def _bucket() -> str:
 
 def _approved_key() -> str:
     arn = os.getenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN", "")
-    if not arn:
+    if not re.fullmatch(r"arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+", arn):
         raise HTTPException(503, "Poufne szyfrowanie nie jest skonfigurowane.")
     return arn
 
@@ -145,7 +145,7 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
     if tenant != os.getenv("PIECZAPP_CONFIDENTIAL_JOB_TENANT"):
         raise HTTPException(403, "Kolejka nie jest przypisana do tej kancelarii.")
     queue_url = os.getenv("PIECZAPP_CONFIDENTIAL_JOB_QUEUE_URL", "")
-    queue_pattern = r"https://sqs\.eu-[a-z0-9-]+\.amazonaws\.com/[0-9]{12}/notarai-confidential-[A-Za-z0-9_-]+(?:\.fifo)?"
+    queue_pattern = r"https://sqs\.eu-central-1\.amazonaws\.com/[0-9]{12}/notarai-confidential-[A-Za-z0-9_-]+(?:\.fifo)?"
     if not re.fullmatch(queue_pattern, queue_url):
         raise HTTPException(503, "Kolejka poufnych zadan nie jest skonfigurowana.")
     _approved_key()  # never enqueue before an approved key has been provisioned

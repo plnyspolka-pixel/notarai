@@ -109,3 +109,15 @@ PR #69 stays **DRAFT** and `zero_knowledge_verified` is **false**.
 - #69 is based on #65, independently of the concurrent SEC-03 branch #68.
 
 No AUTO submit, signing, filing or portal access was added.
+
+
+## 2026-11-22 regional routing hardening
+- Worker `_config()`, preview enqueue URL and encrypted-envelope KMS key
+  validation now require **exactly eu-central-1**, not arbitrary `eu-*`.
+- Browser encryption rejects KMS key ARNs from other regions; AUTO policy
+  client requires the backend to state AI inference and strict ZK are disabled
+  before queueing a synthetic preview. The pilot UI no longer claims real
+  AI analysis is active.
+- This checks address configuration only. **The geographical location of S3
+  bucket storage remains UNVERIFIED** until independently checked via AWS
+  bucket-region metadata and infra evidence; do not infer region from a name.

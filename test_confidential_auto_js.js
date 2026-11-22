@@ -46,7 +46,13 @@ async function main() {
   const safe = {
     version: 1, mode: "auto", can_submit: false,
     can_sign: false, external_writes_enabled: false,
-    thinking_enabled: false
+    thinking_enabled: false,
+    ai_inference: {
+      confidential_llm_enabled: false,
+      external_bedrock_allowed: false,
+      zk_status: "BLOCKED",
+      strict_zero_knowledge_verified: false
+    }
   };
   const {client, requests} = context(safe);
   const result = await client.queuePreview("case01", "scan01");
@@ -69,7 +75,23 @@ async function main() {
   const thought = context({...safe, thinking_enabled: true});
   await assert.rejects(thought.client.queuePreview("case01", "scan01"));
   assert.equal(thought.requests.length, 1);
-  console.log("AUTO client: blocked submit escalation, body injection, unsafe policies");
+  for (const injected of [
+    {confidential_llm_enabled: true},
+    {external_bedrock_allowed: true},
+    {zk_status: "VERIFIED"},
+    {strict_zero_knowledge_verified: true},
+  ]) {
+    const forged = context({
+      ...safe, ai_inference: {...safe.ai_inference, ...injected}
+    });
+    await assert.rejects(forged.client.queuePreview("case01", "scan01"));
+    assert.equal(forged.requests.length, 1,
+      "invalid AI policy must be rejected before enqueue");
+  }
+  const missing = context({...safe, ai_inference: null});
+  await assert.rejects(missing.client.queuePreview("case01", "scan01"));
+  assert.equal(missing.requests.length, 1);
+  console.log("AUTO client: blocked fake-ZK flags, submit escalation and unsafe policies");
 }
 
 main().catch(err => {console.error(err); process.exitCode = 1;});

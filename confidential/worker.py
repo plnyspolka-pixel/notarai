@@ -29,10 +29,18 @@ def _config() -> tuple[str, str, str, str]:
     bucket = os.environ["NOTARAI_CONFIDENTIAL_BUCKET"]
     queue = os.environ["NOTARAI_CONFIDENTIAL_QUEUE_URL"]
     key = os.environ["NOTARAI_CONFIDENTIAL_KMS_KEY_ARN"]
-    if not _ID.fullmatch(tenant) or not key.startswith("arn:aws:kms:eu-"):
+    key_ok = re.fullmatch(
+        r"arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+", key
+    )
+    queue_ok = re.fullmatch(
+        r"https://sqs\.eu-central-1\.amazonaws\.com/[0-9]{12}/"
+        r"notarai-confidential-[A-Za-z0-9_-]+(?:\.fifo)?", queue
+    )
+    bucket_ok = re.fullmatch(r"[a-z0-9][a-z0-9.-]{2,62}", bucket)
+    if not _ID.fullmatch(tenant) or not key_ok:
         raise RuntimeError("invalid confidential task configuration")
-    if not queue.startswith("https://sqs.eu-") or not bucket:
-        raise RuntimeError("invalid EU queue/storage configuration")
+    if not queue_ok or not bucket_ok:
+        raise RuntimeError("invalid regional queue/storage configuration")
     return tenant, bucket, queue, key
 
 

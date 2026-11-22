@@ -3,7 +3,7 @@
  * Public key SHA-256 MUST be independently pinned by the client.
  */
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
-const KMS = /^arn:aws:kms:eu-[a-z0-9-]+:\d{12}:key\/[A-Za-z0-9-]+$/;
+const KMS = /^arn:aws:kms:eu-central-1:\d{12}:key\/[A-Za-z0-9-]+$/;
 const MAX_BYTES = 25 * 1024 * 1024;
 
 function toBase64(bytes) {

@@ -309,3 +309,55 @@ def test_integrity_worker_calls_result_validator_before_persistence():
     assert code.index("marker = validate_worker_marker(") < code.index(
         'session.client("s3").put_object('
     )
+
+
+def test_k3_confidential_worker_region_rejected_before_aws(monkeypatch):
+    from confidential.worker import _config
+    import confidential.worker as worker
+    good_key = "arn:aws:kms:eu-central-1:111122223333:key/pilot"
+    good_queue = ("https://sqs.eu-central-1.amazonaws.com/111122223333/"
+                  "notarai-confidential-pilot01.fifo")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_REQUIRED", "1")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_TENANT", "pilot01")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_BUCKET", "notarai-confidential-pilot01")
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_KMS_KEY_ARN", good_key)
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_QUEUE_URL", good_queue)
+    monkeypatch.setattr(worker.os.path, "exists", lambda path: path == "/dev/nsm")
+    assert _config() == ("pilot01", "notarai-confidential-pilot01",
+                         good_queue, good_key)
+    for field, value in (
+        ("NOTARAI_CONFIDENTIAL_KMS_KEY_ARN",
+         "arn:aws:kms:eu-west-1:111122223333:key/pilot"),
+        ("NOTARAI_CONFIDENTIAL_KMS_KEY_ARN",
+         "arn:aws:kms:us-east-1:111122223333:key/pilot"),
+        ("NOTARAI_CONFIDENTIAL_QUEUE_URL",
+         "https://sqs.eu-west-1.amazonaws.com/111122223333/"
+         "notarai-confidential-pilot01.fifo"),
+        ("NOTARAI_CONFIDENTIAL_QUEUE_URL",
+         "http://sqs.eu-central-1.amazonaws.com/111122223333/"
+         "notarai-confidential-pilot01.fifo"),
+    ):
+        monkeypatch.setenv(field, value)
+        with pytest.raises(RuntimeError, match="invalid"):
+            _config()
+        monkeypatch.setenv(field, good_key if "KMS" in field else good_queue)
+
+
+def test_k3_confidential_router_requires_region_pinned_kms(monkeypatch):
+    import confidential.router as router
+    from fastapi import HTTPException
+    arn = "arn:aws:kms:eu-central-1:111122223333:key/pilot"
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN", arn)
+    assert router._approved_key() == arn
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN",
+                       arn.replace("eu-central-1", "eu-west-1"))
+    with pytest.raises(HTTPException) as error:
+        router._approved_key()
+    assert error.value.status_code == 503
+
+
+def test_k3_browser_crypto_rejects_non_pinned_kms_region_static_guard():
+    js = Path(__file__).with_name("static").joinpath(
+        "confidential-crypto.js").read_text(encoding="utf-8")
+    assert "arn:aws:kms:eu-central-1:" in js
+    assert "arn:aws:kms:eu-[a-z0-9-]+" not in js

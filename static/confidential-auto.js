@@ -17,7 +17,12 @@
     if (!value || value.version !== 1 || value.mode !== 'auto' ||
         value.can_submit !== false || value.can_sign !== false ||
         value.external_writes_enabled !== false ||
-        value.thinking_enabled !== false) {
+        value.thinking_enabled !== false ||
+        !value.ai_inference ||
+        value.ai_inference.confidential_llm_enabled !== false ||
+        value.ai_inference.external_bedrock_allowed !== false ||
+        value.ai_inference.zk_status !== 'BLOCKED' ||
+        value.ai_inference.strict_zero_knowledge_verified !== false) {
       throw new Error('Unsafe confidential policy');
     }
     verifiedPolicy = Object.freeze(value);
@@ -82,7 +87,7 @@
     const heading = document.createElement('strong');
     heading.textContent = 'AUTO · przygotowanie';
     const info = document.createElement('small');
-    info.textContent = 'Analiza i podgląd automatycznie. Podpis i wysłanie zablokowane.';
+    info.textContent = 'Pilot: syntetyczny podgląd formularza. AI, podpis i wysyłanie wyłączone.';
     section.append(heading, info);
     const logo = parent.querySelector('.logo');
     if (logo) logo.after(section); else parent.prepend(section);
