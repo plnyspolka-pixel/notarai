@@ -7,6 +7,11 @@ Mikroserial edukacyjno-fabularny dla notariuszy promujący NotarAI: sporządzani
 
 ## Najnowsze ustalenia fabularne (V5)
 
+**Decyzja właściciela, 23.11.2026 (nadrzędna wobec wcześniejszych zapisów):**
+- Odcinki opieramy na **prawdziwych, udokumentowanych sprawach** (orzeczenia, komunikaty policji i prokuratury, dane KRN i MS), a nie na wymyślonych fabułach. Źródła: katalog spraw z PR #93 (`docs/research/notarial-casebook-2026/`). Z konkretnej sprawy bierzemy mechanizm sytuacji, bez sygnatur, nazwisk i szczegółów pozwalających kogokolwiek rozpoznać.
+- W sezonie 1 **dopuszczamy przestępstwo**, jeśli notariusz wypada w nim korzystnie, np. sam wykrywa lub udaremnia oszustwo. Nadal: przestępstwa nie wykrywa AI, nie przypisujemy winy przed prawomocnym wyrokiem i nie żartujemy z pokrzywdzonych.
+- Zmienia to punkt 9 kanonu w `01_KANON/BIBLIA_INTRYGI.md` („nie ma przestępstwa”). Pozostałe punkty kanonu obowiązują.
+
 - **Minithriller prawniczy, sceny zewnętrzne, romans Kuba–Zosia:** `05_REZYSERIA_V5_THRILLER_ROMANS.md`.
 - **Wspólna biblioteka ulic, auta i ujęć poza kancelarią:** `06_ZEWNETRZNE_LOKACJE_I_ZDALNY_ASYSTENT.md`.
 - **Sezon 2: wizytacja, tajemnica notarialna, druga kancelaria:** `07_SEZON2_WIZYTACJA_ZARYS.md`.
