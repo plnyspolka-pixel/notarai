@@ -61,6 +61,13 @@ Resources:
                   - s3:GetObject
                   - s3:GetObjectVersion
                 Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}/kancelarie/${TenantId}/confidential/*"
+              - Sid: ListOnlyOwnGrantKeys
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${EncryptedBucketName}"
+                Condition:
+                  StringLike:
+                    s3:prefix: !Sub "kancelarie/${TenantId}/confidential-control/*/grant.json"
               - Sid: ReadCustomerChallengeAndEncryptedGrant
                 Effect: Allow
                 Action: s3:GetObject
