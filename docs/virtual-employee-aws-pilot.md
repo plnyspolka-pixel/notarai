@@ -289,3 +289,27 @@ Stopping EC2 does not stop the additional VPC endpoint's hourly charges.
 AWS references: [SQS over VPC PrivateLink](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-sending-messages-from-vpc.html),
 [SQS least-privilege queue policies](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-least-privilege-policy.html)
 and [AWS SDK for .NET v4 SQS receive](https://docs.aws.amazon.com/sdk-for-net/v4/developer-guide/ReceiveMessage.html).
+
+### Fail-closed Windows session gate (code, still requires real VM validation)
+
+Before starting a UIA task, the agent now checks the **current Windows
+session** using `WTSQuerySessionInformation(WTSConnectState)` and the current
+input desktop using `OpenInputDesktop` and
+`GetUserObjectInformation(UOI_NAME)`. It allows work only when the
+session is `WTSActive` and the active input desktop is the user's
+`Default` desktop. Session 0, disconnected RDP, inaccessible input
+desktop and Winlogon lock desktop fail closed.
+
+The continuously running synthetic SQS worker does not receive or claim
+work when the session is unavailable. If the desktop changes *during*
+the SQS long-poll, the message is left unacknowledged for its visibility
+timeout instead of being marked processed. A local synthetic inbox is
+also paused while locked. These checks **do not create or maintain**
+an authenticated desktop session and do not enable auto-logon.
+
+Mandatory live test on Windows Server: confirm `--session-health`
+returns successful status in an unlocked RDP desktop and fails while
+the workstation is locked, while RDP is disconnected and after logoff;
+verify the signed test job remains unexecuted while unavailable.
+Do not claim that headless UI Automation works simply because
+SSM Run Command or the EC2 service is healthy.
