@@ -169,6 +169,9 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     setup_tenant(monkeypatch)
     class S3:
         def head_object(self, **kwargs):
+            if kwargs["Key"] == "kancelarie/pilot01/confidential/case01/scan01.origin.json":
+                # Separate signed-origin sidecar exists before SQS admission.
+                return {"ContentLength": 160}
             assert kwargs["Key"] == "kancelarie/pilot01/confidential/case01/scan01.json"
             return {"VersionId": "v000001", "ContentLength": 120, "Metadata": {
                 "document-version": "a" * 32,
