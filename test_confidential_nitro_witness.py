@@ -131,7 +131,18 @@ def test_audit_command_checks_two_signatures_and_never_enables_hardware(
     from scripts import audit_nitro_denials as audit
 
     fixture = signed_fixture()
+    from uuid import UUID
+    from test_confidential_nitro_hardware_plan import fixtures as positive_fixture
+    positive, _, _, _, _ = positive_fixture()
+    for field in (
+        "tenant", "region", "workload_account", "custody_account",
+        "image_sha256", "expected_pcr17", "job_id", "started_at", "ended_at",
+    ):
+        positive[field] = fixture["matrix"][field]
+    positive["kms_key_arn"] = fixture["matrix"]["approved_kms_key_arn"]
+    positive["positive_event_id"] = str(UUID(int=999))
     files = {
+        "positive": json.dumps(positive),
         "matrix": json.dumps(fixture["matrix"]),
         "witness": json.dumps(fixture["payload"]),
         "altered": "{}",
@@ -157,6 +168,7 @@ def test_audit_command_checks_two_signatures_and_never_enables_hardware(
     argv = [
         "audit_nitro_denials.py", "--verify-live",
         "--matrix", str(tmp_path / "matrix"),
+        "--positive-manifest", str(tmp_path / "positive"),
         "--operator-profile", "workload-ro",
         "--custody-profile", "custody-ro",
         "--altered-image-receipt", str(tmp_path / "altered"),
@@ -174,6 +186,8 @@ def test_audit_command_checks_two_signatures_and_never_enables_hardware(
     monkeypatch.setattr(sys, "argv", argv)
     assert audit.main() == 2
     output = json.loads(capsys.readouterr().out)
+    assert output["positive_negative_scope_consistent"] is True
+    assert len(output["scope_sha256"]) == 64
     assert output["witness_signatures_verified"] is True
     assert output["status"] == "BLOCKED"
     assert output["hardware_attestation_verified"] is False
