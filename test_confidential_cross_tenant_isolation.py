@@ -203,3 +203,98 @@ def test_K2_static_dispatch_role_pins_run_task_and_passrole():
     assert by_sid["PassOnlyGuestTaskRoles"]["Condition"]["StringEquals"][
         "iam:PassedToService"
     ] == "ecs-tasks.amazonaws.com"
+
+
+def test_K6_read_only_simulator_is_never_misreported_as_real_denial():
+    from scripts.verify_confidential_tenant_isolation import inspect, _probe_spec
+
+    assert len(_probe_spec(pilot("pilot01"), pilot("pilot02"))) == 7
+    calls = []
+
+    class Sts:
+        def get_caller_identity(self):
+            calls.append("sts:get")
+            return {"Account": ACCOUNT}
+
+    class Ecs:
+        def describe_task_definition(self, *, taskDefinition):
+            calls.append("ecs:describe_task_definition")
+            tenant = taskDefinition.rsplit("-", 1)[-1]
+            p = pilot(tenant)
+            environment = {
+                "NOTARAI_CONFIDENTIAL_REQUIRED": "1",
+                "NOTARAI_CONFIDENTIAL_TENANT": tenant,
+                "NOTARAI_CONFIDENTIAL_BUCKET": p.bucket,
+                "NOTARAI_CONFIDENTIAL_QUEUE_URL": p.queue_url,
+                "NOTARAI_CONFIDENTIAL_KMS_KEY_ARN": p.kms_key_arn,
+                "AWS_REGION": REGION,
+                "HOME": "/tmp", "XDG_CACHE_HOME": "/tmp", "TMPDIR": "/tmp",
+            }
+            return {"taskDefinition": {
+                "taskDefinitionArn": p.task_definition_arn,
+                "taskRoleArn": p.task_role_arn,
+                "executionRoleArn": p.execution_role_arn,
+                "status": "ACTIVE", "networkMode": "awsvpc",
+                "trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+                "containerDefinitions": [{"image": (
+                    f"{ACCOUNT}.dkr.ecr.{REGION}.amazonaws.com/"
+                    f"notarai-confidential-shared@sha256:{DIGEST}"
+                ), "environment": [
+                    {"name": k, "value": v} for k, v in environment.items()
+                ]}],
+            }}
+
+        def describe_capacity_providers(self, *, capacityProviders):
+            calls.append("ecs:describe_capacity_providers")
+            assert capacityProviders == ["notarai-confidential-shared"]
+            return {"capacityProviders": [{
+                "status": "ACTIVE",
+                "managedInstancesProvider": {
+                    "instanceLaunchTemplate": {"nitroEnclavesEnabled": True}
+                },
+            }]}
+
+    class Iam:
+        def simulate_principal_policy(self, **kwargs):
+            calls.append("iam:simulate_principal_policy")
+            assert len(kwargs["ActionNames"]) == 1
+            assert len(kwargs["ResourceArns"]) == 1
+            return {"EvaluationResults": [{"EvalDecision": "implicitDeny"}]}
+
+    class Session:
+        clients = {"sts": Sts(), "ecs": Ecs(), "iam": Iam()}
+
+        def client(self, name):
+            assert name in self.clients
+            return self.clients[name]
+
+    def factory(**kwargs):
+        assert kwargs == {"profile_name": "auditor", "region_name": REGION}
+        return Session()
+
+    evidence = inspect(profile="auditor", account=ACCOUNT, session_factory=factory)
+    assert evidence["completed"] is False
+    assert evidence["actual_negative_probes"] == 0
+    assert evidence["simulated_probes"] == 14
+    assert len(evidence["configuration_sha256"]) == 64
+    assert set(evidence["criteria"].values()) == {"BLOCKED"}
+    assert calls.count("iam:simulate_principal_policy") == 14
+    assert all(call.startswith(("iam:simulate_", "sts:get", "ecs:describe_"))
+               for call in calls)
+
+
+def test_K6_wrong_account_never_simulates_or_inspects_resources():
+    from scripts.verify_confidential_tenant_isolation import inspect
+
+    class Sts:
+        def get_caller_identity(self):
+            return {"Account": ACCOUNT}
+
+    class Session:
+        def client(self, name):
+            assert name == "sts"  # no ECS or IAM after mismatch
+            return Sts()
+
+    with pytest.raises(ValueError, match="does not match"):
+        inspect(profile="auditor", account="999988887777",
+                session_factory=lambda **kwargs: Session())
