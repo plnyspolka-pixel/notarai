@@ -259,3 +259,18 @@ def test_k1_static_scanner_never_exports_source_text():
     assert findings
     assert FAKE_SENTINEL not in repr(findings)
     assert all(set(hit) == {"file", "line", "mechanism"} for hit in findings)
+
+
+def test_k6_pilot_public_policy_never_claims_zero_knowledge(monkeypatch):
+    import json
+    import confidential.router as router
+    monkeypatch.setattr(router, "_scope", lambda _: "pilot01")
+    response = router.automatic_policy(object())
+    payload = json.loads(response.body)
+    assert payload["ai_inference"] == {
+        "confidential_llm_enabled": False,
+        "external_bedrock_allowed": False,
+        "zk_status": "BLOCKED",
+        "strict_zero_knowledge_verified": False,
+    }
+    assert payload["can_submit"] is False
