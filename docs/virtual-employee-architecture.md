@@ -2,7 +2,7 @@
 
 **Status:** decyzja architektoniczna / plan prototypu; **nie wdrożono** VM ani robota Windows.  
 **Data:** 2026-11-22  
-**Priorytet:** pierwszy nowy kierunek NotarAI. **Pierwszy adapter: RejNET Office** (zob. `docs/rejnet-office-overlay.md`).  
+**Priorytet:** uniwersalny Computer Use agent dla dowolnego programu kancelaryjnego, bez osobnego adaptera per program (zob. `docs/universal-computer-agent.md`). **RejNET Office to pierwszy pilot kompatybilności**, nie zależność architektury.  
 **Zasada produktu:** notariusz używa `app.notarai.pl`; nie instaluje NotarAI na własnym komputerze. Oddzielne środowisko Windows uruchamia istniejący program kancelaryjny, z odrębną tożsamością operatora automatycznego.
 
 ## 1. Co już istnieje i czego nie dublujemy
@@ -19,7 +19,7 @@ Notariusz / pracownik -> app.notarai.pl (Cognito + RBAC kancelarii)
     -> kolejka zadań (tenant_id, job_id, policy, TTL, idempotency_key)
     -> broker połączeń z VM kancelarii (tożsamość urządzenia, mTLS, egress-only)
     -> VM Windows kancelarii: Supervisor + Interactive Session Worker
-         |-> adapter systemu (Notaris / inny, mapowanie kontrolek)
+         |-> generyczny Computer Use engine + profil aplikacji / wyuczone scenariusze
          |-> Windows UI Automation (WinApp CLI na discovery; FlaUI/.NET lub API w runtime)
          |-> program kancelaryjny na oddzielnym koncie operatora AI
          |-> baza kancelarii przez zatwierdzoną ścieżkę / API / import
@@ -37,7 +37,7 @@ Jedna VM = jeden tenant (początkowo jeden robot/sesja z kolejką serialną). Ni
 - VM: **najpierw kwalifikacja wymagań aplikacji**. Kandydat A: Windows Server VM z licencją infrastruktury, jeśli dostawca programu oficjalnie wspiera ten OS i scenariusz. Kandydat B: Windows 11 w zgodnym licencyjnie Azure VM/AVD albo AWS WorkSpaces BYOL, jeśli program wymaga desktopowego Windows. Nie zakładać, że zwykła licencja Windows 11 Pro wystarcza na hosted VM.
 - Discovery/testy: `winapp ui inspect/search/status`; mapowanie AutomationId, Name, ControlType, pattern + okno nadrzędne. Nie wykonywać niezweryfikowanych komend.
 - Docelowy adapter: .NET 8+ z Microsoft UI Automation / FlaUI i ewentualnie wbudowaną biblioteką WinApp UI Automation; fallback do kontrolowanej automatyzacji wejścia tylko gdy UIA nie wystarcza.
-- Interfejs adaptera: `find_case`, `read_case`, `prepare_case_draft`, `fill_case_draft`, `export_document`, `get_ui_state`. Początkowo **brak** `sign`, `submit`, `delete`, `send`.
+- Generyczne operacje obserwuj/znajdź/wykonaj/zweryfikuj. Semantyczne skille `find_case`, `read_case`, `prepare_case_draft`, `fill_case_draft`, `export_document`, `get_ui_state` realizowane przez profil aplikacji, **bez pisanego osobno adaptera per program**. Początkowo **brak** `sign`, `submit`, `delete`, `send`. Zob. `docs/universal-computer-agent.md`.
 - Narzędzia agentów nie dostają arbitralnego `shell` ani generowania dowolnych kliknięć. Dispatcher wykonuje wyłącznie zatwierdzone operacje z walidacją pól. CLI-Anything to opcjonalny generator narzędzi, nie konieczna zależność.
 - Połączenie: w pierwszej kolejności private network / połączenie inicjowane przez agenta; nie wystawiać RDP ani paneli UIA bezpośrednio na internet.
 - Konto operatora AI: indywidualna tożsamość, najmniejsze wymagane uprawnienia; osobno konta serwisowe i administratora. Żadnego używania osobistego podpisu kwalifikowanego notariusza ani automatycznego zatwierdzania 2FA.
@@ -72,7 +72,7 @@ Nie pisać bezpośrednio do baz producentów przez SQL bez formalnie potwierdzon
 ## 7. Plan realizacji i bramki jakości
 
 ### Etap 0 — kwalifikacja (bez danych produkcyjnych)
-- [ ] Pierwszy program: **RejNET Office** — uzyskać aktualną wersję testową; inne programy (Notaris, Wolters Kluwer) dopiero po pilotażu. Zob. `docs/rejnet-office-overlay.md`.
+- [ ] **Silnik uniwersalny** testowany kolejno na **RejNET Office** i drugim, odmiennym programie kancelaryjnym; żaden program nie jest zależnością. Zob. `docs/universal-computer-agent.md` i `docs/rejnet-office-overlay.md`.
 - [ ] Potwierdzić zgodę/licencję producenta na VM, osobne stanowisko i automatyzację; warunki Windows Server vs Windows 11 i zdalnej bazy.
 - [ ] Zbudować listę 5 akcji do pomiaru UIA: uruchom, znajdź sprawę, odczytaj pole, wypełnij *testowy* formularz, eksportuj *testowy* dokument.
 - [ ] Przeprowadzić inspekcję UIA na testowym systemie i zapisać listę obsługiwanych AutomationPattern + przeszkody.
@@ -80,7 +80,7 @@ Nie pisać bezpośrednio do baz producentów przez SQL bez formalnie potwierdzon
 
 ### Etap 1 — demonstrator VM (fikcyjne dane)
 - [ ] Jedna odizolowana VM, sesja operatora AI, testowa instalacja programu.
-- [ ] Host Windows supervisor + interactive session worker + jeden konkretny adapter.
+- [ ] Host Windows supervisor + interactive session worker + jeden generyczny engine Computer Use oraz profile rozpoznawanych aplikacji.
 - [ ] Odczyt sprawy testowej i eksport projektu, bez zapisu do rejestrów.
 - [ ] Zasymulować utratę sesji, błędny ekran, zmianę okna, RDP disconnect, ponowną próbę zadania i brak dostępu do obcego tenantu.
 
@@ -95,7 +95,7 @@ Nie pisać bezpośrednio do baz producentów przez SQL bez formalnie potwierdzon
 - [ ] Kontrola poprawek przez notariusza, procedura błędu i ręczny fallback.
 - [ ] Audyt techniczny i formalny przed uruchomieniem na danych klientów.
 
-**Definition of Done MVP:** jedna realna aplikacja kancelaryjna w testowym Windows, cztery kolejne zadania poprawnie obsłużone z kolejki, kontrolowany eksport testowego dokumentu, bez naruszenia izolacji, bez działania na produkcyjnych danych, z widocznym stanem i audytem. Sam projekt dokumentu nie staje się aktem bez kontroli notariusza.
+**Definition of Done MVP:** co najmniej **dwie różne realne aplikacje kancelaryjne** na testowych Windows, **jeden wspólny silnik bez osobnych adapterów binarnych**, cztery kolejne zadania poprawnie obsłużone z kolejki, kontrolowany eksport testowego dokumentu, bez naruszenia izolacji, bez danych produkcyjnych, z widocznym stanem i audytem. Sam projekt dokumentu nie staje się aktem bez kontroli notariusza.
 
 ## 8. Ryzyka krytyczne / otwarte decyzje
 
