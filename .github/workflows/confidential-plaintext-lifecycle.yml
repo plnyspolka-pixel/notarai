@@ -10,6 +10,7 @@ on:
       - 'confidential/Dockerfile'
       - 'test_confidential_plaintext_lifecycle.py'
       - 'test_confidential_retention_gate.py'
+      - 'test_confidential_worker_lifecycle_sec10.py'
       - 'infra/notarai-confidential-task.yaml'
       - 'docs/security-evidence/SEC-10.md'
       - '.github/workflows/confidential-plaintext-lifecycle.yml'
@@ -38,11 +39,11 @@ jobs:
           python -m pip install -r /tmp/notarai-sec10-core.txt -r confidential/requirements.txt
           python -m pip install pytest PyYAML
       - name: Static syntax
-        run: python -m py_compile confidential/plaintext_lifecycle.py confidential/worker.py scripts/verify_confidential_plaintext_lifecycle.py confidential/retention_gate.py test_confidential_plaintext_lifecycle.py test_confidential_retention_gate.py
+        run: python -m py_compile confidential/plaintext_lifecycle.py confidential/worker.py scripts/verify_confidential_plaintext_lifecycle.py confidential/retention_gate.py test_confidential_plaintext_lifecycle.py test_confidential_retention_gate.py test_confidential_worker_lifecycle_sec10.py
       - name: AWS metadata audit stays offline without --check
         run: python scripts/verify_confidential_plaintext_lifecycle.py
       - name: Synthetic privacy tests
-        run: python -m pytest -q test_confidential_plaintext_lifecycle.py test_confidential_retention_gate.py
+        run: python -m pytest -q test_confidential_plaintext_lifecycle.py test_confidential_retention_gate.py test_confidential_worker_lifecycle_sec10.py
       - name: Confirm no AWS session required
         run: |
           echo "SEC-10: Offline only; this workflow is NOT hardware or independent auditor evidence."
