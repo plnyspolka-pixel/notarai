@@ -5,6 +5,7 @@
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
 const KMS = /^arn:aws:kms:eu-[a-z0-9-]+:\d{12}:key\/[A-Za-z0-9-]+$/;
 const MAX_BYTES = 25 * 1024 * 1024;
+const DOCUMENT_VERSION = /^[a-f0-9]{32}$/;
 
 function toBase64(bytes) {
   let binary = "";
@@ -41,7 +42,8 @@ export async function sha256PublicKey(pem) {
 }
 
 export async function encryptForConfidentialTask({
-  bytes, tenantId, caseId, objectId, kmsKeyArn, publicKeyPem, pinnedKeySha256,
+  bytes, tenantId, caseId, objectId, documentVersion,
+  kmsKeyArn, publicKeyPem, pinnedKeySha256,
 }) {
   [tenantId, caseId, objectId].forEach(assertId);
   if (typeof kmsKeyArn !== "string" || !KMS.test(kmsKeyArn)) {
@@ -67,10 +69,16 @@ export async function encryptForConfidentialTask({
   const publicKey = await crypto.subtle.importKey(
     "spki", der, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]
   );
+  const logicalVersion = documentVersion === undefined
+    ? Array.from(crypto.getRandomValues(new Uint8Array(16)), x => x.toString(16).padStart(2, "0")).join("")
+    : documentVersion;
+  if (typeof logicalVersion !== "string" || !DOCUMENT_VERSION.test(logicalVersion)) {
+    throw new Error("Invalid logical document version");
+  }
   const dekBytes = crypto.getRandomValues(new Uint8Array(32));
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const associatedData = new TextEncoder().encode(
-    "notarai-v1|" + tenantId + "|" + caseId + "|" + objectId
+    ["notarai-v2", tenantId, caseId, objectId, logicalVersion, kmsKeyArn, digest].join("|")
   );
   try {
     const aesKey = await crypto.subtle.importKey(
@@ -84,7 +92,9 @@ export async function encryptForConfidentialTask({
       crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, dekBytes),
     ]);
     return {
-      version: 1,
+      version: 2,
+      document_version: logicalVersion,
+      public_key_sha256: digest,
       algorithm: "AES-256-GCM+RSA-OAEP-SHA256",
       tenant_id: tenantId,
       case_id: caseId,
