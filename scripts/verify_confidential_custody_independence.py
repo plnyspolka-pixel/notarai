@@ -42,12 +42,18 @@ def _organization(session):
 
 
 def _trust_principals(document):
+    """Return typed trust principals and refuse unreviewed federation.
+
+    A custody account role which trusts GitHub OIDC, SAML, another AWS
+    account, or an arbitrary AWS service may be controlled by NotarAI even
+    when neither role ARN contains the workload account number.
+    """
     if not isinstance(document, dict) or "Statement" not in document:
         raise BoundaryDenied("IAM role trust document missing")
     statements = document["Statement"]
     if isinstance(statements, dict):
         statements = [statements]
-    if not isinstance(statements, list):
+    if not isinstance(statements, list) or not statements:
         raise BoundaryDenied("IAM trust statements invalid")
     principals = []
     for stmt in statements:
@@ -55,8 +61,16 @@ def _trust_principals(document):
             raise BoundaryDenied("IAM trust statement invalid")
         if stmt["Effect"] == "Deny":
             continue
-        if "NotPrincipal" in stmt or "NotAction" in stmt:
-            raise BoundaryDenied("inverted IAM role trust requires manual review")
+        if ("NotPrincipal" in stmt or "NotAction" in stmt or
+                "NotResource" in stmt):
+            raise BoundaryDenied("inverted IAM trust requires independent review")
+        actions = stmt.get("Action")
+        if isinstance(actions, str):
+            actions = [actions]
+        if not isinstance(actions, list) or not actions or any(
+            a != "sts:AssumeRole" for a in actions
+        ):
+            raise BoundaryDenied("unreviewed IAM role assumption method")
         principal = stmt.get("Principal")
         if not isinstance(principal, dict) or not principal:
             raise BoundaryDenied("IAM trust principal missing")
@@ -64,16 +78,17 @@ def _trust_principals(document):
             if group not in {"AWS", "Service", "Federated"}:
                 raise BoundaryDenied("unknown IAM trust principal type")
             values = [value] if isinstance(value, str) else value
-            if not isinstance(values, list) or not all(
-                isinstance(v, str) for v in values
+            if not isinstance(values, list) or not values or not all(
+                isinstance(v, str) and bool(v) for v in values
             ):
                 raise BoundaryDenied("IAM trust principal format invalid")
-            principals.extend(values)
+            principals.extend((group, v) for v in values)
     return principals
 
 
-def _scan_custody_role_trusts(session, operator_id: str) -> int:
-    """Review all roles, not just named custodian roles; deny cross-account bypass."""
+def _scan_custody_role_trusts(session, operator_id: str,
+                              custody_id: str) -> int:
+    """Deny cross-account IAM trusts, OIDC/SAML and unreviewed service role use."""
     iam = session.client("iam")
     marker = None
     count = 0
@@ -89,17 +104,38 @@ def _scan_custody_role_trusts(session, operator_id: str) -> int:
         if not isinstance(roles, list):
             raise BoundaryDenied("IAM role inventory incomplete")
         for role in roles:
+            if not isinstance(role, dict):
+                raise BoundaryDenied("IAM role inventory invalid")
             count += 1
             arn = role.get("Arn", "")
-            if not isinstance(arn, str) or not arn.startswith("arn:aws:iam::"):
-                raise BoundaryDenied("IAM role ARN unavailable")
-            for principal in _trust_principals(
+            if (not isinstance(arn, str) or
+                    not arn.startswith(f"arn:aws:iam::{custody_id}:role/")):
+                raise BoundaryDenied("unexpected IAM role owner")
+            path = role.get("Path", "/")
+            if not isinstance(path, str):
+                raise BoundaryDenied("IAM role path invalid")
+            for group, principal in _trust_principals(
                 role.get("AssumeRolePolicyDocument")
             ):
-                if principal == "*" or principal == operator_id or (
-                    principal.startswith(f"arn:aws:iam::{operator_id}:")
-                ):
+                if principal == "*" or operator_id in principal:
                     raise BoundaryDenied("operator may assume custody IAM role")
+                if group == "Federated":
+                    # Includes GitHub Actions OIDC and externally operated SAML.
+                    raise BoundaryDenied("federated custody trust requires independent audit")
+                if group == "Service":
+                    # AWS-managed service-linked roles are not an operator
+                    # OIDC channel; their use still needs human IAM review.
+                    if (not path.startswith("/aws-service-role/") or
+                            not principal.endswith(".amazonaws.com")):
+                        raise BoundaryDenied("non-service-linked service trust requires audit")
+                elif group == "AWS":
+                    if principal != f"arn:aws:iam::{custody_id}:root" and (
+                        not principal.startswith(
+                            f"arn:aws:iam::{custody_id}:role/")
+                    ):
+                        raise BoundaryDenied("cross-account trust is unreviewed")
+                else:
+                    raise BoundaryDenied("unknown trust principal category")
         if not page.get("IsTruncated", False):
             break
         next_marker = page.get("Marker")
@@ -138,7 +174,7 @@ def inspect(*, operator_profile: str, custody_profile: str, check: bool = False,
         custody_org, custody_manager = _organization(custody)
         if operator_org == custody_org or custody_manager == operator_id:
             raise BoundaryDenied("custody controlled by workload Organizations")
-        roles_scanned = _scan_custody_role_trusts(custody, operator_id)
+        roles_scanned = _scan_custody_role_trusts(custody, operator_id, custody_id)
     except BoundaryDenied:
         raise
     except Exception:
