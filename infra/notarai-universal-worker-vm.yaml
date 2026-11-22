@@ -75,7 +75,6 @@ Resources:
         Ref: WorkerInstanceType
       IamInstanceProfile:
         Ref: RobotInstanceProfile
-      DisableApiTermination: true
       Monitoring: true
       MetadataOptions:
         HttpEndpoint: enabled
