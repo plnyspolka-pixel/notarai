@@ -89,3 +89,62 @@ używać do aktywacji produkcji ani stwierdzenia ZK/ZOA.
 Warunek DONE: 0 FAIL, 0 BLOCKED, 0 UNVERIFIED; dla K5/K6 prawdziwy dowód
 zewnętrzny, nie mock. Merge PR nie uprawnia do marketingu Zero Knowledge
 ani Zero Operator Access.
+
+
+## Narzędzia przygotowane do niezależnego testu K5 (NIEWYKONANE)
+
+- confidential/custody_storage.py / test_confidential_custody_storage.py:
+  read-only STS/S3. Audytują Object Lock COMPLIANCE, versioning, public
+  access block, szyfrowanie, bucket ownership, region i explicit deny.
+- scripts/audit_confidential_evidence_storage.py: audyt wyłącznie read-only
+  po podaniu --run-read-only i profilu SSO niezależnego kustosza.
+- confidential/custody_denial_probe.py / test_confidential_custody_denials.py:
+  dwie kontrolowane próby PutObject i DeleteObject (z VersionId) wyłącznie
+  w syntetycznej przestrzeni S3.
+- scripts/probe_confidential_evidence_operator_denials.py: nie należy
+  do CI i NIE BYŁ URUCHAMIANY przeciwko AWS. Wymaga flagi
+  --authorize-synthetic-write-probes oraz pisemnej zgody kustosza,
+  osobnego profilu operatora i istniejącego fikcyjnego VersionId.
+
+### Read-only w niezależnym koncie kustosza
+
+~~~bash
+python scripts/audit_confidential_evidence_storage.py \
+  --custody-account "$CUSTODY_ACCOUNT" \
+  --operator-account "$OPERATOR_ACCOUNT" \
+  --bucket "$INDEPENDENT_WORM_BUCKET" \
+  --profile "$CUSTODY_AUDITOR_SSO_PROFILE" \
+  --run-read-only
+~~~
+
+Configuration_status PASS oznacza jedynie poprawny odczyt konfiguracji,
+ale assurance_status pozostaje BLOCKED. Exit 4 nie pozwala deklarować
+gotowości Zero Operator.
+
+### Operator: dwie kontrolowane próby odmowy
+
+Uruchamiać wyłącznie po pozytywnej kontroli read-only i pisemnej zgodzie
+kustosza. Kustosz przygotowuje compliance-locked obiekt syntetyczny
+i jego VersionId. Wykonawca korzysta tylko z profilu konta operatora.
+
+~~~bash
+python scripts/probe_confidential_evidence_operator_denials.py \
+  --operator-account "$OPERATOR_ACCOUNT" \
+  --custody-account "$CUSTODY_ACCOUNT" \
+  --bucket "$INDEPENDENT_WORM_BUCKET" \
+  --fixture-key sec11-fixture/independent-test-20261122 \
+  --fixture-version "$CUSTODIAN_SYNTHETIC_VERSION_ID" \
+  --operator-profile "$OPERATOR_AUDIT_SSO_PROFILE" \
+  --authorize-synthetic-write-probes
+~~~
+
+UWAGA: S3 AccessDenied może pochodzić również z niezgodnego
+ExpectedBucketOwner, a nie tylko z poprawnie wymuszonej granicy IAM.
+Dlatego skrypt raportuje zaobserwowane odmowy, a nie potwierdzenie
+niezależnego właściciela. Audytor musi związać wynik z osobnym odczytem
+kustosza, STS, CloudTrail i kontrolą cross-account AssumeRole/trust.
+Bez tego K5 pozostaje BLOCKED. Skrypt nie usuwa śladów po
+nieoczekiwanym sukcesie.
+
+K1–K4 nadal wymagają zielonego CI dla najnowszego commita;
+K5–K6 dodatkowo rzeczywistych testów infrastruktury.
