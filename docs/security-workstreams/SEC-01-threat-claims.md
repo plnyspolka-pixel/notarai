@@ -1,6 +1,6 @@
 # SEC-01 — [SEC-01] Threat model oraz kryteria twierdzeń Zero Trust / Zero Operator / Zero Knowledge
 
-**Status: PLANNED, not implemented.** Priorytet: P0
+**Status: IMPLEMENTED (kod + testy syntetyczne); CI i finalny odbiór w toku.** Priorytet: P0
 **Zależności:** Początek: #57, #60, #61, #62, #65
 
 ## Zakres
@@ -28,7 +28,7 @@
 - [ ] W żadnym kodzie dodanym przez PR nie ma możliwości wysyłania ani podpisywania formularzy w AUTO. Testy CI i wykonany PR NIE oznaczają potwierdzenia komercyjnych twierdzeń Zero Trust / Zero Operator Access / Zero Knowledge.
 
 ## Zasady pracy w nowej konwersacji
-To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działającego dowodu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
+PR rozpoczęto jako plan; obecnie zawiera walidator i testy syntetyczne, ale brak dowodu rzeczywistego AWS/Nitro oraz niezależnego audytu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
 
 Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; produkcja wyłączona; AUTO preview nie wysyła, nie podpisuje i nie składa wniosków. Nie podnoś operatorowi uprawnień custody, nie loguj PII/plaintext/sekretów i nie wprowadzaj sieciowego 0.0.0.0/0 dla guest. Każdą własność security potwierdź testami pozytywnymi i **negatywnymi**; brak konta/narzędzi oznacz BLOCKED, a nie PASS. Sama dokumentacja lub CI nie stanowi dowodu sprzętowego. Zapisz kod + testy + wyniki + wymaganą niezależną atestację w PR.
 
