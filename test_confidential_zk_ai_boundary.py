@@ -230,3 +230,32 @@ def test_integrity_no_submit_or_public_fallback_in_gateway():
     assert "httpx.post(" not in source
     assert "subprocess.run(" not in source
     assert "converse_stream(" not in source
+
+
+def test_k1_static_scanner_detects_bedrock_bypass():
+    from scripts.audit_confidential_ai_routes import scan_source
+    findings = scan_source('import boto3\\nx = boto3.client("bedrock-runtime")\\n'
+                           'x.converse_stream(modelId="eu.example")\\n',
+                           "confidential/unsafe.py")
+    assert {f["mechanism"] for f in findings} >= {
+        "bedrock-runtime-client", "model-method-converse_stream"
+    }
+
+
+def test_k1_static_scanner_detects_public_api_and_sdk_import():
+    from scripts.audit_confidential_ai_routes import scan_source
+    findings = scan_source('import openai\\nimport requests\\n'
+                           'requests.post("https://external.invalid")\\n',
+                           "confidential/bypass.py")
+    assert {f["mechanism"] for f in findings} >= {
+        "model-sdk-import", "network-requests.post"
+    }
+
+
+def test_k1_static_scanner_never_exports_source_text():
+    from scripts.audit_confidential_ai_routes import scan_source
+    findings = scan_source('secret = "fictional"\\n'
+                           'x.converse_stream(content=secret)\\n', "confidential/x.py")
+    assert findings
+    assert FAKE_SENTINEL not in repr(findings)
+    assert all(set(hit) == {"file", "line", "mechanism"} for hit in findings)
