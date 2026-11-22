@@ -402,3 +402,130 @@ def test_registry_blocks_wrong_version_digest_and_duplicate_preview(keys):
     with pytest.raises(DocumentRegistryDenied):
         DocumentVersionRegistry(ddb, tenant="pilot02").require_guest(
             **{**values, "s3_version": "s3Version001"})
+
+
+def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
+    keys, monkeypatch,
+):
+    import confidential.zk_migration as migration
+    from confidential.zk_recovery import canonical_recovery_request, RecoveryDenied
+    original_payload, _ = envelope(keys)
+    original = Envelope.parse(original_payload)
+    replacement = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    pem = replacement.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    der = replacement.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    pin = base64.b64encode(hashlib.sha256(der).digest()).decode("ascii")
+    signer_a = ed25519.Ed25519PrivateKey.generate()
+    signer_b = ed25519.Ed25519PrivateKey.generate()
+    def pub(signer):
+        return signer.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw,
+        )
+    req = {
+        "schema": "notarai.recovery.v1", "action": "rotate",
+        "tenant_id": "pilot01", "case_id": original.case_id,
+        "object_id": original.object_id,
+        "target_tenant_id": "pilot02", "target_object_id": "scan02",
+        "document_version": original.document_version,
+        "old_key_arn": ARN,
+        "new_key_arn": ARN.replace("fictional", "successor"),
+        "new_key_sha256": pin, "request_id": "c" * 32,
+        "expires_at": 2000000000,
+    }
+    signed = canonical_recovery_request(req)
+    class OneTimeLedger:
+        seen = set()
+        def claim_once(self, token):
+            if token in self.seen:
+                raise RuntimeError("already used")
+            self.seen.add(token)
+    ledger = OneTimeLedger()
+    opts = dict(
+        original=original, unwrapper=GuestForTests(keys[0]),
+        recovery_request=req,
+        custodian_signature=signer_a.sign(signed),
+        trustee_signature=signer_b.sign(signed),
+        custodian_public_key=pub(signer_a), trustee_public_key=pub(signer_b),
+        replacement_kms_public_pem=pem,
+        independent_one_time_ledger=ledger,
+        now=1900000000,
+    )
+    # The unit harness is NOT Nitro hardware evidence.
+    monkeypatch.setattr(migration, "NitroKMSUnwrapper", GuestForTests)
+    monkeypatch.setattr(migration.os.path, "exists", lambda path: path == "/dev/nsm")
+    result = migration.reencrypt_inside_attested_nitro(**opts)
+    assert result["tenant_id"] == "pilot02"
+    assert result["object_id"] == "scan02"
+    assert result["document_version"] != original.document_version
+    assert PLAINTEXT not in json.dumps(result).encode("ascii")
+    recovered = Envelope.parse(result).open_inside_attested_task(
+        GuestForTests(replacement)
+    )
+    assert recovered == PLAINTEXT
+    with pytest.raises(RecoveryDenied, match="consumed"):
+        migration.reencrypt_inside_attested_nitro(**opts)
+    # A missing hardware device rejects even signatures and a valid key.
+    monkeypatch.setattr(migration.os.path, "exists", lambda path: False)
+    with pytest.raises(RecoveryDenied, match="hardware"):
+        migration.reencrypt_inside_attested_nitro(**opts)
+
+
+def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatch):
+    from confidential.zk_recovery import canonical_recovery_request, RecoveryDenied
+    import confidential.zk_migration as migration
+    old, _ = envelope(keys)
+    original = Envelope.parse(old)
+    new_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    pub_der = new_key.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    pem = new_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    pin = base64.b64encode(hashlib.sha256(pub_der).digest()).decode("ascii")
+    a, b = ed25519.Ed25519PrivateKey.generate(), ed25519.Ed25519PrivateKey.generate()
+    pub = lambda k: k.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw,
+    )
+    req = {
+        "schema": "notarai.recovery.v1", "action": "rotate",
+        "tenant_id": "pilot01", "case_id": original.case_id,
+        "object_id": original.object_id, "document_version": original.document_version,
+        "target_tenant_id": "pilot02", "target_object_id": "scan02",
+        "old_key_arn": ARN, "new_key_arn": ARN.replace("fictional", "new"),
+        "new_key_sha256": pin, "request_id": "d" * 32,
+        "expires_at": 2000000000,
+    }
+    message = canonical_recovery_request(req)
+    class Ledger:
+        def claim_once(self, token):
+            raise RuntimeError("no external authority")
+    args = dict(
+        original=original, unwrapper=GuestForTests(keys[0]),
+        recovery_request=req, custodian_signature=a.sign(message),
+        trustee_signature=b.sign(message),
+        custodian_public_key=pub(a), trustee_public_key=pub(b),
+        replacement_kms_public_pem=pem,
+        independent_one_time_ledger=Ledger(), now=1900000000,
+    )
+    monkeypatch.setattr(migration, "NitroKMSUnwrapper", GuestForTests)
+    monkeypatch.setattr(migration.os.path, "exists", lambda path: path == "/dev/nsm")
+    with pytest.raises(RecoveryDenied, match="unavailable"):
+        migration.reencrypt_inside_attested_nitro(**args)
+    with pytest.raises(RecoveryDenied):
+        migration.reencrypt_inside_attested_nitro(**{**args,
+            "recovery_request": {**req, "target_object_id": "scan03"}})
+    with pytest.raises(RecoveryDenied):
+        migration.reencrypt_inside_attested_nitro(**{**args,
+            "replacement_kms_public_pem": keys[0].public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ).decode("ascii")})
