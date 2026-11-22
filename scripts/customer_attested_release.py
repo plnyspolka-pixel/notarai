@@ -20,7 +20,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from confidential.customer_release import (
-    ReleaseDenied, envelope_sha256, parse_envelope,
+    ReleaseDenied, envelope_sha256, parse_envelope, seal_document,
 )
 from confidential.customer_attested_release import (
     challenge_user_data, issue_attested_job_release,
@@ -111,6 +111,14 @@ def _pinned_policy(args, *, tenant: str, now: int) -> dict[int, str]:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    seal = sub.add_parser("seal", help="locally encrypt plaintext with customer RSA-3072 public key")
+    seal.add_argument("--plaintext", type=Path, required=True)
+    seal.add_argument("--owner-public-key", type=Path, required=True)
+    seal.add_argument("--tenant-id", required=True)
+    seal.add_argument("--case-id", required=True)
+    seal.add_argument("--object-id", required=True)
+    seal.add_argument("--document-version", required=True)
+    seal.add_argument("--output", type=Path, required=True)
     challenge = sub.add_parser("challenge", help="produce fresh nonce + job-bound NSM user_data")
     challenge.add_argument("--envelope", type=Path, required=True)
     challenge.add_argument("--job-id", required=True)
@@ -134,6 +142,18 @@ def main(argv=None) -> int:
     release.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
+        if args.command == "seal":
+            # Only customer-controlled local CLI processes plaintext. Nothing
+            # is transmitted; failed output creation never prints input.
+            result = seal_document(
+                _read(args.plaintext, 25 * 1024 * 1024),
+                _read(args.owner_public_key, 8192),
+                tenant_id=args.tenant_id, case_id=args.case_id,
+                object_id=args.object_id, document_version=args.document_version,
+            )
+            _write_new(args.output, _canonical(result) + b"\n")
+            print("Encrypted v3 envelope saved locally. No AWS calls or plaintext output.")
+            return 0
         env = parse_envelope(_json_file(args.envelope, _MAX_JSON))
         now = int(time.time())
         if args.command == "origin":
