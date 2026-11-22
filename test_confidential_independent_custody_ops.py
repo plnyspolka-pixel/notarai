@@ -409,3 +409,105 @@ def test_k4_rendered_revocation_policy_removes_decrypt_and_no_operator_fallback(
     assert render_kms_policy_target(revoked)["target_policy"] == deny_policy
     lost = {**frozen, "state": "LOST"}
     assert render_kms_policy_target(lost)["target_policy"] == deny_policy
+
+
+def test_k5_external_custodian_signer_is_dry_run_by_default():
+    from scripts.custodian_sign_confidential_operation import sign_operation
+    private, pub, pin = signer()
+    s = state()
+    event = signed_event(private, action="FREEZE", previous=s)
+    result = sign_operation(
+        payload=event["payload"], state=s, custody_profile="external",
+        signing_key_arn=s["signing_key_arn"],
+        pinned_public_key_sha256=pin,
+        session_factory=lambda **kw: (_ for _ in ()).throw(
+            AssertionError("dry-run must not make AWS calls")),
+        clock=NOW)
+    assert result == {
+        "status": "dry-run", "aws_calls": 0,
+        "independent_custody_verified": False,
+    }
+
+
+def test_k5_kms_sign_only_external_custody_and_independent_public_pin():
+    from scripts.custodian_sign_confidential_operation import sign_operation
+    from confidential.custody_ops import _signed_event_bytes
+    private, pub, pin = signer()
+    state_before = state()
+    event = signed_event(private, action="FREEZE", previous=state_before)
+    pub_der = private.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo)
+
+    class CustodySession:
+        def __init__(self, profile_name, region_name):
+            assert profile_name == "custody"
+            assert region_name == "eu-central-1"
+        def client(self, name):
+            class Api:
+                def get_caller_identity(self):
+                    return {"Account": CUSTODY}
+                def describe_key(self, **kwargs):
+                    assert kwargs["KeyId"] == state_before["signing_key_arn"]
+                    return {"KeyMetadata": {
+                        "Arn": state_before["signing_key_arn"],
+                        "KeySpec": "ECC_NIST_P256",
+                        "KeyUsage": "SIGN_VERIFY", "KeyState": "Enabled"}}
+                def get_public_key(self, **kwargs):
+                    return {"PublicKey": pub_der}
+                def sign(self, **kwargs):
+                    assert kwargs["MessageType"] == "RAW"
+                    assert kwargs["SigningAlgorithm"] == "ECDSA_SHA_256"
+                    return {"Signature": private.sign(
+                        kwargs["Message"], ec.ECDSA(hashes.SHA256()))}
+            assert name in ("sts", "kms")
+            return Api()
+    result = sign_operation(
+        payload=event["payload"], state=state_before,
+        custody_profile="custody",
+        signing_key_arn=state_before["signing_key_arn"],
+        pinned_public_key_sha256=pin, approve_action=True,
+        session_factory=CustodySession, clock=NOW)
+    assert result["aws_calls"] == 4
+    assert result["status"] == "signed"
+    updated = apply(state_before, result["envelope"], pub, pin)
+    assert updated["state"] == "FROZEN"
+
+    with pytest.raises(BoundaryDenied):
+        sign_operation(
+            payload=event["payload"], state=state_before,
+            custody_profile="custody", signing_key_arn=state_before[
+                "signing_key_arn"], pinned_public_key_sha256="f" * 64,
+            approve_action=True, session_factory=CustodySession, clock=NOW)
+
+    class WorkloadSession(CustodySession):
+        def client(self, name):
+            api = super().client(name)
+            if name == "sts":
+                api.get_caller_identity = lambda: {"Account": WORKLOAD}
+            return api
+    with pytest.raises(BoundaryDenied):
+        sign_operation(
+            payload=event["payload"], state=state_before,
+            custody_profile="custody", signing_key_arn=state_before[
+                "signing_key_arn"], pinned_public_key_sha256=pin,
+            approve_action=True, session_factory=WorkloadSession, clock=NOW)
+
+
+def test_k5_kms_signer_rejects_operator_approval_minting_and_stale_version():
+    from scripts.custodian_sign_confidential_operation import sign_operation
+    private, pub, pin = signer()
+    s = state()
+    for event in (
+        signed_event(private, action="UNFREEZE", previous=s),
+        signed_event(private, action="FREEZE", previous=s, revision=1),
+        signed_event(private, action="ROTATE", previous=s),
+        signed_event(private, action="FREEZE", previous=s,
+                     tenant="pilot02"),
+    ):
+        with pytest.raises(BoundaryDenied):
+            sign_operation(
+                payload=event["payload"], state=s,
+                custody_profile="custody",
+                signing_key_arn=s["signing_key_arn"],
+                pinned_public_key_sha256=pin, clock=NOW)
