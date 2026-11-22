@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -40,9 +41,20 @@ def strict_json_loads(raw: str | bytes | bytearray) -> Any:
     def reject_constant(_: str) -> None:
         raise InvalidEnvelope("invalid JSON structure")
 
+    def finite_float(value: str) -> float:
+        # 1e9999 is valid JSON syntax but Python float becomes Infinity;
+        # parse_constant alone does not block this overflow route.
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise InvalidEnvelope("invalid JSON structure")
+        return parsed
+
+    if not isinstance(raw, (str, bytes, bytearray)):
+        raise InvalidEnvelope("invalid JSON structure")
     try:
         return json.loads(raw, object_pairs_hook=pairs,
-                          parse_constant=reject_constant)
+                          parse_constant=reject_constant,
+                          parse_float=finite_float)
     except (ValueError, UnicodeError, RecursionError):
         raise InvalidEnvelope("invalid JSON structure") from None
 
