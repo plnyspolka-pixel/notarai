@@ -64,6 +64,9 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
         def require_guest(self, **kwargs):
             checked.append(kwargs)
     registry = FakeRegistry()
+    origin_checks = []
+    monkeypatch.setattr(worker, "require_origin_receipt",
+                        lambda s3, **scope: origin_checks.append(scope))
     monkeypatch.setattr(nitro, "NitroKMSUnwrapper", lambda kms, key: object())
     fields = _load_decrypted_form(
         S3(), object(), "fixture-bucket", "pilot01",
@@ -71,6 +74,9 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
         "versionABC123", registry,
     )
     assert checked[0]["s3_version"] == "versionABC123"
+    assert len(origin_checks) == 1
+    assert origin_checks[0]["s3_version"] == "versionABC123"
+    assert origin_checks[0]["public_key_sha256"] == FakeEnvelope.public_key_sha256
     assert checked[0]["document_version"] == "a" * 32
     assert fields["name"] == "FAKE"
     assert seen == [{
