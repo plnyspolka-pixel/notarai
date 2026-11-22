@@ -148,7 +148,15 @@ def _kod_bledu(blad: BaseException) -> str:
     odpowiedz = getattr(blad, "response", None) or {}
     kod = odpowiedz.get("Error", {}).get("Code", "")
     # AWS error codes are short identifiers. Never emit arbitrary provider data.
-    if not isinstance(kod, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", kod):
+    # Only known SDK error codes may be surfaced. Arbitrary alphanumeric
+    # codes could be attacker-controlled text or case identifiers.
+    known = _PRZECIAZENIE | _PRZEJSCIOWE | {
+        "validationexception", "accessdeniedexception",
+        "resourcenotfoundexception", "expiredtokenexception",
+        "unrecognizedclientexception", "invalidsignatureexception",
+        "provisionedthroughputexceededexception",
+    }
+    if not isinstance(kod, str) or kod.lower() not in known:
         return ""
     return kod.lower()
 
