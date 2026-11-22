@@ -123,6 +123,9 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
 
 def _process_one(session, tenant: str, bucket: str, queue_url: str,
                  kms_key_arn: str) -> int:
+    # Defense in depth: direct callers cannot skip _config's pilot restriction.
+    if tenant not in ("pilot01", "pilot02"):
+        raise ValueError("only synthetic pilot tenants are authorized")
     sqs = session.client("sqs")
     incoming = sqs.receive_message(
         QueueUrl=queue_url, MaxNumberOfMessages=1, WaitTimeSeconds=10,
