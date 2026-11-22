@@ -8,6 +8,7 @@ import json
 import copy
 
 import pytest
+pytest.importorskip('cbor2', reason='Nitro NSM optional dependency is installed in dedicated CI')
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
 
