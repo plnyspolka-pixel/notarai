@@ -511,3 +511,86 @@ def test_k5_kms_signer_rejects_operator_approval_minting_and_stale_version():
                 custody_profile="custody",
                 signing_key_arn=s["signing_key_arn"],
                 pinned_public_key_sha256=pin, clock=NOW)
+
+
+
+def test_k3_offline_planner_reproducible_cas_bindings_without_aws():
+    from scripts.plan_confidential_custody_operation import plan_operation
+    s = state()
+    plan = plan_operation(
+        action="FREEZE", tenant="pilot01", state=s, clock=NOW)
+    assert plan["aws_calls"] == 0
+    assert plan["authorized_for_decrypt"] is False
+    assert plan["custodian_independent_signature_required"] is True
+    assert plan["custodian_ledger_compare_and_swap_required"] is True
+    assert plan["kms_policy_write_performed"] is False
+    assert plan["unsigned_event_payload"]["previous_sha256"] == canonical_digest(s)
+    assert plan["unsigned_event_payload"]["revision"] == 2
+    assert plan["unsigned_event_payload"]["expires_at"] == "2026-11-22T03:15:00Z"
+    assert len(plan["proposed_key_policy"]["Statement"]) == 2
+    assert "kms:Decrypt" not in str(plan["proposed_key_policy"])
+
+
+def test_k4_planner_requires_approved_tenant_frozen_rotation_and_no_recovery():
+    from scripts.plan_confidential_custody_operation import plan_operation
+    s = state()
+    for kwargs in (
+        {"action": "UNFREEZE"},
+        {"action": "ROTATE"},
+        {"action": "ENROLL"},
+        {"action": "FREEZE", "tenant": "pilot02"},
+    ):
+        with pytest.raises(BoundaryDenied):
+            plan_operation(tenant="pilot01", state=s, clock=NOW, **kwargs)
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="FREEZE", tenant="pilot01", state=s,
+                       ttl_minutes=0, clock=NOW)
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="FREEZE", tenant="pilot01", state=s,
+                       ttl_minutes=61, clock=NOW)
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="FREEZE", tenant="pilot01", state=s,
+                       clock=NOW.replace(tzinfo=None))
+    private, pub, pin = signer()
+    revoked = apply(s, signed_event(private, action="REVOKE", previous=s), pub, pin)
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="UNFREEZE", tenant="pilot01",
+                       state=revoked, clock=NOW)
+
+
+def test_k5_planner_rotation_requires_distinct_new_keys_and_freeze():
+    from scripts.plan_confidential_custody_operation import plan_operation
+    private, pub, pin = signer()
+    before = state()
+    frozen = apply(before, signed_event(
+        private, action="FREEZE", previous=before), pub, pin)
+    fresh = state("pilot01", 2)
+    changes = {x: fresh[x] for x in (
+        "decrypt_key_arn", "signing_key_arn", "pcr17", "image_sha256",
+        "task_definition_arn", "release_sha256", "key_policy_sha256")}
+    plan = plan_operation(action="ROTATE", tenant="pilot01", state=frozen,
+                          changes=changes, clock=NOW)
+    assert plan["unsigned_event_payload"]["revision"] == 3
+    assert len(plan["proposed_key_policy"]["Statement"]) == 2
+    assert "kms:Decrypt" not in str(plan["proposed_key_policy"])
+    assert plan["expected_signing_key_arn"] == before["signing_key_arn"]
+    bad = dict(changes)
+    bad["decrypt_key_arn"] = before["decrypt_key_arn"]
+    with pytest.raises(BoundaryDenied):
+        plan_operation(action="ROTATE", tenant="pilot01", state=frozen,
+                       changes=bad, clock=NOW)
+
+
+def test_k4_planner_freeze_cannot_be_forged_as_signed_decision():
+    from scripts.plan_confidential_custody_operation import plan_operation
+    s = state()
+    private, pub, pin = signer()
+    plan = plan_operation(
+        action="REVOKE", tenant="pilot01", state=s, clock=NOW)
+    assert "signature_b64" not in plan
+    assert plan["release_frozen_after_planning"] is False
+    with pytest.raises(BoundaryDenied):
+        apply_signed_action(
+            s, {"payload": plan["unsigned_event_payload"],
+                "signature_b64": ""}, trusted_public_key_pem=pub,
+            pinned_public_key_sha256=pin, clock=NOW)
