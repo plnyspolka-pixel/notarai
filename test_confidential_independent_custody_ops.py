@@ -683,3 +683,49 @@ def test_k1_only_service_linked_role_may_pass_service_static_screen():
                     }]}
             return Api()
     assert _scan_custody_role_trusts(ServiceLinked(), WORKLOAD, CUSTODY) == 1
+
+
+
+def test_k3_two_tenant_bootstrap_produces_two_unsigned_independent_plans():
+    from scripts.prepare_confidential_custody_onboarding import (
+        prepare_two_tenant_onboarding,
+    )
+    one, two = state("pilot01", 1), state("pilot02", 2)
+    bindings = [
+        {key: s[key] for key in _IDENTITY_FIELDS}
+        for s in (two, one)  # input order must not affect plan order
+    ]
+    plan = prepare_two_tenant_onboarding(bindings=bindings, clock=NOW)
+    assert plan["tenant_count"] == 2
+    assert plan["aws_calls"] == 0
+    assert not plan["kms_resources_created"]
+    assert not plan["signing_performed"]
+    assert not plan["actual_onboarding_complete"]
+    assert not plan["independent_custody_verified"]
+    assert [p["unsigned_event_payload"]["tenant"] for p in plan[
+        "review_packages"]] == ["pilot01", "pilot02"]
+    assert len({p["expected_signing_key_arn"] for p in plan[
+        "review_packages"]}) == 2
+    assert all(p["unsigned_event_payload"]["action"] == "ENROLL"
+               for p in plan["review_packages"])
+    assert all("signature_b64" not in p for p in plan["review_packages"])
+
+
+def test_k3_two_tenant_bootstrap_denies_duplicate_keys_and_wrong_identity():
+    from scripts.prepare_confidential_custody_onboarding import (
+        prepare_two_tenant_onboarding,
+    )
+    one, two = state("pilot01", 1), state("pilot02", 2)
+    a = {key: one[key] for key in _IDENTITY_FIELDS}
+    b = {key: two[key] for key in _IDENTITY_FIELDS}
+    for bad in (
+        {**b, "decrypt_key_arn": a["decrypt_key_arn"]},
+        {**b, "signing_key_arn": a["signing_key_arn"]},
+        {**b, "pcr17": a["pcr17"]},
+        {**b, "task_definition_arn": a["task_definition_arn"]},
+        {**b, "release_sha256": a["release_sha256"]},
+        {**b, "tenant": "pilot01"},
+        {**b, "extra_operator_override": True},
+    ):
+        with pytest.raises(BoundaryDenied):
+            prepare_two_tenant_onboarding(bindings=[a, bad], clock=NOW)
