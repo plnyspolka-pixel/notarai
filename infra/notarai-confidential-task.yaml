@@ -9,8 +9,17 @@ Parameters:
     AllowedPattern: "^.+@sha256:[a-f0-9]{64}$"
   AttestationPolicyBase64:
     Type: String
-    Description: Policy generated for the final image by ecs-nitro-sandbox-genpolicy
+    Description: Policy generated for the final image by ecs-nitro-sandbox-genpolicy (first 4000 characters)
     MinLength: 16
+    MaxLength: 4000
+  AttestationPolicyBase64Part2:
+    Type: String
+    Description: >-
+      Rest of the policy envelope when it exceeds the 4096-byte CloudFormation
+      parameter limit; the two parts are concatenated unchanged.
+    Default: ""
+    MaxLength: 4000
+    AllowedPattern: "^[A-Za-z0-9+/=]*$"
   ExpectedPCR17:
     Type: String
     Description: Exact PCR17 from ecs-nitro-sandbox-genpolicy --output pcrs
@@ -104,7 +113,7 @@ Resources:
       TaskRoleArn: !GetAtt ConfidentialTaskRole.Arn
       TrustedExecutionConfiguration:
         IsolationMode: CONFIDENTIAL_SANDBOX
-        AttestationPolicy: !Ref AttestationPolicyBase64
+        AttestationPolicy: !Join ["", [!Ref AttestationPolicyBase64, !Ref AttestationPolicyBase64Part2]]
       ContainerDefinitions:
         - Name: confidential-browser
           Image: !Ref ContainerImage
@@ -134,7 +143,6 @@ Resources:
               Value: /tmp
           LinuxParameters:
             InitProcessEnabled: true
-            SharedMemorySize: 256
             Tmpfs:
               - ContainerPath: /tmp
                 Size: 512
