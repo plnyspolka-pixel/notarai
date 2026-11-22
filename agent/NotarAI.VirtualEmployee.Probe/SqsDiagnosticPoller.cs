@@ -81,42 +81,40 @@ internal sealed class SqsDiagnosticPoller
             catch (Exception ex) when (ex is System.Text.Json.JsonException or
                 InvalidOperationException or FormatException or OverflowException) { }
         }
-        // Do not trust data fields before verifying the signature: use either the
-        // syntactically safe ID or an opaque digest for the status filename.
-        var safeId = parsed is not null &&
-            System.Text.RegularExpressions.Regex.IsMatch(parsed.JobId, @"\A[a-f0-9]{32}\z")
-                ? parsed.JobId
-                : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(message.MessageId ?? "")))
-                    .ToLowerInvariant()[..32];
+        // The message body is untrusted until HMAC admission. Never use
+        // an unauthenticated JobId to select a pre-existing outcome file,
+        // otherwise malformed queue messages could suppress legitimate jobs.
+        var admission = parsed is null
+            ? AdmissionResult.Reject("malformed")
+            : JobAdmission.Admit(body, _tenant, _key.Span, DateTimeOffset.UtcNow, _replay);
+        var trustedId = parsed is not null && (admission.Allowed || admission.Code == "duplicate");
+        var safeId = trustedId ? parsed!.JobId :
+            Convert.ToHexString(SHA256.HashData(
+                Encoding.UTF8.GetBytes(message.MessageId ?? ""))).ToLowerInvariant()[..32];
         var outcome = Path.Combine(_outbox, safeId + ".status.json");
 
-        // If an earlier invocation already committed a result, ack the
-        // duplicate instead of executing again.
+        // If a verified, previously processed job already has a result, the
+        // queue's redelivery is safe to acknowledge without re-execution.
         if (!File.Exists(outcome))
         {
             string status;
             string code;
-            if (parsed is null)
+            if (!admission.Allowed)
             {
                 status = "rejected";
-                code = "malformed";
+                code = admission.Code;
             }
             else
             {
-                var admission = JobAdmission.Admit(body, _tenant, _key.Span, DateTimeOffset.UtcNow, _replay);
-                status = admission.Allowed ? "accepted" : "rejected";
-                code = admission.Code;
-                if (admission.Allowed)
-                {
-                    int exitCode;
-                    try { exitCode = execute(admission.Operation!); }
-                    catch (Exception) { exitCode = 5; }
-                    status = exitCode == 0 ? "completed" : "failed";
-                    code = exitCode == 0 ? "probe_success" : "probe_failed";
-                }
+                int exitCode;
+                try { exitCode = execute(admission.Operation!); }
+                catch (Exception) { exitCode = 5; }
+                status = exitCode == 0 ? "completed" : "failed";
+                code = exitCode == 0 ? "probe_success" : "probe_failed";
             }
-            // The result is persisted BEFORE SQS deletion. A failed write
-            // leaves the message unacknowledged and eligible for redelivery.
+
+            // Persist metadata before acknowledging SQS. If persistence
+            // fails, do not delete the message; it can be redelivered.
             LocalInboxProcessor.WriteOutcome(outcome, safeId, status, code);
         }
         await _client.DeleteMessageAsync(new DeleteMessageRequest
