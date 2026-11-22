@@ -456,3 +456,20 @@ def test_k3_job_status_only_allows_bounded_metadata():
     assert validate_job_status(clean, expected_job_id="job_001") == clean
     with pytest.raises(AIBoundaryDenied):
         validate_job_status(clean, expected_job_id="another_job")
+
+
+def test_k1_js_scanner_allows_multiline_literal_confidential_fetch():
+    from scripts.audit_confidential_ai_routes import scan_js_source
+    # A regex with trailing \\s* before a negative look-ahead can backtrack
+    # and mistake a safe next-line literal target for a dynamic URL.
+    safe = (
+        "fetch(\\n  '/api/confidential/jobs/' + jobId, {method: 'GET'})\\n"
+        "fetch(\\n  '/api/confidential/preview/' + caseId, {method: 'POST'})\\n"
+    )
+    found = scan_js_source(safe, "static/confidential-auto.js")
+    assert len([x for x in found if x["mechanism"] == "js-network-primitive"]) == 2
+    assert not any(x["mechanism"].startswith("js-risk-") for x in found)
+    forbidden = scan_js_source(
+        "fetch(\\n  endpointVariable)", "static/confidential-auto.js"
+    )
+    assert any(x["mechanism"] == "js-risk-untrusted-fetch" for x in forbidden)
