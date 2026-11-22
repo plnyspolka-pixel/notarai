@@ -254,3 +254,62 @@ def test_no_support_admin_decryption_path():
     assert not any("decrypt" in path or "unwrap" in path or
                    "recover" in path for path, _ in declared)
     assert not any("submit" in path or "sign" in path for path, _ in declared)
+
+
+def test_recovery_with_two_external_signers_but_no_plaintext_export():
+    from confidential.zk_recovery import (
+        RecoveryDenied, authorize_recovery, canonical_recovery_request,
+    )
+    signer_a = ed25519.Ed25519PrivateKey.generate()
+    signer_b = ed25519.Ed25519PrivateKey.generate()
+    outsider = ed25519.Ed25519PrivateKey.generate()
+    def pub(signer):
+        return signer.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
+    req = {
+        "schema": "notarai.recovery.v1", "action": "rotate",
+        "tenant_id": "pilot01", "case_id": "case01", "object_id": "scan01",
+        "document_version": "a" * 32,
+        "old_key_arn": ARN,
+        "new_key_arn": ARN.replace("fictional", "successor"),
+        "request_id": "b" * 32, "expires_at": 2000000000,
+    }
+    message = canonical_recovery_request(req)
+    valid = dict(
+        request=req, custodian_signature=signer_a.sign(message),
+        trustee_signature=signer_b.sign(message),
+        custodian_public_key=pub(signer_a),
+        trustee_public_key=pub(signer_b),
+        expected_tenant="pilot01", expected_old_key=ARN,
+        now=1900000000,
+    )
+    # Lost client DEK can be approved for rewrap ONLY after two external
+    # attestations. This function never releases a DEK or calls KMS.
+    assert authorize_recovery(**valid) == "rotate"
+    denied = (
+        {"expected_tenant": "pilot02"},
+        {"expected_old_key": ARN.replace("fictional", "other")},
+        {"now": 2000000000},
+        {"trustee_signature": outsider.sign(message)},
+        {"custodian_signature": b""},
+        {"custodian_public_key": pub(signer_b)},
+        {"request": {**req, "tenant_id": "pilot02"}},
+    )
+    for change in denied:
+        with pytest.raises(RecoveryDenied):
+            authorize_recovery(**{**valid, **change})
+    revoke = {**req, "action": "revoke", "new_key_arn": ""}
+    revoke_message = canonical_recovery_request(revoke)
+    assert authorize_recovery(**{**valid,
+        "request": revoke,
+        "custodian_signature": signer_a.sign(revoke_message),
+        "trustee_signature": signer_b.sign(revoke_message),
+    }) == "revoke"
+
+
+def test_unknown_or_legacy_envelope_cannot_be_run_in_new_guest():
+    from pathlib import Path
+    code = (Path(__file__).parent / "confidential" / "worker.py").read_text()
+    assert 'if env.version != 2:' in code
+    assert 'legacy unversioned envelope' in code
