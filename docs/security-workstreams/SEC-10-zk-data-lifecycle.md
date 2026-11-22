@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-10
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Mapa pamięci i retencji:** lista wszystkich co najmniej 10 możliwych lokalizacji danych: RAM Nitro, /tmp/tmpfs, browser cache/profile, crash dump, screenshot, stdout, stderr, CloudWatch, proxy, LLM request/output, S3 version i PITR; dla każdej zapisane: możliwy plaintext?, dostęp operatora?, retention i właściciel.
 - [ ] **K2.** **6 testów syntetycznego markera:** normalny sukces, wyjątek, restart/retry, browser crash, błąd network i timeout. Po każdym przechwycenie stdout/stderr/logów/artefaktów i wykazanie 0 utrwalonych wystąpień fikcyjnego plaintext/DEK.
 - [ ] **K3.** **Brak trwałego plaintext:** konfiguracja guest ma readonly filesystem, szyfrowanie artefaktów oraz ulotny tmpfs; po zakończeniu nie zostaje żaden niezaszyfrowany plik w persistent S3, bazach i volume snapshots (test skanu syntetycznego).
