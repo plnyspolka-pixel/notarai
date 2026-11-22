@@ -49,8 +49,15 @@ class _CloudFormationLoader(yaml.SafeLoader):
 
 
 def _cloudformation_tag(loader, suffix, node):
-    require(isinstance(node, yaml.ScalarNode), "unexpected IaC intrinsic")
-    return {suffix: loader.construct_scalar(node)}
+    if isinstance(node, yaml.ScalarNode):
+        value = loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        value = loader.construct_sequence(node)
+    elif isinstance(node, yaml.MappingNode):
+        value = loader.construct_mapping(node)
+    else:
+        raise GuardrailError("unknown IaC intrinsic")
+    return {suffix: value}
 
 
 _CloudFormationLoader.add_multi_constructor("!", _cloudformation_tag)
