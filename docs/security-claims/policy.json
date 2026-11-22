@@ -1,0 +1,278 @@
+{
+  "schema": "notarai.security-claims.v1",
+  "region": "eu-central-1",
+  "environment": "synthetic_only",
+  "allowed_tenants": [
+    "pilot01",
+    "pilot02"
+  ],
+  "auto_actions": {
+    "submit": false,
+    "sign": false,
+    "register": false,
+    "file": false
+  },
+  "claims": [
+    {
+      "id": "zero_trust",
+      "scope": "NotarAI Confidential synthetic tenant-bound job control",
+      "trust_boundary": "client/API to workload IAM and enclave",
+      "required_evidence": [
+        {
+          "id": "authenticated_tenant_scope",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "live_iam_deny",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "cross_tenant_live_deny",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        }
+      ],
+      "negative_test": "TH-01",
+      "evidence_owner": "independent_auditor",
+      "expires_at": null,
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "zero_operator_access",
+      "scope": "NotarAI operator personnel lack unilateral plaintext decryption privileges",
+      "trust_boundary": "operator workload account vs independent custodian and Nitro guest",
+      "required_evidence": [
+        {
+          "id": "independent_custody",
+          "owner": "independent_custodian",
+          "source": "live_aws"
+        },
+        {
+          "id": "nitro_kms_allow_deny",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "approved_release_enforced",
+          "owner": "independent_custodian",
+          "source": "live_aws"
+        },
+        {
+          "id": "plaintext_exfil_deny",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "independent_penetration_audit",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        }
+      ],
+      "negative_test": "TH-03",
+      "evidence_owner": "independent_custodian_and_auditor",
+      "expires_at": null,
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "confidential_computing",
+      "scope": "Hardware-isolated Nitro Confidential Sandbox task and attested KMS recipient",
+      "trust_boundary": "ECS host/operator vs Nitro NSM guest",
+      "required_evidence": [
+        {
+          "id": "hardware_nsmlive",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "pcr17_image_binding",
+          "owner": "independent_custodian",
+          "source": "live_aws"
+        },
+        {
+          "id": "kms_recipient_ciphertext_only",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        }
+      ],
+      "negative_test": "TH-05",
+      "evidence_owner": "independent_custodian_and_auditor",
+      "expires_at": null,
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "scoped_zero_knowledge",
+      "scope": "Encrypted storage, no operator-readable document plaintext in defined workflow; NOT strict mathematical zero-knowledge",
+      "trust_boundary": "client cryptography; Nitro in-memory plaintext; AI egress and independently held custody",
+      "required_evidence": [
+        {
+          "id": "client_encryption_audit",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "frontend_supply_chain_independence",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "no_unattested_ai_plaintext",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "plaintext_lifecycle_audit",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        },
+        {
+          "id": "independent_penetration_audit",
+          "owner": "independent_auditor",
+          "source": "independent_audit"
+        }
+      ],
+      "negative_test": "TH-08",
+      "evidence_owner": "independent_auditor",
+      "expires_at": null,
+      "status": "UNVERIFIED"
+    }
+  ],
+  "threats": [
+    {
+      "id": "TH-01",
+      "attack": "Compromised API token changes tenant",
+      "trust_boundary": "API/IAM",
+      "control": "Trust tenant only from verified server principal; immutable tenant bindings",
+      "negative_test": "unauthorized tenant request rejected",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "zero_trust"
+      ]
+    },
+    {
+      "id": "TH-02",
+      "attack": "Operator root uses iam:PassRole / new ECS task",
+      "trust_boundary": "ECS task roles",
+      "control": "Scoped PassRole; KMS recipient attestation and external custody",
+      "negative_test": "operator role cannot bypass KMS",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "zero_trust",
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-03",
+      "attack": "Operator modifies KMS key policy with kms:PutKeyPolicy",
+      "trust_boundary": "Custodian KMS",
+      "control": "Independently administered account outside NotarAI Organizations",
+      "negative_test": "operator policy edit denied",
+      "owner": "independent_custodian",
+      "claim_ids": [
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-04",
+      "attack": "GitHub administrator inserts malicious OCI image",
+      "trust_boundary": "Build and release",
+      "control": "Immutable image digest and independent release signer with external trust root",
+      "negative_test": "unapproved image cannot decrypt",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-05",
+      "attack": "ECS host substitutes PCR17 image / non-Nitro task",
+      "trust_boundary": "Nitro NSM/KMS",
+      "control": "Check actual NSM recipient attestations and PCR17 binding",
+      "negative_test": "non-Nitro and wrong PCR denied by live KMS",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "confidential_computing"
+      ]
+    },
+    {
+      "id": "TH-06",
+      "attack": "Operator owns custody SSO/Organizations despite separate account numbers",
+      "trust_boundary": "Custody governance",
+      "control": "Independent audited root/SSO/Org ownership and release process",
+      "negative_test": "root/SSO delegated mutation refused",
+      "owner": "independent_custodian",
+      "claim_ids": [
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-07",
+      "attack": "Task crosses tenant S3/SQS/DDB/KMS permissions",
+      "trust_boundary": "Tenant IAM",
+      "control": "Separate job/role/key/prefix; cross-tenant deny tests",
+      "negative_test": "pilot01 and pilot02 denied in both directions",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "zero_trust",
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-08",
+      "attack": "Guest exfiltrates plaintext via HTTP/DNS/proxy or logging",
+      "trust_boundary": "Egress boundary",
+      "control": "Network-enforced egress, output minimization, trace sanitization",
+      "negative_test": "canary marker not received by unauthorized collector",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "scoped_zero_knowledge",
+        "zero_operator_access"
+      ]
+    },
+    {
+      "id": "TH-09",
+      "attack": "LLM Bedrock/external provider receives unapproved plaintext",
+      "trust_boundary": "Model inference",
+      "control": "Approved model/provider and explicit data-flow boundary; otherwise ZK blocked",
+      "negative_test": "unauthorized inference endpoint denied",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "scoped_zero_knowledge"
+      ]
+    },
+    {
+      "id": "TH-10",
+      "attack": "Operator serves modified JS client that steals DEK",
+      "trust_boundary": "Client-side encryption",
+      "control": "Independently verifiable frontend distribution and release",
+      "negative_test": "unapproved JS rejected by trusted client",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "scoped_zero_knowledge"
+      ]
+    },
+    {
+      "id": "TH-11",
+      "attack": "Bug copies plaintext into crash dump, debug logs or backup",
+      "trust_boundary": "Storage/observability",
+      "control": "No plaintext logs/tmp persistence; test crash/retry",
+      "negative_test": "canary absent from operator-accessible artifacts",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "scoped_zero_knowledge"
+      ]
+    },
+    {
+      "id": "TH-12",
+      "attack": "Browser or injected page executes unauthorized POST/sign/submit",
+      "trust_boundary": "Portal operation",
+      "control": "Preview-only AUTO, human authorization for legal submissions",
+      "negative_test": "all submit/sign/register/file actions refused",
+      "owner": "independent_auditor",
+      "claim_ids": [
+        "zero_trust"
+      ]
+    }
+  ]
+}
