@@ -159,10 +159,16 @@ def test_external_signing_key_is_never_a_notarai_iam_or_decrypt_role():
     assert key["Properties"]["KeyUsage"] == "SIGN_VERIFY"
     assert key["Properties"]["KeySpec"] == "ECC_NIST_P256"
     statements = key["Properties"]["KeyPolicy"]["Statement"]
-    assert len(statements) == 2
+    assert len(statements) == 3
     assert statements[1]["Action"] == [
         "kms:Sign", "kms:GetPublicKey", "kms:DescribeKey",
     ]
+    assert statements[2]["Action"] == [
+        "kms:Verify", "kms:GetPublicKey", "kms:DescribeKey",
+    ]
+    assert statements[2]["Principal"] == {"AWS": {"Ref": "CustodianAuditRoleArn"}}
+    assert "RolesAreSeparate" in template["Conditions"]
+    assert "kms:Sign" not in statements[2]["Action"]
     assert "kms:Decrypt" not in str(template)
     assert "kms:CreateGrant" not in str(template)
     assert "notarai-confidential-" not in str(statements[1]["Principal"])
