@@ -100,3 +100,32 @@ def test_cli_rejects_identical_outputs_and_does_not_create_file(
     assert cli.main() == 2
     assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
     assert not output.exists()
+
+
+
+def test_refuse_oversized_matrix_before_processing(tmp_path, monkeypatch, capsys):
+    matrix_file = tmp_path / "too-large.json"
+    matrix_file.write_bytes(b"x" * (32 * 1024 + 1024))
+    payload = tmp_path / "witness.json"
+    signing = tmp_path / "signing.bin"
+    monkeypatch.setattr(sys, "argv", [
+        "prepare_nitro_witness.py",
+        "--matrix", str(matrix_file),
+        "--observed-at", "2026-11-22T09:00:00Z",
+        "--expires-at", "2026-11-22T10:00:00Z",
+        "--payload-out", str(payload),
+        "--signing-bytes-out", str(signing),
+    ])
+    assert cli.main() == 2
+    assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+    assert not payload.exists()
+    assert not signing.exists()
+
+
+def test_audit_rejects_oversized_witness_signature(tmp_path):
+    from confidential.nitro_denial_matrix import DenialEvidenceRejected
+    from scripts import audit_nitro_denials
+    signature = tmp_path / "huge.b64"
+    signature.write_bytes(b"A" * 4100)
+    with pytest.raises(DenialEvidenceRejected):
+        audit_nitro_denials._bounded_bytes(str(signature), 4096)
