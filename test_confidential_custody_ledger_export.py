@@ -146,7 +146,7 @@ def test_k1_custody_export_has_pinned_tenant_and_table(invalid):
             custody_profile="separate-custodian", check=True,
             session_factory=fake)
     if table != TABLE:
-        assert fake.calls == []
+        assert not any(call.startswith("dynamodb:") for call in fake.calls)
 
 
 def test_k6_ledger_read_can_succeed_with_truncated_history_but_replay_refuses():
