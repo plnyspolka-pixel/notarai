@@ -10,7 +10,7 @@
 - Źródłem dla pozycji SAOS jest publikowany tekst orzeczenia agregowany przez SAOS; przed cytowaniem dosłownym należy przeczytać całe uzasadnienie.
 - Część zagadnień się zazębia: powtórzenia tych samych spraw SN w różnych źródłach są celowo oznaczone odrębnie tylko wtedy, gdy dokumenty zawierają inny przydatny kontekst. Osoba redagująca powinna deduplikować po sygnaturze + sądzie + dacie orzeczenia.
 
-## Rejestr (69 rekordów)
+## Rejestr (68 rekordów)
 
 | ID | Obszar | Sygnatura | Fakty i kwestia prawna | Rodzaj | Źródło |
 |---|---|---|---|---|---|
@@ -61,7 +61,6 @@
 | R23 | testament / podpis | I CSK 248/11 | Notariusz przygotował projekt testamentu i odebrał tuszowy odcisk kciuka; spór dotyczący wymogów formalnych. | orzeczenie SN w SAOS | [dokument](https://www.saos.org.pl/judgments/95648) |
 | R24 | testament / brak dostępności | I Ns 917/15 | W aktach opisano trudność z uzyskaniem czynności notarialnej w mieszkaniu osoby z ograniczoną mobilnością po udarze. | orzeczenie sądu powszechnego | [dokument](https://www.saos.org.pl/judgments/237820) |
 | R25 | testament / świadoma wola | IX Ca 676/23 | Sąd oceniał zarzuty, że notariusz nie rozmawiał z testatorami ani nie odczytał testamentów; omówiono standardy ważności testamentu. | orzeczenie sądu powszechnego | [dokument](https://www.saos.org.pl/judgments/509223) |
-| R26 | dożywocie / zachowek | I C  ? / 2025 | W orzeczeniu opisano sytuację, gdy notariusz zaproponował umowę dożywocia oraz spór o skutki dla osób uprawnionych do zachowku; wymaga sprawdzenia sygnatury w pełnym tekście. | RESEARCH / sygnatura do uzupełnienia | [dokument](https://www.saos.org.pl/judgments/539768) |
 | K01 | KW / dokument w innej KW | II Ca 1090/23 | Sąd potwierdził, że powołanie dokumentu znajdującego się w aktach innej księgi wieczystej nie wystarcza do wpisu, nawet gdy obie księgi prowadzi ten sam sąd. | orzeczenie sądu powszechnego | [dokument](https://www.saos.org.pl/judgments/501590) |
 | K02 | KW / brak żądania we wniosku | II Ca 1635/24 | Żądanie wpisu wskazano w akcie notarialnym, ale zabrakło go w elektronicznym wniosku wieczystoksięgowym; sąd oceniał granice żądania. | orzeczenie sądu powszechnego | [dokument](https://www.saos.org.pl/judgments/532998) |
 | K03 | odmowa / autonomia woli | III Ca 1193/18 | Sąd rozpatrywał zakres oceny notariusza przy odmowie czynności oraz ograniczenia jego możliwości ustalania pochodzenia środków. | orzeczenie sądu powszechnego | [dokument](https://www.saos.org.pl/judgments/363462) |
@@ -87,6 +86,6 @@
 ## Uwaga redakcyjna
 1. Samo odnalezienie sprawy w SAOS nie potwierdza prawomocności ani aktualności linii orzeczniczej. Dodać je przy pełnej lekturze akt.
 2. Nie utożsamiać twierdzeń stron i zarzutów apelacji z ustaleniami sądu; cytować wyłącznie zweryfikowane fragmenty.
-3. Rekord R26 ma nieustaloną sygnaturę: **nie wykorzystywać do publikacji, dopóki nie zostanie uzupełniona**.
+3. Rekord o nieustalonej sygnaturze pominięto w rejestrze; nie dodawać pozycji o niepewnym oznaczeniu sprawy.
 4. Unikać danych umożliwiających identyfikację osób prywatnych, choćby były w treści opublikowanego orzeczenia.
 5. Dla każdego rekordu w drugim przejściu dodać: sąd, datę orzeczenia, sentencję, prawomocność, przepisy, późniejsze orzeczenia, zgodę na wykorzystanie materiału, krótki cytat z odpowiednim prawem cytatu.
