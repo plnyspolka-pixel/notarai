@@ -18,7 +18,6 @@ def task():
     t = make_task(
         "111122223333", "pilot01",
         "111122223333.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-pilot01@sha256:" + "a"*64,
-        "arn:aws:kms:eu-central-1:111122223333:key/fake",
         "pilot-encrypted-bucket",
         "https://sqs.eu-central-1.amazonaws.com/111122223333/notarai-confidential-pilot01.fifo",
     )
@@ -50,6 +49,8 @@ def test_pinned_sandbox_task_accepts_structural_check_only():
     lambda t: t["containerDefinitions"][0].update(image="111122223333.dkr.ecr.us-east-1.amazonaws.com/other@sha256:" + "a"*64),
     lambda t: t["containerDefinitions"][0].update(readonlyRootFilesystem=False),
     lambda t: t["containerDefinitions"][0].update(user="root"),
+    lambda t: t["containerDefinitions"][0].update(command=["python", "-m", "confidential.worker"]),
+    lambda t: t["containerDefinitions"][0]["environment"][4].update(value="legacy-v2"),
     lambda t: t["containerDefinitions"][0].update(privileged=True),
     lambda t: t["containerDefinitions"][0].update(logConfiguration={"logDriver":"awslogs"}),
     lambda t: t["containerDefinitions"][0].update(secrets=[{"name":"PASSWORD","valueFrom":"secret"}]),
