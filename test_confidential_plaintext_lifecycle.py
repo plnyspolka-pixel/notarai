@@ -39,14 +39,22 @@ def test_tmpfs_is_explicit_and_not_inferred_from_a_path(tmp_path):
 
 def test_browser_home_restored_after_success_and_failure(monkeypatch):
     monkeypatch.setattr("confidential.plaintext_lifecycle.assert_tmpfs", lambda: None)
-    old = {key: os.environ.get(key) for key in
-           ("HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "TMPDIR")}
+    scratch = (
+        "HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+        "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_RUNTIME_DIR",
+        "TMPDIR", "TMP", "TEMP",
+    )
+    no_secret_log = ("SSLKEYLOGFILE", "PWDEBUG", "PLAYWRIGHT_DEBUG")
+    tracked = (*scratch, *no_secret_log, "CHROME_LOG_FILE")
+    old = {key: os.environ.get(key) for key in tracked}
     for failure in (False, True):
         saved = None
         try:
             with ephemeral_browser_home() as folder:
                 saved = Path(folder)
-                assert all(os.environ[key] == folder for key in old)
+                assert all(os.environ[key] == folder for key in scratch)
+                assert all(key not in os.environ for key in no_secret_log)
+                assert os.environ["CHROME_LOG_FILE"] == "/dev/null"
                 (saved / "chromium-cache").write_bytes(FAKE_DOCUMENT)
                 if failure:
                     raise RuntimeError("synthetic browser exception")
