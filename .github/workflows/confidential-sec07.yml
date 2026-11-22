@@ -5,6 +5,7 @@ on:
       - "confidential/nitro_*.py"
       - "scripts/audit_nitro_denials.py"
       - "scripts/run_nitro_attestation_e2e.py"
+      - "scripts/prepare_nitro_witness.py"
       - "test_confidential_nitro_*.py"
       - ".github/workflows/confidential-sec07.yml"
   workflow_dispatch:
@@ -39,10 +40,10 @@ jobs:
       - name: Compile SEC-07 Python sources
         run: |
           python -m py_compile confidential/nitro_hardware_proof.py confidential/nitro_denial_matrix.py confidential/nitro_witness.py
-          python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py
-          python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py
+          python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py scripts/prepare_nitro_witness.py
+          python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py
       - name: Execute mandatory SEC-07 offline negative regressions
-        run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py
+        run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py
       - name: Assert no offline fake hardware proof
         shell: bash
         run: |
