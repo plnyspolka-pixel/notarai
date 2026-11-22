@@ -70,16 +70,26 @@ def _service(tenant: str) -> JobControl:
         Key={"tenant_id": tenant}, ConsistentRead=True).get("Item")
     if not config or not config.get("enabled", False):
         raise HTTPException(503, "Brak aktywnego stanowiska kancelarii.")
-    if not config.get("queue_url") or not config.get("kms_key_id"):
+    if not config.get("queue_url") or not config.get("kms_key_id") or not config.get("control_role_arn"):
         raise HTTPException(503, "Stanowisko nie ma kompletnych uprawnien.")
+    assumed = boto3.client("sts", region_name="eu-central-1").assume_role(
+        RoleArn=config["control_role_arn"], RoleSessionName="notarai-ve-controller",
+        Tags=[{"Key": "TenantId", "Value": tenant}], DurationSeconds=900,
+    )["Credentials"]
+    session = boto3.Session(
+        aws_access_key_id=assumed["AccessKeyId"],
+        aws_secret_access_key=assumed["SecretAccessKey"],
+        aws_session_token=assumed["SessionToken"],
+        region_name="eu-central-1",
+    )
     store = EncryptedPayloadStore(
-        s3=boto3.client("s3", region_name="eu-central-1"),
+        s3=session.client("s3"),
         bucket=os.environ["NOTARAI_VE_PAYLOAD_BUCKET"],
         tenant_id=tenant, kms_key_id=config["kms_key_id"],
     )
     return JobControl(
-        table=dynamo.Table(os.environ["NOTARAI_VE_JOBS_TABLE"]),
-        sqs=boto3.client("sqs", region_name="eu-central-1"),
+        table=session.resource("dynamodb").Table(os.environ["NOTARAI_VE_JOBS_TABLE"]),
+        sqs=session.client("sqs"),
         payloads=store,
         queue_resolver=lambda scoped_tenant: (
             config["queue_url"] if scoped_tenant == tenant else None),
