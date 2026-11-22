@@ -72,3 +72,18 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Compile read-only UIA3 probe (no interactive execution)
         run: dotnet build agent/NotarAI.VirtualEmployee.Probe/NotarAI.VirtualEmployee.Probe.csproj -c Release --nologo
+      - name: Publish self-contained unsigned synthetic Windows pilot
+        run: dotnet publish agent/NotarAI.VirtualEmployee.Probe/NotarAI.VirtualEmployee.Probe.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -o ve-build --nologo
+      - name: Record pilot binary SHA256 (never print secrets)
+        shell: pwsh
+        run: |
+          $binary = 've-build/NotarAI.VirtualEmployee.Probe.exe'
+          if (-not (Test-Path $binary)) { throw 'Pilot executable missing' }
+          $hash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+          "Pilot exe SHA256: $hash" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notarai-ve-windows-pilot-unsigned
+          path: ve-build/
+          if-no-files-found: error
+          retention-days: 7
