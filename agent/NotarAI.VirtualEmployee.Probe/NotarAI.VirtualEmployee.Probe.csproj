@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="../NotarAI.VirtualEmployee.Protocol/NotarAI.VirtualEmployee.Protocol.csproj" />
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.100.26" />
   </ItemGroup>
 </Project>
