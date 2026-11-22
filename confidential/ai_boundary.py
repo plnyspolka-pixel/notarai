@@ -196,3 +196,34 @@ def validate_worker_marker(marker: Mapping[str, object]) -> dict[str, object]:
     if type(marker["fields_filled"]) is not int or not 0 <= marker["fields_filled"] <= 100:
         raise AIBoundaryDenied("WORKER_RESULT_SCHEMA_DENIED")
     return dict(marker)
+
+
+def validate_job_status(
+    status: Mapping[str, object], *, expected_job_id: str
+) -> dict[str, object]:
+    """Never return arbitrary DynamoDB/client content through the operator API.
+
+    A job belongs to the exact requested opaque ID and exposes only
+    coarse, bounded workflow metadata. Inference text and source values
+    have no representation in this response.
+    """
+    if (not isinstance(status, Mapping) or set(status) != {
+        "job_id", "status", "attempts", "submitted", "mode", "can_submit"
+    }):
+        raise AIBoundaryDenied("JOB_STATUS_SCHEMA_DENIED")
+    if (not isinstance(expected_job_id, str) or
+            not _JOB_ID.fullmatch(expected_job_id) or
+            status["job_id"] != expected_job_id):
+        raise AIBoundaryDenied("JOB_SCOPE_MISMATCH")
+    if status["status"] not in {
+        "queued", "queue_uncertain", "running", "retryable",
+        "preview_completed", "needs_review"
+    }:
+        raise AIBoundaryDenied("JOB_STATUS_SCHEMA_DENIED")
+    if (type(status["attempts"]) is not int or
+            not 0 <= status["attempts"] <= 3):
+        raise AIBoundaryDenied("JOB_STATUS_SCHEMA_DENIED")
+    if (status["submitted"] is not False or
+            status["mode"] != "auto" or status["can_submit"] is not False):
+        raise AIBoundaryDenied("UNSAFE_JOB_STATUS")
+    return dict(status)

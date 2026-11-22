@@ -214,3 +214,15 @@ mounted confidential endpoint. An offline API regression test covers
 policy, preview queue and status paths under a revoked flag. This
 is an application-level kill switch, not tamper-proof authority against
 a hostile backend operator or a substitute for independent custody.
+
+
+## DynamoDB preview-status API output boundary
+The `/api/confidential/jobs/{job_id}` endpoint now calls
+`validate_job_status` immediately before JSON serialization.
+The validator requires the exact six metadata fields, a matching
+requested job ID, bounded retry count, `mode=auto` and literal
+`submitted=false` / `can_submit=false`. It refuses all extra
+document, inference, URL and free-form fields. A corrupted result
+returns a generic 503, never the offending content. Synthetic
+regression tests mutate status, identity and schema, including an
+endpoint test with an injected fictional document name.

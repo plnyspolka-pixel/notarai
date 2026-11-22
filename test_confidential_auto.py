@@ -244,3 +244,29 @@ def test_runtime_confidential_kill_switch_revokes_all_api_access(monkeypatch):
     assert status_error.value.status_code == 503
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ENABLED", "TRUE")
     assert automatic_policy(RequestFake()).status_code == 200
+
+
+def test_status_endpoint_denies_unknown_operator_result_fields(monkeypatch):
+    import boto3
+    import confidential.router as confidential_router
+    setup_tenant(monkeypatch)
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: object())
+
+    class ContaminatedLedger:
+        def __init__(self, *args, **kwargs):
+            pass
+        def status(self, job_id):
+            return {
+                "job_id": job_id,
+                "status": "preview_completed",
+                "attempts": 1,
+                "submitted": False,
+                "mode": "auto",
+                "can_submit": False,
+                "source_document": "FICTIONAL-NOTARY-DOCUMENT",
+            }
+    monkeypatch.setattr(confidential_router, "PreviewJobLedger", ContaminatedLedger)
+    with pytest.raises(HTTPException) as error:
+        confidential_router.preview_status(RequestFake(), "pilot_job")
+    assert error.value.status_code == 503
+    assert "FICTIONAL-NOTARY-DOCUMENT" not in str(error.value.detail)

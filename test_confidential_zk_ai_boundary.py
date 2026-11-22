@@ -12,6 +12,7 @@ from confidential.ai_boundary import (
     AIBoundaryDenied, InferencePolicy, enforce_bedrock_dispatch,
     evaluate_inference, reject_untrusted_endpoint, safe_telemetry,
     validate_model_action, validate_operator_result, validate_worker_marker,
+    validate_job_status,
 )
 
 MODEL = "eu.anthropic.claude-opus-4-6-v1"
@@ -422,3 +423,34 @@ def test_k1_js_scanner_denies_dynamic_and_external_fetch(source):
     findings = scan_js_source(source, "static/confidential-outbound.js")
     assert any(hit["mechanism"] == "js-risk-untrusted-fetch" for hit in findings)
     assert all(set(hit) == {"file", "line", "mechanism"} for hit in findings)
+
+
+@pytest.mark.parametrize("mutation", [
+    {"submitted": True},
+    {"submitted": "false"},
+    {"can_submit": 0},
+    {"mode": "supervised"},
+    {"status": "submitted"},
+    {"attempts": 4},
+    {"attempts": True},
+    {"job_id": "other_job"},
+    {"document": FAKE_SENTINEL},
+    {"model_response": {"name": FAKE_SENTINEL}},
+])
+def test_k3_job_status_cannot_leak_data_or_authorize_submission(mutation):
+    clean = {
+        "job_id": "job_001", "status": "preview_completed", "attempts": 1,
+        "submitted": False, "mode": "auto", "can_submit": False,
+    }
+    with pytest.raises(AIBoundaryDenied):
+        validate_job_status({**clean, **mutation}, expected_job_id="job_001")
+
+
+def test_k3_job_status_only_allows_bounded_metadata():
+    clean = {
+        "job_id": "job_001", "status": "queued", "attempts": 0,
+        "submitted": False, "mode": "auto", "can_submit": False,
+    }
+    assert validate_job_status(clean, expected_job_id="job_001") == clean
+    with pytest.raises(AIBoundaryDenied):
+        validate_job_status(clean, expected_job_id="another_job")

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 from confidential.job_ledger import PreviewJobLedger, JobRejected, validate_version_id
+from confidential.ai_boundary import AIBoundaryDenied, validate_job_status
 
 router = APIRouter(prefix="/api/confidential", tags=["confidential"])
 _MAX_BODY = 35 * 1024 * 1024
@@ -229,7 +230,10 @@ def preview_status(request: Request, job_id: str):
         boto3.client("dynamodb", region_name="eu-central-1"), tenant=tenant,
     )
     try:
-        status = ledger.status(job_id)
+        status = validate_job_status(ledger.status(job_id), expected_job_id=job_id)
     except JobRejected:
         raise HTTPException(404, "Zadanie nie jest dostepne.") from None
+    except AIBoundaryDenied:
+        # Neither the corrupted record nor any values are reflected back.
+        raise HTTPException(503, "Status zadania nie moze zostac potwierdzony.") from None
     return JSONResponse(status, headers={"Cache-Control": "no-store"})
