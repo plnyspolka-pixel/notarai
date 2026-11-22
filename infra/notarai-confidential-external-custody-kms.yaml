@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EXTERNAL custodian-owned KMS RSA key for synthetic Nitro only.
+  Deploy ONLY into a separately administered AWS account that NotarAI
+  operators cannot administer or access by AWS Organizations delegation.
+  Never deploy into NotarAI workload account.
+Parameters:
+  WorkloadAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+    Description: NotarAI workload account ID, MUST NOT match custodian account
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+    Description: Synthetic tenant with separately approved Nitro task role
+  ExpectedPCR17:
+    Type: String
+    AllowedPattern: "^(?!0{96}$)[a-fA-F0-9]{96}$"
+    Description: Non-zero PCR17 from independently reviewed official policy generator
+  CustodyAcknowledgement:
+    Type: String
+    AllowedValues: ["independent-operator-custody"]
+    Description: Confirms NotarAI team has no admin path to this AWS account
+Conditions:
+  CustodyAccountDifferent: !Not
+    - !Equals [!Ref AWS::AccountId, !Ref WorkloadAccountId]
+Resources:
+  CustodianHeldKey:
+    Type: AWS::KMS::Key
+    Condition: CustodyAccountDifferent
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub "External key custodian for synthetic NotarAI Nitro tenant ${TenantId}; cannot be administered by NotarAI"
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: RSA_3072
+      MultiRegion: false
+      Enabled: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CustodyAdministratorOnly
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - kms:DescribeKey
+              - kms:GetKeyPolicy
+              - kms:PutKeyPolicy
+              - kms:EnableKey
+              - kms:DisableKey
+              - kms:UpdateKeyDescription
+              - kms:ListResourceTags
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: "*"
+          - Sid: NotaraiPublicKeyOnly
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${WorkloadAccountId}:root"
+            Action:
+              - kms:GetPublicKey
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: OnlyAttestedNitroTaskDecrypt
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${WorkloadAccountId}:role/notarai-confidential-${TenantId}"
+            Action: kms:Decrypt
+            Resource: "*"
+            Condition:
+              StringEqualsIgnoreCase:
+                kms:RecipientAttestation:PCR17: !Ref ExpectedPCR17
+                kms:RecipientAttestation:PCR8:ServiceName: ecs.amazonaws.com
+Outputs:
+  CustodianAccountId:
+    Condition: CustodyAccountDifferent
+    Value: !Ref AWS::AccountId
+  ExternalKeyArn:
+    Condition: CustodyAccountDifferent
+    Value: !GetAtt CustodianHeldKey.Arn
+  WorkloadAccountId:
+    Value: !Ref WorkloadAccountId
