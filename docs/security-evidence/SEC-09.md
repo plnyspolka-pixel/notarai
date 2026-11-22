@@ -13,12 +13,19 @@ Repository PR: https://github.com/plnyspolka-pixel/notarai/pull/74
   namespace, server-side session identity and common approved image SHA256.
 - `confidential.worker._config` now fails before any AWS access if the
   configured tenant and FIFO queue do not match, or if the KMS key is
-  outside the pinned EU region.
+  outside the pinned EU region. The separate trusted manifest validator
+  additionally checks queue account against the ECS workload account;
+  the bare guest startup has no independent AWS account assertion yet.
 - `infra/notarai-confidential-task.yaml` grants the tenant-scoped
   `s3:GetObjectVersion` required by an actual versioned S3 read in the
   worker, along with existing `s3:GetObject`. It does NOT broaden to
   `arn:aws:s3:::*/*`.
 - `confidential/dispatch.py` now refuses to release an ECS dispatch lease based solely on an unrelated STOPPED task: it verifies tenant-cluster ARN, pinned task definition, signed run's `startedBy` token and task ARN before freeing a lease. Synthetic regression in `test_confidential_dispatch.py` covers foreign task injection.
+- `test_confidential_cross_tenant_isolation.py` additionally verifies five
+  API routes reject an authenticated foreign tenant *before* any AWS call,
+  and that query-provided tenant IDs cannot select another job ledger.
+- `scripts/verify_confidential_tenant_isolation.py` rejects inactive,
+  unpinned or unexpectedly expanded task configurations before IAM simulation.
 - Neither plaintext nor document content is placed in the tests, manifest
   or proposed audit evidence. Worker stays `submitted=false`.
 
@@ -108,3 +115,14 @@ PR stays OPEN/DRAFT until all K1–K6 have independently verified
 and signed evidence from the appropriate AWS owner/custodian. Offline
 tests do not satisfy any requirement explicitly calling for AWS live
 or independent reviewer evidence.
+
+## CI regression investigation (2026-11-22)
+
+The prior PR HEAD `3006fa80` had 3 failing tests: legacy IAM test
+expected scalar `s3:GetObject`, two ECS synthetic mock responses used
+outdated task ARN shape, and the validator did not yet anchor queue
+account to an explicit trusted expected account. Changes after that SHA
+fix the test expectation and simulator fixtures, and add the trusted
+account check. New API negative tests and hardened audit configuration
+checks are also committed. Latest branch CI must be rechecked for
+the exact current HEAD SHA; no unverified claim of a green run is made.
