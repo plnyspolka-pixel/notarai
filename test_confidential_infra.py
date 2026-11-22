@@ -33,6 +33,7 @@ def test_staging_bucket_and_queue_are_independent_of_live_application():
     bucket = t["Resources"]["DemoBucket"]["Properties"]
     assert all(bucket["PublicAccessBlockConfiguration"].values())
     assert bucket["BucketEncryption"]["ServerSideEncryptionConfiguration"][0]["ServerSideEncryptionByDefault"]["SSEAlgorithm"] == "AES256"
+    assert t["Resources"]["DemoBucket"]["Properties"]["VersioningConfiguration"]["Status"] == "Enabled"
     assert t["Resources"]["DemoQueue"]["Properties"]["SqsManagedSseEnabled"]
 
 
@@ -137,7 +138,7 @@ def test_pilot_bootstrap_is_dry_run_and_rejects_wrong_account(monkeypatch):
         vpc="vpc-0123456789abcdef0",
         subnets=["subnet-0123456789abcdef0"], apply=False,
     )
-    assert len(seen) == 5
+    assert len(seen) == 4
     assert not any(x[1] in {"deploy", "create-capacity-provider"} for x in seen)
 
     seen.clear()
