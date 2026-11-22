@@ -171,3 +171,32 @@ def test_bedrock_valueerror_filename_never_reflected_to_client():
     assert "Nie udalo" in description
     overloaded = bedrock.opis_bledu(bedrock.Przeciazenie(msg))
     assert PLIK_SKANU not in overloaded and PESEL not in overloaded
+
+
+def test_maskowanie_kw_rachunku_i_bearer_tokena(caplog):
+    kw = "LU1I/00012345/0"
+    nrb = "12114020040000300201355387"
+    iban = "PL" + nrb
+    bearer = "Bearer eyJhbGciOiJIUzI1NiJ9.HEADER.PAYLOAD"
+    message = "kw=%s nrb=%s iban=%s auth=%s"
+    dziennik.wlacz_maskowanie()
+    with caplog.at_level(logging.INFO, logger="sec04-canary"):
+        logging.getLogger("sec04-canary").info(message, kw, nrb, iban, bearer)
+    output = caplog.text
+    for secret in (kw, nrb, iban, bearer):
+        assert secret not in output
+    assert "[KW]" in output
+    assert output.count("[rachunek]") >= 2
+    assert "Bearer [token]" in output
+
+
+def test_maskuj_pojedynczy_tekst_nie_ujawnia_metadata_identifiers():
+    sample = (
+        "KW LU1I/00012345/0, rachunek "
+        "12114020040000300201355387 oraz "
+        "Bearer eyJhbGciOiJIUzI1NiJ9.HEADER.PAYLOAD"
+    )
+    result = dziennik.maskuj(sample)
+    assert "LU1I/00012345/0" not in result
+    assert "12114020040000300201355387" not in result
+    assert "eyJhbGciOiJIUzI1NiJ9" not in result

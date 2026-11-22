@@ -62,10 +62,19 @@ _PLIK_W_TEKSCIE = re.compile(rf"[^\s/\\:()\[\]'\"=]+\.(?:{_ROZSZERZENIA})\b", re
 _WZOR = re.compile(r"wzor\.\w+")
 _PESEL = re.compile(r"(?<!\d)\d{11}(?!\d)")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# Notarial titles, financial account numbers and authorization headers
+# must never be placed in diagnostic text. These are backup filters,
+# not a substitute for metadata-only structured logging.
+_KW = re.compile(r"(?<![A-Za-z0-9])[A-Z]{2}[0-9][A-Z0-9]/[0-9]{8}/[0-9](?![0-9])", re.IGNORECASE)
+_NRB = re.compile(r"(?<![A-Za-z0-9])(?:PL)?[0-9]{26}(?![A-Za-z0-9])", re.IGNORECASE)
+_BEARER = re.compile(r"\bBearer[ \t]+[A-Za-z0-9._~+/-]{12,}={0,2}", re.IGNORECASE)
 
 
 def maskuj(tekst: str) -> str:
     """Zakrywa PESEL, e-mail i nazwy plikow (poza wzor.*) w tekscie."""
+    tekst = _BEARER.sub("Bearer [token]", tekst)
+    tekst = _NRB.sub("[rachunek]", tekst)
+    tekst = _KW.sub("[KW]", tekst)
     tekst = _PESEL.sub("[PESEL]", tekst)
     tekst = _EMAIL.sub("[e-mail]", tekst)
     return _PLIK_W_TEKSCIE.sub(lambda m: m.group(0) if _WZOR.fullmatch(m.group(0)) else "[plik]", tekst)

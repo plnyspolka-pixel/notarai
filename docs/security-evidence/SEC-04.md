@@ -252,3 +252,13 @@ Both the low-level Bedrock dispatch and the reusable
 declassify attested plaintext. Separate synthetic tests cover
 both entrypoints. This is configuration-based defense-in-depth,
 not independent attestation of operator-controlled environment.
+
+
+## Expanded observability redaction — defense in depth
+`dziennik.maskuj()` now additionally masks structured Polish land-register
+numbers (`KW`), 26-digit NRB/PL IBAN account strings and Bearer tokens in
+logger messages/arguments. Offline canary tests verify those exact classes.
+This is **pattern-based best-effort redaction**, not a complete no-PII
+guarantee: names, addresses, unconventional formatting, traces and
+third-party telemetry may remain. K5 stays BLOCKED pending independent
+runtime CloudWatch/logging and retention review.
