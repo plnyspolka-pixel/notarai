@@ -15,7 +15,7 @@ Status: KOD + CI SYNTETYCZNE, NIE AWS LIVE. Nigdy nie utożsamiać tego z produk
 
 ## Kontrolna ścieżka jednego fikcyjnego zlecenia
 1. Przygotuj tenant, wersjonowany bucket i kolejkę FIFO; wdroż istniejący staging/ledger/capacity.
-2. Klient LOKALNIE szyfruje dokument istniejącym seal_document i zachowuje owner RSA-3072 private key. Operator otrzymuje tylko kopertę ciphertext. CustomerCiphertextTransport.admit_ciphertext zwraca VersionId.
+2. Klient LOKALNIE szyfruje dokument przez `python scripts/customer_attested_release.py seal --plaintext local-demo.json --owner-public-key owner-public.pem --tenant-id pilot01 --case-id case01 --object-id object01 --document-version <32 hex> --output ciphertext.json`, zachowując owner RSA-3072 private key wyłącznie lokalnie. Operator otrzymuje tylko kopertę ciphertext. CustomerCiphertextTransport.admit_ciphertext zwraca VersionId.
 3. Klient LOKALNIE podpisuje wskazany S3 VersionId w scripts/customer_attested_release.py (subcommand origin) kluczem Ed25519. Publiczny klucz tej pary musi być wbudowany w obraz Nitro.
 4. Przed wrzuceniem do SQS klient tworzy świeży challenge subcommand challenge i zapisuje challenge.json w S3 dokładnie raz.
 5. Operator wykonuje enqueue_signed_preview z weryfikacją oryginalnego podpisu. Worker Nitro sprawdza SQS, DDB, S3 VersionId i customer challenge.
@@ -45,3 +45,9 @@ Obraz bez tych argumentów musi odmówić zbudowania. Przypnij ECR image@sha256;
 - Brak potwierdzonego DPA/oceny prawnej i testów administracyjnych IAM, S3, ECR, task-definition/policy mutation.
 
 Ocena: kod offline możliwy do dalszego testowania, live 3×ZERO i sprzedaż = NO_GO. Wszystkie nowe prace na PR #94; archiwalne pomysły poza ścieżką wdrożeniową.
+
+## Uzupełnienie po testach GitHub: oczekiwanie na grant S3
+
+AWS S3 przy braku `s3:ListBucket` zwraca HTTP 403, a nie 404, gdy `GetObject` dotyczy brakującego grantu. Bez naprawy worker kończyłby zadanie przed przesłaniem klucza przez kancelarię. Teraz worker wykonuje `ListObjectsV2` z **dokładnym** `Prefix=<job>/grant.json` i `MaxKeys=1`; IAM dopuszcza listowanie tylko nazw grantów w bieżącym tenancie. Pusty wynik oznacza jeszcze oczekujący grant. Inne błędy lub zwrócenie obcego klucza powodują odmowę. Jest negatywny test 403/prefix-confusion i weryfikacja zakresu IAM.
+
+Lokalny CLI `seal` zapisuje wyłącznie kopertę AES-GCM/RSA klienta, wymaga jawnego klucza publicznego i odmawia nadpisania istniejącego wyjścia. Bez AWS call. To prototyp, nie zastępuje podpisanego dystrybuowanego klienta, bezpiecznej kopii klucza i prób sprzętowych.
