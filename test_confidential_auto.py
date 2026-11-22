@@ -361,3 +361,41 @@ def test_retrieved_ciphertext_is_size_bounded_scoped_and_schema_checked(monkeypa
         assert error.value.status_code == 500
         assert "FICTIONAL-CASE-CONTENT" not in str(error.value.detail)
         assert forged.stream.closed
+
+
+def test_confidential_store_denies_duplicate_envelope_json_before_any_s3(monkeypatch):
+    from confidential.router import store
+    setup_tenant(monkeypatch)
+    # A malformed ciphertext body must be rejected before any S3 call;
+    # the second tenant value cannot be used to bypass the identity bind.
+    payload = (
+        b'{"version":1,"version":2,"tenant_id":"pilot01",'
+        b'"case_id":"case01","object_id":"scan01"}'
+    )
+    with pytest.raises(HTTPException) as error:
+        run(store(RequestFake(body=payload), "case01", "scan01"))
+    assert error.value.status_code == 400
+    assert "pilot01" not in str(error.value.detail)
+
+
+def test_confidential_retrieve_denies_duplicate_ciphertext_json(monkeypatch):
+    import io
+    import magazyn
+    import confidential.router as router
+    from test_confidential import make_document
+    _, _, payload = make_document()
+    raw = json.dumps(payload).replace(
+        '"version": 1', '"version": 1, "version": 1', 1
+    ).encode("utf-8")
+    monkeypatch.setattr(router, "_scope", lambda _: "test_tenant")
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_BUCKET", "notarai-ciphertext-demo")
+    stream = io.BytesIO(raw)
+    class FakeS3:
+        def get_object(self, **kwargs):
+            return {"Body": stream}
+    monkeypatch.setattr(magazyn, "_klient_s3", lambda: FakeS3(), raising=False)
+    with pytest.raises(HTTPException) as error:
+        router.retrieve(RequestFake(), "test_case", "scan01")
+    assert error.value.status_code == 500
+    assert "version" not in str(error.value.detail)
+    assert stream.closed

@@ -515,3 +515,49 @@ def test_k3_low_level_kms_rejects_non_arn_prefix_and_type_confusion():
             AttestedKMSUnwrapper(object(), object(), invalid)
         with pytest.raises(ValueError):
             NitroKMSUnwrapper(object(), invalid)
+
+
+@pytest.mark.parametrize("payload", [
+    '{"tenant_id":"pilot01","tenant_id":"other"}',
+    '{"outer":{"field":"SAFE","field":"FICTIONAL-CANARY"}}',
+    '{"value":NaN}',
+    '{"value":Infinity}',
+    '{"value":-Infinity}',
+    '{"deep":[{"x":1,"x":2}]}',
+    '{"broken":',
+])
+def test_k3_strict_json_rejects_ambiguous_protocol_frames(payload):
+    from confidential.envelope import InvalidEnvelope, strict_json_loads
+    with pytest.raises(InvalidEnvelope) as error:
+        strict_json_loads(payload)
+    assert str(error.value) == "invalid JSON structure"
+    assert FAKE_SENTINEL not in str(error.value)
+
+
+def test_k3_strict_json_accepts_normal_unicode_metadata_and_bytes():
+    from confidential.envelope import strict_json_loads
+    raw = b'{"tenant_id":"pilot01","items":[{"n":2},{"n":3}],"ok":false}'
+    assert strict_json_loads(raw) == {
+        "tenant_id": "pilot01", "items": [{"n": 2}, {"n": 3}],
+        "ok": False
+    }
+    assert strict_json_loads(raw.decode("utf-8"))["tenant_id"] == "pilot01"
+
+
+def test_k3_sqs_duplicate_identity_denied_before_claim():
+    import json
+    from confidential.worker import _parse_message
+    good = (
+        '{"tenant_id":"pilot01","case_id":"case01","object_id":"scan01",'
+        '"job_id":"job01","s3_version":"v000001"}'
+    )
+    assert _parse_message(good, "pilot01") == (
+        "case01", "scan01", "job01", "v000001"
+    )
+    duplicate = good.replace('"case_id":"case01"', 
+                             '"case_id":"case01","case_id":"other_case"')
+    with pytest.raises(ValueError, match="invalid JSON structure"):
+        _parse_message(duplicate, "pilot01")
+    with pytest.raises(ValueError, match="invalid JSON structure"):
+        _parse_message(good.replace('"job_id":"job01"', '"job_id":NaN'),
+                       "pilot01")

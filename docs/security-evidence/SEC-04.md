@@ -275,3 +275,15 @@ tenant/case/object/key identity must match the authenticated request
 and approved KMS ARN before any JSON serialization. Synthetic tests
 cover valid ciphertext, bounded read, extra plaintext fields, identity
 substitution and stream closure. This is still not live AWS proof.
+
+
+## SEC-04 deterministic protocol JSON parsing
+`confidential.envelope.strict_json_loads` is now called at every trusted
+serialization boundary: HTTP ciphertext upload/download, SQS job messages,
+S3 ciphertext retrieval in the Nitro guest, and the decrypted synthetic
+form payload. It rejects duplicate keys **including nested objects** and
+non-finite JSON constants, normalizing parser errors to a fixed message
+without source content. Synthetic negative tests cover repeated tenancy,
+case identities, NaN/Infinity, corrupted syntax and S3 bypass attempts.
+This reduces parser-differential and key-shadowing risks; it is not
+hardware proof or a complete input security review.
