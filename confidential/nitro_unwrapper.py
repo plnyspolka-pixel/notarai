@@ -6,14 +6,18 @@ This is a real adapter using AWS NSM attestation and KMS Recipient CMS.
 from __future__ import annotations
 
 import os
+import re
 
 from confidential.attested_kms import AttestationRequired
 
 
 class NitroKMSUnwrapper:
     def __init__(self, kms_client, allowed_key_arn: str):
-        if not allowed_key_arn.startswith("arn:aws:kms:eu-"):
-            raise ValueError("KMS key must be in an EU region")
+        if not isinstance(allowed_key_arn, str) or not re.fullmatch(
+            r"arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+",
+            allowed_key_arn,
+        ):
+            raise ValueError("KMS key must be pinned to eu-central-1")
         self.kms = kms_client
         self.key_arn = allowed_key_arn
 

@@ -59,7 +59,7 @@ class Envelope:
                 raise InvalidEnvelope("invalid document identity")
         arn = payload["kms_key_arn"]
         if not isinstance(arn, str) or not re.fullmatch(
-            r"arn:aws:kms:eu-[a-z0-9-]+:\d{12}:key/[A-Za-z0-9-]+", arn
+            r"arn:aws:kms:eu-central-1:\d{12}:key/[A-Za-z0-9-]+", arn
         ):
             raise InvalidEnvelope("invalid regional KMS key")
         nonce = _b64(payload["nonce"], 12)
