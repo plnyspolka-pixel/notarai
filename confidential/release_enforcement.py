@@ -147,7 +147,8 @@ class LiveReleaseGate:
         _require(isinstance(self.approved_image_sha256, str) and
                  bool(_HEX64.fullmatch(self.approved_image_sha256)))
         _require(all(isinstance(v, str) and v for v in (
-            self.release_bucket, self.release_key, self.release_version)))
+            self.release_bucket, self.release_key, self.release_version)) and
+                 self.release_version != "null")
         # Separate audit role is assumed for read-only custody state. The
         # custodian account MUST be independently administered (out-of-band).
         custodian = self.assume_custody(self.custody_audit_role_arn)
@@ -181,6 +182,7 @@ class LiveReleaseGate:
         response = custodian.client("s3").get_object(
             Bucket=self.release_bucket, Key=self.release_key,
             VersionId=self.release_version,
+            ExpectedBucketOwner=self.custody_account,
         )
         raw = response["Body"].read(16385)
         _require(len(raw) <= 16384)
