@@ -190,7 +190,8 @@ def test_policy_generator_matches_cloudformation_guest_runtime():
         assert observed[py] == expected[cfn]
     py_linux, aws_linux = observed["linuxParameters"], expected["LinuxParameters"]
     assert py_linux["initProcessEnabled"] == aws_linux["InitProcessEnabled"]
-    assert py_linux["sharedMemorySize"] == aws_linux["SharedMemorySize"]
+    # ECS rejects sharedMemorySize for MANAGED_INSTANCES task definitions.
+    assert "sharedMemorySize" not in py_linux and "SharedMemorySize" not in aws_linux
     assert py_linux["tmpfs"][0]["containerPath"] == aws_linux["Tmpfs"][0]["ContainerPath"]
     assert py_linux["tmpfs"][0]["size"] == aws_linux["Tmpfs"][0]["Size"]
     assert py_linux["tmpfs"][0]["mountOptions"] == aws_linux["Tmpfs"][0]["MountOptions"]
@@ -309,3 +310,17 @@ def test_guest_image_workflow_verifies_aws_generator_signature_before_running_it
     assert "--allow-additional-env" not in text and "--allow-exec-command" not in text
     key = (ROOT / "nitro-sandboxes-runtime-v1.pub").read_text("utf-8")
     assert key.startswith("-----BEGIN PUBLIC KEY-----")
+
+
+def test_task_template_accepts_policy_envelope_longer_than_one_parameter():
+    doc = template("notarai-confidential-task.yaml")
+    params = doc["Parameters"]
+    # A real generator envelope is ~5.2k characters; one parameter holds 4096 bytes.
+    assert params["AttestationPolicyBase64"]["MaxLength"] <= 4096
+    assert params["AttestationPolicyBase64Part2"]["MaxLength"] <= 4096
+    assert params["AttestationPolicyBase64Part2"]["Default"] == ""
+    trusted = doc["Resources"]["ConfidentialTaskDefinition"]["Properties"]["TrustedExecutionConfiguration"]
+    assert trusted["IsolationMode"] == "CONFIDENTIAL_SANDBOX"
+    assert trusted["AttestationPolicy"] == {"Join": ["", [
+        {"Ref": "AttestationPolicyBase64"}, {"Ref": "AttestationPolicyBase64Part2"},
+    ]]}

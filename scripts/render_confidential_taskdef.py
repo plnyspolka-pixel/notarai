@@ -70,7 +70,6 @@ def make_task(account: str, tenant: str, image: str, kms_key_arn: str,
             "environment": environment,
             "linuxParameters": {
                 "initProcessEnabled": True,
-                "sharedMemorySize": 256,
                 "tmpfs": [{
                     "containerPath": "/tmp",
                     "size": 512,

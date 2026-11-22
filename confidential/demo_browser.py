@@ -54,7 +54,11 @@ async def main():
             "local-demo", url + "/", (url,), {"name": "#name", "reference": "#ref"}, "#submit"
         )
         async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=True)
+            browser = await playwright.chromium.launch(
+                headless=True,
+                # Managed Instances tasks cannot raise /dev/shm; use tmpfs /tmp instead.
+                args=["--disable-dev-shm-usage"],
+            )
             context = await browser.new_context(accept_downloads=False, service_workers="block")
             page = await context.new_page()
             result = await fill_form(

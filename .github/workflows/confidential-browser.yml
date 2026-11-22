@@ -113,7 +113,6 @@ jobs:
           docker run --rm \
             --network none --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,size=512m \
-            --shm-size 256m \
             --entrypoint python \
             notarai-confidential:smoke -m confidential.demo_browser
       - name: Zweryfikuj, że worker odmawia pracy bez prawdziwej atestacji
