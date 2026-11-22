@@ -185,8 +185,10 @@ def _release_finished_lease(ecs, dynamodb, config: DispatcherConfig,
             TableName=config.lease_table,
             Key=key,
             UpdateExpression="SET #s = :finished, lease_until = :expired",
-            ConditionExpression="token = :token AND #s = :launched",
-            ExpressionAttributeNames={"#s": "state"},
+            # "token" and "state" are DynamoDB reserved words: the real API
+            # rejects them unaliased (ValidationException, verified live).
+            ConditionExpression="#t = :token AND #s = :launched",
+            ExpressionAttributeNames={"#s": "state", "#t": "token"},
             ExpressionAttributeValues={
                 ":token": record["token"],
                 ":launched": {"S": "launched"},
@@ -302,8 +304,8 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
             TableName=config.lease_table,
             Key={"pk": {"S": f"TENANT#{config.tenant}"}},
             UpdateExpression=expression,
-            ConditionExpression="token = :token",
-            ExpressionAttributeNames={"#s": "state"},
+            ConditionExpression="#t = :token",
+            ExpressionAttributeNames={"#s": "state", "#t": "token"},
             ExpressionAttributeValues=updates,
         )
     except Exception:

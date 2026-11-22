@@ -182,7 +182,6 @@ class PreviewJobLedger:
             ":object": {"S": object_id},
             ":version": {"S": s3_version},
             ":false": {"BOOL": False},
-            ":zero": {"N": "0"},
             ":limit": {"N": str(_MAX_ATTEMPTS)},
             ":queued": {"S": "queued"},
             ":retryable": {"S": "retryable"},

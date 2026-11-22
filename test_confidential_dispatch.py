@@ -146,6 +146,8 @@ class DynamoFake:
         self.updated = False
 
     def put_item(self, **kwargs):
+        from test_confidential_job_ledger import assert_real_dynamodb_expression
+        assert_real_dynamodb_expression(kwargs)
         self.put_calls += 1
         now = int(kwargs["ExpressionAttributeValues"][":now"]["N"])
         if self.item and int(self.item["lease_until"]["N"]) >= now:
@@ -157,6 +159,9 @@ class DynamoFake:
         return {"Item": copy.deepcopy(self.item)} if self.item else {}
 
     def update_item(self, **kwargs):
+        from test_confidential_job_ledger import assert_real_dynamodb_expression
+        assert_real_dynamodb_expression(kwargs)
+        assert kwargs["ExpressionAttributeNames"]["#t"] == "token"
         assert self.item["token"]["S"] == kwargs["ExpressionAttributeValues"][":token"]["S"]
         args = kwargs["ExpressionAttributeValues"]
         if ":finished" in args:

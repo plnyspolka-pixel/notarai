@@ -13,6 +13,47 @@ class ConditionalError(Exception):
     response = {"Error": {"Code": "ConditionalCheckFailedException"}}
 
 
+# Rules the REAL DynamoDB API enforces and a permissive fake silently skips.
+# Both were hit live on 22.11.2026: an unused ":zero" value made every worker
+# claim fail, and the unaliased reserved word "token" broke the dispatcher
+# lease update. Every fake write below goes through this contract.
+_DDB_RESERVED = {
+    "token", "state", "status", "name", "names", "ttl", "timestamp", "time",
+    "mode", "user", "users", "value", "values", "count", "data", "date",
+    "type", "key", "keys", "items", "size", "year", "month", "day", "hour",
+    "role", "region", "source", "comment", "connection", "session", "level",
+    "order", "group", "path", "plan", "result", "action", "lock", "locked",
+    "owner", "language", "limit", "offset", "position", "section", "system",
+    "zone", "uuid", "hash", "range", "index", "table", "view", "schema",
+}
+_DDB_SYNTAX = {
+    "set", "remove", "add", "delete", "and", "or", "not", "between", "in",
+    "attribute_exists", "attribute_not_exists", "attribute_type",
+    "begins_with", "contains", "size", "if_not_exists", "list_append",
+}
+
+
+def assert_real_dynamodb_expression(kwargs):
+    import re
+    text = " ".join(str(kwargs.get(k, "")) for k in (
+        "UpdateExpression", "ConditionExpression", "KeyConditionExpression",
+        "FilterExpression", "ProjectionExpression"))
+    values = set(kwargs.get("ExpressionAttributeValues") or {})
+    names = set(kwargs.get("ExpressionAttributeNames") or {})
+    used_values = set(re.findall(r":[A-Za-z0-9_]+", text))
+    used_names = set(re.findall(r"#[A-Za-z0-9_]+", text))
+    assert used_values == values, (
+        "DynamoDB rejects unused or undefined expression values: "
+        f"{sorted(values ^ used_values)}")
+    assert used_names == names, (
+        "DynamoDB rejects unused or undefined expression names: "
+        f"{sorted(names ^ used_names)}")
+    bare = set(re.findall(r"(?<![:#A-Za-z0-9_])[A-Za-z_][A-Za-z0-9_]*", text))
+    reserved = {w for w in bare if w.lower() in _DDB_RESERVED
+                and w.lower() not in _DDB_SYNTAX}
+    assert not reserved, f"unaliased DynamoDB reserved word: {sorted(reserved)}"
+
+
 class FakeDdb:
     def __init__(self):
         self.rows = {}
@@ -24,6 +65,7 @@ class FakeDdb:
             raise RuntimeError("synthetic network failure")
 
     def put_item(self, **kwargs):
+        assert_real_dynamodb_expression(kwargs)
         self._guard()
         key = kwargs["Item"]["pk"]["S"]
         if key in self.rows:
@@ -37,6 +79,7 @@ class FakeDdb:
             if kwargs["Key"]["pk"]["S"] in self.rows else {}
 
     def update_item(self, **kwargs):
+        assert_real_dynamodb_expression(kwargs)
         self._guard()
         key = kwargs["Key"]["pk"]["S"]
         row = self.rows.get(key)
@@ -304,3 +347,23 @@ def test_worker_failure_keeps_sqs_unacknowledged_for_bounded_retry(monkeypatch):
         _process_one(session, "pilot01", "bucket", "queue", "key")
     assert ledger.status("abc012")["status"] == "retryable"
     assert not queue.deleted
+
+
+def test_fake_enforces_real_dynamodb_expression_rules():
+    ok = {"UpdateExpression": "SET #s = :next REMOVE task_token",
+          "ConditionExpression": "#s = :running AND task_token = :token",
+          "ExpressionAttributeNames": {"#s": "state"},
+          "ExpressionAttributeValues": {":next": 1, ":running": 1, ":token": 1}}
+    assert_real_dynamodb_expression(ok)
+    for broken in (
+        dict(ok, ExpressionAttributeValues=dict(
+            ok["ExpressionAttributeValues"], **{":zero": 1})),
+        dict(ok, ConditionExpression="#s = :running AND token = :token"),
+        dict(ok, ConditionExpression="state = :running AND task_token = :token",
+             UpdateExpression="SET state = :next REMOVE task_token",
+             ExpressionAttributeNames={}),
+        dict(ok, ExpressionAttributeNames={"#s": "state", "#x": "unused"}),
+        dict(ok, ConditionExpression="#s = :running AND task_token = :other"),
+    ):
+        with pytest.raises(AssertionError):
+            assert_real_dynamodb_expression(broken)
