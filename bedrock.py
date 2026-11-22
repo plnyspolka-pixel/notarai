@@ -146,7 +146,11 @@ PRZERWA_PONOWIENIA = 5
 def _kod_bledu(blad: BaseException) -> str:
     """Kod bledu AWS malymi literami ("" dla wyjatkow spoza boto)."""
     odpowiedz = getattr(blad, "response", None) or {}
-    return str(odpowiedz.get("Error", {}).get("Code", "")).lower()
+    kod = odpowiedz.get("Error", {}).get("Code", "")
+    # AWS error codes are short identifiers. Never emit arbitrary provider data.
+    if not isinstance(kod, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", kod):
+        return ""
+    return kod.lower()
 
 
 def _tresc_bledu(blad: BaseException) -> str:
