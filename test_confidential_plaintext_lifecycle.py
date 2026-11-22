@@ -234,7 +234,8 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
             allow = {
                 "sts": {"get_caller_identity"},
                 "ecs": {"describe_task_definition"},
-                "s3": {"get_bucket_versioning",
+                "s3": {"get_bucket_versioning", "get_bucket_location",
+                       "get_bucket_replication", "get_object_lock_configuration",
                        "get_bucket_lifecycle_configuration", "list_object_versions"},
                 "sqs": {"get_queue_attributes"},
                 "dynamodb": {"describe_continuous_backups"},
@@ -248,12 +249,19 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
                     return {"Account": account}
                 if name == "describe_task_definition":
                     return {"taskDefinition": task}
+                if name == "get_bucket_location":
+                    return {"LocationConstraint": "eu-central-1"}
                 if name == "get_bucket_versioning":
                     return {"Status": "Enabled"}
+                if name == "get_bucket_replication":
+                    return {"ReplicationConfiguration": {"Rules": [{"ID": "synthetic"}]}}
+                if name == "get_object_lock_configuration":
+                    return {"ObjectLockConfiguration": {"ObjectLockEnabled": "Enabled"}}
                 if name == "get_bucket_lifecycle_configuration":
                     return {"Rules": []}
                 if name == "list_object_versions":
-                    return {"Versions": [{}], "IsTruncated": False}
+                    return {"Versions": [{}], "DeleteMarkers": [{}],
+                            "IsTruncated": False}
                 if name == "get_queue_attributes":
                     if kwargs["QueueUrl"].endswith("-dead.fifo"):
                         return {"Attributes": {"MessageRetentionPeriod": "1209600"}}
@@ -292,14 +300,20 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
     )
     assert all(report["task_controls"].values())
     assert report["s3_versioning_enabled"] and report["ddb_pitr_days"] == 35
+    assert report["s3_bucket_region_verified"] is True
+    assert report["s3_replication_state"] == "configured"
+    assert report["s3_bucket_object_lock_state"] == "Enabled"
+    assert report["s3_delete_marker_count_on_first_page"] == 1
     assert report["sqs_retention_seconds"] == 86400
     assert report["sqs_dlq_retention_seconds"] == 1209600
     assert report["cloudwatch_named_group_retention_days"] == [7]
-    assert len(calls) == 10
+    assert len(calls) == 13
     assert {name for _, name in calls} == {
         "get_caller_identity", "describe_task_definition",
-        "get_bucket_versioning", "get_bucket_lifecycle_configuration",
-        "list_object_versions", "get_queue_attributes",
+        "get_bucket_versioning", "get_bucket_location",
+        "get_bucket_replication", "get_object_lock_configuration",
+        "get_bucket_lifecycle_configuration", "list_object_versions",
+        "get_queue_attributes",
         "describe_continuous_backups", "describe_trails",
         "describe_log_groups",
     }
