@@ -27,7 +27,20 @@ def main() -> int:
     args = parser.parse_args()
     rows = offline_matrix()
     result = evaluate_gate(rows)
-    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    # Case-level evidence is synthetic metadata, never a signed hardware
+    # report. Keep a stable compact JSON structure for external reviewers.
+    report = {
+        **result,
+        "run_type": "SYNTHETIC_ONLY",
+        "real_aws_calls": 0,
+        "cases": [
+            {"case": row["case"], "kind": row["kind"],
+             "observed": row["outcome"], "source": "MOCK",
+             "submitted": row["submitted"]}
+            for row in rows
+        ],
+    }
+    print(json.dumps(report, sort_keys=True, separators=(",", ":")))
     if result["offline_matrix"] != "PASS":
         return 1
     return 2 if args.check else 0
