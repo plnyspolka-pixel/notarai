@@ -1,11 +1,12 @@
 """SEC-11 independent custody WORM audit: synthetic read-only tests."""
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from confidential.custody_storage import (
     StorageAuditRejected, assess_custody_storage, read_only_inventory,
-    _deny_for_operator,
+    read_only_fixture_retention, _deny_for_operator,
 )
 
 CUSTODY = "444455556666"
@@ -231,3 +232,82 @@ def test_unverified_external_kms_key_does_not_count_as_independent_encryption():
     result = audit(data)
     assert result.configuration_status == "FAIL"
     assert result.checks["encryption_enabled"] is False
+
+
+
+def test_fixture_retention_only_reads_exact_version_and_verifies_compliance():
+    now = datetime(2026, 11, 22, tzinfo=timezone.utc)
+    calls = []
+
+    class Session:
+        def client(self, name, **kwargs):
+            if name == "sts":
+                class Sts:
+                    def get_caller_identity(self):
+                        return {"Account": CUSTODY}
+                return Sts()
+            assert name == "s3"
+            class S3:
+                def head_object(self, **args):
+                    calls.append(("HEAD", args))
+                    return {"ContentLength": 42}
+                def get_object_retention(self, **args):
+                    calls.append(("RETENTION", args))
+                    return {"Retention": {
+                        "Mode": "COMPLIANCE",
+                        "RetainUntilDate": now + timedelta(days=20),
+                    }}
+            return S3()
+
+    result = read_only_fixture_retention(
+        Session(), bucket=BUCKET, custody_account=CUSTODY,
+        fixture_key="sec11-fixture/synthetic-test-001",
+        fixture_version="v001ABC", clock=now,
+    )
+    assert result == {
+        "fixture_version_exists": True,
+        "fixture_compliance_lock_active": True,
+    }
+    assert [method for method, _ in calls] == ["HEAD", "RETENTION"]
+    assert all(args["ExpectedBucketOwner"] == CUSTODY and
+               args["VersionId"] == "v001ABC"
+               for _, args in calls)
+
+
+@pytest.mark.parametrize("retention,expected", [
+    ("GOVERNANCE", False),
+    ("COMPLIANCE", True),
+])
+def test_fixture_retention_cannot_fake_compliance(retention, expected):
+    now = datetime(2026, 11, 22, tzinfo=timezone.utc)
+
+    class Session:
+        def client(self, which, **kwargs):
+            if which == "sts":
+                return type("Sts", (), {
+                    "get_caller_identity": lambda self: {"Account": CUSTODY},
+                })()
+            return type("S3", (), {
+                "head_object": lambda self, **kw: {},
+                "get_object_retention": lambda self, **kw: {"Retention": {
+                    "Mode": retention, "RetainUntilDate": now + timedelta(days=1),
+                }},
+            })()
+
+    report = read_only_fixture_retention(
+        Session(), bucket=BUCKET, custody_account=CUSTODY,
+        fixture_key="sec11-fixture/synthetic-test-001",
+        fixture_version="v001ABC", clock=now,
+    )
+    assert report["fixture_compliance_lock_active"] == expected
+
+
+def test_fixture_invalid_path_refused_before_aws():
+    class NoAws:
+        def client(self, *args, **kwargs):
+            raise AssertionError("AWS not allowed")
+    with pytest.raises(StorageAuditRejected):
+        read_only_fixture_retention(
+            NoAws(), bucket=BUCKET, custody_account=CUSTODY,
+            fixture_key="documents/real-case", fixture_version="v1",
+        )
