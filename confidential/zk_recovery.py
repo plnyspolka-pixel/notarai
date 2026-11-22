@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 _FIELDS = frozenset({
     "schema", "action", "tenant_id", "case_id", "object_id",
+    "target_tenant_id", "target_object_id",
     "document_version", "old_key_arn", "new_key_arn",
     "new_key_sha256", "request_id", "expires_at",
 })
@@ -45,12 +46,20 @@ def canonical_recovery_request(request: Mapping) -> bytes:
             or not _KMS.fullmatch(request["old_key_arn"])
             or not isinstance(request.get("new_key_arn"), str)
             or not isinstance(request.get("new_key_sha256"), str)
+            or not isinstance(request.get("target_tenant_id"), str)
+            or not isinstance(request.get("target_object_id"), str)
             or (request["action"] == "rotate"
                 and (not _KMS.fullmatch(request["new_key_arn"])
                      or request["old_key_arn"] == request["new_key_arn"]
-                     or not _PIN.fullmatch(request["new_key_sha256"])))
+                     or not _PIN.fullmatch(request["new_key_sha256"])
+                     or not _ID.fullmatch(request["target_tenant_id"])
+                     or len(request["target_tenant_id"]) > 12
+                     or not _ID.fullmatch(request["target_object_id"])
+                     or request["target_object_id"] == request["object_id"]))
             or (request["action"] == "revoke" and (
-                request["new_key_arn"] != "" or request["new_key_sha256"] != ""))
+                request["new_key_arn"] != "" or request["new_key_sha256"] != ""
+                or request["target_tenant_id"] != ""
+                or request["target_object_id"] != ""))
             or type(request.get("expires_at")) is not int
             or not 0 < request["expires_at"] < 4102444800):
         raise RecoveryDenied("invalid recovery request")
