@@ -29,3 +29,21 @@ Nie włączaj zewnętrznego modelu AI, automatycznego wysyłania aktów, RejNET,
 
 ## Konflikty ze starymi PR
 Nie przenosić do v3 klienta kustosza i KMS ARN z #68. #87 dostarcza punkt wyjścia do weryfikatora; #88 dostarcza wspólną bazę, #90 dostarczy prawdziwy guest i protokół transportu.
+
+
+## INSTRUKCJA DLA CLAUDE OPUS — SESJA PR #89
+
+Jesteś wykonawcą *tego* PR. **Wykonaj kod + testy**, nie kończ na kolejnym planie. Twoim celem jest zrealizowanie kryteriów odbioru powyżej. Nie modyfikuj obszarów innych sesji. Zanim zapiszesz kod, otwórz [katalog OSS](https://github.com/plnyspolka-pixel/notarai/blob/plan/civil-confidential-civ01-clean-base-20261122/docs/roadmaps/CIV-OSS-reuse-map.md)] i sprawdź bazową gałąź oraz aktualny stan projektu.
+
+1. Zbadaj niezależny HTML z #68, `static/confidential-crypto.js`, Python verifier v3 z #87 oraz WebCrypto możliwości Chrome/Edge.
+2. Zaimplementuj jedno podpisane, spójne wydanie klienta browser offline-first, zweryfikowane lokalnie; wykorzystaj AWS JS verifier jako punkt wyjścia, ale napraw fail-closed dla debug/PCR/RSA.
+3. Podłącz nonce/job/ciphertext -> NSM proof -> RSA DEK grant; operator-hosted JS nie może decydować o zaufanym kluczu ani certyfikacie.
+4. Dodaj Chrome+Edge E2E, test podmiany podpisu oraz brak plaintext/DEK na sieci; CI i dowód w PR.
+
+**Kod do obejrzenia, nie do kopiowania bez analizy:**
+
+- [AWS Nitro JS verifier MIT-0](https://github.com/aws-samples/sample-nitro-enclaves-attestation-webapp/blob/main/frontend/src/lib/attestationVerifier.js)
+- [AWS HPKE/browser sample MIT-0](https://github.com/aws-samples/sample-nitro-enclaves-attestation-webapp/blob/main/frontend/src/lib/hpkeEncryption.js)
+- [Tinfoil verify-before-send Apache-2.0 — wzorzec tylko](https://github.com/tinfoilsh/tinfoil-js/blob/main/packages/tinfoil/src/internal/verified.ts)
+
+Przed skopiowaniem wybierz SHA/tag, przeczytaj licencję i zapisz notice. Przetestuj regresję i negatywne przypadki z definicji odbioru. Raport końcowy: zmienione pliki, ponownie użyte komponenty, testy PASS/FAIL/BLOCKED, dokładny SHA i link CI, blokady sprzętowe. Brak AWS deploy/realnych aktów bez oddzielnej zgody. **PR planistyczny pozostaje Draft do wykonania.**
