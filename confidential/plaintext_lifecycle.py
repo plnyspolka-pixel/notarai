@@ -125,6 +125,12 @@ def silence_guest_stdio() -> None:
         flags |= os.O_CLOEXEC
     try:
         devnull = os.open("/dev/null", flags)
+        # Stdout/stderr may already have been closed by the container
+        # launcher. In that case os.open() may return 1 or 2. Obtain a
+        # separate descriptor >=3 so the final close cannot close either
+        # redirected standard stream.
+        while devnull < 3:
+            devnull = os.dup(devnull)
         try:
             os.dup2(devnull, 1)
             os.dup2(devnull, 2)
