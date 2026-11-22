@@ -14,6 +14,7 @@ class Element:
     selector: str
     role: str | None = None
     value_mode: str = 'text'  # text or input
+    allow_draft_fill: bool = False  # only after a verified non-persistent test
 
     def __post_init__(self):
         if self.kind not in {'css', 'role', 'uia'} or not self.selector or len(self.selector) > 256:
@@ -33,7 +34,7 @@ class AppProfile:
     start_url: str | None = None
     # Actual Windows target allowed for -a, chosen by trusted provisioner.
     windows_app: str | None = None
-    fields: Mapping[str, Element] = field(default_factory=dict)
+    fields: Mapping[str, Element | tuple[Element, ...]] = field(default_factory=dict)
     allow_http_loopback: bool = False  # test fixture only
 
     def __post_init__(self):
@@ -61,5 +62,7 @@ class AppProfile:
         return True
 
     def field(self, key: str, *, kind: str) -> Element | None:
-        field = self.fields.get(key)
-        return field if field and field.kind in ({'css', 'role'} if kind == 'browser' else {'uia'}) else None
+        defined = self.fields.get(key)
+        options = (defined,) if isinstance(defined, Element) else (defined or ())
+        allowed_kinds = {'css', 'role'} if kind == 'browser' else {'uia'}
+        return next((item for item in options if item.kind in allowed_kinds), None)
