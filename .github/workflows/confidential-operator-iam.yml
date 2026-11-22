@@ -1,0 +1,42 @@
+name: SEC-02 - operator IAM offline controls
+on:
+  pull_request:
+    paths:
+      - 'infra/notarai-confidential-operator-iam.yaml'
+      - 'confidential/operator_iam_controls.py'
+      - 'test_confidential_operator_iam_controls.py'
+      - '.github/workflows/confidential-operator-iam.yml'
+      - 'infra/notarai-confidential-github.yaml'
+  push:
+    branches:
+      - 'plan/confidential-sec-02-operator-iam-org-20261122'
+    paths:
+      - 'infra/notarai-confidential-operator-iam.yaml'
+      - 'confidential/operator_iam_controls.py'
+      - 'test_confidential_operator_iam_controls.py'
+      - '.github/workflows/confidential-operator-iam.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-deny:
+    name: Offline 6 denies and independence gates (NOT live AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test-only dependencies
+        run: python -m pip install pytest PyYAML
+      - name: Exact SEC-02 acceptance command
+        run: python -m pytest -q test_confidential_operator_iam_controls.py
+      - name: Evidence limitations
+        run: |
+          {
+            echo '### SEC-02 synthetic checks only'
+            echo 'No actual IAM/STS denial or AWS account ownership evidence was collected.'
+            echo 'K4/K6 remain BLOCKED pending independent AWS review.'
+            echo 'No AWS deployment, plaintext or AUTO submission.'
+          } >> "$GITHUB_STEP_SUMMARY"
