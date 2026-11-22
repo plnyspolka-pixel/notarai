@@ -226,8 +226,28 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         logGroupNamePrefix=f"notarai-confidential-{tenant}", limit=50
     )
     retention_days = [g.get("retentionInDays") for g in group_page.get("logGroups", [])]
+    # Security metadata alone is not a certification of operator blindness,
+    # legal erasure, or absence of recovered/plaintext copies.
+    evidence_blockers = [
+        "NITRO_ATTESTATION_UNVERIFIED",
+        "LEGAL_RETENTION_APPROVAL_MISSING",
+        "INDEPENDENT_AUDITOR_APPROVAL_MISSING",
+    ]
+    if not all(options.values()):
+        evidence_blockers.append("TASK_RUNTIME_CONTROLS_UNSATISFIED")
+    if versioning != "Enabled":
+        evidence_blockers.append("S3_VERSIONING_NOT_ENABLED")
+    if replication_state in ("unknown", "unverified"):
+        evidence_blockers.append("S3_REPLICATION_UNVERIFIED")
+    if object_lock_state == "unverified":
+        evidence_blockers.append("S3_OBJECT_LOCK_UNVERIFIED")
+    if group_page.get("nextToken"):
+        evidence_blockers.append("CLOUDWATCH_RETENTION_INVENTORY_INCOMPLETE")
     return {
         "scope": "synthetic pilot only",
+        "evidence_status": "BLOCKED_PENDING_INDEPENDENT_REVIEW",
+        "evidence_blockers": evidence_blockers,
+        "task_controls_all_pass": all(options.values()),
         "region": _REGION,
         "account_matched": True,
         "task_controls": options,
