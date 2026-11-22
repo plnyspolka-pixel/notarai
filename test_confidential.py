@@ -172,7 +172,8 @@ def test_form_fill_preview_and_network_allowlist():
         good, bad = Route("https://forms.example.test/script.js"), Route("http://169.254.169.254/latest")
         await page.filter(good)
         await page.filter(bad)
-        assert good.action == "continue" and bad.action == "abort"
+        # AUTO freezes all requests after page load and before filling fields.
+        assert good.action == "abort" and bad.action == "abort"
     asyncio.run(run())
 
 

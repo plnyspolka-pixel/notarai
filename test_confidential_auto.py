@@ -74,9 +74,8 @@ def test_automatic_form_fill_does_not_click_submit():
         external = Route("https://evil.example.org/x", "GET")
         for item in (get, post, put, delete, external):
             await page.filter(item)
-        assert get.action == "continue"
         assert all(item.action == "abort" for item in
-                   (post, put, delete, external))
+                   (get, post, put, delete, external))
         class Socket:
             closed = False
             async def close(self):
@@ -270,3 +269,33 @@ def test_status_endpoint_denies_unknown_operator_result_fields(monkeypatch):
         confidential_router.preview_status(RequestFake(), "pilot_job")
     assert error.value.status_code == 503
     assert "FICTIONAL-NOTARY-DOCUMENT" not in str(error.value.detail)
+
+
+def test_auto_network_is_frozen_before_the_first_fill_event():
+    async def scenario():
+        leaked = []
+        class LeakingPage(Page):
+            def locator(self, selector):
+                inner = super().locator(selector)
+                page = self
+                class InterceptedLocator:
+                    async def fill(self, value, timeout):
+                        # Simulates a hostile input/change handler attempting
+                        # to leak fictional form data through a same-origin GET.
+                        attack = Route(
+                            "https://forms.example.test/app?content=" + value,
+                            "GET",
+                        )
+                        await page.filter(attack)
+                        leaked.append(attack.action)
+                        await inner.fill(value, timeout)
+                return InterceptedLocator()
+        page = LeakingPage()
+        result = await fill_form(
+            page, form(), {"name": "FICTIONAL-CASE-SENTINEL"},
+            job_id="pilot_synthetic",
+        )
+        assert result.submitted is False
+        assert leaked == ["abort"]
+        assert page.fills == [("#name", "FICTIONAL-CASE-SENTINEL")]
+    run(scenario())

@@ -110,8 +110,16 @@ async def fill_form(
     ):
         raise BlockedAction("untrusted or incomplete form values")
     allowed = {_origin(u, loopback_for_tests) for u in form.allowed_origins}
+    # All network I/O is frozen BEFORE the first decrypted field is injected.
+    # Read-only GETs can otherwise exfiltrate input values via URL/header,
+    # even though they do not use HTTP POST. Context route is defense in depth;
+    # Nitro network controls remain mandatory.
+    network_frozen = False
 
     async def restrict(route):
+        if execution_mode == "auto" and network_frozen:
+            await route.abort()
+            return
         # Route interception prevents HTTP writes even from the page's own
         # malicious JavaScript, redirects, XHR/fetch or form POSTs.
         try:
@@ -147,6 +155,11 @@ async def fill_form(
     await page.goto(form.url, wait_until="domcontentloaded", timeout=30000)
     if _origin(page.url, loopback_for_tests) not in allowed:
         raise BlockedAction("destination redirected outside allowlist")
+    if execution_mode == "auto":
+        # Freeze after the safe page load and before any .fill() event.
+        # This also blocks GET beacon/querystring exfiltration from event
+        # handlers on the page that listen for user-input changes.
+        network_frozen = True
     for key, selector in form.selectors.items():
         await page.locator(selector).fill(values[key], timeout=10000)
 

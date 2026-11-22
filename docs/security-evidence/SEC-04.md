@@ -226,3 +226,18 @@ document, inference, URL and free-form fields. A corrupted result
 returns a generic 503, never the offending content. Synthetic
 regression tests mutate status, identity and schema, including an
 endpoint test with an injected fictional document name.
+
+
+## AUTO form input event egress defense
+`confidential/form_engine.py` now freezes ALL Playwright-routed
+HTTP requests in AUTO mode immediately after the allowlisted page
+finishes its initial navigation and **before the first document field
+is filled**. Previously same-origin `GET` requests were still allowed
+after `.fill()`; a hostile form event listener could encode a
+fictional/person-related field in a GET query even with POST blocked.
+The synthetic regression test simulates this network leak on an input
+event and requires `abort`. All previously allowed post-fill GETs
+are now intentionally denied in AUTO. WebSockets remain blocked via
+the existing context route. This is only a browser-level layer:
+other browser channels, local process sockets and VPC egress require
+independent assessment; do not treat it as proof of zero data egress.
