@@ -45,6 +45,8 @@ class DispatcherConfig:
     def validate(self) -> None:
         if not _ACCOUNT.fullmatch(self.account) or not _TENANT.fullmatch(self.tenant):
             raise UnsafeDispatch("invalid pilot identity")
+        if self.tenant not in ("pilot01", "pilot02"):
+            raise UnsafeDispatch("only synthetic pilot tenants are authorized")
         family = f"notarai-confidential-{self.tenant}"
         arn_prefix = f"arn:aws:ecs:{REGION}:{self.account}:task-definition/{family}:"
         if type(self.shared_pool) is not bool:
