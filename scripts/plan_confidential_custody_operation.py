@@ -88,6 +88,30 @@ def plan_operation(*, action: str, tenant: str,
         target["revision"] += 1
     target = validate_state(target)
     suggested_policy = render_kms_policy_target(target)
+    # KMS keys from *earlier* generations survive state rotation. An
+    # independent custodian must deny Decrypt on the outgoing key AND audit
+    # every historical key recorded in the authoritative custody ledger.
+    # The new key stays deny-only throughout ROTATE. One future UNFREEZE
+    # must not re-enable any old ciphertext recipient.
+    policy_targets = []
+    if action == "ROTATE":
+        outgoing = render_kms_policy_target(state)
+        policy_targets.append({
+            "key_arn": state["decrypt_key_arn"],
+            "intent": "RETAIN_DENY_ON_OUTGOING_KEY",
+            "target_policy": outgoing["target_policy"],
+            "target_policy_sha256": outgoing["target_policy_sha256"],
+            "requires_no_grants": True,
+        })
+    policy_targets.append({
+        "key_arn": target["decrypt_key_arn"],
+        "intent": ("DENY_UNTIL_INDEPENDENT_UNFREEZE"
+                   if action == "ROTATE" else
+                   "SET_POLICY_FOR_APPROVED_LIFECYCLE_STATE"),
+        "target_policy": suggested_policy["target_policy"],
+        "target_policy_sha256": suggested_policy["target_policy_sha256"],
+        "requires_no_grants": True,
+    })
     return {
         "schema": "notarai.confidential.custody-plan.v1",
         "unsigned_event_payload": payload,
@@ -95,6 +119,9 @@ def plan_operation(*, action: str, tenant: str,
         "expected_post_state_sha256": canonical_digest(target),
         "expected_kms_policy_sha256": suggested_policy["target_policy_sha256"],
         "proposed_key_policy": suggested_policy["target_policy"],
+        "required_kms_key_policy_targets": policy_targets,
+        "historical_decrypt_key_inventory_complete": False,
+        "historical_keys_effectively_denied_verified": False,
         "expected_signing_key_arn": expected_signer,
         "custodian_independent_signature_required": True,
         "custodian_ledger_compare_and_swap_required": True,
@@ -109,7 +136,9 @@ def plan_operation(*, action: str, tenant: str,
             "KMS policy, all grants and independent ledger revision, then "
             "sign, persist via CAS and apply new KMS controls. For a freeze "
             "or revocation, remove effective Decrypt/grants immediately and "
-            "test denial; application state alone does not revoke KMS."
+            "test denial. During ROTATE, verify BOTH outgoing and incoming "
+            "keys, plus ALL historical decrypt keys from independent ledger; "
+            "application state alone does not revoke KMS."
         ),
     }
 
