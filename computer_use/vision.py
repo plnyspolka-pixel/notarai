@@ -145,6 +145,11 @@ class WindowsDesktop:
         import ctypes
         from ctypes import wintypes
         u32 = ctypes.windll.user32
+        u32.GetForegroundWindow.restype = wintypes.HWND
+        u32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+        u32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        u32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.RECT))
+        u32.GetWindowRect.restype = wintypes.BOOL
         hwnd = u32.GetForegroundWindow()
         if not hwnd:
             raise RuntimeError("no_foreground_window")
@@ -152,6 +157,11 @@ class WindowsDesktop:
         u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
         kernel32 = ctypes.windll.kernel32
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.QueryFullProcessImageNameW.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD))
+        kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
         handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
         if not handle:
             raise RuntimeError("cannot_verify_process")
