@@ -257,12 +257,23 @@ Evidence bundle after authorized isolated AWS test, with sanitized identifiers:
 5. Explicit inability to prove physical RAM wiping or full provider deletion
    must be reported as a limitation, not a PASS.
 
+## Verified offline CI evidence (2026-11-22)
+
+For source SHA `b7ec356bc7c7295144d9b2edeb1bf457a339ed95`, the following GitHub Actions runs all concluded `success`:
+
+- [SEC-10 synthetic privacy](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108781): 66/66 Python tests and separate Linux Docker tmpfs/kernel/stdio job.
+- [General test suite](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108800): success.
+- [Chromium smoke](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108776): success (fictional browser and local image).
+- [Security CI](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108792): success; optional master history checks skipped by their workflow conditions.
+
+**Scope:** These runs are software and local-container evidence only. The audit script ran in `DRY RUN; AWS calls DISABLED` mode. The Nitro-specific K6 tests and external independent audit have **not** been run. Do not extrapolate synthetic PASS to Zero Knowledge certification.
+
 ## Acceptance ledger
 
 | Criterion | Status | Owner | Evidence/next required |
 |---|---|---|---|
 | K1 map of >=10 locations | BLOCKED | Security reviewer | Map above exists; operational AWS inventory and approval missing |
-| K2 six synthetic scenarios | BLOCKED | Engineering / CI | Synthetic tests + read-only auditor committed; must verify current HEAD green CI and limitations |
+| K2 six synthetic scenarios | PASS (offline synthetic scope only) | Engineering / CI | 66/66 tests passed on `b7ec356b`; Linux read-only/tmpfs smoke passed. [SEC-10 CI run 44984108781](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108781). No live Nitro, AWS retention or hardware crash proof; K3/K6 remain blocked |
 | K3 no persistent plaintext | BLOCKED | AWS operations | Static controls exist; actual guest/S3/snapshots audit missing |
 | K4 legally approved exact retention | BLOCKED | Controller / counsel / AWS | Template periods known; CloudTrail/LLM/PITR and legal approvals missing |
 | K5 recovery without operator backdoor | BLOCKED | Independent custodian | Negative static tests added; actual signed recovery/revocation not proven |
