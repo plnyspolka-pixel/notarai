@@ -34,7 +34,8 @@ def audit(*, profile: str, account: str, tenant: str,
     if session_factory is None:
         import boto3
         session_factory = boto3.Session
-    session = session_factory(profile_name=profile, region_name="eu-central-1")
+    session = session_factory(profile_name=None if profile == "environment" else profile,
+        region_name="eu-central-1")
     if session.client("sts").get_caller_identity().get("Account") != account:
         raise RuntimeError("unexpected AWS account")
     stage = session.client("cloudformation").describe_stacks(

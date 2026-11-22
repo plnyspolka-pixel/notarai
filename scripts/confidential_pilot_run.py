@@ -21,15 +21,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from confidential.pilot_preflight import validate_preflight
 
 _REGION = "eu-central-1"
+ENVIRONMENT_PROFILE = "environment"  # credentials from the environment (CI, session proxy)
 _ACCOUNT = re.compile(r"\d{12}")
 _TENANT = re.compile(r"[a-z0-9]{1,12}")
 _SUBNET = re.compile(r"subnet-(?:[0-9a-f]{8}|[0-9a-f]{17})")
 _JOB = re.compile(r"[0-9a-f]{32}")
 
 
+def _profile_args(profile: str) -> list[str]:
+    return [] if profile == ENVIRONMENT_PROFILE else ["--profile", profile]
+
+
 def aws(profile: str, args: list[str], timeout: int = 90) -> dict:
     result = subprocess.run(
-        ["aws", *args, "--profile", profile, "--region", _REGION,
+        ["aws", *args, *_profile_args(profile), "--region", _REGION,
          "--output", "json", "--no-cli-pager"],
         capture_output=True, text=True, check=True, timeout=timeout
     )
@@ -86,7 +91,9 @@ def _verified_pcr17(profile: str, task_arn: str,
         if not envelope or envelope != registered.strip():
             raise RuntimeError("registered attestation policy differs from generator output")
         return _pcr17_from_generator_output(pcrs)
-    env = dict(os.environ, AWS_PROFILE=profile, AWS_DEFAULT_REGION=_REGION)
+    env = dict(os.environ, AWS_DEFAULT_REGION=_REGION)
+    if profile != ENVIRONMENT_PROFILE:
+        env["AWS_PROFILE"] = profile
     with tempfile.TemporaryDirectory() as tmp:
         local = Path(tmp) / "registered-taskdef.json"
         local.write_text(json.dumps(described), "utf-8")
@@ -284,7 +291,7 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
     # AWS waiter requires additional time; never busy-loop indefinitely.
     subprocess.run(
         ["aws", "ecs", "wait", "tasks-stopped", "--cluster", compute, "--tasks", arn,
-         "--profile", profile, "--region", _REGION, "--no-cli-pager"],
+         *_profile_args(profile), "--region", _REGION, "--no-cli-pager"],
         check=True, capture_output=True, text=True, timeout=900,
     )
     report = aws(profile, [
@@ -297,7 +304,9 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
     if codes != [0]:
         raise RuntimeError("confidential guest did not complete successfully")
     import boto3
-    sess = boto3.Session(profile_name=profile, region_name=_REGION)
+    sess = boto3.Session(
+        profile_name=None if profile == ENVIRONMENT_PROFILE else profile,
+        region_name=_REGION)
     bucket = stage["BucketName"]
     key = f"kancelarie/{tenant}/confidential-results/{job_id}.json"
     object_response = sess.client("s3").get_object(Bucket=bucket, Key=key)
