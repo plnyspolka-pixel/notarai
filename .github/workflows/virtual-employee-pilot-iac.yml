@@ -1,0 +1,54 @@
+name: NotarAI Virtual Employee - IaC tests (no AWS deployment)
+on:
+  pull_request:
+    paths:
+      - 'infra/virtual-employee/**'
+      - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'tests/test_virtual_employee_iac.py'
+      - '.github/workflows/virtual-employee-pilot-iac.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'infra/virtual-employee/**'
+      - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'tests/test_virtual_employee_iac.py'
+      - '.github/workflows/virtual-employee-pilot-iac.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cfn-lint pyyaml pytest
+      - run: cfn-lint infra/virtual-employee/notarai-virtual-employee-pilot.yaml
+      - run: python -m pytest -q tests/test_virtual_employee_iac.py
+  powershell:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts, no execution
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem infra/virtual-employee -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
+          }
+  agent-smoke-build:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile read-only UIA3 probe (no interactive execution)
+        run: dotnet build agent/NotarAI.VirtualEmployee.Probe/NotarAI.VirtualEmployee.Probe.csproj -c Release --nologo
