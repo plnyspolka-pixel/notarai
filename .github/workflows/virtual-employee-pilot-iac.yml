@@ -77,7 +77,7 @@ jobs:
           $fields = @('notarai-ve/v1', '1', $job.tenantId, $job.jobId, $job.operation,
                       [string]$job.issuedAtUnix, [string]$job.expiresAtUnix, $job.nonce)
           $bytes = [Text.Encoding]::UTF8.GetBytes([string]::Join("`n", [string[]]$fields))
-          $hmac = New-Object Security.Cryptography.HMACSHA256 -ArgumentList (, $key)
+          $hmac = [Security.Cryptography.HMACSHA256]::new($key)
           try { $actual = [BitConverter]::ToString($hmac.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() }
           finally { $hmac.Dispose(); [Array]::Clear($key, 0, $key.Length) }
           if ($actual -ne $job.signature) { throw 'Windows PowerShell signer invalid' }
