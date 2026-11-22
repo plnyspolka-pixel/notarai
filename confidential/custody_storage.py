@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 ACCOUNT = re.compile(r"^[0-9]{12}$")
 BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{2,62}$")
@@ -196,3 +197,55 @@ def read_only_inventory(session, *, bucket: str, custody_account: str) -> tuple[
         raise
     except Exception:
         raise StorageAuditRejected("independent read-only AWS inventory unavailable") from None
+
+
+
+def read_only_fixture_retention(session, *, bucket: str,
+                                custody_account: str, fixture_key: str,
+                                fixture_version: str,
+                                clock: datetime | None = None) -> dict[str, bool]:
+    """Read-only confirmation that the exact synthetic version exists and is locked.
+
+    Required before performing permission denial probes. Never read object
+    bytes; do not include the key/version or raw metadata in the result.
+    """
+    from confidential.custody_denial_probe import SYNTHETIC_KEY, VERSION
+
+    if not isinstance(fixture_key, str) or not SYNTHETIC_KEY.fullmatch(fixture_key):
+        raise StorageAuditRejected("invalid synthetic fixture key")
+    if (not isinstance(fixture_version, str) or
+            not VERSION.fullmatch(fixture_version) or fixture_version == "null"):
+        raise StorageAuditRejected("invalid synthetic fixture version")
+    if not isinstance(custody_account, str) or not ACCOUNT.fullmatch(custody_account):
+        raise StorageAuditRejected("invalid custody account")
+    if not isinstance(bucket, str) or not BUCKET.fullmatch(bucket):
+        raise StorageAuditRejected("invalid evidence bucket")
+    now = clock or datetime.now(timezone.utc)
+    if not isinstance(now, datetime) or now.tzinfo is None:
+        raise StorageAuditRejected("aware UTC clock required")
+    try:
+        identity = session.client("sts").get_caller_identity()
+        if identity.get("Account") != custody_account:
+            raise StorageAuditRejected("independent custodian identity required")
+        s3 = session.client("s3", region_name="eu-central-1")
+        args = {
+            "Bucket": bucket, "Key": fixture_key,
+            "VersionId": fixture_version, "ExpectedBucketOwner": custody_account,
+        }
+        s3.head_object(**args)
+        response = s3.get_object_retention(**args)
+        retention = response.get("Retention", {})
+        until = retention.get("RetainUntilDate")
+        locked = (
+            retention.get("Mode") == "COMPLIANCE" and
+            isinstance(until, datetime) and until.tzinfo is not None and
+            until.astimezone(timezone.utc) > now.astimezone(timezone.utc)
+        )
+        return {
+            "fixture_version_exists": True,
+            "fixture_compliance_lock_active": bool(locked),
+        }
+    except StorageAuditRejected:
+        raise
+    except Exception:
+        raise StorageAuditRejected("synthetic fixture retention inspection unavailable") from None
