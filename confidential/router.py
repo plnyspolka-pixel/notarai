@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.document_authenticity import canonical_origin_receipt, UntrustedDocumentOrigin
 from confidential.document_registry import DocumentVersionRegistry, DocumentRegistryDenied
 from confidential.auto_mode import DEFAULT_AUTO, UnsafeAutoRequest, validate_preview_options
 from confidential.job_ledger import PreviewJobLedger, JobRejected, validate_version_id
@@ -44,6 +45,11 @@ def _key(tenant: str, case_id: str, object_id: str) -> str:
     if not _ID.fullmatch(case_id) or not _ID.fullmatch(object_id):
         raise HTTPException(400, "Nieprawidlowy identyfikator.")
     return "kancelarie/" + tenant + "/confidential/" + case_id + "/" + object_id + ".json"
+
+
+def _origin_key(tenant: str, case_id: str, object_id: str) -> str:
+    _key(tenant, case_id, object_id)  # scope validation
+    return f"kancelarie/{tenant}/confidential/{case_id}/{object_id}.origin.json"
 
 
 def _bucket() -> str:
@@ -171,6 +177,81 @@ async def store(request: Request, case_id: str, object_id: str):
     )
 
 
+@router.put("/origin-receipts/{case_id}/{object_id}")
+async def store_origin_receipt(request: Request, case_id: str, object_id: str):
+    """Store an independently signed, immutable receipt, NOT signing material.
+
+    Operator web backend cannot issue origin signatures. Guest verifies an
+    image-pinned independent signing key before any KMS unwrap.
+    """
+    import base64
+    import magazyn
+    tenant = _scope(request)
+    ciphertext_key = _key(tenant, case_id, object_id)
+    raw = bytearray()
+    async for part in request.stream():
+        if len(raw) + len(part) > 8192:
+            raise HTTPException(413, "Podpis pochodzenia jest za duzy.")
+        raw.extend(part)
+    try:
+        bundle = _strict_envelope_json(bytes(raw))
+        if (not isinstance(bundle, dict) or set(bundle) !=
+                {"schema", "receipt", "signature_b64"} or
+                bundle["schema"] != "notarai.signed-origin-receipt.v1"):
+            raise ValueError("wrong signature bundle")
+        canonical_origin_receipt(bundle["receipt"])
+        sig = base64.b64decode(bundle["signature_b64"], validate=True)
+        if len(sig) != 64:
+            raise ValueError("invalid origin signature length")
+        # Preserve exactly the signed bundle; issuer key is not provided by
+        # any request field and only the pinned Nitro release can verify it.
+        encoded = bytes(raw)
+    except (ValueError, TypeError, UntrustedDocumentOrigin, KeyError):
+        raise HTTPException(400, "Nieprawidlowe potwierdzenie pochodzenia.") from None
+    finally:
+        raw.clear()
+    receipt = bundle["receipt"]
+    if (receipt["tenant_id"], receipt["case_id"], receipt["object_id"],
+            receipt["kms_key_arn"], receipt["key_pin"]) != (
+        tenant, case_id, object_id, _approved_key(),
+        _approved_public_key_pin(),
+    ):
+        raise HTTPException(403, "Potwierdzenie pochodzi od innej kancelarii.")
+    s3 = magazyn._klient_s3()
+    try:
+        head = s3.head_object(Bucket=_bucket(), Key=ciphertext_key)
+        actual_s3 = validate_version_id(head.get("VersionId"))
+        md = head.get("Metadata") or {}
+        if (receipt["document_version"] != md.get("document-version")
+                or receipt["ciphertext_sha256"] != md.get("content-sha256")
+                or receipt["s3_version"] != actual_s3):
+            raise DocumentRegistryDenied("receipt differs from exact S3 version")
+        _registry(tenant).require_stored(
+            case_id=case_id, object_id=object_id,
+            document_version=receipt["document_version"],
+            ciphertext_sha256=receipt["ciphertext_sha256"],
+            s3_version=actual_s3, key_pin=receipt["key_pin"],
+        )
+    except (DocumentRegistryDenied, JobRejected):
+        raise HTTPException(409, "Podpis nie odpowiada zapisanej wersji.") from None
+    except Exception:
+        raise HTTPException(503, "Weryfikacja dokumentu chwilowo niedostepna.") from None
+    try:
+        s3.put_object(
+            Bucket=_bucket(), Key=_origin_key(tenant, case_id, object_id),
+            Body=encoded, ContentType="application/json", IfNoneMatch="*",
+            **magazyn._szyfrowanie(),
+        )
+    except Exception as exc:
+        if (getattr(exc, "response", {}) or {}).get("Error", {}).get("Code") in (
+            "PreconditionFailed", "ConditionalRequestConflict",
+        ):
+            raise HTTPException(409, "Potwierdzenie pochodzenia juz istnieje.") from None
+        raise HTTPException(503, "Nie udalo sie zapisac podpisu pochodzenia.") from None
+    return JSONResponse({"stored": True, "signature_verified": False},
+                        headers={"Cache-Control": "no-store"})
+
+
 @router.get("/policy")
 def automatic_policy(request: Request):
     """Read-only server policy for a signed-in confidential pilot tenant.
@@ -228,6 +309,18 @@ async def queue_preview(request: Request, case_id: str, object_id: str):
     if (not re.fullmatch(r"[a-f0-9]{32}", metadata_s3.get("document-version", ""))
             or not re.fullmatch(r"[a-f0-9]{64}", metadata_s3.get("content-sha256", ""))):
         raise HTTPException(503, "Brak silnego wiazania wersji zaszyfrowanego dokumentu.")
+    # Avoid burning the one-use preview token when no signed receipt is
+    # present. This is only an existence precheck; the guest validates the
+    # Ed25519 signature against its independently pinned root.
+    try:
+        sidecar_head = magazyn._klient_s3().head_object(
+            Bucket=_bucket(), Key=_origin_key(tenant, case_id, object_id),
+        )
+        size = sidecar_head.get("ContentLength", 0)
+        if type(size) is not int or not 0 < size <= 8192:
+            raise ValueError("missing or oversized origin receipt")
+    except Exception:
+        raise HTTPException(409, "Brak podpisanego potwierdzenia pochodzenia.") from None
     try:
         _registry(tenant).claim_preview(
             case_id=case_id, object_id=object_id,
