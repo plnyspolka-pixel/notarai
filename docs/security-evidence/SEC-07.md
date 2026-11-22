@@ -156,3 +156,18 @@ Pliki `.b64` z podpisami oraz niezależnie zweryfikowane klucze publiczne PEM pr
 **Pozostałe dowody sprzętowe:** rzeczywiste uruchomienie zaufanego ECS Managed Instances `CONFIDENTIAL_SANDBOX`; polityka wygenerowana i zweryfikowana `ecs-nitro-sandbox-genpolicy --check`; przypięty digest obrazu, PCR17 i klucz KMS z `PCR8:ServiceName=ecs.amazonaws.com`; rzeczywisty wynik no-submit; CloudTrail z obu kont; niezależnie zatwierdzony release; administracyjny brak kontroli NotarAI nad kontem kustosza.
 
 Dokumentacja AWS: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html i https://docs.aws.amazon.com/kms/latest/developerguide/ct-nitro-enclave.html.
+
+## Kustosz i operator — rozdzielenie AWS Organizations
+
+Dwa różne identyfikatory kont nie oznaczają niezależności zarządzania. Narzędzie `scripts/check_nitro_org_separation.py` wyłącznie **odczytuje** STS `GetCallerIdentity` oraz AWS Organizations `DescribeOrganization` dla dwóch audytorskich profili. W trybie `--check` nie kontaktuje się z AWS i kończy `BLOCKED` / exit 2. Przykład read-only:
+
+```bash
+python scripts/check_nitro_org_separation.py --verify-live \
+  --matrix /secure/negative-matrix.json \
+  --operator-profile AUDITOR_WORKLOAD_RO \
+  --custody-profile AUDITOR_CUSTODY_RO
+```
+
+Jeśli obie strony należą do **tej samej** AWS Organization, kontrola kończy się odmową. Konta należące do różnych organizacji (lub standalone) mogą spełniać ten pojedynczy warunek architektoniczny, ale **to nie dowodzi** niezależnych administratorów, braku możliwości `AssumeRole`, dostępu do root, kontroli nad credential brokerem ani odrębnego beneficjenta ostatecznego. Narzędzie zwraca stale `status=BLOCKED`, `zero_operator_access_proven=false`, `hardware_attestation_verified=false`. W raporcie publikowane są wyłącznie skróty SHA256 identyfikatorów Organization, nie pełne identyfikatory.
+
+Dodatkowe wymagane dowody poza kodem: niezależny właściciel root obu kont, MFA i kontrola ról organizacyjnych, przegląd uprawnień IAM Identity Center/STS trust, ścieżka eskalacji AWS Support oraz legalny i organizacyjny rozdział administracji. Oświadczenia i pliki z dostępem nie powinny trafić do GitHub. Brak zgodności tych warunków pozostawia K4–K6 w statusie BLOCKED.
