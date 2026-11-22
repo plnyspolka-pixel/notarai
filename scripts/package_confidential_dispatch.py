@@ -17,6 +17,9 @@ SOURCES = (
     "confidential/__init__.py",
     "confidential/dispatch.py",
     "confidential/dispatch_lambda.py",
+    # The dispatcher asks the scaler module whether shared endpoints are ready.
+    "confidential/fabric_scaler.py",
+    "confidential/fabric_scaler_lambda.py",
 )
 
 

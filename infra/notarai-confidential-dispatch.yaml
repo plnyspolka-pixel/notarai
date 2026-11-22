@@ -44,6 +44,24 @@ Parameters:
   GuestSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
     Description: Pilot Nitro task security group - egress to be tightened
+  SharedVpcId:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^vpc-(?:[0-9a-f]{8}|[0-9a-f]{17})$"
+    Description: >-
+      SharedCompute only - the shared fabric VPC. The dispatcher starts no
+      Nitro host until its on-demand Interface endpoints are available.
+Rules:
+  SharedComputeNamesItsVpc:
+    RuleCondition: !Equals [!Ref SharedCompute, "true"]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref SharedVpcId, ""]]
+        AssertDescription: SharedCompute=true requires SharedVpcId
+  TenantPoolNamesNoVpc:
+    RuleCondition: !Equals [!Ref SharedCompute, "false"]
+    Assertions:
+      - Assert: !Equals [!Ref SharedVpcId, ""]
+        AssertDescription: SharedVpcId is only for SharedCompute=true
 Conditions:
   EnableScheduler: !Equals [!Ref DispatchEnabled, "true"]
   UseSharedPool: !Equals [!Ref SharedCompute, "true"]
@@ -109,6 +127,10 @@ Resources:
                   - ecs:DescribeCapacityProviders
                   - ecs:DescribeTasks
                 Resource: "*"
+              - Sid: ReadSharedEndpointReadiness
+                Effect: Allow
+                Action: ec2:DescribeVpcEndpoints
+                Resource: "*"
               - Sid: StartOnlyPinnedTask
                 Effect: Allow
                 Action: ecs:RunTask
@@ -157,6 +179,7 @@ Resources:
             - notarai-confidential-shared
             - !Sub "notarai-confidential-${TenantId}"
           NOTARAI_SHARED_POOL: !Ref SharedCompute
+          NOTARAI_FABRIC_VPC: !Ref SharedVpcId
           NOTARAI_TASK_DEFINITION_ARN: !Ref TaskDefinitionArn
           NOTARAI_WORK_QUEUE_URL: !Ref WorkQueueUrl
           NOTARAI_PRIVATE_SUBNET: !Ref PrivateSubnetId

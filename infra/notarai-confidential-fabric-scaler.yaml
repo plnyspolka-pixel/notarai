@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NotarAI confidential shared fabric - on-demand switch for the seven hourly
+  billed core Interface endpoints. Turns them on while any listed tenant has
+  queued or running synthetic work and off again when idle. Disabled by
+  default. It can change ONE parameter of ONE stack and nothing else.
+Parameters:
+  ScalerEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: Explicit operator opt-in. "false" keeps the schedule disabled and the function inert.
+  Tenants:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}(,[a-z0-9]{1,12}){0,49}$"
+    Description: Comma separated tenant ids whose FIFO work queues are watched
+  MinOnSeconds:
+    Type: Number
+    Default: 3000
+    MinValue: 0
+    MaxValue: 86400
+    Description: Endpoints stay at least this long once enabled (the started hour is billed anyway)
+  CodeBucket:
+    Type: String
+    Description: Operator-controlled artifact bucket in eu-central-1
+  CodeKey:
+    Type: String
+    Description: Immutable digest-named zip from scripts/package_confidential_dispatch.py
+Conditions:
+  EnableSchedule: !Equals [!Ref ScalerEnabled, "true"]
+Resources:
+  ScalerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-confidential-fabric-scaler
+      Description: NotarAI confidential - may only flip the shared endpoint switch through CloudFormation
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: notarai-confidential-fabric-scaler-minimum
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ObserveTenantWorkQueues
+                Effect: Allow
+                Action: sqs:GetQueueAttributes
+                Resource: !Sub "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-*.fifo"
+              - Sid: ObserveSharedGuests
+                Effect: Allow
+                Action: ecs:ListTasks
+                Resource: "*"
+                Condition:
+                  ArnEquals:
+                    ecs:cluster: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+              - Sid: FlipOnlyTheSharedFabricStack
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:UpdateStack
+                Resource: !Sub "arn:aws:cloudformation:eu-central-1:${AWS::AccountId}:stack/notarai-confidential-shared-fabric/*"
+              # CloudFormation acts with the caller's permissions. These are
+              # usable ONLY through CloudFormation, never by the function
+              # calling EC2 directly, and cover endpoints only - no routes,
+              # gateways, security groups, subnets or instances.
+              - Sid: EndpointChangesOnlyViaCloudFormation
+                Effect: Allow
+                Action:
+                  - ec2:CreateVpcEndpoint
+                  - ec2:DeleteVpcEndpoints
+                  - ec2:CreateTags
+                  - ec2:DeleteTags
+                  - route53:AssociateVPCWithHostedZone
+                Resource: "*"
+                Condition:
+                  "ForAnyValue:StringEquals":
+                    aws:CalledVia: cloudformation.amazonaws.com
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+              - Sid: ReadNetworkStateForCloudFormation
+                Effect: Allow
+                Action:
+                  - ec2:DescribeVpcEndpoints
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeRouteTables
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribePrefixLists
+                  - ec2:DescribeAvailabilityZones
+                Resource: "*"
+  ScalerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: notarai-confidential-fabric-scaler
+      Description: Shared Interface endpoints on only while synthetic work exists. No data access.
+      Runtime: python3.12
+      Handler: confidential.fabric_scaler_lambda.handler
+      Role: !GetAtt ScalerRole.Arn
+      MemorySize: 192
+      Timeout: 50
+      Architectures: [x86_64]
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          NOTARAI_FABRIC_SCALER_ENABLED: !Ref ScalerEnabled
+          NOTARAI_ACCOUNT: !Ref AWS::AccountId
+          NOTARAI_TENANTS: !Ref Tenants
+          NOTARAI_MIN_ON_SECONDS: !Ref MinOnSeconds
+      Tags:
+        - Key: Purpose
+          Value: NotarAI-synthetic-Nitro-pilot
+  ScalerSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-confidential-fabric-scaler
+      Description: Endpoint switch tick - on with work, off when idle
+      ScheduleExpression: "rate(1 minute)"
+      State: !If [EnableSchedule, ENABLED, DISABLED]
+      Targets:
+        - Id: FabricScaler
+          Arn: !GetAtt ScalerFunction.Arn
+          Input: '{"source":"notarai.confidential.fabric"}'
+  AllowEventBridgeScaler:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ScalerFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScalerSchedule.Arn
+Outputs:
+  ScalerFunctionArn:
+    Value: !GetAtt ScalerFunction.Arn
+  ScalerScheduleRule:
+    Value: !Ref ScalerSchedule

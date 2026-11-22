@@ -41,6 +41,8 @@ class DispatcherConfig:
     security_group: str
     lease_table: str
     shared_pool: bool = False
+    # Shared fabric only: the VPC whose on-demand endpoints must be ready.
+    fabric_vpc: str = ""
 
     def validate(self) -> None:
         if not _ACCOUNT.fullmatch(self.account) or not _TENANT.fullmatch(self.tenant):
@@ -61,6 +63,10 @@ class DispatcherConfig:
             raise UnsafeDispatch("invalid private networking identifiers")
         if self.lease_table != f"notarai-confidential-dispatch-{self.tenant}":
             raise UnsafeDispatch("unapproved lease ledger")
+        if self.shared_pool != bool(self.fabric_vpc) or (
+                self.fabric_vpc and not re.fullmatch(
+                    r"vpc-(?:[0-9a-f]{8}|[0-9a-f]{17})", self.fabric_vpc)):
+            raise UnsafeDispatch("shared fabric VPC must be named exactly for shared compute")
 
 
 def _verify_task(ecs, config: DispatcherConfig) -> None:
@@ -205,7 +211,7 @@ def _release_finished_lease(ecs, dynamodb, config: DispatcherConfig,
 
 
 def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
-                  clock=time.time, token_factory=None) -> str:
+                  clock=time.time, token_factory=None, ec2=None) -> str:
     """Launch at most one verified, unmodified preview guest per lease.
 
     One SQS FIFO work queue stays owned by the guest, not the scheduler.
@@ -223,6 +229,20 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
         raise UnsafeDispatch("unknown work queue depth")
     if int(depth) == 0:
         return "idle"
+
+    if config.shared_pool:
+        # The shared Interface endpoints exist only while there is work
+        # (confidential.fabric_scaler). Without them a Nitro host cannot
+        # register with ECS, so wait instead of starting a paid instance.
+        from confidential.fabric_scaler import endpoints_ready
+        if ec2 is None:
+            raise UnsafeDispatch("shared fabric readiness cannot be verified")
+        try:
+            ready = endpoints_ready(ec2, config.fabric_vpc)
+        except Exception:
+            raise UnsafeDispatch("shared fabric readiness cannot be verified") from None
+        if not ready:
+            return "fabric_warming"
 
     _verify_task(ecs, config)
     if _active_guest_count(ecs, config):

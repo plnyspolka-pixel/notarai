@@ -29,6 +29,34 @@ OPTIONAL = {
 }
 
 
+FABRIC_VPC = "vpc-0123456789abcdef0"
+
+
+class EndpointsFake:
+    """EC2 DescribeVpcEndpoints for the shared VPC."""
+
+    def __init__(self, *, missing=(), state="available", private_dns=True,
+                 kind="Interface", paged=False, broken=False):
+        self.missing, self.state, self.private_dns = set(missing), state, private_dns
+        self.kind, self.paged, self.broken = kind, paged, broken
+        self.calls = 0
+
+    def describe_vpc_endpoints(self, **kwargs):
+        self.calls += 1
+        assert kwargs == {"Filters": [{"Name": "vpc-id", "Values": [FABRIC_VPC]}]}
+        if self.broken:
+            raise RuntimeError("synthetic EC2 failure")
+        items = [{
+            "VpcId": FABRIC_VPC, "VpcEndpointType": self.kind,
+            "State": self.state, "PrivateDnsEnabled": self.private_dns,
+            "ServiceName": "com.amazonaws.eu-central-1." + name,
+        } for name in sorted(REQUIRED - self.missing)]
+        items += [{"VpcId": FABRIC_VPC, "VpcEndpointType": "Gateway",
+                   "State": "available",
+                   "ServiceName": "com.amazonaws.eu-central-1.s3"}]
+        return {"VpcEndpoints": items, **({"NextToken": "x"} if self.paged else {})}
+
+
 def template(filename):
     return yaml.load((ROOT / filename).read_text("utf-8"),
                      Loader=CloudFormationLoader)
@@ -152,7 +180,7 @@ def test_one_managed_instance_pool_and_distinct_notarial_guest_roles():
 
 def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
     c = replace(config(), cluster=SHARED, capacity_provider=SHARED,
-                shared_pool=True)
+                shared_pool=True, fabric_vpc=FABRIC_VPC)
     c.validate()
     assert c.task_definition_arn.endswith(FAMILY + ":12")
     assert c.queue_url.endswith(FAMILY + ".fifo")
@@ -200,10 +228,36 @@ def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
             }], "failures": []}
 
     ecs = SharedECS()
+    # Shared endpoints are on demand: while they are missing, starting, or the
+    # inventory cannot be read, the dispatcher must not start a paid Nitro host.
+    for not_ready in (EndpointsFake(missing={"kms"}),
+                      EndpointsFake(state="pending"),
+                      EndpointsFake(private_dns=False),
+                      EndpointsFake(kind="Gateway")):
+        ledger = DynamoFake()
+        assert dispatch_once(c, sqs=SQSFake(), ecs=ecs, dynamodb=ledger,
+                             clock=lambda: 1000, token_factory=lambda: "a" * 32,
+                             ec2=not_ready) == "fabric_warming"
+        assert ecs.calls == [] and ledger.put_calls == 0
+    for unverifiable in (None, EndpointsFake(paged=True), EndpointsFake(broken=True)):
+        with pytest.raises(UnsafeDispatch):
+            dispatch_once(c, sqs=SQSFake(), ecs=ecs, dynamodb=DynamoFake(),
+                          clock=lambda: 1000, token_factory=lambda: "a" * 32,
+                          ec2=unverifiable)
+        assert ecs.calls == []
+    # No work: no endpoint lookup at all, and nothing is started.
+    assert dispatch_once(c, sqs=SQSFake(count=0), ecs=ecs, dynamodb=DynamoFake(),
+                         ec2=None) == "idle"
     result = dispatch_once(c, sqs=SQSFake(), ecs=ecs, dynamodb=DynamoFake(),
-                           clock=lambda: 1000, token_factory=lambda: "a" * 32)
+                           clock=lambda: 1000, token_factory=lambda: "a" * 32,
+                           ec2=EndpointsFake())
     assert result == "launched"
     assert len(ecs.calls) == 1
+    for bad_vpc in ("", "vpc-zzzz", "subnet-0123456789abcdef0"):
+        with pytest.raises(UnsafeDispatch):
+            replace(c, fabric_vpc=bad_vpc).validate()
+    with pytest.raises(UnsafeDispatch):  # tenant-own pool must not name one
+        replace(config(), fabric_vpc=FABRIC_VPC).validate()
     wrong = replace(c, task_definition_arn=c.task_definition_arn.replace(
         "pilot01", "other"))
     with pytest.raises(UnsafeDispatch):

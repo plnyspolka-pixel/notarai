@@ -30,6 +30,7 @@ def handler(event, context):
         security_group=os.environ["NOTARAI_INSTANCE_SECURITY_GROUP"],
         lease_table=os.environ["NOTARAI_LEASE_TABLE"],
         shared_pool=os.environ.get("NOTARAI_SHARED_POOL", "false") == "true",
+        fabric_vpc=os.environ.get("NOTARAI_FABRIC_VPC", ""),
     )
     session = boto3.session.Session(region_name="eu-central-1")
     try:
@@ -38,6 +39,7 @@ def handler(event, context):
             sqs=session.client("sqs"),
             ecs=session.client("ecs"),
             dynamodb=session.client("dynamodb"),
+            ec2=session.client("ec2") if config.shared_pool else None,
         )
     except Exception:
         # Avoid logging exception text (request/queue identifiers).
