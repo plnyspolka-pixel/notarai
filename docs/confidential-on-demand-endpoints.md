@@ -1,8 +1,13 @@
 # Endpointy Interface na żądanie (shared fabric)
 
-Stan: kod, szablon i testy są na gałęzi; **nic z tego nie jest wdrożone**
-i nie było jeszcze sprawdzone na żywo. Pierwsze uruchomienie wymaga
-obserwacji (patrz „Do sprawdzenia na żywo”).
+Stan na 22.11.2026: stack `notarai-confidential-fabric-scaler` jest wdrożony
+z `ScalerEnabled=false` (harmonogram DISABLED). Jeden pełny cykl przeszedł na
+żywo: po zakolejkowaniu fikcyjnego zlecenia automat w ok. 1,5 minuty włączył
+siedem endpointów, task Nitro zakończył się `preview_completed`, a po
+opróżnieniu kolejki automat sam je usunął (ok. 3 minuty). Uprawnienia roli
+okazały się wystarczające. Automat pozostaje wyłączony, dopóki nie da się
+wdrożyć schedulera tenantów (limit współbieżności Lambda): sam automat bez
+schedulera włączyłby endpointy i trzymał je do wygaśnięcia wiadomości.
 
 ## Po co
 
@@ -54,13 +59,13 @@ Wyłączenie endpointów nie odsłania danych; to wyłącznie decyzja kosztowa.
 5. Stacki `notarai-confidential-dispatch-<tenant>` z `SharedCompute=true`
    wymagają teraz `SharedVpcId`.
 
-## Do sprawdzenia na żywo
+## Jeszcze niesprawdzone na żywo
 
-- Czy lista akcji EC2/Route 53 dla CloudFormation wystarcza do utworzenia
-  endpointu z prywatnym DNS (zestaw przyjęty z dokumentacji, niezweryfikowany).
-- Czas od zmiany parametru do `available` dla wszystkich siedmiu endpointów.
-- Zachowanie przy zleceniu, które przychodzi w chwili wyłączania: task może
-  nie wystartować, lease schedulera trzyma 15 minut, potem ponowna próba.
+- Współpraca ze schedulerem tenantów (`fabric_warming`), bo scheduler nie
+  jest wdrożony.
+- Zlecenie przychodzące w chwili wyłączania endpointów.
+- Automat nie czeka na wyrejestrowanie hosta Nitro przed usunięciem
+  endpointów; w cyklu próbnym host zniknął sam, ale warto to dopisać.
 
 ## Znane ograniczenia
 
