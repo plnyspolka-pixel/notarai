@@ -310,6 +310,7 @@ def test_recovery_with_two_external_signers_but_no_plaintext_export():
         "document_version": "a" * 32,
         "old_key_arn": ARN,
         "new_key_arn": ARN.replace("fictional", "successor"),
+        "new_key_sha256": keys[1],
         "request_id": "b" * 32, "expires_at": 2000000000,
     }
     message = canonical_recovery_request(req)
@@ -332,11 +333,13 @@ def test_recovery_with_two_external_signers_but_no_plaintext_export():
         {"custodian_signature": b""},
         {"custodian_public_key": pub(signer_b)},
         {"request": {**req, "tenant_id": "pilot02"}},
+        {"request": {**req, "new_key_sha256": "B" * 43 + "="}},
     )
     for change in denied:
         with pytest.raises(RecoveryDenied):
             authorize_recovery(**{**valid, **change})
-    revoke = {**req, "action": "revoke", "new_key_arn": ""}
+    revoke = {**req, "action": "revoke", "new_key_arn": "",
+              "new_key_sha256": ""}
     revoke_message = canonical_recovery_request(revoke)
     assert authorize_recovery(**{**valid,
         "request": revoke,
