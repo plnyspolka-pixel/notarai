@@ -205,3 +205,51 @@ a identyfikator jest w wydzielonej przestrzeni sec11-fixture/.
 Niezależny audytor koreluje wyniki konta kustosza z operatorem poprzez
 SHA manifestu, ten sam bucket/version, UTC i CloudTrail; sam skrypt
 celowo nie podnosi zero_operator_access_proven do true.
+
+
+## Weryfikacja podpisanej paczki we wskazanej wersji WORM (bez zapisu AWS)
+
+Dodatkowy moduł: confidential/evidence_archive.py, testy
+test_confidential_evidence_archive.py. Komenda audytora:
+scripts/audit_confidential_archive_version.py. Stan: kod i testy
+syntetyczne, NIE PRZEPROWADZONO audytu rzeczywistego konta.
+
+Obiekt musi znajdować się pod ściśle ograniczonym kluczem:
+sec11-evidence/<tenant>/<sequence:08d>.json. Skrypt wymaga dokładnego
+S3 VersionId, niezależnie zachowanego SHA-256 **całej podpisanej paczki**
+oraz osobno SHA-256 HEAD samego kanonicznego manifestu. Te hashe są
+RÓŻNE. Dodatkowo niezależny klucz publiczny RAW Ed25519 (32 bajty)
+i fingerprint również pochodzą spoza konta NotarAI.
+
+Przykładowe wywołanie read-only przez kustosza:
+
+~~~bash
+python scripts/audit_confidential_archive_version.py \
+  --custody-account "$CUSTODY_ACCOUNT" \
+  --bucket "$INDEPENDENT_WORM_BUCKET" \
+  --tenant pilot01 \
+  --sequence 1 \
+  --version "$SIGNED_EVIDENCE_S3_VERSION_ID" \
+  --expected-package-sha256 "$EXTERNAL_PACKAGE_SHA256" \
+  --trusted-manifest-head-sha256 "$EXTERNAL_MANIFEST_HEAD_SHA256" \
+  --trusted-public-key custodian-ed25519-pub.raw \
+  --pinned-fingerprint "$EXTERNAL_PIN_SHA256" \
+  --custody-auditor-profile "$CUSTODY_AUDITOR_SSO_PROFILE" \
+  --run-read-only
+~~~
+
+Używane API wyłącznie: STS GetCallerIdentity, S3 HeadObject,
+GetObjectRetention i GetObject (tylko ścisła techniczna paczka, maks.
+128 KiB; nigdy dokument kancelarii). Nie ma Put/Delete. Raport publikuje
+tylko status, boolean testów i zero_operator_access_proven=false;
+brak surowych treści lub AWS wyjątków. Oczekiwany poprawny wynik
+archive_integrity=PASS, assurance_status=BLOCKED oraz kod wyjścia 4.
+FAIL zwraca kod 2. Brak flagi aktywującej odczyt nie robi żadnego
+wywołania AWS.
+
+**Kluczowe ograniczenie:** sprawdzenie jednej zachowanej wersji
+Object Lock nie dowodzi, że operator nie posiada dodatkowych ról
+na koncie kustosza, że wszystkie wcześniejsze manifesty nadal istnieją,
+ani że nie może zamaskować widoku latest. Niezależny łańcuch/head,
+audyt trust/IAM/SCP i rzeczywiste testy odmowy operatorowi pozostają
+obowiązkowe dla K5/K6.
