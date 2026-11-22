@@ -16,11 +16,13 @@ if (!Environment.UserInteractive || Process.GetCurrentProcess().SessionId == 0)
     Console.Error.WriteLine("Interactive non-Session-0 Windows session required");
     return 3;
 }
+if (args.Length == 1 && args[0] == "--session-health")
+    return ReportSession();
 if (args.Length == 1 && args[0] == "--inspect-notepad")
     return InspectNotepad();
 if (args.Length != 2 || args[0] != "--run-verified-local-job")
 {
-    Console.WriteLine("Usage: --inspect-notepad OR --run-verified-local-job <local-job.json>");
+    Console.WriteLine("Usage: --session-health OR --inspect-notepad OR --run-verified-local-job <local-job.json>");
     return 2;
 }
 
