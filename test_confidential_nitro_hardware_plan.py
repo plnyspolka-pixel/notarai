@@ -63,6 +63,10 @@ def fixtures():
 
     events = {ids[0]: event(ids[0])}
     events.update({eid: event(eid, denied=True) for eid in ids[1:]})
+    wrong_key_id = manifest["denied_event_ids"]["wrong_key"]
+    events[wrong_key_id]["requestParameters"]["keyId"] = (
+        f"arn:aws:kms:eu-central-1:{cust}:key/99999999-2222-3333-4444-555555555555"
+    )
     custody = event(str(uuid.UUID(int=99)))
     custody["recipientAccountId"] = cust
     task = {
@@ -231,3 +235,13 @@ def test_live_mode_fails_closed_without_profiles(monkeypatch, tmp_path, capsys):
     ])
     assert cli.main() == 2
     assert json.loads(capsys.readouterr().out)["hardware_attestation_verified"] is False
+
+
+def test_wrong_key_negative_must_not_use_approved_key():
+    data = list(fixtures())
+    m, events = data[:2]
+    events[m["denied_event_ids"]["wrong_key"]]["requestParameters"]["keyId"] = (
+        m["kms_key_arn"]
+    )
+    with pytest.raises(ProofRejected, match="different custody key"):
+        assess(data)
