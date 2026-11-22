@@ -31,7 +31,7 @@ if (-not [string]::IsNullOrWhiteSpace($SqsQueueUrl)) {
     $paths['NOTARAI_VE_SQS_QUEUE_URL'] = $SqsQueueUrl
 }
 foreach ($entry in $paths.GetEnumerator()) {
-    if ($entry.Key -ne 'NOTARAI_VE_TENANT_ID' -and -not (Test-Path -LiteralPath $entry.Value)) {
+    if ($entry.Key -notin @('NOTARAI_VE_TENANT_ID', 'NOTARAI_VE_SQS_QUEUE_URL') -and -not (Test-Path -LiteralPath $entry.Value)) {
         throw "Missing prepared operator resource: $($entry.Key)"
     }
 }
