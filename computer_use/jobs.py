@@ -270,6 +270,46 @@ class JobControl:
             raise JobConflict() from None
         return self._get_raw(bound_tenant, job_id)
 
+    def reconcile_expired(self, caller: TenantIdentity, job_id: str) -> dict:
+        """For an expired running lease, NEVER auto-retry a GUI operation.
+
+        Authorized approver moves the job to a durable investigation state.
+        Condition protects against a racing live worker. Reconciliation is
+        distinct from replay; only an operator can resolve the actual UI state.
+        """
+        if not caller.can_approve:
+            raise PermissionError("notary_approval_required")
+        item = self._get_raw(caller.tenant_id, job_id)
+        if item["status"] != "running":
+            raise JobConflict()
+        now = int(self.clock())
+        if item.get("lease_until", now + 1) >= now:
+            raise JobConflict()
+        try:
+            self.table.update_item(
+                Key={"PK": _partition(caller.tenant_id), "SK": _sort_key(job_id)},
+                UpdateExpression=(
+                    "SET #s = :new, reason = :reason, updated_at = :now "
+                    "ADD version :one"
+                ),
+                ConditionExpression=(
+                    "#s = :running AND version = :version "
+                    "AND lease_until < :now"
+                ),
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={
+                    ":new": "needs_reconciliation",
+                    ":reason": "worker_lease_expired",
+                    ":now": now,
+                    ":one": 1,
+                    ":running": "running",
+                    ":version": item["version"],
+                },
+            )
+        except Exception:
+            raise JobConflict() from None
+        return self.get(caller, job_id)
+
     def result(self, caller: TenantIdentity, job_id: str) -> Any:
         job = self._get_raw(caller.tenant_id, job_id)
         if job["status"] != "completed" or "result_ref" not in job:
