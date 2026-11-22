@@ -17,6 +17,38 @@ Parameters:
     Default: "false"
     AllowedValues: ["false", "true"]
     Description: Use one regional capacity provider and cluster across all kancelarie
+  CustodyAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+  CustodyAuditRoleArn:
+    Type: String
+    AllowedPattern: "^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$"
+    Description: Existing custodian-controlled read-only cross-account role
+  CustodyKmsKeyArn:
+    Type: String
+    AllowedPattern: "^arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+$"
+  CustodySigningKeyArn:
+    Type: String
+    AllowedPattern: "^arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+$"
+  ApprovedPcr17:
+    Type: String
+    AllowedPattern: "^(?!0{96}$)[a-f0-9]{96}$"
+  ApprovedImageSha256:
+    Type: String
+    AllowedPattern: "^[a-f0-9]{64}$"
+  CustodySignerFingerprint:
+    Type: String
+    AllowedPattern: "^[a-f0-9]{64}$"
+    Description: Out-of-band audited SHA256 of external signing key SPKI DER
+  CustodyReleaseBucket:
+    Type: String
+    Description: Versioned receipt bucket administered solely by custodian
+  CustodyReleaseKey:
+    Type: String
+    Description: Exact signed receipt JSON object key
+  CustodyReleaseVersion:
+    Type: String
+    Description: Immutable receipt S3 VersionId
   CodeBucket:
     Type: String
     Description: Operator-controlled artifact bucket in eu-central-1
@@ -95,6 +127,10 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:UpdateItem
                 Resource: !GetAtt DispatchLeaseTable.Arn
+              - Sid: ReadCustodianStateOnly
+                Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Ref CustodyAuditRoleArn
               - Sid: ListOnlyPilotTasks
                 Effect: Allow
                 Action: ecs:ListTasks
@@ -157,6 +193,16 @@ Resources:
             - notarai-confidential-shared
             - !Sub "notarai-confidential-${TenantId}"
           NOTARAI_SHARED_POOL: !Ref SharedCompute
+          NOTARAI_CUSTODY_ACCOUNT: !Ref CustodyAccountId
+          NOTARAI_CUSTODY_AUDIT_ROLE_ARN: !Ref CustodyAuditRoleArn
+          NOTARAI_CUSTODY_KMS_KEY_ARN: !Ref CustodyKmsKeyArn
+          NOTARAI_CUSTODY_SIGNING_KEY_ARN: !Ref CustodySigningKeyArn
+          NOTARAI_APPROVED_PCR17: !Ref ApprovedPcr17
+          NOTARAI_APPROVED_IMAGE_SHA256: !Ref ApprovedImageSha256
+          NOTARAI_CUSTODY_SIGNER_FINGERPRINT: !Ref CustodySignerFingerprint
+          NOTARAI_CUSTODY_RELEASE_BUCKET: !Ref CustodyReleaseBucket
+          NOTARAI_CUSTODY_RELEASE_KEY: !Ref CustodyReleaseKey
+          NOTARAI_CUSTODY_RELEASE_VERSION: !Ref CustodyReleaseVersion
           NOTARAI_TASK_DEFINITION_ARN: !Ref TaskDefinitionArn
           NOTARAI_WORK_QUEUE_URL: !Ref WorkQueueUrl
           NOTARAI_PRIVATE_SUBNET: !Ref PrivateSubnetId
