@@ -306,7 +306,10 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
     assert report["s3_bucket_region_verified"] is True
     assert report["s3_replication_state"] == "configured"
     assert report["s3_bucket_object_lock_state"] == "Enabled"
-    assert report["s3_delete_marker_count_on_first_page"] == 1
+    assert report["s3_delete_marker_count"] == 1
+    assert report["s3_version_count"] == 1
+    assert report["s3_inventory_pages"] == 1
+    assert report["s3_inventory_complete"] is True
     assert report["sqs_retention_seconds"] == 86400
     assert report["sqs_dlq_retention_seconds"] == 1209600
     assert report["cloudwatch_named_group_retention_days"] == [7]
@@ -420,3 +423,83 @@ def test_worker_redirection_precedes_decryption_in_source():
     import confidential.worker as worker
     source = inspect.getsource(worker._process_one)
     assert source.index("silence_guest_stdio()") < source.index("_load_decrypted_form(")
+
+
+def test_read_only_s3_inventory_walks_all_pages_without_listing_names():
+    from scripts.verify_confidential_plaintext_lifecycle import scan_version_metadata
+    account, tenant, _, _ = _aws_fixture()
+    bucket = f"ntr-cf-{tenant}-{account}-eu-central-1"
+    seen = []
+    prefix = f"kancelarie/{tenant}/confidential/"
+    class FakeS3:
+        def list_object_versions(self, **kwargs):
+            assert kwargs["Bucket"] == bucket
+            assert kwargs["ExpectedBucketOwner"] == account
+            assert kwargs["Prefix"] == prefix
+            assert kwargs["MaxKeys"] == 1000
+            seen.append(kwargs)
+            if len(seen) == 1:
+                assert "KeyMarker" not in kwargs
+                return {
+                    "Versions": [{"Key": prefix + "caseA", "VersionId": "v1"}],
+                    "DeleteMarkers": [{"Key": prefix + "caseA"}],
+                    "IsTruncated": True,
+                    "NextKeyMarker": prefix + "caseA",
+                    "NextVersionIdMarker": "v1",
+                }
+            assert kwargs["KeyMarker"] == prefix + "caseA"
+            assert kwargs["VersionIdMarker"] == "v1"
+            return {"Versions": [{}, {}], "DeleteMarkers": [],
+                    "IsTruncated": False}
+    report = scan_version_metadata(FakeS3(), bucket=bucket,
+                                   account=account, tenant=tenant)
+    assert report == {
+        "s3_inventory_complete": True, "s3_inventory_pages": 2,
+        "s3_version_count": 3, "s3_delete_marker_count": 1,
+    }
+    assert not any("caseA" in str(value) for value in report.values())
+
+
+@pytest.mark.parametrize("variant", ["missing-cursor", "loop", "too-many", "malformed"])
+def test_s3_inventory_rejects_incomplete_or_bogus_cursor(variant):
+    from scripts.verify_confidential_plaintext_lifecycle import (
+        scan_version_metadata, UnsafeAudit,
+    )
+    account, tenant, _, _ = _aws_fixture()
+    bucket = f"ntr-cf-{tenant}-{account}-eu-central-1"
+    prefix = f"kancelarie/{tenant}/confidential/"
+    class S3:
+        def list_object_versions(self, **kwargs):
+            if variant == "malformed":
+                return {"Versions": [], "IsTruncated": "false"}
+            if variant == "missing-cursor":
+                return {"Versions": [], "IsTruncated": True}
+            return {
+                "Versions": [{"Key": prefix + "synthetic"}],
+                "IsTruncated": True, "NextKeyMarker": prefix + "synthetic",
+                "NextVersionIdMarker": "v1",
+            }
+    with pytest.raises(UnsafeAudit) as exc:
+        scan_version_metadata(S3(), bucket=bucket, account=account,
+                              tenant=tenant, max_pages=2)
+    assert "synthetic" not in str(exc.value)
+
+
+def test_s3_inventory_refuses_wrong_owner_or_tenant_before_calls():
+    from scripts.verify_confidential_plaintext_lifecycle import (
+        scan_version_metadata, UnsafeAudit,
+    )
+    account, tenant, _, _ = _aws_fixture()
+    class DenyS3:
+        def list_object_versions(self, **kwargs):
+            raise AssertionError("out of scope S3 API call")
+    with pytest.raises(UnsafeAudit):
+        scan_version_metadata(
+            DenyS3(), bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
+            account="000000000000", tenant=tenant
+        )
+    with pytest.raises(UnsafeAudit):
+        scan_version_metadata(
+            DenyS3(), bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
+            account=account, tenant="production"
+        )
