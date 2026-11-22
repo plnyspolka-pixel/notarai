@@ -28,7 +28,17 @@ def opis_bledu(blad: BaseException) -> str:
     if isinstance(blad, ClientError):
         b = blad.response.get("Error", {})
         code = b.get("Code", "")
-        if not isinstance(code, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", code):
+        known_codes = {
+            "ValidationException", "AccessDeniedException",
+            "ResourceNotFoundException", "ThrottlingException",
+            "TooManyRequestsException", "ServiceQuotaExceededException",
+            "ServiceUnavailableException", "InternalServerException",
+            "ModelTimeoutException", "ModelErrorException",
+            "ModelNotReadyException", "ModelStreamErrorException",
+            "ExpiredTokenException", "UnrecognizedClientException",
+            "InvalidSignatureException", "ProvisionedThroughputExceededException",
+        }
+        if not isinstance(code, str) or code.lower() not in {c.lower() for c in known_codes}:
             code = "UnknownAWSCode"
         opis += f" {code}"
     ramki = traceback.extract_tb(blad.__traceback__)
