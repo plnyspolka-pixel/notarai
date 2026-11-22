@@ -55,7 +55,7 @@ def load_verified_profile(raw: bytes, signature: str, key: bytes, *, tenant_id: 
             values = []
             for d in nodes:
                 if not isinstance(d, dict) or not set(d).issubset(
-                    {'kind', 'selector', 'role', 'value_mode', 'allow_draft_fill'}):
+                    {'kind', 'selector', 'role', 'value_mode', 'allow_draft_fill', 'allow_navigation'}):
                     raise ProfileRejected('invalid_element_schema')
                 values.append(Element(**d))
             fields[key_name] = values[0] if len(values) == 1 else tuple(values)
