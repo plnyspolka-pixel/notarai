@@ -15,6 +15,7 @@ on:
       - 'test_confidential_worker_lifecycle_sec10.py'
       - 'infra/notarai-confidential-task.yaml'
       - 'docs/security-evidence/SEC-10.md'
+      - 'docs/security-workstreams/SEC-10-signed-evidence-protocol.md'
       - '.github/workflows/confidential-plaintext-lifecycle.yml'
   workflow_dispatch:
 
