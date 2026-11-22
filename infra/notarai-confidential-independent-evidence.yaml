@@ -52,6 +52,8 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
       Tags:
+        - Key: CustodyPilotAcknowledgement
+          Value: !Ref PilotAcknowledgement
         - Key: SecurityWorkstream
           Value: SEC-11
         - Key: DataClassification
