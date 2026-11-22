@@ -222,13 +222,25 @@ def open_preview_in_guest(envelope: Mapping, grant: Mapping,
                           guest_ephemeral_private_pem: bytes, *,
                           expected_tenant: str, expected_case: str,
                           expected_object: str, expected_job: str,
+                          origin_receipt: Mapping, origin_signature: bytes,
+                          pinned_notary_signing_public_raw: bytes,
+                          expected_issuer_id: str, expected_s3_version: str,
                           now: int) -> bytes:
     """Crypto primitive ONLY. Guest MUST first verify origin and authorization.
 
-    This method does not perform physical attestation, check a signed document
-    receipt or enforce one-time job consumption. Never connect it to an AWS
-    runtime without those controls and without a verified image trust root.
+    This method does not perform physical attestation or enforce one-time job
+    consumption. Never connect it to AWS without those controls, a pinned
+    issuer public key in the measured image, and a verified Nitro trust root.
     """
+    # Existing SEC-03 origin admission, adapted for customer-owned v3.
+    # MUST run before any private-key operation or DEK unwrap.
+    from confidential.customer_origin import verify_customer_origin
+    verify_customer_origin(
+        envelope, origin_receipt, origin_signature,
+        pinned_notary_signing_public_raw=pinned_notary_signing_public_raw,
+        expected_issuer_id=expected_issuer_id,
+        expected_s3_version=expected_s3_version, now=now,
+    )
     env, approval = parse_envelope(envelope), parse_grant(grant)
     key = _load_private(guest_ephemeral_private_pem)
     _check(type(now) is int and approval["issued_at"] <= now < approval["expires_at"])
