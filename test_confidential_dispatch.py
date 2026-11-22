@@ -111,6 +111,9 @@ class ECSFake:
         status = getattr(self, "last_status", "PENDING")
         return {"tasks": [{
             "taskArn": kwargs["tasks"][0],
+            "taskDefinitionArn": TASK_ARN,
+            "clusterArn": f"arn:aws:ecs:eu-central-1:{ACCOUNT}:cluster/{FAMILY}",
+            "startedBy": self.calls[-1]["startedBy"] if self.calls else "",
             "lastStatus": status,
             "desiredStatus": "STOPPED" if status == "STOPPED" else "RUNNING",
         }]}
@@ -329,3 +332,33 @@ def test_cloudformation_schedule_disabled_and_no_live_service():
         actions.extend([value] if isinstance(value, str) else value)
     assert "sqs:ReceiveMessage" not in actions
     assert "sqs:DeleteMessage" not in actions
+
+
+def test_cross_tenant_stopped_task_does_not_release_dispatch_lease():
+    ecs, sqs, ddb = ECSFake(), SQSFake(), DynamoFake()
+    assert tick(ecs, sqs, ddb)[0] == "launched"
+    ecs.last_status = "STOPPED"
+    original = ecs.describe_tasks
+
+    def foreign(**kwargs):
+        payload = original(**kwargs)
+        payload["tasks"][0]["taskDefinitionArn"] = (
+            f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task-definition/notarai-confidential-pilot02:3"
+        )
+        payload["tasks"][0]["startedBy"] = "notarai-pilot02-" + "a" * 16
+        return payload
+
+    ecs.describe_tasks = foreign
+    assert tick(ecs, sqs, ddb, now=1050, token="b" * 32)[0] == "lease_held"
+    assert len(ecs.calls) == 1
+
+
+def test_wrong_cluster_task_arn_is_rejected_before_release():
+    from confidential.dispatch import _release_finished_lease
+    ecs, sqs, ddb = ECSFake(), SQSFake(), DynamoFake()
+    assert tick(ecs, sqs, ddb)[0] == "launched"
+    ddb.item["task_arn"]["S"] = (
+        f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task/notarai-confidential-pilot02/foreign"
+    )
+    with pytest.raises(UnsafeDispatch, match="untrusted task identity"):
+        _release_finished_lease(ecs, ddb, config(), 1050)
