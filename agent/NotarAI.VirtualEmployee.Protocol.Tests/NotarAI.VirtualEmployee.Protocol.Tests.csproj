@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NotarAI.VirtualEmployee.Protocol/NotarAI.VirtualEmployee.Protocol.csproj" />
+    <Compile Include="../NotarAI.VirtualEmployee.Probe/LocalInboxProcessor.cs" Link="LocalInboxProcessor.cs" />
+  </ItemGroup>
+</Project>

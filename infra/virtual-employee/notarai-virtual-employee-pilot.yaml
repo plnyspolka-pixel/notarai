@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  NotarAI Virtual Employee - isolated Windows Server EC2 pilot for one fictional
+  tenant. No internet gateway, NAT, public IP or inbound security-group rules.
+  SSM control plane only; no connection yet to production NotarAI or RejNET.
+
+Parameters:
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: '^[a-z][a-z0-9]{2,11}$'
+    Description: Synthetic tenant identifier, not a customer's name or case ID
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair for initial Windows Administrator password
+  InstanceType:
+    Type: String
+    Default: t3.large
+    AllowedValues: [t3.large, t3.xlarge, m6i.large, m6i.xlarge]
+  WindowsAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
+  RootDiskGiB:
+    Type: Number
+    Default: 100
+    MinValue: 70
+    MaxValue: 200
+  LegacyEc2Messages:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Paid legacy endpoint only if needed by an older SSM Agent
+  VpcCidr:
+    Type: String
+    Default: 10.77.0.0/16
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.77.10.0/24
+
+Conditions:
+  EnableLegacyMessages: !Equals [!Ref LegacyEc2Messages, 'true']
+
+Resources:
+  PilotVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'notarai-ve-${TenantId}-vpc'
+        - Key: Environment
+          Value: pilot-synthetic-only
+
+  PilotSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PilotVpc
+      CidrBlock: !Ref PrivateSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub 'notarai-ve-${TenantId}-private'
+
+  PilotRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref PilotVpc
+  PilotRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PilotRouteTable
+      SubnetId: !Ref PilotSubnet
+
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NotarAI VE VPC endpoints - HTTPS from VM only
+      VpcId: !Ref PilotVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref PrivateSubnetCidr
+          Description: Endpoint return traffic within private subnet
+
+  WindowsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NotarAI VE Windows - no ingress, only HTTPS to SSM endpoints
+      VpcId: !Ref PilotVpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          DestinationSecurityGroupId: !GetAtt EndpointSecurityGroup.GroupId
+          Description: Only SSM PrivateLink endpoints
+
+  EndpointHttpsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt EndpointSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId: !GetAtt WindowsSecurityGroup.GroupId
+      Description: TLS requests from pilot Windows VM
+
+  SsmEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref PilotVpc
+      VpcEndpointType: Interface
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PilotSubnet]
+      SecurityGroupIds: [!GetAtt EndpointSecurityGroup.GroupId]
+
+  SsmMessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref PilotVpc
+      VpcEndpointType: Interface
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssmmessages'
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PilotSubnet]
+      SecurityGroupIds: [!GetAtt EndpointSecurityGroup.GroupId]
+
+  Ec2MessagesEndpoint:
+    Condition: EnableLegacyMessages
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref PilotVpc
+      VpcEndpointType: Interface
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ec2messages'
+      PrivateDnsEnabled: true
+      SubnetIds: [!Ref PilotSubnet]
+      SecurityGroupIds: [!GetAtt EndpointSecurityGroup.GroupId]
+
+  WindowsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Project
+          Value: notarai-virtual-employee
+
+  WindowsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref WindowsRole]
+
+  WindowsInstance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - SsmEndpoint
+      - SsmMessagesEndpoint
+      - EndpointHttpsIngress
+    Properties:
+      ImageId: !Ref WindowsAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref WindowsInstanceProfile
+      SubnetId: !Ref PilotSubnet
+      SecurityGroupIds: [!GetAtt WindowsSecurityGroup.GroupId]
+      Monitoring: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+        InstanceMetadataTags: disabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootDiskGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: |
+          <powershell>
+          $ErrorActionPreference = 'Stop'
+          $root = 'C:\ProgramData\NotarAI\VirtualEmployee'
+          $folders = @($root, (Join-Path $root 'bin'), (Join-Path $root 'work'))
+          foreach ($folder in $folders) {
+            New-Item -ItemType Directory -Path $folder -Force | Out-Null
+            & icacls.exe $folder /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'ACL initialization failed' }
+          }
+          # No installer, customer data, credentials, or RDP auto-logon here.
+          </powershell>
+      Tags:
+        - Key: Name
+          Value: !Sub 'notarai-ve-${TenantId}-windows'
+        - Key: Project
+          Value: notarai-virtual-employee
+        - Key: Tenant
+          Value: !Ref TenantId
+        - Key: Environment
+          Value: pilot-synthetic-only
+        - Key: DataClassification
+          Value: no-customer-data
+
+Outputs:
+  InstanceId:
+    Value: !Ref WindowsInstance
+    Description: Use with SSM; instance has no public IP and no inbound ports
+  VpcId:
+    Value: !Ref PilotVpc
+  PrivateSubnetId:
+    Value: !Ref PilotSubnet
+  InstanceSecurityGroupId:
+    Value: !GetAtt WindowsSecurityGroup.GroupId
+  EndpointSecurityGroupId:
+    Value: !GetAtt EndpointSecurityGroup.GroupId
+  WindowsRoleName:
+    Value: !Ref WindowsRole
+  Region:
+    Value: !Ref AWS::Region
+  OperatorRunbook:
+    Value: docs/virtual-employee-aws-pilot.md

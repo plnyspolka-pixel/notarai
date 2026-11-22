@@ -1,0 +1,122 @@
+name: NotarAI Virtual Employee - IaC tests (no AWS deployment)
+on:
+  pull_request:
+    paths:
+      - 'infra/virtual-employee/**'
+      - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol.Tests/**'
+      - 'scripts/virtual_employee_fixture.py'
+      - 'tests/test_virtual_employee_protocol.py'
+      - 'tests/test_virtual_employee_iac.py'
+      - 'tests/test_virtual_employee_sqs_iac.py'
+      - '.github/workflows/virtual-employee-pilot-iac.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'infra/virtual-employee/**'
+      - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol.Tests/**'
+      - 'scripts/virtual_employee_fixture.py'
+      - 'tests/test_virtual_employee_protocol.py'
+      - 'tests/test_virtual_employee_iac.py'
+      - 'tests/test_virtual_employee_sqs_iac.py'
+      - '.github/workflows/virtual-employee-pilot-iac.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ve-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cfn-lint pyyaml pytest
+      - run: cfn-lint infra/virtual-employee/notarai-virtual-employee-pilot.yaml infra/virtual-employee/notarai-ve-sqs-pilot.yaml
+      - run: python -m pytest -q --confcutdir=tests tests/test_virtual_employee_iac.py tests/test_virtual_employee_sqs_iac.py
+      - run: python -m unittest discover -s tests -p test_virtual_employee_protocol.py
+  powershell:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts, no execution
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem infra/virtual-employee -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
+          }
+      - name: Windows PowerShell 5.1 signed fixture end-to-end
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 've-fixture-ci'
+          $inbox = Join-Path $root 'inbox'
+          New-Item -ItemType Directory -Force -Path $inbox | Out-Null
+          $keyPath = Join-Path $root 'fixture.hmac.bin'
+          $key = New-Object byte[] 32
+          $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+          $rng.GetBytes($key)
+          $rng.Dispose()
+          [IO.File]::WriteAllBytes($keyPath, $key)
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_TENANT_ID', 'pilot01', 'User')
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_HMAC_KEY_FILE', $keyPath, 'User')
+          [Environment]::SetEnvironmentVariable('NOTARAI_VE_INBOX_DIR', $inbox, 'User')
+          & ./infra/virtual-employee/make-local-diagnostic-job.ps1 -Operation probe.session
+          $files = @(Get-ChildItem -Path $inbox -Filter '*.json')
+          if ($files.Count -ne 1) { throw 'Expected exactly one signed fixture' }
+          $job = Get-Content -LiteralPath $files[0].FullName -Raw | ConvertFrom-Json
+          $fields = @('notarai-ve/v1', '1', $job.tenantId, $job.jobId, $job.operation,
+                      [string]$job.issuedAtUnix, [string]$job.expiresAtUnix, $job.nonce)
+          $bytes = [Text.Encoding]::UTF8.GetBytes([string]::Join("`n", [string[]]$fields))
+          $hmac = [Security.Cryptography.HMACSHA256]::new($key)
+          try { $actual = [BitConverter]::ToString($hmac.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant() }
+          finally { $hmac.Dispose(); [Array]::Clear($key, 0, $key.Length) }
+          if ($actual -ne $job.signature) { throw 'Windows PowerShell signer invalid' }
+          Remove-Item -LiteralPath $root -Recurse -Force
+  protocol-tests:
+    name: Signed job protocol - adversarial offline checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check tenants, TTL, signatures, payload allowlist and replay
+        run: dotnet run --project agent/NotarAI.VirtualEmployee.Protocol.Tests/NotarAI.VirtualEmployee.Protocol.Tests.csproj -c Release --nologo
+  agent-smoke-build:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile read-only UIA3 probe (no interactive execution)
+        run: dotnet build agent/NotarAI.VirtualEmployee.Probe/NotarAI.VirtualEmployee.Probe.csproj -c Release --nologo
+      - name: Publish self-contained unsigned synthetic Windows pilot
+        run: dotnet publish agent/NotarAI.VirtualEmployee.Probe/NotarAI.VirtualEmployee.Probe.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:DebugType=none -o ve-build --nologo
+      - name: Record pilot binary SHA256 (never print secrets)
+        shell: pwsh
+        run: |
+          $binary = 've-build/NotarAI.VirtualEmployee.Probe.exe'
+          if (-not (Test-Path $binary)) { throw 'Pilot executable missing' }
+          $hash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+          "Pilot exe SHA256: $hash" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notarai-ve-windows-pilot-unsigned
+          path: ve-build/
+          if-no-files-found: error
+          retention-days: 7

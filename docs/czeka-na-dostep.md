@@ -316,3 +316,17 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+## NA-15. NotarAI Virtual Employee - Windows VM na AWS i RejNET Office
+
+- **Status:** czeka (kod pilota gotowy; nie wdrożono ani nie testowano na EC2).
+- **Brakuje:** administratora AWS z uprawnieniami do osobnego stosu EC2/VPC/IAM w eu-central-1, klucza EC2 i zatwierdzenia kosztów; instalatora i licencji RejNET Office dopuszczającej Windows Server/VM; fikcyjnej bazy demonstracyjnej.
+- **Na żywo:**
+  1. Odpalić bez `-Apply` walidację: `infra/virtual-employee/deploy-pilot.ps1`.
+  2. Po zatwierdzeniu kosztów użyć `-Apply`; sprawdzić SSM Online i brak publicznego IP/portów wejściowych.
+  3. Przez SSM port forwarding + RDP uruchomić izolowany pulpit; testować `check-windows-session.ps1` i odczyt okna Notepad przez `agent/NotarAI.VirtualEmployee.Probe`.
+  4. Zweryfikować licencję i instalację RejNET Office; wykonać test z fikcyjnym repertorium; nie podpisywać i nie wysyłać dokumentów.
+  5. Opcjonalnie uruchomić (po odrębnym zatwierdzeniu kosztu) `infra/virtual-employee/deploy-sqs-pilot.ps1 -Apply`; sprawdzić, czy wiadomość SQS jest odebrana tylko z prywatnego VPC Endpointu, podpis HMAC i tenant są sprawdzane, a duplikat nie powoduje drugiego wykonania. Przez `send-sqs-diagnostic.ps1` wysyłać jedynie fikcyjne zlecenia `probe.session`/`probe.notepad`.
+  6. Sprawdzić `WindowsSessionGuard`: odblokowany pulpit RDP powinien dawać `--session-health` = 0; blokada Windows, rozłączenie RDP lub wylogowanie mają zatrzymywać pobieranie i wykonywanie zadań (bez potwierdzania SQS). Przetestować stan po restarcie, nie zakładać działania bez zalogowania. Zatrzymać VM po teście i usunąć opcjonalny stos SQS, aby nie płacić za endpoint.
+- **W kodzie:** `infra/virtual-employee/`, `agent/NotarAI.VirtualEmployee.Probe/`, `docs/virtual-employee-aws-pilot.md`.
+- **Zamknięte, gdy:** uruchomiony pilot EC2 z działającym UI Automation na fikcyjnych danych, bez publicznego RDP; zaliczone testy podpisu, dzierżawy kolejki i odporności na ponowne wykonanie (jeżeli SQS włączono); RejNET Office potwierdzony licencyjnie i technicznie; udokumentowany stan sesji po rozłączeniu, blokadzie i restarcie. Aktualne CI nie zastępuje testów na rzeczywistej VM.
