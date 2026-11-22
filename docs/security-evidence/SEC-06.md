@@ -132,3 +132,49 @@ The signing tool refuses `--approve-action` unless the custodian explicitly supp
 ## Offline two-tenant onboarding
 
 Use `scripts/prepare_confidential_custody_onboarding.py --pilot01-binding /secure/pilot01.json --pilot02-binding /secure/pilot02.json --output /secure/onboarding-plan.json`. It validates distinct keys, task ARN, PCR17, release and policy SHA for both synthetic tenants and produces unsigned, tenant-bound ENROLL plans. It performs zero AWS calls and creates no KMS resources or grants. The external custodian must provision, audit, sign and activate each tenant separately, including a real conditional state ledger and hardware negative tests.
+
+## K2/K4 read-only KMS policy and grant inventory
+
+Default audit makes zero AWS calls:
+
+    python scripts/verify_confidential_custody_kms.py \
+      --state-file /secure/pilot01-state.json \
+      --custody-profile external-audit
+
+Explicit independent read-only KMS inventory:
+
+    python scripts/verify_confidential_custody_kms.py \
+      --state-file /secure/pilot01-state.json \
+      --custody-profile external-audit --check \
+      --output /secure/pilot01-kms-snapshot-report.json
+
+Required permissions in custodian key policy, without granting NotarAI any new rights:
+`kms:DescribeKey`, `kms:GetKeyPolicy`, `kms:ListKeyPolicies`, `kms:ListGrants`.
+This PR grants the last two ONLY in the custodian statement in the
+CloudFormation template and updates the offline policy checker and fixtures.
+
+The auditor verifies custody account, region, RSA_3072, key state, exactly
+one policy name (default), strict canonical policy and all KMS grants with
+NextMarker pagination. Duplicate JSON keys, foreign/extra policy, incomplete
+pagination, any grant, wrong key type/account all block.
+
+A structurally valid snapshot STILL returns status BLOCKED and CLI exit 3:
+independent_custody_verified=false and effective_revocation_verified=false.
+AWS KMS inventories are eventually consistent. No live negative decrypt,
+Nitro attestation, root/SSO verification or signed CloudTrail proof is run.
+
+## K5 historical KMS key retirement
+
+ROTATE offline plans now contain required_kms_key_policy_targets for
+both outgoing and incoming decrypt keys, deny-only before any UNFREEZE.
+Pointing application state to a new ARN does not revoke the old key.
+historical_decrypt_key_inventory_complete=false and
+historical_keys_effectively_denied_verified=false remain hard blockers.
+The independent custodian must enumerate every prior key generation
+from its immutable ledger, deny old keys, remove all grants and repeat
+real negative decrypt attempts before approving the new key.
+
+Official AWS API references:
+- https://docs.aws.amazon.com/kms/latest/APIReference/API_ListGrants.html
+- https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeyPolicies.html
+- https://docs.aws.amazon.com/kms/latest/developerguide/conditions-nitro-enclave.html
