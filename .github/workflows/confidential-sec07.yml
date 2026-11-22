@@ -9,6 +9,10 @@ on:
       - ".github/workflows/confidential-sec07.yml"
   workflow_dispatch:
 
+concurrency:
+  group: sec07-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
