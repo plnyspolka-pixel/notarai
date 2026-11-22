@@ -11,7 +11,7 @@ import pytest
 from confidential.ai_boundary import (
     AIBoundaryDenied, InferencePolicy, enforce_bedrock_dispatch,
     evaluate_inference, reject_untrusted_endpoint, safe_telemetry,
-    validate_model_action, validate_operator_result,
+    validate_model_action, validate_operator_result, validate_worker_marker,
 )
 
 MODEL = "eu.anthropic.claude-opus-4-6-v1"
@@ -274,3 +274,38 @@ def test_k6_pilot_public_policy_never_claims_zero_knowledge(monkeypatch):
         "strict_zero_knowledge_verified": False,
     }
     assert payload["can_submit"] is False
+
+
+def test_k3_k5_nitro_worker_marker_rejects_free_text():
+    clean = {"version": 1, "job_id": "pilot-job-001",
+             "status": "preview_completed", "fields_filled": 2,
+             "submitted": False}
+    assert validate_worker_marker(clean) == clean
+    for field in ("model_output", "document", "name", "trace", "url", "prompt"):
+        with pytest.raises(AIBoundaryDenied):
+            validate_worker_marker({**clean, field: FAKE_SENTINEL})
+
+
+@pytest.mark.parametrize("mutation", [
+    {"status": "sent"},
+    {"submitted": True},
+    {"submitted": 0},
+    {"version": "1"},
+    {"fields_filled": True},
+    {"fields_filled": 101},
+    {"job_id": "../escape"},
+])
+def test_k3_k5_worker_result_mutations_fail_closed(mutation):
+    clean = {"version": 1, "job_id": "pilot-job-001",
+             "status": "preview_completed", "fields_filled": 2,
+             "submitted": False}
+    with pytest.raises(AIBoundaryDenied):
+        validate_worker_marker({**clean, **mutation})
+
+
+def test_integrity_worker_calls_result_validator_before_persistence():
+    code = Path(__file__).with_name("confidential").joinpath(
+        "worker.py").read_text(encoding="utf-8")
+    assert code.index("marker = validate_worker_marker(") < code.index(
+        'session.client("s3").put_object('
+    )
