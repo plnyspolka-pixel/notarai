@@ -235,12 +235,20 @@ def test_K6_read_only_simulator_is_never_misreported_as_real_denial():
                 "taskDefinitionArn": p.task_definition_arn,
                 "taskRoleArn": p.task_role_arn,
                 "executionRoleArn": p.execution_role_arn,
-                "status": "ACTIVE", "networkMode": "awsvpc",
-                "trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
-                "containerDefinitions": [{"image": (
-                    f"{ACCOUNT}.dkr.ecr.{REGION}.amazonaws.com/"
-                    f"notarai-confidential-shared@sha256:{DIGEST}"
-                ), "environment": [
+                "status": "ACTIVE", "family": f"notarai-confidential-{tenant}",
+                "networkMode": "awsvpc", "requiresCompatibilities": ["MANAGED_INSTANCES"],
+                "trustedExecutionConfiguration": {
+                    "isolationMode": "CONFIDENTIAL_SANDBOX",
+                    "attestationPolicy": "synthetic-not-real-policy"
+                },
+                "containerDefinitions": [{
+                    "name": "confidential-browser", "user": "10001:10001",
+                    "readonlyRootFilesystem": True,
+                    "image": (
+                        f"{ACCOUNT}.dkr.ecr.{REGION}.amazonaws.com/"
+                        f"notarai-confidential-shared@sha256:{DIGEST}"
+                    ),
+                    "environment": [
                     {"name": k, "value": v} for k, v in environment.items()
                 ]}],
             }}
