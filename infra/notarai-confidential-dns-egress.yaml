@@ -73,6 +73,9 @@ Resources:
       FirewallRuleGroupId: !Ref StrictDnsRuleGroup
       Priority: 101
       MutationProtection: ENABLED
+      Tags:
+        - Key: SyntheticVPCOnly
+          Value: !Ref DedicatedVpcAcknowledgement
   FailClosedDnsResolver:
     Type: AWS::Route53Resolver::FirewallConfig
     DependsOn: DedicatedPilotVpcAssociation
