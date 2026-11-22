@@ -299,3 +299,91 @@ def test_K6_wrong_account_never_simulates_or_inspects_resources():
     with pytest.raises(ValueError, match="does not match"):
         inspect(profile="auditor", account="999988887777",
                 session_factory=lambda **kwargs: Session())
+
+
+
+@pytest.mark.parametrize("endpoint", [
+    "policy", "envelope_read", "envelope_write", "preview", "status",
+])
+def test_K3_api_cross_tenant_principal_cannot_trigger_aws(monkeypatch, endpoint):
+    """A signed-in pilot02 cannot use a pilot01-only deployment."""
+    import asyncio
+    import sys
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from starlette.datastructures import QueryParams
+    import confidential.router as api
+
+    forbidden_calls = []
+    def denied_network(*args, **kwargs):
+        forbidden_calls.append((args, kwargs))
+        raise AssertionError("AWS must not be called for foreign tenant")
+
+    monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
+    monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(
+        TRYB="s3", _klient_s3=denied_network,
+    ))
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", "pilot01")
+    import boto3
+    monkeypatch.setattr(boto3, "client", denied_network)
+
+    class Request:
+        state = SimpleNamespace(
+            email="fictional@notarial.example.test",
+            kancelaria="pilot02", serwis=False,
+        )
+        query_params = QueryParams("")
+
+        async def stream(self):
+            yield b'{"tenant_id":"pilot02"}'
+
+    req = Request()
+    with pytest.raises(HTTPException) as error:
+        if endpoint == "policy":
+            api.automatic_policy(req)
+        elif endpoint == "envelope_read":
+            api.retrieve(req, "case01", "scan01")
+        elif endpoint == "envelope_write":
+            asyncio.run(api.store(req, "case01", "scan01"))
+        elif endpoint == "preview":
+            asyncio.run(api.queue_preview(req, "case01", "scan01"))
+        elif endpoint == "status":
+            api.preview_status(req, "job01")
+    assert error.value.status_code == 403
+    assert forbidden_calls == []
+
+
+def test_K3_job_status_binding_never_uses_client_tenant(monkeypatch):
+    """Same job ID across tenants resolves only through the session ledger."""
+    import sys
+    from types import SimpleNamespace
+    from starlette.datastructures import QueryParams
+    import confidential.router as api
+    import boto3
+    ddb = FakeDdb()
+    _queued(ddb, "pilot01", "samejob")
+    _queued(ddb, "pilot02", "samejob")
+    monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
+    monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(TRYB="s3"))
+    monkeypatch.setattr(boto3, "client", lambda which, **k: ddb if which == "dynamodb" else None)
+
+    class Request:
+        def __init__(self, tenant):
+            self.state = SimpleNamespace(
+                email="fictional@notarial.example.test", kancelaria=tenant,
+                serwis=False,
+            )
+            self.query_params = QueryParams("tenant_id=pilot02")
+
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", "pilot01")
+    result = json.loads(api.preview_status(Request("pilot01"), "samejob").body)
+    assert result["status"] == "queued"
+    claim = PreviewJobLedger(ddb, tenant="pilot02").claim(
+        job_id="samejob", case_id="case01", object_id="scan01",
+        s3_version="v001", now=101, token="a" * 32,
+    )
+    assert claim.state == "claimed"
+    # Client-supplied tenant_id in query is never used to change the ledger.
+    assert json.loads(api.preview_status(Request("pilot01"), "samejob").body)[
+        "status"
+    ] == "queued"
