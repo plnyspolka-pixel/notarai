@@ -44,37 +44,64 @@ class TenantWorker:
         self._vision_enabled = visual_processing_enabled
         self._exclusive_session = SessionMutex(tenant_id)
 
-    def execute(self, request: AutomationRequest) -> AutomationResponse:
+    def _execute_unlocked(self, request: AutomationRequest) -> AutomationResponse:
+        """Caller holds desktop/session mutex, even across workflow steps."""
         if request.tenant_id != self._tenant_id:
             return AutomationResponse(Outcome.DENIED, reason='tenant_mismatch')
         profile = self._profiles.get(request.app_id)
         api_profile = self._api_profiles.get(request.app_id)
         if profile is None and api_profile is None:
             return AutomationResponse(Outcome.DENIED, reason='app_not_enrolled')
-        if not self._exclusive_session.acquire(blocking=False):
-            return AutomationResponse(Outcome.FAILED, reason='session_busy')
-        try:
-            browser_opts = ({'page_factory': self._page_factory}
-                            if self._page_factory is not None else {})
-            strategies = []
-            if api_profile is not None and self._api_client_factory is not None:
-                # The factory is supplied by the authenticated worker runtime.
-                client = self._api_client_factory(self._tenant_id, request.app_id)
-                strategies.append(NativeApiStrategy(api_profile, client=client))
-            if profile is not None:
-                strategies.extend([
-                    WebDomStrategy(profile, **browser_opts),
-                    WinAppStrategy(profile, runner=self._winapp_runner,
-                                   installed=self._winapp_installed),
-                ])
-            if profile is not None and self._vision_enabled and self._vision is not None and self._visual_desktop is not None:
+        browser_opts = ({'page_factory': self._page_factory}
+                        if self._page_factory is not None else {})
+        strategies = []
+        if api_profile is not None and self._api_client_factory is not None:
+            client = self._api_client_factory(self._tenant_id, request.app_id)
+            strategies.append(NativeApiStrategy(api_profile, client=client))
+        if profile is not None:
+            strategies.extend([
+                WebDomStrategy(profile, **browser_opts),
+                WinAppStrategy(profile, runner=self._winapp_runner,
+                               installed=self._winapp_installed),
+            ])
+            if self._vision_enabled and self._vision is not None and self._visual_desktop is not None:
                 strategies.extend([
                     VisualStrategy(profile, desktop=self._visual_desktop, vision=self._vision,
                                    hybrid=True, enabled=True),
                     VisualStrategy(profile, desktop=self._visual_desktop, vision=self._vision,
                                    hybrid=False, enabled=True),
                 ])
-            return FallbackRouter(strategies,
-                                  approval_verifier=self._approval).execute(request)
+        return FallbackRouter(strategies,
+                              approval_verifier=self._approval).execute(request)
+
+    def execute(self, request: AutomationRequest) -> AutomationResponse:
+        if request.tenant_id != self._tenant_id:
+            return AutomationResponse(Outcome.DENIED, reason='tenant_mismatch')
+        if not self._exclusive_session.acquire(blocking=False):
+            return AutomationResponse(Outcome.FAILED, reason='session_busy')
+        try:
+            return self._execute_unlocked(request)
+        finally:
+            self._exclusive_session.release()
+
+    def execute_sequence(self, requests, *, before_each=None):
+        """Keep the Windows session exclusive for the ENTIRE multi-step plan."""
+        sequence = tuple(requests)
+        if not 1 <= len(sequence) <= 12:
+            raise ValueError('invalid_sequence_length')
+        if any(x.tenant_id != self._tenant_id for x in sequence):
+            return (AutomationResponse(Outcome.DENIED, reason='tenant_mismatch'),)
+        if not self._exclusive_session.acquire(blocking=False):
+            return (AutomationResponse(Outcome.FAILED, reason='session_busy'),)
+        try:
+            output = []
+            for req in sequence:
+                if before_each is not None:
+                    before_each(req)
+                item = self._execute_unlocked(req)
+                output.append(item)
+                if item.outcome is not Outcome.COMPLETED:
+                    break
+            return tuple(output)
         finally:
             self._exclusive_session.release()
