@@ -8,10 +8,23 @@
 3. Zewnętrzne portale w przyszłości przez allowlist host/URL/method i zatwierdzanie skutków ubocznych; na razie no-submit jest nieprzekraczalny i ma być testowany na nieufnych stronach.
 4. Sprawdź, czy proxy nie potrafi ujawnić odszyfrowanego dokumentu operatorowi; wdroż sanitizację logów oraz twarde ograniczenia danych wychodzących.
 
-## Kryteria odbioru
-- [ ] Scenariusze eksfiltracji (DNS, URL, GET query, POST, headers, body, S3, model output, logs) blokowane albo jawnie wyłączone z claim ZOA/ZK.
-- [ ] Rzeczywisty egress test z pełnym Nitro fail-closed, nie tylko offline mock.
-- [ ] Nie wyłączono ochrony przez przypadkowe uruchomienie NAT/public IP albo wildcard Security Group.
+## Mierzalne kryteria zakończenia — SEC-08
+
+- [ ] **K1.** **Inwentaryzacja ujść:** lista obejmuje HTTP GET query, POST body, headers, redirect, DNS, S3 presigned URL, logi/stdout/stderr, screenshot, LLM, AWS API i metadata; każde ujście ma fail-closed mechanizm kontroli niezależny od samego Playwright.
+- [ ] **K2.** **Minimum 9 negatywnych testów:** po jednym dla GET query, POST, redirect, custom header, DNS tunneling, IPv6, S3 URL, model-output i log leakage; we wszystkich synthetic secret marker nie dociera do kolektora.
+- [ ] **K3.** **Ruch z guest:** bez zatwierdzonego egress porty i hosty niezaufane zablokowane w sieci, nie tylko w kodzie; w teście nie występuje wildcard `0.0.0.0/0` ani dostęp publiczny omijający proxy.
+- [ ] **K4.** **Legalna nawigacja:** przy poprawnej allowlist przechodzi fikcyjny GET do testowego portalu, a finalny POST/submit/sign nie przechodzi nawet przy HTML/JS prompt injection.
+- [ ] **K5.** **Brak logowania:** grepowanie testowych logów, CloudWatch, traces, proxy i błędów na synthetic marker zwraca 0 wyników; nie zapisujemy PII w dowodach.
+- [ ] **K6.** **Dowód realny:** z autoryzowanej Nitro task ENI i proxy logów (metadane) weryfikuj rzeczywistą odmowę exfil i brak alternatywnej trasy; bez live testu `BLOCKED` dla claimu braku egress.
+
+**Test offline do napisania:** `python -m pytest -q test_confidential_egress_adversarial.py` — 0 failed i 0 skipped krytycznych.
+
+**Test realny do napisania (wymaga niezależnie autoryzowanego AWS):** `python scripts/verify_confidential_egress_live.py --check` — bez realnego PASS punkt K6 pozostaje BLOCKED.
+
+### Wspólny warunek zamknięcia
+- [ ] Link do **zielonego CI dla aktualnego SHA**, dokładna komenda, liczba passed/failed/skipped i zanonimizowany raport w `docs/security-evidence/SEC-08.md` (lub równoważnym artefakcie). Testy opisane niżej należy dopiero wdrożyć; nazwa testu nie wystarcza.
+- [ ] Każdy K1–K6 ma `PASS/FAIL/BLOCKED`, datę, wykonawcę, link do dowodu. Brak realnej sesji AWS = `BLOCKED` dla punktów sprzętowych. Zero PII, plaintext, DEK, tokenów i sekretów w dowodach.
+- [ ] Pozostaje AUTO preview-only / no-submit / no-sign i produkcja OFF. Ukończony PR lub zielony CI nie oznaczają komercyjnego `Zero Operator Access verified`.
 
 ## Polecenie dla nowej konwersacji
 **Ten draft PR zawiera wyłącznie plan.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
