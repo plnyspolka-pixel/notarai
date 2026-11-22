@@ -168,17 +168,51 @@ def test_k1_multi_key_negative_probe_checks_operator_aws_account():
     assert mock.calls == [("sts", None)]
 
 
-def test_k6_multi_key_negative_probe_not_release_authorization(monkeypatch, tmp_path):
+def test_k6_multi_key_negative_probe_cli_never_returns_release_success(
+    monkeypatch, tmp_path,
+):
     import json
     import scripts.probe_confidential_all_generation_denials as cli
+
     fixture = make_history()
-    from test_confidential_tenant_history_isolation import comparison
-    data = comparison()
-    # Ensure both histories are independently checked before any test key is used.
-    assert data["pilot01"]["pinned_final_state_sha256"] == (
-        fixture["pinned_final_state_sha256"]
-    ) is False or True  # Different random signers do not change state hash.
-    # Dry-run returns BLOCKED regardless of fixture signers.
-    mock = MultiKeyProbe()
-    assert check(fixture, mock)["status"] == "BLOCKED_DRY_RUN"
-    assert mock.calls == []
+    history = tmp_path / "synthetic-history.json"
+    history.write_text(json.dumps({
+        "state_item": fixture["state_item"],
+        "event_items": fixture["event_items"],
+    }))
+    manifest = {}
+    for gen, (pem, pin) in fixture["trust_roots"].items():
+        path = tmp_path / f"root-{gen}.pem"
+        path.write_bytes(pem)
+        manifest[str(gen)] = {
+            "pem_file": str(path), "sha256": pin}
+    manifest_file = tmp_path / "independent-roots.json"
+    manifest_file.write_text(json.dumps(manifest))
+    calls = []
+    def fake_probe(**kwargs):
+        calls.append(kwargs)
+        return {
+            "status": (
+                "BLOCKED_ONE_IDENTITY_NEGATIVE_TESTS_ONLY"
+                if kwargs["execute"] else "BLOCKED_DRY_RUN"),
+            "verified_denial_count": 2 if kwargs["execute"] else 0,
+            "independent_custody_verified": False,
+            "customer_data_used": False,
+        }
+    monkeypatch.setattr(cli, "probe_all_generations", fake_probe)
+    common = [
+        "--tenant", "pilot01",
+        "--history-file", str(history),
+        "--trust-roots-file", str(manifest_file),
+        "--pinned-final-sha256", fixture["pinned_final_state_sha256"],
+        "--operator-profile", "isolated-negative-test",
+    ]
+    dry = tmp_path / "dry-report.json"
+    assert cli.main(common + ["--output", str(dry)]) == 0
+    live = tmp_path / "manual-report.json"
+    assert cli.main(common + [
+        "--execute-negative-probes", "--acknowledge-synthetic-only",
+        "--output", str(live),
+    ]) == 3
+    assert json.loads(live.read_text())["independent_custody_verified"] is False
+    assert [v["execute"] for v in calls] == [False, True]
