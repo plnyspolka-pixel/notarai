@@ -47,6 +47,12 @@ def sign_from_files(*, manifest_path: Path, key_path: Path, output_path: Path,
     raw = manifest_path.read_text(encoding="utf-8")
     manifest = json.loads(raw)
     canonical_manifest(manifest)
+    # The independent signer MUST NOT certify synthetic/mock successes.
+    # Blocking a MOCK PASS is distinct from claiming that AWS_LIVE strings
+    # are independently verified; the custodian must still inspect sources.
+    for record in manifest["checks"].values():
+        if record["status"] == "PASS" and record["provenance"] == "MOCK":
+            raise ValueError("mock PASS cannot be signed as security evidence")
     password = os.read(password_fd, 4097)
     if not password or len(password) > 4096 or not password.endswith(b"\n"):
         raise ValueError("password pipe invalid")
