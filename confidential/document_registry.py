@@ -156,6 +156,16 @@ class DocumentVersionRegistry:
         except Exception:
             raise DocumentRegistryDenied("document replay or queue race") from None
 
+    def require_stored(self, *, case_id: str, object_id: str,
+                       s3_version: str, ciphertext_sha256: str,
+                       document_version: str, key_pin: str) -> None:
+        item = self._record(case_id, object_id)
+        self._check(item, s3_version=s3_version,
+                    ciphertext_sha256=ciphertext_sha256,
+                    document_version=document_version, key_pin=key_pin)
+        if item.get("state", {}).get("S") not in ("stored", "queued"):
+            raise DocumentRegistryDenied("document is not committed")
+
     def require_guest(self, *, case_id: str, object_id: str,
                       s3_version: str, ciphertext_sha256: str,
                       document_version: str, key_pin: str) -> None:
