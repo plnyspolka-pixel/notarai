@@ -81,7 +81,9 @@ Command: `python -m pytest -q test_confidential_worker_lifecycle_sec10.py`.
 
 ## K3 — storage/runtime controls and verification gaps
 
-Implemented: guest redirects stdout/stderr to /dev/null **before** KMS unwrap (fail-closed if redirect fails). Operational state is stored as metadata in the ledger; this decreases the risk that vendor libraries print decrypted values to operator-visible streams. It does not prevent a compromised guest from opening new exfiltration channels, so independent signed release and network egress controls remain essential.\n\nImplemented: guest startup refuses work if Linux core dumps/ptrace dumpability
+Implemented: guest redirects stdout/stderr to /dev/null **before** KMS unwrap (fail-closed if redirect fails). Operational state is stored as metadata in the ledger; this decreases the risk that vendor libraries print decrypted values to operator-visible streams. It does not prevent a compromised guest from opening new exfiltration channels, so independent signed release and network egress controls remain essential.
+
+Implemented: guest startup refuses work if Linux core dumps/ptrace dumpability
 cannot be disabled or if `/tmp` is not a mounted `tmpfs`; Chromium profile,
 XDG config/cache and `TMPDIR` point to a fresh unique folder in that tmpfs.
 Read-only guest filesystem, no mounted persistent volumes, no container log
@@ -194,16 +196,16 @@ for `pilot01`/`pilot02`, provide ALL of:
 --task-arn arn:aws:ecs:eu-central-1:ACCOUNT:task-definition/notarai-confidential-pilot01:REVISION`.
 
 The script validates AWS identity and EU region before reading only ECS task
-definition, S3 versioning/lifecycle/**object version counts** (no object
+definition, S3 versioning/lifecycle/**full bounded object version counts** (no object
 body/keys output), SQS main and exact synthetic DLQ retention/redrive, DDB
 PITR, CloudTrail trail count and CloudWatch **log group retention metadata**
 for the synthetic tenant prefix. S3 is additionally checked for actual
 `eu-central-1` bucket location, bucket-level replication configuration,
-Object Lock configuration and delete-marker counts on the **first** page.
+Object Lock configuration and **bounded, complete** version/delete-marker counts across every S3 page. A missing cursor, pagination loop or inventory exceeding 50 pages fails closed.
 The script distinguishes `none-reported` from `unverified` permissions,
 uses S3 `ExpectedBucketOwner` equal to the verified STS account on **every**
 bucket metadata request, and never claims complete S3 deletion based on a
-single page. A missing S3 read permission means `unverified` or an explicit
+partial page. A missing S3 read permission means `unverified` or an explicit
 BLOCKED error, never an inferred clean audit.
 It never reads object bodies, queued messages, CloudTrail event bodies,
 CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
