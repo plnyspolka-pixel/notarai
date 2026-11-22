@@ -9,8 +9,9 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][string]$ExecutablePath,
-    [Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ExpectedSha256,
+    [string]$ExecutablePath,
+    [string]$ExpectedSha256,
+    [switch]$StartWorker,
     [switch]$Remove
 )
 $ErrorActionPreference = 'Stop'
@@ -26,6 +27,36 @@ if ($Remove) {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
     Write-Host 'Removed NotarAI interactive session health probe'
     exit 0
+}
+if ([string]::IsNullOrWhiteSpace($ExecutablePath) -or
+    $ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}
+if (-not [string]::Equals([IO.Path]::GetExtension($exe), '.exe', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'ExecutablePath must point to a built .exe, not a script'
+}
+$actualSha = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+if (-not [string]::Equals($actualSha, $ExpectedSha256, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Executable hash mismatch; refusing to register a different binary'
+}
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
+$principal = New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Interactive -RunLevel Limited
+$mode = if ($StartWorker) { '--serve-local-inbox' } else { '--session-health' }
+$limit = if ($StartWorker) { New-TimeSpan -Seconds 0 } else { New-TimeSpan -Minutes 1 }
+$action = New-ScheduledTaskAction -Execute $exe -Argument $mode
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit $limit -RestartCount 0
+Register-ScheduledTask -TaskName $taskName -Trigger $trigger -Principal $principal -Action $action -Settings $settings -Description 'Read-only interactive desktop readiness; no auto-logon' -Force | Out-Null
+Write-Host "Registered interactive task for $mode. No credentials stored or auto-logon enabled."
+if ($StartWorker) { Write-Host 'Local diagnostic inbox only - no external queue or RejNET automation.' }
+) {
+    throw 'Provide ExecutablePath and the 64-hex-digit expected SHA256'
+}
+if ($StartWorker) {
+    foreach ($variable in @('NOTARAI_VE_TENANT_ID', 'NOTARAI_VE_HMAC_KEY_FILE',
+                             'NOTARAI_VE_INBOX_DIR', 'NOTARAI_VE_OUTBOX_DIR',
+                             'NOTARAI_VE_REPLAY_DIR')) {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($variable, 'User'))) {
+            throw "Missing per-user operator setting: $variable"
+        }
+    }
 }
 $exe = (Resolve-Path -LiteralPath $ExecutablePath -ErrorAction Stop).Path
 if (-not [string]::Equals([IO.Path]::GetExtension($exe), '.exe', [StringComparison]::OrdinalIgnoreCase)) {
