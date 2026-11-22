@@ -530,7 +530,8 @@ kopii nagłówków rejestru, żeby operator nie mógł pokazać różnym kliento
 | brak | brak rejestru przejrzystości i odtwarzalnej kompilacji | nowe |
 
 **Etapy.**
-0. Rejestr przejrzystości i narzędzie weryfikacji (5.1). Niezależne od reszty.
+0. Rejestr przejrzystości i narzędzie weryfikacji (5.1). Niezależne od reszty. Biblioteka
+   i narzędzie offline: `docs/confidential-transparency-log.md`; publikacji jeszcze nie ma.
 1. Atestacja z nonce klienta i weryfikator w rozszerzeniu, równolegle do ścieżki KMS.
 2. Klucz kancelarii poświadcza klucze urządzeń; rejestr kluczy przestaje zależeć od operatora.
    Dodawanie urządzeń i kod odzyskiwania po stronie kancelarii.
