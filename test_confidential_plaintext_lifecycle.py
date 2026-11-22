@@ -469,14 +469,17 @@ def test_s3_inventory_rejects_incomplete_or_bogus_cursor(variant):
     bucket = f"ntr-cf-{tenant}-{account}-eu-central-1"
     prefix = f"kancelarie/{tenant}/confidential/"
     class S3:
+        calls = 0
         def list_object_versions(self, **kwargs):
+            self.calls += 1
             if variant == "malformed":
                 return {"Versions": [], "IsTruncated": "false"}
             if variant == "missing-cursor":
                 return {"Versions": [], "IsTruncated": True}
+            cursor = f"synthetic{self.calls}" if variant == "too-many" else "synthetic"
             return {
                 "Versions": [{"Key": prefix + "synthetic"}],
-                "IsTruncated": True, "NextKeyMarker": prefix + "synthetic",
+                "IsTruncated": True, "NextKeyMarker": prefix + cursor,
                 "NextVersionIdMarker": "v1",
             }
     with pytest.raises(UnsafeAudit) as exc:
