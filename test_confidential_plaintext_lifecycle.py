@@ -538,3 +538,26 @@ def test_stdio_guard_safe_when_guest_inherited_descriptors_are_closed(
         ("dup2", 3, 1), ("dup2", 3, 2), ("close", 3),
     ]
     assert ("close", returned_fd) not in calls
+
+
+def test_guest_kernel_hardening_disables_inherited_tls_key_logging(monkeypatch):
+    import confidential.plaintext_lifecycle as lifecycle
+    class FakeLibc:
+        def __init__(self):
+            def prctl(*args):
+                return 0
+            self.prctl = prctl
+    monkeypatch.setenv("SSLKEYLOGFILE", "/tmp/synthetic-should-not-exist")
+    monkeypatch.setenv("PWDEBUG", "1")
+    monkeypatch.setenv("PLAYWRIGHT_DEBUG", "1")
+    monkeypatch.setenv("CHROME_LOG_FILE", "/tmp/synthetic-crash.log")
+    monkeypatch.setattr(lifecycle.resource, "setrlimit", lambda *args: None)
+    monkeypatch.setattr(lifecycle.resource, "getrlimit", lambda *args: (0, 0))
+    monkeypatch.setattr(lifecycle.ctypes, "CDLL", lambda *a, **k: FakeLibc())
+    monkeypatch.setattr(lifecycle.faulthandler, "disable", lambda: None)
+    monkeypatch.setattr(lifecycle.os, "umask", lambda mask: None)
+    monkeypatch.setattr(lifecycle, "assert_tmpfs", lambda: None)
+    lifecycle.harden_guest_process()
+    for key in ("SSLKEYLOGFILE", "PWDEBUG", "PLAYWRIGHT_DEBUG"):
+        assert key not in os.environ
+    assert os.environ["CHROME_LOG_FILE"] == "/dev/null"
