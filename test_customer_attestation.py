@@ -78,7 +78,10 @@ def _verify(document, root, **kwargs):
 
 def test_authentic_synthetic_chain_and_rsa_recipient():
     root, signer, body = _fixture()
-    receipt = _verify(_sign(signer, body), root)
+    raw = _sign(signer, body)
+    tag = cbor2.loads(raw)
+    print('synthetic COSE types:', type(tag.value).__name__, [type(x).__name__ for x in tag.value])
+    receipt = _verify(raw, root)
     assert b"BEGIN PUBLIC KEY" in receipt.public_key_pem
     assert (8, PINS[8]) in receipt.pcrs
     assert receipt.timestamp_ms == int(NOW.timestamp() * 1000)
