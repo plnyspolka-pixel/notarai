@@ -326,6 +326,7 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   2. Po zatwierdzeniu kosztów użyć `-Apply`; sprawdzić SSM Online i brak publicznego IP/portów wejściowych.
   3. Przez SSM port forwarding + RDP uruchomić izolowany pulpit; testować `check-windows-session.ps1` i odczyt okna Notepad przez `agent/NotarAI.VirtualEmployee.Probe`.
   4. Zweryfikować licencję i instalację RejNET Office; wykonać test z fikcyjnym repertorium; nie podpisywać i nie wysyłać dokumentów.
-  5. Sprawdzić zachowanie po rozłączeniu RDP, zablokowaniu sesji i restarcie. Zatrzymać VM po teście i ocenić koszty VPC endpointów.
+  5. Opcjonalnie uruchomić (po odrębnym zatwierdzeniu kosztu) `infra/virtual-employee/deploy-sqs-pilot.ps1 -Apply`; sprawdzić, czy wiadomość SQS jest odebrana tylko z prywatnego VPC Endpointu, podpis HMAC i tenant są sprawdzane, a duplikat nie powoduje drugiego wykonania. Przez `send-sqs-diagnostic.ps1` wysyłać jedynie fikcyjne zlecenia `probe.session`/`probe.notepad`.
+  6. Sprawdzić zachowanie po rozłączeniu RDP, zablokowaniu sesji i restarcie. Zapisać, czy agent działa bez interaktywnego zalogowania (nie wolno zakładać, że działa). Zatrzymać VM po teście i usunąć opcjonalny stos SQS, aby nie płacić za endpoint.
 - **W kodzie:** `infra/virtual-employee/`, `agent/NotarAI.VirtualEmployee.Probe/`, `docs/virtual-employee-aws-pilot.md`.
-- **Zamknięte, gdy:** utworzony i przetestowany pilot z działającym UI Automation, bez publicznego RDP i bez prawdziwych danych; RejNET Office zgodny licencyjnie; udokumentowany sposób utrzymania sesji.
+- **Zamknięte, gdy:** uruchomiony pilot EC2 z działającym UI Automation na fikcyjnych danych, bez publicznego RDP; zaliczone testy podpisu, dzierżawy kolejki i odporności na ponowne wykonanie (jeżeli SQS włączono); RejNET Office potwierdzony licencyjnie i technicznie; udokumentowany stan sesji po rozłączeniu, blokadzie i restarcie. Aktualne CI nie zastępuje testów na rzeczywistej VM.
