@@ -29,3 +29,20 @@ Nie budować PKI, bankowego HSM, współdzielonego recovery multi-party, FHE, bl
 
 ## Interfejsy
 CIV-02 dostarcza podpisany klient bez instalacji i UI zgód, CIV-03 egzekwuje job/scope. Recovery testowana z dokładnym formatem v3 z CIV-01. Stary #68 recovery custodial może służyć do porównania testów, ale nie przenosić mechanizmu kustosza.
+
+
+## INSTRUKCJA DLA CLAUDE OPUS — SESJA PR #91
+
+Jesteś wykonawcą *tego* PR. **Wykonaj kod + testy**, nie kończ na kolejnym planie. Twoim celem jest zrealizowanie kryteriów odbioru powyżej. Nie modyfikuj obszarów innych sesji. Zanim zapiszesz kod, otwórz [katalog OSS](https://github.com/plnyspolka-pixel/notarai/blob/plan/civil-confidential-civ01-clean-base-20261122/docs/roadmaps/CIV-OSS-reuse-map.md)] i sprawdź bazową gałąź oraz aktualny stan projektu.
+
+1. Zbadaj istniejący owner RSA-3072/SPKI v3 z #86/#88 oraz ścieżkę UI #89; nie projektuj drugiej kryptografii klucza.
+2. Użyj sprawdzonego browser KDF Argon2id i AEAD do szyfrowania eksportowalnego klucza; jawne parametry, versioned format i ustalona polityka memory usage.
+3. Zaimplementuj export offline → testowy restore na drugim urządzeniu → weryfikacja pinned SPKI i starego dokumentu; nie umieszczaj klucza w serwisie NotarAI.
+4. Dodaj testvectors, złe hasło/AEAD/tenant, wyklucz admin reset i wyciek do sieci; test Chrome+Edge na fikcyjnych danych.
+
+**Kod do obejrzenia, nie do kopiowania bez analizy:**
+
+- [libsodium.js browser Argon2id (permissive LICENSE)](https://github.com/jedisct1/libsodium.js/blob/master/browsers-test/pwhash_argon2id.js)
+- [age — projekt prostego szyfrowanego backupu BSD-3](https://github.com/FiloSottile/age)
+
+Przed skopiowaniem wybierz SHA/tag, przeczytaj licencję i zapisz notice. Przetestuj regresję i negatywne przypadki z definicji odbioru. Raport końcowy: zmienione pliki, ponownie użyte komponenty, testy PASS/FAIL/BLOCKED, dokładny SHA i link CI, blokady sprzętowe. Brak AWS deploy/realnych aktów bez oddzielnej zgody. **PR planistyczny pozostaje Draft do wykonania.**
