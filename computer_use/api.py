@@ -10,7 +10,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -133,8 +133,10 @@ def get_job(request: Request, job_id: str):
 
 
 @router.get("/jobs/{job_id}/approval-preview")
-def approval_preview(request: Request, job_id: str):
+def approval_preview(request: Request, job_id: str, response: Response):
     caller = _caller(request)
+    response.headers["Cache-Control"] = "no-store, private"
+    response.headers["Pragma"] = "no-cache"
     return _translate(lambda: _service(caller.tenant_id).approval_preview(caller, job_id))
 
 
@@ -157,8 +159,10 @@ def reconcile_job(request: Request, job_id: str):
 
 
 @router.get("/jobs/{job_id}/result")
-def job_result(request: Request, job_id: str):
+def job_result(request: Request, job_id: str, response: Response):
     caller = _caller(request)
+    response.headers["Cache-Control"] = "no-store, private"
+    response.headers["Pragma"] = "no-cache"
     return {"result": _translate(lambda: _service(caller.tenant_id).result(caller, job_id))}
 
 
