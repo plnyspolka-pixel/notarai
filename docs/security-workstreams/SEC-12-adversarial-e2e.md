@@ -10,6 +10,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-12
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **2 pozytywne scenariusze:** pilot01 i pilot02 kończą fikcyjne zaszyfrowane zadania jako `preview_completed` i `submitted=false`, z odrębnym KMS/task role, tą samą zatwierdzoną wersją Nitro.
 - [ ] **K2.** **Min. 12 odmów:** IAM/PassRole, zmiana KMS key policy, CreateGrant, OCI digest swap, PCR tamper, release replay, expiry, S3 VersionId swap, wrong tenant, API scope, exfil GET/POST i próba wywołania submit — wszystkie zakończone odmową lub twardym FAIL.
 - [ ] **K3.** **Rzeczywisty AWS:** te same scenariusze uruchamiane z autoryzowanych kont workload i custody, z hardware NSM; jeśli infrastruktura niedostępna, cały live gate pozostaje `BLOCKED`.
