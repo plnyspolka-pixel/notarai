@@ -21,10 +21,16 @@ RUN pip install --no-cache-dir -r confidential/requirements.txt \
 
 COPY confidential/ /opt/notarai/confidential/
 
+# Public key only. No defaults: image build fails without the pinned notary
+# origin anchor. This file is covered by the final audited image/PCR digest.
+ARG TRUSTED_ORIGIN_ISSUER_ID
+ARG TRUSTED_ORIGIN_PUBLIC_B64
+RUN python -m confidential.bake_trust
+
 # The guest doesn't need the root account to run browser and KMS clients.
 RUN useradd --uid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin notarai \
     && chmod -R a+rX /opt/notarai \
     && chmod -R a+rX /ms-playwright
 USER 10001:10001
 
-CMD ["python", "-m", "confidential.worker"]
+CMD ["python", "-m", "confidential.customer_v3_worker"]
