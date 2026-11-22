@@ -84,8 +84,12 @@ class QueueConsumer:
                 out = self.worker.execute(req)
                 result = self.control.finish(
                     bound_tenant=self.tenant_id, job_id=job_id,
-                    worker_id=self.worker_id, outcome=out.outcome.value,
-                    strategy=out.strategy, reason=out.reason,
+                    worker_id=self.worker_id,
+                    outcome=("waiting_for_human" if out.outcome is Outcome.UNSUPPORTED
+                             else out.outcome.value),
+                    strategy=out.strategy,
+                    reason=("no_supported_method" if out.outcome is Outcome.UNSUPPORTED
+                            else out.reason),
                     result=out.data if out.outcome is Outcome.COMPLETED else None,
                 )
         except Exception:
