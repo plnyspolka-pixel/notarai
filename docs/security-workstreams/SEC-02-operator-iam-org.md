@@ -1,6 +1,8 @@
 # SEC-02 — [SEC-02] Kontrola uprawnień operatora AWS, SCP i trybu awaryjnego
 
-**Status: PLANNED, not implemented.** Priorytet: P0
+**Status: PARTIALLY IMPLEMENTED — K1–K6 BLOCKED pending independent live AWS proof.** Priorytet: P0
+**Kod na tej gałęzi:** `infra/notarai-confidential-operator-iam.yaml`, `confidential/operator_iam_controls.py`, `scripts/confidential_operator_iam_evidence.py`, `test_confidential_operator_iam_controls.py`, `.github/workflows/confidential-operator-iam.yml`.
+**Instrukcja implementacyjna:** `docs/security-workstreams/SEC-02-implementation.md`; **rejestr braków:** `docs/security-evidence/SEC-02.md`. Nowa rola to wyłącznie obserwator pilota — NIE egzekwuje polityki wszystkich adminów AWS. Niczego nie wdrożono na AWS.
 **Zależności:** SEC-01 i #61–#65
 
 ## Zakres
@@ -28,7 +30,7 @@
 - [ ] W żadnym kodzie dodanym przez PR nie ma możliwości wysyłania ani podpisywania formularzy w AUTO. Testy CI i wykonany PR NIE oznaczają potwierdzenia komercyjnych twierdzeń Zero Trust / Zero Operator Access / Zero Knowledge.
 
 ## Zasady pracy w nowej konwersacji
-To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działającego dowodu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
+Ten PR rozpoczął się jako **PR planistyczny**. Dodano kod IAM/testy, ale brak rzeczywistego dowodu AWS. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
 
 Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; produkcja wyłączona; AUTO preview nie wysyła, nie podpisuje i nie składa wniosków. Nie podnoś operatorowi uprawnień custody, nie loguj PII/plaintext/sekretów i nie wprowadzaj sieciowego 0.0.0.0/0 dla guest. Każdą własność security potwierdź testami pozytywnymi i **negatywnymi**; brak konta/narzędzi oznacz BLOCKED, a nie PASS. Sama dokumentacja lub CI nie stanowi dowodu sprzętowego. Zapisz kod + testy + wyniki + wymaganą niezależną atestację w PR.
 
