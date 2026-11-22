@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
 using NotarAI.VirtualEmployee.Protocol;
 using NotarAI.VirtualEmployee.Probe;
@@ -21,13 +22,15 @@ if (args.Length == 1 && args[0] == "--session-health")
     return ReportSession();
 if (args.Length == 1 && args[0] == "--inspect-notepad")
     return InspectNotepad();
+if (args.Length == 2 && args[0] == "--survey-ui")
+    return SurveyControlTypes(args[1]);
 if (args.Length == 1 && args[0] == "--once-local-inbox")
     return RunLocalInbox(continuous: false);
 if (args.Length == 1 && args[0] == "--serve-local-inbox")
     return RunLocalInbox(continuous: true);
 if (args.Length != 2 || args[0] != "--run-verified-local-job")
 {
-    Console.WriteLine("Usage: --session-health | --inspect-notepad | --run-verified-local-job <job.json> | --once-local-inbox | --serve-local-inbox");
+    Console.WriteLine("Usage: --session-health | --inspect-notepad | --survey-ui <PID> | --run-verified-local-job <job.json> | --once-local-inbox | --serve-local-inbox");
     return 2;
 }
 
@@ -75,6 +78,73 @@ return admission.Operation switch
     "probe.notepad" => InspectNotepad(),
     _ => 7 // Defense-in-depth; never accept shell/script actions.
 };
+
+// For the vendor qualification workshop only. Returns a histogram of
+// UIA control *types* in the current user's session. Never reads Name, Value,
+// text, window title, automation IDs or document content.
+static int SurveyControlTypes(string rawPid)
+{
+    if (!int.TryParse(rawPid, out var pid) || pid <= 0)
+        return 2;
+    try
+    {
+        using var target = Process.GetProcessById(pid);
+        if (target.SessionId != Process.GetCurrentProcess().SessionId)
+        {
+            Console.Error.WriteLine("Target must belong to the current desktop session");
+            return 7;
+        }
+        using var automation = new UIA3Automation();
+        var roots = automation.GetDesktop()
+            .FindAllChildren(cf => cf.ByControlType(ControlType.Window));
+        var counts = new Dictionary<ControlType, int>();
+        var queue = new Queue<(AutomationElement Element, int Depth)>();
+        foreach (var root in roots)
+        {
+            try
+            {
+                if (root.Properties.ProcessId.Value == pid) queue.Enqueue((root, 0));
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
+            {
+                // Window disappeared.
+            }
+        }
+        const int maxElements = 400;
+        const int maxDepth = 4;
+        var inspected = 0;
+        while (queue.Count > 0 && inspected < maxElements)
+        {
+            var (element, depth) = queue.Dequeue();
+            try
+            {
+                var controlType = element.Properties.ControlType.Value;
+                counts[controlType] = counts.GetValueOrDefault(controlType) + 1;
+                inspected++;
+                if (depth < maxDepth)
+                {
+                    foreach (var child in element.FindAllChildren())
+                        queue.Enqueue((child, depth + 1));
+                }
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
+            {
+                // Stale UIA element; ignore without printing its properties.
+            }
+        }
+        Console.WriteLine($"Read-only UIA type histogram; inspected: {inspected}; truncated: {queue.Count > 0}");
+        foreach (var type in counts.Keys.OrderBy(x => x.ToString(), StringComparer.Ordinal))
+            Console.WriteLine($"{type}: {counts[type]}");
+        return inspected > 0 ? 0 : 5;
+    }
+    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+                                System.ComponentModel.Win32Exception or
+                                System.Runtime.InteropServices.COMException)
+    {
+        Console.Error.WriteLine("UIA target not available");
+        return 5;
+    }
+}
 
 static int RunLocalInbox(bool continuous)
 {
