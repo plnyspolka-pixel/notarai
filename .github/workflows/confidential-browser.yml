@@ -19,6 +19,7 @@ on:
       - 'scripts/verify_confidential_release.py'
       - 'scripts/custodian_sign_confidential_release.py'
       - 'scripts/audit_confidential_pilot.py'
+      - 'scripts/run_confidential_adversarial_e2e.py'
       - '.github/workflows/confidential-browser.yml'
   workflow_dispatch:
 
@@ -99,7 +100,14 @@ jobs:
           result=$?
           set -e
           test "$result" -eq 2
-          python -c 'import json; x=json.load(open("/tmp/notarai-sec12-gate.json")); assert x["decision"]=="NO_GO" and x["commercial_go"] is False and x["live_hardware"]=="BLOCKED"'
+          python -c 'import json; x=json.load(open("/tmp/notarai-sec12-gate.json")); assert x["decision"]=="NO_GO" and x["commercial_go"] is False and x["live_hardware"]=="BLOCKED"; assert x["run_type"]=="SYNTHETIC_ONLY" and x["real_aws_calls"]==0; assert len(x["cases"])==19 and len({c["case"] for c in x["cases"]})==19; assert all(c["source"]=="MOCK" and c["submitted"] is False for c in x["cases"])'
+      - name: Zachowaj jawnie syntetyczny raport SEC-12 (NIE dowod hardware)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec12-offline-matrix
+          path: /tmp/notarai-sec12-gate.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
