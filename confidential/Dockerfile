@@ -21,6 +21,21 @@ RUN pip install --no-cache-dir -r confidential/requirements.txt \
 
 COPY confidential/ /opt/notarai/confidential/
 
+# In the real pilot a custodian must provide an independently verified
+# trusted-origin-root.json and bind its SHA-256 into the image build.
+# The CI smoke image intentionally lacks it; the worker then refuses all
+# SQS jobs BEFORE decryption (fail closed). The optional hash is only a
+# build-consistency check; actual trust requires custodian approval of the
+# measured Nitro image/PCR and independently controlled KMS policy.
+ARG NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256=""
+RUN if [ -n "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" ]; then \
+      test -s /opt/notarai/confidential/trusted-origin-root.json && \
+      printf '%s  %s\\n' "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" \
+        /opt/notarai/confidential/trusted-origin-root.json | sha256sum -c -; \
+    else \
+      echo 'SEC-03: custody trust root not provided; guest must reject all decrypts'; \
+    fi
+
 # The guest doesn't need the root account to run browser and KMS clients.
 RUN useradd --uid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin notarai \
     && chmod -R a+rX /opt/notarai \
