@@ -74,16 +74,16 @@ sprawa-kotwica daje odcinkowi konkretny, sprawdzalny mechanizm.
 | 03 | „U nas się tak nie pisze”: styl projektu | **H02** (notariusz sprostował protokół, przesuwając numerację uchwał) i motyw **H20** (zamienione numery budynku i lokalu, twierdzenie strony) | Helena wyłapuje zamienione numery w projekcie, zanim trafią do aktu | A / B jako motyw |
 | 04 | „Wczoraj tego nie było”: KW innej sprawy | **H04** (w kancelarii wychodzi wzmianka o egzekucji w KW; kupujący wychodzi; strony jadą do komornika, spłacają dług i wracają po 15:00, gdy biuro się zamyka) | cały łuk odcinka: upadek, wyścig z zegarem, powrót przed zamknięciem | A |
 | 05 | „Przyszło mailem”: robocze ustalenia | **H24** (kupujący nie przygotował gotówki, bo nie zakładał zapłaty w kancelarii) i **H06** (służebność niepodpisana, bo nikt nie ustalił, kto płaci za akt) | różne oczekiwania stron zapisane w korespondencji; humor z H06 | A / B |
-| 06 | „Kto ma tę sprawę?”: druga sprawa odcinka | **H23** (przed sprzedażą mieszkania, po uzupełnieniu brakującej gotówki, strony spotkały się w NBP, by sprawdzić autentyczność banknotów; sąd pozytywnie ocenił staranność notariusza przy akcie) | druga sprawa odcinka: gotówka w transakcji, sprawdzenie banknotów poza kancelarią, notariusz, który niczego nie przyspiesza. Bez przestępstwa, notariusz wypada dobrze | A, **pełny tekst do przeczytania** |
+| 06 | „Kto ma tę sprawę?”: druga sprawa odcinka | **H23** (przed sprzedażą mieszkania, po uzupełnieniu brakującej gotówki, strony spotkały się w NBP, by sprawdzić autentyczność banknotów; sąd pozytywnie ocenił staranność notariusza przy akcie) | druga sprawa odcinka: gotówka w transakcji, sprawdzenie banknotów poza kancelarią, notariusz, który niczego nie przyspiesza. Bez przestępstwa, notariusz wypada dobrze | A, przeczytane 23.11.2026 |
 | 07 | Helena poza biurem | **H08** (testament niesłyszącego klienta sporządzony w samochodzie na parkingu; sąd: miejsce nie przesądza o ważności), **H26** (notariusz na wyjeździe nie musi wozić „całej drukarni”), **H28** (wyjazdy do starszych i chorych 4–5 razy w miesiącu) | czynność poza kancelarią; ograniczenia techniczne w terenie; mobilny dostęp do projektu (tylko po teście E2E) | A / B |
 | 08 | „To moja decyzja” | **H25** (sąd potwierdza odmowę notariusza: notariusz nie zastępuje organów i nie prowadzi postępowania dowodowego) i zasada z **H07** (gdy strona się nie stawia, notariusz spisuje protokół niestawiennictwa) | granice roli notariusza i to, że czynność może się nie odbyć; finał: Irena przychodzi i decyduje sama | A |
 
 **EP06, decyzja 23.11.2026:** sprawa-kotwica to H23 (banknoty w NBP).
-Ucharakteryzowana oszustka (P01) przechodzi do sezonu 2. Przed pisaniem sceny
-trzeba przeczytać pełne uzasadnienie (SO, II C 1542/13, SAOS 58319):
-dokładny przebieg wizyty w NBP, kto pojechał i co sąd napisał o staranności
-notariusza. W tej sesji tekstu nie pobrano (blokada sieci, patrz karta sprawy
-`03_PRODUKCJA/KARTA_SPRAWY_H23_BANKNOTY.md`).
+Ucharakteryzowana oszustka (P01) przechodzi do sezonu 2. Pełne uzasadnienie
+przeczytane: sprawdzenia banknotów zażądała sprzedająca, a pieniądze przywiózł
+mężczyzna, który nie był stroną aktu; sąd oddalił powództwo o unieważnienie
+i ocenił, że notariusz dołożył należytej staranności. Mechanizm i propozycja
+scen E06S04–S05: `03_PRODUKCJA/KARTA_SPRAWY_H23_BANKNOTY.md`.
 
 **Sprawy na sezon 2 (wizytacja):** P01 (48-latka ucharakteryzowana na 85-letnią właścicielkę mieszkania próbuje podpisać pełnomocnictwo; notariusz wychwytuje rozbieżność zdjęć w dowodzie, decyzja 23.11.2026), P03 (nieudana próba przekupienia
 notariusza, by poświadczył stawiennictwo testatora), P02 (zatrzymanie

@@ -3,6 +3,8 @@
 > **Nota dramaturgiczna V5 — powracający gag „nakarmić komputerka”.** Ciocia Teresa Janicka w swojej dwuosobowej kancelarii pyta rzeczowo, ile «komputerek» kosztuje miesięcznie. Rozmowa dotyczy organizacji pracy, a nie obietnicy darmowej automatyzacji. Szczegóły, rytm i ograniczenia produktu: [biblia gagu](../08_MOTYW_KARMIENIE_KOMPUTERKA.md). Beat jest propozycją do następnego passu scenariuszowego; wszystkie dotychczasowe ujęcia pozostają do oceny przed ewentualnym nowym renderem.
 
 
+> **Nota 23.11.2026 — prawdziwa sprawa:** druga sprawa odcinka (sceny E06S04–S05) ma się opierać na sprawie H23 (banknoty sprawdzane w NBP, kupujący, który płaci, a nie jest w akcie). Propozycja scen do następnego przeglądu: `../03_PRODUKCJA/KARTA_SPRAWY_H23_BANKNOTY.md`. Sceny poniżej nie są jeszcze zmienione.
+
 **Data fabularna:** 23.11.2026 · **Czas:** 80 s · **Wersja:** robocza do autoryzacji · **Format:** 9:16, adaptacja 16:9
 
 
