@@ -176,6 +176,7 @@ def tick(ecs=None, sqs=None, ddb=None, now=1000, token="a" * 32):
     ddb = ddb or DynamoFake()
     state = dispatch_once(
         config(), sqs=sqs, ecs=ecs, dynamodb=ddb,
+        release_gate=lambda: None,
         clock=lambda: now, token_factory=lambda: token
     )
     return state, ecs, sqs, ddb
