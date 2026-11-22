@@ -78,6 +78,9 @@ def test_signed_manifest_has_valid_integrity_but_never_proves_live_security(iden
     assert result.zero_operator_access_proven is False
     assert result.manifest_sha256 == manifest_sha256(manifest)
     assert set(result.check_status) == REQUIRED_CHECKS
+    assert all(status == "BLOCKED" for status in result.check_status.values())
+    assert all(status == "PASS" for status in result.asserted_check_status.values())
+    assert all(src == "MOCK" for src in result.check_provenance.values())
     assert result.as_dict()["zero_operator_access_proven"] is False
 
 
