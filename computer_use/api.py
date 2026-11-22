@@ -132,6 +132,12 @@ def get_job(request: Request, job_id: str):
     return _translate(lambda: _service(caller.tenant_id).get(caller, job_id))
 
 
+@router.get("/jobs/{job_id}/approval-preview")
+def approval_preview(request: Request, job_id: str):
+    caller = _caller(request)
+    return _translate(lambda: _service(caller.tenant_id).approval_preview(caller, job_id))
+
+
 @router.post("/jobs/{job_id}/approve")
 def approve_job(request: Request, job_id: str):
     caller = _caller(request)
