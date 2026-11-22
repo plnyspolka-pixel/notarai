@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SEC-02 opt-in, synthetic pilot OBSERVER only. No deployment from this PR.
+  This cannot protect custody against workload root or AWS Organizations owner.
+Parameters:
+  TenantId:
+    Type: String
+    AllowedValues: [pilot01, pilot02]
+  SourceRoleName:
+    Type: String
+    AllowedPattern: "^[A-Za-z0-9+=,.@_-]{1,64}$"
+    Description: Pre-existing same-account source IAM role
+  CustodyAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+Conditions:
+  PilotEuRegion: !Equals [!Ref AWS::Region, eu-central-1]
+  DifferentAccount: !Not [!Equals [!Ref AWS::AccountId, !Ref CustodyAccountId]]
+  SafePilot: !And [!Condition PilotEuRegion, !Condition DifferentAccount]
+Resources:
+  OperatorGuardrail:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: SafePilot
+    Properties:
+      ManagedPolicyName: !Sub "notarai-confidential-operator-boundary-${TenantId}"
+      Description: Bounded observer, never a custody administrator
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ExplicitlyDenyEscalation
+            Effect: Deny
+            Action:
+              - ecr:PutImage
+              - ecr:BatchDeleteImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImageTagMutability
+              - ecr:SetRepositoryPolicy
+              - ecr:DeleteRepositoryPolicy
+              - iam:PassRole
+              - iam:CreateRole
+              - iam:AttachRolePolicy
+              - iam:PutRolePolicy
+              - iam:UpdateAssumeRolePolicy
+              - iam:PutRolePermissionsBoundary
+              - iam:DeleteRolePermissionsBoundary
+              - iam:CreateOpenIDConnectProvider
+              - iam:UpdateOpenIDConnectProviderThumbprint
+              - iam:DeleteOpenIDConnectProvider
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+              - cloudformation:DeleteStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:SetStackPolicy
+              - kms:Decrypt
+              - kms:PutKeyPolicy
+              - kms:CreateGrant
+              - kms:ScheduleKeyDeletion
+              - kms:DisableKey
+              - ecs:RunTask
+              - ecs:RegisterTaskDefinition
+              - ecs:ExecuteCommand
+              - ecs:UpdateService
+              - ecs:CreateService
+              - lambda:UpdateFunctionCode
+              - lambda:UpdateFunctionConfiguration
+              - events:PutRule
+              - events:PutTargets
+              - sts:AssumeRole
+              - sts:AssumeRoleWithWebIdentity
+              - organizations:*
+              - sso:*
+              - identitystore:*
+            Resource: "*"
+          - Sid: ObserveOnlyOwnPilotTasks
+            Effect: Allow
+            Action: ecs:ListTasks
+            Resource: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+          - Sid: ObserveOnlyOwnPilotImageMetadata
+            Effect: Allow
+            Action: ecr:DescribeImages
+            Resource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/notarai-confidential-shared"
+          - Sid: ObserveOnlyOwnPilotQueueMetadata
+            Effect: Allow
+            Action: sqs:GetQueueAttributes
+            Resource: !Sub "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-${TenantId}.fifo"
+  OperatorObserverRole:
+    Type: AWS::IAM::Role
+    Condition: SafePilot
+    Properties:
+      RoleName: !Sub "notarai-confidential-operator-observer-${TenantId}"
+      MaxSessionDuration: 3600
+      PermissionsBoundary: !Ref OperatorGuardrail
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: OnlyPreexistingOperatorSource
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/${SourceRoleName}"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: synthetic-observation-only
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ObserveOnlyOwnPilotTasks
+                Effect: Allow
+                Action: ecs:ListTasks
+                Resource: !Sub "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared"
+              - Sid: ObserveOnlyOwnPilotImageMetadata
+                Effect: Allow
+                Action: ecr:DescribeImages
+                Resource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/notarai-confidential-shared"
+              - Sid: ObserveOnlyOwnPilotQueueMetadata
+                Effect: Allow
+                Action: sqs:GetQueueAttributes
+                Resource: !Sub "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-${TenantId}.fifo"
+Outputs:
+  ObserverRoleArn:
+    Condition: SafePilot
+    Value: !GetAtt OperatorObserverRole.Arn
