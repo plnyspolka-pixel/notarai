@@ -30,7 +30,7 @@ COPY confidential/ /opt/notarai/confidential/
 ARG NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256=""
 RUN if [ -n "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" ]; then \
       test -s /opt/notarai/confidential/trusted-origin-root.json && \
-      printf '%s  %s\\n' "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" \
+      printf '%s  %s\n' "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" \
         /opt/notarai/confidential/trusted-origin-root.json | sha256sum -c -; \
     else \
       echo 'SEC-03: custody trust root not provided; guest must reject all decrypts'; \
