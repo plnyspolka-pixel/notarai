@@ -11,6 +11,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-13
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Komercyjna deklaracja ZK/ZOA wymaga oddzielnie zweryfikowanego GO w określonym zakresie.
+
 - [ ] **K1.** **12 etapów poprzedzających:** bramka GO/NO-GO czyta wyniki SEC-01…SEC-12; 12/12 ma wskazany HEAD commit, status implementacji, niezależny artefakt dowodowy, status LIVE/NOT-LIVE i datę ważności; brak któregokolwiek krytycznego dowodu => `NO-GO`.
 - [ ] **K2.** **Niezależny audyt:** istnieje podpisana przez faktycznie niezależnego audytora ocena obejmująca workload IAM/SCP, KMS custody, GitHub release, sprzęt Nitro, eksfiltrację, izolację tenant, frontend i AI/LLM; raport zawiera datę, zakres, ograniczenia, listę 0 otwartych niezaakceptowanych ustaleń krytycznych i wysokich.
 - [ ] **K3.** **E2E przed ofertą:** raport z SEC-12 zawiera 2 sukcesy fikcyjnych kancelarii, minimum 12 odmów przeciwnika i 4 scenariusze awaryjne, 0 nieautoryzowanych decrypt i 0 finalnych submit; hardware i podpis kustosza są aktualne.
