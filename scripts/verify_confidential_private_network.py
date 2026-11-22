@@ -28,7 +28,8 @@ def verify(
         return False
 
     import boto3
-    session = boto3.Session(profile_name=profile, region_name="eu-central-1")
+    session = boto3.Session(profile_name=None if profile == "environment" else profile,
+        region_name="eu-central-1")
     if session.client("sts").get_caller_identity().get("Account") != account:
         raise RuntimeError("AWS account mismatch")
     ec2 = session.client("ec2")

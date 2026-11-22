@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 REGION = "eu-central-1"
+ENVIRONMENT_PROFILE = "environment"  # credentials from the environment (CI, session proxy)
 _ACCOUNT = re.compile(r"^\d{12}$")
 _TENANT = re.compile(r"^[a-z0-9]{1,12}$")
 
@@ -63,7 +64,9 @@ def fixture_envelope(*, tenant: str, kms_arn: str, public_der: bytes) -> dict:
 
 def aws(profile: str, args: list[str]) -> dict:
     out = subprocess.run(
-        ["aws", *args, "--profile", profile, "--region", REGION,
+        ["aws", *args,
+         *([] if profile == ENVIRONMENT_PROFILE else ["--profile", profile]),
+         "--region", REGION,
          "--no-cli-pager", "--output", "json"],
         capture_output=True, check=True, text=True, timeout=90,
     ).stdout
@@ -109,7 +112,9 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     object_body = json.dumps(envelope, separators=(",", ":"))
     # boto3 uses the same configured profile and has native binary upload.
     import boto3
-    sess = boto3.Session(profile_name=profile, region_name=REGION)
+    sess = boto3.Session(
+        profile_name=None if profile == ENVIRONMENT_PROFILE else profile,
+        region_name=REGION)
     uploaded = sess.client("s3").put_object(
         Bucket=bucket, Key=object_key, Body=object_body.encode("ascii"),
         ContentType="application/json", ServerSideEncryption="AES256",

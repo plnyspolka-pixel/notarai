@@ -193,3 +193,16 @@ def test_pipeline_generator_output_must_match_registered_policy(monkeypatch, tmp
     monkeypatch.setattr(runner, "aws", lambda profile, args, timeout=90: {"taskDefinition": {}})
     with pytest.raises(RuntimeError, match="no attestation policy"):
         runner._verified_pcr17("demo-profile", TASK_ARN, str(tmp_path))
+
+
+def test_environment_profile_uses_ambient_credentials_without_cli_profile(monkeypatch):
+    seen = []
+
+    def fake_run(argv, **kwargs):
+        seen.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="{}")
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    runner.aws("environment", ["sts", "get-caller-identity"])
+    runner.aws("demo-profile", ["sts", "get-caller-identity"])
+    assert "--profile" not in seen[0]
+    assert seen[1][seen[1].index("--profile") + 1] == "demo-profile"
