@@ -6,6 +6,7 @@ on:
       - 'confidential/operator_iam_controls.py'
       - 'test_confidential_operator_iam_controls.py'
       - 'scripts/confidential_operator_iam_evidence.py'
+      - 'scripts/confidential_operator_iam_source_inventory.py'
       - '.github/workflows/confidential-operator-iam.yml'
       - 'infra/notarai-confidential-github.yaml'
   push:
@@ -36,6 +37,17 @@ jobs:
           python -m pip install -r /tmp/notarai-requirements-sec02.txt
       - name: Exact SEC-02 acceptance command
         run: python -m pytest -q test_confidential_operator_iam_controls.py
+      - name: Generate deterministic redacted source-only privilege inventory
+        run: |
+          python -m scripts.confidential_operator_iam_source_inventory \
+            --output sec02-source-inventory.json --summary
+      - name: Save source graph for security reviewers
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec02-source-inventory
+          path: sec02-source-inventory.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Evidence limitations
         run: |
           {
