@@ -54,6 +54,12 @@ Resources:
           FirewallDomainListId: !Ref ApprovedPrivateEndpoints
           FirewallDomainRedirectionAction: INSPECT_REDIRECTION_DOMAIN
           Priority: 100
+          Qtype: A
+        - Action: ALLOW
+          FirewallDomainListId: !Ref ApprovedPrivateEndpoints
+          FirewallDomainRedirectionAction: INSPECT_REDIRECTION_DOMAIN
+          Priority: 110
+          Qtype: AAAA
         - Action: BLOCK
           BlockResponse: NXDOMAIN
           FirewallDomainListId: !Ref DenyAllOtherDomains
