@@ -6,7 +6,7 @@
 
 - One dedicated Windows Server 2022 EC2 per tenant (first fictional tenant: `pilot01`), Windows GUI running on AWS, **no NotarAI installation on the notary's computer**.
 - Region `eu-central-1` (Frankfurt). Dedicated VPC and a private subnet without Internet Gateway, NAT, public IP, public RDP or other inbound security-group ports.
-- Three private AWS Systems Manager endpoints: `ssm`, `ssmmessages` and `ec2messages`. The VM's only network egress is HTTPS to these endpoints. No direct access yet to the production NotarAI API or RejNET servers.
+- Two required private AWS Systems Manager endpoints plus an optional legacy third: `ssm`, `ssmmessages` and `ec2messages`. The VM's only network egress is HTTPS to these endpoints. No direct access yet to the production NotarAI API or RejNET servers.
 - Official AWS Windows Server AMI, encrypted 100 GiB gp3 system disk, IMDSv2 required, EC2 IAM role with `AmazonSSMManagedInstanceCore`.
 - Bootstrap creates protected `C:\ProgramData\NotarAI\VirtualEmployee` folders. **It does not install RejNET, create passwords, run RDP auto-logon or deploy an AI worker.**
 - No real notarial files, customer database, PESEL, certificates, passwords or secrets in this pilot. EBS encryption and network isolation alone do not establish Zero Knowledge or Zero Operator Access.
@@ -69,7 +69,7 @@ Production hardening: key ownership and operator access boundaries, credential p
 
 ## Billing and cleanup
 
-The stack creates a billed Windows EC2, encrypted gp3 volume, 3 billed PrivateLink interfaces and monitoring. EC2 can be stopped when idle but EBS and VPC endpoint charges persist. This synthetic single-AZ pilot has no HA or automatic shutdown.
+The stack creates a billed Windows EC2, encrypted gp3 volume, 2 default billed PrivateLink interfaces (legacy third optional) and monitoring. EC2 can be stopped when idle but EBS and VPC endpoint charges persist. This synthetic single-AZ pilot has no HA or automatic shutdown.
 
 ```powershell
 aws ec2 stop-instances --instance-ids <INSTANCE-ID> --region eu-central-1 --profile notarai-admin
@@ -88,3 +88,8 @@ aws cloudformation delete-stack --stack-name notarai-ve-pilot01 --region eu-cent
 - [ ] VM stopped or stack removed after testing; costs reviewed
 
 Sources: [AWS SSM PrivateLink](https://docs.aws.amazon.com/systems-manager/latest/userguide/setup-create-vpc.html), [Windows EC2 user data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html), [official Windows AMI SSM parameter](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/finding-an-ami-parameter-store.html).
+
+
+### Endpoint cost optimization
+
+On current SSM Agent versions (>=3.3.40.0), `ssmmessages` is preferred; the legacy `ec2messages` endpoint is **disabled by default** to avoid unnecessary per-hour charges. To enable only when genuinely needed, use `-LegacyEc2Messages` with `deploy-pilot.ps1`. See [AWS Message API precedence](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html).
