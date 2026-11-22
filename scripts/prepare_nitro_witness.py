@@ -89,7 +89,8 @@ def main() -> int:
     try:
         if Path(args.payload_out).resolve() == Path(args.signing_bytes_out).resolve():
             raise DenialEvidenceRejected("two separate output files required")
-        raw = Path(args.matrix).read_bytes()
+        with Path(args.matrix).open("rb") as matrix_file:
+            raw = matrix_file.read(_MAX_BYTES + 1)
         if not raw or len(raw) > _MAX_BYTES:
             raise DenialEvidenceRejected("matrix file invalid")
         matrix = json.loads(raw)
