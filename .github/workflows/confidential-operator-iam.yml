@@ -5,6 +5,7 @@ on:
       - 'infra/notarai-confidential-operator-iam.yaml'
       - 'confidential/operator_iam_controls.py'
       - 'test_confidential_operator_iam_controls.py'
+      - 'scripts/confidential_operator_iam_evidence.py'
       - '.github/workflows/confidential-operator-iam.yml'
       - 'infra/notarai-confidential-github.yaml'
   push:
@@ -24,12 +25,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Install test-only dependencies
-        run: python -m pip install pytest PyYAML
+      - name: Install project test dependencies (exclude browsers and local speech models)
+        run: |
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-requirements-sec02.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r /tmp/notarai-requirements-sec02.txt
       - name: Exact SEC-02 acceptance command
         run: python -m pytest -q test_confidential_operator_iam_controls.py
       - name: Evidence limitations
