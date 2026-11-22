@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
+from confidential.tenant_isolation import validate_worker_binding
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -28,10 +29,15 @@ def _config() -> tuple[str, str, str, str]:
     bucket = os.environ["NOTARAI_CONFIDENTIAL_BUCKET"]
     queue = os.environ["NOTARAI_CONFIDENTIAL_QUEUE_URL"]
     key = os.environ["NOTARAI_CONFIDENTIAL_KMS_KEY_ARN"]
-    if not _ID.fullmatch(tenant) or not key.startswith("arn:aws:kms:eu-"):
-        raise RuntimeError("invalid confidential task configuration")
-    if not queue.startswith("https://sqs.eu-") or not bucket:
-        raise RuntimeError("invalid EU queue/storage configuration")
+    # Reject misrouted tenant configuration before the first AWS request.
+    # In particular a queue belonging to pilot02 must not be accepted by
+    # a task whose signed configuration identifies pilot01.
+    try:
+        validate_worker_binding(
+            tenant=tenant, bucket=bucket, queue_url=queue, kms_key_arn=key
+        )
+    except ValueError:
+        raise RuntimeError("invalid confidential task configuration") from None
     return tenant, bucket, queue, key
 
 
