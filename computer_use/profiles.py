@@ -15,6 +15,7 @@ class Element:
     role: str | None = None
     value_mode: str = 'text'  # text or input
     allow_draft_fill: bool = False  # only after a verified non-persistent test
+    allow_navigation: bool = False  # reviewed, non-destructive UI navigation only
 
     def __post_init__(self):
         if self.kind not in {'css', 'role', 'uia', 'visual'} or not self.selector or len(self.selector) > 256:
