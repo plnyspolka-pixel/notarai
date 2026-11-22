@@ -178,3 +178,17 @@ Official AWS API references:
 - https://docs.aws.amazon.com/kms/latest/APIReference/API_ListGrants.html
 - https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeyPolicies.html
 - https://docs.aws.amazon.com/kms/latest/developerguide/conditions-nitro-enclave.html
+
+## K3 first enrollment: deny by default
+
+The synthetic ENROLL operation produces custody state FROZEN, revision 1,
+and a KMS policy with **no kms:Decrypt** for any role. It does not activate
+the tenant. The independent custodian must later authorize a separate signed
+UNFREEZE event (revision 2) only after the correct KMS policy and attested
+release have been verified out of band. No operator-controlled bootstrap
+or temporary access to plaintext is permitted. This offline reducer does
+not implement the live KMS proof prerequisite or actually block AWS requests.
+
+Test: test_k4_enroll_freeze_revoke_fail_closed_without_old_operator_fallback;
+dual-tenant onboarding tests assert both proposed enrollment policies deny
+Decrypt. Live activation and KMS denial remain BLOCKED.
