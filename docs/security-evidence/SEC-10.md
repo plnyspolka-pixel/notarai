@@ -204,12 +204,12 @@ for `pilot01`/`pilot02`, provide ALL of:
 --task-arn arn:aws:ecs:eu-central-1:ACCOUNT:task-definition/notarai-confidential-pilot01:REVISION`.
 
 The script validates AWS identity and EU region before reading only ECS task
-definition, S3 versioning/lifecycle/**full bounded object version counts** (no object
+definition, S3 versioning/lifecycle/**full bounded object version counts** for both encrypted payloads and result markers (no object
 body/keys output), SQS main and exact synthetic DLQ retention/redrive, DDB
 PITR, CloudTrail trail count and CloudWatch **log group retention metadata**
 for the synthetic tenant prefix. S3 is additionally checked for actual
 `eu-central-1` bucket location, bucket-level replication configuration,
-Object Lock configuration and **bounded, complete** version/delete-marker counts across every S3 page. A missing cursor, pagination loop or inventory exceeding 50 pages fails closed.
+Object Lock configuration and **bounded, complete** version/delete-marker counts across every S3 page for both allowlisted prefixes: `confidential/` and `confidential-results/`. A missing cursor, pagination loop or inventory exceeding 50 pages fails closed.
 The script distinguishes `none-reported` from `unverified` permissions,
 uses S3 `ExpectedBucketOwner` equal to the verified STS account on **every**
 bucket metadata request, and never claims complete S3 deletion based on a
