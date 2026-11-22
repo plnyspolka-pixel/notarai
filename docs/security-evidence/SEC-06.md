@@ -376,3 +376,36 @@ Valid offline outcomes always return CLI code 3 with
 `independent_custody_verified=false` and `can_authorize_decrypt=false`.
 The approved evidence must be obtained and pinned by an external party;
 synthetic mock tests do not prove independently administered AWS custody.
+
+## K4/K5 optional negative decrypt across EVERY historical generation
+
+The manual command `scripts/probe_confidential_all_generation_denials.py`
+reconstructs the independently pinned signed custody history before AWS
+access, then checks each retired and current RSA_3072 KMS key with a fresh
+random **synthetic** RSAES_OAEP_SHA_256 ciphertext from ONE workload IAM
+identity. It deliberately supplies no Nitro `Recipient` attestation.
+Every key must independently return a genuine AWS AccessDeniedException.
+One accidental success is `FAIL_OPEN`; InvalidCiphertext or any unrelated
+KMS error is INCONCLUSIVE and blocks the run. It never accepts customer
+ciphertext or logs/returns plaintext. All operations are opt-in and NEVER
+run in Github Actions with real AWS credentials.
+
+    python scripts/probe_confidential_all_generation_denials.py \
+      --tenant pilot01 \
+      --history-file /secure/pilot01-ledger-export.json \
+      --trust-roots-file /secure/pilot01-independent-roots.json \
+      --pinned-final-sha256 EXTERNALLY_PINNED_FINAL_STATE_SHA \
+      --operator-profile synthetic-test-workload-identity \
+      --execute-negative-probes --acknowledge-synthetic-only \
+      --output /secure/pilot01-negative-decrypt-observations.json
+
+Omitting `--execute-negative-probes` results in zero AWS calls, even when
+the rest of the command is provided. A successful manual test remains
+BLOCKED_ONE_IDENTITY_NEGATIVE_TESTS_ONLY, exits with 3, and explicitly
+marks `other_operator_identities_tested=false`,
+`effective_revocation_verified=false`, and
+`independent_custody_verified=false`. For comprehensive evidence,
+the external custodian must independently inspect all IAM role paths,
+key grants, policy revisions and AWS CloudTrail, then test EVERY allowed
+operator/principal and Nitro path. Only a signed external assessor may
+approve K1-K6, never the individual test CLI or operator GitHub CI.
