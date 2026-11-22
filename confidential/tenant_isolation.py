@@ -28,7 +28,8 @@ def _require(condition: bool, reason: str) -> None:
 
 
 def validate_worker_binding(*, tenant: str, bucket: str, queue_url: str,
-                            kms_key_arn: str) -> None:
+                            kms_key_arn: str,
+                            expected_account: str | None = None) -> None:
     """Pin guest configuration before it makes its first AWS request.
 
     The account is derived from the *configured* queue, not an incoming
@@ -45,6 +46,15 @@ def validate_worker_binding(*, tenant: str, bucket: str, queue_url: str,
     )), "queue is not pinned to server tenant")
     _require(isinstance(kms_key_arn, str) and bool(_KMS.fullmatch(kms_key_arn)),
              "invalid regional KMS key")
+    # A trusted caller can additionally anchor the queue to the workload
+    # account. A key in the independent custodian account remains valid.
+    if expected_account is not None:
+        _require(isinstance(expected_account, str) and
+                 bool(_ACCOUNT.fullmatch(expected_account)),
+                 "invalid expected AWS account")
+        _require(queue_url.startswith(
+            f"https://sqs.{_REGION}.amazonaws.com/{expected_account}/"
+        ), "queue belongs to another AWS account")
 
 
 @dataclass(frozen=True)
@@ -73,6 +83,7 @@ class TenantBoundary:
         validate_worker_binding(
             tenant=self.tenant, bucket=self.bucket,
             queue_url=self.queue_url, kms_key_arn=self.kms_key_arn,
+            expected_account=self.account,
         )
         _require(self.session_tenant == self.tenant,
                  "API session is not server tenant")
