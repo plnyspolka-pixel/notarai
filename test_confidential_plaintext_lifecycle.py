@@ -503,3 +503,27 @@ def test_s3_inventory_refuses_wrong_owner_or_tenant_before_calls():
             DenyS3(), bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
             account=account, tenant="production"
         )
+
+
+@pytest.mark.parametrize("returned_fd,duplicates", [
+    (1, [2, 3]), (2, [3]), (0, [1, 2, 3]),
+])
+def test_stdio_guard_safe_when_guest_inherited_descriptors_are_closed(
+    monkeypatch, returned_fd, duplicates
+):
+    import confidential.plaintext_lifecycle as lifecycle
+    calls = []
+    remaining = iter(duplicates)
+    monkeypatch.setattr(lifecycle.os, "open",
+                        lambda path, flags: returned_fd)
+    monkeypatch.setattr(lifecycle.os, "dup",
+                        lambda fd: (calls.append(("dup", fd)), next(remaining))[1])
+    monkeypatch.setattr(lifecycle.os, "dup2",
+                        lambda source, dest: calls.append(("dup2", source, dest)))
+    monkeypatch.setattr(lifecycle.os, "close",
+                        lambda fd: calls.append(("close", fd)))
+    lifecycle.silence_guest_stdio()
+    assert calls[-3:] == [
+        ("dup2", 3, 1), ("dup2", 3, 2), ("close", 3),
+    ]
+    assert ("close", returned_fd) not in calls
