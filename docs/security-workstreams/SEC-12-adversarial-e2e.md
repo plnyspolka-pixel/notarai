@@ -1,6 +1,6 @@
 # SEC-12 — [SEC-12] Zintegrowany test atakującego operatora i dwóch kancelarii (release gate)
 
-**Status: PLANNED (NOT IMPLEMENTED).** P0; zależności: SEC-02 do SEC-11
+**Status: IMPLEMENTACJA OFFLINE — 19 przypadków testowych; LIVE AWS BLOCKED.** P0; zależności: SEC-02 do SEC-11
 
 ## Zakres
 1. Przygotuj powtarzalną sekwencję E2E na fikcyjnych tenantach: upload zaszyfrowanego dokumentu → signed image/release → Nitro attestation → KMS attested unwrap → preview-only → wynik i dowody.

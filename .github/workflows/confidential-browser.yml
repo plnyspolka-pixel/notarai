@@ -90,7 +90,16 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_adversarial_e2e.py
+      - name: SEC-12 synthetic matrix / NO_GO bez dowodu sprzetowego
+        run: |
+          python scripts/run_confidential_adversarial_e2e.py --offline
+          set +e
+          python scripts/run_confidential_adversarial_e2e.py --check > /tmp/notarai-sec12-gate.json
+          result=$?
+          set -e
+          test "$result" -eq 2
+          python -c 'import json; x=json.load(open("/tmp/notarai-sec12-gate.json")); assert x["decision"]=="NO_GO" and x["commercial_go"] is False and x["live_hardware"]=="BLOCKED"'
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
