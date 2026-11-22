@@ -7,6 +7,7 @@ No automatic form submission; no plaintext, screenshots or values in logs.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -15,6 +16,7 @@ import threading
 from http.server import ThreadingHTTPServer
 
 from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.document_registry import DocumentVersionRegistry
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
 
@@ -89,7 +91,7 @@ def _parse_message(body: str, tenant: str) -> tuple[str, str, str, str]:
 
 def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
                          object_id: str, key_arn: str,
-                         s3_version: str) -> dict:
+                         s3_version: str, registry: DocumentVersionRegistry) -> dict:
     from confidential.nitro_unwrapper import NitroKMSUnwrapper
     object_key = "kancelarie/" + tenant + "/confidential/" + case_id + "/" + object_id + ".json"
     result = s3.get_object(
@@ -107,6 +109,13 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
         tenant, case_id, object_id, key_arn
     ):
         raise ValueError("envelope does not belong to this task")
+    registry.require_guest(
+        case_id=case_id, object_id=object_id,
+        s3_version=s3_version,
+        ciphertext_sha256=hashlib.sha256(ciphertext).hexdigest(),
+        document_version=env.document_version,
+        key_pin=env.public_key_sha256,
+    )
     plaintext = env.open_inside_attested_task(NitroKMSUnwrapper(kms, key_arn))
     try:
         data = json.loads(plaintext)
@@ -157,7 +166,9 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         values = _load_decrypted_form(
             session.client("s3"), session.client("kms"),
             bucket, tenant, case_id, object_id, kms_key_arn,
-            s3_version,
+            s3_version, DocumentVersionRegistry(
+                session.client("dynamodb"), tenant=tenant,
+            ),
         )
         asyncio.run(_prepare_fictional_form(job_id, values))
         # Synthetic status marker contains no documents, values, names,
