@@ -168,3 +168,144 @@ def test_no_unconditional_plaintext_recovery_route():
     paths = [getattr(r, "path", "") for r in router.router.routes]
     assert not any("recover" in p or "admin-decrypt" in p for p in paths)
     assert all("plaintext" not in p for p in paths)
+
+
+def _aws_fixture():
+    from scripts.verify_confidential_plaintext_lifecycle import inspect_task_definition
+    tenant = "pilot01"
+    account = "111122223333"
+    task_arn = (f"arn:aws:ecs:eu-central-1:{account}:task-definition/"
+                f"notarai-confidential-{tenant}:7")
+    task = {
+        "taskDefinitionArn": task_arn,
+        "trustedExecutionConfiguration": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+        "containerDefinitions": [{
+            "image": "example@sha256:" + "a" * 64,
+            "readonlyRootFilesystem": True,
+            "linuxParameters": {"tmpfs": [{"containerPath": "/tmp",
+                                           "mountOptions": ["rw", "nosuid", "nodev"]}]},
+        }],
+    }
+    return account, tenant, task_arn, task
+
+
+def test_read_only_auditor_defaults_to_zero_aws_access(capsys):
+    from scripts.verify_confidential_plaintext_lifecycle import main
+    assert main([]) == 0
+    assert "AWS calls DISABLED" in capsys.readouterr().out
+    assert main(["--check"]) == 2
+
+
+def test_read_only_auditor_rejects_wrong_scope():
+    from scripts.verify_confidential_plaintext_lifecycle import (
+        validate_scope, UnsafeAudit,
+    )
+    account, tenant, task_arn, _ = _aws_fixture()
+    good = dict(
+        account=account, tenant=tenant,
+        bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
+        queue_url=(f"https://sqs.eu-central-1.amazonaws.com/{account}/"
+                   f"notarai-confidential-{tenant}.fifo"),
+        task_arn=task_arn,
+    )
+    validate_scope(**good)
+    for changes in (
+        {"tenant": "production"},
+        {"bucket": "my-real-client-bucket"},
+        {"queue_url": good["queue_url"].replace("pilot01", "pilot02")},
+        {"task_arn": good["task_arn"].replace("pilot01", "pilot02")},
+        {"account": "000000000000"},
+    ):
+        with pytest.raises(UnsafeAudit):
+            validate_scope(**{**good, **changes})
+
+
+def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
+    from scripts.verify_confidential_plaintext_lifecycle import read_only_audit
+    account, tenant, task_arn, task = _aws_fixture()
+    calls = []
+
+    class FakeClient:
+        def __init__(self, service):
+            self.service = service
+
+        def __getattr__(self, name):
+            allow = {
+                "sts": {"get_caller_identity"},
+                "ecs": {"describe_task_definition"},
+                "s3": {"get_bucket_versioning",
+                       "get_bucket_lifecycle_configuration", "list_object_versions"},
+                "sqs": {"get_queue_attributes"},
+                "dynamodb": {"describe_continuous_backups"},
+                "cloudtrail": {"describe_trails"},
+            }
+            assert name in allow[self.service], "unexpected AWS operation"
+            def call(**kwargs):
+                calls.append((self.service, name))
+                if name == "get_caller_identity":
+                    return {"Account": account}
+                if name == "describe_task_definition":
+                    return {"taskDefinition": task}
+                if name == "get_bucket_versioning":
+                    return {"Status": "Enabled"}
+                if name == "get_bucket_lifecycle_configuration":
+                    return {"Rules": []}
+                if name == "list_object_versions":
+                    return {"Versions": [{}], "IsTruncated": False}
+                if name == "get_queue_attributes":
+                    return {"Attributes": {"MessageRetentionPeriod": "86400",
+                                           "RedrivePolicy": "{}"}}
+                if name == "describe_continuous_backups":
+                    return {"ContinuousBackupsDescription": {
+                        "PointInTimeRecoveryDescription": {
+                            "PointInTimeRecoveryStatus": "ENABLED",
+                            "RecoveryPeriodInDays": 35,
+                        }
+                    }}
+                if name == "describe_trails":
+                    return {"trailList": []}
+                raise AssertionError(name)
+            return call
+
+    class Session:
+        region_name = "eu-central-1"
+        def client(self, service):
+            return FakeClient(service)
+
+    report = read_only_audit(
+        Session(), account=account, tenant=tenant, task_arn=task_arn,
+        bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
+        queue_url=(f"https://sqs.eu-central-1.amazonaws.com/{account}/"
+                   f"notarai-confidential-{tenant}.fifo"),
+    )
+    assert all(report["task_controls"].values())
+    assert report["s3_versioning_enabled"] and report["ddb_pitr_days"] == 35
+    assert report["sqs_retention_seconds"] == 86400
+    assert len(calls) == 7
+    assert {name for _, name in calls} == {
+        "get_caller_identity", "describe_task_definition",
+        "get_bucket_versioning", "get_bucket_lifecycle_configuration",
+        "list_object_versions", "get_queue_attributes",
+        "describe_continuous_backups", "describe_trails",
+    }
+
+
+def test_auditor_refuses_wrong_account_before_storage_calls():
+    from scripts.verify_confidential_plaintext_lifecycle import (
+        read_only_audit, UnsafeAudit,
+    )
+    account, tenant, task_arn, _ = _aws_fixture()
+    class Session:
+        region_name = "eu-central-1"
+        def client(self, service):
+            assert service == "sts"
+            return types.SimpleNamespace(
+                get_caller_identity=lambda: {"Account": "999988887777"}
+            )
+    with pytest.raises(UnsafeAudit, match="account mismatch"):
+        read_only_audit(
+            Session(), account=account, tenant=tenant, task_arn=task_arn,
+            bucket=f"ntr-cf-{tenant}-{account}-eu-central-1",
+            queue_url=(f"https://sqs.eu-central-1.amazonaws.com/{account}/"
+                       f"notarai-confidential-{tenant}.fifo"),
+        )
