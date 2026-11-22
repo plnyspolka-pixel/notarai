@@ -182,3 +182,35 @@ def test_local_origin_cli_signs_exact_s3_version(tmp_path, fixture):
         "--signing-private-key", str(signer_private),
         "--expires-at", expiry, "--output", str(output),
     ]) == 1
+
+
+def test_local_seal_cli_outputs_only_ciphertext_and_never_overwrites(tmp_path, fixture):
+    from confidential.customer_release import parse_envelope
+    owner, _, _, content = fixture
+    plaintext = tmp_path / "input.json"
+    plaintext.write_bytes(content)
+    customer_public = tmp_path / "owner-public.pem"
+    customer_public.write_bytes(pub(owner))
+    output = tmp_path / "encrypted-envelope.json"
+    args = [
+        "seal", "--plaintext", str(plaintext),
+        "--owner-public-key", str(customer_public),
+        "--tenant-id", "pilot01", "--case-id", "case01",
+        "--object-id", "object01", "--document-version", "a" * 32,
+        "--output", str(output),
+    ]
+    assert main(args) == 0
+    stored = output.read_bytes()
+    assert content not in stored
+    assert b'"fields"' not in stored
+    envelope = parse_envelope(json.loads(stored))
+    assert envelope["tenant_id"] == "pilot01"
+    assert envelope["owner_wrapped_dek_b64"] != ""
+    assert main(args) == 1
+    assert output.read_bytes() == stored
+    bad = tmp_path / "bad.json"
+    assert main(args[:-4] + [
+        "--object-id", "../other", "--document-version", "a" * 32,
+        "--output", str(bad),
+    ]) == 1
+    assert not bad.exists()
