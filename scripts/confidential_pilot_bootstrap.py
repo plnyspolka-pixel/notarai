@@ -3,7 +3,7 @@
 Run with explicit AWS profile, expected account, VPC and 1-3 subnet IDs.
 Default: READ-ONLY PLAN (calls STS and CloudFormation ValidateTemplate).
 --apply: Creates ONLY uniquely named pilot stacks and a dedicated capacity
-provider, but does not schedule tasks or release plaintext keys.
+provider, but does not schedule tasks or release plaintext keys. No KMS custodian.
 
 Requires AWS CLI v2 whose ECS model supports nitroEnclavesEnabled.
 Usage:
@@ -66,7 +66,6 @@ def bootstrap(*, profile: str, account: str, tenant: str, vpc: str,
     templates = {
         "notarai-confidential-staging": "notarai-confidential-staging.yaml",
         "notarai-confidential-ecr": "notarai-confidential-ecr.yaml",
-        "notarai-confidential-demo-kms": "notarai-confidential-demo-kms.yaml",
         "notarai-confidential-capacity-base": "notarai-confidential-capacity-base.yaml",
     }
     for name, template in templates.items():
@@ -143,7 +142,6 @@ def bootstrap(*, profile: str, account: str, tenant: str, vpc: str,
     print("No task has been started, and no confidential data was decrypted.")
     print("Staging S3 bucket:", stacks["notarai-confidential-staging"]["BucketName"])
     print("ECR repo:", stacks["notarai-confidential-ecr"]["RepositoryUri"])
-    print("KMS key ARN:", stacks["notarai-confidential-demo-kms"]["KeyArn"])
 
 
 def main():
