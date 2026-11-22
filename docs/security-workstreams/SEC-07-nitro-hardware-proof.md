@@ -1,6 +1,6 @@
 # SEC-07 — [SEC-07] Dowód sprzętowy Nitro/KMS: pozytywne i negatywne testy atestacji
 
-**Status: PLANNED (BRAK IMPLEMENTACJI).** P0; zależności: SEC-05, SEC-06, #65; konto AWS i niezależny custody
+**Status: PARTIAL IMPLEMENTATION (testy offline + audyt read-only przygotowane; K1–K6 hardware nadal BLOCKED).** P0; zależności: SEC-05, SEC-06, #65; konto AWS i niezależny custody
 
 ## Zakres
 1. Przygotuj uruchamialny E2E w eu-central-1 na dwóch syntetycznych tenantach; wykorzystaj tylko zatwierdzony digest OCI i rzeczywisty ECS Nitro Confidential Sandbox.
@@ -19,9 +19,9 @@
 - [ ] **K5.** **Reprodukcja:** zapisz skrypt E2E, komendy, timestamp UTC, identyfikator fikcyjnego job, status każdej próby i kryptograficzny hash raportu; dowód podpisuje niezależny kustosz/audytor.
 - [ ] **K6.** **Brama twarda:** żaden scenariusz mock/CI nie daje `hardware_attestation_verified=true`; ten atrybut tylko po realnym teście 1+6 odmów z dwiema niezależnymi tożsamościami.
 
-**Test offline do napisania:** `python -m pytest -q test_confidential_nitro_hardware_plan.py` — 0 failed i 0 skipped krytycznych.
+**Test offline zaimplementowany (wynik CI potwierdzić dla aktualnego SHA):** `python -m pytest -q test_confidential_nitro_hardware_plan.py` — 0 failed i 0 skipped krytycznych.
 
-**Test realny do napisania (wymaga niezależnie autoryzowanego AWS):** `python scripts/run_nitro_attestation_e2e.py --check` — bez realnego PASS punkt K6 pozostaje BLOCKED.
+**Skrypt realnego audytu read-only zaimplementowany (brak autoryzowanej sesji live):** `python scripts/run_nitro_attestation_e2e.py --check` — bez realnego PASS punkt K6 pozostaje BLOCKED.
 
 ### Wspólny warunek zamknięcia
 - [ ] Link do **zielonego CI dla aktualnego SHA**, dokładna komenda, liczba passed/failed/skipped i zanonimizowany raport w `docs/security-evidence/SEC-07.md` (lub równoważnym artefakcie). Testy opisane niżej należy dopiero wdrożyć; nazwa testu nie wystarcza.
@@ -32,3 +32,11 @@
 **Ten draft PR zawiera wyłącznie plan.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
 **Ograniczenia:** tylko fikcyjne pilot01/pilot02; eu-central-1; produkcja OFF; żadnych podpisów, wysyłek, składania wniosków ani dostępu do prawdziwych dokumentów. AWS only w autoryzowanej sesji, niezależna zgoda kustosza obowiązkowa. Bez plaintext/PII w logs, debug, CI, proxy. Testy offline ≠ real hardware proof. Skuteczność sprawdź regresją + fail-closed negatywnymi testami; nie polegaj tylko na „documentation review”.
 **Dostarcz:** kod/IaC + testy + zanonimizowane dowody + checklistę niezależnego audytu + status PASS/BLOCKED/UNVERIFIED; nie obiecuj produkcji ani Zero Knowledge/ZERO Operator Access bez dowodu.
+
+## Wdrożenie w tej gałęzi
+
+- confidential/nitro_hardware_proof.py: sprawdzanie manifestu 1+6 CloudTrail, ECS task, release i hash raportu.
+- scripts/run_nitro_attestation_e2e.py: offline --check zawsze BLOCKED; --verify-live wyłącznie readonly i zewnętrzny podpis. Brak testu semantyki sześciu ataków => wynik pozostaje BLOCKED nawet po podpisie, nigdy nie ogłasza hardware PASS.
+- test_confidential_nitro_hardware_plan.py: testy regresyjne tamper/odmów oraz wymuszenie fail-closed.
+- docs/security-evidence/SEC-07.md: macierz K1–K6 BLOCKED, procedura uzyskania dowodów sprzętowych i checklisty.
+- Zadanie blokujące AWS: NA-15 w docs/czeka-na-dostep.md.
