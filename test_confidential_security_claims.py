@@ -284,3 +284,47 @@ def test_source_matrix_rejects_missing_attack_scenarios():
     data["threats"] = data["threats"][:5]
     with pytest.raises(ClaimsRejected):
         validate_policy(data)
+
+
+@pytest.mark.parametrize("alter", [
+    lambda p: p["claims"][1]["required_evidence"].pop(0),
+    lambda p: p["claims"][1]["required_evidence"][0].update(
+        owner="independent_auditor"
+    ),
+    lambda p: p["claims"][3]["required_evidence"][-2].update(
+        id="fake_operator_signed_review"
+    ),
+    lambda p: p["claims"][0]["required_evidence"][0].update(
+        source="live_aws"
+    ),
+    lambda p: p["threats"].pop(5),  # 11 threats, but a mandatory one is missing
+])
+def test_operator_cannot_downgrade_mandatory_claims_or_attacks(alter):
+    data = policy()
+    alter(data)
+    with pytest.raises(ClaimsRejected):
+        validate_policy(data)
+
+
+@pytest.mark.parametrize("wrong", [
+    ["invalid", "kind"], {}, None, 0, False,
+])
+def test_unhashable_or_wrong_type_evidence_returns_fail_not_exception(wrong):
+    _, roots, receipts = fixtures()
+    receipts[0]["payload"]["evidence_type"] = wrong
+    report = evaluate(receipts, roots)
+    assert report["claims"]["zero_trust"]["status"] == "FAIL"
+
+
+def test_malformed_receipt_claim_id_returns_fail_not_exception():
+    _, roots, receipts = fixtures()
+    receipts[0]["payload"]["claim_id"] = ["not", "hashable"]
+    report = evaluate(receipts, roots)
+    assert report["claims"]["zero_trust"]["status"] == "FAIL"
+
+
+def test_malformed_evidence_policy_cannot_hijack_verifier():
+    data = policy()
+    data["claims"][0]["required_evidence"][0]["owner"] = ["not", "hashable"]
+    with pytest.raises(ClaimsRejected):
+        validate_policy(data)
