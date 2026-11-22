@@ -50,7 +50,11 @@ def compile_signed_cas(*, state: dict | None, envelope: dict,
     if table_match is None:
         raise BoundaryDenied("custody CAS must target pinned EU pilot ledger ARN")
     before = validate_state(state) if state is not None else None
-    account = (before or envelope.get("payload", {}).get("changes", {})).get(
+    payload = envelope.get("payload")
+    changes = (payload.get("changes") if isinstance(payload, dict) else None)
+    if not isinstance(changes, dict):
+        raise BoundaryDenied("custody CAS envelope changes invalid")
+    account = (before if before is not None else changes).get(
         "custody_account")
     if not isinstance(account, str) or table_match.group(1) != account:
         raise BoundaryDenied("custody CAS ledger must belong to custodian account")
