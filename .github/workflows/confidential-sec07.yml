@@ -42,7 +42,7 @@ jobs:
           python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py
           python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py
       - name: Execute mandatory SEC-07 offline negative regressions
-        run: python -m pytest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py
+        run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py
       - name: Assert no offline fake hardware proof
         shell: bash
         run: |
