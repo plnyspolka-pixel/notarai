@@ -26,7 +26,7 @@ evidence. All rows require tenant-specific AWS inspection before being signed of
 | Chromium profile/cache/downloads | YES possible | Guest only under verified tmpfs; downloads disallowed | Session-only, no persistent user-data-dir | Guest |
 | Crash dump / trace / core / minidump | YES possible if misconfigured | Potentially high if forwarded to operator | RLIMIT_CORE=0, dumpable=0, breakpad disabled; verify live | Guest / host |
 | Screenshot, video, HAR, Playwright trace | YES if enabled in future | High if exported | Not generated in preview; no recording configured | Application |
-| stdout/stderr/HTTP server logs | YES if code prints unsanitized data | Could reach operator | Main emits only exception class; HTTP handler suppresses request logs; **not a proof for all libraries** | Application |
+| stdout/stderr/HTTP server logs | YES if code prints unsanitized data | Could reach operator | Main emits only exception class before secret processing; all guest stdio FDs redirected to /dev/null before KMS unwrap; **not a proof against custom log sinks** | Application |
 | CloudWatch, container log driver | YES if enabled elsewhere | Operator may read | Guest task has no LogConfiguration; account-wide audit pending | AWS operator |
 | Proxy/DNS/packet captures | YES on decrypted application traffic to external services | High if proxy terminates TLS | Private-egress controls in SEC-08, not independently proven | Network owner |
 | External LLM request/output, embeddings, traces | YES if introduced | Provider/operator exposure possible | Current fictional form path does not call LLM; SEC-04 pending | AI provider / controller |
@@ -60,7 +60,7 @@ only, but still must be checked for accidental data inclusion.
 
 ## K3 — storage/runtime controls and verification gaps
 
-Implemented: guest startup refuses work if Linux core dumps/ptrace dumpability
+Implemented: guest redirects stdout/stderr to /dev/null **before** KMS unwrap (fail-closed if redirect fails). Operational state is stored as metadata in the ledger; this decreases the risk that vendor libraries print decrypted values to operator-visible streams. It does not prevent a compromised guest from opening new exfiltration channels, so independent signed release and network egress controls remain essential.\n\nImplemented: guest startup refuses work if Linux core dumps/ptrace dumpability
 cannot be disabled or if `/tmp` is not a mounted `tmpfs`; Chromium profile,
 XDG config/cache and `TMPDIR` point to a fresh unique folder in that tmpfs.
 Read-only guest filesystem, no mounted persistent volumes, no container log
