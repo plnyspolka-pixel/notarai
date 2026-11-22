@@ -201,7 +201,10 @@ for the synthetic tenant prefix. S3 is additionally checked for actual
 `eu-central-1` bucket location, bucket-level replication configuration,
 Object Lock configuration and delete-marker counts on the **first** page.
 The script distinguishes `none-reported` from `unverified` permissions,
-and never claims complete S3 deletion based on a single page.
+uses S3 `ExpectedBucketOwner` equal to the verified STS account on **every**
+bucket metadata request, and never claims complete S3 deletion based on a
+single page. A missing S3 read permission means `unverified` or an explicit
+BLOCKED error, never an inferred clean audit.
 It never reads object bodies, queued messages, CloudTrail event bodies,
 CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
 a forensic assertion about memory or plaintext absence. No AWS read has been
