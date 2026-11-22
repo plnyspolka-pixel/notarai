@@ -48,6 +48,33 @@ References:
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-route53resolver-firewallconfig.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-route53resolver-firewallrulegroup.html
 
+## Gateway endpoint data perimeter (proposed IaC, not deployed)
+
+- `infra/notarai-confidential-private-egress.yaml` now requires the exact
+  ciphertext bucket name. Its S3 gateway endpoint policy allows only the
+  pilot task role to read its own versioned ciphertext key prefix and write
+  a metadata-only result key prefix; the designated ECS execution role
+  may read ECR's regional `prod-<region>-starport-layer-bucket` image layers.
+- Its DynamoDB gateway policy permits only the dedicated pilot task role
+  to get/update the pilot job-ledger table.
+- `test_confidential_endpoint_policy.py` rejects broad actions, principals
+  and bucket/table resources. Presigned URLs for an attacker-owned bucket
+  must be denied by the **effective endpoint policy** during the live test.
+- **Residual risk:** S3 `PutObject` into permitted results or DynamoDB
+  `UpdateItem` into permitted rows can still carry arbitrary content if
+  attested worker code is malicious or compromised. IAM cannot generally
+  validate the semantic content of the object body or an updated attribute.
+  SEC-05/SEC-07 independent code release governance and real egress probing
+  are mandatory. This still does **not** prove operator-inaccessible plaintext.
+- **Compatibility required:** independently validate ECR layer downloads
+  using the specified execution role and all required S3 endpoint hostnames.
+  Do not fix a failed pilot by broadening endpoint policy to `Principal: "*"`
+  or `Resource: "*"`.
+
+AWS references:
+- https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html
+- https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-access.html
+
 ## Threat surfaces and enforcement boundary
 
 | Exit channel | Current independent boundary | Remaining validation |
@@ -56,7 +83,7 @@ References:
 | HTTP POST/body/headers/cookies | VPC guest SG; browser locks before values and strips request headers | Guest/parent raw-socket and cookie/browser bypass test |
 | DNS tunneling | Unapplied dedicated pilot DNS Firewall IaC (allow exact/deny all/fail-closed) | Live VPC Resolver association, DNS logs, host/parent and alternate resolver active probes |
 | IPv4/IPv6/raw sockets | Dedicated SG and private route fixture; no wildcard | Actual guest ENI, IPv6 routes/assignments and network tests |
-| S3 presigned URLs | Endpoint route + assumed IAM scoping; **not independent proof** | Bucket policy, endpoint policy, IAM explicit deny, active exfil tests |
+| S3 presigned URLs | Proposed pilot S3 gateway endpoint policy scoped to ciphertext/results/ECR layers | Live principal, presigned external bucket, effective IAM/bucket policy and operator access tests |
 | AWS APIs/KMS/DynamoDB/SQS | Interface/gateway endpoints and identity checks | Verify request policies and deny wrong-account/wrong-tenant |
 | Logs/stdout/stderr/traces | Worker prints only exception *class*; no payload in intended journal | Grep actual CloudWatch/CloudTrail/guest/proxy evidence |
 | Screenshots/downloads | AUTO downloads disabled; no result screenshot stored | Confirm Chrome process/network and crashdump suppression |
