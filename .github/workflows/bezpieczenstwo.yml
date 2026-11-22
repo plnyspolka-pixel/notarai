@@ -40,7 +40,20 @@ jobs:
           tar -xzf "$f" gitleaks && sudo mv gitleaks /usr/local/bin/
       - name: Nowe commity w PR (blokuje)
         if: github.event_name == 'pull_request'
-        run: gitleaks git --redact --no-banner --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+        run: |
+          # Print only file/line/rule for triage: NEVER print a discovered
+          # secret, matched value, entropy-bearing snippet or full JSON report.
+          set +e
+          gitleaks git --redact --no-banner --report-format json \
+            --report-path /tmp/notarai-gitleaks-redacted.json \
+            --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          code=$?
+          set -e
+          if test -s /tmp/notarai-gitleaks-redacted.json; then
+            jq -r '.[] | "Secret detector: rule=\(.RuleID) file=\(.File) line=\(.StartLine)"' \
+              /tmp/notarai-gitleaks-redacted.json
+          fi
+          exit "$code"
       - name: Ostatni push na master (blokuje)
         if: github.event_name == 'push'
         run: gitleaks git --redact --no-banner --log-opts="${{ github.event.before }}..${{ github.sha }}"

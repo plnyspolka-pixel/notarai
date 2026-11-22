@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Independent custodian ECDSA P-256 release-signing key.
+  NotarAI operator CANNOT sign or administer task/PCR approval.
+  Deploy only into a separately administered AWS custody account.
+Parameters:
+  WorkloadAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+  CustodianSignerRoleArn:
+    Type: String
+    AllowedPattern: "^arn:aws:iam::[0-9]{12}:role/[a-zA-Z0-9+=,.@_/-]+$"
+    Description: Pre-existing independent reviewer role in custody account
+  CustodyAcknowledgement:
+    Type: String
+    AllowedValues: ["independent-release-approval"]
+Conditions:
+  IsExternalCustody: !Not
+    - !Equals [!Ref WorkloadAccountId, !Ref AWS::AccountId]
+  SignerIsCustodyPrincipal: !Equals
+    - !Select [4, !Split [":", !Ref CustodianSignerRoleArn]]
+    - !Ref AWS::AccountId
+  ValidExternalSigner: !And
+    - !Condition IsExternalCustody
+    - !Condition SignerIsCustodyPrincipal
+Resources:
+  CustodianReleaseKey:
+    Type: AWS::KMS::Key
+    Condition: ValidExternalSigner
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: External custodian release signing key; never controlled by NotarAI operator
+      KeyUsage: SIGN_VERIFY
+      KeySpec: ECC_NIST_P256
+      MultiRegion: false
+      Enabled: true
+      Tags:
+        - Key: CustodyScope
+          Value: !Ref CustodyAcknowledgement
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AdministerByExternalCustodian
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - kms:DescribeKey
+              - kms:GetKeyPolicy
+              - kms:PutKeyPolicy
+              - kms:EnableKey
+              - kms:DisableKey
+              - kms:UpdateKeyDescription
+              - kms:ListResourceTags
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+              - kms:GetPublicKey
+            Resource: "*"
+          - Sid: OnlyIndependentReviewerCanSign
+            Effect: Allow
+            Principal:
+              AWS: !Ref CustodianSignerRoleArn
+            Action:
+              - kms:Sign
+              - kms:GetPublicKey
+              - kms:DescribeKey
+            Resource: "*"
+Outputs:
+  CustodySigningKeyArn:
+    Condition: ValidExternalSigner
+    Value: !GetAtt CustodianReleaseKey.Arn
+  CustodySigningKeyId:
+    Condition: ValidExternalSigner
+    Value: !Ref CustodianReleaseKey
