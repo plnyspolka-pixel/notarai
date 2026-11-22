@@ -311,8 +311,16 @@ def inspect_altered_image_ecs(*, task: Mapping, task_definition: Mapping,
             task.get("taskDefinitionArn") ==
             task_definition.get("taskDefinitionArn") and
             (task.get("trustedExecutionSummary") or {}).get("isolationMode") ==
-            "CONFIDENTIAL_SANDBOX",
-            "altered-image ECS confidential task was not stopped as expected")
+            "CONFIDENTIAL_SANDBOX" and
+            (task.get("trustedExecutionSummary") or {}).get(
+                "attestationPolicyStatus") == "CONFIGURED" and
+            task_definition.get("requiresCompatibilities") == ["MANAGED_INSTANCES"] and
+            (task_definition.get("trustedExecutionConfiguration") or {}).get(
+                "isolationMode") == "CONFIDENTIAL_SANDBOX" and
+            isinstance((task_definition.get("trustedExecutionConfiguration") or {}).get(
+                "attestationPolicy"), str) and
+            len(task_definition["trustedExecutionConfiguration"]["attestationPolicy"]) > 16,
+            "altered-image ECS confidential task or policy not attested")
     containers = task.get("containers") or []
     require(isinstance(containers, list) and not any(
         isinstance(c, dict) and c.get("exitCode") == 0 for c in containers
