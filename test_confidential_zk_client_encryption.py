@@ -583,6 +583,20 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
         with pytest.raises(RecoveryDenied):
             migration.reencrypt_inside_attested_nitro(**{**args, **changed})
     assert len(calls) == 1, "unapproved recovery touched external one-time ledger"
+    # An operator can manufacture two perfectly valid Ed25519 signatures
+    # using its OWN keys. With a pinned independent release root, neither
+    # can authorize a migration or consume the external nonce.
+    rogue1 = ed25519.Ed25519PrivateKey.generate()
+    rogue2 = ed25519.Ed25519PrivateKey.generate()
+    for forged in (
+        {"custodian_signature": rogue1.sign(message)},
+        {"trustee_signature": rogue2.sign(message)},
+        {"custodian_signature": rogue1.sign(message),
+         "trustee_signature": rogue2.sign(message)},
+    ):
+        with pytest.raises(RecoveryDenied, match="independently authorized"):
+            migration.reencrypt_inside_attested_nitro(**{**args, **forged})
+    assert len(calls) == 1, "rogue recovery signatures reached the custody ledger"
     # Remove approved root: caller-created public keys and signatures MUST NOT
     # authorize a migration when the independent release root is missing.
     import confidential.recovery_trust as trust
