@@ -170,7 +170,7 @@ def test_per_tenant_queues_and_roles_stay_pinned_in_one_shared_cluster():
             assert not kwargs.get("overrides")
             self.calls.append(kwargs)
             return {"tasks": [{
-                "taskArn": "arn:aws:ecs:eu-central-1:111122223333:task/shared/task1",
+                "taskArn": "arn:aws:ecs:eu-central-1:111122223333:task/notarai-confidential-shared/task1",
                 "trustedExecutionSummary": {
                     "isolationMode": "CONFIDENTIAL_SANDBOX",
                     "attestationPolicyStatus": "CONFIGURED",
