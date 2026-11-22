@@ -185,3 +185,39 @@ def test_inventory_wrong_identity_does_not_touch_storage():
     with pytest.raises(StorageAuditRejected):
         read_only_inventory(s, bucket=BUCKET, custody_account=CUSTODY)
     assert s.calls == [("sts", "get_caller_identity", {})]
+
+
+def test_iam_deny_with_hidden_condition_cannot_fake_control():
+    sneaky = {
+        "Statement": [{
+            "Effect": "Deny",
+            "Principal": {"AWS": f"arn:aws:iam::{OPERATOR}:root"},
+            "Action": "s3:*",
+            "Resource": [BASE_ARN, BASE_ARN + "/*"],
+            "Condition": {"StringEquals": {"aws:SourceVpce": "vpce-deadbeef"}},
+        }]
+    }
+    assert not _deny_for_operator(sneaky, operator=OPERATOR, bucket=BUCKET)
+    wildcard = {
+        "Statement": [{
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [BASE_ARN, BASE_ARN + "/*"],
+            "Condition": {
+                "StringEquals": {"aws:PrincipalAccount": OPERATOR},
+                "Bool": {"aws:SecureTransport": "false"},
+            },
+        }]
+    }
+    assert not _deny_for_operator(wildcard, operator=OPERATOR, bucket=BUCKET)
+
+
+def test_incomplete_encryption_rule_fails_closed_without_exception():
+    data = fixture_inventory()
+    data["encryption"]["ServerSideEncryptionConfiguration"]["Rules"] = [
+        {"ApplyServerSideEncryptionByDefault": None}
+    ]
+    outcome = audit(data)
+    assert outcome.configuration_status == "FAIL"
+    assert outcome.checks["encryption_enabled"] is False
