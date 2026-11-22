@@ -94,7 +94,7 @@ def test_kms_fail_closed_for_plaintext_or_wrong_key():
         env.open_inside_attested_task(AttestedKMSUnwrapper(FakeKMS(plaintext=True), FakeProvider(key), ARN))
     with pytest.raises(AttestationRequired):
         env.open_inside_attested_task(AttestedKMSUnwrapper(FakeKMS(), FakeProvider(key),
-                              "arn:aws:kms:eu-west-1:111122223333:key/different"))
+                              "arn:aws:kms:eu-central-1:111122223333:key/different"))
 
 
 class Route:
