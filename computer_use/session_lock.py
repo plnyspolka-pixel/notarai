@@ -44,7 +44,8 @@ class SessionMutex:
     def release(self) -> None:
         if os.name == "nt" and self._handle is not None:
             kernel, handle = self._handle
-            kernel.ReleaseMutex.argtypes = (type(handle),)
+            from ctypes import wintypes
+            kernel.ReleaseMutex.argtypes = (wintypes.HANDLE,)
             kernel.ReleaseMutex(handle)
             kernel.CloseHandle(handle)
             self._handle = None
