@@ -62,8 +62,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - name: Zbuduj produkcyjny obraz workera bez wysyłania do AWS
-        run: docker build --file confidential/Dockerfile --tag notarai-confidential:smoke .
+      - name: Zbuduj syntetyczny obraz workera bez wysyłania do AWS
+        run: |
+          # Public CI-only Ed25519 placeholder (32 zero bytes); NEVER deploy this image.
+          docker build --file confidential/Dockerfile \
+            --build-arg TRUSTED_ORIGIN_ISSUER_ID=synthetic-ci \
+            --build-arg TRUSTED_ORIGIN_PUBLIC_B64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            --tag notarai-confidential:smoke .
       - name: Uruchom Chromium na fikcyjnym formularzu wewnątrz kontenera
         run: |
           docker run --rm \
@@ -76,7 +81,7 @@ jobs:
         run: |
           if docker run --rm --network none \
             --entrypoint python \
-            notarai-confidential:smoke -m confidential.worker; then
+            notarai-confidential:smoke -m confidential.customer_v3_worker; then
             echo "::error::Worker zadziałał bez sprzętowej atestacji!"
             exit 1
           fi
