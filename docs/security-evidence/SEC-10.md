@@ -73,6 +73,15 @@ browser. It asserts:
   a result or acknowledge SQS, but mark ledger failure; and
 - unclaimed jobs are never decrypted.
 
+A dedicated test starts a genuinely suspended async browser coroutine,
+sets a synthetic 10 ms deadline and checks that the `asyncio.wait_for`
+cancellation runs its `finally`, the mutable field map is cleared,
+DynamoDB is marked failed and SQS is left unacknowledged. The configured
+normal preview timeout is 180 seconds, below the current 900-second lease.
+This is a cooperative asyncio cancellation, **not** a host-enforced kill
+timeout: external process watchdog and true guest termination evidence remain
+required before K6 closure.
+
 This tests the actual one-job control flow, not a hardware browser SIGKILL,
 provider-level error telemetry, kernel memory cleanup or a genuine Nitro
 attestation. Those remain **K6 BLOCKED**.
