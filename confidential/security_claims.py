@@ -115,7 +115,8 @@ def validate_policy(policy: Mapping) -> None:
             _require(isinstance(item, dict) and
                      set(item) == _REQUIRED_EVIDENCE_KEYS and
                      _nonempty(item["id"]) and item["id"] not in seen and
-                     item["owner"] in OWNERS and item["source"] in SOURCES,
+                     isinstance(item["owner"], str) and item["owner"] in OWNERS and
+                     isinstance(item["source"], str) and item["source"] in SOURCES,
                      "required evidence not independently specified")
             seen.add(item["id"])
     _require(ids == CLAIMS, "security claims missing")
@@ -259,7 +260,7 @@ def evaluate_claims(policy: Mapping, evidence: list | None = None, *,
                 continue
             if receipt["payload"].get("claim_id") == cid:
                 matches.append(receipt)
-            elif receipt["payload"].get("claim_id") not in CLAIMS:
+            elif not isinstance(receipt["payload"].get("claim_id"), str) or receipt["payload"].get("claim_id") not in CLAIMS:
                 wrong += 1
         required = {item["id"]: item for item in claim["required_evidence"]}
         missing = sorted(set(required))
@@ -268,7 +269,7 @@ def evaluate_claims(policy: Mapping, evidence: list | None = None, *,
             payload = item["payload"]
             kind = payload.get("evidence_type")
             rid = payload.get("evidence_id")
-            if kind not in required or not isinstance(rid, str) or rid in seen_receipts:
+            if not isinstance(kind, str) or kind not in required or not isinstance(rid, str) or rid in seen_receipts:
                 issues.append("unexpected or replayed evidence")
                 continue
             seen_receipts.add(rid)
