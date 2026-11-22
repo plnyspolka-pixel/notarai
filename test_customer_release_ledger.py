@@ -31,7 +31,13 @@ class MemoryDdb:
         expr = kw["ConditionExpression"]
         v = kw["ExpressionAttributeValues"]
         if "ADD attempts" in kw["UpdateExpression"]:
-            assert "attribute_not_exists(release_consumed_sha256)" in expr
+            assert "attribute_not_exists(release_consumed_sha256)" in expr, repr(expr)
+            assert row["tenant_id"] == v[":tenant"], ("tenant", row["tenant_id"], v[":tenant"])
+            assert row["job_id"] == v[":job"], ("job", row["job_id"], v[":job"])
+            assert row["case_id"] == v[":case"], ("case", row["case_id"], v[":case"])
+            assert row["object_id"] == v[":object"], ("object", row["object_id"], v[":object"])
+            assert row["s3_version"] == v[":version"], ("version", row["s3_version"], v[":version"])
+            assert row["state"]["S"] in ("queued", "retryable"), ("state", row["state"])
             if ("release_consumed_sha256" in row or row["state"]["S"] not in ("queued", "retryable")
                     or row["tenant_id"] != v[":tenant"]
                     or row["job_id"] != v[":job"]
