@@ -81,7 +81,7 @@ class BedrockVisionModel:
 
     def __init__(self, *, client, model_id: str, region: str,
                  expressly_enabled: bool = False):
-        if region not in {"eu-central-1", "eu-west-1", "eu-west-2", "eu-north-1"}:
+        if region != "eu-central-1":
             raise ValueError("Bedrock runtime must be in configured EU region")
         if not model_id.startswith("eu."):
             raise ValueError("EU-only inference profile required")
