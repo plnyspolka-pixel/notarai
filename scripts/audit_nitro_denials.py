@@ -26,11 +26,17 @@ from confidential.nitro_denial_matrix import (
 _MAX_BYTES = 32 * 1024
 
 
-def _read_json(path: str) -> dict:
-    payload = Path(path).read_bytes()
-    if not payload or len(payload) > _MAX_BYTES:
+def _bounded_bytes(path: str, limit: int = _MAX_BYTES) -> bytes:
+    # Avoid allocating untrusted files before checking their length.
+    with Path(path).open("rb") as source:
+        data = source.read(limit + 1)
+    if not data or len(data) > limit:
         raise DenialEvidenceRejected("audit input invalid")
-    value = json.loads(payload)
+    return data
+
+
+def _read_json(path: str) -> dict:
+    value = json.loads(_bounded_bytes(path))
     if not isinstance(value, dict):
         raise DenialEvidenceRejected("audit input not an object")
     return value
@@ -173,15 +179,13 @@ def main() -> int:
                 raise DenialEvidenceRejected("both independently pinned witness signatures required")
             witness = verify_independent_witnesses(
                 payload=_read_json(args.witness_payload), matrix=matrix,
-                custodian_signature_b64=Path(args.custodian_witness_signature)
-                    .read_text(encoding="ascii").strip(),
-                custodian_public_key_pem=Path(args.custodian_witness_public_key)
-                    .read_bytes(),
+                custodian_signature_b64=_bounded_bytes(args.custodian_witness_signature, 4096)
+                    .decode("ascii").strip(),
+                custodian_public_key_pem=_bounded_bytes(args.custodian_witness_public_key, 16384),
                 custodian_public_key_sha256=args.custodian_witness_public_key_sha256,
-                auditor_signature_b64=Path(args.auditor_witness_signature)
-                    .read_text(encoding="ascii").strip(),
-                auditor_public_key_pem=Path(args.auditor_witness_public_key)
-                    .read_bytes(),
+                auditor_signature_b64=_bounded_bytes(args.auditor_witness_signature, 4096)
+                    .decode("ascii").strip(),
+                auditor_public_key_pem=_bounded_bytes(args.auditor_witness_public_key, 16384),
                 auditor_public_key_sha256=args.auditor_witness_public_key_sha256,
             )
             result["witness_signatures_verified"] = witness["witness_signatures_verified"]
