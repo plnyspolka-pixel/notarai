@@ -14,13 +14,18 @@ No AWS deployment, customer data, new IAM permissions or production inference we
 - `bedrock.py`: before any `converse_stream`, confidential runtime
   `NOTARAI_CONFIDENTIAL_REQUIRED=1` denies Bedrock network requests.
   Legacy Bedrock remains a separate, externally processed, **non-ZK** feature.
-  Upstream cache error text is no longer logged.
+  Upstream cache error text is no longer logged. Generic validation messages
+  replace provider text, and AWS error codes are bounded identifiers.
 - `scripts/audit_confidential_ai_routes.py`: full-repository **Python static**
   call-site scan; new AI/HTTP direct usage inside `confidential/` fails CI.
   The scan does not capture JS, native binaries, indirect imports, dynamic
   reflection or actual data retention. It is not a 100%-complete dataflow proof.
 - `test_confidential_zk_ai_boundary.py`: offline tests for boundary,
   adversarial changes, injections, no fallback and output/trace minimization.
+- `confidential/worker.py`: `validate_worker_marker` enforces an exact
+  metadata-only shape before Nitro writes its S3 result marker.
+- `dziennik.py` and `app.py`: no raw AWS error messages or request path values
+  in unhandled application error logs; route template only.
 - `.github/workflows/ci.yml` and `confidential-browser.yml`: checks added.
 
 ## Dataflow inventory (verified by code reading, not by traffic capture)
@@ -70,16 +75,25 @@ external to the operator AWS account. These are **not yet proven here**.
 |---|---|---|
 | K1: 100% AI routes | **BLOCKED** | Python call-site script and initial table; add JS/native/dynamic/network inventory and independent review |
 | K2: no unapproved plaintext | **BLOCKED** | `test_k2_*` deny tests and real dispatch guard; missing live flow trace and independent hardware boundary verification |
-| K3: six negative attacks | **UNVERIFIED** | `test_k3_*`, output and telemetry checks added; requires green CI on final SHA and adversarial network evidence |
-| K4: two fallback denials | **UNVERIFIED** | `test_k4_*`; no separate public API fallback in `bedrock.py`; actual live timeout/egress not captured |
+| K3: six negative attacks | **BLOCKED** | `test_k3_*`, output and telemetry checks added; requires green CI on final SHA and adversarial network evidence |
+| K4: two fallback denials | **BLOCKED** | `test_k4_*`; no separate public API fallback in `bedrock.py`; actual live timeout/egress not captured |
 | K5: retention and subprocessors | **BLOCKED** | Missing independent processor/retention documentation, CloudWatch trace capture and signed deletion proof |
 | K6: strict ZK refusal outside Nitro | **BLOCKED** | `test_k6_*`; true Nitro model-inference evidence not available, SEC-07 required |
 
 Target local command: `python -m pytest -q test_confidential_zk_ai_boundary.py`.
 Additional route gate: `python scripts/audit_confidential_ai_routes.py --json`.
-**No local/CI test results are represented as executed in this report.**
-Update only after obtaining actual GitHub Actions run, exact SHA, and
-passed/failed/skipped counts.
+**Observed CI for earlier SHA `269be7df372085069f00437139f8b34d23e7af29`:**
+- Python + JS tests: `1972 passed, 3 failed, 10 skipped` (three AST-fixture
+  strings wrongly escaped; fixed by `b1bfd2bb5ec0bcdece70960e068f30d6727d55c0`).
+  Workflow run: https://github.com/plnyspolka-pixel/notarai/actions/runs/44981313392
+- Confidential tests: `270 passed, 3 failed`, same fixture error.
+  Workflow run: https://github.com/plnyspolka-pixel/notarai/actions/runs/44981313356
+- Security workflow for earlier SHA: PASS.
+  https://github.com/plnyspolka-pixel/notarai/actions/runs/44981313367
+
+**Current head is newer than these results; its CI is NOT YET VERIFIED.**
+There is no independently verified Nitro LLM, custody, retention or subprocessors
+proof. Do not infer green CI from old SHA. No local run was performed.
 
 Completion requires K1-K6 all PASS with verifiable evidence, 0 FAIL /
 BLOCKED / UNVERIFIED, and green CI for the exact final head SHA. Until then
