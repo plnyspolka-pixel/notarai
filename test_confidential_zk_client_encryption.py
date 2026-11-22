@@ -155,6 +155,11 @@ class S3ForTests:
     def __init__(self):
         self.writes = {}
         self.ddb = FakeDocumentDdb()
+    def get_object(self, **kw):
+        from io import BytesIO
+        item = self.writes[kw["Key"]]
+        return {"Body": BytesIO(item["Body"]), "VersionId": "actualS3version01"}
+
     def put_object(self, **kw):
         if kw["IfNoneMatch"] != "*":
             raise AssertionError("unsafe overwrite allowed")
@@ -529,3 +534,20 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
                 serialization.Encoding.PEM,
                 serialization.PublicFormat.SubjectPublicKeyInfo,
             ).decode("ascii")})
+
+
+def test_readback_requires_durable_registry_digest_and_s3_version(keys, monkeypatch):
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    body = json.dumps(payload, separators=(",", ":")).encode("ascii")
+    req = RequestForTests("pilot01", body)
+    assert json.loads(asyncio.run(router.store(req, "case01", "scan01")).body)["stored"]
+    from_repo = json.loads(router.retrieve(req, "case01", "scan01").body)
+    assert from_repo["document_version"] == payload["document_version"]
+    key = next(iter(s3.writes))
+    original = s3.writes[key]["Body"]
+    s3.writes[key]["Body"] = original + b" "
+    with pytest.raises(HTTPException) as err:
+        router.retrieve(req, "case01", "scan01")
+    assert err.value.status_code == 409
