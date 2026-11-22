@@ -136,27 +136,55 @@ def validate_observer_template(template: Mapping):
 
 
 def validate_image_oidc_template(template: Mapping):
-    """Static token subject/audience inspection; not live OIDC claim evidence."""
+    """Static token/principal/permission pin; not a live GitHub OIDC proof."""
+    require(isinstance(template, Mapping) and
+            set(template.get("Resources", {})) == {"GuestImagePushRole"},
+            "unreviewed OIDC resources")
     role = template["Resources"]["GuestImagePushRole"]["Properties"]
-    trust = role["AssumeRolePolicyDocument"]["Statement"]
-    require(len(trust) == 1 and
-            trust[0]["Action"] == "sts:AssumeRoleWithWebIdentity" and
-            trust[0]["Condition"] == {"StringEquals": {
-                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                "token.actions.githubusercontent.com:sub": {
-                    "Sub": "repo:${Repository}:ref:refs/heads/${Branch}"}}},
-            "OIDC claims are not exactly pinned")
+    require(not role.get("ManagedPolicyArns") and
+            role.get("MaxSessionDuration") == 3600,
+            "unreviewed publisher privilege")
+    trust_doc = role.get("AssumeRolePolicyDocument", {})
+    trust = trust_doc.get("Statement", [])
+    require(trust_doc.get("Version") == "2012-10-17" and
+            len(trust) == 1 and
+            trust[0] == {
+                "Effect": "Allow",
+                "Principal": {"Federated": {"Sub":
+                    "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"}},
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {"StringEquals": {
+                    "token.actions.githubusercontent.com:aud":
+                        "sts.amazonaws.com",
+                    "token.actions.githubusercontent.com:sub": {
+                        "Sub": "repo:${Repository}:ref:refs/heads/${Branch}"}}},
+            },
+            "OIDC principal, audience or subject is not pinned")
     policy = role.get("Policies")
-    require(isinstance(policy, list) and len(policy) == 1,
-            "extra publisher IAM policies")
-    grants = [s for s in statements(policy[0]["PolicyDocument"])
-              if "ecr:PutImage" in actions(s)]
-    require(len(grants) == 1 and grants[0]["Effect"] == "Allow" and
-            grants[0]["Resource"] == {"Sub":
+    require(isinstance(policy, list) and len(policy) == 1 and
+            policy[0].get("PolicyName") == "push-guest-image",
+            "unreviewed publisher IAM policies")
+    rows = statements(policy[0]["PolicyDocument"])
+    expected = {
+        "EcrLogin": {"Action": "ecr:GetAuthorizationToken",
+                     "Resource": "*"},
+        "PushPilotGuestImageOnly": {
+            "Action": [
+                "ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart", "ecr:CompleteLayerUpload",
+                "ecr:PutImage", "ecr:BatchGetImage", "ecr:DescribeImages",
+            ],
+            "Resource": {"Sub":
                 "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai-confidential-${TenantId}"},
-            "ECR push scope not pinned")
+        },
+    }
+    require(len(rows) == 2 and
+            {s["Sid"] for s in rows} == set(expected) and
+            all(s["Effect"] == "Allow" and
+                s["Resource"] == expected[s["Sid"]]["Resource"] and
+                s["Action"] == expected[s["Sid"]]["Action"] for s in rows),
+            "publisher ECR policy widened")
     return "STATIC_TRUST_ONLY"
-
 
 def assess_custody_ownership(operator_id: str, custody_id: str,
                              observation: Mapping | None = None):
