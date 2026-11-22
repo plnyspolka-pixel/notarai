@@ -64,7 +64,8 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     assert "ExecuteCommand" not in task
     role = t["Resources"]["ConfidentialTaskRole"]["Properties"]
     statements = role["Policies"][0]["PolicyDocument"]["Statement"]
-    assert any(s.get("Action") == "s3:GetObject" for s in statements)
+    assert any(set(s.get("Action", [])) >=
+               {"s3:GetObject", "s3:GetObjectVersion"} for s in statements)
     assert any("kms:Decrypt" == s.get("Action") and "kms:RecipientAttestation:PCR17" in
                s["Condition"]["StringEqualsIgnoreCase"] for s in statements)
 
