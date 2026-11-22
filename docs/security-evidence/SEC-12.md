@@ -62,3 +62,14 @@ Ograniczenie: sama nazwa `pilot01`/`pilot02` NIE poświadcza,
 W pilocie wolno przekazywać **wyłącznie fikcyjne dane testowe**;
 bez niezależnego zatwierdzenia oraz dodatkowego dowodu dopuszczenia
 rzeczywistych danych weryfikacja K1–K6 pozostaje BLOCKED.
+
+
+### Dowód regresji dla krytycznych scenariuszy
+
+CI wykonuje `pytest` dla `test_confidential_adversarial_e2e.py`
+osobno, wytwarza `notarai-sec12-tests.xml` w formacie JUnit,
+a bramka wymaga co najmniej **65 zebranych testów** oraz dokładnie
+`failures=0`, `errors=0`, `skipped=0`. Plik JUnit i raport
+`notarai-sec12-gate.json` trafiają razem do artefaktu
+`sec12-offline-matrix` (retencja 30 dni). To mierzalny dowód działania
+regresji w CI, lecz nadal **nie** dowód realnego hardware AWS.
