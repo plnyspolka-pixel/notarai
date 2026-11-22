@@ -21,13 +21,40 @@ No client documents, secrets, real URLs or screenshots were accessed.
   unless a real independent attested guest test is built and performed.
 - `.github/workflows/confidential-browser.yml`: includes the new test file.
 
+## New isolated DNS Firewall pilot artifact
+
+- `infra/notarai-confidential-dns-egress.yaml`: optional, **not deployed**,
+  Route 53 Resolver DNS Firewall template for a **dedicated synthetic VPC**.
+  An exact host allowlist for selected EU PrivateLink/S3/DynamoDB names
+  precedes a wildcard `*` deny-all. Only A/AAAA queries to approved
+  names are admitted; CNAME redirections remain inspected, and
+  `FirewallFailOpen=DISABLED`.
+- `confidential/dns_firewall.py` and `test_confidential_dns_firewall.py`:
+  strict static contract and 15 negative mutation tests for wildcard
+  allow, missing deny, wrong rule order, fail-open, missing VPC association
+  protection, and unauthorized VPC re-targeting.
+
+**Do not deploy to the existing shared VPC.** Resolver DNS Firewall is
+VPC-scoped: this intentionally narrow test allowlist could interrupt
+other tenant workloads or AWS services. A production shared-fabric DNS
+policy needs an independently reviewed inventory and tenant-aware
+resource/IAM restrictions. DNS Firewall only filters queries sent
+through the VPC Resolver; verify alternate DNS paths, direct IP,
+caching and allowed AWS APIs separately. Domain-based protection
+alone cannot establish zero exfiltration.
+
+References:
+- https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver-dns-firewall-overview.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-route53resolver-firewallconfig.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-route53resolver-firewallrulegroup.html
+
 ## Threat surfaces and enforcement boundary
 
 | Exit channel | Current independent boundary | Remaining validation |
 | --- | --- | --- |
 | GET query/URL path/redirect | VPC guest SG denies ordinary public outbound; browser pins initial GET | Real guest negative probe, DNS proof |
 | HTTP POST/body/headers/cookies | VPC guest SG; browser locks before values and strips request headers | Guest/parent raw-socket and cookie/browser bypass test |
-| DNS tunneling | **NOT PROVEN**: VPC resolver may bypass Security Group filtering | DNS Firewall plus enclave/parent captures and active probes |
+| DNS tunneling | Unapplied dedicated pilot DNS Firewall IaC (allow exact/deny all/fail-closed) | Live VPC Resolver association, DNS logs, host/parent and alternate resolver active probes |
 | IPv4/IPv6/raw sockets | Dedicated SG and private route fixture; no wildcard | Actual guest ENI, IPv6 routes/assignments and network tests |
 | S3 presigned URLs | Endpoint route + assumed IAM scoping; **not independent proof** | Bucket policy, endpoint policy, IAM explicit deny, active exfil tests |
 | AWS APIs/KMS/DynamoDB/SQS | Interface/gateway endpoints and identity checks | Verify request policies and deny wrong-account/wrong-tenant |
