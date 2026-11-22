@@ -310,6 +310,10 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
                    f"notarai-confidential-{tenant}.fifo"),
     )
     assert all(report["task_controls"].values())
+    assert report["task_controls_all_pass"] is True
+    assert report["evidence_status"] == "BLOCKED_PENDING_INDEPENDENT_REVIEW"
+    assert "NITRO_ATTESTATION_UNVERIFIED" in report["evidence_blockers"]
+    assert "LEGAL_RETENTION_APPROVAL_MISSING" in report["evidence_blockers"]
     assert report["s3_versioning_enabled"] and report["ddb_pitr_days"] == 35
     assert report["s3_bucket_region_verified"] is True
     assert report["s3_replication_state"] == "configured"
