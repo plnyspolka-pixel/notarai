@@ -1,0 +1,70 @@
+name: SEC-07 Nitro denial proof - offline security gate
+on:
+  pull_request:
+    paths:
+      - "confidential/nitro_*.py"
+      - "scripts/audit_nitro_denials.py"
+      - "scripts/run_nitro_attestation_e2e.py"
+      - "test_confidential_nitro_*.py"
+      - ".github/workflows/confidential-sec07.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-sec07:
+    name: SEC-07 strict validation (no AWS credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_SESSION_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install minimal offline test dependencies
+        run: python -m pip install --disable-pip-version-check pytest cryptography
+      - name: Compile SEC-07 Python sources
+        run: |
+          python -m py_compile confidential/nitro_hardware_proof.py confidential/nitro_denial_matrix.py
+          python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py
+          python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py
+      - name: Execute mandatory SEC-07 offline negative regressions
+        run: python -m pytest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py
+      - name: Assert no offline fake hardware proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python scripts/run_nitro_attestation_e2e.py --check > /tmp/nitro-check.json
+          ec1=$?
+          python scripts/audit_nitro_denials.py --check > /tmp/nitro-denials.json
+          ec2=$?
+          set -e
+          test "$ec1" -eq 2
+          test "$ec2" -eq 2
+          python - <<'PY'
+          import json
+          for path in ('/tmp/nitro-check.json', '/tmp/nitro-denials.json'):
+              with open(path, encoding='utf-8') as handle:
+                  doc = json.load(handle)
+              assert doc['status'] == 'BLOCKED'
+              assert doc['hardware_attestation_verified'] is False
+              assert doc['production_enabled'] is False
+          PY
+      - name: Report scope
+        run: |
+          {
+            echo "### SEC-07 offline security validation"
+            echo "- No AWS credentials, no deployments and no secrets in CI"
+            echo "- All synthetic proofs must remain BLOCKED"
+            echo "- Real Nitro/KMS proof requires independent AWS custody, signed live witnesses and six controlled attacks"
+          } >> "$GITHUB_STEP_SUMMARY"
