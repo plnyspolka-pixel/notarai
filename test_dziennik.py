@@ -110,3 +110,44 @@ def test_maskowanie_wlaczone_raz():
     fabryka = logging.getLogRecordFactory()
     dziennik.wlacz_maskowanie()
     assert logging.getLogRecordFactory() is fabryka
+
+
+def test_untrusted_aws_error_code_and_message_cannot_enter_logs():
+    from botocore.exceptions import ClientError
+    blad = ClientError({"Error": {"Code": "Bad" + PESEL,
+                                  "Message": "rejected: " + PLIK_SKANU}}, "Converse")
+    opis = dziennik.opis_bledu(_wyjatek(blad))
+    assert "UnknownAWSCode" in opis
+    assert PESEL not in opis and PLIK_SKANU not in opis
+
+
+def test_bedrock_response_does_not_echo_provider_validation_error():
+    import bedrock
+    blad = ClientError({"Error": {"Code": "ValidationException",
+                                  "Message": "unexpected: " + PESEL + " " + PLIK_SKANU}},
+                       "ConverseStream")
+    wynik = bedrock.opis_bledu(blad)
+    assert "Model odrzucił zapytanie" in wynik
+    assert PESEL not in wynik and PLIK_SKANU not in wynik
+
+
+def test_unhandled_http_exception_does_not_log_untrusted_url_path(caplog):
+    import asyncio
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    import app as aplikacja
+
+    request = Request({
+        "type": "http", "method": "GET",
+        "path": "/api/sprawy/" + PESEL,
+        "headers": [], "query_string": b"",
+        "route": SimpleNamespace(path="/api/sprawy/{case_id}"),
+    })
+    with caplog.at_level(logging.ERROR, logger="pieczapp"):
+        result = asyncio.run(aplikacja._nieobsluzony(
+            request, _wyjatek(RuntimeError("synthetic"))
+        ))
+    assert result.status_code == 500
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "/api/sprawy/{case_id}" in messages
+    assert PESEL not in messages
