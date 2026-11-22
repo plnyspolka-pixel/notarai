@@ -1,0 +1,291 @@
+{
+  "synthetic_only": true,
+  "notice": "Fictional names, impossible example addresses/accounts, fabricated identifiers. Do not use actual documents.",
+  "cases": [
+    {
+      "id": "person_nominative",
+      "text": "W umowie sprzedaży występuje Alicja Testowska.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicja Testowska"
+        }
+      ],
+      "must_preserve": [
+        "umowie sprzedaży"
+      ]
+    },
+    {
+      "id": "person_genitive",
+      "text": "W projekcie aktu brak podpisu Alicji Testowskiej.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicji Testowskiej"
+        }
+      ],
+      "must_preserve": [
+        "projekcie"
+      ]
+    },
+    {
+      "id": "person_dative",
+      "text": "Projekt doręczono Alicji Testowskiej dnia 5 maja.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicji Testowskiej"
+        }
+      ],
+      "must_preserve": [
+        "Projekt"
+      ]
+    },
+    {
+      "id": "person_instrumental",
+      "text": "Strona stawiła się z Alicją Testowską.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicją Testowską"
+        }
+      ],
+      "must_preserve": [
+        "Strona"
+      ]
+    },
+    {
+      "id": "second_person",
+      "text": "Spadkobierca Borys Próbny przystąpił do aktu.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Borys Próbny"
+        }
+      ],
+      "must_preserve": [
+        "spadkobierca"
+      ]
+    },
+    {
+      "id": "company",
+      "text": "Stroną umowy jest Fikcyjna Firma Testowa sp. z o.o.",
+      "secrets": [
+        {
+          "kind": "COMPANY",
+          "value": "Fikcyjna Firma Testowa sp. z o.o."
+        }
+      ],
+      "must_preserve": [
+        "Stroną umowy"
+      ]
+    },
+    {
+      "id": "address",
+      "text": "Przedmiot: ul. Próbna 17/4, 00-000 Miejscowość Testowa.",
+      "secrets": [
+        {
+          "kind": "ADDRESS",
+          "value": "ul. Próbna 17/4"
+        }
+      ],
+      "must_preserve": [
+        "Przedmiot"
+      ]
+    },
+    {
+      "id": "email",
+      "text": "Kontakt: fikcyjny.odbiorca@example.invalid, umowa zostaje w aktach.",
+      "secrets": [
+        {
+          "kind": "EMAIL",
+          "value": "fikcyjny.odbiorca@example.invalid"
+        }
+      ],
+      "must_preserve": [
+        "umowa zostaje w aktach"
+      ]
+    },
+    {
+      "id": "phone",
+      "text": "Kontakt +48 501 234 567 w sprawie wypisu.",
+      "secrets": [
+        {
+          "kind": "PHONE",
+          "value": "+48 501 234 567"
+        }
+      ],
+      "must_preserve": [
+        "w sprawie wypisu"
+      ]
+    },
+    {
+      "id": "phone_no_separators",
+      "text": "Numer telefonu: 501234567, weryfikacja nie jest dowodem doręczenia.",
+      "secrets": [
+        {
+          "kind": "PHONE",
+          "value": "501234567"
+        }
+      ],
+      "must_preserve": [
+        "weryfikacja"
+      ]
+    },
+    {
+      "id": "pesel",
+      "text": "PESEL 99923100014 jest tu fikcyjnym identyfikatorem testowym.",
+      "secrets": [
+        {
+          "kind": "PESEL",
+          "value": "99923100014"
+        }
+      ],
+      "must_preserve": [
+        "identyfikatorem testowym"
+      ]
+    },
+    {
+      "id": "nip",
+      "text": "NIP 9876543210 umieszczony przy klauzuli reprezentacji.",
+      "secrets": [
+        {
+          "kind": "NIP",
+          "value": "9876543210"
+        }
+      ],
+      "must_preserve": [
+        "klauzuli reprezentacji"
+      ]
+    },
+    {
+      "id": "regon",
+      "text": "REGON 123456785 to dane testowe.",
+      "secrets": [
+        {
+          "kind": "REGON",
+          "value": "123456785"
+        }
+      ],
+      "must_preserve": [
+        "dane testowe"
+      ]
+    },
+    {
+      "id": "krs",
+      "text": "KRS 0000999999 w wyciągu z rejestru.",
+      "secrets": [
+        {
+          "kind": "KRS",
+          "value": "0000999999"
+        }
+      ],
+      "must_preserve": [
+        "wyciągu z rejestru"
+      ]
+    },
+    {
+      "id": "kw",
+      "text": "KW LU1I/99999999/6 w dziale II księgi.",
+      "secrets": [
+        {
+          "kind": "KW",
+          "value": "LU1I/99999999/6"
+        }
+      ],
+      "must_preserve": [
+        "dziale II"
+      ]
+    },
+    {
+      "id": "iban",
+      "text": "Rachunek PL14 9999 9999 0000 0000 0000 0001; odroczona płatność.",
+      "secrets": [
+        {
+          "kind": "IBAN",
+          "value": "PL14 9999 9999 0000 0000 0000 0001"
+        }
+      ],
+      "must_preserve": [
+        "odroczona płatność"
+      ]
+    },
+    {
+      "id": "sygnatura",
+      "text": "W sprawie sygn. IX Nc 999/26 sporządzono projekt.",
+      "secrets": [
+        {
+          "kind": "CASE_ID",
+          "value": "IX Nc 999/26"
+        }
+      ],
+      "must_preserve": [
+        "sporządzono projekt"
+      ]
+    },
+    {
+      "id": "multiple_identifiers",
+      "text": "Alicja Testowska, e-mail: test@example.invalid, PESEL 99923100014, część umowy 1/2.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicja Testowska"
+        },
+        {
+          "kind": "EMAIL",
+          "value": "test@example.invalid"
+        },
+        {
+          "kind": "PESEL",
+          "value": "99923100014"
+        }
+      ],
+      "must_preserve": [
+        "część umowy 1/2"
+      ]
+    },
+    {
+      "id": "multi_document_1",
+      "text": "Alicja Testowska jest zbywcą, cena 100000 zł.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicja Testowska"
+        }
+      ],
+      "must_preserve": [
+        "cena 100000 zł"
+      ]
+    },
+    {
+      "id": "multi_document_2",
+      "text": "Alicji Testowskiej przysługuje udział 1/2 nieruchomości.",
+      "secrets": [
+        {
+          "kind": "NAME",
+          "value": "Alicji Testowskiej"
+        }
+      ],
+      "must_preserve": [
+        "udział 1/2 nieruchomości"
+      ]
+    },
+    {
+      "id": "negative_control",
+      "text": "Art. 158 k.c. wymaga formy aktu notarialnego dla przeniesienia własności nieruchomości.",
+      "secrets": [],
+      "must_preserve": [
+        "Art. 158 k.c.",
+        "formy aktu notarialnego"
+      ]
+    },
+    {
+      "id": "short_control",
+      "text": "Dział III bez wpisów.",
+      "secrets": [],
+      "must_preserve": [
+        "Dział III bez wpisów"
+      ]
+    }
+  ]
+}
