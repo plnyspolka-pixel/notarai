@@ -42,7 +42,16 @@ async function refresh() {
       cell(item.created_at ? new Date(item.created_at*1000).toLocaleString("pl-PL") : "—");
       const actions=cell("");
       const add=(label,task)=>{const b=document.createElement("button");b.type="button";b.textContent=label;b.className="secondary";b.addEventListener("click",async()=>{try{await task();await refresh();}catch(e){alertText(e.message)}});actions.append(b);};
-      if(item.status==="waiting_for_approval")add("Zatwierdź",()=>call("/jobs/"+encodeURIComponent(item.job_id)+"/approve","POST"));
+      if(item.status==="waiting_for_approval")add("Zatwierdź",async()=>{
+        const preview=await call("/jobs/"+encodeURIComponent(item.job_id)+"/approval-preview");
+        const decision=window.confirm(
+          "Potwierdź dokładną treść zmiany w programie kancelaryjnym:\\n\\n"+
+          "Program: "+preview.app_id+"\\nPole: "+preview.field+
+          "\\nWartość: "+preview.value+"\\n\\nZatwierdzić wykonanie przez robota?"
+        );
+        if(!decision)return;
+        await call("/jobs/"+encodeURIComponent(item.job_id)+"/approve","POST");
+      });
       if(["queued","running","waiting_for_approval"].includes(item.status))add("Anuluj",()=>call("/jobs/"+encodeURIComponent(item.job_id)+"/cancel","POST"));
       if(item.status==="completed")add("Wynik",async()=>{
         const response=await call("/jobs/"+encodeURIComponent(item.job_id)+"/result");
