@@ -33,7 +33,7 @@ class FakeTable:
             raise RuntimeError("conditional")
         if ":queued" in vals and (x.get("status") != vals[":queued"] or x.get("version")!=vals[":version"]):
             raise RuntimeError("conditional")
-        if ":running" in vals and (x.get("status")!=vals[":running"] or x.get("worker_id")!=vals[":worker"]):
+        if ":running" in vals and (x.get("status")!=vals[":running"] or (":worker" in vals and x.get("worker_id")!=vals[":worker"])):
             raise RuntimeError("conditional")
         mapping={":new":"status",":cancelled":"status",":now":"updated_at",
                  ":expiry":"approval_expires",":w":"worker_id",":lease":"lease_until",
