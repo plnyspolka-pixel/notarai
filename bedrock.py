@@ -183,7 +183,8 @@ def opis_bledu(blad: BaseException) -> str:
                                                             "on-demand", "inference profile", "doesn't support")):
             return (f"Model {config.MODEL} nie jest dostępny w tej postaci na koncie AWS notarai. "
                     "To ustawienie po stronie notarai, nie Twoje - zgłoś błąd, sprawa jest zapisana.")
-        return (f"Model odrzucił zapytanie ({tresc.strip() or 'ValidationException'}). "
+        # Provider validation messages can echo case data and must not be returned.
+        return ("Model odrzucił zapytanie (ValidationException). "
                 "Jeśli błąd się powtarza, zgłoś go do notarai.")
     if kod in {"accessdeniedexception", "resourcenotfoundexception"}:
         return (f"Konto AWS notarai nie ma dostępu do modelu {config.MODEL} w regionie {config.REGION}. "
