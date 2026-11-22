@@ -179,3 +179,15 @@ worker's task role `s3:GetBucketLocation` **only on its existing
 a wildcard resource. An offline CloudFormation test checks this grant.
 This is an un-deployed template change and does not establish that the
 live IAM role already has permission.
+
+
+## Browser API fail-closed schema hardening
+The confidential AUTO browser client now validates exact public-policy,
+queue and job-status response keys and types, including `submitted === false`
+and `can_submit === false` (not merely `!== true`). It requires the
+server's known stage allow/deny lists and disabled AI boundary flags;
+unknown response keys carrying simulated document data are rejected.
+Each queue/status action reloads the security policy so revoked capabilities
+do not rely on a stale in-memory response. Offline Node tests cover
+type confusion, additional fields, stage escalation and revocation.
+The authenticated backend remains authoritative.
