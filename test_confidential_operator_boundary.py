@@ -20,7 +20,8 @@ DIGEST = "b" * 64
 TASK = f"arn:aws:ecs:eu-central-1:{OPERATOR}:task-definition/notarai-confidential-{TENANT}:12"
 KEY = f"arn:aws:kms:eu-central-1:{CUSTODY}:key/11111111-2222-3333-4444-555555555555"
 ADMIN = [
-    "kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy",
+    "kms:DescribeKey", "kms:GetKeyPolicy", "kms:ListKeyPolicies",
+    "kms:ListGrants", "kms:PutKeyPolicy",
     "kms:EnableKey", "kms:DisableKey", "kms:UpdateKeyDescription",
     "kms:ListResourceTags", "kms:TagResource", "kms:UntagResource",
     "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion",
