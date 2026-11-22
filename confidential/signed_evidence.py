@@ -221,13 +221,14 @@ def verify_bundle(*, bundle: object, trusted_public_key_raw: bytes,
         effective = {name: ("BLOCKED" if status == "PASS" else status)
                      for name, status in asserted.items()}
         if now >= _utc(manifest["expires_at"]):
-            return Verification("EXPIRED", "BLOCKED", digest,
+            return Verification("EXPIRED", "EXPIRED", digest,
                                 effective, asserted, provenance)
-        return Verification("PASS", "BLOCKED", digest,
+        assurance = "FAIL" if "FAIL" in asserted.values() else "BLOCKED"
+        return Verification("PASS", assurance, digest,
                             effective, asserted, provenance)
     except (InvalidSignature, InvalidEvidence, TypeError, ValueError, KeyError,
             AttributeError, UnicodeError):
-        return Verification("FAIL", "BLOCKED", None, {})
+        return Verification("FAIL", "FAIL", None, {})
 
 
 def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
@@ -239,6 +240,7 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
     previous = None
     baseline = None
     last_observed = None
+    seen_fail = False
     for position, bundle in enumerate(bundles, start=1):
         manifest = bundle.get("manifest") if isinstance(bundle, dict) else None
         if not isinstance(manifest, dict) or manifest.get("sequence") != position:
@@ -262,5 +264,10 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
         elif identity != baseline or observed <= last_observed:
             return Verification("FAIL", "BLOCKED", None, {})
         last_observed = observed
+        seen_fail = seen_fail or result.assurance_status == "FAIL"
         previous = result.manifest_sha256
+    if seen_fail:
+        return Verification("PASS", "FAIL", result.manifest_sha256,
+                            result.check_status, result.asserted_check_status,
+                            result.check_provenance)
     return result
