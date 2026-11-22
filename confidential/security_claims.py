@@ -28,6 +28,37 @@ CLAIMS = frozenset({
 OWNERS = frozenset({"independent_custodian", "independent_auditor"})
 SOURCES = frozenset({"live_aws", "independent_audit"})
 _ALLOWED_STATUS = frozenset({"UNVERIFIED", "BLOCKED", "FAIL", "PASS"})
+# A source-controlled policy must never downgrade the mandatory security
+# evidence types/owners. Review of policy changes is NOT a replacement for
+# independent approval of the deployed code hash (SEC-05).
+_MANDATORY_EVIDENCE = {
+    "zero_trust": {
+        "authenticated_tenant_scope": ("independent_auditor", "independent_audit"),
+        "live_iam_deny": ("independent_auditor", "independent_audit"),
+        "cross_tenant_live_deny": ("independent_auditor", "independent_audit"),
+    },
+    "zero_operator_access": {
+        "independent_custody": ("independent_custodian", "live_aws"),
+        "nitro_kms_allow_deny": ("independent_auditor", "independent_audit"),
+        "approved_release_enforced": ("independent_custodian", "live_aws"),
+        "plaintext_exfil_deny": ("independent_auditor", "independent_audit"),
+        "independent_penetration_audit": ("independent_auditor", "independent_audit"),
+    },
+    "confidential_computing": {
+        "hardware_nsmlive": ("independent_auditor", "independent_audit"),
+        "pcr17_image_binding": ("independent_custodian", "live_aws"),
+        "kms_recipient_ciphertext_only": ("independent_auditor", "independent_audit"),
+    },
+    "scoped_zero_knowledge": {
+        "client_encryption_audit": ("independent_auditor", "independent_audit"),
+        "frontend_supply_chain_independence": ("independent_auditor", "independent_audit"),
+        "no_unattested_ai_plaintext": ("independent_auditor", "independent_audit"),
+        "plaintext_lifecycle_audit": ("independent_auditor", "independent_audit"),
+        "independent_penetration_audit": ("independent_auditor", "independent_audit"),
+    },
+}
+_MANDATORY_THREATS = frozenset("TH-%02d" % i for i in range(1, 13))
+
 _HEX64 = re.compile(r"^[a-f0-9]{64}$")
 _HEX32 = re.compile(r"^[a-f0-9]{32}$")
 _TENANT = re.compile(r"^pilot0[12]$")
@@ -119,6 +150,11 @@ def validate_policy(policy: Mapping) -> None:
                      isinstance(item["source"], str) and item["source"] in SOURCES,
                      "required evidence not independently specified")
             seen.add(item["id"])
+        found = {item["id"]: (item["owner"], item["source"])
+                 for item in required}
+        _require(all(found.get(k) == v
+                     for k, v in _MANDATORY_EVIDENCE[cid].items()),
+                 "mandatory evidence or independent owner removed")
     _require(ids == CLAIMS, "security claims missing")
     seen_threats: set[str] = set()
     for threat in threats:
@@ -139,7 +175,8 @@ def validate_policy(policy: Mapping) -> None:
                  "attack scenario lacks negative test or accountable owner")
     _require(all(c["negative_test"] in seen_threats for c in claims),
              "claim does not reference existing attack test")
-    _require(len(seen_threats) >= 10, "insufficient negative attack scenarios")
+    _require(_MANDATORY_THREATS <= seen_threats,
+             "mandatory adversarial security scenarios removed")
 
 
 def canonical_evidence_bytes(payload: Mapping) -> bytes:
