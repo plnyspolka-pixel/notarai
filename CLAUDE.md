@@ -105,3 +105,19 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Nie odblokowywać zapisu repertorium, wysyłki, podpisów, CAPTCHA/2FA, bezpośredniej pracy na DB ani arbitralnych poleceń powłoki. Każdy kolejny backend musi przejść negatywne testy izolacji tenantów, braku PII i niepewnego zapisu.
 
 - Testowa infrastruktura IaC: `infra/notarai-universal-worker-vm.yaml` (brak deployu, Windows/licencja/SSM endpoints wymagają potwierdzenia). Testy statyczne: `tests/test_computer_use_infra.py`.
+
+
+## Universal Computer Use — stan implementacji 2026-11-22 (PR #63)
+
+**Dokument nadrzędny: `docs/computer-use-production-readiness.md`.** Nie oznaczaj PR za production-ready bez potwierdzonych G1–G6. Dalsze implementacje muszą zmieniać kod / testy i utrzymywać te bramki, nie tylko dodawać plan.
+
+Obecne moduły:
+- `computer_use/vision.py`: aktywny po opt-in agent obrazu (in-memory screenshot, weryfikacja procesu Windows, EU Bedrock Converse, restrykcyjny wybór pól, no blind replay), **nieprzetestowany live na VM**.
+- `computer_use/workflows.py`: podpisywane krótkie (do 12 kroków) procedury na różne programy, bez kodowania adaptera dla konkretnego producenta.
+- `computer_use/session_lock.py`: mutex Windows dla sesji GUI (ponad procesami) + `worker.py`: tenant, allowlist, kolejność fallback.
+- `computer_use/jobs.py`, `payloads.py`, `daemon.py`, `runtime.py`: tenantowe zlecenia i wykonywanie: SQS FIFO, DynamoDB conditional claim, S3 SSE-KMS, kill switch z osobnej tabeli, opisy i payload w rozdzielonych magazynach. `runtime.py` uruchamia proces tylko z podpisanym profilem i tożsamością tenantu z bezpiecznej konfiguracji VM.
+- `computer_use/api.py`: konsola webowa `/virtual-employee` z `static/virtual_employee.*`, role z istniejącego Cognito, wgląd do zatwierdzanych danych, warunkowa akceptacja, stop/start, anulowanie i ręczne uzgodnienie niepewnych zadań.
+- `infra/notarai-ve-control-plane.yaml` / `infra/notarai-ve-tenant.yaml`: odseparowane kolejki/IAM/tenant KMS/Windows VM. **Są szablonami, brak faktycznego deploymentu.**
+- `tests/test_computer_use_*.py`, `.github/workflows/computer-use-ci.yml`: testy unitowe, bezpieczeństwa i szybki CI. Nie twierdzić, że testy live Windows przeszły.
+
+**Blokery produkcyjne:** legalna instalacja programu i Windows VM w UE, dostęp do jego bazy, indywidualne konto robota, uruchomienie wszystkich kontrolowanych AWS zasobów, integracja z sekretami i podpisanym profilem, rzeczywiste testy UIA/vision i izolacji IAM/S3/KMS, audyt przepływu danych. Screenshot może zawierać dane osobowe; nigdy nie włączać wizji bez aprobaty kancelarii oraz prawidłowej konfiguracji EU Bedrock/egress. Unikać określenia 'zero knowledge' bez dowodu.
