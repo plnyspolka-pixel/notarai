@@ -266,7 +266,10 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
                 ),
                 "lastStatus": "STOPPED",
                 "stoppedReason": "Sandbox policy denied unauthorized image",
-                "trustedExecutionSummary": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+                "trustedExecutionSummary": {
+                    "isolationMode": "CONFIDENTIAL_SANDBOX",
+                    "attestationPolicyStatus": "CONFIGURED",
+                },
                 "containers": [{"name": "confidential-browser", "exitCode": 1}],
             }]}
 
@@ -278,6 +281,11 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
                     "arn:aws:iam::111122223333:role/"
                     "notarai-confidential-pilot01"
                 ),
+                "requiresCompatibilities": ["MANAGED_INSTANCES"],
+                "trustedExecutionConfiguration": {
+                    "isolationMode": "CONFIDENTIAL_SANDBOX",
+                    "attestationPolicy": "abcdefghijklmnopqrstuvwxyz",
+                },
                 "containerDefinitions": [{
                     "name": "confidential-browser",
                     "image": "fake.ecr.eu-central-1.amazonaws.com/image@sha256:" +
@@ -348,6 +356,11 @@ def test_ecs_admission_denial_requires_original_aws_task_and_failed_container():
         "taskRoleArn": (
             "arn:aws:iam::111122223333:role/notarai-confidential-pilot01"
         ),
+        "requiresCompatibilities": ["MANAGED_INSTANCES"],
+        "trustedExecutionConfiguration": {
+            "isolationMode": "CONFIDENTIAL_SANDBOX",
+            "attestationPolicy": "abcdefghijklmnopqrstuvwxyz",
+        },
         "containerDefinitions": [{
             "name": "confidential-browser",
             "image": "example@sha256:" + receipt["image_sha256"],
@@ -358,7 +371,10 @@ def test_ecs_admission_denial_requires_original_aws_task_and_failed_container():
         "taskDefinitionArn": task_def["taskDefinitionArn"],
         "lastStatus": "STOPPED",
         "stoppedReason": "Sandbox policy denied image",
-        "trustedExecutionSummary": {"isolationMode": "CONFIDENTIAL_SANDBOX"},
+        "trustedExecutionSummary": {
+                    "isolationMode": "CONFIDENTIAL_SANDBOX",
+                    "attestationPolicyStatus": "CONFIGURED",
+                },
         "containers": [{"name": "confidential-browser", "exitCode": 1}],
     }
     assert inspect_altered_image_ecs(
@@ -374,3 +390,61 @@ def test_ecs_admission_denial_requires_original_aws_task_and_failed_container():
     with pytest.raises(DenialEvidenceRejected):
         inspect_altered_image_ecs(task=task, task_definition=task_def,
                                   receipt=receipt, matrix=matrix)
+
+
+
+def test_ecs_admission_denial_rejects_absent_policy_or_untrusted_launch():
+    matrix, _, receipts = sample()
+    receipt = receipts["altered_image"]
+    task_def = {
+        "taskDefinitionArn": (
+            "arn:aws:ecs:eu-central-1:111122223333:"
+            "task-definition/notarai-confidential-pilot01:13"
+        ),
+        "taskRoleArn": (
+            "arn:aws:iam::111122223333:role/notarai-confidential-pilot01"
+        ),
+        "requiresCompatibilities": ["MANAGED_INSTANCES"],
+        "trustedExecutionConfiguration": {
+            "isolationMode": "CONFIDENTIAL_SANDBOX",
+            "attestationPolicy": "abcdefghijklmnopqrstuvwxyz",
+        },
+        "containerDefinitions": [{
+            "name": "confidential-browser",
+            "image": "registry.test/image@sha256:" + receipt["image_sha256"],
+        }],
+    }
+    task = {
+        "taskArn": receipt["ecs_task_arn"],
+        "taskDefinitionArn": task_def["taskDefinitionArn"],
+        "lastStatus": "STOPPED",
+        "stoppedReason": "Sandbox policy denied altered container",
+        "trustedExecutionSummary": {
+            "isolationMode": "CONFIDENTIAL_SANDBOX",
+            "attestationPolicyStatus": "CONFIGURED",
+        },
+        "containers": [{"name": "confidential-browser", "exitCode": 1}],
+    }
+    assert inspect_altered_image_ecs(
+        task=task, task_definition=task_def,
+        receipt=receipt, matrix=matrix,
+    )["ecs_metadata_observed"] is True
+    for mutation in (
+        lambda: task_def["trustedExecutionConfiguration"].pop("attestationPolicy"),
+        lambda: task_def.update(requiresCompatibilities=["FARGATE"]),
+        lambda: task["trustedExecutionSummary"].update(
+            attestationPolicyStatus="NOT_CONFIGURED"),
+    ):
+        import copy
+        orig_task = copy.deepcopy(task)
+        orig_def = copy.deepcopy(task_def)
+        mutation()
+        with pytest.raises(DenialEvidenceRejected):
+            inspect_altered_image_ecs(
+                task=task, task_definition=task_def,
+                receipt=receipt, matrix=matrix,
+            )
+        task.clear()
+        task.update(orig_task)
+        task_def.clear()
+        task_def.update(orig_def)
