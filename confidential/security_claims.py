@@ -283,6 +283,15 @@ def evaluate_claims(policy: Mapping, evidence: list | None = None, *,
              len(receipts) <= 256, "evidence batch invalid")
     roots = {} if trust_roots is None else trust_roots
     _require(isinstance(roots, Mapping), "independent roots invalid")
+    # Two labels pointing to the same public key are NOT independent custody.
+    # Even distinct keys do not by themselves prove separate organizations;
+    # SEC-06 must still establish real AWS/SSO/Org independence.
+    if all(isinstance(roots.get(owner), Mapping) for owner in OWNERS):
+        a, b = (roots[owner].get("fingerprint_sha256") for owner in (
+            "independent_auditor", "independent_custodian",
+        ))
+        _require(not (isinstance(a, str) and a == b),
+                 "independent auditor and custodian share a signing key")
     result: dict[str, dict] = {}
     seen_receipts: set[str] = set()
     for claim in policy["claims"]:
