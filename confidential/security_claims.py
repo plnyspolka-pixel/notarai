@@ -34,25 +34,25 @@ _ALLOWED_STATUS = frozenset({"UNVERIFIED", "BLOCKED", "FAIL", "PASS"})
 _MANDATORY_EVIDENCE = {
     "zero_trust": {
         "authenticated_tenant_scope": ("independent_auditor", "independent_audit"),
-        "live_iam_deny": ("independent_auditor", "independent_audit"),
-        "cross_tenant_live_deny": ("independent_auditor", "independent_audit"),
+        "live_iam_deny": ("independent_auditor", "live_aws"),
+        "cross_tenant_live_deny": ("independent_auditor", "live_aws"),
     },
     "zero_operator_access": {
         "independent_custody": ("independent_custodian", "live_aws"),
-        "nitro_kms_allow_deny": ("independent_auditor", "independent_audit"),
+        "nitro_kms_allow_deny": ("independent_auditor", "live_aws"),
         "approved_release_enforced": ("independent_custodian", "live_aws"),
-        "plaintext_exfil_deny": ("independent_auditor", "independent_audit"),
+        "plaintext_exfil_deny": ("independent_auditor", "live_aws"),
         "independent_penetration_audit": ("independent_auditor", "independent_audit"),
     },
     "confidential_computing": {
-        "hardware_nsmlive": ("independent_auditor", "independent_audit"),
+        "hardware_nsmlive": ("independent_auditor", "live_aws"),
         "pcr17_image_binding": ("independent_custodian", "live_aws"),
-        "kms_recipient_ciphertext_only": ("independent_auditor", "independent_audit"),
+        "kms_recipient_ciphertext_only": ("independent_auditor", "live_aws"),
     },
     "scoped_zero_knowledge": {
         "client_encryption_audit": ("independent_auditor", "independent_audit"),
         "frontend_supply_chain_independence": ("independent_auditor", "independent_audit"),
-        "no_unattested_ai_plaintext": ("independent_auditor", "independent_audit"),
+        "no_unattested_ai_plaintext": ("independent_auditor", "live_aws"),
         "plaintext_lifecycle_audit": ("independent_auditor", "independent_audit"),
         "independent_penetration_audit": ("independent_auditor", "independent_audit"),
     },
