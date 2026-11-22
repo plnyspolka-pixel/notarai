@@ -13,6 +13,7 @@ from .fallback_router import (ApprovalVerifier, AutomationRequest,
 from .profiles import AppProfile
 from .native_api import ApiProfile, NativeApiStrategy
 from .winapp import WinAppStrategy
+from .vision import VisualStrategy
 
 
 class TenantWorker:
@@ -21,7 +22,9 @@ class TenantWorker:
                  approval_verifier: ApprovalVerifier | None = None,
                  winapp_runner=None, winapp_installed=None,
                  api_profiles: Mapping[str, ApiProfile] | None = None,
-                 api_client_factory: Callable | None = None):
+                 api_client_factory: Callable | None = None,
+                 vision_model=None, visual_desktop=None,
+                 visual_processing_enabled: bool = False):
         if not tenant_id:
             raise ValueError('tenant_id must come from authenticated runtime')
         if any(app_id != profile.app_id for app_id, profile in profiles.items()):
@@ -36,6 +39,9 @@ class TenantWorker:
         self._approval = approval_verifier
         self._winapp_runner = winapp_runner
         self._winapp_installed = winapp_installed
+        self._vision = vision_model
+        self._visual_desktop = visual_desktop
+        self._vision_enabled = visual_processing_enabled
         self._exclusive_session = Lock()
 
     def execute(self, request: AutomationRequest) -> AutomationResponse:
@@ -60,6 +66,13 @@ class TenantWorker:
                     WebDomStrategy(profile, **browser_opts),
                     WinAppStrategy(profile, runner=self._winapp_runner,
                                    installed=self._winapp_installed),
+                ])
+            if profile is not None and self._vision_enabled and self._vision is not None and self._visual_desktop is not None:
+                strategies.extend([
+                    VisualStrategy(profile, desktop=self._visual_desktop, vision=self._vision,
+                                   hybrid=True, enabled=True),
+                    VisualStrategy(profile, desktop=self._visual_desktop, vision=self._vision,
+                                   hybrid=False, enabled=True),
                 ])
             return FallbackRouter(strategies,
                                   approval_verifier=self._approval).execute(request)
