@@ -262,3 +262,16 @@ This is **pattern-based best-effort redaction**, not a complete no-PII
 guarantee: names, addresses, unconventional formatting, traces and
 third-party telemetry may remain. K5 stays BLOCKED pending independent
 runtime CloudWatch/logging and retention review.
+
+
+## Bounded S3 ciphertext retrieval
+The `GET /api/confidential/envelopes/{case_id}/{object_id}` endpoint
+now reads **at most `_MAX_BODY + 1` bytes** from S3 before closing the
+stream; it refuses oversized objects before attempting JSON parsing.
+Previously it used unbounded `read()` followed by a size check, allowing
+a corrupted object to exhaust process memory. Retrieved envelopes must
+now pass the same exact-key `Envelope.parse` check as uploads, and
+tenant/case/object/key identity must match the authenticated request
+and approved KMS ARN before any JSON serialization. Synthetic tests
+cover valid ciphertext, bounded read, extra plaintext fields, identity
+substitution and stream closure. This is still not live AWS proof.

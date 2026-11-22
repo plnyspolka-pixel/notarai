@@ -208,7 +208,13 @@ def retrieve(request: Request, case_id: str, object_id: str):
     tenant = _scope(request)
     key = _key(tenant, case_id, object_id)
     try:
-        body = magazyn._klient_s3().get_object(Bucket=_bucket(), Key=key)["Body"].read()
+        stream = magazyn._klient_s3().get_object(Bucket=_bucket(), Key=key)["Body"]
+        try:
+            # A tampered/misconfigured S3 key must not exhaust application RAM.
+            # Never trust Content-Length; read at most the permitted size + 1.
+            body = stream.read(_MAX_BODY + 1)
+        finally:
+            stream.close()
     except Exception as exc:
         # Never leak AWS error details, identifiers or object contents.
         if type(exc).__name__ in ("NoSuchKey", "ClientError"):
@@ -216,7 +222,18 @@ def retrieve(request: Request, case_id: str, object_id: str):
         raise
     if len(body) > _MAX_BODY:
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
-    return JSONResponse(json.loads(body), headers={"Cache-Control": "no-store"})
+    try:
+        payload = json.loads(body)
+        envelope = Envelope.parse(payload)
+    except (ValueError, TypeError, InvalidEnvelope):
+        raise HTTPException(500, "Nieprawidlowy zapis dokumentu.") from None
+    if (envelope.tenant_id, envelope.case_id,
+            envelope.object_id, envelope.kms_key_arn) != (
+        tenant, case_id, object_id, _approved_key()
+    ):
+        raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
+    # Envelope.parse denies unexpected fields, including unencrypted PII.
+    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/jobs/{job_id}")

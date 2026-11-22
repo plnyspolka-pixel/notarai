@@ -299,3 +299,65 @@ def test_auto_network_is_frozen_before_the_first_fill_event():
         assert leaked == ["abort"]
         assert page.fills == [("#name", "FICTIONAL-CASE-SENTINEL")]
     run(scenario())
+
+
+def test_retrieved_ciphertext_is_size_bounded_scoped_and_schema_checked(monkeypatch):
+    import io
+    import confidential.router as router
+    from test_confidential import make_document
+    import magazyn
+    _, _, valid = make_document()
+    raw = json.dumps(valid).encode("utf-8")
+    assert valid["tenant_id"] == "test_tenant"
+    monkeypatch.setattr(router, "_scope", lambda _: "test_tenant")
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_BUCKET", "notarai-ciphertext-demo")
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN", valid["kms_key_arn"])
+
+    class FakeS3:
+        def __init__(self, data):
+            self.data = data
+            self.stream = None
+            self.read_sizes = []
+        def get_object(self, **kwargs):
+            assert kwargs["Bucket"] == "notarai-ciphertext-demo"
+            assert kwargs["Key"] == (
+                "kancelarie/test_tenant/confidential/test_case/scan01.json"
+            )
+            outer = self
+            class Reader(io.BytesIO):
+                def read(self, size=-1):
+                    outer.read_sizes.append(size)
+                    return super().read(size)
+            self.stream = Reader(self.data)
+            return {"Body": self.stream}
+
+    s3 = FakeS3(raw)
+    monkeypatch.setattr(magazyn, "_klient_s3", lambda: s3, raising=False)
+    response = router.retrieve(RequestFake(), "test_case", "scan01")
+    assert json.loads(response.body) == valid
+    assert s3.read_sizes == [router._MAX_BODY + 1]
+    assert s3.stream.closed
+    assert response.headers["cache-control"] == "no-store"
+
+    monkeypatch.setattr(router, "_MAX_BODY", 64)
+    too_big = FakeS3(b"X" * 1000)
+    monkeypatch.setattr(magazyn, "_klient_s3", lambda: too_big)
+    with pytest.raises(HTTPException) as oversized:
+        router.retrieve(RequestFake(), "test_case", "scan01")
+    assert oversized.value.status_code == 500
+    assert too_big.read_sizes == [65]
+    assert too_big.stream.closed
+
+    monkeypatch.setattr(router, "_MAX_BODY", 35 * 1024 * 1024)
+    for tampered in (
+        {**valid, "plaintext": "FICTIONAL-CASE-CONTENT"},
+        {**valid, "tenant_id": "another_tenant"},
+        {**valid, "case_id": "different_case"},
+    ):
+        forged = FakeS3(json.dumps(tampered).encode())
+        monkeypatch.setattr(magazyn, "_klient_s3", lambda: forged)
+        with pytest.raises(HTTPException) as error:
+            router.retrieve(RequestFake(), "test_case", "scan01")
+        assert error.value.status_code == 500
+        assert "FICTIONAL-CASE-CONTENT" not in str(error.value.detail)
+        assert forged.stream.closed
