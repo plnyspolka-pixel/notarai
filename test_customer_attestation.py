@@ -138,9 +138,10 @@ def test_mutated_signature_and_trailing_cbor_are_refused():
     root, signer, body = _fixture()
     raw = _sign(signer, body)
     mutated = cbor2.loads(raw)
-    mutated.value[-1] = bytes(96)
+    altered = list(mutated.value)
+    altered[-1] = bytes(96)
     with pytest.raises(NitroAttestationDenied):
-        _verify(cbor2.dumps(mutated), root)
+        _verify(cbor2.dumps(cbor2.CBORTag(18, altered)), root)
     with pytest.raises(NitroAttestationDenied):
         _verify(raw + b"\x00", root)
 
