@@ -179,3 +179,17 @@ Oba narzędzia audytujące zdarzenia KMS, `scripts/run_nitro_attestation_e2e.py`
 Nowy moduł testowy `test_confidential_nitro_cloudtrail_pacing.py` sprawdza wymuszone tempo 4 odczytów, retry, niezwłoczne odrzucenie `AccessDeniedException`, nieprawidłowe strony odpowiedzi i brak wrażliwych szczegółów w błędach. Dokumentacja limitu: https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_LookupEvents.html.
 
 **Uwaga dowodowa:** CloudTrail LookupEvents nie stanowi samodzielnego dowodu, że nigdy nie nastąpiło niedozwolone wywołanie. Brak zdarzenia może wynikać z opóźnień lub niepełnej konfiguracji ścieżki logowania. Dla finalnego K2 wymagamy niezależnego śladu kontrolnego, szczególnie dla odmowy przed RunTask.
+
+## Obowiązkowe powiązanie dowodu pozytywnego z sześcioma próbami negatywnymi
+
+Dodatkowy moduł `confidential/nitro_scope_binding.py` i polecenie `scripts/check_nitro_scope.py` odrzucają mieszanie dowodów z dwóch różnych pilotaży. Kontrolowane są: tenant pilot01/pilot02, oba AWS AccountId, region, jobId, digest obrazu, PCR17, klucz KMS, początek i koniec okna testowego. Dodatkowo pozytywny EventId nie może być użyty wśród czterech negatywnych wywołań KMS. Kontrola nie czyta AWS i nie może zaliczyć próby sprzętowej.
+
+```bash
+python scripts/check_nitro_scope.py \
+  --positive-manifest /secure/positive-manifest.json \
+  --negative-matrix /secure/negative-matrix.json
+```
+
+Sukces strukturalnej spójności drukuje `scope_consistent=true`, ale **zawsze** `status=BLOCKED`, `hardware_attestation_verified=false` i exit code 2. Zły zakres daje `scope_consistent=false`. Istniejące K2/K6 na podstawie samego v1 manifestu z sześcioma EventId KMS są **niepoprawnym modelem**: w poprawnym v2 są cztery realne zdarzenia KMS i dwie inne granice odmowy (ECS admission oraz custody release gate). V1 może być wykorzystany jako zakres pozytywnego testu, ale v1 negatywne EventId nie zastępują dowodów v2.
+
+Testy: `test_confidential_nitro_scope_binding.py` (podmiana klucza, regionu, kont, obrazu, czasu, job ID i ponowne użycie pozytywnego KMS EventId).
