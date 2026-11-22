@@ -11,7 +11,6 @@ def _task():
     t = make_task(
         "111122223333", "pilot01",
         "111122223333.dkr.ecr.eu-central-1.amazonaws.com/notarai-confidential-pilot01@sha256:" + "b"*64,
-        "arn:aws:kms:eu-central-1:111122223333:key/1234",
         "synthetic-bucket",
         "https://sqs.eu-central-1.amazonaws.com/111122223333/notarai-confidential-pilot01.fifo",
     )
