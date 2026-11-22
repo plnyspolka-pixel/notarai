@@ -67,8 +67,13 @@ def validate_observer_template(template: Mapping):
                                 "SafePilot"},
             "region and distinct-account conditions missing")
     require(conditions["PilotEuRegion"] ==
-            {"Equals": [{"Ref": "AWS::Region"}, "eu-central-1"]},
-            "wrong region")
+            {"Equals": [{"Ref": "AWS::Region"}, "eu-central-1"]} and
+            conditions["DifferentAccount"] == {"Not": [{"Equals": [
+                {"Ref": "AWS::AccountId"}, {"Ref": "CustodyAccountId"}]}]} and
+            conditions["SafePilot"] == {"And": [
+                {"Condition": "PilotEuRegion"},
+                {"Condition": "DifferentAccount"}]},
+            "pilot account/region gate can be bypassed")
     resources = template.get("Resources", {})
     require(set(resources) == {"OperatorGuardrail", "OperatorObserverRole"},
             "extra resources")
@@ -107,14 +112,19 @@ def validate_observer_template(template: Mapping):
              "cloudformation:UpdateStack", "sso:*",
              "identitystore:*"} <= denied, "critical Deny missing")
     require(len(allows) == 3, "extra observer policy permission")
+    exact_resources = {
+        "ecs:ListTasks":
+            "arn:aws:ecs:eu-central-1:${AWS::AccountId}:cluster/notarai-confidential-shared",
+        "ecr:DescribeImages":
+            "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/notarai-confidential-shared",
+        "sqs:GetQueueAttributes":
+            "arn:aws:sqs:eu-central-1:${AWS::AccountId}:notarai-confidential-${TenantId}.fifo",
+    }
     observed = set()
     for s in allows:
         a = actions(s)
         require(len(a) == 1 and a <= READ_ACTIONS and
-                isinstance(s["Resource"], dict) and
-                set(s["Resource"]) == {"Sub"} and
-                isinstance(s["Resource"]["Sub"], str) and
-                "*" not in s["Resource"]["Sub"],
+                s["Resource"] == {"Sub": exact_resources[next(iter(a))]},
                 "unreviewed or wildcard observer Allow")
         observed.update(a)
     require(observed == READ_ACTIONS, "read-only allowlist drift")
