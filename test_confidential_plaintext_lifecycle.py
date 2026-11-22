@@ -238,6 +238,7 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
                 "sqs": {"get_queue_attributes"},
                 "dynamodb": {"describe_continuous_backups"},
                 "cloudtrail": {"describe_trails"},
+                "logs": {"describe_log_groups"},
             }
             assert name in allow[self.service], "unexpected AWS operation"
             def call(**kwargs):
@@ -253,8 +254,16 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
                 if name == "list_object_versions":
                     return {"Versions": [{}], "IsTruncated": False}
                 if name == "get_queue_attributes":
-                    return {"Attributes": {"MessageRetentionPeriod": "86400",
-                                           "RedrivePolicy": "{}"}}
+                    if kwargs["QueueUrl"].endswith("-dead.fifo"):
+                        return {"Attributes": {"MessageRetentionPeriod": "1209600"}}
+                    redrive = {"deadLetterTargetArn": (
+                        f"arn:aws:sqs:eu-central-1:{account}:"
+                        "notarai-confidential-pilot01-dead.fifo"
+                    )}
+                    return {"Attributes": {
+                        "MessageRetentionPeriod": "86400",
+                        "RedrivePolicy": json.dumps(redrive),
+                    }}
                 if name == "describe_continuous_backups":
                     return {"ContinuousBackupsDescription": {
                         "PointInTimeRecoveryDescription": {
@@ -264,6 +273,8 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
                     }}
                 if name == "describe_trails":
                     return {"trailList": []}
+                if name == "describe_log_groups":
+                    return {"logGroups": [{"retentionInDays": 7}]}
                 raise AssertionError(name)
             return call
 
@@ -281,12 +292,15 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
     assert all(report["task_controls"].values())
     assert report["s3_versioning_enabled"] and report["ddb_pitr_days"] == 35
     assert report["sqs_retention_seconds"] == 86400
-    assert len(calls) == 8
+    assert report["sqs_dlq_retention_seconds"] == 1209600
+    assert report["cloudwatch_named_group_retention_days"] == [7]
+    assert len(calls) == 10
     assert {name for _, name in calls} == {
         "get_caller_identity", "describe_task_definition",
         "get_bucket_versioning", "get_bucket_lifecycle_configuration",
         "list_object_versions", "get_queue_attributes",
         "describe_continuous_backups", "describe_trails",
+        "describe_log_groups",
     }
 
 
