@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (
     "confidential/__init__.py",
     "confidential/dispatch.py",
+    "confidential/operator_boundary.py",
+    "confidential/release_enforcement.py",
     "confidential/dispatch_lambda.py",
 )
 
