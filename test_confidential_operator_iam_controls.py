@@ -166,6 +166,7 @@ class FakeAws:
     drift = False
     truncated = False
     duplicate = False
+    partial = False
     same_account = False
 
     def __init__(self, profile_name, region_name):
@@ -204,13 +205,20 @@ class FakeAws:
                 return {"PolicyVersion": {"Document": document}}
 
             def simulate_principal_policy(self, **kw):
-                assert len(kw["ActionNames"]) == 6
+                from scripts.confidential_operator_iam_evidence import (
+                    _ACTION_NAMES,
+                )
+                assert set(kw["ActionNames"]) == set(_ACTION_NAMES)
+                assert len(kw["ActionNames"]) == len(_ACTION_NAMES)
+                assert len(kw["ActionNames"]) >= 12
                 result = [
                     {"EvalActionName": a, "EvalDecision": "explicitDeny"}
                     for a in kw["ActionNames"]
                 ]
                 if source.duplicate:
                     result.append(result[0])
+                if source.partial:
+                    result.pop()
                 return {"EvaluationResults": result,
                         "IsTruncated": source.truncated}
 
@@ -299,7 +307,7 @@ def test_expected_aws_boundary_policy_matches_validated_iac():
     assert "111122223333" in str(a)
 
 
-@pytest.mark.parametrize("mode", ["drift", "truncated", "duplicate"])
+@pytest.mark.parametrize("mode", ["drift", "truncated", "duplicate", "partial"])
 def test_inventory_drift_or_ambiguous_simulation_blocks(mode):
     from scripts.confidential_operator_iam_evidence import inventory
 
@@ -330,7 +338,7 @@ def test_same_account_identity_returns_blocked_not_success():
     )
     assert result["simulation_status"] == "BLOCKED"
     assert result["actual_denial_verified"] is False
-    assert result["ownership_status"] == "BLOCKED"
+    assert result["ownership_status"] == "FAIL"
 
 
 
