@@ -34,8 +34,8 @@ def main(argv=None) -> int:
                         help="independently obtained RAW Ed25519 public key (32 bytes)")
     parser.add_argument("--pinned-fingerprint", required=True,
                         help="SHA-256 pin received OUTSIDE the NotarAI operator")
-    parser.add_argument("--trusted-head-sha256",
-                        help="independently archived latest chain/head SHA-256")
+    parser.add_argument("--trusted-head-sha256", required=True,
+                        help="independently archived latest chain/head SHA-256 (required even for one bundle)")
     args = parser.parse_args(argv)
     try:
         public_key = args.trusted_public_key.read_bytes()
