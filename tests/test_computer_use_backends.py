@@ -28,6 +28,9 @@ class FakePage:
         self.url = final_url
         self.element = locator or FakeLocator()
         self.goto_calls = []
+        self.route_rules = []
+    def route(self, pattern, handler):
+        self.route_rules.append(pattern)
     def goto(self, url, **kwargs):
         self.goto_calls.append(url)
     def locator(self, css):
@@ -62,6 +65,7 @@ class TestBackends(unittest.TestCase):
         self.assertEqual(out.outcome, Outcome.COMPLETED)
         self.assertEqual(out.data['value'], 'Fictional case')
         self.assertEqual(page.goto_calls, ['https://cases.example.test/sprawy'])
+        self.assertEqual(page.route_rules, ['**/*'])
 
     def test_02_role_locator_input(self):
         profile = AppProfile('web', start_url='https://cases.example.test/sprawy',
@@ -153,3 +157,83 @@ class TestBackends(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FakeEditableLocator(FakeLocator):
+    def __init__(self, text='before', fail=False):
+        super().__init__(text=text)
+        self.fail = fail
+    def fill(self, value, **kwargs):
+        self._text = value
+        if self.fail:
+            raise RuntimeError('UI changed after fill')
+
+
+class TestDraftActions(unittest.TestCase):
+    def test_browser_draft_fill_and_verify(self):
+        p = AppProfile('web', start_url='https://cases.example.test/sprawy',
+            fields={'case': Element('css', '#case', value_mode='input', allow_draft_fill=True)})
+        page = FakePage(locator=FakeEditableLocator())
+        backend = WebDomStrategy(p, page_factory=lambda: page_factory(page))
+        req = AutomationRequest(job_id='j', app_id='web', tenant_id='t', risk=Risk.DRAFT,
+            action='fill_draft_field', payload={'field': 'case', 'value': 'fictional data'})
+        out = FallbackRouter([backend]).execute(req)
+        self.assertEqual(out.outcome, Outcome.COMPLETED)
+        self.assertEqual(out.data['value_confirmed'], True)
+
+    def test_browser_draft_fails_closed_if_fill_throws(self):
+        p = AppProfile('web', start_url='https://cases.example.test/sprawy',
+            fields={'case': Element('css', '#case', value_mode='input', allow_draft_fill=True)})
+        page = FakePage(locator=FakeEditableLocator(fail=True))
+        backend = WebDomStrategy(p, page_factory=lambda: page_factory(page))
+        req = AutomationRequest(job_id='j', app_id='web', tenant_id='t', risk=Risk.DRAFT,
+            action='fill_draft_field', payload={'field': 'case', 'value': 'fictional data'})
+        self.assertEqual(FallbackRouter([backend]).execute(req).outcome, Outcome.NEEDS_RECONCILIATION)
+
+    def test_browser_unapproved_draft_is_never_performed(self):
+        p = AppProfile('web', start_url='https://cases.example.test/sprawy',
+            fields={'case': Element('css', '#case', value_mode='input')})
+        b = WebDomStrategy(p, page_factory=lambda: page_factory(FakePage()))
+        req = AutomationRequest(job_id='j', app_id='web', tenant_id='t', risk=Risk.DRAFT,
+            action='fill_draft_field', payload={'field': 'case', 'value': 'test'})
+        self.assertFalse(b.supports(req))
+
+    def test_windows_draft_fill_verified(self):
+        calls = []
+        def runner(cmd, **kwargs):
+            calls.append(cmd)
+            if cmd[2] == 'set-value':
+                return SimpleNamespace(returncode=0, stdout='{}')
+            return SimpleNamespace(returncode=0, stdout=json.dumps({'text':'test value'}))
+        p = AppProfile('desktop', windows_app='notepad', fields={
+            'case': Element('uia', 'Document', value_mode='input', allow_draft_fill=True)})
+        b = WinAppStrategy(p, installed=True, runner=runner)
+        req = AutomationRequest(job_id='j', app_id='desktop', tenant_id='t', risk=Risk.DRAFT,
+            action='fill_draft_field', payload={'field':'case', 'value':'test value'})
+        self.assertEqual(FallbackRouter([b]).execute(req).outcome, Outcome.COMPLETED)
+        self.assertEqual([c[2] for c in calls], ['set-value','get-value'])
+
+    def test_windows_draft_unknown_result_no_retry(self):
+        def runner(cmd, **kwargs):
+            return SimpleNamespace(returncode=1, stdout='{}')
+        p = AppProfile('desktop', windows_app='notepad', fields={
+            'case': Element('uia', 'Document', value_mode='input', allow_draft_fill=True)})
+        b = WinAppStrategy(p, installed=True, runner=runner)
+        req = AutomationRequest(job_id='j', app_id='desktop', tenant_id='t', risk=Risk.DRAFT,
+            action='fill_draft_field', payload={'field':'case', 'value':'test value'})
+        self.assertEqual(FallbackRouter([b]).execute(req).outcome, Outcome.NEEDS_RECONCILIATION)
+
+
+class TestMultiStrategyProfile(unittest.TestCase):
+    def test_single_profile_can_fallback_from_web_to_windows(self):
+        profile = AppProfile('both', start_url='https://cases.example.test/sprawy',
+            windows_app='notepad', fields={'case': (
+                Element('css', '#case'), Element('uia', 'CaseField'))})
+        web_page = FakePage(locator=FakeLocator(count=2))
+        web = WebDomStrategy(profile, page_factory=lambda: page_factory(web_page))
+        win = WinAppStrategy(profile, installed=True,
+            runner=lambda *a, **k: SimpleNamespace(returncode=0,stdout='{"text":"A/2026"}'))
+        out = FallbackRouter([web, win]).execute(request(app_id='both'))
+        self.assertEqual(out.outcome, Outcome.COMPLETED)
+        self.assertEqual(out.strategy, 'windows_uia')
+        self.assertEqual(out.data['value'], 'A/2026')
