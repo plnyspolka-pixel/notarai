@@ -307,7 +307,7 @@ queue body, document text or AWS credentials. It inspects:
 - encrypted FIFO SQS configuration in the approved region.
 
 Each failed metadata invariant is `FAIL`; unreachable/unreadable metadata
-becomes `BLOCKED` without echoing provider text. Even if all eight
+becomes `BLOCKED` without echoing provider text. Even if all ten
 metadata checks PASS, `overall=BLOCKED` and
 `strict_zero_knowledge_verified=false`. **This is not an independent
 hardware-attestation, egress, data-retention, or Zero Operator Access audit.**
@@ -318,3 +318,22 @@ resource mutation endpoint.
 
 Suggested offline inspection: `python scripts/audit_confidential_sec04_live.py --help`
 and `pytest -q test_confidential_sec04_live_audit.py`.
+
+
+## Extension: S3 replication + KMS grants (2026-11-22)
+The read-only metadata audit now includes two additional negative gates:
+- `s3_no_replication`: permits no configured S3 replication; wrong-region
+  copies are a data-residency risk even for ciphertext. An absent
+  replication configuration must be explicitly reported by AWS; an
+  unreadable or incomplete response remains `BLOCKED`.
+- `kms_decrypt_grants`: lists up to 100 KMS grants and rejects any
+  `Decrypt` operation that could bypass the key policy. Paginated /
+  incomplete inventories are **BLOCKED**, never assumed safe.
+
+All S3 audit calls pin `ExpectedBucketOwner` to the explicitly supplied
+AWS account. The key-policy inspector also rejects any allowed
+`NotAction` grant (which could implicitly include `kms:Decrypt`).
+New unit tests use **only synthetic** policy, grants and replication.
+This still cannot prove the operator cannot change key policies or
+grants tomorrow; independent custody and immutable release evidence
+remain mandatory for SEC-07/SEC-11.
