@@ -144,6 +144,12 @@ def cancel_job(request: Request, job_id: str):
     return _translate(lambda: _service(caller.tenant_id).cancel(caller, job_id))
 
 
+@router.post("/jobs/{job_id}/reconcile")
+def reconcile_job(request: Request, job_id: str):
+    caller = _caller(request)
+    return _translate(lambda: _service(caller.tenant_id).reconcile_expired(caller, job_id))
+
+
 @router.get("/jobs/{job_id}/result")
 def job_result(request: Request, job_id: str):
     caller = _caller(request)
