@@ -114,7 +114,7 @@ class LiveReleaseGate:
                  kms_key_arn: str, signing_key_arn: str,
                  approved_pcr17: str, approved_image_sha256: str,
                  pinned_signer_sha256: str, release_bucket: str,
-                 release_key: str, release_version: str):
+                 release_key: str, release_version: str, clock=None):
         self.config = config
         self.workload_sts = workload_sts
         self.ecs = ecs
@@ -129,6 +129,7 @@ class LiveReleaseGate:
         self.release_bucket = release_bucket
         self.release_key = release_key
         self.release_version = release_version
+        self.clock = clock
 
     def __call__(self) -> None:
         cfg = self.config
@@ -191,6 +192,7 @@ class LiveReleaseGate:
             receipt=receipt, report=report,
             signing_key_arn=self.signing_key_arn,
             pinned_fingerprint=self.pinned_signer_sha256, kms=kms,
+            clock=self.clock() if self.clock is not None else None,
         )
 
 
