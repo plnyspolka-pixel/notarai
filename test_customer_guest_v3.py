@@ -7,6 +7,7 @@ from argparse import Namespace
 from unittest.mock import patch
 
 import pytest
+pytest.importorskip('cbor2', reason='optional Nitro guest-only dependency')
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
 
