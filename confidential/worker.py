@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
+from confidential.ai_boundary import validate_worker_marker
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -160,14 +161,15 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         asyncio.run(_prepare_fictional_form(job_id, values))
         # Synthetic status marker contains no documents, values, names,
         # URLs, screenshots, or personal identifiers.
+        marker = validate_worker_marker({
+            "version": 1, "job_id": job_id,
+            "status": "preview_completed", "fields_filled": 2,
+            "submitted": False,
+        })
         session.client("s3").put_object(
             Bucket=bucket,
             Key=f"kancelarie/{tenant}/confidential-results/{job_id}.json",
-            Body=json.dumps({
-                "version": 1, "job_id": job_id,
-                "status": "preview_completed", "fields_filled": 2,
-                "submitted": False,
-            }, separators=(",", ":")).encode("ascii"),
+            Body=json.dumps(marker, separators=(",", ":")).encode("ascii"),
             ContentType="application/json", ServerSideEncryption="AES256",
         )
         # Finalize only AFTER S3 marker exists, then acknowledge SQS.
