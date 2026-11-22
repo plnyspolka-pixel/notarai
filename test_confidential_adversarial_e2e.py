@@ -198,3 +198,38 @@ def test_actual_confidential_api_blocks_unverified_commercial_flag(
     with pytest.raises(HTTPException) as error:
         _scope(SimpleNamespace())
     assert error.value.status_code == 503
+
+
+@pytest.mark.parametrize("tenant", ("office01", "client01", "notary01"))
+def test_api_refuses_nonpilot_scope_even_if_configured(monkeypatch, tenant):
+    import sys
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from confidential.router import _scope
+
+    monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
+    monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(TRYB="s3"))
+    monkeypatch.delenv("PIECZAPP_CONFIDENTIAL_COMMERCIAL_ENABLED", raising=False)
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", tenant)
+    request = SimpleNamespace(state=SimpleNamespace(
+        email="synthetic@example.test", serwis=False, kancelaria=tenant,
+    ))
+    with pytest.raises(HTTPException) as error:
+        _scope(request)
+    assert error.value.status_code == 503
+
+
+@pytest.mark.parametrize("tenant", ("pilot01", "pilot02"))
+def test_api_admits_only_configured_synthetic_pilot(monkeypatch, tenant):
+    import sys
+    from types import SimpleNamespace
+    from confidential.router import _scope
+
+    monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
+    monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(TRYB="s3"))
+    monkeypatch.delenv("PIECZAPP_CONFIDENTIAL_COMMERCIAL_ENABLED", raising=False)
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", tenant)
+    request = SimpleNamespace(state=SimpleNamespace(
+        email="synthetic@example.test", serwis=False, kancelaria=tenant,
+    ))
+    assert _scope(request) == tenant
