@@ -34,3 +34,21 @@ Nie wprowadzaj GUI klienta, realnych S3/SQS/guest v3, deploymentu AWS, środowis
 
 ## Praktyczna definicja bezpieczeństwa
 Chronimy dane przed zwykłym administratorem/opiekunem NotarAI oraz przejęciem operatorowego konta aplikacji. Nie konstruujemy systemu na poziomie obronnym/wojskowym i nie obiecujemy odporności na złamanie sprzętu AWS, kompromitację urządzenia notariusza czy fizyczne ataki na chip.
+
+
+## INSTRUKCJA DLA CLAUDE OPUS — SESJA PR #88
+
+Jesteś wykonawcą *tego* PR. **Wykonaj kod + testy**, nie kończ na kolejnym planie. Twoim celem jest zrealizowanie kryteriów odbioru powyżej. Nie modyfikuj obszarów innych sesji. Zanim zapiszesz kod, otwórz [katalog OSS](https://github.com/plnyspolka-pixel/notarai/blob/plan/civil-confidential-civ01-clean-base-20261122/docs/roadmaps/CIV-OSS-reuse-map.md)] i sprawdź bazową gałąź oraz aktualny stan projektu.
+
+1. Odczytaj master oraz diffy #68/#86/#87; wypisz tylko komponenty v3, których master jeszcze nie posiada.
+2. Zbuduj nową gałąź implementacji od aktualnego master; przenieś minimalne pliki i testy, bez importu starych modułów kustosza.
+3. Sprawdź dopasowanie kluczy RSA, COSE, PCR i zgodność envelope v2/v3; zapisz testy odmowy nieprawidłowych pól i atestacji.
+4. Zielony pełny CI; w PR dołącz tabelę istniejący kod/OSS/nowy kod, SHA build i instrukcje wdrożenia.
+
+**Kod do obejrzenia, nie do kopiowania bez analizy:**
+
+- [AWS browser verifier MIT-0](https://github.com/aws-samples/sample-nitro-enclaves-attestation-webapp/blob/main/frontend/src/lib/attestationVerifier.js)
+- [Maple Nitro verifier MIT](https://github.com/MaplePrivacyLabs/Maple/blob/master/sdk/rust/src/attestation.rs)
+- [AWS NSM API Apache-2.0](https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/main/docs/attestation_process.md)
+
+Przed skopiowaniem wybierz SHA/tag, przeczytaj licencję i zapisz notice. Przetestuj regresję i negatywne przypadki z definicji odbioru. Raport końcowy: zmienione pliki, ponownie użyte komponenty, testy PASS/FAIL/BLOCKED, dokładny SHA i link CI, blokady sprzętowe. Brak AWS deploy/realnych aktów bez oddzielnej zgody. **PR planistyczny pozostaje Draft do wykonania.**
