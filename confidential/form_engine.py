@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Mapping
 from urllib.parse import urlsplit
 
+from confidential.egress_guard import PreviewEgressGuard
+
 
 class BlockedAction(ValueError):
     pass
@@ -110,8 +112,13 @@ async def fill_form(
     ):
         raise BlockedAction("untrusted or incomplete form values")
     allowed = {_origin(u, loopback_for_tests) for u in form.allowed_origins}
+    guard = (PreviewEgressGuard(form.url, loopback_for_tests=loopback_for_tests)
+             if execution_mode == "auto" else None)
 
     async def restrict(route):
+        if guard is not None:
+            await guard.intercept(route)
+            return
         # Route interception prevents HTTP writes even from the page's own
         # malicious JavaScript, redirects, XHR/fetch or form POSTs.
         try:
@@ -144,7 +151,13 @@ async def fill_form(
         # Supervised mode is not used by the confidential worker. It only
         # supports controlled synthetic tests of the signed approval gate.
         await page.route("**/*", restrict)
-    await page.goto(form.url, wait_until="domcontentloaded", timeout=30000)
+    try:
+        await page.goto(form.url, wait_until="domcontentloaded", timeout=30000)
+    finally:
+        if guard is not None:
+            guard.lock()  # before any confidential field value enters DOM
+    if guard is not None and not guard.observed_page_is_trusted(page.url):
+        raise BlockedAction("unapproved AUTO navigation")
     if _origin(page.url, loopback_for_tests) not in allowed:
         raise BlockedAction("destination redirected outside allowlist")
     for key, selector in form.selectors.items():
