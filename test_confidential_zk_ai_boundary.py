@@ -473,3 +473,14 @@ def test_k1_js_scanner_allows_multiline_literal_confidential_fetch():
         "fetch(\n  endpointVariable)", "static/confidential-auto.js"
     )
     assert any(x["mechanism"] == "js-risk-untrusted-fetch" for x in forbidden)
+
+
+def test_k2_confidential_mode_refuses_external_llm_even_with_forged_approval(monkeypatch):
+    monkeypatch.setenv("NOTARAI_CONFIDENTIAL_REQUIRED", "1")
+    # All three true flags are insufficient to declassify Nitro plaintext.
+    with pytest.raises(AIBoundaryDenied, match="BEDROCK_OUTSIDE_NITRO_DENIED"):
+        authorize(replace(POLICY, approved_external_processing=True,
+                          retention_evidence=True, processor_evidence=True))
+    with pytest.raises(AIBoundaryDenied, match="BEDROCK_OUTSIDE_NITRO_DENIED"):
+        enforce_bedrock_dispatch(model_id=MODEL, region="eu-central-1",
+                                 pinned_model=MODEL)

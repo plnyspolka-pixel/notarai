@@ -77,6 +77,12 @@ def evaluate_inference(
         raise AIBoundaryDenied("UNKNOWN_DATA_CLASS")
 
     if provider == "aws-bedrock":
+        # Configuration/approval booleans are NOT authority to move
+        # attested confidential plaintext into the legacy Bedrock boundary.
+        # This must hold even if someone builds a new caller around the
+        # generic policy evaluator rather than the dispatch gateway.
+        if os.environ.get("NOTARAI_CONFIDENTIAL_REQUIRED") == "1":
+            raise AIBoundaryDenied("BEDROCK_OUTSIDE_NITRO_DENIED")
         if not _MODEL.fullmatch(model_id) or transport != "aws-sdk":
             raise AIBoundaryDenied("UNAPPROVED_EXTERNAL_ENDPOINT")
         # This is explicitly a distinct external trust boundary, even in EU.

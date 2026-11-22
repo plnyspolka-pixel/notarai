@@ -241,3 +241,14 @@ are now intentionally denied in AUTO. WebSockets remain blocked via
 the existing context route. This is only a browser-level layer:
 other browser channels, local process sockets and VPC egress require
 independent assessment; do not treat it as proof of zero data egress.
+
+
+## SEC-04 policy-evaluator confidential-mode lock
+Both the low-level Bedrock dispatch and the reusable
+`evaluate_inference()` policy evaluator now unconditionally reject
+`aws-bedrock` if `NOTARAI_CONFIDENTIAL_REQUIRED=1`. Even if
+`approved_external_processing`, `retention_evidence` and
+`processor_evidence` booleans are all set, that request cannot
+declassify attested plaintext. Separate synthetic tests cover
+both entrypoints. This is configuration-based defense-in-depth,
+not independent attestation of operator-controlled environment.
