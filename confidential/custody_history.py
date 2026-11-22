@@ -128,6 +128,7 @@ def verify_history(*, tenant: str, event_items: list[dict],
     current = None
     prior_issued = None
     retired = []
+    generation_bindings = []
     observed_key_arns = set()
 
     for index, item in enumerate(event_items, 1):
@@ -186,6 +187,13 @@ def verify_history(*, tenant: str, event_items: list[dict],
                   "old custody key reused in a later generation")
             observed_key_arns.add(next_state["decrypt_key_arn"])
             observed_key_arns.add(next_state["signing_key_arn"])
+            generation_bindings.append({
+                name: next_state[name] for name in (
+                    "generation", "decrypt_key_arn", "signing_key_arn",
+                    "pcr17", "task_definition_arn", "release_sha256",
+                    "key_policy_sha256",
+                )
+            })
         if action == "ROTATE":
             retired.append(old_key)
         current = next_state
@@ -209,6 +217,9 @@ def verify_history(*, tenant: str, event_items: list[dict],
     return {
         "schema": "notarai.confidential.custody-history-check.v1",
         "tenant": tenant,
+        "workload_account": final["workload_account"],
+        "custody_account": final["custody_account"],
+        "generation_bindings": generation_bindings,
         "final_revision": current["revision"],
         "final_generation": current["generation"],
         "final_state": current["state"],
