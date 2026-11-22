@@ -5,6 +5,7 @@ The os-level stdio suppression is separately checked in Linux CI smoke.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -220,3 +221,51 @@ def test_stdio_suppression_failure_denies_decrypt_and_marks_retry(monkeypatch):
     with pytest.raises(RuntimeError, match="output suppression"):
         worker._process_one(Session(), TENANT, "bucket", "queue", KEY)
     assert events == ["stdio.denied", "failed"]
+
+
+def test_real_async_deadline_cancels_stalled_browser_before_lease(monkeypatch):
+    events = []
+    document = {"name": DOC_MARKER, "reference": KEY_MARKER}
+    request = json.dumps({
+        "tenant_id": TENANT, "case_id": "case01", "object_id": "object01",
+        "job_id": "job01", "s3_version": "version01",
+    })
+    class SQS:
+        def receive_message(self, **kwargs):
+            return {"Messages": [{"Body": request, "ReceiptHandle": "fake"}]}
+        def delete_message(self, **kwargs):
+            raise AssertionError("timed out work must not be acknowledged")
+    class Ledger:
+        def __init__(self, db, *, tenant):
+            pass
+        def claim(self, **kwargs):
+            return Claim("claimed", token="a" * 32, attempts=1)
+        def fail(self, **kwargs):
+            events.append("ledger.fail")
+        def complete(self, **kwargs):
+            raise AssertionError("timeout cannot complete")
+    class Session:
+        def client(self, name):
+            if name == "sqs":
+                return SQS()
+            if name == "dynamodb":
+                return object()
+            if name in ("s3", "kms"):
+                return object()
+            raise AssertionError("unknown client")
+    async def stuck(job_id, values):
+        try:
+            await asyncio.sleep(60)
+        finally:
+            events.append("browser.cancelled")
+    monkeypatch.setattr(worker, "PreviewJobLedger", Ledger)
+    monkeypatch.setattr(worker, "_PREVIEW_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(worker, "silence_guest_stdio",
+                        lambda: events.append("stdio.suppressed"))
+    monkeypatch.setattr(worker, "_load_decrypted_form",
+                        lambda *args: document)
+    monkeypatch.setattr(worker, "_prepare_fictional_form", stuck)
+    with pytest.raises(TimeoutError):
+        worker._process_one(Session(), TENANT, "bucket", "queue", KEY)
+    assert events == ["stdio.suppressed", "browser.cancelled", "ledger.fail"]
+    assert document == {}
