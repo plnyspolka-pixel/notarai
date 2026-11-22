@@ -119,9 +119,42 @@ def test_v2_rejects_invalid_or_downgraded_fields(keys):
             Envelope.parse(bad)
 
 
+class FakeDocumentDdb:
+    def __init__(self):
+        self.rows = {}
+    def put_item(self, **kw):
+        item = kw["Item"]
+        pk = item["pk"]["S"]
+        if pk in self.rows or kw["ConditionExpression"] != "attribute_not_exists(pk)":
+            raise RuntimeError("duplicate immutable document identity")
+        self.rows[pk] = copy.deepcopy(item)
+    def update_item(self, **kw):
+        pk = kw["Key"]["pk"]["S"]
+        item = self.rows[pk]
+        values = kw["ExpressionAttributeValues"]
+        if ":reserved" in values:
+            if (item["state"]["S"] != "reserved" or "s3_version" in item
+                    or item["sha256"] != values[":digest"]
+                    or item["document_version"] != values[":logical"]):
+                raise RuntimeError("invalid reservation")
+            item["state"] = values[":stored"]
+            item["s3_version"] = values[":version"]
+        else:
+            if (item["state"]["S"] != "stored"
+                    or item["s3_version"] != values[":version"]
+                    or item["document_version"] != values[":logical"]
+                    or item["sha256"] != values[":digest"]
+                    or item["key_pin"] != values[":pin"]):
+                raise RuntimeError("preview replay or mismatch")
+            item["state"] = values[":queued"]
+    def get_item(self, **kw):
+        return {"Item": copy.deepcopy(self.rows.get(kw["Key"]["pk"]["S"], {}))}
+
+
 class S3ForTests:
     def __init__(self):
         self.writes = {}
+        self.ddb = FakeDocumentDdb()
     def put_object(self, **kw):
         if kw["IfNoneMatch"] != "*":
             raise AssertionError("unsafe overwrite allowed")
@@ -152,6 +185,9 @@ def setup_backend(monkeypatch, s3, pin, tenant):
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_BUCKET", "fictional-cipher-bucket")
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN", ARN)
     monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_PUBLIC_KEY_SHA256", pin)
+    from confidential.document_registry import DocumentVersionRegistry
+    monkeypatch.setattr(router, "_registry", lambda scoped_tenant:
+                        DocumentVersionRegistry(s3.ddb, tenant=scoped_tenant))
 
 
 def test_two_synthetic_uploads_never_store_plaintext_or_dek(keys, monkeypatch, caplog):
@@ -314,3 +350,50 @@ def test_unknown_or_legacy_envelope_cannot_be_run_in_new_guest():
     code = (Path(__file__).parent / "confidential" / "worker.py").read_text()
     assert 'if env.version != 2:' in code
     assert 'legacy unversioned envelope' in code
+
+
+def test_durable_registry_prevents_reupload_after_s3_delete_marker(keys, monkeypatch):
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    request = RequestForTests("pilot01", json.dumps(payload).encode("ascii"))
+    assert json.loads(asyncio.run(router.store(request, "case01", "scan01")).body)["stored"]
+    # Pretend S3 has a current delete marker and accepts another IfNoneMatch.
+    s3.writes.clear()
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(router.store(request, "case01", "scan01"))
+    assert exc.value.status_code == 409
+    assert s3.writes == {}
+
+
+def test_registry_blocks_wrong_version_digest_and_duplicate_preview(keys):
+    from confidential.document_registry import DocumentVersionRegistry, DocumentRegistryDenied
+    ddb = FakeDocumentDdb()
+    ledger = DocumentVersionRegistry(ddb, tenant="pilot01")
+    payload, _ = envelope(keys)
+    wire = json.dumps(payload, separators=(",", ":")).encode("ascii")
+    digest = hashlib.sha256(wire).hexdigest()
+    values = dict(case_id="case01", object_id="scan01",
+                  document_version=payload["document_version"],
+                  ciphertext_sha256=digest, key_pin=keys[1])
+    ledger.reserve(**values)
+    with pytest.raises(DocumentRegistryDenied):
+        ledger.reserve(**values)
+    ledger.finalize(case_id="case01", object_id="scan01",
+                    document_version=payload["document_version"],
+                    ciphertext_sha256=digest, s3_version="s3Version001")
+    with pytest.raises(DocumentRegistryDenied):
+        ledger.claim_preview(**{**values, "s3_version": "wrongS3version"})
+    with pytest.raises(DocumentRegistryDenied):
+        ledger.claim_preview(**{**values, "s3_version": "s3Version001",
+                               "ciphertext_sha256": "0" * 64})
+    ledger.claim_preview(**{**values, "s3_version": "s3Version001"})
+    with pytest.raises(DocumentRegistryDenied):
+        ledger.claim_preview(**{**values, "s3_version": "s3Version001"})
+    with pytest.raises(DocumentRegistryDenied):
+        ledger.require_guest(**{**values, "s3_version": "s3Version001",
+                                "ciphertext_sha256": "0" * 64})
+    ledger.require_guest(**{**values, "s3_version": "s3Version001"})
+    with pytest.raises(DocumentRegistryDenied):
+        DocumentVersionRegistry(ddb, tenant="pilot02").require_guest(
+            **{**values, "s3_version": "s3Version001"})
