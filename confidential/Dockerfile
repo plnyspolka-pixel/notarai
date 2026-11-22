@@ -36,6 +36,18 @@ RUN if [ -n "$NOTARAI_TRUSTED_ORIGIN_ROOT_SHA256" ]; then \
       echo 'SEC-03: custody trust root not provided; guest must reject all decrypts'; \
     fi
 
+# Optional, separate two-party recovery public trust root. Without it the
+# preview worker remains usable ONLY if the origin root was independently
+# provisioned; any offline recovery/migration function refuses to run.
+# Custodian approval of the measured final image and PCR is still mandatory.
+ARG NOTARAI_TRUSTED_RECOVERY_ROOT_SHA256=""
+RUN if [ -n "$NOTARAI_TRUSTED_RECOVERY_ROOT_SHA256" ]; then \
+      test -s /opt/notarai/confidential/trusted-recovery-root.json && \
+      echo "$NOTARAI_TRUSTED_RECOVERY_ROOT_SHA256  /opt/notarai/confidential/trusted-recovery-root.json" | sha256sum -c -; \
+    else \
+      echo 'SEC-03: no recovery approver trust root; migration disabled'; \
+    fi
+
 # The guest doesn't need the root account to run browser and KMS clients.
 RUN useradd --uid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin notarai \
     && chmod -R a+rX /opt/notarai \
