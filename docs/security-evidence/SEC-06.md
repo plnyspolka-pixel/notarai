@@ -229,3 +229,68 @@ success and real KMS revocation before calling the ledger authoritative.
 UNFREEZE to ACTIVE. Separate external hardware, KMS and historical-key
 evidence validation must be added before live activation is possible.
 The CAS plan is not an actual persisted ledger or independent proof.
+
+## K5/K6 signed custody history and retired key replay
+
+New offline validator: `confidential/custody_history.py`.
+It reconstructs the full signed ENROLL-to-final-state chain from
+DynamoDB AttributeValue records, requiring EVENT#000...001 through
+every revision without gaps or duplicates and a final SHA256 provided
+out-of-band rather than from the export. Each action is signature-checked
+using an externally pinned P-256 public key for the *prior* generation.
+A ROTATE is signed with the outgoing generation's trust root; the
+new trust root must also be provided independently, even before it signs
+another event. The verifier rejects reused historical decrypt/signing
+key ARNs, repeated public key fingerprints, missing trust roots,
+wrong tenant, forged event/record digest, altered retirement markers,
+future or non-monotonic event timestamps, and invalid DynamoDB types.
+
+Example (NO AWS):
+
+    python confidential/custody_history.py \
+      --tenant pilot01 \
+      --history-file /secure/pilot01-ledger-export.json \
+      --trust-roots-file /secure/independent-generation-roots.json \
+      --pinned-final-sha256 EXTERNALLY_VERIFIED_FINAL_STATE_SHA256 \
+      --output /secure/pilot01-history-report.json
+
+The trust-roots JSON is a mapping from string generation number to
+`{"pem_file":"/secure/external-generation1.pem","sha256":"..."}`.
+Obtain it from an independent custodian, never from the operator export.
+The CLI verifies offline, writes mode 0600, always returns nonzero on
+the successful-but-still-BLOCKED path; its output can never authorize decrypt.
+Existing historical events are checked at their signed issue timestamp;
+this does **not** prove real commit time or timestamp provenance.
+
+## K6 read-only custody account ledger export
+
+New utility: `scripts/export_confidential_custody_ledger.py`.
+Default is dry-run with zero AWS calls. With explicit `--check`, STS
+must prove the active session is in the pinned custodian account; then
+only DynamoDB GetItem and Query are used with ConsistentRead=true
+against the **base table**, ordered EVENT# records, and full
+LastEvaluatedKey pagination. The current STATE is read before and
+after all pages. Changed state, repeated/wrong cursor, missing state,
+incomplete pagination/count or overlarge event history cause denial.
+
+Example (ONLY in an independently controlled custodian session):
+
+    python scripts/export_confidential_custody_ledger.py \
+      --tenant pilot01 \
+      --ledger-table-arn arn:aws:dynamodb:eu-central-1:ACCOUNT:table/notarai-confidential-custody-ledger-pilot \
+      --custody-profile separate-readonly-auditor --check \
+      --output /secure/pilot01-ledger-export.json
+
+No write permissions should be granted to this audit identity.
+This process exports a JSON snapshot to a create-only 0600 local file,
+never prints event payloads to stdout, and returns exit code 3
+on read-only success: the complete signed replay is a SEPARATE step.
+Strongly consistent individual reads do not make the multi-page
+export a globally atomic snapshot, and they do not prove the
+root, Identity Center, external trust-root ownership, AWS CloudTrail
+history or effective retired KMS denials. K1, K4, K5 and K6 remain BLOCKED.
+
+AWS documentation:
+- https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html
+- https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
+- https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html
