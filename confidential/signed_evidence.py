@@ -12,7 +12,7 @@ import binascii
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Mapping
 
@@ -148,7 +148,9 @@ class Verification:
     integrity_status: str  # PASS / FAIL / EXPIRED
     assurance_status: str  # BLOCKED until independent AWS/WORM evidence
     manifest_sha256: str | None
-    check_status: dict[str, str]
+    check_status: dict[str, str]  # effective, independently confirmed only
+    asserted_check_status: dict[str, str] = field(default_factory=dict)
+    check_provenance: dict[str, str] = field(default_factory=dict)
     zero_operator_access_proven: bool = False
 
     def as_dict(self) -> dict:
@@ -157,6 +159,8 @@ class Verification:
             "assurance_status": self.assurance_status,
             "manifest_sha256": self.manifest_sha256,
             "check_status": self.check_status,
+            "asserted_check_status": self.asserted_check_status,
+            "check_provenance": self.check_provenance,
             "zero_operator_access_proven": False,
         }
 
@@ -208,13 +212,19 @@ def verify_bundle(*, bundle: object, trusted_public_key_raw: bytes,
         now = now.astimezone(timezone.utc)
         if now < _utc(manifest["observed_at"]):
             raise InvalidEvidence("evidence issued in the future")
-        check_status = {name: record["status"] for name, record
-                        in manifest["checks"].items()}
+        asserted = {name: record["status"] for name, record
+                    in manifest["checks"].items()}
+        provenance = {name: record["provenance"] for name, record
+                      in manifest["checks"].items()}
+        # A signed PASS is still just an assertion, not validated hardware.
+        # Never display it as a verified PASS in the customer report.
+        effective = {name: ("BLOCKED" if status == "PASS" else status)
+                     for name, status in asserted.items()}
         if now >= _utc(manifest["expires_at"]):
-            return Verification("EXPIRED", "BLOCKED", digest, check_status)
-        # The signature binds ASSERTIONS only. Not even AWS_LIVE supplied as a
-        # self-described string proves actual Nitro hardware or external WORM.
-        return Verification("PASS", "BLOCKED", digest, check_status)
+            return Verification("EXPIRED", "BLOCKED", digest,
+                                effective, asserted, provenance)
+        return Verification("PASS", "BLOCKED", digest,
+                            effective, asserted, provenance)
     except (InvalidSignature, InvalidEvidence, TypeError, ValueError, KeyError,
             AttributeError, UnicodeError):
         return Verification("FAIL", "BLOCKED", None, {})
