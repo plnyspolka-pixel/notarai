@@ -11,6 +11,8 @@
 
 ## Mierzalne kryteria zakończenia — SEC-04
 
+**TWARDY WARUNEK `DONE`:** komplet **K1–K6 = PASS**, każde poparte linkiem do wyniku testu lub niezależnego dowodu, **0 FAIL, 0 BLOCKED, 0 UNVERIFIED**, istniejący test docelowy z **0 failed i 0 pominiętych scenariuszy krytycznych** oraz zielony CI dla aktualnego HEAD SHA. Wymagany rzeczywisty dowód z AWS lub zewnętrznego audytora jest niezbędny tam, gdzie wskazano go w K1–K6; test mock nie zastępuje live. Przy choć jednej niespełnionej pozycji PR pozostaje OTWARTY/DRAFT. Zamknięcie implementacyjnego PR nie oznacza automatycznego pozwolenia na marketing ZK/ZOA.
+
 - [ ] **K1.** **Mapa 100% tras AI:** spisane wszystkie miejsca wywołania Bedrock, zewnętrznego LLM, embedding, OCR, cache, log/tracing; każda trasa ma region, klasę danych, providera, retencję i właściciela.
 - [ ] **K2.** **Domyślna odmowa:** 0 wywołań modelu z plaintext poza zatwierdzoną granicą; test przechwytuje klienta AI i blokuje brak polityki. Bedrock poza Nitro jest osobnym trust boundary, nie ścisłym ZK.
 - [ ] **K3.** **6 testów negatywnych:** zmiana modelu, region poza UE, publiczny endpoint, prompt-injection URL, output zawierający fikcyjne dane sprawy i trace/log z PII — odmowa albo jawne `UNVERIFIED` ZK.
