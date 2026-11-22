@@ -117,7 +117,7 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         "ddb_pitr_status": backups.get("PointInTimeRecoveryStatus", "UNKNOWN"),
         "ddb_pitr_days": backups.get("RecoveryPeriodInDays"),
         "cloudtrail_trail_count": len(trails),
-        "contains_plaintext": False,
+        "report_contains_customer_content": False,
         "scope_limitations": [
             "metadata-only, no logs or file bodies inspected",
             "not a substitute for Nitro attestation or independent audit",
