@@ -251,6 +251,7 @@ def inspect_early_denial_receipt(case: str, receipt: Mapping,
         "schema", "case", "tenant", "job_id", "observed_at",
         "boundary", "result", "image_sha256",
         "run_task_count", "kms_decrypt_count", "observation_sha256",
+        "ecs_task_arn",
     }, "early denial receipt shape invalid")
     trial = matrix["trials"][case]
     require(receipt["schema"] == "notarai.confidential.nitro-denial-receipt.v1"
@@ -267,15 +268,22 @@ def inspect_early_denial_receipt(case: str, receipt: Mapping,
     if case == "unsigned_release":
         require(receipt["run_task_count"] == 0 and
                 type(receipt["run_task_count"]) is int and
+                receipt["ecs_task_arn"] is None and
                 receipt["image_sha256"] == matrix["image_sha256"],
                 "unsigned release must stop before ECS RunTask")
     else:
+        arn = receipt["ecs_task_arn"]
         require(type(receipt["run_task_count"]) is int and
-                receipt["run_task_count"] in (0, 1) and
+                receipt["run_task_count"] == 1 and
+                isinstance(arn, str) and
+                re.fullmatch(
+                    rf"arn:aws:ecs:{_REGION}:{matrix['workload_account']}:task/"
+                    r"notarai-confidential-shared/[a-f0-9]{32}", arn,
+                ) is not None and
                 isinstance(receipt["image_sha256"], str) and
                 _SHA.fullmatch(receipt["image_sha256"]) is not None and
                 receipt["image_sha256"] != matrix["image_sha256"],
-                "altered image did not have a different digest")
+                "altered image must start one different task for ECS admission test")
     # This SHA is what an independent witness must sign/store outside NotarAI.
     # Operator-authored JSON alone must never turn this into hardware PASS.
     digest = hashlib.sha256(json.dumps(receipt, sort_keys=True,
@@ -285,6 +293,54 @@ def inspect_early_denial_receipt(case: str, receipt: Mapping,
     return {
         "case": case, "boundary": trial["boundary"], "result": "DENIED",
         "receipt_sha256": digest, "evidence_status": "STRUCTURALLY_VALID_ONLY",
+    }
+
+
+def inspect_altered_image_ecs(*, task: Mapping, task_definition: Mapping,
+                              receipt: Mapping, matrix: Mapping) -> dict:
+    """Re-fetch a stopped ECS task and candidate image from AWS read-only.
+
+    An arbitrary failed app process is not an admission-policy rejection.
+    We require the sandbox to report policy/authorization rejection; an
+    ambiguous ECS stop reason is BLOCKED for later independent inspection.
+    """
+    inspect_early_denial_receipt("altered_image", receipt, matrix)
+    require(isinstance(task, dict) and isinstance(task_definition, dict) and
+            task.get("taskArn") == receipt["ecs_task_arn"] and
+            task.get("lastStatus") == "STOPPED" and
+            task.get("taskDefinitionArn") ==
+            task_definition.get("taskDefinitionArn") and
+            (task.get("trustedExecutionSummary") or {}).get("isolationMode") ==
+            "CONFIDENTIAL_SANDBOX",
+            "altered-image ECS confidential task was not stopped as expected")
+    containers = task.get("containers") or []
+    require(isinstance(containers, list) and not any(
+        isinstance(c, dict) and c.get("exitCode") == 0 for c in containers
+    ), "altered-image task completed successfully rather than being denied")
+    reason = task.get("stoppedReason")
+    require(isinstance(reason, str) and any(
+        word in reason.lower() for word in (
+            "policy", "denied", "not authorized", "unauthorized",
+        )
+    ), "ECS stop did not confirm admission policy or authorization rejection")
+    definitions = task_definition.get("containerDefinitions") or []
+    require(isinstance(definitions, list) and len(definitions) == 1 and
+            definitions[0].get("name") == "confidential-browser" and
+            isinstance(definitions[0].get("image"), str) and
+            definitions[0]["image"].endswith(
+                "@sha256:" + receipt["image_sha256"]
+            ),
+            "ECS candidate image is not the witnessed altered digest")
+    require(task_definition.get("taskRoleArn") ==
+            (f"arn:aws:iam::{matrix['workload_account']}:role/"
+             f"notarai-confidential-{matrix['tenant']}"),
+            "altered-image test did not use approved task role")
+    return {
+        "case": "altered_image",
+        "boundary": "ecs_admission",
+        "ecs_metadata_observed": True,
+        "receipt_sha256": matrix["trials"]["altered_image"]["receipt_sha256"],
+        "hardware_attestation_verified": False,
     }
 
 
