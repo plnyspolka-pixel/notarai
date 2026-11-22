@@ -171,12 +171,23 @@ def _release_finished_lease(ecs, dynamodb, config: DispatcherConfig,
             not record.get("task_arn", {}).get("S")):
         return
     arn = record["task_arn"]["S"]
-    if not arn.startswith(f"arn:aws:ecs:{REGION}:{config.account}:task/"):
-        raise UnsafeDispatch("ledger has wrong ECS task")
+    token = (record.get("token") or {}).get("S", "")
+    tenant_task_prefix = (
+        f"arn:aws:ecs:{REGION}:{config.account}:task/{config.cluster}/"
+    )
+    if (not isinstance(arn, str) or not arn.startswith(tenant_task_prefix) or
+            not isinstance(token, str) or
+            not re.fullmatch(r"[0-9a-f]{32}", token)):
+        raise UnsafeDispatch("ledger has untrusted task identity")
     task_report = ecs.describe_tasks(cluster=config.cluster, tasks=[arn])
     tasks = task_report.get("tasks") or []
     if (task_report.get("failures") or len(tasks) != 1 or
             tasks[0].get("taskArn") != arn or
+            tasks[0].get("taskDefinitionArn") != config.task_definition_arn or
+            tasks[0].get("clusterArn") !=
+            f"arn:aws:ecs:{REGION}:{config.account}:cluster/{config.cluster}" or
+            tasks[0].get("startedBy") !=
+            f"notarai-{config.tenant}-{token[:16]}" or
             tasks[0].get("lastStatus") != "STOPPED" or
             tasks[0].get("desiredStatus") != "STOPPED"):
         return
@@ -280,7 +291,7 @@ def dispatch_once(config: DispatcherConfig, *, sqs, ecs, dynamodb,
             trust = tasks[0].get("trustedExecutionSummary") or {}
             if (isinstance(task_arn, str) and
                     task_arn.startswith(
-                        f"arn:aws:ecs:{REGION}:{config.account}:task/"
+                        f"arn:aws:ecs:{REGION}:{config.account}:task/{config.cluster}/"
                     ) and
                     trust.get("isolationMode") == "CONFIDENTIAL_SANDBOX" and
                     trust.get("attestationPolicyStatus") == "CONFIGURED"):
