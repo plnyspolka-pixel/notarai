@@ -158,6 +158,16 @@ def validate_governance_snapshot(snapshot: Mapping) -> dict:
     _require(snapshot["inventory_complete"] is True and
              snapshot["custody_root_operator_control"] is False,
              "root/SSO governance not independently established")
+    # An identity-provider object *in* the custody account does not mean its
+    # operators are independent. Permit only custody-owned root/role
+    # principals; external AWS accounts and OIDC/SAML providers require a
+    # separate trust-graph proof (the static screen must deny).
+    def custody_principal(value):
+        return isinstance(value, str) and (
+            value == f"arn:aws:iam::{custody}:root" or
+            value.startswith(f"arn:aws:iam::{custody}:role/")
+        ) and "*" not in value
+
     roles = snapshot["custody_admin_roles"]
     _require(isinstance(roles, list) and len(roles) > 0,
              "custodian role inventory missing")
@@ -170,10 +180,8 @@ def validate_governance_snapshot(snapshot: Mapping) -> dict:
                  m.group(1) == custody, "privileged role outside custody")
         trusts = role["trust_principals"]
         _require(isinstance(trusts, list) and len(trusts) > 0 and
-                 all(isinstance(p, str) and p != "*" and
-                     not p.startswith("arn:aws:iam::" + operator + ":") and
-                     p != operator for p in trusts),
-                 "operator can assume custodian role")
+                 all(custody_principal(p) for p in trusts),
+                 "custody privileged role trusts external or federated identity")
         _require(isinstance(role["permissions"], list) and
                  all(isinstance(p, str) for p in role["permissions"]),
                  "role permissions inventory incomplete")
@@ -183,9 +191,8 @@ def validate_governance_snapshot(snapshot: Mapping) -> dict:
         principals = snapshot[field]
         _require(isinstance(principals, list), "delegation inventory incomplete")
         for p in principals:
-            _require(isinstance(p, str) and p != "*" and p != operator and
-                     not p.startswith("arn:aws:iam::" + operator + ":"),
-                     "operator controls custody delegated access")
+            _require(custody_principal(p),
+                     "custody has unreviewed external delegated access")
     return {
         "static_governance_screen_passed": True,
         "independent_custody_verified": False,
