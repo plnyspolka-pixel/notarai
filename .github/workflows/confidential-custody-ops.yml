@@ -32,7 +32,7 @@ jobs:
       - name: Compile independent custody modules
         run: python -m py_compile confidential/custody_ops.py scripts/verify_confidential_custody_independence.py scripts/custodian_sign_confidential_operation.py test_confidential_independent_custody_ops.py
       - name: Check synthetic custody tests and legacy KMS boundary
-        run: python -m pytest -q test_confidential_independent_custody_ops.py test_confidential_operator_boundary.py
+        run: python -m pytest -q --noconftest test_confidential_independent_custody_ops.py test_confidential_operator_boundary.py
       - name: Independent custody KMS signer CLI (must require explicit approval)
         run: python scripts/custodian_sign_confidential_operation.py --help > /dev/null
       - name: Confirm audit mode is inert without --check
