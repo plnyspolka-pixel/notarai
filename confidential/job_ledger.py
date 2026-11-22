@@ -168,6 +168,10 @@ class PreviewJobLedger:
             raise JobRejected("invalid job attempts")
         if state == "preview_completed":
             return Claim("completed", attempts=attempts)
+        # A previous guest may have unwrapped a key before crashing. Do not
+        # permit another worker to decrypt even after the lease expires.
+        if "release_consumed_sha256" in prior:
+            return Claim("needs_review", attempts=attempts)
         if state in ("queue_uncertain", "needs_review") or attempts >= _MAX_ATTEMPTS:
             return Claim("needs_review", attempts=attempts)
         if state == "running" and int(
@@ -204,6 +208,7 @@ class PreviewJobLedger:
                     "AND job_id = :job AND case_id = :case "
                     "AND object_id = :object AND s3_version = :version "
                     "AND submitted = :false "
+                    "AND attribute_not_exists(release_consumed_sha256) "
                     "AND attempts < :limit AND "
                     "(#s = :queued OR #s = :retryable OR "
                     "(#s = :running AND lease_until < :now))"
@@ -226,11 +231,51 @@ class PreviewJobLedger:
                     return Claim("completed", attempts=int(
                         current["attempts"]["N"]
                     ))
-                if current["state"]["S"] in ("needs_review", "queue_uncertain"):
+                if ("release_consumed_sha256" in current or
+                        current["state"]["S"] in ("needs_review", "queue_uncertain")):
                     return Claim("needs_review")
                 return Claim("busy")
             raise JobRejected("job claim unavailable") from None
         return Claim("claimed", token=token, attempts=attempts + 1)
+
+    def consume_release_once(self, *, job_id: str, token: str,
+                             grant_sha256: str, now: int | None = None) -> None:
+        """Durably burn one customer grant BEFORE any Nitro private-key unwrap.
+
+        If the worker crashes after this point, the preview is NOT automatically
+        retried. This is stricter than the older retryable v2 preview ledger.
+        """
+        if (not isinstance(token, str) or not _TOKEN.fullmatch(token)
+                or not isinstance(grant_sha256, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", grant_sha256)):
+            raise JobRejected("invalid customer grant claim")
+        ts = int(time.time()) if now is None else now
+        if type(ts) is not int or ts < 0:
+            raise JobRejected("invalid grant timestamp")
+        try:
+            self.ddb.update_item(
+                TableName=self.table, Key=self._pk(job_id),
+                UpdateExpression=(
+                    "SET release_consumed_sha256 = :digest, "
+                    "release_consumed_at = :now"
+                ),
+                ConditionExpression=(
+                    "#s = :running AND task_token = :token "
+                    "AND tenant_id = :tenant AND submitted = :false "
+                    "AND attribute_not_exists(release_consumed_sha256)"
+                ),
+                ExpressionAttributeNames={"#s": "state"},
+                ExpressionAttributeValues={
+                    ":running": {"S": "running"},
+                    ":token": {"S": token},
+                    ":tenant": {"S": self.tenant},
+                    ":false": {"BOOL": False},
+                    ":digest": {"S": grant_sha256},
+                    ":now": {"N": str(ts)},
+                },
+            )
+        except Exception:
+            raise JobRejected("customer grant already consumed or unavailable") from None
 
     def complete(self, *, job_id: str, token: str) -> None:
         """Call only AFTER the opaque S3 preview marker was stored."""
@@ -239,9 +284,12 @@ class PreviewJobLedger:
     def fail(self, *, job_id: str, token: str, attempts: int) -> None:
         if type(attempts) is not int or not 1 <= attempts <= _MAX_ATTEMPTS:
             raise JobRejected("invalid failed attempt")
+        # Customer v3 may have decrypted before an error. Never retry its
+        # burned grant; a different grant needs a *new* explicit job/consent.
+        consumed = "release_consumed_sha256" in self._record(job_id)
         self._transition(
             job_id, token,
-            "needs_review" if attempts == _MAX_ATTEMPTS else "retryable",
+            "needs_review" if consumed or attempts == _MAX_ATTEMPTS else "retryable",
         )
 
     def _transition(self, job_id: str, token: str, state: str) -> None:
