@@ -119,8 +119,13 @@ def assess_custody_storage(*, identity: dict, custody_account: str,
         policy = json.loads(policy_text)
     except (KeyError, TypeError, ValueError, IndexError):
         raise StorageAuditRejected("malformed bucket inventory") from None
-    if not isinstance(policy, dict):
-        raise StorageAuditRejected("malformed bucket policy")
+    if not isinstance(policy, dict) or not all(isinstance(value, dict) for value in (
+        identity, data["versioning"], lock, retention, access,
+        data["region"], data["policy"],
+    )):
+        raise StorageAuditRejected("malformed bucket inventory")
+    if not isinstance(enc_rules, list) or not isinstance(own_rules, list):
+        raise StorageAuditRejected("malformed bucket inventory")
     days = retention.get("Days")
     years = retention.get("Years")
     if type(days) is not int:
@@ -147,12 +152,12 @@ def assess_custody_storage(*, identity: dict, custody_account: str,
             rule.get("ApplyServerSideEncryptionByDefault", {}).get(
                 "SSEAlgorithm"
             ) in ("AES256", "aws:kms")
-            for rule in enc_rules if isinstance(enc_rules, list)
+            for rule in enc_rules
         ),
         "bucket_owner_enforced": any(
             isinstance(rule, dict) and
             rule.get("ObjectOwnership") == "BucketOwnerEnforced"
-            for rule in own_rules if isinstance(own_rules, list)
+            for rule in own_rules
         ),
         "explicit_operator_account_deny": _deny_for_operator(
             policy, operator=operator_account, bucket=bucket
