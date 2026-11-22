@@ -318,10 +318,14 @@ def test_metadata_only_audit_uses_allowlisted_aws_read_calls():
     assert report["s3_version_count"] == 1
     assert report["s3_inventory_pages"] == 1
     assert report["s3_inventory_complete"] is True
+    assert report["s3_result_inventory_complete"] is True
+    assert report["s3_result_inventory_pages"] == 1
+    assert report["s3_result_version_count"] == 1
+    assert report["s3_result_delete_marker_count"] == 1
     assert report["sqs_retention_seconds"] == 86400
     assert report["sqs_dlq_retention_seconds"] == 1209600
     assert report["cloudwatch_named_group_retention_days"] == [7]
-    assert len(calls) == 13
+    assert len(calls) == 14
     assert {name for _, name in calls} == {
         "get_caller_identity", "describe_task_definition",
         "get_bucket_versioning", "get_bucket_location",
@@ -561,3 +565,29 @@ def test_guest_kernel_hardening_disables_inherited_tls_key_logging(monkeypatch):
     for key in ("SSLKEYLOGFILE", "PWDEBUG", "PLAYWRIGHT_DEBUG"):
         assert key not in os.environ
     assert os.environ["CHROME_LOG_FILE"] == "/dev/null"
+
+
+def test_result_inventory_enforces_single_allowlisted_prefix():
+    from scripts.verify_confidential_plaintext_lifecycle import (
+        scan_version_metadata, UnsafeAudit,
+    )
+    account, tenant, _, _ = _aws_fixture()
+    bucket = f"ntr-cf-{tenant}-{account}-eu-central-1"
+    prefixes = []
+    class S3:
+        def list_object_versions(self, **kwargs):
+            prefixes.append(kwargs["Prefix"])
+            return {"Versions": [], "DeleteMarkers": [], "IsTruncated": False}
+    reader = S3()
+    scan_version_metadata(reader, account=account, tenant=tenant,
+                          bucket=bucket, subprefix="confidential")
+    scan_version_metadata(reader, account=account, tenant=tenant,
+                          bucket=bucket, subprefix="confidential-results")
+    assert prefixes == [
+        f"kancelarie/{tenant}/confidential/",
+        f"kancelarie/{tenant}/confidential-results/",
+    ]
+    with pytest.raises(UnsafeAudit):
+        scan_version_metadata(reader, account=account, tenant=tenant,
+                              bucket=bucket, subprefix="../../private")
+    assert len(prefixes) == 2
