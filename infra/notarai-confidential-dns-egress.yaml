@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SEC-08 synthetic DNS exfil defense for a DEDICATED, disposable EU pilot
+  VPC only. DNS Firewall association is VPC-wide; NEVER deploy into the
+  shared production fabric or mixed-tenant VPC. No deployment is authorized.
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  TenantId:
+    Type: String
+    Default: pilot01
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+  EncryptedBucketName:
+    Type: String
+    AllowedPattern: "^[a-z0-9][a-z0-9.-]{2,62}$"
+  DedicatedVpcAcknowledgement:
+    Type: String
+    AllowedValues: ["isolated-synthetic-vpc-only"]
+    Description: >-
+      An authorized reviewer must independently confirm this VPC contains
+      no production workloads or other tenants before any test deployment.
+Resources:
+  ApprovedPrivateEndpoints:
+    Type: AWS::Route53Resolver::FirewallDomainList
+    Properties:
+      Name: !Sub "notarai-dns-approved-${TenantId}"
+      # Exact hostnames only. No *.amazonaws.com or *.s3 endpoint wildcard.
+      # Review Route53 Resolver CNAME chains before adding any other domain.
+      Domains:
+        - !Sub "kms.${AWS::Region}.amazonaws.com"
+        - !Sub "sqs.${AWS::Region}.amazonaws.com"
+        - !Sub "api.ecr.${AWS::Region}.amazonaws.com"
+        - !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com"
+        - !Sub "ecs.${AWS::Region}.amazonaws.com"
+        - !Sub "ecs-agent.${AWS::Region}.amazonaws.com"
+        - !Sub "ecs-telemetry.${AWS::Region}.amazonaws.com"
+        - !Sub "sts.${AWS::Region}.amazonaws.com"
+        - !Sub "logs.${AWS::Region}.amazonaws.com"
+        - !Sub "s3.${AWS::Region}.amazonaws.com"
+        - !Sub "${EncryptedBucketName}.s3.${AWS::Region}.amazonaws.com"
+        - !Sub "dynamodb.${AWS::Region}.amazonaws.com"
+  DenyAllOtherDomains:
+    Type: AWS::Route53Resolver::FirewallDomainList
+    Properties:
+      Name: !Sub "notarai-dns-deny-all-${TenantId}"
+      Domains:
+        - "*"
+  StrictDnsRuleGroup:
+    Type: AWS::Route53Resolver::FirewallRuleGroup
+    Properties:
+      Name: !Sub "notarai-dns-guard-${TenantId}"
+      FirewallRules:
+        - Action: ALLOW
+          FirewallDomainListId: !Ref ApprovedPrivateEndpoints
+          FirewallDomainRedirectionAction: INSPECT_REDIRECTION_DOMAIN
+          Priority: 100
+        - Action: BLOCK
+          BlockResponse: NXDOMAIN
+          FirewallDomainListId: !Ref DenyAllOtherDomains
+          FirewallDomainRedirectionAction: INSPECT_REDIRECTION_DOMAIN
+          Priority: 200
+  DedicatedPilotVpcAssociation:
+    Type: AWS::Route53Resolver::FirewallRuleGroupAssociation
+    Properties:
+      Name: !Sub "notarai-dns-isolated-${TenantId}"
+      VpcId: !Ref VpcId
+      FirewallRuleGroupId: !Ref StrictDnsRuleGroup
+      Priority: 101
+      MutationProtection: ENABLED
+  FailClosedDnsResolver:
+    Type: AWS::Route53Resolver::FirewallConfig
+    DependsOn: DedicatedPilotVpcAssociation
+    Properties:
+      ResourceId: !Ref VpcId
+      FirewallFailOpen: DISABLED
+Outputs:
+  RuleGroupId:
+    Value: !Ref StrictDnsRuleGroup
+  AssociationId:
+    Value: !Ref DedicatedPilotVpcAssociation
+  Warning:
+    Value: "DEDICATED SYNTHETIC VPC ONLY - live testing and independent custody are mandatory"
