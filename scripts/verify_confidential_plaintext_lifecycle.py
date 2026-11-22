@@ -75,6 +75,7 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
     ddb = session.client("dynamodb")
     ecs = session.client("ecs")
     cloudtrail = session.client("cloudtrail")
+    logs = session.client("logs")
 
     task = ecs.describe_task_definition(taskDefinition=task_arn)["taskDefinition"]
     if task.get("taskDefinitionArn") != task_arn:
@@ -99,10 +100,31 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         QueueUrl=queue_url,
         AttributeNames=["MessageRetentionPeriod", "RedrivePolicy"],
     ).get("Attributes", {})
+    dlq_retention = None
+    if queue.get("RedrivePolicy"):
+        try:
+            redrive = json.loads(queue["RedrivePolicy"])
+        except (ValueError, TypeError):
+            raise UnsafeAudit("invalid SQS redrive policy") from None
+        target = (f"arn:aws:sqs:{_REGION}:{account}:"
+                  f"notarai-confidential-{tenant}-dead.fifo")
+        if redrive.get("deadLetterTargetArn") != target:
+            raise UnsafeAudit("DLQ outside synthetic pilot")
+        dlq_url = (f"https://sqs.{_REGION}.amazonaws.com/{account}/"
+                   f"notarai-confidential-{tenant}-dead.fifo")
+        dlq_attrs = sqs.get_queue_attributes(
+            QueueUrl=dlq_url, AttributeNames=["MessageRetentionPeriod"]
+        ).get("Attributes", {})
+        dlq_retention = int(dlq_attrs.get("MessageRetentionPeriod", "-1"))
     backups = ddb.describe_continuous_backups(
         TableName=f"notarai-confidential-jobs-{tenant}"
     )["ContinuousBackupsDescription"].get("PointInTimeRecoveryDescription", {})
     trails = cloudtrail.describe_trails(includeShadowTrails=False).get("trailList", [])
+    # Only inspect retention settings. Never call GetLogEvents/FilterLogEvents.
+    group_page = logs.describe_log_groups(
+        logGroupNamePrefix=f"notarai-confidential-{tenant}", limit=50
+    )
+    retention_days = [g.get("retentionInDays") for g in group_page.get("logGroups", [])]
     return {
         "scope": "synthetic pilot only",
         "region": _REGION,
@@ -114,12 +136,17 @@ def read_only_audit(session, *, account: str, tenant: str, bucket: str,
         "s3_version_list_truncated": bool(versions.get("IsTruncated")),
         "sqs_retention_seconds": int(queue.get("MessageRetentionPeriod", "-1")),
         "sqs_has_redrive": "RedrivePolicy" in queue,
+        "sqs_dlq_retention_seconds": dlq_retention,
         "ddb_pitr_status": backups.get("PointInTimeRecoveryStatus", "UNKNOWN"),
         "ddb_pitr_days": backups.get("RecoveryPeriodInDays"),
         "cloudtrail_trail_count": len(trails),
+        "cloudwatch_named_group_count": len(retention_days),
+        "cloudwatch_named_group_retention_days": retention_days,
+        "cloudwatch_named_group_list_truncated": bool(group_page.get("nextToken")),
         "report_contains_customer_content": False,
         "scope_limitations": [
             "metadata-only, no logs or file bodies inspected",
+            "CloudWatch coverage limited to exact synthetic tenant log prefix",
             "not a substitute for Nitro attestation or independent audit",
             "no claim about RAM erasure, history deletion or legal compliance",
         ],
