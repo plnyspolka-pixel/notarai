@@ -26,12 +26,12 @@
         {
           "id": "live_iam_deny",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         },
         {
           "id": "cross_tenant_live_deny",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         }
       ],
       "negative_test": "TH-01",
@@ -52,7 +52,7 @@
         {
           "id": "nitro_kms_allow_deny",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         },
         {
           "id": "approved_release_enforced",
@@ -62,7 +62,7 @@
         {
           "id": "plaintext_exfil_deny",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         },
         {
           "id": "independent_penetration_audit",
@@ -83,7 +83,7 @@
         {
           "id": "hardware_nsmlive",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         },
         {
           "id": "pcr17_image_binding",
@@ -93,7 +93,7 @@
         {
           "id": "kms_recipient_ciphertext_only",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         }
       ],
       "negative_test": "TH-05",
@@ -119,7 +119,7 @@
         {
           "id": "no_unattested_ai_plaintext",
           "owner": "independent_auditor",
-          "source": "independent_audit"
+          "source": "live_aws"
         },
         {
           "id": "plaintext_lifecycle_audit",
