@@ -170,13 +170,23 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     class S3:
         def head_object(self, **kwargs):
             assert kwargs["Key"] == "kancelarie/pilot01/confidential/case01/scan01.json"
-            return {"VersionId": "v000001"}
+            return {"VersionId": "v000001", "Metadata": {
+                "document-version": "a" * 32,
+                "content-sha256": "b" * 64,
+            }}
     class SQS:
         calls = []
         def send_message(self, **kwargs):
             self.calls.append(kwargs)
     sqs = SQS()
     ddb = FakeDdb()
+    import confidential.router as router
+    class FakeRegistry:
+        called = []
+        def claim_preview(self, **kwargs):
+            self.called.append(kwargs)
+    registry = FakeRegistry()
+    monkeypatch.setattr(router, "_registry", lambda tenant: registry)
     import boto3
     module = sys.modules["magazyn"]
     module._klient_s3 = lambda: S3()
@@ -190,6 +200,7 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
         "PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN",
         "arn:aws:kms:eu-central-1:111122223333:key/pilot",
     )
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_PUBLIC_KEY_SHA256", "A" * 43 + "=")
     monkeypatch.setenv(
         "PIECZAPP_CONFIDENTIAL_JOB_QUEUE_URL",
         "https://sqs.eu-central-1.amazonaws.com/111122223333/"
@@ -204,6 +215,9 @@ def test_valid_default_auto_preview_queues_metadata_only(monkeypatch):
     assert body["operation"] == "preview-only"
     assert body["thinking_enabled"] is False
     assert body["can_submit"] is False
+    assert len(registry.called) == 1
+    assert registry.called[0]["document_version"] == "a" * 32
+    assert registry.called[0]["s3_version"] == "v000001"
     assert len(sqs.calls) == 1
     msg = json.loads(sqs.calls[0]["MessageBody"])
     assert set(msg) == {"tenant_id", "case_id", "object_id", "job_id", "s3_version"}
