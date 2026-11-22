@@ -403,12 +403,15 @@ def test_guest_process_fails_closed_if_dumpability_cannot_be_disabled(monkeypatc
 def test_stdio_redirection_targets_only_devnull_before_plaintext(monkeypatch):
     import confidential.plaintext_lifecycle as lifecycle
     calls = []
-    monkeypatch.setattr(lifecycle.os, "open",
-                        lambda path, flags: (calls.append(("open", path)), 93)[1])
-    monkeypatch.setattr(lifecycle.os, "dup2",
-                        lambda source, dest: calls.append(("dup2", source, dest)))
-    monkeypatch.setattr(lifecycle.os, "close",
-                        lambda fd: calls.append(("close", fd)))
+    # Replace the guest module's os binding, NOT global os.dup2: pytest's
+    # own FD capture relies on the real os.dup2 during fixture teardown.
+    fake_os = types.SimpleNamespace(
+        O_WRONLY=os.O_WRONLY, O_CLOEXEC=getattr(os, "O_CLOEXEC", 0),
+        open=lambda path, flags: (calls.append(("open", path)), 93)[1],
+        dup2=lambda source, dest: calls.append(("dup2", source, dest)),
+        close=lambda fd: calls.append(("close", fd)),
+    )
+    monkeypatch.setattr(lifecycle, "os", fake_os)
     lifecycle.silence_guest_stdio()
     assert calls == [
         ("open", "/dev/null"), ("dup2", 93, 1), ("dup2", 93, 2), ("close", 93)
@@ -418,12 +421,16 @@ def test_stdio_redirection_targets_only_devnull_before_plaintext(monkeypatch):
 def test_stdio_redirection_fails_closed_before_decrypt(monkeypatch):
     import confidential.plaintext_lifecycle as lifecycle
     calls = []
-    monkeypatch.setattr(lifecycle.os, "open", lambda path, flags: 93)
     def deny(source, dest):
         calls.append(dest)
         raise OSError("synthetic forbidden stdio")
-    monkeypatch.setattr(lifecycle.os, "dup2", deny)
-    monkeypatch.setattr(lifecycle.os, "close", lambda fd: calls.append("closed"))
+    fake_os = types.SimpleNamespace(
+        O_WRONLY=os.O_WRONLY, O_CLOEXEC=getattr(os, "O_CLOEXEC", 0),
+        open=lambda path, flags: 93,
+        dup2=deny,
+        close=lambda fd: calls.append("closed"),
+    )
+    monkeypatch.setattr(lifecycle, "os", fake_os)
     with pytest.raises(UnsafeGuestRuntime) as err:
         lifecycle.silence_guest_stdio()
     assert str(err.value) == "guest output suppression failed"
@@ -529,14 +536,14 @@ def test_stdio_guard_safe_when_guest_inherited_descriptors_are_closed(
     import confidential.plaintext_lifecycle as lifecycle
     calls = []
     remaining = iter(duplicates)
-    monkeypatch.setattr(lifecycle.os, "open",
-                        lambda path, flags: returned_fd)
-    monkeypatch.setattr(lifecycle.os, "dup",
-                        lambda fd: (calls.append(("dup", fd)), next(remaining))[1])
-    monkeypatch.setattr(lifecycle.os, "dup2",
-                        lambda source, dest: calls.append(("dup2", source, dest)))
-    monkeypatch.setattr(lifecycle.os, "close",
-                        lambda fd: calls.append(("close", fd)))
+    fake_os = types.SimpleNamespace(
+        O_WRONLY=os.O_WRONLY, O_CLOEXEC=getattr(os, "O_CLOEXEC", 0),
+        open=lambda path, flags: returned_fd,
+        dup=lambda fd: (calls.append(("dup", fd)), next(remaining))[1],
+        dup2=lambda source, dest: calls.append(("dup2", source, dest)),
+        close=lambda fd: calls.append(("close", fd)),
+    )
+    monkeypatch.setattr(lifecycle, "os", fake_os)
     lifecycle.silence_guest_stdio()
     assert calls[-3:] == [
         ("dup2", 3, 1), ("dup2", 3, 2), ("close", 3),
