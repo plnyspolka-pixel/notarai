@@ -141,11 +141,6 @@ jobs:
           "$gen" --task-definition "$out/confidential-taskdef.json" > "$out/attestation-policy.b64"
           "$gen" --task-definition "$out/confidential-taskdef.json" --output pcrs > "$out/pcrs.txt"
           "$gen" --task-definition "$out/confidential-taskdef.json" --output policy > "$out/policy.cedar"
-          # Wartosci niesekretne (hash polityki i sama polityka), potrzebne do KMS i stacka task.
-          echo "IMAGE_URI_BEGIN"; echo "$IMAGE_URI"; echo "IMAGE_URI_END"
-          echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
-          echo "ENVELOPE_SHA256=$(sha256sum "$out/attestation-policy.b64" | cut -d' ' -f1)"
-          echo "ENVELOPE_BEGIN"; fold -w 200 "$out/attestation-policy.b64"; echo; echo "ENVELOPE_END"
           echo "CEDAR_BEGIN"; cat "$out/policy.cedar"; echo "CEDAR_END"
       - name: Wyloguj z rejestru
         if: always()
@@ -155,3 +150,11 @@ jobs:
           name: confidential-attestation-${{ github.sha }}
           path: /tmp/attestation/
           retention-days: 14
+      - name: Podsumowanie atestacji (wartosci niesekretne dla KMS i stacka task)
+        run: |
+          set -euo pipefail
+          out=/tmp/attestation
+          echo "IMAGE_URI=$IMAGE_URI"
+          echo "PCRS_BEGIN"; cat "$out/pcrs.txt"; echo "PCRS_END"
+          echo "ENVELOPE_SHA256=$(tr -d '\n' < "$out/attestation-policy.b64" | sha256sum | cut -d' ' -f1)"
+          echo "ENVELOPE_BEGIN"; tr -d '\n' < "$out/attestation-policy.b64" | fold -w 160; echo; echo "ENVELOPE_END"
