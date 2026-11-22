@@ -1,6 +1,6 @@
 # SEC-05 — [SEC-05] Bezpieczne wydania: podpis kustosza obowiązkowy dla każdej uruchamianej wersji Nitro
 
-**Status: PLANNED (BRAK IMPLEMENTACJI).** P0; zależności: SEC-01, #61, #62, #65
+**Status: IMPLEMENTATION IN PROGRESS — DRAFT / HARDWARE BLOCKED.** P0; zależności: SEC-01, #61, #62, #65. Wdrożono fail-closed scheduler + testy syntetyczne; stan dowodów K1–K6: [SEC-05 evidence](../security-evidence/SEC-05.md). Brak uruchomienia AWS i brak zgody na produkcję.
 
 ## Zakres
 1. Przenieś niezależne ECDSA release-gate z pilota/CLI do docelowego serwerowego schedulera i kontroli uruchamiania; testowy flag/parametr operatora nie może wyłączyć wymaganej zgody.
@@ -27,6 +27,6 @@
 - [ ] W żadnym kodzie dodanym przez PR nie ma możliwości wysyłania ani podpisywania formularzy w AUTO. Testy CI i wykonany PR NIE oznaczają potwierdzenia komercyjnych twierdzeń Zero Trust / Zero Operator Access / Zero Knowledge.
 
 ## Polecenie dla nowej konwersacji
-**Ten draft PR zawiera wyłącznie plan.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
+**Ten draft PR zawiera plan i implementację częściową.** Pracuj na gałęzi aktualnego PR, rozwijaj ten PR (nie twórz nowego). Najpierw przeczytaj bazowe #57, #60, #61, #62, #65 oraz aktywne PR-y SEC-01..SEC-12. Nie modyfikuj gałęzi innych zadań. Osobne PR-y mają wspólny bazowy commit #65, ale są niezależne i nie mogą być scalane bez przeglądu konfliktów.
 **Ograniczenia:** tylko fikcyjne pilot01/pilot02; eu-central-1; produkcja OFF; żadnych podpisów, wysyłek, składania wniosków ani dostępu do prawdziwych dokumentów. AWS only w autoryzowanej sesji, niezależna zgoda kustosza obowiązkowa. Bez plaintext/PII w logs, debug, CI, proxy. Testy offline ≠ real hardware proof. Skuteczność sprawdź regresją + fail-closed negatywnymi testami; nie polegaj tylko na „documentation review”.
 **Dostarcz:** kod/IaC + testy + zanonimizowane dowody + checklistę niezależnego audytu + status PASS/BLOCKED/UNVERIFIED; nie obiecuj produkcji ani Zero Knowledge/ZERO Operator Access bez dowodu.
