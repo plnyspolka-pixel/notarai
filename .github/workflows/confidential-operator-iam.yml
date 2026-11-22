@@ -20,6 +20,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: sec02-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   synthetic-deny:
     name: Offline 6 denies and independence gates (NOT live AWS)
