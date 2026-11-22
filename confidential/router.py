@@ -12,7 +12,7 @@ import os
 import re
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.document_authenticity import canonical_origin_receipt, UntrustedDocumentOrigin
@@ -382,7 +382,7 @@ def retrieve(request: Request, case_id: str, object_id: str):
     if len(body) > _MAX_BODY:
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
     try:
-        env = Envelope.parse(json.loads(body))
+        env = Envelope.parse(_strict_envelope_json(body))
         if env.version != 2 or (env.tenant_id, env.case_id, env.object_id,
                                 env.kms_key_arn, env.public_key_sha256) != (
             tenant, case_id, object_id, _approved_key(), _approved_public_key_pin()
@@ -397,7 +397,12 @@ def retrieve(request: Request, case_id: str, object_id: str):
         )
     except (ValueError, TypeError, DocumentRegistryDenied, JobRejected):
         raise HTTPException(409, "Zaszyfrowany dokument nie zgadza sie z rejestrem.") from None
-    return JSONResponse(json.loads(body), headers={"Cache-Control": "no-store"})
+    # Preserve the originally signed ciphertext bytes on download, not a
+    # lossy JSON reserialization that would alter its independent SHA-256.
+    return Response(
+        content=body, media_type="application/json",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.get("/jobs/{job_id}")
