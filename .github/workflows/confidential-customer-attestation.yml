@@ -8,6 +8,13 @@ on:
       - 'confidential/customer_v3_transport.py'
       - 'confidential/customer_v3_execution.py'
       - 'confidential/customer_v3_worker.py'
+      - 'confidential/bake_trust.py'
+      - 'confidential/Dockerfile'
+      - 'infra/notarai-confidential-task.yaml'
+      - 'infra/notarai-confidential-staging.yaml'
+      - 'scripts/render_confidential_taskdef.py'
+      - 'scripts/confidential_pilot_bootstrap.py'
+      - 'test_confidential_infra.py'
       - 'test_customer_v3_worker.py'
       - 'test_customer_v3_execution.py'
       - 'confidential/job_ledger.py'
@@ -39,12 +46,12 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install explicit test dependencies
-        run: python -m pip install 'cryptography>=42,<51' 'cbor2==6.1.5' 'pytest>=8,<10' 'asn1crypto==1.5.1'
+        run: python -m pip install 'cryptography>=42,<51' 'cbor2==6.1.5' 'pytest>=8,<10' 'asn1crypto==1.5.1' 'PyYAML>=6,<7'
       - name: Compile and synthetic security regression (NO AWS)
         env:
           AWS_EC2_METADATA_DISABLED: 'true'
           AWS_ACCESS_KEY_ID: ''
           AWS_SECRET_ACCESS_KEY: ''
         run: |
-          python -m compileall -q confidential/customer_nitro_attestation.py confidential/customer_attested_release.py confidential/customer_guest_v3.py scripts/customer_attested_release.py confidential/customer_v3_transport.py confidential/customer_v3_worker.py
-          python -m pytest -q --noconftest test_customer_release.py test_customer_attestation.py test_customer_guest_v3.py test_three_zero_gate.py test_three_zero_aws_audit.py test_customer_v3_transport.py test_customer_release_ledger.py test_customer_v3_execution.py test_customer_v3_worker.py
+          python -m compileall -q confidential/customer_nitro_attestation.py confidential/customer_attested_release.py confidential/customer_guest_v3.py scripts/customer_attested_release.py confidential/customer_v3_transport.py confidential/customer_v3_worker.py confidential/bake_trust.py scripts/render_confidential_taskdef.py
+          python -m pytest -q --noconftest test_customer_release.py test_customer_attestation.py test_customer_guest_v3.py test_three_zero_gate.py test_three_zero_aws_audit.py test_customer_v3_transport.py test_customer_release_ledger.py test_customer_v3_execution.py test_customer_v3_worker.py test_confidential_infra.py
