@@ -72,6 +72,27 @@ class GuestForTests:
         ))
 
 
+def _pin_synthetic_recovery_root(monkeypatch, tmp_path, signer_a, signer_b, pin):
+    import confidential.recovery_trust as trust
+    import confidential.zk_migration as migration
+    def raw(signer):
+        return signer.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
+    root = {
+        "schema": "notarai.recovery-root.v1",
+        "tenant_id": "pilot01", "old_key_arn": ARN, "old_key_pin": pin,
+        "custodian_public_key_b64": base64.b64encode(raw(signer_a)).decode("ascii"),
+        "trustee_public_key_b64": base64.b64encode(raw(signer_b)).decode("ascii"),
+        "expires_at": 2000000000,
+    }
+    dest = tmp_path / "trusted-recovery-root.json"
+    dest.write_text(json.dumps(root), encoding="ascii")
+    monkeypatch.setattr(trust, "_ROOT_PATH", dest)
+    monkeypatch.setattr(migration.time, "time", lambda: 1900000000)
+    return dest
+
+
 def test_v2_aead_and_unique_versions(keys):
     a, dek1 = envelope(keys)
     b, dek2 = envelope(keys)
@@ -315,13 +336,16 @@ def test_recovery_with_two_external_signers_but_no_plaintext_export(keys):
             serialization.Encoding.Raw, serialization.PublicFormat.Raw
         )
     req = {
-        "schema": "notarai.recovery.v1", "action": "rotate",
+        "schema": "notarai.recovery.v2", "action": "rotate",
         "tenant_id": "pilot01", "case_id": "case01", "object_id": "scan01",
         "target_tenant_id": "pilot01", "target_object_id": "scan02",
         "document_version": "a" * 32,
         "old_key_arn": ARN,
         "new_key_arn": ARN.replace("fictional", "successor"),
         "new_key_sha256": keys[1],
+        "source_s3_version": "s3SyntheticVersion01",
+        "source_ciphertext_sha256": "a" * 64,
+        "source_key_pin": keys[1],
         "request_id": "b" * 32, "expires_at": 2000000000,
     }
     message = canonical_recovery_request(req)
@@ -415,11 +439,12 @@ def test_registry_blocks_wrong_version_digest_and_duplicate_preview(keys):
 
 
 def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
-    keys, monkeypatch,
+    keys, monkeypatch, tmp_path,
 ):
     import confidential.zk_migration as migration
     from confidential.zk_recovery import canonical_recovery_request, RecoveryDenied
     original_payload, _ = envelope(keys)
+    original_wire = json.dumps(original_payload, separators=(",", ":")).encode("ascii")
     original = Envelope.parse(original_payload)
     replacement = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     pem = replacement.public_key().public_bytes(
@@ -438,7 +463,7 @@ def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw,
         )
     req = {
-        "schema": "notarai.recovery.v1", "action": "rotate",
+        "schema": "notarai.recovery.v2", "action": "rotate",
         "tenant_id": "pilot01", "case_id": original.case_id,
         "object_id": original.object_id,
         "target_tenant_id": "pilot02", "target_object_id": "scan02",
@@ -446,6 +471,9 @@ def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
         "old_key_arn": ARN,
         "new_key_arn": ARN.replace("fictional", "successor"),
         "new_key_sha256": pin, "request_id": "c" * 32,
+        "source_s3_version": "s3SyntheticVersion01",
+        "source_ciphertext_sha256": hashlib.sha256(original_wire).hexdigest(),
+        "source_key_pin": keys[1],
         "expires_at": 2000000000,
     }
     signed = canonical_recovery_request(req)
@@ -456,12 +484,14 @@ def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
                 raise RuntimeError("already used")
             self.seen.add(token)
     ledger = OneTimeLedger()
+    _pin_synthetic_recovery_root(monkeypatch, tmp_path, signer_a, signer_b, keys[1])
     opts = dict(
-        original=original, unwrapper=GuestForTests(keys[0]),
+        original=original, source_envelope_wire=original_wire,
+        source_s3_version="s3SyntheticVersion01",
+        unwrapper=GuestForTests(keys[0]),
         recovery_request=req,
         custodian_signature=signer_a.sign(signed),
         trustee_signature=signer_b.sign(signed),
-        custodian_public_key=pub(signer_a), trustee_public_key=pub(signer_b),
         replacement_kms_public_pem=pem,
         independent_one_time_ledger=ledger,
         now=1900000000,
@@ -486,10 +516,11 @@ def test_nitro_only_dual_signed_key_migration_with_new_immutable_identity(
         migration.reencrypt_inside_attested_nitro(**opts)
 
 
-def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatch):
+def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatch, tmp_path):
     from confidential.zk_recovery import canonical_recovery_request, RecoveryDenied
     import confidential.zk_migration as migration
     old, _ = envelope(keys)
+    original_wire = json.dumps(old, separators=(",", ":")).encode("ascii")
     original = Envelope.parse(old)
     new_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     pub_der = new_key.public_key().public_bytes(
@@ -506,23 +537,28 @@ def test_migration_denies_unsigned_recipient_and_wrong_approval(keys, monkeypatc
         serialization.Encoding.Raw, serialization.PublicFormat.Raw,
     )
     req = {
-        "schema": "notarai.recovery.v1", "action": "rotate",
+        "schema": "notarai.recovery.v2", "action": "rotate",
         "tenant_id": "pilot01", "case_id": original.case_id,
         "object_id": original.object_id, "document_version": original.document_version,
         "target_tenant_id": "pilot02", "target_object_id": "scan02",
         "old_key_arn": ARN, "new_key_arn": ARN.replace("fictional", "new"),
         "new_key_sha256": pin, "request_id": "d" * 32,
+        "source_s3_version": "s3SyntheticVersion01",
+        "source_ciphertext_sha256": hashlib.sha256(original_wire).hexdigest(),
+        "source_key_pin": keys[1],
         "expires_at": 2000000000,
     }
     message = canonical_recovery_request(req)
+    _pin_synthetic_recovery_root(monkeypatch, tmp_path, a, b, keys[1])
     class Ledger:
         def claim_once(self, token):
             raise RuntimeError("no external authority")
     args = dict(
-        original=original, unwrapper=GuestForTests(keys[0]),
+        original=original, source_envelope_wire=original_wire,
+        source_s3_version="s3SyntheticVersion01",
+        unwrapper=GuestForTests(keys[0]),
         recovery_request=req, custodian_signature=a.sign(message),
         trustee_signature=b.sign(message),
-        custodian_public_key=pub(a), trustee_public_key=pub(b),
         replacement_kms_public_pem=pem,
         independent_one_time_ledger=Ledger(), now=1900000000,
     )
