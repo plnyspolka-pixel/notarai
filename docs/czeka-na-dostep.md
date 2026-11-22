@@ -316,3 +316,16 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+## NA-15. NotarAI Virtual Employee - Windows VM na AWS i RejNET Office
+
+- **Status:** czeka (kod pilota gotowy; nie wdrożono ani nie testowano na EC2).
+- **Brakuje:** administratora AWS z uprawnieniami do osobnego stosu EC2/VPC/IAM w eu-central-1, klucza EC2 i zatwierdzenia kosztów; instalatora i licencji RejNET Office dopuszczającej Windows Server/VM; fikcyjnej bazy demonstracyjnej.
+- **Na żywo:**
+  1. Odpalić bez `-Apply` walidację: `infra/virtual-employee/deploy-pilot.ps1`.
+  2. Po zatwierdzeniu kosztów użyć `-Apply`; sprawdzić SSM Online i brak publicznego IP/portów wejściowych.
+  3. Przez SSM port forwarding + RDP uruchomić izolowany pulpit; testować `check-windows-session.ps1` i odczyt okna Notepad przez `agent/NotarAI.VirtualEmployee.Probe`.
+  4. Zweryfikować licencję i instalację RejNET Office; wykonać test z fikcyjnym repertorium; nie podpisywać i nie wysyłać dokumentów.
+  5. Sprawdzić zachowanie po rozłączeniu RDP, zablokowaniu sesji i restarcie. Zatrzymać VM po teście i ocenić koszty VPC endpointów.
+- **W kodzie:** `infra/virtual-employee/`, `agent/NotarAI.VirtualEmployee.Probe/`, `docs/virtual-employee-aws-pilot.md`.
+- **Zamknięte, gdy:** utworzony i przetestowany pilot z działającym UI Automation, bez publicznego RDP i bez prawdziwych danych; RejNET Office zgodny licencyjnie; udokumentowany sposób utrzymania sesji.
