@@ -53,9 +53,11 @@ checks from previous SHAs. No claim of PASS before CI finishes on latest HEAD.
    the new guest rejects them. Do not silently make a legacy decrypt fallback.
 3. A custodian may unilaterally change KMS policy unless independent governance
    and external evidence of ownership / AWS Organizations separation exist.
-4. The browser executes code delivered by NotarAI. Until a separate signed,
-   pinned client is distributed and verified outside the web origin, claiming
-   strict Zero Knowledge against a malicious operator is false.
+4. The main web app still serves code controlled by NotarAI. A separate signed,
+   offline client has been prepared, but must be independently hosted and its
+   signing public key pinned outside the app origin. Until independently
+   distributed, claiming strict Zero Knowledge against a malicious operator
+   is false.
 5. Allowed confidential inference or browser automation inevitably has transient
    plaintext inside the explicitly trusted Nitro guest. If any plaintext leaves
    Nitro for Bedrock or a website, unqualified Zero Knowledge is false.
@@ -80,13 +82,22 @@ receipt binding tenant, case, object, logical version, exact S3 VersionId,
 ciphertext SHA-256, KMS ARN, public key pin, issuer and expiry. Negative tests
 reject changed digest, S3 version, tenant, expired signature and wrong signer.
 
-**IMPORTANT: the receipt verifier is not yet wired into Nitro admission.**
-Independent issuer enrollment, notary authentication, receipt generation after
-S3 VersionId is known, fixed public key pin in attested release, and receipt
-fetch from independently controlled custody storage remain integration
-dependencies. It would be dishonest to mark malicious-operator document
-provenance PASS until that integration and live tests exist. This is not a
-shipped forgery defense.
+**SEC-03 implementation update (2026-11-22):** The guest now invokes
+`confidential.origin_admission.require_origin_receipt` AFTER validating the
+exact ciphertext/VersionId in its DynamoDB ledger and BEFORE calling the Nitro
+KMS unwrap path. The receipt is fetched as a separate S3 sidecar object. The
+issuer public key is loaded only from `confidential/trusted-origin-root.json`
+bundled into the immutable guest image; absent/invalid root, absent receipt,
+altered digest, wrong issuer, changed version, duplicate JSON keys and bad
+signature **fail closed**, without KMS decrypt. Negative and positive tests
+are in `test_confidential_origin_admission.py`.
+
+**Still BLOCKED:** independent issuer identity and signing-key enrollment,
+image build containing a custodian-verified origin trust root, independent
+image/PCR release approval, real S3/KMS/Nitro positive/denial tests and legal
+notary authentication. The origin receipt is not independently verified by
+the operator SaaS backend — it accepts opaque signed data and the guest checks
+it. No currently approved production release with a custodian root is claimed.
 
 ## Offline software changes since the initial report
 
@@ -131,3 +142,29 @@ AWS KMS and attested Nitro, trusted client publication and independently
 signed origin receipt, verified recovery/custody operations. Synthetic tests
 are not a substitute for external evidence. Never release to notarial client
 production or market unqualified Zero Knowledge based on this report.
+
+## Build implementation since earlier milestone (new critical gate)
+
+- `confidential/origin_admission.py`: independent trust root embedded in the
+  measured Nitro image, strict signed receipt parser, origin signature verification
+  before DEK unwrap. No runtime env override to change signer.
+- `scripts/sign_confidential_origin_receipt.py`: offline Ed25519 signature over
+  original client file SHA-256 and immutable S3 VersionId, requiring independent
+  key pin; does not call AWS or expose signing keys to NotarAI.
+- `scripts/package_confidential_origin_root.py`: prepare release-bundled public
+  issuer root with independent SPKI SHA-256 pin check; **not an authorization
+  to release an image or change KMS policy**.
+- `confidential/Dockerfile`: optional build-time SHA-256 validation of embedded
+  origin root; root absent by default -> guest refuses all jobs.
+- `confidential/router.py`: preserves exact client ciphertext bytes to S3,
+  rejects duplicate JSON fields, publishes digest + VersionId for external
+  signing, receives and stores signed origin sidecar immutably, checks sidecar
+  presence before consuming a one-use preview authorization.
+- `static/confidential-courier.js`: separate ciphertext, signed receipt and
+  preview steps; no plaintext path or signing key access.
+- `test_confidential_origin_admission.py`: synthetic positive/negative cases
+  for authentic and tampered receipts, absent roots, exact S3 binding, trusted
+  issuer pin and the **no KMS unwrap before receipt validation** ordering.
+
+Software tests are evidence of software behavior only; root/issuer enrollment,
+real Nitro attestation and actual independent custody are unverified.
