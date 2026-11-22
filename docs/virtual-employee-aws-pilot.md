@@ -144,7 +144,13 @@ timestamp; **not** screen text, document contents or credentials.
    it must be rejected. Never test with real notary files.
 6. For a second test, open ordinary Windows Notepad, generate
    `probe.notepad`, then run `--once-local-inbox`. The agent counts only
-   matching Notepad windows; **it does not read their text**.
+   matching Notepad windows; **it does not read their text**. For the manual
+   RejNET Office qualification, with a **fake** test database, obtain its
+   process PID and execute `NotarAI.VirtualEmployee.Probe.exe --survey-ui <PID>`
+   from the same desktop. The read-only survey displays a bounded histogram
+   of UI Automation control types (maximum 400 controls, depth 4), with **no**
+   window titles, automation IDs, names, values, or text. It does not write
+   into RejNET or establish that a functional adapter exists.
 7. Optional, after manual tests, register the resident *diagnostic* worker
    for the current interactive operator:
    `infra/virtual-employee/register-interactive-session-probe.ps1 -ExecutablePath '<FULL_PATH_TO_EXE>' -ExpectedSha256 '<CI_SHA256>' -StartWorker`.
