@@ -5,6 +5,8 @@
 "use strict";
 const button = document.getElementById("store");
 const preview = document.getElementById("preview");
+const receiptButton = document.getElementById("receipt-store");
+const receiptInput = document.getElementById("receipt-file");
 const selected = document.getElementById("encrypted");
 const status = document.getElementById("status");
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -14,10 +16,13 @@ const envelopeFields = new Set([
   "nonce", "wrapped_dek", "ciphertext",
 ]);
 let previewTarget = null;
+let pendingOrigin = null;
 
 button.addEventListener("click", async () => {
   button.disabled = true;
   preview.disabled = true;
+  receiptButton.disabled = true;
+  pendingOrigin = null;
   previewTarget = null;
   status.textContent = "";
   try {
@@ -52,17 +57,77 @@ button.addEventListener("click", async () => {
     });
     if (!result.ok) throw new Error("server rejected encrypted upload");
     const response = await result.json();
-    if (response.stored !== true || !response.s3_version) {
-      throw new Error("unconfirmed document version");
+    if (response.stored !== true || !response.s3_version ||
+        !/^[a-f0-9]{64}$/.test(response.ciphertext_sha256) ||
+        response.document_version !== payload.document_version) {
+      throw new Error("unconfirmed encrypted object digest/version");
     }
-    previewTarget = [payload.case_id, payload.object_id];
-    preview.disabled = false;
-    status.textContent = "Potwierdzono zapis zaszyfrowanego obiektu. Podgląd jest opcjonalny.";
+    pendingOrigin = {
+      tenantId: payload.tenant_id, caseId: payload.case_id,
+      objectId: payload.object_id, documentVersion: payload.document_version,
+      s3Version: response.s3_version, ciphertextSha256: response.ciphertext_sha256,
+      kmsArn: payload.kms_key_arn, keyPin: payload.public_key_sha256,
+    };
+    receiptButton.disabled = false;
+    status.textContent = "Ciphertext zapisany. Weryfikuj SHA-256 " +
+      response.ciphertext_sha256 + " i wersję S3 " + response.s3_version +
+      " niezależnie, następnie dołącz podpisane potwierdzenie. Podgląd zablokowany do tej chwili.";
   } catch (_) {
     status.textContent = "Odmowa importu: wybierz prawidłowy plik .encrypted.json i zweryfikuj uprawnienia.";
   } finally {
     selected.value = "";
     button.disabled = false;
+  }
+});
+
+receiptButton.addEventListener("click", async () => {
+  receiptButton.disabled = true;
+  preview.disabled = true;
+  previewTarget = null;
+  try {
+    const file = receiptInput.files[0];
+    if (!pendingOrigin || !file || !file.name.endsWith(".origin.json") ||
+        file.size === 0 || file.size > 8192) {
+      throw new Error("wrong signed origin receipt file");
+    }
+    const text = await file.text();
+    const bundle = JSON.parse(text);
+    const receipt = bundle?.receipt;
+    if (bundle?.schema !== "notarai.signed-origin-receipt.v1" ||
+        typeof bundle.signature_b64 !== "string" ||
+        !/^[A-Za-z0-9+/]{86}==$/.test(bundle.signature_b64) ||
+        !receipt || typeof receipt !== "object" ||
+        receipt.schema !== "notarai.document-origin.v1" ||
+        receipt.tenant_id !== pendingOrigin.tenantId ||
+        receipt.case_id !== pendingOrigin.caseId ||
+        receipt.object_id !== pendingOrigin.objectId ||
+        receipt.document_version !== pendingOrigin.documentVersion ||
+        receipt.s3_version !== pendingOrigin.s3Version ||
+        receipt.ciphertext_sha256 !== pendingOrigin.ciphertextSha256 ||
+        receipt.kms_key_arn !== pendingOrigin.kmsArn ||
+        receipt.key_pin !== pendingOrigin.keyPin) {
+      throw new Error("origin receipt does not bind exact ciphertext");
+    }
+    const path = "/api/confidential/origin-receipts/" +
+      encodeURIComponent(pendingOrigin.caseId) + "/" +
+      encodeURIComponent(pendingOrigin.objectId);
+    const result = await fetch(path, {
+      method: "PUT", credentials: "same-origin",
+      headers: {"Content-Type": "application/json"}, body: text,
+    });
+    if (!result.ok) throw new Error("receipt rejected");
+    const response = await result.json();
+    if (response.stored !== true || response.signature_verified !== false) {
+      throw new Error("untrusted receipt status");
+    }
+    previewTarget = [pendingOrigin.caseId, pendingOrigin.objectId];
+    status.textContent = "Potwierdzenie zapisane. Podpis zweryfikuje Nitro przed odszyfrowaniem.";
+    preview.disabled = false;
+  } catch (_) {
+    status.textContent = "Brak poprawnego potwierdzenia. Podgląd pozostaje zablokowany.";
+    receiptButton.disabled = false;
+  } finally {
+    receiptInput.value = "";
   }
 });
 
