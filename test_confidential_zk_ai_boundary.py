@@ -431,6 +431,8 @@ def test_k1_js_scanner_denies_dynamic_and_external_fetch(source):
     {"can_submit": 0},
     {"mode": "supervised"},
     {"status": "submitted"},
+    {"status": {"text": FAKE_SENTINEL}},
+    {"status": ["queued"]},
     {"attempts": 4},
     {"attempts": True},
     {"job_id": "other_job"},
