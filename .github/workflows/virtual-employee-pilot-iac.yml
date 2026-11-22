@@ -4,6 +4,8 @@ on:
     paths:
       - 'infra/virtual-employee/**'
       - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol.Tests/**'
       - 'tests/test_virtual_employee_iac.py'
       - '.github/workflows/virtual-employee-pilot-iac.yml'
   push:
@@ -11,6 +13,8 @@ on:
     paths:
       - 'infra/virtual-employee/**'
       - 'agent/NotarAI.VirtualEmployee.Probe/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol/**'
+      - 'agent/NotarAI.VirtualEmployee.Protocol.Tests/**'
       - 'tests/test_virtual_employee_iac.py'
       - '.github/workflows/virtual-employee-pilot-iac.yml'
 permissions:
@@ -42,6 +46,17 @@ jobs:
             [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
             if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
           }
+  protocol-tests:
+    name: Signed job protocol - adversarial offline checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check tenants, TTL, signatures, payload allowlist and replay
+        run: dotnet run --project agent/NotarAI.VirtualEmployee.Protocol.Tests/NotarAI.VirtualEmployee.Protocol.Tests.csproj -c Release --nologo
   agent-smoke-build:
     runs-on: windows-latest
     timeout-minutes: 10
