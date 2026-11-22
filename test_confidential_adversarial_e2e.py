@@ -184,3 +184,17 @@ def test_synthetic_envelope_to_real_form_preview_for_two_tenants(tenant, key_byt
         assert page.fills == [("#name", "FICTIONAL-ONLY"),
                               ("#reference", tenant)]
     asyncio.run(preview())
+
+
+@pytest.mark.parametrize("switch", ["true", "TRUE", "1", "on", "yes"])
+def test_actual_confidential_api_blocks_unverified_commercial_flag(
+    monkeypatch, switch
+):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from confidential.router import _scope
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_COMMERCIAL_ENABLED", switch)
+    # This denial happens before any user lookup, AWS read or document work.
+    with pytest.raises(HTTPException) as error:
+        _scope(SimpleNamespace())
+    assert error.value.status_code == 503

@@ -23,6 +23,15 @@ _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 def _scope(request: Request) -> str:
+    # SEC-12: setting a commercial environment flag is NOT release approval.
+    # Only the separate synthetic pilot may operate until a cryptographically
+    # verified independent hardware/custody gate is integrated and audited.
+    if os.getenv("PIECZAPP_CONFIDENTIAL_COMMERCIAL_ENABLED", "").strip().lower() in (
+        "1", "true", "yes", "on",
+    ):
+        raise HTTPException(
+            503, "Tryb komercyjny wymaga niezaleznej weryfikacji bezpieczenstwa."
+        )
     import autoryzacja
     import magazyn
     if not autoryzacja.MULTI or magazyn.TRYB != "s3":
