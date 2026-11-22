@@ -48,6 +48,7 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
             seen.append(kwargs)
             return {"Body": Body()}
     class FakeEnvelope:
+        version = 2
         tenant_id = "pilot01"
         case_id = "case01"
         object_id = "scan01"
