@@ -192,3 +192,40 @@ not implement the live KMS proof prerequisite or actually block AWS requests.
 Test: test_k4_enroll_freeze_revoke_fail_closed_without_old_operator_fallback;
 dual-tenant onboarding tests assert both proposed enrollment policies deny
 Decrypt. Live activation and KMS denial remain BLOCKED.
+
+## Independent custody CAS ledger compiler (offline, synthetic-only)
+
+`confidential/custody_cas.py` takes a valid signed custody action, a
+separately pinned custodian public key, a separately pinned previous state
+SHA256 and a custodian-owned EU table ARN. It emits a deterministic
+DynamoDB TransactWriteItems plan with TWO conditional Put operations:
+a revision/hash compare-and-swap for TENANT#pilot0x / STATE and
+a create-only EVENT#<revision> item containing the signed envelope.
+Events record outgoing decrypt key ARN on rotation; historical keys
+still require a full external audit. A stale signed action, replay,
+cross-tenant target, operator-owned table or tampered signature is rejected.
+
+The command never connects to AWS and NEVER executes TransactWriteItems.
+For a tenant not previously registered:
+
+    python confidential/custody_cas.py \
+      --signed-envelope-file /secure/enroll-signed.json \
+      --trusted-public-key-file /secure/custodian-public.pem \
+      --pinned-public-key-sha256 APPROVED_EXTERNAL_FINGERPRINT \
+      --independent-current-state-sha256 0000000000000000000000000000000000000000000000000000000000000000 \
+      --ledger-table-arn arn:aws:dynamodb:eu-central-1:CUSTODY_ACCOUNT:table/notarai-confidential-custody-ledger-pilot \
+      --output /secure/enroll-ledger-cas-plan.json
+
+The optional independent custodian CloudFormation template
+`infra/notarai-confidential-custody-ledger-pilot.yaml` defines a
+pilot-only table with tenant/record composite key, DynamoDB KMS encryption,
+PITR recovery, deletion protection, Retain policy, EU region and
+separate-account conditions. It adds NO operator IAM grants and has NOT
+been deployed. A custodial operator must independently confirm
+ownership, IAM/SSO access, table backups, network paths, transaction
+success and real KMS revocation before calling the ledger authoritative.
+
+**Critical release barrier:** the CAS planner refuses to compile any
+UNFREEZE to ACTIVE. Separate external hardware, KMS and historical-key
+evidence validation must be added before live activation is possible.
+The CAS plan is not an actual persisted ledger or independent proof.
