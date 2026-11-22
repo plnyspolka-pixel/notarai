@@ -52,3 +52,19 @@ Jesteś wykonawcą *tego* PR. **Wykonaj kod + testy**, nie kończ na kolejnym pl
 - [AWS NSM API Apache-2.0](https://github.com/aws/aws-nitro-enclaves-nsm-api/blob/main/docs/attestation_process.md)
 
 Przed skopiowaniem wybierz SHA/tag, przeczytaj licencję i zapisz notice. Przetestuj regresję i negatywne przypadki z definicji odbioru. Raport końcowy: zmienione pliki, ponownie użyte komponenty, testy PASS/FAIL/BLOCKED, dokładny SHA i link CI, blokady sprzętowe. Brak AWS deploy/realnych aktów bez oddzielnej zgody. **PR planistyczny pozostaje Draft do wykonania.**
+
+
+## OPUS — start osobnej sesji i linki do gotowego kodu
+
+**Wklej do nowej konwersacji Opus:**
+
+> Realizujesz PR #88 repozytorium plnyspolka-pixel/notarai. Otwórz aktualny opis tego PR i dokładnie wykonaj rozdział „OPUS — INSTRUKCJA WYKONAWCZA I REUSE OSS”. Najpierw audytuj istniejący kod i wybierz REUSE/ADAPT/BUILD/SKIP; zaadaptuj gotowe biblioteki zamiast przepisywania. Pracuj tylko na gałęzi zadania, z syntetycznymi danymi. Nie scalaj, nie deployuj płatnego AWS bez zgody. Dołącz kod, testy negatywne, dokładny SHA/CI, licencje i status hardware/commercial.
+
+**Katalog wspólny:** [CIV-OSS-OPUS-reuse-playbook](https://github.com/plnyspolka-pixel/notarai/blob/plan/civil-confidential-civ01-clean-base-20261122/docs/roadmaps/CIV-OSS-OPUS-reuse-playbook.md)
+
+**Otwórz kod źródłowy przed pisaniem:**
+- https://github.com/plnyspolka-pixel/notarai/blob/feature/confidential-customer-keys-minimal-20261122/confidential/customer_release.py
+- https://github.com/plnyspolka-pixel/notarai/blob/feature/sec86-customer-attested-release-20261122/confidential/customer_nitro_attestation.py
+- https://github.com/aws-samples/sample-nitro-enclaves-attestation-webapp/blob/main/frontend/src/lib/attestationVerifier.js
+
+**Uwaga:** repozytoria MIT/MIT-0/Apache-2.0 są wzorcem; commit SHA i notices przypnij w implementacji. Kodu custody z dawnych gałęzi nie przenoś bez selekcji. Próby syntetyczne nie są sprzętowym PASS.
