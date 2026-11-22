@@ -298,7 +298,7 @@ def test_no_support_admin_decryption_path():
     assert not any("submit" in path or "sign" in path for path, _ in declared)
 
 
-def test_recovery_with_two_external_signers_but_no_plaintext_export():
+def test_recovery_with_two_external_signers_but_no_plaintext_export(keys):
     from confidential.zk_recovery import (
         RecoveryDenied, authorize_recovery, canonical_recovery_request,
     )
