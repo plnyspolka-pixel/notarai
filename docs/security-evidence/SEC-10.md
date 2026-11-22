@@ -226,7 +226,12 @@ partial page. A missing S3 read permission means `unverified` or an explicit
 BLOCKED error, never an inferred clean audit.
 It never reads object bodies, queued messages, CloudTrail event bodies,
 CloudWatch lines or KMS keys. Output is a sanitized **metadata** report, not
-a forensic assertion about memory or plaintext absence. No AWS read has been
+a forensic assertion about memory or plaintext absence. In every execution
+the report explicitly returns `evidence_status:
+BLOCKED_PENDING_INDEPENDENT_REVIEW` and a list of unresolved evidence
+requirements, even if all observable runtime controls happen to pass.
+A missing runtime safeguard adds `TASK_RUNTIME_CONTROLS_UNSATISFIED`; a
+partial CloudWatch inventory also remains a blocker. No AWS read has been
 performed in this PR from this conversation.
 
 AWS documentation used to scope retention uncertainty:
