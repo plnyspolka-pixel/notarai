@@ -237,6 +237,8 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
     if not bundles or not _hex(trusted_head_sha256):
         return Verification("FAIL", "BLOCKED", None, {})
     previous = None
+    baseline = None
+    last_observed = None
     for position, bundle in enumerate(bundles, start=1):
         manifest = bundle.get("manifest") if isinstance(bundle, dict) else None
         if not isinstance(manifest, dict) or manifest.get("sequence") != position:
@@ -251,5 +253,14 @@ def verify_chain(*, bundles: list[dict], trusted_public_key_raw: bytes,
             return result
         if position == 1 and manifest["previous_sha256"] is not None:
             return Verification("FAIL", "BLOCKED", None, {})
+        # Chains must not stitch tenants/accounts or move time backwards.
+        identity = (manifest["tenant"], manifest["region"],
+                    manifest["operator_account"], manifest["custody_account"])
+        observed = _utc(manifest["observed_at"])
+        if baseline is None:
+            baseline = identity
+        elif identity != baseline or observed <= last_observed:
+            return Verification("FAIL", "BLOCKED", None, {})
+        last_observed = observed
         previous = result.manifest_sha256
     return result
