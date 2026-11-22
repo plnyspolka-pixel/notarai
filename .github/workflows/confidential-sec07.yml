@@ -46,7 +46,7 @@ jobs:
           python -m py_compile scripts/run_nitro_attestation_e2e.py scripts/audit_nitro_denials.py scripts/prepare_nitro_witness.py scripts/check_nitro_org_separation.py scripts/check_nitro_scope.py
           python -m py_compile test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py test_confidential_nitro_cloudtrail_pacing.py test_confidential_nitro_scope_binding.py
       - name: Execute mandatory SEC-07 offline negative regressions
-        run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py
+        run: python -m pytest --noconftest -q -ra test_confidential_nitro_hardware_plan.py test_confidential_nitro_denial_matrix.py test_confidential_nitro_witness.py test_confidential_nitro_prepare_witness.py test_confidential_nitro_organization_guard.py test_confidential_nitro_cloudtrail_pacing.py test_confidential_nitro_scope_binding.py
       - name: Assert no offline fake hardware proof
         shell: bash
         run: |
