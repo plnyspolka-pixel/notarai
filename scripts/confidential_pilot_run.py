@@ -1,7 +1,7 @@
-"""Launch one ECS Nitro pilot task and verify its attested synthetic result.
+"""Launch one ECS Nitro pilot task and verify preview-only synthetic result.
 
 The task can only work on the already-queued fictional fixture.
-Run after image, policy PCR17 and CONFIDENTIAL_SANDBOX task are registered.
+Run after approved image, customer PCR policy, live v3 challenge/grant and\nCONFIDENTIAL_SANDBOX task are registered. This is not a ZOA/Bedrock audit.
 Without --apply this is a no-op plan. It NEVER submits an external form.
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ _REGION = "eu-central-1"
 _ACCOUNT = re.compile(r"\d{12}")
 _TENANT = re.compile(r"[a-z0-9]{1,12}")
 _SUBNET = re.compile(r"subnet-(?:[0-9a-f]{8}|[0-9a-f]{17})")
-_JOB = re.compile(r"[0-9a-f]{32}")
+_JOB = re.compile(r"[A-Za-z0-9_-]{1,80}")
 
 
 def aws(profile: str, args: list[str], timeout: int = 90) -> dict:
@@ -104,8 +104,8 @@ def run_pilot(*, profile: str, account: str, tenant: str, subnet: str,
         "fields_filled": 2, "submitted": False,
     }:
         raise RuntimeError("guest result is missing or invalid")
-    print("PASS: Nitro confidential task reached success with synthetic form.")
-    print("Attestation mode: CONFIDENTIAL_SANDBOX; policy: CONFIGURED")
+    print("PASS_PREVIEW_ONLY: synthetic form completed; customer attestation and negative operator-access tests remain separate required evidence.")
+    print("ECS reported CONFIDENTIAL_SANDBOX and CONFIGURED policy; this is not a hardware or cryptographic customer-release proof.")
     print("No official form was submitted.")
     return True
 
