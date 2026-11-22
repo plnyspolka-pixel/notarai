@@ -185,9 +185,14 @@ def check_cross_account_pair(workload_event: Mapping,
             workload_event.get("sharedEventID") == custody_event.get("sharedEventID") and
             workload_event.get("eventID") != custody_event.get("eventID") and
             custody_event.get("recipientAccountId") == manifest["custody_account"] and
+            custody_event.get("awsRegion") == _REGION and
+            custody_event.get("eventTime") == workload_event.get("eventTime") and
+            (custody_event.get("userIdentity") or {}).get("accountId") ==
+            manifest["workload_account"] and
+            custody_event.get("responseElements") is None and
             custody_event.get("eventSource") == "kms.amazonaws.com" and
             custody_event.get("eventName") == "Decrypt" and
-            custody_event.get("requestParameters", {}).get("keyId") ==
+            (custody_event.get("requestParameters") or {}).get("keyId") ==
             manifest["kms_key_arn"] and not custody_event.get("errorCode"),
             "independent custody-account CloudTrail counterpart missing")
 
