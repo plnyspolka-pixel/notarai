@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from confidential.nitro_witness import verify_independent_witnesses
 from confidential.nitro_denial_matrix import (
     KMS_CASES, EARLY_CASES, DenialEvidenceRejected, incomplete_audit_result,
     inspect_early_denial_receipt, inspect_altered_image_ecs,
@@ -132,6 +133,13 @@ def main() -> int:
     parser.add_argument("--custody-profile")
     parser.add_argument("--altered-image-receipt")
     parser.add_argument("--unsigned-release-receipt")
+    parser.add_argument("--witness-payload")
+    parser.add_argument("--custodian-witness-signature")
+    parser.add_argument("--custodian-witness-public-key")
+    parser.add_argument("--custodian-witness-public-key-sha256")
+    parser.add_argument("--auditor-witness-signature")
+    parser.add_argument("--auditor-witness-public-key")
+    parser.add_argument("--auditor-witness-public-key-sha256")
     args = parser.parse_args()
     try:
         matrix = validate_matrix(_read_json(args.matrix)) if args.matrix else None
@@ -151,6 +159,44 @@ def main() -> int:
                 "unsigned_release": _read_json(args.unsigned_release_receipt),
             },
         )
+        witness_inputs = (
+            args.witness_payload,
+            args.custodian_witness_signature,
+            args.custodian_witness_public_key,
+            args.custodian_witness_public_key_sha256,
+            args.auditor_witness_signature,
+            args.auditor_witness_public_key,
+            args.auditor_witness_public_key_sha256,
+        )
+        if any(witness_inputs):
+            if not all(witness_inputs):
+                raise DenialEvidenceRejected("both independently pinned witness signatures required")
+            witness = verify_independent_witnesses(
+                payload=_read_json(args.witness_payload), matrix=matrix,
+                custodian_signature_b64=Path(args.custodian_witness_signature)
+                    .read_text(encoding="ascii").strip(),
+                custodian_public_key_pem=Path(args.custodian_witness_public_key)
+                    .read_bytes(),
+                custodian_public_key_sha256=args.custodian_witness_public_key_sha256,
+                auditor_signature_b64=Path(args.auditor_witness_signature)
+                    .read_text(encoding="ascii").strip(),
+                auditor_public_key_pem=Path(args.auditor_witness_public_key)
+                    .read_bytes(),
+                auditor_public_key_sha256=args.auditor_witness_public_key_sha256,
+            )
+            result["witness_signatures_verified"] = witness["witness_signatures_verified"]
+            result["witness_sha256"] = witness["witness_sha256"]
+            result["custodian_public_key_sha256"] = witness["custodian_public_key_sha256"]
+            result["auditor_public_key_sha256"] = witness["auditor_public_key_sha256"]
+        else:
+            result["witness_signatures_verified"] = False
+        # A signed matrix remains BLOCKED: negative cloud evidence cannot
+        # independently prove all attempted attack preconditions or operator
+        # non-administration of the custody/signing account.
+        result["hardware_attestation_verified"] = False
+        result["negative_cases_independently_verified"] = False
+        result["production_enabled"] = False
+        result["status"] = "BLOCKED"
         print(json.dumps(result, indent=2, sort_keys=True))
         return 2
     except Exception:
