@@ -50,3 +50,6 @@ Klucz kancelarii nie jest wymienny z logowaniem: WebAuthn/QES może potwierdzać
 - Hardware + izolacja + egress + backup/restore i dokumentacja: **kandydat do kontrolowanego pilota z danymi rzeczywistymi**, po adekwatnym audycie i ocenie prawnej.
 - Dopiero niezależnie potwierdzony zakres i #78: **go-to-market z precyzyjnymi claimami**. Nie nazywać „Zero Knowledge” formalnym ZKP ani całego NotarAI pełnym ZOA, jeśli Windows/AI wykracza poza granice.
 
+
+## Instrukcje dla Opus i gotowe OSS (obowiązkowe)
+[**CIV-OSS-OPUS-reuse-playbook.md**](./CIV-OSS-OPUS-reuse-playbook.md) zawiera zweryfikowane repozytoria, pliki źródłowe i licencje, istniejące komponenty NotarAI, mikrofragmenty integracji i gotowy kontrakt sesji. Wszystkie planowane PR #88–#91 i istniejące #66/#69/#72–#78/#63/#64 mają własny rozdział `OPUS — INSTRUKCJA WYKONAWCZA I REUSE OSS` w opisach PR. **Zadania implementacyjne są nadal Draft; dopisanie instrukcji nie oznacza ukończenia kodu.**
