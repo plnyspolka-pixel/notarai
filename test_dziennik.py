@@ -151,3 +151,13 @@ def test_unhandled_http_exception_does_not_log_untrusted_url_path(caplog):
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "/api/sprawy/{case_id}" in messages
     assert PESEL not in messages
+
+
+def test_bedrock_malicious_aws_error_code_is_not_reflected():
+    import bedrock
+    raw_code = "Unsafe" + PESEL
+    error = ClientError({"Error": {"Code": raw_code, "Message": "failed"}}, "Converse")
+    description = bedrock.opis_bledu(error)
+    assert raw_code not in description
+    assert PESEL not in description
+    assert bedrock._kod_bledu(error) == ""
