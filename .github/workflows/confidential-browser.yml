@@ -15,6 +15,7 @@ on:
       - 'scripts/package_confidential_dispatch.py'
       - 'scripts/verify_confidential_private_network.py'
       - 'scripts/verify_confidential_shared_fabric.py'
+      - 'scripts/verify_confidential_tenant_isolation.py'
       - 'scripts/verify_confidential_operator_boundary.py'
       - 'scripts/verify_confidential_release.py'
       - 'scripts/custodian_sign_confidential_release.py'
@@ -77,6 +78,10 @@ jobs:
         run: |
           python scripts/verify_confidential_shared_fabric.py --help >/dev/null
           python scripts/render_confidential_shared_capacity.py --help >/dev/null
+      - name: SEC-09 tenant isolation (zero AWS calls)
+        run: |
+          python scripts/verify_confidential_tenant_isolation.py --help >/dev/null
+          python scripts/verify_confidential_tenant_isolation.py
       - name: Weryfikator niezaleznego kustosza klucza (offline)
         run: python scripts/verify_confidential_operator_boundary.py --help >/dev/null
       - name: Kontrola podpisow niezaleznego kustosza (bez AWS)
@@ -90,7 +95,7 @@ jobs:
       - name: Przeglądarka Chromium
         run: python -m playwright install --with-deps chromium
       - name: Testy kryptografii, formularzy i szablonów AWS
-        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py
+        run: python -m pytest -q test_confidential.py test_confidential_worker.py test_confidential_interop.py test_confidential_infra.py test_confidential_preflight.py test_confidential_dispatch.py test_confidential_approval.py test_confidential_auto.py test_confidential_egress.py test_confidential_job_ledger.py test_confidential_audit.py test_confidential_shared_fabric.py test_confidential_operator_boundary.py test_confidential_release_approval.py test_confidential_custody_launch.py test_confidential_cross_tenant_isolation.py
       - name: Kontrola JS trybu AUTO (bez połączeń zewnętrznych)
         run: |
           node --check static/confidential-auto.js
