@@ -62,9 +62,9 @@ def fixtures():
         for ei, required in enumerate(claim["required_evidence"]):
             payload = {
                 "schema": "notarai.security-evidence.v1",
-                "evidence_id": hashlib.md5(
+                "evidence_id": hashlib.sha256(
                     (claim["id"] + required["id"]).encode()
-                ).hexdigest(),  # synthetic unique receipt id, not a signature
+                ).hexdigest()[:32],  # synthetic unique ID; not a signature
                 "claim_id": claim["id"],
                 "evidence_type": required["id"],
                 "evidence_owner": required["owner"],
