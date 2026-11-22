@@ -20,6 +20,7 @@ from confidential.nitro_hardware_proof import (
     ProofRejected, assemble_audit_payload, blocked_result,
     canonical_bytes, evidence_sha256, validate_manifest,
 )
+from confidential.cloudtrail_readonly import PacedCloudTrail
 from confidential.release_approval import public_key_fingerprint
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -151,8 +152,8 @@ def verify_live(*, manifest: dict, operator_profile: str, custody_profile: str,
     end = datetime.strptime(manifest["ended_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=timezone.utc,
     ) + timedelta(minutes=2)
-    workload_trail = operator.client("cloudtrail")
-    custody_trail = custody.client("cloudtrail")
+    workload_trail = PacedCloudTrail(operator.client("cloudtrail"))
+    custody_trail = PacedCloudTrail(custody.client("cloudtrail"))
     ids = [manifest["positive_event_id"], *manifest["denied_event_ids"].values()]
     events = {event_id: _event(workload_trail, event_id, start, end)
               for event_id in ids}
