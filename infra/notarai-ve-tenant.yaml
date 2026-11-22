@@ -32,6 +32,8 @@ Parameters:
     Type: String
   SharedPayloadBucketName:
     Type: String
+  SharedSettingsTableArn:
+    Type: String
   AppTaskRoleArn:
     Type: String
     Description: Existing NotarAI ECS task role allowed to assume TenantControllerRole.
@@ -118,6 +120,17 @@ Resources:
                   ForAllValues:StringEquals:
                     dynamodb:LeadingKeys:
                       - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: TenantSettingsControlOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource:
+                  Ref: SharedSettingsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
               - Sid: TenantQueueProducerOnly
                 Effect: Allow
                 Action:
@@ -162,6 +175,16 @@ Resources:
                   - dynamodb:UpdateItem
                 Resource:
                   Ref: SharedJobsTableArn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - Fn::Sub: 'TENANT#${TenantTechnicalId}'
+              - Sid: ReadTenantSettingsOnly
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource:
+                  Ref: SharedSettingsTableArn
                 Condition:
                   ForAllValues:StringEquals:
                     dynamodb:LeadingKeys:
