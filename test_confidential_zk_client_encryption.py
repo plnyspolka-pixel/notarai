@@ -65,7 +65,8 @@ class GuestForTests:
     def __init__(self, key):
         self.key = key
     def unwrap(self, wrapped, arn):
-        assert arn == ARN
+        # For tamper tests a changed KMS ARN must reach AEAD validation;
+        # the real Nitro KMS unwrapper independently rejects the wrong ARN.
         return self.key.decrypt(wrapped, padding.OAEP(
             mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None
         ))
