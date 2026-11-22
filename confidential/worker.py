@@ -28,6 +28,8 @@ def _config() -> tuple[str, str, str, str]:
     bucket = os.environ["NOTARAI_CONFIDENTIAL_BUCKET"]
     queue = os.environ["NOTARAI_CONFIDENTIAL_QUEUE_URL"]
     key = os.environ["NOTARAI_CONFIDENTIAL_KMS_KEY_ARN"]
+    if tenant not in ("pilot01", "pilot02"):
+        raise RuntimeError("only synthetic pilot tenants are authorized")
     if not _ID.fullmatch(tenant) or not key.startswith("arn:aws:kms:eu-"):
         raise RuntimeError("invalid confidential task configuration")
     if not queue.startswith("https://sqs.eu-") or not bucket:
