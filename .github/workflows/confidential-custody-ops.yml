@@ -12,12 +12,14 @@ on:
       - "scripts/verify_confidential_custody_independence.py"
       - "scripts/verify_confidential_custody_kms.py"
       - "scripts/audit_confidential_custody_all_keys.py"
+      - "scripts/verify_confidential_tenant_history_isolation.py"
       - "scripts/custodian_sign_confidential_operation.py"
       - "scripts/plan_confidential_custody_operation.py"
       - "scripts/prepare_confidential_custody_onboarding.py"
       - "test_confidential_independent_custody_ops.py"
       - "test_confidential_custody_kms_readonly.py"
       - "test_confidential_custody_all_keys.py"
+      - "test_confidential_tenant_history_isolation.py"
       - "test_confidential_custody_cas.py"
       - "test_confidential_custody_history.py"
       - "test_confidential_custody_ledger_export.py"
@@ -49,7 +51,7 @@ jobs:
       - name: Install offline dependencies only
         run: python -m pip install pytest==8.3.4 cryptography PyYAML boto3
       - name: Compile independent custody modules
-        run: python -m py_compile confidential/custody_ops.py confidential/custody_cas.py confidential/custody_history.py scripts/verify_confidential_custody_independence.py scripts/verify_confidential_custody_kms.py scripts/audit_confidential_custody_all_keys.py scripts/export_confidential_custody_ledger.py scripts/probe_confidential_operator_kms_denial.py scripts/custodian_sign_confidential_operation.py scripts/plan_confidential_custody_operation.py scripts/prepare_confidential_custody_onboarding.py test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_all_keys.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_custody_ledger_export.py test_confidential_kms_denial_probe.py
+        run: python -m py_compile confidential/custody_ops.py confidential/custody_cas.py confidential/custody_history.py scripts/verify_confidential_custody_independence.py scripts/verify_confidential_custody_kms.py scripts/audit_confidential_custody_all_keys.py scripts/verify_confidential_tenant_history_isolation.py scripts/export_confidential_custody_ledger.py scripts/probe_confidential_operator_kms_denial.py scripts/custodian_sign_confidential_operation.py scripts/plan_confidential_custody_operation.py scripts/prepare_confidential_custody_onboarding.py test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_all_keys.py test_confidential_tenant_history_isolation.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_custody_ledger_export.py test_confidential_kms_denial_probe.py
       - name: Check synthetic custody tests and legacy KMS boundary
         run: python -m pytest -q --noconftest test_confidential_independent_custody_ops.py test_confidential_custody_kms_readonly.py test_confidential_custody_cas.py test_confidential_custody_history.py test_confidential_custody_ledger_export.py test_confidential_kms_denial_probe.py test_confidential_operator_boundary.py
       - name: Independent custody KMS signer CLI (must require explicit approval)
@@ -59,6 +61,7 @@ jobs:
           python scripts/prepare_confidential_custody_onboarding.py --help > /dev/null
           python scripts/verify_confidential_custody_kms.py --help > /dev/null
           python scripts/audit_confidential_custody_all_keys.py --help > /dev/null
+          python scripts/verify_confidential_tenant_history_isolation.py --help > /dev/null
           python confidential/custody_cas.py --help > /dev/null
           python confidential/custody_history.py --help > /dev/null
           python scripts/export_confidential_custody_ledger.py --help > /dev/null
