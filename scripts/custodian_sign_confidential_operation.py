@@ -48,7 +48,7 @@ def _validate_intent(payload: dict, state: dict | None, now: datetime) -> str:
             raise BoundaryDenied("new enrollment requires full custody binding")
         proposed = validate_state({
             **payload["changes"], "schema": "notarai.confidential.custody-state.v1",
-            "generation": 1, "revision": 1, "state": "ACTIVE"})
+            "generation": 1, "revision": 1, "state": "FROZEN"})
         if payload["tenant"] != proposed["tenant"]:
             raise BoundaryDenied("custodian enrollment tenant mismatch")
         return proposed["signing_key_arn"]
