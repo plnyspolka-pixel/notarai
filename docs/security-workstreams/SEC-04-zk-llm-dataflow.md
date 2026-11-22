@@ -9,10 +9,21 @@
 3. Wprowadź gateway polityki AI: pinned model/provider, region UE, allowlist operacji, data minimization, zerowy logging treści, osobne zgody gdy wymagane. Nie dopuszczaj fallbacku do publicznego API.
 4. Przetestuj negatywne scenariusze prompt injection, ukryte URL/requests, egress do niezatwierdzonego dostawcy, retencję w logs/traces, eksfiltrację poprzez odpowiedzi modelu.
 
-## Kryteria odbioru
-- [ ] Maszynowo egzekwowana polityka 'plaintext stays in enclave' albo jawna odmowa ZK.
-- [ ] Testy ujawnienia danych przez model, logi, podwykonawcę i zmieniony provider.
-- [ ] Raport czego brakuje do confidential inference, zamiast deklarowania, że zwykły Bedrock = ZK.
+## Mierzalne kryteria zakończenia — SEC-04
+
+- [ ] **K1.** **Mapa 100% tras AI:** spisane wszystkie miejsca wywołania Bedrock, zewnętrznego LLM, embedding, OCR, cache, log/tracing; każda trasa ma region, klasę danych, providera, retencję i właściciela.
+- [ ] **K2.** **Domyślna odmowa:** 0 wywołań modelu z plaintext poza zatwierdzoną granicą; test przechwytuje klienta AI i blokuje brak polityki. Bedrock poza Nitro jest osobnym trust boundary, nie ścisłym ZK.
+- [ ] **K3.** **6 testów negatywnych:** zmiana modelu, region poza UE, publiczny endpoint, prompt-injection URL, output zawierający fikcyjne dane sprawy i trace/log z PII — odmowa albo jawne `UNVERIFIED` ZK.
+- [ ] **K4.** **AI fallback:** timeout lub błąd Bedrock nie przełącza modelu na publiczne API; wymagane 2 negatywne testy.
+- [ ] **K5.** **Retencja i telemetry:** dla każdej ścieżki określona retencja/podprocesorzy i brak dokumentów w logach/traces; brak dowodu retencji = `BLOCKED`.
+- [ ] **K6.** **Granica ZK:** test odmawia strict Zero Knowledge, jeśli inference ujawnia plaintext usłudze nieatestowanej; wskazany wariant confidential inference wymagający odrębnego dowodu.
+
+**Docelowy test do dodania:** `python -m pytest -q test_confidential_zk_ai_boundary.py` — 0 failed i 0 pominiętych testów krytycznych.
+
+### Wspólny warunek zamknięcia
+- [ ] Zielone CI dla aktualnego HEAD SHA; komenda, liczba `passed/failed/skipped`, dowód w `docs/security-evidence/SEC-04.md` (lub artefakcie CI).
+- [ ] Każdy K1–K6 ma link do testu lub dowodu, datę, właściciela i `PASS/FAIL/BLOCKED`. Brak prawdziwego AWS = `BLOCKED`, nie `PASS`.
+- [ ] Zero PII/plaintext/DEK w artefaktach, zero zmiany AUTO no-submit. CI nie ustanawia `Zero Knowledge verified`.
 
 ## Zasady pracy w nowej konwersacji
 To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działającego dowodu. Nowa konwersacja ma zrealizować zadanie na **tej konkretnej gałęzi PR**, nie zakładać kolejnego zbędnego PR. Najpierw przeczytaj kod i aktualny stan #57, #60, #61, #62, #65 oraz sprawdź ich SHA. Nie edytuj cudzych gałęzi i nie scalać bez integracyjnego przeglądu.
