@@ -156,7 +156,7 @@ def test_failed_independent_release_blocks_aws_run_task(monkeypatch, tmp_path):
         },
     }
     monkeypatch.setattr(runner, "outputs", lambda profile, stack: outputs[stack])
-    monkeypatch.setattr(runner, "_verified_pcr17", lambda profile, task: PCR)
+    monkeypatch.setattr(runner, "_verified_pcr17", lambda profile, task, attestation_dir=None: PCR)
     aws_calls = []
 
     def fake_aws(profile, args, **kw):
