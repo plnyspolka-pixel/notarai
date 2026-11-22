@@ -12,6 +12,7 @@ No client documents, secrets, real URLs or screenshots were accessed.
 - `confidential/form_engine.py`: attaches interception before `goto`; always
   locks in a finally block before form fill; rejects same-origin redirects to
   non-pinned paths. WebSockets remain disabled by the original context control.
+- `scripts/probe_confidential_adversarial_browser.py`: hostile HTML/JS runs in real local Chromium with synthetic GET-query, POST, image, beacon and requestSubmit exfil attempts. Zero collector hits required; this is not a Nitro proof.
 - `test_confidential_egress_adversarial.py`: synthetic positive/negative
   requests for GET query, POST, redirect, custom headers, DNS-based names,
   IPv6 literals, S3 URL, model-output URL, metadata, URL path, GET body and
