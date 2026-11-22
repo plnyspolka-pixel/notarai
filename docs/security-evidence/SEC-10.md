@@ -266,6 +266,37 @@ Decision matrix:
 - **Legal hold:** retain ciphertext/records according to legal obligation,
   but does not grant anyone plaintext access by itself.
 
+### K5a — static KMS key-policy risk screen (NO effective-IAM claim)
+
+`confidential/kms_policy_screen.py` now classifies independently supplied
+JSON key-policy metadata without making AWS calls. It recognizes exact
+`kms:Decrypt` allows conditioned on `kms:RecipientAttestation:PCR17`,
+`kms:RecipientAttestation:PCR8:ServiceName=ecs.amazonaws.com`, and the
+expected `aws:PrincipalArn`. It separately flags potentially unscoped
+decrypt paths (including `kms:*`/`kms:Dec*`), key-policy changes,
+`kms:CreateGrant`, key disable/deletion privileges and ambiguous IAM
+`NotAction`/`NotPrincipal` constructs.
+
+It is deliberately conservative: a `Deny` statement does not cause
+an unscoped `Allow` to be marked safe by this heuristic. Every assessment
+still reports `BLOCKED_PENDING_INDEPENDENT_KMS_REVIEW`,
+`zero_operator_access_verified=False`, and independent IAM, SCP,
+KMS-grant, key-admin/change-control and account ownership gaps.
+
+The staging key template
+`infra/notarai-confidential-demo-kms.yaml` explicitly documents that
+the KMS key is **AWS-account administered**; `kms:Put*` or
+`kms:CreateGrant` from an administrator is a relevant change path, even
+when application decryption is PCR-gated. This is not a verified
+Zero Operator Access key until the custodian and all effective
+permissions have been independently audited.
+
+Run `python -m pytest -q test_confidential_kms_policy_screen.py`.
+AWS KMS requires an external attestation verifier, not merely a
+recorded PCR value:
+- https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-security-model.html
+- https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
+
 Recovery end-to-end remains **BLOCKED** until independent signed proofs and
 live negative tests are integrated. This branch intentionally adds no recovery
 endpoint or privileged decrypt fallback.
@@ -344,7 +375,7 @@ For source SHA `b7ec356bc7c7295144d9b2edeb1bf457a339ed95`, the following GitHub 
 | K2 six synthetic scenarios | PASS (offline synthetic scope only) | Engineering / CI | 66/66 tests passed on `b7ec356b`; Linux read-only/tmpfs smoke passed. [SEC-10 CI run 44984108781](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108781). No live Nitro, AWS retention or hardware crash proof; K3/K6 remain blocked |
 | K3 no persistent plaintext | BLOCKED | AWS operations | Static controls exist; actual guest/S3/snapshots audit missing |
 | K4 legally approved exact retention | BLOCKED | Controller / counsel / AWS | Triple-signature offline verifier added, but independent pinned live keys, signed legal schedule, CloudTrail/LLM/PITR evidence, replay ledger, signer revocation and legal approvals missing |
-| K5 recovery without operator backdoor | BLOCKED | Independent custodian | Negative static tests added; actual signed recovery/revocation not proven |
+| K5 recovery without operator backdoor | BLOCKED | Independent custodian | New KMS key-policy risk screen flags missing PCR17/PCR8 gates, alternative decrypt, key-admin and grant paths; effective IAM/SCP/KMS grants, independent custody, live recovery/revocation unverified |
 | K6 live Nitro evidence | BLOCKED | Independent auditor | Requires approved AWS test; not run here |
 
 **Gate:** draft remains open until K1–K6 are all PASS, current commit CI is
