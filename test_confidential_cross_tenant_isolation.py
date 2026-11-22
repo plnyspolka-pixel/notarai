@@ -81,6 +81,7 @@ def test_K3_worker_rejects_foreign_queue(value):
         validate_worker_binding(
             tenant="pilot01", bucket="fictional-bucket",
             queue_url=value, kms_key_arn=pilot("pilot01").kms_key_arn,
+            expected_account=ACCOUNT,
         )
 
 
