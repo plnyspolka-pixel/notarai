@@ -84,3 +84,42 @@ public-key fingerprint, event schema, time, state hash and monotonic revision,
 then calls KMS Sign. It NEVER calls KMS Decrypt, PutKeyPolicy or CreateGrant.
 The actual policy update, grant inventory and independent ledger remain
 separate controlled actions. Do not place output receipts in GitHub/CI.
+
+
+## Offline custody change-package generator (added in PR #71)
+
+For an independently approved and previously stored fictional custody state:
+
+    python scripts/plan_confidential_custody_operation.py \
+      --state /secure/pilot01-state.json --action FREEZE \
+      --output /secure/pilot01-freeze-plan.json
+
+The resulting package is NOT authorization. It contains an unsigned
+tenant-bound event, previous-state SHA256, next revision, expected
+post-state digest, proposed KMS key policy hash and a mandatory independent
+CAS/policy-apply checklist. It has aws_calls=0, authorized_for_decrypt=false,
+kms_policy_write_performed=false. A package cannot be passed directly to
+the signed-event reducer as an approval.
+
+For a new enrollment (pilot01/pilot02), independently review a JSON
+object containing exactly the identity/binding fields listed in
+confidential/custody_ops.py (_IDENTITY_FIELDS). Then invoke the planner with
+--action ENROLL --tenant pilot01 --changes /secure/pilot01-binding.json.
+For ROTATE, use --state, --changes containing ALL _ROTATION_FIELDS, and
+a previously frozen state. After independent KMS policy application, require a
+separately signed UNFREEZE.
+
+The custodian signer CLI accepts the unsigned_event_payload object,
+NOT the entire plan JSON. Extraction and policy change require the external
+custodian's review. Do not publish the plan as an AWS/zero-operator proof.
+
+## Trust-graph discovery tightened
+
+Read-only Organizations/IAM scanner now treats any WebIdentity/SAML
+(Federated) role trust, custom Service trust, a foreign AWS account principal,
+unreviewed trust action or incomplete role pagination as BLOCKED, even when
+the custody and workload account IDs differ. This specifically prevents a
+NotarAI-controlled GitHub OIDC trust in the custody account from being
+misrepresented as independent custody. AWS-managed service-linked roles can
+pass the limited static filter; ownership and permission checks still need
+a separate independent assessor and never become VERIFIED automatically.
