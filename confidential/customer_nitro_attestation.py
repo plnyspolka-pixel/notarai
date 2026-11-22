@@ -163,7 +163,7 @@ def _verify_with_pinned_root(
             if envelope.tag != 18:
                 _deny()
             envelope = envelope.value
-        if not isinstance(envelope, list) or len(envelope) != 4:
+        if not isinstance(envelope, (tuple, list)) or len(envelope) != 4:
             _deny()
         protected, unprotected, payload, signature = envelope
         if (type(protected) is not bytes or type(unprotected) is not dict
