@@ -85,10 +85,11 @@
 
   async function queuePreview(caseId, objectId) {
     await loadPolicy(); // re-check policy before every action; never trust stale state
-    const path = '/api/confidential/preview/' +
+    // Construct the relative same-origin URL directly at the fetch call.
+    // SEC-04 audit rejects dynamic fetch destinations in this client.
+    const response = await fetch('/api/confidential/preview/' +
       encodeURIComponent(validId(caseId)) + '/' +
-      encodeURIComponent(validId(objectId)) + '?mode=auto';
-    const response = await fetch(path, {
+      encodeURIComponent(validId(objectId)) + '?mode=auto', {
       method: 'POST', credentials: 'same-origin', cache: 'no-store',
       headers: {Accept: 'application/json'}
       // No body. No submit, sign, or approval parameters.

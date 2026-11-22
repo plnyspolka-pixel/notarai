@@ -191,3 +191,15 @@ Each queue/status action reloads the security policy so revoked capabilities
 do not rely on a stale in-memory response. Offline Node tests cover
 type confusion, additional fields, stage escalation and revocation.
 The authenticated backend remains authoritative.
+
+
+## Direct same-origin fetch policy for confidential client
+SEC-04 static audit now denies any fetch target in
+`static/confidential*.js` unless the call begins with a literal
+`/api/confidential/` path. The AUTO client no longer calls
+`fetch(path)` with a dynamically assembled target; it concatenates
+validated identifiers onto a static same-origin prefix at the
+call site. Negative tests reject variable, external and unrelated-path
+destinations. This prevents a class of accidental or malicious dynamic
+egress paths, but source-string scanning is not a full JS AST and is
+not substitute for CSP/browser network tests or independent egress proof.

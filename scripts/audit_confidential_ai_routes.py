@@ -81,6 +81,12 @@ _JS_NETWORK = re.compile(
     r"\b(?:fetch|WebSocket|XMLHttpRequest|EventSource|WebTransport|sendBeacon)\s*\("
 )
 _JS_RISKS = (
+    # Any variable/unknown fetch destination, or a literal outside the
+    # confidential same-origin API prefix, is denied by the CI source gate.
+    # This is a conservative static policy; runtime network verification
+    # is still required for K1/K2.
+    ("js-risk-untrusted-fetch", re.compile(
+        r"\b(?:window\.)?fetch\s*\(\s*(?!['\"\x60]/api/confidential/)")),
     ("js-risk-absolute-fetch", re.compile(
         r"\b(?:window\.)?fetch\s*\(\s*['\"\x60](?:https?:)?//")),
     ("js-risk-websocket", re.compile(r"\b(?:new\s+)?WebSocket\s*\(")),

