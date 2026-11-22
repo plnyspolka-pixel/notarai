@@ -1,0 +1,97 @@
+# SEC-04 evidence: NotarAI AI/LLM trust boundary
+
+Date: 2026-11-22 UTC. Scope: PR #69, synthetic-only, eu-central-1.
+Owner: NotarAI SEC-04 implementer. State: **INCOMPLETE / DRAFT**.
+Current head SHA: see PR #69 (branch advances during implementation).
+No AWS deployment, customer data, new IAM permissions or production inference were used.
+
+## Observable changes
+
+- `confidential/ai_boundary.py`: explicit pinned provider/model/region/operation,
+  separate external-processing and retention evidence gates, schema-only
+  operator output and telemetry. All decisions involving non-attested inference
+  have `zk_status=UNVERIFIED`; missing policy denies.
+- `bedrock.py`: before any `converse_stream`, confidential runtime
+  `NOTARAI_CONFIDENTIAL_REQUIRED=1` denies Bedrock network requests.
+  Legacy Bedrock remains a separate, externally processed, **non-ZK** feature.
+  Upstream cache error text is no longer logged.
+- `scripts/audit_confidential_ai_routes.py`: full-repository **Python static**
+  call-site scan; new AI/HTTP direct usage inside `confidential/` fails CI.
+  The scan does not capture JS, native binaries, indirect imports, dynamic
+  reflection or actual data retention. It is not a 100%-complete dataflow proof.
+- `test_confidential_zk_ai_boundary.py`: offline tests for boundary,
+  adversarial changes, injections, no fallback and output/trace minimization.
+- `.github/workflows/ci.yml` and `confidential-browser.yml`: checks added.
+
+## Dataflow inventory (verified by code reading, not by traffic capture)
+
+| Route | Code entry and sink | Plaintext exposure | Region / subprocessors | Retention / evidence | Boundary status |
+|---|---|---|---|---|---|
+| LEGACY-01 | `app.py` -> `bedrock.py` -> AWS `bedrock-runtime` ConverseStream | App process, AWS Bedrock inference; scanned page images, extracted text, draft/QA/form data | `config.REGION`, default `eu-central-1`; AWS and selected model provider | Bedrock prompt `cachePoint` exists; runtime retention and independent subprocessor evidence not in this PR | **ZK UNVERIFIED** |
+| LEGACY-02 | `bedrock.py` -> Bedrock prompt caching and numeric token metrics `tokenomia.py` | Model-side cached prompt prefix may contain template, context or case data; app logs numeric usage | Bedrock via default EU profile | Specific cache TTL noted in `docs/cache-promptu.md`; independent deletion/retention audit missing | **BLOCKED** |
+| LEGACY-03 | `transkrypcja.py` -> local faster-whisper | Audio plaintext on host CPU and temporary file (unlinked after job) | Local host, download origin of model not independently checked | Temporary file deletion in code; host swap/backup/telemetry evidence missing | **ZK UNVERIFIED** |
+| PILOT-01 | `confidential/router.py` -> S3 ciphertext -> `confidential/worker.py` -> Nitro demo form | Decryption only in intended Nitro worker; no inference in current guest | `eu-central-1` pilot AWS KMS / S3 / SQS | Hardware, independent custodian and complete AWS logs require SEC-07/SEC-11 proof | **BLOCKED** |
+| EXP-01 | `tools/agent_factory/forge_llm.py` -> loopback Chat Completions | Synthetic integer-only fixtures, not customer docs | Local 127.0.0.1; location of remote GPU behind any tunnel not provable | Local SQLite metrics; test data only | **NOT ZK CLAIMED** |
+| EXP-02 | `tools/agent_factory/salad_vllm.py` -> external Salad GPU | Explicitly public repo/synthetic code only; never case data | External provider, outside EU possible | Provider logs/retention not established | **DO NOT SEND CUSTOMER DATA** |
+| OCR-01 | `bedrock.py` scanned page/image transcription; `dokumenty.py` local preparation | Original scans in app prior to Bedrock; remote model sees page content | Bedrock EU profile, not attested enclave | Same as LEGACY-01 | **ZK UNVERIFIED** |
+| EMB-01 | No production embedding adapter confirmed in inspected files | Unknown until complete runtime inventory | Unknown | Unknown | **BLOCKED** |
+| LOG-01 | `app.py`, `bedrock.py`, `pomocnik/klient.py`, `tokenomia.py` logs/metrics | String IDs and some exception paths exist; no blanket no-PII assurance | Application/CloudWatch/etc. need runtime inspection | Log retention/permissions unverified | **BLOCKED** |
+
+This inventory is an audited starting point, NOT proof that every possible
+dynamic source/sink has been catalogued. `K1` needs independent review of
+JS/browser/UI, SDK wrapping, OCR services, support tools, traces and live
+network flows, plus a signed snapshot of the dependency graph. No fabricated
+"100% scanned" claim.
+
+## Threat model and controls
+
+**Attacker:** NotarAI web/backend operator, a compromised host, malicious
+document/prompt, a changed model or endpoint, bad log config, public API
+fallback, and an unapproved processor. Trust roots include independent
+custodian, pinned image/release, Nitro hardware attestation and evidence
+external to the operator AWS account. These are **not yet proven here**.
+
+- An untrusted web backend cannot be declared Zero Knowledge merely because
+  its AWS Bedrock model is in the EU.
+- `NOTARAI_CONFIDENTIAL_REQUIRED=1` is a defense-in-depth guard, **not**
+  a proof that every confidential request stays inside Nitro. A malicious
+  operator may alter the backend, environment or release until independent
+  attestation, custody and release verification are enforced.
+- A model output is never trusted to choose a URL, tool, signature or submit.
+  The operator-result schema only accepts preview metadata. Synthetic canary
+  tests cannot establish absence of all PII exfiltration in production.
+- No strict ZK hardware-pass can be produced by the policy module or mocks.
+  Running an LLM *inside* Nitro with externally attested image/model and
+  reproducible I/O policy would require separate SEC-07 validation.
+
+## Acceptance matrix
+
+| Criterion | Status | Evidence / next proof |
+|---|---|---|
+| K1: 100% AI routes | **BLOCKED** | Python call-site script and initial table; add JS/native/dynamic/network inventory and independent review |
+| K2: no unapproved plaintext | **BLOCKED** | `test_k2_*` deny tests and real dispatch guard; missing live flow trace and independent hardware boundary verification |
+| K3: six negative attacks | **UNVERIFIED** | `test_k3_*`, output and telemetry checks added; requires green CI on final SHA and adversarial network evidence |
+| K4: two fallback denials | **UNVERIFIED** | `test_k4_*`; no separate public API fallback in `bedrock.py`; actual live timeout/egress not captured |
+| K5: retention and subprocessors | **BLOCKED** | Missing independent processor/retention documentation, CloudWatch trace capture and signed deletion proof |
+| K6: strict ZK refusal outside Nitro | **BLOCKED** | `test_k6_*`; true Nitro model-inference evidence not available, SEC-07 required |
+
+Target local command: `python -m pytest -q test_confidential_zk_ai_boundary.py`.
+Additional route gate: `python scripts/audit_confidential_ai_routes.py --json`.
+**No local/CI test results are represented as executed in this report.**
+Update only after obtaining actual GitHub Actions run, exact SHA, and
+passed/failed/skipped counts.
+
+Completion requires K1-K6 all PASS with verifiable evidence, 0 FAIL /
+BLOCKED / UNVERIFIED, and green CI for the exact final head SHA. Until then
+PR #69 stays **DRAFT** and `zero_knowledge_verified` is **false**.
+
+## Dependencies inspected (2026-11-22)
+
+- #57 `d2129a8a39ad2855aee9d1c1b5f0ba9d70881cdc`, open;
+- #60 `44aa2877d31a2023b5732a1b5c1a19f1a7205685`, open;
+- #61 `4c68c3a1b9a29f5e94f23429a9b8aa37a9c48d51`, open;
+- #62 `d68532df0b77e959d4dbb2724d35e319d418880d`, open;
+- #65 `d46e4896fcd0e2cd49295afdc5fd34933db0c68e`, open.
+- #69 is based on #65, independently of the concurrent SEC-03 branch #68.
+
+No AUTO submit, signing, filing or portal access was added.
