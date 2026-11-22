@@ -209,8 +209,8 @@ def test_local_seal_cli_outputs_only_ciphertext_and_never_overwrites(tmp_path, f
     assert main(args) == 1
     assert output.read_bytes() == stored
     bad = tmp_path / "bad.json"
-    assert main(args[:-4] + [
-        "--object-id", "../other", "--document-version", "a" * 32,
-        "--output", str(bad),
-    ]) == 1
+    invalid = args.copy()
+    invalid[invalid.index("--object-id") + 1] = "../other"
+    invalid[invalid.index("--output") + 1] = str(bad)
+    assert main(invalid) == 1
     assert not bad.exists()
