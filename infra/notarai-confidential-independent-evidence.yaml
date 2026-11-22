@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SEC-11 external-custodian-only evidence WORM bucket (synthetic pilot).
+  Deploy ONLY in an independent custody account, never NotarAI operator account.
+Parameters:
+  OperatorAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+    Description: Existing NotarAI operator account, denied all bucket actions
+  PilotAcknowledgement:
+    Type: String
+    AllowedValues: ["independent-custody-account-synthetic-only"]
+  RetentionDays:
+    Type: Number
+    Default: 365
+    MinValue: 30
+    MaxValue: 3650
+    Description: >-
+      EXAMPLE synthetic WORM retention, not a legal retention determination.
+      Custodian and counsel must approve before deployment.
+Rules:
+  CustodyAccountMustBeSeparate:
+    Assertions:
+      - Assert: !Not [!Equals [!Ref OperatorAccountId, !Ref "AWS::AccountId"]]
+        AssertDescription: Independent evidence storage cannot use operator AWS account
+Resources:
+  IndependentEvidenceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "notarai-sec11-custody-\${AWS::AccountId}-\${AWS::Region}"
+      ObjectLockEnabled: true
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention:
+            Mode: COMPLIANCE
+            Days: !Ref RetentionDays
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: SecurityWorkstream
+          Value: SEC-11
+        - Key: DataClassification
+          Value: SyntheticSignedMetadataOnly
+        - Key: CustodyControl
+          Value: IndependentWORM
+  CustodyBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref IndependentEvidenceBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyAllOperatorAccountAccess
+            Effect: Deny
+            Principal:
+              AWS: !Sub "arn:aws:iam::\${OperatorAccountId}:root"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt IndependentEvidenceBucket.Arn
+              - !Sub "\${IndependentEvidenceBucket.Arn}/*"
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt IndependentEvidenceBucket.Arn
+              - !Sub "\${IndependentEvidenceBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+Outputs:
+  CustodyBucketName:
+    Value: !Ref IndependentEvidenceBucket
+  CustodyAccountId:
+    Value: !Ref "AWS::AccountId"
+  OperatorDeniedAccountId:
+    Value: !Ref OperatorAccountId
