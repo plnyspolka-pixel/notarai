@@ -97,21 +97,26 @@ static int SurveyControlTypes(string rawPid)
         using var automation = new UIA3Automation();
         var roots = automation.GetDesktop()
             .FindAllChildren(cf => cf.ByControlType(ControlType.Window));
+        const int maxElements = 400;
+        const int maxDepth = 4;
+        var truncated = false;
         var counts = new Dictionary<ControlType, int>();
         var queue = new Queue<(AutomationElement Element, int Depth)>();
         foreach (var root in roots)
         {
             try
             {
-                if (root.Properties.ProcessId.Value == pid) queue.Enqueue((root, 0));
+                if (root.Properties.ProcessId.Value == pid)
+                {
+                    if (queue.Count < maxElements) queue.Enqueue((root, 0));
+                    else truncated = true;
+                }
             }
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
             {
                 // Window disappeared.
             }
         }
-        const int maxElements = 400;
-        const int maxDepth = 4;
         var inspected = 0;
         while (queue.Count > 0 && inspected < maxElements)
         {
@@ -124,7 +129,10 @@ static int SurveyControlTypes(string rawPid)
                 if (depth < maxDepth)
                 {
                     foreach (var child in element.FindAllChildren())
+                    {
+                        if (queue.Count + inspected >= maxElements) { truncated = true; break; }
                         queue.Enqueue((child, depth + 1));
+                    }
                 }
             }
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
@@ -132,7 +140,7 @@ static int SurveyControlTypes(string rawPid)
                 // Stale UIA element; ignore without printing its properties.
             }
         }
-        Console.WriteLine($"Read-only UIA type histogram; inspected: {inspected}; truncated: {queue.Count > 0}");
+        Console.WriteLine($"Read-only UIA type histogram; inspected: {inspected}; truncated: {truncated || queue.Count > 0}");
         foreach (var type in counts.Keys.OrderBy(x => x.ToString(), StringComparer.Ordinal))
             Console.WriteLine($"{type}: {counts[type]}");
         return inspected > 0 ? 0 : 5;
