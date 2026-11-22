@@ -752,3 +752,24 @@ def test_k5_signer_requires_out_of_band_custody_state_version_pin():
                 approve_action=True, clock=NOW,
                 session_factory=lambda **kw: (_ for _ in ()).throw(
                     AssertionError("must refuse before calling AWS")))
+
+
+
+def test_k6_live_audit_cli_never_signals_success_while_external_proof_blocked(
+    monkeypatch,
+):
+    import scripts.verify_confidential_custody_independence as audit_module
+    monkeypatch.setattr(audit_module, "inspect", lambda **kwargs: {
+        "status": "BLOCKED",
+        "independent_custody_verified": False,
+        "static_governance_screen_passed": True,
+    })
+    assert audit_module.main([
+        "--operator-profile", "operator-read",
+        "--custody-profile", "external-read", "--check",
+    ]) == 3
+    # --check not set = informational dry-run, not a compliance gate.
+    assert audit_module.main([
+        "--operator-profile", "operator-read",
+        "--custody-profile", "external-read",
+    ]) == 0
