@@ -174,6 +174,51 @@ Tests: `python -m pytest -q test_confidential_retention_gate.py`.
 No true deletion test is possible without a separately authorized process and
 verified legal retention schedule.
 
+## K4b — triple-signed evidence verifier (offline; NOT deletion authority)
+
+`confidential/signed_retention_evidence.py` adds
+`assess_signed_retention(bundle, trust, expected, now)`, a read-only,
+deterministic verifier using Ed25519 signatures from three **distinct**
+trusted public keys:
+
+1. independent metadata evidence collector;
+2. data controller/notary authorizer;
+3. independent key custodian.
+
+Each signs the **identical canonical UTF-8 JSON**, domain-separated for
+its own role (`NOTARAI-SEC10-RETENTION-EVIDENCE-V1`). A signature cannot be
+swapped between signers, tenants or requests. Payloads reject duplicate
+keys, noncanonical forms, unknown/missing fields, arbitrary JSON types,
+incorrect legal deadlines, invalid policy/inventory digests, stale
+observations, non-UTC timestamps and unknown legal holds. The whole
+payload is capped at 8 KiB; any malformed signature, trust key or
+expectation fails closed without disclosing customer metadata.
+
+**Trust boundary:** independent, pinned `TrustAnchors` (public keys) and
+`ExpectedScope` (tenant, account, request digest, legal policy digest,
+inventory digest) MUST come from an independently controlled, authenticated
+configuration and case ledger. They MUST NOT be supplied by a client's
+incoming API request. No trusted public keys are bundled as production
+defaults; the module has no private signing keys, signing API or deleting
+role. It sets the two authorization fields true **only after** verifying
+the relevant controller and custodian signatures, and then calls the
+existing eligibility-for-review gate.
+
+Tests: `python -m pytest -q test_confidential_signed_retention_evidence.py`.
+Synthetic signing keys exist **only in tests**. Negative cases cover
+signature replacement, role confusion, tampered hold/retention, changed
+AWS account/tenant/request, unsupported fields, replay to a **different**
+scope, expired observations and missing signers.
+
+**Still BLOCKED:** This offline verifier does NOT create authoritative,
+independently measured S3/backup inventories, legally validate an actual
+retention schedule, establish independent key custody, check signer
+revocation, or prevent reusing the exact same valid request within
+its freshness period. Actual replay prevention needs a separate
+durable, independent, single-use request/approval ledger. Positive
+output still means only `ready_for_independent_review`, never
+`deleted` or `approved_for_deletion`.
+
 ## K5 — recovery and emergency handling
 
 Allowed only after **authenticated, independently cryptographically verified**
@@ -275,7 +320,7 @@ For source SHA `b7ec356bc7c7295144d9b2edeb1bf457a339ed95`, the following GitHub 
 | K1 map of >=10 locations | BLOCKED | Security reviewer | Map above exists; operational AWS inventory and approval missing |
 | K2 six synthetic scenarios | PASS (offline synthetic scope only) | Engineering / CI | 66/66 tests passed on `b7ec356b`; Linux read-only/tmpfs smoke passed. [SEC-10 CI run 44984108781](https://github.com/plnyspolka-pixel/notarai/actions/runs/44984108781). No live Nitro, AWS retention or hardware crash proof; K3/K6 remain blocked |
 | K3 no persistent plaintext | BLOCKED | AWS operations | Static controls exist; actual guest/S3/snapshots audit missing |
-| K4 legally approved exact retention | BLOCKED | Controller / counsel / AWS | Template periods known; CloudTrail/LLM/PITR and legal approvals missing |
+| K4 legally approved exact retention | BLOCKED | Controller / counsel / AWS | Triple-signature offline verifier added, but independent pinned live keys, signed legal schedule, CloudTrail/LLM/PITR evidence, replay ledger, signer revocation and legal approvals missing |
 | K5 recovery without operator backdoor | BLOCKED | Independent custodian | Negative static tests added; actual signed recovery/revocation not proven |
 | K6 live Nitro evidence | BLOCKED | Independent auditor | Requires approved AWS test; not run here |
 
