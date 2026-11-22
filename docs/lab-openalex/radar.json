@@ -188,6 +188,11 @@
       "nazwa": "Narracja: marka w fabule i treści generowane przez AI",
       "kierunek": "narracja-seriale",
       "zapytanie": "branded entertainment product placement AI-generated video disclosure trust"
+    },
+    {
+      "nazwa": "Humor: żarty pisane i oceniane przez modele językowe",
+      "kierunek": "humor",
+      "zapytanie": "large language model humor generation evaluation human ratings"
     }
   ]
 }
