@@ -1,5 +1,4 @@
 """SEC-11 independent custody WORM audit: synthetic read-only tests."""
-import copy
 import json
 
 import pytest
@@ -138,22 +137,6 @@ def test_sts_account_mismatch_is_fail_closed():
     assert not result.checks["independent_aws_identity"]
 
 
-class StubClient:
-    def __init__(self, calls, response):
-        self.calls = calls
-        self.response = response
-
-    def __getattr__(self, name):
-        def call(**kwargs):
-            self.calls.append((name, kwargs))
-            if name == "get_caller_identity":
-                return {"Account": CUSTODY}
-            if name == "head_bucket":
-                return {}
-            return self.response[name]
-        return call
-
-
 class StubSession:
     def __init__(self, custody_account=CUSTODY):
         self.calls = []
@@ -171,7 +154,16 @@ class StubSession:
                         return {"Account": session.custody_account}
                     if operation == "head_bucket":
                         return {}
-                    return session.s3_data[operation.removeprefix("get_bucket_")]
+                    lookup = {
+                        "get_bucket_versioning": "versioning",
+                        "get_object_lock_configuration": "object_lock",
+                        "get_public_access_block": "public_access",
+                        "get_bucket_encryption": "encryption",
+                        "get_bucket_ownership_controls": "ownership",
+                        "get_bucket_policy": "policy",
+                        "get_bucket_location": "region",
+                    }
+                    return session.s3_data[lookup[operation]]
                 return call
         return Client()
 
