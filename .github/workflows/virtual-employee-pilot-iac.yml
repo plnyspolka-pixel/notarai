@@ -9,6 +9,7 @@ on:
       - 'scripts/virtual_employee_fixture.py'
       - 'tests/test_virtual_employee_protocol.py'
       - 'tests/test_virtual_employee_iac.py'
+      - 'tests/test_virtual_employee_sqs_iac.py'
       - '.github/workflows/virtual-employee-pilot-iac.yml'
   push:
     branches: [master]
@@ -20,6 +21,7 @@ on:
       - 'scripts/virtual_employee_fixture.py'
       - 'tests/test_virtual_employee_protocol.py'
       - 'tests/test_virtual_employee_iac.py'
+      - 'tests/test_virtual_employee_sqs_iac.py'
       - '.github/workflows/virtual-employee-pilot-iac.yml'
 permissions:
   contents: read
@@ -36,8 +38,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install cfn-lint pyyaml pytest
-      - run: cfn-lint infra/virtual-employee/notarai-virtual-employee-pilot.yaml
-      - run: python -m pytest -q --confcutdir=tests tests/test_virtual_employee_iac.py
+      - run: cfn-lint infra/virtual-employee/notarai-virtual-employee-pilot.yaml infra/virtual-employee/notarai-ve-sqs-pilot.yaml
+      - run: python -m pytest -q --confcutdir=tests tests/test_virtual_employee_iac.py tests/test_virtual_employee_sqs_iac.py
       - run: python -m unittest discover -s tests -p test_virtual_employee_protocol.py
   powershell:
     runs-on: windows-latest
