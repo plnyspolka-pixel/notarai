@@ -10,7 +10,7 @@ import pytest
 from confidential.nitro_denial_matrix import (
     CASES, EARLY_CASES, KMS_CASES, SCHEMA, DenialEvidenceRejected,
     incomplete_audit_result, inspect_early_denial_receipt,
-    inspect_kms_denial, validate_matrix,
+    inspect_kms_denial, kms_receipt_sha256, validate_matrix,
 )
 
 
@@ -45,6 +45,7 @@ def sample():
     for case in KMS_CASES:
         event = {
             "eventID": trials[case]["event_id"],
+            "requestID": str(UUID(int=100 + list(CASES).index(case))),
             "eventName": "Decrypt", "eventSource": "kms.amazonaws.com",
             "awsRegion": "eu-central-1", "responseElements": None,
             "eventTime": trials[case]["observed_at"],
@@ -66,6 +67,7 @@ def sample():
             )
             event["errorCode"] = "IncorrectKeyException"
         events[case] = event
+        trials[case]["receipt_sha256"] = kms_receipt_sha256(case, event)
     receipts = {}
     for case in EARLY_CASES:
         receipt = {
@@ -274,3 +276,20 @@ def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
     assert result["status"] == "BLOCKED"
     assert calls.count("cloudtrail:lookup_events") == 4
     assert set(calls) == {"sts:get_caller_identity", "cloudtrail:lookup_events"}
+
+
+
+def test_identical_denial_code_but_different_aws_request_is_not_same_trial():
+    matrix, events, _ = sample()
+    events["ordinary_host"]["requestID"] = str(UUID(int=999))
+    with pytest.raises(DenialEvidenceRejected, match="independently pinned receipt"):
+        inspect_kms_denial("ordinary_host", events["ordinary_host"], matrix)
+
+
+def test_recipient_tampering_changes_signed_receipt_even_if_case_is_valid():
+    matrix, events, _ = sample()
+    events["wrong_pcr17"]["additionalEventData"]["recipient"][
+        "attestationDocumentEnclavePCR17"
+    ] = "a" * 96
+    with pytest.raises(DenialEvidenceRejected, match="independently pinned receipt"):
+        inspect_kms_denial("wrong_pcr17", events["wrong_pcr17"], matrix)
