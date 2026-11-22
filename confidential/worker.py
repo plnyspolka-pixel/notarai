@@ -128,8 +128,25 @@ def _load_decrypted_form(s3, kms, bucket: str, tenant: str, case_id: str,
     return data["fields"]
 
 
+def _assert_bucket_region(s3, bucket: str) -> None:
+    """Deny decrypt unless AWS reports the exact approved S3 bucket region.
+
+    The caller's configured region alone is insufficient: S3 can redirect
+    cross-region, so require an explicit location answer from the bucket.
+    Requires read-only s3:GetBucketLocation for the Nitro role.
+    """
+    try:
+        location = s3.get_bucket_location(Bucket=bucket)
+    except Exception:
+        raise RuntimeError("S3_REGION_UNVERIFIED") from None
+    if not isinstance(location, dict) or location.get("LocationConstraint") != "eu-central-1":
+        raise RuntimeError("S3_REGION_DENIED")
+
+
 def _process_one(session, tenant: str, bucket: str, queue_url: str,
                  kms_key_arn: str) -> int:
+    s3 = session.client("s3")
+    _assert_bucket_region(s3, bucket)
     sqs = session.client("sqs")
     incoming = sqs.receive_message(
         QueueUrl=queue_url, MaxNumberOfMessages=1, WaitTimeSeconds=10,
@@ -162,7 +179,7 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         return 1
     try:
         values = _load_decrypted_form(
-            session.client("s3"), session.client("kms"),
+            s3, session.client("kms"),
             bucket, tenant, case_id, object_id, kms_key_arn,
             s3_version,
         )
@@ -174,7 +191,7 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
             "status": "preview_completed", "fields_filled": 2,
             "submitted": False,
         })
-        session.client("s3").put_object(
+        s3.put_object(
             Bucket=bucket,
             Key=f"kancelarie/{tenant}/confidential-results/{job_id}.json",
             Body=json.dumps(marker, separators=(",", ":")).encode("ascii"),

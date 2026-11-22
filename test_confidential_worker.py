@@ -75,3 +75,29 @@ def test_decrypt_reads_only_exact_s3_version(monkeypatch):
             "scan01", FakeEnvelope.kms_key_arn, "null",
         )
     assert seen == []
+
+
+def test_bucket_region_gate_denies_out_of_region_or_unverifiable_bucket():
+    from confidential.worker import _assert_bucket_region
+
+    class S3:
+        def __init__(self, location="eu-central-1", error=False):
+            self.location = location
+            self.error = error
+            self.calls = []
+
+        def get_bucket_location(self, *, Bucket):
+            self.calls.append(Bucket)
+            if self.error:
+                raise RuntimeError("synthetic provider failure with case text")
+            return {"LocationConstraint": self.location}
+
+    allowed = S3()
+    _assert_bucket_region(allowed, "notarai-confidential-pilot01")
+    assert allowed.calls == ["notarai-confidential-pilot01"]
+    for region in ("eu-west-1", "us-east-1", "EU", None, "", 13):
+        with pytest.raises(RuntimeError, match="S3_REGION_DENIED"):
+            _assert_bucket_region(S3(region), "notarai-confidential-pilot01")
+    with pytest.raises(RuntimeError, match="S3_REGION_UNVERIFIED") as error:
+        _assert_bucket_region(S3(error=True), "notarai-confidential-pilot01")
+    assert "synthetic provider" not in str(error.value)

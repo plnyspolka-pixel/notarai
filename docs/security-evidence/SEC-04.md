@@ -156,3 +156,17 @@ Client AUTO policy negative tests run in the general CI and confidential
 Chromium workflow. This closes the previous audit-report loss on runner
 shutdown; K1 remains BLOCKED because dynamic dependency and live egress
 coverage are not demonstrated.
+
+
+## S3 exact-region enforcement on the decryption path
+The Nitro worker now executes `get_bucket_location` and requires a
+positive `LocationConstraint == eu-central-1` result **before queue
+consumption, durable job claim and any envelope decryption**. Provider
+errors fail closed with a code-only exception. The Nitro IAM role must
+have read-only `s3:GetBucketLocation`; missing permission blocks work
+instead of silently assuming residency. Offline negative tests cover
+`eu-west-1`, `us-east-1`, historical `EU`, absent metadata and errors.
+
+**This is a code-level control, not a live independently attested AWS
+check.** The backend's own S3 bucket location and custody evidence remain
+unverified until SEC-07/SEC-11 proofs; K2/K6 remain BLOCKED.

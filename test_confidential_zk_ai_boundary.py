@@ -399,3 +399,12 @@ def test_k1_js_repository_scan_fails_on_direct_external_socket(tmp_path):
     assert report["js_files_scanned"] == 1
     assert report["confidential_violations"]
     assert report["zk_verified"] is False
+
+
+def test_k3_s3_region_gate_precedes_any_confidential_job_decryption():
+    code = Path(__file__).with_name("confidential").joinpath(
+        "worker.py").read_text(encoding="utf-8")
+    position_gate = code.index("    _assert_bucket_region(s3, bucket)")
+    position_claim = code.index("    claim = ledger.claim(")
+    position_decrypt = code.index("        values = _load_decrypted_form(")
+    assert position_gate < position_claim < position_decrypt
