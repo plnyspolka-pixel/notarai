@@ -333,7 +333,7 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Zamknięte, gdy:** co najmniej jedna prawdziwa aplikacja kancelaryjna została przeprowadzona przez test end-to-end na fikcyjnych danych, z raportem kontroli GUI i licencjonowania.
 
 
-## NA-16. RejNET Office — adapter UI Automation na Windows VM
+## NA-16. RejNET Office — pierwszy test uniwersalnego agenta na Windows VM
 
 - **Status:** czeka (specyfikacja: `docs/rejnet-office-overlay.md`; brak uruchomionej VM i instalacji RejNET Office).
 - **Brakuje:** legalnego testowego instalatora/stanowiska RejNET Office, wersji aplikacji, warunków licencji dla VM/automatyzacji, testowej bazy z fikcyjnymi danymi oraz informacji o połączeniu klient–baza.
@@ -344,5 +344,5 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   4. Przeprowadzić read-only: wyszukanie, otwarcie fikcyjnej sprawy, odczyt kontrolowanych pól, eksport dokumentu testowego (jeśli dostępny).
   5. Przetestować wypełnienie formularza bez trwałego zapisu; zatrzymać przed podpisem/wysyłką.
   6. Zasymulować rozłączenie sesji, zmianę okna i niejednoznaczny wynik; robot ma zakończyć w `needs_reconciliation` bez powtórnego zapisu.
-- **W kodzie:** nowy `rejnet` adapter, nie ingerować w istniejące moduły innych programów przed potwierdzeniem dostępności UI.
-- **Zamknięte, gdy:** demonstrator NotarAI -> kolejka -> Windows VM -> RejNET Office -> wynik działa end-to-end na fikcyjnych danych, audyt bez PII, dokumentacja zgodności licencji.
+- **W kodzie:** generyczny silnik Computer Use i wyuczony profil RejNET bez odrębnego adaptera; następnie powtórzyć na innym programie kancelaryjnym. Zob. `docs/universal-computer-agent.md`.
+- **Zamknięte, gdy:** demonstrator NotarAI -> kolejka -> Windows VM -> RejNET Office -> wynik działa end-to-end na fikcyjnych danych; ten sam engine bez osobnego adaptera obsłuży drugą aplikację kancelaryjną, z audytem bez PII i dokumentacją licencji.
