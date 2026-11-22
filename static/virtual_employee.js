@@ -45,9 +45,9 @@ async function refresh() {
       if(item.status==="waiting_for_approval")add("Zatwierdź",async()=>{
         const preview=await call("/jobs/"+encodeURIComponent(item.job_id)+"/approval-preview");
         const decision=window.confirm(
-          "Potwierdź dokładną treść zmiany w programie kancelaryjnym:\\n\\n"+
-          "Program: "+preview.app_id+"\\nPole: "+preview.field+
-          "\\nWartość: "+preview.value+"\\n\\nZatwierdzić wykonanie przez robota?"
+          "Potwierdź dokładną treść zmiany w programie kancelaryjnym:\n\n"+
+          "Program: "+preview.app_id+"\nPole: "+preview.field+
+          "\nWartość: "+preview.value+"\n\nZatwierdzić wykonanie przez robota?"
         );
         if(!decision)return;
         await call("/jobs/"+encodeURIComponent(item.job_id)+"/approve","POST");
