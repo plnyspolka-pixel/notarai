@@ -58,3 +58,33 @@ Reference AWS docs:
 https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ict-confidential-policy-configuration.html
 https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html
 https://docs.aws.amazon.com/kms/latest/developerguide/logging-using-cloudtrail.html
+
+## Correction: six denials occur at three different security boundaries (v2)
+
+The first verifier, `confidential/nitro_hardware_proof.py`, deliberately remains fail-closed, but its original assumption that **all six refusals must produce a KMS Decrypt AccessDenied event is not a correct full E2E acceptance criterion**. An altered OCI image can be denied by ECS sandbox admission before KMS, and an unsigned custodian release must stop before ECS RunTask. The v1 report is **not eligible** to close K2 or K6.
+
+New, independently testable topology:
+
+| Case | Enforcement boundary | Evidence required |
+|---|---|---|
+| ordinary_host | KMS | Decrypt deny, no recipient NSM, pinned task role/key |
+| wrong_pcr17 | KMS | Decrypt deny, recipient attestation PCR17 != approved PCR17 |
+| altered_image | ECS confidential sandbox admission | Different immutable image digest; ECS admission failure; no unauthorized DEK; independently witnessed synthetic trial |
+| cross_tenant_or_role | KMS | Decrypt deny to other synthetic tenant's IAM task role |
+| unsigned_release | Independent custody release gate | Reject before ECS RunTask; no KMS decrypt; independently witnessed record and control-plane trace |
+| wrong_key | KMS | Different custodian key ARN, failed Decrypt |
+
+The code for this second evidence channel is `confidential/nitro_denial_matrix.py`, `scripts/audit_nitro_denials.py`, and `test_confidential_nitro_denial_matrix.py`.
+
+Use `python -m pytest -q test_confidential_nitro_denial_matrix.py` to check metadata parsing. The offline command `python scripts/audit_nitro_denials.py --check` returns `BLOCKED` and exit status 2. Read-only AWS verification (only when the independent sessions and signed witness records exist):
+
+```bash
+python scripts/audit_nitro_denials.py --verify-live \
+  --matrix negative-matrix.json \
+  --operator-profile AUDITOR_WORKLOAD_RO \
+  --custody-profile AUDITOR_CUSTODY_RO \
+  --altered-image-receipt altered-image.json \
+  --unsigned-release-receipt unsigned-release.json
+```
+
+This sub-audit only establishes that four KMS preconditions are reflected in live caller-account CloudTrail and that two early-denial receipts are **structurally** consistent; it **always returns BLOCKED**. It cannot prove the absence of RunTask/KMS calls from an operator-authored receipt alone. A separately retained independently signed record, ECS snapshots, official policy-generator measurements, KMS policy/grant snapshots, and authenticated primary AWS trails are still necessary. Do not label a synthetic mock as live.
