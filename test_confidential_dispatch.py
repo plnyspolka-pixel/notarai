@@ -130,7 +130,7 @@ class ECSFake:
         if self.failures:
             return {"tasks": [], "failures": [{"reason": "synthetic-capacity"}]}
         return {"tasks": [{
-            "taskArn": f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task/{FAMILY}/test-task",
+            "taskArn": f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task/{kwargs['cluster']}/test-task",
             "trustedExecutionSummary": {
                 "isolationMode": "CONFIDENTIAL_SANDBOX",
                 "attestationPolicyStatus": "CONFIGURED",
