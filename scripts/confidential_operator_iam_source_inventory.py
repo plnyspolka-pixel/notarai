@@ -59,7 +59,12 @@ def _clean(obj):
 
 def _actions(stmt):
     if "NotAction" in stmt:
-        return ["NOT_ACTION_REQUIRES_REVIEW"]
+        exception = stmt["NotAction"]
+        if isinstance(exception, str):
+            exception = [exception]
+        if not isinstance(exception, list):
+            return ["NOT_ACTION_UNRESOLVED"]
+        return ["ALL_EXCEPT:" + str(action) for action in exception]
     value = stmt.get("Action")
     if isinstance(value, str):
         return [value]
@@ -201,7 +206,10 @@ def build_manifest(root: Path = ROOT):
                             "effect": _clean(statement.get("Effect")),
                             "action": _clean(action),
                             "resource": _clean(
-                                statement.get("Resource", "UNRESOLVED")),
+                                statement.get("Resource", {
+                                    "NotResource": statement["NotResource"]
+                                } if "NotResource" in statement else
+                                "UNRESOLVED")),
                             "account": account,
                             "condition": _clean(
                                 statement.get("Condition", "NONE")),
