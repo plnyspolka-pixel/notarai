@@ -121,3 +121,16 @@ No AUTO submit, signing, filing or portal access was added.
 - This checks address configuration only. **The geographical location of S3
   bucket storage remains UNVERIFIED** until independently checked via AWS
   bucket-region metadata and infra evidence; do not infer region from a name.
+
+
+## K1 Python + browser static inventory increment
+`scripts/audit_confidential_ai_routes.py` now emits a v2 inventory of both
+Python model/network primitives and JavaScript transport primitives, including
+dangerous WebSocket/beacon/XHR/remote-fetch/eval classes in
+`static/confidential*.js`. CI rejects risky JS transport sites in those
+clients. The report exports **only file/line/mechanism**, not code snippets.
+
+**Limitation:** regex scanning is not JS AST, misses indirect/dynamic sinks and
+code loaded at runtime; synthetic JS checks and source scanning are NOT 100%
+coverage. K1 remains BLOCKED until dynamic runtime network observation and
+independent dependency inventory.

@@ -1,7 +1,8 @@
 """SEC-04 static AI-route inventory. Best-effort, NOT runtime dataflow proof.
 
-Scans Python AST for model SDK/HTTP execution. CI fails on new direct model
-calls inside confidential/ instead of treating tests/docs as an allowlist.
+Scans Python AST and JS transport primitives; best-effort only. CI fails on
+new direct model calls in confidential/ and risky browser transports in
+static/confidential*.js. JS regex checks do not replace real browser egress proof.
 Only outputs file paths, line numbers and mechanism names (never source lines).
 """
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -18,8 +20,11 @@ _MODEL_IMPORTS = frozenset({
     "langchain_openai", "langchain_anthropic",
 })
 _NETWORK_CALLS = frozenset({
-    "requests.post", "httpx.post", "urllib.request.urlopen",
+    "requests.post", "requests.get", "requests.request",
+    "httpx.post", "httpx.get", "httpx.request",
+    "urllib.request.urlopen", "urllib.request.Request",
     "http.client.HTTPConnection", "http.client.HTTPSConnection",
+    "socket.create_connection", "socket.socket",
 })
 _MODEL_CALLS = frozenset({
     "converse", "converse_stream", "invoke_model", "invoke_model_with_response_stream",
@@ -69,30 +74,85 @@ def scan_source(source: str, filename: str) -> list[dict[str, object]]:
     return sorted(findings, key=lambda item: (item["line"], item["mechanism"]))
 
 
+
+# This conservative scan intentionally reports only the location and primitive.
+# Dynamic routes, imported code and content security policy need runtime review.
+_JS_NETWORK = re.compile(
+    r"\b(?:fetch|WebSocket|XMLHttpRequest|EventSource|WebTransport|sendBeacon)\s*\("
+)
+_JS_RISKS = (
+    ("js-risk-absolute-fetch", re.compile(
+        r"\b(?:window\.)?fetch\s*\(\s*['\"\x60](?:https?:)?//")),
+    ("js-risk-websocket", re.compile(r"\b(?:new\s+)?WebSocket\s*\(")),
+    ("js-risk-beacon", re.compile(r"\b(?:navigator\.)?sendBeacon\s*\(")),
+    ("js-risk-xhr", re.compile(r"\b(?:new\s+)?XMLHttpRequest\s*\(")),
+    ("js-risk-eventsource", re.compile(r"\b(?:new\s+)?EventSource\s*\(")),
+    ("js-risk-webtransport", re.compile(r"\b(?:new\s+)?WebTransport\s*\(")),
+    ("js-risk-webrtc", re.compile(r"\b(?:new\s+)?RTCPeerConnection\s*\(")),
+    ("js-risk-eval", re.compile(r"\beval\s*\(")),
+    ("js-risk-function", re.compile(r"\bnew\s+Function\s*\(")),
+    ("js-risk-service-worker", re.compile(
+        r"\b(?:navigator\.)?serviceWorker\.register\s*\(")),
+    ("js-risk-remote-import", re.compile(
+        r"\bimport\s*\(\s*['\"\x60](?:https?:)?//")),
+)
+
+
+def scan_js_source(source: str, filename: str) -> list[dict[str, object]]:
+    """Conservative transport inventory, NOT a complete JavaScript parser."""
+    findings: list[dict[str, object]] = []
+    for match in _JS_NETWORK.finditer(source):
+        findings.append({"file": filename,
+                         "line": source.count("\n", 0, match.start()) + 1,
+                         "mechanism": "js-network-primitive"})
+    for mechanism, pattern in _JS_RISKS:
+        for match in pattern.finditer(source):
+            findings.append({"file": filename,
+                             "line": source.count("\n", 0, match.start()) + 1,
+                             "mechanism": mechanism})
+    return sorted(findings, key=lambda hit: (hit["line"], hit["mechanism"]))
+
+
 def scan_repo(root: Path = _ROOT) -> dict:
-    files = 0
+    py_files = 0
+    js_files = 0
     findings = []
     errors = []
     for path in sorted(root.rglob("*.py")):
         rel = path.relative_to(root)
         if any(part in _SKIP for part in rel.parts) or path.name.startswith("test_"):
             continue
-        files += 1
+        py_files += 1
         try:
             findings.extend(scan_source(path.read_text(encoding="utf-8"), rel.as_posix()))
         except (SyntaxError, UnicodeError, OSError):
             errors.append(rel.as_posix())
+    for path in sorted(root.rglob("*.js")):
+        rel = path.relative_to(root)
+        if any(part in _SKIP for part in rel.parts) or path.name.startswith("test_"):
+            continue
+        js_files += 1
+        try:
+            findings.extend(scan_js_source(path.read_text(encoding="utf-8"), rel.as_posix()))
+        except (UnicodeError, OSError):
+            errors.append(rel.as_posix())
     confidential_violations = [
-        entry for entry in findings if entry["file"].startswith("confidential/")
-        and (entry["mechanism"].startswith("bedrock")
-             or entry["mechanism"].startswith("model-")
-             or entry["mechanism"] == "model-sdk-import"
-             or entry["mechanism"].startswith("network-"))
+        entry for entry in findings if (
+            (entry["file"].startswith("confidential/")
+             and (entry["mechanism"].startswith("bedrock")
+                  or entry["mechanism"].startswith("model-")
+                  or entry["mechanism"] == "model-sdk-import"
+                  or entry["mechanism"].startswith("network-")))
+            or (entry["file"].startswith("static/confidential")
+                and entry["mechanism"].startswith("js-risk-"))
+        )
     ]
     return {
-        "schema": "sec04-route-static-v1",
-        "scope": "python-only-static-no-runtime-claim",
-        "files_scanned": files,
+        "schema": "sec04-route-static-v2",
+        "scope": "python-and-js-static-no-runtime-claim",
+        "files_scanned": py_files + js_files,
+        "python_files_scanned": py_files,
+        "js_files_scanned": js_files,
         "routes": findings,
         "errors": errors,
         "confidential_violations": confidential_violations,

