@@ -42,11 +42,15 @@ Wariant docelowy **bez oddzielnego konta kustosza** i bez nowych usług:
 - AES-GCM z AAD wiążącym tenant/case/object/version i pin klucza klienta;
 - RSA-OAEP do klucza kancelarii i potem ephemeralnego RSA guest;
 - grant ważny <= 900 s, związany z jobem, SHA-256 koperty, odbiorcą;
+- `confidential/customer_origin.py`: ponowne użycie koncepcji SEC-03
+  Ed25519 (notariusz podpisuje dokładne SHA koperty, wersję S3, identyfikatory
+  i wyłącznie preview), a guest weryfikuje podpis przed DEK unwrap;
 - ścisła walidacja pól / odmowy przy podmianie, cross-tenant, replay do
   nowego guest, po czasie i bez klucza kancelarii;
 - zero AWS calls; zero plaintext w podpisach/logach/serwerze.
 
 `test_customer_release.py` testuje wyłącznie offline, na fikcyjnych danych.
+Aktualnie **27 scenariuszy PASS** w lokalnej regresji (bez AWS).
 
 ## Czego NIE wdrożono — konieczne przed live
 
@@ -59,9 +63,11 @@ Wariant docelowy **bez oddzielnego konta kustosza** i bez nowych usług:
   PR #68 jest punktem wyjścia; wymaga rozszerzenia o ten protokół.
 - Guest v3 parse/authorization i prawdziwe podłączenie do S3/SQS/Nitro NSM;
   dotąd działa inny format `Envelope v2` z KMS. Nie przełączać go automatycznie.
-- Weryfikacja podpisanego pochodzenia dokumentu dla **v3**. Istniejący v2
-  receipt zawiera KMS ARN i nie jest semantycznie zgodny z v3; trzeba
-  jawnej adaptacji z podpisem kancelarii, nie wolno pomijać origin.
+- Podpięcie **v3 signed origin** do realnego obrazka guest i klienta:
+  prototyp `customer_origin.py` już podpisuje i weryfikuje receipt, ale
+  podpisujący klucz publiczny musi zostać niezależnie uwierzytelniony,
+  wbudowany w zatwierdzony obraz i porównany z aktywnym tenantem.
+  Nie można użyć obecnego v2 receipt z KMS ARN ani pobrać klucza z API.
 - Klucz prywatny odbiorcy musi faktycznie powstać **w zweryfikowanym Nitro**;
   w testach użyto zwykłego RSA jako fixtury, nie dowodu sprzętowego.
 - Czas ścienny wewnątrz guest nie jest niezależnym bezpiecznym zegarem.
