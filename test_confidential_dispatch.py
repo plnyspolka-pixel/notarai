@@ -334,7 +334,15 @@ def test_cloudformation_schedule_disabled_and_no_live_service():
     assert "sqs:DeleteMessage" not in actions
 
 
-def test_cross_tenant_stopped_task_does_not_release_dispatch_lease():
+@pytest.mark.parametrize("foreign_field,foreign_value", [
+    ("taskDefinitionArn",
+     f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task-definition/notarai-confidential-pilot02:3"),
+    ("startedBy", "notarai-pilot02-" + "a" * 16),
+    ("clusterArn", f"arn:aws:ecs:eu-central-1:{ACCOUNT}:cluster/notarai-confidential-pilot02"),
+])
+def test_cross_tenant_stopped_task_does_not_release_dispatch_lease(
+    foreign_field, foreign_value,
+):
     ecs, sqs, ddb = ECSFake(), SQSFake(), DynamoFake()
     assert tick(ecs, sqs, ddb)[0] == "launched"
     ecs.last_status = "STOPPED"
@@ -342,10 +350,7 @@ def test_cross_tenant_stopped_task_does_not_release_dispatch_lease():
 
     def foreign(**kwargs):
         payload = original(**kwargs)
-        payload["tasks"][0]["taskDefinitionArn"] = (
-            f"arn:aws:ecs:eu-central-1:{ACCOUNT}:task-definition/notarai-confidential-pilot02:3"
-        )
-        payload["tasks"][0]["startedBy"] = "notarai-pilot02-" + "a" * 16
+        payload["tasks"][0][foreign_field] = foreign_value
         return payload
 
     ecs.describe_tasks = foreign
