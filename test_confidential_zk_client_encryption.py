@@ -699,6 +699,12 @@ def test_ciphertext_raw_bytes_preserved_and_duplicate_json_keys_rejected(keys, m
     ))
     assert json.loads(returned.body)["ciphertext_sha256"] == hashlib.sha256(wire).hexdigest()
     assert next(iter(s3.writes.values()))["Body"] == wire
+    returned_wire = router.retrieve(
+        RequestForTests("pilot01", b""), "case01", "scan01"
+    )
+    assert returned_wire.body == wire
+    assert returned_wire.headers["cache-control"] == "no-store"
+
     dupe = wire.replace(b'"version": 2,', b'"version": 2, "version": 2,', 1)
     # JSON parser ambiguity must be caught BEFORE S3/DDB reservation.
     s3_new = S3ForTests()
