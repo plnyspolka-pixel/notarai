@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Independent custody account only: append-only logical recovery approval
+  consumption ledger. No permission for NotarAI operator is granted.
+Parameters:
+  TenantId:
+    Type: String
+    AllowedPattern: "^[a-z0-9]{1,12}$"
+    Default: pilot01
+Resources:
+  OneTimeRecoveryApprovals:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "notarai-custody-recovery-${TenantId}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: System
+          Value: NotarAI
+        - Key: Scope
+          Value: independent-custody-recovery-pilot
+Outputs:
+  CustodyApprovalTableName:
+    Value: !Ref OneTimeRecoveryApprovals
+  CustodyApprovalTableArn:
+    Value: !GetAtt OneTimeRecoveryApprovals.Arn
