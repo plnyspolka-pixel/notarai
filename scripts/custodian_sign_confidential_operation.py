@@ -35,7 +35,8 @@ _HEX = re.compile(r"[a-f0-9]{64}\Z")
 def _validate_intent(payload: dict, state: dict | None, now: datetime) -> str:
     _signed_event_bytes(payload)
     issued, expiry = _utc(payload["issued_at"]), _utc(payload["expires_at"])
-    if (now.tzinfo is None or not issued <= now.astimezone(timezone.utc) < expiry
+    if (not isinstance(now, datetime) or now.tzinfo is None or
+            not issued <= now.astimezone(timezone.utc) < expiry
             or not timedelta(0) < expiry - issued <= timedelta(hours=24)):
         raise BoundaryDenied("custodian action outside approved time window")
     action = payload["action"]
