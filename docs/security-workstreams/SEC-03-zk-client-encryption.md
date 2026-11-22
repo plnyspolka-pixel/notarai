@@ -1,6 +1,6 @@
 # SEC-03 — [SEC-03] Zero Knowledge: szyfrowanie klienta, niezależne klucze i bezpieczne odzyskiwanie
 
-**Status: PLANNED, not implemented.** Priorytet: P0
+**Status: IMPLEMENTATION IN PROGRESS — external proofs BLOCKED.** Priorytet: P0
 **Zależności:** SEC-01, #61, #62, #65
 
 ## Zakres
@@ -33,3 +33,10 @@ To jest **PR planistyczny**. Na tym etapie nie ma implementacji ani działające
 Reguły: test wyłącznie pilot01/pilot02 i fikcyjne dane; AWS eu-central-1; produkcja wyłączona; AUTO preview nie wysyła, nie podpisuje i nie składa wniosków. Nie podnoś operatorowi uprawnień custody, nie loguj PII/plaintext/sekretów i nie wprowadzaj sieciowego 0.0.0.0/0 dla guest. Każdą własność security potwierdź testami pozytywnymi i **negatywnymi**; brak konta/narzędzi oznacz BLOCKED, a nie PASS. Sama dokumentacja lub CI nie stanowi dowodu sprzętowego. Zapisz kod + testy + wyniki + wymaganą niezależną atestację w PR.
 
 **Definition of done:** zmiana możliwa do niezależnego review, testy CI zielone, brak funkcji submit, wszystkie pozostałe ograniczenia podane jawnie, bez twierdzenia 'Zero Operator Access / Zero Knowledge verified' przed dowodami.
+
+
+## Implementacja rozpoczęta 2026-11-22
+
+Kod został zapisany bezpośrednio na gałęzi tego PR. Moduły: `static/confidential-crypto.js`, `confidential/envelope.py`, `confidential/router.py`, `confidential/worker.py`, `confidential/client_release.py`, `confidential/zk_recovery.py`. Test obowiązkowy: `test_confidential_zk_client_encryption.py` (CI).
+
+**Statusy K1–K6 i ograniczenia:** `docs/security-evidence/SEC-03.md`. Żadnego K1–K6 nie oznaczamy PASS na podstawie samych testów offline. W szczególności niezależna dystrybucja klienta, custody account i realna atestacja Nitro nadal są `BLOCKED`. To nadal PR draft, nie dowód komercyjnego ZK/ZOA.
