@@ -203,3 +203,34 @@ def test_consumer_recovers_duplicate_without_rerun():
                            control=svc,worker=worker)
     assert consumer.poll_once()=="already_claimed_or_cancelled"
     assert worker.calls==0
+
+
+def test_approval_preview_requires_notary_and_returns_exact_tenant_field():
+    svc, table, settings, sqs, store = setup()
+    item = svc.create(user(), app_id="generic_app", action="fill_draft_field",
+                      field="rep_number", value="DANE FIKCYJNE DO POTWIERDZENIA")
+    with pytest.raises(PermissionError):
+        svc.approval_preview(user(), item["job_id"])
+    preview = svc.approval_preview(user(approve=True), item["job_id"])
+    assert preview["field"] == "rep_number"
+    assert preview["value"] == "DANE FIKCYJNE DO POTWIERDZENIA"
+    assert "DANE FIKCYJNE" not in json.dumps(table.items)
+    with pytest.raises(JobMissing):
+        svc.approval_preview(user("office_2", approve=True), item["job_id"])
+
+
+def test_expired_running_lease_never_requeued_automatically():
+    svc, table, settings, sqs, store = setup()
+    item = svc.create(user(), app_id="generic_app",
+                      action="read_field", field="rep_number")
+    svc.claim(bound_tenant="office_1", job_id=item["job_id"], worker_id="robot_1")
+    with pytest.raises(PermissionError):
+        svc.reconcile_expired(user(), item["job_id"])
+    with pytest.raises(JobConflict):
+        svc.reconcile_expired(user(approve=True), item["job_id"])
+    svc.clock = lambda: 1001000
+    reconciled = svc.reconcile_expired(user(approve=True), item["job_id"])
+    assert reconciled["status"] == "needs_reconciliation"
+    with pytest.raises(JobConflict):
+        svc.claim(bound_tenant="office_1", job_id=item["job_id"],
+                  worker_id="robot_2")
