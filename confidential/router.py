@@ -277,14 +277,31 @@ def retrieve(request: Request, case_id: str, object_id: str):
     tenant = _scope(request)
     key = _key(tenant, case_id, object_id)
     try:
-        body = magazyn._klient_s3().get_object(Bucket=_bucket(), Key=key)["Body"].read()
+        saved = magazyn._klient_s3().get_object(Bucket=_bucket(), Key=key)
+        body = saved["Body"].read(_MAX_BODY + 1)
     except Exception as exc:
         # Never leak AWS error details, identifiers or object contents.
         if type(exc).__name__ in ("NoSuchKey", "ClientError"):
-            raise HTTPException(404, "Nie znaleziono zaszyfrowanego dokumentu.")
-        raise
+            raise HTTPException(404, "Nie znaleziono zaszyfrowanego dokumentu.") from None
+        raise HTTPException(503, "Odczyt dokumentu chwilowo niedostepny.") from None
     if len(body) > _MAX_BODY:
         raise HTTPException(500, "Nieprawidlowy zapis dokumentu.")
+    try:
+        env = Envelope.parse(json.loads(body))
+        if env.version != 2 or (env.tenant_id, env.case_id, env.object_id,
+                                env.kms_key_arn, env.public_key_sha256) != (
+            tenant, case_id, object_id, _approved_key(), _approved_public_key_pin()
+        ):
+            raise DocumentRegistryDenied("wrong retrieved document scope")
+        s3_version = validate_version_id(saved.get("VersionId"))
+        _registry(tenant).require_stored(
+            case_id=case_id, object_id=object_id,
+            s3_version=s3_version,
+            ciphertext_sha256=hashlib.sha256(body).hexdigest(),
+            document_version=env.document_version, key_pin=env.public_key_sha256,
+        )
+    except (ValueError, TypeError, DocumentRegistryDenied, JobRejected):
+        raise HTTPException(409, "Zaszyfrowany dokument nie zgadza sie z rejestrem.") from None
     return JSONResponse(json.loads(body), headers={"Cache-Control": "no-store"})
 
 
