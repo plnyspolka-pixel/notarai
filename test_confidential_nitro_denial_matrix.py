@@ -210,3 +210,67 @@ def test_binary_readonly_results_cannot_be_mistaken_for_hardware_pass():
     assert all(inspect_early_denial_receipt(case, receipt, matrix)
                for case, receipt in receipts.items())
     assert incomplete_audit_result()["status"] == "BLOCKED"
+
+
+
+def test_cli_offline_never_invokes_aws(monkeypatch, capsys):
+    import sys
+    from scripts import audit_nitro_denials as audit
+    monkeypatch.setattr(sys, "argv", ["audit_nitro_denials.py", "--check"])
+    assert audit.main() == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "BLOCKED"
+    assert result["hardware_attestation_verified"] is False
+
+
+def test_live_readonly_four_kms_trials_and_two_receipts_still_blocked():
+    from scripts import audit_nitro_denials as audit
+    matrix, events, receipts = sample()
+    event_lookup = {
+        matrix["trials"][case]["event_id"]: event
+        for case, event in events.items()
+    }
+    calls = []
+
+    class Sts:
+        def __init__(self, account):
+            self.account = account
+
+        def get_caller_identity(self):
+            calls.append("sts:get_caller_identity")
+            return {"Account": self.account}
+
+    class Trail:
+        def lookup_events(self, **kwargs):
+            calls.append("cloudtrail:lookup_events")
+            key = kwargs["LookupAttributes"][0]["AttributeValue"]
+            return {"Events": [{
+                "CloudTrailEvent": json.dumps(event_lookup[key]),
+            }]}
+
+    class Session:
+        def __init__(self, profile_name, region_name):
+            assert region_name == "eu-central-1"
+            self.custody = profile_name == "custody"
+
+        def client(self, name):
+            if name == "sts":
+                return Sts(
+                    matrix["custody_account"] if self.custody else
+                    matrix["workload_account"]
+                )
+            if name == "cloudtrail" and not self.custody:
+                return Trail()
+            raise AssertionError("non-readonly or unexpected AWS client")
+
+    result = audit.audit_live(
+        matrix=matrix, operator_profile="operator",
+        custody_profile="custody", receipts=receipts,
+        session_factory=Session,
+    )
+    assert result["kms_cases_live_observed"] == 4
+    assert result["early_case_metadata_validated"] == 2
+    assert result["hardware_attestation_verified"] is False
+    assert result["status"] == "BLOCKED"
+    assert calls.count("cloudtrail:lookup_events") == 4
+    assert set(calls) == {"sts:get_caller_identity", "cloudtrail:lookup_events"}
