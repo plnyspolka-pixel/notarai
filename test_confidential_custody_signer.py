@@ -100,3 +100,19 @@ def test_symlink_secret_key_refused(tmp_path):
     with pytest.raises(ValueError, match="symlink"):
         sign_local(manifest, alias, output)
     assert not output.exists()
+
+
+def test_persistent_password_file_descriptor_is_refused(tmp_path):
+    _, key_file, manifest, output = setup_synthetic(tmp_path)
+    secret_file = tmp_path / "do-not-use-disk-password"
+    secret_file.write_bytes(b"fixture-local-password\n")
+    descriptor = os.open(secret_file, os.O_RDONLY)
+    try:
+        with pytest.raises(ValueError, match="transient pipe"):
+            sign_from_files(
+                manifest_path=manifest, key_path=key_file,
+                output_path=output, password_fd=descriptor,
+            )
+    finally:
+        os.close(descriptor)
+    assert not output.exists()
