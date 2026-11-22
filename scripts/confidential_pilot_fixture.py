@@ -1,4 +1,4 @@
-"""Generate one strictly fictional, encrypted Nitro pilot document and SQS job.
+"""LEGACY KMS-v2 synthetic fixture (retained for historical reference ONLY).
 
 Requires a configured AWS profile only when --apply is explicitly set.
 No customer files, no arbitrary plaintext input, no decrypted data in S3.
@@ -80,6 +80,13 @@ def create_fixture(*, profile: str, account: str, tenant: str,
     if not apply:
         print("DRY RUN: would encrypt only a hardcoded fictional form and submit SQS metadata.")
         return None
+    # This legacy KMS-v2 fixture must never feed the customer-v3 Nitro task.
+    # The historical source remains visible for reproducibility, but no live
+    # writes or key lookups are permitted after the v3 cutover.
+    raise RuntimeError(
+        "Legacy KMS-v2 fixture disabled. Use customer-owned v3 transport, "
+        "local signed origin/challenge/release and THREE_ZERO_AWS_V3_RUNBOOK."
+    )
     identity = aws(profile, ["sts", "get-caller-identity"])
     if identity.get("Account") != account:
         raise RuntimeError("AWS account mismatch")
