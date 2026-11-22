@@ -127,3 +127,16 @@ def test_worker_exception_logging_never_prints_untrusted_marker(monkeypatch, cap
     logs = capsys.readouterr()
     assert MARKER not in logs.out + logs.err
     assert "RuntimeError" in logs.err
+
+
+def test_live_check_fails_closed_without_authenticated_nitro_probe():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "scripts/verify_confidential_egress_live.py", "--check"],
+        check=False, capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 2
+    assert "BLOCKED" in result.stdout
+    assert MARKER not in result.stdout + result.stderr
