@@ -59,6 +59,9 @@ internal sealed class SqsDiagnosticPoller
 
     public async Task<int> PollOnceAsync(Func<string, int> execute, CancellationToken cancellation)
     {
+        if (!WindowsSessionGuard.IsReady())
+            return 0; // Locked/disconnected: do not receive or claim work.
+
         // One message in flight, bounded long-polling. No body or receipt printed.
         var response = await _client.ReceiveMessageAsync(new ReceiveMessageRequest
         {
@@ -72,6 +75,8 @@ internal sealed class SqsDiagnosticPoller
             return 0;
         if (string.IsNullOrWhiteSpace(message.ReceiptHandle))
             throw new InvalidOperationException("Missing SQS receipt; cannot acknowledge safely");
+        if (!WindowsSessionGuard.IsReady())
+            return 0; // Session changed during receive: wait for SQS visibility timeout.
 
         var body = message.Body ?? "";
         SignedJob? parsed = null;
