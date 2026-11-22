@@ -85,3 +85,13 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Architektura i zasady: docs/agent-factory.md.
 - **Polecenie dla Claude Code:** docs/claude-code-handoff-agent-factory.md. Przy pracach agentowych przeczytaj je w całości, realizuj kolejne etapy i testuj rezultaty.
 - Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję.
+
+
+## NotarAI Universal Computer Agent — zasady rozwoju (22.11.2026)
+- **Cel:** możliwie uniwersalna obsługa autoryzowanego oprogramowania kancelaryjnego, bez oddzielnych pisanych od zera adapterów dla każdego producenta.
+- **Najważniejszy dokument:** `docs/fallback-policy.md`; architektura: `docs/universal-computer-agent.md`. PR demonstratora: #63.
+- **Dwa łańcuchy fallbacków:** (A) minimum wdrożenia: API -> browser worker -> hostowana Windows VM -> VM w sieci kancelarii -> wąski connector -> człowiek; (B) wykonanie: native API -> web DOM -> Windows UIA -> UIA+vision -> visual computer use -> pokazanie procedury -> handoff.
+- Każda metoda ma `supports`, wykonanie oraz weryfikację. **Nie ponawiaj niepewnego zapisu**, nie próbuj innej metody po odmowie autoryzacji ani bez potwierdzenia braku efektów ubocznych.
+- W kodzie: `computer_use/fallback_router.py` i `tests/test_computer_use_fallback_router.py` to czysty, provider-agnostic fundament, NIE działająca integracja z Windows/Playwright. Nie twierdź, że agent obsługuje aplikacje produkcyjne bez E2E.
+- Przy integracji z dowolną aplikacją najpierw wykorzystaj istniejące wspólne backendi i profile GUI; osobne specjalne obejście dopiero po niepowodzeniu generycznych dróg, z testem regresji.
+- Nie instaluj NotarAI na PC notariusza, jeśli jest możliwe legalne odizolowane środowisko wykonawcze. Nie obiecuj braku zmian w lokalnej infrastrukturze, jeżeli baza jest dostępna tylko lokalnie.
