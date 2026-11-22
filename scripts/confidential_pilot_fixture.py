@@ -1,4 +1,8 @@
-"""Generate one strictly fictional, encrypted Nitro pilot document and SQS job.
+"""Stage one strictly fictional encrypted Nitro pilot document, NOT a job.
+
+A separately signed independent origin receipt is mandatory BEFORE enqueue.
+This command never starts Nitro or sends SQS; run the separate custody
+admission step after verifying the exact ciphertext SHA and S3 version.
 
 Requires a configured AWS profile only when --apply is explicitly set.
 No customer files, no arbitrary plaintext input, no decrypted data in S3.
@@ -14,6 +18,7 @@ import base64
 import hashlib
 import secrets
 import json
+import os
 import re
 import subprocess
 import uuid
@@ -85,12 +90,17 @@ def outputs(profile: str, stack: str) -> dict[str, str]:
 
 def create_fixture(*, profile: str, account: str, tenant: str,
                    apply: bool = False,
-                   shared_compute: bool = False) -> str | None:
+                   shared_compute: bool = False,
+                   ciphertext_output: Path | None = None) -> str | None:
     if not _ACCOUNT.fullmatch(account) or not _TENANT.fullmatch(tenant):
         raise ValueError("invalid account or pilot tenant")
     if not apply:
-        print("DRY RUN: would encrypt only a hardcoded fictional form and submit SQS metadata.")
+        print("DRY RUN: would stage only hardcoded fictional ciphertext; NO SQS until independent origin signature.")
         return None
+    if ciphertext_output is None:
+        raise ValueError("ciphertext output file required for independent post-upload signing")
+    if ciphertext_output.exists():
+        raise ValueError("refusing to overwrite existing encrypted fixture")
     identity = aws(profile, ["sts", "get-caller-identity"])
     if identity.get("Account") != account:
         raise RuntimeError("AWS account mismatch")
@@ -148,33 +158,19 @@ def create_fixture(*, profile: str, account: str, tenant: str,
         document_version=envelope["document_version"],
         ciphertext_sha256=digest, s3_version=s3_version,
     )
-    registry.claim_preview(**reg, s3_version=s3_version)
-    job_id = uuid.uuid4().hex
-    # The same ledger binds the immutable S3 version for the Nitro guest.
-    ledger = PreviewJobLedger(ddb, tenant=tenant)
-    ledger.create(
-        job_id=job_id, case_id="pilot01", object_id="synthetic01",
-        s3_version=s3_version,
-    )
-    try:
-        sess.client("sqs").send_message(
-            QueueUrl=queue,
-            MessageGroupId=tenant,
-            MessageDeduplicationId=job_id,
-            MessageBody=json.dumps({
-                "tenant_id": tenant, "case_id": "pilot01",
-                "object_id": "synthetic01", "job_id": job_id,
-                "s3_version": s3_version,
-            }, separators=(",", ":")),
-        )
-    except Exception:
-        ledger.mark_queue_uncertain(job_id)
-        raise RuntimeError("synthetic queue delivery uncertain; review job ledger") from None
-    print("Queued synthetic encrypted form preview.")
-    print("job_id:", job_id)
-    print("Only fictional data was uploaded; no task was launched.")
-    return job_id
-
+    # New SEC-03 fail-closed staging protocol: no queue claim or SQS send
+    # until the independent issuer signs this exact SHA and S3 VersionId.
+    # Write only ciphertext locally for the issuer's separate offline device.
+    fd = os.open(str(ciphertext_output), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "wb") as target:
+        target.write(object_body)
+        target.flush()
+        os.fsync(target.fileno())
+    print("STAGED: synthetic ciphertext only; NO preview was enqueued.")
+    print("ciphertext_sha256:", digest)
+    print("s3_version:", s3_version)
+    print("Signed origin receipt and independent Nitro root required before SQS.")
+    return s3_version
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -183,11 +179,14 @@ def main():
     p.add_argument("--tenant", default="pilot01")
     p.add_argument("--shared-compute", action="store_true",
                    help="Use per-tenant data/KMS stacks in shared regional Nitro fabric")
+    p.add_argument("--ciphertext-output", type=Path,
+                   help="New local .encrypted.json path; never overwritten")
     p.add_argument("--apply", action="store_true")
     args = p.parse_args()
     create_fixture(
         profile=args.profile, account=args.account, tenant=args.tenant,
-        apply=args.apply
+        apply=args.apply, shared_compute=args.shared_compute,
+        ciphertext_output=args.ciphertext_output,
     )
 
 
