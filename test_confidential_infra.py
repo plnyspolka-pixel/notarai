@@ -66,6 +66,12 @@ def test_confidential_task_is_separate_with_no_exec_and_minimum_iam():
     statements = role["Policies"][0]["PolicyDocument"]["Statement"]
     assert any(s.get("Action") == "s3:GetObject" for s in statements)
     assert not any("kms:Decrypt" in str(s.get("Action")) for s in statements)
+    lists = [x for x in statements if x.get("Action") == "s3:ListBucket"]
+    assert len(lists) == 1
+    assert lists[0]["Resource"]["Sub"] == "arn:aws:s3:::${EncryptedBucketName}"
+    assert lists[0]["Condition"]["StringLike"]["s3:prefix"]["Sub"] == (
+        "kancelarie/${TenantId}/confidential-control/*/grant.json"
+    )
     assert any("dynamodb:UpdateItem" in s.get("Action", []) for s in statements)
     assert container["Command"] == ["python", "-m", "confidential.customer_v3_worker"]
 
