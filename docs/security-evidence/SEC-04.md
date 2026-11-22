@@ -287,3 +287,34 @@ without source content. Synthetic negative tests cover repeated tenancy,
 case identities, NaN/Infinity, corrupted syntax and S3 bypass attempts.
 This reduces parser-differential and key-shadowing risks; it is not
 hardware proof or a complete input security review.
+
+
+## SEC-04 read-only AWS metadata verifier
+Added `scripts/audit_confidential_sec04_live.py` and negative, synthetic
+`test_confidential_sec04_live_audit.py` (part of confidential CI).
+The CLI defaults to **dry-run** and makes zero AWS calls without `--check`.
+With `--check`, the caller supplies an explicit account, `pilot01` or
+`pilot02` tenant, ciphertext bucket, approved KMS ARN and FIFO SQS URL.
+Only read-only STS/S3/KMS/SQS metadata calls are permitted. The report
+contains statuses, never the raw policy, principal ARN, exception message,
+queue body, document text or AWS credentials. It inspects:
+
+- STS account binding before any subsequent resource call;
+- exact bucket region `eu-central-1`, versioning, all four public access
+  blocks, and default S3 encryption;
+- enabled RSA_3072 KMS key and policy that limits a single Decrypt grant
+  to a role pinned to PCR17 and ECS Nitro service;
+- encrypted FIFO SQS configuration in the approved region.
+
+Each failed metadata invariant is `FAIL`; unreachable/unreadable metadata
+becomes `BLOCKED` without echoing provider text. Even if all eight
+metadata checks PASS, `overall=BLOCKED` and
+`strict_zero_knowledge_verified=false`. **This is not an independent
+hardware-attestation, egress, data-retention, or Zero Operator Access audit.**
+The script is not executed against a live account in CI; a user with
+appropriate read-only AWS credentials must explicitly run `--check`.
+The code never calls KMS Decrypt, SQS Receive, S3 GetObject or a
+resource mutation endpoint.
+
+Suggested offline inspection: `python scripts/audit_confidential_sec04_live.py --help`
+and `pytest -q test_confidential_sec04_live_audit.py`.
