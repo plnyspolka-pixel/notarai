@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
+
+# Direct script invocation must also work without PYTHONPATH or installed wheel.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from confidential.adversarial_gate import evaluate_gate, offline_matrix
 

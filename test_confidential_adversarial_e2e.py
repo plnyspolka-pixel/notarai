@@ -76,9 +76,8 @@ def test_forged_negative_pass_or_submission_rejected(attack):
 def test_duplicate_or_changed_source_is_not_admitted():
     rows = list(offline_matrix(now=NOW))
     rows.append(dict(rows[0]))
-    assert evaluate_gate(tuple(rows))["offline_matrix"] == "FAIL" or (
-        evaluate_gate(tuple(rows))["commercial_go"] is False
-    )
+    assert evaluate_gate(tuple(rows))["offline_matrix"] == "FAIL"
+    assert evaluate_gate(tuple(rows))["commercial_go"] is False
     rows = list(offline_matrix(now=NOW))
     rows[0] = {**rows[0], "source": "AWS"}
     assert evaluate_gate(tuple(rows))["offline_matrix"] == "FAIL"

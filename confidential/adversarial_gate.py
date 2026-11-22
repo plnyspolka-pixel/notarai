@@ -162,7 +162,9 @@ def evaluate_gate(cases: tuple[dict, ...], *, custody_independent: bool = False,
     No self-asserted booleans can ever flip commercial_go to True.
     """
     by_id = {item.get("case"): item for item in cases if isinstance(item, dict)}
-    coverage = len(by_id) == len(SCENARIO_NAMES) and set(by_id) == set(SCENARIO_NAMES)
+    coverage = (len(cases) == len(SCENARIO_NAMES) and
+                len(by_id) == len(SCENARIO_NAMES) and
+                set(by_id) == set(SCENARIO_NAMES))
     expectations = {
         row: (_COMPLETED if row.endswith("_preview") else
               _REVIEW if row in FAULTS else _REJECTED)
