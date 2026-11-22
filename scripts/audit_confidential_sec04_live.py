@@ -20,8 +20,8 @@ _QUEUE_URL = re.compile(
 )
 _CHECKS = (
     "aws_account", "s3_region", "s3_versioning", "s3_public_access",
-    "s3_bucket_encryption", "kms_metadata", "kms_attested_policy",
-    "sqs_fifo_encryption",
+    "s3_bucket_encryption", "s3_no_replication", "kms_metadata",
+    "kms_attested_policy", "kms_decrypt_grants", "sqs_fifo_encryption",
 )
 
 
@@ -38,6 +38,11 @@ def validate_kms_attestation_policy(policy: object, *, account: str,
                                     tenant: str) -> bool:
     """Shape validation only; not proof that policy cannot later be changed."""
     if not isinstance(policy, dict) or not isinstance(policy.get("Statement"), list):
+        return False
+    # IAM NotAction is an implicit allow-list complement. Do not assert
+    # protection if any Allow could include Decrypt through NotAction.
+    if any(isinstance(s, dict) and s.get("Effect") == "Allow" and
+           "NotAction" in s for s in policy["Statement"]):
         return False
     grants = [
         s for s in policy["Statement"]
@@ -135,17 +140,17 @@ def audit(*, profile: str, account: str, tenant: str, bucket: str,
 
     def s3_location():
         return client("s3").get_bucket_location(
-            Bucket=bucket
+            Bucket=bucket, ExpectedBucketOwner=account
         ).get("LocationConstraint") == _REGION
 
     def s3_versioning():
         return client("s3").get_bucket_versioning(
-            Bucket=bucket
+            Bucket=bucket, ExpectedBucketOwner=account
         ).get("Status") == "Enabled"
 
     def s3_public():
         flags = client("s3").get_public_access_block(
-            Bucket=bucket
+            Bucket=bucket, ExpectedBucketOwner=account
         ).get("PublicAccessBlockConfiguration", {})
         return all(flags.get(k) is True for k in (
             "BlockPublicAcls", "IgnorePublicAcls",
@@ -153,7 +158,9 @@ def audit(*, profile: str, account: str, tenant: str, bucket: str,
         ))
 
     def s3_encryption():
-        rules = client("s3").get_bucket_encryption(Bucket=bucket).get(
+        rules = client("s3").get_bucket_encryption(
+            Bucket=bucket, ExpectedBucketOwner=account
+        ).get(
             "ServerSideEncryptionConfiguration", {}
         ).get("Rules", [])
         return len(rules) > 0 and all(
@@ -163,6 +170,22 @@ def audit(*, profile: str, account: str, tenant: str, bucket: str,
             ) in {"AES256", "aws:kms"}
             for r in rules
         )
+
+    def s3_no_replication():
+        # A bucket can live in Frankfurt yet replicate ciphertext to
+        # another region; reject any replication configuration, and deny
+        # if AWS cannot prove the absence of rules.
+        from botocore.exceptions import ClientError
+        try:
+            client("s3").get_bucket_replication(
+                Bucket=bucket, ExpectedBucketOwner=account
+            )
+        except ClientError as error:
+            code = error.response.get("Error", {}).get("Code", "")
+            if code == "ReplicationConfigurationNotFoundError":
+                return True
+            raise
+        return False
 
     def kms_metadata():
         meta = client("kms").describe_key(KeyId=kms_key_arn).get("KeyMetadata", {})
@@ -182,6 +205,21 @@ def audit(*, profile: str, account: str, tenant: str, bucket: str,
             policy, account=account, tenant=tenant
         )
 
+    def kms_decrypt_grants():
+        grants = client("kms").list_grants(
+            KeyId=kms_key_arn, Limit=100
+        )
+        if grants.get("Truncated") or grants.get("NextMarker"):
+            raise RuntimeError("incomplete KMS grant metadata")
+        entries = grants.get("Grants")
+        if not isinstance(entries, list):
+            raise RuntimeError("missing KMS grant inventory")
+        return all(
+            isinstance(g, dict) and
+            "Decrypt" not in g.get("Operations", [])
+            for g in entries
+        )
+
     def sqs_encryption():
         attrs = client("sqs").get_queue_attributes(
             QueueUrl=queue_url,
@@ -195,8 +233,10 @@ def audit(*, profile: str, account: str, tenant: str, bucket: str,
         ("s3_versioning", s3_versioning),
         ("s3_public_access", s3_public),
         ("s3_bucket_encryption", s3_encryption),
+        ("s3_no_replication", s3_no_replication),
         ("kms_metadata", kms_metadata),
         ("kms_attested_policy", kms_policy),
+        ("kms_decrypt_grants", kms_decrypt_grants),
         ("sqs_fifo_encryption", sqs_encryption),
     ):
         checked(name, operation)
