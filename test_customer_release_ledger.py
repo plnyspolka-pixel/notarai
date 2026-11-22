@@ -45,7 +45,7 @@ class MemoryDdb:
                     or row["object_id"] != v[":object"]
                     or row["s3_version"] != v[":version"]
                     or row["submitted"]["BOOL"] is not False
-                    or int(row["attempts"]["N"]) >= int(v[":limit"])):
+                    or int(row["attempts"]["N"]) >= int(v[":limit"]["N"])):
                 raise ConditionalDenied()
             row["state"] = v[":running"]
             row["task_token"] = v[":token"]
