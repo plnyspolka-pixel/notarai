@@ -17,7 +17,7 @@ from http.server import ThreadingHTTPServer
 from confidential.envelope import Envelope, InvalidEnvelope
 from confidential.form_engine import TrustedForm, fill_form
 from confidential.job_ledger import PreviewJobLedger, validate_version_id
-from confidential.plaintext_lifecycle import harden_guest_process, ephemeral_browser_home
+from confidential.plaintext_lifecycle import harden_guest_process, ephemeral_browser_home, silence_guest_stdio
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -164,6 +164,10 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
         # queue_uncertain / exhausted retry: retained for DLQ + manual review.
         return 1
     try:
+        # Before any KMS release, remove inherited stdout/stderr as potential
+        # sinks for decrypted names, browser exception messages and vendor logs.
+        # A failure is fatal and leaves the queue item for review/retry.
+        silence_guest_stdio()
         values = _load_decrypted_form(
             session.client("s3"), session.client("kms"),
             bucket, tenant, case_id, object_id, kms_key_arn,
