@@ -266,7 +266,7 @@ def apply_signed_action(
                  "custody enrollment must be independently approved")
         return validate_state({
             **changes, "schema": _SCHEMA,
-            "generation": 1, "revision": 1, "state": "ACTIVE",
+            "generation": 1, "revision": 1, "state": "FROZEN",
         })
 
     state = validate_state(state)
