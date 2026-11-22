@@ -7,7 +7,8 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^[a-z][a-z0-9]{2,11}$')][string]$TenantId = 'pilot01',
-    [string]$Root = 'C:\ProgramData\NotarAI\VirtualEmployee'
+    [string]$Root = 'C:\ProgramData\NotarAI\VirtualEmployee',
+    [string]$SqsQueueUrl = ''
 )
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -23,6 +24,11 @@ $paths = @{
     NOTARAI_VE_INBOX_DIR = (Join-Path $Root 'work\inbox')
     NOTARAI_VE_OUTBOX_DIR = (Join-Path $Root 'work\outbox')
     NOTARAI_VE_REPLAY_DIR = (Join-Path $Root 'work\replay')
+}
+if (-not [string]::IsNullOrWhiteSpace($SqsQueueUrl)) {
+    $expected = "^https://sqs\\.eu-central-1\\.amazonaws\\.com/[0-9]{12}/notarai-ve-$TenantId-jobs\\.fifo$"
+    if ($SqsQueueUrl -cnotmatch $expected) { throw 'Unexpected SQS tenant queue URL' }
+    $paths['NOTARAI_VE_SQS_QUEUE_URL'] = $SqsQueueUrl
 }
 foreach ($entry in $paths.GetEnumerator()) {
     if ($entry.Key -ne 'NOTARAI_VE_TENANT_ID' -and -not (Test-Path -LiteralPath $entry.Value)) {
