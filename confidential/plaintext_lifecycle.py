@@ -11,7 +11,6 @@ import ctypes
 import faulthandler
 import os
 import resource
-import shutil
 import sys
 import tempfile
 from pathlib import Path
