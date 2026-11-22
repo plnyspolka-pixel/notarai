@@ -91,9 +91,18 @@ Additional route gate: `python scripts/audit_confidential_ai_routes.py --json`.
 - Security workflow for earlier SHA: PASS.
   https://github.com/plnyspolka-pixel/notarai/actions/runs/44981313367
 
-**Current head is newer than these results; its CI is NOT YET VERIFIED.**
-There is no independently verified Nitro LLM, custody, retention or subprocessors
-proof. Do not infer green CI from old SHA. No local run was performed.
+**Verified green baseline** for commit `4b5386137965756a7b5a3e416e61d992999995fd`:
+- Full Python + JS tests: PASS —
+  https://github.com/plnyspolka-pixel/notarai/actions/runs/44995536208
+- Confidential Chromium + Nitro guest local checks: PASS —
+  https://github.com/plnyspolka-pixel/notarai/actions/runs/44995536176
+- Security workflow: PASS —
+  https://github.com/plnyspolka-pixel/notarai/actions/runs/44995536269
+
+**Current head is newer than this PASS baseline; its CI must be checked
+separately.** There is no independently verified Nitro LLM, external
+custody, retention or subprocessors proof. Do not infer green CI for
+a newer SHA. No live AWS SEC-04 evidence has been obtained.
 
 Completion requires K1-K6 all PASS with verifiable evidence, 0 FAIL /
 BLOCKED / UNVERIFIED, and green CI for the exact final head SHA. Until then
