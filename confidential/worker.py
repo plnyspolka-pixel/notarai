@@ -21,6 +21,11 @@ from confidential.plaintext_lifecycle import harden_guest_process, ephemeral_bro
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
+# Must be comfortably below the SQS visibility and DynamoDB claim lease
+# (both currently 900 seconds). This bounds normal asyncio-controlled
+# plaintext/browser lifetime, but cannot replace a host-level kill watchdog.
+_PREVIEW_TIMEOUT_SECONDS = 180
+
 
 def _config() -> tuple[str, str, str, str]:
     if os.environ.get("NOTARAI_CONFIDENTIAL_REQUIRED") != "1" or not os.path.exists("/dev/nsm"):
@@ -174,7 +179,10 @@ def _process_one(session, tenant: str, bucket: str, queue_url: str,
             s3_version,
         )
         try:
-            asyncio.run(_prepare_fictional_form(job_id, values))
+            asyncio.run(asyncio.wait_for(
+                _prepare_fictional_form(job_id, values),
+                timeout=_PREVIEW_TIMEOUT_SECONDS,
+            ))
         finally:
             # Only best-effort reference release: Python immutable strings
             # cannot be securely overwritten. One-job Nitro termination is
