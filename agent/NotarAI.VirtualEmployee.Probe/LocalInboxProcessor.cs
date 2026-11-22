@@ -115,7 +115,7 @@ internal sealed class LocalInboxProcessor
         return full;
     }
 
-    private static void WriteOutcome(string path, string jobId, string status, string code)
+    internal static void WriteOutcome(string path, string jobId, string status, string code)
     {
         var json = JsonSerializer.Serialize(new
         {
