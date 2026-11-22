@@ -17,13 +17,17 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 _FIELDS = frozenset({
     "schema", "action", "tenant_id", "case_id", "object_id",
     "target_tenant_id", "target_object_id",
-    "document_version", "old_key_arn", "new_key_arn",
-    "new_key_sha256", "request_id", "expires_at",
+    "document_version", "old_key_arn", "source_s3_version",
+    "source_ciphertext_sha256", "source_key_pin",
+    "new_key_arn", "new_key_sha256", "request_id", "expires_at",
 })
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _VERSION = re.compile(r"^[a-f0-9]{32}$")
 _KMS = re.compile(r"^arn:aws:kms:eu-central-1:[0-9]{12}:key/[A-Za-z0-9-]+$")
 _PIN = re.compile(r"^[A-Za-z0-9+/]{43}=$")
+_SHA = re.compile(r"^[a-f0-9]{64}$")
+_S3 = re.compile(r"^[A-Za-z0-9._~+/=-]{1,1024}$")
+_TENANT = re.compile(r"^[a-z0-9]{1,12}$")
 _DOMAIN = b"notarai:external-recovery-approval:v1\x00"
 
 
@@ -34,7 +38,7 @@ class RecoveryDenied(ValueError):
 def canonical_recovery_request(request: Mapping) -> bytes:
     if not isinstance(request, Mapping) or set(request) != _FIELDS:
         raise RecoveryDenied("invalid recovery request")
-    if (request.get("schema") != "notarai.recovery.v1"
+    if (request.get("schema") != "notarai.recovery.v2"
             or request.get("action") not in ("rotate", "revoke")
             or any(not isinstance(request.get(key), str) or
                    not _ID.fullmatch(request[key])
@@ -42,8 +46,17 @@ def canonical_recovery_request(request: Mapping) -> bytes:
             or any(not isinstance(request.get(key), str) or
                    not _VERSION.fullmatch(request[key])
                    for key in ("document_version", "request_id"))
+            or not isinstance(request.get("tenant_id"), str)
+            or not _TENANT.fullmatch(request["tenant_id"])
             or not isinstance(request.get("old_key_arn"), str)
             or not _KMS.fullmatch(request["old_key_arn"])
+            or not isinstance(request.get("source_s3_version"), str)
+            or not _S3.fullmatch(request["source_s3_version"])
+            or request["source_s3_version"] == "null"
+            or not isinstance(request.get("source_ciphertext_sha256"), str)
+            or not _SHA.fullmatch(request["source_ciphertext_sha256"])
+            or not isinstance(request.get("source_key_pin"), str)
+            or not _PIN.fullmatch(request["source_key_pin"])
             or not isinstance(request.get("new_key_arn"), str)
             or not isinstance(request.get("new_key_sha256"), str)
             or not isinstance(request.get("target_tenant_id"), str)
@@ -52,8 +65,7 @@ def canonical_recovery_request(request: Mapping) -> bytes:
                 and (not _KMS.fullmatch(request["new_key_arn"])
                      or request["old_key_arn"] == request["new_key_arn"]
                      or not _PIN.fullmatch(request["new_key_sha256"])
-                     or not _ID.fullmatch(request["target_tenant_id"])
-                     or len(request["target_tenant_id"]) > 12
+                     or not _TENANT.fullmatch(request["target_tenant_id"])
                      or not _ID.fullmatch(request["target_object_id"])
                      or request["target_object_id"] == request["object_id"]))
             or (request["action"] == "revoke" and (
