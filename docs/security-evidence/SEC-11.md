@@ -178,3 +178,30 @@ wersji/łańcucha i niezależny HEAD SHA; audytor offline wykonuje
 scripts/verify_confidential_evidence.py. Sam poprawny podpis wciąż
 nie dowodzi realnej konfiguracji IAM/Nitro/WORM. Bez aktualnego CI i
 niezależnego live audytu K2, K5 i K6 pozostają BLOCKED.
+
+
+## Wiązanie odmowy z prawdziwą syntetyczną wersją
+
+Przed próbami operatora niezależny kustosz musi wykonać dodatkowo
+read-only audyt tego samego *fikcyjnego* VersionId. Używa opcji
+--fixture-key i --fixture-version w
+scripts/audit_confidential_evidence_storage.py:
+
+~~~bash
+python scripts/audit_confidential_evidence_storage.py \
+  --custody-account "$CUSTODY_ACCOUNT" \
+  --operator-account "$OPERATOR_ACCOUNT" \
+  --bucket "$INDEPENDENT_WORM_BUCKET" \
+  --profile "$CUSTODY_AUDITOR_SSO_PROFILE" \
+  --fixture-key sec11-fixture/independent-test-20261122 \
+  --fixture-version "$CUSTODIAN_SYNTHETIC_VERSION_ID" \
+  --run-read-only
+~~~
+
+Wykorzystuje wyłącznie HeadObject i GetObjectRetention na wskazanej
+wersji (bez GetObject/treści). Kontrola uznaje aktywny lock tylko gdy
+Mode=COMPLIANCE, RetainUntilDate jest późniejszy niż bieżący czas UTC,
+a identyfikator jest w wydzielonej przestrzeni sec11-fixture/.
+Niezależny audytor koreluje wyniki konta kustosza z operatorem poprzez
+SHA manifestu, ten sam bucket/version, UTC i CloudTrail; sam skrypt
+celowo nie podnosi zero_operator_access_proven do true.
