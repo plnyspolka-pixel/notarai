@@ -232,3 +232,35 @@ def test_guest_enforces_receipt_before_any_key_unwrap(synthetic, monkeypatch):
             ARN, VERSION, Registry(),
         )
     assert calls == ["ledger"]
+
+
+def test_package_custodian_issuer_root_requires_out_of_band_spki_pin(synthetic, tmp_path, monkeypatch):
+    from scripts.package_confidential_origin_root import package_origin_root
+    issuer = serialization.load_pem_private_key(synthetic["signing_key"], password=None)
+    spki = issuer.public_key().public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    pem = issuer.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    args = dict(
+        destination=tmp_path / "trusted-origin-root.json",
+        tenant_id=TENANT, issuer_id=ISSUER,
+        issuer_public_key_pem=pem,
+        independently_pinned_issuer_spki_sha256=hashlib.sha256(spki).hexdigest(),
+        kms_key_arn=ARN, kms_public_key_sha256=synthetic["pin"],
+        expires_at=2000000000,
+    )
+    result = package_origin_root(**args)
+    assert len(result["root_sha256"]) == 64
+    monkeypatch.setattr(origin, "_ROOT_PATH", args["destination"])
+    assert origin.load_trusted_origin_root(
+        tenant=TENANT, key_arn=ARN, now=1900000000,
+    )["issuer_id"] == ISSUER
+    with pytest.raises(FileExistsError):
+        package_origin_root(**args)
+    with pytest.raises(ValueError, match="pin mismatch"):
+        package_origin_root(**{**args,
+            "destination": tmp_path / "wrong.json",
+            "independently_pinned_issuer_spki_sha256": "f" * 64,
+        })
