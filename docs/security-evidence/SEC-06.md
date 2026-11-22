@@ -294,3 +294,35 @@ AWS documentation:
 - https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html
 - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.Pagination.html
 - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html
+
+## K4 optional REAL negative KMS decrypt probe — synthetic only
+
+`scripts/probe_confidential_operator_kms_denial.py` is a deliberately
+separate operator-profile negative test (not a release endpoint). It
+makes zero AWS calls unless both `--execute-negative-probe` and
+`--acknowledge-synthetic-only` are present. The test checks STS identity
+matches the workload account, uses only KMS GetPublicKey on the pinned
+RSA_3072 custody key, encrypts a freshly generated fixed-prefix random
+synthetic token locally using RSAES_OAEP_SHA_256, then deliberately
+requests `kms:Decrypt` with NO Recipient attestation document.
+
+Example (ONLY with authorized operator test credentials, no production):
+
+    python scripts/probe_confidential_operator_kms_denial.py \
+      --state-file /secure/synthetic-pilot01-state.json \
+      --operator-profile operator-negative-test \
+      --execute-negative-probe --acknowledge-synthetic-only
+
+Only a genuine AWS KMS AccessDeniedException is a single positive
+negative-test observation. InvalidCiphertextException, missing metadata
+or any other failure are INCONCLUSIVE. Any success is FAIL_OPEN
+(CLI exit 4). No real ciphertext, customer data, DEK, plaintext,
+synthetic token or returned KMS plaintext is logged or persisted.
+Even when the single operator principal is denied, this is **not**
+proof that all roles / grants / other operator accounts are denied:
+`effective_revocation_verified=false`,
+`independent_custody_verified=false`, and exit 3 remain mandatory.
+
+Official AWS KMS references:
+- https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
+- https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html
