@@ -1,0 +1,256 @@
+"""SEC-03 synthetic-only offline acceptance tests; never use client documents."""
+import asyncio
+import base64
+import copy
+import hashlib
+import json
+import logging
+import secrets
+import sys
+from types import SimpleNamespace
+
+import pytest
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa, ed25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from fastapi import HTTPException
+
+from confidential.envelope import Envelope, InvalidEnvelope
+from confidential.client_release import (
+    UntrustedClientRelease, canonical_release_bytes, verify_client_release,
+)
+from confidential import router
+
+ARN = "arn:aws:kms:eu-central-1:111122223333:key/fictional"
+PLAINTEXT = b"FICTIONAL TEST DOCUMENT - NOT REAL NOTARIAL DATA"
+
+
+@pytest.fixture
+def keys():
+    private = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    public = private.public_key().public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    pin = base64.b64encode(hashlib.sha256(public).digest()).decode("ascii")
+    return private, pin
+
+
+def envelope(keys, *, tenant="pilot01", case="case01", object_id="scan01"):
+    private, pin = keys
+    dek, nonce = secrets.token_bytes(32), secrets.token_bytes(12)
+    version = secrets.token_hex(16)
+    aad = ("notarai-v2|" + tenant + "|" + case + "|" + object_id +
+           "|" + version + "|" + ARN + "|" + pin).encode("ascii")
+    wrapped = private.public_key().encrypt(
+        dek, padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),
+                          algorithm=hashes.SHA256(), label=None),
+    )
+    payload = {
+        "version": 2, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
+        "tenant_id": tenant, "case_id": case, "object_id": object_id,
+        "document_version": version, "public_key_sha256": pin,
+        "kms_key_arn": ARN,
+        "nonce": base64.b64encode(nonce).decode("ascii"),
+        "wrapped_dek": base64.b64encode(wrapped).decode("ascii"),
+        "ciphertext": base64.b64encode(
+            AESGCM(dek).encrypt(nonce, PLAINTEXT, aad)
+        ).decode("ascii"),
+    }
+    return payload, dek
+
+
+class GuestForTests:
+    """Local RSA fixture, NOT a genuine Nitro recipient."""
+    def __init__(self, key):
+        self.key = key
+    def unwrap(self, wrapped, arn):
+        assert arn == ARN
+        return self.key.decrypt(wrapped, padding.OAEP(
+            mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None
+        ))
+
+
+def test_v2_aead_and_unique_versions(keys):
+    a, dek1 = envelope(keys)
+    b, dek2 = envelope(keys)
+    assert a["document_version"] != b["document_version"]
+    assert a["nonce"] != b["nonce"]
+    assert dek1 != dek2
+    guest = GuestForTests(keys[0])
+    assert Envelope.parse(a).open_inside_attested_task(guest) == PLAINTEXT
+    assert Envelope.parse(b).open_inside_attested_task(guest) == PLAINTEXT
+    assert Envelope.parse(a).associated_data().startswith(b"notarai-v2|pilot01|")
+
+
+@pytest.mark.parametrize("field,replacement", [
+    ("tenant_id", "pilot02"), ("object_id", "scan02"),
+    ("case_id", "case02"), ("document_version", "a" * 32),
+    ("public_key_sha256", "A" * 43 + "="),
+    ("kms_key_arn", "arn:aws:kms:eu-central-1:111122223333:key/alternate"),
+])
+def test_wrong_aad_is_rejected(keys, field, replacement):
+    payload, _ = envelope(keys)
+    payload[field] = replacement
+    with pytest.raises(InvalidEnvelope, match="authentication"):
+        Envelope.parse(payload).open_inside_attested_task(GuestForTests(keys[0]))
+
+
+def test_modified_tag_is_rejected(keys):
+    payload, _ = envelope(keys)
+    blob = bytearray(base64.b64decode(payload["ciphertext"]))
+    blob[-1] ^= 0x01
+    payload["ciphertext"] = base64.b64encode(blob).decode("ascii")
+    with pytest.raises(InvalidEnvelope, match="authentication"):
+        Envelope.parse(payload).open_inside_attested_task(GuestForTests(keys[0]))
+
+
+def test_v2_rejects_invalid_or_downgraded_fields(keys):
+    payload, _ = envelope(keys)
+    for bad in (
+        {**payload, "version": 1},
+        {**payload, "version": True},
+        {**payload, "document_version": "not-random"},
+        {**payload, "extra": "hidden data"},
+        {k: v for k, v in payload.items() if k != "public_key_sha256"},
+    ):
+        with pytest.raises(InvalidEnvelope):
+            Envelope.parse(bad)
+
+
+class S3ForTests:
+    def __init__(self):
+        self.writes = {}
+    def put_object(self, **kw):
+        if kw["IfNoneMatch"] != "*":
+            raise AssertionError("unsafe overwrite allowed")
+        if kw["Key"] in self.writes:
+            error = RuntimeError("conditional object collision")
+            error.response = {"Error": {"Code": "PreconditionFailed"}}
+            raise error
+        self.writes[kw["Key"]] = kw
+        return {"VersionId": "actualS3version01"}
+
+
+class RequestForTests:
+    def __init__(self, tenant, body):
+        self.state = SimpleNamespace(email="notary@example.test", serwis=False,
+                                     kancelaria=tenant)
+        self.payload = body
+    async def stream(self):
+        yield self.payload
+
+
+def setup_backend(monkeypatch, s3, pin, tenant):
+    monkeypatch.setitem(sys.modules, "autoryzacja", SimpleNamespace(MULTI=True))
+    monkeypatch.setitem(sys.modules, "magazyn", SimpleNamespace(
+        TRYB="s3", _klient_s3=lambda: s3,
+        _szyfrowanie=lambda: {"ServerSideEncryption": "AES256"},
+    ))
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_ALLOWED_TENANT", tenant)
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_BUCKET", "fictional-cipher-bucket")
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_KMS_KEY_ARN", ARN)
+    monkeypatch.setenv("PIECZAPP_CONFIDENTIAL_PUBLIC_KEY_SHA256", pin)
+
+
+def test_two_synthetic_uploads_never_store_plaintext_or_dek(keys, monkeypatch, caplog):
+    s3 = S3ForTests()
+    caplog.set_level(logging.DEBUG)
+    for tenant in ("pilot01", "pilot02"):
+        setup_backend(monkeypatch, s3, keys[1], tenant)
+        for case in ("case01",):
+            obj = "scan01" if tenant == "pilot01" else "scan02"
+            payload, dek = envelope(keys, tenant=tenant, case=case, object_id=obj)
+            body = json.dumps(payload, separators=(",", ":")).encode("ascii")
+            response = asyncio.run(router.store(
+                RequestForTests(tenant, body), case, obj
+            ))
+            assert json.loads(response.body)["stored"] is True
+            assert PLAINTEXT not in body
+            assert dek not in body
+    assert len(s3.writes) == 2
+    for obj in s3.writes.values():
+        raw = obj["Body"]
+        assert PLAINTEXT not in raw
+        assert b"FICTIONAL" not in raw
+        assert b"wrapped_dek" in raw
+        assert obj["ContentType"] == "application/json"
+        assert "ServerSideEncryption" in obj
+    assert "FICTIONAL TEST DOCUMENT" not in caplog.text
+
+
+def test_backend_denies_cross_tenant_wrong_pin_and_legacy(keys, monkeypatch):
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    for bad in (
+        {**payload, "tenant_id": "pilot02"},
+        {**payload, "public_key_sha256": "A" * 43 + "="},
+        {k: v for k, v in payload.items()
+         if k not in ("document_version", "public_key_sha256")} | {"version": 1},
+    ):
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(router.store(RequestForTests(
+                "pilot01", json.dumps(bad).encode("ascii")
+            ), "case01", "scan01"))
+        assert exc.value.status_code in (400, 403)
+    assert s3.writes == {}
+
+
+def test_duplicate_object_replay_denied(keys, monkeypatch):
+    s3 = S3ForTests()
+    setup_backend(monkeypatch, s3, keys[1], "pilot01")
+    payload, _ = envelope(keys)
+    body = json.dumps(payload).encode("ascii")
+    req = RequestForTests("pilot01", body)
+    assert json.loads(asyncio.run(router.store(req, "case01", "scan01")).body)["stored"]
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(router.store(req, "case01", "scan01"))
+    assert exc.value.status_code == 409
+    assert len(s3.writes) == 1
+
+
+def test_release_verification_requires_independent_public_key(keys):
+    private = ed25519.Ed25519PrivateKey.generate()
+    trusted = private.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    javascript = b"// synthetic JS; no user data\n"
+    manifest = {
+        "schema": "notarai.client-release.v1",
+        "release_id": "a" * 32,
+        "tenant_id": "pilot01",
+        "kms_key_arn": ARN,
+        "public_key_sha256": keys[1],
+        "javascript_sha256": hashlib.sha256(javascript).hexdigest(),
+        "expires_at": 2000000000,
+    }
+    sig = private.sign(canonical_release_bytes(manifest))
+    valid = dict(javascript=javascript, manifest=manifest, signature=sig,
+                 trusted_public_key=trusted, tenant_id="pilot01",
+                 expected_kms_arn=ARN, expected_key_pin=keys[1],
+                 now=1900000000)
+    assert verify_client_release(**valid) == manifest["javascript_sha256"]
+    wrong = [
+        {"javascript": b"// attacker-controlled update"},
+        {"signature": b"x" * 64},
+        {"tenant_id": "pilot02"},
+        {"expected_kms_arn": ARN.replace("fictional", "wrong")},
+        {"expected_key_pin": "A" * 43 + "="},
+        {"now": 2000000000},
+        {"trusted_public_key": ed25519.Ed25519PrivateKey.generate().public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw)},
+    ]
+    for update in wrong:
+        with pytest.raises(UntrustedClientRelease):
+            verify_client_release(**{**valid, **update})
+
+
+def test_no_support_admin_decryption_path():
+    # No plaintext/DEK endpoint in the confidential web API.
+    declared = {(route.path, method)
+                for route in router.router.routes
+                for method in route.methods}
+    assert not any("decrypt" in path or "unwrap" in path or
+                   "recover" in path for path, _ in declared)
+    assert not any("submit" in path or "sign" in path for path, _ in declared)
