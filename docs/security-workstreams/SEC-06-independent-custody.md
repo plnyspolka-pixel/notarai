@@ -39,3 +39,5 @@
 - `docs/security-evidence/SEC-06.md`: K1–K6 ze statusem BLOCKED/UNVERIFIED, jawne warunki audytu i testów live. Testy CI nie zastępują odmów KMS.
 
 **BLOKERY:** realnie niezależny custody AWS/Organizations/SSO i podpisany audyt; realna polityka KMS/CloudTrail i sprawdzenie jej skuteczności przez atak; dostarczone publiczne dowody CI dla finalnego HEAD. Implementacja nie jest wpięta w produkcyjny scheduler ani wypuszczona do użytkowników. Produkcja OFF, wyłącznie synthetic, AUTO bez podpisania/wysłania.
+
+- `scripts/custodian_sign_confidential_operation.py`: odrębny signer działa wyłącznie przez niezależny profil AWS i pinned public-key fingerprint, domyślnie 0 wywołań AWS; zatwierdzenie wymaga `--approve-action`, a kod nigdy nie wykonuje `Decrypt` ani `PutKeyPolicy`.
