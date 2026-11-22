@@ -69,6 +69,18 @@ def _registry(tenant: str) -> DocumentVersionRegistry:
     )
 
 
+def _strict_envelope_json(data: bytes) -> dict:
+    """Reject duplicate JSON fields to prevent multi-parser ambiguity."""
+    def no_duplicates(pairs):
+        result = {}
+        for name, value in pairs:
+            if name in result:
+                raise ValueError("duplicate JSON field")
+            result[name] = value
+        return result
+    return json.loads(data, object_pairs_hook=no_duplicates)
+
+
 def _approved_public_key_pin() -> str:
     """Configured pin is an operator-side check, NOT an independent trust root."""
     import base64
@@ -93,9 +105,13 @@ async def store(request: Request, case_id: str, object_id: str):
             raise HTTPException(413, "Dokument zaszyfrowany jest za duzy.")
         data.extend(part)
     try:
-        envelope = Envelope.parse(json.loads(bytes(data)))
+        # Retain the EXACT bytes from the independent client, so that its
+        # locally computed SHA-256 can be signed after S3 returns VersionId.
+        # Do not reserialize or transform ciphertext on the operator backend.
+        wire = bytes(data)
+        envelope = Envelope.parse(_strict_envelope_json(wire))
     except (ValueError, TypeError, InvalidEnvelope):
-        raise HTTPException(400, "Bledna struktura zaszyfrowanego dokumentu.")
+        raise HTTPException(400, "Bledna struktura zaszyfrowanego dokumentu.") from None
     finally:
         data.clear()
     if (envelope.version != 2 or envelope.tenant_id != tenant
@@ -103,24 +119,10 @@ async def store(request: Request, case_id: str, object_id: str):
             or envelope.kms_key_arn != _approved_key()
             or envelope.public_key_sha256 != _approved_public_key_pin()):
         raise HTTPException(403, "Dokument nie odpowiada autoryzowanej kancelarii lub kluczowi.")
-    # Do not accept new legacy v1 ciphertext without version/key binding.
-    # Validate structure without unwrapping DEK or logging request contents.
-    payload = {
-        "version": 2, "algorithm": "AES-256-GCM+RSA-OAEP-SHA256",
-        "tenant_id": envelope.tenant_id, "case_id": envelope.case_id,
-        "object_id": envelope.object_id, "kms_key_arn": envelope.kms_key_arn,
-        "document_version": envelope.document_version,
-        "public_key_sha256": envelope.public_key_sha256,
-    }
-    import base64
-    payload.update({
-        "nonce": base64.b64encode(envelope.nonce).decode("ascii"),
-        "wrapped_dek": base64.b64encode(envelope.wrapped_dek).decode("ascii"),
-        "ciphertext": base64.b64encode(envelope.ciphertext).decode("ascii"),
-    })
+    # The strict parser proves the envelope contains only the permitted
+    # fields. Preserve exact opaque bytes for independently signed provenance.
     # Reserve once in DynamoDB BEFORE touching S3. S3 IfNoneMatch alone is
     # insufficient: a delete marker makes the key writable again.
-    wire = json.dumps(payload, separators=(",", ":")).encode("ascii")
     digest = hashlib.sha256(wire).hexdigest()
     registry = _registry(tenant)
     try:
@@ -164,7 +166,7 @@ async def store(request: Request, case_id: str, object_id: str):
         raise HTTPException(503, "Wersja zapisana w S3, ale rejestr wymaga weryfikacji.") from None
     return JSONResponse(
         {"stored": True, "document_version": envelope.document_version,
-         "s3_version": s3_version},
+         "s3_version": s3_version, "ciphertext_sha256": digest},
         headers={"Cache-Control": "no-store"},
     )
 
