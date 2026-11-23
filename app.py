@@ -44,6 +44,7 @@ import krz_portal
 import urzadzenia
 import zlecenia
 import magazyn
+import szyfrowanie_kancelarii
 import notariusze
 import autoryzacja
 import nazwy
@@ -126,6 +127,18 @@ app.include_router(tokenomia.router_platnosci)
 # Agent glosowy (ElevenLabs): webhooki narzedzi, wlasne limity i token.
 app.include_router(agent_glosowy.router)
 app.middleware("http")(kalkulator.cors)
+
+
+@app.exception_handler(szyfrowanie_kancelarii.BrakKlucza)
+async def _brak_klucza(request: Request, blad: Exception):
+    """Sprawy zaszyfrowane kodem kancelarii, a zadanie go nie przynioslo.
+    423: przegladarka pyta o kod i ponawia zadanie."""
+    return JSONResponse({"detail": str(blad), "klucz_kancelarii": "brak"}, status_code=423)
+
+
+@app.exception_handler(szyfrowanie_kancelarii.ZlyKlucz)
+async def _zly_klucz(request: Request, blad: Exception):
+    return JSONResponse({"detail": str(blad), "klucz_kancelarii": "zly"}, status_code=403)
 
 
 @app.exception_handler(Exception)

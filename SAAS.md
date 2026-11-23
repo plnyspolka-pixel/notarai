@@ -15,6 +15,7 @@
 - `infra/wyslij-kod.ps1` — wysyła zacommitowane zmiany na GitHub (przepina `origin` ze starego CodeCommit, jeśli trzeba)
 - `infra/notarai-logowanie.yaml` — CloudFormation: logowanie użytkowników (Amazon Cognito)
 - `logowanie.py` — logowanie, pierwsze hasło, odzyskiwanie hasła, sprawdzanie tokenu tożsamości
+- `szyfrowanie_kancelarii.py` — klucz kancelarii (minimalne 3 × ZERO, `docs/3zero-minimum.md`): sprawy w S3 jako AES-256-GCM kluczem, którego notarai nie zna; właściciel włącza go w Ustawieniach kancelarii, przeglądarka dokleja kod w nagłówku `X-Klucz-Kancelarii`
 - `stanowiska.py` — stanowisko osoby w zespole (notariusz / aplikant / sekretariat): co może zrobić w sprawach; serwer odmawia 403, UI chowa przyciski. Nadaje właściciel w oknie „Zespół kancelarii”. Osoba bez stanowiska i właściciel mają pełne uprawnienia.
 - `korespondencja.py` — poczta e-mail do spraw: IMAP (TLS) albo katalog .eml, propozycje przypisania, pliki sprawy, ustalenia ze źródłem (sekcja „Poczta e-mail do spraw”)
 - `scripts/demo_odcinek01.py` — fikcyjne dane demo i lokalny serwer z kontami 4 ról do nagrania odcinka 01 (`docs/odcinek-01-luki.md`)

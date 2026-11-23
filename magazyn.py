@@ -18,9 +18,13 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import threading
+import time
 from contextvars import ContextVar
 from pathlib import Path
+
+import szyfrowanie_kancelarii as szyfr
 
 log = logging.getLogger("pieczapp.magazyn")
 
@@ -184,6 +188,9 @@ def utrwal_sprawe(katalog: Path) -> None:
         )
     if TRYB != "s3":
         return
+    if szyfr.aktywne():
+        szyfr._klucz()   # bez kodu kancelarii nie wysylamy niczego (ani jawnie, ani czesciowo)
+        _zanotuj_uzycie(katalog)
     id_sprawy = katalog.name
     skroty = _wczytaj_skroty(katalog)
     wyslane = 0
@@ -195,10 +202,11 @@ def utrwal_sprawe(katalog: Path) -> None:
         sha = _sha(dane)
         if (skroty.get(wzgledna) or [None])[0] == sha:
             continue   # bez zmian od ostatniej synchronizacji - nie nadpisujemy cudzych zmian
+        klucz_s3 = _klucz(id_sprawy, wzgledna)
         odpowiedz_put = _klient_s3().put_object(
             Bucket=BUCKET,
-            Key=_klucz(id_sprawy, wzgledna),
-            Body=dane,
+            Key=klucz_s3,
+            Body=szyfr.szyfruj(dane, klucz_s3) if szyfr.aktywne() else dane,
             **_szyfrowanie(),
         )
         skroty[wzgledna] = [sha, (odpowiedz_put or {}).get("ETag", "")]
@@ -221,6 +229,11 @@ def pobierz_sprawe(katalog: Path) -> bool:
     """
     if TRYB != "s3":
         return (katalog / "sprawa.json").exists() or katalog.is_dir()
+    if szyfr.aktywne():
+        # Odmowa jeszcze przed cache: kopia lokalna to tez plaintext kancelarii.
+        szyfr._klucz()
+        _sprzataj_cache()
+        _zanotuj_uzycie(katalog)
 
     id_sprawy = katalog.name
     try:
@@ -257,6 +270,8 @@ def pobierz_sprawe(katalog: Path) -> bool:
         if (skroty.get(wzgledna) or [None, None])[1] == etag and cel.is_file():
             continue   # ten plik sie nie zmienil
         dane = _klient_s3().get_object(Bucket=BUCKET, Key=klucz)["Body"].read()
+        if szyfr.aktywne():
+            dane = szyfr.odszyfruj(dane, klucz)
         cel.parent.mkdir(parents=True, exist_ok=True)
         cel.write_bytes(dane)
         skroty[wzgledna] = [_sha(dane), etag]
@@ -267,6 +282,36 @@ def pobierz_sprawe(katalog: Path) -> bool:
     return True
 
 
+# --- Cache plaintext kancelarii szyfrujacych --------------------------------
+
+# Dysk kontenera jest tylko pamiecia podreczna. U kancelarii z kluczem nie
+# zostawiamy na nim jawnych kopii dluzej niz trzeba: sprawa nieuzywana przez
+# CACHE_MINUT znika z dysku i przy nastepnym otwarciu schodzi z S3 (wymaga kodu).
+CACHE_MINUT = int(os.getenv("PIECZAPP_CACHE_SZYFROWANYCH_MINUT", "60"))
+_uzycia: dict[Path, float] = {}
+_BLOKADA_CACHE = threading.Lock()
+
+
+def _zanotuj_uzycie(katalog: Path) -> None:
+    with _BLOKADA_CACHE:
+        _uzycia[katalog] = time.monotonic()
+
+
+def _sprzataj_cache(teraz: float | None = None) -> int:
+    """Kasuje z dysku sprawy kancelarii szyfrujacych nieuzywane od CACHE_MINUT.
+    Zwraca liczbe usunietych katalogow."""
+    granica = (time.monotonic() if teraz is None else teraz) - CACHE_MINUT * 60
+    with _BLOKADA_CACHE:
+        stare = [k for k, t in _uzycia.items() if t < granica]
+        for k in stare:
+            _uzycia.pop(k, None)
+    for katalog in stare:
+        shutil.rmtree(katalog, ignore_errors=True)
+    if stare:
+        log.info("cache: usunieto %d nieuzywanych spraw szyfrowanych", len(stare))
+    return len(stare)
+
+
 def usun_sprawe(katalog: Path) -> int:
     """Kasuje sprawe z dysku i z S3. Zwraca liczbe usunietych obiektow.
 
@@ -274,8 +319,6 @@ def usun_sprawe(katalog: Path) -> int:
     skasowanie zostawiloby poprzednie wersje na kolejne 90 dni - a "usunieta"
     sprawa ma znaczyc usunieta, nie ukryta.
     """
-    import shutil
-
     if katalog.exists():
         shutil.rmtree(katalog)
     if TRYB != "s3":
@@ -339,8 +382,6 @@ def usun_kancelarie(id_kancelarii: str, baza: Path) -> int:
     To realizacja obowiazku z umowy powierzenia (usuniecie danych po
     zakonczeniu uslugi), wiec nie zostawiamy niczego "na 90 dni".
     """
-    import shutil
-
     if (not id_kancelarii or id_kancelarii in ZASTRZEZONE
             or "/" in id_kancelarii or "\\" in id_kancelarii or ".." in id_kancelarii):
         raise ValueError("Nieprawidlowy identyfikator kancelarii")
