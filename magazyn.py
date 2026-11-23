@@ -402,7 +402,7 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     # ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word
                     "ustawienia",
                     # stenogramy aktow: spis (sprawa, stan, czas) - bez tresci, ta lezy przy sprawie
-                    "stenogramy")  # wizyty: w obszarze administracyjnym
+                    "stenogramy", "google_kalendarz")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
