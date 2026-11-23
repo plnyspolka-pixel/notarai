@@ -5,7 +5,8 @@ Polecenia:
   up --pay              utwórz grupę z vLLM (płatne od chwili stanu `running`)
   status                stan grupy i tego, czy model już odpowiada
   proxy                 127.0.0.1:PORT -> brama Salad (dokleja klucz); po terminie usuwa grupę
-Całość bez komputera operatora uruchamia workflow .github/workflows/koder.yml.
+Ręcznie z komputera operatora. Przebieg w chmurze prowadzi Worker Cloudflare notarai-koder
+(tools/agent_factory/koder/cloudflare/, węzeł: koder/wezel.py), nie GitHub Actions.
   down                  usuń grupę (zawsze na koniec)
 
 Zasady: węzły Salad to cudze komputery poza UE -> wyłącznie kod z publicznego repo i dane

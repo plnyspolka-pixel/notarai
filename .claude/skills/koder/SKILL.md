@@ -19,8 +19,14 @@ Pełny opis: `docs/koder.md`. Skrót postępowania:
    `KODER_OCENA=lokalnie python tools/agent_factory/koder/ukryte.py przed <karta> .`
 3. `python tools/agent_factory/koder/karta.py lint` musi przejść.
 4. Powiedz użytkownikowi, ile kart idzie na który tor i jaki jest limit kosztu, potem wypchnij
-   gałąź `koder/<paczka>` (to wynajmuje kartę - płatne, limit w `.github/workflows/koder.yml`).
-5. Po przebiegu pobierz `agent/<przebieg>-wyniki`, przeczytaj `WYNIKI.md`, przejrzyj KAŻDY diff
+   gałąź `koder/<paczka>`. Przebieg prowadzi Worker Cloudflare `notarai-koder` (webhook push
+   albo `POST /start` z tokenem - `docs/koder.md`, „Gdzie to działa”); płatne, limit
+   `KODER_MAX_USD` w `tools/agent_factory/koder/cloudflare/wrangler.jsonc`. NIGDY nie dodawaj
+   workflow GitHub Actions, który wynajmuje GPU albo uruchamia koder (twarda reguła 23.11.2026,
+   pilnuje `tools/zakaz_renderu_gha.py`). Postęp: `GET /stan`; awaryjnie `POST /stop`.
+5. Gdy przebieg jest w fazie `do_odbioru` (Worker bez GITHUB_TOKEN), załóż gałęzie:
+   `KODER_TOKEN_PLIK=<plik> python3 tools/agent_factory/koder/odbierz.py <przebieg> --push`.
+   Potem pobierz `agent/<przebieg>-wyniki`, przeczytaj `WYNIKI.md`, przejrzyj KAŻDY diff
    z gałęzi `agent/<przebieg>-<id>`. Przyjęte zmiany złóż w jeden pull request; niezaliczone
    i odrzucone zrób sam. Niczego nie scalaj bez zgody użytkownika.
 6. Zapisz w odpowiedzi: ile zaliczył automat, ile przyjąłeś po przeglądzie, koszt karty.
