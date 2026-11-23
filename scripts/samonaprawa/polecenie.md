@@ -30,6 +30,18 @@ kancelarie. Wolisz nie naprawić, niż naprawić źle.
    `python -m pytest -q -p no:cacheprovider`.
 5. Zapisz raport JSON do pliku z `SAMONAPRAWA_RAPORT` (schemat niżej).
 
+## Prośby kancelarii (`rodzaj: "reczne"`, `typ: "prosba kancelarii"`)
+
+To nie zawsze błąd, czasem notariusz chce, żeby program działał inaczej
+(pole `uwagi`, po anonimizacji). Wtedy:
+- jeśli to oczywisty błąd programu (zły wynik dla wszystkich) - napraw jak błąd,
+- jeśli to preferencja jednej kancelarii - dodaj ustawienie kancelarii
+  (`ustawienia_kancelarii.py`, domyślnie dotychczasowe zachowanie) i podłącz je
+  w miejscu, którego dotyczy; inne kancelarie nie mogą odczuć zmiany. Dopisz jego
+  opis do `OPISY_USTAWIEN` - asystent kancelarii sam zacznie go przełączać,
+- test regresji sprawdza nowe zachowanie przy włączonym ustawieniu i stare przy
+  domyślnym.
+
 ## Zasady twarde (bramki je sprawdzają; złamanie = odrzucenie)
 
 - Nie usuwaj, nie wyłączaj i nie osłabiaj testów (`skip`, `xfail`,

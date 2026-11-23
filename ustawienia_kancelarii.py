@@ -42,6 +42,14 @@ MAX_DLUGOSC_WZORU = 200
 # "pytajnik" = sam "?" (podswietlony). W aplikacji znacznik zostaje zawsze -
 # na nim dzialaja licznik brakow, podswietlenie i korespondencja.
 BRAKI = ("opis", "pytajnik")
+# Opisy dla asystenta kancelarii (asystent_kancelarii.py) - kazde ustawienie
+# z domyslne() MUSI miec tu opis z dozwolonymi wartosciami.
+OPISY_USTAWIEN = {
+    "dokladnosc": "domyślna dokładność odczytu skanów: auto | max | high | medium",
+    "nazwa_pliku": "wzór nazwy pliku Word z projektem, pola: {zbywca} {nabywca} {strony} {czynnosc} "
+                   "{miejscowosc} {sygnatura} {nazwa} (np. \"{zbywca} - {nabywca} - {czynnosc}\")",
+    "braki": "jak oznaczać w pliku Word brakujące dane: opis (<<BRAK: numer dowodu>>) | pytajnik (?)",
+}
 
 
 def domyslne() -> dict:

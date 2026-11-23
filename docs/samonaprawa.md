@@ -93,6 +93,22 @@ RODO i dane (`autoryzacja.py`, `logowanie.py`, `dziennik*.py`, `magazyn.py`,
    Settings → Actions → General → „Allow GitHub Actions to create and approve
    pull requests”.
 
+## Asystent kancelarii (prośby notariusza)
+
+Przycisk „Asystent kancelarii” w aplikacji (`asystent_kancelarii.py`,
+`POST /api/asystent-kancelarii`). Notariusz pisze po swojemu, co ma działać
+inaczej, a asystent (Claude przez Bedrock, narzędzia Converse):
+- od razu zmienia to, co da się ustawić: ustawienia ogólne
+  (`ustawienia_kancelarii.OPISY_USTAWIEN`), zasady kancelarii, wbudowane kontrole;
+  każda zmiana w dzienniku (plik kancelarii `asystent`), „cofnij” ją odwraca,
+- czego nie da się ustawić - przekazuje do samonaprawy jako zgłoszenie ręczne
+  (`samonaprawa.zglos_prosbe`, po anonimizacji; od razu z tokenem, bez tokenu
+  przez przegląd co 30 minut). Agent robi z prośby ustawienie tej kancelarii
+  (domyślnie po staremu) i dopisuje je do `OPISY_USTAWIEN`, więc asystent od razu
+  umie je przełączać,
+- zmiany tylko dla notariusza (właściciela kancelarii); pracownik może pytać
+  i zgłaszać prośby (limit 5 na dobę na kancelarię).
+
 ## Ograniczenia
 
 - Automat naprawia błędy kodu (wyjątki). Błędy chwilowe AWS (limity, przeciążenie)

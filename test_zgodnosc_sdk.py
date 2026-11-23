@@ -92,3 +92,25 @@ def test_ci_testuje_wersje_boto3_z_obrazu():
 def test_dockerfile_instaluje_zaleznosci_z_requirements():
     dockerfile = Path("Dockerfile").read_text()
     assert "requirements.txt" in dockerfile and "pip install" in dockerfile
+
+
+def test_tura_z_narzedziami_asystenta_przechodzi_walidacje_sdk(monkeypatch):
+    """Asystent kancelarii: Converse z toolConfig i blokami toolUse/toolResult."""
+    import asystent_kancelarii
+    k = MagicMock()
+
+    def converse(**kw):
+        sprawdz_zgodnosc_z_api_bedrock("Converse", kw)
+        return {"output": {"message": {"role": "assistant", "content": [{"text": "ok"}]}},
+                "stopReason": "end_turn", "usage": {"inputTokens": 1, "outputTokens": 1}}
+    k.converse.side_effect = converse
+    monkeypatch.setattr(bedrock, "_klient", lambda: k)
+    tury = [
+        {"role": "user", "content": [{"text": "zostawiaj znak zapytania"}]},
+        {"role": "assistant", "content": [{"toolUse": {"toolUseId": "t1", "name": "pokaz_ustawienia", "input": {}}}]},
+        {"role": "user", "content": [{"toolResult": {"toolUseId": "t1", "content": [{"json": {"ogolne": {}}}]}}]},
+    ]
+    for model in MODELE:
+        monkeypatch.setattr(bedrock.config, "MODEL", model)
+        assert bedrock.tura_z_narzedziami(asystent_kancelarii.SYSTEM, tury,
+                                          asystent_kancelarii.NARZEDZIA)["powod"] == "end_turn"

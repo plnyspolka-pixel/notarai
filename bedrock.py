@@ -945,6 +945,48 @@ def rozmowa_kalkulatora(system: str, tury: list[dict], wiadomosc: str, model: st
                     historia=tury, myslenie=False, model=model)
 
 
+def tura_z_narzedziami(system: str, wiadomosci: list[dict], narzedzia: list[dict],
+                      max_tokenow: int = 3000, model: str | None = None) -> dict:
+    """Jedna tura modelu, ktory moze wywolac narzedzia (Converse toolConfig).
+
+    `wiadomosci` - pelne tury Bedrock [{"role","content"}], razem z blokami
+    toolUse/toolResult z poprzednich krokow. Zwraca {"wiadomosc", "powod"}:
+    wiadomosc modelu (do dopisania do historii) i stopReason ("tool_use",
+    "end_turn"...). Krotkie tury bez myslenia - asystent kancelarii odpowiada
+    na biezaco. Bledy przejsciowe AWS ponawiamy jak w _rozmowa().
+    """
+    model = model or config.MODEL
+    ustawienia, dodatkowe = _parametry_modelu(max_tokenow, False, None, model)
+    zadanie = {
+        "modelId": model,
+        "system": [{"text": system}],
+        "messages": wiadomosci,
+        "inferenceConfig": ustawienia,
+        "toolConfig": {"tools": [{"toolSpec": n} for n in narzedzia]},
+    }
+    if dodatkowe:
+        zadanie["additionalModelRequestFields"] = dodatkowe
+    for proba in range(1, PROB_WYWOLANIA + 1):
+        try:
+            odpowiedz = _klient().converse(**zadanie)
+            break
+        except ClientError as blad:
+            if _kod_bledu(blad) in _PRZECIAZENIE:
+                raise Przeciazenie("Model jest chwilowo przeciazony (limit zapytan na koncie AWS). "
+                                   "Odczekaj minute i sprobuj ponownie.") from blad
+            if not _przejsciowy(blad) or proba == PROB_WYWOLANIA:
+                raise
+        except BotoCoreError as blad:
+            if not _przejsciowy(blad) or proba == PROB_WYWOLANIA:
+                raise
+        time.sleep(PRZERWA_PONOWIENIA * proba)
+    uzycie = odpowiedz.get("usage", {})
+    log.info("wywolanie modelu (narzedzia): wejscie=%s wyjscie=%s",
+             uzycie.get("inputTokens"), uzycie.get("outputTokens"))
+    tokenomia.dolicz(model, uzycie)
+    return {"wiadomosc": odpowiedz["output"]["message"], "powod": odpowiedz.get("stopReason")}
+
+
 def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
     """Jedna decyzja agenta prowadzacego przegladarke notariusza.
 
