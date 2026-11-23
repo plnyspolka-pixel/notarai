@@ -349,6 +349,21 @@ class StronaCDP:
                 }}));
         }})()""") or []
 
+    def odcisk_formularzy(self) -> str:
+        """Lokalny skrot pol formularza. Nigdy nie wysylamy ich wartosci na serwer.
+
+        Gdy uzytkownik zatwierdza wysylke na telefonie, formularz na komputerze
+        nie moze w miedzyczasie zmienic swojej zawartosci. W przeciwnym razie
+        decyzja nie dotyczy juz tego samego dokumentu.
+        """
+        import hashlib
+        stan = self._ob("""(() => [...document.querySelectorAll('input, select, textarea')]
+            .map(e => [e.tagName, e.type || '', e.name || e.id || '',
+                       e.type === 'password' ? null : ('value' in e ? e.value : ''),
+                       !!e.checked, !!e.disabled]))()""") or []
+        return hashlib.sha256(json.dumps(stan, ensure_ascii=False,
+                                         sort_keys=True).encode("utf-8")).hexdigest()
+
     def tekst_strony(self, limit: int = 4000) -> str:
         """Widoczny tekst strony - do oceny, czy jestesmy tam, gdzie trzeba."""
         tresc = self._ob(
