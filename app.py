@@ -66,6 +66,7 @@ import wizyty
 import transkrypcja
 import ustawienia_kancelarii
 import walidacja
+import samonaprawa
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +74,8 @@ logging.basicConfig(
 )
 dziennik.wlacz_maskowanie()
 log = logging.getLogger("pieczapp")
+# Kazdy log.error z aktywnym wyjatkiem idzie do samonaprawy (docs/samonaprawa.md).
+samonaprawa.zainstaluj(log)
 
 app = FastAPI(title="pieczapp", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
@@ -131,6 +134,7 @@ app.middleware("http")(kalkulator.cors)
 @app.exception_handler(Exception)
 async def _nieobsluzony(request: Request, blad: Exception):
     """Blad, ktorego nie zlapal endpoint: do dziennika, bez tresci wyjatku."""
+    samonaprawa.zglos(blad, f"{request.method} {request.url.path}")
     log.error("%s %s: nieobsluzony blad (%s)", request.method, request.url.path,
               dziennik.opis_bledu(blad))
     return JSONResponse({"detail": "Blad serwera."}, status_code=500)
@@ -1705,6 +1709,13 @@ def odswiez_listy_aml(request: Request):
     autoryzacja._wymagaj_admina(request)
     threading.Thread(target=aml_listy.odswiez, kwargs={"wymus": True}, daemon=True, name="listy-aml-admin").start()
     return {"stan": "uruchomiono", "zrodla": aml_listy.zrodla_wlaczone()}
+
+
+@app.get("/api/admin/samonaprawa")
+def stan_samonaprawy(request: Request):
+    """Bledy wykryte w tym kontenerze i czy zgloszenia ida do naprawy (bez danych spraw)."""
+    autoryzacja._wymagaj_admina(request)
+    return samonaprawa.stan()
 
 
 # --- Ksiegi notarialne i zgloszenia do GIIF ------------------------------------

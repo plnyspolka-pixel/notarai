@@ -126,6 +126,14 @@ Parameters:
       zapisz-sekret-oauth-poczty.ps1. Wlacza przyciski "Zaloguj przez
       Microsoft" / "Zaloguj przez Google" przy podpinaniu skrzynki kancelarii
       (skrzynki.py). Puste = tylko logowanie haslem do IMAP.
+  SamonaprawaSekretArn:
+    Type: String
+    Default: ""
+    Description: >-
+      Pelny ARN sekretu notarai/samonaprawa-github (klucz token), zalozonego
+      skryptem zapisz-sekret-samonaprawy.ps1. Aplikacja zglasza nim nowe bledy
+      do naprawy (samonaprawa.py, docs/samonaprawa.md); wlacza tez alarm
+      notarai-samonaprawa-bledy. Puste = bledy tylko w logach.
   FinyouAdres:
     Type: String
     Default: ""
@@ -176,6 +184,7 @@ Conditions:
   MamyOAuthPoczty: !Not [!Equals [!Ref OAuthPocztySekretArn, ""]]
   MamyAgentaGlosowego: !Not [!Equals [!Ref AgentGlosowySekretArn, ""]]
   MamyNadawce: !Not [!Equals [!Ref EmailNadawcy, ""]]
+  MamySamonaprawe: !Not [!Equals [!Ref SamonaprawaSekretArn, ""]]
 
 Resources:
   # ---------------- sekret ----------------
@@ -229,6 +238,16 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
+        - !If
+          - MamySamonaprawe
+          - PolicyName: sekret-samonaprawy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref SamonaprawaSekretArn
+          - !Ref AWS::NoValue
         - !If
           - MamyApify
           - PolicyName: sekret-apify
@@ -553,6 +572,9 @@ Resources:
               Value: "true"
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
+            # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
+            - Name: PIECZAPP_WERSJA
+              Value: !Ref TagObrazu
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
@@ -603,6 +625,12 @@ Resources:
               - MamyOAuthPoczty
               - Name: PIECZAPP_OAUTH_GOOGLE_SEKRET
                 ValueFrom: !Sub "${OAuthPocztySekretArn}:google_sekret::"
+              - !Ref AWS::NoValue
+            # Token GitHub samonaprawy: zglaszanie nowych bledow (samonaprawa.py).
+            - !If
+              - MamySamonaprawe
+              - Name: PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN
+                ValueFrom: !Sub "${SamonaprawaSekretArn}:token::"
               - !Ref AWS::NoValue
             # Token webhookow agenta glosowego ElevenLabs (agent_glosowy.py).
             - !If
@@ -673,6 +701,40 @@ Resources:
       TopicArn: !Ref Powiadomienia
       Protocol: email
       Endpoint: !Ref EmailAlarmowy
+
+  # Samonaprawa: seria bledow kodu (nie chwilowych AWS) w 5 minut. Zapasowy
+  # sygnal - zwykle wlasciciel dostaje wiadomosc z workflow samonaprawy, ale
+  # gdyby GitHub nie przyjal zgloszenia, ten alarm i tak przyjdzie mailem.
+  FiltrSamonaprawy:
+    Condition: MamySamonaprawe
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref LogiAplikacji
+      # Znaczniki maja rodzaj "kod" albo "przejsciowy" - liczymy bez przejsciowych.
+      FilterPattern: '"samonaprawa {" -przejsciowy'
+      MetricTransformations:
+        - MetricNamespace: notarai
+          MetricName: SamonaprawaBledyKodu
+          MetricValue: "1"
+          DefaultValue: 0
+
+  AlarmSamonaprawy:
+    Condition: MamySamonaprawe
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-samonaprawa-bledy
+      AlarmDescription: >-
+        Co najmniej 5 bledow kodu w 5 minut (znaczniki samonaprawy w /ecs/notarai).
+        Przebieg naprawy: GitHub -> Issues z etykieta samonaprawa.
+      Namespace: notarai
+      MetricName: SamonaprawaBledyKodu
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref Powiadomienia]
 
   # Brak zdrowego kontenera = kancelarie nie moga pracowac.
   AlarmBrakZdrowych:

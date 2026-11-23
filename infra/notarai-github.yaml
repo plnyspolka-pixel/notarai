@@ -137,6 +137,11 @@ Resources:
                 Resource: "*"
               # .github/workflows/strona.yml - haslo FTPS do hostingu az.pl
               # (strona notarai.pl). Tylko ten jeden sekret.
+              # Czy wlasciciel zapisal token samonaprawy (wdrozenie podpina go aplikacji).
+              - Sid: SekretSamonaprawy
+                Effect: Allow
+                Action: secretsmanager:DescribeSecret
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/samonaprawa-github-??????"
               - Sid: HasloFtpsStrony
                 Effect: Allow
                 Action: secretsmanager:GetSecretValue
@@ -292,6 +297,14 @@ Resources:
                 Effect: Allow
                 Action: logs:DescribeLogGroups
                 Resource: "*"
+              # Filtr metryki samonaprawy (notarai-samonaprawa-bledy).
+              - Sid: FiltrSamonaprawy
+                Effect: Allow
+                Action:
+                  - logs:PutMetricFilter
+                  - logs:DeleteMetricFilter
+                  - logs:DescribeMetricFilters
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/notarai*"
               - Sid: Alarmy
                 Effect: Allow
                 Action:
@@ -332,7 +345,67 @@ Resources:
                   - budgets:ListTagsForResource
                 Resource: !Sub "arn:aws:budgets::${AWS::AccountId}:budget/notarai-*"
 
+  # Rola .github/workflows/samonaprawa.yml (docs/samonaprawa.md). Osobna od
+  # wdrazania: nie buduje obrazow i nie zmienia stosow - wdrozenie idzie zwyklym
+  # wdrozenie.yml po scaleniu. Agent dostaje z niej tylko sesje zawezona do
+  # wywolan modelu (polityka sesji w scripts/samonaprawa/poswiadczenia.sh).
+  RolaSamonaprawy:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-github-samonaprawa
+      Description: notarai - GitHub Actions samonaprawa (model Bedrock, odczyt znacznikow bledow, powiadomienia)
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - NowyDostawca
+                - !Ref DostawcaOidc
+                - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repozytorium}:ref:refs/heads/${Galaz}"
+      Policies:
+        - PolicyName: samonaprawa
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Modele Claude tylko w UE (profile eu.* kieruja do regionow eu-*).
+              - Sid: ModelAgenta
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:GetInferenceProfile
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.anthropic.*"
+                  - "arn:aws:bedrock:eu-*::foundation-model/anthropic.*"
+              - Sid: ProfileModeli
+                Effect: Allow
+                Action: bedrock:ListInferenceProfiles
+                Resource: "*"
+              # Znaczniki samonaprawy (bez danych klientow) - historia i obserwacja po wdrozeniu.
+              - Sid: ZnacznikiBledow
+                Effect: Allow
+                Action: logs:FilterLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/notarai:*"
+              - Sid: Powiadomienia
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:notarai-alarmy"
+              - Sid: TokenGithub
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/samonaprawa-github-??????"
+
 Outputs:
+  RolaSamonaprawyArn:
+    Description: Rola przyjmowana przez .github/workflows/samonaprawa.yml
+    Value: !GetAtt RolaSamonaprawy.Arn
   RolaGithubArn:
     Description: Rola przyjmowana przez .github/workflows/wdrozenie.yml
     Value: !GetAtt RolaGithub.Arn
