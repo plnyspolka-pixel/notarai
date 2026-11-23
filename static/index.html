@@ -1307,6 +1307,16 @@ notarai</div>
       <span><i class="kal-kropka k-szara"></i>niedostępny: weekend, święto, kancelaria nieczynna</span>
     </div>
   </div>
+  <div class="karta" id="gcal-karta">
+    <h2>Google Calendar</h2>
+    <p class="pod">Synchronizacja dwukierunkowa. Do Google wysyłamy wyłącznie neutralne bloki zajętości, bez nazwisk, telefonów ani szczegółów sprawy.</p>
+    <div class="pasek">
+      <button id="gcal-polacz">Połącz Google Calendar</button>
+      <button class="wtorny" id="gcal-sync" hidden>Synchronizuj teraz</button>
+      <button class="wtorny" id="gcal-odlacz" hidden>Odłącz</button>
+      <span class="stan" id="gcal-stan" role="status">Sprawdzam połączenie…</span>
+    </div>
+  </div>
   <div class="karta">
     <h2>Najbliższe terminy</h2>
     <div id="kal-najblizsze"></div>
@@ -5716,6 +5726,81 @@ $("btn-dodaj-osobe").onclick = async () => {
   rysujOsoby();
 };
 
+/* Synchronizacja z Google: bez dostepu do danych klientow w Google. */
+let gcalSprawdzono = 0, gcalSyncTrwa = false, gcalPolaczony = false;
+async function stanGoogleKalendarza(automatycznie = true){
+  if (SERWIS) { $("gcal-karta").hidden = true; return; }
+  const teraz = Date.now();
+  if (automatycznie && teraz - gcalSprawdzono < 30000) return;
+  gcalSprawdzono = teraz;
+  try {
+    const odp = await api("/api/google-kalendarz/stan");
+    if (odp.status === 403 || odp.status === 409) {
+      $("gcal-karta").hidden = true; return;
+    }
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie udało się sprawdzić integracji.");
+    gcalPolaczony = !!s.polaczono;
+    $("gcal-polacz").hidden = gcalPolaczony || !s.dostepne;
+    $("gcal-sync").hidden = !gcalPolaczony;
+    $("gcal-odlacz").hidden = !gcalPolaczony;
+    $("gcal-stan").textContent = !s.dostepne
+      ? "Integracja nie została jeszcze skonfigurowana na serwerze."
+      : gcalPolaczony
+        ? "Połączono" + (s.email ? ": " + s.email : "") + (s.odswiezono ? " · ostatnio: " + s.odswiezono.slice(0, 16).replace("T", " ") : " · jeszcze nie zsynchronizowano")
+        : "Niepołączony";
+    if (automatycznie && gcalPolaczony && !gcalSyncTrwa &&
+        (!s.odswiezono || Date.now() - new Date(s.odswiezono).getTime() > 5 * 60 * 1000)) {
+      synchronizujGoogleKalendarz(true);
+    }
+  } catch (e) { $("gcal-stan").textContent = e.message; }
+}
+async function synchronizujGoogleKalendarz(automatycznie = false){
+  if (gcalSyncTrwa) return;
+  gcalSyncTrwa = true;
+  $("gcal-sync").disabled = true;
+  stan($("gcal-stan"), "Synchronizuję kalendarze…", false, true);
+  try {
+    const odp = await api("/api/google-kalendarz/synchronizuj", {method: "POST"});
+    const w = await odp.json();
+    if (!odp.ok) throw Error(w.detail || "Nie udało się zsynchronizować kalendarza.");
+    const konflikt = w.konflikty ? " · konflikty: " + w.konflikty + " (sprawdź terminy)" : "";
+    stan($("gcal-stan"), "Zsynchronizowano. Nowe w Google: " + w.dodano_w_google +
+      ", w NotarAI: " + w.dodano_w_notarai + ", zmienione: " + w.zmieniono + konflikt, !!w.konflikty);
+    gcalSprawdzono = Date.now();
+    // Rysujemy kalendarz ponownie, ale stan połączenia odświeżymy później.
+    await rysujKalendarz();
+  } catch (e) {
+    stan($("gcal-stan"), (automatycznie ? "Automatyczna synchronizacja: " : "") + e.message, true);
+  } finally {
+    gcalSyncTrwa = false;
+    $("gcal-sync").disabled = false;
+  }
+}
+$("gcal-polacz").onclick = async () => {
+  try {
+    const odp = await api("/api/google-kalendarz/start");
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie można połączyć Google.");
+    location.href = s.adres;
+  } catch (e) { stan($("gcal-stan"), e.message, true); }
+};
+$("gcal-sync").onclick = () => synchronizujGoogleKalendarz();
+$("gcal-odlacz").onclick = async () => {
+  if (!confirm("Odłączyć Google Calendar? Terminy utworzone w NotarAI zostaną zachowane.")) return;
+  try {
+    const odp = await api("/api/google-kalendarz/polaczenie", {method:"DELETE"});
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie udało się odłączyć.");
+    gcalSprawdzono = 0;
+    await stanGoogleKalendarza(false);
+    await rysujKalendarz();
+  } catch (e) { stan($("gcal-stan"), e.message, true); }
+};
+setInterval(() => {
+  if (!$("etap6").hidden && gcalPolaczony) stanGoogleKalendarza(true);
+}, 5 * 60 * 1000);
+
 /* ---------- 6: kalendarz ---------- */
 // Okno dnia: polgodzinne okienka od 8:30 do 18:00. Zaznaczone okienka sa
 // zawsze ciagiem - rezerwacja trwa od pierwszego do konca ostatniego.
@@ -5843,6 +5928,7 @@ async function rysujKalendarz(){
     '<option value="' + escape(s.id) + '">' + escape(s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6)) + (s.nazwa && s.sygnatura ? " · " + escape(s.sygnatura) : "") + "</option>").join("");
   wybor.value = poprzedni;
   rysujWidok(); rysujNajblizsze();
+  stanGoogleKalendarza(true);
   if (!$("kal-okno").hidden) rysujOkno();
 }
 function rysujWidok(){
