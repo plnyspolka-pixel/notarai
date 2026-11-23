@@ -39,7 +39,7 @@ class TestPilotMobilny:
         z = klient.post("/api/urzadzenia/polecenia", headers=osoba,
                         json={"komputer": pc, "cel": "sprawdz rejestr"}).json()["zlecenie"]
         adres = f"/api/urzadzenia/polecenia/{z}"
-        assert klient.get(adres, headers=osoba).json() == {"stan": "czeka", "raport": None}
+        assert klient.get(adres, headers=osoba).json() == {"stan": "czeka", "raport": None, "zgoda": None}
         wynik = klient.post(f"/api/pomocnik/zlecenia/{z}/wynik", headers=pomocnik,
                             json={"kroki": [{"nr": 1, "akcja": "czytaj", "cel": "portal"}],
                                   "podsumowanie": "Otworzono portal",
