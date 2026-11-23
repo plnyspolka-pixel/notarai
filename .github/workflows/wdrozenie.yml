@@ -148,6 +148,10 @@ jobs:
           fi
           email_param=()
           if [ -n "$email" ] && [ "$email" != "None" ]; then email_param=("EmailAlarmowy=$email"); fi
+          # Samonaprawa (docs/samonaprawa.md): token zgloszen do GitHuba, gdy wlasciciel go zapisal.
+          sekret_sn=$(aws secretsmanager describe-secret --secret-id notarai/samonaprawa-github \
+            --query ARN --output text 2>/dev/null || true)
+          if [ -n "$sekret_sn" ] && [ "$sekret_sn" != "None" ]; then email_param+=("SamonaprawaSekretArn=$sekret_sn"); fi
           aws cloudformation deploy --stack-name notarai-aplikacja \
             --template-file infra/notarai-aplikacja.yaml \
             --role-arn "$ROLA_CLOUDFORMATION" \

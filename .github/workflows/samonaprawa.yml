@@ -1,0 +1,374 @@
+name: NotarAI - samonaprawa
+
+# Petla samonaprawy (docs/samonaprawa.md):
+#   blad na produkcji -> aplikacja (samonaprawa.py) wysyla repository_dispatch
+#   -> agent szuka przyczyny, pisze poprawke i test regresji
+#   -> bramki (scripts/samonaprawa/bramki.py) + niezalezny agent recenzent
+#   -> "auto": scalenie, wdrozenie (ci.yml -> wdrozenie.yml), 20 min obserwacji,
+#      przy nawrocie bledu automatyczne cofniecie
+#   -> "pr": pull request z opisem dla wlasciciela (strefa zakazana, duza zmiana)
+#   -> "odrzuc": komentarz w zgloszeniu, po 2 probach eskalacja do wlasciciela
+#
+# Tryb ustawia zmienna repozytorium SAMONAPRAWA: auto (domyslnie) | pr | wylaczona.
+# Wylacznik awaryjny: Settings -> Secrets and variables -> Actions -> Variables.
+# Reczne zgloszenie (np. ze zrzutu ekranu): Actions -> "NotarAI - samonaprawa" -> Run workflow.
+
+on:
+  repository_dispatch:
+    types: [samonaprawa]
+  # Przeglad znacznikow bledow w CloudWatch - dziala tez bez tokenu w aplikacji
+  # (wtedy to jedyna droga zgloszen; z tokenem - siatka bezpieczenstwa).
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      uwagi:
+        description: "Opis bledu slowami (co sie stalo, gdzie, jaki komunikat) - bez danych klientow"
+        required: true
+      odcisk:
+        description: "Odcisk bledu z logow (opcjonalnie)"
+        required: false
+      tryb:
+        description: "Tryb dla tego zgloszenia"
+        type: choice
+        options: [z-ustawien, auto, pr]
+        default: z-ustawien
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  id-token: write
+
+# Jedna naprawa naraz - kolejne zgloszenia czekaja w kolejce, nic nie przerywamy.
+concurrency:
+  group: notarai-samonaprawa
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_DEFAULT_REGION: eu-central-1
+  AWS_KONTO: "127621462971"
+  ROLA_SAMONAPRAWY: arn:aws:iam::127621462971:role/notarai-github-samonaprawa
+  TEMAT_ALARMOW: arn:aws:sns:eu-central-1:127621462971:notarai-alarmy
+  SEKRET_TOKENU: notarai/samonaprawa-github
+  MODEL_AGENTA: ${{ vars.SAMONAPRAWA_MODEL || 'eu.anthropic.claude-opus-4-6-v1' }}
+  SAMONAPRAWA: ${{ vars.SAMONAPRAWA || 'auto' }}
+
+jobs:
+  naprawa:
+    name: Diagnoza, poprawka, bramki, wdrozenie, obserwacja
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Pobierz kod (master)
+        uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+          # Agent nie dostaje tokenu do pushowania przez .git/config.
+          persist-credentials: false
+
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Narzedzia samonaprawy z master (agent ich nie podmieni)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sn"
+          cp -r scripts/samonaprawa "$RUNNER_TEMP/sn/narzedzia"
+          echo "SN=$RUNNER_TEMP/sn" >> "$GITHUB_ENV"
+          echo "NARZ=$RUNNER_TEMP/sn/narzedzia" >> "$GITHUB_ENV"
+          echo "BAZA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Token GitHub samonaprawy
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          konto=$(aws sts get-caller-identity --query Account --output text)
+          [ "$konto" = "$AWS_KONTO" ] || { echo "::error::Konto $konto zamiast $AWS_KONTO"; exit 1; }
+          # Token z Secrets Manager: push nim uruchamia zwykle testy i wdrozenie.
+          # Bez niego - GITHUB_TOKEN (wtedy wdrozenie wyzwalamy recznie po scaleniu).
+          if t=$(aws secretsmanager get-secret-value --secret-id "$SEKRET_TOKENU" \
+                --query SecretString --output text 2>/dev/null | jq -r '.token // empty') && [ -n "$t" ]; then
+            echo "::add-mask::$t"
+            echo "GH_TOKEN=$t" >> "$GITHUB_ENV"
+            echo "TOKEN_WLASNY=tak" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Brak sekretu $SEKRET_TOKENU - uzywam GITHUB_TOKEN"
+            echo "GH_TOKEN=${{ github.token }}" >> "$GITHUB_ENV"
+            echo "TOKEN_WLASNY=nie" >> "$GITHUB_ENV"
+          fi
+
+      - name: Zgloszenie (walidacja i historia z CloudWatch)
+        env:
+          LADUNEK: ${{ toJSON(github.event.client_payload) }}
+          UWAGI: ${{ github.event.inputs.uwagi }}
+          ODCISK: ${{ github.event.inputs.odcisk }}
+          TRYB_WEJSCIE: ${{ github.event.inputs.tryb }}
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            printf '%s' "$LADUNEK" > "$SN/ladunek.json"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            python "$NARZ/zgloszenie.py" --przeglad 40 --wyjscie "$SN/kandydaci.json"
+            if [ "$(jq length "$SN/kandydaci.json")" = "0" ]; then
+              echo "Brak nowych bledow kodu - nic do zrobienia."
+              echo "DZIALANIE=brak" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            odcisk=$(python "$NARZ/github.py" wybierz --kandydaci "$SN/kandydaci.json" --wynik "$SN/ladunek.json")
+            if [ -z "$odcisk" ]; then
+              echo "Wszystkie bledy sa juz w obsludze albo u wlasciciela."
+              echo "DZIALANIE=brak" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          else
+            jq -n --arg u "$UWAGI" --arg o "$ODCISK" \
+              '{uwagi: $u, odcisk: $o, rodzaj: "reczne", typ: "zgloszenie reczne", wersja: "produkcja"}' > "$SN/ladunek.json"
+          fi
+          python "$NARZ/zgloszenie.py" --wejscie "$SN/ladunek.json" --wyjscie "$SN/zgloszenie.json" --logi
+          tryb="$SAMONAPRAWA"
+          case "${TRYB_WEJSCIE:-}" in auto|pr) tryb="$TRYB_WEJSCIE" ;; esac
+          python "$NARZ/github.py" decyzja --zgloszenie "$SN/zgloszenie.json" --wynik "$SN/decyzja.json" --tryb "$tryb"
+          {
+            echo "ISSUE=$(jq -r .issue "$SN/decyzja.json")"
+            echo "DZIALANIE=$(jq -r .dzialanie "$SN/decyzja.json")"
+            echo "TRYB=$(jq -r .tryb "$SN/decyzja.json")"
+            echo "ODCISK=$(jq -r .odcisk "$SN/zgloszenie.json")"
+          } >> "$GITHUB_ENV"
+
+      - name: Bez naprawy - powiadomienie i eskalacja
+        if: env.DZIALANIE != 'napraw' && env.DZIALANIE != 'brak'
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          powody=$(jq -r '.powody | join("; ")' "$SN/decyzja.json")
+          nowe=$(jq -r .nowe "$SN/decyzja.json")
+          if [ "$DZIALANIE" = "eskaluj" ]; then
+            python "$NARZ/github.py" etykieta --issue "$ISSUE" --dodaj samonaprawa-eskalacja
+            printf '**Samonaprawa oddaje ten błąd właścicielowi.** %s\n\nAutomat nie umiał go naprawić. Potrzebny człowiek albo sesja z Claude Code.\n' "$powody" > "$SN/k.md"
+            python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
+            aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: samonaprawa potrzebuje czlowieka" \
+              --message "Blad $ODCISK nie zostal naprawiony automatycznie ($powody). Szczegoly: https://github.com/${{ github.repository }}/issues/$ISSUE" >/dev/null
+          elif [ "$nowe" = "true" ]; then
+            aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: nowy blad na produkcji" \
+              --message "Nowy blad $ODCISK - bez automatycznej naprawy: $powody. https://github.com/${{ github.repository }}/issues/$ISSUE" >/dev/null
+          fi
+          echo "### Samonaprawa: $DZIALANIE ($powody)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Zaleznosci i agent
+        if: env.DZIALANIE == 'napraw'
+        run: |
+          set -euo pipefail
+          grep -vE '^(faster-whisper|playwright)' requirements.txt > "$SN/req.txt"
+          python -m pip install --quiet -r "$SN/req.txt"
+          npm install -g --silent @anthropic-ai/claude-code
+          git config user.name "notarai-samonaprawa"
+          git config user.email "samonaprawa@notarai.pl"
+
+      - name: Agent naprawczy
+        if: env.DZIALANIE == 'napraw'
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" agent)"
+          # Agent nie dostaje: tokenu GitHub, tokenu OIDC (nie wymieni go na szersza
+          # role), ani niczego poza sesja AWS ograniczona do wywolan modelu.
+          env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+            -u ACTIONS_RUNTIME_TOKEN \
+            CLAUDE_CODE_USE_BEDROCK=1 ANTHROPIC_MODEL="$MODEL_AGENTA" \
+            ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL_AGENTA" ANTHROPIC_SMALL_FAST_MODEL="$MODEL_AGENTA" \
+            DISABLE_TELEMETRY=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+            SAMONAPRAWA_ZGLOSZENIE="$SN/zgloszenie.json" SAMONAPRAWA_RAPORT="$SN/raport.json" \
+            claude -p "$(cat "$NARZ/polecenie.md")" \
+              --permission-mode bypassPermissions \
+              --disallowedTools "WebFetch,WebSearch" \
+              --max-turns 120 --output-format json > "$SN/agent.json" || echo "::warning::agent zakonczyl sie bledem"
+          jq -r '.result // empty' "$SN/agent.json" | tail -c 3000 || true
+          [ -f "$SN/raport.json" ] || echo '{"naprawione": false, "przyczyna": "agent nie zapisal raportu"}' > "$SN/raport.json"
+          cat "$SN/raport.json"
+          echo "NAPRAWIONE=$(jq -r '.naprawione // false' "$SN/raport.json")" >> "$GITHUB_ENV"
+
+      - name: Commit poprawki i bramki
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true'
+        run: |
+          set -euo pipefail
+          GALAZ="samonaprawa/${ODCISK}-${GITHUB_RUN_ID}"
+          echo "GALAZ=$GALAZ" >> "$GITHUB_ENV"
+          git checkout -b "$GALAZ"
+          git add -A
+          git commit -q -m "Samonaprawa ${ODCISK}: $(jq -r '.przyczyna // "poprawka"' "$SN/raport.json" | head -c 150)" \
+            -m "$(jq -r '.poprawka // ""' "$SN/raport.json" | head -c 2000)" \
+            -m "Zgloszenie: #${ISSUE}" || echo "brak zmian do commita"
+          echo "GLOWA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          python "$NARZ/bramki.py" --repo "$PWD" --baza "$BAZA" --raport "$SN/raport.json" --wynik "$SN/bramki.json"
+          echo "BRAMKI=$(jq -r .werdykt "$SN/bramki.json")" >> "$GITHUB_ENV"
+
+      - name: Agent recenzent (niezalezny)
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.BRAMKI != 'odrzuc'
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" agent)"
+          env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+            -u ACTIONS_RUNTIME_TOKEN \
+            CLAUDE_CODE_USE_BEDROCK=1 ANTHROPIC_MODEL="$MODEL_AGENTA" \
+            ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL_AGENTA" ANTHROPIC_SMALL_FAST_MODEL="$MODEL_AGENTA" \
+            DISABLE_TELEMETRY=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
+            SAMONAPRAWA_ZGLOSZENIE="$SN/zgloszenie.json" SAMONAPRAWA_RECENZJA="$SN/recenzja.json" \
+            SAMONAPRAWA_BAZA="$BAZA" \
+            claude -p "$(cat "$NARZ/recenzja.md")" \
+              --permission-mode bypassPermissions \
+              --disallowedTools "WebFetch,WebSearch,Edit,Write,NotebookEdit" \
+              --max-turns 60 --output-format json > "$SN/recenzent.json" || echo "::warning::recenzent zakonczyl sie bledem"
+          [ -f "$SN/recenzja.json" ] || echo '{"werdykt": "do_wlasciciela", "powody": ["recenzent nie zapisal wyniku"]}' > "$SN/recenzja.json"
+          # Recenzent nie moze niczego zmienic - zmiany w drzewie = recenzja niewazna.
+          if [ -n "$(git status --porcelain)" ] || [ "$(git rev-parse HEAD)" != "$GLOWA" ]; then
+            git reset -q --hard "$GLOWA"; git clean -qfd
+            echo '{"werdykt": "do_wlasciciela", "powody": ["recenzent zmienial pliki - recenzja niewazna"]}' > "$SN/recenzja.json"
+          fi
+          cat "$SN/recenzja.json"
+
+      - name: Werdykt
+        if: env.DZIALANIE == 'napraw'
+        run: |
+          set -euo pipefail
+          bramki=${BRAMKI:-odrzuc}
+          recenzja=$(jq -r '.werdykt // "do_wlasciciela"' "$SN/recenzja.json" 2>/dev/null || echo brak)
+          if [ "${NAPRAWIONE:-false}" != "true" ] || [ "$bramki" = "odrzuc" ] || [ "$recenzja" = "odrzuc" ]; then
+            werdykt=odrzuc
+          elif [ "$bramki" = "pr" ] || [ "$recenzja" != "przepusc" ] || [ "$TRYB" != "auto" ]; then
+            werdykt=pr
+          else
+            werdykt=auto
+          fi
+          # master nie moze uciec od bazy, na ktorej bramki puszczaly testy
+          git fetch -q origin master
+          if [ "$werdykt" = "auto" ] && [ "$(git rev-parse origin/master)" != "$BAZA" ]; then
+            werdykt=pr
+            echo "master zmienil sie w trakcie naprawy - poprawka idzie jako PR" > "$SN/master.txt"
+          fi
+          echo "WERDYKT=$werdykt" >> "$GITHUB_ENV"
+          echo "### Samonaprawa $ODCISK: $werdykt (bramki: $bramki, recenzja: $recenzja, tryb: $TRYB)" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          sn = Path(os.environ["SN"])
+          def czytaj(n):
+              try:
+                  return json.loads((sn / n).read_text(encoding="utf-8"))
+              except Exception:
+                  return {}
+          r, b, rec = czytaj("raport.json"), czytaj("bramki.json"), czytaj("recenzja.json")
+          w = os.environ["WERDYKT"] if "WERDYKT" in os.environ else ""
+          linie = [
+              "<!-- samonaprawa-proba -->" if os.environ.get("NAPRAWIONE") != "true" or b.get("werdykt") == "odrzuc" or rec.get("werdykt") == "odrzuc" else "",
+              f"### Próba samonaprawy (przebieg {os.environ['GITHUB_RUN_ID']})",
+              "",
+              "**Dla właściciela:** " + (r.get("dla_wlasciciela") or rec.get("dla_wlasciciela") or "-"),
+              "",
+              f"- **Przyczyna:** {r.get('przyczyna', '-')}",
+              f"- **Poprawka:** {r.get('poprawka', '-')}",
+              f"- **Test regresji:** {', '.join(r.get('testy_regresji') or []) or '-'}",
+              f"- **Ryzyko wg agenta:** {r.get('ryzyko', '-')} - {r.get('uzasadnienie_ryzyka', '')}",
+              f"- **Bramki:** {b.get('werdykt', '-')}",
+              *[f"  - odrzucenie: {p}" for p in b.get("odrzucenie", [])],
+              *[f"  - tylko PR: {p}" for p in b.get("tylko_pr", [])],
+              f"- **Recenzent:** {rec.get('werdykt', '-')}",
+              *[f"  - {p}" for p in rec.get("powody", [])],
+              "",
+              f"Sprawdź w aplikacji: {r.get('sprawdz_w_aplikacji', '-')}",
+          ]
+          (sn / "werdykt.md").write_text("\n".join(l for l in linie if l is not None), encoding="utf-8")
+          PY
+          if [ -f "$SN/master.txt" ]; then cat "$SN/master.txt" >> "$SN/werdykt.md"; fi
+
+      - name: Odrzucona - komentarz w zgloszeniu
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'odrzuc'
+        run: |
+          set -euo pipefail
+          python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/werdykt.md"
+
+      - name: Pull request
+        if: env.DZIALANIE == 'napraw' && (env.WERDYKT == 'pr' || env.WERDYKT == 'auto')
+        run: |
+          set -euo pipefail
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/$GALAZ"
+          { cat "$SN/werdykt.md"; echo; echo "Zgłoszenie: #$ISSUE"; echo; echo "🤖 Samonaprawa notarai (docs/samonaprawa.md)"; } > "$SN/pr.md"
+          etykiety=(--etykieta samonaprawa)
+          [ "$WERDYKT" = "auto" ] && etykiety+=(--etykieta samonaprawa-auto)
+          pr=$(python "$NARZ/github.py" pr --galaz "$GALAZ" \
+            --tytul "Samonaprawa: $(jq -r '.przyczyna // "poprawka bledu"' "$SN/raport.json" | head -c 120)" \
+            --opis-plik "$SN/pr.md" "${etykiety[@]}")
+          echo "PR=$pr" >> "$GITHUB_ENV"
+          python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/werdykt.md"
+
+      - name: Do decyzji wlasciciela - powiadomienie
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'pr'
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: poprawka bledu czeka na decyzje" \
+            --message "$(printf '%s\n\nPoprawka: https://github.com/%s/pull/%s\n' "$(jq -r '.dla_wlasciciela // "Poprawka bledu czeka na scalenie."' "$SN/raport.json")" "${{ github.repository }}" "$PR")" >/dev/null
+
+      - name: Scalenie i wdrozenie
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto'
+        run: |
+          set -euo pipefail
+          scalony=$(python "$NARZ/github.py" scal --pr "$PR" --sha "$GLOWA")
+          echo "SCALONY=$scalony" >> "$GITHUB_ENV"
+          if [ "$TOKEN_WLASNY" != "tak" ]; then
+            # Push GITHUB_TOKEN-em nie uruchamia innych workflow - wyzwalamy wdrozenie sami.
+            python "$NARZ/github.py" wyzwol --workflow wdrozenie.yml
+          fi
+          wynik=$(python "$NARZ/github.py" wdrozenie --sha "$scalony" --minut 75)
+          echo "$wynik"
+          echo "WDROZENIE=$(echo "$wynik" | jq -r .wynik)" >> "$GITHUB_ENV"
+          echo "WDROZONO_MS=$(echo "$wynik" | jq -r .koniec_ms)" >> "$GITHUB_ENV"
+
+      - name: Obserwacja po wdrozeniu
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && env.WDROZENIE == 'success'
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          python "$NARZ/obserwacja.py" --odcisk "$ODCISK" --wersja "$(echo "$SCALONY" | cut -c1-12)" \
+            --od "$WDROZONO_MS" --minut 20 --wynik "$SN/obserwacja.json"
+          echo "OBSERWACJA=$(jq -r .werdykt "$SN/obserwacja.json")" >> "$GITHUB_ENV"
+
+      - name: Cofniecie (blad wrocil albo wdrozenie padlo)
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && (env.WDROZENIE != 'success' || env.OBSERWACJA == 'cofnij')
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          git fetch -q origin master
+          git checkout -q -B cofniecie origin/master
+          git revert --no-edit -m 1 "$SCALONY"
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/master"
+          if [ "$TOKEN_WLASNY" != "tak" ]; then
+            python "$NARZ/github.py" wyzwol --workflow wdrozenie.yml
+          fi
+          powody=$(jq -r '(.powody // []) | join("; ")' "$SN/obserwacja.json" 2>/dev/null || echo "wdrozenie: $WDROZENIE")
+          printf '<!-- samonaprawa-proba -->\n**Cofnięto automatycznie** poprawkę #%s: %s\n' "$PR" "${powody:-wdrozenie: $WDROZENIE}" > "$SN/k.md"
+          python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
+          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: samonaprawa cofnieta" \
+            --message "Poprawka bledu $ODCISK zostala wdrozona i automatycznie cofnieta (${powody:-wdrozenie: $WDROZENIE}). Aplikacja wraca do poprzedniej wersji. https://github.com/${{ github.repository }}/issues/$ISSUE" >/dev/null
+
+      - name: Naprawione - zamkniecie i powiadomienie
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && env.WDROZENIE == 'success' && env.OBSERWACJA == 'ok'
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          printf '✅ **Naprawione i wdrożone** (#%s). Po 20 minutach obserwacji błąd nie wrócił.\n' "$PR" > "$SN/k.md"
+          python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
+          python "$NARZ/github.py" zamknij --issue "$ISSUE"
+          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: blad naprawiony automatycznie" \
+            --message "$(printf '%s\n\nSprawdz: %s\nSzczegoly: https://github.com/%s/pull/%s\n' "$(jq -r '.dla_wlasciciela // "Blad naprawiony."' "$SN/raport.json")" "$(jq -r '.sprawdz_w_aplikacji // "-"' "$SN/raport.json")" "${{ github.repository }}" "$PR")" >/dev/null

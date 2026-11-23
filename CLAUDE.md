@@ -88,4 +88,26 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 
 - Architektura i zasady: docs/agent-factory.md.
 - **Polecenie dla Claude Code:** docs/claude-code-handoff-agent-factory.md. Przy pracach agentowych przeczytaj je w całości, realizuj kolejne etapy i testuj rezultaty.
-- Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję.
+- Nie korzystaj z danych klientów, sesji produkcyjnych ani sekretów. Nie omijaj zasad UE z tego pliku. Żadnych automatycznych wdrożeń na produkcję z Agent Factory (jedyny wyjątek w repozytorium: samonaprawa, sekcja niżej).
+
+## Samonaprawa (decyzja właściciela 23.11.2026)
+
+- Opis: `docs/samonaprawa.md`. Błąd na produkcji -> `samonaprawa.py` -> GitHub
+  `.github/workflows/samonaprawa.yml` -> agent naprawczy -> bramki -> agent
+  recenzent -> scalenie i wdrożenie -> 20 min obserwacji -> cofnięcie przy nawrocie.
+- Automatyczne wdrożenia na produkcję są dozwolone WYŁĄCZNIE przez ten
+  workflow i WYŁĄCZNIE po bramkach `scripts/samonaprawa/bramki.py`: test
+  regresji czerwony przed i zielony po poprawce, cały zestaw testów zielony,
+  żadnych usuniętych ani wyciszonych testów, zgoda niezależnego recenzenta,
+  limit 3 automatycznych wdrożeń na dobę, 2 próby na błąd, potem eskalacja.
+- Strefy zakazane (treść prawna, RODO i dane, logowanie, płatności,
+  infrastruktura, sama samonaprawa): poprawka zawsze jako pull request
+  z opisem dla właściciela po polsku, nigdy automatycznie. Lista w `bramki.py`.
+- Właściciel nie czyta kodu: każde powiadomienie (e-mail SNS, zgłoszenie
+  GitHub) mówi po ludzku, co się psuło, co naprawiono i co kliknąć w aplikacji.
+- Wyłącznik: zmienna repozytorium `SAMONAPRAWA` = `auto` | `pr` | `wylaczona`.
+- Zgłoszenia i znaczniki błędów bez danych osobowych (tylko
+  `dziennik.opis_bledu` po `maskuj`). Agent działa na sesji AWS ograniczonej
+  do Bedrock w UE, bez tokenu GitHub i bez dostępu do danych spraw.
+- Przy pracy nad samonaprawą: nie osłabiaj bramek ani `test_samonaprawa.py`
+  bez wyraźnej decyzji właściciela.
