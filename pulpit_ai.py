@@ -122,7 +122,7 @@ def lista_narzedzi(request: Request):
 # Zasady samonaprawy: nie przekazujemy automatom modyfikacji
 # uwierzytelniania, płatności i uprawnień. To nie zastępuje bramek CI.
 _NAPRAWA_WYLACZONE = re.compile(
-    r"\b(?:logowan\w*|zalogowan\w*|uwierzyteln\w*|autoryzac\w*|"
+    r"\b(?:logow\w*|zalogow\w*|uwierzyteln\w*|autoryzac\w*|"
     r"uprawnie\w*|hasł\w*|hasel\w*|token\w*|płatno\w*|platno\w*|"
     r"płatnic\w*|platnic\w*|przelew\w*|rozlicze\w*)\b", re.I
 )
