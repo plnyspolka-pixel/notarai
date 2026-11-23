@@ -33,6 +33,10 @@ on:
         type: choice
         options: [z-ustawien, auto, pr]
         default: z-ustawien
+      test_wdrozenia:
+        description: "Test sciezki wdrozenia: nieszkodliwa zmiana w docs/ przechodzi scalenie, wdrozenie na produkcje i obserwacje (bez agenta)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -62,6 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     if: github.ref == 'refs/heads/master'
+    env:
+      TEST_WDROZENIA: ${{ github.event.inputs.test_wdrozenia == 'true' && 'true' || 'false' }}
     steps:
       - name: Pobierz kod (master)
         uses: actions/checkout@v7
@@ -131,6 +137,11 @@ jobs:
               exit 0
             fi
           else
+            if [ "$TEST_WDROZENIA" = "true" ]; then
+              UWAGI="Test sciezki wdrozenia samonaprawy (przebieg $GITHUB_RUN_ID) - bez agenta, zmiana tylko w docs/."
+              ODCISK=""
+              TRYB_WEJSCIE="auto"
+            fi
             jq -n --arg u "$UWAGI" --arg o "$ODCISK" \
               '{uwagi: $u, odcisk: $o, rodzaj: "reczne", typ: "zgloszenie reczne", wersja: "produkcja"}' > "$SN/ladunek.json"
           fi
@@ -175,7 +186,7 @@ jobs:
           git config user.email "samonaprawa@notarai.pl"
 
       - name: Agent naprawczy
-        if: env.DZIALANIE == 'napraw'
+        if: env.DZIALANIE == 'napraw' && env.TEST_WDROZENIA != 'true'
         timeout-minutes: 45
         run: |
           set -euo pipefail
@@ -197,8 +208,29 @@ jobs:
           cat "$SN/raport.json"
           echo "NAPRAWIONE=$(jq -r '.naprawione // false' "$SN/raport.json")" >> "$GITHUB_ENV"
 
+      - name: Test wdrozenia - nieszkodliwa zmiana bez agenta
+        if: env.DZIALANIE == 'napraw' && env.TEST_WDROZENIA == 'true'
+        run: |
+          set -euo pipefail
+          GALAZ="samonaprawa/${ODCISK}-${GITHUB_RUN_ID}"
+          git checkout -b "$GALAZ"
+          mkdir -p docs
+          echo "- $(date -u +%Y-%m-%dT%H:%MZ) przebieg ${GITHUB_RUN_ID}: test sciezki wdrozenia" >> docs/samonaprawa-testy-wdrozenia.md
+          git add docs/samonaprawa-testy-wdrozenia.md
+          git commit -q -m "Samonaprawa: test sciezki wdrozenia (przebieg ${GITHUB_RUN_ID})"
+          jq -n '{naprawione: true, przyczyna: "test sciezki wdrozenia", poprawka: "wpis w docs/samonaprawa-testy-wdrozenia.md",
+                  ryzyko: "niskie", dla_wlasciciela: "Test: nieszkodliwa zmiana w dokumentacji przeszla automatyczne scalenie, wdrozenie na produkcje i obserwacje.",
+                  sprawdz_w_aplikacji: "nic - aplikacja dziala jak wczesniej"}' > "$SN/raport.json"
+          printf '### Test ścieżki wdrożenia (przebieg %s)\n\nNieszkodliwa zmiana w `docs/` - sprawdzamy scalenie, wdrożenie i obserwację.\n' "$GITHUB_RUN_ID" > "$SN/werdykt.md"
+          {
+            echo "GALAZ=$GALAZ"
+            echo "GLOWA=$(git rev-parse HEAD)"
+            echo "NAPRAWIONE=true"
+            echo "WERDYKT=auto"
+          } >> "$GITHUB_ENV"
+
       - name: Commit poprawki i bramki
-        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true'
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.TEST_WDROZENIA != 'true'
         run: |
           set -euo pipefail
           GALAZ="samonaprawa/${ODCISK}-${GITHUB_RUN_ID}"
@@ -213,7 +245,7 @@ jobs:
           echo "BRAMKI=$(jq -r .werdykt "$SN/bramki.json")" >> "$GITHUB_ENV"
 
       - name: Agent recenzent (niezalezny)
-        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.BRAMKI != 'odrzuc'
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.BRAMKI != 'odrzuc' && env.TEST_WDROZENIA != 'true'
         timeout-minutes: 25
         run: |
           set -euo pipefail
@@ -238,7 +270,7 @@ jobs:
           cat "$SN/recenzja.json"
 
       - name: Werdykt
-        if: env.DZIALANIE == 'napraw'
+        if: env.DZIALANIE == 'napraw' && env.TEST_WDROZENIA != 'true'
         run: |
           set -euo pipefail
           bramki=${BRAMKI:-odrzuc}
@@ -305,10 +337,20 @@ jobs:
           { cat "$SN/werdykt.md"; echo; echo "Zgłoszenie: #$ISSUE"; echo; echo "🤖 Samonaprawa notarai (docs/samonaprawa.md)"; } > "$SN/pr.md"
           etykiety=(--etykieta samonaprawa)
           [ "$WERDYKT" = "auto" ] && etykiety+=(--etykieta samonaprawa-auto)
-          pr=$(python "$NARZ/github.py" pr --galaz "$GALAZ" \
-            --tytul "Samonaprawa: $(jq -r '.przyczyna // "poprawka bledu"' "$SN/raport.json" | head -c 120)" \
-            --opis-plik "$SN/pr.md" "${etykiety[@]}")
-          echo "PR=$pr" >> "$GITHUB_ENV"
+          # PR moze nie powstac (np. repozytorium nie pozwala GitHub Actions zakladac PR).
+          # Wtedy poprawka i tak nie utyka: "auto" scala sie bezposrednio, "pr" dostaje
+          # link do porownania, z ktorego wlasciciel zalozy PR jednym kliknieciem.
+          if pr=$(python "$NARZ/github.py" pr --galaz "$GALAZ" \
+                --tytul "Samonaprawa: $(jq -r '.przyczyna // "poprawka bledu"' "$SN/raport.json" | head -c 120)" \
+                --opis-plik "$SN/pr.md" "${etykiety[@]}"); then
+            echo "PR=$pr" >> "$GITHUB_ENV"
+            echo "LINK=https://github.com/${{ github.repository }}/pull/$pr" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Pull request nie powstal - dalej bez niego"
+            echo "PR=0" >> "$GITHUB_ENV"
+            echo "LINK=https://github.com/${{ github.repository }}/compare/master...$GALAZ" >> "$GITHUB_ENV"
+            printf '\n\nPoprawka na gałęzi `%s`: https://github.com/%s/compare/master...%s\n' "$GALAZ" "${{ github.repository }}" "$GALAZ" >> "$SN/werdykt.md"
+          fi
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/werdykt.md"
 
       - name: Do decyzji wlasciciela - powiadomienie
@@ -317,19 +359,38 @@ jobs:
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
           aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: poprawka bledu czeka na decyzje" \
-            --message "$(printf '%s\n\nPoprawka: https://github.com/%s/pull/%s\n' "$(jq -r '.dla_wlasciciela // "Poprawka bledu czeka na scalenie."' "$SN/raport.json")" "${{ github.repository }}" "$PR")" >/dev/null
+            --message "$(printf '%s\n\nPoprawka (kliknij Merge, zeby wdrozyc): %s\n' "$(jq -r '.dla_wlasciciela // "Poprawka bledu czeka na scalenie."' "$SN/raport.json")" "$LINK")" >/dev/null
 
       - name: Scalenie i wdrozenie
         if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto'
         run: |
           set -euo pipefail
-          scalony=$(python "$NARZ/github.py" scal --pr "$PR" --sha "$GLOWA")
+          scalony=""
+          if [ "${PR:-0}" != "0" ]; then
+            scalony=$(python "$NARZ/github.py" scal --pr "$PR" --sha "$GLOWA") || scalony=""
+          fi
+          if [ -z "$scalony" ]; then
+            # Bez PR albo scalenie przez API odmowilo: scalamy gita, ale tylko gdy master
+            # jest dokladnie tym kodem, na ktorym bramki puszczaly testy.
+            git fetch -q origin master
+            if [ "$(git rev-parse origin/master)" != "$BAZA" ]; then
+              echo "::error::master zmienil sie w trakcie - nie scalam automatycznie"
+              echo "WDROZENIE=nie_scalono" >> "$GITHUB_ENV"; exit 0
+            fi
+            git checkout -q -B scalenie origin/master
+            git merge --no-ff -q -m "Samonaprawa ${ODCISK}: scalenie po bramkach (#${ISSUE})" "$GLOWA"
+            if ! git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/master"; then
+              echo "::error::push na master odrzucony (ochrona galezi?)"
+              echo "WDROZENIE=nie_scalono" >> "$GITHUB_ENV"; exit 0
+            fi
+            scalony=$(git rev-parse HEAD)
+          fi
           echo "SCALONY=$scalony" >> "$GITHUB_ENV"
           if [ "$TOKEN_WLASNY" != "tak" ]; then
             # Push GITHUB_TOKEN-em nie uruchamia innych workflow - wyzwalamy wdrozenie sami.
             python "$NARZ/github.py" wyzwol --workflow wdrozenie.yml
           fi
-          wynik=$(python "$NARZ/github.py" wdrozenie --sha "$scalony" --minut 75)
+          wynik=$(python "$NARZ/github.py" wdrozenie --sha "$scalony" --minut 75) || wynik='{"wynik": "blad", "koniec_ms": 0}'
           echo "$wynik"
           echo "WDROZENIE=$(echo "$wynik" | jq -r .wynik)" >> "$GITHUB_ENV"
           echo "WDROZONO_MS=$(echo "$wynik" | jq -r .koniec_ms)" >> "$GITHUB_ENV"
@@ -344,8 +405,18 @@ jobs:
             --od "$WDROZONO_MS" --minut 20 --wynik "$SN/obserwacja.json"
           echo "OBSERWACJA=$(jq -r .werdykt "$SN/obserwacja.json")" >> "$GITHUB_ENV"
 
+      - name: Nie scalono - powiadomienie
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && env.WDROZENIE == 'nie_scalono'
+        run: |
+          set -euo pipefail
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          printf '⚠️ Poprawka przeszła bramki, ale nie dała się scalić automatycznie. Kliknij Merge: %s\n' "$LINK" > "$SN/k.md"
+          python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
+          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: poprawka gotowa, ale nie wdrozona" \
+            --message "Poprawka bledu $ODCISK przeszla bramki, ale automatyczne scalenie sie nie udalo. Kliknij Merge, zeby wdrozyc: $LINK" >/dev/null
+
       - name: Cofniecie (blad wrocil albo wdrozenie padlo)
-        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && (env.WDROZENIE != 'success' || env.OBSERWACJA == 'cofnij')
+        if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && env.SCALONY != '' && (env.WDROZENIE != 'success' || env.OBSERWACJA == 'cofnij')
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
@@ -357,7 +428,7 @@ jobs:
             python "$NARZ/github.py" wyzwol --workflow wdrozenie.yml
           fi
           powody=$(jq -r '(.powody // []) | join("; ")' "$SN/obserwacja.json" 2>/dev/null || echo "wdrozenie: $WDROZENIE")
-          printf '<!-- samonaprawa-proba -->\n**Cofnięto automatycznie** poprawkę #%s: %s\n' "$PR" "${powody:-wdrozenie: $WDROZENIE}" > "$SN/k.md"
+          printf '<!-- samonaprawa-proba -->\n**Cofnięto automatycznie** poprawkę (%s): %s\n' "$LINK" "${powody:-wdrozenie: $WDROZENIE}" > "$SN/k.md"
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
           aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: samonaprawa cofnieta" \
             --message "Poprawka bledu $ODCISK zostala wdrozona i automatycznie cofnieta (${powody:-wdrozenie: $WDROZENIE}). Aplikacja wraca do poprzedniej wersji. https://github.com/${{ github.repository }}/issues/$ISSUE" >/dev/null
@@ -367,8 +438,10 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
-          printf '✅ **Naprawione i wdrożone** (#%s). Po 20 minutach obserwacji błąd nie wrócił.\n' "$PR" > "$SN/k.md"
+          printf '✅ **Naprawione i wdrożone** (%s). Po 20 minutach obserwacji błąd nie wrócił.\n' "$LINK" > "$SN/k.md"
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
           python "$NARZ/github.py" zamknij --issue "$ISSUE"
-          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: blad naprawiony automatycznie" \
-            --message "$(printf '%s\n\nSprawdz: %s\nSzczegoly: https://github.com/%s/pull/%s\n' "$(jq -r '.dla_wlasciciela // "Blad naprawiony."' "$SN/raport.json")" "$(jq -r '.sprawdz_w_aplikacji // "-"' "$SN/raport.json")" "${{ github.repository }}" "$PR")" >/dev/null
+          temat="notarai: blad naprawiony automatycznie"
+          [ "$TEST_WDROZENIA" = "true" ] && temat="notarai: test wdrozenia samonaprawy udany"
+          aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "$temat" \
+            --message "$(printf '%s\n\nSprawdz: %s\nSzczegoly: %s\n' "$(jq -r '.dla_wlasciciela // "Blad naprawiony."' "$SN/raport.json")" "$(jq -r '.sprawdz_w_aplikacji // "-"' "$SN/raport.json")" "$LINK")" >/dev/null

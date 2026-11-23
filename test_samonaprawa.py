@@ -432,6 +432,26 @@ class TestWorkflow:
         krok = self._krok("Cofniecie")
         assert "OBSERWACJA == 'cofnij'" in krok["if"] and "git revert" in krok["run"]
 
+    def test_poprawka_nie_utyka_gdy_pr_nie_powstanie(self):
+        """Bez PR (np. repo nie pozwala Actions zakladac PR) "auto" scala sie gitem, "pr" dostaje link."""
+        pr = self._krok("Pull request")["run"]
+        assert "PR=0" in pr and "compare/master..." in pr
+        scal = self._krok("Scalenie i wdrozenie")["run"]
+        assert "git merge --no-ff" in scal and 'HEAD:refs/heads/master' in scal
+        assert '"$(git rev-parse origin/master)" != "$BAZA"' in scal      # tylko na przetestowany kod
+        assert "wyzwol --workflow wdrozenie.yml" in scal                   # GITHUB_TOKEN nie odpala CI
+
+    def test_nieudane_scalenie_powiadamia_a_nie_cofa(self):
+        assert "nie_scalono" in self._krok("Nie scalono")["if"]
+        assert "env.SCALONY != ''" in self._krok("Cofniecie")["if"]
+
+    def test_tryb_testu_wdrozenia_bez_agenta_tylko_docs(self):
+        assert self.W[True]["workflow_dispatch"]["inputs"]["test_wdrozenia"]["default"] is False
+        for nazwa in ("Agent naprawczy", "Commit poprawki", "Agent recenzent", "Werdykt"):
+            assert "TEST_WDROZENIA != 'true'" in self._krok(nazwa)["if"], nazwa
+        test = self._krok("Test wdrozenia")["run"]
+        assert "git add docs/samonaprawa-testy-wdrozenia.md" in test and "git add -A" not in test
+
     def test_model_w_ue(self):
         assert self.W["env"]["AWS_REGION"] == "eu-central-1"
         assert "eu.anthropic." in self.W["env"]["MODEL_AGENTA"]
