@@ -392,3 +392,38 @@ chrome.tabs.onUpdated.addListener((id, zmiana) => {
   await odswiezKarte();
   pokazWidok();
 })();
+
+/* ---------- Ochrona przed phishingiem ----------
+   Przelacznik. Dostep (widzenie adresow stron) pytamy DOPIERO przy wlaczeniu -
+   instalacja zostaje waska. Wszystko liczy sie lokalnie (bezpieczna_strona.js
+   w tle); nic nie wysylamy. */
+const OCHRONA_PERM = { permissions: ["webNavigation", "downloads", "notifications"], origins: ["https://*/*"] };
+
+async function odswiezPhishing() {
+  const o = await chrome.storage.local.get("ochronaPhishing");
+  const on = !!o.ochronaPhishing;
+  if ($("chk-phishing")) $("chk-phishing").checked = on;
+  if ($("phishing-stan")) $("phishing-stan").textContent = on
+    ? "Włączona — ostrzegam na stronach przed podróbkami i ryzykownymi pobraniami."
+    : "Wyłączona. Włącz, żeby ostrzegać przed phishingiem (poproszę wtedy o dostęp).";
+}
+
+if ($("chk-phishing")) {
+  $("chk-phishing").addEventListener("change", async (e) => {
+    if (e.target.checked) {
+      let ok = false;
+      try { ok = await chrome.permissions.request(OCHRONA_PERM); } catch (_) {}
+      if (!ok) {
+        e.target.checked = false;
+        $("phishing-stan").textContent = "Bez dostępu nie mogę ostrzegać. Możesz włączyć ponownie w każdej chwili.";
+        return;
+      }
+      await chrome.storage.local.set({ ochronaPhishing: true });
+    } else {
+      await chrome.storage.local.set({ ochronaPhishing: false });
+      try { await chrome.permissions.remove(OCHRONA_PERM); } catch (_) {}
+    }
+    odswiezPhishing();
+  });
+  odswiezPhishing();
+}

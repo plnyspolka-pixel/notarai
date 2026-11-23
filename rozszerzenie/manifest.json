@@ -17,9 +17,11 @@
     "default_path": "panel.html"
   },
   "background": {
-    "service_worker": "tlo.js"
+    "service_worker": "tlo.js",
+    "type": "module"
   },
   "permissions": ["sidePanel", "storage", "scripting", "tabs"],
+  "optional_permissions": ["webNavigation", "downloads", "notifications"],
   "host_permissions": ["https://app.notarai.pl/*"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"]
 }
