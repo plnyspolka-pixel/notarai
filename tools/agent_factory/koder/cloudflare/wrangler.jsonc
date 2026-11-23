@@ -1,0 +1,30 @@
+{
+  // Orkiestrator kodera NotarAI na Cloudflare (zero minut GitHub Actions).
+  // Wdrożenie: npx wrangler@4 deploy (w tym katalogu). Sekrety: patrz README.md.
+  "name": "notarai-koder",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-24",
+  "workers_dev": true,
+  "vars": {
+    "KODER_REPO": "plnyspolka-pixel/notarai",
+    "SALAD_BRAMA_URL": "https://financeyou.pl/api/public/hooks/salad-brama",
+    "SALAD_ORG": "fi",
+    "SALAD_PROJECT": "default",
+    "KODER_GROUP_PREFIX": "finyou-ai-clip-koder-",
+    "KODER_MODEL": "RedHatAI/Qwen3.8-27B-INT4",
+    "KODER_PARSER": "qwen3_coder",
+    "KODER_VLLM_ARGS": "--kv-cache-dtype fp8 --language-model-only --enforce-eager --reasoning-parser qwen3",
+    "KODER_IMAGE": "vllm/vllm-openai:latest",
+    "KODER_CONTEXT": "65536",
+    "KODER_PARALLEL": "3",
+    "KODER_MINUTES": "120",
+    "KODER_MAX_USD": "1.5",
+    "KODER_MAX_HOURLY": "1.0",
+    "KODER_MIN_VRAM": "32",
+    "KODER_PRIORITY": "batch,high"
+  },
+  "durable_objects": { "bindings": [{ "name": "KODER", "class_name": "Koder" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Koder"] }],
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "observability": { "enabled": true }
+}

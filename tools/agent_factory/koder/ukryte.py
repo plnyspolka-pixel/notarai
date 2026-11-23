@@ -26,7 +26,8 @@ Polecenia (wynik zawsze JSON na stdout):
   przed KARTA KATALOG_BAZOWY
   po    KARTA KATALOG_PRACY_AGENTA
 
-Testy uruchamia kontener `koder-agent` bez sieci; KODER_OCENA=lokalnie uruchamia je
+Testy uruchamia kontener `koder-agent` bez sieci; KODER_OCENA=wezel (węzeł GPU, wezel.py) jako
+użytkownik `ocena` bez uprawnień; KODER_OCENA=lokalnie uruchamia je
 bezpośrednio (testy i próby na własnym komputerze).
 """
 from __future__ import annotations
@@ -53,6 +54,17 @@ def uruchom(katalog: Path, argv: list[str]) -> int:
     argv = [*argv, "-p", "no:cacheprovider"]
     if os.environ.get("KODER_OCENA") == "lokalnie":
         cmd = [sys.executable if argv[0] == "python" else argv[0], *argv[1:]]
+        cwd = str(katalog)
+    elif os.environ.get("KODER_OCENA") == "wezel":
+        # Węzeł GPU (wezel.py): bez Dockera; testy jako nieuprzywilejowany użytkownik oceny,
+        # w kopii oddanej mu na własność, bez sieci (martwy pośrednik) i bez zmiennych roota.
+        user = os.environ.get("KODER_OCENA_UZYTKOWNIK", "ocena")
+        subprocess.run(["chown", "-R", f"{user}:{user}", str(katalog)], check=False)
+        python = os.environ.get("KODER_PYTHON", sys.executable)
+        cmd = ["runuser", "-u", user, "--", "env", "-i",
+               f"PATH={os.path.dirname(python)}:/usr/bin:/bin", "HOME=/tmp", "LANG=C.UTF-8",
+               "PYTHONDONTWRITEBYTECODE=1", "HTTPS_PROXY=http://127.0.0.1:9", "HTTP_PROXY=http://127.0.0.1:9",
+               python if argv[0] == "python" else argv[0], *argv[1:]]
         cwd = str(katalog)
     else:
         uid = f"{getattr(os, 'getuid', lambda: 1000)()}:{getattr(os, 'getgid', lambda: 1000)()}"
@@ -103,6 +115,8 @@ def przed(karta: dict, baza: Path, robocze: Path) -> dict:
         oczekiwane = "oblewają" if rodzaj == "zmiana" else "przechodzą"
         dobrze = rc in OBLANE if rodzaj == "zmiana" else rc == 0
         szczegoly.append({"co": "kod bazowy", "kod_pytest": rc, "oczekiwane": oczekiwane, "ok": dobrze})
+        if not dobrze and rc not in (0, *OBLANE):
+            return {"ok": False, "powod": f"ocena ukrytymi testami nie uruchomiła się (rc={rc})", "szczegoly": szczegoly}
         if not dobrze:
             powod = ("ukryte testy przechodzą bez żadnej zmiany - niczego nie sprawdzają"
                      if rodzaj == "zmiana" else "ukryte testy nie przechodzą na kodzie bazowym (rc=%d)" % rc)
