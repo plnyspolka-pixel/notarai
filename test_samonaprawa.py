@@ -504,6 +504,12 @@ class TestWorkflow:
         assert "--prosba" in self._krok("Commit poprawki")["run"]
         assert "WLACZ=" in self._krok("Werdykt")["run"]
 
+    def test_boto3_przed_przegladem(self):
+        """23.11.2026: przeglad padl na braku boto3 - zaleznosci instalowaly sie pozniej."""
+        nazwy = [k.get("name", "") for k in self.KROKI]
+        assert nazwy.index("Biblioteka AWS dla narzedzi samonaprawy") < nazwy.index(
+            "Zgloszenie (walidacja i historia z CloudWatch)")
+
     def test_przeglad_mozna_wyzwolic_recznie(self):
         """Zastepczo, dopoki GitHub nie odpali harmonogramu: workflow_dispatch z przeglad=true."""
         assert self.W[True]["workflow_dispatch"]["inputs"]["przeglad"]["default"] is False
