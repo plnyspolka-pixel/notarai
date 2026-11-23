@@ -582,6 +582,11 @@ Resources:
               Value: "true"
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
+            # Stenogramy aktow (stenogramy.py): na koncie dziala polityka Organizations
+            # "notarai-bez-uczenia-ai" (AI services opt-out, wlaczona 23.11.2026), wiec
+            # Transcribe nie zatrzymuje dzwieku do ulepszania modeli AWS.
+            - Name: PIECZAPP_TRANSCRIBE_OPTOUT
+              Value: "1"
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu
