@@ -173,7 +173,15 @@ def zglos_naprawe(request: Request, dane: ZgloszenieNaprawy):
     rejestr = magazyn.wczytaj_plik_kancelarii(asystent_kancelarii.PLIK,
                                                {"zmiany": [], "prosby": []})
     for p in reversed(rejestr.get("prosby", [])):
-        if p.get("opis") == opis:
+        if p.get("opis") != opis or p.get("koniec"):
+            continue
+        try:
+            zgloszono = datetime.fromisoformat(str(p.get("czas", "")))
+        except ValueError:
+            continue
+        if zgloszono.tzinfo is None:
+            zgloszono = zgloszono.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - zgloszono < timedelta(hours=24):
             return {"przyjeto": True, "numer": p.get("odcisk", ""),
                     "co_dalej": "Zgłoszenie już istnieje. Sprawdź jego postęp w czacie.",
                     "duplikat": True}
