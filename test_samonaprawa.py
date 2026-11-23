@@ -509,3 +509,11 @@ class TestInfrastruktura:
         assert "PIECZAPP_WERSJA" in szablon
         assert "PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN" in szablon
         assert "Condition: MamySamonaprawe" in szablon
+
+
+def test_znacznik_brak_w_sekrecie_to_nie_token(monkeypatch):
+    """Sekret notarai/samonaprawa-github ma "brak", dopoki wlasciciel nie wklei tokenu."""
+    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "brak")
+    assert samonaprawa._token() == ""
+    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_abc")
+    assert samonaprawa._token() == "github_pat_abc"
