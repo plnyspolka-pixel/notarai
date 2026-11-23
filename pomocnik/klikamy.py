@@ -204,8 +204,14 @@ def _wykonaj(akcja: str, wybor: dict, stan: dict, strona, krok: Krok,
                 )
             # Zgoda jest konkretna: ta sama domena, strona, przycisk i typ.
             adres_przed = strona.url
+            odcisk = (strona.odcisk_formularzy() if hasattr(strona, "odcisk_formularzy")
+                      else None)
             if not zatwierdz_wysylke(_host(adres_przed), krok.cel):
                 raise OdmowaKlikniecia("Nie udzielono zgody na tę czynność.")
+            if (odcisk is not None and strona.odcisk_formularzy() != odcisk):
+                raise OdmowaKlikniecia(
+                    "Zawartosc formularza zmienila sie po zgodzie. Nie wysylam."
+                )
             if strona.url != adres_przed or not any(
                 e.get("selektor") == selektor and e.get("opis") == opis
                 and e.get("rola") == element.get("rola")
