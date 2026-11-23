@@ -25,6 +25,9 @@ def zbuduj(plan, wariant):
     # tylko auto Marty; kadry pokazują je na krawędzi albo rozmyte (płytka ostrość), nigdy całej bryły z bliska,
     # bo auto jest proceduralne (brak modelu CC0 auta bez marki). Przód auta = -y (od muru), drzwi kierowcy od strony +x.
     w.samochod("auto_marty", (1.3, 2.4, 0), -90, (0.06, 0.09, 0.16))
+    # sąsiednie auta: model CC0 Poly Haven "covered_car" (auto pod plandeką - realistyczne, bez marki)
+    w.wstaw("covered_car", (-3.9, 2.5, 0), 3, nazwa="auto_sasiad_plandeka")
+    w.wstaw("covered_car", (6.5, 2.4, 0), -4, nazwa="auto_sasiad_plandeka2")
     w.wstaw("street_lamp_01", (-2.6, 5.0, 0), 180, nazwa="latarnia")
     w.wstaw("metal_trash_can", (8.4, 4.9, 0), 0, tylko=["metal_trash_can"], wyklucz=["rust"])
 
@@ -37,9 +40,9 @@ def zbuduj(plan, wariant):
         w.lampa_punkt("latarnia_sw", (-2.55, 4.6, 3.7), 700, 2300, promien=0.15)
         w.lampa_obszar("kinkiet_brama", (5.0, 5.35, 2.6), 0.3, 120, 2600, (-90, 0, 0))
 
-    w.kamera(plan, "K01_podworze_szeroki", (-4.0, -4.5, 1.6), (-2.0, 4.5, 1.6), 24, "plan ogólny podwórza: mur, latarnia, oficyna; auto Marty tylko na krawędzi kadru")
+    w.kamera(plan, "K01_podworze_szeroki", (-4.0, -4.5, 1.6), (-2.9, 4.5, 1.6), 24, "plan ogólny podwórza: mur, latarnia, auta pod plandeką; auto Marty poza kadrem")
     w.kamera(plan, "K02_marta_przy_drzwiach", (4.4, 0.6, 1.6), (2.75, 2.35, 1.55), 85, "zbliżenie: Marta przy drzwiach kierowcy; auto za nią mocno rozmyte", przyslona=1.8)
-    w.kamera(plan, "K03_marta_idzie_do_auta", (-2.6, -3.2, 1.5), (-1.2, 4.0, 1.4), 35, "Marta idzie przez podwórze (auto poza kadrem z prawej)")
+    w.kamera(plan, "K03_marta_idzie_do_auta", (-2.6, -3.2, 1.5), (-1.9, 4.0, 1.4), 35, "Marta idzie przez podwórze (jej auto poza kadrem z prawej)")
     w.kamera(plan, "K04_latarnia_mur", (0.5, -1.5, 1.2), (-2.6, 5.0, 2.6), 28, "przebitka: latarnia przy murze (noc: plama światła na mokrym asfalcie)")
     w.kamera(plan, "K05_okna_oficyny", (-4.5, 1.0, 1.5), (-9.0, 0.5, 6.0), 24, "żabia perspektywa na okna oficyny (ktoś patrzy z góry)")
     w.kamera(plan, "K06_z_gory_oficyna", (-8.5, -3.0, 6.0), (-3.5, 3.5, 0.0), 30, "z okna oficyny: ktoś obserwuje podwórze, auto na krawędzi kadru")

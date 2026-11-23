@@ -16,7 +16,7 @@ teczki zamknięte, grzbiety segregatorów gładkie, ekrany monitorów białe.
 | s05 | Kancelaria Teresy (blok, mniejsza) | dzień, wieczór | 7 | poprawna |
 | s06 | Kawiarnia, stolik przy oknie | dzień, wieczór | 6 | dobra |
 | s07 | Ulica przed kancelarią (fasada, brama) | dzień, noc (mokry asfalt) | 6 | sterylna, użyteczna na plan ogólny |
-| s08 | Parking na podwórzu z autem Marty | noc, dzień | 6 | poprawna po przekadrowaniu: auto tylko na krawędzi kadru lub rozmyte |
+| s08 | Parking na podwórzu z autem Marty | noc, dzień | 6 | poprawna: auta sąsiadów CC0 pod plandeką, auto Marty tylko rozmyte lub na krawędzi |
 | s09 | Sala szkoleniowa (bez emblematów) | dzień | 6 | poprawna, pusta |
 | s10 | Mieszkanie Ireny + klatka bez windy | dzień, wieczór | 7 | dobra |
 
@@ -79,7 +79,7 @@ zegar bez cyfr, schody, auta, fotele biurowe), są modelowane proceduralnie w `w
 
 ## Słabe strony
 - Za oknami gabinetu Heleny stoi prosta fasada oficyny (tynk, ciemne okna; nie rzuca cieni), a szyby przyciemniają widok jak filtr ND. W pozostałych planach za oknem jest tylko panorama HDRI (przyciemniona tą samą szybą) - do dorobienia `podworze_za_oknem` per plan.
-- s08: auto jest proceduralne (brak modelu CC0 auta bez marki), więc kadry pokazują je tylko na krawędzi albo rozmyte (85 mm, f/1,8). Ujęć z wnętrza auta i detalu klamki nie ma - wymagają prawdziwego modelu.
+- s08: sąsiednie auta to model CC0 `covered_car` (auto pod plandeką). Auta Marty nie ma w Poly Haven (żadnego auta bez plandeki), więc jej auto jest proceduralne i widać je tylko rozmyte (85 mm, f/1,8) albo jako skrawek na krawędzi kadru. Ujęć z wnętrza auta i detalu klamki nie ma - wymagają prawdziwego modelu.
 - s07: fasada czysta, bez brudu, szyldów i przechodniów - dobra na plan ogólny, gorsza na detal.
 - s09: sala pusta i jednolita; brakuje tłumu (statyści do dorobienia w AI).
 - Brak postaci: znaczniki wyznaczają miejsca i wysokość oczu, postacie wstawia dalszy etap (AI / compositing).
