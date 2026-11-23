@@ -69,8 +69,8 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K06_z_polpietra_dolnego", (3.45, 0.45, -0.95), (2.0, 5.0, 1.0), 20, "z dolnego półpiętra w górę na podest")
     w.kamera(plan, "K07_okno_polpietro", (2.1, 4.3, 1.9), (2.1, -0.2, 2.9), 24, "okno na półpiętrze, sylwetka pod światło")
 
-    w.znacznik(plan, "M_przed_drzwiami", (2.1, 5.45, 1.62), 0, "postać stoi przed drzwiami kancelarii, przodem do drzwi")
-    w.znacznik(plan, "M_podest_srodek", (2.1, 4.3, 1.62), 180, "postać na podeście")
-    w.znacznik(plan, "M_na_schodach_w_gore", (0.72, 2.0, 1.62 + 0.8), 180, "postać na biegu w górę")
-    w.znacznik(plan, "M_na_schodach_w_dol", (3.45, 2.0, 1.62 - 0.8), 180, "postać schodzi w dół")
-    w.znacznik(plan, "M_polpietro_okno", (2.1, 0.5, 1.575 + 1.62), 0, "postać na półpiętrze przy oknie")
+    w.znacznik(plan, "M_przed_drzwiami", (2.1, 5.45, 1.62), opis="postać stoi przed drzwiami kancelarii, przodem do drzwi", patrz_na=(2.1, 6.0))
+    w.znacznik(plan, "M_podest_srodek", (2.1, 4.3, 1.62), opis="postać na podeście", patrz_na=(2.1, 3.0))
+    w.znacznik(plan, "M_na_schodach_w_gore", (0.72, 2.0, 1.62 + 0.8), opis="postać na biegu w górę", patrz_na=(0.72, 1.0))
+    w.znacznik(plan, "M_na_schodach_w_dol", (3.45, 2.0, 1.62 - 0.8), opis="postać schodzi w dół", patrz_na=(3.45, 1.0))
+    w.znacznik(plan, "M_polpietro_okno", (2.1, 0.5, 1.575 + 1.62), opis="postać na półpiętrze przy oknie", patrz_na=(2.1, 1.5))

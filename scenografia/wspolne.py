@@ -30,6 +30,10 @@ RENDERY = os.path.join(TU, "rendery")
 ZASOBY = json.load(open(os.path.join(CACHE, "zasoby.json"))) if os.path.exists(os.path.join(CACHE, "zasoby.json")) else None
 
 SZER, WYS = 1080, 1920
+MANIFEST = json.load(open(os.path.join(TU, "manifest.json"), encoding="utf-8"))
+PRZOD = {k: v for k, v in MANIFEST.get("przod_modeli", {}).items() if not k.startswith("_opis")}
+SIEDZISKA: list = []  # (pivot, cel_xy) każdego siedziska w scenie, do kontroli orientacji
+MAX_ODCHYLENIE = 20.0
 
 
 # ---------------------------------------------------------------- scena
@@ -44,6 +48,7 @@ class Plan:
         self.swiatla_praktyczne: list = []
         self.portale: list = []
         self.ruch: dict | None = None
+        self.siedziska: list = []
 
 
 def ekspozycja(ev: float):
@@ -51,6 +56,7 @@ def ekspozycja(ev: float):
 
 
 def nowa_scena(probki: int = 48) -> bpy.types.Scene:
+    SIEDZISKA.clear()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
@@ -200,7 +206,8 @@ def szyba(nazwa="szyba"):
     b.inputs["Transmission Weight"].default_value = 1.0
     b.inputs["Roughness"].default_value = 0.02
     b.inputs["IOR"].default_value = 1.45
-    b.inputs["Base Color"].default_value = (0.95, 0.98, 0.98, 1)
+    # widok przez szybę przyciemniony jak filtr ND (zakres jasności wnętrze/podwórze); światło do wnętrza bez zmian
+    b.inputs["Base Color"].default_value = (0.42, 0.44, 0.44, 1)
     lp = nt.nodes.new("ShaderNodeLightPath")
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     mix = nt.nodes.new("ShaderNodeMixShader")
@@ -460,8 +467,26 @@ def pokoj(nazwa, W, D, H, mat_podloga, mat_sciany, mat_sufit=None, otwory=None, 
 _ZALADOWANE: dict = {}
 
 
-def wstaw(aid, polozenie, obrot_z=0.0, skala=1.0, tylko=None, wyklucz=None, nazwa=None, mat_nadpisz=None):
-    """Wstawia model CC0 (kopię) z Poly Haven. tylko/wyklucz: fragmenty nazw obiektów (warianty w pliku)."""
+def obrot_do(polozenie, patrz_na, przod_deg):
+    """Obrót wokół z (stopnie), przy którym przód obiektu (przod_deg w układzie lokalnym) patrzy na punkt patrz_na."""
+    kat = math.degrees(math.atan2(patrz_na[1] - polozenie[1], patrz_na[0] - polozenie[0]))
+    return kat - przod_deg
+
+
+def _siedzisko(klucz, polozenie, obrot_z, patrz_na, nazwa):
+    """Siedzisko MUSI dostać patrz_na (stół, biurko, rozmówca); zwraca obrót."""
+    if patrz_na is None:
+        raise ValueError(f"siedzisko {nazwa or klucz}: podaj patrz_na=(x, y) zamiast ręcznego obrot_z")
+    return obrot_do(polozenie, patrz_na, PRZOD[klucz])
+
+
+def wstaw(aid, polozenie, obrot_z=0.0, skala=1.0, tylko=None, wyklucz=None, nazwa=None, mat_nadpisz=None, patrz_na=None):
+    """Wstawia model CC0 (kopię) z Poly Haven. tylko/wyklucz: fragmenty nazw obiektów (warianty w pliku).
+    patrz_na=(x, y): obraca model tak, by jego przód (PRZOD z manifestu) patrzył na ten punkt; obowiązkowe dla siedzisk."""
+    if aid in PRZOD:
+        obrot_z = _siedzisko(aid, polozenie, obrot_z, patrz_na, nazwa)
+    elif patrz_na is not None:
+        raise ValueError(f"{aid}: brak zmierzonego przodu w manifest.json/przod_modeli")
     wpis = ZASOBY["modele"][aid]
     katalog = os.path.dirname(wpis["blend"])
     with bpy.data.libraries.load(wpis["blend"], link=False) as (a, b):
@@ -504,6 +529,8 @@ def wstaw(aid, polozenie, obrot_z=0.0, skala=1.0, tylko=None, wyklucz=None, nazw
     piv.location = Vector(polozenie)
     piv.rotation_euler = Euler((0, 0, math.radians(obrot_z)))
     piv.scale = (skala, skala, skala)
+    if aid in PRZOD:
+        SIEDZISKA.append((piv, tuple(patrz_na)))
     return piv
 
 
@@ -580,9 +607,70 @@ def kubek(nazwa, polozenie, rgb=(0.92, 0.92, 0.9)):
     return w
 
 
-def obraz_na_scianie(nazwa, srodek, szer, wys, normal, kolory, ziarno=1.0):
-    """Rama z abstrakcyjnym płótnem; normal: 'S','N','W','E' – na którą stronę patrzy obraz."""
+def obraz_pejzaz(nazwa, kolory, pion_u=False, odwroc=False):
+    """Spokojny, ostry pejzaż (pole, pas wzgórz, niebo w gradiencie) – grafika bez treści do przeczytania.
+    kolory: [pole_blizej, pole_dalej, wzgorza, niebo_dol, niebo_gora]."""
+    m = bpy.data.materials.get(nazwa) or bpy.data.materials.new(nazwa)
+    nt, b, _ = _wezly(m)
+    b.inputs["Roughness"].default_value = 0.75
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    v = sep.outputs["X" if pion_u else "Y"]
+    u = sep.outputs["Y" if pion_u else "X"]
+    if odwroc:
+        inv = nt.nodes.new("ShaderNodeMath"); inv.operation = "SUBTRACT"; inv.inputs[0].default_value = 1.0
+        nt.links.new(v, inv.inputs[1]); v = inv.outputs[0]
+    # linia wzgórz: łagodna fala wzdłuż szerokości
+    fal = nt.nodes.new("ShaderNodeMath"); fal.operation = "SINE"
+    sk = nt.nodes.new("ShaderNodeMath"); sk.operation = "MULTIPLY"; sk.inputs[1].default_value = 5.0
+    nt.links.new(u, sk.inputs[0]); nt.links.new(sk.outputs[0], fal.inputs[0])
+    am = nt.nodes.new("ShaderNodeMath"); am.operation = "MULTIPLY_ADD"; am.inputs[1].default_value = 0.035
+    nt.links.new(fal.outputs[0], am.inputs[0]); nt.links.new(v, am.inputs[2])
+    pasy = nt.nodes.new("ShaderNodeValToRGB"); pasy.color_ramp.interpolation = "CONSTANT"
+    el = pasy.color_ramp.elements
+    el[0].position, el[0].color = 0.0, (*kolory[0], 1)
+    el[1].position, el[1].color = 0.5, (*kolory[3], 1)
+    e = el.new(0.24); e.color = (*kolory[1], 1)
+    e = el.new(0.36); e.color = (*kolory[2], 1)
+    nt.links.new(am.outputs[0], pasy.inputs[0])
+    niebo_r = nt.nodes.new("ShaderNodeValToRGB")
+    el = niebo_r.color_ramp.elements
+    el[0].position, el[0].color = 0.45, (*kolory[3], 1)
+    el[1].position, el[1].color = 1.0, (*kolory[4], 1)
+    nt.links.new(v, niebo_r.inputs[0])
+    czy_niebo = nt.nodes.new("ShaderNodeMath"); czy_niebo.operation = "GREATER_THAN"; czy_niebo.inputs[1].default_value = 0.5
+    nt.links.new(am.outputs[0], czy_niebo.inputs[0])
+    mix = nt.nodes.new("ShaderNodeMix"); mix.data_type = "RGBA"
+    nt.links.new(czy_niebo.outputs[0], mix.inputs["Factor"])
+    nt.links.new(pasy.outputs[0], mix.inputs[6]); nt.links.new(niebo_r.outputs[0], mix.inputs[7])
+    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    return m
+
+
+def obraz_na_scianie(nazwa, srodek, szer, wys, normal, kolory, ziarno=1.0, styl="abstrakcja"):
+    """Rama z płótnem; normal: 'S','N','W','E' – na którą stronę patrzy obraz.
+    styl='abstrakcja' (miękkie plamy) albo 'pejzaz' (ostra, spokojna grafika w passe-partout)."""
     rama = kolor("rama_obrazu", (0.08, 0.07, 0.06), 0.4)
+    if styl == "pejzaz":
+        rama = kolor("rama_jasna_dab", (0.42, 0.3, 0.18), 0.45, polysk=0.4)
+        pp = kolor("passe_partout", (0.88, 0.86, 0.82), 0.9)
+        pl = obraz_pejzaz(f"plotno_{nazwa}", kolory, pion_u=normal in ("W", "E"))
+        x, y, z = srodek
+        if normal in ("S", "N"):
+            sgn = -1 if normal == "S" else 1
+            skrzynka(f"{nazwa}_pp", (szer + 0.2, 0.012, wys + 0.2), (x, y + sgn * 0.016, z), pp, kolekcja="rekwizyty_wlasne")
+        else:
+            sgn = -1 if normal == "W" else 1
+            skrzynka(f"{nazwa}_pp", (0.012, szer + 0.2, wys + 0.2), (x + sgn * 0.016, y, z), pp, kolekcja="rekwizyty_wlasne")
+        szer_r, wys_r = szer + 0.2, wys + 0.2
+        if normal in ("S", "N"):
+            skrzynka(f"{nazwa}_rama", (szer_r + 0.06, 0.03, wys_r + 0.06), (x, y, z), rama, kolekcja="rekwizyty_wlasne")
+            plaszczyzna(f"{nazwa}_plotno", szer, wys, (x, y + sgn * 0.024, z), (90 if sgn < 0 else -90, 0, 0 if sgn < 0 else 180), pl, kolekcja="rekwizyty_wlasne")
+        else:
+            skrzynka(f"{nazwa}_rama", (0.03, szer_r + 0.06, wys_r + 0.06), (x, y, z), rama, kolekcja="rekwizyty_wlasne")
+            plaszczyzna(f"{nazwa}_plotno", wys, szer, (x + sgn * 0.024, y, z), (0, 90 * (1 if sgn > 0 else -1), 0), pl, kolekcja="rekwizyty_wlasne")
+        return
     pl = obraz_abstrakcyjny(f"plotno_{nazwa}", kolory, ziarno)
     x, y, z = srodek
     if normal in ("S", "N"):
@@ -593,6 +681,36 @@ def obraz_na_scianie(nazwa, srodek, szer, wys, normal, kolory, ziarno=1.0):
         sgn = -1 if normal == "W" else 1
         skrzynka(f"{nazwa}_rama", (0.03, szer + 0.06, wys + 0.06), (x, y, z), rama, kolekcja="rekwizyty_wlasne")
         plaszczyzna(f"{nazwa}_plotno", wys, szer, (x + sgn * 0.016, y, z), (0, 90 * (1 if sgn > 0 else -1), 0), pl, kolekcja="rekwizyty_wlasne")
+
+
+def podworze_za_oknem(nazwa, os_, stala, strona_wew, od, do, odl=7.0, z_dol=-4.0, wys=16.0, mat=None):
+    """Miękki widok za oknem: fasada oficyny po drugiej stronie podwórza (tynk + ciemne okna, bez napisów).
+    Nie rzuca cieni (nie zasłania słońca ani HDRI), widać ją tylko przez szyby."""
+    mat = mat or tekstura(f"{nazwa}_tynk", "white_stucco", skala=0.4, odcien=(0.13, 0.115, 0.095), sila_normal=0.5)
+    szk = kolor("szyba_oficyny", (0.05, 0.06, 0.07), 0.08, polysk=0.9)
+    rama = kolor("rama_oficyny", (0.8, 0.78, 0.74), 0.5)
+    zew = -strona_wew
+    c = stala + zew * odl
+    a, b = od - 6.0, do + 6.0
+    obiekty = []
+    if os_ == "x":
+        obiekty.append(skrzynka(f"{nazwa}_fasada", (b - a, 0.3, wys), ((a + b) / 2, c + zew * 0.15, z_dol + wys / 2), mat, kolekcja="za_oknem"))
+        obiekty.append(skrzynka(f"{nazwa}_bruk", (b - a, odl * 2, 0.1), ((a + b) / 2, stala + zew * odl / 2, z_dol), kolor("bruk_podworza", (0.3, 0.29, 0.27), 0.8), kolekcja="za_oknem"))
+    else:
+        obiekty.append(skrzynka(f"{nazwa}_fasada", (0.3, b - a, wys), (c + zew * 0.15, (a + b) / 2, z_dol + wys / 2), mat, kolekcja="za_oknem"))
+    u = a + 1.0
+    while u < b - 0.8:
+        for zz in (z_dol + 1.2, z_dol + 4.4, z_dol + 7.6, z_dol + 10.8):
+            for n, roz, dz in (("rama", (1.24, 1.84), 0.0), ("szyba", (1.08, 1.68), 0.02)):
+                if os_ == "x":
+                    o = skrzynka(f"{nazwa}_ok_{n}_{u:.1f}_{zz:.1f}", (roz[0], 0.06, roz[1]), (u, c - zew * (0.02 - dz), zz + 0.9), rama if n == "rama" else szk, kolekcja="za_oknem")
+                else:
+                    o = skrzynka(f"{nazwa}_ok_{n}_{u:.1f}_{zz:.1f}", (0.06, roz[0], roz[1]), (c - zew * (0.02 - dz), u, zz + 0.9), rama if n == "rama" else szk, kolekcja="za_oknem")
+                obiekty.append(o)
+        u += 2.4
+    for o in obiekty:
+        o.visible_shadow = False
+    return obiekty
 
 
 # ---------------------------------------------------------------- światło
@@ -694,14 +812,21 @@ def portal_okna(plan: Plan, nazwa, os_, stala, a, b, dol, gora, strona_wew=+1, m
     else:
         rot = (0, 90, 0) if strona_wew > 0 else (0, -90, 0)
         o = lampa_obszar(nazwa, (stala - strona_wew * 0.02, sr, zc), gora - dol, moc, kolor_k, rot, rozmiar_y=b - a)
+    o.visible_transmission = False  # przez szybę widać podwórze, nie białą lampę
+    o.visible_glossy = False
     plan.portale.append(o)
     return o
 
 
 # ---------------------------------------------------------------- kamery i znaczniki
-def kamera(plan: Plan, nazwa, polozenie, cel, obiektyw=35.0, uzycie=""):
+def kamera(plan: Plan, nazwa, polozenie, cel, obiektyw=35.0, uzycie="", przyslona=None):
+    """Kamera 9:16 celująca w punkt cel. przyslona (np. 2.0) włącza głębię ostrości z ostrością na cel."""
     c = bpy.data.cameras.new(nazwa)
     c.lens = obiektyw
+    if przyslona:
+        c.dof.use_dof = True
+        c.dof.focus_distance = (Vector(cel) - Vector(polozenie)).length
+        c.dof.aperture_fstop = przyslona
     c.sensor_width = 36.0
     c.sensor_fit = "AUTO"
     c.clip_start = 0.05
@@ -711,19 +836,22 @@ def kamera(plan: Plan, nazwa, polozenie, cel, obiektyw=35.0, uzycie=""):
     o.location = Vector(polozenie)
     kier = Vector(cel) - Vector(polozenie)
     o.rotation_euler = kier.to_track_quat("-Z", "Y").to_euler()
-    plan.kamery.append({"nazwa": nazwa, "obiektyw_mm": obiektyw, "polozenie": list(polozenie), "cel": list(cel), "uzycie": uzycie})
+    plan.kamery.append({"nazwa": nazwa, "obiektyw_mm": obiektyw, "przyslona": przyslona, "polozenie": list(polozenie), "cel": list(cel), "uzycie": uzycie})
     return o
 
 
-def znacznik(plan: Plan, nazwa, polozenie, obrot_z=0.0, opis=""):
-    """Pusty obiekt: miejsce postaci (z = poziom oczu albo siedziska, podany w opisie)."""
+def znacznik(plan: Plan, nazwa, polozenie, obrot_z=0.0, opis="", patrz_na=None):
+    """Pusty obiekt: miejsce postaci (z = poziom oczu albo siedziska, podany w opisie).
+    Konwencja: obrot_z = 0 -> postać patrzy w +y, 90 -> w -x. patrz_na=(x, y) liczy obrót sam (zalecane)."""
+    if patrz_na is not None:
+        obrot_z = round(obrot_do(polozenie, patrz_na, 90.0), 1)
     e = bpy.data.objects.new(nazwa, None)
     e.empty_display_type = "SINGLE_ARROW"
     e.empty_display_size = 0.4
     e.location = Vector(polozenie)
     e.rotation_euler = Euler((0, 0, math.radians(obrot_z)))
     _kolekcja("znaczniki").objects.link(e)
-    plan.znaczniki.append({"nazwa": nazwa, "polozenie": list(polozenie), "obrot_z": obrot_z, "opis": opis})
+    plan.znaczniki.append({"nazwa": nazwa, "polozenie": list(polozenie), "obrot_z": obrot_z, "patrz_na": list(patrz_na) if patrz_na else None, "opis": opis})
     return e
 
 
@@ -889,6 +1017,7 @@ def zapisz_opis(plan: Plan, czasy: dict, ruch: dict | None):
         "warianty": sorted(set(stary.get("warianty", [])) | set(czasy)),
         "czasy_renderu_s": {**stary.get("czasy_renderu_s", {}), **czasy},
         "ruch": ruch or stary.get("ruch"),
+        "siedziska_kontrola": plan.siedziska,
     }
     json.dump(opis, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 
@@ -900,7 +1029,7 @@ def zapisz_blend(plan: Plan):
     return p
 
 
-def regal_akt(nazwa, x0, y0, szer, wys=2.2, polki=5, gl=0.36, wzdluz_x=True, mat=None, wypelnienie=0.85):
+def regal_akt(nazwa, x0, y0, szer, wys=2.2, polki=5, gl=0.36, wzdluz_x=True, mat=None, wypelnienie=0.85, ozdoby=True):
     """Regał z półkami wypełnionymi segregatorami (gładkie grzbiety). wzdluz_x: regał stoi przy ścianie N/S."""
     mat = mat or tekstura("regal_dab", "oak_veneer_01", skala=1.0, jasnosc=0.85)
     deska = 0.025
@@ -926,6 +1055,27 @@ def regal_akt(nazwa, x0, y0, szer, wys=2.2, polki=5, gl=0.36, wzdluz_x=True, mat
                 segregatory(f"{nazwa}_seg{i}", (x0 + 0.04, y0, z + deska / 2), True, ile, wys=h, gl=gl * 0.8)
             else:
                 segregatory(f"{nazwa}_seg{i}", (x0, y0 + 0.04, z + deska / 2), False, ile, wys=h, gl=gl * 0.8)
+            wolne = szer - 0.08 - ile * 0.07
+            if ozdoby and wolne > 0.22:
+                u = (x0 if wzdluz_x else y0) + szer - 0.04 - wolne / 2  # środek wolnego miejsca na półce
+                pos = (u, y0) if wzdluz_x else (x0, u)
+                _ozdoba_polki(f"{nazwa}_ozd{i}", pos, z + deska / 2, (i * 7 + len(nazwa)) % 4, min(h, 0.3))
+
+
+def _ozdoba_polki(nazwa, pos, z, rodzaj, h):
+    """Drobiazg w wolnym miejscu półki (bez napisów): leżące książki, miska, pudełko, wazonik."""
+    x, y = pos
+    if rodzaj == 0:
+        for j, (c, t) in enumerate((((0.35, 0.12, 0.1), 0.035), ((0.12, 0.2, 0.18), 0.03), ((0.75, 0.7, 0.6), 0.04))):
+            skrzynka(f"{nazwa}_ks{j}", (0.2 - j * 0.015, 0.15, t), (x, y, z + t / 2 + j * 0.036), kolor(f"ksiazka_{c}", c, 0.6),
+                     obrot_z=j * 7 - 5, kolekcja="rekwizyty_wlasne", fazka=0.003)
+    elif rodzaj == 1:
+        walec(f"{nazwa}_miska", 0.08, 0.06, (x, y, z + 0.03), kolor("ceramika_szara", (0.55, 0.53, 0.5), 0.35, polysk=0.6), 32)
+    elif rodzaj == 2:
+        skrzynka(f"{nazwa}_pudlo", (0.22, 0.2, min(h, 0.18)), (x, y, z + min(h, 0.18) / 2), kolor("pudlo_lniane", (0.62, 0.58, 0.5), 0.8,
+                 normal_tex="fabric_pattern_05", skala=4.0, sila_normal=0.2), kolekcja="rekwizyty_wlasne", fazka=0.004)
+    else:
+        walec(f"{nazwa}_wazon", 0.045, min(h, 0.22), (x, y, z + min(h, 0.22) / 2), kolor("ceramika_granat", (0.08, 0.12, 0.22), 0.25, polysk=0.8), 32)
 
 
 def dywan(nazwa, srodek, szer, dl, tex_id="denim_fabric", odcien=(0.3, 0.22, 0.2), obrot_z=0.0):
@@ -1057,8 +1207,9 @@ def stolik_bistro(nazwa, polozenie, r=0.32, wys=0.75, mat_blat=None):
     return _grupa(nazwa, polozenie, 0, el)
 
 
-def krzeslo_bistro(nazwa, polozenie, obrot_z=0.0, mat=None):
-    """Krzesło kawiarniane: siedzisko, 4 nogi, oparcie (lokalnie przód = -y)."""
+def krzeslo_bistro(nazwa, polozenie, obrot_z=0.0, mat=None, patrz_na=None):
+    """Krzesło kawiarniane: siedzisko, 4 nogi, oparcie (lokalnie przód = -y); patrz_na obowiązkowe."""
+    obrot_z = _siedzisko("_krzeslo_bistro", polozenie, obrot_z, patrz_na, nazwa)
     mat = mat or tekstura("krzeslo_buk", "oak_veneer_01", skala=2.0, odcien=(0.45, 0.28, 0.16), szorstkosc_mnoz=0.6)
     el = [walec(f"{nazwa}_siedzisko", 0.21, 0.03, (0, 0, 0.46), mat, 32)]
     for i, (x, y) in enumerate(((-0.15, -0.15), (0.15, -0.15), (-0.15, 0.15), (0.15, 0.15))):
@@ -1066,7 +1217,9 @@ def krzeslo_bistro(nazwa, polozenie, obrot_z=0.0, mat=None):
     el.append(skrzynka(f"{nazwa}_oparcie", (0.38, 0.03, 0.12), (0, 0.18, 0.82), mat, kolekcja="rekwizyty_wlasne", fazka=0.01))
     for i, x in enumerate((-0.16, 0.16)):
         el.append(walec(f"{nazwa}_szczebel{i}", 0.012, 0.4, (x, 0.18, 0.66), mat, 12))
-    return _grupa(nazwa, polozenie, obrot_z, el)
+    piv = _grupa(nazwa, polozenie, obrot_z, el)
+    SIEDZISKA.append((piv, tuple(patrz_na)))
+    return piv
 
 
 def firanka(nazwa, os_, stala, a, b, dol, gora, strona_wew=-1):
@@ -1131,8 +1284,9 @@ def samochod(nazwa, polozenie, obrot_z=0.0, kolor_rgb=(0.08, 0.1, 0.14)):
     return _grupa(nazwa, polozenie, obrot_z, el)
 
 
-def fotel_biurowy(nazwa, polozenie, obrot_z=0.0, kolor_rgb=(0.05, 0.05, 0.06)):
-    """Krzesło biurowe: podstawa pięcioramienna, kolumna, siedzisko i oparcie z tapicerką (przód = -y lokalnie)."""
+def fotel_biurowy(nazwa, polozenie, obrot_z=0.0, kolor_rgb=(0.05, 0.05, 0.06), patrz_na=None):
+    """Krzesło biurowe: podstawa pięcioramienna, kolumna, siedzisko i oparcie z tapicerką (przód = -y lokalnie); patrz_na obowiązkowe."""
+    obrot_z = _siedzisko("_fotel_biurowy", polozenie, obrot_z, patrz_na, nazwa)
     tap = kolor(f"tapicerka_{kolor_rgb}", kolor_rgb, 0.85, polysk=0.2, normal_tex="fabric_pattern_05", skala=6.0, sila_normal=0.3)
     plast = kolor("plastik_czarny", (0.03, 0.03, 0.03), 0.4)
     chrom = kolor("chrom", (0.7, 0.7, 0.72), 0.15, metal=1.0)
@@ -1152,4 +1306,145 @@ def fotel_biurowy(nazwa, polozenie, obrot_z=0.0, kolor_rgb=(0.05, 0.05, 0.06)):
     for i, x in enumerate((-0.27, 0.27)):
         el.append(skrzynka(f"{nazwa}_podlokietnik{i}", (0.05, 0.28, 0.03), (x, 0.03, 0.67), plast, kolekcja="rekwizyty_wlasne", fazka=0.01))
         el.append(skrzynka(f"{nazwa}_podl_noga{i}", (0.03, 0.03, 0.2), (x, 0.1, 0.57), plast, kolekcja="rekwizyty_wlasne"))
-    return _grupa(nazwa, polozenie, obrot_z, el)
+    piv = _grupa(nazwa, polozenie, obrot_z, el)
+    SIEDZISKA.append((piv, tuple(patrz_na)))
+    return piv
+
+
+# ---------------------------------------------------------------- kontrola orientacji siedzisk
+def przod_z_geometrii(piv):
+    """Rzeczywisty przód siedziska w świecie: od środka ciężkości górnej ćwiartki (oparcie) do środka rzutu."""
+    bpy.context.view_layer.update()
+    pts = []
+    for o in piv.children_recursive:
+        if o.type == "MESH":
+            mw = o.matrix_world
+            pts.extend(mw @ v.co for v in o.data.vertices)
+    zmin, zmax = min(p.z for p in pts), max(p.z for p in pts)
+    xs, ys = [p.x for p in pts], [p.y for p in pts]
+    srodek = Vector(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
+    gora = [p for p in pts if p.z > zmin + 0.75 * (zmax - zmin)]
+    oparcie = Vector((sum(p.x for p in gora) / len(gora), sum(p.y for p in gora) / len(gora)))
+    d = srodek - oparcie
+    return (d.normalized() if d.length > 1e-4 else Vector((0, 0))), srodek
+
+
+def kontrola_siedzisk(plan: Plan, rzuc=True):
+    """Kąt między przodem z geometrii a kierunkiem do celu; > MAX_ODCHYLENIE przerywa budowę."""
+    wyniki, zle = [], []
+    for piv, cel in SIEDZISKA:
+        przod, sr = przod_z_geometrii(piv)
+        do_celu = Vector((cel[0] - sr.x, cel[1] - sr.y)).normalized()
+        kat = math.degrees(math.acos(max(-1.0, min(1.0, przod.dot(do_celu)))))
+        wyniki.append({"obiekt": piv.name, "cel": list(cel), "odchylenie_st": round(kat, 1)})
+        if kat > MAX_ODCHYLENIE:
+            zle.append(f"{piv.name}: {kat:.0f}° od celu {cel}")
+    print(f"[{plan.kod}] kontrola siedzisk: {len(wyniki)} szt., maks. odchylenie "
+          f"{max((x['odchylenie_st'] for x in wyniki), default=0):.1f}°", flush=True)
+    if zle and rzuc:
+        raise RuntimeError(f"[{plan.kod}] siedziska odwrócone od celu:\n  " + "\n  ".join(zle))
+    return wyniki
+
+
+def rzut_z_gory(plan: Plan, png, wys_ciecia=2.2):
+    """Tani rzut ortogonalny z góry (Workbench): czerwone strzałki = przód siedzisk, zielone kropki = cele,
+    niebieskie = znaczniki postaci z kierunkiem, żółte trójkąty = kamery. Cięcie na wys_ciecia (bez sufitu)."""
+    sc = bpy.context.scene
+    stan = (sc.render.engine, sc.camera, sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage,
+            sc.render.image_settings.file_format, sc.render.filepath, sc.view_settings.view_transform, sc.view_settings.exposure)
+    tymcz = []
+    kol = _kolekcja("_debug")
+
+    def mat(n, rgb):
+        return swiecenie(n, rgb, 4.0)
+
+    def strzalka(n, p, kier, rgb, dl=0.55, z=None):
+        z = wys_ciecia - 0.1 if z is None else z
+        ang = math.degrees(math.atan2(kier[1], kier[0]))
+        a = skrzynka(n + "_trzon", (dl, 0.06, 0.02), (p[0] + kier[0] * dl / 2, p[1] + kier[1] * dl / 2, z), mat("_d" + n[:3], rgb), obrot_z=ang, kolekcja="_debug")
+        bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.14, depth=0.02, location=(p[0] + kier[0] * dl, p[1] + kier[1] * dl, z),
+                                        rotation=(0, 0, math.radians(ang - 90)))
+        g = bpy.context.active_object
+        g.data.materials.append(mat("_d" + n[:3], rgb))
+        for o in (a, g):
+            for c in o.users_collection:
+                c.objects.unlink(o)
+            kol.objects.link(o)
+        tymcz.extend([a, g])
+
+    def kropka(n, p, rgb, r=0.09):
+        o = walec(n, r, 0.02, (p[0], p[1], wys_ciecia - 0.08), mat("_d" + n[:3], rgb), 16, kolekcja="_debug")
+        tymcz.append(o)
+
+    pkt = []
+    for piv, cel in SIEDZISKA:
+        przod, sr = przod_z_geometrii(piv)
+        strzalka("sie_" + piv.name, (sr.x, sr.y), przod, (0.9, 0.05, 0.05))
+        kropka("cel_" + piv.name, cel, (0.05, 0.75, 0.1), 0.06)
+        pkt += [(sr.x, sr.y), cel]
+    for z in plan.znaczniki:
+        p = z["polozenie"]
+        a = math.radians(z.get("obrot_z", 0.0) + 90)
+        kropka("zna_" + z["nazwa"], p, (0.1, 0.3, 0.95))
+        strzalka("znk_" + z["nazwa"], p, (math.cos(a), math.sin(a)), (0.1, 0.3, 0.95), dl=0.3)
+        pkt.append(tuple(p[:2]))
+    for k in plan.kamery:
+        cam = bpy.data.objects[k["nazwa"]]
+        d = cam.matrix_world.to_quaternion() @ Vector((0, 0, -1))
+        d2 = Vector((d.x, d.y))
+        d2 = d2.normalized() if d2.length > 1e-3 else Vector((0, 1))
+        strzalka("kam_" + k["nazwa"], cam.location, d2, (0.95, 0.8, 0.05), dl=0.4, z=wys_ciecia - 0.05)
+        pkt.append((cam.location.x, cam.location.y))
+    xs, ys = [p[0] for p in pkt], [p[1] for p in pkt]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    rozp = max(max(xs) - min(xs), max(ys) - min(ys)) + 2.0
+    cd = bpy.data.cameras.new("_rzut")
+    cd.type = "ORTHO"
+    cd.ortho_scale = rozp
+    cd.clip_start, cd.clip_end = 0.01, 60
+    co = bpy.data.objects.new("_rzut", cd)
+    kol.objects.link(co)
+    co.location = (cx, cy, wys_ciecia)
+    tymcz.append(co)
+    sc.camera = co
+    # Cycles bez GPU/EGL: ukryj sufity, lampy i światła sceny, oświetl równo z góry
+    ukryte = []
+    for o in bpy.data.objects:
+        if o.hide_render or o.name.startswith("_") or o in tymcz:
+            continue
+        if o.type == "LIGHT":
+            ukryte.append(o)
+        elif o.type == "MESH":
+            zmin = min((o.matrix_world @ Vector(c)).z for c in o.bound_box)
+            if zmin > wys_ciecia - 0.15:
+                ukryte.append(o)
+    for o in ukryte:
+        o.hide_render = True
+    sl = bpy.data.lights.new("_rzut_slonce", "SUN")
+    sl.energy, sl.angle = 3.0, math.radians(30)
+    so = bpy.data.objects.new("_rzut_slonce", sl)
+    kol.objects.link(so)
+    tymcz.append(so)
+    swiat = sc.world
+    sw = bpy.data.worlds.new("_rzut_swiat")
+    sw.use_nodes = True
+    sw.node_tree.nodes["Background"].inputs[0].default_value = (0.6, 0.6, 0.6, 1)
+    sc.world = sw
+    probki = sc.cycles.samples
+    sc.cycles.samples = 8
+    sc.render.resolution_x = sc.render.resolution_y = 900
+    sc.render.resolution_percentage = 100
+    sc.render.image_settings.media_type = "IMAGE"
+    sc.render.image_settings.file_format = "PNG"
+    sc.view_settings.view_transform, sc.view_settings.exposure = "Standard", 0.0
+    os.makedirs(os.path.dirname(png), exist_ok=True)
+    sc.render.filepath = png
+    bpy.ops.render.render(write_still=True)
+    for o in ukryte:
+        o.hide_render = False
+    sc.world, sc.cycles.samples = swiat, probki
+    bpy.data.worlds.remove(sw)
+    for o in tymcz:
+        bpy.data.objects.remove(o, do_unlink=True)
+    (sc.render.engine, sc.camera, sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage,
+     sc.render.image_settings.file_format, sc.render.filepath, sc.view_settings.view_transform, sc.view_settings.exposure) = stan

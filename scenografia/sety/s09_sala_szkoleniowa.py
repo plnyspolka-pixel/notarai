@@ -21,14 +21,15 @@ def zbuduj(plan, wariant):
     mown = w.tekstura("mownica", "oak_veneer_01", skala=1.0)
     w.skrzynka("mownica", (0.6, 0.45, 1.1), (1.9, D - 1.2, 0.55), mown, kolekcja="meble", fazka=0.01)
     w.biurko("stol_prowadzacy", (6.5, D - 1.3, 0), 1.8, 0.75, obrot_z=180, mat_blat=blat, szafka=False)
-    w.fotel_biurowy("krzeslo_prow", (6.5, D - 0.7, 0), 180)
+    w.fotel_biurowy("krzeslo_prow", (6.5, D - 0.7, 0), patrz_na=(6.5, D - 1.3))
     # rzędy stołów dla uczestników (przodem do N)
     for r in range(4):
         y = 1.6 + r * 1.15
         for k, x in enumerate((1.8, 4.5, 7.2)):
             w.biurko(f"stol_{r}_{k}", (x, y + 0.35, 0), 2.0, 0.55, obrot_z=180, mat_blat=blat, szafka=False)
             for s_i, dx in enumerate((-0.5, 0.5)):
-                w.wstaw("SchoolChair_01", (x + dx, y - 0.1, 0), 180, nazwa=f"krzeslo_{r}_{k}_{s_i}")
+                # przodem do prowadzącego i ekranu (prosto na ścianę N, równolegle do stołów)
+                w.wstaw("SchoolChair_01", (x + dx, y - 0.1, 0), nazwa=f"krzeslo_{r}_{k}_{s_i}", patrz_na=(x + dx, D))
                 if (r + k + s_i) % 3 == 0:
                     w.kartki(f"kartki_{r}_{k}_{s_i}", (x + dx, y + 0.35, 0.75), 2, obrot_z=(r * 7 + k * 13) % 20 - 10)
     w.kubek("kubek_kuba", (4.05, 2.85, 0.75), (0.85, 0.2, 0.15))
@@ -53,7 +54,7 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K05_od_ekranu_na_sale", (4.5, D - 1.0, 1.9), (4.5, 1.0, 1.0), 22, "od strony prowadzącego na salę")
     w.kamera(plan, "K06_wyjscie", (6.5, 4.0, 1.6), (0.9, 0.0, 1.2), 24, "Zosia wychodzi w pół zdania (drzwi sali)")
 
-    w.znacznik(plan, "M_Zosia_lawka", (4.0, 2.75, 1.15), 180, "Zosia siedzi w drugim rzędzie, środkowy stół, lewe miejsce")
-    w.znacznik(plan, "M_Kuba_lawka", (5.0, 2.75, 1.15), 180, "Kuba obok Zosi")
-    w.znacznik(plan, "M_prowadzacy", (6.5, D - 0.7, 1.2), 180, "prowadzący szkolenie")
-    w.znacznik(plan, "M_drzwi", (0.9, 0.5, 1.62), 0, "postać w drzwiach sali")
+    w.znacznik(plan, "M_Zosia_lawka", (4.0, 2.75, 1.15), opis="Zosia siedzi w drugim rzędzie, środkowy stół, lewe miejsce", patrz_na=(4.0, D))
+    w.znacznik(plan, "M_Kuba_lawka", (5.0, 2.75, 1.15), opis="Kuba obok Zosi", patrz_na=(5.0, D))
+    w.znacznik(plan, "M_prowadzacy", (6.5, D - 0.7, 1.2), opis="prowadzący szkolenie", patrz_na=(6.5, 1.0))
+    w.znacznik(plan, "M_drzwi", (0.9, 0.5, 1.62), opis="postać w drzwiach sali", patrz_na=(4.5, 3.5))

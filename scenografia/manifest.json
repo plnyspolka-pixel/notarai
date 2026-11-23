@@ -101,5 +101,18 @@
       "kloofendal_48d_partly_cloudy_puresky",
       "rooftop_night"
     ]
+  },
+  "przod_modeli": {
+    "_opis": "Kierunek przodu siedziska po imporcie przy obrot_z=0, w stopniach od osi +x (-90 = przód w stronę -y). Zmierzone raz z geometrii (środek oparcia -> środek rzutu), patrz wspolne.przod_z_geometrii.",
+    "dining_chair_02": -90,
+    "SchoolChair_01": -90,
+    "ArmChair_01": -90,
+    "Sofa_01": -90,
+    "sofa_02": 90,
+    "modern_arm_chair_01": -90,
+    "mid_century_lounge_chair": -90,
+    "WoodenChair_01": -90,
+    "_fotel_biurowy": -90,
+    "_krzeslo_bistro": -90
   }
 }

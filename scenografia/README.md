@@ -16,7 +16,7 @@ teczki zamknięte, grzbiety segregatorów gładkie, ekrany monitorów białe.
 | s05 | Kancelaria Teresy (blok, mniejsza) | dzień, wieczór | 7 | poprawna |
 | s06 | Kawiarnia, stolik przy oknie | dzień, wieczór | 6 | dobra |
 | s07 | Ulica przed kancelarią (fasada, brama) | dzień, noc (mokry asfalt) | 6 | sterylna, użyteczna na plan ogólny |
-| s08 | Parking na podwórzu z autem Marty | noc, dzień | 6 | słaba: auta proceduralne, „zabawkowe” |
+| s08 | Parking na podwórzu z autem Marty | noc, dzień | 6 | poprawna po przekadrowaniu: auto tylko na krawędzi kadru lub rozmyte |
 | s09 | Sala szkoleniowa (bez emblematów) | dzień | 6 | poprawna, pusta |
 | s10 | Mieszkanie Ireny + klatka bez windy | dzień, wieczór | 7 | dobra |
 
@@ -25,6 +25,19 @@ pozycja w pikselach w każdym kadrze) jest w `rendery/<kod>/opis.json` po render
 każdego pliku `sety/sNN_*.py` (wywołania `w.kamera(...)` i `w.znacznik(...)`).
 Konwencja nazw: `K01_plan_ogolny`, `K02_...` (kamery), `M_Helena_fotel`, `M_klient_lewy` (znaczniki).
 Wysokość znacznika = wysokość oczu (stoi ok. 1,62 m, siedzi ok. 1,1-1,15 m).
+
+## Orientacja siedzisk i postaci (kontrola automatyczna)
+- Każde siedzisko (krzesło, fotel, sofa, krzesło biurowe i kawiarniane) stawia się z `patrz_na=(x, y)`:
+  obrót liczy się sam z kierunku przodu modelu. Przód modeli Poly Haven zmierzono raz z geometrii
+  i zapisano w `manifest.json` → `przod_modeli` (stopnie od osi +x przy obrocie 0; większość ma przód w -y).
+  Siedzisko bez `patrz_na` przerywa budowę.
+- `wspolne.kontrola_siedzisk` po zbudowaniu planu wylicza rzeczywisty przód każdego siedziska z jego
+  geometrii (od oparcia do środka rzutu) i porównuje z kierunkiem do celu; odchylenie > 20° przerywa budowę.
+  Wynik trafia do `opis.json` (`siedziska_kontrola`). Test negatywny: odwrócone o 180° krzesło jest wykrywane.
+- Znaczniki postaci też mają `patrz_na` (konwencja: `obrot_z` 0 = postać patrzy w +y, 90 = w -x).
+- `rendery/<kod>/rzut_z_gory.png` - rzut z góry (cięcie na 2,2 m): czerwone strzałki = przód siedzisk,
+  zielone kropki = ich cele, niebieskie = znaczniki postaci z kierunkiem, żółte = kamery.
+  Sam rzut i kontrola: `python scenografia/zbuduj.py --plan wszystkie --rzut` (ok. 15 s na plan).
 
 ## Wyniki w `rendery/<kod>/`
 - `<kamera>_<wariant>.jpg` - kadr 1080×1920,
@@ -65,8 +78,8 @@ Meble i rekwizyty, których brak w Poly Haven (lada, regały akt, segregatory, m
 zegar bez cyfr, schody, auta, fotele biurowe), są modelowane proceduralnie w `wspolne.py`.
 
 ## Słabe strony
-- Widoki za oknami to panoramy HDRI; w dzień okna są prześwietlone (czysta biel) - to celowo „miękkie” okno, ale bez widoku na zewnątrz.
-- s08: auta proceduralne wyglądają zabawkowo; do zbliżeń trzeba modelu CC0 auta bez marki lub kadrów bez auta.
+- Za oknami gabinetu Heleny stoi prosta fasada oficyny (tynk, ciemne okna; nie rzuca cieni), a szyby przyciemniają widok jak filtr ND. W pozostałych planach za oknem jest tylko panorama HDRI (przyciemniona tą samą szybą) - do dorobienia `podworze_za_oknem` per plan.
+- s08: auto jest proceduralne (brak modelu CC0 auta bez marki), więc kadry pokazują je tylko na krawędzi albo rozmyte (85 mm, f/1,8). Ujęć z wnętrza auta i detalu klamki nie ma - wymagają prawdziwego modelu.
 - s07: fasada czysta, bez brudu, szyldów i przechodniów - dobra na plan ogólny, gorsza na detal.
 - s09: sala pusta i jednolita; brakuje tłumu (statyści do dorobienia w AI).
 - Brak postaci: znaczniki wyznaczają miejsca i wysokość oczu, postacie wstawia dalszy etap (AI / compositing).

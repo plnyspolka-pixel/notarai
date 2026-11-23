@@ -19,7 +19,7 @@ def zbuduj(plan, wariant):
     ciemny = w.tekstura("blat_ciemny", "dark_wood", skala=1.0, szorstkosc_mnoz=0.7, sila_normal=0.2)
     # biurko Teresy na środku, przodem do drzwi (klient siedzi od strony drzwi)
     w.biurko("biurko_teresy", (2.3, 2.55, 0), 1.6, 0.8, obrot_z=180, mat_blat=ciemny, mat_nogi=ciemny)
-    w.fotel_biurowy("fotel_teresy", (2.3, 3.2, 0), 180, (0.07, 0.045, 0.035))
+    w.fotel_biurowy("fotel_teresy", (2.3, 3.2, 0), kolor_rgb=(0.07, 0.045, 0.035), patrz_na=(2.3, 2.55))
     w.telefon_biurkowy("telefon", (1.75, 2.45, 0.75), 20)
     w.monitor("monitor_teresy", (2.75, 2.75, 0.75), 200, szer=0.5, wys=0.3)
     for i, (x, y, n, r) in enumerate(((2.0, 2.35, 4, 5), (2.3, 2.9, 5, -12), (1.6, 2.85, 3, 30))):
@@ -27,12 +27,12 @@ def zbuduj(plan, wariant):
     w.kartki("kartki_ter", (2.5, 2.3, 0.75), 4, obrot_z=-8)
     w.kubek("kubek_ter", (3.0, 2.35, 0.75), (0.8, 0.78, 0.7))
     for i, x in enumerate((1.9, 2.7)):
-        w.wstaw("dining_chair_02", (x, 1.55, 0), 0, nazwa=f"krzeslo_klienta{i}")
+        w.wstaw("dining_chair_02", (x, 1.55, 0), nazwa=f"krzeslo_klienta{i}", patrz_na=(x, 2.55))
 
     # kącik Zosi przy ścianie wschodniej
     w.biurko("biurko_zosi", (W - 0.4, 1.4, 0), 1.1, 0.6, obrot_z=90, szafka=False)
     w.monitor("monitor_zosi", (W - 0.3, 1.4, 0.75), 90, szer=0.5, wys=0.3)
-    w.fotel_biurowy("krzeslo_zosi", (W - 0.9, 1.4, 0), 95, (0.1, 0.1, 0.11))
+    w.fotel_biurowy("krzeslo_zosi", (W - 0.9, 1.4, 0), kolor_rgb=(0.1, 0.1, 0.11), patrz_na=(W - 0.4, 1.4))
     w.kubek("kubek_zosi", (W - 0.35, 1.85, 0.75), (0.15, 0.35, 0.4))
 
     # regały i pudła z aktami: ciasno
@@ -68,8 +68,8 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K06_od_okna_na_drzwi", (2.9, 3.5, 1.6), (0.75, 0.0, 1.1), 22, "kontrplan zza biurka: drzwi i krzesła klientów")
     w.kamera(plan, "K07_dwojka_teresa_zosia", (1.1, 0.9, 1.55), (3.2, 2.6, 1.1), 24, "dwójka: Teresa za biurkiem i Zosia w kąciku")
 
-    w.znacznik(plan, "M_Teresa_biurko", (2.3, 3.2, 1.18), 180, "Teresa siedzi za biurkiem")
-    w.znacznik(plan, "M_Zosia_kacik", (W - 0.95, 1.4, 1.18), 90, "Zosia przy biurku, bokiem do pokoju")
-    w.znacznik(plan, "M_klient_L", (1.9, 1.55, 1.15), 0, "klient na krześle")
-    w.znacznik(plan, "M_klient_P", (2.7, 1.55, 1.15), 0, "drugi klient")
-    w.znacznik(plan, "M_drzwi", (0.75, 0.45, 1.62), 0, "Kuba w drzwiach")
+    w.znacznik(plan, "M_Teresa_biurko", (2.3, 3.2, 1.18), opis="Teresa siedzi za biurkiem", patrz_na=(2.3, 1.55))
+    w.znacznik(plan, "M_Zosia_kacik", (W - 0.95, 1.4, 1.18), opis="Zosia przy biurku, bokiem do pokoju", patrz_na=(W - 0.4, 1.4))
+    w.znacznik(plan, "M_klient_L", (1.9, 1.55, 1.15), opis="klient na krześle", patrz_na=(1.9, 3.2))
+    w.znacznik(plan, "M_klient_P", (2.7, 1.55, 1.15), opis="drugi klient", patrz_na=(2.7, 3.2))
+    w.znacznik(plan, "M_drzwi", (0.75, 0.45, 1.62), opis="Kuba w drzwiach", patrz_na=(2.3, 2.55))

@@ -20,14 +20,14 @@ def zbuduj(plan, wariant):
 
     # stolik przy oknie (dla Kuby i Zosi) i trzy inne
     w.stolik_bistro("stolik_okno", (1.7, 4.15, 0))
-    w.krzeslo_bistro("krzeslo_kuby", (1.15, 4.15, 0), -90)
-    w.krzeslo_bistro("krzeslo_zosi", (2.25, 4.15, 0), 90)
+    w.krzeslo_bistro("krzeslo_kuby", (1.15, 4.15, 0), patrz_na=(1.7, 4.15))
+    w.krzeslo_bistro("krzeslo_zosi", (2.25, 4.15, 0), patrz_na=(1.7, 4.15))
     w.kubek("kubek_k", (1.55, 4.1, 0.75), (0.95, 0.95, 0.93))
     w.kubek("kubek_z", (1.85, 4.22, 0.75), (0.95, 0.95, 0.93))
     for i, (x, y) in enumerate(((4.3, 4.15), (1.7, 2.4), (4.2, 2.3))):
         w.stolik_bistro(f"stolik{i}", (x, y, 0))
-        w.krzeslo_bistro(f"krzeslo{i}a", (x - 0.55, y, 0), -90)
-        w.krzeslo_bistro(f"krzeslo{i}b", (x + 0.55, y, 0), 90)
+        w.krzeslo_bistro(f"krzeslo{i}a", (x - 0.55, y, 0), patrz_na=(x, y))
+        w.krzeslo_bistro(f"krzeslo{i}b", (x + 0.55, y, 0), patrz_na=(x, y))
     # lada z ekspresem (bez marki) i półki z kubkami
     w.lada("lada_kaw", (3.8, 0.75, 0), szer=3.2, gl=0.7, obrot_z=180,
            mat=w.tekstura("lada_ciemna", "dark_wood", skala=1.0), mat_blat=w.kolor("marmur_jasny", (0.86, 0.85, 0.82), 0.18, polysk=0.6))
@@ -63,6 +63,6 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K05_detal_kubki", (1.35, 3.75, 1.0), (1.7, 4.15, 0.76), 50, "detal: dwa kubki na stoliku, dłonie")
     w.kamera(plan, "K06_wejscie_od_lady", (4.0, 1.4, 1.45), (0.5, 4.6, 1.2), 26, "z lady na salę i stolik przy oknie")
 
-    w.znacznik(plan, "M_Kuba_stolik", (1.15, 4.15, 1.15), -90, "Kuba siedzi przy stoliku przy oknie")
-    w.znacznik(plan, "M_Zosia_stolik", (2.25, 4.15, 1.15), 90, "Zosia siedzi naprzeciw")
-    w.znacznik(plan, "M_barista", (4.0, 0.35, 1.62), 0, "osoba za ladą")
+    w.znacznik(plan, "M_Kuba_stolik", (1.15, 4.15, 1.15), opis="Kuba siedzi przy stoliku przy oknie", patrz_na=(2.25, 4.15))
+    w.znacznik(plan, "M_Zosia_stolik", (2.25, 4.15, 1.15), opis="Zosia siedzi naprzeciw", patrz_na=(1.15, 4.15))
+    w.znacznik(plan, "M_barista", (4.0, 0.35, 1.62), opis="osoba za ladą", patrz_na=(4.0, 2.5))

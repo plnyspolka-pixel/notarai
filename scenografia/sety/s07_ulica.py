@@ -77,6 +77,6 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K05_chodnik_w_glab", (1.0, -2.0, 1.55), (14.0, -1.2, 1.2), 35, "chodnik wzdłuż fasady: ktoś idzie do bramy")
     w.kamera(plan, "K06_z_jezdni_na_brame", (12.5, -6.0, 1.45), (8.0, 0.0, 1.6), 30, "z przeciwnej strony ulicy, ukosem na bramę")
 
-    w.znacznik(plan, "M_przed_brama", (8.0, -1.2, 1.62), 180, "postać przed bramą, przodem do ulicy")
-    w.znacznik(plan, "M_chodnik", (4.0, -1.6, 1.62), -90, "postać idzie chodnikiem w stronę bramy")
-    w.znacznik(plan, "M_przy_kraweznik", (11.0, -3.0, 1.62), 0, "postać czeka przy krawężniku")
+    w.znacznik(plan, "M_przed_brama", (8.0, -1.2, 1.62), opis="postać przed bramą, przodem do ulicy", patrz_na=(8.0, -6.0))
+    w.znacznik(plan, "M_chodnik", (4.0, -1.6, 1.62), opis="postać idzie chodnikiem w stronę bramy", patrz_na=(8.0, -1.6))
+    w.znacznik(plan, "M_przy_kraweznik", (11.0, -3.0, 1.62), opis="postać czeka przy krawężniku", patrz_na=(11.0, 0.0))

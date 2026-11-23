@@ -46,7 +46,12 @@ def jeden(kod, a):
         w.nowa_scena(probki=a.probki)
         plan = w.Plan(kod, mod.NAZWA)
         mod.zbuduj(plan, war)
+        plan.siedziska = w.kontrola_siedzisk(plan)  # przerywa budowę, gdy siedzisko odwrócone od celu
         sc = bpy.context.scene
+        if i == 0 and (a.rzut or not a.podglad):
+            w.rzut_z_gory(plan, os.path.join(w.RENDERY, kod, "rzut_z_gory.png"))
+        if a.rzut:
+            break
         if a.podglad:
             sc.render.resolution_percentage = 33
             sc.cycles.samples = 12
@@ -83,6 +88,7 @@ def main():
     ap.add_argument("--probki", type=int, default=32)
     ap.add_argument("--podglad", action="store_true")
     ap.add_argument("--bez-ruchu", action="store_true")
+    ap.add_argument("--rzut", action="store_true", help="tylko kontrola siedzisk i rzut z góry (rendery/<kod>/rzut_z_gory.png)")
     a = ap.parse_args()
     kody = list(PLANY) if a.plan == "wszystkie" else a.plan.split(",")
     for kod in kody:

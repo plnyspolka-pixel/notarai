@@ -22,7 +22,7 @@ def zbuduj(plan, wariant):
 
     # lada Basi (front w stronę wejścia, czyli -y)
     w.lada("lada", (3.6, 2.2, 0), szer=2.2, gl=0.75)
-    w.fotel_biurowy("fotel_basi", (3.4, 2.85, 0), 180, (0.2, 0.22, 0.26))
+    w.fotel_biurowy("fotel_basi", (3.4, 2.85, 0), kolor_rgb=(0.2, 0.22, 0.26), patrz_na=(3.4, 2.2))
     w.monitor("monitor_basi", (3.15, 2.3, 0.75), 180)
     w.telefon_biurkowy("telefon", (4.25, 2.15, 0.75), -15)
     w.drukarka("drukarka", (5.25, 3.0, 0.55), -90)
@@ -34,8 +34,8 @@ def zbuduj(plan, wariant):
     w.regal_akt("regal_rec", 3.0, 4.35, 1.1, wys=2.0, polki=4, wzdluz_x=True, wypelnienie=0.8)
 
     # poczekalnia przy oknie
-    w.wstaw("sofa_02", (0.55, 2.0, 0), -90, nazwa="sofa")
-    w.wstaw("ArmChair_01", (1.35, 3.55, 0), 200, nazwa="fotel_pocz")
+    w.wstaw("sofa_02", (0.55, 2.0, 0), nazwa="sofa", patrz_na=(1.35, 2.0))
+    w.wstaw("ArmChair_01", (1.35, 3.55, 0), nazwa="fotel_pocz", patrz_na=(1.25, 2.35))
     w.wstaw("coffee_table_round_01", (1.35, 2.35, 0), 0, skala=0.6, nazwa="stolik")
     w.kartki("ulotki", (1.35, 2.35, 0.3), 2, obrot_z=20)
     w.wstaw("potted_plant_01", (0.45, 3.95, 0), 0)
@@ -69,9 +69,9 @@ def zbuduj(plan, wariant):
     w.kamera(plan, "K06_zegar", (4.2, 2.75, 2.0), (5.57, 2.75, 2.25), 50, "zegar 8:57 (bez cyfr)")
     w.kamera(plan, "K07_dwojka_lada", (1.6, 0.6, 1.5), (3.8, 2.6, 1.25), 30, "dwójka: klient przy ladzie i Basia")
 
-    w.znacznik(plan, "M_Basia_lada", (3.4, 2.85, 1.2), 180, "Basia siedzi za ladą, oczy 1,2 m")
-    w.znacznik(plan, "M_klient_przy_ladzie", (3.3, 1.45, 1.62), 0, "klient stoi przy ladzie")
-    w.znacznik(plan, "M_wejscie", (0.9, 0.5, 1.62), 0, "postać w drzwiach wejściowych")
-    w.znacznik(plan, "M_poczekalnia_sofa", (0.6, 2.0, 1.15), 90, "osoba czeka na sofie")
-    w.znacznik(plan, "M_drzwi_gabinetu", (5.0, 1.2, 1.62), 180, "Helena wychodzi z gabinetu")
-    w.znacznik(plan, "M_drzwi_marty", (4.75, 3.95, 1.62), 180, "Kuba w drzwiach pokoju")
+    w.znacznik(plan, "M_Basia_lada", (3.4, 2.85, 1.2), opis="Basia siedzi za ladą, oczy 1,2 m", patrz_na=(3.4, 1.45))
+    w.znacznik(plan, "M_klient_przy_ladzie", (3.3, 1.45, 1.62), opis="klient stoi przy ladzie", patrz_na=(3.4, 2.85))
+    w.znacznik(plan, "M_wejscie", (0.9, 0.5, 1.62), opis="postać w drzwiach wejściowych", patrz_na=(2.8, 2.2))
+    w.znacznik(plan, "M_poczekalnia_sofa", (0.6, 2.0, 1.15), opis="osoba czeka na sofie", patrz_na=(1.35, 2.0))
+    w.znacznik(plan, "M_drzwi_gabinetu", (5.0, 1.2, 1.62), opis="Helena wychodzi z gabinetu", patrz_na=(3.6, 1.8))
+    w.znacznik(plan, "M_drzwi_marty", (4.75, 3.95, 1.62), opis="Kuba w drzwiach pokoju", patrz_na=(3.6, 2.2))
