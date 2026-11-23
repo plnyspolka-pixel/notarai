@@ -2,5 +2,5 @@
   "name": "notarai-rozszerzenie",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test testy/silnik.test.mjs testy/kolejka.test.mjs testy/maskowanie.test.mjs" }
+  "scripts": { "test": "node --test testy/silnik.test.mjs testy/kolejka.test.mjs testy/maskowanie.test.mjs testy/bezpieczna_strona.test.mjs" }
 }
