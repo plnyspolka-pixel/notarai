@@ -147,8 +147,14 @@ def _czas(event: dict):
     if not poczatek.get("dateTime") or not koniec.get("dateTime"):
         return None
     try:
-        a = datetime.fromisoformat(poczatek["dateTime"].replace("Z", "+00:00")).astimezone(STREFA)
-        b = datetime.fromisoformat(koniec["dateTime"].replace("Z", "+00:00")).astimezone(STREFA)
+        a = datetime.fromisoformat(poczatek["dateTime"].replace("Z", "+00:00"))
+        b = datetime.fromisoformat(koniec["dateTime"].replace("Z", "+00:00"))
+        # Google pozwala przeslac czas z osobnym polem timeZone, bez offsetu.
+        if a.tzinfo is None:
+            a = a.replace(tzinfo=STREFA)
+        if b.tzinfo is None:
+            b = b.replace(tzinfo=STREFA)
+        a, b = a.astimezone(STREFA), b.astimezone(STREFA)
     except ValueError:
         return None
     if a.date() != b.date() or b <= a or b.hour == 0 and b.minute == 0:
@@ -328,7 +334,9 @@ def rozpocznij(request: Request):
     weryfikator, wyzwanie = skrzynki.pkce()
     nonce = secrets.token_urlsafe(20)
     limit = time.time() + 900
-    _zapisz(lambda d: d.update({"oczekuje": {"nonce": nonce, "weryfikator": weryfikator, "do": limit}}))
+    # Jednorazowy weryfikator PKCE jest sekretem: wyłącznie Secrets Manager.
+    _sejf().zapisz(magazyn.kancelaria(), {"oczekuje": {
+        "nonce": nonce, "weryfikator": weryfikator, "do": limit}})
     state = korespondencja._podpisz({"k": magazyn.kancelaria(), "n": nonce, "do": limit, "p": "google-kalendarz"})
     adres = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
         "client_id": _klient_id(), "redirect_uri": _adres_powrotu(),
@@ -350,13 +358,13 @@ def oauth_powrot(code: str = "", state: str = "", error: str = ""):
             raise BladGoogle("Nieprawidłowy stan logowania.")
         znacznik = magazyn.kancelaria_var.set(dane["k"])
         try:
-            def odbierz(d):
-                ocz = d.get("oczekuje") or {}
-                if not ocz or ocz.get("do", 0) < time.time() or not hmac.compare_digest(ocz.get("nonce", ""), dane["n"]):
-                    raise BladGoogle("Sesja logowania wygasła lub została już użyta.")
-                d.pop("oczekuje", None)
-                return ocz["weryfikator"]
-            verifier = _zapisz(odbierz)
+            ocz = _sejf().wczytaj(magazyn.kancelaria()).get("oczekuje") or {}
+            if not ocz or ocz.get("do", 0) < time.time() or not hmac.compare_digest(
+                    ocz.get("nonce", ""), dane["n"]):
+                raise BladGoogle("Sesja logowania wygasła lub została już użyta.")
+            verifier = ocz["weryfikator"]
+            # Po użyciu nie przechowujemy ani podpisanego stanu, ani weryfikatora.
+            _sejf().zapisz(magazyn.kancelaria(), {})
             tokeny = _google_token({"grant_type": "authorization_code", "code": code,
                                    "redirect_uri": _adres_powrotu(), "code_verifier": verifier})
             if not tokeny.get("refresh_token"):
@@ -410,6 +418,8 @@ def odlacz(request: Request):
     for id_l, mapa in (s.get("mapowania") or {}).items():
         if mapa.get("pochodzenie") == "google":
             kalendarz.usun(id_l)
-    _sejf().usun(magazyn.kancelaria())
+    # Nadpisanie pustym sekretem pozwala podłączyć konto ponownie od razu;
+    # AWS Secrets Manager po delete_secret trzymałby nazwę przez 7 dni.
+    _sejf().zapisz(magazyn.kancelaria(), {})
     _zapisz(lambda d: d.clear())
     return {"polaczono": False}
