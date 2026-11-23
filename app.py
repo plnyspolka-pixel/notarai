@@ -1995,7 +1995,9 @@ def stan_zlecenia(identyfikator: str, zlecenie: str):
 class RaportPomocnika(BaseModel):
     sprawdzenia: list[ZadanieSprawdzenia] = []
     bledy: list[str] = []
-    kroki: list[dict] = []      # tylko zlecenie "formularz": pole, wykonano, uwaga
+    kroki: list[dict] = []
+    podsumowanie: str = ""      # Klikamy: krotki wynik dla notariusza
+    pytanie: str = ""          # Klikamy: wskazanie czynnosci tylko dla czlowieka
 
 
 # --- Klikamy: model prowadzi przegladarke notariusza ------------------------
@@ -2007,6 +2009,62 @@ class RaportPomocnika(BaseModel):
 class ZadanieKlikania(BaseModel):
     cel: str
     dozwolone_hosty: list[str] = []
+
+
+class PolecenieMobilne(BaseModel):
+    komputer: str
+    cel: str
+    dozwolone_hosty: list[str] = []
+
+
+@app.post("/api/urzadzenia/polecenia", status_code=202)
+def zlec_z_telefonu(polecenie: PolecenieMobilne):
+    """Mobilny pilot istniejacego pomocnika - bez instalowania czegokolwiek na telefonie.
+
+    Komputer musi nalezec do zalogowanej kancelarii i wlasnie odpytywac kolejke.
+    Kontrola hostow i zakaz wysylki/podpisu nadal leza po stronie pomocnika.
+    """
+    _wymagaj_urzadzen()
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    cel = polecenie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co mam zrobic w przegladarce komputera.")
+    if len(cel) > 1000:
+        raise HTTPException(400, "Polecenie ma maksymalnie 1000 znakow.")
+    komputery = urzadzenia.lista(magazyn.kancelaria())
+    wybrany = next((k for k in komputery if k["id"] == polecenie.komputer), None)
+    if wybrany is None:
+        raise HTTPException(404, "Ten komputer nie nalezy do Twojej kancelarii.")
+    if not wybrany["polaczony"]:
+        raise HTTPException(409, "Pomocnik na tym komputerze jest wylaczony lub offline.")
+    hosty = []
+    for h in polecenie.dozwolone_hosty[:20]:
+        host = h.strip().lower()
+        if not host:
+            continue
+        if (not re.fullmatch(r"[a-z0-9-]{1,63}(?:\\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\\d+(?:\\.\\d+){3}", host)
+                or host.endswith((".local", ".localhost", ".internal"))):
+            raise HTTPException(400, "Podaj publiczne domeny, np. geoportal.gov.pl.")
+        hosty.append(host)
+    z = zlecenia.zloz("klikamy", "", {
+        "cel": cel, "dozwolone_hosty": hosty,
+        "docelowy_komputer": polecenie.komputer,
+    })
+    log.info("pilot: zlecenie %s dla komputera %s", z["id"], polecenie.komputer)
+    return {"zlecenie": z["id"], "stan": "czeka"}
+
+
+@app.get("/api/urzadzenia/polecenia/{identyfikator}")
+def wynik_polecenia_mobilnego(identyfikator: str):
+    _wymagaj_urzadzen()
+    z = zlecenia.wynik(identyfikator)
+    if not z or z.get("rodzaj") != "klikamy" or z.get("sprawa"):
+        raise HTTPException(404, "Nie ma takiego polecenia.")
+    if not (z.get("tresc") or {}).get("docelowy_komputer") and z.get("stan") != "wykonane":
+        raise HTTPException(404, "To nie jest polecenie z pilota.")
+    return {"stan": z["stan"], "raport": z.get("raport")}
 
 
 @app.post("/api/sprawy/{identyfikator}/klikamy", status_code=202)
@@ -2041,6 +2099,9 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     stan = zlecenia.wynik(zlecenie)
     if not stan:
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    docelowy = (stan.get("tresc") or {}).get("docelowy_komputer")
+    if docelowy and getattr(request.state, "komputer", None) != docelowy:
+        raise HTTPException(403, "To polecenie jest przypisane innemu komputerowi.")
     # Polecenie wpisane w panelu rozszerzenia nie znaczy jeszcze, ze ktos
     # odbiera kolejke: obecnosc odnotowuje dopiero pytanie o zlecenia.
     if stan.get("stan") != "w_toku":
@@ -2133,7 +2194,7 @@ def zlecenia_dla_pomocnika(request: Request, wersja: str = ""):
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
     _odnotuj_pomocnika(request, wersja)
-    return zlecenia.czekajace()
+    return zlecenia.czekajace(getattr(request.state, "komputer", None))
 
 
 # --- laczenie pomocnika z kancelaria ---------------------------------------
@@ -2273,7 +2334,23 @@ def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika)
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
     # Kolejke moga odpytywac naraz pomocnik i rozszerzenie przegladarki. Drugi
     # raport do tego samego zlecenia nie dopisuje wpisow po raz drugi.
+    docelowy = (stan.get("tresc") or {}).get("docelowy_komputer")
+    if docelowy and getattr(request.state, "komputer", None) != docelowy:
+        raise HTTPException(403, "To polecenie jest przypisane innemu komputerowi.")
     if stan.get("stan") == "wykonane":
+        return {"stan": "wykonane", "zapisano": 0}
+
+    if stan.get("rodzaj") == "klikamy":
+        # Dla mobilnego pilota nie istnieje sprawa. Nie wymagamy jej katalogu.
+        # Raport zawiera tylko kroki i podsumowanie, nigdy surowe HTML strony.
+        if stan.get("sprawa"):
+            _katalog_sprawy(stan["sprawa"])
+        zlecenia.zapisz_wynik(zlecenie, {
+            "kroki": raport.kroki[:100],
+            "podsumowanie": raport.podsumowanie[:2000],
+            "pytanie": raport.pytanie[:1000],
+            "bledy": [str(b)[:300] for b in raport.bledy[:30]],
+        })
         return {"stan": "wykonane", "zapisano": 0}
 
     identyfikator = stan["sprawa"]
