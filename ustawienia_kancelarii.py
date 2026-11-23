@@ -45,7 +45,7 @@ BRAKI = ("opis", "pytajnik")
 # Profil interfejsu kancelarii: kazdy notariusz ustawia aplikacje pod siebie
 # (zwykle zdaniem, przez asystenta kancelarii). Przegladarka stosuje go przy starcie.
 ROZMIARY_TEKSTU = ("normalny", "duzy", "bardzo_duzy")
-WIDOKI_STARTOWE = ("panel", "nowa_sprawa", "kalendarz", "osoby", "przesylki", "poczta", "ksiegi")
+WIDOKI_STARTOWE = ("chat", "panel", "nowa_sprawa", "kalendarz", "osoby", "przesylki", "poczta", "ksiegi")
 NARZEDZIA_MENU = ("sprawdzenia", "klikamy", "kalendarz", "osoby", "przesylki", "poczta",
                   "poswiadczenia", "stenogramy", "styl", "ksiegi", "giif")
 
@@ -70,7 +70,7 @@ OPISY_USTAWIEN = {
                    "{miejscowosc} {sygnatura} {nazwa} (np. \"{zbywca} - {nabywca} - {czynnosc}\")",
     "braki": "jak oznaczać w pliku Word brakujące dane: opis (<<BRAK: numer dowodu>>) | pytajnik (?)",
     "rozmiar_tekstu": "wielkość tekstu w aplikacji: normalny | duzy | bardzo_duzy",
-    "widok_startowy": "ekran po zalogowaniu: panel | nowa_sprawa | kalendarz | osoby | przesylki | poczta | ksiegi",
+    "widok_startowy": "ekran po zalogowaniu: chat | panel | nowa_sprawa | kalendarz | osoby | przesylki | poczta | ksiegi",
     "ukryte_narzedzia": "narzędzia schowane z menu, po przecinku (pusto = wszystkie widoczne): "
                         + ", ".join(NARZEDZIA_MENU),
 }
@@ -78,7 +78,7 @@ OPISY_USTAWIEN = {
 
 def domyslne() -> dict:
     return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis",
-            "rozmiar_tekstu": "normalny", "widok_startowy": "panel", "ukryte_narzedzia": ""}
+            "rozmiar_tekstu": "normalny", "widok_startowy": "chat", "ukryte_narzedzia": ""}
 
 
 def _oczysc(dane: dict) -> dict:
