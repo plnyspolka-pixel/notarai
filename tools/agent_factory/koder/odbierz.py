@@ -56,7 +56,7 @@ def main(argv: list[str]) -> int:
         return 2
     przebieg, push = argv[0], "--push" in argv
     token = Path(os.environ["KODER_TOKEN_PLIK"]).read_text().strip()
-    req = urllib.request.Request(f"{WORKER}/wyniki/{przebieg}", headers={"x-webhook-secret": token})
+    req = urllib.request.Request(f"{WORKER}/wyniki/{przebieg}", headers={"x-webhook-secret": token, "user-agent": "notarai-koder-odbierz/1"})  # Cloudflare odrzuca domyślny UA urllib
     with urllib.request.urlopen(req, timeout=120) as r:
         dane = json.loads(gzip.decompress(r.read()))
     baza = dane["sha"]

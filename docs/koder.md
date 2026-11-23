@@ -89,6 +89,14 @@ zakłada gałęzie `agent/<przebieg>-<id>` i `agent/<przebieg>-wyniki` (faza `wy
    `asm-exec` do `wrangler secret put SALAD_API_KEY` (wartość nie trafia do kontekstu ani
    logów) oraz `SALAD_ORG` w `wrangler.jsonc` na organizację z tego sekretu.
 
+### Przebieg próbny (23.11.2026)
+
+`cf-20261123t2233h`: 3 karty (`walidacja-regon`, `nazwy-max-dlugosc`, `taksa-kwota-kropki`),
+**3 z 3 zaliczone** (widoczny test + ukryte testy), RTX 5090; batch nie dał węzła w 15 min,
+więc Worker przeszedł na high. Od utworzenia karty do usunięcia 14 min, górna granica kosztu
+0,14 USD (pierwsza próba `cf-20261123t2146h` padła na braku gita w obrazie, karta usunięta
+od razu, do 0,28 USD - głównie pobieranie obrazu). Zero minut GitHub Actions.
+
 ## Karta zadania
 
 ```markdown
