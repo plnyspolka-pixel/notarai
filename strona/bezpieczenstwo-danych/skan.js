@@ -334,4 +334,24 @@ function czytajGPU() {
   } catch (_) { return null; }
 }
 
-window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia, czytajGPU };
+/* Znane, publicznie udokumentowane luki Windowsa — jako ILUSTRACJA ścieżki
+ * ataku, nie jako „wykryto u Ciebie". Pokazujemy je dla systemu PO końcu
+ * wsparcia: uczciwa teza brzmi „na żadną kolejną taką lukę nie dostaniesz
+ * już łatki". Zero instrukcji ataku — tylko nazwa, czego dotyczy i co otwiera. */
+const LUKI_WINDOWS = [
+  { nazwa: 'EternalBlue', cve: 'MS17-010', co: 'luka w udostępnianiu plików (SMB)',
+    sciezka: 'zdalne wejście na komputer bez żadnej akcji użytkownika — tą drogą rozszedł się ransomware WannaCry' },
+  { nazwa: 'BlueKeep', cve: 'CVE-2019-0708', co: 'luka w pulpicie zdalnym (RDP)',
+    sciezka: 'zdalne przejęcie komputera bez hasła; sam potrafi przeskakiwać na kolejne maszyny w sieci' },
+  { nazwa: 'PrintNightmare', cve: 'CVE-2021-34527', co: 'luka w usłudze drukowania',
+    sciezka: 'zdobycie uprawnień administratora i uruchomienie dowolnego programu' },
+];
+function znaneLuki(sys) {
+  if (!sys || sys.werdykt !== 'alarm') return null;   // sens tylko po końcu wsparcia
+  return {
+    wstep: 'To nie są teoretyczne zagrożenia — tak wyglądają luki, które realnie trafiały w Windowsa (i tak rozsiał się ransomware). Twój system po końcu wsparcia nie dostanie już łatki na żadną kolejną tego typu.',
+    luki: LUKI_WINDOWS,
+  };
+}
+
+window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia, czytajGPU, znaneLuki };

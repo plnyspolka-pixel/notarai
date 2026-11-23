@@ -44,6 +44,18 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 .bz-recon-dl dd { margin:0; font-weight:600; color:var(--tekst); word-break:break-word; }
 .bz-recon-dl dd.alarm { color:var(--alarm); }
 .bz-recon-stopka { margin:12px 0 0; color:var(--tekst2); font-size:.9rem; }
+.bz-glowne { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:2px 0 14px; }
+.bz-fakt { background:#fff; border:1px solid var(--linia); border-radius:12px; padding:12px 14px; min-width:0; }
+.bz-fakt .et { display:block; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; color:var(--tekst3); margin-bottom:4px; }
+.bz-fakt strong { display:block; font-size:clamp(1.1rem,2.4vw,1.45rem); font-weight:800; letter-spacing:-.02em; color:var(--tekst); word-break:break-word; line-height:1.1; }
+.bz-fakt em { display:block; margin-top:3px; font-style:normal; font-size:.78rem; color:var(--alarm); font-weight:700; }
+@media (max-width:560px){ .bz-glowne { grid-template-columns:1fr; } }
+.bz-luki { margin:16px 0 0; background:var(--alarm-tlo); border:1px solid #f3cdd5; border-left:5px solid var(--alarm); border-radius:14px; padding:16px 18px; }
+.bz-luki h2 { margin:0 0 6px; font-size:1.1rem; color:var(--alarm); }
+.bz-luki .wstep { margin:0 0 10px; color:var(--tekst); font-size:.93rem; }
+.bz-luki ul { margin:0; padding-left:20px; }
+.bz-luki li { margin:7px 0; font-size:.93rem; color:var(--tekst); }
+.bz-luki li .sc { color:var(--tekst2); }
 .bz-zagr-k .typ { margin:9px 0 0; font-size:.92rem; color:var(--tekst2); }
 .bz-zagr-k .typ b { color:var(--tekst); }
 .bz-zagr-k .meta { margin:9px 0 0; font-size:.9rem; color:var(--tekst2); }
@@ -173,6 +185,11 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 
       <div class="bz-recon" id="bz-recon" aria-live="polite">
         <p class="bz-recon-tyt">Jeszcze nic nie kliknąłeś — a oto, co już o Tobie wiadomo:</p>
+        <div class="bz-glowne">
+          <div class="bz-fakt"><span class="et">System</span><strong id="bz-f-system">…</strong><em id="bz-f-system2"></em></div>
+          <div class="bz-fakt"><span class="et">Twoje IP</span><strong id="bz-f-ip">ustalam…</strong></div>
+          <div class="bz-fakt"><span class="et">Prawdopodobna lokalizacja</span><strong id="bz-f-lok">…</strong></div>
+        </div>
         <dl class="bz-recon-dl" id="bz-recon-dl"></dl>
         <p class="bz-recon-stopka" id="bz-recon-stopka"></p>
       </div>
@@ -180,6 +197,12 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
   </section>
 
   <div class="szer">
+    <section class="bz-luki" id="bz-luki" aria-live="polite" hidden>
+      <h2>Znane luki, na które niewspierany system jest odsłonięty</h2>
+      <p class="wstep" id="bz-luki-wstep"></p>
+      <ul id="bz-luki-lista"></ul>
+    </section>
+
     <section class="bz-skan" id="bz-skan" aria-live="polite" hidden>
       <ul class="bz-skan-lista" id="bz-skan-lista"></ul>
     </section>
@@ -392,11 +415,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Pasywny rekonesans — odpala się od razu na wejściu, bez kliknięcia.
   // Pokazuje, ile widać z samego połączenia i przeglądarki.
+  function prawdLokalizacja(){
+    let tz=''; try { tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''; } catch(_){}
+    const miasto = tz.includes('/') ? tz.split('/').pop().replace(/_/g,' ') : '';
+    const lang=(navigator.language||'').toLowerCase();
+    const kraje={ 'pl':'Polska','de':'Niemcy','cs':'Czechy','sk':'Słowacja','uk':'Ukraina','lt':'Litwa','en-gb':'Wielka Brytania' };
+    const kraj = kraje[lang] || kraje[lang.split('-')[0]] || '';
+    const mm={ 'Warsaw':'Warszawa','Berlin':'Berlin','Prague':'Praga','Kiev':'Kijów','Kyiv':'Kijów','London':'Londyn','Vilnius':'Wilno' };
+    const miastoPl = mm[miasto]||miasto;
+    return [kraj, miastoPl].filter(Boolean).join(' · ') || tz || 'nieznana';
+  }
   async function reconPasywny(){
     const dl=$('bz-recon-dl'); if(!dl) return;
     const wiersz=(n,v,kl)=>{ if(v===undefined||v===null||v==='') return; const dt=document.createElement('dt'); dt.textContent=n; const dd=document.createElement('dd'); dd.textContent=v; if(kl) dd.className=kl; dl.append(dt,dd); };
     let sys=null; try { sys=await S.wykryjSystem(); } catch(_){}
-    if (sys) wiersz('Twój system', sys.tytul, sys.werdykt==='alarm'?'alarm':'');
+    // Wielkie fakty na górze
+    if (sys){ $('bz-f-system').textContent=sys.tytul; if (sys.werdykt==='alarm'){ $('bz-f-system').style.color='var(--alarm)'; $('bz-f-system2').textContent='bez wsparcia — brak poprawek'; } }
+    $('bz-f-lok').textContent = prawdLokalizacja();
+    // Szczegóły niżej
     const prz=S.wykryjPrzegladarke(); wiersz('Przeglądarka', prz.tytul, prz.werdykt==='alarm'?'alarm':'');
     try { wiersz('Strefa czasowa', Intl.DateTimeFormat().resolvedOptions().timeZone); } catch(_){}
     wiersz('Język', (navigator.languages&&navigator.languages[0])||navigator.language||'');
@@ -405,11 +441,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (navigator.deviceMemory) wiersz('Pamięć (ok.)', navigator.deviceMemory+' GB');
     const gpu=S.czytajGPU(); wiersz('Karta graficzna', gpu);
     wiersz('Dotyk', (navigator.maxTouchPoints||0)>0?'tak':'nie');
-    const st=$('bz-recon-stopka');
-    st.textContent = (sys && sys.werdykt==='alarm')
+    $('bz-recon-stopka').textContent = (sys && sys.werdykt==='alarm')
       ? 'A to wszystko z samego połączenia — bez zgody i bez kliknięcia. Już widać, że Twój system jest bez poprawek. Uruchom skan, żeby zobaczyć, na co dokładnie Cię to wystawia.'
       : 'A to wszystko z samego połączenia — bez pytania o zgodę i bez kliknięcia. Uruchom skan, żeby zobaczyć, na co to Cię wystawia.';
-    try { const ip=await S.wykryjIP(); if (ip && Array.isArray(ip.dane)) ip.dane.forEach(([n,v])=>wiersz(n,v)); } catch(_){}
+    // Znane luki — od razu, dla systemu po końcu wsparcia
+    const z=S.znaneLuki(sys);
+    if (z){
+      $('bz-luki-wstep').textContent=z.wstep;
+      const ul=$('bz-luki-lista'); ul.textContent='';
+      z.luki.forEach(l=>{ const li=document.createElement('li');
+        const b=document.createElement('b'); b.textContent=l.nazwa+' ('+l.cve+') — ';
+        const sc=document.createElement('span'); sc.className='sc'; sc.textContent=l.co+' → '+l.sciezka;
+        li.append(b, sc); ul.append(li); });
+      $('bz-luki').hidden=false;
+    }
+    // IP z backendu — wpada do wielkiego faktu, gdy serwer odpowie
+    try { const ip=await S.wykryjIP(); if (ip && Array.isArray(ip.dane)){
+      const adr=ip.dane.find(d=>/IP/i.test(d[0])); if (adr) $('bz-f-ip').textContent=adr[1];
+      const lok=ip.dane.find(d=>/lokaliz/i.test(d[0])); if (lok) $('bz-f-lok').textContent=lok[1];
+    } } catch(_){}
   }
   reconPasywny();
 
