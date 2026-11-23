@@ -49,18 +49,18 @@ def _pdf_skan(sciezka: Path, stron: int = 1) -> Path:
 
 class TestPrzechowywanie:
     def test_domyslne_gdy_brak_pliku(self, klient):
-        assert ustawienia.wczytaj() == {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY}
+        assert ustawienia.wczytaj() == {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis"}
 
     def test_zapis_i_odczyt(self, klient, tmp_path):
         wynik = ustawienia.zapisz({"dokladnosc": "medium", "nazwa_pliku": "{strony} - {czynnosc}"})
-        assert wynik == {"dokladnosc": "medium", "nazwa_pliku": "{strony} - {czynnosc}"}
+        assert wynik == {"dokladnosc": "medium", "nazwa_pliku": "{strony} - {czynnosc}", "braki": "opis"}
         assert ustawienia.wczytaj()["dokladnosc"] == "medium"
         assert (tmp_path / "ustawienia.json").exists(), "plik kancelarii, jak kalendarz czy zasady"
 
     def test_zapis_czesciowy_nie_rusza_reszty(self, klient):
         ustawienia.zapisz({"nazwa_pliku": "{sygnatura}"})
         ustawienia.zapisz({"dokladnosc": "high"})
-        assert ustawienia.wczytaj() == {"dokladnosc": "high", "nazwa_pliku": "{sygnatura}"}
+        assert ustawienia.wczytaj() == {"dokladnosc": "high", "nazwa_pliku": "{sygnatura}", "braki": "opis"}
 
     def test_nieznana_dokladnosc_odrzucona(self, klient):
         with pytest.raises(ValueError):
@@ -139,7 +139,7 @@ class TestApi:
         assert odp.status_code == 200
         assert odp.json()["dokladnosc"] == "medium"
         assert odp.json()["przyklad_nazwy"] == "Sobczak - Pawlak.docx"
-        assert klient.get("/api/ustawienia").json()["ogolne"] == {"dokladnosc": "medium", "nazwa_pliku": "{strony}"}
+        assert klient.get("/api/ustawienia").json()["ogolne"] == {"dokladnosc": "medium", "nazwa_pliku": "{strony}", "braki": "opis"}
 
     def test_put_odrzuca_zle_dane(self, klient):
         assert klient.put("/api/ustawienia/ogolne", json={"dokladnosc": "ultra"}).status_code == 400

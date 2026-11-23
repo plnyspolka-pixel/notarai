@@ -567,8 +567,13 @@ async def projekt_bez_zapisu(
     pola: str = Form("[]"),
     polecenie: str = Form(""),
     rozmowa: str = Form("[]"),
+    braki: str = Form(""),
 ):
-    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie."""
+    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie.
+    `braki`: "opis" | "pytajnik" - ustawienie kancelarii trzymajacej pliki u siebie
+    (jej ustawienia zna tylko przegladarka)."""
+    if braki not in ustawienia_kancelarii.BRAKI:
+        braki = ustawienia_kancelarii.wczytaj()["braki"]
     try:
         lista_pol = json.loads(pola)
         historia = json.loads(rozmowa)
@@ -590,7 +595,7 @@ async def projekt_bez_zapisu(
             analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
             projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
             cel = katalog / "projekt.docx"
-            dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru)
+            dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru, braki=braki)
             dane = cel.read_bytes()
             nazwa_pliku = _nazwa_pliku_projektu(lista_pol, analiza, polecenie)
         finally:
@@ -783,7 +788,7 @@ def _generuj_projekt(identyfikator: str, zadanie: ZadanieGenerowania) -> dict:
                                   f"sprawa {identyfikator}")
 
     cel = katalog / "projekt.docx"
-    dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru)
+    dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru, braki=ustawienia_kancelarii.wczytaj()["braki"])
     (katalog / "projekt.txt").write_text(projekt, encoding="utf-8")
     odczyt_plik = katalog / "odczyt.json"
     stary = json.loads(odczyt_plik.read_text("utf-8")) if odczyt_plik.exists() else {}

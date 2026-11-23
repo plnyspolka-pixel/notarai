@@ -38,10 +38,14 @@ OPISY_DOKLADNOSCI = {
     "medium": "Szybka: najszybciej i najtaniej, do prostych spraw z wyraznymi dokumentami.",
 }
 MAX_DLUGOSC_WZORU = 200
+# Jak w pliku Word wyglada brakujaca dana: "opis" = <<BRAK: numer dowodu>>,
+# "pytajnik" = sam "?" (podswietlony). W aplikacji znacznik zostaje zawsze -
+# na nim dzialaja licznik brakow, podswietlenie i korespondencja.
+BRAKI = ("opis", "pytajnik")
 
 
 def domyslne() -> dict:
-    return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY}
+    return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis"}
 
 
 def _oczysc(dane: dict) -> dict:
@@ -49,6 +53,8 @@ def _oczysc(dane: dict) -> dict:
     wynik = domyslne()
     if dane.get("dokladnosc") in DOKLADNOSCI:
         wynik["dokladnosc"] = dane["dokladnosc"]
+    if dane.get("braki") in BRAKI:
+        wynik["braki"] = dane["braki"]
     wzor = dane.get("nazwa_pliku")
     if isinstance(wzor, str) and wzor.strip():
         wynik["nazwa_pliku"] = wzor.strip()[:MAX_DLUGOSC_WZORU]
@@ -70,6 +76,8 @@ def zapisz(zmiany: dict) -> dict:
     """Zapis tylko podanych kluczy; nieznane wartosci sa odrzucane (400)."""
     if "dokladnosc" in zmiany and zmiany["dokladnosc"] not in DOKLADNOSCI:
         raise ValueError("Nieznana dokladnosc odczytu. Dozwolone: " + ", ".join(DOKLADNOSCI) + ".")
+    if "braki" in zmiany and zmiany["braki"] not in BRAKI:
+        raise ValueError("Nieznany sposob oznaczania brakow. Dozwolone: " + ", ".join(BRAKI) + ".")
     if "nazwa_pliku" in zmiany:
         wzor = str(zmiany["nazwa_pliku"] or "").strip()
         if not wzor:
@@ -84,7 +92,7 @@ def zapisz(zmiany: dict) -> dict:
             zmiany["nazwa_pliku"] = wzor
 
     def zmiana(dane: dict) -> dict:
-        for klucz in ("dokladnosc", "nazwa_pliku"):
+        for klucz in ("dokladnosc", "nazwa_pliku", "braki"):
             if klucz in zmiany:
                 dane[klucz] = zmiany[klucz]
         return _oczysc(dane)
@@ -144,6 +152,7 @@ def opis_wyboru(wysilek: str, powod: str) -> str:
 class Zmiany(BaseModel):
     dokladnosc: str | None = None
     nazwa_pliku: str | None = None
+    braki: str | None = None
 
 
 def _moge_zmieniac(request: Request) -> bool:
