@@ -106,7 +106,12 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 
 ## NA-7. Odcinek 01 — czas projektu aktu z prawdziwym modelem (Bedrock)
 
-- **Status:** czeka
+- **Status:** zrobione 23.11.2026 (potwierdzenie z kancelarii; wpis w gałęzi
+  `ccr-97d162b9-qn3mgs`)
+- **Wynik:** na app.notarai.pl (Bedrock, eu-central-1) kancelaria sporządziła już
+  kilka prawdziwych aktów od skanów do Worda; projekt powstaje w **2–3 minuty**
+  i przejrzała go notariusz. Nie sprawdzono osobno danych demo odcinka 01
+  (2× `<<BRAK>>`, warianty `<<WYBOR>>`) — do zrobienia przy nagraniu.
 - **Brakuje:** poświadczeń AWS z dostępem do Bedrock w eu-central-1 na
   stanowisku, z którego nagrywamy (w sesji, w której powstał kod, ich nie było).
   Lokalnie zmierzono tylko narzut aplikacji na atrapie modelu: 0,3–0,5 s.
@@ -126,7 +131,10 @@ Statusy: `czeka` · `w toku` · `zrobione` · `porzucone (powód)`
 
 ## NA-8. Odcinek 01 — przebieg na app.notarai.pl (S3 + Cognito, dwa urządzenia)
 
-- **Status:** czeka
+- **Status:** w toku — 23.11.2026 kancelaria potwierdziła, że na produkcji działa
+  rdzeń (wgranie skanów, odczyt, projekt, pobranie Worda) na prawdziwych sprawach.
+  Niepotwierdzone: zdjęcie z telefonu do sprawy w ≤ 15 s (krok 4), wznowienie
+  statusu po odświeżeniu (krok 5) i ograniczenia stanowisk (krok 6).
 - **Brakuje:** wdrożenia gałęzi `claude/odcinek-01-ekrany` (po scaleniu do
   `master`) i kancelarii demo na app.notarai.pl z czterema kontami na
   prawdziwych skrzynkach (zaproszenia Cognito).

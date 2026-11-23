@@ -72,4 +72,6 @@ Dane demo: `scripts/demo_odcinek01.py` (`przygotuj`, `serwer`). Zrzuty:
 „PRÓBA NAGRANIA”, do filmu trzeba nagrać przebieg z Bedrock, NA-7).
 
 Czas projektu: na atrapie modelu (3 s) cały przebieg w UI trwa 3,3–3,5 s,
-czyli narzut aplikacji ≈ 0,3–0,5 s. Czas prawdziwego modelu — NA-7.
+czyli narzut aplikacji ≈ 0,3–0,5 s. Czas prawdziwego modelu
+(Bedrock, app.notarai.pl, prawdziwe akty kancelarii): **2–3 minuty** na projekt
+— potwierdzone przez kancelarię 23.11.2026 (NA-7).
