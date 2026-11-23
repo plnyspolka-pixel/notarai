@@ -1737,7 +1737,7 @@ notarai</div>
 <dialog class="okno" id="okno-pilot" aria-labelledby="pilot-tytul">
   <h2 id="pilot-tytul">Steruj przeglądarką komputera</h2>
   <p id="pilot-komputer"></p>
-  <p>Komputer musi być włączony, a pomocnik uruchomiony. Pracuje on w osobnej przeglądarce do rejestrów. Z telefonu możesz wydawać polecenia, ale wysłanie, złożenie lub podpisanie dokumentu wymaga działania człowieka na komputerze.</p>
+  <p>Komputer musi być włączony, a pomocnik uruchomiony. Polecenia wykonuje w osobnej przeglądarce do rejestrów. Przed wysłaniem formularza poprosi Cię tutaj o osobną, jednorazową zgodę. Podpis, PIN, płatności i usuwanie wymagają działania na komputerze.</p>
   <div class="pole">
     <label class="etykieta" for="pilot-cel">Polecenie dla komputera</label>
     <textarea id="pilot-cel" maxlength="1000" rows="4" placeholder="Np. znajdź w Geoportalu działkę 123/4"></textarea>
@@ -1753,6 +1753,19 @@ notarai</div>
   </div>
   <p class="stan" id="pilot-stan" role="status" aria-live="polite"></p>
   <div class="klik-kroki" id="pilot-przebieg" aria-live="polite"></div>
+</dialog>
+
+<!-- Druga, odrebna decyzja na telefonie: tylko konkretny przycisk, 120 s. -->
+<dialog class="okno" id="okno-zgoda-pilota" aria-labelledby="pilot-zgoda-tytul">
+  <h2 id="pilot-zgoda-tytul">Czy pozwolić pomocnikowi wysłać?</h2>
+  <p>Pomocnik zatrzymał się przed kliknięciem przycisku, który może wysłać lub złożyć formularz. Sprawdź, czy to zamierzona czynność. Zgoda dotyczy tylko tej jednej operacji.</p>
+  <div class="komputer"><div><b id="pilot-zgoda-akcja"></b><small id="pilot-zgoda-host"></small></div></div>
+  <p>Nie zatwierdzaj, jeśli nie masz pewności co do treści formularza na komputerze. To nie jest podpis kwalifikowany.</p>
+  <div class="dol">
+    <button type="button" id="pilot-zgoda-tak">Pozwól tylko tym razem</button>
+    <button type="button" class="wtorny" id="pilot-zgoda-nie">Nie pozwalaj</button>
+  </div>
+  <p class="stan" id="pilot-zgoda-stan" role="status" aria-live="polite"></p>
 </dialog>
 
 <!-- Kreator instalacji: pobierz, uruchom, polacz. Kolejne kroki zapalaja sie
@@ -3825,6 +3838,47 @@ $("btn-zamknij-pomocnik").onclick = () => $("okno-pomocnik").close();
 
 /* Pilot: polecenie z telefonu kierujemy do juz sparowanego pomocnika Windows. */
 let komputerPilota = null;
+let zgodaPilota = null, zgodaPilotaWidziana = "";
+function pokazZgodePilota(zlecenie, oczekujaca){
+  if (!oczekujaca || zgodaPilotaWidziana === oczekujaca.id ||
+      !$("okno-pilot").open) return;
+  zgodaPilotaWidziana = oczekujaca.id;
+  zgodaPilota = {zlecenie, id: oczekujaca.id};
+  $("pilot-zgoda-akcja").textContent = "Przycisk: " + oczekujaca.etykieta;
+  $("pilot-zgoda-host").textContent = "Strona: " + oczekujaca.host;
+  stan($("pilot-zgoda-stan"), "Zgoda wygasa po dwóch minutach.");
+  $("pilot-zgoda-tak").disabled = false;
+  $("pilot-zgoda-nie").disabled = false;
+  if (!$("okno-zgoda-pilota").open) $("okno-zgoda-pilota").showModal();
+}
+async function zdecydujPilota(pozwol){
+  const prosba = zgodaPilota;
+  if (!prosba) return;
+  $("pilot-zgoda-tak").disabled = $("pilot-zgoda-nie").disabled = true;
+  stan($("pilot-zgoda-stan"), "Przekazuję decyzję…", false, true);
+  try {
+    const odp = await api("/api/urzadzenia/polecenia/" +
+      encodeURIComponent(prosba.zlecenie) + "/zgoda", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: prosba.id, zgoda: pozwol}),
+    });
+    const wynik = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(wynik.detail || "Decyzja nie została zapisana.");
+    stan($("pilot-stan"), pozwol
+      ? "Zezwolono jednorazowo. Komputer wykonuje wskazane kliknięcie…"
+      : "Odmówiono wysłania formularza.");
+    zgodaPilota = null;
+    $("okno-zgoda-pilota").close();
+  } catch (blad) {
+    stan($("pilot-zgoda-stan"), blad.message || "Nie udało się przekazać decyzji.", true);
+    $("pilot-zgoda-tak").disabled = $("pilot-zgoda-nie").disabled = false;
+  }
+}
+$("pilot-zgoda-tak").onclick = () => zdecydujPilota(true);
+$("pilot-zgoda-nie").onclick = () => zdecydujPilota(false);
+$("okno-zgoda-pilota").addEventListener("cancel", e => {
+  e.preventDefault(); zdecydujPilota(false);
+});
 function otworzPilota(komputer){
   komputerPilota = komputer;
   $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
@@ -3833,10 +3887,14 @@ function otworzPilota(komputer){
   $("pilot-przebieg").replaceChildren();
   stan($("pilot-stan"), "");
   $("pilot-wyslij").disabled = false;
+  zgodaPilota = null; zgodaPilotaWidziana = "";
   if ($("okno-pomocnik").open) $("okno-pomocnik").close();
   $("okno-pilot").showModal();
 }
-$("pilot-zamknij").onclick = () => $("okno-pilot").close();
+$("pilot-zamknij").onclick = () => {
+  if (zgodaPilota) zdecydujPilota(false);
+  $("okno-pilot").close();
+};
 $("pilot-wyslij").onclick = async () => {
   if (!komputerPilota) return;
   const cel = $("pilot-cel").value.trim();
@@ -3853,12 +3911,17 @@ $("pilot-wyslij").onclick = async () => {
     const wyslane = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(wyslane.detail || "Nie udało się przekazać polecenia.");
     stan($("pilot-stan"), "Komputer otrzyma zadanie podczas najbliższego odpytywania. Sprawdzam wynik…", false, true);
+    zgodaPilotaWidziana = "";
     const koniec = Date.now() + 15 * 60 * 1000;
     while (Date.now() < koniec && $("okno-pilot").open) {
       await new Promise(resolve => setTimeout(resolve, 3000));
       const r = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(wyslane.zlecenie));
       const wynik = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(wynik.detail || "Nie udało się odczytać wyniku.");
+      if (wynik.zgoda) {
+        pokazZgodePilota(wyslane.zlecenie, wynik.zgoda);
+        stan($("pilot-stan"), "Komputer czeka na jednorazową zgodę na wysłanie.", false, true);
+      }
       if (wynik.stan === "wykonane") {
         rysujPrzebieg(wynik.raport || {}, "pilot-przebieg");
         stan($("pilot-stan"), (wynik.raport || {}).pytanie
