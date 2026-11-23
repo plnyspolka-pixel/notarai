@@ -63,7 +63,29 @@ python scenografia/zbuduj.py --plan wszystkie --kamery K01_plan_ogolny --bez-ruc
 Opcje: `--warianty dzien,noc`, `--probki 64`. Wspólne klocki (pokój, okna, drzwi, regały, lampy, kamery,
 render, głębia, najazd) są w `wspolne.py`; każdy plan to jeden plik w `sety/`.
 
-Render: wyłącznie Cloudflare (Worker `finyou-scena`, `POST /scena`, opis niżej). Na GitHub Actions `zbuduj.py` przerywa od razu (twarda reguła z 23.11.2026); workflow `scenografia-render.yml` usunięty.
+## Render: tylko Cloudflare (finyou-scena)
+Twarda reguła właściciela (23.11.2026): **scenografia nigdy nie renderuje się na GitHub Actions**.
+`zbuduj.py` i `tlo_okna.py` przerywają od razu, gdy działają na GHA (`tools/zakaz_gha.py`), a workflow
+pilnuje `tools/zakaz_renderu_gha.py`; dawny `scenografia-render.yml` usunięty. Render idzie przez Worker
+`finyou-scena` (Cloudflare Containers, kod w finyou `services/render-cf/scena/`, opis w
+`services/render-cf/README.md`):
+
+```bash
+curl -X POST -H "Authorization: Bearer $RENDER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"plan":"s02","kadry":["K01_plan_ogolny"],"wariant":"dzien","ref":"scenografia/blender-v1"}' \
+  https://finyou-scena.financeyou.workers.dev/scena            # -> {"id": ...}
+curl -H "Authorization: Bearer $RENDER_TOKEN" https://finyou-scena.financeyou.workers.dev/scena/<id>
+```
+Kontener pobiera te skrypty w podanym refie (gałąź, tag albo pełny SHA) z publicznego repo, zasoby CC0
+z Poly Haven (`pobierz_zasoby.py`), renderuje `zbuduj.py` (Cycles CPU + OIDN, 4 wątki: `SCENA_WATKI`)
+i wysyła JPG, mapy głębi, `rzut_z_gory.png`, `opis.json` (i najazd MP4 przy `"ruch": true`) do
+`studio-media/scenografia/<plan>/` (nazwy małymi literami, np. `k01_plan_ogolny_dzien.jpg`).
+`"podglad": true` = szybki podgląd do `scenografia/<plan>/podglad/`. Zmiana sceny = push i nowe zlecenie.
+
+Pomiar 23.11.2026 (standard-4: 4 vCPU, 12 GiB): s02 K01 dzień, 32 próbki: **156,6 s** renderu, 204 s całe
+zadanie, ok. 0,02 USD za kadr (+ ok. 0,02 USD czuwania kontenera); obraz zgodny z `rendery/s02/` w repo
+(średnia różnica 0,26/255, głębia identyczna). Wynik:
+https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/scenografia/s02/k01_plan_ogolny_dzien.jpg
 (lub ręcznie z listą planów) renderuje każdy plan w osobnym jobie i commituje wyniki z `[skip ci]`.
 
 ## Czasy (zmierzone, 4 rdzenie CPU, 15 GB RAM)
@@ -73,7 +95,7 @@ Render: wyłącznie Cloudflare (Worker `finyou-scena`, `POST /scena`, opis niże
 - najazd 3 s (72 klatki 540×960, 12 próbek): ok. 20 min (s02: 23 min),
 - cały komplet (10 planów, ok. 100 kadrów + 10 najazdów) na CPU: ok. 8-10 h.
 GPU (np. Salad RTX 4090/5090, Cycles OptiX) powinno dać rząd wielkości szybciej (10-20 s na kadr,
-najazd w kilka minut) - potrzebny tylko kontener z bpy/Blenderem i tym katalogiem.
+najazd w kilka minut); Cloudflare Containers nie mają GPU, więc to byłby wynajem zlecany z kontenera (jak tor `gpu` w finyou-render), nigdy z GitHub Actions.
 
 ## Zasoby (CC0)
 Wszystkie modele, tekstury i HDRI pochodzą z Poly Haven, licencja CC0 (https://polyhaven.com/license).
