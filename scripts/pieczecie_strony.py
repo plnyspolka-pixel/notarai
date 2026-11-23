@@ -2,7 +2,7 @@
 """Generator pieczęci i tarcz SVG strony notarai.pl (strona/index.html).
 
 Uruchom po zmianie list SCIANA lub ZGODNOSC, a potem przebuduj propozycję v2:
-    python3 scripts/pieczecie_strony.py strona/index.html
+    python3 scripts/pieczecie_strony.py strona/index.html strona/bezpieczenstwo/index.html
     python3 tools/web-factory/v2/buduj.py
 
 Lista SCIANA odpowiada raportom AWS Artifact (aws artifact list-reports),
@@ -307,7 +307,10 @@ def main(sciezka):
         s = f.read()
     # 1. sprite pieczęci zaraz po sprite ikon
     s = re.sub(r'<svg class="nx-seal-defs".*?</svg>\n', "", s, flags=re.S)
-    s = s.replace("</svg>\n\n<header", "</svg>\n" + sprite() + "\n\n<header", 1)
+    if "</svg>\n\n<header" in s:   # strona główna: zaraz po sprite ikon
+        s = s.replace("</svg>\n\n<header", "</svg>\n" + sprite() + "\n\n<header", 1)
+    else:                            # podstrony bez sprite ikon: na początku <body>
+        s = s.replace("<body>\n", "<body>\n" + sprite() + "\n", 1)
 
     # 2. ściana certyfikatów
     sciana = "\n".join(
@@ -328,4 +331,5 @@ def main(sciezka):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    for plik in sys.argv[1:]:
+        main(plik)

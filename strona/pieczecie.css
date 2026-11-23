@@ -78,3 +78,10 @@
   .nx-tarcza { transform: none !important; }
   .nx-tarcza .pt-blysk-pas { animation: none; opacity: 0; }
 }
+
+/* Strona główna: zaproszenie do skanera pod pieczęciami */
+.nx-sprawdz { display: flex; align-items: center; justify-content: space-between; gap: 18px 30px; flex-wrap: wrap; margin: 0 0 34px; padding: 22px 26px;
+  border-radius: 18px; border: 1px solid #d9e5f4; background: linear-gradient(120deg, #fff, #eef5ff); }
+.nx-sprawdz h3 { margin: 0 0 6px; color: #071d49; }
+.nx-sprawdz p { margin: 0; max-width: 640px; color: #5f6f8e; }
+.nx-sprawdz .przycisk { flex: none; }

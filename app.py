@@ -51,6 +51,7 @@ import osoby
 import poczta_polska
 import personalizacja
 import przesylki
+import skan_bezpieczenstwa
 import sledzenie
 import poswiadczenia
 import stenogramy
@@ -95,6 +96,7 @@ if os.getenv("PIECZAPP_CONFIDENTIAL_ENABLED", "").lower() == "true":
     from confidential.router import router as confidential_router
     app.include_router(confidential_router)
 app.include_router(rejestracja.router)
+app.include_router(skan_bezpieczenstwa.router)
 app.include_router(rejestracja.router_dokumentow)
 app.include_router(rezerwacje_hurtowe.router_biuro)
 app.include_router(rezerwacje_hurtowe.router_partner)
