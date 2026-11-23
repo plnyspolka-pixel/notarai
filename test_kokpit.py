@@ -74,11 +74,12 @@ def test_dashboard_is_never_seeded_with_fake_clients():
     assert 'window.odswiezKokpit?.([], "Zaloguj' in HTML
 
 
-def test_local_mode_and_error_states():
-    assert 'await uchwyt.getFileHandle("projekt.txt")' in HTML
-    assert 'await uchwyt.getFileHandle("projekt.docx")' in HTML
-    assert "Wskaż folder na sprawy w bocznym menu." in HTML
-    assert "Brak dostępu do folderu" in HTML
+def test_migration_and_error_states():
+    # Tryb "pliki u siebie" wycofany: kokpit mowi, ze najpierw trzeba przeniesc sprawy.
+    assert "Najpierw przenieś sprawy z komputera do chmury." in HTML
+    assert 'id="okno-przeniesienie"' in HTML
+    assert "Nie udało się pobrać spraw." in HTML
+    assert "showDirectoryPicker({mode: \"readwrite\"" not in HTML, "folder czytamy tylko do przeniesienia"
     assert 'state.issue' in DASHBOARD
 
 
@@ -104,7 +105,7 @@ def test_previous_session_data_cannot_repopulate_dashboard():
     assert "sprawyLista = [];" in HTML
     assert "const pobranePokolenie = pokolenieSesji;" in HTML
     assert "const czyNieaktualne = () => pobranePokolenie !== pokolenieSesji" in HTML
-    assert HTML.count("if (czyNieaktualne()) return;") == 3
+    assert HTML.count("if (czyNieaktualne()) return;") == 2
     assert "pobranePokolenieOtwierania !== pokolenieOtwierania" in HTML
     assert "function otworzBrame(komunikat){\n  wyczyscDanePoWylogowaniu();" in HTML
 
@@ -135,7 +136,8 @@ def test_latest_selected_case_wins():
 def test_ai_result_not_rendered_after_logout_or_switch():
     assert "sesjaZadania !== pokolenieSesji" in HTML
     assert "numerSprawy !== pokolenieOtwierania" in HTML
-    assert "edytowanaSprawa !== sprawa" in HTML
+    # Projekt gotowy trafia na ekran tylko w tej samej, otwartej sprawie.
+    assert "const tuJestem = sprawa && sprawa.id === id" in HTML
     assert "sprawa.projekt = wynik.tekst;" in HTML
 
 

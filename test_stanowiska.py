@@ -21,10 +21,10 @@ SPRAWA = "abc123abc123"
 class TestRegul:
     @pytest.mark.parametrize("metoda,sciezka,uprawnienie", [
         ("POST", "/api/sprawy", "sprawy_ai"),
-        ("POST", "/api/odczyt", "sprawy_ai"),
+        ("POST", "/api/przeniesienie/sprawy/abc123", "sprawy_ai"),
+        ("POST", "/api/przeniesienie/zakoncz", "kancelaria"),
         ("POST", f"/api/sprawy/{SPRAWA}/rozmowa", "sprawy_ai"),
         ("POST", f"/api/sprawy/{SPRAWA}/projekt", "projekt"),
-        ("POST", "/api/projekt", "projekt"),
         ("POST", f"/api/sprawy/{SPRAWA}/krz", "rejestry"),
         ("POST", f"/api/sprawy/{SPRAWA}/sprawdzenia/decyzja", "rejestry"),
         ("DELETE", f"/api/sprawy/{SPRAWA}/pliki/zdjecie-1.jpg", "usun_plik"),

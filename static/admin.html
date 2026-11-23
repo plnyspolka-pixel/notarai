@@ -164,15 +164,7 @@ a.odnosnik-a:hover{color:var(--tekst)}
           <input type="email" id="nk-email" placeholder="anna@kancelaria.pl" spellcheck="false">
         </div>
       </div>
-      <span class="etykieta">Gdzie mają leżeć sprawy <span class="wskaz">tego później nie zmienisz</span></span>
-      <div class="wybor">
-        <label><input type="radio" name="nk-gdzie" value="chmura" checked><b>Pliki w chmurze notarai</b>
-          <small>Zalecane. Szyfrowane we Frankfurcie, z kopiami zapasowymi. Działa w każdej przeglądarce,
-            z każdego komputera. Pełne sprawdzenia w rejestrach.</small></label>
-        <label><input type="radio" name="nk-gdzie" value="u-klienta"><b>Pliki na komputerze kancelarii</b>
-          <small>Serwer niczego nie zapisuje. Tylko Chrome lub Edge, kopie zapasowe robi kancelaria,
-            bez sprawdzeń w rejestrach.</small></label>
-      </div>
+      <p class="wskaz">Sprawy leżą w chmurze notarai (Frankfurt, szyfrowane kluczem KMS, z kopiami zapasowymi).</p>
       <div class="pasek"><button id="btn-zaloz">Załóż kancelarię i wyślij zaproszenie</button>
         <span class="stan" id="stan-zaloz"></span></div>
       <div id="wynik-zaloz"></div>
@@ -390,7 +382,6 @@ async function odswiez(){ kancelarie = await api("/api/admin/kancelarie"); rysuj
 /* ---------- zakladanie ---------- */
 $("btn-zaloz").onclick = async () => {
   const nazwa = $("nk-nazwa").value.trim(), email = $("nk-email").value.trim();
-  const gdzie = document.querySelector('input[name="nk-gdzie"]:checked').value;
   $("wynik-zaloz").innerHTML = "";
   if (nazwa.length < 2) return stan($("stan-zaloz"), "Podaj nazwę kancelarii.", true);
   if (!email) return stan($("stan-zaloz"), "Podaj e-mail notariusza — na niego pójdzie zaproszenie.", true);
@@ -398,7 +389,7 @@ $("btn-zaloz").onclick = async () => {
   stan($("stan-zaloz"), "Zakładam…", false, true);
   try {
     const w = await api("/api/admin/kancelarie", {method: "POST",
-      body: JSON.stringify({nazwa, email, przechowywanie: gdzie})});
+      body: JSON.stringify({nazwa, email})});
     stan($("stan-zaloz"), "");
     if (w.zaproszono) {
       $("wynik-zaloz").innerHTML = `<div class="sukces"><b>Gotowe.</b> Założono „${escape(w.nazwa)}”, zaproszenie poszło na <b>${escape(w.zaproszono)}</b>.<br>
@@ -478,7 +469,7 @@ function kartaKancelarii(k){
   d.innerHTML = `
     <div class="kanc-naglowek"><h2>${escape(k.nazwa)}</h2>
       <span class="znacznik ${k.aktywna ? "ok" : "wyl"}">${k.aktywna ? "aktywna" : "wyłączona"}</span>
-      <span class="znacznik">${k.przechowywanie === "u-klienta" ? "pliki na komputerze kancelarii" : "pliki w chmurze"}</span>
+      <span class="znacznik">${k.przechowywanie === "u-klienta" ? "sprawy jeszcze na komputerze - czeka na przeniesienie" : "pliki w chmurze"}</span>
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
       <span class="znacznik ${k.kredyty !== null && k.kredyty !== undefined && k.kredyty <= 0 ? "wyl" : ""}"
             title="Saldo kredytów (tokenomia)">${k.kredyty === null || k.kredyty === undefined ? "bez portfela kredytów" : String(k.kredyty).replace(".", ",") + " kr."}</span>

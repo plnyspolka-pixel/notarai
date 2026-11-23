@@ -633,10 +633,9 @@ def dodaj_uzytkownika(request: Request, dane: NowyUzytkownik):
 
 class NowaKancelaria(BaseModel):
     nazwa: str
-    # "chmura": pliki w S3 we Frankfurcie. "u-klienta": serwer niczego nie
-    # zapisuje, pliki zostaja na dysku kancelarii. Decyzja zapada przy
-    # zakladaniu konta, bo zmiana w trakcie zostawialaby sprawy w dwoch
-    # miejscach naraz.
+    # Zawsze "chmura": sprawy w S3 we Frankfurcie, szyfrowane kluczem KMS notarai.
+    # Dawny tryb "u-klienta" (pliki na dysku kancelarii) wycofany 23.11.2026 -
+    # nie dzialal na telefonie ani na drugim komputerze (przeniesienie.py).
     przechowywanie: str = "chmura"
     # Adres notariusza. Podany - od razu zakladamy mu konto wlasciciela
     # i wysylamy zaproszenie, wiec cale wdrozenie to jeden formularz.
@@ -700,8 +699,8 @@ def dodaj_kancelarie(request: Request, dane: NowaKancelaria):
     rejestr = _wczytaj_rejestr()
     id_k = nowy_identyfikator(rejestr, nazwa)
 
-    if dane.przechowywanie not in ("chmura", "u-klienta"):
-        raise HTTPException(400, "Przechowywanie: 'chmura' albo 'u-klienta'")
+    if dane.przechowywanie != "chmura":
+        raise HTTPException(400, "Sprawy kancelarii leza w chmurze (szyfrowane, UE) - innego trybu nie ma.")
     # Bledny adres odrzucamy, zanim cokolwiek powstanie.
     email = _poprawny_email(dane.email) if dane.email.strip() else ""
     if email:

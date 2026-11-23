@@ -1,7 +1,7 @@
 """Codzienna praca bez powtarzania tych samych czynnosci. Bez sieci, dane fikcyjne."""
 from unittest.mock import patch
 
-from test_bez_zapisu import _przywroc_moduly, _skan, _wzor, klient  # noqa: F401
+from test_sprawy_w_chmurze import _przywroc_moduly, _skan, _wzor, klient  # noqa: F401
 
 ODCZYT = {"pola": [{"nr": 1, "nazwa": "zbywca", "wartosc": "Ewa Pawlak"}],
           "braki": [], "rozbieznosci": []}

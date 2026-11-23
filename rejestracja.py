@@ -140,8 +140,8 @@ def zarejestruj(dane: Rejestracja, request: Request):
     nazwa = " ".join(dane.nazwa.split())
     if not 2 <= len(nazwa) <= 120:
         raise HTTPException(400, "Nazwa kancelarii: od 2 do 120 znaków.")
-    if dane.przechowywanie not in ("chmura", "u-klienta"):
-        raise HTTPException(400, "Wybierz, gdzie mają być pliki.")
+    if dane.przechowywanie != "chmura":
+        raise HTTPException(400, "Sprawy kancelarii leżą w chmurze notarai (szyfrowane, serwery w UE).")
     email = autoryzacja._poprawny_email(dane.email)
     firma = _sprawdz_dane(dane)
 
@@ -301,7 +301,7 @@ def przyjmij_dpia(request: Request):
     return {"przyjeto": wpis["dpia"]["przyjeto"]}
 
 
-_PRZECHOWYWANIE = {"chmura": "pliki w chmurze (AWS, Frankfurt)",
+_PRZECHOWYWANIE = {"chmura": "pliki w chmurze (AWS, Frankfurt), szyfrowane kluczem KMS notarai",
                    "u-klienta": "pliki na komputerze kancelarii (folder wskazany przez kancelarię)"}
 
 

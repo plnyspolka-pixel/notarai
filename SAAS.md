@@ -219,23 +219,30 @@ Brak kredytów blokuje tylko czynności płatne (HTTP 402), nie dostęp do spraw
 Uzgodnienie sprzedaży: panel `/admin` → „Sprzedaż kredytów (CSV)” (z numerami faktur).
 Cennik, symulacja, modele biznesowe i faktury: `docs/tokenomia.md`.
 
-## Pliki w chmurze albo u kancelarii
+## Sprawy zawsze w chmurze, szyfrowane kluczem notarai
 
-Kancelaria dostaje pole `przechowywanie` przy zakładaniu konta: `chmura`
-(domyślnie) albo `u-klienta`. Zmiany w trakcie nie ma świadomie - zostawiałaby
-sprawy w dwóch miejscach naraz.
+Decyzja właściciela 23.11.2026: wszystkie kancelarie trzymają sprawy w chmurze.
+Dawny tryb `u-klienta` (folder na komputerze notariusza, serwer nic nie
+zapisywał) wycofany - nie działał na telefonie ani na drugim komputerze.
 
-Przy `u-klienta`:
-- serwer nie zapisuje niczego; `magazyn.utrwal_sprawe()` odmawia zapisu,
-- przeglądarka pracuje na punktach `/api/odczyt`, `/api/projekt`, `/api/rozmowa`,
-  które przetwarzają dane w katalogu tymczasowym i kasują go zawsze,
-- sprawy trafiają do folderu wskazanego przez notariusza: układ plików
-  identyczny jak w chmurze (sprawa.json, odczyt.json, rozmowa.json,
-  kontekst.txt, wzor.*, skany/, projekt.docx, projekt.txt),
-- folder pamięta się między uruchomieniami; wymaga Chrome albo Edge,
-- sprawdzenia w rejestrach są w tym trybie ukryte, bo zapisują ślad w sprawie
-  po stronie serwera,
-- za kopie zapasowe odpowiada kancelaria - znika wersjonowanie z S3.
+- Nowej kancelarii nie da się założyć w trybie `u-klienta` (rejestracja i panel
+  admina przyjmują tylko `chmura`). Punkty `/api/odczyt`, `/api/projekt`,
+  `/api/rozmowa` (praca bez zapisu) usunięte.
+- Kancelaria, która ma jeszcze `u-klienta`, po zalogowaniu dostaje okno
+  „Przenieś sprawy do chmury” (`przeniesienie.py`): przeglądarka czyta jej
+  folder i wysyła sprawę po sprawie (`POST /api/przeniesienie/sprawy/{id}`),
+  potem `POST /api/przeniesienie/zakoncz` przełącza ją na `chmura`. Do tego
+  czasu `magazyn.u_klienta()` nadal blokuje inne zapisy. Panel admina pokazuje
+  takie kancelarie jako „czeka na przeniesienie”.
+- Szyfrowanie: bucket `notarai-sprawy` szyfruje domyślnie kluczem KMS
+  `alias/notarai-sprawy` (stos `notarai-s3`, `KluczSpraw`): klucz we
+  Frankfurcie, rotacja co rok, odszyfrować może tylko rola aplikacji i rola
+  kopii zapasowej, każde użycie w CloudTrail. Polityka bucketa odrzuca zapis
+  kluczem S3 (AES256). Aplikacja podaje klucz jawnie (`PIECZAPP_KMS_KEY_ID`).
+- Pliki zapisane przed zmianą przeszyfrowuje `POST /api/admin/przeszyfruj`
+  (praca w tle, postęp: `GET`, można powtarzać; `szyfrowanie.py`).
+- Szyfrowania „tylko notariusz ma klucz” (end-to-end) nie ma i być nie może:
+  model musi przeczytać skany, żeby je odczytać i napisać projekt.
 
 ## Poczta e-mail do spraw (korespondencja.py)
 

@@ -256,6 +256,7 @@ class AtrapaWarunkowa(AtrapaS3):
 def s3(tmp_path, monkeypatch):
     monkeypatch.setenv("PIECZAPP_MAGAZYN", "s3")
     monkeypatch.setenv("PIECZAPP_S3_BUCKET", "testowy-bucket")
+    monkeypatch.setenv("PIECZAPP_KMS_KEY_ID", "alias/notarai-sprawy")   # jak w chmurze
     import magazyn
     importlib.reload(magazyn)
     atrapa = AtrapaWarunkowa()
@@ -272,6 +273,7 @@ def s3(tmp_path, monkeypatch):
     yield magazyn, atrapa
     magazyn.kancelaria_var.reset(znacznik)
     monkeypatch.setenv("PIECZAPP_MAGAZYN", "lokalny")
+    monkeypatch.delenv("PIECZAPP_KMS_KEY_ID")
     importlib.reload(magazyn)
 
 
@@ -282,7 +284,7 @@ class TestS3:
         osoby.dodaj_reczna("Ewa Pawlak", "600100200")
         assert set(atrapa.obiekty) == {"kancelarie/kancelaria-a/kalendarz.json",
                                        "kancelarie/kancelaria-a/osoby.json"}
-        assert all(atrapa.szyfrowanie.values())
+        assert set(atrapa.szyfrowanie.values()) == {"aws:kms"}, "kluczem KMS notarai, nigdy kluczem S3"
 
     def test_druga_kancelaria_nie_widzi_terminow(self, s3):
         magazyn, _ = s3

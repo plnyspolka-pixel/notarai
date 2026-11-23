@@ -757,10 +757,6 @@ notarai</div>
   </div>
   <div class="sekcja-t">Sprawy</div>
   <!-- Widoczne tylko wtedy, gdy kancelaria trzyma pliki u siebie. -->
-  <div id="pasek-folder" hidden>
-    <div class="folder" id="opis-folder">Sprawy zapisują się na tym komputerze.</div>
-    <button class="wtorny maly" id="btn-folder">Wskaż folder na sprawy</button>
-  </div>
   <div class="sprawy" id="lista-spraw"><span class="stan" style="padding:0 12px">Ładuję…</span></div>
   <!-- Tresc o przechowywaniu wstawia serwer przy wydaniu strony: zaleznie od
        trybu dane leza na tym komputerze albo w chmurze. Nie moze byc na sztywno,
@@ -1823,6 +1819,22 @@ notarai</div>
   <div class="dol"><button class="wtorny" id="as-zamknij" type="button">Zamknij</button><span class="stan" id="stan-asystent"></span></div>
 </dialog>
 
+<!-- Kancelaria z dawnymi sprawami na komputerze: przeniesienie do chmury
+     (przeniesienie.py). Do tego czasu serwer niczego dla niej nie zapisuje. -->
+<dialog class="okno" id="okno-przeniesienie" aria-labelledby="przeniesienie-tytul">
+  <h2 id="przeniesienie-tytul">Przenieś sprawy do chmury</h2>
+  <p>Sprawy tej kancelarii leżą dotąd w folderze na komputerze. Od teraz notarai trzyma wszystkie sprawy
+    w chmurze: zaszyfrowane kluczem notarai, na serwerach we Frankfurcie (UE). Dzięki temu otworzysz je
+    na telefonie i na każdym komputerze kancelarii.</p>
+  <p>Kliknij „Przenieś”, wskaż folder ze sprawami (przeglądarka zwykle go pamięta) i poczekaj chwilę.
+    Folder na komputerze zostaje nietknięty.</p>
+  <div class="dol">
+    <button id="btn-przenies">Przenieś sprawy do chmury</button>
+    <button class="wtorny" id="btn-bez-przeniesienia">Nie mam spraw do przeniesienia</button>
+  </div>
+  <p class="stan" id="stan-przeniesienia" role="status" aria-live="polite"></p>
+</dialog>
+
 <dialog class="okno" id="okno-ustawienia" aria-labelledby="ustawienia-tytul">
   <h2 id="ustawienia-tytul">Ustawienia kancelarii</h2>
   <p id="ustawienia-opis">Obowiązują w całej kancelarii, na każdym komputerze.</p>
@@ -2254,6 +2266,7 @@ function wyczyscDanePoWylogowaniu(){
 
 function otworzBrame(komunikat){
   wyczyscDanePoWylogowaniu();
+  if ($("okno-przeniesienie").open) $("okno-przeniesienie").close();
   $("brama").hidden = false;
   pokazWidok("widok-logowanie");
   stan($("stan-brama"), komunikat || "", !!komunikat);
@@ -2425,111 +2438,98 @@ $("btn-wroc-reset").onclick = () => otworzBrame("");
   });
 });
 
-/* ---------- sprawy na dysku notariusza ----------
-   Kancelaria moze pracowac tak, zeby serwer niczego nie zapisywal. Wtedy
-   sprawy leza w folderze wskazanym przez notariusza: kazda sprawa to
-   podkatalog z tymi samymi plikami, co w chmurze. Dostep do folderu daje
-   przegladarka (Chrome i Edge); uprawnienie zostaje miedzy uruchomieniami,
-   ale czasem trzeba je potwierdzic ponownie.                              */
-const dysk = {
+/* ---------- przeniesienie spraw z komputera do chmury ----------
+   Dawniej kancelaria mogla trzymac sprawy w folderze na swoim komputerze.
+   Teraz wszystkie sprawy leza w chmurze (szyfrowane kluczem notarai w UE) -
+   tylko tak dzialaja na telefonie i na kazdym komputerze. Kancelaria, ktora
+   miala pliki u siebie, po zalogowaniu przenosi je tutaj: przegladarka czyta
+   folder (Chrome/Edge pamieta go z dawnej pracy) i wysyla sprawe po sprawie. */
+const dawnyFolder = {
   obslugiwany: typeof window.showDirectoryPicker === "function",
-  aktywny: false,      // czy ta kancelaria pracuje na dysku
-  folder: null,
-
-  async zapamietaj(uchwyt){
+  async zapamietany(){
     try {
       const baza = await new Promise((ok, zle) => {
         const z = indexedDB.open("notarai", 1);
         z.onupgradeneeded = () => z.result.createObjectStore("uchwyty");
         z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
       });
-      await new Promise((ok, zle) => {
-        const t = baza.transaction("uchwyty", "readwrite");
-        t.objectStore("uchwyty").put(uchwyt, "folder");
-        t.oncomplete = ok; t.onerror = () => zle(t.error);
-      });
-    } catch { /* brak pamieci to tylko ponowny wybor folderu */ }
-  },
-
-  async odtworz(){
-    try {
-      const baza = await new Promise((ok, zle) => {
-        const z = indexedDB.open("notarai", 1);
-        z.onupgradeneeded = () => z.result.createObjectStore("uchwyty");
-        z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
-      });
-      const uchwyt = await new Promise((ok, zle) => {
+      return await new Promise((ok, zle) => {
         const z = baza.transaction("uchwyty").objectStore("uchwyty").get("folder");
-        z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+        z.onsuccess = () => ok(z.result || null); z.onerror = () => zle(z.error);
       });
-      return uchwyt || null;   // o brakujące uprawnienie poprosimy przy pierwszym użyciu
     } catch { return null; }
   },
-
-  async wybierz(){
-    const uchwyt = await window.showDirectoryPicker({mode:"readwrite", id:"notarai-sprawy"});
-    this.folder = uchwyt;
-    await this.zapamietaj(uchwyt);
-    return uchwyt;
+  async dostep(folder){
+    if (typeof folder.queryPermission !== "function") return true;
+    if (await folder.queryPermission({mode: "read"}) === "granted") return true;
+    return await folder.requestPermission({mode: "read"}) === "granted";
   },
-
-  async upewnijSieODostepie(){
-    if (!this.folder) return false;
-    // Nie kazdy uchwyt ma pytanie o uprawnienia (np. pamiec wlasna strony).
-    if (typeof this.folder.queryPermission !== "function") return true;
-    if (await this.folder.queryPermission({mode:"readwrite"}) === "granted") return true;
-    return await this.folder.requestPermission({mode:"readwrite"}) === "granted";
-  },
-
-  async katalogSprawy(id, tworz = false){
-    return await this.folder.getDirectoryHandle(id, {create: tworz});
-  },
-
-  async zapiszPlik(katalog, nazwa, dane){
-    const plik = await katalog.getFileHandle(nazwa, {create:true});
-    const zapis = await plik.createWritable();
-    await zapis.write(dane);
-    await zapis.close();
-  },
-
-  async zapiszJson(katalog, nazwa, obiekt){
-    await this.zapiszPlik(katalog, nazwa, JSON.stringify(obiekt, null, 2));
-  },
-
-  async czytajJson(katalog, nazwa){
-    try {
-      const plik = await (await katalog.getFileHandle(nazwa)).getFile();
-      return JSON.parse(await plik.text());
-    } catch { return null; }
-  },
-
-  async czytajTekst(katalog, nazwa){
-    try {
-      const plik = await (await katalog.getFileHandle(nazwa)).getFile();
-      return await plik.text();
-    } catch { return ""; }
-  },
-
-  async listaSpraw(){
+  /* [{sciezka: "skany/akt.pdf", plik: File}] - wszystkie pliki jednej sprawy. */
+  async pliki(katalog, przedrostek = ""){
     const wynik = [];
-    for await (const [nazwa, uchwyt] of this.folder.entries()) {
-      if (uchwyt.kind !== "directory") continue;
-      const meta = await this.czytajJson(uchwyt, "sprawa.json");
-      if (meta) {
-        // Status zgodny z API /api/sprawy: projekt istnieje w lokalnym folderze.
-        let etap = 2;
-        try {
-          await uchwyt.getFileHandle("projekt.txt");
-          etap = 3;
-        } catch {
-          try { await uchwyt.getFileHandle("projekt.docx"); etap = 3; }
-          catch { /* projekt jeszcze nie istnieje */ }
-        }
-        wynik.push({...meta, etap});
-      }
+    for await (const [nazwa, uchwyt] of katalog.entries()) {
+      if (uchwyt.kind === "directory") wynik.push(...await this.pliki(uchwyt, przedrostek + nazwa + "/"));
+      else wynik.push({sciezka: przedrostek + nazwa, plik: await uchwyt.getFile()});
     }
-    return wynik.sort((a, b) => (b.utworzono || "").localeCompare(a.utworzono || ""));
+    return wynik;
   },
+};
+let przenoszenieWymagane = false;
+// Bez przeniesienia nic innego nie zadziala (serwer nie zapisuje) - okna nie zamykamy Escape.
+$("okno-przeniesienie").addEventListener("cancel", e => e.preventDefault());
+
+async function przeniesSprawy(folder){
+  const st = $("stan-przeniesienia");
+  if (!await dawnyFolder.dostep(folder)) return stan(st, "Przeglądarka nie dała dostępu do folderu.", true);
+  const sprawy = [];
+  for await (const [nazwa, uchwyt] of folder.entries()) {
+    if (uchwyt.kind !== "directory" || !/^[A-Za-z0-9]+$/.test(nazwa)) continue;
+    try { await uchwyt.getFileHandle("sprawa.json"); sprawy.push([nazwa, uchwyt]); } catch { /* to nie sprawa */ }
+  }
+  if (!sprawy.length && !confirm("W folderze „" + folder.name + "” nie ma spraw notarai. Przejść do chmury bez przenoszenia?")) return;
+  let przeniesione = 0;
+  for (const [id, katalog] of sprawy) {
+    stan(st, "Przenoszę sprawę " + (przeniesione + 1) + " z " + sprawy.length + "…", false, true);
+    const dane = new FormData();
+    for (const {sciezka, plik} of await dawnyFolder.pliki(katalog)) dane.append("pliki", plik, sciezka);
+    const odp = await api("/api/przeniesienie/sprawy/" + id, {method: "POST", body: dane});
+    if (!odp.ok) {
+      const w = await odp.json().catch(() => ({}));
+      return stan(st, "Sprawa " + (przeniesione + 1) + " nie przeszła: " + (w.detail || odp.status) + ". Kliknij jeszcze raz - przeniesione sprawy nie zdublują się.", true);
+    }
+    przeniesione++;
+  }
+  await zakonczPrzeniesienie(przeniesione);
+}
+
+async function zakonczPrzeniesienie(przeniesione){
+  const odp = await api("/api/przeniesienie/zakoncz", {method: "POST"});
+  if (!odp.ok) {
+    const w = await odp.json().catch(() => ({}));
+    return stan($("stan-przeniesienia"), w.detail || "Nie udało się zakończyć przeniesienia.", true);
+  }
+  alert(przeniesione ? "Gotowe: " + przeniesione + " spraw jest w chmurze. Działają teraz także na telefonie.\n\n"
+    + "Folder na komputerze zostaje nietknięty - możesz go zachować jako kopię albo usunąć."
+    : "Gotowe: kancelaria pracuje w chmurze.");
+  location.reload();
+}
+
+$("btn-przenies").onclick = async () => {
+  if (!dawnyFolder.obslugiwany)
+    return stan($("stan-przeniesienia"), "Otwórz notarai w Chrome albo Edge na komputerze, na którym leżą sprawy.", true);
+  $("btn-przenies").disabled = true;
+  try {
+    let folder = await dawnyFolder.zapamietany();
+    if (!folder || !confirm("Przenieść sprawy z folderu „" + folder.name + "”?\n\nAnuluj, żeby wskazać inny folder."))
+      folder = await window.showDirectoryPicker({mode: "read", id: "notarai-sprawy"});
+    await przeniesSprawy(folder);
+  } catch (e) {
+    if (e.name !== "AbortError") stan($("stan-przeniesienia"), "Nie udało się: " + e.message, true);
+  } finally { $("btn-przenies").disabled = false; }
+};
+$("btn-bez-przeniesienia").onclick = () => {
+  if (confirm("Przejść do chmury bez przenoszenia spraw z komputera?\n\nSprawy z folderu nie pojawią się w notarai - "
+    + "zostaną tylko na tym komputerze.")) zakonczPrzeniesienie(0);
 };
 
 /* ---------- nawigacja ---------- */
@@ -2553,7 +2553,7 @@ function pokaz(numer){
   plikiSprawy.hidden = !(sprawa && sprawa.id && (numer === 2 || numer === 3));
   if (!plikiSprawy.hidden) { $("etap" + numer).appendChild(plikiSprawy); rysujPlikiSprawy(); }
   const korSprawy = $("korespondencja-sprawy");
-  korSprawy.hidden = plikiSprawy.hidden || dysk.aktywny;
+  korSprawy.hidden = plikiSprawy.hidden;
   if (!korSprawy.hidden) { $("etap" + numer).appendChild(korSprawy); rysujKorespondencje(); }
   // Na telefonie aparat jest pod reka w pasku u gory, bez przewijania do kart.
   $("btn-aparat-gora").hidden = plikiSprawy.hidden;
@@ -2562,7 +2562,7 @@ function pokaz(numer){
   $("oznaczenie2").textContent = $("oznaczenie3").textContent = sprawa && sprawa.id ? oznaczenieSprawy(sprawa) : "";
   // Adres #sprawa=<id> otwiera te sama sprawe na innym urzadzeniu (telefon).
   // Przed otwarciem pierwszej sprawy adresu nie ruszamy - to on ja wskazuje.
-  if (!dysk.aktywny && sprawa && sprawa.id && !location.hash.startsWith("#polacz=")) {
+  if (sprawa && sprawa.id && !location.hash.startsWith("#polacz=")) {
     const cel = numer === 2 || numer === 3 ? "#sprawa=" + sprawa.id : "";
     if (location.hash !== cel && (cel || location.hash.startsWith("#sprawa=")))
       history.replaceState(null, "", location.pathname + location.search + cel);
@@ -2619,27 +2619,17 @@ async function rysujListeSpraw(){
     pobranePokolenieListy !== pokolenieListy;
   const k = $("lista-spraw");
   try {
-    if (dysk.aktywny) {
-      if (!dysk.folder) {
-        k.innerHTML = '<span class="stan" style="padding:0 12px">Wskaż folder na sprawy.</span>';
-        window.odswiezKokpit?.([], 'Wskaż folder na sprawy w bocznym menu.');
-        return;
-      }
-      const dostep = await dysk.upewnijSieODostepie();
-      if (czyNieaktualne()) return;
-      if (!dostep) {
-        k.innerHTML = '<span class="stan blad" style="padding:0 12px">Brak dostępu do folderu.</span>';
-        window.odswiezKokpit?.([], 'Brak dostępu do folderu spraw. Przyznaj uprawnienia i odśwież listę.');
-        return;
-      }
+    if (przenoszenieWymagane) {
+      k.innerHTML = '<span class="stan" style="padding:0 12px">Najpierw przenieś sprawy z komputera do chmury.</span>';
+      window.odswiezKokpit?.([], 'Najpierw przenieś sprawy z komputera do chmury.');
+      return;
     }
-    const lista = dysk.aktywny ? await dysk.listaSpraw()
-                               : await (await api("/api/sprawy")).json();
+    const lista = await (await api("/api/sprawy")).json();
     if (czyNieaktualne()) return;
     sprawyLista = lista;
     window.odswiezKokpit?.(lista);
     ostatniaSprawa = lista.find(s => s.wzor) || null;
-    if (!dysk.aktywny) pobierzOsoby().catch(() => {});
+    pobierzOsoby().catch(() => {});
     rysujWybrane();
     k.innerHTML = lista.length ? "" : '<span class="stan" style="padding:0 12px">Tu pojawią się Twoje sprawy.</span>';
     lista.forEach(s => {
@@ -2666,12 +2656,8 @@ async function rysujListeSpraw(){
           + "Znikną skany, odczytane dane, rozmowa i projekt. "
           + "Tego nie da się cofnąć.")) return;
         try {
-          if (dysk.aktywny) {
-            await dysk.folder.removeEntry(s.id, {recursive: true});
-          } else {
-            const odp = await api("/api/sprawy/" + s.id + "?potwierdzam=true", {method: "DELETE"});
-            if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
-          }
+          const odp = await api("/api/sprawy/" + s.id + "?potwierdzam=true", {method: "DELETE"});
+          if (!odp.ok) throw new Error("Serwer odpowiedział " + odp.status);
           if (sprawa && sprawa.id === s.id) { location.reload(); return; }
           rysujListeSpraw();
         } catch (e) { alert("Nie udało się usunąć sprawy: " + e.message); }
@@ -2688,23 +2674,9 @@ async function rysujListeSpraw(){
 async function wczytajSprawe(id){
   const pobranePokolenie = pokolenieSesji;
   const pobranePokolenieOtwierania = ++pokolenieOtwierania;
-  let w;
-  if (dysk.aktywny) {
-    try {
-      const katalog = await dysk.katalogSprawy(id);
-      const meta = await dysk.czytajJson(katalog, "sprawa.json") || {};
-      const odczyt = await dysk.czytajJson(katalog, "odczyt.json") || {};
-      w = Object.assign({}, meta, odczyt, {
-        rozmowa: await dysk.czytajJson(katalog, "rozmowa.json") || [],
-        kontekst: await dysk.czytajTekst(katalog, "kontekst.txt"),
-        projekt: await dysk.czytajTekst(katalog, "projekt.txt"),
-      });
-    } catch (e) { return alert("Nie udało się wczytać sprawy z dysku: " + e.message); }
-  } else {
-    const odp = await api("/api/sprawy/" + id);
-    if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
-    w = await odp.json();
-  }
+  const odp = await api("/api/sprawy/" + id);
+  if (!odp.ok) return alert("Nie udało się wczytać sprawy.");
+  const w = await odp.json();
   if (pobranePokolenie !== pokolenieSesji ||
       pobranePokolenieOtwierania !== pokolenieOtwierania) return;
   sprawa = w; poleceniePierwotne = w.polecenie || ""; rozmowa = w.rozmowa || [];
@@ -2714,7 +2686,7 @@ async function wczytajSprawe(id){
   $("polecenie").value = w.polecenie || "";
   rysujCzat(); rysujPola(w);
   najdalej = 2;
-  const wToku = !dysk.aktywny && w.projekt_stan && w.projekt_stan.stan === "w_toku";
+  const wToku = w.projekt_stan && w.projekt_stan.stan === "w_toku";
   if (wToku) { sledzProjekt(id, w.projekt_stan.od); ankietujProjekt(id); }
   else if (!projektyWToku.has(id)) $("btn-generuj").disabled = false;
   else pokazPostepProjektu(id);
@@ -2728,31 +2700,16 @@ async function wczytajSprawe(id){
   rysujListeSpraw();
 }
 /* ---------- pliki sprawy ----------
-   Dokumenty dodane recznie do sprawy. W chmurze przez /api/sprawy/{id}/pliki,
-   przy pracy na dysku w podfolderze zalaczniki/ sprawy u notariusza. */
+   Dokumenty dodane recznie do sprawy (/api/sprawy/{id}/pliki). */
 const MAKS_ZALACZNIK = 25 * 1024 * 1024;
-async function folderZalacznikow(tworz){
-  return (await dysk.katalogSprawy(sprawa.id)).getDirectoryHandle("zalaczniki", {create: tworz});
-}
 async function rysujPlikiSprawy(){
   if (!sprawa || !sprawa.id) return;
   const id = sprawa.id;
   let lista = [];
   try {
-    if (dysk.aktywny) {
-      try {
-        for await (const [nazwa, u] of (await folderZalacznikow(false)).entries()) {
-          if (u.kind !== "file") continue;
-          const p = await u.getFile();
-          lista.push({nazwa, rozmiar: p.size, dodano: new Date(p.lastModified).toISOString()});
-        }
-      } catch { lista = []; }   // folder powstaje przy pierwszym pliku
-      lista.sort((a, b) => a.nazwa.localeCompare(b.nazwa, "pl"));
-    } else {
-      const odp = await api("/api/sprawy/" + id + "/pliki");
-      if (!odp.ok) throw new Error();
-      lista = await odp.json();
-    }
+    const odp = await api("/api/sprawy/" + id + "/pliki");
+    if (!odp.ok) throw new Error();
+    lista = await odp.json();
   } catch { $("pliki-lista").innerHTML = '<span class="stan blad">Nie udało się pobrać listy plików.</span>'; return; }
   if (!sprawa || sprawa.id !== id) return;
   const odcisk = id + JSON.stringify(lista);
@@ -2764,10 +2721,10 @@ let odciskPlikow = "";
 // Zdjecie zrobione telefonem pojawia sie na komputerze w otwartej sprawie
 // bez ponownego klikania - lista plikow odswieza sie sama, gdy karta jest widoczna.
 setInterval(() => {
-  if (document.visibilityState !== "visible" || dysk.aktywny || $("pliki-sprawy").hidden || $("okno-aparat").open) return;
+  if (document.visibilityState !== "visible" || $("pliki-sprawy").hidden || $("okno-aparat").open) return;
   rysujPlikiSprawy();
 }, 15000);
-window.addEventListener("focus", () => { if (!$("pliki-sprawy").hidden && !dysk.aktywny) rysujPlikiSprawy(); });
+window.addEventListener("focus", () => { if (!$("pliki-sprawy").hidden) rysujPlikiSprawy(); });
 function rozmiarPliku(b){
   return b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1024 / 1024).toFixed(1).replace(".", ",") + " MB";
 }
@@ -2788,10 +2745,6 @@ function pokazPliki(lista){
 }
 async function pobierzZalacznik(nazwa){
   try {
-    if (dysk.aktywny) {
-      const plik = await (await (await folderZalacznikow(false)).getFileHandle(nazwa)).getFile();
-      return zapiszPlik(plik, nazwa);
-    }
     const odp = await api("/api/sprawy/" + sprawa.id + "/pliki/" + encodeURIComponent(nazwa));
     if (!odp.ok) throw new Error();
     zapiszPlik(await odp.blob(), nazwa);
@@ -2803,24 +2756,12 @@ async function dodajZalaczniki(pliki){
   if (zaDuze.length) return stan($("stan-pliki"), "Plik większy niż 25 MB: " + zaDuze.map(p => p.name).join(", "), true);
   stan($("stan-pliki"), "Dodaję " + pliki.length + (pliki.length === 1 ? " plik…" : " pliki…"));
   try {
-    if (dysk.aktywny) {
-      const folder = await folderZalacznikow(true);
-      for (const p of pliki) {
-        // Ten sam plik dodany drugi raz nie nadpisuje pierwszego (jak na serwerze).
-        const kropka = p.name.lastIndexOf("."), rdzen = kropka > 0 ? p.name.slice(0, kropka) : p.name, roz = kropka > 0 ? p.name.slice(kropka) : "";
-        let nazwa = p.name;
-        for (let n = 2; await folder.getFileHandle(nazwa).then(() => true, () => false); n++) nazwa = rdzen + " (" + n + ")" + roz;
-        await dysk.zapiszPlik(folder, nazwa, p);
-      }
-      await rysujPlikiSprawy();
-    } else {
-      const dane = new FormData();
-      pliki.forEach(p => dane.append("pliki", p));
-      const odp = await api("/api/sprawy/" + sprawa.id + "/pliki", {method: "POST", body: dane});
-      const w = await odp.json();
-      if (!odp.ok) throw new Error(typeof w.detail === "string" ? w.detail : "");
-      pokazPliki(w);
-    }
+    const dane = new FormData();
+    pliki.forEach(p => dane.append("pliki", p));
+    const odp = await api("/api/sprawy/" + sprawa.id + "/pliki", {method: "POST", body: dane});
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(typeof w.detail === "string" ? w.detail : "");
+    pokazPliki(w);
     stan($("stan-pliki"), pliki.length === 1 ? "Dodano plik." : "Dodano pliki: " + pliki.length + ".");
     return true;
   } catch (e) { stan($("stan-pliki"), "Nie udało się dodać plików" + (e.message ? ": " + e.message : "."), true); return false; }
@@ -2828,14 +2769,9 @@ async function dodajZalaczniki(pliki){
 async function usunZalacznik(nazwa){
   if (!confirm("Usunąć plik „" + nazwa + "” z tej sprawy?\n\nTego nie da się cofnąć.")) return;
   try {
-    if (dysk.aktywny) {
-      await (await folderZalacznikow(false)).removeEntry(nazwa);
-      await rysujPlikiSprawy();
-    } else {
-      const odp = await api("/api/sprawy/" + sprawa.id + "/pliki/" + encodeURIComponent(nazwa), {method: "DELETE"});
-      if (!odp.ok) throw new Error();
-      pokazPliki(await odp.json());
-    }
+    const odp = await api("/api/sprawy/" + sprawa.id + "/pliki/" + encodeURIComponent(nazwa), {method: "DELETE"});
+    if (!odp.ok) throw new Error();
+    pokazPliki(await odp.json());
     stan($("stan-pliki"), "Usunięto.");
   } catch { stan($("stan-pliki"), "Nie udało się usunąć pliku.", true); }
 }
@@ -2970,18 +2906,9 @@ document.querySelector("aside").addEventListener("click", e => {
   if (e.target.closest(".krok, .sprawa-el, .nowa, .pomocnik-el, .wyloguj")) menu(false);
 });
 
-/* Nazwa i sygnatura: na dysku poprawiamy sprawa.json u notariusza. */
+/* Nazwa i sygnatura sprawy. */
 async function zapiszMeta(pole, wartosc){
   if (!sprawa) return;
-  if (dysk.aktywny) {
-    const katalog = await dysk.katalogSprawy(sprawa.id);
-    const meta = await dysk.czytajJson(katalog, "sprawa.json") || {};
-    meta[pole] = wartosc;
-    await dysk.zapiszJson(katalog, "sprawa.json", meta);
-    sprawa[pole] = wartosc;
-    rysujListeSpraw();
-    return;
-  }
   const odp = await api("/api/sprawy/" + sprawa.id + "/" + pole, {
     method:"PUT", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({[pole]: wartosc})});
@@ -2993,39 +2920,15 @@ async function zapiszMeta(pole, wartosc){
 }
 $("nazwa2").onchange = () => zapiszMeta("nazwa", $("nazwa2").value);
 $("sygn2").onchange = () => zapiszMeta("sygnatura", $("sygn2").value);
-/* ---------- tryb pracy: chmura albo dysk notariusza ---------- */
-function odswiezOpisFolderu(){
-  const opis = $("opis-folder"), btn = $("btn-folder");
-  if (!dysk.obslugiwany) {
-    opis.innerHTML = "Ta przeglądarka nie potrafi zapisywać spraw w folderze. "
-      + "Użyj Chrome albo Edge.";
-    btn.hidden = true;
-    return;
-  }
-  opis.innerHTML = dysk.folder
-    ? "Sprawy zapisują się w folderze <b>" + escape(dysk.folder.name) + "</b> na tym komputerze."
-    : "Sprawy mają zostawać na tym komputerze. Wskaż folder, w którym mam je zapisywać.";
-  btn.textContent = dysk.folder ? "Zmień folder" : "Wskaż folder na sprawy";
-  btn.hidden = false;
-}
-
-$("btn-folder").onclick = async () => {
-  try {
-    await dysk.wybierz();
-    odswiezOpisFolderu();
-    rysujListeSpraw();
-  } catch (e) {
-    if (e.name !== "AbortError") alert("Nie udało się otworzyć folderu: " + e.message);
-  }
-};
-
+/* ---------- start pracy ---------- */
 async function uruchomTrybPracy(){
   const rozpoczecieSesji = pokolenieSesji;
   try {
     const odp = await api("/api/ustawienia");
     if (odp.ok) {
       const ustawienia = await odp.json();
-      dysk.aktywny = ustawienia.przechowywanie === "u-klienta";
+      // Kancelaria z dawnymi sprawami na komputerze najpierw przenosi je do chmury.
+      przenoszenieWymagane = ustawienia.przechowywanie === "u-klienta";
       // W chmurze serwer nie ma przegladarki, wiec nie pokazujemy przyciskow,
       // ktore i tak skonczylyby sie bledem.
       sterowaniePrzegladarka = !!ustawienia.sterowanie_przegladarka;
@@ -3055,22 +2958,7 @@ async function uruchomTrybPracy(){
     rysujListeSpraw();
     return;
   }
-  if (dysk.aktywny) {
-    $("pasek-folder").hidden = false;
-    if (dysk.obslugiwany) {
-      const folder = await dysk.odtworz();
-      if (rozpoczecieSesji !== pokolenieSesji) return;
-      dysk.folder = folder;
-    }
-    odswiezOpisFolderu();
-    // Sprawdzenia w rejestrach zapisuja slad w sprawie po stronie serwera,
-    // wiec przy pracy na dysku nie sa jeszcze dostepne. Lepiej ukryc niz
-    // pokazac przycisk, ktory konczy sie bledem.
-    const krokSprawdzen = document.querySelector('.krok[data-etap="4"]');
-    if (krokSprawdzen) krokSprawdzen.hidden = true;
-    // Kalendarz i telefony leza na serwerze - przy plikach u siebie ich nie ma.
-    document.querySelectorAll('.krok[data-etap="6"], .krok[data-etap="7"], .krok[data-etap="8"], .krok[data-etap="9"], .krok[data-etap="10"], .krok[data-etap="11"], .krok[data-etap="12"]').forEach(k => k.hidden = true);
-  }
+  if (przenoszenieWymagane && !$("okno-przeniesienie").open) $("okno-przeniesienie").showModal();
   await sprawdzDokumenty();
   if (rozpoczecieSesji !== pokolenieSesji) return;
   if (dokumenty && !dokumenty.umowa_zawarta) {
@@ -3085,10 +2973,8 @@ async function uruchomTrybPracy(){
   }
   wczytajZespol();
   wczytajAbonament().then(obsluzPowrotZPlatnosci);
-  if (!dysk.aktywny) {
-    await odswiezPomocnika();
-    obsluzKodZAdresu();
-  }
+  await odswiezPomocnika();
+  obsluzKodZAdresu();
 }
 
 /* ---------- zespol kancelarii ---------- */
@@ -3822,7 +3708,7 @@ async function odswiezPomocnika(){
     const odp = await api("/api/urzadzenia");
     if (odp.ok) {
       const dane = await odp.json();
-      pomocnikDostepny = !!dane.dostepne && !dysk.aktywny;
+      pomocnikDostepny = !!dane.dostepne;
       const byl = pomocnikPolaczony;
       pomocnikPolaczony = !!dane.polaczony;
       ostatniStanPomocnika = dane;
@@ -3891,7 +3777,7 @@ window.addEventListener("hashchange", () => { if (token && $("brama").hidden) { 
 /* #sprawa=<id>: ta sama sprawa na telefonie i na komputerze (np. z kalendarza). */
 function otworzSpraweZAdresu(){
   const traf = location.hash.match(/^#sprawa=([A-Za-z0-9]+)$/);
-  if (!traf || dysk.aktywny || (sprawa && sprawa.id === traf[1])) return;
+  if (!traf || (sprawa && sprawa.id === traf[1])) return;
   wczytajSprawe(traf[1]);
 }
 
@@ -4111,7 +3997,7 @@ function rysujWybrane(){
     k.appendChild(d);
   };
   if (wybranyWzor) {
-    wiersz("wzór", wybranyWzor.zeSprawy || wybranyWzor.zDysku
+    wiersz("wzór", wybranyWzor.zeSprawy
       ? "ten sam co w sprawie „" + wybranyWzor.opis + "”" : wybranyWzor.name,
       () => { wybranyWzor = null; rysujWybrane(); });
   } else if (wybraneSkany.length || ostatniaSprawa) {
@@ -4132,16 +4018,7 @@ function rysujWybrane(){
 async function uzyjOstatniegoWzoru(){
   const s = ostatniaSprawa;
   const opis = s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6);
-  if (dysk.aktywny) {
-    // Plik lezy w folderze tamtej sprawy - bierzemy go stamtad.
-    try {
-      const katalog = await dysk.katalogSprawy(s.id);
-      const plik = await (await katalog.getFileHandle(s.wzor)).getFile();
-      wybranyWzor = Object.assign(plik, {zDysku: true, opis});
-    } catch (e) { return stan($("stan1"), "Nie znalazłem wzoru w folderze tamtej sprawy.", true); }
-  } else {
-    wybranyWzor = {zeSprawy: s.id, opis};
-  }
+  wybranyWzor = {zeSprawy: s.id, opis};
   rysujWybrane();
 }
 
@@ -4177,31 +4054,11 @@ window.addEventListener("drop", e => {
   dodajPliki([...e.dataTransfer.files]);
 });
 
-/* Zapisuje nowa sprawe w folderze notariusza - te same pliki, co w chmurze. */
-async function zapiszSpraweNaDysku(wynik, wzor, skany){
-  const katalog = await dysk.katalogSprawy(wynik.id, true);
-  await dysk.zapiszPlik(katalog, wynik.wzor, wzor);
-  const skanyKatalog = await katalog.getDirectoryHandle("skany", {create:true});
-  for (const s of skany) await dysk.zapiszPlik(skanyKatalog, s.name, s);
-  await dysk.zapiszJson(katalog, "sprawa.json", {
-    id: wynik.id, nazwa: wynik.nazwa, sygnatura: wynik.sygnatura,
-    utworzono: wynik.utworzono, polecenie: wynik.polecenie,
-    wzor: wynik.wzor, skany: wynik.skany, stron: wynik.stron,
-    pola_wzoru: wynik.pola_wzoru, legenda: wynik.legenda, warianty: wynik.warianty,
-  });
-  await dysk.zapiszJson(katalog, "odczyt.json", {
-    pola: wynik.pola, braki: wynik.braki, rozbieznosci: wynik.rozbieznosci,
-  });
-  await dysk.zapiszJson(katalog, "rozmowa.json", wynik.rozmowa || []);
-  await dysk.zapiszPlik(katalog, "kontekst.txt", wynik.kontekst || "");
-}
-
 /* ---------- dokladnosc odczytu ----------
    Przelacznik zaczyna od domyslnej dokladnosci kancelarii (ustawienia na
    serwerze), wiec jest taka sama na kazdym komputerze i nie trzeba o niej
    pamietac. Zmiana przy sprawie dotyczy tej sprawy; "Ustaw jako domyslna"
-   zapisuje ja w ustawieniach. Gdy kancelaria trzyma pliki u siebie, serwer
-   nic nie zapisuje - domyslna pamieta ta przegladarka. */
+   zapisuje ja w ustawieniach. */
 const OPISY_DOKL = {
   auto: "Dobieram sama: dokumenty elektroniczne (PDF z tekstem) czytam szybko, skany i zdjęcia z wysoką dokładnością. Maksymalną wybierz ręcznie do trudnych spraw.",
   max: "Model najdłużej analizuje każdą stronę. Do dużych i trudnych spraw: tabele, kilka ksiąg, wyblakły maszynopis. Najwolniej i najdrożej.",
@@ -4209,7 +4066,6 @@ const OPISY_DOKL = {
   medium: "Najszybciej i najtaniej. Do prostych spraw z kilkoma wyraźnymi dokumentami. Sprawdzaj uważniej numery i tabele.",
 };
 const NAZWY_DOKL = {auto: "automatyczna", max: "maksymalna", high: "wysoka", medium: "szybka"};
-const KLUCZ_USTAWIEN_LOKALNYCH = "notarai-ustawienia";
 let ustawieniaOgolne = {dokladnosc: "auto", nazwa_pliku: "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}", braki: "opis", moge_zmieniac: true};
 function wybranaDokladnosc() {
   return (document.querySelector('input[name="wysilek"]:checked') || {}).value || "auto";
@@ -4228,11 +4084,6 @@ function opiszDokladnosc() {
 }
 function zastosujUstawieniaOgolne(ogolne) {
   if (ogolne) ustawieniaOgolne = Object.assign({}, ustawieniaOgolne, ogolne);
-  if (dysk.aktywny) {
-    // Serwer niczego nie zapisuje dla tej kancelarii - ustawienia sa w przegladarce.
-    try { Object.assign(ustawieniaOgolne, JSON.parse(localStorage.getItem(KLUCZ_USTAWIEN_LOKALNYCH) || "{}")); } catch (e) {}
-    ustawieniaOgolne.moge_zmieniac = true;
-  }
   ustawDokladnosc(ustawieniaOgolne.dokladnosc);
   zastosujProfilInterfejsu();
 }
@@ -4326,7 +4177,6 @@ function rysujUstawienia() {
     };
     pola.appendChild(b);
   }
-  $("ust-chmura").hidden = dysk.aktywny;
   $("ust-wylogowanie").value = u.wylogowanie || "30_dni";
   $("ust-bezczynnosc").value = u.bezczynnosc || "wylaczone";
   $("ust-przechowywanie").value = u.przechowywanie_spraw || "bez_limitu";
@@ -4334,9 +4184,7 @@ function rysujUstawienia() {
   const tylkoOdczyt = u.moge_zmieniac === false;
   document.querySelectorAll('#okno-ustawienia input, #okno-ustawienia select').forEach(i => i.disabled = tylkoOdczyt);
   opiszBezpieczenstwo();
-  $("ustawienia-opis").textContent = dysk.aktywny
-    ? "Ta kancelaria trzyma pliki u siebie, więc ustawienia pamięta ta przeglądarka."
-    : tylkoOdczyt ? "Ustawienia zmienia notariusz - właściciel kancelarii. Możesz je przeglądać."
+  $("ustawienia-opis").textContent = tylkoOdczyt ? "Ustawienia zmienia notariusz - właściciel kancelarii. Możesz je przeglądać."
     : "Obowiązują w całej kancelarii, na każdym komputerze.";
   rysujPodgladNazwy();
 }
@@ -4356,22 +4204,16 @@ function opiszBezpieczenstwo() {
 }
 ["ust-wylogowanie", "ust-bezczynnosc", "ust-przechowywanie", "ust-usuwanie"].forEach(id => $(id).onchange = opiszBezpieczenstwo);
 async function zapiszUstawieniaOgolne(zmiany) {
-  if (dysk.aktywny) {
-    Object.assign(ustawieniaOgolne, zmiany);
-    try { localStorage.setItem(KLUCZ_USTAWIEN_LOKALNYCH, JSON.stringify({dokladnosc: ustawieniaOgolne.dokladnosc, nazwa_pliku: ustawieniaOgolne.nazwa_pliku, braki: ustawieniaOgolne.braki})); } catch (e) {}
-  } else {
-    const odp = await api("/api/ustawienia/ogolne", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(zmiany)});
-    const w = await odp.json().catch(() => ({}));
-    if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać ustawień (" + odp.status + ").");
-    Object.assign(ustawieniaOgolne, w);
-  }
+  const odp = await api("/api/ustawienia/ogolne", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(zmiany)});
+  const w = await odp.json().catch(() => ({}));
+  if (!odp.ok) throw new Error(w.detail || "Nie udało się zapisać ustawień (" + odp.status + ").");
+  Object.assign(ustawieniaOgolne, w);
   if (zmiany.dokladnosc) ustawDokladnosc(zmiany.dokladnosc); else opiszDokladnosc();
 }
 $("btn-ustawienia").onclick = async () => {
   stan($("stan-ustawienia"), "");
   rysujUstawienia();
   $("okno-ustawienia").showModal();
-  if (dysk.aktywny) return;
   try {
     const odp = await api("/api/ustawienia/ogolne");
     if (!odp.ok) return;
@@ -4426,7 +4268,6 @@ function opiszCzas(min) {
   return "jeszcze ok. " + h + " godz." + (m ? " " + m + " min" : "");
 }
 async function odswiezProsby() {
-  if (dysk.aktywny) return;
   try {
     const odp = await api("/api/asystent-kancelarii/prosby");
     if (!odp.ok) return;
@@ -4483,7 +4324,6 @@ $("as-form").onsubmit = async e => {
   e.preventDefault();
   const tekst = $("as-tekst").value.trim();
   if (!tekst || $("as-wyslij").disabled) return;
-  if (dysk.aktywny) { stan($("stan-asystent"), "Ta kancelaria trzyma pliki u siebie - ustawienia zmienisz w oknie Ustawienia kancelarii.", true); return; }
   dymekAsystenta("ja", tekst);
   $("as-tekst").value = "";
   $("as-wyslij").disabled = true;
@@ -4510,10 +4350,9 @@ $("ust-zapisz").onclick = async () => {
   const dokladnosc = (document.querySelector('input[name="ust-wysilek"]:checked') || {}).value || ustawieniaOgolne.dokladnosc;
   const nazwa_pliku = $("ust-nazwa-pliku").value.trim();
   const braki = (document.querySelector('input[name="ust-braki"]:checked') || {}).value || ustawieniaOgolne.braki || "opis";
-  const zmiany = {dokladnosc, nazwa_pliku, braki};
-  if (!dysk.aktywny) Object.assign(zmiany, {
+  const zmiany = {dokladnosc, nazwa_pliku, braki,
     wylogowanie: $("ust-wylogowanie").value, bezczynnosc: $("ust-bezczynnosc").value,
-    przechowywanie_spraw: $("ust-przechowywanie").value, usuwanie_spraw: $("ust-usuwanie").value});
+    przechowywanie_spraw: $("ust-przechowywanie").value, usuwanie_spraw: $("ust-usuwanie").value};
   if (zmiany.usuwanie_spraw === "automatycznie" && zmiany.przechowywanie_spraw !== "bez_limitu"
       && (ustawieniaOgolne.usuwanie_spraw !== "automatycznie" || ustawieniaOgolne.przechowywanie_spraw !== zmiany.przechowywanie_spraw)
       && !confirm("Włączyć automatyczne usuwanie spraw?\n\nSprawy bez zmian dłużej niż wybrany czas znikną z serwera bezpowrotnie "
@@ -4522,7 +4361,7 @@ $("ust-zapisz").onclick = async () => {
   stan($("stan-ustawienia"), "Zapisuję…", false, true);
   try {
     await zapiszUstawieniaOgolne(zmiany);
-    if (!dysk.aktywny) rysujListeSpraw();
+    rysujListeSpraw();
     rysujUstawienia();
     stan($("stan-ustawienia"), "Zapisane. Przykład nazwy: " + podgladNazwy(ustawieniaOgolne.nazwa_pliku, PRZYKLAD_NAZWY).nazwa);
   } catch (e) {
@@ -4574,7 +4413,6 @@ $("btn-odczytaj").onclick = async () => {
   const wzor = wybranyWzor, skany = wybraneSkany;
   if (!wzor)         return stan($("stan1"), "Brakuje wzoru aktu: dodaj plik .docx albo .txt.", true);
   if (!skany.length) return stan($("stan1"), "Dodaj co najmniej jeden skan.", true);
-  if (dysk.aktywny && !dysk.folder) return stan($("stan1"), "Najpierw wskaż folder na sprawy (po lewej).", true);
   const dane = new FormData();
   if (wzor.zeSprawy) dane.append("wzor_ze_sprawy", wzor.zeSprawy);
   else dane.append("wzor", wzor);
@@ -4601,20 +4439,10 @@ $("btn-odczytaj").onclick = async () => {
   tik();
   const zegar = setInterval(tik, 1000);
   try {
-    const odp = await api(dysk.aktywny ? "/api/odczyt" : "/api/sprawy",
+    const odp = await api("/api/sprawy",
       {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
     const wynik = await czytajStrumien(odp, naPostep);
     if (sesjaZadania !== pokolenieSesji || numerSprawy !== pokolenieOtwierania) return;
-    if (dysk.aktywny) {
-      // Serwer nic nie zapisal - sprawe zakladamy u notariusza na dysku.
-      wynik.id = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16)).slice(0, 12);
-      wynik.sygnatura = "";
-      wynik.polecenie = poleceniePierwotne;
-      wynik.utworzono = new Date().toISOString().slice(0, 19);
-      wynik.wzor = "wzor" + wzor.name.slice(wzor.name.lastIndexOf("."));
-      wynik.skany = [...skany].map(s => s.name);
-      await zapiszSpraweNaDysku(wynik, wzor, skany);
-    }
     if (sesjaZadania !== pokolenieSesji || numerSprawy !== pokolenieOtwierania) return;
     sprawa = wynik;
     rozmowa = wynik.rozmowa || [];
@@ -4745,28 +4573,12 @@ async function wyslijWiadomosc(nr){
   rysujCzat(); ta.value = "";
   stan(st, "Asystent odpowiada…", false, true);
   try {
-    let w;
-    if (dysk.aktywny) {
-      // Historie trzyma przegladarka i dysk notariusza, nie serwer.
-      const historia = rozmowa.slice(0, -2);
-      const odp = await api("/api/rozmowa", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({kontekst: sprawa.kontekst || "", historia, tresc})
-      });
-      w = await odp.json();
-      if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
-      rozmowa[rozmowa.length - 1] = {rola:"asystent", tresc:w.odpowiedz,
-                                     czas:new Date().toISOString().slice(0,19)};
-      const katalog = await dysk.katalogSprawy(sprawa.id);
-      await dysk.zapiszJson(katalog, "rozmowa.json", rozmowa);
-    } else {
-      const odp = await api("/api/sprawy/" + sprawa.id + "/rozmowa", {
-        method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
-      });
-      w = await odp.json();
-      if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
-      rozmowa = w.rozmowa;
-    }
+    const odp = await api("/api/sprawy/" + sprawa.id + "/rozmowa", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({tresc})
+    });
+    const w = await odp.json();
+    if (!odp.ok) throw new Error(w.detail || "Błąd serwera");
+    rozmowa = w.rozmowa;
     rysujCzat(); stan(st, "");
     return true;
   } catch (e) {
@@ -4824,80 +4636,35 @@ function zbierzPola(){
 
 $("btn-generuj").onclick = async () => {
   if (!sprawa?.id) return stan($("stan2"), "Najpierw wybierz sprawę.", true);
-  const sesjaZadania = pokolenieSesji, edytowanaSprawa = sprawa;
-  const numerSprawy = pokolenieOtwierania;
+  const sesjaZadania = pokolenieSesji;
   zbierzPola();
   $("btn-generuj").disabled = true;
   stan($("stan2"), "Sporządzam projekt…", false, true);
   try {
     let wynik;
-    if (dysk.aktywny) {
-      const katalog = await dysk.katalogSprawy(sprawa.id);
-      const wzorPlik = await (await katalog.getFileHandle(sprawa.wzor)).getFile();
-      const dane = new FormData();
-      dane.append("wzor", wzorPlik);
-      dane.append("pola", JSON.stringify(sprawa.pola));
-      dane.append("polecenie", poleceniePierwotne);
-      dane.append("rozmowa", JSON.stringify(rozmowa));
-      dane.append("braki", ustawieniaOgolne.braki || "opis");
-      const odp = await api("/api/projekt",
-        {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
-      wynik = await czytajStrumien(odp);
-      if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
-          numerSprawy !== pokolenieOtwierania) return;
-      // Projekt ląduje u notariusza: .docx do pracy i .txt do podglądu.
-      const bajty = Uint8Array.from(atob(wynik.docx), z => z.charCodeAt(0));
-      await dysk.zapiszPlik(katalog, "projekt.docx", bajty);
-      await dysk.zapiszPlik(katalog, "projekt.txt", wynik.tekst);
-      if (wynik.nazwa_pliku) {
-        edytowanaSprawa.nazwa_pliku = wynik.nazwa_pliku;
-        const meta = await dysk.czytajJson(katalog, "sprawa.json");
-        if (meta) await dysk.zapiszJson(katalog, "sprawa.json", Object.assign(meta, {nazwa_pliku: wynik.nazwa_pliku}));
-      }
-      await dysk.zapiszJson(katalog, "odczyt.json", {
-        pola: edytowanaSprawa.pola, braki: edytowanaSprawa.braki || [],
-        rozbieznosci: edytowanaSprawa.rozbieznosci || [],
+    // Projekt pisze sie do kilkunastu minut. Stan zyje przy sprawie na
+    // serwerze: mozna pracowac w innych widokach, odswiezyc strone albo
+    // zajrzec z telefonu - wynik zapisze sie w sprawie tak czy inaczej.
+    const id = sprawa.id;
+    sledzProjekt(id);
+    let odp;
+    try {
+      odp = await api("/api/sprawy/" + id + "/projekt", {
+        method:"POST", headers:{"Content-Type":"application/json", "Accept": "application/x-ndjson"},
+        body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
       });
-    } else {
-      // Projekt pisze sie do kilkunastu minut. Stan zyje przy sprawie na
-      // serwerze: mozna pracowac w innych widokach, odswiezyc strone albo
-      // zajrzec z telefonu - wynik zapisze sie w sprawie tak czy inaczej.
-      const id = sprawa.id;
-      sledzProjekt(id);
-      let odp;
-      try {
-        odp = await api("/api/sprawy/" + id + "/projekt", {
-          method:"POST", headers:{"Content-Type":"application/json", "Accept": "application/x-ndjson"},
-          body: JSON.stringify({pola: sprawa.pola, polecenie: poleceniePierwotne})
-        });
-      } catch { ankietujProjekt(id); return; }
-      if (odp.status === 409) { ankietujProjekt(id); return; }   // juz sie pisze, np. z drugiego urzadzenia
-      try {
-        wynik = await czytajStrumien(odp);
-      } catch (e) {
-        if (e.przerwane) { ankietujProjekt(id); return; }        // serwer pisze dalej
-        koniecSledzenia(id);
-        throw e;
-      }
+    } catch { ankietujProjekt(id); return; }
+    if (odp.status === 409) { ankietujProjekt(id); return; }   // juz sie pisze, np. z drugiego urzadzenia
+    try {
+      wynik = await czytajStrumien(odp);
+    } catch (e) {
+      if (e.przerwane) { ankietujProjekt(id); return; }        // serwer pisze dalej
       koniecSledzenia(id);
-      if (sesjaZadania !== pokolenieSesji) return;
-      await projektGotowy(id, wynik);
-      return;
+      throw e;
     }
-    if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa ||
-        numerSprawy !== pokolenieOtwierania) return;
-    sprawa.projekt = wynik.tekst;
-    pokazProjekt({projekt: wynik.tekst, brakujace: wynik.brakujace, do_wyboru: wynik.do_wyboru,
-                  zgodnosc: wynik.zgodnosc});
-    stan($("stan3"), ""); stan($("stan2"), "");
-    pokaz(3); rysujListeSpraw();
-    if (!dysk.aktywny) {
-      api("/api/sprawy/" + edytowanaSprawa.id).then(r => r.json()).then(w => {
-        if (sesjaZadania !== pokolenieSesji || edytowanaSprawa !== sprawa) return;
-        sprawa.nazwa = w.nazwa; sprawa.nazwa_pliku = w.nazwa_pliku;
-        $("nazwa2").value = w.nazwa || "";
-      }).catch(() => {});
-    }
+    koniecSledzenia(id);
+    if (sesjaZadania !== pokolenieSesji) return;
+    await projektGotowy(id, wynik);
   } catch (e) {
     stan($("stan2"), e.message, true);
   } finally {
@@ -5017,16 +4784,6 @@ function nazwaPlikuZOdpowiedzi(odp){
   return zwykla ? zwykla[1].trim() : "";
 }
 $("btn-pobierz").onclick = async () => {
-  if (dysk.aktywny) {
-    // Plik jest juz u notariusza - otwieramy go z dysku zamiast pobierac z serwera.
-    try {
-      const katalog = await dysk.katalogSprawy(sprawa.id);
-      zapiszPlik(await (await katalog.getFileHandle("projekt.docx")).getFile(), nazwaPlikuProjektu());
-    } catch (e) {
-      stan($("stan3"), "Nie znalazłem projektu w folderze sprawy: " + e.message, true);
-    }
-    return;
-  }
   // Zwykle przejscie pod adres nie niesie tokenu, wiec serwer odpowiadal 401
   // i przegladarka opuszczala aplikacje. Plik musi przyjsc przez api().
   stan($("stan3"), "Pobieram projekt…", false, true);
@@ -6375,7 +6132,6 @@ function opcjeRol(wybrana, pusta){
 }
 function ustawLicznikPoczty(n){ $("licznik-poczty").hidden = !n; $("licznik-poczty").textContent = n || ""; }
 async function odswiezLicznikPoczty(){
-  if (dysk.aktywny) return;
   try {
     const odp = await api("/api/korespondencja?odswiez=1");
     if (odp.ok) { skrzynka = await odp.json(); ustawLicznikPoczty(skrzynka.wiadomosci.length);
@@ -6621,7 +6377,7 @@ async function wyciagnijUstalenia(idSprawy, wid, el){
   } catch (e) { stan(el, e.message, true); }
 }
 async function rysujKorespondencje(){
-  if (!sprawa || !sprawa.id || dysk.aktywny) return;
+  if (!sprawa || !sprawa.id) return;
   const id = sprawa.id;
   try {
     const odp = await api("/api/sprawy/" + id + "/korespondencja");

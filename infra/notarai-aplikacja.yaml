@@ -584,6 +584,9 @@ Resources:
             # usuwa sprawy po terminie u kancelarii z usuwaniem automatycznym.
             - Name: PIECZAPP_RETENCJA
               Value: "true"
+            # Sprawy szyfrowane kluczem KMS notarai (stos notarai-s3, KluczSpraw).
+            - Name: PIECZAPP_KMS_KEY_ID
+              Value: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/notarai-sprawy"
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
             # Stenogramy aktow (stenogramy.py): na koncie dziala polityka Organizations

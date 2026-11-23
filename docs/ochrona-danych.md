@@ -6,18 +6,25 @@ ten plik trzeba poprawić razem z nią.
 
 ## Gdzie są dane
 
-Kancelaria wybiera przy zakładaniu konta jedną z dwóch możliwości.
+Wszystkie kancelarie trzymają sprawy w chmurze notarai: w S3 we Frankfurcie,
+szyfrowane i wersjonowane. Odzyskanie po przypadkowym nadpisaniu jest możliwe.
+Sprawy otwiera się z każdego komputera kancelarii i z telefonu.
 
-**Pliki w chmurze** (domyślnie): sprawy leżą w S3 we Frankfurcie, szyfrowane
-i wersjonowane. Odzyskanie po przypadkowym nadpisaniu jest możliwe.
+Do 23.11.2026 można było wybrać „Pliki na komputerze kancelarii”. Tę możliwość
+wycofaliśmy, bo nie działała na telefonie ani na drugim komputerze. Kancelaria,
+która z niej korzystała, po zalogowaniu przenosi sprawy z folderu do chmury
+jednym przyciskiem; folder na jej komputerze zostaje nietknięty.
 
-**Pliki na komputerze kancelarii**: sprawy zapisują się w folderze na komputerze
-notariusza. Serwer nie przechowuje wtedy niczego. Skany i tak przechodzą przez
-model, żeby dało się je odczytać, ale po przetworzeniu nie zostaje po nich
-żaden plik. Za kopie zapasowe odpowiada wtedy kancelaria; wymaga to
-przeglądarki Chrome albo Edge.
+**Szyfrowanie (zmiana z 23.11.2026, obowiązuje od wdrożenia stosu
+`notarai-s3` - pozycja NA-17 w `docs/czeka-na-dostep.md`; do tego czasu pliki
+szyfruje klucz zarządzany przez S3):** sprawy szyfruje własny klucz notarai
+w AWS KMS (Frankfurt, wymiana co rok). Odszyfrować go może wyłącznie
+aplikacja i kopia zapasowa - także administrator konta AWS nie przeczyta
+spraw. Każde użycie klucza zapisuje się w CloudTrail. Wyłączenie klucza
+odcina dostęp do spraw natychmiast.
 
-Poniższa tabela opisuje wariant chmurowy.
+Uczciwie: to nie jest szyfrowanie, przy którym klucz ma tylko notariusz.
+Takie wykluczałoby odczyt skanów przez model, a na nim opiera się aplikacja.
 
 | Co | Gdzie | Zabezpieczenie |
 |---|---|---|

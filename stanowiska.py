@@ -47,14 +47,13 @@ _ZAPIS = ("POST", "PUT", "PATCH", "DELETE")
 # (metody, wzorzec sciezki, uprawnienie). Pierwsze dopasowanie wygrywa.
 _REGULY = [
     (("POST",), r"/api/sprawy", "sprawy_ai"),
-    (("POST",), r"/api/odczyt", "sprawy_ai"),
-    (("POST",), r"/api/rozmowa", "sprawy_ai"),
+    (("POST",), r"/api/przeniesienie/sprawy/[A-Za-z0-9]+", "sprawy_ai"),
+    (("POST",), r"/api/przeniesienie/zakoncz", "kancelaria"),
     (("POST",), _SPRAWA + r"/rozmowa", "sprawy_ai"),
     (("POST",), _SPRAWA + r"/korespondencja/[A-Za-z0-9]+/ustalenia", "sprawy_ai"),
     (("POST",), r"/api/transkrypcja", "sprawy_ai"),
     (("POST",), r"/api/poswiadczenia(/.*)?", "sprawy_ai"),
     (("POST",), _SPRAWA + r"/projekt", "projekt"),
-    (("POST",), r"/api/projekt", "projekt"),
     (("POST",), _SPRAWA + r"/(krz|ekw|aml|crbr|klikamy|sprawdzenia(/.*)?|formularze/.*)", "rejestry"),
     (("POST",), r"/api/formularze/.*", "rejestry"),
     (("DELETE",), _SPRAWA + r"/pliki/.+", "usun_plik"),

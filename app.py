@@ -4,7 +4,6 @@ Uruchomienie:  python app.py
 Adres:         http://127.0.0.1:8000
 """
 import asyncio
-import base64
 import contextvars
 import json
 import logging
@@ -12,7 +11,6 @@ import os
 import queue
 import re
 import shutil
-import tempfile
 import threading
 import uuid
 from datetime import datetime
@@ -56,9 +54,11 @@ import poswiadczenia
 import stenogramy
 import prompty
 import rejestracja
+import przeniesienie
 import rejestry
 import retencja_spraw
 import rezerwacje_hurtowe
+import szyfrowanie
 import tokenomia
 import rezerwacje_klientow
 import teczka
@@ -120,6 +120,8 @@ app.include_router(meta_leady.router)
 app.include_router(rezerwacje_klientow.router_admina)
 rezerwacje_klientow.uruchom_przypomnienia()
 app.include_router(retencja_spraw.router_admina)
+app.include_router(przeniesienie.router)
+app.include_router(szyfrowanie.router_admina)
 retencja_spraw.uruchom_w_tle()
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
@@ -391,8 +393,8 @@ async def nowa_sprawa(
     """Wgranie wzoru i skanow, odczyt danych. Sprawa zostaje w magazynie."""
     if magazyn.u_klienta():
         raise HTTPException(409, (
-            "Ta kancelaria trzyma pliki u siebie. Uzyj /api/odczyt, ktore niczego "
-            "nie zapisuje."
+            "Sprawy tej kancelarii leza jeszcze na komputerze. Najpierw przenies je "
+            "do chmury (przycisk w bocznym menu)."
         ))
     wzor_zrodlowy = None
     if wzor is None:
@@ -519,125 +521,6 @@ def _ogolne_z_gotowymi_prosbami() -> dict:
     return ustawienia_kancelarii.wczytaj()
 
 
-# --- praca bez zapisu: pliki zostaja u kancelarii --------------------------
-# Te punkty nie tworza sprawy i nic nie zapisuja. Pliki przychodza z dysku
-# notariusza przy kazdym zadaniu, a wyniki wracaja do przegladarki, ktora
-# zapisuje je z powrotem u niego. Serwer pracuje w katalogu tymczasowym,
-# kasowanym zawsze, takze po bledzie.
-
-
-@app.post("/api/odczyt")
-async def odczyt_bez_zapisu(
-    request: Request,
-    wzor: UploadFile = File(...),
-    skany: list[UploadFile] = File(...),
-    polecenie: str = Form(""),
-    wysilek: str = Form(""),
-):
-    """Odczyt skanow bez tworzenia sprawy. Nic nie zostaje na serwerze.
-
-    Katalog tymczasowy zyje tyle, co sam odczyt (takze odczyt w tle przy
-    odpowiedzi strumieniowej) i jest kasowany zawsze, takze po bledzie.
-    """
-    katalog = Path(tempfile.mkdtemp(prefix="notarai-"))
-    try:
-        (katalog / "skany").mkdir()
-        sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
-        _zapisz(wzor, sciezka_wzoru)
-        sciezki_skanow = []
-        for skan in skany:
-            cel = katalog / "skany" / Path(skan.filename).name
-            _zapisz(skan, cel)
-            sciezki_skanow.append(cel)
-    except BaseException:
-        shutil.rmtree(katalog, ignore_errors=True)
-        raise
-
-    def praca(postep) -> dict:
-        try:
-            try:
-                wynik = _przetworz(sciezka_wzoru, sciezki_skanow, polecenie,
-                                   "odczyt bez zapisu", postep, wysilek)
-            except ValueError as blad:
-                log.warning("odczyt bez zapisu: odrzucony (%s)", dziennik.opis_bledu(blad))
-                raise HTTPException(400, str(blad))
-        finally:
-            shutil.rmtree(katalog, ignore_errors=True)
-
-        analiza = wynik["analiza"]
-        return {
-            "nazwa": nazwy.nazwa_sprawy(wynik["pola"], [p.name for p in sciezki_skanow]),
-            "pola": wynik["pola"],
-            "braki": wynik["braki"],
-            "rozbieznosci": wynik["rozbieznosci"],
-            "stron": wynik["stron"],
-            "wysilek": wynik["wysilek"],
-            "dokladnosc_opis": wynik["dokladnosc_opis"],
-            "warianty": analiza["warianty"],
-            "legenda": analiza["legenda"],
-            "pola_wzoru": wynik["pola_wzoru"],
-            "kontekst": wynik["kontekst"],
-            "rozmowa": wynik["rozmowa"],
-        }
-
-    return await _wykonaj(request, praca)
-
-
-@app.post("/api/projekt")
-async def projekt_bez_zapisu(
-    request: Request,
-    wzor: UploadFile = File(...),
-    pola: str = Form("[]"),
-    polecenie: str = Form(""),
-    rozmowa: str = Form("[]"),
-    braki: str = Form(""),
-):
-    """Projekt dokumentu bez tworzenia sprawy. Zwraca plik do zapisania u siebie.
-    `braki`: "opis" | "pytajnik" - ustawienie kancelarii trzymajacej pliki u siebie
-    (jej ustawienia zna tylko przegladarka)."""
-    if braki not in ustawienia_kancelarii.BRAKI:
-        braki = ustawienia_kancelarii.wczytaj()["braki"]
-    try:
-        lista_pol = json.loads(pola)
-        historia = json.loads(rozmowa)
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Nieprawidlowy format pol albo rozmowy")
-
-    # Wzor zapisujemy od razu: przy odpowiedzi strumieniem przesylany plik
-    # zostalby zamkniety, zanim praca w tle zdazy go przeczytac.
-    katalog = Path(tempfile.mkdtemp(prefix="notarai-"))
-    try:
-        sciezka_wzoru = katalog / f"wzor{Path(wzor.filename).suffix.lower()}"
-        _zapisz(wzor, sciezka_wzoru)
-    except BaseException:
-        shutil.rmtree(katalog, ignore_errors=True)
-        raise
-
-    def praca(postep) -> dict:
-        try:
-            analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka_wzoru))
-            projekt, zgodnosc = _sporzadz(analiza, lista_pol, polecenie, historia, "projekt bez zapisu")
-            cel = katalog / "projekt.docx"
-            dokumenty.tekst_na_docx(projekt, cel, wzor=sciezka_wzoru, braki=braki)
-            dane = cel.read_bytes()
-            nazwa_pliku = _nazwa_pliku_projektu(lista_pol, analiza, polecenie)
-        finally:
-            shutil.rmtree(katalog, ignore_errors=True)
-
-        log.info("projekt bez zapisu: znakow=%d", len(projekt))
-        # Tekst do podgladu w przegladarce, plik do zapisania na dysku notariusza.
-        return {
-            "tekst": projekt,
-            "brakujace": projekt.count("<<BRAK:"),
-            "do_wyboru": projekt.count("<<WYBOR:"),
-            "docx": base64.b64encode(dane).decode("ascii"),
-            "nazwa_pliku": nazwa_pliku,
-            "zgodnosc": zgodnosc,
-        }
-
-    return await _wykonaj(request, praca, "projekt")
-
-
 def _nazwa_pliku_projektu(pola: list[dict], analiza: dict, polecenie: str, meta: dict | None = None,
                           identyfikator: str = "") -> str:
     """Nazwa pliku Word wg wzoru kancelarii (ustawienia ogolne), bez rozszerzenia.
@@ -680,32 +563,6 @@ def _sporzadz_bez_oplaty(analiza: dict, pola: list[dict], polecenie: str, rozmow
         log.error("%s: blad generowania (%s)", etykieta, dziennik.opis_bledu(blad))
         raise HTTPException(502, bedrock.opis_bledu(blad))
     return personalizacja.skontroluj(projekt, ustawienia, rodzaje)
-
-
-class ZadanieRozmowy(BaseModel):
-    kontekst: str
-    historia: list[dict] = []
-    tresc: str
-
-
-@app.post("/api/rozmowa")
-def rozmowa_bez_zapisu(zadanie: ZadanieRozmowy):
-    """Kolejna tura rozmowy bez sprawy na serwerze. Historie trzyma przegladarka."""
-    tresc = zadanie.tresc.strip()
-    if not tresc:
-        raise HTTPException(400, "Pusta wiadomosc")
-    try:
-        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(zadanie.kontekst, zadanie.historia, tresc),
-                             "rozmowa bez zapisu"):
-            odpowiedz = bedrock.rozmawiaj(zadanie.kontekst, zadanie.historia, tresc)
-    except HTTPException:
-        raise
-    except bedrock.Przeciazenie as blad:
-        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
-    except Exception as blad:
-        log.error("rozmowa bez zapisu: blad (%s)", dziennik.opis_bledu(blad))
-        raise HTTPException(502, bedrock.opis_bledu(blad))
-    return {"odpowiedz": odpowiedz}
 
 
 def _tury_rozmowy(kontekst: str, historia: list[dict], tresc: str) -> int:

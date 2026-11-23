@@ -19,8 +19,9 @@ Parameters:
     Type: String
     Default: ""
     Description: >-
-      Opcjonalny ARN klucza KMS (CMK). Pusty = szyfrowanie SSE-S3 (AES256).
-      Musi odpowiadac PIECZAPP_KMS_KEY_ID w aplikacji.
+      Opcjonalny ARN zewnetrznego klucza KMS. Pusty (zalecane) = stos tworzy
+      wlasny klucz notarai-sprawy (KluczSpraw). Aplikacja szyfruje kluczem
+      z PIECZAPP_KMS_KEY_ID (alias/notarai-sprawy).
   RolaAplikacji:
     Type: String
     Default: notarai-ecs-zadanie
@@ -37,10 +38,65 @@ Parameters:
       bez powiadomienia (zmiana i tak zostaje w CloudTrail).
 
 Conditions:
-  UzyjKms: !Not [!Equals [!Ref KluczKms, ""]]
+  WlasnyKlucz: !Equals [!Ref KluczKms, ""]
   MamyEmail: !Not [!Equals [!Ref EmailZabezpieczen, ""]]
 
 Resources:
+  # Klucz szyfrujacy sprawy wszystkich kancelarii (decyzja wlasciciela 23.11.2026:
+  # wszystkie sprawy w chmurze, szyfrowane kluczem notarai zamiast klucza S3).
+  # - zostaje we Frankfurcie (klucz jednoregionowy), rotacja co rok,
+  # - odszyfrowac moze tylko rola aplikacji i rola kopii zapasowej - nawet
+  #   administrator konta nie przeczyta spraw (jak w polityce bucketa nizej),
+  # - kazde uzycie klucza jest w CloudTrail,
+  # - wylaczenie klucza odcina dostep do spraw natychmiast.
+  # Utrata klucza = utrata spraw, dlatego Retain i 30 dni na odwolanie usuniecia.
+  KluczSpraw:
+    Type: AWS::KMS::Key
+    Condition: WlasnyKlucz
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: notarai - szyfrowanie spraw kancelarii w buckecie S3
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          # Zarzadzanie kluczem przez IAM konta (bez tego klucza nie daloby sie
+          # w ogole administrowac). Odszyfrowanie i tak ogranicza zakaz nizej.
+          - Sid: KontoZarzadzaKluczem
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: OdszyfrowanieTylkoAplikacjaIKopia
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - kms:Decrypt
+              - kms:ReEncryptFrom
+            Resource: "*"
+            Condition:
+              ArnNotLike:
+                aws:PrincipalArn:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaAplikacji}"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaKopii}"
+              Bool:
+                aws:PrincipalIsAWSService: "false"
+      Tags:
+        - Key: projekt
+          Value: notarai
+        - Key: dane-osobowe
+          Value: "tak"
+
+  AliasKluczaSpraw:
+    Type: AWS::KMS::Alias
+    Condition: WlasnyKlucz
+    Properties:
+      AliasName: alias/notarai-sprawy
+      TargetKeyId: !Ref KluczSpraw
+
   BucketSprawy:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -59,12 +115,11 @@ Resources:
       # Kazdy obiekt szyfrowany; wersjonowanie pozwala cofnac nadpisanie.
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - BucketKeyEnabled: !If [UzyjKms, true, false]
-            ServerSideEncryptionByDefault: !If
-              - UzyjKms
-              - SSEAlgorithm: aws:kms
-                KMSMasterKeyID: !Ref KluczKms
-              - SSEAlgorithm: AES256
+          # Klucz bucketa (BucketKey) ogranicza wywolania KMS - i koszt - o rzedy wielkosci.
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !If [WlasnyKlucz, !GetAtt KluczSpraw.Arn, !Ref KluczKms]
       VersioningConfiguration:
         Status: Enabled
       LifecycleConfiguration:
@@ -127,6 +182,16 @@ Resources:
                 aws:PrincipalArn:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaAplikacji}"
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/${RolaKopii}"
+          # Zaden plik nie trafi do bucketa zaszyfrowany slabszym kluczem S3 -
+          # tylko klucz KMS notarai (domyslny bucketa albo wskazany jawnie).
+          - Sid: TylkoKluczNotarai
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub "${BucketSprawy.Arn}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-server-side-encryption: AES256
           # Nazwy plikow to tez dane: skany nazywaja sie nazwiskami stron.
           - Sid: SpisPlikowTylkoDlaAplikacji
             Effect: Deny
@@ -233,16 +298,14 @@ Resources:
               - s3:ListBucket
               - s3:ListBucketVersions
             Resource: !GetAtt BucketSprawy.Arn
-          - !If
-            - UzyjKms
-            - Sid: KmsDlaBucketa
-              Effect: Allow
-              Action:
-                - kms:Encrypt
-                - kms:Decrypt
-                - kms:GenerateDataKey
-              Resource: !Ref KluczKms
-            - !Ref AWS::NoValue
+          - Sid: KmsDlaBucketa
+            Effect: Allow
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              - kms:DescribeKey
+            Resource: !If [WlasnyKlucz, !GetAtt KluczSpraw.Arn, !Ref KluczKms]
           - Sid: BedrockProfileEU
             Effect: Allow
             Action:
@@ -279,6 +342,9 @@ Resources:
             Resource: "*"
 
 Outputs:
+  KluczSpraw:
+    Description: ARN klucza KMS spraw (PIECZAPP_KMS_KEY_ID moze tez wskazywac alias/notarai-sprawy)
+    Value: !If [WlasnyKlucz, !GetAtt KluczSpraw.Arn, !Ref KluczKms]
   Bucket:
     Description: Nazwa bucketa - ustaw jako PIECZAPP_S3_BUCKET
     Value: !Ref BucketSprawy

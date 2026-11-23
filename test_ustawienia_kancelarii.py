@@ -250,7 +250,7 @@ class TestBledyBedrockPoPolsku:
         blad = ClientError({"Error": {"Code": "ValidationException",
                                       "Message": "Input is too long for requested model."}}, "ConverseStream")
         with patch("bedrock.odczytaj_sprawe", side_effect=blad), patch("bedrock.rozmawiaj", return_value="x"):
-            odp = klient.post("/api/odczyt", files={"wzor": self._wzor(), "skany": self._skan()})
+            odp = klient.post("/api/sprawy", files={"wzor": self._wzor(), "skany": self._skan()})
         assert odp.status_code == 502
         assert "Podziel skany" in odp.json()["detail"]
         assert "ConverseStream" not in odp.json()["detail"]
@@ -258,6 +258,6 @@ class TestBledyBedrockPoPolsku:
     def test_blad_przejsciowy_mowi_sprobuj_ponownie(self, klient):
         blad = ClientError({"Error": {"Code": "modelStreamErrorException", "Message": "x"}}, "ConverseStream")
         with patch("bedrock.odczytaj_sprawe", side_effect=blad), patch("bedrock.rozmawiaj", return_value="x"):
-            odp = klient.post("/api/odczyt", files={"wzor": self._wzor(), "skany": self._skan()})
+            odp = klient.post("/api/sprawy", files={"wzor": self._wzor(), "skany": self._skan()})
         assert odp.status_code == 502
         assert "spróbuj ponownie" in odp.json()["detail"].lower()

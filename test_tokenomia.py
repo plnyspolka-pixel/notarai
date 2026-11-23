@@ -258,36 +258,49 @@ def klient(portfele, monkeypatch):
     return TestClient(aplikacja.app)
 
 
+def _sprawa_na_dysku(klient) -> str:
+    """Sprawa bez odczytu (i bez oplaty) - do testow rozmowy."""
+    import config
+    katalog = config.SPRAWY / "abc123"
+    katalog.mkdir(parents=True, exist_ok=True)
+    (katalog / "sprawa.json").write_text('{"id": "abc123"}', "utf-8")
+    (katalog / "kontekst.txt").write_text("DANE: x", "utf-8")
+    return "abc123"
+
+
 def test_rozmowa_pobiera_kredyty(klient):
     t.doladuj(KANCELARIA, 20, "test")
+    id_s = _sprawa_na_dysku(klient)
     with patch("bedrock.rozmawiaj", return_value="Rozumiem."):
-        odp = klient.post("/api/rozmowa", json={"kontekst": "DANE: x", "tresc": "Cena 50 000"})
+        odp = klient.post(f"/api/sprawy/{id_s}/rozmowa", json={"tresc": "Cena 50 000"})
     assert odp.status_code == 200
     assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 20 - t.AKCJE["rozmowa_tura"].kredyty()
 
 
 def test_rozmowa_bez_kredytow_402_i_model_nie_wolany(klient):
     t.doladuj(KANCELARIA, 0.5, "test")
+    id_s = _sprawa_na_dysku(klient)
     with patch("bedrock.rozmawiaj", return_value="x") as model:
-        odp = klient.post("/api/rozmowa", json={"kontekst": "DANE: x", "tresc": "Cena"})
+        odp = klient.post(f"/api/sprawy/{id_s}/rozmowa", json={"tresc": "Cena"})
     assert odp.status_code == 402 and "Brak kredytów" in odp.json()["detail"]
     model.assert_not_called()
 
 
 def test_blad_modelu_nie_pobiera_kredytow(klient):
     t.doladuj(KANCELARIA, 20, "test")
+    id_s = _sprawa_na_dysku(klient)
     with patch("bedrock.rozmawiaj", side_effect=RuntimeError("awaria")):
-        odp = klient.post("/api/rozmowa", json={"kontekst": "DANE: x", "tresc": "Cena"})
+        odp = klient.post(f"/api/sprawy/{id_s}/rozmowa", json={"tresc": "Cena"})
     assert odp.status_code == 502
     assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 20
 
 
 def test_odczyt_pobiera_za_strony_i_zestawienie(klient):
-    from test_bez_zapisu import ODCZYT, _skan, _wzor
+    from test_sprawy_w_chmurze import ODCZYT, _skan, _wzor
     t.doladuj(KANCELARIA, 100, "test")
     with patch("bedrock.odczytaj_sprawe", return_value=(ODCZYT, [])), \
          patch("bedrock.rozmawiaj", return_value="Pytania?"):
-        odp = klient.post("/api/odczyt", files=[("wzor", _wzor()), ("skany", _skan()), ("skany", _skan())],
+        odp = klient.post("/api/sprawy", files=[("wzor", _wzor()), ("skany", _skan()), ("skany", _skan())],
                           data={"wysilek": "medium"})
     assert odp.status_code == 200, odp.text
     oczekiwane = 2 * t.AKCJE["odczyt_strony_medium"].kredyty() + t.AKCJE["zalozenie_sprawy"].kredyty()
@@ -295,22 +308,24 @@ def test_odczyt_pobiera_za_strony_i_zestawienie(klient):
 
 
 def test_strumien_odczytu_bez_kredytow_konczy_sie_402(klient):
-    from test_bez_zapisu import _skan, _wzor
+    from test_sprawy_w_chmurze import _skan, _wzor
     t.doladuj(KANCELARIA, 1, "test")
     with patch("bedrock.odczytaj_sprawe") as model:
-        odp = klient.post("/api/odczyt", files=[("wzor", _wzor()), ("skany", _skan())],
+        odp = klient.post("/api/sprawy", files=[("wzor", _wzor()), ("skany", _skan())],
                           headers={"Accept": "application/x-ndjson"})
     assert '"kod": 402' in odp.text
     model.assert_not_called()
 
 
 def test_projekt_pobiera_kredyty(klient):
-    from test_bez_zapisu import _wzor
-    t.doladuj(KANCELARIA, 40, "test")
+    from test_sprawy_w_chmurze import _nowa_sprawa
+    t.doladuj(KANCELARIA, 200, "test")
+    id_s = _nowa_sprawa(klient)["id"]
+    przed = t.saldo(t.wczytaj_portfel(KANCELARIA))
     with patch("bedrock.sporzadz_projekt", return_value="Akt."):
-        odp = klient.post("/api/projekt", files={"wzor": _wzor()}, data={"pola": "[]"})
-    assert odp.status_code == 200
-    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 40 - t.AKCJE["projekt"].kredyty()
+        odp = klient.post(f"/api/sprawy/{id_s}/projekt", json={"pola": []})
+    assert odp.status_code == 200, odp.text
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == pytest.approx(przed - t.AKCJE["projekt"].kredyty())
 
 
 def test_widok_kredytow_i_ustawienia(klient):

@@ -80,12 +80,14 @@ def magazyn_s3(tmp_path, monkeypatch):
     """magazyn w trybie s3 z atrapa klienta i tymczasowym katalogiem danych."""
     monkeypatch.setenv("PIECZAPP_MAGAZYN", "s3")
     monkeypatch.setenv("PIECZAPP_S3_BUCKET", "testowy-bucket")
+    monkeypatch.setenv("PIECZAPP_KMS_KEY_ID", "alias/notarai-sprawy")   # jak w chmurze
     import magazyn
     importlib.reload(magazyn)
     atrapa = AtrapaS3()
     monkeypatch.setattr(magazyn, "_s3", atrapa)
     yield magazyn, atrapa, tmp_path
     monkeypatch.setenv("PIECZAPP_MAGAZYN", "lokalny")
+    monkeypatch.delenv("PIECZAPP_KMS_KEY_ID")
     importlib.reload(magazyn)
 
 
@@ -128,7 +130,7 @@ def test_s3_utrwal_i_pobierz(magazyn_s3):
         assert "kancelarie/kowalski/sprawy/abc123/sprawa.json" in atrapa.obiekty
         assert "kancelarie/kowalski/sprawy/abc123/skany/dowod.pdf" in atrapa.obiekty
         # kazdy obiekt szyfrowany po stronie serwera
-        assert all(atrapa.szyfrowanie.values())
+        assert set(atrapa.szyfrowanie.values()) == {"aws:kms"}, "kluczem KMS notarai, nigdy kluczem S3"
 
         # symulacja restartu kontenera: pusty dysk, dane wracaja z S3
         import shutil
@@ -452,3 +454,13 @@ class TestTylkoZmienionePliki:
             assert wyslane == []
         finally:
             magazyn.kancelaria_var.reset(zn)
+
+
+def test_bez_klucza_w_env_nie_wymuszamy_klucza_s3(magazyn_s3, monkeypatch):
+    """Bez PIECZAPP_KMS_KEY_ID zostaje domyslne szyfrowanie bucketa (KMS notarai);
+    jawne AES256 i tak odrzuca polityka bucketa (TylkoKluczNotarai)."""
+    magazyn, _, _ = magazyn_s3
+    monkeypatch.setattr(magazyn, "KMS_KLUCZ", "")
+    assert magazyn._szyfrowanie() == {}
+    monkeypatch.setattr(magazyn, "KMS_KLUCZ", "alias/notarai-sprawy")
+    assert magazyn._szyfrowanie() == {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "alias/notarai-sprawy"}

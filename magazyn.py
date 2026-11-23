@@ -27,7 +27,8 @@ log = logging.getLogger("pieczapp.magazyn")
 TRYB = os.getenv("PIECZAPP_MAGAZYN", "lokalny")
 BUCKET = os.getenv("PIECZAPP_S3_BUCKET", "")
 PREFIKS = os.getenv("PIECZAPP_S3_PREFIKS", "kancelarie")
-KMS_KLUCZ = os.getenv("PIECZAPP_KMS_KEY_ID", "")  # opcjonalny CMK dla SSE-KMS
+# Klucz KMS spraw (alias/notarai-sprawy, stos notarai-s3). W chmurze zawsze ustawiony.
+KMS_KLUCZ = os.getenv("PIECZAPP_KMS_KEY_ID", "")
 
 if TRYB == "s3" and not BUCKET:
     raise RuntimeError(
@@ -60,9 +61,15 @@ def _klient_s3():
 
 
 def _szyfrowanie() -> dict:
+    """Naglowki szyfrowania dla kazdego zapisu do S3.
+
+    Z kluczem: SSE-KMS kluczem notarai. Bez niego nie wymuszamy niczego -
+    obowiazuje domyslne szyfrowanie bucketa (tez klucz KMS notarai), a
+    polityka bucketa i tak odrzuca zapis kluczem S3 (AES256).
+    """
     if KMS_KLUCZ:
         return {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": KMS_KLUCZ}
-    return {"ServerSideEncryption": "AES256"}
+    return {}
 
 
 # --- Sciezki ---------------------------------------------------------------

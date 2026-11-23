@@ -287,11 +287,14 @@ class TestDokumenty:
         ewa = klient.get("/api/dokumenty/zasady-ai", headers=jako("ewa@kancelaria-sobczak.test", k)).text
         assert "Potwierdzenia instrukcji" not in ewa and "widzi tylko właściciel" in ewa
 
-    def test_kalendarz_w_rejestrze_zalezy_od_trybu_plikow(self, srodowisko):
+    def test_kazda_kancelaria_w_chmurze(self, srodowisko):
+        """Tryb "pliki na komputerze kancelarii" wycofany 23.11.2026."""
         klient, _, _ = srodowisko
-        wlasciciel = self._wlasciciel(klient, przechowywanie="u-klienta")
+        odp = _zarejestruj(klient, przechowywanie="u-klienta")
+        assert odp.status_code == 400 and "chmurze" in odp.json()["detail"]
+        wlasciciel = self._wlasciciel(klient)
         strona = klient.get("/api/dokumenty/rejestr-czynnosci", headers=wlasciciel).text
-        assert "wpisu nie trzeba dodawać" in strona
+        assert "kalendarz i spis telefonów są dostępne" in strona
 
 
 def test_usuniecie_danych_zostawia_wpis_w_rejestrze_umow(srodowisko):

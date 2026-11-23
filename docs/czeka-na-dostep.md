@@ -373,3 +373,33 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `retencja_spraw.py`, `magazyn.daty_zmian_spraw`, `ustawienia_kancelarii.py`,
   `static/index.html` (okno ustawień, `sprawdzBezczynnosc`).
 - **Zamknięte, gdy:** punkty 1–4 przeszły na koncie testowym.
+
+## NA-17. Sprawy tylko w chmurze, klucz KMS notarai — wdrożenie i przeszyfrowanie
+
+- **Status:** czeka — 23.11.2026: kod, testy i szablony gotowe, niewdrożone.
+- **Brakuje:** wdrożenia stosu `notarai-s3` (tworzy klucz `alias/notarai-sprawy`,
+  przestawia domyślne szyfrowanie bucketa na KMS, dodaje zakaz zapisu kluczem S3)
+  i stosu `notarai-aplikacja` (`PIECZAPP_KMS_KEY_ID`). Kolejność: najpierw
+  `notarai-s3`, potem aplikacja - odwrotnie aplikacja wskaże nieistniejący alias
+  i zapisy padną.
+- **Na żywo:**
+  1. Po wdrożeniu: `aws s3api get-bucket-encryption --bucket notarai-sprawy`
+     pokazuje `aws:kms` z kluczem notarai i `BucketKeyEnabled: true`.
+  2. W aplikacji: nowa sprawa z fikcyjnymi skanami, odczyt, projekt, pobranie
+     Worda - wszystko działa (zapis i odczyt przez KMS).
+  3. Panel admina: `POST /api/admin/przeszyfruj`, potem `GET` aż `koniec: true`;
+     `bledy` = 0. Drugi przebieg: `przeszyfrowano` = 0.
+  4. Stenogram z fikcyjnym aktem (NA-15): Transcribe czyta nagranie zaszyfrowane
+     kluczem KMS. Jeśli `AccessDenied` - w polityce klucza potrzebny wyjątek dla
+     Transcribe (decyzja właściciela).
+  5. Nocna kopia AWS Backup następnego dnia kończy się sukcesem (rola
+     `notarai-kopia` odszyfrowuje przez S3).
+  6. Kancelaria testowa z `przechowywanie: u-klienta` w rejestrze: po zalogowaniu
+     okno „Przenieś sprawy do chmury”, przeniesienie folderu z 2 fikcyjnymi
+     sprawami, potem obie sprawy otwierają się na telefonie.
+- **W kodzie:** `infra/notarai-s3.yaml` (`KluczSpraw`, `TylkoKluczNotarai`),
+  `magazyn._szyfrowanie`, `szyfrowanie.py`, `przeniesienie.py`,
+  `static/index.html` (`okno-przeniesienie`).
+- **Zamknięte, gdy:** punkty 1–6 przeszły, a w panelu admina żadna kancelaria
+  nie ma „czeka na przeniesienie”. Wtedy można usunąć z kodu resztki trybu
+  `u-klienta` (`magazyn.u_klienta()` i gałęzie, które z niego korzystają).
