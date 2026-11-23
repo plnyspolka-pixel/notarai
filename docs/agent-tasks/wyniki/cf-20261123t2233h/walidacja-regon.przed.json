@@ -1,0 +1,1 @@
+{"id": "walidacja-regon", "rodzaj": "zmiana", "ok": true, "powod": "", "szczegoly": [{"co": "kod bazowy", "kod_pytest": 2, "oczekiwane": "oblewają", "ok": true}]}

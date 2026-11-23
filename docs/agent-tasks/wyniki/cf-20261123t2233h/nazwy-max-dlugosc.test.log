@@ -1,0 +1,10 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.12.3, pytest-8.3.4, pluggy-1.7.0
+rootdir: /koder/tmp/work/nazwy-max-dlugosc
+configfile: pytest.ini
+plugins: platformdirs-4.14.8, mock-3.14.0, anyio-4.16.0
+collected 30 items
+
+test_nazwy.py [32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m                             [100%][0m
+
+[32m============================== [32m[1m30 passed[0m[32m in 0.31s[0m[32m ==============================[0m
