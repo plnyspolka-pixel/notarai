@@ -125,7 +125,7 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   bez wyraźnej decyzji właściciela.
 
 ## Zakaz renderu na GitHub Actions (twarda reguła, 23.11.2026)
-- NIC nie renderuje się na GitHub Actions: rolki studia, serial Komputerku /
+- NIC nie renderuje się ani nie wynajmuje GPU na GitHub Actions (także koder/vLLM): rolki studia, serial Komputerku /
   Kancelaria pod Siódemką, scenografia (Blender), klipy GPU, montaż, głosy,
   napisy wypalane w obrazie. Bez wyjątków i bez „jednorazowo”.
 - Rendery idą wyłącznie przez Cloudflare: Worker `finyou-render`

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Twarda reguła: ŻADNEGO renderu na GitHub Actions (rolki, Komputerku / Kancelaria pod Siódemką,
+"""Twarda reguła: ŻADNEGO renderu ani wynajmu GPU na GitHub Actions (rolki, Komputerku / Kancelaria pod Siódemką,
 scenografia, głos, klipy GPU). Rendery idą wyłącznie przez Cloudflare (finyou-render) i
 wynajęte GPU zlecane spoza GitHuba (brama salad-brama). Decyzja właściciela z 23.11.2026.
 
@@ -28,7 +28,7 @@ ZAKAZANE: dict[str, str] = {
     r"odcinek-cf|rolki/[\w./-]*\.mjs|montaz|montaż": "montaż odcinków i rolek",
     r"tools[./]fabryka|fabryka\s+(dzien|render|glosy|gpu)": "fabryka odcinków",
     r"infinitetalk|\bltx[-_]?\d|qwen-image|wan2|flux": "modele wideo/obrazu",
-    r"salad-brama|salad\.com/api|api\.salad\.com|portal\.salad": "wynajem GPU (Salad)",
+    r"salad-brama|container-groups|salad_vllm|\bvllm\b|koder/przebieg": "wynajem GPU (Salad, vLLM, koder)",
     r"elevenlabs|text-to-speech|\btts\b": "generacja głosu",
     r"heygen|fal\.ai|fal-ai|replicate\.com|runwayml": "zewnętrzne generatory mediów",
     r"finyou-render\.[\w.-]+/zadanie": "zlecanie renderu Cloudflare z GitHuba",
@@ -88,6 +88,7 @@ def samotest() -> None:
         "e.yml": "steps:\n  - run: curl -X POST https://finyou-render.financeyou.workers.dev/zadanie\n",
         "scenografia-render.yml": "on: push\n",
         "f.yml": "steps:\n  - run: npx remotion render\n",
+        "g.yml": "steps:\n  - run: python3 tools/agent_factory/salad_vllm.py up --pay\n",
     }
     dobre = {
         "ci.yml": "# kiedyś tu był ffmpeg\nsteps:\n  - run: pytest\n",
