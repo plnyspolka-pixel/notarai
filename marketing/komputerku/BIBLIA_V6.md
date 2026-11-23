@@ -213,7 +213,7 @@ koordynuje kontakty, ale nie jest pełnomocnikiem. Spór: wydanie lokalu 1 grudn
 Pytanie sezonu: **kto naprawdę zgodził się na 1 grudnia?**
 
 ### 6.2 Antagonista sezonu 1: Adrian Sowa, pośrednik nieruchomości
-- **Kim jest:** właściciel małego biura pośrednictwa „Klucz-Dom” (nazwa fikcyjna). Pośredniczy w obu
+- **Kim jest:** właściciel małego biura pośrednictwa, którego nazwa nigdy nie pada ani nie pojawia się w kadrze (prawdziwa firma ma podobną nazwę do wcześniejszej propozycji). Pośredniczy w obu
   transakcjach: sprzedaży mieszkania Ireny i rezerwacji mieszkania na parterze, którą Paweł opłacił
   z własnych pieniędzy. Prowizję za obie dostanie tylko wtedy, gdy obie zamkną się do 1 grudnia.
 - **Co robi:** to jego maile zamieniły propozycję w „ustalenie” (EP05), to on rozesłał kupującym starszy
