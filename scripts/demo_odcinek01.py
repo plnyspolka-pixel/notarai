@@ -26,7 +26,10 @@ atrapa), nie Bedrock.
 
 Uzycie (tryb lokalny, osobny katalog danych - nie miesza sie z dane/):
     python scripts/demo_odcinek01.py przygotuj --dane dane/demo-odcinek01
-    python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo 'Demo-Odc01!'
+    python scripts/demo_odcinek01.py serwer --dane dane/demo-odcinek01 --haslo 'Demo-Odc01!' --atrapa-modelu 0 --atrapa-ekw 0 --skrzynka-demo scripts/demo_odcinek01_skrzynka
+
+Szybkie logowanie do tej odizolowanej instancji: login `test`, haslo `test`.
+Przyjmuje je TYLKO lokalny serwer demo; produkcyjne Cognito pozostaje bez zmian.
 
 `serwer` uruchamia aplikacje w trybie wielu kancelarii (jak app.notarai.pl:
 logowanie, zespol, stanowiska), ale logowanie sprawdza lokalnie: tylko konta
@@ -402,10 +405,14 @@ class LogowanieDemo:
 
     def zaloguj(self, email: str, haslo: str) -> dict:
         import logowanie
-        if email not in self.konta or not hmac.compare_digest(haslo.encode(), self.haslo.encode()):
+        # Alias test/test dziala tylko na osobnym, lokalnym serwerze demo.
+        # Token wskazuje wlascicielke FIKCYJNEJ kancelarii, nigdy realnego tenanta.
+        konto = ZESPOL[0][0] if email == "test" else email
+        oczekiwane = "test" if email == "test" else self.haslo
+        if konto not in self.konta or not hmac.compare_digest(haslo.encode(), oczekiwane.encode()):
             raise logowanie.BladLogowania("Nieprawidlowy adres e-mail albo haslo.")
-        return {"token": self.token(email, 8 * 3600), "wygasa_za": 8 * 3600,
-                "odnowienie": self.token(email, 30 * 86400, "odnowienie")}
+        return {"token": self.token(konto, 8 * 3600), "wygasa_za": 8 * 3600,
+                "odnowienie": self.token(konto, 30 * 86400, "odnowienie")}
 
     def odnow(self, token_odnowienia: str) -> dict:
         dane = self.sprawdz(token_odnowienia, "odnowienie")
@@ -525,6 +532,8 @@ def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None,
         sys.exit("Serwer demo dziala tylko lokalnie (PIECZAPP_MAGAZYN=lokalny, bez puli Cognito).")
     if len(haslo) < 8:
         sys.exit("Podaj haslo demo (--haslo, co najmniej 8 znakow).")
+    if host not in ("127.0.0.1", "localhost") and (atrapa is None or ekw_s is None or not skrzynka):
+        sys.exit("Publiczny serwer demo wymaga --atrapa-modelu, --atrapa-ekw i --skrzynka-demo: bez integracji z danymi realnymi.")
     os.environ["PIECZAPP_MULTI"] = "true"
     os.environ.setdefault("PIECZAPP_AML_LISTY", "0")
     _ustaw_dane(katalog)
@@ -550,6 +559,7 @@ def serwer(katalog: str, haslo: str, host: str, port: int, atrapa: float | None,
     print(f"\n  NotarAI demo odc. 01 -> http://{host}:{port}   (dane: {katalog})")
     for email, _, stanowisko, imie in ZESPOL:
         print(f"    {imie:<6} {stanowisko:<12} {email}")
+    print("    Konto testowe (ta instancja demo): test / test")
     if host not in ("127.0.0.1", "localhost"):
         print("  UWAGA: serwer slucha w sieci lokalnej - tylko na czas nagrania, dane sa fikcyjne.")
     uvicorn.run(aplikacja.app, host=host, port=port, access_log=False)
