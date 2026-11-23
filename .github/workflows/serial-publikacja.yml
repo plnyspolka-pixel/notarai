@@ -1,0 +1,59 @@
+name: NotarAI - serial, publikacja 9:00 i 16:00
+
+# Codziennie o 9:00 i 16:00 czasu polskiego uruchamia wysylke strony
+# ("NotarAI - strona notarai.pl"), ktora buduje /serial/ z odcinkow, ktorych
+# premiera juz minela (seo/serial.py) i wysyla tylko zmienione pliki przez FTPS.
+#
+# Czas letni i zimowy: cron w GitHubie jest w UTC, wiec biegnie o 7:00, 8:00,
+# 14:00 i 15:00 UTC, a krok "czy-pora" przepuszcza tylko przebieg, w ktorym
+# w Warszawie jest godzina 9 albo 16 (zima: 8:00 i 15:00 UTC, lato: 7:00 i 14:00 UTC).
+# GitHub potrafi opoznic cron o kilkanascie minut - okno to cala godzina 9:xx/16:xx.
+# Recznie: Run workflow z "wymus" = true buduje i wysyla od razu.
+
+on:
+  schedule:
+    - cron: "0 7,8,14,15 * * *"
+  workflow_dispatch:
+    inputs:
+      wymus:
+        description: "Publikuj teraz, bez sprawdzania godziny"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: notarai-serial-publikacja
+  cancel-in-progress: false
+
+jobs:
+  publikacja:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Czy jest pora publikacji (Europe/Warsaw)
+        id: pora
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.wymus }}" = "true" ] || python -I seo/serial.py czy-pora; then
+            echo "tak=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "tak=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Plan publikacji
+        if: steps.pora.outputs.tak == '1'
+        run: |
+          python -I seo/serial.py plan | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Uruchom wysylke strony
+        if: steps.pora.outputs.tak == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run strona.yml --ref master
