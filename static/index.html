@@ -4649,7 +4649,8 @@ async function wyslijWiadomosc(nr){
       rozmowa = w.rozmowa;
     }
     rysujCzat(); stan(st, "");
-    return true;
+    if (w?.odswiez_sprawdzenia) await rysujSprawdzenia();
+    return w?.odswiez_sprawdzenia ? "ekw" : true;
   } catch (e) {
     rozmowa.splice(-2, 2); rysujCzat(); ta.value = tresc; stan(st, e.message, true);
     return false;
@@ -4657,7 +4658,7 @@ async function wyslijWiadomosc(nr){
 }
 $("send2").onclick = () => wyslijWiadomosc(2);
 $("msg2").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); wyslijWiadomosc(2); } };
-$("send3").onclick = async () => { if (await wyslijWiadomosc(3)) $("btn-generuj").click(); };
+$("send3").onclick = async () => { if ((await wyslijWiadomosc(3)) === true) $("btn-generuj").click(); };
 
 /* ---------- mikrofon ---------- */
 const nagrania = {};

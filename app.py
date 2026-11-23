@@ -33,6 +33,8 @@ import dziennik
 import dokumenty
 import dokumenty_prawne
 import ekw
+import ekw_polecenia
+import stanowiska
 import giif
 import ksiegi_notarialne
 import formularze
@@ -1249,7 +1251,7 @@ def rozmowa_sprawy(identyfikator: str):
 
 
 @app.post("/api/sprawy/{identyfikator}/rozmowa")
-def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
+def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc, request: Request):
     katalog = _katalog_sprawy(identyfikator)
     tresc = wiadomosc.tresc.strip()
     if not tresc:
@@ -1258,23 +1260,47 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc):
     kontekst = kontekst_plik.read_text("utf-8") if kontekst_plik.exists() else "(brak danych)"
     rozmowa = _wczytaj_rozmowe(katalog)
     teraz = datetime.now().isoformat(timespec="seconds")
-    try:
-        with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(kontekst, rozmowa, tresc),
-                             f"sprawa {identyfikator}"):
-            odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
-    except HTTPException:
-        raise
-    except bedrock.Przeciazenie as blad:
-        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
-    except Exception as blad:
-        log.error("sprawa %s: blad rozmowy (%s)", identyfikator, dziennik.opis_bledu(blad))
-        raise HTTPException(502, bedrock.opis_bledu(blad))
+    # Jawna dyspozycja w czacie uruchamia EKW, a nie dowolny kod wygenerowany przez LLM.
+    czy_ekw, numer_ekw, dopytanie = ekw_polecenia.rozpoznaj(tresc, kontekst)
+    if czy_ekw:
+        # Uprawnienie rejestry jest mocniejsze niz samo sprawy_ai wymagane na czacie.
+        # Wywolanie wewnetrznego handlera nie przechodzi ponownie przez middleware.
+        if autoryzacja.MULTI and (
+            getattr(request.state, "serwis", False) or
+            "rejestry" not in stanowiska.uprawnienia(
+                autoryzacja._osoba_w_kancelarii(
+                    request.state.kancelaria, request.state.email))
+        ):
+            odpowiedz = "Brak uprawnień do sprawdzania rejestrów. Poproś notariusza o nadanie uprawnienia."
+        elif numer_ekw is None:
+            odpowiedz = dopytanie
+        else:
+            try:
+                rezultat = pobierz_ksiege(
+                    identyfikator, ZadanieEKW(numer_kw=numer_ekw, potwierdzam=True))
+                odpowiedz = ekw_polecenia.odpowiedz(rezultat["ksiega"])
+            except HTTPException as blad:
+                # Blokada WAF i braki danych nie moga zostac uznane za sprawdzona KW.
+                odpowiedz = "Nie udalo sie sprawdzic KW. " + str(blad.detail)
+    else:
+        try:
+            with tokenomia.akcja("rozmowa_tura", _tury_rozmowy(kontekst, rozmowa, tresc),
+                                 f"sprawa {identyfikator}"):
+                odpowiedz = bedrock.rozmawiaj(kontekst, rozmowa, tresc)
+        except HTTPException:
+            raise
+        except bedrock.Przeciazenie as blad:
+            raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+        except Exception as blad:
+            log.error("sprawa %s: blad rozmowy (%s)", identyfikator, dziennik.opis_bledu(blad))
+            raise HTTPException(502, bedrock.opis_bledu(blad))
     rozmowa.append({"rola": "uzytkownik", "tresc": tresc, "czas": teraz})
     rozmowa.append({"rola": "asystent", "tresc": odpowiedz, "czas": datetime.now().isoformat(timespec="seconds")})
     _zapisz_rozmowe(katalog, rozmowa)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: rozmowa, tur=%d", identyfikator, len(rozmowa))
-    return {"odpowiedz": odpowiedz, "rozmowa": rozmowa}
+    return {"odpowiedz": odpowiedz, "rozmowa": rozmowa,
+            "odswiez_sprawdzenia": czy_ekw}
 
 
 @app.post("/api/transkrypcja")
@@ -1552,7 +1578,8 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
 
 BRAK_EKW = (
     "Pobieranie ksiag z EKW nie jest wlaczone w tej instalacji. Administrator "
-    "musi skonfigurowac dostawce: Finance You (PIECZAPP_FINYOU_URL i "
+    "musi skonfigurowac dostawce: Obscura MCP (PIECZAPP_OBSCURA_MCP_URL i "
+    "PIECZAPP_OBSCURA_MCP_TOKEN), Finance You (PIECZAPP_FINYOU_URL i " 
     "PIECZAPP_FINYOU_TOKEN) albo Apify (PIECZAPP_APIFY_TOKEN). Do tego czasu "
     "wklej wydruk ksiegi jako dokument sprawy."
 )
