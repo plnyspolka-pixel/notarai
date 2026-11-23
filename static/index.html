@@ -1737,6 +1737,7 @@ notarai</div>
 <dialog class="okno" id="okno-pilot" aria-labelledby="pilot-tytul">
   <h2 id="pilot-tytul">Steruj przeglądarką komputera</h2>
   <p id="pilot-komputer"></p>
+  <p class="stan" id="pilot-wersja"></p>
   <p>Komputer musi być włączony, a pomocnik uruchomiony. Polecenia wykonuje w osobnej przeglądarce do rejestrów. Przed wysłaniem formularza poprosi Cię tutaj o osobną, jednorazową zgodę. Podpis, PIN, płatności i usuwanie wymagają działania na komputerze.</p>
   <div class="pole">
     <label class="etykieta" for="pilot-cel">Polecenie dla komputera</label>
@@ -3882,6 +3883,11 @@ $("okno-zgoda-pilota").addEventListener("cancel", e => {
 function otworzPilota(komputer){
   komputerPilota = komputer;
   $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
+  const wersja = komputer.wersja || "";
+  const czyNowy = /^0\\.(?:[3-9]|[1-9]\\d)(?:\\.|$)/.test(wersja) || /^[1-9]\\d*(?:\\.|$)/.test(wersja);
+  $("pilot-wersja").textContent = czyNowy ? "Pomocnik " + wersja + " obsługuje zgody na wysłanie."
+    : "Pomocnik " + (wersja || "w nieznanej wersji") +
+      " może wykonywać zwykłe polecenia. Aby potwierdzać wysyłanie z telefonu, zaktualizuj go do wersji 0.3.";
   $("pilot-cel").value = "";
   $("pilot-hosty").value = "";
   $("pilot-przebieg").replaceChildren();
