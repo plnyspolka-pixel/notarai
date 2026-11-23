@@ -1,8 +1,11 @@
 """Regresja: OAuth i synchronizacja Google nie eksportuja tajemnicy notarialnej."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from zoneinfo import ZoneInfo
+
+DZIEN = (datetime.now(ZoneInfo('Europe/Warsaw')) + timedelta(days=2)).date().isoformat()
 from fastapi.testclient import TestClient
 
 
@@ -24,7 +27,7 @@ def srodowisko(tmp_path, monkeypatch):
     magazyn.kancelaria_var.reset(znacznik)
 
 
-def wydarzenie(id_g, dzien="2026-11-25", od="09:00", do="10:00", tytul="Dane klienta: 12345678901"):
+def wydarzenie(id_g, dzien=DZIEN, od="09:00", do="10:00", tytul="Dane klienta: 12345678901"):
     return {"id": id_g, "summary": tytul,
             "start": {"dateTime": f"{dzien}T{od}:00+01:00"},
             "end": {"dateTime": f"{dzien}T{do}:00+01:00"}}
@@ -85,7 +88,7 @@ def test_bledny_podpis_nie_wybiera_kancelarii(srodowisko):
 def test_eksport_tylko_blok_czasu(srodowisko, monkeypatch):
     g, klient = srodowisko
     from kalendarz import dodaj
-    dodaj({"data": "2026-11-25", "godzina": "09:00", "koniec": "10:00",
+    dodaj({"data": DZIEN, "godzina": "09:00", "koniec": "10:00",
            "tytul": "Sprawa Kowalskiej", "uczestnicy": "Anna Kowalska PESEL 12345678901",
            "telefony": [{"imie": "Anna", "numer": "600111222"}],
            "uwagi": "Sprzedaż nieruchomości"})
@@ -122,7 +125,7 @@ def test_import_google_nie_kopiuje_tresci(srodowisko, monkeypatch):
 def test_kolizja_nie_niszczy_wizyty(srodowisko, monkeypatch):
     g, klient = srodowisko
     from kalendarz import dodaj
-    dodaj({"data": "2026-11-25", "godzina": "09:00", "koniec": "10:00",
+    dodaj({"data": DZIEN, "godzina": "09:00", "koniec": "10:00",
            "tytul": "Termin NotarAI"})
     monkeypatch.setattr(g, "_wydarzenia", lambda token: {"g1": wydarzenie("g1")})
     def fake_zadanie(token, method, adres, **kw):
@@ -138,7 +141,7 @@ def test_kolizja_nie_niszczy_wizyty(srodowisko, monkeypatch):
 def test_zmiana_godziny_przychodzi_z_google(srodowisko, monkeypatch):
     g, klient = srodowisko
     from kalendarz import dodaj
-    lok = dodaj({"data": "2026-11-25", "godzina": "09:00", "koniec": "10:00",
+    lok = dodaj({"data": DZIEN, "godzina": "09:00", "koniec": "10:00",
                  "tytul": "Ważna sprawa"})
     ev = wydarzenie("g1", od="09:00", do="10:00")
     def zapisz(d):
@@ -157,7 +160,7 @@ def test_zmiana_godziny_przychodzi_z_google(srodowisko, monkeypatch):
 def test_rownoczesne_zmiany_zglaszaja_konflikt(srodowisko, monkeypatch):
     g, klient = srodowisko
     import kalendarz
-    lok = kalendarz.dodaj({"data": "2026-11-25", "godzina": "09:00", "koniec": "10:00",
+    lok = kalendarz.dodaj({"data": DZIEN, "godzina": "09:00", "koniec": "10:00",
                            "tytul": "Moja wizyta"})
     ev = wydarzenie("g1")
     g._zapisz(lambda d: d.update({"mapowania": {lok["id"]: {
