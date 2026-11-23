@@ -134,9 +134,15 @@ def start_vllm() -> subprocess.Popen:
     return subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
 
 
-def instaluj() -> None:
+def zapewnij_git() -> None:
+    # Obraz vllm/vllm-openai nie ma gita (przebieg cf-20261123t2146h).
     if not shutil.which("git"):
         sh("apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git > /dev/null")
+    if not shutil.which("git"):
+        raise RuntimeError("nie udało się zainstalować gita")
+
+
+def instaluj() -> None:
     if not (VENV / "bin" / "python").exists():
         if sh([sys.executable, "-m", "venv", str(VENV)]) != 0:
             if shutil.which("uv"):
@@ -164,6 +170,7 @@ def pobierz_repo() -> None:
     REPO.mkdir(parents=True, exist_ok=True)
     os.chmod(BAZA, 0o711)
     os.chmod(REPO, 0o700)
+    zapewnij_git()
     url = f"https://github.com/{env('KODER_REPO')}.git"
     for cmd in (["git", "init", "-q"], ["git", "fetch", "-q", "--depth", "1", url, env("KODER_SHA")],
                 ["git", "checkout", "-q", "FETCH_HEAD"]):

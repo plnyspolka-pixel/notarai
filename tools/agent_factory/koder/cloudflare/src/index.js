@@ -310,7 +310,7 @@ export class Koder {
         return;
       }
       const gpu = wybierzGpu(await sal.klasy(), {
-        priorytety: String(this.env.KODER_PRIORITY || "batch,high").split(","),
+        priorytety: st.bez_batch ? ["high"] : String(this.env.KODER_PRIORITY || "batch,high").split(","),
         minVram: Number(this.env.KODER_MIN_VRAM || 32), maxHourly: Number(this.env.KODER_MAX_HOURLY || 1),
         maxUsd: st.max_usd, minuty: st.minuty,
       });
@@ -346,6 +346,17 @@ export class Koder {
       if (stanSalad !== st.salad) await this.dziennik(st, `Salad: ${stanSalad}`);
       st.salad = stanSalad;
       if (stanSalad === "running" && !st.running_od) st.running_od = new Date(teraz).toISOString();
+      // Batch bez wolnego węzła: nie czekamy w nieskończoność - usuń i postaw na high.
+      const czekaMin = Number(this.env.KODER_BATCH_WAIT_MIN || 15);
+      const przydzial = !inst.state && (g.current_state?.instance_status_counts?.allocating_count ?? 0) > 0;
+      if (st.priorytet === "batch" && !st.running_od && przydzial && teraz - Date.parse(st.utworzono) > czekaMin * MINUTA) {
+        await sal.usun(st.grupa);
+        if (await sal.grupa(st.grupa)) return; // usunięcie w toku, następny krok
+        await this.dziennik(st, `batch bez węzła przez ${czekaMin} min - usunięto ${st.grupa}, ponawiam na high`);
+        Object.assign(st, { faza: "start", bez_batch: true, grupa: null, salad: null });
+        st.przebieg = st.przebieg + "h";
+        return;
+      }
       let wezel = null;
       if (/^[a-z0-9.-]+\.salad\.cloud$/i.test(dns) && stanSalad === "running") {
         const r = await sal.wezel(dns, "stan");
