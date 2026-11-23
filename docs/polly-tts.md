@@ -25,14 +25,14 @@ uprawnienia \`projekt\` dla syntezy. Tokenów AWS **nigdy** nie ma w JS.
 
 ## Uruchomienie
 
-1. Wdróż zaktualizowany \`infra/notarai-s3.yaml\`, aby polityka
-   \`notarai-aplikacja\` dała \`polly:SynthesizeSpeech\` wyłącznie w regionie \`eu-central-1\`.
-2. Zbuduj i opublikuj nowy kontener z kodem, a następnie wdróż
-   \`infra/notarai-aplikacja.yaml\` (ustawia \`PIECZAPP_POLLY=true\` na ECS).
-3. Zweryfikuj na fikcyjnym projekcie w zalogowanej kancelarii: Ola generative,
+1. Wdróż kontener i stos \`infra/notarai-aplikacja.yaml\`. Stos nadaje
+   zadaniu ECS minimalne uprawnienie \`polly:SynthesizeSpeech\`, ograniczone do \`eu-central-1\`,
+   oraz włącza \`PIECZAPP_POLLY=true\`. Standardowy pipeline wdrożeniowy na \`master\`
+   obsługuje oba elementy automatycznie.
+2. Zweryfikuj na fikcyjnym projekcie w zalogowanej kancelarii: Ola generative,
    Ewa generative oraz Start/Pauza/Wznów/Stop. Sprawdź, że bez JWT serwer zwraca
    401, dostęp serwisowy 403, brak IAM skutkuje bezpiecznym błędem 503.
-4. Obserwuj koszty Polly w AWS Billing i ustaw AWS Budgets.
+3. Obserwuj koszty Polly w AWS Billing i ustaw AWS Budgets.
    Wbudowany limit żądań jest tylko per proces ECS i nie zastępuje limitu kosztów.
 
 W lokalnym trybie bez poświadczeń funkcja jest domyślnie wyłączona.
