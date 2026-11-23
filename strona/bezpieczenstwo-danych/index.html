@@ -198,7 +198,7 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 
   <div class="szer">
     <section class="bz-luki" id="bz-luki" aria-live="polite" hidden>
-      <h2>Znane luki, na które niewspierany system jest odsłonięty</h2>
+      <h2>Znane luki Twojego systemu — i na co pozwalają</h2>
       <p class="wstep" id="bz-luki-wstep"></p>
       <ul id="bz-luki-lista"></ul>
     </section>
@@ -450,9 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
       $('bz-luki-wstep').textContent=z.wstep;
       const ul=$('bz-luki-lista'); ul.textContent='';
       z.luki.forEach(l=>{ const li=document.createElement('li');
-        const b=document.createElement('b'); b.textContent=l.nazwa+' ('+l.cve+') — ';
-        const sc=document.createElement('span'); sc.className='sc'; sc.textContent=l.co+' → '+l.sciezka;
-        li.append(b, sc); ul.append(li); });
+        const b=document.createElement('b'); b.textContent=l.nazwa+' ';
+        const a=document.createElement('a'); a.href=l.url; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent=l.id; a.style.color='#0072ad';
+        li.append(b, document.createTextNode('('), a, document.createTextNode(') '));
+        if (l.aktywna){ const bad=document.createElement('span'); bad.textContent='aktywnie wykorzystywana';
+          bad.style.cssText='font-size:.72rem;font-weight:700;color:#fff;background:var(--alarm);border-radius:999px;padding:1px 8px;margin:0 2px;white-space:nowrap;'; li.append(bad); }
+        li.append(document.createTextNode(' — '+l.co+'. '));
+        const sc=document.createElement('span'); sc.className='sc'; const scb=document.createElement('b'); scb.textContent='Na co pozwala: '; scb.style.color='var(--tekst)';
+        sc.append(scb, document.createTextNode(l.naPozwala)); li.append(sc); ul.append(li); });
       $('bz-luki').hidden=false;
     }
     // IP z backendu — wpada do wielkiego faktu, gdy serwer odpowie

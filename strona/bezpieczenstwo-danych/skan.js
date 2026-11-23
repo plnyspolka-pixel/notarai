@@ -339,17 +339,26 @@ function czytajGPU() {
  * wsparcia: uczciwa teza brzmi „na żadną kolejną taką lukę nie dostaniesz
  * już łatki". Zero instrukcji ataku — tylko nazwa, czego dotyczy i co otwiera. */
 const LUKI_WINDOWS = [
-  { nazwa: 'EternalBlue', cve: 'MS17-010', co: 'luka w udostępnianiu plików (SMB)',
-    sciezka: 'zdalne wejście na komputer bez żadnej akcji użytkownika — tą drogą rozszedł się ransomware WannaCry' },
-  { nazwa: 'BlueKeep', cve: 'CVE-2019-0708', co: 'luka w pulpicie zdalnym (RDP)',
-    sciezka: 'zdalne przejęcie komputera bez hasła; sam potrafi przeskakiwać na kolejne maszyny w sieci' },
-  { nazwa: 'PrintNightmare', cve: 'CVE-2021-34527', co: 'luka w usłudze drukowania',
-    sciezka: 'zdobycie uprawnień administratora i uruchomienie dowolnego programu' },
+  { id: 'CVE-2026-96951', nazwa: 'powłoka Windows (Mark of the Web)', co: 'obejście ostrzeżenia „plik pobrany z internetu”',
+    naPozwala: 'złośliwy plik otwiera się bez ostrzeżenia i uruchamia kod', aktywna: true,
+    url: 'https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-96951' },
+  { id: 'CVE-2025-62215', nazwa: 'jądro Windows', co: 'podniesienie uprawnień (wyścig w jądrze)',
+    naPozwala: 'zdobycie najwyższych uprawnień SYSTEM — pełna kontrola nad komputerem', aktywna: true,
+    url: 'https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-62215' },
+  { id: 'CVE-2017-0144', nazwa: 'EternalBlue (SMB)', co: 'luka w udostępnianiu plików',
+    naPozwala: 'zdalne uruchomienie kodu bez żadnej akcji użytkownika — tak rozsiał się ransomware WannaCry', aktywna: false,
+    url: 'https://nvd.nist.gov/vuln/detail/CVE-2017-0144' },
+  { id: 'CVE-2019-0708', nazwa: 'BlueKeep (RDP)', co: 'luka w pulpicie zdalnym',
+    naPozwala: 'zdalne przejęcie komputera bez hasła; robak sam przeskakuje na kolejne maszyny w sieci', aktywna: false,
+    url: 'https://nvd.nist.gov/vuln/detail/CVE-2019-0708' },
+  { id: 'CVE-2021-34527', nazwa: 'PrintNightmare (druk)', co: 'luka w usłudze drukowania',
+    naPozwala: 'zdobycie uprawnień administratora i uruchomienie dowolnego programu', aktywna: false,
+    url: 'https://nvd.nist.gov/vuln/detail/CVE-2021-34527' },
 ];
 function znaneLuki(sys) {
   if (!sys || sys.werdykt !== 'alarm') return null;   // sens tylko po końcu wsparcia
   return {
-    wstep: 'To nie są teoretyczne zagrożenia — tak wyglądają luki, które realnie trafiały w Windowsa (i tak rozsiał się ransomware). Twój system po końcu wsparcia nie dostanie już łatki na żadną kolejną tego typu.',
+    wstep: 'To realne, udokumentowane luki Windowsa — każdą sprawdzisz w oficjalnym wpisie (link). Które z nich są akurat u Ciebie otwarte, zależy od poziomu aktualizacji; ale Twój system po końcu wsparcia na żadną kolejną nie dostanie już łatki. Pozycje „aktywnie wykorzystywana” są używane w atakach teraz.',
     luki: LUKI_WINDOWS,
   };
 }
