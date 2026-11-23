@@ -81,9 +81,9 @@ def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
     co widac na stronie, i dostajemy jedna czynnosc do wykonania. Dzieki temu
     komputer notariusza nie potrzebuje zadnego dostepu do modelu.
 
-    Zabezpieczenia pilnuje silnik (pomocnik/klikamy.py), nie polecenie dla
-    modelu: w przycisk, ktory wysyla albo podpisuje, nie da sie kliknac, a poza
-    dozwolone adresy agent nie wyjdzie.
+    Zabezpieczenia pilnuje silnik (pomocnik/klikamy.py): podpisy i platnosci
+    pozostaja zablokowane, a wyslanie wymaga jednorazowej zgody z telefonu.
+    Poza dozwolone adresy agent nie wyjdzie.
     """
     tresc = zlecenie.get("tresc") or {}
     cel = tresc.get("cel", "")
@@ -97,11 +97,17 @@ def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
         return notarai.krok_klikania(zlecenie.get("id", ""), cel, stan,
                                      [vars(k) for k in kroki])
 
+    zatwierdz = None
+    if tresc.get("docelowy_komputer") and hasattr(notarai, "zgoda_na_wyslanie"):
+        zatwierdz = lambda host, etykieta: notarai.zgoda_na_wyslanie(
+            zlecenie.get("id", ""), host, etykieta)
+
     polaczenie, strona = polacz()
     try:
         przebieg = silnik_klikania.prowadz(
             cel, strona, model,
             dozwolone_hosty=tuple(tresc.get("dozwolone_hosty") or ()),
+            zatwierdz_wysylke=zatwierdz,
         )
     finally:
         polaczenie.zamknij()
