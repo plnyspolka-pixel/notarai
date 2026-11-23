@@ -3884,7 +3884,7 @@ function otworzPilota(komputer){
   komputerPilota = komputer;
   $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
   const wersja = komputer.wersja || "";
-  const czyNowy = /^0\\.(?:[3-9]|[1-9]\\d)(?:\\.|$)/.test(wersja) || /^[1-9]\\d*(?:\\.|$)/.test(wersja);
+  const czyNowy = /^0\.(?:[3-9]|[1-9]\d)(?:\.|$)/.test(wersja) || /^[1-9]\d*(?:\.|$)/.test(wersja);
   $("pilot-wersja").textContent = czyNowy ? "Pomocnik " + wersja + " obsługuje zgody na wysłanie."
     : "Pomocnik " + (wersja || "w nieznanej wersji") +
       " może wykonywać zwykłe polecenia. Aby potwierdzać wysyłanie z telefonu, zaktualizuj go do wersji 0.3.";
