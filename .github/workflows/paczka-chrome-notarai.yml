@@ -1,0 +1,82 @@
+name: Paczka Chrome NotarAI 0.1.1
+
+on:
+  push:
+    branches:
+      - build/chrome-notarai-branding-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paczka:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testy rozszerzenia
+        run: npm test --prefix rozszerzenie
+      - name: Test skladni JavaScript
+        run: |
+          for plik in rozszerzenie/*.js; do node --check "$plik"; done
+      - name: Kontrola identyfikacji NotarAI i plikow manifestu
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, struct
+          p=pathlib.Path("rozszerzenie")
+          m=json.loads((p/"manifest.json").read_text())
+          assert m["manifest_version"]==3
+          assert m["name"].startswith("NotarAI")
+          assert m["version"]=="0.1.1"
+          assert m["host_permissions"]==["https://app.notarai.pl/*"]
+          for rel in [m["background"]["service_worker"],m["side_panel"]["default_path"],*m["icons"].values(),"ikony/notarai.svg","fonts/montserrat-latin-wght-normal.woff2"]:
+              assert (p/rel).is_file(),rel
+          for size,rel in [(16,"ikony/16.png"),(48,"ikony/48.png"),(128,"ikony/128.png")]:
+              b=(p/rel).read_bytes()
+              assert b[:8]==b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",b[16:24])==(size,size),rel
+          css=(p/"panel.css").read_text().lower()
+          svg=(p/"ikony/notarai.svg").read_text().lower()
+          html=(p/"panel.html").read_text().lower()
+          assert "--akcent:#2b52d9" in css
+          assert "#061744" in svg and "#00beef" in svg
+          assert "notar<strong>ai</strong>" in html
+          for source in [p/"panel.html",p/"panel.css",p/"manifest.json",p/"ikony/notarai.svg"]:
+              val=source.read_text().lower()
+              assert "pieczap" not in val and "osioł" not in val,source
+          print("PASS: NotarAI branding, ikony, manifest")
+          PY
+      - name: Zbuduj instalacyjne ZIP i sprawdz zawartosc
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, json
+          src=Path("rozszerzenie"); dst=Path("dist"); dst.mkdir(exist_ok=True)
+          files=[p for p in src.iterdir() if p.is_file() and p.suffix in (".js",".json",".html",".css")]
+          files+=list((src/"ikony").glob("*"))+list((src/"fonts").glob("*"))
+          files=[p for p in files if p.is_file()]
+          out=dst/"NotarAI_Chrome_0.1.1.zip"
+          with zipfile.ZipFile(out,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for p in sorted(files):
+                  z.write(p,p.relative_to(src))
+          with zipfile.ZipFile(out) as z:
+              assert z.testzip() is None
+              names=set(z.namelist())
+              assert "manifest.json" in names
+              assert "panel.js" in names
+              assert "ikony/128.png" in names
+              assert "fonts/montserrat-latin-wght-normal.woff2" in names
+              print("ZIP OK",out,len(names),"files",out.stat().st_size,"bytes")
+          PY
+      - name: Opublikuj paczke do pobrania
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotarAI-Chrome-0.1.1
+          path: dist/NotarAI_Chrome_0.1.1.zip
+          retention-days: 30
+          if-no-files-found: error
