@@ -70,3 +70,6 @@ docs/kampania-komputerku/narzedzia/koszty_log.csv
 
 # Agent Forge offline research state (never commit run outputs)
 .agent-forge/
+
+# Serial: strona/serial/ w całości generowane przez seo/serial.py
+strona/serial/
