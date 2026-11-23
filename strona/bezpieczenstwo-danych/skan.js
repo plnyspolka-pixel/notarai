@@ -1,0 +1,268 @@
+'use strict';
+/*
+ * Skan bezpieczeństwa kancelarii — silnik detekcji po stronie przeglądarki.
+ *
+ * ZASADY (RODO + skill strona-premium):
+ *  - Zero żądań do obcych serwerów. Jedyne wywołania sieciowe idą do
+ *    https://app.notarai.pl/api/skan/* (nasz backend) i są opcjonalne:
+ *    strona działa w pełni bez nich.
+ *  - Nic nie jest "przejmowane". Czytamy wyłącznie to, co przeglądarka sama
+ *    udostępnia każdej stronie (user agent, strefa czasowa, ekran) — i wprost
+ *    to mówimy. Hasło w teście wycieku NIGDY nie opuszcza przeglądarki:
+ *    liczymy lokalnie SHA-1 i wysyłamy tylko 5 pierwszych znaków skrótu
+ *    (model k-anonimowości Have I Been Pwned).
+ *  - Żadnych danych osobowych w logach ani w telemetrii.
+ *
+ * Werdykty: 'ok' (zielony) | 'uwaga' (bursztyn) | 'alarm' (czerwony) | 'info'.
+ */
+
+const API = 'https://app.notarai.pl';
+
+/* Fakty o końcu wsparcia i minimalne bezpieczne wersje przeglądarek.
+ * Zamrożone na dzień budowy strony — aktualizować przy zmianach. */
+const DANE = {
+  zbudowano: '2026-11-23',
+  // Koniec wsparcia systemów Windows (źródło: Microsoft Lifecycle).
+  windows: {
+    '6.1': { nazwa: 'Windows 7', wsparcieDo: '2020-01-14' },
+    '6.2': { nazwa: 'Windows 8', wsparcieDo: '2016-01-12' },
+    '6.3': { nazwa: 'Windows 8.1', wsparcieDo: '2023-01-10' },
+    // NT 10.0 to Windows 10 albo 11 — rozróżniamy po platformVersion (UA-CH).
+    win10: { nazwa: 'Windows 10', wsparcieDo: '2025-10-14' },
+    win11: { nazwa: 'Windows 11', wsparcieDo: null },
+  },
+  // Minimalne wersje główne, które jeszcze dostają poprawki bezpieczeństwa.
+  // Konserwatywne progi: poniżej = na pewno przestarzała.
+  przegladarki: { Chrome: 120, Edge: 120, Firefox: 115, Opera: 106 },
+};
+
+const dzisiaj = () => new Date();
+
+function czyPoWsparciu(dataISO) {
+  if (!dataISO) return false;
+  return dzisiaj() > new Date(dataISO + 'T23:59:59');
+}
+function latNiedlugo(dataISO) {
+  const dni = Math.floor((dzisiaj() - new Date(dataISO)) / 86400000);
+  if (dni < 0) return 'za ' + Math.abs(Math.round(dni / 30)) + ' mies.';
+  const lata = dni / 365;
+  return lata >= 1 ? 'od ' + lata.toFixed(1).replace('.', ',') + ' roku' : 'od ' + Math.round(dni / 30) + ' mies.';
+}
+
+/* ---------- System operacyjny ---------- */
+async function wykryjSystem() {
+  const ua = navigator.userAgent || '';
+  let platformVersion = null;
+  try {
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      const v = await navigator.userAgentData.getHighEntropyValues(['platformVersion']);
+      platformVersion = v && v.platformVersion ? v.platformVersion : null;
+    }
+  } catch (_) { /* brak UA-CH — trudno, lecimy dalej */ }
+
+  // Windows?
+  const mNT = ua.match(/Windows NT ([\d.]+)/);
+  if (mNT) {
+    const nt = mNT[1];
+    if (DANE.windows[nt]) {
+      const w = DANE.windows[nt];
+      return werdyktSystem(w.nazwa, w.wsparcieDo, true);
+    }
+    if (nt === '10.0') {
+      // Windows 10 vs 11 — UA-CH platformVersion: major >= 13 => Windows 11.
+      let win = DANE.windows.win10;
+      let pewne = false;
+      if (platformVersion) {
+        const major = parseInt(platformVersion.split('.')[0], 10);
+        if (!isNaN(major)) { pewne = true; win = major >= 13 ? DANE.windows.win11 : DANE.windows.win10; }
+      }
+      return werdyktSystem(win.nazwa, win.wsparcieDo, pewne);
+    }
+    return { klucz: 'system', tytul: 'System Windows', werdykt: 'info',
+      opis: 'Wykryto Windows, ale przeglądarka nie podaje dokładnej wersji.' };
+  }
+  // Inne systemy — informacyjnie, bez straszenia.
+  if (/Mac OS X|Macintosh/.test(ua)) return { klucz: 'system', tytul: 'System: macOS', werdykt: 'info',
+    opis: 'Sprawdź w Ustawieniach, czy masz najnowszą obsługiwaną wersję macOS i czy włączone jest FileVault (szyfrowanie dysku).' };
+  if (/Android/.test(ua)) return { klucz: 'system', tytul: 'System: Android', werdykt: 'info',
+    opis: 'Do pracy z aktami zalecamy komputer kancelarii, nie telefon.' };
+  if (/Linux|X11/.test(ua)) return { klucz: 'system', tytul: 'System: Linux', werdykt: 'info',
+    opis: 'Upewnij się, że dystrybucja dostaje aktualizacje bezpieczeństwa i że dysk jest zaszyfrowany (LUKS).' };
+  return { klucz: 'system', tytul: 'System operacyjny', werdykt: 'info', opis: 'Nie rozpoznano systemu z danych przeglądarki.' };
+}
+function werdyktSystem(nazwa, wsparcieDo, pewne) {
+  const prefiks = pewne ? '' : 'Prawdopodobnie ';
+  if (wsparcieDo && czyPoWsparciu(wsparcieDo)) {
+    const d = new Date(wsparcieDo).toLocaleDateString('pl-PL');
+    return { klucz: 'system', tytul: prefiks + nazwa, werdykt: 'alarm',
+      opis: 'Ten system nie dostaje już poprawek bezpieczeństwa (wsparcie zakończyło się ' + d + ', ' + latNiedlugo(wsparcieDo) + ' temu). Każda nowa luka w Windowsie zostaje w nim na zawsze — to najpoważniejsze ryzyko dla danych w kancelarii.',
+      czyn: 'Przejście na obsługiwany Windows 11 (lub ESU jako doraźny bufor).' };
+  }
+  if (wsparcieDo) {
+    const miesDo = Math.round((new Date(wsparcieDo) - dzisiaj()) / (86400000 * 30));
+    if (miesDo <= 12) return { klucz: 'system', tytul: prefiks + nazwa, werdykt: 'uwaga',
+      opis: 'Wsparcie kończy się ' + new Date(wsparcieDo).toLocaleDateString('pl-PL') + ' (za ok. ' + miesDo + ' mies.). Warto zaplanować migrację zawczasu.' };
+  }
+  return { klucz: 'system', tytul: prefiks + nazwa, werdykt: 'ok',
+    opis: 'System jest wspierany i dostaje poprawki bezpieczeństwa. To dobra podstawa — reszta zależy od konfiguracji (szyfrowanie, kopie, aktualizacje).' };
+}
+
+/* ---------- Przeglądarka ---------- */
+function wykryjPrzegladarke() {
+  const ua = navigator.userAgent || '';
+  let nazwa = null, wersja = null;
+  const brands = navigator.userAgentData && navigator.userAgentData.brands;
+  if (Array.isArray(brands)) {
+    for (const b of brands) {
+      if (/Edge/i.test(b.brand)) { nazwa = 'Edge'; wersja = parseInt(b.version, 10); }
+      else if (/Opera|OPR/i.test(b.brand)) { nazwa = 'Opera'; wersja = parseInt(b.version, 10); }
+      else if (/Google Chrome/i.test(b.brand) && nazwa !== 'Edge') { nazwa = 'Chrome'; wersja = parseInt(b.version, 10); }
+    }
+  }
+  if (!nazwa) {
+    let m;
+    if ((m = ua.match(/Edg\/(\d+)/))) { nazwa = 'Edge'; wersja = +m[1]; }
+    else if ((m = ua.match(/OPR\/(\d+)/))) { nazwa = 'Opera'; wersja = +m[1]; }
+    else if ((m = ua.match(/Firefox\/(\d+)/))) { nazwa = 'Firefox'; wersja = +m[1]; }
+    else if ((m = ua.match(/Chrome\/(\d+)/))) { nazwa = 'Chrome'; wersja = +m[1]; }
+    else if (/Safari/.test(ua) && (m = ua.match(/Version\/(\d+)/))) { nazwa = 'Safari'; wersja = +m[1]; }
+    else if ((m = ua.match(/MSIE (\d+)|Trident/))) { nazwa = 'Internet Explorer'; wersja = m[1] ? +m[1] : 11; }
+  }
+  if (nazwa === 'Internet Explorer') return { klucz: 'przegladarka', tytul: 'Internet Explorer', werdykt: 'alarm',
+    opis: 'Internet Explorer nie jest już rozwijany ani wspierany. To jedna z najłatwiejszych dróg włamania. Przejdź na aktualny Edge lub Chrome.',
+    czyn: 'Zmiana przeglądarki na aktualną.' };
+  if (!nazwa || !wersja) return { klucz: 'przegladarka', tytul: 'Przeglądarka', werdykt: 'info',
+    opis: 'Nie udało się rozpoznać wersji. Upewnij się, że masz włączone automatyczne aktualizacje.' };
+  const prog = DANE.przegladarki[nazwa];
+  if (prog && wersja < prog) return { klucz: 'przegladarka', tytul: nazwa + ' ' + wersja, werdykt: 'alarm',
+    opis: 'Ta wersja jest przestarzała (bezpieczne minimum to ' + prog + '+). Przestarzała przeglądarka to otwarte drzwi — aktualizacje łatają realnie wykorzystywane luki.',
+    czyn: 'Aktualizacja przeglądarki i włączenie automatycznych aktualizacji.' };
+  return { klucz: 'przegladarka', tytul: nazwa + ' ' + wersja, werdykt: 'ok',
+    opis: 'Wersja wygląda na aktualną. Trzymaj włączone automatyczne aktualizacje, żeby tak zostało.' };
+}
+
+/* ---------- Połączenie ---------- */
+function wykryjPolaczenie() {
+  const https = location.protocol === 'https:';
+  const bezpiecznyKontekst = typeof isSecureContext !== 'undefined' ? isSecureContext : https;
+  if (!https) return { klucz: 'polaczenie', tytul: 'Połączenie nieszyfrowane', werdykt: 'alarm',
+    opis: 'Ta strona nie jest otwarta po HTTPS. Dane mogą być podsłuchane w sieci.' };
+  return { klucz: 'polaczenie', tytul: 'Połączenie szyfrowane (HTTPS)', werdykt: 'ok',
+    opis: 'Połączenie z tą stroną jest szyfrowane' + (bezpiecznyKontekst ? '' : '') + '. To dobrze — ale szyfrowanie strony nie chroni plików na Twoim dysku ani poczty. Tym zajmują się kolejne punkty.' };
+}
+
+/* ---------- Co widzą o Tobie strony (fingerprint) ---------- */
+function wykryjSlad() {
+  const d = [];
+  try { d.push(['Strefa czasowa', Intl.DateTimeFormat().resolvedOptions().timeZone]); } catch (_) {}
+  d.push(['Język', (navigator.languages && navigator.languages.join(', ')) || navigator.language || '—']);
+  d.push(['Ekran', screen.width + '×' + screen.height + ' px, ' + (window.devicePixelRatio || 1) + '×']);
+  if (navigator.hardwareConcurrency) d.push(['Rdzenie procesora', String(navigator.hardwareConcurrency)]);
+  if (navigator.deviceMemory) d.push(['Pamięć (ok.)', navigator.deviceMemory + ' GB']);
+  d.push(['Dotyk', (navigator.maxTouchPoints || 0) > 0 ? 'tak' : 'nie']);
+  return { klucz: 'slad', tytul: 'To widzi o Tobie każda strona', werdykt: 'info', dane: d,
+    opis: 'Te informacje każda odwiedzana strona odczytuje automatycznie, bez pytania o zgodę — tak działa przeglądarka. Pojedynczo nieszkodliwe, ale razem tworzą „odcisk palca”, po którym da się Cię śledzić między stronami.' };
+}
+
+/* ---------- Publiczny IP (opcjonalnie, nasz backend) ---------- */
+async function wykryjIP() {
+  try {
+    const r = await fetch(API + '/api/skan/ip', { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    if (!j || !j.ip) return null;
+    const miejsce = [j.miasto, j.kraj].filter(Boolean).join(', ');
+    return { klucz: 'ip', tytul: 'Twój adres widoczny z internetu', werdykt: 'info',
+      dane: [['Adres IP', j.ip]].concat(miejsce ? [['Przybliżona lokalizacja', miejsce]] : []),
+      opis: 'Tyle widzi o Twoim łączu każdy serwer, z którym się łączysz. To normalne — pokazujemy, żeby było jasne, że „anonimowości w sieci” nie ma z automatu.' };
+  } catch (_) { return null; }
+}
+
+/* ---------- Hasło: test wycieku (HIBP, k-anonimowość) ---------- */
+async function sha1Hex(tekst) {
+  const bufor = new TextEncoder().encode(tekst);
+  const hash = await crypto.subtle.digest('SHA-1', bufor);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+async function sprawdzHaslo(haslo) {
+  if (!haslo) return null;
+  if (!(window.crypto && crypto.subtle)) return { blad: 'Ta przeglądarka nie pozwala bezpiecznie sprawdzić hasła.' };
+  const hash = await sha1Hex(haslo);
+  const prefiks = hash.slice(0, 5), reszta = hash.slice(5);
+  // Do backendu idzie TYLKO 5 pierwszych znaków skrótu — nie hasło.
+  const r = await fetch(API + '/api/skan/hibp-haslo?prefiks=' + prefiks, { headers: { 'Accept': 'text/plain' } });
+  if (!r.ok) throw new Error('Nie udało się połączyć z usługą sprawdzania.');
+  const tekst = await r.text();
+  let ile = 0;
+  for (const linia of tekst.split('\n')) {
+    const [suf, licz] = linia.trim().split(':');
+    if (suf && suf.toUpperCase() === reszta) { ile = parseInt(licz, 10) || 0; break; }
+  }
+  if (ile > 0) return { ile, werdykt: 'alarm',
+    opis: 'To hasło pojawiło się w znanych wyciekach danych ' + ile.toLocaleString('pl-PL') + ' razy. Jest na listach, których używają włamywacze — zmień je wszędzie, gdzie go używasz, i nie używaj ponownie.' };
+  return { ile: 0, werdykt: 'ok',
+    opis: 'Tego hasła nie ma w znanych wyciekach. To dobry znak, ale nie gwarancja — liczy się też długość, unikalność i menedżer haseł.' };
+}
+
+/* ---------- Samoaudyt: rzeczy, których przeglądarka nie zobaczy ---------- */
+const SAMOAUDYT = [
+  { id: 'szyfrowanie', pytanie: 'Dysk komputera jest zaszyfrowany (BitLocker / FileVault)?',
+    gdyNie: 'Bez szyfrowania każdy, kto fizycznie weźmie komputer lub dysk, odczyta wszystkie akta. To podstawa ochrony danych w kancelarii.', waga: 20 },
+  { id: 'kopie', pytanie: 'Masz regularne kopie zapasowe (poza tym komputerem)?',
+    gdyNie: 'Bez kopii jeden ransomware albo awaria dysku to utrata akt. Kopia musi być odłączona albo w chmurze w UE.', waga: 18 },
+  { id: 'antywirus', pytanie: 'Masz aktywną i aktualną ochronę antywirusową?',
+    gdyNie: 'Włącz przynajmniej Microsoft Defender i upewnij się, że jest aktualny.', waga: 12 },
+  { id: 'blokada', pytanie: 'Komputer blokuje się sam i wymaga hasła po odejściu?',
+    gdyNie: 'Niezablokowany komputer to dostęp do akt dla każdego, kto przejdzie obok biurka.', waga: 10 },
+  { id: 'mfa', pytanie: 'Poczta kancelarii ma włączone logowanie dwuskładnikowe (2FA)?',
+    gdyNie: 'Samo hasło do poczty nie wystarcza — to przez pocztę najczęściej przejmuje się dostęp. Włącz 2FA.', waga: 15 },
+  { id: 'menedzer', pytanie: 'Używasz menedżera haseł (różne hasła do różnych usług)?',
+    gdyNie: 'Powtarzane hasła to efekt domina: jeden wyciek otwiera wszystko. Menedżer haseł to rozwiązuje.', waga: 10 },
+];
+
+/* ---------- Wynik łączny ---------- */
+function policzWynik(karty, samoaudyt) {
+  // Start 100, odejmujemy kary. Technika z przeglądarki + deklaracje z samoaudytu.
+  let pkt = 100;
+  const kary = { alarm: 22, uwaga: 10 };
+  for (const k of karty) if (kary[k.werdykt]) pkt -= kary[k.werdykt];
+  for (const poz of SAMOAUDYT) if (samoaudyt[poz.id] === false) pkt -= poz.waga;
+  pkt = Math.max(3, Math.min(100, Math.round(pkt)));
+  let poziom, naglowek;
+  if (pkt >= 80) { poziom = 'ok'; naglowek = 'Solidnie — ale jest co dopiąć'; }
+  else if (pkt >= 55) { poziom = 'uwaga'; naglowek = 'Są poważne luki do zamknięcia'; }
+  else { poziom = 'alarm'; naglowek = 'Dane Twojej kancelarii są realnie zagrożone'; }
+  return { pkt, poziom, naglowek };
+}
+
+/* Maskowanie hasła, które użytkownik SAM wpisał do sprawdzenia — pokazujemy
+ * je w większości wygwiazdkowane, żeby rozpoznał, że to jego, ale żeby nie
+ * wyświetlać go w całości. Liczba kropek = realna długość (krótkie = widać). */
+function maskujHaslo(h) {
+  const n = h.length;
+  if (n <= 2) return '•'.repeat(Math.max(n, 1));
+  if (n <= 5) return h[0] + '•'.repeat(n - 1);
+  return h[0] + h[1] + '•'.repeat(n - 3) + h[n - 1];
+}
+
+/* Szczera, lokalna ocena siły hasła (bez bibliotek, bez wysyłki).
+ * Zwraca { poziom, etykieta, opis } — celowo dosadna przy słabych. */
+const SLABE = ['haslo','hasło','password','qwerty','123456','12345678','111111','zaq12wsx','iloveyou','admin','polska','notariusz','kancelaria','1qaz2wsx','000000','abc123','password1'];
+function ocenSile(h) {
+  const n = h.length;
+  const male = /[a-ząćęłńóśźż]/.test(h), duze = /[A-ZĄĆĘŁŃÓŚŹŻ]/.test(h);
+  const cyfry = /\d/.test(h), znaki = /[^A-Za-z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(h);
+  const klasy = [male, duze, cyfry, znaki].filter(Boolean).length;
+  const dolne = h.toLowerCase();
+  const trywialne = SLABE.some(s => dolne.includes(s)) || /^\d+$/.test(h) || /^(.)\1+$/.test(h) ||
+    /0123|1234|2345|3456|4567|5678|6789|abcd|qwer/.test(dolne);
+  if (trywialne || n < 6)
+    return { poziom: 'alarm', etykieta: 'Banalne', opis: 'To hasło łamie się w kilka sekund — jest krótkie lub oparte na schemacie, który łamacze haseł sprawdzają w pierwszej kolejności.' };
+  if (n < 10 || klasy <= 2)
+    return { poziom: 'uwaga', etykieta: 'Słabe', opis: 'To hasło da się złamać szybciej, niż myślisz (od minut do godzin). Zbyt krótkie albo zbyt przewidywalne — dołóż długości i różnych znaków, a najlepiej użyj menedżera haseł.' };
+  if (n >= 14 && klasy >= 3)
+    return { poziom: 'ok', etykieta: 'Mocne', opis: 'Długie i zróżnicowane — to dobra droga. Pod warunkiem, że używasz go tylko w jednym miejscu.' };
+  return { poziom: 'uwaga', etykieta: 'Przeciętne', opis: 'Niezłe, ale można lepiej: 14+ znaków i kilka rodzajów znaków. Przede wszystkim nie używaj go w więcej niż jednym serwisie.' };
+}
+
+window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik };

@@ -45,6 +45,7 @@ import urzadzenia
 import zlecenia
 import magazyn
 import notariusze
+import skan_bezpieczenstwa
 import autoryzacja
 import nazwy
 import osoby
@@ -110,6 +111,7 @@ app.include_router(korespondencja.router)
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
+app.include_router(skan_bezpieczenstwa.router)
 app.include_router(meta_leady.router)
 app.include_router(rezerwacje_klientow.router_admina)
 rezerwacje_klientow.uruchom_przypomnienia()
