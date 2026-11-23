@@ -44,8 +44,9 @@
   Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy, potwierdzenie zgody osób obecnych,
   telefon na stole nagrywa (Opus ~24 kb/s, fragmenty co 15 s najpierw w pamięci przeglądarki, nowa
   sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
-  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), anonimizuje (model `eu.` wskazuje
-  dane, kod podmienia; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
+  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), maskuje dane osobowe tak, że zostaje
+  początek i koniec („J*n S*****k”, PESEL „80*******45”) - kto zna akt, dopasuje osoby do ról
+  (model `eu.` wskazuje dane, kod maskuje; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
   i zapisuje **tylko zamaskowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
   w plikach sprawy, idzie do S3 z całą sprawą). Audio, surowy wynik i zadanie Transcribe są kasowane;
   surowy tekst nie trafia na dysk. Spis w pliku kancelarii `stenogramy`.
