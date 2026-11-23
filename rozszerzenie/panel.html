@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>notarai</title>
+<title>NotarAI — asystent w przeglądarce</title>
 <link rel="stylesheet" href="panel.css">
 </head>
 <body>
 <header>
   <img src="ikony/notarai.svg" alt="NotarAI" width="31" height="31">
-  <h1>notar<strong>ai</strong></h1>
+  <h1>Notar<strong>AI</strong></h1>
   <span id="znaczek" class="znaczek"></span>
 </header>
 
 <!-- Laczenie z kancelaria: widoczne tylko, dopoki przegladarka nie ma tokenu. -->
 <section id="widok-laczenie" hidden>
   <h2>Połącz tę przeglądarkę z kancelarią</h2>
-  <p>Otwórz notarai i kliknij <b>Połącz</b>. Ten sam kod zobaczysz tam na ekranie - nic nie trzeba przepisywać.</p>
+  <p>Otwórz NotarAI i kliknij <b>Połącz</b>. Ten sam kod zobaczysz tam na ekranie - nic nie trzeba przepisywać.</p>
   <div id="kod" class="kod" aria-live="polite">…</div>
-  <button id="btn-otworz">Otwórz notarai</button>
+  <button id="btn-otworz">Otwórz NotarAI</button>
   <p id="stan-laczenia" class="stan" aria-live="polite"></p>
 </section>
 
@@ -34,7 +34,7 @@
     </div>
   </form>
 
-  <!-- Zlecenie z notarai (KRZ, formularz, polecenie ze sprawy) czeka na zgode na strone. -->
+  <!-- Zlecenie z NotarAI (KRZ, formularz, polecenie ze sprawy) czeka na zgode na strone. -->
   <div id="zgoda" class="uwaga" hidden>
     <p><b id="zgoda-tytul"></b></p>
     <p id="zgoda-opis"></p>
@@ -53,7 +53,7 @@
   <ol id="kroki" class="kroki" aria-live="polite"></ol>
 
   <footer>
-    <p>Dopóki ten panel jest otwarty, wykonuję też zlecenia ze spraw w notarai: sprawdzenia w KRZ i wypełnianie formularzy.</p>
+    <p>Dopóki ten panel jest otwarty, wykonuję też zlecenia ze spraw w NotarAI: sprawdzenia w KRZ i wypełnianie formularzy.</p>
     <p>Asystent nigdy nie wysyła, nie składa, nie podpisuje i nie wpisuje haseł ani PIN-u. Podpis elektroniczny składasz samodzielnie, tak jak zawsze.</p>
     <button id="btn-odlacz" type="button" class="odnosnik">Odłącz tę przeglądarkę od kancelarii</button>
   </footer>
