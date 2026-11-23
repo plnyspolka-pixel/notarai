@@ -131,6 +131,12 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 .bz-sa .sa-opcje button[aria-pressed="true"].tak { background:var(--ok); border-color:var(--ok); color:#fff; }
 .bz-sa .sa-opcje button[aria-pressed="true"].nie { background:var(--alarm); border-color:var(--alarm); color:#fff; }
 .bz-sa .sa-uwaga { margin:8px 0 0; color:var(--alarm); font-size:.88rem; }
+.bz-sa .sa-jak { margin:8px 0 0; background:var(--akcent-tlo); border:1px solid #cfe2fb; border-radius:10px; padding:10px 12px; }
+.bz-sa .sa-jak-tyt { margin:0 0 4px; font-weight:700; color:var(--akcent); font-size:.9rem; }
+.bz-sa .sa-jak ol { margin:0; padding-left:20px; }
+.bz-sa .sa-jak li { margin:3px 0; font-size:.9rem; color:var(--tekst); }
+.bz-sa .sa-jak-link { display:inline-block; margin-top:8px; font-weight:600; color:#0072ad; font-size:.9rem; text-decoration:none; }
+.bz-sa .sa-jak-link:hover { text-decoration:underline; }
 
 /* Plan */
 .bz-plan { margin-top:8px; }
@@ -388,11 +394,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const fs=document.createElement('fieldset'); const lg=document.createElement('legend'); lg.textContent=poz.pytanie; fs.append(lg);
       const opcje=document.createElement('div'); opcje.className='sa-opcje'; opcje.setAttribute('role','group'); opcje.setAttribute('aria-label',poz.pytanie);
       const uwaga=document.createElement('p'); uwaga.className='sa-uwaga'; uwaga.hidden=true; uwaga.textContent=poz.gdyNie;
+      const jakEl=document.createElement('div'); jakEl.className='sa-jak'; jakEl.hidden=true;
+      if (Array.isArray(poz.jak)){
+        const h=document.createElement('p'); h.className='sa-jak-tyt'; h.textContent='Jak to zrobić samemu:'; jakEl.append(h);
+        const ol=document.createElement('ol'); poz.jak.forEach(k=>{ const li=document.createElement('li'); li.textContent=k; ol.append(li); }); jakEl.append(ol);
+        if (poz.ustawienia){ const a=document.createElement('a'); a.href=poz.ustawienia; a.className='sa-jak-link'; a.rel='noopener'; a.textContent='↗ '+(poz.ustawieniaTekst||'Otwórz ustawienia')+' (Windows)'; jakEl.append(a); }
+      }
       const bTak=document.createElement('button'); bTak.type='button'; bTak.className='tak'; bTak.textContent='Tak'; bTak.setAttribute('aria-pressed','false');
       const bNie=document.createElement('button'); bNie.type='button'; bNie.className='nie'; bNie.textContent='Nie'; bNie.setAttribute('aria-pressed','false');
-      bTak.addEventListener('click',()=>{ stan.samoaudyt[poz.id]=true; bTak.setAttribute('aria-pressed','true'); bNie.setAttribute('aria-pressed','false'); uwaga.hidden=true; przeliczWynik(true); });
-      bNie.addEventListener('click',()=>{ stan.samoaudyt[poz.id]=false; bNie.setAttribute('aria-pressed','true'); bTak.setAttribute('aria-pressed','false'); uwaga.hidden=false; przeliczWynik(true); });
-      opcje.append(bTak,bNie); fs.append(opcje,uwaga); box.append(fs);
+      bTak.addEventListener('click',()=>{ stan.samoaudyt[poz.id]=true; bTak.setAttribute('aria-pressed','true'); bNie.setAttribute('aria-pressed','false'); uwaga.hidden=true; jakEl.hidden=true; przeliczWynik(true); });
+      bNie.addEventListener('click',()=>{ stan.samoaudyt[poz.id]=false; bNie.setAttribute('aria-pressed','true'); bTak.setAttribute('aria-pressed','false'); uwaga.hidden=false; jakEl.hidden=false; przeliczWynik(true); });
+      opcje.append(bTak,bNie); fs.append(opcje,uwaga,jakEl); box.append(fs);
     });
   }
 
