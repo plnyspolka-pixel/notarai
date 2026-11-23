@@ -262,8 +262,13 @@ def _sync(token):
             wynik["zmieniono"] += 1
             nowy_l = nowy_g
         elif l_zmieniony:
+            cialo = _cialo(lok)
+            # Wydarzenie zaimportowane z Google zachowuje oryginalny tytul
+            # i pozostale metadane. Zmieniamy w Google tylko termin.
+            if zapis.get("pochodzenie") == "google":
+                cialo.pop("summary", None)
             ev = _zadanie(token, "PATCH", "/calendars/primary/events/" + quote(id_g, safe=""),
-                          json=_cialo(lok))
+                          json=cialo)
             nowy_g = _podpis_google(ev)
             wynik["zmieniono"] += 1
         mapy[id_l] = {**zapis, "lokalny": nowy_l, "google": nowy_g}
