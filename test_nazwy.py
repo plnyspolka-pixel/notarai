@@ -147,3 +147,15 @@ class TestNazwaPliku:
     def test_przyklad_dla_okna_ustawien(self):
         assert przyklad_nazwy(DOMYSLNY_WZOR_NAZWY) == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"
         assert przyklad_nazwy("") == "Sobczak - Pawlak - sprzedaż - Zalesie.docx"
+
+
+class TestLimitDlugosci:
+    def test_max_dlugosc_parametr(self):
+        assert len(bezpieczna_nazwa_pliku("a" * 50, max_dlugosc=10)) == 10
+
+    def test_po_przycieciu_koncowe_znaki_znikaja(self):
+        assert bezpieczna_nazwa_pliku("Kowalski - Nowak", max_dlugosc=11) == "Kowalski"
+
+    def test_domyslny_limit_jak_max_dlugosc(self):
+        tekst = "Kowalski - " * 20
+        assert bezpieczna_nazwa_pliku(tekst) == bezpieczna_nazwa_pliku(tekst, max_dlugosc=MAX_DLUGOSC_NAZWY)

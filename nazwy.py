@@ -245,12 +245,12 @@ def miejscowosc_z_pol(pola: list[dict] | None) -> str:
     return ""
 
 
-def bezpieczna_nazwa_pliku(tekst: str) -> str:
+def bezpieczna_nazwa_pliku(tekst: str, max_dlugosc: int = MAX_DLUGOSC_NAZWY) -> str:
     """Bez znakow niedozwolonych w Windows/macOS, bez kropek i spacji na koncach."""
     tekst = re.sub(r"\s*[/\\:]\s*", "-", tekst or "")   # A 123/2026 -> A 123-2026
     tekst = _NIEDOZWOLONE_W_NAZWIE.sub("", tekst)
     tekst = re.sub(r"\s+", " ", tekst).strip(" .-–—_")
-    return tekst[:MAX_DLUGOSC_NAZWY].rstrip(" .-–—_")
+    return tekst[:max_dlugosc].rstrip(" .-–—_")
 
 
 def _polacz_nazwiska(nazwiska: list[str]) -> str:
