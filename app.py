@@ -1299,7 +1299,8 @@ def wyslij_wiadomosc(identyfikator: str, wiadomosc: Wiadomosc, request: Request)
     _zapisz_rozmowe(katalog, rozmowa)
     magazyn.utrwal_sprawe(katalog)
     log.info("sprawa %s: rozmowa, tur=%d", identyfikator, len(rozmowa))
-    return {"odpowiedz": odpowiedz, "rozmowa": rozmowa}
+    return {"odpowiedz": odpowiedz, "rozmowa": rozmowa,
+            "odswiez_sprawdzenia": czy_ekw}
 
 
 @app.post("/api/transkrypcja")
