@@ -5,7 +5,11 @@ przy kazdej sprawie.
     przelacznik "Dokladnosc odczytu" przy kazdej nowej sprawie, na kazdym
     urzadzeniu; "auto" dobiera dokladnosc do dokumentow (dokladnosc_odczytu),
   - wzor nazwy pliku Word z projektem (nazwy.nazwa_pliku), np.
-    "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}".
+    "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}",
+  - jak dlugo trwa zalogowanie (wylogowanie) i czy wylogowac po bezczynnosci
+    (bezczynnosc) - pilnuje tego autoryzacja.odnow i przegladarka,
+  - jak dlugo kopie spraw leza na serwerze (przechowywanie_spraw) i czy po
+    tym czasie usuwac je samemu (usuwanie_spraw) - retencja_spraw.py.
 
 Plik kancelarii "ustawienia" (magazyn.PLIKI_KANCELARII): w chmurze lezy w S3
 razem z kalendarzem i zasadami, lokalnie w dane/. Same preferencje, zero
@@ -13,6 +17,7 @@ danych osobowych. Zmienia je notariusz (wlasciciel kancelarii), tak jak
 nieprzekraczalne zasady; w trybie lokalnym - kazdy.
 """
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -49,6 +54,38 @@ WIDOKI_STARTOWE = ("panel", "nowa_sprawa", "kalendarz", "osoby", "przesylki", "p
 NARZEDZIA_MENU = ("sprawdzenia", "klikamy", "kalendarz", "osoby", "przesylki", "poczta",
                   "poswiadczenia", "stenogramy", "styl", "ksiegi", "giif")
 
+# Bezpieczenstwo i przechowywanie - wybiera notariusz. Domyslne zachowuja to,
+# co bylo przed wprowadzeniem ustawien: logowanie raz na 30 dni, bez
+# wylogowania po bezczynnosci, sprawy leza do recznego usuniecia.
+WYLOGOWANIE_S = {"8_godzin": 8 * 3600, "1_dzien": 86400, "7_dni": 7 * 86400,
+                 "30_dni": 30 * 86400, "nigdy": None}
+BEZCZYNNOSC_S = {"wylaczone": None, "15_minut": 15 * 60, "30_minut": 30 * 60,
+                 "1_godzina": 3600, "4_godziny": 4 * 3600}
+PRZECHOWYWANIE_DNI = {"bez_limitu": None, "30_dni": 30, "90_dni": 90, "180_dni": 180,
+                      "1_rok": 365, "2_lata": 730, "5_lat": 1825}
+USUWANIE = ("przypominaj", "automatycznie")
+# Po wlaczeniu automatycznego usuwania (albo skroceniu czasu) pierwsze sprawy
+# znikaja dopiero po tylu dniach. Notariusz widzi je na liscie spraw i moze
+# zmienic zdanie - pomylka w jednym zdaniu do asystenta nie kasuje archiwum.
+KARENCJA_DNI = 7
+# Pozostale ustawienia z zamknieta lista wartosci: klucz -> dozwolone.
+WYBORY = {
+    "dokladnosc": DOKLADNOSCI, "braki": BRAKI, "rozmiar_tekstu": ROZMIARY_TEKSTU,
+    "widok_startowy": WIDOKI_STARTOWE, "wylogowanie": tuple(WYLOGOWANIE_S),
+    "bezczynnosc": tuple(BEZCZYNNOSC_S), "przechowywanie_spraw": tuple(PRZECHOWYWANIE_DNI),
+    "usuwanie_spraw": USUWANIE,
+}
+_BLEDY_WYBORU = {
+    "dokladnosc": "Nieznana dokladnosc odczytu. Dozwolone: ",
+    "braki": "Nieznany sposob oznaczania brakow. Dozwolone: ",
+    "rozmiar_tekstu": "Wielkosc tekstu: ",
+    "widok_startowy": "Ekran startowy: ",
+    "wylogowanie": "Wylogowanie: ",
+    "bezczynnosc": "Wylogowanie po bezczynnosci: ",
+    "przechowywanie_spraw": "Przechowywanie spraw: ",
+    "usuwanie_spraw": "Usuwanie spraw: ",
+}
+
 
 def _lista_narzedzi(wartosc) -> list[str] | None:
     """"kalendarz, giif" -> ["giif", "kalendarz"]; None gdy jest nieznana nazwa."""
@@ -73,25 +110,34 @@ OPISY_USTAWIEN = {
     "widok_startowy": "ekran po zalogowaniu: panel | nowa_sprawa | kalendarz | osoby | przesylki | poczta | ksiegi",
     "ukryte_narzedzia": "narzędzia schowane z menu, po przecinku (pusto = wszystkie widoczne): "
                         + ", ".join(NARZEDZIA_MENU),
+    "wylogowanie": "po jakim czasie od zalogowania hasłem aplikacja wyloguje (nigdy = zalogowany non-stop, "
+                   "do ręcznego wylogowania): " + " | ".join(WYLOGOWANIE_S),
+    "bezczynnosc": "wylogowanie po czasie bez pracy przy komputerze: " + " | ".join(BEZCZYNNOSC_S),
+    "przechowywanie_spraw": "jak długo kopie spraw leżą na serwerze notarai, liczone od ostatniej zmiany "
+                            "w sprawie: " + " | ".join(PRZECHOWYWANIE_DNI),
+    "usuwanie_spraw": "co po tym czasie: przypominaj (sprawa oznaczona na liście, usuwa notariusz) | "
+                      "automatycznie (serwer sam usuwa sprawę na zawsze, pierwsze usunięcia "
+                      f"najwcześniej {KARENCJA_DNI} dni po włączeniu)",
 }
 
 
 def domyslne() -> dict:
     return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis",
-            "rozmiar_tekstu": "normalny", "widok_startowy": "panel", "ukryte_narzedzia": ""}
+            "rozmiar_tekstu": "normalny", "widok_startowy": "panel", "ukryte_narzedzia": "",
+            "wylogowanie": "30_dni", "bezczynnosc": "wylaczone",
+            "przechowywanie_spraw": "bez_limitu", "usuwanie_spraw": "przypominaj"}
 
 
 def _oczysc(dane: dict) -> dict:
     """Tylko znane klucze i poprawne wartosci; reszta wraca do domyslnych."""
     wynik = domyslne()
-    if dane.get("dokladnosc") in DOKLADNOSCI:
-        wynik["dokladnosc"] = dane["dokladnosc"]
-    if dane.get("braki") in BRAKI:
-        wynik["braki"] = dane["braki"]
-    if dane.get("rozmiar_tekstu") in ROZMIARY_TEKSTU:
-        wynik["rozmiar_tekstu"] = dane["rozmiar_tekstu"]
-    if dane.get("widok_startowy") in WIDOKI_STARTOWE:
-        wynik["widok_startowy"] = dane["widok_startowy"]
+    for klucz, dozwolone in WYBORY.items():
+        if dane.get(klucz) in dozwolone:
+            wynik[klucz] = dane[klucz]
+    # Znacznik techniczny (nie ustawienie): od kiedy dziala automatyczne usuwanie
+    # w obecnym ksztalcie. Liczy sie od niego karencja.
+    if wynik["usuwanie_spraw"] == "automatycznie" and _data(dane.get("automatyczne_od")):
+        wynik["automatyczne_od"] = dane["automatyczne_od"]
     ukryte = _lista_narzedzi(dane.get("ukryte_narzedzia", ""))
     if ukryte is not None:
         wynik["ukryte_narzedzia"] = ", ".join(ukryte)
@@ -112,16 +158,36 @@ def wczytaj() -> dict:
     return _oczysc(dane if isinstance(dane, dict) else {})
 
 
+def _data(wartosc) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(wartosc)) if wartosc else None
+    except ValueError:
+        return None
+
+
+def sekundy_sesji(ustawienia: dict) -> int | None:
+    """Najdluzszy czas od zalogowania haslem; None = bez limitu."""
+    return WYLOGOWANIE_S.get(ustawienia.get("wylogowanie"), WYLOGOWANIE_S["30_dni"])
+
+
+def dni_przechowania(ustawienia: dict) -> int | None:
+    """Ile dni od ostatniej zmiany sprawa lezy na serwerze; None = bez limitu."""
+    return PRZECHOWYWANIE_DNI.get(ustawienia.get("przechowywanie_spraw"))
+
+
+def usuwanie_od(ustawienia: dict) -> datetime | None:
+    """Od kiedy wolno usuwac automatycznie (koniec karencji); None = nie wolno."""
+    if ustawienia.get("usuwanie_spraw") != "automatycznie" or dni_przechowania(ustawienia) is None:
+        return None
+    poczatek = _data(ustawienia.get("automatyczne_od"))
+    return (poczatek + timedelta(days=KARENCJA_DNI)) if poczatek else None
+
+
 def zapisz(zmiany: dict) -> dict:
     """Zapis tylko podanych kluczy; nieznane wartosci sa odrzucane (400)."""
-    if "dokladnosc" in zmiany and zmiany["dokladnosc"] not in DOKLADNOSCI:
-        raise ValueError("Nieznana dokladnosc odczytu. Dozwolone: " + ", ".join(DOKLADNOSCI) + ".")
-    if "braki" in zmiany and zmiany["braki"] not in BRAKI:
-        raise ValueError("Nieznany sposob oznaczania brakow. Dozwolone: " + ", ".join(BRAKI) + ".")
-    if "rozmiar_tekstu" in zmiany and zmiany["rozmiar_tekstu"] not in ROZMIARY_TEKSTU:
-        raise ValueError("Wielkosc tekstu: " + ", ".join(ROZMIARY_TEKSTU) + ".")
-    if "widok_startowy" in zmiany and zmiany["widok_startowy"] not in WIDOKI_STARTOWE:
-        raise ValueError("Ekran startowy: " + ", ".join(WIDOKI_STARTOWE) + ".")
+    for klucz, dozwolone in WYBORY.items():
+        if klucz in zmiany and zmiany[klucz] not in dozwolone:
+            raise ValueError(_BLEDY_WYBORU[klucz] + ", ".join(dozwolone) + ".")
     if "ukryte_narzedzia" in zmiany:
         ukryte = _lista_narzedzi(zmiany["ukryte_narzedzia"])
         if ukryte is None:
@@ -141,13 +207,26 @@ def zapisz(zmiany: dict) -> dict:
             zmiany["nazwa_pliku"] = wzor
 
     def zmiana(dane: dict) -> dict:
+        przed = _oczysc(dane)
         for klucz in domyslne():
             if klucz in zmiany:
                 dane[klucz] = zmiany[klucz]
+        po = _oczysc(dane)
+        # Karencja liczy sie od nowa przy kazdym zaostrzeniu: wlaczeniu
+        # automatycznego usuwania albo skroceniu czasu przechowania.
+        if po["usuwanie_spraw"] == "automatycznie" and dni_przechowania(po) is not None:
+            dni_przed = dni_przechowania(przed)
+            zaostrzenie = (przed["usuwanie_spraw"] != "automatycznie" or dni_przed is None
+                           or dni_przechowania(po) < dni_przed or not przed.get("automatyczne_od"))
+            if zaostrzenie:
+                dane["automatyczne_od"] = datetime.now().isoformat(timespec="seconds")
+        else:
+            dane.pop("automatyczne_od", None)
         return _oczysc(dane)
 
     wynik = magazyn.zmien_plik_kancelarii(PLIK, zmiana, {})
-    log.info("ustawienia kancelarii zapisane: dokladnosc=%s", wynik["dokladnosc"])
+    log.info("ustawienia kancelarii zapisane: dokladnosc=%s wylogowanie=%s przechowywanie=%s/%s",
+             wynik["dokladnosc"], wynik["wylogowanie"], wynik["przechowywanie_spraw"], wynik["usuwanie_spraw"])
     return wynik
 
 
@@ -205,6 +284,10 @@ class Zmiany(BaseModel):
     rozmiar_tekstu: str | None = None
     widok_startowy: str | None = None
     ukryte_narzedzia: str | None = None
+    wylogowanie: str | None = None
+    bezczynnosc: str | None = None
+    przechowywanie_spraw: str | None = None
+    usuwanie_spraw: str | None = None
 
 
 def _moge_zmieniac(request: Request) -> bool:

@@ -95,7 +95,10 @@ Resources:
       PreventUserExistenceErrors: ENABLED
       AccessTokenValidity: 8
       IdTokenValidity: 8
-      RefreshTokenValidity: 30
+      # 10 lat = mozliwe "nie wylogowuj". Krotszy czas wybiera kancelaria
+      # (ustawienie "wylogowanie", domyslnie 30 dni) - pilnuje go serwer przy
+      # kazdym odnowieniu, liczac od auth_time (autoryzacja._czas_sesji).
+      RefreshTokenValidity: 3650
       TokenValidityUnits:
         AccessToken: hours
         IdToken: hours

@@ -459,22 +459,65 @@ def _wymagaj_logowania() -> None:
 # strona nie wywola odnowienia w imieniu notariusza.
 CIASTKO = "notarai_odnowienie"
 _DNI_ODNOWIENIA = int(os.getenv("PIECZAPP_ODNOWIENIE_DNI", "30"))
+# "Nie wylogowuj": ciasteczko na 10 lat. Tyle samo musi pozwalac Cognito
+# (RefreshTokenValidity w infra/notarai-logowanie.yaml) - krotsze limity
+# kancelarii pilnuje serwer przy kazdym odnowieniu (_sesja_wygasla).
+_BEZ_LIMITU_S = 3650 * 86400
 
 
-def _ustaw_ciastko(request: Request, odpowiedz: Response, wartosc: str) -> None:
+def _ustawienia_kancelarii(kancelaria: str) -> dict:
+    """Ustawienia wskazanej kancelarii poza zwyklym zadaniem (logowanie
+    nie niesie jeszcze tokenu, wiec middleware nie ustawil kontekstu)."""
+    import ustawienia_kancelarii
+    zk = magazyn.kancelaria_var.set(kancelaria)
+    zp = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
+    try:
+        return ustawienia_kancelarii.wczytaj()
+    finally:
+        magazyn.kancelaria_var.reset(zk)
+        magazyn.przechowywanie_var.reset(zp)
+
+
+def _czas_sesji(token: str) -> tuple[int | None, bool]:
+    """(ile sekund zostalo do wylogowania albo None = bez limitu, czy znamy zasade).
+
+    Liczymy od "auth_time" - chwili logowania haslem - wedlug ustawienia
+    kancelarii "wylogowanie". Bez auth_time albo kancelarii w tokenie (np.
+    atrapa w testach) zostaje dawne zachowanie: _DNI_ODNOWIENIA.
+    """
+    import ustawienia_kancelarii
+    dane = logowanie.roszczenia(token)
+    kancelaria, zalogowano = dane.get("custom:kancelaria"), dane.get("auth_time")
+    if not kancelaria or not isinstance(zalogowano, (int, float)):
+        if dane:
+            log.warning("logowanie: token bez auth_time lub kancelarii - domyslny czas sesji")
+        return _DNI_ODNOWIENIA * 86400, False
+    limit = ustawienia_kancelarii.sekundy_sesji(_ustawienia_kancelarii(kancelaria))
+    if limit is None:
+        return None, True
+    return int(limit - (time.time() - zalogowano)), True
+
+
+def _ustaw_ciastko(request: Request, odpowiedz: Response, wartosc: str, sekund: int | None) -> None:
     if not wartosc:
         return
     https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
     odpowiedz.set_cookie(
-        CIASTKO, wartosc, max_age=_DNI_ODNOWIENIA * 86400, path="/api/logowanie",
-        httponly=True, secure=https, samesite="strict",
+        CIASTKO, wartosc, max_age=_BEZ_LIMITU_S if sekund is None else max(sekund, 0),
+        path="/api/logowanie", httponly=True, secure=https, samesite="strict",
     )
 
 
-def _dla_przegladarki(request: Request, odpowiedz: Response, wynik: dict) -> dict:
-    """Token odnawiania do ciasteczka, reszta do JSON-a."""
+_NIE_LICZONO = object()
+
+
+def _dla_przegladarki(request: Request, odpowiedz: Response, wynik: dict, sekund=_NIE_LICZONO) -> dict:
+    """Token odnawiania do ciasteczka, reszta do JSON-a. Ciasteczko zyje tyle,
+    ile kancelaria pozwala byc zalogowanym (ustawienie "wylogowanie")."""
     wynik = dict(wynik)
-    _ustaw_ciastko(request, odpowiedz, wynik.pop("odnowienie", ""))
+    if sekund is _NIE_LICZONO:
+        sekund, _ = _czas_sesji(wynik.get("token", "")) if wynik.get("token") else (_DNI_ODNOWIENIA * 86400, False)
+    _ustaw_ciastko(request, odpowiedz, wynik.pop("odnowienie", ""), sekund)
     return wynik
 
 
@@ -505,13 +548,25 @@ def nowe_haslo(dane: NoweHaslo, request: Request, odpowiedz: Response):
 def odnow(request: Request, odpowiedz: Response):
     """Nowy token tozsamosci bez hasla. Przegladarka wola to sama."""
     _wymagaj_logowania()
+    ciastko = request.cookies.get(CIASTKO, "")
     try:
-        wynik = logowanie.odnow(request.cookies.get(CIASTKO, ""))
+        wynik = logowanie.odnow(ciastko)
     except logowanie.BladLogowania as blad:
         odpowiedz = JSONResponse({"detail": str(blad)}, 401)
         odpowiedz.delete_cookie(CIASTKO, path="/api/logowanie")
         return odpowiedz
-    return _dla_przegladarki(request, odpowiedz, wynik)
+    # Kancelaria wybrala, jak dlugo mozna byc zalogowanym. Po tym czasie
+    # odnowienie konczy sesje - takze gdy notariusz skrocil czas juz po
+    # zalogowaniu (zmiana dziala najpozniej po wygasnieciu tokenu, 8 h).
+    sekund, znana = _czas_sesji(wynik.get("token", ""))
+    if znana and sekund is not None and sekund <= 0:
+        logowanie.wyloguj(ciastko)
+        odpowiedz = JSONResponse({"detail": "Minął czas zalogowania ustawiony w kancelarii. "
+                                            "Zaloguj się ponownie.", "wylogowanie": True}, 401)
+        odpowiedz.delete_cookie(CIASTKO, path="/api/logowanie")
+        log.info("logowanie: koniec sesji wedlug ustawienia kancelarii")
+        return odpowiedz
+    return _dla_przegladarki(request, odpowiedz, wynik, sekund)
 
 
 @router_logowania.post("/wyloguj")

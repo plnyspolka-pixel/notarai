@@ -157,6 +157,10 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
 .ust-podglad{margin-top:10px;font-size:13px;color:var(--tekst2);line-height:1.6}
 .ust-podglad code{font:13px var(--mono);color:var(--tekst);background:var(--tlo);padding:2px 6px;border-radius:6px}
 .ust-podglad .zle{color:#b4231c}
+.ust-wiersz{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.ust-wiersz select{max-width:100%}
+.sprawa-el .termin{color:#8a5a00}
+.sprawa-el .termin.po{color:#b4231c;font-weight:600}
 
 .composer{border:1px solid var(--linia2);border-radius:18px;background:var(--karta);
   padding:14px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
@@ -1842,6 +1846,45 @@ notarai</div>
   <input type="text" id="ust-nazwa-pliku" spellcheck="false" autocomplete="off" maxlength="200" aria-label="Wzór nazwy pliku">
   <div class="ust-pola" id="ust-pola" aria-label="Pola do wstawienia"></div>
   <div class="ust-podglad">Przykład: <code id="ust-przyklad"></code><span id="ust-przyklad-uwaga"></span></div>
+  <div id="ust-chmura">
+  <h3>Logowanie</h3>
+  <p>Jak długo aplikacja pamięta zalogowanie na tym komputerze. Dotyczy całego zespołu kancelarii.</p>
+  <label class="ust-wiersz" for="ust-wylogowanie">Wyloguj po
+    <select id="ust-wylogowanie">
+      <option value="8_godzin">8 godzinach (codziennie od nowa)</option>
+      <option value="1_dzien">1 dniu</option>
+      <option value="7_dni">7 dniach</option>
+      <option value="30_dni">30 dniach</option>
+      <option value="nigdy">nigdy - zostaję zalogowany non-stop</option>
+    </select></label>
+  <label class="ust-wiersz" for="ust-bezczynnosc">Gdy nikt nie pracuje przy komputerze
+    <select id="ust-bezczynnosc">
+      <option value="wylaczone">nie wylogowuj</option>
+      <option value="15_minut">wyloguj po 15 minutach</option>
+      <option value="30_minut">wyloguj po 30 minutach</option>
+      <option value="1_godzina">wyloguj po 1 godzinie</option>
+      <option value="4_godziny">wyloguj po 4 godzinach</option>
+    </select></label>
+  <p class="pod" id="ust-opis-logowania"></p>
+  <h3>Kopie spraw na serwerze notarai</h3>
+  <p>Jak długo sprawy (skany, odczyt, rozmowa, projekt) leżą na naszym serwerze. Czas liczymy od ostatniej zmiany w sprawie.</p>
+  <label class="ust-wiersz" for="ust-przechowywanie">Przechowuj
+    <select id="ust-przechowywanie">
+      <option value="bez_limitu">bez limitu - usuwam sam</option>
+      <option value="30_dni">30 dni</option>
+      <option value="90_dni">90 dni</option>
+      <option value="180_dni">180 dni</option>
+      <option value="1_rok">1 rok</option>
+      <option value="2_lata">2 lata</option>
+      <option value="5_lat">5 lat</option>
+    </select></label>
+  <label class="ust-wiersz" for="ust-usuwanie">Po tym czasie
+    <select id="ust-usuwanie">
+      <option value="przypominaj">pokaż mi sprawę do usunięcia</option>
+      <option value="automatycznie">usuń automatycznie</option>
+    </select></label>
+  <p class="pod" id="ust-opis-przechowywania"></p>
+  </div>
   <div class="dol"><button id="ust-zapisz">Zapisz ustawienia</button><button class="wtorny" id="ust-zamknij">Zamknij</button><span class="stan" id="stan-ustawienia"></span></div>
 </dialog>
 
@@ -2054,7 +2097,10 @@ function tozsamoscTokena(t){
   } catch { return ""; }
 }
 
-let trwajaceOdnowienie = null, zegarOdnowienia = null;
+let trwajaceOdnowienie = null, zegarOdnowienia = null, komunikatKoncaSesji = "";
+// Ostatnia praca przy komputerze - do wylogowania po bezczynnosci (nizej).
+const KLUCZ_AKTYWNOSCI = "notarai_aktywnosc";
+let ostatniaAktywnosc = Date.now(), zapisanaAktywnosc = 0;
 
 /* Jedna wymiana naraz, nawet gdy kilka zadan dostanie 401 jednoczesnie. */
 function odnowSesje(){
@@ -2062,7 +2108,12 @@ function odnowSesje(){
     trwajaceOdnowienie = (async () => {
       try {
         const odp = await fetch("/api/logowanie/odnow", {method: "POST"});
-        if (!odp.ok) return false;
+        if (!odp.ok) {
+          // Koniec czasu zalogowania ustawionego w kancelarii - powiedz to wprost.
+          const w = await odp.json().catch(() => ({}));
+          komunikatKoncaSesji = w.wylogowanie ? w.detail : "";
+          return false;
+        }
         ustawToken((await odp.json()).token);
         return true;
       } catch { return false; }
@@ -2081,6 +2132,7 @@ function planujOdnowienie(){
 
 function ustawToken(nowy){
   token = nowy || "";
+  if (token) { komunikatKoncaSesji = ""; odnotujAktywnosc(); }
   zapiszToken(token);
   planujOdnowienie();
   odswiezWyloguj();
@@ -2135,7 +2187,7 @@ async function api(adres, opcje = {}){
     throw new Error("Brak dostępu serwisowego.");
   }
   if (odp.status === 401) {
-    otworzBrame(token ? "Sesja wygasła. Zaloguj się ponownie." : "");
+    otworzBrame(komunikatKoncaSesji || (token ? "Sesja wygasła. Zaloguj się ponownie." : ""));
     throw new Error("Wymagane logowanie.");
   }
   if (odp.status === 428) sprawdzDokumenty();   // brak zaakceptowanej umowy
@@ -2224,13 +2276,38 @@ function odswiezWyloguj(){
   if (!token) { $("btn-hurtowe").hidden = true; $("btn-zespol").hidden = true; $("btn-abonament").hidden = true; $("btn-dokumenty").hidden = true; $("btn-komplet").hidden = true; $("kto").hidden = true; }
 }
 
-$("btn-wyloguj").onclick = async () => {
+async function wyloguj(komunikat = "Wylogowano.") {
   // Serwer uniewaznia token odnawiania - inaczej wylogowanie trwaloby tylko
   // do nastepnego odswiezenia strony.
   try { await fetch("/api/logowanie/wyloguj", {method: "POST"}); } catch { /* offline */ }
   ustawToken("");
-  otworzBrame("Wylogowano.");
-};
+  otworzBrame(komunikat);
+}
+$("btn-wyloguj").onclick = () => wyloguj();
+
+/* Wylogowanie po bezczynnosci (ustawienie kancelarii "bezczynnosc").
+   Ostatnia aktywnosc jest wspolna dla wszystkich kart: praca w jednej
+   karcie nie wyloguje drugiej. Uspiony laptop sprawdzamy po powrocie. */
+const BEZCZYNNOSC_MS = {"15_minut": 15 * 60e3, "30_minut": 30 * 60e3, "1_godzina": 60 * 60e3, "4_godziny": 4 * 60 * 60e3};
+const OPIS_BEZCZYNNOSCI = {"15_minut": "15 minutach", "30_minut": "30 minutach", "1_godzina": "1 godzinie", "4_godziny": "4 godzinach"};
+function odnotujAktywnosc() {
+  ostatniaAktywnosc = Date.now();
+  if (ostatniaAktywnosc - zapisanaAktywnosc < 15000) return;
+  zapisanaAktywnosc = ostatniaAktywnosc;
+  try { localStorage.setItem(KLUCZ_AKTYWNOSCI, String(ostatniaAktywnosc)); } catch { /* tryb prywatny */ }
+}
+["pointerdown", "pointermove", "keydown", "wheel", "touchstart"].forEach(z =>
+  document.addEventListener(z, odnotujAktywnosc, {passive: true, capture: true}));
+function sprawdzBezczynnosc() {
+  const wybor = (typeof ustawieniaOgolne === "object" && ustawieniaOgolne.bezczynnosc) || "";
+  const limit = BEZCZYNNOSC_MS[wybor];
+  if (!limit || !czyJwt(token) || SERWIS || !$("brama").hidden) return;
+  let ostatnia = ostatniaAktywnosc;
+  try { ostatnia = Math.max(ostatnia, Number(localStorage.getItem(KLUCZ_AKTYWNOSCI)) || 0); } catch { /* jak wyzej */ }
+  if (Date.now() - ostatnia > limit) wyloguj("Wylogowano po " + OPIS_BEZCZYNNOSCI[wybor] + " bez pracy - tak ustawiła kancelaria.");
+}
+setInterval(sprawdzBezczynnosc, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) sprawdzBezczynnosc(); });
 
 /* Wspolna obsluga odpowiedzi z /api/logowanie/*: zwraca dane albo rzuca
    bledem z komunikatem od serwera. */
@@ -2523,6 +2600,18 @@ $("btn-nowa").onclick = () => {
 };
 
 /* ---------- lista spraw ---------- */
+/* Czas przechowania kopii sprawy (ustawienie kancelarii): pokazujemy, gdy
+   do usuniecia zostal miesiac albo mniej, i gdy sprawa jest po terminie. */
+function opisPrzechowania(p) {
+  if (!p) return "";
+  const dni = Math.ceil((new Date(p.usuniecie) - Date.now()) / 86400000);
+  if (p.po_terminie && !p.usunie_serwer)
+    return ' · <span class="termin po" title="Minął czas przechowania ustawiony w kancelarii. Usuń sprawę przyciskiem ×.">do usunięcia</span>';
+  if (dni > 30) return "";
+  const kiedy = dni <= 0 ? "dziś" : dni === 1 ? "jutro" : "za " + dni + " dni";
+  return ' · <span class="termin" title="Czas przechowania ustawiony w kancelarii. Każda zmiana w sprawie liczy czas od nowa.">'
+    + (p.usunie_serwer ? "zniknie " : "termin ") + kiedy + "</span>";
+}
 async function rysujListeSpraw(){
   const pobranePokolenie = pokolenieSesji;
   const pobranePokolenieListy = ++pokolenieListy;
@@ -2560,7 +2649,7 @@ async function rysujListeSpraw(){
       const kiedy = (s.utworzono || "").replace("T", " ").slice(0, 16);
       d.innerHTML = "<b>" + escape(s.nazwa || s.sygnatura || ("sprawa " + s.id.slice(0, 6))) + "</b>"
         + "<small>" + (s.nazwa && s.sygnatura ? escape(s.sygnatura) + " · " : "") + escape(kiedy) + " · " + (s.stron ? s.stron + " str." : s.skany + " plik" + (s.skany === 1 ? "" : "i")) + " · " + (s.etap === 3 ? "projekt" : "odczyt")
-        + (s.sprawdzenia ? " · " + s.sprawdzenia + " spr." : "") + "</small>";
+        + (s.sprawdzenia ? " · " + s.sprawdzenia + " spr." : "") + opisPrzechowania(s.przechowanie) + "</small>";
       d.title = "Wzór: " + (s.wzor || "?") + ", skanów: " + s.skany;
       d.onclick = () => wczytajSprawe(s.id);
 
@@ -4237,14 +4326,35 @@ function rysujUstawienia() {
     };
     pola.appendChild(b);
   }
+  $("ust-chmura").hidden = dysk.aktywny;
+  $("ust-wylogowanie").value = u.wylogowanie || "30_dni";
+  $("ust-bezczynnosc").value = u.bezczynnosc || "wylaczone";
+  $("ust-przechowywanie").value = u.przechowywanie_spraw || "bez_limitu";
+  $("ust-usuwanie").value = u.usuwanie_spraw || "przypominaj";
   const tylkoOdczyt = u.moge_zmieniac === false;
-  document.querySelectorAll('#okno-ustawienia input').forEach(i => i.disabled = tylkoOdczyt);
+  document.querySelectorAll('#okno-ustawienia input, #okno-ustawienia select').forEach(i => i.disabled = tylkoOdczyt);
+  opiszBezpieczenstwo();
   $("ustawienia-opis").textContent = dysk.aktywny
     ? "Ta kancelaria trzyma pliki u siebie, więc ustawienia pamięta ta przeglądarka."
     : tylkoOdczyt ? "Ustawienia zmienia notariusz - właściciel kancelarii. Możesz je przeglądać."
     : "Obowiązują w całej kancelarii, na każdym komputerze.";
   rysujPodgladNazwy();
 }
+function opiszBezpieczenstwo() {
+  const w = $("ust-wylogowanie").value, b = $("ust-bezczynnosc").value;
+  $("ust-opis-logowania").textContent = w === "nigdy"
+    ? "Zostajesz zalogowany do kliknięcia „Wyloguj”. Wygodne na komputerze w zamykanym gabinecie; na laptopie, który wychodzi z kancelarii, lepiej ustawić limit"
+      + (b === "wylaczone" ? " albo wylogowanie po bezczynności." : ".")
+    : "Po tym czasie od zalogowania hasłem trzeba zalogować się ponownie. Zmiana działa najpóźniej po 8 godzinach.";
+  const p = $("ust-przechowywanie").value, auto = $("ust-usuwanie").value === "automatycznie";
+  $("ust-usuwanie").disabled = p === "bez_limitu" || ustawieniaOgolne.moge_zmieniac === false;
+  $("ust-opis-przechowywania").textContent = p === "bez_limitu"
+    ? "Sprawy zostają, dopóki ich nie usuniesz."
+    : auto
+      ? "Sprawa bez zmian dłużej niż wybrany czas zniknie bezpowrotnie - jak po kliknięciu ×. Pierwsze usunięcia najwcześniej 7 dni po włączeniu; na liście spraw widać, co i kiedy zniknie. Kopia zapasowa wygasa sama najpóźniej po 21 dniach."
+      : "Po tym czasie sprawa dostanie na liście znacznik „do usunięcia”. Usuwasz ją sam przyciskiem ×.";
+}
+["ust-wylogowanie", "ust-bezczynnosc", "ust-przechowywanie", "ust-usuwanie"].forEach(id => $(id).onchange = opiszBezpieczenstwo);
 async function zapiszUstawieniaOgolne(zmiany) {
   if (dysk.aktywny) {
     Object.assign(ustawieniaOgolne, zmiany);
@@ -4400,10 +4510,19 @@ $("ust-zapisz").onclick = async () => {
   const dokladnosc = (document.querySelector('input[name="ust-wysilek"]:checked') || {}).value || ustawieniaOgolne.dokladnosc;
   const nazwa_pliku = $("ust-nazwa-pliku").value.trim();
   const braki = (document.querySelector('input[name="ust-braki"]:checked') || {}).value || ustawieniaOgolne.braki || "opis";
+  const zmiany = {dokladnosc, nazwa_pliku, braki};
+  if (!dysk.aktywny) Object.assign(zmiany, {
+    wylogowanie: $("ust-wylogowanie").value, bezczynnosc: $("ust-bezczynnosc").value,
+    przechowywanie_spraw: $("ust-przechowywanie").value, usuwanie_spraw: $("ust-usuwanie").value});
+  if (zmiany.usuwanie_spraw === "automatycznie" && zmiany.przechowywanie_spraw !== "bez_limitu"
+      && (ustawieniaOgolne.usuwanie_spraw !== "automatycznie" || ustawieniaOgolne.przechowywanie_spraw !== zmiany.przechowywanie_spraw)
+      && !confirm("Włączyć automatyczne usuwanie spraw?\n\nSprawy bez zmian dłużej niż wybrany czas znikną z serwera bezpowrotnie "
+        + "(pierwsze najwcześniej za 7 dni). Pobierz wcześniej to, co chcesz zachować u siebie.")) return;
   $("ust-zapisz").disabled = true;
   stan($("stan-ustawienia"), "Zapisuję…", false, true);
   try {
-    await zapiszUstawieniaOgolne({dokladnosc, nazwa_pliku, braki});
+    await zapiszUstawieniaOgolne(zmiany);
+    if (!dysk.aktywny) rysujListeSpraw();
     rysujUstawienia();
     stan($("stan-ustawienia"), "Zapisane. Przykład nazwy: " + podgladNazwy(ustawieniaOgolne.nazwa_pliku, PRZYKLAD_NAZWY).nazwa);
   } catch (e) {

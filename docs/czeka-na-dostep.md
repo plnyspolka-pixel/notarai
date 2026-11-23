@@ -347,3 +347,29 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `anonimizacja.py`, `infra/notarai-s3.yaml`.
 - **Zamknięte, gdy:** stenogram z fikcyjnego aktu jest przy sprawie, bez danych
   osobowych, a po audio i zadaniu Transcribe nie ma śladu.
+
+## NA-16. Czas zalogowania i przechowywania spraw — test na żywym Cognito i S3
+
+- **Status:** czeka — 23.11.2026: kod, testy i szablony gotowe, niewdrożone.
+- **Brakuje:** wdrożenia stosów `notarai-logowanie` (`RefreshTokenValidity: 3650` -
+  bez tego „nie wylogowuj” kończy się po 30 dniach, jak dawniej) i
+  `notarai-aplikacja` (`PIECZAPP_RETENCJA=true` - codzienne sprzątanie wszystkich
+  kancelarii; bez niego sprawy po terminie znikają tylko przy otwarciu listy spraw).
+- **Na żywo:**
+  1. Konto testowe, „Ustawienia kancelarii” → Wyloguj po: 8 godzinach. Po ~9 h (albo
+     po ręcznym przestawieniu na krótszy limit w pliku ustawień) odświeżyć stronę:
+     ekran logowania z komunikatem „Minął czas zalogowania ustawiony w kancelarii”.
+     To potwierdza, że token ID z Cognito niesie `auth_time` i że odnowienie go nie
+     zmienia (w logu nie może być „token bez auth_time”).
+  2. Wyloguj po: nigdy - w przeglądarce ciasteczko `notarai_odnowienie` ma ważność
+     ~10 lat; po wdrożeniu stosu logowania odnowienie działa po 30+ dniach.
+  3. Wylogowanie po bezczynności 15 minut: zostawić kartę, po 15–16 min ekran
+     logowania; praca w drugiej karcie nie wylogowuje pierwszej.
+  4. Kancelaria testowa z fikcyjnymi sprawami: Przechowuj 30 dni + usuń
+     automatycznie. Na liście spraw „zniknie za 7 dni” (karencja). Po karencji
+     (albo `POST /api/admin/retencja` z ręcznie cofniętym `automatyczne_od`)
+     sprawy po terminie znikają z S3 razem z wersjami.
+- **W kodzie:** `autoryzacja._czas_sesji`, `logowanie.roszczenia`,
+  `retencja_spraw.py`, `magazyn.daty_zmian_spraw`, `ustawienia_kancelarii.py`,
+  `static/index.html` (okno ustawień, `sprawdzBezczynnosc`).
+- **Zamknięte, gdy:** punkty 1–4 przeszły na koncie testowym.

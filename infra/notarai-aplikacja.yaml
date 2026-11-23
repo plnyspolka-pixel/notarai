@@ -580,6 +580,10 @@ Resources:
               Value: !Ref EmailZgloszen
             - Name: PIECZAPP_PRZYPOMNIENIA
               Value: "true"
+            # Czas przechowania kopii spraw wybrany przez kancelarie: raz na dobe
+            # usuwa sprawy po terminie u kancelarii z usuwaniem automatycznym.
+            - Name: PIECZAPP_RETENCJA
+              Value: "true"
             - Name: PIECZAPP_FINYOU_URL
               Value: !Ref FinyouAdres
             # Stenogramy aktow (stenogramy.py): na koncie dziala polityka Organizations

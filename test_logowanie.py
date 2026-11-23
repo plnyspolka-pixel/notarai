@@ -313,3 +313,69 @@ class TestSesjiBezPonownegoLogowania:
         # nawet gdyby ktos zachowal ciasteczko, Cognito go juz nie przyjmie
         klient.cookies.set("notarai_odnowienie", "odnowienie-30-dni", path="/api/logowanie")
         assert klient.post("/api/logowanie/odnow").status_code == 401
+
+
+class TestCzasZalogowaniaWgKancelarii:
+    """Notariusz wybiera, po jakim czasie aplikacja wyloguje (albo wcale).
+    Pilnuje tego serwer przy kazdym odnowieniu, liczac od logowania haslem."""
+
+    def _token(self, godzin_temu: float, kancelaria: str = "k1") -> str:
+        import time
+        import jwt
+        return jwt.encode({"custom:kancelaria": kancelaria, "email": "k@x.pl", "token_use": "id",
+                           "auth_time": int(time.time() - godzin_temu * 3600)}, "klucz-atrapy-do-testow-co-najmniej-32-bajty", algorithm="HS256")
+
+    def _przygotuj(self, logowanie_atrapa, monkeypatch, tmp_path, wylogowanie, godzin_temu):
+        _, atrapa = logowanie_atrapa
+        klient, autoryzacja = TestApiLogowania._apka(self, monkeypatch, tmp_path, atrapa)
+        import magazyn
+        import ustawienia_kancelarii
+        zn = magazyn.kancelaria_var.set("k1")
+        try:
+            ustawienia_kancelarii.zapisz({"wylogowanie": wylogowanie})
+        finally:
+            magazyn.kancelaria_var.reset(zn)
+        token = self._token(godzin_temu)
+        pierwotne = atrapa.initiate_auth
+
+        def initiate_auth(**kw):
+            odp = pierwotne(**kw)
+            if "AuthenticationResult" in odp:
+                odp["AuthenticationResult"]["IdToken"] = token
+            return odp
+        atrapa.initiate_auth = initiate_auth
+        klient.cookies.set("notarai_odnowienie", "odnowienie-30-dni", path="/api/logowanie")
+        return klient, atrapa
+
+    def test_po_czasie_kancelarii_trzeba_sie_zalogowac(self, logowanie_atrapa, monkeypatch, tmp_path):
+        klient, atrapa = self._przygotuj(logowanie_atrapa, monkeypatch, tmp_path, "8_godzin", 9)
+        odp = klient.post("/api/logowanie/odnow")
+        assert odp.status_code == 401 and odp.json()["wylogowanie"] is True
+        assert "kancelarii" in odp.json()["detail"]
+        assert atrapa.uniewaznione == ["odnowienie-30-dni"], "token odnawiania uniewazniony w Cognito"
+
+    def test_przed_czasem_odnowienie_dziala_a_ciasteczko_zyje_do_konca_limitu(
+            self, logowanie_atrapa, monkeypatch, tmp_path):
+        klient, _ = self._przygotuj(logowanie_atrapa, monkeypatch, tmp_path, "1_dzien", 20)
+        odp = klient.post("/api/logowanie/odnow")
+        assert odp.status_code == 200
+        max_age = int(odp.headers["set-cookie"].split("Max-Age=")[1].split(";")[0])
+        assert 3.9 * 3600 < max_age <= 4 * 3600, "zostaly ok. 4 godziny z doby"
+
+    def test_nigdy_zostawia_zalogowanego_non_stop(self, logowanie_atrapa, monkeypatch, tmp_path):
+        klient, _ = self._przygotuj(logowanie_atrapa, monkeypatch, tmp_path, "nigdy", 24 * 400)
+        odp = klient.post("/api/logowanie/odnow")
+        assert odp.status_code == 200
+        assert "Max-Age=315360000" in odp.headers["set-cookie"], "ciasteczko na 10 lat"
+
+    def test_domyslnie_jak_dawniej_30_dni(self, logowanie_atrapa, monkeypatch, tmp_path):
+        import ustawienia_kancelarii
+        assert ustawienia_kancelarii.domyslne()["wylogowanie"] == "30_dni"
+        klient, _ = self._przygotuj(logowanie_atrapa, monkeypatch, tmp_path, "30_dni", 24 * 31)
+        assert klient.post("/api/logowanie/odnow").status_code == 401
+
+    def test_logowanie_ustawia_ciasteczko_wg_kancelarii(self, logowanie_atrapa, monkeypatch, tmp_path):
+        klient, _ = self._przygotuj(logowanie_atrapa, monkeypatch, tmp_path, "7_dni", 0)
+        odp = klient.post("/api/logowanie", json={"email": "k@x.pl", "haslo": "Haslo123456"})
+        max_age = int(odp.headers["set-cookie"].split("Max-Age=")[1].split(";")[0])
+        assert 7 * 86400 - 60 < max_age <= 7 * 86400

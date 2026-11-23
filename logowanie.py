@@ -228,6 +228,21 @@ def dane_z_tokenu(token: str) -> dict:
     return {"email": dane.get("email", ""), "kancelaria": kancelaria}
 
 
+def roszczenia(token: str) -> dict:
+    """Zawartosc tokenu prosto z odpowiedzi Cognito - bez sprawdzania podpisu.
+
+    Tylko dla tokenu, ktory serwer sam przed chwila dostal od Cognito
+    (logowanie, odnowienie). Tokenu z przegladarki tak nie czytamy - ten
+    zawsze przechodzi przez dane_z_tokenu(). {} gdy to nie JWT.
+    "auth_time" to chwila logowania haslem; odnowienie jej nie zmienia.
+    """
+    import jwt
+    try:
+        return jwt.decode(token, options={"verify_signature": False})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 # --- administracja ----------------------------------------------------------
 
 

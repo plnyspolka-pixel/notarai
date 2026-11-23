@@ -381,6 +381,37 @@ def identyfikatory_spraw(baza_spraw: Path) -> list[str]:
     return sorted(lokalne | zdalne)
 
 
+def daty_zmian_spraw(baza_spraw: Path) -> dict[str, float]:
+    """{id sprawy: chwila ostatniej zmiany (timestamp)} dla biezacej kancelarii.
+
+    Tryb S3: najnowszy LastModified plikow sprawy w S3 - kopia na dysku
+    kontenera nie nadaje sie, bo pobranie z S3 odswieza daty plikow.
+    Tryb lokalny: najnowsza data modyfikacji pliku sprawy na dysku.
+    Pliki techniczne synchronizacji (znacznik, skroty) sie nie licza.
+    """
+    wynik: dict[str, float] = {}
+    if TRYB == "s3":
+        prefiks = f"{PREFIKS}/{kancelaria()}/sprawy/"
+        for strona in _klient_s3().get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=prefiks):
+            for obiekt in strona.get("Contents", []):
+                reszta = obiekt["Key"][len(prefiks):]
+                id_sprawy, _, wzgledna = reszta.partition("/")
+                if not id_sprawy or not wzgledna or Path(wzgledna).name in _POMIJANE:
+                    continue
+                chwila = obiekt["LastModified"].timestamp()
+                wynik[id_sprawy] = max(wynik.get(id_sprawy, 0.0), chwila)
+        return wynik
+    if not baza_spraw.is_dir():
+        return wynik
+    for katalog in baza_spraw.iterdir():
+        if not katalog.is_dir():
+            continue
+        daty = [p.stat().st_mtime for p in katalog.rglob("*") if p.is_file() and p.name not in _POMIJANE]
+        if daty:
+            wynik[katalog.name] = max(daty)
+    return wynik
+
+
 # --- Pliki calej kancelarii (kalendarz, telefony) ---------------------------
 
 

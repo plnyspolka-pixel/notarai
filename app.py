@@ -57,6 +57,7 @@ import stenogramy
 import prompty
 import rejestracja
 import rejestry
+import retencja_spraw
 import rezerwacje_hurtowe
 import tokenomia
 import rezerwacje_klientow
@@ -118,6 +119,8 @@ app.include_router(leady.router_admina)
 app.include_router(meta_leady.router)
 app.include_router(rezerwacje_klientow.router_admina)
 rezerwacje_klientow.uruchom_przypomnienia()
+app.include_router(retencja_spraw.router_admina)
+retencja_spraw.uruchom_w_tle()
 app.include_router(wizyty.router_zapytan)
 app.include_router(wizyty.router_admina)
 app.include_router(notariusze.router)
@@ -907,9 +910,19 @@ def _nazwa(katalog: Path, meta: dict) -> str:
 
 @app.get("/api/sprawy")
 def lista_spraw():
-    """Wszystkie sprawy z dane/sprawy, najnowsze pierwsze. Bez danych osobowych."""
+    """Wszystkie sprawy z dane/sprawy, najnowsze pierwsze. Bez danych osobowych.
+
+    Gdy kancelaria ustawila czas przechowywania kopii spraw, kazda sprawa
+    niesie "przechowanie" (termin usuniecia) - a te po terminie przy
+    usuwaniu automatycznym znikaja tu od razu (retencja_spraw.py)."""
     wynik = []
     baza = config.SPRAWY
+    retencja_spraw.sprzataj_co_jakis_czas()
+    try:
+        terminy = retencja_spraw.terminy(baza)
+    except Exception as blad:  # noqa: BLE001 - lista spraw musi sie otworzyc
+        log.warning("lista spraw: terminy przechowania nieodczytane (%s)", type(blad).__name__)
+        terminy = {}
     for identyfikator in magazyn.identyfikatory_spraw(baza):
         katalog = baza / identyfikator
         plik = katalog / "sprawa.json"
@@ -931,6 +944,7 @@ def lista_spraw():
             "stron": meta.get("stron", 0),
             "etap": etap,
             "sprawdzenia": len(rejestry.wczytaj_sprawdzenia(katalog.name)),
+            "przechowanie": terminy.get(katalog.name),
         })
     wynik.sort(key=lambda w: w["utworzono"], reverse=True)
     return wynik
@@ -984,9 +998,7 @@ def usun_sprawe(identyfikator: str, potwierdzam: bool = False):
     katalog = _katalog_sprawy(identyfikator)
     if not potwierdzam:
         raise HTTPException(400, "Usuniecie sprawy wymaga jawnego potwierdzenia")
-    usuniete = magazyn.usun_sprawe(katalog)
-    kalendarz.usun_sprawe(identyfikator)
-    przesylki.usun_sprawe(identyfikator)
+    usuniete = retencja_spraw.usun_sprawe(identyfikator, katalog)
     log.info("sprawa %s: usunieta, obiektow w S3: %d", identyfikator, usuniete)
     return {"usunieto": identyfikator, "obiektow": usuniete}
 
