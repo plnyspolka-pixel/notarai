@@ -126,6 +126,8 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
   border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
 #okno-ustawienia .przelacznik input{width:auto}
 #okno-ustawienia h3{margin-top:18px}
+/* profil interfejsu kancelarii (ustawienia_kancelarii: ukryte_narzedzia) */
+.ukryte-przez-kancelarie{display:none!important}
 /* asystent kancelarii: notariusz mowi, co zmienic */
 #okno-asystent{width:min(640px,calc(100vw - 32px))}
 .as-rozmowa{display:flex;flex-direction:column;gap:8px;max-height:min(52vh,460px);overflow-y:auto;margin:12px 0;padding:2px}
@@ -1789,6 +1791,7 @@ notarai</div>
   <div class="as-podpowiedzi" id="as-podpowiedzi">
     <button type="button">W Wordzie zamiast &lt;&lt;BRAK&gt;&gt; zostawiaj znak zapytania</button>
     <button type="button">Kwoty zawsze cyframi i słownie</button>
+    <button type="button">Większy tekst i schowaj z menu GIIF</button>
     <button type="button">Co mam teraz ustawione?</button>
   </div>
   <div class="as-rozmowa" id="as-rozmowa" aria-live="polite"></div>
@@ -2932,6 +2935,8 @@ async function uruchomTrybPracy(){
   } catch { return; }   // brak logowania: brama jest już otwarta
   if (rozpoczecieSesji !== pokolenieSesji) return;
   pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
+  // Ekran startowy z profilu interfejsu kancelarii (np. kalendarz).
+  if (ekranStartowy()) pokaz(ekranStartowy());
   if (SERWIS) {
     // Obsluga notarai widzi sprawy, nie zespol, kredyty ani dokumenty
     // kancelarii - tych serwer i tak jej nie pokaze.
@@ -4121,6 +4126,29 @@ function zastosujUstawieniaOgolne(ogolne) {
     ustawieniaOgolne.moge_zmieniac = true;
   }
   ustawDokladnosc(ustawieniaOgolne.dokladnosc);
+  zastosujProfilInterfejsu();
+}
+/* Profil interfejsu kancelarii: kazdy notariusz ustawia aplikacje pod siebie
+   (zwykle zdaniem, przez asystenta kancelarii). Klucze jak w ustawienia_kancelarii.py. */
+const MENU_NARZEDZI = {sprawdzenia: '.krok[data-etap="4"]', klikamy: '.krok[data-etap="5"]',
+  kalendarz: '.krok[data-etap="6"]', osoby: '.krok[data-etap="7"]', przesylki: '.krok[data-etap="8"]',
+  poczta: '.krok[data-etap="12"]', poswiadczenia: '#btn-poswiadczenia', styl: '.krok[data-etap="9"]',
+  ksiegi: '.krok[data-etap="10"]', giif: '.krok[data-etap="11"]'};
+const EKRAN_STARTOWY = {panel: 0, nowa_sprawa: 1, kalendarz: 6, osoby: 7, przesylki: 8, poczta: 12, ksiegi: 10};
+const ROZMIAR_TEKSTU = {normalny: "", duzy: "1.12", bardzo_duzy: "1.25"};
+function zastosujProfilInterfejsu() {
+  const u = ustawieniaOgolne;
+  document.body.style.zoom = ROZMIAR_TEKSTU[u.rozmiar_tekstu] || "";
+  const ukryte = new Set(String(u.ukryte_narzedzia || "").split(",").map(n => n.trim()).filter(Boolean));
+  for (const [nazwa, selektor] of Object.entries(MENU_NARZEDZI)) {
+    document.querySelectorAll(selektor).forEach(el => el.classList.toggle("ukryte-przez-kancelarie", ukryte.has(nazwa)));
+  }
+}
+function ekranStartowy() {
+  const numer = EKRAN_STARTOWY[ustawieniaOgolne.widok_startowy];
+  if (!numer) return 0;
+  const pozycja = document.querySelector('.krok[data-etap="' + numer + '"]');
+  return pozycja && !pozycja.hidden && !pozycja.classList.contains("ukryte-przez-kancelarie") ? numer : 0;
 }
 document.querySelectorAll('input[name="wysilek"]').forEach(r => r.onchange = opiszDokladnosc);
 $("btn-dokl-domyslna").onclick = async () => {
@@ -4275,6 +4303,11 @@ $("as-form").onsubmit = async e => {
     if (!odp.ok) throw new Error(w.detail || "Asystent nie odpowiedział (" + odp.status + ").");
     rozmowaAsystenta.push({rola: "uzytkownik", tresc: tekst}, {rola: "asystent", tresc: w.odpowiedz});
     dymekAsystenta("asystent", w.odpowiedz, w.zmiany || []);
+    // Zmiana ustawien dziala od razu - bez przeladowania strony.
+    if ((w.zmiany || []).some(z => z.narzedzie === "zmien_ustawienie" || z.narzedzie === "cofnij_ostatnia_zmiane")) {
+      api("/api/ustawienia/ogolne").then(o => o.ok ? o.json() : null)
+        .then(o => { if (o) zastosujUstawieniaOgolne(o); }).catch(() => {});
+    }
     stan($("stan-asystent"), "");
   } catch (err) {
     stan($("stan-asystent"), err.message, true);

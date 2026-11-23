@@ -39,6 +39,10 @@ To nie zawsze błąd, czasem notariusz chce, żeby program działał inaczej
   (`ustawienia_kancelarii.py`, domyślnie dotychczasowe zachowanie) i podłącz je
   w miejscu, którego dotyczy; inne kancelarie nie mogą odczuć zmiany. Dopisz jego
   opis do `OPISY_USTAWIEN` - asystent kancelarii sam zacznie go przełączać,
+- przełącznik wyglądu albo sposobu pracy aplikacji: ustawienie w
+  `ustawienia_kancelarii.py` (walidacja w `_oczysc` i `zapisz`, opis w
+  `OPISY_USTAWIEN`) + zastosowanie w `static/index.html` w
+  `zastosujProfilInterfejsu()`; domyślnie wygląd bez zmian,
 - test regresji sprawdza nowe zachowanie przy włączonym ustawieniu i stare przy
   domyślnym.
 

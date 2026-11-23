@@ -42,6 +42,26 @@ MAX_DLUGOSC_WZORU = 200
 # "pytajnik" = sam "?" (podswietlony). W aplikacji znacznik zostaje zawsze -
 # na nim dzialaja licznik brakow, podswietlenie i korespondencja.
 BRAKI = ("opis", "pytajnik")
+# Profil interfejsu kancelarii: kazdy notariusz ustawia aplikacje pod siebie
+# (zwykle zdaniem, przez asystenta kancelarii). Przegladarka stosuje go przy starcie.
+ROZMIARY_TEKSTU = ("normalny", "duzy", "bardzo_duzy")
+WIDOKI_STARTOWE = ("panel", "nowa_sprawa", "kalendarz", "osoby", "przesylki", "poczta", "ksiegi")
+NARZEDZIA_MENU = ("sprawdzenia", "klikamy", "kalendarz", "osoby", "przesylki", "poczta",
+                  "poswiadczenia", "styl", "ksiegi", "giif")
+
+
+def _lista_narzedzi(wartosc) -> list[str] | None:
+    """"kalendarz, giif" -> ["giif", "kalendarz"]; None gdy jest nieznana nazwa."""
+    if isinstance(wartosc, (list, tuple)):
+        nazwy = [str(n).strip().lower() for n in wartosc]
+    else:
+        nazwy = [n.strip().lower() for n in str(wartosc or "").replace(";", ",").split(",")]
+    nazwy = [n for n in nazwy if n]
+    if any(n not in NARZEDZIA_MENU for n in nazwy):
+        return None
+    return sorted(set(nazwy))
+
+
 # Opisy dla asystenta kancelarii (asystent_kancelarii.py) - kazde ustawienie
 # z domyslne() MUSI miec tu opis z dozwolonymi wartosciami.
 OPISY_USTAWIEN = {
@@ -49,11 +69,16 @@ OPISY_USTAWIEN = {
     "nazwa_pliku": "wzór nazwy pliku Word z projektem, pola: {zbywca} {nabywca} {strony} {czynnosc} "
                    "{miejscowosc} {sygnatura} {nazwa} (np. \"{zbywca} - {nabywca} - {czynnosc}\")",
     "braki": "jak oznaczać w pliku Word brakujące dane: opis (<<BRAK: numer dowodu>>) | pytajnik (?)",
+    "rozmiar_tekstu": "wielkość tekstu w aplikacji: normalny | duzy | bardzo_duzy",
+    "widok_startowy": "ekran po zalogowaniu: panel | nowa_sprawa | kalendarz | osoby | przesylki | poczta | ksiegi",
+    "ukryte_narzedzia": "narzędzia schowane z menu, po przecinku (pusto = wszystkie widoczne): "
+                        + ", ".join(NARZEDZIA_MENU),
 }
 
 
 def domyslne() -> dict:
-    return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis"}
+    return {"dokladnosc": "auto", "nazwa_pliku": nazwy.DOMYSLNY_WZOR_NAZWY, "braki": "opis",
+            "rozmiar_tekstu": "normalny", "widok_startowy": "panel", "ukryte_narzedzia": ""}
 
 
 def _oczysc(dane: dict) -> dict:
@@ -63,6 +88,13 @@ def _oczysc(dane: dict) -> dict:
         wynik["dokladnosc"] = dane["dokladnosc"]
     if dane.get("braki") in BRAKI:
         wynik["braki"] = dane["braki"]
+    if dane.get("rozmiar_tekstu") in ROZMIARY_TEKSTU:
+        wynik["rozmiar_tekstu"] = dane["rozmiar_tekstu"]
+    if dane.get("widok_startowy") in WIDOKI_STARTOWE:
+        wynik["widok_startowy"] = dane["widok_startowy"]
+    ukryte = _lista_narzedzi(dane.get("ukryte_narzedzia", ""))
+    if ukryte is not None:
+        wynik["ukryte_narzedzia"] = ", ".join(ukryte)
     wzor = dane.get("nazwa_pliku")
     if isinstance(wzor, str) and wzor.strip():
         wynik["nazwa_pliku"] = wzor.strip()[:MAX_DLUGOSC_WZORU]
@@ -86,6 +118,15 @@ def zapisz(zmiany: dict) -> dict:
         raise ValueError("Nieznana dokladnosc odczytu. Dozwolone: " + ", ".join(DOKLADNOSCI) + ".")
     if "braki" in zmiany and zmiany["braki"] not in BRAKI:
         raise ValueError("Nieznany sposob oznaczania brakow. Dozwolone: " + ", ".join(BRAKI) + ".")
+    if "rozmiar_tekstu" in zmiany and zmiany["rozmiar_tekstu"] not in ROZMIARY_TEKSTU:
+        raise ValueError("Wielkosc tekstu: " + ", ".join(ROZMIARY_TEKSTU) + ".")
+    if "widok_startowy" in zmiany and zmiany["widok_startowy"] not in WIDOKI_STARTOWE:
+        raise ValueError("Ekran startowy: " + ", ".join(WIDOKI_STARTOWE) + ".")
+    if "ukryte_narzedzia" in zmiany:
+        ukryte = _lista_narzedzi(zmiany["ukryte_narzedzia"])
+        if ukryte is None:
+            raise ValueError("Nieznane narzedzie. Dostepne: " + ", ".join(NARZEDZIA_MENU) + ".")
+        zmiany["ukryte_narzedzia"] = ", ".join(ukryte)
     if "nazwa_pliku" in zmiany:
         wzor = str(zmiany["nazwa_pliku"] or "").strip()
         if not wzor:
@@ -100,7 +141,7 @@ def zapisz(zmiany: dict) -> dict:
             zmiany["nazwa_pliku"] = wzor
 
     def zmiana(dane: dict) -> dict:
-        for klucz in ("dokladnosc", "nazwa_pliku", "braki"):
+        for klucz in domyslne():
             if klucz in zmiany:
                 dane[klucz] = zmiany[klucz]
         return _oczysc(dane)
@@ -161,6 +202,9 @@ class Zmiany(BaseModel):
     dokladnosc: str | None = None
     nazwa_pliku: str | None = None
     braki: str | None = None
+    rozmiar_tekstu: str | None = None
+    widok_startowy: str | None = None
+    ukryte_narzedzia: str | None = None
 
 
 def _moge_zmieniac(request: Request) -> bool:

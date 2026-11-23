@@ -160,3 +160,40 @@ def test_prosba_bez_tokenu_trafia_do_przegladu_samonaprawy(dane, caplog):
     assert kandydaci and kandydaci[0]["rodzaj"] == "reczne" and kandydaci[0]["odcisk"] == wynik["numer"]
     assert zgl.oczysc(kandydaci[0])["uwagi"]
     json.dumps(kandydaci)
+
+
+# ------------------------------------------------------------------ profil interfejsu
+
+def test_profil_interfejsu_zdaniem(dane, monkeypatch):
+    """'Większy tekst, start od kalendarza i schowaj GIIF' - trzy ustawienia, kazde do cofniecia."""
+    _model(monkeypatch, [[("zmien_ustawienie", {"klucz": "rozmiar_tekstu", "wartosc": "duzy"}),
+                          ("zmien_ustawienie", {"klucz": "widok_startowy", "wartosc": "kalendarz"}),
+                          ("zmien_ustawienie", {"klucz": "ukryte_narzedzia", "wartosc": "GIIF, klikamy"})],
+                         "Ustawione."])
+    wynik = ak.rozmawiaj([], "większy tekst, zaczynaj od kalendarza i schowaj GIIF i Klikamy", True)
+    u = ustawienia_kancelarii.wczytaj()
+    assert (u["rozmiar_tekstu"], u["widok_startowy"], u["ukryte_narzedzia"]) == ("duzy", "kalendarz", "giif, klikamy")
+    assert len(wynik["zmiany"]) == 3
+    ak.wykonaj("cofnij_ostatnia_zmiane", {}, True)
+    assert ustawienia_kancelarii.wczytaj()["ukryte_narzedzia"] == ""
+
+
+def test_profil_interfejsu_odrzuca_nieznane(dane):
+    assert "blad" in ak.wykonaj("zmien_ustawienie", {"klucz": "ukryte_narzedzia", "wartosc": "wszystko"}, True)
+    assert "blad" in ak.wykonaj("zmien_ustawienie", {"klucz": "rozmiar_tekstu", "wartosc": "gigant"}, True)
+    assert "blad" in ak.wykonaj("zmien_ustawienie", {"klucz": "widok_startowy", "wartosc": "admin"}, True)
+    assert ustawienia_kancelarii._oczysc({"ukryte_narzedzia": "giif, nieznane"})["ukryte_narzedzia"] == ""
+
+
+def test_kazde_narzedzie_menu_ma_odpowiednik_w_przegladarce():
+    """Nazwy z ustawienia_kancelarii musza byc w MENU_NARZEDZI / EKRAN_STARTOWY w index.html."""
+    from pathlib import Path
+    html = (Path(__file__).parent / "static/index.html").read_text(encoding="utf-8")
+    poczatek = html.index("const MENU_NARZEDZI")
+    blok = html[poczatek:html.index("function zastosujProfilInterfejsu")]
+    for nazwa in ustawienia_kancelarii.NARZEDZIA_MENU:
+        assert f"{nazwa}:" in blok, nazwa
+    for nazwa in ustawienia_kancelarii.WIDOKI_STARTOWE:
+        assert f"{nazwa}:" in blok, nazwa
+    for nazwa in ustawienia_kancelarii.ROZMIARY_TEKSTU:
+        assert f"{nazwa}:" in blok, nazwa
