@@ -1,0 +1,29 @@
+/* Serial "Kancelaria pod Siódemką" - dodatki do /style.css */
+.serial { padding-top: 40px; padding-bottom: 56px; }
+.naglowek-serialu { max-width: 720px; margin-bottom: 28px; }
+.naglowek-serialu .wstep { color: var(--tekst2); }
+.znacznik { display: inline-block; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tekst2); margin-bottom: .6em; }
+.odcinek { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px; align-items: start; }
+.odtwarzacz { position: relative; margin: 0; }
+.odtwarzacz video { display: block; width: 100%; height: auto; aspect-ratio: 9 / 16; background: #000; border-radius: var(--r); }
+.odtwarzacz figcaption { font-size: .86rem; color: var(--tekst2); margin-top: 10px; }
+.znaczek-ai { position: absolute; top: 12px; right: 12px; font: 600 .72rem/1 var(--sans); padding: 5px 7px; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; }
+.kod-odcinka { font-size: .9rem; color: var(--tekst2); margin-bottom: .3em; }
+.kotwica { font-size: .92rem; color: var(--tekst2); border-left: 3px solid var(--linia); padding-left: 12px; }
+.nawigacja-odcinkow { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.nawigacja-odcinkow .kolejny { margin: 0; color: var(--tekst2); }
+.cta { background: var(--karta); border: 1px solid var(--linia); border-radius: var(--r); padding: 18px 20px; margin-top: 8px; }
+.lista { margin-top: 48px; }
+.lista ol { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--linia); }
+.lista li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--linia); }
+.lista a { text-decoration: none; color: var(--tekst); }
+.lista a[aria-current="page"] { font-weight: 600; }
+.lista .kod { color: var(--tekst2); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.lista .data { color: var(--tekst2); font-size: .9rem; white-space: nowrap; }
+.uwagi { margin-top: 32px; font-size: .86rem; color: var(--tekst2); }
+@media (max-width: 760px) {
+  .odcinek { grid-template-columns: 1fr; gap: 24px; }
+  .odtwarzacz { max-width: 420px; }
+  .lista li { flex-direction: column; gap: 2px; }
+}
+@media (max-width: 400px) { .naglowek .dluzsze { display: none; } }

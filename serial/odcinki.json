@@ -1,0 +1,22 @@
+{
+  "seria": "Kancelaria pod Siódemką",
+  "opis": "Kolejka publikacji. Odcinek trafia na notarai.pl/serial/ dopiero, gdy status = gotowy, minęło publish_at (Europe/Warsaw) i istnieje plik wideo. Pliki odcinków: serial/media/. Instrukcja: serial/README.md",
+  "odcinki": [
+    {
+      "id": "s01e01",
+      "sezon": 1,
+      "odcinek": 1,
+      "tytul": "Poniedziałek, 8:57",
+      "publish_at": "2026-11-23T16:00:00+01:00",
+      "opis": "Kancelaria zaczyna tydzień: telefony, dokumenty do jutrzejszej sprzedaży i klientka, która prosi o rozmowę bez syna.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów: opóźniona czynność i projekt poprawiany do ostatniej chwili. Osoby i szczegóły zmienione.",
+      "pliki": {
+        "wideo": "serial/media/s01e01.mp4",
+        "plakat": "serial/media/s01e01.jpg",
+        "napisy": "serial/media/s01e01.vtt"
+      },
+      "czas_s": 75,
+      "status": "gotowy"
+    }
+  ]
+}
