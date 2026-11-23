@@ -325,12 +325,12 @@
  ],
  "czasy_renderu_s": {
   "dzien": {
-   "K01_plan_ogolny": 142.2,
-   "K02_dwojka_przez_stol": 146.7,
+   "K01_plan_ogolny": 165.6,
+   "K02_dwojka_przez_stol": 163.3,
    "K04_klienci_od_heleny": 147.5,
    "K05_detal_stol": 147.5,
    "K06_na_drzwi": 149.8,
-   "K07_okno_sylwetka": 146.2
+   "K07_okno_sylwetka": 160.0
   },
   "wieczor": {
    "K01_plan_ogolny": 134.5,

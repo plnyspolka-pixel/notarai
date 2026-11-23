@@ -713,6 +713,47 @@ def podworze_za_oknem(nazwa, os_, stala, strona_wew, od, do, odl=7.0, z_dol=-4.0
     return obiekty
 
 
+def widok_za_oknem(nazwa, os_, stala, strona_wew, srodek, obraz, odl=8.0, szer=30.0, z_srodka=2.4, sila=1.0):
+    """Rozmyte zdjęcie podwórza/miasta za oknem (płaszczyzna z emisją, CC0 Poly Haven, bez czytelnego tekstu).
+
+    Widać ją tylko z kamery i przez szyby (promienie transmisji/odbicia); nie świeci do wnętrza,
+    nie rzuca cieni, więc nie zmienia oświetlenia planu (to robią HDRI, słońce i portale okien).
+    `obraz`: plik w scenografia/tla/ (perspektywiczny wycinek panoramy, już rozmyty: tlo_okna.py).
+    """
+    img = bpy.data.images.load(os.path.join(TU, "tla", obraz), check_existing=True)
+    wys = szer * img.size[1] / img.size[0]
+    m = bpy.data.materials.new(f"{nazwa}_mat")
+    nt, b, out = _wezly(m)
+    nt.nodes.remove(b)
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    tex.extension = "EXTEND"
+    e = nt.nodes.new("ShaderNodeEmission")
+    e.inputs["Strength"].default_value = sila
+    nt.links.new(tex.outputs["Color"], e.inputs["Color"])
+    nt.links.new(e.outputs[0], out.inputs[0])
+    zew = -strona_wew
+    c = stala + zew * odl
+    bpy.ops.mesh.primitive_plane_add(size=1.0)
+    o = bpy.context.active_object
+    o.name = nazwa
+    o.scale = (szer, wys, 1)
+    if os_ == "x":  # ściana wzdłuż x: płaszczyzna pionowa, przodem do wnętrza
+        o.location = (srodek, c, z_srodka)
+        o.rotation_euler = (math.radians(90 if zew > 0 else -90), 0, 0 if zew > 0 else math.pi)
+    else:
+        o.location = (c, srodek, z_srodka)
+        o.rotation_euler = (math.radians(90), 0, math.radians(-90 if zew > 0 else 90))
+    o.data.materials.append(m)
+    for kol in list(o.users_collection):
+        kol.objects.unlink(o)
+    _kolekcja("za_oknem").objects.link(o)
+    o.visible_diffuse = False
+    o.visible_shadow = False
+    o.visible_volume_scatter = False
+    return o
+
+
 # ---------------------------------------------------------------- światło
 def niebo(hdri_id, sila=1.0, obrot_z=0.0, tlo_sila=None):
     """Świat z HDRI; tlo_sila – osobna jasność tego, co widać w oknach."""
@@ -1015,7 +1056,7 @@ def zapisz_opis(plan: Plan, czasy: dict, ruch: dict | None):
         "znaczniki": plan.znaczniki,
         "znaczniki_w_kadrze_px": piksele_znacznikow(plan),
         "warianty": sorted(set(stary.get("warianty", [])) | set(czasy)),
-        "czasy_renderu_s": {**stary.get("czasy_renderu_s", {}), **czasy},
+        "czasy_renderu_s": {**stary.get("czasy_renderu_s", {}), **{k: {**stary.get("czasy_renderu_s", {}).get(k, {}), **v} for k, v in czasy.items()}},
         "ruch": ruch or stary.get("ruch"),
         "siedziska_kontrola": plan.siedziska,
     }

@@ -39,6 +39,11 @@ Wysokość znacznika = wysokość oczu (stoi ok. 1,62 m, siedzi ok. 1,1-1,15 m).
   zielone kropki = ich cele, niebieskie = znaczniki postaci z kierunkiem, żółte = kamery.
   Sam rzut i kontrola: `python scenografia/zbuduj.py --plan wszystkie --rzut` (ok. 15 s na plan).
 
+## Widok za oknem
+- Okna nie pokazują już szarej bryły: `wspolne.widok_za_oknem` stawia za oknem płaszczyznę z rozmytym zdjęciem
+  podwórza (wycinek panoramy CC0 z Poly Haven, `tlo_okna.py`, plik w `tla/`). Widać ją tylko z kamery i przez szyby;
+  nie świeci do wnętrza i nie rzuca cieni, więc światło planu się nie zmienia. Na razie s02 (dzień).
+
 ## Wyniki w `rendery/<kod>/`
 - `<kamera>_<wariant>.jpg` - kadr 1080×1920,
 - `<kamera>_<wariant>_glebia.png` - mapa głębi 16-bit, wartość = odległość od kamery w mm (65535 = tło),

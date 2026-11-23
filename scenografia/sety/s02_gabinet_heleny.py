@@ -5,6 +5,7 @@ NAZWA = "Gabinet Heleny (pokój czynności)"
 WARIANTY = ["dzien", "wieczor"]
 W, D, H = 5.2, 4.6, 3.2
 OKNA = [(1.0, 2.1, 0.85, 2.8), (3.1, 4.2, 0.85, 2.8)]
+SILA_WIDOKU = 1.5
 RUCH = ("K02_dwojka_przez_stol", (1.35, 1.35, 1.32))
 
 
@@ -60,7 +61,9 @@ def zbuduj(plan, wariant):
 
     if wariant == "dzien":
         w.niebo("courtyard", sila=1.4, obrot_z=40, tlo_sila=0.9)
-        w.podworze_za_oknem("oficyna", "x", D, -1, OKNA[0][0], OKNA[-1][1], odl=7.0)
+        # za oknem rozmyte zdjęcie podwórza kamienicy (CC0), zamiast szarej bryły oficyny
+        w.widok_za_oknem("widok_podworze", "x", D, -1, (OKNA[0][0] + OKNA[-1][1]) / 2, "widok_podworze.jpg",
+                         odl=8.0, szer=26.0, z_srodka=2.6, sila=SILA_WIDOKU)
         w.slonce((0.35, -1.0, -0.55), sila=3.5, kolor_k=5200)
         w.ekspozycja(1.0)
         for i, (a, b, dol, gora) in enumerate(OKNA):
