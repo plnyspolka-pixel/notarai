@@ -185,3 +185,110 @@ def test_nie_ma_slepego_wywolywania_api():
     assert not any(w["name"] in ("wykonaj_url", "wykonaj_api", "exec", "eval")
                    for w in p._narzedzia(p._dostepne(frozenset(stanowiska.WSZYSTKIE)),
                                          frozenset(stanowiska.WSZYSTKIE)))
+
+
+# ---------------------------------------------------------------- samonaprawa -- tylko glowny Chat AI
+
+def test_naprawa_model_przygotowuje_ale_nie_uruchamia(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: False)
+    monkeypatch.setattr(p.samonaprawa, "wlaczona", lambda: True)
+    wywolania = []
+    monkeypatch.setattr(p.asystent_kancelarii, "wykonaj",
+                        lambda *args, **kwargs: wywolania.append(args))
+    akcje = []
+    wynik = p._wykonaj("przygotuj_zgloszenie_samonaprawy",
+                        {"opis": "Kalendarz nie zapisuje terminu, powinien go zapisywać."},
+                        p._dostepne(frozenset(stanowiska.WSZYSTKIE)),
+                        frozenset(stanowiska.WSZYSTKIE), akcje)
+    assert wynik["stan"] == "czeka_na_potwierdzenie"
+    assert akcje[0]["typ"] == "potwierdz_naprawe"
+    assert not wywolania
+
+
+def test_naprawa_blokuje_logowanie_i_platnosci():
+    for opis in ("Nie mogę się zalogować do NotarAI", "System nie pobiera płatności"):
+        wynik, blad = p._opis_naprawy(opis)
+        assert wynik == "" and "zespołem NotarAI" in blad
+
+
+def test_naprawa_zgloszenie_dopiero_po_zatwierdzeniu(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: False)
+    monkeypatch.setattr(p.samonaprawa, "wlaczona", lambda: True)
+    monkeypatch.setattr(p.magazyn, "wczytaj_plik_kancelarii",
+                        lambda *args: {"zmiany": [], "prosby": []})
+    przekazano = []
+    def wykonaj(nazwa, wejscie, moze_zmieniac):
+        przekazano.append((nazwa, wejscie, moze_zmieniac))
+        return {"przyjeto": True, "numer": "abc123def456", "co_dalej": "W kolejce"}
+    monkeypatch.setattr(p.asystent_kancelarii, "wykonaj", wykonaj)
+    klient = TestClient(app)
+    odp = klient.post("/api/pulpit-ai/samonaprawa/zglos", json={
+        "opis": "W kalendarzu nie zapisuje się termin spotkania."})
+    assert odp.status_code == 200
+    assert odp.json()["numer"] == "abc123def456"
+    assert przekazano and przekazano[0][0] == "zglos_zmiane_programu"
+    assert przekazano[0][2] is False
+
+
+def test_naprawa_deduplikacja_w_kancelarii(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: False)
+    monkeypatch.setattr(p.samonaprawa, "wlaczona", lambda: True)
+    opis = "W kalendarzu nie zapisuje się termin spotkania."
+    monkeypatch.setattr(p.magazyn, "wczytaj_plik_kancelarii",
+                        lambda *args: {"zmiany": [], "prosby": [
+                            {"opis": p.samonaprawa.anonimizuj(opis),
+                             "odcisk": "abc123def456"}]})
+    monkeypatch.setattr(p.asystent_kancelarii, "wykonaj",
+                        lambda *args, **kwargs: pytest.fail("Duplikat uruchomił naprawę"))
+    odp = TestClient(app).post("/api/pulpit-ai/samonaprawa/zglos",
+                               json={"opis": opis})
+    assert odp.status_code == 200
+    assert odp.json()["duplikat"] is True
+
+
+def test_naprawa_postep_z_prawdziwego_modulu(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: False)
+    monkeypatch.setattr(p.asystent_kancelarii, "prosby_z_postepem",
+                        lambda limit: [{"numer": "abc123def456", "etap": "kontrola",
+                                        "etykieta": "Testy i kontrola bezpieczeństwa zmiany",
+                                        "procent": 42, "zakonczona": False,
+                                        "opis": "Poufna treść poza API"}])
+    akcje = []
+    wynik = p._wykonaj("sprawdz_postep_samonaprawy", {},
+                        p._dostepne(frozenset(stanowiska.WSZYSTKIE)),
+                        frozenset(stanowiska.WSZYSTKIE), akcje)
+    assert wynik["liczba"] == 1 and wynik["naprawy"][0]["procent"] == 42
+    assert "opis" not in wynik["naprawy"][0]
+    assert akcje[0]["typ"] == "postep_napraw"
+    odp = TestClient(app).get("/api/pulpit-ai/samonaprawa")
+    assert odp.status_code == 200 and odp.json()["naprawy"][0]["etap"] == "kontrola"
+
+
+def test_naprawa_modele_zawsze_maja_narzedzia(monkeypatch):
+    monkeypatch.setattr(p.urzadzenia, "dostepne", lambda: False)
+    nazwy = [n["name"] for n in p._narzedzia(
+        p._dostepne(stanowiska.UPRAWNIENIA["sekretariat"]),
+        stanowiska.UPRAWNIENIA["sekretariat"])]
+    assert "sprawdz_postep_samonaprawy" in nazwy
+    assert "przygotuj_zgloszenie_samonaprawy" in nazwy
+
+
+def test_naprawa_tryb_u_klienta_odrzuca_zgloszenie(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: True)
+    wynik = p._wykonaj("przygotuj_zgloszenie_samonaprawy",
+                        {"opis": "Repertorium nie zapisuje nowego rekordu."},
+                        [], frozenset(), [])
+    assert "blad" in wynik
+    odp = TestClient(app).post("/api/pulpit-ai/samonaprawa/zglos",
+                               json={"opis": "Repertorium nie zapisuje nowego rekordu."})
+    assert odp.status_code == 409
+
+
+def test_naprawa_nie_modyfikuje_glownego_silnika():
+    from pathlib import Path
+    js = (Path(__file__).parent / "static/pulpit-ai.js").read_text("utf-8")
+    html = (Path(__file__).parent / "static/index.html").read_text("utf-8")
+    assert "/api/pulpit-ai/samonaprawa/zglos" in js
+    assert 'id="pai-naprawa-zgoda"' in html
+    assert "Potwierdź zgłoszenie" in html
+    assert "pokolenieCzatu" in js
