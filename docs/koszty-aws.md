@@ -24,7 +24,7 @@ Stałe koszty to około **100 USD miesięcznie z VAT**, niezależnie od liczby k
 | 1 kontener zamiast 2 | `LiczbaKopii` domyślnie 1 (szablon, workflow, `3-wdroz-aplikacje.ps1`) | ~17 USD Fargate + 3,65 USD IPv4 |
 | 0,5 vCPU / 2 GB zamiast 1 vCPU / 3 GB | `Cpu` 512, `Pamiec` 2048 | ~7 USD |
 | Container Insights wyłączony | `containerInsights: disabled` | ~4–5 USD |
-| Usunięcie pilota Nitro | `infra/usun-pilota-nitro.sh --tak` (wykonane 23.11.2026) | ~4 USD (KMS) |
+| Usunięcie pilota Nitro | wykonane 23.11.2026: 21 stosów, 6 bucketów, 2 repozytoria ECR, 3 tabele DynamoDB, klaster ECS z capacity providerem; 3 klucze KMS zaplanowane do usunięcia 30.11.2026 | ~4 USD (KMS) |
 | **Razem** | | **~35 USD netto, ~43 USD z VAT** |
 
 Z około 100 USD miesięcznie stałych kosztów zostaje około 57 USD. Bedrock płaci
