@@ -792,6 +792,7 @@ notarai</div>
     <button type="button" class="wtorny" data-pai-prompt="Otwórz kalendarz">Kalendarz</button>
     <button type="button" class="wtorny" data-pai-prompt="Pokaż sparowane komputery Windows">Komputery</button>
     <button type="button" class="wtorny" data-pai-prompt="Otwórz korespondencję">Poczta</button>
+    <button type="button" class="wtorny" data-pai-prompt="Sprawdź postęp moich zgłoszeń samonaprawy">Samonaprawa</button>
   </div>
   <form id="pai-form" class="pai-compose">
     <label for="pai-polecenie" class="sr-only">Polecenie do asystenta</label>
@@ -1741,6 +1742,23 @@ notarai</div>
   <div class="dol">
     <button id="pai-zgoda-anuluj" class="wtorny" type="button">Anuluj</button>
     <button id="pai-zgoda-wykonaj" type="button">Zatwierdź i przekaż</button>
+  </div>
+</dialog>
+
+<dialog id="pai-naprawa-zgoda" class="okno" aria-labelledby="pai-naprawa-tytul">
+  <h2 id="pai-naprawa-tytul">Zgłoś usterkę do samonaprawy</h2>
+  <p>Sprawdź opis przygotowany przez głównego asystenta. Nie podawaj nazwisk,
+  numerów KW, treści aktów, danych klientów ani sekretów.</p>
+  <label class="etykieta" for="pai-naprawa-opis">Opis usterki</label>
+  <textarea id="pai-naprawa-opis" rows="5" maxlength="2000"
+    style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+  <p class="stan">Po zatwierdzeniu zgłoszenie trafi do istniejącego procesu
+  samonaprawy. Zależnie od bramek bezpieczeństwa może powstać PR albo zostać
+  wdrożona niewielka poprawka. To nie jest gwarancja naprawy.</p>
+  <p id="pai-naprawa-stan" role="status" aria-live="polite"></p>
+  <div class="dol">
+    <button id="pai-naprawa-anuluj" class="wtorny" type="button">Anuluj</button>
+    <button id="pai-naprawa-zglos" type="button">Potwierdź zgłoszenie</button>
   </div>
 </dialog>
 
