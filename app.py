@@ -43,6 +43,7 @@ import krz
 import krz_portal
 import urzadzenia
 import zlecenia
+import zgody_pilota
 import magazyn
 import notariusze
 import autoryzacja
@@ -2064,7 +2065,78 @@ def wynik_polecenia_mobilnego(identyfikator: str):
         raise HTTPException(404, "Nie ma takiego polecenia.")
     if not (z.get("tresc") or {}).get("docelowy_komputer") and z.get("stan") != "wykonane":
         raise HTTPException(404, "To nie jest polecenie z pilota.")
-    return {"stan": z["stan"], "raport": z.get("raport")}
+    return {"stan": z["stan"], "raport": z.get("raport"),
+            "zgoda": zgody_pilota.oczekujaca(identyfikator) if z["stan"] != "wykonane" else None}
+
+
+
+# --- Jednorazowa zgoda na wyslanie z telefonu -------------------------------
+# Dostep do tych endpointow jest rozdzielony: pomocnik moze tylko ZAPYTAC
+# o zgode i odebrac wynik, a wydac decyzje moze tylko uprawniony czlowiek.
+
+class ProsbaOZgode(BaseModel):
+    host: str
+    etykieta: str
+
+
+class DecyzjaOZgodzie(BaseModel):
+    id: str
+    zgoda: bool
+
+
+def _zadanie_ze_zgoda(identyfikator: str, komputer: str | None = None) -> dict:
+    z = zlecenia.wynik(identyfikator)
+    if (not z or z.get("rodzaj") != "klikamy" or z.get("stan") != "czeka"
+            or not (z.get("tresc") or {}).get("docelowy_komputer")):
+        raise HTTPException(404, "Nie ma aktywnego zadania pilota.")
+    cel = z["tresc"]["docelowy_komputer"]
+    if komputer is not None and komputer != cel:
+        raise HTTPException(403, "Zadanie jest przypisane innemu komputerowi.")
+    return z
+
+
+@app.post("/api/pomocnik/polecenia/{identyfikator}/zgoda", status_code=201)
+def pomocnik_prosi_o_zgode(identyfikator: str, dane: ProsbaOZgode, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    if not komputer:
+        raise HTTPException(403, "Tylko sparowany pomocnik moze prosic o zgode.")
+    _zadanie_ze_zgoda(identyfikator, komputer)
+    host = dane.host.strip().lower()
+    etykieta = " ".join(dane.etykieta.split())[:120]
+    if not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host):
+        raise HTTPException(400, "Niepoprawna domena.")
+    if (not etykieta or re.search(
+            r"podpis|sign|zap[ał]a|p[łl]atno|p[łl]ac|przelew|usu[nń]|skasuj|delete",
+            etykieta, re.I)):
+        raise HTTPException(403, "Ta operacja nie dopuszcza zdalnej zgody.")
+    try:
+        return zgody_pilota.rozpocznij(identyfikator, komputer, host, etykieta)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
+
+
+@app.get("/api/pomocnik/polecenia/{identyfikator}/zgoda/{zgoda_id}")
+def pomocnik_odbiera_zgode(identyfikator: str, zgoda_id: str, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    if not komputer:
+        raise HTTPException(403, "Tylko sparowany pomocnik odbiera zgody.")
+    _zadanie_ze_zgoda(identyfikator, komputer)
+    try:
+        return zgody_pilota.odbierz(identyfikator, zgoda_id, komputer)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
+
+
+@app.post("/api/urzadzenia/polecenia/{identyfikator}/zgoda")
+def potwierdz_operacje_na_telefonie(identyfikator: str, dane: DecyzjaOZgodzie,
+                                    request: Request):
+    _zadanie_ze_zgoda(identyfikator)
+    if not getattr(request.state, "email", None):
+        raise HTTPException(403, "Wymagane zalogowanie uprawnionej osoby.")
+    try:
+        return zgody_pilota.decyzja(identyfikator, dane.id, dane.zgoda, request.state.email)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
 
 
 @app.post("/api/sprawy/{identyfikator}/klikamy", status_code=202)
@@ -2108,7 +2180,9 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
         _odnotuj_pomocnika(request)
     try:
         with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
-            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
+            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki,
+                   zgoda_wysylki=True) if docelowy else bedrock.nastepny_krok(
+                       widok.cel, widok.stan, widok.kroki)
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
     # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.
