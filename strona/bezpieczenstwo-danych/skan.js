@@ -275,43 +275,63 @@ function ocenZagrozenia(karty, samoaudyt) {
   const alarm = klucz => wer[klucz] === 'alarm';
   const slaby = klucz => wer[klucz] === 'alarm' || wer[klucz] === 'uwaga';
   const nie = id => samoaudyt[id] === false;
+  const band = { alarm: 'wysoka', uwaga: 'średnia', ok: 'niska' };
 
-  function scenariusz(nazwa, konsekwencja, czynniki) {
+  function scenariusz(nazwa, typ, konsekwencja, czynniki) {
     const aktywne = czynniki.filter(c => c.zly);
     let poziom = aktywne.length >= 2 ? 'alarm' : aktywne.length === 1 ? 'uwaga' : 'ok';
     if (aktywne.some(c => c.krytyczny)) poziom = 'alarm';
-    return { nazwa, konsekwencja, poziom, powody: aktywne.map(c => c.tekst) };
+    return { nazwa, typ, konsekwencja, poziom, powody: aktywne.map(c => c.tekst),
+      latwosc: band[poziom], skutecznosc: band[poziom] };
   }
 
   return [
     scenariusz(
       'Ransomware zaszyfruje Twoje akta',
-      'Akta wszystkich spraw zablokowane do odwołania, żądanie okupu, zgłoszenie do UODO w 72 godziny i ryzyko odpowiedzialności dyscyplinarnej.',
+      'Złośliwe oprogramowanie szyfruje dysk — najczęściej z załącznika, linku albo przez niezałataną lukę w systemie. Działa automatycznie, masowo, nie wybiera „ważnych” ofiar.',
+      'Akta wszystkich spraw zablokowane do odwołania, żądanie okupu (zwykle w kryptowalucie), zgłoszenie do UODO w 72 godziny, zawiadomienie klientów i ryzyko odpowiedzialności dyscyplinarnej. Bez kopii — akta przepadają bezpowrotnie.',
       [
-        { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system bez poprawek — główna droga ransomware' },
+        { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system bez poprawek — główna, zautomatyzowana droga ransomware' },
         { zly: nie('kopie'), krytyczny: true, tekst: 'brak kopii zapasowych poza komputerem — nie ma z czego odtworzyć akt' },
-        { zly: slaby('przegladarka'), tekst: 'przestarzała przeglądarka' },
+        { zly: slaby('przegladarka'), tekst: 'przestarzała przeglądarka — wejście przez zwykłą stronę' },
         { zly: nie('antywirus'), tekst: 'brak aktywnej ochrony antywirusowej' },
       ]),
     scenariusz(
       'Ktoś przejmie Twoją pocztę i konta (phishing)',
-      'Przez przejętą pocztę atakujący podszywa się pod Ciebie, resetuje hasła do innych usług i sięga po dane klientów oraz pieniądze.',
+      'Fałszywy e-mail lub podrobiona strona logowania wyłudza hasło; gotowe, wykradzione wcześniej hasła sprawdza się automatycznie w tysiącach usług (credential stuffing).',
+      'Z przejętej poczty atakujący podszywa się pod Ciebie wobec klientów i urzędów, resetuje hasła do innych usług, zmienia numery kont do przelewów i sięga po dane oraz pieniądze.',
       [
-        { zly: alarm('haslo'), krytyczny: true, tekst: 'Twoje hasło jest w znanych wyciekach — gotowe do użycia' },
+        { zly: alarm('haslo'), krytyczny: true, tekst: 'Twoje hasło jest w znanych wyciekach — atakujący ma je gotowe' },
         { zly: wer['haslo'] === 'uwaga', tekst: 'słabe hasło — szybkie do złamania' },
-        { zly: nie('mfa'), krytyczny: true, tekst: 'brak logowania dwuskładnikowego (2FA) na poczcie' },
+        { zly: nie('mfa'), krytyczny: true, tekst: 'brak logowania dwuskładnikowego (2FA) — samo hasło wystarcza' },
         { zly: nie('menedzer'), tekst: 'powtarzane hasła — jeden wyciek otwiera wszystko' },
       ]),
     scenariusz(
       'Ktoś wejdzie na Twój komputer i wykradnie dane',
-      'Dostęp do wszystkich akt i danych klientów. Przy kradzieży lub zgubie sprzętu — odczyt całego dysku bez żadnej przeszkody.',
+      'Zdalny dostęp przez niezałataną lukę albo fizyczny — kradzież lub zguba sprzętu z nieszyfrowanym dyskiem. W obu przypadkach dane leżą otworem.',
+      'Dostęp do wszystkich akt i danych klientów (PESEL, adresy, majątek). Przy kradzieży lub zgubie laptopa — odczyt całego dysku bez żadnej przeszkody, a Ty nawet nie wiesz, że dane wyciekły.',
       [
         { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system z publicznie znanymi lukami' },
         { zly: nie('szyfrowanie'), krytyczny: true, tekst: 'dysk niezaszyfrowany — kto weźmie komputer, czyta akta' },
-        { zly: nie('blokada'), tekst: 'komputer nie blokuje się po odejściu' },
+        { zly: nie('blokada'), tekst: 'komputer nie blokuje się po odejściu od biurka' },
         { zly: nie('antywirus'), tekst: 'brak aktywnej ochrony antywirusowej' },
       ]),
   ];
 }
 
-window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia };
+/* Odczyt sprzętu bez żadnej zgody — karta graficzna przez WebGL. To jedno
+ * z najmocniejszych „wiemy o Tobie dużo": model GPU widać bez pytania. */
+function czytajGPU() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return null;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    if (!ext) return null;
+    let r = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || null;
+    if (r) r = String(r).replace(/^ANGLE \(/, '').replace(/\)$/, '').replace(/ \(0x[0-9A-Fa-f]+\)/g, '');
+    return r;
+  } catch (_) { return null; }
+}
+
+window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia, czytajGPU };

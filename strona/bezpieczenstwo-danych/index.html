@@ -37,6 +37,16 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 .bz-cta { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
 .przycisk.bz-duzy { font-size:1.05rem; padding:14px 26px; }
 .bz-hero small { display:block; color:var(--tekst3); font-size:.85rem; margin-top:14px; }
+.bz-recon { margin-top:22px; background:rgba(255,255,255,.78); border:1px solid #cfe2fb; border-radius:14px; padding:16px 18px; max-width:620px; box-shadow:0 14px 40px -32px rgba(13,61,129,.5); }
+.bz-recon-tyt { margin:0 0 10px; font-weight:700; color:var(--tekst); }
+.bz-recon-dl { display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0; font-size:.92rem; }
+.bz-recon-dl dt { color:var(--tekst3); }
+.bz-recon-dl dd { margin:0; font-weight:600; color:var(--tekst); word-break:break-word; }
+.bz-recon-dl dd.alarm { color:var(--alarm); }
+.bz-recon-stopka { margin:12px 0 0; color:var(--tekst2); font-size:.9rem; }
+.bz-zagr-k .typ { margin:9px 0 0; font-size:.92rem; color:var(--tekst2); }
+.bz-zagr-k .typ b { color:var(--tekst); }
+.bz-zagr-k .meta { margin:9px 0 0; font-size:.9rem; color:var(--tekst2); }
 
 /* Skanowanie na żywo */
 .bz-skan { padding:8px 0 10px; min-height:2px; }
@@ -160,6 +170,12 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
         <button type="button" id="bz-start" class="przycisk bz-duzy">Uruchom skan bezpieczeństwa</button>
       </div>
       <small>Skan działa w Twojej przeglądarce. Żadne pliki ani obraz z kamery nie są odczytywane. Pełny opis poniżej wyniku.</small>
+
+      <div class="bz-recon" id="bz-recon" aria-live="polite">
+        <p class="bz-recon-tyt">Jeszcze nic nie kliknąłeś — a oto, co już o Tobie wiadomo:</p>
+        <dl class="bz-recon-dl" id="bz-recon-dl"></dl>
+        <p class="bz-recon-stopka" id="bz-recon-stopka"></p>
+      </div>
     </div>
   </section>
 
@@ -296,11 +312,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const chip=document.createElement('span'); chip.className='bz-chip '+z.poziom; chip.textContent=etykieta[z.poziom];
       h.append(t,chip); el.append(h);
       if (z.powody.length){
+        const typ=document.createElement('p'); typ.className='typ';
+        const tb=document.createElement('b'); tb.textContent='Jak wygląda atak: ';
+        typ.append(tb, document.createTextNode(z.typ)); el.append(typ);
         const ul=document.createElement('ul'); ul.className='pow';
+        const naglP=document.createElement('li'); naglP.style.listStyle='none'; naglP.style.marginLeft='-20px'; naglP.style.color='var(--tekst3)'; naglP.textContent='Dlaczego akurat u Ciebie:';
+        ul.append(naglP);
         z.powody.forEach(p=>{ const li=document.createElement('li'); li.textContent=p; ul.append(li); });
         el.append(ul);
+        const meta=document.createElement('p'); meta.className='meta'; const kol=kolorPoziom(z.poziom);
+        const s1=document.createElement('span'); s1.textContent='Łatwość ataku: ';
+        const b1=document.createElement('b'); b1.textContent=z.latwosc; b1.style.color=kol;
+        const s2=document.createElement('span'); s2.textContent='   ·   Skuteczność: ';
+        const b2=document.createElement('b'); b2.textContent=z.skutecznosc; b2.style.color=kol;
+        meta.append(s1,b1,s2,b2); el.append(meta);
         const kons=document.createElement('p'); kons.className='kons';
-        const b=document.createElement('strong'); b.textContent='Jeśli to się stanie: ';
+        const b=document.createElement('strong'); b.textContent='Jeśli się uda: ';
         kons.append(b, document.createTextNode(z.konsekwencja)); el.append(kons);
       } else {
         const p=document.createElement('p'); p.className='spok';
@@ -362,6 +389,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   $('bz-start').addEventListener('click', uruchom);
+
+  // Pasywny rekonesans — odpala się od razu na wejściu, bez kliknięcia.
+  // Pokazuje, ile widać z samego połączenia i przeglądarki.
+  async function reconPasywny(){
+    const dl=$('bz-recon-dl'); if(!dl) return;
+    const wiersz=(n,v,kl)=>{ if(v===undefined||v===null||v==='') return; const dt=document.createElement('dt'); dt.textContent=n; const dd=document.createElement('dd'); dd.textContent=v; if(kl) dd.className=kl; dl.append(dt,dd); };
+    let sys=null; try { sys=await S.wykryjSystem(); } catch(_){}
+    if (sys) wiersz('Twój system', sys.tytul, sys.werdykt==='alarm'?'alarm':'');
+    const prz=S.wykryjPrzegladarke(); wiersz('Przeglądarka', prz.tytul, prz.werdykt==='alarm'?'alarm':'');
+    try { wiersz('Strefa czasowa', Intl.DateTimeFormat().resolvedOptions().timeZone); } catch(_){}
+    wiersz('Język', (navigator.languages&&navigator.languages[0])||navigator.language||'');
+    wiersz('Ekran', screen.width+'×'+screen.height+' px');
+    if (navigator.hardwareConcurrency) wiersz('Rdzenie procesora', String(navigator.hardwareConcurrency));
+    if (navigator.deviceMemory) wiersz('Pamięć (ok.)', navigator.deviceMemory+' GB');
+    const gpu=S.czytajGPU(); wiersz('Karta graficzna', gpu);
+    wiersz('Dotyk', (navigator.maxTouchPoints||0)>0?'tak':'nie');
+    const st=$('bz-recon-stopka');
+    st.textContent = (sys && sys.werdykt==='alarm')
+      ? 'A to wszystko z samego połączenia — bez zgody i bez kliknięcia. Już widać, że Twój system jest bez poprawek. Uruchom skan, żeby zobaczyć, na co dokładnie Cię to wystawia.'
+      : 'A to wszystko z samego połączenia — bez pytania o zgodę i bez kliknięcia. Uruchom skan, żeby zobaczyć, na co to Cię wystawia.';
+    try { const ip=await S.wykryjIP(); if (ip && Array.isArray(ip.dane)) ip.dane.forEach(([n,v])=>wiersz(n,v)); } catch(_){}
+  }
+  reconPasywny();
 
   // Test hasła na żywo: siła (lokalnie, natychmiast) + wyciek (HIBP, z opóźnieniem).
   const kolorPoz = p => p==='alarm'?'var(--alarm)':p==='uwaga'?'var(--uwaga)':p==='ok'?'var(--ok)':'var(--tekst3)';
