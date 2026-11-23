@@ -34,6 +34,7 @@ def test_public_views_do_not_reintroduce_legacy_palette():
 
 def test_brand_symbols_are_canonical_everywhere():
     symbol = (ROOT / "static/notarai-symbol.svg").read_bytes()
+    assert symbol == (ROOT / "strona/logo-mark.svg").read_bytes(), "the website logo must be the exact canonical source"
     assert symbol == (ROOT / "static/osiol.svg").read_bytes(), "old donkey SVG is publicly served"
     assert symbol == (ROOT / "rozszerzenie/ikony/notarai.svg").read_bytes()
     for rel in ("static/admin.html", "static/rejestracja.html",
@@ -44,7 +45,7 @@ def test_brand_symbols_are_canonical_everywhere():
         assert '/static/favicon.png' not in source
 
 
-# Fixed hashes of brand-approved rasterizations of static/notarai-symbol.svg.
+# Fixed hashes of brand-approved raster icons, based on the same NotarAI geometry and palette.
 # This also makes a future accidental revert to the old donkey fail CI.
 APPROVED_ICON_SHA256 = {
     "rozszerzenie/ikony/16.png": "d215baee4ea5053131e440a5720f794e2eb7ab3ea428d7410b68a0f804664233",
