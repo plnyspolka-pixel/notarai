@@ -63,6 +63,7 @@ jobs:
           python seo/blog.py zbuduj
           # Serial: tylko odcinki, ktorych premiera juz minela (czas Europe/Warsaw); po sitemap.
           python -I seo/serial.py zbuduj
+          python -I scripts/buduj_pobieranie.py
           for plik in index.html notariusz/index.html blog/index.html sitemap.xml kalkulator/index.html serial/index.html serial/rss.xml; do
             test -f "strona/$plik" || { echo "::error::Brak strona/$plik"; exit 1; }
           done

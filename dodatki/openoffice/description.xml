@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006">
+  <identifier value="pl.notarai.openoffice.writer"/>
+  <version value="0.1.0"/>
+  <display-name><name lang="pl">NotarAI — OpenOffice Writer (beta)</name></display-name>
+  <publisher><name lang="pl">NotarAI</name></publisher>
+  <dependencies xmlns:dep="http://openoffice.org/extensions/description/2006">
+    <OpenOffice.org-minimal-version xmlns="http://openoffice.org/extensions/description/2006" value="4.0"/>
+  </dependencies>
+</description>

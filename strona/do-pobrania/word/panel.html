@@ -1,0 +1,55 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NotarAI dla Worda</title>
+<script src="https://officeapps.live.com/officejs/hosted/office.js"></script>
+<style>
+:root{font-family:Montserrat,"Segoe UI",Arial,sans-serif;color:#112755}
+body{margin:0;padding:20px;background:#f4f7fc}
+header{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+header img{height:36px;width:36px}
+h1{font-size:22px;margin:0}h2{font-size:17px}
+button,a.action{display:block;width:100%;background:#2b52d9;color:#fff;padding:12px;margin:12px 0;border:0;border-radius:9px;text-align:center;font-weight:700;text-decoration:none;cursor:pointer;font:inherit;box-sizing:border-box}
+button[disabled]{background:#899ab9;cursor:not-allowed}
+textarea{box-sizing:border-box;width:100%;min-height:180px;resize:vertical;border:1px solid #cbd9ee;border-radius:8px;padding:10px;font:14px/1.5 Consolas,monospace}
+small,p{color:#516481}#stan{font-size:13px} .card{background:white;border:1px solid #d9e4f4;padding:16px;border-radius:12px}
+</style></head><body>
+<header><img src="../../logo-mark.svg" alt=""><h1>NotarAI</h1></header>
+<div class="card">
+<h2>Praca z projektem w Wordzie</h2>
+<p>Zaznacz fragment dokumentu. Kliknięcie odczytuje go lokalnie w panelu. Żaden tekst nie jest automatycznie wysyłany do NotarAI.</p>
+<button type="button" id="wczytaj" disabled>Wczytaj zaznaczenie</button>
+<textarea id="zaznaczenie" placeholder="Zaznacz tekst w dokumencie i kliknij Wczytaj" readonly aria-label="Zaznaczony tekst"></textarea>
+<button type="button" id="kopiuj" disabled>Kopiuj zaznaczenie</button>
+<a class="action" href="https://app.notarai.pl" target="_blank" rel="noopener noreferrer">Otwórz NotarAI</a>
+<p id="stan" role="status">Inicjalizacja Worda…</p>
+<small>Wersja testowa. Docelowe poprawki oraz integracja spraw wymagają osobnego API i kontroli zatwierdzania przez notariusza.</small>
+</div>
+<script>
+(function(){
+  "use strict";
+  const status=document.getElementById("stan");
+  const field=document.getElementById("zaznaczenie");
+  const read=document.getElementById("wczytaj");
+  const copy=document.getElementById("kopiuj");
+  if(!window.Office){status.textContent="Ten panel wymaga Microsoft Word.";return;}
+  Office.onReady(function(info){
+    if(info.host!==Office.HostType.Word){status.textContent="Dodatek jest przeznaczony dla Worda.";return;}
+    read.disabled=false;status.textContent="Gotowe. Zaznacz tekst w Wordzie.";
+  });
+  read.addEventListener("click",async function(){
+    try{
+      status.textContent="Odczytuję zaznaczenie…";
+      await Word.run(async function(ctx){
+        const selected=ctx.document.getSelection();selected.load("text");await ctx.sync();
+        field.value=(selected.text||"").slice(0,20000);
+        copy.disabled=!field.value;
+        status.textContent=field.value?"Zaznaczenie odczytano lokalnie.":"Nie zaznaczono tekstu.";
+      });
+    }catch(err){status.textContent="Word nie udostępnił zaznaczenia: "+(err.message||"błąd");}
+  });
+  copy.addEventListener("click",async function(){
+    try{await navigator.clipboard.writeText(field.value);status.textContent="Skopiowano do schowka.";}
+    catch(err){field.focus();field.select();status.textContent="Zaznaczony tekst jest gotowy do ręcznego skopiowania (Ctrl+C).";}
+  });
+}());
+</script>
+</body></html>
