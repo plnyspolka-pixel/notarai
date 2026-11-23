@@ -480,6 +480,11 @@ class TestWorkflow:
         test = self._krok("Test wdrozenia")["run"]
         assert "git add docs/samonaprawa-testy-wdrozenia.md" in test and "git add -A" not in test
 
+    def test_przeglad_mozna_wyzwolic_recznie(self):
+        """Zastepczo, dopoki GitHub nie odpali harmonogramu: workflow_dispatch z przeglad=true."""
+        assert self.W[True]["workflow_dispatch"]["inputs"]["przeglad"]["default"] is False
+        assert "github.event.inputs.przeglad" in self._krok("Zgloszenie")["run"]
+
     def test_model_w_ue(self):
         assert self.W["env"]["AWS_REGION"] == "eu-central-1"
         assert "eu.anthropic." in self.W["env"]["MODEL_AGENTA"]
