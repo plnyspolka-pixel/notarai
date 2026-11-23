@@ -77,25 +77,25 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
 <div class="kol">
   <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← aplikacja</a></div>
   <h1>Stenogram aktu</h1>
-  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Nagrywaj”. Po zakończeniu przy sprawie pojawi się stenogram z zakrytymi danymi osobowymi. Samo nagranie usuwamy, gdy stenogram jest gotowy.</p>
+  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Rozpocznij”. Telefon słucha odczytania aktu, a przy sprawie pojawia się stenogram z zamaskowanymi danymi osobowymi. Dźwięku nie przechowujemy.</p>
 
   <div class="brama" id="brama" hidden>Zaloguj się w aplikacji notarai na tym urządzeniu, potem wróć tutaj. <button class="maly wtorny" id="btn-zaloguj">Przejdź do logowania</button></div>
-  <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie nagrywa dźwięku. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
+  <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie ma dostępu do mikrofonu. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
   <div class="brama" id="wylaczone" hidden>Stenogramy nie są jeszcze włączone w tej kancelarii.</div>
 
   <div class="karta" id="przygotowanie">
-    <h2>Przed nagraniem</h2>
+    <h2>Przed odczytaniem</h2>
     <label class="etykieta" for="sprawa">Sprawa</label>
     <select id="sprawa"><option value="">Wczytuję sprawy…</option></select>
     <label class="etykieta" for="sygnatura">Repertorium A (opcjonalnie)</label>
     <input type="text" id="sygnatura" maxlength="60" placeholder="np. 1234/2026">
 
     <label class="zgoda"><input type="checkbox" id="zgoda">
-      <span>Osoby obecne przy akcie wiedzą o nagrywaniu i się na nie zgodziły.</span></label>
+      <span>Osoby obecne przy akcie wiedzą, że telefon słucha odczytania i spisuje stenogram, i się na to zgodziły.</span></label>
   </div>
 
   <div class="karta nagrywarka" id="nagrywarka">
-    <button class="duzy" id="btn-nagraj" disabled><span class="kropka"></span><span id="napis-nagraj">Nagrywaj</span></button>
+    <button class="duzy" id="btn-nagraj" disabled><span class="kropka"></span><span id="napis-nagraj">Rozpocznij</span></button>
     <div class="zegar" id="zegar">0:00:00</div>
     <div class="poziom" title="Poziom dźwięku"><i id="poziom"></i></div>
     <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
@@ -107,7 +107,7 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
 
   <div class="karta" id="karta-lokalne" hidden>
     <h2>Czeka na tym urządzeniu</h2>
-    <p class="pod" style="margin:0">Nagrania, których wysyłka się nie skończyła. Leżą w pamięci przeglądarki, dopóki serwer ich nie przyjmie.</p>
+    <p class="pod" style="margin:0">Odczytania, których przesyłanie się nie skończyło. Czekają w pamięci przeglądarki, dopóki serwer ich nie przyjmie.</p>
     <div id="lokalne"></div>
   </div>
 
@@ -148,7 +148,7 @@ async function api(adres, opcje = {}){
   };
   let odp = await wyslij();
   if (odp.status === 401 && await odnow()) odp = await wyslij();
-  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby nagrywać."); }
+  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby spisywać stenogram."); }
   return odp;
 }
 
@@ -227,14 +227,14 @@ function odswiezPrzycisk(){
   const gotowy = wlaczone && $("zgoda").checked && $("sprawa").value && !!wybierzFormat();
   $("btn-nagraj").disabled = !biezace && !gotowy;
   $("btn-nagraj").classList.toggle("stop", !!biezace);
-  $("napis-nagraj").textContent = biezace ? "Zakończ" : "Nagrywaj";
+  $("napis-nagraj").textContent = biezace ? "Zakończ" : "Rozpocznij";
   $("sterowanie").hidden = !biezace;
   $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = !!biezace; });
   document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
   if (!biezace && !gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
     stan("Wybierz sprawę i zaznacz zgodę, żeby zacząć.");
   else if (!biezace && gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
-    stan("Gotowe do nagrywania.");
+    stan("Gotowe. Naciśnij „Rozpocznij”, gdy zaczniesz czytać.");
 }
 $("zgoda").onchange = () => { stan(""); odswiezPrzycisk(); };
 $("sprawa").onchange = () => { stan(""); odswiezPrzycisk(); rysujListe(); };
@@ -265,7 +265,7 @@ function pokazujPoziom(strumien){
       if (szczyt > 6 || biezace.pauzaOd) ciszaOd = Date.now();
       $("zegar").textContent = czas(sekundy());
       if (Date.now() - ciszaOd > 20000 && !biezace.zatrzymuje) stan("Od 20 sekund nic nie słychać. Sprawdź, czy mikrofon nie jest zasłonięty.", "blad");
-      else if (!biezace.pauzaOd && !biezace.zatrzymuje) stan("Nagrywam…");
+      else if (!biezace.pauzaOd && !biezace.zatrzymuje) stan("Słucham odczytania…");
       requestAnimationFrame(krok);
     };
     requestAnimationFrame(krok);
@@ -303,7 +303,7 @@ async function obsluzKolejke(){
         pauza = 2000;
       } catch {
         // Sieć padła: fragment czeka w pamięci telefonu, próbujemy dalej.
-        $("wysylka").textContent = "Brak połączenia z serwerem. Nagrywam dalej i wyślę zaległe fragmenty, gdy sieć wróci.";
+        $("wysylka").textContent = "Brak połączenia z serwerem. Słucham dalej i prześlę zaległe fragmenty, gdy sieć wróci.";
         await new Promise(r => setTimeout(r, pauza));
         pauza = Math.min(pauza * 2, 30000);
         continue;
@@ -384,7 +384,7 @@ $("btn-pauza").onclick = () => {
     b.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
   } else {
     b.pauzaOd = Date.now(); b.rec.pause();
-    $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby nagrywać dalej.");
+    $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby słuchać dalej.");
   }
   odswiezPrzycisk();
 };
@@ -396,7 +396,7 @@ $("btn-nagraj").onclick = () => {
   if (b.pauzaOd) { b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0; }
   b.zatrzymuje = true;
   clearTimeout(b.zegarSesji);
-  stan("Kończę nagranie…");
+  stan("Kończę…");
   if (b.rec.state === "inactive") zakonczono(b); else b.rec.stop();
 };
 
@@ -406,7 +406,7 @@ async function zakonczono(b){
   try { await blokadaEkranu?.release(); } catch { /* juz zwolniona */ }
   b.opis.stan = "zatrzymane";
   await zapiszOpis(b.opis);
-  stan("Wysyłam resztę nagrania…");
+  stan("Przesyłam ostatnie fragmenty…");
   while (b.kolejka.length || b.wysylam) await new Promise(r => setTimeout(r, 300));
   biezace = null;
   // Każdy akt to nowa zgoda: następne nagranie nie może ruszyć "z rozpędu".
@@ -419,9 +419,9 @@ async function zakonczono(b){
 }
 
 async function dokonczNaSerwerze(o){
-  stan("Zapisuję nagranie na serwerze…");
+  stan("Przekazuję do spisania…");
   const sesje = o.sesje.filter(s => s.do > s.od).map(s => ({od: s.od, do: s.do, czas_s: Math.round(s.czas_s * 10) / 10}));
-  if (!sesje.length) { await usunLokalne(o.id); return stan("Nagranie było puste, nic nie zapisano.", "blad"); }
+  if (!sesje.length) { await usunLokalne(o.id); return stan("Nic nie usłyszałem, stenogram nie powstał.", "blad"); }
   for (let proba = 0; proba < 3; proba++) {
     try {
       const odp = await jsonPost(`/api/stenogramy/${o.idSerwera}/koniec`, {sesje});
@@ -432,15 +432,15 @@ async function dokonczNaSerwerze(o){
       }
       if (!odp.ok) throw new Error(await bladZ(odp));
       await usunLokalne(o.id);
-      stan("Nagranie przyjęte. Przygotowuję stenogram, to potrwa kilka minut. Możesz zamknąć stronę.", "ok");
+      stan("Przyjęte. Przygotowuję stenogram, to potrwa kilka minut. Możesz zamknąć stronę.", "ok");
       await rysujListe();
       return;
     } catch (blad) {
-      stan(`${blad.message} Nagranie zostało w pamięci telefonu, dokończysz je niżej.`, "blad");
+      stan(`${blad.message} Fragmenty czekają w pamięci telefonu, dokończysz niżej.`, "blad");
       return;
     }
   }
-  stan("Serwer wciąż nie ma wszystkich fragmentów. Nagranie zostało w pamięci telefonu, dokończysz je niżej.", "blad");
+  stan("Serwer wciąż nie ma wszystkich fragmentów. Czekają w pamięci telefonu, dokończysz niżej.", "blad");
 }
 
 /* ---------- listy ---------- */
@@ -462,18 +462,18 @@ async function rysujLokalne(){
   const lista = $("lokalne"); lista.textContent = "";
   for (const o of opisy.sort((a, b) => b.utworzono.localeCompare(a.utworzono))) {
     const w = wpisHtml();
-    w.querySelector("b").textContent = o.nazwaSprawy || "Nagranie";
+    w.querySelector("b").textContent = o.nazwaSprawy || "Odczytanie";
     w.querySelector(".meta").textContent = `${new Date(o.utworzono).toLocaleString("pl-PL")} · ${o.czesci} fragmentów · czeka na wysłanie`;
     przycisk(w, "Dokończ wysyłkę", () => dokonczNaSerwerze(o).then(rysujLokalne), false);
     przycisk(w, "Usuń z urządzenia", async () => {
-      if (!confirm("Usunąć to nagranie z pamięci przeglądarki? Stenogram z niego nie powstanie.")) return;
+      if (!confirm("Usunąć te fragmenty z pamięci przeglądarki? Stenogram z nich nie powstanie.")) return;
       await usunLokalne(o.id); rysujLokalne();
     });
     lista.append(w);
   }
 }
 
-const OPISY_STANU = {nagrywanie: "nagranie niedokończone", przetwarzanie: "przygotowuję stenogram…",
+const OPISY_STANU = {nagrywanie: "odczytanie niedokończone", przetwarzanie: "przygotowuję stenogram…",
   gotowe: "gotowy, jest w plikach sprawy", blad: "nie udało się"};
 let nazwySpraw = {};
 let odswiezanie = null;

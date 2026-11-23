@@ -280,13 +280,13 @@ def tresc_stenogramu(wpis: dict, segmenty: list[dict]) -> str:
     if wpis.get("sygnatura"):
         naglowek.append(f"Repertorium A nr {wpis['sygnatura']}")
     naglowek += [
-        f"Nagrano: {kiedy:%d.%m.%Y}, godz. {kiedy:%H:%M}",
-        f"Czas nagrania: {_czas(wpis.get('czas_s', 0))}",
+        f"Odczytanie: {kiedy:%d.%m.%Y}, godz. {kiedy:%H:%M}",
+        f"Czas odczytania: {_czas(wpis.get('czas_s', 0))}",
         "",
         "Dane osobowe zamaskowano: w słowach zostaje pierwsza i ostatnia litera (np. J*n S*****k),",
         "w numerach dwie pierwsze i dwie ostatnie cyfry (np. PESEL 80*******45).",
         "Tekst powstał z automatycznego rozpoznawania mowy i może zawierać błędy.",
-        "Nie jest protokołem ani częścią aktu. Nagranie nie zostało zachowane.",
+        "Nie jest protokołem ani częścią aktu. Dźwięku nie przechowujemy.",
         "",
     ]
     linie = [f"[{_czas(s['start'])}] " + (f"{s['mowca']}: " if s["mowca"] else "") + s["tekst"]
@@ -414,10 +414,10 @@ def rozpocznij(dane: Start, request: Request):
     _bez_chmury()
     _wymagaj_silnika()
     if not dane.zgoda:
-        raise HTTPException(400, "Potwierdź, że osoby obecne przy akcie zgodziły się na nagrywanie.")
+        raise HTTPException(400, "Potwierdź, że osoby obecne przy akcie zgodziły się na spisanie stenogramu.")
     typ = (dane.typ or "").split(";")[0].strip().lower()
     if typ not in TYPY:
-        raise HTTPException(415, "Ta przeglądarka nagrywa w formacie, którego nie przyjmujemy. "
+        raise HTTPException(415, "Ta przeglądarka przesyła dźwięk w formacie, którego nie przyjmujemy. "
                                  "Użyj Chrome, Edge, Firefoksa albo Safari.")
     _katalog_sprawy(dane.sprawa)
     teraz = _teraz()
@@ -442,14 +442,14 @@ async def czesc(id_s: str, nr: int, request: Request):
     _bez_chmury()
     _sprawdz_id(id_s)
     if not 0 <= nr < MAX_CZESCI:
-        raise HTTPException(400, "Nagranie jest za długie.")
+        raise HTTPException(400, "Odczytanie jest za długie.")
     if _wpis(id_s)["stan"] != "nagrywanie":
-        raise HTTPException(409, "To nagranie jest już zakończone.")
+        raise HTTPException(409, "To odczytanie jest już zakończone.")
     dane = await request.body()
     if not dane:
         raise HTTPException(400, "Pusty fragment.")
     if len(dane) > MAX_CZESC:
-        raise HTTPException(413, "Fragment nagrania jest za duży.")
+        raise HTTPException(413, "Fragment dźwięku jest za duży.")
     wzgledna = _czesc(id_s, nr)
     plik = magazyn.katalog_kancelarii() / wzgledna
     plik.parent.mkdir(parents=True, exist_ok=True)
@@ -471,7 +471,7 @@ def zakoncz(id_s: str, dane: Koniec):
     if not 0 < len(sesje) <= MAX_SESJI or sesje[0].od != 0 or any(
             s.do <= s.od or s.do > MAX_CZESCI for s in sesje) or any(
             a.do != b.od for a, b in zip(sesje, sesje[1:])):
-        raise HTTPException(400, "Nieprawidłowy podział nagrania.")
+        raise HTTPException(400, "Nieprawidłowy podział na fragmenty.")
 
     pliki, brakujace = {}, []
     for nr in range(sesje[-1].do):
@@ -480,7 +480,7 @@ def zakoncz(id_s: str, dane: Koniec):
             brakujace.append(nr)
         pliki[nr] = sciezka
     if brakujace:
-        raise HTTPException(409, {"komunikat": "Brakuje fragmentów nagrania.", "brakujace": brakujace})
+        raise HTTPException(409, {"komunikat": "Brakuje fragmentów odczytania.", "brakujace": brakujace})
 
     rozmiar = 0
     for i, sesja in enumerate(sesje):
