@@ -1,5 +1,5 @@
 @echo off
-title pieczapp
+title NotarAI
 cd /d "%~dp0"
 if not exist .venv (
   echo Pierwsze uruchomienie - tworze srodowisko...
