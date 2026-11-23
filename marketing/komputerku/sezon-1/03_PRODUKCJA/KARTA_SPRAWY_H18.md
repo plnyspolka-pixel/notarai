@@ -27,5 +27,16 @@ Inicjały i nazwiska, skład sądu, miejscowości, adresy, daty, kwoty, metraże
 i prywatne motywy stron. W odcinku zero sygnatur i odwołań do źródła.
 
 ## Mechanizm dla serialu
-_Do uzupełnienia przez konsultanta: jedno zdanie mechanizmu, co bierzemy, czego nie, jak notariusz
-wypada (musi korzystnie)._
+**Uzupełnione 23.11.2026 (Claude, konsultant), użyte w S01E01 „Czterdzieści minut”.**
+
+- **Mechanizm:** uczestnik spóźnia się około 40 minut, a w projekcie wychodzą omyłki; notariusz zaznacza
+  omyłkę przy czytaniu, poprawia ją w sekretariacie i odczytuje poprawiony fragment ponownie, a stronom
+  wyjaśnia skutki podatkowe sprzedaży przed upływem pięciu lat.
+- **Bierzemy:** spóźnienie, presję czasu, poprawkę w trakcie czynności, ponowne odczytanie, pouczenie
+  podatkowe (wersja notariusza, którą sąd uznał).
+- **Nie bierzemy:** zarzutów strony (wychodzenie z pokoju, brak pouczenia), pozwu, relacji rodzinnych,
+  kwot, dat, miejsc, liczby udziałów.
+- **Jak wypada notariusz:** korzystnie; Helena nie skraca odczytania mimo prośby klienta i mówi o podatku,
+  zanim ktokolwiek podpisze. Omyłkę wyłapuje sama przy lekturze (projekt to nie akt).
+- **Do sprawdzenia przed szerszą promocją:** prawomocność (SAOS jej nie podaje). W odcinku nie ma
+  odniesienia do orzeczenia ani jego wyniku, tylko mechanizm.

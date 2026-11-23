@@ -16,5 +16,11 @@ Inicjały i nazwiska, skład sądu, miejscowości, adresy, daty, kwoty, metraże
 i prywatne motywy stron. W odcinku zero sygnatur i odwołań do źródła.
 
 ## Mechanizm dla serialu
-_Do uzupełnienia przez konsultanta: jedno zdanie mechanizmu, co bierzemy, czego nie, jak notariusz
-wypada (musi korzystnie)._
+**Uzupełnione 23.11.2026 (Claude, konsultant), użyte w S01E01 „Czterdzieści minut”.**
+
+- **Mechanizm:** zapowiedziana przerwa techniczna systemu elektronicznych ksiąg wieczystych w godzinach
+  16:00–18:00 (komunikat Ministerstwa Sprawiedliwości) wyznacza termin: aktualny odpis trzeba pobrać przed 16:00.
+- **Bierzemy:** godziny przerwy jako zegar odcinka; kancelaria planuje pracę wokół niej.
+- **Nie bierzemy:** daty komunikatu, nazw systemów poza ogólnym „księgi”.
+- **Jak wypada notariusz:** korzystnie; kancelaria wie o przerwie z wyprzedzeniem i pobiera odpis przed nią,
+  nie odkłada sprawdzenia księgi „na po przerwie”.

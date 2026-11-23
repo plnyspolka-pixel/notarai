@@ -6,6 +6,7 @@ Modele obrazu i wideo nie potrafią pisać po polsku, więc żaden czytelny teks
 Szablony (ujęcie typu `dokument` w odcinki/EPxx.json, pole `szablon` + `dane`):
   porownanie_kw   dwa odczyty treści tej samej KW (starszy/nowszy) z podświetloną różnicą
   notatka         karteczka z krótką notatką roboczą (np. „1 XII")
+  projekt_i_ksiega  fragment projektu aktu i wydruk odpisu KW z rozbieżnym numerem lokalu
   plansza_ekranu  plansza zastępcza za nagranie ekranu aplikacji (ujęcie `ekran` bez pliku)
 
 Użycie:
@@ -194,6 +195,67 @@ def notatka(dane, wyjscie):
     return meta
 
 
+# ---------------------------------------------------------------- projekt aktu i odpis KW
+
+def projekt_i_ksiega(dane, wyjscie):
+    """Kartka projektu aktu (fragment § 1) i wydruk odpisu księgi: ten sam lokal, inny numer.
+    Bez marki programu: to papier na stole notariusza, nie ekran aplikacji."""
+    d = {"projekt": "lokal mieszkalny nr 12", "ksiega": "lokal mieszkalny nr 21", "stan_na": "15:52", **(dane or {})}
+    tlo = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+    dr = ImageDraw.Draw(tlo)
+    for y in range(H):  # blat orzechowy
+        t = y / H
+        dr.line([(0, y), (W, y)], fill=(int(96 - 36 * t), int(60 - 24 * t), int(38 - 16 * t), 255))
+
+    def kartka(szer, wys, wiersze, wyroznij, kolor_wyr, kolko=False):
+        im = Image.new("RGBA", (szer, wys), PAPER + (255,))
+        k = ImageDraw.Draw(im)
+        y, box = 110, None
+        for styl, t in wiersze:
+            f = font(FB, 64) if styl == "n" else font(F, 54)
+            if styl == "x":
+                lw = k.textlength(t, font=font(FB, 60))
+                box = (90, y - 14, 90 + lw + 40, y + 86)
+                k.rectangle(box, fill=kolor_wyr)
+                k.text((110, y), t, font=font(FB, 60), fill=INK)
+                y += 110
+                continue
+            for l in zawin(k, t, f, szer - 200):
+                k.text((100, y), l, font=f, fill=INK if styl == "n" else (40, 46, 70))
+                y += 84 if styl == "n" else 76
+            y += 30
+        if kolko and box:
+            x0, y0, x1, y1 = box
+            for o in range(0, 12, 3):
+                k.ellipse([x0 - 40 - o, y0 - 30 - o, x1 + 40 + o, y1 + 30 + o], outline=(200, 30, 40, 255), width=6)
+        k.text((100, wys - 90), "DEMO · dane fikcyjne", font=font(F, 36), fill=MUTED)
+        return im, box
+
+    proj, _ = kartka(1760, 1000, [
+        ("n", "PROJEKT AKTU NOTARIALNEGO"),
+        ("t", "§ 1. Sprzedający oświadcza, że jest właścicielem samodzielnego lokalu:"),
+        ("x", d["projekt"]),
+        ("t", "dla którego Sąd Rejonowy prowadzi księgę wieczystą o numerze podanym w odpisie."),
+        ("t", "§ 2. Strony oświadczają, że…"),
+    ], None, (255, 232, 120, 255), kolko=True)
+    ksi, _ = kartka(1760, 900, [
+        ("n", "ODPIS KSIĘGI WIECZYSTEJ"),
+        ("t", f"wydruk z dnia dzisiejszego, godz. {d['stan_na']}"),
+        ("t", "Dział I-O · Oznaczenie nieruchomości"),
+        ("x", d["ksiega"]),
+        ("t", "Dział II · Własność: zgodnie z projektem"),
+    ], None, (255, 232, 120, 255))
+    proj = proj.rotate(-2.5, resample=Image.BICUBIC, expand=True)
+    ksi = ksi.rotate(2, resample=Image.BICUBIC, expand=True)
+    for im, (x, y) in ((ksi, (230, 2050)), (proj, (150, 900))):
+        cien(tlo, (x + 40, y + 40, x + im.width - 40, y + im.height - 40), 50, 140)
+        tlo.alpha_composite(im, (x, y))
+    tlo.convert("RGB").save(wyjscie, optimize=True)
+    meta = {"fokus": [0.5, 0.5], "zoom": 1.3, "szablon": "projekt_i_ksiega"}
+    json.dump(meta, open(os.path.splitext(wyjscie)[0] + ".json", "w"))
+    return meta
+
+
 # ---------------------------------------------------------------- plansza ekranu
 
 def plansza_ekranu(uid, co_widac, czas_s, wyjscie):
@@ -216,7 +278,7 @@ def plansza_ekranu(uid, co_widac, czas_s, wyjscie):
     return {"szablon": "plansza_ekranu"}
 
 
-SZABLONY = {"porownanie_kw": porownanie_kw, "notatka": notatka}
+SZABLONY = {"porownanie_kw": porownanie_kw, "notatka": notatka, "projekt_i_ksiega": projekt_i_ksiega}
 
 
 def renderuj(ep, u, baza):

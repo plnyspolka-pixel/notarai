@@ -1,0 +1,323 @@
+{
+  "id": "s01e01",
+  "sezon": 1,
+  "odcinek": 1,
+  "slot": "16:00",
+  "tytul": "Czterdzieści minut",
+  "sprawa_kotwica": "H18 + A13",
+  "prowadzi": "helena",
+  "typ_otwarcia": "A",
+  "muzyka": {
+    "typ": "dzwieki_kancelarii",
+    "pod_szczytem": false
+  },
+  "pytanie_koncowe": "Klient się spieszył, a Helena czytała poprawiony paragraf drugi raz. Słusznie?",
+  "streszczenie": "Poniedziałek, 15:20. Sprzedający spóźnia się czterdzieści minut, a o szesnastej księgi wieczyste mają zaplanowaną przerwę. Helena czyta projekt i widzi, że numer lokalu nie zgadza się z księgą. Klient prosi, żeby poprawionego fragmentu nie czytać drugi raz. Helena czyta. W tle pośrednik Adrian Sowa dzwoni w sprawie pani Ireny, a na koniec Basia przekazuje prośbę, która otwiera sezon.",
+  "opis_publikacji": "Spóźnienie klienta, przerwa w systemie ksiąg wieczystych o 16:00 i jedna cyfra w projekcie aktu. Helena nie przyspiesza czytania. Odcinek 1 serialu „Kancelaria pod Siódemką”.",
+  "sceny": [
+    {
+      "id": "sc1",
+      "rola": "zimne_otwarcie",
+      "plan": "s02",
+      "kamera": "K03_helena_zblizenie",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u1",
+          "typ": "mowiace",
+          "postac": "helena",
+          "znacznik": "M_Helena_szczyt",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Czterdzieści minut spóźnienia. A o szesnastej wyłączają księgi.",
+          "kwestia_v3": "[quietly, dry] Czterdzieści minut spóźnienia. A o szesnastej wyłączają księgi.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, reading a document, then looking up"
+        },
+        {
+          "id": "u2",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "znacznik": "M_klient_przod_L",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Pan sprzedający jest już na schodach. Prosi, żeby czytać szybciej.",
+          "kwestia_v3": "[slightly out of breath] Pan sprzedający jest już na schodach. Prosi, żeby czytać szybciej.",
+          "czas_s": 4.5,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the table on the far side, facing the camera, holding a folder"
+        }
+      ]
+    },
+    {
+      "id": "sc2",
+      "rola": "tytul",
+      "plan": "s02",
+      "ujecia": [
+        {
+          "id": "u3",
+          "typ": "plansza",
+          "tekst": "Czterdzieści minut",
+          "czas_s": 2.2
+        }
+      ]
+    },
+    {
+      "id": "sc3",
+      "rola": "swiat",
+      "plan": "s02",
+      "kamera": "K02_dwojka_przez_stol",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u4",
+          "typ": "bez_mowy",
+          "kamera": "K01_plan_ogolny",
+          "czas_s": 3.0,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "Very slow push-in towards the empty chairs at the long table. Daylight from the windows. Nothing in the room moves."
+        },
+        {
+          "id": "u5",
+          "typ": "mowiace",
+          "postac": "helena",
+          "znacznik": "M_Helena_szczyt",
+          "kamera": "K02_dwojka_przez_stol",
+          "kwestia": "Sprzedaż w rodzinie, przed upływem pięciu lat. Będzie rozmowa o podatku.",
+          "kwestia_v3": "[calm, matter-of-fact] Sprzedaż w rodzinie, przed upływem pięciu lat. Będzie rozmowa o podatku.",
+          "czas_s": 5.2,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table with a document"
+        },
+        {
+          "id": "u6",
+          "typ": "mowiace",
+          "postac": "marta",
+          "znacznik": "M_klient_przod_L",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Odpis z księgi pobiorę teraz. Od szesnastej do osiemnastej system ma przerwę.",
+          "kwestia_v3": "[focused] Odpis z księgi pobiorę teraz. Od szesnastej do osiemnastej system ma przerwę.",
+          "czas_s": 5.1,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the table on the far side, facing the camera, laptop closed"
+        }
+      ]
+    },
+    {
+      "id": "sc4",
+      "rola": "zwrot1",
+      "plan": "s02",
+      "kamera": "K03_helena_zblizenie",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u7",
+          "typ": "dokument",
+          "czas_s": 5.0,
+          "dokument": {
+            "szablon": "projekt_i_ksiega",
+            "pola": {
+              "projekt": "lokal mieszkalny nr 12",
+              "ksiega": "lokal mieszkalny nr 21",
+              "stan_na": "15:52"
+            },
+            "fokus": "numer lokalu w projekcie i w odpisie",
+            "fokus_xy": [
+              0.5,
+              0.55
+            ]
+          }
+        },
+        {
+          "id": "u8",
+          "typ": "mowiace",
+          "postac": "helena",
+          "znacznik": "M_Helena_szczyt",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "W projekcie lokal dwanaście. W księdze dwadzieścia jeden.",
+          "kwestia_v3": "[slowly, precise] W projekcie lokal dwanaście. W księdze dwadzieścia jeden.",
+          "czas_s": 5.7,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, pen in hand over a document"
+        }
+      ]
+    },
+    {
+      "id": "sc5",
+      "rola": "praca",
+      "plan": "s02",
+      "kamera": "K04_klienci_od_heleny",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u9",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "znacznik": "M_klient_przod_L",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Poprawię w sekretariacie i wydrukuję tę jedną stronę.",
+          "kwestia_v3": "[eager] Poprawię w sekretariacie i wydrukuję tę jedną stronę.",
+          "czas_s": 3.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the table on the far side, facing the camera, holding a folder"
+        },
+        {
+          "id": "u10",
+          "typ": "mowiace",
+          "postac": "sowa",
+          "kamera": "K03_helena_zblizenie",
+          "poza_kadrem": true,
+          "kwestia": "Pani rejent, Adrian Sowa. W sprawie pani Nowak: może jednak pierwszy grudnia?",
+          "kwestia_v3": "[smooth, friendly, on the phone] Pani rejent, Adrian Sowa. W sprawie pani Nowak... może jednak pierwszy grudnia?",
+          "czas_s": 5.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, holding a phone to her ear, listening"
+        },
+        {
+          "id": "u11",
+          "typ": "mowiace",
+          "postac": "helena",
+          "znacznik": "M_Helena_szczyt",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Termin ustalają strony, panie Adrianie. Nie pośrednik.",
+          "kwestia_v3": "[cool, polite] Termin ustalają strony, panie Adrianie. Nie pośrednik.",
+          "czas_s": 4.3,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, holding a phone to her ear"
+        }
+      ]
+    },
+    {
+      "id": "sc6",
+      "rola": "szczyt",
+      "plan": "s02",
+      "kamera": "K03_helena_zblizenie",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u12",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "znacznik": "M_klient_przod_L",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Klient prosi, żeby poprawionego już nie czytać. Bardzo się spieszy.",
+          "kwestia_v3": "[hesitant, lowered voice] Klient prosi, żeby poprawionego już nie czytać. Bardzo się spieszy.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the table on the far side, facing the camera, holding a printed page"
+        },
+        {
+          "id": "u13",
+          "typ": "mowiace",
+          "postac": "helena",
+          "znacznik": "M_Helena_szczyt",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Przeczytam cały paragraf jeszcze raz. I powiem mu o podatku. Księgę mamy sprzed szesnastej.",
+          "kwestia_v3": "[firm, quiet, unhurried] Przeczytam cały paragraf jeszcze raz. I powiem mu o podatku. Księgę mamy sprzed szesnastej.",
+          "czas_s": 6.8,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, looking straight ahead, calm and decided"
+        }
+      ]
+    },
+    {
+      "id": "sc7",
+      "rola": "zawieszenie",
+      "plan": "s02",
+      "kamera": "K03_helena_zblizenie",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u14",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K03_helena_zblizenie",
+          "poza_kadrem": true,
+          "kwestia": "Pani rejent, dzwoniła pani Irena Nowak. Prosi o rozmowę jutro. Bez syna.",
+          "kwestia_v3": "[hushed, careful] Pani rejent, dzwoniła pani Irena Nowak. Prosi o rozmowę jutro... [pause] Bez syna.",
+          "czas_s": 7.2,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, slowly lifting her eyes from the papers, listening"
+        },
+        {
+          "id": "u15",
+          "typ": "bez_mowy",
+          "kamera": "K07_okno_sylwetka",
+          "czas_s": 3.0,
+          "ruch_kamery": "statyczna",
+          "postac": "helena",
+          "znacznik": "M_przy_oknie",
+          "poza": "standing by the window with her back to the camera, looking out at the courtyard",
+          "prompt_ruchu": "The woman stands still by the window, breathes calmly, makes one small movement of the head. Locked-off camera. Nothing else in the room moves."
+        }
+      ]
+    },
+    {
+      "id": "sc8",
+      "rola": "plansza_koncowa",
+      "plan": "s02",
+      "ujecia": [
+        {
+          "id": "u16",
+          "typ": "plansza",
+          "tekst": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+          "czas_s": 3.0
+        }
+      ]
+    }
+  ],
+  "lista_kontrolna": {
+    "czynnosc_jako_rama": {
+      "ok": true,
+      "jak": "Umowa sprzedaży lokalu w rodzinie z wyznaczoną godziną; spóźnienie 40 minut i przerwa w EKW 16:00–18:00 to znane terminy."
+    },
+    "odkrycie_z_lektury": {
+      "ok": true,
+      "jak": "Helena porównuje projekt z odpisem księgi i sama czyta rozbieżny numer lokalu."
+    },
+    "dokument_w_kadrze": {
+      "ok": true,
+      "jak": "u7: warstwa dokumentu (projekt aktu i odpis z księgi, dane demonstracyjne), renderowana, nie generowana."
+    },
+    "widz_zna_ryzyko": {
+      "ok": true,
+      "jak": "Od pierwszego zdania widz wie o spóźnieniu i przerwie w księgach, zanim pojawi się błąd w projekcie."
+    },
+    "wynik_niepewny_bez_przemocy": {
+      "ok": true,
+      "jak": "Presja czasu i prośba klienta; nie wiadomo, czy zdążą przed przerwą, nikt nie podnosi głosu."
+    },
+    "jeden_szczyt": {
+      "ok": true,
+      "jak": "Jedyny szczyt: decyzja Heleny o ponownym odczytaniu paragrafu (sc6)."
+    },
+    "nic_spoza_swiata": {
+      "ok": true,
+      "jak": "Plansze tylko tytułowa i końcowa; telefon Sowy i głos Basi to zdarzenia ze świata kancelarii."
+    },
+    "ekran_poza_szczytem": {
+      "ok": true,
+      "jak": "Brak ekranu programu w tym odcinku (funkcja nie była sprawdzana w dniu produkcji)."
+    },
+    "zgodnie_z_prawem": {
+      "ok": true,
+      "jak": "Notariusz odczytuje akt przed podpisaniem (art. 94 PrNot), poprawkę czyta ponownie, poucza o skutkach podatkowych sprzedaży przed upływem 5 lat."
+    },
+    "sprawiedliwosc_proceduralna": {
+      "ok": true,
+      "jak": "Pośrednik dostaje rzeczową odpowiedź: termin ustalają strony; klient dostaje pełną informację mimo pośpiechu."
+    },
+    "prawdziwa_sprawa_bez_danych": {
+      "ok": true,
+      "jak": "H18 (spóźnienie, poprawki projektu, ponowne odczytanie i pouczenie; sąd przyznał rację notariuszowi) i A13 (planowana przerwa EKW 16–18). Bez nazwisk, miejsc, dat i kwot."
+    },
+    "final_domyka": {
+      "ok": true,
+      "jak": "Nie dotyczy (odcinek 1); główna sprawa otwarta prośbą pani Ireny."
+    }
+  },
+  "_fabryka": {
+    "problemy": [],
+    "autor": "sesja Claude",
+    "zrodlo": "/tmp/claude-0/-home-user/31f1136a-eb37-5868-9cfa-0024d040d1a8/scratchpad/e01/s01e01.json"
+  }
+}
