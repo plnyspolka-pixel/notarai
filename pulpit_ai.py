@@ -18,7 +18,9 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 import autoryzacja
+import asystent_kancelarii
 import bedrock
+import samonaprawa
 import magazyn
 import stanowiska
 import urzadzenia
@@ -60,6 +62,17 @@ Masz dostęp do modułów wymienionych w opisie narzędzia otworz_modul, ale NIE
 masz automatycznego dostępu do wszystkich operacji wewnątrz tych modułów.
 Gdy użytkownik chce przejść do funkcji, wywołaj otworz_modul.
 Gdy chce odszukać sprawę, użyj wyszukaj_sprawy (a nie zgaduj jej identyfikator).
+Gdy użytkownik zgłasza błąd programu, niepowodzenie czynności lub prosi
+o naprawienie funkcji, użyj przygotuj_zgloszenie_samonaprawy. To wyłącznie
+przygotowanie opisu do zatwierdzenia przez człowieka, nie uruchomienie naprawy.
+W zgłoszeniu podaj objaw i oczekiwane działanie; nigdy nie kopiuj danych
+klientów, aktów, tokenów, nazwisk, numerów KW ani innych danych spraw.
+Jeżeli pytanie dotyczy trwającej naprawy, użyj sprawdz_postep_samonaprawy.
+Prośby o zmiany logowania, uwierzytelnienia, płatności i uprawnień
+przekieruj do zespołu NotarAI; nie uruchamiaj dla nich samonaprawy.
+Samonaprawa pracuje według osobnych bramek, może utworzyć PR, a drobne
+poprawki w trybie automatycznym mogą zostać wdrożone dopiero po testach.
+Nie obiecuj, że zgłoszenie zostało naprawione lub że zmiana już działa.
 Gdy chce sterować sparowanym Windows, najpierw pobierz komputery, a następnie
 przygotuj_polecenie_windows. To tylko PROPOZYCJA, nie wykonanie. Wymaga jawnej
 akceptacji na ekranie; nie deklaruj, że cokolwiek kliknięto lub wysłano.
@@ -106,6 +119,77 @@ def lista_narzedzi(request: Request):
             "zasada": "Polecenia zewnętrzne wymagają potwierdzenia."}
 
 
+# Zasady samonaprawy: nie przekazujemy automatom modyfikacji
+# uwierzytelniania, płatności i uprawnień. To nie zastępuje bramek CI.
+_NAPRAWA_WYLACZONE = re.compile(
+    r"\b(?:logowan\w*|zalogowan\w*|uwierzyteln\w*|autoryzac\w*|"
+    r"uprawnie\w*|hasł\w*|hasel\w*|token\w*|płatno\w*|platno\w*|"
+    r"płatnic\w*|platnic\w*|przelew\w*|rozlicze\w*)\b", re.I
+)
+
+
+def _opis_naprawy(surowy: str) -> tuple[str, str | None]:
+    """Opis przeznaczony do GitHuba: anonimizowany i bez stref wyłączonych."""
+    zrodlo = (surowy or "").strip()
+    if _NAPRAWA_WYLACZONE.search(zrodlo):
+        return "", ("Zmiany dotyczące logowania, uprawnień i płatności wymagają "
+                    "kontaktu z zespołem NotarAI. Nie wysłano ich do samonaprawy.")
+    opis = samonaprawa.anonimizuj(zrodlo)
+    if len(opis) < 12:
+        return "", "Opisz objaw i oczekiwane działanie programu (minimum 12 znaków)."
+    return opis[:2000], None
+
+
+def _stan_napraw() -> list[dict]:
+    if magazyn.u_klienta():
+        return []
+    # Istniejący mechanizm odczytu aktualizuje status zgłoszeń i może
+    # aktywować dopuszczone ustawienie kancelarii po jego wdrożeniu.
+    wynik = asystent_kancelarii.prosby_z_postepem(limit=5)
+    return [{"numer": str(p.get("numer", ""))[:20],
+             "etap": str(p.get("etap", ""))[:40],
+             "etykieta": str(p.get("etykieta", ""))[:160],
+             "procent": p.get("procent", 0),
+             "zakonczona": bool(p.get("zakonczona"))}
+            for p in wynik]
+
+
+class ZgloszenieNaprawy(BaseModel):
+    opis: str = Field(min_length=12, max_length=2000)
+
+
+@router.post("/samonaprawa/zglos")
+def zglos_naprawe(request: Request, dane: ZgloszenieNaprawy):
+    """Główne Chat AI: zgłoszenie tylko po osobnym kliknięciu użytkownika."""
+    _uprawnienia(request)
+    if magazyn.u_klienta():
+        raise HTTPException(409, "W tym trybie samonaprawa nie zapisuje zgłoszeń.")
+    if not samonaprawa.wlaczona():
+        raise HTTPException(503, "Samonaprawa jest wyłączona. Skontaktuj się z zespołem NotarAI.")
+    opis, blad = _opis_naprawy(dane.opis)
+    if blad:
+        raise HTTPException(400, blad)
+    # Jeżeli ktoś ponowi kliknięcie, nie wywołuj tej samej naprawy drugi raz.
+    rejestr = magazyn.wczytaj_plik_kancelarii(asystent_kancelarii.PLIK,
+                                               {"zmiany": [], "prosby": []})
+    for p in reversed(rejestr.get("prosby", [])):
+        if p.get("opis") == opis:
+            return {"przyjeto": True, "numer": p.get("odcisk", ""),
+                    "co_dalej": "Zgłoszenie już istnieje. Sprawdź jego postęp w czacie.",
+                    "duplikat": True}
+    wynik = asystent_kancelarii.wykonaj(
+        "zglos_zmiane_programu", {"opis": opis}, moze_zmieniac=False)
+    if "blad" in wynik:
+        raise HTTPException(409, "Nie udało się przekazać zgłoszenia.")
+    return wynik
+
+
+@router.get("/samonaprawa")
+def pokaz_naprawy(request: Request):
+    _uprawnienia(request)
+    return {"naprawy": _stan_napraw()}
+
+
 class Polecenie(BaseModel):
     wiadomosc: str = Field(min_length=1, max_length=3500)
     historia: list[dict] = Field(default_factory=list, max_length=16)
@@ -118,6 +202,15 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
                 {"modul": {"type": "string", "enum": [x["id"] for x in dostepne]}}, ["modul"]),
         _schema("wyszukaj_sprawy", "Wyszukaj sprawy kancelarii po nazwie lub sygnaturze. Maksymalnie 10 wyników.",
                 {"szukaj": {"type": "string"}}, []),
+        _schema("sprawdz_postep_samonaprawy",
+                "Sprawdź rzeczywiste etapy napraw zgłoszonych przez tę kancelarię; nie zgaduj postępu."),
+        _schema("przygotuj_zgloszenie_samonaprawy",
+                "Przygotuj zgłoszenie błędu programu do sprawdzenia i zatwierdzenia przez użytkownika. "
+                "Nie uruchamia naprawy, niczego nie publikuje. Nie przekazuj danych klientów, "
+                "treści aktów, KW, haseł ani płatności.",
+                {"opis": {"type": "string", "description": "Objaw, moduł, oczekiwane działanie; "
+                                                "bez danych osobowych i identyfikatorów spraw."}},
+                ["opis"]),
     ]
     if urzadzenia.dostepne():
         wynik += [
@@ -135,6 +228,21 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
 
 def _wykonaj(nazwa: str, dane: dict, dostepne: list[dict],
              uprawnienia: frozenset, akcje: list[dict]) -> dict:
+    if nazwa == "sprawdz_postep_samonaprawy":
+        naprawy = _stan_napraw()
+        akcje.append({"typ": "postep_napraw", "naprawy": naprawy})
+        return {"naprawy": naprawy, "liczba": len(naprawy)}
+    if nazwa == "przygotuj_zgloszenie_samonaprawy":
+        if magazyn.u_klienta():
+            return {"blad": "Samonaprawa nie obsługuje zgłoszeń w tym trybie przechowywania."}
+        if not samonaprawa.wlaczona():
+            return {"blad": "Samonaprawa jest wyłączona. Skontaktuj się z zespołem NotarAI."}
+        opis, blad = _opis_naprawy(str(dane.get("opis", ""))[:2000])
+        if blad:
+            return {"blad": blad}
+        akcje.append({"typ": "potwierdz_naprawe", "opis": opis})
+        return {"stan": "czeka_na_potwierdzenie", "opis": opis,
+                "uwaga": "Nie uruchomiono jeszcze samonaprawy. Użytkownik musi zatwierdzić."}
     if nazwa == "otworz_modul":
         klucz = str(dane.get("modul", ""))
         modul = next((m for m in dostepne if m["id"] == klucz), None)
