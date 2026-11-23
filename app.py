@@ -34,6 +34,7 @@ import dokumenty
 import dokumenty_prawne
 import ekw
 import giif
+import google_kalendarz
 import ksiegi_notarialne
 import formularze
 import kalendarz
@@ -112,6 +113,7 @@ app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
 app.include_router(teczka.router)
 app.include_router(korespondencja.router)
+app.include_router(google_kalendarz.router)
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
