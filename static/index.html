@@ -1782,6 +1782,12 @@ notarai</div>
     <input type="radio" name="ust-wysilek" id="ust-wys-medium" value="medium"><label for="ust-wys-medium">Szybka</label>
   </div>
   <div class="opis-dokl" id="ust-opis-dokl"></div>
+  <h3>Brakujące dane w pliku Word</h3>
+  <p>Jak oznaczyć w projekcie dane, których nie było w dokumentach. W aplikacji widzisz zawsze pełny opis braku.</p>
+  <div class="przelacznik" role="radiogroup" aria-label="Brakujące dane w pliku Word">
+    <input type="radio" name="ust-braki" id="ust-braki-opis" value="opis"><label for="ust-braki-opis">Opis braku: &lt;&lt;BRAK: numer dowodu&gt;&gt;</label>
+    <input type="radio" name="ust-braki" id="ust-braki-pytajnik" value="pytajnik"><label for="ust-braki-pytajnik">Znak zapytania: ?</label>
+  </div>
   <h3>Nazwa pliku Word z projektem</h3>
   <p>Wzór nazwy pliku, który pobierasz po sporządzeniu projektu. Kliknij pole, żeby je wstawić. Pole bez danych znika razem ze swoim myślnikiem.</p>
   <input type="text" id="ust-nazwa-pliku" spellcheck="false" autocomplete="off" maxlength="200" aria-label="Wzór nazwy pliku">
@@ -4062,7 +4068,7 @@ const OPISY_DOKL = {
 };
 const NAZWY_DOKL = {auto: "automatyczna", max: "maksymalna", high: "wysoka", medium: "szybka"};
 const KLUCZ_USTAWIEN_LOKALNYCH = "notarai-ustawienia";
-let ustawieniaOgolne = {dokladnosc: "auto", nazwa_pliku: "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}", moge_zmieniac: true};
+let ustawieniaOgolne = {dokladnosc: "auto", nazwa_pliku: "{zbywca} - {nabywca} - {czynnosc} - {miejscowosc}", braki: "opis", moge_zmieniac: true};
 function wybranaDokladnosc() {
   return (document.querySelector('input[name="wysilek"]:checked') || {}).value || "auto";
 }
@@ -4142,6 +4148,7 @@ function rysujUstawienia() {
   if ($("ust-wys-" + u.dokladnosc)) $("ust-wys-" + u.dokladnosc).checked = true;
   $("ust-opis-dokl").textContent = OPISY_DOKL[u.dokladnosc] || "";
   $("ust-nazwa-pliku").value = u.nazwa_pliku || "";
+  if ($("ust-braki-" + (u.braki || "opis"))) $("ust-braki-" + (u.braki || "opis")).checked = true;
   const pola = $("ust-pola"); pola.innerHTML = "";
   for (const [klucz, opis] of Object.entries(polaNazwy)) {
     const b = document.createElement("button"); b.type = "button"; b.textContent = "{" + klucz + "}"; b.title = opis;
@@ -4165,7 +4172,7 @@ function rysujUstawienia() {
 async function zapiszUstawieniaOgolne(zmiany) {
   if (dysk.aktywny) {
     Object.assign(ustawieniaOgolne, zmiany);
-    try { localStorage.setItem(KLUCZ_USTAWIEN_LOKALNYCH, JSON.stringify({dokladnosc: ustawieniaOgolne.dokladnosc, nazwa_pliku: ustawieniaOgolne.nazwa_pliku})); } catch (e) {}
+    try { localStorage.setItem(KLUCZ_USTAWIEN_LOKALNYCH, JSON.stringify({dokladnosc: ustawieniaOgolne.dokladnosc, nazwa_pliku: ustawieniaOgolne.nazwa_pliku, braki: ustawieniaOgolne.braki})); } catch (e) {}
   } else {
     const odp = await api("/api/ustawienia/ogolne", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(zmiany)});
     const w = await odp.json().catch(() => ({}));
@@ -4197,10 +4204,11 @@ $("ust-zamknij").onclick = () => $("okno-ustawienia").close();
 $("ust-zapisz").onclick = async () => {
   const dokladnosc = (document.querySelector('input[name="ust-wysilek"]:checked') || {}).value || ustawieniaOgolne.dokladnosc;
   const nazwa_pliku = $("ust-nazwa-pliku").value.trim();
+  const braki = (document.querySelector('input[name="ust-braki"]:checked') || {}).value || ustawieniaOgolne.braki || "opis";
   $("ust-zapisz").disabled = true;
   stan($("stan-ustawienia"), "Zapisuję…", false, true);
   try {
-    await zapiszUstawieniaOgolne({dokladnosc, nazwa_pliku});
+    await zapiszUstawieniaOgolne({dokladnosc, nazwa_pliku, braki});
     rysujUstawienia();
     stan($("stan-ustawienia"), "Zapisane. Przykład nazwy: " + podgladNazwy(ustawieniaOgolne.nazwa_pliku, PRZYKLAD_NAZWY).nazwa);
   } catch (e) {
@@ -4517,6 +4525,7 @@ $("btn-generuj").onclick = async () => {
       dane.append("pola", JSON.stringify(sprawa.pola));
       dane.append("polecenie", poleceniePierwotne);
       dane.append("rozmowa", JSON.stringify(rozmowa));
+      dane.append("braki", ustawieniaOgolne.braki || "opis");
       const odp = await api("/api/projekt",
         {method:"POST", body:dane, headers:{"Accept": "application/x-ndjson"}});
       wynik = await czytajStrumien(odp);

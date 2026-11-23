@@ -60,6 +60,7 @@ class Klauzula:
     warianty: list[str] = field(default_factory=list)
     luki: int = 0
     odeslania: list[dict] = field(default_factory=list)
+    taksa: bool = False  # czesc koncowa z taksa i oplatami - poza struktura aktu
 
     def slownik(self) -> dict:
         return asdict(self)
@@ -111,6 +112,51 @@ def _naglowek(linia: str) -> bool:
     return sum(1 for z in litery if z.isupper()) / len(litery) >= 0.85
 
 
+# Czesc koncowa aktu z taksa i oplatami ("Pobrano: ... na podstawie § 3 i § 10a
+# rozporzadzenia ... w sprawie maksymalnych stawek taksy notarialnej"). Paragrafy
+# tam to cytaty z rozporzadzenia, nie paragrafy aktu: nie licza sie do numeracji,
+# nie sa odeslaniami i NIGDY nie wolno ich przenumerowac (zgloszenie kancelarii
+# 23.11.2026: "to sa paragrafy podstawy taksy").
+_POCZATEK_TAKSY = re.compile(
+    r"^\s*(pobrano|taks[aeyę]\b|oplat[ay]\b|oplaty i podatki|koszty (aktu|czynnosci)\s*:|"
+    r"wynagrodzenie notariusza)", re.IGNORECASE)
+_TAKSA_Z_PODSTAWA = re.compile(r"pobran|rozporz|stawek|dz\.\s?u", re.IGNORECASE)
+# "§ 3 ust. 1 pkt 4 rozporzadzenia..." na poczatku linii - cytat przepisu.
+_PARAGRAF_Z_KROPKA = re.compile(r"^\s*§\s*\d+[a-z]?\s*\.")
+_CYTAT_PO_NUMERZE = re.compile(r"^\s*(ust\.?\s*\d|pkt\.?\s*\d|lit\.?\s*[a-z]\b|i\s+§|oraz\s+§|w\s+zw|[,;)–-])",
+                               re.IGNORECASE)
+
+
+def _cytat_przepisu(linia: str) -> bool:
+    """Linia zaczyna sie od "§ N", ale to cytat z innego aktu prawnego."""
+    m = _PARAGRAF.match(linia)
+    if not m or _PARAGRAF_Z_KROPKA.match(linia):
+        return False   # "§ 3." - naglowek paragrafu aktu
+    tresc = kategorie.bez_ogonkow(m.group(2))
+    return bool(_CYTAT_PO_NUMERZE.match(tresc) or _ZEWNETRZNE_PO.search(tresc))
+
+
+def _poczatek_taksy(linia: str) -> bool:
+    plaska = kategorie.bez_ogonkow(linia).strip().lower()
+    if not plaska or (_PARAGRAF.match(linia) and not _cytat_przepisu(linia)):
+        return False   # paragraf aktu ("§ 9. Koszty aktu ...") to jeszcze akt
+    return bool(_POCZATEK_TAKSY.match(plaska)
+                or ("taks" in plaska and _TAKSA_Z_PODSTAWA.search(plaska)))
+
+
+def _paragrafy_aktu(linie: list[str]) -> tuple[list[tuple[int, str]], int | None]:
+    """[(nr linii, numer)] paragrafow aktu i nr linii, od ktorej zaczyna sie taksa."""
+    wynik, taksa = [], None
+    for nr, linia in enumerate(linie):
+        if taksa is None and _poczatek_taksy(linia):
+            taksa = nr
+        if taksa is not None:
+            continue
+        if (m := _PARAGRAF.match(linia)) and not _cytat_przepisu(linia):
+            wynik.append((nr, m.group(1)))
+    return wynik, taksa
+
+
 def _koniec_zdania(tekst: str) -> bool:
     return tekst.rstrip().endswith((".", ":", ";", "!", "?"))
 
@@ -144,6 +190,7 @@ def rozbij(tekst: str) -> Rozbior:
     stos: list[int] = []        # indeksy otwartych klauzul numerowanych
     paragraf_teraz = ""
     po_pustej = True
+    _, poczatek_taksy = _paragrafy_aktu(linie)
 
     def dodaj(typ: str, numer: str, tresc: str, nr_linii: int) -> None:
         nonlocal paragraf_teraz
@@ -179,7 +226,18 @@ def rozbij(tekst: str) -> Rozbior:
                 klauzule[-1].warianty.append(m.group(1).strip())
             po_pustej = False
             continue
+        if poczatek_taksy is not None and nr >= poczatek_taksy:
+            # Taksa i oplaty: zwykle akapity, bez numeracji i odeslan aktu.
+            if nr == poczatek_taksy or po_pustej or not klauzule or not klauzule[-1].taksa:
+                dodaj("akapit", "", linia.strip(), nr)
+                klauzule[-1].taksa = True
+            else:
+                klauzule[-1].tekst = (klauzule[-1].tekst + " " + linia.strip()).strip()
+            po_pustej = False
+            continue
         rozpoznana = _rozpoznaj(linia)
+        if rozpoznana and rozpoznana[0] == "paragraf" and _cytat_przepisu(linia):
+            rozpoznana = None
         if rozpoznana:
             typ, numer, tresc = rozpoznana
             # "§ 2. 1. Sprzedajacy sprzedaje..." - pierwszy ustep w linii paragrafu
@@ -203,7 +261,7 @@ def rozbij(tekst: str) -> Rozbior:
     _sklasyfikuj(rozbior)
     for k in klauzule:
         k.luki = len(_LUKI.findall(k.tekst)) + sum(len(_LUKI.findall(w)) for w in k.warianty)
-        k.odeslania = odeslania_w_tekscie(k.tekst)
+        k.odeslania = [] if k.taksa else odeslania_w_tekscie(k.tekst)
         k.id = identyfikator(k.tekst)
     return rozbior
 
@@ -250,6 +308,11 @@ _ZEWNETRZNE_PO = re.compile(
     r"statut|umowy spolki|prawa o notariacie|prawo o notariacie|z dnia)",
 )
 _ZEWNETRZNE_PRZED = re.compile(r"\bart\.?\s*\d+\w*\s*$|\bart\.?\s*\d+\w*\s*(ust\.\s*\d+\s*)?$")
+# "(tekst jednolity Dz.U. z 2024 r. poz. 1566 ze zm.), z § 10a ust. 3" - cytat
+# przepisu, choc nazwa aktu stoi przed numerem, a nie po nim.
+_ZEWNETRZNE_WCZESNIEJ = re.compile(
+    r"(dz\.\s?u\.|ze zm\.|tekst jednolity|t\.\s?j\.|rozporz\w*|kodeks\w*|ustaw[ayie]? z dnia|poz\.\s*\d)",
+    re.IGNORECASE)
 
 
 def odeslania_w_tekscie(tekst: str) -> list[dict]:
@@ -260,7 +323,8 @@ def odeslania_w_tekscie(tekst: str) -> list[dict]:
     for m in _ODESLANIE.finditer(tekst):
         przed = plaski[max(0, m.start() - 25):m.start()]
         po = plaski[m.end():m.end() + 60]
-        if _ZEWNETRZNE_PRZED.search(przed) or _ZEWNETRZNE_PO.search(po):
+        if (_ZEWNETRZNE_PRZED.search(przed) or _ZEWNETRZNE_PO.search(po)
+                or _ZEWNETRZNE_WCZESNIEJ.search(plaski[max(0, m.start() - 100):m.start()])):
             continue
         wynik.append({"paragraf": m.group("par"), "ustep": m.group("ust"), "tekst": m.group(0).strip(),
                       "start": m.start(), "koniec": m.end()})
@@ -378,10 +442,8 @@ def przenumeruj(tekst: str) -> tuple[str, dict[str, str]]:
     paragraf mialy na mysli; problem zostaje w raporcie konstrukcji.
     """
     linie = tekst.split("\n")
-    stare: list[tuple[int, str]] = []
-    for nr, linia in enumerate(linie):
-        if m := _PARAGRAF.match(linia):
-            stare.append((nr, m.group(1)))
+    # Tylko paragrafy aktu: cytaty przepisow i czesc z taksa zostaja nietkniete.
+    stare, poczatek_taksy = _paragrafy_aktu(linie)
     if not stare:
         return tekst, {}
     mapa: dict[str, str] = {}
@@ -396,6 +458,9 @@ def przenumeruj(tekst: str) -> tuple[str, dict[str, str]]:
     nowe_numery = {nr: str(i) for i, (nr, _) in enumerate(stare, start=1)}
     wynik = []
     for nr, linia in enumerate(linie):
+        if poczatek_taksy is not None and nr >= poczatek_taksy:
+            wynik.append(linia)
+            continue
         if nr in nowe_numery:
             linia = re.sub(r"(§\s*)(\d+[a-z]?)", lambda m: m.group(1) + nowe_numery[nr], linia, count=1)
             glowa, _, reszta = linia.partition(nowe_numery[nr])

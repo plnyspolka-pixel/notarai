@@ -299,7 +299,15 @@ def _wyroznij_znacznik(przebieg, kawalek: str) -> None:
     przebieg.bold = True
 
 
-def tekst_na_docx(tekst: str, cel: Path, wzor: Path | None = None) -> Path:
+def _do_zapisu(kawalek: str, braki: str) -> str:
+    """Tresc fragmentu w Wordzie. braki="pytajnik": <<BRAK: ...>> -> "?"
+    (ustawienie kancelarii); podswietlenie zostaje, wiec brak nie zginie."""
+    if braki == "pytajnik" and kawalek.startswith("<<BRAK:"):
+        return "?"
+    return kawalek
+
+
+def tekst_na_docx(tekst: str, cel: Path, wzor: Path | None = None, braki: str = "opis") -> Path:
     """Zapisuje projekt aktu jako .docx. Puste linie rozdzielaja akapity.
 
     Gdy wzor jest plikiem Word, projekt powstaje NA TYM PLIKU: strona
@@ -311,7 +319,7 @@ def tekst_na_docx(tekst: str, cel: Path, wzor: Path | None = None) -> Path:
     """
     if wzor is not None and Path(wzor).suffix.lower() == ".docx" and Path(wzor).exists():
         try:
-            return _docx_na_wzorze(tekst, cel, Path(wzor))
+            return _docx_na_wzorze(tekst, cel, Path(wzor), braki)
         except Exception as blad:  # noqa: BLE001 - projekt musi powstac, choc bez szaty wzoru
             log.warning("formatowanie projektu ze wzoru nieudane (%s), zapis domyslny",
                         type(blad).__name__)
@@ -330,7 +338,7 @@ def tekst_na_docx(tekst: str, cel: Path, wzor: Path | None = None) -> Path:
         for kawalek in ZNACZNIK_PROJEKTU.split(tresc.strip()):
             if not kawalek:
                 continue
-            przebieg = akapit.add_run(kawalek)
+            przebieg = akapit.add_run(_do_zapisu(kawalek, braki))
             if wyrownaj_srodek:
                 przebieg.bold = True
             _wyroznij_znacznik(przebieg, kawalek)
@@ -470,7 +478,7 @@ def _skopiuj_ppr(akapit, ppr, tresc: str, tekst_wzoru: str) -> None:
     akapit._p.insert(0, kopia)
 
 
-def _docx_na_wzorze(tekst: str, cel: Path, wzor: Path) -> Path:
+def _docx_na_wzorze(tekst: str, cel: Path, wzor: Path, braki: str = "opis") -> Path:
     dokument = Document(wzor)
     szablon = _Szablon(dokument)
 
@@ -500,7 +508,7 @@ def _docx_na_wzorze(tekst: str, cel: Path, wzor: Path) -> Path:
         for kawalek in ZNACZNIK_PROJEKTU.split(tresc.strip()):
             if not kawalek:
                 continue
-            przebieg = akapit.add_run(kawalek)
+            przebieg = akapit.add_run(_do_zapisu(kawalek, braki))
             if rpr is not None:
                 przebieg._r.insert(0, deepcopy(rpr))
             if naglowek:
