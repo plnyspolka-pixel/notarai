@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai · nagranie aktu</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --r:14px; --r2:10px;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.kol{max-width:720px;margin:0 auto;padding:24px 16px 100px}
+.logo{font:600 20px/1 var(--serif);display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.logo img{width:34px;height:34px}
+.logo a{margin-left:auto;font:400 14px var(--sans);color:var(--tekst2)}
+h1{font:400 26px/1.25 var(--serif);margin:0 0 6px}
+h2{font:500 18px/1.3 var(--serif);margin:0 0 12px}
+.pod{color:var(--tekst2);margin:0 0 20px}
+.karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:20px;margin-bottom:16px}
+label.etykieta{display:block;font-size:13px;font-weight:500;margin:12px 0 6px;color:var(--tekst2)}
+input[type=text]{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+.opcje{display:grid;gap:8px;margin-top:6px}
+.opcja{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--linia2);border-radius:var(--r2);padding:10px 12px;cursor:pointer}
+.opcja input{margin-top:4px}
+.opcja small{display:block;color:var(--tekst2)}
+.opcja.wylaczona{opacity:.5;cursor:default}
+.zgoda{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border-radius:var(--r2);background:var(--akcent-tlo)}
+.zgoda input{margin-top:4px;width:20px;height:20px;flex:none}
+button{font:500 15px var(--sans);padding:11px 18px;border-radius:var(--r2);border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;min-height:44px}
+button:hover{background:var(--akcent2)}
+button:disabled{opacity:.5;cursor:default}
+button.wtorny{background:var(--karta);color:var(--tekst);border-color:var(--linia2)}
+button.wtorny:hover{border-color:var(--tekst3)}
+button.maly{min-height:36px;padding:6px 12px;font-size:14px}
+.przyciski{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.nagrywarka{text-align:center;padding:28px 20px}
+.duzy{width:132px;height:132px;border-radius:50%;font-size:17px;padding:0;margin:8px auto 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.duzy .kropka{width:30px;height:30px;border-radius:50%;background:#fff}
+.duzy.stop .kropka{border-radius:6px}
+.zegar{font:400 44px/1.1 var(--serif);font-variant-numeric:tabular-nums;margin-top:18px}
+.poziom{height:8px;border-radius:4px;background:var(--tlo2);overflow:hidden;margin:14px auto 0;max-width:320px}
+.poziom i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s}
+.stan{font-size:14px;color:var(--tekst2);margin-top:12px;min-height:1.4em}
+.stan.blad{color:var(--alarm)}
+.stan.ok{color:var(--ok)}
+.trwa .zegar{color:var(--akcent)}
+.wpis{border:1px solid var(--linia);border-radius:var(--r2);padding:14px;margin-top:12px;background:var(--tlo)}
+.wpis-gora{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wpis b{font-weight:600}
+.wpis .meta{font-size:13px;color:var(--tekst2)}
+.wpis audio{width:100%;margin-top:10px}
+.pusto{color:var(--tekst3);font-size:14px}
+.brama{background:var(--alarm-tlo);color:var(--alarm);border-radius:var(--r2);padding:12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="kol">
+  <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← aplikacja</a></div>
+  <h1>Nagranie aktu</h1>
+  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Nagrywaj”. Ekran nie zgaśnie. Nagranie zapisuje się po kawałku, więc przerwa w sieci niczego nie gubi.</p>
+
+  <div class="brama" id="brama" hidden>Zaloguj się w aplikacji notarai na tym urządzeniu, potem wróć tutaj. <button class="maly wtorny" id="btn-zaloguj">Przejdź do logowania</button></div>
+  <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie nagrywa dźwięku. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
+
+  <div class="karta" id="przygotowanie">
+    <h2>Przed nagraniem</h2>
+    <label class="etykieta" for="tytul">Czego dotyczy (widzi tylko kancelaria)</label>
+    <input type="text" id="tytul" maxlength="200" placeholder="np. umowa sprzedaży lokalu">
+    <label class="etykieta" for="sygnatura">Repertorium A (opcjonalnie)</label>
+    <input type="text" id="sygnatura" maxlength="200" placeholder="np. 1234/2026">
+
+    <label class="etykieta">Gdzie zapisać nagranie</label>
+    <div class="opcje">
+      <label class="opcja" id="opcja-chmura"><input type="radio" name="cel" value="chmura" checked>
+        <span>Na serwerze notarai<small>Zaszyfrowane, w UE (Frankfurt). Odsłuchasz je na każdym komputerze kancelarii.</small></span></label>
+      <label class="opcja"><input type="radio" name="cel" value="urzadzenie">
+        <span>Tylko na tym urządzeniu<small>Serwer nic nie dostaje. Po zakończeniu zapiszesz plik na dysku.</small></span></label>
+    </div>
+
+    <label class="zgoda"><input type="checkbox" id="zgoda">
+      <span>Osoby obecne przy akcie wiedzą o nagrywaniu i się na nie zgodziły.</span></label>
+  </div>
+
+  <div class="karta nagrywarka" id="nagrywarka">
+    <button class="duzy" id="btn-nagraj" disabled><span class="kropka"></span><span id="napis-nagraj">Nagrywaj</span></button>
+    <div class="zegar" id="zegar">0:00:00</div>
+    <div class="poziom" title="Poziom dźwięku"><i id="poziom"></i></div>
+    <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
+      <button class="wtorny" id="btn-pauza">Wstrzymaj</button>
+    </div>
+    <div class="stan" id="stan">Zaznacz zgodę, żeby zacząć.</div>
+    <div class="stan" id="wysylka"></div>
+  </div>
+
+  <div class="karta" id="karta-lokalne" hidden>
+    <h2>Na tym urządzeniu</h2>
+    <p class="pod" style="margin:0">Nagrania, które leżą w pamięci przeglądarki: niedokończona wysyłka albo zapis tylko na urządzeniu.</p>
+    <div id="lokalne"></div>
+  </div>
+
+  <div class="karta" id="karta-serwer">
+    <h2>Nagrania kancelarii</h2>
+    <div id="lista"><p class="pusto">Wczytuję…</p></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KLUCZ_TOKENU = "notarai_token";
+const FRAGMENT_MS = window.__fragmentMs || 15000;   // co tyle przeglądarka oddaje kawałek nagrania
+const BITY_OPUS = 24000;        // mowa: ok. 11 MB na godzinę
+const BITY_AAC = 32000;         // Safari (MP4/AAC) potrzebuje trochę więcej
+
+/* ---------- logowanie (jak na /poswiadczenia) ---------- */
+
+function token(){ try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; } }
+
+async function odnow(){
+  try {
+    const odp = await fetch("/api/logowanie/odnow", {method: "POST"});
+    if (!odp.ok) return false;
+    const t = (await odp.json()).token;
+    try { localStorage.setItem(KLUCZ_TOKENU, t); } catch { /* tryb prywatny */ }
+    return true;
+  } catch { return false; }
+}
+
+async function api(adres, opcje = {}){
+  const wyslij = () => {
+    const naglowki = new Headers(opcje.headers || {});
+    if (token()) naglowki.set("Authorization", "Bearer " + token());
+    return fetch(adres, {...opcje, headers: naglowki});
+  };
+  let odp = await wyslij();
+  if (odp.status === 401 && await odnow()) odp = await wyslij();
+  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby zapisywać nagrania."); }
+  return odp;
+}
+
+async function bladZ(odp){
+  try {
+    const d = (await odp.json()).detail;
+    return typeof d === "string" ? d : (d?.komunikat || `Błąd ${odp.status}`);
+  } catch { return `Błąd ${odp.status}`; }
+}
+
+$("btn-zaloguj").onclick = () => { location.href = "/"; };
+
+/* ---------- pamięć przeglądarki (IndexedDB) ----------
+   Każdy fragment najpierw ląduje tutaj, dopiero potem idzie na serwer.
+   Kasujemy go, gdy serwer potwierdzi gotowe nagranie albo gdy notariusz
+   sam usunie nagranie z urządzenia.                                      */
+let _baza = null;
+function baza(){
+  if (_baza) return _baza;
+  _baza = new Promise((ok, zle) => {
+    const z = indexedDB.open("notarai-nagrania", 1);
+    z.onupgradeneeded = () => {
+      z.result.createObjectStore("nagrania", {keyPath: "id"});
+      z.result.createObjectStore("czesci");
+    };
+    z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+  });
+  return _baza;
+}
+async function idb(magazyn, tryb, dzialanie){
+  const b = await baza();
+  return new Promise((ok, zle) => {
+    const t = b.transaction(magazyn, tryb);
+    const wynik = dzialanie(t.objectStore(magazyn));
+    t.oncomplete = () => ok(wynik?.result); t.onerror = () => zle(t.error);
+  });
+}
+const zapiszOpis = o => idb("nagrania", "readwrite", s => s.put(o));
+const wszystkieOpisy = () => idb("nagrania", "readonly", s => s.getAll());
+const zapiszCzesc = (id, nr, blob) => idb("czesci", "readwrite", s => s.put(blob, `${id}:${String(nr).padStart(5, "0")}`));
+const czytajCzesc = (id, nr) => idb("czesci", "readonly", s => s.get(`${id}:${String(nr).padStart(5, "0")}`));
+async function usunLokalne(id){
+  await idb("czesci", "readwrite", s => s.delete(IDBKeyRange.bound(`${id}:`, `${id}:￿`)));
+  await idb("nagrania", "readwrite", s => s.delete(id));
+}
+async function calyPlik(o){
+  const czesci = [];
+  for (let nr = 0; nr < o.czesci; nr++) czesci.push(await czytajCzesc(o.id, nr));
+  return new Blob(czesci.filter(Boolean), {type: o.typ});
+}
+
+/* ---------- format nagrania ---------- */
+
+function wybierzFormat(){
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return null;
+  for (const typ of ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"]) {
+    if (MediaRecorder.isTypeSupported(typ)) return {typ, bity: typ.startsWith("audio/mp4") ? BITY_AAC : BITY_OPUS};
+  }
+  return {typ: "", bity: BITY_OPUS};   // przeglądarka wybierze sama
+}
+const ROZSZERZENIA = {"audio/webm": ".webm", "audio/ogg": ".ogg", "audio/mp4": ".m4a"};
+const podstawowy = typ => (typ || "audio/webm").split(";")[0];
+
+/* ---------- stan nagrywania ---------- */
+
+let stanStrony = {przechowywanie: "chmura"};
+let biezace = null;   // {opis, rec, strumien, kontekst, start, pauzaOd, przerwy, kolejka, wysylam}
+let blokadaEkranu = null;
+
+function cel(){ return document.querySelector('input[name="cel"]:checked').value; }
+function czas(s){
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+function rozmiar(b){ return b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " kB"; }
+function stan(tekst, rodzaj = ""){ $("stan").textContent = tekst; $("stan").className = "stan" + (rodzaj ? " " + rodzaj : ""); }
+function sekundy(){
+  if (!biezace) return 0;
+  const teraz = biezace.pauzaOd || Date.now();
+  return (teraz - biezace.start - biezace.przerwy) / 1000;
+}
+
+function odswiezPrzycisk(){
+  const gotowy = $("zgoda").checked && !!wybierzFormat();
+  $("btn-nagraj").disabled = !biezace && !gotowy;
+  $("btn-nagraj").classList.toggle("stop", !!biezace);
+  $("napis-nagraj").textContent = biezace ? "Zakończ" : "Nagrywaj";
+  $("sterowanie").hidden = !biezace;
+  $("przygotowanie").querySelectorAll("input").forEach(p => {
+    p.disabled = !!biezace || (p.value === "chmura" && stanStrony.przechowywanie === "u-klienta");
+  });
+  document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
+  if (!biezace && !$("zgoda").checked) stan("Zaznacz zgodę, żeby zacząć.");
+  else if (!biezace) stan("Gotowe do nagrywania.");
+}
+$("zgoda").onchange = odswiezPrzycisk;
+
+async function trzymajEkran(){
+  try { if ("wakeLock" in navigator && biezace) blokadaEkranu = await navigator.wakeLock.request("screen"); }
+  catch { /* np. oszczędzanie baterii - nagrywamy dalej */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") trzymajEkran(); });
+window.addEventListener("beforeunload", e => { if (biezace) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------- poziom dźwięku: widać, że mikrofon słyszy ---------- */
+
+function pokazujPoziom(strumien){
+  try {
+    const kontekst = new (window.AudioContext || window.webkitAudioContext)();
+    const analizator = kontekst.createAnalyser();
+    analizator.fftSize = 1024;
+    kontekst.createMediaStreamSource(strumien).connect(analizator);
+    const probki = new Uint8Array(analizator.fftSize);
+    let ciszaOd = Date.now();
+    const krok = () => {
+      if (!biezace) { $("poziom").style.width = "0"; return; }
+      analizator.getByteTimeDomainData(probki);
+      let szczyt = 0;
+      for (const p of probki) szczyt = Math.max(szczyt, Math.abs(p - 128));
+      $("poziom").style.width = Math.min(100, szczyt / 64 * 100) + "%";
+      if (szczyt > 6 || biezace.pauzaOd) ciszaOd = Date.now();
+      $("zegar").textContent = czas(sekundy());
+      if (Date.now() - ciszaOd > 20000 && !biezace.zatrzymuje) stan("Od 20 sekund nic nie słychać. Sprawdź, czy mikrofon nie jest zasłonięty.", "blad");
+      else if (!biezace.pauzaOd && !biezace.zatrzymuje) stan("Nagrywam…");
+      requestAnimationFrame(krok);
+    };
+    requestAnimationFrame(krok);
+    return kontekst;
+  } catch { return null; }
+}
+
+/* ---------- wysyłka fragmentów ---------- */
+
+function pokazWysylke(){
+  if (!biezace || biezace.opis.cel !== "chmura") { $("wysylka").textContent = ""; return; }
+  const czeka = biezace.kolejka.length;
+  $("wysylka").textContent = czeka
+    ? `Na serwer czeka ${czeka} ${czeka === 1 ? "fragment" : "fragmentów"}. Nie zamykaj strony.`
+    : `Wysłano na serwer: ${biezace.opis.czesci} ${biezace.opis.czesci === 1 ? "fragment" : "fragmentów"}.`;
+}
+
+async function wyslijCzesc(idSerwera, nr, blob){
+  const odp = await api(`/api/nagrania/${idSerwera}/czesci/${nr}`, {method: "PUT", body: blob,
+    headers: {"Content-Type": "application/octet-stream"}});
+  if (!odp.ok) throw new Error(await bladZ(odp));
+}
+
+async function obsluzKolejke(){
+  if (!biezace || biezace.wysylam) return;
+  biezace.wysylam = true;
+  let pauza = 2000;
+  try {
+    while (biezace && biezace.kolejka.length) {
+      const nr = biezace.kolejka[0];
+      try {
+        await wyslijCzesc(biezace.opis.idSerwera, nr, await czytajCzesc(biezace.opis.id, nr));
+        biezace.kolejka.shift();
+        pauza = 2000;
+      } catch {
+        // Sieć padła: fragment czeka w pamięci telefonu, próbujemy dalej.
+        $("wysylka").textContent = "Brak połączenia z serwerem. Nagrywam dalej i wyślę zaległe fragmenty, gdy sieć wróci.";
+        await new Promise(r => setTimeout(r, pauza));
+        pauza = Math.min(pauza * 2, 30000);
+        continue;
+      }
+      pokazWysylke();
+    }
+  } finally { if (biezace) biezace.wysylam = false; }
+}
+
+/* ---------- start / pauza / koniec ---------- */
+
+async function rozpocznij(){
+  const format = wybierzFormat();
+  let strumien;
+  try {
+    strumien = await navigator.mediaDevices.getUserMedia({audio: {
+      channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true}});
+  } catch { return stan("Przeglądarka nie dostała dostępu do mikrofonu. Zezwól na mikrofon w ustawieniach strony.", "blad"); }
+
+  const opis = {id: crypto.randomUUID().replace(/-/g, "").slice(0, 16), cel: cel(),
+    tytul: $("tytul").value.trim(), sygnatura: $("sygnatura").value.trim(),
+    typ: podstawowy(format.typ), czesci: 0, czas_s: 0, stan: "nagrywanie", utworzono: new Date().toISOString()};
+
+  if (opis.cel === "chmura") {
+    try {
+      const odp = await api("/api/nagrania", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({tytul: opis.tytul, sygnatura: opis.sygnatura, typ: opis.typ, zgoda: $("zgoda").checked})});
+      if (!odp.ok) throw new Error(await bladZ(odp));
+      opis.idSerwera = (await odp.json()).id;
+    } catch (blad) {
+      strumien.getTracks().forEach(t => t.stop());
+      return stan(blad.message + " Możesz nagrać na tym urządzeniu.", "blad");
+    }
+  }
+  await zapiszOpis(opis);
+
+  const rec = new MediaRecorder(strumien, {...(format.typ ? {mimeType: format.typ} : {}), audioBitsPerSecond: format.bity});
+  biezace = {opis, rec, strumien, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
+  rec.ondataavailable = async e => {
+    if (!e.data || !e.data.size) return;
+    const nr = opis.czesci++;
+    opis.czas_s = sekundy();
+    await zapiszCzesc(opis.id, nr, e.data);
+    await zapiszOpis(opis);
+    if (opis.cel === "chmura" && biezace) { biezace.kolejka.push(nr); pokazWysylke(); obsluzKolejke(); }
+  };
+  rec.onstop = () => zakonczono();
+  rec.start(FRAGMENT_MS);
+  biezace.kontekst = pokazujPoziom(strumien);
+  await trzymajEkran();
+  odswiezPrzycisk();
+  pokazWysylke();
+}
+
+$("btn-pauza").onclick = () => {
+  if (!biezace) return;
+  if (biezace.pauzaOd) {
+    biezace.przerwy += Date.now() - biezace.pauzaOd; biezace.pauzaOd = 0;
+    biezace.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
+  } else {
+    biezace.pauzaOd = Date.now(); biezace.rec.pause();
+    $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby nagrywać dalej.");
+  }
+  odswiezPrzycisk();
+};
+
+$("btn-nagraj").onclick = () => {
+  if (!biezace) return rozpocznij();
+  if (biezace.zatrzymuje) return;
+  if (biezace.pauzaOd) { biezace.przerwy += Date.now() - biezace.pauzaOd; biezace.pauzaOd = 0; }
+  biezace.zatrzymuje = true;
+  stan("Kończę nagranie…");
+  biezace.rec.stop();
+};
+
+async function zakonczono(){
+  const b = biezace;
+  b.strumien.getTracks().forEach(t => t.stop());
+  try { b.kontekst?.close(); } catch { /* juz zamkniety */ }
+  try { await blokadaEkranu?.release(); } catch { /* juz zwolniona */ }
+  // Ostatni fragment przychodzi tuż przed "stop"; dajmy mu się zapisać.
+  await new Promise(r => setTimeout(r, 1000));
+  b.opis.czas_s = sekundy();
+  b.opis.stan = "zatrzymane";
+  await zapiszOpis(b.opis);
+  if (b.opis.cel === "chmura") {
+    stan("Wysyłam resztę nagrania…");
+    while (b.kolejka.length) await new Promise(r => setTimeout(r, 500));
+  }
+  biezace = null;
+  // Każdy akt to nowa zgoda: następne nagranie nie może ruszyć "z rozpędu".
+  $("zgoda").checked = false; $("tytul").value = ""; $("sygnatura").value = "";
+  odswiezPrzycisk();
+  $("wysylka").textContent = "";
+  if (b.opis.cel === "chmura") await dokonczNaSerwerze(b.opis);
+  else await zapiszNaDysku(b.opis);
+  await rysujLokalne();
+}
+
+async function dokonczNaSerwerze(o){
+  stan("Zapisuję nagranie na serwerze…");
+  for (let proba = 0; proba < 3; proba++) {
+    try {
+      const odp = await api(`/api/nagrania/${o.idSerwera}/koniec`, {method: "POST",
+        headers: {"Content-Type": "application/json"}, body: JSON.stringify({czesci: o.czesci, czas_s: o.czas_s})});
+      if (odp.status === 409) {
+        const d = (await odp.json()).detail;
+        for (const nr of d?.brakujace || []) await wyslijCzesc(o.idSerwera, nr, await czytajCzesc(o.id, nr));
+        continue;
+      }
+      if (!odp.ok) throw new Error(await bladZ(odp));
+      const w = await odp.json();
+      await usunLokalne(o.id);
+      stan(`Zapisane na serwerze: ${czas(w.czas_s)}, ${rozmiar(w.rozmiar)}.`, "ok");
+      await rysujListe();
+      return;
+    } catch (blad) {
+      stan(`${blad.message} Nagranie zostało w pamięci telefonu, dokończysz je niżej.`, "blad");
+      return;
+    }
+  }
+  stan("Serwer wciąż nie ma wszystkich fragmentów. Nagranie zostało w pamięci telefonu, dokończysz je niżej.", "blad");
+}
+
+async function zapiszNaDysku(o){
+  const blob = await calyPlik(o);
+  const nazwa = `nagranie-${o.utworzono.slice(0, 10)}-${o.id.slice(0, 6)}${ROZSZERZENIA[o.typ] || ".webm"}`;
+  try {
+    if (window.showSaveFilePicker) {
+      const uchwyt = await window.showSaveFilePicker({suggestedName: nazwa, id: "notarai-nagrania",
+        types: [{description: "Nagranie", accept: {[o.typ]: [ROZSZERZENIA[o.typ] || ".webm"]}}]});
+      const zapis = await uchwyt.createWritable(); await zapis.write(blob); await zapis.close();
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = nazwa; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }
+    o.stan = "zapisane"; await zapiszOpis(o);
+    stan(`Zapisane na urządzeniu (${rozmiar(blob.size)}). Kopia zostaje w pamięci przeglądarki, dopóki jej nie usuniesz.`, "ok");
+  } catch {
+    stan("Nie zapisano pliku. Nagranie jest w pamięci przeglądarki, zapiszesz je niżej.", "blad");
+  }
+}
+
+/* ---------- listy ---------- */
+
+async function rysujLokalne(){
+  let opisy = [];
+  try { opisy = (await wszystkieOpisy()).filter(o => !biezace || o.id !== biezace.opis.id); } catch { /* brak IndexedDB */ }
+  $("karta-lokalne").hidden = !opisy.length;
+  const lista = $("lokalne"); lista.textContent = "";
+  for (const o of opisy.sort((a, b) => b.utworzono.localeCompare(a.utworzono))) {
+    const w = document.createElement("div"); w.className = "wpis";
+    const dokonczenie = o.cel === "chmura" ? "czeka na wysłanie" : (o.stan === "zapisane" ? "zapisane na dysku" : "niezapisane");
+    w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
+    w.querySelector("b").textContent = o.tytul || "Nagranie";
+    w.querySelector(".meta").textContent = `${new Date(o.utworzono).toLocaleString("pl-PL")} · ${czas(o.czas_s)} · ${dokonczenie}`;
+    const przyciski = w.querySelector(".przyciski");
+    const dodaj = (napis, akcja, wtorny = true) => {
+      const b = document.createElement("button"); b.className = "maly" + (wtorny ? " wtorny" : "");
+      b.textContent = napis; b.onclick = akcja; przyciski.append(b);
+    };
+    if (o.cel === "chmura" && o.idSerwera) dodaj("Dokończ wysyłkę", () => dokonczNaSerwerze(o).then(rysujLokalne), false);
+    dodaj("Zapisz plik", () => zapiszNaDysku(o).then(rysujLokalne));
+    dodaj("Usuń z urządzenia", async () => {
+      if (!confirm("Usunąć to nagranie z pamięci przeglądarki? Jeśli nie ma go na serwerze ani na dysku, przepadnie.")) return;
+      await usunLokalne(o.id); rysujLokalne();
+    });
+    lista.append(w);
+  }
+}
+
+async function rysujListe(){
+  const lista = $("lista");
+  if (stanStrony.przechowywanie === "u-klienta") {
+    $("karta-serwer").hidden = true; return;
+  }
+  let dane;
+  try {
+    const odp = await api("/api/nagrania");
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    dane = await odp.json();
+  } catch (blad) { lista.innerHTML = `<p class="pusto"></p>`; lista.firstChild.textContent = blad.message; return; }
+  lista.textContent = "";
+  if (!dane.nagrania.length) { lista.innerHTML = `<p class="pusto">Jeszcze nie ma nagrań.</p>`; return; }
+  for (const n of dane.nagrania) {
+    const w = document.createElement("div"); w.className = "wpis";
+    w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
+    w.querySelector("b").textContent = n.tytul + (n.sygnatura ? ` · Rep. A ${n.sygnatura}` : "");
+    w.querySelector(".meta").textContent = n.stan === "gotowe"
+      ? `${new Date(n.utworzono).toLocaleString("pl-PL")} · ${czas(n.czas_s)} · ${rozmiar(n.rozmiar)} · SHA-256 ${n.sha256.slice(0, 12)}…`
+      : `${new Date(n.utworzono).toLocaleString("pl-PL")} · niedokończone`;
+    w.querySelector(".meta").title = n.sha256 || "";
+    const przyciski = w.querySelector(".przyciski");
+    if (n.stan === "gotowe") {
+      const odsluch = document.createElement("button"); odsluch.className = "maly"; odsluch.textContent = "Odsłuchaj";
+      odsluch.onclick = async () => {
+        odsluch.disabled = true; odsluch.textContent = "Wczytuję…";
+        try {
+          const odp = await api(`/api/nagrania/${n.id}/plik`);
+          if (!odp.ok) throw new Error(await bladZ(odp));
+          const url = URL.createObjectURL(await odp.blob());
+          const audio = document.createElement("audio"); audio.controls = true; audio.src = url; audio.preload = "metadata";
+          w.append(audio);
+          const pobierz = document.createElement("a"); pobierz.href = url; pobierz.className = "meta";
+          pobierz.download = `nagranie-${n.utworzono.slice(0, 10)}-${n.id.slice(0, 6)}${ROZSZERZENIA[n.typ] || ".webm"}`;
+          pobierz.textContent = "Pobierz plik"; przyciski.append(pobierz);
+          odsluch.remove(); audio.play().catch(() => {});
+        } catch (blad) { odsluch.disabled = false; odsluch.textContent = "Odsłuchaj"; alert(blad.message); }
+      };
+      przyciski.append(odsluch);
+    }
+    const usun = document.createElement("button"); usun.className = "maly wtorny"; usun.textContent = "Usuń";
+    usun.onclick = async () => {
+      if (!confirm("Usunąć nagranie z serwera na zawsze, razem z kopiami zapasowymi?")) return;
+      const odp = await api(`/api/nagrania/${n.id}`, {method: "DELETE"});
+      if (!odp.ok) return alert(await bladZ(odp));
+      rysujListe();
+    };
+    przyciski.append(usun);
+    lista.append(w);
+  }
+}
+
+/* ---------- start strony ---------- */
+
+(async () => {
+  if (!wybierzFormat()) { $("brak-obslugi").hidden = false; }
+  try {
+    const odp = await api("/api/ustawienia");
+    if (odp.ok) stanStrony = await odp.json();
+  } catch { /* brak logowania - pokazuje brama */ }
+  if (stanStrony.przechowywanie === "u-klienta") {
+    document.querySelector('input[value="urzadzenie"]').checked = true;
+    $("opcja-chmura").classList.add("wylaczona");
+    $("opcja-chmura").querySelector("small").textContent = "Ta kancelaria trzyma pliki u siebie, serwer nie przechowuje nagrań.";
+  }
+  odswiezPrzycisk();
+  rysujLokalne();
+  rysujListe();
+})();
+</script>
+</body>
+</html>

@@ -36,7 +36,7 @@ OPISY = {
     "sprawy_ai": "odczyt skanów i rozmowa o sprawie",
     "projekt": "sporządzanie projektu",
     "rejestry": "sprawdzenia w rejestrach",
-    "usun_plik": "usuwanie plików sprawy",
+    "usun_plik": "usuwanie plików sprawy i nagrań aktów",
     "usun_sprawe": "usuwanie sprawy",
     "kancelaria": "księgi, GIIF i zasady kancelarii",
 }
@@ -58,6 +58,7 @@ _REGULY = [
     (("POST",), _SPRAWA + r"/(krz|ekw|aml|crbr|klikamy|sprawdzenia(/.*)?|formularze/.*)", "rejestry"),
     (("POST",), r"/api/formularze/.*", "rejestry"),
     (("DELETE",), _SPRAWA + r"/pliki/.+", "usun_plik"),
+    (("DELETE",), r"/api/nagrania/[0-9a-f]+", "usun_plik"),
     (("DELETE",), _SPRAWA, "usun_sprawe"),
     (None, r"/api/giif(/.*)?", "kancelaria"),
     (_ZAPIS, r"/api/ksiegi-kancelarii(/.*)?", "kancelaria"),

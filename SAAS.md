@@ -40,6 +40,16 @@
   klientów), nasłuch folderu kopiarki w Chrome/Edge (File System Access API: nowy skan jest
   odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
+- `nagrania_aktow.py` + `static/nagrania.html` — nagranie odczytania aktu: telefon na stole,
+  strona `/nagrania` (menu: „Nagranie aktu”). Opus mono ~24 kb/s (ok. 11 MB/h; Safari: AAC 32 kb/s),
+  ekran nie gaśnie (Wake Lock), fragmenty co 15 s najpierw w pamięci przeglądarki (IndexedDB),
+  potem `PUT /api/nagrania/{id}/czesci/{nr}`; `POST .../koniec` skleja, liczy SHA-256 i kasuje fragmenty.
+  Pliki: `kancelarie/{id}/nagrania/{id_nagrania}/nagranie.webm` w buckecie spraw, spis w pliku
+  kancelarii `nagrania`. Opcja „tylko na tym urządzeniu”: serwer nic nie dostaje, plik idzie na dysk
+  (jedyna opcja dla kancelarii `u-klienta`). Bez zaznaczonej zgody osób obecnych nagranie nie rusza;
+  zgoda (kto, kiedy) w spisie. Usuwa `usun_plik` (notariusz, aplikant). Gdy w obrazie jest ffmpeg,
+  kontener jest porządkowany (`-c copy`), żeby działało przewijanie; bez niego plik zostaje jak z telefonu.
+
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
 - `app.py`    — middleware + router admina, `/zdrowie`, utrwalanie do S3 po zapisach,
