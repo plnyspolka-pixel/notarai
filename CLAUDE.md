@@ -123,3 +123,21 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   umiał je przełączać. Prośby o zmiany programu idą do samonaprawy po anonimizacji.
 - Przy pracy nad samonaprawą: nie osłabiaj bramek ani `test_samonaprawa.py`
   bez wyraźnej decyzji właściciela.
+
+## Zakaz renderu na GitHub Actions (twarda reguła, 23.11.2026)
+- NIC nie renderuje się na GitHub Actions: rolki studia, serial Komputerku /
+  Kancelaria pod Siódemką, scenografia (Blender), klipy GPU, montaż, głosy,
+  napisy wypalane w obrazie. Bez wyjątków i bez „jednorazowo”.
+- Rendery idą wyłącznie przez Cloudflare: Worker `finyou-render`
+  (`POST /zadanie`, kontener z montażem), a GPU (SaladCloud) zleca się spoza
+  GitHuba przez bramę `salad-brama` lub Workera. Sekrety renderu żyją
+  w Cloudflare (Worker secrets) i Supabase Vault, nie w sekretach GitHuba.
+- Egzekwowanie:
+  1. `tools/zakaz_renderu_gha.py` (workflow `zakaz-renderu-gha.yml`, każdy
+     push na każdej gałęzi i każdy PR) blokuje workflow, który uruchamia
+     ffmpeg, Blender, Remotion, ComfyUI, `ai-clip run/open`, fabrykę odcinków,
+     montaż, generację głosu albo zleca render Cloudflare z GitHuba.
+  2. Ścieżki renderu w kodzie wywołują strażnika na starcie i przerywają,
+     gdy `GITHUB_ACTIONS=true` (notarai: `tools/zakaz_gha.py`; finyou: `services/ai-clip/zakaz-gha.mjs`).
+- Sprawdzenie ręczne: `python3 -I tools/zakaz_renderu_gha.py` (zielone = OK).
+  Gdy strażnik blokuje, przenieś pracę na Cloudflare; nie dopisuj wyjątku.
