@@ -136,7 +136,10 @@ def opis(blad: BaseException) -> dict:
 
 
 def _token() -> str:
-    return os.getenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "").strip()
+    """Token GitHub z sekretu notarai/samonaprawa-github. Dopoki wlasciciel go nie
+    wkleil, w sekrecie jest znacznik "brak" - wtedy zgloszenia ida przez przeglad."""
+    token = os.getenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "").strip()
+    return token if token.startswith(("github_pat_", "ghp_", "ghs_")) else ""
 
 
 def wlaczona() -> bool:
