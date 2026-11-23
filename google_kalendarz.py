@@ -299,6 +299,18 @@ def _sync(token):
             continue
         if not (poczatek <= lok["data"] <= koniec):
             continue
+        # Nie tworz drugiego bloku w Google, jezeli wykryto pokrywajacy sie
+        # obcy termin: zostaw wizyte bez zmian i zglos konflikt.
+        if any(
+            (cz := _czas(ev)) is not None and
+            cz[0] == lok["data"] and
+            lok["godzina"] < cz[2] and cz[1] < (lok.get("koniec") or kalendarz._koniec(lok))
+            for ev in google.values()
+        ):
+            # Konflikt bywa juz policzony przy probie importu wydarzenia.
+            if not wynik["konflikty"]:
+                wynik["konflikty"] += 1
+            continue
         ev = _zadanie(token, "POST", "/calendars/primary/events", json=_cialo(lok, z_id=True))
         mapy[id_l] = {"google_id": ev["id"], "pochodzenie": "notarai",
                       "lokalny": _podpis(lok), "google": _podpis_google(ev)}
@@ -427,7 +439,7 @@ def _petla_automatu():
     przerywacz = Event()
     while not przerywacz.wait(300):
         try:
-            wpisy = autoryzacja._wczytaj_rejestr().values()
+            wpisy = list(autoryzacja._wczytaj_rejestr().values())
         except Exception as blad:
             log.warning("google kalendarz: brak rejestru biur (%s)", type(blad).__name__)
             continue
@@ -452,6 +464,9 @@ def _petla_automatu():
                         log.warning("google kalendarz: synchronizacja biura nieudana (%s)", blad.status_code)
                 except Exception as blad:
                     log.warning("google kalendarz: blad synchronizacji (%s)", type(blad).__name__)
+            except Exception as blad:
+                # Blad S3 jednej kancelarii nie moze zabic petli reszty biur.
+                log.warning("google kalendarz: brak stanu biura (%s)", type(blad).__name__)
             finally:
                 magazyn.przechowywanie_var.reset(znacznik_p)
                 magazyn.kancelaria_var.reset(znacznik)
