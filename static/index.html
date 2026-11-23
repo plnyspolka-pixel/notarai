@@ -3959,7 +3959,11 @@ $("btn-nie-lacz").onclick = () => $("okno-polacz").close();
 const KLUCZ_KREATORA = "notarai_kreator_odlozony";
 let ostatniStanPomocnika = null, krokKreatora = 1, zegarKreatora = null;
 let kreatorKod = "", kreatorNazwa = "", kreatorZaproponowany = false;
-const naWindows = /Windows/.test(navigator.userAgent);
+// Chrome Android w trybie "wersja na komputer" potrafi podawac UA Windows.
+// Ekran dotykowy telefonu nadal nie powinien dostawac instalatora .exe.
+const naWindows = /Windows/.test(navigator.userAgent) &&
+  !(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 
 function kreatorOdlozony(){
   try { return Date.now() - (+localStorage.getItem(KLUCZ_KREATORA) || 0) < 7 * 864e5; }
