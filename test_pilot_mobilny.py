@@ -115,3 +115,124 @@ def test_mobile_ui_ma_pilota_i_nie_wymusza_pobierania_exe():
     assert 'if (!naWindows)' in tekst
     assert '$("btn-instaluj-pomocnika").hidden = !naWindows;' in tekst
     assert 'if (!((ostatniStanPomocnika || {}).urzadzenia || []).length && naWindows)' in tekst
+
+
+class TestZgodaNaWyslanie:
+    def test_telefon_potwierdza_jeden_konkretny_krok(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wypelnij i wyslij"}).json()["zlecenie"]
+        prosba = klient.post(f"/api/pomocnik/polecenia/{zadanie}/zgoda",
+                             headers=pomocnik,
+                             json={"host": "geoportal.gov.pl", "etykieta": "Wyślij wniosek"})
+        assert prosba.status_code == 201
+        id_zgody = prosba.json()["id"]
+        oczekujaca = klient.get(f"/api/urzadzenia/polecenia/{zadanie}",
+                               headers=osoba).json()["zgoda"]
+        assert oczekujaca["id"] == id_zgody
+        assert oczekujaca["host"] == "geoportal.gov.pl"
+        assert oczekujaca["etykieta"] == "Wyślij wniosek"
+        url = f"/api/pomocnik/polecenia/{zadanie}/zgoda/{id_zgody}"
+        assert klient.get(url, headers=pomocnik).json()["stan"] == "czeka"
+        decyzja = klient.post(f"/api/urzadzenia/polecenia/{zadanie}/zgoda",
+                              headers=osoba, json={"id": id_zgody, "zgoda": True})
+        assert decyzja.status_code == 200 and decyzja.json()["stan"] == "zgoda"
+        assert klient.get(url, headers=pomocnik).json()["stan"] == "zgoda"
+        assert klient.get(url, headers=pomocnik).json()["stan"] == "odebrana"
+        ponownie = klient.post(f"/api/urzadzenia/polecenia/{zadanie}/zgoda",
+                               headers=osoba, json={"id": id_zgody, "zgoda": True})
+        assert ponownie.status_code == 409
+
+    def test_odmowa_zatrzymuje_wyslanie(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wyslij"}).json()["zlecenie"]
+        id_zgody = klient.post(f"/api/pomocnik/polecenia/{zadanie}/zgoda",
+                              headers=pomocnik, json={"host": "krz.ms.gov.pl",
+                                                     "etykieta": "Wyślij"}).json()["id"]
+        klient.post(f"/api/urzadzenia/polecenia/{zadanie}/zgoda", headers=osoba,
+                    json={"id": id_zgody, "zgoda": False})
+        assert klient.get(f"/api/pomocnik/polecenia/{zadanie}/zgoda/{id_zgody}",
+                          headers=pomocnik).json()["stan"] == "odmowa"
+
+    def test_drugi_pc_nie_moze_prosic_ani_odebrac_zgody(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pc1, id1 = _aktywny(klient, osoba, "PC1")
+        pc2, _ = _aktywny(klient, osoba, "PC2")
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": id1, "cel": "wyslij"}).json()["zlecenie"]
+        path = f"/api/pomocnik/polecenia/{zadanie}/zgoda"
+        args = {"host": "krz.ms.gov.pl", "etykieta": "Wyślij"}
+        assert klient.post(path, headers=pc2, json=args).status_code == 403
+        id_zgody = klient.post(path, headers=pc1, json=args).json()["id"]
+        assert klient.get(f"{path}/{id_zgody}", headers=pc2).status_code == 403
+        assert klient.post(path, headers=pc1, json=args).status_code == 409
+
+    def test_nie_da_sie_potwierdzic_podpisu_ani_platnosci(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wyslij"}).json()["zlecenie"]
+        for etykieta in ("Podpisz kwalifikowanym", "Sign document", "Zapłać",
+                          "Usuń sprawę", "Autoryzuj przelew"):
+            odp = klient.post(f"/api/pomocnik/polecenia/{zadanie}/zgoda",
+                              headers=pomocnik,
+                              json={"host": "krz.ms.gov.pl", "etykieta": etykieta})
+            assert odp.status_code == 403, etykieta
+
+    def test_inna_kancelaria_nie_moze_zatwierdzic(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        _, obca = kancelaria("Kancelaria Obca")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wyslij"}).json()["zlecenie"]
+        id_zgody = klient.post(f"/api/pomocnik/polecenia/{zadanie}/zgoda",
+                              headers=pomocnik,
+                              json={"host": "krz.ms.gov.pl", "etykieta": "Wyślij"}).json()["id"]
+        odp = klient.post(f"/api/urzadzenia/polecenia/{zadanie}/zgoda", headers=obca,
+                          json={"id": id_zgody, "zgoda": True})
+        assert odp.status_code == 404
+
+    def test_wygasla_zgoda_nie_moze_byc_wykorzystana(self, srodowisko, monkeypatch):
+        from datetime import datetime, timedelta, timezone
+        import zgody_pilota
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wyslij"}).json()["zlecenie"]
+        id_zgody = klient.post(f"/api/pomocnik/polecenia/{zadanie}/zgoda",
+                              headers=pomocnik,
+                              json={"host": "krz.ms.gov.pl", "etykieta": "Wyślij"}).json()["id"]
+        daleko = datetime.now(timezone.utc) + timedelta(seconds=130)
+        monkeypatch.setattr(zgody_pilota, "_teraz", lambda: daleko)
+        assert klient.post(f"/api/urzadzenia/polecenia/{zadanie}/zgoda", headers=osoba,
+                           json={"id": id_zgody, "zgoda": True}).status_code == 409
+        assert klient.get(f"/api/pomocnik/polecenia/{zadanie}/zgoda/{id_zgody}",
+                          headers=pomocnik).json()["stan"] == "wygasla"
+
+    def test_wysylka_wymaga_roli_notariusza(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Zgody")
+        pomocnik, pc = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": pc, "cel": "wyslij"}).json()["zlecenie"]
+        # Sciezki sa egzekwowane przez middleware, nie przycisk.
+        import stanowiska
+        assert stanowiska.wymagane("POST", f"/api/urzadzenia/polecenia/{zadanie}/zgoda") == "kancelaria"
+        assert stanowiska.wymagane("POST", "/api/urzadzenia/polecenia") == "rejestry"
+
+
+def test_approval_dialog_present():
+    tekst = (Path(__file__).parent / "static" / "index.html").read_text("utf-8")
+    assert 'id="okno-zgoda-pilota"' in tekst
+    assert 'id="pilot-zgoda-tak"' in tekst
+    assert 'id="pilot-zgoda-nie"' in tekst
+    assert 'Pozwól tylko tym razem' in tekst
