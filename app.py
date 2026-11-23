@@ -1578,7 +1578,8 @@ def sprawdz_krz(identyfikator: str, zadanie: ZadanieKRZ):
 BRAK_EKW = (
     "Pobieranie ksiag z EKW nie jest wlaczone w tej instalacji. Administrator "
     "musi skonfigurowac dostawce: Obscura MCP (PIECZAPP_OBSCURA_MCP_URL i "
-    "PIECZAPP_OBSCURA_MCP_TOKEN), Finance You albo Apify. Do tego czasu "
+    "PIECZAPP_OBSCURA_MCP_TOKEN), Finance You (PIECZAPP_FINYOU_URL i " 
+    "PIECZAPP_FINYOU_TOKEN) albo Apify (PIECZAPP_APIFY_TOKEN). Do tego czasu "
     "wklej wydruk ksiegi jako dokument sprawy."
 )
 
