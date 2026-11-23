@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # Romans Kuby i Zosi według badań
 
 **Status:** propozycja do następnego przeglądu scenariuszy, 23.11.2026.

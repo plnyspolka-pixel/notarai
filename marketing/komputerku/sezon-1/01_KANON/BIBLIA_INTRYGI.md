@@ -10,6 +10,8 @@ related_works:
   - "NotarAI Sezon 1 V3 — Orkiestracja kancelarii"
 ---
 
+> **Zastąpione przez [`BIBLIA_V6.md`](../../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # KANCELARIA POD SIÓDEMKĄ
 ## SEZON 1 — „NIE WSZYSTKO JEST W PAPIERACH”
 ### Pełna biblia intrygi, relacji, dokumentów i motywacji
