@@ -32,6 +32,65 @@ komputerem. Dlatego więcej ochrony = więcej rygoru wobec samego agenta:
 
 ---
 
+## 0.5. Dwa modele „helpera" — twarda granica między nimi
+
+To trzeba powiedzieć wprost, bo przesądza o całej reszcie:
+
+**Rozszerzenie przeglądarki albo lekka apka ze sklepu Microsoft (MSIX) NIE MA
+dostępu do zabezpieczeń systemu.** Nie włączy BitLockera, nie skonfiguruje
+Defendera, ASR, zapory, nie zrobi kopii dysku, nie zablokuje USB. To nie kwestia
+wysiłku — tak działa model bezpieczeństwa Windows: piaskownica przeglądarki i
+piaskownica Store są odcięte od konfiguracji systemu. Dlatego **Store = brak
+ostrzeżeń, ale też brak dostępu do twardnienia**.
+
+**Twardnienie (BitLocker, Defender/ASR/CFA, zapora, kopie, allow-listing) wymaga
+agenta uprzywilejowanego** — usługi SYSTEM z instalatora MSI, z UAC przy
+instalacji i podpisem EV. To jest „ten cięższy".
+
+Nie da się mieć naraz „lekkie jak klikacz + ze Store + bez ostrzeżeń" **i**
+„realnie konfiguruje zabezpieczenia systemu". To dwa różne narzędzia:
+
+| | Lekkie (rozszerzenie / Store) | Agent uprzywilejowany (MSI/usługa) |
+|---|---|---|
+| Instalacja | ze sklepu, bez ostrzeżeń, bez admina | MSI, UAC, podpis EV |
+| Rola | **uświadamia, prowadzi, automatyzuje** | **egzekwuje** |
+| Robi | klikacz, skan w przeglądarce, maskowanie danych, checklisty „jak włączyć X”, przypomnienia | szyfrowanie, kopie, hardening, monitoring, naprawa dryfu |
+| NIE robi | nie dotyka BitLockera/Defendera/dysku/zapory/USB | — (to właśnie jego zadanie) |
+
+Czyli „to samo co klikacz w przeglądarce" = narzędzie **prowadzące i
+automatyzujące**, nie egzekwujące. Egzekucję robi notariusz ręcznie według
+naszych kroków **albo** (później, opcjonalnie) agent uprzywilejowany. Cała
+sekcja 1 poniżej (BitLocker, ASR, kopie…) to **zakres agenta**, nie lekkiego
+narzędzia — lekkie narzędzie potrafi to najwyżej **sprawdzić i poprowadzić**.
+
+## 0.6. Czy to lepsze niż antywirus?
+
+Uczciwie: **nie zastępuje antywirusa i nie udaje go.** Antywirus (wystarczy
+darmowy Microsoft Defender) wykrywa i blokuje znane złośliwe programy — to
+zostaw włączone. notarai nie jest lepszy w pracy antywirusa; jest czymś innym i
+robi to, czego antywirus NIE robi:
+
+- **Pilnuje aktualności.** AV nie łata Windowsa — niewspierany Windows z nawet
+  najlepszym AV dalej ma otwarte luki. notarai to wykrywa i (agent) wymusza.
+- **Daje odzyskanie i chroni przy kradzieży.** AV nie zrobi kopii ani nie
+  zaszyfruje dysku. Po ransomware albo po kradzieży laptopa AV nie pomoże —
+  niemodyfikowalne kopie i BitLocker (agent) tak.
+- **Zamyka drzwi (hardening).** AV reaguje na malware; notarai (agent) zmniejsza
+  powierzchnię ataku, zanim malware wejdzie (ASR, Controlled Folder Access,
+  zapora, wyłączenie SMBv1).
+- **Minimalizuje i maskuje dane.** Antywirusa to nie dotyczy; nasz klikacz
+  wysyła jak najmniej i bez danych wrażliwych.
+
+Granica, której nie przekraczamy w komunikacji: **sama lekka apka/rozszerzenie
+nie jest „lepsza od antywirusa"** — bo nie robi nawet jego roboty. Realna
+przewaga „robimy to, czego AV nie robi" (kopie, szyfrowanie, hardening) należy
+do **agenta uprzywilejowanego**. Lekkie narzędzie wygrywa z AV tylko tam, gdzie
+AV w ogóle nie gra: świadomość, bezpieczna automatyzacja i prywatność danych.
+Dlatego pozycjonujemy notarai jako **uzupełnienie** antywirusa, nie zamiennik —
+i nie mówimy „lepsze niż antywirus" bez tego zastrzeżenia.
+
+---
+
 ## 1. Ochrona według metody ataku
 
 ### A. Ransomware (zaszyfrowanie akt + okup)
