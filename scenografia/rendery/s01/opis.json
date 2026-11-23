@@ -1,0 +1,323 @@
+{
+ "kod": "s01",
+ "nazwa": "Recepcja i poczekalnia",
+ "rozdzielczosc": [
+  1080,
+  1920
+ ],
+ "jednostki": "metry; mapa głębi: 16-bit PNG w połowie rozdzielczości (540x960), wartość = odległość od kamery w mm (65535 = tło/niebo)",
+ "kamery": [
+  {
+   "nazwa": "K01_plan_ogolny",
+   "obiektyw_mm": 16,
+   "przyslona": null,
+   "polozenie": [
+    0.5,
+    0.45,
+    1.68
+   ],
+   "cel": [
+    4.0,
+    3.0,
+    1.0
+   ],
+   "uzycie": "plan ogólny: poczekalnia, lada, drzwi do gabinetu i pokoju Marty"
+  },
+  {
+   "nazwa": "K02_basia_za_lada",
+   "obiektyw_mm": 42,
+   "przyslona": null,
+   "polozenie": [
+    3.55,
+    1.1,
+    1.52
+   ],
+   "cel": [
+    3.4,
+    2.85,
+    1.18
+   ],
+   "uzycie": "Basia za ladą (ujęcie mówione)"
+  },
+  {
+   "nazwa": "K03_wejscie_z_lady",
+   "obiektyw_mm": 24,
+   "przyslona": null,
+   "polozenie": [
+    3.4,
+    2.95,
+    1.25
+   ],
+   "cel": [
+    0.9,
+    0.0,
+    1.35
+   ],
+   "uzycie": "wejście klienta widziane zza lady"
+  },
+  {
+   "nazwa": "K04_poczekalnia",
+   "obiektyw_mm": 26,
+   "przyslona": null,
+   "polozenie": [
+    2.6,
+    1.0,
+    1.35
+   ],
+   "cel": [
+    0.6,
+    2.9,
+    0.9
+   ],
+   "uzycie": "poczekalnia: sofa i fotel przy oknie"
+  },
+  {
+   "nazwa": "K05_detal_telefon",
+   "obiektyw_mm": 40,
+   "przyslona": null,
+   "polozenie": [
+    4.55,
+    2.7,
+    1.35
+   ],
+   "cel": [
+    4.25,
+    2.15,
+    0.76
+   ],
+   "uzycie": "detal: dzwoniący telefon i teczki"
+  },
+  {
+   "nazwa": "K06_zegar",
+   "obiektyw_mm": 50,
+   "przyslona": null,
+   "polozenie": [
+    4.2,
+    2.75,
+    2.0
+   ],
+   "cel": [
+    5.57,
+    2.75,
+    2.25
+   ],
+   "uzycie": "zegar 8:57 (bez cyfr)"
+  },
+  {
+   "nazwa": "K07_dwojka_lada",
+   "obiektyw_mm": 30,
+   "przyslona": null,
+   "polozenie": [
+    1.6,
+    0.6,
+    1.5
+   ],
+   "cel": [
+    3.8,
+    2.6,
+    1.25
+   ],
+   "uzycie": "dwójka: klient przy ladzie i Basia"
+  }
+ ],
+ "znaczniki": [
+  {
+   "nazwa": "M_Basia_lada",
+   "polozenie": [
+    3.4,
+    2.85,
+    1.2
+   ],
+   "obrot_z": -180.0,
+   "patrz_na": [
+    3.4,
+    1.45
+   ],
+   "opis": "Basia siedzi za ladą, oczy 1,2 m"
+  },
+  {
+   "nazwa": "M_klient_przy_ladzie",
+   "polozenie": [
+    3.3,
+    1.45,
+    1.62
+   ],
+   "obrot_z": -4.1,
+   "patrz_na": [
+    3.4,
+    2.85
+   ],
+   "opis": "klient stoi przy ladzie"
+  },
+  {
+   "nazwa": "M_wejscie",
+   "polozenie": [
+    0.9,
+    0.5,
+    1.62
+   ],
+   "obrot_z": -48.2,
+   "patrz_na": [
+    2.8,
+    2.2
+   ],
+   "opis": "postać w drzwiach wejściowych"
+  },
+  {
+   "nazwa": "M_poczekalnia_sofa",
+   "polozenie": [
+    0.6,
+    2.0,
+    1.15
+   ],
+   "obrot_z": -90.0,
+   "patrz_na": [
+    1.35,
+    2.0
+   ],
+   "opis": "osoba czeka na sofie"
+  },
+  {
+   "nazwa": "M_drzwi_gabinetu",
+   "polozenie": [
+    5.0,
+    1.2,
+    1.62
+   ],
+   "obrot_z": 66.8,
+   "patrz_na": [
+    3.6,
+    1.8
+   ],
+   "opis": "Helena wychodzi z gabinetu"
+  },
+  {
+   "nazwa": "M_drzwi_marty",
+   "polozenie": [
+    4.75,
+    3.95,
+    1.62
+   ],
+   "obrot_z": -213.3,
+   "patrz_na": [
+    3.6,
+    2.2
+   ],
+   "opis": "Kuba w drzwiach pokoju"
+  }
+ ],
+ "znaczniki_w_kadrze_px": {
+  "K01_plan_ogolny": {
+   "M_Basia_lada": [
+    488,
+    936
+   ],
+   "M_klient_przy_ladzie": [
+    794,
+    844
+   ],
+   "M_wejscie": [
+    1005,
+    971
+   ],
+   "M_drzwi_gabinetu": [
+    972,
+    839
+   ],
+   "M_drzwi_marty": [
+    489,
+    836
+   ]
+  },
+  "K02_basia_za_lada": {
+   "M_Basia_lada": [
+    540,
+    935
+   ]
+  },
+  "K03_wejscie_z_lady": {
+   "M_wejscie": [
+    658,
+    858
+   ]
+  },
+  "K04_poczekalnia": {
+   "M_poczekalnia_sofa": [
+    118,
+    865
+   ]
+  },
+  "K05_detal_telefon": {},
+  "K06_zegar": {},
+  "K07_dwojka_lada": {
+   "M_Basia_lada": [
+    286,
+    994
+   ],
+   "M_klient_przy_ladzie": [
+    994,
+    719
+   ],
+   "M_drzwi_marty": [
+    414,
+    783
+   ]
+  }
+ },
+ "warianty": [
+  "dzien",
+  "wieczor"
+ ],
+ "czasy_renderu_s": {
+  "dzien": {
+   "K01_plan_ogolny": 130.9,
+   "K02_basia_za_lada": 124.6,
+   "K03_wejscie_z_lady": 110.7,
+   "K04_poczekalnia": 131.7,
+   "K05_detal_telefon": 128.7,
+   "K06_zegar": 132.5,
+   "K07_dwojka_lada": 131.3
+  },
+  "wieczor": {
+   "K01_plan_ogolny": 128.4,
+   "K02_basia_za_lada": 125.6,
+   "K03_wejscie_z_lady": 113.9
+  }
+ },
+ "ruch": {
+  "plik": "ruch_K01_plan_ogolny_dzien.mp4",
+  "klatki": 72,
+  "fps": 24,
+  "rozdzielczosc": [
+   540,
+   960
+  ],
+  "czas_s": 891.5
+ },
+ "siedziska_kontrola": [
+  {
+   "obiekt": "fotel_basi",
+   "cel": [
+    3.4,
+    2.2
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "sofa",
+   "cel": [
+    1.35,
+    2.0
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "fotel_pocz",
+   "cel": [
+    1.25,
+    2.35
+   ],
+   "odchylenie_st": 3.8
+  }
+ ]
+}

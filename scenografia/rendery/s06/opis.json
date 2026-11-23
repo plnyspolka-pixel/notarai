@@ -1,0 +1,283 @@
+{
+ "kod": "s06",
+ "nazwa": "Kawiarnia, stolik przy oknie",
+ "rozdzielczosc": [
+  1080,
+  1920
+ ],
+ "jednostki": "metry; mapa głębi: 16-bit PNG w połowie rozdzielczości (540x960), wartość = odległość od kamery w mm (65535 = tło/niebo)",
+ "kamery": [
+  {
+   "nazwa": "K01_przy_oknie_dwojka",
+   "obiektyw_mm": 28,
+   "przyslona": null,
+   "polozenie": [
+    1.7,
+    2.85,
+    1.3
+   ],
+   "cel": [
+    1.7,
+    4.4,
+    1.05
+   ],
+   "uzycie": "dwójka z boku: Kuba i Zosia przy stoliku, ulica w tle"
+  },
+  {
+   "nazwa": "K02_kuba_przez_ramie_zosi",
+   "obiektyw_mm": 50,
+   "przyslona": null,
+   "polozenie": [
+    2.6,
+    3.95,
+    1.3
+   ],
+   "cel": [
+    1.15,
+    4.15,
+    1.12
+   ],
+   "uzycie": "Kuba mówi (przez ramię Zosi)"
+  },
+  {
+   "nazwa": "K03_zosia_przez_ramie_kuby",
+   "obiektyw_mm": 50,
+   "przyslona": null,
+   "polozenie": [
+    0.8,
+    3.95,
+    1.3
+   ],
+   "cel": [
+    2.25,
+    4.15,
+    1.12
+   ],
+   "uzycie": "Zosia mówi (przez ramię Kuby)"
+  },
+  {
+   "nazwa": "K04_plan_ogolny",
+   "obiektyw_mm": 18,
+   "przyslona": null,
+   "polozenie": [
+    5.4,
+    0.6,
+    1.75
+   ],
+   "cel": [
+    1.8,
+    4.2,
+    0.9
+   ],
+   "uzycie": "plan ogólny: lada, stoliki, witryna"
+  },
+  {
+   "nazwa": "K05_detal_kubki",
+   "obiektyw_mm": 50,
+   "przyslona": null,
+   "polozenie": [
+    1.35,
+    3.75,
+    1.0
+   ],
+   "cel": [
+    1.7,
+    4.15,
+    0.76
+   ],
+   "uzycie": "detal: dwa kubki na stoliku, dłonie"
+  },
+  {
+   "nazwa": "K06_wejscie_od_lady",
+   "obiektyw_mm": 26,
+   "przyslona": null,
+   "polozenie": [
+    4.0,
+    1.4,
+    1.45
+   ],
+   "cel": [
+    0.5,
+    4.6,
+    1.2
+   ],
+   "uzycie": "z lady na salę i stolik przy oknie"
+  }
+ ],
+ "znaczniki": [
+  {
+   "nazwa": "M_Kuba_stolik",
+   "polozenie": [
+    1.15,
+    4.15,
+    1.15
+   ],
+   "obrot_z": -90.0,
+   "patrz_na": [
+    2.25,
+    4.15
+   ],
+   "opis": "Kuba siedzi przy stoliku przy oknie"
+  },
+  {
+   "nazwa": "M_Zosia_stolik",
+   "polozenie": [
+    2.25,
+    4.15,
+    1.15
+   ],
+   "obrot_z": 90.0,
+   "patrz_na": [
+    1.15,
+    4.15
+   ],
+   "opis": "Zosia siedzi naprzeciw"
+  },
+  {
+   "nazwa": "M_barista",
+   "polozenie": [
+    4.0,
+    0.35,
+    1.62
+   ],
+   "obrot_z": 0.0,
+   "patrz_na": [
+    4.0,
+    2.5
+   ],
+   "opis": "osoba za ladą"
+  }
+ ],
+ "znaczniki_w_kadrze_px": {
+  "K01_przy_oknie_dwojka": {},
+  "K02_kuba_przez_ramie_zosi": {
+   "M_Kuba_stolik": [
+    540,
+    906
+   ]
+  },
+  "K03_zosia_przez_ramie_kuby": {
+   "M_Zosia_stolik": [
+    540,
+    906
+   ]
+  },
+  "K04_plan_ogolny": {
+   "M_Kuba_stolik": [
+    454,
+    905
+   ],
+   "M_Zosia_stolik": [
+    597,
+    922
+   ]
+  },
+  "K05_detal_kubki": {},
+  "K06_wejscie_od_lady": {
+   "M_Kuba_stolik": [
+    577,
+    992
+   ],
+   "M_Zosia_stolik": [
+    913,
+    1019
+   ]
+  }
+ },
+ "warianty": [
+  "dzien",
+  "wieczor"
+ ],
+ "czasy_renderu_s": {
+  "dzien": {
+   "K01_przy_oknie_dwojka": 91.6,
+   "K02_kuba_przez_ramie_zosi": 130.5,
+   "K03_zosia_przez_ramie_kuby": 125.2,
+   "K04_plan_ogolny": 129.8,
+   "K05_detal_kubki": 121.3,
+   "K06_wejscie_od_lady": 120.5
+  },
+  "wieczor": {
+   "K01_przy_oknie_dwojka": 96.7,
+   "K02_kuba_przez_ramie_zosi": 144.6,
+   "K03_zosia_przez_ramie_kuby": 137.1,
+   "K04_plan_ogolny": 137.7
+  }
+ },
+ "ruch": {
+  "plik": "ruch_K01_przy_oknie_dwojka_dzien.mp4",
+  "klatki": 72,
+  "fps": 24,
+  "rozdzielczosc": [
+   540,
+   960
+  ],
+  "czas_s": 719.0
+ },
+ "siedziska_kontrola": [
+  {
+   "obiekt": "krzeslo_kuby",
+   "cel": [
+    1.7,
+    4.15
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo_zosi",
+   "cel": [
+    1.7,
+    4.15
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo0a",
+   "cel": [
+    4.3,
+    4.15
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo0b",
+   "cel": [
+    4.3,
+    4.15
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo1a",
+   "cel": [
+    1.7,
+    2.4
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo1b",
+   "cel": [
+    1.7,
+    2.4
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo2a",
+   "cel": [
+    4.2,
+    2.3
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo2b",
+   "cel": [
+    4.2,
+    2.3
+   ],
+   "odchylenie_st": 0.0
+  }
+ ]
+}

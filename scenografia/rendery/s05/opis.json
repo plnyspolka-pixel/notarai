@@ -1,0 +1,318 @@
+{
+ "kod": "s05",
+ "nazwa": "Kancelaria Teresy",
+ "rozdzielczosc": [
+  1080,
+  1920
+ ],
+ "jednostki": "metry; mapa głębi: 16-bit PNG w połowie rozdzielczości (540x960), wartość = odległość od kamery w mm (65535 = tło/niebo)",
+ "kamery": [
+  {
+   "nazwa": "K01_plan_ogolny",
+   "obiektyw_mm": 16,
+   "przyslona": null,
+   "polozenie": [
+    3.7,
+    0.4,
+    1.65
+   ],
+   "cel": [
+    1.5,
+    3.0,
+    0.9
+   ],
+   "uzycie": "plan ogólny: ciasny pokój, biurko Teresy, kącik Zosi, regały"
+  },
+  {
+   "nazwa": "K02_teresa_przy_biurku",
+   "obiektyw_mm": 32,
+   "przyslona": null,
+   "polozenie": [
+    2.3,
+    1.2,
+    1.35
+   ],
+   "cel": [
+    2.3,
+    3.2,
+    1.15
+   ],
+   "uzycie": "Teresa za biurkiem z telefonem (od strony klienta)"
+  },
+  {
+   "nazwa": "K03_teresa_zblizenie",
+   "obiektyw_mm": 50,
+   "przyslona": null,
+   "polozenie": [
+    2.45,
+    1.75,
+    1.25
+   ],
+   "cel": [
+    2.3,
+    3.2,
+    1.2
+   ],
+   "uzycie": "Teresa, ujęcie mówione"
+  },
+  {
+   "nazwa": "K04_zosia_kacik",
+   "obiektyw_mm": 35,
+   "przyslona": null,
+   "polozenie": [
+    2.6,
+    1.0,
+    1.4
+   ],
+   "cel": [
+    3.25,
+    1.45,
+    1.15
+   ],
+   "uzycie": "Zosia przy swoim biurku"
+  },
+  {
+   "nazwa": "K05_detal_telefon",
+   "obiektyw_mm": 45,
+   "przyslona": null,
+   "polozenie": [
+    1.5,
+    2.0,
+    1.15
+   ],
+   "cel": [
+    1.75,
+    2.5,
+    0.78
+   ],
+   "uzycie": "detal: telefon i stosy teczek"
+  },
+  {
+   "nazwa": "K06_od_okna_na_drzwi",
+   "obiektyw_mm": 22,
+   "przyslona": null,
+   "polozenie": [
+    2.9,
+    3.5,
+    1.6
+   ],
+   "cel": [
+    0.75,
+    0.0,
+    1.1
+   ],
+   "uzycie": "kontrplan zza biurka: drzwi i krzesła klientów"
+  },
+  {
+   "nazwa": "K07_dwojka_teresa_zosia",
+   "obiektyw_mm": 24,
+   "przyslona": null,
+   "polozenie": [
+    1.1,
+    0.9,
+    1.55
+   ],
+   "cel": [
+    3.2,
+    2.6,
+    1.1
+   ],
+   "uzycie": "dwójka: Teresa za biurkiem i Zosia w kąciku"
+  }
+ ],
+ "znaczniki": [
+  {
+   "nazwa": "M_Teresa_biurko",
+   "polozenie": [
+    2.3,
+    3.2,
+    1.18
+   ],
+   "obrot_z": -180.0,
+   "patrz_na": [
+    2.3,
+    1.55
+   ],
+   "opis": "Teresa siedzi za biurkiem"
+  },
+  {
+   "nazwa": "M_Zosia_kacik",
+   "polozenie": [
+    3.25,
+    1.4,
+    1.18
+   ],
+   "obrot_z": -90.0,
+   "patrz_na": [
+    3.8000000000000003,
+    1.4
+   ],
+   "opis": "Zosia przy biurku, bokiem do pokoju"
+  },
+  {
+   "nazwa": "M_klient_L",
+   "polozenie": [
+    1.9,
+    1.55,
+    1.15
+   ],
+   "obrot_z": 0.0,
+   "patrz_na": [
+    1.9,
+    3.2
+   ],
+   "opis": "klient na krześle"
+  },
+  {
+   "nazwa": "M_klient_P",
+   "polozenie": [
+    2.7,
+    1.55,
+    1.15
+   ],
+   "obrot_z": 0.0,
+   "patrz_na": [
+    2.7,
+    3.2
+   ],
+   "opis": "drugi klient"
+  },
+  {
+   "nazwa": "M_drzwi",
+   "polozenie": [
+    0.75,
+    0.45,
+    1.62
+   ],
+   "obrot_z": -36.4,
+   "patrz_na": [
+    2.3,
+    2.55
+   ],
+   "opis": "Kuba w drzwiach"
+  }
+ ],
+ "znaczniki_w_kadrze_px": {
+  "K01_plan_ogolny": {
+   "M_Teresa_biurko": [
+    746,
+    906
+   ],
+   "M_Zosia_kacik": [
+    768,
+    1135
+   ],
+   "M_klient_L": [
+    284,
+    980
+   ],
+   "M_klient_P": [
+    529,
+    1046
+   ]
+  },
+  "K02_teresa_przy_biurku": {
+   "M_Teresa_biurko": [
+    540,
+    935
+   ]
+  },
+  "K03_teresa_zblizenie": {
+   "M_Teresa_biurko": [
+    540,
+    997
+   ]
+  },
+  "K04_zosia_kacik": {
+   "M_Zosia_kacik": [
+    637,
+    913
+   ]
+  },
+  "K05_detal_telefon": {},
+  "K06_od_okna_na_drzwi": {
+   "M_klient_L": [
+    451,
+    1056
+   ],
+   "M_drzwi": [
+    615,
+    811
+   ]
+  },
+  "K07_dwojka_teresa_zosia": {
+   "M_klient_L": [
+    538,
+    1226
+   ],
+   "M_klient_P": [
+    919,
+    1053
+   ]
+  }
+ },
+ "warianty": [
+  "dzien",
+  "wieczor"
+ ],
+ "czasy_renderu_s": {
+  "dzien": {
+   "K01_plan_ogolny": 110.0,
+   "K02_teresa_przy_biurku": 87.3,
+   "K03_teresa_zblizenie": 68.6,
+   "K04_zosia_kacik": 113.0,
+   "K05_detal_telefon": 98.2,
+   "K06_od_okna_na_drzwi": 109.0,
+   "K07_dwojka_teresa_zosia": 119.2
+  },
+  "wieczor": {
+   "K01_plan_ogolny": 109.8,
+   "K02_teresa_przy_biurku": 85.8,
+   "K03_teresa_zblizenie": 66.5
+  }
+ },
+ "ruch": {
+  "plik": "ruch_K02_teresa_przy_biurku_dzien.mp4",
+  "klatki": 72,
+  "fps": 24,
+  "rozdzielczosc": [
+   540,
+   960
+  ],
+  "czas_s": 585.7
+ },
+ "siedziska_kontrola": [
+  {
+   "obiekt": "fotel_teresy",
+   "cel": [
+    2.3,
+    2.55
+   ],
+   "odchylenie_st": 0.0
+  },
+  {
+   "obiekt": "krzeslo_klienta0",
+   "cel": [
+    1.9,
+    2.55
+   ],
+   "odchylenie_st": 0.8
+  },
+  {
+   "obiekt": "krzeslo_klienta1",
+   "cel": [
+    2.7,
+    2.55
+   ],
+   "odchylenie_st": 0.8
+  },
+  {
+   "obiekt": "krzeslo_zosi",
+   "cel": [
+    3.8000000000000003,
+    1.4
+   ],
+   "odchylenie_st": 0.0
+  }
+ ]
+}

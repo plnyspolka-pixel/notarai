@@ -1,0 +1,213 @@
+{
+ "kod": "s08",
+ "nazwa": "Parking z samochodem Marty",
+ "rozdzielczosc": [
+  1080,
+  1920
+ ],
+ "jednostki": "metry; mapa głębi: 16-bit PNG w połowie rozdzielczości (540x960), wartość = odległość od kamery w mm (65535 = tło/niebo)",
+ "kamery": [
+  {
+   "nazwa": "K01_podworze_szeroki",
+   "obiektyw_mm": 24,
+   "przyslona": null,
+   "polozenie": [
+    -4.0,
+    -4.5,
+    1.6
+   ],
+   "cel": [
+    -2.9,
+    4.5,
+    1.6
+   ],
+   "uzycie": "plan ogólny podwórza: mur, latarnia, auta pod plandeką; auto Marty poza kadrem"
+  },
+  {
+   "nazwa": "K02_marta_przy_drzwiach",
+   "obiektyw_mm": 85,
+   "przyslona": 1.8,
+   "polozenie": [
+    4.4,
+    0.6,
+    1.6
+   ],
+   "cel": [
+    2.75,
+    2.35,
+    1.55
+   ],
+   "uzycie": "zbliżenie: Marta przy drzwiach kierowcy; auto za nią mocno rozmyte"
+  },
+  {
+   "nazwa": "K03_marta_idzie_do_auta",
+   "obiektyw_mm": 35,
+   "przyslona": null,
+   "polozenie": [
+    -2.6,
+    -3.2,
+    1.5
+   ],
+   "cel": [
+    -1.9,
+    4.0,
+    1.4
+   ],
+   "uzycie": "Marta idzie przez podwórze (jej auto poza kadrem z prawej)"
+  },
+  {
+   "nazwa": "K04_latarnia_mur",
+   "obiektyw_mm": 28,
+   "przyslona": null,
+   "polozenie": [
+    0.5,
+    -1.5,
+    1.2
+   ],
+   "cel": [
+    -2.6,
+    5.0,
+    2.6
+   ],
+   "uzycie": "przebitka: latarnia przy murze (noc: plama światła na mokrym asfalcie)"
+  },
+  {
+   "nazwa": "K05_okna_oficyny",
+   "obiektyw_mm": 24,
+   "przyslona": null,
+   "polozenie": [
+    -4.5,
+    1.0,
+    1.5
+   ],
+   "cel": [
+    -9.0,
+    0.5,
+    6.0
+   ],
+   "uzycie": "żabia perspektywa na okna oficyny (ktoś patrzy z góry)"
+  },
+  {
+   "nazwa": "K06_z_gory_oficyna",
+   "obiektyw_mm": 30,
+   "przyslona": null,
+   "polozenie": [
+    -8.5,
+    -3.0,
+    6.0
+   ],
+   "cel": [
+    -3.5,
+    3.5,
+    0.0
+   ],
+   "uzycie": "z okna oficyny: ktoś obserwuje podwórze, auto na krawędzi kadru"
+  }
+ ],
+ "znaczniki": [
+  {
+   "nazwa": "M_Marta_idzie",
+   "polozenie": [
+    -1.6,
+    -0.4,
+    1.62
+   ],
+   "obrot_z": -46.0,
+   "patrz_na": [
+    1.3,
+    2.4
+   ],
+   "opis": "Marta w drodze do auta"
+  },
+  {
+   "nazwa": "M_Marta_drzwi_kierowcy",
+   "polozenie": [
+    2.75,
+    2.35,
+    1.62
+   ],
+   "obrot_z": 90.0,
+   "patrz_na": [
+    1.3,
+    2.35
+   ],
+   "opis": "Marta stoi przy drzwiach kierowcy, przodem do auta"
+  },
+  {
+   "nazwa": "M_Marta_za_kierownica",
+   "polozenie": [
+    1.75,
+    2.45,
+    1.15
+   ],
+   "obrot_z": -180.0,
+   "patrz_na": [
+    1.75,
+    -2.0
+   ],
+   "opis": "Marta siedzi za kierownicą (oczy ok. 1,15 m), patrzy przed siebie"
+  },
+  {
+   "nazwa": "M_obserwator",
+   "polozenie": [
+    -1.5,
+    -1.0,
+    1.62
+   ],
+   "obrot_z": -39.5,
+   "patrz_na": [
+    1.3,
+    2.4
+   ],
+   "opis": "druga postać na podwórzu"
+  }
+ ],
+ "znaczniki_w_kadrze_px": {
+  "K01_podworze_szeroki": {},
+  "K02_marta_przy_drzwiach": {
+   "M_Marta_drzwi_kierowcy": [
+    540,
+    828
+   ]
+  },
+  "K03_marta_idzie_do_auta": {
+   "M_Marta_idzie": [
+    1009,
+    856
+   ]
+  },
+  "K04_latarnia_mur": {},
+  "K05_okna_oficyny": {},
+  "K06_z_gory_oficyna": {}
+ },
+ "warianty": [
+  "dzien",
+  "noc"
+ ],
+ "czasy_renderu_s": {
+  "noc": {
+   "K01_podworze_szeroki": 64.0,
+   "K02_marta_przy_drzwiach": 76.1,
+   "K03_marta_idzie_do_auta": 74.9,
+   "K04_latarnia_mur": 62.6,
+   "K05_okna_oficyny": 48.3,
+   "K06_z_gory_oficyna": 75.0
+  },
+  "dzien": {
+   "K01_podworze_szeroki": 52.0,
+   "K02_marta_przy_drzwiach": 72.3,
+   "K03_marta_idzie_do_auta": 64.7
+  }
+ },
+ "ruch": {
+  "plik": "ruch_K01_podworze_szeroki_noc.mp4",
+  "klatki": 72,
+  "fps": 24,
+  "rozdzielczosc": [
+   540,
+   960
+  ],
+  "czas_s": 467.9
+ },
+ "siedziska_kontrola": []
+}
