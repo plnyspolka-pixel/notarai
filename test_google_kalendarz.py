@@ -172,3 +172,27 @@ def test_rownoczesne_zmiany_zglaszaja_konflikt(srodowisko, monkeypatch):
     wynik = g._sync("fake")
     assert wynik["konflikty"] == 1
     assert klient.get("/api/kalendarz").json()[0]["godzina"] == "10:00"
+
+
+def test_przesuniecie_wpisu_z_google_zachowuje_oryginalny_tytul(srodowisko, monkeypatch):
+    g, klient = srodowisko
+    import kalendarz
+    lok = kalendarz.dodaj({"data": DZIEN, "godzina": "09:00", "koniec": "10:00",
+                           "tytul": "Zajęte w Google"})
+    oryginal = wydarzenie("g1", tytul="Osobisty prywatny tytuł w Google")
+    g._zapisz(lambda d: d.update({"mapowania": {lok["id"]: {
+        "google_id": "g1", "pochodzenie": "google",
+        "lokalny": g._podpis(lok), "google": g._podpis_google(oryginal)}}}))
+    kalendarz.zmien(lok["id"], {**lok, "godzina": "11:00", "koniec": "12:00"})
+    monkeypatch.setattr(g, "_wydarzenia", lambda token: {"g1": oryginal})
+    wyslane = []
+    def zadanie(token, metoda, url, **kw):
+        assert metoda == "PATCH"
+        wyslane.append(kw["json"])
+        return {**oryginal, "start": kw["json"]["start"], "end": kw["json"]["end"]}
+    monkeypatch.setattr(g, "_zadanie", zadanie)
+    wynik = g._sync("fake")
+    assert wynik["zmieniono"] == 1
+    assert len(wyslane) == 1
+    assert "summary" not in wyslane[0]
+    assert "description" not in wyslane[0]
