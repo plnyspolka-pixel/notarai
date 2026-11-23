@@ -141,7 +141,9 @@
     } else if (odtwarzacz) {
       odtwarzacz.play().catch(() => zatrzymaj("Odtwarzanie wymaga interakcji z przyciskiem."));
       komunikat("Wznowiono odczyt.");
-    } else {
+    } else if (!kontroler) {
+      // Trwajace zadanie HTTP samo uruchomi odtwarzanie po powrocie.
+      // Nie wysylamy drugiego, rownoleglego zadania Polly.
       void odtworzKolejny();
     }
     przyciski();
