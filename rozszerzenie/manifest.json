@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "notarai - asystent w przeglądarce",
-  "short_name": "notarai",
-  "version": "0.1.0",
-  "description": "Pole polecenia notarai obok strony urzędu lub rejestru. Asystent wypełnia i klika za Ciebie, ale nigdy nie wysyła, nie składa i nie podpisuje.",
+  "name": "NotarAI — asystent w przeglądarce",
+  "short_name": "NotarAI",
+  "version": "0.1.1",
+  "description": "Asystent NotarAI w panelu bocznym Chrome: pomaga obsługiwać strony urzędów i rejestrów bez samodzielnego wysyłania, składania ani podpisywania dokumentów.",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "ikony/16.png",
@@ -11,7 +11,7 @@
     "128": "ikony/128.png"
   },
   "action": {
-    "default_title": "Otwórz panel notarai"
+    "default_title": "Otwórz panel NotarAI"
   },
   "side_panel": {
     "default_path": "panel.html"
@@ -19,7 +19,18 @@
   "background": {
     "service_worker": "tlo.js"
   },
-  "permissions": ["sidePanel", "storage", "scripting", "tabs"],
-  "host_permissions": ["https://app.notarai.pl/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"]
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://app.notarai.pl/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ]
 }
