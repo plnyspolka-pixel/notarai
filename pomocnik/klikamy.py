@@ -255,7 +255,7 @@ def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[dict],
         "wybierz|otworz|czytaj|pytam|koniec\", \"nr\": <numer elementu>, "
         "\"tekst\": \"...\", \"adres\": \"...\", \"pytanie\": \"...\", "
         "\"podsumowanie\": \"...\"}.\n"
-        ("Jesli celem od notariusza jest wyslanie lub zlozenie dokumentu, mozesz "
+        + ("Jesli celem od notariusza jest wyslanie lub zlozenie dokumentu, mozesz "
          "wskazac akcje kliknij dla konkretnego przycisku - pomocnik fizycznie "
          "zatrzyma sie i wymaga osobnej zgody z telefonu na ten jeden przycisk. "
          "Nie proponuj podpisu, platnosci ani usuwania. Gdy nie jestes pewien, "
