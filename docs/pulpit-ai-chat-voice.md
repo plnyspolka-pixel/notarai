@@ -16,6 +16,20 @@ Domyślnie otwiera się widok czatu (etap 13) z polem wpisywania poleceń, mikro
 
 **To nie jest jeszcze wykonawczy dostęp do wszystkich operacji API NotarAI.** Wysyłka pism/e-maili, płatności, usuwanie i podpisy nie są dostępne z czatu bez odrębnych, dedykowanych i audytowanych mechanizmów zgody. Narzędzia do kalendarza, ksiąg, GIIF, dokumentów i poczty mają na razie nawigację do istniejących ekranów. Kolejne adaptery należy budować jako osobne funkcje z typowanymi argumentami, walidacją, kontrolą stanowiska i idempotencją.
 
+## Samonaprawa w jednym głównym czacie
+
+Czat główny ma dwa dodatkowe narzędzia Bedrock:
+- `przygotuj_zgloszenie_samonaprawy` zbiera opis objawu, anonimizuje go istniejącym `samonaprawa.anonimizuj` i zwraca tylko **propozycję** do zatwierdzenia.
+- `sprawdz_postep_samonaprawy` pobiera etapy, numery i postęp procentowy wyłącznie zgłoszeń zalogowanej kancelarii z istniejącego `asystent_kancelarii.prosby_z_postepem`.
+
+Bezpośrednie API jest dostępne wyłącznie w sesji zalogowanego członka kancelarii:
+- `POST /api/pulpit-ai/samonaprawa/zglos` — uruchamia istniejące `asystent_kancelarii.wykonaj("zglos_zmiane_programu", ...)` dopiero **po osobnym kliknięciu** przycisku „Potwierdź zgłoszenie”. Ten sam limit 5 zgłoszeń/dobę i deduplikacja powtórzeń. Brak wykonania narzędzia z samego tekstu modelu.
+- `GET /api/pulpit-ai/samonaprawa` — statusy (nie zawierają treści zgłoszeń). Mechanizm statusów może automatycznie włączać dopuszczone ustawienie kancelarii po wdrożeniu naprawy — to obecne działanie istniejącego modułu.
+
+Zmian logowania, uwierzytelniania, uprawnień i płatności nie kierujemy do samonaprawy — człowiek z zespołu NotarAI musi je rozpatrzyć. Wstępna reguła opisowa nie zastępuje bramek GitHub Actions. Wyłącznie istniejący workflow `.github/workflows/samonaprawa.yml` decyduje, czy korekta może zostać automatycznie scalona i wdrożona. Główny Chat AI nie ma dostępu do swobodnego zapisu plików repozytorium, tokenów CI, arbitralnego REST API ani mechanizmu ręcznego pomijania bramek.
+
+Przykłady: „Kalendarz nie zapisuje zmian, napraw to” (propozycja + akceptacja) i „Na jakim etapie jest moja naprawa?” (status). Dyktowanie korzysta z tego samego przycisku mikrofonu głównego czatu.
+
 ## Polecenia głosowe
 
 - Przycisk mikrofonu uruchamia `getUserMedia` i `MediaRecorder` wyłącznie po dotknięciu przez użytkownika. Dźwięk max. 60 sekund / 15 MB, wybór `webm`/`mp4`.
