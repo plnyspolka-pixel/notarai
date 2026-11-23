@@ -11,6 +11,25 @@ def z_suma_kontrolna(dziesiec_cyfr: str) -> str:
 import pytest  # noqa: E402
 
 
+def sprawdz_zgodnosc_z_api_bedrock(operacja: str, parametry: dict) -> None:
+    """Rzuca ParamValidationError, jesli zainstalowane botocore nie przyjmie zadania.
+
+    Atrapy klienta Bedrock (MagicMock) przyjmuja wszystko, wiec bez tej kontroli
+    testy przechodzily, a produkcja konczyla sie "Blad modelu (ParamValidationError)"
+    (23.11.2026: boto3 1.35 nie znalo bloku cachePoint). CI instaluje boto3
+    z requirements.txt - tej samej wersji co obraz aplikacji.
+    """
+    import boto3
+    from botocore.validate import validate_parameters
+    global _MODEL_API_BEDROCK
+    if _MODEL_API_BEDROCK is None:
+        _MODEL_API_BEDROCK = boto3.client("bedrock-runtime", region_name="eu-central-1").meta.service_model
+    validate_parameters(parametry, _MODEL_API_BEDROCK.operation_model(operacja).input_shape)
+
+
+_MODEL_API_BEDROCK = None
+
+
 @pytest.fixture(autouse=True)
 def _bez_poczty_w_testach():
     """Zaden test nie laczy sie z prawdziwa Poczta Polska.

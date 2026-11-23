@@ -7,6 +7,7 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 import bedrock
+from conftest import sprawdz_zgodnosc_z_api_bedrock
 
 
 def _jako_strumien(odpowiedz: dict) -> dict:
@@ -29,7 +30,10 @@ def mock_bedrock_client():
     """
     with patch("bedrock._klient") as mock:
         klient = MagicMock()
-        klient.converse_stream.side_effect = lambda **kw: _jako_strumien(klient.converse(**kw))
+        def strumien(**kw):
+            sprawdz_zgodnosc_z_api_bedrock("ConverseStream", kw)
+            return _jako_strumien(klient.converse(**kw))
+        klient.converse_stream.side_effect = strumien
         mock.return_value = klient
         yield klient
 

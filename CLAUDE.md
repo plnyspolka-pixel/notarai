@@ -59,6 +59,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zasoby nazywaj z prefiksem: notarai-
 - Infrastrukturę definiuj jako kod (CloudFormation w `infra/`), nie przez
   konsolę i nie w Terraform.
+- Zapytania do Bedrock muszą przechodzić walidację SDK z `requirements.txt`
+  (`test_zgodnosc_sdk.py`, atrapa w `test_bedrock.py` waliduje przez
+  `conftest.sprawdz_zgodnosc_z_api_bedrock`). Nowa ścieżka wywołania modelu
+  dostaje test w `test_zgodnosc_sdk.py`; boto3 zawsze przypięte `==`.
 - Tryb domyślny aplikacji to lokalny; tryb SaaS włączają zmienne opisane
   w `SAAS.md` i `.env.example`.
 
