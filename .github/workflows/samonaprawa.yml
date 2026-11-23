@@ -394,6 +394,8 @@ jobs:
           echo "$wynik"
           echo "WDROZENIE=$(echo "$wynik" | jq -r .wynik)" >> "$GITHUB_ENV"
           echo "WDROZONO_MS=$(echo "$wynik" | jq -r .koniec_ms)" >> "$GITHUB_ENV"
+          # Wdrozona wersja moze byc pozniejsza niz scalenie (zawiera poprawke) - obserwujemy ja.
+          echo "WDROZONA=$(echo "$wynik" | jq -r '.sha // empty')" >> "$GITHUB_ENV"
 
       - name: Obserwacja po wdrozeniu
         if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto' && env.WDROZENIE == 'success'
@@ -401,7 +403,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
-          python "$NARZ/obserwacja.py" --odcisk "$ODCISK" --wersja "$(echo "$SCALONY" | cut -c1-12)" \
+          python "$NARZ/obserwacja.py" --odcisk "$ODCISK" --wersja "$(echo "${WDROZONA:-$SCALONY}" | cut -c1-12)" \
             --od "$WDROZONO_MS" --minut 20 --wynik "$SN/obserwacja.json"
           echo "OBSERWACJA=$(jq -r .werdykt "$SN/obserwacja.json")" >> "$GITHUB_ENV"
 
