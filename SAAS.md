@@ -40,6 +40,21 @@
   klientów), nasłuch folderu kopiarki w Chrome/Edge (File System Access API: nowy skan jest
   odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
+- `stenogramy.py` + `anonimizacja.py` + `static/stenogramy.html` — stenogram odczytania aktu.
+  Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy (bez zgody stron; w spisie kto rozpoczął),
+  telefon na stole nagrywa (Opus ~24 kb/s, fragmenty co 15 s najpierw w pamięci przeglądarki, nowa
+  sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
+  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), maskuje dane osobowe tak, że zostaje
+  początek i koniec („J*n S*****k”, PESEL „80*******45”) - kto zna akt, dopasuje osoby do ról
+  (model `eu.` wskazuje dane, kod maskuje; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
+  i zapisuje **tylko zamaskowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
+  w plikach sprawy, idzie do S3 z całą sprawą). Audio, surowy wynik i zadanie Transcribe są kasowane;
+  surowy tekst nie trafia na dysk. Spis w pliku kancelarii `stenogramy`.
+  Włączenie w chmurze: stos `notarai-s3` z `TranscribeStenogramyEU`, polityka AI services opt-out
+  na koncie i `PIECZAPP_TRANSCRIBE_OPTOUT=1` w zadaniu ECS (bez tego API odpowiada 503).
+  Opcjonalnie `PIECZAPP_STENOGRAM_MODEL` (tylko profil `eu.`), `PIECZAPP_STENOGRAM_SILNIK`
+  (`transcribe`/`whisper`). Test na żywo: `docs/czeka-na-dostep.md` NA-15.
+
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
 - `app.py`    — middleware + router admina, `/zdrowie`, utrwalanie do S3 po zapisach,

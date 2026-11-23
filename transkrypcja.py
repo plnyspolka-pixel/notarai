@@ -52,3 +52,14 @@ def transkrybuj(dane_audio: bytes, rozszerzenie: str = ".webm") -> str:
         sciezka.unlink(missing_ok=True)
     log.info("transkrypcja: %.0f s nagrania w %.1f s", getattr(info, "duration", 0), time.time() - start)
     return tekst
+
+
+def segmenty_pliku(sciezka: Path) -> list[dict]:
+    """Stenogram z pliku: [{start (s), mowca, tekst}]. Whisper nie rozroznia mowcow."""
+    if not dostepna():
+        raise RuntimeError("Brak biblioteki faster-whisper. Zainstaluj: pip install faster-whisper")
+    start = time.time()
+    segmenty, info = _zaladuj().transcribe(str(sciezka), language="pl", beam_size=5, vad_filter=True)
+    wynik = [{"start": round(s.start, 1), "mowca": "", "tekst": s.text.strip()} for s in segmenty if s.text.strip()]
+    log.info("stenogram: %.0f s nagrania w %.1f s", getattr(info, "duration", 0), time.time() - start)
+    return wynik

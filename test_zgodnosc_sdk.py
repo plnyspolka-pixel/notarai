@@ -114,3 +114,26 @@ def test_tura_z_narzedziami_asystenta_przechodzi_walidacje_sdk(monkeypatch):
         monkeypatch.setattr(bedrock.config, "MODEL", model)
         assert bedrock.tura_z_narzedziami(asystent_kancelarii.SYSTEM, tury,
                                           asystent_kancelarii.NARZEDZIA)["powod"] == "end_turn"
+
+
+def test_anonimizacja_stenogramu_przechodzi_walidacje_sdk(monkeypatch):
+    """Stenogram aktu: wskazanie danych osobowych przez model (anonimizacja.py)."""
+    import anonimizacja
+    k = MagicMock()
+    odpowiedz = '{"dane": [{"fragment": "Jan Sobczak"}]}'
+
+    def converse_stream(**kw):
+        sprawdz_zgodnosc_z_api_bedrock("ConverseStream", kw)
+        assert kw["modelId"].startswith("eu.")
+        return {"stream": iter([
+            {"contentBlockDelta": {"delta": {"text": odpowiedz}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": {"inputTokens": 1, "outputTokens": 1}}},
+        ])}
+    k.converse_stream.side_effect = converse_stream
+    monkeypatch.setattr(bedrock, "_klient", lambda: k)
+    for model in MODELE:
+        monkeypatch.setattr(anonimizacja, "MODEL", model)
+        segmenty = [{"start": 0, "mowca": "", "tekst": "Stawiający Jan Sobczak oświadcza."}]
+        assert anonimizacja.wskaz_dane(segmenty) == ["Jan Sobczak"]
+        assert anonimizacja.anonimizuj(segmenty, [])[0]["tekst"] == "Stawiający J*n S*****k oświadcza."

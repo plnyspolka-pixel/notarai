@@ -316,3 +316,31 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+## NA-15. Stenogram aktu — AWS Transcribe na żywym koncie
+
+- **Status:** czeka
+- **Brakuje:** wdrożonej zmiany polityki `notarai-aplikacja` (stos `notarai-s3`,
+  uprawnienie `TranscribeStenogramyEU`) i potwierdzenia, że na koncie AWS działa
+  polityka Organizations **AI services opt-out** (Transcribe nie przechowuje nagrań
+  do ulepszania modeli). Bez niej zmienna `PIECZAPP_TRANSCRIBE_OPTOUT` zostaje pusta
+  i stenogramy w chmurze są wyłączone.
+- **Na żywo:**
+  1. Wdrożyć stos `notarai-s3`, ustawić opt-out, dodać `PIECZAPP_TRANSCRIBE_OPTOUT=1`
+     do definicji zadania ECS.
+  2. Na telefonie `/stenogramy`: sprawa testowa z fikcyjnymi danymi, 3–5 minut
+     czytania **fikcyjnego** aktu, potem „Zakończ”.
+  3. Sprawdzić: czy Transcribe czyta plik z `stenogramy-robocze/` mimo polityki
+     bucketa `TrescSprawTylkoDlaAplikacji` (jeśli `AccessDenied` — potrzebny wąski
+     wyjątek w polityce bucketa, decyzja właściciela), czy przyjmuje WebM/Opus
+     z przeglądarki bez zapisanej długości, czy rozróżnianie mówców działa dla
+     pl-PL (w logu widać „proba 0 nieudane”, jeśli nie).
+  4. Nagranie dłuższe niż 50 minut (dwie sesje) — czy czasy w stenogramie się zgadzają.
+  5. Po zakończeniu: w buckecie nie ma nic pod `stenogramy-robocze/`, w konsoli
+     Transcribe nie ma zadań `notarai-*`.
+  6. Notariusz czyta stenogram: czy zostało jakieś nazwisko, adres, numer
+     (maskowanie) i czy da się po początkach i końcówkach dopasować osoby do ról.
+- **W kodzie:** `stenogramy.py` (`zadanie_transcribe`, `_transcribe_sesji`),
+  `anonimizacja.py`, `infra/notarai-s3.yaml`.
+- **Zamknięte, gdy:** stenogram z fikcyjnego aktu jest przy sprawie, bez danych
+  osobowych, a po audio i zadaniu Transcribe nie ma śladu.

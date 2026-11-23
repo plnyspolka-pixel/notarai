@@ -53,6 +53,7 @@ import personalizacja
 import przesylki
 import sledzenie
 import poswiadczenia
+import stenogramy
 import prompty
 import rejestracja
 import rejestry
@@ -124,6 +125,7 @@ app.include_router(notariusze.router_kancelarii)
 app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
+app.include_router(stenogramy.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
@@ -201,6 +203,13 @@ def strona_poswiadczen():
     """Zdjecie albo skan dokumentu -> opis do repertorium A. Strona jest
     jawna (jak /admin); odczyt za nia wymaga tokenu logowania kancelarii."""
     return (Path(__file__).parent / "static" / "poswiadczenia.html").read_text("utf-8")
+
+
+@app.get("/stenogramy", response_class=HTMLResponse)
+def strona_stenogramow():
+    """Telefon na stole nagrywa odczytanie aktu, przy sprawie zostaje
+    zanonimizowany stenogram. Strona jest jawna; API wymaga logowania."""
+    return (Path(__file__).parent / "static" / "stenogramy.html").read_text("utf-8")
 
 
 @app.get("/kalkulator", response_class=HTMLResponse)

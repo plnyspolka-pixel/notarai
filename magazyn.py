@@ -400,7 +400,9 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     # korespondencja e-mail: skrzynka „Do przypisania” i ustawienia (bez hasla)
                     "skrzynka", "skrzynka_ustawienia",
                     # ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word
-                    "ustawienia")  # wizyty: w obszarze administracyjnym
+                    "ustawienia",
+                    # stenogramy aktow: spis (sprawa, stan, czas) - bez tresci, ta lezy przy sprawie
+                    "stenogramy")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
@@ -485,3 +487,84 @@ def zmien_plik_kancelarii(nazwa: str, zmiana, domyslne):
             raise
         return wynik
     raise KonfliktZapisu("Ktos rownoczesnie zmienia te dane. Sprobuj za chwile.")
+
+
+# --- Pliki binarne kancelarii (np. nagrania aktow) ---------------------------
+#
+# Uklad: kancelarie/{kancelaria}/{wzgledna}, na dysku pod katalogiem
+# kancelarii (obok sprawy/). Dysk to pamiec podreczna, prawda w S3.
+# Leza pod prefiksem kancelarii, wiec usun_kancelarie() kasuje je razem z reszta.
+
+
+def katalog_kancelarii() -> Path:
+    import config
+    return sprawy_dir(config.DANE).parent
+
+
+def _bezpieczna(wzgledna: str) -> str:
+    czesci = wzgledna.split("/")
+    if not wzgledna or wzgledna.startswith("/") or any(c in ("", ".", "..") or "\\" in c for c in czesci):
+        raise ValueError("Nieprawidlowa sciezka pliku kancelarii")
+    return wzgledna
+
+
+def utrwal_plik(wzgledna: str) -> None:
+    """Wysyla plik z dysku kancelarii do S3. No-op w trybie lokalnym."""
+    if u_klienta():
+        raise RuntimeError("Ta kancelaria trzyma pliki u siebie - zapis w chmurze jest wylaczony.")
+    wzgledna = _bezpieczna(wzgledna)
+    if TRYB != "s3":
+        return
+    plik = katalog_kancelarii() / wzgledna
+    with plik.open("rb") as dane:
+        _klient_s3().put_object(Bucket=BUCKET, Key=f"{PREFIKS}/{kancelaria()}/{wzgledna}",
+                                Body=dane, **_szyfrowanie())
+
+
+def pobierz_plik(wzgledna: str) -> Path | None:
+    """Sciezka pliku na dysku; w trybie S3 dociaga go, gdy go brak. None = nie ma."""
+    wzgledna = _bezpieczna(wzgledna)
+    plik = katalog_kancelarii() / wzgledna
+    if plik.exists() or TRYB != "s3":
+        return plik if plik.exists() else None
+    try:
+        odp = _klient_s3().get_object(Bucket=BUCKET, Key=f"{PREFIKS}/{kancelaria()}/{wzgledna}")
+    except Exception as blad:  # noqa: BLE001
+        if type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404"):
+            return None
+        raise
+    plik.parent.mkdir(parents=True, exist_ok=True)
+    tymczasowy = plik.with_name(plik.name + ".tmp")
+    with tymczasowy.open("wb") as wyjscie:
+        for kawalek in iter(lambda: odp["Body"].read(1024 * 1024), b""):
+            wyjscie.write(kawalek)
+    tymczasowy.replace(plik)
+    return plik
+
+
+def usun_pliki(prefiks_wzgledny: str) -> int:
+    """Kasuje katalog kancelarii z dysku i z S3 (wszystkie wersje). Zwraca liczbe obiektow S3."""
+    import shutil
+
+    prefiks_wzgledny = _bezpieczna(prefiks_wzgledny.rstrip("/"))
+    katalog = katalog_kancelarii() / prefiks_wzgledny
+    if katalog.exists():
+        shutil.rmtree(katalog)
+    if TRYB != "s3":
+        return 0
+    return _usun_wszystkie_wersje(f"{PREFIKS}/{kancelaria()}/{prefiks_wzgledny}/")
+
+
+def czytaj_obiekt(wzgledna: str) -> bytes | None:
+    """Tresc pliku kancelarii prosto do pamieci, bez kopii na dysku (np. surowa
+    transkrypcja, ktorej nie wolno zapisac). None = nie ma."""
+    wzgledna = _bezpieczna(wzgledna)
+    if TRYB != "s3":
+        plik = katalog_kancelarii() / wzgledna
+        return plik.read_bytes() if plik.exists() else None
+    try:
+        return _klient_s3().get_object(Bucket=BUCKET, Key=f"{PREFIKS}/{kancelaria()}/{wzgledna}")["Body"].read()
+    except Exception as blad:  # noqa: BLE001
+        if type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404"):
+            return None
+        raise

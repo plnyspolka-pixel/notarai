@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notarai · stenogram aktu</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --tlo:#faf9f5; --tlo2:#f4f3ee; --karta:#ffffff; --linia:#e6e4dd; --linia2:#d9d7cf;
+  --tekst:#1f1e1b; --tekst2:#5e5c57; --tekst3:#8e8b84;
+  --akcent:#c96442; --akcent2:#b5532f; --akcent-tlo:#fbeee8;
+  --ok:#3d7a4f; --ok-tlo:#eaf3ec; --alarm:#b23a2c; --alarm-tlo:#fbeceb;
+  --serif:'Charter','Georgia','Iowan Old Style','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --r:14px; --r2:10px;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --tlo:#262624; --tlo2:#1f1f1d; --karta:#30302e; --linia:#3e3d39; --linia2:#4a4944;
+    --tekst:#eeece6; --tekst2:#b8b5ac; --tekst3:#87847c;
+    --akcent:#d9785a; --akcent2:#e58a6d; --akcent-tlo:#3a2d27;
+    --ok:#8fcaa0; --ok-tlo:#26352a; --alarm:#f08a7c; --alarm-tlo:#3f2a28;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--tlo);color:var(--tekst);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.kol{max-width:720px;margin:0 auto;padding:24px 16px 100px}
+.logo{font:600 20px/1 var(--serif);display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.logo img{width:34px;height:34px}
+.logo a{margin-left:auto;font:400 14px var(--sans);color:var(--tekst2)}
+h1{font:400 26px/1.25 var(--serif);margin:0 0 6px}
+h2{font:500 18px/1.3 var(--serif);margin:0 0 12px}
+.pod{color:var(--tekst2);margin:0 0 20px}
+.karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:20px;margin-bottom:16px}
+label.etykieta{display:block;font-size:13px;font-weight:500;margin:12px 0 6px;color:var(--tekst2)}
+select,input[type=text]{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+.opcje{display:grid;gap:8px;margin-top:6px}
+.opcja{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--linia2);border-radius:var(--r2);padding:10px 12px;cursor:pointer}
+.opcja input{margin-top:4px}
+.opcja small{display:block;color:var(--tekst2)}
+.opcja.wylaczona{opacity:.5;cursor:default}
+button{font:500 15px var(--sans);padding:11px 18px;border-radius:var(--r2);border:1px solid var(--akcent);
+  background:var(--akcent);color:#fff;cursor:pointer;min-height:44px}
+button:hover{background:var(--akcent2)}
+button:disabled{opacity:.5;cursor:default}
+button.wtorny{background:var(--karta);color:var(--tekst);border-color:var(--linia2)}
+button.wtorny:hover{border-color:var(--tekst3)}
+button.maly{min-height:36px;padding:6px 12px;font-size:14px}
+.przyciski{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.nagrywarka{text-align:center;padding:28px 20px}
+.duzy{width:132px;height:132px;border-radius:50%;font-size:17px;padding:0;margin:8px auto 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.duzy .kropka{width:30px;height:30px;border-radius:50%;background:#fff}
+.duzy.stop .kropka{border-radius:6px}
+.zegar{font:400 44px/1.1 var(--serif);font-variant-numeric:tabular-nums;margin-top:18px}
+.poziom{height:8px;border-radius:4px;background:var(--tlo2);overflow:hidden;margin:14px auto 0;max-width:320px}
+.poziom i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s}
+.stan{font-size:14px;color:var(--tekst2);margin-top:12px;min-height:1.4em}
+.stan.blad{color:var(--alarm)}
+.stan.ok{color:var(--ok)}
+.trwa .zegar{color:var(--akcent)}
+.wpis{border:1px solid var(--linia);border-radius:var(--r2);padding:14px;margin-top:12px;background:var(--tlo)}
+.wpis-gora{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wpis b{font-weight:600}
+.wpis .meta{font-size:13px;color:var(--tekst2)}
+.wpis audio{width:100%;margin-top:10px}
+.pusto{color:var(--tekst3);font-size:14px}
+.tekst{white-space:pre-wrap;font:14px/1.6 var(--sans);background:var(--karta);border:1px solid var(--linia);border-radius:var(--r2);padding:12px;margin-top:10px;max-height:60vh;overflow:auto}
+.brama{background:var(--alarm-tlo);color:var(--alarm);border-radius:var(--r2);padding:12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="kol">
+  <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← aplikacja</a></div>
+  <h1>Stenogram aktu</h1>
+  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Rozpocznij”. Przy sprawie pojawia się stenogram odczytania z zamaskowanymi danymi osobowymi. Dźwięk usuwamy zaraz po spisaniu.</p>
+
+  <div class="brama" id="brama" hidden>Zaloguj się w aplikacji notarai na tym urządzeniu, potem wróć tutaj. <button class="maly wtorny" id="btn-zaloguj">Przejdź do logowania</button></div>
+  <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie ma dostępu do mikrofonu. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
+  <div class="brama" id="wylaczone" hidden>Stenogramy nie są jeszcze włączone w tej kancelarii.</div>
+
+  <div class="karta" id="przygotowanie">
+    <h2>Przed odczytaniem</h2>
+    <label class="etykieta" for="sprawa">Sprawa</label>
+    <select id="sprawa"><option value="">Wczytuję sprawy…</option></select>
+    <label class="etykieta" for="sygnatura">Repertorium A (opcjonalnie)</label>
+    <input type="text" id="sygnatura" maxlength="60" placeholder="np. 1234/2026">
+
+  </div>
+
+  <div class="karta nagrywarka" id="nagrywarka">
+    <button class="duzy" id="btn-nagraj" disabled><span class="kropka"></span><span id="napis-nagraj">Rozpocznij</span></button>
+    <div class="zegar" id="zegar">0:00:00</div>
+    <div class="poziom" title="Poziom dźwięku"><i id="poziom"></i></div>
+    <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
+      <button class="wtorny" id="btn-pauza">Wstrzymaj</button>
+    </div>
+    <div class="stan" id="stan">Wybierz sprawę, żeby zacząć.</div>
+    <div class="stan" id="wysylka"></div>
+  </div>
+
+  <div class="karta" id="karta-lokalne" hidden>
+    <h2>Czeka na tym urządzeniu</h2>
+    <p class="pod" style="margin:0">Odczytania, których przesyłanie się nie skończyło. Czekają w pamięci przeglądarki, dopóki serwer ich nie przyjmie.</p>
+    <div id="lokalne"></div>
+  </div>
+
+  <div class="karta" id="karta-serwer">
+    <h2>Stenogramy</h2>
+    <div id="lista"><p class="pusto">Wczytuję…</p></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KLUCZ_TOKENU = "notarai_token";
+const FRAGMENT_MS = window.__fragmentMs || 15000;   // co tyle przeglądarka oddaje kawałek nagrania
+const SESJA_MS = window.__sesjaMs || 50 * 60000;     // samodzielny plik co 50 min (limit rozpoznawania mowy)
+const BITY_OPUS = 24000;        // mowa: ok. 11 MB na godzinę
+const BITY_AAC = 32000;         // Safari (MP4/AAC) potrzebuje trochę więcej
+
+/* ---------- logowanie (jak na /poswiadczenia) ---------- */
+
+function token(){ try { return localStorage.getItem(KLUCZ_TOKENU) || ""; } catch { return ""; } }
+
+async function odnow(){
+  try {
+    const odp = await fetch("/api/logowanie/odnow", {method: "POST"});
+    if (!odp.ok) return false;
+    const t = (await odp.json()).token;
+    try { localStorage.setItem(KLUCZ_TOKENU, t); } catch { /* tryb prywatny */ }
+    return true;
+  } catch { return false; }
+}
+
+async function api(adres, opcje = {}){
+  const wyslij = () => {
+    const naglowki = new Headers(opcje.headers || {});
+    if (token()) naglowki.set("Authorization", "Bearer " + token());
+    return fetch(adres, {...opcje, headers: naglowki});
+  };
+  let odp = await wyslij();
+  if (odp.status === 401 && await odnow()) odp = await wyslij();
+  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby spisywać stenogram."); }
+  return odp;
+}
+
+async function bladZ(odp){
+  try {
+    const d = (await odp.json()).detail;
+    return typeof d === "string" ? d : (d?.komunikat || `Błąd ${odp.status}`);
+  } catch { return `Błąd ${odp.status}`; }
+}
+const jsonPost = (adres, dane) => api(adres, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(dane)});
+
+$("btn-zaloguj").onclick = () => { location.href = "/"; };
+
+/* ---------- pamięć przeglądarki (IndexedDB) ----------
+   Każdy fragment najpierw ląduje tutaj, dopiero potem idzie na serwer.
+   Kasujemy go, gdy serwer przyjmie całe nagranie.                        */
+let _baza = null;
+function baza(){
+  if (_baza) return _baza;
+  _baza = new Promise((ok, zle) => {
+    const z = indexedDB.open("notarai-stenogramy", 1);
+    z.onupgradeneeded = () => {
+      z.result.createObjectStore("nagrania", {keyPath: "id"});
+      z.result.createObjectStore("czesci");
+    };
+    z.onsuccess = () => ok(z.result); z.onerror = () => zle(z.error);
+  });
+  return _baza;
+}
+async function idb(magazyn, tryb, dzialanie){
+  const b = await baza();
+  return new Promise((ok, zle) => {
+    const t = b.transaction(magazyn, tryb);
+    const wynik = dzialanie(t.objectStore(magazyn));
+    t.oncomplete = () => ok(wynik?.result); t.onerror = () => zle(t.error);
+  });
+}
+const klucz = (id, nr) => `${id}:${String(nr).padStart(5, "0")}`;
+const zapiszOpis = o => idb("nagrania", "readwrite", s => s.put(o));
+const wszystkieOpisy = () => idb("nagrania", "readonly", s => s.getAll());
+const zapiszCzesc = (id, nr, blob) => idb("czesci", "readwrite", s => s.put(blob, klucz(id, nr)));
+const czytajCzesc = (id, nr) => idb("czesci", "readonly", s => s.get(klucz(id, nr)));
+async function usunLokalne(id){
+  await idb("czesci", "readwrite", s => s.delete(IDBKeyRange.bound(`${id}:`, `${id}:￿`)));
+  await idb("nagrania", "readwrite", s => s.delete(id));
+}
+
+/* ---------- format nagrania ---------- */
+
+function wybierzFormat(){
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return null;
+  for (const typ of ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"]) {
+    if (MediaRecorder.isTypeSupported(typ)) return {typ, bity: typ.startsWith("audio/mp4") ? BITY_AAC : BITY_OPUS};
+  }
+  return {typ: "", bity: BITY_OPUS};
+}
+const podstawowy = typ => (typ || "audio/webm").split(";")[0];
+
+/* ---------- stan ---------- */
+
+let wlaczone = true;
+let biezace = null;   // {opis, rec, strumien, format, kontekst, start, pauzaOd, przerwy, kolejka, wysylam, sesjaStart}
+let blokadaEkranu = null;
+
+function czas(s){
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+function stan(tekst, rodzaj = ""){ $("stan").textContent = tekst; $("stan").className = "stan" + (rodzaj ? " " + rodzaj : ""); }
+function sekundy(){
+  if (!biezace) return 0;
+  return ((biezace.pauzaOd || Date.now()) - biezace.start - biezace.przerwy) / 1000;
+}
+
+function odswiezPrzycisk(){
+  const gotowy = wlaczone && $("sprawa").value && !!wybierzFormat();
+  $("btn-nagraj").disabled = !biezace && !gotowy;
+  $("btn-nagraj").classList.toggle("stop", !!biezace);
+  $("napis-nagraj").textContent = biezace ? "Zakończ" : "Rozpocznij";
+  $("sterowanie").hidden = !biezace;
+  $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = !!biezace; });
+  document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
+  if (!biezace && !gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
+    stan("Wybierz sprawę, żeby zacząć.");
+  else if (!biezace && gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
+    stan("Gotowe. Naciśnij „Rozpocznij”, gdy zaczniesz czytać.");
+}
+$("sprawa").onchange = () => { stan(""); odswiezPrzycisk(); rysujListe(); };
+
+async function trzymajEkran(){
+  try { if ("wakeLock" in navigator && biezace) blokadaEkranu = await navigator.wakeLock.request("screen"); }
+  catch { /* np. oszczędzanie baterii - nagrywamy dalej */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") trzymajEkran(); });
+window.addEventListener("beforeunload", e => { if (biezace) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------- poziom dźwięku: widać, że mikrofon słyszy ---------- */
+
+function pokazujPoziom(strumien){
+  try {
+    const kontekst = new (window.AudioContext || window.webkitAudioContext)();
+    const analizator = kontekst.createAnalyser();
+    analizator.fftSize = 1024;
+    kontekst.createMediaStreamSource(strumien).connect(analizator);
+    const probki = new Uint8Array(analizator.fftSize);
+    let ciszaOd = Date.now();
+    const krok = () => {
+      if (!biezace) { $("poziom").style.width = "0"; return; }
+      analizator.getByteTimeDomainData(probki);
+      let szczyt = 0;
+      for (const p of probki) szczyt = Math.max(szczyt, Math.abs(p - 128));
+      $("poziom").style.width = Math.min(100, szczyt / 64 * 100) + "%";
+      if (szczyt > 6 || biezace.pauzaOd) ciszaOd = Date.now();
+      $("zegar").textContent = czas(sekundy());
+      if (Date.now() - ciszaOd > 20000 && !biezace.zatrzymuje) stan("Od 20 sekund nic nie słychać. Sprawdź, czy mikrofon nie jest zasłonięty.", "blad");
+      else if (!biezace.pauzaOd && !biezace.zatrzymuje) stan("Słucham odczytania…");
+      requestAnimationFrame(krok);
+    };
+    requestAnimationFrame(krok);
+    return kontekst;
+  } catch { return null; }
+}
+
+/* ---------- wysyłka fragmentów ---------- */
+
+function pokazWysylke(){
+  if (!biezace) { $("wysylka").textContent = ""; return; }
+  const czeka = biezace.kolejka.length;
+  $("wysylka").textContent = czeka
+    ? `Na serwer czeka ${czeka} ${czeka === 1 ? "fragment" : "fragmentów"}. Nie zamykaj strony.`
+    : `Wysłano na serwer: ${biezace.opis.czesci} ${biezace.opis.czesci === 1 ? "fragment" : "fragmentów"}.`;
+}
+
+async function wyslijCzesc(idSerwera, nr, blob){
+  const odp = await api(`/api/stenogramy/${idSerwera}/czesci/${nr}`, {method: "PUT", body: blob,
+    headers: {"Content-Type": "application/octet-stream"}});
+  if (!odp.ok) throw new Error(await bladZ(odp));
+}
+
+async function obsluzKolejke(){
+  if (!biezace || biezace.wysylam) return;
+  const b = biezace;
+  b.wysylam = true;
+  let pauza = 2000;
+  try {
+    while (b.kolejka.length) {
+      const nr = b.kolejka[0];
+      try {
+        await wyslijCzesc(b.opis.idSerwera, nr, await czytajCzesc(b.opis.id, nr));
+        b.kolejka.shift();
+        pauza = 2000;
+      } catch {
+        // Sieć padła: fragment czeka w pamięci telefonu, próbujemy dalej.
+        $("wysylka").textContent = "Brak połączenia z serwerem. Słucham dalej i prześlę zaległe fragmenty, gdy sieć wróci.";
+        await new Promise(r => setTimeout(r, pauza));
+        pauza = Math.min(pauza * 2, 30000);
+        continue;
+      }
+      if (biezace === b) pokazWysylke();
+    }
+  } finally { b.wysylam = false; }
+}
+
+/* ---------- nagrywanie w sesjach ----------
+   Co SESJA_MS zatrzymujemy MediaRecorder i od razu zaczynamy nowy na tym
+   samym mikrofonie. Każda sesja to samodzielny plik z własnym nagłówkiem.  */
+
+function nowaSesja(){
+  const b = biezace;
+  const rec = new MediaRecorder(b.strumien, {...(b.format.typ ? {mimeType: b.format.typ} : {}), audioBitsPerSecond: b.format.bity});
+  const sesja = {od: b.opis.czesci, do: b.opis.czesci, czas_s: 0};
+  const zapisy = [];   // obietnice zapisu fragmentów - poza opisem, którego kopia idzie do IndexedDB
+  b.opis.sesje.push(sesja);
+  b.sesjaStart = sekundy();
+  rec.ondataavailable = e => {
+    if (!e.data || !e.data.size) return;
+    const nr = b.opis.czesci++;
+    sesja.do = b.opis.czesci;
+    // Zapis do pamięci telefonu, potem kolejka wysyłki (w kolejności numerów).
+    const zapis = zapiszCzesc(b.opis.id, nr, e.data).then(() => zapiszOpis(b.opis))
+      .then(() => { b.kolejka.push(nr); b.kolejka.sort((x, y) => x - y); pokazWysylke(); obsluzKolejke(); });
+    zapisy.push(zapis);
+  };
+  rec.onstop = async () => {
+    sesja.czas_s = sekundy() - b.sesjaStart;
+    await Promise.all(zapisy);
+    await zapiszOpis(b.opis);
+    if (b.zatrzymuje) return zakonczono(b);
+    nowaSesja();
+  };
+  rec.start(FRAGMENT_MS);
+  b.rec = rec;
+  clearTimeout(b.zegarSesji);
+  b.zegarSesji = setTimeout(() => { if (biezace === b && !b.zatrzymuje) rec.stop(); }, SESJA_MS);
+}
+
+async function rozpocznij(){
+  const format = wybierzFormat();
+  let strumien;
+  try {
+    strumien = await navigator.mediaDevices.getUserMedia({audio: {
+      channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true}});
+  } catch { return stan("Przeglądarka nie dostała dostępu do mikrofonu. Zezwól na mikrofon w ustawieniach strony.", "blad"); }
+
+  const opis = {id: crypto.randomUUID().replace(/-/g, "").slice(0, 16), sprawa: $("sprawa").value,
+    nazwaSprawy: $("sprawa").selectedOptions[0]?.textContent || "", sygnatura: $("sygnatura").value.trim(),
+    typ: podstawowy(format.typ), czesci: 0, sesje: [], utworzono: new Date().toISOString()};
+  try {
+    const odp = await jsonPost("/api/stenogramy", {sprawa: opis.sprawa, sygnatura: opis.sygnatura,
+      typ: opis.typ});
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    opis.idSerwera = (await odp.json()).id;
+  } catch (blad) {
+    strumien.getTracks().forEach(t => t.stop());
+    return stan(blad.message, "blad");
+  }
+  await zapiszOpis(opis);
+  stan("");
+  biezace = {opis, strumien, format, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
+  nowaSesja();
+  biezace.kontekst = pokazujPoziom(strumien);
+  await trzymajEkran();
+  odswiezPrzycisk();
+  pokazWysylke();
+}
+
+$("btn-pauza").onclick = () => {
+  const b = biezace;
+  if (!b) return;
+  if (b.pauzaOd) {
+    b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0;
+    b.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
+  } else {
+    b.pauzaOd = Date.now(); b.rec.pause();
+    $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby słuchać dalej.");
+  }
+  odswiezPrzycisk();
+};
+
+$("btn-nagraj").onclick = () => {
+  const b = biezace;
+  if (!b) return rozpocznij();
+  if (b.zatrzymuje) return;
+  if (b.pauzaOd) { b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0; }
+  b.zatrzymuje = true;
+  clearTimeout(b.zegarSesji);
+  stan("Kończę…");
+  if (b.rec.state === "inactive") zakonczono(b); else b.rec.stop();
+};
+
+async function zakonczono(b){
+  b.strumien.getTracks().forEach(t => t.stop());
+  try { b.kontekst?.close(); } catch { /* juz zamkniety */ }
+  try { await blokadaEkranu?.release(); } catch { /* juz zwolniona */ }
+  b.opis.stan = "zatrzymane";
+  await zapiszOpis(b.opis);
+  stan("Przesyłam ostatnie fragmenty…");
+  while (b.kolejka.length || b.wysylam) await new Promise(r => setTimeout(r, 300));
+  biezace = null;
+  // Następny akt to zwykle inny numer repertorium.
+  $("sygnatura").value = "";
+  $("btn-pauza").textContent = "Wstrzymaj";
+  odswiezPrzycisk();
+  $("wysylka").textContent = "";
+  await dokonczNaSerwerze(b.opis);
+  await rysujLokalne();
+}
+
+async function dokonczNaSerwerze(o){
+  stan("Przekazuję do spisania…");
+  const sesje = o.sesje.filter(s => s.do > s.od).map(s => ({od: s.od, do: s.do, czas_s: Math.round(s.czas_s * 10) / 10}));
+  if (!sesje.length) { await usunLokalne(o.id); return stan("Nic nie usłyszałem, stenogram nie powstał.", "blad"); }
+  for (let proba = 0; proba < 3; proba++) {
+    try {
+      const odp = await jsonPost(`/api/stenogramy/${o.idSerwera}/koniec`, {sesje});
+      if (odp.status === 409) {
+        const d = (await odp.json()).detail;
+        for (const nr of d?.brakujace || []) await wyslijCzesc(o.idSerwera, nr, await czytajCzesc(o.id, nr));
+        continue;
+      }
+      if (!odp.ok) throw new Error(await bladZ(odp));
+      await usunLokalne(o.id);
+      stan("Przyjęte. Przygotowuję stenogram, to potrwa kilka minut. Możesz zamknąć stronę.", "ok");
+      await rysujListe();
+      return;
+    } catch (blad) {
+      stan(`${blad.message} Fragmenty czekają w pamięci telefonu, dokończysz niżej.`, "blad");
+      return;
+    }
+  }
+  stan("Serwer wciąż nie ma wszystkich fragmentów. Czekają w pamięci telefonu, dokończysz niżej.", "blad");
+}
+
+/* ---------- listy ---------- */
+
+function wpisHtml(){
+  const w = document.createElement("div"); w.className = "wpis";
+  w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
+  return w;
+}
+function przycisk(w, napis, akcja, wtorny = true){
+  const b = document.createElement("button"); b.className = "maly" + (wtorny ? " wtorny" : "");
+  b.textContent = napis; b.onclick = akcja; w.querySelector(".przyciski").append(b); return b;
+}
+
+async function rysujLokalne(){
+  let opisy = [];
+  try { opisy = (await wszystkieOpisy()).filter(o => !biezace || o.id !== biezace.opis.id); } catch { /* brak IndexedDB */ }
+  $("karta-lokalne").hidden = !opisy.length;
+  const lista = $("lokalne"); lista.textContent = "";
+  for (const o of opisy.sort((a, b) => b.utworzono.localeCompare(a.utworzono))) {
+    const w = wpisHtml();
+    w.querySelector("b").textContent = o.nazwaSprawy || "Odczytanie";
+    w.querySelector(".meta").textContent = `${new Date(o.utworzono).toLocaleString("pl-PL")} · ${o.czesci} fragmentów · czeka na wysłanie`;
+    przycisk(w, "Dokończ wysyłkę", () => dokonczNaSerwerze(o).then(rysujLokalne), false);
+    przycisk(w, "Usuń z urządzenia", async () => {
+      if (!confirm("Usunąć te fragmenty z pamięci przeglądarki? Stenogram z nich nie powstanie.")) return;
+      await usunLokalne(o.id); rysujLokalne();
+    });
+    lista.append(w);
+  }
+}
+
+const OPISY_STANU = {nagrywanie: "odczytanie niedokończone", przetwarzanie: "przygotowuję stenogram…",
+  gotowe: "gotowy, jest w plikach sprawy", blad: "nie udało się"};
+let nazwySpraw = {};
+let odswiezanie = null;
+
+async function rysujListe(){
+  const lista = $("lista");
+  let dane;
+  try {
+    const sprawa = $("sprawa").value;
+    const odp = await api("/api/stenogramy" + (sprawa ? `?sprawa=${encodeURIComponent(sprawa)}` : ""));
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    dane = await odp.json();
+  } catch (blad) { lista.innerHTML = `<p class="pusto"></p>`; lista.firstChild.textContent = blad.message; return; }
+  wlaczone = dane.wlaczone;
+  $("wylaczone").hidden = wlaczone;
+  odswiezPrzycisk();
+  lista.textContent = "";
+  if (!dane.stenogramy.length) { lista.innerHTML = `<p class="pusto">Jeszcze nie ma stenogramów${$("sprawa").value ? " w tej sprawie" : ""}.</p>`; }
+  for (const n of dane.stenogramy) {
+    const w = wpisHtml();
+    w.querySelector("b").textContent = (nazwySpraw[n.sprawa] || "Sprawa") + (n.sygnatura ? ` · Rep. A ${n.sygnatura}` : "");
+    w.querySelector(".meta").textContent = `${new Date(n.utworzono).toLocaleString("pl-PL")}` +
+      (n.czas_s ? ` · ${czas(n.czas_s)}` : "") + ` · ${OPISY_STANU[n.stan] || n.stan}` + (n.komunikat ? ` (${n.komunikat})` : "");
+    if (n.stan === "gotowe") {
+      const pokaz = przycisk(w, "Pokaż", async () => {
+        pokaz.disabled = true;
+        try {
+          const odp = await api(`/api/stenogramy/${n.id}/tekst`);
+          if (!odp.ok) throw new Error(await bladZ(odp));
+          const pre = document.createElement("div"); pre.className = "tekst"; pre.textContent = await odp.text();
+          w.append(pre); pokaz.remove();
+        } catch (blad) { pokaz.disabled = false; alert(blad.message); }
+      }, false);
+    }
+    if (n.stan === "blad") przycisk(w, "Spróbuj ponownie", async () => {
+      const odp = await api(`/api/stenogramy/${n.id}/ponow`, {method: "POST"});
+      if (!odp.ok) return alert(await bladZ(odp));
+      rysujListe();
+    }, false);
+    przycisk(w, "Usuń", async () => {
+      if (!confirm("Usunąć stenogram (także z plików sprawy) na zawsze?")) return;
+      const odp = await api(`/api/stenogramy/${n.id}`, {method: "DELETE"});
+      if (!odp.ok) return alert(await bladZ(odp));
+      rysujListe();
+    });
+    lista.append(w);
+  }
+  // Póki coś się przygotowuje, odświeżamy listę co 10 s.
+  clearTimeout(odswiezanie);
+  if (dane.stenogramy.some(n => n.stan === "przetwarzanie")) odswiezanie = setTimeout(rysujListe, window.__odswiezMs || 10000);
+}
+
+async function wczytajSprawy(){
+  const pole = $("sprawa");
+  try {
+    const odp = await api("/api/sprawy");
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    const sprawy = await odp.json();
+    pole.textContent = "";
+    pole.append(new Option(sprawy.length ? "— wybierz sprawę —" : "Najpierw załóż sprawę w aplikacji", ""));
+    for (const s of sprawy) {
+      nazwySpraw[s.id] = s.nazwa || s.id;
+      pole.append(new Option(s.nazwa + (s.sygnatura ? ` (${s.sygnatura})` : ""), s.id));
+    }
+    const zAdresu = new URLSearchParams(location.search).get("sprawa");
+    if (zAdresu && nazwySpraw[zAdresu]) pole.value = zAdresu;
+  } catch (blad) {
+    pole.textContent = ""; pole.append(new Option(blad.message, ""));
+  }
+}
+
+/* ---------- start strony ---------- */
+
+(async () => {
+  if (!wybierzFormat()) { $("brak-obslugi").hidden = false; }
+  try {
+    const odp = await api("/api/ustawienia");
+    if (odp.ok && (await odp.json()).przechowywanie === "u-klienta") {
+      wlaczone = false;
+      $("wylaczone").hidden = false;
+      $("wylaczone").textContent = "Ta kancelaria trzyma pliki u siebie, a stenogram zapisuje się przy sprawie na serwerze. Ta funkcja jest dla niej wyłączona.";
+      $("karta-serwer").hidden = true;
+      odswiezPrzycisk();
+      return;
+    }
+  } catch { /* brak logowania - pokazuje brama */ return; }
+  await wczytajSprawy();
+  odswiezPrzycisk();
+  rysujLokalne();
+  rysujListe();
+})();
+</script>
+</body>
+</html>

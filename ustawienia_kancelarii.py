@@ -47,7 +47,7 @@ BRAKI = ("opis", "pytajnik")
 ROZMIARY_TEKSTU = ("normalny", "duzy", "bardzo_duzy")
 WIDOKI_STARTOWE = ("panel", "nowa_sprawa", "kalendarz", "osoby", "przesylki", "poczta", "ksiegi")
 NARZEDZIA_MENU = ("sprawdzenia", "klikamy", "kalendarz", "osoby", "przesylki", "poczta",
-                  "poswiadczenia", "styl", "ksiegi", "giif")
+                  "poswiadczenia", "stenogramy", "styl", "ksiegi", "giif")
 
 
 def _lista_narzedzi(wartosc) -> list[str] | None:
