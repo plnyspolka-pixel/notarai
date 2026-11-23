@@ -299,6 +299,11 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      `WYSYLKA_ZRODLO` w `rozszerzenie/silnik.js`, jeśli któryś się prześlizgnie.
   4. Opublikować w sklepach; adres pozycji wpiąć w kreator instalacji w
      `static/index.html` (dziś kreator zna tylko pomocnika `.exe`).
+     Ten sam adres wstawić w blok „Sprawdź głębiej” na skanerze
+     `strona/bezpieczenstwo/index.html` (`#glebiej-sklep`: zamienić napis
+     „Wkrótce w Chrome Web Store…” na przycisk instalacji). Zanim to nastąpi,
+     scalić ochronę przed phishingiem z PR #98 (`rozszerzenie/bezpieczna_strona.js`),
+     bo to ją opisuje ten blok.
 - **W kodzie:** `rozszerzenie/`, `app.py` (`/api/pomocnik/klikamy`),
   `test_rozszerzenie.py`, `test_rozszerzenie_ui.py`.
 - **Zamknięte, gdy:** rozszerzenie z sklepu łączy się z kancelarią, a próba
