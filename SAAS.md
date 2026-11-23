@@ -41,7 +41,7 @@
   odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
 - `stenogramy.py` + `anonimizacja.py` + `static/stenogramy.html` — stenogram odczytania aktu.
-  Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy, potwierdzenie zgody osób obecnych,
+  Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy (bez zgody stron; w spisie kto rozpoczął),
   telefon na stole nagrywa (Opus ~24 kb/s, fragmenty co 15 s najpierw w pamięci przeglądarki, nowa
   sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
   (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), maskuje dane osobowe tak, że zostaje

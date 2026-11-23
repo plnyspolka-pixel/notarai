@@ -128,9 +128,9 @@ def test_wiele_sesji_przesuwa_czas(klient, monkeypatch):
     assert wpis["czas_s"] == 3060
 
 
-def test_bez_zgody_nie_zaczyna(klient):
-    odp = klient.post("/api/stenogramy", json={"sprawa": "spr1", "zgoda": False})
-    assert odp.status_code == 400 and "zgodziły" in odp.json()["detail"]
+def test_bez_zgody_stron_zapisuje_kto_rozpoczal(klient):
+    odp = klient.post("/api/stenogramy", json={"sprawa": "spr1"})
+    assert odp.status_code == 200 and odp.json()["rozpoczal"] and "zgoda" not in odp.json()
 
 
 def test_sprawa_musi_istniec(klient):
@@ -231,7 +231,7 @@ def test_usuwa_tylko_ten_kto_usuwa_pliki_spraw():
 
 def test_strona_jawna(klient):
     odp = klient.get("/stenogramy")
-    assert odp.status_code == 200 and "Stenogram aktu" in odp.text and "zgodziły" in odp.text
+    assert odp.status_code == 200 and "Stenogram aktu" in odp.text and "zgod" not in odp.text
 
 
 # --- AWS Transcribe (atrapa, parametry sprawdzane przez botocore) ---------------
@@ -370,7 +370,6 @@ def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch
             strona.add_init_script("window.__fragmentMs = 500; window.__sesjaMs = 1800; window.__odswiezMs = 300;")
             strona.goto(adres + "/stenogramy")
             strona.wait_for_selector("#sprawa option[value='spr1']", state="attached")
-            strona.check("#zgoda")
             assert strona.is_disabled("#btn-nagraj")          # bez sprawy nie ruszy
             strona.select_option("#sprawa", "spr1")
             strona.click("#btn-nagraj")
@@ -378,7 +377,6 @@ def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch
             strona.wait_for_timeout(4000)                      # > 2 sesje po 1,8 s
             strona.click("#btn-nagraj")
             strona.wait_for_selector("#stan.ok", timeout=20000)
-            assert not strona.is_checked("#zgoda")             # nowy akt = nowa zgoda
 
             spis = magazyn.wczytaj_plik_kancelarii("stenogramy", [])
             assert len(spis) == 1 and len(spis[0]["sesje"]) >= 2

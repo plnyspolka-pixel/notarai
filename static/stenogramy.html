@@ -42,8 +42,6 @@ select,input[type=text]{width:100%;font:inherit;color:inherit;background:var(--t
 .opcja input{margin-top:4px}
 .opcja small{display:block;color:var(--tekst2)}
 .opcja.wylaczona{opacity:.5;cursor:default}
-.zgoda{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:12px;border-radius:var(--r2);background:var(--akcent-tlo)}
-.zgoda input{margin-top:4px;width:20px;height:20px;flex:none}
 button{font:500 15px var(--sans);padding:11px 18px;border-radius:var(--r2);border:1px solid var(--akcent);
   background:var(--akcent);color:#fff;cursor:pointer;min-height:44px}
 button:hover{background:var(--akcent2)}
@@ -77,7 +75,7 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
 <div class="kol">
   <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← aplikacja</a></div>
   <h1>Stenogram aktu</h1>
-  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Rozpocznij”. Telefon słucha odczytania aktu, a przy sprawie pojawia się stenogram z zamaskowanymi danymi osobowymi. Dźwięku nie przechowujemy.</p>
+  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Rozpocznij”. Przy sprawie pojawia się stenogram odczytania z zamaskowanymi danymi osobowymi. Dźwięk usuwamy zaraz po spisaniu.</p>
 
   <div class="brama" id="brama" hidden>Zaloguj się w aplikacji notarai na tym urządzeniu, potem wróć tutaj. <button class="maly wtorny" id="btn-zaloguj">Przejdź do logowania</button></div>
   <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie ma dostępu do mikrofonu. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
@@ -90,8 +88,6 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
     <label class="etykieta" for="sygnatura">Repertorium A (opcjonalnie)</label>
     <input type="text" id="sygnatura" maxlength="60" placeholder="np. 1234/2026">
 
-    <label class="zgoda"><input type="checkbox" id="zgoda">
-      <span>Osoby obecne przy akcie wiedzą, że telefon słucha odczytania i spisuje stenogram, i się na to zgodziły.</span></label>
   </div>
 
   <div class="karta nagrywarka" id="nagrywarka">
@@ -101,7 +97,7 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
     <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
       <button class="wtorny" id="btn-pauza">Wstrzymaj</button>
     </div>
-    <div class="stan" id="stan">Wybierz sprawę i zaznacz zgodę, żeby zacząć.</div>
+    <div class="stan" id="stan">Wybierz sprawę, żeby zacząć.</div>
     <div class="stan" id="wysylka"></div>
   </div>
 
@@ -224,7 +220,7 @@ function sekundy(){
 }
 
 function odswiezPrzycisk(){
-  const gotowy = wlaczone && $("zgoda").checked && $("sprawa").value && !!wybierzFormat();
+  const gotowy = wlaczone && $("sprawa").value && !!wybierzFormat();
   $("btn-nagraj").disabled = !biezace && !gotowy;
   $("btn-nagraj").classList.toggle("stop", !!biezace);
   $("napis-nagraj").textContent = biezace ? "Zakończ" : "Rozpocznij";
@@ -232,11 +228,10 @@ function odswiezPrzycisk(){
   $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = !!biezace; });
   document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
   if (!biezace && !gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
-    stan("Wybierz sprawę i zaznacz zgodę, żeby zacząć.");
+    stan("Wybierz sprawę, żeby zacząć.");
   else if (!biezace && gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
     stan("Gotowe. Naciśnij „Rozpocznij”, gdy zaczniesz czytać.");
 }
-$("zgoda").onchange = () => { stan(""); odswiezPrzycisk(); };
 $("sprawa").onchange = () => { stan(""); odswiezPrzycisk(); rysujListe(); };
 
 async function trzymajEkran(){
@@ -359,7 +354,7 @@ async function rozpocznij(){
     typ: podstawowy(format.typ), czesci: 0, sesje: [], utworzono: new Date().toISOString()};
   try {
     const odp = await jsonPost("/api/stenogramy", {sprawa: opis.sprawa, sygnatura: opis.sygnatura,
-      typ: opis.typ, zgoda: $("zgoda").checked});
+      typ: opis.typ});
     if (!odp.ok) throw new Error(await bladZ(odp));
     opis.idSerwera = (await odp.json()).id;
   } catch (blad) {
@@ -409,8 +404,8 @@ async function zakonczono(b){
   stan("Przesyłam ostatnie fragmenty…");
   while (b.kolejka.length || b.wysylam) await new Promise(r => setTimeout(r, 300));
   biezace = null;
-  // Każdy akt to nowa zgoda: następne nagranie nie może ruszyć "z rozpędu".
-  $("zgoda").checked = false; $("sygnatura").value = "";
+  // Następny akt to zwykle inny numer repertorium.
+  $("sygnatura").value = "";
   $("btn-pauza").textContent = "Wstrzymaj";
   odswiezPrzycisk();
   $("wysylka").textContent = "";

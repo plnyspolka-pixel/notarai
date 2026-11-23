@@ -20,7 +20,7 @@ polityka rezygnacji z używania treści do ulepszania usług AI
 (PIECZAPP_TRANSCRIBE_OPTOUT=1). Bez niej AWS może przechowywać nagrania
 stron do uczenia modeli.
 
-Bez potwierdzenia zgody osób obecnych nagranie nie rusza; zgoda jest w spisie.
+W spisie jest, kto rozpoczął stenogram i kiedy.
 RODO: w logach są tylko identyfikatory i liczby.
 """
 import contextvars
@@ -68,7 +68,6 @@ class Start(BaseModel):
     sprawa: str
     sygnatura: str = ""
     typ: str = "audio/webm"
-    zgoda: bool = False
 
 
 class Sesja(BaseModel):
@@ -286,7 +285,7 @@ def tresc_stenogramu(wpis: dict, segmenty: list[dict]) -> str:
         "Dane osobowe zamaskowano: w słowach zostaje pierwsza i ostatnia litera (np. J*n S*****k),",
         "w numerach dwie pierwsze i dwie ostatnie cyfry (np. PESEL 80*******45).",
         "Tekst powstał z automatycznego rozpoznawania mowy i może zawierać błędy.",
-        "Nie jest protokołem ani częścią aktu. Dźwięku nie przechowujemy.",
+        "Nie jest protokołem ani częścią aktu. Dźwięk usunięto po spisaniu.",
         "",
     ]
     linie = [f"[{_czas(s['start'])}] " + (f"{s['mowca']}: " if s["mowca"] else "") + s["tekst"]
@@ -413,8 +412,6 @@ def lista(sprawa: str = ""):
 def rozpocznij(dane: Start, request: Request):
     _bez_chmury()
     _wymagaj_silnika()
-    if not dane.zgoda:
-        raise HTTPException(400, "Potwierdź, że osoby obecne przy akcie zgodziły się na spisanie stenogramu.")
     typ = (dane.typ or "").split(";")[0].strip().lower()
     if typ not in TYPY:
         raise HTTPException(415, "Ta przeglądarka przesyła dźwięk w formacie, którego nie przyjmujemy. "
@@ -428,8 +425,7 @@ def rozpocznij(dane: Start, request: Request):
         "typ": typ,
         "stan": "nagrywanie",
         "utworzono": teraz,
-        "zgoda": {"potwierdzil": getattr(request.state, "email", None) or "stanowisko lokalne",
-                  "kiedy": teraz},
+        "rozpoczal": getattr(request.state, "email", None) or "stanowisko lokalne",
     }
     magazyn.zmien_plik_kancelarii(PLIK_SPISU, lambda spis: spis.append(wpis), [])
     log.info("stenogram %s: start nagrania", wpis["id"])
