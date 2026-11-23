@@ -101,7 +101,10 @@ def finyou_token() -> str:
 
 
 def dostawca() -> str:
-    """'finyou' | 'apify' | '' - Finance You ma pierwszenstwo, gdy skonfigurowane."""
+    """'obscura' | 'finyou' | 'apify' | '' - skonfigurowana Obscura ma pierwszenstwo."""
+    import ekw_obscura
+    if ekw_obscura.dostepne():
+        return "obscura"
     if finyou_adres() and finyou_token():
         return "finyou"
     if token():
@@ -115,6 +118,9 @@ def dostepne() -> bool:
 
 
 def zrodlo() -> str:
+    if dostawca() == "obscura":
+        import ekw_obscura
+        return ekw_obscura.ZRODLO
     return ZRODLO_FINYOU if dostawca() == "finyou" else ZRODLO_APIFY
 
 
@@ -363,9 +369,22 @@ def _posprzataj(klient: httpx.Client, zbior: str | None, magazyn_id: str | None)
 
 def pobierz(numer: str, klient: httpx.Client | None = None) -> dict:
     """Jedna ksiega, aktualna tresc, wszystkie dzialy - od skonfigurowanego dostawcy."""
+    if dostawca() == "obscura":
+        return pobierz_obscura(numer, klient)
     if dostawca() == "finyou":
         return pobierz_finyou(numer, klient)
     return pobierz_apify(numer, klient)
+
+
+def pobierz_obscura(numer: str, klient: httpx.Client | None = None) -> dict:
+    """Jedno pobranie przez izolowany runtime Obscura MCP; bez automatycznego fallbacku."""
+    import ekw_obscura
+    numer = normalizuj_numer(numer)
+    _odczekaj()
+    try:
+        return ekw_obscura.pobierz(numer, klient)
+    except ekw_obscura.ProblemObscura as blad:
+        raise BladEKW(blad.kod, str(blad)) from blad
 
 
 def pobierz_apify(numer: str, klient: httpx.Client | None = None) -> dict:
