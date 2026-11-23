@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
-"""Ulepszanie klipów „w stylu DLSS”: AI super-rozdzielczość + generowanie klatek pośrednich.
+"""Ulepszanie klipów „w stylu DLSS” przed montażem: wyjscie/<EP>/klipy → wyjscie/<EP>/klipy_hd.
 
-DLSS (NVIDIA) działa w czasie rzeczywistym wewnątrz silnika gry (wektory ruchu, głębia z renderera),
-więc do gotowych plików wideo się go nie podepnie. Ten sam efekt dla offline'owego wideo dają:
-  * super-rozdzielczość:  SeedVR2 (ByteDance, Apache 2.0) - odpowiednik DLSS Super Resolution,
-  * generowanie klatek:   RIFE 4.7 (MIT)                   - odpowiednik DLSS Frame Generation.
-
-Wejście:  wyjscie/<EP>/klipy/*.mp4   (Wan 2.2: 480x832 @16 fps; HeyGen: 1080x1920 @25 fps)
-Wyjście:  wyjscie/<EP>/klipy_hd/*.mp4 (1080x1920 @25 fps, audio skopiowane)
-montaz_odcinka.py z flagą --hd bierze klipy z klipy_hd/, gdy tam są.
+DLSS (NVIDIA) działa na żywo w silniku gry (wektory ruchu i głębia z renderera), więc do gotowych
+plików wideo się go nie podepnie. Ten sam efekt, czyli AI super-rozdzielczość, daje SeedVR2
+(ByteDance, Apache 2.0). Liczy się na naszym GPU w SaladCloud przez `ai-clip` z repo finyou
+(rodzina `seedvr2`, szablon `seedvr2.up`: krótszy bok → 1080, kl./s i dźwięk bez zmian).
 
 Tory:
-  --tor gpu      ComfyUI na tym samym podzie co Wan (runpod_4090.sh instaluje węzły SeedVR2 i RIFE).
-                 Najlepsza jakość: odtwarza fakturę tkanin, papieru, włosów.
-  --tor lokalny  Bez GPU i za 0 USD: ffmpeg minterpolate (kompensacja ruchu) + lanczos + CAS.
-                 Wyraźnie lepiej niż obecny `scale`, ale detali nie „dorysuje”.
+  salad    1) `--tor salad` zapisuje zlecenie wyjscie/<EP>/ulepsz-salad.json (klipy poniżej 1080 px),
+           2) w repo finyou: node services/ai-clip/ai-clip.mjs run <zlecenie> --pay --max-usd 1
+           3) `--przyjmij out/ai-clip/<przebieg>` kopiuje wyniki do klipy_hd pod nazwami źródeł.
+  lokalny  Bez GPU i za 0 USD: ffmpeg (klatki pośrednie minterpolate, gdy < 25 kl./s, lanczos, CAS).
+           Ostrzejsze krawędzie i płynny ruch, ale detali nie „dorysuje”. Dobre do szkicu.
 
-Klipy, które już mają >= docelowej szerokości (awatary HeyGen), są pomijane: upscale twarzy
-mówiącej grozi „pływaniem” rysów i ust, a te klipy są już w 1080p/25.
+Klipy, które już mają >= 1080 px szerokości i >= 25 kl./s, są pomijane.
+montaz_odcinka.py z flagą --hd bierze klipy z klipy_hd/, gdy tam są.
 
 Użycie:
+  ulepsz_klipy.py EP04 --tor salad
+  ulepsz_klipy.py EP04 --przyjmij /sciezka/finyou/out/ai-clip/<przebieg>
   ulepsz_klipy.py EP04 --tor lokalny
-  ulepsz_klipy.py EP04 --tor gpu --comfy https://<pod>-8188.proxy.runpod.net [--usd-h 0.34]
-  ulepsz_klipy.py EP04 --tor gpu --dry-run       # tylko zapisuje workflow JSON
-  ulepsz_klipy.py --plik we.mp4 wy.mp4 --tor lokalny   # pojedynczy plik (test)
+  ulepsz_klipy.py --plik we.mp4 wy.mp4             # pojedynczy plik, tor lokalny
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -34,7 +32,6 @@ import time
 
 TU = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TU, ".."))
-WORKFLOW = os.path.join(TU, "gpu", "seedvr2_rife_upscale.json")
 W, H, FPS = 1080, 1920, 25
 
 
@@ -43,7 +40,7 @@ def probe(p: str) -> dict:
                           "stream=width,height,r_frame_rate", "-of", "json", p], capture_output=True, text=True).stdout
     s = (json.loads(out or "{}").get("streams") or [{}])[0]
     num, _, den = str(s.get("r_frame_rate", "0/1")).partition("/")
-    fps = float(num) / float(den or 1) if float(den or 1) else 0.0
+    fps = float(num) / float(den) if float(den or 0) else 0.0
     return {"w": int(s.get("width", 0)), "h": int(s.get("height", 0)), "fps": fps}
 
 
@@ -60,8 +57,8 @@ def run(cmd: list[str]) -> None:
 
 
 def filtr_lokalny(fps_we: float) -> str:
-    """Łańcuch ffmpeg: klatki pośrednie (gdy fps < 25) → lanczos do 9:16 1080p → CAS (wyostrzanie adaptacyjne)."""
-    kroki = ["hqdn3d=1.5:1.5:3:3"]          # lekki odszum: bez tego upscale wzmacnia szum kompresji Wan
+    """Łańcuch ffmpeg: odszum → klatki pośrednie (gdy fps < 25) → lanczos do 9:16 1080p → CAS."""
+    kroki = ["hqdn3d=1.5:1.5:3:3"]          # bez odszumu upscale wzmacnia szum kompresji
     if fps_we and fps_we < FPS - 0.5:
         # mci + aobmc: kompensacja ruchu blokami z nakładaniem; scd=fdiff nie miesza klatek przy cięciu
         kroki.append(f"minterpolate=fps={FPS}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:scd=fdiff")
@@ -81,101 +78,82 @@ def ulepsz_lokalnie(we: str, wy: str) -> float:
     return time.time() - start
 
 
-# ---------- tor GPU (ComfyUI: SeedVR2 + RIFE) ----------
-def workflow_gpu(nazwa_we: str, prefix: str, fps_we: float) -> dict:
-    mnoznik = 2 if fps_we and fps_we < FPS - 0.5 else 1      # 16 → 32 fps; montaż zrzuca do 25
-    podst = {"wideo": nazwa_we, "prefix": prefix, "rozdzielczosc": min(W, H), "mnoznik": mnoznik,
-             "fps_wy": round((fps_we or FPS) * mnoznik, 3)}
-    szablon = open(WORKFLOW, encoding="utf-8").read()
-    for k, v in podst.items():
-        szablon = szablon.replace(f'"{{{{{k}}}}}"', json.dumps(v))
-    w = json.loads(szablon)
-    w.pop("_opis", None)
-    return w
+def slug(nazwa: str) -> str:
+    """Ten sam kształt co slugify w ai-clip: a-z, 0-9, myślnik."""
+    return re.sub(r"[^a-z0-9]+", "-", os.path.splitext(nazwa)[0].lower()).strip("-")[:60].rstrip("-") or "klip"
 
 
-def ulepsz_gpu(we: str, wy: str, comfy: str, prefix: str) -> float:
-    sys.path.insert(0, os.path.join(TU, "gpu"))
-    import klipy_batch as kb  # wspólne: upload, czekanie na /history, pobieranie wyników
-    start = time.time()
-    nazwa = kb.wyslij_obraz(comfy, we)               # /upload/image przyjmuje też mp4 (trafia do input/)
-    w = workflow_gpu(nazwa, prefix, probe(we)["fps"])
-    odp = json.loads(kb.http(f"{comfy}/prompt", json.dumps({"prompt": w}).encode(), {"Content-Type": "application/json"}))
-    hist = kb.czekaj(comfy, odp["prompt_id"], limit_s=3600)
-    tmp = os.path.join(os.path.dirname(wy), "_comfy")
-    os.makedirs(tmp, exist_ok=True)
-    pliki = [p for p in kb.pobierz_wyniki(comfy, hist, tmp) if p.endswith(".mp4")]
-    if not pliki:
-        sys.exit(f"ComfyUI nie zwrócił mp4 dla {prefix}")
-    # dokończenie w ffmpeg: dokładnie 1080x1920@25 + oryginalne audio (ComfyUI gubi ścieżkę dźwięku)
-    cmd = ["ffmpeg", "-y", "-v", "error", "-i", pliki[0], "-i", we, "-map", "0:v",
-           "-vf", f"fps={FPS},scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},format=yuv420p",
-           "-c:v", "libx264", "-preset", "slow", "-crf", "16"]
-    cmd += ["-map", "1:a", "-c:a", "copy", "-shortest"] if ma_audio(we) else ["-an"]
-    run(cmd + [wy])
-    shutil.rmtree(tmp, ignore_errors=True)
-    return time.time() - start
+def do_ulepszenia(klipy: str, wszystkie: bool) -> list[str]:
+    wynik = []
+    for f in sorted(os.listdir(klipy)):
+        if not f.endswith(".mp4"):
+            continue
+        p = probe(os.path.join(klipy, f))
+        if not wszystkie and p["w"] >= W and p["fps"] >= FPS - 0.5:
+            print(f"[{f}] {p['w']}x{p['h']}@{p['fps']:.0f} - już HD, pomijam")
+            continue
+        wynik.append(f)
+    return wynik
+
+
+def zlecenie_salad(ep: str, baza: str, pliki: list[str]) -> None:
+    zl = {"family": "seedvr2",
+          "shots": [{"video": os.path.join(baza, "klipy", f), "slug": slug(f), "plik_zrodlowy": f} for f in pliki]}
+    if len(zl["shots"]) > 40:
+        sys.exit("ai-clip bierze do 40 ujęć na jedno wynajęcie - podziel odcinek")
+    cel = os.path.join(baza, "ulepsz-salad.json")
+    json.dump(zl, open(cel, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(f"zlecenie: {cel} ({len(pliki)} klipów)\n"
+          f"w repo finyou:\n  node services/ai-clip/ai-clip.mjs plan {cel}\n"
+          f"  node services/ai-clip/ai-clip.mjs run {cel} --pay --max-usd 1\n"
+          f"potem: ulepsz_klipy.py {ep} --przyjmij <finyou>/out/ai-clip/<przebieg>")
+
+
+def przyjmij(baza: str, katalog: str) -> None:
+    zl = json.load(open(os.path.join(baza, "ulepsz-salad.json"), encoding="utf-8"))
+    hd = os.path.join(baza, "klipy_hd")
+    os.makedirs(hd, exist_ok=True)
+    brak = []
+    for s in zl["shots"]:
+        src = os.path.join(katalog, f"{s['slug']}.mp4")
+        if not os.path.exists(src):
+            brak.append(s["plik_zrodlowy"]); continue
+        shutil.copy2(src, os.path.join(hd, s["plik_zrodlowy"]))
+        p = probe(src)
+        print(f"[{s['plik_zrodlowy']}] ← {s['slug']}.mp4 {p['w']}x{p['h']}@{p['fps']:.0f}")
+    if brak:
+        print(f"bez wyniku (montaż weźmie oryginał): {', '.join(brak)}")
 
 
 def main(a: list[str]) -> None:
     if not a:
         sys.exit(__doc__)
-    tor, comfy, usd_h, dry, sila = "lokalny", None, 0.34, False, False
-    i, poz = 0, []
-    while i < len(a):
-        if a[i] == "--tor":
-            tor = a[i + 1]; i += 2
-        elif a[i] == "--comfy":
-            comfy = a[i + 1].rstrip("/"); i += 2
-        elif a[i] == "--usd-h":
-            usd_h = float(a[i + 1]); i += 2
-        elif a[i] == "--dry-run":
-            dry = True; i += 1
-        elif a[i] == "--wszystkie":          # także klipy już w 1080p (np. wymuszenie na awatarach)
-            sila = True; i += 1
-        else:
-            poz.append(a[i]); i += 1
-    if tor not in ("lokalny", "gpu"):
-        sys.exit("--tor lokalny | gpu")
-    if tor == "gpu" and not dry and not comfy:
-        sys.exit("tor gpu: podaj --comfy <url> albo --dry-run")
-
-    if poz and poz[0] == "--plik" or (len(poz) == 2 and poz[0].endswith(".mp4")):
-        we, wy = poz[-2], poz[-1]
-        sek = ulepsz_lokalnie(we, wy) if tor == "lokalny" else ulepsz_gpu(we, wy, comfy, "test")
-        print(f"{we} → {wy} ({sek:.0f} s)")
+    if a[0] == "--plik":
+        sek = ulepsz_lokalnie(a[1], a[2])
+        print(f"{a[1]} → {a[2]} ({sek:.0f} s)")
         return
-
-    ep = poz[0].upper()
+    ep = a[0].upper()
+    tor = a[a.index("--tor") + 1] if "--tor" in a else None
     baza = os.path.join(ROOT, "wyjscie", ep)
     klipy, hd = os.path.join(baza, "klipy"), os.path.join(baza, "klipy_hd")
+    if "--przyjmij" in a:
+        przyjmij(baza, a[a.index("--przyjmij") + 1])
+        print(f"montaż: montaz_odcinka.py {ep} --hd")
+        return
+    if tor not in ("salad", "lokalny"):
+        sys.exit("--tor salad | lokalny  (albo --przyjmij <katalog wyników ai-clip>)")
     if not os.path.isdir(klipy):
         sys.exit(f"brak {klipy}")
+    pliki = do_ulepszenia(klipy, "--wszystkie" in a)
+    if tor == "salad":
+        zlecenie_salad(ep, baza, pliki)
+        return
     os.makedirs(hd, exist_ok=True)
-    for f in sorted(os.listdir(klipy)):
-        if not f.endswith(".mp4"):
-            continue
+    for f in pliki:
         we, wy = os.path.join(klipy, f), os.path.join(hd, f)
-        p = probe(we)
-        if not sila and p["w"] >= W and p["fps"] >= FPS - 0.5:
-            print(f"[{f}] {p['w']}x{p['h']}@{p['fps']:.0f} - już HD, pomijam")
-            continue
-        if dry:
-            cel = os.path.join(hd, f.replace(".mp4", ".workflow.json"))
-            json.dump(workflow_gpu(f, f"{ep}_{f[:-4]}_hd", p["fps"]), open(cel, "w", encoding="utf-8"), indent=1)
-            print(f"[{f}] workflow → {cel}"); continue
         if os.path.exists(wy) and os.path.getmtime(wy) >= os.path.getmtime(we):
             print(f"[{f}] gotowe wcześniej"); continue
-        if tor == "lokalny":
-            sek = ulepsz_lokalnie(we, wy)
-            print(f"[{f}] {p['w']}x{p['h']}@{p['fps']:.0f} → {W}x{H}@{FPS} lokalnie, {sek:.0f} s CPU")
-        else:
-            sek = ulepsz_gpu(we, wy, comfy, f"{ep}_{f[:-4]}_hd")
-            usd = sek / 3600 * usd_h
-            sys.path.insert(0, TU)
-            import koszty_odcinka
-            koszty_odcinka.log(ep, f"{f} seedvr2+rife {W}x{H}", f"{usd:.4f}", "gpu_4090")
-            print(f"[{f}] SeedVR2+RIFE {sek:.0f} s GPU ≈ {usd:.4f} USD")
+        print(f"[{f}] lokalnie {ulepsz_lokalnie(we, wy):.0f} s CPU")
     print(f"gotowe: {hd}  (montaż: montaz_odcinka.py {ep} --hd)")
 
 

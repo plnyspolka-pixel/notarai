@@ -19,15 +19,6 @@ nie dał w teście u3 tak stabilnej twarzy (`../../awatary.md`).
 
 Paczka 24 klipów 480x832 ≈ 40–60 min GPU ≈ 0,25–0,35 USD + 5 min rozgrzewki.
 
-## Ulepszanie „w stylu DLSS” (upscale AI + klatki pośrednie)
-Wan daje 480x832 @16 kl./s; zwykły `scale` w montażu rozmywa obraz, a dublowanie klatek do 25 szarpie ruch.
-`../ulepsz_klipy.py EP04 --tor gpu --comfy <url>` na tym samym podzie: **SeedVR2 3B** (super-rozdzielczość do
-1080x1920, odpowiednik DLSS SR) + **RIFE 4.7 x2** (klatki pośrednie, odpowiednik DLSS Frame Generation) →
-`wyjscie/EP04/klipy_hd/`, potem `montaz_odcinka.py EP04 --hd`. Awatary HeyGen (już 1080p/25) są pomijane.
-Bez GPU: `--tor lokalny` (ffmpeg minterpolate + lanczos + CAS, 0 USD, ok. 20 s CPU na klip 5 s) - płynny
-ruch i ostrzejsze krawędzie, ale detali nie dorysuje. Czasu SeedVR2 na 4090 nikt jeszcze nie zmierzył:
-pierwszy klip obejrzyj i sprawdź wpis w `../koszty_log.csv`, zanim puścisz cały odcinek.
-
 ## Warianty
 - **Modal (30 USD kredytów miesięcznie, 0 USD stałych):** `modal` + oficjalny przykład ComfyUI
   (`modal.com/docs/examples/comfyapp`), modele na `modal.Volume`; L40S 1,95 USD/h ≈ 15 h/mies. gratis.
