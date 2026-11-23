@@ -89,3 +89,37 @@ def test_mockup_does_not_make_unverified_savings_claim():
     assert "–70%" not in HTML
     assert "-70%" not in HTML
     assert "WIZUALIZACJA POGLĄDOWA" in HTML
+
+
+def test_pieczecie_dostawcy_infrastruktury_i_tarcze_zgodnosci():
+    """Ściana pieczęci mówi wprost, że certyfikaty ma dostawca infrastruktury,
+    a tarcze zgodności nie udają certyfikatów notarai."""
+    import importlib.util
+    import re
+
+    assert '<h3 id="certyfikaty" class="podtytul">Certyfikowany dostawca infrastruktury</h3>' in HTML
+    assert 'href="pieczecie.css"' in HTML
+    assert (SITE / "pieczecie.css").is_file()
+
+    sciana = HTML.split('<ul class="nx-wall">', 1)[1].split("</ul>", 1)[0]
+    etykiety = re.findall(r'class="nx-pieczec [^"]*" viewBox="[^"]*" role="img" aria-label="([^"]+)"', sciana)
+    assert len(etykiety) == 10
+    assert all("dostawca infrastruktury" in e and "Amazon Web Services" in e for e in etykiety)
+    assert sciana.count("DOSTAWCA INFRASTRUKTURY") == 10
+
+    zgodnosc = HTML.split('<ul class="nx-law">', 1)[1].split("</ul>", 1)[0]
+    assert zgodnosc.count('class="nx-tarcza"') == 6
+    assert "To nie są certyfikaty." in HTML
+    # Tarcza nie może obiecywać więcej niż umowa powierzenia (dostęp przy awarii lub na prośbę).
+    assert "Żaden człowiek" not in HTML
+
+    # Generator jest źródłem pieczęci: drugi przebieg nie zmienia strony.
+    spec = importlib.util.spec_from_file_location("pieczecie_strony", ROOT / "scripts" / "pieczecie_strony.py")
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    import tempfile
+    with tempfile.TemporaryDirectory() as katalog:
+        kopia = Path(katalog) / "index.html"
+        kopia.write_text(HTML, encoding="utf-8")
+        modul.main(str(kopia))
+        assert kopia.read_text(encoding="utf-8") == HTML
