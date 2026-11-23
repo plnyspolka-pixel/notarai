@@ -949,3 +949,12 @@ def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
     tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki)
     odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700, myslenie=False)
     return klikamy.odpowiedz_na_slownik(odpowiedz)
+
+
+def nastepny_krok_w_programie(cel: str, stan: dict, kroki: list[dict]) -> dict:
+    """Jedna decyzja agenta prowadzacego program na komputerze notariusza."""
+    from pomocnik import w_programie
+
+    tresc = w_programie.polecenie_dla_modelu(cel, stan, kroki)
+    odpowiedz = _rozmowa(prompty.PROGRAM, [{"text": tresc}], max_tokenow=700, myslenie=False)
+    return w_programie.odpowiedz_na_slownik(odpowiedz)

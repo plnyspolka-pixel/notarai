@@ -380,6 +380,8 @@ button.maly{padding:5px 10px;font-size:12.5px}
 .kal-gora{flex-wrap:wrap}
 .kal-siatka[hidden]{display:none}
 .kal-widoki{display:flex;gap:4px}
+#klik-gdzie button[aria-pressed="true"]{background:var(--akcent-tlo);border-color:var(--akcent);color:var(--akcent)}
+#klik-program{flex:1;min-width:0}
 .kal-kropka{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
 .k-szara{background:#9b958f}.k-ziel{background:#2f9e52}.k-zolta{background:#e2b200}.k-czerw{background:#d33b2c}.k-purp{background:#8b3fbd}
 .kal-dzien .gora{display:flex;align-items:center;justify-content:space-between;gap:4px}
@@ -1147,7 +1149,7 @@ notarai</div>
 <!-- ===== 5: klikamy ===== -->
 <section id="etap5" hidden>
   <h1>Klikamy</h1>
-  <p class="pod">Napisz, co ma się wydarzyć w przeglądarce, a pomocnik zrobi to krok po kroku na Twoim komputerze. Po każdym kroku widzisz, co zrobił i dlaczego. Niczego nie wyśle, nie złoży ani nie podpisze — przy takiej czynności odda Ci sterowanie.</p>
+  <p class="pod">Napisz, co ma się wydarzyć w przeglądarce albo w programie na Twoim komputerze (kancelaryjnym, Wordzie), a pomocnik zrobi to krok po kroku. Po każdym kroku widzisz, co zrobił i dlaczego. Niczego nie zapisze, nie zatwierdzi, nie wyśle ani nie podpisze — przy takiej czynności odda Ci sterowanie.</p>
   <div class="klik-uklad">
     <div class="karta">
       <h2>Polecenie</h2>
@@ -1156,6 +1158,22 @@ notarai</div>
         <textarea id="klik-cel" rows="4" placeholder="np. otwórz geoportal i znajdź działkę 123/4 w obrębie Słoneczna"></textarea>
       </div>
       <div class="pole">
+        <span class="etykieta">Gdzie</span>
+        <div class="kal-widoki" id="klik-gdzie" role="radiogroup" aria-label="Gdzie pracuje pomocnik">
+          <button type="button" class="wtorny maly" data-gdzie="przegladarka" aria-pressed="true">W przeglądarce</button>
+          <button type="button" class="wtorny maly" data-gdzie="program" aria-pressed="false">W programie na komputerze</button>
+        </div>
+      </div>
+      <div class="pole" id="klik-program-pole" hidden>
+        <label class="etykieta" for="klik-program">Program
+          <span class="wskaz">pomocnik sam wybiera sposób połączenia</span></label>
+        <div class="pasek" style="margin:0">
+          <select id="klik-program"><option value="">— najpierw rozpoznaj programy —</option></select>
+          <button type="button" class="wtorny maly" id="btn-programy">Rozpoznaj programy</button>
+        </div>
+        <div class="pod" id="klik-program-opis" style="margin-top:6px"></div>
+      </div>
+      <div class="pole" id="klik-hosty-pole">
         <label class="etykieta" for="klik-hosty">Adresy, na które wolno wejść
           <span class="wskaz">po przecinku; puste = tylko strona już otwarta</span></label>
         <input type="text" id="klik-hosty" placeholder="geoportal.gov.pl, krz.ms.gov.pl" autocomplete="off">
@@ -5356,12 +5374,19 @@ $("btn-crbr").onclick = async () => {
 /* ---------- 5: klikamy ---------- */
 const OPIS_AKCJI = {
   kliknij: "kliknięcie", wpisz: "wpisanie", wybierz: "wybór z listy",
-  otworz: "otwarcie adresu", czytaj: "odczyt strony",
+  otworz: "otwarcie adresu", czytaj: "odczyt", klawisz: "klawisz",
   pytam: "pytanie do Ciebie", koniec: "koniec",
 };
 function rysujPrzebieg(raport){
   const cel = $("klik-przebieg");
   cel.innerHTML = "";
+  if (raport.uzasadnienie) {
+    const m = document.createElement("div");
+    m.className = "pod";
+    m.style.marginBottom = "8px";
+    m.textContent = raport.uzasadnienie;
+    cel.appendChild(m);
+  }
   (raport.kroki || []).forEach(k => {
     const d = document.createElement("div");
     d.className = "klik-krok";
@@ -5395,22 +5420,127 @@ function rysujPrzebieg(raport){
   });
 }
 
+/* Gdzie pracuje pomocnik: przegladarka albo program na komputerze. Program
+   wskazujemy tylko identyfikatorem ze spisu - plik i sposob polaczenia
+   pomocnik ustala sam u siebie. */
+let klikGdzie = "przegladarka", spisProgramow = [];
+const OPIS_METODY = {
+  baza: "baza danych programu (tylko odczyt)", pliki: "katalog wymiany plików",
+  com: "automatyzacja COM", okna: "okna programu (Windows UI Automation)",
+};
+function ustawGdzie(gdzie){
+  klikGdzie = gdzie;
+  document.querySelectorAll("#klik-gdzie button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.gdzie === gdzie)));
+  $("klik-program-pole").hidden = gdzie !== "program";
+  $("klik-hosty-pole").hidden = gdzie === "program";
+  $("klik-cel").placeholder = gdzie === "program"
+    ? "np. w programie kancelaryjnym otwórz repertorium A i znajdź ostatni akt z tego miesiąca"
+    : "np. otwórz geoportal i znajdź działkę 123/4 w obrębie Słoneczna";
+  if (gdzie === "program" && !spisProgramow.length) wczytajProgramy();
+}
+document.querySelectorAll("#klik-gdzie button").forEach(b => b.onclick = () => ustawGdzie(b.dataset.gdzie));
+
+function rysujProgramy(){
+  const wybor = $("klik-program"), poprzedni = wybor.value;
+  wybor.innerHTML = spisProgramow.length ? ""
+    : '<option value="">— najpierw rozpoznaj programy —</option>';
+  const grupy = {kancelaryjny: "Programy kancelaryjne", biurowy: "Programy biurowe", inny: "Inne"};
+  Object.entries(grupy).forEach(([kat, etykieta]) => {
+    const lista = spisProgramow.filter(p => p.kategoria === kat);
+    if (!lista.length) return;
+    const g = document.createElement("optgroup");
+    g.label = etykieta;
+    lista.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = p.nazwa + (p.wydawca ? " · " + p.wydawca : "");
+      g.appendChild(o);
+    });
+    wybor.appendChild(g);
+  });
+  if (poprzedni && spisProgramow.some(p => p.id === poprzedni)) wybor.value = poprzedni;
+  opiszProgram();
+}
+function opiszProgram(){
+  const p = spisProgramow.find(x => x.id === $("klik-program").value);
+  const opis = $("klik-program-opis");
+  if (!p) { opis.textContent = ""; return; }
+  const metody = Object.keys(p.metody || {});
+  const praca = (p.zalecana || {}).praca;
+  opis.textContent = metody.length
+    ? "Wykryte połączenia: " + metody.map(m => OPIS_METODY[m] || m).join(", ") + ". "
+      + (praca ? "Pomocnik użyje: " + (OPIS_METODY[praca] || praca) + "."
+               : "Żadnej z tych dróg pomocnik jeszcze nie obsługuje.")
+    : "Nie znalazłem drogi do tego programu.";
+}
+$("klik-program").onchange = opiszProgram;
+
+async function wczytajProgramy(){
+  try {
+    const odp = await api("/api/programy");
+    if (!odp.ok) return;
+    spisProgramow = (await odp.json()).programy || [];
+    rysujProgramy();
+  } catch (e) { /* bez spisu zostaje przycisk "Rozpoznaj programy" */ }
+}
+
+$("btn-programy").onclick = async () => {
+  $("btn-programy").disabled = true;
+  stan($("stan5"), "Pomocnik sprawdza programy na komputerze…", false, true);
+  try {
+    const odp = await api("/api/programy/rozpoznaj", {method: "POST"});
+    const zlecone = await odp.json();
+    if (!odp.ok) throw new Error(zlecone.detail || "Błąd serwera");
+    const koniec = Date.now() + 120000;
+    while (Date.now() < koniec) {
+      await new Promise(gotowe => setTimeout(gotowe, 3000));
+      const w = await api("/api/programy/zlecenia/" + zlecone.zlecenie);
+      if (!w.ok) throw new Error("Rozpoznanie przepadło albo straciło ważność.");
+      const wynik = await w.json();
+      if (wynik.stan === "wykonane") {
+        spisProgramow = (wynik.raport || {}).programy || [];
+        rysujProgramy();
+        const ile = spisProgramow.length;
+        stan($("stan5"), ile ? "Rozpoznane programy: " + ile + "."
+          : "Nie znalazłem programów kancelaryjnych ani biurowych.", !ile);
+        return;
+      }
+    }
+    throw new Error("Pomocnik nie odpowiedział w ciągu 2 minut.");
+  } catch (e) {
+    stan($("stan5"), e.message, true);
+  } finally {
+    $("btn-programy").disabled = false;
+  }
+};
+
 $("btn-klik").onclick = async () => {
   if (!sprawa) return stan($("stan5"), "Najpierw otwórz sprawę.", true);
   const cel = $("klik-cel").value.trim();
   if (!cel) return stan($("stan5"), "Napisz, co mam zrobić.", true);
   const hosty = $("klik-hosty").value.split(",").map(h => h.trim()).filter(Boolean);
+  const program = $("klik-program").value;
+  if (klikGdzie === "program" && !program)
+    return stan($("stan5"), "Wybierz program albo kliknij „Rozpoznaj programy”.", true);
   $("btn-klik").disabled = true;
   $("klik-przebieg").innerHTML = "";
   stan($("stan5"), "Przekazuję pomocnikowi…", false, true);
   try {
-    const odp = await api("/api/sprawy/" + sprawa.id + "/klikamy", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({cel, dozwolone_hosty: hosty}),
-    });
+    const odp = klikGdzie === "program"
+      ? await api("/api/sprawy/" + sprawa.id + "/program", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({cel, program}),
+        })
+      : await api("/api/sprawy/" + sprawa.id + "/klikamy", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({cel, dozwolone_hosty: hosty}),
+        });
     const zlecone = await odp.json();
     if (!odp.ok) throw new Error(zlecone.detail || "Błąd serwera");
-    stan($("stan5"), "Pomocnik pracuje. Patrz na okno przeglądarki po prawej…", false, true);
+    stan($("stan5"), klikGdzie === "program"
+      ? "Pomocnik pracuje w programie. Patrz na jego okno…"
+      : "Pomocnik pracuje. Patrz na okno przeglądarki po prawej…", false, true);
     // Prowadzenie przegladarki trwa dluzej niz sprawdzenie - kazdy krok to
     // pytanie do modelu i czynnosc na stronie.
     const wynik = await poczekajNaZlecenie(zlecone.zlecenie, 900);

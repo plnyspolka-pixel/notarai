@@ -30,7 +30,7 @@ import magazyn
 log = logging.getLogger("pieczapp.zlecenia")
 
 WAZNOSC_MINUT = int(os.getenv("PIECZAPP_ZLECENIE_MINUT", "30"))
-RODZAJE = ("krz", "formularz", "klikamy")
+RODZAJE = ("krz", "formularz", "klikamy", "program", "programy")
 # "w_toku": zlecenie zlozone przez rozszerzenie przegladarki, ktore samo je
 # wykonuje - pomocnik (.exe) nie ma go odbierac, wiec nie moze "czekac".
 STANY = ("czeka", "w_toku", "wykonane")
@@ -187,6 +187,35 @@ def pomocnik_aktywny() -> bool:
         return _teraz() - datetime.fromisoformat(widziany) < timedelta(minutes=ODDECH_MINUT)
     except Exception:  # noqa: BLE001 - brak znacznika znaczy po prostu "nie ma pomocnika"
         return False
+
+
+# --- Spis programow z komputera notariusza -----------------------------------
+# Pomocnik rozpoznaje programy kancelaryjne i biurowe. Ostatni spis trzymamy,
+# zeby notariusz nie czekal na rozpoznanie przy kazdym poleceniu. Spis niesie
+# nazwy programow i metod, nigdy sciezek ani nazw plikow.
+
+
+def _klucz_programow(kancelaria: str) -> str:
+    return f"{magazyn.PREFIKS}/{kancelaria}/programy.json"
+
+
+def zapisz_programy(programy: list[dict]) -> None:
+    magazyn._klient_s3().put_object(
+        Bucket=magazyn.BUCKET,
+        Key=_klucz_programow(magazyn.kancelaria()),
+        Body=json.dumps({"rozpoznano": _teraz().isoformat(timespec="seconds"),
+                         "programy": programy}, ensure_ascii=False).encode("utf-8"),
+        **magazyn._szyfrowanie(),
+    )
+
+
+def programy() -> dict:
+    try:
+        odpowiedz = magazyn._klient_s3().get_object(
+            Bucket=magazyn.BUCKET, Key=_klucz_programow(magazyn.kancelaria()))
+        return json.loads(odpowiedz["Body"].read().decode("utf-8"))
+    except Exception:  # noqa: BLE001 - brak spisu to zwykly przypadek
+        return {"rozpoznano": "", "programy": []}
 
 
 def usun(identyfikator: str) -> None:

@@ -309,10 +309,41 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 `docs/testy-z-notariuszem-ksiegi.md`.
 
-## NA-14. Nitro Confidential Browser — test sprzętowy i formularz fikcyjny
+## NA-15. Nitro Confidential Browser — test sprzętowy i formularz fikcyjny
 
 - **Status:** czeka
 - **Brakuje:** dostępu wdrożeniowego do AWS ECS Managed Instances eu-central-1, stworzonego capacity provider z Nitro Sandboxes oraz klucza KMS z polityką PCR17; nie przesyłać kluczy do rozmowy.
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+## NA-16. Programy kancelaryjne — pomocnik w prawdziwym Windowsie (UI Automation)
+
+- **Status:** czeka
+- **Brakuje:** komputera z Windows 10/11 i programem kancelaryjnym notariusza
+  (najlepiej kopia z danymi pokazowymi) oraz zbudowanego `.exe` 0.3
+  (`infra\zbuduj-pomocnika.ps1` — po raz pierwszy z biblioteką `uiautomation`).
+- **Na żywo:**
+  1. Zbudować `.exe` i sprawdzić, że uruchamia się na czystym Windowsie
+     (comtypes w PyInstallerze potrafi szukać katalogu na wygenerowane moduły —
+     jeśli się wysypie, to tutaj).
+  2. „Rozpoznaj programy”: czy program kancelaryjny jest na liście i ma dobrą
+     kategorię; jeśli nie — dopisać jego nazwę/wydawcę do `KANCELARYJNE`
+     w `pomocnik/programy.py`. Zapisać, jakie metody wykrył (baza / pliki / com).
+  3. Polecenie tylko do odczytu („otwórz repertorium A, pokaż ostatni wpis”):
+     czy kontrolki mają nazwy (programy Delphi/Clarion bywają „ślepe” dla UIA).
+  4. Polecenie z wpisaniem w pole wyszukiwania i STOP przed „Zapisz” — zapisać,
+     jak program nazywa przyciski zapisu, zatwierdzenia i numerowania; dopisać
+     do `SKUTEK_W_PROGRAMIE`, jeśli któryś się prześlizgnie.
+  5. Word: otwarcie projektu aktu i wpisanie fragmentu (UIA; COM później).
+  6. Program uruchomiony „jako administrator” — potwierdzić, że pomocnik
+     mówi wprost, że go nie widzi.
+- **Dalej (po zaliczeniu):** wykonanie metod `baza` (ODBC, tylko odczyt —
+  import repertorium, łączy się z NA-5) i `com` (Word), wariant „turbo” w
+  chmurze (AppStream 2.0 / WorkSpaces w eu-central-1 — licencja programu,
+  koszt, zgoda notariusza na nowy zasób z danymi osobowymi).
+- **W kodzie:** `pomocnik/programy.py`, `pomocnik/w_programie.py`,
+  `pomocnik/uia.py`, `docs/programy-kancelaryjne.md`, `test_pomocnik_programy.py`.
+- **Zamknięte, gdy:** notariusz zleca z notarai odczyt i wpisanie w swoim
+  programie kancelaryjnym, pomocnik zatrzymuje się przed zapisem, a notariusz
+  potwierdza, że zrobił to, co zrobiłby ręcznie.

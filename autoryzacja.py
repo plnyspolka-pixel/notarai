@@ -75,6 +75,8 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/kredyty", "/api/dokumenty",
                   "/api/pomocnik", "/api/mapa", "/api/zapytania",
+                  # programy na komputerze notariusza - steruje nimi tylko kancelaria
+                  "/api/programy",
                   # Repertorium i zgloszenia AML - tajemnica notarialna, art. 18 PrNot.
                   "/api/ksiegi-kancelarii", "/api/giif")
 _SERWIS_MAKS_GODZIN = 7 * 24

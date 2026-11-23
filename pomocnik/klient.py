@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 log = logging.getLogger("notarai.pomocnik.klient")
 
-WERSJA = "0.2"
+WERSJA = "0.3"
 PRZERWA_S = 3.0
 PRZERWA_PO_BLEDZIE_S = 15.0
 
@@ -113,6 +113,12 @@ class Notarai:
         i nie musi go miec. Dostaje gotowa czynnosc, nie klucze do modelu.
         """
         wynik = self._zadanie(f"/api/pomocnik/klikamy/{zlecenie}/krok",
+                              {"cel": cel, "stan": stan, "kroki": kroki})
+        return wynik if isinstance(wynik, dict) else {}
+
+    def krok_w_programie(self, zlecenie: str, cel: str, stan: dict, kroki: list) -> dict:
+        """To samo co krok_klikania, tylko dla okna programu na tym komputerze."""
+        wynik = self._zadanie(f"/api/pomocnik/program/{zlecenie}/krok",
                               {"cel": cel, "stan": stan, "kroki": kroki})
         return wynik if isinstance(wynik, dict) else {}
 

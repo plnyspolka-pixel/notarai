@@ -9,8 +9,10 @@
 # zbudowac i wdrozyc obraz jak zwykle (2-zbuduj-obraz, 3-wdroz-aplikacje).
 #
 # Narzedzia budowania (PyInstaller) leza w osobnym srodowisku .venv-pomocnik,
-# zeby nie mieszac ich z zaleznosciami aplikacji. Pomocnik korzysta tylko z
-# biblioteki standardowej Pythona, wiec plik jest maly.
+# zeby nie mieszac ich z zaleznosciami aplikacji. Pomocnik korzysta z
+# biblioteki standardowej Pythona i jednej biblioteki do Windows UI Automation
+# (uiautomation + comtypes, kilka MB) - przez nia obsluguje programy na
+# komputerze (pomocnik/uia.py). Nadal jeden plik.
 param(
     [string]$Python = ""
 )
@@ -34,7 +36,7 @@ if (-not (Test-Path $py)) {
 }
 
 Write-Host "== Instaluje PyInstaller" -ForegroundColor Cyan
-& $py -m pip install --quiet --disable-pip-version-check "pyinstaller>=6.16,<7" "pillow>=11"
+& $py -m pip install --quiet --disable-pip-version-check "pyinstaller>=6.16,<7" "pillow>=11" "uiautomation>=2.0.20,<3" "comtypes>=1.4"
 Sprawdz "Instalacja PyInstallera"
 
 $wersja = (& $py -c "import sys; sys.path.insert(0, r'$korzen'); from pomocnik.klient import WERSJA; print(WERSJA)").Trim()
@@ -48,6 +50,8 @@ try {
         --icon (Join-Path $korzen "static\logo.png") `
         --add-data ((Join-Path $korzen "static\favicon.png") + ";static") `
         --paths $korzen `
+        --collect-all uiautomation `
+        --hidden-import comtypes.stream `
         --distpath $cel `
         --workpath $robocze `
         --specpath $robocze `

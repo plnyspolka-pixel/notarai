@@ -271,7 +271,13 @@ async function pilnujKolejki() {
   }
 }
 
+// Praca w programach Windows nalezy do pomocnika .exe - przegladarka nie ma
+// dostepu do okien. Takie zlecenie zostawiamy w kolejce, zamiast odsylac
+// "nie obsluguje", bo wtedy przepadloby, zanim siegnie po nie pomocnik.
+const TYLKO_DLA_POMOCNIKA = ["program", "programy"];
+
 async function przyjmij(z) {
+  if (TYLKO_DLA_POMOCNIKA.includes(z.rodzaj)) return;
   const notarai = new Notarai(ustawienia.adres, ustawienia.token);
   const opis = opisZlecenia(z);
   if (!opis) {

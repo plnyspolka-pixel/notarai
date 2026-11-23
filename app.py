@@ -1287,6 +1287,12 @@ BRAK_POMOCNIKA = (
     "nie ma kto go wykonac. Uruchom pomocnika i sprobuj ponownie."
 )
 
+BRAK_POMOCNIKA_PROGRAMY = (
+    "Pomocnik notarai nie jest teraz uruchomiony na Twoim komputerze. Programy "
+    "kancelaryjne stoja u Ciebie, wiec bez niego nie ma kto ich obsluzyc. "
+    "Uruchom pomocnika i sprobuj ponownie."
+)
+
 BRAK_PRZEGLADARKI = (
     "Wpisywanie do rejestru dzieje sie w przegladarce na Twoim komputerze, "
     "a ta notarai pracuje w chmurze. Zrobi to pomocnik notarai, ktory "
@@ -1922,7 +1928,139 @@ def stan_zlecenia(identyfikator: str, zlecenie: str):
 class RaportPomocnika(BaseModel):
     sprawdzenia: list[ZadanieSprawdzenia] = []
     bledy: list[str] = []
-    kroki: list[dict] = []      # tylko zlecenie "formularz": pole, wykonano, uwaga
+    kroki: list[dict] = []      # "formularz": pole, wykonano, uwaga; "klikamy"/"program": kroki agenta
+    podsumowanie: str = ""      # "klikamy"/"program": agent doszedl do celu
+    pytanie: str = ""           # "klikamy"/"program": agent oddaje stery notariuszowi
+    programy: list[dict] = []   # "programy": spis z komputera (nazwy i metody, bez sciezek)
+    metoda: str = ""            # "program": droga, ktora pomocnik wybral sam
+    uzasadnienie: str = ""
+
+
+_POLA_KROKU = ("nr", "akcja", "cel", "mysl", "uwaga", "wykonano")
+
+
+def _kroki_agenta(kroki: list[dict]) -> list[dict]:
+    """Kroki agenta do zapisu. Wpisywane wartosci nigdy nie przychodza - tylko
+    opis kontrolki - ale i tak przycinamy, co przyszlo, i bierzemy znane pola."""
+    wynik = []
+    for k in kroki[:100]:
+        wpis = {p: k.get(p) for p in _POLA_KROKU if p in k}
+        for p in ("akcja", "cel", "mysl", "uwaga"):
+            if p in wpis:
+                wpis[p] = str(wpis[p] or "")[:300]
+        wpis["wykonano"] = bool(wpis.get("wykonano"))
+        wynik.append(wpis)
+    return wynik
+
+
+_POLA_PROGRAMU = ("id", "nazwa", "wydawca", "wersja", "kategoria")
+KATEGORIE_PROGRAMOW = ("kancelaryjny", "biurowy", "inny")
+
+
+def _spis_programow(programy: list[dict]) -> list[dict]:
+    """Spis z pomocnika do zapisu: znane pola, przyciete, bez sciezek."""
+    wynik = []
+    for p in programy[:200]:
+        wpis = {k: str(p.get(k) or "")[:120] for k in _POLA_PROGRAMU}
+        if not re.fullmatch(r"[a-z0-9\-]{1,60}", wpis["id"]):
+            continue
+        if wpis["kategoria"] not in KATEGORIE_PROGRAMOW:
+            wpis["kategoria"] = "inny"
+        metody = p.get("metody") if isinstance(p.get("metody"), dict) else {}
+        wpis["metody"] = {m: str(o)[:160] for m, o in metody.items()
+                          if m in ("baza", "pliki", "com", "okna")}
+        zalecana = p.get("zalecana") if isinstance(p.get("zalecana"), dict) else {}
+        wpis["zalecana"] = {c: str(m)[:10] for c, m in zalecana.items() if c in ("odczyt", "praca")}
+        wynik.append(wpis)
+    return wynik
+
+
+# --- Programy na komputerze notariusza --------------------------------------
+# Pomocnik rozpoznaje programy kancelaryjne i biurowe i sam wybiera droge do
+# kazdego (baza / pliki / COM / okna przez UI Automation). Serwer wskazuje
+# program tylko identyfikatorem ze spisu - jaki plik uruchomic, ustala pomocnik.
+
+
+@app.post("/api/programy/rozpoznaj", status_code=202)
+def rozpoznaj_programy():
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    if not _pomocnik_pod_reka():
+        raise HTTPException(409, BRAK_POMOCNIKA_PROGRAMY)
+    zlecenie = zlecenia.zloz("programy", "", {})
+    return {"zlecenie": zlecenie["id"], "stan": "czeka"}
+
+
+@app.get("/api/programy")
+def spis_programow():
+    if not zlecenia.dostepne():
+        return {"rozpoznano": "", "programy": [], "dostepne": False}
+    return {**zlecenia.programy(), "dostepne": True}
+
+
+@app.get("/api/programy/zlecenia/{zlecenie}")
+def stan_rozpoznania(zlecenie: str):
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    stan = zlecenia.wynik(zlecenie)
+    if not stan or stan.get("rodzaj") != "programy":
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    return {"stan": stan["stan"], "raport": stan.get("raport")}
+
+
+class ZadanieProgramu(BaseModel):
+    cel: str
+    program: str
+    rodzaj_celu: str = "praca"   # "praca" albo "odczyt" - wplywa na wybor metody
+
+
+@app.post("/api/sprawy/{identyfikator}/program", status_code=202)
+def zlec_prace_w_programie(request: Request, identyfikator: str, zadanie: ZadanieProgramu):
+    # Dostep serwisowy nie steruje komputerem notariusza - to nie dane, tylko jego biurko.
+    if getattr(request.state, "serwis", False):
+        raise HTTPException(403, "Dostep serwisowy nie steruje programami kancelarii")
+    _katalog_sprawy(identyfikator)
+    cel = zadanie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co pomocnik ma zrobic w programie")
+    program = zadanie.program.strip().lower()
+    if not re.fullmatch(r"[a-z0-9\-]{1,60}", program):
+        raise HTTPException(400, "Wybierz program z listy rozpoznanych")
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    if not _pomocnik_pod_reka():
+        raise HTTPException(409, BRAK_POMOCNIKA_PROGRAMY)
+    zlecenie = zlecenia.zloz("program", identyfikator, {
+        "cel": cel[:1000], "program": program,
+        "rodzaj_celu": zadanie.rodzaj_celu if zadanie.rodzaj_celu in ("praca", "odczyt") else "praca",
+    })
+    log.info("sprawa %s: zlecono prace w programie, zlecenie %s", identyfikator, zlecenie["id"])
+    return {"zlecenie": zlecenie["id"], "stan": "czeka"}
+
+
+class WidokOkna(BaseModel):
+    cel: str
+    stan: dict
+    kroki: list[dict] = []
+
+
+@app.post("/api/pomocnik/program/{zlecenie}/krok")
+def krok_w_programie(request: Request, zlecenie: str, widok: WidokOkna):
+    """Pomocnik pokazuje kontrolki okna programu; model mowi, co zrobic dalej."""
+    if not zlecenia.dostepne():
+        raise HTTPException(404, "Ta instalacja nie sklada zlecen")
+    stan = zlecenia.wynik(zlecenie)
+    if not stan or stan.get("rodzaj") != "program" or stan.get("stan") != "czeka":
+        raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    _odnotuj_pomocnika(request)
+    try:
+        with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
+            krok = bedrock.nastepny_krok_w_programie(widok.cel, widok.stan, widok.kroki)
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
+    log.info("zlecenie %s: krok w programie %s", zlecenie, krok.get("akcja") or "brak")
+    return krok
+
 
 
 # --- Klikamy: model prowadzi przegladarke notariusza ------------------------
@@ -2060,7 +2198,16 @@ def zlecenia_dla_pomocnika(request: Request, wersja: str = ""):
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
     _odnotuj_pomocnika(request, wersja)
-    return zlecenia.czekajace()
+    lista = zlecenia.czekajace()
+    # Rozszerzenie przegladarki (wersja "r...") nie ma dostepu do okien Windows.
+    # Zlecenie programowe oddane mu przepadloby z "nie obsluguje", zanim siegnie
+    # po nie pomocnik .exe - wiec go nie widzi.
+    if wersja.startswith("r"):
+        lista = [z for z in lista if z.get("rodzaj") not in RODZAJE_TYLKO_DLA_EXE]
+    return lista
+
+
+RODZAJE_TYLKO_DLA_EXE = ("program", "programy")
 
 
 # --- laczenie pomocnika z kancelaria ---------------------------------------
@@ -2203,9 +2350,32 @@ def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika)
     if stan.get("stan") == "wykonane":
         return {"stan": "wykonane", "zapisano": 0}
 
+    rodzaj = stan.get("rodzaj")
+    if rodzaj == "programy":
+        spis = _spis_programow(raport.programy)
+        zlecenia.zapisz_programy(spis)
+        zlecenia.zapisz_wynik(zlecenie, {"programy": spis,
+                                         "bledy": [str(b)[:300] for b in raport.bledy[:20]]})
+        log.info("zlecenie %s: spis programow, pozycji=%d", zlecenie, len(spis))
+        return {"stan": "wykonane", "zapisano": len(spis)}
+    if rodzaj in ("klikamy", "program"):
+        # Wczesniej z raportu zostawaly same bledy - ekran Klikamy nie mial
+        # czego pokazac. Kroki niosa opis kontrolki, nie wpisywane wartosci.
+        zlecenia.zapisz_wynik(zlecenie, {
+            "kroki": _kroki_agenta(raport.kroki),
+            "podsumowanie": raport.podsumowanie[:600],
+            "pytanie": raport.pytanie[:400],
+            "metoda": raport.metoda[:10],
+            "uzasadnienie": raport.uzasadnienie[:300],
+            "bledy": [str(b)[:300] for b in raport.bledy[:20]],
+        })
+        log.info("zlecenie %s: %s, krokow=%d pytanie=%s", zlecenie, rodzaj,
+                 len(raport.kroki), bool(raport.pytanie))
+        return {"stan": "wykonane", "zapisano": 0}
+
     identyfikator = stan["sprawa"]
     katalog = _katalog_sprawy(identyfikator)
-    if stan.get("rodzaj") == "formularz":
+    if rodzaj == "formularz":
         # Bez wartosci pol: serwer je zna, bo sam je przyslal, a raport zostaje
         # w zleceniu. Nazwa pola i to, czy wpisano - nic wiecej.
         kroki = [{"pole": str(k.get("pole", ""))[:120], "wykonano": bool(k.get("wykonano")),
