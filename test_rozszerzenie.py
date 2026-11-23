@@ -239,6 +239,7 @@ def test_opis_portalu_krz_w_testach_rozszerzenia_jest_aktualny():
 
 @pytest.mark.skipif(not shutil.which("node"), reason="brak Node.js")
 def test_silnik_rozszerzenia_przechodzi_wlasne_testy():
-    wynik = subprocess.run(["node", "--test", "testy/silnik.test.mjs", "testy/kolejka.test.mjs"], cwd=KATALOG,
+    wynik = subprocess.run(["node", "--test", "testy/silnik.test.mjs", "testy/kolejka.test.mjs",
+                            "testy/maskowanie.test.mjs"], cwd=KATALOG,
                            capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert wynik.returncode == 0, wynik.stdout[-3000:] + wynik.stderr[-2000:]

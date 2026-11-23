@@ -59,6 +59,10 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 .bz-zagr-k .typ { margin:9px 0 0; font-size:.92rem; color:var(--tekst2); }
 .bz-zagr-k .typ b { color:var(--tekst); }
 .bz-zagr-k .meta { margin:9px 0 0; font-size:.9rem; color:var(--tekst2); }
+.bz-zagr-k .rozw { margin:11px 0 0; background:var(--ok-tlo); border:1px solid #cce7d7; border-radius:10px; padding:10px 12px; }
+.bz-zagr-k .rozw-tyt { margin:0 0 4px; font-weight:700; color:var(--ok); font-size:.92rem; }
+.bz-zagr-k .rozw ul { margin:0; padding-left:18px; }
+.bz-zagr-k .rozw li { margin:3px 0; font-size:.9rem; color:var(--tekst); }
 
 /* Skanowanie na żywo */
 .bz-skan { padding:8px 0 10px; min-height:2px; }
@@ -254,6 +258,7 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
           <li><b>Twój klucz bezpieczeństwa.</b> Ustawiasz hasło, a notarai generuje Twój klucz odzyskiwania. <b>Wydrukuj go od razu i schowaj do sejfu</b> — to on odblokuje dane, gdyby coś się stało komputerowi. Bez niego nikt, także my, ich nie odzyska.</li>
           <li><b>Kopie i 2FA.</b> Bezpieczne kopie zapasowe w UE oraz logowanie dwuskładnikowe do poczty i systemów kancelarii.</li>
         </ol>
+        <p style="margin:16px 0 0;color:#eaf1ff;font-size:.95rem;"><b style="color:#fff;">Na czym to stoi:</b> infrastruktura jednego z największych dostawców na świecie (AWS), region UE — eu-central-1, ośrodki certyfikowane ISO 27001 i SOC 2. Wszystko szyfrowane (dysk, połączenia, kopie). Dane przetwarzamy algorytmicznie z minimalizacją przesyłu, maskowaniem i anonimizacją — wysyłamy jak najmniej i bez danych wrażliwych.</p>
         <p class="bz-wdrozenie">Wdrożenie jest samoobsługowe: pobierasz notarai, uruchamiasz, ustawiasz hasło i drukujesz swój klucz. Ten moduł przygotowujemy — tutaj pojawi się przycisk „Włącz ochronę danych”.</p>
       </section>
     </section>
@@ -352,6 +357,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const kons=document.createElement('p'); kons.className='kons';
         const b=document.createElement('strong'); b.textContent='Jeśli się uda: ';
         kons.append(b, document.createTextNode(z.konsekwencja)); el.append(kons);
+        if (Array.isArray(z.rozwiazanie) && z.rozwiazanie.length){
+          const rozw=document.createElement('div'); rozw.className='rozw';
+          const rt=document.createElement('p'); rt.className='rozw-tyt'; rt.textContent='Jak notarai to rozwiązuje:'; rozw.append(rt);
+          const rul=document.createElement('ul'); z.rozwiazanie.forEach(r=>{ const li=document.createElement('li'); li.textContent=r; rul.append(li); }); rozw.append(rul);
+          el.append(rozw);
+        }
       } else {
         const p=document.createElement('p'); p.className='spok';
         p.textContent='Na podstawie tego, co wiemy, nie widać tu luki — o ile samoaudyt niżej jest szczery.'; el.append(p);

@@ -277,11 +277,11 @@ function ocenZagrozenia(karty, samoaudyt) {
   const nie = id => samoaudyt[id] === false;
   const band = { alarm: 'wysoka', uwaga: 'średnia', ok: 'niska' };
 
-  function scenariusz(nazwa, typ, konsekwencja, czynniki) {
+  function scenariusz(nazwa, typ, konsekwencja, rozwiazanie, czynniki) {
     const aktywne = czynniki.filter(c => c.zly);
     let poziom = aktywne.length >= 2 ? 'alarm' : aktywne.length === 1 ? 'uwaga' : 'ok';
     if (aktywne.some(c => c.krytyczny)) poziom = 'alarm';
-    return { nazwa, typ, konsekwencja, poziom, powody: aktywne.map(c => c.tekst),
+    return { nazwa, typ, konsekwencja, rozwiazanie, poziom, powody: aktywne.map(c => c.tekst),
       latwosc: band[poziom], skutecznosc: band[poziom] };
   }
 
@@ -290,6 +290,11 @@ function ocenZagrozenia(karty, samoaudyt) {
       'Ransomware zaszyfruje Twoje akta',
       'Złośliwe oprogramowanie szyfruje dysk — najczęściej z załącznika, linku albo przez niezałataną lukę w systemie. Działa automatycznie, masowo, nie wybiera „ważnych” ofiar.',
       'Akta wszystkich spraw zablokowane do odwołania, żądanie okupu (zwykle w kryptowalucie), zgłoszenie do UODO w 72 godziny, zawiadomienie klientów i ryzyko odpowiedzialności dyscyplinarnej. Bez kopii — akta przepadają bezpowrotnie.',
+      [
+        'Szyfrowane, certyfikowane kopie zapasowe w UE — masz z czego odtworzyć akta, więc okup przestaje mieć sens.',
+        'Aktualny, wspierany system i oprogramowanie — koniec z dziurami, na które nie ma łatki.',
+        'Monitoring i ochrona antywirusowa w standardzie.',
+      ],
       [
         { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system bez poprawek — główna, zautomatyzowana droga ransomware' },
         { zly: nie('kopie'), krytyczny: true, tekst: 'brak kopii zapasowych poza komputerem — nie ma z czego odtworzyć akt' },
@@ -301,6 +306,11 @@ function ocenZagrozenia(karty, samoaudyt) {
       'Fałszywy e-mail lub podrobiona strona logowania wyłudza hasło; gotowe, wykradzione wcześniej hasła sprawdza się automatycznie w tysiącach usług (credential stuffing).',
       'Z przejętej poczty atakujący podszywa się pod Ciebie wobec klientów i urzędów, resetuje hasła do innych usług, zmienia numery kont do przelewów i sięga po dane oraz pieniądze.',
       [
+        'Logowanie dwuskładnikowe (2FA) wszędzie, gdzie wchodzą dane kancelarii — samo hasło przestaje wystarczać atakującemu.',
+        'Menedżer haseł — koniec z powtarzaniem haseł, które wyciekają.',
+        'Algorytmiczna minimalizacja i maskowanie danych w naszych narzędziach — wysyłamy jak najmniej i bez danych wrażliwych.',
+      ],
+      [
         { zly: alarm('haslo'), krytyczny: true, tekst: 'Twoje hasło jest w znanych wyciekach — atakujący ma je gotowe' },
         { zly: wer['haslo'] === 'uwaga', tekst: 'słabe hasło — szybkie do złamania' },
         { zly: nie('mfa'), krytyczny: true, tekst: 'brak logowania dwuskładnikowego (2FA) — samo hasło wystarcza' },
@@ -310,6 +320,11 @@ function ocenZagrozenia(karty, samoaudyt) {
       'Ktoś wejdzie na Twój komputer i wykradnie dane',
       'Zdalny dostęp przez niezałataną lukę albo fizyczny — kradzież lub zguba sprzętu z nieszyfrowanym dyskiem. W obu przypadkach dane leżą otworem.',
       'Dostęp do wszystkich akt i danych klientów (PESEL, adresy, majątek). Przy kradzieży lub zgubie laptopa — odczyt całego dysku bez żadnej przeszkody, a Ty nawet nie wiesz, że dane wyciekły.',
+      [
+        'Szyfrowanie dysków (BitLocker) — skradziony komputer to bezużyteczna cegła, nie skarbnica akt.',
+        'Automatyczna blokada ekranu i kontrola dostępu do stanowiska.',
+        'Infrastruktura jednego z największych dostawców (AWS), region UE (eu-central-1), ośrodki certyfikowane ISO 27001 i SOC 2.',
+      ],
       [
         { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system z publicznie znanymi lukami' },
         { zly: nie('szyfrowanie'), krytyczny: true, tekst: 'dysk niezaszyfrowany — kto weźmie komputer, czyta akta' },

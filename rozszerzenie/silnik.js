@@ -43,12 +43,34 @@ export function wolnoWejsc(adres, dozwolone) {
   return dozwolone.some(h => h && (nazwa === h || nazwa.endsWith("." + h)));
 }
 
-/* Serwer i model dostaja opis strony bez selektorow: te zostaja tutaj. */
+/* Maskowanie danych wrazliwych PRZED wyslaniem do modelu. Minimalizacja u
+   zrodla: czego nie wyslemy, tego nikt nie wyniesie. Zamieniamy na etykiete,
+   nie usuwamy - model dalej rozumie, ze "tu jest PESEL", ale go nie widzi.
+   Kolejnosc wazna: dluzsze ciagi cyfr przed krotszymi. */
+const WZORY_PII = [
+  [/\b(?:PL)?\d{26}\b/g, "[NR KONTA]"],                           // numer rachunku (NRB)
+  [/\b\d{11}\b/g, "[PESEL]"],                                     // PESEL
+  [/\b\d{3}-\d{3}-\d{2}-\d{2}\b/g, "[NIP]"],                      // NIP z mysln.
+  [/\b\d{10}\b/g, "[NIP]"],                                       // NIP ciagiem
+  [/\bRep\.?\s*A\s*(?:nr\.?)?\s*\d+\s*\/\s*\d{2,4}\b/gi, "[NR AKTU]"],  // repertorium A
+  [/\b[A-Za-z]{3}\s?\d{6}\b/g, "[DOWÓD]"],                        // dowod osobisty
+  [/\+48[\s-]?\d{3}[\s-]?\d{3}[\s-]?\d{3}\b/g, "[TEL]"],          // telefon +48
+];
+
+export function maskujDane(s) {
+  if (typeof s !== "string" || !s) return s;
+  let t = s;
+  for (const [re, zam] of WZORY_PII) t = t.replace(re, zam);
+  return t;
+}
+
+/* Serwer i model dostaja opis strony bez selektorow (te zostaja tutaj) oraz z
+   zamaskowanymi danymi wrazliwymi (PESEL, dowod, nr aktu, konto, NIP, tel.). */
 export function stanDlaModelu(stan) {
   return {
-    adres: stan.adres,
-    tekst: stan.tekst,
-    elementy: stan.elementy.map(e => ({ nr: e.nr, rola: e.rola, opis: e.opis })),
+    adres: maskujDane(stan.adres),
+    tekst: maskujDane(stan.tekst),
+    elementy: stan.elementy.map(e => ({ nr: e.nr, rola: e.rola, opis: maskujDane(e.opis) })),
   };
 }
 
