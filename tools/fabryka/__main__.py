@@ -2,9 +2,11 @@
 
     python -m tools.fabryka stan                  # bufor, wielkość paczki, kolejne odcinki i sloty
     python -m tools.fabryka karta H23 --sezon 1   # szkic karty sprawy z SAOS (bez danych osobowych)
-    python -m tools.fabryka scenariusz s01e09     # Bedrock → scenariusz + bramka (--tylko-prompt: bez wywołania)
-    python -m tools.fabryka plan s01e09 --adres https://…/serial   # zlecenia: głosy, GPU, montaż
-    python -m tools.fabryka publikuj s01e09 --wideo https://… --plakat https://… --napisy https://… --akceptacja "…"
+    python -m tools.fabryka scenariusz s01e09 --tylko-prompt   # prompt dla sesji Claude (domyślna droga)
+    python -m tools.fabryka scenariusz s01e09 --waliduj plik.json   # scenariusz od Claude → bramka → zapis
+    python -m tools.fabryka scenariusz s01e09     # opcjonalnie: Bedrock pisze sam (wymaga poświadczeń AWS)
+    python -m tools.fabryka plan s01e09           # zlecenia: głosy, GPU (tor V6), montaż (finyou-render v2)
+    python -m tools.fabryka publikuj s01e09 --akceptacja "…"   # wpis do kolejki; adresy wyniku domyślne
     python -m tools.fabryka dzien                 # cały dzienny przebieg bez kroków płatnych
 
 Kroki płatne (GPU w Salad, ElevenLabs) fabryka tylko przygotowuje; uruchamia je dzienny przebieg
@@ -118,15 +120,27 @@ def cmd_scenariusz(a) -> dict | None:
     numer = {"id": a.id, "sezon": s, "odcinek": e, "slot": plan.get("slot") or ("09:00" if e % 2 else "16:00")}
     sceno = scenografia()
     karta = _karta_tekst(s, plan.get("kotwica", ""))
+    kontekst = {"uzyte_w_sezonie": uzyte, "poprzedni_typ_otwarcia": (poprz[0] if poprz else {}).get("typ_otwarcia")}
+    if getattr(a, "waliduj", None):
+        sc = json.loads(Path(a.waliduj).read_text(encoding="utf-8"))
+        if sc.get("id") != a.id:
+            raise SystemExit(f"plik ma id {sc.get('id')}, oczekiwano {a.id}")
+        problemy = walidatory.sprawdz(sc, scenografia=sceno, **kontekst)
+        sc["_fabryka"] = {"problemy": problemy, "autor": "sesja Claude", "zrodlo": str(a.waliduj)}
+        out = zapisz_json(katalog_odcinkow(s) / f"{a.id}.json", sc)
+        print(f"{'ODRZUCONY' if problemy else 'OK'} {out}")
+        for p in problemy:
+            print(f"  - {p}")
+        if problemy:
+            raise SystemExit(1)
+        return sc
     if a.tylko_prompt:
         system, messages = scenariusz.prompt(numer, plan, karta, poprz[0] if poprz else None, sceno)
         out = katalog_odcinkow(s) / f"{a.id}.prompt.json"
         zapisz_json(out, {"system": system, "messages": messages})
         print(f"prompt zapisany: {out} (planów scenografii: {len(sceno)})")
         return None
-    sc, problemy, zuzycie = scenariusz.napisz(
-        numer, plan, karta, poprz[0] if poprz else None, sceno,
-        {"uzyte_w_sezonie": uzyte, "poprzedni_typ_otwarcia": (poprz[0] if poprz else {}).get("typ_otwarcia")})
+    sc, problemy, zuzycie = scenariusz.napisz(numer, plan, karta, poprz[0] if poprz else None, sceno, kontekst)
     sc["_fabryka"] = {"problemy": problemy, "zuzycie": zuzycie, "model": scenariusz.MODEL}
     out = zapisz_json(katalog_odcinkow(s) / f"{a.id}.json", sc)
     print(f"{'ODRZUCONY' if problemy else 'OK'} {out}")
@@ -141,7 +155,7 @@ def cmd_plan(a) -> dict:
     problemy = walidatory.sprawdz(sc, scenografia=scenografia())
     if problemy:
         raise SystemExit(f"{a.id}: scenariusz nie przechodzi bramki: {problemy}")
-    pliki = planer.zapisz_plan(sc, katalog_odcinkow(int(m[1])) / "zlecenia", a.adres)
+    pliki = planer.zapisz_plan(sc, katalog_odcinkow(int(m[1])) / "zlecenia")
     print(json.dumps({k: str(v) for k, v in pliki.items()}, ensure_ascii=False, indent=1))
     return pliki
 
@@ -150,7 +164,9 @@ def cmd_publikuj(a) -> dict:
     m = re.match(r"s(\d+)e(\d+)$", a.id)
     sc = json.loads((katalog_odcinkow(int(m[1])) / f"{a.id}.json").read_text(encoding="utf-8"))
     kol = publikacja.wczytaj()
-    w = publikacja.dopisz(kol, sc, {"wideo": a.wideo, "plakat": a.plakat, "napisy": a.napisy},
+    domyslne = planer.url_wyniku(a.id)
+    w = publikacja.dopisz(kol, sc, {"wideo": a.wideo or domyslne["wideo"], "plakat": a.plakat or domyslne["plakat"],
+                                    "napisy": a.napisy},
                           a.czas or walidatory.dlugosc(sc), a.akceptacja, czas(a.teraz) if a.teraz else teraz())
     publikacja.zapisz(kol)
     print(json.dumps(w, ensure_ascii=False, indent=1))
@@ -166,10 +182,10 @@ def cmd_dzien(a) -> dict:
         s = int(m[1])
         for kid in karty.kotwice((n.get("plan") or {}).get("kotwica", "")):
             cmd_karta(argparse.Namespace(id=kid, sezon=s, nadpisz=False))
-        sc = cmd_scenariusz(argparse.Namespace(id=n["id"], tylko_prompt=a.bez_llm))
+        sc = cmd_scenariusz(argparse.Namespace(id=n["id"], tylko_prompt=not a.bedrock, waliduj=None))
         wpis = {"id": n["id"], "scenariusz": None if sc is None else ("odrzucony" if sc["_fabryka"]["problemy"] else "ok")}
         if sc and not sc["_fabryka"]["problemy"]:
-            wpis["zlecenia"] = {k: str(v) for k, v in cmd_plan(argparse.Namespace(id=n["id"], adres=a.adres)).items()}
+            wpis["zlecenia"] = {k: str(v) for k, v in cmd_plan(argparse.Namespace(id=n["id"])).items()}
         raport["odcinki"].append(wpis)
     out = zapisz_json(katalog_odcinkow(1).parent / "dziennik" / f"{teraz():%Y-%m-%d}.json", raport)
     print(f"raport dnia: {out}")
@@ -183,12 +199,13 @@ def main(argv=None):
         x = sub.add_parser(nazwa)
         x.add_argument("--teraz", help="ISO, do testów i podglądu")
         if nazwa == "dzien":
-            x.add_argument("--bez-llm", action="store_true", help="tylko prompty, bez wywołania Bedrock")
-            x.add_argument("--adres", default="https://MAGAZYN-UE/serial", help="baza adresów mediów w UE")
+            x.add_argument("--bedrock", action="store_true",
+                           help="scenariusz przez Bedrock; domyślnie tylko prompty dla sesji Claude")
     x = sub.add_parser("karta"); x.add_argument("id"); x.add_argument("--sezon", type=int, default=1)
     x.add_argument("--nadpisz", action="store_true")
     x = sub.add_parser("scenariusz"); x.add_argument("id"); x.add_argument("--tylko-prompt", action="store_true")
-    x = sub.add_parser("plan"); x.add_argument("id"); x.add_argument("--adres", required=True)
+    x.add_argument("--waliduj", metavar="PLIK", help="scenariusz JSON napisany w sesji Claude: tylko bramka i zapis")
+    x = sub.add_parser("plan"); x.add_argument("id")
     x = sub.add_parser("publikuj"); x.add_argument("id")
     for k in ("wideo", "plakat", "napisy", "akceptacja", "teraz"):
         x.add_argument(f"--{k}")

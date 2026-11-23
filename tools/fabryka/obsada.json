@@ -1,0 +1,16 @@
+{
+  "opis": "Obsada fabryki odcinków: stałe głosy ElevenLabs (projektowane eleven_ttv_v3, mowa eleven_v4/eleven_v3) i karty postaci dla kroku „postać w planie” (tor GPU V6). Brak głosu = plan odcinka przerwany.",
+  "postacie": {
+    "helena": {"voice_id": "0YMlrD87k6Saqi6L1Joy", "kto": "notariuszka, 56 lat", "karta": null},
+    "marta": {"voice_id": "rOIbi11t4PdzPrW90No0", "kto": "notariuszka, 38 lat", "karta": null},
+    "basia": {"voice_id": "vqyfbWoOfYmPoa0QNkKB", "kto": "sekretariat, 51 lat", "karta": null},
+    "kuba": {"voice_id": "l49KzmmcER7qYZfvh1NN", "kto": "aplikant, 28 lat", "karta": null},
+    "zosia": {"voice_id": "tYPZw7Cd3hWj7tv9LB6s", "kto": "aplikantka w kancelarii cioci, 29 lat", "karta": null,
+              "zaprojektowano": "2026-11-23, eleven_ttv_v3, podgląd 1 z 3"},
+    "teresa": {"voice_id": "RXa8NBs5lQ95KXJJN1sg", "kto": "notariuszka, mała kancelaria, 60 lat", "karta": null,
+               "zaprojektowano": "2026-11-23, eleven_ttv_v3, podgląd 2 z 3"},
+    "sowa": {"voice_id": "VPhviQ2vuUZzYt9E2nf9", "kto": "pośrednik nieruchomości, antagonista S1, ok. 45 lat", "karta": null,
+             "zaprojektowano": "2026-11-23, eleven_ttv_v3, podgląd 1 z 3"}
+  },
+  "brak_glosu": ["irena", "pawel", "joanna", "robert", "klient", "klientka"]
+}

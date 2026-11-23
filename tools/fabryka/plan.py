@@ -1,10 +1,11 @@
-"""Scenariusz V6 → zlecenia produkcyjne: głosy (ElevenLabs v3+), GPU (ai-clip na Salad), montaż.
+"""Scenariusz V6 → zlecenia produkcyjne: głosy (ElevenLabs v3+), GPU (ai-clip na Salad), montaż (Cloudflare v2).
 
 Kontrakty JSON są opisane w docs/fabryka/KONTRAKTY.md. Ten moduł niczego nie uruchamia i nic
 nie kosztuje: tylko pisze pliki zleceń. Uruchomienie (płatne) robi dzienny przebieg według README.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from .walidatory import PLANSZA_KONCOWA
@@ -13,14 +14,15 @@ from .walidatory import PLANSZA_KONCOWA
 MODELE_GLOSU = ("eleven_v4", "eleven_v3")
 DOZWOLONE_MODELE_GLOSU = {"eleven_v4", "eleven_v4_turbo", "eleven_v3", "eleven_v3_conversational"}
 
-# Stałe głosy obsady v2 (docs/kampania-komputerku/glosy.md). Nowe postacie: Voice Design `eleven_ttv_v3`,
-# potem wpis tutaj. Brak głosu = zlecenie nie powstaje (zamiast zastępczego głosu).
-GLOSY = {
-    "basia": "vqyfbWoOfYmPoa0QNkKB",
-    "kuba": "l49KzmmcER7qYZfvh1NN",
-    "marta": "rOIbi11t4PdzPrW90No0",
-    "helena": "0YMlrD87k6Saqi6L1Joy",
-}
+# Obsada (głosy i karty postaci) w jednym pliku czytanym przez fabrykę.
+OBSADA = json.loads((Path(__file__).with_name("obsada.json")).read_text(encoding="utf-8"))
+GLOSY = {k: v["voice_id"] for k, v in OBSADA["postacie"].items() if v.get("voice_id")}
+
+# Magazyn mediów w UE: Supabase „Finance you produkcja” (eu-central-1), publiczny bucket studio-media.
+# Montaż v2 (finyou-render, odcinek-cf.mjs) zapisuje wynik w studio-media/rolki/serial/<id>/.
+SUPABASE = "https://vkzndnaoxhdxrxlpntcb.supabase.co"
+PUBLICZNE = f"{SUPABASE}/storage/v1/object/public/studio-media"
+MONTAZ_URL = "https://finyou-render.financeyou.workers.dev/zadanie"
 
 # Prompt ruchu dla mowy (InfiniteTalk) i ujęć niemych (LTX-2.5): opisuje ruch, nie kadr (METODYKA).
 PROMPT_MOWY = (
@@ -47,6 +49,26 @@ def render_planu(plan: str, kamera: str, wariant: str) -> str:
     return f"scenografia/rendery/{plan}/{kamera}_{wariant}.jpg"
 
 
+def url_audio(odcinek: str, ujecie: str) -> str:
+    return f"{PUBLICZNE}/notarai/serial/{odcinek}/audio/{ujecie}.mp3"
+
+
+def url_klipu(odcinek: str, ujecie: str) -> str:
+    """Zaakceptowany klip GPU po wyborze ziarna, odłożony pod stałą nazwą ujęcia."""
+    return f"{PUBLICZNE}/notarai/serial/{odcinek}/klipy/{ujecie}.mp4"
+
+
+def url_warstwy(odcinek: str, ujecie: str, rozszerzenie: str) -> str:
+    """Dokument (PNG z dokumenty.py) albo nagranie ekranu aplikacji (MP4)."""
+    return f"{PUBLICZNE}/notarai/serial/{odcinek}/warstwy/{ujecie}.{rozszerzenie}"
+
+
+def url_wyniku(odcinek: str) -> dict:
+    baza = f"{PUBLICZNE}/rolki/serial/{odcinek}/{odcinek}"
+    return {"wideo": f"{baza}.mp4", "wideo_16x9": f"{baza}-16x9.mp4", "plakat": f"{baza}.jpg",
+            "napisy_json": f"{baza}-napisy.json"}
+
+
 def glosy(sc: dict, model: str = MODELE_GLOSU[0]) -> dict:
     sprawdz_model_glosu(model)
     sceny = []
@@ -60,11 +82,12 @@ def glosy(sc: dict, model: str = MODELE_GLOSU[0]) -> dict:
             if not vid:
                 brak.add(u["postac"])
                 continue
-            wejscia.append({"ujecie": u["id"], "postac": u["postac"], "voice_id": vid, "text": u["kwestia_v3"]})
+            wejscia.append({"ujecie": u["id"], "postac": u["postac"], "voice_id": vid, "text": u["kwestia_v3"],
+                            "wynik": url_audio(sc["id"], u["id"])})
         if wejscia:
             sceny.append({"scena": scena["id"], "inputs": wejscia})
     if brak:
-        raise BladPlanu(f"brak stałego głosu dla: {sorted(brak)} (najpierw Voice Design eleven_ttv_v3 i wpis w GLOSY)")
+        raise BladPlanu(f"brak stałego głosu dla: {sorted(brak)} (Voice Design eleven_ttv_v3 i wpis w obsada.json)")
     return {
         "kontrakt": "glosy-v1",
         "odcinek": sc["id"],
@@ -75,12 +98,48 @@ def glosy(sc: dict, model: str = MODELE_GLOSU[0]) -> dict:
         "seed": int(sc["odcinek"]) * 101,
         "tryb": "text-to-dialogue",
         "sceny": sceny,
-        "wynik": f"audio/{sc['id']}/<ujecie>.mp3 (cięte po znacznikach czasu)",
     }
 
 
+# ------------------------------------------------------------------- PUNKT STYKU: tor GPU V6
+def adapter_gpu_v6(sc: dict, u: dict, scena: dict, seed: int) -> list[dict]:
+    """Jedno ujęcie scenariusza → ujęcia zlecenia ai-clip dla toru V6 (finyou `kampania/tor-gpu-v6`).
+
+    PUNKT STYKU. Fabryka nie zna szczegółów toru GPU; buduje tylko łańcuch opisany w commicie
+    daf226fe tamtej gałęzi: najpierw klatka „postać w planie” (`qwenedit.postac`: kadr z Blendera
+    + karta postaci → klatka), potem ruch albo mowa z polem `image: "@<slug klatki>"`. Gdy tor V6
+    zmieni nazwy pól, zmienia się wyłącznie ta funkcja (test: tests/test_fabryka.py).
+    """
+    baza = f"k-{sc['id']}-{u['id']}"
+    kam = u.get("kamera") or scena.get("kamera")
+    tlo = render_planu(scena["plan"], kam, scena.get("wariant", "dzien"))
+    wspolne = {"track": "notarai", "seed": seed, "concept": f"komputerku-{sc['id']}-{u['id']}",
+               "tags": ["komputerku", sc["id"], u.get("postac") or "bez-postaci"]}
+    wynik = []
+    start = tlo
+    if u.get("postac"):
+        postac = OBSADA["postacie"].get(u["postac"], {})
+        klatka = {
+            **wspolne, "slug": f"{baza}-klatka-s{seed}", "workflow": "qwenedit.postac",
+            "image": tlo, "image_ref": postac.get("karta"),  # karta postaci: do uzupełnienia w obsada.json
+            "who": postac.get("kto"), "pose": u.get("poza") or "sitting calmly at the table",
+            "mark": {"nazwa": u.get("znacznik")},  # px dokłada tor V6 z opis.json → znaczniki_w_kadrze_px
+        }
+        wynik.append(klatka)
+        start = "@" + klatka["slug"]
+    if u.get("typ") == "mowiace":
+        wynik.append({**wspolne, "slug": f"{baza}-s{seed}", "workflow": "infinitetalk.a2v", "image": start,
+                      "audio": url_audio(sc["id"], u["id"]), "seconds": float(u["czas_s"]), "prompt": PROMPT_MOWY})
+    else:
+        ruch = u.get("ruch_kamery")
+        wynik.append({**wspolne, "slug": f"{baza}-s{seed}", "workflow": "ltx25.flf2v", "image": start,
+                      "image_last": start, "seconds": min(3.0, float(u["czas_s"])),
+                      "prompt": u.get("prompt_ruchu") or PROMPT_NIEMY, "ruch": ruch if ruch in RUCHY else None})
+    return wynik
+
+
 def gpu(sc: dict, seedy_mowa=(101,), seedy_niemy=(101, 202)) -> dict:
-    """Zlecenie ai-clip: jedna paczka na wszystkie ujęcia generowane odcinka (InfiniteTalk + LTX-2.5).
+    """Zlecenie ai-clip: jedna paczka (jedno wynajęcie) na wszystkie ujęcia generowane odcinka.
 
     Koszt (dzienniki wydatków 18–22.11): ujęcie mówione InfiniteTalk to ok. 5 min RTX 5090, czyli
     ok. 0,05 USD; ujęcie nieme LTX 3 s ok. 0,005 USD. Dlatego mowa idzie w jednym ziarnie (odrzut =
@@ -92,33 +151,8 @@ def gpu(sc: dict, seedy_mowa=(101,), seedy_niemy=(101, 202)) -> dict:
             t = u.get("typ")
             if t not in {"mowiace", "bez_mowy"}:
                 continue
-            kam = u.get("kamera") or scena.get("kamera")
-            wariant = scena.get("wariant", "dzien")
-            tlo = render_planu(scena["plan"], kam, wariant)
             for seed in (seedy_mowa if t == "mowiace" else seedy_niemy):
-                s = {
-                    "slug": f"k-{sc['id']}-{u['id']}-s{seed}",
-                    "seed": seed,
-                    "track": "notarai",
-                    "concept": f"komputerku-{sc['id']}-{u['id']}",
-                    "tags": ["komputerku", sc["id"], u.get("postac") or "bez-postaci"],
-                    # V6: klatka startowa = render planu z wstawioną postacią (krok „postać w planie”).
-                    "tlo_planu": tlo,
-                    "postac": u.get("postac"),
-                    "znacznik": u.get("znacznik"),
-                }
-                if t == "mowiace":
-                    s.update({"workflow": "infinitetalk.a2v", "audio": f"audio/{sc['id']}/{u['id']}.mp3",
-                              "seconds": float(u["czas_s"]), "prompt": PROMPT_MOWY})
-                else:
-                    ruch = u.get("ruch_kamery")
-                    s.update({"workflow": "ltx25.flf2v", "seconds": min(3.0, float(u["czas_s"])),
-                              "prompt": (u.get("prompt_ruchu") or PROMPT_NIEMY),
-                              "ruch": ruch if ruch in RUCHY else None})
-                shots.append(s)
-            if t == "bez_mowy" and float(u["czas_s"]) > 3:
-                # Ujęcie nieme > 3 s: dwa elementy na wspólnej klatce (METODYKA), drugi dokleja montaż.
-                shots[-1]["uwaga"] = "dluzsze niz 3 s: druga polowa jako osobny element na wspolnej klatce"
+                shots += adapter_gpu_v6(sc, u, scena, seed)
     return {
         "kontrakt": "gpu-v6",
         "opis": f"Komputerku {sc['id']} {sc['tytul']}: ujęcia generowane (jedna paczka GPU)",
@@ -127,47 +161,62 @@ def gpu(sc: dict, seedy_mowa=(101,), seedy_niemy=(101, 202)) -> dict:
     }
 
 
-def montaz(sc: dict, adres_bazowy: str) -> dict:
-    os_czasu = []
+# ------------------------------------------------------------------- montaż: odcinek-cf.mjs (v2)
+def montaz(sc: dict) -> dict:
+    """Zlecenie `{"odcinek": …}` dla finyou-render v2 (services/ai-clip/rolki/odcinek-cf.mjs).
+
+    Ujęcia: `klip` (zaakceptowany klip GPU albo nagranie ekranu; dźwięk klipu wyłączony), `obraz`
+    (dokument z dokumenty.py, powolny najazd na fokus), `kolor` (plansza tytułowa z napisem).
+    Głosy jako `nagranie` z czasem startu; napisy z kwestii; plansza końcowa i znaczek AI w montażu.
+    """
+    ujecia, glosy_, napisy = [], [], []
     t = 0.0
     for scena in sc["sceny"]:
+        if scena.get("rola") == "plansza_koncowa":
+            continue  # plansza końcowa jest częścią montażu v2
         for u in scena.get("ujecia", []):
-            d = float(u.get("czas_s") or 0)
+            d = round(float(u.get("czas_s") or 0), 2)
             typ = u.get("typ")
             if typ in {"mowiace", "bez_mowy"}:
-                zrodlo = {"typ": "gpu", "concept": f"komputerku-{sc['id']}-{u['id']}"}
-            elif typ == "dokument":
-                zrodlo = {"typ": "dokument", "szablon": (u.get("dokument") or {}).get("szablon"),
-                          "pola": (u.get("dokument") or {}).get("pola", {}), "fokus": (u.get("dokument") or {}).get("fokus")}
+                ujecia.append({"typ": "klip", "url": url_klipu(sc["id"], u["id"]), "od": 0, "do": d, "dzwiek": "brak"})
             elif typ == "ekran":
-                zrodlo = {"typ": "ekran", "funkcja": u["ekran"]["funkcja"], "nagranie": f"ekrany/{sc['id']}/{u['id']}.mp4"}
-            else:
-                zrodlo = {"typ": "plansza", "tekst": u.get("tekst", "")}
-            os_czasu.append({"ujecie": u["id"], "od_s": round(t, 2), "do_s": round(t + d, 2), "zrodlo": zrodlo,
-                             "kwestia": u.get("kwestia"), "reakcja_po_s": 0.7 if u.get("zart") else 0})
+                ujecia.append({"typ": "klip", "url": url_warstwy(sc["id"], u["id"], "mp4"), "od": 0, "do": d,
+                               "dzwiek": "brak"})
+            elif typ == "dokument":
+                fokus = (u.get("dokument") or {}).get("fokus_xy") or [0.5, 0.5]
+                ujecia.append({"typ": "obraz", "url": url_warstwy(sc["id"], u["id"], "png"), "czas": d, "fokus": fokus})
+            else:  # plansza tytułowa
+                ujecia.append({"typ": "kolor", "kolor": "#071D49", "czas": d})
+                if u.get("tekst"):
+                    napisy.append({"od": round(t, 2), "do": round(t + d, 2), "tekst": u["tekst"][:160]})
+            if typ == "mowiace":
+                glosy_.append({"typ": "nagranie", "url": url_audio(sc["id"], u["id"]), "start": round(t, 2)})
+                napisy.append({"od": round(t, 2), "do": round(t + d, 2), "tekst": u["kwestia"][:160]})
             t += d
     return {
-        "kontrakt": "montaz-v6",
-        "odcinek": sc["id"],
-        "formaty": ["9x16", "16x9"],
-        "os_czasu": os_czasu,
-        "napisy": "z kwestii i czasów głosu (bez ironii, bez tekstu na planszach poza tytułem i końcową)",
-        "dzwiek": {"podklad": "pokoj_" + (sc["sceny"][1].get("wariant", "dzien") if len(sc["sceny"]) > 1 else "dzien"),
-                   "muzyka": (sc.get("muzyka") or {}).get("typ", "brak"),
-                   "kontrola": "dzwiek.mjs kontrola: poza mową <= -45 dB"},
-        "znaczek_ai": True,
-        "plansza_tytulowa": {"tekst": sc["tytul"], "znak_dzwiekowy": "komputerku-v1", "czas_s": 1.5},
-        "plansza_koncowa": PLANSZA_KONCOWA,
-        "cel": f"{adres_bazowy.rstrip('/')}/{sc['id']}/",
-        "wynik": [f"{sc['id']}.mp4", f"{sc['id']}-16x9.mp4", f"{sc['id']}.jpg", f"{sc['id']}.vtt"],
+        "kontrakt": "odcinek-cf",
+        "adres": MONTAZ_URL,
+        "odcinek": {
+            "id": sc["id"],
+            "cel": f"rolki/serial/{sc['id']}",
+            "ujecia": ujecia,
+            "glosy": glosy_,
+            "napisy": napisy,
+            "tlo": {"url": f"{PUBLICZNE}/notarai/serial/podklad/pokoj_dzien.mp3"},
+            "plansza_koncowa": {"tekst": PLANSZA_KONCOWA, "czas": 3},
+            "znaczek_ai": True,
+            "plakat_s": 1,
+            "wersja_16x9": True,
+        },
+        "wynik": url_wyniku(sc["id"]),
     }
 
 
-def zapisz_plan(sc: dict, katalog: Path, adres_bazowy: str) -> dict[str, Path]:
+def zapisz_plan(sc: dict, katalog: Path) -> dict[str, Path]:
     from .wspolne import zapisz_json
     k = katalog / sc["id"]
     return {
         "glosy": zapisz_json(k / "glosy.json", glosy(sc)),
         "gpu": zapisz_json(k / "gpu.json", gpu(sc)),
-        "montaz": zapisz_json(k / "montaz.json", montaz(sc, adres_bazowy)),
+        "montaz": zapisz_json(k / "montaz.json", montaz(sc)),
     }

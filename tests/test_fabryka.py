@@ -207,26 +207,43 @@ def test_glosy_tylko_v3_lub_nowszy():
 
 def test_brak_glosu_postaci_przerywa():
     sc = scenariusz_wzorcowy()
-    sc["sceny"][6]["ujecia"][0]["postac"] = "zosia"
-    with pytest.raises(plan.BladPlanu, match="zosia"):
+    sc["sceny"][6]["ujecia"][0]["postac"] = "irena"
+    with pytest.raises(plan.BladPlanu, match="irena"):
         plan.glosy(sc)
 
 
-def test_gpu_jedna_paczka_mowa_jedno_ziarno_niemy_dwa():
+def test_gpu_jedna_paczka_mowa_jedno_ziarno_niemy_dwa_i_lancuch_v6():
     sc = scenariusz_wzorcowy()
     g = plan.gpu(sc)
     mowiace = [u for s in sc["sceny"] for u in s["ujecia"] if u["typ"] == "mowiace"]
     nieme = [u for s in sc["sceny"] for u in s["ujecia"] if u["typ"] == "bez_mowy"]
-    assert len(g["shots"]) == len(mowiace) + 2 * len(nieme)
+    # mowa: klatka „postać w planie” + InfiniteTalk; nieme bez postaci: tylko LTX, dwa ziarna
+    assert len(g["shots"]) == 2 * len(mowiace) + 2 * len(nieme)
+    klatki = {s["slug"] for s in g["shots"] if s["workflow"] == "qwenedit.postac"}
     mowa = [s for s in g["shots"] if s["workflow"] == "infinitetalk.a2v"]
-    assert all(s["audio"].endswith(".mp3") and s["tlo_planu"].startswith("scenografia/rendery/s02/") for s in mowa)
+    assert all(s["image"].lstrip("@") in klatki and s["audio"].startswith(plan.PUBLICZNE) for s in mowa)
+    assert all(s["image"].startswith("scenografia/rendery/s02/") for s in g["shots"] if s["workflow"] == "qwenedit.postac")
     assert all(s["seconds"] <= 3 for s in g["shots"] if s["workflow"] == "ltx25.flf2v")
 
 
-def test_montaz_os_czasu_i_plansza_koncowa():
-    m = plan.montaz(scenariusz_wzorcowy(), "https://magazyn.example.eu/serial")
-    assert m["os_czasu"][0]["od_s"] == 0 and m["plansza_koncowa"] == walidatory.PLANSZA_KONCOWA
-    assert m["cel"] == "https://magazyn.example.eu/serial/s01e09/" and m["znaczek_ai"] is True
+def test_obsada_ma_glosy_nowych_postaci():
+    for kto in ("zosia", "teresa", "sowa", "helena"):
+        assert plan.GLOSY[kto]
+
+
+def test_montaz_schemat_odcinek_cf():
+    m = plan.montaz(scenariusz_wzorcowy())
+    o = m["odcinek"]
+    assert m["adres"].endswith("/zadanie") and o["cel"] == "rolki/serial/s01e09"
+    assert {u["typ"] for u in o["ujecia"]} <= {"klip", "obraz", "kolor"}
+    assert all(u["url"].startswith("https://") for u in o["ujecia"] if "url" in u)
+    assert all(g["typ"] == "nagranie" and g["url"].startswith("https://") for g in o["glosy"])
+    assert o["plansza_koncowa"]["tekst"] == walidatory.PLANSZA_KONCOWA and o["znaczek_ai"] is True
+    assert all(len(n["tekst"]) <= 160 and n["do"] > n["od"] for n in o["napisy"])
+    assert m["wynik"]["wideo"].endswith("/rolki/serial/s01e09/s01e09.mp4")
+    # czas montażu = suma ujęć bez planszy końcowej
+    suma = sum(u.get("do", u.get("czas", 0)) - u.get("od", 0) for u in o["ujecia"])
+    assert abs(suma - (walidatory.dlugosc(scenariusz_wzorcowy()) - 4.0)) < 0.01
 
 
 # ---------------------------------------------------------------- kolejka publikacji
