@@ -47,6 +47,19 @@ def _pisz(zlecenie: str, wpis: dict) -> None:
     )
 
 
+def _audyt(zlecenie: str, wpis: dict) -> None:
+    """Trwaly dziennik decyzji. Nie przechowuje zawartosci pol formularza."""
+    zdarzenie = {k: wpis.get(k) for k in (
+        "id", "komputer", "host", "etykieta", "stan", "utworzono",
+        "zatwierdzil", "rozpatrzono")}
+    magazyn._klient_s3().put_object(
+        Bucket=magazyn.BUCKET,
+        Key=f"{magazyn.PREFIKS}/{magazyn.kancelaria()}/audyt-zgod-pilota/{zlecenie}/{wpis['id']}.json",
+        Body=json.dumps(zdarzenie, ensure_ascii=False).encode("utf-8"),
+        **magazyn._szyfrowanie(),
+    )
+
+
 def _wazna(wpis: dict) -> bool:
     try:
         data = datetime.fromisoformat(wpis["utworzono"])
@@ -85,6 +98,7 @@ def decyzja(zlecenie: str, identyfikator: str, zgoda: bool, zatwierdzil: str) ->
     wpis["stan"] = "zgoda" if zgoda else "odmowa"
     wpis["zatwierdzil"] = zatwierdzil
     wpis["rozpatrzono"] = _teraz().isoformat(timespec="seconds")
+    _audyt(zlecenie, wpis)  # brak audytu -> nie wolno odblokowac wysylki
     _pisz(zlecenie, wpis)
     return {"stan": wpis["stan"]}
 
