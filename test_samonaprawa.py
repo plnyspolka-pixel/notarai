@@ -485,6 +485,19 @@ class TestWorkflow:
         assert self.W[True]["workflow_dispatch"]["inputs"]["przeglad"]["default"] is False
         assert "github.event.inputs.przeglad" in self._krok("Zgloszenie")["run"]
 
+    def test_bramki_bez_tokenow_w_srodowisku(self):
+        """Bramki uruchamiaja testy napisane przez agenta - nie moga widziec GH_TOKEN ani OIDC."""
+        krok = self._krok("Commit poprawki")["run"]
+        for zmienna in ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "ACTIONS_RUNTIME_TOKEN"):
+            assert f"-u {zmienna}" in krok
+        assert "poswiadczenia.sh" not in krok
+
+    def test_postep_dla_notariusza_na_kazdym_etapie(self):
+        calosc = "\n".join(k.get("run", "") for k in self.KROKI)
+        for etap in ("przyjete", "analiza", "kontrola", "recenzja", "wdrazanie", "obserwacja",
+                     "gotowe", "do_decyzji", "cofniete"):
+            assert f"postep.sh\" {etap}" in calosc or f"postep.sh {etap}" in calosc, etap
+
     def test_model_w_ue(self):
         assert self.W["env"]["AWS_REGION"] == "eu-central-1"
         assert "eu.anthropic." in self.W["env"]["MODEL_AGENTA"]

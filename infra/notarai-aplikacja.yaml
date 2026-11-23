@@ -351,6 +351,16 @@ Resources:
         # Polaczenie kancelarii z Poczta Polska (poczta_polska.py): login i haslo
         # do WebAPI Elektronicznego Nadawcy kazdej kancelarii w osobnym sekrecie
         # notarai-poczta-<kancelaria>. Kod nigdy nie zwraca hasla do przegladarki.
+        # Postep samonaprawy (asystent kancelarii pokazuje notariuszowi, na jakim
+        # etapie jest jego prosba). Zapisuje workflow samonaprawy, aplikacja tylko czyta.
+        - PolicyName: postep-samonaprawy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/notarai/samonaprawa/*"
+
         - PolicyName: sekrety-poczty-polskiej
           PolicyDocument:
             Version: "2012-10-17"

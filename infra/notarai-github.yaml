@@ -397,6 +397,13 @@ Resources:
                 Effect: Allow
                 Action: sns:Publish
                 Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:notarai-alarmy"
+              # Postep naprawy dla notariusza (aplikacja czyta, asystent pokazuje).
+              - Sid: PostepNaprawy
+                Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/notarai/samonaprawa/*"
               - Sid: TokenGithub
                 Effect: Allow
                 Action: secretsmanager:GetSecretValue

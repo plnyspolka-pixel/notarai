@@ -166,6 +166,11 @@ jobs:
             echo "TRYB=$(jq -r .tryb "$SN/decyzja.json")"
             echo "ODCISK=$(jq -r .odcisk "$SN/zgloszenie.json")"
           } >> "$GITHUB_ENV"
+          ODCISK=$(jq -r .odcisk "$SN/zgloszenie.json")
+          case "$(jq -r .dzialanie "$SN/decyzja.json")" in
+            napraw) ODCISK="$ODCISK" bash "$NARZ/postep.sh" przyjete ;;
+            eskaluj) ODCISK="$ODCISK" bash "$NARZ/postep.sh" do_decyzji "zespół notarai zajmie się tym ręcznie" ;;
+          esac
 
       - name: Bez naprawy - powiadomienie i eskalacja
         if: env.DZIALANIE != 'napraw' && env.DZIALANIE != 'brak'
@@ -195,6 +200,12 @@ jobs:
           npm install -g --silent @anthropic-ai/claude-code
           git config user.name "notarai-samonaprawa"
           git config user.email "samonaprawa@notarai.pl"
+
+      - name: Postep - analiza
+        if: env.DZIALANIE == 'napraw' && env.TEST_WDROZENIA != 'true'
+        run: |
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" analiza
 
       - name: Agent naprawczy
         if: env.DZIALANIE == 'napraw' && env.TEST_WDROZENIA != 'true'
@@ -240,6 +251,12 @@ jobs:
             echo "WERDYKT=auto"
           } >> "$GITHUB_ENV"
 
+      - name: Postep - kontrola
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.TEST_WDROZENIA != 'true'
+        run: |
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" kontrola
+
       - name: Commit poprawki i bramki
         if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.TEST_WDROZENIA != 'true'
         run: |
@@ -252,8 +269,17 @@ jobs:
             -m "$(jq -r '.poprawka // ""' "$SN/raport.json" | head -c 2000)" \
             -m "Zgloszenie: #${ISSUE}" || echo "brak zmian do commita"
           echo "GLOWA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          python "$NARZ/bramki.py" --repo "$PWD" --baza "$BAZA" --raport "$SN/raport.json" --wynik "$SN/bramki.json"
+          # Bramki uruchamiaja testy napisane przez agenta - bez zadnych tokenow w srodowisku.
+          env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+            -u ACTIONS_RUNTIME_TOKEN \
+            python "$NARZ/bramki.py" --repo "$PWD" --baza "$BAZA" --raport "$SN/raport.json" --wynik "$SN/bramki.json"
           echo "BRAMKI=$(jq -r .werdykt "$SN/bramki.json")" >> "$GITHUB_ENV"
+
+      - name: Postep - recenzja
+        if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.BRAMKI != 'odrzuc' && env.TEST_WDROZENIA != 'true'
+        run: |
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" recenzja
 
       - name: Agent recenzent (niezalezny)
         if: env.DZIALANIE == 'napraw' && env.NAPRAWIONE == 'true' && env.BRAMKI != 'odrzuc' && env.TEST_WDROZENIA != 'true'
@@ -339,6 +365,12 @@ jobs:
         run: |
           set -euo pipefail
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/werdykt.md"
+          eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          if [ "${NAPRAWIONE:-false}" != "true" ]; then
+            bash "$NARZ/postep.sh" do_decyzji "automat nie znalazł bezpiecznej zmiany - zespół notarai zajmie się tym"
+          else
+            bash "$NARZ/postep.sh" do_decyzji "zmiana nie przeszła kontroli - zespół notarai sprawdzi ją ręcznie"
+          fi
 
       - name: Pull request
         if: env.DZIALANIE == 'napraw' && (env.WERDYKT == 'pr' || env.WERDYKT == 'auto')
@@ -369,6 +401,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" do_decyzji "zmiana gotowa, czeka na zatwierdzenie przez zespół notarai"
           aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: poprawka bledu czeka na decyzje" \
             --message "$(printf '%s\n\nPoprawka (kliknij Merge, zeby wdrozyc): %s\n' "$(jq -r '.dla_wlasciciela // "Poprawka bledu czeka na scalenie."' "$SN/raport.json")" "$LINK")" >/dev/null
 
@@ -376,6 +409,7 @@ jobs:
         if: env.DZIALANIE == 'napraw' && env.WERDYKT == 'auto'
         run: |
           set -euo pipefail
+          ( eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"; bash "$NARZ/postep.sh" wdrazanie )
           scalony=""
           if [ "${PR:-0}" != "0" ]; then
             scalony=$(python "$NARZ/github.py" scal --pr "$PR" --sha "$GLOWA") || scalony=""
@@ -414,6 +448,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" obserwacja
           python "$NARZ/obserwacja.py" --odcisk "$ODCISK" --wersja "$(echo "${WDROZONA:-$SCALONY}" | cut -c1-12)" \
             --od "$WDROZONO_MS" --minut 20 --wynik "$SN/obserwacja.json"
           echo "OBSERWACJA=$(jq -r .werdykt "$SN/obserwacja.json")" >> "$GITHUB_ENV"
@@ -423,6 +458,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" do_decyzji "zmiana gotowa, czeka na zatwierdzenie przez zespół notarai"
           printf '⚠️ Poprawka przeszła bramki, ale nie dała się scalić automatycznie. Kliknij Merge: %s\n' "$LINK" > "$SN/k.md"
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
           aws sns publish --topic-arn "$TEMAT_ALARMOW" --subject "notarai: poprawka gotowa, ale nie wdrozona" \
@@ -435,6 +471,7 @@ jobs:
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
           git fetch -q origin master
           git checkout -q -B cofniecie origin/master
+          bash "$NARZ/postep.sh" cofniete "zmiana wycofana automatycznie, bo coś nie działało - zespół notarai to sprawdzi"
           git revert --no-edit -m 1 "$SCALONY"
           git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/master"
           if [ "$TOKEN_WLASNY" != "tak" ]; then
@@ -451,6 +488,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
+          bash "$NARZ/postep.sh" gotowe
           printf '✅ **Naprawione i wdrożone** (%s). Po 20 minutach obserwacji błąd nie wrócił.\n' "$LINK" > "$SN/k.md"
           python "$NARZ/github.py" komentarz --issue "$ISSUE" --plik "$SN/k.md"
           python "$NARZ/github.py" zamknij --issue "$ISSUE"

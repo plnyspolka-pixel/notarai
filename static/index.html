@@ -139,6 +139,13 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
 .as-wpisz textarea{flex:1;min-width:0;resize:vertical;font:inherit;padding:9px 10px;border:1px solid var(--linia2);
   border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
 .as-podpowiedzi{display:flex;flex-wrap:wrap;gap:6px}
+.as-prosby{margin:12px 0 0;padding:10px 12px;border:1px solid var(--linia);border-radius:var(--r2);background:var(--tlo)}
+.as-prosby h3{margin:0 0 8px;font-size:13px}
+.as-prosba{margin:8px 0}
+.as-prosba .opis{font-size:12.5px;color:var(--tekst2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-prosba .stan{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:3px}
+.as-pasek{height:6px;border-radius:999px;background:var(--linia);overflow:hidden;margin-top:4px}
+.as-pasek i{display:block;height:100%;background:var(--akcent, #2a6df4);transition:width .6s}
 .as-podpowiedzi button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
 .ust-pola{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ust-pola button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
@@ -1795,6 +1802,10 @@ notarai</div>
     <button type="button">Co mam teraz ustawione?</button>
   </div>
   <div class="as-rozmowa" id="as-rozmowa" aria-live="polite"></div>
+  <div class="as-prosby" id="as-prosby" hidden aria-live="polite">
+    <h3>Zmiany w programie, o które prosisz</h3>
+    <div id="as-prosby-lista"></div>
+  </div>
   <form class="as-wpisz" id="as-form">
     <textarea id="as-tekst" rows="2" maxlength="2000" placeholder="np. Zamiast „w/w” pisz „wyżej wymieniony”" aria-label="Wiadomość do asystenta"></textarea>
     <button type="submit" id="as-wyslij">Wyślij</button>
@@ -4277,11 +4288,49 @@ function dymekAsystenta(rola, tekst, zmiany = []) {
   $("as-rozmowa").appendChild(d);
   $("as-rozmowa").scrollTop = $("as-rozmowa").scrollHeight;
 }
+/* Postep prosb o zmiany w programie (samonaprawa): etap, pasek, ile jeszcze.
+   Odswiezamy co 30 s, tylko gdy okno asystenta jest otwarte. */
+let zegarProsb = null;
+function opiszCzas(min) {
+  if (min === null || min === undefined) return "";
+  if (min <= 1) return "za chwilę";
+  if (min < 60) return "jeszcze ok. " + min + " min";
+  const h = Math.floor(min / 60), m = min % 60;
+  return "jeszcze ok. " + h + " godz." + (m ? " " + m + " min" : "");
+}
+async function odswiezProsby() {
+  if (dysk.aktywny) return;
+  try {
+    const odp = await api("/api/asystent-kancelarii/prosby");
+    if (!odp.ok) return;
+    const {prosby} = await odp.json();
+    const lista = $("as-prosby-lista");
+    lista.replaceChildren();
+    $("as-prosby").hidden = !prosby.length;
+    for (const p of prosby) {
+      const el = document.createElement("div"); el.className = "as-prosba";
+      const opis = document.createElement("div"); opis.className = "opis"; opis.textContent = p.opis; opis.title = p.opis;
+      const wiersz = document.createElement("div"); wiersz.className = "stan";
+      const etykieta = document.createElement("span"); etykieta.textContent = p.etykieta + (p.uwaga ? " - " + p.uwaga : "");
+      const czas = document.createElement("span"); czas.textContent = p.zakonczona ? "" : opiszCzas(p.pozostalo_min);
+      wiersz.append(etykieta, czas);
+      const pasek = document.createElement("div"); pasek.className = "as-pasek";
+      const wypelnienie = document.createElement("i"); wypelnienie.style.width = (p.procent || 0) + "%";
+      pasek.appendChild(wypelnienie);
+      el.append(opis, wiersz, pasek);
+      lista.appendChild(el);
+    }
+  } catch (e) { /* postep to dodatek - okno dziala bez niego */ }
+}
 $("btn-asystent").onclick = () => {
   stan($("stan-asystent"), "");
   $("okno-asystent").showModal();
   $("as-tekst").focus();
+  odswiezProsby();
+  clearInterval(zegarProsb);
+  zegarProsb = setInterval(odswiezProsby, 30000);
 };
+$("okno-asystent").addEventListener("close", () => { clearInterval(zegarProsb); zegarProsb = null; });
 $("as-zamknij").onclick = () => $("okno-asystent").close();
 $("as-podpowiedzi").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("as-tekst").value = b.textContent; $("as-form").requestSubmit();
@@ -4303,6 +4352,7 @@ $("as-form").onsubmit = async e => {
     if (!odp.ok) throw new Error(w.detail || "Asystent nie odpowiedział (" + odp.status + ").");
     rozmowaAsystenta.push({rola: "uzytkownik", tresc: tekst}, {rola: "asystent", tresc: w.odpowiedz});
     dymekAsystenta("asystent", w.odpowiedz, w.zmiany || []);
+    if ((w.zmiany || []).some(z => z.narzedzie === "zglos_zmiane_programu")) odswiezProsby();
     // Zmiana ustawien dziala od razu - bez przeladowania strony.
     if ((w.zmiany || []).some(z => z.narzedzie === "zmien_ustawienie" || z.narzedzie === "cofnij_ostatnia_zmiane")) {
       api("/api/ustawienia/ogolne").then(o => o.ok ? o.json() : null)
