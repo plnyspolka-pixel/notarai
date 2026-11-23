@@ -198,7 +198,7 @@ def uruchom(w_tle: bool = False) -> None:  # pragma: no cover - warstwa okienkow
 
     # Ekran laczenia: widoczny tylko, dopoki komputer nie jest polaczony.
     laczenie = tk.Frame(ramka)
-    kod_etykieta = tk.Label(laczenie, text="", font=("Consolas", 34, "bold"), fg="#c96442")
+    kod_etykieta = tk.Label(laczenie, text="", font=("Consolas", 34, "bold"), fg="#2b52d9")
     kod_etykieta.pack(anchor="w", pady=(6, 4))
     tk.Label(laczenie, justify="left", wraplength=polowa - 60, fg="#555",
              text="Wróć do notarai w przeglądarce i kliknij „Połącz” - kreator "
@@ -240,7 +240,7 @@ def uruchom(w_tle: bool = False) -> None:  # pragma: no cover - warstwa okienkow
         threading.Thread(target=sterownik.odlacz_ten_komputer, daemon=True).start()
 
     def pokaz_stan(rodzaj: str, tekst: str) -> None:
-        kolory = {"polaczony": "#15803d", "kod": "#1f1e1b", "laczenie": "#555",
+        kolory = {"polaczony": "#15803d", "kod": "#0d193c", "laczenie": "#555",
                   "zatrzymany": "#b45309"}
         if rodzaj == "kod":
             kod_etykieta.configure(text=tekst)

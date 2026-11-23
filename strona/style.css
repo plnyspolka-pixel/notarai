@@ -1,41 +1,41 @@
 /* notarai.pl - te same barwy i kroje co aplikacja (static/index.html) */
 :root {
-  --tlo: #faf9f5;
-  --tlo2: #f4f3ee;
+  --tlo: #f5f7fc;
+  --tlo2: #edf2fa;
   --karta: #ffffff;
-  --linia: #e6e4dd;
-  --tekst: #1f1e1b;
-  --tekst2: #5e5c57;
-  --tekst3: #8e8b84;
-  --akcent: #c96442;
-  --akcent2: #b5532f;
-  --akcent-tlo: #fbeee8;
-  --ok: #3d7a4f;
-  --ciemne: #262624;
-  --ciemne2: #30302e;
-  --ciemne-linia: #3e3d39;
-  --ciemne-tekst: #eeece6;
-  --ciemne-tekst2: #b8b5ac;
-  --serif: 'Charter', 'Georgia', 'Iowan Old Style', 'Times New Roman', serif;
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  --linia: #d9e5f4;
+  --tekst: #0d193c;
+  --tekst2: #5f6f8e;
+  --tekst3: #72829e;
+  --akcent: #2b52d9;
+  --akcent2: #1c1cc0;
+  --akcent-tlo: #eaf1ff;
+  --ok: #23764b;
+  --ciemne: #081b42;
+  --ciemne2: #102b60;
+  --ciemne-linia: #244578;
+  --ciemne-tekst: #f1f6ff;
+  --ciemne-tekst2: #c0d2f1;
+  --serif: Montserrat,'Segoe UI',Arial,sans-serif;
+  --sans: Montserrat,'Segoe UI',Arial,sans-serif;
   --r: 14px;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --tlo: #262624;
-    --tlo2: #1f1f1d;
-    --karta: #30302e;
-    --linia: #3e3d39;
-    --tekst: #eeece6;
-    --tekst2: #b8b5ac;
-    --tekst3: #87847c;
-    --akcent: #d9785a;
-    --akcent2: #e58a6d;
-    --akcent-tlo: #3a2c26;
+    --tlo: #081b42;
+    --tlo2: #061437;
+    --karta: #102b60;
+    --linia: #244578;
+    --tekst: #f1f6ff;
+    --tekst2: #c0d2f1;
+    --tekst3: #98add3;
+    --akcent: #87adff;
+    --akcent2: #b4d4ff;
+    --akcent-tlo: #1a356b;
     --ok: #7fb58f;
     --ciemne: #1a1a18;
-    --ciemne2: #262624;
+    --ciemne2: #081b42;
   }
 }
 
@@ -92,7 +92,7 @@ p { margin: 0 0 1em; }
   display: inline-block; background: var(--akcent-tlo); color: var(--akcent);
   padding: 4px 12px; border-radius: 999px; font-size: .85rem; font-weight: 600;
 }
-.znacznik.jasny { background: rgba(217, 120, 90, .18); color: #e58a6d; }
+.znacznik.jasny { background: rgba(217, 120, 90, .18); color: #b4d4ff; }
 .wstep { font-size: 1.12rem; color: var(--tekst2); max-width: 680px; }
 
 /* hero */
