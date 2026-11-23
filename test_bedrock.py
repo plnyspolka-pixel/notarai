@@ -749,6 +749,25 @@ class TestCachePromptu:
         assert mock_bedrock_client.converse.call_count == 3
         assert _punkty(mock_bedrock_client.converse.call_args.kwargs["messages"]) == 0
 
+    def test_stare_botocore_bez_cachepoint_nie_psuje_projektu(self, mock_bedrock_client, cache_wlaczony):
+        # Zgloszenie 23.11.2026: "Blad modelu (ParamValidationError)" przy Sporzadz projekt -
+        # boto3 1.35 w obrazie nie znalo bloku cachePoint i odrzucalo zadanie przed wyslaniem.
+        from botocore.exceptions import ParamValidationError
+        odmowa = ParamValidationError(report='Unknown parameter in messages[0].content[1]: "cachePoint", '
+                                             'must be one of: text, image, document')
+        mock_bedrock_client.converse.side_effect = [odmowa, _odpowiedz("PROJEKT")]
+        assert bedrock.sporzadz_projekt("WZOR", [], "umowa") == "PROJEKT"
+        assert mock_bedrock_client.converse.call_count == 2
+        assert _punkty(mock_bedrock_client.converse.call_args.kwargs["messages"]) == 0
+        assert bedrock._cache_wylaczony is True
+
+    def test_inny_blad_parametrow_nie_jest_polykany(self, mock_bedrock_client, cache_wlaczony):
+        from botocore.exceptions import ParamValidationError
+        mock_bedrock_client.converse.side_effect = ParamValidationError(report="Invalid type for parameter maxTokens")
+        with pytest.raises(ParamValidationError):
+            bedrock.rozmawiaj("KONTEKST", [], "pytanie")
+        assert bedrock._cache_wylaczony is False
+
     def test_inny_blad_walidacji_nie_jest_polykany(self, mock_bedrock_client, cache_wlaczony):
         blad = ClientError({"Error": {"Code": "ValidationException", "Message": "max_tokens too large"}}, "Converse")
         mock_bedrock_client.converse.side_effect = blad

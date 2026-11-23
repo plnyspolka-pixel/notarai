@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 import config
 import dokumenty
@@ -90,11 +90,19 @@ def _ma_punkty_cache(wiadomosci: list[dict]) -> bool:
     return any("cachePoint" in b for w in wiadomosci for b in w["content"])
 
 
-def _odrzucony_punkt_cache(blad: ClientError, zadanie: dict) -> bool:
-    """Czy blad to odmowa Bedrock dla cachePoint (a nie inny blad walidacji)."""
+def _odrzucony_punkt_cache(blad: BaseException, zadanie: dict) -> bool:
+    """Czy blad to odmowa cachePoint (a nie inny blad walidacji).
+
+    Odmowa przychodzi z Bedrock (ValidationException) albo juz z botocore
+    (ParamValidationError "Unknown parameter ... cachePoint"), gdy SDK w obrazie
+    jest za stare, zeby znac blok cachePoint.
+    """
+    if not _ma_punkty_cache(zadanie["messages"]):
+        return False
+    if isinstance(blad, ParamValidationError):
+        return "cachepoint" in str(blad).lower()
     return (_kod_bledu(blad) == "validationexception"
-            and "cache" in _tresc_bledu(blad).lower()
-            and _ma_punkty_cache(zadanie["messages"]))
+            and "cache" in _tresc_bledu(blad).lower())
 
 
 def _klient():
@@ -283,12 +291,12 @@ def _rozmowa_raz(system, tresc, max_tokenow, historia, myslenie, wysilek, model)
     try:
         try:
             czesci, powod, uzycie = _strumien(zadanie)
-        except ClientError as blad:
+        except (ClientError, ParamValidationError) as blad:
             if not _odrzucony_punkt_cache(blad, zadanie):
                 raise
             _cache_wylaczony = True
-            log.warning("Bedrock odrzucil punkt cache (%s) - cache promptu wylaczony, powtarzam bez punktow",
-                        blad.response.get("Error", {}).get("Message"))
+            log.warning("Odrzucony punkt cache (%s) - cache promptu wylaczony, powtarzam bez punktow",
+                        type(blad).__name__)
             zadanie["messages"] = _bez_punktow_cache(zadanie["messages"])
             czesci, powod, uzycie = _strumien(zadanie)
     except ClientError as blad:
