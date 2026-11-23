@@ -16,7 +16,7 @@ OUTPUT = ROOT / "strona" / "do-pobrania" / "pliki"
 BROWSER_FILES = (
     "manifest.json", "tlo.js", "panel.html", "panel.css", "panel.js",
     "silnik.js", "strona.js", "notarai.js", "krz.js", "formularz.js",
-    "ikony/16.png", "ikony/48.png", "ikony/128.png",
+    "ikony/16.png", "ikony/48.png", "ikony/128.png", "ikony/notarai.svg",
     "fonts/montserrat-latin-wght-normal.woff2",
 )
 OPENOFFICE_FILES = (
