@@ -987,7 +987,8 @@ def tura_z_narzedziami(system: str, wiadomosci: list[dict], narzedzia: list[dict
     return {"wiadomosc": odpowiedz["output"]["message"], "powod": odpowiedz.get("stopReason")}
 
 
-def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
+def nastepny_krok(cel: str, stan: dict, kroki: list[dict],
+                  zgoda_wysylki: bool = False) -> dict:
     """Jedna decyzja agenta prowadzacego przegladarke notariusza.
 
     Model stoi po stronie serwera, bo tu jest dostep do Bedrocka. Komputer
@@ -996,6 +997,7 @@ def nastepny_krok(cel: str, stan: dict, kroki: list[dict]) -> dict:
     """
     from pomocnik import klikamy
 
-    tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki)
+    tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki,
+                                          zgoda_wysylki=zgoda_wysylki)
     odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700, myslenie=False)
     return klikamy.odpowiedz_na_slownik(odpowiedz)
