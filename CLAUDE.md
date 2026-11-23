@@ -100,9 +100,17 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   regresji czerwony przed i zielony po poprawce, cały zestaw testów zielony,
   żadnych usuniętych ani wyciszonych testów, zgoda niezależnego recenzenta,
   limit 3 automatycznych wdrożeń na dobę, 2 próby na błąd, potem eskalacja.
-- Strefy zakazane (treść prawna, RODO i dane, logowanie, płatności,
-  infrastruktura, sama samonaprawa): poprawka zawsze jako pull request
-  z opisem dla właściciela po polsku, nigdy automatycznie. Lista w `bramki.py`.
+- Strefy (decyzja właściciela 23.11.2026, lista w `bramki.py`):
+  - logowanie i płatności (`autoryzacja`, `logowanie`, `rejestracja`,
+    `urzadzenia`, `platnosci`, `tokenomia`): CAŁKOWICIE poza samonaprawą -
+    zmiana tam = odrzucenie, nawet na prośbę notariusza; zmienia je tylko zespół,
+  - treść prawna aktów, taksa, dane osobowe: na prośbę notariusza wchodzą
+    automatycznie (to jego dziedzina); poprawka błędu bez prośby - pull request,
+  - sama samonaprawa, maskowanie logów i magazyn (RODO), infrastruktura:
+    zawsze pull request do właściciela.
+- Zbudowane = włączone: zmiana zrobiona na prośbę notariusza włącza się sama
+  w jego kancelarii po wdrożeniu (raport agenta `ustawienie`, aplikacja
+  `asystent_kancelarii.odswiez_prosby`) - bez drugiego polecenia.
 - Właściciel nie czyta kodu: każde powiadomienie (e-mail SNS, zgłoszenie
   GitHub) mówi po ludzku, co się psuło, co naprawiono i co kliknąć w aplikacji.
 - Wyłącznik: zmienna repozytorium `SAMONAPRAWA` = `auto` | `pr` | `wylaczona`.

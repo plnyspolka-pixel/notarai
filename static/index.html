@@ -145,6 +145,10 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
 .as-prosba .opis{font-size:12.5px;color:var(--tekst2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .as-prosba .stan{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:3px}
 .as-pasek{height:6px;border-radius:999px;background:var(--linia);overflow:hidden;margin-top:4px}
+.as-gotowe{position:fixed;right:16px;bottom:16px;z-index:50;max-width:min(420px,calc(100vw - 32px));
+  padding:12px 14px;border-radius:var(--r2);background:var(--karta);color:var(--tekst);
+  border:1px solid var(--akcent);box-shadow:0 6px 24px rgba(0,0,0,.18);line-height:1.45}
+.as-gotowe button{margin-left:10px}
 .as-pasek i{display:block;height:100%;background:var(--akcent, #2a6df4);transition:width .6s}
 .as-podpowiedzi button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
 .ust-pola{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -2948,6 +2952,8 @@ async function uruchomTrybPracy(){
   pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
   // Ekran startowy z profilu interfejsu kancelarii (np. kalendarz).
   if (ekranStartowy()) pokaz(ekranStartowy());
+  // Prosby o zmiany w toku: sledzimy je w tle i powiadamiamy, gdy zaczna dzialac.
+  odswiezProsby();
   if (SERWIS) {
     // Obsluga notarai widzi sprawy, nie zespol, kredyty ani dokumenty
     // kancelarii - tych serwer i tak jej nie pokaze.
@@ -4290,7 +4296,16 @@ function dymekAsystenta(rola, tekst, zmiany = []) {
 }
 /* Postep prosb o zmiany w programie (samonaprawa): etap, pasek, ile jeszcze.
    Odswiezamy co 30 s, tylko gdy okno asystenta jest otwarte. */
-let zegarProsb = null;
+let zegarProsb = null, zegarProsbTla = null, wlaczoneProsby = null;
+function komunikatGotowej(tekst) {
+  const el = document.createElement("div"); el.className = "as-gotowe"; el.setAttribute("role", "status");
+  el.textContent = tekst;
+  const ok = document.createElement("button"); ok.type = "button"; ok.className = "wtorny"; ok.textContent = "OK";
+  ok.onclick = () => el.remove();
+  el.appendChild(ok);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 30000);
+}
 function opiszCzas(min) {
   if (min === null || min === undefined) return "";
   if (min <= 1) return "za chwilę";
@@ -4304,6 +4319,22 @@ async function odswiezProsby() {
     const odp = await api("/api/asystent-kancelarii/prosby");
     if (!odp.ok) return;
     const {prosby} = await odp.json();
+    // Zbudowane = wlaczone: serwer wlaczyl zmiane u tej kancelarii - pokazujemy
+    // to od razu i odswiezamy ustawienia, bez przeladowania strony.
+    const teraz = new Set(prosby.filter(p => p.wlaczono).map(p => p.numer));
+    if (wlaczoneProsby) {
+      const nowe = prosby.filter(p => p.wlaczono && !wlaczoneProsby.has(p.numer));
+      if (nowe.length) {
+        api("/api/ustawienia/ogolne").then(o => o.ok ? o.json() : null)
+          .then(o => { if (o) zastosujUstawieniaOgolne(o); }).catch(() => {});
+        komunikatGotowej("Twoja zmiana już działa: " + nowe.map(p => p.opis).join("; "));
+      }
+    }
+    wlaczoneProsby = teraz;
+    // Dopoki cos sie buduje, sprawdzamy w tle co minute - takze przy zamknietym oknie.
+    const wToku = prosby.some(p => !p.zakonczona && !p.wlaczono);
+    if (wToku && !zegarProsbTla) zegarProsbTla = setInterval(odswiezProsby, 60000);
+    if (!wToku && zegarProsbTla) { clearInterval(zegarProsbTla); zegarProsbTla = null; }
     const lista = $("as-prosby-lista");
     lista.replaceChildren();
     $("as-prosby").hidden = !prosby.length;

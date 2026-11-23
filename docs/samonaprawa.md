@@ -45,7 +45,20 @@ Bramki uruchamiane są z kopii `scripts/samonaprawa/` sprzed zmian agenta,
 a te pliki (i `.github/`, `conftest.py`, `test_samonaprawa.py`) są w strefie
 zakazanej, więc agent nie osłabi własnej kontroli.
 
-## Strefy zakazane: zawsze pull request, nigdy automat
+## Strefy (decyzja właściciela 23.11.2026)
+
+- **Logowanie i płatności - całkowicie poza samonaprawą.** `autoryzacja.py`,
+  `logowanie.py`, `rejestracja.py`, `urzadzenia.py`, `platnosci.py`,
+  `tokenomia.py`: zmiana tam = odrzucenie, także na prośbę notariusza.
+  Asystent nie przekazuje takich próśb - kieruje do zespołu notarai.
+- **Treść prawna, taksa, dane osobowe - na prośbę notariusza automatycznie.**
+  Notariusze odpowiadają za treść aktów; ich prośba wchodzi po bramkach bez
+  czekania na właściciela. Poprawka błędu bez prośby - pull request.
+- **Zbudowane = włączone.** Agent podaje w raporcie `ustawienie` (klucz,
+  wartość); po wdrożeniu aplikacja sama włącza je w kancelarii, która prosiła,
+  i pokazuje „Twoja zmiana już działa”.
+
+## Strefy zakazane (stan sprzed 23.11.2026, zastąpiony sekcją wyżej)
 
 Treść prawna (`prompty.py`, `zasady.py`, `styl.py`, `personalizacja.py`,
 `klauzule.py`, `taksa.py`, `dokumenty_prawne.py`, `formularze/`, GIIF, AML),

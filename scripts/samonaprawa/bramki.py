@@ -28,20 +28,27 @@ from pathlib import Path
 # agenta (agent nie podmieni skryptu), wiec katalog podajemy jawnie.
 KORZEN = Path(os.getenv("SAMONAPRAWA_REPO") or Path(__file__).resolve().parents[2])
 
-# Tu poprawka nigdy nie wchodzi sama na produkcje, nawet przy zielonych testach.
+# Decyzja wlasciciela 23.11.2026: logowanie i platnosci sa CALKOWICIE poza
+# samonaprawa - zmiana tam = odrzucenie (bez pull requestu). Zmiany kodu w tych
+# miejscach robi tylko zespol notarai.
+STREFY_WYKLUCZONE = [
+    "autoryzacja.py", "logowanie.py", "rejestracja.py", "urzadzenia.py",
+    "platnosci.py", "tokenomia.py",
+]
+# Tresc prawna, taksa i dane osobowe: notariusz moze je zmieniac swoja prosba
+# (asystent kancelarii) - wtedy wchodza automatycznie. Poprawka bledu, o ktora
+# nikt nie prosil, idzie tu jako pull request do wlasciciela.
+STREFY_NOTARIUSZA = [
+    "prompty.py", "zasady.py", "styl.py", "personalizacja.py", "klauzule.py", "taksa.py",
+    "kalkulator.py", "dokumenty_prawne.py", "formularze/*", "giif.py", "giif_xml.py", "giif_xsd/*",
+    "aml*.py", "osoby.py", "walidacja.py", "poswiadczenia.py",
+]
+# Zawsze pull request: sama samonaprawa (agent nie oslabia wlasnych bramek),
+# zabezpieczenia RODO (maskowanie logow, magazyn danych) i infrastruktura.
 STREFY_ZAKAZANE = [
-    # sama samonaprawa i jej kontrola - agent nie oslabia wlasnych bramek
     "scripts/samonaprawa/*", "samonaprawa.py", ".github/*", "conftest.py", "pytest.ini",
     "test_zgodnosc_sdk.py", "test_samonaprawa.py", "CLAUDE.md",
-    # tresc prawna: co model pisze w aktach i zasady kancelarii
-    "prompty.py", "zasady.py", "styl.py", "personalizacja.py", "klauzule.py", "taksa.py",
-    "dokumenty_prawne.py", "formularze/*", "giif.py", "giif_xml.py", "giif_xsd/*", "aml*.py",
-    # RODO, dostep, dane
-    "autoryzacja.py", "logowanie.py", "dziennik.py", "dziennik_serwisu.py", "magazyn.py",
-    "poswiadczenia.py", "urzadzenia.py", "osoby.py", "walidacja.py",
-    # pieniadze
-    "platnosci.py", "tokenomia.py", "kalkulator.py",
-    # infrastruktura i obraz
+    "dziennik.py", "dziennik_serwisu.py", "magazyn.py",
     "infra/*", "Dockerfile", ".dockerignore", "confidential/*", ".env*",
 ]
 MAX_PLIKOW = 10
@@ -70,8 +77,20 @@ def zmienione(baza: str) -> list[tuple[str, str]]:
     return wynik
 
 
+def _pasuje(sciezka: str, wzorce: list[str]) -> bool:
+    return any(fnmatch.fnmatch(sciezka, wzor) for wzor in wzorce)
+
+
 def w_strefie_zakazanej(sciezka: str) -> bool:
-    return any(fnmatch.fnmatch(sciezka, wzor) for wzor in STREFY_ZAKAZANE)
+    return _pasuje(sciezka, STREFY_ZAKAZANE)
+
+
+def w_strefie_wykluczonej(sciezka: str) -> bool:
+    return _pasuje(sciezka, STREFY_WYKLUCZONE)
+
+
+def w_strefie_notariusza(sciezka: str) -> bool:
+    return _pasuje(sciezka, STREFY_NOTARIUSZA)
 
 
 def _plik_w(baza: str, sciezka: str) -> str | None:
@@ -156,11 +175,16 @@ def dowod_regresji(baza: str, testy: list[str], pliki: list[tuple[str, str]]) ->
     return powody
 
 
-def ocen(baza: str, raport: dict, pelne_testy: bool = True) -> dict:
+def ocen(baza: str, raport: dict, pelne_testy: bool = True, prosba: bool = False) -> dict:
+    """`prosba` = zmiana na prosbe notariusza (asystent kancelarii)."""
     pliki = zmienione(baza)
     odrzuc, tylko_pr = [], []
     if not pliki:
         odrzuc.append("agent nie zmienil zadnego pliku")
+    wykluczone = sorted({s for _, s in pliki if w_strefie_wykluczonej(s)})
+    if wykluczone:
+        odrzuc.append("logowanie i platnosci sa poza samonaprawa (zmienia je tylko zespol notarai): "
+                      + ", ".join(wykluczone))
     odrzuc += kontrola_testow(baza, pliki)
     if not odrzuc:
         odrzuc += dowod_regresji(baza, list(raport.get("testy_regresji") or []), pliki)
@@ -169,6 +193,9 @@ def ocen(baza: str, raport: dict, pelne_testy: bool = True) -> dict:
     zakazane = sorted({s for _, s in pliki if w_strefie_zakazanej(s)})
     if zakazane:
         tylko_pr.append("strefa zakazana: " + ", ".join(zakazane))
+    notariusza = sorted({s for _, s in pliki if w_strefie_notariusza(s)})
+    if notariusza and not prosba:
+        tylko_pr.append("tresc prawna / taksa / dane osobowe bez prosby notariusza: " + ", ".join(notariusza))
     ile_plikow, ile_linii = rozmiar(baza) if pliki else (0, 0)
     if ile_plikow > MAX_PLIKOW or ile_linii > MAX_LINII:
         tylko_pr.append(f"poprawka za duza do automatu ({ile_plikow} plikow, {ile_linii} linii)")
@@ -187,6 +214,7 @@ def main() -> int:
     parser.add_argument("--wynik", required=True)
     parser.add_argument("--bez-pelnych-testow", action="store_true")
     parser.add_argument("--repo", help="katalog repozytorium (domyslnie SAMONAPRAWA_REPO)")
+    parser.add_argument("--prosba", action="store_true", help="zmiana na prosbe notariusza")
     args = parser.parse_args()
     global KORZEN
     if args.repo:
@@ -200,7 +228,7 @@ def main() -> int:
         wynik = {"werdykt": "odrzuc", "odrzucenie": [f"brak lub zly raport agenta ({type(e).__name__})"],
                  "tylko_pr": [], "pliki": [], "linie": 0}
     else:
-        wynik = ocen(args.baza, raport, pelne_testy=not args.bez_pelnych_testow)
+        wynik = ocen(args.baza, raport, pelne_testy=not args.bez_pelnych_testow, prosba=args.prosba)
     Path(args.wynik).write_text(json.dumps(wynik, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(wynik, ensure_ascii=False, indent=2))
     return 0
