@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import hashlib
+import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 import autoryzacja
@@ -18,6 +22,8 @@ import bedrock
 import magazyn
 import stanowiska
 import urzadzenia
+import stenogramy
+import transkrypcja
 from asystent_kancelarii import _tury
 
 log = logging.getLogger("pieczapp.pulpit_ai")
@@ -96,7 +102,7 @@ def _dostepne(uprawnienia: frozenset) -> list[dict]:
 
 @router.get("/narzedzia")
 def lista_narzedzi(request: Request):
-    return {"narzedzia": _dostepne(_uprawnienia(request)), "glos": True,
+    return {"narzedzia": _dostepne(_uprawnienia(request)), "glos": _glos_dostepny(),
             "zasada": "Polecenia zewnętrzne wymagają potwierdzenia."}
 
 
@@ -209,3 +215,135 @@ def rozmowa(request: Request, zadanie: Polecenie):
     except Exception as blad:
         log.warning("pulpit ai: wywolanie modelu nie powiodlo sie (%s)", type(blad).__name__)
         raise HTTPException(502, "Asystent chwilowo nie odpowiada. Spróbuj ponownie.")
+
+
+# Głosówka nie jest przechowywana w historii. W chmurze Transcribe
+# korzysta z istniejącego szyfrowanego bucketa kancelarii; po odczycie
+# wyniku usuwa plik źródłowy, JSON wyniku i samo zadanie Transcribe.
+GLOS_LIM_B = 15 * 1024 * 1024
+GLOS_MAX_H = 24
+GLOS_TYP = {"audio/webm": "webm", "audio/mp4": "mp4", "audio/ogg": "ogg"}
+
+
+def _glos_dostepny() -> bool:
+    if magazyn.TRYB == "s3" and not magazyn.u_klienta():
+        return (os.getenv("PIECZAPP_TRANSCRIBE_OPTOUT") == "1"
+                and os.getenv("AWS_REGION", "eu-central-1") == "eu-central-1")
+    return transkrypcja.dostepna()
+
+
+def _glos_prefiks(identyfikator: str) -> str:
+    return f"pulpit-glosowki/{identyfikator}"
+
+
+def _glos_job(identyfikator: str) -> str:
+    tenant = hashlib.sha256(magazyn.kancelaria().encode("utf-8")).hexdigest()[:16]
+    return f"notarai-glos-{tenant}-{identyfikator}"
+
+
+def _glos_sprzataj(identyfikator: str) -> None:
+    # Również DeleteMarkers i stare wersje S3 znikają z bucketa.
+    magazyn.usun_pliki(_glos_prefiks(identyfikator))
+    try:
+        stenogramy._klient_transcribe().delete_transcription_job(
+            TranscriptionJobName=_glos_job(identyfikator))
+    except Exception:
+        pass
+
+
+def _glos_wygasle() -> None:
+    """Po kolejnej głosówce kasuj porzucone pliki >24 h tylko z własnej kancelarii."""
+    s3 = magazyn._klient_s3()
+    prefiks = f"{magazyn.PREFIKS}/{magazyn.kancelaria()}/pulpit-glosowki/"
+    granica = datetime.now(timezone.utc) - timedelta(hours=GLOS_MAX_H)
+    for strona in s3.get_paginator("list_objects_v2").paginate(
+            Bucket=magazyn.BUCKET, Prefix=prefiks, Delimiter="/"):
+        for wpis in strona.get("CommonPrefixes", []):
+            folder = wpis["Prefix"]
+            identyfikator = folder[len(prefiks):].strip("/")
+            if not re.fullmatch(r"[0-9a-f]{32}", identyfikator):
+                continue
+            obiekty = s3.list_objects_v2(Bucket=magazyn.BUCKET, Prefix=folder, MaxKeys=4)
+            if any(o["LastModified"] < granica for o in obiekty.get("Contents", [])):
+                _glos_sprzataj(identyfikator)
+
+
+@router.post("/glos", status_code=202)
+async def glos_dodaj(request: Request, audio: UploadFile = File(...)):
+    _uprawnienia(request)
+    if not _glos_dostepny():
+        raise HTTPException(503, "Rozpoznawanie mowy nie jest dostępne w tej instalacji.")
+    typ = (audio.content_type or "").split(";")[0].lower().strip()
+    if typ not in GLOS_TYP:
+        raise HTTPException(415, "Nieobsługiwany format audio.")
+    surowe = await audio.read(GLOS_LIM_B + 1)
+    if not surowe or len(surowe) > GLOS_LIM_B:
+        raise HTTPException(413, "Nagranie jest puste albo przekracza 15 MB.")
+    if magazyn.TRYB != "s3":
+        tekst = transkrypcja.transkrybuj(surowe, ".mp4" if typ == "audio/mp4" else ".webm")
+        return {"stan": "gotowe", "tekst": tekst}
+    try:
+        _glos_wygasle()
+    except Exception as blad:
+        log.warning("pulpit ai: porzadki audio (%s)", type(blad).__name__)
+    identyfikator = uuid.uuid4().hex
+    prefiks = _glos_prefiks(identyfikator)
+    rozszerzenie = {"audio/webm": ".webm", "audio/mp4": ".mp4", "audio/ogg": ".ogg"}[typ]
+    wzgledna = f"{prefiks}/audio{rozszerzenie}"
+    klucz = f"{magazyn.PREFIKS}/{magazyn.kancelaria()}/{wzgledna}"
+    wyjscie = f"{magazyn.PREFIKS}/{magazyn.kancelaria()}/{prefiks}/wynik.json"
+    klient = stenogramy._klient_transcribe()
+    try:
+        magazyn._klient_s3().put_object(
+            Bucket=magazyn.BUCKET, Key=klucz, Body=surowe, **magazyn._szyfrowanie())
+        parametry = {
+            "TranscriptionJobName": _glos_job(identyfikator),
+            "LanguageCode": "pl-PL",
+            "MediaFormat": GLOS_TYP[typ],
+            "Media": {"MediaFileUri": f"s3://{magazyn.BUCKET}/{klucz}"},
+            "OutputBucketName": magazyn.BUCKET,
+            "OutputKey": wyjscie,
+        }
+        if magazyn.KMS_KLUCZ:
+            parametry["OutputEncryptionKMSKeyId"] = magazyn.KMS_KLUCZ
+        klient.start_transcription_job(**parametry)
+    except Exception as blad:
+        log.warning("pulpit ai: start transcribe (%s)", type(blad).__name__)
+        try:
+            _glos_sprzataj(identyfikator)
+        except Exception:
+            pass
+        raise HTTPException(502, "Nie udało się rozpocząć rozpoznawania mowy.")
+    return {"stan": "przetwarzanie", "zadanie": identyfikator}
+
+
+@router.get("/glos/{identyfikator}")
+def glos_wynik(request: Request, identyfikator: str):
+    _uprawnienia(request)
+    if not re.fullmatch(r"[0-9a-f]{32}", identyfikator) or magazyn.TRYB != "s3":
+        raise HTTPException(404, "Nie ma takiego nagrania.")
+    try:
+        stan = stenogramy._stan_zadania(stenogramy._klient_transcribe(),
+                                       _glos_job(identyfikator))
+        if stan is None:
+            raise HTTPException(404, "Nagranie wygasło albo zostało odebrane.")
+        status = stan.get("TranscriptionJobStatus")
+        if status not in ("COMPLETED", "FAILED"):
+            return {"stan": "przetwarzanie"}
+        tekst = ""
+        if status == "COMPLETED":
+            dane = magazyn.czytaj_obiekt(f"{_glos_prefiks(identyfikator)}/wynik.json")
+            if dane:
+                wynik = json.loads(dane)
+                tekst = " ".join(
+                    x.get("transcript", "") for x in wynik.get("results", {}).get("transcripts", [])
+                ).strip()
+        _glos_sprzataj(identyfikator)
+        if status != "COMPLETED" or not tekst:
+            raise HTTPException(422, "Nie rozpoznano nagrania. Spróbuj ponownie.")
+        return {"stan": "gotowe", "tekst": tekst}
+    except HTTPException:
+        raise
+    except Exception as blad:
+        log.warning("pulpit ai: stan transcribe (%s)", type(blad).__name__)
+        raise HTTPException(502, "Nie udało się odczytać transkrypcji.")
