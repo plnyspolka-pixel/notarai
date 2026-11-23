@@ -256,6 +256,15 @@ Resources:
               - "arn:aws:bedrock:eu-north-1::foundation-model/*"
               - "arn:aws:bedrock:eu-south-1::foundation-model/*"
               - "arn:aws:bedrock:eu-south-2::foundation-model/*"
+          # Pomocniczy glosowy odsluch projektu (polly_tts.py): tylko Frankfurt.
+          - Sid: PollyLektorEU
+            Effect: Allow
+            Action:
+              - polly:SynthesizeSpeech
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: eu-central-1
           # Stenogramy aktow (stenogramy.py): rozpoznawanie mowy tylko we Frankfurcie.
           # Audio i wynik leza w tym buckecie (stenogramy-robocze/), aplikacja kasuje
           # je zaraz po zapisaniu zanonimizowanego stenogramu.

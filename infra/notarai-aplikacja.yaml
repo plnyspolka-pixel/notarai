@@ -587,6 +587,9 @@ Resources:
             # Transcribe nie zatrzymuje dzwieku do ulepszania modeli AWS.
             - Name: PIECZAPP_TRANSCRIBE_OPTOUT
               Value: "1"
+            # Lektor projektu przez Amazon Polly we Frankfurcie.
+            - Name: PIECZAPP_POLLY
+              Value: "true"
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu
