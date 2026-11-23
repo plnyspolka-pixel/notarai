@@ -75,8 +75,10 @@ def test_oauth_callback_jednorazowy_bez_sekretow_w_s3(srodowisko, monkeypatch):
 def test_bledny_podpis_nie_wybiera_kancelarii(srodowisko):
     g, klient = srodowisko
     wynik = klient.get("/api/google-kalendarz/powrot",
-                        params={"code": "fake", "state": "kancelaria-zewnetrzna"})
-    assert "blad" in str(wynik.url)
+                        params={"code": "fake", "state": "kancelaria-zewnetrzna"},
+                        follow_redirects=False)
+    assert wynik.status_code == 303
+    assert "blad" in wynik.headers["location"]
     assert not g._stan().get("polaczono")
 
 
