@@ -33,6 +33,7 @@
   });
   let zajety = false, recorder = null, strumien = null, kawalki = [], nagrywa = false;
   let doZatwierdzenia = null;
+  let doNaprawienia = null;
   let stopTimer = null;
   let pokolenieCzatu = 0;
 
@@ -64,6 +65,38 @@
         przycisk.textContent = "Sprawdź i zatwierdź";
         przycisk.onclick = () => pokazZgode(a);
         karta.append(naglowek, opis, przycisk);
+        rozmowa.append(karta);
+      } else if (a.typ === "potwierdz_naprawe" && a.opis) {
+        const karta = document.createElement("div");
+        karta.className = "pai-akcja";
+        const naglowek = document.createElement("b");
+        naglowek.textContent = "Samonaprawa · zgłoszenie do zatwierdzenia";
+        const opis = document.createElement("p");
+        opis.textContent = a.opis;
+        const przycisk = document.createElement("button");
+        przycisk.type = "button";
+        przycisk.textContent = "Sprawdź i zgłoś usterkę";
+        przycisk.onclick = () => pokazZgodeNaprawy(a.opis);
+        karta.append(naglowek, opis, przycisk);
+        rozmowa.append(karta);
+      } else if (a.typ === "postep_napraw" && Array.isArray(a.naprawy)) {
+        const karta = document.createElement("div");
+        karta.className = "pai-akcja";
+        const naglowek = document.createElement("b");
+        naglowek.textContent = "Postęp samonaprawy";
+        karta.append(naglowek);
+        if (!a.naprawy.length) {
+          const brak = document.createElement("p");
+          brak.textContent = "Brak zgłoszeń samonaprawy w tej kancelarii.";
+          karta.append(brak);
+        }
+        for (const n of a.naprawy.slice(0, 5)) {
+          const p = document.createElement("p");
+          const procent = Number.isFinite(n.procent) ? " · " + n.procent + "%" : "";
+          p.textContent = (n.numer || "Zgłoszenie") + " · " +
+            (n.etykieta || n.etap || "Nieznany status") + procent;
+          karta.append(p);
+        }
         rozmowa.append(karta);
       }
     }
@@ -138,6 +171,51 @@
       powiadom("Komputer przyjął polecenie. Wynik sprawdź w panelu Pomocnik.");
     } catch (e) {
       $ai("pai-zgoda-stan").textContent = e.message;
+      btn.disabled = false;
+    }
+  };
+
+  function pokazZgodeNaprawy(opis) {
+    doNaprawienia = opis;
+    $ai("pai-naprawa-opis").value = opis;
+    $ai("pai-naprawa-stan").textContent = "";
+    $ai("pai-naprawa-zglos").disabled = false;
+    $ai("pai-naprawa-zgoda").showModal();
+  }
+  $ai("pai-naprawa-anuluj").onclick = () => {
+    doNaprawienia = null;
+    $ai("pai-naprawa-zgoda").close();
+  };
+  $ai("pai-naprawa-zglos").onclick = async () => {
+    if (!doNaprawienia) return;
+    const opis = $ai("pai-naprawa-opis").value.trim();
+    if (opis.length < 12 || opis.length > 2000) {
+      $ai("pai-naprawa-stan").textContent = "Opis musi mieć od 12 do 2000 znaków.";
+      return;
+    }
+    const sesja = pokolenieCzatu;
+    const btn = $ai("pai-naprawa-zglos");
+    btn.disabled = true;
+    $ai("pai-naprawa-stan").textContent = "Przekazuję do istniejącego modułu samonaprawy…";
+    try {
+      const odp = await api("/api/pulpit-ai/samonaprawa/zglos", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({opis})
+      });
+      const wynik = await odp.json().catch(() => ({}));
+      if (sesja !== pokolenieCzatu) return;
+      if (!odp.ok || wynik.przyjeto !== true) throw new Error(
+        wynik.detail || wynik.uwaga || "Zgłoszenie nie zostało przyjęte.");
+      doNaprawienia = null;
+      $ai("pai-naprawa-zgoda").close();
+      dodajWiadomosc("asystent", "Samonaprawa przyjęła zgłoszenie nr " +
+        (wynik.numer || "bez numeru") + ". " +
+        (wynik.duplikat ? "To już zgłoszona usterka. " : "") +
+        "Napisz «sprawdź postęp samonaprawy», żeby poznać aktualny stan.");
+      powiadom("Zgłoszenie przekazane.");
+    } catch (e) {
+      if (sesja !== pokolenieCzatu) return;
+      $ai("pai-naprawa-stan").textContent = e.message || "Nie udało się zgłosić usterki.";
       btn.disabled = false;
     }
   };
@@ -250,7 +328,9 @@
       mikrofon.textContent = "🎙 Nagraj";
     }
     doZatwierdzenia = null;
+    doNaprawienia = null;
     if ($ai("pai-zgoda").open) $ai("pai-zgoda").close();
+    if ($ai("pai-naprawa-zgoda").open) $ai("pai-naprawa-zgoda").close();
   };
   window.wyczyscPulpitAI();
   // Serwer sprawdza dostępność rozpoznawania mowy w tym wariancie instalacji.
