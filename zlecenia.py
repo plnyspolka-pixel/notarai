@@ -100,7 +100,7 @@ def _wczytaj(kancelaria: str, identyfikator: str) -> dict | None:
     return json.loads(odpowiedz["Body"].read().decode("utf-8"))
 
 
-def czekajace() -> list[dict]:
+def czekajace(komputer: str | None = None) -> list[dict]:
     """Zlecenia do wykonania przez pomocnika tej kancelarii.
 
     Przeterminowane sa po cichu kasowane - pomocnik ma dostac tylko to, czego
@@ -123,6 +123,11 @@ def czekajace() -> list[dict]:
                 usun(identyfikator)
                 continue
             if zlecenie.get("stan") == "czeka":
+                # Polecenia z telefonu ida wylacznie do wybranego stanowiska.
+                # Zadania bez adresata zachowuja dawny tryb wspolnej kolejki.
+                cel = (zlecenie.get("tresc") or {}).get("docelowy_komputer")
+                if cel and cel != komputer:
+                    continue
                 wynik.append(zlecenie)
     wynik.sort(key=lambda z: z.get("zlozono", ""))
     return wynik
