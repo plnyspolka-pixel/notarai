@@ -10,8 +10,8 @@ przegadac - zwlaszcza trescia samej strony, ktora model czyta. Dlatego:
   - model wybiera element z ponumerowanej listy, a nie wspolrzedne na obrazku;
     klikniecie "w punkt x,y" jest zgadywaniem, a w formularzu urzedowym to
     roznica miedzy pomylka a jej brakiem,
-  - elementu, ktory wysyla, sklada, podpisuje albo placi, nie da sie kliknac;
-    agent oddaje wtedy stery czlowiekowi,
+  - wyslanie/zlozenie wniosku w pilocie wymaga jednorazowej zgody czlowieka;
+    podpis, PIN, platnosci i usuwanie nadal sa calkowicie zabronione,
   - do pola hasla i PIN-u nie wpisujemy nic, nigdy,
   - agent nie wychodzi poza adresy, na ktore notariusz sie zgodzil; tresc
     strony jest dla niego informacja, nie poleceniem,
@@ -41,6 +41,11 @@ WYSYLKA = re.compile(
     r"submit|send|sign|pay|delete|confirm and ",
     re.I,
 )
+
+# Czynnosci, ktorych telefon nie moze autoryzowac nawet jednorazowo.
+ZABRONIONE = re.compile(
+    r"podpis|sign|zap[łl]a|p[łl]atno|p[łl]ac|przelew|usu[ńn]|skasuj|delete|"
+    r"kasuj|anuluj|cancel|bank|autoryzuj przelew", re.I)
 
 AKCJE = ("kliknij", "wpisz", "wybierz", "otworz", "czytaj", "pytam", "koniec")
 
@@ -105,7 +110,7 @@ def _element(stan: dict, nr) -> dict:
 
 
 def prowadz(cel: str, strona, model, maks_krokow: int = MAKS_KROKOW,
-            dozwolone_hosty: tuple[str, ...] = ()) -> Przebieg:
+            dozwolone_hosty: tuple[str, ...] = (), zatwierdz_wysylke=None) -> Przebieg:
     """Prowadzi przegladarke do celu opisanego przez notariusza.
 
     `model` dostaje cel, stan strony i dotychczasowe kroki, a zwraca slownik z
@@ -139,7 +144,8 @@ def prowadz(cel: str, strona, model, maks_krokow: int = MAKS_KROKOW,
             return przebieg
 
         try:
-            _wykonaj(akcja, wybor, stan, strona, krok, dozwolone_hosty, poczatkowy)
+            _wykonaj(akcja, wybor, stan, strona, krok, dozwolone_hosty,
+                     poczatkowy, zatwierdz_wysylke)
         except OdmowaKlikniecia as blad:
             krok.uwaga = str(blad)
             przebieg.pytanie = str(blad)
@@ -157,7 +163,8 @@ def prowadz(cel: str, strona, model, maks_krokow: int = MAKS_KROKOW,
 
 
 def _wykonaj(akcja: str, wybor: dict, stan: dict, strona, krok: Krok,
-             dozwolone_hosty: tuple[str, ...], poczatkowy: str) -> None:
+             dozwolone_hosty: tuple[str, ...], poczatkowy: str,
+             zatwierdz_wysylke=None) -> None:
     if akcja == "czytaj":
         krok.cel = "odczyt strony"
         krok.wykonano = True
@@ -180,11 +187,34 @@ def _wykonaj(akcja: str, wybor: dict, stan: dict, strona, krok: Krok,
     selektor = element["selektor"]
 
     if akcja == "kliknij":
-        if WYSYLKA.search(element.get("opis", "")):
-            raise OdmowaKlikniecia(
-                f"Nie kliknę „{krok.cel}”. To czynnosc o skutku zewnetrznym - "
-                "wysyla, sklada albo podpisuje. Zrob to sama, gdy sprawdzisz tresc."
-            )
+        opis = element.get("opis", "")
+        rola = element.get("rola", "").lower()
+        # Input/button submit wysyla formularz nawet przy neutralnej etykiecie.
+        ryzykowne = bool(WYSYLKA.search(opis) or ":submit" in rola or ":image" in rola)
+        if ryzykowne:
+            if ZABRONIONE.search(opis):
+                raise OdmowaKlikniecia(
+                    f"Nie kliknę „{krok.cel}”. Podpis, platnosc i usuwanie "
+                    "wymagaja osobistej czynnosci notariusza na komputerze."
+                )
+            if zatwierdz_wysylke is None:
+                raise OdmowaKlikniecia(
+                    f"Nie kliknę „{krok.cel}”. Czynność może wysłać wniosek. "
+                    "Potwierdz ja osobiscie albo uzyj pilota z jednorazowa zgoda."
+                )
+            # Zgoda jest konkretna: ta sama domena, strona, przycisk i typ.
+            adres_przed = strona.url
+            if not zatwierdz_wysylke(_host(adres_przed), krok.cel):
+                raise OdmowaKlikniecia("Nie udzielono zgody na tę czynność.")
+            if strona.url != adres_przed or not any(
+                e.get("selektor") == selektor and e.get("opis") == opis
+                and e.get("rola") == element.get("rola")
+                for e in strona.elementy()
+            ):
+                raise OdmowaKlikniecia(
+                    "Strona lub przycisk zmienily sie po potwierdzeniu. Nie klikam."
+                )
+            krok.uwaga = "Jednorazowa zgoda udzielona"
         strona.kliknij(selektor)
     elif akcja == "wpisz":
         if hasattr(strona, "typ_pola") and strona.typ_pola(selektor) == "password":
@@ -197,7 +227,8 @@ def _wykonaj(akcja: str, wybor: dict, stan: dict, strona, krok: Krok,
     krok.wykonano = True
 
 
-def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[dict]) -> str:
+def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[dict],
+                       zgoda_wysylki: bool = False) -> str:
     """Tresc, ktora dostaje model. Stan strony podajemy jako dane, nie polecenia.
 
     Kroki przychodza z pomocnika po HTTP, wiec sa slownikami: model stoi po
@@ -224,8 +255,13 @@ def polecenie_dla_modelu(cel: str, stan: dict, kroki: list[dict]) -> str:
         "wybierz|otworz|czytaj|pytam|koniec\", \"nr\": <numer elementu>, "
         "\"tekst\": \"...\", \"adres\": \"...\", \"pytanie\": \"...\", "
         "\"podsumowanie\": \"...\"}.\n"
-        "Gdy czegos nie jestes pewien albo trzeba cos wyslac, zlozyc lub podpisac - "
-        "uzyj akcji \"pytam\" i oddaj decyzje notariuszowi."
+        ("Jesli celem od notariusza jest wyslanie lub zlozenie dokumentu, mozesz "
+         "wskazac akcje kliknij dla konkretnego przycisku - pomocnik fizycznie "
+         "zatrzyma sie i wymaga osobnej zgody z telefonu na ten jeden przycisk. "
+         "Nie proponuj podpisu, platnosci ani usuwania. Gdy nie jestes pewien, "
+         "uzyj akcji pytam." if zgoda_wysylki else
+         "Gdy czegos nie jestes pewien albo trzeba cos wyslac, zlozyc lub podpisac - "
+         "uzyj akcji pytam i oddaj decyzje notariuszowi.")
     )
 
 
