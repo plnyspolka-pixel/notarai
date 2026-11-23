@@ -96,3 +96,7 @@ i wymaga dopisania go do `host_permissions`.
   pole polecenia (ramka, pole PIN, „Podpisz i wyślij”), próbny KRZ z formularzem
   w ramce i próbny formularz z przyciskiem „Wyślij”. Interfejs `chrome.*` jest
   w tym teście podstawiony.
+
+## Identyfikacja wizualna
+
+Panel i ikony Chrome/Edge korzystają z oryginalnego sygnetu `static/notarai-symbol.svg` i tokenów marki NotarAI (`tools/web-factory/design-system/tokens.json`). Ikony PNG (16/48/128 px) są rasteryzowane z tego samego SVG. Nie przywracać dawnych grafik Pieczapy ani kolorów `#c96442` / `#faf9f5`. Montserrat jest lokalnym plikiem WOFF2 (bez CDN).
