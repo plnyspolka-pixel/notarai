@@ -1,5 +1,6 @@
 """Chat-first NotarAI: testy bez sieci, tokenów, danych rzeczywistych i AWS."""
 import json
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -237,13 +238,35 @@ def test_naprawa_deduplikacja_w_kancelarii(monkeypatch):
     monkeypatch.setattr(p.magazyn, "wczytaj_plik_kancelarii",
                         lambda *args: {"zmiany": [], "prosby": [
                             {"opis": p.samonaprawa.anonimizuj(opis),
-                             "odcisk": "abc123def456"}]})
+                             "odcisk": "abc123def456",
+                             "czas": datetime.now(timezone.utc).isoformat()}]})
     monkeypatch.setattr(p.asystent_kancelarii, "wykonaj",
                         lambda *args, **kwargs: pytest.fail("Duplikat uruchomił naprawę"))
     odp = TestClient(app).post("/api/pulpit-ai/samonaprawa/zglos",
                                json={"opis": opis})
     assert odp.status_code == 200
     assert odp.json()["duplikat"] is True
+
+
+def test_naprawa_pozwala_zglosic_ponownie_po_dniu(monkeypatch):
+    monkeypatch.setattr(p.magazyn, "u_klienta", lambda: False)
+    monkeypatch.setattr(p.samonaprawa, "wlaczona", lambda: True)
+    opis = "W kalendarzu nie zapisuje się termin spotkania."
+    monkeypatch.setattr(p.magazyn, "wczytaj_plik_kancelarii",
+                        lambda *args: {"zmiany": [], "prosby": [{
+                            "opis": p.samonaprawa.anonimizuj(opis),
+                            "odcisk": "abc123def456",
+                            "czas": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+                        }]})
+    wywolania = []
+    def zglos(*args, **kwargs):
+        wywolania.append(args)
+        return {"przyjeto": True, "numer": "new123def456"}
+    monkeypatch.setattr(p.asystent_kancelarii, "wykonaj", zglos)
+    odp = TestClient(app).post("/api/pulpit-ai/samonaprawa/zglos", json={"opis": opis})
+    assert odp.status_code == 200
+    assert odp.json()["numer"] == "new123def456"
+    assert len(wywolania) == 1
 
 
 def test_naprawa_postep_z_prawdziwego_modulu(monkeypatch):
