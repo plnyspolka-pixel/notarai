@@ -389,9 +389,8 @@ def oauth_powrot(code: str = "", state: str = "", error: str = ""):
     return RedirectResponse("/#google-kalendarz=polaczono", status_code=303)
 
 
-@router.post("/synchronizuj")
-def synchronizuj(request: Request):
-    _wlasciciel(request)
+def wykonaj_sync():
+    """Synchronizacja pod dzierzawa w S3; bez rownoleglych zapisow."""
     _wymagaj_polaczenia()
     blokada = secrets.token_hex(12)
     def zablokuj(d):
@@ -409,6 +408,63 @@ def synchronizuj(request: Request):
             if (d.get("blokada") or {}).get("id") == blokada:
                 d.pop("blokada", None)
         _zapisz(odblokuj)
+
+
+
+@router.post("/synchronizuj")
+def synchronizuj(request: Request):
+    _wlasciciel(request)
+    return wykonaj_sync()
+
+
+# Dziala takze wtedy, gdy przegladarka notariusza jest zamknieta. Kazdy
+# kontener moze miec proces petli, ale synchronizacje chroni dzierzawa w S3.
+_automat_uruchomiony = False
+
+
+def _petla_automatu():
+    from threading import Event
+    przerywacz = Event()
+    while not przerywacz.wait(300):
+        try:
+            wpisy = autoryzacja._wczytaj_rejestr().values()
+        except Exception as blad:
+            log.warning("google kalendarz: brak rejestru biur (%s)", type(blad).__name__)
+            continue
+        for wpis in wpisy:
+            if not wpis.get("aktywna", True) or wpis.get("przechowywanie", "chmura") == "u-klienta":
+                continue
+            k = wpis["id"]
+            znacznik = magazyn.kancelaria_var.set(k)
+            znacznik_p = magazyn.przechowywanie_var.set("chmura")
+            try:
+                s = _stan()
+                if not s.get("polaczono"):
+                    continue
+                ostatnio = datetime.fromisoformat(s["odswiezono"]).timestamp() if s.get("odswiezono") else 0
+                if time.time() - ostatnio < 240:
+                    continue
+                try:
+                    wykonaj_sync()
+                except HTTPException as blad:
+                    # 409 to konkurencyjna synchronizacja na innej instancji.
+                    if blad.status_code != 409:
+                        log.warning("google kalendarz: synchronizacja biura nieudana (%s)", blad.status_code)
+                except Exception as blad:
+                    log.warning("google kalendarz: blad synchronizacji (%s)", type(blad).__name__)
+            finally:
+                magazyn.przechowywanie_var.reset(znacznik_p)
+                magazyn.kancelaria_var.reset(znacznik)
+
+
+def uruchom_automat():
+    global _automat_uruchomiony
+    if (_automat_uruchomiony or not autoryzacja.MULTI or magazyn.TRYB != "s3"
+            or not _skonfigurowany() or os.getenv("PIECZAPP_GOOGLE_KALENDARZ_AUTO", "1") == "0"):
+        return
+    from threading import Thread
+    _automat_uruchomiony = True
+    Thread(target=_petla_automatu, name="notarai-google-kalendarz", daemon=True).start()
 
 
 @router.delete("/polaczenie")
