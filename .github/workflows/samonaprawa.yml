@@ -24,7 +24,12 @@ on:
     inputs:
       uwagi:
         description: "Opis bledu slowami (co sie stalo, gdzie, jaki komunikat) - bez danych klientow"
-        required: true
+        required: false
+        default: ""
+      przeglad:
+        description: "Przeglad bledow i prosb z CloudWatch (jak harmonogram) - zamiast zgloszenia recznego"
+        type: boolean
+        default: false
       odcisk:
         description: "Odcisk bledu z logow (opcjonalnie)"
         required: false
@@ -126,7 +131,7 @@ jobs:
           eval "$(bash "$NARZ/poswiadczenia.sh" pelne)"
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             printf '%s' "$LADUNEK" > "$SN/ladunek.json"
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
+          elif [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event.inputs.przeglad }}" = "true" ]; then
             python "$NARZ/zgloszenie.py" --przeglad 40 --wyjscie "$SN/kandydaci.json"
             if [ "$(jq length "$SN/kandydaci.json")" = "0" ]; then
               echo "Brak nowych bledow kodu - nic do zrobienia."
@@ -144,6 +149,9 @@ jobs:
               UWAGI="Test sciezki wdrozenia samonaprawy (przebieg $GITHUB_RUN_ID) - bez agenta, zmiana tylko w docs/."
               ODCISK=""
               TRYB_WEJSCIE="auto"
+            fi
+            if [ -z "$UWAGI" ] && [ -z "$ODCISK" ]; then
+              echo "::error::Podaj opis bledu (uwagi) albo zaznacz przeglad."; exit 1
             fi
             jq -n --arg u "$UWAGI" --arg o "$ODCISK" \
               '{uwagi: $u, odcisk: $o, rodzaj: "reczne", typ: "zgloszenie reczne", wersja: "produkcja"}' > "$SN/ladunek.json"
