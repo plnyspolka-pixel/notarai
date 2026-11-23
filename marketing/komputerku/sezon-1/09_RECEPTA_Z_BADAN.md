@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # Recepta z badań: jak kręcić „Komputerku…”
 
 **Status:** propozycja do następnego przeglądu scenariuszy, 22.11.2026. Nie

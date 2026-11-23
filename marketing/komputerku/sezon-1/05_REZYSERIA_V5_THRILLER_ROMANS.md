@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # Reżyseria V5: minithriller prawniczy + romans Kuba–Zosia
 
 **Status:** uzupełnienie kanonu, do adaptacji EP01–EP08. Przed publikacją zgodność z prawem i stanem produktu. Wszystkie istniejące awatary Heleny, Marty, Basi i Kuby oraz dziewięć kamer K1–K9 pozostają bez zmian.

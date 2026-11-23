@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # Kanon motywu: „Trzeba nakarmić komputerka”
 
 Status: ustalenie fabularne dla S1 i S2. Nie jest to deklaracja dostępności doładowań w produkcji.

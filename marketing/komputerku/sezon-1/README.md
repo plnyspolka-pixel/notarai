@@ -1,5 +1,7 @@
 # Kancelaria pod Siódemką — sezon 1 (materiały produkcyjne V4)
 
+> **Jedyne źródło prawdy od 23.11.2026: [`../BIBLIA_V6.md`](../BIBLIA_V6.md).** Format bez końca (2 odcinki dziennie, 09:00 i 16:00), sezony po 40 odcinków, antagonista sezonu, produkcja na SaladCloud. Pliki poniżej to archiwum szczegółów.
+
 **Status: DRAFT / do autoryzacji. Materiały nie są zatwierdzone do emisji ani automatycznej publikacji.**
 
 ## Cel

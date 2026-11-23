@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # V5 — „Kancelaria pod Siódemką” jako minithriller prawniczy
 Stan: koncepcja reżyserska, **nie zastępuje kanonu 8 scenariuszy** w `02_SCENARIUSZE/`; wymaga późniejszej aktualizacji dialogów i continuity. Nie wprowadzać zmian w zrealizowanych animacjach bez przeglądu montażu.
 

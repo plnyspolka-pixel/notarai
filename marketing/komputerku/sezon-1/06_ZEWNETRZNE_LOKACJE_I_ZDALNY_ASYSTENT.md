@@ -1,3 +1,5 @@
+> **Zastąpione przez [`BIBLIA_V6.md`](../BIBLIA_V6.md) (23.11.2026).** Ten plik zostaje jako archiwum szczegółów; przy sprzeczności obowiązuje Biblia V6.
+
 # Sceny poza kancelarią: biblioteka współdzielonych ujęć EXT v1
 
 Cel: dodać dynamikę i prawdziwe życie postaci, nie generując nowej scenografii od zera w każdym odcinku. Zasada **STAŁE EXT + różnice pogodowe/pory dnia + nowa gra tylko na pierwszym planie**.
