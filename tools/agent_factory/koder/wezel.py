@@ -136,8 +136,11 @@ def start_vllm() -> subprocess.Popen:
 
 def zapewnij_git() -> None:
     # Obraz vllm/vllm-openai nie ma gita (przebieg cf-20261123t2146h).
-    if not shutil.which("git"):
-        sh("apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git > /dev/null")
+    brak = [p for p, b in (("git", "git"), ("procps", "pkill"), ("util-linux", "runuser"), ("passwd", "useradd"))
+            if not shutil.which(b)]
+    if brak:
+        sh("apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "
+           + " ".join(brak) + " > /dev/null")
     if not shutil.which("git"):
         raise RuntimeError("nie udało się zainstalować gita")
 
