@@ -120,8 +120,7 @@ def test_anonimizacja_stenogramu_przechodzi_walidacje_sdk(monkeypatch):
     """Stenogram aktu: wskazanie danych osobowych przez model (anonimizacja.py)."""
     import anonimizacja
     k = MagicMock()
-    odpowiedz = '{"dane": [{"fragment": "Jan Sobczak", "oznaczenie": "OSOBA 1"}], ' \
-                '"osoby": [{"kto": "Jan Sobczak", "oznaczenie": "OSOBA 1"}]}'
+    odpowiedz = '{"dane": [{"fragment": "Jan Sobczak"}]}'
 
     def converse_stream(**kw):
         sprawdz_zgodnosc_z_api_bedrock("ConverseStream", kw)
@@ -136,5 +135,5 @@ def test_anonimizacja_stenogramu_przechodzi_walidacje_sdk(monkeypatch):
     for model in MODELE:
         monkeypatch.setattr(anonimizacja, "MODEL", model)
         segmenty = [{"start": 0, "mowca": "", "tekst": "Stawiający Jan Sobczak oświadcza."}]
-        assert anonimizacja.wskaz_dane(segmenty) == [("Jan Sobczak", "OSOBA 1")]
-        assert anonimizacja.anonimizuj(segmenty, [])[0]["tekst"] == "Stawiający [OSOBA 1] oświadcza."
+        assert anonimizacja.wskaz_dane(segmenty) == ["Jan Sobczak"]
+        assert anonimizacja.anonimizuj(segmenty, [])[0]["tekst"] == "Stawiający J*n S*****k oświadcza."

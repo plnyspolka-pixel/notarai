@@ -753,14 +753,14 @@ def polecenie_poswiadczenia(stron: int) -> str:
             "Odpowiedz wylacznie obiektem JSON.")
 
 
-STENOGRAM_ANONIMIZACJA = """Anonimizujesz stenogram odczytania aktu notarialnego \
-w polskiej kancelarii. Stenogram powstal z automatycznego rozpoznawania mowy, \
-wiec bywa bez interpunkcji, z bledami i z liczbami zapisanymi cyframi albo slowami.
+STENOGRAM_ANONIMIZACJA = """Wskazujesz dane osobowe w stenogramie odczytania aktu \
+notarialnego w polskiej kancelarii. Stenogram powstal z automatycznego rozpoznawania \
+mowy, wiec bywa bez interpunkcji, z bledami i z liczbami zapisanymi cyframi albo slowami. \
+Kod zamaskuje wskazane fragmenty (zostawi pierwsza i ostatnia litere), wiec niczego \
+nie przepisujesz - tylko wskazujesz.
 
-Dostajesz ponumerowane wypowiedzi "[n] tekst" oraz liste osob, ktorym nadano juz \
-oznaczenia we wczesniejszych czesciach tego samego stenogramu.
-
-Wskaz KAZDY fragment, ktory identyfikuje osobe fizyczna albo jej majatek:
+Dostajesz ponumerowane wypowiedzi "[n] tekst". Wskaz KAZDY fragment, ktory \
+identyfikuje osobe fizyczna albo jej majatek:
 - imiona i nazwiska (takze pojedyncze, w kazdej odmianie: "Kowalskiego", "pani Anno"),
   imiona rodzicow, nazwiska rodowe,
 - PESEL, numery i serie dowodow osobistych i paszportow, NIP osoby, numery telefonow,
@@ -775,14 +775,8 @@ NIE wskazuj: tresci prawnej, nazw przepisow i urzedow, rol stron ("sprzedajacy",
 "kupujacy", "stawajacy"), imienia i nazwiska ani siedziby notariusza i kancelarii,
 cen i kwot, dat czynnosci, numeru repertorium.
 
-Kazdej osobie nadaj oznaczenie "OSOBA n" - te sama osoba zawsze ma to samo
-oznaczenie, takze w innej odmianie i we wczesniejszych czesciach (uzyj podanej listy).
-Pozostalym danym nadaj rodzaj: PESEL, DOKUMENT, ADRES, TELEFON, RACHUNEK, EMAIL,
-KSIEGA, DZIALKA, DATA_URODZENIA, NUMER, FIRMA.
-
 Odpowiedz WYLACZNIE JSON:
-{"dane": [{"fragment": "dokladnie tak, jak w tekscie", "oznaczenie": "OSOBA 1"}],
- "osoby": [{"kto": "Jan Kowalski", "oznaczenie": "OSOBA 1"}]}
+{"dane": [{"fragment": "dokladnie tak, jak w tekscie"}]}
 "fragment" musi byc skopiowany z tekstu znak w znak (wielkosc liter, odmiana),
 bez numeru wypowiedzi. Kazdy rozny zapis tej samej danej to osobny wpis.
-Gdy nie ma zadnych danych: {"dane": [], "osoby": []}."""
+Gdy nie ma zadnych danych: {"dane": []}."""

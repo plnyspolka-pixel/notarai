@@ -46,7 +46,7 @@
   sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
   (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), anonimizuje (model `eu.` wskazuje
   dane, kod podmienia; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
-  i zapisuje **tylko zanonimizowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
+  i zapisuje **tylko zamaskowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
   w plikach sprawy, idzie do S3 z całą sprawą). Audio, surowy wynik i zadanie Transcribe są kasowane;
   surowy tekst nie trafia na dysk. Spis w pliku kancelarii `stenogramy`.
   Włączenie w chmurze: stos `notarai-s3` z `TranscribeStenogramyEU`, polityka AI services opt-out

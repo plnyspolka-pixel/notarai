@@ -339,7 +339,7 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   5. Po zakończeniu: w buckecie nie ma nic pod `stenogramy-robocze/`, w konsoli
      Transcribe nie ma zadań `notarai-*`.
   6. Notariusz czyta stenogram: czy zostało jakieś nazwisko, adres, numer
-     (anonimizacja) i czy zakrywa za dużo.
+     (maskowanie) i czy da się po początkach i końcówkach dopasować osoby do ról.
 - **W kodzie:** `stenogramy.py` (`zadanie_transcribe`, `_transcribe_sesji`),
   `anonimizacja.py`, `infra/notarai-s3.yaml`.
 - **Zamknięte, gdy:** stenogram z fikcyjnego aktu jest przy sprawie, bez danych

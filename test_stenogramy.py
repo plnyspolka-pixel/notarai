@@ -22,8 +22,8 @@ SUROWE = [
     {"start": 12.5, "mowca": "", "tekst": "Kupująca pani Anna Pawlak, telefon 600 100 200, pan Sobczaka zna od lat."},
     {"start": 30.0, "mowca": "", "tekst": "Cena wynosi 450 000 zł, nowa umowa wchodzi w życie dziś."},
 ]
-# Co wskazałby model (atrapa): fragmenty jak w tekście + oznaczenia.
-WSKAZANE = [("Jan Sobczak", "OSOBA 1"), ("Anna Pawlak", "OSOBA 2"), ("Lipowej 7 m. 3", "ADRES")]
+# Co wskazałby model (atrapa): fragmenty dokładnie tak, jak w tekście.
+WSKAZANE = ["Jan Sobczak", "Anna Pawlak", "Lipowej 7 m. 3"]
 
 
 class AtrapaS3Pliki(AtrapaS3):
@@ -94,8 +94,10 @@ def test_stenogram_przy_sprawie_bez_danych_osobowych(klient, tmp_path):
 
     tekst = klient.get(f"/api/stenogramy/{wpis['id']}/tekst").text
     assert "STENOGRAM ODCZYTANIA AKTU" in tekst and "Repertorium A nr 1234/2026" in tekst
-    assert "[OSOBA 1]" in tekst and "[OSOBA 2]" in tekst
-    for dana in ("Sobczak", "Pawlak", "Lipowej", "80 01 01", "600 100 200", "Lublin"):
+    # Początek i koniec zostają: kto zna akt, dopasuje osobę do roli.
+    assert "Stawiający J*n S*****k, PESEL 80 ** ** *** 45, zamieszkały przy ulicy L*****j 7 m. 3." in tekst
+    assert "Kupująca pani A**a P****k, telefon 60* *** *00, pan S******a zna od lat." in tekst
+    for dana in ("Sobczak", "Pawlak", "Lipowej", "80 01 01", "600 100 200"):
         assert dana not in tekst, dana
     assert "450 000 zł" in tekst and "nowa umowa" in tekst     # treść czynności zostaje
     assert "[0:00:12]" in tekst
@@ -283,13 +285,13 @@ def test_transcribe_caly_przebieg_i_sprzatanie(klient, s3, monkeypatch, nieudane
     monkeypatch.setenv("PIECZAPP_TRANSCRIBE_OPTOUT", "1")
     atrapa = AtrapaTranscribe(s3, nieudane_z_mowcami)
     monkeypatch.setattr(stenogramy, "_transcribe", atrapa)
-    monkeypatch.setattr(anonimizacja, "wskaz_dane", lambda s: [("Jan Sobczak", "OSOBA 1")])
+    monkeypatch.setattr(anonimizacja, "wskaz_dane", lambda s: ["Jan Sobczak"])
     id_s, sesje = _nagraj(klient)
     wpis = _zakoncz(klient, id_s, sesje)
     assert wpis["stan"] == "gotowe", wpis
 
     tekst = klient.get(f"/api/stenogramy/{id_s}/tekst").text
-    assert "Mówca 1: Stawiający [OSOBA 1], PESEL [PESEL]." in tekst
+    assert "Mówca 1: Stawiający J*n S*****k, PESEL 80*******45." in tekst
     assert "Mówca 2: Potwierdzam." in tekst
     # Audio i surowy wynik Transcribe skasowane, zadania usunięte; stenogram w S3 przy sprawie.
     assert not [k for k in s3.obiekty if "stenogramy-robocze" in k]
@@ -312,22 +314,31 @@ def test_dane_ze_sprawy_w_odmianie(tmp_path):
     wynik = anonimizacja.anonimizuj([{"start": 0, "mowca": "", "tekst":
                                       "Pana Sobczaka i panią Pawlakową, nowa umowa, numer 8001 0112 345."}],
                                     znane, z_modelem=False)[0]["tekst"]
-    assert "Sobcz" not in wynik and "Pawlak" not in wynik
-    assert "nowa umowa" in wynik
-    assert "8001" not in wynik
+    assert wynik == "Pana S******a i panią P*******ą, nowa umowa, numer 80** **** *45."
 
 
 def test_wzorce_bez_modelu():
     tekst = ("PESEL 80 01 01 123 45, dowód ABC 123456, księga LU1I/00012345/6, tel. +48 600-100-200, "
              "konto 12 3456 7890 1234 5678 9012 3456, e-mail jan@example.com, ulica Lipowa 7 m. 3, 20-001")
     wynik = anonimizacja.anonimizuj([{"start": 0, "mowca": "", "tekst": tekst}], [], z_modelem=False)[0]["tekst"]
-    for dana in ("123 45", "ABC", "LU1I", "600", "3456", "example", "Lipowa 7", "20-001"):
-        assert dana not in wynik, (dana, wynik)
+    assert wynik == ("PESEL 80 ** ** *** 45, dowód A*C 12**56, księga L*1I/00****45/6, tel. +48 ***-***-*00, "
+                     "konto 12 **** **** **** **** **** **56, e-mail j*n@e*****e.c*m, ulica L****a 7 m. 3, 2*-**1")
 
 
 def test_fragmenty_modelu_cale_slowa():
-    wynik = anonimizacja._podmien_fragmenty("Jan i Janina, Jan.", [("Jan", "OSOBA 1")])
-    assert wynik == "[OSOBA 1] i Janina, [OSOBA 1]."
+    wynik = anonimizacja._maskuj_fragmenty("Jan i Janina, Jan.", ["Jan"])
+    assert wynik == "J*n i Janina, J*n."
+
+
+def test_kwoty_i_tresc_zostaja():
+    tekst = "Cena 450 000 000 zł, na ulicy w dniu dzisiejszym, nowa umowa, Rep. A nr 1234/2026."
+    assert anonimizacja.anonimizuj([{"start": 0, "mowca": "", "tekst": tekst}], [], z_modelem=False)[0]["tekst"] == tekst
+
+
+def test_maska_krotkich():
+    assert anonimizacja.zamaskuj("Jo") == "J*"
+    assert anonimizacja.zamaskuj("ul. 7") == "u*. 7"
+    assert anonimizacja.zamaskuj("123") == "1*3"
 
 
 def test_model_stenogramu_tylko_eu():
@@ -375,7 +386,7 @@ def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch
             strona.click("#lista button:has-text('Pokaż')")
             strona.wait_for_selector("#lista .tekst")
             tekst = strona.text_content("#lista .tekst")
-            assert "[OSOBA 1]" in tekst and "Sobczak" not in tekst
+            assert "J*n S*****k" in tekst and "Sobczak" not in tekst
             assert strona.is_hidden("#karta-lokalne")
             assert bledy == []
             przegladarka.close()
