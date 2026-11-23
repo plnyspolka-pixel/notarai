@@ -34,6 +34,7 @@
   let zajety = false, recorder = null, strumien = null, kawalki = [], nagrywa = false;
   let doZatwierdzenia = null;
   let stopTimer = null;
+  let pokolenieCzatu = 0;
 
   function powiadom(tekst, blad=false) {
     status.textContent = tekst || "";
@@ -73,6 +74,7 @@
     const tresc = pole.value.trim();
     if (!tresc) return;
     const poprzednia = historia.slice(-12);
+    const sesja = pokolenieCzatu;
     pole.value = "";
     dodajWiadomosc("uzytkownik", tresc);
     zajety = true; btnWyslij.disabled = true; mikrofon.disabled = true;
@@ -83,6 +85,7 @@
         body: JSON.stringify({wiadomosc: tresc, historia: poprzednia})
       });
       const dane = await odp.json().catch(() => ({}));
+      if (sesja !== pokolenieCzatu) return;
       if (!odp.ok) throw new Error(dane.detail || "Nie udało się wykonać polecenia.");
       const tekst = dane.odpowiedz || "Wybierz dalszą czynność.";
       dodajWiadomosc("asystent", tekst);
@@ -91,6 +94,7 @@
       dodajAkcje(dane.akcje);
       powiadom("");
     } catch (e) {
+      if (sesja !== pokolenieCzatu) return;
       // Bez przechowywania poufnej treści poza sesją.
       dodajWiadomosc("asystent", "Nie udało się odpowiedzieć. Polecenie nie zostało wykonane.");
       pole.value = tresc;
@@ -164,7 +168,9 @@
         strumien?.getTracks().forEach(t => t.stop());
         nagrywa = false;
       };
+      const sesjaNagrania = pokolenieCzatu;
       recorder.onstop = async () => {
+        if (sesjaNagrania !== pokolenieCzatu) return;
         strumien?.getTracks().forEach(t => t.stop());
         strumien = null;
         const blob = new Blob(kawalki, {type:recorder.mimeType || "audio/webm"});
@@ -192,12 +198,13 @@
             }
             if (!gotowe) throw new Error("Rozpoznawanie głosu nadal trwa. Spróbuj ponownie za chwilę.");
           }
+          if (sesjaNagrania !== pokolenieCzatu) return;
           if (!wynik.tekst?.trim()) throw new Error("Nie rozpoznano słów w nagraniu.");
           pole.value = [pole.value.trim(), wynik.tekst.trim()].filter(Boolean).join(" ");
           pole.focus();
           powiadom("Sprawdź tekst i naciśnij „Wyślij”. Nic nie wysyłamy automatycznie.");
         } catch (e) {
-          powiadom(e.message, true);
+          if (sesjaNagrania === pokolenieCzatu) powiadom(e.message, true);
         } finally {
           zajety = false; btnWyslij.disabled = false; mikrofon.disabled = false;
         }
@@ -228,6 +235,7 @@
   // Reset historii po wylogowaniu - ponowne użycie tej samej przeglądarki
   // nie może wyświetlić odpowiedzi z wcześniejszej sesji.
   window.wyczyscPulpitAI = () => {
+    pokolenieCzatu++;
     historia.length = 0;
     rozmowa.replaceChildren();
     dodajWiadomosc("asystent", "W czym pomóc kancelarii?");
