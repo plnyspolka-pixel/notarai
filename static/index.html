@@ -557,6 +557,16 @@ dialog.okno input{font:14px var(--mono);text-transform:uppercase;width:12em}
 .komputer b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .komputer small{color:var(--tekst3);font-size:12px}
 .komputer button{font-size:12px;padding:5px 11px}
+/* Pilot telefonu - ta sama kolejka co Klikamy, ale wskazujemy konkretny PC. */
+#okno-pilot{width:min(560px,calc(100vw - 24px))}
+#okno-pilot .pole{margin-top:14px}
+#okno-pilot textarea,#okno-pilot input{width:100%;max-width:100%;font:14px var(--sans);text-transform:none}
+#okno-pilot textarea{min-height:112px;resize:vertical}
+#okno-pilot #pilot-przebieg{margin-top:16px;max-height:40vh;overflow:auto}
+#okno-pilot .dol button{min-height:42px}
+@media(max-width:600px){dialog#okno-pomocnik,dialog#okno-pilot{padding:18px;max-height:85dvh;overflow:auto}
+  .komputer{flex-wrap:wrap}.komputer > div{flex-basis:calc(100% - 30px)}
+  .komputer button{flex:1;min-height:40px}}
 /* dokumenty akceptowane w aplikacji */
 #okno-umowa input[type=text]{font:14px var(--sans);text-transform:none;width:100%}
 #okno-umowa .pole{margin-bottom:12px}
@@ -1710,6 +1720,7 @@ notarai</div>
 <dialog class="okno" id="okno-pomocnik">
   <h2>Pomocnik na komputerze</h2>
   <p>Pomocnik wykonuje na Twoim komputerze to, czego chmura zrobić nie może: sprawdzenia w rejestrach. Łączysz go raz, potem działa sam.</p>
+  <p id="pomocnik-mobilny" hidden>Na telefonie nie instalujesz pomocnika. Wybierz podłączony komputer i naciśnij „Steruj”. Jeśli go nie ma, uruchom pomocnika w Windows i połącz go z kancelarią z tego komputera.</p>
   <div id="lista-komputerow"></div>
   <div class="dol"><button id="btn-instaluj-pomocnika">Zainstaluj pomocnika na tym komputerze</button></div>
   <h3>Masz kod z okna pomocnika?</h3>
@@ -1720,6 +1731,28 @@ notarai</div>
     <span class="stan" id="stan-pomocnik"></span>
   </div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-pomocnik">Zamknij</button></div>
+</dialog>
+
+<!-- Pilot mobilny: zlecenie trafia na konkretny, sparowany komputer z Windows. -->
+<dialog class="okno" id="okno-pilot" aria-labelledby="pilot-tytul">
+  <h2 id="pilot-tytul">Steruj przeglądarką komputera</h2>
+  <p id="pilot-komputer"></p>
+  <p>Komputer musi być włączony, a pomocnik uruchomiony. Pracuje on w osobnej przeglądarce do rejestrów. Z telefonu możesz wydawać polecenia, ale wysłanie, złożenie lub podpisanie dokumentu wymaga działania człowieka na komputerze.</p>
+  <div class="pole">
+    <label class="etykieta" for="pilot-cel">Polecenie dla komputera</label>
+    <textarea id="pilot-cel" maxlength="1000" rows="4" placeholder="Np. znajdź w Geoportalu działkę 123/4"></textarea>
+  </div>
+  <div class="pole">
+    <label class="etykieta" for="pilot-hosty">Dozwolone domeny (oddzielone przecinkami)</label>
+    <input id="pilot-hosty" autocomplete="off" spellcheck="false" placeholder="geoportal.gov.pl">
+    <small>Bez domen pomocnik pozostaje na aktualnie otwartej stronie. Wpisanie domeny zezwala na jej otwarcie.</small>
+  </div>
+  <div class="dol">
+    <button type="button" id="pilot-wyslij">Wyślij polecenie</button>
+    <button type="button" class="wtorny" id="pilot-zamknij">Zamknij</button>
+  </div>
+  <p class="stan" id="pilot-stan" role="status" aria-live="polite"></p>
+  <div class="klik-kroki" id="pilot-przebieg" aria-live="polite"></div>
 </dialog>
 
 <!-- Kreator instalacji: pobierz, uruchom, polacz. Kolejne kroki zapalaja sie
@@ -3756,14 +3789,21 @@ function rysujPomocnika(dane){
   $("pomocnik-kropka").classList.toggle("jest", pomocnikPolaczony);
   $("pomocnik-opis").textContent = pomocnikPolaczony ? "działa"
     : komputery.length ? "nie jest uruchomiony" : "kliknij, żeby połączyć";
+  $("btn-instaluj-pomocnika").hidden = !naWindows;
+  $("pomocnik-mobilny").hidden = naWindows;
   $("lista-komputerow").innerHTML = komputery.length
     ? komputery.map(k => `<div class="komputer">
         <span class="kropka ${k.polaczony ? "jest" : ""}"></span>
         <div><b>${escape(k.nazwa)}</b>
           <small>${k.polaczony ? "działa teraz" : escape(opisCzasu(k.widziany))}</small></div>
+        ${k.polaczony ? '<button type="button" data-steruj="' + escape(k.id) + '">Steruj</button>' : ""}
         <button class="wtorny" data-odlacz="${escape(k.id)}">Odłącz</button>
       </div>`).join("")
-    : '<p class="stan">Żaden komputer nie jest jeszcze połączony.</p>';
+    : '<p class="stan">Żaden komputer nie jest jeszcze połączony. Uruchom pomocnika na komputerze z Windows i połącz go w NotarAI.</p>';
+  $("lista-komputerow").querySelectorAll("[data-steruj]").forEach(b => b.onclick = () => {
+    const wybrany = komputery.find(k => k.id === b.dataset.steruj && k.polaczony);
+    if (wybrany) otworzPilota(wybrany);
+  });
   $("lista-komputerow").querySelectorAll("[data-odlacz]").forEach(b => b.onclick = async () => {
     const nazwa = b.closest(".komputer").querySelector("b").textContent;
     if (!confirm("Odłączyć komputer " + nazwa + "?\nPomocnik na nim przestanie odbierać "
@@ -3776,12 +3816,61 @@ function rysujPomocnika(dane){
 
 $("btn-pomocnik").onclick = () => {
   // Bez zadnego komputera lista jest pusta - od razu prowadzimy przez instalacje.
-  if (!((ostatniStanPomocnika || {}).urzadzenia || []).length) { otworzKreator(); return; }
+  if (!((ostatniStanPomocnika || {}).urzadzenia || []).length && naWindows) { otworzKreator(); return; }
   stan($("stan-pomocnik"), "");
   $("okno-pomocnik").showModal();
   odswiezPomocnika();
 };
 $("btn-zamknij-pomocnik").onclick = () => $("okno-pomocnik").close();
+
+/* Pilot: polecenie z telefonu kierujemy do juz sparowanego pomocnika Windows. */
+let komputerPilota = null;
+function otworzPilota(komputer){
+  komputerPilota = komputer;
+  $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
+  $("pilot-cel").value = "";
+  $("pilot-hosty").value = "";
+  $("pilot-przebieg").replaceChildren();
+  stan($("pilot-stan"), "");
+  $("pilot-wyslij").disabled = false;
+  if ($("okno-pomocnik").open) $("okno-pomocnik").close();
+  $("okno-pilot").showModal();
+}
+$("pilot-zamknij").onclick = () => $("okno-pilot").close();
+$("pilot-wyslij").onclick = async () => {
+  if (!komputerPilota) return;
+  const cel = $("pilot-cel").value.trim();
+  if (!cel) return stan($("pilot-stan"), "Wpisz polecenie.", true);
+  const hosty = $("pilot-hosty").value.split(",").map(h => h.trim()).filter(Boolean);
+  $("pilot-wyslij").disabled = true;
+  $("pilot-przebieg").replaceChildren();
+  stan($("pilot-stan"), "Wysyłam polecenie do " + komputerPilota.nazwa + "…", false, true);
+  try {
+    const odp = await api("/api/urzadzenia/polecenia", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({komputer: komputerPilota.id, cel, dozwolone_hosty: hosty}),
+    });
+    const wyslane = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(wyslane.detail || "Nie udało się przekazać polecenia.");
+    stan($("pilot-stan"), "Komputer otrzyma zadanie podczas najbliższego odpytywania. Sprawdzam wynik…", false, true);
+    const koniec = Date.now() + 15 * 60 * 1000;
+    while (Date.now() < koniec && $("okno-pilot").open) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const r = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(wyslane.zlecenie));
+      const wynik = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(wynik.detail || "Nie udało się odczytać wyniku.");
+      if (wynik.stan === "wykonane") {
+        rysujPrzebieg(wynik.raport || {}, "pilot-przebieg");
+        stan($("pilot-stan"), (wynik.raport || {}).pytanie
+          ? "Wymagane działanie na komputerze." : "Polecenie zakończone.");
+        return;
+      }
+    }
+    stan($("pilot-stan"), "Zadanie wysłane. Po zamknięciu okna pomocnik nadal może je wykonywać.");
+  } catch (blad) {
+    stan($("pilot-stan"), blad.message || "Nie udało się wykonać polecenia.", true);
+  } finally { $("pilot-wyslij").disabled = false; }
+};
 
 let kodDoPolaczenia = "";
 
@@ -3896,6 +3985,10 @@ function ustawKrok(n){
 }
 
 function otworzKreator(){
+  if (!naWindows) {
+    if (!$("okno-pomocnik").open) $("okno-pomocnik").showModal();
+    return;
+  }
   const plik = (ostatniStanPomocnika || {}).pobierz;
   const link = $("kr-pobierz");
   if (plik) {
@@ -5563,8 +5656,8 @@ const OPIS_AKCJI = {
   otworz: "otwarcie adresu", czytaj: "odczyt strony",
   pytam: "pytanie do Ciebie", koniec: "koniec",
 };
-function rysujPrzebieg(raport){
-  const cel = $("klik-przebieg");
+function rysujPrzebieg(raport, miejsce = "klik-przebieg"){
+  const cel = $(miejsce);
   cel.innerHTML = "";
   (raport.kroki || []).forEach(k => {
     const d = document.createElement("div");
