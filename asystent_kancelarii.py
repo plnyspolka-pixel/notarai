@@ -75,7 +75,12 @@ działa źle albo potrzebna jest nowa funkcja). Opisz problem ogólnie, bez dany
 pytaniem, zamiast zgadywać.
 5. Nigdy nie zmieniaj treści konkretnego aktu - od tego jest projekt i rozmowa o sprawie.
 6. Nie przepisuj danych klientów (nazwisk, PESEL, adresów, numerów dokumentów) do narzędzi.
-7. Gdy narzędzie odpowie, że brak uprawnień - wyjaśnij, że zmiany wprowadza notariusz \
+7. Zmian w logowaniu, kontach użytkowników i płatnościach (kredyty, faktury) NIE zgłaszaj do \
+zglos_zmiane_programu - powiedz, że tym zajmuje się bezpośrednio zespół notarai. Treść prawną \
+aktów, taksę i dane osobowe notariusz może zmieniać - to jego dziedzina.
+8. Gdy zgłosisz zmianę programu, powiedz, że po zbudowaniu włączy się u tej kancelarii sama, \
+a postęp i czas widać pod rozmową.
+9. Gdy narzędzie odpowie, że brak uprawnień - wyjaśnij, że zmiany wprowadza notariusz \
 (właściciel kancelarii), a prośbę można zgłosić.
 """
 
@@ -336,10 +341,62 @@ def postep_prosby(prosba: dict, stan: dict | None, teraz: datetime | None = None
                     "zakonczona": False}
 
 
-def prosby_z_postepem(limit: int = 10) -> list[dict]:
+def _wlacz_ustawienie(prosba: dict, wlacz: dict) -> str:
+    """Wlacza u tej kancelarii ustawienie zbudowane na jej prosbe. Zwraca opis albo blad."""
+    klucz, wartosc = str(wlacz.get("klucz", "")), str(wlacz.get("wartosc", ""))
+    if klucz not in ustawienia_kancelarii.OPISY_USTAWIEN:
+        return f"blad: nieznane ustawienie {klucz}"
+    przed = ustawienia_kancelarii.wczytaj().get(klucz)
+    try:
+        po = ustawienia_kancelarii.zapisz({klucz: wartosc})[klucz]
+    except ValueError as e:
+        return f"blad: {e}"
+    _zapisz_zmiane(f"wlaczono zmiane z prosby {prosba['odcisk']}: {klucz} = {po}",
+                   {"rodzaj": "ustawienie", "klucz": klucz, "wartosc": przed})
+    log.info("asystent kancelarii: prosba %s zbudowana i wlaczona (%s)", prosba["odcisk"], klucz)
+    return f"{klucz} = {po}"
+
+
+def odswiez_prosby() -> list[dict]:
+    """Postep prosb tej kancelarii; zbudowane zmiany WLACZA od razu u niej.
+
+    Zbudowane = wlaczone (decyzja wlasciciela 23.11.2026): gdy zmiana jest juz
+    na produkcji (etap obserwacja/gotowe), ustawienie z raportu agenta wlacza
+    sie w kancelarii, ktora prosila - bez drugiego polecenia. Prosby zakonczone
+    nie odpytuja juz Parameter Store.
+    """
     dane = magazyn.wczytaj_plik_kancelarii(PLIK, _domyslne())
-    prosby = list(reversed(dane.get("prosby", [])))[:limit]
-    return [postep_prosby(p, _parametr_postepu(p["odcisk"])) for p in prosby]
+    zmiany: dict[str, dict] = {}
+    wynik = []
+    for p in dane.get("prosby", []):
+        if p.get("koniec"):
+            stan = p["koniec"]
+        elif _minuty_od(p["czas"], datetime.now(timezone.utc)) > 3 * 24 * 60:
+            stan = {"etap": "do_decyzji", "czas": "", "opis": "nie podjęto automatycznie - zespół notarai to sprawdzi"}
+            zmiany.setdefault(p["odcisk"], {})["koniec"] = stan
+        else:
+            stan = _parametr_postepu(p["odcisk"])
+            if stan and stan.get("etap") in ("obserwacja", "gotowe") and stan.get("wlacz") and not p.get("wlaczono"):
+                zmiany.setdefault(p["odcisk"], {})["wlaczono"] = _wlacz_ustawienie(p, stan["wlacz"])
+            if stan and stan.get("etap") in ("gotowe", "do_decyzji", "cofniete"):
+                zmiany.setdefault(p["odcisk"], {})["koniec"] = {k: stan.get(k, "") for k in ("etap", "czas", "opis")}
+        p = {**p, **zmiany.get(p["odcisk"], {})}
+        postep = postep_prosby(p, stan)
+        if p.get("wlaczono") and not str(p["wlaczono"]).startswith("blad"):
+            postep["wlaczono"] = True
+            if postep["etap"] in ("obserwacja", "gotowe"):
+                postep["etykieta"] = "Gotowe - zmiana działa i jest u Ciebie włączona"
+        wynik.append(postep)
+    if zmiany:
+        def zapisz(d: dict) -> None:
+            for prosba in d.get("prosby", []):
+                prosba.update(zmiany.get(prosba["odcisk"], {}))
+        magazyn.zmien_plik_kancelarii(PLIK, zapisz, _domyslne())
+    return wynik
+
+
+def prosby_z_postepem(limit: int = 10) -> list[dict]:
+    return list(reversed(odswiez_prosby()))[:limit]
 
 
 _ZMIENIAJACE = {"zmien_ustawienie": _zmien_ustawienie, "dodaj_zasade": _dodaj_zasade,

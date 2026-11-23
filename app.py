@@ -493,8 +493,18 @@ def ustawienia_dla_przegladarki():
         # Saldo kredytow, gdy kancelaria placi za akcje (tokenomia); inaczej None.
         "kredyty": tokenomia.saldo_kancelarii(),
         # Ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word.
-        "ogolne": ustawienia_kancelarii.wczytaj(),
+        # Najpierw wlaczamy zmiany zbudowane na prosbe tej kancelarii (asystent).
+        "ogolne": _ogolne_z_gotowymi_prosbami(),
     }
+
+
+def _ogolne_z_gotowymi_prosbami() -> dict:
+    if not magazyn.u_klienta():
+        try:
+            asystent_kancelarii.odswiez_prosby()
+        except Exception as blad:  # noqa: BLE001 - start aplikacji nie zalezy od prosb
+            log.warning("asystent kancelarii: prosby nieodswiezone (%s)", type(blad).__name__)
+    return ustawienia_kancelarii.wczytaj()
 
 
 # --- praca bez zapisu: pliki zostaja u kancelarii --------------------------

@@ -228,3 +228,51 @@ def test_endpoint_prosb_z_postepem(dane, monkeypatch):
     assert odp.status_code == 200
     prosba = odp.json()["prosby"][0]
     assert prosba["etap"] == "kontrola" and "Testy" in prosba["etykieta"] and prosba["pozostalo_min"] >= 1
+
+
+# ------------------------------------------------------------------ zbudowane = wlaczone
+
+def test_zbudowana_zmiana_wlacza_sie_sama_u_prosiacej_kancelarii(dane, monkeypatch):
+    """Decyzja wlasciciela: notariusz prosi raz - po wdrozeniu zmiana jest u niego wlaczona."""
+    numer = ak.wykonaj("zglos_zmiane_programu", {"opis": "w Wordzie znak zapytania"}, True)["numer"]
+    stany = {"etap": "analiza", "czas": "2026-11-23T14:00:00Z"}
+    monkeypatch.setattr(ak, "_parametr_postepu", lambda odcisk: dict(stany))
+    assert ak.odswiez_prosby()[0]["etap"] == "analiza"
+    assert ustawienia_kancelarii.wczytaj()["braki"] == "opis"
+
+    stany.update(etap="obserwacja", wlacz={"klucz": "braki", "wartosc": "pytajnik"})
+    prosba = ak.odswiez_prosby()[0]
+    assert prosba["wlaczono"] is True and "włączona" in prosba["etykieta"]
+    assert ustawienia_kancelarii.wczytaj()["braki"] == "pytajnik"
+    # bez drugiego wlaczania i z mozliwoscia cofniecia
+    ak.odswiez_prosby()
+    ak.wykonaj("cofnij_ostatnia_zmiane", {}, True)
+    assert ustawienia_kancelarii.wczytaj()["braki"] == "opis"
+    assert numer
+
+
+def test_nieznane_ustawienie_z_raportu_nie_jest_wlaczane(dane, monkeypatch):
+    ak.wykonaj("zglos_zmiane_programu", {"opis": "cos"}, True)
+    monkeypatch.setattr(ak, "_parametr_postepu",
+                        lambda o: {"etap": "gotowe", "czas": "", "wlacz": {"klucz": "haslo_admina", "wartosc": "x"}})
+    prosba = ak.odswiez_prosby()[0]
+    assert "wlaczono" not in prosba and "haslo_admina" not in ustawienia_kancelarii.wczytaj()
+
+
+def test_zakonczona_prosba_nie_odpytuje_juz_aws(dane, monkeypatch):
+    ak.wykonaj("zglos_zmiane_programu", {"opis": "cos"}, True)
+    wolania = []
+    monkeypatch.setattr(ak, "_parametr_postepu",
+                        lambda o: wolania.append(o) or {"etap": "gotowe", "czas": "2026-11-23T14:00:00Z"})
+    ak.odswiez_prosby()
+    ak.odswiez_prosby()
+    assert len(wolania) == 1
+
+
+def test_start_aplikacji_wlacza_gotowe_zmiany(dane, monkeypatch):
+    import app as aplikacja
+    ak.wykonaj("zglos_zmiane_programu", {"opis": "wiekszy tekst"}, True)
+    monkeypatch.setattr(ak, "_parametr_postepu",
+                        lambda o: {"etap": "gotowe", "czas": "", "wlacz": {"klucz": "rozmiar_tekstu", "wartosc": "duzy"}})
+    odp = TestClient(aplikacja.app).get("/api/ustawienia")
+    assert odp.json()["ogolne"]["rozmiar_tekstu"] == "duzy"

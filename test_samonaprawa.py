@@ -412,10 +412,30 @@ class TestBramki:
 
     @pytest.mark.parametrize("sciezka", [
         "scripts/samonaprawa/bramki.py", ".github/workflows/ci.yml", "conftest.py", "infra/x.yaml",
-        "prompty.py", "autoryzacja.py", "platnosci.py", "test_samonaprawa.py", "CLAUDE.md",
+        "test_samonaprawa.py", "CLAUDE.md", "dziennik.py", "magazyn.py",
     ])
     def test_strefy_zakazane(self, sciezka):
         assert bramki.w_strefie_zakazanej(sciezka)
+
+    @pytest.mark.parametrize("sciezka", ["autoryzacja.py", "logowanie.py", "rejestracja.py",
+                                         "urzadzenia.py", "platnosci.py", "tokenomia.py"])
+    def test_logowanie_i_platnosci_calkowicie_poza_samonaprawa(self, sciezka):
+        assert bramki.w_strefie_wykluczonej(sciezka)
+
+    @pytest.mark.parametrize("sciezka", ["prompty.py", "zasady.py", "taksa.py", "klauzule.py", "osoby.py"])
+    def test_tresc_prawna_taksa_dane_to_strefa_notariusza(self, sciezka):
+        assert bramki.w_strefie_notariusza(sciezka) and not bramki.w_strefie_zakazanej(sciezka)
+
+    def test_logowanie_odrzucone_nawet_na_prosbe(self, repo):
+        baza, zatwierdz = repo
+        zatwierdz({"liczby.py": DOBRA_POPRAWKA, "test_liczby.py": TEST_REGRESJI, "logowanie.py": "X = 1\n"})
+        wynik = bramki.ocen(baza, RAPORT, prosba=True)
+        assert wynik["werdykt"] == "odrzuc" and "logowanie" in " ".join(wynik["odrzucenie"])
+
+    def test_tresc_prawna_na_prosbe_notariusza_wchodzi_automatem(self, repo):
+        baza, zatwierdz = repo
+        zatwierdz({"liczby.py": DOBRA_POPRAWKA, "test_liczby.py": TEST_REGRESJI, "prompty.py": "X = 1\n"})
+        assert bramki.ocen(baza, RAPORT, prosba=True)["werdykt"] == "auto"
 
     def test_zwykly_kod_poza_strefa(self):
         assert not bramki.w_strefie_zakazanej("bedrock.py")
@@ -479,6 +499,10 @@ class TestWorkflow:
             assert "TEST_WDROZENIA != 'true'" in self._krok(nazwa)["if"], nazwa
         test = self._krok("Test wdrozenia")["run"]
         assert "git add docs/samonaprawa-testy-wdrozenia.md" in test and "git add -A" not in test
+
+    def test_prosba_notariusza_i_wlaczenie_po_zbudowaniu(self):
+        assert "--prosba" in self._krok("Commit poprawki")["run"]
+        assert "WLACZ=" in self._krok("Werdykt")["run"]
 
     def test_przeglad_mozna_wyzwolic_recznie(self):
         """Zastepczo, dopoki GitHub nie odpali harmonogramu: workflow_dispatch z przeglad=true."""

@@ -44,7 +44,16 @@ To nie zawsze błąd, czasem notariusz chce, żeby program działał inaczej
   `OPISY_USTAWIEN`) + zastosowanie w `static/index.html` w
   `zastosujProfilInterfejsu()`; domyślnie wygląd bez zmian,
 - test regresji sprawdza nowe zachowanie przy włączonym ustawieniu i stare przy
-  domyślnym.
+  domyślnym,
+- w raporcie podaj `"ustawienie": {"klucz": "...", "wartosc": "..."}` - wartość,
+  która spełnia prośbę. Aplikacja sama włączy je u kancelarii, która prosiła,
+  gdy tylko zmiana trafi na produkcję (notariusz nie wydaje drugiego polecenia).
+
+Prośba notariusza może dotyczyć treści prawnej aktów (prompty, zasady, klauzule),
+taksy i danych osobowych - to jego dziedzina, zrób ją. NIGDY nie zmieniaj
+logowania ani płatności (`autoryzacja.py`, `logowanie.py`, `rejestracja.py`,
+`urzadzenia.py`, `platnosci.py`, `tokenomia.py`) - taka zmiana jest odrzucana;
+gdy prośba tego wymaga, zapisz `"naprawione": false` z wyjaśnieniem.
 
 ## Zasady twarde (bramki je sprawdzają; złamanie = odrzucenie)
 
@@ -56,10 +65,9 @@ To nie zawsze błąd, czasem notariusz chce, żeby program działał inaczej
   bez opcjonalnej funkcji) jest dopuszczalne tylko z testem i opisem.
 - Nie zmieniaj: `scripts/samonaprawa/`, `.github/`, `samonaprawa.py`,
   `conftest.py`, `pytest.ini`, `test_zgodnosc_sdk.py`, `test_samonaprawa.py`,
-  `CLAUDE.md`. Jeśli naprawa wymaga zmiany w strefie zakazanej (treść prawna,
-  RODO, logowanie, płatności, infrastruktura - lista w
-  `scripts/samonaprawa/bramki.py`), zrób ją, ale ustaw `ryzyko` na "wysokie":
-  poprawka pójdzie do właściciela jako pull request, nie na produkcję.
+  `CLAUDE.md`. Logowania i płatności nie dotykaj wcale. Zmiany w `dziennik.py`,
+  `magazyn.py` i `infra/` idą do właściciela jako pull request (lista stref w
+  `scripts/samonaprawa/bramki.py`).
 - RODO: żadnych danych osobowych w logach, testach i raporcie. Nie zmieniaj
   regionu (eu-central-1).
 - ElevenLabs: tylko modele v3+ (zasada z CLAUDE.md).
@@ -80,7 +88,8 @@ To nie zawsze błąd, czasem notariusz chce, żeby program działał inaczej
   "ryzyko": "niskie | srednie | wysokie",
   "uzasadnienie_ryzyka": "co jeszcze ta zmiana może dotknąć",
   "dla_wlasciciela": "2-3 zdania po polsku dla nie-informatyka: co się psuło u notariusza, co naprawiono, co sprawdzić w aplikacji",
-  "sprawdz_w_aplikacji": "jedna czynność do kliknięcia, np. 'Sporządź projekt na dowolnej sprawie'"
+  "sprawdz_w_aplikacji": "jedna czynność do kliknięcia, np. 'Sporządź projekt na dowolnej sprawie'",
+  "ustawienie": {"klucz": "nazwa_ustawienia", "wartosc": "wartosc_wlaczajaca"}
 }
 ```
 

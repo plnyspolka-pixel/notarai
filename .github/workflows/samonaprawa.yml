@@ -272,7 +272,8 @@ jobs:
           # Bramki uruchamiaja testy napisane przez agenta - bez zadnych tokenow w srodowisku.
           env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
             -u ACTIONS_RUNTIME_TOKEN \
-            python "$NARZ/bramki.py" --repo "$PWD" --baza "$BAZA" --raport "$SN/raport.json" --wynik "$SN/bramki.json"
+            python "$NARZ/bramki.py" --repo "$PWD" --baza "$BAZA" --raport "$SN/raport.json" --wynik "$SN/bramki.json" \
+              $( [ "$(jq -r .rodzaj "$SN/zgloszenie.json")" = "reczne" ] && echo --prosba )
           echo "BRAMKI=$(jq -r .werdykt "$SN/bramki.json")" >> "$GITHUB_ENV"
 
       - name: Postep - recenzja
@@ -326,6 +327,8 @@ jobs:
             echo "master zmienil sie w trakcie naprawy - poprawka idzie jako PR" > "$SN/master.txt"
           fi
           echo "WERDYKT=$werdykt" >> "$GITHUB_ENV"
+          # Zbudowane = wlaczone: ustawienie, ktore aplikacja wlaczy u kancelarii, ktora prosila.
+          echo "WLACZ=$(jq -c 'if (.ustawienie|type)=="object" then {klucz: (.ustawienie.klucz|tostring), wartosc: (.ustawienie.wartosc|tostring)} else empty end' "$SN/raport.json" 2>/dev/null)" >> "$GITHUB_ENV"
           echo "### Samonaprawa $ODCISK: $werdykt (bramki: $bramki, recenzja: $recenzja, tryb: $TRYB)" >> "$GITHUB_STEP_SUMMARY"
           python - <<'PY'
           import json, os
