@@ -44,6 +44,15 @@ jobs:
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py
+      - name: Przygotuj paczki dodatkow do pobrania
+        run: python scripts/buduj_pobieranie.py
+      - name: Dodaj paczki beta do artefaktow CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarai-dodatki-beta
+          path: strona/do-pobrania/pliki/
+          retention-days: 14
+          if-no-files-found: error
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
 
