@@ -1744,6 +1744,14 @@ def asystent_kancelarii_tura(zadanie: ZadanieAsystentaKancelarii, request: Reque
         raise HTTPException(502, bedrock.opis_bledu(blad))
 
 
+@app.get("/api/asystent-kancelarii/prosby")
+def prosby_asystenta_kancelarii():
+    """Prosby o zmiany w programie i ich postep (etap, szacowany czas do wdrozenia)."""
+    if magazyn.u_klienta():
+        return {"prosby": []}
+    return {"prosby": asystent_kancelarii.prosby_z_postepem()}
+
+
 @app.get("/api/admin/samonaprawa")
 def stan_samonaprawy(request: Request):
     """Bledy wykryte w tym kontenerze i czy zgloszenia ida do naprawy (bez danych spraw)."""

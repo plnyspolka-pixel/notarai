@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bedrock
 import klauzule
@@ -261,7 +261,85 @@ def _zglos(w: dict) -> dict:
             "co_dalej": ("Przekazane do automatycznej naprawy "
                          + ("od razu" if wynik["wyslano"] else "(przegląd co 30 minut)")
                          + ": zmiana pojawi się zwykle w ciągu godziny jako ustawienie tej kancelarii "
-                         "albo trafi do zespołu notarai do decyzji.")}
+                         "albo trafi do zespołu notarai do decyzji. Postęp i szacowany czas widać "
+                         "na bieżąco pod rozmową z asystentem.")}
+
+
+# ---------------------------------------------------------------------------
+# Postep prosb (co widzi notariusz)
+# ---------------------------------------------------------------------------
+# Etap -> (opis dla notariusza, typowy czas etapu w minutach). Kolejnosc = postep.
+ETAPY = [
+    ("w_kolejce", "Czeka na podjęcie", 0),
+    ("przyjete", "Przyjęte - agent zaczyna pracę", 1),
+    ("analiza", "Agent szuka przyczyny i przygotowuje zmianę", 12),
+    ("kontrola", "Testy i kontrola bezpieczeństwa zmiany", 5),
+    ("recenzja", "Niezależne sprawdzenie zmiany", 4),
+    ("wdrazanie", "Wdrażanie na serwer", 8),
+    ("obserwacja", "Gotowe - zmiana już działa, sprawdzam jeszcze, czy wszystko w porządku", 0),
+    ("gotowe", "Gotowe - zmiana działa", 0),
+]
+KONCOWE = {
+    "gotowe": "Gotowe - zmiana działa",
+    "do_decyzji": "Czeka na zespół notarai",
+    "cofniete": "Wycofane - zespół notarai to sprawdzi",
+}
+PRZEGLAD_CO_MIN = 60   # bez tokenu: przeglad zastepczy co godzine
+
+
+def _parametr_postepu(odcisk: str) -> dict | None:
+    try:
+        import boto3
+        import config
+        odp = boto3.client("ssm", region_name=config.REGION).get_parameter(Name=f"/notarai/samonaprawa/{odcisk}")
+        return json.loads(odp["Parameter"]["Value"])
+    except Exception:  # noqa: BLE001 - brak parametru = jeszcze w kolejce
+        return None
+
+
+def _minuty_od(czas_iso: str, teraz: datetime) -> float:
+    """Minuty od chwili zapisanej w ISO; czas bez strefy traktujemy jako UTC (kontener)."""
+    try:
+        od = datetime.fromisoformat(str(czas_iso).replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    if od.tzinfo is None:
+        od = od.replace(tzinfo=timezone.utc)
+    return max(0.0, (teraz - od).total_seconds() / 60)
+
+
+def postep_prosby(prosba: dict, stan: dict | None, teraz: datetime | None = None) -> dict:
+    """Pasek postepu i szacowany czas do wdrozenia jednej prosby."""
+    teraz = teraz or datetime.now(timezone.utc)
+    kolejnosc = [e for e, _, _ in ETAPY]
+    etap = (stan or {}).get("etap") or "w_kolejce"
+    wynik = {"numer": prosba["odcisk"], "opis": prosba.get("opis", "")[:300], "zgloszono": prosba["czas"],
+             "etap": etap, "uwaga": (stan or {}).get("opis", "")}
+    if etap in KONCOWE and etap != "gotowe":
+        return wynik | {"etykieta": KONCOWE[etap], "procent": 100, "pozostalo_min": None, "zakonczona": True}
+    if etap not in kolejnosc:
+        etap = "w_kolejce"
+        wynik["etap"] = etap
+    i = kolejnosc.index(etap)
+    if etap in ("obserwacja", "gotowe"):
+        return wynik | {"etykieta": ETAPY[i][1], "procent": 100, "pozostalo_min": 0, "zakonczona": etap == "gotowe"}
+    w_etapie = _minuty_od(stan["czas"] if stan else prosba["czas"], teraz)
+    if etap == "w_kolejce":
+        biezacy = 1 if prosba.get("wyslano") else max(1, PRZEGLAD_CO_MIN - w_etapie)
+        zrobione = 0.0
+    else:
+        biezacy = max(1, ETAPY[i][2] - w_etapie)
+        zrobione = sum(m for _, _, m in ETAPY[1:i]) + max(0, ETAPY[i][2] - biezacy)
+    calosc = sum(m for _, _, m in ETAPY[1:]) or 1
+    return wynik | {"etykieta": ETAPY[i][1], "procent": int(min(95, 5 + 90 * zrobione / calosc)),
+                    "pozostalo_min": int(round(biezacy + sum(m for _, _, m in ETAPY[i + 1:]))),
+                    "zakonczona": False}
+
+
+def prosby_z_postepem(limit: int = 10) -> list[dict]:
+    dane = magazyn.wczytaj_plik_kancelarii(PLIK, _domyslne())
+    prosby = list(reversed(dane.get("prosby", [])))[:limit]
+    return [postep_prosby(p, _parametr_postepu(p["odcisk"])) for p in prosby]
 
 
 _ZMIENIAJACE = {"zmien_ustawienie": _zmien_ustawienie, "dodaj_zasade": _dodaj_zasade,

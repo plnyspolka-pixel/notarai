@@ -197,3 +197,34 @@ def test_kazde_narzedzie_menu_ma_odpowiednik_w_przegladarce():
         assert f"{nazwa}:" in blok, nazwa
     for nazwa in ustawienia_kancelarii.ROZMIARY_TEKSTU:
         assert f"{nazwa}:" in blok, nazwa
+
+
+# ------------------------------------------------------------------ postep prosb
+
+def test_postep_prosby_etapy_i_czas():
+    from datetime import datetime, timezone
+    teraz = datetime(2026, 11, 23, 14, 0, tzinfo=timezone.utc)
+    p = {"odcisk": "abc123def456", "czas": "2026-11-23T13:50:00", "opis": "x", "wyslano": False}
+    kolejka = ak.postep_prosby(p, None, teraz)
+    assert kolejka["etap"] == "w_kolejce" and kolejka["pozostalo_min"] > 30
+    natychmiast = ak.postep_prosby(dict(p, wyslano=True), None, teraz)
+    assert natychmiast["pozostalo_min"] < kolejka["pozostalo_min"]
+    analiza = ak.postep_prosby(p, {"etap": "analiza", "czas": "2026-11-23T13:55:00Z"}, teraz)
+    wdrazanie = ak.postep_prosby(p, {"etap": "wdrazanie", "czas": "2026-11-23T13:58:00Z"}, teraz)
+    assert analiza["procent"] < wdrazanie["procent"] < 100
+    assert analiza["pozostalo_min"] > wdrazanie["pozostalo_min"] > 0
+    gotowe = ak.postep_prosby(p, {"etap": "gotowe", "czas": ""}, teraz)
+    assert gotowe["zakonczona"] and gotowe["procent"] == 100
+    decyzja = ak.postep_prosby(p, {"etap": "do_decyzji", "czas": "", "opis": "czeka"}, teraz)
+    assert decyzja["zakonczona"] and decyzja["pozostalo_min"] is None and decyzja["uwaga"] == "czeka"
+
+
+def test_endpoint_prosb_z_postepem(dane, monkeypatch):
+    import app as aplikacja
+    monkeypatch.setattr(ak, "_parametr_postepu",
+                        lambda odcisk: {"etap": "kontrola", "czas": "2026-11-23T13:55:00Z"})
+    ak.wykonaj("zglos_zmiane_programu", {"opis": "przycisk Sporządź projekt na górze"}, True)
+    odp = TestClient(aplikacja.app).get("/api/asystent-kancelarii/prosby")
+    assert odp.status_code == 200
+    prosba = odp.json()["prosby"][0]
+    assert prosba["etap"] == "kontrola" and "Testy" in prosba["etykieta"] and prosba["pozostalo_min"] >= 1
