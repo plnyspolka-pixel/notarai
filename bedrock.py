@@ -999,5 +999,6 @@ def nastepny_krok(cel: str, stan: dict, kroki: list[dict],
 
     tresc = klikamy.polecenie_dla_modelu(cel, stan, kroki,
                                           zgoda_wysylki=zgoda_wysylki)
-    odpowiedz = _rozmowa(prompty.KLIKAMY, [{"text": tresc}], max_tokenow=700, myslenie=False)
+    system = prompty.KLIKAMY_ZGODA if zgoda_wysylki else prompty.KLIKAMY
+    odpowiedz = _rozmowa(system, [{"text": tresc}], max_tokenow=700, myslenie=False)
     return klikamy.odpowiedz_na_slownik(odpowiedz)
