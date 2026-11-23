@@ -20,6 +20,8 @@ import re
 import sys
 from pathlib import Path
 
+from tools.zakaz_gha import zakaz_renderu_na_github_actions
+
 from . import karta as karty
 from . import plan as planer
 from . import publikacja, scenariusz, sloty, walidatory
@@ -192,6 +194,16 @@ def cmd_dzien(a) -> dict:
     return raport
 
 
+# Polecenia, które renderują albo generują (scenariusz, zlecenia głosów, GPU i montażu, dzienny przebieg).
+# Twarda reguła (23.11.2026): nigdy na GitHub Actions. Wolno tam tylko `scenariusz --waliduj` (bramka) i odczyt.
+GENERUJA = {"dzien", "plan", "scenariusz"}
+
+
+def straznik_gha(a, env=None) -> None:
+    if a.cmd in GENERUJA and not (a.cmd == "scenariusz" and getattr(a, "waliduj", None)):
+        zakaz_renderu_na_github_actions(f"fabryka {a.cmd}", env)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="python -m tools.fabryka")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -211,6 +223,7 @@ def main(argv=None):
         x.add_argument(f"--{k}")
     x.add_argument("--czas", type=float)
     a = p.parse_args(argv)
+    straznik_gha(a)
     {"stan": cmd_stan, "karta": cmd_karta, "scenariusz": cmd_scenariusz, "plan": cmd_plan,
      "publikuj": cmd_publikuj, "dzien": cmd_dzien}[a.cmd](a)
 

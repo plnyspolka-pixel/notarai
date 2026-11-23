@@ -290,3 +290,20 @@ def test_plan_sezonu_z_biblii():
 def test_rekord_z_linkiem_saos():
     r = karta.Rekord("H23", "| H23 | banknoty | ... | [orzeczenie](https://www.saos.org.pl/judgments/58319) |", "06.md")
     assert r.saos_id == "58319"
+
+
+def test_zakaz_renderu_gha_w_fabryce():
+    import argparse
+
+    from tools.fabryka.__main__ import straznik_gha
+    from tools.zakaz_gha import RenderNaGitHubActions
+
+    gha = {"GITHUB_ACTIONS": "true"}
+    for cmd in ("dzien", "plan"):
+        with pytest.raises(RenderNaGitHubActions):
+            straznik_gha(argparse.Namespace(cmd=cmd), gha)
+    with pytest.raises(RenderNaGitHubActions):
+        straznik_gha(argparse.Namespace(cmd="scenariusz", waliduj=None, tylko_prompt=True), gha)
+    straznik_gha(argparse.Namespace(cmd="scenariusz", waliduj="plik.json"), gha)  # bramka w CI dozwolona
+    straznik_gha(argparse.Namespace(cmd="stan"), gha)
+    straznik_gha(argparse.Namespace(cmd="dzien"), {})
