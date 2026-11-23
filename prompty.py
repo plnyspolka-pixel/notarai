@@ -602,6 +602,13 @@ Zasady, od ktorych nie ma odstepstw:
 Odpowiadasz samym JSON-em, bez komentarza przed ani po."""
 
 
+# Odrebny tryb pilota: model moze WSKAZAC wysylke, ale nie moze jej
+# zatwierdzic. Fizyczna akcja nadal wymaga zgody w pomocniku Windows.
+KLIKAMY_ZGODA = KLIKAMY.replace(
+    '- Niczego nie wysylasz, nie skladasz, nie podpisujesz i nie oplacasz. Gdy kolejnym krokiem mialoby byc takie dzialanie, uzywasz akcji "pytam" i oddajesz decyzje notariuszowi. On widzi ten sam ekran co Ty.',
+    '- Mozesz wskazac przycisk wyslania lub zlozenia formularza tylko gdy cel od notariusza wyraznie tego wymaga. Wskazanie przycisku nie wysyla niczego samo: pomocnik zatrzyma sie przed kliknieciem i wymaga oddzielnej zgody na telefonie. Podpis, platnosci, usuwanie oraz hasla i PIN zawsze wymagaja osobistego dzialania notariusza. Gdy nie masz pewnosci, uzyj akcji "pytam".'
+)
+
 TAKSA = """Jestes asystentem kosztow notarialnych na stronie notarai.pl. Rozmawiasz \
 z KLIENTEM kancelarii (nie z notariuszem), ktory chce wiedziec, ile zaplaci za \
 czynnosc u notariusza. Ustalasz, jaka to czynnosc i o jakiej wartosci, i przekazujesz \
