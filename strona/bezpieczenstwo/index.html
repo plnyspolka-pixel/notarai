@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skaner bezpieczeństwa kancelarii notarialnej - notarai</title>
+<meta name="description" content="Bezpłatny skaner: sprawdź w 20 sekund, czy ktoś może podszyć się pod e-mail Twojej kancelarii, czy strona jest szyfrowana i czy nie łamie RODO. Do tego darmowe narzędzia i checklista bezpieczeństwa kancelarii.">
+<link rel="canonical" href="https://notarai.pl/bezpieczenstwo/">
+<meta property="og:title" content="Jak bezpieczna jest Twoja kancelaria w internecie?">
+<meta property="og:description" content="Bezpłatny skaner poczty, strony i RODO dla kancelarii notarialnych.">
+<meta property="og:url" content="https://notarai.pl/bezpieczenstwo/">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="../logo-mark.svg">
+<link rel="preload" href="../fonts/montserrat-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="bezpieczenstwo.css">
+<script src="bezpieczenstwo.js" defer></script>
+<script src="/analityka.js" defer></script>
+</head>
+<body>
+<a class="pomin" href="#skaner">Przejdź do skanera</a>
+<header class="naglowek">
+  <div class="szer naglowek-w rozsun">
+    <a class="marka" href="../">
+      <img src="../logo-mark.svg" alt="" width="32" height="32">
+      <span>notar<strong>ai</strong></span>
+    </a>
+    <nav class="menu" aria-label="Nawigacja">
+      <a href="#narzedzia">Darmowe narzędzia</a>
+      <a href="#checklista">Checklista</a>
+      <a href="#dla-informatyka">Dla informatyka</a>
+    </nav>
+    <a class="przycisk maly" href="https://app.notarai.pl/rejestracja">Załóż konto</a>
+  </div>
+</header>
+
+<main id="tresc">
+<section class="hero skan-hero" aria-labelledby="tytul">
+  <div class="szer hero-w">
+    <div>
+      <span class="znacznik">Bezpłatny skaner dla kancelarii</span>
+      <h1 id="tytul">Czy ktoś może dziś wysłać e-mail <em>jako Twoja kancelaria?</em></h1>
+      <p class="wstep">Wpisz adres strony kancelarii. W około 20 sekund sprawdzimy pocztę (SPF, DMARC, DKIM), szyfrowanie i certyfikat, nagłówki ochronne, narzędzia śledzące pod kątem RODO i to, co strona zdradza o swoim oprogramowaniu.</p>
+
+      <form id="skaner" class="skan-formularz" novalidate>
+        <label for="adres">Adres strony kancelarii</label>
+        <div class="skan-pole">
+          <input id="adres" name="adres" type="text" inputmode="url" autocomplete="url" spellcheck="false"
+                 placeholder="np. kancelaria-kowalski.pl" required maxlength="300" aria-describedby="skan-status">
+          <button class="przycisk" type="submit" id="skan-przycisk">Sprawdź</button>
+        </div>
+        <details class="skan-email">
+          <summary>Sprawdź też e-mail w bazie wycieków (opcjonalnie)</summary>
+          <label for="email">Adres e-mail kancelarii</label>
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="biuro@kancelaria-kowalski.pl" maxlength="320">
+          <label class="skan-zgoda"><input type="checkbox" id="zgoda" name="zgoda">
+            <span>Zgadzam się na jednorazowe sprawdzenie tego adresu w serwisie Have I Been Pwned (USA). notarai nie zapisuje adresu.</span></label>
+        </details>
+        <p id="skan-status" class="skan-status" role="status" aria-live="polite"></p>
+      </form>
+      <ul class="odznaki">
+        <li>Tylko informacje publiczne</li>
+        <li>Bez skanowania portów i testów włamań</li>
+        <li>Nie zapisujemy adresu</li>
+      </ul>
+    </div>
+
+    <div class="okno skan-konsola" aria-hidden="true">
+      <div class="okno-pasek"><i></i><i></i><i></i><span>skaner bezpieczeństwa</span></div>
+      <div class="okno-tresc">
+        <p class="polecenie"><span class="etykieta">Sprawdzamy</span><span id="konsola-domena">kancelaria-kowalski.pl</span></p>
+        <ol class="kroki-agenta skan-kroki" id="skan-kroki">
+          <li data-krok="0">Szukam serwerów domeny <span>DNS, MX</span></li>
+          <li data-krok="1">Sprawdzam certyfikat i szyfrowanie <span>TLS, HTTPS, HSTS</span></li>
+          <li data-krok="2">Czytam ochronę poczty przed podszywaniem <span>SPF, DMARC, DKIM</span></li>
+          <li data-krok="3">Sprawdzam nagłówki ochronne strony <span>CSP, ramki, ciasteczka</span></li>
+          <li data-krok="4">Szukam narzędzi śledzących i wersji oprogramowania <span>RODO</span></li>
+          <li data-krok="5">Sprawdzam zabezpieczenia domeny <span>DNSSEC, CAA</span></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="raport" class="sekcja raport" hidden aria-labelledby="raport-tytul" tabindex="-1">
+  <div class="szer">
+    <div class="raport-glowa">
+      <div class="wskaznik" id="wskaznik" role="img" aria-label="">
+        <div class="wskaznik-srodek">
+          <strong id="wynik-liczba">0</strong><span>na 100</span>
+        </div>
+      </div>
+      <div class="raport-werdykt">
+        <p class="raport-domena" id="raport-domena"></p>
+        <h2 id="raport-tytul"><span class="ocena" id="raport-ocena"></span> <span id="raport-werdykt"></span></h2>
+        <p class="raport-liczby" id="raport-liczby"></p>
+        <div class="alarm" id="raport-alarm" hidden></div>
+        <div class="akcje raport-akcje">
+          <button class="przycisk" type="button" id="drukuj">Wydrukuj raport dla informatyka</button>
+          <a class="przycisk drugi" href="#skaner" id="jeszcze-raz">Sprawdź inną domenę</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="raport-kategorie" id="raport-kategorie"></div>
+
+    <div class="raport-uklad">
+      <div>
+        <h3 class="raport-naglowek">Co znaleźliśmy i jak to naprawić</h3>
+        <ol class="ustalenia" id="ustalenia"></ol>
+      </div>
+      <aside class="fakty" aria-labelledby="fakty-tytul">
+        <h3 id="fakty-tytul" class="raport-naglowek">Co widać o Twojej domenie</h3>
+        <dl id="fakty"></dl>
+        <div id="wycieki"></div>
+      </aside>
+    </div>
+    <p class="przypis">Wynik dotyczy strony głównej i publicznych rekordów DNS w chwili sprawdzenia. Skaner nie testuje podatności ani nie loguje się do niczego, więc dobra ocena nie oznacza pełnego bezpieczeństwa. Pełny przegląd zrób z informatykiem według checklisty poniżej.</p>
+  </div>
+</section>
+
+<section class="sekcja tlo2" aria-labelledby="dlaczego">
+  <div class="szer">
+    <h2 id="dlaczego">Kancelaria to cel, bo przez nią płyną pieniądze i dane</h2>
+    <p class="wstep">Oszust nie musi włamywać się do kancelarii. Wystarczy, że wyśle klientowi wiadomość, która wygląda na wysłaną z jej adresu, z „nowym” numerem rachunku do wpłaty ceny, zadatku albo taksy.</p>
+    <div class="siatka trzy">
+      <article class="karta">
+        <h3>Podszywanie się pod adres</h3>
+        <p>Bez rekordu DMARC skrzynki klientów nie potrafią odróżnić prawdziwej wiadomości od podrobionej. Ustawienie go to kilka minut w panelu domeny.</p>
+      </article>
+      <article class="karta">
+        <h3>Obowiązek z RODO</h3>
+        <p>Art. 32 RODO wymaga środków bezpieczeństwa adekwatnych do ryzyka, a art. 33 zgłoszenia naruszenia do UODO w ciągu 72 godzin. Tajemnica notarialna (art. 18 Prawa o notariacie) podnosi poprzeczkę.</p>
+      </article>
+      <article class="karta">
+        <h3>Strona jako drzwi</h3>
+        <p>Nieaktualny WordPress, wtyczka bez poprawek albo stare PHP to najczęstsze drogi przejęcia stron małych firm. Przejęta strona może rozsyłać złośliwe pliki „od kancelarii”.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="sekcja" id="narzedzia" aria-labelledby="narzedzia-tytul">
+  <div class="szer">
+    <h2 id="narzedzia-tytul">Sprawdź sam: darmowe narzędzia</h2>
+    <p class="wstep">Te serwisy pokazują, czy Twoje adresy, hasła albo PESEL pojawiły się w wyciekach. Wpisuj w nie tylko własne dane.</p>
+    <div class="siatka trzy narzedzia">
+      <article class="karta">
+        <span class="rodzaj">E-mail</span>
+        <h3><a href="https://haveibeenpwned.com/" rel="noopener" target="_blank">Have I Been Pwned</a></h3>
+        <p>Największa baza wycieków. Włącz darmowe powiadomienia o nowych wyciekach z Twoim adresem.</p>
+      </article>
+      <article class="karta">
+        <span class="rodzaj">E-mail, PESEL</span>
+        <h3><a href="https://bezpiecznedane.gov.pl/" rel="noopener" target="_blank">bezpiecznedane.gov.pl</a></h3>
+        <p>Serwis CERT Polska i NASK: sprawdza, czy adres e-mail albo PESEL był w wyciekach analizowanych przez CERT.</p>
+      </article>
+      <article class="karta">
+        <span class="rodzaj">Hasła</span>
+        <h3><a href="https://passwords.google.com/" rel="noopener" target="_blank">Kontrola haseł Google</a></h3>
+        <p>Sprawdza hasła zapisane w Chrome i na koncie Google: wycieki, słabe i powtórzone hasła.</p>
+      </article>
+      <article class="karta">
+        <span class="rodzaj">PESEL</span>
+        <h3><a href="https://www.gov.pl/web/gov/zastrzez-swoj-numer-pesel" rel="noopener" target="_blank">Zastrzeżenie PESEL</a></h3>
+        <p>Darmowe, w aplikacji mObywatel. Bank ma obowiązek sprawdzić zastrzeżenie przed udzieleniem kredytu.</p>
+      </article>
+      <article class="karta">
+        <span class="rodzaj">E-mail</span>
+        <h3><a href="https://monitor.mozilla.org/" rel="noopener" target="_blank">Mozilla Monitor</a></h3>
+        <p>Korzysta z bazy Have I Been Pwned i wysyła powiadomienia po założeniu konta Mozilla.</p>
+      </article>
+      <article class="karta">
+        <span class="rodzaj">Incydent</span>
+        <h3><a href="https://incydent.cert.pl/" rel="noopener" target="_blank">Zgłoś incydent do CERT Polska</a></h3>
+        <p>Fałszywa wiadomość „od kancelarii”, phishing, przejęta strona: zgłoszenie jest bezpłatne.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="sekcja tlo2" id="checklista" aria-labelledby="checklista-tytul">
+  <div class="szer checklista-uklad">
+    <div>
+      <h2 id="checklista-tytul">Checklista bezpieczeństwa kancelarii</h2>
+      <p class="wstep">Dwanaście kroków, które da się zrobić bez działu IT. Zaznaczenia zostają tylko w tej przeglądarce.</p>
+      <p class="checklista-licznik" id="checklista-licznik" aria-live="polite">0 z 12</p>
+    </div>
+    <ol class="checklista" id="checklista-lista">
+      <li><label><input type="checkbox" data-id="dmarc"><span><strong>DMARC, SPF i DKIM dla domeny.</strong> Ustaw w panelu domeny, zacznij od „p=quarantine”.</span></label></li>
+      <li><label><input type="checkbox" data-id="2fa"><span><strong>Logowanie dwuskładnikowe</strong> do poczty, bankowości, panelu domeny i hostingu.</span></label></li>
+      <li><label><input type="checkbox" data-id="menedzer"><span><strong>Menedżer haseł</strong> (np. Bitwarden, KeePassXC) i osobne hasło do każdego systemu.</span></label></li>
+      <li><label><input type="checkbox" data-id="konta"><span><strong>Osobne konto dla każdej osoby</strong> w kancelarii. Bez wspólnego hasła do skrzynki biura.</span></label></li>
+      <li><label><input type="checkbox" data-id="rachunek"><span><strong>Numer rachunku potwierdzany telefonicznie.</strong> Klient wie, że kancelaria nie zmienia go mailem.</span></label></li>
+      <li><label><input type="checkbox" data-id="kopie"><span><strong>Kopie zapasowe 3-2-1:</strong> trzy kopie, dwa nośniki, jedna poza kancelarią i odłączona od sieci.</span></label></li>
+      <li><label><input type="checkbox" data-id="szyfrowanie"><span><strong>Szyfrowane dyski</strong> w laptopach i na nośnikach (BitLocker, FileVault, VeraCrypt).</span></label></li>
+      <li><label><input type="checkbox" data-id="aktualizacje"><span><strong>Automatyczne aktualizacje</strong> systemu, przeglądarki, strony WWW i jej wtyczek.</span></label></li>
+      <li><label><input type="checkbox" data-id="phishing"><span><strong>Krótkie szkolenie z phishingu</strong> dla zespołu raz na pół roku.</span></label></li>
+      <li><label><input type="checkbox" data-id="procedura"><span><strong>Procedura na incydent:</strong> kto decyduje, kogo powiadomić (UODO w 72 godziny, CERT, klienci).</span></label></li>
+      <li><label><input type="checkbox" data-id="pesel"><span><strong>Zastrzeżony PESEL</strong> notariusza i pracowników w mObywatelu.</span></label></li>
+      <li><label><input type="checkbox" data-id="umowy"><span><strong>Umowy powierzenia</strong> z dostawcami IT, poczty i chmury, które przetwarzają dane klientów.</span></label></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sekcja ciemna" id="dla-informatyka" aria-labelledby="it-tytul">
+  <div class="szer">
+    <h2 id="it-tytul">Dla informatyka kancelarii: sprawdzone narzędzia open source</h2>
+    <p class="wstep">Bezpłatne narzędzia z otwartym kodem, których używają działy bezpieczeństwa. Testy podatności uruchamiaj tylko na systemach kancelarii.</p>
+    <div class="siatka trzy">
+      <article class="karta ciemna"><h3>Hasła i szyfrowanie</h3><p><strong>Bitwarden / Vaultwarden</strong>: menedżer haseł dla zespołu. <strong>KeePassXC</strong>: menedżer lokalny. <strong>VeraCrypt</strong>: szyfrowane dyski i kontenery.</p></article>
+      <article class="karta ciemna"><h3>Kopie zapasowe</h3><p><strong>restic</strong> i <strong>BorgBackup</strong>: szyfrowane, przyrostowe kopie na dysk zewnętrzny albo do chmury w UE.</p></article>
+      <article class="karta ciemna"><h3>Poczta</h3><p><strong>parsedmarc</strong>: czyta raporty DMARC i pokazuje, kto wysyła pocztę w imieniu domeny. <strong>GoPhish</strong>: ćwiczenia z phishingu za zgodą zespołu.</p></article>
+      <article class="karta ciemna"><h3>Strona i serwer</h3><p><strong>OWASP ZAP</strong>: skaner aplikacji WWW. <strong>testssl.sh</strong>: pełny test szyfrowania. <strong>Nuclei</strong>: znane podatności z szablonów.</p></article>
+      <article class="karta ciemna"><h3>Monitoring i ochrona</h3><p><strong>Wazuh</strong>: wykrywanie włamań i zmian w plikach. <strong>CrowdSec</strong>: blokowanie adresów, które atakują. <strong>Greenbone OpenVAS</strong>: skaner sieci.</p></article>
+      <article class="karta ciemna"><h3>Co widzi atakujący</h3><p><strong>theHarvester</strong> i <strong>SpiderFoot</strong>: zbierają publiczne informacje o domenie. Uruchom je na własnej domenie, zanim zrobi to ktoś inny.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="sekcja" aria-labelledby="faq-tytul">
+  <div class="szer faq">
+    <h2 id="faq-tytul">Pytania</h2>
+    <details><summary>Czy skaner coś psuje albo „atakuje” stronę?</summary>
+      <p>Nie. Pobiera stronę główną tak jak zwykła przeglądarka i czyta publiczne rekordy DNS, te same, które sprawdza każdy serwer poczty. Nie skanuje portów, nie szuka ukrytych plików i nie próbuje się logować.</p></details>
+    <details><summary>Czy zapisujecie adres, który wpisałem?</summary>
+      <p>Nie. Adres domeny i e-mail nie trafiają do bazy ani do logów. Wynik dla domeny trzymamy w pamięci serwera przez 15 minut, żeby ponowne sprawdzenie było szybsze, a potem znika.</p></details>
+    <details><summary>Dlaczego ocena jest taka niska?</summary>
+      <p>Najwięcej waży ochrona poczty. Brak rekordu DMARC oznacza, że każdy może wysłać wiadomość z adresem kancelarii, dlatego każdy problem krytyczny obniża ocenę o jedną literę. Większość poprawek to zmiany w panelu domeny i hostingu, bez przebudowy strony.</p></details>
+    <details><summary>Czy notarai zrobi to za mnie?</summary>
+      <p>Raport jest przygotowany tak, żeby informatyk albo firma hostingowa mogli od razu wprowadzić zmiany. Jeśli potrzebujesz pomocy, napisz na <a href="mailto:kontakt@notarai.pl?subject=Bezpiecze%C5%84stwo%20kancelarii">kontakt@notarai.pl</a>.</p></details>
+  </div>
+</section>
+</main>
+
+<footer class="stopka">
+  <div class="szer stopka-w">
+    <p>notarai.pl prowadzi Fundacja Krzewienia Edukacji Finansowej im. Pieczaka, ul.&nbsp;Wilhelma Orlika Ruckemana 4/18, 20-244 Lublin, KRS 0001140846, NIP 9462747637.</p>
+    <p><a href="../regulamin/">Regulamin</a> · <a href="../umowa-powierzenia/">Umowa powierzenia</a> · <a href="../instrukcja-ai/">Instrukcja AI</a> · <a href="../prywatnosc/">Polityka prywatności</a> · <a href="mailto:kontakt@notarai.pl">kontakt@notarai.pl</a></p>
+  </div>
+</footer>
+</body>
+</html>

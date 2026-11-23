@@ -355,7 +355,7 @@ pole.addEventListener('input', () => {{
 
 def sitemap(miejscowosci: list[dict]) -> str:
     dzis = date.today().isoformat()
-    adresy = ["/", "/kalkulator/", "/notariusz/", "/przygotuj-sprawe/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/"]
+    adresy = ["/", "/kalkulator/", "/notariusz/", "/przygotuj-sprawe/", "/zasady-kolejnosci/", "/blog/", "/regulamin/", "/prywatnosc/", "/umowa-powierzenia/", "/instrukcja-ai/", "/bezpieczenstwo/"]
     adresy += [f"/notariusz/{m['slug']}/" for m in miejscowosci]
     for wpis in sorted((KATALOG_STRONY / "blog").glob("*/index.html")):
         adresy.append(f"/blog/{wpis.parent.name}/")

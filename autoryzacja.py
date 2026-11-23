@@ -51,7 +51,7 @@ ADMIN_TOKEN = os.getenv("PIECZAPP_ADMIN_TOKEN", "")
 # jest otwarta, bo to przez nia kancelaria dopiero dostaje konto.
 _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie", "/favicon.ico",
             "/api/pomocnik/parowanie", "/api/finyou/platnosc", "/rejestracja", "/api/rejestracja", "/dokumenty/",
-            "/kalkulator", "/api/taksa", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
+            "/kalkulator", "/api/taksa", "/api/skan", "/api/wizyty", "/api/teczka", "/api/leady", "/api/meta/",
             "/notariusze", "/api/notariusze",
             # powrot z logowania Microsoft/Google przy podpinaniu skrzynki (podpisany stan)
             "/api/korespondencja/oauth/powrot",

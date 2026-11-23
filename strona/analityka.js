@@ -16,8 +16,8 @@
   var HOST = "https://eu.i.posthog.com";
   var SKRYPT = "https://eu-assets.i.posthog.com/static/array.js";
   var ZGODA = "notarai-zgoda-cookies"; // "tak" | "nie"
-  // Strony z danymi spraw i wizyt: heatmapy tak, nagrania sesji nigdy.
-  var BEZ_NAGRAN = /^\/(przygotuj-sprawe|wizyta|lead)(\/|$)/;
+  // Strony z danymi spraw i wizyt oraz skaner (wpisywany e-mail): heatmapy tak, nagrania sesji nigdy.
+  var BEZ_NAGRAN = /^\/(przygotuj-sprawe|wizyta|lead|bezpieczenstwo)(\/|$)/;
 
   function odczytaj() {
     try { return localStorage.getItem(ZGODA); } catch (e) { return null; }

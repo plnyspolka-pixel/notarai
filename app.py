@@ -38,6 +38,7 @@ import ksiegi_notarialne
 import formularze
 import kalendarz
 import kalkulator
+import skan_bezpieczenstwa
 import korespondencja
 import krz
 import krz_portal
@@ -98,6 +99,7 @@ app.include_router(rezerwacje_hurtowe.router_mcp)
 # Narzędzia klientów — publiczny kalkulator i składanie zgłoszeń,
 # autoryzacja kancelarii obowiązuje wyłącznie na trasach prywatnych.
 app.include_router(kalkulator.router)
+app.include_router(skan_bezpieczenstwa.router)
 app.include_router(przesylki.router)
 app.include_router(personalizacja.router)
 app.include_router(ustawienia_kancelarii.router)

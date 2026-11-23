@@ -316,3 +316,24 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:** zbudować immutable obraz guest, wygenerować attestation policy i PCR17 narzędziem AWS, skonfigurować KMS, uruchomić poufny task z fikcyjnym zaszyfrowanym dokumentem; zweryfikować udane odszyfrowanie i odmowę dla zmienionego obrazu, następnie wykonać wypełnienie lokalnego demonstracyjnego formularza przez Playwright. Sprawdzić brak plaintext w S3/logach i zablokowany nieautoryzowany egress.
 - **W kodzie:** `confidential/`, `static/confidential-crypto.js`, `infra/notarai-confidential-task.yaml`, `docs/confidential-automation.md`.
 - **Zamknięte, gdy:** zaszyfrowany dokument przechodzi rzeczywisty test NSM -> KMS Recipient -> AES-GCM w guest, odmowa PCR jest skuteczna, demo formularza przechodzi i mamy zapisane wyniki testów oraz konfigurację bez sekretów.
+
+## NA-15. Skaner bezpieczeństwa kancelarii — test na żywo i klucz HIBP
+
+- **Status:** czeka
+- **Brakuje:** wdrożenia aplikacji z `POST /api/skan` na app.notarai.pl
+  (w środowisku deweloperskim nie było DNS ani bezpośrednich połączeń, więc
+  skaner sprawdzono tylko na atrapach) oraz - opcjonalnie - płatnego klucza
+  API Have I Been Pwned (sekret w Secrets Manager, w zadaniu ECS jako
+  referencja `PIECZAPP_HIBP_KLUCZ`; bez klucza strona odsyła do haveibeenpwned.com).
+- **Na żywo:**
+  1. Po wdrożeniu aplikacji otworzyć notarai.pl/bezpieczenstwo/ i sprawdzić
+     notarai.pl, financeyou.pl i 2-3 domeny kancelarii z katalogu.
+  2. Porównać wyniki SPF/DMARC/DKIM z `dig TXT _dmarc.<domena>` i
+     testem SSL Labs; sprawdzić, że czas skanu mieści się w ~20 s.
+  3. Zweryfikować w CloudWatch, że w logach `pieczapp.skan` są tylko ocena,
+     wynik i czas - bez domeny i e-maila.
+  4. Po dodaniu klucza HIBP: sprawdzić własny adres z zaznaczoną zgodą.
+- **W kodzie:** `skan_bezpieczenstwa.py`, `test_skan_bezpieczenstwa.py`,
+  `strona/bezpieczenstwo/`.
+- **Zamknięte, gdy:** skan prawdziwych domen daje wyniki zgodne z ręczną
+  kontrolą, logi są czyste, a strona działa z produkcyjnym API.
