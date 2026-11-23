@@ -12,7 +12,9 @@ Wszystko do 1080x1920 @25 fps, AAC 48 kHz; napisy z `kwestia` wypalane na ujęci
 (DejaVu Sans Bold – na stanowisku montażowym podmienić na Montserrat); ambience z glosy_v2 pod
 całością (-24 dB), na końcu loudnorm I=-16 TP=-1.5 (format social, jak w glosy.md).
 
-Użycie: montaz_odcinka.py EP04 [--bez-ambience] [--szer 1080 --wys 1920]
+Użycie: montaz_odcinka.py EP04 [--bez-ambience] [--hd] [--szer 1080 --wys 1920]
+  --hd  bierze klipy z wyjscie/EPxx/klipy_hd/ (po ulepsz_klipy.py: AI upscale + klatki pośrednie),
+        a gdy danego klipu tam nie ma - z klipy/.
 Wymaga ffmpeg z libfreetype (drawtext). Nie woła żadnego API.
 """
 import json
@@ -109,17 +111,22 @@ def main(a):
         sys.exit(__doc__)
     ep = a[0].upper()
     ambience = "--bez-ambience" not in a
+    hd = "--hd" in a
     odc = json.load(open(os.path.join(ROOT, "odcinki", f"{ep}.json"), encoding="utf-8"))
     baza = os.path.join(ROOT, "wyjscie", ep)
     klipy, plansze, tmp = (os.path.join(baza, d) for d in ("klipy", "plansze", "tmp"))
     os.makedirs(tmp, exist_ok=True)
+    klipy_hd = os.path.join(baza, "klipy_hd")
+
+    def klip(uid):
+        return (hd and znajdz(klipy_hd, uid, ".mp4")) or znajdz(klipy, uid, ".mp4")
     segmenty, raport = [], []
     for i, u in enumerate(odc["ujecia"]):
         uid, typ = u["id"], u["typ"]
         cel = os.path.join(tmp, f"{i:02d}_{uid}.mp4")
         czas_plan = float(u.get("czas_s") or 5)
         if typ == "mowiace":
-            src = znajdz(klipy, uid, ".mp4")
+            src = klip(uid)
             if src:
                 czas = dlugosc(src) + 0.25
                 segment(src, cel, czas, False, napis_filtr(u.get("kwestia", ""), os.path.join(tmp, f"{uid}.txt")))
@@ -129,7 +136,7 @@ def main(a):
                 segment(p, cel, czas_plan, True, napis_filtr(u.get("kwestia", ""), os.path.join(tmp, f"{uid}.txt")))
                 raport.append((uid, typ, f"{czas_plan:.1f}s", "BRAK → plansza"))
         elif typ == "bez_mowy":
-            src = znajdz(klipy, uid, ".mp4")
+            src = klip(uid)
             if src:
                 segment(src, cel, min(czas_plan, dlugosc(src)), False)
                 raport.append((uid, typ, f"{min(czas_plan, dlugosc(src)):.1f}s", os.path.basename(src)))

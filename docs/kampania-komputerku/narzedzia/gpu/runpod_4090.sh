@@ -43,6 +43,14 @@ hf Comfy-Org/Wan_2.2_ComfyUI_Repackaged split_files/vae/wan_2.1_vae.safetensors 
 # LoRA 4-krokowa LightX2V (Lightning) - osobna dla eksperta high i low; to ona daje ~7x przyspieszenie.
 hf lightx2v/Wan2.2-Lightning Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors "$M/loras"
 hf lightx2v/Wan2.2-Lightning Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/low_noise_model.safetensors  "$M/loras"
+# Ulepszanie „w stylu DLSS” (ulepsz_klipy.py --tor gpu): SeedVR2 = super-rozdzielczość, RIFE = klatki pośrednie.
+# Modele SeedVR2 (3B fp8 ~3,4 GB + VAE) i rife47.pth węzły pobierają same przy pierwszym użyciu do models/.
+for repo in Kosinkadink/ComfyUI-VideoHelperSuite numz/ComfyUI-SeedVR2_VideoUpscaler Fannovel16/ComfyUI-Frame-Interpolation; do
+  d=custom_nodes/$(basename "$repo")
+  [ -d "$d" ] || git clone --depth 1 "https://github.com/$repo" "$d"
+  [ -f "$d/requirements.txt" ] && pip install -q -r "$d/requirements.txt" || true
+done
+[ -f custom_nodes/ComfyUI-Frame-Interpolation/install.py ] && (cd custom_nodes/ComfyUI-Frame-Interpolation && python install.py >/dev/null) || true
 # Opcjonalnie: edycja klatek wieloreferencyjna (zamiast Nano Banana Pro) - Qwen-Image-Edit-2511 w GGUF Q5 (~14 GB).
 # hf unsloth/Qwen-Image-Edit-2511-GGUF Qwen-Image-Edit-2511-Q5_K_M.gguf "$M/diffusion_models"
 echo "gotowe: $(du -sh "$W/hf_cache" | cut -f1) modeli w $W/hf_cache; start: bash $0 start"
