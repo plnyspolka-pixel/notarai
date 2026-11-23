@@ -76,6 +76,18 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
 .bz-karta dt { color:var(--tekst3); } .bz-karta dd { margin:0; font-weight:600; word-break:break-word; }
 
 /* Hasło */
+/* Karty zagrożeń — mocniejsze, to one mają uderzyć laika */
+.bz-zagr { display:grid; gap:12px; margin:12px 0 0; }
+.bz-zagr-k { border:1px solid var(--linia); border-radius:14px; padding:16px 18px; background:var(--karta); border-left:5px solid var(--linia); }
+.bz-zagr-k.alarm { border-left-color:var(--alarm); background:linear-gradient(90deg,var(--alarm-tlo),var(--karta) 62%); }
+.bz-zagr-k.uwaga { border-left-color:var(--uwaga); background:linear-gradient(90deg,var(--uwaga-tlo),var(--karta) 70%); }
+.bz-zagr-k.ok { border-left-color:var(--ok); }
+.bz-zagr-k h3 { margin:0; font-size:1.08rem; display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.bz-zagr-k .pow { margin:10px 0 0; padding-left:20px; color:var(--tekst); font-size:.93rem; }
+.bz-zagr-k .pow li { margin:3px 0; }
+.bz-zagr-k .kons { margin:10px 0 0; font-size:.9rem; color:var(--tekst2); border-top:1px dashed var(--linia); padding-top:9px; }
+.bz-zagr-k .kons strong { color:var(--tekst); }
+.bz-zagr-k .spok { margin:8px 0 0; color:var(--ok); font-size:.92rem; }
 .bz-haslo { background:var(--karta); border:1px solid var(--linia); border-radius:14px; padding:16px 18px; margin-top:14px; }
 .bz-haslo label { font-weight:600; display:block; margin-bottom:6px; }
 .bz-haslo .rzad { display:flex; gap:8px; flex-wrap:wrap; }
@@ -142,8 +154,8 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
   <section class="bz-hero">
     <div class="szer">
       <span class="bz-znak">● Darmowy skan · bez instalacji · bez logowania</span>
-      <h1>Czy dane Twojej kancelarii są naprawdę bezpieczne?</h1>
-      <p class="lead">Sprawdź w 15 sekund, w jakim stanie jest ochrona Twojego systemu. Uczciwie — pokazujemy tylko to, co naprawdę da się wykryć, i mówimy dokładnie, skąd to wiemy. Nic nie instalujemy i nic nie przejmujemy.</p>
+      <h1>Czy ktoś może dziś dobrać się do Twoich akt?</h1>
+      <p class="lead">Ransomware, phishing, włamanie na komputer — kancelarie są celem, bo trzymają dane warte pieniędzy. Sprawdź w 15 sekund, na ile Twój system jest odsłonięty. Uczciwie: pokazujemy tylko to, co naprawdę da się wykryć, i mówimy, skąd to wiemy. Nic nie instalujemy i nic nie przejmujemy.</p>
       <div class="bz-cta">
         <button type="button" id="bz-start" class="przycisk bz-duzy">Uruchom skan bezpieczeństwa</button>
       </div>
@@ -168,7 +180,14 @@ body { background:linear-gradient(165deg,#f7fbff,#fff 55%,#edf5ff); color:var(--
         </div>
       </div>
 
-      <h2 class="sr-tyt" style="font-size:1.15rem;margin:24px 0 0;">Co wykrył skan</h2>
+      <section id="bz-zagrozenia" aria-live="polite">
+        <h2 style="font-size:1.15rem;margin:26px 0 2px;">Na co jesteś teraz odsłonięty</h2>
+        <p style="color:var(--tekst2);margin:0 0 4px;font-size:.95rem;">Nie „wykrywamy wirusa” — pokazujemy ryzyko wynikające z konkretnych braków. Im więcej odpowiesz w samoaudycie niżej, tym dokładniejsza ocena.</p>
+        <div class="bz-zagr" id="bz-zagr-lista"></div>
+      </section>
+
+      <h2 class="sr-tyt" style="font-size:1.1rem;margin:26px 0 2px;">Dowody techniczne — to zobaczył skan</h2>
+      <p style="color:var(--tekst3);margin:0 0 4px;font-size:.9rem;">Dla tych, którzy chcą sprawdzić, że to nie ściema: surowe fakty, z których wynikają scenariusze wyżej.</p>
       <div class="bz-karty" id="bz-karty"></div>
 
       <div class="bz-haslo" id="bz-haslo">
@@ -264,7 +283,31 @@ document.addEventListener('DOMContentLoaded', () => {
     $('bz-podpis').textContent = w.pkt>=80 ? 'Dobra podstawa. Zamknij ostatnie luki, żeby mieć spokój.' :
       w.pkt>=55 ? 'Kilka rzeczy wymaga pilnej reakcji. Plan naprawy masz niżej.' :
       'To realne ryzyko wycieku akt i danych klientów. Zacznij od punktów z planu naprawy.';
+    rysujZagrozenia();
     rysujPlan();
+  }
+
+  function rysujZagrozenia(){
+    const box = $('bz-zagr-lista'); box.textContent='';
+    const etykieta = { alarm:'Wysokie ryzyko', uwaga:'Średnie ryzyko', ok:'Na razie czysto' };
+    S.ocenZagrozenia(stan.karty, stan.samoaudyt).forEach(z => {
+      const el=document.createElement('article'); el.className='bz-zagr-k '+z.poziom;
+      const h=document.createElement('h3'); const t=document.createElement('span'); t.textContent=z.nazwa;
+      const chip=document.createElement('span'); chip.className='bz-chip '+z.poziom; chip.textContent=etykieta[z.poziom];
+      h.append(t,chip); el.append(h);
+      if (z.powody.length){
+        const ul=document.createElement('ul'); ul.className='pow';
+        z.powody.forEach(p=>{ const li=document.createElement('li'); li.textContent=p; ul.append(li); });
+        el.append(ul);
+        const kons=document.createElement('p'); kons.className='kons';
+        const b=document.createElement('strong'); b.textContent='Jeśli to się stanie: ';
+        kons.append(b, document.createTextNode(z.konsekwencja)); el.append(kons);
+      } else {
+        const p=document.createElement('p'); p.className='spok';
+        p.textContent='Na podstawie tego, co wiemy, nie widać tu luki — o ile samoaudyt niżej jest szczery.'; el.append(p);
+      }
+      box.append(el);
+    });
   }
 
   function rysujPlan(){

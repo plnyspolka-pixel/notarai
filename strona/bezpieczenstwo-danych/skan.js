@@ -265,4 +265,53 @@ function ocenSile(h) {
   return { poziom: 'uwaga', etykieta: 'Przeciętne', opis: 'Niezłe, ale można lepiej: 14+ znaków i kilka rodzajów znaków. Przede wszystkim nie używaj go w więcej niż jednym serwisie.' };
 }
 
-window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik };
+/* ---------- Odsłonięcie na realne scenariusze zagrożeń ----------
+ * Z przeglądarki NIE wykryjemy ransomware ani intruza na żywo. Ale uczciwie
+ * pokazujemy ODSŁONIĘCIE: „jesteś otwarty na X, bo [wykryte czynniki]".
+ * Liczymy z techniki (karty) i z samoaudytu (deklaracje). Żadnego udawania,
+ * że coś „wykryto" — mówimy o ryzyku wynikającym z konkretnych braków. */
+function ocenZagrozenia(karty, samoaudyt) {
+  const wer = {}; for (const k of karty) wer[k.klucz] = k.werdykt;
+  const alarm = klucz => wer[klucz] === 'alarm';
+  const slaby = klucz => wer[klucz] === 'alarm' || wer[klucz] === 'uwaga';
+  const nie = id => samoaudyt[id] === false;
+
+  function scenariusz(nazwa, konsekwencja, czynniki) {
+    const aktywne = czynniki.filter(c => c.zly);
+    let poziom = aktywne.length >= 2 ? 'alarm' : aktywne.length === 1 ? 'uwaga' : 'ok';
+    if (aktywne.some(c => c.krytyczny)) poziom = 'alarm';
+    return { nazwa, konsekwencja, poziom, powody: aktywne.map(c => c.tekst) };
+  }
+
+  return [
+    scenariusz(
+      'Ransomware zaszyfruje Twoje akta',
+      'Akta wszystkich spraw zablokowane do odwołania, żądanie okupu, zgłoszenie do UODO w 72 godziny i ryzyko odpowiedzialności dyscyplinarnej.',
+      [
+        { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system bez poprawek — główna droga ransomware' },
+        { zly: nie('kopie'), krytyczny: true, tekst: 'brak kopii zapasowych poza komputerem — nie ma z czego odtworzyć akt' },
+        { zly: slaby('przegladarka'), tekst: 'przestarzała przeglądarka' },
+        { zly: nie('antywirus'), tekst: 'brak aktywnej ochrony antywirusowej' },
+      ]),
+    scenariusz(
+      'Ktoś przejmie Twoją pocztę i konta (phishing)',
+      'Przez przejętą pocztę atakujący podszywa się pod Ciebie, resetuje hasła do innych usług i sięga po dane klientów oraz pieniądze.',
+      [
+        { zly: alarm('haslo'), krytyczny: true, tekst: 'Twoje hasło jest w znanych wyciekach — gotowe do użycia' },
+        { zly: wer['haslo'] === 'uwaga', tekst: 'słabe hasło — szybkie do złamania' },
+        { zly: nie('mfa'), krytyczny: true, tekst: 'brak logowania dwuskładnikowego (2FA) na poczcie' },
+        { zly: nie('menedzer'), tekst: 'powtarzane hasła — jeden wyciek otwiera wszystko' },
+      ]),
+    scenariusz(
+      'Ktoś wejdzie na Twój komputer i wykradnie dane',
+      'Dostęp do wszystkich akt i danych klientów. Przy kradzieży lub zgubie sprzętu — odczyt całego dysku bez żadnej przeszkody.',
+      [
+        { zly: alarm('system'), krytyczny: true, tekst: 'nieaktualny system z publicznie znanymi lukami' },
+        { zly: nie('szyfrowanie'), krytyczny: true, tekst: 'dysk niezaszyfrowany — kto weźmie komputer, czyta akta' },
+        { zly: nie('blokada'), tekst: 'komputer nie blokuje się po odejściu' },
+        { zly: nie('antywirus'), tekst: 'brak aktywnej ochrony antywirusowej' },
+      ]),
+  ];
+}
+
+window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia };
