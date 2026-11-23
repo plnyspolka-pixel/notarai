@@ -178,9 +178,20 @@
           const format = blob.type.includes("mp4") ? "mp4" : "webm";
           const fd = new FormData();
           fd.append("audio", blob, "polecenie." + format);
-          const odp = await api("/api/transkrypcja", {method:"POST",body:fd});
-          const wynik = await odp.json().catch(() => ({}));
+          const odp = await api("/api/pulpit-ai/glos", {method:"POST",body:fd});
+          let wynik = await odp.json().catch(() => ({}));
           if (!odp.ok) throw new Error(wynik.detail || "Transkrypcja nie jest teraz dostępna.");
+          if (wynik.stan === "przetwarzanie" && wynik.zadanie) {
+            let gotowe = false;
+            for (let proba = 0; proba < 35; proba++) {
+              await new Promise(resolve => setTimeout(resolve, 2200));
+              const odczyt = await api("/api/pulpit-ai/glos/" + encodeURIComponent(wynik.zadanie));
+              wynik = await odczyt.json().catch(() => ({}));
+              if (!odczyt.ok) throw new Error(wynik.detail || "Nie udało się odczytać głosówki.");
+              if (wynik.stan === "gotowe") { gotowe = true; break; }
+            }
+            if (!gotowe) throw new Error("Rozpoznawanie głosu nadal trwa. Spróbuj ponownie za chwilę.");
+          }
           if (!wynik.tekst?.trim()) throw new Error("Nie rozpoznano słów w nagraniu.");
           pole.value = [pole.value.trim(), wynik.tekst.trim()].filter(Boolean).join(" ");
           pole.focus();
@@ -221,7 +232,26 @@
     rozmowa.replaceChildren();
     dodajWiadomosc("asystent", "W czym pomóc kancelarii?");
     pole.value = "";
-    if (nagrywa) nagrywaj();
+    if (nagrywa) {
+      clearTimeout(stopTimer);
+      nagrywa = false;
+      if (recorder) { recorder.onstop = null; recorder.ondataavailable = null; recorder.stop(); }
+      strumien?.getTracks().forEach(t => t.stop());
+      strumien = null; kawalki = [];
+      mikrofon.dataset.nagrywa = "0";
+      mikrofon.textContent = "🎙 Nagraj";
+    }
+    doZatwierdzenia = null;
+    if ($ai("pai-zgoda").open) $ai("pai-zgoda").close();
   };
   window.wyczyscPulpitAI();
+  // Serwer sprawdza dostępność rozpoznawania mowy w tym wariancie instalacji.
+  api("/api/pulpit-ai/narzedzia").then(async odp => {
+    if (!odp.ok) return;
+    const wynik = await odp.json();
+    if (!wynik.glos) {
+      mikrofon.disabled = true;
+      mikrofon.title = "Rozpoznawanie mowy nie jest dostępne w tej instalacji.";
+    }
+  }).catch(() => {});
 })();
