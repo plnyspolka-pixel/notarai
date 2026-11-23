@@ -449,16 +449,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (z){
       $('bz-luki-wstep').textContent=z.wstep;
       const ul=$('bz-luki-lista'); ul.textContent='';
+      const link=(id,url)=>{ const a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent=id; a.style.color='#0072ad'; return a; };
+      const badge=(li)=>{ const b=document.createElement('span'); b.textContent='aktywnie wykorzystywana'; b.style.cssText='font-size:.72rem;font-weight:700;color:#fff;background:var(--alarm);border-radius:999px;padding:1px 8px;margin:0 2px;white-space:nowrap;'; li.append(b); };
+      $('bz-luki').hidden=false;
+      // 1) Świeże, aktywnie wykorzystywane — na żywo z backendu (CISA KEV)
+      let naZywo=[]; try { naZywo=await S.pobierzLukiNaZywo(sys.wsparcieDo||''); } catch(_){}
+      naZywo.slice(0,8).forEach(l=>{ const li=document.createElement('li');
+        li.append(link(l.id,l.url), document.createTextNode(' ')); badge(li);
+        if (l.dataDodania){ const d=document.createElement('span'); d.className='sc'; d.textContent=' (od '+l.dataDodania+')'; li.append(d); }
+        li.append(document.createTextNode(' — ')); const sc=document.createElement('span'); sc.className='sc'; sc.textContent=l.opis||''; li.append(sc);
+        ul.append(li); });
+      // 2) Klasyki — ilustracje ścieżki ataku (dostępne też offline)
       z.luki.forEach(l=>{ const li=document.createElement('li');
         const b=document.createElement('b'); b.textContent=l.nazwa+' ';
-        const a=document.createElement('a'); a.href=l.url; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent=l.id; a.style.color='#0072ad';
-        li.append(b, document.createTextNode('('), a, document.createTextNode(') '));
-        if (l.aktywna){ const bad=document.createElement('span'); bad.textContent='aktywnie wykorzystywana';
-          bad.style.cssText='font-size:.72rem;font-weight:700;color:#fff;background:var(--alarm);border-radius:999px;padding:1px 8px;margin:0 2px;white-space:nowrap;'; li.append(bad); }
+        li.append(b, document.createTextNode('('), link(l.id,l.url), document.createTextNode(') '));
+        if (l.aktywna) badge(li);
         li.append(document.createTextNode(' — '+l.co+'. '));
         const sc=document.createElement('span'); sc.className='sc'; const scb=document.createElement('b'); scb.textContent='Na co pozwala: '; scb.style.color='var(--tekst)';
         sc.append(scb, document.createTextNode(l.naPozwala)); li.append(sc); ul.append(li); });
-      $('bz-luki').hidden=false;
     }
     // IP z backendu — wpada do wielkiego faktu, gdy serwer odpowie
     try { const ip=await S.wykryjIP(); if (ip && Array.isArray(ip.dane)){

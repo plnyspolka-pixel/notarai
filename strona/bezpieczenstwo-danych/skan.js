@@ -94,7 +94,7 @@ function werdyktSystem(nazwa, wsparcieDo, pewne) {
   const prefiks = pewne ? '' : 'Prawdopodobnie ';
   if (wsparcieDo && czyPoWsparciu(wsparcieDo)) {
     const d = new Date(wsparcieDo).toLocaleDateString('pl-PL');
-    return { klucz: 'system', tytul: prefiks + nazwa, werdykt: 'alarm',
+    return { klucz: 'system', tytul: prefiks + nazwa, werdykt: 'alarm', wsparcieDo: wsparcieDo,
       opis: 'Ten system nie dostaje już poprawek bezpieczeństwa (wsparcie zakończyło się ' + d + ', ' + latNiedlugo(wsparcieDo) + ' temu). Każda nowa luka w Windowsie zostaje w nim na zawsze — to najpoważniejsze ryzyko dla danych w kancelarii.',
       czyn: 'Przejście na obsługiwany Windows 11 (lub ESU jako doraźny bufor).' };
   }
@@ -338,13 +338,9 @@ function czytajGPU() {
  * ataku, nie jako „wykryto u Ciebie". Pokazujemy je dla systemu PO końcu
  * wsparcia: uczciwa teza brzmi „na żadną kolejną taką lukę nie dostaniesz
  * już łatki". Zero instrukcji ataku — tylko nazwa, czego dotyczy i co otwiera. */
+// Klasyki — timeless ilustracje ścieżki ataku, dostępne też offline (fallback).
+// Świeże, aktywnie wykorzystywane luki przychodzą na żywo z backendu (CISA KEV).
 const LUKI_WINDOWS = [
-  { id: 'CVE-2026-96951', nazwa: 'powłoka Windows (Mark of the Web)', co: 'obejście ostrzeżenia „plik pobrany z internetu”',
-    naPozwala: 'złośliwy plik otwiera się bez ostrzeżenia i uruchamia kod', aktywna: true,
-    url: 'https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-96951' },
-  { id: 'CVE-2025-62215', nazwa: 'jądro Windows', co: 'podniesienie uprawnień (wyścig w jądrze)',
-    naPozwala: 'zdobycie najwyższych uprawnień SYSTEM — pełna kontrola nad komputerem', aktywna: true,
-    url: 'https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-62215' },
   { id: 'CVE-2017-0144', nazwa: 'EternalBlue (SMB)', co: 'luka w udostępnianiu plików',
     naPozwala: 'zdalne uruchomienie kodu bez żadnej akcji użytkownika — tak rozsiał się ransomware WannaCry', aktywna: false,
     url: 'https://nvd.nist.gov/vuln/detail/CVE-2017-0144' },
@@ -358,9 +354,21 @@ const LUKI_WINDOWS = [
 function znaneLuki(sys) {
   if (!sys || sys.werdykt !== 'alarm') return null;   // sens tylko po końcu wsparcia
   return {
-    wstep: 'To realne, udokumentowane luki Windowsa — każdą sprawdzisz w oficjalnym wpisie (link). Które z nich są akurat u Ciebie otwarte, zależy od poziomu aktualizacji; ale Twój system po końcu wsparcia na żadną kolejną nie dostanie już łatki. Pozycje „aktywnie wykorzystywana” są używane w atakach teraz.',
+    wstep: 'To realne, udokumentowane luki Windowsa — każdą sprawdzisz w oficjalnym wpisie (link). Które z nich są akurat u Ciebie otwarte, zależy od poziomu aktualizacji; ale Twój system po końcu wsparcia na żadną kolejną nie dostanie już łatki. „Aktywnie wykorzystywana” to luki używane w atakach teraz (źródło: katalog CISA, odświeżany automatycznie).',
     luki: LUKI_WINDOWS,
   };
 }
 
-window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia, czytajGPU, znaneLuki };
+/* Świeże, aktywnie wykorzystywane luki Windows z naszego backendu (CISA KEV).
+ * poDacie = data końca wsparcia systemu (YYYY-MM-DD) — tylko nowsze. */
+async function pobierzLukiNaZywo(poDacie) {
+  try {
+    const r = await fetch(API + '/api/skan/luki' + (poDacie ? ('?po=' + encodeURIComponent(poDacie)) : ''),
+      { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return [];
+    const j = await r.json().catch(() => null);
+    return (j && Array.isArray(j.luki)) ? j.luki : [];
+  } catch (_) { return []; }
+}
+
+window.Skan = { API, DANE, wykryjSystem, wykryjPrzegladarke, wykryjPolaczenie, wykryjSlad, wykryjIP, sprawdzHaslo, maskujHaslo, ocenSile, SAMOAUDYT, policzWynik, ocenZagrozenia, czytajGPU, znaneLuki, pobierzLukiNaZywo };
