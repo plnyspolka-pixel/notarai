@@ -92,9 +92,12 @@ instancji. Szyfrowanie robi ta sama aplikacja na tym samym Fargate.
 
 Na koncie stoi ~20 stosów `notarai-confidential-*` (pilot01–03, shared
 fabric/capacity/ECR, demo KMS). Nic w nich nie działa (0 zadań, 0 instancji,
-brak NAT), a koszt to głównie 4 klucze KMS, około 4 USD miesięcznie. Można je
-usunąć, gdy właściciel potwierdzi, że etap 2 nie startuje w najbliższych
-miesiącach. Kod zostaje w repozytorium.
+brak NAT), a koszt to głównie 4 klucze KMS, około 4 USD miesięcznie. Właściciel
+zdecydował 23.11.2026, że idą do usunięcia. Służy do tego skrypt
+`infra/usun-pilota-nitro.sh`: bez argumentu tylko wypisuje listę, z `--tak`
+usuwa. Sprawdza konto i rusza wyłącznie stosy `notarai-confidential-*`.
+Kod pilota zostaje w repozytorium (`confidential/`, PR #94 zamknięty jako
+archiwum).
 
 ## 6. Testy
 
