@@ -11,6 +11,19 @@ NOWE = date(2026, 11, 7)    # po zmianie z 5.11.2026
 STARE = date(2026, 11, 4)   # dzien przed
 
 
+class TestKwota:
+    @pytest.mark.parametrize("wartosc, oczekiwana", [
+        ("250.000,00 zł", "250000.00"),
+        ("1.250.000", "1250000"),
+        ("1234.56", "1234.56"),
+        ("450 000,50", "450000.50"),
+        ("abc", "0"),
+        ("-5", "0"),
+    ])
+    def test_napisy(self, wartosc, oczekiwana):
+        assert taksa.kwota(wartosc) == Decimal(oczekiwana)
+
+
 class TestStawkaPodstawowa:
     @pytest.mark.parametrize("wartosc, oczekiwana", [
         (1, "100"), (3000, "100"),
