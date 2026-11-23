@@ -1,0 +1,317 @@
+{
+ "kod": "s02",
+ "nazwa": "Gabinet Heleny (pokój czynności)",
+ "rozdzielczosc": [
+  1080,
+  1920
+ ],
+ "jednostki": "metry; mapa głębi: 16-bit PNG, wartość = odległość w mm (maks. 65535)",
+ "kamery": [
+  {
+   "nazwa": "K01_plan_ogolny",
+   "obiektyw_mm": 16,
+   "polozenie": [
+    4.85,
+    0.35,
+    1.72
+   ],
+   "cel": [
+    1.9,
+    3.1,
+    0.95
+   ],
+   "uzycie": "plan ogólny od drzwi: stół, regał, okna"
+  },
+  {
+   "nazwa": "K02_dwojka_przez_stol",
+   "obiektyw_mm": 28,
+   "polozenie": [
+    1.05,
+    1.05,
+    1.35
+   ],
+   "cel": [
+    3.5,
+    2.55,
+    1.05
+   ],
+   "uzycie": "dwójka: Helena u szczytu i klient z przodu"
+  },
+  {
+   "nazwa": "K03_helena_zblizenie",
+   "obiektyw_mm": 50,
+   "polozenie": [
+    2.15,
+    2.15,
+    1.25
+   ],
+   "cel": [
+    3.78,
+    2.3,
+    1.18
+   ],
+   "uzycie": "Helena u szczytu stołu, ujęcie mówione"
+  },
+  {
+   "nazwa": "K04_klienci_od_heleny",
+   "obiektyw_mm": 32,
+   "polozenie": [
+    4.35,
+    2.55,
+    1.42
+   ],
+   "cel": [
+    2.1,
+    1.75,
+    1.0
+   ],
+   "uzycie": "kontrplan zza Heleny na klientów"
+  },
+  {
+   "nazwa": "K05_detal_stol",
+   "obiektyw_mm": 40,
+   "polozenie": [
+    2.95,
+    1.5,
+    1.22
+   ],
+   "cel": [
+    3.2,
+    2.3,
+    0.79
+   ],
+   "uzycie": "detal: teczki i kartki na stole (do warstwy dokumentu)"
+  },
+  {
+   "nazwa": "K06_na_drzwi",
+   "obiektyw_mm": 24,
+   "polozenie": [
+    3.6,
+    3.7,
+    1.62
+   ],
+   "cel": [
+    0.85,
+    0.0,
+    1.15
+   ],
+   "uzycie": "wejście klienta / Basia w drzwiach"
+  },
+  {
+   "nazwa": "K07_okno_sylwetka",
+   "obiektyw_mm": 26,
+   "polozenie": [
+    2.6,
+    0.9,
+    1.5
+   ],
+   "cel": [
+    2.6,
+    4.6,
+    1.5
+   ],
+   "uzycie": "postać przy oknie, światło z tyłu"
+  }
+ ],
+ "znaczniki": [
+  {
+   "nazwa": "M_Helena_szczyt",
+   "polozenie": [
+    3.78,
+    2.25,
+    1.2
+   ],
+   "obrot_z": 90,
+   "opis": "Helena siedzi u szczytu stołu, oczy ok. 1,2 m"
+  },
+  {
+   "nazwa": "M_klient_przod_L",
+   "polozenie": [
+    2.0,
+    1.45,
+    1.18
+   ],
+   "obrot_z": 0,
+   "opis": "klient siedzi przodem do okien"
+  },
+  {
+   "nazwa": "M_klient_przod_P",
+   "polozenie": [
+    3.0,
+    1.45,
+    1.18
+   ],
+   "obrot_z": 0,
+   "opis": "drugi klient obok"
+  },
+  {
+   "nazwa": "M_klient_tyl_L",
+   "polozenie": [
+    2.0,
+    3.05,
+    1.18
+   ],
+   "obrot_z": 180,
+   "opis": "klient tyłem do okien"
+  },
+  {
+   "nazwa": "M_klient_tyl_P",
+   "polozenie": [
+    3.0,
+    3.05,
+    1.18
+   ],
+   "obrot_z": 180,
+   "opis": "klient tyłem do okien"
+  },
+  {
+   "nazwa": "M_wejscie",
+   "polozenie": [
+    0.9,
+    0.55,
+    1.62
+   ],
+   "obrot_z": 0,
+   "opis": "postać stoi w drzwiach, oczy 1,62 m"
+  },
+  {
+   "nazwa": "M_przy_oknie",
+   "polozenie": [
+    2.6,
+    3.95,
+    1.62
+   ],
+   "obrot_z": 180,
+   "opis": "postać stoi przy oknie"
+  }
+ ],
+ "znaczniki_w_kadrze_px": {
+  "K01_plan_ogolny": {
+   "M_Helena_szczyt": [
+    803,
+    1008
+   ],
+   "M_klient_przod_L": [
+    203,
+    960
+   ],
+   "M_klient_przod_P": [
+    360,
+    1014
+   ],
+   "M_klient_tyl_L": [
+    547,
+    916
+   ],
+   "M_klient_tyl_P": [
+    728,
+    942
+   ],
+   "M_przy_oknie": [
+    772,
+    819
+   ]
+  },
+  "K02_dwojka_przez_stol": {
+   "M_Helena_szczyt": [
+    743,
+    880
+   ],
+   "M_klient_przod_L": [
+    764,
+    1052
+   ],
+   "M_klient_przod_P": [
+    1078,
+    940
+   ],
+   "M_klient_tyl_P": [
+    161,
+    898
+   ]
+  },
+  "K03_helena_zblizenie": {
+   "M_Helena_szczyt": [
+    621,
+    928
+   ]
+  },
+  "K04_klienci_od_heleny": {
+   "M_Helena_szczyt": [
+    305,
+    1232
+   ],
+   "M_klient_przod_L": [
+    376,
+    821
+   ],
+   "M_wejscie": [
+    215,
+    569
+   ]
+  },
+  "K05_detal_stol": {},
+  "K06_na_drzwi": {
+   "M_klient_przod_L": [
+    513,
+    1032
+   ],
+   "M_klient_przod_P": [
+    39,
+    1087
+   ],
+   "M_klient_tyl_P": [
+    671,
+    1445
+   ],
+   "M_wejscie": [
+    630,
+    830
+   ]
+  },
+  "K07_okno_sylwetka": {
+   "M_klient_tyl_L": [
+    153,
+    1166
+   ],
+   "M_klient_tyl_P": [
+    798,
+    1166
+   ],
+   "M_przy_oknie": [
+    540,
+    905
+   ]
+  }
+ },
+ "warianty": [
+  "dzien",
+  "wieczor"
+ ],
+ "czasy_renderu_s": {
+  "dzien": {
+   "K01_plan_ogolny": 135.6,
+   "K02_dwojka_przez_stol": 218.8,
+   "K03_helena_zblizenie": 235.5,
+   "K04_klienci_od_heleny": 193.4,
+   "K05_detal_stol": 229.9,
+   "K06_na_drzwi": 195.3,
+   "K07_okno_sylwetka": 133.8
+  },
+  "wieczor": {
+   "K01_plan_ogolny": 134.9,
+   "K02_dwojka_przez_stol": 139.3,
+   "K03_helena_zblizenie": 146.5
+  }
+ },
+ "ruch": {
+  "plik": "ruch_K02_dwojka_przez_stol_dzien.mp4",
+  "klatki": 72,
+  "fps": 24,
+  "rozdzielczosc": [
+   540,
+   960
+  ],
+  "czas_s": 1359.6
+ }
+}

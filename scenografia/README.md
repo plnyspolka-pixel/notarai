@@ -1,0 +1,74 @@
+# Scenografia „Komputerku…” (Blender, od zera)
+
+Dziesięć planów zdjęciowych zbudowanych skryptami Pythona w Blenderze (bpy 5.3, Cycles CPU + OpenImageDenoise).
+Wymiary w metrach, prawdziwe źródła światła (HDRI + słońce + portale okien + lampy), kamery 9:16 (1080×1920),
+puste obiekty-znaczniki pozycji postaci. **Zero tekstu**: brak napisów, logo, godeł i marek; kartki puste,
+teczki zamknięte, grzbiety segregatorów gładkie, ekrany monitorów białe.
+
+## Plany
+
+| Kod | Plan | Warianty | Kamery | Ocena (szczerze) |
+|---|---|---|---|---|
+| s01 | Recepcja i poczekalnia (lada Basi) | dzień, wieczór | 7 | dobra |
+| s02 | Gabinet Heleny (stół, regały akt) | dzień, wieczór | 7 | dobra, render pełny w repo |
+| s03 | Pokój Marty i Kuby (dwa biurka) | dzień, wieczór | 7 | poprawna |
+| s04 | Korytarz z drzwiami kancelarii + klatka kamienicy | dzień, wieczór | 7 | dobra |
+| s05 | Kancelaria Teresy (blok, mniejsza) | dzień, wieczór | 7 | poprawna |
+| s06 | Kawiarnia, stolik przy oknie | dzień, wieczór | 6 | dobra |
+| s07 | Ulica przed kancelarią (fasada, brama) | dzień, noc (mokry asfalt) | 6 | sterylna, użyteczna na plan ogólny |
+| s08 | Parking na podwórzu z autem Marty | noc, dzień | 6 | słaba: auta proceduralne, „zabawkowe” |
+| s09 | Sala szkoleniowa (bez emblematów) | dzień | 6 | poprawna, pusta |
+| s10 | Mieszkanie Ireny + klatka bez windy | dzień, wieczór | 7 | dobra |
+
+Pełna lista kamer (nazwa, obiektyw, położenie, cel, przeznaczenie) i znaczników (położenie, obrót, opis,
+pozycja w pikselach w każdym kadrze) jest w `rendery/<kod>/opis.json` po renderze, a źródłowo na końcu
+każdego pliku `sety/sNN_*.py` (wywołania `w.kamera(...)` i `w.znacznik(...)`).
+Konwencja nazw: `K01_plan_ogolny`, `K02_...` (kamery), `M_Helena_fotel`, `M_klient_lewy` (znaczniki).
+Wysokość znacznika = wysokość oczu (stoi ok. 1,62 m, siedzi ok. 1,1-1,15 m).
+
+## Wyniki w `rendery/<kod>/`
+- `<kamera>_<wariant>.jpg` - kadr 1080×1920,
+- `<kamera>_<wariant>_glebia.png` - mapa głębi 16-bit, wartość = odległość od kamery w mm (65535 = tło),
+- `ruch_<kamera>_<wariant>.mp4` - najazd 3 s, 24 kl/s, 540×960 (jeden na plan),
+- `opis.json` - kamery, znaczniki, czasy renderu,
+- `blend/<kod>.blend` - scena (bez tekstur, jeśli >15 MB nie trafia do repo).
+
+## Odbudowa
+```bash
+python -m venv venv && . venv/bin/activate
+pip install bpy==5.3.0 OpenEXR numpy pillow      # + ffmpeg w systemie
+python scenografia/pobierz_zasoby.py              # zasoby CC0 do scenografia/.cache (nie w repo)
+python scenografia/zbuduj.py --plan s02 --podglad # szybki podgląd 33%/12 próbek -> rendery/_tmp/podglad
+python scenografia/zbuduj.py --plan s02           # pełny render (domyślnie 32 próbki)
+python scenografia/zbuduj.py --plan wszystkie --kamery K01_plan_ogolny --bez-ruchu
+```
+Opcje: `--warianty dzien,noc`, `--probki 64`. Wspólne klocki (pokój, okna, drzwi, regały, lampy, kamery,
+render, głębia, najazd) są w `wspolne.py`; każdy plan to jeden plik w `sety/`.
+
+CI: `.github/workflows/scenografia-render.yml` - po pushu zmian w skryptach na gałąź `scenografia/**`
+(lub ręcznie z listą planów) renderuje każdy plan w osobnym jobie i commituje wyniki z `[skip ci]`.
+
+## Czasy (zmierzone, 4 rdzenie CPU, 15 GB RAM)
+- podgląd 360×640, 12 próbek: 6-19 s na kamerę,
+- pełny kadr 1080×1920, 32 próbki + OIDN: **190-235 s** dzień, **135-147 s** wieczór (zmierzone na s02),
+- mapa głębi: kilka sekund na kadr,
+- najazd 3 s (72 klatki 540×960, 12 próbek): ok. 20 min (s02: 23 min),
+- cały komplet (10 planów, ok. 100 kadrów + 10 najazdów) na CPU: ok. 8-10 h.
+GPU (np. Salad RTX 4090/5090, Cycles OptiX) powinno dać rząd wielkości szybciej (10-20 s na kadr,
+najazd w kilka minut) - potrzebny tylko kontener z bpy/Blenderem i tym katalogiem.
+
+## Zasoby (CC0)
+Wszystkie modele, tekstury i HDRI pochodzą z Poly Haven, licencja CC0 (https://polyhaven.com/license).
+Lista identyfikatorów z adresami: `manifest.json` (źródło: `https://polyhaven.com/a/<id>`);
+po pobraniu `.cache/zasoby.json` zawiera ścieżki, URL i licencję każdego pliku. Pliki binarne nie są w repo.
+Meble i rekwizyty, których brak w Poly Haven (lada, regały akt, segregatory, monitory, telefon, drukarka,
+zegar bez cyfr, schody, auta, fotele biurowe), są modelowane proceduralnie w `wspolne.py`.
+
+## Słabe strony
+- Widoki za oknami to panoramy HDRI; w dzień okna są prześwietlone (czysta biel) - to celowo „miękkie” okno, ale bez widoku na zewnątrz.
+- s08: auta proceduralne wyglądają zabawkowo; do zbliżeń trzeba modelu CC0 auta bez marki lub kadrów bez auta.
+- s07: fasada czysta, bez brudu, szyldów i przechodniów - dobra na plan ogólny, gorsza na detal.
+- s09: sala pusta i jednolita; brakuje tłumu (statyści do dorobienia w AI).
+- Brak postaci: znaczniki wyznaczają miejsca i wysokość oczu, postacie wstawia dalszy etap (AI / compositing).
+- 32 próbki + odszumianie: w ciemnych kątach (wariant wieczór/noc) możliwe plamy odszumiacza; do finału 64+ próbek na GPU.
+- Najazdy w połowie rozdzielczości (540×960) - wystarczają jako referencja ruchu, nie jako materiał finalny.
