@@ -401,8 +401,8 @@ PLIKI_KANCELARII = ("kalendarz", "dni", "osoby", "wizyty", "rezerwacje_hurtowe",
                     "skrzynka", "skrzynka_ustawienia",
                     # ustawienia ogolne: domyslna dokladnosc odczytu, wzor nazwy pliku Word
                     "ustawienia",
-                    # nagrania aktow: spis nagran (tytul, czas, skrot) - same pliki audio obok
-                    "nagrania")  # wizyty: w obszarze administracyjnym
+                    # stenogramy aktow: spis (sprawa, stan, czas) - bez tresci, ta lezy przy sprawie
+                    "stenogramy")  # wizyty: w obszarze administracyjnym
 _PROB_ZAPISU = 5
 _BLOKADA_PLIKOW = threading.Lock()
 
@@ -553,3 +553,18 @@ def usun_pliki(prefiks_wzgledny: str) -> int:
     if TRYB != "s3":
         return 0
     return _usun_wszystkie_wersje(f"{PREFIKS}/{kancelaria()}/{prefiks_wzgledny}/")
+
+
+def czytaj_obiekt(wzgledna: str) -> bytes | None:
+    """Tresc pliku kancelarii prosto do pamieci, bez kopii na dysku (np. surowa
+    transkrypcja, ktorej nie wolno zapisac). None = nie ma."""
+    wzgledna = _bezpieczna(wzgledna)
+    if TRYB != "s3":
+        plik = katalog_kancelarii() / wzgledna
+        return plik.read_bytes() if plik.exists() else None
+    try:
+        return _klient_s3().get_object(Bucket=BUCKET, Key=f"{PREFIKS}/{kancelaria()}/{wzgledna}")["Body"].read()
+    except Exception as blad:  # noqa: BLE001
+        if type(blad).__name__ == "NoSuchKey" or _kod_bledu(blad) in ("NoSuchKey", "404"):
+            return None
+        raise

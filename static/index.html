@@ -741,8 +741,8 @@ notarai</div>
   <div class="krok" data-etap="12"><b><span>@</span></b>Poczta do przypisania<span class="licznik" id="licznik-poczty" hidden title="Wiadomości e-mail czekające na przypisanie do sprawy"></span></div>
   <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
-  <!-- Osobna strona: telefon na stole nagrywa odczytanie aktu. -->
-  <a class="krok krok-link" id="btn-nagrania" href="/nagrania"><b><span>●</span></b>Nagranie aktu</a>
+  <!-- Osobna strona: telefon na stole nagrywa odczytanie aktu, przy sprawie zostaje stenogram. -->
+  <a class="krok krok-link" id="btn-stenogramy" href="/stenogramy"><b><span>●</span></b>Stenogram aktu</a>
   <div class="krok" data-etap="9" data-upr="kancelaria"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
   <div class="krok" data-etap="10" data-upr="kancelaria"><b><span>§</span></b>Księgi i repertoria</div>
   <div class="krok" data-etap="11" data-upr="kancelaria"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
@@ -4151,7 +4151,7 @@ function zastosujUstawieniaOgolne(ogolne) {
    (zwykle zdaniem, przez asystenta kancelarii). Klucze jak w ustawienia_kancelarii.py. */
 const MENU_NARZEDZI = {sprawdzenia: '.krok[data-etap="4"]', klikamy: '.krok[data-etap="5"]',
   kalendarz: '.krok[data-etap="6"]', osoby: '.krok[data-etap="7"]', przesylki: '.krok[data-etap="8"]',
-  poczta: '.krok[data-etap="12"]', poswiadczenia: '#btn-poswiadczenia', nagrania: '#btn-nagrania', styl: '.krok[data-etap="9"]',
+  poczta: '.krok[data-etap="12"]', poswiadczenia: '#btn-poswiadczenia', stenogramy: '#btn-stenogramy', styl: '.krok[data-etap="9"]',
   ksiegi: '.krok[data-etap="10"]', giif: '.krok[data-etap="11"]'};
 const EKRAN_STARTOWY = {panel: 0, nowa_sprawa: 1, kalendarz: 6, osoby: 7, przesylki: 8, poczta: 12, ksiegi: 10};
 const ROZMIAR_TEKSTU = {normalny: "", duzy: "1.12", bardzo_duzy: "1.25"};

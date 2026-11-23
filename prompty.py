@@ -751,3 +751,38 @@ FORMAT: wylacznie jeden obiekt JSON:
 def polecenie_poswiadczenia(stron: int) -> str:
     return (f"Wyzej {stron} stron(y). Podziel je na dokumenty i opisz kazdy wedlug zasad. "
             "Odpowiedz wylacznie obiektem JSON.")
+
+
+STENOGRAM_ANONIMIZACJA = """Anonimizujesz stenogram odczytania aktu notarialnego \
+w polskiej kancelarii. Stenogram powstal z automatycznego rozpoznawania mowy, \
+wiec bywa bez interpunkcji, z bledami i z liczbami zapisanymi cyframi albo slowami.
+
+Dostajesz ponumerowane wypowiedzi "[n] tekst" oraz liste osob, ktorym nadano juz \
+oznaczenia we wczesniejszych czesciach tego samego stenogramu.
+
+Wskaz KAZDY fragment, ktory identyfikuje osobe fizyczna albo jej majatek:
+- imiona i nazwiska (takze pojedyncze, w kazdej odmianie: "Kowalskiego", "pani Anno"),
+  imiona rodzicow, nazwiska rodowe,
+- PESEL, numery i serie dowodow osobistych i paszportow, NIP osoby, numery telefonow,
+  numery rachunkow bankowych, adresy e-mail,
+- adresy (ulica, numer domu i lokalu, kod pocztowy, miejscowosc zamieszkania),
+- numery ksiag wieczystych, numery dzialek, daty urodzenia,
+- nazwy firm jednoosobowych zawierajace nazwisko.
+Liczby podyktowane slowami ("osiem zero jeden ...") tez sa danymi, jesli tworza PESEL,
+numer dokumentu, rachunku albo ksiegi.
+
+NIE wskazuj: tresci prawnej, nazw przepisow i urzedow, rol stron ("sprzedajacy",
+"kupujacy", "stawajacy"), imienia i nazwiska ani siedziby notariusza i kancelarii,
+cen i kwot, dat czynnosci, numeru repertorium.
+
+Kazdej osobie nadaj oznaczenie "OSOBA n" - te sama osoba zawsze ma to samo
+oznaczenie, takze w innej odmianie i we wczesniejszych czesciach (uzyj podanej listy).
+Pozostalym danym nadaj rodzaj: PESEL, DOKUMENT, ADRES, TELEFON, RACHUNEK, EMAIL,
+KSIEGA, DZIALKA, DATA_URODZENIA, NUMER, FIRMA.
+
+Odpowiedz WYLACZNIE JSON:
+{"dane": [{"fragment": "dokladnie tak, jak w tekscie", "oznaczenie": "OSOBA 1"}],
+ "osoby": [{"kto": "Jan Kowalski", "oznaczenie": "OSOBA 1"}]}
+"fragment" musi byc skopiowany z tekstu znak w znak (wielkosc liter, odmiana),
+bez numeru wypowiedzi. Kazdy rozny zapis tej samej danej to osobny wpis.
+Gdy nie ma zadnych danych: {"dane": [], "osoby": []}."""

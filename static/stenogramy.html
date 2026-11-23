@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>notarai · nagranie aktu</title>
+<title>notarai · stenogram aktu</title>
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <style>
 :root{
@@ -36,7 +36,7 @@ h2{font:500 18px/1.3 var(--serif);margin:0 0 12px}
 .pod{color:var(--tekst2);margin:0 0 20px}
 .karta{background:var(--karta);border:1px solid var(--linia);border-radius:var(--r);padding:20px;margin-bottom:16px}
 label.etykieta{display:block;font-size:13px;font-weight:500;margin:12px 0 6px;color:var(--tekst2)}
-input[type=text]{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
+select,input[type=text]{width:100%;font:inherit;color:inherit;background:var(--tlo);padding:10px 12px;border:1px solid var(--linia2);border-radius:var(--r2)}
 .opcje{display:grid;gap:8px;margin-top:6px}
 .opcja{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--linia2);border-radius:var(--r2);padding:10px 12px;cursor:pointer}
 .opcja input{margin-top:4px}
@@ -69,32 +69,26 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
 .wpis .meta{font-size:13px;color:var(--tekst2)}
 .wpis audio{width:100%;margin-top:10px}
 .pusto{color:var(--tekst3);font-size:14px}
+.tekst{white-space:pre-wrap;font:14px/1.6 var(--sans);background:var(--karta);border:1px solid var(--linia);border-radius:var(--r2);padding:12px;margin-top:10px;max-height:60vh;overflow:auto}
 .brama{background:var(--alarm-tlo);color:var(--alarm);border-radius:var(--r2);padding:12px;margin-bottom:16px}
 </style>
 </head>
 <body>
 <div class="kol">
   <div class="logo"><img src="/static/notarai-symbol.svg" alt="">notarai<a href="/">← aplikacja</a></div>
-  <h1>Nagranie aktu</h1>
-  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Nagrywaj”. Ekran nie zgaśnie. Nagranie zapisuje się po kawałku, więc przerwa w sieci niczego nie gubi.</p>
+  <h1>Stenogram aktu</h1>
+  <p class="pod">Połóż telefon na stole, mikrofonem do czytającego, i naciśnij „Nagrywaj”. Po zakończeniu przy sprawie pojawi się stenogram z zakrytymi danymi osobowymi. Samo nagranie usuwamy, gdy stenogram jest gotowy.</p>
 
   <div class="brama" id="brama" hidden>Zaloguj się w aplikacji notarai na tym urządzeniu, potem wróć tutaj. <button class="maly wtorny" id="btn-zaloguj">Przejdź do logowania</button></div>
   <div class="brama" id="brak-obslugi" hidden>Ta przeglądarka nie nagrywa dźwięku. Otwórz stronę w Chrome, Edge, Firefoksie albo Safari.</div>
+  <div class="brama" id="wylaczone" hidden>Stenogramy nie są jeszcze włączone w tej kancelarii.</div>
 
   <div class="karta" id="przygotowanie">
     <h2>Przed nagraniem</h2>
-    <label class="etykieta" for="tytul">Czego dotyczy (widzi tylko kancelaria)</label>
-    <input type="text" id="tytul" maxlength="200" placeholder="np. umowa sprzedaży lokalu">
+    <label class="etykieta" for="sprawa">Sprawa</label>
+    <select id="sprawa"><option value="">Wczytuję sprawy…</option></select>
     <label class="etykieta" for="sygnatura">Repertorium A (opcjonalnie)</label>
-    <input type="text" id="sygnatura" maxlength="200" placeholder="np. 1234/2026">
-
-    <label class="etykieta">Gdzie zapisać nagranie</label>
-    <div class="opcje">
-      <label class="opcja" id="opcja-chmura"><input type="radio" name="cel" value="chmura" checked>
-        <span>Na serwerze notarai<small>Zaszyfrowane, w UE (Frankfurt). Odsłuchasz je na każdym komputerze kancelarii.</small></span></label>
-      <label class="opcja"><input type="radio" name="cel" value="urzadzenie">
-        <span>Tylko na tym urządzeniu<small>Serwer nic nie dostaje. Po zakończeniu zapiszesz plik na dysku.</small></span></label>
-    </div>
+    <input type="text" id="sygnatura" maxlength="60" placeholder="np. 1234/2026">
 
     <label class="zgoda"><input type="checkbox" id="zgoda">
       <span>Osoby obecne przy akcie wiedzą o nagrywaniu i się na nie zgodziły.</span></label>
@@ -107,18 +101,18 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
     <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
       <button class="wtorny" id="btn-pauza">Wstrzymaj</button>
     </div>
-    <div class="stan" id="stan">Zaznacz zgodę, żeby zacząć.</div>
+    <div class="stan" id="stan">Wybierz sprawę i zaznacz zgodę, żeby zacząć.</div>
     <div class="stan" id="wysylka"></div>
   </div>
 
   <div class="karta" id="karta-lokalne" hidden>
-    <h2>Na tym urządzeniu</h2>
-    <p class="pod" style="margin:0">Nagrania, które leżą w pamięci przeglądarki: niedokończona wysyłka albo zapis tylko na urządzeniu.</p>
+    <h2>Czeka na tym urządzeniu</h2>
+    <p class="pod" style="margin:0">Nagrania, których wysyłka się nie skończyła. Leżą w pamięci przeglądarki, dopóki serwer ich nie przyjmie.</p>
     <div id="lokalne"></div>
   </div>
 
   <div class="karta" id="karta-serwer">
-    <h2>Nagrania kancelarii</h2>
+    <h2>Stenogramy</h2>
     <div id="lista"><p class="pusto">Wczytuję…</p></div>
   </div>
 </div>
@@ -128,6 +122,7 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
 const $ = id => document.getElementById(id);
 const KLUCZ_TOKENU = "notarai_token";
 const FRAGMENT_MS = window.__fragmentMs || 15000;   // co tyle przeglądarka oddaje kawałek nagrania
+const SESJA_MS = window.__sesjaMs || 50 * 60000;     // samodzielny plik co 50 min (limit rozpoznawania mowy)
 const BITY_OPUS = 24000;        // mowa: ok. 11 MB na godzinę
 const BITY_AAC = 32000;         // Safari (MP4/AAC) potrzebuje trochę więcej
 
@@ -153,7 +148,7 @@ async function api(adres, opcje = {}){
   };
   let odp = await wyslij();
   if (odp.status === 401 && await odnow()) odp = await wyslij();
-  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby zapisywać nagrania."); }
+  if (odp.status === 401) { $("brama").hidden = false; throw new Error("Zaloguj się, żeby nagrywać."); }
   return odp;
 }
 
@@ -163,18 +158,18 @@ async function bladZ(odp){
     return typeof d === "string" ? d : (d?.komunikat || `Błąd ${odp.status}`);
   } catch { return `Błąd ${odp.status}`; }
 }
+const jsonPost = (adres, dane) => api(adres, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(dane)});
 
 $("btn-zaloguj").onclick = () => { location.href = "/"; };
 
 /* ---------- pamięć przeglądarki (IndexedDB) ----------
    Każdy fragment najpierw ląduje tutaj, dopiero potem idzie na serwer.
-   Kasujemy go, gdy serwer potwierdzi gotowe nagranie albo gdy notariusz
-   sam usunie nagranie z urządzenia.                                      */
+   Kasujemy go, gdy serwer przyjmie całe nagranie.                        */
 let _baza = null;
 function baza(){
   if (_baza) return _baza;
   _baza = new Promise((ok, zle) => {
-    const z = indexedDB.open("notarai-nagrania", 1);
+    const z = indexedDB.open("notarai-stenogramy", 1);
     z.onupgradeneeded = () => {
       z.result.createObjectStore("nagrania", {keyPath: "id"});
       z.result.createObjectStore("czesci");
@@ -191,18 +186,14 @@ async function idb(magazyn, tryb, dzialanie){
     t.oncomplete = () => ok(wynik?.result); t.onerror = () => zle(t.error);
   });
 }
+const klucz = (id, nr) => `${id}:${String(nr).padStart(5, "0")}`;
 const zapiszOpis = o => idb("nagrania", "readwrite", s => s.put(o));
 const wszystkieOpisy = () => idb("nagrania", "readonly", s => s.getAll());
-const zapiszCzesc = (id, nr, blob) => idb("czesci", "readwrite", s => s.put(blob, `${id}:${String(nr).padStart(5, "0")}`));
-const czytajCzesc = (id, nr) => idb("czesci", "readonly", s => s.get(`${id}:${String(nr).padStart(5, "0")}`));
+const zapiszCzesc = (id, nr, blob) => idb("czesci", "readwrite", s => s.put(blob, klucz(id, nr)));
+const czytajCzesc = (id, nr) => idb("czesci", "readonly", s => s.get(klucz(id, nr)));
 async function usunLokalne(id){
   await idb("czesci", "readwrite", s => s.delete(IDBKeyRange.bound(`${id}:`, `${id}:￿`)));
   await idb("nagrania", "readwrite", s => s.delete(id));
-}
-async function calyPlik(o){
-  const czesci = [];
-  for (let nr = 0; nr < o.czesci; nr++) czesci.push(await czytajCzesc(o.id, nr));
-  return new Blob(czesci.filter(Boolean), {type: o.typ});
 }
 
 /* ---------- format nagrania ---------- */
@@ -212,44 +203,41 @@ function wybierzFormat(){
   for (const typ of ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"]) {
     if (MediaRecorder.isTypeSupported(typ)) return {typ, bity: typ.startsWith("audio/mp4") ? BITY_AAC : BITY_OPUS};
   }
-  return {typ: "", bity: BITY_OPUS};   // przeglądarka wybierze sama
+  return {typ: "", bity: BITY_OPUS};
 }
-const ROZSZERZENIA = {"audio/webm": ".webm", "audio/ogg": ".ogg", "audio/mp4": ".m4a"};
 const podstawowy = typ => (typ || "audio/webm").split(";")[0];
 
-/* ---------- stan nagrywania ---------- */
+/* ---------- stan ---------- */
 
-let stanStrony = {przechowywanie: "chmura"};
-let biezace = null;   // {opis, rec, strumien, kontekst, start, pauzaOd, przerwy, kolejka, wysylam}
+let wlaczone = true;
+let biezace = null;   // {opis, rec, strumien, format, kontekst, start, pauzaOd, przerwy, kolejka, wysylam, sesjaStart}
 let blokadaEkranu = null;
 
-function cel(){ return document.querySelector('input[name="cel"]:checked').value; }
 function czas(s){
   s = Math.max(0, Math.floor(s));
   return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
-function rozmiar(b){ return b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " kB"; }
 function stan(tekst, rodzaj = ""){ $("stan").textContent = tekst; $("stan").className = "stan" + (rodzaj ? " " + rodzaj : ""); }
 function sekundy(){
   if (!biezace) return 0;
-  const teraz = biezace.pauzaOd || Date.now();
-  return (teraz - biezace.start - biezace.przerwy) / 1000;
+  return ((biezace.pauzaOd || Date.now()) - biezace.start - biezace.przerwy) / 1000;
 }
 
 function odswiezPrzycisk(){
-  const gotowy = $("zgoda").checked && !!wybierzFormat();
+  const gotowy = wlaczone && $("zgoda").checked && $("sprawa").value && !!wybierzFormat();
   $("btn-nagraj").disabled = !biezace && !gotowy;
   $("btn-nagraj").classList.toggle("stop", !!biezace);
   $("napis-nagraj").textContent = biezace ? "Zakończ" : "Nagrywaj";
   $("sterowanie").hidden = !biezace;
-  $("przygotowanie").querySelectorAll("input").forEach(p => {
-    p.disabled = !!biezace || (p.value === "chmura" && stanStrony.przechowywanie === "u-klienta");
-  });
+  $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = !!biezace; });
   document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
-  if (!biezace && !$("zgoda").checked) stan("Zaznacz zgodę, żeby zacząć.");
-  else if (!biezace) stan("Gotowe do nagrywania.");
+  if (!biezace && !gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
+    stan("Wybierz sprawę i zaznacz zgodę, żeby zacząć.");
+  else if (!biezace && gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
+    stan("Gotowe do nagrywania.");
 }
-$("zgoda").onchange = odswiezPrzycisk;
+$("zgoda").onchange = () => { stan(""); odswiezPrzycisk(); };
+$("sprawa").onchange = () => { stan(""); odswiezPrzycisk(); rysujListe(); };
 
 async function trzymajEkran(){
   try { if ("wakeLock" in navigator && biezace) blokadaEkranu = await navigator.wakeLock.request("screen"); }
@@ -288,7 +276,7 @@ function pokazujPoziom(strumien){
 /* ---------- wysyłka fragmentów ---------- */
 
 function pokazWysylke(){
-  if (!biezace || biezace.opis.cel !== "chmura") { $("wysylka").textContent = ""; return; }
+  if (!biezace) { $("wysylka").textContent = ""; return; }
   const czeka = biezace.kolejka.length;
   $("wysylka").textContent = czeka
     ? `Na serwer czeka ${czeka} ${czeka === 1 ? "fragment" : "fragmentów"}. Nie zamykaj strony.`
@@ -296,21 +284,22 @@ function pokazWysylke(){
 }
 
 async function wyslijCzesc(idSerwera, nr, blob){
-  const odp = await api(`/api/nagrania/${idSerwera}/czesci/${nr}`, {method: "PUT", body: blob,
+  const odp = await api(`/api/stenogramy/${idSerwera}/czesci/${nr}`, {method: "PUT", body: blob,
     headers: {"Content-Type": "application/octet-stream"}});
   if (!odp.ok) throw new Error(await bladZ(odp));
 }
 
 async function obsluzKolejke(){
   if (!biezace || biezace.wysylam) return;
-  biezace.wysylam = true;
+  const b = biezace;
+  b.wysylam = true;
   let pauza = 2000;
   try {
-    while (biezace && biezace.kolejka.length) {
-      const nr = biezace.kolejka[0];
+    while (b.kolejka.length) {
+      const nr = b.kolejka[0];
       try {
-        await wyslijCzesc(biezace.opis.idSerwera, nr, await czytajCzesc(biezace.opis.id, nr));
-        biezace.kolejka.shift();
+        await wyslijCzesc(b.opis.idSerwera, nr, await czytajCzesc(b.opis.id, nr));
+        b.kolejka.shift();
         pauza = 2000;
       } catch {
         // Sieć padła: fragment czeka w pamięci telefonu, próbujemy dalej.
@@ -319,12 +308,43 @@ async function obsluzKolejke(){
         pauza = Math.min(pauza * 2, 30000);
         continue;
       }
-      pokazWysylke();
+      if (biezace === b) pokazWysylke();
     }
-  } finally { if (biezace) biezace.wysylam = false; }
+  } finally { b.wysylam = false; }
 }
 
-/* ---------- start / pauza / koniec ---------- */
+/* ---------- nagrywanie w sesjach ----------
+   Co SESJA_MS zatrzymujemy MediaRecorder i od razu zaczynamy nowy na tym
+   samym mikrofonie. Każda sesja to samodzielny plik z własnym nagłówkiem.  */
+
+function nowaSesja(){
+  const b = biezace;
+  const rec = new MediaRecorder(b.strumien, {...(b.format.typ ? {mimeType: b.format.typ} : {}), audioBitsPerSecond: b.format.bity});
+  const sesja = {od: b.opis.czesci, do: b.opis.czesci, czas_s: 0};
+  const zapisy = [];   // obietnice zapisu fragmentów - poza opisem, którego kopia idzie do IndexedDB
+  b.opis.sesje.push(sesja);
+  b.sesjaStart = sekundy();
+  rec.ondataavailable = e => {
+    if (!e.data || !e.data.size) return;
+    const nr = b.opis.czesci++;
+    sesja.do = b.opis.czesci;
+    // Zapis do pamięci telefonu, potem kolejka wysyłki (w kolejności numerów).
+    const zapis = zapiszCzesc(b.opis.id, nr, e.data).then(() => zapiszOpis(b.opis))
+      .then(() => { b.kolejka.push(nr); b.kolejka.sort((x, y) => x - y); pokazWysylke(); obsluzKolejke(); });
+    zapisy.push(zapis);
+  };
+  rec.onstop = async () => {
+    sesja.czas_s = sekundy() - b.sesjaStart;
+    await Promise.all(zapisy);
+    await zapiszOpis(b.opis);
+    if (b.zatrzymuje) return zakonczono(b);
+    nowaSesja();
+  };
+  rec.start(FRAGMENT_MS);
+  b.rec = rec;
+  clearTimeout(b.zegarSesji);
+  b.zegarSesji = setTimeout(() => { if (biezace === b && !b.zatrzymuje) rec.stop(); }, SESJA_MS);
+}
 
 async function rozpocznij(){
   const format = wybierzFormat();
@@ -334,35 +354,22 @@ async function rozpocznij(){
       channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true}});
   } catch { return stan("Przeglądarka nie dostała dostępu do mikrofonu. Zezwól na mikrofon w ustawieniach strony.", "blad"); }
 
-  const opis = {id: crypto.randomUUID().replace(/-/g, "").slice(0, 16), cel: cel(),
-    tytul: $("tytul").value.trim(), sygnatura: $("sygnatura").value.trim(),
-    typ: podstawowy(format.typ), czesci: 0, czas_s: 0, stan: "nagrywanie", utworzono: new Date().toISOString()};
-
-  if (opis.cel === "chmura") {
-    try {
-      const odp = await api("/api/nagrania", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({tytul: opis.tytul, sygnatura: opis.sygnatura, typ: opis.typ, zgoda: $("zgoda").checked})});
-      if (!odp.ok) throw new Error(await bladZ(odp));
-      opis.idSerwera = (await odp.json()).id;
-    } catch (blad) {
-      strumien.getTracks().forEach(t => t.stop());
-      return stan(blad.message + " Możesz nagrać na tym urządzeniu.", "blad");
-    }
+  const opis = {id: crypto.randomUUID().replace(/-/g, "").slice(0, 16), sprawa: $("sprawa").value,
+    nazwaSprawy: $("sprawa").selectedOptions[0]?.textContent || "", sygnatura: $("sygnatura").value.trim(),
+    typ: podstawowy(format.typ), czesci: 0, sesje: [], utworzono: new Date().toISOString()};
+  try {
+    const odp = await jsonPost("/api/stenogramy", {sprawa: opis.sprawa, sygnatura: opis.sygnatura,
+      typ: opis.typ, zgoda: $("zgoda").checked});
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    opis.idSerwera = (await odp.json()).id;
+  } catch (blad) {
+    strumien.getTracks().forEach(t => t.stop());
+    return stan(blad.message, "blad");
   }
   await zapiszOpis(opis);
-
-  const rec = new MediaRecorder(strumien, {...(format.typ ? {mimeType: format.typ} : {}), audioBitsPerSecond: format.bity});
-  biezace = {opis, rec, strumien, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
-  rec.ondataavailable = async e => {
-    if (!e.data || !e.data.size) return;
-    const nr = opis.czesci++;
-    opis.czas_s = sekundy();
-    await zapiszCzesc(opis.id, nr, e.data);
-    await zapiszOpis(opis);
-    if (opis.cel === "chmura" && biezace) { biezace.kolejka.push(nr); pokazWysylke(); obsluzKolejke(); }
-  };
-  rec.onstop = () => zakonczono();
-  rec.start(FRAGMENT_MS);
+  stan("");
+  biezace = {opis, strumien, format, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
+  nowaSesja();
   biezace.kontekst = pokazujPoziom(strumien);
   await trzymajEkran();
   odswiezPrzycisk();
@@ -370,65 +377,62 @@ async function rozpocznij(){
 }
 
 $("btn-pauza").onclick = () => {
-  if (!biezace) return;
-  if (biezace.pauzaOd) {
-    biezace.przerwy += Date.now() - biezace.pauzaOd; biezace.pauzaOd = 0;
-    biezace.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
+  const b = biezace;
+  if (!b) return;
+  if (b.pauzaOd) {
+    b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0;
+    b.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
   } else {
-    biezace.pauzaOd = Date.now(); biezace.rec.pause();
+    b.pauzaOd = Date.now(); b.rec.pause();
     $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby nagrywać dalej.");
   }
   odswiezPrzycisk();
 };
 
 $("btn-nagraj").onclick = () => {
-  if (!biezace) return rozpocznij();
-  if (biezace.zatrzymuje) return;
-  if (biezace.pauzaOd) { biezace.przerwy += Date.now() - biezace.pauzaOd; biezace.pauzaOd = 0; }
-  biezace.zatrzymuje = true;
+  const b = biezace;
+  if (!b) return rozpocznij();
+  if (b.zatrzymuje) return;
+  if (b.pauzaOd) { b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0; }
+  b.zatrzymuje = true;
+  clearTimeout(b.zegarSesji);
   stan("Kończę nagranie…");
-  biezace.rec.stop();
+  if (b.rec.state === "inactive") zakonczono(b); else b.rec.stop();
 };
 
-async function zakonczono(){
-  const b = biezace;
+async function zakonczono(b){
   b.strumien.getTracks().forEach(t => t.stop());
   try { b.kontekst?.close(); } catch { /* juz zamkniety */ }
   try { await blokadaEkranu?.release(); } catch { /* juz zwolniona */ }
-  // Ostatni fragment przychodzi tuż przed "stop"; dajmy mu się zapisać.
-  await new Promise(r => setTimeout(r, 1000));
-  b.opis.czas_s = sekundy();
   b.opis.stan = "zatrzymane";
   await zapiszOpis(b.opis);
-  if (b.opis.cel === "chmura") {
-    stan("Wysyłam resztę nagrania…");
-    while (b.kolejka.length) await new Promise(r => setTimeout(r, 500));
-  }
+  stan("Wysyłam resztę nagrania…");
+  while (b.kolejka.length || b.wysylam) await new Promise(r => setTimeout(r, 300));
   biezace = null;
   // Każdy akt to nowa zgoda: następne nagranie nie może ruszyć "z rozpędu".
-  $("zgoda").checked = false; $("tytul").value = ""; $("sygnatura").value = "";
+  $("zgoda").checked = false; $("sygnatura").value = "";
+  $("btn-pauza").textContent = "Wstrzymaj";
   odswiezPrzycisk();
   $("wysylka").textContent = "";
-  if (b.opis.cel === "chmura") await dokonczNaSerwerze(b.opis);
-  else await zapiszNaDysku(b.opis);
+  await dokonczNaSerwerze(b.opis);
   await rysujLokalne();
 }
 
 async function dokonczNaSerwerze(o){
   stan("Zapisuję nagranie na serwerze…");
+  const sesje = o.sesje.filter(s => s.do > s.od).map(s => ({od: s.od, do: s.do, czas_s: Math.round(s.czas_s * 10) / 10}));
+  if (!sesje.length) { await usunLokalne(o.id); return stan("Nagranie było puste, nic nie zapisano.", "blad"); }
   for (let proba = 0; proba < 3; proba++) {
     try {
-      const odp = await api(`/api/nagrania/${o.idSerwera}/koniec`, {method: "POST",
-        headers: {"Content-Type": "application/json"}, body: JSON.stringify({czesci: o.czesci, czas_s: o.czas_s})});
+      const odp = await jsonPost(`/api/stenogramy/${o.idSerwera}/koniec`, {sesje});
       if (odp.status === 409) {
         const d = (await odp.json()).detail;
         for (const nr of d?.brakujace || []) await wyslijCzesc(o.idSerwera, nr, await czytajCzesc(o.id, nr));
         continue;
       }
       if (!odp.ok) throw new Error(await bladZ(odp));
-      const w = await odp.json();
       await usunLokalne(o.id);
-      stan(`Zapisane na serwerze: ${czas(w.czas_s)}, ${rozmiar(w.rozmiar)}.`, "ok");
+      stan("Nagranie przyjęte. Przygotowuję stenogram, to potrwa kilka minut. Możesz zamknąć stronę.", "ok");
       await rysujListe();
       return;
     } catch (blad) {
@@ -439,27 +443,17 @@ async function dokonczNaSerwerze(o){
   stan("Serwer wciąż nie ma wszystkich fragmentów. Nagranie zostało w pamięci telefonu, dokończysz je niżej.", "blad");
 }
 
-async function zapiszNaDysku(o){
-  const blob = await calyPlik(o);
-  const nazwa = `nagranie-${o.utworzono.slice(0, 10)}-${o.id.slice(0, 6)}${ROZSZERZENIA[o.typ] || ".webm"}`;
-  try {
-    if (window.showSaveFilePicker) {
-      const uchwyt = await window.showSaveFilePicker({suggestedName: nazwa, id: "notarai-nagrania",
-        types: [{description: "Nagranie", accept: {[o.typ]: [ROZSZERZENIA[o.typ] || ".webm"]}}]});
-      const zapis = await uchwyt.createWritable(); await zapis.write(blob); await zapis.close();
-    } else {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = nazwa; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    }
-    o.stan = "zapisane"; await zapiszOpis(o);
-    stan(`Zapisane na urządzeniu (${rozmiar(blob.size)}). Kopia zostaje w pamięci przeglądarki, dopóki jej nie usuniesz.`, "ok");
-  } catch {
-    stan("Nie zapisano pliku. Nagranie jest w pamięci przeglądarki, zapiszesz je niżej.", "blad");
-  }
-}
-
 /* ---------- listy ---------- */
+
+function wpisHtml(){
+  const w = document.createElement("div"); w.className = "wpis";
+  w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
+  return w;
+}
+function przycisk(w, napis, akcja, wtorny = true){
+  const b = document.createElement("button"); b.className = "maly" + (wtorny ? " wtorny" : "");
+  b.textContent = napis; b.onclick = akcja; w.querySelector(".przyciski").append(b); return b;
+}
 
 async function rysujLokalne(){
   let opisy = [];
@@ -467,75 +461,87 @@ async function rysujLokalne(){
   $("karta-lokalne").hidden = !opisy.length;
   const lista = $("lokalne"); lista.textContent = "";
   for (const o of opisy.sort((a, b) => b.utworzono.localeCompare(a.utworzono))) {
-    const w = document.createElement("div"); w.className = "wpis";
-    const dokonczenie = o.cel === "chmura" ? "czeka na wysłanie" : (o.stan === "zapisane" ? "zapisane na dysku" : "niezapisane");
-    w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
-    w.querySelector("b").textContent = o.tytul || "Nagranie";
-    w.querySelector(".meta").textContent = `${new Date(o.utworzono).toLocaleString("pl-PL")} · ${czas(o.czas_s)} · ${dokonczenie}`;
-    const przyciski = w.querySelector(".przyciski");
-    const dodaj = (napis, akcja, wtorny = true) => {
-      const b = document.createElement("button"); b.className = "maly" + (wtorny ? " wtorny" : "");
-      b.textContent = napis; b.onclick = akcja; przyciski.append(b);
-    };
-    if (o.cel === "chmura" && o.idSerwera) dodaj("Dokończ wysyłkę", () => dokonczNaSerwerze(o).then(rysujLokalne), false);
-    dodaj("Zapisz plik", () => zapiszNaDysku(o).then(rysujLokalne));
-    dodaj("Usuń z urządzenia", async () => {
-      if (!confirm("Usunąć to nagranie z pamięci przeglądarki? Jeśli nie ma go na serwerze ani na dysku, przepadnie.")) return;
+    const w = wpisHtml();
+    w.querySelector("b").textContent = o.nazwaSprawy || "Nagranie";
+    w.querySelector(".meta").textContent = `${new Date(o.utworzono).toLocaleString("pl-PL")} · ${o.czesci} fragmentów · czeka na wysłanie`;
+    przycisk(w, "Dokończ wysyłkę", () => dokonczNaSerwerze(o).then(rysujLokalne), false);
+    przycisk(w, "Usuń z urządzenia", async () => {
+      if (!confirm("Usunąć to nagranie z pamięci przeglądarki? Stenogram z niego nie powstanie.")) return;
       await usunLokalne(o.id); rysujLokalne();
     });
     lista.append(w);
   }
 }
 
+const OPISY_STANU = {nagrywanie: "nagranie niedokończone", przetwarzanie: "przygotowuję stenogram…",
+  gotowe: "gotowy, jest w plikach sprawy", blad: "nie udało się"};
+let nazwySpraw = {};
+let odswiezanie = null;
+
 async function rysujListe(){
   const lista = $("lista");
-  if (stanStrony.przechowywanie === "u-klienta") {
-    $("karta-serwer").hidden = true; return;
-  }
   let dane;
   try {
-    const odp = await api("/api/nagrania");
+    const sprawa = $("sprawa").value;
+    const odp = await api("/api/stenogramy" + (sprawa ? `?sprawa=${encodeURIComponent(sprawa)}` : ""));
     if (!odp.ok) throw new Error(await bladZ(odp));
     dane = await odp.json();
   } catch (blad) { lista.innerHTML = `<p class="pusto"></p>`; lista.firstChild.textContent = blad.message; return; }
+  wlaczone = dane.wlaczone;
+  $("wylaczone").hidden = wlaczone;
+  odswiezPrzycisk();
   lista.textContent = "";
-  if (!dane.nagrania.length) { lista.innerHTML = `<p class="pusto">Jeszcze nie ma nagrań.</p>`; return; }
-  for (const n of dane.nagrania) {
-    const w = document.createElement("div"); w.className = "wpis";
-    w.innerHTML = `<div class="wpis-gora"><div><b></b><div class="meta"></div></div></div><div class="przyciski"></div>`;
-    w.querySelector("b").textContent = n.tytul + (n.sygnatura ? ` · Rep. A ${n.sygnatura}` : "");
-    w.querySelector(".meta").textContent = n.stan === "gotowe"
-      ? `${new Date(n.utworzono).toLocaleString("pl-PL")} · ${czas(n.czas_s)} · ${rozmiar(n.rozmiar)} · SHA-256 ${n.sha256.slice(0, 12)}…`
-      : `${new Date(n.utworzono).toLocaleString("pl-PL")} · niedokończone`;
-    w.querySelector(".meta").title = n.sha256 || "";
-    const przyciski = w.querySelector(".przyciski");
+  if (!dane.stenogramy.length) { lista.innerHTML = `<p class="pusto">Jeszcze nie ma stenogramów${$("sprawa").value ? " w tej sprawie" : ""}.</p>`; }
+  for (const n of dane.stenogramy) {
+    const w = wpisHtml();
+    w.querySelector("b").textContent = (nazwySpraw[n.sprawa] || "Sprawa") + (n.sygnatura ? ` · Rep. A ${n.sygnatura}` : "");
+    w.querySelector(".meta").textContent = `${new Date(n.utworzono).toLocaleString("pl-PL")}` +
+      (n.czas_s ? ` · ${czas(n.czas_s)}` : "") + ` · ${OPISY_STANU[n.stan] || n.stan}` + (n.komunikat ? ` (${n.komunikat})` : "");
     if (n.stan === "gotowe") {
-      const odsluch = document.createElement("button"); odsluch.className = "maly"; odsluch.textContent = "Odsłuchaj";
-      odsluch.onclick = async () => {
-        odsluch.disabled = true; odsluch.textContent = "Wczytuję…";
+      const pokaz = przycisk(w, "Pokaż", async () => {
+        pokaz.disabled = true;
         try {
-          const odp = await api(`/api/nagrania/${n.id}/plik`);
+          const odp = await api(`/api/stenogramy/${n.id}/tekst`);
           if (!odp.ok) throw new Error(await bladZ(odp));
-          const url = URL.createObjectURL(await odp.blob());
-          const audio = document.createElement("audio"); audio.controls = true; audio.src = url; audio.preload = "metadata";
-          w.append(audio);
-          const pobierz = document.createElement("a"); pobierz.href = url; pobierz.className = "meta";
-          pobierz.download = `nagranie-${n.utworzono.slice(0, 10)}-${n.id.slice(0, 6)}${ROZSZERZENIA[n.typ] || ".webm"}`;
-          pobierz.textContent = "Pobierz plik"; przyciski.append(pobierz);
-          odsluch.remove(); audio.play().catch(() => {});
-        } catch (blad) { odsluch.disabled = false; odsluch.textContent = "Odsłuchaj"; alert(blad.message); }
-      };
-      przyciski.append(odsluch);
+          const pre = document.createElement("div"); pre.className = "tekst"; pre.textContent = await odp.text();
+          w.append(pre); pokaz.remove();
+        } catch (blad) { pokaz.disabled = false; alert(blad.message); }
+      }, false);
     }
-    const usun = document.createElement("button"); usun.className = "maly wtorny"; usun.textContent = "Usuń";
-    usun.onclick = async () => {
-      if (!confirm("Usunąć nagranie z serwera na zawsze, razem z kopiami zapasowymi?")) return;
-      const odp = await api(`/api/nagrania/${n.id}`, {method: "DELETE"});
+    if (n.stan === "blad") przycisk(w, "Spróbuj ponownie", async () => {
+      const odp = await api(`/api/stenogramy/${n.id}/ponow`, {method: "POST"});
       if (!odp.ok) return alert(await bladZ(odp));
       rysujListe();
-    };
-    przyciski.append(usun);
+    }, false);
+    przycisk(w, "Usuń", async () => {
+      if (!confirm("Usunąć stenogram (także z plików sprawy) na zawsze?")) return;
+      const odp = await api(`/api/stenogramy/${n.id}`, {method: "DELETE"});
+      if (!odp.ok) return alert(await bladZ(odp));
+      rysujListe();
+    });
     lista.append(w);
+  }
+  // Póki coś się przygotowuje, odświeżamy listę co 10 s.
+  clearTimeout(odswiezanie);
+  if (dane.stenogramy.some(n => n.stan === "przetwarzanie")) odswiezanie = setTimeout(rysujListe, window.__odswiezMs || 10000);
+}
+
+async function wczytajSprawy(){
+  const pole = $("sprawa");
+  try {
+    const odp = await api("/api/sprawy");
+    if (!odp.ok) throw new Error(await bladZ(odp));
+    const sprawy = await odp.json();
+    pole.textContent = "";
+    pole.append(new Option(sprawy.length ? "— wybierz sprawę —" : "Najpierw załóż sprawę w aplikacji", ""));
+    for (const s of sprawy) {
+      nazwySpraw[s.id] = s.nazwa || s.id;
+      pole.append(new Option(s.nazwa + (s.sygnatura ? ` (${s.sygnatura})` : ""), s.id));
+    }
+    const zAdresu = new URLSearchParams(location.search).get("sprawa");
+    if (zAdresu && nazwySpraw[zAdresu]) pole.value = zAdresu;
+  } catch (blad) {
+    pole.textContent = ""; pole.append(new Option(blad.message, ""));
   }
 }
 
@@ -545,13 +551,16 @@ async function rysujListe(){
   if (!wybierzFormat()) { $("brak-obslugi").hidden = false; }
   try {
     const odp = await api("/api/ustawienia");
-    if (odp.ok) stanStrony = await odp.json();
-  } catch { /* brak logowania - pokazuje brama */ }
-  if (stanStrony.przechowywanie === "u-klienta") {
-    document.querySelector('input[value="urzadzenie"]').checked = true;
-    $("opcja-chmura").classList.add("wylaczona");
-    $("opcja-chmura").querySelector("small").textContent = "Ta kancelaria trzyma pliki u siebie, serwer nie przechowuje nagrań.";
-  }
+    if (odp.ok && (await odp.json()).przechowywanie === "u-klienta") {
+      wlaczone = false;
+      $("wylaczone").hidden = false;
+      $("wylaczone").textContent = "Ta kancelaria trzyma pliki u siebie, a stenogram zapisuje się przy sprawie na serwerze. Ta funkcja jest dla niej wyłączona.";
+      $("karta-serwer").hidden = true;
+      odswiezPrzycisk();
+      return;
+    }
+  } catch { /* brak logowania - pokazuje brama */ return; }
+  await wczytajSprawy();
   odswiezPrzycisk();
   rysujLokalne();
   rysujListe();

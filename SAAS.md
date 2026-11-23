@@ -40,15 +40,19 @@
   klientów), nasłuch folderu kopiarki w Chrome/Edge (File System Access API: nowy skan jest
   odczytywany sam i przenoszony do podfolderu `odczytane`; na serwerze nic nie zostaje).
 
-- `nagrania_aktow.py` + `static/nagrania.html` — nagranie odczytania aktu: telefon na stole,
-  strona `/nagrania` (menu: „Nagranie aktu”). Opus mono ~24 kb/s (ok. 11 MB/h; Safari: AAC 32 kb/s),
-  ekran nie gaśnie (Wake Lock), fragmenty co 15 s najpierw w pamięci przeglądarki (IndexedDB),
-  potem `PUT /api/nagrania/{id}/czesci/{nr}`; `POST .../koniec` skleja, liczy SHA-256 i kasuje fragmenty.
-  Pliki: `kancelarie/{id}/nagrania/{id_nagrania}/nagranie.webm` w buckecie spraw, spis w pliku
-  kancelarii `nagrania`. Opcja „tylko na tym urządzeniu”: serwer nic nie dostaje, plik idzie na dysk
-  (jedyna opcja dla kancelarii `u-klienta`). Bez zaznaczonej zgody osób obecnych nagranie nie rusza;
-  zgoda (kto, kiedy) w spisie. Usuwa `usun_plik` (notariusz, aplikant). Gdy w obrazie jest ffmpeg,
-  kontener jest porządkowany (`-c copy`), żeby działało przewijanie; bez niego plik zostaje jak z telefonu.
+- `stenogramy.py` + `anonimizacja.py` + `static/stenogramy.html` — stenogram odczytania aktu.
+  Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy, potwierdzenie zgody osób obecnych,
+  telefon na stole nagrywa (Opus ~24 kb/s, fragmenty co 15 s najpierw w pamięci przeglądarki, nowa
+  sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
+  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), anonimizuje (model `eu.` wskazuje
+  dane, kod podmienia; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
+  i zapisuje **tylko zanonimizowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
+  w plikach sprawy, idzie do S3 z całą sprawą). Audio, surowy wynik i zadanie Transcribe są kasowane;
+  surowy tekst nie trafia na dysk. Spis w pliku kancelarii `stenogramy`.
+  Włączenie w chmurze: stos `notarai-s3` z `TranscribeStenogramyEU`, polityka AI services opt-out
+  na koncie i `PIECZAPP_TRANSCRIBE_OPTOUT=1` w zadaniu ECS (bez tego API odpowiada 503).
+  Opcjonalnie `PIECZAPP_STENOGRAM_MODEL` (tylko profil `eu.`), `PIECZAPP_STENOGRAM_SILNIK`
+  (`transcribe`/`whisper`). Test na żywo: `docs/czeka-na-dostep.md` NA-15.
 
 ## Zmienione (minimalnie)
 - `config.py` — `SPRAWY` wyliczane per kancelaria (PEP 562); tryb lokalny = stare ścieżki
