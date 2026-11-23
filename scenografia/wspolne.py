@@ -78,6 +78,9 @@ def nowa_scena(probki: int = 48) -> bpy.types.Scene:
     c.blur_glossy = 1.0
     sc.render.use_persistent_data = True
     sc.render.resolution_x, sc.render.resolution_y = SZER, WYS
+    watki = int(os.environ.get("SCENA_WATKI") or 0)  # kontener Cloudflare: tyle wątków, ile vCPU instancji
+    if watki > 0:
+        sc.render.threads_mode, sc.render.threads = "FIXED", watki
     sc.render.resolution_percentage = 100
     sc.render.film_transparent = False
     try:
