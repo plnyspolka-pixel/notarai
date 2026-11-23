@@ -319,7 +319,10 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 
 ## NA-15. Stenogram aktu — AWS Transcribe na żywym koncie
 
-- **Status:** czeka
+- **Status:** w toku — 23.11.2026: stos `notarai-s3` wdrożony (`TranscribeStenogramyEU`),
+  organizacja `o-a425n8hly9` z polityką `notarai-bez-uczenia-ai` (opt-out dla wszystkich
+  usług AI, efektywna na koncie), `PIECZAPP_TRANSCRIBE_OPTOUT=1` w `notarai-aplikacja.yaml`.
+  Zostaje test z fikcyjnym aktem (punkty 2–6).
 - **Brakuje:** wdrożonej zmiany polityki `notarai-aplikacja` (stos `notarai-s3`,
   uprawnienie `TranscribeStenogramyEU`) i potwierdzenia, że na koncie AWS działa
   polityka Organizations **AI services opt-out** (Transcribe nie przechowuje nagrań
