@@ -52,19 +52,19 @@
   <div id="wynik" class="wynik" hidden aria-live="polite"></div>
   <ol id="kroki" class="kroki" aria-live="polite"></ol>
 
-  <section id="ochrona" class="ochrona">
-    <label class="ochrona-przel">
-      <input type="checkbox" id="chk-phishing">
-      <span><b>Ochrona przed phishingiem</b> — ostrzegam przed podrobionymi stronami i ryzykownymi pobraniami. Sprawdzam adresy lokalnie, u Ciebie; nic nie wysyłam.</span>
-    </label>
-    <p id="phishing-stan" class="stan" aria-live="polite"></p>
-  </section>
-
   <footer>
     <p>Dopóki ten panel jest otwarty, wykonuję też zlecenia ze spraw w notarai: sprawdzenia w KRZ i wypełnianie formularzy.</p>
     <p>Asystent nigdy nie wysyła, nie składa, nie podpisuje i nie wpisuje haseł ani PIN-u. Podpis elektroniczny składasz samodzielnie, tak jak zawsze.</p>
     <button id="btn-odlacz" type="button" class="odnosnik">Odłącz tę przeglądarkę od kancelarii</button>
   </footer>
+</section>
+
+<section id="ochrona" class="ochrona">
+  <label class="ochrona-przel">
+    <input type="checkbox" id="chk-phishing">
+    <span><b>Ochrona przed phishingiem</b> — ostrzegam przed podrobionymi stronami i ryzykownymi pobraniami. Sprawdzam adresy lokalnie, u Ciebie; nic nie wysyłam.</span>
+  </label>
+  <p id="phishing-stan" class="stan" aria-live="polite"></p>
 </section>
 
 <script type="module" src="panel.js"></script>
