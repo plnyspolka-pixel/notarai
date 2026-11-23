@@ -6,17 +6,18 @@
       "id": "s01e01",
       "sezon": 1,
       "odcinek": 1,
-      "tytul": "Poniedziałek, 8:57",
-      "publish_at": "2026-11-23T16:00:00+01:00",
-      "opis": "Kancelaria zaczyna tydzień: telefony, dokumenty do jutrzejszej sprzedaży i klientka, która prosi o rozmowę bez syna.",
-      "kotwica": "Na motywach prawdziwych spraw z polskich sądów: opóźniona czynność i projekt poprawiany do ostatniej chwili. Osoby i szczegóły zmienione.",
+      "tytul": "Czterdzieści minut",
+      "publish_at": "2026-11-24T09:00:00+01:00",
+      "opis": "Spóźnienie klienta, przerwa w systemie ksiąg wieczystych o 16:00 i jedna cyfra w projekcie aktu. Helena nie przyspiesza czytania.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+      "pytanie": "Klient się spieszył, a Helena czytała poprawiony paragraf drugi raz. Słusznie?",
       "pliki": {
-        "wideo": "serial/media/s01e01.mp4",
-        "plakat": "serial/media/s01e01.jpg",
-        "napisy": "serial/media/s01e01.vtt"
+        "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e01/s01e01.mp4",
+        "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e01/s01e01.jpg"
       },
-      "czas_s": 75,
-      "status": "gotowy"
+      "czas_s": 70,
+      "status": "gotowy",
+      "akceptacja": "Claude (konsultant), 23.11.2026: scenariusz przeszedł bramkę fabryki (12 punktów thrillera, zero tekstu w kadrze, bez nazwiska notariusza); kotwice H18 + A13 z kartami; notariusz wypada korzystnie (ponowne odczytanie poprawki, pouczenie podatkowe, odmowa nacisku pośrednika); 15/15 ujęć GPU po przeglądzie (2 poprawione raz, logo marki usunięte z u6); kontrola dźwięku montażu OK; głosy eleven_v4."
     }
   ]
 }
