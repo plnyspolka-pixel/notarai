@@ -63,7 +63,7 @@ python scenografia/zbuduj.py --plan wszystkie --kamery K01_plan_ogolny --bez-ruc
 Opcje: `--warianty dzien,noc`, `--probki 64`. Wspólne klocki (pokój, okna, drzwi, regały, lampy, kamery,
 render, głębia, najazd) są w `wspolne.py`; każdy plan to jeden plik w `sety/`.
 
-CI: `.github/workflows/scenografia-render.yml` - po pushu zmian w skryptach na gałąź `scenografia/**`
+Render: wyłącznie Cloudflare (Worker `finyou-scena`, `POST /scena`, opis niżej). Na GitHub Actions `zbuduj.py` przerywa od razu (twarda reguła z 23.11.2026); workflow `scenografia-render.yml` usunięty.
 (lub ręcznie z listą planów) renderuje każdy plan w osobnym jobie i commituje wyniki z `[skip ci]`.
 
 ## Czasy (zmierzone, 4 rdzenie CPU, 15 GB RAM)

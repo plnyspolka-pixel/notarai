@@ -5,7 +5,16 @@
 s02: cobblestone_parish_road (CC0, https://polyhaven.com/a/cobblestone_parish_road), u0=0.575, 14, 80, 7
 → scenografia/tla/widok_podworze.jpg (czytelnego tekstu brak po rozmyciu).
 """
+import os
+import sys
+
+import numpy as np
 from PIL import Image, ImageFilter
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tools.zakaz_gha import zakaz_renderu_na_github_actions  # noqa: E402
+
+zakaz_renderu_na_github_actions("tło okna scenografii (scenografia/tlo_okna.py)")
 src, out, u0, pitch, hfov, rozm = sys.argv[1], sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5]), float(sys.argv[6])
 E = np.asarray(Image.open(src).convert('RGB')).astype(np.float32)
 H, W = E.shape[:2]

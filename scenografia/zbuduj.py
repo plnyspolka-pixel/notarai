@@ -19,6 +19,12 @@ import time
 TU = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TU)
 sys.path.insert(0, os.path.join(TU, "sety"))
+sys.path.insert(0, os.path.dirname(TU))
+
+# Twarda reguła (23.11.2026): render scenografii nigdy na GitHub Actions, tylko Cloudflare (finyou-scena).
+from tools.zakaz_gha import zakaz_renderu_na_github_actions  # noqa: E402
+
+zakaz_renderu_na_github_actions("render scenografii (scenografia/zbuduj.py)")
 
 import bpy  # noqa: E402
 
