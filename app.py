@@ -67,6 +67,7 @@ import transkrypcja
 import ustawienia_kancelarii
 import walidacja
 import samonaprawa
+import asystent_kancelarii
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1714,6 +1715,33 @@ def odswiez_listy_aml(request: Request):
     autoryzacja._wymagaj_admina(request)
     threading.Thread(target=aml_listy.odswiez, kwargs={"wymus": True}, daemon=True, name="listy-aml-admin").start()
     return {"stan": "uruchomiono", "zrodla": aml_listy.zrodla_wlaczone()}
+
+
+class ZadanieAsystentaKancelarii(BaseModel):
+    historia: list[dict] = []
+    wiadomosc: str
+
+
+@app.post("/api/asystent-kancelarii")
+def asystent_kancelarii_tura(zadanie: ZadanieAsystentaKancelarii, request: Request):
+    """Notariusz mowi, co ma dzialac inaczej - asystent od razu to ustawia
+    (asystent_kancelarii.py). Zmiany tylko dla wlasciciela kancelarii."""
+    wiadomosc = (zadanie.wiadomosc or "").strip()
+    if not wiadomosc:
+        raise HTTPException(400, "Napisz, co mam zmienić.")
+    if len(wiadomosc) > 2000:
+        raise HTTPException(400, "Za długa wiadomość (najwyżej 2000 znaków).")
+    if magazyn.u_klienta():
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie - ustawienia zmienisz w oknie Ustawienia kancelarii.")
+    import personalizacja
+    try:
+        return asystent_kancelarii.rozmawiaj(zadanie.historia, wiadomosc,
+                                             personalizacja._moge_zmieniac_zasady(request))
+    except bedrock.Przeciazenie as blad:
+        raise HTTPException(503, str(blad), headers={"Retry-After": "60"})
+    except Exception as blad:
+        log.error("asystent kancelarii: blad (%s)", dziennik.opis_bledu(blad))
+        raise HTTPException(502, bedrock.opis_bledu(blad))
 
 
 @app.get("/api/admin/samonaprawa")

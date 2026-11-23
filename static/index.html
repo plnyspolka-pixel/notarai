@@ -126,6 +126,18 @@ input:focus,textarea:focus,button:focus-visible,.upload:focus-within{outline:2px
   border:1px solid var(--linia2);border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
 #okno-ustawienia .przelacznik input{width:auto}
 #okno-ustawienia h3{margin-top:18px}
+/* asystent kancelarii: notariusz mowi, co zmienic */
+#okno-asystent{width:min(640px,calc(100vw - 32px))}
+.as-rozmowa{display:flex;flex-direction:column;gap:8px;max-height:min(52vh,460px);overflow-y:auto;margin:12px 0;padding:2px}
+.as-dymek{padding:9px 12px;border-radius:var(--r2);line-height:1.45;white-space:pre-wrap;max-width:88%}
+.as-dymek.ja{align-self:flex-end;background:var(--tlo);border:1px solid var(--linia2)}
+.as-dymek.on{align-self:flex-start;background:var(--tlo2, var(--tlo));border:1px solid var(--linia)}
+.as-zmiana{font-size:12.5px;color:var(--tekst2);margin-top:6px}
+.as-wpisz{display:flex;gap:8px;align-items:flex-end}
+.as-wpisz textarea{flex:1;min-width:0;resize:vertical;font:inherit;padding:9px 10px;border:1px solid var(--linia2);
+  border-radius:var(--r2);background:var(--tlo);color:var(--tekst)}
+.as-podpowiedzi{display:flex;flex-wrap:wrap;gap:6px}
+.as-podpowiedzi button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
 .ust-pola{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ust-pola button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--tlo);color:var(--tekst2);border:1px solid var(--linia2)}
 .ust-pola button:hover:not(:disabled){background:var(--tlo2);color:var(--tekst);border-color:var(--akcent)}
@@ -742,6 +754,7 @@ notarai</div>
     <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-ustawienia">Ustawienia kancelarii</button>
+    <button class="wyloguj" id="btn-asystent" title="Powiedz po swojemu, co ma działać inaczej">Asystent kancelarii</button>
     <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
     <button class="wyloguj" id="btn-abonament" hidden>Kredyty</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
@@ -1770,6 +1783,22 @@ notarai</div>
 <!-- Ustawienia ogolne kancelarii: to, co notariusz ustawia raz, zamiast
      klikac przy kazdej sprawie. Zapis na serwerze (plik kancelarii), wiec
      obowiazuja na kazdym komputerze; zmienia je wlasciciel kancelarii. -->
+<dialog class="okno" id="okno-asystent" aria-labelledby="asystent-tytul">
+  <h2 id="asystent-tytul">Asystent kancelarii</h2>
+  <p>Napisz po swojemu, co ma działać inaczej. Ustawię to od razu - zadziała od następnego projektu. Każdą zmianę cofniesz, pisząc „cofnij”. Nie wpisuj tu danych klientów.</p>
+  <div class="as-podpowiedzi" id="as-podpowiedzi">
+    <button type="button">W Wordzie zamiast &lt;&lt;BRAK&gt;&gt; zostawiaj znak zapytania</button>
+    <button type="button">Kwoty zawsze cyframi i słownie</button>
+    <button type="button">Co mam teraz ustawione?</button>
+  </div>
+  <div class="as-rozmowa" id="as-rozmowa" aria-live="polite"></div>
+  <form class="as-wpisz" id="as-form">
+    <textarea id="as-tekst" rows="2" maxlength="2000" placeholder="np. Zamiast „w/w” pisz „wyżej wymieniony”" aria-label="Wiadomość do asystenta"></textarea>
+    <button type="submit" id="as-wyslij">Wyślij</button>
+  </form>
+  <div class="dol"><button class="wtorny" id="as-zamknij" type="button">Zamknij</button><span class="stan" id="stan-asystent"></span></div>
+</dialog>
+
 <dialog class="okno" id="okno-ustawienia" aria-labelledby="ustawienia-tytul">
   <h2 id="ustawienia-tytul">Ustawienia kancelarii</h2>
   <p id="ustawienia-opis">Obowiązują w całej kancelarii, na każdym komputerze.</p>
@@ -4201,6 +4230,56 @@ document.querySelectorAll('input[name="ust-wysilek"]').forEach(r => r.onchange =
 $("ust-nazwa-pliku").oninput = rysujPodgladNazwy;
 $("ust-nazwa-pliku").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("ust-zapisz").click(); } };
 $("ust-zamknij").onclick = () => $("okno-ustawienia").close();
+
+/* Asystent kancelarii (asystent_kancelarii.py): rozmowa zyje w oknie, do
+   serwera idzie historia tej rozmowy - nic nie zapisujemy w przegladarce. */
+const OPISY_ZMIAN = {zmien_ustawienie: "zmienione ustawienie", dodaj_zasade: "nowa zasada kancelarii",
+  zmien_zasade: "zmieniona zasada", usun_zasade: "usunięta zasada", ustaw_kontrole: "kontrola aktu",
+  cofnij_ostatnia_zmiane: "cofnięta zmiana", zglos_zmiane_programu: "prośba przekazana do zespołu notarai"};
+let rozmowaAsystenta = [];
+function dymekAsystenta(rola, tekst, zmiany = []) {
+  const d = document.createElement("div");
+  d.className = "as-dymek " + (rola === "asystent" ? "on" : "ja");
+  d.textContent = tekst;
+  for (const z of zmiany) {
+    const m = document.createElement("div"); m.className = "as-zmiana";
+    m.textContent = "✓ " + (OPISY_ZMIAN[z.narzedzie] || z.narzedzie);
+    d.appendChild(m);
+  }
+  $("as-rozmowa").appendChild(d);
+  $("as-rozmowa").scrollTop = $("as-rozmowa").scrollHeight;
+}
+$("btn-asystent").onclick = () => {
+  stan($("stan-asystent"), "");
+  $("okno-asystent").showModal();
+  $("as-tekst").focus();
+};
+$("as-zamknij").onclick = () => $("okno-asystent").close();
+$("as-podpowiedzi").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("as-tekst").value = b.textContent; $("as-form").requestSubmit();
+});
+$("as-tekst").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("as-form").requestSubmit(); } };
+$("as-form").onsubmit = async e => {
+  e.preventDefault();
+  const tekst = $("as-tekst").value.trim();
+  if (!tekst || $("as-wyslij").disabled) return;
+  if (dysk.aktywny) { stan($("stan-asystent"), "Ta kancelaria trzyma pliki u siebie - ustawienia zmienisz w oknie Ustawienia kancelarii.", true); return; }
+  dymekAsystenta("ja", tekst);
+  $("as-tekst").value = "";
+  $("as-wyslij").disabled = true;
+  stan($("stan-asystent"), "Myślę…", false, true);
+  try {
+    const odp = await api("/api/asystent-kancelarii", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({historia: rozmowaAsystenta, wiadomosc: tekst})});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Asystent nie odpowiedział (" + odp.status + ").");
+    rozmowaAsystenta.push({rola: "uzytkownik", tresc: tekst}, {rola: "asystent", tresc: w.odpowiedz});
+    dymekAsystenta("asystent", w.odpowiedz, w.zmiany || []);
+    stan($("stan-asystent"), "");
+  } catch (err) {
+    stan($("stan-asystent"), err.message, true);
+  } finally { $("as-wyslij").disabled = false; $("as-tekst").focus(); }
+};
 $("ust-zapisz").onclick = async () => {
   const dokladnosc = (document.querySelector('input[name="ust-wysilek"]:checked') || {}).value || ustawieniaOgolne.dokladnosc;
   const nazwa_pliku = $("ust-nazwa-pliku").value.trim();

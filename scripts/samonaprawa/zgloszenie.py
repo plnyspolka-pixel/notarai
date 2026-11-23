@@ -116,7 +116,7 @@ def kandydaci(minut: int, klient=None) -> list[dict]:
     ostatnie: dict[str, dict] = {}
     ile: dict[str, int] = {}
     for w in znaczniki(teraz - minut * 60_000, klient=klient):
-        if w.get("rodzaj") != "kod":
+        if w.get("rodzaj") not in ("kod", "reczne"):   # reczne = prosba kancelarii z asystenta
             continue
         ile[w["odcisk"]] = ile.get(w["odcisk"], 0) + 1
         if w["odcisk"] not in ostatnie or (w.get("ts") or 0) >= (ostatnie[w["odcisk"]].get("ts") or 0):

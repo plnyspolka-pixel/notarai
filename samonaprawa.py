@@ -203,6 +203,38 @@ def zglos(blad: BaseException | None, miejsce: str = "") -> dict | None:
         return None
 
 
+def anonimizuj(tekst: str) -> str:
+    """Opis prosby bez danych klientow: PESEL, e-mail, pliki, osoby, numery."""
+    import klauzule
+    return klauzule.pseudonimizuj(dziennik.maskuj(tekst or ""))[:2000]
+
+
+def zglos_prosbe(opis: str) -> dict:
+    """Prosba kancelarii o zmiane w programie (asystent kancelarii) -> samonaprawa.
+
+    Agent naprawczy dostaje ja jak zgloszenie reczne; zmiane zachowania robi
+    jako ustawienie kancelarii (domyslnie po staremu), w strefach zakazanych
+    zawsze jako pull request do wlasciciela. Zwraca {"odcisk", "wyslano"}.
+    """
+    tekst = anonimizuj(opis)
+    odcisk_prosby = hashlib.sha256(kategorie_plaskie(tekst).encode()).hexdigest()[:12]
+    zgloszenie = {"odcisk": odcisk_prosby, "rodzaj": "reczne", "typ": "prosba kancelarii",
+                  "kod_aws": "", "opis": "", "miejsca": [], "uwagi": tekst,
+                  "wersja": wersja(), "czas": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    wyslano = bool(_token()) and wlaczona()
+    # Znacznik w CloudWatch: przeglad co 30 min podejmuje prosbe takze bez tokenu.
+    log.error("%s %s", ZNACZNIK, json.dumps(
+        {k: zgloszenie[k] for k in ("odcisk", "rodzaj", "typ", "wersja", "miejsca", "uwagi")}, ensure_ascii=False))
+    if wyslano:
+        threading.Thread(target=_wyslij, args=(zgloszenie,), daemon=True, name="samonaprawa-prosba").start()
+    return {"odcisk": odcisk_prosby, "wyslano": wyslano, "tekst": tekst}
+
+
+def kategorie_plaskie(tekst: str) -> str:
+    import kategorie
+    return kategorie.bez_ogonkow(tekst).lower().strip()
+
+
 class _Wychwytywacz(logging.Handler):
     """Kazdy log.error/exception z aktywnym wyjatkiem trafia do zglos().
 

@@ -109,5 +109,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zgłoszenia i znaczniki błędów bez danych osobowych (tylko
   `dziennik.opis_bledu` po `maskuj`). Agent działa na sesji AWS ograniczonej
   do Bedrock w UE, bez tokenu GitHub i bez dostępu do danych spraw.
+- Asystent kancelarii (`asystent_kancelarii.py`): notariusz zmienia ustawienia
+  zdaniem; każde nowe ustawienie kancelarii dostaje opis w
+  `ustawienia_kancelarii.OPISY_USTAWIEN` (pilnuje tego test), żeby asystent
+  umiał je przełączać. Prośby o zmiany programu idą do samonaprawy po anonimizacji.
 - Przy pracy nad samonaprawą: nie osłabiaj bramek ani `test_samonaprawa.py`
   bez wyraźnej decyzji właściciela.
