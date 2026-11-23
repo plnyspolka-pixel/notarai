@@ -55,6 +55,7 @@ import skan_bezpieczenstwa
 import sledzenie
 import poswiadczenia
 import stenogramy
+import polly_tts
 import prompty
 import rejestracja
 import rejestry
@@ -128,6 +129,7 @@ app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
+app.include_router(polly_tts.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)

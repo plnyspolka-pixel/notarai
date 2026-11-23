@@ -1041,6 +1041,22 @@ notarai</div>
       <button class="wtorny" id="btn-popraw">Popraw dane</button>
       <span class="stan" id="stan3"></span>
     </div>
+    <div class="pasek" id="polly-sterowanie" data-upr="projekt" style="margin-top:12px;align-items:center;gap:8px;flex-wrap:wrap">
+      <label for="polly-glos" class="etykieta">Odsłuch pomocniczy (Amazon Polly)</label>
+      <select id="polly-glos" aria-label="Polski głos lektora" style="max-width:190px">
+        <option value="Ola:generative">Ola — generative</option>
+        <option value="Ewa:generative">Ewa — generative</option>
+        <option value="Ola:neural">Ola — neural</option>
+        <option value="Ewa:standard">Ewa — standard</option>
+        <option value="Maja:standard">Maja — standard</option>
+        <option value="Jacek:standard">Jacek — standard</option>
+        <option value="Jan:standard">Jan — standard</option>
+      </select>
+      <button type="button" id="polly-start" class="wtorny" title="Zaznacz fragment projektu albo odsłuchaj całość">▶ Odsłuchaj projekt</button>
+      <button type="button" id="polly-pauza" class="wtorny" disabled>Pauza</button>
+      <button type="button" id="polly-stop" class="wtorny" disabled>Stop</button>
+    </div>
+    <p class="stan" id="polly-stan" aria-live="polite">Zaznacz fragment w projekcie, aby odsłuchać tylko ten fragment. Odsłuch nie zastępuje ustawowego odczytania aktu przez człowieka.</p>
   </div>
   <div class="karta" data-upr="projekt">
     <h2>Poprawki do projektu</h2>
@@ -6993,6 +7009,7 @@ $("prz-zapisz-nadawce").onclick = async () => {
 </script>
 <script src="/static/rezerwacje-hurtowe.js"></script>
 <script src="/static/kokpit.js"></script>
+<script src="/static/polly-player.js"></script>
 <script src="/static/klienci-panel.js"></script>
 <script src="/static/personalizacja.js"></script>
 <script src="/static/ksiegi.js"></script>

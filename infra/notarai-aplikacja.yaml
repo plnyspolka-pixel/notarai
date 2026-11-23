@@ -318,6 +318,21 @@ Resources:
       ManagedPolicyArns:
         - !Sub "arn:aws:iam::${AWS::AccountId}:policy/notarai-aplikacja"
       Policies:
+        # Polski lektor projektu — tylko Amazon Polly w regionie Frankfurt.
+        # Ta polityka jest w stosie notarai-aplikacja, ktory wdraza OIDC CI/CD.
+        - PolicyName: polly-lektor-eu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: PollyLektorEU
+                Effect: Allow
+                Action:
+                  - polly:SynthesizeSpeech
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+
         # Zakladanie kont uzytkownikow (panel admina). Logowanie, odzyskiwanie
         # hasla i sprawdzanie tokenu nie wymagaja uprawnien IAM.
         - !If
@@ -587,6 +602,9 @@ Resources:
             # Transcribe nie zatrzymuje dzwieku do ulepszania modeli AWS.
             - Name: PIECZAPP_TRANSCRIBE_OPTOUT
               Value: "1"
+            # Lektor projektu przez Amazon Polly we Frankfurcie.
+            - Name: PIECZAPP_POLLY
+              Value: "true"
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu
