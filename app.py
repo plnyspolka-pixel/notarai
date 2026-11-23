@@ -2044,8 +2044,8 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
         host = h.strip().lower()
         if not host:
             continue
-        if (not re.fullmatch(r"[a-z0-9-]{1,63}(?:\\.[a-z0-9-]{1,63})+", host)
-                or re.fullmatch(r"\\d+(?:\\.\\d+){3}", host)
+        if (not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\d+(?:\.\d+){3}", host)
                 or host.endswith((".local", ".localhost", ".internal"))):
             raise HTTPException(400, "Podaj publiczne domeny, np. geoportal.gov.pl.")
         hosty.append(host)
