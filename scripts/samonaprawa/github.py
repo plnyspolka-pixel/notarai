@@ -173,19 +173,65 @@ def scal(pr: int, sha: str) -> str:
     return wynik["sha"]
 
 
+def _zawiera(sha: str, glowa: str) -> bool:
+    """Czy commit `glowa` na master zawiera `sha` (ten sam albo pozniejszy)."""
+    if glowa == sha:
+        return True
+    try:
+        wynik = api("GET", f"/repos/{_repo()}/compare/{sha}...{glowa}") or {}
+    except RuntimeError:
+        return False
+    return wynik.get("status") in ("ahead", "identical")
+
+
+def ocen_przebiegi(sha: str, przebiegi: list[dict], zawiera=None) -> dict | None:
+    """Wynik wdrozenia poprawki z listy przebiegow wdrozenie.yml albo None (czekamy).
+
+    - liczy sie przebieg dla commita poprawki ALBO pozniejszego, ktory ja zawiera
+      (wdrozenie pozniejszej wersji wdraza tez poprawke),
+    - "cancelled"/"skipped" to nie awaria: GitHub anuluje zdublowane wdrozenie,
+      gdy przychodzi nowsze (concurrency) - 23.11.2026 dalo to falszywe cofniecie,
+    - sukces ktoregokolwiek pasujacego przebiegu = wdrozone; porazka tylko wtedy,
+      gdy zaden pasujacy nie jest juz w toku.
+    """
+    zawiera = zawiera or (lambda glowa: _zawiera(sha, glowa))
+    pasujace, w_toku = [], False
+    znane: dict[str, bool] = {}
+    for p in przebiegi:
+        glowa = p.get("head_sha", "")
+        if glowa not in znane:
+            znane[glowa] = zawiera(glowa)
+        if not znane[glowa]:
+            continue
+        if p.get("status") != "completed":
+            w_toku = True
+        elif p.get("conclusion") not in ("cancelled", "skipped"):
+            pasujace.append(p)
+
+    def wynik(p: dict) -> dict:
+        kiedy = datetime.strptime(p["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        return {"wynik": p["conclusion"], "koniec_ms": int(kiedy.timestamp() * 1000),
+                "url": p.get("html_url", ""), "sha": p.get("head_sha", "")}
+
+    udane = [p for p in pasujace if p["conclusion"] == "success"]
+    if udane:
+        return wynik(udane[0])
+    if pasujace and not w_toku:
+        return wynik(pasujace[0])
+    return None
+
+
 def czekaj_na_wdrozenie(sha: str, minut: int) -> dict:
-    """Czeka na workflow wdrozenia dla commita na master. Wynik i czas konca."""
+    """Czeka, az na produkcje wejdzie wersja zawierajaca commit `sha`."""
     koniec = time.time() + minut * 60
     while time.time() < koniec:
         przebiegi = api("GET", f"/repos/{_repo()}/actions/workflows/wdrozenie.yml/runs"
-                               f"?branch=master&head_sha={sha}&per_page=10") or {}
-        for p in przebiegi.get("workflow_runs", []):
-            if p["status"] == "completed" and p["conclusion"] != "skipped":
-                kiedy = datetime.strptime(p["updated_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-                return {"wynik": p["conclusion"], "koniec_ms": int(kiedy.timestamp() * 1000),
-                        "url": p["html_url"]}
+                               f"?branch=master&per_page=20") or {}
+        rozstrzygniete = ocen_przebiegi(sha, przebiegi.get("workflow_runs", []))
+        if rozstrzygniete:
+            return rozstrzygniete
         time.sleep(30)
-    return {"wynik": "timeout", "koniec_ms": int(time.time() * 1000), "url": ""}
+    return {"wynik": "timeout", "koniec_ms": int(time.time() * 1000), "url": "", "sha": ""}
 
 
 def main() -> int:

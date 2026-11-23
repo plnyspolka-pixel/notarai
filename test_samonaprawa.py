@@ -301,6 +301,34 @@ class TestDecyzja:
         assert gh.decyzja(dict(self.Z), "auto")["dzialanie"] == "tylko_zglos"
 
 
+class TestCzekanieNaWdrozenie:
+    """23.11.2026: anulowane (zdublowane) wdrozenie wziete za awarie -> falszywe cofniecie."""
+    P = {"updated_at": "2026-11-23T13:40:00Z", "html_url": "u"}
+
+    def test_anulowane_zdublowane_to_nie_awaria(self):
+        przebiegi = [dict(self.P, head_sha="abc", status="completed", conclusion="cancelled"),
+                     dict(self.P, head_sha="abc", status="in_progress", conclusion=None)]
+        assert gh.ocen_przebiegi("abc", przebiegi, zawiera=lambda g: True) is None
+        przebiegi[1].update(status="completed", conclusion="success")
+        assert gh.ocen_przebiegi("abc", przebiegi, zawiera=lambda g: True)["wynik"] == "success"
+
+    def test_pozniejsza_wersja_z_poprawka_liczy_sie(self):
+        przebiegi = [dict(self.P, head_sha="nowszy", status="completed", conclusion="success"),
+                     dict(self.P, head_sha="abc", status="completed", conclusion="cancelled")]
+        wynik = gh.ocen_przebiegi("abc", przebiegi, zawiera=lambda g: g in ("abc", "nowszy"))
+        assert wynik["wynik"] == "success" and wynik["sha"] == "nowszy"
+
+    def test_starsza_wersja_bez_poprawki_nie_liczy_sie(self):
+        przebiegi = [dict(self.P, head_sha="starszy", status="completed", conclusion="success")]
+        assert gh.ocen_przebiegi("abc", przebiegi, zawiera=lambda g: g == "abc") is None
+
+    def test_porazka_dopiero_gdy_nic_juz_nie_trwa(self):
+        przebiegi = [dict(self.P, head_sha="abc", status="completed", conclusion="failure"),
+                     dict(self.P, head_sha="abc", status="queued", conclusion=None)]
+        assert gh.ocen_przebiegi("abc", przebiegi, zawiera=lambda g: True) is None
+        assert gh.ocen_przebiegi("abc", przebiegi[:1], zawiera=lambda g: True)["wynik"] == "failure"
+
+
 # ------------------------------------------------------------------ bramki
 
 @pytest.fixture
