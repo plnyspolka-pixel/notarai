@@ -2063,6 +2063,12 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
         if traf and re.search(r"\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\s+kart)", cel, re.I):
             adres = traf.group(0).rstrip(".,;!)")
             nowa = nowa or bool(re.search(r"now[aą]\s+kart", cel, re.I))
+    if not adres and re.search(r"\\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\\s+kart)", cel, re.I):
+        # Uzytkownik moze podac sam publiczny host: 'otworz nowa karte geoportal.gov.pl'.
+        bez_protokolu = re.search(r"(?<![@\\w/])((?:[a-z0-9-]+\\.)+[a-z]{2,}(?:/[^\\s<>\\\"']*)?)", cel, re.I)
+        if bez_protokolu and "://" not in cel:
+            adres = "https://" + bez_protokolu.group(1).rstrip(".,;!)")
+            nowa = nowa or bool(re.search(r"now[aą]\\s+kart", cel, re.I))
     if adres:
         try:
             u = urlsplit(adres)
