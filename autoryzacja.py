@@ -33,6 +33,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import logowanie
+import public_demo
 import magazyn
 import stanowiska
 import tokenomia
@@ -214,6 +215,10 @@ def adres_klienta(request: Request) -> str:
 async def middleware(request: Request, call_next):
     """Token uzytkownika albo kancelarii -> kontekst. Tylko gdy PIECZAPP_MULTI."""
     sciezka = request.url.path
+    # Public demo capability is intercepted before every route exception.
+    # Never pass it to tenant authorization or production route handlers.
+    if public_demo.is_demo(request.headers.get("authorization", "").removeprefix("Bearer ")):
+        return await public_demo.handle(request)
     # External B2B routes use a separate, narrowly scoped API key in each handler.
     # No Cognito session can grant partner permissions through these routes.
     if sciezka == "/hurtowe" or sciezka == "/mcp" or sciezka.startswith("/api/hurtowe/") or sciezka == "/api/hurtowe":
@@ -333,7 +338,7 @@ def czy_admin(request: Request) -> bool:
     (np. sonda /zdrowie)."""
     naglowek = request.headers.get("authorization", "")
     token = naglowek[7:] if naglowek.startswith("Bearer ") else ""
-    if not token:
+    if not token or public_demo.is_demo(token):
         return False
     if ADMIN_TOKEN and secrets.compare_digest(_sha(token), _sha(ADMIN_TOKEN)):
         return True
@@ -487,6 +492,13 @@ def _dla_przegladarki(request: Request, odpowiedz: Response, wynik: dict) -> dic
 @router_logowania.post("")
 def zaloguj(dane: DaneLogowania, request: Request, odpowiedz: Response):
     _wymagaj_logowania()
+    if dane.email.strip().lower() == "test":
+        if not public_demo.enabled() or not secrets.compare_digest(dane.haslo.encode(), b"test"):
+            raise HTTPException(401, "Nieprawidlowy adres e-mail albo haslo.")
+        # Do not keep a prior real Cognito refresh cookie in the demo browser.
+        odpowiedz.delete_cookie(CIASTKO, path="/api/logowanie")
+        odpowiedz.headers["Cache-Control"] = "no-store"
+        return {"token": public_demo.TOKEN, "demo": True}
     try:
         wynik = logowanie.zaloguj(dane.email.strip().lower(), dane.haslo)
     except logowanie.BladLogowania as blad:
