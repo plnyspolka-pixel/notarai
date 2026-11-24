@@ -98,5 +98,6 @@ jobs:
             echo "- Niezweryfikowane (bez odczytu wartosci): niepuste google_klient/google_sekret w Secrets Manager"
             echo "- Test realnego konta: Kalendarz NotarAI -> Polacz Google (na fikcyjnych terminach)"
             echo "- AWS: tylko odczyt CloudFormation i ECS, bez pobrania SecretString oraz bez mutacji zasobow"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          } > "$RUNNER_TEMP/google-calendar-audit.md"
+          cat "$RUNNER_TEMP/google-calendar-audit.md" | tee -a "$GITHUB_STEP_SUMMARY"
           test "$ok" -eq 1
