@@ -744,27 +744,32 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
   <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 notarai</div>
   <button id="btn-pulpit-ai" type="button" class="kokpit-link" aria-label="Czat NotarAI">✦ Asystent NotarAI</button>
-  <button id="btn-kokpit" type="button" class="kokpit-link" aria-label="Panel główny NotarAI" title="Panel główny NotarAI"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg> Panel główny</button>
+  <button id="btn-kokpit" type="button" class="kokpit-link" aria-label="Panel główny NotarAI" title="Panel główny NotarAI"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg> Przegląd spraw</button>
+  <div class="sekcja-t">Umawiamy</div>
   <div class="nowa" id="btn-nowa" data-upr="sprawy_ai"><span>+</span>Nowa sprawa</div>
-  <div class="sekcja-t">Etapy</div>
-  <div class="krok aktywny" data-etap="1"><b><span>1</span></b>Materiały sprawy</div>
-  <div class="krok" data-etap="2"><b><span>2</span></b>Weryfikacja odczytu</div>
-  <div class="krok" data-etap="3"><b><span>3</span></b>Projekt dokumentu</div>
-  <div class="sekcja-t">Narzędzia</div>
-  <div class="krok" data-etap="4" data-upr="rejestry"><b><span>✓</span></b>Sprawdzenia</div>
-  <div class="krok" data-etap="5" data-upr="rejestry"><b><span>▶</span></b>Klikamy</div>
   <div class="krok" data-etap="6"><b><span>▦</span></b>Kalendarz</div>
   <div class="krok" data-etap="7"><b><span>☎</span></b>Osoby i telefony<span class="licznik" id="licznik-tel" hidden title="Osoby bez numeru telefonu"></span></div>
-  <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
   <div class="krok" data-etap="12"><b><span>@</span></b>Poczta do przypisania<span class="licznik" id="licznik-poczty" hidden title="Wiadomości e-mail czekające na przypisanie do sprawy"></span></div>
-  <!-- Osobna strona: zdjecie lub skan z kopiarki -> opis do repertorium A. -->
+  <div class="krok aktywny" data-etap="1"><b><span>1</span></b>Materiały sprawy</div>
+  <div class="krok" data-etap="2"><b><span>2</span></b>Weryfikacja odczytu</div>
+  <button type="button" class="krok krok-link" id="btn-ksiega-wieczysta" hidden data-upr="rejestry"><b><span>§</span></b>Księgi wieczyste</button>
+  <div class="krok" data-etap="4" data-upr="rejestry"><b><span>✓</span></b>Sprawdzenia</div>
+    <a class="wyloguj" id="link-dodatki" href="https://notarai.pl/do-pobrania/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Do pobrania · dodatki</a>
+    <a class="wyloguj" id="link-kalkulator" href="/kalkulator" target="_blank" rel="noopener" style="text-decoration:none">Kalkulator taksy</a>
+    <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
+    <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
+  <div class="sekcja-t">Sporządzamy</div>
+  <div class="krok" data-etap="3"><b><span>3</span></b>Projekt dokumentu</div>
   <a class="krok krok-link" id="btn-poswiadczenia" href="/poswiadczenia"><b><span>⎘</span></b>Poświadczenie kopii</a>
-  <!-- Osobna strona: telefon na stole nagrywa odczytanie aktu, przy sprawie zostaje stenogram. -->
   <a class="krok krok-link" id="btn-stenogramy" href="/stenogramy"><b><span>●</span></b>Stenogram aktu</a>
   <a class="krok krok-link" id="btn-asysta-odczytu" href="/asysta-odczytu" data-upr="projekt"><b><span>🎙</span></b>Asysta odczytu aktu</a>
   <div class="krok" data-etap="9" data-upr="kancelaria"><b><span>✎</span></b>Styl i zasady kancelarii<span class="licznik" id="licznik-zasad" hidden title="Podpowiedzi zasad z Twoich aktów"></span></div>
+  <div class="sekcja-t">Raportujemy</div>
   <div class="krok" data-etap="10" data-upr="kancelaria"><b><span>§</span></b>Księgi i repertoria</div>
   <div class="krok" data-etap="11" data-upr="kancelaria"><b><span>!</span></b>Zgłoszenia GIIF<span class="licznik" id="licznik-giif" hidden title="Zgłoszenia po terminie"></span></div>
+  <div class="krok" data-etap="8"><b><span>✉</span></b>Przesyłki i korespondencja</div>
+  <div class="krok" data-etap="5" data-upr="rejestry"><b><span>▶</span></b>Klikamy</div>
+  <div class="sekcja-t">Narzędzia techniczne</div>
   <!-- Stan pomocnika odswieza sie sam; klikniecie otwiera liste komputerow. -->
   <div class="pomocnik-el" id="btn-pomocnik" hidden title="Pomocnik na komputerze">
     <span class="kropka" id="pomocnik-kropka"></span>
@@ -784,13 +789,9 @@ notarai</div>
     <span id="gdzie-dane">Sprawdzam, gdzie zapisywane są dane…</span>
     Każdy projekt wymaga sprawdzenia i akceptacji przez notariusza.
     <div class="kto" id="kto" hidden></div>
-    <a class="wyloguj" id="link-dodatki" href="https://notarai.pl/do-pobrania/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Do pobrania · dodatki</a>
-    <a class="wyloguj" id="link-kalkulator" href="/kalkulator" target="_blank" rel="noopener" style="text-decoration:none">Kalkulator taksy</a>
-    <button class="wyloguj" id="btn-zapytania" hidden>Zapytania klientów</button>
     <button class="wyloguj" id="btn-zespol" hidden>Zespół kancelarii</button>
     <button class="wyloguj" id="btn-ustawienia">Ustawienia kancelarii</button>
     <button class="wyloguj" id="btn-asystent" title="Powiedz po swojemu, co ma działać inaczej">Asystent kancelarii</button>
-    <button class="wyloguj" id="btn-hurtowe" hidden>Rezerwacje hurtowe</button>
     <button class="wyloguj" id="btn-abonament" hidden>Kredyty</button>
     <button class="wyloguj" id="btn-dokumenty" hidden>Dokumenty</button>
     <button class="wyloguj" id="btn-komplet" hidden title="Wszystkie dokumenty prawne kancelarii w jednym pliku">Pobierz komplet dokumentów</button>
@@ -808,6 +809,7 @@ notarai</div>
   <div class="pai-quick" aria-label="Szybkie polecenia">
     <button type="button" class="wtorny" data-pai-prompt="Pokaż moje ostatnie sprawy">Ostatnie sprawy</button>
     <button type="button" class="wtorny" data-pai-prompt="Otwórz kalendarz">Kalendarz</button>
+    <button type="button" class="wtorny" id="pai-otworz-kw" hidden data-upr="rejestry">Pobierz KW</button>
     <button type="button" class="wtorny" data-pai-prompt="Pokaż sparowane komputery Windows">Komputery</button>
     <button type="button" class="wtorny" data-pai-prompt="Otwórz korespondencję">Poczta</button>
     <button type="button" class="wtorny" data-pai-prompt="Sprawdź postęp moich zgłoszeń samonaprawy">Samonaprawa</button>
@@ -1154,8 +1156,9 @@ notarai</div>
   <!-- Tresc ksiegi wieczystej z EKW. Portal odrzuca ruch z serwerow, wiec
        pobiera ja dostawca (Apify) - jedna ksiega na zadanie, z potwierdzeniem.
        Karta widoczna tylko, gdy instalacja ma token dostawcy. -->
-  <div class="karta" id="ekw-karta" hidden>
+  <div class="karta" id="ekw-karta" hidden data-upr="rejestry">
     <h2>Księga wieczysta z EKW</h2>
+    <p id="ekw-brak-sprawy" class="ostrzez" hidden>Otwórz zapisaną sprawę z listy po lewej, aby pobrać i przypisać do niej księgę.</p>
     <p class="pod" style="margin-bottom:14px">Pobiera aktualną treść księgi (działy I-O, I-Sp, II, III, IV)
       z przeglądarki EKW Ministerstwa Sprawiedliwości za pośrednictwem dostawcy. Treść zostaje w sprawie,
       a pobranie trafia do śladu audytowego. To nie jest odpis urzędowy — porównaj ze źródłem.</p>
@@ -2744,6 +2747,17 @@ document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
   const n = +k.dataset.etap;
   if (n >= 4 || n <= najdalej) pokaz(n);
 });
+window.otworzKsiegeWieczysta = function(numer = "") {
+  if (!ekwDostepne || dysk.aktywny || document.body.classList.contains("bez-rejestry")) return false;
+  pokaz(4);
+  $("ekw-karta").hidden = false;
+  requestAnimationFrame(() => $("ekw-karta").scrollIntoView({block:"start"}));
+  if (numer) $("ekw-numer").value = numer;
+  if (sprawa?.id) $("ekw-numer").focus({preventScroll:true});
+  return true;
+};
+$("btn-ksiega-wieczysta").onclick = () => window.otworzKsiegeWieczysta();
+$("pai-otworz-kw").onclick = () => window.otworzKsiegeWieczysta();
 /* Biezaca sprawa jest juz zapisana, wiec nie ma o co pytac. */
 $("btn-nowa").onclick = () => {
   pokolenieOtwierania++;
@@ -3193,6 +3207,8 @@ async function uruchomTrybPracy(){
       sterowaniePrzegladarka = !!ustawienia.sterowanie_przegladarka;
       pomocnikPolaczony = !!ustawienia.pomocnik_polaczony;
       ekwDostepne = !!ustawienia.ekw;
+      $("btn-ksiega-wieczysta").hidden = !ekwDostepne || dysk.aktywny;
+      $("pai-otworz-kw").hidden = !ekwDostepne || dysk.aktywny;
       // Bez modelu mowy na serwerze mikrofon tylko by rozczarowal.
       if (ustawienia.transkrypcja === false) {
         document.querySelectorAll(".narz").forEach(n => n.hidden = true);
@@ -5479,7 +5495,7 @@ function stanStrony(osoba, rejestr){
 async function rysujSprawdzenia(){
   $("spr-brak-sprawy").hidden = !!sprawa;
   $("spr-narzedzia").hidden = !sprawa;
-  if (!sprawa) { $("spr-lista").innerHTML = ""; $("spr-licznik").textContent = ""; return; }
+  if (!sprawa) { $("spr-lista").innerHTML = ""; $("spr-licznik").textContent = ""; await rysujKsiegi(); return; }
   try {
     const odp = await api("/api/sprawy/" + sprawa.id + "/sprawdzenia");
     sprawdzenia = odp.ok ? await odp.json() : [];
@@ -5505,8 +5521,14 @@ function polaKw(){
 }
 
 async function rysujKsiegi(){
-  $("ekw-karta").hidden = !ekwDostepne;
-  if (!ekwDostepne || !sprawa) return;
+  $("ekw-karta").hidden = !ekwDostepne || dysk.aktywny;
+  $("ekw-brak-sprawy").hidden = !!sprawa?.id;
+  if (!sprawa?.id) $("btn-ekw").disabled = true;
+  else if (!$("stan-ekw").classList.contains("praca")) $("btn-ekw").disabled = false;
+  $("ekw-numer").disabled = !sprawa?.id;
+  $("ekw-lista").replaceChildren();
+  $("ekw-podpowiedzi").replaceChildren();
+  if (!ekwDostepne || dysk.aktywny || !sprawa?.id) return;
   $("ekw-podpowiedzi").innerHTML = polaKw().map(n => `<option value="${escape(n)}">`).join("");
   try {
     const odp = await api("/api/sprawy/" + sprawa.id + "/ksiegi");
@@ -5539,6 +5561,7 @@ async function rysujKsiegi(){
 }
 
 $("btn-ekw").onclick = async () => {
+  if (!sprawa?.id || !ekwDostepne || dysk.aktywny || document.body.classList.contains("bez-rejestry")) return;
   const numer = ($("ekw-numer").value || "").toUpperCase().replace(/\s+/g, "");
   if (!numer) return stan($("stan-ekw"), "Wpisz numer księgi wieczystej.", true);
   if (!/^[A-Z0-9]{4}\/\d{8}\/\d$/.test(numer))
