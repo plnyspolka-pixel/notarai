@@ -9,7 +9,7 @@
    dostaje gotowa czynnosc do wykonania, a nie klucze do modelu. */
 
 export const ADRES_DOMYSLNY = "https://app.notarai.pl";
-export const WERSJA = "0.1";
+export const WERSJA = "0.2";
 
 export class BladPolaczenia extends Error {}
 export class BladTokenu extends BladPolaczenia {}
@@ -71,6 +71,10 @@ export class Notarai {
 
   async odeslij(zlecenie, raport) {
     await this._zadanie(`/api/pomocnik/zlecenia/${zlecenie}/wynik`, raport);
+  }
+
+  async wyslijPodglad(zlecenie, kadr) {
+    await this._zadanie(`/api/pomocnik/podglad/${encodeURIComponent(zlecenie)}`, kadr);
   }
 
   async zlecKlikanie(cel, host) {
