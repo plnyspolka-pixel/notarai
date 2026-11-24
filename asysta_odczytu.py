@@ -261,7 +261,12 @@ def download(sprawa: str, rewizja: str, request: Request):
 def origin_ok(origin: str, host: str) -> bool:
     try:
         url = urlparse(origin)
-        return bool(url.hostname) and url.hostname.lower() == host.partition(":")[0].lower() and url.scheme in ("https", "http")
+        # Origin musi zawierac dokladnie ten sam host i port. Nie pozwalamy
+        # na http na publicznych domenach (tylko lokalny development).
+        if not url.hostname or url.netloc.lower() != host.lower():
+            return False
+        return url.scheme == "https" or (
+            url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1", "::1"))
     except ValueError:
         return False
 
