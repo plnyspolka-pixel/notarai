@@ -4,11 +4,11 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xsi:type="TaskPaneApp">
   <Id>834e5e60-0f72-4b36-98ac-1b1c7ff2d49d</Id>
-  <Version>0.1.0.0</Version>
+  <Version>0.2.0.0</Version>
   <ProviderName>NotarAI</ProviderName>
   <DefaultLocale>pl-PL</DefaultLocale>
-  <DisplayName DefaultValue="NotarAI dla Worda (beta)"/>
-  <Description DefaultValue="Odczyt zaznaczenia w Wordzie i otwarcie asystenta NotarAI."/>
+  <DisplayName DefaultValue="NotarAI — edycja dokumentów w Wordzie"/>
+  <Description DefaultValue="AI proponuje zmiany w projekcie Word i stosuje je po zatwierdzeniu notariusza."/>
   <IconUrl DefaultValue="https://notarai.pl/favicon.png"/>
   <SupportUrl DefaultValue="https://notarai.pl/do-pobrania/"/>
   <AppDomains>
@@ -17,7 +17,7 @@
   </AppDomains>
   <Hosts><Host Name="Document"/></Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://notarai.pl/do-pobrania/word/panel.html"/>
+    <SourceLocation DefaultValue="https://app.notarai.pl/static/word/panel.html"/>
   </DefaultSettings>
-  <Permissions>ReadDocument</Permissions>
+  <Permissions>ReadWriteDocument</Permissions>
 </OfficeApp>

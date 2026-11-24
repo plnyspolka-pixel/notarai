@@ -278,6 +278,19 @@ async def naglowki_bezpieczenstwa(request: Request, call_next):
         ("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"),
     ):
         odp.headers.setdefault(nazwa, wartosc)
+    # Wyjątek wyłącznie dla panelu Office wewnątrz domen Microsoft 365.
+    # Reszta aplikacji nadal ma zakaz osadzania (DENY).
+    if request.url.path == "/static/word/panel.html":
+        odp.headers.pop("X-Frame-Options", None)
+        odp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' https://appsforoffice.microsoft.com; "
+            "connect-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "base-uri 'self'; object-src 'none'; form-action 'self'; "
+            "frame-ancestors https://*.office.com https://*.officeapps.live.com "
+            "https://*.office.net https://*.cloud.microsoft"
+        )
+        odp.headers["Cache-Control"] = "no-store"
     return odp
 
 

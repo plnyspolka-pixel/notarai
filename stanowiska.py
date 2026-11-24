@@ -49,6 +49,7 @@ _REGULY = [
     (("POST",), r"/api/sprawy", "sprawy_ai"),
     (("POST",), r"/api/odczyt", "sprawy_ai"),
     (("POST",), r"/api/rozmowa", "sprawy_ai"),
+    (("POST",), r"/api/word/propozycja", "projekt"),
     (("POST",), _SPRAWA + r"/rozmowa", "sprawy_ai"),
     (("POST",), _SPRAWA + r"/korespondencja/[A-Za-z0-9]+/ustalenia", "sprawy_ai"),
     (("POST",), r"/api/transkrypcja", "sprawy_ai"),

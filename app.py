@@ -71,6 +71,7 @@ import ustawienia_kancelarii
 import walidacja
 import samonaprawa
 import asystent_kancelarii
+import word_addin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -130,6 +131,7 @@ app.include_router(notariusze.router_admina)
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
 app.include_router(polly_tts.router)
+app.include_router(word_addin.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
