@@ -82,6 +82,13 @@ if (location.pathname.endsWith("/panel.html")) {
   const pamiec = { adres: location.origin };
   const nic = { addListener() {} };
   window.chrome = {
+    runtime: { sendMessage: async () => {
+      const r = await fetch("/api/urzadzenia/rozszerzenie", { method: "POST",
+        headers: {"Content-Type":"application/json"}, body: "{}" });
+      const d = await r.json();
+      if (d.token) pamiec.token = d.token;
+      return { stan: d.token ? "polaczono" : "logowanie" };
+    } },
     storage: { local: {
       get: async (klucze) => Object.fromEntries(klucze.filter(k => k in pamiec).map(k => [k, pamiec[k]])),
       set: async (dane) => { Object.assign(pamiec, dane); },
@@ -156,6 +163,8 @@ class Notarai(BaseHTTPRequestHandler):
     def do_POST(self):
         tresc = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         self.zadania.append((self.path, tresc, self.headers.get("Authorization", "")))
+        if self.path == "/api/urzadzenia/rozszerzenie":
+            return self._odpowiedz(201, {"token": "pm_test", "id": "u1"})
         if self.path == "/api/pomocnik/parowanie":
             return self._odpowiedz(201, {"kod": "ABCD-EFGH", "sekret": "s", "wazny_s": 600})
         if self.path == "/api/pomocnik/parowanie/ABCD-EFGH":

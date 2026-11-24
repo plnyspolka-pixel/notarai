@@ -9,7 +9,7 @@
    dostaje gotowa czynnosc do wykonania, a nie klucze do modelu. */
 
 export const ADRES_DOMYSLNY = "https://app.notarai.pl";
-export const WERSJA = "0.1";
+export const WERSJA = "0.2";
 
 export class BladPolaczenia extends Error {}
 export class BladTokenu extends BladPolaczenia {}
