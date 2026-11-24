@@ -2,7 +2,6 @@
 import pytest
 
 from scripts.demo_odcinek01 import KANCELARIA, ZESPOL, LogowanieDemo, serwer
-from logowanie import BladLogowania
 
 
 def test_test_test_wchodzi_do_fikcyjnej_kancelarii():
@@ -24,7 +23,9 @@ def test_test_test_wchodzi_do_fikcyjnej_kancelarii():
 ])
 def test_test_haslo_nie_otwiera_innych_kont(login, haslo):
     auth = LogowanieDemo("MocneHasloDoPozostalychKont!")
-    with pytest.raises(BladLogowania):
+    # Inne testy przeładowują moduł logowanie; pobieramy aktualną klasę wyjątku.
+    import logowanie
+    with pytest.raises(logowanie.BladLogowania):
         auth.zaloguj(login, haslo)
 
 
