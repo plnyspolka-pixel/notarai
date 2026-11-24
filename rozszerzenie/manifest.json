@@ -23,7 +23,8 @@
     "sidePanel",
     "storage",
     "scripting",
-    "tabs"
+    "tabs",
+    "activeTab"
   ],
   "host_permissions": [
     "https://app.notarai.pl/*"

@@ -299,6 +299,18 @@ async def naglowki_bezpieczenstwa(request: Request, call_next):
         ("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"),
     ):
         odp.headers.setdefault(nazwa, wartosc)
+    if request.url.path == "/static/word/panel.html":
+        if "X-Frame-Options" in odp.headers:
+            del odp.headers["X-Frame-Options"]
+        odp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' https://appsforoffice.microsoft.com; "
+            "connect-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "base-uri 'self'; object-src 'none'; form-action 'self'; "
+            "frame-ancestors https://*.office.com https://*.officeapps.live.com "
+            "https://*.office.net https://*.cloud.microsoft"
+        )
+        odp.headers["Cache-Control"] = "no-store"
     return odp
 
 

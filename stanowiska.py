@@ -49,6 +49,7 @@ _REGULY = [
     (("POST",), r"/api/sprawy", "sprawy_ai"),
     (("POST",), r"/api/odczyt", "sprawy_ai"),
     (("POST",), r"/api/rozmowa", "sprawy_ai"),
+    (("POST",), r"/api/word/propozycja", "projekt"),
     (("POST",), _SPRAWA + r"/rozmowa", "sprawy_ai"),
     (("POST",), _SPRAWA + r"/korespondencja/[A-Za-z0-9]+/ustalenia", "sprawy_ai"),
     (("POST",), r"/api/transkrypcja", "sprawy_ai"),
@@ -60,6 +61,9 @@ _REGULY = [
     (("GET", "POST"), r"/api/asysta-odczytu(/.*)?", "projekt"),
     (("POST",), _SPRAWA + r"/(krz|ekw|aml|crbr|klikamy|sprawdzenia(/.*)?|formularze/.*)", "rejestry"),
     (("POST",), r"/api/formularze/.*", "rejestry"),
+    (("POST",), r"/api/urzadzenia/polecenia", "rejestry"),
+    # Wyslanie wniosku moze zatwierdzic tylko notariusz / wlasciciel.
+    (("POST",), r"/api/urzadzenia/polecenia/[A-Za-z0-9]+/zgoda", "kancelaria"),
     (("DELETE",), _SPRAWA + r"/pliki/.+", "usun_plik"),
     (("DELETE",), r"/api/stenogramy/[0-9a-f]+", "usun_plik"),
     (("DELETE",), _SPRAWA, "usun_sprawe"),

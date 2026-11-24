@@ -63,6 +63,7 @@ jobs:
           python seo/blog.py zbuduj
           # Serial: tylko odcinki, ktorych premiera juz minela (czas Europe/Warsaw); po sitemap.
           python -I seo/serial.py zbuduj
+          python -I scripts/buduj_pobieranie.py
           for plik in index.html notariusz/index.html blog/index.html sitemap.xml kalkulator/index.html serial/index.html serial/rss.xml; do
             test -f "strona/$plik" || { echo "::error::Brak strona/$plik"; exit 1; }
           done
@@ -147,3 +148,14 @@ jobs:
           done
           echo "::error::https://notarai.pl/index.html rozni sie od strona/index.html po wysylce."
           exit 1
+      - name: Zweryfikuj cztery pliki do pobrania po FTPS
+        run: |
+          set -euo pipefail
+          for plik in notarai-word.xml notarai-openoffice.oxt notarai-chrome.zip notarai-edge.zip; do
+            curl -fsSL --retry 3 -H 'Cache-Control: no-cache' \
+              "https://notarai.pl/do-pobrania/pliki/${plik}?v=${GITHUB_RUN_ID}" -o "$RUNNER_TEMP/$plik"
+            cmp "strona/do-pobrania/pliki/$plik" "$RUNNER_TEMP/$plik" || {
+              echo "::error::Plik $plik na notarai.pl rozni sie od zbudowanej paczki"
+              exit 1
+            }
+          done

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 log = logging.getLogger("notarai.pomocnik.klient")
 
-WERSJA = "0.2"
+WERSJA = "0.4"
 PRZERWA_S = 3.0
 PRZERWA_PO_BLEDZIE_S = 15.0
 
@@ -115,6 +115,30 @@ class Notarai:
         wynik = self._zadanie(f"/api/pomocnik/klikamy/{zlecenie}/krok",
                               {"cel": cel, "stan": stan, "kroki": kroki})
         return wynik if isinstance(wynik, dict) else {}
+
+    def zgoda_na_wyslanie(self, zlecenie: str, host: str, etykieta: str,
+                          spij=time.sleep) -> bool:
+        """Wykonaj krok tylko po osobnej zgodzie z zalogowanego telefonu.
+
+        Zgloszenie dotyczy jednej etykiety na jednej domenie. Helper nie ma
+        endpointu, ktorym moglby sobie przyznac uprawnienie. Brak sieci,
+        odmowa i timeout to odmowa klikniecia.
+        """
+        try:
+            odp = self._zadanie(f"/api/pomocnik/polecenia/{zlecenie}/zgoda",
+                                {"host": host, "etykieta": etykieta})
+            kod = odp["id"]
+            koniec = time.monotonic() + 120
+            while time.monotonic() < koniec:
+                stan = self._zadanie(f"/api/pomocnik/polecenia/{zlecenie}/zgoda/{kod}")
+                if stan.get("stan") == "zgoda":
+                    return True
+                if stan.get("stan") != "czeka":
+                    return False
+                spij(2)
+        except (BladPolaczenia, KeyError, TypeError):
+            log.warning("wysylka: zgoda nie zostala udzielona lub stracono polaczenie")
+        return False
 
     def odeslij(self, identyfikator: str, raport: dict) -> dict:
         wynik = self._zadanie(f"/api/pomocnik/zlecenia/{identyfikator}/wynik", raport)

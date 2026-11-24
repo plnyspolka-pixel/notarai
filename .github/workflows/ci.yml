@@ -42,11 +42,23 @@ jobs:
           node --check static/kokpit.js
           node --check static/pulpit-ai.js
           node --check static/polly-player.js
+          node --check static/word/panel.js
+          node --check static/word/edits.js
+          node --test static/word/test-edits.cjs
           node --check static/asysta-odczytu.js
           node --check static/asysta-worklet.js
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py
+      - name: Przygotuj paczki dodatkow do pobrania
+        run: python scripts/buduj_pobieranie.py
+      - name: Dodaj paczki beta do artefaktow CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarai-dodatki-beta
+          path: strona/do-pobrania/pliki/
+          retention-days: 14
+          if-no-files-found: error
       - name: Testy automatyczne (bez AWS i danych klientow)
         run: python -m pytest -q
 

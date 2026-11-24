@@ -163,3 +163,71 @@ class TestRozmowyZModelem:
     ])
     def test_wyciaganie_json_z_odpowiedzi(self, odpowiedz, oczekiwane):
         assert klikamy.odpowiedz_na_slownik(odpowiedz) == oczekiwane
+
+
+class TestJednorazowejZgody:
+    def test_nawet_wysylka_po_potwierdzeniu_jednego_przycisku(self):
+        strona = AtrapaStrony(elementy=[
+            {"nr": 1, "rola": "button:submit", "opis": "Wyślij wniosek", "selektor": "#wyslij"},
+        ])
+        zgody = []
+        def zatwierdz(host, opis):
+            zgody.append((host, opis))
+            return True
+        wynik = prowadz("wyślij wniosek", strona,
+                        model_ze_scenariusza({"akcja": "kliknij", "nr": 1},
+                                             {"akcja": "koniec", "podsumowanie": "Wysłano."}),
+                        zatwierdz_wysylke=zatwierdz)
+        assert zgody == [("krz.ms.gov.pl", "Wyślij wniosek")]
+        assert strona.klikniete == ["#wyslij"]
+        assert wynik.kroki[0].wykonano is True
+
+    def test_odmowa_i_brak_dzialajacego_potwierdzenia_nie_klikaja(self):
+        strona = AtrapaStrony(elementy=[
+            {"nr": 1, "rola": "button:submit", "opis": "Wyślij", "selektor": "#wyslij"},
+        ])
+        wynik = prowadz("wyslij", strona, model_ze_scenariusza(
+            {"akcja": "kliknij", "nr": 1}), zatwierdz_wysylke=lambda h, o: False)
+        assert strona.klikniete == []
+        assert wynik.oddane_czlowiekowi
+
+    def test_neutralny_napis_submit_też_wymaga_zgody(self):
+        strona = AtrapaStrony(elementy=[
+            {"nr": 1, "rola": "button:submit", "opis": "Dalej", "selektor": "#dalej"},
+        ])
+        wynik = prowadz("dalej", strona, model_ze_scenariusza({"akcja": "kliknij", "nr": 1}))
+        assert strona.klikniete == []
+        assert wynik.oddane_czlowiekowi
+
+    def test_strona_zmieniona_podczas_zgody_blokuje_klikniecie(self):
+        strona = AtrapaStrony(elementy=[
+            {"nr": 1, "rola": "button:submit", "opis": "Wyślij", "selektor": "#wyslij"},
+        ])
+        def zgoda(host, etykieta):
+            strona.url = "https://other.example/"
+            return True
+        wynik = prowadz("wyslij", strona, model_ze_scenariusza(
+            {"akcja": "kliknij", "nr": 1}), zatwierdz_wysylke=zgoda)
+        assert strona.klikniete == []
+        assert "zmienily" in wynik.pytanie
+
+    @pytest.mark.parametrize("etykieta", ["Podpisz", "Sign document", "Zapłać",
+                                          "Usuń", "Przelew bankowy"])
+    def test_podpis_platnosc_i_usuwanie_nigdy_nie_sa_zgadzane(self, etykieta):
+        strona = AtrapaStrony(elementy=[
+            {"nr": 1, "rola": "button:submit", "opis": etykieta, "selektor": "#zakazane"}
+        ])
+        callback = []
+        wynik = prowadz("dzialaj", strona, model_ze_scenariusza(
+            {"akcja": "kliknij", "nr": 1}),
+            zatwierdz_wysylke=lambda *args: callback.append(args) or True)
+        assert strona.klikniete == []
+        assert callback == []
+        assert wynik.oddane_czlowiekowi
+
+    def test_model_moze_proponowac_submit_tylko_gdy_pilot_ma_zgode(self):
+        prompt = klikamy.polecenie_dla_modelu("wyślij", {"elementy": []}, [],
+                                             zgoda_wysylki=True)
+        assert "osobnej zgody" in prompt
+        prompt_stary = klikamy.polecenie_dla_modelu("wyślij", {"elementy": []}, [])
+        assert "oddaj decyzje" in prompt_stary
