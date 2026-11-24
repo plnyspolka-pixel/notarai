@@ -172,6 +172,12 @@ function pushTranscript(text, id) {
   last=text; el("copy-last").disabled=false;
   el("final").textContent=transcript.map(t=>t.text).join("\n").slice(-15000);
   el("partial").textContent="";showPosition(text);
+  // Rozpoznajemy WYŁĄCZNIE sygnał możliwej poprawki. Nie wywołujemy
+  // automatycznie Bedrock, nie zapisujemy dokumentu ani niczego nie akceptujemy.
+  if (/\b(zmień|zmieniamy|popraw|zamiast|niech będzie|proszę zmienić|proszę poprawić)\b/iu.test(text)) {
+    el("instruction").value=text;
+    status("Wykryto możliwą poprawkę w wypowiedzi. Sprawdź ją i kliknij Przygotuj propozycję AI.");
+  }
 }
 async function stopMic() {
   const ws=socket; socket=null;
