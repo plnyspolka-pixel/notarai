@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/asysta-odczytu", tags=["asysta odczytu"])
 REGION = os.getenv("AWS_REGION", "eu-central-1")
 ENABLED = os.getenv("PIECZAPP_ASYSTA_ODCZYTU", "false").lower() == "true"
 CASE_ID = re.compile(r"^[A-Za-z0-9]{1,80}$")
-REV_ID = re.compile(r"^r[0-9]{14}-[a-f0-9]{12}$")
+REV_ID = re.compile(r"^r[0-9]{20}-[a-f0-9]{12}$")
 AI_LIMIT = kalkulator.Limit(40, 600)
 STREAM_LIMIT = kalkulator.Limit(10, 200)
 
@@ -214,7 +214,7 @@ def approve(data: Approval, request: Request):
     if magazyn.u_klienta():
         raise HTTPException(409, "Brak zapisu w chmurze dla kancelarii lokalnej.")
     new_text = text.replace(data.przed, data.po, 1)
-    rid = "r" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:12]
+    rid = "r" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f") + "-" + uuid.uuid4().hex[:12]
     folder = path / "asysta"
     folder.mkdir(exist_ok=True)
     record = {
@@ -350,7 +350,10 @@ async def streaming(ws: WebSocket):
                 await ws.close(code=1009)
                 return
             total += len(audio)
-            if total > (25 * 60 + 10) * 32000:
+            # Audio musi nadchodzic zblizone do rzeczywistego tempa 16 kHz PCM:
+            # do 2 s bufora, bez mozliwosci zalania Transcribe nagraniem off-line.
+            elapsed = max(0, time.monotonic() - begun)
+            if total > (elapsed + 2) * 32000 or total > (25 * 60 + 10) * 32000:
                 await ws.close(code=1009)
                 return
             await stream.input_stream.send_audio_event(audio_chunk=audio)
