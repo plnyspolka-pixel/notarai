@@ -27,9 +27,9 @@
 
 ## Uruchomienie
 
-1. Wdrożyć zmiany w app.py, requirements.txt i szablonie infra/notarai-aplikacja.yaml.
-2. Kontener ECS dostaje uprawnienie transcribe:StartStreamTranscription z warunkiem aws:RequestedRegion = eu-central-1, a PIECZAPP_ASYSTA_ODCZYTU=true.
-3. Upewnić się, że polityka AI-services opt-out jest aktywna w AWS Organizations.
+1. Wdrożyć zmiany w app.py, requirements.txt i szablonie infra/notarai-aplikacja.yaml z AsystaOdczytu=false.
+2. Kontener ECS dostaje uprawnienie transcribe:StartStreamTranscription z warunkiem aws:RequestedRegion = eu-central-1, a PIECZAPP_ASYSTA_ODCZYTU uruchamia się po celowym ustawieniu parametru AsystaOdczytu=true (domyślnie false).
+3. Upewnić się, że polityka AI-services opt-out jest aktywna w AWS Organizations. Uruchomić pilotaż na osobnym środowisku po ustawieniu AsystaOdczytu=true.
 4. Testować TYLKO na fikcyjnym projekcie i wypowiedziach testowych. Sprawdzić JWT, brak przechowywania, różnice wersji, DOCX oraz zapis notatki.
 5. W aplikacji kliknąć "Asysta odczytu" lub otworzyć /asysta-odczytu.
 
