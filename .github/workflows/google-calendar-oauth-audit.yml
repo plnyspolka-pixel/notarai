@@ -93,7 +93,7 @@ jobs:
               ok=0
             fi
 
-            echo "- Wymagany redirect URI: `https://app.notarai.pl/api/google-kalendarz/powrot`"
+            echo "- Wymagany redirect URI: https://app.notarai.pl/api/google-kalendarz/powrot"
             echo "- Niezweryfikowane (brak dostepu do Google Cloud): **Calendar API**, **scope calendar.events**, **redirect URI w Google Cloud**"
             echo "- Niezweryfikowane (bez odczytu wartosci): niepuste google_klient/google_sekret w Secrets Manager"
             echo "- Test realnego konta: Kalendarz NotarAI -> Polacz Google (na fikcyjnych terminach)"
