@@ -15,6 +15,7 @@ import shutil
 import tempfile
 import threading
 import uuid
+from urllib.parse import urlsplit
 from datetime import datetime
 from pathlib import Path
 
@@ -44,6 +45,7 @@ import krz_portal
 import urzadzenia
 import zlecenia
 import zgody_pilota
+import podglad_pilota
 import magazyn
 import notariusze
 import autoryzacja
@@ -2016,6 +2018,9 @@ class PolecenieMobilne(BaseModel):
     komputer: str
     cel: str
     dozwolone_hosty: list[str] = []
+    adres: str = ""
+    nowa_karta: bool = False
+    podglad_pubkey: dict | None = None
 
 
 @app.post("/api/urzadzenia/polecenia", status_code=202)
@@ -2049,9 +2054,35 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
                 or host.endswith((".local", ".localhost", ".internal"))):
             raise HTTPException(400, "Podaj publiczne domeny, np. geoportal.gov.pl.")
         hosty.append(host)
-    z = zlecenia.zloz("klikamy", "", {
+    # Adres podany wprost przez uzytkownika (nie wymyslony przez AI) moze
+    # otworzyc nowa karte lub nawigowac biezaca. Tylko HTTPS + domeny DNS.
+    adres = polecenie.adres.strip()
+    nowa = polecenie.nowa_karta
+    if not adres:
+        traf = re.search(r"https://[^\\s<>\\\"']+", cel, re.I)
+        if traf and re.search(r"\\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\\s+kart)", cel, re.I):
+            adres = traf.group(0).rstrip(".,;!)")
+            nowa = bool(re.search(r"now[aą]\\s+kart", cel, re.I))
+    if adres:
+        u = urlsplit(adres)
+        host = (u.hostname or "").lower()
+        if (u.scheme != "https" or u.username or u.password or u.port not in (None, 443)
+                or not re.fullmatch(r"[a-z0-9-]{1,63}(?:\\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\\d+(?:\\.\\d+){3}", host)
+                or host.endswith((".local", ".localhost", ".internal"))):
+            raise HTTPException(400, "Otwieraj tylko poprawne publiczne adresy HTTPS.")
+    pubkey = polecenie.podglad_pubkey
+    if pubkey is not None:
+        if (pubkey.get("kty") != "EC" or pubkey.get("crv") != "P-256"
+                or not all(isinstance(pubkey.get(k), str) and len(pubkey[k]) < 150
+                           for k in ("x", "y"))):
+            raise HTTPException(400, "Niepoprawny klucz podgladu.")
+        pubkey = {k: pubkey[k] for k in ("kty", "crv", "x", "y")}
+    z = zlecenia.zloz("karty" if adres else "klikamy", "", {
         "cel": cel, "dozwolone_hosty": hosty,
         "docelowy_komputer": polecenie.komputer,
+        **({"adres": adres, "nowa_karta": nowa} if adres else {}),
+        **({"podglad_pubkey": pubkey} if pubkey else {}),
     })
     log.info("pilot: zlecenie %s dla komputera %s", z["id"], polecenie.komputer)
     return {"zlecenie": z["id"], "stan": "czeka"}
@@ -2061,13 +2092,54 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
 def wynik_polecenia_mobilnego(identyfikator: str):
     _wymagaj_urzadzen()
     z = zlecenia.wynik(identyfikator)
-    if not z or z.get("rodzaj") != "klikamy" or z.get("sprawa"):
+    if not z or z.get("rodzaj") not in ("klikamy", "karty") or z.get("sprawa"):
         raise HTTPException(404, "Nie ma takiego polecenia.")
     if not (z.get("tresc") or {}).get("docelowy_komputer") and z.get("stan") != "wykonane":
         raise HTTPException(404, "To nie jest polecenie z pilota.")
     return {"stan": z["stan"], "raport": z.get("raport"),
             "zgoda": zgody_pilota.oczekujaca(identyfikator) if z["stan"] != "wykonane" else None}
 
+
+
+
+# --- Podglad z rozszerzenia: ECDH P-256 + AES-GCM, serwer widzi ciphertext.
+# Podglad istnieje tylko w czasie zadania. Telefon zna prywatny klucz ECDH,
+# rozszerzenie generuje drugi prywatny klucz u siebie. Zadnego nagrywania.
+
+class ZaszyfrowanyKadr(BaseModel):
+    numer: int
+    klucz: dict
+    iv: str
+    dane: str
+
+
+@app.post("/api/pomocnik/podglad/{identyfikator}", status_code=202)
+def odebrany_kadr_podgladu(identyfikator: str, kadr: ZaszyfrowanyKadr, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    z = zlecenia.wynik(identyfikator)
+    tresc = (z or {}).get("tresc") or {}
+    if (not komputer or not z or z.get("stan") != "czeka"
+            or z.get("rodzaj") not in ("karty", "klikamy")
+            or tresc.get("docelowy_komputer") != komputer
+            or not tresc.get("podglad_pubkey")):
+        raise HTTPException(403, "Podglad nie jest aktywny dla tego komputera.")
+    try:
+        podglad_pilota.zapisz(identyfikator, kadr.numer, kadr.klucz, kadr.iv, kadr.dane)
+    except (TypeError, ValueError, KeyError) as blad:
+        raise HTTPException(400, str(blad))
+    return {"stan": "przyjeto"}
+
+
+@app.get("/api/urzadzenia/polecenia/{identyfikator}/podglad")
+def kadr_podgladu_na_telefonie(identyfikator: str):
+    _wymagaj_urzadzen()
+    z = zlecenia.wynik(identyfikator)
+    if (not z or z.get("stan") == "wykonane"
+            or z.get("rodzaj") not in ("klikamy", "karty")
+            or not (z.get("tresc") or {}).get("podglad_pubkey")):
+        return {"stan": "brak"}
+    kadr = podglad_pilota.ostatni(identyfikator)
+    return {"stan": "kadr", "kadr": kadr} if kadr else {"stan": "brak"}
 
 
 # --- Jednorazowa zgoda na wyslanie z telefonu -------------------------------
@@ -2414,11 +2486,12 @@ def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika)
     if stan.get("stan") == "wykonane":
         return {"stan": "wykonane", "zapisano": 0}
 
-    if stan.get("rodzaj") == "klikamy":
+    if stan.get("rodzaj") in ("klikamy", "karty"):
         # Dla mobilnego pilota nie istnieje sprawa. Nie wymagamy jej katalogu.
         # Raport zawiera tylko kroki i podsumowanie, nigdy surowe HTML strony.
         if stan.get("sprawa"):
             _katalog_sprawy(stan["sprawa"])
+        podglad_pilota.usun(zlecenie)
         zlecenia.zapisz_wynik(zlecenie, {
             "kroki": raport.kroki[:100],
             "podsumowanie": raport.podsumowanie[:2000],
