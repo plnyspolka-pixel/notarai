@@ -22,25 +22,36 @@ Parameters:
   CertyfikatArn:
     Type: String
     Description: Wynik CertyfikatArn ze stosu notarai-certyfikat (status ISSUED)
+  AsystaOdczytu:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Pilotażowa asysta odczytu na żywo. Domyślnie wyłączona do weryfikacji
+      Transcribe Streaming, RODO i zatwierdzania wersji w środowisku testowym.
   BucketSpraw:
     Type: String
     Default: notarai-sprawy
+  # Rozmiar dobrany do pomiaru (23.11.2026, 14 dni): CPU srednio 0,2 %, szczyt
+  # 31 % z 1 vCPU; pamiec szczyt 8 % z 3 GB (~250 MB). Model pracuje w Bedrock,
+  # kontener glownie czeka na odpowiedz. Wiecej mocy = ten parametr w gore.
   Cpu:
     Type: String
-    Default: "1024"
-    AllowedValues: ["1024", "2048"]
+    Default: "512"
+    AllowedValues: ["512", "1024", "2048"]
   Pamiec:
     Type: String
-    Default: "3072"
-    Description: MiB. Dla 1024 CPU dozwolone 2048-8192, dla 2048 CPU 4096-16384.
+    Default: "2048"
+    Description: MiB. Dla 512 CPU dozwolone 1024-4096, dla 1024 CPU 2048-8192, dla 2048 CPU 4096-16384.
   LiczbaKopii:
     Type: Number
-    Default: 2
+    Default: 1
     MinValue: 1
     MaxValue: 6
     Description: >-
-      Ile kontenerow ma dzialac naraz. 2 to minimum, zeby awaria jednego
-      kontenera albo calej strefy dostepnosci nie przerwala pracy kancelarii.
+      Ile kontenerow ma dzialac naraz. 1 = najtaniej: po awarii ECS stawia
+      nowy kontener w 1-2 minuty, wdrozenia ida bez przestoju (najpierw nowy,
+      potem stary). 2 = brak przerwy takze przy awarii strefy, za podwojna cene.
   EmailAlarmowy:
     Type: String
     Default: ""
@@ -333,6 +344,20 @@ Resources:
                   StringEquals:
                     aws:RequestedRegion: eu-central-1
 
+        # ASR na zywo w Europie: tylko Amazon Transcribe Streaming we Frankfurcie.
+        - PolicyName: transcribe-live-eu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: TranscribeLiveEU
+                Effect: Allow
+                Action:
+                  - transcribe:StartStreamTranscription
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+
         # Zakladanie kont uzytkownikow (panel admina). Logowanie, odzyskiwanie
         # hasla i sprawdzanie tokenu nie wymagaja uprawnien IAM.
         - !If
@@ -550,8 +575,10 @@ Resources:
     Properties:
       ClusterName: notarai
       ClusterSettings:
+        # Container Insights to ~40 platnych metryk CloudWatch. Alarmy stosu
+        # patrza na metryki load balancera (darmowe), wiec go nie potrzebujemy.
         - Name: containerInsights
-          Value: enabled
+          Value: disabled
       Tags:
         - Key: projekt
           Value: notarai
@@ -620,6 +647,9 @@ Resources:
             # Lektor projektu przez Amazon Polly we Frankfurcie.
             - Name: PIECZAPP_POLLY
               Value: "true"
+            # Asysta odczytu: sesja uruchamiana recznie; opt-out Transcribe wymagany.
+            - Name: PIECZAPP_ASYSTA_ODCZYTU
+              Value: !Ref AsystaOdczytu
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu

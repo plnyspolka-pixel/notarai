@@ -1,0 +1,103 @@
+name: NotarAI - Google Calendar OAuth audit (read-only)
+
+# Jednorazowa kontrola po dodaniu workflow, oraz uruchomienie reczne.
+# Bez odczytywania wartosci sekretow, bez zmian w AWS i bez Google API call.
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/google-calendar-oauth-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/master'
+    name: Sprawdz konfiguracje AWS bez sekretow
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AWS_REGION: eu-central-1
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_ACCOUNT: "127621462971"
+      AWS_ROLE: arn:aws:iam::127621462971:role/notarai-github-wdrozenie
+    steps:
+      - name: OIDC - istniejaca rola GitHub
+        run: |
+          set -euo pipefail
+          token=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          creds=$(aws sts assume-role-with-web-identity \
+            --role-arn "$AWS_ROLE" \
+            --role-session-name "google-calendar-audit-${GITHUB_RUN_ID}" \
+            --web-identity-token "$token" \
+            --duration-seconds 900 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)
+          read -r kid secret session <<< "$creds"
+          echo "::add-mask::$secret"
+          echo "::add-mask::$session"
+          {
+            echo "AWS_ACCESS_KEY_ID=$kid"
+            echo "AWS_SECRET_ACCESS_KEY=$secret"
+            echo "AWS_SESSION_TOKEN=$session"
+          } >> "$GITHUB_ENV"
+
+      - name: Kontrola integracji Google na produkcji
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT"
+
+          # Pobieramy wylacznie informacje o polaczeniu, nigdy SecretString.
+          oauth=$(aws cloudformation describe-stacks --stack-name notarai-aplikacja \
+            --query "Stacks[0].Parameters[?ParameterKey=='OAuthPocztySekretArn'].ParameterValue | [0]" --output text)
+          address=$(aws cloudformation describe-stacks --stack-name notarai-aplikacja \
+            --query "Stacks[0].Parameters[?ParameterKey=='AdresPubliczny'].ParameterValue | [0]" --output text)
+          definition=$(aws ecs describe-services --cluster notarai --services notarai \
+            --query 'services[0].taskDefinition' --output text)
+          secret_names=$(aws ecs describe-task-definition --task-definition "$definition" \
+            --query 'taskDefinition.containerDefinitions[0].secrets[].name' --output text)
+          env_names=$(aws ecs describe-task-definition --task-definition "$definition" \
+            --query 'taskDefinition.containerDefinitions[0].environment[].name' --output text)
+
+          has_name() { printf '%s' "$1" | tr '\t' '\n' | grep -Fxq "$2"; }
+          ok=1
+          {
+            echo "### NotarAI / Google Calendar - audyt AWS (bez odczytu sekretow)"
+            if [ -n "$oauth" ] && [ "$oauth" != "None" ]; then
+              echo "- OAuthPocztySekretArn w aktywnym stosie: **TAK**"
+            else
+              echo "- OAuthPocztySekretArn w aktywnym stosie: **BRAK**"
+              echo "::error::Brak konfiguracji OAuth w stosie. NotarAI nie otrzymuje kluczy Google."
+              ok=0
+            fi
+
+            if has_name "$secret_names" "PIECZAPP_OAUTH_GOOGLE_KLIENT" && \
+               has_name "$secret_names" "PIECZAPP_OAUTH_GOOGLE_SEKRET"; then
+              echo "- Zmienne OAuth Google w aktywnej definicji ECS: **TAK**"
+            else
+              echo "- Zmienne OAuth Google w aktywnej definicji ECS: **BRAK**"
+              echo "::error::Aktywne zadanie ECS nie ma obu wpisow sekretow Google."
+              ok=0
+            fi
+
+            if [ "$address" = "https://app.notarai.pl" ] && \
+               has_name "$env_names" "PIECZAPP_ADRES"; then
+              echo "- Publiczny HTTPS callback host: **https://app.notarai.pl**"
+            else
+              echo "- Publiczny HTTPS callback host: **DO SPRAWDZENIA**"
+              echo "::error::AdresPubliczny lub zmienna PIECZAPP_ADRES nie odpowiada konfiguracji callback."
+              ok=0
+            fi
+
+            echo "- Wymagany redirect URI: https://app.notarai.pl/api/google-kalendarz/powrot"
+            echo "- Niezweryfikowane (brak dostepu do Google Cloud): **Calendar API**, **scope calendar.events**, **redirect URI w Google Cloud**"
+            echo "- Niezweryfikowane (bez odczytu wartosci): niepuste google_klient/google_sekret w Secrets Manager"
+            echo "- Test realnego konta: Kalendarz NotarAI -> Polacz Google (na fikcyjnych terminach)"
+            echo "- AWS: tylko odczyt CloudFormation i ECS, bez pobrania SecretString oraz bez mutacji zasobow"
+          } > "$RUNNER_TEMP/google-calendar-audit.md"
+          cat "$RUNNER_TEMP/google-calendar-audit.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$ok" -eq 1

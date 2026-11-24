@@ -7,17 +7,17 @@
 
 import { prowadz, host } from "./silnik.js";
 import { Strona } from "./strona.js";
+import { uruchomPodglad } from "./podglad.js";
 import { wykonajKRZ } from "./krz.js";
 import { wykonajFormularz } from "./formularz.js";
-import { Notarai, ADRES_DOMYSLNY, BladTokenu, KodNieaktualny, BladPolaczenia,
-         adresPolaczenia } from "./notarai.js";
+import { Notarai, ADRES_DOMYSLNY, BladTokenu, BladPolaczenia } from "./notarai.js";
 
 const $ = (id) => document.getElementById(id);
 const czekaj = (ms) => new Promise(r => setTimeout(r, ms));
 
 let ustawienia = { adres: ADRES_DOMYSLNY, token: "" };
 let karta = null;          // { id, url } - karta, przy ktorej stoi panel
-let pracuje = false, przerwij = false, laczenie = 0, kodPolaczenia = "";
+let pracuje = false, przerwij = false, laczenie = 0;
 
 /* Tylko do testow: panel otwarty jako zwykla karta dostaje numer karty,
    na ktorej ma pracowac (?karta=12). W panelu bocznym tego parametru nie ma. */
@@ -25,11 +25,7 @@ const kartaZTestu = Number(new URLSearchParams(location.search).get("karta")) ||
 
 const NAZWY_AKCJI = { kliknij: "Klikam", wpisz: "Wpisuję w", wybierz: "Wybieram w",
                       otworz: "Otwieram", czytaj: "Czytam stronę", pytam: "Pytam",
-                      koniec: "Gotowe", krz: "Sprawdzam w KRZ:", pominiete: "Pomijam" };
-
-function nazwaPrzegladarki() {
-  return (/Edg\//.test(navigator.userAgent) ? "Edge" : "Chrome") + " - rozszerzenie notarai";
-}
+                      koniec: "Gotowe", czekam: "Czekam na", krz: "Sprawdzam w KRZ:", pominiete: "Pomijam" };
 
 function wzorzecZgody(adres) {
   const u = new URL(adres);
@@ -61,40 +57,39 @@ function pokazWidok() {
 /* ---------- laczenie z kancelaria ---------- */
 
 async function polacz() {
-  const numer = ++laczenie;                 // nowe laczenie uniewaznia poprzednie
-  const notarai = new Notarai(ustawienia.adres);
-  let kod = "", sekret = "";
+  const numer = ++laczenie;
   while (numer === laczenie && !ustawienia.token) {
+    let stan = "blad";
     try {
-      if (!kod) {
-        const odp = await notarai.poprosOKod(nazwaPrzegladarki());
-        kod = odp.kod; sekret = odp.sekret;
-        kodPolaczenia = kod;
-        $("kod").textContent = kod;
-        $("stan-laczenia").textContent = "Czekam na kliknięcie „Połącz” w notarai…";
-      }
-      const token = await notarai.odbierzToken(kod, sekret);
-      if (token && numer === laczenie) {
-        ustawienia.token = token;
-        await zapisz();
+      const odp = await chrome.runtime.sendMessage({ typ: "notarai-polacz" });
+      stan = odp?.stan || "blad";
+      const zapis = await chrome.storage.local.get(["adres", "token", "blokadaParowania"]);
+      if (numer !== laczenie) return;
+      if (zapis.token && !zapis.blokadaParowania) {
+        ustawienia = { adres: zapis.adres || ADRES_DOMYSLNY, token: zapis.token };
         pokazWidok();
         return;
       }
-      await czekaj(2000);
-    } catch (blad) {
-      if (blad instanceof KodNieaktualny) { kod = sekret = ""; continue; }
-      $("stan-laczenia").textContent = blad.message + " Ponawiam…";
-      await czekaj(15000);
-    }
+    } catch { /* ponowienie */ }
+    $("btn-wznow").hidden = stan !== "odlaczono";
+    $("stan-laczenia").textContent = ({
+      logowanie: "Zaloguj się do NotarAI. Połączę się automatycznie.",
+      "brak-uprawnien": "Wymagane konto właściciela lub notariusza oraz zaakceptowana umowa.",
+      odlaczono: "Przeglądarka została odłączona. Możesz świadomie wznowić połączenie.",
+      blad: "Sprawdzam połączenie z NotarAI…"
+    })[stan] || "Łączę automatycznie…";
+    await czekaj(3000);
   }
 }
-
-$("btn-otworz").onclick = () => {
-  if (kodPolaczenia) chrome.tabs.create({ url: adresPolaczenia(ustawienia.adres, kodPolaczenia) });
+$("btn-otworz").onclick = () => chrome.tabs.create({ url: ADRES_DOMYSLNY });
+$("btn-wznow").onclick = async () => {
+  await chrome.storage.local.set({ blokadaParowania: false });
+  polacz();
 };
 
 $("btn-odlacz").onclick = async () => {
   if (pracuje || !confirm("Odłączyć tę przeglądarkę od kancelarii?")) return;
+  await chrome.storage.local.set({ blokadaParowania: true });
   try { await new Notarai(ustawienia.adres, ustawienia.token).odlacz(); }
   catch { /* i tak zapominamy token; w notarai mozna odlaczyc recznie */ }
   await odlaczLokalnie();
@@ -102,7 +97,10 @@ $("btn-odlacz").onclick = async () => {
 
 async function odlaczLokalnie() {
   ustawienia.token = "";
-  await zapisz();
+  ++kolejka;
+  czekaNaZgode = null;
+  $("zgoda").hidden = true;
+  await chrome.storage.local.set({ token: "", tozsamosc: "", blokadaParowania: true });
   pokazWidok();
 }
 
@@ -138,6 +136,15 @@ function pokazWynik(naglowek, tresc, koniec = false) {
   pole.hidden = false;
 }
 
+/* Praca wstrzymana do ruchu czlowieka (logowanie, podpis). Trzymamy tylko to,
+   co potrzebne do wznowienia: polecenie, karte i przebieg bez wartosci pol. */
+let wstrzymane = null;
+
+function pokazWznow(widac) {
+  $("btn-wznow").hidden = !widac;
+  if (!widac) wstrzymane = null;
+}
+
 function ustawPrace(trwa) {
   pracuje = trwa;
   $("btn-wykonaj").disabled = trwa;
@@ -146,6 +153,20 @@ function ustawPrace(trwa) {
 }
 
 $("btn-stop").onclick = () => { przerwij = true; $("btn-stop").disabled = true; };
+
+// Szersza zgoda jest OPCJONALNA i przyznawana wylacznie kliknieciem na PC.
+// Bez niej Chrome moze umozliwic zrzut tylko karty, dla ktorej activeTab
+// uzyskano po kliknieciu ikony rozszerzenia.
+$("btn-podglad-uprawnienie").onclick = async () => {
+  try {
+    const zgoda = await chrome.permissions.request({ origins: ["https://*/*"] });
+    $("podglad-uprawnienie-stan").textContent = zgoda
+      ? "Podgląd dozwolony. Włączasz go osobno przy każdym poleceniu z telefonu."
+      : "Nie przyznano dostępu do podglądu wielu kart.";
+  } catch {
+    $("podglad-uprawnienie-stan").textContent = "Przeglądarka nie przyznała uprawnienia.";
+  }
+};
 
 $("formularz").onsubmit = (zdarzenie) => {
   zdarzenie.preventDefault();
@@ -157,6 +178,7 @@ $("formularz").onsubmit = (zdarzenie) => {
     return;
   }
   $("wynik").hidden = true;
+  pokazWznow(false);
   // Prosba o zgode musi isc wprost z klikniecia - dlatego bez await przed nia.
   const cela = { id: karta.id, url: karta.url };
   chrome.permissions.request({ origins: [wzorzecZgody(cela.url)] })
@@ -166,10 +188,17 @@ $("formularz").onsubmit = (zdarzenie) => {
                             "Przeglądarka nie pozwala rozszerzeniom działać pod tym adresem."));
 };
 
-async function wykonaj(cel, cela) {
+$("btn-wznow").onclick = () => {
+  if (pracuje || !wstrzymane) return;
+  const { cel, cela, przebieg } = wstrzymane;
+  wykonaj(cel, cela, { kroki: przebieg.kroki, dozwolone: przebieg.dozwolone });
+};
+
+async function wykonaj(cel, cela, wznow = null) {
   przerwij = false;
   $("btn-stop").disabled = false;
-  $("kroki").replaceChildren();
+  if (!wznow) $("kroki").replaceChildren();
+  pokazWznow(false);
   $("wynik").hidden = true;
   $("ramki").hidden = true;
   ustawPrace(true);
@@ -182,7 +211,7 @@ async function wykonaj(cel, cela) {
     zlecenie = await notarai.zlecKlikanie(cel, host(cela.url));
     przebieg = await prowadz(cel, strona,
       (c, stan, kroki) => notarai.krok(zlecenie, c, stan, kroki),
-      { przerwij: () => przerwij, naKrok: dopiszKrok });
+      { przerwij: () => przerwij, naKrok: dopiszKrok, wznow });
   } catch (blad) {
     if (blad instanceof BladTokenu) { ustawPrace(false); await odlaczLokalnie(); return; }
     pokazWynik("Nie udało się.", blad instanceof BladPolaczenia ? blad.message
@@ -191,8 +220,11 @@ async function wykonaj(cel, cela) {
 
   if (przebieg) {
     let rodzaj = "koniec";
-    if (przebieg.pytanie) { rodzaj = "pytanie"; pokazWynik("Teraz Ty.", przebieg.pytanie); }
-    else if (przebieg.zatrzymano) {
+    if (przebieg.pytanie) {
+      rodzaj = "pytanie";
+      pokazWynik(przebieg.czeka === "logowanie" ? "Zaloguj się." : "Teraz Ty.", przebieg.pytanie);
+      if (przebieg.czeka) { wstrzymane = { cel, cela, przebieg }; $("btn-wznow").hidden = false; }
+    } else if (przebieg.zatrzymano) {
       rodzaj = przerwij ? "przerwano" : "zatrzymano";
       pokazWynik("Zatrzymałem się.", przebieg.zatrzymano);
     } else pokazWynik("Gotowe.", przebieg.podsumowanie || "Zrobione.", true);
@@ -272,6 +304,9 @@ async function pilnujKolejki() {
 }
 
 async function przyjmij(z) {
+  // Otwarcie karty nie wymaga uprawnienia do czytania jej zawartosci.
+  // Obejrzenie kadrow wymaga oddzielnej zgody rozszerzenia.
+  if (z.rodzaj === "karty") return wykonajZlecenie(z);
   const notarai = new Notarai(ustawienia.adres, ustawienia.token);
   const opis = opisZlecenia(z);
   if (!opis) {
@@ -330,8 +365,36 @@ async function wykonajZlecenie(z) {
   ustawPrace(true);
   $("btn-stop").hidden = true;                 // zlecen z kolejki nie przerywamy w pol osoby
   let raport;
+  let podglad = null;
   try {
-    if (z.rodzaj === "krz") {
+    if (z.rodzaj === "karty") {
+      const adres = String(tresc.adres || "");
+      const url = new URL(adres);
+      if (url.protocol !== "https:" || !url.hostname.includes(".") ||
+          url.hostname === "localhost" || url.hostname.endsWith(".local")) {
+        throw new Error("Nieprawidłowy adres strony.");
+      }
+      let id;
+      if (tresc.nowa_karta) {
+        id = (await chrome.tabs.create({ url: adres, active: true })).id;
+      } else {
+        const cel = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+        id = cel && /^https?:/.test(cel.url || "") ? cel.id : null;
+        if (id === null) id = (await chrome.tabs.create({ url: adres, active: true })).id;
+        else await chrome.tabs.update(id, { url: adres, active: true });
+      }
+      await czekaj(1250);
+      if (tresc.podglad_pubkey) {
+        podglad = await uruchomPodglad(z, id, notarai).catch(() => null);
+        await czekaj(2500);
+      }
+      raport = {
+        kroki: [{ nr: 1, akcja: "otworz", cel: url.hostname, wykonano: true }],
+        podsumowanie: tresc.nowa_karta ? "Otworzono nową kartę." : "Otworzono podany adres.",
+        bledy: [],
+      };
+      pokazWynik("Gotowe.", raport.podsumowanie, true);
+    } else if (z.rodzaj === "krz") {
       const adres = (tresc.portal || {}).adres || "";
       let id = await kartaZAdresem(adres);
       if (id === null) id = (await chrome.tabs.create({ url: adres, active: true })).id;
@@ -353,9 +416,14 @@ async function wykonajZlecenie(z) {
                    : `Wpisanych pól: ${wpisane}. Sprawdź je i wyślij samodzielnie.`, !raport.bledy.length);
     } else {
       const cela = { id: karta.id, url: karta.url };
+      if (tresc.podglad_pubkey) {
+        podglad = await uruchomPodglad(z, cela.id, notarai).catch(() => null);
+      }
       const przebieg = await prowadz(tresc.cel || "", new Strona(cela.id),
         (c, stan, kroki) => notarai.krok(z.id, c, stan, kroki), { naKrok: dopiszKrok });
-      raport = { bledy: przebieg.zatrzymano ? [przebieg.zatrzymano] : [] };
+      raport = { kroki: przebieg.kroki,
+        podsumowanie: przebieg.podsumowanie, pytanie: przebieg.pytanie,
+        bledy: przebieg.zatrzymano ? [przebieg.zatrzymano] : [] };
       if (przebieg.pytanie) pokazWynik("Teraz Ty.", przebieg.pytanie);
       else if (przebieg.zatrzymano) pokazWynik("Zatrzymałem się.", przebieg.zatrzymano);
       else pokazWynik("Gotowe.", przebieg.podsumowanie || "Zrobione.", true);
@@ -366,6 +434,7 @@ async function wykonajZlecenie(z) {
     pokazWynik("Nie udało się.", blad instanceof BladPolaczenia ? blad.message
       : "Coś poszło nie tak po stronie rozszerzenia.");
   }
+  if (podglad) await podglad.zatrzymaj();
   try { await notarai.odeslij(z.id, raport); }
   catch { pokazWynik("Nie odesłałem wyniku.", "Brak połączenia z notarai. Zleć czynność ponownie."); }
   ustawPrace(false);
@@ -381,6 +450,15 @@ function pokazObceRamki(strona) {
 
 /* ---------- start ---------- */
 
+chrome.storage.onChanged.addListener((zmiany, obszar) => {
+  if (obszar !== "local" || !zmiany.token || !ustawienia.token || zmiany.token.newValue === ustawienia.token) return;
+  przerwij = true;
+  ustawienia.token = "";
+  ++kolejka;
+  czekaNaZgode = null;
+  $("zgoda").hidden = true;
+  pokazWidok();
+});
 chrome.tabs.onActivated.addListener(odswiezKarte);
 chrome.tabs.onUpdated.addListener((id, zmiana) => {
   if (zmiana.url || zmiana.status === "complete") odswiezKarte();

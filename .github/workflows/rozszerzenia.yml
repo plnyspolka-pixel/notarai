@@ -1,0 +1,63 @@
+name: NotarAI - Chrome i Edge ZIP
+
+on:
+  pull_request:
+    paths:
+      - "rozszerzenie/**"
+      - "scripts/build_browser_extensions.py"
+      - ".github/workflows/rozszerzenia.yml"
+  push:
+    branches: [master]
+    paths:
+      - "rozszerzenie/**"
+      - "scripts/build_browser_extensions.py"
+      - ".github/workflows/rozszerzenia.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-extensions:
+    name: Testy i paczki Chrome / Edge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pobierz repo
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Testy silnika i bezpieczenstwa
+        run: npm --prefix rozszerzenie test
+      - name: Zbuduj obie paczki
+        run: python3 scripts/build_browser_extensions.py
+      - name: Sprawdz zawartosc paczek
+        run: |
+          python3 - <<'PY'
+          import glob, hashlib, json, zipfile
+          paths = sorted(glob.glob("dist/extensions/*.zip"))
+          assert len(paths) == 2, paths
+          hashes = []
+          for path in paths:
+              with zipfile.ZipFile(path) as z:
+                  assert z.testzip() is None
+                  assert "manifest.json" in z.namelist()
+                  m = json.loads(z.read("manifest.json"))
+                  assert m["manifest_version"] == 3
+                  assert "sidePanel" in m["permissions"]
+                  assert m["side_panel"]["default_path"] == "panel.html"
+                  assert "package.json" not in z.namelist()
+                  assert not any(x.startswith("testy/") for x in z.namelist())
+              hashes.append(hashlib.sha256(open(path,"rb").read()).hexdigest())
+          assert hashes[0] == hashes[1], "Chrome and Edge runtime must be identical"
+          print("Verified both packages, SHA256:", hashes[0])
+          PY
+      - name: ZIP-y do pobrania w GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotarAI-Chrome-Edge
+          path: dist/extensions/*.zip
+          if-no-files-found: error
+          retention-days: 30

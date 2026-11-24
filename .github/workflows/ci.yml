@@ -45,6 +45,8 @@ jobs:
           node --check static/word/panel.js
           node --check static/word/edits.js
           node --test static/word/test-edits.cjs
+          node --check static/asysta-odczytu.js
+          node --check static/asysta-worklet.js
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py

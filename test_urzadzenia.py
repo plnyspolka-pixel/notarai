@@ -269,3 +269,32 @@ class TestKreatora:
         pobierz = klient.get("/api/urzadzenia", headers=notariusz).json()["pobierz"]
         assert pobierz["adres"] == "/static/pobierz/notarai-pomocnik.exe"
         assert pobierz["wersja"] == "0.2" and pobierz["rozmiar_mb"] == 2.0
+
+
+def test_automatyczne_laczenie_rozszerzenia_i_odwolanie(srodowisko):
+    klient, kancelaria, _, _ = srodowisko
+    import autoryzacja
+    id_k, notariusz = kancelaria("Auto")
+    email = f"notariusz@{id_k}.test"
+    rejestr = autoryzacja._wczytaj_rejestr()
+    wpis = autoryzacja._znajdz(rejestr, id_k)[1]
+    wpis["zespol"] = [{"email": email, "rola": "wlasciciel"}]
+    autoryzacja._zapisz_rejestr(rejestr)
+    url = "/api/urzadzenia/rozszerzenie"
+    assert klient.post(url, json={"nazwa": "Chrome"}).status_code == 401
+    odp = klient.post(url, json={"nazwa": "Chrome"}, headers=notariusz)
+    assert odp.status_code == 201
+    d = odp.json()
+    pomocnik = {"Authorization": "Bearer " + d["token"]}
+    assert klient.post(url, json={}, headers=pomocnik).status_code == 403
+    assert klient.get("/api/pomocnik/zlecenia", headers=pomocnik).status_code == 200
+    assert klient.get("/api/urzadzenia", headers=pomocnik).status_code == 403
+    _, obca = kancelaria("Obca")
+    assert klient.delete("/api/urzadzenia/" + d["id"], headers=obca).status_code == 404
+    assert klient.delete("/api/urzadzenia/" + d["id"], headers=notariusz).status_code == 200
+    assert klient.get("/api/pomocnik/zlecenia", headers=pomocnik).status_code == 401
+    rejestr = autoryzacja._wczytaj_rejestr()
+    autoryzacja._znajdz(rejestr, id_k)[1]["zespol"][0]["rola"] = "czlonek"
+    autoryzacja._znajdz(rejestr, id_k)[1]["zespol"][0]["stanowisko"] = "sekretariat"
+    autoryzacja._zapisz_rejestr(rejestr)
+    assert klient.post(url, json={}, headers=notariusz).status_code == 403
