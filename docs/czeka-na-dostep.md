@@ -352,3 +352,12 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `anonimizacja.py`, `infra/notarai-s3.yaml`.
 - **Zamknięte, gdy:** stenogram z fikcyjnego aktu jest przy sprawie, bez danych
   osobowych, a po audio i zadaniu Transcribe nie ma śladu.
+
+
+## NA-16. Google Calendar - test konta i dwukierunkowej synchronizacji
+
+- **Status:** czeka na konfiguracje i test na zywo.
+- **Brakuje:** wlaczonego Google Calendar API, skonfigurowanego zakresu OAuth `calendar.events openid email`, dodanego redirect URI `/api/google-kalendarz/powrot` dla publicznego adresu aplikacji, uprawnien IAM do `notarai-google-kalendarz-*` i testowego konta Google.
+- **Na zywo:** po wdrozeniu PR integracji polaczyc konto testowe, utworzyc trzy fikcyjne terminy, zmienic i odwolac wpis po obu stronach; zweryfikowac brak nazwisk i danych spraw w Google, blokady kolizji, synchronizacje przy zamknietej przegladarce oraz odlaczenie i ponowne polaczenie konta.
+- **W kodzie:** `google_kalendarz.py`, `test_google_kalendarz.py`, `static/index.html`, `infra/notarai-aplikacja.yaml`, `docs/google-calendar.md`.
+- **Zamkniete, gdy:** wspomniane testy przejda na prawdziwym testowym koncie, a zapis w Google nie zawiera danych klientow.

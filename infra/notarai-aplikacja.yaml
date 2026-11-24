@@ -407,6 +407,21 @@ Resources:
                   - secretsmanager:TagResource
                 Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-skrzynka-*"
 
+        # Odrebne refresh tokeny Google Calendar; brak uprawnien do sekretow innych aplikacji.
+        - PolicyName: sekrety-google-kalendarza
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:TagResource
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai-google-kalendarz-*"
+
   # ---------------- siec ----------------
   GrupaLoadBalancera:
     Type: AWS::EC2::SecurityGroup
