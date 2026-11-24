@@ -2062,11 +2062,15 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
         traf = re.search(r"https://[^\s<>\"']+", cel, re.I)
         if traf and re.search(r"\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\s+kart)", cel, re.I):
             adres = traf.group(0).rstrip(".,;!)")
-            nowa = bool(re.search(r"now[aą]\s+kart", cel, re.I))
+            nowa = nowa or bool(re.search(r"now[aą]\s+kart", cel, re.I))
     if adres:
-        u = urlsplit(adres)
+        try:
+            u = urlsplit(adres)
+            port = u.port
+        except ValueError:
+            raise HTTPException(400, "Niepoprawny port lub adres strony.")
         host = (u.hostname or "").lower()
-        if (u.scheme != "https" or u.username or u.password or u.port not in (None, 443)
+        if (u.scheme != "https" or u.username or u.password or port not in (None, 443)
                 or not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host)
                 or re.fullmatch(r"\d+(?:\.\d+){3}", host)
                 or host.endswith((".local", ".localhost", ".internal"))):
