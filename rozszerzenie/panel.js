@@ -153,7 +153,7 @@ $("btn-stop").onclick = () => { przerwij = true; $("btn-stop").disabled = true; 
 // uzyskano po kliknieciu ikony rozszerzenia.
 $("btn-podglad-uprawnienie").onclick = async () => {
   try {
-    const zgoda = await chrome.permissions.request({ origins: ["<all_urls>"] });
+    const zgoda = await chrome.permissions.request({ origins: ["https://*/*"] });
     $("podglad-uprawnienie-stan").textContent = zgoda
       ? "Podgląd dozwolony. Włączasz go osobno przy każdym poleceniu z telefonu."
       : "Nie przyznano dostępu do podglądu wielu kart.";
