@@ -57,6 +57,7 @@ _REGULY = [
     (("POST",), _SPRAWA + r"/projekt", "projekt"),
     (("POST",), r"/api/projekt", "projekt"),
     (("POST",), r"/api/polly/synteza", "projekt"),
+    (("GET", "POST"), r"/api/asysta-odczytu(/.*)?", "projekt"),
     (("POST",), _SPRAWA + r"/(krz|ekw|aml|crbr|klikamy|sprawdzenia(/.*)?|formularze/.*)", "rejestry"),
     (("POST",), r"/api/formularze/.*", "rejestry"),
     (("DELETE",), _SPRAWA + r"/pliki/.+", "usun_plik"),

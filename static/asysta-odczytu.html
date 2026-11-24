@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>notarai · asysta odczytu aktu</title>
+<link rel="icon" type="image/svg+xml" href="/static/notarai-symbol.svg">
+<style>
+:root { color-scheme:light; --bg:#f4f7fc; --panel:#fff; --text:#132449; --muted:#61708d; --line:#d9e3f0; --accent:#294dcd; --good:#17633e; --warn:#9e3d31; }
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Montserrat,Segoe UI,Arial,sans-serif}
+main{max-width:1160px;margin:auto;padding:24px 18px 90px}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:23px}
+header img{width:36px;height:36px}header a{margin-left:auto;color:var(--accent);text-decoration:none}
+h1{font-size:27px;letter-spacing:-.04em;margin:0}h2{font-size:17px;margin:0 0 10px}
+.muted,small{color:var(--muted)}.grid{display:grid;grid-template-columns:minmax(350px,1.15fr) minmax(300px,.85fr);gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:19px;margin-bottom:18px;min-width:0}
+label{display:block;font-size:13px;font-weight:650;margin:10px 0 5px}
+input[type=text],select,textarea{width:100%;font:inherit;padding:10px;border:1px solid #c5d0e2;border-radius:9px;background:#fff;color:inherit}
+textarea{resize:vertical}#akt{min-height:330px;font-size:14px;line-height:1.65;white-space:pre-wrap}
+button{background:var(--accent);color:white;font:600 14px inherit;padding:10px 16px;border:1px solid var(--accent);border-radius:9px;cursor:pointer}
+button.secondary{background:#fff;color:var(--accent)}button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--accent);padding:6px 12px;background:#f7f9ff;margin:12px 0}
+.warning{border-left-color:var(--warn);background:#fff6f3}
+#partial{font-style:italic;color:var(--muted);min-height:24px}
+#final{max-height:200px;overflow:auto;white-space:pre-wrap;background:#f7f9ff;padding:12px;border-radius:9px;font-size:14px}
+#difference{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#difference del,#difference ins{padding:5px;border-radius:5px;white-space:pre-wrap;overflow-wrap:anywhere}
+#difference del{background:#ffefed}#difference ins{background:#e7f5ed;text-decoration:none}
+#status{color:var(--muted)}#history{padding-left:20px;max-height:160px;overflow:auto}
+#history li{margin-bottom:5px}#history button{padding:3px 9px;font-size:12px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}main{padding:16px 12px 70px}}
+</style>
+</head>
+<body>
+<main>
+<header><img src="/static/notarai-symbol.svg" alt=""><div><h1>Asysta odczytu aktu</h1><small>Amazon Transcribe · AWS Frankfurt · kontrola notariusza</small></div><a href="/">Wróć do NotarAI</a></header>
+<p class="note warning"><strong>Ważne:</strong> transkrypcja i podpowiedzi nie potwierdzają formalnego odczytania aktu. Moduł nie zmienia oryginału ani źródłowego dokumentu Word. Przed podpisaniem sprawdź i odczytaj ostateczną treść.</p>
+<div class="card">
+<div class="grid">
+<div><label for="case">Sprawa</label><select id="case"><option value="">Ładuję sprawy…</option></select></div>
+<div><label for="mode">Rodzaj czynności</label><select id="mode"><option value="projekt">Praca nad projektem aktu</option><option value="oryginal">Poprawki na sporządzonym oryginale — notatki</option></select></div>
+</div>
+<div class="actions"><button id="load" class="secondary">Wczytaj akt</button><span id="status" role="status" aria-live="polite">Wybierz sprawę.</span></div>
+</div>
+<div class="grid">
+<section>
+<div class="card">
+<h2>Tekst roboczy / punkt odniesienia</h2>
+<p class="muted">Zaznacz w tekście fragment, którego dotyczy poprawka. Nie jest to edytor sporządzonego oryginału.</p>
+<textarea id="akt" readonly aria-label="Treść robocza aktu"></textarea>
+<div class="actions"><button id="selection" class="secondary">Przenieś zaznaczony fragment do poprawki</button></div>
+<p class="muted" id="position">Wskazanie miejsca odczytu będzie orientacyjne.</p>
+</div>
+<div class="card">
+<h2>Historia zatwierdzonych zmian</h2>
+<ol id="history"><li>Brak zmian.</li></ol>
+</div>
+</section>
+<section>
+<div class="card">
+<h2>Rozpoznawanie mowy na żywo</h2>
+<p class="muted">Mikrofon działa wyłącznie po ręcznym rozpoczęciu. Dźwięk kierowany jest do Amazon Transcribe we Frankfurcie. Nie zapisujemy go w tym module.</p>
+<label><input id="consent" type="checkbox"> Zezwalam na rozpoczęcie transkrypcji tej czynności.</label>
+<div class="actions"><button id="start" disabled>Włącz mikrofon</button><button id="stop" class="secondary" disabled>Wyłącz mikrofon</button></div>
+<p id="mic-status" class="muted" role="status" aria-live="polite">Mikrofon jest wyłączony.</p>
+<p id="partial"></p>
+<div id="final" aria-label="Transkrypcja robocza">Nie ma jeszcze rozpoznanych wypowiedzi.</div>
+<div class="actions"><button id="copy-last" class="secondary" disabled>Użyj ostatniej wypowiedzi jako polecenia</button><button id="clear-text" class="secondary">Wyczyść widok</button></div>
+</div>
+<div class="card">
+<h2>Propozycja poprawki</h2>
+<label for="instruction">Ustalenie / polecenie dla AI</label>
+<textarea id="instruction" rows="3" maxlength="1500" placeholder="np. Zmień termin wydania nieruchomości z 10 na 15 grudnia 2026 r."></textarea>
+<div class="actions"><button id="suggest">Przygotuj propozycję AI</button></div>
+<label for="before">Aktualny fragment — przed</label>
+<textarea id="before" rows="3" maxlength="2500"></textarea>
+<label for="after">Proponowana treść — po</label>
+<textarea id="after" rows="3" maxlength="3500"></textarea>
+<label for="reason">Uzasadnienie / uwaga</label><input type="text" id="reason" maxlength="600">
+<div id="difference"></div>
+<div class="actions"><button id="preview" class="secondary">Porównaj treść</button><button id="approve">Zatwierdź zmianę</button></div>
+<p class="note" id="approval-note">W trybie projektu powstanie osobna wersja DOCX. W trybie oryginału zapiszemy tylko notatkę.</p>
+</div>
+</section>
+</div>
+</main>
+<script src="/static/asysta-odczytu.js"></script>
+</body>
+</html>

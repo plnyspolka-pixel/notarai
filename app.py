@@ -57,6 +57,7 @@ import sledzenie
 import poswiadczenia
 import stenogramy
 import polly_tts
+import asysta_odczytu
 import prompty
 import rejestracja
 import rejestry
@@ -134,6 +135,7 @@ app.include_router(notariusze.router_admina)
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
 app.include_router(polly_tts.router)
+app.include_router(asysta_odczytu.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
@@ -212,6 +214,12 @@ def strona_poswiadczen():
     """Zdjecie albo skan dokumentu -> opis do repertorium A. Strona jest
     jawna (jak /admin); odczyt za nia wymaga tokenu logowania kancelarii."""
     return (Path(__file__).parent / "static" / "poswiadczenia.html").read_text("utf-8")
+
+
+@app.get("/asysta-odczytu", response_class=HTMLResponse)
+def strona_asysty_odczytu():
+    """Panel asysty aktu: strona publiczna, API wymaga logowania kancelarii."""
+    return (Path(__file__).parent / "static" / "asysta-odczytu.html").read_text("utf-8")
 
 
 @app.get("/stenogramy", response_class=HTMLResponse)

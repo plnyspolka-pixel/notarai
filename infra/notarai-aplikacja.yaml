@@ -22,6 +22,13 @@ Parameters:
   CertyfikatArn:
     Type: String
     Description: Wynik CertyfikatArn ze stosu notarai-certyfikat (status ISSUED)
+  AsystaOdczytu:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: >-
+      Pilotażowa asysta odczytu na żywo. Domyślnie wyłączona do weryfikacji
+      Transcribe Streaming, RODO i zatwierdzania wersji w środowisku testowym.
   BucketSpraw:
     Type: String
     Default: notarai-sprawy
@@ -333,6 +340,20 @@ Resources:
                   StringEquals:
                     aws:RequestedRegion: eu-central-1
 
+        # ASR na zywo w Europie: tylko Amazon Transcribe Streaming we Frankfurcie.
+        - PolicyName: transcribe-live-eu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: TranscribeLiveEU
+                Effect: Allow
+                Action:
+                  - transcribe:StartStreamTranscription
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+
         # Zakladanie kont uzytkownikow (panel admina). Logowanie, odzyskiwanie
         # hasla i sprawdzanie tokenu nie wymagaja uprawnien IAM.
         - !If
@@ -620,6 +641,9 @@ Resources:
             # Lektor projektu przez Amazon Polly we Frankfurcie.
             - Name: PIECZAPP_POLLY
               Value: "true"
+            # Asysta odczytu: sesja uruchamiana recznie; opt-out Transcribe wymagany.
+            - Name: PIECZAPP_ASYSTA_ODCZYTU
+              Value: !Ref AsystaOdczytu
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu
