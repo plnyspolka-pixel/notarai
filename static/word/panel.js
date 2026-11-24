@@ -42,7 +42,7 @@ async function readSnapshot(scope){
     body.load("text");selection.load("text");await ctx.sync();
     result={body:body.text,selection:selection.text||"",scope};
   });
-  if(!result.body.trim())throw Error("Dokument jest pusty.");
+  if(!result.body.trim()&&scope==="selection")throw Error("Dokument jest pusty; wybierz edycję całego dokumentu, aby utworzyć projekt.");
   if(result.body.length>100000)throw Error("Dokument przekracza 100 tys. znaków. Zaznacz mniejszy fragment i podziel edycję na etapy.");
   if(scope==="selection"&&!result.selection.trim())throw Error("Zaznacz fragment w Wordzie.");
   return result;

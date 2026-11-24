@@ -7,7 +7,7 @@
   "use strict";
   const types=new Set(["replace","insert_before","insert_after","delete","format","append","replace_html","append_html","insert_table_after"]);
   function validate(body,scope,selection,operations) {
-    if(typeof body!=="string"||!body.length)throw Error("Nie ma tekstu dokumentu.");
+    if(typeof body!=="string")throw Error("Nie udało się odczytać dokumentu.");
     if(!Array.isArray(operations)||operations.length>30)throw Error("Nieprawidłowa lista zmian.");
     let shadow=body;
     for(const op of operations){

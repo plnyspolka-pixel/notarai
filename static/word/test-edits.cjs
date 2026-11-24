@@ -24,3 +24,7 @@ test("rich text and tables",()=>{
   assert.equal(validate(text,"document","",[{type:"insert_table_after",find:"pierwszy",table:[["A","B"],["1","2"]]}]),text);
   assert.throws(()=>validate(text,"document","",[{type:"replace_html",find:"pierwszy",html:"<img src='x'>"}]));
 });
+
+test("create document from blank page",()=>{
+  assert.equal(validate("","document","",[{type:"append_html",html:"<p>Projekt aktu</p>"}]),"");
+});

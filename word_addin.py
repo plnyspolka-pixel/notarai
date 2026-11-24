@@ -64,7 +64,7 @@ Zasady:
 
 
 class PropozycjaWejscie(BaseModel):
-    document_text: str = Field(min_length=1, max_length=MAKS_DOKUMENT)
+    document_text: str = Field(max_length=MAKS_DOKUMENT)
     selection_text: str = Field(default="", max_length=MAKS_DOKUMENT)
     scope: Literal["document", "selection"]
     instruction: str = Field(min_length=3, max_length=4000)

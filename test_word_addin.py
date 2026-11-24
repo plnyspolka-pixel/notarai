@@ -76,3 +76,14 @@ def test_rich_html_and_tables_are_validated():
         zweryfikuj_propozycje({"summary":"","operations":[
             {"type":"insert_table_after","find":"Pierwszy","table":[["A","B"],["C"]]}
         ]},TEXT,"","document")
+
+
+def test_empty_document_supports_draft_creation():
+    from word_addin import PropozycjaWejscie
+    data=PropozycjaWejscie(document_text="",scope="document",
+                         instruction="Przygotuj pusty szablon protokołu")
+    assert data.document_text==""
+    result=zweryfikuj_propozycje({"summary":"Nowy dokument","operations":[
+        {"type":"append_html","html":"<p><b>Projekt protokołu</b></p><p>Strona: ?</p>"}
+    ]},"","","document")
+    assert result["operations"][0]["type"]=="append_html"
