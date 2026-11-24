@@ -2,5 +2,7 @@
   "name": "notarai-rozszerzenie",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test testy/silnik.test.mjs testy/kolejka.test.mjs" }
+  "scripts": {
+    "test": "node --check sesja.js && node --check tlo.js && node --test testy/silnik.test.mjs testy/kolejka.test.mjs"
+  }
 }

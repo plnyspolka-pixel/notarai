@@ -99,7 +99,7 @@ async function odlaczLokalnie() {
   ++kolejka;
   czekaNaZgode = null;
   $("zgoda").hidden = true;
-  await chrome.storage.local.set({ token: "", blokadaParowania: true });
+  await chrome.storage.local.set({ token: "", tozsamosc: "", blokadaParowania: true });
   pokazWidok();
 }
 
@@ -378,6 +378,15 @@ function pokazObceRamki(strona) {
 
 /* ---------- start ---------- */
 
+chrome.storage.onChanged.addListener((zmiany, obszar) => {
+  if (obszar !== "local" || !zmiany.token || !ustawienia.token || zmiany.token.newValue === ustawienia.token) return;
+  przerwij = true;
+  ustawienia.token = "";
+  ++kolejka;
+  czekaNaZgode = null;
+  $("zgoda").hidden = true;
+  pokazWidok();
+});
 chrome.tabs.onActivated.addListener(odswiezKarte);
 chrome.tabs.onUpdated.addListener((id, zmiana) => {
   if (zmiana.url || zmiana.status === "complete") odswiezKarte();

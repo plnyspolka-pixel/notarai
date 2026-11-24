@@ -20,7 +20,7 @@ async function proba(id) {
         headers: { Authorization: "Bearer " + wynik.token, "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
       return { stan: teraz.token ? "polaczono" : "odlaczono" };
     }
-    await chrome.storage.local.set({ token: wynik.token, adres: ADRES });
+    await chrome.storage.local.set({ token: wynik.token, adres: ADRES, tozsamosc: wynik.tozsamosc });
     return { stan: "polaczono" };
   } catch { return { stan: "blad" }; }
 }
@@ -28,12 +28,24 @@ function polacz(id) {
   if (!laczenie) laczenie = proba(id).finally(() => { laczenie = undefined; });
   return laczenie;
 }
+async function zmianaSesji(msg, id) {
+  if (laczenie) await laczenie.catch(() => {});
+  const zapis = await chrome.storage.local.get(["token", "tozsamosc"]);
+  if (zapis.token && (msg.wylogowano || (zapis.tozsamosc && msg.tozsamosc && zapis.tozsamosc !== msg.tozsamosc))) {
+    await chrome.storage.local.set({ token: "", tozsamosc: "", blokadaParowania: true });
+    await fetch(ADRES + "/api/pomocnik/odlacz", { method: "POST", redirect: "error",
+      headers: { Authorization: "Bearer " + zapis.token, "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+    return { stan: "odlaczono" };
+  }
+  return polacz(id);
+}
 chrome.runtime.onMessage.addListener((msg, sender, odpowiedz) => {
   if (sender.id !== chrome.runtime.id) return;
   const zAplikacji = sender.frameId === 0 && sender.url?.startsWith(ADRES + "/");
   const zPanelu = sender.url?.startsWith(chrome.runtime.getURL("panel.html"));
   if ((msg?.typ === "notarai-sesja" && zAplikacji) || (msg?.typ === "notarai-polacz" && zPanelu)) {
-    polacz(sender.tab?.id).then(odpowiedz, () => odpowiedz({ stan: "blad" }));
+    const zadanie = msg.typ === "notarai-sesja" ? zmianaSesji(msg, sender.tab?.id) : polacz(sender.tab?.id);
+    zadanie.then(odpowiedz, () => odpowiedz({ stan: "blad" }));
     return true;
   }
 });

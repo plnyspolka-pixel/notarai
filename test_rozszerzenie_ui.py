@@ -89,7 +89,7 @@ if (location.pathname.endsWith("/panel.html")) {
       if (d.token) pamiec.token = d.token;
       return { stan: d.token ? "polaczono" : "logowanie" };
     } },
-    storage: { local: {
+    storage: { onChanged: nic, local: {
       get: async (klucze) => Object.fromEntries(klucze.filter(k => k in pamiec).map(k => [k, pamiec[k]])),
       set: async (dane) => { Object.assign(pamiec, dane); },
     } },
