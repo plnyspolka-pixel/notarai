@@ -2059,16 +2059,16 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
     adres = polecenie.adres.strip()
     nowa = polecenie.nowa_karta
     if not adres:
-        traf = re.search(r"https://[^\\s<>\\\"']+", cel, re.I)
-        if traf and re.search(r"\\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\\s+kart)", cel, re.I):
+        traf = re.search(r"https://[^\s<>\"']+", cel, re.I)
+        if traf and re.search(r"\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\s+kart)", cel, re.I):
             adres = traf.group(0).rstrip(".,;!)")
-            nowa = bool(re.search(r"now[aą]\\s+kart", cel, re.I))
+            nowa = bool(re.search(r"now[aą]\s+kart", cel, re.I))
     if adres:
         u = urlsplit(adres)
         host = (u.hostname or "").lower()
         if (u.scheme != "https" or u.username or u.password or u.port not in (None, 443)
-                or not re.fullmatch(r"[a-z0-9-]{1,63}(?:\\.[a-z0-9-]{1,63})+", host)
-                or re.fullmatch(r"\\d+(?:\\.\\d+){3}", host)
+                or not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\d+(?:\.\d+){3}", host)
                 or host.endswith((".local", ".localhost", ".internal"))):
             raise HTTPException(400, "Otwieraj tylko poprawne publiczne adresy HTTPS.")
     pubkey = polecenie.podglad_pubkey
