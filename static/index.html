@@ -1692,7 +1692,7 @@ notarai</div>
       <p>Pierwszy raz? Hasło tymczasowe jest w zaproszeniu, które przyszło e-mailem. Nie widzisz go — zajrzyj do spamu.</p>
       <div class="pole">
         <label class="etykieta" for="pole-email">Adres e-mail</label>
-        <input type="email" id="pole-email" autocomplete="username" spellcheck="false">
+        <input type="text" id="pole-email" autocomplete="username" spellcheck="false">
       </div>
       <div class="pole">
         <label class="etykieta" for="pole-haslo">Hasło</label>
@@ -2348,6 +2348,7 @@ $("btn-zaloguj").onclick = async () => {
       $("pole-haslo-nowe").focus();
       return;
     }
+    if (wynik.demo) wyczyscDanePoWylogowaniu();
     wpusc(wynik.token);
   } catch (e) {
     stan($("stan-brama"), e.message, true);
@@ -3020,6 +3021,22 @@ $("btn-folder").onclick = async () => {
 
 async function uruchomTrybPracy(){
   const rozpoczecieSesji = pokolenieSesji;
+  const demo = token === "notarai-public-demo-v1";
+  if (demo) {
+    dokumenty = null;
+    zespol = null;
+    $("kto").textContent = "NotarAI DEMO · dane fikcyjne";
+    $("kto").title = "Publiczna symulacja — nie wpisuj prawdziwych danych";
+    $("kto").hidden = false;
+    $("btn-zespol").hidden = true;
+    $("btn-abonament").hidden = true;
+    $("btn-dokumenty").hidden = true;
+    $("btn-komplet").hidden = true;
+    $("btn-hurtowe").hidden = true;
+    $("pai-mikrofon").hidden = true;
+  } else {
+    $("pai-mikrofon").hidden = false;
+  }
   try {
     const odp = await api("/api/ustawienia");
     if (odp.ok) {
@@ -3041,7 +3058,8 @@ async function uruchomTrybPracy(){
   if (rozpoczecieSesji !== pokolenieSesji) return;
   pokaz(13); // Chat jest głównym panelem po zalogowaniu.
   // Ekran startowy z profilu interfejsu kancelarii (np. kalendarz).
-  if (ekranStartowy()) pokaz(ekranStartowy());
+  if (!demo && ekranStartowy()) pokaz(ekranStartowy());
+  if (demo) { rysujListeSpraw(); return; }
   // Prosby o zmiany w toku: sledzimy je w tle i powiadamiamy, gdy zaczna dzialac.
   odswiezProsby();
   if (SERWIS) {
