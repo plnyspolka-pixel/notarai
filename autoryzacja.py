@@ -281,7 +281,8 @@ async def naglowki_bezpieczenstwa(request: Request, call_next):
     # Wyjątek wyłącznie dla panelu Office wewnątrz domen Microsoft 365.
     # Reszta aplikacji nadal ma zakaz osadzania (DENY).
     if request.url.path == "/static/word/panel.html":
-        odp.headers.pop("X-Frame-Options", None)
+        if "X-Frame-Options" in odp.headers:
+            del odp.headers["X-Frame-Options"]
         odp.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' https://appsforoffice.microsoft.com; "
