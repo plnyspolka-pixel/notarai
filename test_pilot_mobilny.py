@@ -236,3 +236,129 @@ def test_approval_dialog_present():
     assert 'id="pilot-zgoda-tak"' in tekst
     assert 'id="pilot-zgoda-nie"' in tekst
     assert 'Pozwól tylko tym razem' in tekst
+
+
+class TestKartyPrzezTelefon:
+    def test_komenda_otwiera_nowa_karte_na_wskazanym_pc(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Karty")
+        pc1, id1 = _aktywny(klient, osoba, "PC1")
+        pc2, _ = _aktywny(klient, osoba, "PC2")
+        odp = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                          json={"komputer": id1,
+                                "cel": "Otwórz nową kartę https://geoportal.gov.pl/mapa"})
+        assert odp.status_code == 202
+        assert klient.get("/api/pomocnik/zlecenia", headers=pc2).json() == []
+        zadanie = klient.get("/api/pomocnik/zlecenia", headers=pc1).json()[0]
+        assert zadanie["rodzaj"] == "karty"
+        assert zadanie["tresc"]["adres"] == "https://geoportal.gov.pl/mapa"
+        assert zadanie["tresc"]["nowa_karta"] is True
+
+    def test_jawny_adres_i_zwykla_nawigacja(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Karty")
+        pc, id_komputera = _aktywny(klient, osoba)
+        odp = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                          json={"komputer": id_komputera, "cel": "wejdź na stronę",
+                                "adres": "https://krz.ms.gov.pl/", "nowa_karta": False})
+        assert odp.status_code == 202
+        zadanie = klient.get("/api/pomocnik/zlecenia", headers=pc).json()[0]
+        assert zadanie["rodzaj"] == "karty"
+        assert zadanie["tresc"]["nowa_karta"] is False
+
+    def test_nie_akceptuje_prywatnych_adresow_i_niebezpiecznych_schematow(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Karty")
+        _, id_komputera = _aktywny(klient, osoba)
+        for adres in ("http://geoportal.gov.pl/", "https://127.0.0.1/",
+                      "https://intranet.local/", "file:///c:/users/",
+                      "https://uzytkownik:haslo@geoportal.gov.pl/",
+                      "https://geoportal.gov.pl:444/", "https://geoportal.gov.pl:abc/"):
+            odp = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": id_komputera, "cel": "otworz",
+                                    "adres": adres, "nowa_karta": True})
+            assert odp.status_code == 400, adres
+
+    def test_zadanie_karty_zwraca_raport(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Karty")
+        pc, id_komputera = _aktywny(klient, osoba)
+        identyfikator = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                                    json={"komputer": id_komputera, "cel": "otworz",
+                                          "adres": "https://geoportal.gov.pl/",
+                                          "nowa_karta": True}).json()["zlecenie"]
+        odp = klient.post(f"/api/pomocnik/zlecenia/{identyfikator}/wynik",
+                          headers=pc, json={"podsumowanie": "Nowa karta", "bledy": []})
+        assert odp.status_code == 200
+        raport = klient.get(f"/api/urzadzenia/polecenia/{identyfikator}",
+                            headers=osoba).json()["raport"]
+        assert raport["podsumowanie"] == "Nowa karta"
+
+
+KLUCZ_TELEFONU = {"kty": "EC", "crv": "P-256", "x": "AAAA", "y": "BBBB"}
+KLUCZ_ROZSZERZENIA = {"kty": "EC", "crv": "P-256", "x": "CCCC", "y": "DDDD"}
+
+
+class TestZaszyfrowanegoPodgladu:
+    def test_klatka_jest_szyfrowana_i_nalezy_do_kancelarii(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Wideo")
+        _, obca = kancelaria("Kancelaria Obca")
+        pc, id1 = _aktywny(klient, osoba)
+        pc2, _ = _aktywny(klient, osoba, "DRUGI-PC")
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": id1, "cel": "czytaj stronę",
+                                    "podglad_pubkey": KLUCZ_TELEFONU}).json()["zlecenie"]
+        paczka = {"numer": 1, "klucz": KLUCZ_ROZSZERZENIA,
+                  "iv": "abcdefghijklmnop", "dane": "Y2lwaGVydGV4dA=="}
+        wysylka = f"/api/pomocnik/podglad/{zadanie}"
+        odczyt = f"/api/urzadzenia/polecenia/{zadanie}/podglad"
+        assert klient.post(wysylka, headers=pc2, json=paczka).status_code == 403
+        assert klient.post(wysylka, headers=osoba, json=paczka).status_code == 403
+        assert klient.post(wysylka, headers=pc, json=paczka).status_code == 202
+        assert klient.get(odczyt, headers=obca).json()["stan"] == "brak"
+        aktualny = klient.get(odczyt, headers=osoba).json()
+        assert aktualny["stan"] == "kadr"
+        assert aktualny["kadr"]["numer"] == 1
+        assert aktualny["kadr"]["dane"] == paczka["dane"]
+        assert "obraz" not in str(aktualny).lower()
+        assert klient.get(odczyt).status_code == 401
+
+    def test_kadr_wygasa_automatycznie(self, srodowisko, monkeypatch):
+        import podglad_pilota
+        from datetime import datetime, timedelta, timezone
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Wideo")
+        pc, id1 = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": id1, "cel": "czytaj",
+                                    "podglad_pubkey": KLUCZ_TELEFONU}).json()["zlecenie"]
+        klient.post(f"/api/pomocnik/podglad/{zadanie}", headers=pc,
+                    json={"numer": 1, "klucz": KLUCZ_ROZSZERZENIA,
+                          "iv": "abcdefghijklmnop", "dane": "YQ=="})
+        daleko = datetime.now(timezone.utc) + timedelta(seconds=18)
+        monkeypatch.setattr(podglad_pilota, "_teraz", lambda: daleko)
+        assert klient.get(f"/api/urzadzenia/polecenia/{zadanie}/podglad",
+                          headers=osoba).json()["stan"] == "brak"
+
+    def test_bez_klucza_telefonu_nie_wolno_przesylac_obrazu(self, srodowisko):
+        klient, kancelaria, _, _ = srodowisko
+        _, osoba = kancelaria("Kancelaria Wideo")
+        pc, id1 = _aktywny(klient, osoba)
+        zadanie = klient.post("/api/urzadzenia/polecenia", headers=osoba,
+                              json={"komputer": id1, "cel": "czytaj"}).json()["zlecenie"]
+        odp = klient.post(f"/api/pomocnik/podglad/{zadanie}", headers=pc,
+                          json={"numer": 1, "klucz": KLUCZ_ROZSZERZENIA,
+                                "iv": "abcdefghijklmnop", "dane": "YQ=="})
+        assert odp.status_code == 403
+
+
+def test_preview_ui_and_extension_code_have_encryption():
+    root = Path(__file__).parent
+    html = (root / "static" / "index.html").read_text("utf-8")
+    js = (root / "rozszerzenie" / "podglad.js").read_text("utf-8")
+    assert 'id="pilot-kadr"' in html
+    assert 'id="pilot-nowa-karta"' in html
+    assert "AES-GCM" in js and "ECDH" in js
+    assert "captureVisibleTab" in js
+    assert "podglad_pubkey" in (root / "rozszerzenie" / "panel.js").read_text("utf-8")
