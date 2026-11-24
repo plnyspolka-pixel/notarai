@@ -106,6 +106,18 @@
     if (zajety || nagrywa) return;
     const tresc = pole.value.trim();
     if (!tresc) return;
+    // A direct KW request opens the existing form; retrieval still requires consent.
+    const kw = tresc.match(/\b[A-Z0-9]{4}\s*\/\s*\d{8}\s*\/\s*\d\b/i);
+    if (kw && /^(?:proszę\s+)?(?:pobierz|sprawdź|otwórz|ściągnij)\s+(?:(?:aktualną\s+)?(?:kw|księgę(?:\s+wieczystą)?)\s*)?[: ]*[A-Z0-9]{4}\s*\/\s*\d{8}\s*\/\s*\d\s*[.!]?$/i.test(tresc)) {
+      if (window.otworzKsiegeWieczysta?.(kw[0].toUpperCase().replace(/\s+/g, ""))) {
+        pole.value = "";
+        dodajWiadomosc("uzytkownik", tresc);
+        dodajWiadomosc("asystent", "Otworzyłem formularz EKW. Wybierz sprawę, jeśli nie jest otwarta, i potwierdź pobranie.");
+      } else {
+        powiadom("Pobieranie EKW nie jest dostępne w tym trybie lub na tym koncie.", true);
+      }
+      return;
+    }
     const poprzednia = historia.slice(-12);
     const sesja = pokolenieCzatu;
     pole.value = "";
