@@ -55,6 +55,7 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             "/notariusze", "/api/notariusze",
             # powrot z logowania Microsoft/Google przy podpinaniu skrzynki (podpisany stan)
             "/api/korespondencja/oauth/powrot",
+            "/api/google-kalendarz/powrot",
             # webhooki agenta glosowego - wlasny token i limity (agent_glosowy.py)
             "/api/agent-glosowy",
             # sama strona; jej API (/api/poswiadczenia) wymaga logowania
@@ -76,7 +77,7 @@ _DLA_POMOCNIKA = "/api/pomocnik/"
 # mogl go sobie przedluzyc.
 NAGLOWEK_SERWISU = "x-serwis-kancelaria"
 _POZA_SERWISEM = ("/api/zespol", "/api/serwis", "/api/kredyty", "/api/dokumenty",
-                  "/api/pomocnik", "/api/mapa", "/api/zapytania",
+                  "/api/pomocnik", "/api/mapa", "/api/zapytania", "/api/google-kalendarz",
                   # Repertorium i zgloszenia AML - tajemnica notarialna, art. 18 PrNot.
                   "/api/ksiegi-kancelarii", "/api/giif")
 _SERWIS_MAKS_GODZIN = 7 * 24

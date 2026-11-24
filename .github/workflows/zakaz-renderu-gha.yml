@@ -1,0 +1,27 @@
+# Twarda reguła właściciela (23.11.2026): nic nie renderuje się na GitHub Actions.
+# Rolki, serial Komputerku / Kancelaria pod Siódemką, scenografia, głos i klipy GPU
+# idą wyłącznie przez Cloudflare (finyou-render) i GPU zlecane spoza GitHuba.
+# Ten job sprawdza każdą gałąź przy każdym pushu i każdy PR; czerwony = blokada.
+name: zakaz-renderu-gha
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zakaz-renderu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Samotest wzorców
+        run: python3 -I tools/zakaz_renderu_gha.py --test
+      - name: Żaden workflow nie renderuje
+        run: python3 -I tools/zakaz_renderu_gha.py

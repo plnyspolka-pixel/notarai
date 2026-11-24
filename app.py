@@ -34,6 +34,7 @@ import dokumenty
 import dokumenty_prawne
 import ekw
 import giif
+import google_kalendarz
 import ksiegi_notarialne
 import formularze
 import kalendarz
@@ -55,6 +56,7 @@ import skan_bezpieczenstwa
 import sledzenie
 import poswiadczenia
 import stenogramy
+import polly_tts
 import prompty
 import rejestracja
 import rejestry
@@ -115,6 +117,8 @@ app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
 app.include_router(teczka.router)
 app.include_router(korespondencja.router)
+app.include_router(google_kalendarz.router)
+google_kalendarz.uruchom_automat()
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
@@ -129,6 +133,7 @@ app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
+app.include_router(polly_tts.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
