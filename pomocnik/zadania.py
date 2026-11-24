@@ -122,4 +122,36 @@ def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
     }
 
 
-WYKONAWCY = {"krz": krz, "klikamy": klikamy}
+def karty(zlecenie: dict, notarai=None) -> dict:
+    """Otwieranie adresu i nowych kart w wydzielonej przegladarce Windows."""
+    from pomocnik import przegladarka
+    import time
+
+    tresc = zlecenie.get("tresc") or {}
+    adres = tresc.get("adres", "")
+    try:
+        if not adres.startswith("https://"):
+            return {"bledy": ["Dozwolone sa tylko strony HTTPS."]}
+        try:
+            cdp.karty()
+        except cdp.BladPrzegladarki:
+            przegladarka.uruchom()
+            time.sleep(2)
+        if tresc.get("nowa_karta"):
+            cdp.nowa_karta(adres)
+            opis = "Otworzono nowa karte."
+        else:
+            polaczenie, strona = cdp.polacz()
+            try:
+                strona.otworz(adres)
+            finally:
+                polaczenie.zamknij()
+            opis = "Przeszedlem na wskazany adres."
+        return {"kroki": [{"nr": 1, "akcja": "otworz", "cel": adres.split("/")[2]}],
+                "podsumowanie": opis, "bledy": []}
+    except (OSError, RuntimeError, ValueError) as blad:
+        log.warning("karty: %s", type(blad).__name__)
+        return {"bledy": ["Nie udalo sie otworzyc strony na tym komputerze."]}
+
+
+WYKONAWCY = {"krz": krz, "klikamy": klikamy, "karty": karty}
