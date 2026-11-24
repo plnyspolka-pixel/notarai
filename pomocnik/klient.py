@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 log = logging.getLogger("notarai.pomocnik.klient")
 
-WERSJA = "0.3"
+WERSJA = "0.4"
 PRZERWA_S = 3.0
 PRZERWA_PO_BLEDZIE_S = 15.0
 
