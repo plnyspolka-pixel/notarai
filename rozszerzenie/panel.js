@@ -24,7 +24,7 @@ const kartaZTestu = Number(new URLSearchParams(location.search).get("karta")) ||
 
 const NAZWY_AKCJI = { kliknij: "Klikam", wpisz: "Wpisuję w", wybierz: "Wybieram w",
                       otworz: "Otwieram", czytaj: "Czytam stronę", pytam: "Pytam",
-                      koniec: "Gotowe", krz: "Sprawdzam w KRZ:", pominiete: "Pomijam" };
+                      koniec: "Gotowe", czekam: "Czekam na", krz: "Sprawdzam w KRZ:", pominiete: "Pomijam" };
 
 function wzorzecZgody(adres) {
   const u = new URL(adres);
@@ -135,6 +135,15 @@ function pokazWynik(naglowek, tresc, koniec = false) {
   pole.hidden = false;
 }
 
+/* Praca wstrzymana do ruchu czlowieka (logowanie, podpis). Trzymamy tylko to,
+   co potrzebne do wznowienia: polecenie, karte i przebieg bez wartosci pol. */
+let wstrzymane = null;
+
+function pokazWznow(widac) {
+  $("btn-wznow").hidden = !widac;
+  if (!widac) wstrzymane = null;
+}
+
 function ustawPrace(trwa) {
   pracuje = trwa;
   $("btn-wykonaj").disabled = trwa;
@@ -154,6 +163,7 @@ $("formularz").onsubmit = (zdarzenie) => {
     return;
   }
   $("wynik").hidden = true;
+  pokazWznow(false);
   // Prosba o zgode musi isc wprost z klikniecia - dlatego bez await przed nia.
   const cela = { id: karta.id, url: karta.url };
   chrome.permissions.request({ origins: [wzorzecZgody(cela.url)] })
@@ -163,10 +173,17 @@ $("formularz").onsubmit = (zdarzenie) => {
                             "Przeglądarka nie pozwala rozszerzeniom działać pod tym adresem."));
 };
 
-async function wykonaj(cel, cela) {
+$("btn-wznow").onclick = () => {
+  if (pracuje || !wstrzymane) return;
+  const { cel, cela, przebieg } = wstrzymane;
+  wykonaj(cel, cela, { kroki: przebieg.kroki, dozwolone: przebieg.dozwolone });
+};
+
+async function wykonaj(cel, cela, wznow = null) {
   przerwij = false;
   $("btn-stop").disabled = false;
-  $("kroki").replaceChildren();
+  if (!wznow) $("kroki").replaceChildren();
+  pokazWznow(false);
   $("wynik").hidden = true;
   $("ramki").hidden = true;
   ustawPrace(true);
@@ -179,7 +196,7 @@ async function wykonaj(cel, cela) {
     zlecenie = await notarai.zlecKlikanie(cel, host(cela.url));
     przebieg = await prowadz(cel, strona,
       (c, stan, kroki) => notarai.krok(zlecenie, c, stan, kroki),
-      { przerwij: () => przerwij, naKrok: dopiszKrok });
+      { przerwij: () => przerwij, naKrok: dopiszKrok, wznow });
   } catch (blad) {
     if (blad instanceof BladTokenu) { ustawPrace(false); await odlaczLokalnie(); return; }
     pokazWynik("Nie udało się.", blad instanceof BladPolaczenia ? blad.message
@@ -188,8 +205,11 @@ async function wykonaj(cel, cela) {
 
   if (przebieg) {
     let rodzaj = "koniec";
-    if (przebieg.pytanie) { rodzaj = "pytanie"; pokazWynik("Teraz Ty.", przebieg.pytanie); }
-    else if (przebieg.zatrzymano) {
+    if (przebieg.pytanie) {
+      rodzaj = "pytanie";
+      pokazWynik(przebieg.czeka === "logowanie" ? "Zaloguj się." : "Teraz Ty.", przebieg.pytanie);
+      if (przebieg.czeka) { wstrzymane = { cel, cela, przebieg }; $("btn-wznow").hidden = false; }
+    } else if (przebieg.zatrzymano) {
       rodzaj = przerwij ? "przerwano" : "zatrzymano";
       pokazWynik("Zatrzymałem się.", przebieg.zatrzymano);
     } else pokazWynik("Gotowe.", przebieg.podsumowanie || "Zrobione.", true);
