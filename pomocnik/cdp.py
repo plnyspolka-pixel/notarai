@@ -68,6 +68,28 @@ def karty(port: int = PORT) -> list[dict]:
     return [c for c in cele if c.get("type") == "page" and c.get("webSocketDebuggerUrl")]
 
 
+def nowa_karta(adres: str, port: int = PORT) -> dict:
+    """Chrome DevTools: otwiera nowa karte w izolowanym profilu pomocnika.
+
+    Nie udostepniamy lokalnego portu 9222 w sieci - tylko 127.0.0.1.
+    """
+    from urllib.parse import quote
+    if not adres.startswith("https://"):
+        raise BladPrzegladarki("Dozwolone sa tylko adresy HTTPS.")
+    prosba = urllib.request.Request(
+        f"http://127.0.0.1:{port}/json/new?{quote(adres, safe='')}",
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(prosba, timeout=10) as odp:
+            karta = json.loads(odp.read().decode("utf-8"))
+    except (OSError, urllib.error.URLError, ValueError) as blad:
+        raise BladPrzegladarki("Nie udalo sie otworzyc nowej karty.") from blad
+    if karta.get("type") != "page":
+        raise BladPrzegladarki("Chrome nie utworzyl nowej karty.")
+    return karta
+
+
 def wybierz_karte(adres_prefiks: str = "", port: int = PORT) -> dict:
     """Karta, na ktorej mamy pracowac.
 
