@@ -42,6 +42,12 @@ export async function uruchomPodglad(zlecenie, kartaId, notarai, chromeApi = chr
     { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
   const klucz = await crypto.subtle.exportKey("jwk", klucze.publicKey);
   let wlaczony = true, numer = 0, blokada = false;
+  const pierwsza = await chromeApi.tabs.get(kartaId);
+  const adresy = [pierwsza.url, ...(zlecenie.tresc?.dozwolone_hosty || []).map(h => "https://" + h),
+                   zlecenie.tresc?.adres];
+  const hosty = adresy.filter(Boolean).map(u => {
+    try { return new URL(u).hostname.toLowerCase(); } catch { return ""; }
+  }).filter(Boolean);
 
   async function raz() {
     if (!wlaczony || blokada) return;
@@ -51,8 +57,13 @@ export async function uruchomPodglad(zlecenie, kartaId, notarai, chromeApi = chr
       const aktywna = (await chromeApi.tabs.query({ active: true, windowId: tab.windowId }))[0];
       // Nie robimy kadrow innych kart, stron systemowych, przegladarek prywatnych
       // ani kart, ktore nie sa wlasnie prowadzone przez to zlecenie.
+      let aktualny;
+      try { aktualny = new URL(tab.url || ""); } catch { return; }
+      // Przejscie na nieuzgodniona domene (np. automatyczne przekierowanie)
+      // zatrzymuje podglad tej karty do ponownego jawnego zlecenia.
       if (!tab.active || !aktywna || aktywna.id !== kartaId ||
-          !/^https:\/\//.test(tab.url || "")) return;
+          aktualny.protocol !== "https:" ||
+          !hosty.some(h => aktualny.hostname === h || aktualny.hostname.endsWith("." + h))) return;
       const dataUrl = await chromeApi.tabs.captureVisibleTab(
         tab.windowId, { format: "jpeg", quality: 50 });
       const pixels = await zmniejsz(dataUrl);
