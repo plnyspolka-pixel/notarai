@@ -172,6 +172,11 @@ def _kancelaria_z_naglowka(token: str) -> tuple[str | None, str | None, str]:
     if urzadzenia.czy_token_pomocnika(token):
         komputer = urzadzenia.z_tokenu(token)
         if komputer and _aktywna(komputer["kancelaria"]):
+            email_rozszerzenia = komputer.get("email_rozszerzenia")
+            if email_rozszerzenia:
+                osoba = _osoba_w_kancelarii(komputer["kancelaria"], email_rozszerzenia)
+                if not osoba or (osoba.get("rola") != "wlasciciel" and osoba.get("stanowisko") != "notariusz"):
+                    return None, None, ""
             return komputer["kancelaria"], komputer["id"], ""
     return None, None, ""
 

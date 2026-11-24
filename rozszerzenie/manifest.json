@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "notarai - asystent w przeglądarce",
   "short_name": "notarai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pole polecenia notarai obok strony urzędu lub rejestru. Asystent wypełnia i klika za Ciebie, ale nigdy nie wysyła, nie składa i nie podpisuje.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -19,7 +19,30 @@
   "background": {
     "service_worker": "tlo.js"
   },
-  "permissions": ["sidePanel", "storage", "scripting", "tabs"],
-  "host_permissions": ["https://app.notarai.pl/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"]
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://app.notarai.pl/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.notarai.pl/*"
+      ],
+      "js": [
+        "sesja.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
 }

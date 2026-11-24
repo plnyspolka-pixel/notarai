@@ -2241,6 +2241,22 @@ def _pomocnik_do_pobrania() -> dict | None:
             "rozmiar_mb": round(plik.stat().st_size / 1024 / 1024, 1)}
 
 
+@app.post("/api/urzadzenia/rozszerzenie", status_code=201)
+def polacz_rozszerzenie(request: Request, dane: NazwaKomputera):
+    """Połączenie oficjalnego rozszerzenia z bieżącą, uwierzytelnioną kancelarią."""
+    _wymagaj_urzadzen()
+    email = getattr(request.state, "email", "")
+    if not email or getattr(request.state, "serwis", False):
+        raise HTTPException(403, "Wymagane logowanie użytkownika kancelarii.")
+    osoba = autoryzacja._osoba_w_kancelarii(magazyn.kancelaria(), email)
+    if not osoba or (osoba.get("rola") != "wlasciciel" and osoba.get("stanowisko") != "notariusz"):
+        raise HTTPException(403, "Rozszerzenie może połączyć właściciel lub notariusz.")
+    if not urzadzenia.wolno(autoryzacja.adres_klienta(request)):
+        raise HTTPException(429, "Za dużo prób łączenia. Spróbuj za kilka minut.")
+    wynik = urzadzenia.wydaj_token(magazyn.kancelaria(), dane.nazwa, email)
+    return JSONResponse(wynik, status_code=201, headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/urzadzenia/polacz")
 def parowanie_potwierdz(request: Request, dane: KodPolaczenia):
     _wymagaj_urzadzen()

@@ -227,19 +227,25 @@ def odbierz(kod: str, sekret: str) -> dict | None:
     if not kancelaria:
         return None
 
-    identyfikator = secrets.token_hex(4)
+    wynik = wydaj_token(kancelaria, wpis["nazwa"])
+    _usun(_klucz_parowania(normalizuj_kod(kod)))
+    return wynik
+
+
+def wydaj_token(kancelaria: str, nazwa: str, email: str = "") -> dict:
+    """Osobne poświadczenie urządzenia; email oznacza rozszerzenie powiązane z użytkownikiem."""
+    identyfikator = secrets.token_hex(8)
     token = PREFIKS_TOKENU + secrets.token_urlsafe(32)
     skrot = _sha(token)
     teraz = _teraz().isoformat(timespec="seconds")
     _pisz(_klucz_tokenu(skrot), {
-        "id": identyfikator, "kancelaria": kancelaria, "nazwa": wpis["nazwa"],
-        "utworzono": teraz,
+        "id": identyfikator, "kancelaria": kancelaria, "nazwa": _nazwa_komputera(nazwa),
+        "utworzono": teraz, "email_rozszerzenia": email,
     })
     _pisz(_klucz_pomocnika(kancelaria, identyfikator), {
-        "id": identyfikator, "nazwa": wpis["nazwa"], "utworzono": teraz,
+        "id": identyfikator, "nazwa": _nazwa_komputera(nazwa), "utworzono": teraz,
         "skrot": skrot, "widziany": None, "wersja": "",
     })
-    _usun(_klucz_parowania(normalizuj_kod(kod)))
     log.info("parowanie: kancelaria %s, nowy komputer %s", kancelaria, identyfikator)
     return {"token": token, "id": identyfikator}
 
@@ -266,7 +272,7 @@ def z_tokenu(token: str) -> dict | None:
     if zapamietany and time.monotonic() - zapamietany[0] < _PAMIEC_S:
         return zapamietany[1]
     wpis = _czytaj(_klucz_tokenu(skrot))
-    if wpis:
+    if wpis and not wpis.get("email_rozszerzenia"):
         _pamiec[skrot] = (time.monotonic(), wpis)
     else:
         _pamiec.pop(skrot, None)
