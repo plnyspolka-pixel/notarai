@@ -30,7 +30,7 @@ import magazyn
 log = logging.getLogger("pieczapp.zlecenia")
 
 WAZNOSC_MINUT = int(os.getenv("PIECZAPP_ZLECENIE_MINUT", "30"))
-RODZAJE = ("krz", "formularz", "klikamy")
+RODZAJE = ("krz", "formularz", "klikamy", "karty")
 # "w_toku": zlecenie zlozone przez rozszerzenie przegladarki, ktore samo je
 # wykonuje - pomocnik (.exe) nie ma go odbierac, wiec nie moze "czekac".
 STANY = ("czeka", "w_toku", "wykonane")
