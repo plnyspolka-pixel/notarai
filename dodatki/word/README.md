@@ -15,7 +15,7 @@ Manifest: dodatki/word/manifest.xml (Office TaskPane, ReadWriteDocument).
 9. Dodatek porównuje aktualny dokument z migawką, włącza Track Changes, weryfikuje dopasowania w Wordzie i wykonuje operacje.
 
 ## Ograniczenia / bezpieczeństwo
-- Dotyczy edycji tekstu i podstawowego formatowania w treści głównej dokumentu, w tym tekstu w tabelach, gdy Word.search odnajdzie unikatową kotwicę.
+- Dotyczy edycji tekstu, podstawowego formatowania, wstawiania sformatowanych bloków HTML oraz tabel w treści głównej dokumentu, w tym tekstu w tabelach, gdy Word.search odnajdzie unikatową kotwicę.
 - Nie obsługuje pełnej bezstratnej rekonstrukcji złożonych OOXML, nagłówków/stopki i automatycznego generowania tabel z dowolnym układem. „Pełna edycja” wymaga jeszcze poszerzenia adaptera i testów w Wordzie.
 - Dokument przesyłany jest jawnie (po działaniu użytkownika) do istniejącej ścieżki Bedrock — nie deklarować z tego powodu 3×ZERO.
 - Nie wysyła, nie podpisuje i nie zapisuje automatycznie dokumentów; działa wyłącznie na kopiach roboczych.

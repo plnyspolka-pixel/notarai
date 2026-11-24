@@ -49,7 +49,7 @@ async function readSnapshot(scope){
 }
 function render(ops){
   const place=$("operations");place.replaceChildren();
-  const names={replace:"Zastąp tekst",delete:"Usuń tekst",insert_before:"Wstaw przed",insert_after:"Wstaw po",append:"Dodaj na końcu",format:"Zmień formatowanie"};
+  const names={replace:"Zastąp tekst",delete:"Usuń tekst",insert_before:"Wstaw przed",insert_after:"Wstaw po",append:"Dodaj na końcu",format:"Zmień formatowanie",replace_html:"Zastąp treścią formatowaną",append_html:"Dodaj blok formatowany",insert_table_after:"Wstaw tabelę"};
   ops.forEach((op,i)=>{
     const card=document.createElement("div");card.className="edit";
     const header=document.createElement("label");header.className="edit-header";
@@ -58,6 +58,8 @@ function render(ops){
     header.append(input,title);card.append(header);
     if(op.find){const before=document.createElement("pre");before.className="before";before.textContent="W dokumencie:\n"+op.find;card.append(before);}
     if(op.text){const after=document.createElement("pre");after.className="after";after.textContent="Proponowana treść:\n"+op.text;card.append(after);}
+    if(op.html){const h=document.createElement("pre");h.className="after";h.textContent="Formatowana treść (HTML):\n"+op.html;card.append(h);}
+    if(op.table){const tbl=document.createElement("pre");tbl.className="after";tbl.textContent="Tabela:\n"+op.table.map(row=>row.join(" | ")).join("\n");card.append(tbl);}
     if(op.format){const fmt=document.createElement("pre");fmt.textContent="Formatowanie:\n"+JSON.stringify(op.format);card.append(fmt);}
     place.append(card);
   });
@@ -108,6 +110,9 @@ async function apply(){
       ctx.document.changeTrackingMode=Word.ChangeTrackingMode.trackAll;
       await ctx.sync();
       for(const op of chosen){
+        if(op.type==="append_html"){
+          body.insertHtml(op.html,"End");await ctx.sync();continue;
+        }
         if(op.type==="append"){
           body.insertParagraph(op.text,"End");
           await ctx.sync();
@@ -118,7 +123,9 @@ async function apply(){
         if(matches.items.length!==1||matches.items[0].text!==op.find)
           throw Error("Fragment nie jest jednoznaczny w Wordzie. Przerwano; sprawdź już zastosowane zmiany.");
         const range=matches.items[0];
-        if(op.type==="replace")range.insertText(op.text,"Replace");
+        if(op.type==="replace_html")range.insertHtml(op.html,"Replace");
+        else if(op.type==="insert_table_after")range.insertTable(op.table.length,op.table[0].length,"After",op.table);
+        else if(op.type==="replace")range.insertText(op.text,"Replace");
         else if(op.type==="delete")range.insertText("","Replace");
         else if(op.type==="insert_before")range.insertText(op.text,"Before");
         else if(op.type==="insert_after")range.insertText(op.text,"After");

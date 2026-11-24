@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Literal
+from html.parser import HTMLParser
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -25,7 +26,8 @@ MAKS_DOKUMENT = 100_000
 MAKS_OPERACJI = 30
 MAKS_FRAGMENT = 1500
 MAKS_WSTAWIENIE = 15000
-TYPY = frozenset(("replace", "insert_before", "insert_after", "delete", "format", "append"))
+TYPY = frozenset(("replace", "insert_before", "insert_after", "delete", "format", "append",
+                   "replace_html", "append_html", "insert_table_after"))
 FORMATOWANIE = frozenset(("bold", "italic", "underline", "fontSize", "fontColor", "highlightColor"))
 
 SYSTEM = """Jesteś głównym redaktorem Word w asystencie NotarAI dla kancelarii notarialnych.
@@ -40,7 +42,10 @@ Używaj języka polskiego. Zwróć WYŁĄCZNIE poprawny JSON:
  {"type":"insert_after","find":"dokładny istniejący fragment","text":"wstawka"},
  {"type":"delete","find":"dokładny istniejący fragment"},
  {"type":"format","find":"dokładny istniejący fragment","format":{"bold":true}},
- {"type":"append","text":"nowy akapit na końcu dokumentu"}
+ {"type":"append","text":"nowy akapit na końcu dokumentu"},
+ {"type":"replace_html","find":"dokładny fragment","html":"<p><b>Nowe brzmienie</b></p>"},
+ {"type":"append_html","html":"<p>Nowy fragment sformatowany</p>"},
+ {"type":"insert_table_after","find":"dokładny fragment","table":[["Kolumna 1","Kolumna 2"],["A","B"]]}
 ]}
 Zasady:
 1. Każdy find to DOSŁOWNY, NIEPOWTARZALNY ciąg istniejący w dokumencie, bez \n.
@@ -48,11 +53,13 @@ Zasady:
 3. Zmiany w tabelach i w środku akapitów też kotwicz w oryginalnym tekście.
 4. Nigdy nie edytuj podpisów, pieczęci lub sporządzonego oryginału.
 5. Gdy nie masz pewnego miejsca do zmiany, zwróć pustą listę i wyjaśnij problem.
-6. Nie zwracaj więcej niż 30 operacji. Operacja append tylko dla całego dokumentu.
+6. Nie zwracaj więcej niż 30 operacji. append i append_html tylko dla całego dokumentu.
 7. Formatowanie tylko: bold, italic, underline (boolean), fontSize 8-72 (liczba),
    fontColor i highlightColor (#RRGGBB).
-8. Nie wysyłaj żadnych działań prawnych, rejestrowych ani zewnętrznych.
-9. Zwróć zmiany zgodne z zakresem podanym w poleceniu.
+8. Dopuszczone tagi HTML: p, b, i, u, strong, em, ul, ol, li, table, tr, td, th, br. Żadnych atrybutów (także style), odnośników, skryptów ani obrazów.
+9. Nową tabelę twórz przez insert_table_after z prostokątną macierzą table (maks. 20 x 8).
+10. Nie wysyłaj żadnych działań prawnych, rejestrowych ani zewnętrznych.
+11. Zwróć zmiany zgodne z zakresem podanym w poleceniu.
 """
 
 
@@ -87,6 +94,67 @@ def _format(w: object) -> dict:
     return wynik
 
 
+_HTML_TAGI = frozenset(("p", "b", "i", "u", "strong", "em", "ul", "ol", "li", "table", "tr", "td", "th", "br"))
+
+
+class _HTMLWalidator(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stos: list[str] = []
+        self.tagi = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in _HTML_TAGI or attrs:
+            raise ValueError("HTML zawiera niedozwolony tag lub atrybut.")
+        self.tagi += 1
+        if self.tagi > 400:
+            raise ValueError("Zbyt duża liczba elementów HTML.")
+        if tag != "br":
+            self.stos.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        if tag != "br" or attrs:
+            raise ValueError("Niedozwolony pusty tag.")
+
+    def handle_endtag(self, tag):
+        if not self.stos or self.stos[-1] != tag:
+            raise ValueError("Niepoprawne zagnieżdżenie HTML.")
+        self.stos.pop()
+
+    def handle_decl(self, decl):
+        raise ValueError("HTML nie może zawierać deklaracji.")
+
+    def handle_entityref(self, name):
+        raise ValueError("Nieznana encja HTML.")
+
+    def handle_pi(self, data):
+        raise ValueError("Nieobsługiwana instrukcja HTML.")
+
+
+def _html(w: object) -> str:
+    if not isinstance(w, str) or not w.strip() or len(w) > 15000:
+        raise ValueError("Niedozwolona treść HTML.")
+    parser = _HTMLWalidator()
+    parser.feed(w)
+    parser.close()
+    if parser.stos or parser.tagi == 0:
+        raise ValueError("HTML ma niezakończone tagi albo brak struktury.")
+    return w
+
+
+def _tabela(w: object) -> list[list[str]]:
+    if not isinstance(w, list) or not 1 <= len(w) <= 20:
+        raise ValueError("Tabela: 1-20 wierszy.")
+    if not isinstance(w[0], list) or not 1 <= len(w[0]) <= 8:
+        raise ValueError("Tabela: 1-8 kolumn.")
+    szerokosc = len(w[0])
+    if any(not isinstance(row, list) or len(row) != szerokosc for row in w):
+        raise ValueError("Tabela musi być prostokątna.")
+    if any(not isinstance(cell, str) or len(cell) > 1500 for row in w for cell in row):
+        raise ValueError("Niepoprawna komórka tabeli.")
+    return w
+
+
 def zweryfikuj_propozycje(wynik: dict, dokument: str, zaznaczenie: str, zakres: str) -> dict:
     """Fail closed: brak dopasowania = brak zmian, nigdy masowy find-and-replace."""
     if not isinstance(wynik, dict):
@@ -108,7 +176,7 @@ def zweryfikuj_propozycje(wynik: dict, dokument: str, zaznaczenie: str, zakres: 
         typ = raw["type"]
         find = raw.get("find", "")
         tekst = raw.get("text", "")
-        if typ == "append":
+        if typ in ("append", "append_html"):
             if zakres != "document":
                 raise ValueError("Dodawanie końca poza zaznaczeniem.")
         else:
@@ -122,10 +190,14 @@ def zweryfikuj_propozycje(wynik: dict, dokument: str, zaznaczenie: str, zakres: 
         if typ == "delete":
             tekst = ""
         op = {"type": typ}
-        if typ != "append":
+        if typ not in ("append", "append_html"):
             op["find"] = find
         if typ in ("replace", "insert_before", "insert_after", "append"):
             op["text"] = tekst
+        if typ in ("replace_html", "append_html"):
+            op["html"] = _html(raw.get("html"))
+        if typ == "insert_table_after":
+            op["table"] = _tabela(raw.get("table"))
         if typ == "format":
             op["format"] = _format(raw.get("format"))
         # Sprawdzenie kolizji kolejnych poprawek w wirtualnym tekście.
@@ -139,6 +211,7 @@ def zweryfikuj_propozycje(wynik: dict, dokument: str, zaznaczenie: str, zakres: 
             cien = cien.replace(find, "", 1)
         elif typ == "append":
             cien += "\n" + tekst
+        # Rich text/table XML is applied in Word; anchors are still checked on Word side.
         operacje.append(op)
     return {"summary": summary, "operations": operacje}
 

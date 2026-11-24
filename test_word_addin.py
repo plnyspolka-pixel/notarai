@@ -58,3 +58,21 @@ def test_draft_flag_required_server_side():
     with pytest.raises(HTTPException) as ex:
         propozycja(data,request)
     assert ex.value.status_code==400
+
+
+def test_rich_html_and_tables_are_validated():
+    result=zweryfikuj_propozycje({"summary":"Format",
+        "operations":[
+            {"type":"replace_html","find":"Pierwszy paragraf","html":"<p><b>Nowy paragraf</b></p>"},
+            {"type":"insert_table_after","find":"Drugi paragraf","table":[["A","B"],["1","2"]]},
+            {"type":"append_html","html":"<p><em>Nowa klauzula</em></p>"}
+        ]},TEXT,"","document")
+    assert result["operations"][1]["table"][1] == ["1","2"]
+    with pytest.raises(ValueError):
+        zweryfikuj_propozycje({"summary":"","operations":[
+            {"type":"replace_html","find":"Pierwszy","html":"<p onclick='bad()'>Z</p>"}
+        ]},TEXT,"","document")
+    with pytest.raises(ValueError):
+        zweryfikuj_propozycje({"summary":"","operations":[
+            {"type":"insert_table_after","find":"Pierwszy","table":[["A","B"],["C"]]}
+        ]},TEXT,"","document")

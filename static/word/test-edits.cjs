@@ -18,3 +18,9 @@ test("formatting has narrow allowlist",()=>{
   assert.equal(validate(text,"document","",[{type:"format",find:"pierwszy",format:{bold:true,fontColor:"#2350CF"}}]),text);
   assert.throws(()=>validate(text,"document","",[{type:"format",find:"pierwszy",format:{onload:"bad"}}]));
 });
+
+test("rich text and tables",()=>{
+  assert.equal(validate(text,"document","",[{type:"replace_html",find:"pierwszy",html:"<p><b>Ważne</b></p>"}]),text);
+  assert.equal(validate(text,"document","",[{type:"insert_table_after",find:"pierwszy",table:[["A","B"],["1","2"]]}]),text);
+  assert.throws(()=>validate(text,"document","",[{type:"replace_html",find:"pierwszy",html:"<img src='x'>"}]));
+});
