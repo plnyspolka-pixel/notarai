@@ -92,6 +92,8 @@ def test_failed_model_anchor_never_applied(office, monkeypatch):
     ("https://wrong.example", "app.notarai.pl", False),
     ("null", "app.notarai.pl", False),
     ("", "app.notarai.pl", False),
+    ("https://app.notarai.pl:8443", "app.notarai.pl", False),
+    ("http://app.notarai.pl", "app.notarai.pl", False),
 ])
 def test_websocket_origin(origin, host, valid):
     assert bool(a.origin_ok(origin, host)) is valid
