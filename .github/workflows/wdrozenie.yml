@@ -171,3 +171,6 @@ jobs:
           fi
           echo "### Wdrozono $TAG" >> "$GITHUB_STEP_SUMMARY"
           echo "Obraz: \`$obraz\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Produkcyjny smoke test logowania demonstracyjnego
+        run: python3 scripts/smoke_public_demo.py
