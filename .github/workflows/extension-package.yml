@@ -1,0 +1,26 @@
+name: NotarAI extension ZIP
+on:
+  push:
+    branches: [build/extension-0.2.0-zip]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 01019468fe2ebb3f27ba0f9801779bd309943eba
+          persist-credentials: false
+      - name: Validate and package extension
+        run: |
+          cd rozszerzenie
+          node --check sesja.js
+          node --check tlo.js
+          npm test
+          zip -r ../NotarAI-Chrome-Edge-0.2.0.zip manifest.json panel.html panel.css panel.js tlo.js sesja.js notarai.js silnik.js strona.js formularz.js krz.js ikony fonts
+          unzip -t ../NotarAI-Chrome-Edge-0.2.0.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NotarAI-Chrome-Edge-0.2.0
+          path: NotarAI-Chrome-Edge-0.2.0.zip
