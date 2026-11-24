@@ -174,7 +174,7 @@ function pushTranscript(text, id) {
   el("partial").textContent="";showPosition(text);
   // Rozpoznajemy WYŁĄCZNIE sygnał możliwej poprawki. Nie wywołujemy
   // automatycznie Bedrock, nie zapisujemy dokumentu ani niczego nie akceptujemy.
-  if (/\b(zmień|zmieniamy|popraw|zamiast|niech będzie|proszę zmienić|proszę poprawić)\b/iu.test(text)) {
+  if (/(zmień|zmieniamy|popraw|zamiast|niech będzie|proszę zmienić|proszę poprawić)/iu.test(text)) {
     el("instruction").value=text;
     status("Wykryto możliwą poprawkę w wypowiedzi. Sprawdź ją i kliknij Przygotuj propozycję AI.");
   }
