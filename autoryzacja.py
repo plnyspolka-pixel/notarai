@@ -35,6 +35,7 @@ from pydantic import BaseModel
 import logowanie
 import public_demo
 import magazyn
+import szyfrowanie_kancelarii as szyfr
 import stanowiska
 import tokenomia
 import urzadzenia
@@ -264,8 +265,16 @@ async def middleware(request: Request, call_next):
                 return JSONResponse({"detail": stanowiska.odmowa(uprawnienie, (osoba or {}).get("stanowisko", "")),
                                      "uprawnienie": uprawnienie}, 403)
 
+    przechowywanie, kcv = _ustawienia_magazynu(kancelaria)
+    # Klucz kancelarii (szyfrowanie_kancelarii.py): kod przychodzi w naglowku,
+    # zyje tylko w pamieci tego zadania. Zly kod odrzucamy od razu.
+    try:
+        znacznik_s = szyfr.ustaw_dla_zadania(kcv if przechowywanie == "chmura" else None,
+                                             request.headers.get(szyfr.NAGLOWEK))
+    except szyfr.ZlyKlucz as blad:
+        return JSONResponse({"detail": str(blad), "klucz_kancelarii": "zly"}, 403)
     znacznik = magazyn.kancelaria_var.set(kancelaria)
-    znacznik_p = magazyn.przechowywanie_var.set(_przechowywanie(kancelaria))
+    znacznik_p = magazyn.przechowywanie_var.set(przechowywanie)
     try:
         request.state.kancelaria = kancelaria
         request.state.komputer = komputer
@@ -275,6 +284,7 @@ async def middleware(request: Request, call_next):
     finally:
         magazyn.kancelaria_var.reset(znacznik)
         magazyn.przechowywanie_var.reset(znacznik_p)
+        szyfr.stan_var.reset(znacznik_s)
 
 
 async def naglowki_bezpieczenstwa(request: Request, call_next):
@@ -317,6 +327,15 @@ def _przechowywanie(kancelaria: str) -> str:
         if wpis["id"] == kancelaria:
             return wpis.get("przechowywanie", "chmura")
     return "chmura"
+
+
+def _ustawienia_magazynu(kancelaria: str) -> tuple[str, str | None]:
+    """(gdzie pliki, KCV klucza kancelarii albo None) - jednym odczytem rejestru."""
+    for wpis in _wczytaj_rejestr().values():
+        if wpis["id"] == kancelaria:
+            return (wpis.get("przechowywanie", "chmura"),
+                    (wpis.get("szyfrowanie") or {}).get("kcv"))
+    return "chmura", None
 
 
 # --- Panel admina -----------------------------------------------------------
@@ -623,6 +642,7 @@ def lista_kancelarii(request: Request):
     return [
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
          "przechowywanie": w.get("przechowywanie", "chmura"),
+         "klucz_kancelarii": bool((w.get("szyfrowanie") or {}).get("kcv")),
          "kredyty": _saldo_kredytow(w["id"]),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
@@ -1263,3 +1283,60 @@ def usun_admina(request: Request, email: str):
     return {"usunieto": True}
 
 
+
+
+# --- Klucz kancelarii (minimalne 3 x ZERO, docs/3zero-minimum.md) -------------
+
+
+def _sa_sprawy(id_kancelarii: str) -> bool:
+    """Czy kancelaria ma juz jakakolwiek sprawe (w S3 albo na dysku)."""
+    import config
+    if magazyn.TRYB == "s3":
+        odp = magazyn._klient_s3().list_objects_v2(
+            Bucket=magazyn.BUCKET, Prefix=f"{magazyn.PREFIKS}/{id_kancelarii}/sprawy/", MaxKeys=1)
+        return bool(odp.get("KeyCount") or odp.get("Contents"))
+    katalog = magazyn.sprawy_dir(config.DANE)
+    return any(katalog.iterdir())
+
+
+@router_zespolu.get("/szyfrowanie")
+def stan_szyfrowania(request: Request):
+    """Czy sprawy kancelarii sa zaszyfrowane jej kodem. Bez KCV i bez kodu."""
+    _, _, wpis, email = _moja_kancelaria(request)
+    sz = wpis.get("szyfrowanie") or {}
+    wlasciciel = email in _wlasciciele(wpis)
+    chmura = wpis.get("przechowywanie", "chmura") == "chmura"
+    return {"wlaczone": bool(sz.get("kcv")), "od": sz.get("od"),
+            "moge_wlaczyc": (wlasciciel and chmura and not sz.get("kcv")
+                             and not _sa_sprawy(wpis["id"]))}
+
+
+@router_zespolu.post("/szyfrowanie", status_code=201)
+def wlacz_szyfrowanie(request: Request):
+    """Wlasciciel wlacza klucz kancelarii. Kod wylosowala jego przegladarka
+    i przyslala w naglowku; zapisujemy tylko KCV. Od tej chwili kazdy plik
+    sprawy idzie do S3 zaszyfrowany, a bez kodu nikt - takze administrator
+    notarai i dostep serwisowy - nie otworzy spraw.
+
+    Tylko dla kancelarii bez spraw: przeszyfrowanie istniejacych (razem z ich
+    starszymi wersjami w S3) to osobny krok, poza minimalna wersja."""
+    rejestr, _, wpis, email = _moja_kancelaria(request)
+    _wymagaj_wlasciciela(wpis, email)
+    if getattr(request.state, "serwis", False):
+        raise HTTPException(403, "Klucz kancelarii włącza właściciel, nie dostęp serwisowy.")
+    if wpis.get("przechowywanie", "chmura") != "chmura":
+        raise HTTPException(409, "Ta kancelaria trzyma pliki u siebie - serwer i tak niczego nie zapisuje.")
+    if (wpis.get("szyfrowanie") or {}).get("kcv"):
+        raise HTTPException(409, "Klucz kancelarii jest już włączony.")
+    if _sa_sprawy(wpis["id"]):
+        raise HTTPException(409, "Kancelaria ma już sprawy zapisane bez klucza. Klucz włączysz "
+                                 "w nowej kancelarii albo po przeniesieniu spraw (napisz do nas).")
+    kod = request.headers.get(szyfr.NAGLOWEK, "")
+    try:
+        wartosc = szyfr.kcv(kod)
+    except szyfr.ZlyKlucz as blad:
+        raise HTTPException(400, str(blad))
+    wpis["szyfrowanie"] = {"kcv": wartosc, "od": date.today().isoformat(), "wersja": 1}
+    _zapisz_rejestr(rejestr)
+    log.info("kancelaria %s: wlaczono klucz kancelarii", wpis["id"])
+    return {"wlaczone": True, "od": wpis["szyfrowanie"]["od"]}

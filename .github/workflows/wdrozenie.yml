@@ -129,6 +129,13 @@ jobs:
           fi
 
       - name: Aktualizacja stosu notarai-aplikacja
+        env:
+          # Rozmiar i liczba kontenerow: najtaniej, jak wychodzi z pomiaru.
+          # Zmiana bez commita: Settings -> Secrets and variables -> Actions ->
+          # Variables (NOTARAI_CPU, NOTARAI_PAMIEC, NOTARAI_KOPIE).
+          ROZMIAR_CPU: ${{ vars.NOTARAI_CPU || '512' }}
+          ROZMIAR_PAMIEC: ${{ vars.NOTARAI_PAMIEC || '2048' }}
+          LICZBA_KOPII: ${{ vars.NOTARAI_KOPIE || '1' }}
         run: |
           set -euo pipefail
           # Zmieniamy tag obrazu i wymuszamy Tokenomia=true (kredyty sa jedynym
@@ -157,7 +164,8 @@ jobs:
             --role-arn "$ROLA_CLOUDFORMATION" \
             --capabilities CAPABILITY_NAMED_IAM --tags projekt=notarai \
             --no-fail-on-empty-changeset \
-            --parameter-overrides "TagObrazu=$TAG" "Tokenomia=true" "${email_param[@]}"
+            --parameter-overrides "TagObrazu=$TAG" "Tokenomia=true" "${email_param[@]}" \
+              "Cpu=$ROZMIAR_CPU" "Pamiec=$ROZMIAR_PAMIEC" "LiczbaKopii=$LICZBA_KOPII"
 
       - name: Sprawdz, czy dziala nowa wersja
         run: |
