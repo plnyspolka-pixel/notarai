@@ -1,6 +1,9 @@
 const ADRES = "https://app.notarai.pl";
 let laczenie;
-const panel = () => chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+const panel = () => chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+if (typeof browser !== "undefined" && browser.sidebarAction) {
+  browser.action.onClicked.addListener(() => browser.sidebarAction.open());
+}
 async function proba(id) {
   const zapis = await chrome.storage.local.get(["token", "blokadaParowania", "adres"]);
   if (zapis.token) return { stan: "polaczono" };
