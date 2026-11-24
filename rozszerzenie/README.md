@@ -45,7 +45,14 @@ który otwiera wyłącznie `/api/pomocnik/`.
   kliknąć. Sprawdzamy to dwa razy: na liście i tuż przed kliknięciem na stronie.
 - Do pola hasła i PIN-u nic nie jest wpisywane.
 - Asystent nie wychodzi poza serwis, na którym go uruchomiono. Gdy strona sama
-  przejdzie gdzie indziej (np. do logowania), zatrzymuje się.
+  przejdzie gdzie indziej, zatrzymuje się.
+- Logowanie należy do notariusza. Gdy serwis prosi o logowanie albo sesja
+  wygasła (pole hasła, login.gov.pl, pz.gov.pl, komunikat o wygasłej sesji),
+  asystent nie czyta tej strony, nie wysyła jej do modelu i czeka. Notariusz
+  loguje się sam - hasłem, profilem zaufanym albo podpisem - i klika „Wznów”;
+  praca idzie dalej od miejsca przerwania, na tym samym serwisie.
+- „Wznów” działa też po kroku, który notariusz wykonał sam (wysyłka, podpis,
+  płatność). Po wznowieniu te przyciski nadal są nie do kliknięcia.
 - Najwyżej 20 kroków na polecenie; „Zatrzymaj” przerywa w każdej chwili.
 
 ## Zlecenia ze spraw (kolejka notarai)
@@ -67,6 +74,10 @@ Dopóki panel jest otwarty, co 3 sekundy pyta notarai o zlecenia
   stałego dostępu do wszystkich stron. Przy wyniku „wpis” albo nierozpoznanym
   opis w sprawie mówi wprost: sprawdź w rejestrze.
 - Zlecenia odbiera tylko przy otwartym panelu.
+- „Wznów” jest przy poleceniu wpisanym w panelu. Zlecenie z kolejki, które
+  trafi na logowanie, kończy się prośbą o zalogowanie i trzeba je zlecić ponownie.
+- Nie loguje się za notariusza i nie przechowuje hasła, PIN-u ani sesji. To
+  celowe: podpis i logowanie zostają pod wyłączną kontrolą notariusza.
 - Formularze: oba mapowania w `formularze/*.yaml` mają status „szkic” (czekają
   na dostęp, NA-1 i NA-4), więc serwer nie zleca jeszcze żadnego wpisywania.
 - Gdy na tym samym komputerze działa też pomocnik `.exe`, zlecenie wykona ten,

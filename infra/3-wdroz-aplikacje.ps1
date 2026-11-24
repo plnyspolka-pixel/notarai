@@ -15,7 +15,7 @@ param(
     # Adres na alarmy i budzet. Podaj raz - przy kolejnych wdrozeniach
     # CloudFormation zapamieta poprzednia wartosc.
     [string]$Email  = "plnyspolka@gmail.com",
-    [int]$Kopie     = 2,
+    [int]$Kopie     = 1,
     # VAT doliczany do pakietow kredytow: "0" = Fundacja zwolniona z VAT.
     [ValidateSet("0", "0.23")][string]$Vat = "0",
     # Adres API Finance You (dostawca tresci ksiag wieczystych); uzywany, gdy

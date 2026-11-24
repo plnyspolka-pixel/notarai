@@ -11,6 +11,9 @@
        i okno PIN-u dzialaja w jego przegladarce jak zawsze,
      - do pola hasla i PIN-u nie wpisujemy nic, nigdy,
      - agent nie wychodzi poza strone, na ktorej notariusz go uruchomil,
+     - strony logowania nie czytamy i nie wysylamy do modelu: gdy sesja wygasla
+       albo serwis prosi o logowanie, czekamy, az notariusz zaloguje sie sam
+       (haslo, profil zaufany, podpis, PIN), i wznawiamy od miejsca przerwania,
      - liczba krokow jest ograniczona.
 
    Plik nie dotyka chrome.* ani DOM - strone i model dostaje z zewnatrz, wiec
@@ -29,7 +32,33 @@ export const WYSYLKA = new RegExp(WYSYLKA_ZRODLO, "i");
 
 export const AKCJE = ["kliknij", "wpisz", "wybierz", "otworz", "czytaj", "pytam", "koniec"];
 
-export class Odmowa extends Error {}
+/* czeka: na co czekamy od czlowieka, zeby dalo sie wznowic prace:
+   "logowanie" - ma sie zalogowac, "czynnosc" - ma sam wyslac/podpisac/zaplacic. */
+export class Odmowa extends Error {
+  constructor(tresc, czeka = "") { super(tresc); this.czeka = czeka; }
+}
+
+/* Serwisy logowania, do ktorych portale urzedowe odsylaja. Tam nie pracujemy. */
+const LOGOWANIE_HOSTY = ["login.gov.pl", "pz.gov.pl"];
+const LOGOWANIE_SCIEZKA = /\/(login|logowanie|zaloguj|signin|sign-in|auth|oauth2?|sso|saml)(\/|\?|$)/i;
+const LOGOWANIE_TEKST = /zaloguj|logowani|log in|sign in/i;
+const SESJA_WYGASLA = new RegExp(
+  "sesja (wygas[łl]a|zosta[łl]a zako[ńn]czona|utraci[łl]a wa[żz]no[śs][ćc])|" +
+  "zosta[łl]e[śs] wylogowan|zaloguj si[ęe] ponownie|session (has )?expired", "i");
+
+/* Czy to strona logowania albo komunikat o wygaslej sesji. Rozpoznajemy po
+   polu hasla, po znanym serwisie logowania, po adresie razem z trescia albo po
+   komunikacie. Lepiej zatrzymac sie raz za duzo: kosztuje to jedno klikniecie. */
+export function jestLogowanie(stan) {
+  if (!stan) return false;
+  if ((stan.elementy || []).some(e => e.typ === "password")) return true;
+  if (wolnoWejsc(stan.adres, LOGOWANIE_HOSTY)) return true;
+  const tekst = String(stan.tekst || "");
+  if (SESJA_WYGASLA.test(tekst)) return true;
+  let sciezka = "";
+  try { sciezka = new URL(stan.adres).pathname; } catch { return false; }
+  return LOGOWANIE_SCIEZKA.test(sciezka) && LOGOWANIE_TEKST.test(tekst);
+}
 
 export function host(adres) {
   try { return new URL(adres).hostname.toLowerCase(); } catch { return ""; }
@@ -65,13 +94,22 @@ function element(stan, nr) {
 
 /* strona:  { stan(), kliknij(el), wpisz(el, tekst), wybierz(el, tekst), otworz(adres) }
    model:   async (cel, stanDlaModelu, kroki) => { akcja, nr, tekst, adres, ... }
-   opcje:   { maksKrokow, przerwij: () => bool, naKrok: (krok) => void } */
+   opcje:   { maksKrokow, przerwij: () => bool, naKrok: (krok) => void,
+              wznow: { kroki, dozwolone } - poprzedni przebieg, gdy czlowiek
+              zrobil swoje (zalogowal sie, podpisal) i prosi o ciag dalszy }
+   wynik:   przebieg.czeka mowi, czy i na co czekamy; przebieg.dozwolone trzeba
+            oddac we wznow, zeby po logowaniu wrocic na ten sam serwis. */
 export async function prowadz(cel, strona, model, opcje = {}) {
   const maks = opcje.maksKrokow || MAKS_KROKOW;
-  const przebieg = { kroki: [], podsumowanie: "", pytanie: "", zatrzymano: "" };
-  let dozwolone = null;
+  const wznow = opcje.wznow || {};
+  const przebieg = { kroki: (wznow.kroki || []).slice(), podsumowanie: "", pytanie: "",
+                     zatrzymano: "", czeka: "", dozwolone: null };
+  let dozwolone = Array.isArray(wznow.dozwolone) && wznow.dozwolone.length
+    ? wznow.dozwolone.slice() : null;
+  przebieg.dozwolone = dozwolone;
+  const poprzednie = przebieg.kroki.length;
 
-  for (let numer = 1; numer <= maks; numer++) {
+  for (let numer = poprzednie + 1; numer <= poprzednie + maks; numer++) {
     if (opcje.przerwij && opcje.przerwij()) {
       przebieg.zatrzymano = "Zatrzymane na Twoje polecenie.";
       return przebieg;
@@ -79,8 +117,17 @@ export async function prowadz(cel, strona, model, opcje = {}) {
     const krok = { nr: numer, akcja: "", cel: "", mysl: "", uwaga: "", wykonano: false };
     try {
       const stan = await strona.stan();
-      if (dozwolone === null) dozwolone = [host(stan.adres)];
-      // Strona sama przeszla gdzie indziej (np. do logowania w innym serwisie).
+      // Strony logowania nie pokazujemy modelowi i nie zapamietujemy jej adresu
+      // jako miejsca pracy: logowanie nalezy do czlowieka.
+      if (jestLogowanie(stan)) {
+        krok.akcja = "czekam";
+        krok.cel = "logowanie";
+        throw new Odmowa("Ten serwis prosi o logowanie albo sesja wygasła. Zaloguj się " +
+                         "samodzielnie - hasło, podpis i PIN należą do Ciebie - " +
+                         "a potem kliknij „Wznów”.", "logowanie");
+      }
+      if (dozwolone === null) { dozwolone = [host(stan.adres)]; przebieg.dozwolone = dozwolone; }
+      // Strona sama przeszla gdzie indziej.
       if (!wolnoWejsc(stan.adres, dozwolone)) {
         throw new Odmowa(`Strona przeszła na ${host(stan.adres) || "inny adres"}. ` +
                          "Tam nie pracuję - przejmij stery i uruchom mnie ponownie.");
@@ -107,7 +154,7 @@ export async function prowadz(cel, strona, model, opcje = {}) {
     } catch (blad) {
       if (!przebieg.kroki.includes(krok)) przebieg.kroki.push(krok);
       krok.uwaga = String(blad && blad.message || blad);
-      if (blad instanceof Odmowa) przebieg.pytanie = krok.uwaga;
+      if (blad instanceof Odmowa) { przebieg.pytanie = krok.uwaga; przebieg.czeka = blad.czeka; }
       else przebieg.zatrzymano = krok.uwaga;
     }
     if (opcje.naKrok) opcje.naKrok(krok);
@@ -143,7 +190,8 @@ async function wykonaj(krok, wybor, stan, strona, dozwolone) {
     if (WYSYLKA.test(el.opis || "")) {
       throw new Odmowa(`Nie kliknę „${krok.cel}”. To czynność o skutku zewnętrznym - ` +
                        "wysyła, składa albo podpisuje. Zrób to samodzielnie, " +
-                       "gdy sprawdzisz treść.");
+                       "gdy sprawdzisz treść. Jeśli mam potem pracować dalej, " +
+                       "kliknij „Wznów”.", "czynnosc");
     }
     await strona.kliknij(el);
   } else if (krok.akcja === "wpisz") {

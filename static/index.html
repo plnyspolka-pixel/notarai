@@ -1695,7 +1695,7 @@ notarai</div>
       <p>Pierwszy raz? Hasło tymczasowe jest w zaproszeniu, które przyszło e-mailem. Nie widzisz go — zajrzyj do spamu.</p>
       <div class="pole">
         <label class="etykieta" for="pole-email">Adres e-mail</label>
-        <input type="email" id="pole-email" autocomplete="username" spellcheck="false">
+        <input type="text" id="pole-email" autocomplete="username" spellcheck="false">
       </div>
       <div class="pole">
         <label class="etykieta" for="pole-haslo">Hasło</label>
@@ -1930,7 +1930,29 @@ notarai</div>
   <input type="text" id="ust-nazwa-pliku" spellcheck="false" autocomplete="off" maxlength="200" aria-label="Wzór nazwy pliku">
   <div class="ust-pola" id="ust-pola" aria-label="Pola do wstawienia"></div>
   <div class="ust-podglad">Przykład: <code id="ust-przyklad"></code><span id="ust-przyklad-uwaga"></span></div>
+  <div id="ust-klucz" hidden>
+    <h3>Klucz kancelarii</h3>
+    <p id="ust-klucz-opis"></p>
+    <div class="dol" id="ust-klucz-start" hidden><button class="wtorny" id="ust-klucz-wlacz">Włącz klucz kancelarii</button></div>
+    <div id="ust-klucz-nowy" hidden>
+      <p>To jest kod kancelarii. <b>Zapisz go teraz</b> (wydrukuj albo pobierz kartę) i przechowuj jak klucz do sejfu. Notarai go nie zna i nie odzyska: zgubiony kod oznacza utracone sprawy.</p>
+      <p><code id="ust-klucz-kod" style="font-size:18px;letter-spacing:1px"></code></p>
+      <div class="dol"><button class="wtorny" id="ust-klucz-karta">Pobierz kartę z kodem</button></div>
+      <label class="przelacznik-zgoda"><input type="checkbox" id="ust-klucz-zapisalem"> Zapisałem kod w bezpiecznym miejscu</label>
+      <div class="dol"><button id="ust-klucz-potwierdz">Włącz klucz</button><span class="stan" id="stan-klucz-wlacz"></span></div>
+    </div>
+    <div class="dol"><button class="odnosnik-maly" id="ust-klucz-zapomnij" hidden>Zapomnij kod na tym komputerze</button></div>
+  </div>
   <div class="dol"><button id="ust-zapisz">Zapisz ustawienia</button><button class="wtorny" id="ust-zamknij">Zamknij</button><span class="stan" id="stan-ustawienia"></span></div>
+</dialog>
+
+<!-- Kod kancelarii: pytamy, gdy serwer odpowie 423 (sprawy zaszyfrowane kodem). -->
+<dialog class="okno" id="okno-klucz" aria-labelledby="klucz-tytul">
+  <h2 id="klucz-tytul">Kod kancelarii</h2>
+  <p id="klucz-opis"></p>
+  <p>Kod zapisał właściciel kancelarii przy włączaniu klucza. Ten komputer go zapamięta.</p>
+  <input type="text" id="klucz-kod" spellcheck="false" autocomplete="off" maxlength="40" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX" aria-label="Kod kancelarii" style="width:100%;font:16px var(--mono);padding:9px 10px;text-transform:uppercase">
+  <div class="dol"><button id="klucz-ok">Otwórz sprawy</button><button class="wtorny" id="klucz-anuluj">Anuluj</button><span class="stan" id="stan-klucz"></span></div>
 </dialog>
 
 <!-- Zespol: kazdy widzi, kto ma dostep do spraw kancelarii; wlasciciel
@@ -2202,6 +2224,54 @@ window.addEventListener("storage", e => {
   uruchomTrybPracy();
 });
 
+/* ---------- klucz kancelarii ----------
+   Sprawy w chmurze moga byc zaszyfrowane kodem kancelarii, ktorego notarai
+   nie zna. Kod losuje przegladarka wlasciciela; kazdy komputer kancelarii
+   pamieta go lokalnie (localStorage), a do serwera idzie tylko w naglowku. */
+const NAGLOWEK_KLUCZA = "X-Klucz-Kancelarii";
+const PREFIKS_KLUCZA = "notarai-klucz-kancelarii:";
+function kancelariaTokena(t){ const z = tozsamoscTokena(t); return z ? z.split("|")[1] : ""; }
+function kodKancelarii(){
+  const k = kancelariaTokena(token);
+  try { return k ? localStorage.getItem(PREFIKS_KLUCZA + k) || "" : ""; } catch { return ""; }
+}
+function zapamietajKod(kod){
+  const k = kancelariaTokena(token);
+  if (!k) return;
+  try { kod ? localStorage.setItem(PREFIKS_KLUCZA + k, kod) : localStorage.removeItem(PREFIKS_KLUCZA + k); } catch (e) {}
+}
+function losujKodKancelarii(){
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  let bity = 0, wartosc = 0, wynik = "";
+  for (const x of b) {
+    wartosc = (wartosc << 8) | x; bity += 8;
+    while (bity >= 5) { wynik += A[(wartosc >>> (bity - 5)) & 31]; bity -= 5; }
+  }
+  if (bity > 0) wynik += A[(wartosc << (5 - bity)) & 31];
+  return wynik.match(/.{1,4}/g).join("-");
+}
+let pytanieOKod = null;
+function zapytajOKod(komunikat){
+  if (pytanieOKod) return pytanieOKod;
+  pytanieOKod = new Promise(rozwiaz => {
+    const okno = $("okno-klucz");
+    $("klucz-opis").textContent = komunikat || "Sprawy tej kancelarii są zaszyfrowane jej kodem. Wpisz kod.";
+    $("klucz-kod").value = ""; stan($("stan-klucz"), "");
+    const koniec = wynik => { okno.close(); pytanieOKod = null; rozwiaz(wynik); };
+    $("klucz-ok").onclick = () => {
+      const kod = $("klucz-kod").value.trim().toUpperCase();
+      if (kod.replace(/[^A-Z0-9]/g, "").length !== 26) { stan($("stan-klucz"), "Kod ma 26 znaków.", true); return; }
+      zapamietajKod(kod); koniec(true);
+    };
+    $("klucz-kod").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("klucz-ok").click(); } };
+    $("klucz-anuluj").onclick = () => koniec(false);
+    okno.oncancel = e => { e.preventDefault(); koniec(false); };
+    okno.showModal(); $("klucz-kod").focus();
+  });
+  return pytanieOKod;
+}
+
 /* Jedyne wejscie do API. Dokłada token, odnawia go po cichu i dopiero gdy
    to nie pomoze, otwiera bramę. */
 async function api(adres, opcje = {}){
@@ -2209,12 +2279,23 @@ async function api(adres, opcje = {}){
     const naglowki = new Headers(opcje.headers || {});
     if (token) naglowki.set("Authorization", "Bearer " + token);
     if (SERWIS) naglowki.set("X-Serwis-Kancelaria", SERWIS);
+    // Kod kancelarii (docs/3zero-minimum.md): tylko w pamieci tej przegladarki,
+    // serwer trzyma go w pamieci na czas jednego zadania. Dostep serwisowy go nie ma.
+    const kod = SERWIS ? "" : kodKancelarii();
+    if (kod && !naglowki.has(NAGLOWEK_KLUCZA)) naglowki.set(NAGLOWEK_KLUCZA, kod);
     return fetch(adres, {...opcje, headers: naglowki});
   };
   if (czyJwt(token) && msDoWygasniecia(token) < 60 * 1000) await odnowSesje();
   let odp = await wyslij();
   if (odp.status === 401 && await odnowSesje()) {
     odp = await wyslij();
+  }
+  if (!SERWIS && (odp.status === 423 || odp.status === 403)) {
+    const w = await odp.clone().json().catch(() => ({}));
+    if (w.klucz_kancelarii) {
+      if (w.klucz_kancelarii === "zly") zapamietajKod("");
+      if (await zapytajOKod(w.detail)) odp = await wyslij();
+    }
   }
   if (SERWIS && (odp.status === 401 || odp.status === 403) && !adres.startsWith("/api/pomocnik")) {
     // Kancelaria odwolala dostep, wygasl albo wygasla sesja panelu.
@@ -2351,6 +2432,7 @@ $("btn-zaloguj").onclick = async () => {
       $("pole-haslo-nowe").focus();
       return;
     }
+    if (wynik.demo) wyczyscDanePoWylogowaniu();
     wpusc(wynik.token);
   } catch (e) {
     stan($("stan-brama"), e.message, true);
@@ -3034,6 +3116,22 @@ $("btn-folder").onclick = async () => {
 
 async function uruchomTrybPracy(){
   const rozpoczecieSesji = pokolenieSesji;
+  const demo = token === "notarai-public-demo-v1";
+  if (demo) {
+    dokumenty = null;
+    zespol = null;
+    $("kto").textContent = "NotarAI DEMO · dane fikcyjne";
+    $("kto").title = "Publiczna symulacja — nie wpisuj prawdziwych danych";
+    $("kto").hidden = false;
+    $("btn-zespol").hidden = true;
+    $("btn-abonament").hidden = true;
+    $("btn-dokumenty").hidden = true;
+    $("btn-komplet").hidden = true;
+    $("btn-hurtowe").hidden = true;
+    $("pai-mikrofon").hidden = true;
+  } else {
+    $("pai-mikrofon").hidden = false;
+  }
   try {
     const odp = await api("/api/ustawienia");
     if (odp.ok) {
@@ -3057,7 +3155,8 @@ async function uruchomTrybPracy(){
   if (rozpoczecieSesji !== pokolenieSesji) return;
   pokaz(13); // Chat jest głównym panelem po zalogowaniu.
   // Ekran startowy z profilu interfejsu kancelarii (np. kalendarz).
-  if (ekranStartowy()) pokaz(ekranStartowy());
+  if (!demo && ekranStartowy()) pokaz(ekranStartowy());
+  if (demo) { rysujListeSpraw(); return; }
   // Prosby o zmiany w toku: sledzimy je w tle i powiadamiamy, gdy zaczna dzialac.
   odswiezProsby();
   if (SERWIS) {
@@ -4365,6 +4464,7 @@ $("btn-ustawienia").onclick = async () => {
   stan($("stan-ustawienia"), "");
   rysujUstawienia();
   $("okno-ustawienia").showModal();
+  void wczytajKluczKancelarii();
   if (dysk.aktywny) return;
   try {
     const odp = await api("/api/ustawienia/ogolne");
@@ -4380,6 +4480,59 @@ document.querySelectorAll('input[name="ust-wysilek"]').forEach(r => r.onchange =
 });
 $("ust-nazwa-pliku").oninput = rysujPodgladNazwy;
 $("ust-nazwa-pliku").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("ust-zapisz").click(); } };
+async function wczytajKluczKancelarii(){
+  const sekcja = $("ust-klucz");
+  sekcja.hidden = true;
+  if (dysk.aktywny || SERWIS || !czyJwt(token)) return;
+  let w;
+  try {
+    const odp = await api("/api/zespol/szyfrowanie");
+    if (!odp.ok) return;
+    w = await odp.json();
+  } catch { return; }
+  sekcja.hidden = false;
+  $("ust-klucz-nowy").hidden = true;
+  $("ust-klucz-start").hidden = !w.moge_wlaczyc;
+  $("ust-klucz-zapomnij").hidden = !(w.wlaczone && kodKancelarii());
+  $("ust-klucz-opis").textContent = w.wlaczone
+    ? `Włączony od ${w.od}. Sprawy w chmurze są zaszyfrowane kodem kancelarii — bez niego nie otworzy ich nikt, także administrator notarai. ` +
+      (kodKancelarii() ? "Ten komputer pamięta kod." : "Ten komputer nie zna kodu: zapyta o niego przy otwarciu sprawy.")
+    : w.moge_wlaczyc
+      ? "Wyłączony. Po włączeniu sprawy w chmurze będą zaszyfrowane kodem, którego notarai nie zna. Włączysz go tylko teraz, zanim powstanie pierwsza sprawa."
+      : "Wyłączony. Klucz włącza właściciel kancelarii, zanim powstanie pierwsza sprawa.";
+}
+$("ust-klucz-wlacz").onclick = () => {
+  $("ust-klucz-kod").textContent = losujKodKancelarii();
+  $("ust-klucz-zapisalem").checked = false; $("ust-klucz-zapisalem").disabled = false;
+  stan($("stan-klucz-wlacz"), "");
+  $("ust-klucz-start").hidden = true; $("ust-klucz-nowy").hidden = false;
+};
+$("ust-klucz-karta").onclick = () => {
+  const kod = $("ust-klucz-kod").textContent;
+  const tekst = `Kod kancelarii notarai\n\nKancelaria: ${zespol ? zespol.kancelaria : ""}\nKod: ${kod}\nData: ${new Date().toISOString().slice(0, 10)}\n\n` +
+    "Bez tego kodu nie da się otworzyć spraw kancelarii zapisanych w chmurze.\nNotarai go nie zna i nie odzyska. Przechowuj jak klucz do sejfu.\n";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([tekst], {type: "text/plain"}));
+  a.download = "kod-kancelarii-notarai.txt"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$("ust-klucz-potwierdz").onclick = async () => {
+  if (!$("ust-klucz-zapisalem").checked) { stan($("stan-klucz-wlacz"), "Najpierw zapisz kod i zaznacz potwierdzenie.", true); return; }
+  const kod = $("ust-klucz-kod").textContent;
+  $("ust-klucz-potwierdz").disabled = true;
+  try {
+    const odp = await api("/api/zespol/szyfrowanie", {method: "POST", headers: {[NAGLOWEK_KLUCZA]: kod}});
+    const w = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(w.detail || "Nie udało się włączyć klucza (" + odp.status + ").");
+    zapamietajKod(kod);
+    await wczytajKluczKancelarii();
+  } catch (e) { stan($("stan-klucz-wlacz"), e.message, true); }
+  finally { $("ust-klucz-potwierdz").disabled = false; }
+};
+$("ust-klucz-zapomnij").onclick = () => {
+  if (!confirm("Ten komputer zapomni kod kancelarii. Przy następnym otwarciu sprawy trzeba będzie go wpisać. Kontynuować?")) return;
+  zapamietajKod(""); wczytajKluczKancelarii();
+};
 $("ust-zamknij").onclick = () => $("okno-ustawienia").close();
 
 /* Asystent kancelarii (asystent_kancelarii.py): rozmowa zyje w oknie, do
