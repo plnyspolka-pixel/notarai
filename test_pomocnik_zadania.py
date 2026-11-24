@@ -193,3 +193,38 @@ class TestKlikania:
         polacz = polaczenie_z(AtrapaStronyWww())
         zadania.klikamy(zlecenie_klikania(), notarai=AtrapaNotarai(), polacz=polacz)
         assert polacz.polaczenie.zamkniete
+
+
+class TestSterowaniaKartami:
+    def test_nowa_karta_otwiera_wydzielona_przegladarke(self, monkeypatch):
+        from pomocnik import cdp
+        wywolania = []
+        monkeypatch.setattr(cdp, "karty", lambda: [{"type": "page"}])
+        monkeypatch.setattr(cdp, "nowa_karta", lambda url: wywolania.append(url))
+        raport = zadania.karty({"tresc": {
+            "adres": "https://geoportal.gov.pl/mapa", "nowa_karta": True,
+        }})
+        assert wywolania == ["https://geoportal.gov.pl/mapa"]
+        assert raport["bledy"] == []
+        assert raport["podsumowanie"] == "Otworzono nowa karte."
+
+    def test_nawigacja_odbywa_sie_w_istniejacej_karcie(self, monkeypatch):
+        from pomocnik import cdp
+        wywolania = []
+        class Polaczenie:
+            def zamknij(self): wywolania.append("zamknij")
+        class Strona:
+            def otworz(self, url): wywolania.append(url)
+        monkeypatch.setattr(cdp, "karty", lambda: [{"type": "page"}])
+        monkeypatch.setattr(cdp, "polacz", lambda: (Polaczenie(), Strona()))
+        raport = zadania.karty({"tresc": {
+            "adres": "https://krz.ms.gov.pl/", "nowa_karta": False,
+        }})
+        assert wywolania == ["https://krz.ms.gov.pl/", "zamknij"]
+        assert not raport["bledy"]
+
+    def test_pomocnik_odrzuca_nie_https(self):
+        raport = zadania.karty({"tresc": {
+            "adres": "file:///c:/test", "nowa_karta": True,
+        }})
+        assert raport["bledy"]
