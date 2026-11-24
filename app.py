@@ -2024,7 +2024,7 @@ class PolecenieMobilne(BaseModel):
 
 
 @app.post("/api/urzadzenia/polecenia", status_code=202)
-def zlec_z_telefonu(polecenie: PolecenieMobilne):
+def zlec_z_telefonu(polecenie: PolecenieMobilne, request: Request):
     """Mobilny pilot istniejacego pomocnika - bez instalowania czegokolwiek na telefonie.
 
     Komputer musi nalezec do zalogowanej kancelarii i wlasnie odpytywac kolejke.
@@ -2091,6 +2091,7 @@ def zlec_z_telefonu(polecenie: PolecenieMobilne):
     z = zlecenia.zloz("karty" if adres else "klikamy", "", {
         "cel": cel, "dozwolone_hosty": hosty,
         "docelowy_komputer": polecenie.komputer,
+        "autor": getattr(request.state, "email", ""),
         **({"adres": adres, "nowa_karta": nowa} if adres else {}),
         **({"podglad_pubkey": pubkey} if pubkey else {}),
     })
@@ -2141,13 +2142,16 @@ def odebrany_kadr_podgladu(identyfikator: str, kadr: ZaszyfrowanyKadr, request: 
 
 
 @app.get("/api/urzadzenia/polecenia/{identyfikator}/podglad")
-def kadr_podgladu_na_telefonie(identyfikator: str):
+def kadr_podgladu_na_telefonie(identyfikator: str, request: Request):
     _wymagaj_urzadzen()
     z = zlecenia.wynik(identyfikator)
     if (not z or z.get("stan") == "wykonane"
             or z.get("rodzaj") not in ("klikamy", "karty")
             or not (z.get("tresc") or {}).get("podglad_pubkey")):
         return {"stan": "brak"}
+    autor = (z.get("tresc") or {}).get("autor")
+    if not autor or autor != getattr(request.state, "email", None):
+        raise HTTPException(403, "Podglad jest dostepny tylko osobie, ktora wydala polecenie.")
     kadr = podglad_pilota.ostatni(identyfikator)
     return {"stan": "kadr", "kadr": kadr} if kadr else {"stan": "brak"}
 
