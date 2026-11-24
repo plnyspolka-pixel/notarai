@@ -1,5 +1,10 @@
 # Koder – zlecanie pracy agentom na wynajętym GPU
 
+> **23.11.2026: workflow `koder.yml` usunięty.** Runner GitHuba czekał na GPU do 2 h i palił minuty;
+> wynajem GPU z GitHub Actions jest zakazany (CLAUDE.md, `tools/zakaz_renderu_gha.py`).
+> Koder przechodzi na Cloudflare; do tego czasu push na `koder/*` niczego nie uruchamia.
+
+
 Dwa tory pisania kodu w NotarAI:
 
 - **koder** – otwarty model (Qwen3.8-27B) na karcie wynajmowanej na SaladCloud. Tani, pracuje

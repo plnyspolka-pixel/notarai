@@ -1,0 +1,33 @@
+/* NotarAI: pierwszy ekran po zalogowaniu = czat, bez ingerowania w kokpit. */
+#pulpit-ai[hidden]{display:none!important}
+#pulpit-ai{width:min(960px,100%);margin:0 auto;padding:clamp(14px,3vw,32px);box-sizing:border-box}
+.pai-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.pai-head h1{font-size:clamp(25px,3.6vw,38px);line-height:1.15;margin:0}
+.pai-head p{margin:8px 0;color:var(--tekst2,#68747a);font-size:14px}
+.pai-head img{width:42px;height:42px;object-fit:contain}
+.pai-rozmowa{display:flex;flex-direction:column;gap:15px;min-height:220px;max-height:min(55vh,620px);overflow-y:auto;padding:22px 0;scroll-behavior:smooth}
+.pai-wiadomosc{border-radius:14px;padding:12px 15px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-width:90%;font-size:15px}
+.pai-uzytkownik{align-self:flex-end;background:var(--akcent,#0b736a);color:white}
+.pai-asystent{align-self:flex-start;background:var(--tlo2,#eef2f3);color:var(--tekst,#1a2b2e);border:1px solid var(--ramka,#dce4e7)}
+.pai-quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 18px}
+.pai-quick button{font-size:13px;min-height:38px;border-radius:18px;padding:7px 12px}
+.pai-compose{border:1px solid var(--ramka,#dce4e7);border-radius:17px;padding:10px;background:var(--tlo,#fff);box-shadow:0 3px 14px rgba(0,0,0,.04)}
+.pai-compose textarea{display:block;width:100%;box-sizing:border-box;resize:vertical;min-height:88px;border:0;background:transparent;color:var(--tekst,#1a2b2e);font:inherit;line-height:1.5;padding:10px;outline:0}
+.pai-compose-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.pai-compose-actions button{min-height:42px;border-radius:11px}
+#pai-mikrofon[data-nagrywa="1"]{background:#a02338;color:#fff}
+#pai-status{font-size:13px;flex:1;min-height:18px}
+.pai-karty{display:flex;flex-wrap:wrap;gap:9px;padding:6px 0}
+.pai-akcja{border:1px solid var(--ramka,#dce4e7);padding:12px;border-radius:12px;background:var(--tlo,#fff);width:100%;max-width:500px}
+.pai-akcja b{display:block;font-size:14px}
+.pai-akcja p{margin:8px 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pai-akcja button{min-height:40px}
+.pai-note{font-size:12px;color:var(--tekst2,#68747a);margin-top:10px;line-height:1.5}
+@media(max-width:700px){
+  #pulpit-ai{padding:12px 14px calc(20px + env(safe-area-inset-bottom))}
+  .pai-rozmowa{max-height:calc(100dvh - 370px);min-height:160px}
+  .pai-wiadomosc{max-width:94%;font-size:14px}
+  .pai-head h1{font-size:25px}
+  .pai-compose textarea{min-height:74px}
+  .pai-quick{gap:6px}
+}

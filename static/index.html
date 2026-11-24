@@ -710,6 +710,7 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
 </style>
 <link rel="stylesheet" href="/static/financeyou-theme.css">
 <link rel="stylesheet" href="/static/kokpit.css">
+<link rel="stylesheet" href="/static/pulpit-ai.css">
 <link rel="stylesheet" href="/static/personalizacja.css">
 </head>
 <body>
@@ -726,6 +727,7 @@ button.migawka{width:68px;height:68px;padding:0;border-radius:50%;background:var
   <button id="btn-kokpit-menu" type="button" class="kokpit-menu-toggle" aria-expanded="false" aria-label="Rozwiń menu" title="Rozwiń lub zwiń panel boczny"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-menu"/></svg></button>
   <div class="logo"><img class="osiol" src="/static/notarai-symbol.svg" alt="">
 notarai</div>
+  <button id="btn-pulpit-ai" type="button" class="kokpit-link" aria-label="Czat NotarAI">✦ Asystent NotarAI</button>
   <button id="btn-kokpit" type="button" class="kokpit-link" aria-label="Panel główny NotarAI" title="Panel główny NotarAI"><svg class="kokpit-icon" aria-hidden="true"><use href="#kokpit-i-home"/></svg> Panel główny</button>
   <div class="nowa" id="btn-nowa" data-upr="sprawy_ai"><span>+</span>Nowa sprawa</div>
   <div class="sekcja-t">Etapy</div>
@@ -780,6 +782,31 @@ notarai</div>
 </aside>
 
 <main><div class="kol">
+<section id="pulpit-ai" hidden aria-label="Główny asystent NotarAI">
+  <div class="pai-head">
+    <div><h1>W czym mogę pomóc?</h1><p>Wydawaj polecenia kancelarii tekstem albo głosem. Narzędzia są dostępne zgodnie z Twoimi uprawnieniami.</p></div>
+    <button id="pai-pokaz-panel" class="wtorny" type="button">Pokaż tradycyjny panel</button>
+  </div>
+  <div class="pai-rozmowa" id="pai-rozmowa" role="log" aria-live="polite" aria-relevant="additions"></div>
+  <div class="pai-quick" aria-label="Szybkie polecenia">
+    <button type="button" class="wtorny" data-pai-prompt="Pokaż moje ostatnie sprawy">Ostatnie sprawy</button>
+    <button type="button" class="wtorny" data-pai-prompt="Otwórz kalendarz">Kalendarz</button>
+    <button type="button" class="wtorny" data-pai-prompt="Pokaż sparowane komputery Windows">Komputery</button>
+    <button type="button" class="wtorny" data-pai-prompt="Otwórz korespondencję">Poczta</button>
+    <button type="button" class="wtorny" data-pai-prompt="Sprawdź postęp moich zgłoszeń samonaprawy">Samonaprawa</button>
+  </div>
+  <form id="pai-form" class="pai-compose">
+    <label for="pai-polecenie" class="sr-only">Polecenie do asystenta</label>
+    <textarea id="pai-polecenie" placeholder="Napisz polecenie, np. «otwórz kalendarz»…" maxlength="3500" required aria-label="Polecenie do asystenta"></textarea>
+    <div class="pai-compose-actions">
+      <span id="pai-status" role="status" aria-live="polite"></span>
+      <button id="pai-mikrofon" type="button" class="wtorny" aria-label="Nagraj polecenie głosowe">🎙 Nagraj</button>
+      <button id="pai-wyslij" type="submit">Wyślij</button>
+    </div>
+  </form>
+  <p class="pai-note">Głosówka zostanie przepisana na tekst, który można poprawić przed wysłaniem. Działania zewnętrzne wymagają osobnej zgody. Asystent nie podpisuje ani nie wysyła pism bez zatwierdzenia.</p>
+</section>
+
 
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg"><symbol id="kokpit-i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3V10Z"/><path d="M9 20v-7h6v7"/></symbol><symbol id="kokpit-i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="kokpit-i-file" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7Z"/><path d="M13 2v7h7M8 14h8M8 18h6"/></symbol><symbol id="kokpit-i-upload" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7Z"/><path d="M13 2v7h7M12 12v7m-3-3.5h6"/></symbol><symbol id="kokpit-i-spark" viewBox="0 0 24 24"><path d="m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z"/><path d="m20 1 .7 2.3L23 4l-2.3.7L20 7l-.7-2.3L17 4l2.3-.7L20 1Z"/></symbol><symbol id="kokpit-i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3 8-10V5l-8-3-8 3v7c0 7 8 10 8 10Z"/><path d="m8 12 3 3 5-5"/></symbol><symbol id="kokpit-i-word" viewBox="0 0 24 24"><path d="M13 2H5v20h14V8l-6-6Z"/><path d="M13 2v6h6M7 13l1 5 2-3 2 3 1-5"/></symbol></svg>
 <section id="kokpit" class="kokpit-panel" hidden aria-labelledby="kokpit-title">
@@ -1324,6 +1351,16 @@ notarai</div>
       <span><i class="kal-kropka k-szara"></i>niedostępny: weekend, święto, kancelaria nieczynna</span>
     </div>
   </div>
+  <div class="karta" id="gcal-karta">
+    <h2>Google Calendar</h2>
+    <p class="pod">Synchronizacja dwukierunkowa. Do Google wysyłamy wyłącznie neutralne bloki zajętości, bez nazwisk, telefonów ani szczegółów sprawy.</p>
+    <div class="pasek">
+      <button id="gcal-polacz">Połącz Google Calendar</button>
+      <button class="wtorny" id="gcal-sync" hidden>Synchronizuj teraz</button>
+      <button class="wtorny" id="gcal-odlacz" hidden>Odłącz</button>
+      <span class="stan" id="gcal-stan" role="status">Sprawdzam połączenie…</span>
+    </div>
+  </div>
   <div class="karta">
     <h2>Najbliższe terminy</h2>
     <div id="kal-najblizsze"></div>
@@ -1721,6 +1758,36 @@ notarai</div>
 
   </div>
 </div>
+
+<dialog id="pai-zgoda" class="okno" aria-labelledby="pai-zgoda-tytul">
+  <h2 id="pai-zgoda-tytul">Potwierdź polecenie dla komputera</h2>
+  <p><strong>Komputer:</strong> <span id="pai-zgoda-komputer"></span></p>
+  <p><strong>Czynność:</strong></p>
+  <p id="pai-zgoda-cel" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+  <p class="stan">Zatwierdzenie przekazuje polecenie do kolejki. Nie upoważnia do podpisania dokumentu, wysłania wiadomości ani płatności.</p>
+  <p id="pai-zgoda-stan" role="status"></p>
+  <div class="dol">
+    <button id="pai-zgoda-anuluj" class="wtorny" type="button">Anuluj</button>
+    <button id="pai-zgoda-wykonaj" type="button">Zatwierdź i przekaż</button>
+  </div>
+</dialog>
+
+<dialog id="pai-naprawa-zgoda" class="okno" aria-labelledby="pai-naprawa-tytul">
+  <h2 id="pai-naprawa-tytul">Zgłoś usterkę do samonaprawy</h2>
+  <p>Sprawdź opis przygotowany przez głównego asystenta. Nie podawaj nazwisk,
+  numerów KW, treści aktów, danych klientów ani sekretów.</p>
+  <label class="etykieta" for="pai-naprawa-opis">Opis usterki</label>
+  <textarea id="pai-naprawa-opis" rows="5" maxlength="2000"
+    style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+  <p class="stan">Po zatwierdzeniu zgłoszenie trafi do istniejącego procesu
+  samonaprawy. Zależnie od bramek bezpieczeństwa może powstać PR albo zostać
+  wdrożona niewielka poprawka. To nie jest gwarancja naprawy.</p>
+  <p id="pai-naprawa-stan" role="status" aria-live="polite"></p>
+  <div class="dol">
+    <button id="pai-naprawa-anuluj" class="wtorny" type="button">Anuluj</button>
+    <button id="pai-naprawa-zglos" type="button">Potwierdź zgłoszenie</button>
+  </div>
+</dialog>
 
 <!-- Komputery z pomocnikiem. Laczenie bez przepisywania tokenu: pomocnik
      sam otwiera te strone z kodem, notariusz klika Polacz. -->
@@ -2185,6 +2252,7 @@ function pokazWidok(nazwa){
 }
 
 function wyczyscDanePoWylogowaniu(){
+  window.wyczyscPulpitAI?.();
   const btnHurtowe = document.getElementById("btn-hurtowe");
   if (btnHurtowe) btnHurtowe.hidden = true;
   const dlgHurtowe = document.getElementById("okno-hurtowe");
@@ -2475,8 +2543,10 @@ const dysk = {
 /* ---------- nawigacja ---------- */
 function pokaz(numer){
   const nowyKokpit = numer === 0;
+  const nowyChat = numer === 13;
+  $("pulpit-ai").hidden = !nowyChat;
   $("kokpit").hidden = !nowyKokpit;
-  $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit);
+  $("kokpit").closest(".kol").classList.toggle("kokpit-active", nowyKokpit || nowyChat);
   if (nowyKokpit) window.pokazKokpit?.();
   else window.ukryjKokpit?.();
   [1,2,3,4,5,6,7,8,9,10,11,12].forEach(n => $("etap"+n).hidden = (n !== numer));
@@ -2520,7 +2590,7 @@ function pokaz(numer){
     // go tutaj, a nie zaraz po pierwszym logowaniu.
     if (ostatniStanPomocnika) zaproponujKreator(ostatniStanPomocnika);
   }
-  (nowyKokpit ? $("kokpit") : $("etap"+numer)).closest("main").scrollTo({top:0, behavior:"smooth"});
+  (nowyChat ? $("pulpit-ai") : (nowyKokpit ? $("kokpit") : $("etap"+numer))).closest("main").scrollTo({top:0, behavior:"smooth"});
 }
 document.querySelectorAll(".krok").forEach(k => k.onclick = () => {
   const n = +k.dataset.etap;
@@ -2968,7 +3038,7 @@ async function uruchomTrybPracy(){
     }
   } catch { return; }   // brak logowania: brama jest już otwarta
   if (rozpoczecieSesji !== pokolenieSesji) return;
-  pokaz(0); // Domyślnie otwieramy funkcjonalny panel kancelarii.
+  pokaz(13); // Chat jest głównym panelem po zalogowaniu.
   // Ekran startowy z profilu interfejsu kancelarii (np. kalendarz).
   if (ekranStartowy()) pokaz(ekranStartowy());
   // Prosby o zmiany w toku: sledzimy je w tle i powiadamiamy, gdy zaczna dzialac.
@@ -4170,7 +4240,7 @@ const MENU_NARZEDZI = {sprawdzenia: '.krok[data-etap="4"]', klikamy: '.krok[data
   kalendarz: '.krok[data-etap="6"]', osoby: '.krok[data-etap="7"]', przesylki: '.krok[data-etap="8"]',
   poczta: '.krok[data-etap="12"]', poswiadczenia: '#btn-poswiadczenia', stenogramy: '#btn-stenogramy', styl: '.krok[data-etap="9"]',
   ksiegi: '.krok[data-etap="10"]', giif: '.krok[data-etap="11"]'};
-const EKRAN_STARTOWY = {panel: 0, nowa_sprawa: 1, kalendarz: 6, osoby: 7, przesylki: 8, poczta: 12, ksiegi: 10};
+const EKRAN_STARTOWY = {chat: 13, panel: 0, nowa_sprawa: 1, kalendarz: 6, osoby: 7, przesylki: 8, poczta: 12, ksiegi: 10};
 const ROZMIAR_TEKSTU = {normalny: "", duzy: "1.12", bardzo_duzy: "1.25"};
 function zastosujProfilInterfejsu() {
   const u = ustawieniaOgolne;
@@ -5733,6 +5803,81 @@ $("btn-dodaj-osobe").onclick = async () => {
   rysujOsoby();
 };
 
+/* Synchronizacja z Google: bez dostepu do danych klientow w Google. */
+let gcalSprawdzono = 0, gcalSyncTrwa = false, gcalPolaczony = false;
+async function stanGoogleKalendarza(automatycznie = true){
+  if (SERWIS) { $("gcal-karta").hidden = true; return; }
+  const teraz = Date.now();
+  if (automatycznie && teraz - gcalSprawdzono < 30000) return;
+  gcalSprawdzono = teraz;
+  try {
+    const odp = await api("/api/google-kalendarz/stan");
+    if (odp.status === 403 || odp.status === 409) {
+      $("gcal-karta").hidden = true; return;
+    }
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie udało się sprawdzić integracji.");
+    gcalPolaczony = !!s.polaczono;
+    $("gcal-polacz").hidden = gcalPolaczony || !s.dostepne;
+    $("gcal-sync").hidden = !gcalPolaczony;
+    $("gcal-odlacz").hidden = !gcalPolaczony;
+    $("gcal-stan").textContent = !s.dostepne
+      ? "Integracja nie została jeszcze skonfigurowana na serwerze."
+      : gcalPolaczony
+        ? "Połączono" + (s.email ? ": " + s.email : "") + (s.odswiezono ? " · ostatnio: " + s.odswiezono.slice(0, 16).replace("T", " ") : " · jeszcze nie zsynchronizowano")
+        : "Niepołączony";
+    if (automatycznie && gcalPolaczony && !gcalSyncTrwa &&
+        (!s.odswiezono || Date.now() - new Date(s.odswiezono).getTime() > 5 * 60 * 1000)) {
+      synchronizujGoogleKalendarz(true);
+    }
+  } catch (e) { $("gcal-stan").textContent = e.message; }
+}
+async function synchronizujGoogleKalendarz(automatycznie = false){
+  if (gcalSyncTrwa) return;
+  gcalSyncTrwa = true;
+  $("gcal-sync").disabled = true;
+  stan($("gcal-stan"), "Synchronizuję kalendarze…", false, true);
+  try {
+    const odp = await api("/api/google-kalendarz/synchronizuj", {method: "POST"});
+    const w = await odp.json();
+    if (!odp.ok) throw Error(w.detail || "Nie udało się zsynchronizować kalendarza.");
+    const konflikt = w.konflikty ? " · konflikty: " + w.konflikty + " (sprawdź terminy)" : "";
+    stan($("gcal-stan"), "Zsynchronizowano. Nowe w Google: " + w.dodano_w_google +
+      ", w NotarAI: " + w.dodano_w_notarai + ", zmienione: " + w.zmieniono + konflikt, !!w.konflikty);
+    gcalSprawdzono = Date.now();
+    // Rysujemy kalendarz ponownie, ale stan połączenia odświeżymy później.
+    await rysujKalendarz();
+  } catch (e) {
+    stan($("gcal-stan"), (automatycznie ? "Automatyczna synchronizacja: " : "") + e.message, true);
+  } finally {
+    gcalSyncTrwa = false;
+    $("gcal-sync").disabled = false;
+  }
+}
+$("gcal-polacz").onclick = async () => {
+  try {
+    const odp = await api("/api/google-kalendarz/start");
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie można połączyć Google.");
+    location.href = s.adres;
+  } catch (e) { stan($("gcal-stan"), e.message, true); }
+};
+$("gcal-sync").onclick = () => synchronizujGoogleKalendarz();
+$("gcal-odlacz").onclick = async () => {
+  if (!confirm("Odłączyć Google Calendar? Terminy utworzone w NotarAI zostaną zachowane.")) return;
+  try {
+    const odp = await api("/api/google-kalendarz/polaczenie", {method:"DELETE"});
+    const s = await odp.json();
+    if (!odp.ok) throw Error(s.detail || "Nie udało się odłączyć.");
+    gcalSprawdzono = 0;
+    await stanGoogleKalendarza(false);
+    await rysujKalendarz();
+  } catch (e) { stan($("gcal-stan"), e.message, true); }
+};
+setInterval(() => {
+  if (!$("etap6").hidden && gcalPolaczony) stanGoogleKalendarza(true);
+}, 5 * 60 * 1000);
+
 /* ---------- 6: kalendarz ---------- */
 // Okno dnia: polgodzinne okienka od 8:30 do 18:00. Zaznaczone okienka sa
 // zawsze ciagiem - rezerwacja trwa od pierwszego do konca ostatniego.
@@ -5860,6 +6005,7 @@ async function rysujKalendarz(){
     '<option value="' + escape(s.id) + '">' + escape(s.nazwa || s.sygnatura || "sprawa " + s.id.slice(0, 6)) + (s.nazwa && s.sygnatura ? " · " + escape(s.sygnatura) : "") + "</option>").join("");
   wybor.value = poprzedni;
   rysujWidok(); rysujNajblizsze();
+  stanGoogleKalendarza(true);
   if (!$("kal-okno").hidden) rysujOkno();
 }
 function rysujWidok(){
@@ -7014,5 +7160,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/klienci-panel.js"></script>
 <script src="/static/personalizacja.js"></script>
 <script src="/static/ksiegi.js"></script>
+<script src="/static/pulpit-ai.js"></script>
 </body>
 </html>

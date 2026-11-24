@@ -34,6 +34,7 @@ import dokumenty
 import dokumenty_prawne
 import ekw
 import giif
+import google_kalendarz
 import ksiegi_notarialne
 import formularze
 import kalendarz
@@ -71,6 +72,7 @@ import ustawienia_kancelarii
 import walidacja
 import samonaprawa
 import asystent_kancelarii
+import pulpit_ai
 import word_addin
 
 logging.basicConfig(
@@ -116,6 +118,8 @@ app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
 app.include_router(teczka.router)
 app.include_router(korespondencja.router)
+app.include_router(google_kalendarz.router)
+google_kalendarz.uruchom_automat()
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
@@ -131,12 +135,13 @@ app.include_router(notariusze.router_admina)
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
 app.include_router(polly_tts.router)
-app.include_router(word_addin.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
 # Agent glosowy (ElevenLabs): webhooki narzedzi, wlasne limity i token.
 app.include_router(agent_glosowy.router)
+app.include_router(pulpit_ai.router)
+app.include_router(word_addin.router)
 app.middleware("http")(kalkulator.cors)
 
 
