@@ -563,6 +563,12 @@ dialog.okno input{font:14px var(--mono);text-transform:uppercase;width:12em}
 #okno-pilot textarea,#okno-pilot input{width:100%;max-width:100%;font:14px var(--sans);text-transform:none}
 #okno-pilot textarea{min-height:112px;resize:vertical}
 #okno-pilot #pilot-przebieg{margin-top:16px;max-height:40vh;overflow:auto}
+#okno-pilot .pilot-wybor{display:flex;align-items:center;gap:9px;margin:9px 0;font-size:13px;color:var(--tekst2)}
+#okno-pilot .pilot-wybor input{width:auto;flex:none;accent-color:var(--akcent)}
+#pilot-podglad-blok{margin-top:14px}
+#pilot-kadr{display:block;width:100%;max-height:47vh;object-fit:contain;background:#0b1426;border-radius:9px}
+#pilot-kadr[hidden],#pilot-podglad-blok[hidden]{display:none}
+#pilot-podglad-stan{display:block;margin:5px 0;color:var(--tekst3);font-size:12px}
 #okno-pilot .dol button{min-height:42px}
 @media(max-width:600px){dialog#okno-pomocnik,dialog#okno-pilot{padding:18px;max-height:85dvh;overflow:auto}
   .komputer{flex-wrap:wrap}.komputer > div{flex-basis:calc(100% - 30px)}
@@ -1748,11 +1754,22 @@ notarai</div>
     <input id="pilot-hosty" autocomplete="off" spellcheck="false" placeholder="geoportal.gov.pl">
     <small>Bez domen pomocnik pozostaje na aktualnie otwartej stronie. Wpisanie domeny zezwala na jej otwarcie.</small>
   </div>
+  <div class="pole">
+    <label class="etykieta" for="pilot-adres">Adres strony (opcjonalnie)</label>
+    <input id="pilot-adres" type="url" inputmode="url" autocomplete="off" placeholder="https://geoportal.gov.pl">
+    <label class="pilot-wybor" for="pilot-nowa-karta"><input type="checkbox" id="pilot-nowa-karta"> Otwórz adres w nowej karcie</label>
+    <label class="pilot-wybor" for="pilot-podglad"><input type="checkbox" id="pilot-podglad" checked> Podgląd aktywnej karty na telefonie (rozszerzenie Chrome / Edge)</label>
+  </div>
   <div class="dol">
     <button type="button" id="pilot-wyslij">Wyślij polecenie</button>
     <button type="button" class="wtorny" id="pilot-zamknij">Zamknij</button>
   </div>
   <p class="stan" id="pilot-stan" role="status" aria-live="polite"></p>
+  <div id="pilot-podglad-blok" hidden>
+    <b>Podgląd wykonywanej karty</b>
+    <small id="pilot-podglad-stan">Oczekiwanie na zaszyfrowany obraz z rozszerzenia…</small>
+    <img id="pilot-kadr" alt="Bieżący widok strony obsługiwanej na komputerze" hidden>
+  </div>
   <div class="klik-kroki" id="pilot-przebieg" aria-live="polite"></div>
 </dialog>
 
@@ -3840,6 +3857,55 @@ $("btn-zamknij-pomocnik").onclick = () => $("okno-pomocnik").close();
 /* Pilot: polecenie z telefonu kierujemy do juz sparowanego pomocnika Windows. */
 let komputerPilota = null;
 let zgodaPilota = null, zgodaPilotaWidziana = "";
+let pilotKlucze = null, pilotKluczAes = null, pilotPubZKomputera = "";
+let pilotNumerKadru = 0, pilotBlobUrl = null;
+function b64DoBajtow(base64){
+  return Uint8Array.from(atob(base64), litera => litera.charCodeAt(0));
+}
+function resetPodgladu(){
+  pilotKlucze = pilotKluczAes = null;
+  pilotPubZKomputera = "";
+  pilotNumerKadru = 0;
+  if (pilotBlobUrl) URL.revokeObjectURL(pilotBlobUrl);
+  pilotBlobUrl = null;
+  $("pilot-kadr").removeAttribute("src");
+  $("pilot-kadr").hidden = true;
+  $("pilot-podglad-blok").hidden = true;
+}
+async function odswiezPodgladPilota(zlecenie){
+  if (!pilotKlucze) return;
+  const odp = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(zlecenie) + "/podglad");
+  const wynik = await odp.json().catch(() => ({}));
+  if (!odp.ok || wynik.stan !== "kadr" || !wynik.kadr) return;
+  const k = wynik.kadr;
+  if (!Number.isInteger(k.numer) || k.numer <= pilotNumerKadru) return;
+  try {
+    const idKlucza = [k.klucz.x, k.klucz.y].join(":");
+    if (!pilotKluczAes || pilotPubZKomputera !== idKlucza){
+      const pub = await crypto.subtle.importKey("jwk", k.klucz,
+        {name:"ECDH",namedCurve:"P-256"}, false, []);
+      pilotKluczAes = await crypto.subtle.deriveKey(
+        {name:"ECDH",public:pub}, pilotKlucze.privateKey,
+        {name:"AES-GCM",length:256}, false, ["decrypt"]);
+      pilotPubZKomputera = idKlucza;
+    }
+    const aad = new TextEncoder().encode(zlecenie + "|" + k.numer);
+    const jawny = await crypto.subtle.decrypt(
+      {name:"AES-GCM",iv:b64DoBajtow(k.iv),additionalData:aad},
+      pilotKluczAes, b64DoBajtow(k.dane));
+    const adres = URL.createObjectURL(new Blob([jawny],{type:"image/jpeg"}));
+    const poprzedni = pilotBlobUrl;
+    pilotBlobUrl = adres;
+    $("pilot-kadr").src = adres;
+    $("pilot-kadr").hidden = false;
+    pilotNumerKadru = k.numer;
+    $("pilot-podglad-stan").textContent = "Zaszyfrowany podgląd, kadr " + k.numer +
+      " · tylko aktywna karta obsługiwana przez rozszerzenie";
+    if (poprzedni) URL.revokeObjectURL(poprzedni);
+  } catch {
+    $("pilot-podglad-stan").textContent = "Nie można odszyfrować bieżącego kadru.";
+  }
+}
 function pokazZgodePilota(zlecenie, oczekujaca){
   if (!oczekujaca || zgodaPilotaWidziana === oczekujaca.id ||
       !$("okno-pilot").open) return;
@@ -3885,10 +3951,18 @@ function otworzPilota(komputer){
   $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
   const wersja = komputer.wersja || "";
   const czyNowy = /^0\.(?:[3-9]|[1-9]\d)(?:\.|$)/.test(wersja) || /^[1-9]\d*(?:\.|$)/.test(wersja);
-  $("pilot-wersja").textContent = czyNowy ? "Pomocnik " + wersja + " obsługuje zgody na wysłanie."
+  const rozszerzenie = /rozszerzenie/i.test(komputer.nazwa);
+  $("pilot-wersja").textContent = rozszerzenie
+    ? "Rozszerzenie Chrome/Edge: obsługuje podgląd tylko aktywnej karty. Panel rozszerzenia musi być otwarty."
+    : czyNowy ? "Pomocnik " + wersja + " obsługuje zgody na wysłanie. Podgląd obrazu wymaga rozszerzenia Chrome/Edge."
     : "Pomocnik " + (wersja || "w nieznanej wersji") +
-      " może wykonywać zwykłe polecenia. Aby potwierdzać wysyłanie z telefonu, zaktualizuj go do wersji 0.3.";
+      " wykonuje zwykłe polecenia. Zgody na wysłanie wymagają wersji 0.3, a podgląd obrazu rozszerzenia.";
+  $("pilot-podglad").checked = rozszerzenie;
+  $("pilot-podglad").disabled = !rozszerzenie;
+  resetPodgladu();
   $("pilot-cel").value = "";
+  $("pilot-adres").value = "";
+  $("pilot-nowa-karta").checked = false;
   $("pilot-hosty").value = "";
   $("pilot-przebieg").replaceChildren();
   stan($("pilot-stan"), "");
@@ -3900,19 +3974,32 @@ function otworzPilota(komputer){
 $("pilot-zamknij").onclick = () => {
   if (zgodaPilota) zdecydujPilota(false);
   $("okno-pilot").close();
+  resetPodgladu();
 };
 $("pilot-wyslij").onclick = async () => {
   if (!komputerPilota) return;
-  const cel = $("pilot-cel").value.trim();
-  if (!cel) return stan($("pilot-stan"), "Wpisz polecenie.", true);
+  const adres = $("pilot-adres").value.trim();
+  const cel = $("pilot-cel").value.trim() || (adres ? "Otwórz adres " + adres : "");
+  if (!cel) return stan($("pilot-stan"), "Wpisz polecenie albo adres strony.", true);
   const hosty = $("pilot-hosty").value.split(",").map(h => h.trim()).filter(Boolean);
   $("pilot-wyslij").disabled = true;
   $("pilot-przebieg").replaceChildren();
+  resetPodgladu();
   stan($("pilot-stan"), "Wysyłam polecenie do " + komputerPilota.nazwa + "…", false, true);
   try {
+    let pubkey = null;
+    if ($("pilot-podglad").checked && !$("pilot-podglad").disabled) {
+      pilotKlucze = await crypto.subtle.generateKey(
+        {name:"ECDH",namedCurve:"P-256"}, true, ["deriveKey"]);
+      const pub = await crypto.subtle.exportKey("jwk", pilotKlucze.publicKey);
+      pubkey = {kty:pub.kty,crv:pub.crv,x:pub.x,y:pub.y};
+      $("pilot-podglad-blok").hidden = false;
+    }
     const odp = await api("/api/urzadzenia/polecenia", {
       method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({komputer: komputerPilota.id, cel, dozwolone_hosty: hosty}),
+      body: JSON.stringify({komputer: komputerPilota.id, cel, dozwolone_hosty: hosty,
+        adres, nowa_karta: $("pilot-nowa-karta").checked,
+        podglad_pubkey: pubkey}),
     });
     const wyslane = await odp.json().catch(() => ({}));
     if (!odp.ok) throw new Error(wyslane.detail || "Nie udało się przekazać polecenia.");
@@ -3920,7 +4007,8 @@ $("pilot-wyslij").onclick = async () => {
     zgodaPilotaWidziana = "";
     const koniec = Date.now() + 15 * 60 * 1000;
     while (Date.now() < koniec && $("okno-pilot").open) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 1800));
+      if (pilotKlucze) await odswiezPodgladPilota(wyslane.zlecenie).catch(() => {});
       const r = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(wyslane.zlecenie));
       const wynik = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(wynik.detail || "Nie udało się odczytać wyniku.");
