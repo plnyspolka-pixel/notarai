@@ -72,6 +72,7 @@ import ustawienia_kancelarii
 import walidacja
 import samonaprawa
 import asystent_kancelarii
+import pulpit_ai
 
 logging.basicConfig(
     level=logging.INFO,
@@ -138,6 +139,7 @@ app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
 # Agent glosowy (ElevenLabs): webhooki narzedzi, wlasne limity i token.
 app.include_router(agent_glosowy.router)
+app.include_router(pulpit_ai.router)
 app.middleware("http")(kalkulator.cors)
 
 

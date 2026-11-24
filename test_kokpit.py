@@ -54,7 +54,10 @@ def test_dashboard_assets_and_unique_html_ids():
 def test_dashboard_routes_into_existing_real_workflow():
     assert "window.odswiezKokpit?.(lista)" in HTML
     assert 'const nowyKokpit = numer === 0;' in HTML
-    assert "pokaz(0); // Domyślnie" in HTML
+    assert "pokaz(13); // Chat jest głównym panelem po zalogowaniu." in HTML
+    assert 'id="pulpit-ai"' in HTML
+    assert 'id="btn-pulpit-ai"' in HTML
+    assert 'src="/static/pulpit-ai.js"' in HTML
     assert 'node("btn-nowa").click()' in DASHBOARD
     assert 'node("pliki").click()' in DASHBOARD
     assert 'wczytajSprawe(s.id)' in DASHBOARD
