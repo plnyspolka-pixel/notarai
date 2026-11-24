@@ -87,3 +87,43 @@ def test_empty_document_supports_draft_creation():
         {"type":"append_html","html":"<p><b>Projekt protokołu</b></p><p>Strona: ?</p>"}
     ]},"","","document")
     assert result["operations"][0]["type"]=="append_html"
+
+
+def test_authenticated_proposal_invokes_existing_bedrock(monkeypatch):
+    from contextlib import nullcontext
+    import word_addin
+
+    class Request:
+        class State:
+            email="notariusz@example.test"
+            serwis=False
+        state=State()
+
+    called={"count":0}
+    def fake_model(system, content, **kwargs):
+        called["count"]+=1
+        assert "NotarAI" in system
+        assert "Pierwszy paragraf" in content[0]["text"]
+        return '{"summary":"Korekta","operations":[{"type":"replace","find":"ma błąd","text":"jest poprawny"}]}'
+
+    monkeypatch.setattr(word_addin.tokenomia,"akcja",lambda *args,**kwargs:nullcontext())
+    monkeypatch.setattr(word_addin.bedrock,"_rozmowa",fake_model)
+    data=PropozycjaWejscie(document_text=TEXT,scope="document",
+                          instruction="Popraw pierwszy paragraf",draft_confirmed=True)
+    result=word_addin.propozycja(data,Request())
+    assert called["count"]==1
+    assert result["operations"][0]["type"]=="replace"
+
+
+def test_word_addin_only_member_session_can_edit(monkeypatch):
+    import word_addin
+    class Request:
+        class State:
+            email=""
+            serwis=False
+        state=State()
+    data=PropozycjaWejscie(document_text=TEXT,scope="document",
+                          instruction="Popraw paragraf",draft_confirmed=True)
+    with pytest.raises(HTTPException) as ex:
+        word_addin.propozycja(data,Request())
+    assert ex.value.status_code==401
