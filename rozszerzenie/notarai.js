@@ -73,6 +73,10 @@ export class Notarai {
     await this._zadanie(`/api/pomocnik/zlecenia/${zlecenie}/wynik`, raport);
   }
 
+  async wyslijPodglad(zlecenie, kadr) {
+    await this._zadanie(`/api/pomocnik/podglad/${encodeURIComponent(zlecenie)}`, kadr);
+  }
+
   async zlecKlikanie(cel, host) {
     return (await this._zadanie("/api/pomocnik/klikamy", { cel, host })).tresc.zlecenie;
   }

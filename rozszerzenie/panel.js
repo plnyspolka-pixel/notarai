@@ -7,6 +7,7 @@
 
 import { prowadz, host } from "./silnik.js";
 import { Strona } from "./strona.js";
+import { uruchomPodglad } from "./podglad.js";
 import { wykonajKRZ } from "./krz.js";
 import { wykonajFormularz } from "./formularz.js";
 import { Notarai, ADRES_DOMYSLNY, BladTokenu, BladPolaczenia } from "./notarai.js";
@@ -153,6 +154,20 @@ function ustawPrace(trwa) {
 
 $("btn-stop").onclick = () => { przerwij = true; $("btn-stop").disabled = true; };
 
+// Szersza zgoda jest OPCJONALNA i przyznawana wylacznie kliknieciem na PC.
+// Bez niej Chrome moze umozliwic zrzut tylko karty, dla ktorej activeTab
+// uzyskano po kliknieciu ikony rozszerzenia.
+$("btn-podglad-uprawnienie").onclick = async () => {
+  try {
+    const zgoda = await chrome.permissions.request({ origins: ["https://*/*"] });
+    $("podglad-uprawnienie-stan").textContent = zgoda
+      ? "Podgląd dozwolony. Włączasz go osobno przy każdym poleceniu z telefonu."
+      : "Nie przyznano dostępu do podglądu wielu kart.";
+  } catch {
+    $("podglad-uprawnienie-stan").textContent = "Przeglądarka nie przyznała uprawnienia.";
+  }
+};
+
 $("formularz").onsubmit = (zdarzenie) => {
   zdarzenie.preventDefault();
   const cel = $("cel").value.trim();
@@ -289,6 +304,9 @@ async function pilnujKolejki() {
 }
 
 async function przyjmij(z) {
+  // Otwarcie karty nie wymaga uprawnienia do czytania jej zawartosci.
+  // Obejrzenie kadrow wymaga oddzielnej zgody rozszerzenia.
+  if (z.rodzaj === "karty") return wykonajZlecenie(z);
   const notarai = new Notarai(ustawienia.adres, ustawienia.token);
   const opis = opisZlecenia(z);
   if (!opis) {
@@ -347,8 +365,36 @@ async function wykonajZlecenie(z) {
   ustawPrace(true);
   $("btn-stop").hidden = true;                 // zlecen z kolejki nie przerywamy w pol osoby
   let raport;
+  let podglad = null;
   try {
-    if (z.rodzaj === "krz") {
+    if (z.rodzaj === "karty") {
+      const adres = String(tresc.adres || "");
+      const url = new URL(adres);
+      if (url.protocol !== "https:" || !url.hostname.includes(".") ||
+          url.hostname === "localhost" || url.hostname.endsWith(".local")) {
+        throw new Error("Nieprawidłowy adres strony.");
+      }
+      let id;
+      if (tresc.nowa_karta) {
+        id = (await chrome.tabs.create({ url: adres, active: true })).id;
+      } else {
+        const cel = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+        id = cel && /^https?:/.test(cel.url || "") ? cel.id : null;
+        if (id === null) id = (await chrome.tabs.create({ url: adres, active: true })).id;
+        else await chrome.tabs.update(id, { url: adres, active: true });
+      }
+      await czekaj(1250);
+      if (tresc.podglad_pubkey) {
+        podglad = await uruchomPodglad(z, id, notarai).catch(() => null);
+        await czekaj(2500);
+      }
+      raport = {
+        kroki: [{ nr: 1, akcja: "otworz", cel: url.hostname, wykonano: true }],
+        podsumowanie: tresc.nowa_karta ? "Otworzono nową kartę." : "Otworzono podany adres.",
+        bledy: [],
+      };
+      pokazWynik("Gotowe.", raport.podsumowanie, true);
+    } else if (z.rodzaj === "krz") {
       const adres = (tresc.portal || {}).adres || "";
       let id = await kartaZAdresem(adres);
       if (id === null) id = (await chrome.tabs.create({ url: adres, active: true })).id;
@@ -370,9 +416,14 @@ async function wykonajZlecenie(z) {
                    : `Wpisanych pól: ${wpisane}. Sprawdź je i wyślij samodzielnie.`, !raport.bledy.length);
     } else {
       const cela = { id: karta.id, url: karta.url };
+      if (tresc.podglad_pubkey) {
+        podglad = await uruchomPodglad(z, cela.id, notarai).catch(() => null);
+      }
       const przebieg = await prowadz(tresc.cel || "", new Strona(cela.id),
         (c, stan, kroki) => notarai.krok(z.id, c, stan, kroki), { naKrok: dopiszKrok });
-      raport = { bledy: przebieg.zatrzymano ? [przebieg.zatrzymano] : [] };
+      raport = { kroki: przebieg.kroki,
+        podsumowanie: przebieg.podsumowanie, pytanie: przebieg.pytanie,
+        bledy: przebieg.zatrzymano ? [przebieg.zatrzymano] : [] };
       if (przebieg.pytanie) pokazWynik("Teraz Ty.", przebieg.pytanie);
       else if (przebieg.zatrzymano) pokazWynik("Zatrzymałem się.", przebieg.zatrzymano);
       else pokazWynik("Gotowe.", przebieg.podsumowanie || "Zrobione.", true);
@@ -383,6 +434,7 @@ async function wykonajZlecenie(z) {
     pokazWynik("Nie udało się.", blad instanceof BladPolaczenia ? blad.message
       : "Coś poszło nie tak po stronie rozszerzenia.");
   }
+  if (podglad) await podglad.zatrzymaj();
   try { await notarai.odeslij(z.id, raport); }
   catch { pokazWynik("Nie odesłałem wyniku.", "Brak połączenia z notarai. Zleć czynność ponownie."); }
   ustawPrace(false);

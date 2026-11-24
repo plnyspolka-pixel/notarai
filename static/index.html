@@ -557,6 +557,22 @@ dialog.okno input{font:14px var(--mono);text-transform:uppercase;width:12em}
 .komputer b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .komputer small{color:var(--tekst3);font-size:12px}
 .komputer button{font-size:12px;padding:5px 11px}
+/* Pilot telefonu - ta sama kolejka co Klikamy, ale wskazujemy konkretny PC. */
+#okno-pilot{width:min(560px,calc(100vw - 24px))}
+#okno-pilot .pole{margin-top:14px}
+#okno-pilot textarea,#okno-pilot input{width:100%;max-width:100%;font:14px var(--sans);text-transform:none}
+#okno-pilot textarea{min-height:112px;resize:vertical}
+#okno-pilot #pilot-przebieg{margin-top:16px;max-height:40vh;overflow:auto}
+#okno-pilot .pilot-wybor{display:flex;align-items:center;gap:9px;margin:9px 0;font-size:13px;color:var(--tekst2)}
+#okno-pilot .pilot-wybor input{width:auto;flex:none;accent-color:var(--akcent)}
+#pilot-podglad-blok{margin-top:14px}
+#pilot-kadr{display:block;width:100%;max-height:47vh;object-fit:contain;background:#0b1426;border-radius:9px}
+#pilot-kadr[hidden],#pilot-podglad-blok[hidden]{display:none}
+#pilot-podglad-stan{display:block;margin:5px 0;color:var(--tekst3);font-size:12px}
+#okno-pilot .dol button{min-height:42px}
+@media(max-width:600px){dialog#okno-pomocnik,dialog#okno-pilot{padding:18px;max-height:85dvh;overflow:auto}
+  .komputer{flex-wrap:wrap}.komputer > div{flex-basis:calc(100% - 30px)}
+  .komputer button{flex:1;min-height:40px}}
 /* dokumenty akceptowane w aplikacji */
 #okno-umowa input[type=text]{font:14px var(--sans);text-transform:none;width:100%}
 #okno-umowa .pole{margin-bottom:12px}
@@ -1795,6 +1811,7 @@ notarai</div>
 <dialog class="okno" id="okno-pomocnik">
   <h2>Pomocnik na komputerze</h2>
   <p>Pomocnik wykonuje na Twoim komputerze to, czego chmura zrobić nie może: sprawdzenia w rejestrach. Łączysz go raz, potem działa sam.</p>
+  <p id="pomocnik-mobilny" hidden>Na telefonie nie instalujesz pomocnika. Wybierz podłączony komputer i naciśnij „Steruj”. Jeśli go nie ma, uruchom pomocnika w Windows i połącz go z kancelarią z tego komputera.</p>
   <div id="lista-komputerow"></div>
   <div class="dol"><button id="btn-instaluj-pomocnika">Zainstaluj pomocnika na tym komputerze</button></div>
   <h3>Masz kod z okna pomocnika?</h3>
@@ -1805,6 +1822,53 @@ notarai</div>
     <span class="stan" id="stan-pomocnik"></span>
   </div>
   <div class="dol"><button class="wtorny" id="btn-zamknij-pomocnik">Zamknij</button></div>
+</dialog>
+
+<!-- Pilot mobilny: zlecenie trafia na konkretny, sparowany komputer z Windows. -->
+<dialog class="okno" id="okno-pilot" aria-labelledby="pilot-tytul">
+  <h2 id="pilot-tytul">Steruj przeglądarką komputera</h2>
+  <p id="pilot-komputer"></p>
+  <p class="stan" id="pilot-wersja"></p>
+  <p>Komputer musi być włączony, a pomocnik uruchomiony. Polecenia wykonuje w osobnej przeglądarce do rejestrów. Przed wysłaniem formularza poprosi Cię tutaj o osobną, jednorazową zgodę. Podpis, PIN, płatności i usuwanie wymagają działania na komputerze.</p>
+  <div class="pole">
+    <label class="etykieta" for="pilot-cel">Polecenie dla komputera</label>
+    <textarea id="pilot-cel" maxlength="1000" rows="4" placeholder="Np. znajdź w Geoportalu działkę 123/4"></textarea>
+  </div>
+  <div class="pole">
+    <label class="etykieta" for="pilot-hosty">Dozwolone domeny (oddzielone przecinkami)</label>
+    <input id="pilot-hosty" autocomplete="off" spellcheck="false" placeholder="geoportal.gov.pl">
+    <small>Bez domen pomocnik pozostaje na aktualnie otwartej stronie. Wpisanie domeny zezwala na jej otwarcie.</small>
+  </div>
+  <div class="pole">
+    <label class="etykieta" for="pilot-adres">Adres strony (opcjonalnie)</label>
+    <input id="pilot-adres" type="url" inputmode="url" autocomplete="off" placeholder="https://geoportal.gov.pl">
+    <label class="pilot-wybor" for="pilot-nowa-karta"><input type="checkbox" id="pilot-nowa-karta"> Otwórz adres w nowej karcie</label>
+    <label class="pilot-wybor" for="pilot-podglad"><input type="checkbox" id="pilot-podglad" checked> Podgląd aktywnej karty na telefonie (rozszerzenie Chrome / Edge)</label>
+  </div>
+  <div class="dol">
+    <button type="button" id="pilot-wyslij">Wyślij polecenie</button>
+    <button type="button" class="wtorny" id="pilot-zamknij">Zamknij</button>
+  </div>
+  <p class="stan" id="pilot-stan" role="status" aria-live="polite"></p>
+  <div id="pilot-podglad-blok" hidden>
+    <b>Podgląd wykonywanej karty</b>
+    <small id="pilot-podglad-stan">Oczekiwanie na zaszyfrowany obraz z rozszerzenia…</small>
+    <img id="pilot-kadr" alt="Bieżący widok strony obsługiwanej na komputerze" hidden>
+  </div>
+  <div class="klik-kroki" id="pilot-przebieg" aria-live="polite"></div>
+</dialog>
+
+<!-- Druga, odrebna decyzja na telefonie: tylko konkretny przycisk, 120 s. -->
+<dialog class="okno" id="okno-zgoda-pilota" aria-labelledby="pilot-zgoda-tytul">
+  <h2 id="pilot-zgoda-tytul">Czy pozwolić pomocnikowi wysłać?</h2>
+  <p>Pomocnik zatrzymał się przed kliknięciem przycisku, który może wysłać lub złożyć formularz. Sprawdź, czy to zamierzona czynność. Zgoda dotyczy tylko tej jednej operacji.</p>
+  <div class="komputer"><div><b id="pilot-zgoda-akcja"></b><small id="pilot-zgoda-host"></small></div></div>
+  <p>Nie zatwierdzaj, jeśli nie masz pewności co do treści formularza na komputerze. To nie jest podpis kwalifikowany.</p>
+  <div class="dol">
+    <button type="button" id="pilot-zgoda-tak">Pozwól tylko tym razem</button>
+    <button type="button" class="wtorny" id="pilot-zgoda-nie">Nie pozwalaj</button>
+  </div>
+  <p class="stan" id="pilot-zgoda-stan" role="status" aria-live="polite"></p>
 </dialog>
 
 <!-- Kreator instalacji: pobierz, uruchom, polacz. Kolejne kroki zapalaja sie
@@ -3943,14 +4007,21 @@ function rysujPomocnika(dane){
   $("pomocnik-kropka").classList.toggle("jest", pomocnikPolaczony);
   $("pomocnik-opis").textContent = pomocnikPolaczony ? "działa"
     : komputery.length ? "nie jest uruchomiony" : "kliknij, żeby połączyć";
+  $("btn-instaluj-pomocnika").hidden = !naWindows;
+  $("pomocnik-mobilny").hidden = naWindows;
   $("lista-komputerow").innerHTML = komputery.length
     ? komputery.map(k => `<div class="komputer">
         <span class="kropka ${k.polaczony ? "jest" : ""}"></span>
         <div><b>${escape(k.nazwa)}</b>
           <small>${k.polaczony ? "działa teraz" : escape(opisCzasu(k.widziany))}</small></div>
+        ${k.polaczony ? '<button type="button" data-steruj="' + escape(k.id) + '">Steruj</button>' : ""}
         <button class="wtorny" data-odlacz="${escape(k.id)}">Odłącz</button>
       </div>`).join("")
-    : '<p class="stan">Żaden komputer nie jest jeszcze połączony.</p>';
+    : '<p class="stan">Żaden komputer nie jest jeszcze połączony. Uruchom pomocnika na komputerze z Windows i połącz go w NotarAI.</p>';
+  $("lista-komputerow").querySelectorAll("[data-steruj]").forEach(b => b.onclick = () => {
+    const wybrany = komputery.find(k => k.id === b.dataset.steruj && k.polaczony);
+    if (wybrany) otworzPilota(wybrany);
+  });
   $("lista-komputerow").querySelectorAll("[data-odlacz]").forEach(b => b.onclick = async () => {
     const nazwa = b.closest(".komputer").querySelector("b").textContent;
     if (!confirm("Odłączyć komputer " + nazwa + "?\nPomocnik na nim przestanie odbierać "
@@ -3963,12 +4034,187 @@ function rysujPomocnika(dane){
 
 $("btn-pomocnik").onclick = () => {
   // Bez zadnego komputera lista jest pusta - od razu prowadzimy przez instalacje.
-  if (!((ostatniStanPomocnika || {}).urzadzenia || []).length) { otworzKreator(); return; }
+  if (!((ostatniStanPomocnika || {}).urzadzenia || []).length && naWindows) { otworzKreator(); return; }
   stan($("stan-pomocnik"), "");
   $("okno-pomocnik").showModal();
   odswiezPomocnika();
 };
 $("btn-zamknij-pomocnik").onclick = () => $("okno-pomocnik").close();
+
+/* Pilot: polecenie z telefonu kierujemy do juz sparowanego pomocnika Windows. */
+let komputerPilota = null;
+let zgodaPilota = null, zgodaPilotaWidziana = "";
+let pilotKlucze = null, pilotKluczAes = null, pilotPubZKomputera = "";
+let pilotNumerKadru = 0, pilotBlobUrl = null;
+function b64DoBajtow(base64){
+  return Uint8Array.from(atob(base64), litera => litera.charCodeAt(0));
+}
+function resetPodgladu(){
+  pilotKlucze = pilotKluczAes = null;
+  pilotPubZKomputera = "";
+  pilotNumerKadru = 0;
+  if (pilotBlobUrl) URL.revokeObjectURL(pilotBlobUrl);
+  pilotBlobUrl = null;
+  $("pilot-kadr").removeAttribute("src");
+  $("pilot-kadr").hidden = true;
+  $("pilot-podglad-blok").hidden = true;
+}
+async function odswiezPodgladPilota(zlecenie){
+  if (!pilotKlucze) return;
+  const odp = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(zlecenie) + "/podglad");
+  const wynik = await odp.json().catch(() => ({}));
+  if (!odp.ok || wynik.stan !== "kadr" || !wynik.kadr) return;
+  const k = wynik.kadr;
+  if (!Number.isInteger(k.numer) || k.numer <= pilotNumerKadru) return;
+  try {
+    const idKlucza = [k.klucz.x, k.klucz.y].join(":");
+    if (!pilotKluczAes || pilotPubZKomputera !== idKlucza){
+      const pub = await crypto.subtle.importKey("jwk", k.klucz,
+        {name:"ECDH",namedCurve:"P-256"}, false, []);
+      pilotKluczAes = await crypto.subtle.deriveKey(
+        {name:"ECDH",public:pub}, pilotKlucze.privateKey,
+        {name:"AES-GCM",length:256}, false, ["decrypt"]);
+      pilotPubZKomputera = idKlucza;
+    }
+    const aad = new TextEncoder().encode(zlecenie + "|" + k.numer);
+    const jawny = await crypto.subtle.decrypt(
+      {name:"AES-GCM",iv:b64DoBajtow(k.iv),additionalData:aad},
+      pilotKluczAes, b64DoBajtow(k.dane));
+    const adres = URL.createObjectURL(new Blob([jawny],{type:"image/jpeg"}));
+    const poprzedni = pilotBlobUrl;
+    pilotBlobUrl = adres;
+    $("pilot-kadr").src = adres;
+    $("pilot-kadr").hidden = false;
+    pilotNumerKadru = k.numer;
+    $("pilot-podglad-stan").textContent = "Zaszyfrowany podgląd, kadr " + k.numer +
+      " · tylko aktywna karta obsługiwana przez rozszerzenie";
+    if (poprzedni) URL.revokeObjectURL(poprzedni);
+  } catch {
+    $("pilot-podglad-stan").textContent = "Nie można odszyfrować bieżącego kadru.";
+  }
+}
+function pokazZgodePilota(zlecenie, oczekujaca){
+  if (!oczekujaca || zgodaPilotaWidziana === oczekujaca.id ||
+      !$("okno-pilot").open) return;
+  zgodaPilotaWidziana = oczekujaca.id;
+  zgodaPilota = {zlecenie, id: oczekujaca.id};
+  $("pilot-zgoda-akcja").textContent = "Przycisk: " + oczekujaca.etykieta;
+  $("pilot-zgoda-host").textContent = "Strona: " + oczekujaca.host;
+  stan($("pilot-zgoda-stan"), "Zgoda wygasa po dwóch minutach.");
+  $("pilot-zgoda-tak").disabled = false;
+  $("pilot-zgoda-nie").disabled = false;
+  if (!$("okno-zgoda-pilota").open) $("okno-zgoda-pilota").showModal();
+}
+async function zdecydujPilota(pozwol){
+  const prosba = zgodaPilota;
+  if (!prosba) return;
+  $("pilot-zgoda-tak").disabled = $("pilot-zgoda-nie").disabled = true;
+  stan($("pilot-zgoda-stan"), "Przekazuję decyzję…", false, true);
+  try {
+    const odp = await api("/api/urzadzenia/polecenia/" +
+      encodeURIComponent(prosba.zlecenie) + "/zgoda", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: prosba.id, zgoda: pozwol}),
+    });
+    const wynik = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(wynik.detail || "Decyzja nie została zapisana.");
+    stan($("pilot-stan"), pozwol
+      ? "Zezwolono jednorazowo. Komputer wykonuje wskazane kliknięcie…"
+      : "Odmówiono wysłania formularza.");
+    zgodaPilota = null;
+    $("okno-zgoda-pilota").close();
+  } catch (blad) {
+    stan($("pilot-zgoda-stan"), blad.message || "Nie udało się przekazać decyzji.", true);
+    $("pilot-zgoda-tak").disabled = $("pilot-zgoda-nie").disabled = false;
+  }
+}
+$("pilot-zgoda-tak").onclick = () => zdecydujPilota(true);
+$("pilot-zgoda-nie").onclick = () => zdecydujPilota(false);
+$("okno-zgoda-pilota").addEventListener("cancel", e => {
+  e.preventDefault(); zdecydujPilota(false);
+});
+function otworzPilota(komputer){
+  komputerPilota = komputer;
+  $("pilot-komputer").textContent = "Komputer: " + komputer.nazwa + " — połączony";
+  const wersja = komputer.wersja || "";
+  const czyNowy = /^0\.(?:[3-9]|[1-9]\d)(?:\.|$)/.test(wersja) || /^[1-9]\d*(?:\.|$)/.test(wersja);
+  const rozszerzenie = /rozszerzenie/i.test(komputer.nazwa);
+  $("pilot-wersja").textContent = rozszerzenie
+    ? "Rozszerzenie Chrome/Edge: obsługuje podgląd tylko aktywnej karty. Panel rozszerzenia musi być otwarty."
+    : czyNowy ? "Pomocnik " + wersja + " obsługuje zgody na wysłanie. Podgląd obrazu wymaga rozszerzenia Chrome/Edge."
+    : "Pomocnik " + (wersja || "w nieznanej wersji") +
+      " wykonuje zwykłe polecenia. Zgody na wysłanie wymagają wersji 0.4, a podgląd obrazu rozszerzenia.";
+  $("pilot-podglad").checked = rozszerzenie;
+  $("pilot-podglad").disabled = !rozszerzenie;
+  resetPodgladu();
+  $("pilot-cel").value = "";
+  $("pilot-adres").value = "";
+  $("pilot-nowa-karta").checked = false;
+  $("pilot-hosty").value = "";
+  $("pilot-przebieg").replaceChildren();
+  stan($("pilot-stan"), "");
+  $("pilot-wyslij").disabled = false;
+  zgodaPilota = null; zgodaPilotaWidziana = "";
+  if ($("okno-pomocnik").open) $("okno-pomocnik").close();
+  $("okno-pilot").showModal();
+}
+$("pilot-zamknij").onclick = () => {
+  if (zgodaPilota) zdecydujPilota(false);
+  $("okno-pilot").close();
+  resetPodgladu();
+};
+$("pilot-wyslij").onclick = async () => {
+  if (!komputerPilota) return;
+  const adres = $("pilot-adres").value.trim();
+  const cel = $("pilot-cel").value.trim() || (adres ? "Otwórz adres " + adres : "");
+  if (!cel) return stan($("pilot-stan"), "Wpisz polecenie albo adres strony.", true);
+  const hosty = $("pilot-hosty").value.split(",").map(h => h.trim()).filter(Boolean);
+  $("pilot-wyslij").disabled = true;
+  $("pilot-przebieg").replaceChildren();
+  resetPodgladu();
+  stan($("pilot-stan"), "Wysyłam polecenie do " + komputerPilota.nazwa + "…", false, true);
+  try {
+    let pubkey = null;
+    if ($("pilot-podglad").checked && !$("pilot-podglad").disabled) {
+      pilotKlucze = await crypto.subtle.generateKey(
+        {name:"ECDH",namedCurve:"P-256"}, true, ["deriveKey"]);
+      const pub = await crypto.subtle.exportKey("jwk", pilotKlucze.publicKey);
+      pubkey = {kty:pub.kty,crv:pub.crv,x:pub.x,y:pub.y};
+      $("pilot-podglad-blok").hidden = false;
+    }
+    const odp = await api("/api/urzadzenia/polecenia", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({komputer: komputerPilota.id, cel, dozwolone_hosty: hosty,
+        adres, nowa_karta: $("pilot-nowa-karta").checked,
+        podglad_pubkey: pubkey}),
+    });
+    const wyslane = await odp.json().catch(() => ({}));
+    if (!odp.ok) throw new Error(wyslane.detail || "Nie udało się przekazać polecenia.");
+    stan($("pilot-stan"), "Komputer otrzyma zadanie podczas najbliższego odpytywania. Sprawdzam wynik…", false, true);
+    zgodaPilotaWidziana = "";
+    const koniec = Date.now() + 15 * 60 * 1000;
+    while (Date.now() < koniec && $("okno-pilot").open) {
+      await new Promise(resolve => setTimeout(resolve, 1800));
+      if (pilotKlucze) await odswiezPodgladPilota(wyslane.zlecenie).catch(() => {});
+      const r = await api("/api/urzadzenia/polecenia/" + encodeURIComponent(wyslane.zlecenie));
+      const wynik = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(wynik.detail || "Nie udało się odczytać wyniku.");
+      if (wynik.zgoda) {
+        pokazZgodePilota(wyslane.zlecenie, wynik.zgoda);
+        stan($("pilot-stan"), "Komputer czeka na jednorazową zgodę na wysłanie.", false, true);
+      }
+      if (wynik.stan === "wykonane") {
+        rysujPrzebieg(wynik.raport || {}, "pilot-przebieg");
+        stan($("pilot-stan"), (wynik.raport || {}).pytanie
+          ? "Wymagane działanie na komputerze." : "Polecenie zakończone.");
+        return;
+      }
+    }
+    stan($("pilot-stan"), "Zadanie wysłane. Po zamknięciu okna pomocnik nadal może je wykonywać.");
+  } catch (blad) {
+    stan($("pilot-stan"), blad.message || "Nie udało się wykonać polecenia.", true);
+  } finally { $("pilot-wyslij").disabled = false; }
+};
 
 let kodDoPolaczenia = "";
 
@@ -4057,7 +4303,11 @@ $("btn-nie-lacz").onclick = () => $("okno-polacz").close();
 const KLUCZ_KREATORA = "notarai_kreator_odlozony";
 let ostatniStanPomocnika = null, krokKreatora = 1, zegarKreatora = null;
 let kreatorKod = "", kreatorNazwa = "", kreatorZaproponowany = false;
-const naWindows = /Windows/.test(navigator.userAgent);
+// Chrome Android w trybie "wersja na komputer" potrafi podawac UA Windows.
+// Ekran dotykowy telefonu nadal nie powinien dostawac instalatora .exe.
+const naWindows = /Windows/.test(navigator.userAgent) &&
+  !(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900));
 
 function kreatorOdlozony(){
   try { return Date.now() - (+localStorage.getItem(KLUCZ_KREATORA) || 0) < 7 * 864e5; }
@@ -4083,6 +4333,10 @@ function ustawKrok(n){
 }
 
 function otworzKreator(){
+  if (!naWindows) {
+    if (!$("okno-pomocnik").open) $("okno-pomocnik").showModal();
+    return;
+  }
   const plik = (ostatniStanPomocnika || {}).pobierz;
   const link = $("kr-pobierz");
   if (plik) {
@@ -5804,8 +6058,8 @@ const OPIS_AKCJI = {
   otworz: "otwarcie adresu", czytaj: "odczyt strony",
   pytam: "pytanie do Ciebie", koniec: "koniec",
 };
-function rysujPrzebieg(raport){
-  const cel = $("klik-przebieg");
+function rysujPrzebieg(raport, miejsce = "klik-przebieg"){
+  const cel = $(miejsce);
   cel.innerHTML = "";
   (raport.kroki || []).forEach(k => {
     const d = document.createElement("div");

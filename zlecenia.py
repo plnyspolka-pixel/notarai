@@ -30,7 +30,7 @@ import magazyn
 log = logging.getLogger("pieczapp.zlecenia")
 
 WAZNOSC_MINUT = int(os.getenv("PIECZAPP_ZLECENIE_MINUT", "30"))
-RODZAJE = ("krz", "formularz", "klikamy")
+RODZAJE = ("krz", "formularz", "klikamy", "karty")
 # "w_toku": zlecenie zlozone przez rozszerzenie przegladarki, ktore samo je
 # wykonuje - pomocnik (.exe) nie ma go odbierac, wiec nie moze "czekac".
 STANY = ("czeka", "w_toku", "wykonane")
@@ -100,7 +100,7 @@ def _wczytaj(kancelaria: str, identyfikator: str) -> dict | None:
     return json.loads(odpowiedz["Body"].read().decode("utf-8"))
 
 
-def czekajace() -> list[dict]:
+def czekajace(komputer: str | None = None) -> list[dict]:
     """Zlecenia do wykonania przez pomocnika tej kancelarii.
 
     Przeterminowane sa po cichu kasowane - pomocnik ma dostac tylko to, czego
@@ -123,6 +123,11 @@ def czekajace() -> list[dict]:
                 usun(identyfikator)
                 continue
             if zlecenie.get("stan") == "czeka":
+                # Polecenia z telefonu ida wylacznie do wybranego stanowiska.
+                # Zadania bez adresata zachowuja dawny tryb wspolnej kolejki.
+                cel = (zlecenie.get("tresc") or {}).get("docelowy_komputer")
+                if cel and cel != komputer:
+                    continue
                 wynik.append(zlecenie)
     wynik.sort(key=lambda z: z.get("zlozono", ""))
     return wynik

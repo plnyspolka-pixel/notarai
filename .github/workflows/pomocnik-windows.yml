@@ -1,0 +1,60 @@
+name: NotarAI - pomocnik Windows (EXE)
+
+on:
+  pull_request:
+    paths:
+      - 'pomocnik/**'
+      - 'infra/zbuduj-pomocnika.ps1'
+      - '.github/workflows/pomocnik-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pomocnik:
+    name: Build Windows helper (unsigned)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Zbuduj pomocnika
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          powershell -NoProfile -ExecutionPolicy Bypass -File infra\zbuduj-pomocnika.ps1 -Python python
+          if ($LASTEXITCODE -ne 0) { throw "Budowa pomocnika nie powiodla sie" }
+
+      - name: Zweryfikuj wersje i SHA-256
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd()))
+          from pomocnik.klient import WERSJA
+          root = Path("static/pobierz")
+          plik = root / "notarai-pomocnik.exe"
+          metadane = json.loads((root / "notarai-pomocnik.json").read_text("utf-8-sig"))
+          assert plik.exists() and plik.stat().st_size > 1000000
+          assert metadane["wersja"] == WERSJA
+          assert metadane["sha256"] == hashlib.sha256(plik.read_bytes()).hexdigest()
+          print(f"NotarAI pomocnik {WERSJA}: EXE {plik.stat().st_size} B, SHA-256 verified")
+
+      - name: Zachowaj artefakt do instalacji testowej
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarai-pomocnik-test
+          path: |
+            static/pobierz/notarai-pomocnik.exe
+            static/pobierz/notarai-pomocnik.json
+          if-no-files-found: error
+          retention-days: 14

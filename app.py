@@ -15,6 +15,7 @@ import shutil
 import tempfile
 import threading
 import uuid
+from urllib.parse import urlsplit
 from datetime import datetime
 from pathlib import Path
 
@@ -44,6 +45,8 @@ import krz
 import krz_portal
 import urzadzenia
 import zlecenia
+import zgody_pilota
+import podglad_pilota
 import magazyn
 import szyfrowanie_kancelarii
 import notariusze
@@ -2023,7 +2026,9 @@ def stan_zlecenia(identyfikator: str, zlecenie: str):
 class RaportPomocnika(BaseModel):
     sprawdzenia: list[ZadanieSprawdzenia] = []
     bledy: list[str] = []
-    kroki: list[dict] = []      # tylko zlecenie "formularz": pole, wykonano, uwaga
+    kroki: list[dict] = []
+    podsumowanie: str = ""      # Klikamy: krotki wynik dla notariusza
+    pytanie: str = ""          # Klikamy: wskazanie czynnosci tylko dla czlowieka
 
 
 # --- Klikamy: model prowadzi przegladarke notariusza ------------------------
@@ -2035,6 +2040,217 @@ class RaportPomocnika(BaseModel):
 class ZadanieKlikania(BaseModel):
     cel: str
     dozwolone_hosty: list[str] = []
+
+
+class PolecenieMobilne(BaseModel):
+    komputer: str
+    cel: str
+    dozwolone_hosty: list[str] = []
+    adres: str = ""
+    nowa_karta: bool = False
+    podglad_pubkey: dict | None = None
+
+
+@app.post("/api/urzadzenia/polecenia", status_code=202)
+def zlec_z_telefonu(polecenie: PolecenieMobilne, request: Request):
+    """Mobilny pilot istniejacego pomocnika - bez instalowania czegokolwiek na telefonie.
+
+    Komputer musi nalezec do zalogowanej kancelarii i wlasnie odpytywac kolejke.
+    Kontrola hostow i zakaz wysylki/podpisu nadal leza po stronie pomocnika.
+    """
+    _wymagaj_urzadzen()
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    cel = polecenie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co mam zrobic w przegladarce komputera.")
+    if len(cel) > 1000:
+        raise HTTPException(400, "Polecenie ma maksymalnie 1000 znakow.")
+    komputery = urzadzenia.lista(magazyn.kancelaria())
+    wybrany = next((k for k in komputery if k["id"] == polecenie.komputer), None)
+    if wybrany is None:
+        raise HTTPException(404, "Ten komputer nie nalezy do Twojej kancelarii.")
+    if not wybrany["polaczony"]:
+        raise HTTPException(409, "Pomocnik na tym komputerze jest wylaczony lub offline.")
+    hosty = []
+    for h in polecenie.dozwolone_hosty[:20]:
+        host = h.strip().lower()
+        if not host:
+            continue
+        if (not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\d+(?:\.\d+){3}", host)
+                or host.endswith((".local", ".localhost", ".internal"))):
+            raise HTTPException(400, "Podaj publiczne domeny, np. geoportal.gov.pl.")
+        hosty.append(host)
+    # Adres podany wprost przez uzytkownika (nie wymyslony przez AI) moze
+    # otworzyc nowa karte lub nawigowac biezaca. Tylko HTTPS + domeny DNS.
+    adres = polecenie.adres.strip()
+    nowa = polecenie.nowa_karta
+    if not adres:
+        traf = re.search(r"https://[^\s<>\"']+", cel, re.I)
+        if traf and re.search(r"\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\s+kart)", cel, re.I):
+            adres = traf.group(0).rstrip(".,;!)")
+            nowa = nowa or bool(re.search(r"now[aą]\s+kart", cel, re.I))
+    if not adres and re.search(r"\b(otw[oó]rz|wejd[zź]|przejd[zź]|nawiguj|now[aą]\s+kart)", cel, re.I):
+        # Uzytkownik moze podac sam publiczny host: 'otworz nowa karte geoportal.gov.pl'.
+        bez_protokolu = re.search(r"(?<![@\w/])((?:[a-z0-9-]+\.)+[a-z]{2,})(?![a-z0-9-])", cel, re.I)
+        if bez_protokolu and "://" not in cel:
+            adres = "https://" + bez_protokolu.group(1).rstrip(".,;!)")
+            nowa = nowa or bool(re.search(r"now[aą]\s+kart", cel, re.I))
+    if adres:
+        try:
+            u = urlsplit(adres)
+            port = u.port
+        except ValueError:
+            raise HTTPException(400, "Niepoprawny port lub adres strony.")
+        host = (u.hostname or "").lower()
+        if (u.scheme != "https" or u.username or u.password or port not in (None, 443)
+                or not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host)
+                or re.fullmatch(r"\d+(?:\.\d+){3}", host)
+                or host.endswith((".local", ".localhost", ".internal"))):
+            raise HTTPException(400, "Otwieraj tylko poprawne publiczne adresy HTTPS.")
+    pubkey = polecenie.podglad_pubkey
+    if pubkey is not None:
+        if (pubkey.get("kty") != "EC" or pubkey.get("crv") != "P-256"
+                or not all(isinstance(pubkey.get(k), str) and len(pubkey[k]) < 150
+                           for k in ("x", "y"))):
+            raise HTTPException(400, "Niepoprawny klucz podgladu.")
+        pubkey = {k: pubkey[k] for k in ("kty", "crv", "x", "y")}
+    z = zlecenia.zloz("karty" if adres else "klikamy", "", {
+        "cel": cel, "dozwolone_hosty": hosty,
+        "docelowy_komputer": polecenie.komputer,
+        "autor": getattr(request.state, "email", ""),
+        **({"adres": adres, "nowa_karta": nowa} if adres else {}),
+        **({"podglad_pubkey": pubkey} if pubkey else {}),
+    })
+    log.info("pilot: zlecenie %s dla komputera %s", z["id"], polecenie.komputer)
+    return {"zlecenie": z["id"], "stan": "czeka"}
+
+
+@app.get("/api/urzadzenia/polecenia/{identyfikator}")
+def wynik_polecenia_mobilnego(identyfikator: str):
+    _wymagaj_urzadzen()
+    z = zlecenia.wynik(identyfikator)
+    if not z or z.get("rodzaj") not in ("klikamy", "karty") or z.get("sprawa"):
+        raise HTTPException(404, "Nie ma takiego polecenia.")
+    if not (z.get("tresc") or {}).get("docelowy_komputer") and z.get("stan") != "wykonane":
+        raise HTTPException(404, "To nie jest polecenie z pilota.")
+    return {"stan": z["stan"], "raport": z.get("raport"),
+            "zgoda": zgody_pilota.oczekujaca(identyfikator) if z["stan"] != "wykonane" else None}
+
+
+
+
+# --- Podglad z rozszerzenia: ECDH P-256 + AES-GCM, serwer widzi ciphertext.
+# Podglad istnieje tylko w czasie zadania. Telefon zna prywatny klucz ECDH,
+# rozszerzenie generuje drugi prywatny klucz u siebie. Zadnego nagrywania.
+
+class ZaszyfrowanyKadr(BaseModel):
+    numer: int
+    klucz: dict
+    iv: str
+    dane: str
+
+
+@app.post("/api/pomocnik/podglad/{identyfikator}", status_code=202)
+def odebrany_kadr_podgladu(identyfikator: str, kadr: ZaszyfrowanyKadr, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    z = zlecenia.wynik(identyfikator)
+    tresc = (z or {}).get("tresc") or {}
+    if (not komputer or not z or z.get("stan") != "czeka"
+            or z.get("rodzaj") not in ("karty", "klikamy")
+            or tresc.get("docelowy_komputer") != komputer
+            or not tresc.get("podglad_pubkey")):
+        raise HTTPException(403, "Podglad nie jest aktywny dla tego komputera.")
+    try:
+        podglad_pilota.zapisz(identyfikator, kadr.numer, kadr.klucz, kadr.iv, kadr.dane)
+    except (TypeError, ValueError, KeyError) as blad:
+        raise HTTPException(400, str(blad))
+    return {"stan": "przyjeto"}
+
+
+@app.get("/api/urzadzenia/polecenia/{identyfikator}/podglad")
+def kadr_podgladu_na_telefonie(identyfikator: str, request: Request):
+    _wymagaj_urzadzen()
+    z = zlecenia.wynik(identyfikator)
+    if (not z or z.get("stan") == "wykonane"
+            or z.get("rodzaj") not in ("klikamy", "karty")
+            or not (z.get("tresc") or {}).get("podglad_pubkey")):
+        return {"stan": "brak"}
+    autor = (z.get("tresc") or {}).get("autor")
+    if not autor or autor != getattr(request.state, "email", None):
+        raise HTTPException(403, "Podglad jest dostepny tylko osobie, ktora wydala polecenie.")
+    kadr = podglad_pilota.ostatni(identyfikator)
+    return {"stan": "kadr", "kadr": kadr} if kadr else {"stan": "brak"}
+
+
+# --- Jednorazowa zgoda na wyslanie z telefonu -------------------------------
+# Dostep do tych endpointow jest rozdzielony: pomocnik moze tylko ZAPYTAC
+# o zgode i odebrac wynik, a wydac decyzje moze tylko uprawniony czlowiek.
+
+class ProsbaOZgode(BaseModel):
+    host: str
+    etykieta: str
+
+
+class DecyzjaOZgodzie(BaseModel):
+    id: str
+    zgoda: bool
+
+
+def _zadanie_ze_zgoda(identyfikator: str, komputer: str | None = None) -> dict:
+    z = zlecenia.wynik(identyfikator)
+    if (not z or z.get("rodzaj") != "klikamy" or z.get("stan") != "czeka"
+            or not (z.get("tresc") or {}).get("docelowy_komputer")):
+        raise HTTPException(404, "Nie ma aktywnego zadania pilota.")
+    cel = z["tresc"]["docelowy_komputer"]
+    if komputer is not None and komputer != cel:
+        raise HTTPException(403, "Zadanie jest przypisane innemu komputerowi.")
+    return z
+
+
+@app.post("/api/pomocnik/polecenia/{identyfikator}/zgoda", status_code=201)
+def pomocnik_prosi_o_zgode(identyfikator: str, dane: ProsbaOZgode, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    if not komputer:
+        raise HTTPException(403, "Tylko sparowany pomocnik moze prosic o zgode.")
+    _zadanie_ze_zgoda(identyfikator, komputer)
+    host = dane.host.strip().lower()
+    etykieta = " ".join(dane.etykieta.split())[:120]
+    if not re.fullmatch(r"[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+", host):
+        raise HTTPException(400, "Niepoprawna domena.")
+    if (not etykieta or re.search(
+            r"podpis|sign|zap[ał]a|p[łl]atno|p[łl]ac|przelew|usu[nń]|skasuj|delete",
+            etykieta, re.I)):
+        raise HTTPException(403, "Ta operacja nie dopuszcza zdalnej zgody.")
+    try:
+        return zgody_pilota.rozpocznij(identyfikator, komputer, host, etykieta)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
+
+
+@app.get("/api/pomocnik/polecenia/{identyfikator}/zgoda/{zgoda_id}")
+def pomocnik_odbiera_zgode(identyfikator: str, zgoda_id: str, request: Request):
+    komputer = getattr(request.state, "komputer", None)
+    if not komputer:
+        raise HTTPException(403, "Tylko sparowany pomocnik odbiera zgody.")
+    _zadanie_ze_zgoda(identyfikator, komputer)
+    try:
+        return zgody_pilota.odbierz(identyfikator, zgoda_id, komputer)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
+
+
+@app.post("/api/urzadzenia/polecenia/{identyfikator}/zgoda")
+def potwierdz_operacje_na_telefonie(identyfikator: str, dane: DecyzjaOZgodzie,
+                                    request: Request):
+    _zadanie_ze_zgoda(identyfikator)
+    if not getattr(request.state, "email", None):
+        raise HTTPException(403, "Wymagane zalogowanie uprawnionej osoby.")
+    try:
+        return zgody_pilota.decyzja(identyfikator, dane.id, dane.zgoda, request.state.email)
+    except zgody_pilota.BladZgody as blad:
+        raise HTTPException(409, str(blad))
 
 
 @app.post("/api/sprawy/{identyfikator}/klikamy", status_code=202)
@@ -2069,13 +2285,18 @@ def krok_klikania(request: Request, zlecenie: str, widok: WidokStrony):
     stan = zlecenia.wynik(zlecenie)
     if not stan:
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
+    docelowy = (stan.get("tresc") or {}).get("docelowy_komputer")
+    if docelowy and getattr(request.state, "komputer", None) != docelowy:
+        raise HTTPException(403, "To polecenie jest przypisane innemu komputerowi.")
     # Polecenie wpisane w panelu rozszerzenia nie znaczy jeszcze, ze ktos
     # odbiera kolejke: obecnosc odnotowuje dopiero pytanie o zlecenia.
     if stan.get("stan") != "w_toku":
         _odnotuj_pomocnika(request)
     try:
         with tokenomia.akcja("asystent_krok", 1, f"zlecenie {zlecenie}"):
-            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki)
+            krok = bedrock.nastepny_krok(widok.cel, widok.stan, widok.kroki,
+                   zgoda_wysylki=True) if docelowy else bedrock.nastepny_krok(
+                       widok.cel, widok.stan, widok.kroki)
     except bedrock.Przeciazenie as blad:
         raise HTTPException(503, str(blad), headers={"Retry-After": "30"})
     # W logach rodzaj czynnosci, nigdy tresc strony - ta niesie dane stron.
@@ -2161,7 +2382,7 @@ def zlecenia_dla_pomocnika(request: Request, wersja: str = ""):
     if not zlecenia.dostepne():
         raise HTTPException(404, "Ta instalacja nie sklada zlecen")
     _odnotuj_pomocnika(request, wersja)
-    return zlecenia.czekajace()
+    return zlecenia.czekajace(getattr(request.state, "komputer", None))
 
 
 # --- laczenie pomocnika z kancelaria ---------------------------------------
@@ -2317,7 +2538,24 @@ def wynik_od_pomocnika(request: Request, zlecenie: str, raport: RaportPomocnika)
         raise HTTPException(404, "Nie ma takiego zlecenia albo stracilo waznosc")
     # Kolejke moga odpytywac naraz pomocnik i rozszerzenie przegladarki. Drugi
     # raport do tego samego zlecenia nie dopisuje wpisow po raz drugi.
+    docelowy = (stan.get("tresc") or {}).get("docelowy_komputer")
+    if docelowy and getattr(request.state, "komputer", None) != docelowy:
+        raise HTTPException(403, "To polecenie jest przypisane innemu komputerowi.")
     if stan.get("stan") == "wykonane":
+        return {"stan": "wykonane", "zapisano": 0}
+
+    if stan.get("rodzaj") in ("klikamy", "karty"):
+        # Dla mobilnego pilota nie istnieje sprawa. Nie wymagamy jej katalogu.
+        # Raport zawiera tylko kroki i podsumowanie, nigdy surowe HTML strony.
+        if stan.get("sprawa"):
+            _katalog_sprawy(stan["sprawa"])
+        podglad_pilota.usun(zlecenie)
+        zlecenia.zapisz_wynik(zlecenie, {
+            "kroki": raport.kroki[:100],
+            "podsumowanie": raport.podsumowanie[:2000],
+            "pytanie": raport.pytanie[:1000],
+            "bledy": [str(b)[:300] for b in raport.bledy[:30]],
+        })
         return {"stan": "wykonane", "zapisano": 0}
 
     identyfikator = stan["sprawa"]

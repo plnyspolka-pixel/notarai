@@ -1,0 +1,51 @@
+name: NotarAI - rozszerzenie Chrome i Edge (ZIP)
+
+on:
+  pull_request:
+    paths:
+      - 'rozszerzenie/**'
+      - '.github/workflows/rozszerzenie-paczka.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zip:
+    name: Testy JS i paczka rozszerzenia
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+
+      - name: Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Testy i skladnia skryptow
+        run: |
+          set -euo pipefail
+          npm test --prefix rozszerzenie
+          for plik in rozszerzenie/*.js; do node --check "$plik"; done
+          python3 -m json.tool rozszerzenie/manifest.json > /dev/null
+
+      - name: Zapakuj rozszerzenie bez testow i plikow roboczych
+        run: |
+          set -euo pipefail
+          cd rozszerzenie
+          zip -r -q ../notarai-rozszerzenie.zip \
+            manifest.json tlo.js panel.js panel.html panel.css \
+            notarai.js strona.js silnik.js formularz.js krz.js podglad.js \
+            ikony fonts
+          cd ..
+          unzip -l notarai-rozszerzenie.zip | tail -3
+
+      - name: Udostepnij ZIP do lokalnego testu
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarai-rozszerzenie-test
+          path: notarai-rozszerzenie.zip
+          if-no-files-found: error
+          retention-days: 14
