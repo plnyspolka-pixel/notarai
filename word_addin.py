@@ -121,6 +121,9 @@ class _HTMLWalidator(HTMLParser):
             raise ValueError("Niepoprawne zagnieżdżenie HTML.")
         self.stos.pop()
 
+    def handle_comment(self, data):
+        raise ValueError("HTML nie może zawierać komentarzy.")
+
     def handle_decl(self, decl):
         raise ValueError("HTML nie może zawierać deklaracji.")
 
@@ -211,6 +214,10 @@ def zweryfikuj_propozycje(wynik: dict, dokument: str, zaznaczenie: str, zakres: 
             cien = cien.replace(find, "", 1)
         elif typ == "append":
             cien += "\n" + tekst
+        elif typ == "replace_html":
+            # Oznacz zmieniony zakres jako zużyty. Następny find nie może
+            # udawać, że stary fragment nadal występuje w Wordzie.
+            cien = cien.replace(find, "", 1)
         # Rich text/table XML is applied in Word; anchors are still checked on Word side.
         operacje.append(op)
     return {"summary": summary, "operations": operacje}
