@@ -4,6 +4,7 @@ Model moze sie pomylic przy odczycie skanu. Suma kontrolna nie.
 """
 import re
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 WAGI_PESEL = (1, 3, 7, 9, 1, 3, 7, 9, 1, 3)
 WAGI_NIP = (6, 5, 7, 2, 3, 4, 5, 6, 7)
@@ -73,14 +74,26 @@ def ksiega_wieczysta(wartosc: str) -> tuple[bool, str]:
 
 
 def kwota(wartosc: str) -> tuple[bool, str]:
-    tekst = re.sub(r"[\s\u00a0]", "", wartosc or "").replace(",", ".")
-    tekst = re.sub(r"(zl|PLN)$", "", tekst, flags=re.I)
-    try:
-        liczba = float(tekst)
-    except ValueError:
+    """Sprawdza wartosc pieniezna w PLN, bez float i bez zaokraglania groszy.
+
+    Akceptuje liczby calkowite i maksymalnie dwie cyfry dziesietne:
+    1234,56; 1 234.56; 1\u00a0234,56 zl; 1234.56 PLN. Odrzuca
+    notacje wykladnicza, NaN, nieskonczonosc i niejednoznaczne separatory.
+    """
+    if not isinstance(wartosc, str):
         return False, "Nie udalo sie odczytac kwoty"
-    if liczba < 0:
+    tekst = re.sub(r"(?i)\s*(?:zł|zl|pln)\s*$", "", wartosc.strip())
+    tekst = re.sub(r"[\s\u00a0\u202f]", "", tekst)
+    if tekst.startswith("-") and re.fullmatch(r"-[0-9]+(?:[.,][0-9]{1,2})?", tekst):
         return False, "Kwota ujemna"
+    if not re.fullmatch(r"\+?[0-9]{1,18}(?:[.,][0-9]{1,2})?", tekst):
+        return False, "Nie udalo sie odczytac kwoty"
+    try:
+        liczba = Decimal(tekst.lstrip("+").replace(",", "."))
+    except InvalidOperation:
+        return False, "Nie udalo sie odczytac kwoty"
+    if not liczba.is_finite():
+        return False, "Nie udalo sie odczytac kwoty"
     return True, f"{liczba:.2f} zl"
 
 

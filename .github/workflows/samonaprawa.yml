@@ -19,7 +19,7 @@ on:
   # Przeglad znacznikow bledow w CloudWatch - dziala tez bez tokenu w aplikacji
   # (wtedy to jedyna droga zgloszen; z tokenem - siatka bezpieczenstwa).
   schedule:
-    - cron: "7,37 * * * *"
+    - cron: "7 3 * * *" # raz dziennie (03:07 UTC); bledy na biezaco przychodza repository_dispatch z aplikacji
   workflow_dispatch:
     inputs:
       uwagi:

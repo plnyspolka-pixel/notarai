@@ -35,6 +35,7 @@ import dokumenty
 import dokumenty_prawne
 import ekw
 import giif
+import google_kalendarz
 import ksiegi_notarialne
 import formularze
 import kalendarz
@@ -47,6 +48,7 @@ import zlecenia
 import zgody_pilota
 import podglad_pilota
 import magazyn
+import szyfrowanie_kancelarii
 import notariusze
 import autoryzacja
 import nazwy
@@ -58,6 +60,8 @@ import skan_bezpieczenstwa
 import sledzenie
 import poswiadczenia
 import stenogramy
+import polly_tts
+import asysta_odczytu
 import prompty
 import rejestracja
 import rejestry
@@ -73,6 +77,7 @@ import ustawienia_kancelarii
 import walidacja
 import samonaprawa
 import asystent_kancelarii
+import pulpit_ai
 
 logging.basicConfig(
     level=logging.INFO,
@@ -117,6 +122,8 @@ app.include_router(wizyty.router)
 app.include_router(rezerwacje_klientow.router)
 app.include_router(teczka.router)
 app.include_router(korespondencja.router)
+app.include_router(google_kalendarz.router)
+google_kalendarz.uruchom_automat()
 app.include_router(leady.router)
 app.include_router(leady.router_kancelarii)
 app.include_router(leady.router_admina)
@@ -131,12 +138,27 @@ app.include_router(notariusze.router_admina)
 # Poswiadczenie kopii -> opis do repertorium A (trasa prywatna kancelarii).
 app.include_router(poswiadczenia.router)
 app.include_router(stenogramy.router)
+app.include_router(polly_tts.router)
+app.include_router(asysta_odczytu.router)
 app.include_router(tokenomia.router)
 app.include_router(tokenomia.router_admina)
 app.include_router(tokenomia.router_platnosci)
 # Agent glosowy (ElevenLabs): webhooki narzedzi, wlasne limity i token.
 app.include_router(agent_glosowy.router)
+app.include_router(pulpit_ai.router)
 app.middleware("http")(kalkulator.cors)
+
+
+@app.exception_handler(szyfrowanie_kancelarii.BrakKlucza)
+async def _brak_klucza(request: Request, blad: Exception):
+    """Sprawy zaszyfrowane kodem kancelarii, a zadanie go nie przynioslo.
+    423: przegladarka pyta o kod i ponawia zadanie."""
+    return JSONResponse({"detail": str(blad), "klucz_kancelarii": "brak"}, status_code=423)
+
+
+@app.exception_handler(szyfrowanie_kancelarii.ZlyKlucz)
+async def _zly_klucz(request: Request, blad: Exception):
+    return JSONResponse({"detail": str(blad), "klucz_kancelarii": "zly"}, status_code=403)
 
 
 @app.exception_handler(Exception)
@@ -208,6 +230,12 @@ def strona_poswiadczen():
     """Zdjecie albo skan dokumentu -> opis do repertorium A. Strona jest
     jawna (jak /admin); odczyt za nia wymaga tokenu logowania kancelarii."""
     return (Path(__file__).parent / "static" / "poswiadczenia.html").read_text("utf-8")
+
+
+@app.get("/asysta-odczytu", response_class=HTMLResponse)
+def strona_asysty_odczytu():
+    """Panel asysty aktu: strona publiczna, API wymaga logowania kancelarii."""
+    return (Path(__file__).parent / "static" / "asysta-odczytu.html").read_text("utf-8")
 
 
 @app.get("/stenogramy", response_class=HTMLResponse)
@@ -2445,6 +2473,22 @@ def _pomocnik_do_pobrania() -> dict | None:
     return {"adres": "/static/pobierz/notarai-pomocnik.exe",
             "wersja": opis.get("wersja", ""), "sha256": opis.get("sha256", ""),
             "rozmiar_mb": round(plik.stat().st_size / 1024 / 1024, 1)}
+
+
+@app.post("/api/urzadzenia/rozszerzenie", status_code=201)
+def polacz_rozszerzenie(request: Request, dane: NazwaKomputera):
+    """Połączenie oficjalnego rozszerzenia z bieżącą, uwierzytelnioną kancelarią."""
+    _wymagaj_urzadzen()
+    email = getattr(request.state, "email", "")
+    if not email or getattr(request.state, "serwis", False):
+        raise HTTPException(403, "Wymagane logowanie użytkownika kancelarii.")
+    osoba = autoryzacja._osoba_w_kancelarii(magazyn.kancelaria(), email)
+    if not osoba or (osoba.get("rola") != "wlasciciel" and osoba.get("stanowisko") != "notariusz"):
+        raise HTTPException(403, "Rozszerzenie może połączyć właściciel lub notariusz.")
+    if not urzadzenia.wolno(autoryzacja.adres_klienta(request)):
+        raise HTTPException(429, "Za dużo prób łączenia. Spróbuj za kilka minut.")
+    wynik = urzadzenia.wydaj_token(magazyn.kancelaria(), dane.nazwa, email)
+    return JSONResponse(wynik, status_code=201, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/urzadzenia/polacz")

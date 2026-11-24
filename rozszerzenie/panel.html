@@ -15,10 +15,10 @@
 
 <!-- Laczenie z kancelaria: widoczne tylko, dopoki przegladarka nie ma tokenu. -->
 <section id="widok-laczenie" hidden>
-  <h2>Połącz tę przeglądarkę z kancelarią</h2>
-  <p>Otwórz notarai i kliknij <b>Połącz</b>. Ten sam kod zobaczysz tam na ekranie - nic nie trzeba przepisywać.</p>
-  <div id="kod" class="kod" aria-live="polite">…</div>
-  <button id="btn-otworz">Otwórz notarai</button>
+  <h2>Połączenie z NotarAI</h2>
+  <p>Po zalogowaniu połączę tę przeglądarkę automatycznie.</p>
+  <button id="btn-otworz">Otwórz NotarAI</button>
+  <button id="btn-wznow" hidden>Wznów połączenie</button>
   <p id="stan-laczenia" class="stan" aria-live="polite"></p>
 </section>
 
@@ -50,6 +50,7 @@
   </div>
 
   <div id="wynik" class="wynik" hidden aria-live="polite"></div>
+  <button id="btn-wznow" type="button" hidden>Wznów</button>
   <ol id="kroki" class="kroki" aria-live="polite"></ol>
 
   <div class="uwaga" id="sekcja-podgladu">

@@ -2,7 +2,7 @@
    asystent niczego nie wyslal, nie podpisal i nie wpisal hasla. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prowadz, WYSYLKA, wolnoWejsc, stanDlaModelu } from "../silnik.js";
+import { prowadz, WYSYLKA, wolnoWejsc, stanDlaModelu, jestLogowanie } from "../silnik.js";
 import { Notarai, BladTokenu, KodNieaktualny, adresPolaczenia } from "../notarai.js";
 
 function strona(elementy, adres = "https://rejestr.example.gov.pl/formularz") {
@@ -48,11 +48,90 @@ for (const opis of ["Szukaj", "Dalej", "Rozwiń szczegóły", "Zaloguj", "Sign i
   test(`„${opis}” to zwykly przycisk`, () => assert.equal(WYSYLKA.test(opis), false));
 }
 
-test("nie wpisuje do pola hasla", async () => {
+test("strona z polem hasla: nic nie wpisuje, nie pyta modelu i czeka na logowanie", async () => {
   const s = strona([{ rola: "input:password", typ: "password", opis: "PIN" }]);
-  const p = await prowadz("zaloguj", s, kolejno({ akcja: "wpisz", nr: 1, tekst: "1234" }));
+  let pytano = 0;
+  const p = await prowadz("zaloguj", s, async () => { pytano++; return { akcja: "wpisz", nr: 1, tekst: "1234" }; });
   assert.deepEqual(s.dziennik, []);
-  assert.match(p.pytanie, /wyłącznie Ty/);
+  assert.equal(pytano, 0);
+  assert.equal(p.czeka, "logowanie");
+  assert.match(p.pytanie, /Zaloguj się\s+samodzielnie/);
+});
+
+test("rozpoznaje logowanie i wygasla sesje, a zwyklej strony nie", () => {
+  const stan = (adres, tekst = "", elementy = []) => ({ adres, tekst, elementy });
+  assert.equal(jestLogowanie(stan("https://login.gov.pl/login/main")), true);
+  assert.equal(jestLogowanie(stan("https://x.pz.gov.pl/dt/login")), true);
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/logowanie", "Logowanie do systemu")), true);
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/wniosek", "Twoja sesja wygasła.")), true);
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/wniosek", "Zostałeś wylogowany")), true);
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/a", "", [{ typ: "password" }])), true);
+  // Odnosnik "Zaloguj" w naglowku publicznej strony to jeszcze nie logowanie.
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/szukaj", "Zaloguj | Wyszukiwarka")), false);
+  // Sciezka /auth bez tresci o logowaniu tez nie.
+  assert.equal(jestLogowanie(stan("https://rejestr.example.gov.pl/auth/profil", "Twoje wnioski")), false);
+  assert.equal(jestLogowanie(stan("https://nielogin.gov.pl.example.com/", "Formularz")), false);
+});
+
+test("przekierowanie do logowania: czeka, a po wznowieniu wraca na ten sam serwis z historia", async () => {
+  const s = strona([{ rola: "input:text", typ: "text", opis: "Numer KW" },
+                    { rola: "button", typ: "button", opis: "Dalej" }]);
+  const widziane = [];
+  const model = (odpowiedzi) => async (cel, stan, kroki) => {
+    widziane.push({ adres: stan.adres, kroki: kroki.length });
+    return odpowiedzi.shift() || { akcja: "koniec" };
+  };
+  const pierwszy = await prowadz("wypelnij", s, async (cel, stan, kroki) => {
+    widziane.push({ adres: stan.adres, kroki: kroki.length });
+    s.adres = "https://login.gov.pl/login/main";       // serwis odsyla do logowania
+    return { akcja: "wpisz", nr: 1, tekst: "WA1M/1/2" };
+  });
+  assert.equal(pierwszy.czeka, "logowanie");
+  assert.deepEqual(pierwszy.dozwolone, ["rejestr.example.gov.pl"]);
+  assert.equal(widziane.length, 1);                     // strony logowania model nie widzial
+  assert.equal(pierwszy.kroki.at(-1).akcja, "czekam");
+
+  // Bez logowania "Wznow" nic nie zmienia: dalej czekamy.
+  const wciaz = await prowadz("wypelnij", s, model([]),
+    { wznow: { kroki: pierwszy.kroki, dozwolone: pierwszy.dozwolone } });
+  assert.equal(wciaz.czeka, "logowanie");
+  assert.equal(widziane.length, 1);
+
+  // Notariusz zalogowal sie sam i wrocil do formularza.
+  s.adres = "https://rejestr.example.gov.pl/formularz";
+  const drugi = await prowadz("wypelnij", s,
+    model([{ akcja: "kliknij", nr: 2 }, { akcja: "koniec", podsumowanie: "Gotowe." }]),
+    { wznow: { kroki: pierwszy.kroki, dozwolone: pierwszy.dozwolone } });
+  assert.equal(drugi.czeka, "");
+  assert.equal(drugi.podsumowanie, "Gotowe.");
+  assert.equal(widziane[1].kroki, pierwszy.kroki.length);  // model dostal historie
+  assert.equal(drugi.kroki[0].nr, 1);
+  assert.equal(drugi.kroki.at(-1).nr, drugi.kroki.length); // numeracja ciagla
+  assert.deepEqual(s.dziennik.at(-1), ["kliknij", "Dalej"]);
+});
+
+test("po wznowieniu nie da sie wyjsc na inny serwis niz ten z pierwszego uruchomienia", async () => {
+  const s = strona([], "https://inny.example.com/strona");
+  const p = await prowadz("x", s, kolejno({ akcja: "czytaj" }),
+    { wznow: { kroki: [], dozwolone: ["rejestr.example.gov.pl"] } });
+  assert.match(p.pytanie, /Strona przeszła na inny\.example\.com/);
+  assert.equal(p.czeka, "");
+});
+
+test("przycisk podpisu: oddaje stery i pozwala wznowic po podpisie", async () => {
+  const s = strona([{ rola: "button", typ: "button", opis: "Podpisz i wyślij" },
+                    { rola: "a", typ: "", opis: "Pobierz dokument" }]);
+  const p = await prowadz("zloz", s, kolejno({ akcja: "kliknij", nr: 1 }));
+  assert.equal(p.czeka, "czynnosc");
+  assert.deepEqual(s.dziennik, []);
+  const dalej = await prowadz("zloz", s, kolejno({ akcja: "kliknij", nr: 2 }, { akcja: "koniec" }),
+    { wznow: { kroki: p.kroki, dozwolone: p.dozwolone } });
+  assert.deepEqual(s.dziennik, [["kliknij", "Pobierz dokument"]]);
+  // Po wznowieniu przycisk podpisu jest nadal nie do klikniecia.
+  const znow = await prowadz("zloz", s, kolejno({ akcja: "kliknij", nr: 1 }),
+    { wznow: { kroki: dalej.kroki, dozwolone: dalej.dozwolone } });
+  assert.equal(znow.czeka, "czynnosc");
+  assert.equal(s.dziennik.length, 1);
 });
 
 test("nie otwiera adresu spoza strony startowej", async () => {

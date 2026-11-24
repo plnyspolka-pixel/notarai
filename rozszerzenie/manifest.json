@@ -19,7 +19,31 @@
   "background": {
     "service_worker": "tlo.js"
   },
-  "permissions": ["sidePanel", "storage", "scripting", "tabs", "activeTab"],
-  "host_permissions": ["https://app.notarai.pl/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"]
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "scripting",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://app.notarai.pl/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://app.notarai.pl/*"
+      ],
+      "js": [
+        "sesja.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
 }
