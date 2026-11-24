@@ -41,6 +41,8 @@ jobs:
         run: |
           node --check static/kokpit.js
           node --check static/polly-player.js
+          node --check static/asysta-odczytu.js
+          node --check static/asysta-worklet.js
           node --check static/rezerwacje-hurtowe.js
           node --check static/hurtowe.js
           python scripts/check_frontend.py

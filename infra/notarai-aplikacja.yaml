@@ -333,6 +333,20 @@ Resources:
                   StringEquals:
                     aws:RequestedRegion: eu-central-1
 
+        # ASR na zywo w Europie: tylko Amazon Transcribe Streaming we Frankfurcie.
+        - PolicyName: transcribe-live-eu
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: TranscribeLiveEU
+                Effect: Allow
+                Action:
+                  - transcribe:StartStreamTranscription
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+
         # Zakladanie kont uzytkownikow (panel admina). Logowanie, odzyskiwanie
         # hasla i sprawdzanie tokenu nie wymagaja uprawnien IAM.
         - !If
@@ -619,6 +633,9 @@ Resources:
               Value: "1"
             # Lektor projektu przez Amazon Polly we Frankfurcie.
             - Name: PIECZAPP_POLLY
+              Value: "true"
+            # Asysta odczytu: sesja uruchamiana recznie; opt-out Transcribe wymagany.
+            - Name: PIECZAPP_ASYSTA_ODCZYTU
               Value: "true"
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
