@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>NotarAI — asystent w Wordzie</title>
+<link rel="icon" type="image/svg+xml" href="../notarai-symbol.svg">
+<link rel="stylesheet" href="/static/word/panel.css">
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script defer src="/static/word/edits.js"></script>
+<script defer src="/static/word/panel.js"></script>
+</head><body>
+<header><img src="../notarai-symbol.svg" width="40" height="40" alt=""><div><strong>notar<span>ai</span></strong><small>Asystent redakcji Word</small></div></header>
+<main>
+<section id="login-panel" class="card"><h1>Połącz z kancelarią</h1>
+<p>Zaloguj się kontem NotarAI. Sesja jest przechowywana tylko w pamięci panelu; hasło nie zostaje zapisane.</p>
+<form id="login-form"><label>E-mail<input type="email" name="email" autocomplete="username" required></label>
+<label>Hasło<input type="password" name="password" autocomplete="current-password" required></label>
+<button type="submit">Zaloguj</button></form></section>
+<section id="editor-panel" hidden>
+<div class="status-line"><span id="office-state">Łączenie z Wordem…</span><button type="button" id="logout" class="link-btn">Wyloguj</button></div>
+<div class="card"><h1>Rozmowa z AI o dokumencie</h1>
+<p>Twórz dokument od podstaw albo poprawiaj paragrafy, dodawaj klauzule i tabele, przeredagowuj treść oraz formatuj fragmenty. AI proponuje operacje, które zatwierdzasz przed zastosowaniem.</p>
+<label>Zakres działania<select id="scope"><option value="document">Cały dokument</option><option value="selection">Tylko zaznaczony tekst</option></select></label>
+<label class="check"><input id="draft" type="checkbox"> Potwierdzam, że to projekt lub kopia robocza, a nie sporządzony oryginał aktu.</label>
+<label>Polecenie<textarea id="instruction" rows="4" maxlength="4000" placeholder="Np. Ujednolić zapis numerów KW, poprawić błędy językowe, dodać paragraf o wydaniu nieruchomości."></textarea></label>
+<div class="button-row"><button id="propose" type="button">Zaproponuj zmiany</button><button id="reset" type="button" class="secondary">Nowa rozmowa</button></div>
+</div>
+<section id="conversation" aria-label="Historia poleceń" aria-live="polite"></section>
+<section id="proposal-box" class="card" hidden aria-labelledby="proposal-title">
+<h2 id="proposal-title">Zmiany do zatwierdzenia</h2><p id="summary"></p>
+<div class="button-row"><button id="select-all" type="button" class="secondary">Zaznacz wszystkie</button><button id="select-none" type="button" class="secondary">Odznacz</button></div>
+<div id="operations"></div>
+<label class="check"><input type="checkbox" id="track" checked disabled> Śledź zmiany w Wordzie (wymaga WordApi 1.4)</label>
+<button id="apply" type="button">Zastosuj zaznaczone poprawki w Wordzie</button>
+<p class="small">Przed zapisem przejrzyj zmiany na karcie Recenzja. Wtyczka nie podpisuje i nie wysyła dokumentów.</p>
+</section>
+</section>
+<p id="state" role="status" aria-live="polite"></p>
+</main></body></html>
