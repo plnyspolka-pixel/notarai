@@ -92,7 +92,13 @@ _PRZYPADKI = ("nom", "gen", "dat", "acc", "inst", "loc", "voc")
 def _formy(slowo, silnik):
     # Zachowujemy nazwiska nieodmienne oraz człony dwuczłonowe.
     if "-" in slowo:
-        czesci = [_formy(s, silnik) for s in slowo.split("-")]
+        slowa = slowo.split("-")
+        if len(slowa) > 4 or not all(slowa):
+            raise WymagaWeryfikacji("LOCAL_MORPHOLOGY_AMBIGUOUS")
+        czesci = [_formy(s, silnik) for s in slowa]
+        from math import prod
+        if any(prod(len(c[k]) for c in czesci) > 32 for k in _PRZYPADKI):
+            raise WymagaWeryfikacji("LOCAL_MORPHOLOGY_AMBIGUOUS")
         return {k: {"-".join(x) for x in product(*(c[k] for c in czesci))}
                 for k in _PRZYPADKI}
     wynik = {k: {slowo} for k in _PRZYPADKI}
@@ -137,6 +143,8 @@ def propozycje_fleksji(tekst, osoby, *, silnik=None):
                             raise WymagaWeryfikacji("LOCAL_MORPHOLOGY_AMBIGUOUS")
                         for wariant in product(*(f[k] for f in formy)):
                             indeks.setdefault(_norm(" ".join(wariant)), set()).add(o.id)
+                            if len(indeks) > 30000:
+                                raise WymagaWeryfikacji("LOCAL_MORPHOLOGY_AMBIGUOUS")
         wynik = []
         for alias, ids in indeks.items():
             wzor = r"(?<!\w)" + r"\s+".join(map(re.escape, alias.split())) + r"(?!\w)"
