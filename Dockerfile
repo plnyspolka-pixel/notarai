@@ -26,6 +26,18 @@ COPY requirements.txt .
 RUN grep -vE "^(faster-whisper|playwright)" requirements.txt > /tmp/req.txt \
     && pip install --no-cache-dir -r /tmp/req.txt
 
+COPY requirements-pii.txt .
+COPY scripts/pobierz_model_pii.py /tmp/pobierz_model_pii.py
+# Osobny profil obrazu beta; nie aktywuje flagi chronionej ani produkcji.
+ARG NOTARAI_PII=0
+RUN if [ "$NOTARAI_PII" = "1" ]; then \
+      pip install --no-cache-dir torch==2.9.1 --index-url https://download.pytorch.org/whl/cpu \
+      && pip install --no-cache-dir -r requirements-pii.txt \
+      && python /tmp/pobierz_model_pii.py /opt/notarai/pii-pl \
+      && chmod -R a-w /opt/notarai/pii-pl; \
+    fi
+ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
+
 COPY . .
 
 # Aplikacja nie dziala jako root. Zapisuje tylko do dane/ (cache spraw),
