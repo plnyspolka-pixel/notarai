@@ -22,7 +22,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import agent_glosowy
 import aml
@@ -30,6 +30,8 @@ import aml_listy
 import bedrock
 import bedrock_chroniony
 import pseudonimizacja_lokalna
+import rejestr_tozsamosci
+from pseudonimizacja_aktu import Osoba, Wystapienie, DaneDodatkowe, WymagaWeryfikacji
 import config
 import crbr
 import dziennik
@@ -2670,6 +2672,192 @@ def _zwaliduj(pola: list[dict]) -> list[dict]:
             }
         )
     return wynik
+
+
+
+# --- Chroniony przepływ sprawy (beta, jawne potwierdzenie notariusza) -----------
+
+class ZrodloTozsamosci(BaseModel):
+    dokument_id: str = Field(max_length=128)
+    strona: int
+    od: int
+    do: int
+    sha256: str = Field(max_length=64)
+
+
+class ZmianaTozsamosci(BaseModel):
+    osoba_id: str = Field(default="", max_length=64)
+    imiona: list[str] = Field(min_length=1, max_length=8)
+    nazwisko: str = Field(min_length=1, max_length=160)
+    pesel: str = Field(default="", max_length=32)
+    aliasy: list[str] = Field(default_factory=list, max_length=100)
+    role: list[str] = Field(default_factory=list, max_length=30)
+    zrodla: list[ZrodloTozsamosci] = Field(min_length=1, max_length=100)
+    wersja: int
+    potwierdzam: bool = False
+
+
+class ZakresPseudonimizacji(BaseModel):
+    poczatek: int
+    koniec: int
+    typ: str = Field(max_length=24)
+    osoba_id: str | None = Field(default=None, max_length=64)
+
+
+class PrzegladPseudonimizacji(BaseModel):
+    cel: str = Field(max_length=20)
+    polecenie: str = Field(default="", max_length=20000)
+
+
+class ZatwierdzonyPrzeglad(PrzegladPseudonimizacji):
+    odcisk: str = Field(max_length=64)
+    wersja: int
+    zakresy: list[ZakresPseudonimizacji] = Field(default_factory=list, max_length=20000)
+    potwierdzam: bool = False
+
+
+def _notariusz_chroniony(request):
+    if not bedrock_chroniony.chroniony():
+        raise HTTPException(409, "Tryb chroniony nie jest aktywny.")
+    if getattr(request.state, "serwis", False):
+        raise HTTPException(403, "Wymagane zatwierdzenie notariusza.")
+    if not autoryzacja.MULTI:
+        return "stanowisko-lokalne"
+    email = getattr(request.state, "email", "")
+    osoba = autoryzacja._osoba_w_kancelarii(magazyn.kancelaria(), email) if email else None
+    if not osoba or (osoba.get("stanowisko") != "notariusz" and osoba.get("rola") != "wlasciciel"):
+        raise HTTPException(403, "Wymagane zatwierdzenie notariusza.")
+    return email
+
+
+@app.get("/api/sprawy/{identyfikator}/pseudonimizacja/rejestr")
+def rejestr_chroniony(request: Request, identyfikator: str):
+    _notariusz_chroniony(request)
+    katalog = _katalog_sprawy(identyfikator)
+    try:
+        return {"rejestr": rejestr_tozsamosci.wczytaj(katalog).do_zapisu(),
+                "zrodla": rejestr_tozsamosci.zrodla_sprawy(katalog)}
+    except WymagaWeryfikacji as blad:
+        raise HTTPException(409, str(blad)) from None
+
+
+@app.post("/api/sprawy/{identyfikator}/pseudonimizacja/rejestr")
+def potwierdz_tozsamosc(request: Request, identyfikator: str, dane: ZmianaTozsamosci):
+    aktor = _notariusz_chroniony(request)
+    katalog = _katalog_sprawy(identyfikator)
+    if not dane.potwierdzam:
+        raise HTTPException(409, "Potwierdź tożsamość i źródła.")
+    try:
+        zrodla = tuple(rejestr_tozsamosci.Zrodlo(**z.model_dump()) for z in dane.zrodla)
+        osoba = Osoba(dane.osoba_id or "nowy", tuple(dane.imiona), dane.nazwisko,
+                      dane.pesel, tuple(dane.aliasy), tuple(dane.role))
+        rejestr_tozsamosci.sprawdz_zrodla(katalog, zrodla, osoba)
+
+        def zmiana(rejestr):
+            if dane.osoba_id:
+                rejestr.popraw(osoba, zrodla, aktor=aktor, oczekiwana_wersja=dane.wersja)
+                return osoba.id
+            return rejestr.dodaj(imiona=osoba.imiona, nazwisko=osoba.nazwisko, pesel=osoba.pesel,
+                                 aliasy=osoba.aliasy, role=osoba.role, zrodla=zrodla,
+                                 aktor=aktor, oczekiwana_wersja=dane.wersja)
+        oid, wersja = rejestr_tozsamosci.zmien(katalog, zmiana)
+        return {"osoba_id": oid, "wersja": wersja}
+    except WymagaWeryfikacji as blad:
+        raise HTTPException(409, str(blad)) from None
+
+
+_CHRONIONE_SYSTEMY = {
+    "projekt": ("Przygotuj wyłącznie projekt aktu notarialnego na podstawie podanych źródeł i wzoru. "
+                "Nie dopisuj faktów. Oznacz braki i sprzeczności. Zachowaj role i odwołania do uczestników."),
+    "rozmowa": ("Odpowiadaj na pytania o sprawę wyłącznie na podstawie źródeł. "
+                "Oddziel fakty od wątpliwości. Nie wykonuj działań zewnętrznych."),
+    "ekstrakcja": ("Zestaw dane ze źródeł i przypisz je do pól wzoru. "
+                  "Wskaż źródło i niepewność. Nie zgaduj przypisania osób ani numerów."),
+}
+
+
+def _chroniony_tekst(katalog, dane):
+    if dane.cel not in _CHRONIONE_SYSTEMY:
+        raise WymagaWeryfikacji("UNKNOWN_PROTECTED_PURPOSE")
+    sciezka = next(katalog.glob("wzor.*"), None)
+    if sciezka is None:
+        raise WymagaWeryfikacji("MISSING_TEMPLATE")
+    meta = json.loads((katalog / "sprawa.json").read_text("utf-8"))
+    odczyt = katalog / "odczyt.json"
+    pola = json.loads(odczyt.read_text("utf-8")).get("pola", []) if odczyt.exists() else []
+    bloki = ["WZÓR:\n" + dokumenty.wzor_na_tekst(sciezka),
+             "POLA:\n" + json.dumps(pola, ensure_ascii=False),
+             "PIERWOTNE POLECENIE:\n" + str(meta.get("polecenie", "")),
+             "HISTORIA:\n" + json.dumps(_wczytaj_rozmowe(katalog), ensure_ascii=False)]
+    if dane.cel == "projekt":
+        analiza = dokumenty.analizuj_wzor(dokumenty.wzor_na_tekst(sciezka))
+        rodzaje = personalizacja.rodzaje_sprawy(analiza["tresc"], dane.polecenie)
+        _, personalizacja_blok = personalizacja.przygotuj(rodzaje)
+        bloki.append("ZASADY I STYL:\n" + personalizacja_blok)
+    for i, s in enumerate(rejestr_tozsamosci.zrodla_sprawy(katalog).values(), 1):
+        bloki.append(f"ŹRÓDŁO {i}, strona {s['strona']}, typ {s['typ']}:\n" + s["tekst"])
+    bloki.append("AKTUALNE POLECENIE:\n" + dane.polecenie)
+    tekst = "\n\n".join(bloki)
+    if len(tekst) > 400000:
+        raise WymagaWeryfikacji("PROTECTED_TEXT_TOO_LONG")
+    return tekst
+
+
+@app.post("/api/sprawy/{identyfikator}/pseudonimizacja/przeglad")
+def przygotuj_przeglad(request: Request, identyfikator: str, dane: PrzegladPseudonimizacji):
+    _notariusz_chroniony(request)
+    katalog = _katalog_sprawy(identyfikator)
+    try:
+        tekst = _chroniony_tekst(katalog, dane)
+        rejestr = rejestr_tozsamosci.wczytaj(katalog)
+        return {"tekst": tekst, "odcisk": bedrock_chroniony.odcisk_tekstu(tekst),
+                "wersja": rejestr.wersja,
+                "propozycje": [{"poczatek": z.poczatek, "koniec": z.koniec, "typ": z.typ}
+                               for z in pseudonimizacja_lokalna.propozycje(tekst)],
+                "wymaga_potwierdzenia": True}
+    except WymagaWeryfikacji as blad:
+        raise HTTPException(409, str(blad)) from None
+
+
+@app.post("/api/sprawy/{identyfikator}/pseudonimizacja/wykonaj")
+def wykonaj_chronione(request: Request, identyfikator: str, dane: ZatwierdzonyPrzeglad):
+    _notariusz_chroniony(request)
+    katalog = _katalog_sprawy(identyfikator)
+    if not dane.potwierdzam:
+        raise HTTPException(409, "Potwierdź pełny przegląd tekstu i zakresów.")
+    try:
+        tekst = _chroniony_tekst(katalog, dane)
+        rejestr = rejestr_tozsamosci.wczytaj(katalog)
+        if dane.wersja != rejestr.wersja or dane.odcisk != bedrock_chroniony.odcisk_tekstu(tekst):
+            raise WymagaWeryfikacji("REVIEW_STALE")
+        if dane.cel == "projekt" and not rejestr.wpisy:
+            raise WymagaWeryfikacji("IDENTITY_REGISTER_REQUIRED")
+        for wpis in rejestr.wpisy.values():
+            rejestr_tozsamosci.sprawdz_zrodla(katalog, wpis.zrodla, wpis.osoba)
+        wystapienia, dodatkowe = [], []
+        for z in dane.zakresy:
+            if z.osoba_id and z.typ in ("NAZWA", "PESEL", "ROLA"):
+                wystapienia.append(Wystapienie(z.poczatek, z.koniec, z.osoba_id, z.typ))
+            else:
+                dodatkowe.append(DaneDodatkowe(z.poczatek, z.koniec, z.typ, z.osoba_id))
+        sesja = rejestr.sesja()
+        try:
+            sesja.sprawdz_zakres(identyfikator)
+            system = _CHRONIONE_SYSTEMY[dane.cel]
+            wejscie = bedrock_chroniony.PrzejrzanyTekst(tekst, dane.odcisk, tuple(wystapienia), tuple(dodatkowe))
+            system_wejscie = bedrock_chroniony.PrzejrzanyTekst(system, bedrock_chroniony.odcisk_tekstu(system))
+            akcja = "projekt" if dane.cel == "projekt" else "rozmowa_tura"
+            jednostki = 1 if akcja == "projekt" else tokenomia.jednostki_rozmowy(len(tekst))
+            with tokenomia.akcja(akcja, jednostki, f"sprawa {identyfikator}"):
+                wynik = bedrock.rozmowa_chroniona(sesja, system_wejscie, [("user", wejscie)],
+                                                 max_tokenow=min(config.MAX_WYJSCIE, 64000))
+        finally:
+            sesja.zamknij()
+        # Wynik jest propozycją: nie zapisujemy jako gotowy akt, nie wywołujemy
+        # narzędzi ani nie wysyłamy na zewnątrz. Role i wynik weryfikuje notariusz.
+        return {"tekst": wynik, "wymaga_weryfikacji": True, "zapisano": False}
+    except WymagaWeryfikacji as blad:
+        raise HTTPException(409, str(blad)) from None
 
 
 if __name__ == "__main__":
