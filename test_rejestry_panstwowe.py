@@ -57,3 +57,28 @@ def test_router_odrzuca_serwis_i_brak_potwierdzenia(monkeypatch):
     with pytest.raises(HTTPException) as ex:
         route.publiczne("krs",route.Zapytanie(identyfikator="0000000001"),NS(state=NS(kancelaria="a",email="a@example.org")))
     assert ex.value.status_code==400
+
+
+def test_uldk_po_obrebie_wiele_wynikow():
+    def handler(req):
+        assert req.url.host=="uldk.gugik.gov.pl"
+        assert req.url.params["request"]=="GetParcelByIdOrNr"
+        assert req.url.params["id"]=="Stara Wieś 756"
+        return httpx.Response(200,text="2\n141201_1.0001.756|756|powiat A|gmina A|Stara Wieś|woj A|WFS\n061201_2.0002.756|756|powiat B|gmina B|Stara Wieś|woj B|WFS")
+    with klient(handler) as c:
+        d=rp.dzialka("Stara Wieś 756",c)["dane"]
+        assert d["liczba"]==2 and d["wymaga_wyboru"] is True
+        assert [x["id"] for x in d["kandydaci"]]==["141201_1.0001.756","061201_2.0002.756"]
+
+def test_uldk_po_obrebie_zero_wynikow():
+    with klient(lambda r:httpx.Response(200,text="0\n")) as c:
+        d=rp.dzialka("Stara Wieś 756",c)["dane"]
+        assert d["liczba"]==0 and d["kandydaci"]==[]
+
+@pytest.mark.parametrize("body",["2\n141201_1.0001.756|756|a|b|c|d|WFS",
+    "1\n141201_1.0001.755|755|a|b|c|d|WFS",
+    "2\n141201_1.0001.756|756|a|b|c|d|WFS\n141201_1.0001.756|756|a|b|c|d|WFS"])
+def test_uldk_po_obrebie_odrzuca_niespojne_dane(body):
+    with klient(lambda r:httpx.Response(200,text=body)) as c:
+        with pytest.raises(rp.Niedostepny):
+            rp.dzialka("Stara Wieś 756",c)
