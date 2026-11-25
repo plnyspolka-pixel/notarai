@@ -414,5 +414,24 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Umowa powierzenia:** poprawki gotowe w gałęzi (zał. 2 A i C, zał. 3, § 5 ust. 3); publikacja po powiadomieniu
   kancelarii o zmianie zał. 3 (30 dni, § 8 ust. 2) i po ustaleniu daty wersji. Wymagane imienne upoważnienia
   osób z dostępem administracyjnym (§ 5 ust. 1 pkt 1) w formie dokumentowej.
+- **Decyzje właściciela (25.11.2026):**
+  1. Budujemy wariant A zabezpieczeń (konto, kod, umowa, procedura). Wariant B (enklawa z atestacją, pseudonimizacja przed
+     Bedrock) tylko na zamówienie klienta lub urzędu, bo kosztuje stałe instancje i tygodnie pracy.
+  2. Umowa powierzenia: § 5 ust. 3 opisuje tylko to, co potwierdza konfiguracja (bez zdania o możliwości zmiany zabezpieczeń
+     i bez twierdzenia o osobach). Zobowiązanie do niezmieniania zabezpieczeń zostaje w § 5 ust. 6.
+  3. Zał. 2 A: co najmniej jedna kopia aplikacji z automatycznym odtwarzaniem (bez wysokiej dostępności, decyzja kosztowa).
+     Zał. 2 C: dostęp administracyjny mają osoby imiennie upoważnione przez Fundację oraz narzędzia automatyzacji. Dostęp
+     imienny do konta AWS NIE jest wymagany. Zał. 3: model w 6 regionach UE.
+  4. Klucze IAM: bez zmian dla samonaprawy, dla użytkownika `claude-admin` i dla `pieczapp-app` (służy tylko do budowania
+     aplikacji). Ryzyko pozostaje: `claude-admin` ma pełne uprawnienia, długotrwały klucz i brak MFA.
+  5. Blokada modeli: dozwolone wyłącznie modele z zerową retencją i profilem UE. Gdy pojawi się model z retencją
+     (np. Fable 5.x), nie włączać go bez gwarancji. W treści umowy i na stronie nie dopisujemy zastrzeżeń o modelach,
+     których nie używamy; zdanie o AWS jest prawdziwe, dopóki działa blokada.
+  6. Stały adres: najtańsza metoda (EIP + NAT włączany na czas testów), nie stała brama. PROD i wysoka dostępność później,
+     po uzyskaniu podstawy prawnej.
+  7. Hasło „3×Zero” w materiałach: robocze ustalenie, do potwierdzenia przez właściciela, że zawsze z definicją obok
+     (zaszyfrowane kluczem kancelarii, którego notarai nie zna; treść w trakcie przetwarzania widzi tylko Bedrock w UE;
+     zmiany zabezpieczeń rejestrowane). Bez sformułowań o niemożliwym dostępie operatora.
+  8. Kolejność: PR do `master` dopiero po decyzji o powiadomieniu kancelarii (zmiana zał. 3, 30 dni).
 - **Zamknięte, gdy:** wnioski TEST złożone z potwierdzonym adresem, adapter działa w podsieci wyjścia, a umowa
   jest opublikowana po powiadomieniu.
