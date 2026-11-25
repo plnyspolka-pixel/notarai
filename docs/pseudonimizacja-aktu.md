@@ -35,3 +35,12 @@
 - Rejestr przechowywany jak istniejące dane sprawy, S3 z warunkowym zapisem i szyfrowaniem kancelarii, jeśli aktywne. Nie jest niezależnym sejfem kryptograficznym.
 - Testy syntetyczne w test_pseudonimizacja_aktu.py obejmują roundtrip, homonimy, odmiany, role, błędne zakresy, PESEL, OCR, izolację tenantów, mock Bedrock, zgodność SDK i API. Wykonanie całego pytest, rzeczywistego OCR w obrazie kontenera, testów współbieżności S3, regresji interfejsu oraz niezależnego audytu egress jest obowiązkowe przed merge.
 - Nie przesyłać realnych danych notarialnych do testów. Wyniki CI i testy wdrożeniowe muszą być faktycznie odczytane przed dopuszczeniem.
+
+
+## Aktualizacja NLP — etap 2 (25.11.2026)
+- Zintegrowano Morfeusz 2 (BSD-2-Clause) oraz lokalny model radlab/pii-pl-v1.0 (Apache-2.0; bazowy model Apache-2.0, KPWr CC-BY-3.0). Źródła: https://morfeusz.sgjp.pl/doc/license/ oraz https://huggingface.co/radlab/pii-pl-v1.0 . Model przypięty do rewizji 97ba763518491bb17dc10ab1870453d3abb4ef09; pobieranie tylko podczas budowy, safetensors, bez pickle i trust_remote_code.
+- Profil: `docker build --build-arg NOTARAI_PII=1 -t notarai-pii-beta .` (nie aktywuje trybu na produkcji). Brak zasobów NLP w trybie chronionym blokuje wysłanie. Morfeusz proponuje pełne i skrócone nazwy z odmianą, także nazwiska dwuczłonowe; wybór osoby nie jest automatyczny. Długie teksty NER analizuje z zachodzącymi oknami tokenów.
+- Wymagane pokrycie encji NER w bramce: sprawdzane na oryginalnym tekście i odwzorowaniu zakresów tokenów; dodatkowo kontrola wyrażeń regularnych po maskowaniu. NER nie jest dowodem kompletności; nadal wymagany przegląd człowieka.
+- Rozszerzono detektory o paszport, IBAN, adres, datę, IP i możliwy PESEL po błędzie OCR.
+- PolDeepNer2 KPWr: udostępnia plik .pt z pickle, nie został włączony do procesu obsługującego dane kancelarii. spaCy polski model ma GPL-3.0 — nie dołączono bez decyzji licencyjnej. Presidio i Splink nie są potrzebne jako kolejne silniki do istniejącej deterministycznej mapy; ich użycie wymaga konkretnego uzasadnienia i testów. 
+- Dedykowany workflow `.github/workflows/pii-lokalne.yml` buduje obraz i wykonuje testy na syntetycznych danych w kontenerze bez sieci. Nie wykonuje wdrożenia. Wynik wykonania nadal musi zostać odczytany, nie zakładać zielonego CI.
