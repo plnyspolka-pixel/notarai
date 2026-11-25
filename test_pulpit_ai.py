@@ -315,3 +315,30 @@ def test_naprawa_nie_modyfikuje_glownego_silnika():
     assert 'id="pai-naprawa-zgoda"' in html
     assert "Potwierdź zgłoszenie" in html
     assert "pokolenieCzatu" in js
+
+
+@pytest.mark.parametrize("usluga,identyfikator",[("uldk","Stara Wieś 756"),("krs","0000000001"),("vat","1234567890")])
+def test_przygotuj_publiczny_rejestr_bez_wysylki(usluga,identyfikator,monkeypatch):
+    import rejestry_panstwowe as rp
+    def forbidden(*args,**kwargs):
+        pytest.fail("No external query allowed")
+    monkeypatch.setattr(rp,"_get",forbidden)
+    upr=frozenset({"rejestry"})
+    akcje=[]
+    wynik=p._wykonaj("przygotuj_publiczne_zapytanie",{"usluga":usluga,"identyfikator":identyfikator},p._dostepne(upr),upr,akcje)
+    assert wynik["stan"]=="czeka_na_zatwierdzenie"
+    assert akcje==[{"typ":"przygotuj_rejestr","usluga":usluga,"identyfikator":identyfikator}]
+
+@pytest.mark.parametrize("usluga,identyfikator",[("rznp","00000000000"),("krs","https://example.org"),("vat","123"),("uldk","https://example.org")])
+def test_przygotuj_publiczny_rejestr_odrzuca_niedozwolone(usluga,identyfikator):
+    upr=frozenset({"rejestry"})
+    akcje=[]
+    assert "blad" in p._wykonaj("przygotuj_publiczne_zapytanie",{"usluga":usluga,"identyfikator":identyfikator},p._dostepne(upr),upr,akcje)
+    assert not akcje
+
+def test_przygotuj_publiczny_rejestr_bez_uprawnien():
+    upr=frozenset()
+    akcje=[]
+    assert "blad" in p._wykonaj("przygotuj_publiczne_zapytanie",{"usluga":"krs","identyfikator":"0000000001"},p._dostepne(upr),upr,akcje)
+    assert not akcje
+    assert "przygotuj_publiczne_zapytanie" not in [n["name"] for n in p._narzedzia(p._dostepne(upr),upr)]
