@@ -3,21 +3,24 @@
 Petla (opis calosci: docs/samonaprawa.md):
   1. aplikacja wykrywa blad (kazdy log.error w bloku except i nieobsluzony
      wyjatek), liczy jego odcisk i zapisuje znacznik w CloudWatch,
-  2. nowy odcisk wysyla do GitHuba (repository_dispatch "samonaprawa"),
-  3. .github/workflows/samonaprawa.yml: agent szuka przyczyny, pisze poprawke
-     i test regresji, bramki (scripts/samonaprawa/bramki.py) i drugi agent
-     sprawdzaja, potem scalenie, wdrozenie i obserwacja - a przy nawrocie
-     bledu automatyczne cofniecie.
+  2. nowy odcisk wysyla zdarzenie na domyslna szyne EventBridge (zrodlo
+     "notarai.samonaprawa"), rola zadania ma tylko events:PutEvents,
+  3. potok w AWS (stos notarai-samonaprawa, CodeBuild, scripts/samonaprawa/potok.py):
+     agent szuka przyczyny, pisze poprawke i test regresji, bramki
+     (scripts/samonaprawa/bramki.py) i drugi agent sprawdzaja, potem wdrozenie
+     i obserwacja - a przy nawrocie bledu automatyczne cofniecie.
+     Zadnej zaleznosci od GitHuba w czasie dzialania.
 
-RODO: do znacznika i do GitHuba idzie tylko to, co daje dziennik.opis_bledu()
+RODO: do znacznika i do zdarzenia idzie tylko to, co daje dziennik.opis_bledu()
 (typ wyjatku, kod i komunikat AWS, miejsca w kodzie) po dziennik.maskuj().
 Zadnej tresci wyjatku spoza AWS, tresci sprawy ani identyfikatorow kancelarii.
 
-Modul nigdy nie rzuca wyjatku i nie blokuje obslugi zadania: wysylka do
-GitHuba idzie w osobnym watku z krotkim limitem czasu.
+Modul nigdy nie rzuca wyjatku i nie blokuje obslugi zadania: wysylka
+zdarzenia idzie w osobnym watku z krotkim limitem czasu.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -34,12 +37,13 @@ import dziennik
 
 log = logging.getLogger("pieczapp.samonaprawa")
 
-# Po tym slowie workflow samonaprawy i filtr metryki CloudWatch znajduja zgloszenia.
+# Po tym slowie potok samonaprawy i filtr metryki CloudWatch znajduja zgloszenia.
 ZNACZNIK = "samonaprawa"
-REPOZYTORIUM = os.getenv("PIECZAPP_SAMONAPRAWA_REPO", "plnyspolka-pixel/notarai")
-ZDARZENIE = "samonaprawa"
-# Ten sam odcisk zglaszamy do GitHuba najwyzej raz na tyle sekund (na kontener).
-# Workflow i tak laczy zgloszenia w jedno zgloszenie (issue) na odcisk.
+# Zdarzenie dla EventBridge (regula w stosie notarai-samonaprawa lapie dokladnie to).
+ZRODLO_ZDARZEN = "notarai.samonaprawa"
+TYP_ZDARZENIA = "zgloszenie"
+# Ten sam odcisk zglaszamy najwyzej raz na tyle sekund (na kontener).
+# Potok i tak laczy zgloszenia w jeden rekord na odcisk (DynamoDB).
 PRZERWA_ZGLOSZEN = int(os.getenv("PIECZAPP_SAMONAPRAWA_PRZERWA", str(6 * 3600)))
 # Bledy, ktorych nie naprawia sie kodem: chwilowe zaklocenia AWS, limity.
 # Zliczamy je i alarmujemy, ale nie budzimy agenta naprawczego.
@@ -59,7 +63,7 @@ _PRZEJSCIOWE_TYPY = {
 _POMIJANE_TYPY = {"HTTPException", "RequestValidationError", "KeyboardInterrupt", "SystemExit"}
 
 _blokada = threading.Lock()
-_ostatnie: dict[str, float] = {}       # odcisk -> czas ostatniej wysylki do GitHuba
+_ostatnie: dict[str, float] = {}       # odcisk -> czas ostatniej wysylki zdarzenia
 _licznik: dict[str, int] = {}          # odcisk -> wystapienia w tym kontenerze
 _ZNAK = "_samonaprawa_zgloszony"
 
@@ -121,7 +125,7 @@ def rodzaj(blad: BaseException) -> str:
 
 
 def opis(blad: BaseException) -> dict:
-    """Zgloszenie bez danych osobowych - to samo idzie do logu i do GitHuba."""
+    """Zgloszenie bez danych osobowych - to samo idzie do logu i do zdarzenia EventBridge."""
     ramki = _nasze_ramki(blad)[-dziennik.RAMEK:]
     return {
         "odcisk": odcisk(blad),
@@ -135,32 +139,43 @@ def opis(blad: BaseException) -> dict:
     }
 
 
-def _token() -> str:
-    """Token GitHub z sekretu notarai/samonaprawa-github. Dopoki wlasciciel go nie
-    wkleil, w sekrecie jest znacznik "brak" - wtedy zgloszenia ida przez przeglad."""
-    token = os.getenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "").strip()
-    return token if token.startswith(("github_pat_", "ghp_", "ghs_")) else ""
+def zdarzenia_wlaczone() -> bool:
+    """Zdarzenia do EventBridge wlacza szablon ECS (PIECZAPP_SAMONAPRAWA_ZDARZENIA=true).
+    Lokalnie i w testach zwykle wylaczone: bez poswiadczen AWS nie ma dokad wysylac."""
+    return os.getenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "").lower() in ("1", "true", "tak")
 
 
 def wlaczona() -> bool:
     return os.getenv("PIECZAPP_SAMONAPRAWA", "true").lower() not in ("false", "0", "nie", "wylaczona")
 
 
+def koduj_ladunek(zgloszenie: dict) -> str:
+    """Zgloszenie jako base64 (JSON): bezpieczne do wstawienia w szablon wejscia
+    EventBridge (cudzyslowy i znaki sterujace w opisie nie psuja JSON-a)."""
+    return base64.b64encode(json.dumps(zgloszenie, ensure_ascii=False, sort_keys=True).encode("utf-8")).decode("ascii")
+
+
+def wpis_zdarzenia(zgloszenie: dict) -> dict:
+    """Wpis dla events.put_events: detail = zgloszenie (to samo, co opis()) + ladunek_b64."""
+    szczegoly = dict(zgloszenie)
+    szczegoly["ladunek_b64"] = koduj_ladunek(zgloszenie)
+    return {"Source": ZRODLO_ZDARZEN, "DetailType": TYP_ZDARZENIA, "EventBusName": "default",
+            "Detail": json.dumps(szczegoly, ensure_ascii=False)}
+
+
+def _klient_zdarzen():
+    import boto3
+    from botocore.config import Config
+    return boto3.client("events", region_name=config.REGION,
+                        config=Config(connect_timeout=3, read_timeout=5, retries={"max_attempts": 2}))
+
+
 def _wyslij(zgloszenie: dict) -> None:
-    """repository_dispatch do GitHuba. Bledy wysylki tylko do logu."""
+    """put_events na domyslna szyne. Bledy wysylki tylko do logu."""
     try:
-        import httpx
-        odp = httpx.post(
-            f"https://api.github.com/repos/{REPOZYTORIUM}/dispatches",
-            headers={"Authorization": f"Bearer {_token()}",
-                     "Accept": "application/vnd.github+json",
-                     "X-GitHub-Api-Version": "2022-11-28"},
-            json={"event_type": ZDARZENIE, "client_payload": zgloszenie},
-            timeout=5,
-        )
-        if odp.status_code >= 300:
-            log.warning("samonaprawa: GitHub odrzucil zgloszenie %s (HTTP %d)",
-                        zgloszenie["odcisk"], odp.status_code)
+        odp = _klient_zdarzen().put_events(Entries=[wpis_zdarzenia(zgloszenie)])
+        if odp.get("FailedEntryCount"):
+            log.warning("samonaprawa: EventBridge odrzucil zgloszenie %s", zgloszenie["odcisk"])
     except Exception as e:  # noqa: BLE001 - wysylka nie moze zepsuc obslugi zadania
         log.warning("samonaprawa: wysylka zgloszenia nieudana (%s)", type(e).__name__)
 
@@ -188,12 +203,12 @@ def zglos(blad: BaseException | None, miejsce: str = "") -> dict | None:
             _licznik[zgloszenie["odcisk"]] = ile
             teraz = time.monotonic()
             poprzednio = _ostatnie.get(zgloszenie["odcisk"])
-            wysylac = (zgloszenie["rodzaj"] == "kod" and bool(_token())
+            wysylac = (zgloszenie["rodzaj"] == "kod" and zdarzenia_wlaczone()
                        and (poprzednio is None or teraz - poprzednio >= PRZERWA_ZGLOSZEN))
             if wysylac:
                 _ostatnie[zgloszenie["odcisk"]] = teraz
         zgloszenie["wystapien_w_kontenerze"] = ile
-        # Znacznik dla workflow (obserwacja po wdrozeniu) i filtra metryki CloudWatch.
+        # Znacznik dla potoku (obserwacja po wdrozeniu) i filtra metryki CloudWatch.
         # Uwaga: ten wpis przechodzi jeszcze przez maskowanie dziennika.
         log.error("%s %s", ZNACZNIK, json.dumps(
             {k: zgloszenie[k] for k in ("odcisk", "rodzaj", "typ", "kod_aws", "wersja", "miejsca", "opis")}
@@ -224,8 +239,8 @@ def zglos_prosbe(opis: str) -> dict:
     zgloszenie = {"odcisk": odcisk_prosby, "rodzaj": "reczne", "typ": "prosba kancelarii",
                   "kod_aws": "", "opis": "", "miejsca": [], "uwagi": tekst,
                   "wersja": wersja(), "czas": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    wyslano = bool(_token()) and wlaczona()
-    # Znacznik w CloudWatch: przeglad co 30 min podejmuje prosbe takze bez tokenu.
+    wyslano = zdarzenia_wlaczone() and wlaczona()
+    # Znacznik w CloudWatch: przeglad co 30 min podejmuje prosbe takze bez zdarzenia.
     log.error("%s %s", ZNACZNIK, json.dumps(
         {k: zgloszenie[k] for k in ("odcisk", "rodzaj", "typ", "wersja", "miejsca", "uwagi")}, ensure_ascii=False))
     if wyslano:
@@ -271,7 +286,7 @@ def zainstaluj(logger: logging.Logger | None = None) -> None:
 def stan() -> dict:
     """Licznik bledow w tym kontenerze (panel administratora)."""
     with _blokada:
-        return {"wlaczona": wlaczona(), "zglaszanie_do_github": bool(_token()),
+        return {"wlaczona": wlaczona(), "zglaszanie_do_aws": zdarzenia_wlaczone(),
                 "wersja": wersja(), "odciski": dict(_licznik)}
 
 

@@ -19,7 +19,7 @@ def dane(tmp_path, monkeypatch):
     if "SPRAWY" in vars(config):
         monkeypatch.delattr(config, "SPRAWY")
     assert magazyn.TRYB == "lokalny"
-    monkeypatch.delenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", raising=False)
     return tmp_path
 
 
@@ -95,7 +95,7 @@ def test_zle_wartosci_wracaja_do_modelu_jako_blad(dane):
 
 def test_prosba_o_zmiane_programu_bez_danych_klientow(dane, monkeypatch):
     wyslane = []
-    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_test")
+    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "true")
     monkeypatch.setattr(ak.samonaprawa, "_wyslij", wyslane.append)
     monkeypatch.setattr(ak.samonaprawa.threading, "Thread",
                         lambda target, args, **kw: type("T", (), {"start": lambda s: target(*args)})())

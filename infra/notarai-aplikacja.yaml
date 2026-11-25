@@ -17,8 +17,11 @@ Parameters:
     Description: Wynik RepozytoriumUri ze stosu notarai-budowanie
   TagObrazu:
     Type: String
-    Description: Tag obrazu w ECR - skrot commita z 2-zbuduj-obraz.ps1
-    AllowedPattern: "^[0-9a-f]{7,40}$"
+    Description: >-
+      Tag obrazu w ECR: skrot commita (2-zbuduj-obraz.ps1), skrot z doklejonymi poprawkami
+      samonaprawy "<sha>-sn<skrot>" (straznik w wdrozenie.yml) albo "sn-<12 hex>" (potok
+      samonaprawy w AWS, stos notarai-samonaprawa).
+    AllowedPattern: "^([0-9a-f]{7,40}(-sn[0-9a-f]{6,12})?|sn-[0-9a-f]{12})$"
   CertyfikatArn:
     Type: String
     Description: Wynik CertyfikatArn ze stosu notarai-certyfikat (status ISSUED)
@@ -142,9 +145,10 @@ Parameters:
     Default: ""
     Description: >-
       Pelny ARN sekretu notarai/samonaprawa-github (klucz token), zalozonego
-      skryptem zapisz-sekret-samonaprawy.ps1. Aplikacja zglasza nim nowe bledy
-      do naprawy (samonaprawa.py, docs/samonaprawa.md); wlacza tez alarm
-      notarai-samonaprawa-bledy. Puste = bledy tylko w logach.
+      skryptem zapisz-sekret-samonaprawy.ps1. Aplikacja NIE czyta juz tego sekretu
+      (zgloszenia ida zdarzeniem EventBridge); czyta go potok samonaprawy w AWS
+      (zapis poprawek w repozytorium, opcjonalny). Tu steruje tylko alarmem
+      notarai-samonaprawa-bledy. Puste = bez alarmu.
   FinyouAdres:
     Type: String
     Default: ""
@@ -249,16 +253,6 @@ Resources:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref SekretAdmina
-        - !If
-          - MamySamonaprawe
-          - PolicyName: sekret-samonaprawy
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: Allow
-                  Action: secretsmanager:GetSecretValue
-                  Resource: !Ref SamonaprawaSekretArn
-          - !Ref AWS::NoValue
         - !If
           - MamyApify
           - PolicyName: sekret-apify
@@ -400,6 +394,16 @@ Resources:
               - Effect: Allow
                 Action: ssm:GetParameter
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/notarai/samonaprawa/*"
+
+        # Zgloszenia bledow dla samonaprawy: zdarzenie na domyslna szyne EventBridge
+        # (samonaprawa.py, docs/samonaprawa.md). Tylko PutEvents na szyne default.
+        - PolicyName: zdarzenia-samonaprawy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default"
 
         - PolicyName: sekrety-poczty-polskiej
           PolicyDocument:
@@ -653,6 +657,9 @@ Resources:
             # Wersja w zgloszeniach samonaprawy - po niej workflow widzi nawrot bledu.
             - Name: PIECZAPP_WERSJA
               Value: !Ref TagObrazu
+            # Zgloszenia bledow trafiaja do potoku samonaprawy w AWS (bez GitHuba).
+            - Name: PIECZAPP_SAMONAPRAWA_ZDARZENIA
+              Value: "true"
           Secrets:
             - Name: PIECZAPP_ADMIN_TOKEN
               ValueFrom: !Ref SekretAdmina
@@ -703,12 +710,6 @@ Resources:
               - MamyOAuthPoczty
               - Name: PIECZAPP_OAUTH_GOOGLE_SEKRET
                 ValueFrom: !Sub "${OAuthPocztySekretArn}:google_sekret::"
-              - !Ref AWS::NoValue
-            # Token GitHub samonaprawy: zglaszanie nowych bledow (samonaprawa.py).
-            - !If
-              - MamySamonaprawe
-              - Name: PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN
-                ValueFrom: !Sub "${SamonaprawaSekretArn}:token::"
               - !Ref AWS::NoValue
             # Token webhookow agenta glosowego ElevenLabs (agent_glosowy.py).
             - !If
@@ -781,8 +782,8 @@ Resources:
       Endpoint: !Ref EmailAlarmowy
 
   # Samonaprawa: seria bledow kodu (nie chwilowych AWS) w 5 minut. Zapasowy
-  # sygnal - zwykle wlasciciel dostaje wiadomosc z workflow samonaprawy, ale
-  # gdyby GitHub nie przyjal zgloszenia, ten alarm i tak przyjdzie mailem.
+  # sygnal - zwykle wlasciciel dostaje wiadomosc z potoku samonaprawy, ale
+  # gdyby zdarzenie nie dotarlo, ten alarm i tak przyjdzie mailem.
   FiltrSamonaprawy:
     Condition: MamySamonaprawe
     Type: AWS::Logs::MetricFilter
@@ -803,7 +804,7 @@ Resources:
       AlarmName: notarai-samonaprawa-bledy
       AlarmDescription: >-
         Co najmniej 5 bledow kodu w 5 minut (znaczniki samonaprawy w /ecs/notarai).
-        Przebieg naprawy: GitHub -> Issues z etykieta samonaprawa.
+        Przebieg naprawy: tabela notarai-samonaprawa (DynamoDB), logi /aws/codebuild/notarai-samonaprawa.
       Namespace: notarai
       MetricName: SamonaprawaBledyKodu
       Statistic: Sum

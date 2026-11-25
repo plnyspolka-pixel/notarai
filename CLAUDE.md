@@ -95,8 +95,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Opis: `docs/samonaprawa.md`. Błąd na produkcji -> `samonaprawa.py` -> GitHub
   `.github/workflows/samonaprawa.yml` -> agent naprawczy -> bramki -> agent
   recenzent -> scalenie i wdrożenie -> 20 min obserwacji -> cofnięcie przy nawrocie.
-- Automatyczne wdrożenia na produkcję są dozwolone WYŁĄCZNIE przez ten
-  workflow i WYŁĄCZNIE po bramkach `scripts/samonaprawa/bramki.py`: test
+- Automatyczne wdrożenia na produkcję są dozwolone WYŁĄCZNIE przez potok AWS
+  (stos `notarai-samonaprawa`, CodeBuild `notarai-samonaprawa`,
+  `scripts/samonaprawa/potok.py`; bramki bez zmian) i WYŁĄCZNIE po bramkach `scripts/samonaprawa/bramki.py`: test
   regresji czerwony przed i zielony po poprawce, cały zestaw testów zielony,
   żadnych usuniętych ani wyciszonych testów, zgoda niezależnego recenzenta,
   limit 3 automatycznych wdrożeń na dobę, 2 próby na błąd, potem eskalacja.
