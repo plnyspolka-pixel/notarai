@@ -1127,6 +1127,20 @@ notarai</div>
 <!-- ===== 4: sprawdzenia ===== -->
 <section id="etap4" hidden>
   <h1>Sprawdzenia w rejestrach</h1>
+  <div class="karta" data-upr="rejestry">
+    <h2>Oficjalne rejestry państwowe</h2>
+    <p class="pod">Publiczne zapytania oraz ścieżki uzyskania indywidualnych uprawnień. Wyniki informacyjne nie zastępują dokumentów urzędowych.</p>
+    <button type="button" id="rp-katalog-btn">Pokaż katalog rejestrów</button>
+    <div id="rp-lista" aria-live="polite"></div>
+    <form id="rp-form">
+      <label for="rp-usluga">Źródło</label><select id="rp-usluga"><option value="uldk">Działka – ULDK</option><option value="krs">KRS</option><option value="vat">Wykaz VAT</option></select>
+      <label for="rp-id">Identyfikator działki, KRS lub NIP</label><input id="rp-id" maxlength="64" required autocomplete="off">
+      <label for="rp-rejestr">Rodzaj KRS</label><select id="rp-rejestr"><option value="P">Przedsiębiorcy</option><option value="S">Stowarzyszenia i fundacje</option></select>
+      <label for="rp-data">Data dla wykazu VAT</label><input id="rp-data" type="date">
+      <button type="submit" id="rp-szukaj">Potwierdź i sprawdź w rejestrze</button>
+    </form>
+    <pre id="rp-wynik" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre>
+  </div>
   <p class="pod">Numery PESEL wykryte w akcie. Każdy sprawdzasz w rejestrze i zatwierdzasz wynik jednym kliknięciem. Wpisy tworzą ślad audytowy sprawy.</p>
   <div class="karta">
     <h2>Wykryte numery PESEL</h2>
@@ -7593,5 +7607,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/personalizacja.js"></script>
 <script src="/static/ksiegi.js"></script>
 <script src="/static/pulpit-ai.js"></script>
+<script src="/static/rejestry-panstwowe.js"></script>
 </body>
 </html>

@@ -220,6 +220,8 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
                                                 "bez danych osobowych i identyfikatorów spraw."}},
                 ["opis"]),
     ]
+    if "rejestry" in uprawnienia:
+        wynik.append(_schema("katalog_rejestrow_panstwowych", "Wymień oficjalne rejestry i ich ścieżki dostępu; bez zapytań o osoby i bez twierdzeń o aktywnych uprawnieniach."))
     if urzadzenia.dostepne():
         wynik += [
             _schema("lista_komputerow", "Wymień tylko komputery sparowane z tą kancelarią."),
@@ -236,6 +238,12 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
 
 def _wykonaj(nazwa: str, dane: dict, dostepne: list[dict],
              uprawnienia: frozenset, akcje: list[dict]) -> dict:
+    if nazwa == "katalog_rejestrow_panstwowych":
+        if "rejestry" not in uprawnienia:
+            return {"blad": "Brak uprawnień do rejestrów."}
+        import rejestry_panstwowe
+        akcje.append({"typ": "otworz", "ekran": "rejestry"})
+        return {"rejestry": rejestry_panstwowe.katalog(), "uwaga": "Katalog nie potwierdza indywidualnych dostępów."}
     if nazwa == "sprawdz_postep_samonaprawy":
         naprawy = _stan_napraw()
         akcje.append({"typ": "postep_napraw", "naprawy": naprawy})
