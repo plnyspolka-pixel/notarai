@@ -28,6 +28,8 @@ import agent_glosowy
 import aml
 import aml_listy
 import bedrock
+import bedrock_chroniony
+import pseudonimizacja_lokalna
 import config
 import crbr
 import dziennik
@@ -299,6 +301,27 @@ def _przetworz(sciezka_wzoru: Path, sciezki_skanow: list[Path], polecenie: str,
     log.info("%s: wzor=%s pol=%d legenda=%d warianty=%d stron=%d wysilek=%s (%s)",
              etykieta, sciezka_wzoru.name, len(pola_wzoru),
              len(analiza["legenda"]), analiza["warianty"], len(strony), wysilek, powod_dokladnosci)
+
+    if bedrock_chroniony.chroniony():
+        # Pierwszy etap nie wysyła obrazu ani tekstu do Bedrock.
+        # Zapisujemy oba źródła do ręcznej weryfikacji; żadnej pozornej ekstrakcji.
+        transkrypcje = []
+        for i, strona in enumerate(strony, 1):
+            transkrypcje.append(pseudonimizacja_lokalna.przygotuj_strone(strona))
+            if postep:
+                postep("transkrypcja", i, len(strony))
+        pola = _zwaliduj([{"nazwa": p, "wartosc": None, "pewnosc": "niska"} for p in pola_wzoru])
+        komunikat = ("Tryb chroniony: wykonano lokalny OCR. Zweryfikuj wszystkie strony "
+                     "i dane uczestników przed ekstrakcją lub generowaniem przez model.")
+        return {
+            "analiza": analiza, "pola_wzoru": pola_wzoru, "pola": pola,
+            "braki": [], "rozbieznosci": [], "stron": len(strony),
+            "wysilek": wysilek, "dokladnosc_opis": "OCR lokalny – do weryfikacji",
+            "transkrypcje": transkrypcje,
+            "kontekst": prompty.kontekst_rozmowy(pola, [], [], polecenie),
+            "rozmowa": [{"rola": "asystent", "tresc": komunikat,
+                         "czas": datetime.now().isoformat(timespec="seconds")}],
+        }
 
     # Tokenomia: strony (cena zalezna od dokladnosci) + zestawienie z pytaniami.
     # Saldo sprawdzamy przed pierwszym wywolaniem, pobieramy po udanym odczycie.
