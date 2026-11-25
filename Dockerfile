@@ -16,6 +16,10 @@ FROM public.ecr.aws/docker/library/python:3.12-slim
 
 WORKDIR /app
 
+# Lokalny OCR w trybie chronionym; polski model bez pobierania podczas żądania.
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-pol \
+    && rm -rf /var/lib/apt/lists/*
+
 # faster-whisper i playwright sa opcjonalne lokalnie; w chmurze pomijamy
 # (transkrypcja i asysta formularzy to funkcje stanowiska notariusza).
 COPY requirements.txt .
