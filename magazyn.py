@@ -198,6 +198,9 @@ def utrwal_sprawe(katalog: Path) -> None:
         if not plik.is_file() or plik.name in _POMIJANE:
             continue
         wzgledna = plik.relative_to(katalog).as_posix()
+        if wzgledna == "rejestr-tozsamosci.json":
+            # Ten plik ma osobny warunkowy zapis w rejestr_tozsamosci.
+            continue
         dane = plik.read_bytes()
         sha = _sha(dane)
         if (skroty.get(wzgledna) or [None])[0] == sha:
