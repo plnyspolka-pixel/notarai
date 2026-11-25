@@ -167,3 +167,82 @@ def test_ocr_brak_binarnego_fallbacku(monkeypatch):
 def test_lokalne_propozycje():
     tekst = "kontakt@example.test; LU1I/00012345/6; ABC 123456"
     assert {x.typ for x in lokalna.propozycje(tekst)} >= {"EMAIL", "KW", "DOWOD"}
+
+
+def test_rejestr_i_przeplyw_api(monkeypatch, tmp_path):
+    from contextlib import nullcontext
+    from fastapi.testclient import TestClient
+    import app as aplikacja
+    import config
+    import rejestr_tozsamosci as rt
+
+    monkeypatch.setenv("PIECZAPP_BEDROCK_CHRONIONY", "1")
+    monkeypatch.setattr(aplikacja.autoryzacja, "MULTI", False)
+    monkeypatch.setattr(magazyn, "TRYB", "lokalny")
+    monkeypatch.setattr(config, "DANE", tmp_path)
+    monkeypatch.setattr(config, "MODEL", "eu.anthropic.claude-sonnet-4-6")
+    monkeypatch.setattr(bedrock.tokenomia, "dolicz", lambda *a: None)
+    monkeypatch.setattr(aplikacja.tokenomia, "akcja", lambda *a: nullcontext())
+    katalog = config.SPRAWY / "syntetyczna143"
+    katalog.mkdir(parents=True)
+    (katalog / "sprawa.json").write_text("{}", encoding="utf-8")
+    (katalog / "wzor.txt").write_text("Wzór aktu", encoding="utf-8")
+    tekst = "Jan Adam Kowalski, adres Testowa 10."
+    (katalog / "transkrypcje.json").write_text(json.dumps([
+        {"strona": 1, "dokument": "test", "tresc": tekst}
+    ], ensure_ascii=False), encoding="utf-8")
+    raw = Mock()
+    monkeypatch.setattr(bedrock, "_klient_bedrock", raw)
+
+    def echo(**zadanie):
+        zawartosc = zadanie["messages"][0]["content"][0]["text"]
+        assert "Kowalski" not in zawartosc and "Testowa" not in zawartosc
+        return {"stopReason": "end_turn", "usage": {}, "output": {
+            "message": {"content": [{"text": zawartosc}]}}}
+
+    raw.converse.side_effect = echo
+    klient = TestClient(aplikacja.app)
+    url = "/api/sprawy/syntetyczna143/pseudonimizacja"
+    stan = klient.get(url + "/rejestr")
+    assert stan.status_code == 200, stan.text
+    oid, zrodlo = next(iter(stan.json()["zrodla"].items()))
+    osoba = {"imiona": ["Jan", "Adam"], "nazwisko": "Kowalski",
+             "wersja": 0, "potwierdzam": True,
+             "zrodla": [{"dokument_id": oid, "strona": 1, "od": 0,
+                          "do": 17, "sha256": zrodlo["sha256"]}]}
+    zapis = klient.post(url + "/rejestr", json=osoba)
+    assert zapis.status_code == 200, zapis.text
+    assert rt.wczytaj(katalog).wersja == 1
+    assert klient.post(url + "/rejestr", json=osoba).status_code == 409
+    dane = {"cel": "rozmowa", "polecenie": "Podaj dane."}
+    przeglad = klient.post(url + "/przeglad", json=dane).json()
+    a = przeglad["tekst"].index("Testowa")
+    wykonaj = {**dane, "wersja": przeglad["wersja"], "odcisk": przeglad["odcisk"],
+               "zakresy": [{"poczatek": a, "koniec": a + 10, "typ": "ADRES"}],
+               "potwierdzam": True}
+    assert klient.post(url + "/wykonaj", json={**wykonaj, "cel": "ekstrakcja"}).status_code == 409
+    assert not raw.mock_calls
+    wynik = klient.post(url + "/wykonaj", json=wykonaj)
+    assert wynik.status_code == 200, wynik.text
+    assert "Jan Adam Kowalski" in wynik.json()["tekst"]
+    assert "Testowa 10" in wynik.json()["tekst"]
+    assert wynik.json()["zapisano"] is False
+    assert raw.converse.call_count == 1
+
+
+def test_sesja_zakres_i_konflikt_dodatkowego_maskowania(sesja):
+    with pytest.raises(WymagaWeryfikacji, match="IDENTITY_SPAN_CONFLICT"):
+        sesja.pseudonimizuj("Jan Kowalski", dodatkowe=(
+            DaneDodatkowe(0, 12, "ADRES", "losowy-b"),))
+    s = SesjaPseudonimizacji(sesja.osoby, sprawa="abc")
+    with pytest.raises(WymagaWeryfikacji):
+        s.sprawdz_zakres("xyz")
+    t = magazyn.kancelaria_var.set("inna-kancelaria")
+    try:
+        with pytest.raises(WymagaWeryfikacji):
+            s.pseudonimizuj("Jan Kowalski")
+    finally:
+        magazyn.kancelaria_var.reset(t)
+    s.zamknij()
+    with pytest.raises(WymagaWeryfikacji):
+        s.pseudonimizuj("Jan Kowalski")
