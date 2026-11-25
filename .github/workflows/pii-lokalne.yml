@@ -1,0 +1,27 @@
+name: NotarAI - lokalne modele PII (beta)
+on:
+  pull_request:
+    paths:
+      - 'pseudonimizacja*.py'
+      - 'bedrock_chroniony.py'
+      - 'test_pseudonimizacja*.py'
+      - 'requirements-pii.txt'
+      - 'scripts/pobierz_model_pii.py'
+      - 'Dockerfile'
+      - '.github/workflows/pii-lokalne.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-pii:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build isolated beta image with pinned public NLP artifacts
+        run: docker build --build-arg NOTARAI_PII=1 -t notarai-pii-ci .
+      - name: Run model and application tests without network
+        run: |
+          docker run --rm --network none -e AWS_EC2_METADATA_DISABLED=true -e AWS_DEFAULT_REGION=eu-central-1 -e NOTARAI_REAL_PII_TESTS=1 notarai-pii-ci python -m pytest -q test_pseudonimizacja_aktu.py test_pseudonimizacja_nlp.py
+      - name: Verify Polish OCR resources without network
+        run: docker run --rm --network none notarai-pii-ci sh -c 'tesseract --list-langs | grep -x pol'
