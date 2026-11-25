@@ -186,10 +186,13 @@ class SesjaPseudonimizacji:
             for m in re.finditer(r"(?<!\w)" + wzor + r"(?!\w)", tekst, re.I):
                 propozycje.append((m.start(), m.end(), ids, typ))
         for a, b, ids, typ in sorted(propozycje, key=lambda x: (-(x[1]-x[0]), x[0])):
-            nakladajace = [(x, y) for x,y,_,_ in miejsca if a < y and x < b]
+            nakladajace = [(x, y, oid, rodzaj) for x,y,oid,rodzaj in miejsca if a < y and x < b]
             if nakladajace:
-                if any(x <= a and b <= y for x,y in nakladajace):
+                if any(x <= a and b <= y and oid in ids and rodzaj == typ
+                       for x,y,oid,rodzaj in nakladajace):
                     continue
+                if any(x <= a and b <= y for x,y,_,_ in nakladajace):
+                    raise WymagaWeryfikacji("IDENTITY_SPAN_CONFLICT")
                 raise WymagaWeryfikacji("PARTIAL_SPAN_OVERLAP")
             if len(ids) != 1:
                 raise WymagaWeryfikacji("AMBIGUOUS_PERSON_MENTION")
