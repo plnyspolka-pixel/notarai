@@ -587,6 +587,12 @@ class Potok:
 
 # ---------------------------------------------------------------- uruchomienie w CodeBuild
 
+def skrypt_postepu(narz: Path) -> Path:
+    """postep.sh z kopii narzedzi, a gdy kopii jeszcze nie ma (zgloszenie "przyjete", test
+    wdrozenia, przeglad) - z tej samej paczki wersji produkcyjnej, z ktorej dziala potok."""
+    kopia = narz / "postep.sh"
+    return kopia if kopia.exists() else Path(__file__).resolve().parent / "postep.sh"
+
 def zbuduj_zaleznosci() -> Zaleznosci:  # pragma: no cover - laczy rzeczywiste uslugi AWS
     import boto3
     import agent as ag
@@ -614,7 +620,7 @@ def zbuduj_zaleznosci() -> Zaleznosci:  # pragma: no cover - laczy rzeczywiste u
 
     def postep(odcisk: str, etap: str, opis: str = "", wlacz=None) -> None:
         env = dict(os.environ, ODCISK=odcisk, PRZEBIEG=przebieg, WLACZ=json.dumps(wlacz) if wlacz else "")
-        subprocess.run(["bash", str(narz / "postep.sh"), etap, opis], env=env, check=False)
+        subprocess.run(["bash", str(skrypt_postepu(narz)), etap, opis], env=env, check=False)
 
     def parametr(nazwa: str, domyslna: str) -> str:
         try:

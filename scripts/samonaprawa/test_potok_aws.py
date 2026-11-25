@@ -1249,3 +1249,14 @@ class TestWorkflowy:
         tekst = (KORZEN / "CLAUDE.md").read_text(encoding="utf-8")
         assert "WYŁĄCZNIE przez potok AWS" in tekst and "notarai-samonaprawa" in tekst
         assert "WYŁĄCZNIE przez ten\n  workflow" not in tekst
+
+
+def test_skrypt_postepu_bez_kopii_narzedzi_bierze_skrypt_z_paczki(tmp_path):
+    """Regresja z proby 25.11.2026: postep.sh nie istnial w /tmp/sn/narzedzia przed pierwsza naprawa."""
+    brak = tmp_path / "narzedzia"                        # kopia jeszcze nie powstala
+    sciezka = pt.skrypt_postepu(brak)
+    assert sciezka.name == "postep.sh" and sciezka.exists()
+    assert sciezka.parent == Path(pt.__file__).resolve().parent
+    brak.mkdir()
+    (brak / "postep.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    assert pt.skrypt_postepu(brak) == brak / "postep.sh"   # kopia sprzed agenta ma pierwszenstwo
