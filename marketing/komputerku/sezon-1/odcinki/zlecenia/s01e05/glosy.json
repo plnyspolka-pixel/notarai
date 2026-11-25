@@ -1,0 +1,99 @@
+{
+  "kontrakt": "glosy-v1",
+  "odcinek": "s01e05",
+  "model_id": "eleven_v4",
+  "narzedzie": "fu.text_to_speech (jedna kwestia na nagranie)",
+  "language_code": "pl",
+  "settings": {
+    "stability": 0.5
+  },
+  "kontrola": "transkrypcja Scribe zgodna z kwestiami (12/12, różnice tylko w interpunkcji)",
+  "kwestie": [
+    {
+      "ujecie": "u1",
+      "postac": "basia",
+      "voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "text": "[reading, puzzled] Dwa maile od pana Sowy. Ten sam lokal... dwa różne „ustalenia”."
+    },
+    {
+      "ujecie": "u2",
+      "postac": "kuba",
+      "voice_id": "l49KzmmcER7qYZfvh1NN",
+      "text": "[quietly] W żadnym nie ma odpowiedzi od pani Ireny."
+    },
+    {
+      "ujecie": "u4",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[calm, attentive] Państwo kupują mieszkanie pani Ireny. Co dokładnie dostaliście od pośrednika?"
+    },
+    {
+      "ujecie": "u5",
+      "postac": "joanna",
+      "voice_id": "SByi0iajmdL7xb0Q4Qo5",
+      "text": "[reading, careful] Maila. Że zgodnie z ustaleniami wydanie pierwszego grudnia... a koszty aktu płaci sprzedająca."
+    },
+    {
+      "ujecie": "u6",
+      "postac": "robert",
+      "voice_id": "tB0zOcOScGMxREuDoStM",
+      "text": "[tense, pleading] Najem kończy nam się z końcem listopada. Pierwszy grudnia to dla nas wszystko."
+    },
+    {
+      "ujecie": "u8",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[clear, calm] To nie są ustalenia. To propozycje pana Sowy. Pani Irena żadnej nie potwierdziła."
+    },
+    {
+      "ujecie": "u9",
+      "postac": "joanna",
+      "voice_id": "SByi0iajmdL7xb0Q4Qo5",
+      "text": "[worried, honest] A przy akcie... musimy mieć część ceny? Myśleliśmy, że wszystko przelewem, później."
+    },
+    {
+      "ujecie": "u10",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[patient, precise] Zapłatę, termin wydania i koszty ustalacie państwo z panią Ireną. W umowie, nie w mailu."
+    },
+    {
+      "ujecie": "u11",
+      "postac": "robert",
+      "voice_id": "tB0zOcOScGMxREuDoStM",
+      "text": "[impatient, almost begging] To niech pani wpisze pierwszego grudnia i po sprawie."
+    },
+    {
+      "ujecie": "u12",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[firm, kind, unhurried] Nie wpiszę daty, której sprzedająca nie przyjęła. Mogę zaprosić obie strony na jedno spotkanie. W tym tygodniu."
+    },
+    {
+      "ujecie": "u13",
+      "postac": "basia",
+      "voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "text": "[gently, direct] Panie Pawle, mama mówiła panu, że przyjmuje pierwszego grudnia?"
+    },
+    {
+      "ujecie": "u14",
+      "postac": "pawel",
+      "voice_id": "Isg9ygLxez9KMKZEZEEd",
+      "text": "[uncertain, slowly] Myślałem, że to już... załatwione. Pan Sowa tak mówił."
+    }
+  ],
+  "nagrania": {
+    "u1": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u1.mp3",
+    "u2": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u2.mp3",
+    "u4": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u4.mp3",
+    "u5": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u5.mp3",
+    "u6": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u6.mp3",
+    "u8": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u8.mp3",
+    "u9": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u9.mp3",
+    "u10": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u10.mp3",
+    "u11": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u11.mp3",
+    "u12": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u12.mp3",
+    "u13": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u13.mp3",
+    "u14": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/audio/u14.mp3"
+  }
+}

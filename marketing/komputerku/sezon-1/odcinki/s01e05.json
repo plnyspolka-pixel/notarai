@@ -1,0 +1,343 @@
+{
+  "id": "s01e05",
+  "sezon": 1,
+  "odcinek": 5,
+  "slot": "16:00",
+  "tytul": "Przyszło mailem",
+  "sprawa_kotwica": "H24 + H06",
+  "prowadzi": "basia",
+  "typ_otwarcia": "A",
+  "muzyka": {
+    "typ": "brak",
+    "pod_szczytem": false
+  },
+  "pytanie_koncowe": "Robert prosił, żeby po prostu wpisać pierwszego grudnia. Helena odmówiła. Rozumiesz ją czy Roberta?",
+  "streszczenie": "Środa po południu. Basia ma dwa maile od pośrednika z „ustaleniami”, na które pani Irena nigdy nie odpowiedziała. Kaczmarkowie przychodzą do Heleny: najem kończy się im z końcem listopada, a w mailu stoi, że wydanie 1 grudnia i koszty aktu po stronie sprzedającej. Joanna pyta, czy przy akcie trzeba mieć część ceny. Helena tłumaczy, że to warunki do uzgodnienia między stronami, i nie wpisuje daty, której sprzedająca nie przyjęła. Paweł przyznaje, że myślał, że to już załatwione.",
+  "opis_publikacji": "Dwa maile od pośrednika, w których propozycje udają ustalenia. Kupujący pod presją najmu, Helena przy swoim. Odcinek 5 serialu „Kancelaria pod Siódemką”.",
+  "nakladka_tytulu": {
+    "ujecie": "u3",
+    "od_s": 0.3,
+    "do_s": 2.3
+  },
+  "sceny": [
+    {
+      "id": "sc1",
+      "rola": "zimne_otwarcie",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u1",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K02_basia_za_lada",
+          "kwestia": "Dwa maile od pana Sowy. Ten sam lokal, dwa różne „ustalenia”.",
+          "kwestia_v3": "[reading, puzzled] Dwa maile od pana Sowy. Ten sam lokal... dwa różne „ustalenia”.",
+          "czas_s": 4.6,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Basia_lada",
+          "klatka": "basia_lada"
+        },
+        {
+          "id": "u2",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K02_basia_za_lada",
+          "kwestia": "W żadnym nie ma odpowiedzi od pani Ireny.",
+          "kwestia_v3": "[quietly] W żadnym nie ma odpowiedzi od pani Ireny.",
+          "czas_s": 3.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting behind the reception counter, listening",
+          "poza_kadrem": true,
+          "klatka": "basia_lada"
+        }
+      ],
+      "kamera": "K02_basia_za_lada"
+    },
+    {
+      "id": "sc2",
+      "rola": "tytul",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u3",
+          "typ": "bez_mowy",
+          "kamera": "K07_dwojka_lada",
+          "czas_s": 2.4,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "A very slow, smooth push-in towards the empty reception counter. Daylight. No people. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "klatka": "pusty_s01_K07"
+        }
+      ]
+    },
+    {
+      "id": "sc3",
+      "rola": "swiat",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u4",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K02_dwojka_przez_stol",
+          "kwestia": "Państwo kupują mieszkanie pani Ireny. Co dokładnie dostaliście od pośrednika?",
+          "kwestia_v3": "[calm, attentive] Państwo kupują mieszkanie pani Ireny. Co dokładnie dostaliście od pośrednika?",
+          "czas_s": 5.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f5"
+        },
+        {
+          "id": "u5",
+          "typ": "mowiace",
+          "postac": "joanna",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Maila. Że zgodnie z ustaleniami wydanie pierwszego grudnia, a koszty aktu płaci sprzedająca.",
+          "kwestia_v3": "[reading, careful] Maila. Że zgodnie z ustaleniami wydanie pierwszego grudnia... a koszty aktu płaci sprzedająca.",
+          "czas_s": 6.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the far side of the table facing the camera, a folded printout in her hands",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "joanna_stol"
+        },
+        {
+          "id": "u6",
+          "typ": "mowiace",
+          "postac": "robert",
+          "kamera": "K02_dwojka_przez_stol",
+          "kwestia": "Najem kończy nam się z końcem listopada. Pierwszy grudnia to dla nas wszystko.",
+          "kwestia_v3": "[tense, pleading] Najem kończy nam się z końcem listopada. Pierwszy grudnia to dla nas wszystko.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the table facing the camera, leaning forward, tense",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "robert_stol"
+        }
+      ],
+      "kamera": "K02_dwojka_przez_stol"
+    },
+    {
+      "id": "sc4",
+      "rola": "zwrot1",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u7",
+          "typ": "dokument",
+          "czas_s": 5.5,
+          "dokument": {
+            "szablon": "mail_posrednika",
+            "pola": {
+              "od": "Adrian Sowa",
+              "temat": "Mieszkanie – ustalenia",
+              "wiersze": [
+                "Zgodnie z ustaleniami:",
+                "wydanie lokalu: 1 grudnia,",
+                "koszty aktu: po stronie sprzedającej."
+              ],
+              "dopisek": "Sprzedająca: brak potwierdzenia."
+            },
+            "fokus": "słowo „ustalenia” i brak potwierdzenia sprzedającej"
+          }
+        },
+        {
+          "id": "u8",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "To nie są ustalenia. To propozycje pana Sowy. Pani Irena żadnej nie potwierdziła.",
+          "kwestia_v3": "[clear, calm] To nie są ustalenia. To propozycje pana Sowy. Pani Irena żadnej nie potwierdziła.",
+          "czas_s": 5.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc5",
+      "rola": "praca",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u9",
+          "typ": "mowiace",
+          "postac": "joanna",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "A przy akcie musimy mieć część ceny? Myśleliśmy, że wszystko przelewem, później.",
+          "kwestia_v3": "[worried, honest] A przy akcie... musimy mieć część ceny? Myśleliśmy, że wszystko przelewem, później.",
+          "czas_s": 5.6,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "joanna_stol"
+        },
+        {
+          "id": "u10",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Zapłatę, termin wydania i koszty ustalacie państwo z panią Ireną. W umowie, nie w mailu.",
+          "kwestia_v3": "[patient, precise] Zapłatę, termin wydania i koszty ustalacie państwo z panią Ireną. W umowie, nie w mailu.",
+          "czas_s": 6.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc6",
+      "rola": "szczyt",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u11",
+          "typ": "mowiace",
+          "postac": "robert",
+          "kamera": "K02_dwojka_przez_stol",
+          "kwestia": "To niech pani wpisze pierwszego grudnia i po sprawie.",
+          "kwestia_v3": "[impatient, almost begging] To niech pani wpisze pierwszego grudnia i po sprawie.",
+          "czas_s": 3.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "robert_stol"
+        },
+        {
+          "id": "u12",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Nie wpiszę daty, której sprzedająca nie przyjęła. Mogę zaprosić obie strony na jedno spotkanie. W tym tygodniu.",
+          "kwestia_v3": "[firm, kind, unhurried] Nie wpiszę daty, której sprzedająca nie przyjęła. Mogę zaprosić obie strony na jedno spotkanie. W tym tygodniu.",
+          "czas_s": 7.0,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc7",
+      "rola": "zawieszenie",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u13",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K02_basia_za_lada",
+          "kwestia": "Panie Pawle, mama mówiła panu, że przyjmuje pierwszego grudnia?",
+          "kwestia_v3": "[gently, direct] Panie Pawle, mama mówiła panu, że przyjmuje pierwszego grudnia?",
+          "czas_s": 4.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Basia_lada",
+          "klatka": "basia_lada"
+        },
+        {
+          "id": "u14",
+          "typ": "mowiace",
+          "postac": "pawel",
+          "kamera": "K04_poczekalnia",
+          "kwestia": "Myślałem, że to już załatwione. Pan Sowa tak mówił.",
+          "kwestia_v3": "[uncertain, slowly] Myślałem, że to już... załatwione. Pan Sowa tak mówił.",
+          "czas_s": 4.0,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "klatka": "pawel_sofa"
+        },
+        {
+          "id": "u15",
+          "typ": "bez_mowy",
+          "kamera": "K04_poczekalnia",
+          "czas_s": 2.4,
+          "ruch_kamery": "statyczna",
+          "prompt_ruchu": "The man lowers his eyes and sits still, thinking. His lips stay closed, he does not speak. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "postac": "pawel",
+          "klatka": "pawel_sofa"
+        }
+      ],
+      "kamera": "K04_poczekalnia"
+    },
+    {
+      "id": "sc8",
+      "rola": "plansza_koncowa",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u16",
+          "typ": "plansza",
+          "tekst": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+          "czas_s": 3.0
+        }
+      ]
+    }
+  ],
+  "lista_kontrolna": {
+    "czynnosc_jako_rama": {
+      "ok": true,
+      "jak": "Planowana umowa sprzedaży mieszkania pani Ireny; kupujący mają termin końca najmu (koniec listopada)."
+    },
+    "odkrycie_z_lektury": {
+      "ok": true,
+      "jak": "Helena i Basia czytają maile pośrednika: „zgodnie z ustaleniami” bez żadnej odpowiedzi sprzedającej."
+    },
+    "dokument_w_kadrze": {
+      "ok": true,
+      "jak": "u7: warstwa dokumentu (wydruk maila pośrednika z dopiskiem, dane fikcyjne, oznaczenie DEMO)."
+    },
+    "widz_zna_ryzyko": {
+      "ok": true,
+      "jak": "Widz od pierwszego zdania wie, że w mailach są „ustalenia” bez odpowiedzi pani Ireny, zanim kupujący to usłyszą."
+    },
+    "wynik_niepewny_bez_przemocy": {
+      "ok": true,
+      "jak": "Nie wiadomo, czy kupujący zdążą przed końcem najmu ani czy strony się porozumieją; bez przemocy."
+    },
+    "jeden_szczyt": {
+      "ok": true,
+      "jak": "Jedyny szczyt: Robert prosi o wpisanie daty, Helena odmawia i proponuje spotkanie stron (sc6)."
+    },
+    "nic_spoza_swiata": {
+      "ok": true,
+      "jak": "Tylko mały tytuł i plansza końcowa."
+    },
+    "ekran_poza_szczytem": {
+      "ok": true,
+      "jak": "Brak ekranu programu (funkcja nie była sprawdzana w dniu produkcji)."
+    },
+    "zgodnie_z_prawem": {
+      "ok": true,
+      "jak": "Notariusz nie wpisuje do aktu oświadczeń, których strona nie złożyła; wyjaśnia kupującym warunki zapłaty i koszty jako przedmiot uzgodnienia stron (art. 80 § 2 PrNot)."
+    },
+    "sprawiedliwosc_proceduralna": {
+      "ok": true,
+      "jak": "Kupujący dostają rzetelne wyjaśnienie i propozycję spotkania obu stron; pośrednik nie decyduje za strony."
+    },
+    "prawdziwa_sprawa_bez_danych": {
+      "ok": true,
+      "jak": "H24 (kupujący nie spodziewał się zapłaty przy spotkaniu w kancelarii, motyw) i H06 (czynność nie dochodzi do skutku, bo nikt nie ustalił kosztów). Bez nazwisk, kwot, dat i miejsc."
+    },
+    "final_domyka": {
+      "ok": true,
+      "jak": "Nie dotyczy (odcinek 5)."
+    }
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "id": "s01e03",
+  "sezon": 1,
+  "odcinek": 3,
+  "slot": "16:00",
+  "tytul": "U nas się tak nie pisze",
+  "sprawa_kotwica": "H02",
+  "prowadzi": "kuba",
+  "typ_otwarcia": "A",
+  "muzyka": {
+    "typ": "dzwieki_kancelarii",
+    "pod_szczytem": false
+  },
+  "pytanie_koncowe": "Kuba sam przyznał się do pomyłki w numeracji wersji. Helena powinna mu to wytknąć czy docenić?",
+  "streszczenie": "Wtorek po południu. U kupujących krąży projekt ze zdaniem „strony ustaliły termin wydania na 1 grudnia”. Kuba odkrywa, że w kancelarii były dwie różne „wersje drugie”, a pośrednik rozesłał tę starszą jako ustalenie. Helena każe jawnie sprostować numerację i napisać do wszystkich stron jednym pismem. Pośrednik dzwoni, że wersja była „uzgodniona z rodziną”.",
+  "opis_publikacji": "Jedno zdanie w projekcie umowy i dwie wersje z tym samym numerem. Helena prostuje, zanim ktokolwiek podpisze. Odcinek 3 serialu „Kancelaria pod Siódemką”.",
+  "nakladka_tytulu": {
+    "ujecie": "u3",
+    "od_s": 0.3,
+    "do_s": 2.3
+  },
+  "sceny": [
+    {
+      "id": "sc1",
+      "rola": "zimne_otwarcie",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u1",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K07_drzwi",
+          "kwestia": "„Strony ustaliły termin wydania.” Kubo, u nas się tak nie pisze.",
+          "kwestia_v3": "[dry, reading aloud, then pointed] „Strony ustaliły termin wydania.” Kubo... u nas się tak nie pisze.",
+          "czas_s": 5.2,
+          "ruch_kamery": "statyczna",
+          "poza": "standing in the doorway holding a printed page, reading it",
+          "znacznik": "M_drzwi",
+          "klatka": "helena_drzwi_s03"
+        },
+        {
+          "id": "u2",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_kuba_zblizenie",
+          "kwestia": "To nie od nas, pani rejent. Kupujący dostali to od pana Sowy.",
+          "kwestia_v3": "[startled, defensive] To nie od nas, pani rejent. Kupujący dostali to od pana Sowy.",
+          "czas_s": 4.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at his desk, turned towards the camera",
+          "znacznik": "M_Kuba_biurko",
+          "klatka": "kuba_biurko"
+        }
+      ],
+      "kamera": "K04_kuba_zblizenie"
+    },
+    {
+      "id": "sc2",
+      "rola": "tytul",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u3",
+          "typ": "bez_mowy",
+          "kamera": "K01_plan_ogolny",
+          "czas_s": 2.4,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "A very slow, smooth push-in across the empty office with two desks towards the window. Daylight. No people. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "klatka": "pusty_s03_K01"
+        }
+      ]
+    },
+    {
+      "id": "sc3",
+      "rola": "swiat",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u4",
+          "typ": "mowiace",
+          "postac": "marta",
+          "kamera": "K03_marta_zblizenie",
+          "kwestia": "Nasza wersja druga ma termin wydania „do uzgodnienia”. Ta tutaj nie.",
+          "kwestia_v3": "[focused, comparing] Nasza wersja druga ma termin wydania „do uzgodnienia”. Ta tutaj... nie.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at her desk, turned towards the camera, holding two printed pages",
+          "znacznik": "M_Marta_biurko",
+          "klatka": "marta_biurko"
+        },
+        {
+          "id": "u5",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_kuba_zblizenie",
+          "kwestia": "Bo mamy dwie wersje drugie. Jedną wysłałem w piątek, przed poprawkami.",
+          "kwestia_v3": "[realising, quietly] Bo mamy dwie wersje drugie. Jedną wysłałem w piątek... przed poprawkami.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Kuba_biurko",
+          "klatka": "kuba_biurko"
+        }
+      ],
+      "kamera": "K03_marta_zblizenie"
+    },
+    {
+      "id": "sc4",
+      "rola": "zwrot1",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u6",
+          "typ": "dokument",
+          "czas_s": 5.5,
+          "dokument": {
+            "szablon": "dwie_wersje",
+            "pola": {
+              "stara": "Strony ustaliły termin wydania lokalu na dzień 1 grudnia.",
+              "nowa": "Termin wydania lokalu: do uzgodnienia przez strony."
+            },
+            "fokus": "dwa zdania o terminie wydania w dwóch wersjach nr 2"
+          }
+        },
+        {
+          "id": "u7",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K07_drzwi",
+          "kwestia": "A pan Sowa rozesłał piątkową jako ustalenie.",
+          "kwestia_v3": "[cool, precise] A pan Sowa rozesłał piątkową... jako ustalenie.",
+          "czas_s": 3.6,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_drzwi",
+          "klatka": "helena_drzwi_s03"
+        }
+      ],
+      "kamera": "K07_drzwi"
+    },
+    {
+      "id": "sc5",
+      "rola": "praca",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u8",
+          "typ": "mowiace",
+          "postac": "marta",
+          "kamera": "K03_marta_zblizenie",
+          "kwestia": "Numeruję od nowa. Wersja trzecia, z datą i godziną. Piątkowa idzie do wycofania.",
+          "kwestia_v3": "[brisk, practical] Numeruję od nowa. Wersja trzecia, z datą i godziną. Piątkowa idzie do wycofania.",
+          "czas_s": 5.6,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Marta_biurko",
+          "klatka": "marta_biurko"
+        },
+        {
+          "id": "u9",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_kuba_zblizenie",
+          "kwestia": "Była jeszcze wersja druga prim. Ale tę tylko wydrukowałem.",
+          "kwestia_v3": "[sheepish, trying to help] Była jeszcze wersja druga prim... Ale tę tylko wydrukowałem.",
+          "czas_s": 4.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Kuba_biurko",
+          "klatka": "kuba_biurko",
+          "zart": true
+        },
+        {
+          "id": "u10",
+          "typ": "bez_mowy",
+          "kamera": "K03_marta_zblizenie",
+          "czas_s": 2.0,
+          "ruch_kamery": "statyczna",
+          "prompt_ruchu": "The woman slowly turns her eyes towards someone off-camera and raises one eyebrow, patient. Her lips stay closed, she does not speak. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "postac": "marta",
+          "klatka": "marta_biurko",
+          "znacznik": "M_Marta_biurko"
+        }
+      ],
+      "kamera": "K04_kuba_zblizenie"
+    },
+    {
+      "id": "sc6",
+      "rola": "szczyt",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u11",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Piszemy do obu stron jednym pismem: która wersja obowiązuje, którą wycofujemy. I że terminu nikt jeszcze nie ustalił.",
+          "kwestia_v3": "[firm, measured] Piszemy do obu stron jednym pismem: która wersja obowiązuje, którą wycofujemy. I że terminu nikt jeszcze nie ustalił.",
+          "czas_s": 7.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        },
+        {
+          "id": "u12",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "A pan Sowa też dostanie?",
+          "kwestia_v3": "[hesitant] A pan Sowa też dostanie?",
+          "czas_s": 2.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "e01_f3"
+        },
+        {
+          "id": "u13",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Pan Sowa nie jest stroną. Zobaczy to, co strony zechcą mu pokazać.",
+          "kwestia_v3": "[calm, final] Pan Sowa nie jest stroną. Zobaczy to, co strony zechcą mu pokazać.",
+          "czas_s": 4.8,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc7",
+      "rola": "zawieszenie",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u14",
+          "typ": "bez_mowy",
+          "kamera": "K03_helena_zblizenie",
+          "czas_s": 3.0,
+          "ruch_kamery": "statyczna",
+          "prompt_ruchu": "The woman stops reading and slowly lifts her eyes from the document, listening. Her lips stay closed, she does not speak. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "postac": "helena",
+          "klatka": "e01_f5",
+          "poza_kadrem_glos": "basia"
+        },
+        {
+          "id": "u15",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Pani rejent, pan Sowa na drugiej linii. Mówi, że wersja była uzgodniona z rodziną.",
+          "kwestia_v3": "[hushed, careful] Pani rejent, pan Sowa na drugiej linii. Mówi, że wersja była... uzgodniona z rodziną.",
+          "czas_s": 5.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, listening",
+          "poza_kadrem": true,
+          "klatka": "e01_u14b"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc8",
+      "rola": "plansza_koncowa",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u16",
+          "typ": "plansza",
+          "tekst": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+          "czas_s": 3.0
+        }
+      ]
+    }
+  ],
+  "lista_kontrolna": {
+    "czynnosc_jako_rama": {
+      "ok": true,
+      "jak": "Przygotowanie projektu umowy sprzedaży mieszkania pani Ireny; kupujący już mają projekt w ręku, pośrednik chce piątku."
+    },
+    "odkrycie_z_lektury": {
+      "ok": true,
+      "jak": "Helena czyta zdanie „strony ustaliły termin wydania” i wie, że tak nie pisze kancelaria; Kuba i Marta porównują dwie wersje."
+    },
+    "dokument_w_kadrze": {
+      "ok": true,
+      "jak": "u6: warstwa dokumentu (dwie wersje nr 2 z różnym zdaniem o terminie, oznaczenie DEMO)."
+    },
+    "widz_zna_ryzyko": {
+      "ok": true,
+      "jak": "Widz z odcinka wie, że Irena nie przyjęła 1 grudnia; tu widzi, że kupujący dostali to jako ustalenie."
+    },
+    "wynik_niepewny_bez_przemocy": {
+      "ok": true,
+      "jak": "Nie wiadomo, jak strony przyjmą sprostowanie i co zrobi pośrednik; bez przemocy, tylko telefon."
+    },
+    "jeden_szczyt": {
+      "ok": true,
+      "jak": "Jedyny szczyt: decyzja Heleny o jawnym sprostowaniu do obu stron (sc6)."
+    },
+    "nic_spoza_swiata": {
+      "ok": true,
+      "jak": "Mały tytuł na ujęciu pustego pokoju i plansza końcowa; telefon pośrednika to zdarzenie ze świata."
+    },
+    "ekran_poza_szczytem": {
+      "ok": true,
+      "jak": "Brak ekranu programu (funkcja nie była sprawdzana w dniu produkcji)."
+    },
+    "zgodnie_z_prawem": {
+      "ok": true,
+      "jak": "Projekt to nie akt; omyłkę w numeracji wersji kancelaria prostuje jawnie przed czynnością i informuje strony; pośrednik nie jest stroną, więc nie dostaje korespondencji kancelarii z urzędu."
+    },
+    "sprawiedliwosc_proceduralna": {
+      "ok": true,
+      "jak": "Obie strony dostają to samo pismo w tym samym czasie; Kuba sam przyznaje się do pomyłki i nikt go nie ośmiesza."
+    },
+    "prawdziwa_sprawa_bez_danych": {
+      "ok": true,
+      "jak": "H02: omyłka w numeracji i jej sprostowanie przez notariusza (fakt z uzasadnienia), przeniesione na wersje projektu. Bez nazw, kwot, dat i spółki."
+    },
+    "final_domyka": {
+      "ok": true,
+      "jak": "Nie dotyczy (odcinek 3)."
+    }
+  }
+}

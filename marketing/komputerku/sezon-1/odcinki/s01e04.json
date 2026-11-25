@@ -1,0 +1,329 @@
+{
+  "id": "s01e04",
+  "sezon": 1,
+  "odcinek": 4,
+  "slot": "09:00",
+  "tytul": "Wczoraj tego nie było",
+  "sprawa_kotwica": "H04",
+  "prowadzi": "marta",
+  "typ_otwarcia": "C",
+  "muzyka": {
+    "typ": "dzwieki_kancelarii",
+    "pod_szczytem": false
+  },
+  "pytanie_koncowe": "Kupujący przerwał czynność, choć sprzedająca była gotowa. Dobrze zrobił, że nie podpisał?",
+  "streszczenie": "Środa, dwadzieścia minut przed aktem w innej sprawie. Marta jeszcze raz pobiera treść księgi wieczystej i widzi wzmiankę, której wczoraj nie było. Kupującego zapewniano, że księga jest czysta. Helena wyjaśnia, co znaczy wzmianka, i nie naciska; kupujący przerywa czynność. Strony wracają przed szesnastą z zaświadczeniem od komornika. A Kuba pyta, czy w sprawie pani Ireny ktoś naprawdę coś potwierdził.",
+  "opis_publikacji": "Odpis z księgi pobrany wczoraj i ta sama księga dziś. Jedna wzmianka zatrzymuje sprzedaż do popołudnia. Odcinek 4 serialu „Kancelaria pod Siódemką”.",
+  "nakladka_tytulu": {
+    "ujecie": "u3",
+    "od_s": 0.3,
+    "do_s": 2.3
+  },
+  "sceny": [
+    {
+      "id": "sc1",
+      "rola": "zimne_otwarcie",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u1",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_kuba_zblizenie",
+          "kwestia": "Marta, tego wczoraj nie było. Wzmianka w księdze.",
+          "kwestia_v3": "[quiet, alarmed] Marta... tego wczoraj nie było. Wzmianka w księdze.",
+          "czas_s": 4.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Kuba_biurko",
+          "klatka": "kuba_biurko"
+        },
+        {
+          "id": "u2",
+          "typ": "mowiace",
+          "postac": "marta",
+          "kamera": "K03_marta_zblizenie",
+          "kwestia": "Akt za dwadzieścia minut. Pokaż.",
+          "kwestia_v3": "[focused, fast] Akt za dwadzieścia minut. Pokaż.",
+          "czas_s": 2.8,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Marta_biurko",
+          "klatka": "marta_biurko"
+        }
+      ],
+      "kamera": "K04_kuba_zblizenie"
+    },
+    {
+      "id": "sc2",
+      "rola": "tytul",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u3",
+          "typ": "bez_mowy",
+          "kamera": "K05_dwojka",
+          "czas_s": 2.4,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "A very slow, smooth push-in towards two empty office chairs and desks. Daylight. No people. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "klatka": "pusty_s03_K05"
+        }
+      ]
+    },
+    {
+      "id": "sc3",
+      "rola": "swiat",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u4",
+          "typ": "mowiace",
+          "postac": "marta",
+          "kamera": "K03_marta_zblizenie",
+          "kwestia": "Sprzedaż o dziesiątej. Odpis pobraliśmy wczoraj wieczorem, dziś pobrałam jeszcze raz.",
+          "kwestia_v3": "[matter-of-fact] Sprzedaż o dziesiątej. Odpis pobraliśmy wczoraj wieczorem... dziś pobrałam jeszcze raz.",
+          "czas_s": 5.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Marta_biurko",
+          "klatka": "marta_biurko"
+        },
+        {
+          "id": "u5",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_kuba_zblizenie",
+          "kwestia": "A kupujący słyszał, że księga jest czysta.",
+          "kwestia_v3": "[worried] A kupujący słyszał, że księga jest czysta.",
+          "czas_s": 3.2,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Kuba_biurko",
+          "klatka": "kuba_biurko"
+        }
+      ],
+      "kamera": "K03_marta_zblizenie"
+    },
+    {
+      "id": "sc4",
+      "rola": "zwrot1",
+      "plan": "s03",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u6",
+          "typ": "dokument",
+          "czas_s": 5.5,
+          "dokument": {
+            "szablon": "porownanie_kw",
+            "pola": {
+              "wlasciciel": "Sprzedająca X – udział 1/1",
+              "polozenie": "Przykładowo, ul. Przykładowa 3 lok. 5",
+              "stan_stary": "wczoraj, 18:40",
+              "stan_nowy": "dziś, 09:38",
+              "plik_stary": "KW_wczoraj.pdf",
+              "plik_nowy": "KW_dzis.pdf",
+              "wzmianka": "DZ.KW./XX1X/00000000/00 – wniosek wpłynął dziś, 08:05. Treść do ustalenia."
+            },
+            "fokus": "wzmianka w dziale III dzisiejszego odczytu"
+          }
+        },
+        {
+          "id": "u7",
+          "typ": "mowiace",
+          "postac": "marta",
+          "kamera": "K03_marta_zblizenie",
+          "kwestia": "Wzmianka znaczy, że coś wpłynęło do sądu. Jeszcze nie wiemy co.",
+          "kwestia_v3": "[careful, precise] Wzmianka znaczy, że coś wpłynęło do sądu. Jeszcze nie wiemy co.",
+          "czas_s": 4.6,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Marta_biurko",
+          "klatka": "marta_biurko"
+        }
+      ],
+      "kamera": "K03_marta_zblizenie"
+    },
+    {
+      "id": "sc5",
+      "rola": "praca",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u8",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Proszę państwa, w księdze jest dziś wzmianka o wniosku komornika. Wczoraj jej nie było.",
+          "kwestia_v3": "[calm, clear, to the clients] Proszę państwa, w księdze jest dziś wzmianka o wniosku komornika. Wczoraj jej nie było.",
+          "czas_s": 6.0,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc6",
+      "rola": "szczyt",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u9",
+          "typ": "mowiace",
+          "postac": "klient",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Zapewniano mnie, że księga jest czysta. Bez wyjaśnienia nie podpiszę.",
+          "kwestia_v3": "[controlled, firm] Zapewniano mnie, że księga jest czysta. Bez wyjaśnienia nie podpiszę.",
+          "czas_s": 4.8,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the far side of the table facing the camera, coat on, hands on the table",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "klient_stol"
+        },
+        {
+          "id": "u10",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Ma pan do tego prawo. Przerywamy. Wrócimy do aktu, gdy sprawa będzie jasna.",
+          "kwestia_v3": "[steady, respectful] Ma pan do tego prawo. Przerywamy. Wrócimy do aktu, gdy sprawa będzie jasna.",
+          "czas_s": 5.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc7",
+      "rola": "zawieszenie",
+      "plan": "s02",
+      "wariant": "wieczor",
+      "ujecia": [
+        {
+          "id": "u12",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Wrócili. Mają zaświadczenie od komornika. Za dziesięć czwarta.",
+          "kwestia_v3": "[a little breathless, pleased] Wrócili. Mają zaświadczenie od komornika. Za dziesięć czwarta.",
+          "czas_s": 4.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, listening",
+          "poza_kadrem": true,
+          "klatka": "helena_wieczor"
+        },
+        {
+          "id": "u13",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "To czytamy od początku.",
+          "kwestia_v3": "[dry, warm] To czytamy od początku.",
+          "czas_s": 2.2,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table in the evening, a document in front of her",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "helena_wieczor"
+        },
+        {
+          "id": "u14",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "A w sprawie pani Ireny... kiedy ostatnio ktoś coś naprawdę potwierdził?",
+          "kwestia_v3": "[thoughtful, quiet] A w sprawie pani Ireny... kiedy ostatnio ktoś coś naprawdę potwierdził?",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table, listening",
+          "poza_kadrem": true,
+          "klatka": "helena_wieczor"
+        },
+        {
+          "id": "u15",
+          "typ": "bez_mowy",
+          "kamera": "K01_plan_ogolny",
+          "czas_s": 2.6,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "Evening. A very slow, smooth push-in towards the long table under warm lamp light. No people. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "klatka": "pusty_s02_K01_wieczor"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc8",
+      "rola": "plansza_koncowa",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u16",
+          "typ": "plansza",
+          "tekst": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+          "czas_s": 3.0
+        }
+      ]
+    }
+  ],
+  "lista_kontrolna": {
+    "czynnosc_jako_rama": {
+      "ok": true,
+      "jak": "Umowa sprzedaży mieszkania o 10:00 i zamknięcie kancelarii po południu; znane terminy."
+    },
+    "odkrycie_z_lektury": {
+      "ok": true,
+      "jak": "Marta czyta dzisiejszą treść księgi i porównuje z wczorajszym odpisem: wzmianka w dziale III."
+    },
+    "dokument_w_kadrze": {
+      "ok": true,
+      "jak": "u6: warstwa dokumentu (dwa odczyty tej samej księgi, wczoraj i dziś, dane fikcyjne, oznaczenie DEMO)."
+    },
+    "widz_zna_ryzyko": {
+      "ok": true,
+      "jak": "Od pierwszej kwestii widz wie o wzmiance; dopiero potem dowiaduje się, że kupującego zapewniano o czystej księdze."
+    },
+    "wynik_niepewny_bez_przemocy": {
+      "ok": true,
+      "jak": "Nie wiadomo, czy strony wrócą i czy sprzedaż dojdzie do skutku; spór załatwiony poza kadrem, bez przemocy."
+    },
+    "jeden_szczyt": {
+      "ok": true,
+      "jak": "Jedyny szczyt: kupujący odmawia podpisu, Helena przerywa czynność (sc6)."
+    },
+    "nic_spoza_swiata": {
+      "ok": true,
+      "jak": "Tylko mały tytuł i plansza końcowa."
+    },
+    "ekran_poza_szczytem": {
+      "ok": true,
+      "jak": "Brak ekranu programu (pobranie treści księgi pokazane jako dokument, nie ekran)."
+    },
+    "zgodnie_z_prawem": {
+      "ok": true,
+      "jak": "Notariusz sprawdza aktualny stan księgi w dniu czynności, informuje strony o wzmiance, nie przesądza jej treści; czynność przerwana na żądanie strony."
+    },
+    "sprawiedliwosc_proceduralna": {
+      "ok": true,
+      "jak": "Obie strony słyszą to samo; kupujący decyduje sam, sprzedająca dostaje czas na wyjaśnienie."
+    },
+    "prawdziwa_sprawa_bez_danych": {
+      "ok": true,
+      "jak": "H04: wzmianka o egzekucji ujawniona w kancelarii, przerwanie i powrót z zaświadczeniem pod zamknięcie (ustalenia sądu). Bez nazwisk, kwot, miejsc i dat."
+    },
+    "final_domyka": {
+      "ok": true,
+      "jak": "Nie dotyczy (odcinek 4); pytanie Kuby wraca do sprawy pani Ireny."
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "opis": "Uzupełnienie tools/fabryka/obsada.json (gałąź kampania/fabryka-odcinkow) o głosy zaprojektowane 25.11.2026 dla S01E02–E05: ElevenLabs Voice Design eleven_ttv_v3, mowa eleven_v4. Do przeniesienia do obsada.json przy scaleniu fabryki.",
+  "postacie": {
+    "irena": {
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "kto": "sprzedająca, ok. 78 lat",
+      "zaprojektowano": "2026-11-25, eleven_ttv_v3, podgląd 1 z 3"
+    },
+    "pawel": {
+      "voice_id": "Isg9ygLxez9KMKZEZEEd",
+      "kto": "syn Ireny, ok. 50 lat",
+      "zaprojektowano": "2026-11-25, eleven_ttv_v3, podgląd 2 z 3"
+    },
+    "joanna": {
+      "voice_id": "SByi0iajmdL7xb0Q4Qo5",
+      "kto": "kupująca, ok. 35 lat",
+      "zaprojektowano": "2026-11-25, eleven_ttv_v3, podgląd 1 z 3"
+    },
+    "robert": {
+      "voice_id": "tB0zOcOScGMxREuDoStM",
+      "kto": "kupujący, ok. 38 lat",
+      "zaprojektowano": "2026-11-25, eleven_ttv_v3, podgląd 2 z 3"
+    },
+    "klient": {
+      "voice_id": "4sCxuJSFzRE4D9CsT7cG",
+      "kto": "klient sprawy dnia, ok. 45 lat",
+      "zaprojektowano": "2026-11-25, eleven_ttv_v3, podgląd 1 z 3"
+    }
+  }
+}

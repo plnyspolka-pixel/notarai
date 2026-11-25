@@ -1,0 +1,361 @@
+{
+  "id": "s01e02",
+  "sezon": 1,
+  "odcinek": 2,
+  "slot": "09:00",
+  "tytul": "Proszę nie przy nim",
+  "sprawa_kotwica": "H16",
+  "prowadzi": "helena",
+  "typ_otwarcia": "B",
+  "muzyka": {
+    "typ": "brak",
+    "pod_szczytem": false
+  },
+  "pytanie_koncowe": "Helena celowo pomyliła numer mieszkania, żeby sprawdzić, czy pani Irena słucha. Taktownie czy za ostro?",
+  "streszczenie": "Wtorek rano. Pani Irena przychodzi sama i prosi, żeby syn czekał w poczekalni. Helena pyta ją własnymi słowami o sprzedaż, raz celowo myli numer mieszkania, a Irena od razu poprawia. Potem wychodzi to, czego nie ma w papierach: Irena nigdy nie zgodziła się na wydanie lokalu 1 grudnia. Helena nie wpisze daty, której sprzedająca nie przyjęła. Na koniec Kuba przynosi wiadomość: kupujący mają od pośrednika inny projekt umowy.",
+  "opis_publikacji": "Pani Irena przychodzi bez syna. Jedno celowe przejęzyczenie Heleny i jedna data, której nikt z nią nie uzgodnił. Odcinek 2 serialu „Kancelaria pod Siódemką”.",
+  "nakladka_tytulu": {
+    "ujecie": "u3",
+    "od_s": 0.3,
+    "do_s": 2.3
+  },
+  "sceny": [
+    {
+      "id": "sc1",
+      "rola": "zimne_otwarcie",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u1",
+          "typ": "mowiace",
+          "postac": "irena",
+          "kamera": "K03_wejscie_z_lady",
+          "kwestia": "Syn parkuje, zaraz przyjdzie. Proszę, żeby poczekał tutaj.",
+          "kwestia_v3": "[quietly, a little tense] Syn parkuje, zaraz przyjdzie... Proszę, żeby poczekał tutaj.",
+          "czas_s": 4.8,
+          "ruch_kamery": "statyczna",
+          "poza": "standing in the entrance doorway in a winter coat, holding her handbag with both hands",
+          "znacznik": "M_wejscie",
+          "klatka": "irena_wejscie"
+        },
+        {
+          "id": "u2",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K02_basia_za_lada",
+          "kwestia": "Oczywiście, pani Ireno. Pani rejent już czeka.",
+          "kwestia_v3": "[gently, discreet] Oczywiście, pani Ireno. Pani rejent już czeka.",
+          "czas_s": 3.6,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting behind the reception counter, looking up kindly",
+          "znacznik": "M_Basia_lada",
+          "klatka": "basia_lada"
+        }
+      ],
+      "kamera": "K03_wejscie_z_lady"
+    },
+    {
+      "id": "sc2",
+      "rola": "tytul",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u3",
+          "typ": "bez_mowy",
+          "kamera": "K01_plan_ogolny",
+          "czas_s": 2.4,
+          "ruch_kamery": "najazd",
+          "prompt_ruchu": "A very slow, smooth push-in across the empty reception room towards the counter. Daylight. No people. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "klatka": "pusty_s01_K01"
+        }
+      ]
+    },
+    {
+      "id": "sc3",
+      "rola": "swiat",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u4",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K02_dwojka_przez_stol",
+          "kwestia": "Pani Ireno, proszę mi własnymi słowami powiedzieć, co pani sprzedaje.",
+          "kwestia_v3": "[warm, unhurried] Pani Ireno, proszę mi własnymi słowami powiedzieć, co pani sprzedaje.",
+          "czas_s": 4.8,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the head of the table with a document",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f5"
+        },
+        {
+          "id": "u5",
+          "typ": "mowiace",
+          "postac": "irena",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Mieszkanie. Państwu Kaczmarkom. Chcę sprzedać, naprawdę chcę.",
+          "kwestia_v3": "[calm, sincere] Mieszkanie. Państwu Kaczmarkom. Chcę sprzedać... naprawdę chcę.",
+          "czas_s": 5.0,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting at the far side of the table facing the camera, hands folded",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "irena_stol"
+        },
+        {
+          "id": "u6",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Lokal numer czterdzieści, tak?",
+          "kwestia_v3": "[reading, casual] Lokal numer czterdzieści, tak?",
+          "czas_s": 2.6,
+          "ruch_kamery": "statyczna",
+          "poza": "reading a document",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        },
+        {
+          "id": "u7",
+          "typ": "mowiace",
+          "postac": "irena",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Czternaście, pani rejent. Nie czterdzieści.",
+          "kwestia_v3": "[firmly, correcting] Czternaście, pani rejent. Nie czterdzieści.",
+          "czas_s": 3.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "irena_stol"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc4",
+      "rola": "zwrot1",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u8",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Pomyliłam się celowo, przepraszam. A wydanie mieszkania? W projekcie mam pierwszego grudnia.",
+          "kwestia_v3": "[gently, then matter-of-fact] Pomyliłam się celowo, przepraszam. A wydanie mieszkania? W projekcie mam pierwszego grudnia.",
+          "czas_s": 6.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        },
+        {
+          "id": "u9",
+          "typ": "mowiace",
+          "postac": "irena",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Pierwszego grudnia? Ja mówiłam synowi o połowie stycznia.",
+          "kwestia_v3": "[surprised, quiet] Pierwszego grudnia? Ja mówiłam synowi o połowie stycznia.",
+          "czas_s": 4.4,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "irena_stol"
+        },
+        {
+          "id": "u10",
+          "typ": "dokument",
+          "czas_s": 5.0,
+          "dokument": {
+            "szablon": "projekt_i_notatka",
+            "pola": {
+              "projekt": "§ 5. Wydanie lokalu nastąpi do dnia 1 grudnia.",
+              "notatka": "Sprzedająca: wydanie w połowie stycznia. 1 XII: nie potwierdzone."
+            },
+            "fokus": "zapis o wydaniu lokalu i notatka Heleny"
+          }
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc5",
+      "rola": "praca",
+      "plan": "s01",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u11",
+          "typ": "bez_mowy",
+          "kamera": "K04_poczekalnia",
+          "czas_s": 2.8,
+          "ruch_kamery": "statyczna",
+          "prompt_ruchu": "The man sits on the sofa, glances towards the door, rubs his hands once. His lips stay closed, he does not speak. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "postac": "pawel",
+          "klatka": "pawel_sofa"
+        },
+        {
+          "id": "u12",
+          "typ": "mowiace",
+          "postac": "pawel",
+          "kamera": "K04_poczekalnia",
+          "kwestia": "Pani Basiu, długo jeszcze? Pan Sowa pyta, czy podpisujemy w piątek.",
+          "kwestia_v3": "[impatient, polite] Pani Basiu, długo jeszcze? Pan Sowa pyta, czy podpisujemy w piątek.",
+          "czas_s": 4.8,
+          "ruch_kamery": "statyczna",
+          "poza": "sitting on the leather sofa in the waiting area, leaning forward",
+          "klatka": "pawel_sofa"
+        },
+        {
+          "id": "u13",
+          "typ": "mowiace",
+          "postac": "basia",
+          "kamera": "K02_basia_za_lada",
+          "kwestia": "Pani rejent rozmawia z klientką. Tyle mogę powiedzieć.",
+          "kwestia_v3": "[kind but firm] Pani rejent rozmawia z klientką. Tyle mogę powiedzieć.",
+          "czas_s": 3.8,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Basia_lada",
+          "klatka": "basia_lada"
+        }
+      ],
+      "kamera": "K04_poczekalnia"
+    },
+    {
+      "id": "sc6",
+      "rola": "szczyt",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u14",
+          "typ": "mowiace",
+          "postac": "helena",
+          "kamera": "K03_helena_zblizenie",
+          "kwestia": "Dopóki pani tego nie przyjmie, tej daty nie wpiszę. Nikt jej za panią nie ustali.",
+          "kwestia_v3": "[firm, quiet, unhurried] Dopóki pani tego nie przyjmie, tej daty nie wpiszę. Nikt jej za panią nie ustali.",
+          "czas_s": 5.8,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_Helena_szczyt",
+          "klatka": "e01_f1"
+        },
+        {
+          "id": "u15",
+          "typ": "mowiace",
+          "postac": "irena",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Dziękuję. Synowi powiem sama.",
+          "kwestia_v3": "[relieved, quiet] Dziękuję. Synowi powiem sama.",
+          "czas_s": 3.0,
+          "ruch_kamery": "statyczna",
+          "poza": "",
+          "znacznik": "M_klient_przod_L",
+          "klatka": "irena_stol"
+        }
+      ],
+      "kamera": "K03_helena_zblizenie"
+    },
+    {
+      "id": "sc7",
+      "rola": "zawieszenie",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u16",
+          "typ": "mowiace",
+          "postac": "kuba",
+          "kamera": "K04_klienci_od_heleny",
+          "kwestia": "Pani rejent, kupujący dostali od pana Sowy projekt umowy. Inny niż nasz.",
+          "kwestia_v3": "[hushed, uneasy] Pani rejent, kupujący dostali od pana Sowy projekt umowy... Inny niż nasz.",
+          "czas_s": 5.4,
+          "ruch_kamery": "statyczna",
+          "poza": "standing in the open doorway, holding a few printed pages",
+          "znacznik": "M_wejscie",
+          "klatka": "kuba_drzwi"
+        },
+        {
+          "id": "u17",
+          "typ": "bez_mowy",
+          "kamera": "K07_okno_sylwetka",
+          "czas_s": 3.0,
+          "ruch_kamery": "statyczna",
+          "prompt_ruchu": "The woman stands still by the window, breathes calmly, makes one small movement of the head. Locked-off camera, no camera movement. Nothing else in the room moves.",
+          "postac": "helena",
+          "klatka": "e01_u15",
+          "znacznik": "M_przy_oknie"
+        }
+      ],
+      "kamera": "K04_klienci_od_heleny"
+    },
+    {
+      "id": "sc8",
+      "rola": "plansza_koncowa",
+      "plan": "s02",
+      "wariant": "dzien",
+      "ujecia": [
+        {
+          "id": "u18",
+          "typ": "plansza",
+          "tekst": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+          "czas_s": 3.0
+        }
+      ]
+    }
+  ],
+  "lista_kontrolna": {
+    "czynnosc_jako_rama": {
+      "ok": true,
+      "jak": "Rozmowa przed umową sprzedaży lokalu, którą pośrednik chce podpisać w piątek; termin czynności znany."
+    },
+    "odkrycie_z_lektury": {
+      "ok": true,
+      "jak": "Helena czyta projekt na głos i porównuje go z tym, co mówi sprzedająca: zapis o wydaniu 1 grudnia nie ma pokrycia w jej woli."
+    },
+    "dokument_w_kadrze": {
+      "ok": true,
+      "jak": "u10: warstwa dokumentu (fragment projektu i notatka Heleny, oznaczenie DEMO), renderowana, nie generowana."
+    },
+    "widz_zna_ryzyko": {
+      "ok": true,
+      "jak": "Od pierwszego zdania widz wie, że Irena nie chce syna przy rozmowie; pośrednik naciska na piątek."
+    },
+    "wynik_niepewny_bez_przemocy": {
+      "ok": true,
+      "jak": "Nie wiadomo, czy sprzedaż dojdzie do skutku i kto wprowadził datę; nikt nie podnosi głosu."
+    },
+    "jeden_szczyt": {
+      "ok": true,
+      "jak": "Jedyny szczyt: decyzja Heleny, że nie wpisze daty bez akceptacji sprzedającej (sc6)."
+    },
+    "nic_spoza_swiata": {
+      "ok": true,
+      "jak": "Tylko mały tytuł na ujęciu poczekalni i plansza końcowa; reszta to zdarzenia w kancelarii."
+    },
+    "ekran_poza_szczytem": {
+      "ok": true,
+      "jak": "Brak ekranu programu w tym odcinku (funkcja nie była sprawdzana w dniu produkcji)."
+    },
+    "zgodnie_z_prawem": {
+      "ok": true,
+      "jak": "Notariusz ustala wolę strony w rozmowie (art. 80 i 94 PrNot), dba o jej świadomość, zachowuje tajemnicę wobec osoby trzeciej (syn nie jest stroną ani pełnomocnikiem)."
+    },
+    "sprawiedliwosc_proceduralna": {
+      "ok": true,
+      "jak": "Syn i pośrednik nie dostają treści rozmowy; o terminie decydują strony umowy, nie pośrednik."
+    },
+    "prawdziwa_sprawa_bez_danych": {
+      "ok": true,
+      "jak": "H16: procedura notariusza (pytania otwarte, celowa pomyłka w adresie) z zeznań przytoczonych przez sąd. Bez nazwisk, miejsc, dat, kwot i wyniku sprawy."
+    },
+    "final_domyka": {
+      "ok": true,
+      "jak": "Nie dotyczy (odcinek 2); główna sprawa idzie dalej: inny projekt u kupujących."
+    }
+  }
+}

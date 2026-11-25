@@ -1,0 +1,92 @@
+{
+  "kontrakt": "glosy-v1",
+  "odcinek": "s01e04",
+  "model_id": "eleven_v4",
+  "narzedzie": "fu.text_to_speech (jedna kwestia na nagranie)",
+  "language_code": "pl",
+  "settings": {
+    "stability": 0.5
+  },
+  "kontrola": "transkrypcja Scribe zgodna z kwestiami (11/11, różnice tylko w interpunkcji)",
+  "kwestie": [
+    {
+      "ujecie": "u1",
+      "postac": "kuba",
+      "voice_id": "l49KzmmcER7qYZfvh1NN",
+      "text": "[quiet, alarmed] Marta... tego wczoraj nie było. Wzmianka w księdze."
+    },
+    {
+      "ujecie": "u2",
+      "postac": "marta",
+      "voice_id": "rOIbi11t4PdzPrW90No0",
+      "text": "[focused, fast] Akt za dwadzieścia minut. Pokaż."
+    },
+    {
+      "ujecie": "u4",
+      "postac": "marta",
+      "voice_id": "rOIbi11t4PdzPrW90No0",
+      "text": "[matter-of-fact] Sprzedaż o dziesiątej. Odpis pobraliśmy wczoraj wieczorem... dziś pobrałam jeszcze raz."
+    },
+    {
+      "ujecie": "u5",
+      "postac": "kuba",
+      "voice_id": "l49KzmmcER7qYZfvh1NN",
+      "text": "[worried] A kupujący słyszał, że księga jest czysta."
+    },
+    {
+      "ujecie": "u7",
+      "postac": "marta",
+      "voice_id": "rOIbi11t4PdzPrW90No0",
+      "text": "[careful, precise] Wzmianka znaczy, że coś wpłynęło do sądu. Jeszcze nie wiemy co."
+    },
+    {
+      "ujecie": "u8",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[calm, clear, to the clients] Proszę państwa, w księdze jest dziś wzmianka o wniosku komornika. Wczoraj jej nie było."
+    },
+    {
+      "ujecie": "u9",
+      "postac": "klient",
+      "voice_id": "4sCxuJSFzRE4D9CsT7cG",
+      "text": "[controlled, firm] Zapewniano mnie, że księga jest czysta. Bez wyjaśnienia nie podpiszę."
+    },
+    {
+      "ujecie": "u10",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[steady, respectful] Ma pan do tego prawo. Przerywamy. Wrócimy do aktu, gdy sprawa będzie jasna."
+    },
+    {
+      "ujecie": "u12",
+      "postac": "basia",
+      "voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "text": "[a little breathless, pleased] Wrócili. Mają zaświadczenie od komornika. Za dziesięć czwarta."
+    },
+    {
+      "ujecie": "u13",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[dry, warm] To czytamy od początku."
+    },
+    {
+      "ujecie": "u14",
+      "postac": "kuba",
+      "voice_id": "l49KzmmcER7qYZfvh1NN",
+      "text": "[thoughtful, quiet] A w sprawie pani Ireny... kiedy ostatnio ktoś coś naprawdę potwierdził?"
+    }
+  ],
+  "nagrania": {
+    "u1": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u1.mp3",
+    "u2": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u2.mp3",
+    "u4": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u4.mp3",
+    "u5": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u5.mp3",
+    "u7": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u7.mp3",
+    "u8": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u8.mp3",
+    "u9": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u9.mp3",
+    "u10": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u10.mp3",
+    "u12": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u12.mp3",
+    "u13": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u13.mp3",
+    "u14": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/audio/u14.mp3"
+  }
+}

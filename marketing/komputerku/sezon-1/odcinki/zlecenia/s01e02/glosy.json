@@ -1,0 +1,106 @@
+{
+  "kontrakt": "glosy-v1",
+  "odcinek": "s01e02",
+  "model_id": "eleven_v4",
+  "narzedzie": "fu.text_to_speech (jedna kwestia na nagranie)",
+  "language_code": "pl",
+  "settings": {
+    "stability": 0.5
+  },
+  "kontrola": "transkrypcja Scribe zgodna z kwestiami (13/13, różnice tylko w interpunkcji)",
+  "kwestie": [
+    {
+      "ujecie": "u1",
+      "postac": "irena",
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "text": "[quietly, a little tense] Syn parkuje, zaraz przyjdzie... Proszę, żeby poczekał tutaj."
+    },
+    {
+      "ujecie": "u2",
+      "postac": "basia",
+      "voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "text": "[gently, discreet] Oczywiście, pani Ireno. Pani rejent już czeka."
+    },
+    {
+      "ujecie": "u4",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[warm, unhurried] Pani Ireno, proszę mi własnymi słowami powiedzieć, co pani sprzedaje."
+    },
+    {
+      "ujecie": "u5",
+      "postac": "irena",
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "text": "[calm, sincere] Mieszkanie. Państwu Kaczmarkom. Chcę sprzedać... naprawdę chcę."
+    },
+    {
+      "ujecie": "u6",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[reading, casual] Lokal numer czterdzieści, tak?"
+    },
+    {
+      "ujecie": "u7",
+      "postac": "irena",
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "text": "[firmly, correcting] Czternaście, pani rejent. Nie czterdzieści."
+    },
+    {
+      "ujecie": "u8",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[gently, then matter-of-fact] Pomyliłam się celowo, przepraszam. A wydanie mieszkania? W projekcie mam pierwszego grudnia."
+    },
+    {
+      "ujecie": "u9",
+      "postac": "irena",
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "text": "[surprised, quiet] Pierwszego grudnia? Ja mówiłam synowi o połowie stycznia."
+    },
+    {
+      "ujecie": "u12",
+      "postac": "pawel",
+      "voice_id": "Isg9ygLxez9KMKZEZEEd",
+      "text": "[impatient, polite] Pani Basiu, długo jeszcze? Pan Sowa pyta, czy podpisujemy w piątek."
+    },
+    {
+      "ujecie": "u13",
+      "postac": "basia",
+      "voice_id": "vqyfbWoOfYmPoa0QNkKB",
+      "text": "[kind but firm] Pani rejent rozmawia z klientką. Tyle mogę powiedzieć."
+    },
+    {
+      "ujecie": "u14",
+      "postac": "helena",
+      "voice_id": "0YMlrD87k6Saqi6L1Joy",
+      "text": "[firm, quiet, unhurried] Dopóki pani tego nie przyjmie, tej daty nie wpiszę. Nikt jej za panią nie ustali."
+    },
+    {
+      "ujecie": "u15",
+      "postac": "irena",
+      "voice_id": "cnZHjueC0HjNRDAtvukp",
+      "text": "[relieved, quiet] Dziękuję. Synowi powiem sama."
+    },
+    {
+      "ujecie": "u16",
+      "postac": "kuba",
+      "voice_id": "l49KzmmcER7qYZfvh1NN",
+      "text": "[hushed, uneasy] Pani rejent, kupujący dostali od pana Sowy projekt umowy... Inny niż nasz."
+    }
+  ],
+  "nagrania": {
+    "u1": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u1.mp3",
+    "u2": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u2.mp3",
+    "u4": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u4.mp3",
+    "u5": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u5.mp3",
+    "u6": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u6.mp3",
+    "u7": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u7.mp3",
+    "u8": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u8.mp3",
+    "u9": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u9.mp3",
+    "u12": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u12.mp3",
+    "u13": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u13.mp3",
+    "u14": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u14.mp3",
+    "u15": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u15.mp3",
+    "u16": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/audio/u16.mp3"
+  }
+}
