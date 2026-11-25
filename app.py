@@ -30,6 +30,7 @@ import aml_listy
 import bedrock
 import bedrock_chroniony
 import pseudonimizacja_lokalna
+import pseudonimizacja_nlp
 import rejestr_tozsamosci
 from pseudonimizacja_aktu import Osoba, Wystapienie, DaneDodatkowe, WymagaWeryfikacji
 import config
@@ -2813,7 +2814,10 @@ def przygotuj_przeglad(request: Request, identyfikator: str, dane: PrzegladPseud
         return {"tekst": tekst, "odcisk": bedrock_chroniony.odcisk_tekstu(tekst),
                 "wersja": rejestr.wersja,
                 "propozycje": [{"poczatek": z.poczatek, "koniec": z.koniec, "typ": z.typ}
-                               for z in pseudonimizacja_lokalna.propozycje(tekst)],
+                               for z in (pseudonimizacja_lokalna.propozycje(tekst)
+                                         + pseudonimizacja_nlp.propozycje_ner(tekst))],
+                "propozycje_osob": pseudonimizacja_nlp.propozycje_fleksji(
+                    tekst, tuple(w.osoba for w in rejestr.wpisy.values())),
                 "wymaga_potwierdzenia": True}
     except WymagaWeryfikacji as blad:
         raise HTTPException(409, str(blad)) from None
