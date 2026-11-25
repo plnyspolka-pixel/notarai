@@ -105,6 +105,20 @@ def _odrzucony_punkt_cache(blad: BaseException, zadanie: dict) -> bool:
             and "cache" in _tresc_bledu(blad).lower())
 
 
+class ModelNiezatwierdzony(RuntimeError):
+    """Wywolanie modelu spoza config.ZATWIERDZONE_MODELE (brak gwarancji zerowej retencji)."""
+
+
+def _pilnuj_modelu(params, **_):
+    """Hak botocore: kazde wywolanie bedrock-runtime przechodzi tu przed wyslaniem."""
+    model = (params or {}).get("modelId")
+    if model not in config.ZATWIERDZONE_MODELE:
+        raise ModelNiezatwierdzony(
+            f"Model '{model}' nie jest zatwierdzony do przetwarzania tresci spraw "
+            "(brak gwarancji zerowej retencji). Zob. config.ZATWIERDZONE_MODELE."
+        )
+
+
 def _klient():
     # Bez nazwy profilu boto3 bierze poswiadczenia ze standardowego lancucha:
     # [default] z ~/.aws na stanowisku, rola zadania ECS w chmurze.
@@ -115,7 +129,9 @@ def _klient():
                 sesja = boto3.Session(profile_name=config.PROFIL_AWS, region_name=config.REGION)
             else:
                 sesja = boto3.Session(region_name=config.REGION)
-            _klient_bedrock = sesja.client("bedrock-runtime", config=_ustawienia)
+            klient = sesja.client("bedrock-runtime", config=_ustawienia)
+            klient.meta.events.register("provide-client-params.bedrock-runtime.*", _pilnuj_modelu)
+            _klient_bedrock = klient
         return _klient_bedrock
 
 
