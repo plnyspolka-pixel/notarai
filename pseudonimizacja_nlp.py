@@ -27,6 +27,8 @@ def _pipeline():
                 katalog = Path(os.environ.get("PIECZAPP_PII_MODEL_DIR", "/opt/notarai/pii-pl"))
                 if not katalog.is_dir() or not (katalog / "model.safetensors").is_file():
                     raise ValueError("missing")
+                if (katalog / "notarai-revision.txt").read_text("utf-8").strip() != MODEL_REVISION:
+                    raise ValueError("unapproved revision")
                 tok = AutoTokenizer.from_pretrained(str(katalog), local_files_only=True,
                                                     trust_remote_code=False, use_fast=True)
                 model = AutoModelForTokenClassification.from_pretrained(
