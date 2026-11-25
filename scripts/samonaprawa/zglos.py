@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import zgloszenie as zgl  # noqa: E402
 
 REGION = "eu-central-1"
+KOLEJKA = "notarai-samonaprawa-kolejka"
 PROJEKT = "notarai-samonaprawa"
 
 
@@ -45,11 +46,10 @@ def main(argv: list[str] | None = None, klienci: dict | None = None) -> int:
     if a.test:
         dane = zgl.oczysc({"uwagi": "Test sciezki wdrozenia samonaprawy w AWS - bez agenta, zmiana tylko w docs/.",
                            "rodzaj": "reczne", "typ": "zgloszenie reczne", "wersja": "produkcja"})
-        cb = klienci.get("codebuild") or _klient("codebuild")
-        odp = cb.start_build(projectName=PROJEKT, environmentVariablesOverride=[
-            {"name": "SN_LADUNEK", "value": koduj(dane), "type": "PLAINTEXT"},
-            {"name": "SN_TEST_WDROZENIA", "value": "1", "type": "PLAINTEXT"}])
-        print(f"Test wdrozenia uruchomiony: {odp['build']['id']}")
+        sqs = klienci.get("sqs") or _klient("sqs")
+        adres = sqs.get_queue_url(QueueName=KOLEJKA)["QueueUrl"]
+        odp = sqs.send_message(QueueUrl=adres, MessageBody=json.dumps({"ladunek": koduj(dane), "test": True}))
+        print(f"Test wdrozenia w kolejce: {odp['MessageId']} (potok podejmie go, gdy bedzie wolny)")
         return 0
     if a.przeglad:
         wpis = wpis_zdarzenia("przeglad", {"zdarzenie": "przeglad"})
