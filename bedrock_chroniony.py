@@ -8,12 +8,14 @@ import contextvars
 import hashlib
 import json
 import os
+import re
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 
 import magazyn
 from pseudonimizacja_aktu import WymagaWeryfikacji
+from pseudonimizacja_lokalna import propozycje
 
 
 def chroniony():
@@ -45,8 +47,14 @@ class PrzejrzanyTekst:
     def maskuj(self, sesja):
         if self.odcisk != odcisk_tekstu(self.tekst):
             raise WymagaWeryfikacji("REVIEW_STALE")
-        return sesja.pseudonimizuj(self.tekst, potwierdzone=self.wystapienia,
-                                   dodatkowe=self.dodatkowe)
+        wynik = sesja.pseudonimizuj(self.tekst, potwierdzone=self.wystapienia,
+                                    dodatkowe=self.dodatkowe)
+        # Znane wzorce identyfikatorow nie moga pozostac w jawnym tekscie.
+        # Brak trafien nie dowodzi kompletnosci NER; nadal wymagany przeglad.
+        reszta = re.sub(r"\[\[NA_[^\[\]\n]*\]\]", " [MASKA] ", wynik)
+        if propozycje(reszta):
+            raise WymagaWeryfikacji("UNMASKED_IDENTIFIER_REVIEW")
+        return wynik
 
 
 @dataclass(frozen=True, repr=False)
@@ -109,6 +117,7 @@ def rozmowa(klient, sesja, system, tury, *, model, max_tokenow):
     """
     if not chroniony():
         raise WymagaWeryfikacji("PROTECTED_MODE_REQUIRED")
+    sesja.sprawdz_zakres()
     if not model.startswith("eu.") or not 0 < max_tokenow <= 64000:
         raise WymagaWeryfikacji("INVALID_PROTECTED_MODEL_CONFIG")
     wiadomosci = []
