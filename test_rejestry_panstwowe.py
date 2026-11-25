@@ -82,3 +82,12 @@ def test_uldk_po_obrebie_odrzuca_niespojne_dane(body):
     with klient(lambda r:httpx.Response(200,text=body)) as c:
         with pytest.raises(rp.Niedostepny):
             rp.dzialka("Stara Wieś 756",c)
+
+
+@pytest.mark.parametrize("numer",["１２３４５６７８９０","١٢٣٤٥٦٧٨٩٠"])
+def test_krs_vat_odrzucaja_cyfry_unicode(numer):
+    with klient(lambda req:pytest.fail("Nie wolno wysłać niepoprawnego identyfikatora")) as c:
+        with pytest.raises(ValueError):
+            rp.krs(numer,c)
+        with pytest.raises(ValueError):
+            rp.vat(numer,"2020-01-01",c)
