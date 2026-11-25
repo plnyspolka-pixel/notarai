@@ -43,6 +43,8 @@ Fala 1: 9 DIP osobno; fala 2: 8 TECH zwykłych, 3 wstępne i 2 warunkowe. Fala 3
 
 ## Odbiór od Claude'a: prywatny pakiet, bez publikacji sekretów
 
+**Obowiązujący szczegółowy kontrakt odbioru:** [CLAUDE-AWS-KRYTERIA-ODBIORU.md](CLAUDE-AWS-KRYTERIA-ODBIORU.md). Najpierw A+B (IP i mapa pól formularzy), niezależnie od C–F (dowody 3×Zero).
+
 1. RZNP TEST / INT: rzeczywiste publiczne IPv4 egress z komponentu wykonującego żądania (test i prod według potrzeb), pomiar z każdego AZ, po wymianie instancji/zadania, NAT/EIP/routing. Nie IP ALB. Dla INT sprawdzić aktualne pola załącznika 2a i podać IP tylko jeśli wymagane. Kontakty techniczne potwierdzone przez osoby zainteresowane; komplet specyfikacji, aktualne oficjalne formularze i podpis reprezentanta. Produkcja RZNP dopiero po zgodzie właściwego organu dla uprawnionego użytkownika.
 2. ZSIN / ULDK: formalny wniosek odpowiedniego podmiotu po potwierdzeniu podstawy, zakresu i warunków; IP do whitelist ULDK po potwierdzeniu rzeczywistego egress. SRP/PESEL/RDO/RDP: właściwy tryb i formularz dopiero po kwalifikacji; PESEL-NET osobno, nie zamawiać przyłącza.
 3. TECH-12/13 – etap dowodowy po uzgodnieniu: specyfikacja release/commit, podpisany manifest, atestacja, polityka kluczy, dowody izolacji, przepływ/regiony i podwykonawcy, retencja per model i konfiguracja Bedrock, logi, fallbacki, testy syntetyczne i dokumentacja RODO. Nie przesyłać sekretów. Brak IP sam w sobie nie blokuje wniosku o stanowisko warunkowe.
