@@ -90,7 +90,7 @@ zostały przeszkolone z zasad ochrony danych osobowych i z niniejszej Umowy.
 </li><li>
 Podmiot przetwarzający zachowuje w tajemnicy wszystkie informacje o sprawach Administratora, w tym okoliczności objęte Tajemnicą notarialną, w zakresie nie mniejszym niż wynikający z art. 18 ustawy - Prawo o notariacie. Obowiązek ten trwa bezterminowo.
 </li><li>
-Podmiot przetwarzający nie ma dostępu do treści spraw Administratora. Usługa jest zbudowana tak, że ani osoby działające w imieniu Podmiotu przetwarzającego, ani narzędzia administracyjne Usługi nie pozwalają odczytać treści spraw. Jedynym wyjątkiem jest dostęp serwisowy, o którym mowa w ust. 4.
+Podmiot przetwarzający nie ma dostępu do treści spraw Administratora. Narzędzia administracyjne Usługi nie pozwalają odczytać treści spraw, a magazyn spraw jest zabezpieczony politykami, które blokują odczyt także administratorom konta AWS. Jedynym wyjątkiem jest dostęp serwisowy, o którym mowa w ust. 4.
 </li><li>
 Dostęp serwisowy do treści spraw jest dopuszczalny wyłącznie na żądanie Administratora, gdy Administrator włączy go w Usłudze. Dostęp serwisowy:
 <ol><li>
@@ -257,7 +257,7 @@ Dane dotyczące wyroków skazujących i czynów zabronionych (art. 10 RODO), je�
 <p><strong>Tryb „Pliki na komputerze kancelarii”.</strong> Pliki są przechowywane na komputerze Administratora. Na serwerze Usługi Dane są przetwarzane wyłącznie przejściowo, w pamięci i plikach tymczasowych usuwanych po zakończeniu operacji.</p>
 <p>---</p>
 <h2>Załącznik nr 2. Środki techniczne i organizacyjne</h2>
-<p>Opis zgodny ze stanem Usługi na dzień 24.10.2026.</p>
+<p>Opis zgodny ze stanem Usługi na dzień 25.11.2026.</p>
 <h3>A. Lokalizacja i infrastruktura</h3>
 <ol><li>
 Usługa działa w Amazon Web Services, region Europe (Frankfurt, eu-central-1). Dostawca infrastruktury posiada m.in. certyfikaty ISO/IEC 27001, 27017, 27018, 27701 oraz raporty SOC 2.
@@ -266,7 +266,7 @@ Model językowy (Claude) jest wywoływany przez Amazon Bedrock wyłącznie z uż
 </li><li>
 W Amazon Bedrock nie jest włączone rejestrowanie wywołań modelu; AWS nie przechowuje treści zapytań ani odpowiedzi i nie używa ich do trenowania modeli; dostawca modelu nie ma do nich dostępu.
 </li><li>
-Aplikacja działa w co najmniej dwóch kopiach w różnych strefach dostępności, z automatycznym odtwarzaniem po awarii.
+Aplikacja działa w co najmniej jednej kopii z automatycznym odtwarzaniem po awarii. W razie awarii strefy dostępności możliwa jest przerwa w dostępie do czasu odtworzenia.
 </li></ol>
 <h3>B. Szyfrowanie</h3>
 <ol><li>
@@ -290,7 +290,7 @@ Uwierzytelnianie dwuskładnikowe użytkowników: planowane; do czasu wdrożenia 
 </li><li>
 Aplikacja działa na roli IAM ograniczonej do magazynu spraw i wywołania modelu (zasada najmniejszych uprawnień).
 </li><li>
-Dostęp administracyjny do konta AWS mają wyłącznie imiennie upoważnione osoby Fundacji: Filip Robert Bielak, Prezes Zarządu. Konto główne AWS chronione uwierzytelnianiem wieloskładnikowym (MFA) i nieużywane do pracy bieżącej.
+Dostęp administracyjny do konta AWS i infrastruktury Usługi mają wyłącznie osoby imiennie upoważnione przez Fundację (§ 5 ust. 1 Umowy) oraz narzędzia automatyzacji używane przez nie na ich polecenie. Wykaz tych osób Fundacja udostępnia Administratorowi na żądanie. Konto główne AWS jest chronione uwierzytelnianiem wieloskładnikowym (MFA) i nieużywane do pracy bieżącej.
 </li><li>
 Sekrety (np. tokeny administracyjne) przechowywane w AWS Secrets Manager, nigdy w kodzie ani repozytorium.
 </li></ol>
@@ -354,7 +354,7 @@ Przegląd środków bezpieczeństwa raz w roku.
 </li></ol>
 <p>---</p>
 <h2>Załącznik nr 3. Dalsze podmioty przetwarzające</h2>
-<div class="tabela" tabindex="0" role="region" aria-label="Tabela — przewiń w poziomie"><table><thead><tr><th>Podmiot</th><th>Siedziba</th><th>Zakres</th><th>Miejsce przetwarzania</th><th>Podstawa</th></tr></thead><tbody><tr><td>Amazon Web Services EMEA SARL</td><td>38 Avenue John F. Kennedy, L-1855 Luksemburg</td><td>hosting aplikacji (ECS Fargate, Elastic Load Balancing), magazyn plików (S3), logowanie użytkowników i wysyłka e-maili z zaproszeniami (Cognito), dzienniki (CloudWatch), przechowywanie sekretów, model językowy (Amazon Bedrock)</td><td>Frankfurt; dla modelu językowego wyłącznie regiony UE wybierane przez profil europejski (obecnie Frankfurt, Irlandia, Paryż, Sztokholm)</td><td>AWS Customer Agreement i AWS GDPR Data Processing Addendum</td></tr></tbody></table></div>
+<div class="tabela" tabindex="0" role="region" aria-label="Tabela — przewiń w poziomie"><table><thead><tr><th>Podmiot</th><th>Siedziba</th><th>Zakres</th><th>Miejsce przetwarzania</th><th>Podstawa</th></tr></thead><tbody><tr><td>Amazon Web Services EMEA SARL</td><td>38 Avenue John F. Kennedy, L-1855 Luksemburg</td><td>hosting aplikacji (ECS Fargate, Elastic Load Balancing), magazyn plików (S3), logowanie użytkowników i wysyłka e-maili z zaproszeniami (Cognito), dzienniki (CloudWatch), przechowywanie sekretów, model językowy (Amazon Bedrock)</td><td>Frankfurt; dla modelu językowego wyłącznie regiony UE wybierane przez profil europejski (obecnie: Frankfurt - eu-central-1, Irlandia - eu-west-1, Paryż - eu-west-3, Sztokholm - eu-north-1, Mediolan - eu-south-1, Madryt - eu-south-2). Dopuszczalne regiony są dodatkowo ograniczone uprawnieniami technicznymi aplikacji; dodanie regionu wymaga zmiany niniejszego załącznika w trybie § 8 ust. 2 Umowy</td><td>AWS Customer Agreement i AWS GDPR Data Processing Addendum</td></tr></tbody></table></div>
 <p>Dostawca modelu językowego (Anthropic) <strong>nie jest</strong> dalszym podmiotem przetwarzającym: model jest uruchamiany w infrastrukturze AWS, a dostawca modelu nie ma dostępu do zapytań ani odpowiedzi.</p>
 <p>Dalsze podmioty przetwarzające AWS: aktualny wykaz publikuje AWS (aws.amazon.com/compliance/sub-processors).</p>
 </main>

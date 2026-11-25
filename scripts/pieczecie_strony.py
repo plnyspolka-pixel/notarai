@@ -187,7 +187,7 @@ ZGODNOSC = [
      "Umowa powierzenia od ręki", "Zawierasz ją przy rejestracji, bez podpisów i wysyłania dokumentów."),
     ("TAJEMNICA|NOTARIALNA", "ART. 18", "ustawy Prawo o notariacie", "bezterminowo",
      "Tajemnica w umowie", "Do treści spraw zaglądamy tylko na Twoją prośbę albo przy usuwaniu awarii."),
-    ("PRZETWARZANIE|TYLKO W UE", "EU", "rozdział V RODO", "4 regiony UE",
+    ("PRZETWARZANIE|TYLKO W UE", "EU", "rozdział V RODO", "6 regionów UE",
      "Dane nie wyjeżdżają z Unii", "Pliki we Frankfurcie, model w regionach UE. Spoza UE aplikacja się nie uruchomi."),
 ]
 

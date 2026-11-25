@@ -37,7 +37,7 @@ pobierającego ją z portalu Ministerstwa Sprawiedliwości.
 
 Skany i odczytane dane trafiają do modelu Claude uruchomionego w Amazon
 Bedrock. Zapytania idą przez profil europejski, więc są przetwarzane w
-regionach UE: Frankfurt, Irlandia, Paryż i Sztokholm.
+regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm, Mediolan i Madryt.
 
 Na koncie ustawione jest **zerowe przechowywanie danych** (tryb `none`) we
 wszystkich czterech regionach. Znaczy to, że AWS nie zapisuje treści zapytań

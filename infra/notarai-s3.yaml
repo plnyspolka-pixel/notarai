@@ -249,13 +249,21 @@ Resources:
               - bedrock:InvokeModel
               - bedrock:InvokeModelWithResponseStream
             Resource:
-              - !Sub "arn:aws:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.*"
-              - "arn:aws:bedrock:eu-central-1::foundation-model/*"
-              - "arn:aws:bedrock:eu-west-1::foundation-model/*"
-              - "arn:aws:bedrock:eu-west-3::foundation-model/*"
-              - "arn:aws:bedrock:eu-north-1::foundation-model/*"
-              - "arn:aws:bedrock:eu-south-1::foundation-model/*"
-              - "arn:aws:bedrock:eu-south-2::foundation-model/*"
+              # Tylko zatwierdzone modele (config.ZATWIERDZONE_MODELE): profile i modele bazowe.
+              - !Sub "arn:aws:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-opus-4-6-v1"
+              - !Sub "arn:aws:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-central-1::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-west-3::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-north-1::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-south-1::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-south-2::foundation-model/anthropic.claude-opus-4-6-v1"
+              - "arn:aws:bedrock:eu-central-1::foundation-model/anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-west-3::foundation-model/anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-north-1::foundation-model/anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-south-1::foundation-model/anthropic.claude-sonnet-4-6"
+              - "arn:aws:bedrock:eu-south-2::foundation-model/anthropic.claude-sonnet-4-6"
           # Stenogramy aktow (stenogramy.py): rozpoznawanie mowy tylko we Frankfurcie.
           # Audio i wynik leza w tym buckecie (stenogramy-robocze/), aplikacja kasuje
           # je zaraz po zapisaniu zanonimizowanego stenogramu.

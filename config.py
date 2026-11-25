@@ -115,6 +115,16 @@ MAX_STRON = int(os.getenv("PIECZAPP_MAX_STRON", "400"))
 STRON_W_PACZCE = int(os.getenv("PIECZAPP_STRON_W_PACZCE", "4"))
 ROWNOLEGLE = int(os.getenv("PIECZAPP_ROWNOLEGLE", "2"))
 
+# Modele zatwierdzone do przetwarzania tresci spraw. Tylko takie, dla ktorych
+# potwierdzono brak retencji po stronie AWS (zob. docs/prawne, zal. 2 A).
+# Dopisanie modelu to swiadoma zmiana kodu i szablonu IAM (infra/notarai-s3.yaml),
+# po uzyskaniu gwarancji zerowej retencji dla tego modelu. Nie ma zmiennej
+# srodowiskowej, ktora to obejdzie.
+ZATWIERDZONE_MODELE = frozenset({
+    "eu.anthropic.claude-opus-4-6-v1",
+    "eu.anthropic.claude-sonnet-4-6",
+})
+
 if not MODEL.startswith("eu."):
     raise RuntimeError(
         f"Model '{MODEL}' nie jest profilem EU. "
