@@ -17,6 +17,16 @@ from pseudonimizacja_aktu import (
 )
 
 
+@pytest.fixture(autouse=True)
+def syntetyczny_ner(monkeypatch):
+    # Dotychczasowe testy transportu/HTTP nie wymagają 1,8 GB publicznych wag.
+    # Rzeczywisty model ma osobny test w chronionym obrazie.
+    import pseudonimizacja_nlp as nlp
+    monkeypatch.setattr(br, "propozycje_ner", lambda tekst: [])
+    monkeypatch.setattr(nlp, "propozycje_ner", lambda tekst: [])
+    monkeypatch.setattr(nlp, "propozycje_fleksji", lambda tekst, osoby: [])
+
+
 def przejrzany(tekst, **kw):
     return br.PrzejrzanyTekst(tekst, br.odcisk_tekstu(tekst), **kw)
 
@@ -246,3 +256,34 @@ def test_sesja_zakres_i_konflikt_dodatkowego_maskowania(sesja):
     s.zamknij()
     with pytest.raises(WymagaWeryfikacji):
         s.pseudonimizuj("Jan Kowalski")
+
+
+def test_ner_blokuje_nieznane_dane(monkeypatch, sesja):
+    monkeypatch.setenv("PIECZAPP_BEDROCK_CHRONIONY", "1")
+    raw = Mock()
+    tekst = "Nieznana osoba: Ewa Nowak."
+    a = tekst.index("Ewa")
+    monkeypatch.setattr(br, "propozycje_ner",
+                        lambda t: [DaneDodatkowe(a, a+9, "OSOBA")] if t == tekst else [])
+    with pytest.raises(WymagaWeryfikacji, match="UNMASKED_NER_ENTITY_REVIEW"):
+        br.rozmowa(raw, sesja, przejrzany("Odpowiedz."),
+                   [("user", przejrzany(tekst))], model="eu.test", max_tokenow=100)
+    assert not raw.mock_calls
+    raw.converse.return_value = {"stopReason": "end_turn", "output": {"message": {
+        "content": [{"text": "OK"}]}}}
+    assert br.rozmowa(raw, sesja, przejrzany("Odpowiedz."),
+                      [("user", przejrzany(tekst, dodatkowe=(DaneDodatkowe(a, a+9, "OSOBA"),)))],
+                      model="eu.test", max_tokenow=100)[0] == "OK"
+    assert "Ewa Nowak" not in str(raw.converse.call_args)
+
+
+def test_awaria_ner_nie_wysyla(monkeypatch, sesja):
+    monkeypatch.setenv("PIECZAPP_BEDROCK_CHRONIONY", "1")
+    raw = Mock()
+    def brak(t):
+        raise WymagaWeryfikacji("LOCAL_NER_UNAVAILABLE")
+    monkeypatch.setattr(br, "propozycje_ner", brak)
+    with pytest.raises(WymagaWeryfikacji, match="LOCAL_NER_UNAVAILABLE"):
+        br.rozmowa(raw, sesja, przejrzany("System"),
+                   [("user", przejrzany("Jan Kowalski"))], model="eu.test", max_tokenow=100)
+    assert not raw.mock_calls
