@@ -110,3 +110,125 @@ class RejestrSprawy:
         s = r.sesja()
         s.zamknij()
         return r
+
+
+# W tej samej przestrzeni sprawy co odczyt i projekt. Nie ma osobnego zasobu
+# AWS ani globalnej bazy PII. S3 ma warunkowy zapis i szyfrowanie jak sprawa.
+PLIK = "rejestr-tozsamosci.json"
+
+import hashlib
+import json
+import os
+import threading
+from pathlib import Path
+
+import szyfrowanie_kancelarii as szyfr
+
+_blokada = threading.RLock()
+
+
+def _katalog(katalog):
+    import config
+    katalog = Path(katalog)
+    if (katalog.parent.resolve() != config.SPRAWY.resolve()
+            or not (katalog / "sprawa.json").is_file()
+            or not re.fullmatch(r"[A-Za-z0-9]{1,128}", katalog.name)
+            or magazyn.u_klienta()):
+        raise WymagaWeryfikacji("IDENTITY_CASE_UNAVAILABLE")
+    return katalog
+
+
+def _wczytaj(katalog):
+    katalog = _katalog(katalog)
+    plik = katalog / PLIK
+    etag = ""
+    if magazyn.TRYB == "s3":
+        klucz = magazyn._klucz(katalog.name, PLIK)
+        try:
+            odp = magazyn._klient_s3().get_object(Bucket=magazyn.BUCKET, Key=klucz)
+        except Exception as blad:
+            if magazyn._kod_bledu(blad) not in ("NoSuchKey", "404") and type(blad).__name__ != "NoSuchKey":
+                raise WymagaWeryfikacji("IDENTITY_STORAGE_READ_FAILED") from None
+            dane = None
+        else:
+            etag = odp.get("ETag", "")
+            if not etag:
+                raise WymagaWeryfikacji("IDENTITY_STORAGE_ETAG_MISSING")
+            surowe = odp["Body"].read()
+            if szyfr.aktywne():
+                surowe = szyfr.odszyfruj(surowe, klucz)
+            dane = json.loads(surowe)
+    else:
+        dane = json.loads(plik.read_text("utf-8")) if plik.exists() else None
+    return (RejestrSprawy.odczytaj(dane, katalog.name) if dane is not None
+            else RejestrSprawy(magazyn.kancelaria(), katalog.name)), etag
+
+
+def wczytaj(katalog):
+    with _blokada:
+        return _wczytaj(katalog)[0]
+
+
+def zmien(katalog, akcja):
+    """Akcja modyfikuje rejestr, a zapis CAS nie gubi równoległych decyzji."""
+    with _blokada:
+        katalog = _katalog(katalog)
+        rejestr, etag = _wczytaj(katalog)
+        wynik = akcja(rejestr)
+        surowe = json.dumps(rejestr.do_zapisu(), ensure_ascii=False).encode("utf-8")
+        if magazyn.TRYB == "s3":
+            klucz = magazyn._klucz(katalog.name, PLIK)
+            warunek = {"IfMatch": etag} if etag else {"IfNoneMatch": "*"}
+            if szyfr.aktywne():
+                surowe = szyfr.szyfruj(surowe, klucz)
+            try:
+                magazyn._klient_s3().put_object(
+                    Bucket=magazyn.BUCKET, Key=klucz, Body=surowe,
+                    **warunek, **magazyn._szyfrowanie())
+            except Exception:
+                raise WymagaWeryfikacji("IDENTITY_STORAGE_WRITE_OR_CONFLICT") from None
+        else:
+            tmp = katalog / (PLIK + ".tmp")
+            try:
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "wb") as out:
+                    out.write(surowe)
+                tmp.replace(katalog / PLIK)
+            finally:
+                tmp.unlink(missing_ok=True)
+        return wynik, rejestr.wersja
+
+
+def zrodla_sprawy(katalog):
+    """Teksty źródłowe z już zapisanej sprawy. Id źródła nie zawiera nazwiska."""
+    katalog = _katalog(katalog)
+    plik = katalog / "transkrypcje.json"
+    strony = json.loads(plik.read_text("utf-8")) if plik.exists() else []
+    wynik = {}
+    for indeks, s in enumerate(strony):
+        for typ in ("tresc", "tekst_pdf"):
+            tekst = s.get(typ, "")
+            if not isinstance(tekst, str) or not tekst.strip():
+                continue
+            oid = hashlib.sha256(f"{indeks}:{typ}:{s.get('dokument','')}:{s.get('strona',1)}".encode()).hexdigest()
+            wynik[oid] = {"strona": int(s.get("strona", 1)), "typ": typ,
+                          "tekst": tekst, "sha256": hashlib.sha256(tekst.encode()).hexdigest()}
+    return wynik
+
+
+def sprawdz_zrodla(katalog, zrodla, osoba):
+    """Potwierdzone zakresy muszą wskazywać aktualne źródło w tej sprawie."""
+    dostepne = zrodla_sprawy(katalog)
+    fragmenty = []
+    for z in zrodla:
+        s = dostepne.get(z.dokument_id)
+        if (s is None or s["strona"] != z.strona or s["sha256"] != z.sha256
+                or z.do > len(s["tekst"])):
+            raise WymagaWeryfikacji("IDENTITY_SOURCE_STALE")
+        fragmenty.append(s["tekst"][z.od:z.do])
+    calosc = " ".join(fragmenty)
+    from pseudonimizacja_aktu import _norm, _cyfry
+    if not any(_norm(n) in _norm(calosc) for n in osoba.nazwy()):
+        raise WymagaWeryfikacji("NAME_NOT_IN_EVIDENCE")
+    if osoba.pesel and _cyfry(osoba.pesel) not in _cyfry(calosc):
+        raise WymagaWeryfikacji("PESEL_NOT_IN_EVIDENCE")
