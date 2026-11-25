@@ -20,10 +20,20 @@ oraz wygasly i odwolany. Usługi chronione = pozycje katalogu `wymaga_dostepu` /
 - Bramka `moze_uzyc`: tylko indywidualna sesja (nie demo, serwis ani komputer), status „skonfigurowany", ważna decyzja,
   zgoda, klucz w sejfie. Wygaśnięcie decyzji i odwołanie blokują natychmiast.
 
-## Czego tu NIE ma (zależy od zewnętrznych elementów)
-1. Prawdziwy weryfikator podpisu (EU trusted list, CRL/OCSP, status w chwili podpisu): potrzebny zatwierdzony QTSP/biblioteka
-   (np. oparta o DSS); nie piszę własnej kryptografii ani własnego QTSP. Port jest gotowy, testy używają atrapy.
-2. Adapter wykazu KRN - do czasu GOV-09 (czy istnieje oficjalne API) zostaje ręczne potwierdzenie przez operatora.
-3. Sejf: implementacja na AWS Secrets Manager wymaga zgody i zmian AWS (poza zakresem PR #137).
-4. Trwały magazyn statusów, endpointy i ekran w aplikacji - po decyzji o bazie (dane osobowe, pytanie do właściciela).
-5. Podpięcie `rznp.py` i `edoreczenia_*` do bramki `moze_uzyc` - po pkt 1-4.
+## Wersja produkcyjna (AWS, eu-central-1)
+- Zasady PR #137 o wyłączeniu AWS uchylone decyzją właściciela (25.11.2026): budujemy docelowo produkcyjnie.
+- `infra/notarai-rejestry.yaml` (+ `infra/7-wdroz-rejestry.ps1`): klucz KMS z rotacją, tabela `notarai-rejestry`
+  (SSE-KMS, PITR, TTL `wygasa`, Retain, tylko Frankfurt), polityka roli `notarai-ecs-zadanie` (bez Scan/Query;
+  sejf tylko pod `notarai/rejestry/*`). cfn-lint czysty. NIE wdrożone - czeka na potwierdzenie (reguła RODO w CLAUDE.md).
+- `aktywacja_aws.py`: `DynamoMagazyn` (challenge jako skrót nonce, atomowe zużycie przez warunkowe usunięcie, statusy z wersją
+  i zapisem warunkowym, wiązanie tożsamości transakcją "wszystko albo nic") i `SejfSecretsManager` (klucz per kancelaria,
+  osoba i usługa; `ma_klucz` nie czyta wartości). W bazie i nazwach sekretów tylko skróty SHA-256, bez e-maili.
+- `aktywacja_router.py` (`/api/aktywacja/...`, wpięty w `app.py`): status, wniosek, challenge, złożenie z podpisem, wgranie klucza,
+  odwołanie; administrator: `admin/przyznaj` (decyzja instytucji) i `admin/krn`. Tylko indywidualna sesja.
+- Testy: moto (DynamoDB, Secrets Manager) + router; CI instaluje `moto==5.2.6`.
+
+## Czego jeszcze NIE ma
+1. Weryfikator podpisu kwalifikowanego (lista zaufania UE, CRL/OCSP): bez niego `zloz` zwraca 503 - świadomie nie przepuszcza
+   niezweryfikowanego podpisu. Wymaga wyboru biblioteki/QTSP (np. DSS) i podpięcia do `aktywacja_router.WERYFIKATOR`.
+2. Oficjalne API KRN (GOV-09): do tego czasu administrator potwierdza status zawodowy ręcznie (`admin/krn`).
+3. Ekran w aplikacji dla tych endpointów i podpięcie adapterów `rznp.py` / `edoreczenia_*` do bramki `moze_uzyc`.

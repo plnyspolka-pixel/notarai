@@ -125,3 +125,14 @@ def test_odwolanie_wygasniecie_brak_klucza_rotacja():
 def test_nie_chroniona_usluga_nie_ma_aktywacji():
     a, _, _ = nowy()
     with pytest.raises(ar.BladAktywacji): a.wystaw_challenge("s", "k", "e", "krs")
+
+def test_nieudane_wiazanie_nie_zostawia_sladu():
+    a, w, _ = nowy(); zlozony(a)               # osoba-A związana z k1/a@x
+    w.kto = "osoba-B"; a.przygotuj_wniosek("k1", "a@x", "pesel")
+    n = a.wystaw_challenge("s1", "k1", "a@x", "pesel")
+    with pytest.raises(ar.BladAktywacji): a.zloz_z_podpisem("s1", "k1", "a@x", "pesel", n, n.encode(), True)
+    # tożsamość B nie została przypadkiem zablokowana na koncie a@x - może założyć własne konto
+    w.kto = "osoba-B"; K.czynni.add("osoba-B")
+    a.przygotuj_wniosek("k1", "b@x", "rznp")
+    n = a.wystaw_challenge("s1", "k1", "b@x", "rznp")
+    a.zloz_z_podpisem("s1", "k1", "b@x", "rznp", n, n.encode(), True)

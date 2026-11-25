@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - magazyn aktywacji rejestrow panstwowych (statusy per notariusz, challenge),
+  klucz KMS i uprawnienia roli zadania do sejfu kluczy w Secrets Manager.
+  Tylko eu-central-1. W bazie i w nazwach sekretow wylacznie skroty SHA-256 (bez e-maili).
+
+Parameters:
+  RolaZadania:
+    Type: String
+    Default: notarai-ecs-zadanie
+    Description: Rola zadania ECS aplikacji (stos notarai-aplikacja), ktora dostaje dostep do magazynu i sejfu.
+
+Rules:
+  TylkoFrankfurt:
+    Assertions:
+      - Assert: !Equals [!Ref "AWS::Region", eu-central-1]
+        AssertDescription: Zasoby z danymi osobowymi wylacznie w eu-central-1 (RODO).
+
+Resources:
+  Klucz:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: notarai - szyfrowanie magazynu aktywacji rejestrow i kluczy notariuszy
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AdministracjaKonta
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: kms:*
+            Resource: "*"
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  AliasKlucza:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/notarai-rejestry
+      TargetKeyId: !Ref Klucz
+
+  Tabela:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: notarai-rejestry
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt Klucz.Arn
+      TimeToLiveSpecification:
+        AttributeName: wygasa
+        Enabled: true
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  # Dostep kodu aplikacji. Bez Scan i bez Query: tylko operacje na kluczach.
+  UprawnieniaZadania:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaZadania
+      PolicyName: notarai-rejestry
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: MagazynAktywacji
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:DeleteItem
+              - dynamodb:UpdateItem
+              - dynamodb:ConditionCheckItem
+            Resource: !GetAtt Tabela.Arn
+          - Sid: SejfKluczyNotariuszy
+            Effect: Allow
+            Action:
+              - secretsmanager:CreateSecret
+              - secretsmanager:PutSecretValue
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+              - secretsmanager:DeleteSecret
+              - secretsmanager:TagResource
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/rejestry/*"
+          - Sid: KluczKms
+            Effect: Allow
+            Action:
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:GenerateDataKey
+              - kms:DescribeKey
+            Resource: !GetAtt Klucz.Arn
+
+Outputs:
+  Tabela:
+    Value: !Ref Tabela
+  AliasKlucza:
+    Value: alias/notarai-rejestry

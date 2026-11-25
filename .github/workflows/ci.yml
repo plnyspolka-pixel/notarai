@@ -35,6 +35,7 @@ jobs:
           grep -vE '^(faster-whisper|playwright)' requirements.txt > /tmp/notarai-requirements-ci.txt
           python -m pip install --upgrade pip
           python -m pip install -r /tmp/notarai-requirements-ci.txt
+          python -m pip install "moto[dynamodb,secretsmanager]==5.2.6"
       - name: Kompilacja modulow Python
         run: python -m compileall -q -x '(^|/)(\.git|\.venv|dane|build|dist)/' .
       - name: Sprawdz skladnie skryptow i HTML

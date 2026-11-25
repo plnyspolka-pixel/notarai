@@ -80,6 +80,7 @@ import asystent_kancelarii
 import pulpit_ai
 import word_addin
 import rejestry_panstwowe_router
+import aktywacja_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -150,6 +151,7 @@ app.include_router(agent_glosowy.router)
 app.include_router(pulpit_ai.router)
 app.include_router(word_addin.router)
 app.include_router(rejestry_panstwowe_router.router)
+app.include_router(aktywacja_router.router)
 app.middleware("http")(kalkulator.cors)
 
 
