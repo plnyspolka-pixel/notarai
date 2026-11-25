@@ -68,3 +68,23 @@ def propozycje(tekst, nlp=None):
         for e in nlp(tekst).ents:
             wynik.append(DaneDodatkowe(e.start_char, e.end_char, "PII"))
     return sorted(wynik, key=lambda w: (w.poczatek, w.koniec, w.typ))
+
+
+def przygotuj_strone(strona):
+    """Renderuj i czytaj lokalnie, także PDF z mieszaną warstwą tekstową.
+
+    Nie ufamy samej warstwie PDF (może pomijać obrazy albo zawierać inny
+    tekst). Obie wersje pozostają w sprawie do przeglądu. OCR nie zastępuje
+    ręcznej oceny układu tabel, pieczęci, podpisów ani pisma odręcznego.
+    """
+    import dokumenty
+    obraz, tekst_pdf = dokumenty._wczytaj_strone(strona)
+    try:
+        wynik = ocr_png(dokumenty._na_png(obraz))
+    finally:
+        obraz.close()
+    return {"dokument": strona["dokument"], "strona": strona["strona"],
+            "typ": "nieustalony", "nr_kw": None, "poczatek": False,
+            "numeracja": None, "dzial": None, "tresc": wynik.tekst,
+            "tekst_pdf": tekst_pdf, "niska_pewnosc": wynik.niska_pewnosc,
+            "wymaga_weryfikacji": True}
