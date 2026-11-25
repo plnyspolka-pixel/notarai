@@ -54,7 +54,7 @@ _WZORY = (
     ("NUMER", r"(?<!\d)\d(?:[ \t-]*\d){8,13}(?!\d)"),
     ("PASZPORT", r"(?<!\w)[A-Z]{2}[ \t-]*\d{7}(?!\w)"),
     ("IBAN", r"(?<!\w)[A-Z]{2}\d{2}(?:[ \t-]*[A-Z0-9]){11,30}(?!\w)"),
-    ("PESEL_OCR", r"(?i:\bPESEL\b)[ \t:=.-]*[0-9OIl](?:[ \t-]*[0-9OIl]){10}(?!\w)"),
+    ("PESEL_OCR", r"(?i:\bPESEL\b)[ \t:=.-]*(?P<wartosc>[0-9OIl](?:[ \t-]*[0-9OIl]){10})(?!\w)"),
     ("DATA", r"(?<!\d)(?:0?[1-9]|[12]\d|3[01])[./-](?:0?[1-9]|1[0-2])[./-](?:19|20)\d{2}(?!\d)"),
     ("ADRES", r"\b(?:ul\.|ulica|al\.|aleja|os\.|osiedle|plac)[ \t]+[^\n,;]{1,100}?[ \t]+\d+[A-Za-z]?(?:/\d+[A-Za-z]?)?(?!\w)"),
     ("IP", r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)"),
@@ -68,7 +68,7 @@ def propozycje(tekst, nlp=None):
     nlp: opcjonalny, lokalny i wcześniej zweryfikowany model spaCy.
     Zwracamy także nakładające się propozycje; człowiek rozstrzyga zakresy.
     """
-    wynik = [DaneDodatkowe(m.start(), m.end(), typ)
+    wynik = [DaneDodatkowe(*m.span('wartosc' if 'wartosc' in m.groupdict() else 0), typ)
              for typ, wzor in _WZORY for m in re.finditer(wzor, tekst, re.I)]
     if nlp is not None:
         for e in nlp(tekst).ents:
