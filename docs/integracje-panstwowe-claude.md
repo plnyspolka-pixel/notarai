@@ -165,3 +165,17 @@ Weryfikacja EIP i rzeczywistej trasy wychodzącej z kontenera, oddzielenie
 test/produkcja, lista dozwolonych IP, ewentualne MPLS, ochrona sekretów
 i ocena 3×Zero. Nie podawać adresu load balancera jako adresu wychodzącego.
 Nie tworzyć zasobów ani zmieniać konfiguracji w tym zadaniu.
+
+## Zweryfikowane źródła integracyjne – 25.11.2026
+
+- RZNP: aktualna strona udostępniania danych wskazuje dokumentację i stub 2.0.8; starsza strona ogólna wymienia 1.0.68. Przyjąć nowszą stronę jako punkt odniesienia, sprawdzić zawartość ZIP. Wniosek o klucz TEST można złożyć niezależnie od zgody produkcyjnej: cc.wnioski@coi.gov.pl. Nie jest wymagany pilotaż kancelarii do prac nad kontraktem.
+- e-Doręczenia: https://www.gov.pl/web/e-doreczenia/interfejsy-api (aktualizacja 28.10.2026). UA API 3.0.8 dla INT i PROD; SE API 4.0.5 (również 3.0.11 i 2.0.9). Publiczny kontrakt UA: https://edoreczenia.poczta-polska.pl/wp-content/uploads/2026/05/uaapi_3.0.8.2.zip ; projekt techniczny https://edoreczenia.poczta-polska.pl/wp-content/uploads/2025/09/COI-Projekt-Techniczny-UA-API_5.27-1.pdf . INT: https://int.edoreczenia.gov.pl/dokumentacja , zgłoszenie integratora test.edoreczenia@cyfra.gov.pl. Pełne materiały INT po przyznaniu dostępu. Publiczny ZIP wskazany przez MC jako produkcyjny, nie zakładać identyczności wszystkich ustawień INT.
+- GIIF: https://giif.mofnet.gov.pl/api/ — publiczne REST, mTLS, schematy, statusy i UPO. MF potwierdza wykorzystanie tego interfejsu w e-Notariuszu: https://podatki.gov.pl/enotariusz . Rozwijać istniejące giif.py, giif_xml.py, giif_xsd i zadania NA, nie tworzyć drugiego klienta obok nich.
+- PESEL: https://www.gov.pl/web/gov/uzyskaj-dostep-do-rejestru-pesel ; RDO: https://www.gov.pl/web/gov/uzyskaj-dostep-do-rejestru-dowodow-osobistych . Dokumentacja techniczna przekazywana wskazanemu kontaktowi technicznemu. RDP: https://www.gov.pl/web/cyfryzacja/udostepnienie-danych-z-rejestru-dokumentow-paszportowych . Nie implementować z domniemanych endpointów.
+- mObywatel: https://www.gov.pl/web/cyfryzacja/informacje-o-aplikacji-mobywatel oraz https://wspolpraca.mobywatel.gov.pl/ . Ścieżka integratora usługi przekazywania danych, zgoda klienta na przekazanie. Nie zakładać publicznego kontraktu bez uzyskania dokumentacji.
+- REGON: https://api.stat.gov.pl/Home/RegonApi ; CEIDG: https://pliki.biznes.gov.pl/akademia/Hurtownia_danych/HD%20CEIDG%20-%20API%20v3%20HD%20-%20Dokumentacja%20dla%20integrator%C3%B3w%20v1.0.pdf . Zweryfikować aktualne wersje i ewentualne istniejące integracje przed implementacją.
+- KW: https://eli.gov.pl/api/acts/DU/2024/1401/text.html ; KRN: https://www.krn.org.pl/rejestry-notarialne/crewan . Potwierdzono oficjalne procedury/systemy, nie odnaleziono publicznego kontraktu integracyjnego. To nie dowodzi, że interfejs nie istnieje.
+
+ZIP RZNP oraz UA wskazane w oficjalnych źródłach, lecz zawartości nie pobrano w środowisku autora (brak obsługi ZIP przez przeglądanie, brak DNS w kontenerze). Pobrać w środowisku z dostępem do Internetu; nie odtwarzać kontraktów z domysłów.
+
+Decyzja zakresowa: nie budować generatora pism, dodatkowego systemu korespondencji ani pilotażu w tym etapie. Skrypty audytowe pozostają pomocnicze poza runtime tylko na czas zebrania dowodów P0. Po wykorzystaniu rozważyć ich usunięcie, jeżeli nie będą potrzebne do powtarzalnych audytów. Nie modyfikować zadań AWS w trakcie pracy Claude'a.
