@@ -84,7 +84,7 @@ class RejestrSprawy:
 
     def sesja(self):
         self._sprawdz_zakres()
-        return SesjaPseudonimizacji(tuple(w.osoba for w in self.wpisy.values()))
+        return SesjaPseudonimizacji(tuple(w.osoba for w in self.wpisy.values()), sprawa=self.sprawa)
 
     def do_zapisu(self):
         self._sprawdz_zakres()
