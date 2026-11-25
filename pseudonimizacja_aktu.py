@@ -105,6 +105,11 @@ class SesjaPseudonimizacji:
             k = _cyfry(k)
         return tuple(sorted(self._aliasy.get(k, ())))
 
+    def kandydaci_roli(self, rola: str) -> tuple[str, ...]:
+        """Rola nie jest tozsamoscia. Wynik wymaga oceny kontekstu wzmianki."""
+        return tuple(sorted(o.id for o in self.osoby
+                            if _norm(rola) in {_norm(r) for r in o.role}))
+
     def _token(self, wartosc: str, osoba_id: str | None, typ: str) -> str:
         if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,23}", typ):
             raise WymagaWeryfikacji("INVALID_FIELD_TYPE")
@@ -128,12 +133,23 @@ class SesjaPseudonimizacji:
         Niejednoznaczny alias zatrzymuje operację, chyba że dany zakres
         rozstrzygnął uprawniony użytkownik. Nie wykrywa nieznanych nazw.
         """
-        if "[[NA_" in tekst:
+        if re.search(r"\[\[\s*NA(?:_|[\s-])", tekst, re.I) or self._nonce in tekst:
             raise WymagaWeryfikacji("TOKEN_IN_SOURCE")
         miejsca = []
         for w in potwierdzone:
             if w.osoba_id not in self._osoby:
                 raise WymagaWeryfikacji("UNKNOWN_PERSON")
+            if not 0 <= w.poczatek < w.koniec <= len(tekst):
+                raise WymagaWeryfikacji("INVALID_PERSON_SPAN")
+            fragment = tekst[w.poczatek:w.koniec]
+            if w.typ == "PESEL" and w.osoba_id not in self.kandydaci(fragment):
+                raise WymagaWeryfikacji("PESEL_PERSON_CONFLICT")
+            if w.typ == "ROLA" and w.osoba_id not in self.kandydaci_roli(fragment):
+                raise WymagaWeryfikacji("ROLE_PERSON_CONFLICT")
+            if w.typ == "NAZWA":
+                kandydaci = self.kandydaci(fragment)
+                if kandydaci and w.osoba_id not in kandydaci:
+                    raise WymagaWeryfikacji("NAME_PERSON_CONFLICT")
             miejsca.append((w.poczatek, w.koniec, w.osoba_id, w.typ))
         for d in dodatkowe:
             miejsca.append((d.poczatek, d.koniec, d.osoba_id, d.typ))
@@ -192,7 +208,9 @@ class SesjaPseudonimizacji:
                 raise WymagaWeryfikacji("UNKNOWN_TOKEN")
             return self._tokeny[m.group()]
         # Sprawdź resztę przed odtworzeniem, nie po wstawieniu oryginalnych danych.
-        if "[[NA_" in wzor.sub("", tekst):
+        reszta = wzor.sub("", tekst)
+        if (re.search(r"\[\[\s*NA(?:_|[\s-])", reszta, re.I)
+                or self._nonce.casefold() in reszta.casefold()):
             raise WymagaWeryfikacji("MALFORMED_TOKEN")
         return wzor.sub(zamien, tekst)
 
