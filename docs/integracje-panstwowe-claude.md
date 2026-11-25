@@ -1,5 +1,7 @@
 # Integracje państwowe NotarAI – zadania wdrożeniowe dla Claude'a
 
+> **Obowiązkowy punkt wejścia:** [Macierz integracji państwowych](macierz-integracji-panstwowych.md) jest nadrzędnym rejestrem znanych faktów, wersji, dostępów, kodu i dowodów. Przed researchem lub implementacją przeczytaj odpowiedni wiersz; aktualizuj status w macierzy, a tutaj zachowuj zadania i kryteria akceptacji. Nie przedstawiaj starych ustaleń jako nowych odkryć.
+
 Stan: 25.11.2026. Zakres tego PR: bez zmian AWS, bez wysyłania pism,
 bez zakupów komercyjnych, bez dostępu do danych chronionych. Nie wprowadzać
 zmian ustawowych. Nie wykonywać rzeczywistych operacji w imieniu notariusza.
