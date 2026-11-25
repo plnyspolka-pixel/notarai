@@ -391,3 +391,12 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `straznik_poprawek.py`, `infra/notarai-samonaprawa.yaml`, `infra/buildspec-samonaprawa.yml`.
 - **Zamknięte, gdy:** test przeszedł na żywo (wdrożenie, obserwacja, mail, rekord rejestru), a wymuszone
   cofnięcie wróciło do poprzedniego tagu.
+
+## NA-18. Rejestry państwowe (PR #137) - GOV-01 RZNP na INT i dalsze GOV
+- **Stan 25.11.2026:** GOV-01 zrobione w kodzie (`rznp.py`, `test_rznp.py`, `docs/rznp-kontrakt.md`) na emulatorze.
+- **Potrzebne:** klucz API środowiska INT (wniosek na cc.wnioski@coi.gov.pl składa uprawniony człowiek), zgłoszony adres IP.
+- **Kroki:** test na INT na numerach z `test-data-usluga-weryfikacji.csv` (zastrzeżony, niezastrzeżony, nigdy niezarejestrowany),
+  potwierdzenie pola `status` vs `statusZastrzezenia`, uruchomienie oficjalnego stuba w izolacji.
+- **GOV-02...06:** wymagają materiałów/dostępów spoza tego środowiska (ULDK, mObywatel niedostępne z sieci sesji;
+  e-Doręczenia INT, podpis kwalifikowany, KRN) - robić po kolei z `docs/integracje-panstwowe-claude.md`.
+- **Zamknięte, gdy:** test INT przeszedł i wpis oznaczony `zrobione` z datą i commitem.
