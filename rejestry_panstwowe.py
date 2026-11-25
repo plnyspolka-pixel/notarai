@@ -62,20 +62,38 @@ def _wynik(zrodlo,dane):
             "dane":dane,"charakter":"Informacja z rejestru; nie zastępuje dokumentu urzędowego ani oceny notariusza."}
 
 POLA=("id","parcel","county","commune","region","voivodeship","datasource")
+_ID_DZIALKI=re.compile(r"[0-9]{6}_[0-9]\.[0-9]{4}\.(?:AR_[0-9]+\.)?[0-9]+(?:/[0-9]+)?")
+
 def dzialka(identyfikator,client):
-    if not re.fullmatch(r"\d{6}_\d\.\d{4}\.(?:AR_\d+\.)?\d+(?:/\d+)?",identyfikator):
-        raise ValueError("Podaj pełny identyfikator ewidencyjny działki.")
-    raw=_get("https://uldk.gugik.gov.pl/",{"request":"GetParcelById","id":identyfikator,"result":",".join(POLA)},client)
+    pelny=bool(_ID_DZIALKI.fullmatch(identyfikator))
+    if not pelny and (len(identyfikator)>64 or not re.fullmatch(r"[^\W\d_][\w .'-]* [0-9]+(?:/[0-9]+)?",identyfikator)):
+        raise ValueError("Podaj pełny identyfikator albo nazwę obrębu i numer działki, np. Krzewina 134.")
+    metoda="GetParcelById" if pelny else "GetParcelByIdOrNr"
+    raw=_get("https://uldk.gugik.gov.pl/",{"request":metoda,"id":identyfikator,"result":",".join(POLA)},client)
     try:
         lines=raw.decode("utf-8").strip().splitlines()
-        if len(lines)!=2 or lines[0].strip()!="0":
+        if not lines or not re.fullmatch(r"[0-9]{1,3}",lines[0].strip()):
             raise ValueError()
-        fields=lines[1].split("|")
-        if len(fields)!=len(POLA) or fields[0].strip()!=identyfikator:
+        count=int(lines[0].strip())
+        if (pelny and (count!=0 or len(lines)!=2)) or (not pelny and (count!=len(lines)-1 or count>200)):
             raise ValueError()
+        rekordy=[]
+        for line in lines[1:]:
+            fields=[x.strip() for x in line.split("|")]
+            if len(fields)!=len(POLA) or not _ID_DZIALKI.fullmatch(fields[0]):
+                raise ValueError()
+            rekordy.append(dict(zip(POLA,fields)))
+        if pelny:
+            if rekordy[0]["id"]!=identyfikator:
+                raise ValueError()
+            return _wynik("GUGiK – ULDK",rekordy[0])
+        numer=identyfikator.rsplit(" ",1)[1]
+        if len({r["id"] for r in rekordy})!=count or any(r["id"].rsplit(".",1)[1]!=numer for r in rekordy):
+            raise ValueError()
+        return _wynik("GUGiK – ULDK",{"liczba":count,"kandydaci":rekordy,"wymaga_wyboru":bool(count),
+            "uwaga":"Potwierdź pełny identyfikator działki przed użyciem danych."})
     except (ValueError,UnicodeError):
-        raise Niedostepny("Brak jednoznacznego wyniku ULDK; sprawdź identyfikator lub Geoportal.") from None
-    return _wynik("GUGiK – ULDK",dict(zip(POLA,fields)))
+        raise Niedostepny("Brak wiarygodnego wyniku ULDK; sprawdź dane lub Geoportal.") from None
 
 def _json(raw):
     try:
