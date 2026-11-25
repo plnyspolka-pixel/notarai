@@ -52,7 +52,12 @@ def main(argv: list[str] | None = None, klienci: dict | None = None) -> int:
         print(f"Test wdrozenia w kolejce: {odp['MessageId']} (potok podejmie go, gdy bedzie wolny)")
         return 0
     if a.przeglad:
-        wpis = wpis_zdarzenia("przeglad", {"zdarzenie": "przeglad"})
+        # Jak harmonogram: wprost do kolejki (zdarzenie "przeglad" nie pasuje do zadnej reguly EventBridge).
+        sqs = klienci.get("sqs") or _klient("sqs")
+        adres = sqs.get_queue_url(QueueName=KOLEJKA)["QueueUrl"]
+        odp = sqs.send_message(QueueUrl=adres, MessageBody=json.dumps({"ladunek": koduj({"zdarzenie": "przeglad"})}))
+        print(f"Przeglad w kolejce: {odp['MessageId']} (potok podejmie go, gdy bedzie wolny)")
+        return 0
     elif a.opis.strip():
         dane = zgl.oczysc({"uwagi": a.opis, "rodzaj": "reczne", "typ": "zgloszenie reczne", "wersja": "produkcja"})
         wpis = wpis_zdarzenia("zgloszenie", dane)

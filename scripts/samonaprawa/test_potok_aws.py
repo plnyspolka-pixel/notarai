@@ -1081,11 +1081,13 @@ class TestZdarzenia:
         assert wpis["DetailType"] == "zgloszenie" and szczegoly["rodzaj"] == "reczne" and len(szczegoly["odcisk"]) == 12
         assert json.loads(base64.b64decode(szczegoly["ladunek_b64"]))["uwagi"].startswith("Sporzadz")
 
-    def test_zglos_przeglad(self):
-        ev = MagicMock(); ev.put_events.return_value = {"FailedEntryCount": 0}
-        assert zg.main(["--przeglad"], {"events": ev}) == 0
-        szczegoly = json.loads(ev.put_events.call_args.kwargs["Entries"][0]["Detail"])
-        assert json.loads(base64.b64decode(szczegoly["ladunek_b64"])) == {"zdarzenie": "przeglad"}
+    def test_zglos_przeglad_idzie_do_kolejki_jak_harmonogram(self):
+        sqs = MagicMock()
+        sqs.get_queue_url.return_value = {"QueueUrl": "https://sqs/kolejka"}
+        sqs.send_message.return_value = {"MessageId": "m2"}
+        assert zg.main(["--przeglad"], {"sqs": sqs}) == 0
+        tresc = json.loads(sqs.send_message.call_args.kwargs["MessageBody"])
+        assert pt.odkoduj_ladunek(tresc["ladunek"]) == {"zdarzenie": "przeglad"} and "test" not in tresc
 
     def test_zglos_test_wchodzi_do_kolejki_z_trybem_testowym(self):
         sqs = MagicMock()
