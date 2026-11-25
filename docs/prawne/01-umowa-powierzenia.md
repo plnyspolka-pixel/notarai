@@ -126,10 +126,10 @@ co najmniej w formie dokumentowej:
    w zakresie nie mniejszym niż wynikający z art. 18 ustawy - Prawo
    o notariacie. Obowiązek ten trwa bezterminowo.
 3. Podmiot przetwarzający nie ma dostępu do treści spraw Administratora.
-   Usługa jest zbudowana tak, że ani osoby działające w imieniu Podmiotu
-   przetwarzającego, ani narzędzia administracyjne Usługi nie pozwalają
-   odczytać treści spraw. Jedynym wyjątkiem jest dostęp serwisowy, o którym
-   mowa w ust. 4.
+   Narzędzia administracyjne Usługi nie pozwalają odczytać treści spraw,
+   a magazyn spraw jest zabezpieczony politykami, które blokują odczyt także
+   administratorom konta AWS. Jedynym wyjątkiem jest dostęp serwisowy,
+   o którym mowa w ust. 4.
 4. Dostęp serwisowy do treści spraw jest dopuszczalny wyłącznie na żądanie
    Administratora, gdy Administrator włączy go w Usłudze. Dostęp serwisowy:
    1. włącza i odwołuje wyłącznie użytkownik Administratora z rolą
@@ -378,7 +378,7 @@ w pamięci i plikach tymczasowych usuwanych po zakończeniu operacji.
 
 ## Załącznik nr 2. Środki techniczne i organizacyjne
 
-Opis zgodny ze stanem Usługi na dzień 24.10.2026.
+Opis zgodny ze stanem Usługi na dzień 25.11.2026.
 
 ### A. Lokalizacja i infrastruktura
 
@@ -391,8 +391,9 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 3. W Amazon Bedrock nie jest włączone rejestrowanie wywołań modelu; AWS nie
    przechowuje treści zapytań ani odpowiedzi i nie używa ich do trenowania
    modeli; dostawca modelu nie ma do nich dostępu.
-4. Aplikacja działa w co najmniej dwóch kopiach w różnych strefach
-   dostępności, z automatycznym odtwarzaniem po awarii.
+4. Aplikacja działa w co najmniej jednej kopii z automatycznym odtwarzaniem
+   po awarii. W razie awarii strefy dostępności możliwa jest przerwa
+   w dostępie do czasu odtworzenia.
 
 ### B. Szyfrowanie
 
@@ -424,9 +425,11 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
    wdrożenia Fundacja zaleca Kancelarii długie, unikalne hasła.
 6. Aplikacja działa na roli IAM ograniczonej do magazynu spraw i wywołania
    modelu (zasada najmniejszych uprawnień).
-7. Dostęp administracyjny do konta AWS mają wyłącznie imiennie upoważnione
-   osoby Fundacji: Filip Robert Bielak, Prezes Zarządu. Konto główne AWS chronione uwierzytelnianiem
-   wieloskładnikowym (MFA) i nieużywane do pracy bieżącej.
+7. Dostęp administracyjny do konta AWS i infrastruktury Usługi mają wyłącznie
+   osoby imiennie upoważnione przez Fundację (§ 5 ust. 1 Umowy) oraz narzędzia
+   automatyzacji używane przez nie na ich polecenie. Wykaz tych osób Fundacja
+   udostępnia Administratorowi na żądanie. Konto główne AWS jest chronione
+   uwierzytelnianiem wieloskładnikowym (MFA) i nieużywane do pracy bieżącej.
 8. Sekrety (np. tokeny administracyjne) przechowywane w AWS Secrets Manager,
    nigdy w kodzie ani repozytorium.
 
@@ -522,7 +525,7 @@ Opis zgodny ze stanem Usługi na dzień 24.10.2026.
 
 | Podmiot | Siedziba | Zakres | Miejsce przetwarzania | Podstawa |
 |---|---|---|---|---|
-| Amazon Web Services EMEA SARL | 38 Avenue John F. Kennedy, L-1855 Luksemburg | hosting aplikacji (ECS Fargate, Elastic Load Balancing), magazyn plików (S3), logowanie użytkowników i wysyłka e-maili z zaproszeniami (Cognito), dzienniki (CloudWatch), przechowywanie sekretów, model językowy (Amazon Bedrock) | Frankfurt; dla modelu językowego wyłącznie regiony UE wybierane przez profil europejski (obecnie Frankfurt, Irlandia, Paryż, Sztokholm) | AWS Customer Agreement i AWS GDPR Data Processing Addendum |
+| Amazon Web Services EMEA SARL | 38 Avenue John F. Kennedy, L-1855 Luksemburg | hosting aplikacji (ECS Fargate, Elastic Load Balancing), magazyn plików (S3), logowanie użytkowników i wysyłka e-maili z zaproszeniami (Cognito), dzienniki (CloudWatch), przechowywanie sekretów, model językowy (Amazon Bedrock) | Frankfurt; dla modelu językowego wyłącznie regiony UE wybierane przez profil europejski (obecnie: Frankfurt - eu-central-1, Irlandia - eu-west-1, Paryż - eu-west-3, Sztokholm - eu-north-1, Mediolan - eu-south-1, Madryt - eu-south-2). Dopuszczalne regiony są dodatkowo ograniczone uprawnieniami technicznymi aplikacji; dodanie regionu wymaga zmiany niniejszego załącznika w trybie § 8 ust. 2 Umowy | AWS Customer Agreement i AWS GDPR Data Processing Addendum |
 
 Dostawca modelu językowego (Anthropic) **nie jest** dalszym podmiotem
 przetwarzającym: model jest uruchamiany w infrastrukturze AWS, a dostawca

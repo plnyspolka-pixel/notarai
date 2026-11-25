@@ -24,7 +24,7 @@ Czego notarai nie robi: nie tworzy dokumentu gotowego do podpisu bez sprawdzenia
 - Rejestracja samodzielnie na notarai.pl (przycisk "Załóż konto"). Umowę powierzenia przetwarzania danych i Regulamin akceptuje się przy rejestracji, bez papierów.
 
 ## Bezpieczeństwo i RODO (dla kancelarii)
-- Dane wyłącznie w Unii Europejskiej: sprawy w AWS we Frankfurcie, model AI (Claude w Amazon Bedrock) w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm.
+- Dane wyłącznie w Unii Europejskiej: sprawy w AWS we Frankfurcie, model AI (Claude w Amazon Bedrock) w regionach UE: Frankfurt, Irlandia, Paryż, Sztokholm, Mediolan i Madryt.
 - Model niczego nie zapamiętuje: rejestrowanie wywołań w Bedrock wyłączone, AWS nie używa treści do trenowania.
 - Opcja "pliki tylko u kancelarii" - sprawy zapisują się w folderze na komputerze kancelarii.
 - Szyfrowanie AES-256, transmisja TLS, wersjonowanie plików, kopia zapasowa wygasa po 21 dniach.
