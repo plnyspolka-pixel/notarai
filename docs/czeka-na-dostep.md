@@ -400,3 +400,5 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **GOV-02...06:** wymagają materiałów/dostępów spoza tego środowiska (ULDK, mObywatel niedostępne z sieci sesji;
   e-Doręczenia INT, podpis kwalifikowany, KRN) - robić po kolei z `docs/integracje-panstwowe-claude.md`.
 - **Zamknięte, gdy:** test INT przeszedł i wpis oznaczony `zrobione` z datą i commitem.
+- **GOV-02 (e-Doręczenia):** kod uwierzytelnienia i bezpiecznej wysyłki gotowy (`docs/edoreczenia-gov02.md`); czeka na zgłoszenie INT
+  (Zał. 2a na test.edoreczenia@cyfra.gov.pl), pliki `ua_api.yaml` / `se_api.yaml` i testy INT.
