@@ -26,6 +26,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 import config
+import bedrock_chroniony
 import dokumenty
 import prompty
 import tokenomia
@@ -116,7 +117,18 @@ def _klient():
             else:
                 sesja = boto3.Session(region_name=config.REGION)
             _klient_bedrock = sesja.client("bedrock-runtime", config=_ustawienia)
+        if bedrock_chroniony.chroniony():
+            return bedrock_chroniony.ChronionyKlient(_klient_bedrock)
         return _klient_bedrock
+
+
+def rozmowa_chroniona(sesja, system, tury, max_tokenow=3000):
+    """Wewnetrzny tor dla uprawnionego, przejrzanego tekstu; bez fallbacku."""
+    wynik, uzycie = bedrock_chroniony.rozmowa(
+        _klient(), sesja, system, tury, model=config.MODEL,
+        max_tokenow=max_tokenow)
+    tokenomia.dolicz(config.MODEL, uzycie)
+    return wynik
 
 
 class Przeciazenie(RuntimeError):
@@ -233,6 +245,7 @@ def _strumien(zadanie: dict) -> tuple[list[str], str | None, dict]:
     czesci: list[str] = []
     powod = None
     uzycie: dict = {}
+    bedrock_chroniony.sprawdz("converse_stream", zadanie)
     odpowiedz = _klient().converse_stream(**zadanie)
     for zdarzenie in odpowiedz["stream"]:
         if "contentBlockDelta" in zdarzenie:
@@ -968,6 +981,7 @@ def tura_z_narzedziami(system: str, wiadomosci: list[dict], narzedzia: list[dict
         zadanie["additionalModelRequestFields"] = dodatkowe
     for proba in range(1, PROB_WYWOLANIA + 1):
         try:
+            bedrock_chroniony.sprawdz("converse", zadanie)
             odpowiedz = _klient().converse(**zadanie)
             break
         except ClientError as blad:
