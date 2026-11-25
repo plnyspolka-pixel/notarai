@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import magazyn
 from pseudonimizacja_aktu import WymagaWeryfikacji
 from pseudonimizacja_lokalna import propozycje
+from pseudonimizacja_nlp import propozycje_ner
 
 
 def chroniony():
@@ -54,6 +55,33 @@ class PrzejrzanyTekst:
         reszta = re.sub(r"\[\[NA_[^\[\]\n]*\]\]", " [MASKA] ", wynik)
         if propozycje(reszta):
             raise WymagaWeryfikacji("UNMASKED_IDENTIFIER_REVIEW")
+        # NER pracuje na oryginale, a nie na znacznikach (które zaburzają
+        # kontekst). Weryfikujemy pokrycie każdego wykrytego zakresu.
+        pokrycie = []
+        pos = 0
+        ostatni = 0
+        for m in re.finditer(r"\[\[NA_[^\[\]\n]*\]\]", wynik):
+            pos += m.start() - ostatni
+            wartosc = sesja.przywroc(m.group())
+            pokrycie.append((pos, pos + len(wartosc)))
+            pos += len(wartosc)
+            ostatni = m.end()
+        if sesja.przywroc(wynik) != self.tekst:
+            raise WymagaWeryfikacji("MASK_ROUNDTRIP_FAILED")
+        for z in propozycje_ner(self.tekst):
+            kursor = z.poczatek
+            for a, b in pokrycie:
+                if a > kursor:
+                    # Białe znaki między osobnymi tokenami są dopuszczalne.
+                    if self.tekst[kursor:min(a, z.koniec)].strip():
+                        break
+                    kursor = a
+                if a <= kursor < b:
+                    kursor = b
+                if kursor >= z.koniec:
+                    break
+            if kursor < z.koniec and self.tekst[kursor:z.koniec].strip():
+                raise WymagaWeryfikacji("UNMASKED_NER_ENTITY_REVIEW")
         return wynik
 
 
