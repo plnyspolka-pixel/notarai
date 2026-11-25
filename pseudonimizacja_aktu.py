@@ -12,6 +12,7 @@ import unicodedata
 from collections import defaultdict
 
 import walidacja
+import magazyn
 
 
 class WymagaWeryfikacji(ValueError):
@@ -73,6 +74,9 @@ class SesjaPseudonimizacji:
     Przekazywać do modelu tylko wynik pseudonimizuj(), nigdy obiekt sesji.
     """
     osoby: tuple[Osoba, ...]
+    sprawa: str = ""
+    _tenant: str = field(default_factory=magazyn.kancelaria, init=False)
+    _zamknieta: bool = field(default=False, init=False)
     _nonce: str = field(default_factory=lambda: secrets.token_hex(8), init=False)
     _osoby: dict = field(default_factory=dict, init=False)
     _aliasy: dict = field(default_factory=dict, init=False)
@@ -98,8 +102,15 @@ class SesjaPseudonimizacji:
                 aliasy[p].add(o.id)
         self._aliasy = dict(aliasy)
 
+    def sprawdz_zakres(self, sprawa: str | None = None):
+        if self._zamknieta or self._tenant != magazyn.kancelaria():
+            raise WymagaWeryfikacji("SESSION_SCOPE_MISMATCH")
+        if sprawa is not None and self.sprawa != sprawa:
+            raise WymagaWeryfikacji("SESSION_CASE_MISMATCH")
+
     def kandydaci(self, nazwa: str) -> tuple[str, ...]:
         """Propozycja dopasowania, nigdy scalenie dwóch rekordów."""
+        self.sprawdz_zakres()
         k = _norm(nazwa)
         if re.fullmatch(r"[0-9\s-]+", k):
             k = _cyfry(k)
@@ -107,6 +118,7 @@ class SesjaPseudonimizacji:
 
     def kandydaci_roli(self, rola: str) -> tuple[str, ...]:
         """Rola nie jest tozsamoscia. Wynik wymaga oceny kontekstu wzmianki."""
+        self.sprawdz_zakres()
         return tuple(sorted(o.id for o in self.osoby
                             if _norm(rola) in {_norm(r) for r in o.role}))
 
@@ -133,6 +145,7 @@ class SesjaPseudonimizacji:
         Niejednoznaczny alias zatrzymuje operację, chyba że dany zakres
         rozstrzygnął uprawniony użytkownik. Nie wykrywa nieznanych nazw.
         """
+        self.sprawdz_zakres()
         if re.search(r"\[\[\s*NA(?:_|[\s-])", tekst, re.I) or self._nonce in tekst:
             raise WymagaWeryfikacji("TOKEN_IN_SOURCE")
         miejsca = []
@@ -202,6 +215,7 @@ class SesjaPseudonimizacji:
 
     def przywroc(self, tekst: str) -> str:
         """Odtwarza tylko dokładne tokeny tej sesji. Nie ufa nowym tokenom."""
+        self.sprawdz_zakres()
         wzor = re.compile(r"\[\[NA_[^\[\]\n]*\]\]")
         def zamien(m):
             if m.group() not in self._tokeny:
@@ -221,3 +235,4 @@ class SesjaPseudonimizacji:
         self._aliasy.clear()
         self._osoby.clear()
         self.osoby = ()
+        self._zamknieta = True
