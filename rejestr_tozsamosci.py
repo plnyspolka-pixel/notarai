@@ -228,7 +228,9 @@ def sprawdz_zrodla(katalog, zrodla, osoba):
         fragmenty.append(s["tekst"][z.od:z.do])
     calosc = " ".join(fragmenty)
     from pseudonimizacja_aktu import _norm, _cyfry
-    if not any(_norm(n) in _norm(calosc) for n in osoba.nazwy()):
+    if not any(re.search(r"(?<!\w)" + re.escape(_norm(n)) + r"(?!\w)", _norm(calosc))
+               for n in osoba.nazwy()):
         raise WymagaWeryfikacji("NAME_NOT_IN_EVIDENCE")
-    if osoba.pesel and _cyfry(osoba.pesel) not in _cyfry(calosc):
+    if osoba.pesel and not re.search(r"(?<!\d)" + r"[\s-]*".join(_cyfry(osoba.pesel))
+                                      + r"(?!\d)", calosc):
         raise WymagaWeryfikacji("PESEL_NOT_IN_EVIDENCE")
