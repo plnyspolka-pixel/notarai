@@ -92,9 +92,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 
 ## Samonaprawa (decyzja właściciela 23.11.2026)
 
-- Opis: `docs/samonaprawa.md`. Błąd na produkcji -> `samonaprawa.py` -> GitHub
-  `.github/workflows/samonaprawa.yml` -> agent naprawczy -> bramki -> agent
-  recenzent -> scalenie i wdrożenie -> 20 min obserwacji -> cofnięcie przy nawrocie.
+- Opis: `docs/samonaprawa.md`. Błąd na produkcji -> `samonaprawa.py` -> zdarzenie
+  EventBridge -> CodeBuild `notarai-samonaprawa` (`scripts/samonaprawa/potok.py`) ->
+  agent naprawczy -> bramki -> agent recenzent -> wdrożenie z AWS -> 20 min
+  obserwacji -> cofnięcie poprzednim tagiem przy nawrocie. Działa bez GitHub Actions;
+  poprawka trafia do repozytorium best effort, a do czasu zapisu nakłada ją straż
+  w `wdrozenie.yml`. Stary `samonaprawa.yml` jest tylko ręcznym awaryjnym.
 - Automatyczne wdrożenia na produkcję są dozwolone WYŁĄCZNIE przez potok AWS
   (stos `notarai-samonaprawa`, CodeBuild `notarai-samonaprawa`,
   `scripts/samonaprawa/potok.py`; bramki bez zmian) i WYŁĄCZNIE po bramkach `scripts/samonaprawa/bramki.py`: test
@@ -112,9 +115,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zbudowane = włączone: zmiana zrobiona na prośbę notariusza włącza się sama
   w jego kancelarii po wdrożeniu (raport agenta `ustawienie`, aplikacja
   `asystent_kancelarii.odswiez_prosby`) - bez drugiego polecenia.
-- Właściciel nie czyta kodu: każde powiadomienie (e-mail SNS, zgłoszenie
-  GitHub) mówi po ludzku, co się psuło, co naprawiono i co kliknąć w aplikacji.
-- Wyłącznik: zmienna repozytorium `SAMONAPRAWA` = `auto` | `pr` | `wylaczona`.
+- Właściciel nie czyta kodu: każde powiadomienie (e-mail SNS, rekord
+  w DynamoDB) mówi po ludzku, co się psuło, co naprawiono i co kliknąć w aplikacji.
+- Wyłącznik: parametr SSM `/notarai/samonaprawa/tryb` = `auto` | `pr` | `wylaczona`.
 - Zgłoszenia i znaczniki błędów bez danych osobowych (tylko
   `dziennik.opis_bledu` po `maskuj`). Agent działa na sesji AWS ograniczonej
   do Bedrock w UE, bez tokenu GitHub i bez dostępu do danych spraw.
