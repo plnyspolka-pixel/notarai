@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - staly publiczny adres wyjsciowy (egress) dla rejestrow panstwowych
+  (RZNP, e-Doreczenia INT, ULDK). Adres (EIP) jest trwaly i chroniony przed
+  usunieciem. Brama NAT jest wlaczana parametrem tylko na czas testow i
+  pomiarow, zeby nie placic za nia caly miesiac. Region eu-central-1. Bez danych
+  osobowych. Nie dotyka uslugi aplikacji ani jej podsieci.
+
+# Wdrozenie (identyfikatory VPC i podsieci publicznej podaje sie w poleceniu,
+# nie w repozytorium):
+#   aws cloudformation deploy --stack-name notarai-egress \
+#     --template-file infra/notarai-egress.yaml --region eu-central-1 \
+#     --parameter-overrides VpcId=<vpc> PodsiecPubliczna=<podsiec w strefie Strefa> NatWlaczony=true
+# Wylaczenie bramy (adres zostaje): to samo polecenie z NatWlaczony=false.
+# Pomiar: aws ecs run-task z definicja z wyjscia ZadaniePomiaru (zob. docs/czeka-na-dostep.md, NA-18).
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC, w ktorym powstaje prywatna podsiec wyjscia.
+  PodsiecPubliczna:
+    Type: AWS::EC2::Subnet::Id
+    Description: Istniejaca podsiec publiczna w strefie Strefa; tu stoi brama NAT.
+  Strefa:
+    Type: String
+    Default: eu-central-1a
+    Description: Strefa dostepnosci prywatnej podsieci i bramy NAT.
+  PodsiecPrywatnaCidr:
+    Type: String
+    Default: 172.31.48.0/24
+    Description: Wolny blok adresow w VPC dla prywatnej podsieci wyjscia.
+  NatWlaczony:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Czy brama NAT istnieje. Adres EIP zostaje niezaleznie od tej wartosci.
+
+Conditions:
+  NatIstnieje: !Equals [!Ref NatWlaczony, "true"]
+
+Resources:
+  # Ten adres trafia do formularzy urzedow. Retain: usuniecie stosu go nie zwolni.
+  AdresWyjsciowy:
+    Type: AWS::EC2::EIP
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Domain: vpc
+      Tags:
+        - { Key: Name, Value: notarai-egress }
+
+  PodsiecWyjscia:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: !Ref PodsiecPrywatnaCidr
+      AvailabilityZone: !Ref Strefa
+      MapPublicIpOnLaunch: false
+      Tags:
+        - { Key: Name, Value: notarai-egress-prywatna }
+
+  TabelaTrasWyjscia:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - { Key: Name, Value: notarai-egress }
+
+  SkojarzenieTras:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PodsiecWyjscia
+      RouteTableId: !Ref TabelaTrasWyjscia
+
+  BramaNat:
+    Type: AWS::EC2::NatGateway
+    Condition: NatIstnieje
+    Properties:
+      AllocationId: !GetAtt AdresWyjsciowy.AllocationId
+      SubnetId: !Ref PodsiecPubliczna
+      Tags:
+        - { Key: Name, Value: notarai-egress }
+
+  # Bez bramy tabela nie ma trasy do internetu: z podsieci wyjscia nie wychodzi nic.
+  TrasaPrzezNat:
+    Type: AWS::EC2::Route
+    Condition: NatIstnieje
+    Properties:
+      RouteTableId: !Ref TabelaTrasWyjscia
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref BramaNat
+
+  GrupaPomiaru:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: notarai-egress pomiar - tylko HTTPS na zewnatrz, brak ruchu przychodzacego
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+      Tags:
+        - { Key: Name, Value: notarai-egress-pomiar }
+
+  LogiPomiaru:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/notarai-egress-pomiar
+      RetentionInDays: 14
+
+  # Zadanie pomiarowe: pyta zaufany serwis diagnostyczny AWS, jaki adres widzi.
+  # Nie wysyla zadnych danych ani sekretow i nie laczy sie z rejestrami.
+  ZadaniePomiaru:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: notarai-egress-pomiar
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-ecs-wykonawcza"
+      ContainerDefinitions:
+        - Name: pomiar
+          Image: public.ecr.aws/amazonlinux/amazonlinux:2023
+          Essential: true
+          Command:
+            - sh
+            - -c
+            - curl -fsS --max-time 20 https://checkip.amazonaws.com
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogiPomiaru
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: pomiar
+
+Outputs:
+  AdresEgress:
+    Description: Staly publiczny IPv4 do formularzy (RZNP, INT, ULDK).
+    Value: !Ref AdresWyjsciowy
+  PodsiecWyjscia:
+    Value: !Ref PodsiecWyjscia
+  GrupaPomiaru:
+    Value: !Ref GrupaPomiaru
+  ZadaniePomiaru:
+    Value: !Ref ZadaniePomiaru

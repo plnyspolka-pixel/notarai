@@ -391,3 +391,28 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   `straznik_poprawek.py`, `infra/notarai-samonaprawa.yaml`, `infra/buildspec-samonaprawa.yml`.
 - **Zamknięte, gdy:** test przeszedł na żywo (wdrożenie, obserwacja, mail, rekord rejestru), a wymuszone
   cofnięcie wróciło do poprzedniego tagu.
+
+
+## NA-18. Stały adres wyjściowy i dowody do wniosków do urzędów (stan 25.11.2026)
+
+- **Status:** adres TEST zmierzony i gotowy do formularzy; reszta czeka na decyzje właściciela.
+- **Zrobione (stos `notarai-egress`, `infra/notarai-egress.yaml`):** trwały EIP (Retain) i prywatna podsieć
+  wyjścia w strefie `eu-central-1a`; brama NAT włączana parametrem `NatWlaczony` tylko na czas testów
+  (adres zostaje, gdy brama jest wyłączona). Pomiar z zadania w podsieci: 2 z 2 wskazały EIP, także po
+  zniszczeniu i odtworzeniu bramy; bez bramy brak jakiegokolwiek wyjścia. Adres nie jest zapisany w repozytorium
+  (jest w `Outputs` stosu i w prywatnym pakiecie dowodów).
+- **Brakuje:**
+  1. Komponentu (adapter RZNP, e-Doręczenia INT, ULDK), który uruchomi się w podsieci wyjścia; dziś jest tylko
+     zadanie pomiarowe. Przed testem z rejestrem włączyć NAT (`NatWlaczony=true`), bo adres działa tylko wtedy.
+  2. PROD: osobna decyzja o adresie i wysokiej dostępności (NAT lub proxy w drugiej strefie), po uzyskaniu podstawy
+     prawnej (RZNP PROD, certyfikat kwalifikowany INT PROD).
+  3. Danych Fundacji w formularzach (KRS, reprezentant, kontakty, podpis), klasyfikacji EZD/ZSU u COI.
+  4. Odczytu strony ULDK z sieci bez ograniczeń (procedura niepotwierdzona).
+- **Zablokowane modele (do wdrożenia):** kod i szablon IAM (`infra/notarai-s3.yaml`) ograniczają Bedrock do
+  `config.ZATWIERDZONE_MODELE`. Szablon jest NIEWDROŻONY: wdrożyć stos `notarai-s3`, a po wdrożeniu sprawdzić
+  jednym wywołaniem, że aplikacja widzi oba modele. Nowy model dopisać dopiero po gwarancji zerowej retencji.
+- **Umowa powierzenia:** poprawki gotowe w gałęzi (zał. 2 A i C, zał. 3, § 5 ust. 3); publikacja po powiadomieniu
+  kancelarii o zmianie zał. 3 (30 dni, § 8 ust. 2) i po ustaleniu daty wersji. Wymagane imienne upoważnienia
+  osób z dostępem administracyjnym (§ 5 ust. 1 pkt 1) w formie dokumentowej.
+- **Zamknięte, gdy:** wnioski TEST złożone z potwierdzonym adresem, adapter działa w podsieci wyjścia, a umowa
+  jest opublikowana po powiadomieniu.
