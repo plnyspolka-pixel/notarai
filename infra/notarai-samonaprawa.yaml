@@ -338,29 +338,140 @@ Resources:
         - Key: projekt
           Value: notarai
 
-  RolaZdarzen:
+  # Kolejka zgloszen: CodeBuild odrzuca start, gdy projekt jest zajety (limit 1 rownolegle),
+  # wiec zdarzenia lada najpierw w SQS, a funkcja kolejki startuje po jednym buildzie.
+  # Zajety projekt = wiadomosc wraca do kolejki po czasie widocznosci (2 min) i jest ponawiana
+  # do 24 h; potem trafia do kolejki martwych wiadomosci z alarmem.
+  KolejkaMartwe:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: notarai-samonaprawa-martwe
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  Kolejka:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: notarai-samonaprawa-kolejka
+      VisibilityTimeout: 120
+      MessageRetentionPeriod: 345600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt KolejkaMartwe.Arn
+        maxReceiveCount: 720
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  PolitykaKolejki:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref Kolejka
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoReguleSamonaprawy
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt Kolejka.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn:
+                  - !GetAtt RegulaZgloszen.Arn
+                  - !GetAtt RegulaZatwierdzen.Arn
+                  - !GetAtt RegulaPrzegladu.Arn
+
+  LogiKolejki:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/notarai-samonaprawa-kolejka
+      RetentionInDays: 30
+
+  RolaKolejki:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: notarai-samonaprawa-zdarzenia
-      Description: notarai - EventBridge uruchamia projekt notarai-samonaprawa
+      RoleName: notarai-samonaprawa-kolejka
+      Description: notarai - funkcja kolejki startuje build potoku samonaprawy
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              Service: events.amazonaws.com
+              Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
       Policies:
-        - PolicyName: start-potoku
+        - PolicyName: kolejka-samonaprawy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${LogiKolejki.Arn}:*"
+              - Effect: Allow
                 Action: codebuild:StartBuild
                 Resource: !GetAtt ProjektSamonaprawy.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt Kolejka.Arn
+
+  FunkcjaKolejki:
+    Type: AWS::Lambda::Function
+    DependsOn: LogiKolejki
+    Properties:
+      FunctionName: notarai-samonaprawa-kolejka
+      Description: notarai - start potoku samonaprawy z kolejki (zajety projekt = ponowienie)
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt RolaKolejki.Arn
+      Environment:
+        Variables:
+          PROJEKT: !Ref ProjektSamonaprawy
+      Tags:
+        - Key: projekt
+          Value: notarai
+      Code:
+        ZipFile: |
+          # KOLEJKA-START
+          import json
+          import os
+
+          import boto3
+
+          cb = boto3.client("codebuild")
+
+
+          def handler(event, context):
+              for rekord in event["Records"]:
+                  wiadomosc = json.loads(rekord["body"])
+                  env = [{"name": "SN_LADUNEK", "value": wiadomosc["ladunek"], "type": "PLAINTEXT"}]
+                  if wiadomosc.get("test"):
+                      env.append({"name": "SN_TEST_WDROZENIA", "value": "1", "type": "PLAINTEXT"})
+                  # Wyjatek (np. AccountLimitExceededException, gdy potok jest zajety) konczy
+                  # wywolanie bledem: wiadomosc nie jest kasowana i wroci po czasie widocznosci.
+                  cb.start_build(projectName=os.environ["PROJEKT"], environmentVariablesOverride=env)
+          # KOLEJKA-KONIEC
+
+  MapowanieKolejki:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt Kolejka.Arn
+      FunctionName: !Ref FunkcjaKolejki
+      BatchSize: 1
+      ScalingConfig:
+        MaximumConcurrency: 2
 
   # Zdarzenie z aplikacji: blad kodu albo prosba kancelarii (source notarai.samonaprawa).
   RegulaZgloszen:
@@ -379,16 +490,12 @@ Resources:
             - reczne
       State: ENABLED
       Targets:
-        - Id: potok
-          Arn: !GetAtt ProjektSamonaprawy.Arn
-          RoleArn: !GetAtt RolaZdarzen.Arn
-          RetryPolicy:
-            MaximumRetryAttempts: 100
-            MaximumEventAgeInSeconds: 21600
+        - Id: kolejka
+          Arn: !GetAtt Kolejka.Arn
           InputTransformer:
             InputPathsMap:
               ladunek: $.detail.ladunek_b64
-            InputTemplate: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"<ladunek>","type":"PLAINTEXT"}]}'
+            InputTemplate: '{"ladunek":"<ladunek>"}'
 
   # Zatwierdzenie poprawki przez wlasciciela. Zdarzenie jest tylko wyzwalaczem:
   # potok sprawdza flage zatwierdzenia w DynamoDB (aplikacja nie ma dostepu do tabeli).
@@ -404,16 +511,12 @@ Resources:
           - zatwierdzenie
       State: ENABLED
       Targets:
-        - Id: potok
-          Arn: !GetAtt ProjektSamonaprawy.Arn
-          RoleArn: !GetAtt RolaZdarzen.Arn
-          RetryPolicy:
-            MaximumRetryAttempts: 100
-            MaximumEventAgeInSeconds: 21600
+        - Id: kolejka
+          Arn: !GetAtt Kolejka.Arn
           InputTransformer:
             InputPathsMap:
               ladunek: $.detail.ladunek_b64
-            InputTemplate: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"<ladunek>","type":"PLAINTEXT"}]}'
+            InputTemplate: '{"ladunek":"<ladunek>"}'
 
   # Przeglad znacznikow bledow (siatka bezpieczenstwa) i ponowienie zapisu poprawek w repozytorium.
   RegulaPrzegladu:
@@ -424,10 +527,9 @@ Resources:
       ScheduleExpression: !Ref HarmonogramPrzegladu
       State: ENABLED
       Targets:
-        - Id: potok
-          Arn: !GetAtt ProjektSamonaprawy.Arn
-          RoleArn: !GetAtt RolaZdarzen.Arn
-          Input: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"eyJ6ZGFyemVuaWUiOiAicHJ6ZWdsYWQifQ==","type":"PLAINTEXT"}]}'
+        - Id: kolejka
+          Arn: !GetAtt Kolejka.Arn
+          Input: '{"ladunek":"eyJ6ZGFyemVuaWUiOiAicHJ6ZWdsYWQifQ=="}'
 
   # Potok sam sie wywrocil albo przekroczyl czas: mail, nawet gdy kod potoku nie zdazyl go wyslac.
   AlarmPotoku:
@@ -448,6 +550,42 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!Ref TematAlarmow]
 
+  AlarmMartweWiadomosci:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-samonaprawa-martwe-wiadomosci
+      AlarmDescription: Zgloszenie samonaprawy nie dalo sie uruchomic przez 24 h i trafilo do kolejki martwych wiadomosci. Sprawdz projekt CodeBuild notarai-samonaprawa.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt KolejkaMartwe.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref TematAlarmow]
+
+  AlarmZaleglosciKolejki:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-samonaprawa-zaleglosc-kolejki
+      AlarmDescription: Zgloszenie samonaprawy czeka w kolejce ponad godzine (potok zajety dlugo albo nie startuje).
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt Kolejka.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3600
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref TematAlarmow]
+
 Outputs:
   ProjektSamonaprawy:
     Description: Projekt CodeBuild potoku samonaprawy
@@ -461,3 +599,6 @@ Outputs:
   RolaAgenta:
     Description: Rola agenta (sama Bedrock)
     Value: !GetAtt RolaAgenta.Arn
+  KolejkaZgloszen:
+    Description: Kolejka zgloszen samonaprawy (SQS)
+    Value: !Ref Kolejka

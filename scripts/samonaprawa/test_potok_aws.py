@@ -1087,13 +1087,16 @@ class TestZdarzenia:
         szczegoly = json.loads(ev.put_events.call_args.kwargs["Entries"][0]["Detail"])
         assert json.loads(base64.b64decode(szczegoly["ladunek_b64"])) == {"zdarzenie": "przeglad"}
 
-    def test_zglos_test_startuje_build_z_trybem_testowym(self):
-        cb = MagicMock(); cb.start_build.return_value = {"build": {"id": "notarai-samonaprawa:1"}}
-        assert zg.main(["--test"], {"codebuild": cb}) == 0
-        arg = cb.start_build.call_args.kwargs
-        env = {e["name"]: e["value"] for e in arg["environmentVariablesOverride"]}
-        assert arg["projectName"] == "notarai-samonaprawa" and env["SN_TEST_WDROZENIA"] == "1"
-        assert pt.odkoduj_ladunek(env["SN_LADUNEK"])["rodzaj"] == "reczne"
+    def test_zglos_test_wchodzi_do_kolejki_z_trybem_testowym(self):
+        sqs = MagicMock()
+        sqs.get_queue_url.return_value = {"QueueUrl": "https://sqs/kolejka"}
+        sqs.send_message.return_value = {"MessageId": "m1"}
+        assert zg.main(["--test"], {"sqs": sqs}) == 0
+        assert sqs.get_queue_url.call_args.kwargs == {"QueueName": "notarai-samonaprawa-kolejka"}
+        arg = sqs.send_message.call_args.kwargs
+        tresc = json.loads(arg["MessageBody"])
+        assert arg["QueueUrl"] == "https://sqs/kolejka" and tresc["test"] is True
+        assert pt.odkoduj_ladunek(tresc["ladunek"])["rodzaj"] == "reczne"
 
     def test_zglos_bez_opisu_to_blad(self):
         with pytest.raises(SystemExit):
@@ -1188,11 +1191,44 @@ class TestInfraSamonaprawy:
         assert self.S["Parameters"]["HarmonogramPrzegladu"]["Default"] == "rate(30 minutes)" and p["ScheduleExpression"] == "HarmonogramPrzegladu"
         for regula in (z, a):
             cel = regula["Targets"][0]
+            assert cel["Arn"] == "Kolejka.Arn" and "RoleArn" not in cel      # do kolejki, nie wprost do CodeBuild
             assert cel["InputTransformer"]["InputPathsMap"] == {"ladunek": "$.detail.ladunek_b64"}
             szablon_wejscia = json.loads(cel["InputTransformer"]["InputTemplate"].replace("<ladunek>", "QQ=="))
-            assert szablon_wejscia["environmentVariablesOverride"][0]["name"] == "SN_LADUNEK"
-        stale = json.loads(p["Targets"][0]["Input"])["environmentVariablesOverride"][0]["value"]
+            assert szablon_wejscia == {"ladunek": "QQ=="}
+        assert p["Targets"][0]["Arn"] == "Kolejka.Arn"
+        stale = json.loads(p["Targets"][0]["Input"])["ladunek"]
         assert pt.odkoduj_ladunek(stale) == {"zdarzenie": "przeglad"}
+
+    def test_kolejka_ponawia_do_24_h_potem_martwe_wiadomosci_z_alarmami(self):
+        k = self.R["Kolejka"]["Properties"]
+        assert k["SqsManagedSseEnabled"] is True and k["VisibilityTimeout"] == 120
+        # 720 odbiorow co 2 minuty = 24 h ponawiania zajetego potoku, potem kolejka martwych
+        assert k["RedrivePolicy"]["maxReceiveCount"] == 720
+        assert k["RedrivePolicy"]["deadLetterTargetArn"] == "KolejkaMartwe.Arn"
+        assert self.R["KolejkaMartwe"]["Properties"]["MessageRetentionPeriod"] >= 1209600
+        m = self.R["MapowanieKolejki"]["Properties"]
+        assert m["BatchSize"] == 1 and m["EventSourceArn"] == "Kolejka.Arn"
+        for alarm in ("AlarmMartweWiadomosci", "AlarmZaleglosciKolejki"):
+            a = self.R[alarm]["Properties"]
+            assert a["Namespace"] == "AWS/SQS" and a["AlarmActions"] == ["TematAlarmow"]
+        assert self.R["AlarmMartweWiadomosci"]["Properties"]["Threshold"] == 1
+        assert self.R["AlarmZaleglosciKolejki"]["Properties"]["Threshold"] == 3600
+
+    def test_kolejka_przyjmuje_tylko_trzy_reguly_samonaprawy(self):
+        st = self.R["PolitykaKolejki"]["Properties"]["PolicyDocument"]["Statement"][0]
+        assert st["Principal"] == {"Service": "events.amazonaws.com"} and st["Action"] == "sqs:SendMessage"
+        assert sorted(st["Condition"]["ArnEquals"]["aws:SourceArn"]) == [
+            "RegulaPrzegladu.Arn", "RegulaZatwierdzen.Arn", "RegulaZgloszen.Arn"]
+
+    def test_rola_funkcji_kolejki_tylko_start_potoku_i_odczyt_kolejki(self):
+        akcje = {}
+        for st in self.R["RolaKolejki"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]:
+            lista = st["Action"] if isinstance(st["Action"], list) else [st["Action"]]
+            akcje[st["Resource"] if isinstance(st["Resource"], str) else str(st["Resource"])] = sorted(lista)
+        assert akcje["ProjektSamonaprawy.Arn"] == ["codebuild:StartBuild"]
+        assert akcje["Kolejka.Arn"] == ["sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ReceiveMessage"]
+        assert not any(a.startswith(("iam:", "s3:", "dynamodb:", "secretsmanager:", "bedrock:"))
+                       for l in akcje.values() for a in l)
 
     def test_prefiks_i_brak_pauz_w_nazwach_zasobow(self):
         for zasob in self.R.values():
@@ -1260,3 +1296,42 @@ def test_skrypt_postepu_bez_kopii_narzedzi_bierze_skrypt_z_paczki(tmp_path):
     brak.mkdir()
     (brak / "postep.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
     assert pt.skrypt_postepu(brak) == brak / "postep.sh"   # kopia sprzed agenta ma pierwszenstwo
+
+
+class TestFunkcjaKolejki:
+    @staticmethod
+    def _handler(klient, monkeypatch):
+        tekst = _szablon_tekst("notarai-samonaprawa.yaml")
+        kod = tekst.split("# KOLEJKA-START\n", 1)[1].split("# KOLEJKA-KONIEC", 1)[0]
+        kod = "\n".join(l[10:] if l.startswith(" " * 10) else l for l in kod.splitlines())
+        import types
+        monkeypatch.setitem(sys.modules, "boto3", types.SimpleNamespace(client=lambda nazwa: klient))
+        przestrzen = {}
+        exec(compile(kod, "kolejka_lambda", "exec"), przestrzen)      # noqa: S102 - kod z naszego szablonu
+        return przestrzen["handler"]
+
+    @staticmethod
+    def _zdarzenie(tresc):
+        return {"Records": [{"body": json.dumps(tresc)}]}
+
+    def test_startuje_build_z_ladunkiem(self, monkeypatch):
+        monkeypatch.setenv("PROJEKT", "notarai-samonaprawa")
+        cb = MagicMock()
+        self._handler(cb, monkeypatch)(self._zdarzenie({"ladunek": "QQ=="}), None)
+        arg = cb.start_build.call_args.kwargs
+        assert arg["projectName"] == "notarai-samonaprawa"
+        assert arg["environmentVariablesOverride"] == [{"name": "SN_LADUNEK", "value": "QQ==", "type": "PLAINTEXT"}]
+
+    def test_tryb_testowy_dodaje_zmienna(self, monkeypatch):
+        monkeypatch.setenv("PROJEKT", "notarai-samonaprawa")
+        cb = MagicMock()
+        self._handler(cb, monkeypatch)(self._zdarzenie({"ladunek": "QQ==", "test": True}), None)
+        nazwy = [e["name"] for e in cb.start_build.call_args.kwargs["environmentVariablesOverride"]]
+        assert nazwy == ["SN_LADUNEK", "SN_TEST_WDROZENIA"]
+
+    def test_zajety_potok_to_wyjatek_wiec_wiadomosc_wraca_do_kolejki(self, monkeypatch):
+        monkeypatch.setenv("PROJEKT", "notarai-samonaprawa")
+        cb = MagicMock()
+        cb.start_build.side_effect = RuntimeError("AccountLimitExceededException: limit 1")
+        with pytest.raises(RuntimeError):
+            self._handler(cb, monkeypatch)(self._zdarzenie({"ladunek": "QQ=="}), None)

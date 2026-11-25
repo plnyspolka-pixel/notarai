@@ -237,3 +237,16 @@ inaczej, a asystent (Claude przez Bedrock, narzędzia Converse):
   ponawianie przez EventBridge.
 - Paczka źródeł wersji z produkcji musi istnieć w S3. Gdy produkcja stoi na wersji starszej niż
   90 dni i nie ma kopii, potok kończy się czytelnym błędem; wtedy wystarczy zwykłe wdrożenie.
+
+## Kolejka zgloszen (25.11.2026)
+
+CodeBuild odrzuca start, gdy projekt `notarai-samonaprawa` jest zajety (limit 1 rownolegle), wiec
+zgloszenia nie trafiaja do niego wprost. Reguly EventBridge (zgloszenia, zatwierdzenia, przeglad)
+wrzucaja je do kolejki SQS `notarai-samonaprawa-kolejka`, a funkcja Lambda
+`notarai-samonaprawa-kolejka` startuje po jednym buildzie. Gdy potok jest zajety, start konczy sie
+bledem i wiadomosc wraca do kolejki po 2 minutach; ponawianie trwa do 24 h (720 odbiorow), potem
+wiadomosc laduje w `notarai-samonaprawa-martwe`. Alarmy (mail SNS `notarai-alarmy`): wiadomosc w
+kolejce martwych (`notarai-samonaprawa-martwe-wiadomosci`) i zgloszenie czekajace w kolejce ponad
+godzine (`notarai-samonaprawa-zaleglosc-kolejki`). Powtorzone zgloszenia tego samego bledu potok
+i tak pomija (limit prob i data zamkniecia w DynamoDB), wiec zaleglosc nie powoduje wielokrotnych napraw.
+`zglos.py --test` rowniez idzie przez kolejke.
