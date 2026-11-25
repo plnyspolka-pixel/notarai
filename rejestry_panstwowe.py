@@ -43,9 +43,9 @@ def katalog():
 class Niedostepny(RuntimeError):
     pass
 
-def _get(url, params, client):
+def _get(url, params, client, *, timeout=12):
     try:
-        with client.stream("GET",url,params=params,timeout=12,follow_redirects=False) as r:
+        with client.stream("GET",url,params=params,timeout=timeout,follow_redirects=False) as r:
             if r.status_code != 200:
                 raise Niedostepny("Źródło nie zwróciło poprawnej odpowiedzi.")
             buf = bytearray()
@@ -69,7 +69,7 @@ def dzialka(identyfikator,client):
     if not pelny and (len(identyfikator)>64 or not re.fullmatch(r"[^\W\d_][\w .'-]* [0-9]+(?:/[0-9]+)?",identyfikator)):
         raise ValueError("Podaj pełny identyfikator albo nazwę obrębu i numer działki, np. Krzewina 134.")
     metoda="GetParcelById" if pelny else "GetParcelByIdOrNr"
-    raw=_get("https://uldk.gugik.gov.pl/",{"request":metoda,"id":identyfikator,"result":",".join(POLA)},client)
+    raw=_get("https://uldk.gugik.gov.pl/",{"request":metoda,"id":identyfikator,"result":",".join(POLA)},client,timeout=12 if pelny else 30)
     try:
         lines=raw.decode("utf-8").strip().splitlines()
         if not lines or not re.fullmatch(r"[0-9]{1,3}",lines[0].strip()):
