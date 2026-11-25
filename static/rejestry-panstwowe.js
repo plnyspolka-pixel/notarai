@@ -26,7 +26,10 @@
     const pole=r("rp-id"), usluga=r("rp-usluga").value;
     pole.placeholder=usluga==="uldk"?"np. Krzewina 134 lub pełny identyfikator":usluga==="krs"?"10 cyfr KRS":"10 cyfr NIP";
   }
-  r("rp-usluga").addEventListener("change",()=>{podpowiedz();r("rp-wynik").replaceChildren();});
+  let wersjaZapytania=0;
+  function uniewaznij(){wersjaZapytania++;r("rp-wynik").replaceChildren();}
+  r("rp-usluga").addEventListener("change",()=>{podpowiedz();uniewaznij();});
+  for(const id of ["rp-id","rp-data","rp-rejestr"]) r(id).addEventListener("input",uniewaznij);
   podpowiedz();
   function pokaz(d,usluga){
     const wynik=r("rp-wynik"), dane=d.dane;
@@ -52,6 +55,7 @@
   r("rp-form").addEventListener("submit",async event=>{
     event.preventDefault();
     const wynik=r("rp-wynik"),btn=r("rp-szukaj");
+    const wersja=++wersjaZapytania;
     btn.disabled=true;wynik.textContent="Pobieranie…";
     try{
       const usluga=r("rp-usluga").value;
@@ -59,7 +63,7 @@
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({identyfikator:r("rp-id").value.trim(),data:r("rp-data").value,rejestr:r("rp-rejestr").value,potwierdzam:true})
       });
-      if(r("rp-usluga").value===usluga) pokaz(d,usluga);
-    }catch(e){wynik.textContent=e.message;}finally{btn.disabled=false;}
+      if(wersja===wersjaZapytania && r("rp-usluga").value===usluga) pokaz(d,usluga);
+    }catch(e){if(wersja===wersjaZapytania) wynik.textContent=e.message;}finally{btn.disabled=false;}
   });
 })();
