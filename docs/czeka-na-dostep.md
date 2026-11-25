@@ -402,3 +402,4 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Zamknięte, gdy:** test INT przeszedł i wpis oznaczony `zrobione` z datą i commitem.
 - **GOV-02 (e-Doręczenia):** kod uwierzytelnienia i bezpiecznej wysyłki gotowy (`docs/edoreczenia-gov02.md`); czeka na zgłoszenie INT
   (Zał. 2a na test.edoreczenia@cyfra.gov.pl), pliki `ua_api.yaml` / `se_api.yaml` i testy INT.
+- **GOV-03 (aktywacja):** rdzeń i testy gotowe (`docs/aktywacja-rejestrow-gov03.md`); czeka na weryfikator podpisu kwalifikowanego (QTSP), sejf i decyzję o trwałym magazynie.
