@@ -64,10 +64,20 @@ def _wynik(zrodlo,dane):
 POLA=("id","parcel","county","commune","region","voivodeship","datasource")
 _ID_DZIALKI=re.compile(r"[0-9]{6}_[0-9]\.[0-9]{4}\.(?:AR_[0-9]+\.)?[0-9]+(?:/[0-9]+)?")
 
+def poprawny_id(usluga, identyfikator):
+    if not isinstance(identyfikator,str) or not 1<=len(identyfikator)<=64:
+        return False
+    if usluga in ("krs","vat"):
+        return bool(re.fullmatch(r"[0-9]{10}",identyfikator))
+    if usluga=="uldk":
+        return bool(_ID_DZIALKI.fullmatch(identyfikator) or
+                    re.fullmatch(r"[^\W\d_][\w .'-]* [0-9]+(?:/[0-9]+)?",identyfikator))
+    return False
+
 def dzialka(identyfikator,client):
-    pelny=bool(_ID_DZIALKI.fullmatch(identyfikator))
-    if not pelny and (len(identyfikator)>64 or not re.fullmatch(r"[^\W\d_][\w .'-]* [0-9]+(?:/[0-9]+)?",identyfikator)):
+    if not poprawny_id("uldk",identyfikator):
         raise ValueError("Podaj pełny identyfikator albo nazwę obrębu i numer działki, np. Krzewina 134.")
+    pelny=bool(_ID_DZIALKI.fullmatch(identyfikator))
     metoda="GetParcelById" if pelny else "GetParcelByIdOrNr"
     raw=_get("https://uldk.gugik.gov.pl/",{"request":metoda,"id":identyfikator,"result":",".join(POLA)},client,timeout=12 if pelny else 30)
     try:
@@ -105,7 +115,7 @@ def _json(raw):
         raise Niedostepny("Niepoprawny format odpowiedzi.") from None
 
 def krs(numer,client,rejestr="P"):
-    if not re.fullmatch(r"[0-9]{10}",numer) or rejestr not in ("P","S"):
+    if not poprawny_id("krs",numer) or rejestr not in ("P","S"):
         raise ValueError("Podaj 10 cyfr KRS i rodzaj rejestru P lub S.")
     d=_json(_get("https://api-krs.ms.gov.pl/api/krs/OdpisAktualny/"+numer,{"rejestr":rejestr,"format":"json"},client))
     if not isinstance(d.get("odpis"),dict):
@@ -113,7 +123,7 @@ def krs(numer,client,rejestr="P"):
     return _wynik("Ministerstwo Sprawiedliwości – KRS",d)
 
 def vat(nip,dzien,client):
-    if not re.fullmatch(r"[0-9]{10}",nip):
+    if not poprawny_id("vat",nip):
         raise ValueError("Podaj NIP (10 cyfr).")
     try:
         if date.fromisoformat(dzien).isoformat()!=dzien or date.fromisoformat(dzien)>date.today():
