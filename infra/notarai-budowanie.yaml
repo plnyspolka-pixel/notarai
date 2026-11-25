@@ -43,7 +43,8 @@ Resources:
           Value: notarai
 
   # Paczki zrodel dla CodeBuild. Zawieraja wylacznie zacommitowany kod
-  # (git archive), nigdy katalog dane/. Kasowane po 14 dniach.
+  # (git archive), nigdy katalog dane/. Kasowane po 90 dniach (samonaprawa w AWS
+  # bierze z nich kod wersji uruchomionej na produkcji).
   BucketZrodel:
     Type: AWS::S3::Bucket
     Properties:
@@ -64,7 +65,7 @@ Resources:
         Rules:
           - Id: stare-paczki
             Status: Enabled
-            ExpirationInDays: 14
+            ExpirationInDays: 90
       Tags:
         - Key: projekt
           Value: notarai

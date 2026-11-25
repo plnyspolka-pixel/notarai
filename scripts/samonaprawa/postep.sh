@@ -12,7 +12,7 @@ opis="${2:-}"
 wlacz="${WLACZ:-}"
 echo "$wlacz" | jq -e 'type=="object"' >/dev/null 2>&1 || wlacz="null"
 wartosc=$(jq -nc --arg e "$etap" --arg o "$opis" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg r "${GITHUB_RUN_ID:-}" --argjson w "$wlacz" \
+  --arg r "${PRZEBIEG:-${CODEBUILD_BUILD_ID:-${GITHUB_RUN_ID:-}}}" --argjson w "$wlacz" \
   '{etap: $e, opis: $o, czas: $t, przebieg: $r} + (if $w then {wlacz: $w} else {} end)')
 aws ssm put-parameter --name "/notarai/samonaprawa/${ODCISK}" --type String --overwrite \
   --value "$wartosc" >/dev/null 2>&1 || echo "::warning::nie zapisano postepu ($etap)"

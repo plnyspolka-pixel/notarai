@@ -142,6 +142,22 @@ Resources:
                 Effect: Allow
                 Action: secretsmanager:DescribeSecret
                 Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/samonaprawa-github-??????"
+              # Straznik poprawek samonaprawy (scripts/samonaprawa/straznik_poprawek.py):
+              # tylko odczyt rejestru poprawek i patchy, plus mail, gdy poprawka sie nie stosuje.
+              - Sid: RejestrPoprawekSamonaprawy
+                Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:GetItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/notarai-samonaprawa"
+              - Sid: PatchePoprawekSamonaprawy
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::notarai-samonaprawa-${AWS::AccountId}-${AWS::Region}/poprawki/*"
+              - Sid: PowiadomienieStraznika
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:notarai-alarmy"
               - Sid: HasloFtpsStrony
                 Effect: Allow
                 Action: secretsmanager:GetSecretValue
@@ -345,7 +361,8 @@ Resources:
                   - budgets:ListTagsForResource
                 Resource: !Sub "arn:aws:budgets::${AWS::AccountId}:budget/notarai-*"
 
-  # Rola .github/workflows/samonaprawa.yml (docs/samonaprawa.md). Osobna od
+  # Rola awaryjnego, recznego .github/workflows/samonaprawa.yml (domyslnie samonaprawa dziala
+  # w AWS - stos notarai-samonaprawa, docs/samonaprawa.md). Osobna od
   # wdrazania: nie buduje obrazow i nie zmienia stosow - wdrozenie idzie zwyklym
   # wdrozenie.yml po scaleniu. Agent dostaje z niej tylko sesje zawezona do
   # wywolan modelu (polityka sesji w scripts/samonaprawa/poswiadczenia.sh).

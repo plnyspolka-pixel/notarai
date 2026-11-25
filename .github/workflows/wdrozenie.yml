@@ -87,6 +87,13 @@ jobs:
           fi
           echo "TAG=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
 
+      # Poprawka wdrozona przez samonaprawe w AWS, ktorej nie ma jeszcze w master, nie moze
+      # zniknac przy zwyklym wdrozeniu (docs/samonaprawa.md, rejestr w DynamoDB). Straznik
+      # naklada poprawki na ten kod (git apply --3way, commit lokalny, bez pusha) i zmienia
+      # tag na <sha12>-sn<skrot>. Gdy poprawka sie nie stosuje: wdrozenie pada glosno + mail.
+      - name: Poprawki samonaprawy jeszcze nie w master (straznik)
+        run: python3 scripts/samonaprawa/straznik_poprawek.py --tag "$TAG" --zapisz-env "$GITHUB_ENV"
+
       - name: Obraz w CodeBuild
         run: |
           set -euo pipefail

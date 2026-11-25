@@ -1,0 +1,25 @@
+version: 0.2
+# Potok samonaprawy (docs/samonaprawa.md). Ta sama tresc jest wpisana w BuildSpec projektu
+# notarai-samonaprawa w infra/notarai-samonaprawa.yaml (test_samonaprawa_aws.py pilnuje zgodnosci).
+# Zrodlem kodu jest paczka WERSJI Z PRODUKCJI z S3 - bez GitHuba.
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+      nodejs: 20
+    commands:
+      - npm install -g --silent @anthropic-ai/claude-code
+      - id snagent >/dev/null 2>&1 || useradd -m -s /bin/bash snagent
+      - mkdir -p /tmp/sn && chmod 755 /tmp/sn
+  build:
+    on-failure: ABORT
+    commands:
+      - test -n "$SN_LADUNEK" || { echo "Brak SN_LADUNEK"; exit 1; }
+      - python3 -m pip install --quiet "boto3==1.44.9"
+      - |
+        obraz=$(aws ecs describe-task-definition --task-definition "$(aws ecs describe-services --cluster notarai --services notarai --query 'services[0].taskDefinition' --output text)" --query 'taskDefinition.containerDefinitions[0].image' --output text)
+        export SN_TAG_START="${obraz##*:}"
+        zrodla=$(aws cloudformation describe-stacks --stack-name notarai-budowanie --query "Stacks[0].Outputs[?OutputKey=='BucketZrodel'].OutputValue | [0]" --output text)
+        aws s3 cp "s3://$zrodla/notarai/zrodla-$SN_TAG_START.zip" /tmp/sn/baza.zip --only-show-errors || aws s3 cp "s3://$SN_BUCKET/zrodla/$SN_TAG_START.zip" /tmp/sn/baza.zip --only-show-errors
+        mkdir -p /tmp/boot && unzip -q /tmp/sn/baza.zip -d /tmp/boot
+        SN_KATALOG=/tmp/sn SN_ZIP_BAZY=/tmp/sn/baza.zip SN_AGENT_UZYTKOWNIK=snagent python3 /tmp/boot/scripts/samonaprawa/potok.py

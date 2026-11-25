@@ -1,0 +1,463 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai - samonaprawa w AWS (docs/samonaprawa.md). Tabela stanu DynamoDB,
+  bucket na poprawki, projekt CodeBuild notarai-samonaprawa (potok bez GitHub
+  Actions), rola agenta zawezona do wywolan modeli Bedrock oraz reguly
+  EventBridge: zdarzenia z aplikacji, przeglad co 30 minut i zatwierdzenia.
+  Tylko eu-central-1; zasoby z prefiksem notarai-.
+
+Parameters:
+  TematAlarmow:
+    Type: String
+    Default: arn:aws:sns:eu-central-1:127621462971:notarai-alarmy
+    Description: Temat SNS notarai-alarmy (powiadomienia po polsku dla wlasciciela)
+  Repozytorium:
+    Type: String
+    Default: plnyspolka-pixel/notarai
+    Description: Repozytorium GitHub, w ktorym potok zapisuje poprawki (best effort, nie jest wymagane do dzialania)
+  HarmonogramPrzegladu:
+    Type: String
+    Default: rate(30 minutes)
+    Description: Jak czesto potok przeglada znaczniki bledow w CloudWatch i ponawia zapis poprawek w repozytorium
+
+Resources:
+  # Stan samonaprawy: rekordy bledow, wdrozenia (limit na dobe) i rejestr poprawek
+  # wdrozonych na produkcje, a jeszcze nie w master. Zadnych danych osobowych.
+  Tabela:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: notarai-samonaprawa
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+      TimeToLiveSpecification:
+        AttributeName: wygasa
+        Enabled: true
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  # Patche poprawek (format-patch) i kopie paczek zrodel wersji z produkcji.
+  BucketPoprawek:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "notarai-samonaprawa-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: stare-poprawki
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  PolitykaBucketaPoprawek:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketPoprawek
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt BucketPoprawek.Arn
+              - !Sub "${BucketPoprawek.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  LogiPotoku:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/codebuild/notarai-samonaprawa
+      RetentionInDays: 30
+
+  # Rola potoku: najmniejsze uprawnienia do wdrozenia poprawki, obserwacji i powiadomien.
+  # Agent NIE dostaje tej roli - tylko sesje roli agenta (polityka sesji: sam Bedrock).
+  RolaPotoku:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-samonaprawa-codebuild
+      Description: notarai - potok samonaprawy w CodeBuild (wdrozenie poprawek, obserwacja, powiadomienia)
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: potok-samonaprawy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: LogiPotoku
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${LogiPotoku.Arn}:*"
+              # Znaczniki bledow aplikacji (bez danych klientow): historia, przeglad, obserwacja.
+              - Sid: ZnacznikiBledow
+                Effect: Allow
+                Action: logs:FilterLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/notarai:*"
+              - Sid: LogiBudowaniaObrazu
+                Effect: Allow
+                Action: logs:GetLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/notarai-obraz:*"
+              # Paczki zrodel: odczyt wersji z produkcji i zapis paczki poprawki (jak wdrozenie.yml).
+              - Sid: PaczkiZrodel
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::notarai-zrodla-${AWS::AccountId}/notarai/zrodla-*"
+              - Sid: PaczkiZrodelLista
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::notarai-zrodla-${AWS::AccountId}"
+                Condition:
+                  StringLike:
+                    s3:prefix: "notarai/zrodla-*"
+              - Sid: BucketPoprawek
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${BucketPoprawek.Arn}/*"
+              - Sid: BucketPoprawekLista
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt BucketPoprawek.Arn
+              - Sid: Budowanie
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/notarai-obraz"
+              - Sid: Obrazy
+                Effect: Allow
+                Action: ecr:DescribeImages
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/notarai"
+              - Sid: StosAplikacji
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListChangeSets
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/notarai-aplikacja/*"
+              - Sid: OdczytStosuBudowania
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/notarai-budowanie/*"
+              # Zmiany zasobow wykonuje rola CloudFormation, nie potok.
+              - Sid: PrzekazanieRoliCloudFormation
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-cloudformation"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: SprawdzenieWydania
+                Effect: Allow
+                Action: ecs:DescribeServices
+                Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:service/notarai/notarai"
+              - Sid: SprawdzenieDefinicji
+                Effect: Allow
+                Action: ecs:DescribeTaskDefinition
+                Resource: "*"
+              - Sid: Powiadomienia
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref TematAlarmow
+              # Postep naprawy (aplikacja czyta) i parametry sterujace tryb/model.
+              - Sid: PostepINastawy
+                Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/notarai/samonaprawa/*"
+              - Sid: Stan
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                Resource: !GetAtt Tabela.Arn
+              # Token synchronizacji z repozytorium (opcjonalny) i ARN sekretu dla parametru stosu.
+              - Sid: TokenSynchronizacji
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:notarai/samonaprawa-github-??????"
+              - Sid: SesjaAgenta
+                Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-samonaprawa-agent"
+
+  # Rola agenta: tylko modele Claude w UE. Potok przyjmuje ja z dodatkowa polityka sesji.
+  RolaAgenta:
+    Type: AWS::IAM::Role
+    DependsOn: RolaPotoku
+    Properties:
+      RoleName: notarai-samonaprawa-agent
+      Description: notarai - agent samonaprawy (wylacznie wywolania modeli Bedrock w UE)
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/notarai-samonaprawa-codebuild"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: model-agenta
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ModelAgenta
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:GetInferenceProfile
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.anthropic.*"
+                  - "arn:aws:bedrock:eu-*::foundation-model/anthropic.*"
+              - Sid: ProfileModeli
+                Effect: Allow
+                Action: bedrock:ListInferenceProfiles
+                Resource: "*"
+
+  ProjektSamonaprawy:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: notarai-samonaprawa
+      Description: notarai - potok samonaprawy (agent, bramki, recenzent, wdrozenie, obserwacja, cofniecie)
+      ServiceRole: !GetAtt RolaPotoku.Arn
+      TimeoutInMinutes: 180
+      QueuedTimeoutInMinutes: 480
+      # Jedna naprawa naraz (zastepuje concurrency workflow). Kolejne uruchomienia sa
+      # wstrzymywane; reguly EventBridge ponawiaja, a przeglad co 30 minut podejmie reszte.
+      ConcurrentBuildLimit: 1
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          # Potok samonaprawy (docs/samonaprawa.md). Ta sama tresc jest wpisana w BuildSpec projektu
+          # notarai-samonaprawa w infra/notarai-samonaprawa.yaml (test_samonaprawa_aws.py pilnuje zgodnosci).
+          # Zrodlem kodu jest paczka WERSJI Z PRODUKCJI z S3 - bez GitHuba.
+          phases:
+            install:
+              runtime-versions:
+                python: 3.12
+                nodejs: 20
+              commands:
+                - npm install -g --silent @anthropic-ai/claude-code
+                - id snagent >/dev/null 2>&1 || useradd -m -s /bin/bash snagent
+                - mkdir -p /tmp/sn && chmod 755 /tmp/sn
+            build:
+              on-failure: ABORT
+              commands:
+                - test -n "$SN_LADUNEK" || { echo "Brak SN_LADUNEK"; exit 1; }
+                - python3 -m pip install --quiet "boto3==1.44.9"
+                - |
+                  obraz=$(aws ecs describe-task-definition --task-definition "$(aws ecs describe-services --cluster notarai --services notarai --query 'services[0].taskDefinition' --output text)" --query 'taskDefinition.containerDefinitions[0].image' --output text)
+                  export SN_TAG_START="${obraz##*:}"
+                  zrodla=$(aws cloudformation describe-stacks --stack-name notarai-budowanie --query "Stacks[0].Outputs[?OutputKey=='BucketZrodel'].OutputValue | [0]" --output text)
+                  aws s3 cp "s3://$zrodla/notarai/zrodla-$SN_TAG_START.zip" /tmp/sn/baza.zip --only-show-errors || aws s3 cp "s3://$SN_BUCKET/zrodla/$SN_TAG_START.zip" /tmp/sn/baza.zip --only-show-errors
+                  mkdir -p /tmp/boot && unzip -q /tmp/sn/baza.zip -d /tmp/boot
+                  SN_KATALOG=/tmp/sn SN_ZIP_BAZY=/tmp/sn/baza.zip SN_AGENT_UZYTKOWNIK=snagent python3 /tmp/boot/scripts/samonaprawa/potok.py
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/amazonlinux-x86_64-standard:5.0
+        PrivilegedMode: false
+        EnvironmentVariables:
+          - Name: SN_BUCKET
+            Value: !Ref BucketPoprawek
+          - Name: SN_TABELA
+            Value: !Ref Tabela
+          - Name: SN_TEMAT
+            Value: !Ref TematAlarmow
+          - Name: SN_REPOZYTORIUM
+            Value: !Ref Repozytorium
+          - Name: SN_ROLA_AGENTA
+            Value: !GetAtt RolaAgenta.Arn
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref LogiPotoku
+      Tags:
+        - Key: projekt
+          Value: notarai
+
+  RolaZdarzen:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-samonaprawa-zdarzenia
+      Description: notarai - EventBridge uruchamia projekt notarai-samonaprawa
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: start-potoku
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: codebuild:StartBuild
+                Resource: !GetAtt ProjektSamonaprawy.Arn
+
+  # Zdarzenie z aplikacji: blad kodu albo prosba kancelarii (source notarai.samonaprawa).
+  RegulaZgloszen:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-samonaprawa-zgloszenia
+      Description: Zgloszenia bledow z aplikacji uruchamiaja potok samonaprawy
+      EventPattern:
+        source:
+          - notarai.samonaprawa
+        detail-type:
+          - zgloszenie
+        detail:
+          rodzaj:
+            - kod
+            - reczne
+      State: ENABLED
+      Targets:
+        - Id: potok
+          Arn: !GetAtt ProjektSamonaprawy.Arn
+          RoleArn: !GetAtt RolaZdarzen.Arn
+          RetryPolicy:
+            MaximumRetryAttempts: 100
+            MaximumEventAgeInSeconds: 21600
+          InputTransformer:
+            InputPathsMap:
+              ladunek: $.detail.ladunek_b64
+            InputTemplate: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"<ladunek>","type":"PLAINTEXT"}]}'
+
+  # Zatwierdzenie poprawki przez wlasciciela. Zdarzenie jest tylko wyzwalaczem:
+  # potok sprawdza flage zatwierdzenia w DynamoDB (aplikacja nie ma dostepu do tabeli).
+  RegulaZatwierdzen:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-samonaprawa-zatwierdzenia
+      Description: Zatwierdzona przez wlasciciela poprawka idzie na produkcje
+      EventPattern:
+        source:
+          - notarai.samonaprawa
+        detail-type:
+          - zatwierdzenie
+      State: ENABLED
+      Targets:
+        - Id: potok
+          Arn: !GetAtt ProjektSamonaprawy.Arn
+          RoleArn: !GetAtt RolaZdarzen.Arn
+          RetryPolicy:
+            MaximumRetryAttempts: 100
+            MaximumEventAgeInSeconds: 21600
+          InputTransformer:
+            InputPathsMap:
+              ladunek: $.detail.ladunek_b64
+            InputTemplate: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"<ladunek>","type":"PLAINTEXT"}]}'
+
+  # Przeglad znacznikow bledow (siatka bezpieczenstwa) i ponowienie zapisu poprawek w repozytorium.
+  RegulaPrzegladu:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-samonaprawa-przeglad
+      Description: Co 30 minut przeglad bledow kodu z CloudWatch
+      ScheduleExpression: !Ref HarmonogramPrzegladu
+      State: ENABLED
+      Targets:
+        - Id: potok
+          Arn: !GetAtt ProjektSamonaprawy.Arn
+          RoleArn: !GetAtt RolaZdarzen.Arn
+          Input: '{"environmentVariablesOverride":[{"name":"SN_LADUNEK","value":"eyJ6ZGFyemVuaWUiOiAicHJ6ZWdsYWQifQ==","type":"PLAINTEXT"}]}'
+
+  # Potok sam sie wywrocil albo przekroczyl czas: mail, nawet gdy kod potoku nie zdazyl go wyslac.
+  AlarmPotoku:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: notarai-samonaprawa-potok-bledy
+      AlarmDescription: Uruchomienie potoku samonaprawy zakonczylo sie bledem. Logi w /aws/codebuild/notarai-samonaprawa.
+      Namespace: AWS/CodeBuild
+      MetricName: FailedBuilds
+      Dimensions:
+        - Name: ProjectName
+          Value: !Ref ProjektSamonaprawy
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref TematAlarmow]
+
+Outputs:
+  ProjektSamonaprawy:
+    Description: Projekt CodeBuild potoku samonaprawy
+    Value: !Ref ProjektSamonaprawy
+  TabelaStanu:
+    Description: Tabela DynamoDB ze stanem samonaprawy
+    Value: !Ref Tabela
+  BucketPoprawek:
+    Description: Bucket na patche poprawek
+    Value: !Ref BucketPoprawek
+  RolaAgenta:
+    Description: Rola agenta (sama Bedrock)
+    Value: !GetAtt RolaAgenta.Arn

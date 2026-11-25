@@ -41,7 +41,7 @@ bramki = _modul("bramki")
 @pytest.fixture(autouse=True)
 def _czysto(monkeypatch):
     samonaprawa._reset_do_testow()
-    monkeypatch.delenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", raising=False)
     monkeypatch.setenv("PIECZAPP_WERSJA", "abc123def456")
     monkeypatch.setenv("GITHUB_REPOSITORY", "plnyspolka-pixel/notarai")
     yield
@@ -113,14 +113,16 @@ class TestZgloszenieBezDanychOsobowych:
         assert samonaprawa.zglos(HTTPException(404, "brak")) is None
 
 
-class TestWysylkaDoGithuba:
-    def test_bez_tokenu_nie_wysyla(self):
-        with patch("httpx.post") as post:
-            samonaprawa.zglos(_rzuc(_cachepoint))
-        post.assert_not_called()
+class TestWysylkaZdarzenia:
+    """Zgloszenia ida zdarzeniem EventBridge (bez tokenu GitHub, bez GitHuba)."""
 
-    def test_z_tokenem_wysyla_raz_na_odcisk(self, monkeypatch):
-        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_test")
+    def test_bez_wlaczenia_nie_wysyla(self):
+        with patch("boto3.client") as klient:
+            samonaprawa.zglos(_rzuc(_cachepoint))
+        klient.assert_not_called()
+
+    def test_z_wlaczeniem_wysyla_raz_na_odcisk(self, monkeypatch):
+        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "true")
         wyslane = []
         monkeypatch.setattr(samonaprawa, "_wyslij", wyslane.append)
         monkeypatch.setattr(samonaprawa.threading, "Thread",
@@ -131,26 +133,33 @@ class TestWysylkaDoGithuba:
         assert samonaprawa.stan()["odciski"][wyslane[0]["odcisk"]] == 2
 
     def test_przejsciowy_nie_budzi_agenta(self, monkeypatch):
-        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_test")
+        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "true")
         wyslane = []
         monkeypatch.setattr(samonaprawa, "_wyslij", wyslane.append)
         samonaprawa.zglos(_rzuc(_throttling))
         assert wyslane == []
 
     def test_wysylka_nigdy_nie_rzuca(self, monkeypatch):
-        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_test")
-        with patch("httpx.post", side_effect=OSError("siec")):
-            samonaprawa._wyslij({"odcisk": "abc"})   # bez wyjatku
+        monkeypatch.setattr(samonaprawa, "_klient_zdarzen", lambda: (_ for _ in ()).throw(OSError("siec")))
+        samonaprawa._wyslij({"odcisk": "abc"})   # bez wyjatku
 
-    def test_ladunek_do_githuba(self, monkeypatch):
-        monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_test")
-        with patch("httpx.post") as post:
-            post.return_value.status_code = 204
-            samonaprawa._wyslij({"odcisk": "abc123def456"})
-        kw = post.call_args.kwargs
-        assert post.call_args.args[0].endswith("/repos/plnyspolka-pixel/notarai/dispatches")
-        assert kw["json"]["event_type"] == "samonaprawa"
-        assert kw["timeout"] <= 10
+    def test_wpis_put_events(self, monkeypatch):
+        klient = MagicMock()
+        klient.put_events.return_value = {"FailedEntryCount": 0}
+        monkeypatch.setattr(samonaprawa, "_klient_zdarzen", lambda: klient)
+        z = {"odcisk": "abc123def456", "rodzaj": "kod", "typ": "ValueError", "opis": 'cytat "x" \\ koniec'}
+        samonaprawa._wyslij(z)
+        wpis = klient.put_events.call_args.kwargs["Entries"][0]
+        assert wpis["Source"] == "notarai.samonaprawa" and wpis["DetailType"] == "zgloszenie"
+        assert wpis["EventBusName"] == "default"
+        szczegoly = json.loads(wpis["Detail"])
+        assert szczegoly["odcisk"] == "abc123def456" and szczegoly["rodzaj"] == "kod"
+        import base64
+        assert json.loads(base64.b64decode(szczegoly["ladunek_b64"])) == z    # bezpieczny dla szablonu EventBridge
+
+    def test_bez_tokenu_github_w_kodzie(self):
+        zrodlo = (KORZEN / "samonaprawa.py").read_text(encoding="utf-8")
+        assert "api.github.com" not in zrodlo and "GITHUB_TOKEN" not in zrodlo and "httpx" not in zrodlo
 
 
 class TestWychwytywanie:
@@ -552,16 +561,18 @@ class TestInfrastruktura:
         # bez budowania, wdrazania i zmian w stosach
         assert not [a for a in akcje if a.split(":")[0] in ("cloudformation", "ecs", "codebuild", "iam", "s3")]
 
-    def test_aplikacja_ma_wersje_i_token_warunkowo(self):
+    def test_aplikacja_ma_wersje_i_zdarzenia_bez_tokenu_github(self):
         szablon = (KORZEN / "infra/notarai-aplikacja.yaml").read_text(encoding="utf-8")
         assert "PIECZAPP_WERSJA" in szablon
-        assert "PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN" in szablon
-        assert "Condition: MamySamonaprawe" in szablon
+        assert "PIECZAPP_SAMONAPRAWA_ZDARZENIA" in szablon
+        assert "PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN" not in szablon
+        assert "events:PutEvents" in szablon and "event-bus/default" in szablon
 
 
-def test_znacznik_brak_w_sekrecie_to_nie_token(monkeypatch):
-    """Sekret notarai/samonaprawa-github ma "brak", dopoki wlasciciel nie wklei tokenu."""
-    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "brak")
-    assert samonaprawa._token() == ""
-    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_GITHUB_TOKEN", "github_pat_abc")
-    assert samonaprawa._token() == "github_pat_abc"
+def test_zdarzenia_wlaczane_tylko_jawnie(monkeypatch):
+    """Lokalnie i w testach nic nie idzie do AWS, dopoki szablon ECS nie ustawi zmiennej."""
+    assert samonaprawa.zdarzenia_wlaczone() is False
+    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "brak")
+    assert samonaprawa.zdarzenia_wlaczone() is False
+    monkeypatch.setenv("PIECZAPP_SAMONAPRAWA_ZDARZENIA", "true")
+    assert samonaprawa.zdarzenia_wlaczone() is True

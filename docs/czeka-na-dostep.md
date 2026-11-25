@@ -361,3 +361,33 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na zywo:** po wdrozeniu PR integracji polaczyc konto testowe, utworzyc trzy fikcyjne terminy, zmienic i odwolac wpis po obu stronach; zweryfikowac brak nazwisk i danych spraw w Google, blokady kolizji, synchronizacje przy zamknietej przegladarce oraz odlaczenie i ponowne polaczenie konta.
 - **W kodzie:** `google_kalendarz.py`, `test_google_kalendarz.py`, `static/index.html`, `infra/notarai-aplikacja.yaml`, `docs/google-calendar.md`.
 - **Zamkniete, gdy:** wspomniane testy przejda na prawdziwym testowym koncie, a zapis w Google nie zawiera danych klientow.
+
+
+## NA-17. Samonaprawa w AWS - test na żywo całej ścieżki (CodeBuild, wdrożenie, obserwacja, rejestr)
+
+- **Status:** czeka na wdrożenie stosu `notarai-samonaprawa` (kod gotowy, testy jednostkowe zielone,
+  nic nie było uruchomione na żywo).
+- **Brakuje:** wdrożonych stosów `notarai-github` (uprawnienia strażnika), `notarai-budowanie`
+  (paczki źródeł 90 dni), `notarai-aplikacja` (nowy wzorzec tagu, `events:PutEvents`) i
+  `notarai-samonaprawa`; obrazu aplikacji z `scripts/samonaprawa/potok.py` na produkcji.
+- **Na żywo** (nieszkodliwy test: wpis w `docs/samonaprawa-testy-wdrozenia.md`, bez agentów, ale z
+  prawdziwym wdrożeniem, obserwacją i logiką cofnięcia):
+  1. `python scripts/samonaprawa/zglos.py --test` (albo `aws codebuild start-build --project-name
+     notarai-samonaprawa --environment-variables-override name=SN_TEST_WDROZENIA,value=1,type=PLAINTEXT
+     name=SN_LADUNEK,value=<base64 JSON zgłoszenia ręcznego>`).
+  2. W logach `/aws/codebuild/notarai-samonaprawa`: pobranie paczki wersji z produkcji, obraz `sn-<12 hex>`,
+     `aws cloudformation deploy`, `services-stable`, smoke test, 20 minut obserwacji.
+  3. Sprawdzić: parametr stosu `TagObrazu` = `sn-...`; mail „test wdrożenia samonaprawy udany”;
+     rekord `NAPRAWA` w DynamoDB (`do_zsynchronizowania`) z patchem w S3; po zwykłym wdrożeniu z GitHuba
+     tag `<sha12>-sn<skrót>` (strażnik dołączył poprawkę).
+  4. Zapis w repozytorium: przy tokenie w `notarai/samonaprawa-github` powstaje i scala się PR
+     z `[skip ci]`, rekord przechodzi w `zsynchronizowane`; bez tokenu przychodzi jeden mail.
+  5. Cofnięcie: wymusić werdykt `cofnij` (wstrzyknąć
+     nawrót znacznika w `/ecs/notarai`) i sprawdzić powrót do poprzedniego tagu oraz status `wycofana`.
+  6. `python scripts/samonaprawa/zglos.py --przeglad` oraz zdarzenie z aplikacji (błąd kodu na stagingu)
+     uruchamiają budowę; druga budowa w trakcie pierwszej jest wstrzymana (`concurrentBuildLimit: 1`).
+  7. Zweryfikować przyjęcie `claude` przez użytkownika `snagent` i obraz CodeBuild (python 3.12, nodejs 20).
+- **W kodzie:** `scripts/samonaprawa/potok.py`, `stan.py`, `wdroz.py`, `agent.py`, `synchronizacja.py`,
+  `straznik_poprawek.py`, `infra/notarai-samonaprawa.yaml`, `infra/buildspec-samonaprawa.yml`.
+- **Zamknięte, gdy:** test przeszedł na żywo (wdrożenie, obserwacja, mail, rekord rejestru), a wymuszone
+  cofnięcie wróciło do poprzedniego tagu.
