@@ -116,7 +116,7 @@ def test_bramka_tekstowa_integracja(monkeypatch, sesja, caplog):
         assert "Jan Kowalski" not in json.dumps(zadanie)
         assert "Testowa" not in json.dumps(zadanie)
         from conftest import sprawdz_zgodnosc_z_api_bedrock
-        # Walidacja SDK istniejąca w repo jest również wykonywana przez główną suite.
+        sprawdz_zgodnosc_z_api_bedrock("Converse", zadanie)
         return {"stopReason": "end_turn", "usage": {}, "output": {"message": {
             "content": [{"text": zadanie["messages"][0]["content"][0]["text"]}]}}}
     raw.converse.side_effect = echo
