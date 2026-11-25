@@ -2785,7 +2785,7 @@ def _chroniony_tekst(katalog, dane):
     meta = json.loads((katalog / "sprawa.json").read_text("utf-8"))
     odczyt = katalog / "odczyt.json"
     pola = json.loads(odczyt.read_text("utf-8")).get("pola", []) if odczyt.exists() else []
-    bloki = ["WZÓR:\n" + dokumenty.wzor_na_tekst(sciezka),
+    bloki = ["CEL OPERACJI: " + dane.cel, "WZÓR:\n" + dokumenty.wzor_na_tekst(sciezka),
              "POLA:\n" + json.dumps(pola, ensure_ascii=False),
              "PIERWOTNE POLECENIE:\n" + str(meta.get("polecenie", "")),
              "HISTORIA:\n" + json.dumps(_wczytaj_rozmowe(katalog), ensure_ascii=False)]
