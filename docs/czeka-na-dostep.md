@@ -1,5 +1,7 @@
 # Czeka na dostęp — zadania do zrobienia na żywo
 
+> Statusy integracji państwowych, znane kontrakty i blokery zbiorczo: [macierz integracji państwowych](macierz-integracji-panstwowych.md). Po wykonaniu testu NA uaktualnić odpowiedni wiersz macierzy, z datą i dowodem; nie dublować zadań.
+
 Rejestr rzeczy, których nie da się dokończyć bez dostępu z zewnątrz (konto
 notariusza, środowisko testowe urzędu, dokument, którego nie ma publicznie).
 Gdy pojawia się dostęp, robimy test **na żywo z notariuszem** według kroków
