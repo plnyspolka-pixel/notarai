@@ -253,15 +253,8 @@ def _wykonaj(nazwa: str, dane: dict, dostepne: list[dict],
         if not isinstance(usluga, str) or not isinstance(identyfikator, str):
             return {"blad": "Wskaż rejestr i identyfikator."}
         identyfikator = identyfikator.strip()
-        if usluga not in ("uldk", "krs", "vat") or not 1 <= len(identyfikator) <= 64:
-            return {"blad": "Nieprawidłowe zapytanie."}
-        if usluga in ("krs", "vat"):
-            poprawny = bool(re.fullmatch(r"[0-9]{10}", identyfikator))
-        else:
-            import rejestry_panstwowe
-            poprawny = bool(rejestry_panstwowe._ID_DZIALKI.fullmatch(identyfikator) or
-                            re.fullmatch(r"[^\W\d_][\w .'-]* [0-9]+(?:/[0-9]+)?", identyfikator))
-        if not poprawny:
+        import rejestry_panstwowe
+        if not rejestry_panstwowe.poprawny_id(usluga, identyfikator):
             return {"blad": "Podaj poprawny publiczny identyfikator."}
         akcje.append({"typ": "przygotuj_rejestr", "usluga": usluga, "identyfikator": identyfikator})
         return {"stan": "czeka_na_zatwierdzenie", "uwaga": "Formularz przygotowany. Nie odpytano rejestru."}
