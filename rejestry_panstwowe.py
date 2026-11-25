@@ -105,7 +105,7 @@ def _json(raw):
         raise Niedostepny("Niepoprawny format odpowiedzi.") from None
 
 def krs(numer,client,rejestr="P"):
-    if not re.fullmatch(r"\d{10}",numer) or rejestr not in ("P","S"):
+    if not re.fullmatch(r"[0-9]{10}",numer) or rejestr not in ("P","S"):
         raise ValueError("Podaj 10 cyfr KRS i rodzaj rejestru P lub S.")
     d=_json(_get("https://api-krs.ms.gov.pl/api/krs/OdpisAktualny/"+numer,{"rejestr":rejestr,"format":"json"},client))
     if not isinstance(d.get("odpis"),dict):
@@ -113,7 +113,7 @@ def krs(numer,client,rejestr="P"):
     return _wynik("Ministerstwo Sprawiedliwości – KRS",d)
 
 def vat(nip,dzien,client):
-    if not re.fullmatch(r"\d{10}",nip):
+    if not re.fullmatch(r"[0-9]{10}",nip):
         raise ValueError("Podaj NIP (10 cyfr).")
     try:
         if date.fromisoformat(dzien).isoformat()!=dzien or date.fromisoformat(dzien)>date.today():
