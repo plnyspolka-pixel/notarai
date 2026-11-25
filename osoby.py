@@ -88,42 +88,61 @@ def _poprawne_pesele(wartosc: str) -> list[str]:
 
 
 def osoby_ze_sprawy(pola: list[dict]) -> list[dict]:
-    """Strony czynnosci odczytane z pol sprawy: [{imie_nazwisko, pesel, rola}].
+    """Zachowawcze propozycje do rejestru, bez parowania według kolejności.
 
-    Imiona i numery PESEL tej samej roli lacza sie w kolejnosci wystapienia.
-    Niczego nie dopowiadamy - osoba bez PESEL zostaje bez PESEL.
+    PESEL z jednego jednoosobowego pola imiennego ma dowód współwystępowania.
+    Osobne pole PESEL tej samej roli można przypisać tylko w jednoznacznym
+    przypadku jednej osoby i jednego numeru. Pozostałe numery są nieprzypisane.
+    Wynik nie jest potwierdzonym rejestrem tożsamości aktu.
     """
-    imiona: dict[str, list[tuple[int, str]]] = {}
-    pesele: dict[str, list[str]] = {}
+    grupy = {}
     for pole in pola or []:
         nazwa = str(pole.get("nazwa", ""))
         wartosc = pole.get("wartosc")
-        if not wartosc or nazwa.startswith("??"):
-            continue
         rola = _rola(nazwa)
-        if not rola:
+        if not wartosc or nazwa.startswith("??") or not rola:
             continue
-        if re.search(r"pesel", nazwa, re.I):
-            pesele.setdefault(rola, []).extend(_poprawne_pesele(wartosc))
-        elif _pole_imion(nazwa):
-            priorytet = 0 if _mianownik(nazwa) else 1
-            imiona.setdefault(rola, []).extend((priorytet, o) for o in osoby_z_wartosci(wartosc))
-            pesele.setdefault(rola, []).extend(_poprawne_pesele(wartosc))
+        if re.search(r"imion[a-z]* rodzic", nazwa, re.I):
+            continue
+        if not (re.search(r"pesel", nazwa, re.I) or _pole_imion(nazwa)):
+            continue
+        grupa = grupy.setdefault(rola, {"imiona": [], "odmiany": [], "numery": []})
+        numery = _poprawne_pesele(wartosc)
+        grupa["numery"].extend(numery)
+        if re.search(r"pesel", nazwa, re.I) and not _pole_imion(nazwa):
+            continue
+        ludzie = osoby_z_wartosci(wartosc)
+        if not ludzie:
+            continue
+        for osoba in ludzie:
+            numer = numery[0] if len(ludzie) == len(numery) == 1 else ""
+            grupa["imiona" if _mianownik(nazwa) else "odmiany"].append((osoba, numer))
 
     wynik = []
-    for rola in dict.fromkeys([*imiona, *pesele]):
-        ludzie: list[str] = []
-        for _, osoba in sorted(imiona.get(rola, []), key=lambda x: x[0]):
-            if not any(nazwy._ten_sam_rdzen(osoba.split()[-1], o.split()[-1])
-                       and nazwy._ten_sam_rdzen(osoba.split()[0], o.split()[0]) for o in ludzie):
-                ludzie.append(osoba)
-        numery = list(dict.fromkeys(pesele.get(rola, [])))
-        for i in range(max(len(ludzie), len(numery))):
-            wynik.append({
-                "imie_nazwisko": ludzie[i] if i < len(ludzie) else "",
-                "pesel": numery[i] if i < len(numery) else "",
-                "rola": rola,
-            })
+    for rola, grupa in grupy.items():
+        ludzie = list(dict.fromkeys(grupa["imiona"]))
+        for osoba, numer in grupa["odmiany"]:
+            # Odmienione odwołanie nie jest osobnym rekordem, jeśli wskazuje
+            # jednoznacznie już istniejące imię i nazwisko. Nie rozstrzygamy
+            # homonimów ani nie kopiujemy PESEL z odmienionego odwołania.
+            pasujace = [o for o, p in ludzie
+                        if nazwy._ten_sam_rdzen(osoba.split()[-1], o.split()[-1])
+                        and nazwy._ten_sam_rdzen(osoba.split()[0], o.split()[0])]
+            if not pasujace:
+                ludzie.append((osoba, numer))
+        numery = list(dict.fromkeys(grupa["numery"]))
+        if len(ludzie) == len(numery) == 1 and not ludzie[0][1]:
+            ludzie[0] = (ludzie[0][0], numery[0])
+        # Sprzeczny numer nie może zostać automatycznie wybrany.
+        zajete = set()
+        for osoba, numer in ludzie:
+            if numer and (sum(1 for _, p in ludzie if p == numer) != 1):
+                numer = ""
+            if numer:
+                zajete.add(numer)
+            wynik.append({"imie_nazwisko": osoba, "pesel": numer, "rola": rola})
+        wynik.extend({"imie_nazwisko": "", "pesel": p, "rola": rola}
+                     for p in numery if p not in zajete)
     return wynik
 
 
