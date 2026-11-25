@@ -22,16 +22,44 @@
       }
     }catch(e){lista.textContent=e.message;}finally{btn.disabled=false;}
   });
+  function podpowiedz(){
+    const pole=r("rp-id"), usluga=r("rp-usluga").value;
+    pole.placeholder=usluga==="uldk"?"np. Krzewina 134 lub pełny identyfikator":usluga==="krs"?"10 cyfr KRS":"10 cyfr NIP";
+  }
+  r("rp-usluga").addEventListener("change",()=>{podpowiedz();r("rp-wynik").replaceChildren();});
+  podpowiedz();
+  function pokaz(d,usluga){
+    const wynik=r("rp-wynik"), dane=d.dane;
+    if(usluga!=="uldk"||!Array.isArray(dane?.kandydaci)){
+      wynik.textContent=JSON.stringify(d,null,2);return;
+    }
+    wynik.replaceChildren();
+    const opis=document.createElement("p");
+    opis.textContent=dane.kandydaci.length?"Wybierz właściwą działkę. Następnie kliknij Szukaj, aby potwierdzić pełny identyfikator.":"Nie znaleziono działki w ULDK. Sprawdź numer i obręb.";
+    wynik.append(opis);
+    for(const k of dane.kandydaci){
+      const przycisk=document.createElement("button");
+      przycisk.type="button";
+      przycisk.textContent=[k.id,k.region,k.commune,k.county,k.voivodeship].filter(Boolean).join(" — ");
+      przycisk.addEventListener("click",()=>{
+        r("rp-usluga").value="uldk";r("rp-id").value=k.id;podpowiedz();
+        wynik.textContent="Wybrano "+k.id+". Kliknij Szukaj, aby pobrać szczegóły.";
+        r("rp-szukaj").focus();
+      });
+      const wiersz=document.createElement("div");wiersz.append(przycisk);wynik.append(wiersz);
+    }
+  }
   r("rp-form").addEventListener("submit",async event=>{
     event.preventDefault();
     const wynik=r("rp-wynik"),btn=r("rp-szukaj");
     btn.disabled=true;wynik.textContent="Pobieranie…";
     try{
-      const d=await odpowiedz("/api/rejestry-panstwowe/publiczne/"+r("rp-usluga").value,{
+      const usluga=r("rp-usluga").value;
+      const d=await odpowiedz("/api/rejestry-panstwowe/publiczne/"+usluga,{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({identyfikator:r("rp-id").value.trim(),data:r("rp-data").value,rejestr:r("rp-rejestr").value,potwierdzam:true})
       });
-      wynik.textContent=JSON.stringify(d,null,2);
+      if(r("rp-usluga").value===usluga) pokaz(d,usluga);
     }catch(e){wynik.textContent=e.message;}finally{btn.disabled=false;}
   });
 })();
