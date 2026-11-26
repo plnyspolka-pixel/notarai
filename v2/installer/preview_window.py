@@ -7,7 +7,7 @@ import win32con
 import win32gui
 
 TITLE = "NotarAI V2 Preview"
-WINDOW_CLASS = "NotarAIV2PreviewDialog"
+WINDOW_CLASS = "NotarAIV2PreviewWindow"
 CODE = 100
 NEW_CODE = 101
 OPEN_POCKET = 102
@@ -25,55 +25,62 @@ def open_pocket(url):
 
 
 def show(url, invite, *, open_on_start):
-    child = win32con.WS_CHILD | win32con.WS_VISIBLE
-    button = child | win32con.WS_TABSTOP
-    frame = (win32con.WS_POPUP | win32con.WS_VISIBLE | win32con.WS_CAPTION | win32con.WS_SYSMENU
-             | win32con.DS_CENTER | win32con.DS_MODALFRAME | win32con.DS_SETFONT)
-    code = invite()
-    template = [
-        [TITLE, (0, 0, 278, 113), frame, win32con.WS_EX_APPWINDOW, (9, "Segoe UI"), None, WINDOW_CLASS],
-        ["STATIC", "Tylko dane testowe", -1, (12, 9, 253, 11), child],
-        ["STATIC", "Kod parowania do Pocket (ważny przez 5 minut)", -1, (12, 29, 253, 10), child],
-        ["EDIT", code, CODE, (12, 42, 253, 17),
-         child | win32con.WS_TABSTOP | win32con.WS_BORDER | win32con.ES_READONLY | win32con.ES_AUTOHSCROLL],
-        ["BUTTON", "Otwórz Pocket", OPEN_POCKET, (12, 71, 98, 17), button | win32con.BS_DEFPUSHBUTTON],
-        ["BUTTON", "Nowy kod parowania", NEW_CODE, (117, 71, 110, 17), button],
-        ["STATIC", "Zamknięcie tego okna zatrzyma Pocket.", -1, (12, 96, 253, 10), child],
-    ]
-
-    def handle_dialog(hwnd, event, wparam, _):
-        if event == win32con.WM_INITDIALOG:
-            if open_on_start:
-                open_pocket(url)
-            return 1
-        if event == win32con.WM_CLOSE:
-            win32gui.EndDialog(hwnd, 0)
-            return 1
-        if event != win32con.WM_COMMAND:
-            return 0
-
-        control = wparam & 0xFFFF
-        if control == OPEN_POCKET:
-            open_pocket(url)
-        elif control == NEW_CODE:
-            try:
-                win32gui.SetWindowText(win32gui.GetDlgItem(hwnd, CODE), invite())
-            except sqlite3.Error:
-                message("Nie udało się wygenerować kodu. Spróbuj ponownie.", hwnd)
-        elif control == win32con.IDCANCEL:
-            win32gui.EndDialog(hwnd, 0)
-        else:
-            return 0
-        return 1
-
     instance = win32api.GetModuleHandle(None)
+    code = invite()
+
+    def handle_window(hwnd, event, wparam, lparam):
+        if event == win32con.WM_DESTROY:
+            win32gui.PostQuitMessage(0)
+            return 0
+        if event == win32con.WM_COMMAND:
+            control = wparam & 0xFFFF
+            if control == OPEN_POCKET:
+                open_pocket(url)
+                return 0
+            if control == NEW_CODE:
+                try:
+                    win32gui.SetWindowText(code_field, invite())
+                except (sqlite3.Error, win32gui.error):
+                    message("Nie udało się wygenerować kodu. Spróbuj ponownie.", hwnd)
+                return 0
+        return win32gui.DefWindowProc(hwnd, event, wparam, lparam)
+
     window_class = win32gui.WNDCLASS()
-    window_class.SetDialogProc()
     window_class.hInstance = instance
     window_class.lpszClassName = WINDOW_CLASS
-    window_class.cbWndExtra = win32con.DLGWINDOWEXTRA
     window_class.hCursor = win32gui.LoadCursor(0, win32con.IDC_ARROW)
     window_class.hbrBackground = win32con.COLOR_BTNFACE + 1
-    window_class.lpfnWndProc = handle_dialog
+    window_class.lpfnWndProc = handle_window
     win32gui.RegisterClass(window_class)
-    win32gui.DialogBoxIndirect(instance, template, 0, {})
+    frame = win32con.WS_CAPTION | win32con.WS_SYSMENU | win32con.WS_MINIMIZEBOX
+    default = win32con.CW_USEDEFAULT
+    window = win32gui.CreateWindowEx(
+        0, WINDOW_CLASS, TITLE, frame, default, default, 516, 241, 0, 0, instance, None,
+    )
+    common_style = win32con.WS_CHILD | win32con.WS_VISIBLE
+    focus_style = common_style | win32con.WS_TABSTOP
+    font = win32gui.GetStockObject(17)  # DEFAULT_GUI_FONT
+
+    def add(kind, caption, identifier, style, left, top, width, height):
+        control = win32gui.CreateWindowEx(
+            0, kind, caption, style, left, top, width, height, window, identifier, instance, None,
+        )
+        win32gui.SendMessage(control, win32con.WM_SETFONT, font, 0)
+        return control
+
+    add("STATIC", "Tylko dane testowe", 0, common_style, 18, 15, 460, 22)
+    add("STATIC", "Kod parowania do Pocket (ważny przez 5 minut)", 0, common_style, 18, 45, 460, 22)
+    code_field = add(
+        "EDIT", code, CODE,
+        focus_style | win32con.WS_BORDER | win32con.ES_READONLY | win32con.ES_AUTOHSCROLL,
+        18, 70, 460, 26,
+    )
+    add("BUTTON", "Otwórz Pocket", OPEN_POCKET, focus_style, 18, 115, 160, 30)
+    add("BUTTON", "Nowy kod parowania", NEW_CODE, focus_style, 192, 115, 180, 30)
+    add("STATIC", "Zamknięcie tego okna zatrzyma Pocket.", 0, common_style, 18, 168, 460, 22)
+
+    win32gui.ShowWindow(window, win32con.SW_SHOW)
+    win32gui.SetFocus(code_field)
+    if open_on_start:
+        open_pocket(url)
+    win32gui.PumpMessages()
