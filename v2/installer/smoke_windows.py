@@ -9,6 +9,7 @@ from tempfile import TemporaryFile
 from time import monotonic, sleep
 
 from playwright.sync_api import expect, sync_playwright
+import win32api
 import win32con
 import win32gui
 import win32process
@@ -103,7 +104,13 @@ def main(installer: Path) -> None:
 
                     button = win32gui.GetDlgItem(window, NEW_CODE)
                     assert win32gui.GetWindowText(button) == "Nowy kod parowania"
-                    win32gui.SendMessageTimeout(button, win32con.BM_CLICK, 0, 0, win32con.SMTO_ABORTIFHUNG, 5000)
+                    win32gui.SetForegroundWindow(window)
+                    left, top, right, bottom = win32gui.GetWindowRect(button)
+                    point = ((left + right) // 2, (top + bottom) // 2)
+                    assert win32gui.WindowFromPoint(point) == button, "the pairing button is obscured"
+                    win32api.SetCursorPos(point)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
                     deadline = monotonic() + 5
                     while (code := win32gui.GetDlgItemText(window, CODE)) == old_code and monotonic() < deadline:
                         sleep(0.05)

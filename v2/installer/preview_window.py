@@ -40,17 +40,18 @@ def show(url, invite, *, open_on_start):
         ["STATIC", "Zamknięcie tego okna zatrzyma Pocket.", -1, (12, 96, 253, 10), child],
     ]
 
-    def on_init(hwnd, *_):
-        if open_on_start:
-            open_pocket(url)
-        return 1
+    def handle_dialog(hwnd, event, wparam, _):
+        if event == win32con.WM_INITDIALOG:
+            if open_on_start:
+                open_pocket(url)
+            return 1
+        if event == win32con.WM_CLOSE:
+            win32gui.EndDialog(hwnd, 0)
+            return 1
+        if event != win32con.WM_COMMAND:
+            return 0
 
-    def on_close(hwnd, *_):
-        win32gui.EndDialog(hwnd, 0)
-        return 1
-
-    def on_command(hwnd, _, wparam, lparam):
-        control = win32api.LOWORD(wparam)
+        control = wparam & 0xFFFF
         if control == OPEN_POCKET:
             open_pocket(url)
         elif control == NEW_CODE:
@@ -59,13 +60,9 @@ def show(url, invite, *, open_on_start):
             except sqlite3.Error:
                 message("Nie udało się wygenerować kodu. Spróbuj ponownie.", hwnd)
         elif control == win32con.IDCANCEL:
-            return on_close(hwnd)
+            win32gui.EndDialog(hwnd, 0)
         else:
             return 0
         return 1
 
-    win32gui.DialogBoxIndirect(win32api.GetModuleHandle(None), template, 0, {
-        win32con.WM_INITDIALOG: on_init,
-        win32con.WM_COMMAND: on_command,
-        win32con.WM_CLOSE: on_close,
-    })
+    win32gui.DialogBoxIndirect(win32api.GetModuleHandle(None), template, 0, handle_dialog)
