@@ -5,6 +5,7 @@
   const token = () => { try { return localStorage.getItem("notarai_token") || ""; } catch { return ""; } };
   function tozsamosc(t) {
     try {
+      if (t === "notarai-public-demo-v1") return "demo|notarai-demo-public";
       const d = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
       return d.sub && d["custom:kancelaria"] ? d.sub + "|" + d["custom:kancelaria"] : "";
     } catch { return ""; }

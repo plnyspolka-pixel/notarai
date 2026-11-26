@@ -218,7 +218,8 @@ async def middleware(request: Request, call_next):
     sciezka = request.url.path
     # Public demo capability is intercepted before every route exception.
     # Never pass it to tenant authorization or production route handlers.
-    if public_demo.is_demo(request.headers.get("authorization", "").removeprefix("Bearer ")):
+    token = request.headers.get("authorization", "").removeprefix("Bearer ")
+    if public_demo.is_demo(token) or public_demo.is_demo_helper(token):
         return await public_demo.handle(request)
     # External B2B routes use a separate, narrowly scoped API key in each handler.
     # No Cognito session can grant partner permissions through these routes.

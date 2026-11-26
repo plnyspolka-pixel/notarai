@@ -26,6 +26,14 @@ def test_public_demo_isolated(monkeypatch):
     assert login.json()["demo"] is True
     assert "Max-Age=0" in login.headers["set-cookie"]
     headers = {"Authorization": "Bearer " + login.json()["token"]}
+    paired = client.post("/api/urzadzenia/rozszerzenie", headers=headers,
+                         json={"nazwa": "Chrome - NotarAI"})
+    assert paired.status_code == 200
+    assert paired.json()["token"] == public_demo.HELPER_TOKEN
+    helper = {"Authorization": "Bearer " + paired.json()["token"]}
+    assert client.get("/api/pomocnik/zlecenia?wersja=r0.2", headers=helper).json() == []
+    assert client.post("/api/pomocnik/odlacz", headers=helper, json={}).status_code == 200
+    assert client.post("/api/pomocnik/klikamy", headers=helper, json={}).status_code == 403
     assert client.post("/api/logowanie", json={"email":"test","haslo":"wrong"}).status_code == 401
     assert client.get("/api/ustawienia", headers=headers).json()["kancelaria"] == public_demo.TENANT
     cases = client.get("/api/sprawy", headers=headers).json()

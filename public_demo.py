@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from fastapi.responses import JSONResponse
 
 TOKEN = "notarai-public-demo-v1"
+HELPER_TOKEN = "pom_demo_public_v1"
 TENANT = "notarai-demo-public"
 CASE = "DEMO001"
 
@@ -21,6 +22,10 @@ def enabled():
 
 def is_demo(token):
     return token == TOKEN
+
+
+def is_demo_helper(token):
+    return token == HELPER_TOKEN
 
 
 def response(data, status=200):
@@ -51,6 +56,19 @@ async def handle(request):
     if request.headers.get("x-serwis-kancelaria"):
         return response({"detail": "Demo nie ma dostępu serwisowego."}, 403)
     path, method = request.url.path, request.method
+    token = request.headers.get("authorization", "").removeprefix("Bearer ")
+    # The public demo can pair the extension, but its helper token exposes only
+    # an empty queue and disconnect. All page automation remains disabled.
+    if token == HELPER_TOKEN:
+        if method == "GET" and path == "/api/pomocnik/zlecenia":
+            return response([])
+        if method == "POST" and path == "/api/pomocnik/odlacz":
+            return response({"odlaczono": True})
+        return response({"detail": "Ta czynność nie jest dostępna w publicznym demo."}, 403)
+    if method == "POST" and path == "/api/urzadzenia/rozszerzenie":
+        if token != TOKEN:
+            return response({"detail": "Zaloguj się do demo."}, 401)
+        return response({"token": HELPER_TOKEN, "tozsamosc": "demo"})
     # Static responses only; no application handler, network, storage or model.
     if method == "GET":
         fixtures = {
