@@ -51,11 +51,39 @@ class Vault:
         if row is None:
             raise KeyError(doc_id)
         version, payload = row
+        name, data = self.unpack(doc_id, version, payload)
+        return version, name, data
+
+    def unpack(self, doc_id, version, payload):
         plain = self.cipher.decrypt(payload[:12], payload[12:], self.aad(doc_id,version))
         size = int.from_bytes(plain[:4], "big")
-        return version, json.loads(plain[4:4+size])["name"], plain[4+size:]
+        return json.loads(plain[4:4+size])["name"], plain[4+size:]
 
     def list(self):
         with self.connect() as db:
             rows = db.execute("SELECT id, MAX(version) FROM revisions GROUP BY id").fetchall()
         return [{"id": i, "version": v} for i, v in rows]
+
+    def versions(self, doc_id):
+        doc_id = str(uuid.UUID(doc_id))
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT version FROM revisions WHERE id=? ORDER BY version DESC",
+                (doc_id,),
+            ).fetchall()
+        if not rows:
+            raise KeyError(doc_id)
+        return [version for (version,) in rows]
+
+    def summaries(self):
+        with self.connect() as db:
+            rows = db.execute("""
+                SELECT id, version, payload FROM revisions AS r
+                WHERE version = (SELECT MAX(version) FROM revisions WHERE id=r.id)
+                ORDER BY id
+            """)
+            summaries = []
+            for doc_id, version, payload in rows:
+                name, _ = self.unpack(doc_id, version, payload)
+                summaries.append({"id": doc_id, "version": version, "name": name})
+        return summaries

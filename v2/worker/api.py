@@ -115,8 +115,8 @@ def create_app(home: Path):
         return {"version":"2.0-dev","storage":"local","ai":"aws-bedrock","mode":"synthetic-only"}
 
     @app.get("/v2/documents",dependencies=[Depends(auth)])
-    def documents():
-        return vault.list()
+    def documents(include_names: bool = False):
+        return vault.summaries() if include_names else vault.list()
 
     @app.post("/v2/documents",dependencies=[Depends(writable)])
     def save(revision: Revision):
@@ -128,6 +128,13 @@ def create_app(home: Path):
             raise HTTPException(409,"revision conflict")
         except (ValueError,binascii.Error):
             raise HTTPException(400,"invalid document")
+
+    @app.get("/v2/documents/{doc_id}/versions", dependencies=[Depends(auth)])
+    def versions(doc_id: str):
+        try:
+            return vault.versions(doc_id)
+        except (KeyError, ValueError):
+            raise HTTPException(404, "not found")
 
     @app.get("/v2/documents/{doc_id}",dependencies=[Depends(auth)])
     def read(doc_id: str, version: int | None = None):

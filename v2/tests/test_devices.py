@@ -74,3 +74,29 @@ def test_pocket_and_validation(setup):
     r=c.post("/v2/documents",headers=a,json={"name":"SENSITIVE-SYNTHETIC","expected_version":"not-int","content_b64":"YQ=="})
     assert r.status_code==422
     assert "SENSITIVE-SYNTHETIC" not in r.text
+
+
+def test_document_history_for_paired_devices(setup):
+    client, admin, _ = setup
+    writer = headers(pair(client, admin, "write"))
+    reader = headers(pair(client, admin, "read"))
+    payload = {"name": "Pierwsza.txt", "expected_version": 0, "content_b64": "YQ=="}
+    doc_id = client.post("/v2/documents", headers=writer, json=payload).json()["id"]
+    path = "/v2/documents/" + doc_id
+    second_revision = {**payload, "id": doc_id, "expected_version": 1,
+                       "name": "Druga.txt", "content_b64": "Yg=="}
+    assert client.post("/v2/documents", headers=writer, json=second_revision).status_code == 200
+
+    assert client.get(path + "/versions").status_code == 401
+    history = client.get(path + "/versions", headers=reader)
+    assert history.json() == [2, 1]
+    assert history.headers["cache-control"] == "no-store"
+    assert client.get("/v2/documents", headers=reader).json() == [{"id": doc_id, "version": 2}]
+    assert client.get("/v2/documents?include_names=true", headers=reader).json() == [
+        {"id": doc_id, "version": 2, "name": "Druga.txt"}
+    ]
+    assert client.get(path + "?version=1", headers=reader).json() == {
+        "id": doc_id, "version": 1, "name": "Pierwsza.txt", "content_b64": "YQ=="
+    }
+    assert client.get(path + "?version=3", headers=reader).status_code == 404
+    assert client.get("/v2/documents/invalid/versions", headers=reader).status_code == 404
