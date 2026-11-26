@@ -435,3 +435,10 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   8. Kolejność: PR do `master` dopiero po decyzji o powiadomieniu kancelarii (zmiana zał. 3, 30 dni).
 - **Zamknięte, gdy:** wnioski TEST złożone z potwierdzonym adresem, adapter działa w podsieci wyjścia, a umowa
   jest opublikowana po powiadomieniu.
+
+
+## NA-19. Prywatna przeglądarka ze stałym IP AWS (26.11.2026)
+
+- **Status:** kod wdrożeniowy; dostęp na żywo niezweryfikowany.
+- **Brakuje:** dedykowanego Cognito MFA, DNS/certyfikatu, przypiętego obrazu i roli OIDC dla osobnego stosu. Istniejąca rola aplikacji nie wystarcza. NAT TEST musi być włączony jawnie; nie przenosić EIP ani nie używać jako adresu rejestrów PROD.
+- **Na żywo:** `docs/private-aws-browser.md`; wdrożyć, sprawdzić anonimowy dostęp, logowanie na telefonie i rzeczywisty IPv4 w Chromium. Włączyć automatyzację przez `PRIVATE_BROWSER_AUTODEPLOY=true` dopiero po konfiguracji roli i zmiennych. Bez danych kancelarii.
