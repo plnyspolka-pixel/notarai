@@ -81,7 +81,7 @@ def test_windows_ipc_checks_session_across_processes(allowed):
                 [sys.executable, "-c", command, name, win32security.ConvertSidToStringSid(sid)],
                 capture_output=True, timeout=10,
             )
+            assert result.result(timeout=5) is allowed, completed.stderr.decode(errors="replace")
             assert (completed.returncode == 0) is allowed, completed.stderr.decode(errors="replace")
-            assert result.result(timeout=5) is allowed
         finally:
             stop.set()

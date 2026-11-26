@@ -85,7 +85,7 @@ def listen_once(name, owner, user, session, stop):
         name,
         win32pipe.PIPE_ACCESS_DUPLEX | win32pipe.FILE_FLAG_FIRST_PIPE_INSTANCE,
         win32pipe.PIPE_NOWAIT | win32pipe.PIPE_REJECT_REMOTE_CLIENTS,
-        1, 0, 0, 0, _security_attributes(owner, user),
+        1, 256, 256, 0, _security_attributes(owner, user),
     )) as pipe:
         while not stop.is_set():
             try:
@@ -104,7 +104,9 @@ def listen_once(name, owner, user, session, stop):
             deadline = monotonic() + 2
             if _read_byte(pipe, stop, deadline) != STATUS_V1 or not _client_matches(pipe, user, session):
                 return False
-            win32file.WriteFile(pipe, STATUS_V1)
+            error, count = win32file.WriteFile(pipe, STATUS_V1)
+            if error or count != 1:
+                return False
             return _read_byte(pipe, stop, deadline) == ACK
         except (ValueError, TimeoutError):
             return False
