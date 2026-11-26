@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: notarai - private single-user Chromium via the existing NAT (separate stack)
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet::Id
+  PublicSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  ExpectedIP:
+    Type: String
+    AllowedPattern: '[0-9]{1,3}(\.[0-9]{1,3}){3}'
+    NoEcho: true
+  VpcCidrs:
+    Type: String
+    AllowedPattern: '[0-9./ ]+'
+  Hostname:
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9][a-zA-Z0-9.-]+'
+  CertificateArn:
+    Type: String
+  UserPoolArn:
+    Type: String
+  UserPoolClientId:
+    Type: String
+  UserPoolDomain:
+    Type: String
+  ClientCidr:
+    Type: String
+    Description: Approved client source IPv4 CIDR
+  BrowserImage:
+    Type: String
+    AllowedPattern: 'lscr\.io/linuxserver/chromium@sha256:[0-9a-f]{64}'
+  Ami:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+Resources:
+  AlbSecurity:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: notarai browser HTTPS
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientCidr
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  BrowserSecurity:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: notarai browser private backend
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref AlbSecurity
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  AlbToBrowser:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AlbSecurity
+      IpProtocol: tcp
+      FromPort: 3000
+      ToPort: 3000
+      DestinationSecurityGroupId: !Ref BrowserSecurity
+  Browser:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref Ami
+      InstanceType: t3.medium
+      MetadataOptions:
+        HttpEndpoint: disabled
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: false
+          SubnetId: !Ref PrivateSubnet
+          GroupSet: [!Ref BrowserSecurity]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            Encrypted: true
+            DeleteOnTermination: true
+            VolumeSize: 20
+            VolumeType: gp3
+      Tags:
+        - Key: Name
+          Value: notarai-private-browser
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -Eeuo pipefail
+          umask 077
+          # No IAM role, public IP, host mounts, persistent browser profile or SSH.
+          dnf install -y docker iptables-nft
+          systemctl enable --now docker
+          trap 'docker rm -f notarai-browser >/dev/null 2>&1 || true' ERR
+          test "$(curl -4fsS --max-time 20 https://checkip.amazonaws.com | tr -d '[:space:]')" = '${ExpectedIP}'
+          docker pull '${BrowserImage}'
+          docker network create --opt com.docker.network.bridge.name=br-notarbrowser notarai-browser
+          iptables -w -I DOCKER-USER 1 -o br-notarbrowser -j DROP
+          iptables -w -I DOCKER-USER 1 -i br-notarbrowser -j DROP
+          for cidr in 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 198.18.0.0/15 224.0.0.0/4 240.0.0.0/4 ${VpcCidrs}; do
+            iptables -w -I DOCKER-USER 1 -i br-notarbrowser -d "$cidr" -j DROP
+          done
+          # Order: established replies, private blocks, public web only, deny.
+          iptables -w -I DOCKER-USER 1 -i br-notarbrowser -p tcp -m multiport --dports 80,443 -j ACCEPT
+          # Reinsert blocks ahead of public allow.
+          for cidr in 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 198.18.0.0/15 224.0.0.0/4 240.0.0.0/4 ${VpcCidrs}; do
+            iptables -w -I DOCKER-USER 1 -i br-notarbrowser -d "$cidr" -j DROP
+          done
+          iptables -w -I DOCKER-USER 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+          iptables -w -I INPUT 1 -i br-notarbrowser -j DROP
+          # No IPv6 route from browser; do not permit an alternate egress.
+          sysctl -w net.ipv6.conf.all.disable_ipv6=1
+          sysctl -w net.ipv6.conf.default.disable_ipv6=1
+          docker run -d --name notarai-browser --network notarai-browser --restart=no \
+            --shm-size=1g --security-opt no-new-privileges:true --pids-limit=1024 \
+            -e PUID=1000 -e PGID=1000 -e TZ=Europe/Warsaw \
+            -e CHROME_CLI=https://checkip.amazonaws.com/ -p 3000:3000 '${BrowserImage}'
+          test "$(docker exec notarai-browser curl -4fsS --retry 3 --max-time 20 https://checkip.amazonaws.com | tr -d '[:space:]')" = '${ExpectedIP}'
+          # Only now allow ALB health checks and sessions. Reboot remains fail-closed.
+          iptables -w -I DOCKER-USER 2 -o br-notarbrowser -p tcp --dport 3000 -j ACCEPT
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets: !Ref PublicSubnets
+      SecurityGroups: [!Ref AlbSecurity]
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '300'
+  Targets:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      TargetType: instance
+      Protocol: HTTP
+      Port: 3000
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: '200-399'
+      Targets:
+        - Id: !Ref Browser
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: authenticate-cognito
+          Order: 1
+          AuthenticateCognitoConfig:
+            UserPoolArn: !Ref UserPoolArn
+            UserPoolClientId: !Ref UserPoolClientId
+            UserPoolDomain: !Ref UserPoolDomain
+            OnUnauthenticatedRequest: authenticate
+            SessionTimeout: 3600
+        - Type: forward
+          Order: 2
+          TargetGroupArn: !Ref Targets
+Outputs:
+  BrowserURL:
+    Value: !Sub 'https://${Hostname}/'
+  DnsTarget:
+    Value: !GetAtt Alb.DNSName
+  TargetGroup:
+    Value: !Ref Targets
