@@ -7,7 +7,9 @@
   function tozsamosc(t) {
     try {
       const d = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-      return d.sub && d["custom:kancelaria"] ? d.sub + "|" + d["custom:kancelaria"] : "";
+      const identyfikator = d.sub || (location.origin === "http://127.0.0.1:8000" ? d.email : "");
+      return identyfikator && d["custom:kancelaria"]
+        ? identyfikator + "|" + d["custom:kancelaria"] : "";
     } catch { return ""; }
   }
   let poprzedni;
