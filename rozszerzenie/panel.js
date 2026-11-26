@@ -81,7 +81,18 @@ async function polacz() {
     await czekaj(3000);
   }
 }
-$("btn-otworz").onclick = () => chrome.tabs.create({ url: ADRES_DOMYSLNY });
+$("btn-otworz").onclick = () => chrome.tabs.create({ url: ustawienia.adres || ADRES_DOMYSLNY });
+const ADRES_TESTOWY = "http://127.0.0.1:8000";
+$("btn-test").onclick = async () => {
+  const dostep = await chrome.permissions.request({ origins: [ADRES_TESTOWY + "/*"] });
+  if (!dostep) { $("stan-laczenia").textContent = "Nie przyznano dostępu do lokalnego demo."; return; }
+  if (ustawienia.token) await new Notarai(ustawienia.adres, ustawienia.token).odlacz().catch(() => {});
+  ustawienia = { adres: ADRES_TESTOWY, token: "" };
+  await chrome.storage.local.set({ adres: ADRES_TESTOWY, token: "", tozsamosc: "", blokadaParowania: false });
+  await chrome.tabs.create({ url: ADRES_TESTOWY });
+  $("stan-laczenia").textContent = "Zaloguj się w lokalnym demo: test / test. Połączenie wykryję automatycznie.";
+  polacz();
+};
 $("btn-wznow").onclick = async () => {
   await chrome.storage.local.set({ blokadaParowania: false });
   polacz();
