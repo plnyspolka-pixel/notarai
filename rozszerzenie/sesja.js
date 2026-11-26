@@ -1,6 +1,7 @@
 /* Tylko zaufana domena aplikacji; token logowania nigdy nie opuszcza tej karty. */
 (() => {
-  if (window.top !== window || location.origin !== "https://app.notarai.pl" || globalThis.__notaraiSesja) return;
+  const DOZWOLONE_ADRESY = new Set(["https://app.notarai.pl", "http://127.0.0.1:8000"]);
+  if (window.top !== window || !DOZWOLONE_ADRESY.has(location.origin) || globalThis.__notaraiSesja) return;
   globalThis.__notaraiSesja = true;
   const token = () => { try { return localStorage.getItem("notarai_token") || ""; } catch { return ""; } };
   function tozsamosc(t) {
