@@ -42,10 +42,13 @@ jobs:
           }
           Expand-Archive -LiteralPath $archive -DestinationPath $destination
           $winapp = Join-Path $destination winapp.exe
-          $version = & $winapp --version
-          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^0\.8\.0(?:\+.*)?$') {
-            throw 'Unexpected WinApp CLI version'
+          $version = (Get-Item -LiteralPath $winapp).VersionInfo.ProductVersion
+          if ($version -ne '0.8.0') {
+            throw "Unexpected WinApp CLI product version $version"
           }
-          Write-Host "Microsoft WinApp CLI $version"
+          & $winapp --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "WinApp CLI --version failed with exit code $LASTEXITCODE"
+          }
           "NOTARAI_V2_TEST_WINAPP=$winapp" >> $env:GITHUB_ENV
       - run: python -m pytest -q
