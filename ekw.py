@@ -3,11 +3,12 @@
 Przegladarka EKW (przegladarka-ekw.ms.gov.pl) nie ma API i odrzuca ruch
 z serwerow kodem 403, wiec serwer notarai nie czyta jej sam. Dostawcy:
 
-- **Finance You** (domyslny, gdy skonfigurowany): API partnerskie
-  /api/public/partner-kw. Finance You sam dobiera zrodlo (Apify, EasyMKW/CMD)
+- **Finance You**: API partnerskie /api/public/partner-kw. Gdy bezposrednie
+  Apify zawiedzie, API partnerskie korzysta z EasyMKW/CMD. Gdy NotarAI nie
+  ma tokenu Apify, Finance You sam dobiera zrodlo
   i oddaje piec dzialow jako tekst + HTML. W procedurze kancelarii dostawca
   tresci KW to Finance You; jego poddostawcy sa opisani w docs/ochrona-danych.md.
-- **Apify** (zapasowy / samodzielny): aktor `regdata/ekw-ksiegi-wieczyste-scraper`,
+- **Apify** (pierwszy wybor, gdy skonfigurowany): aktor `regdata/ekw-ksiegi-wieczyste-scraper`,
   jedna ksiega = jeden platny wynik.
 
 Zasady (SPEC A, docs/rejestry.md):
@@ -101,11 +102,11 @@ def finyou_token() -> str:
 
 
 def dostawca() -> str:
-    """'finyou' | 'apify' | '' - Finance You ma pierwszenstwo, gdy skonfigurowane."""
-    if finyou_adres() and finyou_token():
-        return "finyou"
+    """Pierwszy skonfigurowany dostawca: Apify lub Finance You."""
     if token():
         return "apify"
+    if finyou_adres() and finyou_token():
+        return "finyou"
     return ""
 
 
@@ -285,7 +286,7 @@ def _odpowiedz_finyou(odp) -> dict:
     return dane
 
 
-def pobierz_finyou(numer: str, klient: httpx.Client | None = None) -> dict:
+def pobierz_finyou(numer: str, klient: httpx.Client | None = None, *, awaryjnie: bool = False) -> dict:
     """Jedna ksiega z Finance You. Gdy dostawca dopiero pobiera, dopytuje do CZAS_S."""
     numer = normalizuj_numer(numer)
     if not (finyou_adres() and finyou_token()):
@@ -295,7 +296,10 @@ def pobierz_finyou(numer: str, klient: httpx.Client | None = None) -> dict:
     k = klient or _klient_finyou()
     try:
         try:
-            odp = k.post("/api/public/partner-kw", json={"kw": numer, "wait_seconds": 50})
+            dane_zadania = {"kw": numer, "wait_seconds": 50}
+            if awaryjnie:
+                dane_zadania["fallback_only"] = True
+            odp = k.post("/api/public/partner-kw", json=dane_zadania)
         except httpx.TimeoutException:
             raise BladEKW("niedostepny", "Finance You nie odpowiedzialo w czasie - sprobuj pozniej")
         except httpx.HTTPError as blad:
@@ -365,7 +369,13 @@ def pobierz(numer: str, klient: httpx.Client | None = None) -> dict:
     """Jedna ksiega, aktualna tresc, wszystkie dzialy - od skonfigurowanego dostawcy."""
     if dostawca() == "finyou":
         return pobierz_finyou(numer, klient)
-    return pobierz_apify(numer, klient)
+    try:
+        return pobierz_apify(numer, klient)
+    except BladEKW as blad:
+        if blad.kod == "nie_znaleziono" or not (finyou_adres() and finyou_token()):
+            raise
+        log.info("EKW: Apify (%s), proba przez Finance You", blad.kod)
+        return pobierz_finyou(numer, awaryjnie=True)
 
 
 def _dane_zadania(odpowiedz: httpx.Response) -> dict:
