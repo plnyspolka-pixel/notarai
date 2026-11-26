@@ -1,4 +1,5 @@
 """V2 local service IPC: one fixed status probe over a Windows named pipe."""
+from contextlib import contextmanager
 from threading import Event
 from time import monotonic
 
@@ -18,12 +19,22 @@ CLIENT_ACCESS = win32file.FILE_GENERIC_READ | ntsecuritycon.FILE_WRITE_DATA
 PEER_DISCONNECTED = {winerror.ERROR_BROKEN_PIPE, winerror.ERROR_NO_DATA, winerror.ERROR_PIPE_NOT_CONNECTED}
 
 
+@contextmanager
+def _closing_handle(handle):
+    try:
+        yield handle
+    finally:
+        handle.Close()
+
+
 def local_service_sid():
     return win32security.CreateWellKnownSid(win32security.WinLocalServiceSid, None)
 
 
 def process_identity():
-    with win32security.OpenProcessToken(win32api.GetCurrentProcess(), win32con.TOKEN_QUERY) as token:
+    with _closing_handle(
+        win32security.OpenProcessToken(win32api.GetCurrentProcess(), win32con.TOKEN_QUERY)
+    ) as token:
         return (
             win32security.GetTokenInformation(token, win32security.TokenUser)[0],
             win32security.GetTokenInformation(token, win32security.TokenSessionId),
@@ -60,8 +71,8 @@ def _client_matches(pipe, user, session):
         return False
     win32security.ImpersonateNamedPipeClient(pipe)
     try:
-        with win32security.OpenThreadToken(
-            win32api.GetCurrentThread(), win32con.TOKEN_QUERY, True
+        with _closing_handle(
+            win32security.OpenThreadToken(win32api.GetCurrentThread(), win32con.TOKEN_QUERY, True)
         ) as token:
             return win32security.GetTokenInformation(token, win32security.TokenUser)[0] == user
     finally:
@@ -70,12 +81,12 @@ def _client_matches(pipe, user, session):
 
 def listen_once(name, owner, user, session, stop):
     """Wait for one client or service shutdown. Verify the peer before responding."""
-    with win32pipe.CreateNamedPipe(
+    with _closing_handle(win32pipe.CreateNamedPipe(
         name,
         win32pipe.PIPE_ACCESS_DUPLEX | win32pipe.FILE_FLAG_FIRST_PIPE_INSTANCE,
         win32pipe.PIPE_NOWAIT | win32pipe.PIPE_REJECT_REMOTE_CLIENTS,
         1, 0, 0, 0, _security_attributes(owner, user),
-    ) as pipe:
+    )) as pipe:
         while not stop.is_set():
             try:
                 win32pipe.ConnectNamedPipe(pipe)
@@ -105,10 +116,10 @@ def listen_once(name, owner, user, session, stop):
 
 def probe(name, owner):
     """Verify the pipe owner, then exchange a fixed protocol marker."""
-    with win32file.CreateFile(
+    with _closing_handle(win32file.CreateFile(
         name, CLIENT_ACCESS, 0, None, win32con.OPEN_EXISTING,
         win32con.SECURITY_SQOS_PRESENT | win32file.SECURITY_IDENTIFICATION, None,
-    ) as pipe:
+    )) as pipe:
         descriptor = win32security.GetSecurityInfo(
             pipe, win32security.SE_KERNEL_OBJECT, win32security.OWNER_SECURITY_INFORMATION
         )
