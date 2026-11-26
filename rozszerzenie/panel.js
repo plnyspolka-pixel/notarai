@@ -49,7 +49,11 @@ function pokazWidok() {
   const polaczony = !!ustawienia.token;
   $("widok-laczenie").hidden = polaczony;
   $("widok-praca").hidden = !polaczony;
-  $("znaczek").textContent = polaczony ? "połączony" : "";
+  const demo = ustawienia.token === "pom_demo_public_v1";
+  $("znaczek").textContent = demo ? "demo" : polaczony ? "połączony" : "";
+  $("demo-only").hidden = !demo;
+  $("formularz").hidden = demo;
+  $("sekcja-podgladu").hidden = demo;
   $("znaczek").classList.toggle("polaczony", polaczony);
   if (!polaczony) polacz(); else pilnujKolejki();
 }
