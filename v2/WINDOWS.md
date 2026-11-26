@@ -8,7 +8,7 @@ The Windows tests use real pipes between disposable processes in the runner's se
 
 ## Reproduce the SCM check
 
-GitHub Actions runs the check on a disposable hosted Windows runner. To reproduce on a disposable Windows VM, install the pinned V2 dependencies and run from an elevated PowerShell in `v2`.
+GitHub Actions runs the check on a disposable hosted Windows runner. To reproduce on a disposable Windows VM, install the pinned V2 dependencies where LocalService can read the interpreter, packages and checkout. Run from an elevated PowerShell in `v2`.
 
 ```powershell
 $env:NOTARAI_V2_TEST_SCM = '1'
@@ -16,4 +16,6 @@ python -m pytest -q -rP tests/test_windows_scm.py
 Remove-Item Env:NOTARAI_V2_TEST_SCM
 ```
 
-The test registers the service for demand start, sets the calling user SID and session number, and starts the service as LocalService. It runs the normal `worker.windows_agent` entry point with a non-elevated Windows token and checks that it receives the protocol marker. It then stops and deletes the service and checks that it can no longer be opened in SCM.
+The test registers the service for demand start, sets the calling user SID and session number, and starts the service as LocalService. On the elevated GitHub runner it verifies the protocol marker with the local IPC client. It then stops and deletes the service and checks that it can no longer be opened in SCM.
+
+For a check of the complete agent entry point, use an interactive Windows login from a regular PowerShell window. Configure the test service for that user's SID (`whoami /user`) and PowerShell process session ID (`(Get-Process -Id $PID).SessionId`). Start the configured service from an administrator window. Then run `python -m worker.windows_agent` from the regular window. The expected output is `V2 local status protocol v1 verified.` Use the same temporary service registration and cleanup as the automated test.

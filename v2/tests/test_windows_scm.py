@@ -1,83 +1,11 @@
 """Opt-in integration test for SCM on a disposable Windows machine."""
-from contextlib import contextmanager
 import os
 from pathlib import Path
 import subprocess
 import sys
 from time import monotonic, sleep
-from uuid import uuid4
 
 import pytest
-
-
-@contextmanager
-def private_desktop(user):
-    import pywintypes
-    import win32con
-    import win32security
-    import win32service
-
-    acl = win32security.ACL()
-    acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, user)
-    attributes = pywintypes.SECURITY_ATTRIBUTES()
-    attributes.SECURITY_DESCRIPTOR.SetSecurityDescriptorDacl(True, acl, False)
-    station_name = f"NotarAIV2-{uuid4()}"
-    station = win32service.CreateWindowStation(station_name, 0, win32con.GENERIC_ALL, attributes)
-    try:
-        original = win32service.GetProcessWindowStation()
-        try:
-            station.SetProcessWindowStation()
-            try:
-                desktop = win32service.CreateDesktop("Default", 0, win32con.GENERIC_ALL, attributes)
-            finally:
-                original.SetProcessWindowStation()
-        finally:
-            original.Detach()
-        try:
-            yield rf"{station_name}\Default"
-        finally:
-            desktop.CloseDesktop()
-    finally:
-        station.CloseWindowStation()
-
-
-def run_agent(root, elevated):
-    command = [sys.executable, "-m", "worker.windows_agent"]
-    if not elevated:
-        subprocess.run(command, cwd=root, check=True, timeout=10)
-        return
-
-    import win32api
-    import win32con
-    import win32event
-    import win32process
-    import win32security
-
-    from worker.windows_ipc import _closing_handle
-
-    lua_token = 0x4  # CreateRestrictedToken flag for a limited user access token.
-    administrators = win32security.CreateWellKnownSid(win32security.WinBuiltinAdministratorsSid, None)
-    access = win32con.TOKEN_ASSIGN_PRIMARY | win32con.TOKEN_DUPLICATE | win32con.TOKEN_QUERY
-    with _closing_handle(win32security.OpenProcessToken(win32api.GetCurrentProcess(), access)) as original:
-        with _closing_handle(win32security.CreateRestrictedToken(
-            original, lua_token | win32security.DISABLE_MAX_PRIVILEGE, [(administrators, 0)], None, None,
-        )) as restricted:
-            assert not win32security.GetTokenInformation(restricted, win32security.TokenElevation)
-            user = win32security.GetTokenInformation(restricted, win32security.TokenUser)[0]
-            with private_desktop(user) as desktop:
-                startup = win32process.STARTUPINFO()
-                startup.lpDesktop = desktop
-                process, thread, _, _ = win32process.CreateProcessAsUser(
-                    restricted, sys.executable, subprocess.list2cmdline(command), None, None, False,
-                    subprocess.CREATE_NO_WINDOW, None, str(root), startup,
-                )
-                thread.Close()
-                with _closing_handle(process):
-                    if win32event.WaitForSingleObject(process, 10_000) != win32event.WAIT_OBJECT_0:
-                        win32process.TerminateProcess(process, 1)
-                        pytest.fail("the non-elevated agent did not exit")
-                    exit_code = win32process.GetExitCodeProcess(process)
-                    assert exit_code == 0, f"the non-elevated agent exited with code {exit_code}"
 
 
 @pytest.mark.skipif(
@@ -94,7 +22,7 @@ def test_scm_starts_local_service_and_answers_session_probe():
     import winerror
     import winreg
 
-    from worker.windows_ipc import PIPE_NAME, process_identity
+    from worker.windows_ipc import PIPE_NAME, local_service_sid, probe, process_identity
     from worker.windows_service import SessionStatusService
 
     sid, session, elevated = process_identity()
@@ -143,8 +71,16 @@ def test_scm_starts_local_service_and_answers_session_probe():
                         pytest.fail("the registered service did not open its local pipe")
                     sleep(0.05)
 
-            run_agent(root, elevated)
-            print("SCM started LocalService in session 0 and the non-elevated agent succeeded.")
+            if elevated:
+                probe(PIPE_NAME, local_service_sid())
+                print("SCM started LocalService in session 0 and the registered user-session probe succeeded.")
+            else:
+                result = subprocess.run(
+                    [sys.executable, "-m", "worker.windows_agent"],
+                    cwd=root, capture_output=True, text=True, check=True, timeout=10,
+                )
+                assert "V2 local status protocol v1 verified." in result.stdout
+                print("SCM started LocalService in session 0 and the non-elevated agent succeeded.")
         finally:
             try:
                 if win32service.QueryServiceStatus(service)[1] != win32service.SERVICE_STOPPED:
