@@ -84,7 +84,7 @@ async function polacz() {
 $("btn-otworz").onclick = () => chrome.tabs.create({ url: ustawienia.adres || ADRES_DOMYSLNY });
 const ADRES_TESTOWY = "http://127.0.0.1:8000";
 $("btn-test").onclick = async () => {
-  const dostep = await chrome.permissions.request({ origins: [ADRES_TESTOWY + "/*"] });
+  const dostep = await chrome.permissions.request({ origins: ["http://127.0.0.1/*"] });
   if (!dostep) { $("stan-laczenia").textContent = "Nie przyznano dostępu do lokalnego demo."; return; }
   if (ustawienia.token) await new Notarai(ustawienia.adres, ustawienia.token).odlacz().catch(() => {});
   ustawienia = { adres: ADRES_TESTOWY, token: "" };
