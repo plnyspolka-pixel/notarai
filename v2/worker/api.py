@@ -10,6 +10,7 @@ from .sync import plan
 from pydantic import BaseModel, Field
 from .vault import Vault, Conflict, MAX_BYTES
 from .init_vault import home_path
+from .local_secrets import read_secret
 from .bedrock import smoke_test
 
 class Revision(BaseModel):
@@ -33,9 +34,9 @@ class Manifest(BaseModel):
     items: list[ManifestItem] = Field(max_length=10000)
 
 def create_app(home: Path):
-    vault = Vault(home, (home/"vault.key").read_bytes())
+    vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
-    token = (home/"api.token").read_text().strip()
+    token = read_secret(home, "api.token").decode().strip()
     if len(token) < 40:
         raise ValueError("invalid local token")
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
