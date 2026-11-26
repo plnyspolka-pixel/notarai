@@ -51,4 +51,11 @@ jobs:
             throw "WinApp CLI --version failed with exit code $LASTEXITCODE"
           }
           "NOTARAI_V2_TEST_WINAPP=$winapp" >> $env:GITHUB_ENV
+      - name: Enable the LibreOffice Writer interoperability test
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-writer
+          soffice --version
+          echo "NOTARAI_V2_TEST_SOFFICE=$(command -v soffice)" >> "$GITHUB_ENV"
       - run: python -m pytest -q
