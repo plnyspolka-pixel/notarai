@@ -3,6 +3,10 @@ import binascii
 import secrets
 from pathlib import Path
 from fastapi import FastAPI, Depends, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from .devices import DeviceRegistry
+from .sync import plan
 from pydantic import BaseModel, Field
 from .vault import Vault, Conflict, MAX_BYTES
 from .init_vault import home_path
@@ -14,23 +18,97 @@ class Revision(BaseModel):
     name: str = Field(min_length=1,max_length=255)
     content_b64: str = Field(max_length=((MAX_BYTES+2)//3)*4)
 
+class Invitation(BaseModel):
+    name: str = Field(min_length=1,max_length=80)
+    scope: str = "read"
+
+class Redemption(BaseModel):
+    code: str = Field(min_length=20,max_length=128)
+
+class ManifestItem(BaseModel):
+    id: str
+    version: int = Field(ge=1,strict=True)
+
+class Manifest(BaseModel):
+    items: list[ManifestItem] = Field(max_length=10000)
+
 def create_app(home: Path):
     vault = Vault(home, (home/"vault.key").read_bytes())
+    devices = DeviceRegistry(home)
     token = (home/"api.token").read_text().strip()
     if len(token) < 40:
         raise ValueError("invalid local token")
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
-    def auth(request: Request, authorization: str = Header(default="")):
-        if request.url.hostname not in {"127.0.0.1","localhost","testserver"}:
-            raise HTTPException(403,"invalid host")
-        if not secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
-            raise HTTPException(401,"unauthorized")
+    def auth(authorization: str = Header(default="")):
+        if secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
+            return ("local-admin","admin")
+        if authorization.startswith("Bearer "):
+            device = devices.authenticate(authorization[7:])
+            if device:
+                return device
+        raise HTTPException(401,"unauthorized")
+
+    def admin(identity=Depends(auth)):
+        if identity[1] != "admin":
+            raise HTTPException(403,"admin required")
+
+    def writable(identity=Depends(auth)):
+        if identity[1] not in {"admin","write"}:
+            raise HTTPException(403,"read only")
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request, exc):
+        return JSONResponse({"detail":"invalid request"},status_code=422)
 
     @app.middleware("http")
     async def no_cache(request, call_next):
+        if request.url.hostname not in {"127.0.0.1","localhost","testserver"}:
+            return JSONResponse({"detail":"invalid host"},status_code=403,headers={"Cache-Control":"no-store"})
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        response.headers["Referrer-Policy"] = "no-referrer"
         return response
+
+    @app.post("/v2/devices/invite",dependencies=[Depends(admin)])
+    def invite(req: Invitation):
+        try:
+            return devices.invite(req.name,req.scope)
+        except ValueError:
+            raise HTTPException(400,"invalid invitation")
+
+    @app.post("/v2/devices/redeem")
+    def redeem(req: Redemption):
+        try:
+            return devices.redeem(req.code)
+        except PermissionError:
+            raise HTTPException(403,"invalid invitation")
+
+    @app.get("/v2/devices",dependencies=[Depends(admin)])
+    def list_devices():
+        return devices.list()
+
+    @app.delete("/v2/devices/{device_id}",dependencies=[Depends(admin)])
+    def revoke(device_id: str):
+        if not devices.revoke(device_id):
+            raise HTTPException(404,"device not found")
+        return {"revoked":True}
+
+    @app.post("/v2/sync/plan",dependencies=[Depends(auth)])
+    def sync_plan(req: Manifest):
+        try:
+            return plan(vault.list(),[x.model_dump() for x in req.items])
+        except ValueError:
+            raise HTTPException(400,"invalid manifest")
+
+    @app.get("/v2/pocket")
+    def pocket():
+        return FileResponse(Path(__file__).with_name("pocket.html"),media_type="text/html")
+
+    @app.get("/v2/pocket.js")
+    def pocket_script():
+        return FileResponse(Path(__file__).with_name("pocket.js"),media_type="application/javascript")
 
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
@@ -40,7 +118,7 @@ def create_app(home: Path):
     def documents():
         return vault.list()
 
-    @app.post("/v2/documents",dependencies=[Depends(auth)])
+    @app.post("/v2/documents",dependencies=[Depends(writable)])
     def save(revision: Revision):
         try:
             data = base64.b64decode(revision.content_b64,validate=True)
@@ -59,7 +137,7 @@ def create_app(home: Path):
         except (KeyError,ValueError):
             raise HTTPException(404,"not found")
 
-    @app.post("/v2/bedrock/smoke",dependencies=[Depends(auth)])
+    @app.post("/v2/bedrock/smoke",dependencies=[Depends(admin)])
     def bedrock():
         try:
             return smoke_test()
