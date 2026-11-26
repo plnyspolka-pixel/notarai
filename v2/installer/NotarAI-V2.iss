@@ -1,7 +1,7 @@
 [Setup]
 AppId={{48ABAE34-C8E3-4337-87C1-22E39BBDA5DE}
 AppName=NotarAI V2 Preview
-AppVersion=2.0.0
+AppVersion=2.0.1
 DefaultDirName={localappdata}\Programs\NotarAI V2 Preview
 DefaultGroupName=NotarAI V2 Preview
 DisableProgramGroupPage=yes
@@ -21,7 +21,7 @@ Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\NotarAI V2 Preview"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
+Name: "{group}\NotarAI V2 Preview"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI V2 Preview"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI V2 Preview"; Flags: nowait postinstall skipifsilent

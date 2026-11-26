@@ -21,13 +21,15 @@ class DeviceRegistry:
             """)
     def connect(self):
         return sqlite3.connect(self.path, timeout=10)
-    def invite(self, name, scope):
+    def invite(self, name, scope, *, replace_pending=False):
         if scope not in {"read","write"} or not name.strip() or len(name)>80:
             raise ValueError("invalid device")
         code = secrets.token_urlsafe(32)
         expires = int(time.time()) + 300
         with self.connect() as db:
             db.execute("DELETE FROM invitations WHERE expires <= ?", (int(time.time()),))
+            if replace_pending:
+                db.execute("DELETE FROM invitations WHERE name=? AND scope=?", (name, scope))
             db.execute("INSERT INTO invitations VALUES (?,?,?,?)",(digest(code),name,scope,expires))
         return {"code":code,"expires":expires}
     def redeem(self, code):

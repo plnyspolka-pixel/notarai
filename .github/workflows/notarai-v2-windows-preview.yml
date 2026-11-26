@@ -26,7 +26,7 @@ jobs:
         run: ./v2/installer/build.ps1 -OutputDirectory "$env:RUNNER_TEMP/notarai-preview"
       - name: Exercise install, Pocket in Edge, and uninstall
         run: |
-          python -m pip --disable-pip-version-check install playwright==1.62.0
+          python -m pip --disable-pip-version-check install -c v2/requirements.txt playwright==1.62.0 pywin32
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -X utf8 v2/installer/smoke_windows.py "$env:RUNNER_TEMP/notarai-preview/NotarAI-V2-Setup-x64.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
