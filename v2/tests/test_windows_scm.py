@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 from time import monotonic, sleep
+from uuid import uuid4
 
 import pytest
 
@@ -14,11 +15,13 @@ def run_agent(root, elevated):
         subprocess.run(command, cwd=root, check=True, timeout=10)
         return
 
+    import pywintypes
     import win32api
     import win32con
     import win32event
     import win32process
     import win32security
+    import win32service
 
     from worker.windows_ipc import _closing_handle
 
@@ -30,17 +33,34 @@ def run_agent(root, elevated):
             original, lua_token | win32security.DISABLE_MAX_PRIVILEGE, [(administrators, 0)], None, None,
         )) as restricted:
             assert not win32security.GetTokenInformation(restricted, win32security.TokenElevation)
-            process, thread, _, _ = win32process.CreateProcessAsUser(
-                restricted, sys.executable, subprocess.list2cmdline(command), None, None, False,
-                subprocess.CREATE_NO_WINDOW, None, str(root), win32process.STARTUPINFO(),
-            )
-            thread.Close()
-            with _closing_handle(process):
-                if win32event.WaitForSingleObject(process, 10_000) != win32event.WAIT_OBJECT_0:
-                    win32process.TerminateProcess(process, 1)
-                    pytest.fail("the non-elevated agent did not exit")
-                exit_code = win32process.GetExitCodeProcess(process)
-                assert exit_code == 0, f"the non-elevated agent exited with code {exit_code}"
+            user = win32security.GetTokenInformation(restricted, win32security.TokenUser)[0]
+            acl = win32security.ACL()
+            acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, user)
+            attributes = pywintypes.SECURITY_ATTRIBUTES()
+            attributes.SECURITY_DESCRIPTOR.SetSecurityDescriptorDacl(True, acl, False)
+            station = win32service.GetProcessWindowStation()
+            try:
+                station_name = win32service.GetUserObjectInformation(station, win32service.UOI_NAME)
+            finally:
+                station.Detach()
+            desktop_name = f"NotarAIV2-{uuid4()}"
+            desktop = win32service.CreateDesktop(desktop_name, 0, win32con.GENERIC_ALL, attributes)
+            try:
+                startup = win32process.STARTUPINFO()
+                startup.lpDesktop = f"{station_name}\\{desktop_name}"
+                process, thread, _, _ = win32process.CreateProcessAsUser(
+                    restricted, sys.executable, subprocess.list2cmdline(command), None, None, False,
+                    subprocess.CREATE_NO_WINDOW, None, str(root), startup,
+                )
+                thread.Close()
+                with _closing_handle(process):
+                    if win32event.WaitForSingleObject(process, 10_000) != win32event.WAIT_OBJECT_0:
+                        win32process.TerminateProcess(process, 1)
+                        pytest.fail("the non-elevated agent did not exit")
+                    exit_code = win32process.GetExitCodeProcess(process)
+                    assert exit_code == 0, f"the non-elevated agent exited with code {exit_code}"
+            finally:
+                desktop.CloseDesktop()
 
 
 @pytest.mark.skipif(
