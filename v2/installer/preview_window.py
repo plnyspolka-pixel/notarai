@@ -7,6 +7,7 @@ import win32con
 import win32gui
 
 TITLE = "NotarAI V2 Preview"
+WINDOW_CLASS = "NotarAIV2PreviewDialog"
 CODE = 100
 NEW_CODE = 101
 OPEN_POCKET = 102
@@ -30,7 +31,7 @@ def show(url, invite, *, open_on_start):
              | win32con.DS_CENTER | win32con.DS_MODALFRAME | win32con.DS_SETFONT)
     code = invite()
     template = [
-        [TITLE, (0, 0, 278, 113), frame, win32con.WS_EX_APPWINDOW, (9, "Segoe UI")],
+        [TITLE, (0, 0, 278, 113), frame, win32con.WS_EX_APPWINDOW, (9, "Segoe UI"), None, WINDOW_CLASS],
         ["STATIC", "Tylko dane testowe", -1, (12, 9, 253, 11), child],
         ["STATIC", "Kod parowania do Pocket (ważny przez 5 minut)", -1, (12, 29, 253, 10), child],
         ["EDIT", code, CODE, (12, 42, 253, 17),
@@ -56,7 +57,7 @@ def show(url, invite, *, open_on_start):
             open_pocket(url)
         elif control == NEW_CODE:
             try:
-                win32gui.SetDlgItemText(hwnd, CODE, invite())
+                win32gui.SetWindowText(win32gui.GetDlgItem(hwnd, CODE), invite())
             except sqlite3.Error:
                 message("Nie udało się wygenerować kodu. Spróbuj ponownie.", hwnd)
         elif control == win32con.IDCANCEL:
@@ -65,4 +66,14 @@ def show(url, invite, *, open_on_start):
             return 0
         return 1
 
-    win32gui.DialogBoxIndirect(win32api.GetModuleHandle(None), template, 0, handle_dialog)
+    instance = win32api.GetModuleHandle(None)
+    window_class = win32gui.WNDCLASS()
+    window_class.SetDialogProc()
+    window_class.hInstance = instance
+    window_class.lpszClassName = WINDOW_CLASS
+    window_class.cbWndExtra = win32con.DLGWINDOWEXTRA
+    window_class.hCursor = win32gui.LoadCursor(0, win32con.IDC_ARROW)
+    window_class.hbrBackground = win32con.COLOR_BTNFACE + 1
+    window_class.lpfnWndProc = handle_dialog
+    win32gui.RegisterClass(window_class)
+    win32gui.DialogBoxIndirect(instance, template, 0, {})

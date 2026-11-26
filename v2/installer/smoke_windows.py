@@ -15,7 +15,7 @@ import win32gui
 import win32process
 
 from preview_instance import discover
-from preview_window import CODE, NEW_CODE, TITLE
+from preview_window import CODE, NEW_CODE, TITLE, WINDOW_CLASS
 
 DOCUMENT = "synthetic-preview.txt"
 CONTENT = "Fikcyjny dokument testowy V2."
@@ -38,7 +38,7 @@ def running_preview(app_dir: Path, state: Path, *, simulate_crash=False):
         try:
             deadline = monotonic() + 20
             while monotonic() < deadline and worker.poll() is None:
-                found = win32gui.FindWindow("#32770", TITLE)
+                found = win32gui.FindWindow(WINDOW_CLASS, TITLE)
                 if found and win32process.GetWindowThreadProcessId(found)[1] == worker.pid:
                     window = found
                     url = discover(state)
