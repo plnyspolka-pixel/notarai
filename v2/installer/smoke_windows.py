@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from tempfile import TemporaryFile
 from time import monotonic, sleep
 
 from playwright.sync_api import expect, sync_playwright
@@ -29,7 +30,9 @@ def launch_command(app_dir, executable):
 
 @contextmanager
 def running_preview(app_dir: Path, state: Path, *, simulate_crash=False):
-    with subprocess.Popen(launch_command(app_dir, "pythonw.exe"), cwd=app_dir) as worker:
+    with TemporaryFile() as output, subprocess.Popen(
+        launch_command(app_dir, "pythonw.exe"), cwd=app_dir, stdout=output, stderr=output,
+    ) as worker:
         window = 0
         try:
             deadline = monotonic() + 20
@@ -56,6 +59,9 @@ def running_preview(app_dir: Path, state: Path, *, simulate_crash=False):
                         worker.terminate()
                         worker.wait(timeout=5)
                         raise
+            if sys.exc_info()[0] is not None:
+                output.seek(0)
+                print(output.read().decode("utf-8", errors="replace"), file=sys.stderr)
 
 
 def paired_pocket(browser, url, code):
@@ -97,9 +103,11 @@ def main(installer: Path) -> None:
 
                     button = win32gui.GetDlgItem(window, NEW_CODE)
                     assert win32gui.GetWindowText(button) == "Nowy kod parowania"
-                    win32gui.SendMessage(window, win32con.WM_COMMAND, NEW_CODE, button)
-                    code = win32gui.GetDlgItemText(window, CODE)
-                    assert code and code != old_code
+                    win32gui.SendMessageTimeout(button, win32con.BM_CLICK, 0, 0, win32con.SMTO_ABORTIFHUNG, 5000)
+                    deadline = monotonic() + 5
+                    while (code := win32gui.GetDlgItemText(window, CODE)) == old_code and monotonic() < deadline:
+                        sleep(0.05)
+                    assert code and code != old_code, "the native button did not replace the displayed code"
                     session = browser.new_context()
                     try:
                         redeem = url.removesuffix("/pocket") + "/devices/redeem"
