@@ -33,7 +33,7 @@ class ManifestItem(BaseModel):
 class Manifest(BaseModel):
     items: list[ManifestItem] = Field(max_length=10000)
 
-def create_app(home: Path):
+def create_app(home: Path, *, allow_bedrock: bool = True):
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
     token = read_secret(home, "api.token").decode().strip()
@@ -113,7 +113,8 @@ def create_app(home: Path):
 
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
-        return {"version":"2.0-dev","storage":"local","ai":"aws-bedrock","mode":"synthetic-only"}
+        ai = "aws-bedrock" if allow_bedrock else "disabled"
+        return {"version":"2.0-dev","storage":"local","ai":ai,"mode":"synthetic-only"}
 
     @app.get("/v2/documents",dependencies=[Depends(auth)])
     def documents(include_names: bool = False):
@@ -147,6 +148,8 @@ def create_app(home: Path):
 
     @app.post("/v2/bedrock/smoke",dependencies=[Depends(admin)])
     def bedrock():
+        if not allow_bedrock:
+            raise HTTPException(403, "Bedrock is disabled in the Windows preview")
         try:
             return smoke_test()
         except (PermissionError,ValueError):

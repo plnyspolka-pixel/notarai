@@ -30,3 +30,5 @@ From v2: create a Python 3.11+ virtual environment, install requirements, set NO
 Do not expose the development API to the LAN or internet. No production credentials or data in this public repository.
 
 The [Windows session prototype](WINDOWS.md) covers the local boundary between a background service and an interactive agent.
+
+The [Windows preview installer](installer/README.md) bundles the local Pocket prototype for Windows x64.
