@@ -1,4 +1,5 @@
 """Opt-in integration test for SCM on a disposable Windows machine."""
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import subprocess
@@ -9,19 +10,48 @@ from uuid import uuid4
 import pytest
 
 
+@contextmanager
+def private_desktop(user):
+    import pywintypes
+    import win32con
+    import win32security
+    import win32service
+
+    acl = win32security.ACL()
+    acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, user)
+    attributes = pywintypes.SECURITY_ATTRIBUTES()
+    attributes.SECURITY_DESCRIPTOR.SetSecurityDescriptorDacl(True, acl, False)
+    station_name = f"NotarAIV2-{uuid4()}"
+    station = win32service.CreateWindowStation(station_name, 0, win32con.GENERIC_ALL, attributes)
+    try:
+        original = win32service.GetProcessWindowStation()
+        try:
+            station.SetProcessWindowStation()
+            try:
+                desktop = win32service.CreateDesktop("Default", 0, win32con.GENERIC_ALL, attributes)
+            finally:
+                original.SetProcessWindowStation()
+        finally:
+            original.Detach()
+        try:
+            yield rf"{station_name}\Default"
+        finally:
+            desktop.CloseDesktop()
+    finally:
+        station.CloseWindowStation()
+
+
 def run_agent(root, elevated):
     command = [sys.executable, "-m", "worker.windows_agent"]
     if not elevated:
         subprocess.run(command, cwd=root, check=True, timeout=10)
         return
 
-    import pywintypes
     import win32api
     import win32con
     import win32event
     import win32process
     import win32security
-    import win32service
 
     from worker.windows_ipc import _closing_handle
 
@@ -34,20 +64,9 @@ def run_agent(root, elevated):
         )) as restricted:
             assert not win32security.GetTokenInformation(restricted, win32security.TokenElevation)
             user = win32security.GetTokenInformation(restricted, win32security.TokenUser)[0]
-            acl = win32security.ACL()
-            acl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, user)
-            attributes = pywintypes.SECURITY_ATTRIBUTES()
-            attributes.SECURITY_DESCRIPTOR.SetSecurityDescriptorDacl(True, acl, False)
-            station = win32service.GetProcessWindowStation()
-            try:
-                station_name = win32service.GetUserObjectInformation(station, win32service.UOI_NAME)
-            finally:
-                station.Detach()
-            desktop_name = f"NotarAIV2-{uuid4()}"
-            desktop = win32service.CreateDesktop(desktop_name, 0, win32con.GENERIC_ALL, attributes)
-            try:
+            with private_desktop(user) as desktop:
                 startup = win32process.STARTUPINFO()
-                startup.lpDesktop = f"{station_name}\\{desktop_name}"
+                startup.lpDesktop = desktop
                 process, thread, _, _ = win32process.CreateProcessAsUser(
                     restricted, sys.executable, subprocess.list2cmdline(command), None, None, False,
                     subprocess.CREATE_NO_WINDOW, None, str(root), startup,
@@ -59,8 +78,6 @@ def run_agent(root, elevated):
                         pytest.fail("the non-elevated agent did not exit")
                     exit_code = win32process.GetExitCodeProcess(process)
                     assert exit_code == 0, f"the non-elevated agent exited with code {exit_code}"
-            finally:
-                desktop.CloseDesktop()
 
 
 @pytest.mark.skipif(
