@@ -10,6 +10,7 @@ from .sync import plan
 from pydantic import BaseModel, Field
 from .vault import Vault, Conflict, MAX_BYTES
 from .init_vault import home_path
+from .local_secrets import read_secret
 from .bedrock import smoke_test
 
 class Revision(BaseModel):
@@ -32,10 +33,10 @@ class ManifestItem(BaseModel):
 class Manifest(BaseModel):
     items: list[ManifestItem] = Field(max_length=10000)
 
-def create_app(home: Path):
-    vault = Vault(home, (home/"vault.key").read_bytes())
+def create_app(home: Path, *, allow_bedrock: bool = True):
+    vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
-    token = (home/"api.token").read_text().strip()
+    token = read_secret(home, "api.token").decode().strip()
     if len(token) < 40:
         raise ValueError("invalid local token")
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
@@ -112,7 +113,8 @@ def create_app(home: Path):
 
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
-        return {"version":"2.0-dev","storage":"local","ai":"aws-bedrock","mode":"synthetic-only"}
+        ai = "aws-bedrock" if allow_bedrock else "disabled"
+        return {"version":"2.0-dev","storage":"local","ai":ai,"mode":"synthetic-only"}
 
     @app.get("/v2/documents",dependencies=[Depends(auth)])
     def documents(include_names: bool = False):
@@ -146,6 +148,8 @@ def create_app(home: Path):
 
     @app.post("/v2/bedrock/smoke",dependencies=[Depends(admin)])
     def bedrock():
+        if not allow_bedrock:
+            raise HTTPException(403, "Bedrock is disabled in the Windows preview")
         try:
             return smoke_test()
         except (PermissionError,ValueError):
