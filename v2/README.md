@@ -25,6 +25,8 @@ The existing V1 uses Python, so the prototype reuses that runtime instead of int
 6. Backup/restore, independent audit, device theft and failure drills; explicit migration wizard.
 
 ## Prototype usage
-From v2: create a Python 3.11+ virtual environment, install requirements, set NOTARAI_V2_HOME to a local non-synced directory, run python -m worker.init_vault, then python -m worker.api. The initializer prints a bearer token once. Do not store it in a shared or synced directory. The key is currently file-based for development only, not production-grade. Run pytest -q for tests.
+From v2: create a Python 3.11+ virtual environment, install requirements, set NOTARAI_V2_HOME to a local non-synced directory, run python -m worker.init_vault, then python -m worker.api. The initializer prints a bearer token once. Do not store it in a shared or synced directory. New Windows development vaults protect the key and token with Windows DPAPI for the current user. Run pytest -q for tests.
 
 Do not expose the development API to the LAN or internet. No production credentials or data in this public repository.
+
+The [Windows session prototype](WINDOWS.md) covers the local boundary between a background service and an interactive agent.
