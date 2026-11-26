@@ -83,7 +83,9 @@ Resources:
       ImageId: !Ref Ami
       InstanceType: t3.medium
       MetadataOptions:
-        HttpEndpoint: disabled
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
       NetworkInterfaces:
         - DeviceIndex: '0'
           AssociatePublicIpAddress: false
@@ -113,12 +115,9 @@ Resources:
           docker network create --opt com.docker.network.bridge.name=br-notarbrowser notarai-browser
           iptables -w -I DOCKER-USER 1 -o br-notarbrowser -j DROP
           iptables -w -I DOCKER-USER 1 -i br-notarbrowser -j DROP
-          for cidr in 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 198.18.0.0/15 224.0.0.0/4 240.0.0.0/4 ${VpcCidrs}; do
-            iptables -w -I DOCKER-USER 1 -i br-notarbrowser -d "$cidr" -j DROP
-          done
           # Order: established replies, private blocks, public web only, deny.
           iptables -w -I DOCKER-USER 1 -i br-notarbrowser -p tcp -m multiport --dports 80,443 -j ACCEPT
-          # Reinsert blocks ahead of public allow.
+          # Insert blocks ahead of public allow; IMDS is host-only for cloud-init.
           for cidr in 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 198.18.0.0/15 224.0.0.0/4 240.0.0.0/4 ${VpcCidrs}; do
             iptables -w -I DOCKER-USER 1 -i br-notarbrowser -d "$cidr" -j DROP
           done
