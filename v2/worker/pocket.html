@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NotarAI Pocket — prototyp</title>
+<style>body{font:16px system-ui;max-width:640px;margin:24px auto;padding:0 16px;color:#17332e}button,input,textarea{font:inherit;padding:10px;margin:4px 0;max-width:100%;box-sizing:border-box}button{cursor:pointer}textarea{width:100%;min-height:180px}li{margin:8px 0}#status{white-space:pre-wrap}</style></head>
+<body><h1>NotarAI Pocket</h1><p>Prototyp lokalny — wyłącznie fikcyjne dokumenty. Token pozostaje w pamięci karty. Brak trwałego cache.</p>
+<label>Kod parowania <input id="code" type="password" autocomplete="off"></label><button id="pair">Połącz</button>
+<button id="refresh">Odśwież dokumenty</button><button id="logout">Rozłącz</button><ul id="docs"></ul>
+<label>Nazwa dokumentu <input id="name" maxlength="255"></label><textarea id="body" placeholder="Treść dokumentu tekstowego"></textarea>
+<button id="save">Zapisz nową wersję</button><button id="new">Nowy dokument</button><p id="status" role="status"></p>
+<script src="/v2/pocket.js"></script></body></html>
