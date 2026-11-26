@@ -92,10 +92,21 @@ def test_scm_starts_local_service_and_answers_session_probe():
                 finally:
                     win32service.CloseServiceHandle(service)
 
-        with pytest.raises(pywintypes.error) as deleted:
-            remaining = win32service.OpenService(scm, service_name, win32service.SERVICE_QUERY_STATUS)
-            win32service.CloseServiceHandle(remaining)
-        assert deleted.value.winerror == winerror.ERROR_SERVICE_DOES_NOT_EXIST
+        # DeleteService marks the entry for removal. SCM may briefly retain it.
+        deadline = monotonic() + 5
+        while True:
+            try:
+                remaining = win32service.OpenService(scm, service_name, win32service.SERVICE_QUERY_STATUS)
+            except pywintypes.error as error:
+                if error.winerror == winerror.ERROR_SERVICE_DOES_NOT_EXIST:
+                    break
+                if error.winerror != winerror.ERROR_SERVICE_MARKED_FOR_DELETE:
+                    raise
+            else:
+                win32service.CloseServiceHandle(remaining)
+            if monotonic() >= deadline:
+                pytest.fail("SCM did not remove the temporary service")
+            sleep(0.05)
         print("SCM confirmed the temporary service was removed.")
     finally:
         win32service.CloseServiceHandle(scm)
