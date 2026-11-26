@@ -5,6 +5,11 @@ on:
     paths:
       - 'v2/**'
       - '.github/workflows/notarai-v2-tests.yml'
+  pull_request:
+    branches: [notarai-2.0]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/notarai-v2-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,4 +28,24 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
+      - run: python -m pip check
+      - name: Verify Microsoft WinApp CLI and enable the synthetic Windows test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP winappcli-x64.zip
+          $destination = Join-Path $env:RUNNER_TEMP winappcli-v0.8.0
+          $sha256 = '67a8e1d39421a5ef5309c7017327c6a70ea6215a0e56e47ec22a7e9ec3b914e6'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/winappCli/releases/download/v0.8.0/winappcli-x64.zip' -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $sha256) {
+            throw 'WinApp CLI release archive failed its SHA-256 check'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $winapp = Join-Path $destination winapp.exe
+          $version = & $winapp --version
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^0\.8\.0(?:\+.*)?$') {
+            throw 'Unexpected WinApp CLI version'
+          }
+          Write-Host "Microsoft WinApp CLI $version"
+          "NOTARAI_V2_TEST_WINAPP=$winapp" >> $env:GITHUB_ENV
       - run: python -m pytest -q
