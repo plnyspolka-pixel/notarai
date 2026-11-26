@@ -59,3 +59,8 @@ jobs:
           soffice --version
           echo "NOTARAI_V2_TEST_SOFFICE=$(command -v soffice)" >> "$GITHUB_ENV"
       - run: python -m pytest -q
+      - name: Verify the V2 service through Windows SCM
+        if: runner.os == 'Windows' && runner.environment == 'github-hosted'
+        env:
+          NOTARAI_V2_TEST_SCM: '1'
+        run: python -m pytest -q -rP tests/test_windows_scm.py
