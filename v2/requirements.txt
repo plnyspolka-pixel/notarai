@@ -25,6 +25,7 @@ pydantic-core==2.50.5
 pygments==2.21.0
 pytest==9.2.0
 python-dateutil==2.9.0.post0
+pywin32==312; sys_platform == "win32"
 s3transfer==0.19.3
 six==1.17.0
 starlette==1.10.0

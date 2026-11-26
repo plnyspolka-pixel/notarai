@@ -11,14 +11,15 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
 $python = ".venv\Scripts\python.exe"
 & $python -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed" }
-$key = Join-Path $env:NOTARAI_V2_HOME "vault.key"
-$token = Join-Path $env:NOTARAI_V2_HOME "api.token"
-if (-not (Test-Path $key) -and -not (Test-Path $token)) {
+$plainKey = Test-Path (Join-Path $env:NOTARAI_V2_HOME "vault.key")
+$plainToken = Test-Path (Join-Path $env:NOTARAI_V2_HOME "api.token")
+$protectedKey = Test-Path (Join-Path $env:NOTARAI_V2_HOME "vault.key.dpapi")
+$protectedToken = Test-Path (Join-Path $env:NOTARAI_V2_HOME "api.token.dpapi")
+if (-not ($plainKey -or $plainToken -or $protectedKey -or $protectedToken)) {
     & $python -m worker.init_vault
     if ($LASTEXITCODE -ne 0) { throw "Vault initialization failed" }
-}
-if (-not (Test-Path $key) -or -not (Test-Path $token)) {
-    throw "Incomplete vault initialization. Do not overwrite existing keys."
+} elseif (($plainKey -ne $plainToken) -or ($protectedKey -ne $protectedToken) -or ($plainKey -and $protectedKey)) {
+    throw "Incomplete or ambiguous vault initialization. Do not overwrite existing keys."
 }
 Write-Host "Development only: http://127.0.0.1:8765/v2/pocket"
 Write-Host "Run the pair_cli command in a second PowerShell with the same NOTARAI_V2_HOME."

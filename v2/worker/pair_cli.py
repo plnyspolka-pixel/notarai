@@ -3,6 +3,7 @@ import argparse
 import json
 import urllib.request
 from .init_vault import home_path
+from .local_secrets import read_secret
 
 def main():
     parser=argparse.ArgumentParser()
@@ -14,7 +15,7 @@ def main():
     revoke=sub.add_parser("revoke")
     revoke.add_argument("id")
     args=parser.parse_args()
-    token=(home_path()/"api.token").read_text().strip()
+    token=read_secret(home_path(),"api.token").decode().strip()
     url="http://127.0.0.1:8765/v2/devices"
     method="GET"
     data=None
