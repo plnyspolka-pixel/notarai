@@ -36,10 +36,10 @@ try {
     Copy-Item -LiteralPath (Join-Path $source 'worker') -Destination $payload -Recurse
     Get-ChildItem -LiteralPath (Join-Path $payload 'worker') -Filter '__pycache__' -Directory -Recurse |
         Remove-Item -Recurse -Force
-    @('launch.py', 'preview_instance.py', 'preview_window.py') | ForEach-Object {
+    @('launch.py', 'preview_instance.py') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination $payload
     }
-    & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, win32gui, uvicorn; from worker.api import create_app"
+    & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, uvicorn; from worker.api import create_app"
     if ($LASTEXITCODE -ne 0) { throw 'The embedded runtime failed to import the preview.' }
 
     $innoSetup = Join-Path $stage 'innosetup-6.4.3.exe'

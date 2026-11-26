@@ -21,7 +21,8 @@ Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\NotarAI V2 Preview"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
+Name: "{group}\NotarAI V2 Preview"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
+Name: "{group}\Nowy kod parowania"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --new-code"; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI V2 Preview"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI V2 Preview"; Flags: nowait postinstall skipifsilent

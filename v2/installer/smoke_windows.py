@@ -5,64 +5,54 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from tempfile import TemporaryFile
+from tempfile import TemporaryDirectory
 from time import monotonic, sleep
 
 from playwright.sync_api import expect, sync_playwright
-import win32api
-import win32con
-import win32gui
-import win32process
 
 from preview_instance import discover
-from preview_window import CODE, NEW_CODE, TITLE, WINDOW_CLASS
 
 DOCUMENT = "synthetic-preview.txt"
 CONTENT = "Fikcyjny dokument testowy V2."
 QUIET_SETUP = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+CODE_LABEL = "Kod parowania: "
 
 
-def launch_command(app_dir, executable):
+def launch_command(app_dir, *options):
     return [
-        str(app_dir / "runtime" / executable), "-X", "utf8",
-        str(app_dir / "launch.py"), "--no-browser",
+        str(app_dir / "runtime" / "python.exe"), "-X", "utf8",
+        str(app_dir / "launch.py"), "--no-browser", *options,
     ]
 
 
+def displayed_code(output):
+    return next((line.removeprefix(CODE_LABEL) for line in output.splitlines()
+                 if line.startswith(CODE_LABEL)), "")
+
+
 @contextmanager
-def running_preview(app_dir: Path, state: Path, *, simulate_crash=False):
-    with TemporaryFile() as output, subprocess.Popen(
-        launch_command(app_dir, "pythonw.exe"), cwd=app_dir, stdout=output, stderr=output,
+def running_preview(app_dir: Path, state: Path, log: Path):
+    with log.open("wb") as output, subprocess.Popen(
+        launch_command(app_dir), cwd=app_dir, stdout=output, stderr=subprocess.STDOUT,
     ) as worker:
-        window = 0
         try:
             deadline = monotonic() + 20
             while monotonic() < deadline and worker.poll() is None:
-                found = win32gui.FindWindow(WINDOW_CLASS, TITLE)
-                if found and win32process.GetWindowThreadProcessId(found)[1] == worker.pid:
-                    window = found
-                    url = discover(state)
-                    if url and win32gui.GetDlgItemText(window, CODE):
-                        yield url, window
-                        return
+                url = discover(state)
+                code = displayed_code(log.read_text(encoding="utf-8", errors="replace"))
+                if url and code:
+                    yield url, code
+                    return
                 sleep(0.1)
-            raise RuntimeError(f"Preview window or server failed to start, exit code {worker.poll()}.")
+            raise RuntimeError(f"Preview failed to start, exit code {worker.poll()}.")
         finally:
             if worker.poll() is None:
-                if simulate_crash or not window:
-                    worker.terminate()
-                    worker.wait(timeout=10)
-                else:
-                    win32gui.PostMessage(window, win32con.WM_CLOSE, 0, 0)
-                    try:
-                        assert worker.wait(timeout=10) == 0
-                    except subprocess.TimeoutExpired:
-                        worker.terminate()
-                        worker.wait(timeout=5)
-                        raise
+                worker.terminate()
+                worker.wait(timeout=10)
             if sys.exc_info()[0] is not None:
-                output.seek(0)
-                print(output.read().decode("utf-8", errors="replace"), file=sys.stderr)
+                for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+                    if not line.startswith(CODE_LABEL):
+                        print(line, file=sys.stderr)
 
 
 def paired_pocket(browser, url, code):
@@ -80,48 +70,42 @@ def main(installer: Path) -> None:
     app_dir = local / "Programs" / "NotarAI V2 Preview"
     vault = local / "NotarAI" / "V2-preview"
     state = local / "NotarAI" / "V2-preview-runtime" / "instance.json"
+    shortcuts = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "NotarAI V2 Preview"
     if app_dir.exists() or vault.exists() or state.exists():
         raise RuntimeError("Installer smoke test needs a fresh Windows test profile.")
 
     try:
         subprocess.run([str(installer), *QUIET_SETUP], check=True, timeout=120)
         assert (app_dir / "runtime" / "python.exe").is_file()
-        print("EXE installed in the current Windows profile.", flush=True)
-        with sync_playwright() as playwright:
+        assert (shortcuts / "NotarAI V2 Preview.lnk").is_file()
+        assert (shortcuts / "Nowy kod parowania.lnk").is_file()
+        print("EXE installed in the current Windows profile with both shortcuts.", flush=True)
+        with TemporaryDirectory() as work, sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel="msedge", headless=True)
+            log = Path(work) / "preview.log"
             try:
-                with running_preview(app_dir, state, simulate_crash=True) as (url, window):
-                    initial_state = json.loads(state.read_text(encoding="ascii"))
-                    old_code = win32gui.GetDlgItemText(window, CODE)
+                with running_preview(app_dir, state, log) as (url, old_code):
+                    initial = json.loads(state.read_text(encoding="ascii"))
                     repeated = subprocess.run(
-                        launch_command(app_dir, "python.exe"), cwd=app_dir, capture_output=True,
+                        launch_command(app_dir), cwd=app_dir, capture_output=True,
                         text=True, check=True, timeout=10,
                     )
                     assert repeated.stdout.strip() == f"Pocket: {url}"
-                    assert json.loads(state.read_text(encoding="ascii")) == initial_state
-                    assert win32gui.GetDlgItemText(window, CODE) == old_code
-                    print("The second launcher reused the running worker and pairing code.", flush=True)
 
-                    button = win32gui.GetDlgItem(window, NEW_CODE)
-                    assert win32gui.GetWindowText(button) == "Nowy kod parowania"
-                    win32gui.SetForegroundWindow(window)
-                    left, top, right, bottom = win32gui.GetWindowRect(button)
-                    point = ((left + right) // 2, (top + bottom) // 2)
-                    assert win32gui.WindowFromPoint(point) == button, "the pairing button is obscured"
-                    win32api.SetCursorPos(point)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-                    deadline = monotonic() + 5
-                    while (code := win32gui.GetDlgItemText(window, CODE)) == old_code and monotonic() < deadline:
-                        sleep(0.05)
-                    assert code and code != old_code, "the native button did not replace the displayed code"
+                    rotation = subprocess.run(
+                        launch_command(app_dir, "--new-code"), cwd=app_dir, capture_output=True,
+                        text=True, check=True, timeout=10,
+                    )
+                    code = displayed_code(rotation.stdout)
+                    assert code and code != old_code
+                    assert json.loads(state.read_text(encoding="ascii")) == initial
                     session = browser.new_context()
                     try:
                         redeem = url.removesuffix("/pocket") + "/devices/redeem"
                         assert session.request.post(redeem, data={"code": old_code}).status == 403
                     finally:
                         session.close()
-                    print("The native pairing button invalidated the previous code.", flush=True)
+                    print("Duplicate launch and code replacement reused the running worker; the old code was rejected.", flush=True)
 
                     page = paired_pocket(browser, url, code)
                     page.get_by_role("button", name="Nowy dokument tekstowy").click()
@@ -132,13 +116,12 @@ def main(installer: Path) -> None:
                     page.close()
 
                 assert state.is_file(), "a forced exit should leave the stale instance file"
-                with running_preview(app_dir, state) as (url, window):
-                    assert json.loads(state.read_text(encoding="ascii"))["nonce"] != initial_state["nonce"]
-                    page = paired_pocket(browser, url, win32gui.GetDlgItemText(window, CODE))
+                with running_preview(app_dir, state, log) as (url, code):
+                    assert json.loads(state.read_text(encoding="ascii"))["nonce"] != initial["nonce"]
+                    page = paired_pocket(browser, url, code)
                     page.get_by_role("button", name=f"{DOCUMENT} · wersja 1").click()
                     expect(page.get_by_label("Treść", exact=True)).to_have_value(CONTENT)
                     page.close()
-                assert not state.exists(), "closing the window must remove the live instance file"
             finally:
                 browser.close()
         assert (vault / "vault.key.dpapi").is_file()
@@ -151,8 +134,9 @@ def main(installer: Path) -> None:
             subprocess.run([str(uninstall), *QUIET_SETUP], check=True, timeout=120)
 
     assert not (app_dir / "runtime" / "python.exe").exists()
+    assert not (shortcuts / "Nowy kod parowania.lnk").exists()
     assert (vault / "vault.sqlite3").is_file()
-    print("Uninstall removed program files and preserved the local test vault.", flush=True)
+    print("Uninstall removed program files and shortcuts and preserved the local test vault.", flush=True)
 
 
 if __name__ == "__main__":
