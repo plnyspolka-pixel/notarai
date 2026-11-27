@@ -86,6 +86,13 @@ class MailSettings(_Strict):
     path: str | None = Field(default=None, max_length=400)
 
 
+class CalendarSettings(_Strict):
+    # Owner's decision 27.11.2026: the calendar is the same here and in the web version, both ways.
+    web_sync: bool = True
+    web_url: str = Field(default="https://app.notarai.pl", max_length=200,
+                         pattern=r"^(https://[A-Za-z0-9.-]+(:\d{1,5})?|http://127\.0\.0\.1:\d{1,5})$")
+
+
 class Settings(_Strict):
     ai: AiSettings = AiSettings()
     account: AccountSettings | None = None
@@ -94,6 +101,7 @@ class Settings(_Strict):
     mail: MailSettings = MailSettings()
     speech: SpeechSettings = SpeechSettings()
     listen: ListenSettings = ListenSettings()
+    calendar: CalendarSettings = CalendarSettings()
     backup_dir: str | None = None
     acts_dir: str | None = Field(default=None, max_length=400)     # where the office keeps its acts
     learn: bool = True                                             # learning mode, visible in the window

@@ -166,7 +166,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                fill_targets: dict | None = None, computer_roots=None, computer_starter=None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
                office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
-               service_send=None):
+               service_send=None, web_calendar_api=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -339,10 +339,12 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         upkeep = asyncio.create_task(maintenance_loop())
         ears = asyncio.create_task(listening_loop())
         together = asyncio.create_task(office_loop())
+        diary = asyncio.create_task(web_calendar_loop())
         yield
         upkeep.cancel()
         ears.cancel()
         together.cancel()
+        diary.cancel()
         try:
             _app.state.close_browser()
         except Exception:
@@ -1225,6 +1227,20 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                 except Exception:
                     pass            # the other computer is off: try again later
 
+    async def web_calendar_loop():
+        """Every two minutes: the calendar the same here and in notarai.pl. Quiet on any trouble (no entry
+        content is ever logged); the notary sees the result on „synchronizuj kalendarz”."""
+        while True:
+            await asyncio.sleep(120)
+            if not state["settings"].calendar.web_sync:
+                continue
+            try:
+                await asyncio.to_thread(web_calendar.sync)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
     # ------------------------------------------------------------ what the program is doing, in plain words
     activity: dict[str, list] = {}
 
@@ -1341,7 +1357,21 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     from .terminarz import Calendar
 
-    calendar = Calendar(vault)
+    from . import web_calendar as web_calendar_module
+
+    me = web_calendar_module.station_id(home)
+    calendar = Calendar(vault, origin=lambda: me)
+
+    def web_api():
+        """The web calendar API with this station's login; None when it is not signed in."""
+        if web_calendar_api is not None:
+            return web_calendar_api()
+        account = state["account"]
+        if account is None or not account.signed_in:
+            return None
+        return web_calendar_module.http_api(state["settings"].calendar.web_url, account.id_token)
+
+    web_calendar = web_calendar_module.WebCalendar(home, vault, me, web_api)
     listening = Listening(vault, lambda audio, suffix: speech_to_text(audio, suffix), lambda: state["inference"],
                           lambda: state["settings"].listen, extract=extract_docx, calendar=calendar)
 
@@ -1466,7 +1496,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         ai_ready=lambda: bool(state["inference"] is not None and state["inference"].enabled),
         agent_ask=lambda system, question: state["inference"].ask(
             purpose="agent", system=system, text=question, names=vault.all_parties(), max_tokens=1500).text,
-        calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
+        calendar=calendar, web_calendar=web_calendar, onboarding=onboarding, environment=environment, registers=register_service,
         start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,

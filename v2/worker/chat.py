@@ -149,7 +149,11 @@ class Chat:
         blocks += self._warnings(admin)
         today = self.s.calendar.upcoming(1, cases=identity.cases) if identity.scope != "listen" else []
         if today:
-            blocks.append(text("Dziś: " + "; ".join(f"{e['label'].split()[-1]} {e['title']}" for e in today[:6]) + "."))
+            blocks.append(text("Dziś: " + "; ".join(f"{'cały dzień' if e.get('all_day') else e['label'].split()[-1]} {e['title']}"
+                                                   for e in today[:6]) + "."))
+        web = getattr(self.s, "web_calendar", None)
+        if web is not None and identity.scope in {"admin", "write"}:
+            blocks += [text(n) for n in web.notices()]
         delivered = self.s.service.delivered(self.s.program_changes())
         for item in delivered:
             blocks.append(text(f"Twoja zmiana już działa ({item['id']}): {item.get('opis_zmiany') or item['tresc']}"))
@@ -1589,6 +1593,21 @@ class Chat:
         from .terminarz import parse_when
 
         calendar = self.s.calendar
+        if plain in {"synchronizuj kalendarz", "zsynchronizuj kalendarz", "kalendarz z notarai.pl", "kalendarz z notarai pl",
+                     "pobierz kalendarz z notarai.pl", "pobierz kalendarz z notarai pl", "synchronizacja kalendarza"}:
+            web = getattr(self.s, "web_calendar", None)
+            if web is None or not writable:
+                return [text("Kalendarz z notarai.pl łączy komputer kancelarii.")]
+            from .web_calendar import WebCalendarError, summary
+            self.s.narrate(identity, "Łączę się z kalendarzem w notarai.pl i porównuję terminy w obie strony.")
+            try:
+                result = web.sync()
+            except WebCalendarError as error:
+                blocks = [text(str(error))]
+                if "Zaloguj" in str(error):
+                    blocks.append(buttons(("Zaloguj", "zaloguj")))
+                return blocks
+            return [text(summary(result))] + [text(n) for n in web.notices()] + [{"type": "calendar"}]
         if plain in {"kalendarz", "terminy", "terminarz", "plan", "plan dnia", "co mam dzis", "co dzis", "co mam dzisiaj",
                      "najblizsze terminy", "pokaz kalendarz", "pokaz terminy", "co mam w tym tygodniu"}:
             days = 1 if "dzis" in plain or plain == "plan dnia" else 14

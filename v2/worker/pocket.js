@@ -418,7 +418,7 @@ function isoDay(date) {
 
 function agendaItem(entry, withDay) {
   const item = node("li", entry.source === "rozmowa" ? "check" : "");
-  const hour = entry.start.slice(11, 16).replace(/^0/, "");
+  const hour = entry.all_day ? "cały dzień" : entry.start.slice(11, 16).replace(/^0/, "");
   const when = withDay ? entry.label : hour;
   item.append(node("span", "when", when), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
   item.title = entry.source === "rozmowa" ? "Termin z rozmowy: sprawdź go" : "";

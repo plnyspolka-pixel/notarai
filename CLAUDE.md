@@ -94,6 +94,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   27.11.2026: także `krz_portal.py` i `walidacja.py` (KRZ i numery KW/PESEL, tą samą drogą),
   a treść KW pobiera funkcja AWS `notarai-v2-rejestry` (stos w `infra/`) z `ekw.py` V1 bez zmian;
   token dostawcy zostaje w Secrets Manager, stanowisko woła funkcję swoim logowaniem.
+- Kalendarz (decyzja właściciela 27.11.2026): kalendarz V2 jest synchronizowany w obie strony z kalendarzem
+  wersji webowej przez API V1 (`/api/kalendarz`) z logowaniem stanowiska (token Cognito klienta
+  `notarai-v2-stanowisko`, który V1 przyjmuje przez `PIECZAPP_COGNITO_KLIENCI_DODATKOWI`);
+  `v2/worker/web_calendar.py`. Żadnych innych danych V1; treści terminów nie trafiają do logów.
 - Dane prawdziwe (decyzja właściciela 27.11.2026): V2 obsługuje prawdziwe sprawy i dane osobowe;
   `ai.real_data_approved` domyślnie `true` i nadal nie da się go przełączyć z aplikacji. Zasady
   RODO z tego pliku (UE, brak danych w logach, sejf, pseudonimizacja dla modelu) obowiązują bez zmian.

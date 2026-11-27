@@ -102,6 +102,10 @@ Parameters:
     Type: String
     Default: ""
     Description: Wynik KlientId ze stosu notarai-logowanie.
+  KlienciDodatkowi:
+    Type: String
+    Default: "5m71qpav9nkuv176tialrh0e90"
+    Description: Klienci tej samej puli, ktorych token otwiera API kancelarii (NotarAI 2.0 - stanowisko, synchronizacja kalendarza).
   ApifySekretArn:
     Type: String
     Default: ""
@@ -627,6 +631,8 @@ Resources:
               Value: !Ref PulaLogowania
             - Name: PIECZAPP_COGNITO_KLIENT
               Value: !Ref KlientLogowania
+            - Name: PIECZAPP_COGNITO_KLIENCI_DODATKOWI
+              Value: !Ref KlienciDodatkowi
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
             - Name: PIECZAPP_VAT

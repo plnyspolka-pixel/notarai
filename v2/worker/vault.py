@@ -365,6 +365,10 @@ class Vault:
                 self._log(db, actor, "calendar-delete", None, None)
         return bool(gone)
 
+    def tombstoned(self, kind: str) -> set[str]:
+        with self._ro() as db:
+            return {i for (i,) in db.execute("SELECT id FROM tombstones WHERE kind=?", (kind,)).fetchall()}
+
     def calendar(self):
         with self._ro() as db:
             rows = db.execute("SELECT id, entry FROM calendar").fetchall()

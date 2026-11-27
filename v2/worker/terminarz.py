@@ -81,19 +81,20 @@ def parse_when(sentence: str, now: dt.datetime) -> tuple[dt.datetime, str] | Non
     return dt.datetime.combine(day, dt.time(hour, minute)), rest
 
 
-def label(start: dt.datetime, now: dt.datetime) -> str:
+def label(start: dt.datetime, now: dt.datetime, *, all_day: bool = False) -> str:
     if start.date() == now.date():
         day = "dziś"
     elif start.date() == now.date() + dt.timedelta(days=1):
         day = "jutro"
     else:
         day = f"{SHORT[start.weekday()]} {start.day}.{start.month:02d}"
-    return f"{day} {start.hour}:{start.minute:02d}"
+    return f"{day}, cały dzień" if all_day else f"{day} {start.hour}:{start.minute:02d}"
 
 
 class Calendar:
-    def __init__(self, vault, clock=dt.datetime.now):
-        self._vault, self._clock = vault, clock
+    def __init__(self, vault, clock=dt.datetime.now, origin=None):
+        """`origin()`: this station's id, so only the station that added an entry sends it to notarai.pl."""
+        self._vault, self._clock, self._origin = vault, clock, origin
 
     def now(self) -> dt.datetime:
         return self._clock().replace(second=0, microsecond=0)
@@ -101,6 +102,8 @@ class Calendar:
     def add(self, start: dt.datetime, title: str, *, case=None, source="notariusz", actor="local-admin") -> dict:
         title = " ".join(title.split())[:200] or "Termin"
         entry = {"start": start.isoformat(timespec="minutes"), "title": title, "case": case, "source": source}
+        if self._origin is not None:
+            entry["origin"] = self._origin()
         ident = secrets.token_hex(6)
         self._vault.calendar_put(ident, entry, actor=actor)
         return {"id": ident, **entry}
@@ -116,7 +119,7 @@ class Calendar:
         for entry in self._vault.calendar():
             when = dt.datetime.fromisoformat(entry["start"])
             if first <= when < last and (cases is None or entry.get("case") in cases):
-                items.append({**entry, "label": label(when, self.now())})
+                items.append({**entry, "label": label(when, self.now(), all_day=bool(entry.get("all_day")))})
         return sorted(items, key=lambda item: item["start"])
 
     def from_note(self, termin: str, title: str, case: str | None) -> dict | None:

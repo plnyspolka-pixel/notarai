@@ -172,6 +172,37 @@ class TestTozsamoscTokenu:
             "email": "kto@example.com", "kancelaria": "kowalski"}
 
 
+    def test_token_programu_kancelarii_z_tej_samej_puli(self, logowanie_atrapa, monkeypatch):
+        """NotarAI 2.0 (inny klient tej samej puli) otwiera API kancelarii swoim tokenem tozsamosci."""
+        monkeypatch.setenv("PIECZAPP_COGNITO_KLIENCI_DODATKOWI", " klient-v2 , ")
+        import logowanie
+        importlib.reload(logowanie)
+        monkeypatch.setattr(logowanie, "_weryfikator", lambda: _AtrapaKluczy())
+        import jwt as biblioteka
+        widziane = {}
+
+        def dekoduj(*a, **k):
+            widziane.update(k)
+            return {"token_use": "id", "email": "kto@example.com", "custom:kancelaria": "kowalski"}
+        monkeypatch.setattr(biblioteka, "decode", dekoduj)
+        assert logowanie.dane_z_tokenu("a.b.c")["kancelaria"] == "kowalski"
+        assert widziane["audience"] == ["klient-testowy", "klient-v2"]
+        # Logowanie haslem dalej tylko przez klienta aplikacji.
+        klienci = []
+
+        class Nagrywajaca(AtrapaCognito):
+            def initiate_auth(self, **kw):
+                klienci.append(kw["ClientId"])
+                return super().initiate_auth(**kw)
+        monkeypatch.setattr(logowanie, "_klient", lambda: Nagrywajaca())
+        logowanie.zaloguj("kto@example.com", "haslo")
+        logowanie.odnow("odnowienie-30-dni")
+        assert klienci and set(klienci) == {"klient-testowy"}
+        monkeypatch.delenv("PIECZAPP_COGNITO_KLIENCI_DODATKOWI")
+        importlib.reload(logowanie)
+        assert logowanie.KLIENCI_DODATKOWI == ()
+
+
 class _AtrapaKluczy:
     def get_signing_key_from_jwt(self, token):
         return type("Klucz", (), {"key": "nieistotny"})()
