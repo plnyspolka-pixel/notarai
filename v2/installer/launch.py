@@ -76,7 +76,21 @@ def start_background() -> None:
                      creationflags=flags, close_fds=True)
 
 
+def quiet_streams(log_path: Path) -> None:
+    """Without a console (pythonw: the icon, autostart) Python has no stdout/stderr, and uvicorn's
+    logging setup fails on that. Give both a local log file instead: technical lines only, no
+    documents (access logging is off)."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    log = log_path.open("w", encoding="utf-8", errors="replace", buffering=1)
+    sys.stdout = sys.stdout or log
+    sys.stderr = sys.stderr or log
+
+
 def tell(message: str) -> None:
+    if os.environ.get("NOTARAI_NO_DIALOG"):        # automated tests: no window that nobody can close
+        print(message, file=sys.stderr, flush=True)
+        return
     """Without a console there is nowhere to print: show a message box instead."""
     print(message, file=sys.stderr)
     try:
@@ -147,6 +161,7 @@ def main():
         runtime = local / "V2-preview-runtime"
         runtime.mkdir(parents=True, exist_ok=True)
         state = runtime / "instance.json"
+        quiet_streams(runtime / ("worker.log" if args.serve else "okno.log"))
         if args.serve:
             with (runtime / "worker.lock").open("a+b") as lock:
                 if not try_lock(lock):

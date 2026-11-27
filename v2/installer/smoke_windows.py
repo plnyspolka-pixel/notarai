@@ -65,6 +65,26 @@ def paired_pocket(browser, url, code):
     return page
 
 
+def background_worker_starts(app_dir: Path, state: Path) -> None:
+    """Exactly what the icon and Windows autostart run: pythonw (no console at all) with --serve."""
+    environment = {**os.environ, "NOTARAI_NO_DIALOG": "1"}
+    worker = subprocess.Popen([str(app_dir / "runtime" / "pythonw.exe"), "-X", "utf8", str(app_dir / "launch.py"),
+                               "--serve"], cwd=app_dir, env=environment)
+    try:
+        deadline = monotonic() + 60
+        while monotonic() < deadline and worker.poll() is None and discover(state) is None:
+            sleep(0.25)
+        log = state.with_name("worker.log")
+        details = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else "(no log)"
+        assert discover(state) is not None, f"background worker did not start (exit {worker.poll()}):\n{details}"
+        print("The console-less background worker (pythonw --serve) started and answered.", flush=True)
+    finally:
+        if worker.poll() is None:
+            worker.terminate()
+            worker.wait(timeout=10)
+        state.unlink(missing_ok=True)
+
+
 def main(installer: Path) -> None:
     local = Path(os.environ["LOCALAPPDATA"])
     app_dir = local / "Programs" / "NotarAI V2 Preview"
@@ -82,6 +102,7 @@ def main(installer: Path) -> None:
         assert (startup / "NotarAI w tle.lnk").is_file()
         assert (app_dir / "runtime" / "pythonw.exe").is_file()
         print("EXE installed in the current Windows profile with the NotarAI and background shortcuts.", flush=True)
+        background_worker_starts(app_dir, state)
         with TemporaryDirectory() as work, sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel="msedge", headless=True)
             log = Path(work) / "preview.log"
