@@ -244,6 +244,8 @@ class Chat:
             if not cases:
                 return [text("Nie ma jeszcze żadnej sprawy. Napisz „nowa sprawa” i jej nazwę, np. „nowa sprawa kowalski-2026”.")]
             return [text("Którą sprawę otworzyć?"), buttons(*[(c, f"sprawa {c}") for c in cases[:30]])]
+        if plain in {"nowa sprawa", "zaloz sprawe", "dodaj sprawe"}:
+            return [text("Jak nazwać sprawę? Napisz np. „nowa sprawa kowalski-2026” (bez spacji: litery, cyfry, myślnik).")]
         found = re.fullmatch(r"(?:nowa sprawa|sprawa|przejdz do sprawy|otworz sprawe|przejdz do)\s+(\S+)", plain)
         if found:
             name = message.split()[-1]
@@ -364,7 +366,7 @@ class Chat:
             name = re.sub(r"^(nagraj procedur\w*|nagraj|naucz si[eę]|naucz|poka[zż][eę] ci jak|poka[zż][eę] ci|poka[zż][eę] jak|nowa procedura)\s*:?\s*",
                           "", message, flags=re.IGNORECASE).strip(" „”\"")
             name = re.sub(r"^(wypełniać|wypelniac|wypełnia[ćc] się|jak)\s+", "", name, flags=re.IGNORECASE)
-            return [text("Pokaż mi to raz. Włącz nagrywanie, wypełnij formularz na fikcyjnej sprawie i mów na głos, "
+            return [text("Pokaż mi to raz. Włącz nagrywanie, wypełnij formularz (najlepiej na przykładowej sprawie: zrzuty ekranu idą do AI we Frankfurcie bez zamiany nazwisk) i mów na głos, "
                          "co wpisujesz w każde pole i dlaczego. Zrzuty ekranu trafią do modelu w UE tak, jak je widać, "
                          "dlatego nie nagrywaj prawdziwych danych."),
                     {"type": "record", "name": name[:80], "transcribes": s.transcribes()}]
@@ -963,7 +965,7 @@ class Chat:
             from .onboarding import ACT_KINDS
 
             return [text("Wybierz rodzaj aktu do próby. Najpierw dodaj do sprawy pliki (np. odpis KW, dowody stron "
-                         "na fikcyjnych danych), potem poproś o projekt. Każdy zatwierdzony akt uczy program Waszego stylu."),
+                         "stron), potem poproś o projekt. Każdy zatwierdzony akt uczy program Waszego stylu."),
                     buttons(*[(kind, f"przygotuj projekt: {kind.lower()}") for kind in ACT_KINDS])]
         return None
 

@@ -21,47 +21,75 @@ def test_names_numbers_and_addresses_are_cut_out():
     assert anonymize("Przekazano Nowakowi i nowa umowa", ["Anna Nowak"]) == "Przekazano [osoba] i nowa umowa"
 
 
-def test_edits_of_a_draft_become_lessons_used_in_the_next_draft(tmp_path):
+class Assistant:
+    """Stands in for the EU model: says which general rules the edits show."""
+    enabled = True
+
+    def __init__(self, reply):
+        self.reply, self.asked = reply, []
+
+    def ask(self, **kwargs):
+        self.asked.append(kwargs)
+        from types import SimpleNamespace
+        return SimpleNamespace(text=self.reply)
+
+
+PROPOSED = ["Stawający oświadcza, że jest właścicielem lokalu nr 5. Cena wynosi 500 000 zł.", "Strony wnoszą o wpis."]
+APPROVED = ["Stawający oświadcza, że jest jedynym właścicielem lokalu nr 5. Cena wynosi 500 000 zł.",
+            "Notariusz pouczył strony o treści art. 92 Prawa o notariacie. Strony wnoszą o wpis."]
+
+
+def test_edits_of_a_draft_teach_general_rules_not_trivia(tmp_path):
     learning, home = store(tmp_path)
-    proposed = ["Stawający oświadcza, że jest właścicielem lokalu nr 5. Cena wynosi 500 000 zł.",
-                "Strony wnoszą o wpis."]
-    approved = ["Stawający oświadcza, że jest jedynym właścicielem lokalu nr 5. Cena wynosi 500 000 zł.",
-                "Notariusz pouczył strony o treści art. 92 Prawa o notariacie. Strony wnoszą o wpis."]
-    learned = learning.from_draft(proposed, approved, ["Jan Kowalski"], kind="umowa sprzedaży")
-    texts = [l["text"] for l in learned]
-    assert "Zamiast „Stawający oświadcza, że jest właścicielem lokalu nr #.” piszę „Stawający oświadcza, że jest " \
-           "jedynym właścicielem lokalu nr #.”." in texts
-    assert any(t.startswith("Dodaję zdanie „Notariusz pouczył strony o treści art. ## Prawa") for t in texts)
-    assert learning.from_draft(proposed, approved, ["Jan Kowalski"]) == []          # known: stronger, not repeated
-    assert learning.guidance("akt") == ""                                           # proposed, not used yet
-    for lesson in learned:
-        learning.decide(lesson["id"], True)
-    assert "jedynym właścicielem" in learning.guidance("akt") and "500" not in learning.guidance("akt")
-    assert b"jedynym" not in (home / "vault.sqlite3").read_bytes()                     # encrypted
+    assistant = Assistant("- W umowach sprzedaży stawający oświadcza, że jest jedynym właścicielem.\n"
+                          "- Kancelaria zawsze dopisuje pouczenie z art. 92 Prawa o notariacie.\n- [OSOBA_1] x")
+    learning._inference = lambda: assistant
+    learned = learning.from_draft(PROPOSED, APPROVED, ["Jan Kowalski"], kind="umowa sprzedaży")
+    assert [l["kind"] for l in learned] == ["zasada", "zasada"]
+    assert learned[1]["text"] == "Kancelaria zawsze dopisuje pouczenie z art. 92 Prawa o notariacie. (umowa sprzedaży)"
+    sent = assistant.asked[0]
+    assert sent["purpose"] == "insight" and "BYŁO:" in sent["text"] and "500" not in sent["text"]
+    assert learning.guidance("akt") == ""                                          # nothing used before a yes
+    learning.decide(learned[1]["id"], True)
+    guidance = learning.guidance("akt")
+    assert "pouczenie z art. 92" in guidance and "jedynym właścicielem lokalu nr #" in guidance   # rule + its material
+    assert b"pouczenie" not in (home / "vault.sqlite3").read_bytes()               # encrypted
 
 
-def test_dictation_corrections_fix_the_next_dictation(tmp_path):
+def test_capital_letters_and_typos_are_not_lessons(tmp_path):
     learning, _ = store(tmp_path)
-    learned = learning.from_dictation("spotkanie z panem kowalskim w sprawie notariatu", "spotkanie z panem Kowalskim w sprawie notariatu")
-    assert [l["data"] for l in learned] == [{"heard": "kowalskim", "say": "Kowalskim"}]
-    assert learning.from_dictation("termin o 10", "termin o 11") == []           # numbers are edits, not mishearing
-    assert learning.from_dictation("akt sprzedaży", "akt darowizny") == []        # a different word: an edit
-    assert learning.apply_dictation("Dzwonił pan kowalskim.") == "Dzwonił pan kowalskim."      # not confirmed yet
-    learning.decide(learned[0]["id"], True)
-    assert learning.apply_dictation("Dzwonił pan kowalskim.") == "Dzwonił pan Kowalskim."
-    rejected = learning.from_dictation("u notariusza bielaka", "u notariusza Bielaka")[0]
-    learning.decide(rejected["id"], False)
-    assert learning.apply_dictation("bielaka") == "bielaka" and learning.pending() == []
+    assert learning.from_draft(["Strony wnosza o wpis do ksiegi."], ["Strony wnoszą o wpis do księgi."]) == []
+    assert learning.from_draft(["umowa sprzedaży lokalu."], ["Umowa sprzedaży lokalu."]) == []
 
 
-def test_replies_teach_the_tone_and_only_the_five_latest_stay(tmp_path):
+def test_without_an_assistant_the_exact_edits_are_proposed(tmp_path):
     learning, _ = store(tmp_path)
-    for word in ["piątek", "poniedziałek", "wtorek", "środa", "czwartek", "sobota", "jutro"]:
-        learning.from_reply(f"Szanowny Panie, dziękujemy za wiadomość. Termin {word} pasuje. Z poważaniem", ["Kowalski"])
-    assert len(learning.lessons("odpowiedz")) == 5
-    for lesson in learning.pending():
-        learning.decide(lesson["id"], True)
-    assert "dziękujemy" in learning.guidance("mail")
+    learned = learning.from_draft(PROPOSED, APPROVED, ["Jan Kowalski"], kind="umowa sprzedaży")
+    assert any(l["text"].startswith("Dodaję zdanie „Notariusz pouczył strony") for l in learned)
+
+
+def test_dictation_fixes_capitals_quietly_and_asks_about_misheard_words(tmp_path):
+    learning, _ = store(tmp_path)
+    assert learning.from_dictation("spotkanie z panem kowalskim", "spotkanie z panem Kowalskim") == []
+    assert learning.apply_dictation("Dzwonił pan kowalskim.") == "Dzwonił pan Kowalskim."        # done, no question
+    misheard = learning.from_dictation("wizyta u notariatu w piątek", "wizyta u notariusza w piątek")
+    assert [l["data"] for l in misheard] == [{"heard": "notariatu", "say": "notariusza"}]
+    assert learning.apply_dictation("u notariatu") == "u notariatu"                              # until confirmed
+    learning.decide(misheard[0]["id"], True)
+    assert learning.apply_dictation("u notariatu") == "u notariusza"
+    assert learning.from_dictation("termin o 10", "termin o 11") == []
+    assert learning.from_dictation("akt sprzedaży", "akt darowizny") == []
+
+
+def test_replies_teach_the_office_tone_every_few_replies(tmp_path):
+    learning, _ = store(tmp_path)
+    assistant = Assistant("- Odpowiedzi zaczynają się od „Szanowni Państwo” i podają termin z dniem tygodnia.")
+    learning._inference = lambda: assistant
+    told = []
+    for word in ["piątek", "poniedziałek", "wtorek"]:
+        told += learning.from_reply(f"Szanowni Państwo, dziękujemy za wiadomość. Termin {word} pasuje. Z poważaniem", ["Kowalski"])
+    assert [l["kind"] for l in told] == ["zasada"] and "Szanowni Państwo" in told[0]["text"]
+    assert "dziękujemy" in learning.guidance("mail")                     # her own replies serve as examples at once
 
 
 def test_the_notary_teaches_sees_and_removes_lessons_by_talking(tmp_path):
@@ -74,7 +102,7 @@ def test_the_notary_teaches_sees_and_removes_lessons_by_talking(tmp_path):
     assert "Zapamiętałem: akty podpisujemy w gabinecie" in say("zapamiętaj: akty podpisujemy w gabinecie nr 2")[0]["text"]
     assert "zapamiętałem korektę" in say("to było źle: taksa od darowizny w I grupie jest inna")[0]["text"]
     assert client.get("/v2/learning", headers=admin).json() == {"enabled": True, "total": 2, "pending": 0, "counts": {
-        "poprawka": 0, "slownik": 0, "odpowiedz": 0, "wiedza": 1, "korekta": 1}}
+        "zasada": 0, "poprawka": 0, "slownik": 0, "odpowiedz": 0, "wiedza": 1, "korekta": 1}}
     listing = say("czego się nauczyłeś")[0]["text"]
     assert "Wiedza kancelarii:\n1. akty podpisujemy w gabinecie nr 2" in listing and "Korekty odpowiedzi:\n2." in listing
     asked = say("zapomnij lekcję 1")
@@ -91,8 +119,8 @@ def test_dictation_learning_is_reachable_from_the_window(tmp_path):
     admin = {"Authorization": "Bearer " + initialize(home)}
     client = TestClient(create_app(home))
     learned = client.post("/v2/learning/dictation", headers=admin,
-                          json={"heard": "akt u notariusza bielaka", "final": "akt u notariusza Bielaka"}).json()
-    assert [l["text"] for l in learned["learned"]] == ["Gdy słyszę „bielaka”, piszę „Bielaka”."]
+                          json={"heard": "wizyta u notariatu", "final": "wizyta u notariusza"}).json()
+    assert [l["text"] for l in learned["learned"]] == ["Gdy słyszę „notariatu”, piszę „notariusza”."]
     ident = learned["learned"][0]["id"]
     assert client.get("/v2/learning", headers=admin).json()["pending"] == 1
     said = client.post("/v2/chat", headers=admin, json={"text": f"potwierdź lekcję {ident}"}).json()["blocks"]

@@ -90,7 +90,7 @@ def main(installer: Path) -> None:
     app_dir = local / "Programs" / "NotarAI V2 Preview"
     vault = local / "NotarAI" / "V2-preview"
     state = local / "NotarAI" / "V2-preview-runtime" / "instance.json"
-    shortcuts = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "NotarAI V2 Preview"
+    shortcuts = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "NotarAI"
     if app_dir.exists() or vault.exists() or state.exists():
         raise RuntimeError("Installer smoke test needs a fresh Windows test profile.")
 

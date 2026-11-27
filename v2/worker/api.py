@@ -209,11 +209,16 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     style = Style(vault)
     from .learning import Learning
 
-    learning = Learning(vault, lambda: state["settings"].learn)
+    learning = Learning(vault, lambda: state["settings"].learn, inference=lambda: state["inference"])
     drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules, style=style, learning=learning)
     redeem_throttle = _Throttle()
     workcopies = WorkCopies(home, vault, opener, rules=rules) if opener else WorkCopies(home, vault, rules=rules)
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"   # real cases unless an old gate says otherwise
+
+    def installed_version() -> str:
+        """NotarAI 2 production: the installed version (wersja.json), or "2" when run from the sources."""
+        from .updater import installed
+        return (installed(Path(__file__).resolve().parents[1]) or {}).get("version", "2")
     settings = None   # read state["settings"]; it can change while the worker runs
 
     relay: dict = {"task": None, "client": None, "keys": None}
@@ -528,7 +533,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
         ai = "aws-bedrock" if allow_bedrock else "disabled"
-        return {"version":"2.0-dev","storage":"local","ai":ai,"mode":mode}
+        return {"version": installed_version(),"storage":"local","ai":ai,"mode":mode}
 
     @app.get("/v2/status")
     def status(identity: Identity = Depends(auth)):
@@ -536,7 +541,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         settings, account, inference = state["settings"], state["account"], state["inference"]
         overdue = last_backup is None or time.time_ns() - last_backup > settings.backup_reminder_days * 86400 * 10**9
         return {
-            "version": "2.0-dev", "mode": mode, "scope": identity.scope, "station": settings.station_name,
+            "version": installed_version(), "mode": mode, "scope": identity.scope, "station": settings.station_name,
             "cases": sorted(identity.cases) if identity.cases is not None else None,
             "ai": {"enabled": inference.enabled, "signed_in": bool(account and account.signed_in),
                    "account_configured": account is not None, "pseudonymize": inference.pseudonymizes},
@@ -1501,7 +1506,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     @app.post("/v2/bedrock/smoke",dependencies=[Depends(admin)])
     def bedrock():
         if not allow_bedrock:
-            raise HTTPException(403, "Bedrock is disabled in the Windows preview")
+            raise HTTPException(403, "Bedrock is disabled on this workstation")
         try:
             return smoke_test()
         except (PermissionError,ValueError):

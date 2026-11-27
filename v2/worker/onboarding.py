@@ -71,9 +71,9 @@ STEPS = [
             "nagrywaniu ekranu i komentarzu; potem program wypełnia ją sam, a wysyła dopiero po Twoim zatwierdzeniu.",
      "actions": [("Wybierz czynności", "czynności")]},
     {"key": "akt", "title": "Pierwszy akt od początku do końca",
-     "why": "Próbna sprawa na fikcyjnych danych: pliki do sprawy, projekt aktu, poprawki, zatwierdzenie. "
+     "why": "Pierwsza sprawa od początku do końca: pliki do sprawy, projekt aktu, poprawki, zatwierdzenie. "
             "Tak program uczy się Waszego toku pracy.",
-     "actions": [("Zacznij próbny akt", "nowa sprawa proba-1"), ("Rodzaje aktów", "rodzaje aktów")]},
+     "actions": [("Zacznij pierwszą sprawę", "nowa sprawa"), ("Rodzaje aktów", "rodzaje aktów")]},
     {"key": "telefon", "title": "NotarAI Pocket na telefonie",
      "why": "Zeskanuj kod QR aparatem telefonu; Pocket podpowie, jak dodać go jako aplikację na ekran główny.",
      "actions": [("Dodaj telefon", "dodaj telefon")]},

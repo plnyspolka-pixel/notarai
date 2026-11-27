@@ -1,7 +1,7 @@
 # NotarAI 2.0: co działa i co wymaga decyzji
 
-Stan na 27.11.2026. Tryb próbny: wyłącznie fikcyjne dokumenty, nic nie jest wdrożone na produkcję,
-V1 pozostaje nietknięte.
+Stan na 27.11.2026. NotarAI 2 to wersja produkcyjna (decyzja właściciela): obsługuje prawdziwe sprawy
+i dane osobowe kancelarii, w UE, w zaszyfrowanym sejfie na komputerach kancelarii.
 
 ## Co działa (sprawdzone testami)
 
@@ -34,6 +34,7 @@ V1 pozostaje nietknięte.
 | Poczta w oknie | Skrzynka jako lista, załączniki do sprawy z „Streść”/„Sprawdź błędy”, odpowiedź (projekt od asystenta, dyktowanie) otwierana w Outlooku/Thunderbirdzie do wysłania przez notariusza | testy (na żywo: NA-20) |
 | Księgi wieczyste (EKW) | „sprawdź KW …” albo numer z dokumentów sprawy; funkcja AWS `notarai-v2-rejestry` uruchamia `ekw.py` z V1 (Apify; Finance You po dodaniu sekretu), token w Secrets Manager; wynik w tle do sprawy, porównanie z dokumentami | testy; funkcja sprawdzona na żywo (walidacja numeru), pobranie prawdziwej księgi: NA-20 |
 | KRZ | „sprawdź strony w KRZ”: PESEL z dokumentów sprawy, `krz_portal.py` z V1 w przeglądarce NotarAI, zrzuty do sprawy, PESEL maskowany | testy (portal na żywo: NA-20) |
+| Mądre uczenie | Z poprawek aktu asystent wyciąga 1-3 ogólne zasady stylu kancelarii (do potwierdzenia), dokładne poprawki zostają jako materiał; wielkie litery, interpunkcja i literówki nie są lekcjami (w dyktowaniu poprawiane po cichu); co trzy odpowiedzi na maile asystent opisuje styl odpowiedzi kancelarii | testy |
 | Tryb uczenia | Widoczny przycisk 📘; lekcje z poprawek aktów, poprawek dyktowania (od razu poprawia kolejne dyktowanie), odpowiedzi na maile, „zapamiętaj:” i „to było źle:”; lista „czego się nauczyłeś”, usuwanie, wyłącznik; bez nazwisk i liczb, zaszyfrowane | testy + przeglądarka |
 | Program mówi, co robi | W trakcie pracy kroki na żywo pod wiadomością („Rozumiem: pytanie o sprawę…”, „Czytam dokumenty (4)”, „Pytam asystenta we Frankfurcie…”), potem zwinięte „Jak to zrobiłem”; po odpowiedzi „Proponuję dalej” z 1-3 przyciskami | testy + przeglądarka |
 | Polecenie = zatwierdzenie | „wyślij pocztę”, „odpowiedz na mail 2: …”, „wypełnij … i wyślij” wykonują się od razu (decyzja właściciela); „pytaj o potwierdzenie” przywraca „Tak / Nie”; zasady kancelarii (np. godziny wysyłki) sprawdzane zawsze | testy |
@@ -120,7 +121,7 @@ czytniki ekranu, więc nie potrzeba osobnej integracji z każdym programem.
 ### Jak działa łączenie z dowolnym programem
 
 Zamiast osobnej integracji dla każdego programu i każdej strony urzędowej notariusz pokazuje czynność raz:
-włącza nagrywanie, wypełnia formularz na fikcyjnej sprawie i mówi, co wpisuje i dlaczego. Z kilku ujęć ekranu
+włącza nagrywanie, wypełnia formularz (najlepiej na przykładowej sprawie) i mówi, co wpisuje i dlaczego. Z kilku ujęć ekranu
 i komentarza powstaje procedura (pole, skąd wartość, powód), którą notariusz poprawia i zatwierdza. Dla kolejnych
 spraw program przygotowuje gotowe wartości do skopiowania. Wpisuje albo wkleja je notariusz, więc działa to
 w każdym programie i nic nie zostaje wysłane bez jego wiedzy. Samodzielne klikanie w programach to następny,

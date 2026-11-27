@@ -16,7 +16,7 @@ import re
 import secrets
 import time
 
-KINDS = {"poprawka": "Poprawki w aktach", "slownik": "Dyktowanie", "odpowiedz": "Odpowiedzi na maile",
+KINDS = {"zasada": "Zasady stylu kancelarii", "poprawka": "Poprawki w aktach", "slownik": "Dyktowanie", "odpowiedz": "Odpowiedzi na maile",
          "wiedza": "Wiedza kancelarii", "korekta": "Korekty odpowiedzi"}
 MAX_LESSONS = 400
 SENTENCE = re.compile(r"(?<=[.!?;:])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ„(])")
@@ -43,9 +43,53 @@ def sentences(paragraphs) -> list[str]:
     return out
 
 
+SYSTEM_INSIGHT = (
+    "Jesteś doświadczonym notariuszem i uczysz się stylu pracy kancelarii. Dostajesz poprawki, które notariusz "
+    "naniósł na projekt (było -> jest). Sformułuj od jednej do trzech OGÓLNYCH zasad, które z nich wynikają i przydadzą "
+    "się przy następnych aktach tego rodzaju: co kancelaria zawsze dodaje, czego nie pisze, jak formułuje pouczenia, "
+    "oświadczenia, opisy nieruchomości. Każda zasada w osobnej linii, zaczynającej się od „- ”, jednym zdaniem. "
+    "Pomiń literówki, wielkość liter, interpunkcję i dane tej konkretnej sprawy. Jeśli nie wynika z nich nic ogólnego, "
+    "odpowiedz jednym słowem: BRAK."
+)
+SYSTEM_TONE = (
+    "Opisz w jednym do trzech zdań styl, w jakim kancelaria notarialna odpowiada na e-maile, na podstawie jej "
+    "odpowiedzi poniżej: zwrot grzecznościowy, długość, ton, jak podaje terminy i co zawsze dopisuje. Każde zdanie "
+    "w osobnej linii od „- ”. Bez danych konkretnych osób."
+)
+
+
+def trivial(old: str, new: str) -> bool:
+    """A correction not worth a lesson: capital letters, punctuation, spacing, a typo of a letter or two."""
+    plain = lambda t: re.sub(r"[\W_]+", "", t.lower())
+    if plain(old) == plain(new):
+        return True
+    a, b = plain(old), plain(new)
+    return abs(len(a) - len(b)) <= 2 and difflib.SequenceMatcher(a=a, b=b).ratio() >= 0.9 and len(a) > 12
+
+
 class Learning:
-    def __init__(self, vault, enabled=lambda: True, clock=time.time):
+    def __init__(self, vault, enabled=lambda: True, clock=time.time, inference=None):
         self._vault, self._enabled, self._clock = vault, enabled, clock
+        self._inference = inference or (lambda: None)
+
+    def _insights(self, system: str, material: str, act: str, kind: str = "zasada") -> list[dict]:
+        """General rules the assistant draws from the notary's own work; proposed, never used before a yes."""
+        inference = self._inference()
+        if inference is None or not getattr(inference, "enabled", False):
+            return []
+        try:
+            answer = inference.ask(purpose="insight", system=system, text=material[:20000], max_tokens=600)
+        except Exception:
+            return []
+        learned = []
+        for line in answer.text.splitlines():
+            rule = line.strip().lstrip("-•* ").strip()
+            if len(rule) < 15 or rule.upper().startswith("BRAK") or "[" in rule:
+                continue
+            lesson = self._add(kind, rule + (f" ({act})" if act and kind == "zasada" else ""), {"act": act}, "z:" + rule.lower())
+            if lesson:
+                learned.append(lesson)
+        return learned[:3]
 
     @property
     def enabled(self) -> bool:
@@ -58,6 +102,9 @@ class Learning:
 
     def confirmed(self, kind: str | None = None) -> list[dict]:
         return [l for l in self.lessons(kind) if l.get("status", "potwierdzona") == "potwierdzona"]
+
+    def lessons_with(self, status: str) -> list[dict]:
+        return [l for l in self.lessons() if l.get("status") == status]
 
     def pending(self) -> list[dict]:
         return [l for l in self.lessons() if l.get("status") == "proponowana"]
@@ -94,40 +141,46 @@ class Learning:
 
     # ------------------------------------------------------------ fronts
     def from_draft(self, proposed, approved, names=(), kind: str = "") -> list[dict]:
-        """Lessons from the notary's edits of a draft: at most five per act, the clearest ones."""
+        """What the notary's edits of a draft teach: general rules worked out by the assistant (proposed for a
+        yes). The exact edits are kept quietly as material; capital letters and typos are not lessons."""
         if not self.enabled:
             return []
+        edits = self._draft_edits(proposed, approved, names, kind)
+        if not edits:
+            return []
+        material = "\n".join(f"BYŁO: {e['was'] or '(nic)'}\nJEST: {e['now'] or '(usunięte)'}" for e in edits)
+        insights = self._insights(SYSTEM_INSIGHT, f"Rodzaj aktu: {kind or 'nieznany'}\n\n{material}", kind)
+        if insights:
+            for e in edits:                     # the material behind the rules: used once the rules are confirmed
+                self._add("poprawka", e["text"], e, e["key"], status="material")
+            return insights
+        return [lesson for e in edits if (lesson := self._add("poprawka", e["text"], e, e["key"]))][:5]
+
+    def _draft_edits(self, proposed, approved, names=(), kind: str = "") -> list[dict]:
         before, after = sentences(proposed), sentences(approved)
-        learned = []
+        learned: list[dict] = []
         matcher = difflib.SequenceMatcher(a=before, b=after, autojunk=False)
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == "equal" or len(learned) >= 5:
+            if tag == "equal" or len(learned) >= 12:
                 continue
             was = [anonymize(s, names) for s in before[i1:i2]]
             now = [anonymize(s, names) for s in after[j1:j2]]
             if tag == "replace" and len(was) == len(now):
                 for old, new in zip(was, now):
-                    if old != new and len(old) < 400 and len(new) < 400 \
+                    if old != new and len(old) < 400 and len(new) < 400 and not trivial(old, new) \
                             and difflib.SequenceMatcher(a=old, b=new).ratio() > 0.35:
-                        lesson = self._add("poprawka", f"Zamiast „{old}” piszę „{new}”.",
-                                           {"was": old, "now": new, "act": kind}, "r:" + old)
-                        if lesson:
-                            learned.append(lesson)
+                        learned.append({"text": f"Zamiast „{old}” piszę „{new}”.", "was": old, "now": new, "act": kind,
+                                        "key": "r:" + old})
             elif tag == "delete":
                 for old in was:
                     if len(old) < 400:
-                        lesson = self._add("poprawka", f"Nie dodaję zdania „{old}”.", {"was": old, "now": "", "act": kind},
-                                           "d:" + old)
-                        if lesson:
-                            learned.append(lesson)
+                        learned.append({"text": f"Nie dodaję zdania „{old}”.", "was": old, "now": "", "act": kind, "key": "d:" + old})
             elif tag == "insert":
                 for new in now:
                     if len(new) < 400:
-                        lesson = self._add("poprawka", f"Dodaję zdanie „{new}”" + (f" ({kind})." if kind else "."),
-                                           {"was": "", "now": new, "act": kind}, "i:" + new)
-                        if lesson:
-                            learned.append(lesson)
-        return learned[:5]
+                        learned.append({"text": f"Dodaję zdanie „{new}”" + (f" ({kind})." if kind else "."),
+                                        "was": "", "now": new, "act": kind, "key": "i:" + new})
+        return learned
 
     def from_dictation(self, heard: str, final: str) -> list[dict]:
         """Words corrected after dictation (1-3 words each side), kept as a dictation dictionary."""
@@ -143,9 +196,10 @@ class Learning:
                 continue
             if difflib.SequenceMatcher(a=wrong.lower(), b=right.lower()).ratio() < 0.4:
                 continue                    # a different word entirely: an edit, not a misheard one
+            quiet = wrong.lower() == right.lower()       # only capital letters: just do it, no lesson to confirm
             lesson = self._add("slownik", f"Gdy słyszę „{wrong}”, piszę „{right}”.", {"heard": wrong, "say": right},
-                               "s:" + wrong.lower())
-            if lesson:
+                               "s:" + wrong.lower(), status="potwierdzona" if quiet else "proponowana")
+            if lesson and not quiet:
                 learned.append(lesson)
         return learned[:5]
 
@@ -161,12 +215,15 @@ class Learning:
         if not self.enabled or len(body.strip()) < 20:
             return []
         example = anonymize(body.strip(), names)[:800]
-        lesson = self._add("odpowiedz", "Przykład odpowiedzi kancelarii: „" + example[:120] + ("…”" if len(example) > 120 else "”"),
-                           {"example": example}, "o:" + example[:200])
+        self._add("odpowiedz", "Przykład odpowiedzi kancelarii: „" + example[:120] + ("…”" if len(example) > 120 else "”"),
+                  {"example": example}, "o:" + example[:200], status="potwierdzona")    # her own words: no question
         replies = self.lessons("odpowiedz")
         for old in replies[:-5]:                     # the five latest examples are enough
             self._vault.lesson_delete(old["id"])
-        return [lesson] if lesson else []
+        if len(replies) >= 3 and len(replies) % 3 == 0:  # every few replies: what is the office's style?
+            examples = "\n---\n".join(l["data"]["example"] for l in self.lessons("odpowiedz"))
+            return self._insights(SYSTEM_TONE, examples, "", kind="zasada")
+        return []
 
     def remember(self, text: str, kind: str = "wiedza") -> dict | None:
         text = " ".join(text.split())[:500]
@@ -183,8 +240,13 @@ class Learning:
         knowledge = [l["text"] for l in self.confirmed("wiedza")][-30:] + [l["text"] for l in self.confirmed("korekta")][-20:]
         if knowledge:
             parts.append("=== WIEDZA I KOREKTY KANCELARII (od notariusza) ===\n" + "\n".join(f"- {k}" for k in knowledge))
+        rules = [l["text"] for l in self.confirmed("zasada")]
+        if rules:
+            parts.append("=== ZASADY STYLU KANCELARII (wyciągnięte z pracy notariusza, potwierdzone) ===\n"
+                         + "\n".join(f"- {r}" for r in rules[-30:]))
         if purpose == "akt":
-            edits = sorted(self.confirmed("poprawka"), key=lambda l: (-l.get("seen", 1), -l["created"]))[:25]
+            confirmed = self.confirmed("poprawka") + (self.lessons_with("material") if rules else [])
+            edits = sorted(confirmed, key=lambda l: (-l.get("seen", 1), -l["created"]))[:25]
             if edits:
                 parts.append("=== PREFERENCJE KANCELARII Z POPRAWEK NOTARIUSZA ([osoba] i # to dane do wstawienia) ===\n"
                              + "\n".join(f"- {l['text']}" for l in edits))

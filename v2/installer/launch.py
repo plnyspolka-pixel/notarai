@@ -51,7 +51,7 @@ from worker.local_secrets import secret_path  # noqa: E402
 
 
 def pairing_code(home):
-    invitation = DeviceRegistry(home).invite("Pocket Preview", "write", replace_pending=True)
+    invitation = DeviceRegistry(home).invite("Pocket", "write", replace_pending=True)
     print(f"Kod parowania: {invitation['code']}", flush=True)
     print("Kod jest ważny przez 5 minut.", flush=True)
 
@@ -154,7 +154,7 @@ def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
         ))
         try:
             announce(state, port, nonce)
-            print("NotarAI V2 Preview — wyłącznie dane testowe", flush=True)
+            print("NotarAI 2", flush=True)
             print(f"Pocket: {url}", flush=True)
             if not quiet:
                 pairing_code(home)
@@ -169,7 +169,7 @@ def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NotarAI, tylko dane testowe")
+    parser = argparse.ArgumentParser(description="NotarAI 2")
     parser.add_argument("--no-browser", action="store_true", help="tryb konsoli: nie otwieraj okna")
     parser.add_argument("--new-code", action="store_true", help="pokaż nowy kod parowania")
     parser.add_argument("--admin", action="store_true", help="otwórz okno NotarAI (domyślne)")
@@ -178,7 +178,7 @@ def main():
     args = parser.parse_args()
     try:
         local = Path(os.environ["LOCALAPPDATA"]) / "NotarAI"
-        home = local / "V2-preview"
+        home = local / "V2-preview"          # the data stays where every installation already keeps it
         runtime = local / "V2-preview-runtime"
         runtime.mkdir(parents=True, exist_ok=True)
         state = runtime / "instance.json"
