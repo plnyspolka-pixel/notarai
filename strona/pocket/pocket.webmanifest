@@ -1,0 +1,11 @@
+{
+  "name": "NotarAI Pocket",
+  "short_name": "Pocket",
+  "lang": "pl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#0d6b57",
+  "icons": [{"src": "pocket-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
