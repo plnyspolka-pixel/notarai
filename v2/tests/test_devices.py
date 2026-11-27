@@ -100,3 +100,17 @@ def test_document_history_for_paired_devices(setup):
     }
     assert client.get(path + "?version=3", headers=reader).status_code == 404
     assert client.get("/v2/documents/invalid/versions", headers=reader).status_code == 404
+
+
+def test_the_window_on_this_computer_reopens_without_a_code(setup):
+    c,a,home=setup
+    local={"Host":"127.0.0.1:47000"}
+    r=c.post("/v2/admin/reopen",headers=local)
+    assert r.status_code==200
+    session=c.post("/v2/devices/redeem",json={"code":r.json()["code"]}).json()
+    assert session["scope"]=="admin" if "scope" in session else session["device"]["scope"]=="admin"
+    # other websites, other hosts and a page that is not the window itself get nothing
+    assert c.post("/v2/admin/reopen",headers={**local,"Origin":"https://evil.example"}).status_code==403
+    assert c.post("/v2/admin/reopen",headers={**local,"Sec-Fetch-Site":"cross-site"}).status_code==403
+    assert c.post("/v2/admin/reopen",headers={"Host":"notarai.example"}).status_code==403
+    assert c.post("/v2/admin/reopen",headers={**local,"Origin":"http://127.0.0.1:47000","Sec-Fetch-Site":"same-origin"}).status_code==200

@@ -203,10 +203,24 @@ function watch(page, problems, label) {
     assert(!panel.url().includes("#"), "one-time code left in the address bar");
     await panel.reload();
     await statusIs(panel, "Panel otwarty.");
+    // After a restart or an update the session is gone: the window comes back by itself, no "Kod panelu".
+    await panel.evaluate(() => { sessionStorage.clear(); localStorage.clear(); });
+    await panel.reload();
+    await statusIs(panel, "Panel otwarty.");
     await panel.getByRole("button", { name: "Utwórz kod odzyskiwania" }).click();
     await answered(panel, "Kod odzyskiwania sejfu NotarAI");
     const code = await panel.locator(".code").textContent();
     assert(/^([A-Z2-7]{4}-){13}[A-Z2-7]{4}$/.test(code), "recovery code format: " + code);
+    // Printing: the code is on the printed page, nothing else of the window is.
+    await panel.evaluate(() => { window.print = () => {}; });
+    await panel.getByRole("button", { name: "Drukuj" }).click();
+    await panel.emulateMedia({ media: "print" });
+    assert((await panel.locator("#print-sheet .print-code").textContent()) === code, "code missing from the printout");
+    assert(await panel.locator("#print-sheet .print-code").isVisible(), "printed code is invisible");
+    assert(await panel.locator("#workspace").isHidden(), "the window is printed with the code");
+    await panel.emulateMedia({ media: "screen" });
+    await panel.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    assert(await panel.locator("#print-sheet").count() === 0, "print sheet left on the page");
     await panel.getByRole("button", { name: "Kod jest bezpiecznie zapisany" }).click();
     assert(await panel.locator(".code").count() === 0, "code still on the page");
     await say(panel, "katalog kopii " + info.backups, "Kopie będą trafiać");

@@ -65,8 +65,16 @@ button.quiet { background: transparent; }
 .row.tight > textarea { flex: 1 1 auto; min-height: 44px; max-height: 40vh; resize: none; }
 #status { position: static; border: 0; background: transparent; color: var(--muted); font-size: .9rem; min-height: 1.4em; padding: 0; }
 #sheet h2 { margin: 0; }
-@media print { body > *, #workspace > *, #messages > * { display: none !important; }
-  body > #workspace, #workspace > #messages, #messages > .printing { display: block !important; border: 0; } }
+#print-sheet { display: none; }
+@media print {
+  @page { margin: 20mm; }
+  body.print-sheet > :not(#print-sheet) { display: none !important; }
+  body.print-sheet { background: #fff !important; color: #000 !important; }
+  body.print-sheet > #print-sheet { display: block !important; font: 12pt/1.5 Montserrat, Arial, sans-serif; color: #000; }
+  #print-sheet h1 { font-size: 18pt; margin: 0 0 12mm; }
+  #print-sheet .print-code { font: 600 20pt/1.6 Consolas, "Courier New", monospace; letter-spacing: .08em;
+    border: 2px solid #000; padding: 6mm; margin: 0 0 8mm; word-break: break-all; }
+}
 
 /* ---- the notary's own tiles ---- */
 #tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-bottom: 6px; }

@@ -404,7 +404,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         known = devices.lookup(device_id)       # re-read on every request, so revocation is immediate
         if known is None or known["scope"] not in {"read", "write", "listen"}:
             return 401, {"detail": "unauthorized"}
-        if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite"}:
+        if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite", "/v2/admin/reopen"}:
             return 403, {"detail": "local only"}      # pairing through the tunnel has its own message
         ticket = secrets.token_urlsafe(32)
         internal[ticket] = Identity(device_id, known["scope"], frozenset(known["cases"]) if known["cases"] else None)
@@ -942,6 +942,22 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         out.append((bool(speech.bucket), "Druga droga (wolniejsza, przez zaszyfrowany bucket we Frankfurcie): "
                                          + ("gotowa." if speech.bucket else "nieustawiona.")))
         return out
+
+    @app.post("/v2/admin/reopen")
+    def admin_reopen(request: Request):
+        """The NotarAI window on this computer lost its session (restart, update, refresh): a fresh one-time
+        panel code, only for a same-origin page on this very computer. Phones (tunnel), other stations
+        (office network) and other websites cannot reach or read it; local programs of the same Windows user
+        could already open the program from its icon."""
+        client = request.client.host if request.client else ""
+        host = request.headers.get("host", "")
+        origin = request.headers.get("origin")
+        site = request.headers.get("sec-fetch-site")
+        local_host = re.fullmatch(r"(127\.0\.0\.1|localhost)(:\d+)?", host)
+        if client not in {"127.0.0.1", "::1", "testclient"} or not local_host \
+                or (origin is not None and origin != f"http://{host}") or (site is not None and site != "same-origin"):
+            raise HTTPException(403, "only for the NotarAI window on this computer")
+        return {"code": devices.invite("panel stanowiska", "admin", replace_pending=True, allow_admin=True)["code"]}
 
     @app.post("/v2/dictation")
     def dictation_start(identity: Identity = Depends(auth)):

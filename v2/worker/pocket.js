@@ -255,10 +255,19 @@ const render = {
     const row = node("div", "row");
     if (block.print) {
       const print = node("button", "", "Drukuj");
+      // A sheet of its own straight under <body>: printing never depends on the window's layout.
       print.onclick = () => {
-        card.classList.add("printing");
+        const sheet = node("section", "");
+        sheet.id = "print-sheet";
+        sheet.append(node("h1", "", "NotarAI – " + block.title), node("p", "print-code", block.text),
+          node("p", "", block.hint || ""),
+          node("p", "", "Wydrukowano: " + new Date().toLocaleString("pl-PL") + ". Przechowuj w sejfie kancelarii."));
+        document.body.append(sheet);
+        document.body.classList.add("print-sheet");
+        const done = () => { sheet.remove(); document.body.classList.remove("print-sheet"); };
+        window.addEventListener("afterprint", done, { once: true });
         window.print();
-        card.classList.remove("printing");
+        setTimeout(() => { if (sheet.isConnected && !matchMedia("print").matches) done(); }, 60000);
       };
       row.append(print);
     }
@@ -1641,6 +1650,14 @@ async function start() {
     }
   }
   if (admin) {
+    // After a restart or an update the window reconnects by itself; no code to type.
+    try {
+      const response = await fetch("/v2/admin/reopen", { method: "POST", cache: "no-store", credentials: "omit" });
+      if (response.ok) {
+        await unlock((await response.json()).code);
+        return;
+      }
+    } catch { /* the worker is still starting: say how to open it */ }
     status("Otwórz NotarAI ikoną na pulpicie albo z menu Start.");
     return;
   }
