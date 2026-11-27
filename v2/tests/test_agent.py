@@ -729,3 +729,50 @@ def test_the_program_itself_says_which_command_line_tools_are_here(office, monke
     assert "Nie znalazłem narzędzi cli-anything ani winapp" in said and replies == []      # no model call at all
     from worker.chat import answer_blocks
     assert answer_blocks("ROZUMIEM: x\n\nMogę **otwierać programy** i więcej.\n\n---")[0]["text"] == "Mogę otwierać programy i więcej."
+
+
+# ---- 2.8.5: the agent's question in a small window on top; its answer comes back into the chat
+def test_a_question_waits_under_a_one_time_address_and_is_answered_once():
+    from worker.attention import Attention
+
+    opened = []
+    attention = Attention(opener=opened.append)
+    token = attention.ask("local-admin", "Utknąłem: które pole to data aktu?",
+                          [("pierwsze", {"text": "odpowiedź dla agenta: pierwsze"}), ("Przerwij", {"text": "odpowiedź dla agenta: przerwij"})],
+                          free="odpowiedź dla agenta: ", url=lambda t: "http://127.0.0.1:1/v2/attention/" + t)
+    assert opened == ["http://127.0.0.1:1/v2/attention/" + token]
+    assert attention.shown(token) == {"text": "Utknąłem: które pole to data aktu?", "actions": ["pierwsze", "Przerwij"], "free": True}
+    assert attention.shown("zgadywany") is None and not attention.answer("zgadywany", choice=0)
+    assert not attention.answer(token, choice=7) and attention.answer(token, words="  to   drugie pole ")
+    assert not attention.answer(token, choice=0)                                   # one answer for one question
+    assert attention.collect("local-admin") == [{"text": "odpowiedź dla agenta: to drugie pole"}]
+    assert attention.collect("local-admin") == [] and attention.collect("ktoś inny") == []
+    off = Attention(opener=opened.append, enabled=lambda: False)
+    assert off.ask("local-admin", "x", [("a", {"text": "a"})]) is None and len(opened) == 1
+
+
+def test_the_login_stop_opens_the_small_window_and_its_answer_resumes_the_work(tmp_path):
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    browser, replies, opened = FakeBrowser(), [], []
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(replies), UsageLedger(home))
+    client = TestClient(create_app(home, inference=inference, computer_roots=[tmp_path], attention_opener=opened.append,
+                                   fill_targets={"program": lambda: FakeDesktop(), "strona": lambda: browser}))
+    assert client.get("/v2/agent/inbox", headers=admin).json() == {"turns": []}      # the window's poll: the worker learns its address
+    replies += [json.dumps({"krok": "widok"}), json.dumps({"krok": "web_kliknij", "co": "Zaloguj certyfikatem"})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "wejdź na stronę rejestrów i zarejestruj akt"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    assert len(opened) == 1 and "/v2/attention/" in opened[0]
+    path = opened[0].split("testserver", 1)[1]
+    assert "NotarAI potrzebuje Twojej decyzji" in client.get(path).text
+    shown = client.get(path + "/dane").json()
+    assert "logowanie" in shown["text"] and shown["actions"] == ["Zalogowałem się, kontynuuj"] and shown["free"] is False
+    assert client.get(path + "/dane", headers={"host": "notarai.example"}).status_code == 403      # this computer only
+    assert client.post(path, json={"choice": 0}, headers={"origin": "http://zla.example"}).status_code == 403
+    assert client.post(path, json={"choice": 0}).status_code == 200 and client.post(path, json={"choice": 0}).status_code == 410
+    turns = client.get("/v2/agent/inbox", headers=admin).json()["turns"]
+    assert turns == [{"confirm": asked[-1]["token"]}]
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "Akt przygotowany."})]
+    resumed = client.post("/v2/chat", headers=admin, json=turns[0]).json()["blocks"]
+    assert "Akt przygotowany." in wait(client, admin, next(b["id"] for b in resumed if b["type"] == "job"))[0]["text"]
+    assert "wyłączone" in client.post("/v2/chat", headers=admin, json={"text": "wyłącz okienko z pytaniem agenta"}).json()["blocks"][0]["text"]

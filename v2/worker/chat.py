@@ -313,6 +313,9 @@ class Chat:
         if not self.s.ai_ready():
             return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
                     buttons(("Zaloguj", "zaloguj"))]
+        withdraw = getattr(self.s, "withdraw_question", None)
+        if withdraw is not None:
+            withdraw(identity)                    # a new run: whatever was asked before is answered or dropped
         self.s.narrate(identity, "Działam na tym komputerze: " + task[:160])
         switch, holder = threading.Event(), {}
 
@@ -351,6 +354,36 @@ class Chat:
         return [{"type": "image", "image": base64.b64encode(image).decode(), "alt": "Strona przygotowana przez program"}] if image else []
 
     def _computer_run(self, identity, task, allowed, history, cancelled=lambda: False) -> list[dict]:
+        blocks = self._computer_work(identity, task, allowed, history, cancelled)
+        if not cancelled():
+            self._raise_question(identity, blocks)
+        return blocks
+
+    def _raise_question(self, identity, blocks) -> None:
+        """When the work stopped for the notary (a question, a login, something to approve): the same question in a
+        small window above all others, so they need not look for NotarAI. Its answer comes back into this chat."""
+        ask = getattr(self.s, "ask_notary", None)
+        if ask is None:
+            return
+        flat = self._flatten(blocks)
+        words = next((b["text"] for b in flat if b.get("type") == "text" and b.get("text")), "")
+        actions, free = [], None
+        for block in flat:
+            if block.get("type") == "confirm":
+                words = (words + "\n\n" + block.get("text", "")).strip()
+                actions.append((block.get("label") or "Tak", {"confirm": block["token"]}))
+            elif block.get("type") == "buttons":
+                for item in block.get("items", []):
+                    if norm(item.get("say", "")).startswith("odpowiedz dla agenta"):
+                        actions.append((item["label"], {"text": item["say"]}))
+                        free = "odpowiedź dla agenta: "
+        if actions:
+            try:
+                ask(identity, words, actions, free)
+            except Exception:
+                pass                              # the question is in the chat anyway
+
+    def _computer_work(self, identity, task, allowed, history, cancelled=lambda: False) -> list[dict]:
         from .agent import Agent
 
         computer = self.s.computer
@@ -421,6 +454,9 @@ class Chat:
             switch.set()
         self._agent_question.clear()
         self._pending.clear()                 # no „Kontynuuj” or „Tak, zrób to” left to bring it back
+        withdraw = getattr(self.s, "withdraw_question", None)
+        if withdraw is not None:
+            withdraw(identity)                    # and no small window still asking about it
         self.s.narrate(identity, "Zatrzymuję pracę na komputerze.")
         return [text("Zatrzymałem. Agent nie zrobi już żadnego kroku; to, co było w toku, przerwałem."
                      if running else "Zatrzymane. Nic teraz nie pracowało na komputerze.")]
@@ -1250,6 +1286,11 @@ class Chat:
             return [text("Agent może patrzeć na ekran: zrzut idzie do asystenta we Frankfurcie tak, jak go widać (nazwisk "
                          "na obrazie nie da się zamienić na znaczniki), nic nie jest tam zapisywane; każde spojrzenie widać w rozmowie."
                          if on else "Agent nie robi już zrzutów ekranu: widzi tylko tekst plików, pól okien i stron.")]
+        if (on or off) and re.search(r"okienk\w* z pytani|okienk\w* agenta|pytani\w* na wierzchu|powiadomieni\w* agenta", plain):
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(popup=on))
+            return [text("Gdy agent będzie miał pytanie albo będzie potrzebował Twojego logowania lub zgody, pokażę małe "
+                         "okienko na wierzchu, w prawym górnym rogu ekranu." if on else
+                         "Okienko z pytaniem agenta jest wyłączone: pytania zobaczysz tylko w rozmowie.")]
         if (on or off) and re.search(r"wiersz\w* polecen|polecenia agenta|\bcli\b", plain):
             s.update_settings(lambda d: d.setdefault("agent", {}).update(commands=on))
             return [text("Agent może uruchamiać programy z wiersza poleceń (pojedynczy program z argumentami; bez cmd, "

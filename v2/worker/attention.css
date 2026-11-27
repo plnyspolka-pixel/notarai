@@ -1,0 +1,12 @@
+html, body { margin: 0; height: 100%; }
+body { font: 14.5px/1.45 "Segoe UI", system-ui, sans-serif; color: #0d193c; background: #fff; display: flex; flex-direction: column; }
+header { background: #071d49; color: #fff; padding: 8px 14px; font-weight: 600; font-size: 13.5px; }
+main { padding: 12px 14px; overflow-y: auto; flex: 1; }
+p { margin: 0 0 10px; white-space: pre-wrap; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid #c9d6ea; background: #fff; color: #0d193c; cursor: pointer; }
+button.main { background: #1d3fbf; border-color: #1d3fbf; color: #fff; font-weight: 600; }
+input { font: inherit; flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid #c9d6ea; }
+#own { display: flex; gap: 8px; margin-top: 10px; }
+#state { color: #5f6f8e; font-size: 12.5px; margin-top: 8px; }
+#own[hidden] { display: none; }

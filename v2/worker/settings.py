@@ -101,6 +101,8 @@ class AgentSettings(_Strict):
     # The NotarAI browser works out of sight (its window is kept off the screen) and is shown only when the
     # notary has to log in, look at the result or sign (owner's decision 27.11.2026, 2.8.0).
     background: bool = True
+    # A small window above all others when the agent has a question or needs the notary (2.8.5).
+    popup: bool = True
 
 
 class Settings(_Strict):

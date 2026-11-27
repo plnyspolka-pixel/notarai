@@ -505,6 +505,21 @@ async function refreshAhead() {
 }
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
+// Answers the notary gave in the small window on top (the agent's question): they enter this conversation here,
+// exactly as if the button had been pressed in this window.
+let takingAnswers = false;
+setInterval(async () => {
+  if (scope !== "admin" || takingAnswers) return;
+  takingAnswers = true;
+  try {
+    const { turns } = await call("agent/inbox");
+    for (const turn of turns) {
+      if (turn.confirm) await exchange({ confirm: turn.confirm });
+      else if (turn.text) await send(turn.text);
+    }
+  } catch { /* the next round tries again */ } finally { takingAnswers = false; }
+}, 1500);
+
 render["pick-folder"] = block => {
   // The Windows "choose a folder" dialog opens on the office computer; the path then goes back as a sentence.
   const button = node("button", "primary", block.label || "Wybierz folder…");
