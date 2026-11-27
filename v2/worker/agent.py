@@ -126,6 +126,9 @@ SYSTEM_AGENT = (
     "Dlatego używaj kroków okno, wpisz i kliknij (działają bez wyciągania okna), a krok ekran zawsze z nazwą okna "
     "(program sfotografuje je w tle). Kroków klawisze oraz ekran bez nazwy okna unikaj: wymagają okna na wierzchu i "
     "zgody notariusza. "
+    "Listy rozwijane ([select]) ustawiasz krokiem wpisz z wartością równą jednej z pozycji; nie rozwijaj ich klikaniem "
+    "ani zrzutem. Krok kliknij na liście tylko podaje jej pozycje. Po każdym kliknięciu wynik mówi, co się w oknie "
+    "pojawiło, zmieniło i zniknęło: czytaj to, zanim uznasz, że coś nie zadziałało. "
     "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
     "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
@@ -866,27 +869,69 @@ class Computer:
         return found[0]
 
     def type(self, title: str, label: str, value: str) -> str:
+        from .autofill import FillError
+
         desktop = self._window(title)
         control = self._control(desktop, label, {"text", "select", "check"})
-        if control.kind == "select":
-            desktop.choose(control, value)
-        elif control.kind == "check":
-            desktop.check(control, plain(value) in {"tak", "1", "true", "zaznacz"})
-        else:
-            desktop.type(control, value)
+        try:
+            if control.kind == "select":
+                desktop.choose(control, value)
+            elif control.kind == "check":
+                desktop.check(control, plain(value) in {"tak", "1", "true", "zaznacz"})
+            else:
+                desktop.type(control, value)
+        except FillError as error:             # with the reason, e.g. the positions a list really has
+            raise AgentError(str(error)) from None
         return f"Wpisałem w „{control.label}”: {desktop.read(control)}"
+
+    @staticmethod
+    def _state(found) -> dict:
+        return {f"[{c.kind}] {c.label}": c.value for c in found if c.label.strip()}
+
+    def _changes(self, desktop, before: dict) -> str:
+        """What the window shows now that it did not show before the step: the agent's eyes after every click."""
+        try:
+            found = self._all(desktop)
+        except Exception:
+            return ""
+        after = self._state(found)
+        self._login(desktop.where(), found, bool(getattr(desktop, "password_field", False)))
+        self.map.record(desktop.where(), desktop.where(), found)
+        self.read_windows[plain(desktop.where())] = [plain(re.sub(r"\s*\([^)]*\)\s*$", "", c.label)) for c in found
+                                                     if c.kind in {"button", "check"} and c.label.strip()]
+        appeared = [name for name in after if name not in before]
+        gone = [name for name in before if name not in after]
+        changed = [f"{name} = „{after[name]}”" for name in after if name in before and after[name] != before[name]]
+        if not (appeared or gone or changed):
+            return ("\nW polach, przyciskach i menu okna nic się nie zmieniło. To nie musi znaczyć, że klik nie zadziałał: "
+                    "jeśli to była lista, ustaw ją krokiem wpisz z wartością; jeśli program coś narysował sam, zrób ekran okna.")
+        return ("\nPo tym kroku" + ("; pojawiło się: " + " | ".join(appeared[:40]) if appeared else "")
+                + ("; zmieniło się: " + " | ".join(changed[:20]) if changed else "")
+                + ("; zniknęło: " + " | ".join(gone[:20]) if gone else "") + ".")
 
     def click(self, title: str, label: str) -> str:
         desktop = self._window(title)
         from .autofill import FillError
 
-        control = self._control(desktop, label, {"button", "check"})
+        control = self._control(desktop, label, {"button", "check", "select"})
+        if control.kind == "select":           # a drop-down list is not opened by clicking: its positions are read and one is set
+            known = desktop.options(control) if hasattr(desktop, "options") else list(control.options)
+            now = f" Teraz: „{control.value}”." if control.value else ""
+            if known:
+                return (f"„{control.label}” to lista rozwijana.{now} Pozycje: " + " | ".join(known[:40])
+                        + ". Ustaw ją krokiem wpisz z jedną z tych wartości; nie trzeba jej rozwijać.")
+            return (f"„{control.label}” to lista rozwijana, ale program nie podaje jej pozycji.{now} Zrób ekran tego okna, "
+                    "żeby je zobaczyć, a wartość ustaw krokiem wpisz.")
+        try:
+            before = self._state(self._all(desktop))
+        except Exception:
+            before = {}
         try:
             desktop.click(control)
         except FillError:                      # no way to press it by a message: the mouse, with the notary's word
             self._borrow(f"naciśnięcie myszą „{control.label}”", lambda: control.ref.click_input(), desktop)
-        time.sleep(0 if self._starter else 1.0)
-        return f"Kliknąłem „{control.label}”."
+        time.sleep(0 if self._starter or self._pointer or self._grabber or getattr(self, "instant", False) else 1.0)
+        return f"Kliknąłem „{control.label}”." + self._changes(desktop, before)
 
     def keys(self, title: str, keys: str) -> str:
         desktop = self._window(title)

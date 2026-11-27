@@ -997,3 +997,72 @@ def test_the_notary_can_read_what_the_agent_did(office):
     said = client.post("/v2/chat", headers=admin, json={"text": "dziennik agenta"}).json()["blocks"][0]["text"]
     assert "koniec: gotowe; kroków 2" in said and "dziennik-agenta" in said and "44051401359" not in said and "Kowalski" not in said
     assert "sygnał" in client.post("/v2/chat", headers=admin, json={"text": "włącz dźwięk pytania agenta"}).json()["blocks"][0]["text"]
+
+
+# ---- drop-down lists and what a click changed (the agent said „lista nie reaguje” while it had opened)
+class ListDesktop(FakeDesktop):
+    def __init__(self):
+        super().__init__()
+        self.kind = Control("r", "select", "Rodzaj czynności", "sprzedaż", [])
+        self.fields.append(self.kind)
+        self.chosen = None
+
+    def options(self, control):
+        return ["sprzedaż", "darowizna", "pełnomocnictwo"]
+
+    def choose(self, control, value):
+        from worker.autofill import FillError
+        if value not in self.options(control):
+            raise FillError("Lista nie przyjęła wartości. Dostępne pozycje: " + " | ".join(self.options(control)) + ".")
+        self.chosen = value
+
+    def read(self, control):
+        return self.chosen or super().read(control)
+
+    def click(self, control):
+        super().click(control)
+        if control.label == "Zapisz":                       # the program answers with a new button and a changed field
+            self.fields.append(Control("d", "button", "Drukuj", "", []))
+            self.fields[0] = Control("n", "text", "Numer aktu", "zapisano", [])
+
+
+def test_a_dropdown_list_is_set_by_value_and_a_click_reports_what_changed(tmp_path):
+    desktop = ListDesktop()
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    computer.instant = True
+    ask, seen = script({"krok": "okno", "okno": "RejNET"},
+                       {"krok": "kliknij", "okno": "RejNET", "przycisk": "Rodzaj czynności"},
+                       {"krok": "wpisz", "okno": "RejNET", "pole": "Rodzaj czynności", "wartosc": "zamiana"},
+                       {"krok": "wpisz", "okno": "RejNET", "pole": "Rodzaj czynności", "wartosc": "darowizna"},
+                       {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"},
+                       {"krok": "kliknij", "okno": "RejNET", "przycisk": "Wyślij"},
+                       {"krok": "koniec", "odpowiedz": "ok"})
+    result = Agent(computer, ask).run("ustaw rodzaj czynności na darowiznę, zapisz i wyślij")
+    steps = [s["wynik"] for s in result["steps"]]
+    assert "to lista rozwijana" in steps[1] and "sprzedaż | darowizna | pełnomocnictwo" in steps[1] and desktop.clicked[:1] != ["Rodzaj czynności"]
+    assert steps[2].startswith("BŁĄD") and "Dostępne pozycje: sprzedaż | darowizna" in steps[2]
+    assert desktop.chosen == "darowizna" and "darowizna" in steps[3]
+    assert "pojawiło się: [button] Drukuj" in seen[5] and "zmieniło się: [text] Numer aktu = „zapisano”" in seen[5]
+    assert "nic się nie zmieniło" in seen[6] and "nie musi znaczyć" in seen[6]
+
+
+def test_positions_of_a_classic_list_are_matched_whatever_the_spelling():
+    from types import SimpleNamespace
+    from worker.win_fill import Desktop
+
+    picked = []
+
+    def select(text):
+        if text not in {"Sprzedaż", "Darowizna"}:
+            raise ValueError("no such item")
+        picked.append(text)
+    box = SimpleNamespace(select=select, item_texts=lambda: ["Sprzedaż", "Darowizna"])
+    desktop = Desktop(backend=SimpleNamespace(windows=lambda **kw: []), legacy=SimpleNamespace())
+    control = Control(box, "select", "Rodzaj", "", [])
+    assert desktop.options(control) == ["Sprzedaż", "Darowizna"]
+    desktop.choose(control, "darowizna")
+    desktop.choose(control, "sprzedaz")
+    assert picked == ["Darowizna", "Sprzedaż"]
+    with pytest.raises(Exception) as refused:
+        desktop.choose(control, "zamiana")
+    assert "Dostępne pozycje: Sprzedaż | Darowizna" in str(refused.value)
