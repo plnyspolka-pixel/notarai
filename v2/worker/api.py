@@ -143,6 +143,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     def auth(authorization: str = Header(default="")) -> Identity:
         if secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
             return Identity("local-admin","admin")
+        if authorization.startswith("Tunnel ") and authorization[7:] in internal:
+            return internal[authorization[7:]]     # minted in-process for one tunnelled request
         if authorization.startswith("Bearer "):
             device = devices.authenticate(authorization[7:])
             if device:
@@ -169,6 +171,33 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             see_case(identity, vault.case_of(doc_id))
         except (KeyError, ValueError):
             raise HTTPException(404, "not found")
+
+    internal: dict[str, Identity] = {}
+
+    async def dispatch(device_id: str, method: str, path: str, body):
+        """Run a tunnelled request through this same app, as that device, with every check intact."""
+        import httpx
+
+        known = devices.lookup(device_id)       # re-read on every request, so revocation is immediate
+        if known is None or known["scope"] not in {"read", "write"}:
+            return 401, {"detail": "unauthorized"}
+        ticket = secrets.token_urlsafe(32)
+        internal[ticket] = Identity(device_id, known["scope"], frozenset(known["cases"]) if known["cases"] else None)
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as client:
+                response = await client.request(
+                    method, path, json=body if method == "POST" else None,
+                    headers={"Authorization": "Tunnel " + ticket})
+        finally:
+            internal.pop(ticket, None)
+        try:
+            return response.status_code, response.json()
+        except ValueError:
+            return response.status_code, None
+
+    app.state.dispatch = dispatch
+    app.state.devices = devices
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, exc):

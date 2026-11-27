@@ -24,6 +24,8 @@ class DeviceRegistry:
                 if "cases" not in {row[1] for row in db.execute(f"PRAGMA table_info({table})")}:
                     # NULL = whole vault; otherwise a JSON list of case identifiers.
                     db.execute(f"ALTER TABLE {table} ADD COLUMN cases TEXT")
+            if "pubkey" not in {row[1] for row in db.execute("PRAGMA table_info(devices)")}:
+                db.execute("ALTER TABLE devices ADD COLUMN pubkey TEXT")   # device signing key, for the tunnel
             if "expires" not in {row[1] for row in db.execute("PRAGMA table_info(devices)")}:
                 db.execute("ALTER TABLE devices ADD COLUMN expires INTEGER")  # NULL = until revoked
     def connect(self):
@@ -52,7 +54,7 @@ class DeviceRegistry:
                 db.execute("DELETE FROM invitations WHERE name=? AND scope=?", (name, scope))
             db.execute("INSERT INTO invitations(hash,name,scope,expires,cases) VALUES (?,?,?,?,?)",(digest(code),name,scope,expires,cases))
         return {"code":code,"expires":expires}
-    def redeem(self, code):
+    def redeem(self, code, pubkey=None):
         now = int(time.time())
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -62,7 +64,7 @@ class DeviceRegistry:
             db.execute("DELETE FROM invitations WHERE hash=?",(digest(code),))
             device_id,token = str(uuid.uuid4()),secrets.token_urlsafe(48)
             expires = now + self.ADMIN_SESSION if row[1] == "admin" else None
-            db.execute("INSERT INTO devices(id,name,scope,hash,cases,expires) VALUES (?,?,?,?,?,?)",(device_id,row[0],row[1],digest(token),row[3],expires))
+            db.execute("INSERT INTO devices(id,name,scope,hash,cases,expires,pubkey) VALUES (?,?,?,?,?,?,?)",(device_id,row[0],row[1],digest(token),row[3],expires,pubkey))
         return {"id":device_id,"token":token,"scope":row[1],"cases":json.loads(row[3]) if row[3] else None}
     def authenticate(self, token):
         if not token or len(token)>256:
@@ -72,6 +74,16 @@ class DeviceRegistry:
         if row is None:
             return None
         return row[0], row[1], frozenset(json.loads(row[2])) if row[2] else None
+    def lookup(self, device_id):
+        """A live device by identifier (the tunnel authenticates by key, not by token)."""
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT scope,cases,pubkey FROM devices WHERE id=? AND revoked=0 AND (expires IS NULL OR expires > ?)",
+                (device_id, int(time.time()))).fetchone()
+        if row is None:
+            return None
+        return {"scope": row[0], "cases": json.loads(row[1]) if row[1] else None, "pubkey": row[2]}
+
     def list(self):
         with self.connect() as db:
             db.execute("DELETE FROM devices WHERE expires IS NOT NULL AND expires <= ?", (int(time.time()),))
