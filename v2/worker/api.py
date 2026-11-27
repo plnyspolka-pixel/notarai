@@ -438,7 +438,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         known = devices.lookup(device_id)       # re-read on every request, so revocation is immediate
         if known is None or known["scope"] not in {"read", "write", "listen"}:
             return 401, {"detail": "unauthorized"}
-        if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite", "/v2/admin/reopen"}:
+        if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite", "/v2/admin/reopen"} \
+                or path.startswith("/v2/attention/"):
             return 403, {"detail": "local only"}      # pairing through the tunnel has its own message
         ticket = secrets.token_urlsafe(32)
         internal[ticket] = Identity(device_id, known["scope"], frozenset(known["cases"]) if known["cases"] else None)
