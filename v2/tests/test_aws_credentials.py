@@ -5,7 +5,7 @@ import json
 import pytest
 
 from worker.aws_credentials import Account, AccountConfig, ChallengeRequired, LoginError, REFRESH_SECRET
-from worker.local_secrets import read_secret
+from worker.local_secrets import read_secret, secret_path
 
 CONFIG = AccountConfig("eu-central-1", "eu-central-1_Pool", "client", "eu-central-1:11111111-2222")
 
@@ -83,8 +83,11 @@ def test_login_keeps_only_the_refresh_token(tmp_path):
     account.login("anna@example.pl", "dobre")
     assert account.signed_in
     files = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
-    assert list(files) == [REFRESH_SECRET]
-    assert b"dobre" not in files[REFRESH_SECRET] and b"anna" not in files[REFRESH_SECRET]
+    stored = secret_path(tmp_path, REFRESH_SECRET).name       # ".dpapi" on Windows: protected by the OS
+    assert list(files) == [stored]
+    assert b"dobre" not in files[stored] and b"anna" not in files[stored]
+    if stored.endswith(".dpapi"):
+        assert b"refresh-" not in files[stored]              # the token itself is not readable from the file
     first = account.credentials()
     assert first["access_key"] == "AK1" and account.credentials()["access_key"] == "AK1"
     assert identity.issued == 1
