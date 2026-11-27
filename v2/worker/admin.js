@@ -9,7 +9,8 @@ let tunnelState = { enabled: false };
 const ACTIONS = {
   read: "odczyt", write: "zapis", backup: "kopia zapasowa", restore: "odtworzenie z kopii",
   migrate: "migracja sejfu", "rotate-key": "wymiana klucza", "enroll-recovery": "utworzenie kodu odzyskiwania",
-  "revoke-device": "cofnięcie urządzenia", settings: "zmiana ustawień",
+  "revoke-device": "cofnięcie urządzenia", settings: "zmiana ustawień", checkout: "otwarcie do edycji",
+  "discard-workcopy": "porzucenie edycji", "offsite-backup": "kopia poza kancelarią",
 };
 
 function status(message) { el("status").textContent = message; }
@@ -88,6 +89,42 @@ async function loadStatus() {
   el("logout-ai").hidden = !state.ai.signed_in;
 }
 
+function action(label, handler, className) {
+  const button = document.createElement("button");
+  button.textContent = label;
+  if (className) button.className = className;
+  button.onclick = run(handler);
+  return button;
+}
+
+async function loadDocuments() {
+  const [documents, copies] = await Promise.all([call("documents?include_names=true"), call("workcopies")]);
+  const open = new Set(copies.map(copy => copy.id));
+  el("documents").replaceChildren(...(documents.length ? documents.map(item => cells([
+    item.name, item.case || "", item.version,
+    open.has(item.id) ? "otwarty" : action("Otwórz do edycji", async () => {
+      await call("documents/" + item.id + "/checkout", "POST");
+      status("Otwarto „" + item.name + "” w edytorze. Po zapisaniu i zamknięciu wybierz „Zapisz do sejfu”.");
+      await loadDocuments();
+    }),
+  ])) : [cells(["Brak dokumentów.", "", "", ""])]));
+  el("workcopies").replaceChildren(...copies.map(copy => cells([
+    copy.name,
+    copy.missing ? "plik roboczy zniknął" : (copy.in_use ? "otwarty w edytorze" : (copy.changed ? "zmieniony, niezapisany w sejfie" : "bez zmian")),
+    action("Zapisz do sejfu", async () => {
+      const result = await call("workcopies/" + copy.id + "/checkin", "POST");
+      status(result.saved ? "Zapisano wersję " + result.version + ". Kopia robocza usunięta z dysku." : "Bez zmian. Kopia robocza usunięta z dysku.");
+      await loadDocuments();
+    }, "primary"),
+    action("Porzuć zmiany", async () => {
+      if (!window.confirm("Porzucić zmiany w „" + copy.name + "”? Nie da się ich odzyskać.")) return;
+      await call("workcopies/" + copy.id, "DELETE");
+      status("Zmiany porzucone. Kopia robocza usunięta z dysku.");
+      await loadDocuments();
+    }, "danger"),
+  ])));
+}
+
 async function loadTunnel() {
   tunnelState = await call("tunnel");
   el("tunnel-enabled").checked = settings.tunnel.enabled;
@@ -155,6 +192,7 @@ async function loadAudit() {
 async function loadAll() {
   await loadStatus();
   await loadTunnel();
+  await loadDocuments();
   await loadDevices();
   await loadUsage();
   await loadAudit();
@@ -255,6 +293,7 @@ el("logout-ai").onclick = run(async () => {
   await loadStatus();
 });
 el("reload-audit").onclick = run(loadAudit);
+el("reload-documents").onclick = run(loadDocuments);
 
 // The launcher opens this page with a one-time code in the fragment, which never reaches a server log.
 const fragment = window.location.hash.slice(1);

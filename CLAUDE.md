@@ -84,6 +84,25 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   na stronę samo. Nie uruchamiaj `infra\strona.ps1` ani FTP ręcznie, chyba
   że workflow nie działa (wtedy to wysyłka awaryjna).
 
+## NotarAI 2.0 (katalog `v2/`, tor rozwojowy)
+
+- Stan dla właściciela: `v2/STAN.md`. Architektura i moduły: `v2/README.md`.
+- V2 jest osobne od V1: własne zależności (`v2/requirements.txt`), własne testy
+  (`cd v2 && python -m pytest -q`), bez wdrożeń na produkcję i bez importu danych
+  ani konfiguracji V1. Z V1 bierze wyłącznie kod reguł (`taksa.py`, `slownie.py`
+  przez `v2/worker/domain.py`); zmieniając je, puść też testy V2.
+- Wyłącznie dane fikcyjne. `ai.real_data_approved` zostaje `false`; nie dodawaj
+  sposobu przełączenia go z aplikacji.
+- Każde wywołanie modelu w V2 idzie przez `v2/worker/inference.py` (polityka UE,
+  pseudonimizacja, licznik). Nie wołaj Bedrock z innego miejsca i nie loguj treści.
+- Zapis albo wysyłka w imieniu notariusza: tylko przez kontrakt Connect z
+  zatwierdzeniem dokładnej treści i odczytem kontrolnym; bez ponawiania po
+  niepewnym wyniku.
+- Stosy `infra/notarai-v2-*.yaml` są zwalidowane, nie utworzone. `notarai-v2-kopia`
+  przechowuje zaszyfrowane dane osobowe: przed utworzeniem zapytaj o potwierdzenie.
+- Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.*`, `tunnel.js`) sprawdzaj
+  w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
+
 ## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)
 
 - Architektura i zasady: docs/agent-factory.md.

@@ -30,6 +30,7 @@ from .settings import load as load_settings, save as save_settings, validate as 
 from .sync import plan
 from .usage import UsageLedger
 from .vault import Vault, Conflict, MAX_BYTES, valid_case
+from .workcopy import WorkCopies, WorkCopyError
 
 CASE = r"^[\w.-]{1,64}$"
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
@@ -105,7 +106,7 @@ class _Throttle:
 
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
-               account: Account | None = None):
+               account: Account | None = None, opener=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -139,6 +140,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     configure(settings)
     drafts = Drafts(vault, lambda: state["inference"], connect)
     redeem_throttle = _Throttle()
+    workcopies = WorkCopies(home, vault, opener) if opener else WorkCopies(home, vault)
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
     settings = None   # read state["settings"]; it can change while the worker runs
 
@@ -299,6 +301,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if isinstance(exc, ChallengeRequired):
             body["challenge"] = exc.kind
         return JSONResponse(body, status_code=401)
+
+    @app.exception_handler(WorkCopyError)
+    async def workcopy_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
 
     @app.exception_handler(ReplicaError)
     async def replica_failed(request, exc):
@@ -512,6 +518,24 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return {"id":doc_id,"version":rev,"name":name,"content_b64":base64.b64encode(data).decode()}
         except (KeyError,ValueError):
             raise HTTPException(404,"not found")
+
+    # ------------------------------------------------------------ editing in Word (this computer only)
+    @app.get("/v2/workcopies", dependencies=[Depends(admin)])
+    def workcopies_list():
+        return workcopies.list()
+
+    @app.post("/v2/documents/{doc_id}/checkout")
+    def checkout(doc_id: str, identity: Identity = Depends(admin)):
+        return workcopies.checkout(doc_id, identity.id)
+
+    @app.post("/v2/workcopies/{doc_id}/checkin")
+    def checkin(doc_id: str, identity: Identity = Depends(admin)):
+        return workcopies.checkin(doc_id, identity.id)
+
+    @app.delete("/v2/workcopies/{doc_id}")
+    def workcopy_discard(doc_id: str, identity: Identity = Depends(admin)):
+        workcopies.discard(doc_id, identity.id)
+        return {"discarded": True}
 
     # ------------------------------------------------------------ assistant
     @app.get("/v2/taksa/katalog", dependencies=[Depends(auth)])

@@ -121,6 +121,18 @@ async function statusIs(page, text) {
     await panel.getByRole("button", { name: "Wydaj kod parowania" }).click();
     await panel.locator("#pair-code:not([hidden])").waitFor();
 
+    // ---- edit in a desktop editor: check out, change the working copy, check in
+    await panel.locator("#documents tr", { hasText: "notatka.txt" }).getByRole("button", { name: "Otwórz do edycji" }).click();
+    await statusIs(panel, "Otwarto „notatka.txt” w edytorze.");
+    const copies = path.join(info.home, "workcopies");
+    const folder = path.join(copies, fs.readdirSync(copies)[0]);
+    fs.writeFileSync(path.join(folder, "notatka.txt"), "Sprzedający Jan Kowalski, PESEL 44051401359, zbywa lokal nr 5. Dopisek z edytora.");
+    await panel.getByRole("button", { name: "Odśwież", exact: true }).click();
+    await panel.locator("#workcopies tr", { hasText: "zmieniony, niezapisany w sejfie" }).waitFor();
+    await panel.getByRole("button", { name: "Zapisz do sejfu" }).click();
+    await statusIs(panel, "Kopia robocza usunięta z dysku.");
+    assert(fs.readdirSync(copies).length === 0, "working copy left on disk");
+
     // ---- remote access: enable the tunnel, pair a phone from the QR link, reconnect by device key
     await panel.getByLabel("Adres przekaźnika").fill("ws://127.0.0.1:" + relayPort);
     await panel.getByLabel("Adres strony Pocket").fill(info.url + "/pocket");
@@ -149,11 +161,11 @@ async function statusIs(page, text) {
     await remote.getByRole("button", { name: "umowa.docx · wersja 1" }).waitFor();
     await remote.reload();
     await statusIs(remote, "Połączono z prawem zapisu.");
-    await remote.getByRole("button", { name: "notatka.txt · wersja 1" }).click();
+    await remote.getByRole("button", { name: "notatka.txt · wersja 2" }).click();
     await remote.waitForFunction(() => document.getElementById("body").value.includes("Jan Kowalski"));
     await remote.getByLabel("Treść", { exact: true }).fill("Zmiana z telefonu poza kancelarią.");
     await remote.getByRole("button", { name: "Zapisz nową wersję" }).click();
-    await statusIs(remote, "Zapisano wersję 2.");
+    await statusIs(remote, "Zapisano wersję 3.");
     assert(api.length === 0, "remote Pocket bypassed the tunnel: " + api.join(", "));
     await panel.getByRole("button", { name: "Odśwież dziennik" }).click();
     await panel.locator("#audit tr", { hasText: "Telefon zdalny" }).first().waitFor();

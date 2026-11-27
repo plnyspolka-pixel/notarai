@@ -42,7 +42,7 @@ def main():
     initialize(home)
     bedrock = Bedrock()
     inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: bedrock, UsageLedger(home))
-    app = create_app(home, inference=inference)
+    app = create_app(home, inference=inference, opener=lambda path: None)   # no editor on a test machine
     registry = DeviceRegistry(home)
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))

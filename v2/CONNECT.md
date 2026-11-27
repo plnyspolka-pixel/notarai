@@ -39,3 +39,16 @@ From `v2`, use `python -m worker.inspect_docx DOCUMENT_UUID REVISION --synthetic
 The adapter reads the selected encrypted revision into memory, checks package size and part limits, then uses [python-docx 1.2.0](https://github.com/python-openxml/python-docx/tree/v1.2.0) (MIT) with lxml 6.1.3. Inspection returns counts of direct body paragraphs and tables. Headers, nested table content and paragraphs wrapped in tracked changes are outside that count. Document bytes and text do not enter the result. The operator can inspect synthetic `.docx` files from Microsoft Word or LibreOffice Writer. The automated Writer test generates a fresh DOCX in an isolated profile. Native Word and RejNET integration require separate tests.
 
 Receipts are kept in `connect-receipts.sqlite3` in the local development vault directory. They contain operation, parser identity, time and outcome. A `started` receipt without a terminal state indicates an interrupted inspection. Receipt rows omit the document UUID, revision, token and document content. The CLI is a local operator entry point, outside the development HTTP API and Windows service.
+
+## Connect SDK v1: approved DOCX write and desktop editing
+`write_docx` stores reviewed text as a DOCX revision. The request carries the SHA-256 of the text, the
+case, the file name, an optional base revision and an optional office template taken from the vault.
+Approval is single-use and bound to those exact fields; content that differs from the approved hash is
+refused before any adapter runs. After the write the SDK reads the stored revision back and compares
+the text hash; a mismatch is `uncertain`, recorded in the receipt, and never retried.
+
+`worker/workcopy.py` is the first integration with Word and LibreOffice that changes documents. It
+uses the file interface (the top routing tier), not UI automation: check-out writes a working copy and
+opens it with its registered application, check-in refuses while the editor's lock file exists, and a
+newer vault revision keeps the working copy instead of overwriting either side. Verified with a real
+LibreOffice round trip; Microsoft Word uses the same mechanism and still needs a run on Windows.
