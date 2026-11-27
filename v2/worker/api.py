@@ -872,7 +872,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                               roots=(lambda: computer_roots) if computer_roots is not None else None,
                               starter=computer_starter, **(computer_parts or {}),
                               allowed=lambda: {"screen": state["settings"].agent.screen,
-                                               "commands": state["settings"].agent.commands})
+                                               "commands": state["settings"].agent.commands,
+                                               "background": state["settings"].agent.background})
 
     @app.exception_handler(FillError)
     async def fill_failed(request, exc):

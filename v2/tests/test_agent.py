@@ -803,3 +803,99 @@ def test_krz_reads_the_parties_from_a_case_in_the_vault_first(office):
     blocks = client.post("/v2/chat", headers=admin, json={"text": "sprawdź w KRZ strony z aktu Jagiełło"}).json()["blocks"]
     asked = next(b for b in blocks if b["type"] == "confirm")
     assert "Maria Jagiełło 4405*******" in asked["text"] and "darowizna-2026" in asked["text"]
+
+
+# ---- 2.8.5: the agent works under the notary's own windows; the front of the screen only with their word
+class QuietDesktop(FakeDesktop):
+    def __init__(self, can_capture=True, can_click=True):
+        super().__init__()
+        self.can_capture, self.can_click, self.log, self.quiet = can_capture, can_click, [], False
+
+    def focus(self, title):
+        self.log.append("wybrane bez wyciągania" if self.quiet else "NA WIERZCH")
+
+    def capture(self):
+        return (JPEG, 1.5, (800, 600), (300, 200)) if self.can_capture else None
+
+    def click_at(self, x, y, double=False):
+        self.log.append(("klik komunikatem", x, y))
+        return self.can_click
+
+    def send_text(self, value):
+        self.log.append(("znaki komunikatem", value))
+        return True
+
+    def to_front(self):
+        self.log.append("NA WIERZCH")
+        return 4242
+
+    def give_back(self, before):
+        self.log.append(("oddane", before))
+
+
+def test_in_the_background_nothing_comes_to_the_front(tmp_path):
+    desktop, mouse, keyboard, grabbed = QuietDesktop(), [], [], []
+    computer = Computer(tmp_path, desktop=lambda: desktop, allowed=lambda: {"background": True},
+                        grabber=lambda: grabbed.append(1) or (JPEG, 1.0, (10, 10)),
+                        pointer=lambda x, y, d: mouse.append((x, y)), typist=keyboard.append, label_at=lambda x, y: "")
+    ask, _ = script({"krok": "okno", "okno": "RejNET"}, {"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "1/2026"},
+                    {"krok": "ekran", "okno": "RejNET"}, {"krok": "kliknij_punkt", "x": 100, "y": 40, "co": "siatka"},
+                    {"krok": "pisz", "tekst": "abc"}, {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"},
+                    {"krok": "koniec", "odpowiedz": "Zrobione w tle."})
+    result = Agent(computer, ask).run("wpisz akt w RejNET")
+    assert result["answer"] == "Zrobione w tle." and result["stopped"] is None
+    assert "NA WIERZCH" not in desktop.log and mouse == [] and keyboard == [] and grabbed == []
+    assert ("klik komunikatem", 150, 60) in desktop.log and ("znaki komunikatem", "abc") in desktop.log
+    assert desktop.typed == {"Numer aktu": "1/2026"} and desktop.clicked == ["Zapisz"]
+    assert "zrobiony w tle" in result["steps"][2]["wynik"]
+
+
+def test_the_front_of_the_screen_is_taken_only_with_the_notarys_word_and_given_back(tmp_path):
+    desktop, mouse = QuietDesktop(can_capture=False), []
+    computer = Computer(tmp_path, desktop=lambda: desktop, allowed=lambda: {"background": True},
+                        grabber=lambda: (JPEG, 2.0, (960, 540)), pointer=lambda x, y, d: mouse.append((x, y)),
+                        typist=lambda v: None, label_at=lambda x, y: "")
+    steps = ({"krok": "okno", "okno": "RejNET"}, {"krok": "ekran", "okno": "RejNET"},
+             {"krok": "kliknij_punkt", "x": 10, "y": 10, "co": "siatka"}, {"krok": "koniec", "odpowiedz": "ok"})
+    ask, _ = script(*steps)
+    lines = []
+    waiting = Agent(computer, ask, narrate=lines.append).run("kliknij w siatkę")
+    assert waiting["stopped"]["kind"] == "wierzch" and "zrzut ekranu" in waiting["stopped"]["label"]
+    assert "NA WIERZCH" not in desktop.log and mouse == [] and len(waiting["steps"]) == 1       # the step was not done
+    assert any("wstrzymany: wymaga okna na wierzchu" in line for line in lines)
+    ask, _ = script(*steps[1:])
+    done = Agent(computer, ask).run("kliknij w siatkę", allowed={"wierzch"}, history=waiting["stopped"]["history"])
+    assert done["answer"] == "ok" and mouse == [(20, 20)]
+    assert desktop.log.count("NA WIERZCH") == 2 and desktop.log.count(("oddane", 4242)) == 2   # each time given back at once
+    # „klawisze” needs the keyboard: the same rule
+    ask, _ = script({"krok": "klawisze", "okno": "RejNET", "klawisze": "^s"})
+    assert Agent(computer, ask).run("zapisz")["stopped"]["kind"] == "wierzch"
+
+
+def test_the_chat_asks_before_the_window_comes_to_the_front(web_office):
+    client, admin, browser, replies = web_office
+    replies += [json.dumps({"krok": "klawisze", "okno": "RejNET", "klawisze": "{F5}"})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz okno programu RejNET i odśwież"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    assert "nie zabieram Ci ekranu" in asked[0]["text"] and asked[-1]["label"] == "Tak, na chwilę"
+
+
+def test_a_window_is_chosen_without_being_brought_forward():
+    from types import SimpleNamespace
+    from worker.win_fill import Desktop
+
+    focused = []
+    window = SimpleNamespace(window_text=lambda: "RejNET", set_focus=lambda: focused.append(1),
+                             element_info=SimpleNamespace(handle=1, process_id=1), descendants=lambda: [])
+    desktop = Desktop(backend=SimpleNamespace(windows=lambda **kw: [window]), legacy=SimpleNamespace(window=lambda handle: None))
+    desktop.quiet = True
+    desktop.focus("RejNET")
+    assert focused == []
+    stuck = Control(SimpleNamespace(click_input=lambda: focused.append("mysz")), "button", "Siatka", "", [])
+    with pytest.raises(Exception) as refused:
+        desktop.click(stuck)                                            # only the mouse would do it: not in the background
+    assert "w tle" in str(refused.value) and focused == []
+    desktop.quiet = False
+    desktop.focus("RejNET")
+    desktop.click(stuck)
+    assert focused == [1, "mysz"]                                       # form filling from procedures works as before

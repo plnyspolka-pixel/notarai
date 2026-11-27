@@ -190,6 +190,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zatrzymanie agenta (decyzja właściciela 27.11.2026, po incydencie): „stop” i zamknięcie okna stanowiska zatrzymują
   agenta przed następnym krokiem (sprawdza kod, `Agent.run(cancelled=...)`); pomoc zdalna i pulpit zdalny
   (`agent.REMOTE_HELP`) nigdy nie są uruchamiane ani otwierane przez agenta; brak drugiej kopii działającego programu.
+- Agent nie zabiera ekranu (decyzja właściciela 28.11.2026, `agent.background`, domyślnie tak): okna programów nie są
+  wyciągane na wierzch (`win_fill.Desktop.quiet`, `focus` bez `set_focus`), pola i przyciski idą komunikatami do okna,
+  zrzut okna robi Windows spod innych okien (`Desktop.capture`, PrintWindow), klik w punkt i pisanie to komunikaty
+  (`click_at`, `send_text`). Krok, którego tak się nie da (`klawisze`, zrzut całego ekranu, klik myszą), rzuca
+  `agent.NeedFront`: przebieg staje (rodzaj `wierzch`), czat pyta o zgodę na to zadanie, a po kroku okno notariusza wraca
+  na wierzch (`Computer._borrow`, `give_back`). Nie dodawaj `set_focus`, `click_input` ani `send_keys` poza `_borrow`.
 - Okienko z pytaniem (decyzja właściciela 28.11.2026, `v2/worker/attention.py`, ustawienie `agent.popup`): gdy praca agenta
   staje na pytaniu, logowaniu albo potwierdzeniu, stanowisko otwiera małe okno Edge ponad innymi oknami. Strona jest
   podawana tylko temu komputerowi pod jednorazowym adresem (`this_computer`), jedna odpowiedź na pytanie; odpowiedź

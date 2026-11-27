@@ -120,6 +120,10 @@ SYSTEM_AGENT = (
     "W starszych programach część pól przychodzi jako „pole bez nazwy N” (program rysuje podpisy sam): zrób wtedy JEDEN "
     "zrzut ekranu, ustal, które pole jest którym, zapisz to krokiem notatka (np. „ekran Nowy wpis: pole bez nazwy 1 = "
     "data aktu”) i dalej wpisuj krokiem wpisz po tych nazwach, nie klikaniem w punkt. "
+    "Pracujesz W TLE: okno programu zostaje pod oknami notariusza, nie wychodzi na wierzch, mysz i klawiatura są jego. "
+    "Dlatego używaj kroków okno, wpisz i kliknij (działają bez wyciągania okna), a krok ekran zawsze z nazwą okna "
+    "(program sfotografuje je w tle). Kroków klawisze oraz ekran bez nazwy okna unikaj: wymagają okna na wierzchu i "
+    "zgody notariusza. "
     "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
     "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
@@ -132,6 +136,11 @@ SYSTEM_AGENT = (
 
 class AgentError(Exception):
     """Fixed Polish message, safe to show."""
+
+
+class NeedFront(AgentError):
+    """This step cannot be done with the window left under the notary's work: it needs the window in front, the
+    mouse or the keyboard for a moment. The run stops and the notary decides (owner's decision 28.11.2026)."""
 
 
 def plain(text) -> str:
@@ -304,11 +313,31 @@ class Computer:
         self.used_browser = False                                # this run touched the NotarAI browser
         self.login_needed = None                                 # a login screen was just read: where
         self.read_windows = {}                                   # window -> names of its buttons, as last read (this run)
+        self.front_allowed = False                               # the notary allowed the front for this run
+        self._current, self._shot_of, self._origin = None, None, (0, 0)
         self.fields_seen = 0
         self.picture = None                                      # JPEG for the model's next turn, taken once
 
     def _may(self, what: str) -> bool:
         return True if self._allowed is None else bool(self._allowed().get(what, True))
+
+    def _quiet(self) -> bool:
+        """Work out of the notary's way: no window brought to the front, mouse and keyboard left alone."""
+        return self._allowed is not None and bool(self._allowed().get("background", False))
+
+    def _borrow(self, what: str, action, desktop=None):
+        """The one step that needs the front: only with the notary's word, and the screen is given back at once."""
+        if not self._quiet():
+            return action()
+        if not self.front_allowed:
+            raise NeedFront(what)
+        before = desktop.to_front() if desktop is not None and hasattr(desktop, "to_front") else None
+        try:
+            time.sleep(0 if self._grabber or self._pointer or self._typist else 0.3)
+            return action()
+        finally:
+            if desktop is not None and hasattr(desktop, "give_back"):
+                desktop.give_back(before)
 
     # ---- the screen (owner's decision 27.11.2026)
     @staticmethod
@@ -329,16 +358,26 @@ class Computer:
     def screen(self, title: str = "") -> str:
         if not self._may("screen"):
             raise AgentError("Zrzuty ekranu dla agenta są wyłączone na tym stanowisku („włącz zrzuty ekranu agenta”).")
-        if title:
-            self._window(title)
-            time.sleep(0 if self._grabber else 0.4)
-        try:
-            picture, scale, size = (self._grabber or self._grab)()
-        except AgentError:
-            raise
-        except Exception:
-            raise AgentError("Nie udało się zrobić zrzutu ekranu.") from None
-        self.picture, self._scale = picture, scale
+        desktop = self._window(title) if title else self._current
+        if self._quiet() and desktop is not None and hasattr(desktop, "capture"):
+            shot = desktop.capture()                 # the window itself, wherever it lies: nothing comes to the front
+            if shot is not None:
+                self.picture, self._scale, size, self._origin = shot
+                self._shot_of = desktop
+                return (f"Zrzut okna {size[0]}x{size[1]} pikseli (zrobiony w tle, okno nie wyszło na wierzch) jest dołączony "
+                        "do tej wiadomości (tylko teraz).")
+
+        def whole():
+            if title and not self._quiet():
+                time.sleep(0 if self._grabber else 0.4)
+            try:
+                return (self._grabber or self._grab)()
+            except AgentError:
+                raise
+            except Exception:
+                raise AgentError("Nie udało się zrobić zrzutu ekranu.") from None
+        picture, scale, size = self._borrow("zrzut ekranu (tego okna nie da się sfotografować w tle)", whole, desktop)
+        self.picture, self._scale, self._origin, self._shot_of = picture, scale, (0, 0), None
         return f"Zrzut ekranu {size[0]}x{size[1]} pikseli jest dołączony do tej wiadomości (tylko teraz)."
 
     def _point(self, x, y) -> tuple[int, int]:
@@ -353,6 +392,7 @@ class Computer:
         """What Windows itself calls the element under the point ("" when it does not say)."""
         try:
             px, py = self._point(x, y)
+            px, py = px + self._origin[0], py + self._origin[1]        # a window's picture: its place on the screen
             if self._label_at is not None:
                 return str(self._label_at(px, py) or "")
             if os.name != "nt":
@@ -365,30 +405,44 @@ class Computer:
 
     def click_point(self, x, y, double: bool = False) -> str:
         px, py = self._point(x, y)
-        if self._pointer is not None:
-            self._pointer(px, py, double)
-        else:
+        target = self._shot_of
+        if target is not None and target.click_at(px, py, double):       # a message to the window: the mouse does not move
+            self._scale = None
+            return "Kliknąłem w punkt okna (w tle, bez ruchu myszy). Zrób nowy zrzut, żeby zobaczyć wynik."
+        sx, sy = px + self._origin[0], py + self._origin[1]
+
+        def with_mouse():
+            if self._pointer is not None:
+                self._pointer(sx, sy, double)
+                return
             try:
                 from pywinauto import mouse
             except Exception:
                 raise AgentError("W punkt klikam tylko na Windows.") from None
-            (mouse.double_click if double else mouse.click)(coords=(px, py))
+            (mouse.double_click if double else mouse.click)(coords=(sx, sy))
             time.sleep(0.8)
+        self._borrow("kliknięcie myszą w punkt ekranu", with_mouse, target or self._current)
         self._scale = None            # the screen has changed: the next point needs a new screenshot
         return "Kliknąłem w punkt. Zrób nowy zrzut, żeby zobaczyć wynik."
 
     def write(self, value: str) -> str:
         if not value:
             raise AgentError("Brak tekstu do wpisania.")
-        if self._typist is not None:
-            self._typist(value)
-        else:
+        target = self._shot_of or self._current
+        if self._quiet() and target is not None and hasattr(target, "send_text") and target.send_text(value):
+            return f"Wpisałem {len(value)} znaków w kliknięte pole (w tle, bez klawiatury)."
+
+        def with_keyboard():
+            if self._typist is not None:
+                self._typist(value)
+                return
             try:
                 from pywinauto.keyboard import send_keys
             except Exception:
                 raise AgentError("Z klawiatury piszę tylko na Windows.") from None
             escaped = re.sub(r"([+^%~(){}\[\]])", r"{\1}", value).replace("\n", "{ENTER}")
             send_keys(escaped, with_spaces=True, with_tabs=True, pause=0.01)
+        self._borrow("pisanie z klawiatury w oknie programu", with_keyboard, target)
         return f"Wpisałem z klawiatury {len(value)} znaków."
 
     # ---- command line (owner's decision 27.11.2026): one program with arguments, never a shell
@@ -645,8 +699,12 @@ class Computer:
             self._starter(target)
         elif os.name == "nt":
             try:
-                os.startfile(target)                       # files open in their own program, folders in Explorer
-            except OSError:
+                if self._quiet():
+                    import win32api
+                    win32api.ShellExecute(0, "open", target, None, "", 4)      # SW_SHOWNOACTIVATE: the notary keeps the keyboard
+                else:
+                    os.startfile(target)                   # files open in their own program, folders in Explorer
+            except Exception:
                 raise AgentError(f"Nie udało się uruchomić „{target}”.") from None
         else:
             raise AgentError("Programy uruchamiam tylko na Windows.")
@@ -658,10 +716,16 @@ class Computer:
         from .autofill import FillError
 
         desktop = self._desktop()
+        if self._quiet():
+            try:
+                desktop.quiet = True               # the window stays where it lies; fields and buttons by messages
+            except Exception:
+                pass
         try:
             desktop.focus(title)
         except FillError as error:
             raise AgentError(str(error)) from None
+        self._current = desktop
         return desktop
 
     @staticmethod
@@ -724,18 +788,26 @@ class Computer:
 
     def click(self, title: str, label: str) -> str:
         desktop = self._window(title)
+        from .autofill import FillError
+
         control = self._control(desktop, label, {"button", "check"})
-        desktop.click(control)
+        try:
+            desktop.click(control)
+        except FillError:                      # no way to press it by a message: the mouse, with the notary's word
+            self._borrow(f"naciśnięcie myszą „{control.label}”", lambda: control.ref.click_input(), desktop)
         time.sleep(0 if self._starter else 1.0)
         return f"Kliknąłem „{control.label}”."
 
     def keys(self, title: str, keys: str) -> str:
-        self._window(title)
-        try:
-            from pywinauto.keyboard import send_keys
-        except Exception:
-            raise AgentError("Klawisze wysyłam tylko na Windows.") from None
-        send_keys(keys, pause=0.05)
+        desktop = self._window(title)
+
+        def press():
+            try:
+                from pywinauto.keyboard import send_keys
+            except Exception:
+                raise AgentError("Klawisze wysyłam tylko na Windows.") from None
+            send_keys(keys, pause=0.05)
+        self._borrow(f"naciśnięcie klawiszy {keys} w oknie programu", press, desktop)
         return f"Nacisnąłem {keys}."
 
     # ---- the NotarAI browser
@@ -815,6 +887,7 @@ class Agent:
 
         `allowed`: kinds of irreversible act approved for this run (from the sentence or a „Tak”)."""
         allowed = (set(allowed) | asked_for(task)) - NEVER
+        self._computer.front_allowed = "wierzch" in allowed      # the front of the screen: only after the notary's „tak”
         history, steps = list(history or []), []
         known = getattr(self._computer, "map", None)
         stop = {"answer": "Zatrzymałem pracę na komputerze. Niczego więcej nie robię.", "steps": steps,
@@ -889,6 +962,10 @@ class Agent:
                 return stop
             try:
                 seen = self._do(step)
+            except NeedFront as needed:        # not without the notary's word: the run waits, the step is not counted
+                self._narrate(f"{time.strftime('%H:%M:%S')} krok {number} · wstrzymany: wymaga okna na wierzchu ({needed})")
+                return {"answer": "", "steps": steps,
+                        "stopped": {"kind": "wierzch", "label": str(needed), "step": step, "history": history}}
             except AgentError as error:
                 seen = "BŁĄD: " + str(error)
             except Exception:

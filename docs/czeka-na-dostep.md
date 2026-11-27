@@ -468,7 +468,11 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      potem rejestracja 2-3 aktów jednym zdaniem; sprawdzić, czy okno przeglądarki zostaje poza ekranem na Windows
      (`--window-position=-32000,-32000`, `Browser.setWindowBounds`), czy wychodzi do logowania certyfikatem i wraca
      w tło po „Zalogowałem się, kontynuuj”, oraz czy strona pracuje poprawnie, gdy okno jest poza ekranem.
-- **Zamknięte, gdy:** punkty 1-7 przeszły albo mają opisany powód i poprawkę.
+  8. Praca w tle (2.8.5+), RejNET otwarty pod innym oknem, notariusz pisze w Wordzie: czy `okno`/`wpisz`/`kliknij` działają
+     bez wyjścia okna na wierzch; czy `Desktop.capture` (PrintWindow) daje obraz zakrytego okna Delphi (czarny obraz =
+     zanotować); czy `click_at`/`send_text` trafiają w pole; czy okienko z pytaniem (`attention.py`) wychodzi ponad okna
+     i nie zabiera klawiatury; czy po zgodzie „Tak, na chwilę” okno notariusza wraca na wierzch.
+- **Zamknięte, gdy:** punkty 1-8 przeszły albo mają opisany powód i poprawkę.
 
 ## NA-21. Dwa stanowiska w jednej kancelarii na prawdziwych komputerach (27.11.2026)
 
