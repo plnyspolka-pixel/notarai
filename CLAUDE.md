@@ -124,6 +124,14 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   Alternatywa lokalna (`v2/worker/transcribe.py`) zostaje jako ustawienie `speech.where`. Żadnych
   innych usług mowy; dźwięku nasłuchu nie zapisuj na stałe.
   Urządzenie o zakresie `listen` (mikrofon) wysyła tylko dźwięk: nie dawaj mu innych tras.
+- Agent komputera (decyzja właściciela 27.11.2026, `v2/worker/agent.py`): na stanowisku polecenie zdaniem
+  („otwórz akt … w Wordzie i popraw datę”, „wejdź na stronę … i pobierz …”) wykonuje model krok po kroku:
+  czyta pliki z całego dysku, uruchamia programy, wpisuje i klika w oknach Windows (UI Automation) i w przeglądarce
+  NotarAI. Polecenie jest zatwierdzeniem. Kod (nie model) pilnuje: brak narzędzia do usuwania plików, istniejący
+  plik zmieniany tylko zamianą tekstu z kopią poprzedniej wersji, `check_document` przed zapisem i `check_send`
+  przed wysłaniem, wysłanie/złożenie/podpis/zapłata/usunięcie tylko gdy zdanie notariusza o to prosi (inaczej
+  „Tak / Nie”), każda taka czynność raz. Model dostaje wyłącznie tekst (po pseudonimizacji), bez zrzutów ekranu.
+  Tylko okno stanowiska (zakres admin), nie telefon.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

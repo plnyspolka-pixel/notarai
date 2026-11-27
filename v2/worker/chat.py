@@ -31,6 +31,27 @@ def norm(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").strip()
 
 
+COMPUTER_VERBS = ("otworz", "uruchom", "wejdz", "znajdz", "poszukaj", "wyszukaj", "przeczytaj", "popraw", "zmien",
+                  "wpisz", "kliknij", "pobierz", "zapisz", "skopiuj", "przejrzyj", "zajrzyj", "sprawdz", "zrob")
+COMPUTER_PLACES = ("na komputerze", "na dysku", "na pulpicie", "folder", "katalog", "plik", "word", "excel", "programie",
+                   "program ", "okno", "oknie", "przegladark", "na stronie", "strone ", "strony ", "www", "http", ".pl",
+                   ".gov", "rejnet", "pobranych", "dokumentach", "eksplorator", "docx", "pdf")
+
+
+def looks_like_computer_task(plain: str) -> bool:
+    """Decided by code: a sentence that asks to act on this computer (files, programs, web pages)."""
+    if plain.startswith(("komputer", "na komputerze ", "agent ")):
+        return True
+    if re.fullmatch(r"otworz (strone|adres) \S+", plain):      # the single-step command of form filling
+        return False
+    words = plain.split()
+    return bool(words) and words[0].startswith(COMPUTER_VERBS) and any(p in f" {plain} " for p in COMPUTER_PLACES)
+
+
+def computer_task(message: str) -> str:
+    return re.sub(r"^\s*(komputer|agent)\s*[:,]?\s*", "", message, flags=re.I).strip() or message.strip()
+
+
 def text(message: str) -> dict:
     return {"type": "text", "text": message}
 
@@ -223,7 +244,37 @@ class Chat:
             reply = self._admin(identity, message, plain, case)
             if reply is not None:
                 return reply
+        if admin and looks_like_computer_task(plain):
+            return self._computer(identity, computer_task(message))
         return self._common(identity, message, plain, case, names)
+
+    # ------------------------------------------------------------ the computer agent (owner's decision 27.11.2026)
+    def _computer(self, identity, task: str, *, allowed=frozenset(), history=None) -> list[dict]:
+        if identity.scope != "admin":
+            return [text("Na komputerze kancelarii działam z okna NotarAI na tym komputerze.")]
+        if not self.s.ai_ready():
+            return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
+                    buttons(("Zaloguj", "zaloguj"))]
+        self.s.narrate(identity, "Działam na tym komputerze: " + task[:160])
+        job = self.s.start_job(identity, lambda: self._computer_run(identity, task, allowed, history))
+        return [text("Robię to na komputerze. Kroki widzisz na bieżąco poniżej."), {"type": "job", "id": job}]
+
+    def _computer_run(self, identity, task, allowed, history) -> list[dict]:
+        from .agent import Agent
+
+        agent = Agent(self.s.computer, self.s.agent_ask, narrate=lambda line: self.s.narrate(identity, line),
+                      rules=self.s.rules)
+        result = agent.run(task, allowed=allowed, history=history)
+        stopped = result["stopped"]
+        if stopped is None:
+            self.s.vault.log(identity.id, f"agent-{len(result['steps'])}-krokow")
+            return answer_blocks(result["answer"])
+        acts = {"wyslanie": "wysłanie", "podpis": "podpisanie", "platnosc": "zapłatę", "usuniecie": "usunięcie"}
+        question = (f"Następny krok to „{stopped['label']}”, czyli {acts.get(stopped['kind'], stopped['kind'])}. "
+                    "Nie prosiłeś o to wprost. Zrobić to?")
+        return [self._confirm(identity, question, "Tak, zrób to",
+                              lambda: self._computer(identity, task, allowed={stopped["kind"]}, history=stopped["history"]),
+                              explicit=False)]
 
     def _guide_progress(self, before) -> list[dict]:
         """After a turn: when the step that was current is now done, say so and show the next one."""
@@ -336,6 +387,8 @@ class Chat:
             s.narrate(identity, "Rozumiem to jako pytanie ogólne, bez konkretnej sprawy: nie czytam żadnych dokumentów.")
             s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
             said = s.general(message, names)["answer"]
+            if identity.scope == "admin" and said.strip().startswith("AGENT:"):
+                return self._computer(identity, message)
             line = understood(said)[1]
             if line:
                 s.narrate(identity, "Jak to rozumiem: " + line)

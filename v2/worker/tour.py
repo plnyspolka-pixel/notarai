@@ -37,6 +37,13 @@ SLIDES = [
              "(dwa wyszukiwania), zapisuje zrzuty do sprawy i maskuje PESEL. Wynik zawsze potwierdzasz na zrzucie.",
      "you": "sprawdź strony w KRZ", "notarai": "4405*******: brak wpisu; 8901*******: brak wpisu. Zrzuty w sprawie.",
      "try": "sprawdź strony w KRZ"},
+    {"icon": "plug", "title": "Praca na całym komputerze",
+     "text": "Powiedz, co zrobić na komputerze, a program zrobi to sam: znajdzie i przeczyta pliki na dysku, poprawi "
+             "dokument w Wordzie, uruchomi program, wpisze dane w okno albo na stronę. Każdy krok widzisz w rozmowie. "
+             "Wysłanie, podpis albo usunięcie tylko wtedy, gdy o to poprosisz.",
+     "you": "znajdź na pulpicie akt Kowalskiego i popraw datę na 14 listopada",
+     "notarai": "Znalazłem „akt Kowalski.docx”, zamieniłem datę i zapisałem plik (poprzednia wersja zachowana).",
+     "try": None},
     {"icon": "form", "title": "Wnioski i formularze urzędowe",
      "text": "Wniosek o wpis w KW, PCC-3, zawiadomienia: program wypełnia pola sam z danych sprawy, na stronach "
              "i w programach Windows. Wysłanie albo podpis zawsze dopiero po Twoim zatwierdzeniu, jednym naciśnięciem.",

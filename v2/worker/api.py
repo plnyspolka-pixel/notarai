@@ -163,7 +163,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
+               fill_targets: dict | None = None, computer_roots=None, computer_starter=None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
                office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
                service_send=None):
@@ -829,6 +829,11 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     autofill = Autofill(fill_targets if fill_targets is not None else {"strona": web_target, "program": desktop_target},
                         receipts=form_receipt, rules=rules)
     app.state.close_browser = lambda: browser_box.get("web") and browser_box["web"].close()
+    from .agent import Computer
+    agent_computer = Computer(home, desktop=(fill_targets or {}).get("program", desktop_target),
+                              browser=(fill_targets or {}).get("strona", web_target), rules=rules,
+                              roots=(lambda: computer_roots) if computer_roots is not None else None,
+                              starter=computer_starter)
 
     @app.exception_handler(FillError)
     async def fill_failed(request, exc):
@@ -1457,6 +1462,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         service=service_desk, program_changes=lambda: (program.current or {}).get("zmiany", []),
         office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
+        computer=agent_computer,
+        ai_ready=lambda: bool(state["inference"] is not None and state["inference"].enabled),
+        agent_ask=lambda system, question: state["inference"].ask(
+            purpose="agent", system=system, text=question, names=vault.all_parties(), max_tokens=1500).text,
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
         start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
