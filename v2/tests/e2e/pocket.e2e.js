@@ -251,7 +251,7 @@ function watch(page, problems, label) {
     // ---- teach by showing: record the screen with narration, approve the procedure, fill it for a case
     await say(panel, "nagraj procedurę Wniosek o wpis w KW", "Pokaż mi to raz");
     await panel.getByRole("button", { name: "Zacznij nagrywać" }).click();
-    await panel.locator(".card", { hasText: "Nagrywam." }).waitFor();
+    await panel.locator(".card", { hasText: "Nagrywam " }).waitFor();
     await panel.waitForTimeout(2600);                          // the fake screen changes; a second frame is kept
     await panel.getByRole("button", { name: "Zakończ nagranie" }).click();
     await panel.locator(".card", { hasText: "Sprawdź, czy dobrze zrozumiałem" }).waitFor();
