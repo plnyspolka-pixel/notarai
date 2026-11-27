@@ -1,0 +1,17 @@
+{
+  "id": "s01e02",
+  "sezon": 1,
+  "odcinek": 2,
+  "tytul": "Proszę nie przy nim",
+  "publish_at": "2026-11-28T09:00:00+01:00",
+  "opis": "Pani Irena przychodzi bez syna. Jedno celowe przejęzyczenie Heleny i jedna data, której nikt z nią nie uzgodnił. Odcinek 2 serialu „Kancelaria pod Siódemką”.",
+  "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+  "pytanie": "Helena celowo pomyliła numer mieszkania, żeby sprawdzić, czy pani Irena słucha. Taktownie czy za ostro?",
+  "pliki": {
+    "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/s01e02.mp4",
+    "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/s01e02.jpg"
+  },
+  "czas_s": 73,
+  "status": "gotowy",
+  "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H16 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; 17/17 ujęć GPU po przeglądzie arkuszy (twarze spójne, bez logo, słuchacze bez ruchu ust; klatka recepcji wybrana z drugiego ziarna, bez logo monitora); kontrola dźwięku montażu OK (mowa −21,2 dB, poza mową −46,5 dB)."
+}

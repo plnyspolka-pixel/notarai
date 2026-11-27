@@ -1,0 +1,17 @@
+{
+  "id": "s01e03",
+  "sezon": 1,
+  "odcinek": 3,
+  "tytul": "U nas się tak nie pisze",
+  "publish_at": "2026-11-28T16:00:00+01:00",
+  "opis": "Jedno zdanie w projekcie umowy i dwie wersje z tym samym numerem. Helena prostuje, zanim ktokolwiek podpisze. Odcinek 3 serialu „Kancelaria pod Siódemką”.",
+  "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+  "pytanie": "Kuba sam przyznał się do pomyłki w numeracji wersji. Helena powinna mu to wytknąć czy docenić?",
+  "pliki": {
+    "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e03/s01e03.mp4",
+    "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e03/s01e03.jpg"
+  },
+  "czas_s": 73,
+  "status": "gotowy",
+  "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H02 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; 15/15 ujęć GPU po przeglądzie arkuszy (twarze spójne, bez logo, słuchacze bez ruchu ust); kontrola dźwięku montażu OK (mowa −21,2 dB, poza mową −46,5 dB)."
+}

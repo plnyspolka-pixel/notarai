@@ -1,0 +1,17 @@
+{
+  "id": "s01e04",
+  "sezon": 1,
+  "odcinek": 4,
+  "tytul": "Wczoraj tego nie było",
+  "publish_at": "2026-11-29T09:00:00+01:00",
+  "opis": "Odpis z księgi pobrany wczoraj i ta sama księga dziś. Jedna wzmianka zatrzymuje sprzedaż do popołudnia. Odcinek 4 serialu „Kancelaria pod Siódemką”.",
+  "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+  "pytanie": "Kupujący przerwał czynność, choć sprzedająca była gotowa. Dobrze zrobił, że nie podpisał?",
+  "pliki": {
+    "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/s01e04.mp4",
+    "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/s01e04.jpg"
+  },
+  "czas_s": 63,
+  "status": "gotowy",
+  "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H04 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; ujęcia GPU po przeglądzie klatek i arkuszy, ujęcia nieme bez ruchu ust; dźwięk własny ujęć e4-u12/u14 wyciszony w montażu; kontrola dźwięku montażu OK (mowa −21,5 dB, poza mową −46,5 dB)."
+}

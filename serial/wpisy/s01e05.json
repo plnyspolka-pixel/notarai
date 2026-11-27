@@ -1,0 +1,17 @@
+{
+  "id": "s01e05",
+  "sezon": 1,
+  "odcinek": 5,
+  "tytul": "Przyszło mailem",
+  "publish_at": "2026-11-29T16:00:00+01:00",
+  "opis": "Dwa maile od pośrednika, w których propozycje udają ustalenia. Kupujący pod presją najmu, Helena przy swoim. Odcinek 5 serialu „Kancelaria pod Siódemką”.",
+  "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+  "pytanie": "Robert prosił, żeby po prostu wpisać pierwszego grudnia. Helena odmówiła. Rozumiesz ją czy Roberta?",
+  "pliki": {
+    "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/s01e05.mp4",
+    "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/s01e05.jpg"
+  },
+  "czas_s": 80,
+  "status": "gotowy",
+  "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwice H24 + H06 z kartami, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; ujęcia GPU po przeglądzie klatek i arkuszy, ujęcia nieme bez ruchu ust; kontrola dźwięku montażu OK."
+}
