@@ -134,8 +134,21 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   NotarAI. Polecenie jest zatwierdzeniem. Kod (nie model) pilnuje: brak narzędzia do usuwania plików, istniejący
   plik zmieniany tylko zamianą tekstu z kopią poprzedniej wersji, `check_document` przed zapisem i `check_send`
   przed wysłaniem, wysłanie/złożenie/podpis/zapłata/usunięcie tylko gdy zdanie notariusza o to prosi (inaczej
-  „Tak / Nie”), każda taka czynność raz. Model dostaje wyłącznie tekst (po pseudonimizacji), bez zrzutów ekranu.
-  Tylko okno stanowiska (zakres admin), nie telefon.
+  „Tak / Nie”), każda taka czynność raz. Tekst idzie do modelu po pseudonimizacji.
+  Decyzje właściciela 27.11.2026 (wersja 2.7.0), wszystkie w `agent.py`, ustawienia `agent.*` w `settings.py`:
+  - ekran: agent może zrobić zrzut ekranu (krok `ekran`), kliknąć w punkt i pisać z klawiatury. Zrzut idzie do
+    modelu w UE tak, jak go widać (bez pseudonimizacji), tylko przez `inference.py`, każde spojrzenie jest
+    wypisane w rozmowie; wyłącznik „wyłącz zrzuty ekranu agenta”. Przy kliknięciu w punkt o tym, czy to
+    wysłanie/podpis/usunięcie, decyduje najpierw nazwa elementu podana przez Windows, potem opis modelu.
+  - wiersz poleceń: krok `polecenie` uruchamia JEDEN program z argumentami, nigdy przez powłokę. Lista
+    `BLOCKED_PROGRAMS` (cmd, PowerShell, interpretery, hosty skryptów, narzędzia systemowe kasujące dane lub
+    zmieniające system) i zakaz plików skryptowych są w kodzie: nie skracaj ich i nie dodawaj `shell=True`.
+    Poświadczenia AWS nie przechodzą do uruchamianego programu. Narzędzia `cli-anything-*` i `winapp` agent
+    wywołuje tą drogą, jeśli są zainstalowane; program sam ich nie pobiera ani nie generuje (zob. `v2/CONNECT.md`).
+  - telefon: sparowane urządzenie zleca pracę agentowi tylko za zgodą daną w oknie stanowiska („pozwól
+    telefonowi … sterować komputerem” z potwierdzeniem albo „dodaj telefon z dostępem do komputera”); tylko
+    urządzenie z zapisem i wszystkimi sprawami; zgoda czytana przy każdym użyciu (`devices.computer`).
+  - przeglądarka: Edge albo Chrome („używaj Chrome”), każda w osobnym profilu NotarAI.
 - Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
   notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
   zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia

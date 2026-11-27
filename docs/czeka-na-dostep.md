@@ -458,7 +458,13 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      wypełnienie przez UI Automation (`win_fill.py`).
   5. EKW i KRZ: nagrać procedury sprawdzenia księgi i strony w przeglądarce NotarAI, potem uruchomić je dla
      fikcyjnej sprawy; zapisać, czego strony wymagają (logowanie, captcha).
-- **Zamknięte, gdy:** punkty 1-5 przeszły albo mają opisany powód i poprawkę.
+  6. Agent komputera 2.6.1/2.7.0 (`v2/worker/agent.py`), fikcyjne dane: zdanie mówione („dobra, słuchaj, wejdź na
+     stronę … i wypełnij formularz”) ma ruszyć agenta, także przy wybranej sprawie; okno bez pól (program rysujący
+     własny interfejs): `ekran`, `kliknij_punkt`, `pisz` - sprawdzić trafianie przy skalowaniu 125/150% i dwóch
+     monitorach (zrzut obejmuje ekran główny); `polecenie`: `winapp ui list-windows --json` i jedno narzędzie
+     `cli-anything-…`, jeśli zainstalowane, oraz odmowa dla `cmd`/`powershell`; „używaj Chrome” (osobny profil
+     `przegladarka-chrome`); telefon po „pozwól telefonowi … sterować komputerem”.
+- **Zamknięte, gdy:** punkty 1-6 przeszły albo mają opisany powód i poprawkę.
 
 ## NA-21. Dwa stanowiska w jednej kancelarii na prawdziwych komputerach (27.11.2026)
 

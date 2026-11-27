@@ -19,9 +19,11 @@ def script(*steps):
     replies = [json.dumps(s, ensure_ascii=False) for s in steps]
     seen = []
 
-    def ask(system, question):
+    def ask(system, question, images=()):
         seen.append(question)
+        pictures.append(images)
         return replies.pop(0)
+    pictures = ask.pictures = []
     return ask, seen
 
 
@@ -181,3 +183,193 @@ def test_the_assistant_never_says_it_has_no_access(office):
     blocks = client.post("/v2/chat", headers=admin, json={"text": "co mam teraz otwarte?"}).json()["blocks"]
     job = next(b["id"] for b in blocks if b["type"] == "job")
     assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+
+
+# ---- 2.6.1: how the chat reaches the agent (the model's real answers, not the ideal one)
+def test_spoken_sentences_reach_the_agent_by_code():
+    from worker.chat import looks_like_computer_task, norm
+    for sentence in ("proszę wejdź na stronę ekw.ms.gov.pl", "kliknij w przeglądarce przycisk dalej",
+                     "Dobra, słuchaj, wejdź mi w przeglądarce na stronę ekw", "czy możesz otworzyć przeglądarkę",
+                     "podłącz się do programu RejNET i obsłuż go"):
+        assert looks_like_computer_task(norm(sentence)), sentence
+    for sentence in ("czy zasiedzenie wymaga aktu?", "sprawdź KW WA1M/00012345/6", "otwórz stronę https://x.pl",
+                     "a czy notariusz może odmówić"):
+        assert not looks_like_computer_task(norm(sentence)), sentence
+
+
+def test_an_agent_line_is_found_wherever_the_model_puts_it():
+    from worker.chat import wants_the_computer
+    assert wants_the_computer("ROZUMIEM: mam otworzyć RejNET.\n\nAGENT: uruchom RejNET\n\nDALEJ: wpisz akt")
+    assert wants_the_computer("**AGENT:** uruchom notatnik")
+    assert not wants_the_computer("ROZUMIEM: pytanie o pośrednika.\n\nAgent nieruchomości: biuro Dom.")
+    assert not wants_the_computer("")
+
+
+def test_the_agent_starts_although_the_model_answers_with_rozumiem_first(office):
+    client, admin, desk, desktop, replies = office
+    replies += ["ROZUMIEM: mam sprawdzić otwarte programy.\n\nAGENT: sprawdź otwarte okna\n\nDALEJ: otwórz Word",
+                json.dumps({"krok": "okna"}), json.dumps({"krok": "koniec", "odpowiedz": "Otwarte: RejNET i Word."})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "a co ja mam teraz pootwierane?"}).json()["blocks"]
+    assert not any("AGENT" in b.get("text", "") for b in blocks)
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+
+
+def test_the_agent_starts_also_when_a_case_is_chosen(office):
+    client, admin, desk, desktop, replies = office
+    made = client.post("/v2/chat", headers=admin, json={"text": "nowa sprawa testowa-2026"}).json()["blocks"]
+    case = next(b["case"] for b in made if b["type"] == "case")
+    ask = {"text": "jakie mam teraz pootwierane rzeczy?", "case": case}
+    steps = [json.dumps({"krok": "okna"}), json.dumps({"krok": "koniec", "odpowiedz": "Otwarte: RejNET i Word."})]
+    # an empty case cannot answer from documents, but the computer needs none
+    replies += ["AGENT: sprawdź otwarte okna", *steps]
+    blocks = client.post("/v2/chat", headers=admin, json=ask).json()["blocks"]
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+    # a case with documents: the model sees them and still hands the request to the agent
+    saved = client.post("/v2/documents", headers=admin, json={
+        "name": "umowa.txt", "expected_version": 0, "case": case, "content_b64": "YQ=="})
+    assert saved.status_code == 200
+    replies += ["ROZUMIEM: sprawdzę okna.\n\nAGENT: sprawdź otwarte okna", *steps]
+    blocks = client.post("/v2/chat", headers=admin, json=ask).json()["blocks"]
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+    assert replies == []
+
+
+def test_the_prompts_tell_the_model_about_the_computer_last():
+    from worker.drafting import COMPUTER, NEXT_STEPS, SYSTEM_CHAT, SYSTEM_GENERAL
+    assert "AGENT:" in COMPUTER and "przeglądar" in COMPUTER and "formularz" in COMPUTER
+    assert "AGENT" not in SYSTEM_GENERAL + NEXT_STEPS + SYSTEM_CHAT          # one place, appended after the rest
+
+
+# ---- 2.7.0: the screen, a click on a point, the command line, a phone with consent, Edge or Chrome
+JPEG = b"\xff\xd8\xff" + b"0" * 64
+
+
+def test_the_agent_looks_at_the_screen_and_clicks_a_point(tmp_path):
+    clicks, typed = [], []
+    computer = Computer(tmp_path, desktop=lambda: FakeDesktop(), grabber=lambda: (JPEG, 2.0, (960, 540)),
+                        pointer=lambda x, y, double: clicks.append((x, y, double)), typist=typed.append,
+                        label_at=lambda x, y: "Wyślij" if (x, y) == (400, 200) else "")
+    ask, _ = script({"krok": "kliknij_punkt", "x": 10, "y": 10, "co": "pole"},              # no screenshot yet: refused
+                    {"krok": "ekran", "okno": ""},
+                    {"krok": "kliknij_punkt", "x": 100, "y": 50, "co": "pole Numer"},
+                    {"krok": "pisz", "tekst": "1234/2026"},
+                    {"krok": "ekran", "okno": "RejNET"},
+                    {"krok": "kliknij_punkt", "x": 200, "y": 100, "co": "OK"},                 # Windows calls it „Wyślij”
+                    {"krok": "koniec", "odpowiedz": "x"})
+    lines = []
+    result = Agent(computer, ask, narrate=lines.append).run("wpisz numer w programie")
+    assert result["steps"][0]["wynik"].startswith("BŁĄD")
+    assert clicks == [(200, 100, False)] and typed == ["1234/2026"]          # image pixels times the scale
+    assert result["stopped"]["kind"] == "wyslanie"                           # the model's own label „OK” did not hide it
+    assert [len(images) for images in ask.pictures] == [0, 0, 1, 0, 0, 1]    # a picture is shown once, right after it is taken
+    assert any("zrzut ekranu idzie do asystenta" in line for line in lines)
+
+
+def test_the_station_can_switch_the_screen_and_the_command_line_off(tmp_path):
+    computer = Computer(tmp_path, grabber=lambda: (JPEG, 1.0, (10, 10)), allowed=lambda: {"screen": False, "commands": False},
+                        which=lambda name: str(tmp_path / "tool.exe"), runner=lambda *a, **k: 1 / 0)
+    ask, _ = script({"krok": "ekran"}, {"krok": "polecenie", "program": "tool", "argumenty": []}, {"krok": "koniec", "odpowiedz": "x"})
+    result = Agent(computer, ask).run("zobacz ekran")
+    assert all("wyłączon" in step["wynik"] for step in result["steps"]) and ask.pictures == [(), (), ()]
+
+
+def test_the_command_line_runs_one_program_and_never_a_shell(tmp_path, monkeypatch):
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "tajne")
+    ran = []
+
+    class Done:
+        returncode, stdout, stderr = 0, "zażółć ok".encode("utf-8"), b""
+
+    def runner(argv, **options):
+        ran.append((argv, options))
+        return Done()
+    tool = tmp_path / "cli-anything-libreoffice.exe"
+    tool.write_bytes(b"MZ")
+    places = {"cli-anything-libreoffice": str(tool), "powershell": r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+              "cmd": r"C:\Windows\System32\cmd.exe", "skrypt": str(tmp_path / "skrypt.bat")}
+    computer = Computer(tmp_path, runner=runner, which=places.get)
+    assert "kodem 0" in computer.command("cli-anything-libreoffice", ["document", "info", "--json"])
+    argv, options = ran[0]
+    assert argv == [str(tool), "document", "info", "--json"] and options["shell"] is False
+    assert not any(key.startswith("AWS_") for key in options["env"])
+    for program in ("powershell", "cmd", "skrypt", "nie-ma-takiego"):
+        with pytest.raises(Exception) as refused:
+            computer.command(program, ["-c", "x"])
+        assert refused.type.__name__ == "AgentError"
+    with pytest.raises(Exception):
+        computer.command("cli-anything-libreoffice", {"a": 1})
+    assert len(ran) == 1
+
+    steps = ({"krok": "polecenie", "program": "cli-anything-libreoffice", "argumenty": ["page", "delete", "--index", "2"]},
+             {"krok": "koniec", "odpowiedz": "Usunięte."})
+    ask, _ = script(*steps)
+    stopped = Agent(computer, ask).run("uporządkuj dokument")
+    assert stopped["stopped"]["kind"] == "usuniecie" and len(ran) == 1
+    ask, _ = script(*steps)
+    assert Agent(computer, ask).run("usuń drugą stronę dokumentu")["answer"] == "Usunięte." and len(ran) == 2
+
+
+def pair(client, admin, sentence):
+    blocks = client.post("/v2/chat", headers=admin, json={"text": sentence}).json()["blocks"]
+    code = next(b["text"] for b in blocks if b["type"] == "secret")
+    return {"Authorization": "Bearer " + client.post("/v2/devices/redeem", json={"code": code}).json()["token"]}, blocks
+
+
+def test_a_phone_drives_the_computer_only_with_consent(office):
+    client, admin, desk, desktop, replies = office
+    phone, _ = pair(client, admin, "dodaj telefon")
+    replies += ["AGENT: otwórz Worda"]                     # the assistant hands it over; the chat still refuses
+    refused = client.post("/v2/chat", headers=phone, json={"text": "otwórz Worda na komputerze"}).json()["blocks"]
+    assert "nie ma zgody" in refused[0]["text"] and not any(b["type"] == "job" for b in refused)
+
+    asked = client.post("/v2/chat", headers=admin, json={"text": "pozwól telefonowi Telefon sterować komputerem"}).json()["blocks"]
+    assert asked[0]["type"] == "confirm"
+    client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"]})
+    listed = client.post("/v2/chat", headers=admin, json={"text": "urządzenia"}).json()["blocks"]
+    assert "steruje komputerem" in listed[0]["text"]
+    replies += [json.dumps({"krok": "okna"}), json.dumps({"krok": "koniec", "odpowiedz": "Otwarte: RejNET i Word."})]
+    blocks = client.post("/v2/chat", headers=phone, json={"text": "sprawdź, jakie okna są otwarte na komputerze"}).json()["blocks"]
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, phone, job)[0]["text"]
+
+    client.post("/v2/chat", headers=admin, json={"text": "zabroń Telefon sterować komputerem"})
+    replies += ["AGENT: otwórz Worda"]
+    again = client.post("/v2/chat", headers=phone, json={"text": "otwórz Worda na komputerze"}).json()["blocks"]
+    assert "nie ma zgody" in again[0]["text"]
+    # the phone cannot give itself the consent
+    replies += ["Zgodę daje się na komputerze kancelarii.", "AGENT: otwórz Worda"]
+    client.post("/v2/chat", headers=phone, json={"text": "pozwól telefonowi Telefon sterować komputerem"})
+    assert "nie ma zgody" in client.post("/v2/chat", headers=phone, json={"text": "otwórz Worda na komputerze"}).json()["blocks"][0]["text"]
+
+    paired, said = pair(client, admin, "dodaj telefon z dostępem do komputera o nazwie Szef")
+    assert "może zlecać pracę na tym komputerze" in said[0]["text"]
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "Gotowe."})]
+    blocks = client.post("/v2/chat", headers=paired, json={"text": "otwórz Worda na komputerze"}).json()["blocks"]
+    assert "Gotowe." in wait(client, paired, next(b["id"] for b in blocks if b["type"] == "job"))[0]["text"]
+    limited = client.post("/v2/chat", headers=admin, json={"text": "dodaj telefon tylko do odczytu z dostępem do komputera"}).json()["blocks"]
+    assert "tylko urządzenie z odczytem i zapisem" in limited[0]["text"]
+
+
+def test_the_office_chooses_the_browser_and_the_switches(office):
+    client, admin, desk, desktop, replies = office
+    from worker.settings import load
+
+    def said(sentence):
+        return client.post("/v2/chat", headers=admin, json={"text": sentence}).json()["blocks"][0]["text"]
+    assert "Google Chrome" in said("używaj Chrome")
+    assert "Microsoft Edge" in said("przeglądarka Edge")
+    assert "nie robi już zrzutów" in said("wyłącz zrzuty ekranu agenta")
+    assert "nie uruchamia już programów" in said("wyłącz wiersz poleceń agenta")
+    assert "może patrzeć na ekran" in said("włącz zrzuty ekranu agenta")
+
+
+def test_each_browser_keeps_its_own_profile(tmp_path, monkeypatch):
+    import worker.web_fill as web_fill
+
+    monkeypatch.delenv("NOTARAI_V2_BROWSER", raising=False)
+    monkeypatch.setattr(web_fill.os, "name", "nt")
+    assert web_fill._default_executable("chrome") == (None, "chrome")
+    assert web_fill._default_executable("edge") == (None, "msedge") == web_fill._default_executable("cokolwiek")

@@ -93,7 +93,15 @@ class CalendarSettings(_Strict):
                          pattern=r"^(https://[A-Za-z0-9.-]+(:\d{1,5})?|http://127\.0\.0\.1:\d{1,5})$")
 
 
+class AgentSettings(_Strict):
+    """The computer agent (owner's decisions 27.11.2026). All of it can be switched off on the station."""
+    browser: str = Field(default="edge", pattern=r"^(edge|chrome)$")   # which browser NotarAI drives
+    screen: bool = True         # the agent may look at the screen (a screenshot goes to the model in the EU as it is)
+    commands: bool = True       # the agent may run a program with arguments (never a shell)
+
+
 class Settings(_Strict):
+    agent: AgentSettings = AgentSettings()
     ai: AiSettings = AiSettings()
     account: AccountSettings | None = None
     replica: ReplicaSettings = ReplicaSettings()

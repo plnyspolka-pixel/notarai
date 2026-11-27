@@ -11,8 +11,15 @@ NotarAI browser. The command is the approval. What the code still holds back, wh
   asked for that kind of act; otherwise the agent stops and the chat asks „Tak / Nie”;
 - every document saved goes through the office's rules (`check_document`), every send through
   `check_send`; each act runs once, never repeated after an uncertain result;
-- the model sees text only (file text, window fields, page text), pseudonymised like every other
-  call through `inference.py`; no screenshots leave the computer.
+- text (file text, window fields, page text) is pseudonymised like every other call through `inference.py`;
+- owner's decision 27.11.2026 (2.7.0): the agent may also look at the screen. A screenshot goes to the model in
+  the EU as it is (names in a picture cannot be replaced), every look is said in the chat, and the station can
+  switch it off („wyłącz zrzuty ekranu agenta”). With a picture the agent can click a point and type, which
+  reaches programs that expose no fields;
+- owner's decision 27.11.2026 (2.7.0): the agent may run a program with arguments (command line). Never through
+  a shell: no cmd, PowerShell, script hosts or interpreters, no script files, no system tools that delete,
+  format or change accounts; AWS credentials are not passed on; a command whose words name an irreversible act
+  runs only when the notary asked for that act. The station can switch it off („wyłącz wiersz poleceń agenta”).
 
 Every step is narrated in the chat; nothing of the content is logged.
 """
@@ -21,6 +28,7 @@ import os
 import re
 import shutil
 import string
+import subprocess
 import time
 import unicodedata
 from pathlib import Path
@@ -35,6 +43,25 @@ ACTS = {                   # kinds of irreversible act -> words that name them (
     "podpis": ("podpisz", "podpisac", "sign"),
     "platnosc": ("zaplac", "oplac", "zaplacic", "kup teraz", "zamow", "pay"),
     "usuniecie": ("usun", "usunac", "skasuj", "wyczysc", "delete", "remove"),
+}
+
+# Never started by the agent, whatever the sentence: shells and interpreters (they would run anything, deleting
+# included), script hosts, and system tools that delete, format, or change accounts, services and the registry.
+BLOCKED_PROGRAMS = frozenset({
+    "cmd", "command", "powershell", "pwsh", "powershell_ise", "wt", "bash", "sh", "wsl", "ssh", "conhost",
+    "wscript", "cscript", "mshta", "rundll32", "regsvr32", "msiexec", "installutil", "msbuild",
+    "python", "pythonw", "py", "pyw", "node", "deno", "bun", "ruby", "perl", "php", "java", "javaw", "lua",
+    "reg", "regedit", "regedt32", "format", "diskpart", "chkdsk", "sdelete", "cipher", "bcdedit", "vssadmin", "wbadmin",
+    "shutdown", "logoff", "net", "net1", "sc", "schtasks", "at", "taskkill", "tskill", "takeown", "icacls", "cacls",
+    "attrib", "robocopy", "xcopy", "wmic", "fsutil", "mountvol", "subst", "runas", "psexec", "forfiles", "where",
+    "certutil", "bitsadmin", "curl", "wget", "ftp", "tftp", "telnet", "netsh", "dism", "sfc", "wevtutil", "rd", "del",
+})
+RUNNABLE = (".exe", ".com")
+COMMAND_ACTS = {            # words of a command line that name an irreversible act
+    "usuniecie": ("delete", "del", "remove", "rm", "erase", "purge", "drop", "uninstall", "clear", "clean", "wipe", "usun"),
+    "wyslanie": ("send", "submit", "upload", "publish", "post", "mail", "wyslij"),
+    "podpis": ("sign", "podpisz"),
+    "platnosc": ("pay", "zaplac"),
 }
 
 SYSTEM_AGENT = (
@@ -57,7 +84,18 @@ SYSTEM_AGENT = (
     "- {\"krok\":\"widok\"} – tekst, pola i odnośniki otwartej strony\n"
     "- {\"krok\":\"web_wpisz\",\"pole\":etykieta,\"wartosc\":tekst}\n"
     "- {\"krok\":\"web_kliknij\",\"co\":etykieta przycisku albo tekst odnośnika}\n"
+    "- {\"krok\":\"ekran\",\"okno\":fragment tytułu albo \"\"} – zrzut całego ekranu (z tym oknem na wierzchu); zobaczysz go "
+    "w następnym kroku. Używaj, gdy okno nie pokazuje pól albo nie wiesz, co jest na ekranie\n"
+    "- {\"krok\":\"kliknij_punkt\",\"x\":liczba,\"y\":liczba,\"co\":napis na tym elemencie,\"dwuklik\":false} – klika w punkt "
+    "ostatniego zrzutu (piksele obrazu, lewy górny róg = 0,0)\n"
+    "- {\"krok\":\"pisz\",\"tekst\":tekst} – wpisuje tekst z klawiatury tam, gdzie jest kursor (po kliknięciu w pole)\n"
+    "- {\"krok\":\"narzedzia\"} – programy sterowane z wiersza poleceń znalezione na tym komputerze (cli-anything-*, winapp)\n"
+    "- {\"krok\":\"polecenie\",\"program\":nazwa albo ścieżka .exe,\"argumenty\":[lista napisów]} – uruchamia program z argumentami "
+    "i zwraca to, co wypisał (bez powłoki: żadnych |, >, &&; cmd, PowerShell i skrypty są niedostępne). Opcje programu poznasz "
+    "argumentem --help\n"
     "- {\"krok\":\"koniec\",\"odpowiedz\":co zrobiłeś i co z tego wynika, po polsku, krótko}\n"
+    "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
+    "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
     "Nie zgaduj ścieżek: najpierw szukaj. Plików nie usuwasz. Wysłanie, złożenie, podpis, zapłata albo usunięcie "
     "tylko wtedy, gdy notariusz o to poprosił. Gdy czegoś nie da się zrobić, zakończ krokiem koniec i powiedz "
@@ -108,10 +146,169 @@ class Computer:
 
     READABLE = (".docx", ".pdf", ".txt", ".eml", ".csv", ".md", ".xml", ".html", ".htm")
 
-    def __init__(self, home: Path, *, desktop=None, browser=None, roots=None, starter=None, rules=None):
+    def __init__(self, home: Path, *, desktop=None, browser=None, roots=None, starter=None, rules=None,
+                 grabber=None, pointer=None, typist=None, runner=None, label_at=None, allowed=None, which=None):
+        """`allowed()` -> {"screen": bool, "commands": bool}: what the station lets the agent do (settings)."""
         self._home = Path(home)
         self._desktop, self._browser = desktop, browser          # callables returning the targets
         self._roots, self._starter, self._rules = roots, starter, rules
+        self._grabber, self._pointer, self._typist, self._runner = grabber, pointer, typist, runner
+        self._label_at, self._allowed, self._which = label_at, allowed, which or shutil.which
+        self._scale = None                                       # screen pixels per pixel of the last screenshot
+        self.picture = None                                      # JPEG for the model's next turn, taken once
+
+    def _may(self, what: str) -> bool:
+        return True if self._allowed is None else bool(self._allowed().get(what, True))
+
+    # ---- the screen (owner's decision 27.11.2026)
+    @staticmethod
+    def _grab():
+        if os.name != "nt":
+            raise AgentError("Ekran widzę tylko na Windows.")
+        import io
+
+        from PIL import ImageGrab
+
+        shot = ImageGrab.grab()                                   # the primary screen: one coordinate system
+        width = shot.width
+        shot.thumbnail((1568, 1568))
+        out = io.BytesIO()
+        shot.convert("RGB").save(out, "JPEG", quality=70)
+        return out.getvalue(), width / shot.width, (shot.width, shot.height)
+
+    def screen(self, title: str = "") -> str:
+        if not self._may("screen"):
+            raise AgentError("Zrzuty ekranu dla agenta są wyłączone na tym stanowisku („włącz zrzuty ekranu agenta”).")
+        if title:
+            self._window(title)
+            time.sleep(0 if self._grabber else 0.4)
+        try:
+            picture, scale, size = (self._grabber or self._grab)()
+        except AgentError:
+            raise
+        except Exception:
+            raise AgentError("Nie udało się zrobić zrzutu ekranu.") from None
+        self.picture, self._scale = picture, scale
+        return f"Zrzut ekranu {size[0]}x{size[1]} pikseli jest dołączony do tej wiadomości (tylko teraz)."
+
+    def _point(self, x, y) -> tuple[int, int]:
+        if self._scale is None:
+            raise AgentError("Najpierw zrób zrzut krokiem „ekran”: punkt podaje się na ostatnim zrzucie.")
+        try:
+            return round(float(x) * self._scale), round(float(y) * self._scale)
+        except (TypeError, ValueError):
+            raise AgentError("Podaj x i y jako liczby.") from None
+
+    def label_at(self, x, y) -> str:
+        """What Windows itself calls the element under the point ("" when it does not say)."""
+        try:
+            px, py = self._point(x, y)
+            if self._label_at is not None:
+                return str(self._label_at(px, py) or "")
+            if os.name != "nt":
+                return ""
+            from pywinauto import Desktop as UiaDesktop
+
+            return str(UiaDesktop(backend="uia").from_point(px, py).element_info.name or "")
+        except Exception:
+            return ""
+
+    def click_point(self, x, y, double: bool = False) -> str:
+        px, py = self._point(x, y)
+        if self._pointer is not None:
+            self._pointer(px, py, double)
+        else:
+            try:
+                from pywinauto import mouse
+            except Exception:
+                raise AgentError("W punkt klikam tylko na Windows.") from None
+            (mouse.double_click if double else mouse.click)(coords=(px, py))
+            time.sleep(0.8)
+        self._scale = None            # the screen has changed: the next point needs a new screenshot
+        return "Kliknąłem w punkt. Zrób nowy zrzut, żeby zobaczyć wynik."
+
+    def write(self, value: str) -> str:
+        if not value:
+            raise AgentError("Brak tekstu do wpisania.")
+        if self._typist is not None:
+            self._typist(value)
+        else:
+            try:
+                from pywinauto.keyboard import send_keys
+            except Exception:
+                raise AgentError("Z klawiatury piszę tylko na Windows.") from None
+            escaped = re.sub(r"([+^%~(){}\[\]])", r"{\1}", value).replace("\n", "{ENTER}")
+            send_keys(escaped, with_spaces=True, with_tabs=True, pause=0.01)
+        return f"Wpisałem z klawiatury {len(value)} znaków."
+
+    # ---- command line (owner's decision 27.11.2026): one program with arguments, never a shell
+    def _program(self, program: str) -> Path:
+        name = program.strip().strip('"') if isinstance(program, str) else ""
+        if not name:
+            raise AgentError("Jaki program uruchomić?")
+        found = Path(name) if Path(name).is_absolute() and Path(name).is_file() else None
+        if found is None:
+            located = self._which(name)
+            if not located:
+                raise AgentError(f"Nie ma na tym komputerze programu „{name}” (krok „narzedzia” pokaże dostępne).")
+            found = Path(located)
+        # Judged by the file's own name, read the Windows way whatever system this runs on.
+        name = re.split(r"[\\/]", str(found))[-1].strip(" .").lower()
+        stem, _, suffix = name.rpartition(".") if "." in name else (name, "", "")
+        if suffix in {"bat", "cmd", "ps1", "psm1", "vbs", "vbe", "js", "jse", "wsf", "wsh", "msi", "msp", "scr", "lnk", "hta", "py"}:
+            raise AgentError("Uruchamiam tylko programy .exe; skryptów (.bat, .cmd, .ps1, .vbs) nie.")
+        if os.name == "nt" and "." + suffix not in RUNNABLE:
+            raise AgentError("Uruchamiam tylko programy .exe.")
+        if stem in BLOCKED_PROGRAMS or stem.split(".")[0] in BLOCKED_PROGRAMS:
+            raise AgentError(f"Programu „{stem}” nie uruchamiam: powłoki, interpretery i narzędzia systemowe, "
+                             "które mogą kasować dane albo zmieniać system, są zablokowane.")
+        return found
+
+    def command(self, program: str, arguments) -> str:
+        if not self._may("commands"):
+            raise AgentError("Wiersz poleceń dla agenta jest wyłączony na tym stanowisku („włącz wiersz poleceń agenta”).")
+        if isinstance(arguments, str):
+            arguments = [arguments] if arguments else []
+        if not isinstance(arguments, list) or len(arguments) > 40 or any(not isinstance(a, (str, int, float)) for a in arguments):
+            raise AgentError("Argumenty podaj jako listę napisów.")
+        executable = self._program(program)
+        argv = [str(executable), *[str(a) for a in arguments]]
+        env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("AWS_", "NOTARAI"))}
+        run = self._runner or subprocess.run
+        try:
+            done = run(argv, shell=False, capture_output=True, timeout=90, env=env, stdin=subprocess.DEVNULL,
+                       cwd=str(Path(os.environ.get("USERPROFILE") or Path.home())))
+        except subprocess.TimeoutExpired:
+            raise AgentError("Program nie skończył w 90 sekund; przerwałem czekanie.") from None
+        except OSError:
+            raise AgentError(f"Nie udało się uruchomić „{executable.name}”.") from None
+
+        def shown(raw):
+            if isinstance(raw, bytes):
+                for encoding in ("utf-8", "cp852", "cp1250"):
+                    try:
+                        return raw.decode(encoding)
+                    except UnicodeDecodeError:
+                        continue
+                return raw.decode("utf-8", errors="replace")
+            return str(raw or "")
+        output = (shown(done.stdout) + ("\n" + shown(done.stderr) if done.stderr else "")).strip()
+        return f"{executable.name} zakończył się kodem {done.returncode}.\n{output[:6000] or '(nic nie wypisał)'}"
+
+    def tools(self) -> str:
+        found = set()
+        for folder in os.environ.get("PATH", "").split(os.pathsep):
+            try:
+                for entry in os.scandir(folder):
+                    stem = Path(entry.name).stem.lower()
+                    if stem.startswith("cli-anything-") or stem in {"winapp", "soffice", "winword", "excel"}:
+                        found.add(stem)
+            except OSError:
+                continue
+        if not found:
+            return ("Nie znalazłem narzędzi cli-anything ani winapp w ścieżce systemowej. Krok „polecenie” uruchomi każdy "
+                    "inny program .exe po nazwie albo pełnej ścieżce (opcje: argument --help).")
+        return "Narzędzia wiersza poleceń:\n" + "\n".join(sorted(found)) + "\nOpcje każdego: argument --help."
 
     # ---- files
     def roots(self) -> list[Path]:
@@ -410,7 +607,7 @@ class Computer:
 # ------------------------------------------------------------------ the loop
 class Agent:
     def __init__(self, computer: Computer, ask, *, narrate=lambda line: None, rules=None, max_steps=MAX_STEPS):
-        """`ask(system, text)` -> the model's reply (through inference.py)."""
+        """`ask(system, text, images)` -> the model's reply (through inference.py); `images` is a tuple of JPEGs."""
         self._computer, self._ask, self._narrate = computer, ask, narrate
         self._rules, self._max = rules, max_steps
 
@@ -422,8 +619,9 @@ class Agent:
         history, steps = list(history or []), []
         for _ in range(self._max):
             transcript = "\n\n".join(history)[-MAX_HISTORY:]
+            picture, self._computer.picture = getattr(self._computer, "picture", None), None
             reply = self._ask(SYSTEM_AGENT, f"Polecenie notariusza: {task}\n\nDotychczasowe kroki:\n{transcript or '(brak)'}"
-                                            "\n\nPodaj następny krok (jeden obiekt JSON).")
+                                            "\n\nPodaj następny krok (jeden obiekt JSON).", (picture,) if picture else ())
             try:
                 step = parse_step(reply)
             except ValueError:
@@ -435,7 +633,9 @@ class Agent:
                 return {"answer": str(step.get("odpowiedz", "")).strip() or "Gotowe.", "steps": steps, "stopped": None}
             act = self._irreversible(step)
             if act and act not in allowed:
-                label = step.get("przycisk") or step.get("co") or step.get("klawisze") or kind
+                label = (step.get("przycisk") or step.get("co") or step.get("klawisze")
+                         or (kind == "polecenie" and f"{step.get('program', '')} {' '.join(map(str, step.get('argumenty') or []))}"[:160])
+                         or kind)
                 return {"answer": "", "steps": steps,
                         "stopped": {"kind": act, "label": str(label), "step": step, "history": history}}
             if act == "wyslanie" and self._rules is not None:
@@ -444,7 +644,10 @@ class Agent:
                     self._rules.check_send("komputer", [])
                 except RuleViolation as error:
                     return {"answer": f"Zasada kancelarii nie pozwala teraz wysłać: {error}", "steps": steps, "stopped": None}
-            self._narrate(f"Krok {len(steps) + 1}: {why or self._describe(step)}")
+            self._narrate(f"Krok {len(steps) + 1}: {why or self._describe(step)}" + (
+                " (zrzut ekranu idzie do asystenta we Frankfurcie tak, jak go widać)" if kind == "ekran" else "") + (
+                f" [{step.get('program', '')} {' '.join(str(a) for a in step.get('argumenty') or [])[:120]}]"
+                if kind == "polecenie" and isinstance(step.get("argumenty", []), list) else ""))
             try:
                 seen = self._do(step)
             except AgentError as error:
@@ -458,11 +661,16 @@ class Agent:
         return {"answer": "Przerwałem po wielu krokach. Napisz, co dalej, albo podziel polecenie na mniejsze.",
                 "steps": steps, "stopped": None}
 
-    @staticmethod
-    def _irreversible(step) -> str | None:
+    def _irreversible(self, step) -> str | None:
         kind = step["krok"]
         if kind in {"kliknij", "web_kliknij"}:
             return act_kind(step.get("przycisk") or step.get("co") or "")
+        if kind == "kliknij_punkt":       # what Windows calls the element counts first, then what the model says it is
+            return act_kind(self._computer.label_at(step.get("x"), step.get("y"))) or act_kind(str(step.get("co", "")))
+        if kind == "polecenie":
+            arguments = step.get("argumenty")
+            words = set(re.findall(r"[a-z]+", plain(" ".join(str(a) for a in arguments) if isinstance(arguments, list) else str(arguments))))
+            return next((act for act, names in COMMAND_ACTS.items() if words & set(names)), None)
         if kind == "klawisze":
             keys = str(step.get("klawisze", "")).lower()
             return "usuniecie" if "{del" in keys or "{delete" in keys else None
@@ -474,7 +682,9 @@ class Agent:
                  "zamien": "poprawiam plik", "nowy_plik": "zapisuję nowy plik", "uruchom": "uruchamiam",
                  "okna": "sprawdzam otwarte okna", "okno": "czytam okno programu", "wpisz": "wpisuję w pole",
                  "kliknij": "klikam", "klawisze": "naciskam klawisze", "strona": "otwieram stronę",
-                 "widok": "czytam stronę", "web_wpisz": "wpisuję na stronie", "web_kliknij": "klikam na stronie"}
+                 "widok": "czytam stronę", "web_wpisz": "wpisuję na stronie", "web_kliknij": "klikam na stronie",
+                 "ekran": "patrzę na ekran", "kliknij_punkt": "klikam w punkt na ekranie", "pisz": "piszę z klawiatury",
+                 "narzedzia": "sprawdzam narzędzia wiersza poleceń", "polecenie": "uruchamiam program z wiersza poleceń"}
         return names.get(step["krok"], step["krok"])
 
     def _do(self, step) -> str:
@@ -496,6 +706,11 @@ class Agent:
             "widok": c.view,
             "web_wpisz": lambda: c.web_type(get("pole"), get("wartosc")),
             "web_kliknij": lambda: c.web_click(get("co")),
+            "ekran": lambda: c.screen(get("okno")),
+            "kliknij_punkt": lambda: c.click_point(step.get("x"), step.get("y"), bool(step.get("dwuklik"))),
+            "pisz": lambda: c.write(get("tekst")),
+            "narzedzia": c.tools,
+            "polecenie": lambda: c.command(get("program"), step.get("argumenty", [])),
         }
         if k not in actions:
             raise AgentError(f"Nie znam kroku „{k}”.")

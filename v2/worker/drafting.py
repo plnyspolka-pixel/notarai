@@ -35,13 +35,7 @@ SYSTEM_GENERAL = (
     "Jesteś asystentem polskiej kancelarii notarialnej i rozmawiasz z notariuszem albo pracownikiem kancelarii. "
     "Odpowiadaj po polsku, rzeczowo i krótko. W sprawach prawa podawaj podstawę prawną, gdy ją znasz, i mów wprost, "
     "gdy czegoś nie wiesz albo przepis mógł się zmienić. Nie obliczaj taksy notarialnej: oblicza ją program "
-    "(wystarczy napisać „taksa”). Znaczniki w nawiasach kwadratowych zastępują dane osobowe: przepisuj je bez zmian. "
-    "Jesteś częścią programu NotarAI zainstalowanego na komputerze kancelarii (Windows). Program MA dostęp do tego "
-    "komputera: czyta pliki z dysku (DOCX, PDF), poprawia dokumenty Word, uruchamia programy, wpisuje i klika w oknach "
-    "programów (np. RejNET) i na stronach w przeglądarce NotarAI, obsługuje pocztę, kalendarz, drukarki, księgi "
-    "wieczyste i KRZ. Nigdy nie pisz, że nie masz dostępu do komputera, plików albo programów. Gdy prośba wymaga "
-    "działania na komputerze (pliki, programy, strony internetowe), odpowiedz wyłącznie jedną linią: "
-    "„AGENT: <polecenie>”, a program wykona je sam."
+    "(wystarczy napisać „taksa”). Znaczniki w nawiasach kwadratowych zastępują dane osobowe: przepisuj je bez zmian."
 )
 NEXT_STEPS = (
     " Zacznij od jednej linii zaczynającej się od „ROZUMIEM:”: jednym zdaniem, jak rozumiesz polecenie i na czym "
@@ -49,6 +43,19 @@ NEXT_STEPS = (
     "które notariusz może zlecić temu programowi, jako krótkie polecenia po polsku (np. „sprawdź KW”, „sprawdź strony "
     "w KRZ”, „przygotuj projekt umowy”, „termin jutro 10:00 …”), oddzielone znakiem |. Proponuj tylko kroki, które "
     "naprawdę wynikają z sytuacji."
+)
+# Goes LAST in the system prompt, after NEXT_STEPS: it has to win over „zacznij od ROZUMIEM” and, in a case,
+# over „wyłącznie na podstawie dokumentów”. The chat starts the computer agent on a line „AGENT:” (chat.py).
+COMPUTER = (
+    " WAŻNE, ponad wszystkimi wcześniejszymi zasadami: jesteś częścią programu NotarAI zainstalowanego na komputerze "
+    "kancelarii (Windows). Program MA dostęp do tego komputera: czyta pliki z dysku (DOCX, PDF), poprawia dokumenty "
+    "Word, uruchamia programy, wpisuje i klika w oknach programów Windows (np. RejNET, Word) oraz otwiera strony "
+    "internetowe, klika na nich i wypełnia formularze w przeglądarce NotarAI. Nigdy nie pisz, że nie masz dostępu do "
+    "komputera, plików, programów, przeglądarki albo internetu, ani że jesteś tylko programem tekstowym. Gdy prośba "
+    "wymaga działania na komputerze (pliki na dysku, programy, okna, strony internetowe, formularze na stronach), "
+    "cała Twoja odpowiedź to WYŁĄCZNIE jedna linia „AGENT: <polecenie jednym zdaniem>”: bez linii ROZUMIEM, bez "
+    "linii DALEJ, bez żadnego innego tekstu i bez dopytywania o brakujące dane. Program wykona polecenie sam, "
+    "a o to, czego zabraknie, zapyta w trakcie."
 )
 SYSTEM_CHAT = (
     "Jesteś asystentem polskiej kancelarii notarialnej. Odpowiadaj zwięźle, wyłącznie na podstawie "
@@ -168,11 +175,13 @@ class Drafts:
         """People remembered for the case plus any named in this request."""
         return list(dict.fromkeys([*self._vault.parties(case), *names]))
 
-    def ask(self, case: str, question: str, actor: str, names=(), document: str | None = None) -> dict:
+    def ask(self, case: str, question: str, actor: str, names=(), document: str | None = None,
+            computer: bool = False) -> dict:
+        """`computer`: the question came from the chat itself, so the model may hand it to the computer agent."""
         names = self._names(case, names)
         context, sources, skipped = self._context(case, actor, only=document)
         answer = self._inference.ask(
-            purpose="chat", system=SYSTEM_CHAT + NEXT_STEPS, names=names, max_tokens=2048,
+            purpose="chat", system=SYSTEM_CHAT + NEXT_STEPS + (COMPUTER if computer else ""), names=names, max_tokens=2048,
             text=f"{context}{self._learned()}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",
         )
         return {"answer": answer.text, "sources": sources, "skipped": skipped,
@@ -183,7 +192,7 @@ class Drafts:
 
     def general(self, question: str, names=(), mail: bool = False) -> dict:
         """A question with no case chosen: the assistant answers from general knowledge, reading no documents."""
-        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL + ("" if mail else NEXT_STEPS),
+        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL + ("" if mail else NEXT_STEPS + COMPUTER),
                                      names=list(names), max_tokens=2048,
                                      text=question + self._learned("mail" if mail else "wiedza"))
         return {"answer": answer.text, "unknown_placeholders": list(answer.unknown_placeholders)}
