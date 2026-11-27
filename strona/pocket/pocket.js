@@ -50,7 +50,7 @@ async function call(path, method = "GET", data) {
     const detail = (body && body.detail) || "";
     const error = new Error(
       code === 401 && !(body && body.challenge) && !/[ąćęłńóśźż]/i.test(detail)
-        ? (admin ? "Sesja panelu wygasła. Otwórz panel ponownie z menu Start."
+        ? (admin ? "Sesja wygasła. Otwórz NotarAI ponownie ikoną na pulpicie albo z menu Start."
                  : "Sesja wygasła lub dostęp został cofnięty. Skopiuj niezapisany tekst przed rozłączeniem.")
         : code === 409 && detail === "revision conflict"
           ? "Konflikt wersji. Zachowano edytowany tekst i wybrany plik. Możesz zapisać zmiany jako osobny dokument."
@@ -734,17 +734,43 @@ async function saveText(current) {
 const AUDIO = /\.(webm|ogg|opus|oga|m4a|mp3|wav|aac|amr|3gp|flac)$/i;
 let voice = null;
 
+function showVoiceResult(result) {
+  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
+  if (result.documents.length) render.documents({ items: result.documents });
+  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+}
+
 async function sendVoice(bytes, name) {
-  const waiting = bubble("Przepisuję notatkę głosową na komputerze kancelarii…", "them wait");
+  const waiting = bubble("Zapisuję notatkę głosową…", "them wait");
   let result;
   try {
     result = await call("voice", "POST", { audio_b64: encode(bytes), name, case: currentCase() });
   } finally {
     waiting.remove();
   }
-  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
-  render.documents({ items: result.documents });
-  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+  if (!result.job) {
+    showVoiceResult(result);
+    return;
+  }
+  // The cloud needs a while: keep working, the text arrives in the conversation by itself.
+  const pending = bubble(result.detail, "them wait");
+  status("Notatka zapisana. Możesz dalej pracować; tekst dopiszę, gdy będzie gotowy.");
+  (async () => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        const answer = await call("voice/" + result.job);
+        if (answer.done) {
+          pending.remove();
+          showVoiceResult(answer);
+          return;
+        }
+      } catch {
+        pending.textContent = "Nie mogę sprawdzić, czy tekst notatki jest gotowy. Spróbuję jeszcze raz.";
+      }
+    }
+    pending.textContent = "Przepisywanie trwa wyjątkowo długo. Tekst znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
+  })();
 }
 
 el("voice").onclick = run(async () => {
@@ -910,7 +936,20 @@ async function refreshCases(keep) {
     : "Dokumenty są przechowywane na komputerze kancelarii.";
 }
 
+// A refresh must not log out: the session lives as long as this window (sessionStorage), never longer.
+function remember(device) {
+  try {
+    if (device) sessionStorage.setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
+    else sessionStorage.removeItem("notarai-session");
+  } catch { /* private mode or blocked storage: the session simply ends with a refresh */ }
+}
+
+function remembered() {
+  try { return JSON.parse(sessionStorage.getItem("notarai-session") || "null"); } catch { return null; }
+}
+
 async function enter(device) {
+  if (!tunnel && device.token) remember(device);
   token = device.token;
   scope = device.scope;
   el("pairing").hidden = true;
@@ -934,6 +973,7 @@ async function enter(device) {
 }
 
 function leave(message) {
+  remember(null);
   token = "";
   scope = "";
   names = [];
@@ -956,7 +996,7 @@ async function unlock(code) {
   });
   const session = response.ok ? await response.json() : null;
   if (!session || (admin && session.scope !== "admin") || (!admin && session.scope === "admin")) {
-    throw new Error(admin ? "Kod panelu jest nieważny. Otwórz panel ponownie z menu Start." : "Kod parowania jest nieważny albo wygasł.");
+    throw new Error(admin ? "Kod panelu jest nieważny. Otwórz NotarAI ponownie ikoną na pulpicie albo z menu Start." : "Kod parowania jest nieważny albo wygasł.");
   }
   await enter(session);
 }
@@ -973,9 +1013,25 @@ async function enterRemote(session) {
 async function start() {
   const fragment = window.location.hash;
   if (fragment) history.replaceState(null, "", window.location.pathname);
-  if (admin) {
+  if (admin && fragment.length > 1) {
     // The launcher opens this page with a one-time code in the fragment, which never reaches a server log.
-    if (fragment.length > 1) await unlock(fragment.slice(1));
+    await unlock(fragment.slice(1));
+    return;
+  }
+  const saved = remembered();
+  if (saved && saved.token) {
+    token = saved.token;
+    try {
+      await call("status");
+      await enter(saved);
+      return;
+    } catch {
+      token = "";
+      remember(null);
+    }
+  }
+  if (admin) {
+    status("Otwórz NotarAI ikoną na pulpicie albo z menu Start.");
     return;
   }
   const link = NotaraiTunnel.parseLink(fragment);
