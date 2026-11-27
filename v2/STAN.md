@@ -19,6 +19,8 @@ V1 pozostaje nietknięte.
 | Rozmowa zamiast formularzy | Jedno okno czatu w Pocket i w panelu; polecenia zdaniem, potwierdzenia przyciskiem | testy + przeglądarka |
 | Kafelki | Pulpit ustawiany przez notariusza: narzędzia z katalogu i własne, przeciąganie, chowanie; domyślnie pusty | testy + przeglądarka |
 | Poczta | Thunderbird (wprost z plików), klasyczny Outlook, folder .eml; tylko odczyt, wiadomość do sprawy jednym zdaniem | testy na plikach Thunderbirda; Outlook na atrapie |
+| Samodzielne wypełnianie | „wypełnij …” na stanowisku wpisuje dane w formularz na stronie albo w programie Windows, naciska „Dalej”, pokazuje zrzut i stan każdego pola; wysyła dopiero po „Wyślij teraz” | testy na prawdziwym formularzu w Chromium + przeglądarka; okno Windows w CI |
+| Notatki głosowe | Mikrofon w Pocket, pliki z dyktafonu i komunikatorów; tekst przepisany lokalnie trafia do sprawy obok nagrania | testy na atrapie rozpoznawania mowy + przeglądarka |
 | Uczenie przez pokazanie | Nagranie ekranu z komentarzem zamienia się w procedurę do zatwierdzenia; dla sprawy powstają wartości do każdego pola z przyciskiem „Kopiuj” | testy + przeglądarka + próba na żywo z Bedrock |
 | Telefon w kancelarii | Pocket w przeglądarce, uprawnienia odczyt/zapis i per sprawa | przeglądarka |
 | Telefon poza kancelarią | Parowanie kodem QR, szyfrowanie od telefonu do komputera, klucz nie opuszcza telefonu | przeglądarka przez lokalny przekaźnik |
@@ -39,6 +41,19 @@ Jedno okno rozmowy, w Pocket i w panelu stanowiska. Piszesz zwykłym zdaniem, be
 - kafelki: „narzędzia”, „dodaj kafelek Taksa”, „dodaj kafelek Pełnomocnictwo KW: przygotuj pełnomocnictwo…”, „ukryj kafelki”
 - poczta (panel): „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”
 - procedury: „nagraj procedurę Wniosek o wpis w KW” (panel), potem na każdym urządzeniu „wypełnij wniosek o wpis w KW”
+
+### Jak notariusz pracuje z formularzami
+
+1. Raz na każdy rodzaj wniosku pokazuje go programowi: „nagraj procedurę Wniosek o wpis w KW”.
+2. Dla każdej sprawy pisze w panelu „wypełnij wniosek o wpis w KW”. Program bierze dane z dokumentów
+   sprawy, sam otwiera stronę albo znajduje okno programu, wpisuje wartości, sprawdza każde pole
+   odczytem i zatrzymuje się przed wysłaniem.
+3. Notariusz czyta zrzut wypełnionego formularza w czacie (albo sam formularz na ekranie) i dotyka
+   „Wyślij teraz”. Jeśli w międzyczasie coś zmienił w formularzu, program pokaże go jeszcze raz.
+
+Na stronach program używa własnego okna przeglądarki (Edge z osobnym profilem): notariusz loguje się
+tam raz do portali i logowanie zostaje. W programach Windows działa przez to samo, z czego korzystają
+czytniki ekranu, więc nie potrzeba osobnej integracji z każdym programem.
 
 ### Jak działa łączenie z dowolnym programem
 
@@ -74,22 +89,25 @@ dopóki notariusz tego nie włączy.
 - Logowanie stanowiska przez Cognito: przetestowane na atrapie; próba na żywo wymaga konta w grupie `notarai-v2`.
 - Outlook: napisany pod klasycznego Outlooka i sprawdzony na atrapie; na prawdziwym Outlooku nie był uruchomiony.
   Nowy Outlook nie ma interfejsu automatyzacji, tam zostaje folder z plikami .eml.
-- Rozpoznawanie mowy z nagrania: działa lokalnie po doinstalowaniu `faster-whisper` (nie jest w instalatorze);
-  sprawdzone na atrapie. Bez niego komentarz wpisuje się ręcznie.
+- Rozpoznawanie mowy: `faster-whisper` jest w instalatorze, model (ok. 0,5 GB) pobiera się przy pierwszej
+  notatce. Prawdziwego rozpoznawania nie sprawdziłem, bo to środowisko nie ma dostępu do serwisu z modelami;
+  sprawdzone na atrapie.
+- Wypełnianie programów Windows: test na prawdziwym oknie WinForms działa w CI na Windows; programów
+  kancelaryjnych (np. RejNET) nie sprawdzałem, bo nie mam do nich dostępu.
 - Nagrywanie ekranu: sprawdzone w Chromium na zastępczym obrazie ekranu, nie na prawdziwym pulpicie Windows.
 - Microsoft Word: przetestowane z LibreOffice; z Wordem mechanizm jest ten sam (plik i blokada `~$`), ale nie był uruchomiony.
 
 ## Decyzje dla właściciela
 
-1. **Publikacja strony Pocket pod `notarai.pl/pocket/`**: pliki przygotowuje `python tools/export_pocket.py`.
-   Publikacja idzie przez `strona/` i pull request do `master`, czyli z osobnej gałęzi.
+1. **Strona Pocket pod `notarai.pl/pocket/`**: pull request #155 do `master`; po scaleniu publikuje ją
+   workflow strony. Po zmianach w Pocket na tej gałęzi trzeba odświeżyć pliki: `python tools/export_pocket.py`.
 2. **Prawdziwe dane**: nadal zablokowane. Warunki zwolnienia blokady są w README („Release gates”).
 
 ## Co zostaje do zrobienia
 
-- Samodzielne wypełnianie pól przez program (klikanie i pisanie w cudzym oknie albo na stronie): procedury mają
-  już do tego potrzebne dane, ale wykonanie wymaga testów na Windows i w przeglądarce z rozszerzeniem.
-- Rozpoznawanie mowy w instalatorze (dziś osobna paczka) i maskowanie danych na zrzutach ekranu.
+- Maskowanie danych na zrzutach ekranu wysyłanych przy nauce procedury.
+- Próba wypełniania na prawdziwym programie kancelaryjnym i prawdziwym portalu (z kontem testowym;
+  patrz `docs/czeka-na-dostep.md`).
 - Podpis instalatora i kanał aktualizacji (wymaga certyfikatu do podpisu kodu).
 - RejNET i inne programy kancelarii przez automatyzację okien (wymaga dostępu do środowiska testowego; patrz `docs/czeka-na-dostep.md`).
 - Rozliczanie zużycia AI po stronie NotarAI (dziś licznik jest lokalny, na stanowisku).

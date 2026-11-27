@@ -104,9 +104,14 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
   zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
   nieodwracalne wymagają potwierdzenia.
-- Łączenie z programami w V2 jest uniwersalne: procedura z nagrania (`v2/worker/procedures.py`)
-  daje wartości do skopiowania. Nie dodawaj automatycznego klikania ani wysyłania formularzy
-  bez osobnej decyzji właściciela i testów na Windows. Mowa z nagrań: tylko lokalnie.
+- Wypełnianie formularzy w V2 (decyzja właściciela 27.11.2026: priorytet programu): procedura
+  z nagrania (`v2/worker/procedures.py`) daje wartości, a `v2/worker/autofill.py` wpisuje je sam
+  na stronach (`web_fill.py`, przeglądarka NotarAI) i w programach Windows (`win_fill.py`,
+  UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: zawsze dopiero po
+  zatwierdzeniu w czacie, związanym ze stanem formularza z podglądu; jedno naciśnięcie, bez
+  ponawiania po niepewnym wyniku. Nie dodawaj ścieżki, która wysyła bez tego zatwierdzenia.
+- Mowa (nagrania procedur, notatki głosowe): tylko lokalnie (`v2/worker/transcribe.py`),
+  bez usług mowy w chmurze.
 - Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
   w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
 

@@ -390,6 +390,9 @@ def test_pocket_exports_as_a_static_site_and_preset_is_valid(tmp_path):
     html = (tmp_path / "pocket" / "index.html").read_text(encoding="utf-8")
     assert "index.html" in names and 'src="pocket.js"' in html and "/v2/" not in html
     assert '"./"' in (tmp_path / "pocket" / "pocket-sw.js").read_text(encoding="utf-8")
+    csp = html.split('http-equiv="Content-Security-Policy" content="')[1].split('"')[0]
+    assert "connect-src 'self' wss://qj7nel6in9.execute-api.eu-central-1.amazonaws.com;" in csp
+    assert "script-src 'self';" in csp and "'unsafe" not in csp and '<meta name="robots" content="noindex">' in html
     preset = validate(json.loads((root / "installer" / "preset.json").read_text(encoding="utf-8")))
     assert not preset.ai.enabled and not preset.tunnel.enabled and not preset.replica.enabled
     assert not preset.ai.real_data_approved and preset.account.region == "eu-central-1"
