@@ -313,6 +313,9 @@ class Chat:
         if not self.s.ai_ready():
             return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
                     buttons(("Zaloguj", "zaloguj"))]
+        withdraw = getattr(self.s, "withdraw_question", None)
+        if withdraw is not None:
+            withdraw(identity)                    # a new run: whatever was asked before is answered or dropped
         self.s.narrate(identity, "Działam na tym komputerze: " + task[:160])
         switch, holder = threading.Event(), {}
 
@@ -351,6 +354,36 @@ class Chat:
         return [{"type": "image", "image": base64.b64encode(image).decode(), "alt": "Strona przygotowana przez program"}] if image else []
 
     def _computer_run(self, identity, task, allowed, history, cancelled=lambda: False) -> list[dict]:
+        blocks = self._computer_work(identity, task, allowed, history, cancelled)
+        if not cancelled():
+            self._raise_question(identity, blocks)
+        return blocks
+
+    def _raise_question(self, identity, blocks) -> None:
+        """When the work stopped for the notary (a question, a login, something to approve): the same question in a
+        small window above all others, so they need not look for NotarAI. Its answer comes back into this chat."""
+        ask = getattr(self.s, "ask_notary", None)
+        if ask is None:
+            return
+        flat = self._flatten(blocks)
+        words = next((b["text"] for b in flat if b.get("type") == "text" and b.get("text")), "")
+        actions, free = [], None
+        for block in flat:
+            if block.get("type") == "confirm":
+                words = (words + "\n\n" + block.get("text", "")).strip()
+                actions.append((block.get("label") or "Tak", {"confirm": block["token"]}))
+            elif block.get("type") == "buttons":
+                for item in block.get("items", []):
+                    if norm(item.get("say", "")).startswith("odpowiedz dla agenta"):
+                        actions.append((item["label"], {"text": item["say"]}))
+                        free = "odpowiedź dla agenta: "
+        if actions:
+            try:
+                ask(identity, words, actions, free)
+            except Exception:
+                pass                              # the question is in the chat anyway
+
+    def _computer_work(self, identity, task, allowed, history, cancelled=lambda: False) -> list[dict]:
         from .agent import Agent
 
         computer = self.s.computer
@@ -421,6 +454,9 @@ class Chat:
             switch.set()
         self._agent_question.clear()
         self._pending.clear()                 # no „Kontynuuj” or „Tak, zrób to” left to bring it back
+        withdraw = getattr(self.s, "withdraw_question", None)
+        if withdraw is not None:
+            withdraw(identity)                    # and no small window still asking about it
         self.s.narrate(identity, "Zatrzymuję pracę na komputerze.")
         return [text("Zatrzymałem. Agent nie zrobi już żadnego kroku; to, co było w toku, przerwałem."
                      if running else "Zatrzymane. Nic teraz nie pracowało na komputerze.")]
@@ -1250,6 +1286,11 @@ class Chat:
             return [text("Agent może patrzeć na ekran: zrzut idzie do asystenta we Frankfurcie tak, jak go widać (nazwisk "
                          "na obrazie nie da się zamienić na znaczniki), nic nie jest tam zapisywane; każde spojrzenie widać w rozmowie."
                          if on else "Agent nie robi już zrzutów ekranu: widzi tylko tekst plików, pól okien i stron.")]
+        if (on or off) and re.search(r"okienk\w* z pytani|okienk\w* agenta|pytani\w* na wierzchu|powiadomieni\w* agenta", plain):
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(popup=on))
+            return [text("Gdy agent będzie miał pytanie albo będzie potrzebował Twojego logowania lub zgody, pokażę małe "
+                         "okienko na wierzchu, w prawym górnym rogu ekranu." if on else
+                         "Okienko z pytaniem agenta jest wyłączone: pytania zobaczysz tylko w rozmowie.")]
         if (on or off) and re.search(r"wiersz\w* polecen|polecenia agenta|\bcli\b", plain):
             s.update_settings(lambda d: d.setdefault("agent", {}).update(commands=on))
             return [text("Agent może uruchamiać programy z wiersza poleceń (pojedynczy program z argumentami; bez cmd, "
@@ -1945,6 +1986,76 @@ class Chat:
         hits.sort(reverse=True)
         return hits[0][1] if len(hits) == 1 or hits[0][0] > hits[1][0] else None
 
+    KRZ_NOISE = frozenset("""sprawdz sprawdzic sprawdzenie krz krajowy krajowym rejestr rejestrze zadluzonych strony stron strone
+        ktore ktora wystepuja wystepuje dla sprawy sprawie sprawa akt akcie aktu aktow akty osoby osob oraz nie tak prosze
+        mi tym tej ten tych wszystkie wszystkich jest sie czy w z i do na o okno oknie""".split())
+
+    def _search_words(self, message: str) -> list[str]:
+        """What the sentence names besides the command itself: a surname, the name of an act."""
+        return list(dict.fromkeys(w for w in re.findall(r"[^\W\d_]{3,}", norm(message)) if w not in self.KRZ_NOISE))[:4]
+
+    @staticmethod
+    def _people(body: str) -> dict:
+        """PESEL -> the name written before it („Jan Kowalski, syn …, PESEL 44051401359”), "" when none is seen."""
+        from .registers import PESEL, pesels_in
+
+        people = {}
+        for number in pesels_in(body):
+            name = ""
+            for found in PESEL.finditer(body):
+                if number in found.group(0):
+                    before = body[max(0, found.start() - 220):found.start()]
+                    names = re.findall(r"\b([A-ZŻŹĆĄŚĘŁÓŃ][a-zżźćńółęąś]+(?:[ -][A-ZŻŹĆĄŚĘŁÓŃ][a-zżźćńółęąś]+){1,3})\b", before)
+                    names = [n for n in names if norm(n).split()[0] not in {"pesel", "pan", "pani", "syn", "corka", "dowod"}]
+                    name = names[-1] if names else ""
+                    break
+            people[number] = name
+        return people
+
+    def _parties_from_documents(self, identity, message: str):
+        """(where it was found, {PESEL: name}) for the act or person the sentence names, or None."""
+        words = self._search_words(message)
+        if not words:
+            return None
+        stems = [w[:-2] if len(w) > 5 else w for w in words]
+        best = None
+        for name, body in self._case_texts(identity):               # 1. the vault: cases this device may see
+            plain_body = norm(body)
+            score = sum(1 for stem in stems if stem in plain_body or stem in norm(name))
+            people = self._people(body) if score else {}
+            if people and (best is None or score > best[0]):
+                best = (score, f"sprawa „{name}”", people)
+        if best is not None:
+            return best[1], best[2]
+        computer = getattr(self.s, "computer", None)
+        if computer is None or not self._may_use_computer(identity):
+            return None
+        folder = self.s.settings().acts_dir or ""                    # 2. the office's files on this computer
+        paths = []
+        for stem in stems:
+            for where in dict.fromkeys([folder, ""]):
+                try:
+                    listed = computer.find(stem, where, limit=30, seconds=12.0)
+                except Exception:
+                    continue
+                paths += [line for line in listed.splitlines()[1:] if line.lower().endswith((".docx", ".pdf", ".txt"))]
+            if paths:
+                break
+        def modified(path):
+            try:
+                return os.path.getmtime(path)
+            except OSError:
+                return 0
+        for path in sorted(dict.fromkeys(paths), key=modified, reverse=True)[:8]:
+            try:
+                body = computer.read(path).split("\n", 1)[-1]
+            except Exception:
+                continue
+            people = self._people(body)
+            if people:
+                return f"plik „{os.path.basename(path)}” ({os.path.dirname(path)})", people
+        return None
+
     def _registers(self, identity, message, plain, case):
         from .registers import KW, land_register_numbers, pesels_in
 
@@ -1988,12 +2099,25 @@ class Chat:
             return [self._confirm(identity, f"Pobrać treść księgi {number} do sprawy „{case}”? Zapytanie u dostawcy "
                                   "jest płatne; to nie jest odpis urzędowy, porównaj go ze źródłem.", "Tak, pobierz", fetch)]
         pesels = pesels_in(message) or (pesels_in(s.drafts.case_text(case, identity.id)) if case is not None else [])
+        found_in, people = "", {}
         if not pesels:
-            return [text("Nie wiem, kogo sprawdzić: podaj numer PESEL („sprawdź KRZ 44051401359”) albo nazwisko strony "
-                         "z którejś sprawy („sprawdź KRZ Kowalski”).")]
+            # The notary named an act or a person, not a number: the program finds the document itself (a case in the
+            # vault, then the office's files on this computer) and reads the parties and their PESEL numbers from it.
+            located = self._parties_from_documents(identity, message)
+            if located is not None:
+                found_in, people = located
+                pesels = list(people)
+        if not pesels:
+            words = ", ".join(self._search_words(message)) or "tego"
+            return [text(f"Szukałem dokumentu z „{words}” w sprawach i w plikach na tym komputerze, ale nie znalazłem "
+                         "żadnego z numerami PESEL stron. Wrzuć akt do rozmowy (spinacz) albo napisz, gdzie leży, "
+                         "np. „sprawdź KRZ, akt jest w folderze D:\\Akty”.")]
         if case is None:
             case = "krz-" + time.strftime("%Y-%m-%d")
-        masked = ", ".join(p[:4] + "*******" for p in pesels[:6])
+        masked = ", ".join((people[p] + " " if people.get(p) else "") + p[:4] + "*******" for p in pesels[:6])
+        if found_in:
+            s.narrate(identity, f"Znalazłem strony w: {found_in}.")
+            masked += f" (z: {found_in})"
 
         visible = " w oknie" in f" {plain}"
 

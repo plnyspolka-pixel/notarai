@@ -3,6 +3,7 @@ import base64
 import binascii
 import re
 import secrets
+import os
 import threading
 import sys
 import time
@@ -13,7 +14,7 @@ from typing import NamedTuple
 
 from fastapi import FastAPI, Depends, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from . import recovery
@@ -45,7 +46,8 @@ CASE = r"^[\w.-]{1,64}$"
 HIDDEN_CASES = frozenset({"procedury", "styl-kancelarii", "zasady-kancelarii"})
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
-          "pocket-icon.svg": "image/svg+xml", "montserrat-latin.woff2": "font/woff2", "montserrat-latin-ext.woff2": "font/woff2",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
+          "pocket-icon.svg": "image/svg+xml", "montserrat-latin.woff2": "font/woff2", "montserrat-latin-ext.woff2": "font/woff2",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript",
+          "attention.js": "application/javascript", "attention.css": "text/css"}
 
 
 class Identity(NamedTuple):
@@ -166,7 +168,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, team_invoke=None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
+               fill_targets: dict | None = None, attention_opener=None, team_invoke=None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
                office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
                service_send=None, web_calendar_api=None):
@@ -1541,6 +1543,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         office=Guarded(office_link, {"invite": "ustawienia", "join": "ustawienia", "forget": "ustawienia"}), station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         computer=agent_computer,
+        ask_notary=lambda identity, words, actions, free=None: ask_notary(identity, words, actions, free),
+        withdraw_question=lambda identity: attention.withdraw(identity.id),
         web_browser=(fill_targets or {}).get("strona", web_target),
         ai_ready=lambda: bool(state["inference"] is not None and state["inference"].enabled),
         agent_ask=lambda system, question, images=(): state["inference"].ask(
@@ -1630,6 +1634,62 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return [{"type": "text", "text": str(error)}]
         except (ValueError, KeyError):
             return [{"type": "text", "text": "Nie udało się tego wykonać. Sprawdź polecenie i spróbuj ponownie."}]
+
+    # ------------------------------------------------------------ the small window on top (agent's questions)
+    from .attention import PAGE as ATTENTION_PAGE, Attention, windows_popup
+
+    attention = Attention(opener=attention_opener if attention_opener is not None else (
+                              windows_popup(home / "okno-pytanie") if os.name == "nt" else None),
+                          enabled=lambda: state["settings"].agent.popup)
+
+    def this_computer(request: Request, *, writing: bool = False) -> None:
+        """Only a page of this worker, opened on this very computer."""
+        client = request.client.host if request.client else ""
+        host = request.headers.get("host", "")
+        origin = request.headers.get("origin")
+        if client not in {"127.0.0.1", "::1", "testclient"} or not re.fullmatch(r"(127\.0\.0\.1|localhost|testserver)(:\d+)?", host) \
+                or (writing and origin is not None and origin != f"http://{host}"):
+            raise HTTPException(403, "only on this computer")
+        state["local_base"] = f"http://{host}"
+
+    def ask_notary(identity: Identity, words: str, actions: list, free: str | None = None):
+        if identity.scope != "admin" or not state.get("local_base"):
+            return None                   # a phone asked: its owner is looking at the phone, not at this screen
+        return attention.ask(identity.id, words, actions, free=free,
+                             url=lambda token: f"{state['local_base']}/v2/attention/{token}")
+
+    @app.get("/v2/attention/{token}", response_class=HTMLResponse)
+    def attention_page(token: str, request: Request):
+        this_computer(request)
+        return HTMLResponse(ATTENTION_PAGE.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
+
+    @app.get("/v2/attention/{token}/dane")
+    def attention_data(token: str, request: Request):
+        this_computer(request)
+        shown = attention.shown(token)
+        if shown is None:
+            raise HTTPException(404, "not waiting")
+        return shown
+
+    class AttentionAnswer(BaseModel):
+        choice: int | None = Field(default=None, ge=0, le=10)
+        words: str | None = Field(default=None, max_length=1000)
+
+    @app.post("/v2/attention/{token}")
+    def attention_answer(token: str, answer: AttentionAnswer, request: Request):
+        this_computer(request, writing=True)
+        if not attention.answer(token, choice=answer.choice, words=answer.words):
+            raise HTTPException(410, "not waiting")
+        return {"ok": True}
+
+    @app.get("/v2/agent/inbox")
+    def agent_inbox(request: Request, identity: Identity = Depends(auth)):
+        """Answers given in the small window, for the station's own window to put into the conversation."""
+        try:
+            this_computer(request)        # also how the worker learns its own address on this computer
+        except HTTPException:
+            pass
+        return {"turns": attention.collect(identity.id) if identity.scope == "admin" else []}
 
     @app.post("/v2/agent/stop")
     def agent_stop(identity: Identity = Depends(auth)):
