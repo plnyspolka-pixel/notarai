@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NotarAI Pocket</title>
+  <style>
+    body { font: 16px system-ui; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #17332e; }
+    button, input, textarea, select { font: inherit; padding: 8px; margin: 4px 0; max-width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; }
+    textarea { width: 100%; min-height: 180px; }
+    li { margin: 8px 0; overflow-wrap: anywhere; }
+    label { display: block; }
+  </style>
+</head>
+<body>
+  <h1>NotarAI Pocket</h1>
+  <p>Tryb lokalny. Używaj wyłącznie fikcyjnych dokumentów.</p>
+  <section id="pairing">
+    <label for="code">Kod parowania</label>
+    <input id="code" type="password" autocomplete="off">
+    <button id="pair">Połącz</button>
+  </section>
+  <main id="workspace" hidden>
+    <button id="refresh">Odśwież listę</button>
+    <button id="logout">Rozłącz</button>
+    <h2>Dokumenty</h2>
+    <ul id="docs"></ul>
+    <div id="write-tools" hidden>
+      <button id="new">Nowy dokument tekstowy</button>
+      <label for="file">Importuj plik (do 20 MiB)</label>
+      <input id="file" type="file">
+      <button id="import">Importuj jako nowy dokument</button>
+    </div>
+    <section id="editor" hidden>
+      <h2 id="selected">Dokument</h2>
+      <div id="history" hidden>
+        <label for="versions">Wersja dokumentu</label>
+        <select id="versions"></select>
+        <button id="open-version">Otwórz wersję</button>
+        <button id="download">Pobierz otwartą wersję</button>
+        <div id="replace-tools" hidden>
+          <label for="replacement">Plik do zapisania jako kolejna wersja</label>
+          <input id="replacement" type="file">
+          <button id="replace">Zapisz plik jako kolejną wersję</button>
+        </div>
+      </div>
+      <div id="text-editor" hidden>
+        <label for="name">Nazwa dokumentu tekstowego</label>
+        <input id="name" maxlength="255">
+        <label for="body">Treść</label>
+        <textarea id="body"></textarea>
+        <button id="save">Zapisz nową wersję</button>
+        <button id="copy">Zapisz jako nowy dokument</button>
+      </div>
+    </section>
+  </main>
+  <p id="status" role="status"></p>
+  <script src="/v2/pocket.js"></script>
+</body>
+</html>
