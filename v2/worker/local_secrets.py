@@ -42,5 +42,25 @@ def write_new_secret(home: Path, name: str, data: bytes) -> None:
         file.write(data)
 
 
+def replace_secret(home: Path, name: str, data: bytes) -> None:
+    """Atomically replace an existing secret, keeping its protection scheme."""
+    target = secret_path(home, name)
+    if not target.exists():
+        raise ValueError("no local secret to replace")
+    if target.suffix == ".dpapi":
+        import win32crypt
+
+        data = win32crypt.CryptProtectData(
+            data, None, _entropy(name), None, None, DPAPI_UI_FORBIDDEN
+        )
+    temporary = target.with_name(target.name + ".new")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as file:
+        file.write(data)
+        file.flush()
+        os.fsync(file.fileno())
+    os.replace(temporary, target)
+
+
 def _entropy(name: str) -> bytes:
     return f"NotarAI V2 development:{name}".encode("ascii")
