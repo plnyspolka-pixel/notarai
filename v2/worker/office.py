@@ -73,13 +73,15 @@ def http_transport(address: str, path: str, body: bytes) -> bytes:
 
 class OfficeLink:
     def __init__(self, home: Path, vault, station_name, *, transport=http_transport, address=None,
-                 printers=None, printer=None, screen=None, screen_allowed=lambda: False, clock=time.time):
+                 printers=None, printer=None, screen=None, screen_allowed=lambda: False, clock=time.time,
+                 names=lambda: {}):
         self._home, self._vault, self._name = Path(home), vault, station_name
         self._transport, self._clock = transport, clock
         self._address = address or (lambda: f"{local_address()}:{PORT}")
         self._printers = printers or (lambda: [])
         self._print = printer
         self._screen, self._screen_allowed = screen, screen_allowed
+        self._names = names
         self._lock = threading.Lock()
         self._invites: dict[str, float] = {}
         self._outbox: dict[str, list] = {}        # requests for a station, picked up when it asks us
@@ -242,6 +244,7 @@ class OfficeLink:
             results, self._results[origin] = self._results.get(origin, []), []
         return self.seal({
             "from": self._name(), "printers": self._printers(), "screen": bool(self._screen_allowed()),
+            "names": self._names(),
             "revisions": [{**r, "data": _b64(r["data"])} for r in revisions],
             "notes": notes, "tombs": tombs, "requests": requests, "results": results,
         })
@@ -279,7 +282,7 @@ class OfficeLink:
                 with self._lock:
                     self._results.setdefault(peer["name"], []).append(outcome)
             self.stations[peer["name"]] = {"printers": reply.get("printers", []), "screen": reply.get("screen", False),
-                                           "seen": self._clock()}
+                                           "names": reply.get("names", {}), "seen": self._clock()}
             done[peer["name"]] = applied
         if peers:
             current = {p["name"]: p for p in self.peers()}

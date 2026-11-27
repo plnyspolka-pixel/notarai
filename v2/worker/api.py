@@ -165,7 +165,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
                fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
-               office_transport=None, office_address=None):
+               office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -1064,8 +1064,26 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         home, vault, station_name, transport=office_transport or office_module.http_transport,
         address=office_address, printers=office_module.windows_printers, printer=office_module.windows_print,
         screen=office_module.windows_screen if sys.platform == "win32" else None,
-        screen_allowed=lambda: state["settings"].allow_screen)
+        screen_allowed=lambda: state["settings"].allow_screen, names=lambda: state["settings"].device_names)
     app.state.office = office_link
+
+    from . import peripherals
+
+    network_devices: dict = {"items": [], "when": 0.0}
+
+    def find_devices(refresh: bool = False) -> list[dict]:
+        """Printers and scanners in the office network (looked for at most every 10 minutes unless asked)."""
+        if refresh or time.time() - network_devices["when"] > 600:
+            network_devices["items"] = (device_scan or peripherals.discover)()
+            network_devices["when"] = time.time()
+        return list(network_devices["items"])
+
+    def device_names() -> dict:
+        names = {}
+        for seen in office_link.stations.values():
+            names.update(seen.get("names") or {})
+        names.update(state["settings"].device_names)        # this station's own names win
+        return names
 
     def office_lan_app():
         """The small server for the office network: only sealed envelopes from joined workstations."""
@@ -1355,6 +1373,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         send_mail=lambda identity, to, subject, body, original: send_mail(
             identity, mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
             to, subject, body, original, True),
+        find_devices=find_devices, device_names=device_names,
+        print_network=lambda device, name, data: (ipp or peripherals.ipp_print)(
+            device, (to_pdf or peripherals.word_to_pdf)(name, data), name),
+        scan=lambda device, **options: (escl or peripherals.escl_scan)(device, **options),
         office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
@@ -1406,7 +1428,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         except Exception:
             return {"items": []}
 
-    SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
+    from .peripherals import DeviceError
+
+    SAID = (DeviceError, PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
             RegisterError,
             mail_module.MailError, ProcedureError, FillError, RuleViolation)
 

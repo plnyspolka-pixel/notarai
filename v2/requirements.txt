@@ -62,4 +62,6 @@ typing-extensions==4.16.0
 typing-inspection==0.4.5
 urllib3==2.8.0
 uvicorn==0.54.0
+zeroconf==0.148.0
+ifaddr==0.2.0
 websockets==17.4

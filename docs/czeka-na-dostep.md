@@ -468,4 +468,6 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   na drugim; zezwolić na sieć prywatną w zaporze; sprawdzić wymianę dokumentu, terminu, wiadomości i usunięcia;
   równoległą edycję (dokument „(konflikt)”); „drukarki” i „wydrukuj … w sekretariacie” (Word/PDF przez „printto”);
   „zezwól na podgląd ekranu” i „pokaż ekran …”; zmierzyć opóźnienie (cel: kilka sekund).
+  Drukarki i skanery sieciowe: „znajdź drukarki”, nazwać je, wydruk przez IPP (DOCX przez Worda), skan eSCL
+  do sprawy z szyby i z podajnika; zanotować modele, które nie obsługują IPP/eSCL.
 - **Zamknięte, gdy:** wszystko powyżej działa albo ma opisany powód i poprawkę.

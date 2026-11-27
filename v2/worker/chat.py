@@ -1099,13 +1099,44 @@ class Chat:
             lines = [f"{when(m['created'])} {m['from']} → {m['to']}: {m['text']}" for m in messages[-15:]]
             last = messages[-1]
             return [text("\n".join(lines))] + self._date_in(last["text"], case)
-        # --- printers
-        if plain in {"drukarki", "jakie drukarki", "pokaz drukarki"}:
-            here = s.office_printers()
-            lines = [f"{s.station_name()}: " + (", ".join(here) if here else "nie widzę drukarek")]
+        # --- printers and scanners: installed on each station and found in the office network
+        if plain in {"drukarki", "jakie drukarki", "pokaz drukarki", "skanery", "drukarki i skanery",
+                     "znajdz drukarki", "szukaj drukarek", "znajdz skanery", "odswiez drukarki", "urzadzenia sieciowe"}:
+            refresh = plain.startswith(("znajdz", "szukaj", "odswiez"))
+            if refresh:
+                s.narrate(identity, "Szukam drukarek i skanerów w sieci kancelarii (Bonjour/mDNS, ok. 3 sekundy).")
+            network = s.find_devices(refresh=refresh)
+            names = s.device_names()
+            lines = ["Drukarki zainstalowane w Windows:", f"• {s.station_name()}: " + (", ".join(s.office_printers()) or "brak")]
             for name, seen in link.stations.items():
-                lines.append(f"{name}: " + (", ".join(seen.get("printers") or []) or "nie widzę drukarek"))
-            return [text("Drukarki w kancelarii:\n" + "\n".join(lines))]
+                lines.append(f"• {name}: " + (", ".join(seen.get("printers") or []) or "brak"))
+            for kind, title in (("drukarka", "Drukarki w sieci"), ("skaner", "Skanery w sieci")):
+                items = [d for d in network if d["kind"] == kind]
+                lines.append(f"{title}:" if items else f"{title}: nie znalazłem.")
+                for d in items:
+                    own = names.get(d["id"])
+                    drive = {"ipp": "druk bez sterownika", "ipps": "druk bez sterownika", "escl": "skan bez sterownika",
+                             "escls": "skan bez sterownika"}.get(d["protocol"], "wymaga sterownika")
+                    lines.append(f"• {('„' + own + '” – ') if own else ''}{d['model']} ({d['address']}, {drive})")
+            unnamed = [d for d in network if not names.get(d["id"])]
+            blocks = [text("\n".join(lines))]
+            if unnamed:
+                blocks.append(text("Nazwij urządzenie, żeby wydawać mu polecenia, np. „nazwij drukarkę "
+                                   f"{unnamed[0]['model']} jako Sekretariat”."))
+            blocks.append(buttons(("Szukaj ponownie", "znajdź drukarki")))
+            return blocks
+        found = re.fullmatch(r"nazwij (drukarke|skaner|urzadzenie)\s+(.+?)\s+jako\s+(.+)", plain)
+        if found:
+            if not admin:
+                return [text("Nazwy urządzeń nadaje się na komputerze kancelarii.")]
+            from .peripherals import match as find_device
+            device = find_device(s.find_devices(), s.device_names(), found.group(2))
+            if device is None:
+                return [text("Nie widzę takiego urządzenia. Napisz „znajdź drukarki”, żeby poszukać.")]
+            name = message[len(message) - len(found.group(3)):].strip(" „”\"")[:40]
+            s.update_settings(lambda d: d["device_names"].update({device["id"]: name}))
+            return [text(f"{'Drukarka' if device['kind'] == 'drukarka' else 'Skaner'} {device['model']} nazywa się teraz "
+                         f"„{name}”. Ta nazwa działa na wszystkich stanowiskach, np. „wydrukuj umowa na drukarce {name}”.")]
         found = re.fullmatch(r"(?:wydrukuj|drukuj)\s+(.+?)(?:\s+(?:na drukarce|drukarka)\s+(.+?))?(?:\s+(?:w|na stanowisku|na)\s+(\S+))?", plain)
         if found and identity.scope in {"admin", "write"}:
             match = self._find_document(identity, case, found.group(1))
@@ -1114,15 +1145,48 @@ class Chat:
             _, name, data = s.vault.get(match["id"], actor=identity.id)
             printer = found.group(2)
             station = found.group(3)
+            if printer:
+                from .peripherals import match as find_device
+                device = find_device([d for d in s.find_devices() if d["kind"] == "drukarka"], s.device_names(), printer)
+                if device is not None:
+                    s.narrate(identity, f"Drukuję {name} na drukarce sieciowej {device['model']} ({device['address']}); "
+                                        "dokument Worda najpierw zamieniam na PDF.")
+                    s.print_network(device, name, data)
+                    return [text(f"Wysłałem {name} na drukarkę „{s.device_names().get(device['id'], device['model'])}”.")]
             peer = next((p["name"] for p in link.peers() if station and norm(p["name"]) == station), None)
             if peer:
                 ident = link.request(peer, "print", name=name, data=base64.b64encode(data).decode(), printer=printer)
                 job = s.start_job(identity, lambda: self._wait_answer(ident, f"Drukuję {name} na stanowisku {peer}."))
                 return [text(f"Wysłałem {name} do druku na stanowisku „{peer}”."), {"type": "job", "id": job}]
             if identity.scope != "admin":
-                return [text("Napisz, na którym stanowisku wydrukować, np. „wydrukuj umowa w sekretariacie”.")]
+                return [text("Napisz, na której drukarce albo stanowisku wydrukować, np. „wydrukuj umowa na drukarce Sekretariat”.")]
             s.office_print(name, data, printer)
             return [text(f"Drukuję {name}" + (f" na drukarce {printer}." if printer else " na domyślnej drukarce."))]
+        found = re.fullmatch(r"(?:zeskanuj|skanuj|zrob skan)(?: do sprawy)?(?:\s+(?:na skanerze|skaner|ze skanera)\s+(.+?))?(\s+w kolorze|\s+kolor)?(\s+z podajnika|\s+podajnik)?", plain)
+        if found and identity.scope in {"admin", "write"}:
+            if case is None or not s.may_see_case(identity, case):
+                return [text("Do której sprawy? Wybierz sprawę u góry: skan zapiszę w jej dokumentach.")]
+            from .peripherals import match as find_device
+            scanners = [d for d in s.find_devices() if d["kind"] == "skaner"]
+            device = find_device(scanners, s.device_names(), found.group(1)) if found.group(1) else (scanners[0] if len(scanners) == 1 else None)
+            if device is None:
+                if not scanners:
+                    return [text("Nie widzę skanera w sieci. Napisz „znajdź skanery”; skaner musi obsługiwać skanowanie "
+                                 "przez sieć (eSCL/AirScan), co ma większość urządzeń wielofunkcyjnych.")]
+                names = s.device_names()
+                return [text("Na którym skanerze?"), buttons(*[(names.get(d["id"], d["model"]), f"zeskanuj na skanerze {names.get(d['id'], d['model'])}") for d in scanners])]
+            color, feeder = bool(found.group(2)), bool(found.group(3))
+
+            def scan():
+                s.narrate(identity, f"Skanuję na {device['model']} ({'kolor' if color else 'skala szarości'}, "
+                                    f"{'podajnik' if feeder else 'szyba'}), 300 dpi, do PDF.")
+                pdf = s.scan(device, color=color, feeder=feeder)
+                name = f"skan {time.strftime('%Y-%m-%d %H-%M')}.pdf"
+                doc_id, version = s.vault.put(None, 0, name, pdf, actor=identity.id, case=case)
+                return [text(f"Zeskanowałem do sprawy „{case}” jako {name}."),
+                        {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}]
+            job = s.start_job(identity, scan)
+            return [text(f"Skanuję na „{s.device_names().get(device['id'], device['model'])}”…"), {"type": "job", "id": job}]
         # --- screen of another station
         found = re.fullmatch(r"(?:pokaz|podglad|zobacz) ekran(?:u)?\s+(.+)", plain)
         if found and admin:
