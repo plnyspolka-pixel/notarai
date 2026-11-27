@@ -32,7 +32,9 @@ def test_aplikacja_otwiera_pocket_na_notarai_pl():
     assert f'applicationId "{PAKIET}"' in gradle and f'namespace "{PAKIET}"' in gradle
     aktywnosc = next(a for a in _manifest_aplikacji().iter("activity") if a.get(NS + "name").endswith("LauncherActivity"))
     meta = _meta(aktywnosc)
-    assert meta["android.support.customtabs.trusted.DEFAULT_URL"] == "https://notarai.pl/pocket/"
+    # Powłoka podaje stronie swój numer paczki; strona porównuje go z wersja.json.
+    assert meta["android.support.customtabs.trusted.DEFAULT_URL"] == "https://notarai.pl/pocket/?apk=${kodWersji}"
+    assert "manifestPlaceholders = [kodWersji: kodWersji.toString()]" in gradle and "versionCode kodWersji" in gradle
     # Bez Chrome strona idzie do karty przeglądarki, nigdy do WebView: klucz urządzenia zostaje w przeglądarce.
     assert meta["android.support.customtabs.trusted.FALLBACK_STRATEGY"] == "customtabs"
 
@@ -121,8 +123,41 @@ def test_apk_na_stronie_jest_podpisane_kluczem_z_assetlinks():
     assert "pocket/NotarAI-Pocket.apk" in strona_ftp.pliki_lokalne(str(STRONA))
     html = (STRONA / "do-pobrania" / "index.html").read_text(encoding="utf-8")
     assert 'href="../pocket/NotarAI-Pocket.apk"' in html
-    wersja = re.search(r'versionName "([^"]+)"', (ANDROID / "app" / "build.gradle").read_text(encoding="utf-8")).group(1)
+    gradle = (ANDROID / "app" / "build.gradle").read_text(encoding="utf-8")
+    wersja = re.search(r'versionName "([^"]+)"', gradle).group(1)
     assert f"Wersja {wersja}" in html
+    # Ten sam numer w paczce i na stronie; inaczej telefony dostaną fałszywą informację o aktualizacji.
+    opis = json.loads((STRONA / "pocket" / "wersja.json").read_text(encoding="utf-8"))
+    assert opis == {"versionCode": int(re.search(r"def kodWersji = (\d+)", gradle).group(1)), "versionName": wersja}
+    import io
+    import zipfile
+
+    binarny = zipfile.ZipFile(io.BytesIO(dane)).read("AndroidManifest.xml")
+    adres = f"https://notarai.pl/pocket/?apk={opis['versionCode']}"      # paczka na stronie ma ten sam numer
+    assert adres.encode("utf-8") + b"\x00" in binarny or adres.encode("utf-16-le") + b"\x00\x00" in binarny
+
+
+def test_nowe_funkcje_trafiaja_do_wszystkich_bez_nowej_paczki():
+    """Aplikacja wyświetla stronę, więc aktualizuje się razem z nią. Service worker pobiera powłokę
+    z pominięciem pamięci HTTP (nowa wersja przy najbliższym otwarciu), a o nowszej paczce informuje
+    aktualizacja.js. Po eksporcie z V2 te dodatki dopisuje tools/pocket_strona.py."""
+    katalog = STRONA / "pocket"
+    sw = (katalog / "pocket-sw.js").read_text(encoding="utf-8")
+    assert 'fetch(event.request, { cache: "no-cache" })' in sw and '"aktualizacja.js"' in sw
+    assert "self.skipWaiting()" in sw and "self.clients.claim()" in sw
+    html = (katalog / "index.html").read_text(encoding="utf-8")
+    assert html.index('src="aktualizacja.js"') < html.index('src="pocket.js"')
+    kod = (katalog / "aktualizacja.js").read_text(encoding="utf-8")
+    assert 'fetch("wersja.json", { cache: "no-store" })' in kod and "innerHTML" not in kod and "eval(" not in kod
+    assert re.search(r"https?://", kod) is None           # tylko własne pliki, zgodnie z CSP strony
+    przed = {p.name: p.read_bytes() for p in katalog.iterdir()}
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("pocket_strona", ROOT / "tools" / "pocket_strona.py")
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    modul.dopisz()                                         # powtarzalne: nic nie zmienia w gotowej stronie
+    assert przed == {p.name: p.read_bytes() for p in katalog.iterdir()}
 
 
 def test_klucz_podpisu_nie_lezy_w_repozytorium():

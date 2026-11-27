@@ -32,7 +32,7 @@
             android:label="@string/nazwa">
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="https://notarai.pl/pocket/" />
+                android:value="https://notarai.pl/pocket/?apk=${kodWersji}" />
             <meta-data
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
                 android:resource="@color/zielen" />

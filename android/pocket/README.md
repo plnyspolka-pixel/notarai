@@ -32,5 +32,15 @@ podpisania zapisz `keystore_b64` po zdekodowaniu do pliku poza repozytorium i us
 
 Wynik: `app/build/outputs/apk/release/app-release.apk` (do pobrania ze strony; skopiuj jako
 `strona/pocket/NotarAI-Pocket.apk` i popraw numer wersji na `strona/do-pobrania/index.html`) i
-`app/build/outputs/bundle/release/app-release.aab` (Google Play). Przy każdym wydaniu podnieś
-`versionCode` w `app/build.gradle`.
+`app/build/outputs/bundle/release/app-release.aab` (Google Play).
+
+## Aktualizacje
+
+- Nowe funkcje Pocket trafiają do wszystkich same: aplikacja wyświetla stronę, a service worker pobiera
+  ją przy każdym otwarciu z pominięciem pamięci podręcznej. Wystarczy opublikować stronę.
+- Nową paczkę wydaje się tylko przy zmianie samej powłoki (ikona, nazwa, ustawienia systemowe). Podnieś
+  `kodWersji` w `app/build.gradle` i `versionCode` w `strona/pocket/wersja.json`, zbuduj, podmień APK na
+  stronie. Aplikacja pokaże wtedy wiersz „Jest nowa wersja” z przyciskiem pobrania
+  (`strona/pocket/aktualizacja.js`). Android nie pozwala instalować po cichu aplikacji spoza sklepu,
+  więc użytkownik potwierdza instalację jednym dotknięciem.
+- Po eksporcie strony z gałęzi V2 uruchom `python3 tools/pocket_strona.py`, bo eksport nadpisuje te dodatki.
