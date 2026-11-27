@@ -31,6 +31,12 @@ SYSTEM_DRAFT = (
     "4. Nie obliczaj taksy notarialnej ani podatków; oblicza je program.\n"
     "5. Projekt jest propozycją do sprawdzenia przez notariusza."
 )
+SYSTEM_GENERAL = (
+    "Jesteś asystentem polskiej kancelarii notarialnej i rozmawiasz z notariuszem albo pracownikiem kancelarii. "
+    "Odpowiadaj po polsku, rzeczowo i krótko. W sprawach prawa podawaj podstawę prawną, gdy ją znasz, i mów wprost, "
+    "gdy czegoś nie wiesz albo przepis mógł się zmienić. Nie obliczaj taksy notarialnej: oblicza ją program "
+    "(wystarczy napisać „taksa”). Znaczniki w nawiasach kwadratowych zastępują dane osobowe: przepisuj je bez zmian."
+)
 SYSTEM_CHAT = (
     "Jesteś asystentem polskiej kancelarii notarialnej. Odpowiadaj zwięźle, wyłącznie na podstawie "
     "dokumentów sprawy podanych niżej. Jeśli odpowiedzi w nich nie ma, powiedz to wprost. "
@@ -129,6 +135,12 @@ class Drafts:
         )
         return {"answer": answer.text, "sources": sources, "skipped": skipped,
                 "unknown_placeholders": list(answer.unknown_placeholders)}
+
+    def general(self, question: str, names=()) -> dict:
+        """A question with no case chosen: the assistant answers from general knowledge, reading no documents."""
+        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL, names=list(names), max_tokens=2048,
+                                     text=question)
+        return {"answer": answer.text, "unknown_placeholders": list(answer.unknown_placeholders)}
 
     def propose(self, case: str, instruction: str, actor: str, names=()) -> Proposal:
         names = self._names(case, names)

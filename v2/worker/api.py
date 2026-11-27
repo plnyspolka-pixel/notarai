@@ -162,14 +162,18 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         """(Re)build the AI objects from settings. Injected test doubles are left alone."""
         state["settings"] = new_settings
         if injected:
-            if state["inference"] is None:
-                state["inference"] = Inference(None, None, ledger)
+            if inference is None:          # an injected account still powers the chat's assistant
+                policy = Policy(new_settings.ai.region, new_settings.ai.model) if allow_bedrock and account is not None else None
+                state["inference"] = Inference(
+                    policy, account.client_factory(new_settings.ai.region) if policy else None, ledger,
+                    pseudonymize=lambda: state["settings"].ai.pseudonymize)
             return
         current = None
         if allow_bedrock and new_settings.account is not None:
             current = Account(home, new_settings.account_config())
         policy = None
-        if allow_bedrock and new_settings.ai.enabled and current is not None:
+        # The assistant is the chat: it works whenever this workstation has a NotarAI account.
+        if allow_bedrock and current is not None:
             policy = Policy(new_settings.ai.region, new_settings.ai.model)
         state["account"] = current
         state["inference"] = Inference(
@@ -907,6 +911,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     chat = Chat(SimpleNamespace(
         layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
         rules=rules, style=style, listening=lambda: app.state.listening,
+        general=lambda question, names: drafts.general(question, names),
         status_listen=lambda: state["settings"].listen.model_dump(),
         can_transcribe=lambda: transcriber is not None or local_speech.available(),
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
@@ -945,6 +950,14 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                         {"id": d["id"], "name": d["name"], "version": d["version"], "case": d["case"]} for d in recent]})
                 return blocks
             return chat.say(identity, turn.text, turn.case, turn.names)
+        except LoginError as error:
+            # Sign-in happens right here in the conversation, on the workstation.
+            blocks = [{"type": "text", "text": str(error)}]
+            if identity.scope == "admin" and state["account"] is not None:
+                blocks.append({"type": "login"})
+            elif identity.scope != "admin":
+                blocks[0]["text"] += " Zaloguj się na komputerze kancelarii, w panelu stanowiska."
+            return blocks
         except SAID as error:        # these carry sentences written for the notary
             return [{"type": "text", "text": str(error)}]
         except (ValueError, KeyError):

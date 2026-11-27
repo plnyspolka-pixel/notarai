@@ -184,8 +184,11 @@ class Chat:
             if match:
                 return [text("Który dokument?"), {"type": "documents", "items": match}]
         if case is None:
-            return [text("Wybierz sprawę, a odpowiem na podstawie jej dokumentów."),
-                    buttons(("Sprawy", "sprawy"), ("Co umiesz?", "pomoc"))]
+            if plain.startswith(DRAFT_WORDS):
+                return [text("Do której sprawy? Wybierz sprawę u góry albo napisz „nowa sprawa” i jej nazwę."),
+                        buttons(("Sprawy", "sprawy"))]
+            # No case chosen: the same chat answers as a general assistant, without reading any documents.
+            return [text(s.general(message, names)["answer"])]
         if not s.may_see_case(identity, case):
             return [text("Nie ma takiej sprawy.")]
         if plain.startswith(DRAFT_WORDS) or " projekt " in f" {plain} ":
@@ -371,7 +374,7 @@ class Chat:
                       "w formularz sam, a wyślę dopiero, gdy zatwierdzisz",
                       "• „otwórz stronę https://…” w przeglądarce NotarAI (logujesz się w niej raz)",
                       "• „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”",
-                      "• „włącz asystenta”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
+                      "• „zaloguj”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
         return [text("\n".join(lines))]
 
     def _documents(self, identity, case) -> list[dict]:
@@ -651,13 +654,15 @@ class Chat:
             return [text("Dostęp spoza kancelarii włączony. Nowe telefony sparujesz kodem QR: napisz „dodaj telefon”."
                          if on else "Dostęp spoza kancelarii wyłączony. Telefony działają tylko na tym komputerze.")]
         if (on or off) and re.search(r"asystent|\bai\b|sztuczn", plain):
-            if on and not s.account_configured():
+            if not s.account_configured():
                 return [text("To stanowisko nie ma jeszcze danych konta NotarAI. Otrzymasz je przy wdrożeniu.")]
-            s.update_settings(lambda d: d["ai"].update(enabled=on))
-            blocks = [text("Asystent włączony." if on else "Asystent wyłączony.")]
-            if on and not s.signed_in():
-                blocks += [text("Zaloguj się kontem NotarAI:"), {"type": "login"}]
-            return blocks
+            if off:
+                s.logout()
+                return [text("Wylogowałem stanowisko z NotarAI. Czat działa dalej dla dokumentów, taksy i poleceń; "
+                             "na pytania odpowiem znowu po zalogowaniu.")]
+            if s.signed_in():
+                return [text("Asystent działa: po prostu pisz w tym czacie.")]
+            return [text("Zaloguj się kontem NotarAI, a odpowiem na pytania w tym czacie:"), {"type": "login"}]
         if plain in {"zaloguj", "zaloguj sie", "logowanie", "zaloguj do ai"}:
             if not s.account_configured():
                 return [text("To stanowisko nie ma jeszcze danych konta NotarAI.")]
@@ -794,7 +799,7 @@ class Chat:
             ("Ostatnia kopia: " + when(st["last_backup"]) + ".") if st["last_backup"] else "Kopii zapasowej jeszcze nie było.",
             "Kopia poza kancelarią: " + (("włączona, ostatnia " + when(st["last_offsite"])) if st["last_offsite"]
                                          else "włączona, jeszcze nie wysłana" if st["offsite"] else "wyłączona") + ".",
-            "Asystent: " + ("włączony" if st["ai"] else "wyłączony") + (", zalogowany" if st["signed_in"] else "")
+            "Asystent: " + ("zalogowany" if st["signed_in"] else "niezalogowany" if st["ai"] else "brak konta NotarAI na stanowisku")
             + ("; pseudonimizacja włączona." if st["pseudonymize"] else "; pseudonimizacja wyłączona."),
             "Dostęp spoza kancelarii: " + ("połączony z przekaźnikiem." if st["tunnel_connected"]
                                            else "włączony, brak połączenia." if st["tunnel"] else "wyłączony."),

@@ -29,7 +29,18 @@ V1 pozostaje nietknięte.
 | Telefon poza kancelarią | Parowanie kodem QR, szyfrowanie od telefonu do komputera, klucz nie opuszcza telefonu | przeglądarka przez lokalny przekaźnik |
 | Panel stanowiska | Kod odzyskiwania, kopie, urządzenia, logowanie do AI, dziennik, zużycie | przeglądarka |
 
+## Instalator
+
+Stały link do najnowszego przetestowanego instalatora (po zalogowaniu na GitHubie):
+https://github.com/plnyspolka-pixel/notarai/releases/download/notarai-v2-podglad/NotarAI-V2-Setup-x64.exe
+
+Każda udana budowa w CI podmienia plik pod tym linkiem; suma SHA-256 jest w opisie wydania.
+
 ## Jak się tego używa
+
+Asystent to ten sam czat: bez wybranej sprawy odpowiada na pytania ogólne, z wybraną sprawą na podstawie jej
+dokumentów. Nie ma osobnego włączania AI; jeśli stanowisko nie jest zalogowane do NotarAI, formularz
+logowania pojawia się w czacie.
 
 Jedno okno rozmowy, w Pocket i w panelu stanowiska. Piszesz zwykłym zdaniem, bez tabel i formularzy:
 

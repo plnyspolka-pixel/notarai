@@ -111,7 +111,12 @@ def test_a_notary_works_through_a_case_by_talking(office):
     assert "RAZEM" in texts(say(client, phone, ask[1]["items"][0]["say"]))
     assert "wartość" in texts(say(client, phone, "taksa od darowizny"))
 
-    assert "Wybierz sprawę" in texts(say(client, phone, "Kto sprzedaje?"))
+    # With no case chosen the same chat answers as a general assistant and reads no case documents.
+    before = len(bedrock.prompts)
+    general = texts(say(client, phone, "Jaki jest termin na złożenie wniosku o wpis do księgi?"))
+    assert general and "Wniosek" not in general.split()[0:1]
+    assert "PYTANIE" not in bedrock.prompts[before] and "44051401359" not in bedrock.prompts[before]
+    assert "Do której sprawy" in texts(say(client, phone, "przygotuj umowę sprzedaży"))
     assert "przygotuj" in norm(texts(say(client, phone, "pomoc")))
 
 
@@ -230,3 +235,32 @@ def test_the_workspace_is_the_notarys_own(office):
     assert "+ Zrób kopię" in [i["label"] for i in say(client, admin, "narzędzia")[1]["items"]]
     assert say(client, admin, "dodaj kafelek Zrób kopię")[0]["layout"]["tiles"] == [{"label": "Zrób kopię", "say": "zrób kopię"}]
     assert say(client, phone, "wyczyść pulpit")[0]["layout"] == {"show": False, "tiles": []}
+
+
+
+def test_one_chat_signs_in_and_answers(tmp_path):
+    """The assistant is not a separate mode: with an account it answers; without sign-in it asks, in the chat."""
+    from worker.aws_credentials import LoginError
+
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+
+    class Account:
+        signed_in = False
+
+        def client_factory(self, region=None):
+            def factory(service):
+                raise LoginError("Zaloguj się do NotarAI, aby korzystać z AI.")
+            return factory
+
+        def logout(self):
+            self.signed_in = False
+
+    account = Account()
+    client = TestClient(create_app(home, account=account))
+    blocks = say(client, admin, "Co to jest służebność przesyłu?")
+    assert blocks == [{"type": "text", "text": "Zaloguj się do NotarAI, aby korzystać z AI."}, {"type": "login"}]
+    phone = device(client, admin)
+    assert "w panelu stanowiska" in texts(say(client, phone, "Co to jest służebność przesyłu?"))
+    assert "Zaloguj się kontem NotarAI" in texts(say(client, admin, "włącz asystenta"))
+    assert "RAZEM" in texts(say(client, admin, "policz taksę od sprzedaży lokalu mieszkalnego za 500 tys."))   # no AI needed
