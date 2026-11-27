@@ -193,3 +193,66 @@ def test_relay_routing_and_connect_url(office):
         for junk in ("x", "{}", json.dumps({"from": 5, "data": "x"})):
             assert await relay.route(junk) == []
     run(scenario())
+
+
+def test_relay_accepts_the_python_worker_proof(office):
+    """The relay is JavaScript, the worker is Python: check they agree on the signature format."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+    from urllib.parse import parse_qs, urlsplit
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    _, app, keys, devices = office
+    url = RelayClient("wss://relay.example/v1", keys, devices, app.state.dispatch).connect_url()
+    query = {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+    relay = Path(__file__).resolve().parents[1] / "relay" / "relay.mjs"
+    script = (f"import {{workerProofIsValid}} from {json.dumps(relay.as_uri())};"
+              f"const q = {json.dumps(query)}; const now = Number(q.ts);"
+              "console.log(workerProofIsValid(q, now), workerProofIsValid({...q, ts: String(now - 1)}, now));")
+    out = subprocess.run([node, "--input-type=module", "-e", script], capture_output=True, text=True, timeout=30)
+    assert out.stdout.split() == ["true", "false"], out.stderr
+
+
+def test_worker_reaches_devices_through_a_relay_with_no_listening_port(office):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "e2e"))
+    import websockets
+    from dev_relay import DevRelay
+
+    _, app, keys, devices = office
+
+    async def scenario():
+        hub = DevRelay()
+        server, port = await hub.serve()
+        worker = RelayClient(f"ws://127.0.0.1:{port}", keys, devices, app.state.dispatch)
+        task = asyncio.create_task(worker.run())
+        await asyncio.wait_for(worker.connected.wait(), 5)
+        try:
+            async with websockets.connect(f"ws://127.0.0.1:{port}?role=client&office={keys.office}") as socket:
+                async def send(frame):
+                    await socket.send(frame)
+                    return [await asyncio.wait_for(socket.recv(), 5)]
+                client = Client(keys.public, send)
+                await client.connect()
+                await client.pair(devices.invite("telefon", "write")["code"], ec.generate_private_key(ec.SECP256R1()))
+                status, _ = await client.request("POST", "/v2/documents", {
+                    "name": "TAJNE.txt", "expected_version": 0, "content_b64": base64.b64encode(b"TAJNE").decode()})
+                assert status == 200
+            # An unknown office and a forged worker are refused.
+            with pytest.raises(websockets.exceptions.ConnectionClosed):
+                async with websockets.connect(f"ws://127.0.0.1:{port}?role=client&office={'0' * 32}") as socket:
+                    await socket.recv()
+            with pytest.raises(websockets.exceptions.ConnectionClosed):
+                async with websockets.connect(
+                        f"ws://127.0.0.1:{port}?role=worker&office={keys.office}&key=AAAA&ts=1&sig=AAAA") as socket:
+                    await socket.recv()
+        finally:
+            task.cancel()
+            server.close()
+        assert hub.frames and not any("TAJNE" in frame or "documents" in frame for frame in hub.frames)
+    run(scenario())

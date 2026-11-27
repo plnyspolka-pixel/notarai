@@ -23,6 +23,8 @@ async function statusIs(page, text) {
     server.stdout.once("data", chunk => resolve(JSON.parse(chunk.toString().split("\n")[0])));
     server.once("exit", code => reject(new Error("server exited " + code)));
   });
+  const relay = spawn(python, [path.join(__dirname, "relay_serve.py")], { stdio: ["ignore", "pipe", "inherit"] });
+  const relayPort = await new Promise(resolve => relay.stdout.once("data", chunk => resolve(chunk.toString().trim())));
   const browser = await chromium.launch();
   const problems = [];
   try {
@@ -119,6 +121,49 @@ async function statusIs(page, text) {
     await panel.getByRole("button", { name: "Wydaj kod parowania" }).click();
     await panel.locator("#pair-code:not([hidden])").waitFor();
 
+    // ---- remote access: enable the tunnel, pair a phone from the QR link, reconnect by device key
+    await panel.getByLabel("Adres przekaźnika").fill("ws://127.0.0.1:" + relayPort);
+    await panel.getByLabel("Adres strony Pocket").fill(info.url + "/pocket");
+    await panel.getByLabel("Zezwól na dostęp spoza kancelarii").check();
+    await panel.locator("#save-tunnel").click();
+    await statusIs(panel, "Dostęp spoza kancelarii włączony.");
+    await panel.locator("#tunnel-state", { hasText: "Połączono z przekaźnikiem." }).waitFor();
+    await panel.getByLabel("Nowe urządzenie – nazwa").fill("Telefon zdalny");
+    await panel.getByLabel("Dostęp", { exact: true }).selectOption("write");
+    await panel.getByRole("button", { name: "Wydaj kod parowania" }).click();
+    await panel.locator("#remote-pair:not([hidden])").waitFor();
+    const link = await panel.locator("#pair-qr").getAttribute("data-link");
+    assert(link.includes("#r=ws") && link.includes("&c="), "pairing link: " + link);
+    if (shots) await panel.locator("#remote-pair").screenshot({ path: path.join(shots, "qr.png") });
+
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const remote = await phone.newPage();
+    remote.on("console", message => { if (message.type() === "error") problems.push("remote: " + message.text()); });
+    remote.on("pageerror", error => problems.push("remote: " + String(error)));
+    remote.on("dialog", dialog => dialog.accept());
+    const api = [];
+    remote.on("request", request => { if (/\/v2\/(documents|cases|status|drafts|taksa)/.test(request.url())) api.push(request.url()); });
+    await remote.goto(link);
+    await statusIs(remote, "Urządzenie sparowane.");
+    assert(!remote.url().includes("#"), "pairing link left in the address bar");
+    await remote.getByRole("button", { name: "umowa.docx · wersja 1" }).waitFor();
+    await remote.reload();
+    await statusIs(remote, "Połączono z prawem zapisu.");
+    await remote.getByRole("button", { name: "notatka.txt · wersja 1" }).click();
+    await remote.waitForFunction(() => document.getElementById("body").value.includes("Jan Kowalski"));
+    await remote.getByLabel("Treść", { exact: true }).fill("Zmiana z telefonu poza kancelarią.");
+    await remote.getByRole("button", { name: "Zapisz nową wersję" }).click();
+    await statusIs(remote, "Zapisano wersję 2.");
+    assert(api.length === 0, "remote Pocket bypassed the tunnel: " + api.join(", "));
+    await panel.getByRole("button", { name: "Odśwież dziennik" }).click();
+    await panel.locator("#audit tr", { hasText: "Telefon zdalny" }).first().waitFor();
+    await panel.locator("#devices tr", { hasText: "Telefon zdalny" }).getByRole("button", { name: "Cofnij dostęp" }).click();
+    await statusIs(panel, "Dostęp cofnięty.");
+    await remote.getByRole("button", { name: "Odśwież listę" }).click();
+    await statusIs(remote, "dostęp został cofnięty");
+    await remote.reload();
+    await statusIs(remote, "Kancelaria odrzuciła połączenie.");
+
     // ---- the revoked phone is cut off
     await page.getByRole("button", { name: "Odśwież listę" }).click();
     await statusIs(page, "dostęp został cofnięty");
@@ -131,9 +176,10 @@ async function statusIs(page, text) {
 
     const expected = problems.filter(text => !/401|403|409/.test(text));
     assert(expected.length === 0, "browser errors: " + expected.join(" | "));
-    console.log("E2E OK: pairing, case, draft with approval, fee, limited device, panel, backup, revocation.");
+    console.log("E2E OK: pairing, case, draft with approval, fee, limited device, panel, backup, revocation, remote tunnel.");
   } finally {
     await browser.close();
     server.kill();
+    relay.kill();
   }
 })().catch(error => { console.error(error.message || error); process.exit(1); });

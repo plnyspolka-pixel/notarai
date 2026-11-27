@@ -4,6 +4,7 @@ const el = id => document.getElementById(id);
 let token = "";
 let settings = null;
 let deviceNames = {};
+let tunnelState = { enabled: false };
 
 const ACTIONS = {
   read: "odczyt", write: "zapis", backup: "kopia zapasowa", restore: "odtworzenie z kopii",
@@ -87,6 +88,33 @@ async function loadStatus() {
   el("logout-ai").hidden = !state.ai.signed_in;
 }
 
+async function loadTunnel() {
+  tunnelState = await call("tunnel");
+  el("tunnel-enabled").checked = settings.tunnel.enabled;
+  el("relay-url").value = settings.tunnel.relay_url;
+  el("pocket-url").value = settings.tunnel.pocket_url;
+  el("tunnel-state").textContent = !tunnelState.enabled ? "Dostęp spoza kancelarii jest wyłączony."
+    : (tunnelState.connected ? "Połączono z przekaźnikiem." : "Brak połączenia z przekaźnikiem (ponawiam).");
+}
+
+function drawQr(text) {
+  const code = qrcode(0, "M");
+  code.addData(text);
+  code.make();
+  const count = code.getModuleCount(), scale = 5, margin = 4;
+  const canvas = el("pair-qr");
+  canvas.width = canvas.height = (count + 2 * margin) * scale;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#000";
+  for (let row = 0; row < count; row++) {
+    for (let column = 0; column < count; column++) {
+      if (code.isDark(row, column)) context.fillRect((column + margin) * scale, (row + margin) * scale, scale, scale);
+    }
+  }
+}
+
 async function loadDevices() {
   const devices = await call("devices");
   deviceNames = Object.fromEntries(devices.map(device => [device.id, device.name]));
@@ -114,6 +142,7 @@ async function loadUsage() {
 }
 
 async function loadAudit() {
+  await loadDevices();    // names of devices paired since the panel was opened
   const entries = await call("audit?limit=100");
   el("audit").replaceChildren(...entries.map(entry => cells([
     when(Math.floor(entry.ts / 1e9)),
@@ -125,6 +154,7 @@ async function loadAudit() {
 
 async function loadAll() {
   await loadStatus();
+  await loadTunnel();
   await loadDevices();
   await loadUsage();
   await loadAudit();
@@ -182,6 +212,13 @@ el("invite").onclick = run(async () => {
   });
   el("pair-code").textContent = result.code;
   el("pair-code").hidden = false;
+  el("remote-pair").hidden = !tunnelState.enabled;
+  if (tunnelState.enabled) {
+    const link = tunnelState.pocket + "#" + new URLSearchParams({
+      r: tunnelState.relay, o: tunnelState.office, k: tunnelState.key, c: result.code }).toString();
+    drawQr(link);
+    el("pair-qr").dataset.link = link;
+  }
   el("device-name").value = "";
   status("Kod parowania jest ważny 5 minut i działa jeden raz.");
 });
@@ -189,6 +226,13 @@ el("save-ai").onclick = run(async () => {
   settings = await call("settings", "PUT", { ...settings, ai: { ...settings.ai, enabled: el("ai-enabled").checked } });
   status(settings.ai.enabled ? "Asystent włączony." : "Asystent wyłączony.");
   await loadStatus();
+});
+el("save-tunnel").onclick = run(async () => {
+  settings = await call("settings", "PUT", { ...settings, tunnel: {
+    enabled: el("tunnel-enabled").checked, relay_url: el("relay-url").value.trim(), pocket_url: el("pocket-url").value.trim() } });
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  await loadTunnel();
+  status(settings.tunnel.enabled ? "Dostęp spoza kancelarii włączony." : "Dostęp spoza kancelarii wyłączony.");
 });
 el("login").onclick = run(async () => {
   try {

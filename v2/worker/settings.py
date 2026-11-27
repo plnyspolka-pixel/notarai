@@ -1,6 +1,7 @@
 """Non-secret workstation settings in settings.json. Missing file means everything optional is off."""
 import json
 import os
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -35,10 +36,33 @@ class ReplicaSettings(_Strict):
     region: str = "eu-central-1"
 
 
+class TunnelSettings(_Strict):
+    """Remote access for paired devices through the relay. Off by default."""
+    enabled: bool = False
+    relay_url: str = Field(default="", max_length=300)
+    pocket_url: str = Field(default="", max_length=300)   # where the Pocket page is served over HTTPS
+
+    def check(self) -> None:
+        if not self.enabled:
+            return
+        local = self.relay_url.startswith("ws://127.0.0.1:")      # development relay only
+        if not (re.fullmatch(r"wss://[A-Za-z0-9.-]+(:\d+)?(/[\w./-]*)?", self.relay_url) or local):
+            raise ValueError("relay must use TLS")
+        if not (re.fullmatch(r"https://[A-Za-z0-9.-]+(:\d+)?(/[\w./-]*)?", self.pocket_url)
+                or self.pocket_url.startswith("http://127.0.0.1:")):
+            raise ValueError("Pocket must be served over HTTPS")
+
+    def relay_origin(self) -> str | None:
+        if not self.enabled:
+            return None
+        return re.match(r"wss?://[^/]+", self.relay_url).group(0)
+
+
 class Settings(_Strict):
     ai: AiSettings = AiSettings()
     account: AccountSettings | None = None
     replica: ReplicaSettings = ReplicaSettings()
+    tunnel: TunnelSettings = TunnelSettings()
     backup_dir: str | None = None
     backup_reminder_days: int = Field(default=7, ge=1, le=90)
 
@@ -53,6 +77,7 @@ def validate(data) -> Settings:
         settings = Settings.model_validate(data)
         check_static(settings.ai.region, settings.ai.model)
         settings.account_config()
+        settings.tunnel.check()
     except (ValidationError, PermissionError, TypeError):
         raise ValueError("settings are invalid") from None
     return settings

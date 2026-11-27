@@ -1,8 +1,10 @@
+import asyncio
 import base64
 import binascii
 import secrets
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import NamedTuple
 
@@ -31,7 +33,8 @@ from .vault import Vault, Conflict, MAX_BYTES, valid_case
 CASE = r"^[\w.-]{1,64}$"
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
-          "pocket-icon.svg": "image/svg+xml", "admin.js": "application/javascript"}
+          "pocket-icon.svg": "image/svg+xml", "admin.js": "application/javascript",
+          "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
 
 
 class Identity(NamedTuple):
@@ -138,7 +141,31 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
     settings = None   # read state["settings"]; it can change while the worker runs
 
-    app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
+    relay: dict = {"task": None, "client": None, "keys": None}
+
+    async def restart_relay():
+        """One outbound connection to the relay when remote access is on; none otherwise."""
+        if relay["task"] is not None:
+            relay["task"].cancel()
+            relay["task"] = relay["client"] = None
+        tunnel_settings = state["settings"].tunnel
+        if not tunnel_settings.enabled:
+            return
+        from .tunnel import RelayClient, TunnelKeys
+
+        relay["keys"] = relay["keys"] or TunnelKeys(home)
+        relay["client"] = RelayClient(tunnel_settings.relay_url, relay["keys"], devices, app.state.dispatch)
+        relay["task"] = asyncio.create_task(relay["client"].run())
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        await restart_relay()
+        yield
+        if relay["task"] is not None:
+            relay["task"].cancel()
+
+    app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None,
+                  lifespan=lifespan)
 
     def auth(authorization: str = Header(default="")) -> Identity:
         if secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
@@ -233,7 +260,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        relay_origin = state["settings"].tunnel.relay_origin()
+        connect_src = "'self'" + (" " + relay_origin if relay_origin else "")
+        response.headers["Content-Security-Policy"] = f"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src {connect_src}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
@@ -313,8 +342,21 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     def settings_read():
         return state["settings"].model_dump()
 
+    @app.get("/v2/tunnel", dependencies=[Depends(admin)])
+    def tunnel_status():
+        tunnel_settings = state["settings"].tunnel
+        if not tunnel_settings.enabled:
+            return {"enabled": False}
+        from .tunnel import b64e
+
+        return {
+            "enabled": True, "connected": bool(relay["client"] and relay["client"].connected.is_set()),
+            "relay": tunnel_settings.relay_url, "pocket": tunnel_settings.pocket_url,
+            "office": relay["keys"].office, "key": b64e(relay["keys"].public),
+        }
+
     @app.put("/v2/settings", dependencies=[Depends(admin)])
-    def settings_write(body: dict):
+    async def settings_write(body: dict):
         try:
             new = validate_settings(body)
         except ValueError:
@@ -326,6 +368,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise recovery.RecoveryError("Katalog kopii nie istnieje albo dysk nie jest podłączony.")
         save_settings(home, new)
         configure(new)
+        await restart_relay()
         vault.log("local-admin", "settings")
         return new.model_dump()
 

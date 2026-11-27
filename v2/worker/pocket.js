@@ -16,28 +16,36 @@ function status(message) {
   el("status").textContent = message;
 }
 
+let tunnel = null;   // set when this device reaches the office through the relay
+
 async function call(path, method = "GET", data) {
-  const headers = {};
-  if (data !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers.Authorization = "Bearer " + token;
-  const response = await fetch("/v2/" + path, {
-    method, headers, cache: "no-store", credentials: "omit",
-    body: data === undefined ? undefined : JSON.stringify(data),
-  });
-  if (response.status === 401) {
+  let status, body = null;
+  if (tunnel) {
+    ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+  } else {
+    const headers = {};
+    if (data !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = "Bearer " + token;
+    const response = await fetch("/v2/" + path, {
+      method, headers, cache: "no-store", credentials: "omit",
+      body: data === undefined ? undefined : JSON.stringify(data),
+    });
+    status = response.status;
+    try { body = await response.json(); } catch { /* no body */ }
+  }
+  if (status === 401) {
     throw new Error("Sesja wygasła lub dostęp został cofnięty. Skopiuj niezapisany tekst przed rozłączeniem.");
   }
-  if (!response.ok) {
-    let detail = "";
-    try { detail = (await response.json()).detail || ""; } catch { /* no body */ }
-    if (response.status === 409 && detail === "revision conflict") {
+  if (status < 200 || status >= 300) {
+    const detail = (body && body.detail) || "";
+    if (status === 409 && detail === "revision conflict") {
       throw new Error("Konflikt wersji. Zachowano edytowany tekst i wybrany plik. Możesz zapisać zmiany jako osobny dokument.");
     }
     // Messages written for the notary are Polish sentences; protocol errors stay generic.
     if (/[ąćęłńóśźż .]/i.test(detail) && detail.length > 20) throw new Error(detail);
-    throw new Error("Nie udało się wykonać operacji (HTTP " + response.status + ").");
+    throw new Error("Nie udało się wykonać operacji (HTTP " + status + ").");
   }
-  return response.json();
+  return body;
 }
 
 function run(action) {
@@ -356,8 +364,18 @@ el("add-case").onclick = run(async () => {
   await refresh();
   status("Sprawa „" + name + "” pojawi się na stałe po zapisaniu pierwszego dokumentu.");
 });
-el("logout").onclick = () => {
+el("logout").onclick = run(async () => {
   if (!mayDiscard()) return;
+  if (tunnel) {
+    if (!window.confirm("Rozłączyć i zapomnieć to urządzenie? Ponowne połączenie wymaga nowego kodu z kancelarii.")) return;
+    tunnel.close();
+    tunnel = null;
+    await NotaraiTunnel.forgetIdentity();
+  }
+  leave("Rozłączono.");
+});
+
+function leave(message) {
   token = "";
   scope = "";
   resetEditor();
@@ -367,8 +385,31 @@ el("logout").onclick = () => {
   el("answer").hidden = true;
   el("workspace").hidden = true;
   el("pairing").hidden = false;
-  status("Rozłączono.");
-};
+  status(message);
+}
+
+async function enterRemote(session) {
+  tunnel = session.tunnel;
+  tunnel.onclose = () => {
+    tunnel = null;
+    leave("Połączenie z kancelarią zostało przerwane. Otwórz Pocket ponownie.");
+  };
+  await enter({ token: "", scope: session.device.scope });
+}
+
+async function start() {
+  const link = NotaraiTunnel.parseLink(window.location.hash);
+  if (window.location.hash) history.replaceState(null, "", window.location.pathname);
+  if (link) {
+    status("Łączę z kancelarią…");
+    await enterRemote(await NotaraiTunnel.pair(link));
+    status("Urządzenie sparowane. Następnym razem połączy się samo.");
+  } else if (await NotaraiTunnel.hasIdentity()) {
+    status("Łączę z kancelarią…");
+    await enterRemote(await NotaraiTunnel.resume());
+  }
+}
+
 el("new").onclick = () => {
   if (mayDiscard()) showEditor(null, [], "");
 };
@@ -396,5 +437,6 @@ el("import").onclick = run(() => saveFile("file", null));
 el("replace").onclick = run(() => saveFile("replacement", opened));
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/v2/pocket-sw.js", { scope: "/v2/" }).catch(() => { /* optional */ });
+  navigator.serviceWorker.register("pocket-sw.js").catch(() => { /* optional */ });
 }
+run(start)();

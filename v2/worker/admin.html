@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NotarAI – panel stanowiska</title>
-  <link rel="stylesheet" href="/v2/pocket.css">
-  <link rel="icon" href="/v2/pocket-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="pocket.css">
+  <link rel="icon" href="pocket-icon.svg" type="image/svg+xml">
 </head>
 <body>
   <h1>NotarAI – panel stanowiska</h1>
@@ -55,6 +55,25 @@
       <textarea id="device-cases" rows="2" class="short"></textarea>
       <button id="invite">Wydaj kod parowania</button>
       <p class="code" id="pair-code" hidden></p>
+      <div id="remote-pair" hidden>
+        <p>Telefon poza kancelarią: zeskanuj kod aparatem (ważny 5 minut, działa raz).</p>
+        <canvas id="pair-qr" width="10" height="10" aria-label="Kod QR do sparowania telefonu"></canvas>
+        <p class="muted">Kod zawiera adres tego stanowiska i jednorazowe hasło. Nie wysyłaj go e-mailem ani komunikatorem.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Dostęp spoza kancelarii</h2>
+      <p class="muted">Telefon łączy się z tym komputerem przez przekaźnik NotarAI. Przekaźnik widzi wyłącznie
+        zaszyfrowane dane i niczego nie zapisuje; ten komputer nie otwiera żadnego portu. Gdy komputer jest
+        wyłączony, dokumenty są niedostępne.</p>
+      <p id="tunnel-state"></p>
+      <label><input id="tunnel-enabled" type="checkbox"> Zezwól na dostęp spoza kancelarii</label>
+      <label for="relay-url">Adres przekaźnika</label>
+      <input id="relay-url" autocomplete="off" placeholder="wss://…">
+      <label for="pocket-url">Adres strony Pocket</label>
+      <input id="pocket-url" autocomplete="off" placeholder="https://…">
+      <button id="save-tunnel">Zapisz</button>
     </section>
 
     <section>
@@ -91,6 +110,7 @@
     </section>
   </main>
   <p id="status" role="status"></p>
-  <script src="/v2/admin.js"></script>
+  <script src="qrcode.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>
