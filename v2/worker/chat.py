@@ -441,6 +441,12 @@ class Chat:
                             " Okno programu jest na wierzchu." if where else "")),
                     *(self._page_picture() if used else []),
                     self._confirm(identity, "Gdy skończysz, wracam do pracy w tle.", what[1], resume(note), explicit=False)]
+        if kind == "wierzch":
+            return [text("Pracuję w tle i nie zabieram Ci ekranu. Jednego kroku nie da się tak zrobić: "
+                         f"{stopped['label']}. Potrzebuję na chwilę okna programu na wierzchu, myszy albo klawiatury; "
+                         "zaraz potem oddaję Ci Twoje okno."),
+                    self._confirm(identity, "Pozwolić na to w tym zadaniu? Przez tę chwilę nie pisz i nie klikaj.",
+                                  "Tak, na chwilę", resume(None, {kind}), explicit=False)]
         acts = {"wyslanie": "wysłanie", "usuniecie": "usunięcie"}
         question = (f"Następny krok to „{stopped['label']}”, czyli {acts.get(kind, kind)}. "
                     "Nie prosiłeś o to wprost. Zrobić to?")

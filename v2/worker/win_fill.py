@@ -91,6 +91,10 @@ class Desktop:
         self._window = None
         self.read_by = ""            # how the last deep read got its fields: "UI Automation" or "klasyczne okna Windows"
         self.password_field = False
+        # Out of the notary's way (2.8.5): the window is not brought to the front, the mouse and the keyboard are
+        # left alone; fields are set and buttons pressed by messages to the window, wherever it lies.
+        self.quiet = False
+        self._last_target = None
 
     def _legacy(self):
         if self._legacy_backend is not None:
@@ -161,7 +165,7 @@ class Desktop:
                     continue
                 entries = (top.sub_menu().items() if top.sub_menu() else [])[:40]
                 if not entries:
-                    navigation.append(Control(_Act(lambda t=top: t.click_input()), "button", f"{head} (menu)", "", []))
+                    navigation.append(Control(_Act(lambda t=top: t.select()), "button", f"{head} (menu)", "", []))
                 for entry in entries:
                     text_ = (entry.text() or "").replace("&", "").split("\t")[0].strip()
                     if text_ and entry.is_enabled():
@@ -194,7 +198,8 @@ class Desktop:
     def windows(self) -> list[str]:
         return [w.window_text() for w in self._desktop().windows() if w.window_text().strip()]
 
-    def focus(self, title):
+    def focus(self, title, foreground: bool = True):
+        """Choose the window. `foreground=False`: leave it where it lies, under the notary's own work."""
         wanted = norm(title)
         candidates = [w for w in self._desktop().windows() if wanted and wanted in norm(w.window_text())]
         if len(candidates) != 1:
@@ -202,10 +207,115 @@ class Desktop:
             raise FillError("Nie znalazłem okna programu „" + str(title) + "”. Otwórz w nim formularz i spróbuj ponownie."
                             if not candidates else f"Pasuje kilka okien ({names}). Zostaw otwarte jedno.")
         self._window = candidates[0]
+        if not foreground or self.quiet:
+            return
         try:
             self._window.set_focus()
         except Exception:
             pass
+
+    def to_front(self):
+        """For the one step that cannot be done otherwise. Returns what was in front, for `give_back`."""
+        before = None
+        try:
+            import win32gui
+            before = win32gui.GetForegroundWindow()
+        except Exception:
+            pass
+        try:
+            self._window.set_focus()
+        except Exception:
+            pass
+        return before
+
+    @staticmethod
+    def give_back(before) -> None:
+        """The notary's window comes back to the front as soon as the step is done."""
+        if not before:
+            return
+        try:
+            import win32gui
+            win32gui.SetForegroundWindow(before)
+        except Exception:
+            pass
+
+    def capture(self):
+        """A picture of the chosen window taken by Windows itself (PrintWindow), also when other windows cover it.
+        (jpeg, screen pixels per picture pixel, (width, height), (left, top) of the window) or None."""
+        try:
+            import ctypes
+
+            import win32gui
+            import win32ui
+            from PIL import Image
+
+            handle = self._window.element_info.handle
+            left, top, right, bottom = win32gui.GetWindowRect(handle)
+            width, height = right - left, bottom - top
+            if width <= 0 or height <= 0 or win32gui.IsIconic(handle):
+                return None
+            window_dc = win32gui.GetWindowDC(handle)
+            source = win32ui.CreateDCFromHandle(window_dc)
+            memory = source.CreateCompatibleDC()
+            bitmap = win32ui.CreateBitmap()
+            bitmap.CreateCompatibleBitmap(source, width, height)
+            memory.SelectObject(bitmap)
+            try:
+                done = ctypes.windll.user32.PrintWindow(handle, memory.GetSafeHdc(), 2)      # PW_RENDERFULLCONTENT
+                info, bits = bitmap.GetInfo(), bitmap.GetBitmapBits(True)
+                image = Image.frombuffer("RGB", (info["bmWidth"], info["bmHeight"]), bits, "raw", "BGRX", 0, 1)
+            finally:
+                win32gui.DeleteObject(bitmap.GetHandle())
+                memory.DeleteDC()
+                source.DeleteDC()
+                win32gui.ReleaseDC(handle, window_dc)
+            if not done:
+                return None
+            full = image.width
+            image.thumbnail((1568, 1568))
+            out = io.BytesIO()
+            image.save(out, "JPEG", quality=70)
+            return out.getvalue(), full / image.width, (image.width, image.height), (left, top)
+        except Exception:
+            return None
+
+    def click_at(self, x: int, y: int, double: bool = False) -> bool:
+        """A click on a point of the window (its own pixels) sent as a message: the mouse stays where it is."""
+        desktop = self._legacy()
+        if desktop is None:
+            return False
+        try:
+            import win32gui
+
+            handle = self._window.element_info.handle
+            left, top, _, _ = win32gui.GetWindowRect(handle)
+            window = desktop.window(handle=handle)
+            target, area = window, None
+            for element in window.descendants()[:4000]:           # the smallest visible part of the window under the point
+                try:
+                    if not element.is_visible():
+                        continue
+                    r = element.rectangle()
+                    if r.left <= left + x < r.right and r.top <= top + y < r.bottom:
+                        size = (r.right - r.left) * (r.bottom - r.top)
+                        if area is None or size <= area:
+                            target, area = element, size
+                except Exception:
+                    continue
+            r = target.rectangle()
+            target.click(coords=(left + x - r.left, top + y - r.top), double=double)
+            self._last_target = target
+            return True
+        except Exception:
+            return False
+
+    def send_text(self, value: str) -> bool:
+        """Characters sent to the field clicked last, as messages: the keyboard stays with the notary."""
+        try:
+            self._last_target.send_chars(value)
+            return True
+        except Exception:
+            return False
 
     def _family(self):
         """The chosen window and the other windows of the same program: an open menu or a dialog is a window of its own."""
@@ -330,6 +440,8 @@ class Desktop:
                 return
             except Exception:
                 continue
+        if self.quiet:                         # the only way left moves the mouse: not without the notary's word
+            raise FillError("Tego elementu nie da się nacisnąć w tle: trzeba na chwilę wyjść oknem na wierzch.")
         control.ref.click_input()
 
     def where(self):
