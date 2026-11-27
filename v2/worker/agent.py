@@ -57,7 +57,19 @@ BLOCKED_PROGRAMS = frozenset({
     "attrib", "robocopy", "xcopy", "wmic", "fsutil", "mountvol", "subst", "runas", "psexec", "forfiles", "where",
     "certutil", "bitsadmin", "curl", "wget", "ftp", "tftp", "telnet", "netsh", "dism", "sfc", "wevtutil", "rd", "del",
 })
+# Remote help and remote desktop: never started by the agent, whatever the sentence (owner's decision 27.11.2026,
+# after the agent opened a remote support window on its own). Someone else at the keyboard is the notary's call.
+REMOTE_HELP = ("quickassist", "msra", "mstsc", "teamviewer", "anydesk", "rustdesk", "ammyy", "supremo", "splashtop",
+               "remotepc", "logmein", "screenconnect", "connectwise", "ultraviewer", "aeroadmin", "zohoassist",
+               "zoho assist", "remote desktop", "remoteassistance", "remote assistance", "pomoc zdalna", "szybka pomoc",
+               "pulpit zdalny", "zdalnej pomocy", "zdalna pomoc", "pomoc techniczna", "remotehelp", "bomgar", "beyondtrust",
+               "dwservice", "nomachine", "parsec", "tightvnc", "ultravnc", "realvnc", "vncviewer", "radmin", "netsupport")
 RUNNABLE = (".exe", ".com")
+
+
+def remote_help(text) -> bool:
+    words = plain(text).replace("-", " ").replace("_", " ")
+    return any(name in words or name.replace(" ", "") in words.replace(" ", "") for name in REMOTE_HELP)
 COMMAND_ACTS = {            # words of a command line that name an irreversible act
     "usuniecie": ("delete", "del", "remove", "rm", "erase", "purge", "drop", "uninstall", "clear", "clean", "wipe", "usun"),
     "wyslanie": ("send", "submit", "upload", "publish", "post", "mail", "wyslij"),
@@ -397,6 +409,9 @@ class Computer:
             raise AgentError("Uruchamiam tylko programy .exe; skryptów (.bat, .cmd, .ps1, .vbs) nie.")
         if os.name == "nt" and "." + suffix not in RUNNABLE:
             raise AgentError("Uruchamiam tylko programy .exe.")
+        if remote_help(stem) or remote_help(program):
+            raise AgentError("Programów pomocy zdalnej i pulpitu zdalnego nie uruchamiam. Jeśli ich potrzebujesz, "
+                             "uruchom je sam.")
         if stem in BLOCKED_PROGRAMS or stem.split(".")[0] in BLOCKED_PROGRAMS:
             raise AgentError(f"Programu „{stem}” nie uruchamiam: powłoki, interpretery i narzędzia systemowe, "
                              "które mogą kasować dane albo zmieniać system, są zablokowane.")
@@ -614,6 +629,18 @@ class Computer:
         target = what.strip().strip('"') if isinstance(what, str) else ""
         if not target:
             raise AgentError("Co uruchomić?")
+        if remote_help(target):
+            raise AgentError("Programów pomocy zdalnej i pulpitu zdalnego nie uruchamiam. Jeśli ich potrzebujesz, "
+                             "uruchom je sam.")
+        name = plain(Path(target).stem if ("\\" in target or "/" in target or "." in target) else target)
+        if name and self._desktop is not None:
+            try:
+                running = [w for w in self._desktop().windows() if name in plain(w)]
+            except Exception:
+                running = []
+            if running:                      # never a second copy: the program is already open
+                raise AgentError(f"„{target}” już działa (okno „{running[0]}”). Nie uruchamiam drugiej kopii: "
+                                 "przejdź do tego okna krokiem okno.")
         if self._starter is not None:
             self._starter(target)
         elif os.name == "nt":
@@ -715,6 +742,9 @@ class Computer:
     def web(self, url: str) -> str:
         from .autofill import FillError
 
+        if remote_help(url) or "remotedesktop.google" in str(url).lower():
+            raise AgentError("Stron pomocy zdalnej i pulpitu zdalnego nie otwieram. Jeśli ich potrzebujesz, otwórz je sam.")
+
         try:
             where = self._browser().open(url if re.match(r"https?://", url or "") else "https://" + str(url))
         except FillError as error:
@@ -780,14 +810,19 @@ class Agent:
 
     STUCK_AFTER = 3            # failed steps in a row: the agent asks the notary instead of trying on
 
-    def run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "") -> dict:
+    def run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "", cancelled=lambda: False) -> dict:
         """Returns {"answer", "steps", "stopped": None | {"kind", "label", "step", "history"}}.
 
         `allowed`: kinds of irreversible act approved for this run (from the sentence or a „Tak”)."""
         allowed = (set(allowed) | asked_for(task)) - NEVER
         history, steps = list(history or []), []
         known = getattr(self._computer, "map", None)
+        stop = {"answer": "Zatrzymałem pracę na komputerze. Niczego więcej nie robię.", "steps": steps,
+                "stopped": None, "cancelled": True}
         for _ in range(self._max):
+            if cancelled():                   # „stop” in the chat, or the window was closed: checked before every step
+                self._narrate(f"{time.strftime('%H:%M:%S')} · zatrzymane")
+                return stop
             older = [entry if len(entry) < 500 else entry[:400] + " […]" for entry in history[:-KEEP_FULL]]
             transcript = "\n\n".join(older + history[-KEEP_FULL:])[-MAX_HISTORY:]
             picture, self._computer.picture = getattr(self._computer, "picture", None), None
@@ -849,6 +884,9 @@ class Agent:
                           + (f" · po co: {why}" if why else "")
                           + (" · zrzut ekranu idzie do asystenta we Frankfurcie tak, jak go widać" if kind == "ekran" else ""))
             self._computer.login_needed = None
+            if cancelled():
+                self._narrate(f"{time.strftime('%H:%M:%S')} · zatrzymane przed krokiem {number}")
+                return stop
             try:
                 seen = self._do(step)
             except AgentError as error:

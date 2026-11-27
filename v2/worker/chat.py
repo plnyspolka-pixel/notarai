@@ -11,6 +11,7 @@ import base64
 import os
 import re
 import secrets
+import threading
 import time
 import unicodedata
 from decimal import Decimal, InvalidOperation
@@ -57,6 +58,11 @@ def looks_like_computer_task(plain: str) -> bool:
 PROGRAM_LINE = re.compile(r"(?m)^[ \t>*_`„\"-]*POLECENIE\**\s*:\s*[„\"]?(.+?)[”\"]?\s*$")
 # Commands the assistant may only offer as a button: they take something away or cannot be undone.
 OFFER_ONLY = ("zablokuj", "usun", "cofnij", "odbierz", "zapomnij", "wyloguj", "nowy kod", "zabierz", "wylacz")
+
+
+STOP_WORDS = {"stop", "stoj", "przerwij", "zatrzymaj", "zatrzymaj sie", "przestan", "anuluj", "koniec pracy", "dosc",
+              "stop agent", "zatrzymaj agenta", "przerwij prace", "przerwij to", "zatrzymaj to", "stop stop", "wystarczy"}
+WINDOW_GONE = 150         # seconds without the window asking for a running job: the notary closed it, the agent stops
 
 
 def program_commands(answer: str) -> list[str]:
@@ -136,6 +142,7 @@ def when(ns: int) -> str:
 class Chat:
     def __init__(self, services):
         self._agent_question: dict[str, dict] = {}
+        self._agent_runs: dict[str, threading.Event] = {}     # running computer work -> its stop switch
         self.s = services
         self._pending: dict[str, tuple[str, float, callable]] = {}
         self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
@@ -240,6 +247,8 @@ class Chat:
         office_rules = self._office_rules(identity, message, plain)
         if office_rules is not None:
             return office_rules
+        if plain.rstrip("!. ") in STOP_WORDS:
+            return self._stop_agent(identity)
         answered = self._agent_answer(identity, message, plain)
         if answered is not None:
             return answered
@@ -302,8 +311,23 @@ class Chat:
             return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
                     buttons(("Zaloguj", "zaloguj"))]
         self.s.narrate(identity, "Działam na tym komputerze: " + task[:160])
-        job = self.s.start_job(identity, lambda: self._computer_run(identity, task, allowed, history))
-        return [text("Robię to na komputerze. Kroki widzisz na bieżąco poniżej."), {"type": "job", "id": job}]
+        switch, holder = threading.Event(), {}
+
+        def cancelled() -> bool:
+            # „stop”, or nobody is watching any more: the window was closed (it asks for the job every second or two)
+            idle = getattr(self.s, "job_idle", None)
+            return switch.is_set() or bool(holder.get("job") and idle is not None and idle(holder["job"]) > WINDOW_GONE)
+
+        def work():
+            try:
+                return self._computer_run(identity, task, allowed, history, cancelled)
+            finally:
+                self._agent_runs.pop(holder.get("job", ""), None)
+        job = self.s.start_job(identity, work)
+        holder["job"] = job
+        self._agent_runs[job] = switch
+        return [text("Robię to na komputerze. Kroki widzisz na bieżąco poniżej; „stop” zatrzymuje od razu."),
+                {"type": "job", "id": job}]
 
     def _browser(self):
         """The NotarAI browser, or None (no browser on this installation, or a test without one)."""
@@ -323,7 +347,7 @@ class Chat:
             return []
         return [{"type": "image", "image": base64.b64encode(image).decode(), "alt": "Strona przygotowana przez program"}] if image else []
 
-    def _computer_run(self, identity, task, allowed, history) -> list[dict]:
+    def _computer_run(self, identity, task, allowed, history, cancelled=lambda: False) -> list[dict]:
         from .agent import Agent
 
         computer = self.s.computer
@@ -335,7 +359,10 @@ class Chat:
                       rules=self.s.rules)
         learning = getattr(self.s, "learning", None)
         lessons = learning.computer_guidance() if learning is not None else ""
-        result = agent.run(task, allowed=allowed, history=history, lessons=lessons)
+        result = agent.run(task, allowed=allowed, history=history, lessons=lessons, cancelled=cancelled)
+        if result.get("cancelled"):
+            self.s.vault.log(identity.id, "agent-zatrzymany")
+            return [text(result["answer"])]
         stopped = result["stopped"]
         used = bool(getattr(computer, "used_browser", False))
         look = [buttons(("Pokaż przeglądarkę", "pokaż przeglądarkę"))] if used else []
@@ -383,6 +410,17 @@ class Chat:
                     "Nie prosiłeś o to wprost. Zrobić to?")
         return [*(self._page_picture() if used else []),
                 self._confirm(identity, question, "Tak, zrób to", resume(None, {kind}), explicit=False)]
+
+    def _stop_agent(self, identity) -> list[dict]:
+        """„stop”: every computer job of this station stops before its next step; nothing waits to resume."""
+        running = [e for e in self._agent_runs.values() if not e.is_set()]
+        for switch in self._agent_runs.values():
+            switch.set()
+        self._agent_question.clear()
+        self._pending.clear()                 # no „Kontynuuj” or „Tak, zrób to” left to bring it back
+        self.s.narrate(identity, "Zatrzymuję pracę na komputerze.")
+        return [text("Zatrzymałem. Agent nie zrobi już żadnego kroku; to, co było w toku, przerwałem."
+                     if running else "Zatrzymane. Nic teraz nie pracowało na komputerze.")]
 
     def _agent_answer(self, identity, message, plain):
         """The notary answers the agent's question: the work goes on, and what follows from the answer is learned."""

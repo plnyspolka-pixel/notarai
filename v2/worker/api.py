@@ -1299,7 +1299,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         for key in [k for k, v in jobs.items() if now - v["created"] > 3600]:
             jobs.pop(key, None)
         ident = secrets.token_urlsafe(12)
-        job = {"owner": identity.id, "created": now, "done": threading.Event(), "blocks": None}
+        job = {"owner": identity.id, "created": now, "seen": now, "done": threading.Event(), "blocks": None}
         jobs[ident] = job
 
         def run():
@@ -1318,6 +1318,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         job = jobs.get(ident)
         if job is None or job["owner"] != identity.id:
             raise HTTPException(404, "not found")
+        job["seen"] = time.monotonic()          # the window is still open and waiting for this job
         if not job["done"].is_set():
             return {"done": False}
         jobs.pop(ident, None)
@@ -1546,7 +1547,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             purpose="agent", system=system, text=question, names=vault.all_parties(), max_tokens=1500,
             images=tuple(images)).text,
         calendar=Guarded(calendar, {"add": "kalendarz", "delete": "kalendarz"}), web_calendar=web_calendar, onboarding=onboarding, environment=environment, registers=register_service,
-        start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        start_job=start_job, narrate=narrate,
+        job_idle=lambda ident: (time.monotonic() - jobs[ident]["seen"]) if ident in jobs else 0.0, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,
@@ -1628,6 +1630,11 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return [{"type": "text", "text": str(error)}]
         except (ValueError, KeyError):
             return [{"type": "text", "text": "Nie udało się tego wykonać. Sprawdź polecenie i spróbuj ponownie."}]
+
+    @app.post("/v2/agent/stop")
+    def agent_stop(identity: Identity = Depends(auth)):
+        """The station's window is closing (or the notary said stop): computer work stops before its next step."""
+        return {"blocks": chat._stop_agent(identity)}
 
     @app.post("/v2/chat")
     async def chat_endpoint(turn: ChatTurn, identity: Identity = Depends(auth)):

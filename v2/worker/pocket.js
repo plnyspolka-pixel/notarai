@@ -4,6 +4,16 @@
 
 const el = id => document.getElementById(id);
 const admin = document.body.dataset.mode === "admin";
+// Closing the station's window stops any work the agent is doing on the computer (owner's decision 27.11.2026).
+if (admin) {
+  addEventListener("pagehide", () => {
+    try {
+      if (typeof token === "string" && token) {
+        fetch("/v2/agent/stop", { method: "POST", keepalive: true, headers: { Authorization: "Bearer " + token } });
+      }
+    } catch { /* the server also notices that nobody asks for the job any more */ }
+  });
+}
 const maxBytes = 20 * 1024 * 1024;
 const ALL = "\u0000all";
 let token = "";

@@ -187,6 +187,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   liczone kodem), pyta notariusza z opcjami; z odpowiedzi powstaje lekcja `komputer` (potwierdzona, bo powiedział ją
   notariusz) i jest pokazywana od razu; po pracy z błędami program proponuje wniosek do potwierdzenia. Lekcje bez
   danych osobowych; potwierdzone trafiają do instrukcji agenta (`learning.computer_guidance`).
+- Zatrzymanie agenta (decyzja właściciela 27.11.2026, po incydencie): „stop” i zamknięcie okna stanowiska zatrzymują
+  agenta przed następnym krokiem (sprawdza kod, `Agent.run(cancelled=...)`); pomoc zdalna i pulpit zdalny
+  (`agent.REMOTE_HELP`) nigdy nie są uruchamiane ani otwierane przez agenta; brak drugiej kopii działającego programu.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

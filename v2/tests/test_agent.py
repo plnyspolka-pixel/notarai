@@ -663,3 +663,56 @@ def test_three_failures_in_a_row_stop_the_agent_and_a_lesson_is_proposed_after_a
     done = wait(client, admin, next(b["id"] for b in answered if b["type"] == "job"))
     assert "Przeczytałem akt.txt." in done[0]["text"]
 
+
+
+def test_stop_stops_the_agent_before_its_next_step(office):
+    import threading
+    client, admin, desk, desktop, replies = office
+    gate = threading.Event()
+    real = Bedrock.converse
+
+    def slow(self, **kwargs):
+        gate.wait(5)
+        return real(self, **kwargs)
+    Bedrock.converse = slow
+    try:
+        replies += [json.dumps({"krok": "okna"})] * 5 + [json.dumps({"krok": "koniec", "odpowiedz": "x"})]
+        blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz RejNET w programie i wpisz numer"}).json()["blocks"]
+        job = next(b["id"] for b in blocks if b["type"] == "job")
+        stopped = client.post("/v2/chat", headers=admin, json={"text": "stop"}).json()["blocks"]
+        assert "Zatrzymałem" in stopped[0]["text"]
+        gate.set()
+        assert "Zatrzymałem pracę na komputerze" in wait(client, admin, job)[0]["text"]
+        assert len(replies) >= 5                       # no further steps were asked for after „stop”
+    finally:
+        Bedrock.converse = real
+
+
+def test_closing_the_window_stops_the_agent(office):
+    client, admin, desk, desktop, replies = office
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "nie powinno dojść"})]
+    from worker import chat as chat_module
+    original = chat_module.WINDOW_GONE
+    chat_module.WINDOW_GONE = -1                         # as if nobody had asked for the job for minutes
+    try:
+        blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz RejNET w programie i wpisz numer"}).json()["blocks"]
+        job = next(b["id"] for b in blocks if b["type"] == "job")
+        assert "Zatrzymałem pracę na komputerze" in wait(client, admin, job)[0]["text"]
+    finally:
+        chat_module.WINDOW_GONE = original
+    assert client.post("/v2/agent/stop", headers=admin).status_code == 200
+
+
+def test_no_remote_help_and_no_second_copy(tmp_path):
+    started = []
+    computer = Computer(tmp_path, desktop=lambda: FakeDesktop(), starter=started.append)
+    for target in ("quickassist", "C:\\Program Files\\TeamViewer\\TeamViewer.exe", "AnyDesk.exe", "mstsc",
+                   "Szybka pomoc", "Usługa zdalnej pomocy technicznej"):
+        with pytest.raises(Exception) as refused:
+            computer.start(target)
+        assert "pomocy zdalnej" in str(refused.value)
+    with pytest.raises(Exception) as twice:
+        computer.start("RejNET")
+    assert "już działa" in str(twice.value) and started == []
+    computer.start("C:\\Akty\\umowa.docx")
+    assert started == ["C:\\Akty\\umowa.docx"]
