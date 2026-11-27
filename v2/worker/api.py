@@ -106,7 +106,7 @@ class ChatTurn(BaseModel):
 
 class Lesson(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    narration: str = Field(max_length=20000)
+    narration: str = Field(max_length=80000)                       # three quarters of an hour of talking
     frames: list[str] = Field(min_length=1, max_length=20)          # JPEG screenshots, base64
     recording_b64: str | None = Field(default=None, max_length=((MAX_BYTES+2)//3)*4)
 

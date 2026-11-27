@@ -396,7 +396,9 @@ const render = {
 };
 
 // ---------------------------------------------------------------- teaching by showing
-const FRAME_EVERY_MS = 2000, MAX_FRAMES = 12, MAX_RECORDING_MS = 5 * 60 * 1000;
+// A real office task takes longer than five minutes (2.8.5): up to 45. The voice is recorded on its own, small
+// enough to be turned into text whatever the length; the picture of the screen is kept as a few chosen frames.
+const FRAME_EVERY_MS = 2000, MAX_FRAMES = 20, MAX_RECORDING_MINUTES = 45, MAX_RECORDING_MS = MAX_RECORDING_MINUTES * 60 * 1000;
 
 function signature(context, width, height) {
   // A tiny grey thumbnail: enough to tell whether the screen changed since the last kept frame.
@@ -831,18 +833,22 @@ render.record = block => {
   name.placeholder = "np. Wniosek o wpis w KW";
   const start = node("button", "primary", "Zacznij nagrywać");
   const stop = node("button", "danger", "Zakończ nagranie");
-  const state = node("p", "muted", "Nagranie obejmie ekran, który wskażesz, i mikrofon. Najwyżej 5 minut.");
+  const state = node("p", "muted", "Nagranie obejmie ekran, który wskażesz, i mikrofon. Najwyżej " + MAX_RECORDING_MINUTES
+    + " minut; dłuższą czynność nagraj w kilku częściach.");
   const narration = node("textarea");
   const narrationRow = field("Co mówiłeś (popraw, jeśli trzeba; możesz też dopisać ręcznie)", narration);
   const teach = node("button", "primary", "Naucz się z nagrania");
   stop.hidden = narrationRow.hidden = teach.hidden = true;
   let recorder = null, streams = [], frames = [], chunks = [], timer = null, limit = null, recording = null;
+  let voiceRecorder = null, voiceChunks = [], voiceDone = null, spoken = null, clock = null, startedAt = 0;
 
   const finish = () => {
     clearInterval(timer);
+    clearInterval(clock);
     clearTimeout(limit);
-    streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+    if (voiceRecorder && voiceRecorder.state !== "inactive") voiceRecorder.stop();
     if (recorder && recorder.state !== "inactive") recorder.stop();
+    streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
   };
 
   start.onclick = run(async () => {
@@ -867,7 +873,7 @@ render.record = block => {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     let last = null;
-    frames = []; chunks = [];
+    frames = []; chunks = []; voiceChunks = []; spoken = null;
     const grab = () => {
       if (!video.videoWidth) return;
       const scale = Math.min(1, 1280 / video.videoWidth);
@@ -883,16 +889,28 @@ render.record = block => {
     recorder = new MediaRecorder(new MediaStream([...screen.getVideoTracks(), ...(voice ? voice.getAudioTracks() : [])]),
       { videoBitsPerSecond: 350000, audioBitsPerSecond: 32000 });
     recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    if (voice) {
+      // The voice alone: about 180 kB a minute, so even the longest recording can be turned into text.
+      voiceRecorder = new MediaRecorder(new MediaStream(voice.getAudioTracks()), { audioBitsPerSecond: 24000 });
+      voiceRecorder.ondataavailable = event => { if (event.data.size) voiceChunks.push(event.data); };
+      voiceDone = new Promise(resolve => { voiceRecorder.onstop = resolve; });
+      voiceRecorder.start(1000);
+    }
     recorder.onstop = run(async () => {
       grab();
-      recording = new Blob(chunks, { type: "video/webm" });
+      if (voiceDone) await voiceDone;
+      spoken = voiceChunks.length ? new Blob(voiceChunks, { type: "audio/webm" }) : null;
+      const film = new Blob(chunks, { type: "video/webm" });
+      recording = film.size <= maxBytes ? film : spoken;        // a long film does not fit: the voice is kept instead
+      const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
       stop.hidden = true;
       narrationRow.hidden = teach.hidden = false;
-      state.textContent = "Nagranie gotowe (" + frames.length + " ujęć ekranu).";
-      if (block.transcribes && voice && recording.size <= maxBytes) {
-        state.textContent += " Rozpoznaję mowę na tym komputerze…";
+      state.textContent = "Nagranie gotowe (" + minutes + " min, " + frames.length + " ujęć ekranu).";
+      const toText = spoken && spoken.size <= maxBytes ? spoken : (voice && film.size <= maxBytes ? film : null);
+      if (block.transcribes && toText) {
+        state.textContent += minutes > 5 ? " Rozpoznaję mowę; przy długim nagraniu potrwa to kilka minut…" : " Rozpoznaję mowę…";
         try {
-          const heard = await call("procedures/transcribe", "POST", { recording_b64: encode(new Uint8Array(await recording.arrayBuffer())) });
+          const heard = await call("procedures/transcribe", "POST", { recording_b64: encode(new Uint8Array(await toText.arrayBuffer())) });
           narration.value = heard.text;
           state.textContent = "Nagranie gotowe. Sprawdź, czy dobrze zrozumiałem, co mówiłeś.";
         } catch (error) {
@@ -910,7 +928,14 @@ render.record = block => {
     start.hidden = true;
     stop.hidden = false;
     name.readOnly = true;
-    state.textContent = "Nagrywam. Mów na głos, co wpisujesz w każde pole i dlaczego.";
+    startedAt = Date.now();
+    const told = "Mów na głos, co wpisujesz w każde pole i dlaczego.";
+    state.textContent = "Nagrywam 0:00. " + told;
+    clock = setInterval(() => {
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      state.textContent = "Nagrywam " + Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0")
+        + " (najwyżej " + MAX_RECORDING_MINUTES + " min). " + told;
+    }, 1000);
   });
   stop.onclick = finish;
   teach.onclick = run(async () => {

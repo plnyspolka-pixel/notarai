@@ -62,7 +62,7 @@ class CloudSpeech:
                 OutputBucketName=self._bucket, OutputKey=text_key,
             )
             started = True
-            deadline, wait = self._clock() + 900, 1.5
+            deadline, wait = self._clock() + 1800, 1.5      # a 45-minute teaching session takes its time
             while True:
                 status = transcribe.get_transcription_job(TranscriptionJobName=job)["TranscriptionJob"]
                 state = status["TranscriptionJobStatus"]
