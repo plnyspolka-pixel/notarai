@@ -117,6 +117,18 @@ class Desktop:
             elements = window.descendants()
         except Exception:
             return []
+        lists = []
+        try:                                   # dialogs and an open drop-down list are windows of their own
+            process = self._window.element_info.process_id
+            for other in desktop.windows(process=process):
+                if other.handle == self._window.element_info.handle or not other.is_visible():
+                    continue
+                if other.friendly_class_name() == "ListBox":
+                    lists.append(other)
+                else:
+                    elements = elements + [other] + other.descendants()
+        except Exception:
+            pass
         items = []
         for element in elements[:4000]:
             try:
@@ -173,6 +185,14 @@ class Desktop:
                                                   "button", f"{head} > {text_} (menu)", "", []))
         except Exception:
             pass
+        for box in lists + [e for e in elements[:4000] if self._is_list(e)]:
+            try:                               # the positions of an open list, each one selectable by its text
+                for title in box.item_texts()[:60]:
+                    if str(title).strip():
+                        navigation.append(Control(_Act(lambda b=box, t=title: b.select(t)), "button",
+                                                  f"{str(title).strip()} (pozycja)", "", []))
+            except Exception:
+                continue
         for element in elements[:4000]:
             try:
                 if element.friendly_class_name() == "TabControl" and element.is_visible():
@@ -411,11 +431,60 @@ class Desktop:
         except Exception:
             raise FillError("Pole nie przyjęło wartości.") from None
 
-    def choose(self, control, option):
+    @staticmethod
+    def _is_list(element) -> bool:
         try:
-            control.ref.select(option)
+            return element.friendly_class_name() == "ListBox" and element.is_visible()
         except Exception:
-            raise FillError("Lista nie przyjęła wartości.") from None
+            return False
+
+    def options(self, control) -> list[str]:
+        """The positions of a drop-down list, read without the notary seeing it opened when the program allows."""
+        if control.options:
+            return list(control.options)
+        ref = control.ref
+        for way in ("item_texts", "texts"):
+            try:
+                found = [str(t).strip() for t in getattr(ref, way)() if str(t).strip()]
+                found = found[1:] if way == "texts" else found
+                if found:
+                    return found[:60]
+            except Exception:
+                continue
+        try:                                   # UI Automation: the positions exist only while the list is open
+            ref.expand()
+            found = [str(c.element_info.name).strip() for c in ref.descendants(control_type="ListItem")]
+            ref.collapse()
+            return [t for t in found if t][:60]
+        except Exception:
+            return []
+
+    def choose(self, control, option):
+        ref, wanted = control.ref, norm(option)
+        try:
+            ref.select(option)
+            return
+        except Exception:
+            pass
+        known = self.options(control)
+        match = next((t for t in known if norm(t) == wanted), None) or next((t for t in known if wanted and wanted in norm(t)), None)
+        if match is not None:
+            try:
+                ref.select(match)
+                return
+            except Exception:
+                pass
+            try:                               # UI Automation without a selection pattern on the box: its position itself
+                ref.expand()
+                for item in ref.descendants(control_type="ListItem"):
+                    if norm(item.element_info.name) == norm(match):
+                        item.select()
+                        ref.collapse()
+                        return
+                ref.collapse()
+            except Exception:
+                pass
+        raise FillError("Lista nie przyjęła wartości." + (" Dostępne pozycje: " + " | ".join(known[:30]) + "." if known else ""))
 
     def check(self, control, on):
         try:
