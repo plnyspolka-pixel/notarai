@@ -1986,6 +1986,76 @@ class Chat:
         hits.sort(reverse=True)
         return hits[0][1] if len(hits) == 1 or hits[0][0] > hits[1][0] else None
 
+    KRZ_NOISE = frozenset("""sprawdz sprawdzic sprawdzenie krz krajowy krajowym rejestr rejestrze zadluzonych strony stron strone
+        ktore ktora wystepuja wystepuje dla sprawy sprawie sprawa akt akcie aktu aktow akty osoby osob oraz nie tak prosze
+        mi tym tej ten tych wszystkie wszystkich jest sie czy w z i do na o okno oknie""".split())
+
+    def _search_words(self, message: str) -> list[str]:
+        """What the sentence names besides the command itself: a surname, the name of an act."""
+        return list(dict.fromkeys(w for w in re.findall(r"[^\W\d_]{3,}", norm(message)) if w not in self.KRZ_NOISE))[:4]
+
+    @staticmethod
+    def _people(body: str) -> dict:
+        """PESEL -> the name written before it („Jan Kowalski, syn …, PESEL 44051401359”), "" when none is seen."""
+        from .registers import PESEL, pesels_in
+
+        people = {}
+        for number in pesels_in(body):
+            name = ""
+            for found in PESEL.finditer(body):
+                if number in found.group(0):
+                    before = body[max(0, found.start() - 220):found.start()]
+                    names = re.findall(r"\b([A-ZŻŹĆĄŚĘŁÓŃ][a-zżźćńółęąś]+(?:[ -][A-ZŻŹĆĄŚĘŁÓŃ][a-zżźćńółęąś]+){1,3})\b", before)
+                    names = [n for n in names if norm(n).split()[0] not in {"pesel", "pan", "pani", "syn", "corka", "dowod"}]
+                    name = names[-1] if names else ""
+                    break
+            people[number] = name
+        return people
+
+    def _parties_from_documents(self, identity, message: str):
+        """(where it was found, {PESEL: name}) for the act or person the sentence names, or None."""
+        words = self._search_words(message)
+        if not words:
+            return None
+        stems = [w[:-2] if len(w) > 5 else w for w in words]
+        best = None
+        for name, body in self._case_texts(identity):               # 1. the vault: cases this device may see
+            plain_body = norm(body)
+            score = sum(1 for stem in stems if stem in plain_body or stem in norm(name))
+            people = self._people(body) if score else {}
+            if people and (best is None or score > best[0]):
+                best = (score, f"sprawa „{name}”", people)
+        if best is not None:
+            return best[1], best[2]
+        computer = getattr(self.s, "computer", None)
+        if computer is None or not self._may_use_computer(identity):
+            return None
+        folder = self.s.settings().acts_dir or ""                    # 2. the office's files on this computer
+        paths = []
+        for stem in stems:
+            for where in dict.fromkeys([folder, ""]):
+                try:
+                    listed = computer.find(stem, where, limit=30, seconds=12.0)
+                except Exception:
+                    continue
+                paths += [line for line in listed.splitlines()[1:] if line.lower().endswith((".docx", ".pdf", ".txt"))]
+            if paths:
+                break
+        def modified(path):
+            try:
+                return os.path.getmtime(path)
+            except OSError:
+                return 0
+        for path in sorted(dict.fromkeys(paths), key=modified, reverse=True)[:8]:
+            try:
+                body = computer.read(path).split("\n", 1)[-1]
+            except Exception:
+                continue
+            people = self._people(body)
+            if people:
+                return f"plik „{os.path.basename(path)}” ({os.path.dirname(path)})", people
+        return None
+
     def _registers(self, identity, message, plain, case):
         from .registers import KW, land_register_numbers, pesels_in
 
@@ -2029,12 +2099,25 @@ class Chat:
             return [self._confirm(identity, f"Pobrać treść księgi {number} do sprawy „{case}”? Zapytanie u dostawcy "
                                   "jest płatne; to nie jest odpis urzędowy, porównaj go ze źródłem.", "Tak, pobierz", fetch)]
         pesels = pesels_in(message) or (pesels_in(s.drafts.case_text(case, identity.id)) if case is not None else [])
+        found_in, people = "", {}
         if not pesels:
-            return [text("Nie wiem, kogo sprawdzić: podaj numer PESEL („sprawdź KRZ 44051401359”) albo nazwisko strony "
-                         "z którejś sprawy („sprawdź KRZ Kowalski”).")]
+            # The notary named an act or a person, not a number: the program finds the document itself (a case in the
+            # vault, then the office's files on this computer) and reads the parties and their PESEL numbers from it.
+            located = self._parties_from_documents(identity, message)
+            if located is not None:
+                found_in, people = located
+                pesels = list(people)
+        if not pesels:
+            words = ", ".join(self._search_words(message)) or "tego"
+            return [text(f"Szukałem dokumentu z „{words}” w sprawach i w plikach na tym komputerze, ale nie znalazłem "
+                         "żadnego z numerami PESEL stron. Wrzuć akt do rozmowy (spinacz) albo napisz, gdzie leży, "
+                         "np. „sprawdź KRZ, akt jest w folderze D:\\Akty”.")]
         if case is None:
             case = "krz-" + time.strftime("%Y-%m-%d")
-        masked = ", ".join(p[:4] + "*******" for p in pesels[:6])
+        masked = ", ".join((people[p] + " " if people.get(p) else "") + p[:4] + "*******" for p in pesels[:6])
+        if found_in:
+            s.narrate(identity, f"Znalazłem strony w: {found_in}.")
+            masked += f" (z: {found_in})"
 
         visible = " w oknie" in f" {plain}"
 

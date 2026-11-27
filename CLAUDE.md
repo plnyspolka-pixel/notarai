@@ -190,6 +190,14 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zatrzymanie agenta (decyzja właściciela 27.11.2026, po incydencie): „stop” i zamknięcie okna stanowiska zatrzymują
   agenta przed następnym krokiem (sprawdza kod, `Agent.run(cancelled=...)`); pomoc zdalna i pulpit zdalny
   (`agent.REMOTE_HELP`) nigdy nie są uruchamiane ani otwierane przez agenta; brak drugiej kopii działającego programu.
+- Okienko z pytaniem (decyzja właściciela 28.11.2026, `v2/worker/attention.py`, ustawienie `agent.popup`): gdy praca agenta
+  staje na pytaniu, logowaniu albo potwierdzeniu, stanowisko otwiera małe okno Edge ponad innymi oknami. Strona jest
+  podawana tylko temu komputerowi pod jednorazowym adresem (`this_computer`), jedna odpowiedź na pytanie; odpowiedź
+  odbiera okno stanowiska (`/v2/agent/inbox`) i wprowadza do rozmowy jak zwykłe kliknięcie. Skrypt i styl w osobnych
+  plikach (`attention.js`, `attention.css`), bo CSP nie pozwala na kod w stronie. Tylko dla pracy zleconej z okna stanowiska.
+- KRZ bez numeru (decyzja właściciela 28.11.2026): gdy zdanie nie podaje PESEL, `chat._parties_from_documents` sam znajduje
+  akt (sprawy w sejfie, potem pliki przez `Computer.find/read`) i proponuje strony do sprawdzenia; kod, nie model;
+  PESEL w rozmowie zawsze zamaskowany.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

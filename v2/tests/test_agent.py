@@ -776,3 +776,30 @@ def test_the_login_stop_opens_the_small_window_and_its_answer_resumes_the_work(t
     resumed = client.post("/v2/chat", headers=admin, json=turns[0]).json()["blocks"]
     assert "Akt przygotowany." in wait(client, admin, next(b["id"] for b in resumed if b["type"] == "job"))[0]["text"]
     assert "wyłączone" in client.post("/v2/chat", headers=admin, json={"text": "wyłącz okienko z pytaniem agenta"}).json()["blocks"][0]["text"]
+
+
+# ---- KRZ: the program finds the act and its parties itself
+def test_krz_finds_the_act_on_the_computer_and_proposes_whom_to_check(office):
+    client, admin, desk, desktop, replies = office
+    a_docx(desk / "akt Jagiełło sprzedaż.docx", "Stawił się Jan Jagiełło, syn Adama i Ewy, zamieszkały w Krakowie, PESEL 44051401359, "
+                                                 "oraz Anna Nowak-Jagiełło, PESEL 02070803628.")
+    (desk / "notatka jagiello.txt").write_text("zadzwonić w piątek", encoding="utf-8")       # the name fits, no parties in it
+    for sentence in ("sprawdzić krz Jagiełło.", "sprawdź strony w KRZ dla sprawy Jagiełło"):
+        blocks = client.post("/v2/chat", headers=admin, json={"text": sentence}).json()["blocks"]
+        asked = next(b for b in blocks if b["type"] == "confirm")
+        assert "Jan Jagiełło 4405*******" in asked["text"] and "Anna Nowak-Jagiełło 0207*******" in asked["text"]
+        assert "akt Jagiełło sprzedaż.docx" in asked["text"] and "44051401359" not in asked["text"]
+    assert replies == []                                                # found by the program, no model, no question back
+    nothing = client.post("/v2/chat", headers=admin, json={"text": "sprawdź KRZ Wiśniewski"}).json()["blocks"][0]["text"]
+    assert "nie znalazłem" in nothing and "wisniewski" in nothing and "podaj numer PESEL" not in nothing
+
+
+def test_krz_reads_the_parties_from_a_case_in_the_vault_first(office):
+    import base64
+    client, admin, desk, desktop, replies = office
+    body = "Umowa darowizny. Darczyńca: Maria Jagiełło, PESEL 44051401359."
+    client.post("/v2/documents", headers=admin, json={"name": "umowa.txt", "expected_version": 0, "case": "darowizna-2026",
+                                                      "content_b64": base64.b64encode(body.encode()).decode()})
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "sprawdź w KRZ strony z aktu Jagiełło"}).json()["blocks"]
+    asked = next(b for b in blocks if b["type"] == "confirm")
+    assert "Maria Jagiełło 4405*******" in asked["text"] and "darowizna-2026" in asked["text"]
