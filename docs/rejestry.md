@@ -1,5 +1,7 @@
 # Rejestry publiczne - ustalenia (SPEC, zadanie A1)
 
+> Aktualne statusy, rozbieżności wersji i kolejne kroki: [macierz integracji państwowych](macierz-integracji-panstwowych.md). Poniższe ustalenia zachowujemy jako szczegółową dokumentację historyczną; nie traktować ich jako dowodu bieżącego dostępu lub aktualności kontraktu.
+
 Sprawdzono: 16.09.2026. Zrodla oficjalne podane przy kazdym punkcie.
 Reguła: jesli czegos nie da sie potwierdzic w oficjalnym zrodle, integracji nie budujemy.
 

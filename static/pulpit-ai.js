@@ -53,6 +53,25 @@
       if (a.typ === "otworz" && Object.prototype.hasOwnProperty.call(NAWIGACJA, a.ekran)) {
         // Nawigacja jest bezpieczna - nie zapisuje ani nie wysyła danych.
         NAWIGACJA[a.ekran]();
+      } else if (a.typ === "przygotuj_rejestr" && ["uldk","krs","vat"].includes(a.usluga) && typeof a.identyfikator === "string" && a.identyfikator.length <= 64) {
+        const karta = document.createElement("div");
+        karta.className = "pai-akcja";
+        const opis = document.createElement("p");
+        opis.textContent = "Zapytanie do " + a.usluga.toUpperCase() + ": " + a.identyfikator;
+        const przycisk = document.createElement("button");
+        przycisk.type = "button";
+        przycisk.textContent = "Sprawdź formularz";
+        przycisk.onclick = () => {
+          const usluga = $ai("rp-usluga"), identyfikator = $ai("rp-id");
+          if (!usluga || !identyfikator) return;
+          NAWIGACJA.rejestry();
+          usluga.value = a.usluga;
+          usluga.dispatchEvent(new Event("change"));
+          identyfikator.value = a.identyfikator;
+          identyfikator.focus();
+        };
+        karta.append(opis,przycisk);
+        rozmowa.append(karta);
       } else if (a.typ === "potwierdz_windows" && a.komputer && a.cel) {
         const karta = document.createElement("div");
         karta.className = "pai-akcja";
