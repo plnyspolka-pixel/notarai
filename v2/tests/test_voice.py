@@ -79,3 +79,30 @@ def test_without_speech_recognition_the_recording_is_still_kept(tmp_path, monkey
     client, admin, _ = make(tmp_path / "b", transcriber=broken)
     result = client.post("/v2/voice", headers=admin, json={"audio_b64": AUDIO, "case": "s"}).json()
     assert result["text"] == "" and len(result["documents"]) == 1 and "Nie udało się rozpoznać mowy" in result["detail"]
+
+
+def test_a_slow_transcription_does_not_block_the_window(tmp_path):
+    import threading
+    import time
+
+    release = threading.Event()
+
+    def slow(audio):
+        release.wait(10)
+        return "Tekst po dłuższej chwili."
+    client, admin, _ = make(tmp_path, transcriber=slow)
+    started = time.monotonic()
+    first = client.post("/v2/voice", headers=admin, json={"audio_b64": AUDIO, "case": "s"}).json()
+    assert time.monotonic() - started < 5 and first["job"] and "Przepisuję" in first["detail"]
+    assert client.get(f"/v2/voice/{first['job']}", headers=admin).json() == {"done": False}
+    phone_code = client.post("/v2/devices/invite", headers=admin, json={"name": "t", "scope": "write"}).json()["code"]
+    phone = {"Authorization": "Bearer " + client.post("/v2/devices/redeem", json={"code": phone_code}).json()["token"]}
+    assert client.get(f"/v2/voice/{first['job']}", headers=phone).status_code == 404     # someone else's note
+    release.set()
+    for _ in range(50):
+        answer = client.get(f"/v2/voice/{first['job']}", headers=admin).json()
+        if answer["done"]:
+            break
+        time.sleep(0.1)
+    assert answer["text"] == "Tekst po dłuższej chwili." and len(answer["documents"]) == 2
+    assert client.get(f"/v2/voice/{first['job']}", headers=admin).status_code == 404     # delivered once

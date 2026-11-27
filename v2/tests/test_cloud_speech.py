@@ -65,7 +65,7 @@ def test_a_note_is_transcribed_in_polish_in_the_eu_and_nothing_is_left():
     assert job["LanguageCode"] == "pl-PL" and job["MediaFormat"] == "webm"
     assert job["Media"]["MediaFileUri"].startswith("s3://notarai-v2-mowa-1/eu-central-1:kancelaria-a/notarai-")
     assert job["OutputKey"].startswith("eu-central-1:kancelaria-a/") and account.regions == ["eu-central-1"]
-    assert s3.objects == {} and len(s3.deleted) == 2 and transcribe.deleted == [job["TranscriptionJobName"]]
+    assert s3.objects == {} and len(s3.deleted) == 3 and transcribe.deleted == [job["TranscriptionJobName"]]
 
 
 @pytest.mark.parametrize("outcome", ["FAILED", "CRASH"])

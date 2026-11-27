@@ -60,7 +60,9 @@ class CloudSpeech:
                 raise
             raise SpeechError("Nie udało się połączyć z usługą rozpoznawania mowy. Spróbuj ponownie.") from None
         finally:
-            for key in (audio_key, text_key):           # nothing stays behind, even after a failure
+            # Nothing stays behind, even after a failure. Transcribe also leaves an empty
+            # write-access check file next to the result.
+            for key in (audio_key, text_key, prefix + ".write_access_check_file.temp"):
                 try:
                     s3.delete_object(Bucket=self._bucket, Key=key)
                 except Exception:

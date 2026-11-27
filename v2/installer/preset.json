@@ -10,5 +10,13 @@
     "relay_url": "wss://qj7nel6in9.execute-api.eu-central-1.amazonaws.com/v1",
     "pocket_url": "https://notarai.pl/pocket/"
   },
-  "replica": {"enabled": false, "bucket": "notarai-v2-kopie", "region": "eu-central-1"}
+  "replica": {
+    "enabled": false,
+    "bucket": "notarai-v2-kopie",
+    "region": "eu-central-1"
+  },
+  "speech": {
+    "where": "chmura",
+    "bucket": "notarai-v2-mowa-127621462971"
+  }
 }

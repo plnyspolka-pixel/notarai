@@ -734,17 +734,43 @@ async function saveText(current) {
 const AUDIO = /\.(webm|ogg|opus|oga|m4a|mp3|wav|aac|amr|3gp|flac)$/i;
 let voice = null;
 
+function showVoiceResult(result) {
+  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
+  if (result.documents.length) render.documents({ items: result.documents });
+  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+}
+
 async function sendVoice(bytes, name) {
-  const waiting = bubble("Przepisuję notatkę głosową na komputerze kancelarii…", "them wait");
+  const waiting = bubble("Zapisuję notatkę głosową…", "them wait");
   let result;
   try {
     result = await call("voice", "POST", { audio_b64: encode(bytes), name, case: currentCase() });
   } finally {
     waiting.remove();
   }
-  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
-  render.documents({ items: result.documents });
-  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+  if (!result.job) {
+    showVoiceResult(result);
+    return;
+  }
+  // The cloud needs a while: keep working, the text arrives in the conversation by itself.
+  const pending = bubble(result.detail, "them wait");
+  status("Notatka zapisana. Możesz dalej pracować; tekst dopiszę, gdy będzie gotowy.");
+  (async () => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        const answer = await call("voice/" + result.job);
+        if (answer.done) {
+          pending.remove();
+          showVoiceResult(answer);
+          return;
+        }
+      } catch {
+        pending.textContent = "Nie mogę sprawdzić, czy tekst notatki jest gotowy. Spróbuję jeszcze raz.";
+      }
+    }
+    pending.textContent = "Przepisywanie trwa wyjątkowo długo. Tekst znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
+  })();
 }
 
 el("voice").onclick = run(async () => {

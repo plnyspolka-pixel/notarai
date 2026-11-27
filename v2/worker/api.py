@@ -837,8 +837,14 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         stored.append({"id": text_id, "name": text_name, "version": text_version})
         return {"documents": stored, "text": heard, "detail": ""}
 
+    voice_jobs: dict[str, dict] = {}
+
     @app.post("/v2/voice")
     def voice_note(req: VoiceNote, identity: Identity = Depends(writable)):
+        """Stores the note and transcribes it in the background: the window never waits for the cloud.
+        A quick result (under two seconds) comes back at once; otherwise the page asks again by job id."""
+        import threading
+
         see_case(identity, req.case)
         try:
             audio = base64.b64decode(req.audio_b64, validate=True)
@@ -846,7 +852,36 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(400, "invalid recording")
         if not audio or len(audio) > MAX_BYTES:
             raise HTTPException(400, "invalid recording")
-        return store_voice_note(audio, req.name, req.case, identity.id)
+        name = req.name or ""
+        if "." in name and "." + name.rsplit(".", 1)[-1].lower() not in local_speech.AUDIO:
+            raise HTTPException(400, "not an audio file")
+        job = {"owner": identity.id, "done": threading.Event(), "result": None, "created": time.monotonic()}
+        for key in [k for k, v in voice_jobs.items() if time.monotonic() - v["created"] > 3600]:
+            voice_jobs.pop(key, None)
+
+        def work():
+            try:
+                job["result"] = store_voice_note(audio, req.name, req.case, identity.id)
+            except Exception:
+                job["result"] = {"documents": [], "text": None, "detail": "Nie udało się zapisać notatki głosowej."}
+            job["done"].set()
+        threading.Thread(target=work, daemon=True, name="notarai-notatka").start()
+        if job["done"].wait(2):
+            return job["result"]
+        ident = secrets.token_urlsafe(12)
+        voice_jobs[ident] = job
+        return {"job": ident, "documents": [], "text": None,
+                "detail": "Przepisuję notatkę w chmurze. Tekst pojawi się tu sam, zwykle w ciągu minuty."}
+
+    @app.get("/v2/voice/{ident}")
+    def voice_note_result(ident: str, identity: Identity = Depends(writable)):
+        job = voice_jobs.get(ident)
+        if job is None or job["owner"] != identity.id:
+            raise HTTPException(404, "not found")
+        if not job["done"].is_set():
+            return {"done": False}
+        voice_jobs.pop(ident, None)
+        return {"done": True, **job["result"]}
 
     from .listening import Listening
     from .docx_writer import extract as extract_docx

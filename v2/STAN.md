@@ -20,7 +20,8 @@ V1 pozostaje nietknięte.
 | Kafelki | Pulpit ustawiany przez notariusza: narzędzia z katalogu i własne, przeciąganie, chowanie; domyślnie pusty | testy + przeglądarka |
 | Poczta | Thunderbird (wprost z plików), klasyczny Outlook, folder .eml; tylko odczyt, wiadomość do sprawy jednym zdaniem | testy na plikach Thunderbirda; Outlook na atrapie |
 | Samodzielne wypełnianie | „wypełnij …” na stanowisku wpisuje dane w formularz na stronie albo w programie Windows, naciska „Dalej”, pokazuje zrzut i stan każdego pola; wysyła dopiero po „Wyślij teraz” | testy na prawdziwym formularzu w Chromium + przeglądarka; okno Windows w CI |
-| Notatki głosowe | Mikrofon w Pocket, pliki z dyktafonu i komunikatorów; tekst przepisany lokalnie trafia do sprawy obok nagrania | testy na atrapie rozpoznawania mowy + przeglądarka |
+| Notatki głosowe | Mikrofon w Pocket, pliki z dyktafonu i komunikatorów; mowę przepisuje chmura (Amazon Transcribe, Frankfurt), okno nie czeka: tekst sam dopisuje się w rozmowie | testy + próba na żywo z Transcribe (106 s na nagranie 10 s) |
+| Program na pulpicie | Ikona „NotarAI” otwiera własne okno (bez paska adresu, bez logowania kodem), worker działa w tle i startuje z Windows; odświeżenie okna nie rozłącza | testy + budowa i próba instalatora w CI Windows |
 | Twarde zasady kancelarii | Zasady ustawiane zdaniem („zasada: …”), pilnowane przez kod przy zapisie projektu, zapisie z Worda, wysyłce formularza i zmianie ustawień; małe okienko „Zasady kancelarii” w nagłówku | testy + przeglądarka |
 | Styl kancelarii | „naucz się stylu kancelarii” czyta akty na dyskach stanowiska (DOCX, ODT, RTF, TXT) i zapamiętuje powtarzalne sformułowania i układ, bez danych klientów; projekty piszą tymi sformułowaniami | testy na fikcyjnym dysku |
 | Stały nasłuch | Mikrofony (tablet, telefon, komputer) sparowane jako „mikrofon”; stenopis odczytanego aktu trafia do sprawy, z rozmów i telefonów powstają notatki z terminem i kontaktem | testy + przeglądarka (zastępczy mikrofon) |
@@ -74,7 +75,7 @@ wymagane sformułowania, żeby projekt był od razu zgodny, ale o zapisie i wysy
 1. W panelu: „włącz nasłuch” (z potwierdzeniem i przypomnieniem o obowiązku informacyjnym RODO).
 2. „dodaj mikrofon Sekretariat”, „dodaj mikrofon Gabinet”: kod albo QR otwiera na tablecie lub telefonie ekran
    mikrofonu. Urządzenie zostaje na ładowarce; przesyła fragmenty z dźwiękiem, ciszy nie wysyła.
-3. Komputer kancelarii przepisuje mowę lokalnie. Rozmowa, która pokrywa się z aktem w którejś sprawie, staje się
+3. Mowę przepisuje Amazon Transcribe we Frankfurcie (nagranie kasowane zaraz po przepisaniu). Rozmowa, która pokrywa się z aktem w którejś sprawie, staje się
    stenopisem tej sprawy; pozostałe (wizyty, telefony słyszane w pokoju) stają się notatkami w sprawie
    „sekretariat” z podsumowaniem, terminem i kontaktem. Dźwięk nie jest przechowywany.
 4. „nasłuch”, „wstrzymaj nasłuch”, „wznów nasłuch”, „notatki z rozmów”, „stenopisy”.
@@ -126,9 +127,11 @@ dopóki notariusz tego nie włączy.
 - Logowanie stanowiska przez Cognito: przetestowane na atrapie; próba na żywo wymaga konta w grupie `notarai-v2`.
 - Outlook: napisany pod klasycznego Outlooka i sprawdzony na atrapie; na prawdziwym Outlooku nie był uruchomiony.
   Nowy Outlook nie ma interfejsu automatyzacji, tam zostaje folder z plikami .eml.
-- Rozpoznawanie mowy: `faster-whisper` jest w instalatorze, model (ok. 0,5 GB) pobiera się przy pierwszej
-  notatce. Prawdziwego rozpoznawania nie sprawdziłem, bo to środowisko nie ma dostępu do serwisu z modelami;
-  sprawdzone na atrapie.
+- Rozpoznawanie mowy: domyślnie chmura (Amazon Transcribe, eu-central-1), sprawdzone na żywo na polskim
+  nagraniu. Przepisanie trwa ok. 1,5-2 min niezależnie od długości krótkiej notatki; okno w tym czasie działa,
+  a tekst pojawia się sam. Koszt ok. 0,10 zł za minutę nagrania. Do chmury potrzebne jest zalogowanie
+  stanowiska kontem z grupy `notarai-v2`. Wariant lokalny (`faster-whisper`, model 0,5 GB) można włączyć
+  ustawieniem `speech.where = lokalnie`, ale obciąża komputer kancelarii.
 - Wypełnianie programów Windows: test na prawdziwym oknie WinForms działa w CI na Windows; programów
   kancelaryjnych (np. RejNET) nie sprawdzałem, bo nie mam do nich dostępu.
 - Nagrywanie ekranu: sprawdzone w Chromium na zastępczym obrazie ekranu, nie na prawdziwym pulpicie Windows.

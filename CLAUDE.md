@@ -110,8 +110,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: zawsze dopiero po
   zatwierdzeniu w czacie, związanym ze stanem formularza z podglądu; jedno naciśnięcie, bez
   ponawiania po niepewnym wyniku. Nie dodawaj ścieżki, która wysyła bez tego zatwierdzenia.
-- Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): tylko
-  lokalnie (`v2/worker/transcribe.py`), bez usług mowy w chmurze; dźwięku nasłuchu nie zapisuj.
+- Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): decyzja
+  właściciela 27.11.2026 - domyślnie w chmurze, wyłącznie Amazon Transcribe w eu-central-1
+  (`v2/worker/cloud_speech.py`, bucket stosu `notarai-v2-mowa`): nagranie i wynik kasowane zaraz
+  po odczycie tekstu, reguła cyklu życia kasuje resztę po dniu, organizacja ma politykę AI opt-out.
+  Alternatywa lokalna (`v2/worker/transcribe.py`) zostaje jako ustawienie `speech.where`. Żadnych
+  innych usług mowy; dźwięku nasłuchu nie zapisuj na stałe.
   Urządzenie o zakresie `listen` (mikrofon) wysyła tylko dźwięk: nie dawaj mu innych tras.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
