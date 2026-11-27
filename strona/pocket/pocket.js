@@ -359,6 +359,7 @@ const render = {
       bubble("Zatwierdzam i zapisuję", "me");
       bubble("Zapisałem " + result.name + " jako wersję " + result.version + " i potwierdziłem odczytem kontrolnym.", "them");
       render.documents({ items: [{ id: result.id, name: result.name, version: result.version }] });
+      showLearned(result.learned);
       status("Zapisano " + result.name + " jako wersję " + result.version + " i potwierdzono odczytem kontrolnym.");
     });
     discard.onclick = run(async () => {
@@ -464,6 +465,23 @@ async function refreshAgenda() {
 el("month-prev").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); refreshAgenda(); };
 el("month-next").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + 1, 1); refreshAgenda(); };
 render.calendar = () => refreshAgenda();
+
+// What to do now, worked out from what the program sees; refreshed after every exchange.
+async function refreshAhead() {
+  let items = [];
+  try {
+    const query = currentCase() ? "?case=" + encodeURIComponent(currentCase()) : "";
+    items = (await call("suggestions" + query)).items;
+  } catch { return; }
+  el("ahead-box").hidden = !items.length;
+  el("ahead").replaceChildren(...items.map(item => {
+    const row = node("li");
+    const go = sayButton(item.label, item.say);
+    go.title = item.why;
+    row.append(go, node("span", "muted why", item.why));
+    return row;
+  }));
+}
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
 render["pick-folder"] = block => {
@@ -523,6 +541,13 @@ function welcome() {
     };
     row.append(install);
   }
+  const tour = node("button", "", "Co potrafi NotarAI");
+  tour.onclick = run(async () => {
+    try { localStorage.setItem("notarai-welcome", "1"); } catch { /* storage blocked */ }
+    card.remove();
+    await send("pokaż możliwości");
+  });
+  row.append(tour);
   const done = node("button", "primary", "Zaczynam");
   done.onclick = () => {
     try { localStorage.setItem("notarai-welcome", "1"); } catch { /* storage blocked */ }
@@ -532,6 +557,199 @@ function welcome() {
   card.append(row);
   el("messages").prepend(card);
 }
+
+// ---------------------------------------------------------------- the tour of abilities
+const ICONS = {
+  calendar: '<rect x="10" y="14" width="44" height="40" rx="6"/><path d="M10 26h44M22 8v12M42 8v12"/><circle cx="24" cy="38" r="3"/><circle cx="40" cy="38" r="3"/>',
+  mic: '<rect x="24" y="8" width="16" height="30" rx="8"/><path d="M16 30a16 16 0 0 0 32 0M32 46v10M24 56h16"/>',
+  deed: '<path d="M16 8h24l10 10v38H16z"/><path d="M40 8v10h10M22 28h22M22 36h22M22 44h14"/><path d="M38 50l4 4 8-10"/>',
+  files: '<path d="M12 18h18l4 6h18v28H12z"/><path d="M22 36h20M32 26v20"/>',
+  book: '<path d="M12 12h18a4 4 0 0 1 4 4v38a4 4 0 0 0-4-4H12zM52 12H34v42a4 4 0 0 1 4-4h14z"/><path d="M18 22h10M18 30h10M40 22h8"/>',
+  scale: '<path d="M32 10v44M18 54h28M14 18h36"/><path d="M14 18l-8 16a8 8 0 0 0 16 0zM50 18l-8 16a8 8 0 0 0 16 0z"/>',
+  form: '<rect x="12" y="8" width="40" height="48" rx="4"/><path d="M20 20h24M20 30h24M20 40h12"/><path d="M38 44l4 4 8-10"/>',
+  plug: '<path d="M24 8v14M40 8v14M18 22h28v8a14 14 0 0 1-28 0zM32 44v12"/>',
+  mail: '<rect x="8" y="14" width="48" height="36" rx="5"/><path d="M8 18l24 18 24-18"/>',
+  coins: '<ellipse cx="26" cy="20" rx="14" ry="6"/><path d="M12 20v10c0 3 6 6 14 6s14-3 14-6V20"/><path d="M24 40v6c0 3 6 6 14 6s14-3 14-6V34c0-3-6-6-14-6"/>',
+  phone: '<rect x="20" y="6" width="24" height="52" rx="5"/><path d="M28 50h8"/>',
+  ear: '<path d="M22 26a12 12 0 1 1 24 0c0 8-8 10-8 18a8 8 0 0 1-14 4"/><path d="M28 26a6 6 0 0 1 12 0"/>',
+  rules: '<path d="M14 10h36v44H14z"/><path d="M22 22h4M30 22h12M22 32h4M30 32h12M22 42h4M30 42h12"/>',
+  learn: '<path d="M8 20l24-10 24 10-24 10z"/><path d="M18 25v12c0 4 6 8 14 8s14-4 14-8V25M56 20v14"/>',
+  shield: '<path d="M32 6l22 8v16c0 14-10 24-22 28C20 54 10 44 10 30V14z"/><path d="M22 32l7 7 13-14"/>',
+};
+
+render.tour = block => {
+  const card = node("div", "card them tour");
+  card.setAttribute("aria-roledescription", "pokaz");
+  let at = 0;
+  const art = node("div", "tour-art");
+  const body = node("div", "tour-body");
+  const count = node("span", "muted tour-count");
+  const prev = node("button", "quiet", "‹ Wstecz");
+  const next = node("button", "primary", "Dalej ›");
+  const dots = node("div", "tour-dots");
+  const draw = () => {
+    const slide = block.slides[at];
+    art.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' + (ICONS[slide.icon] || "") + "</svg>";
+    const sample = node("div", "tour-sample");
+    sample.append(node("div", "bubble me", slide.you), node("div", "bubble them", slide.notarai));
+    const parts = [node("h2", "", slide.title), node("p", "", slide.text), sample];
+    if (slide.try) {
+      const tryIt = node("button", "", "Spróbuj: „" + slide.try + "”");
+      tryIt.onclick = run(() => send(slide.try));
+      parts.push(tryIt);
+    } else if (slide.icon === "mic") {
+      const tryIt = node("button", "", "Spróbuj: dotknij 🎤 obok pola wiadomości");
+      tryIt.onclick = () => el("voice").focus();
+      parts.push(tryIt);
+    }
+    body.replaceChildren(...parts);
+    count.textContent = (at + 1) + " / " + block.slides.length;
+    prev.disabled = at === 0;
+    next.textContent = at === block.slides.length - 1 ? "Gotowe" : "Dalej ›";
+    dots.replaceChildren(...block.slides.map((_, i) => {
+      const dot = node("button", i === at ? "dot on" : "dot");
+      dot.setAttribute("aria-label", "Pokaz, krok " + (i + 1));
+      dot.onclick = () => { at = i; draw(); };
+      return dot;
+    }));
+  };
+  prev.onclick = () => { if (at > 0) { at--; draw(); } };
+  next.onclick = run(async () => {
+    if (at < block.slides.length - 1) { at++; draw(); return; }
+    card.classList.add("finished");
+    await send(block.done, "Obejrzałem pokaz");
+  });
+  card.addEventListener("keydown", event => {
+    if (event.key === "ArrowRight") next.click();
+    if (event.key === "ArrowLeft") prev.click();
+  });
+  const nav = node("div", "row tour-nav");
+  nav.append(prev, count, next);
+  const main = node("div", "tour-main");
+  main.append(art, body);
+  card.append(main, dots, nav);
+  show(card);
+  draw();
+};
+
+// ---------------------------------------------------------------- mail in the window
+render.inbox = block => {
+  const card = node("div", "card them inbox");
+  card.append(node("h2", "", "Poczta"));
+  const list = node("ul", "inbox-list");
+  for (const item of block.items) {
+    const row = node("li");
+    const open = node("button", "mail-row");
+    open.append(node("span", "mail-from", item.sender), node("span", "mail-when", item.when),
+                node("span", "mail-subject", item.subject + (item.attachments ? "  📎 " + item.attachments : "")));
+    open.onclick = run(() => send("mail " + item.n, "Wiadomość " + item.n));
+    row.append(open);
+    list.append(row);
+  }
+  card.append(list);
+  show(card);
+};
+
+render.reply = block => {
+  const card = node("div", "card them reply");
+  card.append(node("h2", "", "Odpowiedź"));
+  const to = node("input");
+  to.value = block.to;
+  const subject = node("input");
+  subject.value = block.subject;
+  const body = node("textarea", "tall");
+  body.value = block.body;
+  body.placeholder = "Napisz albo podyktuj treść odpowiedzi…";
+  const dictate = node("button", "", "🎤 Dyktuj treść");
+  dictate.onclick = run(() => startDictation(body));
+  const open = node("button", "primary", "Otwórz w " + (block.program === "Outlook" ? "Outlooku" : block.program === "Thunderbird" ? "Thunderbirdzie" : "programie pocztowym"));
+  open.onclick = run(async () => {
+    if (!body.value.trim()) throw new Error("Odpowiedź jest pusta.");
+    const answer = await call("mail/compose", "POST", { n: block.n, to: to.value, subject: subject.value, body: body.value,
+                                                       draft: block.body });
+    bubble(answer.detail, "them");
+    showLearned(answer.learned);
+    status(answer.detail);
+  });
+  const sendNow = node("button", "primary", block.program === "Outlook" ? "Wyślij" : "Otwórz do wysłania");
+  sendNow.onclick = run(async () => {
+    if (!body.value.trim()) throw new Error("Odpowiedź jest pusta.");
+    const answer = await call("mail/compose", "POST", { n: block.n, to: to.value, subject: subject.value, body: body.value,
+                                                       draft: block.body, send: true });
+    bubble(answer.detail, "them");
+    if (answer.sent) card.remove();
+    showLearned(answer.learned);
+  });
+  open.className = "";
+  const row = node("div", "row");
+  row.append(dictate, open, sendNow);
+  card.append(field("Do", to), field("Temat", subject), field("Treść (" + (block.body ? "projekt przygotował asystent, popraw go" : "pusta") + ")", body), row,
+              node("p", "muted", "„Wyślij” wysyła od razu z Twojego programu pocztowego; możesz też napisać albo powiedzieć „wyślij”."));
+  show(card);
+  if (!admin) { open.disabled = sendNow.disabled = true; open.title = sendNow.title = "Pocztę obsługuje komputer kancelarii."; }
+};
+
+render.job = block => {
+  // A longer task on the office computer (a land register, a KRZ search): its result arrives here by itself.
+  const waiting = bubble("Pracuję nad tym…", "them wait");
+  (async () => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        const answer = await call("jobs/" + block.id);
+        if (!answer.done) continue;
+        waiting.remove();
+        for (const part of answer.blocks) await (render[part.type] || render.text)(part);
+        return;
+      } catch { waiting.textContent = "Nie mogę sprawdzić wyniku. Spróbuję jeszcze raz."; }
+    }
+    waiting.textContent = "To trwa wyjątkowo długo. Wynik znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
+  })();
+};
+
+// ---------------------------------------------------------------- learning mode: always visible
+function showLearned(lessons) {
+  // „Nauczyłem się tego, potwierdzasz?” - lessons learned by watching are used only after a yes.
+  if (!lessons || !lessons.length) return;
+  const card = node("div", "card them learned-now");
+  card.append(node("strong", "", "Tryb uczenia: nauczyłem się tego, potwierdzasz?"));
+  const list = node("ul", "lesson-list");
+  for (const lesson of lessons) {
+    const item = node("li");
+    const words = node("span", "", typeof lesson === "string" ? lesson : lesson.text);
+    item.append(words);
+    if (lesson.id) {
+      const yes = node("button", "chip", "Tak");
+      const no = node("button", "chip quiet", "Nie");
+      const decide = accept => run(async () => {
+        await call("learning/" + lesson.id, "POST", { accept });
+        item.replaceChildren(node("span", "muted", (accept ? "✓ Zapamiętane: " : "✗ Odrzucone: ") + words.textContent));
+        refreshLearning();
+      });
+      yes.onclick = decide(true);
+      no.onclick = decide(false);
+      item.append(yes, no);
+    }
+    list.append(item);
+  }
+  card.append(list, node("p", "muted", "Dopóki nie potwierdzisz, nie korzystam z tej lekcji. Wszystkie: „czego się nauczyłeś”."));
+  show(card);
+  refreshLearning();
+}
+
+async function refreshLearning() {
+  let state;
+  try { state = await call("learning"); } catch { return; }
+  const badge = el("learning");
+  badge.hidden = false;
+  badge.textContent = (state.enabled ? "Tryb uczenia · " + state.total + (state.pending ? " · " + state.pending + " do potwierdzenia" : "")
+                                     : "Tryb uczenia wyłączony");
+  badge.classList.toggle("off", !state.enabled);
+  badge.title = state.enabled ? "Uczę się z Twoich poprawek. Kliknij, żeby zobaczyć lekcje." : "Kliknij, żeby zobaczyć tryb uczenia.";
+}
+render.learning = () => refreshLearning();
+render.lessons = block => showLearned(block.items);
 
 render.progress = block => {
   // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
@@ -768,29 +986,77 @@ render.fill = block => {
   show(card);
 };
 
+// What the program is doing, in plain words, while it works; folded into „Jak to zrobiłem” afterwards.
+let activitySeen = 0;
+
 async function exchange(turn) {
-  const waiting = bubble("Piszę…", "them wait");
+  const waiting = node("div", "bubble them wait working");
+  const head = node("div", "", "Myślę…");
+  const steps = node("ol", "steps");
+  waiting.append(head, steps);
+  show(waiting);
+  const said = [];
+  let polling = true;
+  const poll = (async () => {
+    while (polling) {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      if (!polling) break;
+      try {
+        const { lines } = await call("activity?after=" + activitySeen);
+        for (const line of lines) {
+          activitySeen = Math.max(activitySeen, line.n);
+          said.push(line.text);
+          steps.append(node("li", "", line.text));
+          head.textContent = "Pracuję…";
+          waiting.scrollIntoView({ block: "end" });
+        }
+      } catch { /* the answer matters more than the commentary */ }
+    }
+  })();
   let reply;
   try {
     reply = await call("chat", "POST", { case: currentCase(), names, ...turn });
   } finally {
+    polling = false;
+    await poll;
+    try {
+      const { lines } = await call("activity?after=" + activitySeen);
+      for (const line of lines) { activitySeen = Math.max(activitySeen, line.n); said.push(line.text); }
+    } catch { /* ignore */ }
     waiting.remove();
+  }
+  if (said.length) {
+    const how = node("details", "how");
+    how.append(node("summary", "", "Jak to zrobiłem (" + said.length + (said.length === 1 ? " krok)" : said.length < 5 ? " kroki)" : " kroków)")));
+    const list = node("ol", "steps");
+    for (const line of said) list.append(node("li", "", line));
+    how.append(list);
+    show(how);
   }
   for (const block of reply.blocks) await (render[block.type] || render.text)(block);
   if (reply.blocks.some(block => block.type === "case")) await refreshCases(currentCase());
+  if (scope !== "listen") refreshAhead();
 }
 
 async function send(sentence, shown) {
   const text = sentence.trim();
   if (!text) return;
+  const heard = el("prompt").dataset.heard;
+  if (heard) {
+    delete el("prompt").dataset.heard;
+    if (heard.trim() && !text.includes(heard.trim()) && scope !== "read") {
+      call("learning/dictation", "POST", { heard, final: text }).then(r => showLearned(r.learned)).catch(() => {});
+    }
+  }
   bubble(shown || text, "me");
   status("");
   await exchange({ text });
 }
 
 function shortcuts() {
-  const items = [["Co mam dziś", "co mam dziś"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
-  if (admin) items.push(["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
+  const items = [["Co mam dziś", "co mam dziś"], ["Wiadomości", "wiadomości"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
+  if (admin) items.push(["Stanowiska", "stanowiska"], ["Drukarki", "drukarki"], ["Mikrofony", "mikrofony"],
+                        ["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
   items.push(["Co umiesz?", "pomoc"]);
   const buttons = items.map(([label, sentence]) => sayButton(label, sentence));
   if (scope !== "read") {
@@ -972,7 +1238,7 @@ function dictationBar(on) {
   el("send").hidden = on;
 }
 
-async function startDictation() {
+async function startDictation(target = el("prompt")) {
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -984,8 +1250,8 @@ async function startDictation() {
   await audio.resume();
   const source = audio.createMediaStreamSource(stream);
   const processor = audio.createScriptProcessor(4096, 1, 1);
-  const before = el("prompt").value.replace(/\s+$/, "");
-  const state = { id, stream, audio, processor, pending: [], busy: false, closed: false, before, text: "" };
+  const before = target.value.replace(/\s+$/, "");
+  const state = { id, stream, audio, processor, pending: [], busy: false, closed: false, before, text: "", target };
   dictation = state;
   processor.onaudioprocess = event => {
     const samples = event.inputBuffer.getChannelData(0);
@@ -998,7 +1264,7 @@ async function startDictation() {
   processor.connect(audio.destination);
   state.timer = setInterval(() => pushPiece(state, false).catch(() => {}), PIECE_MS);
   dictationBar(true);
-  el("prompt").placeholder = "Mów, tekst pojawia się tutaj…";
+  target.placeholder = "Mów, tekst pojawia się tutaj…";
   status("Słucham. ■ zatrzymuje, ↑ wysyła od razu, ✕ anuluje.");
 }
 
@@ -1019,8 +1285,8 @@ async function pushPiece(state, end) {
     const answer = await call("dictation/" + state.id, "POST", { pcm_b64: encode(takePending(state)), end });
     if (dictation === state || end) {
       state.text = answer.text;
-      el("prompt").value = (state.before ? state.before + " " : "") + answer.text;
-      el("prompt").dispatchEvent(new Event("input"));
+      state.target.value = (state.before ? state.before + " " : "") + answer.text;
+      state.target.dispatchEvent(new Event("input"));
     }
     if (answer.error) status(answer.error);
     return answer;
@@ -1039,17 +1305,22 @@ async function stopDictation(mode) {
   state.audio.close().catch(() => {});
   dictationBar(false);
   drawLevel(0);
-  el("prompt").placeholder = "Napisz…";
+  state.target.placeholder = state.target === el("prompt") ? "Napisz…" : "";
   if (mode === "cancel") {
     call("dictation/" + state.id, "DELETE").catch(() => {});
-    el("prompt").value = state.before;
-    el("prompt").dispatchEvent(new Event("input"));
+    state.target.value = state.before;
+    state.target.dispatchEvent(new Event("input"));
     status("Dyktowanie anulowane.");
     return;
   }
   status("Kończę przepisywanie…");
   await pushPiece(state, true);
-  status(el("prompt").value.trim() ? "Gotowe. Popraw tekst, jeśli trzeba, i wyślij." : "Nie usłyszałem słów. Spróbuj jeszcze raz.");
+  status(state.target.value.trim() ? "Gotowe. Popraw tekst, jeśli trzeba." : "Nie usłyszałem słów. Spróbuj jeszcze raz.");
+  state.target.dataset.heard = state.text;          // compared with what is finally sent: learning mode
+  if (state.target !== el("prompt")) {
+    state.target.focus();
+    return;
+  }
   if (mode === "send" && el("prompt").value.trim()) {
     const text = el("prompt").value;                 // not through the Send button: we are inside run() already
     el("prompt").value = "";
@@ -1220,6 +1491,7 @@ async function refreshCases(keep) {
   if (state.cases === null) options.push(new Option("Wszystkie sprawy", ALL));
   cases.forEach(name => options.push(new Option(name, name)));
   if (keep && !cases.includes(keep)) options.push(new Option(keep, keep));
+  if (state.station) el("station").textContent = " · " + state.station;
   el("case").replaceChildren(...options);
   if (keep) el("case").value = keep;
   // The side list on a wide screen: one click switches the case.
@@ -1234,9 +1506,8 @@ async function refreshCases(keep) {
     item.append(button);
     return item;
   }));
-  el("mode").textContent = state.mode === "synthetic-only"
-    ? "Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów."
-    : "Dokumenty są przechowywane na komputerze kancelarii.";
+  el("mode").hidden = state.mode !== "synthetic-only";
+  el("mode").textContent = "Ta instalacja ma jeszcze stare ustawienie trybu próbnego: używaj fikcyjnych dokumentów.";
 }
 
 // Pairing is done once. A paired device stays connected across refreshes and restarts (localStorage)
@@ -1275,11 +1546,13 @@ async function enter(device) {
   chips();
   shortcuts();
   refreshAgenda();
+  if (scope !== "listen") refreshLearning();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
   await refreshCases();
   layout = await call("layout");
   drawTiles();
   await refreshRules();
+  try { activitySeen = Math.max(0, ...(await call("activity")).lines.map(l => l.n)); } catch { activitySeen = 0; }
   await exchange({ hello: true });
   welcome();
 }
@@ -1440,6 +1713,10 @@ el("logout").onclick = run(async () => {
     await NotaraiTunnel.forgetIdentity();
   }
   leave("Rozłączono.");
+});
+el("learning").onclick = run(async () => {
+  const state = await call("learning");
+  await send(state.pending ? "lekcje do potwierdzenia" : "tryb uczenia", state.pending ? "Lekcje do potwierdzenia" : "Tryb uczenia");
 });
 el("agenda-add").onclick = () => {
   // A chosen day is written in already: only the hour and what remain to say or type.
