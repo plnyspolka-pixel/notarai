@@ -26,6 +26,7 @@ Every step is narrated in the chat; nothing of the content is logged.
 import json
 import os
 import re
+import secrets
 import shutil
 import string
 import subprocess
@@ -112,7 +113,8 @@ SYSTEM_AGENT = (
     "gdy utkniesz (kilka prób bez skutku, niejasne okno, kilka możliwych dróg) NIE zgaduj: zapytaj notariusza; po "
     "odpowiedzi pracujesz dalej, a program zapamięta wniosek\n"
     "- {\"krok\":\"koniec\",\"odpowiedz\":co zrobiłeś i co z tego wynika, po polsku, krótko}\n"
-    "Najpierw plan: jeśli niżej jest MAPA PROGRAMU dla tego programu, idź prosto po znanej drodze. Jeśli mapy nie ma, "
+    "Najpierw plan: jeśli niżej jest MAPA PROGRAMU dla tego programu, idź prosto po znanej drodze, a gdy jest tam "
+    "SPRAWDZONA DROGA dla tej czynności, wykonaj dokładnie jej kroki po kolei, bez rozglądania się i bez zrzutów. Jeśli mapy nie ma, "
     "najpierw poznaj program (okno albo widok głównego ekranu, potem menu i zakładki, bez zapisywania czegokolwiek), zapisz "
     "drogę krokiem notatka i dopiero wtedy wykonuj polecenie. Gdy polecenie dotyczy kilku pozycji (np. kilku aktów), "
     "rób je po kolei i nie kończ, póki wszystkie nie są przygotowane. Logowania, certyfikatu, PIN-u, hasła, podpisu i "
@@ -269,6 +271,27 @@ class ProgramMap:
             self._save(data)
         return f"Zapamiętałem o programie „{program}”."
 
+    MAX_ROUTES = 6
+
+    def route(self, program: str, purpose: str, steps: list[str]) -> None:
+        """A way through the program that ended well, as names of what was pressed and filled (never values).
+        For one purpose only the shortest known way is kept: each good repetition can only make it shorter."""
+        program, purpose = self.key(program), plain(purpose)[:30]
+        steps = [step for step in (self._safe(s) for s in steps) if step][:40]
+        if not program or not purpose or len(steps) < 2:
+            return
+        data = self._load()
+        entry = data.setdefault(program, {"ekrany": {}, "notatki": []})
+        routes = entry.setdefault("drogi", {})
+        known = routes.get(purpose)
+        if known is not None and len(known["kroki"]) <= len(steps):
+            known["razy"] = known.get("razy", 1) + 1
+        else:
+            if purpose not in routes and len(routes) >= self.MAX_ROUTES:
+                return
+            routes[purpose] = {"kroki": steps, "razy": (known or {}).get("razy", 0) + 1}
+        self._save(data)
+
     def programs(self) -> list[str]:
         return sorted(self._load())
 
@@ -289,9 +312,76 @@ class ProgramMap:
         for name, entry in sorted(data.items()):
             lines.append(f"PROGRAM {name}")
             lines += [f"  droga: {note}" for note in entry.get("notatki", [])]
+            for purpose, way in entry.get("drogi", {}).items():
+                lines.append(f"  SPRAWDZONA DROGA „{purpose}” ({len(way['kroki'])} kroków, udana {way.get('razy', 1)} razy): "
+                             + " -> ".join(way["kroki"]))
             for screen, parts in entry.get("ekrany", {}).items():
                 lines.append(f"  ekran „{screen}”: pola: {', '.join(parts['pola']) or '-'}; przyciski: {', '.join(parts['przyciski']) or '-'}")
         return "\n".join(lines)[:limit]
+
+
+# ------------------------------------------------------------------ the log of each run, kept for learning
+class RunLog:
+    """One file per run in `dziennik-agenta`: every step as kind, place and the NAME of the field or button, whether
+    it worked and how long it took. Never a value typed, a file's text, a path or a screenshot; the notary's sentence
+    is kept without names and numbers. From these files the office and the program see where time is lost
+    (owner's decision 28.11.2026). The exact live log with values stays in memory only."""
+
+    KEEP = 60
+
+    def __init__(self, home: Path, task: str):
+        self._folder = Path(home) / "dziennik-agenta"
+        self._lines, self._started = [], time.time()
+        self._path = self._folder / (time.strftime("%Y%m%d-%H%M%S") + f"-{secrets.token_hex(2)}.jsonl")
+        self._lines.append({"zadanie": self.shape(task), "start": time.strftime("%Y-%m-%d %H:%M:%S")})
+
+    @staticmethod
+    def shape(task: str) -> str:
+        """The sentence without what could name a person or a case: capitalised words after the first, and digits."""
+        words = str(task).split()
+        kept = [w if i == 0 or not w[:1].isupper() else "…" for i, w in enumerate(words)]
+        return re.sub(r"\d", "#", " ".join(kept))[:200]
+
+    @staticmethod
+    def place(step) -> tuple[str, str]:
+        kind = step.get("krok", "")
+        where = ProgramMap.key(str(step.get("okno") or step.get("adres") or "")) if step.get("okno") or step.get("adres") else ""
+        what = ProgramMap._safe(step.get("pole") or step.get("przycisk") or step.get("co") or (
+            step.get("program") if kind == "polecenie" else "")) or ""
+        return where, what
+
+    def step(self, step, outcome: str, seconds: float, *, state: str = "ok") -> None:
+        where, what = self.place(step)
+        line = {"t": round(time.time() - self._started, 1), "krok": step.get("krok", ""), "gdzie": where, "co": what,
+                "stan": state, "s": round(seconds, 1)}
+        if outcome.startswith("BŁĄD"):
+            line["stan"] = "blad" if state == "ok" else state
+            line["blad"] = re.sub(r"\d", "#", re.sub(r"„[^”]*”", "„…”", outcome))[:120]
+        self._lines.append(line)
+
+    def end(self, how: str) -> None:
+        steps = [l for l in self._lines if "krok" in l]
+        self._lines.append({"koniec": how, "krokow": len(steps), "bledow": sum(1 for l in steps if l["stan"] == "blad"),
+                            "cofnietych": sum(1 for l in steps if l["stan"] == "cofniety"),
+                            "sekund": round(time.time() - self._started)})
+        try:
+            self._folder.mkdir(parents=True, exist_ok=True)
+            self._path.write_text("\n".join(json.dumps(l, ensure_ascii=False) for l in self._lines) + "\n", encoding="utf-8")
+            for old in sorted(self._folder.glob("*.jsonl"))[:-self.KEEP]:
+                old.unlink(missing_ok=True)
+        except OSError:
+            pass                                   # the log is for learning; it must never stop the work
+
+    @staticmethod
+    def recent(home: Path, count: int = 5) -> list[tuple[str, list]]:
+        folder = Path(home) / "dziennik-agenta"
+        runs = []
+        for path in sorted(folder.glob("*.jsonl"), reverse=True)[:count]:
+            try:
+                runs.append((str(path), [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]))
+            except (OSError, ValueError):
+                continue
+        return runs
 
 
 # ------------------------------------------------------------------ the computer
@@ -835,6 +925,7 @@ class Computer:
             return page.url, title, body, links, password
         url, title, body, links, *rest = self._browser().on_page(look, timeout=60)
         self.used_browser = True
+        self.last_page = url
         controls = self._browser().controls()
         self._login(url, controls, bool(rest and rest[0]))
         self.map.record(url, re.sub(r"^https?://[^/]+", "", url.split("?")[0].split("#")[0])[:60] or "/", controls)
@@ -882,10 +973,42 @@ class Agent:
 
     STUCK_AFTER = 3            # failed steps in a row: the agent asks the notary instead of trying on
 
+    READS = frozenset({"okno", "okna", "widok", "pliki", "szukaj", "czytaj", "narzedzia"})
+    ACTIONS = frozenset({"wpisz", "kliknij", "web_wpisz", "web_kliknij"})
+
     def run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "", cancelled=lambda: False) -> dict:
         """Returns {"answer", "steps", "stopped": None | {"kind", "label", "step", "history"}}.
 
         `allowed`: kinds of irreversible act approved for this run (from the sentence or a „Tak”)."""
+        home = getattr(self._computer, "_home", None)
+        self._log = RunLog(home, task) if home is not None and getattr(self._computer, "keep_log", True) else None
+        self._trail, self._way = [], []          # (step, result) pairs of this run; what was pressed and filled, in order
+        result = self._run(task, allowed=allowed, history=history, lessons=lessons, cancelled=cancelled)
+        stopped = result.get("stopped")
+        how = "zatrzymane" if result.get("cancelled") else ("gotowe" if stopped is None else "czeka: " + stopped["kind"])
+        if self._log is not None:
+            self._log.end(how)
+        known = getattr(self._computer, "map", None)
+        if how == "gotowe" and known is not None and self._way and not any(
+                str(step.get("wynik", "")).startswith("BŁĄD") for step in result["steps"][-3:]):
+            places = {}
+            for where, what in self._way:
+                places.setdefault(where, []).append(what)
+            purpose = (plain(task).split() or [""])[0]
+            for where, steps in places.items():      # the way that worked, kept for the next time (never values)
+                known.route(where, purpose, steps)
+        return result
+
+    def _looping(self) -> str | None:
+        """The same steps with the same results, three times over: going in circles (decided by code)."""
+        trail = self._trail
+        for period in range(1, 7):
+            if len(trail) >= 3 * period and trail[-period:] == trail[-2 * period:-period] == trail[-3 * period:-2 * period]:
+                return f"powtarzam w kółko te same {period} kroki z tym samym wynikiem" if period > 1 else \
+                    "trzy razy z rzędu robię to samo z tym samym wynikiem"
+        return None
+
+    def _run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "", cancelled=lambda: False) -> dict:
         allowed = (set(allowed) | asked_for(task)) - NEVER
         self._computer.front_allowed = "wierzch" in allowed      # the front of the screen: only after the notary's „tak”
         history, steps = list(history or []), []
@@ -947,10 +1070,16 @@ class Agent:
                 except RuleViolation as error:
                     return {"answer": f"Zasada kancelarii nie pozwala teraz wysłać: {error}", "steps": steps, "stopped": None}
             refused = self._order(step)
+            signature = json.dumps({k: v for k, v in step.items() if k != "po_co"}, ensure_ascii=False, sort_keys=True)
+            if not refused and kind in self.READS and self._trail and self._trail[-1][0] == signature:
+                refused = ("Ten sam odczyt przed chwilą dał ten wynik (jest wyżej) i nic się od tego czasu nie zmieniło. "
+                           "Nie powtarzaj go: wykonaj czynność albo zadaj pytanie krokiem pytanie.")
             if refused:
                 history.append(f"KROK {json.dumps(step, ensure_ascii=False)}\nWYNIK: BŁĄD: {refused}")
                 steps.append({"krok": kind, "po_co": why, "wynik": "BŁĄD: " + refused})
                 self._narrate(f"{time.strftime('%H:%M:%S')} · cofnięte: {self._exact(step)} · {refused}")
+                if self._log is not None:
+                    self._log.step(step, "BŁĄD: cofnięte przez program", 0, state="cofniety")
                 continue
             number, started = len(steps) + 1, time.monotonic()
             self._narrate(f"{time.strftime('%H:%M:%S')} krok {number} · {self._exact(step)}"
@@ -974,6 +1103,21 @@ class Agent:
                           + self._outcome(kind, seen))
             steps.append({"krok": kind, "po_co": why, "wynik": seen.split("\n", 1)[0][:200]})
             history.append(f"KROK {json.dumps(step, ensure_ascii=False)}\nWYNIK: {seen[:MAX_SEEN]}")
+            if self._log is not None:
+                self._log.step(step, seen, time.monotonic() - started)
+            self._trail.append((signature, hash(seen)))
+            if kind in self.ACTIONS and not seen.startswith("BŁĄD"):
+                where, what = RunLog.place(step)
+                where = where or ProgramMap.key(str(getattr(self._computer, "last_page", "") or ""))
+                if what:
+                    self._way.append((where or "program", ("wpisz " if "wpisz" in kind else "kliknij ") + what))
+            circling = self._looping()
+            if circling:       # no more turns of the same circle: the notary decides how to go on
+                self._narrate(f"{time.strftime('%H:%M:%S')} · kręcę się w kółko ({circling}): zatrzymuję się i pytam notariusza")
+                return {"answer": "", "steps": steps, "stopped": {
+                    "kind": "pytanie", "label": f"kręcę się w kółko: {circling} (ostatnio: {self._plain_step(step)})",
+                    "step": None, "history": history,
+                    "options": ["Spróbuj innym sposobem", "Pokażę Ci, jak to zrobić", "Przerwij"]}}
             if act:            # an irreversible act happened: once, never repeated by the loop
                 allowed.discard(act)
             needed = getattr(self._computer, "login_needed", None)

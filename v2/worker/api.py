@@ -168,7 +168,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, attention_opener=None, team_invoke=None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
+               fill_targets: dict | None = None, attention_opener=None, attention_sound=None, team_invoke=None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
                office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
                service_send=None, web_calendar_api=None):
@@ -1638,11 +1638,13 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return [{"type": "text", "text": "Nie udało się tego wykonać. Sprawdź polecenie i spróbuj ponownie."}]
 
     # ------------------------------------------------------------ the small window on top (agent's questions)
-    from .attention import PAGE as ATTENTION_PAGE, Attention, windows_popup
+    from .attention import PAGE as ATTENTION_PAGE, Attention, windows_popup, windows_sound
 
     attention = Attention(opener=attention_opener if attention_opener is not None else (
                               windows_popup(home / "okno-pytanie") if os.name == "nt" else None),
-                          enabled=lambda: state["settings"].agent.popup)
+                          enabled=lambda: state["settings"].agent.popup,
+                          sound=attention_sound if attention_sound is not None else (windows_sound if os.name == "nt" else None),
+                          sound_on=lambda: state["settings"].agent.sound)
 
     def this_computer(request: Request, *, writing: bool = False) -> None:
         """Only a page of this worker, opened on this very computer."""

@@ -103,6 +103,7 @@ class AgentSettings(_Strict):
     background: bool = True
     # A small window above all others when the agent has a question or needs the notary (2.8.5).
     popup: bool = True
+    sound: bool = True          # and a sound with it, repeated a few times while the question waits
 
 
 class Settings(_Strict):

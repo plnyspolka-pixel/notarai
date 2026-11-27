@@ -424,7 +424,7 @@ def test_login_signature_and_password_are_never_done_by_the_agent(tmp_path):
 
 def test_long_work_stops_as_something_to_continue(tmp_path):
     computer = Computer(tmp_path, desktop=lambda: FakeDesktop())
-    ask, seen = script(*[{"krok": "okna"}] * 5)
+    ask, seen = script(*[{"krok": "szukaj", "nazwa": f"akt{n}", "folder": str(tmp_path)} for n in range(5)])
     result = Agent(computer, ask, max_steps=5).run("zrób dużo")
     assert result["stopped"]["kind"] == "limit" and len(result["stopped"]["history"]) == 5
     ask, seen = script({"krok": "koniec", "odpowiedz": "Skończone."})
@@ -501,7 +501,7 @@ def test_poznaj_program_starts_a_mapping_run_and_the_limit_offers_to_continue(we
     blocks = client.post("/v2/chat", headers=admin, json={"text": "poznaj program RejNET"}).json()["blocks"]
     assert "Poznałem 3 ekrany." in wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))[0]["text"]
     import worker.agent as agent_module
-    replies += [json.dumps({"krok": "okna"})] * agent_module.MAX_STEPS
+    replies += [json.dumps({"krok": "szukaj", "nazwa": f"akt{n}", "folder": ""}) for n in range(agent_module.MAX_STEPS)]
     blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz program i zrób wszystko"}).json()["blocks"]
     stopped = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
     assert "jeszcze nie skończyłem" in stopped[0]["text"] and stopped[-1]["label"] == "Kontynuuj"
@@ -899,3 +899,101 @@ def test_a_window_is_chosen_without_being_brought_forward():
     desktop.focus("RejNET")
     desktop.click(stuck)
     assert focused == [1, "mysz"]                                       # form filling from procedures works as before
+
+
+# ---- 2.8.8: no going in circles; a log of every run; the way that worked is remembered and only gets shorter
+def test_going_in_circles_is_stopped_by_code(tmp_path):
+    desktop = FakeDesktop()
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    lines = []
+    ask, _ = script({"krok": "okno", "okno": "RejNET"}, {"krok": "okno", "okno": "RejNET"},          # the same read again: refused
+                    *[{"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"}] * 3)
+    result = Agent(computer, ask, narrate=lines.append).run("zapisz wpis w RejNET")
+    assert "Ten sam odczyt" in result["steps"][1]["wynik"]
+    assert result["stopped"]["kind"] == "pytanie" and "kręcę się w kółko" in result["stopped"]["label"]
+    assert desktop.clicked == ["Zapisz"] * 3 and any("kręcę się w kółko" in line for line in lines)
+    # a cycle of several steps is seen too; entering several acts (different values) is not a circle
+    cycle = [{"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"}, {"krok": "okno", "okno": "RejNET"}]
+    ask, _ = script(*cycle * 3)
+    assert "te same 2 kroki" in Agent(computer, ask).run("zapisz")["stopped"]["label"]
+    acts = [s for n in range(4) for s in ({"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": f"{n}/2026"},
+                                          {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"})]
+    ask, _ = script(*acts, {"krok": "koniec", "odpowiedz": "Cztery akty."})
+    assert Agent(computer, ask).run("wpisz cztery akty")["answer"] == "Cztery akty."
+
+
+def test_every_run_leaves_a_log_without_values(tmp_path):
+    from worker.agent import RunLog
+    desktop = FakeDesktop()
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    ask, _ = script({"krok": "okno", "okno": "RejNET"},
+                    {"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "Jan Kowalski 44051401359"},
+                    {"krok": "kliknij", "okno": "RejNET", "przycisk": "Nie ma takiego"},
+                    {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"}, {"krok": "koniec", "odpowiedz": "ok"})
+    Agent(computer, ask).run("zarejestruj w RejNET akt Kowalskiego nr 1234/2026")
+    path, lines = RunLog.recent(tmp_path)[0]
+    raw = open(path, encoding="utf-8").read()
+    assert "Kowalski" not in raw and "44051401359" not in raw and "1234" not in raw
+    assert lines[0]["zadanie"] == "zarejestruj w … akt … nr ####/####"
+    assert [(l["krok"], l["co"], l["stan"]) for l in lines if "krok" in l] == [
+        ("okno", "", "ok"), ("wpisz", "Numer aktu", "ok"), ("kliknij", "Nie ma takiego", "blad"), ("kliknij", "Zapisz", "ok")]
+    assert lines[-1]["koniec"] == "gotowe" and lines[-1]["krokow"] == 4 and lines[-1]["bledow"] == 1
+
+
+def test_the_way_that_worked_is_remembered_and_only_gets_shorter(tmp_path):
+    desktop = FakeDesktop()
+    def do(*steps):
+        computer = Computer(tmp_path, desktop=lambda: desktop)
+        ask, seen = script(*steps, {"krok": "koniec", "odpowiedz": "ok"})
+        Agent(computer, ask).run("zarejestruj akt w RejNET")
+        return computer.map.describe(), seen
+    long_way = ({"krok": "okno", "okno": "RejNET"}, {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"},
+                {"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "1/2026"},
+                {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"})
+    described, _ = do(*long_way)
+    assert "SPRAWDZONA DROGA „zarejestruj” (3 kroków, udana 1 razy): kliknij Zapisz -> wpisz Numer aktu -> kliknij Zapisz" in described
+    assert "1/2026" not in described
+    described, seen = do({"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "2/2026"},
+                         {"krok": "kliknij", "okno": "RejNET", "przycisk": "Zapisz"})
+    assert "SPRAWDZONA DROGA" in seen[0]                                   # the next run starts with the proven way
+    assert "(2 kroków, udana 2 razy): wpisz Numer aktu -> kliknij Zapisz" in described
+    described, _ = do(*long_way)                                           # a longer success does not replace the short way
+    assert "(2 kroków, udana 3 razy)" in described
+
+
+def test_the_question_comes_with_a_sound_repeated_while_it_waits():
+    from worker.attention import Attention
+
+    played, timers = [], []
+
+    class Timer:
+        def __init__(self, seconds, function, args=()):
+            self.go = lambda: function(*args)
+            timers.append(self)
+
+        def start(self):
+            pass
+    switch = {"on": True}
+    attention = Attention(opener=lambda url: None, sound=lambda: played.append(1), sound_on=lambda: switch["on"], timer=Timer)
+    token = attention.ask("local-admin", "Utknąłem", [("Przerwij", {"text": "x"})])
+    assert played == [1] and len(timers) == 1
+    timers[0].go()
+    assert played == [1, 1]                                    # still waiting: the sound again
+    attention.answer(token, choice=0)
+    timers[-1].go()
+    assert played == [1, 1]                                    # answered: silence
+    switch["on"] = False
+    attention.ask("local-admin", "Utknąłem", [("Przerwij", {"text": "x"})])
+    assert played == [1, 1]
+
+
+def test_the_notary_can_read_what_the_agent_did(office):
+    client, admin, desk, desktop, replies = office
+    replies += [json.dumps({"krok": "okno", "okno": "RejNET"}),
+                json.dumps({"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "tajne 44051401359"}),
+                json.dumps({"krok": "koniec", "odpowiedz": "ok"})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz program RejNET i wpisz numer aktu Kowalskiego"}).json()["blocks"]
+    wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    said = client.post("/v2/chat", headers=admin, json={"text": "dziennik agenta"}).json()["blocks"][0]["text"]
+    assert "koniec: gotowe; kroków 2" in said and "dziennik-agenta" in said and "44051401359" not in said and "Kowalski" not in said
+    assert "sygnał" in client.post("/v2/chat", headers=admin, json={"text": "włącz dźwięk pytania agenta"}).json()["blocks"][0]["text"]

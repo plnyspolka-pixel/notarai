@@ -539,6 +539,28 @@ class Chat:
             return [text("Strony otwieram i wypełniam w tle: okna nie widać, pokażę je do logowania, podpisu albo na "
                          "„pokaż przeglądarkę”. Programy Windows (nie strony) nadal obsługuję w ich własnych oknach."
                          if background else "Przeglądarka NotarAI pracuje teraz na widoku.")]
+        if re.fullmatch(r"(pokaz )?(dziennik|log|logi|historia)( pracy)? agenta|co robil agent|jak pracowal agent", plain):
+            from .agent import RunLog
+
+            runs = RunLog.recent(self.s.computer._home, 5)
+            if not runs:
+                return [text("Agent nie ma jeszcze zapisanego dziennika pracy.")]
+            parts = []
+            for path, lines in runs:
+                head, tail = lines[0], lines[-1]
+                steps = [l for l in lines if "krok" in l]
+                repeated = {}
+                for l in steps:
+                    key = f"{l['krok']} {l['co'] or l['gdzie']}".strip()
+                    repeated[key] = repeated.get(key, 0) + 1
+                most = sorted(((n, k) for k, n in repeated.items() if n > 2), reverse=True)[:3]
+                parts.append(f"{head.get('start', '')} · „{head.get('zadanie', '')}”\n"
+                             f"  koniec: {tail.get('koniec', '?')}; kroków {tail.get('krokow', len(steps))}, błędów "
+                             f"{tail.get('bledow', 0)}, cofniętych {tail.get('cofnietych', 0)}, czas {tail.get('sekund', 0)} s"
+                             + ("\n  najczęściej powtarzane: " + "; ".join(f"{k} ({n}x)" for n, k in most) if most else ""))
+            folder = os.path.dirname(runs[0][0])
+            return [text("Ostatnie prace agenta (bez wpisywanych wartości, nazwisk i numerów):\n\n" + "\n\n".join(parts)
+                         + f"\n\nPełne dzienniki krok po kroku: {folder}")]
         if known is None:
             return None
         found = re.fullmatch(r"(?:zmapuj|poznaj)(?: mi)?(?: caly| cala)?(?: program| strone| portal| aplikacje)?\s+(.+)", plain)
@@ -1292,6 +1314,10 @@ class Chat:
             return [text("Agent może patrzeć na ekran: zrzut idzie do asystenta we Frankfurcie tak, jak go widać (nazwisk "
                          "na obrazie nie da się zamienić na znaczniki), nic nie jest tam zapisywane; każde spojrzenie widać w rozmowie."
                          if on else "Agent nie robi już zrzutów ekranu: widzi tylko tekst plików, pól okien i stron.")]
+        if (on or off) and re.search(r"dzwiek\w* (pytani|agenta|okienk)|sygnal\w* (dzwiekow\w* )?(pytani|agenta|okienk)", plain):
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(sound=on))
+            return [text("Gdy agent będzie czekał na Twoją decyzję, usłyszysz sygnał; powtórzę go kilka razy, póki nie odpowiesz."
+                         if on else "Okienko z pytaniem agenta pojawi się bez dźwięku.")]
         if (on or off) and re.search(r"okienk\w* z pytani|okienk\w* agenta|pytani\w* na wierzchu|powiadomieni\w* agenta", plain):
             s.update_settings(lambda d: d.setdefault("agent", {}).update(popup=on))
             return [text("Gdy agent będzie miał pytanie albo będzie potrzebował Twojego logowania lub zgody, pokażę małe "
@@ -1305,7 +1331,7 @@ class Chat:
         found = re.fullmatch(r"(?:cofnij|odlacz|usun|zablokuj)(?: dostep)?(?: urzadzenia| urzadzenie)?\s+(.+)", plain)
         if found:
             return self._revoke(identity, found.group(1))
-        if plain.startswith(("dziennik", "kto czytal", "kto otwieral", "historia", "kto zmienial")):
+        if plain.startswith(("dziennik", "kto czytal", "kto otwieral", "historia", "kto zmienial")) and "agent" not in plain:
             return self._audit(identity, case, plain)
         if plain.startswith(("zuzycie", "ile kosztowalo", "ile zuzylismy", "koszty ai")):
             usage = s.usage()

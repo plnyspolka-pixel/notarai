@@ -196,6 +196,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   (`click_at`, `send_text`). Krok, którego tak się nie da (`klawisze`, zrzut całego ekranu, klik myszą), rzuca
   `agent.NeedFront`: przebieg staje (rodzaj `wierzch`), czat pyta o zgodę na to zadanie, a po kroku okno notariusza wraca
   na wierzch (`Computer._borrow`, `give_back`). Nie dodawaj `set_focus`, `click_input` ani `send_keys` poza `_borrow`.
+- Dziennik pracy agenta i skracanie drogi (decyzja właściciela 28.11.2026): dokładny dziennik na żywo (z wartościami)
+  zostaje tylko w pamięci, ale każdy przebieg zostawia plik w `dziennik-agenta/` (`agent.RunLog`): rodzaj kroku,
+  program, NAZWA pola lub przycisku, czy się udało, czas; nigdy wpisywana wartość, treść pliku, ścieżka ani zrzut,
+  a zdanie notariusza bez słów pisanych wielką literą i bez cyfr. Nie dopisuj tam wartości. Udana praca zapisuje w mapie
+  programu „sprawdzoną drogę” (`ProgramMap.route`): dla jednej czynności zostaje najkrótsza znana. Kręcenie się w kółko
+  wykrywa kod (`Agent._looping`, powtórzony odczyt bez zmiany): przebieg staje i pyta notariusza.
 - Okienko z pytaniem (decyzja właściciela 28.11.2026, `v2/worker/attention.py`, ustawienie `agent.popup`): gdy praca agenta
   staje na pytaniu, logowaniu albo potwierdzeniu, stanowisko otwiera małe okno Edge ponad innymi oknami. Strona jest
   podawana tylko temu komputerowi pod jednorazowym adresem (`this_computer`), jedna odpowiedź na pytanie; odpowiedź
