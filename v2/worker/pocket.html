@@ -40,8 +40,14 @@
   </section>
   <main id="workspace" hidden>
     <aside id="side" aria-label="Kalendarz i sprawy">
-      <section class="side-box">
-        <h2>Kalendarz</h2>
+      <section class="side-box" id="calendar-box">
+        <div class="month-head">
+          <button id="month-prev" class="quiet nav" aria-label="Poprzedni miesiąc">‹</button>
+          <h2 id="month-title">Kalendarz</h2>
+          <button id="month-next" class="quiet nav" aria-label="Następny miesiąc">›</button>
+        </div>
+        <div id="month" class="month" role="grid" aria-label="Kalendarz miesiąca"></div>
+        <h3 id="agenda-title" class="agenda-title">Dziś i najbliższe</h3>
         <ul id="agenda" class="agenda"></ul>
         <button id="agenda-add" class="quiet small">+ Dodaj termin</button>
       </section>

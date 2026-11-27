@@ -397,21 +397,72 @@ function changed(a, b) {
   return total / a.length > 2;
 }
 
-async function refreshAgenda() {
-  let items = [];
-  try { items = (await call("calendar?days=14")).items; } catch { return; }
-  const list = el("agenda");
-  if (!items.length) {
-    list.replaceChildren(node("li", "muted", "Brak terminów w najbliższych dwóch tygodniach."));
-    return;
-  }
-  list.replaceChildren(...items.slice(0, 12).map(entry => {
-    const item = node("li", entry.source === "rozmowa" ? "check" : "");
-    const [day, hour] = [entry.label.split(" ").slice(0, -1).join(" "), entry.label.split(" ").slice(-1)[0]];
-    item.append(node("span", "when", day + " " + hour), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
-    return item;
-  }));
+// The month on the left: days with appointments marked; a click shows that day underneath.
+const MONTHS = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
+                "październik", "listopad", "grudzień"];
+const cal = { month: null, day: null };
+
+function isoDay(date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
 }
+
+function agendaItem(entry, withDay) {
+  const item = node("li", entry.source === "rozmowa" ? "check" : "");
+  const hour = entry.start.slice(11, 16).replace(/^0/, "");
+  const when = withDay ? entry.label : hour;
+  item.append(node("span", "when", when), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
+  item.title = entry.source === "rozmowa" ? "Termin z rozmowy: sprawdź go" : "";
+  return item;
+}
+
+async function refreshAgenda() {
+  if (!cal.month) { const now = new Date(); cal.month = new Date(now.getFullYear(), now.getMonth(), 1); }
+  const first = cal.month;
+  const gridStart = new Date(first);
+  gridStart.setDate(1 - ((first.getDay() + 6) % 7));            // weeks start on Monday
+  let month = [], soon = [];
+  try {
+    [month, soon] = await Promise.all([
+      call("calendar?days=42&start=" + isoDay(gridStart)).then(r => r.items),
+      call("calendar?days=14").then(r => r.items),
+    ]);
+  } catch { return; }
+  const byDay = {};
+  for (const entry of month) (byDay[entry.start.slice(0, 10)] ||= []).push(entry);
+  el("month-title").textContent = MONTHS[first.getMonth()] + " " + first.getFullYear();
+  const today = isoDay(new Date());
+  const cells = ["pn", "wt", "śr", "cz", "pt", "so", "nd"].map(name => node("span", "dow", name));
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + i);
+    const key = isoDay(date);
+    const cell = node("button", "day", String(date.getDate()));
+    if (date.getMonth() !== first.getMonth()) cell.classList.add("other");
+    if (key === today) cell.classList.add("today");
+    if (key === cal.day) cell.classList.add("chosen");
+    if (byDay[key]) {
+      cell.classList.add("busy");
+      cell.setAttribute("aria-label", date.getDate() + " " + MONTHS[date.getMonth()] + ": terminów " + byDay[key].length);
+    }
+    cell.onclick = () => { cal.day = cal.day === key ? null : key; refreshAgenda(); };
+    cells.push(cell);
+  }
+  el("month").replaceChildren(...cells);
+  const list = el("agenda");
+  if (cal.day) {
+    const [y, m, d] = cal.day.split("-").map(Number);
+    el("agenda-title").textContent = d + " " + ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+      "sierpnia", "września", "października", "listopada", "grudnia"][m - 1] + (y !== new Date().getFullYear() ? " " + y : "");
+    const items = byDay[cal.day] || [];
+    list.replaceChildren(...(items.length ? items.map(e => agendaItem(e, false)) : [node("li", "muted", "Brak terminów tego dnia.")]));
+  } else {
+    el("agenda-title").textContent = "Dziś i najbliższe";
+    list.replaceChildren(...(soon.length ? soon.slice(0, 12).map(e => agendaItem(e, true))
+      : [node("li", "muted", "Brak terminów w najbliższych dwóch tygodniach.")]));
+  }
+}
+el("month-prev").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); refreshAgenda(); };
+el("month-next").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + 1, 1); refreshAgenda(); };
 render.calendar = () => refreshAgenda();
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
@@ -1390,7 +1441,13 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
-el("agenda-add").onclick = run(() => send("dodaj termin", "Dodaj termin"));
+el("agenda-add").onclick = () => {
+  // A chosen day is written in already: only the hour and what remain to say or type.
+  const [y, m, d] = (cal.day || "").split("-");
+  el("prompt").value = cal.day ? `termin ${d}.${m}.${y} ` : "termin ";
+  el("prompt").focus();
+  status("Dopisz godzinę i co się odbędzie, np. „10:00 podpisanie aktu Kowalski”, i wyślij. Możesz też podyktować 🎤.");
+};
 el("arrange").onclick = () => { arranging = !arranging; drawTiles(); };
 el("add-tile").onclick = run(() => send("narzędzia", "Dodaj narzędzie"));
 el("hide-tiles").onclick = run(() => send("ukryj kafelki", "Schowaj kafelki"));

@@ -1066,8 +1066,16 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                           lambda: state["settings"].listen, extract=extract_docx, calendar=calendar)
 
     @app.get("/v2/calendar")
-    def calendar_list(days: int = 14, identity: Identity = Depends(auth)):
-        return {"items": calendar.upcoming(max(1, min(days, 92)), cases=identity.cases)}
+    def calendar_list(days: int = 14, start: str | None = None, identity: Identity = Depends(auth)):
+        import datetime as dt
+
+        first = None
+        if start is not None:
+            try:
+                first = dt.date.fromisoformat(start)
+            except ValueError:
+                raise HTTPException(400, "invalid date")
+        return {"items": calendar.upcoming(max(1, min(days, 92)), cases=identity.cases, start=first)}
     app.state.listening = listening
 
     def source_name(identity: Identity) -> str:
