@@ -701,19 +701,49 @@ render.reply = block => {
 
 render.job = block => {
   // A longer task on the office computer (a land register, a KRZ search): its result arrives here by itself.
-  const waiting = bubble("Pracuję nad tym…", "them wait");
+  // While it runs, every step the program takes is listed here as it happens (the same lines as /activity).
+  const waiting = node("div", "bubble them wait working");
+  const head = node("div", "", "Pracuję nad tym…");
+  const log = node("ol", "steps live");
+  waiting.append(head, log);
+  show(waiting);
+  const said = [];
+  const drain = async () => {
+    try {
+      const { lines } = await call("activity?after=" + activitySeen);
+      for (const line of lines) {
+        activitySeen = Math.max(activitySeen, line.n);
+        said.push(line.text);
+        log.append(node("li", "", line.text));
+        head.textContent = "Pracuję. Dziennik czynności na żywo (wpisy: " + said.length + "):";
+        log.scrollTop = log.scrollHeight;
+        waiting.scrollIntoView({ block: "end" });
+      }
+    } catch { /* the result matters more than the commentary */ }
+  };
   (async () => {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    for (let attempt = 0; attempt < 4500; attempt++) {           // about an hour of work
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await drain();
+      if (attempt % 3 !== 2) continue;                           // the result is asked for less often than the log
       try {
         const answer = await call("jobs/" + block.id);
         if (!answer.done) continue;
+        await drain();
         waiting.remove();
+        if (said.length) {
+          const how = node("details", "how");
+          how.append(node("summary", "", "Dziennik czynności (" + said.length + ")"));
+          const list = node("ol", "steps");
+          for (const line of said) list.append(node("li", "", line));
+          how.append(list);
+          show(how);
+        }
         for (const part of answer.blocks) await (render[part.type] || render.text)(part);
         return;
-      } catch { waiting.textContent = "Nie mogę sprawdzić wyniku. Spróbuję jeszcze raz."; }
+      } catch { head.textContent = "Nie mogę sprawdzić wyniku. Spróbuję jeszcze raz."; }
     }
-    waiting.textContent = "To trwa wyjątkowo długo. Wynik znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
+    head.textContent = "To trwa wyjątkowo długo. Wynik znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
   })();
 };
 

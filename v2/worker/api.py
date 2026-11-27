@@ -1284,7 +1284,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         """One step of the current work, shown live under the notary's message (no document content)."""
         lines = activity.setdefault(identity.id, [])
         lines.append({"n": (lines[-1]["n"] + 1) if lines else 1, "text": line, "at": time.time()})
-        del lines[:-40]
+        del lines[:-600]          # the agent's exact log of a long task stays readable to its end
 
     @app.get("/v2/activity")
     def activity_since(after: int = 0, identity: Identity = Depends(auth)):

@@ -14,6 +14,12 @@ FIELD_TYPES = {"Edit": "text", "Document": "text", "ComboBox": "select", "CheckB
                "RadioButton": "check", "Button": "button", "SplitButton": "button"}
 
 
+# What a person navigates a program with. The agent sees these too (`controls(deep=True)`), so a program can be
+# mapped and driven by the names Windows itself gives its menus, tabs, trees and lists (UI Automation).
+NAVIGATION_TYPES = {"MenuItem": "menu", "TabItem": "zakładka", "TreeItem": "gałąź", "ListItem": "pozycja",
+                    "DataItem": "wiersz", "Hyperlink": "odnośnik"}
+
+
 def label_controls(items: list[dict]) -> list[dict]:
     """Assign labels by geometry. `items`: dicts with type, name, rect=(left, top, right, bottom)."""
     texts = [i for i in items if i["type"] == "Text" and i["name"].strip()]
@@ -77,20 +83,49 @@ class Desktop:
         except Exception:
             pass
 
-    def controls(self):
+    def _family(self):
+        """The chosen window and the other windows of the same program: an open menu or a dialog is a window of its own."""
+        family = [self._window]
+        try:
+            process = self._window.element_info.process_id
+            for other in self._desktop().windows(process=process):
+                if other.element_info.handle != self._window.element_info.handle:
+                    family.append(other)
+        except Exception:
+            pass
+        return family
+
+    def controls(self, deep: bool = False):
+        """`deep`: also menus, tabs, tree and list items, and the program's open menus and dialogs (for the agent)."""
         if self._window is None:
             raise FillError("Nie wybrano okna programu.")
-        items = []
-        for element in self._window.descendants():
-            info = element.element_info
-            kind = info.control_type
-            if kind not in FIELD_TYPES and kind != "Text":
+        items, navigation = [], []
+        for window in (self._family() if deep else [self._window]):
+            try:
+                elements = window.descendants()
+            except Exception:
                 continue
-            if not element.is_visible() or (kind != "Text" and not element.is_enabled()):
-                continue
-            rect = element.rectangle()
-            items.append({"type": kind, "name": info.name or "", "rect": (rect.left, rect.top, rect.right, rect.bottom),
-                          "element": element, "value": self._value(element, FIELD_TYPES.get(kind))})
+            for element in elements[:4000]:
+                try:
+                    info = element.element_info
+                    kind = info.control_type
+                    if deep and kind in NAVIGATION_TYPES:
+                        name = (info.name or "").strip()
+                        if name and element.is_visible() and element.is_enabled():
+                            navigation.append(Control(element, "button", f"{name} ({NAVIGATION_TYPES[kind]})", "", []))
+                        continue
+                    if kind not in FIELD_TYPES and kind != "Text":
+                        continue
+                    if not element.is_visible() or (kind != "Text" and not element.is_enabled()):
+                        continue
+                    rect = element.rectangle()
+                    items.append({"type": kind, "name": info.name or "", "rect": (rect.left, rect.top, rect.right, rect.bottom),
+                                  "element": element, "value": self._value(element, FIELD_TYPES.get(kind)),
+                                  "password": bool(deep and kind == "Edit" and self._is_password(element))})
+                except Exception:
+                    continue
+        if deep:
+            self.password_field = any(item.get("password") for item in items)
         controls = []
         for item in label_controls(items):
             options = []
@@ -100,7 +135,14 @@ class Desktop:
                 except Exception:
                     options = []
             controls.append(Control(item["element"], item["kind"], item["label"], item["value"], options))
-        return controls
+        return controls + navigation[:400]
+
+    @staticmethod
+    def _is_password(element) -> bool:
+        try:
+            return bool(element.element_info.element.CurrentIsPassword)
+        except Exception:
+            return False
 
     @staticmethod
     def _value(element, kind):
@@ -138,10 +180,13 @@ class Desktop:
         return self._value(control.ref, control.kind)
 
     def click(self, control):
-        try:
-            control.ref.invoke()
-        except Exception:
-            control.ref.click_input()
+        for way in ("invoke", "select", "expand"):          # a button, a tab or a list item, a menu
+            try:
+                getattr(control.ref, way)()
+                return
+            except Exception:
+                continue
+        control.ref.click_input()
 
     def where(self):
         try:

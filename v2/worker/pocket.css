@@ -234,6 +234,8 @@ button.chip.learning.off { color: var(--muted); border-color: var(--line); backg
 .bubble.working { font-style: normal; }
 .steps { margin: 6px 0 0; padding-left: 20px; font-size: .9rem; color: var(--muted); }
 .steps li { margin: 2px 0; }
+.steps.live { max-height: 46vh; overflow-y: auto; font-variant-numeric: tabular-nums; }
+.steps.live li:last-child { color: var(--ink, inherit); font-weight: 600; }
 details.how { align-self: flex-start; max-width: 92%; color: var(--muted); font-size: .88rem; }
 details.how summary { cursor: pointer; padding: 2px 4px; }
 .lesson-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

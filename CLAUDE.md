@@ -161,6 +161,15 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
     i przycisków zbierane kodem z kroków `okno`/`widok` oraz notatki agenta o drodze przez program; nigdy wartości
     pól, numery ani dane osób (filtr w kodzie). Mapa trafia do promptu agenta od pierwszego kroku.
   - jeden przebieg to do `MAX_STEPS` kroków; po limicie czat proponuje „Kontynuuj” z zachowaną historią.
+  - programy Windows (np. RejNET to program na komputerze, nie strona): agent czyta przez UI Automation całe okno,
+    także menu, zakładki, drzewa i listy oraz otwarte menu i okna dialogowe tego samego programu
+    (`win_fill.Desktop.controls(deep=True)`); z tego powstaje mapa programu. Wypełnianie formularzy z procedur
+    (`autofill`) nadal używa `controls()` bez `deep`.
+  - ekran logowania (pole hasła albo PIN-u w oknie programu lub na stronie) wykrywa kod (`Computer._login`):
+    przebieg staje, czat prosi notariusza o zalogowanie i wznawia pracę po „Zalogowałem się, kontynuuj”.
+  - dziennik na żywo: każdy krok agenta idzie do `narrate` jako dokładna czynność z godziną i osobno jej wynik
+    (`Agent._exact`, `_outcome`); okno rozmowy pokazuje je w trakcie pracy w tle (`pocket.js`, `render.job`).
+    Dziennik żyje tylko w pamięci programu i trafia do urządzenia, które zleciło pracę; nie zapisuj go do plików ani logów.
 - Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
   notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
   zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia

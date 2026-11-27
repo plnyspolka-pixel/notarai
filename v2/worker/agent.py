@@ -284,6 +284,7 @@ class Computer:
         self._scale = None                                       # screen pixels per pixel of the last screenshot
         self.map = ProgramMap(self._home)
         self.used_browser = False                                # this run touched the NotarAI browser
+        self.login_needed = None                                 # a login screen was just read: where
         self.picture = None                                      # JPEG for the model's next turn, taken once
 
     def _may(self, what: str) -> bool:
@@ -628,24 +629,41 @@ class Computer:
             raise AgentError(str(error)) from None
         return desktop
 
+    @staticmethod
+    def _all(desktop):
+        """Everything a person can use in the window: fields and buttons, and menus, tabs, trees, lists."""
+        try:
+            return desktop.controls(deep=True)
+        except TypeError:
+            return desktop.controls()
+
+    LOGIN_FIELD = re.compile(r"(^|[^a-z])(haslo|pin|password|kod pin|haslo dostepu)($|[^a-z])")
+
+    def _login(self, where: str, controls, password_field: bool = False) -> None:
+        """A screen that asks for a password or a PIN: the notary's part. The loop stops and the chat asks."""
+        if password_field or any(c.kind == "text" and self.LOGIN_FIELD.search(plain(c.label)) for c in controls):
+            self.login_needed = where or "program"
+
     def windows(self) -> str:
         return "Otwarte okna:\n" + "\n".join(self._desktop().windows())
 
     def window(self, title: str) -> str:
         desktop = self._window(title)
         lines = []
-        for control in desktop.controls():
+        found = self._all(desktop)
+        self._login(desktop.where() or title, found, bool(getattr(desktop, "password_field", False)))
+        for control in found:
             value = f" = „{control.value}”" if control.value else ""
             options = f" (do wyboru: {', '.join(control.options[:15])})" if control.options else ""
             lines.append(f"[{control.kind}] {control.label}{value}{options}")
-        self.map.record(desktop.where() or title, desktop.where() or title, desktop.controls())
-        return f"Okno {desktop.where()}:\n" + ("\n".join(lines) or "(brak pól dostępnych dla programu)")
+        self.map.record(desktop.where() or title, desktop.where() or title, found)
+        return f"Okno {desktop.where()}:\n" + ("\n".join(lines[:500]) or "(brak pól dostępnych dla programu)")
 
     def _control(self, desktop, label, kinds):
         from .autofill import norm
 
-        wanted = norm(label)
-        controls = [c for c in desktop.controls() if c.kind in kinds]
+        wanted = norm(re.sub(r"\s*\((menu|zakładka|gałąź|pozycja|wiersz|odnośnik)\)\s*$", "", str(label)))
+        controls = [c for c in self._all(desktop) if c.kind in kinds]
         exact = [c for c in controls if norm(c.label) == wanted]
         partial = [c for c in controls if wanted and wanted in norm(c.label)]
         found = exact or partial
@@ -697,10 +715,13 @@ class Computer:
             links = page.evaluate("""() => [...document.querySelectorAll('a,button,[role=button]')]
                 .filter(e => e.offsetParent !== null).map(e => (e.innerText || e.value || e.getAttribute('aria-label') || '').trim())
                 .filter(t => t).slice(0, 120)""")
-            return page.url, title, body, links
-        url, title, body, links = self._browser().on_page(look, timeout=60)
+            password = page.evaluate("""() => [...document.querySelectorAll('input[type=password]')]
+                .some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })""")
+            return page.url, title, body, links, password
+        url, title, body, links, *rest = self._browser().on_page(look, timeout=60)
         self.used_browser = True
         controls = self._browser().controls()
+        self._login(url, controls, bool(rest and rest[0]))
         self.map.record(url, re.sub(r"^https?://[^/]+", "", url.split("?")[0].split("#")[0])[:60] or "/", controls)
         fields = [f"[{c.kind}] {c.label}" + (f" = „{c.value}”" if c.value else "") for c in controls]
         return (f"Strona {url} — {title}\nTekst:\n{' '.join(body.split())[:5000]}\n"
@@ -782,20 +803,30 @@ class Agent:
                     self._rules.check_send("komputer", [])
                 except RuleViolation as error:
                     return {"answer": f"Zasada kancelarii nie pozwala teraz wysłać: {error}", "steps": steps, "stopped": None}
-            self._narrate(f"Krok {len(steps) + 1}: {why or self._describe(step)}" + (
-                " (zrzut ekranu idzie do asystenta we Frankfurcie tak, jak go widać)" if kind == "ekran" else "") + (
-                f" [{step.get('program', '')} {' '.join(str(a) for a in step.get('argumenty') or [])[:120]}]"
-                if kind == "polecenie" and isinstance(step.get("argumenty", []), list) else ""))
+            number, started = len(steps) + 1, time.monotonic()
+            self._narrate(f"{time.strftime('%H:%M:%S')} krok {number} · {self._exact(step)}"
+                          + (f" · po co: {why}" if why else "")
+                          + (" · zrzut ekranu idzie do asystenta we Frankfurcie tak, jak go widać" if kind == "ekran" else ""))
+            self._computer.login_needed = None
             try:
                 seen = self._do(step)
             except AgentError as error:
                 seen = "BŁĄD: " + str(error)
             except Exception:
                 seen = "BŁĄD: ten krok się nie udał."
+            self._narrate(f"{time.strftime('%H:%M:%S')} krok {number} · wynik ({time.monotonic() - started:.1f} s): "
+                          + self._outcome(kind, seen))
             steps.append({"krok": kind, "po_co": why, "wynik": seen.split("\n", 1)[0][:200]})
             history.append(f"KROK {json.dumps(step, ensure_ascii=False)}\nWYNIK: {seen[:MAX_SEEN]}")
             if act:            # an irreversible act happened: once, never repeated by the loop
                 allowed.discard(act)
+            needed = getattr(self._computer, "login_needed", None)
+            if needed:         # the screen just read asks for a password or a PIN: the notary's part
+                self._computer.login_needed = None
+                self._narrate(f"{time.strftime('%H:%M:%S')} · ekran logowania w „{needed}”: czekam na notariusza")
+                return {"answer": "", "steps": steps,
+                        "stopped": {"kind": "logowanie", "label": f"logowanie w „{needed}”", "step": step,
+                                    "history": history, "where": needed}}
         return {"answer": "", "steps": steps,
                 "stopped": {"kind": "limit", "label": f"{len(steps)} kroków", "step": None, "history": history}}
 
@@ -815,6 +846,44 @@ class Agent:
             keys = str(step.get("klawisze", "")).lower()
             return "usuniecie" if "{del" in keys or "{delete" in keys else None
         return None
+
+    @staticmethod
+    def _exact(step) -> str:
+        """The step as it is carried out, for the live log: what, where, with what."""
+        get = lambda key, limit=70: str(step.get(key, "") or "")[:limit]
+        kind = step["krok"]
+        forms = {
+            "pliki": lambda: f"lista folderu „{get('folder') or 'foldery startowe'}”",
+            "szukaj": lambda: f"szukam plików „{get('nazwa')}”" + (f" w „{get('folder')}”" if get("folder") else ""),
+            "czytaj": lambda: f"czytam plik „{get('plik', 120)}”",
+            "zamien": lambda: f"w pliku „{get('plik', 120)}” zamieniam „{get('stare')}” na „{get('nowe')}”",
+            "nowy_plik": lambda: f"zapisuję nowy plik „{get('plik', 120)}”",
+            "uruchom": lambda: f"uruchamiam „{get('co', 120)}”",
+            "okna": lambda: "odczytuję listę otwartych okien",
+            "okno": lambda: f"odczytuję pola, przyciski i menu okna „{get('okno')}”",
+            "wpisz": lambda: f"okno „{get('okno')}”, pole „{get('pole')}”: wpisuję „{get('wartosc')}”",
+            "kliknij": lambda: f"okno „{get('okno')}”: klikam „{get('przycisk')}”",
+            "klawisze": lambda: f"okno „{get('okno')}”: naciskam {get('klawisze')}",
+            "strona": lambda: f"przeglądarka: otwieram {get('adres', 160)}",
+            "widok": lambda: "przeglądarka: odczytuję stronę",
+            "web_wpisz": lambda: f"przeglądarka, pole „{get('pole')}”: wpisuję „{get('wartosc')}”",
+            "web_kliknij": lambda: f"przeglądarka: klikam „{get('co')}”",
+            "ekran": lambda: "robię zrzut ekranu" + (f" z oknem „{get('okno')}”" if get("okno") else ""),
+            "kliknij_punkt": lambda: f"klikam w punkt ({step.get('x')}, {step.get('y')}) „{get('co')}”",
+            "pisz": lambda: f"piszę z klawiatury „{get('tekst')}”",
+            "narzedzia": lambda: "sprawdzam narzędzia wiersza poleceń",
+            "polecenie": lambda: "wiersz poleceń: " + f"{get('program')} {' '.join(map(str, step.get('argumenty') or [])) if isinstance(step.get('argumenty', []), list) else ''}"[:200],
+            "notatka": lambda: f"zapamiętuję o programie „{get('program')}”: {get('tekst', 200)}",
+        }
+        return forms.get(kind, lambda: kind)()
+
+    @staticmethod
+    def _outcome(kind: str, seen: str) -> str:
+        """What came back, in one line: an error whole, a reading as its size and first line."""
+        first = seen.split("\n", 1)[0][:220]
+        if seen.startswith("BŁĄD") or kind not in {"okno", "widok", "strona", "czytaj", "pliki", "okna", "szukaj", "polecenie"}:
+            return first
+        return f"{first} ({seen.count(chr(10))} wierszy)"
 
     @staticmethod
     def _describe(step) -> str:

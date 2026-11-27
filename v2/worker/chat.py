@@ -355,8 +355,11 @@ class Chat:
                     "platnosc": ("Doszedłem do płatności. Płacisz Ty: sprawdź kwotę na ekranie.", "Zapłaciłem, kontynuuj")}[kind]
             note = ("(Notariusz wykonał ten krok sam: " + {"logowanie": "zalogował się", "podpis": "podpisał", "platnosc": "zapłacił"}[kind]
                     + ". Sprawdź aktualny stan krokiem widok albo okno i dokończ polecenie; tego kroku nie powtarzaj.)")
-            return [text(f"{what[0]} Następny krok to „{stopped['label']}”."
-                         + (" Okno przeglądarki NotarAI jest teraz na wierzchu." if used and browser is not None else "")),
+            where = stopped.get("where")
+            lead = (f"Program doszedł do ekranu logowania w „{where}”. " if where else f"Następny krok to „{stopped['label']}”. ")
+            return [text(lead + what[0]
+                         + (" Okno przeglądarki NotarAI jest teraz na wierzchu." if used and browser is not None else
+                            " Okno programu jest na wierzchu." if where else "")),
                     *(self._page_picture() if used else []),
                     self._confirm(identity, "Gdy skończysz, wracam do pracy w tle.", what[1], resume(note), explicit=False)]
         acts = {"wyslanie": "wysłanie", "usuniecie": "usunięcie"}

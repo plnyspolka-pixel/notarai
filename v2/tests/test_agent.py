@@ -78,7 +78,9 @@ def test_finds_reads_and_corrects_a_word_document(tmp_path):
     assert "14 listopada 2026" in Document(str(desk / "akt Kowalski.docx")).paragraphs[0].text
     assert len(list((tmp_path / "home" / "kopie-przed-zmiana").iterdir())) == 1      # previous version kept
     assert "Kraków, dnia 12 listopada" in seen[2]                                     # the model saw the text
-    assert lines[0].startswith("Krok 1: szukam aktu")
+    assert "krok 1 · szukam plików „kowalski” · po co: szukam aktu" in lines[0]         # the exact live log
+    assert "krok 1 · wynik" in lines[1] and "akt Kowalski.docx" not in lines[0]
+    assert "zamieniam „12 listopada” na „14 listopada”" in lines[4]
 
 
 def test_office_rules_hold_back_a_document_change(tmp_path):
@@ -504,3 +506,26 @@ def test_the_browser_object_is_complete_before_any_page_is_opened(tmp_path):
     browser.background(lambda: True)
     assert browser.is_open() is False and browser._hidden() is True and browser._pool is not None
     assert browser.hide() is False or browser.is_open()          # nothing to move yet, and no exception
+
+
+def test_a_login_screen_stops_the_run_and_the_whole_window_is_read(tmp_path):
+    class Program(FakeDesktop):
+        def controls(self, deep=False):
+            self.deep = deep
+            menu = [Control("m", "button", "Rejestry (menu)", "", []), Control("t", "button", "Repertorium A (zakładka)", "", [])]
+            return self.fields + (menu if deep else [])
+    desktop = Program()
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    lines = []
+    ask, seen = script({"krok": "okno", "okno": "RejNET"}, {"krok": "kliknij", "okno": "RejNET", "przycisk": "Rejestry (menu)"},
+                       {"krok": "koniec", "odpowiedz": "x"})
+    result = Agent(computer, ask, narrate=lines.append).run("otwórz rejestry w RejNET")
+    assert desktop.deep is True and desktop.clicked == ["Rejestry (menu)"] and result["stopped"] is None
+    assert "Rejestry (menu)" in seen[1] and "Repertorium A (zakładka)" in computer.map.describe()
+    assert any("okno „RejNET”: klikam „Rejestry (menu)”" in line for line in lines)
+
+    desktop.fields.append(Control("h", "text", "Hasło", "", []))
+    ask, _ = script({"krok": "okno", "okno": "RejNET"}, {"krok": "wpisz", "okno": "RejNET", "pole": "Numer aktu", "wartosc": "1"})
+    stopped = Agent(computer, ask, narrate=lines.append).run("zarejestruj akt w RejNET")["stopped"]
+    assert stopped["kind"] == "logowanie" and stopped["where"] == "RejNET - Repertorium" and desktop.typed == {}
+    assert any("ekran logowania" in line for line in lines)
