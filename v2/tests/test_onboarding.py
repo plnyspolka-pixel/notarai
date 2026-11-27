@@ -47,7 +47,8 @@ def test_folders_come_from_the_windows_dialog_and_feed_style_learning(tmp_path):
                                                             "label": "Wybierz folder z aktami…"}
     assert client.post("/v2/pick-folder", headers=admin, json={}).json() == {"path": str(acts)}
     reply = say(client, admin, f"folder aktów {acts}")
-    assert load(home).acts_dir == str(acts) and f"naucz się stylu z {acts}" in str(reply)
+    says = [i["say"] for b in reply if b["type"] == "buttons" for i in b["items"]]
+    assert load(home).acts_dir == str(acts) and f"naucz się stylu z {acts}" in says
     assert "Nie ma takiego folderu" in words(say(client, admin, "folder aktów Z:\\nie-ma"))
     assert "Przeszukuję " + str(acts) in words(say(client, admin, "naucz się stylu z folderu aktów"))
 
