@@ -181,3 +181,61 @@ def test_the_assistant_never_says_it_has_no_access(office):
     blocks = client.post("/v2/chat", headers=admin, json={"text": "co mam teraz otwarte?"}).json()["blocks"]
     job = next(b["id"] for b in blocks if b["type"] == "job")
     assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+
+
+# ---- 2.6.1: how the chat reaches the agent (the model's real answers, not the ideal one)
+def test_spoken_sentences_reach_the_agent_by_code():
+    from worker.chat import looks_like_computer_task, norm
+    for sentence in ("proszę wejdź na stronę ekw.ms.gov.pl", "kliknij w przeglądarce przycisk dalej",
+                     "Dobra, słuchaj, wejdź mi w przeglądarce na stronę ekw", "czy możesz otworzyć przeglądarkę",
+                     "podłącz się do programu RejNET i obsłuż go"):
+        assert looks_like_computer_task(norm(sentence)), sentence
+    for sentence in ("czy zasiedzenie wymaga aktu?", "sprawdź KW WA1M/00012345/6", "otwórz stronę https://x.pl",
+                     "a czy notariusz może odmówić"):
+        assert not looks_like_computer_task(norm(sentence)), sentence
+
+
+def test_an_agent_line_is_found_wherever_the_model_puts_it():
+    from worker.chat import wants_the_computer
+    assert wants_the_computer("ROZUMIEM: mam otworzyć RejNET.\n\nAGENT: uruchom RejNET\n\nDALEJ: wpisz akt")
+    assert wants_the_computer("**AGENT:** uruchom notatnik")
+    assert not wants_the_computer("ROZUMIEM: pytanie o pośrednika.\n\nAgent nieruchomości: biuro Dom.")
+    assert not wants_the_computer("")
+
+
+def test_the_agent_starts_although_the_model_answers_with_rozumiem_first(office):
+    client, admin, desk, desktop, replies = office
+    replies += ["ROZUMIEM: mam sprawdzić otwarte programy.\n\nAGENT: sprawdź otwarte okna\n\nDALEJ: otwórz Word",
+                json.dumps({"krok": "okna"}), json.dumps({"krok": "koniec", "odpowiedz": "Otwarte: RejNET i Word."})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "a co ja mam teraz pootwierane?"}).json()["blocks"]
+    assert not any("AGENT" in b.get("text", "") for b in blocks)
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+
+
+def test_the_agent_starts_also_when_a_case_is_chosen(office):
+    client, admin, desk, desktop, replies = office
+    made = client.post("/v2/chat", headers=admin, json={"text": "nowa sprawa testowa-2026"}).json()["blocks"]
+    case = next(b["case"] for b in made if b["type"] == "case")
+    ask = {"text": "jakie mam teraz pootwierane rzeczy?", "case": case}
+    steps = [json.dumps({"krok": "okna"}), json.dumps({"krok": "koniec", "odpowiedz": "Otwarte: RejNET i Word."})]
+    # an empty case cannot answer from documents, but the computer needs none
+    replies += ["AGENT: sprawdź otwarte okna", *steps]
+    blocks = client.post("/v2/chat", headers=admin, json=ask).json()["blocks"]
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+    # a case with documents: the model sees them and still hands the request to the agent
+    saved = client.post("/v2/documents", headers=admin, json={
+        "name": "umowa.txt", "expected_version": 0, "case": case, "content_b64": "YQ=="})
+    assert saved.status_code == 200
+    replies += ["ROZUMIEM: sprawdzę okna.\n\nAGENT: sprawdź otwarte okna", *steps]
+    blocks = client.post("/v2/chat", headers=admin, json=ask).json()["blocks"]
+    job = next(b["id"] for b in blocks if b["type"] == "job")
+    assert "RejNET i Word" in wait(client, admin, job)[0]["text"]
+    assert replies == []
+
+
+def test_the_prompts_tell_the_model_about_the_computer_last():
+    from worker.drafting import COMPUTER, NEXT_STEPS, SYSTEM_CHAT, SYSTEM_GENERAL
+    assert "AGENT:" in COMPUTER and "przeglądar" in COMPUTER and "formularz" in COMPUTER
+    assert "AGENT" not in SYSTEM_GENERAL + NEXT_STEPS + SYSTEM_CHAT          # one place, appended after the rest

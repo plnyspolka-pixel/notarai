@@ -31,11 +31,16 @@ def norm(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").strip()
 
 
-COMPUTER_VERBS = ("otworz", "uruchom", "wejdz", "znajdz", "poszukaj", "wyszukaj", "przeczytaj", "popraw", "zmien",
-                  "wpisz", "kliknij", "pobierz", "zapisz", "skopiuj", "przejrzyj", "zajrzyj", "sprawdz", "zrob")
+COMPUTER_VERBS = ("otworz", "uruchom", "wlacz", "wejdz", "znajdz", "poszukaj", "wyszukaj", "przeczytaj", "popraw", "zmien",
+                  "wpisz", "kliknij", "pobierz", "zapisz", "skopiuj", "przejrzyj", "zajrzyj", "sprawdz", "zrob", "zaloguj",
+                  "podlacz", "obsluz", "przejdz")
 COMPUTER_PLACES = ("na komputerze", "na dysku", "na pulpicie", "folder", "katalog", "plik", "word", "excel", "programie",
-                   "program ", "okno", "oknie", "przegladark", "na stronie", "strone ", "strony ", "www", "http", ".pl",
-                   ".gov", "rejnet", "pobranych", "dokumentach", "eksplorator", "docx", "pdf")
+                   "program ", "programu", "okno", "oknie", "przegladar", "internet", "na stronie", "strone ", "strony ",
+                   "www", "http", ".pl", ".gov", "rejnet", "pobranych", "dokumentach", "eksplorator", "docx", "pdf")
+# How people start a sentence when they talk to the program, above all when they dictate.
+FILLERS = re.compile(r"^(?:(?:dobra|dobrze|ok|okej|no|to|a|i|teraz|sluchaj|prosze|poprosze|czy|mozesz|moglbys|mozna|"
+                     r"potrafisz|umiesz|chce|chcialbym|chcialabym|zebys|zeby|mi|nam|ty|jeszcze|najpierw|potem)[ ,.:;!?]+)+")
+AGENT_LINE = re.compile(r"(?m)^[ \t>*_`„\"-]*AGENT\**\s*:")
 
 
 def looks_like_computer_task(plain: str) -> bool:
@@ -44,8 +49,17 @@ def looks_like_computer_task(plain: str) -> bool:
         return True
     if re.fullmatch(r"otworz (strone|adres) \S+", plain):      # the single-step command of form filling
         return False
-    words = plain.split()
-    return bool(words) and words[0].startswith(COMPUTER_VERBS) and any(p in f" {plain} " for p in COMPUTER_PLACES)
+    asked = FILLERS.sub("", plain + " ").strip()
+    words = asked.split()
+    return bool(words) and words[0].startswith(COMPUTER_VERBS) and any(p in f" {asked} " for p in COMPUTER_PLACES)
+
+
+def wants_the_computer(answer: str) -> bool:
+    """The assistant handed the request to the computer agent: a line „AGENT:” anywhere in its answer.
+
+    The model is told to answer with that line alone, but it often puts „ROZUMIEM:” first or wraps the line in
+    asterisks; the chat must still act instead of printing it."""
+    return bool(AGENT_LINE.search(answer or ""))
 
 
 def computer_task(message: str) -> str:
@@ -391,7 +405,7 @@ class Chat:
             s.narrate(identity, "Rozumiem to jako pytanie ogólne, bez konkretnej sprawy: nie czytam żadnych dokumentów.")
             s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
             said = s.general(message, names)["answer"]
-            if identity.scope == "admin" and said.strip().startswith("AGENT:"):
+            if wants_the_computer(said):
                 return self._computer(identity, message)
             line = understood(said)[1]
             if line:
@@ -413,7 +427,19 @@ class Chat:
         count = len(s.documents(identity, case))
         s.narrate(identity, f"Rozumiem: pytanie o sprawę „{case}”. Czytam jej dokumenty ({count}).")
         s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
-        answer = s.drafts.ask(case, message, identity.id, names)
+        try:
+            answer = s.drafts.ask(case, message, identity.id, names, computer=True)
+        except DraftError:
+            # A case with nothing readable in it cannot answer a question, but „wejdź na stronę…” needs no documents.
+            try:
+                handed_over = s.ai_ready() and wants_the_computer(s.general(message, names)["answer"])
+            except Exception:
+                handed_over = False        # whatever went wrong here, the notary hears the case's own message
+            if handed_over:
+                return self._computer(identity, message)
+            raise
+        if wants_the_computer(answer["answer"]):
+            return self._computer(identity, message)
         line = understood(answer["answer"])[1]
         if line:
             s.narrate(identity, "Jak to rozumiem: " + line)
