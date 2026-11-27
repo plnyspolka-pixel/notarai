@@ -18,14 +18,28 @@
     <div id="bar" hidden>
       <label for="case" class="sr">Sprawa</label>
       <select id="case"></select>
+      <button id="rules-toggle" class="quiet chip" aria-expanded="false" aria-controls="rules-box">Zasady kancelarii</button>
       <button id="logout" class="quiet">Rozłącz</button>
     </div>
   </header>
+  <aside id="rules-box" class="card" hidden aria-label="Zasady kancelarii">
+    <p class="muted">Twarde zasady kancelarii. Pilnuje ich program przy każdym zapisie i wysyłce; nie da się ich obejść poleceniem.</p>
+    <ol id="rules-list"></ol>
+    <p class="muted" id="rules-hint"></p>
+  </aside>
   <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
   <section id="pairing">
     <label for="code">Kod parowania</label>
     <input id="code" type="password" autocomplete="off">
     <button id="pair" class="primary">Połącz</button>
+  </section>
+  <section id="listener" hidden aria-label="Mikrofon">
+    <h2 id="listener-name">Mikrofon</h2>
+    <p id="listener-state" class="listener-state" role="status">Uruchamiam…</p>
+    <div class="meter" aria-hidden="true"><div id="listener-level"></div></div>
+    <button id="listener-toggle" class="primary big">Wstrzymaj</button>
+    <p class="muted">To urządzenie przesyła do komputera kancelarii tylko dźwięk z rozmów; ciszy nie wysyła. Zostaw je
+      włączone na ładowarce. Nie ma dostępu do dokumentów.</p>
   </section>
   <main id="workspace" hidden>
     <section id="desk" hidden aria-label="Moje kafelki">
