@@ -18,6 +18,7 @@ from .drafting import DraftError
 from .layout import tools_for
 from .autofill import FillError
 from .mail import MailError, as_document
+from .rules import RuleViolation
 from .vault import valid_case
 
 DRAFT_WORDS = ("przygotuj", "napisz", "sporzadz", "zredaguj", "stworz projekt", "projekt aktu", "projekt umowy")
@@ -105,6 +106,9 @@ class Chat:
         message = " ".join(message.split())
         plain = norm(message)
         admin = identity.scope == "admin"
+        office_rules = self._office_rules(identity, message, plain)
+        if office_rules is not None:
+            return office_rules
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
@@ -357,6 +361,7 @@ class Chat:
             lines += ["• „zrób kopię”, „kod odzyskiwania”",
                       "• „dodaj telefon” albo „dodaj telefon tylko do odczytu dla sprawy kowalski-2026”",
                       "• „urządzenia”, „cofnij telefon”",
+                      "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
                       "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”: wpiszę dane "
@@ -426,6 +431,53 @@ class Chat:
         return blocks
 
     # ------------------------------------------------------------ workstation intents
+    def _office_rules(self, identity, message, plain):
+        """Everyone may read the rules; only the workstation may add or remove them."""
+        from .rules import describe, parse
+
+        s, admin = self.s, identity.scope == "admin"
+        if plain in {"zasady", "zasady kancelarii", "pokaz zasady", "jakie sa zasady", "jakie sa zasady?"}:
+            known = s.rules.all()
+            if not known:
+                return [text("Kancelaria nie ma jeszcze twardych zasad." + (
+                    " Dodasz je zdaniem zaczynającym się od „zasada:”, np. „zasada: każdy akt musi zawierać "
+                    "„Notariusz pouczył strony…””." if admin else ""))]
+            lines = [f"{n}. {describe(rule)}" for n, rule in enumerate(known, 1)]
+            blocks = [text("Zasady kancelarii (pilnuje ich program, nie model):\n" + "\n".join(lines))]
+            if admin:
+                blocks.append(buttons(*[(f"Usuń zasadę {n}", f"usuń zasadę {n}") for n in range(1, len(known) + 1)]))
+            return blocks
+        if plain.startswith(("zasada", "nowa zasada", "dodaj zasade")):
+            if not admin:
+                return [text("Zasady kancelarii ustawia się w panelu stanowiska.")]
+            body = re.sub(r"^\s*(nowa zasada|dodaj zasadę|dodaj zasade|zasada)\s*:?\s*", "", message, flags=re.IGNORECASE)
+            rule = parse(body)
+            if rule is None:
+                return [text("Tej zasady nie umiem sprawdzać kodem, więc jej nie dodam: musiałbym polegać na modelu. "
+                             "Umiem pilnować, żeby dokument zawierał albo nigdy nie zawierał podanych słów w cudzysłowie, "
+                             "żeby formularz nie poszedł bez wskazanego pola, godzin wysyłki w dni robocze oraz "
+                             "stale włączonej pseudonimizacji.")]
+            try:
+                added = s.rules.add(rule, identity.id)
+            except ValueError:
+                return [text("Taka zasada już jest albo jest niepełna.")]
+            return [text("Dodałem twardą zasadę: " + describe(added) + " Program sprawdzi ją przy każdym zapisie "
+                         "i wysyłce; nie da się jej obejść poleceniem."), {"type": "rules"}]
+        found = re.fullmatch(r"usun zasade (\d+)", plain)
+        if found:
+            if not admin:
+                return [text("Zasady kancelarii zmienia się w panelu stanowiska.")]
+            number = int(found.group(1))
+            known = s.rules.all()
+            if not 1 <= number <= len(known):
+                return [text("Nie ma zasady o tym numerze.")]
+
+            def act():
+                removed = s.rules.remove(number, identity.id)
+                return [text("Usunąłem zasadę: " + describe(removed)), {"type": "rules"}]
+            return [self._confirm(identity, f"Usunąć zasadę {number}: {describe(known[number - 1])}", "Tak, usuń zasadę", act)]
+        return None
+
     def _admin(self, identity, message, plain, case):
         s = self.s
         on = plain.startswith(("wlacz", "uruchom", "zezwol"))

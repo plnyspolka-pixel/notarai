@@ -54,6 +54,7 @@ class Proposal:
     unknown_placeholders: tuple[str, ...] = ()
     input_tokens: int = 0
     output_tokens: int = 0
+    instruction: str = ""
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def public(self) -> dict:
@@ -68,9 +69,10 @@ class Proposal:
 
 
 class Drafts:
-    def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession):
+    def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession, rules=None, style=None):
         # `inference` may be a callable so the worker can swap it when settings change.
         self._vault, self._source, self._connect = vault, inference, connect
+        self._rules, self._style = rules, style
         self._proposals: dict[str, Proposal] = {}
         self._lock = threading.Lock()
 
@@ -131,9 +133,17 @@ class Drafts:
     def propose(self, case: str, instruction: str, actor: str, names=()) -> Proposal:
         names = self._names(case, names)
         context, sources, skipped = self._context(case, actor)
+        guidance = ""
+        if self._style is not None:
+            guidance += self._style.guidance(instruction)
+        if self._rules is not None:
+            required = self._rules.required_wording(instruction)
+            if required:
+                guidance += ("\n\n=== WYMAGANE SFORMUŁOWANIA (zasady kancelarii, sprawdzane przed zapisem) ===\n"
+                             + "\n".join(f"- {wording}" for wording in required))
         answer = self._inference.ask(
             purpose="draft", system=SYSTEM_DRAFT, names=names, max_tokens=16000,
-            text=f"{context}\n\n=== POLECENIE NOTARIUSZA ===\n{instruction}",
+            text=f"{context}{guidance}\n\n=== POLECENIE NOTARIUSZA ===\n{instruction}",
         )
         if answer.stop_reason == "max_tokens":
             raise DraftError("Projekt nie zmieścił się w jednej odpowiedzi. Zawęź polecenie.")
@@ -144,7 +154,7 @@ class Drafts:
         proposal = Proposal(
             secrets.token_urlsafe(16), case, paragraphs, sources, skipped, actor,
             time.monotonic() + PROPOSAL_TTL, answer.unknown_placeholders,
-            answer.input_tokens, answer.output_tokens,
+            answer.input_tokens, answer.output_tokens, instruction=instruction,
         )
         with self._lock:
             now = time.monotonic()
@@ -181,6 +191,13 @@ class Drafts:
                 )
             except (ValueError, TypeError):
                 raise DraftError("Nazwa pliku albo treść projektu jest niepoprawna.") from None
+            if self._rules is not None:
+                from .rules import RuleViolation
+
+                try:
+                    self._rules.check_document(name, "\n".join(text), proposal.instruction)
+                except RuleViolation as violation:
+                    raise DraftError(str(violation)) from None
             for target in (request.base, request.template):
                 if target is not None:
                     try:

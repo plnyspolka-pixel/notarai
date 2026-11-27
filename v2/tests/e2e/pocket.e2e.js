@@ -202,6 +202,17 @@ function watch(page, problems, label) {
     await say(panel, "zapisz do sejfu", "jako wersję 2");
     assert(fs.readdirSync(copies).length === 0, "working copy left on disk");
 
+    // ---- hard office rules: set by a sentence, visible in a small box, enforced by the program
+    await say(panel, "zasada: nigdy nie pisz „Szanowny Panie”", "Dodałem twardą zasadę");
+    await panel.getByRole("button", { name: "Zasady kancelarii · 1" }).click();
+    await panel.locator("#rules-box", { hasText: "Żaden dokument nie może zawierać „Szanowny Panie”" }).waitFor();
+    if (shots) await panel.locator("header, #rules-box").first().screenshot({ path: path.join(shots, "zasady.png") });
+    await panel.getByRole("button", { name: "Usuń zasadę 1" }).click();
+    await panel.getByRole("button", { name: "Tak, usuń zasadę" }).click();
+    await answered(panel, "Usunąłem zasadę");
+    await panel.getByRole("button", { name: "Zasady kancelarii · brak" }).waitFor();
+    await panel.getByRole("button", { name: "Zasady kancelarii · brak" }).click();
+
     // ---- teach by showing: record the screen with narration, approve the procedure, fill it for a case
     await say(panel, "nagraj procedurę Wniosek o wpis w KW", "Pokaż mi to raz");
     await panel.getByRole("button", { name: "Zacznij nagrywać" }).click();

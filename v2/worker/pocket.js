@@ -173,7 +173,34 @@ function drawTiles() {
   }));
 }
 
+// ---------------------------------------------------------------- the office's hard rules
+async function refreshRules() {
+  const known = await call("rules");
+  el("rules-toggle").textContent = "Zasady kancelarii · " + (known.length || "brak");
+  el("rules-list").replaceChildren(...known.map(rule => {
+    const item = node("li", "", rule.text);
+    if (admin) {
+      const remove = node("button", "quiet", "✕");
+      remove.setAttribute("aria-label", "Usuń zasadę " + rule.number);
+      remove.onclick = run(() => send("usuń zasadę " + rule.number));
+      item.append(" ", remove);
+    }
+    return item;
+  }));
+  el("rules-hint").textContent = admin
+    ? "Nową zasadę dodasz zdaniem, np. „zasada: każdy akt musi zawierać „Notariusz pouczył strony…””."
+    : (known.length ? "" : "Kancelaria nie ma jeszcze zasad. Ustawia się je w panelu stanowiska.");
+}
+
+el("rules-toggle").onclick = () => {
+  const open = el("rules-box").hidden;
+  el("rules-box").hidden = !open;
+  el("rules-toggle").setAttribute("aria-expanded", String(open));
+};
+
 const render = {
+  rules: () => refreshRules(),
+
   layout: block => { layout = block.layout; arranging = false; drawTiles(); },
 
 
@@ -807,6 +834,7 @@ async function enter(device) {
   await refreshCases();
   layout = await call("layout");
   drawTiles();
+  await refreshRules();
   await exchange({ hello: true });
 }
 
@@ -817,6 +845,7 @@ function leave(message) {
   closeSheet();
   layout = { show: false, tiles: [] };
   drawTiles();
+  el("rules-box").hidden = true;
   el("messages").replaceChildren();
   el("workspace").hidden = true;
   el("bar").hidden = true;

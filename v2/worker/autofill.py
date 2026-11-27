@@ -106,12 +106,13 @@ class Preview:
     fingerprint: str
     send_label: str | None
     expires: float
+    report: list = field(default_factory=list)
 
 
 class Autofill:
-    def __init__(self, targets: dict, receipts=None):
+    def __init__(self, targets: dict, receipts=None, rules=None):
         """`targets`: {"strona": callable -> web target, "program": callable -> desktop target}."""
-        self._targets, self._receipts = targets, receipts
+        self._targets, self._receipts, self._rules = targets, receipts, rules
         self._previews: dict[str, Preview] = {}
         self._lock = threading.Lock()
 
@@ -182,7 +183,7 @@ class Autofill:
             send_label_found = send_label is not None
         preview = Preview(secrets.token_urlsafe(16), actor, procedure.nazwa, case, where,
                           fingerprint(where, controls), send_label if send_label_found else None,
-                          time.monotonic() + PREVIEW_TTL)
+                          time.monotonic() + PREVIEW_TTL, report)
         with self._lock:
             now = time.monotonic()
             self._previews = {k: v for k, v in self._previews.items() if v.expires > now and v.actor != actor}
@@ -206,6 +207,13 @@ class Autofill:
             raise FillError("Ten podgląd wygasł. Napisz „wypełnij” jeszcze raz, a pokażę formularz ponownie.")
         if preview.send_label is None:
             raise FillError("Ta procedura nie ma kroku wysyłania. Wyślij formularz ręcznie.")
+        if self._rules is not None:
+            from .rules import RuleViolation
+
+            try:
+                self._rules.check_send(preview.procedure, preview.report)
+            except RuleViolation as violation:
+                raise FillError(str(violation)) from None
         target = self.target(kind)
         controls = target.controls()
         if target.where() != preview.where or fingerprint(target.where(), controls) != preview.fingerprint:

@@ -29,6 +29,7 @@ from .layout import Layouts
 from .init_vault import home_path
 from .local_secrets import read_secret
 from .policy import Policy, PolicyError
+from .rules import RuleViolation, Rules
 from .procedures import ProcedureError, Procedures
 from .replica import Replica, ReplicaError
 from .settings import load as load_settings, save as save_settings, validate as validate_settings
@@ -169,9 +170,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             pseudonymize=lambda: state["settings"].ai.pseudonymize)
 
     configure(settings)
-    drafts = Drafts(vault, lambda: state["inference"], connect)
+    rules = Rules(vault)
+    drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules)
     redeem_throttle = _Throttle()
-    workcopies = WorkCopies(home, vault, opener) if opener else WorkCopies(home, vault)
+    workcopies = WorkCopies(home, vault, opener, rules=rules) if opener else WorkCopies(home, vault, rules=rules)
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
     settings = None   # read state["settings"]; it can change while the worker runs
 
@@ -474,6 +476,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             new = validate_settings(body)
         except ValueError:
             raise HTTPException(400, "invalid settings")
+        try:
+            rules.check_setting(new.ai.pseudonymize)
+        except RuleViolation as violation:
+            raise HTTPException(403, str(violation))
         if new.ai.real_data_approved != state["settings"].ai.real_data_approved:
             # A release gate, not a preference: it is changed outside the application.
             raise HTTPException(403, "release gate cannot be changed here")
@@ -661,6 +667,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         data = state["settings"].model_dump()
         mutate(data)
         new = validate_settings(data)
+        rules.check_setting(new.ai.pseudonymize)
         if new.backup_dir is not None and not Path(new.backup_dir).is_dir():
             raise recovery.RecoveryError("Ten katalog nie istnieje albo dysk nie jest podłączony.")
         state["relay_dirty"] = state.get("relay_dirty") or new.tunnel != state["settings"].tunnel
@@ -712,7 +719,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         vault.log(actor, f"form-{action}-{outcome}")
 
     autofill = Autofill(fill_targets if fill_targets is not None else {"strona": web_target, "program": desktop_target},
-                        receipts=form_receipt)
+                        receipts=form_receipt, rules=rules)
     app.state.close_browser = lambda: browser_box.get("web") and browser_box["web"].close()
 
     @app.exception_handler(FillError)
@@ -816,6 +823,13 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     def layout_key(identity: Identity) -> str:
         return "admin" if identity.scope == "admin" else identity.id
 
+    @app.get("/v2/rules")
+    def rules_read(identity: Identity = Depends(auth)):
+        """Everyone sees the office's rules; only the workstation changes them (through the chat)."""
+        from .rules import describe
+
+        return [{"number": n, "text": describe(rule)} for n, rule in enumerate(rules.all(), 1)]
+
     @app.get("/v2/layout")
     def layout_read(identity: Identity = Depends(auth)):
         return layouts.get(layout_key(identity))
@@ -831,6 +845,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     chat = Chat(SimpleNamespace(
         layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
+        rules=rules,
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
@@ -850,7 +865,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         logout=lambda: state["account"] and state["account"].logout(),
     ))
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
-            mail_module.MailError, ProcedureError, FillError)
+            mail_module.MailError, ProcedureError, FillError, RuleViolation)
 
     def chat_turn(identity: Identity, turn: ChatTurn):
         if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:

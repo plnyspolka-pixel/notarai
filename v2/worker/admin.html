@@ -14,9 +14,15 @@
     <div id="bar" hidden>
       <label for="case" class="sr">Sprawa</label>
       <select id="case"></select>
+      <button id="rules-toggle" class="quiet chip" aria-expanded="false" aria-controls="rules-box">Zasady kancelarii</button>
       <button id="logout" class="quiet">Rozłącz</button>
     </div>
   </header>
+  <aside id="rules-box" class="card" hidden aria-label="Zasady kancelarii">
+    <p class="muted">Twarde zasady kancelarii. Pilnuje ich program przy każdym zapisie i wysyłce; nie da się ich obejść poleceniem.</p>
+    <ol id="rules-list"></ol>
+    <p class="muted" id="rules-hint"></p>
+  </aside>
   <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
   <section id="pairing">
     <p>Panel otwiera się z menu Start („NotarAI - panel stanowiska”). Jeśli widzisz tę stronę, otwórz go stamtąd ponownie.</p>

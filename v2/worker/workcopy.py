@@ -49,8 +49,8 @@ def open_in_default_app(path: Path) -> None:
 
 
 class WorkCopies:
-    def __init__(self, home: Path, vault: Vault, opener=open_in_default_app):
-        self._root, self._vault, self._open = Path(home) / "workcopies", vault, opener
+    def __init__(self, home: Path, vault: Vault, opener=open_in_default_app, rules=None):
+        self._root, self._vault, self._open, self._rules = Path(home) / "workcopies", vault, opener, rules
 
     def _folder(self, doc_id: str) -> Path:
         try:
@@ -129,6 +129,24 @@ class WorkCopies:
             return {"id": state["id"], "version": state["version"], "saved": False}
         if path.stat().st_size > MAX_BYTES:
             raise WorkCopyError("Plik przekracza 20 MiB.")
+        if self._rules is not None and state["name"].lower().endswith((".docx", ".txt")):
+            from .rules import RuleViolation
+
+            data = path.read_bytes()
+            try:
+                if state["name"].lower().endswith(".docx"):
+                    from .docx_writer import extract
+
+                    content = "\n".join(extract(data))
+                else:
+                    content = data.decode("utf-8", errors="replace")
+            except Exception:
+                content = None          # unreadable as text: rules on wording cannot apply
+            if content is not None:
+                try:
+                    self._rules.check_document(state["name"], content)
+                except RuleViolation as violation:
+                    raise WorkCopyError(str(violation) + " Kopia robocza została zachowana.") from None
         try:
             _, version = self._vault.put(state["id"], state["version"], state["name"], path.read_bytes(), actor=actor)
         except Conflict:
