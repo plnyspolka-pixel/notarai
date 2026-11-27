@@ -98,10 +98,16 @@
         <label for="file" class="sr">Dodaj plik do sprawy</label>
         <input id="file" type="file" multiple hidden>
         <button id="attach" class="quiet" title="Dodaj pliki (możesz je też przeciągnąć albo wkleić)" aria-label="Dodaj pliki">📎</button>
-        <button id="voice" class="quiet" title="Notatka głosowa" aria-label="Nagraj notatkę głosową">🎤</button>
+        <button id="voice" class="quiet" title="Dyktuj (tekst pojawia się na bieżąco)" aria-label="Dyktuj">🎤</button>
         <label for="prompt" class="sr">Napisz polecenie albo pytanie</label>
         <textarea id="prompt" rows="1" placeholder="Napisz…"></textarea>
         <button id="send" class="primary">Wyślij</button>
+      </div>
+      <div id="dictation" class="row tight" hidden>
+        <button id="dictation-cancel" class="round" title="Anuluj" aria-label="Anuluj dyktowanie">✕</button>
+        <div id="dictation-level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <button id="dictation-stop" class="round" title="Zatrzymaj i popraw" aria-label="Zatrzymaj dyktowanie">■</button>
+        <button id="dictation-send" class="round primary" title="Wyślij" aria-label="Zakończ i wyślij">↑</button>
       </div>
     </div>
     <div id="drop-hint" aria-hidden="true">Upuść pliki, dodam je do sprawy</div>

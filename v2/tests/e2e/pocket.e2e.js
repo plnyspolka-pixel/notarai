@@ -75,6 +75,18 @@ function watch(page, problems, label) {
     await page.reload();
     await statusIs(page, "Połączono z prawem zapisu.");
     assert(await page.locator("#pairing").isHidden(), "refresh logged the device out");
+    // Dictation: the words appear in the message box while speaking; ↑ sends them.
+    await page.getByRole("button", { name: "Dyktuj" }).click();
+    await page.waitForFunction(() => document.getElementById("prompt").value.startsWith("Klient przyniesie"));
+    assert(await page.getByRole("button", { name: "Anuluj dyktowanie" }).isVisible(), "no cancel while dictating");
+    await page.getByRole("button", { name: "Zatrzymaj dyktowanie" }).click();
+    await page.waitForFunction(() => document.getElementById("prompt").value === "Klient przyniesie odpis z księgi wieczystej w piątek");
+    assert(await page.getByRole("button", { name: "Dyktuj" }).isVisible(), "dictation bar stayed open");
+    await page.getByLabel("Napisz polecenie albo pytanie").fill("");
+    await page.getByRole("button", { name: "Dyktuj" }).click();
+    await page.waitForFunction(() => document.getElementById("prompt").value.length > 6);
+    await page.getByRole("button", { name: "Anuluj dyktowanie" }).click();
+    assert(await page.getByLabel("Napisz polecenie albo pytanie").inputValue() === "", "cancel kept the text");
     const again = await context.newPage();
     await again.goto(info.url + "/pocket");
     await statusIs(again, "Połączono z prawem zapisu.");
@@ -83,12 +95,6 @@ function watch(page, problems, label) {
     assert(await page.locator("#case").inputValue() === "sprawa-1", "case not selected");
     await say(page, "notatka: Sprzedający Jan Kowalski, PESEL 44051401359, zbywa lokal nr 5.", "Zapisałem notatkę");
     await say(page, "strony: Jan Kowalski", "Zapamiętałem");
-    await page.getByRole("button", { name: "Nagraj notatkę głosową" }).click();
-    await statusIs(page, "Nagrywam notatkę.");
-    await page.waitForTimeout(1500);
-    await page.getByRole("button", { name: "Zakończ i zapisz notatkę głosową" }).click();
-    await answered(page, "Notatka głosowa:");
-    await page.getByRole("button", { name: /^notatka-glosowa-.*\.txt · wersja 1$/ }).waitFor();
     await say(page, "Kto sprzedaje?", "Sprzedającym jest Jan Kowalski.");
     await say(page, "Przygotuj umowę sprzedaży lokalu", "Projekt gotowy");
     const draft = await page.getByLabel("Treść projektu").inputValue();

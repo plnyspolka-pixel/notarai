@@ -88,7 +88,20 @@ def main():
     from worker.web_fill import Browser
 
     browser = Browser(home.parent / "przegladarka", headless=True)     # a real browser, without a window
+    def dictation(source, on_text):
+        """Stands in for Transcribe streaming: one more word for every piece of sound that arrives."""
+        words = "Klient przyniesie odpis z księgi wieczystej w piątek".split()
+        heard = 0
+        while True:
+            piece = source.get(timeout=30)
+            if piece is None:
+                break
+            heard += 1
+            on_text([], " ".join(words[:min(len(words), heard)]))
+        on_text([" ".join(words)], "")
+
     app = create_app(home, inference=inference, opener=lambda path: None, fill_targets={"strona": lambda: browser},
+                     dictation_stream=dictation,
                      transcriber=lambda audio: "Wpisuję PESEL wnioskodawcy, bo sąd identyfikuje go po numerze, potem numer lokalu.")   # no editor on a test machine
     registry = DeviceRegistry(home)
     with socket.socket() as listener:

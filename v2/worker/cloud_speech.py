@@ -157,3 +157,127 @@ def stream_transcribe(audio: bytes, credentials: dict, region: str) -> str:
         await asyncio.wait_for(asyncio.gather(feed(), collect.handle_events()), timeout=300)
         return " ".join(collect.parts).strip()
     return asyncio.run(run())
+
+
+# ---------------------------------------------------------------- live dictation
+class Dictation:
+    """One live dictation: 16 kHz PCM pieces in, text out while the notary speaks.
+
+    `stream(chunks, on_text)` runs the speech service: it reads PCM pieces from the iterator-like
+    `chunks.get()` (None ends) and calls `on_text(final_parts, partial)` as results arrive. Nothing
+    is stored: the audio goes straight to the EU service and only the text comes back.
+    """
+
+    def __init__(self, stream, *, clock=time.monotonic, max_seconds=600):
+        import queue
+        import threading
+
+        self._queue: "queue.Queue[bytes | None]" = queue.Queue(maxsize=400)
+        self._finals: list[str] = []
+        self._partial = ""
+        self._lock = threading.Lock()
+        self._clock = clock
+        self.started = self.touched = clock()
+        self.max_seconds = max_seconds
+        self.done = threading.Event()
+        self.error: str | None = None
+
+        def run():
+            try:
+                stream(self, self._update)
+            except Exception as error:
+                if error.__class__.__name__ == "LoginError":
+                    self.error = "Zaloguj stanowisko, żeby dyktować przez Frankfurt."
+                else:
+                    self.error = "Połączenie z rozpoznawaniem mowy przerwane. Spróbuj ponownie."
+            finally:
+                self.done.set()
+        threading.Thread(target=run, daemon=True, name="notarai-dyktowanie").start()
+
+    # the speech side reads with get()
+    def get(self, timeout: float = 15.0):
+        import queue
+
+        try:
+            return self._queue.get(timeout=timeout)
+        except queue.Empty:
+            return None                         # nothing for a while: end the stream
+
+    def _update(self, finals: list[str], partial: str) -> None:
+        with self._lock:
+            self._finals, self._partial = list(finals), partial
+
+    # the window side
+    def feed(self, pcm: bytes) -> None:
+        self.touched = self._clock()
+        if self.done.is_set():
+            return
+        if self._clock() - self.started > self.max_seconds:
+            self.finish()
+            return
+        try:
+            self._queue.put_nowait(pcm)
+        except Exception:
+            pass                                # the service is behind: drop a piece rather than block
+
+    def finish(self) -> None:
+        try:
+            self._queue.put_nowait(None)
+        except Exception:
+            pass
+
+    def text(self) -> str:
+        with self._lock:
+            return " ".join([*self._finals, self._partial]).strip()
+
+
+def transcribe_stream(credentials_source, region: str):
+    """A `stream` for Dictation: Amazon Transcribe streaming in the EU region, Polish, with partial results."""
+    if not region.startswith("eu-"):
+        raise ValueError("EU regions only")
+
+    def stream(source, on_text):
+        import asyncio
+
+        from amazon_transcribe.auth import StaticCredentialResolver
+        from amazon_transcribe.client import TranscribeStreamingClient
+        from amazon_transcribe.handlers import TranscriptResultStreamHandler
+
+        credentials = credentials_source()
+
+        class Live(TranscriptResultStreamHandler):
+            def __init__(self, output):
+                super().__init__(output)
+                self.finals = []
+
+            async def handle_transcript_event(self, event):
+                partial = ""
+                for result in event.transcript.results:
+                    if not result.alternatives:
+                        continue
+                    if result.is_partial:
+                        partial = result.alternatives[0].transcript
+                    else:
+                        self.finals.append(result.alternatives[0].transcript)
+                on_text(self.finals, partial)
+
+        async def run():
+            client = TranscribeStreamingClient(region=region, credential_resolver=StaticCredentialResolver(
+                access_key_id=credentials["access_key"], secret_access_key=credentials["secret_key"],
+                session_token=credentials["token"]))
+            started = await client.start_stream_transcription(
+                language_code="pl-PL", media_sample_rate_hz=RATE, media_encoding="pcm",
+                enable_partial_results_stabilization=True, partial_results_stability="high")
+            handler = Live(started.output_stream)
+
+            async def pump():
+                loop = asyncio.get_running_loop()
+                while True:
+                    piece = await loop.run_in_executor(None, source.get)
+                    if piece is None:
+                        break
+                    await started.input_stream.send_audio_event(audio_chunk=piece)
+                await started.input_stream.end_stream()
+            await asyncio.gather(pump(), handler.handle_events())
+        asyncio.run(run())
+    return stream

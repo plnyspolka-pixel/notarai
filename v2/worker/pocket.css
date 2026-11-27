@@ -154,3 +154,9 @@ button.small { min-height: 32px; font-size: .9rem; color: var(--accent); border:
 .welcome-steps li { margin: 8px 0; }
 .welcome-steps p { margin: 2px 0 0; color: var(--muted); }
 .agenda li.muted { display: block; }
+
+/* ---- live dictation ---- */
+#dictation { margin-top: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; box-shadow: var(--shadow); }
+#dictation-level { flex: 1 1 auto !important; display: flex; align-items: center; justify-content: center; gap: 3px; height: 36px; }
+#dictation-level i { display: block; width: 4px; height: 8%; min-height: 3px; border-radius: 2px; background: var(--accent); transition: height .12s; }
+button.round { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; font-size: 1.1rem; }

@@ -163,7 +163,8 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None):
+               fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
+               dictation_stream=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -839,6 +840,87 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if speech.where == "chmura":
             return CloudSpeech(state["account"], speech.bucket, state["settings"].ai.region).transcribe(audio, suffix)
         return local_speech.transcribe(audio, speech.model, home / "modele-mowy", suffix)
+
+    # ------------------------------------------------------------ live dictation into the message box
+    from .cloud_speech import Dictation, transcribe_stream
+
+    dictations: dict[str, tuple[str, Dictation]] = {}
+
+    class DictationPiece(BaseModel):
+        pcm_b64: str = Field(default="", max_length=400_000)      # a few seconds of 16 kHz PCM at most
+        end: bool = False
+
+    def local_dictation_stream(source, on_text):
+        """Speech on this computer: collect the audio, then transcribe it once at the end."""
+        import io
+        import wave
+
+        pcm = bytearray()
+        while True:
+            piece = source.get(timeout=60)
+            if piece is None:
+                break
+            pcm += piece
+            if len(pcm) > 16000 * 2 * 600:
+                break
+        on_text([], "…")
+        wav = io.BytesIO()
+        with wave.open(wav, "wb") as out:
+            out.setnchannels(1)
+            out.setsampwidth(2)
+            out.setframerate(16000)
+            out.writeframes(bytes(pcm))
+        heard = speech_to_text(wav.getvalue(), ".wav") or ""
+        on_text([heard] if heard else [], "")
+
+    def dictation_source():
+        if dictation_stream is not None:
+            return dictation_stream
+        speech = state["settings"].speech
+        if speech.where == "chmura" and transcriber is None:
+            if state["account"] is None:
+                raise HTTPException(409, "Dyktowanie przez Frankfurt wymaga zalogowania stanowiska. Napisz „zaloguj”.")
+            return transcribe_stream(state["account"].credentials, state["settings"].ai.region)
+        if not speech_available():
+            raise HTTPException(409, "Rozpoznawanie mowy nie jest jeszcze ustawione. Napisz „gdzie są dane”.")
+        return local_dictation_stream
+
+    @app.post("/v2/dictation")
+    def dictation_start(identity: Identity = Depends(auth)):
+        now = time.monotonic()
+        for key in [k for k, (_, d) in dictations.items() if now - d.touched > 60 or d.done.is_set() and now - d.touched > 10]:
+            dictations.pop(key)[1].finish()
+        for key in [k for k, (owner, _) in dictations.items() if owner == identity.id]:
+            dictations.pop(key)[1].finish()             # one dictation per device at a time
+        ident = secrets.token_urlsafe(12)
+        dictations[ident] = (identity.id, Dictation(dictation_source()))
+        return {"id": ident}
+
+    @app.post("/v2/dictation/{ident}")
+    def dictation_piece(ident: str, piece: DictationPiece, identity: Identity = Depends(auth)):
+        owner, dictation = dictations.get(ident, ("", None))
+        if dictation is None or owner != identity.id:
+            raise HTTPException(404, "not found")
+        try:
+            pcm = base64.b64decode(piece.pcm_b64, validate=True) if piece.pcm_b64 else b""
+        except (ValueError, binascii.Error):
+            raise HTTPException(400, "invalid audio")
+        if pcm:
+            dictation.feed(pcm)
+        else:
+            dictation.touched = time.monotonic()
+        if piece.end:
+            dictation.finish()
+            dictation.done.wait(20)        # the last words arrive shortly after the end
+        return {"text": dictation.text(), "done": dictation.done.is_set(), "error": dictation.error}
+
+    @app.delete("/v2/dictation/{ident}")
+    def dictation_cancel(ident: str, identity: Identity = Depends(auth)):
+        owner, dictation = dictations.get(ident, ("", None))
+        if dictation is not None and owner == identity.id:
+            dictations.pop(ident, None)
+            dictation.finish()
+        return {"ok": True}
 
     def heard_or_reason(audio: bytes, suffix: str):
         """(text, None) or (None, a sentence for the notary)."""
