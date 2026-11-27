@@ -136,6 +136,28 @@ def production_gate(settings_file: Path) -> None:
         settings_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def brand_shortcuts(app_dir: Path) -> None:
+    """Shortcuts made by older installers show the Python icon; a small update cannot recreate them,
+    so the launcher gives them the NotarAI icon. Only NotarAI's own shortcuts that start this installation."""
+    icon = app_dir / "worker" / "notarai.ico"
+    if os.name != "nt" or not icon.exists():
+        return
+    try:
+        import win32com.client
+
+        shell = win32com.client.Dispatch("WScript.Shell")
+        places = [Path(shell.SpecialFolders(name)) for name in ("Desktop", "Programs", "Startup")]
+        for place in places:
+            for link in place.glob("NotarAI*.lnk"):
+                shortcut = shell.CreateShortcut(str(link))
+                if str(app_dir).lower() in (shortcut.Arguments + shortcut.TargetPath).lower() \
+                        and "notarai.ico" not in shortcut.IconLocation.lower():
+                    shortcut.IconLocation = f"{icon},0"
+                    shortcut.Save()
+    except Exception:
+        pass                                   # an icon is never a reason not to start
+
+
 def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
     home.mkdir(parents=True, exist_ok=True)
     if not any(secret_path(home, name).exists() for name in ("vault.key", "api.token")):
@@ -218,6 +240,7 @@ def main():
             if url is None:
                 tell("NotarAI nie uruchomił się. Uruchom ponownie komputer albo zainstaluj program jeszcze raz.")
                 return 1
+        brand_shortcuts(Path(__file__).resolve().parent)
         open_window(admin_url(home, url), local)
     except (OSError, RuntimeError, ValueError, sqlite3.Error, pywintypes.error) as error:
         tell(f"Nie udało się uruchomić NotarAI. {error}")

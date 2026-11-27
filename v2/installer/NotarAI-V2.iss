@@ -13,6 +13,8 @@ OutputBaseFilename=NotarAI-V2-Setup-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\worker\notarai.ico
+UninstallDisplayIcon={app}\worker\notarai.ico
 ; An update closes the running worker (its files are in use) and does not restart it by itself.
 CloseApplications=force
 RestartApplications=no
@@ -27,9 +29,9 @@ Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Name: "desktopicon"; Description: "Ikona NotarAI na pulpicie"; Flags: checkedonce
 
 [Icons]
-Name: "{group}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
-Name: "{userdesktop}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Tasks: desktopicon
-Name: "{userstartup}\NotarAI w tle"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --serve"; WorkingDir: "{app}"
+Name: "{group}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; IconFilename: "{app}\worker\notarai.ico"
+Name: "{userdesktop}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; IconFilename: "{app}\worker\notarai.ico"; Tasks: desktopicon
+Name: "{userstartup}\NotarAI w tle"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --serve"; WorkingDir: "{app}"; IconFilename: "{app}\worker\notarai.ico"
 
 [Run]
 Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI"; Flags: nowait postinstall skipifsilent
