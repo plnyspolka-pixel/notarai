@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - konta osob kancelarii (decyzja wlasciciela 27.11.2026). Notariusz zaklada w aplikacji
+  konta sekretariatu, blokuje je i odblokowuje. Funkcja sprawdza wolajacego po jego tokenie dostepu
+  (Cognito GetUser): zmieniac konta moze tylko czlonek grupy notarai-v2-notariusz i tylko w swojej
+  kancelarii (custom:kancelaria). Do logow nie trafiaja adresy e-mail.
+
+Parameters:
+  PulaUzytkownikow:
+    Type: String
+    Default: eu-central-1_vEJem2cj2
+  RolaStanowiska:
+    Type: String
+    Default: notarai-v2-stanowisko
+
+Resources:
+  GrupaNotariuszy:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: notarai-v2-notariusz
+      Description: Notariusze - zakladaja i blokuja konta osob swojej kancelarii w NotarAI V2
+      UserPoolId: !Ref PulaUzytkownikow
+
+  RolaFunkcji:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-v2-zespol
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: konta-kancelarii
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminUserGlobalSignOut
+                  - cognito-idp:ListUsersInGroup
+                Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${PulaUzytkownikow}"
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/notarai-v2-zespol:*"
+
+  Dziennik:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/notarai-v2-zespol
+      RetentionInDays: 30
+
+  Funkcja:
+    Type: AWS::Lambda::Function
+    DependsOn: Dziennik
+    Properties:
+      FunctionName: notarai-v2-zespol
+      Description: Konta osob kancelarii dla NotarAI V2 (zaklada tylko notariusz, tylko w swojej kancelarii)
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt RolaFunkcji.Arn
+      Timeout: 20
+      Environment:
+        Variables:
+          PULA: !Ref PulaUzytkownikow
+      Code:
+        ZipFile: |
+          import os, re
+          import boto3
+
+          PULA = os.environ["PULA"]
+          DOSTEP, NOTARIUSZE = "notarai-v2", "notarai-v2-notariusz"
+          EMAIL = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
+          idp = boto3.client("cognito-idp")
+
+          def blad(kod, komunikat):
+              return {"ok": False, "kod": kod, "komunikat": komunikat}
+
+          def atrybuty(lista):
+              return {a["Name"]: a["Value"] for a in lista or []}
+
+          def grupy(nazwa):
+              return {g["GroupName"] for g in idp.admin_list_groups_for_user(UserPoolId=PULA, Username=nazwa)["Groups"]}
+
+          def osoba(email):
+              try:
+                  u = idp.admin_get_user(UserPoolId=PULA, Username=email)
+              except idp.exceptions.UserNotFoundException:
+                  return None
+              a = atrybuty(u.get("UserAttributes"))
+              return {"nazwa": u["Username"], "kancelaria": a.get("custom:kancelaria", ""),
+                      "email": a.get("email", email), "stan": u.get("UserStatus", "")}
+
+          def handler(event, context):
+              if not isinstance(event, dict) or not isinstance(event.get("token"), str):
+                  return blad("zle_zadanie", "Nieprawidłowe zapytanie.")
+              try:
+                  ja = idp.get_user(AccessToken=event["token"])
+              except Exception:
+                  return blad("logowanie", "Sesja wygasła. Zaloguj stanowisko ponownie.")
+              moje = atrybuty(ja.get("UserAttributes"))
+              kancelaria, moje_grupy = moje.get("custom:kancelaria", ""), grupy(ja["Username"])
+              if not kancelaria or DOSTEP not in moje_grupy:
+                  return blad("brak_dostepu", "To konto nie ma dostępu do NotarAI 2.")
+              notariusz = NOTARIUSZE in moje_grupy
+              akcja = event.get("akcja")
+              if akcja == "kto":
+                  return {"ok": True, "email": moje.get("email", ""), "notariusz": notariusz}
+              if akcja == "lista":
+                  osoby, nastepny = [], None
+                  for grupa in (DOSTEP, NOTARIUSZE):
+                      while True:
+                          strona = idp.list_users_in_group(UserPoolId=PULA, GroupName=grupa, **({"NextToken": nastepny} if nastepny else {}))
+                          for u in strona["Users"]:
+                              a = atrybuty(u.get("Attributes"))
+                              if a.get("custom:kancelaria") == kancelaria:
+                                  osoby.append((grupa, a.get("email", "")))
+                          nastepny = strona.get("NextToken")
+                          if not nastepny:
+                              break
+                  z_dostepem = {e for g, e in osoby if g == DOSTEP}
+                  notariusze = {e for g, e in osoby if g == NOTARIUSZE}
+                  return {"ok": True, "osoby": [{"email": e, "notariusz": e in notariusze, "aktywne": e in z_dostepem}
+                                                 for e in sorted(z_dostepem | notariusze)]}
+              if not notariusz:
+                  return blad("tylko_notariusz", "Konta osób zakłada i zmienia tylko notariusz.")
+              email = str(event.get("email", "")).strip().lower()
+              if not EMAIL.match(email):
+                  return blad("zly_adres", "Podaj prawidłowy adres e-mail.")
+              cel = osoba(email)
+              if cel is not None and cel["kancelaria"] != kancelaria:
+                  return blad("inna_kancelaria", "Ten adres należy do innej kancelarii. Użyj innego adresu.")
+              if cel is not None and NOTARIUSZE in grupy(cel["nazwa"]) and akcja != "dodaj":
+                  return blad("notariusz", "Konta notariusza nie zmienia się z aplikacji.")
+              if akcja == "dodaj":
+                  nowe = cel is None
+                  if nowe:
+                      idp.admin_create_user(UserPoolId=PULA, Username=email, DesiredDeliveryMediums=["EMAIL"],
+                                            UserAttributes=[{"Name": "email", "Value": email},
+                                                            {"Name": "email_verified", "Value": "true"},
+                                                            {"Name": "custom:kancelaria", "Value": kancelaria}])
+                  idp.admin_add_user_to_group(UserPoolId=PULA, Username=email, GroupName=DOSTEP)
+                  return {"ok": True, "nowe": nowe}
+              if cel is None:
+                  return blad("brak_osoby", "Nie ma takiej osoby w kancelarii.")
+              if akcja == "zablokuj":
+                  idp.admin_remove_user_from_group(UserPoolId=PULA, Username=cel["nazwa"], GroupName=DOSTEP)
+                  idp.admin_user_global_sign_out(UserPoolId=PULA, Username=cel["nazwa"])
+                  return {"ok": True}
+              if akcja == "odblokuj":
+                  idp.admin_add_user_to_group(UserPoolId=PULA, Username=cel["nazwa"], GroupName=DOSTEP)
+                  return {"ok": True}
+              return blad("zle_zadanie", "Nieznana czynność.")
+
+  WywolanieZeStanowiska:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaStanowiska
+      PolicyName: notarai-v2-zespol
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt Funkcja.Arn
+
+Outputs:
+  Funkcja:
+    Value: !Ref Funkcja

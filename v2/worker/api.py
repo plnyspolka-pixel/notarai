@@ -163,13 +163,40 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
+               fill_targets: dict | None = None, team_invoke=None, computer_roots=None, computer_starter=None, computer_parts: dict | None = None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
                office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
                service_send=None, web_calendar_api=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
+    from .team import PERMISSIONS, Team, TeamError
+    team = Team(vault, lambda: state["account"], "eu-central-1", invoke=team_invoke)
+
+    def need(key: str) -> None:
+        """What the notary allowed the person signed in on this station (code, not the model)."""
+        if not team.may(key):
+            raise TeamError(f"Notariusz nie dał Ci uprawnienia: {PERMISSIONS[key][0]}. Poproś notariusza o zmianę.")
+
+    def need_http(key: str) -> None:
+        try:
+            need(key)
+        except TeamError as error:
+            raise HTTPException(403, str(error)) from None
+
+    class Guarded:
+        """A service whose state-changing methods first ask `need(...)`."""
+        def __init__(self, target, rules_: dict):
+            self._target, self._rules = target, rules_
+
+        def __getattr__(self, name):
+            value = getattr(self._target, name)
+            if name in self._rules and callable(value):
+                def guarded(*args, **kwargs):
+                    need(self._rules[name])
+                    return value(*args, **kwargs)
+                return guarded
+            return value
     settings = load_settings(home)
     ledger = UsageLedger(home)
     token = read_secret(home, "api.token").decode().strip()
@@ -646,6 +673,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/documents")
     def save(revision: Revision, identity: Identity = Depends(writable)):
+        need_http("sprawy")
         try:
             data = base64.b64decode(revision.content_b64,validate=True)
             existing = None
@@ -736,6 +764,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/drafts/{draft_id}/approve")
     def draft_approve(draft_id: str, req: Approval, identity: Identity = Depends(writable)):
+        need_http("zatwierdzanie")
         proposed = drafts.get(draft_id, identity.id)
         result = drafts.approve(
             draft_id, identity.id, req.name, paragraphs=req.paragraphs,
@@ -1464,8 +1493,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from . import mail as mail_module
 
     chat = Chat(SimpleNamespace(
-        layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
-        rules=rules, style=style, listening=lambda: app.state.listening,
+        layouts=layouts, procedures=procedures, autofill=Guarded(autofill, {"send": "wnioski", "fill": "wnioski"}), transcribe_document=transcribe_document,
+        rules=Guarded(rules, {"add": "ustawienia", "remove": "ustawienia"}), style=style, listening=lambda: app.state.listening,
         general=lambda question, names, mail=False: drafts.general(question, names, mail=mail),
         learning=learning,
         status_listen=lambda: state["settings"].listen.model_dump(),
@@ -1473,7 +1502,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         transcribes=lambda: speech_available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
-        vault=vault, drafts=drafts, devices=devices, workcopies=workcopies,
+        vault=Guarded(vault, {"put": "sprawy", "message_put": "kalendarz"}),
+        drafts=Guarded(drafts, {"propose": "sprawy"}), devices=devices, workcopies=workcopies, team=team, need=need,
         cases=lambda identity: [c for c in vault.cases() if identity.cases is None or c in identity.cases],
         may_see_case=lambda identity, case: (identity.cases is None or case in identity.cases),
         documents=lambda identity, case: [
@@ -1481,10 +1511,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             for d in vault.summaries(frozenset({case}) if case is not None else identity.cases)],
         pseudonymizes=lambda: state["inference"].pseudonymizes,
         fee_catalog=fee_catalog, fee_estimate=fee_estimate, status=chat_status,
-        enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
+        enroll=lambda *a, **k: (need("ustawienia"), enroll_code(*a, **k))[1], backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
-        update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
-        send_mail=lambda identity, to, subject, body, original: send_mail(
+        update_settings=lambda *a, **k: (need("ustawienia"), update_settings(*a, **k))[1], usage=ledger.summary, pairing_link=pairing_link,
+        send_mail=lambda identity, to, subject, body, original: need("poczta") or send_mail(
             identity, mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
             to, subject, body, original, True),
         find_devices=find_devices, device_names=device_names,
@@ -1493,14 +1523,14 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         scan=lambda device, **options: (escl or peripherals.escl_scan)(device, **options),
         speech_check=speech_check,
         service=service_desk, program_changes=lambda: (program.current or {}).get("zmiany", []),
-        office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
+        office=Guarded(office_link, {"invite": "ustawienia", "join": "ustawienia", "forget": "ustawienia"}), station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         computer=agent_computer,
         ai_ready=lambda: bool(state["inference"] is not None and state["inference"].enabled),
         agent_ask=lambda system, question, images=(): state["inference"].ask(
             purpose="agent", system=system, text=question, names=vault.all_parties(), max_tokens=1500,
             images=tuple(images)).text,
-        calendar=calendar, web_calendar=web_calendar, onboarding=onboarding, environment=environment, registers=register_service,
+        calendar=Guarded(calendar, {"add": "kalendarz", "delete": "kalendarz"}), web_calendar=web_calendar, onboarding=onboarding, environment=environment, registers=register_service,
         start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
@@ -1519,6 +1549,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     @app.post("/v2/mail/compose", dependencies=[Depends(admin)])
     def mail_compose(req: Compose, identity: Identity = Depends(admin)):
         """Opens the ready message in the office's mail program; the notary checks it and presses Send there."""
+        need_http("poczta")
         source = mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path)
         if source is None:
             raise HTTPException(409, "Poczta nie jest połączona. Napisz „połącz pocztę”.")
@@ -1553,7 +1584,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     SAID = (ServiceError, DeviceError, PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
             RegisterError,
-            mail_module.MailError, ProcedureError, FillError, RuleViolation)
+            mail_module.MailError, ProcedureError, FillError, RuleViolation, TeamError)
 
     def chat_turn(identity: Identity, turn: ChatTurn):
         if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:

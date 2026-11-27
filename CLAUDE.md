@@ -149,6 +149,11 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
     telefonowi … sterować komputerem” z potwierdzeniem albo „dodaj telefon z dostępem do komputera”); tylko
     urządzenie z zapisem i wszystkimi sprawami; zgoda czytana przy każdym użyciu (`devices.computer`).
   - przeglądarka: Edge albo Chrome („używaj Chrome”), każda w osobnym profilu NotarAI.
+- Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
+  notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
+  zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia
+  osób (sprawy, kalendarz, poczta, wnioski/agent, zatwierdzanie, ustawienia) leżą w sejfie kancelarii
+  i sprawdza je kod przy każdym zapisie i wysyłce; domyślnie wszystko poza kontami i uprawnieniami.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.
