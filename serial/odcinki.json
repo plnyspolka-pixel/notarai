@@ -18,6 +18,74 @@
       "czas_s": 70,
       "status": "gotowy",
       "akceptacja": "Claude (konsultant), 23.11.2026: scenariusz przeszedł bramkę fabryki (12 punktów thrillera, zero tekstu w kadrze, bez nazwiska notariusza); kotwice H18 + A13 z kartami; notariusz wypada korzystnie (ponowne odczytanie poprawki, pouczenie podatkowe, odmowa nacisku pośrednika); 15/15 ujęć GPU po przeglądzie (2 poprawione raz, logo marki usunięte z u6); kontrola dźwięku montażu OK; głosy eleven_v4."
+    },
+    {
+      "id": "s01e02",
+      "sezon": 1,
+      "odcinek": 2,
+      "tytul": "Proszę nie przy nim",
+      "publish_at": "2026-11-28T09:00:00+01:00",
+      "opis": "Pani Irena przychodzi bez syna. Jedno celowe przejęzyczenie Heleny i jedna data, której nikt z nią nie uzgodnił. Odcinek 2 serialu „Kancelaria pod Siódemką”.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+      "pytanie": "Helena celowo pomyliła numer mieszkania, żeby sprawdzić, czy pani Irena słucha. Taktownie czy za ostro?",
+      "pliki": {
+        "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/s01e02.mp4",
+        "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e02/s01e02.jpg"
+      },
+      "czas_s": 73,
+      "status": "gotowy",
+      "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H16 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; 17/17 ujęć GPU po przeglądzie arkuszy (twarze spójne, bez logo, słuchacze bez ruchu ust; klatka recepcji wybrana z drugiego ziarna, bez logo monitora); kontrola dźwięku montażu OK (mowa −21,2 dB, poza mową −46,5 dB)."
+    },
+    {
+      "id": "s01e03",
+      "sezon": 1,
+      "odcinek": 3,
+      "tytul": "U nas się tak nie pisze",
+      "publish_at": "2026-11-28T16:00:00+01:00",
+      "opis": "Jedno zdanie w projekcie umowy i dwie wersje z tym samym numerem. Helena prostuje, zanim ktokolwiek podpisze. Odcinek 3 serialu „Kancelaria pod Siódemką”.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+      "pytanie": "Kuba sam przyznał się do pomyłki w numeracji wersji. Helena powinna mu to wytknąć czy docenić?",
+      "pliki": {
+        "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e03/s01e03.mp4",
+        "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e03/s01e03.jpg"
+      },
+      "czas_s": 73,
+      "status": "gotowy",
+      "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H02 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; 15/15 ujęć GPU po przeglądzie arkuszy (twarze spójne, bez logo, słuchacze bez ruchu ust); kontrola dźwięku montażu OK (mowa −21,2 dB, poza mową −46,5 dB)."
+    },
+    {
+      "id": "s01e04",
+      "sezon": 1,
+      "odcinek": 4,
+      "tytul": "Wczoraj tego nie było",
+      "publish_at": "2026-11-29T09:00:00+01:00",
+      "opis": "Odpis z księgi pobrany wczoraj i ta sama księga dziś. Jedna wzmianka zatrzymuje sprzedaż do popołudnia. Odcinek 4 serialu „Kancelaria pod Siódemką”.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+      "pytanie": "Kupujący przerwał czynność, choć sprzedająca była gotowa. Dobrze zrobił, że nie podpisał?",
+      "pliki": {
+        "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/s01e04.mp4",
+        "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e04/s01e04.jpg"
+      },
+      "czas_s": 63,
+      "status": "gotowy",
+      "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwica H04 z kartą, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; ujęcia GPU po przeglądzie klatek i arkuszy, ujęcia nieme bez ruchu ust; dźwięk własny ujęć e4-u12/u14 wyciszony w montażu; kontrola dźwięku montażu OK (mowa −21,5 dB, poza mową −46,5 dB)."
+    },
+    {
+      "id": "s01e05",
+      "sezon": 1,
+      "odcinek": 5,
+      "tytul": "Przyszło mailem",
+      "publish_at": "2026-11-29T16:00:00+01:00",
+      "opis": "Dwa maile od pośrednika, w których propozycje udają ustalenia. Kupujący pod presją najmu, Helena przy swoim. Odcinek 5 serialu „Kancelaria pod Siódemką”.",
+      "kotwica": "Na motywach prawdziwych spraw z polskich sądów. Osoby i szczegóły zmienione.",
+      "pytanie": "Robert prosił, żeby po prostu wpisać pierwszego grudnia. Helena odmówiła. Rozumiesz ją czy Roberta?",
+      "pliki": {
+        "wideo": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/s01e05.mp4",
+        "plakat": "https://vkzndnaoxhdxrxlpntcb.supabase.co/storage/v1/object/public/studio-media/rolki/serial/s01e05/s01e05.jpg"
+      },
+      "czas_s": 80,
+      "status": "gotowy",
+      "akceptacja": "Claude (agent produkcji partii a), 27.11.2026: scenariusz przeszedł bramkę fabryki (kotwice H24 + H06 z kartami, zero tekstu w kadrze poza warstwą DEMO, bez nazwiska notariusza, notariusz wypada korzystnie); głosy eleven_v4; ujęcia GPU po przeglądzie klatek i arkuszy, ujęcia nieme bez ruchu ust; kontrola dźwięku montażu OK."
     }
   ]
 }
