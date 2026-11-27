@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Pobierz dodatki NotarAI do Microsoft Word, Apache OpenOffice, Chrome i Edge.">
+<meta name="description" content="Pobierz aplikację NotarAI Pocket na Androida oraz dodatki NotarAI do Microsoft Word, Apache OpenOffice, Chrome i Edge.">
 <meta name="theme-color" content="#071d49">
 <title>Do pobrania — NotarAI</title>
 <link rel="icon" type="image/svg+xml" href="../logo-mark.svg">
@@ -60,7 +60,7 @@ h1{font-size:clamp(36px,6vw,58px);line-height:1.13;letter-spacing:-.055em;margin
 <section class="dl-hero" aria-labelledby="pobieranie-title">
 <div class="dl-eyebrow">Integracje NotarAI</div>
 <h1 id="pobieranie-title">Do pobrania</h1>
-<p>Dodatki do edytorów i przeglądarek. Bez instalatorów EXE. Wersje testowe instalujesz świadomie w swoim programie — żaden dodatek nie wymaga wyłączania Defendera.</p>
+<p>Aplikacja na telefon oraz dodatki do edytorów i przeglądarek. Bez instalatorów EXE. Wersje testowe instalujesz świadomie w swoim programie — żaden dodatek nie wymaga wyłączania Defendera.</p>
 </section>
 <section class="dl-grid" aria-label="Dostępne dodatki">
 <article class="dl-card">
@@ -87,8 +87,15 @@ h1{font-size:clamp(36px,6vw,58px);line-height:1.13;letter-spacing:-.055em;margin
 <p>Ten sam kod rozszerzenia Chromium, przygotowany osobno do pobrania. Obsługa panelu bocznego i zatwierdzania operacji; instalacja testowa przez menedżera rozszerzeń.</p>
 <div class="dl-actions"><a class="dl-btn" href="pliki/notarai-edge.zip" download="notarai-edge.zip">Pobierz ZIP</a><span class="dl-quiet">Manifest V3</span></div>
 </article>
+<article class="dl-card">
+<div class="dl-card-head"><span class="dl-logo" aria-hidden="true">A</span><span class="dl-pill dl-pill--beta">Telefon · testowo</span></div>
+<h2>NotarAI Pocket na Androida</h2>
+<p>Sprawy kancelarii w telefonie: rozmowa z asystentem, dokumenty, notatki głosowe i zdjęcia. Telefon łączy się z komputerem kancelarii szyfrowanym tunelem po zeskanowaniu kodu QR z panelu stanowiska. Aplikacja nie prosi o żadne uprawnienia. Android 8 lub nowszy, z przeglądarką Chrome.</p>
+<div class="dl-actions"><a class="dl-btn" href="../pocket/NotarAI-Pocket.apk" download="NotarAI-Pocket.apk">Pobierz APK</a><span class="dl-quiet">Wersja 2.1.0 · poza Sklepem Play</span></div>
+</article>
 </section>
 <section class="dl-section" aria-labelledby="instalacja"><h2 id="instalacja">Jak zainstalować?</h2>
+<details><summary>Android — plik APK</summary><ol><li>Otwórz tę stronę w Chrome na telefonie i wybierz „Pobierz APK”.</li><li>Otwórz pobrany plik. Android zapyta, czy pozwolić Chrome na instalowanie aplikacji; zezwól jednorazowo i potwierdź instalację.</li><li>Uruchom NotarAI Pocket i zeskanuj kod QR z panelu stanowiska w kancelarii.</li></ol><p>Aplikacji nie ma jeszcze w Sklepie Play, więc telefon może wyświetlić ostrzeżenie o nieznanym źródle. Pobieraj ją wyłącznie z notarai.pl. Bez instalowania Pocket działa też w przeglądarce pod adresem <a href="../pocket/">notarai.pl/pocket</a>.</p></details>
 <details><summary>Word — manifest XML</summary><ol><li>Pobierz plik <code>notarai-word.xml</code>.</li><li>W zgodnym Wordzie/Microsoft 365 dodaj własny dodatek za pomocą obsługiwanej przez organizację metody wdrożenia manifestu (np. katalogu dodatków lub wdrożenia przez administratora).</li><li>Otwórz panel NotarAI w Wordzie. Nie używaj tej wersji do finalizacji aktu bez weryfikacji.</li></ol><p>Dostępność instalacji lokalnego manifestu zależy od wersji Worda, licencji i polityk Microsoft 365. Sam XML nie jest instalatorem Windows.</p></details>
 <details><summary>Apache OpenOffice — plik OXT</summary><ol><li>Pobierz <code>notarai-openoffice.oxt</code>.</li><li>W Writerze wybierz Narzędzia → Menedżer rozszerzeń → Dodaj i wskaż plik.</li><li>Uruchom ponownie OpenOffice; sprawdź pasek NotarAI i otwarcie aplikacji.</li></ol><p>To wydanie testowe. Przed instalacją na stanowisku kancelarii przetestuj na odizolowanym profilu OpenOffice.</p></details>
 <details><summary>Chrome i Edge — ZIP do testów</summary><ol><li>Pobierz ZIP i rozpakuj go w stałym katalogu.</li><li>Otwórz <code>chrome://extensions</code> albo <code>edge://extensions</code>.</li><li>Na stanowisku testowym włącz tryb dewelopera i wybierz „Załaduj rozpakowane”, wskazując folder z <code>manifest.json</code>.</li><li>Otwórz panel NotarAI i połącz rozszerzenie z kancelarią.</li></ol><p>Tryb dewelopera służy wyłącznie testom. Dystrybucja produkcyjna dla użytkowników powinna odbywać się przez Chrome Web Store i Microsoft Edge Add-ons, po weryfikacji wydawcy.</p></details>

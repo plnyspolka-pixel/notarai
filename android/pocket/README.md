@@ -30,6 +30,7 @@ podpisania zapisz `keystore_b64` po zdekodowaniu do pliku poza repozytorium i us
     NOTARAI_POCKET_KEYSTORE=/sciezka/do/klucz.jks
     NOTARAI_POCKET_KEYSTORE_HASLO={{resolve:secretsmanager:notarai/pocket-android-podpis:SecretString:haslo}}   # przez asm-exec
 
-Wynik: `app/build/outputs/apk/release/app-release.apk` (instalacja ręczna na telefonie) i
+Wynik: `app/build/outputs/apk/release/app-release.apk` (do pobrania ze strony; skopiuj jako
+`strona/pocket/NotarAI-Pocket.apk` i popraw numer wersji na `strona/do-pobrania/index.html`) i
 `app/build/outputs/bundle/release/app-release.aab` (Google Play). Przy każdym wydaniu podnieś
 `versionCode` w `app/build.gradle`.

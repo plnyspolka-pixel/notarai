@@ -6,6 +6,7 @@ Statyczne sprawdzenia, bez sieci i bez Android SDK.
 """
 import json
 import re
+import hashlib
 import struct
 import subprocess
 import xml.etree.ElementTree as ET
@@ -87,6 +88,41 @@ def test_manifest_strony_ma_ikony_png_dla_androida():
         dane = (katalog / plik).read_bytes()
         assert dane[:8] == b"\x89PNG\r\n\x1a\n", plik
         assert "%dx%d" % struct.unpack(">II", dane[16:24]) == rozmiar, plik
+
+
+def _odcisk_certyfikatu_apk(dane: bytes) -> str:
+    """SHA-256 certyfikatu z podpisu APK v2 (blok przed katalogiem centralnym ZIP)."""
+    koniec = dane.rindex(b"PK\x05\x06")
+    katalog = struct.unpack("<I", dane[koniec + 16:koniec + 20])[0]
+    assert dane[katalog - 16:katalog] == b"APK Sig Block 42"
+    rozmiar = struct.unpack("<Q", dane[katalog - 24:katalog - 16])[0]
+    pary, i = dane[katalog - rozmiar:katalog - 24], 0
+    while i < len(pary):
+        dlugosc, klucz = struct.unpack("<QI", pary[i:i + 12])
+        if klucz == 0x7109871A:
+            # podpisujący > pierwszy podpisujący > dane podpisane > skróty, potem certyfikaty
+            p = i + 12 + 4 + 4 + 4
+            p += 4 + struct.unpack("<I", pary[p:p + 4])[0]
+            n = struct.unpack("<I", pary[p + 4:p + 8])[0]
+            return hashlib.sha256(pary[p + 8:p + 8 + n]).hexdigest().upper()
+        i += 8 + dlugosc
+    raise AssertionError("brak podpisu APK v2")
+
+
+def test_apk_na_stronie_jest_podpisane_kluczem_z_assetlinks():
+    """Paczka do pobrania z notarai.pl: podpisana tym samym kluczem, który strona potwierdza.
+    Inny klucz oznacza pasek adresu w aplikacji i odmowę aktualizacji na telefonach."""
+    from infra import strona_ftp
+
+    dane = (STRONA / "pocket" / "NotarAI-Pocket.apk").read_bytes()
+    odcisk = _odcisk_certyfikatu_apk(dane)
+    wpisy = json.loads((STRONA / ".well-known" / "assetlinks.json").read_text(encoding="utf-8"))
+    assert ":".join(odcisk[i:i + 2] for i in range(0, 64, 2)) in wpisy[0]["target"]["sha256_cert_fingerprints"]
+    assert "pocket/NotarAI-Pocket.apk" in strona_ftp.pliki_lokalne(str(STRONA))
+    html = (STRONA / "do-pobrania" / "index.html").read_text(encoding="utf-8")
+    assert 'href="../pocket/NotarAI-Pocket.apk"' in html
+    wersja = re.search(r'versionName "([^"]+)"', (ANDROID / "app" / "build.gradle").read_text(encoding="utf-8")).group(1)
+    assert f"Wersja {wersja}" in html
 
 
 def test_klucz_podpisu_nie_lezy_w_repozytorium():

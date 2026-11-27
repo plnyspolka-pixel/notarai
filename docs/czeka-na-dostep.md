@@ -453,7 +453,7 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Na żywo:**
   1. Po publikacji strony sprawdzić, że `https://notarai.pl/.well-known/assetlinks.json` oddaje JSON
      (hosting az.pl musi serwować katalog z kropką) i że `https://notarai.pl/pocket/` się otwiera.
-  2. Zainstalować `app-release.apk` na telefonie. Aplikacja ma się otworzyć bez paska adresu; pasek
+  2. Pobrać aplikację na telefonie z `https://notarai.pl/do-pobrania/` i zainstalować. Aplikacja ma się otworzyć bez paska adresu; pasek
      oznacza, że telefon nie potwierdził `assetlinks.json`.
   3. Sparować telefon kodem QR z panelu stanowiska (kod ma otworzyć aplikację, nie przeglądarkę),
      przejść rozmowę, notatkę głosową z mikrofonu i zdjęcie z aparatu na fikcyjnej sprawie.
