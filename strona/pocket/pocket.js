@@ -397,21 +397,72 @@ function changed(a, b) {
   return total / a.length > 2;
 }
 
-async function refreshAgenda() {
-  let items = [];
-  try { items = (await call("calendar?days=14")).items; } catch { return; }
-  const list = el("agenda");
-  if (!items.length) {
-    list.replaceChildren(node("li", "muted", "Brak terminów w najbliższych dwóch tygodniach."));
-    return;
-  }
-  list.replaceChildren(...items.slice(0, 12).map(entry => {
-    const item = node("li", entry.source === "rozmowa" ? "check" : "");
-    const [day, hour] = [entry.label.split(" ").slice(0, -1).join(" "), entry.label.split(" ").slice(-1)[0]];
-    item.append(node("span", "when", day + " " + hour), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
-    return item;
-  }));
+// The month on the left: days with appointments marked; a click shows that day underneath.
+const MONTHS = ["styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień",
+                "październik", "listopad", "grudzień"];
+const cal = { month: null, day: null };
+
+function isoDay(date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
 }
+
+function agendaItem(entry, withDay) {
+  const item = node("li", entry.source === "rozmowa" ? "check" : "");
+  const hour = entry.start.slice(11, 16).replace(/^0/, "");
+  const when = withDay ? entry.label : hour;
+  item.append(node("span", "when", when), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
+  item.title = entry.source === "rozmowa" ? "Termin z rozmowy: sprawdź go" : "";
+  return item;
+}
+
+async function refreshAgenda() {
+  if (!cal.month) { const now = new Date(); cal.month = new Date(now.getFullYear(), now.getMonth(), 1); }
+  const first = cal.month;
+  const gridStart = new Date(first);
+  gridStart.setDate(1 - ((first.getDay() + 6) % 7));            // weeks start on Monday
+  let month = [], soon = [];
+  try {
+    [month, soon] = await Promise.all([
+      call("calendar?days=42&start=" + isoDay(gridStart)).then(r => r.items),
+      call("calendar?days=14").then(r => r.items),
+    ]);
+  } catch { return; }
+  const byDay = {};
+  for (const entry of month) (byDay[entry.start.slice(0, 10)] ||= []).push(entry);
+  el("month-title").textContent = MONTHS[first.getMonth()] + " " + first.getFullYear();
+  const today = isoDay(new Date());
+  const cells = ["pn", "wt", "śr", "cz", "pt", "so", "nd"].map(name => node("span", "dow", name));
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + i);
+    const key = isoDay(date);
+    const cell = node("button", "day", String(date.getDate()));
+    if (date.getMonth() !== first.getMonth()) cell.classList.add("other");
+    if (key === today) cell.classList.add("today");
+    if (key === cal.day) cell.classList.add("chosen");
+    if (byDay[key]) {
+      cell.classList.add("busy");
+      cell.setAttribute("aria-label", date.getDate() + " " + MONTHS[date.getMonth()] + ": terminów " + byDay[key].length);
+    }
+    cell.onclick = () => { cal.day = cal.day === key ? null : key; refreshAgenda(); };
+    cells.push(cell);
+  }
+  el("month").replaceChildren(...cells);
+  const list = el("agenda");
+  if (cal.day) {
+    const [y, m, d] = cal.day.split("-").map(Number);
+    el("agenda-title").textContent = d + " " + ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca",
+      "sierpnia", "września", "października", "listopada", "grudnia"][m - 1] + (y !== new Date().getFullYear() ? " " + y : "");
+    const items = byDay[cal.day] || [];
+    list.replaceChildren(...(items.length ? items.map(e => agendaItem(e, false)) : [node("li", "muted", "Brak terminów tego dnia.")]));
+  } else {
+    el("agenda-title").textContent = "Dziś i najbliższe";
+    list.replaceChildren(...(soon.length ? soon.slice(0, 12).map(e => agendaItem(e, true))
+      : [node("li", "muted", "Brak terminów w najbliższych dwóch tygodniach.")]));
+  }
+}
+el("month-prev").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); refreshAgenda(); };
+el("month-next").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + 1, 1); refreshAgenda(); };
 render.calendar = () => refreshAgenda();
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
@@ -895,46 +946,130 @@ async function sendVoice(bytes, name) {
   })();
 }
 
-el("voice").onclick = run(async () => {
-  if (voice) {                       // second tap: stop and send
-    const finished = voice;
-    voice = null;
-    await finished.stop();
-    return;
+// ---------------------------------------------------------------- live dictation into the message box
+// Speak and the words appear in the box as you say them (speech in Frankfurt, nothing recorded).
+// ✕ throws the dictation away, ■ stops so the text can be corrected, ↑ sends it at once.
+const PIECE_MS = 250;
+let dictation = null;
+
+function downsample(input, rate) {
+  const ratio = rate / 16000;
+  const out = new Int16Array(Math.floor(input.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const start = Math.floor(i * ratio), end = Math.min(input.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += input[j];
+    const value = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+    out[i] = value < 0 ? value * 0x8000 : value * 0x7fff;
   }
+  return out;
+}
+
+function dictationBar(on) {
+  el("dictation").hidden = !on;
+  el("voice").hidden = on || scope === "listen";
+  el("attach").hidden = on || scope === "read";
+  el("send").hidden = on;
+}
+
+async function startDictation() {
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   } catch {
     throw new Error("Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki.");
   }
-  const chunks = [];
-  const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
-  recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-  const limit = setTimeout(() => el("voice").click(), 10 * 60 * 1000);
-  const done = new Promise(resolve => { recorder.onstop = resolve; });
-  voice = {
-    stop: async () => {
-      clearTimeout(limit);
-      recorder.stop();
-      await done;
-      stream.getTracks().forEach(track => track.stop());
-      el("voice").textContent = "🎤";
-      el("voice").classList.remove("recording");
-      el("voice").setAttribute("aria-label", "Nagraj notatkę głosową");
-      const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-      const extension = /ogg/.test(audio.type) ? ".ogg" : /mp4|aac/.test(audio.type) ? ".m4a" : ".webm";
-      bubble("🎤 Notatka głosowa (" + Math.max(1, Math.round(audio.size / 4000)) + " s)", "me");
-      await sendVoice(new Uint8Array(await audio.arrayBuffer()), "notatka" + extension);
-    },
+  const { id } = await call("dictation", "POST", {});
+  const audio = new AudioContext();
+  await audio.resume();
+  const source = audio.createMediaStreamSource(stream);
+  const processor = audio.createScriptProcessor(4096, 1, 1);
+  const before = el("prompt").value.replace(/\s+$/, "");
+  const state = { id, stream, audio, processor, pending: [], busy: false, closed: false, before, text: "" };
+  dictation = state;
+  processor.onaudioprocess = event => {
+    const samples = event.inputBuffer.getChannelData(0);
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 64) peak = Math.max(peak, Math.abs(samples[i]));
+    drawLevel(peak);
+    state.pending.push(downsample(samples, audio.sampleRate));
   };
-  recorder.start(1000);
-  el("voice").textContent = "■";
-  el("voice").classList.add("recording");
-  el("voice").setAttribute("aria-label", "Zakończ i zapisz notatkę głosową");
-  el("voice").disabled = false;
-  status("Nagrywam notatkę. Dotknij ■, żeby zakończyć.");
-});
+  source.connect(processor);
+  processor.connect(audio.destination);
+  state.timer = setInterval(() => pushPiece(state, false).catch(() => {}), PIECE_MS);
+  dictationBar(true);
+  el("prompt").placeholder = "Mów, tekst pojawia się tutaj…";
+  status("Słucham. ■ zatrzymuje, ↑ wysyła od razu, ✕ anuluje.");
+}
+
+function takePending(state) {
+  const total = state.pending.reduce((sum, part) => sum + part.length, 0);
+  const pcm = new Int16Array(total);
+  let at = 0;
+  for (const part of state.pending) { pcm.set(part, at); at += part.length; }
+  state.pending = [];
+  return new Uint8Array(pcm.buffer);
+}
+
+async function pushPiece(state, end) {
+  if (state.busy && !end) return;
+  while (state.busy) await new Promise(resolve => setTimeout(resolve, 50));
+  state.busy = true;
+  try {
+    const answer = await call("dictation/" + state.id, "POST", { pcm_b64: encode(takePending(state)), end });
+    if (dictation === state || end) {
+      state.text = answer.text;
+      el("prompt").value = (state.before ? state.before + " " : "") + answer.text;
+      el("prompt").dispatchEvent(new Event("input"));
+    }
+    if (answer.error) status(answer.error);
+    return answer;
+  } finally {
+    state.busy = false;
+  }
+}
+
+async function stopDictation(mode) {
+  const state = dictation;
+  if (!state) return;
+  dictation = null;
+  clearInterval(state.timer);
+  state.processor.disconnect();
+  state.stream.getTracks().forEach(track => track.stop());
+  state.audio.close().catch(() => {});
+  dictationBar(false);
+  drawLevel(0);
+  el("prompt").placeholder = "Napisz…";
+  if (mode === "cancel") {
+    call("dictation/" + state.id, "DELETE").catch(() => {});
+    el("prompt").value = state.before;
+    el("prompt").dispatchEvent(new Event("input"));
+    status("Dyktowanie anulowane.");
+    return;
+  }
+  status("Kończę przepisywanie…");
+  await pushPiece(state, true);
+  status(el("prompt").value.trim() ? "Gotowe. Popraw tekst, jeśli trzeba, i wyślij." : "Nie usłyszałem słów. Spróbuj jeszcze raz.");
+  if (mode === "send" && el("prompt").value.trim()) {
+    const text = el("prompt").value;                 // not through the Send button: we are inside run() already
+    el("prompt").value = "";
+    el("prompt").style.height = "";
+    await send(text);
+  } else {
+    el("prompt").focus();
+  }
+}
+
+function drawLevel(peak) {
+  const bars = el("dictation-level").children;
+  for (let i = bars.length - 1; i > 0; i--) bars[i].style.height = bars[i - 1].style.height;
+  if (bars.length) bars[0].style.height = Math.max(8, Math.min(100, peak * 260)) + "%";
+}
+
+el("voice").onclick = run(() => startDictation());
+el("dictation-cancel").onclick = () => stopDictation("cancel");
+el("dictation-stop").onclick = run(() => stopDictation("stop"));
+el("dictation-send").onclick = run(() => stopDictation("send"));
 
 async function saveFile(input, current) {
   const file = el(input).files[0];
@@ -1135,7 +1270,7 @@ async function enter(device) {
   el("workspace").hidden = false;
   el("bar").hidden = false;
   el("attach").hidden = scope === "read";
-  el("voice").hidden = scope === "read" || !(navigator.mediaDevices && window.MediaRecorder);
+  el("voice").hidden = !(navigator.mediaDevices && window.AudioContext);
   el("messages").replaceChildren();
   chips();
   shortcuts();
@@ -1306,7 +1441,13 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
-el("agenda-add").onclick = run(() => send("dodaj termin", "Dodaj termin"));
+el("agenda-add").onclick = () => {
+  // A chosen day is written in already: only the hour and what remain to say or type.
+  const [y, m, d] = (cal.day || "").split("-");
+  el("prompt").value = cal.day ? `termin ${d}.${m}.${y} ` : "termin ";
+  el("prompt").focus();
+  status("Dopisz godzinę i co się odbędzie, np. „10:00 podpisanie aktu Kowalski”, i wyślij. Możesz też podyktować 🎤.");
+};
 el("arrange").onclick = () => { arranging = !arranging; drawTiles(); };
 el("add-tile").onclick = run(() => send("narzędzia", "Dodaj narzędzie"));
 el("hide-tiles").onclick = run(() => send("ukryj kafelki", "Schowaj kafelki"));
