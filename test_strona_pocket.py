@@ -78,3 +78,12 @@ def test_adres_przekaznika_jest_tlsowym_adresem_z_instalacji():
     tunel = (KATALOG / "tunnel.js").read_text(encoding="utf-8")
     assert re.search(r"\^wss:\\/\\/\[A-Za-z0-9\.-\]\+", tunel)
     assert PRZEKAZNIK.startswith("wss://")
+
+
+def test_strona_niesie_wlasna_polityke_bezpieczenstwa():
+    """Hosting nie ustawia nagłówka CSP, więc strona ma go w sobie; łączy się tylko z przekaźnikiem."""
+    html = (KATALOG / "index.html").read_text(encoding="utf-8")
+    csp = re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', html).group(1)
+    assert "default-src 'none'" in csp and "script-src 'self';" in csp and "'unsafe" not in csp
+    assert f"connect-src 'self' {PRZEKAZNIK};" in csp
+    assert '<meta name="robots" content="noindex">' in html

@@ -74,3 +74,12 @@ button.quiet { background: transparent; }
 .fill-row .fill-field { font-weight: 600; }
 .fill-row .code { font-size: 1rem; padding: 6px 8px; }
 .fill-row button { min-height: 40px; }
+
+/* ---- filled form ---- */
+img.shot { display: block; width: 100%; max-height: 60vh; object-fit: contain; object-position: top; margin-top: 8px;
+  border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; background: #fff; }
+img.shot.zoom { max-height: none; cursor: zoom-out; }
+.state-missing .fill-field, .state-differs .fill-field, .state-no-option .fill-field, .state-refused .fill-field { color: var(--bad); }
+.state-empty .fill-field { color: var(--warn); }
+
+#voice.recording { background: var(--bad); border-color: var(--bad); color: #fff; }

@@ -480,19 +480,71 @@ render.learned = proposal => {
   card.append(node("p", "notice", "Tak zrozumiałem tę procedurę. Popraw, co trzeba: każdy wiersz to „pole | skąd wartość | dlaczego”."));
   card.append(node("p", "muted", (procedure.program || "Program") + (procedure.cel ? ": " + procedure.cel : "")));
   const steps = node("textarea", "tall");
-  steps.value = procedure.kroki.map(step => [step.pole, step.zrodlo, step.dlaczego].join(" | ")).join("\n");
+  const sourceOf = step => step.akcja === "wyslij" ? "wyślij" : step.akcja === "kliknij" ? "kliknij" : step.zrodlo;
+  steps.value = procedure.kroki.map(step => [step.pole, sourceOf(step), step.dlaczego].join(" | ")).join("\n");
+  const kind = node("select");
+  kind.append(new Option("Strona internetowa", "strona"), new Option("Program na tym komputerze", "program"));
+  kind.value = procedure.rodzaj || "strona";
+  const address = node("input");
+  address.maxLength = 400;
+  address.value = procedure.adres || "";
+  const actionOf = source => {
+    const plain = source.toLowerCase();
+    if (/^(wyślij|wyslij|złóż|zloz|prześlij|przeslij)/.test(plain)) return "wyslij";
+    if (/^(kliknij|naciśnij|nacisnij)/.test(plain)) return "kliknij";
+    return "wpisz";
+  };
   const approve = node("button", "primary", "Zatwierdzam procedurę");
   approve.onclick = run(async () => {
     const kroki = steps.value.split("\n").map(line => line.split("|").map(part => part.trim()))
-      .filter(parts => parts[0]).map(parts => ({ pole: parts[0], zrodlo: parts[1] || "", dlaczego: parts.slice(2).join(" | ") }));
-    const saved = await call("procedures/" + proposal.id + "/approve", "POST", { ...procedure, kroki });
+      .filter(parts => parts[0]).map(parts => ({
+        pole: parts[0], zrodlo: parts[1] || "", dlaczego: parts.slice(2).join(" | "), akcja: actionOf(parts[1] || "") }));
+    const saved = await call("procedures/" + proposal.id + "/approve", "POST",
+      { ...procedure, rodzaj: kind.value, adres: address.value.trim(), kroki });
     card.remove();
     bubble("Zatwierdzam procedurę", "me");
-    bubble("Zapamiętałem procedurę „" + saved.name + "” (" + saved.steps + " kroków). Dla każdej sprawy napisz „wypełnij " + saved.name + "”.", "them");
+    bubble("Zapamiętałem procedurę „" + saved.name + "” (" + saved.steps + " kroków). Dla każdej sprawy napisz „wypełnij " + saved.name + "”: wpiszę dane sam i poczekam z wysłaniem na Twoje zatwierdzenie.", "them");
     render.buttons({ items: [{ label: "Wypełnij: " + saved.name, say: "wypełnij " + saved.name }] });
     status("Procedura zapisana w sejfie.");
   });
-  card.append(field("Kroki procedury", steps), approve);
+  card.append(node("p", "muted", "Przycisk, który wysyła albo składa wniosek, oznacz jako „wyślij”: na nim zawsze się zatrzymam i poczekam na Twoje zatwierdzenie."));
+  card.append(field("Gdzie jest formularz", kind), field("Adres strony albo tytuł okna programu", address),
+    field("Kroki procedury", steps), approve);
+  show(card);
+};
+
+const FILL_STATES = {
+  filled: ["✓", "wpisane"], clicked: ["→", "przeszedłem dalej"], missing: ["✗", "nie znalazłem tego pola"],
+  differs: ["!", "pole pokazuje inną wartość"], "no-option": ["!", "nie ma takiej pozycji na liście"],
+  refused: ["!", "pole nie przyjęło wartości"], empty: ["–", "brak danych w dokumentach"],
+};
+
+function screenshot(data, alt) {
+  const image = node("img", "shot");
+  image.alt = alt;
+  image.src = "data:image/jpeg;base64," + data;
+  image.onclick = () => image.classList.toggle("zoom");
+  return image;
+}
+
+render.filled = block => {
+  const card = node("div", "card them");
+  card.append(node("p", "", block.procedure + (block.where ? " · " + block.where : "")));
+  block.report.forEach(row => {
+    const [mark, meaning] = FILL_STATES[row.state] || ["?", row.state];
+    const line = node("div", "fill-row state-" + row.state);
+    line.append(node("div", "fill-field", mark + " " + row.field));
+    line.append(node("div", row.value ? "code" : "muted", row.value || meaning));
+    if (row.state !== "filled" && row.value) line.append(node("div", "muted", meaning + (row.read ? ": " + row.read : "")));
+    card.append(line);
+  });
+  if (block.image) card.append(screenshot(block.image, "Wypełniony formularz"));
+  show(card);
+};
+
+render.image = block => {
+  const card = node("div", "card them");
+  card.append(screenshot(block.image, block.alt || "Zrzut ekranu"));
   show(card);
 };
 
@@ -651,10 +703,74 @@ async function saveText(current) {
   await save(name, new TextEncoder().encode(text), current, text);
 }
 
+// ---------------------------------------------------------------- voice notes
+const AUDIO = /\.(webm|ogg|opus|oga|m4a|mp3|wav|aac|amr|3gp|flac)$/i;
+let voice = null;
+
+async function sendVoice(bytes, name) {
+  const waiting = bubble("Przepisuję notatkę głosową na komputerze kancelarii…", "them wait");
+  let result;
+  try {
+    result = await call("voice", "POST", { audio_b64: encode(bytes), name, case: currentCase() });
+  } finally {
+    waiting.remove();
+  }
+  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
+  render.documents({ items: result.documents });
+  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+}
+
+el("voice").onclick = run(async () => {
+  if (voice) {                       // second tap: stop and send
+    const finished = voice;
+    voice = null;
+    await finished.stop();
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    throw new Error("Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki.");
+  }
+  const chunks = [];
+  const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
+  recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+  const limit = setTimeout(() => el("voice").click(), 10 * 60 * 1000);
+  const done = new Promise(resolve => { recorder.onstop = resolve; });
+  voice = {
+    stop: async () => {
+      clearTimeout(limit);
+      recorder.stop();
+      await done;
+      stream.getTracks().forEach(track => track.stop());
+      el("voice").textContent = "🎤";
+      el("voice").classList.remove("recording");
+      el("voice").setAttribute("aria-label", "Nagraj notatkę głosową");
+      const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      const extension = /ogg/.test(audio.type) ? ".ogg" : /mp4|aac/.test(audio.type) ? ".m4a" : ".webm";
+      bubble("🎤 Notatka głosowa (" + Math.max(1, Math.round(audio.size / 4000)) + " s)", "me");
+      await sendVoice(new Uint8Array(await audio.arrayBuffer()), "notatka" + extension);
+    },
+  };
+  recorder.start(1000);
+  el("voice").textContent = "■";
+  el("voice").classList.add("recording");
+  el("voice").setAttribute("aria-label", "Zakończ i zapisz notatkę głosową");
+  el("voice").disabled = false;
+  status("Nagrywam notatkę. Dotknij ■, żeby zakończyć.");
+});
+
 async function saveFile(input, current) {
   const file = el(input).files[0];
   if (!file) throw new Error("Wybierz plik.");
   if (file.size > maxBytes) throw new Error("Limit rozmiaru pliku to 20 MiB.");
+  if (!current && AUDIO.test(file.name)) {          // a recording from a dictaphone or a messenger
+    bubble("🎤 " + file.name, "me");
+    el(input).value = "";
+    await sendVoice(new Uint8Array(await file.arrayBuffer()), file.name);
+    return;
+  }
   if (!mayDiscard()) return;
   if (!current) bubble("Dodaję plik " + file.name, "me");
   await save(file.name, new Uint8Array(await file.arrayBuffer()), current);
@@ -684,6 +800,7 @@ async function enter(device) {
   el("workspace").hidden = false;
   el("bar").hidden = false;
   el("attach").hidden = scope === "read";
+  el("voice").hidden = scope === "read" || !(navigator.mediaDevices && window.MediaRecorder);
   el("messages").replaceChildren();
   chips();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
