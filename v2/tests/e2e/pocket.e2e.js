@@ -119,6 +119,7 @@ function watch(page, problems, label) {
     await say(page, "dodaj kafelek Kto sprzedaje: Kto sprzedaje?", "Dodałem kafelek");
     await say(page, "dodaj kafelek Dokumenty", "Dodałem kafelek");
     const order = () => page.locator("#tiles .tile > button.go").allTextContents();
+    await page.waitForFunction(() => document.querySelectorAll("#tiles .tile > button.go").length === 3);
     assert((await order()).join() === "Taksa,Kto sprzedaje,Dokumenty", "tiles: " + await order());
     await page.getByRole("button", { name: "Ustaw", exact: true }).click();
     await page.getByRole("button", { name: "Przesuń wcześniej: Dokumenty" }).click();

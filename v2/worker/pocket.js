@@ -741,7 +741,13 @@ function shortcuts() {
   const items = [["Co mam dziś", "co mam dziś"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
   if (admin) items.push(["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
   items.push(["Co umiesz?", "pomoc"]);
-  el("shortcuts").replaceChildren(node("h2", "", "Na skróty"), ...items.map(([label, sentence]) => sayButton(label, sentence)));
+  const buttons = items.map(([label, sentence]) => sayButton(label, sentence));
+  if (scope !== "read") {
+    const note = node("button", "", "Nowy dokument tekstowy");
+    note.onclick = () => { if (mayDiscard()) showSheet(null, [], ""); };
+    buttons.splice(3, 0, note);
+  }
+  el("shortcuts").replaceChildren(node("h2", "", "Na skróty"), ...buttons);
 }
 
 function chips() {
