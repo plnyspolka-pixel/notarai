@@ -1245,7 +1245,16 @@ async function startDictation(target = el("prompt")) {
   } catch {
     throw new Error("Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki.");
   }
-  const { id } = await call("dictation", "POST", {});
+  let id;
+  try {
+    ({ id } = await call("dictation", "POST", {}));
+  } catch (error) {
+    stream.getTracks().forEach(track => track.stop());
+    bubble(error.message, "them");               // why there will be no text, said plainly in the conversation
+    if (/zaloguj/i.test(error.message)) render.buttons({ items: [{ label: "Zaloguj", say: "zaloguj" }] });
+    render.buttons({ items: [{ label: "Sprawdź mowę", say: "sprawdź mowę" }] });
+    return;
+  }
   const audio = new AudioContext();
   await audio.resume();
   const source = audio.createMediaStreamSource(stream);
@@ -1288,7 +1297,15 @@ async function pushPiece(state, end) {
       state.target.value = (state.before ? state.before + " " : "") + answer.text;
       state.target.dispatchEvent(new Event("input"));
     }
-    if (answer.error) status(answer.error);
+    if (answer.error && !state.warned) {
+      state.warned = true;                       // say it once, in the conversation, not only in the status line
+      bubble(answer.error, "them");
+      if (answer.login) {
+        render.buttons({ items: [{ label: "Zaloguj", say: "zaloguj" }] });
+        if (!end) stopDictation("cancel");
+      }
+    }
+    if (answer.second_way) status("Szybkie połączenie nie działało: przepisałem nagranie drugą drogą.");
     return answer;
   } finally {
     state.busy = false;

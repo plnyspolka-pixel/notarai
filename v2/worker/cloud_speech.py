@@ -181,15 +181,24 @@ class Dictation:
         self.max_seconds = max_seconds
         self.done = threading.Event()
         self.error: str | None = None
+        self.cause: str | None = None             # the error's type only, for diagnostics (never content)
+        self.login_needed = False
+        self.audio = bytearray()                  # kept for the second way if the stream fails
 
         def run():
             try:
                 stream(self, self._update)
             except Exception as error:
-                if error.__class__.__name__ == "LoginError":
-                    self.error = "Zaloguj stanowisko, żeby dyktować przez Frankfurt."
+                import sys
+
+                self.cause = error.__class__.__name__
+                print(f"dyktowanie: strumien nie dziala ({self.cause})", file=sys.stderr, flush=True)
+                if self.cause == "LoginError":
+                    self.login_needed = True
+                    self.error = "Zaloguj stanowisko kontem NotarAI (napisz „zaloguj”), żeby dyktować przez Frankfurt."
                 else:
-                    self.error = "Połączenie z rozpoznawaniem mowy przerwane. Spróbuj ponownie."
+                    self.error = ("Szybkie dyktowanie nie łączy się z Frankfurtem. Mów dalej: po ■ przepiszę całe "
+                                  "nagranie drugą drogą (wolniej). Szczegóły: napisz „sprawdź mowę”.")
             finally:
                 self.done.set()
         threading.Thread(target=run, daemon=True, name="notarai-dyktowanie").start()
@@ -210,6 +219,8 @@ class Dictation:
     # the window side
     def feed(self, pcm: bytes) -> None:
         self.touched = self._clock()
+        if len(self.audio) < 16000 * 2 * 600:
+            self.audio += pcm
         if self.done.is_set():
             return
         if self._clock() - self.started > self.max_seconds:
@@ -281,3 +292,16 @@ def transcribe_stream(credentials_source, region: str):
             await asyncio.gather(pump(), handler.handle_events())
         asyncio.run(run())
     return stream
+
+
+def wav(pcm: bytes) -> bytes:
+    import io
+    import wave
+
+    out = io.BytesIO()
+    with wave.open(out, "wb") as target:
+        target.setnchannels(1)
+        target.setsampwidth(2)
+        target.setframerate(RATE)
+        target.writeframes(bytes(pcm))
+    return out.getvalue()

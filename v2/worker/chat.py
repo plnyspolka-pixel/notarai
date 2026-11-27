@@ -193,6 +193,17 @@ class Chat:
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        if plain in {"sprawdz mowe", "test mowy", "diagnostyka mowy", "sprawdz dyktowanie", "dlaczego nie dziala dyktowanie",
+                     "nie dziala dyktowanie", "dyktowanie nie dziala"}:
+            if identity.scope != "admin":
+                return [text("Mowę sprawdza się na komputerze kancelarii.")]
+            self.s.narrate(identity, "Sprawdzam po kolei: ustawienie mowy, logowanie, dostęp do Frankfurtu, szybkie połączenie.")
+            steps = self.s.speech_check()
+            lines = [("✓ " if ok else "✗ ") + line for ok, line in steps]
+            blocks = [text("Sprawdzenie mowy:\n" + "\n".join(lines))]
+            if any("NIE jest zalogowane" in line for _, line in steps):
+                blocks.append(buttons(("Zaloguj", "zaloguj")))
+            return blocks
         serviced = self._service(identity, message, plain)
         if serviced is not None:
             return serviced

@@ -899,12 +899,49 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return dictation_stream
         speech = state["settings"].speech
         if speech.where == "chmura" and transcriber is None:
-            if state["account"] is None:
-                raise HTTPException(409, "Dyktowanie przez Frankfurt wymaga zalogowania stanowiska. Napisz „zaloguj”.")
+            if state["account"] is None or not state["account"].signed_in:
+                raise HTTPException(409, "Najpierw zaloguj stanowisko kontem NotarAI: napisz „zaloguj”. Bez tego "
+                                         "Frankfurt nie przepisze mowy.")
             return transcribe_stream(state["account"].credentials, state["settings"].ai.region)
         if not speech_available():
             raise HTTPException(409, "Rozpoznawanie mowy nie jest jeszcze ustawione. Napisz „gdzie są dane”.")
         return local_dictation_stream
+
+    def speech_check() -> list[tuple[bool, str]]:
+        """Step by step, why dictation may give no text: setting, sign-in, credentials, stream, second way."""
+        import time as _time
+
+        speech, account = state["settings"].speech, state["account"]
+        out = [(True, "Mowa: " + ("we Frankfurcie (Amazon Transcribe)." if speech.where == "chmura" else "na tym komputerze."))]
+        if speech.where != "chmura":
+            ok = local_speech.available()
+            return out + [(ok, "Moduł mowy na tym komputerze: " + ("jest." if ok else "brak; napisz „mowa we frankfurcie”."))]
+        if account is None:
+            return out + [(False, "Konto NotarAI: brak ustawień konta na tym stanowisku. Zainstaluj NotarAI ponownie.")]
+        if not account.signed_in:
+            return out + [(False, "Logowanie: stanowisko NIE jest zalogowane. Napisz „zaloguj” i zaloguj się kontem NotarAI.")]
+        out.append((True, "Logowanie: stanowisko zalogowane."))
+        try:
+            account.credentials()
+            out.append((True, "Dostęp do usług we Frankfurcie: jest."))
+        except Exception as error:
+            return out + [(False, f"Dostęp do usług we Frankfurcie: odmowa ({error.__class__.__name__}). Wyloguj i zaloguj "
+                                  "się ponownie; jeśli to nie pomoże, konto może nie mieć uprawnień do NotarAI 2.")]
+        started = _time.monotonic()
+        probe = Dictation(transcribe_stream(account.credentials, state["settings"].ai.region))
+        probe.feed(b"\x00\x00" * 16000)
+        probe.finish()
+        probe.done.wait(30)
+        took = _time.monotonic() - started
+        if probe.cause is None and probe.done.is_set():
+            out.append((True, f"Szybkie dyktowanie (strumień): działa, odpowiedź w {took:.1f} s."))
+        else:
+            out.append((False, "Szybkie dyktowanie (strumień): nie działa (" + (probe.cause or "brak odpowiedzi") + "). "
+                               "Najczęściej sieć kancelarii albo zapora blokuje połączenie HTTP/2 do "
+                               "transcribestreaming.eu-central-1.amazonaws.com (port 443)."))
+        out.append((bool(speech.bucket), "Druga droga (wolniejsza, przez zaszyfrowany bucket we Frankfurcie): "
+                                         + ("gotowa." if speech.bucket else "nieustawiona.")))
+        return out
 
     @app.post("/v2/dictation")
     def dictation_start(identity: Identity = Depends(auth)):
@@ -933,7 +970,18 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if piece.end:
             dictation.finish()
             dictation.done.wait(20)        # the last words arrive shortly after the end
-        return {"text": learning.apply_dictation(dictation.text()), "done": dictation.done.is_set(), "error": dictation.error}
+            if (dictation.error and not dictation.login_needed or not dictation.text()) and len(dictation.audio) > 16000:
+                # The stream failed or heard nothing: the whole recording the second (slower) way.
+                from .cloud_speech import wav
+                try:
+                    heard = speech_to_text(wav(bytes(dictation.audio)), ".wav") or ""
+                except Exception as error:
+                    print(f"dyktowanie: druga droga nie dziala ({error.__class__.__name__})", file=sys.stderr, flush=True)
+                    heard = ""
+                if heard:
+                    return {"text": learning.apply_dictation(heard), "done": True, "error": None, "second_way": True}
+        return {"text": learning.apply_dictation(dictation.text()), "done": dictation.done.is_set(), "error": dictation.error,
+                "login": dictation.login_needed}
 
     class Corrected(BaseModel):
         heard: str = Field(max_length=20_000)
@@ -1389,6 +1437,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         print_network=lambda device, name, data: (ipp or peripherals.ipp_print)(
             device, (to_pdf or peripherals.word_to_pdf)(name, data), name),
         scan=lambda device, **options: (escl or peripherals.escl_scan)(device, **options),
+        speech_check=speech_check,
         service=service_desk, program_changes=lambda: (program.current or {}).get("zmiany", []),
         office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,

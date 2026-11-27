@@ -70,7 +70,8 @@ class SpeechSettings(_Strict):
     # chmura: Amazon Transcribe in the EU (the office computer does no speech work);
     # lokalnie: faster-whisper on this computer (downloads a model, uses the processor).
     where: str = Field(default="chmura", pattern=r"^(chmura|lokalnie)$")
-    bucket: str = Field(default="", max_length=63, pattern=r"^([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?$")
+    # The EU bucket of the notarai-v2-mowa stack: the slower second way when streaming is blocked.
+    bucket: str = Field(default="notarai-v2-mowa-127621462971", max_length=63, pattern=r"^([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?$")
     model: str = Field(default="small", pattern=r"^(tiny|base|small|medium|large-v3|turbo)$")
 
 
