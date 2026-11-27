@@ -121,6 +121,21 @@ def tell(message: str) -> None:
         pass
 
 
+def production_gate(settings_file: Path) -> None:
+    """NotarAI 2 is production (owner's decision 27.11.2026). Installations made before that still carry
+    the old trial-only release gate in their settings; the installation (not the application window) lifts it."""
+    import json
+
+    try:
+        data = json.loads(settings_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    ai = data.get("ai")
+    if isinstance(ai, dict) and ai.get("real_data_approved") is False:
+        ai["real_data_approved"] = True
+        settings_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
     home.mkdir(parents=True, exist_ok=True)
     if not any(secret_path(home, name).exists() for name in ("vault.key", "api.token")):
@@ -132,6 +147,7 @@ def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
         # Addresses of the NotarAI services for this installation. Everything optional stays off
         # until the notary switches it on in the panel.
         (home / "settings.json").write_text(preset.read_text(encoding="utf-8"), encoding="utf-8")
+    production_gate(home / "settings.json")
     # AI stays off until the notary switches it on and signs in (settings ai.enabled, Cognito login).
     app = create_app(home)
     nonce = secrets.token_hex(32)
