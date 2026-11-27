@@ -1,0 +1,61 @@
+// NotarAI Pocket na Androida: cienka powloka (Trusted Web Activity) na https://notarai.pl/pocket/.
+// Aplikacja nie ma wlasnego kodu ani danych. Calosc dziala w Chrome telefonu, wiec klucz urzadzenia
+// i sparowanie sa te same co w przegladarce, a tresc aktualizuje sie razem ze strona.
+plugins {
+    id "com.android.application"
+}
+
+// Klucz podpisu nie lezy w repozytorium. Budowanie wydania bierze go ze zmiennych srodowiska
+// (sekret notarai/pocket-android-podpis w AWS Secrets Manager); bez nich powstaje paczka niepodpisana.
+def magazynKluczy = System.getenv("NOTARAI_POCKET_KEYSTORE")
+def hasloKluczy = System.getenv("NOTARAI_POCKET_KEYSTORE_HASLO")
+def jestPodpis = magazynKluczy && hasloKluczy && file(magazynKluczy).exists()
+
+android {
+    namespace "pl.notarai.pocket"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "pl.notarai.pocket"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "2.1.0"
+    }
+
+    signingConfigs {
+        if (jestPodpis) {
+            wydanie {
+                storeFile file(magazynKluczy)
+                storePassword hasloKluczy
+                keyAlias "notarai-pocket"
+                keyPassword hasloKluczy
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")
+            if (jestPodpis) {
+                signingConfig signingConfigs.wydanie
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.8.0"
+}
