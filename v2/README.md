@@ -27,6 +27,9 @@ Owner-facing status in Polish: [STAN.md](STAN.md).
 | `worker/workcopy.py` | Edit a vault document in Word or LibreOffice on the workstation; check-in creates the next revision and removes the plaintext working copy. |
 | `worker/tunnel.py`, `tunnel.js`, `relay/` | Remote access for paired devices: end-to-end encrypted channel, device-bound non-extractable key, relay that forwards opaque frames and stores none. The worker opens no inbound port. |
 | `worker/chat.py`, `pocket.*`, `admin.html` | Chat-first UI: one conversation window for Pocket and for the workstation panel. State-changing commands are matched deterministically, never by a model; irreversible ones need a tapped confirmation. |
+| `worker/layout.py` | The notary's own tiles: a label plus the sentence it sends. None by default; per device. |
+| `worker/mail.py` | Read-only access to the mail program on the workstation: Thunderbird mbox files, classic Outlook automation, or a folder of .eml files. A message enters the vault only when added to a case. |
+| `worker/procedures.py`, `transcribe.py` | Teaching by showing: frames and narration from a screen recording become a procedure the notary approves; for a case it yields values per field to copy. Optional local speech-to-text (faster-whisper); no cloud speech service. Screenshots reach the EU model unmasked, so recordings must use synthetic cases. |
 | `worker/domain.py` | Deterministic notarial rules shared with V1 as code only (fee engine, amounts in words). |
 | `infra/notarai-v2-*.yaml` | CloudFormation for Bedrock access, the relay and off-site copies. Validated, not deployed. |
 

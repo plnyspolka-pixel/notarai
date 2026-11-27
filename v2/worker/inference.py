@@ -43,11 +43,19 @@ class Inference:
     def enabled(self) -> bool:
         return self._policy is not None
 
-    def ask(self, *, purpose: str, system: str, text: str, names=(), max_tokens: int = 4096) -> Answer:
+    MAX_IMAGES, MAX_IMAGE_BYTES = 20, 3_500_000
+
+    def ask(self, *, purpose: str, system: str, text: str, names=(), max_tokens: int = 4096,
+            images: tuple[bytes, ...] = ()) -> Answer:
+        """`images` are JPEG screenshots. Text is pseudonymised as usual; what is visible in an
+        image cannot be, so callers must tell the user before sending any."""
         if self._policy is None:
             raise PolicyError("AI jest wyłączone na tym stanowisku.")
         if not text or len(text) + len(system) > MAX_INPUT_CHARS or not 1 <= max_tokens <= 64000:
             raise InferenceError("Zapytanie jest puste albo za duże.")
+        if len(images) > self.MAX_IMAGES or any(
+                len(i) > self.MAX_IMAGE_BYTES or i[:3] != b"\xff\xd8\xff" for i in images):
+            raise InferenceError("Zrzuty ekranu są za duże albo w złym formacie.")
         pseudonyms = Pseudonymizer(names)
         hidden = pseudonyms.hide(text) if self.pseudonymizes else text
         try:
@@ -63,7 +71,9 @@ class Inference:
             response = runtime.converse(
                 modelId=self._policy.model,
                 system=[{"text": system}] if system else [],
-                messages=[{"role": "user", "content": [{"text": hidden}]}],
+                messages=[{"role": "user", "content": [
+                    *({"image": {"format": "jpeg", "source": {"bytes": image}}} for image in images),
+                    {"text": hidden}]}],
                 inferenceConfig={"maxTokens": max_tokens},
             )
             usage = response.get("usage") or {}

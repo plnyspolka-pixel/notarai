@@ -142,6 +142,26 @@ function watch(page, problems, label) {
     const desk = await browser.newContext({ viewport: { width: 1000, height: 900 } });
     const panel = await desk.newPage();
     watch(panel, problems, "panel: ");
+    await panel.addInitScript(() => {
+      // Stand-ins for the screen and the microphone: a canvas that changes, and a silent audio track.
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 640; canvas.height = 360;
+        const pen = canvas.getContext("2d");
+        let tick = 0;
+        const draw = () => {
+          pen.fillStyle = tick % 2 ? "#ffffff" : "#203040";
+          pen.fillRect(0, 0, 640, 360);
+          pen.fillStyle = "#c00";
+          pen.fillRect(20 + 40 * tick, 40, 200, 120);
+          tick += 1;
+        };
+        draw();
+        setInterval(draw, 700);
+        return canvas.captureStream(5);
+      };
+      navigator.mediaDevices.getUserMedia = async () => new AudioContext().createMediaStreamDestination().stream;
+    });
     await panel.goto(info.url + "/admin#" + info.admin);
     await statusIs(panel, "Panel otwarty.");
     assert(!panel.url().includes("#"), "one-time code left in the address bar");
@@ -164,6 +184,36 @@ function watch(page, problems, label) {
     await say(panel, "otwarte", "zmieniony, niezapisany w sejfie");
     await say(panel, "zapisz do sejfu", "jako wersję 2");
     assert(fs.readdirSync(copies).length === 0, "working copy left on disk");
+
+    // ---- teach by showing: record the screen with narration, approve the procedure, fill it for a case
+    await say(panel, "nagraj procedurę Wniosek o wpis w KW", "Pokaż mi to raz");
+    await panel.getByRole("button", { name: "Zacznij nagrywać" }).click();
+    await panel.locator(".card", { hasText: "Nagrywam." }).waitFor();
+    await panel.waitForTimeout(2600);                          // the fake screen changes; a second frame is kept
+    await panel.getByRole("button", { name: "Zakończ nagranie" }).click();
+    await panel.locator(".card", { hasText: "Sprawdź, czy dobrze zrozumiałem" }).waitFor();
+    const heard = await panel.getByLabel("Co mówiłeś").inputValue();
+    assert(heard.includes("PESEL wnioskodawcy"), "narration not transcribed: " + heard);
+    await panel.getByRole("button", { name: "Naucz się z nagrania" }).click();
+    await statusIs(panel, "Procedura do sprawdzenia.");
+    const steps = await panel.getByLabel("Kroki procedury").inputValue();
+    assert(steps.split("\n").length === 3 && steps.includes("PESEL wnioskodawcy | PESEL sprzedającego"), "steps: " + steps);
+    assert(/Portal testowy \([2-9]|1\d ujęć\)/.test(await panel.locator("#messages").textContent()), "frames did not reach the model");
+    await panel.getByLabel("Kroki procedury").fill(steps.split("\n").slice(0, 2).join("\n") + "\nNumer księgi | numer KW z odpisu | wpis dotyczy tej księgi");
+    await panel.getByRole("button", { name: "Zatwierdzam procedurę" }).click();
+    await answered(panel, "Zapamiętałem procedurę „Wniosek o wpis w KW” (3 kroków)");
+    await panel.locator("#case").selectOption("sprawa-1");
+    await answered(panel, "Dokumenty sprawy „sprawa-1”");
+    await panel.getByRole("button", { name: "Wypełnij: Wniosek o wpis w KW" }).click();
+    await answered(panel, "Wartości do „Wniosek o wpis w KW”");
+    const sheet = panel.locator(".card", { hasText: "Portal testowy" }).last();
+    assert((await sheet.textContent()).includes("44051401359") && !(await sheet.textContent()).includes("WYCIEK"), "fill sheet: " + await sheet.textContent());
+    assert((await sheet.textContent()).includes("brak w dokumentach") && (await sheet.textContent()).includes("Brakuje wartości: 1"), "missing value not flagged");
+    await desk.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await sheet.getByRole("button", { name: "Kopiuj: PESEL wnioskodawcy" }).click();
+    assert(await panel.evaluate(() => navigator.clipboard.readText()) === "44051401359", "clipboard");
+    if (shots) await sheet.screenshot({ path: path.join(shots, "wypelnij.png") });
+    await panel.locator("#case").selectOption({ index: 0 });
 
     // ---- remote access: a phone pairs from the QR link and reconnects with its key
     await panel.evaluate(async ([relayUrl, pocketUrl]) => {

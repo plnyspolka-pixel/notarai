@@ -28,6 +28,7 @@ from .layout import Layouts
 from .init_vault import home_path
 from .local_secrets import read_secret
 from .policy import Policy, PolicyError
+from .procedures import ProcedureError, Procedures
 from .replica import Replica, ReplicaError
 from .settings import load as load_settings, save as save_settings, validate as validate_settings
 from .sync import plan
@@ -97,6 +98,17 @@ class ChatTurn(BaseModel):
     hello: bool = False
 
 
+class Lesson(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    narration: str = Field(max_length=20000)
+    frames: list[str] = Field(min_length=1, max_length=20)          # JPEG screenshots, base64
+    recording_b64: str | None = Field(default=None, max_length=((MAX_BYTES+2)//3)*4)
+
+
+class Recording(BaseModel):
+    recording_b64: str = Field(max_length=((MAX_BYTES+2)//3)*4)
+
+
 class FeeRequest(BaseModel):
     parameters: dict
 
@@ -116,7 +128,7 @@ class _Throttle:
 
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
-               account: Account | None = None, opener=None, mail_detect=None):
+               account: Account | None = None, opener=None, mail_detect=None, transcriber=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -666,6 +678,37 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         return code
 
     layouts = Layouts(home)
+    procedures = Procedures(vault, lambda: state["inference"], drafts)
+
+    @app.exception_handler(ProcedureError)
+    async def procedure_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
+
+    @app.post("/v2/procedures/transcribe", dependencies=[Depends(admin)])
+    def procedure_transcribe(req: Recording):
+        """Narration to text on this computer; 409 means: type it instead."""
+        from . import transcribe as local
+
+        speak = transcriber or (local.transcribe if local.available() else None)
+        if speak is None:
+            raise ProcedureError("Na tym komputerze nie ma rozpoznawania mowy. Wpisz komentarz ręcznie.")
+        try:
+            return {"text": speak(base64.b64decode(req.recording_b64, validate=True))}
+        except Exception:
+            raise ProcedureError("Nie udało się rozpoznać mowy z nagrania. Wpisz komentarz ręcznie.") from None
+
+    @app.post("/v2/procedures/learn")
+    def procedure_learn(req: Lesson, identity: Identity = Depends(admin)):
+        try:
+            frames = [base64.b64decode(frame, validate=True) for frame in req.frames]
+            recording = base64.b64decode(req.recording_b64, validate=True) if req.recording_b64 else None
+        except (ValueError, binascii.Error):
+            raise HTTPException(400, "invalid recording")
+        return procedures.learn(req.name, req.narration, frames, identity.id, recording)
+
+    @app.post("/v2/procedures/{token}/approve")
+    def procedure_approve(token: str, body: dict, identity: Identity = Depends(admin)):
+        return procedures.approve(token, body, identity.id)
 
     def layout_key(identity: Identity) -> str:
         return "admin" if identity.scope == "admin" else identity.id
@@ -684,7 +727,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from . import mail as mail_module
 
     chat = Chat(SimpleNamespace(
-        layouts=layouts,
+        layouts=layouts, procedures=procedures,
+        transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
         vault=vault, drafts=drafts, devices=devices, workcopies=workcopies,
@@ -703,7 +747,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         logout=lambda: state["account"] and state["account"].logout(),
     ))
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
-            mail_module.MailError)
+            mail_module.MailError, ProcedureError)
 
     def chat_turn(identity: Identity, turn: ChatTurn):
         if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:

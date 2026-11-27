@@ -347,6 +347,188 @@ const render = {
   },
 };
 
+// ---------------------------------------------------------------- teaching by showing
+const FRAME_EVERY_MS = 2000, MAX_FRAMES = 12, MAX_RECORDING_MS = 5 * 60 * 1000;
+
+function signature(context, width, height) {
+  // A tiny grey thumbnail: enough to tell whether the screen changed since the last kept frame.
+  const small = document.createElement("canvas");
+  small.width = 32; small.height = 18;
+  const pen = small.getContext("2d");
+  pen.drawImage(context.canvas, 0, 0, width, height, 0, 0, 32, 18);
+  const pixels = pen.getImageData(0, 0, 32, 18).data;
+  const grey = new Uint8Array(32 * 18);
+  for (let i = 0; i < grey.length; i++) grey[i] = (pixels[4 * i] + pixels[4 * i + 1] + pixels[4 * i + 2]) / 3;
+  return grey;
+}
+
+function changed(a, b) {
+  if (!a) return true;
+  let total = 0;
+  for (let i = 0; i < a.length; i++) total += Math.abs(a[i] - b[i]);
+  return total / a.length > 2;
+}
+
+render.record = block => {
+  const card = node("div", "card them");
+  const name = node("input");
+  name.maxLength = 80;
+  name.value = block.name || "";
+  name.placeholder = "np. Wniosek o wpis w KW";
+  const start = node("button", "primary", "Zacznij nagrywać");
+  const stop = node("button", "danger", "Zakończ nagranie");
+  const state = node("p", "muted", "Nagranie obejmie ekran, który wskażesz, i mikrofon. Najwyżej 5 minut.");
+  const narration = node("textarea");
+  const narrationRow = field("Co mówiłeś (popraw, jeśli trzeba; możesz też dopisać ręcznie)", narration);
+  const teach = node("button", "primary", "Naucz się z nagrania");
+  stop.hidden = narrationRow.hidden = teach.hidden = true;
+  let recorder = null, streams = [], frames = [], chunks = [], timer = null, limit = null, recording = null;
+
+  const finish = () => {
+    clearInterval(timer);
+    clearTimeout(limit);
+    streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+  };
+
+  start.onclick = run(async () => {
+    if (!name.value.trim()) throw new Error("Najpierw nazwij procedurę.");
+    let screen;
+    try {
+      screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
+    } catch {
+      throw new Error("Nie wybrano ekranu do nagrania.");
+    }
+    let voice = null;
+    try {
+      voice = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      state.textContent = "Mikrofon niedostępny: nagrywam sam ekran, komentarz wpiszesz po nagraniu.";
+    }
+    streams = [screen, ...(voice ? [voice] : [])];
+    const video = document.createElement("video");
+    video.muted = true;
+    video.srcObject = screen;
+    await video.play();
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    let last = null;
+    frames = []; chunks = [];
+    const grab = () => {
+      if (!video.videoWidth) return;
+      const scale = Math.min(1, 1280 / video.videoWidth);
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const now = signature(context, canvas.width, canvas.height);
+      if (!changed(last, now)) return;
+      last = now;
+      frames.push(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+      if (frames.length > MAX_FRAMES) frames = frames.filter((_, index) => index % 2 === 0 || index === frames.length - 1);
+    };
+    recorder = new MediaRecorder(new MediaStream([...screen.getVideoTracks(), ...(voice ? voice.getAudioTracks() : [])]),
+      { videoBitsPerSecond: 350000, audioBitsPerSecond: 32000 });
+    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    recorder.onstop = run(async () => {
+      grab();
+      recording = new Blob(chunks, { type: "video/webm" });
+      stop.hidden = true;
+      narrationRow.hidden = teach.hidden = false;
+      state.textContent = "Nagranie gotowe (" + frames.length + " ujęć ekranu).";
+      if (block.transcribes && voice && recording.size <= maxBytes) {
+        state.textContent += " Rozpoznaję mowę na tym komputerze…";
+        try {
+          const heard = await call("procedures/transcribe", "POST", { recording_b64: encode(new Uint8Array(await recording.arrayBuffer())) });
+          narration.value = heard.text;
+          state.textContent = "Nagranie gotowe. Sprawdź, czy dobrze zrozumiałem, co mówiłeś.";
+        } catch (error) {
+          state.textContent = error.message;
+        }
+      } else if (!block.transcribes) {
+        state.textContent += " Na tym komputerze nie ma rozpoznawania mowy: wpisz, co wypełniałeś i dlaczego.";
+      }
+    });
+    screen.getVideoTracks()[0].onended = finish;        // the browser's own "stop sharing" button
+    recorder.start(1000);
+    grab();
+    timer = setInterval(grab, FRAME_EVERY_MS);
+    limit = setTimeout(finish, MAX_RECORDING_MS);
+    start.hidden = true;
+    stop.hidden = false;
+    name.readOnly = true;
+    state.textContent = "Nagrywam. Mów na głos, co wpisujesz w każde pole i dlaczego.";
+  });
+  stop.onclick = finish;
+  teach.onclick = run(async () => {
+    if (narration.value.trim().length < 20) throw new Error("Opisz, co wypełniasz i dlaczego: bez tego nie nauczę się procedury.");
+    status("Uczę się z nagrania. To może potrwać minutę.");
+    const lesson = { name: name.value.trim(), narration: narration.value, frames };
+    if (recording && recording.size <= maxBytes) lesson.recording_b64 = encode(new Uint8Array(await recording.arrayBuffer()));
+    const proposal = await call("procedures/learn", "POST", lesson);
+    card.remove();
+    bubble("Naucz się z nagrania: " + lesson.name, "me");
+    render.learned(proposal);
+    status("Procedura do sprawdzenia. Nic nie zostało jeszcze zapisane.");
+  });
+  card.append(field("Nazwa procedury", name), state, start, stop, narrationRow, teach);
+  show(card);
+};
+
+render.learned = proposal => {
+  const procedure = proposal.procedure;
+  const card = node("div", "card them");
+  card.append(node("p", "notice", "Tak zrozumiałem tę procedurę. Popraw, co trzeba: każdy wiersz to „pole | skąd wartość | dlaczego”."));
+  card.append(node("p", "muted", (procedure.program || "Program") + (procedure.cel ? ": " + procedure.cel : "")));
+  const steps = node("textarea", "tall");
+  steps.value = procedure.kroki.map(step => [step.pole, step.zrodlo, step.dlaczego].join(" | ")).join("\n");
+  const approve = node("button", "primary", "Zatwierdzam procedurę");
+  approve.onclick = run(async () => {
+    const kroki = steps.value.split("\n").map(line => line.split("|").map(part => part.trim()))
+      .filter(parts => parts[0]).map(parts => ({ pole: parts[0], zrodlo: parts[1] || "", dlaczego: parts.slice(2).join(" | ") }));
+    const saved = await call("procedures/" + proposal.id + "/approve", "POST", { ...procedure, kroki });
+    card.remove();
+    bubble("Zatwierdzam procedurę", "me");
+    bubble("Zapamiętałem procedurę „" + saved.name + "” (" + saved.steps + " kroków). Dla każdej sprawy napisz „wypełnij " + saved.name + "”.", "them");
+    render.buttons({ items: [{ label: "Wypełnij: " + saved.name, say: "wypełnij " + saved.name }] });
+    status("Procedura zapisana w sejfie.");
+  });
+  card.append(field("Kroki procedury", steps), approve);
+  show(card);
+};
+
+render.fill = block => {
+  const card = node("div", "card them");
+  card.append(node("p", "", block.name + (block.program ? " · " + block.program : "")));
+  if (block.missing) card.append(node("p", "notice", "Brakuje wartości: " + block.missing + ". Tych danych nie ma w dokumentach sprawy."));
+  if (block.unknown_placeholders.length) {
+    card.append(node("p", "notice", "Sprawdź pola ze znacznikami w nawiasach kwadratowych: model użył nieznanych znaczników."));
+  }
+  block.items.forEach((item, index) => {
+    const row = node("div", "fill-row");
+    row.append(node("div", "fill-field", (index + 1) + ". " + item.field));
+    const value = node("div", item.value ? "code" : "muted", item.value || "brak w dokumentach");
+    row.append(value);
+    if (item.value && item.value !== "kliknij") {
+      const copy = node("button", "", "Kopiuj");
+      copy.setAttribute("aria-label", "Kopiuj: " + item.field);
+      copy.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(item.value);
+          copy.textContent = "Skopiowano";
+          status("Skopiowano „" + item.field + "”. Wklej w formularzu (Ctrl+V).");
+        } catch {
+          status("Zaznacz wartość i skopiuj ją ręcznie.");
+        }
+      };
+      row.append(copy);
+    }
+    const note = [item.from && "z: " + item.from, item.why && "bo: " + item.why].filter(Boolean).join(" · ");
+    if (note) row.append(node("div", "muted", note));
+    card.append(row);
+  });
+  show(card);
+};
+
 async function exchange(turn) {
   const waiting = bubble("Piszę…", "them wait");
   let reply;

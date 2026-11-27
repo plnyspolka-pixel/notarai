@@ -114,6 +114,9 @@ class Chat:
         s, writable = self.s, identity.scope in {"admin", "write"}
         if plain in {"pomoc", "help", "co umiesz", "co umiesz?", "co potrafisz", "co potrafisz?"}:
             return self._help(identity.scope == "admin", writable)
+        learned = self._procedures(identity, message, plain, case, names, writable)
+        if learned is not None:
+            return learned
         if plain in {"sprawy", "lista spraw", "pokaz sprawy", "jakie sa sprawy", "jakie sa sprawy?"}:
             cases = s.cases(identity)
             if not cases:
@@ -176,6 +179,48 @@ class Chat:
         if answer["skipped"]:
             blocks.append(text("Nie czytałem (tylko TXT i DOCX): " + ", ".join(answer["skipped"]) + "."))
         return blocks
+
+    # ------------------------------------------------------------ procedures taught by showing
+    def _procedures(self, identity, message, plain, case, names, writable):
+        s, admin = self.s, identity.scope == "admin"
+        if identity.cases is not None and "procedury" not in identity.cases:
+            return None        # a device limited to chosen cases does not see the office's procedures
+        if plain.startswith(("nagraj", "naucz sie", "naucz", "pokaze ci", "pokaze jak")) or plain == "nowa procedura":
+            if not admin:
+                return [text("Procedury nagrywa się na komputerze kancelarii, w panelu stanowiska: tam widać ekran z programem.")]
+            name = re.sub(r"^(nagraj procedur\w*|nagraj|naucz si[eę]|naucz|poka[zż][eę] ci jak|poka[zż][eę] ci|poka[zż][eę] jak|nowa procedura)\s*:?\s*",
+                          "", message, flags=re.IGNORECASE).strip(" „”\"")
+            name = re.sub(r"^(wypełniać|wypelniac|wypełnia[ćc] się|jak)\s+", "", name, flags=re.IGNORECASE)
+            return [text("Pokaż mi to raz. Włącz nagrywanie, wypełnij formularz na fikcyjnej sprawie i mów na głos, "
+                         "co wpisujesz w każde pole i dlaczego. Zrzuty ekranu trafią do modelu w UE tak, jak je widać, "
+                         "dlatego nie nagrywaj prawdziwych danych."),
+                    {"type": "record", "name": name[:80], "transcribes": s.transcribes()}]
+        if plain in {"procedury", "lista procedur", "pokaz procedury", "czego sie nauczyles", "czego sie nauczyles?"}:
+            known = s.procedures.names(identity.id)
+            if not known:
+                return [text("Nie znam jeszcze żadnej procedury." + (" Napisz „nagraj procedurę” i pokaż mi pierwszą."
+                                                                    if admin else " Nagrywa się je w panelu stanowiska."))] + (
+                    [buttons(("Nagraj procedurę", "nagraj procedurę"))] if admin else [])
+            return [text("Znam te procedury. Wybierz, a przygotuję wartości dla otwartej sprawy:"),
+                    buttons(*[(n, f"wypełnij {n}") for n in known[:20]])]
+        found = re.fullmatch(r"(?:pokaz|opisz) procedure\s+(.+)", plain)
+        if found:
+            procedure = s.procedures.get(found.group(1), identity.id)
+            lines = [f"{procedure.nazwa} ({procedure.program})" + (f": {procedure.cel}" if procedure.cel else "")]
+            lines += [f"{n}. {k.pole}: {k.zrodlo}" + (f" (bo: {k.dlaczego})" if k.dlaczego else "")
+                      for n, k in enumerate(procedure.kroki, 1)]
+            return [text("\n".join(lines)), buttons(("Wypełnij dla tej sprawy", f"wypełnij {procedure.nazwa}"))]
+        found = re.fullmatch(r"(?:wypelnij|uzupelnij)\s+(.+)", plain)
+        if found:
+            if case is None or case == "procedury":
+                return [text("Dla której sprawy? Wybierz sprawę u góry i napisz jeszcze raz.")]
+            if not s.may_see_case(identity, case):
+                return [text("Nie ma takiej sprawy.")]
+            sheet = s.procedures.fill(found.group(1), case, identity.id, names)
+            return [text(f"Wartości do „{sheet['name']}” dla sprawy „{case}”. Przepisz albo skopiuj każdą do "
+                         "właściwego pola; sprawdź je, zanim zatwierdzisz formularz."),
+                    {"type": "fill", **sheet}]
+        return None
 
     # ------------------------------------------------------------ the notary's own workspace
     def _tiles(self, identity, message, plain):
@@ -248,6 +293,7 @@ class Chat:
                       "• „urządzenia”, „cofnij telefon”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
+                      "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”",
                       "• „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”",
                       "• „włącz asystenta”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
         return [text("\n".join(lines))]
@@ -384,6 +430,8 @@ class Chat:
         if plain in {"wyloguj", "wyloguj sie", "wyloguj z ai"}:
             s.logout()
             return [text("Wylogowano z AI.")]
+        if plain in {"programy", "polaczone programy", "jakie programy", "polacz program", "polacz programy"}:
+            return self._programs()
         if plain in {"otwarte", "co jest otwarte", "co jest otwarte?", "pokaz otwarte", "kopie robocze"}:
             return self._workcopies()
         found = re.fullmatch(r"(?:otworz|edytuj)\s+(.+?)\s+(?:w wordzie|do edycji|w edytorze)", plain) \
@@ -484,6 +532,23 @@ class Chat:
         lines = [f"{n}. {when(int(m.when * 10**9))}, {m.sender or m.address}: {m.subject or '(bez tematu)'}"
                  + (" 📎" if m.attachments else "") for n, m in enumerate(listed, 1)]
         return [text("\n".join(lines)), buttons(*[(f"Pokaż {n}", f"mail {n}") for n in range(1, len(listed) + 1)])]
+
+    def _programs(self) -> list[dict]:
+        s = self.s
+        mail = s.mail_source()
+        known = len(s.procedures.list())
+        lines = [
+            "Tak pracuję z programami na tym komputerze:",
+            "• Word i LibreOffice: „otwórz umowa w Wordzie”, potem „zapisz do sejfu”.",
+            "• Poczta: " + ("połączona." if mail is not None else "niepołączona; napisz „połącz pocztę” (Thunderbird, Outlook albo folder)."),
+            f"• Każdy inny program i każda strona urzędowa: pokaż mi raz, jak wypełniasz formularz (nagranie ekranu "
+            f"z komentarzem), a będę przygotowywać wartości dla kolejnych spraw. Znam procedur: {known}.",
+            "Nie klikam sam w cudzych programach: wartości wpisujesz albo wklejasz Ty, więc działa to wszędzie "
+            "i nic nie zostanie wysłane bez Twojej wiedzy.",
+        ]
+        return [text("\n".join(lines)),
+                buttons(("Nagraj procedurę", "nagraj procedurę"), ("Procedury", "procedury"),
+                        ("Połącz pocztę", "połącz pocztę"))]
 
     def _status(self) -> list[dict]:
         st = self.s.status()

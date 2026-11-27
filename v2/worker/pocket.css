@@ -67,3 +67,10 @@ button.quiet { background: transparent; }
 #tiles.arranging .tile > button.go { border-style: dashed; cursor: grab; }
 .tile .edit button { flex: 1; min-height: 36px; padding: 2px; }
 #desk .row > * { flex: 0 1 auto; }
+
+/* ---- values to enter ---- */
+.fill-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 8px 0; border-top: 1px solid var(--line); align-items: center; }
+.fill-row .fill-field, .fill-row .muted { grid-column: 1 / -1; }
+.fill-row .fill-field { font-weight: 600; }
+.fill-row .code { font-size: 1rem; padding: 6px 8px; }
+.fill-row button { min-height: 40px; }

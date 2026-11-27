@@ -18,6 +18,11 @@ from worker.usage import UsageLedger  # noqa: E402
 
 
 class Bedrock:
+    @staticmethod
+    def _reply(text):
+        return {"output": {"message": {"content": [{"text": text}]}}, "stopReason": "end_turn",
+                "usage": {"inputTokens": 10, "outputTokens": 5}}
+
     def get_model_invocation_logging_configuration(self):
         return {}
 
@@ -25,7 +30,19 @@ class Bedrock:
         return {"models": [{"modelArn": f"arn:aws:bedrock:{r}::foundation-model/x"} for r in EU_REGIONS]}
 
     def converse(self, **kwargs):
-        prompt = kwargs["messages"][0]["content"][0]["text"]
+        content = kwargs["messages"][0]["content"]
+        prompt = content[-1]["text"]
+        if "KOMENTARZ NOTARIUSZA" in prompt:
+            images = sum(1 for part in content if "image" in part)
+            return self._reply(json.dumps({"program": f"Portal testowy ({images} ujęć)", "cel": "Wniosek o wpis", "kroki": [
+                {"pole": "PESEL wnioskodawcy", "zrodlo": "PESEL sprzedającego z notatki", "dlaczego": "sąd identyfikuje wnioskodawcę"},
+                {"pole": "Numer lokalu", "zrodlo": "numer lokalu z notatki", "dlaczego": ""},
+                {"pole": "Numer księgi", "zrodlo": "numer KW", "dlaczego": ""}]}, ensure_ascii=False))
+        if "=== PROCEDURA" in prompt:
+            return self._reply(json.dumps({"wartosci": [
+                {"pole": "PESEL wnioskodawcy", "wartosc": "[PESEL_1]" if "[PESEL_1]" in prompt else "WYCIEK", "skad": "notatka"},
+                {"pole": "Numer lokalu", "wartosc": "5", "skad": "notatka"},
+                {"pole": "Numer księgi", "wartosc": ""}]}, ensure_ascii=False))
         if "PYTANIE NOTARIUSZA" in prompt:
             text = "Sprzedającym jest [OSOBA_1]." if "[OSOBA_1]" in prompt else "BRAK ZNACZNIKA"
         else:
@@ -42,7 +59,8 @@ def main():
     initialize(home)
     bedrock = Bedrock()
     inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: bedrock, UsageLedger(home))
-    app = create_app(home, inference=inference, opener=lambda path: None)   # no editor on a test machine
+    app = create_app(home, inference=inference, opener=lambda path: None,
+                     transcriber=lambda audio: "Wpisuję PESEL wnioskodawcy, bo sąd identyfikuje go po numerze, potem numer lokalu.")   # no editor on a test machine
     registry = DeviceRegistry(home)
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))

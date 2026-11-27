@@ -104,6 +104,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
   zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
   nieodwracalne wymagają potwierdzenia.
+- Łączenie z programami w V2 jest uniwersalne: procedura z nagrania (`v2/worker/procedures.py`)
+  daje wartości do skopiowania. Nie dodawaj automatycznego klikania ani wysyłania formularzy
+  bez osobnej decyzji właściciela i testów na Windows. Mowa z nagrań: tylko lokalnie.
 - Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
   w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
 
