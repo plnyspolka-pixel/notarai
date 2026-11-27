@@ -25,7 +25,7 @@ class FakeRegisters:
             raise RegisterError("Numer księgi jest nieprawidłowy.")
         return BOOK
 
-    def debtors(self, pesel, label=""):
+    def debtors(self, pesel, label="", visible=False):
         self.asked.append(pesel)
         return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/",
                 "zrzuty": [(f"krz_prowadzaca_{pesel[:4]}.png", b"\\x89PNG")]}
@@ -59,7 +59,8 @@ def test_numbers_and_pesels_are_found_and_validated():
 
 def test_a_land_register_is_fetched_after_a_yes_and_lands_in_the_case(tmp_path):
     client, admin, fake = office(tmp_path)
-    assert "Najpierw wybierz sprawę" in say(client, admin, "sprawdź KW WA4M/00160286/2")[0]["text"]
+    # no case chosen: the program does not send the notary to pick one; it names a case after the number
+    assert "do sprawy „kw-wa4m-00160286-2”" in say(client, admin, "sprawdź KW WA4M/00160286/2")[0]["text"]
     asked = say(client, admin, "sprawdź KW WA4M/00160286/2", case="kowalski-2026")
     assert asked[0]["type"] == "confirm" and "płatne" in asked[0]["text"] and fake.asked == []
     started = client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"], "case": "kowalski-2026"}).json()["blocks"]
@@ -143,3 +144,36 @@ def test_the_assistant_says_how_it_understood():
     assert understood(answer) == ("Sprzedaje Jan.\nDALEJ: sprawdź KW", "pytasz o sprzedającego; sprawdzę umowę przedwstępną.")
     blocks = answer_blocks(answer)
     assert blocks[0]["text"] == "Sprzedaje Jan." and blocks[2]["items"][0]["say"] == "sprawdź KW"
+
+
+def test_the_case_is_found_from_the_number_in_its_documents(tmp_path):
+    client, admin, fake = office(tmp_path)
+    note = base64.b64encode("Umowa przedwstępna, KW WA4M/00160286/2".encode()).decode()
+    client.post("/v2/documents", headers=admin, json={"expected_version": 0, "name": "umowa.txt",
+                                                     "content_b64": note, "case": "kowalski-2026"})
+    asked = say(client, admin, "sprawdź KW WA4M/00160286/2")
+    assert "do sprawy „kowalski-2026”" in asked[0]["text"]
+    offered = say(client, admin, "sprawdź księgę")
+    assert "WA4M/00160286/2 (kowalski-2026)" in [i["label"] for i in offered[1]["items"]]
+    assert "procedury" not in client.get("/v2/cases", headers=admin).json()
+
+
+def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
+    client, admin, fake = office(tmp_path)
+    asked = say(client, admin, "sprawdź KRZ 44051401359")
+    assert asked[0]["type"] == "confirm" and "w tle, bez otwierania okna" in asked[0]["text"]
+
+    def broken(pesel, label="", visible=False):
+        if not visible:
+            raise RuntimeError("strona nie odpowiedziała")
+        fake.asked.append(("okno", pesel))
+        return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/", "zrzuty": []}
+    fake.debtors = broken
+    started = client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"]}).json()["blocks"]
+    failed = finish(client, admin, started)
+    assert "w tle się nie udało" in failed[0]["text"] and failed[1]["items"][0]["say"] == "sprawdź KRZ w oknie 44051401359"
+    again = say(client, admin, failed[1]["items"][0]["say"])
+    assert "otworzy krz.ms.gov.pl" in again[0]["text"]
+    started = client.post("/v2/chat", headers=admin, json={"confirm": again[0]["token"]}).json()["blocks"]
+    assert "brak wpisu" in finish(client, admin, started)[0]["text"] and fake.asked == [("okno", "44051401359")]
+

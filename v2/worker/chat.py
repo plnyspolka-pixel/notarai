@@ -615,6 +615,11 @@ class Chat:
                 return [{"type": "open", "id": match["id"]}, text(f"Otwieram {match['name']}.")]
             if match:
                 return [text("Który dokument?"), {"type": "documents", "items": match}]
+        if case is None and not getattr(self, "_running_program", False):
+            guessed = self._guess_case(identity, message)
+            if guessed is not None:
+                s.narrate(identity, f"Rozpoznałem sprawę „{guessed}” po nazwisku albo numerze z pytania.")
+                case = guessed
         if case is None:
             if plain.startswith(DRAFT_WORDS):
                 return [text("Do której sprawy? Wybierz sprawę u góry albo napisz „nowa sprawa” i jej nazwę."),
@@ -1798,28 +1803,74 @@ class Chat:
         return None
 
     # ------------------------------------------------------------ public registers: EKW and KRZ
+    # ------------------------------------------------------------ which case a sentence is about
+    def _case_texts(self, identity):
+        s = self.s
+        for name in s.cases(identity)[:60]:
+            try:
+                yield name, s.drafts.case_text(name, identity.id) or ""
+            except Exception:
+                yield name, ""
+
+    def _guess_case(self, identity, message: str) -> str | None:
+        """The case a sentence is about, found by the code: a land register number or PESEL from it in the case's
+        documents, or the surname of one of the case's parties. None when nothing (or too much) matches."""
+        from .registers import KW, pesels_in
+
+        upper = message.upper()
+        numbers = {m.group(1).upper() for m in KW.finditer(upper)} | set(pesels_in(message))
+        words = {w for w in re.findall(r"\w{3,}", norm(message))}
+        hits = []
+        for name, body in self._case_texts(identity):
+            score = sum(3 for n in numbers if n in body.upper())
+            for party in self.s.vault.parties(name):
+                surname = norm(party).split()[-1] if party.split() else ""
+                if surname and len(surname) > 2 and any(w.startswith(surname[:-1]) for w in words):
+                    score += 2
+            if norm(name) and norm(name).split("-")[0] in words:
+                score += 2
+            if score:
+                hits.append((score, name))
+        if not hits:
+            return None
+        hits.sort(reverse=True)
+        return hits[0][1] if len(hits) == 1 or hits[0][0] > hits[1][0] else None
+
     def _registers(self, identity, message, plain, case):
         from .registers import KW, land_register_numbers, pesels_in
 
-        kw_asked = re.match(r"(sprawdz|pobierz|otworz|pokaz|odczytaj)? ?(kw|ksiege|ksiega|ksiegi|ksiege wieczysta|tresc kw|odpis kw)\b", plain)
-        krz_asked = re.search(r"\bkrz\b|rejestr\w* zadluzonych", plain) and plain.startswith(("sprawdz", "krz", "przeszukaj", "szukaj"))
+        about = plain.startswith(("co to", "czym jest", "jak dziala", "co oznacza", "dlaczego"))
+        kw_asked = not about and (
+            re.match(r"(sprawdz|pobierz|otworz|pokaz|odczytaj)? ?(kw|ksiege|ksiega|ksiegi|ksiege wieczysta|tresc kw|odpis kw)\b", plain)
+            or (re.search(r"\b(kw|ksieg\w* wieczyst\w*|ksiege|ksiegi)\b", plain)
+                and re.search(r"\b(sprawdz\w*|pobierz\w*|zobacz|zrob|daj|sciagnij|wyciagnij|przeczytaj|odczytaj|zajrzyj)\b", plain)))
+        krz_asked = not about and re.search(r"\bkrz\b|rejestr\w* zadluzonych", plain)
         if not kw_asked and not krz_asked:
             return None
         s = self.s
         if identity.scope not in {"admin", "write"}:
             return [text("To urządzenie ma dostęp tylko do odczytu.")]
-        if case is None or not s.may_see_case(identity, case):
-            return [text("Najpierw wybierz sprawę: wynik zapiszę w jej dokumentach.")]
+        if case is not None and not s.may_see_case(identity, case):
+            case = None
+        if case is None:                                  # the program finds the case itself
+            case = self._guess_case(identity, message)
+            if case is not None:
+                s.narrate(identity, f"Rozpoznałem sprawę „{case}”.")
         if kw_asked:
             found = KW.search(message.upper())
             if not found:
-                numbers = land_register_numbers(s.drafts.case_text(case, identity.id))
+                if case is not None:
+                    numbers = [(n, case) for n in land_register_numbers(s.drafts.case_text(case, identity.id))]
+                else:
+                    numbers = [(n, name) for name, body in self._case_texts(identity) for n in land_register_numbers(body)]
                 if not numbers:
-                    return [text("Podaj numer księgi, np. „sprawdź KW WA1M/00012345/6”. W dokumentach tej sprawy "
-                                 "nie znalazłem żadnego numeru.")]
-                return [text("Którą księgę pobrać? Znalazłem w dokumentach sprawy:"),
-                        buttons(*[(n, f"sprawdź KW {n}") for n in numbers[:8]])]
+                    return [text("Podaj numer księgi, np. „sprawdź KW WA1M/00012345/6”. W dokumentach nie znalazłem "
+                                 "żadnego numeru.")]
+                return [text("Którą księgę pobrać? Znalazłem w dokumentach:"),
+                        buttons(*[(f"{n} ({c})", f"sprawdź KW {n}") for n, c in numbers[:8]])]
             number = found.group(1).upper()
+            if case is None:                              # a new case named after the register number
+                case = "kw-" + re.sub(r"[^a-z0-9]+", "-", number.lower()).strip("-")
 
             def fetch():
                 job = s.start_job(identity, lambda: self._land_register(identity, case, number))
@@ -1827,17 +1878,23 @@ class Chat:
                              "wynik pojawi się tutaj i w dokumentach sprawy."), {"type": "job", "id": job}]
             return [self._confirm(identity, f"Pobrać treść księgi {number} do sprawy „{case}”? Zapytanie u dostawcy "
                                   "jest płatne; to nie jest odpis urzędowy, porównaj go ze źródłem.", "Tak, pobierz", fetch)]
-        pesels = pesels_in(message) or pesels_in(s.drafts.case_text(case, identity.id))
+        pesels = pesels_in(message) or (pesels_in(s.drafts.case_text(case, identity.id)) if case is not None else [])
         if not pesels:
-            return [text("Nie znalazłem numerów PESEL w dokumentach tej sprawy. Napisz „sprawdź KRZ” i numer PESEL.")]
+            return [text("Nie wiem, kogo sprawdzić: podaj numer PESEL („sprawdź KRZ 44051401359”) albo nazwisko strony "
+                         "z którejś sprawy („sprawdź KRZ Kowalski”).")]
+        if case is None:
+            case = "krz-" + time.strftime("%Y-%m-%d")
         masked = ", ".join(p[:4] + "*******" for p in pesels[:6])
 
+        visible = " w oknie" in f" {plain}"
+
         def search():
-            job = s.start_job(identity, lambda: self._debtors(identity, case, pesels[:6]))
+            job = s.start_job(identity, lambda: self._debtors(identity, case, pesels[:6], visible))
             return [text(f"Sprawdzam w KRZ: {masked}. Każda osoba to dwa wyszukiwania z odstępem; wynik i zrzuty "
                          "trafią do sprawy."), {"type": "job", "id": job}]
         return [self._confirm(identity, f"Sprawdzić w Krajowym Rejestrze Zadłużonych osoby o numerach {masked} "
-                              f"(sprawa „{case}”)? Przeglądarka NotarAI otworzy krz.ms.gov.pl.", "Tak, sprawdź", search)]
+                              f"(sprawa „{case}”)? " + ("Przeglądarka NotarAI otworzy krz.ms.gov.pl." if visible else
+                              "Sprawdzę na krz.ms.gov.pl w tle, bez otwierania okna."), "Tak, sprawdź", search)]
 
     def _land_register(self, identity, case, number) -> list[dict]:
         s = self.s
@@ -1858,13 +1915,21 @@ class Chat:
                                                           "obciążenia w dziale III i IV, oznaczenie nieruchomości"),
                         ("Otwórz", f"otwórz {name}"))]
 
-    def _debtors(self, identity, case, pesels) -> list[dict]:
+    def _debtors(self, identity, case, pesels, visible=False) -> list[dict]:
         s = self.s
         words = {"brak_wpisu": "brak wpisu", "wpis": "ZNALEZIONO POZYCJĘ, sprawdź zrzut", "blad": "nie rozpoznano wyniku, sprawdź zrzut"}
         lines, items = [], []
         for pesel in pesels:
-            s.narrate(identity, f"Sprawdzam w KRZ osobę {pesel[:4]}*******: dwie zakładki, z odstępem.")
-            result = s.registers.debtors(pesel)
+            s.narrate(identity, f"Sprawdzam w KRZ osobę {pesel[:4]}*******" + (": w oknie przeglądarki." if visible else
+                      " w tle, bez otwierania okna: dwie zakładki, z odstępem."))
+            try:
+                result = s.registers.debtors(pesel, visible=visible)
+            except Exception as error:
+                if visible:
+                    raise
+                return [text(f"Sprawdzenie w KRZ w tle się nie udało ({error}). Strona KRZ mogła się zmienić albo "
+                             "zablokować wyszukiwanie bez okna."),
+                        buttons(("Sprawdź w oknie przeglądarki", "sprawdź KRZ w oknie " + " ".join(pesels)))]
             lines.append(f"• {result['maska']}: {words.get(result['status'], result['status'])}")
             for shot_name, data in result.get("zrzuty", []):
                 doc_id, version = s.vault.put(None, 0, shot_name, data, actor=identity.id, case=case)

@@ -34,11 +34,15 @@ def pesels_in(text: str) -> list[str]:
 
 
 class Registers:
-    def __init__(self, account, region: str, *, invoke=None, browser=None, function: str = FUNCTION):
-        """`account()` -> the signed-in workstation account; `browser()` -> the NotarAI browser."""
+    def __init__(self, account, region: str, *, invoke=None, browser=None, visible_browser=None,
+                 function: str = FUNCTION):
+        """`account()` -> the signed-in workstation account; `browser()` -> the hidden browser for KRZ (owner's
+        decision 27.11.2026: KRZ is searched in the background, no window); `visible_browser()` -> the NotarAI
+        window, used only when the notary asks for it after the hidden search failed."""
         self._account, self._region, self._function = account, region, function
         self._invoke = invoke
         self._browser = browser
+        self._visible = visible_browser
 
     # ------------------------------------------------------------ land registers
     def land_register(self, number: str) -> dict:
@@ -74,12 +78,13 @@ class Registers:
         return answer
 
     # ------------------------------------------------------------ debtors' register
-    def debtors(self, pesel: str, label: str = "") -> dict:
+    def debtors(self, pesel: str, label: str = "", *, visible: bool = False) -> dict:
         """Two searches for one PESEL in KRZ; screenshots returned as (name, bytes)."""
-        if self._browser is None:
-            raise RegisterError("Sprawdzanie w KRZ działa na komputerze kancelarii, w przeglądarce NotarAI.")
+        opener = self._visible if visible and self._visible is not None else self._browser
+        if opener is None:
+            raise RegisterError("Sprawdzanie w KRZ działa na komputerze kancelarii.")
         portal = domain.krz_portal()
-        browser = self._browser()
+        browser = opener()
 
         def search(page):
             with tempfile.TemporaryDirectory() as scratch:
