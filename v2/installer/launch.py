@@ -23,11 +23,31 @@ import uvicorn
 from preview_instance import (
     INSTANCE_HEADER, INSTANCE_PATH, announce, discover, pocket_url, proof, try_lock,
 )
-from worker import recovery
-from worker.api import create_app
-from worker.devices import DeviceRegistry
-from worker.init_vault import initialize
-from worker.local_secrets import secret_path
+import apply_update
+
+
+def swap_staged_update() -> str | None:
+    """A downloaded code update replaces the program files here, before the program is imported.
+    After "restart for update" the old worker may still be exiting: wait for it a little."""
+    if not os.environ.get("LOCALAPPDATA"):
+        return None
+    app_dir = Path(__file__).resolve().parent
+    lock = Path(os.environ["LOCALAPPDATA"]) / "NotarAI" / "V2-preview-runtime" / "worker.lock"
+    deadline = monotonic() + (20 if "--restart" in sys.argv else 0)
+    while True:
+        swapped = apply_update.apply(app_dir, lock, try_lock)
+        if swapped or not (app_dir / "aktualizacja" / "gotowa.json").is_file() or monotonic() > deadline:
+            return swapped
+        sleep(0.5)
+
+
+SWAPPED = swap_staged_update()
+
+from worker import recovery  # noqa: E402  (after the swap: the updated program is what gets imported)
+from worker.api import create_app  # noqa: E402
+from worker.devices import DeviceRegistry  # noqa: E402
+from worker.init_vault import initialize  # noqa: E402
+from worker.local_secrets import secret_path  # noqa: E402
 
 
 def pairing_code(home):
@@ -154,6 +174,7 @@ def main():
     parser.add_argument("--new-code", action="store_true", help="pokaż nowy kod parowania")
     parser.add_argument("--admin", action="store_true", help="otwórz okno NotarAI (domyślne)")
     parser.add_argument("--serve", action="store_true", help="tylko część robocza w tle")
+    parser.add_argument("--restart", action="store_true", help="ponowne uruchomienie po aktualizacji")
     args = parser.parse_args()
     try:
         local = Path(os.environ["LOCALAPPDATA"]) / "NotarAI"

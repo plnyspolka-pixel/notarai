@@ -98,6 +98,9 @@ class Chat:
         today = self.s.calendar.upcoming(1, cases=identity.cases) if identity.scope != "listen" else []
         if today:
             blocks.append(text("Dziś: " + "; ".join(f"{e['label'].split()[-1]} {e['title']}" for e in today[:6]) + "."))
+        if admin and self.s.program.current is not None and self.s.program.ready_version():
+            blocks.append(text(f"Gotowa aktualizacja programu do wersji {self.s.program.ready_version()}."))
+            blocks.append(buttons(("Uruchom ponownie i zaktualizuj", "zainstaluj aktualizację")))
         step = self.s.onboarding.current() if admin else None
         if step is not None:
             if step["number"] == 1:
@@ -642,6 +645,11 @@ class Chat:
         guide = self._guide(identity, message, plain)
         if guide is not None:
             return guide
+        if plain in {"aktualizacja", "aktualizacje", "sprawdz aktualizacje", "sprawdz aktualizacje programu", "wersja",
+                     "jaka wersja", "zaktualizuj", "aktualizuj"}:
+            return self._update(identity, check=True)
+        if plain in {"zainstaluj aktualizacje", "uruchom ponownie", "uruchom ponownie i zaktualizuj"}:
+            return self._update(identity, check=False, install=True)
         where = self._where(identity, plain)
         if where is not None:
             return where
@@ -750,6 +758,32 @@ class Chat:
         return None
 
     # ------------------------------------------------------------ mail (this computer's own program)
+    # ------------------------------------------------------------ program updates (workstation only)
+    def _update(self, identity, *, check: bool, install: bool = False) -> list[dict]:
+        program = self.s.program
+        current = program.current
+        if current is None:
+            return [text("Ta kopia programu nie pochodzi z instalatora, więc nie aktualizuje się sama.")]
+        state = program.check() if check else dict(program.state)
+        head = f"Zainstalowana wersja: {current['version']}."
+        if state.get("full_installer"):
+            return [text(head + f" Jest wersja {state['available']} z nowymi bibliotekami: tym razem trzeba pobrać pełny "
+                         "instalator ze strony pobierania (sejf i ustawienia zostają).")]
+        ready = program.ready_version()
+        if ready:
+            def restart():
+                self.s.restart_for_update()
+                return [text(f"Instaluję wersję {ready}. Za chwilę otworzy się nowe okno NotarAI; to możesz zamknąć.")]
+            if install:
+                return [self._confirm(identity, f"Uruchomić NotarAI ponownie i zainstalować wersję {ready}? Potrwa to kilka sekund.",
+                                      "Tak, zaktualizuj", restart)]
+            return [text(head + f" Pobrałem aktualizację {ready} (kilkaset kilobajtów, suma kontrolna sprawdzona). "
+                         "Zainstaluje się przy następnym uruchomieniu albo teraz:"),
+                    buttons(("Uruchom ponownie i zaktualizuj", "zainstaluj aktualizację"))]
+        if state.get("error"):
+            return [text(head + " " + state["error"])]
+        return [text(head + " To najnowsza wersja.")]
+
     # ------------------------------------------------------------ first-run guide (workstation only)
     def _guide_card(self, step) -> list[dict]:
         return [text(f"Przewodnik · krok {step['number']} z {step['of']}: {step['title']}\n{step['why']}"),

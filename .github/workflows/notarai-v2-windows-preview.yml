@@ -55,6 +55,9 @@ jobs:
                    "Zbudowany i przetestowany automatycznie z commita $env:TARGET.`nSHA-256: $hash`n`n" +
                    "Instalator nie jest podpisany: Windows pokaże ostrzeżenie SmartScreen (Więcej informacji, Uruchom mimo to)."
           gh release delete notarai-v2-podglad --repo $env:GITHUB_REPOSITORY --yes --cleanup-tag 2>$null
-          gh release create notarai-v2-podglad $exe --repo $env:GITHUB_REPOSITORY --target $env:TARGET `
+          # The small code update next to the full installer (the program fetches it by itself).
+          $update = Get-ChildItem -LiteralPath (Join-Path $env:RUNNER_TEMP 'notarai-preview') -Filter 'NotarAI-V2-aktualizacja-*.zip' | Select-Object -First 1
+          $manifest = Join-Path $env:RUNNER_TEMP 'notarai-preview/aktualizacja.json'
+          gh release create notarai-v2-podglad $exe $update.FullName $manifest --repo $env:GITHUB_REPOSITORY --target $env:TARGET `
             --prerelease --title 'NotarAI 2 - instalator Windows (podgląd)' --notes $notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

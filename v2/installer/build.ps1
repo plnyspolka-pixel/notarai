@@ -41,11 +41,27 @@ try {
     @('taksa.py', 'slownie.py') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path (Split-Path $source) $_) -Destination $shared
     }
-    @('launch.py', 'preview_instance.py', 'preset.json') | ForEach-Object {
+    @('launch.py', 'preview_instance.py', 'apply_update.py', 'preset.json') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination $payload
     }
+    # Version and library fingerprint: a code update fits only an installation with the same libraries.
+    $version = ([regex]::Match((Get-Content -Raw (Join-Path $PSScriptRoot 'NotarAI-V2.iss')), '(?m)^AppVersion=(\S+)')).Groups[1].Value
+    if (-not $version) { throw 'AppVersion missing in NotarAI-V2.iss.' }
+    $runtimeKey = (Get-FileHash -LiteralPath (Join-Path $source 'requirements.txt') -Algorithm SHA256).Hash.ToLower()
+    [IO.File]::WriteAllText((Join-Path $payload 'wersja.json'), (@{ version = $version; runtime = $runtimeKey } | ConvertTo-Json -Compress))
     & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, uvicorn, playwright.sync_api, pywinauto, faster_whisper; from worker.api import create_app; from worker.domain import fee_catalog; assert fee_catalog()['rodzaje']"
     if ($LASTEXITCODE -ne 0) { throw 'The embedded runtime failed to import the preview.' }
+
+    # The code update package: everything of the program except Python and the libraries.
+    $updateName = "NotarAI-V2-aktualizacja-$version.zip"
+    $updateZip = Join-Path $output $updateName
+    if (Test-Path -LiteralPath $updateZip) { Remove-Item -LiteralPath $updateZip }
+    Compress-Archive -Path (@('worker', 'launch.py', 'preview_instance.py', 'apply_update.py', 'preset.json', 'wersja.json') |
+        ForEach-Object { Join-Path $payload $_ }) -DestinationPath $updateZip
+    $updateHash = (Get-FileHash -LiteralPath $updateZip -Algorithm SHA256).Hash.ToLower()
+    [IO.File]::WriteAllText((Join-Path $output 'aktualizacja.json'), (@{
+        version = $version; runtime = $runtimeKey; file = $updateName
+        size = (Get-Item -LiteralPath $updateZip).Length; sha256 = $updateHash } | ConvertTo-Json -Compress))
 
     $innoSetup = Join-Path $stage 'innosetup-6.4.3.exe'
     Receive-CheckedFile 'https://github.com/jrsoftware/issrc/releases/download/is-6_4_3/innosetup-6.4.3.exe' `

@@ -163,7 +163,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None, folder_picker=None):
+               fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -248,9 +248,38 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         last = vault.last_action(action)
         return last is None or time.time_ns() - last > hours * 3600 * 10**9
 
+    from .updater import Updater
+
+    program = updater or Updater(Path(__file__).resolve().parents[1])
+
+    def check_updates() -> None:
+        checked = program.state["checked"]
+        if program.current is not None and (checked is None or time.time() - checked > 6 * 3600):
+            program.check()
+
+    def restart_for_update() -> None:
+        """Start the launcher anew (it swaps the files in and reopens the window), then end this worker."""
+        if restarter is not None:
+            restarter()
+            return
+        import os
+        import subprocess
+
+        app_dir = Path(__file__).resolve().parents[1]
+        pythonw = Path(sys.executable).with_name("pythonw.exe")
+        flags = 0x00000008 | 0x00000200 | 0x08000000      # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
+        subprocess.Popen([str(pythonw if pythonw.is_file() else sys.executable), "-X", "utf8",
+                          str(app_dir / "launch.py"), "--restart"], cwd=str(app_dir),
+                         creationflags=flags if sys.platform == "win32" else 0, close_fds=True)
+        threading.Timer(1.5, os._exit, [0]).start()
+
     def maintain() -> dict:
         """Daily copies without anyone remembering: local disk when present, off-site when enabled."""
         done = {}
+        try:
+            check_updates()
+        except Exception:
+            pass        # never let an update check stop the copies
         if not recovery.enrolled(home):
             return done
         if state["settings"].backup_dir is not None and due("backup"):
@@ -1051,7 +1080,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
-        calendar=calendar, onboarding=onboarding, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        calendar=calendar, onboarding=onboarding, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,
