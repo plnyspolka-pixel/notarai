@@ -57,6 +57,7 @@ async function call(path, method = "GET", data) {
           // Messages written for the notary are Polish sentences; protocol errors stay generic.
           : (/[ąćęłńóśźż .]/i.test(detail) && detail.length > 20 ? detail : "Nie udało się wykonać operacji (HTTP " + code + ")."));
     error.challenge = body && body.challenge;
+    error.code = code;
     throw error;
   }
   return body;
@@ -936,16 +937,22 @@ async function refreshCases(keep) {
     : "Dokumenty są przechowywane na komputerze kancelarii.";
 }
 
-// A refresh must not log out: the session lives as long as this window (sessionStorage), never longer.
+// Pairing is done once. A paired device stays connected across refreshes and restarts (localStorage)
+// until "Rozłącz" or until the office revokes it. The office panel itself keeps its session only as long
+// as its window (sessionStorage): the desktop icon opens it again without any code.
+function sessionStore() {
+  return admin ? sessionStorage : localStorage;
+}
+
 function remember(device) {
   try {
-    if (device) sessionStorage.setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
-    else sessionStorage.removeItem("notarai-session");
+    if (device) sessionStore().setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
+    else sessionStore().removeItem("notarai-session");
   } catch { /* private mode or blocked storage: the session simply ends with a refresh */ }
 }
 
 function remembered() {
-  try { return JSON.parse(sessionStorage.getItem("notarai-session") || "null"); } catch { return null; }
+  try { return JSON.parse(sessionStore().getItem("notarai-session") || "null"); } catch { return null; }
 }
 
 async function enter(device) {
@@ -1021,13 +1028,21 @@ async function start() {
   const saved = remembered();
   if (saved && saved.token) {
     token = saved.token;
-    try {
-      await call("status");
-      await enter(saved);
-      return;
-    } catch {
-      token = "";
-      remember(null);
+    // The office computer may still be starting: wait for it instead of forgetting the pairing.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await call("status");
+        await enter(saved);
+        return;
+      } catch (error) {
+        if (error.code === 401 || error.code === 403 || attempt >= 20) {
+          token = "";
+          if (error.code === 401 || error.code === 403) remember(null);
+          break;
+        }
+        status("Czekam na komputer kancelarii…");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
     }
   }
   if (admin) {

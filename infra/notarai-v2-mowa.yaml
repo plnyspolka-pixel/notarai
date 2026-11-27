@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   notarai V2 - rozpoznawanie mowy w chmurze (Amazon Transcribe, eu-central-1).
+  Domyslnie strumien (bez zapisu nagrania).
   Bucket na nagrania w trakcie przepisywania: stanowisko kasuje nagranie i wynik
   zaraz po odczytaniu tekstu, a regula cyklu zycia usuwa wszystko, co zostalo,
   po jednym dniu. Kazda kancelaria widzi tylko wlasny katalog. Nagrania to dane
@@ -76,6 +77,15 @@ Resources:
               - transcribe:GetTranscriptionJob
               - transcribe:DeleteTranscriptionJob
             Resource: !Sub "arn:aws:transcribe:${AWS::Region}:${AWS::AccountId}:transcription-job/notarai-*"
+          - Sid: PrzepisywanieNaZywoWUE
+            # Strumien: dzwiek idzie wprost do uslugi we Frankfurcie, nic nie trafia do bucketu.
+            # Ta akcja nie ma zasobu; region ogranicza warunek.
+            Effect: Allow
+            Action: transcribe:StartStreamTranscription
+            Resource: "*"
+            Condition:
+              StringEquals:
+                "aws:RequestedRegion": !Ref AWS::Region
 
 Outputs:
   Bucket:

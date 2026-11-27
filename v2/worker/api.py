@@ -775,7 +775,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if transcriber is not None:
             return True
         if speech.where == "chmura":
-            return bool(speech.bucket) and state["account"] is not None
+            return state["account"] is not None        # streaming needs no bucket; batch fallback does
         return local_speech.available()
 
     def speech_to_text(audio: bytes, suffix: str = ".webm") -> str | None:

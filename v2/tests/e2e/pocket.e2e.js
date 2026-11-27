@@ -71,10 +71,14 @@ function watch(page, problems, label) {
     await answered(page, "sejf nie ma kodu odzyskiwania");
     assert(await page.locator("table").count() === 0, "tables in the chat UI");
 
-    // A refresh keeps the session (it lasts as long as the window, no new code needed).
+    // Pairing is done once: a refresh and even a new tab keep the device connected.
     await page.reload();
     await statusIs(page, "Połączono z prawem zapisu.");
     assert(await page.locator("#pairing").isHidden(), "refresh logged the device out");
+    const again = await context.newPage();
+    await again.goto(info.url + "/pocket");
+    await statusIs(again, "Połączono z prawem zapisu.");
+    await again.close();
     await say(page, "nowa sprawa sprawa-1", "Sprawa „sprawa-1”");
     assert(await page.locator("#case").inputValue() === "sprawa-1", "case not selected");
     await say(page, "notatka: Sprzedający Jan Kowalski, PESEL 44051401359, zbywa lokal nr 5.", "Zapisałem notatkę");
@@ -146,7 +150,8 @@ function watch(page, problems, label) {
     await page.getByRole("button", { name: "Zamknij" }).click();
 
     // ---- a read-only device limited to one case
-    const other = await context.newPage();
+    const readerBrowser = await browser.newContext({ viewport: { width: 390, height: 844 } });   // another phone
+    const other = await readerBrowser.newPage();
     watch(other, problems, "reader: ");
     await other.goto(info.url + "/pocket");
     await other.getByLabel("Kod parowania").fill(info.read);
@@ -160,7 +165,7 @@ function watch(page, problems, label) {
     await say(other, "kod odzyskiwania", "");
     await other.waitForTimeout(500);
     assert(await other.locator(".code").count() === 0, "a device obtained a recovery code");
-    await other.close();
+    await readerBrowser.close();
 
     // ---- the workstation panel, also by talking
     const desk = await browser.newContext({ viewport: { width: 1000, height: 900 } });
