@@ -442,3 +442,22 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Status:** kod wdrożeniowy; dostęp na żywo niezweryfikowany.
 - **Brakuje:** dedykowanego Cognito MFA, DNS/certyfikatu, przypiętego obrazu i roli OIDC dla osobnego stosu. Istniejąca rola aplikacji nie wystarcza. NAT TEST musi być włączony jawnie; nie przenosić EIP ani nie używać jako adresu rejestrów PROD.
 - **Na żywo:** `docs/private-aws-browser.md`; wdrożyć, sprawdzić anonimowy dostęp, logowanie na telefonie i rzeczywisty IPv4 w Chromium. Włączyć automatyzację przez `PRIVATE_BROWSER_AUTODEPLOY=true` dopiero po konfiguracji roli i zmiennych. Bez danych kancelarii.
+
+## NA-20. NotarAI Pocket na Androida - próba na telefonie i Google Play (27.11.2026)
+
+- **Status:** czeka
+- **Co jest:** projekt `android/pocket/` (TWA na `https://notarai.pl/pocket/`), podpisane APK i AAB
+  zbudowane i sprawdzone narzędziami SDK (podpis, pakiet, adres startowy, brak uprawnień), klucz w
+  sekrecie `notarai/pocket-android-podpis`, `strona/.well-known/assetlinks.json` z odciskiem klucza.
+- **Brakuje:** telefonu z Androidem (w tym środowisku nie ma emulatora) i konta dewelopera Google Play.
+- **Na żywo:**
+  1. Po publikacji strony sprawdzić, że `https://notarai.pl/.well-known/assetlinks.json` oddaje JSON
+     (hosting az.pl musi serwować katalog z kropką) i że `https://notarai.pl/pocket/` się otwiera.
+  2. Pobrać aplikację na telefonie z `https://notarai.pl/do-pobrania/` i zainstalować. Aplikacja ma się otworzyć bez paska adresu; pasek
+     oznacza, że telefon nie potwierdził `assetlinks.json`.
+  3. Sparować telefon kodem QR z panelu stanowiska (kod ma otworzyć aplikację, nie przeglądarkę),
+     przejść rozmowę, notatkę głosową z mikrofonu i zdjęcie z aparatu na fikcyjnej sprawie.
+  4. Google Play: założyć aplikację `pl.notarai.pocket`, wgrać `app-release.aab` na ścieżkę testów
+     wewnętrznych, skopiować odcisk SHA-256 klucza podpisywania Google i dopisać go jako drugi wpis w
+     `sha256_cert_fingerprints`. Wypełnić kartę sklepu i deklarację bezpieczeństwa danych.
+- **Zamknięte, gdy:** aplikacja z Google Play otwiera Pocket bez paska adresu i przechodzi krok 3.

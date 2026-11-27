@@ -390,7 +390,9 @@ def generuj(dane: dict | None = None, cel: Path = KATALOG_STRONY) -> dict:
         (cel / sciezka.strip("/") / "index.html").write_text(html, encoding="utf-8")
     (katalog / "index.html").write_text(strona_hub(miejscowosci, izby, len(dane["kancelarie"])), encoding="utf-8")
     (cel / "sitemap.xml").write_text(sitemap(miejscowosci), encoding="utf-8")
-    (cel / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {STRONA}/sitemap.xml\n", encoding="utf-8")
+    # /pocket/ to aplikacja kancelarii (parowanie kodem QR), nie tresc dla wyszukiwarek.
+    (cel / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /pocket/\nSitemap: {STRONA}/sitemap.xml\n",
+                                    encoding="utf-8")
     return {"miejscowosci": len(miejscowosci), "kancelarie": len(dane["kancelarie"])}
 
 

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pl.notarai.pocket",
+      "sha256_cert_fingerprints": [
+        "E9:D2:86:5E:9F:E8:A6:EF:39:17:34:63:2E:B9:40:64:65:6E:A0:45:7A:EF:DC:A3:BF:BC:B9:20:F4:BF:2D:4A"
+      ]
+    }
+  }
+]

@@ -76,9 +76,18 @@ def kopia(ftp, zdalny, lokalny):
             print(f"  pobrano {z}")
 
 
+# Jedyny katalog z kropka, ktory strona musi serwowac: /.well-known/assetlinks.json laczy
+# aplikacje NotarAI Pocket na Androida z domena. Pozostale ukryte pliki i katalogi pomijamy.
+JAWNE_UKRYTE = (".well-known",)
+
+
+def _pomijany_katalog(nazwa):
+    return nazwa.startswith(".") and nazwa not in JAWNE_UKRYTE
+
+
 def wyslij(ftp, lokalny, zdalny):
     for korzen, katalogi, pliki in os.walk(lokalny):
-        katalogi[:] = [k for k in katalogi if not k.startswith(".")]
+        katalogi[:] = [k for k in katalogi if not _pomijany_katalog(k)]
         wzgledna = os.path.relpath(korzen, lokalny).replace(os.sep, "/")
         cel = zdalny if wzgledna == "." else posixpath.join(zdalny, wzgledna)
         try:
@@ -100,7 +109,7 @@ def pliki_lokalne(lokalny):
     """{sciezka_wzgledna: sha256} dla plikow strony (bez ukrytych)."""
     wynik = {}
     for korzen, katalogi, pliki in os.walk(lokalny):
-        katalogi[:] = sorted(k for k in katalogi if not k.startswith("."))
+        katalogi[:] = sorted(k for k in katalogi if not _pomijany_katalog(k))
         for nazwa in sorted(pliki):
             if nazwa.startswith(".") or nazwa == MANIFEST:
                 continue
