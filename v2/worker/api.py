@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import NamedTuple
 
-from fastapi import FastAPI, Depends, Header, HTTPException, Request
+from fastapi import FastAPI, Depends, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -135,7 +135,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             policy = Policy(new_settings.ai.region, new_settings.ai.model)
         state["account"] = current
         state["inference"] = Inference(
-            policy, current.client_factory(new_settings.ai.region) if policy else None, ledger)
+            policy, current.client_factory(new_settings.ai.region) if policy else None, ledger,
+            pseudonymize=lambda: state["settings"].ai.pseudonymize)
 
     configure(settings)
     drafts = Drafts(vault, lambda: state["inference"], connect)
@@ -189,13 +190,13 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if state["settings"].backup_dir is not None and due("backup"):
             try:
                 done["local"] = local_backup()["file"]
-            except recovery.RecoveryError:
-                pass        # disk unplugged: the panel shows the overdue notice
+            except (recovery.RecoveryError, OSError):
+                pass        # disk unplugged or full: the panel shows the overdue notice
         target = replica()
         if target is not None and state["account"].signed_in and due("offsite-backup"):
             try:
                 done["offsite"] = target.upload()["file"]
-            except (ReplicaError, recovery.RecoveryError, LoginError):
+            except (ReplicaError, recovery.RecoveryError, LoginError, OSError):
                 pass
         return done
 
@@ -204,17 +205,26 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     async def maintenance_loop():
         while True:
             await asyncio.sleep(120)
-            await asyncio.to_thread(maintain)
+            try:
+                await asyncio.to_thread(maintain)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass        # full disk, locked file: try again next round; the panel shows the overdue copy
             await asyncio.sleep(1800)
 
     @asynccontextmanager
     async def lifespan(_app):
+        from .local_lock import acquire
+
+        _app.state.lock = acquire(home)       # one serving process per vault; key rotation checks this
         await restart_relay()
         upkeep = asyncio.create_task(maintenance_loop())
         yield
         upkeep.cancel()
         if relay["task"] is not None:
             relay["task"].cancel()
+        _app.state.lock.close()
 
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
@@ -260,14 +270,20 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         known = devices.lookup(device_id)       # re-read on every request, so revocation is immediate
         if known is None or known["scope"] not in {"read", "write"}:
             return 401, {"detail": "unauthorized"}
+        if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite"}:
+            return 403, {"detail": "local only"}      # pairing through the tunnel has its own message
         ticket = secrets.token_urlsafe(32)
         internal[ticket] = Identity(device_id, known["scope"], frozenset(known["cases"]) if known["cases"] else None)
         try:
             async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as client:
+                transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                base_url="http://127.0.0.1") as client:
                 response = await client.request(
                     method, path, json=body if method == "POST" else None,
                     headers={"Authorization": "Tunnel " + ticket})
+        except Exception:
+            # One bad request must never take the relay connection, and every other device, down.
+            return 500, {"detail": "request failed"}
         finally:
             internal.pop(ticket, None)
         try:
@@ -394,7 +410,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             "version": "2.0-dev", "mode": mode, "scope": identity.scope,
             "cases": sorted(identity.cases) if identity.cases is not None else None,
             "ai": {"enabled": inference.enabled, "signed_in": bool(account and account.signed_in),
-                   "account_configured": account is not None},
+                   "account_configured": account is not None, "pseudonymize": inference.pseudonymizes},
             "recovery": {"enrolled": recovery.enrolled(home), "last_backup": last_backup and last_backup // 10**9,
                          "backup_overdue": overdue, "backup_dir_configured": settings.backup_dir is not None,
                          "offsite_enabled": settings.replica.enabled,
@@ -430,8 +446,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if new.backup_dir is not None and not Path(new.backup_dir).is_dir():
             raise recovery.RecoveryError("Katalog kopii nie istnieje albo dysk nie jest podłączony.")
         save_settings(home, new)
+        tunnel_changed = new.tunnel != state["settings"].tunnel
         configure(new)
-        await restart_relay()
+        if tunnel_changed:        # otherwise connected phones would lose their sessions for nothing
+            await restart_relay()
         vault.log("local-admin", "settings")
         return new.model_dump()
 
@@ -490,10 +508,17 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     def save(revision: Revision, identity: Identity = Depends(writable)):
         try:
             data = base64.b64decode(revision.content_b64,validate=True)
-            if revision.id is None or revision.expected_version == 0:
+            existing = None
+            if revision.id is not None:
+                try:
+                    existing = vault.case_of(revision.id)
+                    known = True
+                except KeyError:
+                    known = False
+                if known:
+                    see_case(identity, existing)      # also for expected_version 0: no hint that it exists
+            if revision.id is None or not known:
                 see_case(identity, revision.case)
-            else:
-                see_document(identity, revision.id)
             doc_id, version = vault.put(
                 revision.id,revision.expected_version,revision.name,data,actor=identity.id,case=revision.case)
             return {"id":doc_id,"version":version}
@@ -511,7 +536,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(404, "not found")
 
     @app.get("/v2/documents/{doc_id}")
-    def read(doc_id: str, version: int | None = None, identity: Identity = Depends(auth)):
+    def read(doc_id: str, version: int | None = Query(default=None, ge=1, le=2**62),
+             identity: Identity = Depends(auth)):
         see_document(identity, doc_id)
         try:
             rev,name,data = vault.get(doc_id,version,actor=identity.id)

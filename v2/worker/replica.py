@@ -38,9 +38,10 @@ class Replica:
             s3, prefix = self._s3(), self._prefix()
             with tempfile.TemporaryDirectory(dir=self._home) as scratch:
                 local = Path(scratch) / name
-                manifest = recovery.backup(self._home, local, action="offsite-backup")
+                manifest = recovery.backup(self._home, local, action=None)
                 s3.upload_file(str(local), self._bucket, prefix + name,
                                ExtraArgs={"ServerSideEncryption": "AES256"})
+            self._log()        # only a copy that actually left the building counts
             for stale in self.list()[KEEP:]:
                 s3.delete_object(Bucket=self._bucket, Key=prefix + stale["name"])
         except recovery.RecoveryError:
@@ -48,6 +49,12 @@ class Replica:
         except Exception:
             raise ReplicaError("Nie udało się wysłać kopii poza kancelarię. Sprawdź połączenie i logowanie.") from None
         return {"file": name, "documents": manifest["documents"], "revisions": manifest["revisions"]}
+
+    def _log(self) -> None:
+        from .local_secrets import read_secret
+        from .vault import Vault
+
+        Vault(self._home, read_secret(self._home, "vault.key")).log("local-admin", "offsite-backup")
 
     def list(self) -> list[dict]:
         """Newest first."""

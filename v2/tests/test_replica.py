@@ -132,3 +132,17 @@ def test_replica_settings_must_stay_in_the_eu(office):
         (home / "settings.json").write_text(json.dumps({"replica": bad}))
         with pytest.raises(ValueError):
             create_app(home)
+
+
+def test_a_failed_upload_is_not_recorded_as_a_copy(office):
+    home, admin, s3 = office
+    recovery.enroll(home)
+    (home / "settings.json").write_text(json.dumps(
+        {"replica": {"enabled": True, "bucket": "notarai-v2-kopie", "region": "eu-central-1"}}))
+    client = TestClient(create_app(home, account=Account(s3)))
+    s3.fail = True
+    assert client.post("/v2/backup/offsite", headers=admin).status_code == 502
+    assert client.get("/v2/status", headers=admin).json()["recovery"]["last_offsite"] is None
+    s3.fail = False
+    assert client.post("/v2/backup/offsite", headers=admin).status_code == 200
+    assert client.get("/v2/status", headers=admin).json()["recovery"]["last_offsite"]

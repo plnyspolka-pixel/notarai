@@ -17,9 +17,9 @@ function office(now = 1_800_000_000) {
 }
 
 function memory() {
-  const workers = new Map(), clients = new Map(), sent = [], dead = new Set();
+  const workers = new Map(), clients = new Map(), sent = [], dead = new Set(), stamps = new Map();
   const store = {
-    async putWorker(o, id) { workers.set(o, id); },
+    async putWorker(o, id, ts) { if ((stamps.get(o) ?? -1) >= ts) return false; stamps.set(o, ts); workers.set(o, id); return true; },
     async getWorker(o) { return workers.get(o) ?? null; },
     async putClient(id, o) { clients.set(id, { office: o }); },
     async getClient(id) { return clients.get(id) ?? null; },
@@ -32,7 +32,7 @@ function memory() {
 test("only the key holder can register an office, within the time window", () => {
   const a = office(), b = office();
   assert.equal(workerProofIsValid(a.query(a.now), a.now), true);
-  assert.equal(workerProofIsValid(a.query(a.now), a.now + 121), false);
+  assert.equal(workerProofIsValid(a.query(a.now), a.now + 61), false);
   assert.equal(workerProofIsValid({ ...a.query(a.now), office: b.id }, a.now), false);
   assert.equal(workerProofIsValid({ ...b.query(a.now), office: a.id, key: a.query(a.now).key }, a.now), false);
   assert.equal(workerProofIsValid({ ...a.query(a.now), sig: "AAAA" }, a.now), false);
@@ -59,7 +59,7 @@ test("frames travel only between a client and its own office", async () => {
   assert.equal(await relay.message("WB", JSON.stringify({ to: "C1", data: "evil" })), 403);
   assert.equal(await relay.message("stranger", JSON.stringify({ to: "C1", data: "evil" })), 403);
   assert.equal(await relay.message("WA", "not json"), 400);
-  assert.equal(await relay.message("C1", "x".repeat(70000)), 413);
+  assert.equal(await relay.message("C1", "x".repeat(33000)), 413);
   assert.equal(m.sent.length, 0);
 
   await relay.disconnect("C1");
@@ -77,4 +77,7 @@ test("a client learns at once when its office goes away", async () => {
   assert.deepEqual(m.sent.pop(), ["C1", JSON.stringify({ t: "bye" })]);
   await relay.disconnect("WA");
   assert.equal(await relay.connect("C2", { role: "client", office: a.id }), 404);
+  // A captured connection request is useless: the same timestamp is refused, a newer one is accepted.
+  assert.equal(await relay.connect("ATTACKER", a.query(a.now)), 403);
+  assert.equal(await relay.connect("WA2", a.query(a.now + 5)), 200);
 });

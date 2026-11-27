@@ -155,3 +155,56 @@ def test_disabled_blocked_and_failed_calls(tmp_path):
         make(tmp_path, runtime)[0].ask(purpose="chat", system="", text="")
     with pytest.raises(ValueError):
         ledger.record("m", "unknown-purpose", 1, 1)
+
+
+def test_pseudonymisation_is_the_offices_choice(tmp_path):
+    runtime, switch = Runtime(), [True]
+    ledger = UsageLedger(tmp_path)
+    clients = {"bedrock": Control(), "bedrock-runtime": runtime}
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), clients.__getitem__, ledger,
+                          pseudonymize=lambda: switch[0])
+    inference.ask(purpose="chat", system="", text=TEXT, names=["Jan Kowalski"])
+    assert "44051401359" not in runtime.seen["messages"][0]["content"][0]["text"]
+    switch[0] = False
+    answer = inference.ask(purpose="chat", system="", text=TEXT, names=["Jan Kowalski"])
+    assert runtime.seen["messages"][0]["content"][0]["text"] == TEXT and answer.pseudonymized == 0
+    # The EU and no-logging checks do not depend on the switch.
+    blocked = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"),
+                        {"bedrock": Control(logging={"s3Config": {}}), "bedrock-runtime": runtime}.__getitem__,
+                        ledger, pseudonymize=False)
+    with pytest.raises(PolicyError):
+        blocked.ask(purpose="chat", system="", text="x")
+
+
+def test_distinct_identifiers_never_share_a_placeholder():
+    p = Pseudonymizer()
+    text = ("KW WA1M/00012345/6 oraz KR1P/00012345/6; jan.kowalski1@example.com i anna.nowak1@firma.pl; "
+            "dowody ABS123456 i ABA300000")
+    hidden = p.hide(text)
+    assert "[KW_1]" in hidden and "[KW_2]" in hidden and "[EMAIL_2]" in hidden and "[DOWOD_2]" in hidden
+    assert p.reveal(hidden) == (text, [])
+
+
+@pytest.mark.parametrize("name,forms", [
+    ("Ewa Lis", ["Ewy Lis", "Ewą Lis", "Ewie Lis"]),
+    ("Marek Dudek", ["Marka Dudka", "Markowi Dudkowi", "Dudkiem"]),
+    ("Anna Kowalska-Nowak", ["Anny Kowalskiej-Nowak", "Kowalska-Nowak", "ANNA KOWALSKA-NOWAK"]),
+    ("Olga Mucha", ["Oldze Musze", "Olgi Muchy"]),
+    ("Paweł Kozioł", ["Pawła Kozioła", "Pawłowi Koziołowi"]),
+])
+def test_declined_names_are_hidden(name, forms):
+    for form in forms:
+        hidden = Pseudonymizer([name]).hide(f"Stawił się {form} i oświadczył.")
+        assert "[OSOBA_1" in hidden and form.split()[-1] not in hidden, (form, hidden)
+
+
+def test_formats_from_real_documents_and_no_overmasking():
+    p = Pseudonymizer(["Anna Lipa", "Jan Kowalski"])
+    text = ("Rachunek 61 1090 1014 0000 0712 1981 2874, NIP 526 000 12 46, tel. 22 123 45 67, "
+            "paszport EA 1234567, e-mail jan.kowalski@example.com. Dnia 15 lipca 2024 r. cena 500 000 000 zł, "
+            "powierzchnia 123 456 789 m.")
+    hidden = p.hide(text)
+    for secret in ("1090", "526 000", "22 123 45 67", "EA 1234567", "jan.kowalski@example.com"):
+        assert secret not in hidden, secret
+    assert "15 lipca 2024" in hidden and "500 000 000 zł" in hidden
+    assert p.reveal(hidden) == (text, [])

@@ -26,9 +26,18 @@ class Answer:
 
 
 class Inference:
-    def __init__(self, policy: Policy | None, client_factory, ledger: UsageLedger):
-        """`policy=None` means inference is switched off. `client_factory(service)` returns a boto3 client."""
+    def __init__(self, policy: Policy | None, client_factory, ledger: UsageLedger, *, pseudonymize=True):
+        """`policy=None` means inference is switched off. `client_factory(service)` returns a boto3 client.
+
+        `pseudonymize` is the office's choice (a bool or a callable returning one). With it off the
+        text goes to the EU model as written; the EU-only and no-content-logging checks still apply.
+        """
         self._policy, self._clients, self._ledger = policy, client_factory, ledger
+        self._pseudonymize = pseudonymize
+
+    @property
+    def pseudonymizes(self) -> bool:
+        return bool(self._pseudonymize() if callable(self._pseudonymize) else self._pseudonymize)
 
     @property
     def enabled(self) -> bool:
@@ -40,12 +49,16 @@ class Inference:
         if not text or len(text) + len(system) > MAX_INPUT_CHARS or not 1 <= max_tokens <= 64000:
             raise InferenceError("Zapytanie jest puste albo za duże.")
         pseudonyms = Pseudonymizer(names)
+        hidden = pseudonyms.hide(text) if self.pseudonymizes else text
         try:
-            hidden = pseudonyms.hide(text)
-        except ValueError:
-            raise InferenceError("Tekst zawiera znaczniki zastrzeżone dla NotarAI.") from None
-        self._policy.verify(self._clients("bedrock"))
-        runtime = self._clients("bedrock-runtime")
+            self._policy.verify(self._clients("bedrock"))
+            runtime = self._clients("bedrock-runtime")
+        except PolicyError:
+            raise
+        except Exception as error:
+            if error.__class__.__name__ == "LoginError":
+                raise
+            raise InferenceError("Nie udało się sprawdzić ustawień konta AI. Spróbuj ponownie za chwilę.") from None
         try:
             response = runtime.converse(
                 modelId=self._policy.model,

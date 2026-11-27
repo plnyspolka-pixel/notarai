@@ -39,19 +39,45 @@ def _digits(text):
     return re.sub(r"\D", "", text)
 
 
+_SEP = r"[ \u00a0-]?"     # ordinary space, the non-breaking space Word inserts, or a hyphen
 _RULES = (
-    ("RACHUNEK", re.compile(r"(?<![\w])(?:PL\s?)?\d{2}(?:[ ]?\d{4}){6}(?![\w])"), lambda m: _nrb(_digits(m))),
+    # E-mail first: a surname inside an address must not split it.
+    ("EMAIL", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), lambda m: True),
+    ("RACHUNEK", re.compile(r"(?<![\w])(?:PL" + _SEP + r")?\d{2}(?:" + _SEP + r"\d{4}){6}(?![\w])"),
+     lambda m: _nrb(_digits(m))),
     ("PESEL", re.compile(r"(?<!\d)\d{11}(?!\d)"), _pesel),
-    ("NIP", re.compile(r"(?<!\d)(?:\d{10}|\d{3}-\d{3}-\d{2}-\d{2}|\d{3}-\d{2}-\d{2}-\d{3})(?!\d)"),
+    ("NIP", re.compile(r"(?<!\d)(?:\d{10}|\d{3}[ -]\d{3}[ -]\d{2}[ -]\d{2}|\d{3}[ -]\d{2}[ -]\d{2}[ -]\d{3})(?!\d)"),
      lambda m: _nip(_digits(m))),
     ("KW", re.compile(r"(?<![A-Z0-9])[A-Z]{2}\d[A-Z]/\d{8}/\d(?!\d)"), lambda m: True),
     ("DOWOD", re.compile(r"(?<![A-Z0-9])[A-Z]{3}\s?\d{6}(?!\d)"), lambda m: _id_card(m.replace(" ", ""))),
-    ("EMAIL", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), lambda m: True),
+    ("PASZPORT", re.compile(r"(?<![A-Z0-9])[A-Z]{2}\s?\d{7}(?!\d)"), lambda m: True),
     ("REGON", re.compile(r"(?<!\d)(?:\d{14}|\d{9})(?!\d)"), _regon),
-    ("TELEFON", re.compile(r"(?<![\w+])(?:\+48[ -]?)?\d{3}[ -]?\d{3}[ -]?\d{3}(?![\w])"),
-     lambda m: len(_digits(m)) in (9, 11)),
+    # Mobile 3-3-3 or landline 2-3-2-2; a following currency means it is an amount, not a number to hide.
+    ("TELEFON", re.compile(
+        r"(?<![\w+])(?:\+48[ -]?)?(?:\d{3}[ -]?\d{3}[ -]?\d{3}|\d{2}[ -]\d{3}[ -]\d{2}[ -]\d{2})"
+        r"(?![\w])(?!\s*(?:zł|PLN|złot|,\d{2}))"), lambda m: len(_digits(m)) in (9, 11)),
 )
-_PLACEHOLDER = re.compile(r"\[(?:RACHUNEK|PESEL|NIP|KW|DOWOD|EMAIL|REGON|TELEFON|OSOBA|ZNACZNIK)_\d+(?:_[A-Z]+)?\]")
+_KINDS = "RACHUNEK|PESEL|NIP|KW|DOWOD|PASZPORT|EMAIL|REGON|TELEFON|OSOBA|ZNACZNIK"
+_PLACEHOLDER = re.compile(r"\[(?:" + _KINDS + r")_\d+(?:_[A-Z]+)?\]")
+_VOWELS = "aeiouyąęó"
+_ALTERNATIONS = (("ch", "sz"), ("k", "c"), ("g", "dz"), ("r", "rz"), ("ł", "l"), ("t", "ci"), ("d", "dzi"))
+
+
+def _stems(token: str) -> list[str]:
+    """Stems that survive Polish declension: Marek -> Mark-, Olga -> Oldz-, Mucha -> Musz-."""
+    lowered = token.lower()
+    stems = {lowered}
+    if len(lowered) >= 3 and lowered[-1] in _VOWELS:
+        stems.add(lowered[:-1])
+    for stem in list(stems):
+        if len(stem) >= 4 and stem[-2] == "e" and stem[-1] not in _VOWELS:     # fleeting e: Dudek -> Dudk-
+            stems.add(stem[:-2] + stem[-1])
+    for stem in list(stems):
+        for ending, replacement in _ALTERNATIONS:
+            if stem.endswith(ending) and len(stem) > len(ending) + 1:
+                stems.add(stem[:-len(ending)] + replacement)
+                break
+    return sorted((s for s in stems if len(s) >= 2), key=len, reverse=True)
 
 
 def _letters(index: int) -> str:
@@ -74,22 +100,27 @@ class Pseudonymizer:
         for index, name in enumerate(dict.fromkeys(n.strip() for n in names if n and n.strip()), 1):
             parts = [self._inflected(token) for token in name.split()]
             if parts:
-                self._names.append((index, re.compile(r"(?<!\w)" + r"\s+".join(parts) + r"(?!\w)", re.IGNORECASE)))
+                self._names.append((index, re.compile(r"(?<!\w)" + r"\s+".join(parts) + r"(?!\w)")))
         # A surname on its own ("Kowalski oświadcza") after the full names, so full matches win.
         for index, name in enumerate(dict.fromkeys(n.strip() for n in names if n and n.strip()), 1):
             tokens = name.split()
-            if len(tokens) > 1 and len(tokens[-1]) >= 4 and tokens[-1].isalpha():
-                self._names.append(
-                    (index, re.compile(r"(?<!\w)" + self._inflected(tokens[-1]) + r"(?!\w)", re.IGNORECASE)))
+            surname = tokens[-1].strip(".,;") if len(tokens) > 1 else ""
+            if len(surname) >= 4 and all(part.isalpha() for part in surname.split("-")):
+                self._names.append((index, re.compile(r"(?<!\w)" + self._inflected(surname) + r"(?!\w)")))
 
     @staticmethod
     def _inflected(token: str) -> str:
         token = token.strip(".,;")
-        if len(token) >= 3 and token.isalpha():
-            # Polish inflection: "Kowalski" -> "Kowalskiego", "Jan" -> "Janowi".
-            stem = token[:-1] if len(token) >= 4 and token[-1].lower() in "aeiouyąę" else token
-            return re.escape(stem) + r"\w{0,5}"
-        return re.escape(token)
+        parts = []
+        for part in token.split("-"):          # Kowalska-Nowak: each half declines on its own
+            if len(part) >= 3 and part.isalpha():
+                # The first letter must be a capital in the text, so "Lipa" never swallows "lipca".
+                first = re.escape(part[0].upper())
+                tails = "|".join(re.escape(stem[1:]) for stem in _stems(part))
+                parts.append(f"{first}(?i:(?:{tails})\\w{{0,5}})")
+            else:
+                parts.append(re.escape(part))
+        return "-".join(parts)
 
     def _token(self, kind: str, original: str, key: str) -> str:
         if key in self._forward:
@@ -113,15 +144,15 @@ class Pseudonymizer:
         # Text that already looks like one of our placeholders (an earlier draft, or a document
         # trying to plant one) is itself hidden, so it can never read another value back.
         text = _PLACEHOLDER.sub(lambda m: self._token("ZNACZNIK", m.group(0), "ZNACZNIK:" + m.group(0)), text)
-        for index, pattern in self._names:
-            text = pattern.sub(lambda m, i=index: self._person(i, m.group(0)), text)
         for kind, pattern, valid in _RULES:
             def swap(match, kind=kind, valid=valid):
                 found = match.group(0)
                 if not valid(found):
                     return found
-                return self._token(kind, found, f"{kind}:{_digits(found) or found.lower()}")
+                return self._token(kind, found, kind + ":" + re.sub(r"[\s\u00a0-]", "", found).upper())
             text = pattern.sub(swap, text)
+        for index, pattern in self._names:
+            text = pattern.sub(lambda m, i=index: self._person(i, m.group(0)), text)
         return text
 
     def reveal(self, text: str) -> tuple[str, list[str]]:

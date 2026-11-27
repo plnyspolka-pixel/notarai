@@ -160,7 +160,7 @@ def test_ai_off_by_default(tmp_path):
     response = client.post("/v2/cases/sprawa-1/draft", headers=admin, json={"text": "x"})
     assert response.status_code == 403 and "wyłączone" in response.json()["detail"]
     status = client.get("/v2/status", headers=admin).json()
-    assert status["ai"] == {"enabled": False, "signed_in": False, "account_configured": False}
+    assert status["ai"] == {"enabled": False, "signed_in": False, "account_configured": False, "pseudonymize": True}
     assert status["mode"] == "synthetic-only"
 
 
@@ -354,3 +354,23 @@ def test_ui_assets_obey_the_content_security_policy(office):
     for asset in ("pocket.css", "pocket.js", "pocket-sw.js", "pocket.webmanifest", "pocket-icon.svg"):
         assert client.get("/v2/" + asset).status_code == 200
     assert client.get("/v2/vault.sqlite3").status_code == 404
+
+
+def test_settings_reject_urls_that_could_escape(office):
+    client, admin, _, _ = office
+    current = client.get("/v2/settings", headers=admin).json()
+    for relay in ("ws://127.0.0.1:1@evil.example/x", "ws://127.0.0.1:1 ; frame-ancestors *",
+                  "wss://ok.example/\r\nX: y", "ws://relay.example", "http://relay.example"):
+        body = {**current, "tunnel": {"enabled": True, "relay_url": relay, "pocket_url": "https://notarai.pl/pocket"}}
+        assert client.put("/v2/settings", headers=admin, json=body).status_code == 400, relay
+    assert "evil" not in client.get("/v2/pocket").headers["content-security-policy"]
+
+
+def test_foreign_document_id_gives_no_existence_hint(office):
+    client, admin, _, _ = office
+    other = upload(client, admin, "obca.txt", b"b", case="sprawa-2").json()["id"]
+    phone = pair(client, admin, "write", cases=["sprawa-1"])
+    body = {"id": other, "expected_version": 0, "name": "x.txt", "case": "sprawa-1", "content_b64": "eA=="}
+    unknown = {**body, "id": "11111111-1111-4111-8111-111111111111", "case": "sprawa-2"}
+    assert client.post("/v2/documents", headers=phone, json=body).status_code == 404
+    assert client.post("/v2/documents", headers=phone, json=unknown).status_code == 404

@@ -4,8 +4,8 @@
 // API Gateway WebSocket API (infra/notarai-v2-przekaznik.yaml).
 import { createHash, createPublicKey, verify } from "node:crypto";
 
-export const MAX_SKEW_SECONDS = 120;
-export const MAX_FRAME = 64 * 1024;
+export const MAX_SKEW_SECONDS = 60;
+export const MAX_FRAME = 32 * 1024;   // devices send far less; the worker's socket allows several times this
 const OFFICE = /^[0-9a-f]{32}$/;
 
 function fromBase64Url(text) {
@@ -34,13 +34,14 @@ export function workerProofIsValid(query, now) {
   }
 }
 
-// `store`: { putWorker(office, id), getWorker(office), putClient(id, office), getClient(id), remove(id), removeWorker(office, id) }
+// `store`: { putWorker(office, id, ts) -> false when ts is not newer, getWorker(office), putClient(id, office), getClient(id), remove(id), removeWorker(office, id) }
 // `post(connectionId, text)` resolves false when that connection is gone.
 export function createRelay({ store, post, now = () => Math.floor(Date.now() / 1000) }) {
   async function connect(connectionId, query) {
     if (query?.role === "worker") {
       if (!workerProofIsValid(query, now())) return 403;
-      await store.putWorker(query.office, connectionId);
+      // A captured connection request cannot be replayed: each registration needs a newer timestamp.
+      if (!(await store.putWorker(query.office, connectionId, Number(query.ts)))) return 403;
       return 200;
     }
     if (query?.role === "client" && OFFICE.test(query.office || "")) {

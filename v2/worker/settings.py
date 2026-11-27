@@ -18,6 +18,8 @@ class AiSettings(_Strict):
     enabled: bool = False
     region: str = "eu-central-1"
     model: str = "eu.anthropic.claude-sonnet-4-6"
+    # Replace identifiers and listed names with placeholders before text leaves the computer.
+    pseudonymize: bool = True
     # Stays false until the release gates in README.md are met; while false the
     # worker labels itself synthetic-only.
     real_data_approved: bool = False
@@ -49,11 +51,11 @@ class TunnelSettings(_Strict):
     def check(self) -> None:
         if not self.enabled:
             return
-        local = self.relay_url.startswith("ws://127.0.0.1:")      # development relay only
-        if not (re.fullmatch(r"wss://[A-Za-z0-9.-]+(:\d+)?(/[\w./-]*)?", self.relay_url) or local):
+        local = r"127\.0\.0\.1:\d{1,5}(/[\w./-]*)?"       # development relay and page only
+        public = r"[A-Za-z0-9.-]+(:\d{1,5})?(/[\w./-]*)?"
+        if not re.fullmatch(f"wss://{public}|ws://{local}", self.relay_url):
             raise ValueError("relay must use TLS")
-        if not (re.fullmatch(r"https://[A-Za-z0-9.-]+(:\d+)?(/[\w./-]*)?", self.pocket_url)
-                or self.pocket_url.startswith("http://127.0.0.1:")):
+        if not re.fullmatch(f"https://{public}|http://{local}", self.pocket_url):
             raise ValueError("Pocket must be served over HTTPS")
 
     def relay_origin(self) -> str | None:

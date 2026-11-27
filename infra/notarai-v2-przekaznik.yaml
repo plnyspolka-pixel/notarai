@@ -15,8 +15,8 @@ Parameters:
     Description: Klucz obiektu zip z kodem funkcji
   LimitNaSekunde:
     Type: Number
-    Default: 200
-    Description: Limit wiadomosci na sekunde dla calego przekaznika
+    Default: 1000
+    Description: Limit wiadomosci na sekunde dla calego przekaznika (stanowiska same ograniczaja tempo wysylki)
 
 Resources:
   TabelaPolaczen:

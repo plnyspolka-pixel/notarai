@@ -134,3 +134,20 @@ def test_real_libreoffice_edit_is_checked_in(desk, tmp_path):
     result = copies.checkin(doc)
     assert result["saved"] and result["version"] == 2
     assert extract(vault.get(doc)[2]) == ["UMOWA", "Treść zapisana przez NotarAI."]
+
+
+def test_lock_like_names_and_id_spellings_cannot_strand_a_copy(desk):
+    home, vault, copies, opened = desk
+    doc, _ = vault.put(None, 0, "~$umowa.docx", build(["Treść."]))
+    info = copies.checkout(doc.upper())
+    assert not info["in_use"] and opened[0].name == "_~$umowa.docx"
+    for spelling in (doc, doc.upper(), doc.replace("-", "")):
+        with pytest.raises(WorkCopyError):
+            copies.checkout(spelling)
+    assert len(list((home / "workcopies").iterdir())) == 1
+    copies.discard(doc.replace("-", ""))
+    for bad in ("..", "%2e%2e", "not-a-uuid"):
+        with pytest.raises(WorkCopyError):
+            copies.checkin(bad)
+        with pytest.raises(WorkCopyError):
+            copies.discard(bad)

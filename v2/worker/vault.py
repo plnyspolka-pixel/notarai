@@ -120,18 +120,24 @@ class Vault:
         db.execute(f"PRAGMA user_version = {SCHEMA}")
 
     # ------------------------------------------------------------ keys
+    @staticmethod
+    def _dek_aad(doc_id: str, case) -> bytes:
+        # The case is part of the key wrapping: moving a document to another case by editing
+        # the database makes its key unreadable instead of widening who may see it.
+        return _aad("dek", doc_id) + b":" + (case or "").encode()
+
     def _dek(self, db, doc_id: str, *, create=False, case=None) -> AESGCM:
-        row = db.execute("SELECT dek FROM documents WHERE id=?", (doc_id,)).fetchone()
+        row = db.execute("SELECT dek, case_id FROM documents WHERE id=?", (doc_id,)).fetchone()
         if row is None:
             if not create:
                 raise KeyError(doc_id)
             dek = os.urandom(32)
             db.execute(
                 "INSERT INTO documents VALUES (?,?,?)",
-                (doc_id, _seal(self._kek, dek, _aad("dek", doc_id)), case),
+                (doc_id, _seal(self._kek, dek, self._dek_aad(doc_id, case)), case),
             )
             return AESGCM(dek)
-        return AESGCM(_open(self._kek, row[0], _aad("dek", doc_id)))
+        return AESGCM(_open(self._kek, row[0], self._dek_aad(doc_id, row[1])))
 
     def rotate(self, new_key: bytes) -> None:
         """Rewrap every data key under a new master key; ciphertext stays in place."""
@@ -139,11 +145,11 @@ class Vault:
             raise ValueError("vault key must be 32 bytes")
         new_kek = AESGCM(derive(new_key, "kek"))
         with self._tx() as db:
-            for doc_id, wrapped in db.execute("SELECT id, dek FROM documents").fetchall():
-                dek = _open(self._kek, wrapped, _aad("dek", doc_id))
+            for doc_id, wrapped, case in db.execute("SELECT id, dek, case_id FROM documents").fetchall():
+                dek = _open(self._kek, wrapped, self._dek_aad(doc_id, case))
                 db.execute(
                     "UPDATE documents SET dek=? WHERE id=?",
-                    (_seal(new_kek, dek, _aad("dek", doc_id)), doc_id),
+                    (_seal(new_kek, dek, self._dek_aad(doc_id, case)), doc_id),
                 )
             self._verify_audit(db)
             self._set_key(new_key)

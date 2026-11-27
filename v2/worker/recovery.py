@@ -114,7 +114,7 @@ def _manifest_mac(master: bytes, manifest: dict) -> str:
     return hmac.new(derive(master, "backup"), body, hashlib.sha256).hexdigest()
 
 
-def backup(home: Path, destination: Path, *, action: str = "backup") -> dict:
+def backup(home: Path, destination: Path, *, action: str | None = "backup") -> dict:
     """Write one backup file. Refuses to overwrite and to run without a recovery code."""
     if not enrolled(home):
         raise RecoveryError("Najpierw utwórz kod odzyskiwania: bez niego kopii nie da się odtworzyć.")
@@ -144,7 +144,8 @@ def backup(home: Path, destination: Path, *, action: str = "backup") -> dict:
             os.replace(partial, destination)
         finally:
             partial.unlink(missing_ok=True)
-    vault.log("local-admin", action)
+    if action:
+        vault.log("local-admin", action)
     return manifest
 
 
@@ -217,9 +218,10 @@ def restore(source: Path, home: Path, code: str) -> dict:
             except (InvalidTag, ValueError, KeyError, sqlite3.Error):
                 raise RecoveryError("Kopia nie przeszła sprawdzenia: nie wszystkie dokumenty dają się odczytać.") from None
             token = secrets.token_urlsafe(48)
+            # Listed before writing, in both possible forms, so a failure never leaves the key behind.
+            created += [home / name for name in ("vault.key", "vault.key.dpapi", "api.token", "api.token.dpapi")]
             write_new_secret(home, "vault.key", master)
             write_new_secret(home, "api.token", token.encode())
-            created += [secret_path(home, "vault.key"), secret_path(home, "api.token")]
             _write_atomic(home / RECOVERY_FILE, wrapped)
         except BaseException:
             for path in created + [home / RECOVERY_FILE]:
@@ -234,6 +236,20 @@ def rotate_master(home: Path) -> str:
 
     Earlier backups stay readable only with the earlier code.
     """
+    from .local_lock import Busy, acquire
+
+    try:
+        lock = acquire(home)
+    except Busy:
+        # A running worker keeps the old key in memory and would write data nobody can read later.
+        raise RecoveryError("Zamknij NotarAI na tym komputerze, zanim wymienisz klucz sejfu.") from None
+    try:
+        return _rotate_locked(home)
+    finally:
+        lock.close()
+
+
+def _rotate_locked(home: Path) -> str:
     old = read_secret(home, "vault.key")
     new = secrets.token_bytes(32)
     code, secret = new_code()

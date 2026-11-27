@@ -21,7 +21,20 @@ let tunnel = null;   // set when this device reaches the office through the rela
 async function call(path, method = "GET", data) {
   let status, body = null;
   if (tunnel) {
-    ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+    try {
+      ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+    } catch (error) {
+      // The office restarted or renewed its relay connection: sign in again with the device key, once.
+      if (!error.bye) throw error;
+      const resumed = await NotaraiTunnel.resume();
+      if (!resumed) throw error;
+      const onclose = tunnel.onclose;
+      tunnel.onclose = () => {};
+      tunnel.close();
+      tunnel = resumed.tunnel;
+      tunnel.onclose = onclose;
+      ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+    }
   } else {
     const headers = {};
     if (data !== undefined) headers["Content-Type"] = "application/json";

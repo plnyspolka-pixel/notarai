@@ -80,13 +80,13 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource:
-                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.*"
-                  - "arn:aws:bedrock:eu-central-1::foundation-model/*"
-                  - "arn:aws:bedrock:eu-west-1::foundation-model/*"
-                  - "arn:aws:bedrock:eu-west-3::foundation-model/*"
-                  - "arn:aws:bedrock:eu-north-1::foundation-model/*"
-                  - "arn:aws:bedrock:eu-south-1::foundation-model/*"
-                  - "arn:aws:bedrock:eu-south-2::foundation-model/*"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.anthropic.*"
+                  - "arn:aws:bedrock:eu-central-1::foundation-model/anthropic.*"
+                  - "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.*"
+                  - "arn:aws:bedrock:eu-west-3::foundation-model/anthropic.*"
+                  - "arn:aws:bedrock:eu-north-1::foundation-model/anthropic.*"
+                  - "arn:aws:bedrock:eu-south-1::foundation-model/anthropic.*"
+                  - "arn:aws:bedrock:eu-south-2::foundation-model/anthropic.*"
               # Stanowisko samo sprawdza przed kazdym wywolaniem, ze konto nie
               # zapisuje tresci i ze profil modelu nie wychodzi poza UE.
               - Sid: OdczytUstawienDoSprawdzenia
@@ -109,12 +109,46 @@ Resources:
                       - eu-south-1
                       - eu-south-2
 
+  # Konto z puli logowania, ktore nie nalezy do grupy notarai-v2 (np. zwykly uzytkownik V1),
+  # dostaje te role: bez zadnych uprawnien.
+  RolaBezDostepu:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-v2-bez-dostepu
+      Description: Zalogowane konto spoza grupy notarai-v2 - brak uprawnien
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref PulaTozsamosci
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
+
+  # Dostep do AI dostaje tylko konto dodane do tej grupy (swiadoma decyzja przy wdrozeniu kancelarii).
+  GrupaStanowisk:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: notarai-v2
+      Description: Konta kancelarii z dostepem stanowiska V2 do AI i kopii
+      UserPoolId: !Ref PulaUzytkownikow
+      RoleArn: !GetAtt RolaStanowiska.Arn
+
   PrzypisanieRoli:
     Type: AWS::Cognito::IdentityPoolRoleAttachment
     Properties:
       IdentityPoolId: !Ref PulaTozsamosci
       Roles:
-        authenticated: !GetAtt RolaStanowiska.Arn
+        authenticated: !GetAtt RolaBezDostepu.Arn
+      RoleMappings:
+        pula:
+          IdentityProvider: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${PulaUzytkownikow}:${KlientStanowiska}"
+          Type: Token
+          AmbiguousRoleResolution: Deny
 
 Outputs:
   KlientStanowiskaId:

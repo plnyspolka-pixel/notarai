@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 from .vault import MAX_BYTES, Conflict, Vault
@@ -28,6 +29,8 @@ class WorkCopyError(Exception):
 def _safe_name(name: str) -> str:
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).strip(" .") or "dokument"
     stem = name.rsplit(".", 1)[0]
+    if name.startswith(_LOCKS):       # would look like an editor lock file and block check-in forever
+        name = "_" + name
     if stem.upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
         name = "_" + name
     return name[:120]
@@ -50,7 +53,10 @@ class WorkCopies:
         self._root, self._vault, self._open = Path(home) / "workcopies", vault, opener
 
     def _folder(self, doc_id: str) -> Path:
-        return self._root / doc_id
+        try:
+            return self._root / str(uuid.UUID(doc_id))      # one folder per document, whatever the spelling
+        except (ValueError, AttributeError, TypeError):
+            raise WorkCopyError("Nie ma takiego dokumentu.") from None
 
     def _state(self, doc_id: str) -> dict:
         try:
@@ -70,12 +76,17 @@ class WorkCopies:
             raise WorkCopyError("Ten dokument jest już otwarty do edycji. Zapisz go do sejfu albo porzuć zmiany.")
         folder.mkdir(mode=0o700, parents=True)
         path = folder / _safe_name(name)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as file:
-            file.write(data)
-        state = {"id": doc_id, "version": version, "name": name, "file": path.name,
+        state = {"id": folder.name, "version": version, "name": name, "file": path.name,
                  "sha256": hashlib.sha256(data).hexdigest(), "opened": int(time.time())}
-        (folder / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        try:
+            # The record first, the plaintext second: a copy on disk is always listed and removable.
+            (folder / "state.json").write_text(json.dumps(state), encoding="utf-8")
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as file:
+                file.write(data)
+        except OSError:
+            self._remove(folder.name)
+            raise WorkCopyError("Nie udało się zapisać kopii roboczej na dysku.") from None
         self._vault.log(actor, "checkout", doc_id, version)
         try:
             self._open(path)
@@ -91,7 +102,7 @@ class WorkCopies:
             "id": state["id"], "name": state["name"], "version": state["version"], "opened": state["opened"],
             "path": str(path), "missing": not exists,
             "changed": exists and _digest(path) != state["sha256"],
-            "in_use": any(p.name.startswith(_LOCKS) for p in folder.iterdir()),
+            "in_use": any(p.name.startswith(_LOCKS) and p.name != state["file"] for p in folder.iterdir()),
         }
 
     def list(self) -> list[dict]:
@@ -115,35 +126,46 @@ class WorkCopies:
             raise WorkCopyError("Zamknij dokument w edytorze, a potem zapisz go do sejfu.")
         if not info["changed"]:
             self._remove(doc_id)
-            return {"id": doc_id, "version": state["version"], "saved": False}
+            return {"id": state["id"], "version": state["version"], "saved": False}
         if path.stat().st_size > MAX_BYTES:
             raise WorkCopyError("Plik przekracza 20 MiB.")
         try:
-            _, version = self._vault.put(doc_id, state["version"], state["name"], path.read_bytes(), actor=actor)
+            _, version = self._vault.put(state["id"], state["version"], state["name"], path.read_bytes(), actor=actor)
         except Conflict:
             # Keep the working copy: the notary decides what to do with both versions.
             raise WorkCopyError("W sejfie jest już nowsza wersja tego dokumentu. Twoja kopia robocza została "
                                 "zachowana; zapisz ją w edytorze pod inną nazwą i wgraj jako nowy dokument.") from None
-        self._remove(doc_id)
-        return {"id": doc_id, "version": version, "saved": True}
+        try:
+            self._remove(doc_id)
+        except WorkCopyError:
+            pass        # the revision is safely stored; the leftover copy stays listed in the panel
+        return {"id": state["id"], "version": version, "saved": True}
 
     def discard(self, doc_id: str, actor: str = "local-admin") -> None:
         state = self._state(doc_id)
         if self._describe(state)["in_use"]:
             raise WorkCopyError("Zamknij dokument w edytorze, zanim porzucisz zmiany.")
         self._remove(doc_id)
-        self._vault.log(actor, "discard-workcopy", doc_id, state["version"])
+        self._vault.log(actor, "discard-workcopy", state["id"], state["version"])
 
     def _remove(self, doc_id: str) -> None:
         folder = self._folder(doc_id)
-        for path in folder.iterdir():
-            if path.is_file() and path.name != "state.json":
-                try:    # best effort: overwrite before unlinking; SSDs may still keep old blocks
-                    with path.open("r+b") as file:
-                        file.write(b"\x00" * path.stat().st_size)
-                        file.flush()
-                        os.fsync(file.fileno())
-                except OSError:
-                    pass
-            path.unlink(missing_ok=True)
-        folder.rmdir()
+        if not folder.is_dir():
+            return
+        files = sorted(folder.iterdir(), key=lambda p: p.name == "state.json")     # the record goes last
+        try:
+            for path in files:
+                if path.is_file() and path.name != "state.json":
+                    try:    # best effort: overwrite before unlinking; SSDs may still keep old blocks
+                        with path.open("r+b") as file:
+                            file.write(b"\x00" * path.stat().st_size)
+                            file.flush()
+                            os.fsync(file.fileno())
+                    except OSError:
+                        pass
+                path.unlink(missing_ok=True)
+            folder.rmdir()
+        except OSError:
+            # Typically a viewer still holding the file on Windows; it stays listed for another try.
+            raise WorkCopyError("Nie udało się usunąć kopii roboczej. Zamknij program, który ją otworzył, "
+                                "i spróbuj ponownie.") from None

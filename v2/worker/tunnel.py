@@ -105,21 +105,26 @@ class TunnelKeys:
         return b64e(self.signing.sign(message, ec.ECDSA(hashes.SHA256())))   # DER, verified by the relay
 
 
+WINDOW = 512     # frames that may arrive ahead of their turn (the relay does not guarantee order)
+
+
 class _Cipher:
+    """AES-256-GCM where the nonce is the frame's sequence number, so each number is usable once."""
+
     def __init__(self, key: bytes):
         self._aead, self._counter = AESGCM(key), 0
 
-    def _nonce(self) -> bytes:
-        nonce = self._counter.to_bytes(12, "big")
+    def next_number(self) -> int:
+        number = self._counter
         self._counter += 1
-        return nonce
+        return number
 
-    def seal(self, data: bytes, final: bool) -> str:
-        return b64e(self._aead.encrypt(self._nonce(), data, bytes([final])))
+    def seal(self, number: int, data: bytes, final: bool) -> str:
+        return b64e(self._aead.encrypt(number.to_bytes(12, "big"), data, bytes([final])))
 
-    def open(self, record: str, final: bool) -> bytes:
+    def open(self, number: int, record: str, final: bool) -> bytes:
         try:
-            return self._aead.decrypt(self._nonce(), b64d(record), bytes([final]))
+            return self._aead.decrypt(number.to_bytes(12, "big"), b64d(record), bytes([final]))
         except InvalidTag:
             raise TunnelError("record rejected") from None
 
@@ -137,33 +142,47 @@ def encode_message(cipher: _Cipher, message: dict) -> list[str]:
     frames = []
     for offset in range(0, max(len(data), 1), CHUNK):
         final = offset + CHUNK >= len(data)
-        frames.append(json.dumps({"t": "d", "f": int(final), "c": cipher.seal(data[offset:offset + CHUNK], final)}))
+        number = cipher.next_number()
+        frames.append(json.dumps(
+            {"t": "d", "n": number, "f": int(final), "c": cipher.seal(number, data[offset:offset + CHUNK], final)}))
     return frames
 
 
 class _Assembler:
+    """Puts frames back in order and rebuilds messages. A number below the next expected one is a
+    replay and ends the session; a tampered number fails authentication, because it is the nonce."""
+
     def __init__(self, cipher: _Cipher):
         self._cipher, self._parts, self._size = cipher, [], 0
+        self._expected, self._early = 0, {}
 
-    def feed(self, frame: dict) -> dict | None:
-        final = frame.get("f") == 1
-        if frame.get("f") not in (0, 1):
+    def feed(self, frame: dict) -> list[dict]:
+        number = frame.get("n")
+        if frame.get("f") not in (0, 1) or type(number) is not int or number < self._expected \
+                or number >= self._expected + WINDOW or number in self._early:
             raise TunnelError("bad frame")
-        part = self._cipher.open(frame.get("c", ""), final)
-        self._size += len(part)
-        if self._size > MAX_MESSAGE:
-            raise TunnelError("message too large")
-        self._parts.append(part)
-        if not final:
-            return None
-        data, self._parts, self._size = b"".join(self._parts), [], 0
-        try:
-            message = json.loads(data)
-        except ValueError:
-            raise TunnelError("bad message") from None
-        if not isinstance(message, dict):
-            raise TunnelError("bad message")
-        return message
+        self._early[number] = frame
+        messages = []
+        while self._expected in self._early:
+            current = self._early.pop(self._expected)
+            final = current["f"] == 1
+            part = self._cipher.open(self._expected, current.get("c", ""), final)
+            self._expected += 1
+            self._size += len(part)
+            if self._size > MAX_MESSAGE:
+                raise TunnelError("message too large")
+            self._parts.append(part)
+            if not final:
+                continue
+            data, self._parts, self._size = b"".join(self._parts), [], 0
+            try:
+                message = json.loads(data)
+            except ValueError:
+                raise TunnelError("bad message") from None
+            if not isinstance(message, dict):
+                raise TunnelError("bad message")
+            messages.append(message)
+        return messages
 
 
 Dispatch = Callable[[str, str, str, object], Awaitable[tuple[int, object]]]
@@ -184,6 +203,10 @@ class Session:
         self._device: str | None = None
         self.closed = False
 
+    @property
+    def authenticated(self) -> bool:
+        return self._device is not None
+
     async def handle(self, text: str) -> list[str]:
         if self.closed:
             return []
@@ -200,10 +223,10 @@ class Session:
                 return self._handshake(frame)
             if frame.get("t") != "d":
                 raise TunnelError("bad frame")
-            message = self._inbound.feed(frame)
-            if message is None:
-                return []
-            return encode_message(self._outbound, await self._message(message))
+            replies = []
+            for message in self._inbound.feed(frame):
+                replies += encode_message(self._outbound, await self._message(message))
+            return replies
         except TunnelError:
             # One generic notice in clear, then silence: no detail for a probing peer.
             self.closed = True
@@ -247,7 +270,7 @@ class Session:
         if op == "req" and self._device is not None:
             method, path = message.get("method"), message.get("path")
             if method not in {"GET", "POST", "DELETE"} or not isinstance(path, str) or not path.startswith("/v2/") \
-                    or len(path) > 2048 or "\n" in path or "\r" in path:
+                    or len(path) > 2048 or not path.isascii() or any(c <= " " or c == "\x7f" for c in path):
                 raise TunnelError("bad request")
             status, body = await self._dispatch(self._device, method, path, message.get("body"))
             return {"id": message.get("id"), "status": status, "body": body}
@@ -285,7 +308,8 @@ class Client:
                 parsed = json.loads(answer)
                 if parsed.get("t") != "d":
                     raise TunnelError("session closed")
-                reply = self._inbound.feed(parsed) or reply
+                for complete in self._inbound.feed(parsed):
+                    reply = complete
         if reply is None:
             raise TunnelError("no reply")
         return reply
@@ -325,7 +349,8 @@ class RelayClient:
         self.connected = asyncio.Event()
 
     def connect_url(self) -> str:
-        timestamp = int(self._clock())
+        # Strictly increasing: the relay refuses a timestamp it has already seen for this office.
+        timestamp = self._last_stamp = max(int(self._clock()), getattr(self, "_last_stamp", 0) + 1)
         return (f"{self._url}?role=worker&office={self._keys.office}&key={b64e(self._keys.signing_public)}"
                 f"&ts={timestamp}&sig={self._keys.relay_proof(timestamp)}")
 
@@ -334,21 +359,65 @@ class RelayClient:
 
         delay = 1
         while True:
+            pumps: dict[str, tuple[asyncio.Queue, asyncio.Task]] = {}
             try:
-                async with websockets.connect(self.connect_url(), max_size=MAX_FRAME * 2, open_timeout=15) as socket:
+                # Room for the relay's envelope around the largest frame a device may send.
+                async with websockets.connect(self.connect_url(), max_size=8 * MAX_FRAME, open_timeout=15) as socket:
                     self.connected.set()
                     delay = 1
+                    sending = asyncio.Lock()
+
+                    async def pump(queue):
+                        # One queue per device: a long draft for one phone never blocks another.
+                        while True:
+                            raw = await queue.get()
+                            for index, reply in enumerate(await self.route(raw)):
+                                async with sending:
+                                    await socket.send(reply)
+                                if index % 20 == 19:
+                                    await asyncio.sleep(0.05)      # stay under the relay's rate limit
+
                     async for raw in socket:
-                        for reply in await self.route(raw):
-                            await socket.send(reply)
+                        source = self._source(raw)
+                        if source is None:
+                            continue
+                        if source not in pumps:
+                            if len(pumps) >= self.MAX_SESSIONS:
+                                self._evict(pumps)
+                            queue = asyncio.Queue(maxsize=2 * WINDOW)
+                            pumps[source] = (queue, asyncio.create_task(pump(queue)))
+                        try:
+                            pumps[source][0].put_nowait(raw)
+                        except asyncio.QueueFull:
+                            pumps.pop(source)[1].cancel()
+                            self._sessions.pop(source, None)
             except asyncio.CancelledError:
+                for _, task in pumps.values():
+                    task.cancel()
                 raise
             except Exception:
                 pass                       # network trouble: retry quietly, never log frames
+            for _, task in pumps.values():
+                task.cancel()
             self.connected.clear()
             self._sessions.clear()
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60)
+
+    @staticmethod
+    def _source(raw) -> str | None:
+        try:
+            source = json.loads(raw)["from"]
+        except (ValueError, KeyError, TypeError):
+            return None
+        return source if isinstance(source, str) and len(source) <= 128 else None
+
+    def _evict(self, pumps) -> None:
+        """Make room by dropping a connection that never authenticated, if there is one."""
+        victim = next((s for s in pumps if not getattr(self._sessions.get(s), "authenticated", False)),
+                      next(iter(pumps)))
+        pumps.pop(victim)[1].cancel()
+        self._sessions.pop(victim, None)
 
     async def route(self, raw) -> list[str]:
         """Relay envelope: {"from": connection, "data": frame} in, {"to": connection, "data": frame} out."""
@@ -365,9 +434,14 @@ class RelayClient:
         session = self._sessions.get(source)
         if session is None:
             if len(self._sessions) >= self.MAX_SESSIONS:
-                self._sessions.pop(next(iter(self._sessions)))
+                victim = next((s for s, v in self._sessions.items() if not v.authenticated),
+                              next(iter(self._sessions)))
+                self._sessions.pop(victim)
             session = self._sessions[source] = Session(self._keys, self._devices, self._dispatch)
-        replies = await session.handle(data)
+        try:
+            replies = await session.handle(data)
+        except Exception:
+            session.closed, replies = True, [json.dumps({"t": "bye"})]
         if session.closed:
             self._sessions.pop(source, None)
         return [json.dumps({"to": source, "data": reply}) for reply in replies]

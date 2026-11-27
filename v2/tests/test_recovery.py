@@ -235,3 +235,46 @@ def test_cli_backup_and_restore(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     assert recovery.main(["restore", str(backup)]) == 0
     assert code not in capsys.readouterr().out
+
+
+def test_key_rotation_is_refused_while_the_worker_serves(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from worker.api import create_app
+
+    home, vault = new_home(tmp_path)
+    recovery.enroll(home)
+    with TestClient(create_app(home)):                 # lifespan running = worker serving
+        with pytest.raises(recovery.RecoveryError) as error:
+            recovery.rotate_master(home)
+        assert "Zamknij NotarAI" in str(error.value)
+    recovery.rotate_master(home)                       # allowed once it has stopped
+
+
+def test_moving_a_document_between_cases_in_the_database_breaks_its_key(tmp_path):
+    home, vault = new_home(tmp_path)
+    doc, _ = vault.put(None, 0, "akt.txt", b"tresc", case="sprawa-1")
+    with sqlite3.connect(home / "vault.sqlite3") as db:
+        db.execute("UPDATE documents SET case_id='sprawa-2'")
+    with pytest.raises(InvalidTag):
+        vault.get(doc)
+    with pytest.raises(InvalidTag):
+        vault.summaries(cases={"sprawa-2"})
+
+
+def test_failed_restore_leaves_no_key_behind(tmp_path, monkeypatch):
+    home, vault = new_home(tmp_path)
+    code = recovery.enroll(home)
+    vault.put(None, 0, "akt.txt", b"x")
+    backup = tmp_path / "k.notarai-backup"
+    recovery.backup(home, backup)
+    real = recovery.write_new_secret
+
+    def failing(target, name, data):
+        if name == "api.token":
+            raise OSError("disk full")
+        real(target, name, data)
+    monkeypatch.setattr(recovery, "write_new_secret", failing)
+    with pytest.raises(OSError):
+        recovery.restore(backup, tmp_path / "new", code)
+    assert list((tmp_path / "new").iterdir()) == []

@@ -35,16 +35,18 @@ const NotaraiTunnel = (() => {
 
   class Cipher {
     constructor(key) { this.key = key; this.counter = 0; }
-    nonce() {
+    static nonce(number) {
       const nonce = new Uint8Array(12);
-      new DataView(nonce.buffer).setUint32(8, this.counter++);   // 2^32 records per session is ample
+      const view = new DataView(nonce.buffer);
+      view.setUint32(4, Math.floor(number / 4294967296));
+      view.setUint32(8, number % 4294967296);
       return nonce;
     }
-    async seal(data, final) {
-      return b64e(await crypto.subtle.encrypt({ name: "AES-GCM", iv: this.nonce(), additionalData: Uint8Array.of(final ? 1 : 0) }, this.key, data));
+    async seal(number, data, final) {
+      return b64e(await crypto.subtle.encrypt({ name: "AES-GCM", iv: Cipher.nonce(number), additionalData: Uint8Array.of(final ? 1 : 0) }, this.key, data));
     }
-    async open(record, final) {
-      return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: this.nonce(), additionalData: Uint8Array.of(final ? 1 : 0) }, this.key, b64d(record)));
+    async open(number, record, final) {
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: Cipher.nonce(number), additionalData: Uint8Array.of(final ? 1 : 0) }, this.key, b64d(record)));
     }
   }
 
@@ -52,6 +54,7 @@ const NotaraiTunnel = (() => {
     constructor(relay, office, workerKey) {
       this.relay = relay; this.office = office; this.workerKey = workerKey;
       this.socket = null; this.queue = Promise.resolve(); this.waiting = null; this.next = 0;
+      this.expected = 0; this.early = new Map();
       this.onclose = () => {};
     }
 
@@ -78,7 +81,22 @@ const NotaraiTunnel = (() => {
     receive(text) {
       let frame;
       try { frame = JSON.parse(text); } catch { frame = { t: "bye" }; }
-      if (this.waiting) this.waiting.frame(frame);
+      // One frame at a time, in arrival order: decryption is asynchronous and must not interleave.
+      this.incoming = (this.incoming || Promise.resolve()).then(async () => {
+        if (frame.t !== "d") { if (this.waiting) await this.waiting.frame(frame); return; }
+        // The relay may deliver frames out of order; hold early ones until their turn.
+        if (!Number.isInteger(frame.n) || frame.n < this.expected || frame.n >= this.expected + 512) {
+          if (this.waiting) await this.waiting.frame({ t: "bye" });
+          return;
+        }
+        this.early.set(frame.n, frame);
+        while (this.early.has(this.expected)) {
+          const next = this.early.get(this.expected);
+          this.early.delete(this.expected);
+          this.expected += 1;
+          if (this.waiting) await this.waiting.frame(next);
+        }
+      });
     }
 
     expect(handler) {
@@ -88,7 +106,11 @@ const NotaraiTunnel = (() => {
           reject: error => { clearTimeout(timer); reject(error); },
           frame: async frame => {
             try {
-              if (frame.t === "bye") throw new Error("Kancelaria odrzuciła połączenie. Sparuj urządzenie ponownie.");
+              if (frame.t === "bye") {
+                const refused = new Error("Kancelaria odrzuciła połączenie. Sparuj urządzenie ponownie.");
+                refused.bye = true;
+                throw refused;
+              }
               const done = await handler(frame);
               if (done !== undefined) { clearTimeout(timer); this.waiting = null; resolve(done); }
             } catch (error) { clearTimeout(timer); this.waiting = null; reject(error); }
@@ -127,12 +149,14 @@ const NotaraiTunnel = (() => {
         const parts = [];
         const reply = this.expect(async frame => {
           if (frame.t !== "d") throw new Error("Nieoczekiwana odpowiedź kancelarii.");
-          parts.push(await this.inbound.open(frame.c, frame.f === 1));
+          parts.push(await this.inbound.open(frame.n, frame.c, frame.f === 1));
           return frame.f === 1 ? JSON.parse(new TextDecoder().decode(concat(...parts))) : undefined;
         });
-        for (let offset = 0; offset < Math.max(data.length, 1); offset += CHUNK) {
+        for (let offset = 0, sent = 0; offset < Math.max(data.length, 1); offset += CHUNK, sent += 1) {
           const final = offset + CHUNK >= data.length;
-          this.socket.send(JSON.stringify({ t: "d", f: final ? 1 : 0, c: await this.outbound.seal(data.subarray(offset, offset + CHUNK), final) }));
+          const number = this.outbound.counter++;
+          this.socket.send(JSON.stringify({ t: "d", n: number, f: final ? 1 : 0, c: await this.outbound.seal(number, data.subarray(offset, offset + CHUNK), final) }));
+          if (sent % 20 === 19) await new Promise(resolve => setTimeout(resolve, 50));   // stay under the relay's rate limit
         }
         return reply;
       });
@@ -179,7 +203,8 @@ const NotaraiTunnel = (() => {
     const values = new URLSearchParams(fragment.replace(/^#/, ""));
     const link = { relay: values.get("r"), office: values.get("o"), key: values.get("k"), code: values.get("c") };
     if (!link.relay || !link.office || !link.key || !link.code) return null;
-    if (!/^wss:\/\//.test(link.relay) && !/^ws:\/\/127\.0\.0\.1[:/]/.test(link.relay)) return null;
+    if (!/^wss:\/\/[A-Za-z0-9.-]+(:\d{1,5})?(\/[\w.\/-]*)?$/.test(link.relay) &&
+        !/^ws:\/\/127\.0\.0\.1:\d{1,5}(\/[\w.\/-]*)?$/.test(link.relay)) return null;
     return link;
   }
 

@@ -256,3 +256,87 @@ def test_worker_reaches_devices_through_a_relay_with_no_listening_port(office):
             server.close()
         assert hub.frames and not any("TAJNE" in frame or "documents" in frame for frame in hub.frames)
     run(scenario())
+
+
+def test_frames_delivered_out_of_order_are_reassembled(office):
+    """API Gateway may reorder frames of one message; the session must not die of it."""
+    import random
+
+    _, app, keys, devices = office
+
+    async def scenario():
+        session = Session(keys, devices, app.state.dispatch)
+        held = []
+
+        async def send(frame):
+            if '"t": "d"' not in frame and '"t":"d"' not in frame:
+                return await session.handle(frame)
+            held.append(frame)
+            if json.loads(frame)["f"] == 0:
+                return []
+            batch, replies = held[:], []
+            held.clear()
+            random.Random(7).shuffle(batch)
+            for item in batch:
+                replies += await session.handle(item)
+            random.Random(8).shuffle(replies)
+            return replies
+        client = Client(keys.public, send)
+        await client.connect()
+        await client.pair(devices.invite("telefon", "write")["code"], ec.generate_private_key(ec.SECP256R1()))
+        data = base64.b64encode(bytes(range(256)) * 600).decode()
+        status, saved = await client.request("POST", "/v2/documents", {
+            "name": "skan.bin", "expected_version": 0, "content_b64": data})
+        assert status == 200
+        assert (await client.request("GET", "/v2/documents/" + saved["id"]))[1]["content_b64"] == data
+    run(scenario())
+
+
+def test_a_failing_request_does_not_end_the_session_or_the_relay(office):
+    _, app, keys, devices = office
+
+    async def scenario():
+        relay = RelayClient("wss://relay.example/v1", keys, devices, app.state.dispatch)
+
+        async def send(frame):
+            return [json.loads(r)["data"] for r in await relay.route(json.dumps({"from": "A", "data": frame}))]
+        client = Client(keys.public, send)
+        await client.connect()
+        await client.pair(devices.invite("telefon", "read")["code"], ec.generate_private_key(ec.SECP256R1()))
+        doc = "11111111-1111-4111-8111-111111111111"
+        assert (await client.request("GET", f"/v2/documents/{doc}?version=99999999999999999999999"))[0] == 422
+        assert (await client.request("POST", "/v2/devices/redeem", {"code": "x" * 30}))[0] == 403
+        assert (await client.request("GET", "/v2/cases")) == (200, [])       # still alive
+        for path in ("/v2/\t", "/v2/status\x00", "/v2/ą"):
+            fresh = Client(keys.public, send)
+        with pytest.raises(TunnelError):
+            await client.request("GET", "/v2/\t")
+    run(scenario())
+
+
+def test_unauthenticated_connections_are_evicted_before_real_devices(office):
+    _, app, keys, devices = office
+
+    async def scenario():
+        relay = RelayClient("wss://relay.example/v1", keys, devices, app.state.dispatch)
+        relay.MAX_SESSIONS = 3
+
+        def sender(source):
+            async def send(frame):
+                return [json.loads(r)["data"] for r in await relay.route(json.dumps({"from": source, "data": frame}))]
+            return send
+        phone = Client(keys.public, sender("phone"))
+        await phone.connect()
+        await phone.pair(devices.invite("telefon", "read")["code"], ec.generate_private_key(ec.SECP256R1()))
+        for index in range(10):
+            await Client(keys.public, sender(f"anon-{index}")).connect()
+        assert (await phone.request("GET", "/v2/cases"))[0] == 200
+        assert len(relay._sessions) == 3
+    run(scenario())
+
+
+def test_connect_timestamps_strictly_increase(office):
+    _, app, keys, devices = office
+    relay = RelayClient("wss://relay.example/v1", keys, devices, app.state.dispatch, clock=lambda: 1_800_000_000)
+    stamps = [relay.connect_url().split("&ts=")[1].split("&")[0] for _ in range(3)]
+    assert stamps == ["1800000000", "1800000001", "1800000002"]

@@ -9,9 +9,18 @@ const db = new DynamoDBClient({});
 const ttl = () => ({ N: String(Math.floor(Date.now() / 1000) + 3 * 3600) });   // API Gateway closes sockets after 2 h
 
 const store = {
-  async putWorker(office, id) {
-    await db.send(new PutItemCommand({ TableName: table, Item: { pk: { S: "o#" + office }, conn: { S: id }, ttl: ttl() } }));
+  async putWorker(office, id, ts) {
+    try {
+      await db.send(new PutItemCommand({
+        TableName: table, Item: { pk: { S: "o#" + office }, conn: { S: id }, ts: { N: String(ts) }, ttl: ttl() },
+        ConditionExpression: "attribute_not_exists(pk) OR ts < :t", ExpressionAttributeValues: { ":t": { N: String(ts) } },
+      }));
+    } catch (error) {
+      if (error.name === "ConditionalCheckFailedException") return false;
+      throw error;
+    }
     await db.send(new PutItemCommand({ TableName: table, Item: { pk: { S: "c#" + id }, worker: { S: office }, ttl: ttl() } }));
+    return true;
   },
   async getWorker(office) {
     const found = await db.send(new GetItemCommand({ TableName: table, Key: { pk: { S: "o#" + office } }, ConsistentRead: true }));
