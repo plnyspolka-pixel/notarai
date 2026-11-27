@@ -2,7 +2,12 @@
 # Jedno zadanie: karta -> kontrola ukrytych testów -> agent w kontenerze -> ocena (widoczny test
 # + ukryte testy, patrz ukryte.py) -> kontrola zakresu -> gałąź agent/*.
 # Wywoływane przez przebieg.sh (równolegle). Wymaga: ROOT, OUT, TMP, RUN w środowisku.
+# KODER_TRYB=docker (domyślnie): agent i testy w kontenerach `koder-agent`, gałąź wypychana gitem.
+# KODER_TRYB=wezel (węzeł GPU, wezel.py): agent jako osobny użytkownik bez uprawnień, testy jako
+# użytkownik `ocena`, a zamiast wypchnięcia zmiany trafiają do $KODER_ZMIANY/<id>.json - gałąź
+# zakłada Worker Cloudflare (na węźle nie ma kluczy GitHuba).
 set -uo pipefail
+TRYB="${KODER_TRYB:-docker}"
 KARTA="$1"
 J="$(python3 "$ROOT/tools/agent_factory/koder/karta.py" json "$ROOT/$KARTA")" || { echo "odrzucona karta $KARTA"; exit 0; }
 pole() { python3 -c 'import json,sys; v=json.loads(sys.argv[1])[sys.argv[2]]; print(" ".join(v) if isinstance(v, list) else v)' "$J" "$1"; }
@@ -13,7 +18,23 @@ W="$TMP/work/$ID"; T="$TMP/zaufane/$ID"; BR="agent/$RUN-$ID"; LIMIT="${KODER_TAS
 git clone -q --no-hardlinks "$ROOT" "$T" && git -C "$T" checkout -q -b "$BR"
 mkdir -p "$W" && git -C "$ROOT" archive HEAD | tar -x -C "$W"
 # Ukryte testy i łatki sabotażu (W6) nie trafiają do kopii agenta; .git też nie (archive).
-rm -rf "$W/docs/agent-tasks/ukryte"; chmod -R a+rwX "$W"
+rm -rf "$W/docs/agent-tasks/ukryte"
+if [ "$TRYB" = "wezel" ]; then
+  U="k$(printf %s "$ID" | md5sum | cut -c1-12)"
+  for _ in 1 2 3 4 5; do id "$U" > /dev/null 2>&1 && break; useradd -M -s /bin/bash "$U" 2> /dev/null || sleep 2; done
+  AO="$TMP/work/$ID.out"; mkdir -p "$AO" "$TMP/work/$ID.home"
+  chown -R "$U:$U" "$W" "$AO" "$TMP/work/$ID.home"; chmod 700 "$W" "$AO" "$TMP/work/$ID.home"
+  mkdir -p "$TMP/ocena"; chmod 711 "$TMP/ocena"
+  export KODER_OCENA=wezel KODER_OCENA_UZYTKOWNIK=ocena
+  # Środowisko agenta od zera: bez zmiennych roota, sieć na martwy pośrednik, model lokalnie.
+  JAKO=(runuser -u "$U" -- env -i "PATH=$(dirname "$KODER_PYTHON"):/usr/local/bin:/usr/bin:/bin"
+        "HOME=$TMP/work/$ID.home" LANG=C.UTF-8 PYTHONDONTWRITEBYTECODE=1
+        MSWEA_CONFIGURED=true MSWEA_COST_TRACKING=ignore_errors HOSTED_VLLM_API_KEY=local-only
+        HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 http_proxy=http://127.0.0.1:9
+        https_proxy=http://127.0.0.1:9 NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost)
+else
+  chmod -R a+rwX "$W"
+fi
 UKR="$ROOT/tools/agent_factory/koder/ukryte.py"
 export KODER_STAN="${KODER_STAN:-$ROOT/.agent-forge/salad-koder.json}"
 
@@ -34,6 +55,19 @@ PY
 fi
 
 T0=$(date +%s)
+if [ "$TRYB" = "wezel" ]; then
+  (cd "$W" && timeout "$LIMIT" "${JAKO[@]}" mini -c mini.yaml -c "$KODER_CFG/mini.yaml" \
+    -c "agent.step_limit=$KROKI" -y --exit-immediately \
+    -t "$(pole polecenie)" -o "$AO/$ID.traj.json" < /dev/null > "$OUT/$ID.agent.log" 2>&1)
+  RC=$?; T1=$(date +%s)
+  pkill -KILL -u "$U" > /dev/null 2>&1; sleep 1
+  cp "$AO/$ID.traj.json" "$OUT/$ID.traj.json" 2> /dev/null
+  # Ocena jako ten sam użytkownik (jego procesy już nie żyją), w jego kopii, bez dostępu do ukrytych.
+  (cd "$W" && timeout 300 "${JAKO[@]}" $CHECK -p no:cacheprovider > "$OUT/$ID.test.log" 2>&1 < /dev/null)
+  TRC=$?
+  pkill -KILL -u "$U" > /dev/null 2>&1
+  chown -R root:root "$W"
+else
 timeout "$LIMIT" docker run --rm --name "agent-$ID" --network kodernet \
   --cap-drop ALL --security-opt no-new-privileges --memory 4g --pids-limit 512 \
   -u "$(id -u):$(id -g)" -v "$W:/repo" -v "$OUT:/out" \
@@ -48,6 +82,7 @@ timeout 300 docker run --rm --network none --cap-drop ALL --security-opt no-new-
   --memory 4g -u "$(id -u):$(id -g)" -v "$W:/repo" -w /repo koder-agent \
   $CHECK -p no:cacheprovider > "$OUT/$ID.test.log" 2>&1 < /dev/null
 TRC=$?
+fi
 
 # Ukryte testy na osobnej kopii pracy agenta (nie trafiają do commita).
 python3 "$UKR" po "$ROOT/$KARTA" "$W" > "$OUT/$ID.ukryte.json" 2> "$OUT/$ID.ukryte.log"   || echo '{"ukryte_zaliczone": false, "blad": "ocena ukrytymi testami nie zadziałała"}' > "$OUT/$ID.ukryte.json"
@@ -58,7 +93,7 @@ if [ -d "$ROOT/docs/agent-tasks/ukryte" ]; then
 fi
 
 # Commit w zaufanym klonie (agent nie miał dostępu do .git), bez hooków.
-G=(git --git-dir="$T/.git" --work-tree="$W" -c core.hooksPath=/dev/null -c core.fsmonitor=false)
+G=(git --git-dir="$T/.git" --work-tree="$W" -c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.quotepath=off)
 "${G[@]}" add -A
 mapfile -t ZM < <("${G[@]}" diff --cached --name-only)
 # W3/K5: nowe importy spoza stdlib, repo i requirements.txt (zmyślone paczki). Sprawdzamy
@@ -70,8 +105,25 @@ if [ "${#ZM[@]}" -gt 0 ]; then
   "${G[@]}" -c user.name="koder (agent)" -c user.email="koder@users.noreply.github.com" \
     commit -q -m "agent($ID): $(pole tytul)" \
     -m "Model: ${KODER_MODEL:-?} na SaladCloud, mini-swe-agent. Do przeglądu przez człowieka - nie scalać automatycznie."
+  if [ "$TRYB" = "wezel" ]; then
+    mkdir -p "$KODER_ZMIANY"; chmod 700 "$KODER_ZMIANY"
+    python3 - "$W" "$BR" "agent($ID): $(pole tytul)" "${ZM[@]}" > "$KODER_ZMIANY/$ID.json" <<'PY'
+import base64, json, os, sys
+w, br, tytul = sys.argv[1:4]
+pliki = {}
+for p in sys.argv[4:]:
+    f = os.path.join(w, p)
+    if os.path.islink(f):
+        continue  # dowiązań nie przenosimy (mogłyby wskazywać poza kopię agenta)
+    pliki[p] = base64.b64encode(open(f, "rb").read()).decode() if os.path.isfile(f) else None
+print(json.dumps({"galaz": br, "wiadomosc": tytul + "\n\nModel: " + os.environ.get("KODER_MODEL", "?")
+                  + " na SaladCloud, mini-swe-agent, przebieg z Workera Cloudflare notarai-koder."
+                  " Do przeglądu przez człowieka - nie scalać automatycznie.", "pliki": pliki}))
+PY
+  else
   flock "$TMP/push.lock" bash -c "git -C '$ROOT' fetch -q '$T' '$BR:$BR' && git -C '$ROOT' push -q origin '$BR'" \
     || echo "nie wypchnięto $BR"
+  fi
 fi
 
 python3 - "$OUT" "$ID" "$KARTA" "$RC" "$TRC" "$((T1 - T0))" "$BR" "$POZA" "${ZM[@]}" > "$OUT/$ID.json" <<'PY'

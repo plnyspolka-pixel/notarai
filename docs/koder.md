@@ -19,14 +19,88 @@ Mówisz Claude zwykłym zdaniem, co ma być zrobione. Resztę robi Claude:
 1. **Dzieli** pracę na zadania i dla każdego pisze kartę w `docs/agent-tasks/kolejka/`.
 2. **Przydziela tor** według reguły poniżej i sprawdza karty poleceniem
    `python tools/agent_factory/koder/karta.py lint`.
-3. **Wypycha** gałąź `koder/<nazwa-paczki>`. To uruchamia workflow `koder.yml`: wynajem karty,
-   model, zadania po trzy naraz, usunięcie karty.
+3. **Wypycha** gałąź `koder/<nazwa-paczki>`. Webhook GitHuba budzi Workera Cloudflare
+   `notarai-koder` (sekcja „Gdzie to działa”): wynajem karty, model, zadania po trzy naraz,
+   usunięcie karty. GitHub Actions nie bierze w tym udziału.
 4. **Odbiera** wyniki z gałęzi `agent/<przebieg>-wyniki` (`WYNIKI.md`) i przegląda każdy diff
    z gałęzi `agent/<przebieg>-<id>`.
 5. **Składa** przyjęte zmiany w jeden pull request do Twojej akceptacji. Zadania niezaliczone
    robi sam albo zwraca z pytaniem. Karty zadań tor `claude` wykonuje w zwykłej sesji.
 
 Agent niczego nie scala, nie wdraża i nie ma żadnych kluczy.
+
+## Gdzie to działa (od 23.11.2026: Cloudflare, nie GitHub Actions)
+
+Twarda reguła właściciela: z GitHub Actions nic się nie renderuje i nie wynajmuje GPU
+(`tools/zakaz_renderu_gha.py`). Dawny workflow `koder.yml` usunięto: runner czekał na kartę
+do 2 h i palił minuty Actions.
+
+```
+push koder/* ──webhook──▶ Worker notarai-koder ──brama salad-brama──▶ SaladCloud: 1 karta
+POST /start  ──token────▶  (Durable Object,       (klucz Salad zostaje   vLLM 127.0.0.1:8001
+                            alarm co minutę,        w Workerze Finance     + agenci + ocena
+                            cron co 5 min)          You)                   (wezel.py)
+                ◀── GET /stan, GET /wyniki przez bramę kontenera Salad ──┘
+                ──▶ gałęzie agent/* (API GitHuba albo odbierz.py), DELETE karty
+```
+
+- **Worker:** `https://notarai-koder.financeyou.workers.dev`, kod w
+  `tools/agent_factory/koder/cloudflare/` (wdrożenie `npx wrangler@4 deploy` w tym katalogu,
+  testy `node --test test/*.test.mjs`). Limity w `wrangler.jsonc`: `KODER_MAX_USD` (1,5),
+  `KODER_MINUTES` (120), `KODER_PRIORITY` (`batch,high` - najpierw tańszy batch).
+- **Węzeł:** grupa `finyou-ai-clip-koder-<czas>` (taką nazwę przepuszcza brama). Polecenie
+  kontenera pobiera `wezel.py` z publicznego repo pod dokładnym SHA, stawia vLLM, instaluje
+  mini-swe-agent, wykonuje `przebieg.sh` w trybie `KODER_TRYB=wezel` i wystawia paczkę wyników.
+  Na węźle nie ma żadnych kluczy (ani Salad, ani GitHuba).
+- **Izolacja bez Dockera** (na Salad nie da się uruchomić kontenera w kontenerze): repo zaufane,
+  ukryte testy i wyniki w katalogach roota 0700; każdy agent jako osobny użytkownik bez
+  uprawnień we własnej kopii bez `.git` i bez `ukryte/`; po agencie jego procesy są zabijane;
+  ukryte testy uruchamia użytkownik `ocena`. Ruch agenta do sieci idzie na martwy pośrednik -
+  to utrudnienie, nie zapora, dlatego na węzeł trafia wyłącznie publiczny kod.
+- **Karta zawsze usunięta:** po odbiorze wyników od razu; po terminie (`KODER_DEADLINE`) przez
+  alarm Workera; cron co 5 minut usuwa każdą grupę kodera po terminie albo osieroconą; strażnik
+  bramy Finance You usuwa grupy po `AICLIP_DEADLINE`; sam węzeł kończy pracę po terminie.
+- **Wspólna brama:** dopóki trwa render `finyou-ai-clip*`, koder czeka (do 45 min), żeby nie
+  blokować renderu. Gdy Worker dostanie własny `SALAD_API_KEY` (z `notarai/salad`), działa
+  wprost z api.salad.com na grupach `notarai-koder-*` i brama nie jest potrzebna.
+
+### Uruchomienie i odbiór
+
+```bash
+# token: z public.render_tokens (zakres gpu:salad), w pliku poza repo; nigdy w czacie
+H="x-webhook-secret: $(cat ~/.koder-token)"; U=https://notarai-koder.financeyou.workers.dev
+curl -X POST -H "$H" -d '{"ref":"koder/paczka"}' $U/start   # albo {"sha":"…","karty":"a,b"}
+curl -H "$H" $U/stan                                         # faza, Salad, postęp węzła, koszt
+curl -X POST -H "$H" $U/stop                                 # natychmiast usuń kartę
+KODER_TOKEN_PLIK=~/.koder-token python3 tools/agent_factory/koder/odbierz.py <przebieg> --push
+```
+
+`odbierz.py` jest potrzebny, dopóki Worker nie ma `GITHUB_TOKEN`; z tokenem Worker sam
+zakłada gałęzie `agent/<przebieg>-<id>` i `agent/<przebieg>-wyniki` (faza `wypychanie`).
+
+### Do zrobienia przez właściciela (raz)
+
+1. **Webhook** (wymaga admina repo): wygeneruj sekret (`openssl rand -hex 32`), zapisz go
+   w Secrets Manager jako `notarai/koder-webhook` (eu-central-1) i wgraj do Workera:
+   `npx wrangler@4 secret put GITHUB_WEBHOOK_SECRET` (nadpisuje tymczasowy). Potem w GitHubie
+   Settings → Webhooks → Add webhook: Payload URL
+   `https://notarai-koder.financeyou.workers.dev/github`, Content type `application/json`,
+   Secret = ta sama wartość, zdarzenie „Just the push event”. Worker odpowie na `ping`.
+   Bez webhooka działa ręczny `POST /start`.
+2. **Token GitHuba dla Workera** (opcjonalnie, żeby gałęzie zakładał sam): fine-grained PAT
+   tylko na `plnyspolka-pixel/notarai`, uprawnienie Contents: Read and write, potem
+   `npx wrangler@4 secret put GITHUB_TOKEN` w `tools/agent_factory/koder/cloudflare/`.
+3. **Własny klucz Salad** (opcjonalnie): `SALAD_API_KEY` z `notarai/salad` przez
+   `asm-exec` do `wrangler secret put SALAD_API_KEY` (wartość nie trafia do kontekstu ani
+   logów) oraz `SALAD_ORG` w `wrangler.jsonc` na organizację z tego sekretu.
+
+### Przebieg próbny (23.11.2026)
+
+`cf-20261123t2233h`: 3 karty (`walidacja-regon`, `nazwy-max-dlugosc`, `taksa-kwota-kropki`),
+**3 z 3 zaliczone** (widoczny test + ukryte testy), RTX 5090; batch nie dał węzła w 15 min,
+więc Worker przeszedł na high. Od utworzenia karty do usunięcia 14 min, górna granica kosztu
+0,14 USD (pierwsza próba `cf-20261123t2146h` padła na braku gita w obrazie, karta usunięta
+od razu, do 0,28 USD - głównie pobieranie obrazu). Zero minut GitHub Actions.
 
 ## Karta zadania
 
@@ -124,8 +198,10 @@ Zaliczone i tak czyta Claude przed złożeniem pull requesta: test mówi, że dz
 
 ## Koszty i miara
 
-- Karta RTX 5090: 0,60 USD/h, naliczane od pobierania modelu. Limity w `koder.yml`:
-  `KODER_MINUTES`, `KODER_MAX_USD`; po terminie model wyłącza się sam nawet bez workflow.
+- Karta RTX 5090: 0,25 USD/h w priorytecie batch (0,60 USD/h high), naliczane od pobierania
+  modelu. Limity w `tools/agent_factory/koder/cloudflare/wrangler.jsonc`: `KODER_MINUTES`,
+  `KODER_MAX_USD`; po terminie węzeł wyłącza się sam nawet bez Workera. Batch może zostać
+  przerwany przez Salad - wtedy przebieg kończy się terminem, a niezaliczone karty wracają.
 - Pierwsza próba (16.11.2026): 5 zadań, 5 oddanych, 4 z 4 sprawdzanych zaliczone, 52 minuty
   karty, ok. 0,52 USD. To za mało na wniosek o jakości.
 - Miarą jest **koszt przyjętej zmiany** (USD karty ÷ liczba zmian przyjętych po przeglądzie),
@@ -139,5 +215,5 @@ Zaliczone i tak czyta Claude przed złożeniem pull requesta: test mówi, że dz
   dostawcy.
 - Brama Salad ucina żądanie po 100 s, więc odpowiedź modelu jest ograniczona do 4096 tokenów,
   a tryb „myślenia” modelu jest wyłączony.
-- Strażnika usuwającego kartę spoza workflow jeszcze nie ma; zabezpieczeniem jest krok
-  „Usuń kartę (zawsze)” i samowyłączenie modelu po terminie.
+- Na węźle agent ma technicznie dostęp do internetu (patrz izolacja wyżej); ukryte testy
+  leżą w publicznym repo, więc to pomiar, nie sejf.
