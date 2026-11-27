@@ -183,6 +183,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   agenta ani przeglądarkę; KRZ (brak API) w osobnej przeglądarce bez okna (`przegladarka-krz`), okno tylko na prośbę
   po nieudanym sprawdzeniu w tle. Zdania o KW/KRZ rozpoznaje kod przed agentem. Sprawy nie trzeba wybierać:
   program rozpoznaje ją po numerze KW, PESEL albo nazwisku strony (`chat._guess_case`).
+- Agent w trybie uczenia (decyzja właściciela 27.11.2026): gdy agent utknie (krok `pytanie` albo 3 błędy z rzędu,
+  liczone kodem), pyta notariusza z opcjami; z odpowiedzi powstaje lekcja `komputer` (potwierdzona, bo powiedział ją
+  notariusz) i jest pokazywana od razu; po pracy z błędami program proponuje wniosek do potwierdzenia. Lekcje bez
+  danych osobowych; potwierdzone trafiają do instrukcji agenta (`learning.computer_guidance`).
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

@@ -102,7 +102,7 @@ def test_the_notary_teaches_sees_and_removes_lessons_by_talking(tmp_path):
     assert "Zapamiętałem: akty podpisujemy w gabinecie" in say("zapamiętaj: akty podpisujemy w gabinecie nr 2")[0]["text"]
     assert "zapamiętałem korektę" in say("to było źle: taksa od darowizny w I grupie jest inna")[0]["text"]
     assert client.get("/v2/learning", headers=admin).json() == {"enabled": True, "total": 2, "pending": 0, "counts": {
-        "zasada": 0, "poprawka": 0, "slownik": 0, "odpowiedz": 0, "wiedza": 1, "korekta": 1}}
+        "zasada": 0, "poprawka": 0, "slownik": 0, "odpowiedz": 0, "wiedza": 1, "korekta": 1, "komputer": 0}}
     listing = say("czego się nauczyłeś")[0]["text"]
     assert "Wiedza kancelarii:\n1. akty podpisujemy w gabinecie nr 2" in listing and "Korekty odpowiedzi:\n2." in listing
     asked = say("zapomnij lekcję 1")

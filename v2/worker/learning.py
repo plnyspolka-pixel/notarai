@@ -17,7 +17,7 @@ import secrets
 import time
 
 KINDS = {"zasada": "Zasady stylu kancelarii", "poprawka": "Poprawki w aktach", "slownik": "Dyktowanie", "odpowiedz": "Odpowiedzi na maile",
-         "wiedza": "Wiedza kancelarii", "korekta": "Korekty odpowiedzi"}
+         "wiedza": "Wiedza kancelarii", "korekta": "Korekty odpowiedzi", "komputer": "Praca na komputerze"}
 MAX_LESSONS = 400
 SENTENCE = re.compile(r"(?<=[.!?;:])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ„(])")
 
@@ -51,6 +51,14 @@ SYSTEM_INSIGHT = (
     "Pomiń literówki, wielkość liter, interpunkcję i dane tej konkretnej sprawy. Jeśli nie wynika z nich nic ogólnego, "
     "odpowiedz jednym słowem: BRAK."
 )
+SYSTEM_COMPUTER = (
+    "Program NotarAI wykonywał na komputerze kancelarii polecenie notariusza (pliki, programy Windows, strony). "
+    "Dostajesz przebieg: kroki, błędy i to, co w końcu zadziałało albo co odpowiedział notariusz. Sformułuj jedną albo "
+    "dwie OGÓLNE wskazówki na przyszłość, które oszczędzą prób przy następnym podobnym zadaniu, np. „W RejNET pole "
+    "Numer aktu jest na zakładce Repertorium; najpierw ją kliknij.” albo „Na stronie EKW przycisk Dalej działa dopiero "
+    "po zaznaczeniu zgody.” Podaj program albo stronę, której dotyczy. Bez nazwisk, numerów i danych tej sprawy. Każda "
+    "wskazówka w osobnej linii zaczynającej się od „- ”. Jeśli nic ogólnego z tego nie wynika, odpowiedz: BRAK."
+)
 SYSTEM_TONE = (
     "Opisz w jednym do trzech zdań styl, w jakim kancelaria notarialna odpowiada na e-maile, na podstawie jej "
     "odpowiedzi poniżej: zwrot grzecznościowy, długość, ton, jak podaje terminy i co zawsze dopisuje. Każde zdanie "
@@ -72,7 +80,8 @@ class Learning:
         self._vault, self._enabled, self._clock = vault, enabled, clock
         self._inference = inference or (lambda: None)
 
-    def _insights(self, system: str, material: str, act: str, kind: str = "zasada") -> list[dict]:
+    def _insights(self, system: str, material: str, act: str, kind: str = "zasada",
+                  status: str = "proponowana") -> list[dict]:
         """General rules the assistant draws from the notary's own work; proposed, never used before a yes."""
         inference = self._inference()
         if inference is None or not getattr(inference, "enabled", False):
@@ -86,7 +95,8 @@ class Learning:
             rule = line.strip().lstrip("-•* ").strip()
             if len(rule) < 15 or rule.upper().startswith("BRAK") or "[" in rule:
                 continue
-            lesson = self._add(kind, rule + (f" ({act})" if act and kind == "zasada" else ""), {"act": act}, "z:" + rule.lower())
+            lesson = self._add(kind, rule + (f" ({act})" if act and kind == "zasada" else ""), {"act": act}, "z:" + rule.lower(),
+                               status=status)
             if lesson:
                 learned.append(lesson)
         return learned[:3]
@@ -224,6 +234,21 @@ class Learning:
             examples = "\n---\n".join(l["data"]["example"] for l in self.lessons("odpowiedz"))
             return self._insights(SYSTEM_TONE, examples, "", kind="zasada")
         return []
+
+    def from_agent(self, material: str, *, notary_answered: bool) -> list[dict]:
+        """What the computer agent learned from one run. From the notary's own answer the lesson counts at once
+        (the notary said it); drawn by the program from its own tries it is proposed („potwierdzasz?”)."""
+        if not self.enabled:
+            return []
+        return self._insights(SYSTEM_COMPUTER, material, "", kind="komputer",
+                              status="potwierdzona" if notary_answered else "proponowana")
+
+    def computer_guidance(self) -> str:
+        """Confirmed lessons about this computer's programs and pages, for the agent's instructions."""
+        if not self.enabled:
+            return ""
+        lessons = [l["text"] for l in self.confirmed("komputer")][-40:] + [l["text"] for l in self.confirmed("wiedza")][-15:]
+        return "\n".join(f"- {t}" for t in lessons)
 
     def remember(self, text: str, kind: str = "wiedza") -> dict | None:
         text = " ".join(text.split())[:500]

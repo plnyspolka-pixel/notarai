@@ -129,7 +129,10 @@ class Bedrock:
     def get_inference_profile(self, inferenceProfileIdentifier):
         return {"models": [{"modelArn": f"arn:aws:bedrock:{r}::foundation-model/x"} for r in EU_REGIONS]}
 
+    prompts = []
+
     def converse(self, **kwargs):
+        Bedrock.prompts.append(kwargs["messages"][0]["content"][-1]["text"])
         return {"output": {"message": {"content": [{"text": self.replies.pop(0)}]}}, "stopReason": "end_turn",
                 "usage": {"inputTokens": 1, "outputTokens": 1}}
 
@@ -618,3 +621,45 @@ def test_a_delphi_program_is_read_by_its_fields_not_by_screenshots():
     elements.append(password)
     desktop.controls(deep=True)
     assert desktop.password_field is True                             # a login screen of a classic program is seen too
+
+
+def test_a_stuck_agent_asks_learns_from_the_answer_and_uses_it_next_time(office):
+    client, admin, desk, desktop, replies = office
+    replies += [json.dumps({"krok": "pytanie", "problem": "W RejNET nie widzę pola Numer aktu",
+                            "opcje": ["Zakładka Repertorium", "Zakładka Akty"]}),
+                "- W RejNET pole Numer aktu jest na zakładce Repertorium; najpierw ją kliknij.",
+                json.dumps({"krok": "koniec", "odpowiedz": "Wpisałem numer na zakładce Repertorium."})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "wpisz numer aktu w RejNET w programie"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    assert "Utknąłem: W RejNET nie widzę pola Numer aktu" in asked[0]["text"]
+    options = [i["label"] for i in asked[1]["items"]]
+    assert options == ["Zakładka Repertorium", "Zakładka Akty", "Przerwij"]
+    answered = client.post("/v2/chat", headers=admin, json={"text": asked[1]["items"][0]["say"]}).json()["blocks"]
+    assert "📘 Nauczyłem się: W RejNET pole Numer aktu jest na zakładce Repertorium" in answered[0]["text"]
+    done = wait(client, admin, next(b["id"] for b in answered if b["type"] == "job"))
+    assert "Wpisałem numer na zakładce Repertorium." in done[0]["text"]
+    assert "Notariusz odpowiedział na Twoje pytanie" in Bedrock.prompts[-1]
+    # the next task starts with what was learned
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "Gotowe."})]
+    again = client.post("/v2/chat", headers=admin, json={"text": "otwórz RejNET w programie i sprawdź repertorium"}).json()["blocks"]
+    wait(client, admin, next(b["id"] for b in again if b["type"] == "job"))
+    assert "LEKCJE KANCELARII" in Bedrock.prompts[-1] and "zakładce Repertorium" in Bedrock.prompts[-1]
+
+
+def test_three_failures_in_a_row_stop_the_agent_and_a_lesson_is_proposed_after_a_bumpy_run(office):
+    client, admin, desk, desktop, replies = office
+    bad = json.dumps({"krok": "czytaj", "plik": str(desk / "brak.docx")})
+    replies += [bad, bad, bad, json.dumps({"krok": "czytaj", "plik": str(desk / "brak.docx")})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "przeczytaj plik brak.docx na pulpicie"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    assert "kilka kolejnych kroków się nie udało" in asked[0]["text"]
+    assert "Spróbuj innym sposobem" in [i["label"] for i in asked[1]["items"]]
+    (desk / "akt.txt").write_text("Akt", encoding="utf-8")
+    replies += ["- Pliki aktów na pulpicie mają rozszerzenie TXT, nie DOCX.",
+                json.dumps({"krok": "czytaj", "plik": str(desk / "akt.txt")}),
+                json.dumps({"krok": "koniec", "odpowiedz": "Przeczytałem akt.txt."})]
+    answered = client.post("/v2/chat", headers=admin, json={"text": "to jest plik akt.txt"}).json()["blocks"]
+    assert "📘 Nauczyłem się: Pliki aktów na pulpicie" in answered[0]["text"]
+    done = wait(client, admin, next(b["id"] for b in answered if b["type"] == "job"))
+    assert "Przeczytałem akt.txt." in done[0]["text"]
+

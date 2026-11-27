@@ -96,6 +96,9 @@ SYSTEM_AGENT = (
     "argumentem --help\n"
     "- {\"krok\":\"notatka\",\"program\":nazwa programu albo adres strony,\"tekst\":jedno zdanie o drodze przez program} – "
     "zapamiętuje na przyszłość, jak dojść do ekranu albo funkcji (menu, zakładki, przyciski); bez danych osób i numerów\n"
+    "- {\"krok\":\"pytanie\",\"problem\":co Cię blokuje, jednym zdaniem,\"opcje\":[2-4 krótkie możliwości, co dalej]} – "
+    "gdy utkniesz (kilka prób bez skutku, niejasne okno, kilka możliwych dróg) NIE zgaduj: zapytaj notariusza; po "
+    "odpowiedzi pracujesz dalej, a program zapamięta wniosek\n"
     "- {\"krok\":\"koniec\",\"odpowiedz\":co zrobiłeś i co z tego wynika, po polsku, krótko}\n"
     "Najpierw plan: jeśli niżej jest MAPA PROGRAMU dla tego programu, idź prosto po znanej drodze. Jeśli mapy nie ma, "
     "najpierw poznaj program (okno albo widok głównego ekranu, potem menu i zakładki, bez zapisywania czegokolwiek), zapisz "
@@ -775,7 +778,9 @@ class Agent:
         self._computer, self._ask, self._narrate = computer, ask, narrate
         self._rules, self._max = rules, max_steps
 
-    def run(self, task: str, *, allowed=frozenset(), history=None) -> dict:
+    STUCK_AFTER = 3            # failed steps in a row: the agent asks the notary instead of trying on
+
+    def run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "") -> dict:
         """Returns {"answer", "steps", "stopped": None | {"kind", "label", "step", "history"}}.
 
         `allowed`: kinds of irreversible act approved for this run (from the sentence or a „Tak”)."""
@@ -788,6 +793,8 @@ class Agent:
             picture, self._computer.picture = getattr(self._computer, "picture", None), None
             learned = known.describe() if known is not None else ""
             reply = self._ask(SYSTEM_AGENT, f"Polecenie notariusza: {task}\n\n"
+                                            + (f"LEKCJE KANCELARII (wyciągnięte z wcześniejszych prac i odpowiedzi notariusza; "
+                                               f"stosuj je):\n{lessons}\n\n" if lessons else "")
                                             + (f"MAPA PROGRAMU (z poprzednich prac na tym komputerze):\n{learned}\n\n" if learned else "")
                                             + f"Dotychczasowe kroki:\n{transcript or '(brak)'}"
                                             "\n\nPodaj następny krok (jeden obiekt JSON).", (picture,) if picture else ())
@@ -800,6 +807,24 @@ class Agent:
             why = str(step.get("po_co", ""))[:200]
             if kind == "koniec":
                 return {"answer": str(step.get("odpowiedz", "")).strip() or "Gotowe.", "steps": steps, "stopped": None}
+            if kind == "pytanie":
+                options = [str(o)[:120] for o in (step.get("opcje") or []) if str(o).strip()][:4]
+                problem = str(step.get("problem", "")).strip()[:300] or "Nie wiem, jak dalej."
+                self._narrate(f"{time.strftime('%H:%M:%S')} · utknąłem: {problem} · pytam notariusza")
+                return {"answer": "", "steps": steps, "stopped": {"kind": "pytanie", "label": problem, "options": options,
+                                                                  "step": step, "history": history}}
+            failed = 0
+            for earlier in reversed(steps):
+                if not str(earlier.get("wynik", "")).startswith("BŁĄD"):
+                    break
+                failed += 1
+            if failed >= self.STUCK_AFTER:     # decided by code: three failures in a row is being stuck
+                problem = "kilka kolejnych kroków się nie udało: " + "; ".join(
+                    str(e["wynik"])[6:80] for e in steps[-self.STUCK_AFTER:])
+                self._narrate(f"{time.strftime('%H:%M:%S')} · {failed} błędy z rzędu: zatrzymuję się i pytam notariusza")
+                return {"answer": "", "steps": steps, "stopped": {
+                    "kind": "pytanie", "label": problem, "step": None, "history": history,
+                    "options": ["Spróbuj innym sposobem", "Pokażę Ci, jak to zrobić", "Przerwij"]}}
             act = self._irreversible(step)
             if act and act not in allowed:
                 label = (step.get("przycisk") or step.get("co") or step.get("klawisze")

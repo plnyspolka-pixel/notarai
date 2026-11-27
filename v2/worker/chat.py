@@ -135,6 +135,7 @@ def when(ns: int) -> str:
 
 class Chat:
     def __init__(self, services):
+        self._agent_question: dict[str, dict] = {}
         self.s = services
         self._pending: dict[str, tuple[str, float, callable]] = {}
         self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
@@ -239,6 +240,9 @@ class Chat:
         office_rules = self._office_rules(identity, message, plain)
         if office_rules is not None:
             return office_rules
+        answered = self._agent_answer(identity, message, plain)
+        if answered is not None:
+            return answered
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
@@ -329,18 +333,30 @@ class Chat:
             browser.hide()                               # the notary did their part: back out of sight
         agent = Agent(computer, self.s.agent_ask, narrate=lambda line: self.s.narrate(identity, line),
                       rules=self.s.rules)
-        result = agent.run(task, allowed=allowed, history=history)
+        learning = getattr(self.s, "learning", None)
+        lessons = learning.computer_guidance() if learning is not None else ""
+        result = agent.run(task, allowed=allowed, history=history, lessons=lessons)
         stopped = result["stopped"]
         used = bool(getattr(computer, "used_browser", False))
         look = [buttons(("Pokaż przeglądarkę", "pokaż przeglądarkę"))] if used else []
         if stopped is None:
             self.s.vault.log(identity.id, f"agent-{len(result['steps'])}-krokow")
-            return answer_blocks(result["answer"]) + (self._page_picture() + look if used else [])
+            return (answer_blocks(result["answer"]) + (self._page_picture() + look if used else [])
+                    + self._agent_lessons(identity, task, result["steps"], history, answered=False))
 
         def resume(note, kinds=frozenset()):
             return lambda: self._computer(identity, task, allowed=set(allowed) | set(kinds),
                                           history=stopped["history"] + ([note] if note else []))
         kind = stopped["kind"]
+        if kind == "pytanie":
+            self._agent_question[identity.id] = {"task": task, "allowed": set(allowed), "history": stopped["history"],
+                                                 "problem": stopped["label"], "steps": result["steps"],
+                                                 "asked": time.monotonic()}
+            options = stopped.get("options") or []
+            return [*(self._page_picture() if used else []),
+                    text(f"Utknąłem: {stopped['label']}\nCo mam zrobić? Wybierz albo napisz własnymi słowami; "
+                         "zapamiętam to na następny raz (tryb uczenia)."),
+                    buttons(*[(o, "odpowiedź dla agenta: " + o) for o in options], ("Przerwij", "odpowiedź dla agenta: przerwij"))]
         if kind == "limit":
             return [text(f"Zrobiłem {stopped['label']} i jeszcze nie skończyłem. Nic nie wysłałem ani nie podpisałem."),
                     *(self._page_picture() if used else []),
@@ -367,6 +383,46 @@ class Chat:
                     "Nie prosiłeś o to wprost. Zrobić to?")
         return [*(self._page_picture() if used else []),
                 self._confirm(identity, question, "Tak, zrób to", resume(None, {kind}), explicit=False)]
+
+    def _agent_answer(self, identity, message, plain):
+        """The notary answers the agent's question: the work goes on, and what follows from the answer is learned."""
+        waiting = self._agent_question.get(identity.id)
+        if waiting is None or time.monotonic() - waiting["asked"] > 3600:
+            self._agent_question.pop(identity.id, None)
+            return None
+        explicit = plain.startswith("odpowiedz dla agenta")
+        if not explicit and (looks_like_computer_task(plain) or plain in {"pomoc", "przewodnik", "sprawy", "kalendarz"}):
+            return None                                   # a new command, not an answer
+        answer = re.sub(r"^\s*odpowied[zź] dla agenta\s*:\s*", "", message, flags=re.I).strip()
+        self._agent_question.pop(identity.id, None)
+        if norm(answer) in {"przerwij", "stop", "anuluj", "nic"}:
+            return [text("Przerwałem. Nic więcej nie zrobiłem.")]
+        self.s.narrate(identity, "Notariusz odpowiedział; zapamiętuję wniosek i pracuję dalej.")
+        blocks = self._agent_lessons(identity, waiting["task"], waiting["steps"], waiting["history"], answered=True,
+                                     problem=waiting["problem"], answer=answer)
+        note = f"(Notariusz odpowiedział na Twoje pytanie „{waiting['problem']}”: {answer}. Postępuj według tego.)"
+        return blocks + self._computer(identity, waiting["task"], allowed=waiting["allowed"],
+                                       history=waiting["history"] + [note])
+
+    def _agent_lessons(self, identity, task, steps, history, *, answered, problem="", answer="") -> list[dict]:
+        """After every run that was not smooth (errors, a question): what the program learned, shown at once."""
+        learning = getattr(self.s, "learning", None)
+        troubled = [st for st in steps if str(st.get("wynik", "")).startswith("BŁĄD")]
+        if learning is None or not (answered or troubled):
+            return []
+        material = (f"Polecenie: {task}\n" + "\n".join(f"- {st['krok']}: {st.get('po_co', '')} -> {st['wynik']}" for st in steps[-30:])
+                    + (f"\nProgram utknął: {problem}\nNotariusz odpowiedział: {answer}" if answered else ""))
+        try:
+            learned = learning.from_agent(material, notary_answered=answered)
+        except Exception:
+            return []
+        if not learned:
+            return []
+        if answered:
+            return [text("📘 Nauczyłem się: " + "\n📘 Nauczyłem się: ".join(l["text"] for l in learned)
+                         + "\nNastępnym razem zrobię to sam. Lista: przycisk 📘 u góry.")]
+        return [text("📘 Z tej pracy wyciągnąłem wniosek. Potwierdzasz?"),
+                {"type": "lessons", "items": [{"id": l["id"], "text": l["text"]} for l in learned]}]
 
     def _computer_commands(self, identity, message, plain):
         """Sentences about the agent's own tools: its browser window and what it knows about programs."""
