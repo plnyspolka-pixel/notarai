@@ -2,6 +2,12 @@
 
 W Pocket otwórz „Test mikrofonu i kamery”. Podłącz Yeti przez USB na każdym stanowisku, a w gabinecie także Creative Live! Cam Sync 1080p V2. Pierwsze uruchomienie testu odblokuje nazwy urządzeń w przeglądarce. Wybierz Yeti jako wejście audio i w gabinecie wybierz Creative jako kamerę. Uruchom test ponownie. Zakończenie testu zwalnia urządzenia. Podgląd nie zapisuje i nie przesyła dźwięku ani obrazu. Prototyp służy do prób z fikcyjnymi danymi.
 
+## Nagrywanie lokalne w prototypie
+
+Na ekranie testu wybierz „Otwórz nagrywanie stanowiska”. Wpisz token lokalnego administratora i nazwę fikcyjnej sprawy, wybierz stanowisko, a następnie uzbrój sesję. Aplikacja próbuje otworzyć wszystkie wykryte, odrębne wejścia mikrofonowe na tym komputerze i miksuje dostępne źródła do jednej ścieżki. Gabinet dodaje obraz z kamery. Gdy poziom dźwięku przekroczy próg, aplikacja rozpoczyna zapis. Próg reaguje też na hałas. Zapis można rozpocząć ręcznie. Uzbrojenie bez rozpoczęcia zapisu wygasa po pięciu minutach.
+
+Zakończ sesję, aby domknąć nagranie. „Pokaż lokalne nagrania” pozwala je pobrać. Zaszyfrowane fragmenty i opis są w lokalnej bazie V2. Stan „zapis nieukończony” oznacza, że całość nie została potwierdzona. Mikrofony telefonów nie są obecnie źródłami dla tego stanowiska. Docelowo telefon dołącza do konkretnej sesji jako dodatkowe źródło. Mikrofon jest domyślnie wyłączony i można go ręcznie włączyć lub wyłączyć na telefonie. Zakończenie sesji wyłącza mikrofon telefonu.
+
 ## Docelowy przebieg
 
 - **Sekretariat:** po rozmowie pracownik dyktuje krótką notatkę. Aplikacja proponuje opis sprawy, ustalenia i termin. Jeżeli data jest niejednoznaczna, dopytuje. Sprawdza dostępność przy propozycji i ponownie przy zapisie. Pracownik zatwierdza wpis. Kamera jest wyłączona.

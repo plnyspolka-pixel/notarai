@@ -74,3 +74,26 @@ def test_bedrock_no_document_payload(monkeypatch):
             assert kwargs["messages"][0]["content"][0]["text"] == "Synthetic test only. Reply with OK."
             return {"stopReason":"end_turn"}
     assert smoke_test(lambda *args,**kwargs: Fake())["ok"]
+
+def test_nagranie_zaszyfrowane_fragmenty_i_ponowienie(setup):
+    from uuid import uuid4
+
+    home, _, client, headers = setup
+    url = f"/v2/nagrania/{uuid4()}"
+    opis = {"sprawa": "FIKCYJNA SPRAWA 123", "format": "video/webm"}
+    pierwszy = b"FIKCYJNY DZWIEK I OBRAZ 123"
+    drugi = b"FIKCYJNY FRAGMENT 456"
+    assert client.put(url, json=opis).status_code == 401
+    assert client.put(url, headers=headers, json=opis).status_code == 200
+    assert client.put(url, headers=headers, json=opis).status_code == 200
+    assert client.put(url + "/czesci/1", headers=headers, content=drugi).status_code == 200
+    assert client.put(url + "/koniec", headers=headers, json={"czesci": 2}).status_code == 409
+    assert client.get(url, headers=headers).status_code == 409
+    assert client.put(url + "/czesci/0", headers=headers, content=pierwszy).status_code == 200
+    assert client.put(url + "/czesci/0", headers=headers, content=pierwszy).status_code == 200
+    assert client.put(url + "/czesci/0", headers=headers, content=drugi).status_code == 409
+    assert client.put(url + "/koniec", headers=headers, json={"czesci": 2}).status_code == 200
+    assert client.put(url + "/czesci/2", headers=headers, content=drugi).status_code == 409
+    assert client.get(url, headers=headers).content == pierwszy + drugi
+    dysk = (home / "vault.sqlite3").read_bytes()
+    assert pierwszy not in dysk and drugi not in dysk and opis["sprawa"].encode() not in dysk

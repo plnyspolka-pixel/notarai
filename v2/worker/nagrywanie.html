@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nagrywanie stanowiska · NotarAI</title>
+<style>
+body { font: 16px/1.5 system-ui, sans-serif; color: #17213d; background: #f5f7fc; margin: 0; }
+main { max-width: 44rem; margin: auto; padding: 2rem 1rem; }
+label, fieldset { display: block; margin-block: .75rem; }
+input, select, button { font: inherit; }
+select[multiple] { display: block; width: 100%; }
+[role=status] { font-weight: 600; }
+[hidden] { display: none !important; }
+</style>
+<main>
+<a href="/v2/urzadzenia-av">Wróć do testu urządzeń</a>
+<h1>Nagrywanie stanowiska</h1>
+<p>Próby na fikcyjnych danych. Poinformuj uczestników przed uzbrojeniem sesji.</p>
+<form id="ustawienia">
+  <label>Token lokalnego administratora <input id="token" type="password" autocomplete="off" required></label>
+  <label>Sprawa lub opis notatki <input id="sprawa" maxlength="120" required></label>
+  <label>Stanowisko <select id="stanowisko"><option value="gabinet">Gabinet</option><option value="sekretariat">Sekretariat</option></select></label>
+  <p>NotarAI dobiera dostępne mikrofony automatycznie. W gabinecie używa też kamery.</p>
+  <label><input id="automatyczny" type="checkbox" checked> Uruchom zapis po wykryciu dźwięku w uzbrojonej sesji</label>
+  <button type="submit">Uzbrój sesję</button>
+</form>
+<button id="recznie" disabled>Rozpocznij zapis teraz</button>
+<button id="stop" disabled>Zakończ sesję</button>
+<p id="stan" role="status">Urządzenia są wyłączone.</p>
+<button id="lista">Pokaż lokalne nagrania</button>
+<ul id="nagrania"></ul>
+</main>
+<script src="/v2/nagrywanie.js" defer></script>
+</html>
