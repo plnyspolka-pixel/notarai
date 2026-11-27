@@ -415,6 +415,73 @@ async function refreshAgenda() {
 render.calendar = () => refreshAgenda();
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
+render["pick-folder"] = block => {
+  // The Windows "choose a folder" dialog opens on the office computer; the path then goes back as a sentence.
+  const button = node("button", "primary", block.label || "Wybierz folder…");
+  button.onclick = run(async () => {
+    status("Wybierz folder w oknie Windows…");
+    const chosen = await call("pick-folder", "POST", {});
+    if (!chosen.path) { status("Nie wybrano folderu."); return; }
+    await send((block.purpose === "kopie" ? "katalog kopii " : "folder aktów ") + chosen.path);
+  });
+  show(node("div", "group")).append(button);
+};
+
+// ---------------------------------------------------------------- first run on a phone or tablet
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", event => { event.preventDefault(); installPrompt = event; });
+
+function installedAsApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+
+function welcome() {
+  let seen = false;
+  try { seen = localStorage.getItem("notarai-welcome") === "1"; } catch { /* storage blocked */ }
+  if (seen || admin || scope === "listen") return;
+  const card = node("div", "card them welcome");
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const steps = [
+    ["Na ekran główny", installedAsApp() ? "Pocket jest już zainstalowany jako aplikacja." : ios
+      ? "W Safari stuknij „Udostępnij” (kwadrat ze strzałką), potem „Do ekranu początkowego”. Pocket otworzy się jak aplikacja, bez paska adresu."
+      : "Dodaj Pocket do ekranu głównego: przycisk poniżej albo menu przeglądarki → „Zainstaluj aplikację”. Otworzy się jak aplikacja."],
+    ["Połączenie zostaje", "Ten telefon jest już sparowany z kancelarią. Nie musisz nic wpisywać ponownie, także po wyłączeniu."],
+    ["Mów zamiast pisać", "🎤 nagrywa notatkę głosową: tekst trafia do wybranej sprawy razem z nagraniem."],
+    ["Zdjęcia i pliki", "📎 dodaje zdjęcia dokumentów i pliki do sprawy; możesz od razu poprosić o streszczenie."],
+    ["Kalendarz", "Napisz „co mam jutro” albo „termin w piątek 10:00 akt Kowalski”."],
+  ];
+  card.append(node("h2", "", "Witaj w NotarAI Pocket"));
+  const list = node("ol", "welcome-steps");
+  for (const [title, body] of steps) {
+    const item = node("li");
+    item.append(node("strong", "", title), node("p", "", body));
+    list.append(item);
+  }
+  card.append(list);
+  const row = node("div", "row");
+  if (!installedAsApp() && !ios) {
+    const install = node("button", "", "Dodaj do ekranu głównego");
+    install.onclick = async () => {
+      if (installPrompt) {
+        installPrompt.prompt();
+        await installPrompt.userChoice.catch(() => null);
+        installPrompt = null;
+      } else {
+        status("Otwórz menu przeglądarki (⋮) i wybierz „Zainstaluj aplikację” albo „Dodaj do ekranu głównego”.");
+      }
+    };
+    row.append(install);
+  }
+  const done = node("button", "primary", "Zaczynam");
+  done.onclick = () => {
+    try { localStorage.setItem("notarai-welcome", "1"); } catch { /* storage blocked */ }
+    card.remove();
+  };
+  row.append(done);
+  card.append(row);
+  el("messages").prepend(card);
+}
+
 render.progress = block => {
   // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
   const card = node("div", "card them progress");
@@ -1073,6 +1140,7 @@ async function enter(device) {
   drawTiles();
   await refreshRules();
   await exchange({ hello: true });
+  welcome();
 }
 
 function leave(message) {

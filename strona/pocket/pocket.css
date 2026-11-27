@@ -148,3 +148,9 @@ button.small { min-height: 32px; font-size: .9rem; color: var(--accent); border:
   #bar select { max-width: 320px; }
   #chips { display: none; }
 }
+
+.welcome h2 { margin: 0 0 6px; }
+.welcome-steps { padding-left: 22px; margin: 6px 0 10px; list-style: decimal; }
+.welcome-steps li { margin: 8px 0; }
+.welcome-steps p { margin: 2px 0 0; color: var(--muted); }
+.agenda li.muted { display: block; }
