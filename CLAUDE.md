@@ -154,6 +154,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia
   osób (sprawy, kalendarz, poczta, wnioski/agent, zatwierdzanie, ustawienia) leżą w sejfie kancelarii
   i sprawdza je kod przy każdym zapisie i wysyłce; domyślnie wszystko poza kontami i uprawnieniami.
+- Rejestry (decyzja właściciela 27.11.2026): KW zawsze przez API (funkcja `notarai-v2-rejestry`), nigdy przez
+  agenta ani przeglądarkę; KRZ (brak API) w osobnej przeglądarce bez okna (`przegladarka-krz`), okno tylko na prośbę
+  po nieudanym sprawdzeniu w tle. Zdania o KW/KRZ rozpoznaje kod przed agentem. Sprawy nie trzeba wybierać:
+  program rozpoznaje ją po numerze KW, PESEL albo nazwisku strony (`chat._guess_case`).
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

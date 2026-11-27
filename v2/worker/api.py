@@ -40,6 +40,9 @@ from .vault import Vault, Conflict, MAX_BYTES, valid_case
 from .workcopy import WorkCopies, WorkCopyError
 
 CASE = r"^[\w.-]{1,64}$"
+# The program's own folders in the vault (procedures, the office's style, its rules): not cases of clients,
+# so they are not offered in the case list. Their documents stay where they are.
+HIDDEN_CASES = frozenset({"procedury", "styl-kancelarii", "zasady-kancelarii"})
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
           "pocket-icon.svg": "image/svg+xml", "montserrat-latin.woff2": "font/woff2", "montserrat-latin-ext.woff2": "font/woff2",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
@@ -661,7 +664,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     # ------------------------------------------------------------ documents
     @app.get("/v2/cases")
     def cases(identity: Identity = Depends(auth)):
-        return [c for c in vault.cases() if identity.cases is None or c in identity.cases]
+        return [c for c in vault.cases() if (identity.cases is None or c in identity.cases) and c not in HIDDEN_CASES]
 
     @app.get("/v2/documents")
     def documents(include_names: bool = False, case: str | None = None, identity: Identity = Depends(auth)):
@@ -859,7 +862,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     autofill = Autofill(fill_targets if fill_targets is not None else {"strona": web_target, "program": desktop_target},
                         receipts=form_receipt, rules=rules)
-    app.state.close_browser = lambda: browser_box.get("web") and browser_box["web"].close()
+    app.state.close_browser = lambda: [b.close() for b in list(browser_box.values()) if hasattr(b, "close")]
     from .agent import Computer
     agent_computer = Computer(home, desktop=(fill_targets or {}).get("program", desktop_target),
                               browser=(fill_targets or {}).get("strona", web_target), rules=rules,
@@ -1327,8 +1330,17 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     from .registers import Registers
 
+    def krz_target():
+        """A browser of its own, without a window: KRZ is checked in the background."""
+        if "krz" not in browser_box:
+            from .web_fill import Browser
+
+            browser_box["krz"] = Browser(home / "przegladarka-krz", headless=True,
+                                         choice=lambda: state["settings"].agent.browser)
+        return browser_box["krz"]
+
     register_service = registers or Registers(lambda: state["account"], state["settings"].ai.region,
-                                              browser=lambda: web_target())
+                                              browser=krz_target, visible_browser=lambda: web_target())
 
     from .speech_model import ModelDownload
 
@@ -1504,7 +1516,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
         vault=Guarded(vault, {"put": "sprawy", "message_put": "kalendarz"}),
         drafts=Guarded(drafts, {"propose": "sprawy"}), devices=devices, workcopies=workcopies, team=team, need=need,
-        cases=lambda identity: [c for c in vault.cases() if identity.cases is None or c in identity.cases],
+        cases=lambda identity: [c for c in vault.cases()
+                                if (identity.cases is None or c in identity.cases) and c not in HIDDEN_CASES],
         may_see_case=lambda identity, case: (identity.cases is None or case in identity.cases),
         documents=lambda identity, case: [
             {"id": d["id"], "name": d["name"], "version": d["version"], "case": d["case"]}
