@@ -4,8 +4,8 @@ The notary records the screen while filling a form in any program or on any webs
 what goes where and why. From a few frames and the narration the model writes down the
 procedure: an ordered list of fields, where each value comes from, and the reason. The notary
 corrects and approves it. Later, for a concrete case, the same procedure yields the values to
-enter, each with a copy button. The notary still does the typing or pasting: this works with
-every program and needs no integration; automatic entry is a separate, per-program step.
+enter, each with a copy button. On the workstation the values are also typed into the form by
+autofill.py (web pages and Windows programs); sending always waits for the notary's approval.
 
 Procedures are documents in the vault (case "procedury"), so they are encrypted, versioned
 and backed up like everything else.
@@ -29,9 +29,13 @@ SYSTEM_LEARN = (
     "Jesteś asystentem polskiej kancelarii notarialnej. Dostajesz zrzuty ekranu (w kolejności) oraz słowny "
     "komentarz notariusza, który pokazuje, jak wypełnia formularz w programie albo na stronie urzędowej. "
     "Zapisz procedurę jako JSON i nic poza nim:\n"
-    '{"program": "nazwa programu lub strony", "cel": "do czego służy ta czynność", "kroki": '
-    '[{"pole": "dokładna nazwa pola lub przycisku na ekranie", "zrodlo": "skąd wziąć wartość, np. PESEL '
-    'sprzedającego z aktu; albo stała wartość; albo \'kliknij\'", "dlaczego": "powód podany przez notariusza"}]}\n'
+    '{"program": "nazwa programu lub strony", "cel": "do czego służy ta czynność", '
+    '"rodzaj": "strona albo program", "adres": "adres strony z paska przeglądarki (https://...) albo tytuł okna programu", '
+    '"kroki": [{"pole": "etykieta pola albo napis na przycisku, dokładnie tak jak na ekranie", "zrodlo": "skąd wziąć '
+    'wartość, np. PESEL sprzedającego z aktu; albo stała wartość", "dlaczego": "powód podany przez notariusza", '
+    '"akcja": "wpisz, kliknij albo wyslij"}]}\n'
+    "Akcja: wpisz dla pól; kliknij dla przycisków przechodzących dalej w tym samym formularzu (np. Dalej); "
+    "wyslij wyłącznie dla przycisku, który wysyła albo składa wniosek, podpisuje go lub zapisuje na stałe.\n"
     "Zasady: kolejność kroków jak na nagraniu; opisuj skąd bierze się wartość, a nie konkretną wartość z nagrania "
     "(dane na nagraniu dotyczą jednej sprawy); gdy notariusz nie podał powodu, wpisz pusty tekst; nie zmyślaj pól, "
     "których nie widać ani nie słychać. Znaczniki w nawiasach kwadratowych przepisuj bez zmian."
@@ -55,6 +59,8 @@ class Step(BaseModel):
     pole: str = Field(min_length=1, max_length=200)
     zrodlo: str = Field(default="", max_length=400)
     dlaczego: str = Field(default="", max_length=600)
+    # wpisz (default), kliknij (moves within the form), wyslij (sends: only after approval)
+    akcja: str = Field(default="", pattern=r"^(|wpisz|kliknij|wyslij)$")
 
 
 class Procedure(BaseModel):
@@ -62,6 +68,8 @@ class Procedure(BaseModel):
     nazwa: str = Field(min_length=1, max_length=80)
     program: str = Field(default="", max_length=120)
     cel: str = Field(default="", max_length=400)
+    rodzaj: str = Field(default="", pattern=r"^(|strona|program)$")     # web page or Windows program
+    adres: str = Field(default="", max_length=400)                        # https address or window title
     kroki: list[Step] = Field(min_length=1, max_length=80)
 
 
@@ -166,9 +174,12 @@ class Procedures:
 
     def fill(self, wanted: str, case: str, actor: str, names=()) -> dict:
         """Values for one case, in the procedure's order. Nothing is typed anywhere: the notary copies."""
+        from .autofill import action_of
+
         procedure = self.get(wanted, actor)
         context, sources, skipped = self._drafts._context(case, actor)
-        steps = "\n".join(f"{n}. pole: {s.pole}; źródło: {s.zrodlo}" for n, s in enumerate(procedure.kroki, 1))
+        steps = "\n".join(f"{n}. pole: {s.pole}; źródło: {s.zrodlo}" for n, s in enumerate(procedure.kroki, 1)
+                          if action_of(s) == "wpisz")
         answer = self._inference.ask(
             purpose="fill", system=SYSTEM_FILL, names=self._drafts._names(case, names), max_tokens=8000,
             text=f"=== PROCEDURA: {procedure.nazwa} ({procedure.program}) ===\n{steps}\n\n{context}",
@@ -180,9 +191,14 @@ class Procedures:
             raise ProcedureError("Nie udało się przygotować wartości. Spróbuj ponownie.") from None
         items = []
         for step in procedure.kroki:
+            action = action_of(step)
+            if action != "wpisz":       # buttons need no value from the documents
+                items.append({"field": step.pole, "value": "kliknij", "from": "", "why": step.dlaczego, "action": action})
+                continue
             value = by_field.get(step.pole.strip().lower(), {})
             items.append({"field": step.pole, "value": str(value.get("wartosc", "") or "")[:2000],
-                          "from": str(value.get("skad", "") or "")[:200], "why": step.dlaczego})
+                          "from": str(value.get("skad", "") or "")[:200], "why": step.dlaczego, "action": action})
         return {"name": procedure.nazwa, "program": procedure.program, "items": items,
+                "rodzaj": procedure.rodzaj, "adres": procedure.adres,
                 "missing": sum(1 for i in items if not i["value"]), "skipped": skipped,
                 "unknown_placeholders": list(answer.unknown_placeholders)}

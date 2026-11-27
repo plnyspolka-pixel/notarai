@@ -52,6 +52,32 @@ class Bedrock:
                 "stopReason": "end_turn", "usage": {"inputTokens": 10, "outputTokens": 5}}
 
 
+FORM = """<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>Portal testowy</title></head><body>
+<form action="/przyjeto.html" method="get"><h1>Wniosek o wpis (fikcyjny portal)</h1>
+<label for="p">PESEL wnioskodawcy</label> <input id="p" name="pesel">
+<p>Numer lokalu</p><input name="lokal">
+<label>Numer księgi <input name="kw"></label>
+<button type="submit">Wyślij wniosek</button></form></body></html>"""
+
+
+def form_site():
+    import threading
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    root = Path(tempfile.mkdtemp(prefix="notarai-form-"))
+    (root / "wniosek.html").write_text(FORM, encoding="utf-8")
+    (root / "przyjeto.html").write_text("<!doctype html><meta charset=utf-8><title>Przyjęto</title><p>Wniosek przyjęto.</p>",
+                                        encoding="utf-8")
+    class Quiet(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Quiet, directory=str(root)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{server.server_port}/wniosek.html"
+
+
 def main():
     home = Path(tempfile.mkdtemp(prefix="notarai-e2e-")) / "home"
     backups = home.parent / "usb"
@@ -59,7 +85,10 @@ def main():
     initialize(home)
     bedrock = Bedrock()
     inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: bedrock, UsageLedger(home))
-    app = create_app(home, inference=inference, opener=lambda path: None,
+    from worker.web_fill import Browser
+
+    browser = Browser(home.parent / "przegladarka", headless=True)     # a real browser, without a window
+    app = create_app(home, inference=inference, opener=lambda path: None, fill_targets={"strona": lambda: browser},
                      transcriber=lambda audio: "Wpisuję PESEL wnioskodawcy, bo sąd identyfikuje go po numerze, potem numer lokalu.")   # no editor on a test machine
     registry = DeviceRegistry(home)
     with socket.socket() as listener:
@@ -72,7 +101,7 @@ def main():
             "write2": registry.invite("telefon 2", "write")["code"],
             "read": registry.invite("tablet", "read", cases=["sprawa-1"])["code"],
             "admin": registry.invite("panel", "admin", allow_admin=True)["code"],
-            "backups": str(backups), "home": str(home),
+            "backups": str(backups), "home": str(home), "form": form_site(),
         }), flush=True)
         uvicorn.Server(uvicorn.Config(app, access_log=False, log_level="warning")).run(sockets=[listener])
 

@@ -66,7 +66,11 @@ jobs:
           node-version: '22'
       - name: Relay unit tests
         run: node --test relay/relay.test.mjs
-      - run: python -m pytest -q
+      - name: Fill a real Windows program through UI Automation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '"NOTARAI_V2_TEST_UIA=1" >> $env:GITHUB_ENV'
+      - run: python -m pytest -q -rs
       - name: Pocket and workstation panel in a real browser (fake model, local relay)
         if: runner.os == 'Linux'
         run: |

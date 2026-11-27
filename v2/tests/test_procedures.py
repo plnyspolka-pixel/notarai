@@ -150,7 +150,10 @@ def test_limits_and_who_may_teach(office):
     assert "Znam te procedury" not in texts(say(client, limited, "procedury", case="kowalski-2026"))
 
 
-def test_without_a_local_transcriber_the_notary_types(tmp_path):
+def test_without_a_local_transcriber_the_notary_types(tmp_path, monkeypatch):
+    from worker import transcribe
+
+    monkeypatch.setattr(transcribe, "available", lambda: False)
     home = tmp_path / "home"
     admin = {"Authorization": "Bearer " + initialize(home)}
     client = TestClient(create_app(home))

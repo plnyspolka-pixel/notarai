@@ -7,6 +7,7 @@ case, goes to the model. Irreversible actions return a confirmation the user mus
 A reply is a list of blocks the page renders: text, buttons (which send a sentence back),
 documents, a draft to approve, a one-time secret, a QR code, a sign-in form, a confirmation.
 """
+import base64
 import re
 import secrets
 import time
@@ -15,6 +16,7 @@ from decimal import Decimal, InvalidOperation
 
 from .drafting import DraftError
 from .layout import tools_for
+from .autofill import FillError
 from .mail import MailError, as_document
 from .vault import valid_case
 
@@ -66,6 +68,7 @@ class Chat:
         self.s = services
         self._pending: dict[str, tuple[str, float, callable]] = {}
         self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
+        self._sheets: dict[tuple, dict] = {}    # last values per (identity, case, procedure), for „wpisz ponownie”
 
     # ------------------------------------------------------------ confirmations
     def _confirm(self, identity, question: str, label: str, action) -> dict:
@@ -76,7 +79,9 @@ class Chat:
         return {"type": "confirm", "text": question, "label": label, "token": token}
 
     def confirm(self, identity, token: str) -> list[dict]:
-        owner, expires, action = self._pending.pop(token, ("", 0, None))
+        owner, expires, action = self._pending.get(token, ("", 0, None))
+        if owner == identity.id:
+            self._pending.pop(token, None)      # only its owner can use up a confirmation
         if action is None or owner != identity.id or expires <= time.monotonic():
             return [text("To potwierdzenie wygasło. Napisz polecenie jeszcze raz.")]
         return action()
@@ -210,17 +215,67 @@ class Chat:
             lines += [f"{n}. {k.pole}: {k.zrodlo}" + (f" (bo: {k.dlaczego})" if k.dlaczego else "")
                       for n, k in enumerate(procedure.kroki, 1)]
             return [text("\n".join(lines)), buttons(("Wypełnij dla tej sprawy", f"wypełnij {procedure.nazwa}"))]
-        found = re.fullmatch(r"(?:wypelnij|uzupelnij)\s+(.+)", plain)
+        found = re.fullmatch(r"(?:wypelnij|uzupelnij|wpisz|wpisz ponownie)\s+(.+)", plain)
         if found:
             if case is None or case == "procedury":
                 return [text("Dla której sprawy? Wybierz sprawę u góry i napisz jeszcze raz.")]
             if not s.may_see_case(identity, case):
                 return [text("Nie ma takiej sprawy.")]
-            sheet = s.procedures.fill(found.group(1), case, identity.id, names)
+            again = plain.startswith("wpisz")
+            cached = self._sheets.get((identity.id, case, norm(found.group(1))))
+            sheet = cached if again and cached else s.procedures.fill(found.group(1), case, identity.id, names)
+            self._sheets[(identity.id, case, norm(sheet["name"]))] = sheet
+            if admin and sheet.get("rodzaj"):
+                try:
+                    return self._autofill(identity, sheet, case)
+                except FillError as error:
+                    # The form cannot be reached right now: the values are still useful to copy by hand.
+                    return [text(str(error)), {"type": "fill", **sheet},
+                            buttons(("Wpisz ponownie", f"wpisz ponownie {sheet['name']}"))]
+            note = ("" if admin else " Wpisać to w formularz za Ciebie może komputer kancelarii: napisz to samo w panelu stanowiska.")
             return [text(f"Wartości do „{sheet['name']}” dla sprawy „{case}”. Przepisz albo skopiuj każdą do "
-                         "właściwego pola; sprawdź je, zanim zatwierdzisz formularz."),
+                         "właściwego pola; sprawdź je, zanim zatwierdzisz formularz." + note),
                     {"type": "fill", **sheet}]
+        found = re.fullmatch(r"(?:otworz|wejdz na|przejdz na) (?:strone|adres)\s+(\S+)", plain)
+        if found and admin:
+            address = message.split()[-1]
+            where = s.autofill.target("strona").open(address)
+            return [text(f"Otworzyłem {where} w przeglądarce NotarAI. Jeśli strona prosi o logowanie, zaloguj się tam raz; "
+                         "przeglądarka zapamięta to logowanie.")]
         return None
+
+    def _autofill(self, identity, sheet, case) -> list[dict]:
+        procedure = self.s.procedures.get(sheet["name"], identity.id)
+        preview = self.s.autofill.fill(procedure, sheet["items"], actor=identity.id, case=case)
+        filled = sum(1 for r in preview["report"] if r["state"] == "filled")
+        problems = [r for r in preview["report"] if r["state"] in {"missing", "differs", "no-option", "refused", "empty"}]
+        blocks = [text(f"Wpisałem {filled} " + ("pole" if filled == 1 else "pola" if 2 <= filled % 10 <= 4 and filled // 10 != 1 else "pól")
+                       + f" w „{sheet['name']}”" + (f" ({preview['where']})" if preview["where"] else "") + ". "
+                       + ("Sprawdź formularz na ekranie albo na zrzucie poniżej." if not problems else
+                          "Część pól wymaga Twojej uwagi; są oznaczone poniżej.")),
+                  {"type": "filled", **{k: preview[k] for k in ("procedure", "where", "report", "send", "send_missing")},
+                   "image": base64.b64encode(preview["image"]).decode() if preview["image"] else None}]
+        if any(r["state"] == "missing" for r in problems):
+            blocks.append(text("Jeśli strona prosi o zalogowanie albo formularz jest na innej stronie, przejdź do niego "
+                               "w oknie NotarAI i dotknij „Wpisz ponownie”."))
+        actions = [("Wpisz ponownie", f"wpisz ponownie {sheet['name']}")]
+        blocks.append(buttons(*actions))
+        if preview["send"]:
+            token, kind = preview["token"], preview["kind"]
+
+            def send():
+                result = self.s.autofill.send(token, identity.id, kind)
+                image = base64.b64encode(result["image"]).decode() if result.get("image") else None
+                done = (f"Wysłałem „{sheet['name']}”. Na ekranie jest teraz: {result['where']}. Sprawdź potwierdzenie."
+                        if result["state"] == "sent" else
+                        "Nacisnąłem przycisk wysyłania, ale nie widzę zmiany na ekranie. Sprawdź, czy wniosek został "
+                        "przyjęty, zanim spróbujesz ponownie.")
+                return [text(done)] + ([{"type": "image", "image": image, "alt": "Ekran po wysłaniu"}] if image else [])
+            blocks.append(self._confirm(identity, f"Wysłać „{sheet['name']}” przyciskiem „{preview['send']}”? Wyślę dokładnie "
+                                                  "to, co widać na zrzucie powyżej.", "Wyślij teraz", send))
+        elif preview["send_missing"]:
+            blocks.append(text(f"Nie widzę przycisku „{preview['send_missing']}”, więc nie wyślę. Wyślij ręcznie."))
+        return blocks
 
     # ------------------------------------------------------------ the notary's own workspace
     def _tiles(self, identity, message, plain):
@@ -293,7 +348,9 @@ class Chat:
                       "• „urządzenia”, „cofnij telefon”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
-                      "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”",
+                      "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”: wpiszę dane "
+                      "w formularz sam, a wyślę dopiero, gdy zatwierdzisz",
+                      "• „otwórz stronę https://…” w przeglądarce NotarAI (logujesz się w niej raz)",
                       "• „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”",
                       "• „włącz asystenta”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
         return [text("\n".join(lines))]
@@ -543,8 +600,8 @@ class Chat:
             "• Poczta: " + ("połączona." if mail is not None else "niepołączona; napisz „połącz pocztę” (Thunderbird, Outlook albo folder)."),
             f"• Każdy inny program i każda strona urzędowa: pokaż mi raz, jak wypełniasz formularz (nagranie ekranu "
             f"z komentarzem), a będę przygotowywać wartości dla kolejnych spraw. Znam procedur: {known}.",
-            "Nie klikam sam w cudzych programach: wartości wpisujesz albo wklejasz Ty, więc działa to wszędzie "
-            "i nic nie zostanie wysłane bez Twojej wiedzy.",
+            "Wypełniam sam: na stronach w przeglądarce NotarAI, w programach Windows przez to samo, z czego "
+            "korzystają czytniki ekranu. Wysyłam dopiero po Twoim zatwierdzeniu wypełnionego formularza.",
         ]
         return [text("\n".join(lines)),
                 buttons(("Nagraj procedurę", "nagraj procedurę"), ("Procedury", "procedury"),
@@ -650,7 +707,10 @@ class Chat:
                  "discard-workcopy": "porzucił zmiany w", "backup": "zrobił kopię zapasową",
                  "offsite-backup": "wysłał kopię poza kancelarię", "restore": "odtworzył sejf z kopii",
                  "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
-                 "settings": "zmienił ustawienia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu"}
+                 "settings": "zmienił ustawienia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
+                 "form-fill-verified": "wypełnił formularz", "form-fill-partial": "wypełnił część formularza",
+                 "form-send-started": "zaczął wysyłać formularz", "form-send-sent": "wysłał formularz",
+                 "form-send-uncertain": "nacisnął wysyłanie formularza (wynik niepewny)"}
         who = {"local-admin": "ten komputer", "connect-verify": "kontrola po zapisie", "migration": "program"}
         lines = []
         for entry in s.vault.audit(60, target):

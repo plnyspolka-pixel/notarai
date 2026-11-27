@@ -30,7 +30,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Building requires a 64-bit Python 3.14 toolchain.' }
     & python -m pip --disable-pip-version-check install --only-binary=:all: --no-compile `
         --target (Join-Path $runtime 'Lib\site-packages') --constraint (Join-Path $source 'requirements.txt') `
-        fastapi uvicorn cryptography pywin32 python-docx boto3 httpx websockets
+        fastapi uvicorn cryptography pywin32 python-docx boto3 httpx websockets playwright pywinauto pillow faster-whisper
     if ($LASTEXITCODE -ne 0) { throw 'Vendoring V2 dependencies failed.' }
 
     Copy-Item -LiteralPath (Join-Path $source 'worker') -Destination $payload -Recurse
@@ -44,7 +44,7 @@ try {
     @('launch.py', 'preview_instance.py', 'preset.json') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination $payload
     }
-    & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, uvicorn; from worker.api import create_app; from worker.domain import fee_catalog; assert fee_catalog()['rodzaje']"
+    & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, uvicorn, playwright.sync_api, pywinauto, faster_whisper; from worker.api import create_app; from worker.domain import fee_catalog; assert fee_catalog()['rodzaje']"
     if ($LASTEXITCODE -ne 0) { throw 'The embedded runtime failed to import the preview.' }
 
     $innoSetup = Join-Path $stage 'innosetup-6.4.3.exe'

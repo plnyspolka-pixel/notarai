@@ -199,20 +199,25 @@ function watch(page, problems, label) {
     const steps = await panel.getByLabel("Kroki procedury").inputValue();
     assert(steps.split("\n").length === 3 && steps.includes("PESEL wnioskodawcy | PESEL sprzedającego"), "steps: " + steps);
     assert(/Portal testowy \([2-9]|1\d ujęć\)/.test(await panel.locator("#messages").textContent()), "frames did not reach the model");
-    await panel.getByLabel("Kroki procedury").fill(steps.split("\n").slice(0, 2).join("\n") + "\nNumer księgi | numer KW z odpisu | wpis dotyczy tej księgi");
+    await panel.getByLabel("Kroki procedury").fill(steps.split("\n").slice(0, 2).join("\n") + "\nNumer księgi | numer KW z odpisu | wpis dotyczy tej księgi\nWyślij wniosek | wyślij | dopiero po sprawdzeniu");
+    assert(await panel.getByLabel("Gdzie jest formularz").inputValue() === "strona", "procedure kind");
+    await panel.getByLabel("Adres strony albo tytuł okna programu").fill(info.form);
     await panel.getByRole("button", { name: "Zatwierdzam procedurę" }).click();
-    await answered(panel, "Zapamiętałem procedurę „Wniosek o wpis w KW” (3 kroków)");
+    await answered(panel, "Zapamiętałem procedurę „Wniosek o wpis w KW” (4 kroków)");
     await panel.locator("#case").selectOption("sprawa-1");
     await answered(panel, "Dokumenty sprawy „sprawa-1”");
+    // On the workstation "fill" types the values into the real form, then waits for approval to send.
     await panel.getByRole("button", { name: "Wypełnij: Wniosek o wpis w KW" }).click();
-    await answered(panel, "Wartości do „Wniosek o wpis w KW”");
-    const sheet = panel.locator(".card", { hasText: "Portal testowy" }).last();
-    assert((await sheet.textContent()).includes("44051401359") && !(await sheet.textContent()).includes("WYCIEK"), "fill sheet: " + await sheet.textContent());
-    assert((await sheet.textContent()).includes("brak w dokumentach") && (await sheet.textContent()).includes("Brakuje wartości: 1"), "missing value not flagged");
-    await desk.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await sheet.getByRole("button", { name: "Kopiuj: PESEL wnioskodawcy" }).click();
-    assert(await panel.evaluate(() => navigator.clipboard.readText()) === "44051401359", "clipboard");
-    if (shots) await sheet.screenshot({ path: path.join(shots, "wypelnij.png") });
+    await answered(panel, "Wpisałem 2 pola w „Wniosek o wpis w KW”");
+    const filled = panel.locator(".card", { hasText: "Wniosek o wpis w KW ·" }).last();
+    const report = await filled.textContent();
+    assert(report.includes("✓ PESEL wnioskodawcy") && report.includes("44051401359") && !report.includes("WYCIEK"), "report: " + report);
+    assert(report.includes("✓ Numer lokalu") && report.includes("– Numer księgi") && report.includes("brak danych w dokumentach"), "report: " + report);
+    await filled.locator("img.shot").waitFor();
+    if (shots) await panel.screenshot({ path: path.join(shots, "wypelnione.png"), fullPage: true });
+    await panel.getByRole("button", { name: "Wyślij teraz" }).click();
+    await answered(panel, "Wysłałem „Wniosek o wpis w KW”");
+    assert((await panel.locator("#messages").textContent()).includes("przyjeto.html?pesel=44051401359&lokal=5"), "the form was not sent with the approved values");
     await panel.locator("#case").selectOption({ index: 0 });
 
     // ---- remote access: a phone pairs from the QR link and reconnects with its key

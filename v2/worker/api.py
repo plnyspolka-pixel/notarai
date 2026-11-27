@@ -128,7 +128,8 @@ class _Throttle:
 
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
-               account: Account | None = None, opener=None, mail_detect=None, transcriber=None):
+               account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
+               fill_targets: dict | None = None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -244,6 +245,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         upkeep = asyncio.create_task(maintenance_loop())
         yield
         upkeep.cancel()
+        try:
+            _app.state.close_browser()
+        except Exception:
+            pass
         if relay["task"] is not None:
             relay["task"].cancel()
         _app.state.lock.close()
@@ -678,6 +683,34 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         return code
 
     layouts = Layouts(home)
+    from .autofill import Autofill, FillError
+
+    browser_box: dict = {}
+
+    def web_target():
+        if "web" not in browser_box:
+            from .web_fill import Browser
+
+            browser_box["web"] = Browser(home / "przegladarka")
+        return browser_box["web"]
+
+    def desktop_target():
+        if "desktop" not in browser_box:
+            from .win_fill import Desktop
+
+            browser_box["desktop"] = Desktop()
+        return browser_box["desktop"]
+
+    def form_receipt(actor, action, procedure, kind, outcome):
+        vault.log(actor, f"form-{action}-{outcome}")
+
+    autofill = Autofill(fill_targets if fill_targets is not None else {"strona": web_target, "program": desktop_target},
+                        receipts=form_receipt)
+    app.state.close_browser = lambda: browser_box.get("web") and browser_box["web"].close()
+
+    @app.exception_handler(FillError)
+    async def fill_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
     procedures = Procedures(vault, lambda: state["inference"], drafts)
 
     @app.exception_handler(ProcedureError)
@@ -727,7 +760,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from . import mail as mail_module
 
     chat = Chat(SimpleNamespace(
-        layouts=layouts, procedures=procedures,
+        layouts=layouts, procedures=procedures, autofill=autofill,
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
@@ -747,7 +780,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         logout=lambda: state["account"] and state["account"].logout(),
     ))
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
-            mail_module.MailError, ProcedureError)
+            mail_module.MailError, ProcedureError, FillError)
 
     def chat_turn(identity: Identity, turn: ChatTurn):
         if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:
