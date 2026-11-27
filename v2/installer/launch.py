@@ -1,4 +1,10 @@
-"""Start the packaged, local-only NotarAI V2 Pocket preview."""
+"""NotarAI on the office computer: a background worker and an app window.
+
+The worker runs without a console (started with Windows and by the window when needed). The
+window is Edge in app mode with a profile of its own: no tabs, no address bar, and on this
+computer no pairing code, because the launcher hands the window a one-time workstation code.
+Phones still pair through the chat ("dodaj telefon") and use Pocket in their browser.
+"""
 import argparse
 import os
 from pathlib import Path
@@ -6,6 +12,7 @@ import re
 import secrets
 import socket
 import sqlite3
+import subprocess
 import sys
 from time import monotonic, sleep
 
@@ -41,7 +48,46 @@ def open_pocket(url):
         print("Otwórz powyższy adres w przeglądarce.", flush=True)
 
 
-def serve(home: Path, state: Path, *, no_browser: bool):
+def find_edge() -> Path | None:
+    for base in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+        if base:
+            candidate = Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def open_window(link: str, local: Path) -> None:
+    """The NotarAI window: Edge in app mode, its own profile (microphone permission is remembered there)."""
+    edge = find_edge()
+    if edge is None:
+        open_pocket(link)
+        return
+    subprocess.Popen([str(edge), f"--app={link}", f"--user-data-dir={local / 'okno'}", "--no-first-run",
+                      "--no-default-browser-check", "--window-size=1100,900"], close_fds=True)
+
+
+def start_background() -> None:
+    """The worker without a console window, detached from this short-lived launcher."""
+    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    flags = 0x00000008 | 0x00000200 | 0x08000000      # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
+    subprocess.Popen([str(pythonw if pythonw.is_file() else sys.executable), "-X", "utf8",
+                      str(Path(__file__).resolve()), "--serve"], cwd=str(Path(__file__).resolve().parent),
+                     creationflags=flags, close_fds=True)
+
+
+def tell(message: str) -> None:
+    """Without a console there is nowhere to print: show a message box instead."""
+    print(message, file=sys.stderr)
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(None, message, "NotarAI", 0x10)
+    except Exception:
+        pass
+
+
+def serve(home: Path, state: Path, *, no_browser: bool, quiet: bool = False):
     home.mkdir(parents=True, exist_ok=True)
     if not any(secret_path(home, name).exists() for name in ("vault.key", "api.token")):
         if any(home.iterdir()):
@@ -76,7 +122,8 @@ def serve(home: Path, state: Path, *, no_browser: bool):
             announce(state, port, nonce)
             print("NotarAI V2 Preview — wyłącznie dane testowe", flush=True)
             print(f"Pocket: {url}", flush=True)
-            pairing_code(home)
+            if not quiet:
+                pairing_code(home)
             if not recovery.enrolled(home):
                 print("UWAGA: sejf nie ma kodu odzyskiwania. Otwórz „NotarAI – panel stanowiska” i utwórz go.", flush=True)
             print("Aby zakończyć, naciśnij Ctrl+C.", flush=True)
@@ -88,10 +135,11 @@ def serve(home: Path, state: Path, *, no_browser: bool):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NotarAI V2 Preview, tylko dane testowe")
-    parser.add_argument("--no-browser", action="store_true", help="nie otwieraj przeglądarki")
+    parser = argparse.ArgumentParser(description="NotarAI, tylko dane testowe")
+    parser.add_argument("--no-browser", action="store_true", help="tryb konsoli: nie otwieraj okna")
     parser.add_argument("--new-code", action="store_true", help="pokaż nowy kod parowania")
-    parser.add_argument("--admin", action="store_true", help="otwórz panel stanowiska")
+    parser.add_argument("--admin", action="store_true", help="otwórz okno NotarAI (domyślne)")
+    parser.add_argument("--serve", action="store_true", help="tylko część robocza w tle")
     args = parser.parse_args()
     try:
         local = Path(os.environ["LOCALAPPDATA"]) / "NotarAI"
@@ -99,35 +147,52 @@ def main():
         runtime = local / "V2-preview-runtime"
         runtime.mkdir(parents=True, exist_ok=True)
         state = runtime / "instance.json"
-        with (runtime / "worker.lock").open("a+b") as lock:
-            deadline = monotonic() + 8
-            while not try_lock(lock):
+        if args.serve:
+            with (runtime / "worker.lock").open("a+b") as lock:
+                if not try_lock(lock):
+                    return 0                 # already running
+                state.unlink(missing_ok=True)
+                serve(home, state, no_browser=True, quiet=True)
+            return 0
+        if args.no_browser or args.new_code:
+            return console(args, home, runtime, state)
+        url = discover(state)
+        if url is None:
+            start_background()
+            deadline = monotonic() + 60
+            while url is None and monotonic() < deadline:
+                sleep(0.25)
                 url = discover(state)
-                if url is not None:
-                    print(f"Pocket: {url}", flush=True)
-                    if args.admin:
-                        link = admin_url(home, url)
-                        if args.no_browser:
-                            print(f"Panel: {link}", flush=True)
-                        else:
-                            open_pocket(link)
-                    elif args.new_code:
-                        pairing_code(home)
-                        if not args.no_browser and sys.stdin.isatty():
-                            input("Skopiuj kod i naciśnij Enter, aby zamknąć to okno.")
-                    elif not args.no_browser:
-                        open_pocket(url)
-                    return 0
-                if monotonic() >= deadline:
-                    raise RuntimeError("Pocket jeszcze nie odpowiada. Spróbuj otworzyć go ponownie.")
-                sleep(0.1)
-            state.unlink(missing_ok=True)
-            serve(home, state, no_browser=args.no_browser)
+            if url is None:
+                tell("NotarAI nie uruchomił się. Uruchom ponownie komputer albo zainstaluj program jeszcze raz.")
+                return 1
+        open_window(admin_url(home, url), local)
     except (OSError, RuntimeError, ValueError, sqlite3.Error, pywintypes.error) as error:
-        print(f"Nie udało się uruchomić Pocket. {error}", file=sys.stderr)
-        if not args.no_browser and sys.stdin.isatty():
-            input("Naciśnij Enter, aby zamknąć okno.")
+        tell(f"Nie udało się uruchomić NotarAI. {error}")
         return 1
+    return 0
+
+
+def console(args, home: Path, runtime: Path, state: Path) -> int:
+    """The console mode used by tests and support: prints addresses and pairing codes."""
+    with (runtime / "worker.lock").open("a+b") as lock:
+        deadline = monotonic() + 8
+        while not try_lock(lock):
+            url = discover(state)
+            if url is not None:
+                print(f"Pocket: {url}", flush=True)
+                if args.admin:
+                    print(f"Panel: {admin_url(home, url)}", flush=True)
+                elif args.new_code:
+                    pairing_code(home)
+                    if not args.no_browser and sys.stdin.isatty():
+                        input("Skopiuj kod i naciśnij Enter, aby zamknąć to okno.")
+                return 0
+            if monotonic() >= deadline:
+                raise RuntimeError("Pocket jeszcze nie odpowiada. Spróbuj otworzyć go ponownie.")
+            sleep(0.1)
+        state.unlink(missing_ok=True)
+        serve(home, state, no_browser=True)
     return 0
 
 

@@ -72,10 +72,10 @@ def test_without_speech_recognition_the_recording_is_still_kept(tmp_path, monkey
     monkeypatch.setattr(transcribe, "available", lambda: False)
     client, admin, _ = make(tmp_path)
     result = client.post("/v2/voice", headers=admin, json={"audio_b64": AUDIO, "case": "s"}).json()
-    assert result["text"] is None and len(result["documents"]) == 1 and "nie ma rozpoznawania mowy" in result["detail"]
+    assert result["text"] is None and len(result["documents"]) == 1 and "nie jest skonfigurowane" in result["detail"]
 
     def broken(audio):
         raise RuntimeError("decoder crashed")
     client, admin, _ = make(tmp_path / "b", transcriber=broken)
     result = client.post("/v2/voice", headers=admin, json={"audio_b64": AUDIO, "case": "s"}).json()
-    assert result["text"] == "" and len(result["documents"]) == 1 and "nie rozpoznałem" in result["detail"]
+    assert result["text"] == "" and len(result["documents"]) == 1 and "Nie udało się rozpoznać mowy" in result["detail"]

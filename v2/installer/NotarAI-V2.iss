@@ -1,7 +1,7 @@
 [Setup]
 AppId={{48ABAE34-C8E3-4337-87C1-22E39BBDA5DE}
 AppName=NotarAI V2 Preview
-AppVersion=2.1.0
+AppVersion=2.2.0
 DefaultDirName={localappdata}\Programs\NotarAI V2 Preview
 DefaultGroupName=NotarAI V2 Preview
 DisableProgramGroupPage=yes
@@ -13,6 +13,9 @@ OutputBaseFilename=NotarAI-V2-Setup-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; An update closes the running worker (its files are in use) and does not restart it by itself.
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
@@ -20,10 +23,16 @@ Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Tasks]
+Name: "desktopicon"; Description: "Ikona NotarAI na pulpicie"; Flags: checkedonce
+
 [Icons]
-Name: "{group}\NotarAI V2 Preview"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
-Name: "{group}\NotarAI - panel stanowiska"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --admin"; WorkingDir: "{app}"
-Name: "{group}\Nowy kod parowania"; Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --new-code"; WorkingDir: "{app}"
+Name: "{group}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"
+Name: "{userdesktop}\NotarAI"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userstartup}\NotarAI w tle"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"" --serve"; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\runtime\python.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI V2 Preview"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\runtime\pythonw.exe"; Parameters: "-X utf8 ""{app}\launch.py"""; WorkingDir: "{app}"; Description: "Uruchom NotarAI"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-Process pythonw,python -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{app}\*' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopNotarAI"

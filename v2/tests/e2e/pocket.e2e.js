@@ -71,6 +71,10 @@ function watch(page, problems, label) {
     await answered(page, "sejf nie ma kodu odzyskiwania");
     assert(await page.locator("table").count() === 0, "tables in the chat UI");
 
+    // A refresh keeps the session (it lasts as long as the window, no new code needed).
+    await page.reload();
+    await statusIs(page, "Połączono z prawem zapisu.");
+    assert(await page.locator("#pairing").isHidden(), "refresh logged the device out");
     await say(page, "nowa sprawa sprawa-1", "Sprawa „sprawa-1”");
     assert(await page.locator("#case").inputValue() === "sprawa-1", "case not selected");
     await say(page, "notatka: Sprzedający Jan Kowalski, PESEL 44051401359, zbywa lokal nr 5.", "Zapisałem notatkę");
@@ -123,7 +127,10 @@ function watch(page, problems, label) {
     await page.locator("#tiles").getByRole("button", { name: "Kto sprzedaje" }).click();
     await answered(page, "Sprzedającym jest Jan Kowalski.");
     if (shots) await page.screenshot({ path: path.join(shots, "kafelki.png") });
-    await page.reload();                                       // the layout is remembered for this device
+    await page.reload();                                       // same window, same device: the tiles stay
+    await statusIs(page, "Połączono z prawem zapisu.");
+    await page.locator("#tiles .tile").nth(1).waitFor();
+    await page.getByRole("button", { name: "Rozłącz" }).click();   // another device has a layout of its own
     await page.getByLabel("Kod parowania").fill(info.write2);
     await page.getByRole("button", { name: "Połącz" }).click();
     await statusIs(page, "Połączono z prawem zapisu.");
@@ -182,6 +189,8 @@ function watch(page, problems, label) {
     await panel.goto(info.url + "/admin#" + info.admin);
     await statusIs(panel, "Panel otwarty.");
     assert(!panel.url().includes("#"), "one-time code left in the address bar");
+    await panel.reload();
+    await statusIs(panel, "Panel otwarty.");
     await panel.getByRole("button", { name: "Utwórz kod odzyskiwania" }).click();
     await answered(panel, "Kod odzyskiwania sejfu NotarAI");
     const code = await panel.locator(".code").textContent();

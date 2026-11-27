@@ -77,9 +77,11 @@ def main(installer: Path) -> None:
     try:
         subprocess.run([str(installer), *QUIET_SETUP], check=True, timeout=120)
         assert (app_dir / "runtime" / "python.exe").is_file()
-        assert (shortcuts / "NotarAI V2 Preview.lnk").is_file()
-        assert (shortcuts / "Nowy kod parowania.lnk").is_file()
-        print("EXE installed in the current Windows profile with both shortcuts.", flush=True)
+        assert (shortcuts / "NotarAI.lnk").is_file()
+        startup = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        assert (startup / "NotarAI w tle.lnk").is_file()
+        assert (app_dir / "runtime" / "pythonw.exe").is_file()
+        print("EXE installed in the current Windows profile with the NotarAI and background shortcuts.", flush=True)
         with TemporaryDirectory() as work, sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel="msedge", headless=True)
             log = Path(work) / "preview.log"
@@ -134,7 +136,7 @@ def main(installer: Path) -> None:
             subprocess.run([str(uninstall), *QUIET_SETUP], check=True, timeout=120)
 
     assert not (app_dir / "runtime" / "python.exe").exists()
-    assert not (shortcuts / "Nowy kod parowania.lnk").exists()
+    assert not (shortcuts / "NotarAI.lnk").exists()
     assert (vault / "vault.sqlite3").is_file()
     print("Uninstall removed program files and shortcuts and preserved the local test vault.", flush=True)
 

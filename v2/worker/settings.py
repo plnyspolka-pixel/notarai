@@ -65,7 +65,10 @@ class TunnelSettings(_Strict):
 
 
 class SpeechSettings(_Strict):
-    # Larger models hear better and run slower on an office computer's processor.
+    # chmura: Amazon Transcribe in the EU (the office computer does no speech work);
+    # lokalnie: faster-whisper on this computer (downloads a model, uses the processor).
+    where: str = Field(default="chmura", pattern=r"^(chmura|lokalnie)$")
+    bucket: str = Field(default="", max_length=63, pattern=r"^([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?$")
     model: str = Field(default="small", pattern=r"^(tiny|base|small|medium|large-v3|turbo)$")
 
 

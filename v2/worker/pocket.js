@@ -50,7 +50,7 @@ async function call(path, method = "GET", data) {
     const detail = (body && body.detail) || "";
     const error = new Error(
       code === 401 && !(body && body.challenge) && !/[ąćęłńóśźż]/i.test(detail)
-        ? (admin ? "Sesja panelu wygasła. Otwórz panel ponownie z menu Start."
+        ? (admin ? "Sesja wygasła. Otwórz NotarAI ponownie ikoną na pulpicie albo z menu Start."
                  : "Sesja wygasła lub dostęp został cofnięty. Skopiuj niezapisany tekst przed rozłączeniem.")
         : code === 409 && detail === "revision conflict"
           ? "Konflikt wersji. Zachowano edytowany tekst i wybrany plik. Możesz zapisać zmiany jako osobny dokument."
@@ -910,7 +910,20 @@ async function refreshCases(keep) {
     : "Dokumenty są przechowywane na komputerze kancelarii.";
 }
 
+// A refresh must not log out: the session lives as long as this window (sessionStorage), never longer.
+function remember(device) {
+  try {
+    if (device) sessionStorage.setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
+    else sessionStorage.removeItem("notarai-session");
+  } catch { /* private mode or blocked storage: the session simply ends with a refresh */ }
+}
+
+function remembered() {
+  try { return JSON.parse(sessionStorage.getItem("notarai-session") || "null"); } catch { return null; }
+}
+
 async function enter(device) {
+  if (!tunnel && device.token) remember(device);
   token = device.token;
   scope = device.scope;
   el("pairing").hidden = true;
@@ -934,6 +947,7 @@ async function enter(device) {
 }
 
 function leave(message) {
+  remember(null);
   token = "";
   scope = "";
   names = [];
@@ -956,7 +970,7 @@ async function unlock(code) {
   });
   const session = response.ok ? await response.json() : null;
   if (!session || (admin && session.scope !== "admin") || (!admin && session.scope === "admin")) {
-    throw new Error(admin ? "Kod panelu jest nieważny. Otwórz panel ponownie z menu Start." : "Kod parowania jest nieważny albo wygasł.");
+    throw new Error(admin ? "Kod panelu jest nieważny. Otwórz NotarAI ponownie ikoną na pulpicie albo z menu Start." : "Kod parowania jest nieważny albo wygasł.");
   }
   await enter(session);
 }
@@ -973,9 +987,25 @@ async function enterRemote(session) {
 async function start() {
   const fragment = window.location.hash;
   if (fragment) history.replaceState(null, "", window.location.pathname);
-  if (admin) {
+  if (admin && fragment.length > 1) {
     // The launcher opens this page with a one-time code in the fragment, which never reaches a server log.
-    if (fragment.length > 1) await unlock(fragment.slice(1));
+    await unlock(fragment.slice(1));
+    return;
+  }
+  const saved = remembered();
+  if (saved && saved.token) {
+    token = saved.token;
+    try {
+      await call("status");
+      await enter(saved);
+      return;
+    } catch {
+      token = "";
+      remember(null);
+    }
+  }
+  if (admin) {
+    status("Otwórz NotarAI ikoną na pulpicie albo z menu Start.");
     return;
   }
   const link = NotaraiTunnel.parseLink(fragment);

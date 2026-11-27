@@ -445,7 +445,8 @@ class Chat:
         current = s.status_listen()
         if plain.startswith(("wlacz nasluch", "uruchom nasluch")):
             if not s.can_transcribe():
-                return [text("Na tym komputerze nie ma rozpoznawania mowy, więc nasłuch nie miałby czego zapisać.")]
+                return [text("Rozpoznawanie mowy nie jest jeszcze skonfigurowane (zaloguj stanowisko do NotarAI), "
+                             "więc nasłuch nie miałby czego zapisać.")]
 
             def act():
                 s.update_settings(lambda d: d["listen"].update(enabled=True, paused=False))

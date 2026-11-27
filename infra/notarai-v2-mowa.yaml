@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - rozpoznawanie mowy w chmurze (Amazon Transcribe, eu-central-1).
+  Bucket na nagrania w trakcie przepisywania: stanowisko kasuje nagranie i wynik
+  zaraz po odczytaniu tekstu, a regula cyklu zycia usuwa wszystko, co zostalo,
+  po jednym dniu. Kazda kancelaria widzi tylko wlasny katalog. Nagrania to dane
+  osobowe - utworzenie stosu wymaga zgody wlasciciela (patrz CLAUDE.md).
+
+Parameters:
+  RolaStanowiska:
+    Type: String
+    Default: notarai-v2-stanowisko
+
+Resources:
+  Nagrania:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "notarai-v2-mowa-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: kasuj-po-dniu
+            Status: Enabled
+            ExpirationInDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  TylkoTls:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Nagrania
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoSzyfrowanePolaczenie
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt Nagrania.Arn
+              - !Sub "${Nagrania.Arn}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  MowaStanowiska:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaStanowiska
+      PolicyName: notarai-v2-mowa
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: WlasneNagrania
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: !Sub "${Nagrania.Arn}/${!cognito-identity.amazonaws.com:sub}/*"
+          - Sid: PrzepisywanieWUE
+            Effect: Allow
+            Action:
+              - transcribe:StartTranscriptionJob
+              - transcribe:GetTranscriptionJob
+              - transcribe:DeleteTranscriptionJob
+            Resource: !Sub "arn:aws:transcribe:${AWS::Region}:${AWS::AccountId}:transcription-job/notarai-*"
+
+Outputs:
+  Bucket:
+    Description: Wpisz w ustawieniach stanowiska V2 jako speech.bucket
+    Value: !Ref Nagrania

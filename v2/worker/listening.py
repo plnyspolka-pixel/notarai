@@ -85,29 +85,39 @@ class Listening:
         self._transcribe_pending()
         return self._close_idle()
 
+    def _hear(self, item):
+        source, audio, suffix, started, duration = item
+        try:
+            return (self._transcribe(audio, suffix) or "").strip()
+        except Exception:
+            return ""
+
     def _transcribe_pending(self) -> None:
+        """Pieces are transcribed several at a time (a cloud job takes seconds), then filed in order."""
+        from concurrent.futures import ThreadPoolExecutor
+
         while True:
             with self._lock:
-                if not self._queue:
-                    return
-                source, audio, suffix, started, duration = self._queue.popleft()
-            try:
-                text = (self._transcribe(audio, suffix) or "").strip()
-            except Exception:
-                text = ""
-            del audio
-            if not text:
-                continue
-            with self._lock:
-                conversation = self._conversations.get(source)
-                gap = self._settings().gap_seconds
-                if conversation is not None and started - conversation["end"] > gap:
-                    self._finished.append(self._conversations.pop(source))
-                    conversation = None
-                if conversation is None:
-                    conversation = self._conversations[source] = {"source": source, "start": started, "end": started, "texts": []}
-                conversation["texts"].append(text)
-                conversation["end"] = max(conversation["end"], started + duration)
+                batch = [self._queue.popleft() for _ in range(min(len(self._queue), 8))]
+            if not batch:
+                return
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                texts = list(pool.map(self._hear, batch))
+            for (source, _, _, started, duration), text in sorted(zip(batch, texts), key=lambda pair: pair[0][3]):
+                if text:
+                    self._file_piece(source, text, started, duration)
+
+    def _file_piece(self, source, text, started, duration) -> None:
+        with self._lock:
+            conversation = self._conversations.get(source)
+            gap = self._settings().gap_seconds
+            if conversation is not None and started - conversation["end"] > gap:
+                self._finished.append(self._conversations.pop(source))
+                conversation = None
+            if conversation is None:
+                conversation = self._conversations[source] = {"source": source, "start": started, "end": started, "texts": []}
+            conversation["texts"].append(text)
+            conversation["end"] = max(conversation["end"], started + duration)
 
     def _close_idle(self) -> list[dict]:
         now, gap = self._clock(), self._settings().gap_seconds
