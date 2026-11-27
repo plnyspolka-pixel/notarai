@@ -166,3 +166,24 @@ def test_klucz_podpisu_nie_lezy_w_repozytorium():
     gradle = (ANDROID / "app" / "build.gradle").read_text(encoding="utf-8")
     assert 'System.getenv("NOTARAI_POCKET_KEYSTORE_HASLO")' in gradle
     assert re.search(r'(storePassword|keyPassword)\s+"', gradle) is None
+
+
+def test_niesparowany_telefon_dostaje_instrukcje_i_skaner():
+    """Kto dopiero pobrał aplikację, widzi, czym ona jest i jak połączyć ją z kancelarią (powitanie.js).
+    Skaner przyjmuje wyłącznie kod parowania prowadzący na tę samą stronę."""
+    from infra import strona_ftp
+
+    katalog = STRONA / "pocket"
+    html = (katalog / "index.html").read_text(encoding="utf-8")
+    assert 'href="powitanie.css"' in html
+    assert html.index('src="pocket.js"') < html.index('src="powitanie.js"')     # po pocket.js i tunnel.js
+    sw = (katalog / "pocket-sw.js").read_text(encoding="utf-8")
+    assert '"powitanie.js"' in sw and '"powitanie.css"' in sw
+    kod = (katalog / "powitanie.js").read_text(encoding="utf-8")
+    assert "innerHTML" not in kod and "eval(" not in kod and re.search(r"https?://", kod) is None
+    assert "adres.origin !== window.location.origin || adres.pathname !== window.location.pathname" in kod
+    assert "NotaraiTunnel.parseLink(adres.hash)" in kod and "window.NotaraiTunnel" not in kod
+    assert "„dodaj telefon”" in kod and "„cofnij telefon”" in kod
+    assert "audio: false" in kod                                              # skaner nie włącza mikrofonu
+    lokalne = strona_ftp.pliki_lokalne(str(STRONA))
+    assert "pocket/powitanie.js" in lokalne and "pocket/powitanie.css" in lokalne

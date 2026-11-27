@@ -1,0 +1,12 @@
+/* Ekran niesparowanego telefonu (powitanie.js). */
+.powitanie h2 { margin: 0 0 6px; font-size: 1.35rem; }
+.powitanie h3 { margin: 18px 0 6px; font-size: 1.02rem; }
+.powitanie p { margin: 6px 0; }
+.powitanie-kroki, .powitanie-fakty { margin: 6px 0 12px; padding-left: 22px; }
+.powitanie-kroki li, .powitanie-fakty li { padding: 4px 0; }
+.powitanie-kroki li::marker { color: var(--accent); font-weight: 700; }
+.powitanie-fakty { color: var(--muted); font-size: .95rem; }
+.powitanie a { color: var(--accent); }
+.powitanie-skaner { margin: 8px 0; }
+.powitanie-skaner video { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 2px solid var(--accent); background: #000; }
+.powitanie-skaner button { width: 100%; }
