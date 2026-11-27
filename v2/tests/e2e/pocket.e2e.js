@@ -272,11 +272,12 @@ function watch(page, problems, label) {
     await mic.getByLabel("Kod parowania").fill(micCode);
     await mic.getByRole("button", { name: "Połącz" }).click();
     await mic.locator("#listener-name", { hasText: "Mikrofon: Sekretariat" }).waitFor();
-    await mic.waitForFunction(() => /Przesłane fragmenty rozmów: [2-9]/.test(document.getElementById("listener-state").textContent), null, { timeout: 20000 });
+    await mic.getByRole("button", { name: "Włącz mikrofon" }).click();
+    await mic.waitForFunction(() => /Przesłane fragmenty: [2-9]/.test(document.getElementById("listener-state").textContent), null, { timeout: 20000 });
     assert(await mic.locator("#workspace").isHidden() && await mic.locator("#composer").isHidden(), "a microphone shows the chat");
     if (shots) await mic.screenshot({ path: path.join(shots, "mikrofon.png") });
-    await mic.getByRole("button", { name: "Wstrzymaj" }).click();
-    await mic.locator("#listener-state", { hasText: "Wstrzymane na tym urządzeniu" }).waitFor();
+    await mic.getByRole("button", { name: "Wyłącz mikrofon" }).click();
+    await mic.locator("#listener-state", { hasText: "Mikrofon wyłączony." }).waitFor();
     await say(panel, "nasłuch", "Sekretariat: ostatni dźwięk");
     await say(panel, "wyłącz nasłuch", "Zapisałem ostatnie rozmowy: 1");
     await say(panel, "notatki z rozmów", "Ostatnie notatki z rozmów:");

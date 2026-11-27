@@ -4,6 +4,12 @@ Run `NotarAI-V2-Setup-x64.exe` and launch **NotarAI V2 Preview** from the Start 
 
 The assistant is off until the notary writes „włącz asystenta” in the workstation panel and signs in with a NotarAI account in the `notarai-v2` group; service addresses come from `preset.json`. Its encrypted test vault uses the current Windows user's DPAPI and lives under `%LOCALAPPDATA%\NotarAI\V2-preview`. Uninstalling removes the program and shortcut and preserves the test vault. The preview installer is unsigned.
 
+## Update from 2.1.0
+
+Close the running NotarAI V2 Preview console before opening the 2.1.1 installer. The installer uses the same application ID and program directory, and retains the separate local vault and DPAPI credentials. Use the same Windows user account. The test workflow checks an in-place update from the released 2.1.0 installer before uploading the new EXE.
+
+The workstation panel provides session audio/video recording, automatic selection of available local microphones, and local unmasked transcription. Pocket microphone mode starts disabled and has a physical-device toggle in the browser. The preview is for synthetic data.
+
 ## Build and verify
 
 On Windows x64 with Python 3.14, run `./v2/installer/build.ps1 -OutputDirectory ./dist` from the repository root. The build uses the official CPython 3.14.10 embeddable package, the pinned V2 dependency constraints and Inno Setup 6.4.3. Both tool downloads are verified against their SHA-256 digests. [CPython embedding guide](https://docs.python.org/3.14/using/windows.html#the-embeddable-package) · [Inno Setup license](https://github.com/jrsoftware/issrc/blob/is-6_4_3/license.txt)

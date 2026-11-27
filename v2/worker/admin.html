@@ -34,11 +34,28 @@
     <h2 id="listener-name">Mikrofon</h2>
     <p id="listener-state" class="listener-state" role="status">Uruchamiam…</p>
     <div class="meter" aria-hidden="true"><div id="listener-level"></div></div>
-    <button id="listener-toggle" class="primary big">Wstrzymaj</button>
-    <p class="muted">To urządzenie przesyła do komputera kancelarii tylko dźwięk z rozmów; ciszy nie wysyła. Zostaw je
-      włączone na ładowarce. Nie ma dostępu do dokumentów.</p>
+    <button id="listener-toggle" class="primary big">Włącz mikrofon</button>
+    <p class="muted">Włącz mikrofon po poinformowaniu uczestników. Możesz go wyłączyć w każdej chwili.</p>
   </section>
   <main id="workspace" hidden>
+    <button id="pokaz-nagrywanie">Nagrywanie stanowiska</button>
+    <section id="panel-nagrywania" class="card" hidden>
+      <h2>Nagrywanie stanowiska</h2>
+      <p>Poinformuj uczestników przed uzbrojeniem sesji. Używaj wyłącznie fikcyjnych danych.</p>
+<form id="ustawienia">
+  <label>Sprawa lub opis notatki <input id="opis-nagrania" maxlength="120" required></label>
+  <label>Stanowisko <select id="stanowisko"><option value="gabinet">Gabinet</option><option value="sekretariat">Sekretariat</option></select></label>
+  <p>NotarAI dobiera dostępne mikrofony automatycznie. W gabinecie używa też kamery.</p>
+  <label><input id="automatyczny" type="checkbox" checked> Uruchom zapis po wykryciu dźwięku w uzbrojonej sesji</label>
+  <button type="submit">Uzbrój sesję</button>
+</form>
+<button id="recznie" disabled>Rozpocznij zapis teraz</button>
+<button id="stop" disabled>Zakończ sesję</button>
+<p id="stan-nagrywania" role="status">Urządzenia są wyłączone.</p>
+<button id="lista">Pokaż lokalne nagrania</button>
+<ul id="nagrania"></ul>
+      <pre id="tekst-nagrania"></pre>
+    </section>
     <section id="desk" hidden aria-label="Moje kafelki">
       <div id="tiles"></div>
       <div class="row">
@@ -94,5 +111,6 @@
   <script src="qrcode.js"></script>
   <script src="tunnel.js"></script>
   <script src="pocket.js"></script>
+  <script src="nagrywanie.js"></script>
 </body>
 </html>

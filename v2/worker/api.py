@@ -528,6 +528,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         vault.log("local-admin", "settings")
         return new.model_dump()
 
+    @app.get("/v2/nagrywanie.js")
+    def nagrywanie_script():
+        return FileResponse(Path(__file__).with_name("nagrywanie.js"), media_type="application/javascript")
+
     @app.get("/v2/admin")
     def admin_page():
         return FileResponse(Path(__file__).with_name("admin.html"), media_type="text/html")
@@ -775,6 +779,12 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if not local_speech.available():
             return None
         return local_speech.transcribe(audio, state["settings"].speech.model, home / "modele-mowy", suffix)
+
+    from .nagrania import router_nagran
+    app.include_router(router_nagran(vault, admin, lambda audio: (
+        transcriber(audio.getvalue()) if transcriber is not None
+        else local_speech.transcribe_stream(audio, state["settings"].speech.model, home / "modele-mowy")
+    )))
 
     @app.post("/v2/procedures/transcribe", dependencies=[Depends(admin)])
     def procedure_transcribe(req: Recording):

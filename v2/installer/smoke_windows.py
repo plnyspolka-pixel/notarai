@@ -65,7 +65,7 @@ def paired_pocket(browser, url, code):
     return page
 
 
-def main(installer: Path) -> None:
+def main(installer: Path, previous: Path | None = None) -> None:
     local = Path(os.environ["LOCALAPPDATA"])
     app_dir = local / "Programs" / "NotarAI V2 Preview"
     vault = local / "NotarAI" / "V2-preview"
@@ -75,7 +75,7 @@ def main(installer: Path) -> None:
         raise RuntimeError("Installer smoke test needs a fresh Windows test profile.")
 
     try:
-        subprocess.run([str(installer), *QUIET_SETUP], check=True, timeout=120)
+        subprocess.run([str(previous or installer), *QUIET_SETUP], check=True, timeout=120)
         assert (app_dir / "runtime" / "python.exe").is_file()
         assert (shortcuts / "NotarAI V2 Preview.lnk").is_file()
         assert (shortcuts / "Nowy kod parowania.lnk").is_file()
@@ -115,6 +115,13 @@ def main(installer: Path) -> None:
                     expect(page.get_by_role("status")).to_have_text("Zapisano wersję 1.")
                     page.close()
 
+                if previous:
+                    protected = {name: (vault / name).read_bytes() for name in ("vault.key.dpapi", "api.token.dpapi")}
+                    subprocess.run([str(installer), *QUIET_SETUP], check=True, timeout=120)
+                    assert (app_dir / "worker" / "nagrywanie.js").is_file()
+                    assert all((vault / name).read_bytes() == value for name, value in protected.items())
+                    print("Upgraded 2.1.0 to 2.1.1 and preserved DPAPI credentials.", flush=True)
+
                 assert state.is_file(), "a forced exit should leave the stale instance file"
                 with running_preview(app_dir, state, log) as (url, code):
                     assert json.loads(state.read_text(encoding="ascii"))["nonce"] != initial["nonce"]
@@ -140,4 +147,4 @@ def main(installer: Path) -> None:
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1]).resolve(strict=True))
+    main(Path(sys.argv[1]).resolve(strict=True), Path(sys.argv[2]).resolve(strict=True) if len(sys.argv) > 2 else None)

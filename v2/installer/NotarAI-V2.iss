@@ -1,7 +1,9 @@
 [Setup]
 AppId={{48ABAE34-C8E3-4337-87C1-22E39BBDA5DE}
 AppName=NotarAI V2 Preview
-AppVersion=2.1.0
+AppVersion=2.1.1
+CloseApplications=yes
+RestartApplications=no
 DefaultDirName={localappdata}\Programs\NotarAI V2 Preview
 DefaultGroupName=NotarAI V2 Preview
 DisableProgramGroupPage=yes
