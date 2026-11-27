@@ -333,6 +333,15 @@ class Vault:
                        (case, blob))
         return names
 
+    def all_parties(self):
+        """Names of every case's parties (to cut them out of anything that leaves the computer)."""
+        with self._ro() as db:
+            cases = [c for (c,) in db.execute("SELECT case_id FROM case_notes").fetchall()]
+        names = []
+        for case in cases:
+            names += self.parties(case)
+        return names
+
     def parties(self, case):
         if case is None:
             return []

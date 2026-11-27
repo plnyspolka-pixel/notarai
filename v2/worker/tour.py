@@ -71,6 +71,11 @@ SLIDES = [
              "całą listę widzisz pod przyciskiem 📘 u góry i możesz z niej usunąć wszystko. Nazwiska i liczby są wycinane.",
      "you": "zapamiętaj: akty podpisujemy w gabinecie nr 2", "notarai": "📘 Zapamiętałem: akty podpisujemy w gabinecie nr 2",
      "try": "tryb uczenia"},
+    {"icon": "plug", "title": "Tryb serwisowy: program zmienia się sam",
+     "text": "Coś Ci przeszkadza albo czegoś brakuje? Napisz albo powiedz „popraw program: …”. Prośba bez nazwisk "
+             "i numerów trafia do samonaprawy NotarAI; zmiana przychodzi jako aktualizacja, a program mówi „Twoja zmiana już działa”.",
+     "you": "popraw program: kalendarz ma pokazywać cały tydzień", "notarai": "Przyjąłem prośbę Z-3F2A1C. Gdy zadziała, powiem Ci o tym tutaj.",
+     "try": "tryb serwisowy"},
     {"icon": "rules", "title": "Twarde zasady kancelarii",
      "text": "Zasady wpisane zdaniem pilnuje kod przy każdym zapisie i wysyłce, nie da się ich obejść poleceniem.",
      "you": "zasada: każdy akt musi zawierać „Notariusz pouczył strony”", "notarai": "Dodałem zasadę nr 1. Sprawdzam ją przy każdym zapisie.",

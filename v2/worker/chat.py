@@ -129,6 +129,9 @@ class Chat:
         today = self.s.calendar.upcoming(1, cases=identity.cases) if identity.scope != "listen" else []
         if today:
             blocks.append(text("Dziś: " + "; ".join(f"{e['label'].split()[-1]} {e['title']}" for e in today[:6]) + "."))
+        delivered = self.s.service.delivered(self.s.program_changes())
+        for item in delivered:
+            blocks.append(text(f"Twoja zmiana już działa ({item['id']}): {item.get('opis_zmiany') or item['tresc']}"))
         if admin and self.s.program.current is not None and self.s.program.ready_version():
             blocks.append(text(f"Gotowa aktualizacja programu do wersji {self.s.program.ready_version()}."))
             blocks.append(buttons(("Uruchom ponownie i zaktualizuj", "zainstaluj aktualizację")))
@@ -190,6 +193,9 @@ class Chat:
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        serviced = self._service(identity, message, plain)
+        if serviced is not None:
+            return serviced
         together = self._office(identity, message, plain, case)
         if together is not None:
             return together
@@ -1019,6 +1025,35 @@ class Chat:
             blocks.append(text("Dodaj czynność (albo napisz „dodaj czynność” i nazwę):"))
             blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
         return blocks
+
+    # ------------------------------------------------------------ service mode: the program changes itself
+    def _service(self, identity, message, plain):
+        s = self.s
+        found = re.match(r"(popraw program|zmien program|zmien w programie|popraw w programie|zglos zmiane|"
+                         r"zglos blad|prosba o zmiane|chce zeby program|niech program)\s*:?\s*", plain)
+        if found and len(plain) > found.end() + 3:
+            if identity.scope not in {"admin", "write"}:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            wording = message[len(message) - (len(plain) - found.end()):]
+            s.narrate(identity, "Usuwam z prośby nazwiska stron, numery i adresy e-mail; tylko tak opuszcza ten komputer.")
+            entry = s.service.ask(wording)
+            return [text(f"Przyjąłem prośbę {entry['id']}: „{entry['tresc']}”. Trafiła do trybu serwisowego: "
+                         "właściciel dostał ją e-mailem, a potok samonaprawy przygotuje zmianę, sprawdzi ją testami "
+                         "i wyśle jako aktualizację. Gdy zadziała, powiem Ci o tym tutaj."),
+                    buttons(("Moje zgłoszenia", "moje zgłoszenia"))]
+        if plain in {"tryb serwisowy", "serwis", "moje zgloszenia", "zgloszenia", "co z moimi zgloszeniami"}:
+            items = s.service.requests()[-12:]
+            words = {"wyslane": "wysłane, w przygotowaniu", "blad": "nie wysłane (błąd połączenia)",
+                     "wdrozone": "DZIAŁA", "wysylanie": "wysyłanie"}
+            lines = ["Tryb serwisowy: napisz albo powiedz, co zmienić w programie, np. „popraw program: przycisk "
+                     "Wyślij ma być większy” albo „zmień program: po zapisaniu aktu otwieraj go w Wordzie”. Nazwiska "
+                     "i numery wycinam, zanim prośba opuści komputer."]
+            if items:
+                lines.append("Twoje zgłoszenia:")
+                lines += [f"• {i['id']} ({when(int(i['utworzono'] * 10**9))}, {i['stanowisko']}): {i['tresc'][:120]} – "
+                          f"{words.get(i['stan'], i['stan'])}" for i in reversed(items)]
+            return [text("\n".join(lines))]
+        return None
 
     # ------------------------------------------------------------ several workstations: names, messenger, printers
     def who(self, identity) -> str:

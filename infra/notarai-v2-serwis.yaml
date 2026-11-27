@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - tryb serwisowy (decyzja wlasciciela 27.11.2026). Prosba o zmiane programu
+  napisana w aplikacji (bez danych osobowych: nazwiska i numery wyciete na stanowisku)
+  trafia zdarzeniem na domyslna szyne; regula odklada ja w kolejce dla potoku samonaprawy
+  i wysyla wlascicielowi e-mail (temat notarai-alarmy). Stanowisko moze wyslac tylko
+  zdarzenie ze zrodlem notarai.v2.serwis.
+
+Parameters:
+  RolaStanowiska:
+    Type: String
+    Default: notarai-v2-stanowisko
+  TematPowiadomien:
+    Type: String
+    Default: arn:aws:sns:eu-central-1:127621462971:notarai-alarmy
+
+Resources:
+  Kolejka:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: notarai-v2-serwis
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  ZasadyKolejki:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref Kolejka]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: events.amazonaws.com}
+            Action: sqs:SendMessage
+            Resource: !GetAtt Kolejka.Arn
+            Condition:
+              ArnEquals: {"aws:SourceArn": !GetAtt Regula.Arn}
+
+  RolaPowiadomien:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-v2-serwis-powiadomienia
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: powiadomienie
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref TematPowiadomien
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/notarai-v2-serwis*"
+
+  Powiadomienie:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: notarai-v2-serwis-powiadomienie
+      Description: E-mail do wlasciciela o prosbie o zmiane z NotarAI V2 (tresc juz bez danych osobowych)
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt RolaPowiadomien.Arn
+      Timeout: 15
+      Environment:
+        Variables:
+          TEMAT: !Ref TematPowiadomien
+      Code:
+        ZipFile: |
+          import json, os
+          import boto3
+
+          def handler(event, context):
+              d = event.get("detail") or {}
+              lines = [
+                  "Nowa prosba o zmiane programu NotarAI V2 (tryb serwisowy).",
+                  "",
+                  "Stanowisko: " + str(d.get("stanowisko", "?"))[:60],
+                  "Numer zgloszenia: " + str(d.get("id", "?"))[:40],
+                  "Wersja programu: " + str(d.get("wersja", "?"))[:20],
+                  "",
+                  "Prosba (nazwiska i numery wyciete na stanowisku):",
+                  str(d.get("tresc", ""))[:4000],
+                  "",
+                  "Zgloszenie czeka w kolejce notarai-v2-serwis (14 dni) na potok samonaprawy.",
+              ]
+              boto3.client("sns").publish(TopicArn=os.environ["TEMAT"], Subject="NotarAI V2: prosba o zmiane programu",
+                                          Message="\n".join(lines))
+              return {"ok": True}
+
+  ZgodaNaWywolanie:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Powiadomienie
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt Regula.Arn
+
+  Regula:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: notarai-v2-serwis
+      Description: Prosby o zmiane programu z NotarAI V2
+      EventBusName: default
+      EventPattern:
+        source: [notarai.v2.serwis]
+        detail-type: [prosba]
+      Targets:
+        - Id: kolejka
+          Arn: !GetAtt Kolejka.Arn
+        - Id: powiadomienie
+          Arn: !GetAtt Powiadomienie.Arn
+
+  ZgloszeniaZeStanowiska:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaStanowiska
+      PolicyName: notarai-v2-serwis
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoProsbyOZmiane
+            Effect: Allow
+            Action: events:PutEvents
+            Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default"
+            Condition:
+              StringEquals:
+                "events:source": notarai.v2.serwis
+                "events:detail-type": prosba
+
+Outputs:
+  Kolejka:
+    Value: !Ref Kolejka

@@ -165,7 +165,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
                fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
                dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
-               office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None):
+               office_transport=None, office_address=None, device_scan=None, ipp=None, escl=None, to_pdf=None,
+               service_send=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -1196,6 +1197,12 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         jobs.pop(ident, None)
         return {"done": True, "blocks": job["blocks"]}
 
+    from .service import ServiceDesk, ServiceError
+
+    service_desk = ServiceDesk(home, vault, lambda: state["account"], state["settings"].ai.region,
+                               lambda: state["settings"].station_name or "Stanowisko",
+                               lambda: (program.current or {}).get("version"), send=service_send)
+
     from .registers import Registers
 
     register_service = registers or Registers(lambda: state["account"], state["settings"].ai.region,
@@ -1377,6 +1384,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         print_network=lambda device, name, data: (ipp or peripherals.ipp_print)(
             device, (to_pdf or peripherals.word_to_pdf)(name, data), name),
         scan=lambda device, **options: (escl or peripherals.escl_scan)(device, **options),
+        service=service_desk, program_changes=lambda: (program.current or {}).get("zmiany", []),
         office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
@@ -1430,7 +1438,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     from .peripherals import DeviceError
 
-    SAID = (DeviceError, PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
+    SAID = (ServiceError, DeviceError, PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
             RegisterError,
             mail_module.MailError, ProcedureError, FillError, RuleViolation)
 

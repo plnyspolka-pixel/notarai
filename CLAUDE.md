@@ -106,7 +106,7 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   dokładnie tego, co wykonano, jedno wykonanie bez ponawiania po niepewnym wyniku. Zapis dokumentu
   nadal przez kontrakt Connect z odczytem kontrolnym.
 - Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia`, `notarai-v2-mowa`,
-  `notarai-v2-pobieranie`, `notarai-v2-rejestry` istnieją w eu-central-1 (decyzje właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
+  `notarai-v2-pobieranie`, `notarai-v2-rejestry`, `notarai-v2-serwis` istnieją w eu-central-1 (decyzje właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
   `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
 - Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
   zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
