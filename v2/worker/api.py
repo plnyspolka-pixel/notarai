@@ -845,6 +845,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             from .web_fill import Browser
 
             browser_box["web"] = Browser(home / "przegladarka", choice=lambda: state["settings"].agent.browser)
+            browser_box["web"].background(lambda: state["settings"].agent.background)
         return browser_box["web"]
 
     def desktop_target():
@@ -1526,6 +1527,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         office=Guarded(office_link, {"invite": "ustawienia", "join": "ustawienia", "forget": "ustawienia"}), station_name=station_name, start_office_server=lambda: start_office_server(),
         office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         computer=agent_computer,
+        web_browser=(fill_targets or {}).get("strona", web_target),
         ai_ready=lambda: bool(state["inference"] is not None and state["inference"].enabled),
         agent_ask=lambda system, question, images=(): state["inference"].ask(
             purpose="agent", system=system, text=question, names=vault.all_parties(), max_tokens=1500,

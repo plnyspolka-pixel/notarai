@@ -33,7 +33,8 @@ import time
 import unicodedata
 from pathlib import Path
 
-MAX_STEPS = 24
+MAX_STEPS = 80             # one run; the chat offers „Kontynuuj” after that (2.8.0: 24 ended ordinary work half way)
+KEEP_FULL = 8              # the newest steps stay whole in the transcript; older ones shrink to their first lines
 MAX_SEEN = 9000            # characters of one observation shown to the model
 MAX_HISTORY = 60000
 
@@ -93,7 +94,14 @@ SYSTEM_AGENT = (
     "- {\"krok\":\"polecenie\",\"program\":nazwa albo ścieżka .exe,\"argumenty\":[lista napisów]} – uruchamia program z argumentami "
     "i zwraca to, co wypisał (bez powłoki: żadnych |, >, &&; cmd, PowerShell i skrypty są niedostępne). Opcje programu poznasz "
     "argumentem --help\n"
+    "- {\"krok\":\"notatka\",\"program\":nazwa programu albo adres strony,\"tekst\":jedno zdanie o drodze przez program} – "
+    "zapamiętuje na przyszłość, jak dojść do ekranu albo funkcji (menu, zakładki, przyciski); bez danych osób i numerów\n"
     "- {\"krok\":\"koniec\",\"odpowiedz\":co zrobiłeś i co z tego wynika, po polsku, krótko}\n"
+    "Najpierw plan: jeśli niżej jest MAPA PROGRAMU dla tego programu, idź prosto po znanej drodze. Jeśli mapy nie ma, "
+    "najpierw poznaj program (okno albo widok głównego ekranu, potem menu i zakładki, bez zapisywania czegokolwiek), zapisz "
+    "drogę krokiem notatka i dopiero wtedy wykonuj polecenie. Gdy polecenie dotyczy kilku pozycji (np. kilku aktów), "
+    "rób je po kolei i nie kończ, póki wszystkie nie są przygotowane. Logowania, certyfikatu, PIN-u, hasła, podpisu i "
+    "płatności nie wykonujesz nigdy: przygotuj wszystko i zakończ, mówiąc, co czeka na notariusza. "
     "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
     "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
@@ -113,9 +121,22 @@ def plain(text) -> str:
     return " ".join("".join(c for c in text if unicodedata.category(c) != "Mn").split())
 
 
+# Acts the agent never performs, whatever the sentence says (owner's decision 27.11.2026, 2.8.0): it prepares
+# everything, shows the window and hands over. Signing and paying are the notary's own; logging in needs the
+# notary's certificate, PIN or password.
+HANDOVER = {
+    "logowanie": ("zaloguj", "zalogowac", "logowanie", "logowania", "certyfikat", "certyfikatem", "pin", "haslo",
+                  "log in", "login", "sign in"),
+}
+NEVER = frozenset({"logowanie", "podpis", "platnosc"})
+
+
 def act_kind(label: str) -> str | None:
     """The irreversible act a button or key names, if any."""
     words = plain(label)
+    for kind, names in HANDOVER.items():          # „sign in” is a login, not a signature
+        if any(re.search(r"(^|[^a-z])" + re.escape(name) + r"($|[^a-z])", words) for name in names):
+            return kind
     for kind, names in ACTS.items():
         if any(re.search(r"(^|[^a-z])" + re.escape(name) + r"($|[^a-z])", words) for name in names):
             return kind
@@ -140,6 +161,112 @@ def parse_step(answer: str) -> dict:
     return step
 
 
+# ------------------------------------------------------------------ what the agent remembers about programs
+class ProgramMap:
+    """Screens, fields and buttons of the programs and sites the agent has seen, kept between tasks.
+
+    Built by code from what the agent reads (`okno`, `widok`): names of fields and buttons only, never their
+    values, and nothing that looks like a number of a person or a case. The agent adds short notes about the
+    way through a program (`notatka`). Next time the map is in front of the model from the first step, so it
+    does not wander. Stored on this computer, next to the program's own data."""
+
+    MAX_PROGRAMS, MAX_SCREENS, MAX_LABELS, MAX_NOTES = 30, 40, 60, 30
+
+    def __init__(self, home: Path):
+        self._path = Path(home) / "mapa-programow.json"
+
+    def _load(self) -> dict:
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _save(self, data: dict) -> None:
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self._path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            os.replace(temporary, self._path)
+        except OSError:
+            pass                                   # the map is a convenience; a full disk must not stop the work
+
+    @staticmethod
+    def _safe(label) -> str | None:
+        label = " ".join(str(label or "").split())[:60]
+        if len(label) < 2 or re.search(r"\d{5,}|@|\[[A-Z_]+\d*\]", label):
+            return None                            # numbers of people and cases, e-mails, placeholders: not a name of a field
+        return label
+
+    @staticmethod
+    def key(name: str) -> str:
+        """A program by the last part of its window title („Dokument1 - Word” -> „word”), a site by its host."""
+        host = re.match(r"https?://([^/:]+)", name or "")
+        if host:
+            return host.group(1).lower().removeprefix("www.")
+        parts = [part.strip() for part in re.split(r"\s[-–—|]\s", name or "") if part.strip()]
+        return plain(parts[-1] if parts else name)[:60]
+
+    def record(self, program: str, screen: str, controls) -> None:
+        program, screen = self.key(program), (self._safe(screen) or "ekran")
+        if not program:
+            return
+        fields = [l for l in (self._safe(c.label) for c in controls if c.kind in {"text", "select", "check"}) if l]
+        buttons = [l for l in (self._safe(c.label) for c in controls if c.kind == "button") if l]
+        if not fields and not buttons:
+            return
+        data = self._load()
+        if program not in data and len(data) >= self.MAX_PROGRAMS:
+            return
+        entry = data.setdefault(program, {"ekrany": {}, "notatki": []})
+        if screen not in entry["ekrany"] and len(entry["ekrany"]) >= self.MAX_SCREENS:
+            return
+        known = entry["ekrany"].setdefault(screen, {"pola": [], "przyciski": []})
+        before = json.dumps(known, sort_keys=True)
+        known["pola"] = list(dict.fromkeys(known["pola"] + fields))[:self.MAX_LABELS]
+        known["przyciski"] = list(dict.fromkeys(known["przyciski"] + buttons))[:self.MAX_LABELS]
+        if json.dumps(known, sort_keys=True) != before:
+            self._save(data)
+
+    def note(self, program: str, text_: str) -> str:
+        program = self.key(program)
+        note = " ".join(str(text_ or "").split())[:300]
+        if not program or len(note) < 8:
+            raise AgentError("Podaj program i notatkę.")
+        if re.search(r"\d{5,}|@|\[[A-Z_]+\d*\]", note):
+            raise AgentError("Notatka ma opisywać drogę przez program (menu, ekrany, przyciski), bez danych osób i numerów.")
+        data = self._load()
+        entry = data.setdefault(program, {"ekrany": {}, "notatki": []})
+        if note not in entry["notatki"]:
+            entry["notatki"] = (entry["notatki"] + [note])[-self.MAX_NOTES:]
+            self._save(data)
+        return f"Zapamiętałem o programie „{program}”."
+
+    def programs(self) -> list[str]:
+        return sorted(self._load())
+
+    def forget(self, program: str) -> bool:
+        data = self._load()
+        hit = next((k for k in data if plain(program) in k), None)
+        if hit is None:
+            return False
+        del data[hit]
+        self._save(data)
+        return True
+
+    def describe(self, program: str | None = None, limit: int = 7000) -> str:
+        data = self._load()
+        if program is not None:
+            data = {k: v for k, v in data.items() if plain(program) in k}
+        lines = []
+        for name, entry in sorted(data.items()):
+            lines.append(f"PROGRAM {name}")
+            lines += [f"  droga: {note}" for note in entry.get("notatki", [])]
+            for screen, parts in entry.get("ekrany", {}).items():
+                lines.append(f"  ekran „{screen}”: pola: {', '.join(parts['pola']) or '-'}; przyciski: {', '.join(parts['przyciski']) or '-'}")
+        return "\n".join(lines)[:limit]
+
+
 # ------------------------------------------------------------------ the computer
 class Computer:
     """What the agent can touch. Every method returns text for the model (and raises AgentError)."""
@@ -155,6 +282,8 @@ class Computer:
         self._grabber, self._pointer, self._typist, self._runner = grabber, pointer, typist, runner
         self._label_at, self._allowed, self._which = label_at, allowed, which or shutil.which
         self._scale = None                                       # screen pixels per pixel of the last screenshot
+        self.map = ProgramMap(self._home)
+        self.used_browser = False                                # this run touched the NotarAI browser
         self.picture = None                                      # JPEG for the model's next turn, taken once
 
     def _may(self, what: str) -> bool:
@@ -509,6 +638,7 @@ class Computer:
             value = f" = „{control.value}”" if control.value else ""
             options = f" (do wyboru: {', '.join(control.options[:15])})" if control.options else ""
             lines.append(f"[{control.kind}] {control.label}{value}{options}")
+        self.map.record(desktop.where() or title, desktop.where() or title, desktop.controls())
         return f"Okno {desktop.where()}:\n" + ("\n".join(lines) or "(brak pól dostępnych dla programu)")
 
     def _control(self, desktop, label, kinds):
@@ -569,7 +699,10 @@ class Computer:
                 .filter(t => t).slice(0, 120)""")
             return page.url, title, body, links
         url, title, body, links = self._browser().on_page(look, timeout=60)
-        fields = [f"[{c.kind}] {c.label}" + (f" = „{c.value}”" if c.value else "") for c in self._browser().controls()]
+        self.used_browser = True
+        controls = self._browser().controls()
+        self.map.record(url, re.sub(r"^https?://[^/]+", "", url.split("?")[0].split("#")[0])[:60] or "/", controls)
+        fields = [f"[{c.kind}] {c.label}" + (f" = „{c.value}”" if c.value else "") for c in controls]
         return (f"Strona {url} — {title}\nTekst:\n{' '.join(body.split())[:5000]}\n"
                 f"Pola:\n" + "\n".join(fields[:80]) + "\nPrzyciski i odnośniki:\n" + " | ".join(links))
 
@@ -615,12 +748,17 @@ class Agent:
         """Returns {"answer", "steps", "stopped": None | {"kind", "label", "step", "history"}}.
 
         `allowed`: kinds of irreversible act approved for this run (from the sentence or a „Tak”)."""
-        allowed = set(allowed) | asked_for(task)
+        allowed = (set(allowed) | asked_for(task)) - NEVER
         history, steps = list(history or []), []
+        known = getattr(self._computer, "map", None)
         for _ in range(self._max):
-            transcript = "\n\n".join(history)[-MAX_HISTORY:]
+            older = [entry if len(entry) < 500 else entry[:400] + " […]" for entry in history[:-KEEP_FULL]]
+            transcript = "\n\n".join(older + history[-KEEP_FULL:])[-MAX_HISTORY:]
             picture, self._computer.picture = getattr(self._computer, "picture", None), None
-            reply = self._ask(SYSTEM_AGENT, f"Polecenie notariusza: {task}\n\nDotychczasowe kroki:\n{transcript or '(brak)'}"
+            learned = known.describe() if known is not None else ""
+            reply = self._ask(SYSTEM_AGENT, f"Polecenie notariusza: {task}\n\n"
+                                            + (f"MAPA PROGRAMU (z poprzednich prac na tym komputerze):\n{learned}\n\n" if learned else "")
+                                            + f"Dotychczasowe kroki:\n{transcript or '(brak)'}"
                                             "\n\nPodaj następny krok (jeden obiekt JSON).", (picture,) if picture else ())
             try:
                 step = parse_step(reply)
@@ -658,13 +796,15 @@ class Agent:
             history.append(f"KROK {json.dumps(step, ensure_ascii=False)}\nWYNIK: {seen[:MAX_SEEN]}")
             if act:            # an irreversible act happened: once, never repeated by the loop
                 allowed.discard(act)
-        return {"answer": "Przerwałem po wielu krokach. Napisz, co dalej, albo podziel polecenie na mniejsze.",
-                "steps": steps, "stopped": None}
+        return {"answer": "", "steps": steps,
+                "stopped": {"kind": "limit", "label": f"{len(steps)} kroków", "step": None, "history": history}}
 
     def _irreversible(self, step) -> str | None:
         kind = step["krok"]
         if kind in {"kliknij", "web_kliknij"}:
             return act_kind(step.get("przycisk") or step.get("co") or "")
+        if kind in {"wpisz", "web_wpisz"} and re.search(r"(^|[^a-z])(haslo|pin|password|kod pin)($|[^a-z])", plain(step.get("pole", ""))):
+            return "logowanie"                     # a password or a PIN is typed by the notary, never by the program
         if kind == "kliknij_punkt":       # what Windows calls the element counts first, then what the model says it is
             return act_kind(self._computer.label_at(step.get("x"), step.get("y"))) or act_kind(str(step.get("co", "")))
         if kind == "polecenie":
@@ -684,7 +824,8 @@ class Agent:
                  "kliknij": "klikam", "klawisze": "naciskam klawisze", "strona": "otwieram stronę",
                  "widok": "czytam stronę", "web_wpisz": "wpisuję na stronie", "web_kliknij": "klikam na stronie",
                  "ekran": "patrzę na ekran", "kliknij_punkt": "klikam w punkt na ekranie", "pisz": "piszę z klawiatury",
-                 "narzedzia": "sprawdzam narzędzia wiersza poleceń", "polecenie": "uruchamiam program z wiersza poleceń"}
+                 "narzedzia": "sprawdzam narzędzia wiersza poleceń", "polecenie": "uruchamiam program z wiersza poleceń",
+                 "notatka": "zapamiętuję drogę przez program"}
         return names.get(step["krok"], step["krok"])
 
     def _do(self, step) -> str:
@@ -711,6 +852,7 @@ class Agent:
             "pisz": lambda: c.write(get("tekst")),
             "narzedzia": c.tools,
             "polecenie": lambda: c.command(get("program"), step.get("argumenty", [])),
+            "notatka": lambda: c.map.note(get("program"), get("tekst")),
         }
         if k not in actions:
             raise AgentError(f"Nie znam kroku „{k}”.")

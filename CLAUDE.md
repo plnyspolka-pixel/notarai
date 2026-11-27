@@ -149,6 +149,18 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
     telefonowi … sterować komputerem” z potwierdzeniem albo „dodaj telefon z dostępem do komputera”); tylko
     urządzenie z zapisem i wszystkimi sprawami; zgoda czytana przy każdym użyciu (`devices.computer`).
   - przeglądarka: Edge albo Chrome („używaj Chrome”), każda w osobnym profilu NotarAI.
+  Decyzje właściciela 27.11.2026 (wersja 2.8.0):
+  - logowanie (certyfikat, PIN, hasło), podpis i płatność agent ZAWSZE oddaje notariuszowi (`agent.NEVER`): żadne
+    zdanie ani „Tak” tego nie odblokowuje; czat pokazuje okno przeglądarki i przycisk „…, kontynuuj”. Nie usuwaj
+    rodzaju z `NEVER`. Wysłanie i usunięcie zostają jak wyżej (na wyraźne polecenie albo po „Tak”).
+  - praca w tle (`agent.background`, domyślnie tak): przeglądarka NotarAI to nadal prawdziwe okno Edge/Chrome,
+    tylko trzymane poza ekranem (`web_fill.Browser.hide/show`); pokazuje się do logowania, podpisu i na „pokaż
+    przeglądarkę”. Nie zamieniaj jej na przeglądarkę bezokienkową: logowanie certyfikatem i oddanie okna
+    notariuszowi wymagają prawdziwego okna. Programy Windows agent obsługuje w ich własnych oknach.
+  - mapa programów (`agent.ProgramMap`, plik `mapa-programow.json` w katalogu programu): nazwy ekranów, pól
+    i przycisków zbierane kodem z kroków `okno`/`widok` oraz notatki agenta o drodze przez program; nigdy wartości
+    pól, numery ani dane osób (filtr w kodzie). Mapa trafia do promptu agenta od pierwszego kroku.
+  - jeden przebieg to do `MAX_STEPS` kroków; po limicie czat proponuje „Kontynuuj” z zachowaną historią.
 - Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
   notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
   zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia

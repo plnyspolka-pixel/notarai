@@ -464,7 +464,11 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      monitorach (zrzut obejmuje ekran główny); `polecenie`: `winapp ui list-windows --json` i jedno narzędzie
      `cli-anything-…`, jeśli zainstalowane, oraz odmowa dla `cmd`/`powershell`; „używaj Chrome” (osobny profil
      `przegladarka-chrome`); telefon po „pozwól telefonowi … sterować komputerem”.
-- **Zamknięte, gdy:** punkty 1-6 przeszły albo mają opisany powód i poprawkę.
+  7. Wersja 2.8.0, RejNET na fikcyjnych danych: „poznaj program RejNET” (czy mapa zawiera ekrany rejestracji aktu),
+     potem rejestracja 2-3 aktów jednym zdaniem; sprawdzić, czy okno przeglądarki zostaje poza ekranem na Windows
+     (`--window-position=-32000,-32000`, `Browser.setWindowBounds`), czy wychodzi do logowania certyfikatem i wraca
+     w tło po „Zalogowałem się, kontynuuj”, oraz czy strona pracuje poprawnie, gdy okno jest poza ekranem.
+- **Zamknięte, gdy:** punkty 1-7 przeszły albo mają opisany powód i poprawkę.
 
 ## NA-21. Dwa stanowiska w jednej kancelarii na prawdziwych komputerach (27.11.2026)
 

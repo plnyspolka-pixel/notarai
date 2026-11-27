@@ -373,3 +373,134 @@ def test_each_browser_keeps_its_own_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(web_fill.os, "name", "nt")
     assert web_fill._default_executable("chrome") == (None, "chrome")
     assert web_fill._default_executable("edge") == (None, "msedge") == web_fill._default_executable("cokolwiek")
+
+
+# ---- 2.8.0: the map of a program, long work that can be continued, login and signature stay with the notary
+def test_the_agent_remembers_the_map_of_a_program(tmp_path):
+    desktop = FakeDesktop()
+    desktop.fields.append(Control("p", "text", "PESEL 44051401359", "", []))
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    ask, _ = script({"krok": "okno", "okno": "RejNET"},
+                    {"krok": "notatka", "program": "RejNET - Repertorium", "tekst": "Nowy wpis: menu Rejestry, potem Repertorium A, przycisk Dodaj"},
+                    {"krok": "notatka", "program": "RejNET", "tekst": "klient ma PESEL 44051401359"},
+                    {"krok": "koniec", "odpowiedz": "Poznałem."})
+    result = Agent(computer, ask).run("poznaj program RejNET")
+    assert result["steps"][2]["wynik"].startswith("BŁĄD")                       # no numbers of people in the map
+    described = computer.map.describe()
+    assert "PROGRAM repertorium" in described and "Numer aktu" in described and "Zapisz" in described
+    assert "menu Rejestry" in described and "44051401359" not in described
+    # a later task starts with the map in front of the model
+    ask, seen = script({"krok": "koniec", "odpowiedz": "x"})
+    Agent(Computer(tmp_path, desktop=lambda: desktop), ask).run("zarejestruj akt")
+    assert "MAPA PROGRAMU" in seen[0] and "menu Rejestry" in seen[0]
+    assert computer.map.forget("repertorium") and computer.map.describe() == ""
+
+
+def test_login_signature_and_password_are_never_done_by_the_agent(tmp_path):
+    desktop = FakeDesktop()
+    desktop.fields += [Control("l", "button", "Zaloguj certyfikatem", "", []), Control("s", "button", "Podpisz", "", []),
+                       Control("h", "text", "Hasło", "", [])]
+    computer = Computer(tmp_path, desktop=lambda: desktop)
+    for step, kind in (({"krok": "kliknij", "okno": "RejNET", "przycisk": "Zaloguj certyfikatem"}, "logowanie"),
+                       ({"krok": "kliknij", "okno": "RejNET", "przycisk": "Podpisz"}, "podpis"),
+                       ({"krok": "wpisz", "okno": "RejNET", "pole": "Hasło", "wartosc": "x"}, "logowanie")):
+        ask, _ = script(step)
+        # even when the sentence asks for it and a „Tak” allowed it
+        stopped = Agent(computer, ask).run("zaloguj się, podpisz i wyślij", allowed={"podpis", "logowanie"})
+        assert stopped["stopped"]["kind"] == kind
+    assert desktop.clicked == [] and desktop.typed == {}
+    assert act_kind("Sign in") == "logowanie" and act_kind("Sign document") == "podpis"
+
+
+def test_long_work_stops_as_something_to_continue(tmp_path):
+    computer = Computer(tmp_path, desktop=lambda: FakeDesktop())
+    ask, seen = script(*[{"krok": "okna"}] * 5)
+    result = Agent(computer, ask, max_steps=5).run("zrób dużo")
+    assert result["stopped"]["kind"] == "limit" and len(result["stopped"]["history"]) == 5
+    ask, seen = script({"krok": "koniec", "odpowiedz": "Skończone."})
+    assert Agent(computer, ask).run("zrób dużo", history=result["stopped"]["history"])["answer"] == "Skończone."
+    assert seen[0].count("KROK") == 5                                          # the continued run knows what was done
+    from worker.agent import MAX_STEPS
+    assert MAX_STEPS >= 60
+
+
+class FakeBrowser:
+    def __init__(self):
+        self.calls, self.opened = [], True
+
+    def is_open(self):
+        return self.opened
+
+    def show(self):
+        self.calls.append("show")
+        return True
+
+    def hide(self):
+        self.calls.append("hide")
+        return True
+
+    def snapshot(self):
+        return JPEG
+
+    def controls(self):
+        return [Control("z", "button", "Zaloguj certyfikatem", "", []), Control("n", "text", "Numer aktu", "", [])]
+
+    def on_page(self, function, timeout=0):
+        return "https://rejestry.example.pl/akty/nowy", "Rejestry", "Zaloguj się", ["Zaloguj certyfikatem"]
+
+    def click(self, control):
+        self.calls.append("click " + control.label)
+
+
+@pytest.fixture
+def web_office(tmp_path):
+    home = tmp_path / "home"
+    token = initialize(home)
+    browser, replies = FakeBrowser(), []
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(replies), UsageLedger(home))
+    client = TestClient(create_app(home, inference=inference, computer_roots=[tmp_path],
+                                   fill_targets={"program": lambda: FakeDesktop(), "strona": lambda: browser}))
+    return client, {"Authorization": "Bearer " + token}, browser, replies
+
+
+def test_the_browser_works_out_of_sight_and_comes_forward_for_the_notarys_part(web_office):
+    client, admin, browser, replies = web_office
+    replies += [json.dumps({"krok": "widok"}), json.dumps({"krok": "web_kliknij", "co": "Zaloguj certyfikatem"})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "wejdź na stronę rejestrów i zarejestruj akt"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    kinds = [b["type"] for b in asked]
+    assert "logowanie" in asked[0]["text"] and "image" in kinds and kinds[-1] == "confirm"
+    assert browser.calls == ["show"]                                            # shown only now, nothing clicked
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "Akt przygotowany do podpisu."})]
+    resumed = client.post("/v2/chat", headers=admin, json={"confirm": asked[-1]["token"]}).json()["blocks"]
+    done = wait(client, admin, next(b["id"] for b in resumed if b["type"] == "job"))
+    assert "przygotowany do podpisu" in done[0]["text"] and browser.calls == ["show", "hide"]
+
+    def said(sentence):
+        return client.post("/v2/chat", headers=admin, json={"text": sentence}).json()["blocks"]
+    assert "na wierzchu" in said("pokaż przeglądarkę")[0]["text"] and browser.calls[-1] == "show"
+    assert "w tle" in said("schowaj przeglądarkę")[0]["text"] and browser.calls[-1] == "hide"
+    assert "rejestry.example.pl" in said("mapy programów")[0]["text"]          # the site was mapped while working
+    assert "na widoku" in said("pracuj na widoku")[0]["text"]
+    assert "w tle" in said("pracuj w tle")[0]["text"]
+
+
+def test_poznaj_program_starts_a_mapping_run_and_the_limit_offers_to_continue(web_office):
+    client, admin, browser, replies = web_office
+    replies += [json.dumps({"krok": "koniec", "odpowiedz": "Poznałem 3 ekrany."})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "poznaj program RejNET"}).json()["blocks"]
+    assert "Poznałem 3 ekrany." in wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))[0]["text"]
+    import worker.agent as agent_module
+    replies += [json.dumps({"krok": "okna"})] * agent_module.MAX_STEPS
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz program i zrób wszystko"}).json()["blocks"]
+    stopped = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    assert "jeszcze nie skończyłem" in stopped[0]["text"] and stopped[-1]["label"] == "Kontynuuj"
+
+
+def test_the_browser_object_is_complete_before_any_page_is_opened(tmp_path):
+    from worker.web_fill import Browser
+
+    browser = Browser(tmp_path / "profil")
+    browser.background(lambda: True)
+    assert browser.is_open() is False and browser._hidden() is True and browser._pool is not None
+    assert browser.hide() is False or browser.is_open()          # nothing to move yet, and no exception

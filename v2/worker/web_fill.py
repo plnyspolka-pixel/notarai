@@ -88,10 +88,61 @@ class Browser:
         two different browsers must never share one."""
         self._profile, self._headless = Path(profile), headless
         self._choice, self._running = choice or (lambda: "edge"), None
+        self._hidden_wanted, self._shown = (lambda: False), False
         self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="notarai-web")
         self._context = None
         self._playwright = None
         self._lock = threading.Lock()
+
+    # ---- working out of sight (2.8.0): the same real browser, its window kept off the screen
+    HIDDEN_AT = (-32000, -32000)
+    HIDDEN_ARGS = ["--window-position=-32000,-32000", "--disable-backgrounding-occluded-windows",
+                   "--disable-renderer-backgrounding", "--disable-background-timer-throttling",
+                   "--disable-features=CalculateNativeWinOcclusion"]
+
+    def background(self, wanted) -> None:
+        """`wanted()` -> bool, the station's setting. A real window stays (a headless browser cannot show a
+        certificate prompt or be handed to the notary), it is only moved off the screen."""
+        self._hidden_wanted = wanted
+
+    def _hidden(self) -> bool:
+        return bool(self._hidden_wanted()) and not self._shown and not self._headless
+
+    def _place(self, visible: bool) -> None:
+        page = self._page()
+        session = self._context.new_cdp_session(page)
+        try:
+            window = session.send("Browser.getWindowForTarget")["windowId"]
+            session.send("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": "normal"}})
+            left, top = (60, 40) if visible else self.HIDDEN_AT
+            session.send("Browser.setWindowBounds", {"windowId": window, "bounds": {
+                "left": left, "top": top, "width": 1280, "height": 900}})
+        finally:
+            session.detach()
+        if visible:
+            page.bring_to_front()
+
+    def show(self) -> bool:
+        """Bring the window in front of the notary (to log in, to look, to sign). False when there is none."""
+        self._shown = True
+        try:
+            self._run(self._place, True)
+            return True
+        except Exception:
+            return False
+
+    def hide(self) -> bool:
+        self._shown = False
+        if not self._hidden_wanted():
+            return False
+        try:
+            self._run(self._place, False)
+            return True
+        except Exception:
+            return False
+
+    def is_open(self) -> bool:
+        return self._context is not None
 
     def _run(self, function, *args):
         try:
@@ -124,7 +175,7 @@ class Browser:
                     self._context = self._playwright.chromium.launch_persistent_context(
                         str(profile), headless=self._headless, executable_path=executable, channel=channel,
                         viewport=None if not self._headless else {"width": 1280, "height": 900},
-                        args=["--no-first-run", "--no-default-browser-check"])
+                        args=["--no-first-run", "--no-default-browser-check", *(self.HIDDEN_ARGS if self._hidden() else [])])
                 except Exception as error:
                     failure = error
                     if executable is not None:
@@ -141,14 +192,16 @@ class Browser:
     def _open(self, url):
         page = self._page()
         page.goto(url, wait_until="domcontentloaded")
-        page.bring_to_front()
+        if not self._hidden():
+            page.bring_to_front()
         return page.url
 
     def _focus(self, address):
         page = self._page()
         if address and not page.url.startswith(("http://", "https://")):
             page.goto(address, wait_until="domcontentloaded")
-        page.bring_to_front()
+        if not self._hidden():
+            page.bring_to_front()
 
     def _controls(self):
         controls = []

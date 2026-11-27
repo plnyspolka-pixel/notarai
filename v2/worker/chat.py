@@ -275,6 +275,10 @@ class Chat:
             reply = self._admin(identity, message, plain, case)
             if reply is not None:
                 return reply
+        if self._may_use_computer(identity):
+            tools = self._computer_commands(identity, message, plain)
+            if tools is not None:
+                return tools
         if self._may_use_computer(identity) and looks_like_computer_task(plain):
             return self._computer(identity, computer_task(message))
         return self._common(identity, message, plain, case, names)
@@ -297,22 +301,116 @@ class Chat:
         job = self.s.start_job(identity, lambda: self._computer_run(identity, task, allowed, history))
         return [text("Robię to na komputerze. Kroki widzisz na bieżąco poniżej."), {"type": "job", "id": job}]
 
+    def _browser(self):
+        """The NotarAI browser, or None (no browser on this installation, or a test without one)."""
+        try:
+            return self.s.web_browser()
+        except Exception:
+            return None
+
+    def _page_picture(self) -> list[dict]:
+        """What the page looks like now: the notary approves a picture, not a description."""
+        browser = self._browser()
+        try:
+            if browser is None or not browser.is_open():
+                return []
+            image = browser.snapshot()
+        except Exception:
+            return []
+        return [{"type": "image", "image": base64.b64encode(image).decode(), "alt": "Strona przygotowana przez program"}] if image else []
+
     def _computer_run(self, identity, task, allowed, history) -> list[dict]:
         from .agent import Agent
 
-        agent = Agent(self.s.computer, self.s.agent_ask, narrate=lambda line: self.s.narrate(identity, line),
+        computer = self.s.computer
+        computer.used_browser = False
+        browser = self._browser()
+        if history and browser is not None and getattr(browser, "is_open", lambda: False)():
+            browser.hide()                               # the notary did their part: back out of sight
+        agent = Agent(computer, self.s.agent_ask, narrate=lambda line: self.s.narrate(identity, line),
                       rules=self.s.rules)
         result = agent.run(task, allowed=allowed, history=history)
         stopped = result["stopped"]
+        used = bool(getattr(computer, "used_browser", False))
+        look = [buttons(("Pokaż przeglądarkę", "pokaż przeglądarkę"))] if used else []
         if stopped is None:
             self.s.vault.log(identity.id, f"agent-{len(result['steps'])}-krokow")
-            return answer_blocks(result["answer"])
-        acts = {"wyslanie": "wysłanie", "podpis": "podpisanie", "platnosc": "zapłatę", "usuniecie": "usunięcie"}
-        question = (f"Następny krok to „{stopped['label']}”, czyli {acts.get(stopped['kind'], stopped['kind'])}. "
+            return answer_blocks(result["answer"]) + (self._page_picture() + look if used else [])
+
+        def resume(note, kinds=frozenset()):
+            return lambda: self._computer(identity, task, allowed=set(allowed) | set(kinds),
+                                          history=stopped["history"] + ([note] if note else []))
+        kind = stopped["kind"]
+        if kind == "limit":
+            return [text(f"Zrobiłem {stopped['label']} i jeszcze nie skończyłem. Nic nie wysłałem ani nie podpisałem."),
+                    *(self._page_picture() if used else []),
+                    self._confirm(identity, "Pracować dalej nad tym poleceniem?", "Kontynuuj", resume(None), explicit=False)]
+        if kind in {"logowanie", "podpis", "platnosc"}:
+            if used and browser is not None:
+                browser.show()                           # this part is the notary's own: the window comes to the front
+            what = {"logowanie": ("Tu potrzebne jest Twoje logowanie (certyfikat, PIN albo hasło): tego nie robię za Ciebie.",
+                                  "Zalogowałem się, kontynuuj"),
+                    "podpis": ("Wszystko przygotowałem do podpisu. Podpisujesz Ty: sprawdź dane na ekranie i podpisz.",
+                               "Podpisałem, kontynuuj"),
+                    "platnosc": ("Doszedłem do płatności. Płacisz Ty: sprawdź kwotę na ekranie.", "Zapłaciłem, kontynuuj")}[kind]
+            note = ("(Notariusz wykonał ten krok sam: " + {"logowanie": "zalogował się", "podpis": "podpisał", "platnosc": "zapłacił"}[kind]
+                    + ". Sprawdź aktualny stan krokiem widok albo okno i dokończ polecenie; tego kroku nie powtarzaj.)")
+            return [text(f"{what[0]} Następny krok to „{stopped['label']}”."
+                         + (" Okno przeglądarki NotarAI jest teraz na wierzchu." if used and browser is not None else "")),
+                    *(self._page_picture() if used else []),
+                    self._confirm(identity, "Gdy skończysz, wracam do pracy w tle.", what[1], resume(note), explicit=False)]
+        acts = {"wyslanie": "wysłanie", "usuniecie": "usunięcie"}
+        question = (f"Następny krok to „{stopped['label']}”, czyli {acts.get(kind, kind)}. "
                     "Nie prosiłeś o to wprost. Zrobić to?")
-        return [self._confirm(identity, question, "Tak, zrób to",
-                              lambda: self._computer(identity, task, allowed={stopped["kind"]}, history=stopped["history"]),
-                              explicit=False)]
+        return [*(self._page_picture() if used else []),
+                self._confirm(identity, question, "Tak, zrób to", resume(None, {kind}), explicit=False)]
+
+    def _computer_commands(self, identity, message, plain):
+        """Sentences about the agent's own tools: its browser window and what it knows about programs."""
+        from .agent import ProgramMap
+
+        browser, known = self._browser(), getattr(self.s.computer, "map", None)
+        if re.fullmatch(r"(pokaz|otworz|wyswietl)( mi)? (okno )?przegladark\w*( notarai)?", plain):
+            if browser is None or not browser.is_open():
+                return [text("Przeglądarka NotarAI nie jest teraz otwarta: otworzy się przy pierwszej stronie.")]
+            shown = browser.show()
+            return [text("Okno przeglądarki NotarAI jest na wierzchu. „schowaj przeglądarkę” odsyła je w tło."
+                         if shown else "Nie udało się pokazać okna przeglądarki.")] + self._page_picture()
+        if re.fullmatch(r"(schowaj|ukryj|zamknij podglad)( okno)? przegladark\w*( notarai)?", plain):
+            hidden = browser is not None and browser.is_open() and browser.hide()
+            return [text("Przeglądarka pracuje dalej w tle." if hidden else
+                         "Przeglądarka zostaje na widoku (praca w tle jest wyłączona albo okno nie jest otwarte).")]
+        if identity.scope == "admin" and re.fullmatch(r"(pracuj|przegladarka|dzialaj) (w tle|na widoku|widocznie|na ekranie)", plain):
+            background = plain.endswith("w tle")
+            self.s.update_settings(lambda d: d.setdefault("agent", {}).update(background=background))
+            if browser is not None and browser.is_open():
+                browser.hide() if background else browser.show()
+            return [text("Strony otwieram i wypełniam w tle: okna nie widać, pokażę je do logowania, podpisu albo na "
+                         "„pokaż przeglądarkę”. Programy Windows (nie strony) nadal obsługuję w ich własnych oknach."
+                         if background else "Przeglądarka NotarAI pracuje teraz na widoku.")]
+        if known is None:
+            return None
+        found = re.fullmatch(r"(?:zmapuj|poznaj)(?: mi)?(?: caly| cala)?(?: program| strone| portal| aplikacje)?\s+(.+)", plain)
+        if found:
+            name = re.sub(r"^\s*\S+(?:\s+(?:mi|cały|całą|program|stronę|portal|aplikację))*\s+", "", message, flags=re.I).strip() or found.group(1)
+            return self._computer(identity, (
+                f"Poznaj program albo stronę „{name}” i zapamiętaj jego mapę. Otwórz go, jeśli nie jest otwarty. Przejdź po "
+                "kolei przez menu, zakładki i ekrany, na każdym użyj kroku okno albo widok (gdy okno nie pokazuje pól: ekran). "
+                "Niczego nie zapisuj, nie wysyłaj, nie usuwaj i nie wpisuj danych; pomiń logowanie, jeśli jest potrzebne, "
+                "i powiedz o tym. Dla każdej ważnej funkcji (np. nowy wpis, wyszukiwanie, rejestracja aktu) zapisz drogę "
+                "krokiem notatka. Zakończ listą ekranów i funkcji, które poznałeś."))
+        found = re.fullmatch(r"(?:co wiesz o|mapa|pokaz mape)(?: programu| programie| strony| stronie)?\s+(.+)", plain)
+        if plain in {"mapy programow", "mapa programow", "jakie programy znasz", "poznane programy"} or found:
+            described = known.describe(found.group(1) if found else None, limit=6000)
+            if not described:
+                return [text("Nie mam jeszcze mapy" + (" tego programu" if found else " żadnego programu")
+                             + ". Napisz „poznaj program <nazwa>”, a przejdę po nim i zapamiętam ekrany, pola i przyciski.")]
+            return [text(described)]
+        found = re.fullmatch(r"zapomnij (?:mape )?(?:programu |program |strony |strone )?(.+)", plain)
+        if found and any(plain_name for plain_name in known.programs() if found.group(1) in plain_name):
+            known.forget(found.group(1))
+            return [text("Usunąłem mapę tego programu. Poznam go od nowa przy następnej pracy.")]
+        return None
 
     # ------------------------------------------------------------ people of the office (owner's decision 27.11.2026)
     def _team(self, identity, message, plain):
@@ -742,6 +840,8 @@ class Chat:
                       "• praca na komputerze zdaniem: „wejdź na stronę … i wypełnij formularz”, „otwórz program … i wpisz …”",
                       "• „używaj Chrome” albo „używaj Edge”; „pozwól telefonowi Telefon sterować komputerem”",
                       "• „wyłącz zrzuty ekranu agenta”, „wyłącz wiersz poleceń agenta”",
+                      "• „poznaj program RejNET” (mapa ekranów, pól i przycisków), „co wiesz o programie RejNET”",
+                      "• „pokaż przeglądarkę”, „schowaj przeglądarkę”, „pracuj w tle” / „pracuj na widoku”",
                       "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
                       "• „naucz się stylu kancelarii” albo „naucz się stylu z D:\\Akty”, potem „styl kancelarii”",
                       "• „włącz nasłuch”, „dodaj mikrofon Sekretariat”, „nasłuch”, „notatki z rozmów”, „stenopisy”",

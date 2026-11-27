@@ -98,6 +98,9 @@ class AgentSettings(_Strict):
     browser: str = Field(default="edge", pattern=r"^(edge|chrome)$")   # which browser NotarAI drives
     screen: bool = True         # the agent may look at the screen (a screenshot goes to the model in the EU as it is)
     commands: bool = True       # the agent may run a program with arguments (never a shell)
+    # The NotarAI browser works out of sight (its window is kept off the screen) and is shown only when the
+    # notary has to log in, look at the result or sign (owner's decision 27.11.2026, 2.8.0).
+    background: bool = True
 
 
 class Settings(_Strict):
