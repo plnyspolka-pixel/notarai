@@ -211,7 +211,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         current = state["settings"]
         if not current.replica.enabled or state["account"] is None:
             return None
-        return Replica(home, state["account"], current.replica.bucket, current.replica.region)
+        return Replica(home, state["account"], current.replica.bucket, current.replica.region,
+                       keep_days=current.replica.keep_days)
 
     def local_backup():
         current = state["settings"]
@@ -239,7 +240,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             except (recovery.RecoveryError, OSError):
                 pass        # disk unplugged or full: the panel shows the overdue notice
         target = replica()
-        if target is not None and state["account"].signed_in and due("offsite-backup"):
+        if target is not None and state["account"].signed_in and due("offsite-backup", state["settings"].replica.every_hours):
             try:
                 done["offsite"] = target.upload()["file"]
             except (ReplicaError, recovery.RecoveryError, LoginError, OSError):
@@ -267,7 +268,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                 raise
             except Exception:
                 pass        # full disk, locked file: try again next round; the panel shows the overdue copy
-            await asyncio.sleep(1800)
+            await asyncio.sleep(600)       # hourly copies stay hourly
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -837,6 +838,14 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         stored.append({"id": text_id, "name": text_name, "version": text_version})
         return {"documents": stored, "text": heard, "detail": ""}
 
+    from .speech_model import ModelDownload
+
+    model_download = ModelDownload(home / "modele-mowy")
+
+    @app.get("/v2/speech/model", dependencies=[Depends(admin)])
+    def speech_model_progress():
+        return model_download.progress()
+
     voice_jobs: dict[str, dict] = {}
 
     @app.post("/v2/voice")
@@ -886,8 +895,15 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from .listening import Listening
     from .docx_writer import extract as extract_docx
 
+    from .terminarz import Calendar
+
+    calendar = Calendar(vault)
     listening = Listening(vault, lambda audio, suffix: speech_to_text(audio, suffix), lambda: state["inference"],
-                          lambda: state["settings"].listen, extract=extract_docx)
+                          lambda: state["settings"].listen, extract=extract_docx, calendar=calendar)
+
+    @app.get("/v2/calendar")
+    def calendar_list(days: int = 14, identity: Identity = Depends(auth)):
+        return {"items": calendar.upcoming(max(1, min(days, 92)), cases=identity.cases)}
     app.state.listening = listening
 
     def source_name(identity: Identity) -> str:
@@ -982,6 +998,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
+        calendar=calendar, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        download_speech_model=lambda: model_download.start(state["settings"].speech.model),
+        speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,
         signed_in=lambda: bool(state["account"] and state["account"].signed_in),
         logout=lambda: state["account"] and state["account"].logout(),

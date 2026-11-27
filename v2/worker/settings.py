@@ -36,6 +36,8 @@ class ReplicaSettings(_Strict):
     enabled: bool = False
     bucket: str = Field(default="", max_length=63)
     region: str = "eu-central-1"
+    every_hours: int = Field(default=24, ge=1, le=168)     # how often an encrypted copy goes to Frankfurt
+    keep_days: int = Field(default=30, ge=0, le=3650)      # 0: copies are never deleted
 
     def check(self) -> None:
         if self.enabled and (self.region not in EU_REGIONS or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", self.bucket)):

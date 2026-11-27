@@ -264,3 +264,47 @@ def test_one_chat_signs_in_and_answers(tmp_path):
     assert "w panelu stanowiska" in texts(say(client, phone, "Co to jest służebność przesyłu?"))
     assert "Zaloguj się kontem NotarAI" in texts(say(client, admin, "włącz asystenta"))
     assert "RAZEM" in texts(say(client, admin, "policz taksę od sprzedaży lokalu mieszkalnego za 500 tys."))   # no AI needed
+
+
+def test_a_file_added_to_the_chat_is_summarised_and_checked_on_request(office):
+    client, admin, home, bedrock, opened, tmp_path = office
+    import io
+
+    from pypdf import PdfWriter
+    from pypdf.generic import NameObject  # noqa: F401
+    say(client, admin, "nowa sprawa nowak-2026")
+    data = "Umowa przedwstępna. Sprzedający Jan Kowalski, cena 500 000 zł, termin aktu 15.12.2026.".encode()
+    client.post("/v2/documents", headers=admin, json={"id": None, "expected_version": 0, "name": "przedwstepna.txt",
+                                                       "content_b64": base64.b64encode(data).decode(), "case": "nowak-2026"})
+    client.post("/v2/documents", headers=admin, json={"id": None, "expected_version": 0, "name": "inny.txt",
+                                                       "content_b64": base64.b64encode(b"Inna tresc").decode(), "case": "nowak-2026"})
+    blocks = say(client, admin, "streść przedwstepna.txt", case="nowak-2026")
+    assert texts(blocks).startswith("przedwstepna.txt:") and "Streść ten dokument" in bedrock.prompts[-1]
+    assert "500 000" in bedrock.prompts[-1] and "Inna tresc" not in bedrock.prompts[-1]     # only that file
+    say(client, admin, "sprawdź przedwstepna.txt", case="nowak-2026")
+    assert "niespójności" in bedrock.prompts[-1]
+    writer = PdfWriter()
+    writer.add_blank_page(200, 200)
+    empty = io.BytesIO()
+    writer.write(empty)
+    client.post("/v2/documents", headers=admin, json={"id": None, "expected_version": 0, "name": "skan.pdf",
+                                                       "content_b64": base64.b64encode(empty.getvalue()).decode(), "case": "nowak-2026"})
+    assert "nie umiem odczytać" in texts(say(client, admin, "streść skan.pdf", case="nowak-2026")) or \
+        "Tego pliku" in texts(say(client, admin, "streść skan.pdf", case="nowak-2026"))
+
+
+def test_pdf_text_is_read():
+    pytest.importorskip("pypdf")
+    from worker.drafting import pdf_text
+    objects = [b"<</Type/Catalog/Pages 2 0 R>>", b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+               b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 100]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>",
+               b"<</Length 44>>stream\nBT /F1 12 Tf 10 50 Td (Akt notarialny) Tj ET\nendstream",
+               b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"]
+    sample, offsets = b"%PDF-1.4\n", []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(sample))
+        sample += b"%d 0 obj" % number + body + b"endobj\n"
+    xref = len(sample)
+    sample += b"xref\n0 6\n0000000000 65535 f \n" + b"".join(b"%010d 00000 n \n" % o for o in offsets)
+    sample += b"trailer<</Size 6/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF" % xref
+    assert "Akt notarialny" in pdf_text(sample)

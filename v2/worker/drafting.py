@@ -74,6 +74,21 @@ class Proposal:
         }
 
 
+READABLE = (".txt", ".docx", ".eml", ".pdf")
+
+
+def pdf_text(data: bytes) -> str:
+    """Text layer of a PDF (scans without text yield nothing and are reported as unreadable)."""
+    import io
+
+    from pypdf import PdfReader
+
+    text = "\n".join((page.extract_text() or "") for page in PdfReader(io.BytesIO(data)).pages[:200]).strip()
+    if not text:
+        raise ValueError("no text layer")
+    return text
+
+
 class Drafts:
     def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession, rules=None, style=None):
         # `inference` may be a callable so the worker can swap it when settings change.
@@ -87,11 +102,13 @@ class Drafts:
         return self._source() if callable(self._source) else self._source
 
     # ------------------------------------------------------------ context
-    def _context(self, case: str, actor: str) -> tuple[str, list[dict], list[str]]:
+    def _context(self, case: str, actor: str, only: str | None = None) -> tuple[str, list[dict], list[str]]:
         sources, skipped, parts, used = [], [], [], 0
         for item in self._vault.summaries(cases={case}):
+            if only is not None and item["id"] != only:
+                continue
             lowered = item["name"].lower()
-            if not lowered.endswith((".txt", ".docx", ".eml")):
+            if not lowered.endswith(READABLE):
                 skipped.append(item["name"])
                 continue
             version, name, data = self._vault.get(item["id"], item["version"], actor=actor)
@@ -103,6 +120,8 @@ class Drafts:
                     if mail is None:
                         raise ValueError("unreadable message")
                     text = f"Wiadomość e-mail od {mail.sender} <{mail.address}>, temat: {mail.subject}\n{mail.text}"
+                elif lowered.endswith(".pdf"):
+                    text = pdf_text(data)
                 else:
                     text = data.decode("utf-8") if lowered.endswith(".txt") else "\n".join(extract(data))
             except (UnicodeDecodeError, ValueError, KeyError, OSError):
@@ -118,7 +137,8 @@ class Drafts:
             sources.append({"id": item["id"], "version": version, "name": name})
             parts.append(f"=== DOKUMENT {len(sources)} ===\n{text}")
         if not parts:
-            raise DraftError("W tej sprawie nie ma dokumentów tekstowych (TXT, DOCX lub e-mail) do odczytania.")
+            raise DraftError("Tego pliku nie umiem odczytać (czytam DOCX, PDF z tekstem, TXT i e-mail)." if only else
+                             "W tej sprawie nie ma dokumentów tekstowych (DOCX, PDF, TXT lub e-mail) do odczytania.")
         return "\n\n".join(parts), sources, skipped
 
     # ------------------------------------------------------------ operations
@@ -126,9 +146,9 @@ class Drafts:
         """People remembered for the case plus any named in this request."""
         return list(dict.fromkeys([*self._vault.parties(case), *names]))
 
-    def ask(self, case: str, question: str, actor: str, names=()) -> dict:
+    def ask(self, case: str, question: str, actor: str, names=(), document: str | None = None) -> dict:
         names = self._names(case, names)
-        context, sources, skipped = self._context(case, actor)
+        context, sources, skipped = self._context(case, actor, only=document)
         answer = self._inference.ask(
             purpose="chat", system=SYSTEM_CHAT, names=names, max_tokens=2048,
             text=f"{context}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",

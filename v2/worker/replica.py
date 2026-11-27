@@ -12,7 +12,7 @@ from . import recovery
 from .policy import EU_REGIONS
 
 SUFFIX = ".notarai-backup"
-KEEP = 30
+KEEP = 3                     # never fewer than this many copies, whatever the retention
 
 
 class ReplicaError(Exception):
@@ -20,10 +20,11 @@ class ReplicaError(Exception):
 
 
 class Replica:
-    def __init__(self, home: Path, account, bucket: str, region: str):
+    def __init__(self, home: Path, account, bucket: str, region: str, keep_days: int = 30):
         if region not in EU_REGIONS or not bucket:
             raise ValueError("off-site copies stay in the EU")
         self._home, self._account, self._bucket, self._region = Path(home), account, bucket, region
+        self._keep_days = keep_days
 
     def _s3(self):
         return self._account.client_factory(self._region)("s3")
@@ -42,13 +43,20 @@ class Replica:
                 s3.upload_file(str(local), self._bucket, prefix + name,
                                ExtraArgs={"ServerSideEncryption": "AES256"})
             self._log()        # only a copy that actually left the building counts
-            for stale in self.list()[KEEP:]:
+            for stale in self.stale(self.list()):
                 s3.delete_object(Bucket=self._bucket, Key=prefix + stale["name"])
         except recovery.RecoveryError:
             raise
         except Exception:
             raise ReplicaError("Nie udało się wysłać kopii poza kancelarię. Sprawdź połączenie i logowanie.") from None
         return {"file": name, "documents": manifest["documents"], "revisions": manifest["revisions"]}
+
+    def stale(self, copies: list[dict]) -> list[dict]:
+        """Copies older than the office's retention; the newest KEEP always stay. keep_days 0 keeps all."""
+        if self._keep_days == 0:
+            return []
+        limit = time.strftime("notarai-%Y%m%d-%H%M%S", time.gmtime(time.time() - self._keep_days * 86400))
+        return [copy for copy in copies[KEEP:] if copy["name"] < limit]
 
     def _log(self) -> None:
         from .local_secrets import read_secret

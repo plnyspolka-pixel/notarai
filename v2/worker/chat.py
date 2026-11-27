@@ -71,6 +71,7 @@ class Chat:
         self._pending: dict[str, tuple[str, float, callable]] = {}
         self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
         self._sheets: dict[tuple, dict] = {}    # last values per (identity, case, procedure), for „wpisz ponownie”
+        self._agendas: dict[str, list] = {}     # last calendar listing per identity, for „usuń termin 2”
 
     # ------------------------------------------------------------ confirmations
     def _confirm(self, identity, question: str, label: str, action) -> dict:
@@ -94,8 +95,11 @@ class Chat:
         blocks = [text("Dzień dobry. Napisz, co mam zrobić, albo wybierz podpowiedź." if not admin else
                        "Dzień dobry. Tu ustawiasz to stanowisko. Napisz, co mam zrobić, albo wybierz podpowiedź.")]
         blocks += self._warnings(admin)
+        today = self.s.calendar.upcoming(1, cases=identity.cases) if identity.scope != "listen" else []
+        if today:
+            blocks.append(text("Dziś: " + "; ".join(f"{e['label'].split()[-1]} {e['title']}" for e in today[:6]) + "."))
         if admin:
-            blocks.append(buttons(("Stan stanowiska", "stan"), ("Dodaj telefon", "dodaj telefon"),
+            blocks.append(buttons(("Stan stanowiska", "stan"), ("Gdzie są dane", "gdzie są dane"), ("Dodaj telefon", "dodaj telefon"),
                                   ("Zrób kopię", "zrób kopię"), ("Kto czytał dokumenty?", "dziennik"),
                                   ("Dokumenty", "dokumenty"), ("Co umiesz?", "pomoc")))
         else:
@@ -113,6 +117,9 @@ class Chat:
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        planned = self._calendar(identity, message, plain, case, identity.scope in {"admin", "write"})
+        if planned is not None:        # before the panel: "usuń termin 2" is not a device called "termin 2"
+            return planned
         if admin:
             reply = self._admin(identity, message, plain, case)
             if reply is not None:
@@ -176,6 +183,24 @@ class Chat:
             if result["text"]:
                 return [text("Przepisałem nagranie:\n\n" + result["text"]), {"type": "documents", "items": result["documents"]}]
             return [text(result["detail"])]
+        found = re.fullmatch(r"(?:stresc|streszcz|podsumuj|przeczytaj|co jest w|co zawiera|sprawdz)\s+(?:plik\s+|dokument\s+)?(.+)", plain)
+        if found:
+            match = self._find_document(identity, case, found.group(1))
+            if isinstance(match, dict) and match["name"].lower().endswith((".txt", ".docx", ".eml", ".pdf")):
+                if plain.startswith("sprawdz"):
+                    question = ("Sprawdź ten dokument jak notariusz: błędy, niespójności (nazwiska, kwoty, daty, "
+                                "numery KW), braki i ryzyka. Wypunktuj krótko.")
+                else:
+                    question = ("Streść ten dokument dla notariusza w kilku punktach: rodzaj dokumentu, strony, "
+                                "przedmiot, kwoty, terminy, czego brakuje albo co budzi wątpliwość.")
+                answer = s.drafts.ask(match["case"], question, identity.id, names, document=match["id"])
+                return [text(f"{match['name']}:\n\n" + answer["answer"]),
+                        buttons(("Sprawdź błędy", f"sprawdź {match['name']}"), ("Otwórz", f"otwórz {match['name']}"))]
+            if isinstance(match, dict):
+                return [text("Ten plik zapisałem, ale nie umiem go przeczytać (czytam DOCX, PDF z tekstem, TXT i e-mail; "
+                             "nagrania przepisuję).")]
+            if match:
+                return [text("Który dokument?"), {"type": "documents", "items": match}]
         found = re.fullmatch(r"(?:otworz|pokaz|wyswietl)\s+(.+)", plain)
         if found:
             match = self._find_document(identity, case, found.group(1))
@@ -362,7 +387,8 @@ class Chat:
                       "• „notatka: klient przyniesie odpis w piątek” albo notatka głosowa: przycisk z mikrofonem",
                       "• „strony: Jan Kowalski, Anna Nowak”"]
         if admin:
-            lines += ["• „zrób kopię”, „kod odzyskiwania”",
+            lines += ["• „gdzie są dane”: mowa na tym komputerze albo we Frankfurcie, kopia we Frankfurcie i jak długo",
+                      "• „zrób kopię”, „kod odzyskiwania”",
                       "• „dodaj telefon” albo „dodaj telefon tylko do odczytu dla sprawy kowalski-2026”",
                       "• „urządzenia”, „cofnij telefon”",
                       "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
@@ -593,6 +619,9 @@ class Chat:
 
     def _admin(self, identity, message, plain, case):
         s = self.s
+        where = self._where(identity, plain)
+        if where is not None:
+            return where
         on = plain.startswith(("wlacz", "uruchom", "zezwol"))
         off = plain.startswith(("wylacz", "zablokuj", "zatrzymaj"))
         if plain in {"stan", "status", "stan stanowiska", "jak stoimy", "jak stoimy?"}:
@@ -698,6 +727,155 @@ class Chat:
         return None
 
     # ------------------------------------------------------------ mail (this computer's own program)
+    # ------------------------------------------------------------ calendar
+    def _calendar(self, identity, message, plain, case, writable):
+        from .terminarz import parse_when
+
+        calendar = self.s.calendar
+        if plain in {"kalendarz", "terminy", "terminarz", "plan", "plan dnia", "co mam dzis", "co dzis", "co mam dzisiaj",
+                     "najblizsze terminy", "pokaz kalendarz", "pokaz terminy", "co mam w tym tygodniu"}:
+            days = 1 if "dzis" in plain or plain == "plan dnia" else 14
+            return self._agenda(identity, calendar.upcoming(days, cases=identity.cases),
+                                "dziś" if days == 1 else "w najbliższych dwóch tygodniach")
+        if plain in {"co mam jutro", "co jutro", "jutro", "plan na jutro", "terminy jutro"}:
+            tomorrow = calendar.now().date() + __import__("datetime").timedelta(days=1)
+            return self._agenda(identity, calendar.upcoming(1, cases=identity.cases, start=tomorrow), "jutro")
+        if plain in {"dodaj termin", "nowy termin", "zapisz termin", "wpisz termin"}:
+            return [text("Napisz termin zdaniem, np. „termin jutro 10:00 podpisanie aktu Kowalski”, „termin w piątek "
+                         "o 12 Nowak” albo „termin 5 grudnia 9:30 odbiór wypisu”.")]
+        found = re.fullmatch(r"(?:dodaj termin|nowy termin|termin|umow|zapisz termin|wpisz termin|przypomnij)\s*:?\s+(.+)",
+                             message, re.IGNORECASE | re.DOTALL)
+        if found and norm(message).startswith(("dodaj termin", "nowy termin", "termin", "umow", "zapisz termin",
+                                               "wpisz termin", "przypomnij")):
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            parsed = parse_when(found.group(1), calendar.now())
+            if parsed is None and norm(message).startswith("termin "):
+                return None       # "termin płatności w umowie?" is a question about the case, not an appointment
+            if parsed is None:
+                return [text("Kiedy? Napisz np. „termin w piątek 10:00 podpisanie aktu Kowalski” albo "
+                             "„termin 5 grudnia o 9:30 Nowak”.")]
+            start, what = parsed
+            if case is not None and not self.s.may_see_case(identity, case):
+                case = None
+            entry = calendar.add(start, what, case=case, actor=identity.id)
+            from .terminarz import label
+            return [text(f"Zapisałem w kalendarzu: {label(start, calendar.now())}, {entry['title']}"
+                         + (f" (sprawa „{case}”)." if case else ".")),
+                    {"type": "calendar"}, buttons(("Kalendarz", "kalendarz"), ("Cofnij", f"usuń termin {entry['id']}"))]
+        found = re.fullmatch(r"(?:usun|skasuj|odwolaj) termin\s+(.+)", plain)
+        if found:
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            listed = self._agendas.get(identity.id, [])
+            key = found.group(1).strip()
+            hit = next((e for e in calendar.upcoming(366, cases=identity.cases) if e["id"] == key), None)
+            if hit is None and key.isdigit() and 0 < int(key) <= len(listed):
+                hit = listed[int(key) - 1]
+            if hit is None:
+                return [text("Nie ma takiego terminu. Napisz „kalendarz”, żeby zobaczyć numery.")]
+
+            def remove():
+                calendar.delete(hit["id"], actor=identity.id)
+                return [text(f"Usunąłem termin: {hit['label']}, {hit['title']}."), {"type": "calendar"}]
+            return [self._confirm(identity, f"Usunąć termin {hit['label']}, {hit['title']}?", "Tak, usuń", remove)]
+        return None
+
+    def _agenda(self, identity, items, span: str) -> list[dict]:
+        self._agendas[identity.id] = items
+        if not items:
+            return [text(f"Brak terminów {span}. Dodasz zdaniem, np. „termin jutro 10:00 podpisanie aktu Kowalski”.")]
+        lines = [f"{i}. {e['label']}  {e['title']}" + (f"  [{e['case']}]" if e.get("case") else "")
+                 for i, e in enumerate(items, 1)]
+        return [text(f"Terminy {span}:\n" + "\n".join(lines)),
+                buttons(("Co mam jutro", "co mam jutro"), ("Dodaj termin", "dodaj termin "))]
+
+    # ------------------------------------------------------------ where the office's data lives
+    EVERY = {"co godzine": 1, "co 6 godzin": 6, "co szesc godzin": 6, "raz na dobe": 24, "codziennie": 24,
+             "co dobe": 24, "raz w tygodniu": 168, "co tydzien": 168}
+    KEEP = {"30 dni": 30, "miesiac": 30, "90 dni": 90, "3 miesiace": 90, "rok": 365, "1 rok": 365,
+            "bez usuwania": 0, "zawsze": 0, "na zawsze": 0}
+
+    def _where(self, identity, plain):
+        s = self.s
+        if plain in {"gdzie sa dane", "gdzie dane", "gdzie sa moje dane", "przechowywanie", "przechowywanie danych",
+                     "dane", "ustawienia danych", "gdzie trzymamy dane", "mowa"}:
+            return self._where_summary()
+        if plain in {"mowa na tym komputerze", "mowa lokalnie", "przepisuj na tym komputerze", "mowa na komputerze"}:
+            if not s.local_speech_installed():
+                return [text("Na tym komputerze brakuje modułu rozpoznawania mowy. Zainstaluj NotarAI ponownie "
+                             "z linku do pobrania, a potem napisz to jeszcze raz.")]
+            s.update_settings(lambda d: d["speech"].update(where="lokalnie"))
+            s.download_speech_model()
+            return [text("Od teraz mowę przepisuje ten komputer i dźwięk nie wychodzi z kancelarii. Najpierw pobiorę "
+                         "model mowy (raz, ok. 0,5 GB). Postęp widać poniżej; w tym czasie możesz normalnie pracować. "
+                         "Przepisywanie zajmie tu więcej czasu niż we Frankfurcie i obciąży procesor."),
+                    {"type": "progress", "source": "speech/model"}]
+        if plain in {"mowa we frankfurcie", "mowa w chmurze", "przepisuj we frankfurcie", "przepisuj w chmurze"}:
+            s.update_settings(lambda d: d["speech"].update(where="chmura"))
+            return [text("Od teraz mowę przepisuje Amazon Transcribe we Frankfurcie: dźwięk jest przesyłany "
+                         "strumieniem, tekst wraca po kilku sekundach, a nagranie nie jest tam zapisywane. "
+                         "Nagranie i tekst zostają tylko w sejfie na tym komputerze.")]
+        found = re.fullmatch(r"(?:kopia|kopie|kopie zapasowe)(?: (?:we frankfurcie|w chmurze|poza kancelaria))? (.+)", plain)
+        if found and found.group(1) in self.EVERY:
+            hours = self.EVERY[found.group(1)]
+            settings = s.settings()
+            if settings.replica.enabled:
+                s.update_settings(lambda d: d["replica"].update(every_hours=hours))
+                return [text(f"Kopia we Frankfurcie będzie wysyłana {self._every(hours)}.")]
+
+            def turn_on():
+                s.update_settings(lambda d: d["replica"].update(enabled=True, every_hours=hours))
+                return [text(f"Kopia we Frankfurcie włączona, {self._every(hours)}. Pierwsza pójdzie w ciągu "
+                             "kilkunastu minut, gdy stanowisko jest zalogowane.")]
+            return [self._confirm(identity, "Wysyłać zaszyfrowaną kopię całego sejfu do Frankfurtu "
+                                  f"{self._every(hours)}? Otworzy ją tylko kod odzyskiwania kancelarii; ani NotarAI, "
+                                  "ani Amazon nie mają klucza.", "Tak, włącz kopię", turn_on)]
+        if found and found.group(1) in {"wylacz", "wylaczona", "nie", "bez kopii"} or plain in {
+                "wylacz kopie we frankfurcie", "bez kopii we frankfurcie"}:
+            s.update_settings(lambda d: d["replica"].update(enabled=False))
+            return [text("Kopia we Frankfurcie wyłączona. Kopie już wysłane zostają tam według ustawionego czasu.")]
+        found = re.fullmatch(r"(?:trzymaj|przechowuj) kopie(?: we frankfurcie)? (.+)", plain)
+        if found and found.group(1) in self.KEEP:
+            days = self.KEEP[found.group(1)]
+            s.update_settings(lambda d: d["replica"].update(keep_days=days))
+            return [text("Kopie we Frankfurcie będą przechowywane bez usuwania." if days == 0 else
+                         f"Kopie we Frankfurcie starsze niż {days} dni będą usuwane (zawsze zostają co najmniej 3 ostatnie).")]
+        return None
+
+    @staticmethod
+    def _every(hours: int) -> str:
+        return {1: "co godzinę", 6: "co 6 godzin", 24: "raz na dobę", 168: "raz w tygodniu"}.get(hours, f"co {hours} godz.")
+
+    def _where_summary(self) -> list[dict]:
+        s = self.s
+        settings = s.settings()
+        replica = settings.replica
+        local = settings.speech.where == "lokalnie"
+        blocks = [text(
+            "Gdzie są dane tej kancelarii:\n"
+            "• Dokumenty, notatki i nagrania: zawsze w zaszyfrowanym sejfie na tym komputerze.\n"
+            "• Mowa: " + ("przepisuje ten komputer, dźwięk nie wychodzi z kancelarii." if local else
+                          "przepisuje Frankfurt (Amazon Transcribe), strumieniem, bez zapisywania nagrania.") + "\n"
+            "• Kopia sejfu we Frankfurcie: " + (
+                (self._every(replica.every_hours) + ", " + (
+                    "przechowywana bez usuwania" if replica.keep_days == 0 else f"przechowywana {replica.keep_days} dni")
+                 + ", zaszyfrowana kodem odzyskiwania") if replica.enabled else "wyłączona") + ".\n"
+            "• AI: modele w UE (Frankfurt), bez zapisywania treści i bez uczenia na danych kancelarii.")]
+        blocks.append(text("Mowa:"))
+        blocks.append(buttons(("Na tym komputerze", "mowa na tym komputerze"),
+                              ("We Frankfurcie, bez zapisu", "mowa we frankfurcie")))
+        if local:
+            blocks.append({"type": "progress", "source": "speech/model"})
+        blocks.append(text("Kopia sejfu we Frankfurcie:"))
+        blocks.append(buttons(("Wyłączona", "kopia we frankfurcie wyłącz"), ("Co godzinę", "kopia we frankfurcie co godzinę"),
+                              ("Co 6 godzin", "kopia we frankfurcie co 6 godzin"), ("Raz na dobę", "kopia we frankfurcie raz na dobę")))
+        if replica.enabled:
+            blocks.append(text("Jak długo trzymać kopie we Frankfurcie:"))
+            blocks.append(buttons(("30 dni", "trzymaj kopie 30 dni"), ("Rok", "trzymaj kopie rok"),
+                                  ("Bez usuwania", "trzymaj kopie bez usuwania")))
+        return blocks
+
     def _mail(self, identity, message, plain, case):
         s = self.s
         if not re.search(r"\b(poczt\w*|mail\w*|maile|wiadomosc\w*|skrzynk\w*|outlook\w*|thunderbird\w*)\b", plain):
@@ -889,7 +1067,8 @@ class Chat:
                 target = match["id"]
         verbs = {"read": "odczytał", "write": "zapisał", "checkout": "otworzył do edycji",
                  "discard-workcopy": "porzucił zmiany w", "backup": "zrobił kopię zapasową",
-                 "offsite-backup": "wysłał kopię poza kancelarię", "restore": "odtworzył sejf z kopii",
+                 "offsite-backup": "wysłał kopię poza kancelarię", "calendar-put": "zapisał termin",
+                 "calendar-delete": "usunął termin", "restore": "odtworzył sejf z kopii",
                  "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
                  "settings": "zmienił ustawienia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
                  "form-fill-verified": "wypełnił formularz", "form-fill-partial": "wypełnił część formularza",

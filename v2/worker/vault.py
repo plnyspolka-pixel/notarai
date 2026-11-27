@@ -68,6 +68,8 @@ class Vault:
                 self._migrate(db, key)
             # People named in a case (for pseudonymisation), encrypted; added after schema 2 shipped.
             db.execute("CREATE TABLE IF NOT EXISTS case_notes (case_id TEXT PRIMARY KEY, parties BLOB NOT NULL)")
+            # The office calendar, one encrypted entry per appointment; added later, like case_notes.
+            db.execute("CREATE TABLE IF NOT EXISTS calendar (id TEXT PRIMARY KEY, entry BLOB NOT NULL)")
 
     def _set_key(self, key: bytes) -> None:
         self._kek = AESGCM(derive(key, "kek"))
@@ -156,11 +158,15 @@ class Vault:
                 )
             notes = [(case, _open(self._notes, blob, _aad("parties", case)))
                      for case, blob in db.execute("SELECT case_id, parties FROM case_notes").fetchall()]
+            entries = [(ident, _open(self._notes, blob, _aad("calendar", ident)))
+                       for ident, blob in db.execute("SELECT id, entry FROM calendar").fetchall()]
             self._verify_audit(db)
             self._set_key(new_key)
             for case, plain in notes:
                 db.execute("UPDATE case_notes SET parties=? WHERE case_id=?",
                            (_seal(self._notes, plain, _aad("parties", case)), case))
+            for ident, plain in entries:
+                db.execute("UPDATE calendar SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("calendar", ident)), ident))
             previous = b""
             for row in db.execute("SELECT seq, ts, actor, action, doc_id, version FROM audit ORDER BY seq").fetchall():
                 previous = self._mac(previous, row)
@@ -319,6 +325,25 @@ class Vault:
         with self._ro() as db:
             row = db.execute("SELECT parties FROM case_notes WHERE case_id=?", (case,)).fetchone()
         return json.loads(_open(self._notes, row[0], _aad("parties", case))) if row else []
+
+    # ------------------------------------------------------------ calendar
+    def calendar_put(self, ident: str, entry: dict, *, actor="local-admin") -> None:
+        blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("calendar", ident))
+        with self._tx() as db:
+            db.execute("INSERT INTO calendar VALUES (?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry", (ident, blob))
+            self._log(db, actor, "calendar-put", None, None)
+
+    def calendar_delete(self, ident: str, *, actor="local-admin") -> bool:
+        with self._tx() as db:
+            gone = db.execute("DELETE FROM calendar WHERE id=?", (ident,)).rowcount
+            if gone:
+                self._log(db, actor, "calendar-delete", None, None)
+        return bool(gone)
+
+    def calendar(self):
+        with self._ro() as db:
+            rows = db.execute("SELECT id, entry FROM calendar").fetchall()
+        return [{"id": ident, **json.loads(_open(self._notes, blob, _aad("calendar", ident)))} for ident, blob in rows]
 
     def cases(self):
         with self._ro() as db:

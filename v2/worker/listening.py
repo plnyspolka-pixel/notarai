@@ -53,10 +53,10 @@ def containment(spoken: set, written: set) -> float:
 
 
 class Listening:
-    def __init__(self, vault, transcribe, inference, settings, *, clock=time.time, extract=None):
+    def __init__(self, vault, transcribe, inference, settings, *, clock=time.time, extract=None, calendar=None):
         """`transcribe(audio, suffix)` -> text or None; `inference()` -> Inference; `settings()` -> ListenSettings."""
         self._vault, self._transcribe, self._inference, self._settings = vault, transcribe, inference, settings
-        self._clock, self._extract = clock, extract
+        self._clock, self._extract, self._calendar = clock, extract, calendar
         self._queue: deque = deque()
         self._conversations: dict[str, dict] = {}
         self.sources: dict[str, dict] = {}
@@ -203,4 +203,10 @@ class Listening:
                 + (f"\n{summary}\n" if summary else "\n(Bez podsumowania: asystent jest wyłączony.)\n")
                 + f"\nZapis rozmowy (automatyczny, sprawdź):\n{transcript}\n")
         doc_id, version = self._vault.put(None, 0, name, body.encode(), actor="nasluch", case=NOTES_CASE)
+        if note and note.get("termin") and self._calendar is not None:
+            who = ", ".join(map(str, note.get("osoby") or []))
+            try:
+                self._calendar.from_note(str(note["termin"]), (title + (": " + who if who else ""))[:160], NOTES_CASE)
+            except Exception:
+                pass        # a date the code cannot read stays only in the note
         return {"kind": kind or "rozmowa", "case": NOTES_CASE, "id": doc_id, "name": name, "summary": summary}

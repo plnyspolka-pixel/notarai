@@ -146,3 +146,16 @@ def test_a_failed_upload_is_not_recorded_as_a_copy(office):
     s3.fail = False
     assert client.post("/v2/backup/offsite", headers=admin).status_code == 200
     assert client.get("/v2/status", headers=admin).json()["recovery"]["last_offsite"]
+
+
+def test_the_office_chooses_how_long_copies_stay_in_frankfurt(office, tmp_path):
+    home, _, s3 = office
+    recovery.enroll(home)
+    old = [f"notarai-2020010{d}-000000.notarai-backup" for d in range(1, 6)]
+    for name in old:
+        s3.objects[("notarai-v2-kopie", "eu-central-1:office-a/" + name)] = b"x"
+    Replica(home, Account(s3), "notarai-v2-kopie", "eu-central-1", keep_days=0).upload()
+    assert len(Replica(home, Account(s3), "notarai-v2-kopie", "eu-central-1").list()) == 6     # nothing deleted
+    Replica(home, Account(s3), "notarai-v2-kopie", "eu-central-1", keep_days=365).upload()
+    left = [c["name"] for c in Replica(home, Account(s3), "notarai-v2-kopie", "eu-central-1").list()]
+    assert len(left) == KEEP and old[0] not in left           # old ones go, the newest three always stay

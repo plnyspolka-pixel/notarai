@@ -30,7 +30,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Building requires a 64-bit Python 3.14 toolchain.' }
     & python -m pip --disable-pip-version-check install --only-binary=:all: --no-compile `
         --target (Join-Path $runtime 'Lib\site-packages') --constraint (Join-Path $source 'requirements.txt') `
-        fastapi uvicorn cryptography pywin32 python-docx boto3 amazon-transcribe awscrt httpx websockets playwright pywinauto pillow faster-whisper
+        fastapi uvicorn cryptography pywin32 python-docx pypdf boto3 amazon-transcribe awscrt httpx websockets playwright pywinauto pillow faster-whisper
     if ($LASTEXITCODE -ne 0) { throw 'Vendoring V2 dependencies failed.' }
 
     Copy-Item -LiteralPath (Join-Path $source 'worker') -Destination $payload -Recurse

@@ -1,4 +1,4 @@
-"""Speech to text on this computer only: narrated recordings and voice notes.
+"""Speech to text on this computer (the office's choice "mowa na tym komputerze").
 
 faster-whisper runs locally; the model is downloaded once into the vault's directory and then
 works offline. No cloud speech service is used, so audio never leaves the computer. Without it
@@ -26,21 +26,30 @@ def available() -> bool:
         return False
 
 
+def load(model_size: str, root: Path | None = None):
+    """The model in memory, loaded once and kept (int8 on all processor cores)."""
+    import os
+
+    from faster_whisper import WhisperModel
+
+    with _lock:
+        if model_size not in _models:
+            _models[model_size] = WhisperModel(model_size, device="cpu", compute_type="int8",
+                                               cpu_threads=os.cpu_count() or 4,
+                                               download_root=str(root) if root else None)
+        return _models[model_size]
+
+
 def transcribe(recording: bytes, model_size: str = "small", root: Path | None = None, suffix: str = ".webm") -> str:
     """Polish transcript of an audio file in any common format. Raises RuntimeError when unavailable."""
     if not available():
         raise RuntimeError("no local transcriber")
     if model_size not in MODELS:
         raise ValueError("unknown speech model")
-    from faster_whisper import WhisperModel
-
-    with _lock:                      # one model in memory, loaded once
-        if model_size not in _models:
-            _models[model_size] = WhisperModel(model_size, device="cpu", compute_type="int8",
-                                               download_root=str(root) if root else None)
-        model = _models[model_size]
+    model = load(model_size, root)
     with tempfile.TemporaryDirectory() as scratch:
         path = Path(scratch) / ("nagranie" + (suffix if suffix.startswith(".") and len(suffix) <= 6 else ".webm"))
         path.write_bytes(recording)
-        segments, _ = model.transcribe(str(path), language="pl", vad_filter=True, beam_size=5)
+        # beam_size 1: several times faster on an office processor, barely less accurate for dictation.
+        segments, _ = model.transcribe(str(path), language="pl", vad_filter=True, beam_size=1)
         return " ".join(segment.text.strip() for segment in segments).strip()
