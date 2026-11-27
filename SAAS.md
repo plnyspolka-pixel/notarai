@@ -45,12 +45,13 @@
   Strona `/stenogramy` (menu „Stenogram aktu”): wybór sprawy (bez zgody stron; w spisie kto rozpoczął),
   telefon na stole nagrywa (Opus ~24 kb/s, fragmenty co 15 s najpierw w pamięci przeglądarki, nowa
   sesja co 50 min). Serwer skleja sesje w `kancelarie/{id}/stenogramy-robocze/{id}/`, rozpoznaje mowę
-  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper), maskuje dane osobowe tak, że zostaje
+  (AWS Transcribe pl-PL w eu-central-1, lokalnie faster-whisper). W trybie S3 maskuje dane osobowe tak, że zostaje
   początek i koniec („J*n S*****k”, PESEL „80*******45”) - kto zna akt, dopasuje osoby do ról
   (model `eu.` wskazuje dane, kod maskuje; dane stron z `odczyt.json` po rdzeniu; wzorce PESEL/dowód/KW/telefon/konto/adres)
   i zapisuje **tylko zamaskowany tekst** w `sprawy/{id}/zalaczniki/stenogram-....txt` (widać go
   w plikach sprawy, idzie do S3 z całą sprawą). Audio, surowy wynik i zadanie Transcribe są kasowane;
-  surowy tekst nie trafia na dysk. Spis w pliku kancelarii `stenogramy`.
+  lokalny faster-whisper zapisuje pełny tekst stenogramu przy sprawie, bez maskowania.
+  Spis w pliku kancelarii `stenogramy`.
   Włączenie w chmurze: stos `notarai-s3` z `TranscribeStenogramyEU`, polityka AI services opt-out
   na koncie i `PIECZAPP_TRANSCRIBE_OPTOUT=1` w zadaniu ECS (bez tego API odpowiada 503).
   Opcjonalnie `PIECZAPP_STENOGRAM_MODEL` (tylko profil `eu.`), `PIECZAPP_STENOGRAM_SILNIK`

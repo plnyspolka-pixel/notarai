@@ -1,5 +1,5 @@
 """Stenogram odczytania aktu: telefon na stole nagrywa, przy sprawie zostaje
-zanonimizowany tekst. Nagrania nie przechowujemy.
+tekst. Nagrania nie przechowujemy.
 
 Przebieg:
   1. przeglądarka (static/stenogramy.html) nagrywa mowę (Opus ok. 24 kb/s)
@@ -10,9 +10,9 @@ Przebieg:
      kancelarii) i uruchamia przetwarzanie w tle,
   3. rozpoznawanie mowy: AWS Transcribe w eu-central-1 (tryb S3) albo
      faster-whisper na stanowisku lokalnym,
-  4. anonimizacja (anonimizacja.py). Surowy tekst jest tylko w pamięci,
-  5. zanonimizowany stenogram trafia do załączników sprawy
-     (sprawy/{id}/zalaczniki/stenogram-....txt) i z nimi do S3,
+  4. w trybie S3 dane osobowe są maskowane (anonimizacja.py),
+  5. stenogram trafia do załączników sprawy; w trybie lokalnym zachowuje
+     wszystkie rozpoznane wypowiedzi, a do S3 trafia wersja zamaskowana,
   6. audio, wynik Transcribe i zadanie Transcribe są usuwane.
 
 Transcribe ruszy dopiero, gdy właściciel potwierdzi, że na koncie AWS jest
@@ -273,7 +273,7 @@ def _czas(s: float) -> str:
     return f"{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}"
 
 
-def tresc_stenogramu(wpis: dict, segmenty: list[dict]) -> str:
+def tresc_stenogramu(wpis: dict, segmenty: list[dict], *, maskowany: bool) -> str:
     kiedy = datetime.fromisoformat(wpis["utworzono"]).astimezone(_STREFA)
     naglowek = ["STENOGRAM ODCZYTANIA AKTU"]
     if wpis.get("sygnatura"):
@@ -282,8 +282,13 @@ def tresc_stenogramu(wpis: dict, segmenty: list[dict]) -> str:
         f"Odczytanie: {kiedy:%d.%m.%Y}, godz. {kiedy:%H:%M}",
         f"Czas odczytania: {_czas(wpis.get('czas_s', 0))}",
         "",
-        "Dane osobowe zamaskowano: w słowach zostaje pierwsza i ostatnia litera (np. J*n S*****k),",
-        "w numerach dwie pierwsze i dwie ostatnie cyfry (np. PESEL 80*******45).",
+    ]
+    if maskowany:
+        naglowek += [
+            "Dane osobowe zamaskowano: w słowach zostaje pierwsza i ostatnia litera (np. J*n S*****k),",
+            "w numerach dwie pierwsze i dwie ostatnie cyfry (np. PESEL 80*******45).",
+        ]
+    naglowek += [
         "Tekst powstał z automatycznego rozpoznawania mowy i może zawierać błędy.",
         "Nie jest protokołem ani częścią aktu. Dźwięk usunięto po spisaniu.",
         "",
@@ -308,7 +313,7 @@ def _przejmij(id_s: str) -> dict | None:
 
 
 def przetworz(id_s: str) -> None:
-    """Nagranie -> zanonimizowany stenogram przy sprawie. Wolno wołać wielokrotnie."""
+    """Nagranie -> stenogram przy sprawie. Wolno wołać wielokrotnie."""
     wpis = _przejmij(id_s)
     if wpis is None:
         return
@@ -328,23 +333,24 @@ def przetworz(id_s: str) -> None:
             przesuniecie += sesja.get("czas_s", 0)
 
         katalog = _katalog_sprawy(wpis["sprawa"])
-        anonimowe = anonimizacja.anonimizuj(segmenty, anonimizacja.znane_z_sprawy(katalog))
-        del segmenty   # surowy tekst nie wychodzi poza pamięć
+        maskowany = magazyn.TRYB != "lokalny" or nazwa_silnika != "whisper"
+        if maskowany:
+            segmenty = anonimizacja.anonimizuj(segmenty, anonimizacja.znane_z_sprawy(katalog))
         kiedy = datetime.fromisoformat(wpis["utworzono"]).astimezone(_STREFA)
         nazwa = f"stenogram-{kiedy:%Y-%m-%d-%H%M}-{id_s[:6]}.txt"
         folder = katalog / ZALACZNIKI
         folder.mkdir(exist_ok=True)
-        (folder / nazwa).write_text(tresc_stenogramu(wpis, anonimowe), encoding="utf-8")
+        (folder / nazwa).write_text(tresc_stenogramu(wpis, segmenty, maskowany=maskowany), encoding="utf-8")
         magazyn.utrwal_sprawe(katalog)
 
         def _gotowe(w):
-            w.update(stan="gotowe", plik=f"{ZALACZNIKI}/{nazwa}", wypowiedzi=len(anonimowe),
+            w.update(stan="gotowe", plik=f"{ZALACZNIKI}/{nazwa}", wypowiedzi=len(segmenty),
                      zakonczono=_teraz())
             w.pop("przetwarza_od", None)
             w.pop("komunikat", None)
         _zmien_wpis(id_s, _gotowe)
         _sprzataj(id_s, zadania)
-        log.info("stenogram %s: gotowy, %d wypowiedzi", id_s, len(anonimowe))
+        log.info("stenogram %s: gotowy, %d wypowiedzi", id_s, len(segmenty))
     except Exception as blad:  # noqa: BLE001 - stan błędu zamiast wiszącego przetwarzania
         log.error("stenogram %s: blad %s", id_s, type(blad).__name__)
         komunikat = (str(blad) if isinstance(blad, bedrock.Przeciazenie)

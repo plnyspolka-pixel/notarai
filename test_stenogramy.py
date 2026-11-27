@@ -1,4 +1,4 @@
-"""Stenogram odczytania aktu: nagranie -> zanonimizowany tekst przy sprawie.
+"""Stenogram odczytania aktu: nagranie -> tekst przy sprawie.
 Dane zmyślone (Sobczak/Pawlak), S3 i Transcribe zastąpione atrapami, bez sieci."""
 import json
 import logging
@@ -87,30 +87,23 @@ def _zakoncz(klient, id_s, sesje):
 
 # --- przebieg ------------------------------------------------------------------
 
-def test_stenogram_przy_sprawie_bez_danych_osobowych(klient, tmp_path):
+def test_stenogram_lokalny_zachowuje_pelna_tresc(klient, monkeypatch):
+    def padnij(*_args):
+        pytest.fail("Lokalny stenogram nie powinien wywoływać anonimizacji")
+    monkeypatch.setattr(anonimizacja, "anonimizuj", padnij)
     wpis = _zakoncz(klient, *_nagraj(klient))
     assert wpis["stan"] == "gotowe", wpis
     assert wpis["plik"].startswith("zalaczniki/stenogram-")
 
     tekst = klient.get(f"/api/stenogramy/{wpis['id']}/tekst").text
     assert "STENOGRAM ODCZYTANIA AKTU" in tekst and "Repertorium A nr 1234/2026" in tekst
-    # Początek i koniec zostają: kto zna akt, dopasuje osobę do roli.
-    assert "Stawiający J*n S*****k, PESEL 80 ** ** *** 45, zamieszkały przy ulicy L*****j 7 m. 3." in tekst
-    assert "Kupująca pani A**a P****k, telefon 60* *** *00, pan S******a zna od lat." in tekst
-    for dana in ("Sobczak", "Pawlak", "Lipowej", "80 01 01", "600 100 200"):
-        assert dana not in tekst, dana
-    assert "450 000 zł" in tekst and "nowa umowa" in tekst     # treść czynności zostaje
+    assert "Dane osobowe zamaskowano" not in tekst
+    for segment in SUROWE:
+        assert segment["tekst"] in tekst
     assert "[0:00:12]" in tekst
-
-    # Stenogram widać w plikach sprawy.
     pliki = klient.get("/api/sprawy/spr1/pliki").json()
     assert [p["nazwa"] for p in pliki] == [wpis["plik"].split("/")[1]]
-    # Nagrania nie ma: katalog roboczy usunięty.
     assert not (magazyn.katalog_kancelarii() / "stenogramy-robocze" / wpis["id"]).exists()
-    # Surowy tekst nigdzie na dysku (poza danymi sprawy, które już tam były).
-    for plik in tmp_path.rglob("*"):
-        if plik.is_file() and plik.name not in ("odczyt.json", "sprawa.json"):
-            assert b"Lipowej" not in plik.read_bytes(), plik
 
 
 def test_wiele_sesji_przesuwa_czas(klient, monkeypatch):
@@ -167,7 +160,7 @@ def test_zly_podzial_na_sesje(klient):
         assert klient.post(f"/api/stenogramy/{id_s}/koniec", json={"sesje": sesje}).status_code == 400
 
 
-def test_blad_modelu_nic_nie_zapisuje_i_daje_ponowic(klient, monkeypatch):
+def test_blad_modelu_nic_nie_zapisuje_i_daje_ponowic(klient, s3, monkeypatch):
     def padnij(_s):
         raise RuntimeError("Bedrock nie odpowiada")
     monkeypatch.setattr(anonimizacja, "wskaz_dane", padnij)
@@ -176,7 +169,7 @@ def test_blad_modelu_nic_nie_zapisuje_i_daje_ponowic(klient, monkeypatch):
     assert wpis["stan"] == "blad" and "Spróbuj ponownie" in wpis["komunikat"]
     assert klient.get("/api/sprawy/spr1/pliki").json() == []
     # Audio czeka na ponowienie.
-    assert (magazyn.katalog_kancelarii() / "stenogramy-robocze" / id_s / "sesja-0.webm").exists()
+    assert any(k.endswith(f"/{id_s}/sesja-0.webm") for k in s3.obiekty)
 
     monkeypatch.setattr(anonimizacja, "wskaz_dane", lambda s: list(WSKAZANE))
     assert klient.post(f"/api/stenogramy/{id_s}/ponow").status_code == 200
@@ -384,7 +377,7 @@ def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch
             strona.click("#lista button:has-text('Pokaż')")
             strona.wait_for_selector("#lista .tekst")
             tekst = strona.text_content("#lista .tekst")
-            assert "J*n S*****k" in tekst and "Sobczak" not in tekst
+            assert "Jan Sobczak" in tekst and "Dane osobowe zamaskowano" not in tekst
             assert strona.is_hidden("#karta-lokalne")
             assert bledy == []
             przegladarka.close()

@@ -243,7 +243,7 @@ def strona_asysty_odczytu():
 @app.get("/stenogramy", response_class=HTMLResponse)
 def strona_stenogramow():
     """Telefon na stole nagrywa odczytanie aktu, przy sprawie zostaje
-    zanonimizowany stenogram. Strona jest jawna; API wymaga logowania."""
+    stenogram. Strona jest jawna; API wymaga logowania."""
     return (Path(__file__).parent / "static" / "stenogramy.html").read_text("utf-8")
 
 
