@@ -187,3 +187,25 @@ def test_niesparowany_telefon_dostaje_instrukcje_i_skaner():
     assert "audio: false" in kod                                              # skaner nie włącza mikrofonu
     lokalne = strona_ftp.pliki_lokalne(str(STRONA))
     assert "pocket/powitanie.js" in lokalne and "pocket/powitanie.css" in lokalne
+
+
+def test_pocket_ma_identyfikacje_wizualna_notarai():
+    """Aplikacja i strona Pocket wyglądają jak NotarAI: sygnet, granat i niebieski z notarai.pl, krój
+    Montserrat, nazwa NotarAI pod ikoną. Zielona paleta prototypu nie wraca po eksporcie z V2."""
+    katalog = STRONA / "pocket"
+    assert (katalog / "logo-mark.svg").read_bytes() == (STRONA / "logo-mark.svg").read_bytes()
+    html = (katalog / "index.html").read_text(encoding="utf-8")
+    assert 'href="marka.css"' in html and html.index('href="pocket.css"') < html.index('href="marka.css"')
+    assert '<h1 class="marka"><img src="logo-mark.svg"' in html and "notar<strong>ai</strong>" in html
+    assert '<meta name="theme-color" content="#071d49">' in html and "font-src 'self';" in html
+    assert "#0d6b57" not in html
+    marka = (katalog / "marka.css").read_text(encoding="utf-8")
+    assert "--accent: #234bd2" in marka and "../fonts/montserrat-latin-ext-wght-normal.woff2" in marka
+    assert (STRONA / "fonts" / "montserrat-latin-ext-wght-normal.woff2").is_file()
+    manifest = json.loads((katalog / "pocket.webmanifest").read_text(encoding="utf-8"))
+    assert (manifest["name"], manifest["theme_color"]) == ("NotarAI", "#071d49")
+    zasoby = (ANDROID / "app" / "src" / "main" / "res" / "values" / "zasoby.xml").read_text(encoding="utf-8")
+    assert '<string name="nazwa" translatable="false">NotarAI</string>' in zasoby
+    assert '<color name="granat">#071D49</color>' in zasoby and "0D6B57" not in zasoby
+    znak = (ANDROID / "app" / "src" / "main" / "res" / "drawable" / "ikona_znak.xml").read_text(encoding="utf-8")
+    assert "M16 16h104c0 13-9 23-23 23H29c-10 0-17 6-21 16C0 39 7 16 16 16Z" in znak      # geometria sygnetu

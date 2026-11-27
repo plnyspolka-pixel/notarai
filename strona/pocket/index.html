@@ -2,20 +2,21 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' wss://qj7nel6in9.execute-api.eu-central-1.amazonaws.com; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self' wss://qj7nel6in9.execute-api.eu-central-1.amazonaws.com; media-src 'self' blob:; base-uri 'none'; form-action 'none'">
   <meta name="robots" content="noindex">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0d6b57">
-  <title>NotarAI Pocket</title>
+  <meta name="theme-color" content="#071d49">
+  <title>NotarAI</title>
   <link rel="stylesheet" href="pocket.css">
   <link rel="stylesheet" href="powitanie.css">
+  <link rel="stylesheet" href="marka.css">
   <link rel="manifest" href="pocket.webmanifest">
-  <link rel="icon" href="pocket-icon.svg" type="image/svg+xml">
+  <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
 </head>
 <body data-mode="pocket">
   <header>
-    <h1>NotarAI Pocket</h1>
+    <h1 class="marka"><img src="logo-mark.svg" alt="" width="34" height="34"><span>notar<strong>ai</strong></span><span class="marka-dopisek">Pocket</span></h1>
     <div id="bar" hidden>
       <label for="case" class="sr">Sprawa</label>
       <select id="case"></select>
