@@ -202,6 +202,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   a zdanie notariusza bez słów pisanych wielką literą i bez cyfr. Nie dopisuj tam wartości. Udana praca zapisuje w mapie
   programu „sprawdzoną drogę” (`ProgramMap.route`): dla jednej czynności zostaje najkrótsza znana. Kręcenie się w kółko
   wykrywa kod (`Agent._looping`, powtórzony odczyt bez zmiany): przebieg staje i pyta notariusza.
+- Dyktowanie ze zrozumieniem (decyzja właściciela 28.11.2026, `v2/worker/dictation_polish.py`, ustawienie `speech.polish`):
+  raz, na końcu dyktowania, model poprawia usłyszany tekst z kontekstu (słownik: poznane programy, nazwy spraw, polecenia
+  programu), przez `inference.py` z pseudonimizacją. Kod trzyma bezpieczniki: te same cyfry co w usłyszanym tekście,
+  długość w proporcji, przy błędzie zostaje tekst dosłowny. Tylko dyktowanie do pola, nie notatki głosowe ani stenopisy.
 - Okienko z pytaniem (decyzja właściciela 28.11.2026, `v2/worker/attention.py`, ustawienie `agent.popup`): gdy praca agenta
   staje na pytaniu, logowaniu albo potwierdzeniu, stanowisko otwiera małe okno Edge ponad innymi oknami. Strona jest
   podawana tylko temu komputerowi pod jednorazowym adresem (`this_computer`), jedna odpowiedź na pytanie; odpowiedź
