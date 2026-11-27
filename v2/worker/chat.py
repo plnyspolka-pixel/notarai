@@ -8,6 +8,7 @@ A reply is a list of blocks the page renders: text, buttons (which send a senten
 documents, a draft to approve, a one-time secret, a QR code, a sign-in form, a confirmation.
 """
 import base64
+import os
 import re
 import secrets
 import time
@@ -362,6 +363,7 @@ class Chat:
                       "• „dodaj telefon” albo „dodaj telefon tylko do odczytu dla sprawy kowalski-2026”",
                       "• „urządzenia”, „cofnij telefon”",
                       "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
+                      "• „naucz się stylu kancelarii” albo „naucz się stylu z D:\\Akty”, potem „styl kancelarii”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
                       "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”: wpiszę dane "
@@ -431,6 +433,43 @@ class Chat:
         return blocks
 
     # ------------------------------------------------------------ workstation intents
+    def _style(self, identity, message, plain):
+        """Learning the office's way of writing from acts already on its computers (workstation only)."""
+        s = self.s
+        if not re.search(r"\bstyl\w*|\bnaucz sie (pisac|aktow|z aktow)|przeszukaj (komputer|dysk)", plain):
+            return None
+        if plain.startswith(("naucz", "przeszukaj", "skanuj", "ucz sie")):
+            found = re.search(r"\b(?:z|w|ze)\s+((?:[A-Za-z]:\\|/)\S.*)$", message)
+            roots = [found.group(1).strip().strip("„”\"")] if found else None
+            if roots and not os.path.isdir(roots[0]):
+                return [text("Nie ma takiego folderu na tym komputerze.")]
+            from .style import default_roots
+
+            chosen = roots or [str(r) for r in default_roots()]
+            if not s.style.start(chosen, identity.id):
+                return [text("Już się uczę. Napisz „stan nauki stylu”, żeby zobaczyć postęp.")]
+            return [text("Zaczynam. Przeszukuję " + ", ".join(chosen) + " w poszukiwaniu aktów (DOCX, ODT, RTF, TXT). "
+                         "Czytam je na miejscu: nic nie kopiuję i nic nie wysyłam. Zapamiętam tylko zdania, które "
+                         "powtarzają się w wielu aktach, czyli styl kancelarii, a nie dane klientów. Może to potrwać "
+                         "kilkanaście minut; napisz „stan nauki stylu”.")]
+        progress = s.style.progress
+        if progress.get("running"):
+            return [text(f"Uczę się: przejrzałem {progress['files']} plików, znalazłem {progress['acts']} aktów.")]
+        profile = s.style.profile()
+        if profile is None:
+            return [text("Nie znam jeszcze stylu kancelarii." + (" Napisz „naucz się stylu kancelarii” (cały komputer) "
+                                                                  "albo „naucz się stylu z D:\\Akty”." if identity.scope == "admin" else ""))]
+        counts = ", ".join(f"{kind}: {n}" for kind, n in sorted(profile["acts"].items(), key=lambda kv: -kv[1]))
+        found_kind = next((k for k in profile["formulas"] if norm(k) in plain), None)
+        if found_kind:
+            lines = [f"• {f['text']}" for f in profile["formulas"][found_kind][:25]]
+            return [text(f"Stałe sformułowania kancelarii ({found_kind}), w kolejności z aktów:\n" + "\n".join(lines))]
+        kinds = [k for k, f in profile["formulas"].items() if f]
+        return [text(f"Znam styl kancelarii z {sum(profile['acts'].values())} aktów ({counts}); przejrzałem "
+                     f"{profile['files_scanned']} plików. Projekty piszę tymi sformułowaniami."
+                     + ("" if profile.get("complete", True) else " Przeszukiwanie przerwałem po limicie czasu albo plików.")),
+                buttons(*[(f"Styl: {k}", f"pokaż styl {k}") for k in kinds[:10]])]
+
     def _office_rules(self, identity, message, plain):
         """Everyone may read the rules; only the workstation may add or remove them."""
         from .rules import describe, parse
@@ -484,6 +523,9 @@ class Chat:
         off = plain.startswith(("wylacz", "zablokuj", "zatrzymaj"))
         if plain in {"stan", "status", "stan stanowiska", "jak stoimy", "jak stoimy?"}:
             return self._status()
+        learned = self._style(identity, message, plain)
+        if learned is not None:
+            return learned
         mail = self._mail(identity, message, plain, case)      # before devices: "odłącz pocztę" is not a device
         if mail is not None:
             return mail

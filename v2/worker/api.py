@@ -171,7 +171,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     configure(settings)
     rules = Rules(vault)
-    drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules)
+    from .style import Style
+
+    style = Style(vault)
+    drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules, style=style)
     redeem_throttle = _Throttle()
     workcopies = WorkCopies(home, vault, opener, rules=rules) if opener else WorkCopies(home, vault, rules=rules)
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
@@ -845,7 +848,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     chat = Chat(SimpleNamespace(
         layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
-        rules=rules,
+        rules=rules, style=style,
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
