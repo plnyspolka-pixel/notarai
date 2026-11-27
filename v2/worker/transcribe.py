@@ -32,7 +32,11 @@ def transcribe(recording: bytes, model_size: str = "small", root: Path | None = 
 
 
 def transcribe_stream(recording, model_size: str = "small", root: Path | None = None) -> str:
-    """Transcribe an in-memory recording locally."""
+    return " ".join(segment["tekst"] for segment in segmenty_mowy(recording, model_size, root))
+
+
+def segmenty_mowy(recording, model_size: str = "small", root: Path | None = None) -> list[dict]:
+    """Transcribe in memory, retaining offsets for references into the recording."""
     if not available():
         raise RuntimeError("no local transcriber")
     if model_size not in MODELS:
@@ -45,4 +49,4 @@ def transcribe_stream(recording, model_size: str = "small", root: Path | None = 
                                                download_root=str(root) if root else None)
         model = _models[model_size]
     segments, _ = model.transcribe(recording, language="pl", vad_filter=True, beam_size=5)
-    return " ".join(segment.text.strip() for segment in segments).strip()
+    return [{"sekunda": int(segment.start), "tekst": segment.text.strip()} for segment in segments if segment.text.strip()]

@@ -109,13 +109,19 @@ function nagrywaj(b) {
         if (!numer) throw new Error("Nagranie nie zawiera dźwięku ani obrazu.");
         await api(b.token, sciezka + "/koniec", "PUT", {czesci: numer});
         gotowe(b, b.przerwano ? "Źródło odłączone. Zapisano materiał do chwili przerwania." : "Nagranie zapisane lokalnie.");
+        try {
+          await api(b.token, sciezka + "/stenogram", "POST");
+          if (!sesja) stan("Nagranie zapisane lokalnie. Stenogram i ustalenia są gotowe.");
+        } catch (e) {
+          if (!sesja) stan("Nagranie zapisane lokalnie. Stenogram: " + e.message);
+        }
       } catch (e) {
         gotowe(b, e.message);
       }
     };
     rec.start(2000);
     const format = mimeType.split(";")[0];
-    kolejka = api(b.token, sciezka, "PUT", {sprawa: b.sprawa, format}).catch(blad);
+    kolejka = api(b.token, sciezka, "PUT", {sprawa: b.sprawa, sprawa_id: b.sprawaId, stanowisko: b.stanowisko, format}).catch(blad);
     el("recznie").disabled = true;
     stan("Trwa nagrywanie. " + b.zrodlaOpis);
   } catch (e) {
@@ -128,7 +134,9 @@ async function uzbroj(e) {
   if (sesja) return;
   const sprawa = el("opis-nagrania").value.trim();
   if (!sprawa) return stan("Podaj sprawę lub opis notatki.");
-  const b = {id: crypto.randomUUID(), sprawa, token: token, zrodla: []};
+  const sprawaId = currentCase();
+  if (!sprawaId) return stan("Wybierz konkretną sprawę w górnym menu.");
+  const b = {id: crypto.randomUUID(), sprawa, sprawaId, stanowisko: el("stanowisko").value, token, zrodla: []};
   sesja = b;
   el("ustawienia").inert = true;
   el("stop").disabled = false;

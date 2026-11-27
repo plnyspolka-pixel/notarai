@@ -410,7 +410,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         response.headers["X-Content-Type-Options"] = "nosniff"
         relay_origin = state["settings"].tunnel.relay_origin()
         connect_src = "'self'" + (" " + relay_origin if relay_origin else "")
-        response.headers["Content-Security-Policy"] = f"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src {connect_src}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        response.headers["Content-Security-Policy"] = f"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; media-src blob:; worker-src 'self'; connect-src {connect_src}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
@@ -527,6 +527,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             await restart_relay()
         vault.log("local-admin", "settings")
         return new.model_dump()
+
+    @app.get("/v2/kalendarz-spraw.js")
+    def kalendarz_spraw_script():
+        return FileResponse(Path(__file__).with_name("kalendarz-spraw.js"), media_type="application/javascript")
 
     @app.get("/v2/nagrywanie.js")
     def nagrywanie_script():
@@ -781,9 +785,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         return local_speech.transcribe(audio, state["settings"].speech.model, home / "modele-mowy", suffix)
 
     from .nagrania import router_nagran
-    app.include_router(router_nagran(vault, admin, lambda audio: (
+    app.include_router(router_nagran(vault, admin, auth, writable, see_case, lambda audio: (
         transcriber(audio.getvalue()) if transcriber is not None
-        else local_speech.transcribe_stream(audio, state["settings"].speech.model, home / "modele-mowy")
+        else local_speech.segmenty_mowy(audio, state["settings"].speech.model, home / "modele-mowy")
     )))
 
     @app.post("/v2/procedures/transcribe", dependencies=[Depends(admin)])
