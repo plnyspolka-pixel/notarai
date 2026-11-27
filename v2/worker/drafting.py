@@ -57,6 +57,22 @@ COMPUTER = (
     "linii DALEJ, bez żadnego innego tekstu i bez dopytywania o brakujące dane. Program wykona polecenie sam, "
     "a o to, czego zabraknie, zapyta w trakcie."
 )
+# After COMPUTER: the program's own functions. The chat runs a line „POLECENIE: …” as if the notary had typed it,
+# so every check (permissions, rules, notary-only accounts) stays in code (chat.py).
+PROGRAM = (
+    " Program sam wykonuje też swoje funkcje administracyjne. Gdy prośba dotyczy któregoś z nich, NIE radź i NIE "
+    "opisuj, jak to zrobić: odpowiedz wyłącznie liniami „POLECENIE: <dokładne polecenie>” (najwyżej trzema), a program "
+    "je wykona. Gdy do polecenia brakuje danych (np. adresu e-mail osoby), zapytaj o nie jednym krótkim zdaniem, bez "
+    "linii POLECENIE. Polecenia: „dodaj osobę <e-mail>” (konto dla pracownika, np. sekretariatu; osoba dostaje e-mail "
+    "z hasłem), „konta” (osoby i uprawnienia), „<e-mail> nie może <wysyłać poczty|kalendarz|sprawy|wnioski|zatwierdzać "
+    "akty|ustawienia>”, „nadaj <e-mail> <uprawnienie>”, „zablokuj <e-mail>”, „odblokuj <e-mail>”, „połącz drugie "
+    "stanowisko” (kolejny komputer kancelarii), „dołączam do kancelarii”, „stanowiska”, „nazwij stanowisko <nazwa>”, "
+    "„dodaj telefon”, „urządzenia”, „dodaj mikrofon <pokój>”, „przewodnik”, „pokaż możliwości”, „zrób kopię”, "
+    "„nowy kod odzyskiwania”, „gdzie są dane”, „aktualizacja”, „sprawdź mowę”, „połącz pocztę”, „poczta”, "
+    "„synchronizuj kalendarz”, „co mam jutro”, „termin <dzień> <godzina> <opis>”, „zasady”, „zasada: …”, "
+    "„drukarki”, „skanuj”, „mikrofony”, „tryb uczenia”, „popraw program: <co zmienić w NotarAI>”, „sprawdź KW <numer>”, "
+    "„sprawdź strony w KRZ”, „nowa sprawa <nazwa>”, „zaloguj”."
+)
 SYSTEM_CHAT = (
     "Jesteś asystentem polskiej kancelarii notarialnej. Odpowiadaj zwięźle, wyłącznie na podstawie "
     "dokumentów sprawy podanych niżej. Jeśli odpowiedzi w nich nie ma, powiedz to wprost. "
@@ -181,7 +197,7 @@ class Drafts:
         names = self._names(case, names)
         context, sources, skipped = self._context(case, actor, only=document)
         answer = self._inference.ask(
-            purpose="chat", system=SYSTEM_CHAT + NEXT_STEPS + (COMPUTER if computer else ""), names=names, max_tokens=2048,
+            purpose="chat", system=SYSTEM_CHAT + NEXT_STEPS + (COMPUTER + PROGRAM if computer else ""), names=names, max_tokens=2048,
             text=f"{context}{self._learned()}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",
         )
         return {"answer": answer.text, "sources": sources, "skipped": skipped,
@@ -192,7 +208,7 @@ class Drafts:
 
     def general(self, question: str, names=(), mail: bool = False) -> dict:
         """A question with no case chosen: the assistant answers from general knowledge, reading no documents."""
-        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL + ("" if mail else NEXT_STEPS + COMPUTER),
+        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL + ("" if mail else NEXT_STEPS + COMPUTER + PROGRAM),
                                      names=list(names), max_tokens=2048,
                                      text=question + self._learned("mail" if mail else "wiedza"))
         return {"answer": answer.text, "unknown_placeholders": list(answer.unknown_placeholders)}

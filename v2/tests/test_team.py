@@ -88,3 +88,42 @@ def test_the_secretariat_cannot_manage_accounts_and_keeps_to_its_permissions(tmp
     assert "Notariusz nie dał Ci uprawnienia: kalendarz i komunikator" in refused
     saved = client.post("/v2/documents", headers=admin, json={"expected_version": 0, "name": "a.txt", "content_b64": "YQ=="})
     assert saved.status_code == 403 and "sprawy i dokumenty" in saved.text
+
+
+def test_a_sentence_about_a_secretariat_station_gets_the_steps_not_advice(tmp_path):
+    client, admin, account, function = office(tmp_path, "notariusz@kancelaria.pl")
+    answer = say(client, admin, "stwórz stanowisko w kancelarii ale dla sekretariatu")
+    assert "dodaj osobę" in answer and "połącz drugie stanowisko" in answer and "Jaki adres e-mail" in answer
+
+
+def test_the_assistant_runs_program_commands_instead_of_advising(tmp_path):
+    import json
+    from worker.inference import Inference
+    from worker.policy import EU_REGIONS, Policy
+    from worker.usage import UsageLedger
+    from worker.init_vault import initialize as init
+
+    class Bedrock:
+        replies = ["ROZUMIEM: chodzi o konto.\nPOLECENIE: dodaj osobę rarot@nowanet.pl\nPOLECENIE: zablokuj stary@nowanet.pl"]
+
+        def get_model_invocation_logging_configuration(self):
+            return {}
+
+        def get_inference_profile(self, inferenceProfileIdentifier):
+            return {"models": [{"modelArn": f"arn:aws:bedrock:{r}::foundation-model/x"} for r in EU_REGIONS]}
+
+        def converse(self, **kwargs):
+            return {"output": {"message": {"content": [{"text": self.replies.pop(0)}]}}, "stopReason": "end_turn",
+                    "usage": {"inputTokens": 1, "outputTokens": 1}}
+
+    home = tmp_path / "h2"
+    admin = {"Authorization": "Bearer " + init(home)}
+    account = Account("notariusz@kancelaria.pl")
+    function = Function(account, {"notariusz@kancelaria.pl"})
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(), UsageLedger(home))
+    client = TestClient(create_app(home, account=account, inference=inference, team_invoke=function))
+    response = client.post("/v2/chat", headers=admin, json={"text": "Ania potrzebuje wejścia do NotarAI na swoim komputerze"})
+    blocks = response.json()["blocks"]
+    words = json.dumps(blocks, ensure_ascii=False)
+    assert "Założyłem konto rarot@nowanet.pl" in words and function.people == {"rarot@nowanet.pl": True}
+    assert "zablokuj stary@nowanet.pl" in words and "stary@nowanet.pl" not in function.people   # only offered

@@ -54,6 +54,16 @@ def looks_like_computer_task(plain: str) -> bool:
     return bool(words) and words[0].startswith(COMPUTER_VERBS) and any(p in f" {asked} " for p in COMPUTER_PLACES)
 
 
+PROGRAM_LINE = re.compile(r"(?m)^[ \t>*_`„\"-]*POLECENIE\**\s*:\s*[„\"]?(.+?)[”\"]?\s*$")
+# Commands the assistant may only offer as a button: they take something away or cannot be undone.
+OFFER_ONLY = ("zablokuj", "usun", "cofnij", "odbierz", "zapomnij", "wyloguj", "nowy kod", "zabierz", "wylacz")
+
+
+def program_commands(answer: str) -> list[str]:
+    """The assistant answered with the program's own commands („POLECENIE: …”)."""
+    return [c.strip().strip("*").strip() for c in PROGRAM_LINE.findall(answer or "")][:3]
+
+
 def wants_the_computer(answer: str) -> bool:
     """The assistant handed the request to the computer agent: a line „AGENT:” anywhere in its answer.
 
@@ -319,6 +329,15 @@ class Chat:
         grant = re.search(r"\b(nie )?moze\b(.*)", plain) if email else None
         changing = re.match(r"(odbierz|zabierz|nadaj|daj|przywroc)\b(.*)", plain) if email and not (adding or blocking or unblocking) else None
         asking = email and re.match(r"uprawnienia\b", plain)
+        staff = r"(dla sekretariatu|sekretark|pracowni|asystent|aplikant|recepcj)"
+        setup = r"(\bkont[oa]?\b|login|dostep|uprawnien|stanowisk[oa] (w kancelarii )?(ale )?dla)"
+        if not email and identity.scope == "admin" and re.search(staff, plain) and re.search(setup, plain):
+            return [text("Zrobię to tak:\n1. Konto: podaj adres e-mail tej osoby, np. „dodaj osobę ania@kancelaria.pl”; dostanie "
+                         "e-mail z hasłem. Domyślnie może wszystko poza kontami i uprawnieniami; ograniczysz to zdaniem.\n"
+                         "2. Komputer: na komputerze sekretariatu zainstaluj NotarAI i wybierz „Dołączam do kancelarii”, "
+                         "a tutaj napisz „połącz drugie stanowisko” i przepisz tam pokazane zdanie.\n"
+                         "3. Tam: „zaloguj” adresem i hasłem z maila.\nJaki adres e-mail ma ta osoba?"),
+                    buttons(("Połącz drugie stanowisko", "połącz drugie stanowisko"), ("Konta", "konta"))]
         if not (listing or (email and (adding or blocking or unblocking or grant or changing or asking))):
             return None
         if identity.scope != "admin":
@@ -374,6 +393,26 @@ class Chat:
                          "Obowiązuje na wszystkich stanowiskach kancelarii.")]
         except TeamError as error:
             return [text(str(error))]
+
+    def _program(self, identity, said: str, case, names) -> list[dict]:
+        """Run the program's own commands the assistant named, each through the normal route (and its checks)."""
+        if getattr(self, "_running_program", False):
+            return [text("Nie rozpoznałem tego polecenia programu.")]
+        blocks, offered = [], []
+        self._running_program = True
+        try:
+            for command in program_commands(said):
+                plain_command = norm(command)
+                if plain_command.startswith(OFFER_ONLY):
+                    offered.append((command[:1].upper() + command[1:], command))
+                    continue
+                self.s.narrate(identity, f"Wykonuję polecenie programu: „{command}”.")
+                blocks += self._route(identity, command, plain_command, case, names)
+        finally:
+            self._running_program = False
+        if offered:
+            blocks += [text("To trzeba potwierdzić:"), buttons(*offered)]
+        return blocks
 
     def _guide_progress(self, before) -> list[dict]:
         """After a turn: when the step that was current is now done, say so and show the next one."""
@@ -485,7 +524,11 @@ class Chat:
             # No case chosen: the same chat answers as a general assistant, without reading any documents.
             s.narrate(identity, "Rozumiem to jako pytanie ogólne, bez konkretnej sprawy: nie czytam żadnych dokumentów.")
             s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
+            if getattr(self, "_running_program", False):
+                return [text(f"Nie znam polecenia „{message}”. Napisz „pomoc”, żeby zobaczyć polecenia.")]
             said = s.general(message, names)["answer"]
+            if program_commands(said):
+                return self._program(identity, said, case, names)
             if wants_the_computer(said):
                 return self._computer(identity, message)
             line = understood(said)[1]
@@ -519,6 +562,8 @@ class Chat:
             if handed_over:
                 return self._computer(identity, message)
             raise
+        if program_commands(answer["answer"]):
+            return self._program(identity, answer["answer"], case, names)
         if wants_the_computer(answer["answer"]):
             return self._computer(identity, message)
         line = understood(answer["answer"])[1]
