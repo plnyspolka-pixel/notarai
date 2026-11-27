@@ -262,14 +262,20 @@ class Chat:
             reply = self._admin(identity, message, plain, case)
             if reply is not None:
                 return reply
-        if admin and looks_like_computer_task(plain):
+        if self._may_use_computer(identity) and looks_like_computer_task(plain):
             return self._computer(identity, computer_task(message))
         return self._common(identity, message, plain, case, names)
 
     # ------------------------------------------------------------ the computer agent (owner's decision 27.11.2026)
+    def _may_use_computer(self, identity) -> bool:
+        """The workstation window always; a paired device only with the consent given on the workstation."""
+        return identity.scope == "admin" or (identity.scope == "write" and self.s.devices.computer(identity.id))
+
     def _computer(self, identity, task: str, *, allowed=frozenset(), history=None) -> list[dict]:
-        if identity.scope != "admin":
-            return [text("Na komputerze kancelarii działam z okna NotarAI na tym komputerze.")]
+        if not self._may_use_computer(identity):
+            return [text("To urządzenie nie ma zgody na sterowanie komputerem kancelarii. Zgodę daje się na komputerze, "
+                         "w oknie NotarAI: „pozwól telefonowi <nazwa> sterować komputerem” albo przy parowaniu: "
+                         "„dodaj telefon z dostępem do komputera”.")]
         if not self.s.ai_ready():
             return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
                     buttons(("Zaloguj", "zaloguj"))]
@@ -613,6 +619,9 @@ class Chat:
                       "• „zrób kopię”, „kod odzyskiwania”",
                       "• „dodaj telefon” albo „dodaj telefon tylko do odczytu dla sprawy kowalski-2026”",
                       "• „urządzenia”, „cofnij telefon”",
+                      "• praca na komputerze zdaniem: „wejdź na stronę … i wypełnij formularz”, „otwórz program … i wpisz …”",
+                      "• „używaj Chrome” albo „używaj Edge”; „pozwól telefonowi Telefon sterować komputerem”",
+                      "• „wyłącz zrzuty ekranu agenta”, „wyłącz wiersz poleceń agenta”",
                       "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
                       "• „naucz się stylu kancelarii” albo „naucz się stylu z D:\\Akty”, potem „styl kancelarii”",
                       "• „włącz nasłuch”, „dodaj mikrofon Sekretariat”, „nasłuch”, „notatki z rozmów”, „stenopisy”",
@@ -889,6 +898,29 @@ class Chat:
             return self._devices(identity)
         if plain.startswith(("dodaj telefon", "dodaj urzadzenie", "dodaj tablet", "dodaj laptop", "sparuj", "nowy telefon")):
             return self._invite(message, plain)
+        found = re.fullmatch(r"(pozwol|zezwol|zabron|zakaz)(?: na)?(?: telefonowi| urzadzeniu| tabletowi| laptopowi)?\s+(.+?)\s+"
+                             r"(?:sterowac|sterowania|sterowanie|obslugiwac|obslugi|dostepu do|dostep do)\s*(?:tym |tego )?"
+                             r"(?:komputerem|komputera|komputer)", plain)
+        if found:
+            return self._device_computer(identity, found.group(2), found.group(1) in {"pozwol", "zezwol"})
+        found = re.fullmatch(r"(?:przegladarka|uzywaj|uzyj|pracuj na|pracuj w|ustaw przegladarke)(?: przegladarki)?(?: na)?\s+"
+                             r"(edge|edge'a|edga|chrome|chrome'a|chromie|chroma|microsoft edge|google chrome)", plain)
+        if found:
+            browser = "chrome" if "chrom" in found.group(1) else "edge"
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(browser=browser))
+            name = "Google Chrome" if browser == "chrome" else "Microsoft Edge"
+            return [text(f"Strony otwieram teraz w przeglądarce {name}, w osobnym profilu NotarAI (logowania do portali "
+                         "robi się w nim raz). Gdy tej przeglądarki nie ma na komputerze, użyję drugiej.")]
+        if (on or off) and re.search(r"zrzut\w* ekranu agent|agent\w* (?:widzial|patrzyl|widzi) ekran|ekran dla agenta", plain):
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(screen=on))
+            return [text("Agent może patrzeć na ekran: zrzut idzie do asystenta we Frankfurcie tak, jak go widać (nazwisk "
+                         "na obrazie nie da się zamienić na znaczniki), nic nie jest tam zapisywane; każde spojrzenie widać w rozmowie."
+                         if on else "Agent nie robi już zrzutów ekranu: widzi tylko tekst plików, pól okien i stron.")]
+        if (on or off) and re.search(r"wiersz\w* polecen|polecenia agenta|\bcli\b", plain):
+            s.update_settings(lambda d: d.setdefault("agent", {}).update(commands=on))
+            return [text("Agent może uruchamiać programy z wiersza poleceń (pojedynczy program z argumentami; bez cmd, "
+                         "PowerShella i skryptów). Każde polecenie widać w rozmowie."
+                         if on else "Agent nie uruchamia już programów z wiersza poleceń.")]
         found = re.fullmatch(r"(?:cofnij|odlacz|usun|zablokuj)(?: dostep)?(?: urzadzenia| urzadzenie)?\s+(.+)", plain)
         if found:
             return self._revoke(identity, found.group(1))
@@ -1999,8 +2031,33 @@ class Chat:
         if not devices:
             return [text("Nie ma sparowanych urządzeń."), buttons(("Dodaj telefon", "dodaj telefon"))]
         lines = [f"• {d['name']}: {'odczyt i zapis' if d['scope'] == 'write' else 'tylko odczyt'}, "
-                 + ("sprawy: " + ", ".join(d["cases"]) if d["cases"] else "wszystkie sprawy") for d in devices]
+                 + ("sprawy: " + ", ".join(d["cases"]) if d["cases"] else "wszystkie sprawy")
+                 + (", steruje komputerem" if d.get("computer") else "") for d in devices]
         return [text("\n".join(lines)), buttons(*[(f"Cofnij: {d['name']}", f"cofnij {d['name']}") for d in devices[:8]])]
+
+    def _device_computer(self, identity, fragment, allow: bool) -> list[dict]:
+        hits = [d for d in self.s.devices.list() if not d["revoked"] and d["scope"] != "listen" and fragment in norm(d["name"])]
+        exact = [d for d in hits if norm(d["name"]) == fragment]
+        if len(exact) != 1 and len(hits) != 1:
+            return [text("Które urządzenie? Napisz „urządzenia”, żeby zobaczyć listę." if hits else "Nie ma takiego urządzenia.")]
+        device = (exact or hits)[0]
+        if not allow:
+            self.s.devices.set_computer(device["id"], False)
+            self.s.vault.log(identity.id, "device-computer-off")
+            return [text(f"Urządzenie „{device['name']}” nie steruje już komputerem.")]
+        if device["scope"] != "write" or device["cases"]:
+            return [text(f"Urządzenie „{device['name']}” ma dostęp tylko do odczytu albo do wybranych spraw. Sterować "
+                         "komputerem może tylko urządzenie z odczytem i zapisem we wszystkich sprawach.")]
+
+        def act():
+            self.s.devices.set_computer(device["id"], True)
+            self.s.vault.log(identity.id, "device-computer-on")
+            return [text(f"Urządzenie „{device['name']}” może teraz zlecać pracę na tym komputerze: pliki, programy, "
+                         "strony. Kroki widać w rozmowie na telefonie i tutaj. Cofniesz to zdaniem "
+                         f"„zabroń {device['name']} sterować komputerem”.")]
+        return [self._confirm(identity, f"Pozwolić urządzeniu „{device['name']}” sterować tym komputerem (pliki na dysku, "
+                              "programy, strony)? Kto ma ten telefon w ręku, zleca pracę na komputerze kancelarii.",
+                              "Tak, pozwól", act)]
 
     def _invite(self, message, plain) -> list[dict]:
         scope = "read" if re.search(r"tylko (?:do )?odczyt|bez zapisu|do odczytu", plain) else "write"
@@ -2013,9 +2070,13 @@ class Chat:
         base, index = name, 2
         while name in existing:
             name, index = f"{base} {index}", index + 1
-        invitation = self.s.devices.invite(name, scope, cases=cases)
+        computer = bool(re.search(r"dostep\w* do komputera|sterowani\w* komputer|steruj\w* komputer|obslug\w* komputer", plain))
+        if computer and (scope != "write" or cases):
+            return [text("Sterować komputerem może tylko urządzenie z odczytem i zapisem we wszystkich sprawach.")]
+        invitation = self.s.devices.invite(name, scope, cases=cases, computer=computer)
         what = ("tylko odczyt" if scope == "read" else "odczyt i zapis") + (
-            ", sprawy: " + ", ".join(cases) if cases else ", wszystkie sprawy")
+            ", sprawy: " + ", ".join(cases) if cases else ", wszystkie sprawy") + (
+            ", może zlecać pracę na tym komputerze (pliki, programy, strony)" if computer else "")
         blocks = [text(f"Urządzenie „{name}” ({what}). Kod działa raz, przez 5 minut.")]
         link = self.s.pairing_link(invitation["code"])
         if link:

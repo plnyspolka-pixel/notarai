@@ -65,12 +65,15 @@ COLLECT = r"""
 MARK = "el => { el.style.outline = '3px solid #0d6b57'; el.style.outlineOffset = '1px'; }"
 
 
-def _default_executable():
+CHANNELS = {"edge": "msedge", "chrome": "chrome"}
+
+
+def _default_executable(choice: str = "edge"):
     configured = os.environ.get("NOTARAI_V2_BROWSER")
     if configured:
         return configured, None
     if os.name == "nt":
-        return None, "msedge"          # the Edge every Windows office already has
+        return None, CHANNELS.get(choice, "msedge")     # Edge is on every Windows; Chrome when the office prefers it
     for candidate in ("/opt/pw-browsers/chromium", "/usr/bin/chromium", "/usr/bin/google-chrome"):
         if Path(candidate).exists():
             return candidate, None
@@ -80,8 +83,11 @@ def _default_executable():
 class Browser:
     """One persistent browser window. Thread-confined; every method hops onto that thread."""
 
-    def __init__(self, profile: Path, *, headless: bool = False):
+    def __init__(self, profile: Path, *, headless: bool = False, choice=None):
+        """`choice()` -> "edge" | "chrome" (the station's setting). Each browser keeps its own profile folder:
+        two different browsers must never share one."""
         self._profile, self._headless = Path(profile), headless
+        self._choice, self._running = choice or (lambda: "edge"), None
         self._pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="notarai-web")
         self._context = None
         self._playwright = None
@@ -97,17 +103,37 @@ class Browser:
 
     # ---- on the browser thread
     def _page(self):
+        wanted = self._choice() if self._choice() in CHANNELS else "edge"
+        if self._context is not None and self._running not in (None, wanted):
+            try:                                   # the office switched browsers: the next page opens in the new one
+                self._context.close()
+            except Exception:
+                pass
+            self._context = None
         if self._context is None or not self._context.pages:
             from playwright.sync_api import sync_playwright
 
             if self._playwright is None:
                 self._playwright = sync_playwright().start()
-            executable, channel = _default_executable()
-            self._profile.mkdir(mode=0o700, parents=True, exist_ok=True)
-            self._context = self._playwright.chromium.launch_persistent_context(
-                str(self._profile), headless=self._headless, executable_path=executable, channel=channel,
-                viewport=None if not self._headless else {"width": 1280, "height": 900},
-                args=["--no-first-run", "--no-default-browser-check"])
+            failure = None
+            for choice in dict.fromkeys((wanted, "edge", "chrome")):      # the chosen one, then whichever is installed
+                executable, channel = _default_executable(choice)
+                profile = self._profile if choice == "edge" else self._profile.with_name(self._profile.name + "-" + choice)
+                profile.mkdir(mode=0o700, parents=True, exist_ok=True)
+                try:
+                    self._context = self._playwright.chromium.launch_persistent_context(
+                        str(profile), headless=self._headless, executable_path=executable, channel=channel,
+                        viewport=None if not self._headless else {"width": 1280, "height": 900},
+                        args=["--no-first-run", "--no-default-browser-check"])
+                except Exception as error:
+                    failure = error
+                    if executable is not None:
+                        break                      # one configured executable: nothing else to try
+                    continue
+                self._running = choice
+                break
+            if self._context is None:
+                raise failure
             self._context.set_default_timeout(15000)
         pages = [p for p in self._context.pages if not p.is_closed()]
         return pages[-1] if pages else self._context.new_page()
