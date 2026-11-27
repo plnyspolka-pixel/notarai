@@ -110,6 +110,14 @@ def create_app(home: Path):
     def pocket_script():
         return FileResponse(Path(__file__).with_name("pocket.js"),media_type="application/javascript")
 
+    @app.get("/v2/urzadzenia-av")
+    def urzadzenia_av():
+        return FileResponse(Path(__file__).with_name("urzadzenia-av.html"), media_type="text/html")
+
+    @app.get("/v2/urzadzenia-av.js")
+    def skrypt_urzadzen_av():
+        return FileResponse(Path(__file__).with_name("urzadzenia-av.js"), media_type="application/javascript")
+
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
         return {"version":"2.0-dev","storage":"local","ai":"aws-bedrock","mode":"synthetic-only"}
