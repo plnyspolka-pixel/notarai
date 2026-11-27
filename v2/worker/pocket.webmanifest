@@ -5,7 +5,7 @@
   "start_url": "pocket",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f6f8f7",
-  "theme_color": "#0d6b57",
+  "background_color": "#f5f7fc",
+  "theme_color": "#071d49",
   "icons": [{"src": "pocket-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
 }

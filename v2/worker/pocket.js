@@ -713,7 +713,7 @@ function showLearned(lessons) {
   // „Nauczyłem się tego, potwierdzasz?” - lessons learned by watching are used only after a yes.
   if (!lessons || !lessons.length) return;
   const card = node("div", "card them learned-now");
-  card.append(node("strong", "", "📘 Tryb uczenia: nauczyłem się tego, potwierdzasz?"));
+  card.append(node("strong", "", "Tryb uczenia: nauczyłem się tego, potwierdzasz?"));
   const list = node("ul", "lesson-list");
   for (const lesson of lessons) {
     const item = node("li");
@@ -743,7 +743,7 @@ async function refreshLearning() {
   try { state = await call("learning"); } catch { return; }
   const badge = el("learning");
   badge.hidden = false;
-  badge.textContent = (state.enabled ? "📘 Tryb uczenia · " + state.total + (state.pending ? " · " + state.pending + " do potwierdzenia" : "")
+  badge.textContent = (state.enabled ? "Tryb uczenia · " + state.total + (state.pending ? " · " + state.pending + " do potwierdzenia" : "")
                                      : "Tryb uczenia wyłączony");
   badge.classList.toggle("off", !state.enabled);
   badge.title = state.enabled ? "Uczę się z Twoich poprawek. Kliknij, żeby zobaczyć lekcje." : "Kliknij, żeby zobaczyć tryb uczenia.";

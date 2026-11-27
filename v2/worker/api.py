@@ -42,7 +42,7 @@ from .workcopy import WorkCopies, WorkCopyError
 CASE = r"^[\w.-]{1,64}$"
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
-          "pocket-icon.svg": "image/svg+xml",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
+          "pocket-icon.svg": "image/svg+xml", "montserrat-latin.woff2": "font/woff2", "montserrat-latin-ext.woff2": "font/woff2",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
 
 
 class Identity(NamedTuple):
@@ -467,7 +467,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         response.headers["X-Content-Type-Options"] = "nosniff"
         relay_origin = state["settings"].tunnel.relay_origin()
         connect_src = "'self'" + (" " + relay_origin if relay_origin else "")
-        response.headers["Content-Security-Policy"] = f"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src {connect_src}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        response.headers["Content-Security-Policy"] = f"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src {connect_src}; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 

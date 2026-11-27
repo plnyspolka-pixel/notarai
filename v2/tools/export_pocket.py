@@ -10,7 +10,8 @@ from pathlib import Path
 
 WORKER = Path(__file__).resolve().parents[1] / "worker"
 FILES = {"pocket.html": "index.html", "pocket.css": "pocket.css", "pocket.js": "pocket.js", "tunnel.js": "tunnel.js",
-         "pocket-sw.js": "pocket-sw.js", "pocket.webmanifest": "pocket.webmanifest", "pocket-icon.svg": "pocket-icon.svg"}
+         "pocket-sw.js": "pocket-sw.js", "pocket.webmanifest": "pocket.webmanifest", "pocket-icon.svg": "pocket-icon.svg",
+         "montserrat-latin.woff2": "montserrat-latin.woff2", "montserrat-latin-ext.woff2": "montserrat-latin-ext.woff2"}
 
 
 def policy() -> str:
@@ -20,7 +21,7 @@ def policy() -> str:
 
     preset = json.loads((WORKER.parent / "installer" / "preset.json").read_text(encoding="utf-8"))
     relay = re.match(r"wss://[^/]+", preset["tunnel"]["relay_url"]).group(0)
-    return ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; manifest-src 'self'; "
+    return ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
             f"worker-src 'self'; connect-src 'self' {relay}; media-src 'self' blob:; base-uri 'none'; form-action 'none'")
 
 

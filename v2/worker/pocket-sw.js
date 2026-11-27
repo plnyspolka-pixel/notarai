@@ -1,7 +1,7 @@
 "use strict";
 // Installable shell only. Documents and API answers are never cached: every request goes to the worker.
 const SHELL = "pocket-shell-v2";
-const FILES = ["pocket", "pocket.css", "pocket.js", "tunnel.js", "pocket-icon.svg", "pocket.webmanifest"]
+const FILES = ["pocket", "pocket.css", "pocket.js", "tunnel.js", "pocket-icon.svg", "pocket.webmanifest", "montserrat-latin.woff2", "montserrat-latin-ext.woff2"]
   .map(name => new URL(name, self.registration.scope).pathname);
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
