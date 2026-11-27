@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .vault import Vault, Conflict, MAX_BYTES
 from .init_vault import home_path
 from .bedrock import smoke_test
+from .nagrania import router_nagran
 
 class Revision(BaseModel):
     id: str | None = None
@@ -109,6 +110,24 @@ def create_app(home: Path):
     @app.get("/v2/pocket.js")
     def pocket_script():
         return FileResponse(Path(__file__).with_name("pocket.js"),media_type="application/javascript")
+
+    @app.get("/v2/urzadzenia-av")
+    def urzadzenia_av():
+        return FileResponse(Path(__file__).with_name("urzadzenia-av.html"), media_type="text/html")
+
+    @app.get("/v2/urzadzenia-av.js")
+    def skrypt_urzadzen_av():
+        return FileResponse(Path(__file__).with_name("urzadzenia-av.js"), media_type="application/javascript")
+
+    @app.get("/v2/nagrywanie")
+    def nagrywanie():
+        return FileResponse(Path(__file__).with_name("nagrywanie.html"), media_type="text/html")
+
+    @app.get("/v2/nagrywanie.js")
+    def skrypt_nagrywania():
+        return FileResponse(Path(__file__).with_name("nagrywanie.js"), media_type="application/javascript")
+
+    app.include_router(router_nagran(vault, admin))
 
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
