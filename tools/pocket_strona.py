@@ -7,11 +7,13 @@
 Skrypt jest powtarzalny (drugie uruchomienie nic nie zmienia) i dopisuje:
 - ikony PNG do manifestu (instalacja na Androidzie),
 - skrypt aktualizacja.js (informacja o nowszej paczce aplikacji),
+- powitanie.js i powitanie.css (ekran niesparowanego telefonu: jak połączyć go z kancelarią),
 - pobieranie powłoki z pominięciem pamięci podręcznej HTTP, żeby nowa wersja strony trafiała do
   wszystkich przy najbliższym otwarciu, a nie po wygaśnięciu kopii w telefonie.
 Pilnuje tego test_pocket_android.py.
 """
 import json
+import re
 from pathlib import Path
 
 KATALOG = Path(__file__).resolve().parents[1] / "strona" / "pocket"
@@ -42,14 +44,21 @@ def dopisz(katalog: Path = KATALOG) -> None:
     plik = katalog / "index.html"
     html = _zamien(plik.read_text(encoding="utf-8"), '  <script src="tunnel.js"></script>',
                    '  <script src="aktualizacja.js"></script>\n  <script src="tunnel.js"></script>', plik.name)
+    html = _zamien(html, '  <script src="pocket.js"></script>',
+                   '  <script src="pocket.js"></script>\n  <script src="powitanie.js"></script>', plik.name)
+    html = _zamien(html, '  <link rel="stylesheet" href="pocket.css">',
+                   '  <link rel="stylesheet" href="pocket.css">\n  <link rel="stylesheet" href="powitanie.css">', plik.name)
     plik.write_text(html, encoding="utf-8")
 
     plik = katalog / "pocket-sw.js"
     sw = plik.read_text(encoding="utf-8")
     sw = _zamien(sw, '"tunnel.js", ', '"tunnel.js", "aktualizacja.js", ', plik.name)
+    sw = _zamien(sw, '"aktualizacja.js", ', '"aktualizacja.js", "powitanie.js", "powitanie.css", ', plik.name)
     sw = _zamien(sw, "event.respondWith(fetch(event.request).then(",
                  'event.respondWith(fetch(event.request, { cache: "no-cache" }).then(', plik.name)
-    sw = _zamien(sw, 'const SHELL = "pocket-shell-v2";', 'const SHELL = "pocket-shell-v3";', plik.name)
+    sw, zmian = re.subn(r'const SHELL = "pocket-shell-v\d+";', 'const SHELL = "pocket-shell-v4";', sw)
+    if zmian != 1:
+        raise SystemExit(f"{plik.name}: nie znaleziono nazwy pamięci powłoki; eksport z V2 się zmienił.")
     plik.write_text(sw, encoding="utf-8")
 
 
