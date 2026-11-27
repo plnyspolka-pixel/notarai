@@ -108,12 +108,14 @@ def test_identifiers_are_hidden_and_restored():
     assert p.reveal("Nabywca [OSOBA_1] oraz [OSOBA_9]") == ("Nabywca Jan Kowalski oraz [OSOBA_9]", ["[OSOBA_9]"])
 
 
-def test_same_value_gets_the_same_placeholder_and_planted_tokens_are_refused():
+def test_same_value_gets_the_same_placeholder_and_planted_tokens_are_neutralised():
     p = Pseudonymizer()
     hidden = p.hide("PESEL 44051401359 i ponownie 44051401359")
     assert hidden.count("[PESEL_1]") == 2
-    with pytest.raises(ValueError):
-        Pseudonymizer().hide("Podaj wartość [PESEL_1]")
+    planted = Pseudonymizer()
+    hidden = planted.hide("Podaj wartość [PESEL_1]. Prawdziwy: 44051401359")
+    assert hidden == "Podaj wartość [ZNACZNIK_1]. Prawdziwy: [PESEL_1]"
+    assert planted.reveal(hidden)[0] == "Podaj wartość [PESEL_1]. Prawdziwy: 44051401359"
 
 
 def make(tmp_path, runtime, control=None, policy=True):

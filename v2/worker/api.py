@@ -1,27 +1,56 @@
 import base64
 import binascii
 import secrets
+import threading
+import time
 from pathlib import Path
+from typing import NamedTuple
+
 from fastapi import FastAPI, Depends, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
-from .devices import DeviceRegistry
-from .sync import plan
 from pydantic import BaseModel, Field
-from .vault import Vault, Conflict, MAX_BYTES
+
+from . import recovery
+from .aws_credentials import Account, ChallengeRequired, LoginError
+from .bedrock import smoke_test
+from .connect_sdk import ConnectSession, LocalReceipts
+from .devices import DeviceRegistry
+from .docx_adapter import DOCX_APP, OpenXmlDocx
+from .domain import fee_estimate
+from .drafting import DraftError, Drafts
+from .inference import Inference, InferenceError
 from .init_vault import home_path
 from .local_secrets import read_secret
-from .bedrock import smoke_test
+from .policy import Policy, PolicyError
+from .settings import load as load_settings
+from .sync import plan
+from .usage import UsageLedger
+from .vault import Vault, Conflict, MAX_BYTES, valid_case
+
+CASE = r"^[\w.-]{1,64}$"
+STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
+          "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
+          "pocket-icon.svg": "image/svg+xml"}
+
+
+class Identity(NamedTuple):
+    id: str
+    scope: str
+    cases: frozenset | None = None   # None = whole vault
+
 
 class Revision(BaseModel):
     id: str | None = None
     expected_version: int = Field(ge=0, strict=True)
     name: str = Field(min_length=1,max_length=255)
     content_b64: str = Field(max_length=((MAX_BYTES+2)//3)*4)
+    case: str | None = Field(default=None, pattern=CASE)
 
 class Invitation(BaseModel):
     name: str = Field(min_length=1,max_length=80)
     scope: str = "read"
+    cases: list[str] | None = Field(default=None, max_length=200)
 
 class Redemption(BaseModel):
     code: str = Field(min_length=20,max_length=128)
@@ -33,33 +62,125 @@ class ManifestItem(BaseModel):
 class Manifest(BaseModel):
     items: list[ManifestItem] = Field(max_length=10000)
 
-def create_app(home: Path, *, allow_bedrock: bool = True):
+class Question(BaseModel):
+    text: str = Field(min_length=1, max_length=8000)
+    names: list[str] = Field(default_factory=list, max_length=50)
+
+class Target(BaseModel):
+    id: str
+    version: int = Field(ge=1, strict=True)
+
+class Approval(BaseModel):
+    name: str = Field(min_length=6, max_length=255)
+    paragraphs: list[str] | None = Field(default=None, max_length=5000)
+    base: Target | None = None
+    template: Target | None = None
+
+class Login(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+    mfa_code: str | None = Field(default=None, max_length=12)
+    new_password: str | None = Field(default=None, max_length=256)
+
+class FeeRequest(BaseModel):
+    parameters: dict
+
+
+class _Throttle:
+    """Bounds guessing on the one unauthenticated write endpoint."""
+    def __init__(self, limit=10, window=60):
+        self._limit, self._window, self._failures, self._lock = limit, window, [], threading.Lock()
+    def blocked(self):
+        with self._lock:
+            now = time.monotonic()
+            self._failures = [t for t in self._failures if now - t < self._window]
+            return len(self._failures) >= self._limit
+    def failed(self):
+        with self._lock:
+            self._failures.append(time.monotonic())
+
+
+def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
+               account: Account | None = None):
+    recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
+    settings = load_settings(home)
+    ledger = UsageLedger(home)
     token = read_secret(home, "api.token").decode().strip()
     if len(token) < 40:
         raise ValueError("invalid local token")
+    if account is None and allow_bedrock and settings.account is not None:
+        account = Account(home, settings.account_config())
+    if inference is None:
+        policy = None
+        if allow_bedrock and settings.ai.enabled and account is not None:
+            policy = Policy(settings.ai.region, settings.ai.model)
+        inference = Inference(policy, account.client_factory(settings.ai.region) if policy else None, ledger)
+    connect = ConnectSession(
+        [OpenXmlDocx(vault)], {DOCX_APP: frozenset({"inspect_docx", "write_docx"})}, LocalReceipts(home))
+    drafts = Drafts(vault, inference, connect)
+    redeem_throttle = _Throttle()
+    mode = "local" if settings.ai.real_data_approved else "synthetic-only"
+
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
-    def auth(authorization: str = Header(default="")):
+
+    def auth(authorization: str = Header(default="")) -> Identity:
         if secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
-            return ("local-admin","admin")
+            return Identity("local-admin","admin")
         if authorization.startswith("Bearer "):
             device = devices.authenticate(authorization[7:])
             if device:
-                return device
+                return Identity(*device)
         raise HTTPException(401,"unauthorized")
 
-    def admin(identity=Depends(auth)):
-        if identity[1] != "admin":
+    def admin(identity: Identity = Depends(auth)) -> Identity:
+        if identity.scope != "admin":
             raise HTTPException(403,"admin required")
+        return identity
 
-    def writable(identity=Depends(auth)):
-        if identity[1] not in {"admin","write"}:
+    def writable(identity: Identity = Depends(auth)) -> Identity:
+        if identity.scope not in {"admin","write"}:
             raise HTTPException(403,"read only")
+        return identity
+
+    def see_case(identity: Identity, case):
+        """A restricted device learns nothing about other cases, not even that they exist."""
+        if identity.cases is not None and case not in identity.cases:
+            raise HTTPException(404, "not found")
+
+    def see_document(identity: Identity, doc_id: str):
+        try:
+            see_case(identity, vault.case_of(doc_id))
+        except (KeyError, ValueError):
+            raise HTTPException(404, "not found")
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, exc):
         return JSONResponse({"detail":"invalid request"},status_code=422)
+
+    @app.exception_handler(PolicyError)
+    async def policy_blocked(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=403)
+
+    @app.exception_handler(InferenceError)
+    async def inference_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
+
+    @app.exception_handler(DraftError)
+    async def draft_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
+
+    @app.exception_handler(LoginError)
+    async def login_failed(request, exc):
+        body = {"detail": str(exc)}
+        if isinstance(exc, ChallengeRequired):
+            body["challenge"] = exc.kind
+        return JSONResponse(body, status_code=401)
+
+    @app.exception_handler(recovery.RecoveryError)
+    async def recovery_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
 
     @app.middleware("http")
     async def no_cache(request, call_next):
@@ -68,22 +189,26 @@ def create_app(home: Path, *, allow_bedrock: bool = True):
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
+    # ------------------------------------------------------------ devices
     @app.post("/v2/devices/invite",dependencies=[Depends(admin)])
     def invite(req: Invitation):
         try:
-            return devices.invite(req.name,req.scope)
+            return devices.invite(req.name,req.scope,cases=req.cases)
         except ValueError:
             raise HTTPException(400,"invalid invitation")
 
     @app.post("/v2/devices/redeem")
     def redeem(req: Redemption):
+        if redeem_throttle.blocked():
+            raise HTTPException(429, "too many attempts")
         try:
             return devices.redeem(req.code)
         except PermissionError:
+            redeem_throttle.failed()
             raise HTTPException(403,"invalid invitation")
 
     @app.get("/v2/devices",dependencies=[Depends(admin)])
@@ -94,57 +219,179 @@ def create_app(home: Path, *, allow_bedrock: bool = True):
     def revoke(device_id: str):
         if not devices.revoke(device_id):
             raise HTTPException(404,"device not found")
+        vault.log("local-admin", "revoke-device")
         return {"revoked":True}
 
-    @app.post("/v2/sync/plan",dependencies=[Depends(auth)])
-    def sync_plan(req: Manifest):
+    @app.post("/v2/sync/plan")
+    def sync_plan(req: Manifest, identity: Identity = Depends(auth)):
         try:
-            return plan(vault.list(),[x.model_dump() for x in req.items])
+            return plan(vault.list(identity.cases),[x.model_dump() for x in req.items])
         except ValueError:
             raise HTTPException(400,"invalid manifest")
 
+    # ------------------------------------------------------------ Pocket
     @app.get("/v2/pocket")
     def pocket():
         return FileResponse(Path(__file__).with_name("pocket.html"),media_type="text/html")
 
-    @app.get("/v2/pocket.js")
-    def pocket_script():
-        return FileResponse(Path(__file__).with_name("pocket.js"),media_type="application/javascript")
+    def static_route(asset: str, media_type: str):
+        def serve():
+            path = Path(__file__).with_name(asset)
+            if not path.is_file():
+                raise HTTPException(404, "not found")
+            return FileResponse(path, media_type=media_type)
+        app.get("/v2/" + asset)(serve)
 
+    for asset, media_type in STATIC.items():
+        static_route(asset, media_type)
+
+    # ------------------------------------------------------------ status
     @app.get("/v2/health",dependencies=[Depends(auth)])
     def health():
         ai = "aws-bedrock" if allow_bedrock else "disabled"
-        return {"version":"2.0-dev","storage":"local","ai":ai,"mode":"synthetic-only"}
+        return {"version":"2.0-dev","storage":"local","ai":ai,"mode":mode}
 
-    @app.get("/v2/documents",dependencies=[Depends(auth)])
-    def documents(include_names: bool = False):
-        return vault.summaries() if include_names else vault.list()
+    @app.get("/v2/status")
+    def status(identity: Identity = Depends(auth)):
+        last_backup = vault.last_action("backup")
+        overdue = last_backup is None or time.time_ns() - last_backup > settings.backup_reminder_days * 86400 * 10**9
+        return {
+            "version": "2.0-dev", "mode": mode, "scope": identity.scope,
+            "cases": sorted(identity.cases) if identity.cases is not None else None,
+            "ai": {"enabled": inference.enabled, "signed_in": bool(account and account.signed_in),
+                   "account_configured": account is not None},
+            "recovery": {"enrolled": recovery.enrolled(home), "last_backup": last_backup and last_backup // 10**9,
+                         "backup_overdue": overdue, "backup_dir_configured": settings.backup_dir is not None},
+        }
 
-    @app.post("/v2/documents",dependencies=[Depends(writable)])
-    def save(revision: Revision):
+    @app.get("/v2/audit", dependencies=[Depends(admin)])
+    def audit(limit: int = 200, doc_id: str | None = None):
+        try:
+            return vault.audit(limit, doc_id)
+        except ValueError:
+            raise HTTPException(400, "invalid document")
+
+    @app.get("/v2/usage", dependencies=[Depends(admin)])
+    def usage(since: int = 0):
+        return ledger.summary(since)
+
+    # ------------------------------------------------------------ recovery
+    @app.post("/v2/recovery/enroll", dependencies=[Depends(admin)])
+    def enroll():
+        code = recovery.enroll(home)
+        vault.log("local-admin", "enroll-recovery")
+        return {"code": code}
+
+    @app.post("/v2/backup", dependencies=[Depends(admin)])
+    def backup():
+        if settings.backup_dir is None:
+            raise recovery.RecoveryError("Wskaż w ustawieniach katalog kopii (inny dysk niż ten komputer).")
+        directory = Path(settings.backup_dir)
+        if not directory.is_dir():
+            raise recovery.RecoveryError("Katalog kopii jest niedostępny. Podłącz dysk i spróbuj ponownie.")
+        name = time.strftime("notarai-%Y%m%d-%H%M%S.notarai-backup")
+        manifest = recovery.backup(home, directory / name)
+        return {"file": name, "documents": manifest["documents"], "revisions": manifest["revisions"]}
+
+    # ------------------------------------------------------------ documents
+    @app.get("/v2/cases")
+    def cases(identity: Identity = Depends(auth)):
+        return [c for c in vault.cases() if identity.cases is None or c in identity.cases]
+
+    @app.get("/v2/documents")
+    def documents(include_names: bool = False, case: str | None = None, identity: Identity = Depends(auth)):
+        allowed = identity.cases
+        if case is not None:
+            see_case(identity, case)
+            allowed = frozenset({case})
+        return vault.summaries(allowed) if include_names else vault.list(allowed)
+
+    @app.post("/v2/documents")
+    def save(revision: Revision, identity: Identity = Depends(writable)):
         try:
             data = base64.b64decode(revision.content_b64,validate=True)
-            doc_id, version = vault.put(revision.id,revision.expected_version,revision.name,data)
+            if revision.id is None or revision.expected_version == 0:
+                see_case(identity, revision.case)
+            else:
+                see_document(identity, revision.id)
+            doc_id, version = vault.put(
+                revision.id,revision.expected_version,revision.name,data,actor=identity.id,case=revision.case)
             return {"id":doc_id,"version":version}
         except Conflict:
             raise HTTPException(409,"revision conflict")
         except (ValueError,binascii.Error):
             raise HTTPException(400,"invalid document")
 
-    @app.get("/v2/documents/{doc_id}/versions", dependencies=[Depends(auth)])
-    def versions(doc_id: str):
+    @app.get("/v2/documents/{doc_id}/versions")
+    def versions(doc_id: str, identity: Identity = Depends(auth)):
+        see_document(identity, doc_id)
         try:
             return vault.versions(doc_id)
         except (KeyError, ValueError):
             raise HTTPException(404, "not found")
 
-    @app.get("/v2/documents/{doc_id}",dependencies=[Depends(auth)])
-    def read(doc_id: str, version: int | None = None):
+    @app.get("/v2/documents/{doc_id}")
+    def read(doc_id: str, version: int | None = None, identity: Identity = Depends(auth)):
+        see_document(identity, doc_id)
         try:
-            rev,name,data = vault.get(doc_id,version)
+            rev,name,data = vault.get(doc_id,version,actor=identity.id)
             return {"id":doc_id,"version":rev,"name":name,"content_b64":base64.b64encode(data).decode()}
         except (KeyError,ValueError):
             raise HTTPException(404,"not found")
+
+    # ------------------------------------------------------------ assistant
+    @app.post("/v2/taksa", dependencies=[Depends(auth)])
+    def taksa(req: FeeRequest):
+        try:
+            return fee_estimate(req.parameters)
+        except (ValueError, TypeError, ArithmeticError, KeyError):
+            raise HTTPException(400, "invalid parameters")
+
+    def known_case(identity: Identity, case: str):
+        if not valid_case(case):
+            raise HTTPException(404, "not found")
+        see_case(identity, case)
+
+    @app.post("/v2/cases/{case}/ask")
+    def ask(case: str, req: Question, identity: Identity = Depends(auth)):
+        known_case(identity, case)
+        return drafts.ask(case, req.text, identity.id, req.names)
+
+    @app.post("/v2/cases/{case}/draft")
+    def draft(case: str, req: Question, identity: Identity = Depends(writable)):
+        known_case(identity, case)
+        return drafts.propose(case, req.text, identity.id, req.names).public()
+
+    @app.get("/v2/drafts/{draft_id}")
+    def draft_read(draft_id: str, identity: Identity = Depends(writable)):
+        return drafts.get(draft_id, identity.id).public()
+
+    @app.post("/v2/drafts/{draft_id}/approve")
+    def draft_approve(draft_id: str, req: Approval, identity: Identity = Depends(writable)):
+        return drafts.approve(
+            draft_id, identity.id, req.name, paragraphs=req.paragraphs,
+            base=req.base.model_dump() if req.base else None,
+            template=req.template.model_dump() if req.template else None,
+        )
+
+    @app.delete("/v2/drafts/{draft_id}")
+    def draft_discard(draft_id: str, identity: Identity = Depends(writable)):
+        drafts.discard(draft_id, identity.id)
+        return {"discarded": True}
+
+    # ------------------------------------------------------------ account
+    @app.post("/v2/account/login", dependencies=[Depends(admin)])
+    def login(req: Login):
+        if account is None:
+            raise HTTPException(409, "account not configured")
+        account.login(req.email, req.password, mfa_code=req.mfa_code, new_password=req.new_password)
+        return {"signed_in": True}
+
+    @app.post("/v2/account/logout", dependencies=[Depends(admin)])
+    def logout():
+        if account is not None:
+            account.logout()
+        return {"signed_in": False}
 
     @app.post("/v2/bedrock/smoke",dependencies=[Depends(admin)])
     def bedrock():

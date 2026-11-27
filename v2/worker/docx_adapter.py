@@ -1,9 +1,10 @@
 """Local read-only structural inspection of one encrypted-vault DOCX revision."""
 from importlib.metadata import version
 from io import BytesIO
+from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
-from .connect_sdk import Application, DocxSummary, RevisionTarget
+from .connect_sdk import Application, DocxSummary, RevisionTarget, WriteDocx, WrittenRevision
 from .vault import MAX_BYTES, Vault
 
 DOCX_APP = Application(id="org.openxml.wordprocessingml", version="1.2.0")
@@ -19,7 +20,7 @@ class OpenXmlDocx:
 
     def supports(self, operation: str) -> bool:
         return (
-            operation == "inspect_docx"
+            operation in {"inspect_docx", "write_docx"}
             and version("python-docx") == self.app.version
             and version("lxml") == "6.1.3"
         )
@@ -37,6 +38,34 @@ class OpenXmlDocx:
             body_paragraphs=len(document.paragraphs),
             body_tables=len(document.tables),
         )
+
+    def write(self, request: WriteDocx, paragraphs, actor: str) -> WrittenRevision:
+        from .docx_writer import build, digest
+
+        template = None
+        if request.template is not None:
+            revision, name, template = self._vault.get(
+                str(request.template.document_id), request.template.version, actor=actor)
+            if not name.lower().endswith(".docx"):
+                raise ValueError("template must be a DOCX revision")
+            self._check_package(template)
+        data = build(paragraphs, template)
+        if request.base is None:
+            document_id, version = self._vault.put(None, 0, request.name, data, actor=actor, case=request.case)
+        else:
+            if self._vault.case_of(str(request.base.document_id)) != request.case:
+                raise ValueError("base revision belongs to another case")
+            document_id, version = self._vault.put(
+                str(request.base.document_id), request.base.version, request.name, data, actor=actor)
+        return WrittenRevision(
+            target=RevisionTarget(document_id=UUID(document_id), version=version),
+            content_sha256=digest(paragraphs))
+
+    def read_back(self, target: RevisionTarget) -> str:
+        from .docx_writer import text_digest
+
+        _, _, data = self._vault.get(str(target.document_id), target.version, actor="connect-verify")
+        return text_digest(data)
 
     @staticmethod
     def _check_package(data: bytes) -> None:

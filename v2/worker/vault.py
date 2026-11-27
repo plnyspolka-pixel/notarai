@@ -186,6 +186,12 @@ class Vault:
         keys = ("seq", "ts", "actor", "action", "doc_id", "version")
         return [dict(zip(keys, row)) for row in rows]
 
+    def last_action(self, action: str) -> int | None:
+        """Time (ns) of the newest log entry with this action."""
+        with self._ro() as db:
+            row = db.execute("SELECT MAX(ts) FROM audit WHERE action=?", (action,)).fetchone()
+        return row[0]
+
     # ------------------------------------------------------------ documents
     def _insert(self, db, doc_id, version, name, data, author, case) -> None:
         cipher = self._dek(db, doc_id, create=True, case=case)

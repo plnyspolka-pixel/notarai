@@ -51,7 +51,7 @@ _RULES = (
     ("TELEFON", re.compile(r"(?<![\w+])(?:\+48[ -]?)?\d{3}[ -]?\d{3}[ -]?\d{3}(?![\w])"),
      lambda m: len(_digits(m)) in (9, 11)),
 )
-_PLACEHOLDER = re.compile(r"\[(?:RACHUNEK|PESEL|NIP|KW|DOWOD|EMAIL|REGON|TELEFON|OSOBA)_\d+(?:_[A-Z]+)?\]")
+_PLACEHOLDER = re.compile(r"\[(?:RACHUNEK|PESEL|NIP|KW|DOWOD|EMAIL|REGON|TELEFON|OSOBA|ZNACZNIK)_\d+(?:_[A-Z]+)?\]")
 
 
 def _letters(index: int) -> str:
@@ -110,9 +110,9 @@ class Pseudonymizer:
         return token
 
     def hide(self, text: str) -> str:
-        if _PLACEHOLDER.search(text):
-            # Otherwise a document could plant a token and read another party's value back.
-            raise ValueError("text already contains pseudonym placeholders")
+        # Text that already looks like one of our placeholders (an earlier draft, or a document
+        # trying to plant one) is itself hidden, so it can never read another value back.
+        text = _PLACEHOLDER.sub(lambda m: self._token("ZNACZNIK", m.group(0), "ZNACZNIK:" + m.group(0)), text)
         for index, pattern in self._names:
             text = pattern.sub(lambda m, i=index: self._person(i, m.group(0)), text)
         for kind, pattern, valid in _RULES:
