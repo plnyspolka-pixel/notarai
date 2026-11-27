@@ -69,9 +69,14 @@ class Proposal:
 
 class Drafts:
     def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession):
-        self._vault, self._inference, self._connect = vault, inference, connect
+        # `inference` may be a callable so the worker can swap it when settings change.
+        self._vault, self._source, self._connect = vault, inference, connect
         self._proposals: dict[str, Proposal] = {}
         self._lock = threading.Lock()
+
+    @property
+    def _inference(self) -> Inference:
+        return self._source() if callable(self._source) else self._source
 
     # ------------------------------------------------------------ context
     def _context(self, case: str, actor: str) -> tuple[str, list[dict], list[str]]:

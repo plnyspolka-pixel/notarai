@@ -1,5 +1,6 @@
 """Non-secret workstation settings in settings.json. Missing file means everything optional is off."""
 import json
+import os
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -47,14 +48,28 @@ class Settings(_Strict):
         return AccountConfig(**self.account.model_dump())
 
 
+def validate(data) -> Settings:
+    try:
+        settings = Settings.model_validate(data)
+        check_static(settings.ai.region, settings.ai.model)
+        settings.account_config()
+    except (ValidationError, PermissionError, TypeError):
+        raise ValueError("settings are invalid") from None
+    return settings
+
+
 def load(home: Path) -> Settings:
     path = Path(home) / "settings.json"
     if not path.exists():
         return Settings()
     try:
-        settings = Settings.model_validate(json.loads(path.read_text(encoding="utf-8")))
-        check_static(settings.ai.region, settings.ai.model)
-        settings.account_config()
-    except (ValueError, ValidationError, PermissionError):
+        return validate(json.loads(path.read_text(encoding="utf-8")))
+    except ValueError:
         raise ValueError("settings.json is invalid") from None
-    return settings
+
+
+def save(home: Path, settings: Settings) -> None:
+    path = Path(home) / "settings.json"
+    temporary = path.with_name("settings.json.new")
+    temporary.write_text(json.dumps(settings.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temporary, path)

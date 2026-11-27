@@ -26,5 +26,9 @@ def fee_estimate(parameters: dict) -> dict:
     return _load("taksa").oblicz(parameters)
 
 
+def fee_catalog() -> dict:
+    return _load("taksa").katalog()
+
+
 def amount_in_words(text: str) -> str:
     return _load("slownie").slownie_kwoty(text)

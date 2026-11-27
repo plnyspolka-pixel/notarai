@@ -24,10 +24,19 @@ class DeviceRegistry:
                 if "cases" not in {row[1] for row in db.execute(f"PRAGMA table_info({table})")}:
                     # NULL = whole vault; otherwise a JSON list of case identifiers.
                     db.execute(f"ALTER TABLE {table} ADD COLUMN cases TEXT")
+            if "expires" not in {row[1] for row in db.execute("PRAGMA table_info(devices)")}:
+                db.execute("ALTER TABLE devices ADD COLUMN expires INTEGER")  # NULL = until revoked
     def connect(self):
         return sqlite3.connect(self.path, timeout=10)
-    def invite(self, name, scope, *, replace_pending=False, cases=None):
-        if scope not in {"read","write"} or not name.strip() or len(name)>80:
+    ADMIN_SESSION = 12 * 3600
+
+    def invite(self, name, scope, *, replace_pending=False, cases=None, allow_admin=False):
+        """`allow_admin` is for the local launcher only: an admin code opens the workstation panel
+        for twelve hours. The HTTP API never passes it."""
+        allowed = {"read","write","admin"} if allow_admin else {"read","write"}
+        if scope == "admin" and cases is not None:
+            raise ValueError("invalid device")
+        if scope not in allowed or not name.strip() or len(name)>80:
             raise ValueError("invalid device")
         if cases is not None:
             from .vault import valid_case
@@ -52,19 +61,21 @@ class DeviceRegistry:
                 raise PermissionError("invalid invitation")
             db.execute("DELETE FROM invitations WHERE hash=?",(digest(code),))
             device_id,token = str(uuid.uuid4()),secrets.token_urlsafe(48)
-            db.execute("INSERT INTO devices(id,name,scope,hash,cases) VALUES (?,?,?,?,?)",(device_id,row[0],row[1],digest(token),row[3]))
+            expires = now + self.ADMIN_SESSION if row[1] == "admin" else None
+            db.execute("INSERT INTO devices(id,name,scope,hash,cases,expires) VALUES (?,?,?,?,?,?)",(device_id,row[0],row[1],digest(token),row[3],expires))
         return {"id":device_id,"token":token,"scope":row[1],"cases":json.loads(row[3]) if row[3] else None}
     def authenticate(self, token):
         if not token or len(token)>256:
             return None
         with self.connect() as db:
-            row = db.execute("SELECT id,scope,cases FROM devices WHERE hash=? AND revoked=0",(digest(token),)).fetchone()
+            row = db.execute("SELECT id,scope,cases FROM devices WHERE hash=? AND revoked=0 AND (expires IS NULL OR expires > ?)",(digest(token),int(time.time()))).fetchone()
         if row is None:
             return None
         return row[0], row[1], frozenset(json.loads(row[2])) if row[2] else None
     def list(self):
         with self.connect() as db:
-            rows=db.execute("SELECT id,name,scope,revoked,cases FROM devices ORDER BY id").fetchall()
+            db.execute("DELETE FROM devices WHERE expires IS NOT NULL AND expires <= ?", (int(time.time()),))
+            rows=db.execute("SELECT id,name,scope,revoked,cases FROM devices WHERE scope != 'admin' ORDER BY id").fetchall()
         return [{"id":i,"name":n,"scope":s,"revoked":bool(r),"cases":json.loads(c) if c else None} for i,n,s,r,c in rows]
     def revoke(self, device_id):
         with self.connect() as db:

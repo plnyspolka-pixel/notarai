@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NotarAI – panel stanowiska</title>
+  <link rel="stylesheet" href="/v2/pocket.css">
+  <link rel="icon" href="/v2/pocket-icon.svg" type="image/svg+xml">
+</head>
+<body>
+  <h1>NotarAI – panel stanowiska</h1>
+  <p class="muted" id="mode"></p>
+  <section id="locked">
+    <p>Panel otwiera się z menu Start („NotarAI – panel stanowiska”). Jeśli widzisz tę stronę, otwórz go stamtąd ponownie.</p>
+    <label for="code">Kod panelu</label>
+    <input id="code" type="password" autocomplete="off">
+    <button id="unlock" class="primary">Otwórz panel</button>
+  </section>
+  <main id="panel" hidden>
+    <div id="notices"></div>
+
+    <section>
+      <h2>Kod odzyskiwania i kopia zapasowa</h2>
+      <p class="muted">Dokumenty są zaszyfrowane kluczem z tego komputera. Kod odzyskiwania pozwala odtworzyć je
+        z kopii po awarii, kradzieży albo wymianie komputera. Bez kodu kopia jest bezużyteczna, dla każdego.</p>
+      <p id="recovery-state"></p>
+      <button id="enroll" class="primary" hidden>Utwórz kod odzyskiwania</button>
+      <div id="print-area" class="card" hidden>
+        <p><strong>Kod odzyskiwania sejfu NotarAI</strong></p>
+        <p class="code" id="recovery-code"></p>
+        <p>Wydrukuj i przechowuj poza komputerem (np. w kasie pancernej). Nie pokażemy go ponownie.</p>
+        <p class="muted" id="recovery-date"></p>
+      </div>
+      <div id="code-actions" class="row" hidden>
+        <button id="print">Drukuj kod</button>
+        <button id="code-saved">Kod jest bezpiecznie zapisany – ukryj</button>
+      </div>
+      <label for="backup-dir">Katalog kopii (inny dysk: pendrive, dysk sieciowy)</label>
+      <div class="row">
+        <input id="backup-dir" autocomplete="off" placeholder="np. E:\NotarAI-kopie">
+        <button id="save-backup-dir">Zapisz katalog</button>
+      </div>
+      <button id="backup">Zrób kopię teraz</button>
+      <p class="muted" id="backup-state"></p>
+    </section>
+
+    <section>
+      <h2>Urządzenia</h2>
+      <table><thead><tr><th>Nazwa</th><th>Dostęp</th><th>Sprawy</th><th></th></tr></thead><tbody id="devices"></tbody></table>
+      <label for="device-name">Nowe urządzenie – nazwa</label>
+      <input id="device-name" maxlength="80" autocomplete="off" placeholder="np. Telefon notariusza">
+      <label for="device-scope">Dostęp</label>
+      <select id="device-scope"><option value="read">Tylko odczyt</option><option value="write">Odczyt i zapis</option></select>
+      <label for="device-cases">Tylko te sprawy (po jednej w wierszu; puste = wszystkie)</label>
+      <textarea id="device-cases" rows="2" class="short"></textarea>
+      <button id="invite">Wydaj kod parowania</button>
+      <p class="code" id="pair-code" hidden></p>
+    </section>
+
+    <section>
+      <h2>Asystent AI</h2>
+      <p class="muted">Model działa w Amazon Bedrock w Unii Europejskiej. Treść zapytań nie jest zapisywana;
+        dane osobowe są przed wysłaniem zastępowane znacznikami.</p>
+      <p id="ai-state"></p>
+      <label><input id="ai-enabled" type="checkbox"> Włącz asystenta na tym stanowisku</label>
+      <button id="save-ai">Zapisz</button>
+      <div id="login-form" hidden>
+        <label for="email">Adres e-mail konta NotarAI</label>
+        <input id="email" type="email" autocomplete="username">
+        <label for="password">Hasło</label>
+        <input id="password" type="password" autocomplete="current-password">
+        <div id="mfa-row" hidden>
+          <label for="mfa">Kod z aplikacji uwierzytelniającej</label>
+          <input id="mfa" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+        </div>
+        <div id="new-password-row" hidden>
+          <label for="new-password">Nowe hasło (pierwsze logowanie)</label>
+          <input id="new-password" type="password" autocomplete="new-password">
+        </div>
+        <button id="login" class="primary">Zaloguj</button>
+      </div>
+      <button id="logout-ai" hidden>Wyloguj z AI</button>
+      <table><thead><tr><th>Model</th><th>Cel</th><th>Wywołań</th><th>Tokeny wej.</th><th>Tokeny wyj.</th></tr></thead><tbody id="usage"></tbody></table>
+    </section>
+
+    <section>
+      <h2>Dziennik dostępu</h2>
+      <p class="muted">Kto i kiedy czytał albo zapisywał dokumenty. Dziennik jest zabezpieczony przed zmianą.</p>
+      <button id="reload-audit">Odśwież dziennik</button>
+      <table><thead><tr><th>Kiedy</th><th>Kto</th><th>Co</th><th>Dokument</th></tr></thead><tbody id="audit"></tbody></table>
+    </section>
+  </main>
+  <p id="status" role="status"></p>
+  <script src="/v2/admin.js"></script>
+</body>
+</html>

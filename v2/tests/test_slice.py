@@ -303,3 +303,54 @@ def test_write_request_is_strict():
                                       "content_sha256": "0" * 64, **bad})
     with pytest.raises(ValueError):
         RevisionTarget(document_id="not-a-uuid", version=1)
+
+
+# ---------------------------------------------------------------- workstation panel
+def test_panel_session_is_local_only_single_use_and_expires(office):
+    from worker.devices import DeviceRegistry
+
+    client, admin, home, _ = office
+    assert client.post("/v2/devices/invite", headers=admin, json={"name": "x", "scope": "admin"}).status_code == 400
+    registry = DeviceRegistry(home)
+    with pytest.raises(ValueError):
+        registry.invite("panel", "admin")
+    with pytest.raises(ValueError):
+        registry.invite("panel", "admin", allow_admin=True, cases=["sprawa-1"])
+    code = registry.invite("panel", "admin", allow_admin=True)["code"]
+    session = client.post("/v2/devices/redeem", json={"code": code}).json()
+    assert session["scope"] == "admin"
+    panel = {"Authorization": "Bearer " + session["token"]}
+    assert client.get("/v2/devices", headers=panel).json() == []      # panel sessions are not listed as devices
+    assert client.get("/v2/audit", headers=panel).status_code == 200
+    assert client.post("/v2/devices/redeem", json={"code": code}).status_code == 403
+    with sqlite3.connect(home / "devices.sqlite3") as db:
+        db.execute("UPDATE devices SET expires = 1")
+    assert client.get("/v2/audit", headers=panel).status_code == 401
+    assert client.get("/v2/admin").status_code == 200 and client.get("/v2/admin.js").status_code == 200
+
+
+def test_settings_are_validated_and_release_gate_is_not_a_setting(office, tmp_path):
+    client, admin, home, _ = office
+    current = client.get("/v2/settings", headers=admin).json()
+    assert current["ai"]["enabled"] is False and current["ai"]["real_data_approved"] is False
+    assert client.put("/v2/settings", headers=admin,
+                      json={**current, "ai": {**current["ai"], "real_data_approved": True}}).status_code == 403
+    assert client.put("/v2/settings", headers=admin,
+                      json={**current, "ai": {**current["ai"], "region": "us-east-1"}}).status_code == 400
+    assert client.put("/v2/settings", headers=admin,
+                      json={**current, "backup_dir": str(tmp_path / "missing")}).status_code == 409
+    assert not (home / "settings.json").exists()
+    saved = client.put("/v2/settings", headers=admin, json={**current, "backup_dir": str(tmp_path)})
+    assert saved.status_code == 200 and json.loads((home / "settings.json").read_text())["backup_dir"] == str(tmp_path)
+    assert client.get("/v2/status", headers=admin).json()["recovery"]["backup_dir_configured"] is True
+    assert client.get("/v2/settings", headers=pair(client, admin, "write")).status_code == 403
+
+
+def test_ui_assets_obey_the_content_security_policy(office):
+    client, _, _, _ = office
+    for page in ("/v2/pocket", "/v2/admin"):
+        html = client.get(page).text
+        assert "<style" not in html and " style=" not in html and "onclick=" not in html
+    for asset in ("pocket.css", "pocket.js", "pocket-sw.js", "pocket.webmanifest", "pocket-icon.svg"):
+        assert client.get("/v2/" + asset).status_code == 200
+    assert client.get("/v2/vault.sqlite3").status_code == 404

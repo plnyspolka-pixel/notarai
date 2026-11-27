@@ -17,13 +17,13 @@ from .bedrock import smoke_test
 from .connect_sdk import ConnectSession, LocalReceipts
 from .devices import DeviceRegistry
 from .docx_adapter import DOCX_APP, OpenXmlDocx
-from .domain import fee_estimate
+from .domain import fee_catalog, fee_estimate
 from .drafting import DraftError, Drafts
 from .inference import Inference, InferenceError
 from .init_vault import home_path
 from .local_secrets import read_secret
 from .policy import Policy, PolicyError
-from .settings import load as load_settings
+from .settings import load as load_settings, save as save_settings, validate as validate_settings
 from .sync import plan
 from .usage import UsageLedger
 from .vault import Vault, Conflict, MAX_BYTES, valid_case
@@ -31,7 +31,7 @@ from .vault import Vault, Conflict, MAX_BYTES, valid_case
 CASE = r"^[\w.-]{1,64}$"
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
-          "pocket-icon.svg": "image/svg+xml"}
+          "pocket-icon.svg": "image/svg+xml", "admin.js": "application/javascript"}
 
 
 class Identity(NamedTuple):
@@ -110,18 +110,33 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     token = read_secret(home, "api.token").decode().strip()
     if len(token) < 40:
         raise ValueError("invalid local token")
-    if account is None and allow_bedrock and settings.account is not None:
-        account = Account(home, settings.account_config())
-    if inference is None:
-        policy = None
-        if allow_bedrock and settings.ai.enabled and account is not None:
-            policy = Policy(settings.ai.region, settings.ai.model)
-        inference = Inference(policy, account.client_factory(settings.ai.region) if policy else None, ledger)
     connect = ConnectSession(
         [OpenXmlDocx(vault)], {DOCX_APP: frozenset({"inspect_docx", "write_docx"})}, LocalReceipts(home))
-    drafts = Drafts(vault, inference, connect)
+    injected = inference is not None or account is not None
+    state = {"settings": settings, "account": account, "inference": inference}
+
+    def configure(new_settings):
+        """(Re)build the AI objects from settings. Injected test doubles are left alone."""
+        state["settings"] = new_settings
+        if injected:
+            if state["inference"] is None:
+                state["inference"] = Inference(None, None, ledger)
+            return
+        current = None
+        if allow_bedrock and new_settings.account is not None:
+            current = Account(home, new_settings.account_config())
+        policy = None
+        if allow_bedrock and new_settings.ai.enabled and current is not None:
+            policy = Policy(new_settings.ai.region, new_settings.ai.model)
+        state["account"] = current
+        state["inference"] = Inference(
+            policy, current.client_factory(new_settings.ai.region) if policy else None, ledger)
+
+    configure(settings)
+    drafts = Drafts(vault, lambda: state["inference"], connect)
     redeem_throttle = _Throttle()
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
+    settings = None   # read state["settings"]; it can change while the worker runs
 
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -254,6 +269,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     @app.get("/v2/status")
     def status(identity: Identity = Depends(auth)):
         last_backup = vault.last_action("backup")
+        settings, account, inference = state["settings"], state["account"], state["inference"]
         overdue = last_backup is None or time.time_ns() - last_backup > settings.backup_reminder_days * 86400 * 10**9
         return {
             "version": "2.0-dev", "mode": mode, "scope": identity.scope,
@@ -263,6 +279,30 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             "recovery": {"enrolled": recovery.enrolled(home), "last_backup": last_backup and last_backup // 10**9,
                          "backup_overdue": overdue, "backup_dir_configured": settings.backup_dir is not None},
         }
+
+    @app.get("/v2/settings", dependencies=[Depends(admin)])
+    def settings_read():
+        return state["settings"].model_dump()
+
+    @app.put("/v2/settings", dependencies=[Depends(admin)])
+    def settings_write(body: dict):
+        try:
+            new = validate_settings(body)
+        except ValueError:
+            raise HTTPException(400, "invalid settings")
+        if new.ai.real_data_approved != state["settings"].ai.real_data_approved:
+            # A release gate, not a preference: it is changed outside the application.
+            raise HTTPException(403, "release gate cannot be changed here")
+        if new.backup_dir is not None and not Path(new.backup_dir).is_dir():
+            raise recovery.RecoveryError("Katalog kopii nie istnieje albo dysk nie jest podłączony.")
+        save_settings(home, new)
+        configure(new)
+        vault.log("local-admin", "settings")
+        return new.model_dump()
+
+    @app.get("/v2/admin")
+    def admin_page():
+        return FileResponse(Path(__file__).with_name("admin.html"), media_type="text/html")
 
     @app.get("/v2/audit", dependencies=[Depends(admin)])
     def audit(limit: int = 200, doc_id: str | None = None):
@@ -284,6 +324,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/backup", dependencies=[Depends(admin)])
     def backup():
+        settings = state["settings"]
         if settings.backup_dir is None:
             raise recovery.RecoveryError("Wskaż w ustawieniach katalog kopii (inny dysk niż ten komputer).")
         directory = Path(settings.backup_dir)
@@ -340,6 +381,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(404,"not found")
 
     # ------------------------------------------------------------ assistant
+    @app.get("/v2/taksa/katalog", dependencies=[Depends(auth)])
+    def taksa_katalog():
+        return [{"id": r["id"], "grupa": r["grupa"], "nazwa": r["nazwa"]} for r in fee_catalog()["rodzaje"]]
+
     @app.post("/v2/taksa", dependencies=[Depends(auth)])
     def taksa(req: FeeRequest):
         try:
@@ -382,6 +427,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     # ------------------------------------------------------------ account
     @app.post("/v2/account/login", dependencies=[Depends(admin)])
     def login(req: Login):
+        account = state["account"]
         if account is None:
             raise HTTPException(409, "account not configured")
         account.login(req.email, req.password, mfa_code=req.mfa_code, new_password=req.new_password)
@@ -389,6 +435,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/account/logout", dependencies=[Depends(admin)])
     def logout():
+        account = state["account"]
         if account is not None:
             account.logout()
         return {"signed_in": False}

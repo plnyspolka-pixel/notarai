@@ -16,6 +16,7 @@ import uvicorn
 from preview_instance import (
     INSTANCE_HEADER, INSTANCE_PATH, announce, discover, pocket_url, proof, try_lock,
 )
+from worker import recovery
 from worker.api import create_app
 from worker.devices import DeviceRegistry
 from worker.init_vault import initialize
@@ -26,6 +27,11 @@ def pairing_code(home):
     invitation = DeviceRegistry(home).invite("Pocket Preview", "write", replace_pending=True)
     print(f"Kod parowania: {invitation['code']}", flush=True)
     print("Kod jest ważny przez 5 minut.", flush=True)
+
+
+def admin_url(home, url):
+    code = DeviceRegistry(home).invite("panel stanowiska", "admin", replace_pending=True, allow_admin=True)["code"]
+    return url.removesuffix("/pocket") + "/admin#" + code
 
 
 def open_pocket(url):
@@ -65,6 +71,8 @@ def serve(home: Path, state: Path, *, no_browser: bool):
             print("NotarAI V2 Preview — wyłącznie dane testowe", flush=True)
             print(f"Pocket: {url}", flush=True)
             pairing_code(home)
+            if not recovery.enrolled(home):
+                print("UWAGA: sejf nie ma kodu odzyskiwania. Otwórz „NotarAI – panel stanowiska” i utwórz go.", flush=True)
             print("Aby zakończyć, naciśnij Ctrl+C.", flush=True)
             if not no_browser:
                 open_pocket(url)
@@ -77,6 +85,7 @@ def main():
     parser = argparse.ArgumentParser(description="NotarAI V2 Preview, tylko dane testowe")
     parser.add_argument("--no-browser", action="store_true", help="nie otwieraj przeglądarki")
     parser.add_argument("--new-code", action="store_true", help="pokaż nowy kod parowania")
+    parser.add_argument("--admin", action="store_true", help="otwórz panel stanowiska")
     args = parser.parse_args()
     try:
         local = Path(os.environ["LOCALAPPDATA"]) / "NotarAI"
@@ -90,7 +99,13 @@ def main():
                 url = discover(state)
                 if url is not None:
                     print(f"Pocket: {url}", flush=True)
-                    if args.new_code:
+                    if args.admin:
+                        link = admin_url(home, url)
+                        if args.no_browser:
+                            print(f"Panel: {link}", flush=True)
+                        else:
+                            open_pocket(link)
+                    elif args.new_code:
                         pairing_code(home)
                         if not args.no_browser and sys.stdin.isatty():
                             input("Skopiuj kod i naciśnij Enter, aby zamknąć to okno.")
