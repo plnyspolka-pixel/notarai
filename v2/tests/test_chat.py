@@ -308,3 +308,25 @@ def test_pdf_text_is_read():
     sample += b"xref\n0 6\n0000000000 65535 f \n" + b"".join(b"%010d 00000 n \n" % o for o in offsets)
     sample += b"trailer<</Size 6/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF" % xref
     assert "Akt notarialny" in pdf_text(sample)
+
+
+def test_the_assistant_says_what_it_does_and_proposes_next_steps(office):
+    client, admin, home, bedrock, opened, tmp_path = office
+    bedrock.converse = lambda **kwargs: {"output": {"message": {"content": [{"text":
+        "Sprzedającym jest [OSOBA_1].\nDALEJ: sprawdź KW | sprawdź strony w KRZ | przygotuj projekt umowy"}]}},
+        "stopReason": "end_turn", "usage": {"inputTokens": 1, "outputTokens": 1}}
+    say(client, admin, "nowa sprawa kowalski-2026")
+    client.post("/v2/documents", headers=admin, json={"id": None, "expected_version": 0, "name": "a.txt", "case": "kowalski-2026",
+                                                       "content_b64": base64.b64encode(b"Umowa").decode()})
+    before = client.get("/v2/activity", headers=admin).json()["lines"]
+    blocks = say(client, admin, "Kto sprzedaje?", case="kowalski-2026")
+    assert blocks[0]["text"].startswith("Sprzedającym jest") and "DALEJ" not in blocks[0]["text"]
+    assert blocks[1]["text"] == "Proponuję dalej:"
+    assert [i["say"] for i in blocks[2]["items"]] == ["sprawdź KW", "sprawdź strony w KRZ", "przygotuj projekt umowy"]
+    lines = client.get("/v2/activity", headers=admin, params={"after": before[-1]["n"] if before else 0}).json()["lines"]
+    said = [line["text"] for line in lines]
+    assert said[0] == "Rozumiem: pytanie o sprawę „kowalski-2026”. Czytam jej dokumenty (1)."
+    assert any("Frankfurcie" in line for line in said)
+    code = client.post("/v2/devices/invite", headers=admin, json={"name": "t", "scope": "write"}).json()["code"]
+    phone = {"Authorization": "Bearer " + client.post("/v2/devices/redeem", json={"code": code}).json()["token"]}
+    assert client.get("/v2/activity", headers=phone).json()["lines"] == []          # each device sees only its own

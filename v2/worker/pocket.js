@@ -939,13 +939,52 @@ render.fill = block => {
   show(card);
 };
 
+// What the program is doing, in plain words, while it works; folded into „Jak to zrobiłem” afterwards.
+let activitySeen = 0;
+
 async function exchange(turn) {
-  const waiting = bubble("Piszę…", "them wait");
+  const waiting = node("div", "bubble them wait working");
+  const head = node("div", "", "Myślę…");
+  const steps = node("ol", "steps");
+  waiting.append(head, steps);
+  show(waiting);
+  const said = [];
+  let polling = true;
+  const poll = (async () => {
+    while (polling) {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      if (!polling) break;
+      try {
+        const { lines } = await call("activity?after=" + activitySeen);
+        for (const line of lines) {
+          activitySeen = Math.max(activitySeen, line.n);
+          said.push(line.text);
+          steps.append(node("li", "", line.text));
+          head.textContent = "Pracuję…";
+          waiting.scrollIntoView({ block: "end" });
+        }
+      } catch { /* the answer matters more than the commentary */ }
+    }
+  })();
   let reply;
   try {
     reply = await call("chat", "POST", { case: currentCase(), names, ...turn });
   } finally {
+    polling = false;
+    await poll;
+    try {
+      const { lines } = await call("activity?after=" + activitySeen);
+      for (const line of lines) { activitySeen = Math.max(activitySeen, line.n); said.push(line.text); }
+    } catch { /* ignore */ }
     waiting.remove();
+  }
+  if (said.length) {
+    const how = node("details", "how");
+    how.append(node("summary", "", "Jak to zrobiłem (" + said.length + (said.length === 1 ? " krok)" : said.length < 5 ? " kroki)" : " kroków)")));
+    const list = node("ol", "steps");
+    for (const line of said) list.append(node("li", "", line));
+    how.append(list);
+    show(how);
   }
   for (const block of reply.blocks) await (render[block.type] || render.text)(block);
   if (reply.blocks.some(block => block.type === "case")) await refreshCases(currentCase());
@@ -1464,6 +1503,7 @@ async function enter(device) {
   layout = await call("layout");
   drawTiles();
   await refreshRules();
+  try { activitySeen = Math.max(0, ...(await call("activity")).lines.map(l => l.n)); } catch { activitySeen = 0; }
   await exchange({ hello: true });
   welcome();
 }

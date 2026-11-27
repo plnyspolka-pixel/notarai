@@ -1038,6 +1038,19 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         path = picker()
         return {"path": path if path and Path(path).is_dir() else None}
 
+    # ------------------------------------------------------------ what the program is doing, in plain words
+    activity: dict[str, list] = {}
+
+    def narrate(identity: Identity, line: str) -> None:
+        """One step of the current work, shown live under the notary's message (no document content)."""
+        lines = activity.setdefault(identity.id, [])
+        lines.append({"n": (lines[-1]["n"] + 1) if lines else 1, "text": line, "at": time.time()})
+        del lines[:-40]
+
+    @app.get("/v2/activity")
+    def activity_since(after: int = 0, identity: Identity = Depends(auth)):
+        return {"lines": [l for l in activity.get(identity.id, []) if l["n"] > after]}
+
     # ------------------------------------------------------------ long tasks (registers): run in the background
     jobs: dict[str, dict] = {}
 
@@ -1246,7 +1259,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
-        start_job=start_job, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,

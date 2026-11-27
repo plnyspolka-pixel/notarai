@@ -37,6 +37,12 @@ SYSTEM_GENERAL = (
     "gdy czegoś nie wiesz albo przepis mógł się zmienić. Nie obliczaj taksy notarialnej: oblicza ją program "
     "(wystarczy napisać „taksa”). Znaczniki w nawiasach kwadratowych zastępują dane osobowe: przepisuj je bez zmian."
 )
+NEXT_STEPS = (
+    " Na samym końcu dodaj jedną osobną linię zaczynającą się od „DALEJ:” z jednym do trzech następnych kroków, "
+    "które notariusz może zlecić temu programowi, jako krótkie polecenia po polsku (np. „sprawdź KW”, „sprawdź strony "
+    "w KRZ”, „przygotuj projekt umowy”, „termin jutro 10:00 …”), oddzielone znakiem |. Proponuj tylko kroki, które "
+    "naprawdę wynikają z sytuacji."
+)
 SYSTEM_CHAT = (
     "Jesteś asystentem polskiej kancelarii notarialnej. Odpowiadaj zwięźle, wyłącznie na podstawie "
     "dokumentów sprawy podanych niżej. Jeśli odpowiedzi w nich nie ma, powiedz to wprost. "
@@ -159,7 +165,7 @@ class Drafts:
         names = self._names(case, names)
         context, sources, skipped = self._context(case, actor, only=document)
         answer = self._inference.ask(
-            purpose="chat", system=SYSTEM_CHAT, names=names, max_tokens=2048,
+            purpose="chat", system=SYSTEM_CHAT + NEXT_STEPS, names=names, max_tokens=2048,
             text=f"{context}{self._learned()}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",
         )
         return {"answer": answer.text, "sources": sources, "skipped": skipped,
@@ -170,7 +176,8 @@ class Drafts:
 
     def general(self, question: str, names=(), mail: bool = False) -> dict:
         """A question with no case chosen: the assistant answers from general knowledge, reading no documents."""
-        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL, names=list(names), max_tokens=2048,
+        answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL + ("" if mail else NEXT_STEPS),
+                                     names=list(names), max_tokens=2048,
                                      text=question + self._learned("mail" if mail else "wiedza"))
         return {"answer": answer.text, "unknown_placeholders": list(answer.unknown_placeholders)}
 

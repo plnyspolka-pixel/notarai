@@ -58,6 +58,20 @@ def parse_amount(message: str) -> Decimal | None:
     return value if value > 0 else None
 
 
+def answer_blocks(answer: str) -> list[dict]:
+    """The assistant's answer, with its „DALEJ:” line turned into next-step buttons."""
+    lines = answer.rstrip().splitlines()
+    steps = []
+    while lines and re.match(r"\s*\**DALEJ\**\s*:", lines[-1], re.I):
+        raw = re.sub(r"^\s*\**DALEJ\**\s*:\s*", "", lines.pop(), flags=re.I)
+        steps = [s.strip(" „”\"*.-") for s in raw.split("|") if s.strip(" „”\"*.-")][:3]
+    blocks = [text("\n".join(lines).strip())]
+    if steps:
+        blocks.append(text("Proponuję dalej:"))
+        blocks.append(buttons(*[(step[:60], step) for step in steps]))
+    return blocks
+
+
 def when(ns: int) -> str:
     stamp = time.localtime(ns // 10**9)
     today = time.localtime()
@@ -239,7 +253,9 @@ class Chat:
                 else:
                     question = ("Streść ten dokument dla notariusza w kilku punktach: rodzaj dokumentu, strony, "
                                 "przedmiot, kwoty, terminy, czego brakuje albo co budzi wątpliwość.")
+                s.narrate(identity, f"Czytam {match['name']} i " + ("szukam błędów i niespójności." if plain.startswith("sprawdz") else "przygotowuję streszczenie."))
                 answer = s.drafts.ask(match["case"], question, identity.id, names, document=match["id"])
+                answer["answer"] = answer_blocks(answer["answer"])[0]["text"] if "DALEJ" in answer["answer"] else answer["answer"]
                 return [text(f"{match['name']}:\n\n" + answer["answer"]),
                         buttons(("Sprawdź błędy", f"sprawdź {match['name']}"), ("Otwórz", f"otwórz {match['name']}"))]
             if isinstance(match, dict):
@@ -259,18 +275,28 @@ class Chat:
                 return [text("Do której sprawy? Wybierz sprawę u góry albo napisz „nowa sprawa” i jej nazwę."),
                         buttons(("Sprawy", "sprawy"))]
             # No case chosen: the same chat answers as a general assistant, without reading any documents.
-            return [text(s.general(message, names)["answer"])]
+            s.narrate(identity, "Rozumiem to jako pytanie ogólne, bez konkretnej sprawy: nie czytam żadnych dokumentów.")
+            s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
+            return answer_blocks(s.general(message, names)["answer"])
         if not s.may_see_case(identity, case):
             return [text("Nie ma takiej sprawy.")]
         if plain.startswith(DRAFT_WORDS) or " projekt " in f" {plain} ":
             if not writable:
                 return [text("To urządzenie ma dostęp tylko do odczytu, więc nie przygotuje projektu.")]
+            count = len(s.documents(identity, case))
+            s.narrate(identity, f"Rozumiem: projekt dokumentu w sprawie „{case}”. Czytam jej dokumenty ({count}).")
+            s.narrate(identity, "Dobieram sformułowania kancelarii, wymagane zdania z zasad i to, czego nauczyłem się z Twoich poprawek.")
+            s.narrate(identity, "Piszę projekt z asystentem we Frankfurcie; dane osobowe zamieniam na znaczniki i przywracam po powrocie.")
             proposal = s.drafts.propose(case, message, identity.id, names).public()
             proposal["type"] = "proposal"
             proposal["docx"] = [d for d in s.vault.summaries({case}) if d["name"].lower().endswith(".docx")]
             return [text("Projekt gotowy. Przeczytaj go; zapiszę dopiero to, co zatwierdzisz."), proposal]
+        count = len(s.documents(identity, case))
+        s.narrate(identity, f"Rozumiem: pytanie o sprawę „{case}”. Czytam jej dokumenty ({count}).")
+        s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
         answer = s.drafts.ask(case, message, identity.id, names)
-        blocks = [text(answer["answer"])]
+        s.narrate(identity, "Sprawdzam, z których dokumentów pochodzi odpowiedź.")
+        blocks = answer_blocks(answer["answer"])
         if answer["skipped"]:
             blocks.append(text("Nie czytałem (tylko TXT i DOCX): " + ", ".join(answer["skipped"]) + "."))
         return blocks
@@ -1064,7 +1090,9 @@ class Chat:
 
     def _land_register(self, identity, case, number) -> list[dict]:
         s = self.s
+        s.narrate(identity, f"Łączę się z usługą ksiąg wieczystych we Frankfurcie i proszę o księgę {number}.")
         answer = s.registers.land_register(number)
+        s.narrate(identity, "Mam treść działów. Zapisuję ją w sprawie i przygotowuję podsumowanie.")
         book = answer["ksiega"]
         name = f"KW {number.replace('/', '-')} ({time.strftime('%Y-%m-%d')}).txt"
         doc_id, version = s.vault.put(None, 0, name, answer["tekst"].encode(), actor=identity.id, case=case)
@@ -1084,6 +1112,7 @@ class Chat:
         words = {"brak_wpisu": "brak wpisu", "wpis": "ZNALEZIONO POZYCJĘ, sprawdź zrzut", "blad": "nie rozpoznano wyniku, sprawdź zrzut"}
         lines, items = [], []
         for pesel in pesels:
+            s.narrate(identity, f"Sprawdzam w KRZ osobę {pesel[:4]}*******: dwie zakładki, z odstępem.")
             result = s.registers.debtors(pesel)
             lines.append(f"• {result['maska']}: {words.get(result['status'], result['status'])}")
             for shot_name, data in result.get("zrzuty", []):
@@ -1322,6 +1351,7 @@ class Chat:
                 return [text("Nie ma wiadomości o tym numerze. Napisz „poczta”, żeby zobaczyć listę.")]
             mail = listed[index - 1]
             draft = ""
+            s.narrate(identity, f"Czytam wiadomość „{mail.subject[:60]}” i piszę projekt odpowiedzi w tonie kancelarii.")
             try:
                 draft = s.general("Napisz krótką, uprzejmą i rzeczową odpowiedź kancelarii notarialnej na poniższą "
                                   "wiadomość. Tylko treść odpowiedzi, bez tematu i bez podpisu.\n\n"
