@@ -172,6 +172,17 @@ async def _nieobsluzony(request: Request, blad: Exception):
     return JSONResponse({"detail": "Blad serwera."}, status_code=500)
 
 
+@app.get("/.well-known/assetlinks.json")
+def powiazanie_aplikacji_android():
+    """Potwierdzenie dla Androida, ze aplikacja NotarAI (pl.notarai.pocket) nalezy do tej domeny.
+
+    Ten sam plik co na notarai.pl: dzieki niemu aplikacja otwiera app.notarai.pl bez paska adresu.
+    Publiczny z zalozenia, zawiera tylko nazwe pakietu i odcisk certyfikatu podpisu.
+    """
+    return FileResponse(Path(__file__).parent / "strona" / ".well-known" / "assetlinks.json",
+                        media_type="application/json")
+
+
 @app.get("/zdrowie")
 def zdrowie(request: Request):
     """Sonda dla App Runner/ECS. Zadnych danych, sam status.

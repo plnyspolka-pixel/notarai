@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Skróty po przytrzymaniu ikony. Każdy otwiera adres w tej samej aplikacji. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="konto"
+        android:shortcutShortLabel="@string/skrot_konto">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://app.notarai.pl/"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="pl.notarai.pocket" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="komputer"
+        android:shortcutShortLabel="@string/skrot_komputer">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="https://notarai.pl/pocket/?wybor=1"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:targetPackage="pl.notarai.pocket" />
+    </shortcut>
+</shortcuts>

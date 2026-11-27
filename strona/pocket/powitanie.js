@@ -1,9 +1,21 @@
 "use strict";
-// Ekran telefonu, który nie jest jeszcze połączony z żadną kancelarią: co to za aplikacja,
-// jak ją sparować z komputerem konkretnej kancelarii i skaner kodu QR w samej aplikacji.
+// Ekran telefonu, który nie jest jeszcze połączony z żadną kancelarią. Dwie drogi:
+// 1) konto kancelarii w NotarAI (app.notarai.pl): działa od razu, bez komputera w kancelarii,
+// 2) połączenie z komputerem konkretnej kancelarii kodem QR (skaner w samej aplikacji).
 (() => {
   const pole = document.getElementById("pairing");
   if (!pole || typeof NotaraiTunnel === "undefined") return;   // const z tunnel.js, nie właściwość window
+
+  const KONTO = "https://app.notarai.pl/";
+  const TRYB = "notarai-pocket-tryb";          // "konto": kolejne otwarcia idą prosto do konta kancelarii
+  const pamiec = {
+    czytaj: () => { try { return localStorage.getItem(TRYB) || ""; } catch (_) { return ""; } },
+    zapisz: wartosc => { try { wartosc ? localStorage.setItem(TRYB, wartosc) : localStorage.removeItem(TRYB); } catch (_) { /* tryb prywatny */ } },
+  };
+  // Skrót „Połącz z komputerem kancelarii” (?wybor=1) zawsze wraca do tego ekranu. Kod QR też:
+  // pocket.js zaczyna wtedy parowanie i zostawia pole kodu, więc niżej nic nie przekierowujemy.
+  const parametry = new URLSearchParams(window.location.search);
+  const chceWyboru = parametry.has("wybor");
 
   const el = (tag, klasa, tekst) => {
     const wezel = document.createElement(tag);
@@ -78,9 +90,24 @@
   function pokaz() {
     const karta = el("div", "powitanie");
     karta.append(el("h2", "", "Kancelaria w telefonie"));
-    karta.append(el("p", "", "NotarAI Pocket pokazuje sprawy, dokumenty i rozmowę z asystentem Twojej kancelarii. "
-      + "Ten telefon nie jest jeszcze połączony z żadną kancelarią."));
-    karta.append(el("h3", "", "Jak połączyć telefon z kancelarią"));
+    karta.append(el("p", "", "Sprawy, dokumenty, kalendarz i asystent Twojej kancelarii. Wybierz, jak chcesz zacząć."));
+
+    karta.append(el("h3", "", "Masz konto kancelarii w NotarAI?"));
+    karta.append(el("p", "muted", "Zaloguj się tak jak na komputerze. Działa od razu, także gdy w kancelarii nikogo nie ma."));
+    const konto = el("button", "primary big", "Zaloguj się kontem kancelarii");
+    konto.onclick = () => {
+      pamiec.zapisz("konto");
+      window.location.assign(KONTO);
+    };
+    karta.append(konto);
+    const rejestracja = el("p", "muted", "Kancelaria nie ma jeszcze konta? ");
+    const zaloz = el("a", "", "Załóż konto");
+    zaloz.href = KONTO + "rejestracja";
+    rejestracja.append(zaloz, ".");
+    karta.append(rejestracja);
+
+    karta.append(el("h3", "powitanie-odstep", "Albo połącz telefon z komputerem kancelarii"));
+    karta.append(el("p", "muted", "Dla kancelarii, które trzymają akta na własnym komputerze z programem NotarAI."));
     const kroki = el("ol", "powitanie-kroki");
     kroki.append(
       el("li", "", "Na komputerze kancelarii otwórz program NotarAI i napisz w oknie rozmowy: „dodaj telefon”."),
@@ -91,7 +118,7 @@
     const komunikat = el("p", "muted");
     komunikat.setAttribute("role", "status");
     if ("BarcodeDetector" in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      const przycisk = el("button", "primary big", "Zeskanuj kod QR");
+      const przycisk = el("button", "big", "Zeskanuj kod QR");
       przycisk.onclick = () => skaner(komunikat, przycisk);
       karta.append(przycisk);
     } else {
@@ -99,7 +126,7 @@
     }
     karta.append(komunikat);
 
-    karta.append(el("h3", "", "Co warto wiedzieć"));
+    karta.append(el("h3", "", "Co warto wiedzieć o połączeniu z komputerem"));
     const fakty = el("ul", "powitanie-fakty");
     fakty.append(
       el("li", "", "Telefon łączy się tylko z tą kancelarią, której kod zeskanujesz. Kod działa jeden raz."),
@@ -108,7 +135,7 @@
       el("li", "", "Komputer kancelarii musi być włączony, żeby telefon widział sprawy."));
     karta.append(fakty);
 
-    const pomoc = el("p", "muted", "Kancelaria nie ma jeszcze programu NotarAI na komputer? Napisz: ");
+    const pomoc = el("p", "muted", "Pytania? Napisz: ");
     const poczta = el("a", "", "kontakt@notarai.pl");
     poczta.href = "mailto:kontakt@notarai.pl";
     pomoc.append(poczta, ".");
@@ -126,6 +153,18 @@
     if (gotowe) return;
     gotowe = true;
     obserwator.disconnect();
+    if (chceWyboru) pamiec.zapisz("");
+    if (pamiec.czytaj() === "konto") {
+      // Wybrano konto kancelarii: idziemy prosto do niego, chyba że czeka nowsza paczka aplikacji.
+      const nowa = await Promise.race([
+        Promise.resolve(window.notaraiNowaPaczka).catch(() => false),
+        new Promise(koniec => window.setTimeout(() => koniec(false), 1500)),
+      ]);
+      if (!nowa) {
+        window.location.replace(KONTO);
+        return;
+      }
+    }
     pokaz();
   };
   const obserwator = new MutationObserver(sprawdz);

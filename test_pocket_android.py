@@ -180,7 +180,8 @@ def test_niesparowany_telefon_dostaje_instrukcje_i_skaner():
     sw = (katalog / "pocket-sw.js").read_text(encoding="utf-8")
     assert '"powitanie.js"' in sw and '"powitanie.css"' in sw
     kod = (katalog / "powitanie.js").read_text(encoding="utf-8")
-    assert "innerHTML" not in kod and "eval(" not in kod and re.search(r"https?://", kod) is None
+    assert "innerHTML" not in kod and "eval(" not in kod
+    assert set(re.findall(r"https?://[^\s\"']+", kod)) == {"https://app.notarai.pl/"}     # jedyny obcy adres: konto kancelarii
     assert "adres.origin !== window.location.origin || adres.pathname !== window.location.pathname" in kod
     assert "NotaraiTunnel.parseLink(adres.hash)" in kod and "window.NotaraiTunnel" not in kod
     assert "„dodaj telefon”" in kod and "„cofnij telefon”" in kod
@@ -209,3 +210,44 @@ def test_pocket_ma_identyfikacje_wizualna_notarai():
     assert '<color name="granat">#071D49</color>' in zasoby and "0D6B57" not in zasoby
     znak = (ANDROID / "app" / "src" / "main" / "res" / "drawable" / "ikona_znak.xml").read_text(encoding="utf-8")
     assert "M16 16h104c0 13-9 23-23 23H29c-10 0-17 6-21 16C0 39 7 16 16 16Z" in znak      # geometria sygnetu
+
+
+def test_konto_kancelarii_dziala_w_aplikacji_bez_komputera():
+    """Druga droga na ekranie startowym: konto kancelarii (app.notarai.pl). Aplikacja ufa tej domenie,
+    a domena potwierdza aplikację tym samym plikiem co notarai.pl, więc nie ma paska adresu."""
+    from fastapi.testclient import TestClient
+
+    import app as aplikacja
+    import autoryzacja
+
+    kod = (STRONA / "pocket" / "powitanie.js").read_text(encoding="utf-8")
+    assert 'const KONTO = "https://app.notarai.pl/";' in kod and "window.location.assign(KONTO)" in kod
+    assert 'parametry.has("wybor")' in kod and "window.notaraiNowaPaczka" in kod   # powrót do wyboru, aktualizacja
+    assert "window.notaraiNowaPaczka = (() => {" in (STRONA / "pocket" / "aktualizacja.js").read_text(encoding="utf-8")
+
+    zasoby = (ANDROID / "app" / "src" / "main" / "res" / "values" / "zasoby.xml").read_text(encoding="utf-8")
+    assert "<item>https://app.notarai.pl</item>" in zasoby
+    assert zasoby.count("delegate_permission/common.handle_all_urls") == 2
+    manifest = (ANDROID / "app" / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
+    assert "android.support.customtabs.trusted.ADDITIONAL_TRUSTED_ORIGINS" in manifest
+    skroty = ET.parse(ANDROID / "app" / "src" / "main" / "res" / "xml" / "skroty.xml").getroot()
+    adresy = {i.get(NS + "data") for i in skroty.iter("intent")}
+    assert adresy == {"https://app.notarai.pl/", "https://notarai.pl/pocket/?wybor=1"}
+    assert {i.get(NS + "targetPackage") for i in skroty.iter("intent")} == {PAKIET}
+
+    assert "/.well-known/assetlinks.json" in autoryzacja._OTWARTE         # publiczne, bez logowania
+    odpowiedz = TestClient(aplikacja.app).get("/.well-known/assetlinks.json")
+    assert odpowiedz.status_code == 200 and odpowiedz.headers["content-type"].startswith("application/json")
+    assert odpowiedz.json() == json.loads((STRONA / ".well-known" / "assetlinks.json").read_text(encoding="utf-8"))
+
+
+def test_iphone_instaluje_z_safari_a_publikacja_sprawdza_paczke():
+    html = (STRONA / "pocket" / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="apple-touch-icon" href="pocket-icon-180.png">' in html
+    dane = (STRONA / "pocket" / "pocket-icon-180.png").read_bytes()
+    assert struct.unpack(">II", dane[16:24]) == (180, 180)
+    pobieranie = (STRONA / "do-pobrania" / "index.html").read_text(encoding="utf-8")
+    assert "NotarAI na iPhonie" in pobieranie and "Do ekranu początkowego" in pobieranie
+    publikacja = (ROOT / ".github" / "workflows" / "strona.yml").read_text(encoding="utf-8")
+    for plik in ("pocket/NotarAI-Pocket.apk", "pocket/wersja.json", ".well-known/assetlinks.json"):
+        assert plik in publikacja, plik
