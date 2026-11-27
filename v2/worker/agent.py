@@ -404,6 +404,7 @@ class Computer:
         self._scale = None                                       # screen pixels per pixel of the last screenshot
         self.map = ProgramMap(self._home)
         self.used_browser = False                                # this run touched the NotarAI browser
+        self.seen = None             # seen(jpeg): the chat shows what the browser shows now (set for each run)
         self.login_needed = None                                 # a login screen was just read: where
         self.read_windows = {}                                   # window -> names of its buttons, as last read (this run)
         self.front_allowed = False                               # the notary allowed the front for this run
@@ -975,6 +976,7 @@ class Computer:
         self._login(url, controls, bool(rest and rest[0]))
         self.map.record(url, re.sub(r"^https?://[^/]+", "", url.split("?")[0].split("#")[0])[:60] or "/", controls)
         fields = [f"[{c.kind}] {c.label}" + (f" = „{c.value}”" if c.value else "") for c in controls]
+        self._glance()
         return (f"Strona {url} — {title}\nTekst:\n{' '.join(body.split())[:5000]}\n"
                 f"Pola:\n" + "\n".join(fields[:80]) + "\nPrzyciski i odnośniki:\n" + " | ".join(links))
 
@@ -987,7 +989,17 @@ class Computer:
             browser.check(control, plain(value) in {"tak", "1", "true", "zaznacz"})
         else:
             browser.type(control, value)
+        self._glance()
         return f"Wpisałem w „{control.label}”."
+
+    def _glance(self) -> None:
+        """What the page looks like now, into the NotarAI window (never to the model, never to a file)."""
+        if self.seen is None:
+            return
+        try:
+            self.seen(self._browser().on_page(lambda page: page.screenshot(type="jpeg", quality=45), timeout=20))
+        except Exception:
+            pass
 
     def web_click(self, label: str) -> str:
         browser = self._browser()

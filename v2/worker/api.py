@@ -1284,10 +1284,17 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     # ------------------------------------------------------------ what the program is doing, in plain words
     activity: dict[str, list] = {}
 
-    def narrate(identity: Identity, line: str) -> None:
-        """One step of the current work, shown live under the notary's message (no document content)."""
+    def narrate(identity: Identity, line: str, image: bytes | None = None) -> None:
+        """One step of the current work, shown live under the notary's message (no document content). `image`:
+        what the browser shows now (JPEG), so the notary sees in the NotarAI window where the program clicks;
+        kept in memory only, like the rest of the log, and only the newest few."""
         lines = activity.setdefault(identity.id, [])
-        lines.append({"n": (lines[-1]["n"] + 1) if lines else 1, "text": line, "at": time.time()})
+        entry = {"n": (lines[-1]["n"] + 1) if lines else 1, "text": line, "at": time.time()}
+        if image and len(image) < 600_000:
+            for old in lines[-40:]:
+                old.pop("image", None)                # one picture at a time is enough to watch
+            entry["image"] = base64.b64encode(image).decode()
+        lines.append(entry)
         del lines[:-600]          # the agent's exact log of a long task stays readable to its end
 
     @app.get("/v2/activity")
@@ -1336,17 +1343,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     from .registers import Registers
 
-    def krz_target():
-        """A browser of its own, without a window: KRZ is checked in the background."""
-        if "krz" not in browser_box:
-            from .web_fill import Browser
-
-            browser_box["krz"] = Browser(home / "przegladarka-krz", headless=True,
-                                         choice=lambda: state["settings"].agent.browser)
-        return browser_box["krz"]
-
+    # KRZ lets in only a real browser window (its WAF blocks headless browsers, 28.11.2026): the search runs in the
+    # NotarAI browser, whose window stays off the screen while it works and comes forward on „pokaż przeglądarkę”.
     register_service = registers or Registers(lambda: state["account"], state["settings"].ai.region,
-                                              browser=krz_target, visible_browser=lambda: web_target())
+                                              browser=lambda: web_target(), visible_browser=lambda: web_target())
 
     from .speech_model import ModelDownload
 

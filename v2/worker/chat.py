@@ -388,6 +388,7 @@ class Chat:
 
         computer = self.s.computer
         computer.used_browser = False
+        computer.seen = lambda image: self.s.narrate(identity, "Tak teraz wygląda strona w przeglądarce:", image)
         browser = self._browser()
         if history and browser is not None and getattr(browser, "is_open", lambda: False)():
             browser.hide()                               # the notary did their part: back out of sight
@@ -2188,7 +2189,8 @@ class Chat:
             s.narrate(identity, f"Sprawdzam w KRZ osobę {pesel[:4]}*******" + (": w oknie przeglądarki." if visible else
                       " w tle, bez otwierania okna: dwie zakładki, z odstępem."))
             try:
-                result = s.registers.debtors(pesel, visible=visible)
+                result = s.registers.debtors(pesel, visible=visible,
+                                             seen=lambda image: s.narrate(identity, "Tak teraz wygląda strona KRZ:", image))
             except Exception as error:
                 if visible:
                     raise

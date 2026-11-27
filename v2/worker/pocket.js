@@ -732,7 +732,13 @@ render.job = block => {
   const waiting = node("div", "bubble them wait working");
   const head = node("div", "", "Pracuję nad tym…");
   const log = node("ol", "steps live");
-  waiting.append(head, log);
+  const view = node("img", "shot live-view");
+  view.hidden = true;
+  view.alt = "Co program widzi teraz w przeglądarce";
+  const reveal = node("button", "quiet", "Pokaż okno przeglądarki");
+  reveal.hidden = true;
+  reveal.onclick = () => call("chat", "POST", { text: "pokaż przeglądarkę" }).catch(() => {});
+  waiting.append(head, log, view, reveal);
   show(waiting);
   const said = [];
   const drain = async () => {
@@ -742,6 +748,11 @@ render.job = block => {
         activitySeen = Math.max(activitySeen, line.n);
         said.push(line.text);
         log.append(node("li", "", line.text));
+        if (line.image) {                                        // what the browser shows now, in this window
+          view.src = "data:image/jpeg;base64," + line.image;
+          view.hidden = false;
+          reveal.hidden = !admin;
+        }
         head.textContent = "Pracuję. Dziennik czynności na żywo (wpisy: " + said.length + "):";
         log.scrollTop = log.scrollHeight;
         waiting.scrollIntoView({ block: "end" });

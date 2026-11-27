@@ -78,21 +78,42 @@ class Registers:
         return answer
 
     # ------------------------------------------------------------ debtors' register
-    def debtors(self, pesel: str, label: str = "", *, visible: bool = False) -> dict:
-        """Two searches for one PESEL in KRZ; screenshots returned as (name, bytes)."""
+    def debtors(self, pesel: str, label: str = "", *, visible: bool = False, seen=None) -> dict:
+        """Two searches for one PESEL in KRZ; screenshots returned as (name, bytes). `seen(jpeg)` gets what the
+        page shows after each search, for the live view in the NotarAI window."""
         opener = self._visible if visible and self._visible is not None else self._browser
         if opener is None:
             raise RegisterError("Sprawdzanie w KRZ działa na komputerze kancelarii.")
         portal = domain.krz_portal()
         browser = opener()
+        if visible and hasattr(browser, "show"):
+            browser.show()
+        failure = {}
 
         def search(page):
-            with tempfile.TemporaryDirectory() as scratch:
-                shots = Path(scratch)
-                result = portal.przebieg(portal.StronaPlaywright(page), pesel, label, zrzut_do=lambda name: shots / name)
-                result["zrzuty"] = [(p.name, p.read_bytes()) for p in sorted(shots.glob("*.png"))]
-                return result
-        return browser.on_page(search, timeout=240)
+            try:
+                with tempfile.TemporaryDirectory() as scratch:
+                    shots = Path(scratch)
+
+                    def shot(name):
+                        if seen is not None:
+                            try:
+                                seen(page.screenshot(type="jpeg", quality=45))
+                            except Exception:
+                                pass
+                        return shots / name
+                    result = portal.przebieg(portal.StronaPlaywright(page), pesel, label, zrzut_do=shot)
+                    result["zrzuty"] = [(p.name, p.read_bytes()) for p in sorted(shots.glob("*.png"))]
+                    return result
+            except Exception as error:            # the real cause, without the PESEL, instead of „no answer”
+                failure["why"] = re.sub(r"\d", "•", f"{type(error).__name__}: {error}")[:160]
+                raise
+        try:
+            return browser.on_page(search, timeout=240)
+        except Exception as error:
+            if failure.get("why"):
+                raise RegisterError(f"Strona KRZ: {failure['why']}") from None
+            raise RegisterError(str(error) or "Przeglądarka nie odpowiedziała.") from None
 
 
 def _polish(message: str | None) -> str | None:

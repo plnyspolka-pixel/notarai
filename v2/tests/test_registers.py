@@ -1,4 +1,5 @@
 """Land registers and the debtors' register from the chat: confirmed, in the background, into the case."""
+import json
 import base64
 import time
 
@@ -25,7 +26,7 @@ class FakeRegisters:
             raise RegisterError("Numer księgi jest nieprawidłowy.")
         return BOOK
 
-    def debtors(self, pesel, label="", visible=False):
+    def debtors(self, pesel, label="", visible=False, seen=None):
         self.asked.append(pesel)
         return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/",
                 "zrzuty": [(f"krz_prowadzaca_{pesel[:4]}.png", b"\\x89PNG")]}
@@ -163,7 +164,7 @@ def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
     asked = say(client, admin, "sprawdź KRZ 44051401359")
     assert asked[0]["type"] == "confirm" and "w tle, bez otwierania okna" in asked[0]["text"]
 
-    def broken(pesel, label="", visible=False):
+    def broken(pesel, label="", visible=False, seen=None):
         if not visible:
             raise RuntimeError("strona nie odpowiedziała")
         fake.asked.append(("okno", pesel))
@@ -177,3 +178,19 @@ def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
     started = client.post("/v2/chat", headers=admin, json={"confirm": again[0]["token"]}).json()["blocks"]
     assert "brak wpisu" in finish(client, admin, started)[0]["text"] and fake.asked == [("okno", "44051401359")]
 
+
+
+def test_the_window_sees_the_krz_page_while_the_search_runs(tmp_path):
+    client, admin, fake = office(tmp_path)
+
+    def watched(pesel, label="", visible=False, seen=None):
+        seen(b"\xff\xd8\xff-strona-krz")
+        return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/", "zrzuty": []}
+    fake.debtors = watched
+    asked = say(client, admin, "sprawdź KRZ 44051401359")
+    started = client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"]}).json()["blocks"]
+    finish(client, admin, started)
+    lines = client.get("/v2/activity", headers=admin).json()["lines"]
+    pictures = [l for l in lines if l.get("image")]
+    assert pictures and base64.b64decode(pictures[-1]["image"]).startswith(b"\xff\xd8\xff")
+    assert "44051401359" not in json.dumps(lines)
