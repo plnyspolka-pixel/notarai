@@ -37,6 +37,10 @@ STEPS = [
      "why": "Sprawdzam pocztę, edytor tekstu, przeglądarki, programy kancelaryjne i foldery z aktami, żeby od razu "
             "podłączyć to, czego używasz.",
      "actions": [("Pokaż, co znalazłem", "rozpoznaj komputer")]},
+    {"key": "nazwa", "title": "Nazwa tego stanowiska",
+     "why": "Każde stanowisko i każda aplikacja ma swoją nazwę: widać, skąd przyszło polecenie, kto je wykonał i kto "
+            "napisał wiadomość. Wybierz albo napisz własną, np. „nazwij stanowisko Aplikacja Ania”.",
+     "actions": [("Gabinet", "nazwij stanowisko Gabinet"), ("Sekretariat", "nazwij stanowisko Sekretariat")]},
     {"key": "mozliwosci", "title": "Co NotarAI może dla Ciebie zrobić",
      "why": "Krótki pokaz wszystkich możliwości programu: co robi, jak o to poprosić, z przyciskiem „Spróbuj” przy każdej.",
      "actions": [("Zobacz pokaz", "pokaż możliwości")]},
@@ -73,6 +77,10 @@ STEPS = [
     {"key": "telefon", "title": "NotarAI Pocket na telefonie",
      "why": "Zeskanuj kod QR aparatem telefonu; Pocket podpowie, jak dodać go jako aplikację na ekran główny.",
      "actions": [("Dodaj telefon", "dodaj telefon")]},
+    {"key": "kancelaria", "title": "Inne komputery kancelarii",
+     "why": "Drugi komputer z NotarAI łączysz raz kodem: wspólne sprawy, kalendarz, komunikator zamiast Gadu-Gadu, "
+            "druk na drukarkach obu stanowisk i (za zgodą) podgląd ekranu.",
+     "actions": [("Połącz drugie stanowisko", "połącz drugie stanowisko")]},
     {"key": "mikrofony", "title": "Mikrofony w pokojach (nieobowiązkowe)",
      "why": "Tablet albo telefon na ładowarce w sekretariacie lub gabinecie: notatki z rozmów i stenopisy aktów.",
      "actions": [("Dodaj mikrofon", "dodaj mikrofon Sekretariat")]},

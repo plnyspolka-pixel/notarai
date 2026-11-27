@@ -164,7 +164,8 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
                fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
-               dictation_stream=None, environment_scan=None, mail_composer=None, registers=None):
+               dictation_stream=None, environment_scan=None, mail_composer=None, registers=None,
+               office_transport=None, office_address=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -327,12 +328,15 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         from .local_lock import acquire
 
         _app.state.lock = acquire(home)       # one serving process per vault; key rotation checks this
+        _app.state.loop = asyncio.get_running_loop()
         await restart_relay()
         upkeep = asyncio.create_task(maintenance_loop())
         ears = asyncio.create_task(listening_loop())
+        together = asyncio.create_task(office_loop())
         yield
         upkeep.cancel()
         ears.cancel()
+        together.cancel()
         try:
             _app.state.close_browser()
         except Exception:
@@ -531,7 +535,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         settings, account, inference = state["settings"], state["account"], state["inference"]
         overdue = last_backup is None or time.time_ns() - last_backup > settings.backup_reminder_days * 86400 * 10**9
         return {
-            "version": "2.0-dev", "mode": mode, "scope": identity.scope,
+            "version": "2.0-dev", "mode": mode, "scope": identity.scope, "station": settings.station_name,
             "cases": sorted(identity.cases) if identity.cases is not None else None,
             "ai": {"enabled": inference.enabled, "signed_in": bool(account and account.signed_in),
                    "account_configured": account is not None, "pseudonymize": inference.pseudonymizes},
@@ -1037,6 +1041,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         "learned": learned_activities,
         "telefon": lambda: has_device("write"),
         "mikrofony": lambda: has_device("listen"),
+        "nazwa": lambda: bool(state["settings"].station_name),
+        "kancelaria": lambda: app.state.office.joined if hasattr(app.state, "office") else False,
     })
 
     @app.post("/v2/pick-folder", dependencies=[Depends(admin)])
@@ -1047,6 +1053,84 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(501, "Wybieranie folderu działa tylko na komputerze z Windows. Napisz ścieżkę w czacie.")
         path = picker()
         return {"path": path if path and Path(path).is_dir() else None}
+
+    # ------------------------------------------------------------ several workstations of one office
+    from . import office as office_module
+
+    def station_name() -> str:
+        return state["settings"].station_name or "Stanowisko"
+
+    office_link = office_module.OfficeLink(
+        home, vault, station_name, transport=office_transport or office_module.http_transport,
+        address=office_address, printers=office_module.windows_printers, printer=office_module.windows_print,
+        screen=office_module.windows_screen if sys.platform == "win32" else None,
+        screen_allowed=lambda: state["settings"].allow_screen)
+    app.state.office = office_link
+
+    def office_lan_app():
+        """The small server for the office network: only sealed envelopes from joined workstations."""
+        from fastapi import FastAPI as _FastAPI
+        from fastapi.responses import Response as _Response
+
+        lan = _FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+        @lan.post("/office/{action}")
+        async def office_action(action: str, request: Request):
+            body = await request.body()
+            if len(body) > 40 * 2**20 or action not in {"pair", "sync"}:
+                return _Response(status_code=404)
+            try:
+                handler = office_link.handle_pair if action == "pair" else office_link.handle_sync
+                return _Response(content=await asyncio.to_thread(handler, body), media_type="application/octet-stream")
+            except Exception:
+                return _Response(status_code=403)
+        return lan
+
+    app.state.office_lan_app = office_lan_app
+
+    lan_server: dict = {"task": None}
+
+    def start_office_server() -> None:
+        """Listen in the office network (port 47321) once this station joins or invites; Windows asks once
+        about the firewall. Only sealed envelopes are accepted there."""
+        if lan_server["task"] is not None or office_transport is not None or sys.platform != "win32":
+            return
+        import uvicorn
+
+        config = uvicorn.Config(office_lan_app(), host="0.0.0.0", port=office_module.PORT, access_log=False,
+                                log_level="warning", lifespan="off")
+        server = uvicorn.Server(config)
+        if hasattr(server, "install_signal_handlers"):
+            server.install_signal_handlers = lambda: None
+
+        def begin():
+            lan_server["task"] = asyncio.get_running_loop().create_task(server.serve())
+        lan_server["task"] = "starting"
+        try:
+            asyncio.get_running_loop()
+            begin()
+        except RuntimeError:                        # called from a chat thread: hand it to the worker's loop
+            loop = getattr(app.state, "loop", None)
+            if loop is None:
+                lan_server["task"] = None
+                return
+            loop.call_soon_threadsafe(begin)
+
+    app.state.start_office_server = start_office_server
+
+    async def office_loop():
+        if office_link.joined:
+            start_office_server()
+        while True:
+            busy = any(office_link._outbox.values())
+            await asyncio.sleep(1 if busy else 5)
+            if office_link.joined:
+                try:
+                    await asyncio.to_thread(office_link.sync_once)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    pass            # the other computer is off: try again later
 
     # ------------------------------------------------------------ what the program is doing, in plain words
     activity: dict[str, list] = {}
@@ -1271,6 +1355,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         send_mail=lambda identity, to, subject, body, original: send_mail(
             identity, mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
             to, subject, body, original, True),
+        office=office_link, station_name=station_name, start_office_server=lambda: start_office_server(),
+        office_printers=office_module.windows_printers, office_print=office_module.windows_print,
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
         start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),

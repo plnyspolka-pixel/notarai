@@ -34,29 +34,31 @@ def labels(blocks):
 def test_the_first_start_looks_around_shows_the_abilities_and_insists_on_the_recovery_code(tmp_path):
     client, admin, home = office(tmp_path)
     hello = say(client, admin, hello=True)
-    assert "Witaj w NotarAI" in words(hello) and "krok 1 z 13: Co jest na tym komputerze" in words(hello)
+    assert "Witaj w NotarAI" in words(hello) and "krok 1 z 15: Co jest na tym komputerze" in words(hello)
     found = say(client, admin, "rozpoznaj komputer")
     assert "Poczta: Thunderbird" in words(found) and "RejNET (repertorium i rejestry)" in words(found)
     assert "Szafir (KIR)" in words(found) and "D:\\Akty (812 plików)" in words(found)
     assert {"Podłącz Thunderbird", "Podłącz RejNET"} <= set(labels(found))
-    assert "✓ Co jest na tym komputerze." in words(found) and "krok 2 z 13: Co NotarAI może" in words(found)
+    assert "✓ Co jest na tym komputerze." in words(found) and "krok 2 z 15: Nazwa tego stanowiska" in words(found)
+    named = say(client, admin, "nazwij stanowisko Gabinet")
+    assert "„Gabinet”" in words(named) and "krok 3 z 15: Co NotarAI może" in words(named)
     tour = say(client, admin, "pokaż możliwości")
     titles = [slide["title"] for slide in tour[0]["slides"]]
     assert tour[0]["type"] == "tour" and len(titles) >= 12
     assert {"Kalendarz kancelarii", "Księgi wieczyste (EKW)", "Krajowy Rejestr Zadłużonych (KRZ)",
             "Programy kancelaryjne (RejNET i inne)", "Dyktowanie zamiast pisania"} <= set(titles)
     reply = say(client, admin, "pokaz obejrzany")
-    assert "krok 3 z 13: Kod odzyskiwania sejfu" in words(reply) and "Pomiń ten krok" not in labels(reply)
+    assert "krok 4 z 15: Kod odzyskiwania sejfu" in words(reply) and "Pomiń ten krok" not in labels(reply)
     refused = say(client, admin, "pomiń krok")
     assert "Tego kroku nie da się pominąć" in words(refused)
     reply = say(client, admin, "kod odzyskiwania")
-    assert "✓ Kod odzyskiwania sejfu." in words(reply) and "krok 4 z 13: Zalogowanie stanowiska" in words(reply)
+    assert "✓ Kod odzyskiwania sejfu." in words(reply) and "krok 5 z 15: Zalogowanie stanowiska" in words(reply)
     skipped = say(client, admin, "pomiń krok")
-    assert "Pominąłem: Zalogowanie stanowiska" in words(skipped) and "krok 5 z 13" in words(skipped)
+    assert "Pominąłem: Zalogowanie stanowiska" in words(skipped) and "krok 6 z 15" in words(skipped)
     reply = say(client, admin, "mowa we frankfurcie")
     assert "✓ Gdzie mają być dane." in words(reply) and "Kopia zapasowa" in words(reply)
     listing = words(say(client, admin, "przewodnik"))
-    assert "✓ 3. Kod odzyskiwania sejfu" in listing and "○ 4. Zalogowanie stanowiska (pominięty)" in listing
+    assert "✓ 4. Kod odzyskiwania sejfu" in listing and "○ 5. Zalogowanie stanowiska (pominięty)" in listing
 
 
 def test_the_recovery_code_comes_back_even_after_everything_else_is_skipped(tmp_path):
@@ -114,12 +116,12 @@ def test_activities_are_shown_once_then_offered_as_automatic(tmp_path):
 def test_the_guide_ends_and_stays_out_of_the_way(tmp_path):
     client, admin, _ = office(tmp_path)
     say(client, admin, "kod odzyskiwania")
-    for _ in range(13):
+    for _ in range(15):
         say(client, admin, "pomiń krok")
     hello = say(client, admin, hello=True)
     assert "Przewodnik" not in words(hello) and "Stan stanowiska" in labels(hello)
     assert "Wróć do pominiętych" in labels(say(client, admin, "przewodnik"))
-    assert "krok 1 z 13" in words(say(client, admin, "przewodnik od nowa"))
+    assert "krok 1 z 15" in words(say(client, admin, "przewodnik od nowa"))
 
 
 def test_the_scan_finds_office_programs_and_act_folders(tmp_path):

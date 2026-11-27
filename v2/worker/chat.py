@@ -97,6 +97,7 @@ class Chat:
         self._agendas: dict[str, list] = {}     # last calendar listing per identity, for „usuń termin 2”
         self._lessons: dict[str, list] = {}     # last lessons listing per identity, for „zapomnij lekcję 3”
         self._replies: dict[str, tuple] = {}    # the last reply draft per identity, for „wyślij”
+        self._read_messages: dict[str, int] = {}  # when each identity last looked at the messenger
 
     # ------------------------------------------------------------ confirmations
     def _confirm(self, identity, question: str, label: str, action, *, explicit: bool = True) -> dict:
@@ -177,12 +178,21 @@ class Chat:
         plain = norm(message)
         self._plain = plain
         admin = identity.scope == "admin"
+        before = self.s.onboarding.current() if admin else None
+        reply = self._route(identity, message, plain, case, names)
+        return self._flatten(reply) + (self._guide_progress(before) if admin else [])
+
+    def _route(self, identity, message: str, plain: str, case, names) -> list[dict]:
+        admin = identity.scope == "admin"
         office_rules = self._office_rules(identity, message, plain)
         if office_rules is not None:
             return office_rules
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        together = self._office(identity, message, plain, case)
+        if together is not None:
+            return together
         taught = self._learning(identity, message, plain)
         if taught is not None:
             return taught
@@ -192,12 +202,10 @@ class Chat:
         planned = self._calendar(identity, message, plain, case, identity.scope in {"admin", "write"})
         if planned is not None:        # before the panel: "usuń termin 2" is not a device called "termin 2"
             return planned
-        before = self.s.onboarding.current() if admin else None
         if admin:
             reply = self._admin(identity, message, plain, case)
-            if reply is None:
-                reply = self._common(identity, message, plain, case, names)
-            return reply + self._guide_progress(before)
+            if reply is not None:
+                return reply
         return self._common(identity, message, plain, case, names)
 
     def _guide_progress(self, before) -> list[dict]:
@@ -1012,6 +1020,163 @@ class Chat:
             blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
         return blocks
 
+    # ------------------------------------------------------------ several workstations: names, messenger, printers
+    def who(self, identity) -> str:
+        """Where a command comes from: this station's name, or the paired device's name."""
+        if identity.scope == "admin":
+            return self.s.station_name()
+        found = self.s.devices.lookup(identity.id)
+        return (found or {}).get("name") or "urządzenie"
+
+    def _office(self, identity, message, plain, case):
+        s = self.s
+        link = s.office
+        admin = identity.scope == "admin"
+        found = re.fullmatch(r"(?:nazwij (?:to )?stanowisko|to stanowisko to|nazwa stanowiska)\s*:?\s+(.+)", plain)
+        if found:
+            if not admin:
+                return [text("Nazwę stanowiska ustawia się na tym komputerze.")]
+            name = " ".join(message.split()[len(message.split()) - len(found.group(1).split()):])[:60].strip(" „”\"")
+            s.update_settings(lambda d: d.update(station_name=name))
+            return [text(f"To stanowisko nazywa się teraz „{name}”. Tak będzie podpisane wszystko, co stąd wyjdzie: "
+                         "polecenia, wiadomości, terminy i wpisy w dzienniku.")]
+        if plain in {"polacz drugie stanowisko", "dodaj stanowisko", "polacz stanowiska", "polacz komputery",
+                     "dodaj komputer", "drugie stanowisko"}:
+            if not admin:
+                return [text("Stanowiska łączy się na komputerze kancelarii.")]
+            if not s.settings().station_name:
+                return [text("Najpierw nazwij to stanowisko, np. „nazwij stanowisko Gabinet”.")]
+            code = link.invite()
+            s.start_office_server()
+            return [{"type": "code", "title": "Na drugim komputerze otwórz NotarAI i napisz:",
+                     "text": f"dołącz do kancelarii {code}", "hint": "Kod jest ważny 10 minut i działa raz."},
+                    text("Po połączeniu sprawy, dokumenty, kalendarz, komunikator i lekcje będą wspólne. Każdy "
+                         "komputer zachowuje swój zaszyfrowany sejf, a w sieci wszystko idzie zaszyfrowane kluczem kancelarii. "
+                         "Jeśli Windows zapyta o zaporę, zezwól na sieć prywatną.")]
+        found = re.fullmatch(r"dolacz do kancelarii\s+(\S+:\d+\s+\S+)", plain)
+        if found:
+            if not admin:
+                return [text("Do kancelarii dołącza się na komputerze, nie na telefonie.")]
+            if not s.settings().station_name:
+                return [text("Najpierw nazwij to stanowisko, np. „nazwij stanowisko Sekretariat”.")]
+            other = link.join(message.split(None, 3)[-1])
+            s.start_office_server()
+            return [text(f"Połączyłem stanowisko „{s.station_name()}” ze stanowiskiem „{other}”. Za kilka sekund "
+                         "zobaczysz wspólne sprawy, kalendarz i wiadomości.")]
+        if plain in {"stanowiska", "komputery", "polaczone stanowiska", "kto jest w kancelarii"}:
+            peers = link.peers()
+            lines = [f"To stanowisko: {s.station_name()}."]
+            for peer in peers:
+                seen = link.stations.get(peer["name"], {})
+                state_ = (f"ostatni kontakt {when(int(seen['seen'] * 10**9))}" if seen.get("seen") else "jeszcze bez kontaktu")
+                lines.append(f"• {peer['name']} ({peer['address']}): {state_}"
+                             + (f"; drukarki: {', '.join(seen['printers'])}" if seen.get("printers") else "")
+                             + ("; podgląd ekranu dozwolony" if seen.get("screen") else ""))
+            devices = [d for d in s.devices.list() if not d["revoked"]]
+            if devices:
+                lines.append("Urządzenia: " + ", ".join(f"{d['name']} ({ {'write': 'zapis', 'read': 'odczyt', 'listen': 'mikrofon'}.get(d['scope'], d['scope'])})" for d in devices))
+            if not peers:
+                lines.append("Nie ma jeszcze innych stanowisk. Napisz „połącz drugie stanowisko”.")
+            return [text("\n".join(lines))]
+        found = re.fullmatch(r"odlacz stanowisko\s+(.+)", plain)
+        if found and admin:
+            name = message.split(None, 2)[-1]
+            return [text(f"Odłączyłem stanowisko „{name}”." if link.forget(name) else "Nie ma takiego stanowiska.")]
+        # --- messenger
+        found = re.fullmatch(r"(?:napisz do|wiadomosc do|przekaz do)\s+([^:]+?)\s*:\s*(.+)", plain, re.S)
+        if found and identity.scope in {"admin", "write"}:
+            raw = re.fullmatch(r"(?is)\S+\s+\S+\s+([^:]+?)\s*:\s*(.+)", message)
+            to, body = (raw.group(1).strip(), raw.group(2).strip()) if raw else (found.group(1), found.group(2))
+            entry = {"from": self.who(identity), "to": to, "text": body[:4000], "created": time.time_ns()}
+            s.vault.message_put(secrets.token_hex(8), entry)
+            blocks = [text(f"Wysłałem do „{to}”: {body}")]
+            return blocks + self._date_in(body, case)
+        if plain in {"wiadomosci", "komunikator", "czat kancelarii", "co pisali", "nowe wiadomosci"}:
+            self._read_messages[identity.id] = time.time_ns()
+            messages = s.vault.messages(20)
+            if not messages:
+                return [text("Nie ma jeszcze wiadomości. Napisz np. „napisz do Sekretariat: klient Kowalski będzie o 12”.")]
+            lines = [f"{when(m['created'])} {m['from']} → {m['to']}: {m['text']}" for m in messages[-15:]]
+            last = messages[-1]
+            return [text("\n".join(lines))] + self._date_in(last["text"], case)
+        # --- printers
+        if plain in {"drukarki", "jakie drukarki", "pokaz drukarki"}:
+            here = s.office_printers()
+            lines = [f"{s.station_name()}: " + (", ".join(here) if here else "nie widzę drukarek")]
+            for name, seen in link.stations.items():
+                lines.append(f"{name}: " + (", ".join(seen.get("printers") or []) or "nie widzę drukarek"))
+            return [text("Drukarki w kancelarii:\n" + "\n".join(lines))]
+        found = re.fullmatch(r"(?:wydrukuj|drukuj)\s+(.+?)(?:\s+(?:na drukarce|drukarka)\s+(.+?))?(?:\s+(?:w|na stanowisku|na)\s+(\S+))?", plain)
+        if found and identity.scope in {"admin", "write"}:
+            match = self._find_document(identity, case, found.group(1))
+            if not isinstance(match, dict):
+                return [text("Który dokument wydrukować?")] + ([{"type": "documents", "items": match}] if match else [])
+            _, name, data = s.vault.get(match["id"], actor=identity.id)
+            printer = found.group(2)
+            station = found.group(3)
+            peer = next((p["name"] for p in link.peers() if station and norm(p["name"]) == station), None)
+            if peer:
+                ident = link.request(peer, "print", name=name, data=base64.b64encode(data).decode(), printer=printer)
+                job = s.start_job(identity, lambda: self._wait_answer(ident, f"Drukuję {name} na stanowisku {peer}."))
+                return [text(f"Wysłałem {name} do druku na stanowisku „{peer}”."), {"type": "job", "id": job}]
+            if identity.scope != "admin":
+                return [text("Napisz, na którym stanowisku wydrukować, np. „wydrukuj umowa w sekretariacie”.")]
+            s.office_print(name, data, printer)
+            return [text(f"Drukuję {name}" + (f" na drukarce {printer}." if printer else " na domyślnej drukarce."))]
+        # --- screen of another station
+        found = re.fullmatch(r"(?:pokaz|podglad|zobacz) ekran(?:u)?\s+(.+)", plain)
+        if found and admin:
+            station = next((p["name"] for p in link.peers() if norm(p["name"]) in found.group(1)), None)
+            if station is None:
+                return [text("Którego stanowiska? Napisz „stanowiska”, żeby zobaczyć listę.")]
+            ident = link.request(station, "screen")
+            job = s.start_job(identity, lambda: self._wait_answer(ident, f"Ekran stanowiska {station}"))
+            return [text(f"Proszę stanowisko „{station}” o obraz ekranu…"), {"type": "job", "id": job}]
+        if plain in {"zezwol na podglad ekranu", "wlacz podglad ekranu", "zabron podgladu ekranu", "wylacz podglad ekranu"}:
+            if not admin:
+                return [text("To ustawia się na komputerze, którego ekran ma być widoczny.")]
+            allow = plain.startswith(("zezwol", "wlacz"))
+            s.update_settings(lambda d: d.update(allow_screen=allow))
+            return [text("Inne stanowiska kancelarii mogą teraz zobaczyć ekran tego komputera (każde spojrzenie "
+                         "pokażę tutaj)." if allow else "Podgląd ekranu tego komputera jest wyłączony.")]
+        # --- microphones of the whole office
+        if plain in {"mikrofony", "co slychac", "podglad mikrofonow", "co wychwycily mikrofony"}:
+            notes = sorted((d for d in s.vault.summaries() if d["name"].startswith(("rozmowa-", "stenopis-"))),
+                           key=lambda d: -d["created"])[:8]
+            mics = [d for d in s.devices.list() if d["scope"] == "listen" and not d["revoked"]]
+            lines = ["Mikrofony tego stanowiska: " + (", ".join(m["name"] for m in mics) if mics else "brak") + "."]
+            if notes:
+                lines.append("Ostatnio wychwycone (ze wszystkich stanowisk):")
+                lines += [f"• {when(d['created'])}: {d['name'].rsplit('-', 1)[-1].removesuffix('.txt')} – {d['name']}" for d in notes]
+            else:
+                lines.append("Mikrofony nic jeszcze nie wychwyciły.")
+            return [text("\n".join(lines))] + ([{"type": "documents", "items": [
+                {"id": d["id"], "name": d["name"], "version": d["version"]} for d in notes]}] if notes else [])
+        return None
+
+    def _wait_answer(self, ident: str, title: str) -> list[dict]:
+        """Wait (in a background job) for the other station's answer to a request."""
+        for _ in range(90):
+            answer = self.s.office.answers.pop(ident, None)
+            if answer is not None:
+                if answer.get("image"):
+                    return [text(title + ":"), {"type": "image", "image": answer["image"], "alt": title}]
+                return [text(answer.get("detail") or ("Gotowe." if answer.get("ok") else "Nie udało się."))]
+            time.sleep(1)
+        return [text("Drugie stanowisko nie odpowiedziało. Sprawdź, czy NotarAI jest tam włączony.")]
+
+    def _date_in(self, body: str, case) -> list[dict]:
+        """A date in a message becomes a proposed calendar entry (the notary decides)."""
+        from .terminarz import label, parse_when
+
+        parsed = parse_when(body, self.s.calendar.now())
+        if parsed is None:
+            return []
+        start, what = parsed
+        when_text = start.strftime("%d.%m.%Y %H:%M")
+        return [text(f"W wiadomości jest termin: {label(start, self.s.calendar.now())} – {what[:80]}. Dodać do kalendarza?"),
+                buttons(("Dodaj do kalendarza", f"termin {when_text} {what[:120]}"))]
+
     # ------------------------------------------------------------ thinking ahead: what to do now
     def suggestions(self, identity, case) -> list[dict]:
         """Two or three next steps from what the program sees: appointments, mail, the chosen case,
@@ -1045,6 +1210,13 @@ class Chat:
             if names and not any(n.lower().endswith(".docx") for n in names):
                 found.append({"label": "Przygotuj projekt aktu", "say": "przygotuj projekt aktu na podstawie dokumentów sprawy",
                               "why": "sprawa ma dokumenty, ale nie ma jeszcze projektu aktu"})
+        me = norm(self.who(identity))
+        since = self._read_messages.get(identity.id, 0)
+        fresh = [m for m in s.vault.messages(50) if m.get("created", 0) > since and norm(m.get("from", "")) != me
+                 and (norm(m.get("to", "")) in {me, "wszyscy", "wszystkich", "kancelaria"} or me in norm(m.get("to", "")))]
+        if fresh:
+            found.insert(0, {"label": f"Nowe wiadomości ({len(fresh)})", "say": "wiadomości",
+                             "why": f"od: {', '.join(sorted({m['from'] for m in fresh}))}"})
         if identity.scope == "admin" and s.settings().mail.source is not None:
             found.append({"label": "Przejrzyj pocztę", "say": "poczta", "why": "poczta jest podłączona"})
         try:

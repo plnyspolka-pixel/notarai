@@ -1054,8 +1054,9 @@ async function send(sentence, shown) {
 }
 
 function shortcuts() {
-  const items = [["Co mam dziś", "co mam dziś"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
-  if (admin) items.push(["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
+  const items = [["Co mam dziś", "co mam dziś"], ["Wiadomości", "wiadomości"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
+  if (admin) items.push(["Stanowiska", "stanowiska"], ["Drukarki", "drukarki"], ["Mikrofony", "mikrofony"],
+                        ["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
   items.push(["Co umiesz?", "pomoc"]);
   const buttons = items.map(([label, sentence]) => sayButton(label, sentence));
   if (scope !== "read") {
@@ -1490,6 +1491,7 @@ async function refreshCases(keep) {
   if (state.cases === null) options.push(new Option("Wszystkie sprawy", ALL));
   cases.forEach(name => options.push(new Option(name, name)));
   if (keep && !cases.includes(keep)) options.push(new Option(keep, keep));
+  if (state.station) el("station").textContent = " · " + state.station;
   el("case").replaceChildren(...options);
   if (keep) el("case").value = keep;
   // The side list on a wide screen: one click switches the case.

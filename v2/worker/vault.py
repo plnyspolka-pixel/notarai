@@ -72,6 +72,10 @@ class Vault:
             db.execute("CREATE TABLE IF NOT EXISTS calendar (id TEXT PRIMARY KEY, entry BLOB NOT NULL)")
             # What learning mode has learned (lessons), encrypted like the calendar.
             db.execute("CREATE TABLE IF NOT EXISTS lessons (id TEXT PRIMARY KEY, entry BLOB NOT NULL)")
+            # Office messenger between workstations, and deletions other workstations must also apply.
+            db.execute("CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, entry BLOB NOT NULL, created INTEGER NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS tombstones (kind TEXT NOT NULL, id TEXT NOT NULL, ts INTEGER NOT NULL,"
+                       " PRIMARY KEY(kind, id))")
 
     def _set_key(self, key: bytes) -> None:
         self._kek = AESGCM(derive(key, "kek"))
@@ -164,6 +168,8 @@ class Vault:
                        for ident, blob in db.execute("SELECT id, entry FROM calendar").fetchall()]
             lessons = [(ident, _open(self._notes, blob, _aad("lesson", ident)))
                        for ident, blob in db.execute("SELECT id, entry FROM lessons").fetchall()]
+            messages = [(ident, _open(self._notes, blob, _aad("message", ident)))
+                        for ident, blob in db.execute("SELECT id, entry FROM messages").fetchall()]
             self._verify_audit(db)
             self._set_key(new_key)
             for case, plain in notes:
@@ -173,6 +179,8 @@ class Vault:
                 db.execute("UPDATE calendar SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("calendar", ident)), ident))
             for ident, plain in lessons:
                 db.execute("UPDATE lessons SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("lesson", ident)), ident))
+            for ident, plain in messages:
+                db.execute("UPDATE messages SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("message", ident)), ident))
             previous = b""
             for row in db.execute("SELECT seq, ts, actor, action, doc_id, version FROM audit ORDER BY seq").fetchall():
                 previous = self._mac(previous, row)
@@ -334,6 +342,7 @@ class Vault:
 
     # ------------------------------------------------------------ calendar
     def calendar_put(self, ident: str, entry: dict, *, actor="local-admin") -> None:
+        entry = {**entry, "updated": entry.get("updated") or time.time_ns()}
         blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("calendar", ident))
         with self._tx() as db:
             db.execute("INSERT INTO calendar VALUES (?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry", (ident, blob))
@@ -342,6 +351,7 @@ class Vault:
     def calendar_delete(self, ident: str, *, actor="local-admin") -> bool:
         with self._tx() as db:
             gone = db.execute("DELETE FROM calendar WHERE id=?", (ident,)).rowcount
+            db.execute("INSERT OR REPLACE INTO tombstones VALUES ('calendar', ?, ?)", (ident, time.time_ns()))
             if gone:
                 self._log(db, actor, "calendar-delete", None, None)
         return bool(gone)
@@ -353,6 +363,7 @@ class Vault:
 
     # ------------------------------------------------------------ lessons (learning mode)
     def lesson_put(self, ident: str, entry: dict) -> None:
+        entry = {**entry, "updated": time.time_ns()}
         blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("lesson", ident))
         with self._tx() as db:
             db.execute("INSERT INTO lessons VALUES (?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry", (ident, blob))
@@ -360,6 +371,7 @@ class Vault:
     def lesson_delete(self, ident: str, *, actor="local-admin") -> bool:
         with self._tx() as db:
             gone = db.execute("DELETE FROM lessons WHERE id=?", (ident,)).rowcount
+            db.execute("INSERT OR REPLACE INTO tombstones VALUES ('lesson', ?, ?)", (ident, time.time_ns()))
             if gone:
                 self._log(db, actor, "lesson-delete", None, None)
         return bool(gone)
@@ -368,6 +380,96 @@ class Vault:
         with self._ro() as db:
             rows = db.execute("SELECT id, entry FROM lessons").fetchall()
         return [{"id": ident, **json.loads(_open(self._notes, blob, _aad("lesson", ident)))} for ident, blob in rows]
+
+    # ------------------------------------------------------------ office messenger
+    def message_put(self, ident: str, entry: dict) -> None:
+        blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("message", ident))
+        with self._tx() as db:
+            db.execute("INSERT INTO messages VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry",
+                       (ident, blob, int(entry.get("created") or time.time_ns())))
+
+    def messages(self, limit: int = 200):
+        with self._ro() as db:
+            rows = db.execute("SELECT id, entry FROM messages ORDER BY created DESC LIMIT ?", (limit,)).fetchall()
+        return [{"id": ident, **json.loads(_open(self._notes, blob, _aad("message", ident)))} for ident, blob in rows][::-1]
+
+    # ------------------------------------------------------------ workstation sync
+    def revisions_since(self, after_ns: int, limit: int = 200):
+        """Revisions written here after a moment, oldest first, without those that came from other stations."""
+        with self._ro() as db:
+            rows = db.execute(
+                "SELECT r.id, r.version, r.created, r.author, d.case_id FROM revisions r JOIN documents d ON d.id = r.id "
+                "WHERE r.created > ? AND r.author NOT LIKE 'sync:%' ORDER BY r.created LIMIT ?", (after_ns, limit)).fetchall()
+        out = []
+        for doc_id, version, created, author, case in rows:
+            _, name, data = self.get(doc_id, version, actor="sync")
+            out.append({"id": doc_id, "version": version, "created": created, "author": author, "case": case,
+                        "name": name, "data": data})
+        return out
+
+    def import_revision(self, doc_id: str, version: int, name: str, data: bytes, case, author: str):
+        """Another workstation's revision. Same id and version when it follows ours; otherwise (both edited)
+        it is kept as a separate document so no one's work is overwritten. Returns ("same"|"new"|"conflict", id)."""
+        doc_id = str(uuid.UUID(doc_id))
+        with self._tx() as db:
+            current = db.execute("SELECT COALESCE(MAX(version),0) FROM revisions WHERE id=?", (doc_id,)).fetchone()[0]
+            if current == version - 1 and (current == 0 or self._case(db, doc_id) == case):
+                self._insert(db, doc_id, version, name, data, author, case)
+                self._log(db, author, "sync-write", doc_id, version)
+                return "new", doc_id
+        if current >= version:
+            _, _, ours = self.get(doc_id, version, actor="sync")
+            if ours == data:
+                return "same", doc_id               # already here
+        # Both stations edited, or a gap: keep their text as a document of its own.
+        new_id, _ = self.put(None, 0, f"(konflikt) {name}"[:255], data, actor=author, case=case)
+        return "conflict", new_id
+
+    def notes_since(self, after_ns: int):
+        """Calendar, lessons and messages changed after a moment, plus deletions."""
+        with self._ro() as db:
+            tombs = db.execute("SELECT kind, id, ts FROM tombstones WHERE ts > ?", (after_ns,)).fetchall()
+        changed = {
+            "calendar": [e for e in self.calendar() if e.get("updated", 0) > after_ns],
+            "lessons": [e for e in self.lessons() if e.get("updated", 0) > after_ns],
+            "messages": [m for m in self.messages(500) if m.get("created", 0) > after_ns],
+        }
+        return changed, [{"kind": k, "id": i, "ts": t} for k, i, t in tombs]
+
+    def apply_notes(self, changed: dict, tombs: list) -> int:
+        applied = 0
+        with self._ro() as db:
+            dead = {(k, i) for k, i in db.execute("SELECT kind, id FROM tombstones").fetchall()}
+        local_calendar = {e["id"]: e for e in self.calendar()}
+        for entry in changed.get("calendar", []):
+            ident = entry.pop("id")
+            if ("calendar", ident) in dead or local_calendar.get(ident, {}).get("updated", 0) >= entry.get("updated", 0):
+                continue
+            self.calendar_put(ident, entry, actor="sync")
+            applied += 1
+        local_lessons = {e["id"]: e for e in self.lessons()}
+        for entry in changed.get("lessons", []):
+            ident = entry.pop("id")
+            if ("lesson", ident) in dead or local_lessons.get(ident, {}).get("updated", 0) >= entry.get("updated", 0):
+                continue
+            blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("lesson", ident))
+            with self._tx() as db:
+                db.execute("INSERT INTO lessons VALUES (?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry", (ident, blob))
+            applied += 1
+        known = {m["id"] for m in self.messages(1000)}
+        for entry in changed.get("messages", []):
+            ident = entry.pop("id")
+            if ident not in known:
+                self.message_put(ident, entry)
+                applied += 1
+        for tomb in tombs:
+            table = {"calendar": "calendar", "lesson": "lessons"}.get(tomb["kind"])
+            if table:
+                with self._tx() as db:
+                    db.execute(f"DELETE FROM {table} WHERE id=?", (tomb["id"],))
+                    db.execute("INSERT OR REPLACE INTO tombstones VALUES (?, ?, ?)", (tomb["kind"], tomb["id"], tomb["ts"]))
+                applied += 1
+        return applied
 
     def cases(self):
         with self._ro() as db:

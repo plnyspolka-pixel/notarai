@@ -96,6 +96,8 @@ class Settings(_Strict):
     backup_dir: str | None = None
     acts_dir: str | None = Field(default=None, max_length=400)     # where the office keeps its acts
     learn: bool = True                                             # learning mode, visible in the window
+    station_name: str = Field(default="", max_length=60)          # e.g. Gabinet, Sekretariat
+    allow_screen: bool = False                                     # other stations may see this screen
     # Owner's decision 27.11.2026: a command is the approval ("wyślij pocztę" sends). When true, the
     # program asks "Tak / Nie" before irreversible actions as it did before.
     confirm: bool = Field(default_factory=lambda: os.environ.get("NOTARAI_ALWAYS_CONFIRM") == "1")

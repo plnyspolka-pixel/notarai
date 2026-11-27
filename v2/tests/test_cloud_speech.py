@@ -84,7 +84,7 @@ def test_failures_still_clean_up_and_say_so_plainly(outcome):
         speech.transcribe(b"x", ".exe")
 
 
-def test_the_voice_note_endpoint_uses_the_cloud_when_set(tmp_path):
+def test_the_voice_note_endpoint_uses_the_cloud_when_set(tmp_path, monkeypatch):
     import base64
 
     from fastapi.testclient import TestClient
@@ -100,7 +100,7 @@ def test_the_voice_note_endpoint_uses_the_cloud_when_set(tmp_path):
     admin = {"Authorization": "Bearer " + initialize(home)}
     (home / "settings.json").write_text(json.dumps({"speech": {"where": "chmura", "bucket": "notarai-v2-mowa-1"}}))
     import worker.cloud_speech as module
-    module.time.sleep = lambda seconds: None
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: None)      # only for this test
     client = TestClient(create_app(home, account=account))
     result = client.post("/v2/voice", headers=admin, json={"audio_b64": base64.b64encode(b"WEBM").decode(), "case": "s"}).json()
     assert result["text"] == "Notatka z chmury." and len(result["documents"]) == 2 and s3.objects == {}

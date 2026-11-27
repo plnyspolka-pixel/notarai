@@ -459,3 +459,13 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   5. EKW i KRZ: nagrać procedury sprawdzenia księgi i strony w przeglądarce NotarAI, potem uruchomić je dla
      fikcyjnej sprawy; zapisać, czego strony wymagają (logowanie, captcha).
 - **Zamknięte, gdy:** punkty 1-5 przeszły albo mają opisany powód i poprawkę.
+
+## NA-21. Dwa stanowiska w jednej kancelarii na prawdziwych komputerach (27.11.2026)
+
+- **Status:** kod i testy (dwa stanowiska w jednym procesie, atrapy druku i zrzutu ekranu).
+- **Brakuje:** dwóch komputerów z Windows w jednej sieci z NotarAI 2.4.x.
+- **Na żywo:** nazwać stanowiska (Gabinet, Sekretariat); „połącz drugie stanowisko” na jednym, „dołącz do kancelarii …”
+  na drugim; zezwolić na sieć prywatną w zaporze; sprawdzić wymianę dokumentu, terminu, wiadomości i usunięcia;
+  równoległą edycję (dokument „(konflikt)”); „drukarki” i „wydrukuj … w sekretariacie” (Word/PDF przez „printto”);
+  „zezwól na podgląd ekranu” i „pokaż ekran …”; zmierzyć opóźnienie (cel: kilka sekund).
+- **Zamknięte, gdy:** wszystko powyżej działa albo ma opisany powód i poprawkę.
