@@ -38,6 +38,13 @@
     <p class="muted">Włącz mikrofon po poinformowaniu uczestników. Możesz go wyłączyć w każdej chwili.</p>
   </section>
   <main id="workspace" hidden>
+    <button id="otworz-kalendarz" type="button">Kalendarz i ustalenia</button>
+    <section id="panel-kalendarza" class="card" hidden>
+      <h2>Kalendarz i ustalenia</h2>
+      <p id="stan-kalendarza" role="status"></p>
+      <video id="zrodlo-ustalenia" controls hidden></video>
+      <ol id="wpisy-kalendarza"></ol>
+    </section>
     <section id="desk" hidden aria-label="Moje kafelki">
       <div id="tiles"></div>
       <div class="row">
@@ -92,5 +99,6 @@
   <p id="status" role="status"></p>
   <script src="tunnel.js"></script>
   <script src="pocket.js"></script>
+  <script src="kalendarz-spraw.js"></script>
 </body>
 </html>
