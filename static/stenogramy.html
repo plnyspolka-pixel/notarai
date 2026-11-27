@@ -97,8 +97,10 @@ button.maly{min-height:36px;padding:6px 12px;font-size:14px}
     <div class="przyciski" style="justify-content:center" id="sterowanie" hidden>
       <button class="wtorny" id="btn-pauza">Wstrzymaj</button>
     </div>
+    <div class="stan" id="mikrofon-stan" role="status" hidden></div>
     <div class="stan" id="stan">Wybierz sprawę, żeby zacząć.</div>
     <div class="stan" id="wysylka"></div>
+    <p class="stan">Poinformuj uczestników przed rozpoczęciem. Nagranie może trwać w tle, dopóki telefon udostępnia mikrofon. Pozostaw tę stronę otwartą.</p>
   </div>
 
   <div class="karta" id="karta-lokalne" hidden>
@@ -207,7 +209,7 @@ const podstawowy = typ => (typ || "audio/webm").split(";")[0];
 
 let wlaczone = true;
 let biezace = null;   // {opis, rec, strumien, format, kontekst, start, pauzaOd, przerwy, kolejka, wysylam, sesjaStart}
-let blokadaEkranu = null;
+let uruchamiam = false;
 
 function czas(s){
   s = Math.max(0, Math.floor(s));
@@ -221,12 +223,14 @@ function sekundy(){
 
 function odswiezPrzycisk(){
   const gotowy = wlaczone && $("sprawa").value && !!wybierzFormat();
-  $("btn-nagraj").disabled = !biezace && !gotowy;
+  $("btn-nagraj").disabled = uruchamiam || !!biezace?.zatrzymuje || (!biezace && !gotowy);
+  $("btn-pauza").disabled = !!biezace?.zatrzymuje;
   $("btn-nagraj").classList.toggle("stop", !!biezace);
   $("napis-nagraj").textContent = biezace ? "Zakończ" : "Rozpocznij";
   $("sterowanie").hidden = !biezace;
-  $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = !!biezace; });
-  document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd);
+  $("przygotowanie").querySelectorAll("input,select").forEach(p => { p.disabled = uruchamiam || !!biezace; });
+  document.body.classList.toggle("trwa", !!biezace && !biezace.pauzaOd && !biezace.zatrzymuje);
+  pokazStanMikrofonu();
   if (!biezace && !gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
     stan("Wybierz sprawę, żeby zacząć.");
   else if (!biezace && gotowy && !$("stan").classList.contains("ok") && !$("stan").classList.contains("blad"))
@@ -234,11 +238,22 @@ function odswiezPrzycisk(){
 }
 $("sprawa").onchange = () => { stan(""); odswiezPrzycisk(); rysujListe(); };
 
-async function trzymajEkran(){
-  try { if ("wakeLock" in navigator && biezace) blokadaEkranu = await navigator.wakeLock.request("screen"); }
-  catch { /* np. oszczędzanie baterii - nagrywamy dalej */ }
+function pokazStanMikrofonu(){
+  const pole = $("mikrofon-stan");
+  const b = biezace;
+  pole.hidden = !b || (!b.przerwano && b.zatrzymuje);
+  let opis = "";
+  if (!pole.hidden) {
+    if (b.przerwano) opis = "Utracono dostęp do mikrofonu. Zapisuję zarejestrowany dźwięk.";
+    else if (b.pauzaOd) opis = "Nagrywanie wstrzymane.";
+    else if (b.strumien.getAudioTracks().every(t => t.muted)) {
+      opis = "Telefon chwilowo nie przekazuje dźwięku z mikrofonu.";
+    } else opis = "Mikrofon aktywny. Trwa nagrywanie.";
+  }
+  if (pole.textContent !== opis) pole.textContent = opis;
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") trzymajEkran(); });
+
+document.addEventListener("visibilitychange", pokazStanMikrofonu);
 window.addEventListener("beforeunload", e => { if (biezace) { e.preventDefault(); e.returnValue = ""; } });
 
 /* ---------- poziom dźwięku: widać, że mikrofon słyszy ---------- */
@@ -328,7 +343,9 @@ function nowaSesja(){
       .then(() => { b.kolejka.push(nr); b.kolejka.sort((x, y) => x - y); pokazWysylke(); obsluzKolejke(); });
     zapisy.push(zapis);
   };
+  rec.onerror = () => zatrzymajNagranie(b, true);
   rec.onstop = async () => {
+    if (!b.strumien.active && !b.zatrzymuje) zatrzymajNagranie(b, true);
     sesja.czas_s = sekundy() - b.sesjaStart;
     await Promise.all(zapisy);
     await zapiszOpis(b.opis);
@@ -336,6 +353,7 @@ function nowaSesja(){
     nowaSesja();
   };
   rec.start(FRAGMENT_MS);
+  if (b.pauzaOd) rec.pause();
   b.rec = rec;
   clearTimeout(b.zegarSesji);
   b.zegarSesji = setTimeout(() => { if (biezace === b && !b.zatrzymuje) rec.stop(); }, SESJA_MS);
@@ -361,14 +379,27 @@ async function rozpocznij(){
     strumien.getTracks().forEach(t => t.stop());
     return stan(blad.message, "blad");
   }
-  await zapiszOpis(opis);
-  stan("");
-  biezace = {opis, strumien, format, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
-  nowaSesja();
-  biezace.kontekst = pokazujPoziom(strumien);
-  await trzymajEkran();
-  odswiezPrzycisk();
-  pokazWysylke();
+  try {
+    await zapiszOpis(opis);
+    if (!strumien.active) throw new Error("Utracono dostęp do mikrofonu przed rozpoczęciem nagrania.");
+    stan("");
+    const b = {opis, strumien, format, start: Date.now(), pauzaOd: 0, przerwy: 0, kolejka: [], wysylam: false};
+    biezace = b;
+    nowaSesja();
+    for (const tor of strumien.getAudioTracks()) {
+      tor.addEventListener("mute", pokazStanMikrofonu);
+      tor.addEventListener("unmute", pokazStanMikrofonu);
+      tor.addEventListener("ended", () => {
+        if (!strumien.active) zatrzymajNagranie(b, true);
+      });
+    }
+    b.kontekst = pokazujPoziom(strumien);
+    pokazWysylke();
+  } catch (blad) {
+    strumien.getTracks().forEach(t => t.stop());
+    biezace = null;
+    stan(blad.message, "blad");
+  }
 }
 
 $("btn-pauza").onclick = () => {
@@ -376,29 +407,45 @@ $("btn-pauza").onclick = () => {
   if (!b) return;
   if (b.pauzaOd) {
     b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0;
-    b.rec.resume(); $("btn-pauza").textContent = "Wstrzymaj";
+    if (b.rec.state === "paused") b.rec.resume();
+    $("btn-pauza").textContent = "Wstrzymaj";
   } else {
-    b.pauzaOd = Date.now(); b.rec.pause();
+    b.pauzaOd = Date.now();
+    if (b.rec.state === "recording") b.rec.pause();
     $("btn-pauza").textContent = "Wznów"; stan("Wstrzymane. Naciśnij „Wznów”, żeby słuchać dalej.");
   }
   odswiezPrzycisk();
 };
 
-$("btn-nagraj").onclick = () => {
-  const b = biezace;
-  if (!b) return rozpocznij();
-  if (b.zatrzymuje) return;
+$("btn-nagraj").onclick = async () => {
+  if (biezace) return zatrzymajNagranie(biezace);
+  if (uruchamiam) return;
+  uruchamiam = true;
+  odswiezPrzycisk();
+  try {
+    await rozpocznij();
+  } finally {
+    uruchamiam = false;
+    odswiezPrzycisk();
+  }
+};
+
+function zatrzymajNagranie(b, przerwano = false){
+  if (biezace !== b || b.zatrzymuje) return;
   if (b.pauzaOd) { b.przerwy += Date.now() - b.pauzaOd; b.pauzaOd = 0; }
   b.zatrzymuje = true;
+  b.przerwano = przerwano;
   clearTimeout(b.zegarSesji);
   stan("Kończę…");
-  if (b.rec.state === "inactive") zakonczono(b); else b.rec.stop();
-};
+  odswiezPrzycisk();
+  // Jeśli rejestrator już się zatrzymał, jego onstop dokończy zapis.
+  if (b.rec.state !== "inactive") b.rec.stop();
+  b.strumien.getTracks().forEach(t => t.stop());
+}
 
 async function zakonczono(b){
   b.strumien.getTracks().forEach(t => t.stop());
   try { b.kontekst?.close(); } catch { /* juz zamkniety */ }
-  try { await blokadaEkranu?.release(); } catch { /* juz zwolniona */ }
   b.opis.stan = "zatrzymane";
   await zapiszOpis(b.opis);
   stan("Przesyłam ostatnie fragmenty…");
