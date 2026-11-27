@@ -116,7 +116,7 @@ class _Throttle:
 
 
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
-               account: Account | None = None, opener=None):
+               account: Account | None = None, opener=None, mail_detect=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -681,8 +681,12 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         except (ValueError, AttributeError, TypeError):
             raise HTTPException(400, "invalid layout")
 
+    from . import mail as mail_module
+
     chat = Chat(SimpleNamespace(
         layouts=layouts,
+        mail_detect=mail_detect or mail_module.detect,
+        mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
         vault=vault, drafts=drafts, devices=devices, workcopies=workcopies,
         cases=lambda identity: [c for c in vault.cases() if identity.cases is None or c in identity.cases],
         may_see_case=lambda identity, case: (identity.cases is None or case in identity.cases),
@@ -698,7 +702,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         signed_in=lambda: bool(state["account"] and state["account"].signed_in),
         logout=lambda: state["account"] and state["account"].logout(),
     ))
-    SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError)
+    SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
+            mail_module.MailError)
 
     def chat_turn(identity: Identity, turn: ChatTurn):
         if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:

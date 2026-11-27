@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 
 from .drafting import DraftError
 from .layout import tools_for
+from .mail import MailError, as_document
 from .vault import valid_case
 
 DRAFT_WORDS = ("przygotuj", "napisz", "sporzadz", "zredaguj", "stworz projekt", "projekt aktu", "projekt umowy")
@@ -64,6 +65,7 @@ class Chat:
     def __init__(self, services):
         self.s = services
         self._pending: dict[str, tuple[str, float, callable]] = {}
+        self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
 
     # ------------------------------------------------------------ confirmations
     def _confirm(self, identity, question: str, label: str, action) -> dict:
@@ -246,6 +248,7 @@ class Chat:
                       "• „urządzenia”, „cofnij telefon”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
+                      "• „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”",
                       "• „włącz asystenta”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
         return [text("\n".join(lines))]
 
@@ -315,6 +318,9 @@ class Chat:
         off = plain.startswith(("wylacz", "zablokuj", "zatrzymaj"))
         if plain in {"stan", "status", "stan stanowiska", "jak stoimy", "jak stoimy?"}:
             return self._status()
+        mail = self._mail(identity, message, plain, case)      # before devices: "odłącz pocztę" is not a device
+        if mail is not None:
+            return mail
         if "kod odzyskiwania" in plain:
             if s.status()["enrolled"]:
                 if plain.startswith("nowy"):
@@ -401,6 +407,83 @@ class Chat:
             return [self._confirm(identity, f"Porzucić zmiany w „{copy['name']}”? Nie da się ich odzyskać.",
                                   "Tak, porzuć zmiany", lambda: self._discard(identity, copy))]
         return None
+
+    # ------------------------------------------------------------ mail (this computer's own program)
+    def _mail(self, identity, message, plain, case):
+        s = self.s
+        if not re.search(r"\b(poczt\w*|mail\w*|maile|wiadomosc\w*|skrzynk\w*|outlook\w*|thunderbird\w*)\b", plain):
+            return None
+        if plain.startswith(("odlacz poczte", "wylacz poczte", "rozlacz poczte")):
+            s.update_settings(lambda d: d["mail"].update(source=None, path=None))
+            self._inbox.pop(identity.id, None)
+            return [text("Odłączyłem pocztę. Nie czytam już wiadomości z tego komputera.")]
+        if plain.startswith(("polacz", "podlacz", "sparuj", "dodaj poczte", "wlacz poczte")):
+            found = re.search(r"folder\s+(.+)", message, re.IGNORECASE)
+            if found:
+                choice, path = "folder", found.group(1).strip().strip("\"„”")
+            else:
+                available = {source.name.lower(): source for source in s.mail_detect()}
+                named = next((name for name in ("thunderbird", "outlook") if name in plain), None)
+                if named and named not in available:
+                    return [text(f"Nie znalazłem programu {named.capitalize()} na tym komputerze.")]
+                if not named and len(available) > 1:
+                    return [text("Znalazłem dwa programy pocztowe. Który podłączyć?"),
+                            buttons(*[(name.capitalize(), f"połącz pocztę {name}") for name in available])]
+                if not named and not available:
+                    return [text("Nie znalazłem Thunderbirda ani klasycznego Outlooka. W innym programie zapisz "
+                                 "wiadomości do folderu (pliki .eml) i napisz „połącz pocztę folder” ze ścieżką, "
+                                 "np. „połącz pocztę folder C:\\Poczta”.")]
+                choice = named or next(iter(available))
+                path = getattr(available[choice], "location", None)
+            s.update_settings(lambda d: d["mail"].update(source=choice, path=path))
+            source = s.mail_source()
+            if source is None or not source.available():
+                s.update_settings(lambda d: d["mail"].update(source=None, path=None))
+                return [text("Nie udało się otworzyć tej poczty. Sprawdź ścieżkę albo czy program jest zainstalowany.")]
+            label = "folderu z wiadomościami" if choice == "folder" else choice.capitalize()
+            return [text(f"Połączyłem pocztę z {label}. Tylko czytam, na tym komputerze; wiadomość trafia do sejfu "
+                         "dopiero, gdy dodasz ją do sprawy."), buttons(("Pokaż pocztę", "poczta"))]
+        source = s.mail_source()
+        if source is None:
+            return [text("Poczta nie jest jeszcze połączona."), buttons(("Połącz pocztę", "połącz pocztę"))]
+        found = re.fullmatch(r"dodaj (?:mail|maila|wiadomosc)\s+(\d+)(?: do sprawy)?(?:\s+(\S+))?", plain)
+        if found:
+            target = message.split()[-1] if found.group(2) else case
+            listed = self._inbox.get(identity.id) or []
+            index = int(found.group(1))
+            if not 1 <= index <= len(listed):
+                return [text("Nie ma wiadomości o tym numerze. Napisz „poczta”, żeby zobaczyć listę.")]
+            if target is None or not valid_case(target):
+                return [text("Do której sprawy? Wybierz sprawę u góry albo napisz „dodaj mail 1 do sprawy nazwa”.")]
+            name, data = as_document(listed[index - 1])
+            doc_id, version = s.vault.put(None, 0, name, data, actor=identity.id, case=target)
+            return [text(f"Dodałem wiadomość do sprawy „{target}”. Asystent będzie ją czytał razem z innymi dokumentami."),
+                    {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}]
+        found = re.fullmatch(r"(?:pokaz |otworz |przeczytaj )?(?:mail|maila|wiadomosc)\s+(\d+)", plain)
+        if found:
+            listed = self._inbox.get(identity.id) or []
+            index = int(found.group(1))
+            if not 1 <= index <= len(listed):
+                return [text("Nie ma wiadomości o tym numerze. Napisz „poczta”, żeby zobaczyć listę.")]
+            mail = listed[index - 1]
+            body = mail.text[:3000] + ("\n[…]" if len(mail.text) > 3000 else "")
+            head = f"Od: {mail.sender} <{mail.address}>\nTemat: {mail.subject}"
+            if mail.attachments:
+                head += "\nZałączniki: " + ", ".join(mail.attachments)
+            return [text(head + "\n\n" + body),
+                    buttons((f"Dodaj do sprawy{' „' + case + '”' if case else ''}", f"dodaj mail {index} do sprawy"))]
+        listed = source.latest(30)
+        sender = re.search(r"\bod\s+(.+)", plain)
+        if sender:
+            wanted = sender.group(1).strip(" ?")
+            listed = [m for m in listed if wanted in norm(m.sender) or wanted in norm(m.address)]
+        listed = listed[:8]
+        self._inbox[identity.id] = listed
+        if not listed:
+            return [text("Nie ma takich wiadomości." if sender else "Skrzynka odbiorcza jest pusta.")]
+        lines = [f"{n}. {when(int(m.when * 10**9))}, {m.sender or m.address}: {m.subject or '(bez tematu)'}"
+                 + (" 📎" if m.attachments else "") for n, m in enumerate(listed, 1)]
+        return [text("\n".join(lines)), buttons(*[(f"Pokaż {n}", f"mail {n}") for n in range(1, len(listed) + 1)])]
 
     def _status(self) -> list[dict]:
         st = self.s.status()

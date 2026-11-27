@@ -83,12 +83,20 @@ class Drafts:
         sources, skipped, parts, used = [], [], [], 0
         for item in self._vault.summaries(cases={case}):
             lowered = item["name"].lower()
-            if not lowered.endswith((".txt", ".docx")):
+            if not lowered.endswith((".txt", ".docx", ".eml")):
                 skipped.append(item["name"])
                 continue
             version, name, data = self._vault.get(item["id"], item["version"], actor=actor)
             try:
-                text = data.decode("utf-8") if lowered.endswith(".txt") else "\n".join(extract(data))
+                if lowered.endswith(".eml"):
+                    from .mail import parse
+
+                    mail = parse(data)
+                    if mail is None:
+                        raise ValueError("unreadable message")
+                    text = f"Wiadomość e-mail od {mail.sender} <{mail.address}>, temat: {mail.subject}\n{mail.text}"
+                else:
+                    text = data.decode("utf-8") if lowered.endswith(".txt") else "\n".join(extract(data))
             except (UnicodeDecodeError, ValueError, KeyError, OSError):
                 skipped.append(name)
                 continue
@@ -102,7 +110,7 @@ class Drafts:
             sources.append({"id": item["id"], "version": version, "name": name})
             parts.append(f"=== DOKUMENT {len(sources)} ===\n{text}")
         if not parts:
-            raise DraftError("W tej sprawie nie ma dokumentów tekstowych (TXT lub DOCX) do odczytania.")
+            raise DraftError("W tej sprawie nie ma dokumentów tekstowych (TXT, DOCX lub e-mail) do odczytania.")
         return "\n\n".join(parts), sources, skipped
 
     # ------------------------------------------------------------ operations
