@@ -4,6 +4,7 @@ import binascii
 import re
 import secrets
 import threading
+import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -142,9 +143,27 @@ class _Throttle:
             self._failures.append(time.monotonic())
 
 
+def _windows_folder_picker():
+    """The standard Windows "choose a folder" dialog, on top of other windows."""
+    import ctypes
+
+    from win32com.shell import shell, shellcon
+
+    owner = ctypes.windll.user32.GetForegroundWindow()
+    flags = shellcon.BIF_RETURNONLYFSDIRS | shellcon.BIF_NEWDIALOGSTYLE
+    chosen = shell.SHBrowseForFolder(owner, None, "Wybierz folder", flags, None, None)
+    if not chosen or chosen[0] is None:
+        return None
+    path = shell.SHGetPathFromIDList(chosen[0])
+    return path.decode("mbcs", "replace") if isinstance(path, bytes) else path
+
+
+windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else None
+
+
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
-               fill_targets: dict | None = None):
+               fill_targets: dict | None = None, folder_picker=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -672,11 +691,13 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/drafts/{draft_id}/approve")
     def draft_approve(draft_id: str, req: Approval, identity: Identity = Depends(writable)):
-        return drafts.approve(
+        result = drafts.approve(
             draft_id, identity.id, req.name, paragraphs=req.paragraphs,
             base=req.base.model_dump() if req.base else None,
             template=req.template.model_dump() if req.template else None,
         )
+        onboarding.mark("akt")        # the first whole act: a step of the first-run guide
+        return result
 
     @app.delete("/v2/drafts/{draft_id}")
     def draft_discard(draft_id: str, identity: Identity = Depends(writable)):
@@ -838,6 +859,38 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         stored.append({"id": text_id, "name": text_name, "version": text_version})
         return {"documents": stored, "text": heard, "detail": ""}
 
+    from .onboarding import Onboarding
+    from .procedures import slug as procedure_slug
+
+    def learned_activities() -> int:
+        chosen = {procedure_slug(name) for name in onboarding.activities()}
+        return len(chosen & {p["slug"] for p in procedures.list()})
+
+    def has_device(scope: str) -> bool:
+        return any(d["scope"] in ({scope} if scope == "listen" else {"read", "write"}) and not d["revoked"]
+                   for d in devices.list())
+
+    onboarding = Onboarding(home, {
+        "kod": lambda: recovery.enrolled(home),
+        "konto": lambda: bool(state["account"] and state["account"].signed_in),
+        "kopia": lambda: state["settings"].backup_dir is not None or state["settings"].replica.enabled,
+        "akty": lambda: state["settings"].acts_dir is not None,
+        "styl": lambda: style.profile() is not None,
+        "poczta": lambda: state["settings"].mail.source is not None,
+        "learned": learned_activities,
+        "telefon": lambda: has_device("write"),
+        "mikrofony": lambda: has_device("listen"),
+    })
+
+    @app.post("/v2/pick-folder", dependencies=[Depends(admin)])
+    def pick_folder():
+        """A folder chosen in the Windows dialog on this computer (admin scope never comes through the tunnel)."""
+        picker = folder_picker or windows_folder_picker
+        if picker is None:
+            raise HTTPException(501, "Wybieranie folderu działa tylko na komputerze z Windows. Napisz ścieżkę w czacie.")
+        path = picker()
+        return {"path": path if path and Path(path).is_dir() else None}
+
     from .speech_model import ModelDownload
 
     model_download = ModelDownload(home / "modele-mowy")
@@ -998,7 +1051,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
-        calendar=calendar, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        calendar=calendar, onboarding=onboarding, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,

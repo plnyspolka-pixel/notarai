@@ -98,6 +98,14 @@ class Chat:
         today = self.s.calendar.upcoming(1, cases=identity.cases) if identity.scope != "listen" else []
         if today:
             blocks.append(text("Dziś: " + "; ".join(f"{e['label'].split()[-1]} {e['title']}" for e in today[:6]) + "."))
+        step = self.s.onboarding.current() if admin else None
+        if step is not None:
+            if step["number"] == 1:
+                blocks.append(text("Witaj w NotarAI. Przeprowadzę Cię przez pierwsze uruchomienie: kilka krótkich kroków, "
+                                   "każdy możesz pominąć i wrócić do niego później."))
+            offered = {say for _, say in step["actions"]}        # the guide offers it: no second button
+            blocks = [b for b in blocks if b["type"] != "buttons" or not {i["say"] for i in b["items"]} <= offered]
+            return blocks + self._guide_card(step)
         if admin:
             blocks.append(buttons(("Stan stanowiska", "stan"), ("Gdzie są dane", "gdzie są dane"), ("Dodaj telefon", "dodaj telefon"),
                                   ("Zrób kopię", "zrób kopię"), ("Kto czytał dokumenty?", "dziennik"),
@@ -120,11 +128,23 @@ class Chat:
         planned = self._calendar(identity, message, plain, case, identity.scope in {"admin", "write"})
         if planned is not None:        # before the panel: "usuń termin 2" is not a device called "termin 2"
             return planned
+        before = self.s.onboarding.current() if admin else None
         if admin:
             reply = self._admin(identity, message, plain, case)
-            if reply is not None:
-                return reply
+            if reply is None:
+                reply = self._common(identity, message, plain, case, names)
+            return reply + self._guide_progress(before)
         return self._common(identity, message, plain, case, names)
+
+    def _guide_progress(self, before) -> list[dict]:
+        """After a turn: when the step that was current is now done, say so and show the next one."""
+        if before is None or not self.s.onboarding.done(before["key"]):
+            return []
+        following = self.s.onboarding.current()
+        if following is None:
+            return [text(f"✓ {before['title']}. To był ostatni krok przewodnika: stanowisko jest gotowe. "
+                         "Listę zawsze zobaczysz, pisząc „przewodnik”.")]
+        return [text(f"✓ {before['title']}.")] + self._guide_card(following)
 
     # ------------------------------------------------------------ shared intents
     def _common(self, identity, message, plain, case, names) -> list[dict]:
@@ -619,6 +639,9 @@ class Chat:
 
     def _admin(self, identity, message, plain, case):
         s = self.s
+        guide = self._guide(identity, message, plain)
+        if guide is not None:
+            return guide
         where = self._where(identity, plain)
         if where is not None:
             return where
@@ -727,6 +750,103 @@ class Chat:
         return None
 
     # ------------------------------------------------------------ mail (this computer's own program)
+    # ------------------------------------------------------------ first-run guide (workstation only)
+    def _guide_card(self, step) -> list[dict]:
+        return [text(f"Przewodnik · krok {step['number']} z {step['of']}: {step['title']}\n{step['why']}"),
+                buttons(*step["actions"], ("Pomiń ten krok", "pomiń krok"), ("Cała lista", "przewodnik"))]
+
+    def _guide(self, identity, message, plain):
+        s = self.s
+        guide = s.onboarding
+        if plain in {"przewodnik", "pierwsze kroki", "przewodnik pierwszego uruchomienia", "konfiguracja", "onboarding",
+                     "jak zaczac", "od czego zaczac"}:
+            marks = {True: "✓", False: "○"}
+            lines = [f"{marks[st['done']]} {i}. {st['title']}" + (" (pominięty)" if st["skipped"] and not st["done"] else "")
+                     for i, st in enumerate(guide.status(), 1)]
+            step = guide.current()
+            blocks = [text("Przewodnik pierwszego uruchomienia:\n" + "\n".join(lines))]
+            if step is None:
+                missing = [st for st in guide.status() if not st["done"]]
+                return blocks + ([text("Pominięte kroki możesz zrobić teraz:"),
+                                  buttons(("Wróć do pominiętych", "przewodnik od nowa"))] if missing else
+                                 [text("Wszystko gotowe.")])
+            return blocks + self._guide_card(step)
+        if plain in {"pomin krok", "pomin", "pomin ten krok", "pozniej"}:
+            step = guide.current()
+            if step is None:
+                return [text("Przewodnik jest skończony. Napisz „przewodnik”, żeby zobaczyć listę.")]
+            guide.skip(step["key"])
+            following = guide.current()
+            return ([text(f"Pominąłem: {step['title']}. Wrócisz do tego, pisząc „przewodnik”.")]
+                    + (self._guide_card(following) if following else [text("To był ostatni krok.")]))
+        if plain in {"przewodnik od nowa", "wroc do pominietych"}:
+            guide.restart()
+            step = guide.current()
+            return self._guide_card(step) if step else [text("Wszystkie kroki są już zrobione.")]
+        # folders chosen in a Windows dialog on this computer
+        if plain in {"wybierz folder aktow", "wskaz folder aktow"}:
+            return [{"type": "pick-folder", "purpose": "akty", "label": "Wybierz folder z aktami…"},
+                    text("Albo napisz ścieżkę, np. „folder aktów D:\\Akty”.")]
+        if plain in {"wybierz folder kopii", "wskaz folder kopii", "wybierz dysk na kopie"}:
+            return [{"type": "pick-folder", "purpose": "kopie", "label": "Wybierz folder na kopie…"},
+                    text("Najlepiej inny dysk niż ten komputer (pendrive, dysk zewnętrzny, dysk sieciowy). "
+                         "Albo napisz „katalog kopii E:\\NotarAI-kopie”.")]
+        found = re.fullmatch(r"(?:folder aktow|katalog aktow|akty sa w|akty trzymamy w)\s+(.+)", plain)
+        if found:
+            path = message.split(None, 2)[-1].strip().strip("„”\"") if len(message.split()) > 2 else ""
+            if not path or not os.path.isdir(path):
+                return [text("Nie ma takiego folderu na tym komputerze.")]
+            s.update_settings(lambda d: d.update(acts_dir=path))
+            return [text(f"Folder aktów: {path}. Nauczyć się stylu kancelarii z aktów w tym folderze?"),
+                    buttons(("Tak, ucz się", f"naucz się stylu z {path}"))]
+        if plain in {"naucz sie stylu z folderu aktow", "ucz sie z folderu aktow"}:
+            folder = s.settings().acts_dir
+            if not folder:
+                return [text("Najpierw wskaż folder z aktami."), {"type": "pick-folder", "purpose": "akty",
+                                                                   "label": "Wybierz folder z aktami…"}]
+            return self._style(identity, f"naucz się stylu z {folder}", norm(f"naucz się stylu z {folder}"))
+        # activities: shown once, then done by the program
+        if plain in {"czynnosci", "czynnosci kancelarii", "moje czynnosci", "automaty"}:
+            return self._activities(identity)
+        found = re.fullmatch(r"(?:dodaj czynnosc|nowa czynnosc|robimy)\s+(.+)", plain)
+        if found:
+            guide.choose(message.split(None, 2)[-1] if plain.startswith(("dodaj", "nowa")) else message.split(None, 1)[-1])
+            return self._activities(identity)
+        found = re.fullmatch(r"(?:usun czynnosc|nie robimy)\s+(.+)", plain)
+        if found:
+            guide.drop(message.split(None, 2)[-1] if plain.startswith("usun") else message.split(None, 2)[-1])
+            return self._activities(identity)
+        if plain in {"rodzaje aktow", "jakie akty"}:
+            from .onboarding import ACT_KINDS
+
+            return [text("Wybierz rodzaj aktu do próby. Najpierw dodaj do sprawy pliki (np. odpis KW, dowody stron "
+                         "na fikcyjnych danych), potem poproś o projekt. Każdy zatwierdzony akt uczy program Waszego stylu."),
+                    buttons(*[(kind, f"przygotuj projekt: {kind.lower()}") for kind in ACT_KINDS])]
+        return None
+
+    def _activities(self, identity) -> list[dict]:
+        from .onboarding import ACTIVITIES
+        from .procedures import slug as procedure_slug
+
+        guide = self.s.onboarding
+        chosen = guide.activities()
+        learned = {p["slug"] for p in self.s.procedures.list()}
+        lines, actions = [], []
+        for name in chosen:
+            done = procedure_slug(name) in learned
+            lines.append(("✓ " if done else "○ ") + name + (" — program robi to sam" if done else " — do pokazania raz"))
+            actions.append((f"Zrób: {name}", f"wypełnij {name}") if done else (f"Pokaż raz: {name}", f"nagraj procedurę {name}"))
+        suggested = [a for a in ACTIVITIES if a not in chosen]
+        blocks = [text(("Czynności kancelarii:\n" + "\n".join(lines)) if lines else
+                       "Wybierz czynności, które robicie. Pierwszy raz zrobisz każdą sam, a program nagra ekran i Twój "
+                       "komentarz; od drugiego razu wypełni ją sam, a wyśle dopiero po Twoim zatwierdzeniu.")]
+        if actions:
+            blocks.append(buttons(*actions[:12]))
+        if suggested:
+            blocks.append(text("Dodaj czynność (albo napisz „dodaj czynność” i nazwę):"))
+            blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
+        return blocks
+
     # ------------------------------------------------------------ calendar
     def _calendar(self, identity, message, plain, case, writable):
         from .terminarz import parse_when
@@ -806,6 +926,7 @@ class Chat:
                 return [text("Na tym komputerze brakuje modułu rozpoznawania mowy. Zainstaluj NotarAI ponownie "
                              "z linku do pobrania, a potem napisz to jeszcze raz.")]
             s.update_settings(lambda d: d["speech"].update(where="lokalnie"))
+            s.onboarding.mark("dane")
             s.download_speech_model()
             return [text("Od teraz mowę przepisuje ten komputer i dźwięk nie wychodzi z kancelarii. Najpierw pobiorę "
                          "model mowy (raz, ok. 0,5 GB). Postęp widać poniżej; w tym czasie możesz normalnie pracować. "
@@ -813,6 +934,7 @@ class Chat:
                     {"type": "progress", "source": "speech/model"}]
         if plain in {"mowa we frankfurcie", "mowa w chmurze", "przepisuj we frankfurcie", "przepisuj w chmurze"}:
             s.update_settings(lambda d: d["speech"].update(where="chmura"))
+            s.onboarding.mark("dane")
             return [text("Od teraz mowę przepisuje Amazon Transcribe we Frankfurcie: dźwięk jest przesyłany "
                          "strumieniem, tekst wraca po kilku sekundach, a nagranie nie jest tam zapisywane. "
                          "Nagranie i tekst zostają tylko w sejfie na tym komputerze.")]
