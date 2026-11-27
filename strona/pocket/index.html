@@ -14,7 +14,7 @@
 </head>
 <body data-mode="pocket">
   <header>
-    <h1>NotarAI Pocket</h1>
+    <h1><img src="pocket-icon.svg" alt="" width="28" height="28"> NotarAI Pocket</h1>
     <div id="bar" hidden>
       <label for="case" class="sr">Sprawa</label>
       <select id="case"></select>
@@ -42,6 +42,21 @@
       włączone na ładowarce. Nie ma dostępu do dokumentów.</p>
   </section>
   <main id="workspace" hidden>
+    <aside id="side" aria-label="Kalendarz i sprawy">
+      <section class="side-box">
+        <h2>Kalendarz</h2>
+        <ul id="agenda" class="agenda"></ul>
+        <button id="agenda-add" class="quiet small">+ Dodaj termin</button>
+      </section>
+      <section class="side-box">
+        <h2>Sprawy</h2>
+        <ul id="case-list" class="case-list"></ul>
+      </section>
+      <section class="side-box" id="shortcuts">
+        <h2>Na skróty</h2>
+      </section>
+    </aside>
+    <div id="center">
     <section id="desk" hidden aria-label="Moje kafelki">
       <div id="tiles"></div>
       <div class="row">
@@ -84,13 +99,15 @@
       <div id="chips"></div>
       <div class="row tight">
         <label for="file" class="sr">Dodaj plik do sprawy</label>
-        <input id="file" type="file" hidden>
-        <button id="attach" class="quiet" title="Dodaj plik do sprawy" aria-label="Dodaj plik do sprawy">＋</button>
+        <input id="file" type="file" multiple hidden>
+        <button id="attach" class="quiet" title="Dodaj pliki (możesz je też przeciągnąć albo wkleić)" aria-label="Dodaj pliki">📎</button>
         <button id="voice" class="quiet" title="Notatka głosowa" aria-label="Nagraj notatkę głosową">🎤</button>
         <label for="prompt" class="sr">Napisz polecenie albo pytanie</label>
-        <textarea id="prompt" rows="1" placeholder="Napisz, co mam zrobić…"></textarea>
+        <textarea id="prompt" rows="1" placeholder="Napisz albo dodaj plik…"></textarea>
         <button id="send" class="primary">Wyślij</button>
       </div>
+    </div>
+    <div id="drop-hint" aria-hidden="true">Upuść pliki, dodam je do sprawy</div>
     </div>
   </main>
   <p id="status" role="status"></p>

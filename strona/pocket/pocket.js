@@ -57,6 +57,7 @@ async function call(path, method = "GET", data) {
           // Messages written for the notary are Polish sentences; protocol errors stay generic.
           : (/[ąćęłńóśźż .]/i.test(detail) && detail.length > 20 ? detail : "Nie udało się wykonać operacji (HTTP " + code + ")."));
     error.challenge = body && body.challenge;
+    error.code = code;
     throw error;
   }
   return body;
@@ -396,6 +397,47 @@ function changed(a, b) {
   return total / a.length > 2;
 }
 
+async function refreshAgenda() {
+  let items = [];
+  try { items = (await call("calendar?days=14")).items; } catch { return; }
+  const list = el("agenda");
+  if (!items.length) {
+    list.replaceChildren(node("li", "muted", "Brak terminów w najbliższych dwóch tygodniach."));
+    return;
+  }
+  list.replaceChildren(...items.slice(0, 12).map(entry => {
+    const item = node("li", entry.source === "rozmowa" ? "check" : "");
+    const [day, hour] = [entry.label.split(" ").slice(0, -1).join(" "), entry.label.split(" ").slice(-1)[0]];
+    item.append(node("span", "when", day + " " + hour), node("span", "what", entry.title + (entry.case ? " · " + entry.case : "")));
+    return item;
+  }));
+}
+render.calendar = () => refreshAgenda();
+setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
+
+render.progress = block => {
+  // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
+  const card = node("div", "card them progress");
+  const bar = node("progress");
+  bar.max = 100;
+  const line = node("p", "muted", "Sprawdzam…");
+  card.append(line, bar);
+  el("messages").append(card);
+  card.scrollIntoView({ block: "end" });
+  (async () => {
+    for (let attempt = 0; attempt < 2400 && card.isConnected; attempt++) {
+      try {
+        const now = await call(block.source);
+        line.textContent = now.text;
+        bar.value = now.percent;
+        bar.hidden = now.state === "brak" || now.state === "blad";
+        if (["gotowy", "blad", "brak"].includes(now.state)) return;
+      } catch { line.textContent = "Nie mogę sprawdzić postępu. Spróbuję za chwilę."; }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  })();
+};
+
 render.record = block => {
   const card = node("div", "card them");
   const name = node("input");
@@ -628,6 +670,13 @@ async function send(sentence, shown) {
   await exchange({ text });
 }
 
+function shortcuts() {
+  const items = [["Co mam dziś", "co mam dziś"], ["Poczta", "poczta"], ["Dokumenty", "dokumenty"]];
+  if (admin) items.push(["Gdzie są dane", "gdzie są dane"], ["Stan stanowiska", "stan"], ["Dodaj telefon", "dodaj telefon"]);
+  items.push(["Co umiesz?", "pomoc"]);
+  el("shortcuts").replaceChildren(node("h2", "", "Na skróty"), ...items.map(([label, sentence]) => sayButton(label, sentence)));
+}
+
 function chips() {
   const items = admin
     ? [["Stan", "stan"], ["Dodaj telefon", "dodaj telefon"], ["Zrób kopię", "zrób kopię"], ["Dziennik", "dziennik"], ["Dokumenty", "dokumenty"], ["Narzędzia", "narzędzia"], ["Pomoc", "pomoc"]]
@@ -831,6 +880,40 @@ async function saveFile(input, current) {
   if (!current) bubble("Dodałem " + file.name + (currentCase() ? " do sprawy „" + currentCase() + "”." : "."), "them");
 }
 
+// Files dropped, pasted or picked go straight into the conversation: saved in the vault (in the chosen
+// case), recordings transcribed, documents offered for a summary or a check at once.
+const READABLE = /\.(docx|pdf|txt|eml)$/i;
+
+async function attachFiles(files) {
+  files = Array.from(files || []);
+  if (!files.length) return;
+  if (scope === "read") throw new Error("To urządzenie ma dostęp tylko do odczytu.");
+  for (const file of files) {
+    if (file.size > maxBytes) {
+      bubble(file.name + ": limit rozmiaru pliku to 20 MiB.", "them");
+      continue;
+    }
+    const name = file.name && file.name !== "image.png" ? file.name
+      : "wklejony-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + "." + ((file.type.split("/")[1] || "bin").replace("jpeg", "jpg"));
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (AUDIO.test(name)) {
+      bubble("🎤 " + name, "me");
+      await sendVoice(bytes, name);
+      continue;
+    }
+    bubble("📎 " + name, "me");
+    const result = await call("documents", "POST", { id: null, expected_version: 0, name, content_b64: encode(bytes), case: currentCase() });
+    render.documents({ items: [{ id: result.id, name, version: result.version }] });
+    bubble("Zapisałem " + name + (currentCase() ? " w sprawie „" + currentCase() + "”." : " w sejfie (bez sprawy).")
+      + (READABLE.test(name) ? " Co z nim zrobić?" : ""), "them");
+    if (READABLE.test(name)) {
+      render.buttons({ items: [{ label: "Streść", say: "streść " + name }, { label: "Sprawdź błędy", say: "sprawdź " + name },
+                               { label: "Otwórz", say: "otwórz " + name }] });
+    }
+  }
+  status(files.length === 1 ? "Plik dodany." : "Dodano pliki: " + files.length + ".");
+}
+
 // ---------------------------------------------------------------- microphone mode
 const SEGMENT_MS = window.NOTARAI_SEGMENT_MS || 20000;     // short pieces: a lost one loses little
 const QUIET = 0.02;                                         // below this the piece is silence and is not sent
@@ -931,21 +1014,39 @@ async function refreshCases(keep) {
   if (keep && !cases.includes(keep)) options.push(new Option(keep, keep));
   el("case").replaceChildren(...options);
   if (keep) el("case").value = keep;
+  // The side list on a wide screen: one click switches the case.
+  el("case-list").replaceChildren(...options.map(option => {
+    const item = node("li");
+    const button = node("button", option.value === el("case").value ? "current" : "", option.text);
+    button.onclick = () => {
+      el("case").value = option.value;
+      el("case").dispatchEvent(new Event("change"));
+      for (const other of el("case-list").querySelectorAll("button")) other.classList.toggle("current", other === button);
+    };
+    item.append(button);
+    return item;
+  }));
   el("mode").textContent = state.mode === "synthetic-only"
     ? "Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów."
     : "Dokumenty są przechowywane na komputerze kancelarii.";
 }
 
-// A refresh must not log out: the session lives as long as this window (sessionStorage), never longer.
+// Pairing is done once. A paired device stays connected across refreshes and restarts (localStorage)
+// until "Rozłącz" or until the office revokes it. The office panel itself keeps its session only as long
+// as its window (sessionStorage): the desktop icon opens it again without any code.
+function sessionStore() {
+  return admin ? sessionStorage : localStorage;
+}
+
 function remember(device) {
   try {
-    if (device) sessionStorage.setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
-    else sessionStorage.removeItem("notarai-session");
+    if (device) sessionStore().setItem("notarai-session", JSON.stringify({ token: device.token, scope: device.scope }));
+    else sessionStore().removeItem("notarai-session");
   } catch { /* private mode or blocked storage: the session simply ends with a refresh */ }
 }
 
 function remembered() {
-  try { return JSON.parse(sessionStorage.getItem("notarai-session") || "null"); } catch { return null; }
+  try { return JSON.parse(sessionStore().getItem("notarai-session") || "null"); } catch { return null; }
 }
 
 async function enter(device) {
@@ -964,6 +1065,8 @@ async function enter(device) {
   el("voice").hidden = scope === "read" || !(navigator.mediaDevices && window.MediaRecorder);
   el("messages").replaceChildren();
   chips();
+  shortcuts();
+  refreshAgenda();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
   await refreshCases();
   layout = await call("layout");
@@ -1021,13 +1124,21 @@ async function start() {
   const saved = remembered();
   if (saved && saved.token) {
     token = saved.token;
-    try {
-      await call("status");
-      await enter(saved);
-      return;
-    } catch {
-      token = "";
-      remember(null);
+    // The office computer may still be starting: wait for it instead of forgetting the pairing.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await call("status");
+        await enter(saved);
+        return;
+      } catch (error) {
+        if (error.code === 401 || error.code === 403 || attempt >= 20) {
+          token = "";
+          if (error.code === 401 || error.code === 403) remember(null);
+          break;
+        }
+        status("Czekam na komputer kancelarii…");
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
     }
   }
   if (admin) {
@@ -1076,7 +1187,40 @@ el("case").onchange = run(async () => {
   await exchange({ text: "dokumenty" });
 });
 el("attach").onclick = () => el("file").click();
-el("file").onchange = run(() => saveFile("file", null));
+el("file").onchange = run(async () => {
+  const files = Array.from(el("file").files);
+  el("file").value = "";
+  if (mayDiscard()) await attachFiles(files);
+});
+// Drag files anywhere onto the conversation, or paste them (Ctrl+V) into the message box.
+let dragDepth = 0;
+el("workspace").addEventListener("dragenter", event => {
+  if (![...event.dataTransfer.types].includes("Files")) return;
+  event.preventDefault();
+  dragDepth++;
+  el("workspace").classList.add("dropping");
+});
+el("workspace").addEventListener("dragover", event => {
+  if ([...event.dataTransfer.types].includes("Files")) event.preventDefault();
+});
+el("workspace").addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) el("workspace").classList.remove("dropping");
+});
+el("workspace").addEventListener("drop", event => {
+  if (!event.dataTransfer.files.length) return;
+  event.preventDefault();
+  dragDepth = 0;
+  el("workspace").classList.remove("dropping");
+  run(() => attachFiles(event.dataTransfer.files))();
+});
+el("prompt").addEventListener("paste", event => {
+  const files = event.clipboardData && event.clipboardData.files;
+  if (files && files.length) {
+    event.preventDefault();
+    run(() => attachFiles(files))();
+  }
+});
 el("logout").onclick = run(async () => {
   if (!mayDiscard()) return;
   if (tunnel) {
@@ -1088,6 +1232,7 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
+el("agenda-add").onclick = run(() => send("dodaj termin", "Dodaj termin"));
 el("arrange").onclick = () => { arranging = !arranging; drawTiles(); };
 el("add-tile").onclick = run(() => send("narzędzia", "Dodaj narzędzie"));
 el("hide-tiles").onclick = run(() => send("ukryj kafelki", "Schowaj kafelki"));
