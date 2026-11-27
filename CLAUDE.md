@@ -136,6 +136,11 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   przed wysłaniem, wysłanie/złożenie/podpis/zapłata/usunięcie tylko gdy zdanie notariusza o to prosi (inaczej
   „Tak / Nie”), każda taka czynność raz. Model dostaje wyłącznie tekst (po pseudonimizacji), bez zrzutów ekranu.
   Tylko okno stanowiska (zakres admin), nie telefon.
+- Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
+  notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
+  zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia
+  osób (sprawy, kalendarz, poczta, wnioski/agent, zatwierdzanie, ustawienia) leżą w sejfie kancelarii
+  i sprawdza je kod przy każdym zapisie i wysyłce; domyślnie wszystko poza kontami i uprawnieniami.
 - Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
   ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
   zasady, którego kod nie umie sprawdzić.

@@ -232,6 +232,9 @@ class Chat:
         serviced = self._service(identity, message, plain)
         if serviced is not None:
             return serviced
+        people = self._team(identity, message, plain)
+        if people is not None:
+            return people
         together = self._office(identity, message, plain, case)
         if together is not None:
             return together
@@ -256,6 +259,7 @@ class Chat:
     def _computer(self, identity, task: str, *, allowed=frozenset(), history=None) -> list[dict]:
         if identity.scope != "admin":
             return [text("Na komputerze kancelarii działam z okna NotarAI na tym komputerze.")]
+        self.s.need("wnioski")
         if not self.s.ai_ready():
             return [text("Żeby działać na komputerze, potrzebuję asystenta AI: zaloguj stanowisko."),
                     buttons(("Zaloguj", "zaloguj"))]
@@ -279,6 +283,77 @@ class Chat:
         return [self._confirm(identity, question, "Tak, zrób to",
                               lambda: self._computer(identity, task, allowed={stopped["kind"]}, history=stopped["history"]),
                               explicit=False)]
+
+    # ------------------------------------------------------------ people of the office (owner's decision 27.11.2026)
+    def _team(self, identity, message, plain):
+        from .team import EMAIL, PERMISSIONS, TeamError, permission_of
+
+        words = ("konta", "osoby", "zespol", "osoby w kancelarii", "konta osob", "uzytkownicy", "loginy", "pracownicy",
+                 "kto ma dostep", "uprawnienia")
+        found = EMAIL.search(message)
+        email = found.group(0).lower() if found else None
+        listing = plain in words
+        adding = re.match(r"(dodaj|zaloz|utworz|nadaj) (osobe|konto|login|uzytkownika|pracownika|sekretariat)", plain)
+        blocking = re.match(r"(zablokuj|odbierz dostep|wylacz konto|usun konto)", plain)
+        unblocking = re.match(r"(odblokuj|przywroc dostep|wlacz konto)", plain)
+        grant = re.search(r"\b(nie )?moze\b(.*)", plain) if email else None
+        changing = re.match(r"(odbierz|zabierz|nadaj|daj|przywroc)\b(.*)", plain) if email and not (adding or blocking or unblocking) else None
+        asking = email and re.match(r"uprawnienia\b", plain)
+        if not (listing or (email and (adding or blocking or unblocking or grant or changing or asking))):
+            return None
+        if identity.scope != "admin":
+            return [text("Kontami osób zarządza się na komputerze kancelarii.")]
+        team = self.s.team
+        try:
+            who = team.whoami(fresh=True)
+            if listing or asking:
+                people = team.people() if listing else [{"email": email, "notariusz": False, "aktywne": True}]
+                lines = []
+                for person in people:
+                    if person["notariusz"]:
+                        lines.append(f"• {person['email']}: notariusz, wszystkie uprawnienia")
+                        continue
+                    allowed = team.permissions(person["email"])
+                    missing = [PERMISSIONS[k][0] for k, v in allowed.items() if not v]
+                    lines.append(f"• {person['email']}" + ("" if person["aktywne"] else " (zablokowane)") + ": "
+                                 + ("wszystko poza kontami i uprawnieniami" if not missing else "bez: " + ", ".join(missing)))
+                blocks = [text("Osoby kancelarii:\n" + ("\n".join(lines) or "Brak."))]
+                if who["notariusz"]:
+                    blocks.append(text("Zmieniasz zdaniem, np. „dodaj osobę ania@kancelaria.pl”, „ania@kancelaria.pl nie może "
+                                       "wysyłać poczty”, „zablokuj ania@kancelaria.pl”."))
+                return blocks
+            if not who["notariusz"]:
+                return [text("Konta i uprawnienia osób zmienia tylko notariusz.")]
+            if email == who["email"]:
+                return [text("Swojego konta notariusza nie zmieniasz z aplikacji.")]
+            if adding:
+                created = team.add(email)
+                self.s.vault.log(identity.id, "konto-dodane")
+                return [text((f"Założyłem konto {email}. Na ten adres przyszedł e-mail z hasłem tymczasowym. "
+                              if created else f"Konto {email} ma teraz dostęp do NotarAI 2. ")
+                             + "Na komputerze tej osoby: „zaloguj”, adres i hasło z maila; program poprosi o własne hasło. "
+                             "Może wszystko poza kontami i uprawnieniami; ograniczysz to zdaniem, np. "
+                             f"„{email} nie może wysyłać poczty”.")]
+            if blocking:
+                team.block(email)
+                self.s.vault.log(identity.id, "konto-zablokowane")
+                return [text(f"Zablokowałem {email}: wylogowane ze wszystkich stanowisk, nie zaloguje się, "
+                             f"dopóki nie napiszesz „odblokuj {email}”.")]
+            if unblocking:
+                team.unblock(email)
+                self.s.vault.log(identity.id, "konto-odblokowane")
+                return [text(f"Odblokowałem {email}.")]
+            if grant:
+                key, allowed = permission_of(grant.group(2)), grant.group(1) is None
+            else:
+                key, allowed = permission_of(changing.group(2)), changing.group(1) in {"nadaj", "daj", "przywroc"}
+            if key is None:
+                return [text("Którego uprawnienia? " + "; ".join(v[0] for v in PERMISSIONS.values()) + ".")]
+            team.set_permission(email, key, allowed, identity.id)
+            return [text(f"{email} {'może' if allowed else 'nie może'} teraz: {PERMISSIONS[key][0]}. "
+                         "Obowiązuje na wszystkich stanowiskach kancelarii.")]
+        except TeamError as error:
+            return [text(str(error))]
 
     def _guide_progress(self, before) -> list[dict]:
         """After a turn: when the step that was current is now done, say so and show the next one."""
@@ -987,8 +1062,8 @@ class Chat:
             return [text("1. Na komputerze, na którym NotarAI już działa, napisz „połącz drugie stanowisko”.\n"
                          "2. Pokaże się zdanie z kodem, np. „dołącz do kancelarii 192.168.1.20:47321 ABCD…”.\n"
                          "3. Przepisz je tutaj (kod działa 10 minut, oba komputery w tej samej sieci).\n"
-                         "Zaloguj się tu kontem osoby, która pracuje przy tym komputerze; to samo konto co na pierwszym "
-                         "stanowisku też zadziała.")]
+                         "Zaloguj się tu kontem osoby, która pracuje przy tym komputerze. Konto zakłada notariusz na "
+                         "swoim stanowisku zdaniem „dodaj osobę adres@e-mail”; ta osoba dostanie e-mail z hasłem.")]
         if plain in {"pomin krok", "pomin", "pomin ten krok", "pozniej"}:
             step = guide.current()
             if step is None:

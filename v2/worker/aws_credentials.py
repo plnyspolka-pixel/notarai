@@ -66,6 +66,7 @@ class Account:
         self._identity = unsigned_factory("cognito-identity", config.region)
         self._lock = threading.Lock()
         self._id_token: str | None = None
+        self._access_token: str | None = None
         self._id_expires = 0.0
         self._credentials: dict | None = None
         self._identity_id = ""
@@ -101,6 +102,7 @@ class Account:
                 )
             result = response["AuthenticationResult"]
             refresh, id_token = result["RefreshToken"], result["IdToken"]
+            access = result.get("AccessToken")
         except LoginError:
             raise
         except Exception:
@@ -109,6 +111,7 @@ class Account:
         store_secret(self._home, REFRESH_SECRET, refresh.encode())
         with self._lock:
             self._id_token, self._id_expires, self._credentials = id_token, _expiry(id_token), None
+            self._access_token = access
 
     def logout(self) -> None:
         with self._lock:
@@ -137,12 +140,33 @@ class Account:
         if result.get("RefreshToken"):  # pools with refresh-token rotation
             store_secret(self._home, REFRESH_SECRET, result["RefreshToken"].encode())
         self._id_token, self._id_expires = result["IdToken"], _expiry(result["IdToken"])
+        self._access_token = result.get("AccessToken")
         return self._id_token
 
     def id_token(self) -> str:
         """The signed-in person's ID token (about an hour), for the office's web API (calendar sync)."""
         with self._lock:
             return self._fresh_id_token()
+
+    def access_token(self) -> str:
+        """The signed-in person's access token: the office's account function checks it with Cognito itself."""
+        with self._lock:
+            self._fresh_id_token()
+            if not self._access_token:
+                self._id_token = None                 # force a refresh that returns one
+                self._fresh_id_token()
+            return self._access_token or ""
+
+    def email(self) -> str:
+        """Who is signed in on this station (from the ID token; empty when nobody is)."""
+        import base64
+        import json as _json
+        try:
+            payload = self.id_token().split(".")[1]
+            claims = _json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            return str(claims.get("email", "")).lower()
+        except Exception:
+            return ""
 
     def credentials(self) -> dict:
         """AWS credentials valid for at least five more minutes."""
