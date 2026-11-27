@@ -65,6 +65,12 @@ SLIDES = [
              "rozmowy z klientami i telefony notatkami z terminem i kontaktem. Dźwięk nie jest przechowywany.",
      "you": "notatki z rozmów", "notarai": "Rozmowa telefoniczna 10:12: klient prosi o przesunięcie aktu na wtorek…",
      "try": "nasłuch"},
+    {"icon": "learn", "title": "Tryb uczenia",
+     "text": "Program uczy się Twojej pracy: z poprawek w projektach aktów, z poprawek po dyktowaniu, z Twoich "
+             "odpowiedzi na maile i z poleceń „zapamiętaj: …” albo „to było źle: …”. Każdą nową lekcję pokazuje od razu, "
+             "całą listę widzisz pod przyciskiem 📘 u góry i możesz z niej usunąć wszystko. Nazwiska i liczby są wycinane.",
+     "you": "zapamiętaj: akty podpisujemy w gabinecie nr 2", "notarai": "📘 Zapamiętałem: akty podpisujemy w gabinecie nr 2",
+     "try": "tryb uczenia"},
     {"icon": "rules", "title": "Twarde zasady kancelarii",
      "text": "Zasady wpisane zdaniem pilnuje kod przy każdym zapisie i wysyłce, nie da się ich obejść poleceniem.",
      "you": "zasada: każdy akt musi zawierać „Notariusz pouczył strony”", "notarai": "Dodałem zasadę nr 1. Sprawdzam ją przy każdym zapisie.",

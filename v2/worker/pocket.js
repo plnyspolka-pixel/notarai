@@ -359,6 +359,7 @@ const render = {
       bubble("Zatwierdzam i zapisuję", "me");
       bubble("Zapisałem " + result.name + " jako wersję " + result.version + " i potwierdziłem odczytem kontrolnym.", "them");
       render.documents({ items: [{ id: result.id, name: result.name, version: result.version }] });
+      showLearned(result.learned);
       status("Zapisano " + result.name + " jako wersję " + result.version + " i potwierdzono odczytem kontrolnym.");
     });
     discard.onclick = run(async () => {
@@ -555,6 +556,7 @@ const ICONS = {
   phone: '<rect x="20" y="6" width="24" height="52" rx="5"/><path d="M28 50h8"/>',
   ear: '<path d="M22 26a12 12 0 1 1 24 0c0 8-8 10-8 18a8 8 0 0 1-14 4"/><path d="M28 26a6 6 0 0 1 12 0"/>',
   rules: '<path d="M14 10h36v44H14z"/><path d="M22 22h4M30 22h12M22 32h4M30 32h12M22 42h4M30 42h12"/>',
+  learn: '<path d="M8 20l24-10 24 10-24 10z"/><path d="M18 25v12c0 4 6 8 14 8s14-4 14-8V25M56 20v14"/>',
   shield: '<path d="M32 6l22 8v16c0 14-10 24-22 28C20 54 10 44 10 30V14z"/><path d="M22 32l7 7 13-14"/>',
 };
 
@@ -647,8 +649,10 @@ render.reply = block => {
   const open = node("button", "primary", "Otwórz w " + (block.program === "Outlook" ? "Outlooku" : block.program === "Thunderbird" ? "Thunderbirdzie" : "programie pocztowym"));
   open.onclick = run(async () => {
     if (!body.value.trim()) throw new Error("Odpowiedź jest pusta.");
-    const answer = await call("mail/compose", "POST", { n: block.n, to: to.value, subject: subject.value, body: body.value });
+    const answer = await call("mail/compose", "POST", { n: block.n, to: to.value, subject: subject.value, body: body.value,
+                                                       draft: block.body });
     bubble(answer.detail, "them");
+    showLearned(answer.learned);
     status(answer.detail);
   });
   const row = node("div", "row");
@@ -676,6 +680,29 @@ render.job = block => {
     waiting.textContent = "To trwa wyjątkowo długo. Wynik znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
   })();
 };
+
+// ---------------------------------------------------------------- learning mode: always visible
+function showLearned(lessons) {
+  if (!lessons || !lessons.length) return;
+  const card = node("div", "card them learned-now");
+  card.append(node("strong", "", "📘 Tryb uczenia: zapamiętałem"));
+  const list = node("ul");
+  for (const lesson of lessons) list.append(node("li", "", lesson));
+  card.append(list, node("p", "muted", "Napisz „czego się nauczyłeś”, żeby zobaczyć wszystko albo coś usunąć."));
+  show(card);
+  refreshLearning();
+}
+
+async function refreshLearning() {
+  let state;
+  try { state = await call("learning"); } catch { return; }
+  const badge = el("learning");
+  badge.hidden = false;
+  badge.textContent = (state.enabled ? "📘 Tryb uczenia · " + state.total : "Tryb uczenia wyłączony");
+  badge.classList.toggle("off", !state.enabled);
+  badge.title = state.enabled ? "Uczę się z Twoich poprawek. Kliknij, żeby zobaczyć lekcje." : "Kliknij, żeby zobaczyć tryb uczenia.";
+}
+render.learning = () => refreshLearning();
 
 render.progress = block => {
   // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
@@ -927,6 +954,13 @@ async function exchange(turn) {
 async function send(sentence, shown) {
   const text = sentence.trim();
   if (!text) return;
+  const heard = el("prompt").dataset.heard;
+  if (heard) {
+    delete el("prompt").dataset.heard;
+    if (heard.trim() && !text.includes(heard.trim()) && scope !== "read") {
+      call("learning/dictation", "POST", { heard, final: text }).then(r => showLearned(r.learned)).catch(() => {});
+    }
+  }
   bubble(shown || text, "me");
   status("");
   await exchange({ text });
@@ -1194,6 +1228,7 @@ async function stopDictation(mode) {
   status("Kończę przepisywanie…");
   await pushPiece(state, true);
   status(state.target.value.trim() ? "Gotowe. Popraw tekst, jeśli trzeba." : "Nie usłyszałem słów. Spróbuj jeszcze raz.");
+  state.target.dataset.heard = state.text;          // compared with what is finally sent: learning mode
   if (state.target !== el("prompt")) {
     state.target.focus();
     return;
@@ -1423,6 +1458,7 @@ async function enter(device) {
   chips();
   shortcuts();
   refreshAgenda();
+  if (scope !== "listen") refreshLearning();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
   await refreshCases();
   layout = await call("layout");
@@ -1589,6 +1625,7 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
+el("learning").onclick = run(() => send("tryb uczenia", "Tryb uczenia"));
 el("agenda-add").onclick = () => {
   // A chosen day is written in already: only the hour and what remain to say or type.
   const [y, m, d] = (cal.day || "").split("-");

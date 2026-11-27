@@ -205,7 +205,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from .style import Style
 
     style = Style(vault)
-    drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules, style=style)
+    from .learning import Learning
+
+    learning = Learning(vault, lambda: state["settings"].learn)
+    drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules, style=style, learning=learning)
     redeem_throttle = _Throttle()
     workcopies = WorkCopies(home, vault, opener, rules=rules) if opener else WorkCopies(home, vault, rules=rules)
     mode = "local" if settings.ai.real_data_approved else "synthetic-only"
@@ -721,13 +724,21 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/drafts/{draft_id}/approve")
     def draft_approve(draft_id: str, req: Approval, identity: Identity = Depends(writable)):
+        proposed = drafts.get(draft_id, identity.id)
         result = drafts.approve(
             draft_id, identity.id, req.name, paragraphs=req.paragraphs,
             base=req.base.model_dump() if req.base else None,
             template=req.template.model_dump() if req.template else None,
         )
         onboarding.mark("akt")        # the first whole act: a step of the first-run guide
-        return result
+        learned = []
+        if req.paragraphs is not None:
+            try:
+                learned = learning.from_draft(proposed.paragraphs, req.paragraphs, vault.parties(proposed.case),
+                                              kind=proposed.instruction[:60])
+            except Exception:
+                learned = []           # learning never stands in the way of saving
+        return {**result, "learned": [l["text"] for l in learned]} if isinstance(result, dict) else result
 
     @app.delete("/v2/drafts/{draft_id}")
     def draft_discard(draft_id: str, identity: Identity = Depends(writable)):
@@ -912,7 +923,19 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if piece.end:
             dictation.finish()
             dictation.done.wait(20)        # the last words arrive shortly after the end
-        return {"text": dictation.text(), "done": dictation.done.is_set(), "error": dictation.error}
+        return {"text": learning.apply_dictation(dictation.text()), "done": dictation.done.is_set(), "error": dictation.error}
+
+    class Corrected(BaseModel):
+        heard: str = Field(max_length=20_000)
+        final: str = Field(max_length=20_000)
+
+    @app.post("/v2/learning/dictation")
+    def learning_dictation(req: Corrected, identity: Identity = Depends(writable)):
+        return {"learned": [l["text"] for l in learning.from_dictation(req.heard, req.final)]}
+
+    @app.get("/v2/learning")
+    def learning_state(identity: Identity = Depends(auth)):
+        return learning.summary()
 
     @app.delete("/v2/dictation/{ident}")
     def dictation_cancel(ident: str, identity: Identity = Depends(auth)):
@@ -1204,7 +1227,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     chat = Chat(SimpleNamespace(
         layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
         rules=rules, style=style, listening=lambda: app.state.listening,
-        general=lambda question, names: drafts.general(question, names),
+        general=lambda question, names, mail=False: drafts.general(question, names, mail=mail),
+        learning=learning,
         status_listen=lambda: state["settings"].listen.model_dump(),
         can_transcribe=lambda: speech_available(),
         transcribes=lambda: speech_available(),
@@ -1234,6 +1258,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         to: str = Field(default="", max_length=500)
         subject: str = Field(default="", max_length=300)
         body: str = Field(default="", max_length=50_000)
+        draft: str = Field(default="", max_length=50_000)       # what the assistant proposed, to learn from edits
 
     @app.post("/v2/mail/compose", dependencies=[Depends(admin)])
     def mail_compose(req: Compose, identity: Identity = Depends(admin)):
@@ -1247,7 +1272,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         except mail_module.MailError as error:
             raise HTTPException(409, str(error))
         vault.log(identity.id, "mail-compose")
-        return {"detail": f"Otworzyłem gotową wiadomość w {where}. Sprawdź ją tam i kliknij Wyślij."}
+        learned = learning.from_reply(req.body, [original.sender] if original and original.sender else [])
+        return {"detail": f"Otworzyłem gotową wiadomość w {where}. Sprawdź ją tam i kliknij Wyślij.",
+                "learned": [l["text"] for l in learned]}
 
     from .registers import RegisterError
 

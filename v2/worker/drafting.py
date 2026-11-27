@@ -90,12 +90,14 @@ def pdf_text(data: bytes) -> str:
 
 
 class Drafts:
-    def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession, rules=None, style=None):
+    def __init__(self, vault: Vault, inference: Inference, connect: ConnectSession, rules=None, style=None,
+                 learning=None):
         # `inference` may be a callable so the worker can swap it when settings change.
         self._vault, self._source, self._connect = vault, inference, connect
         self._rules, self._style = rules, style
         self._proposals: dict[str, Proposal] = {}
         self._lock = threading.Lock()
+        self._learning = learning
 
     @property
     def _inference(self) -> Inference:
@@ -158,15 +160,18 @@ class Drafts:
         context, sources, skipped = self._context(case, actor, only=document)
         answer = self._inference.ask(
             purpose="chat", system=SYSTEM_CHAT, names=names, max_tokens=2048,
-            text=f"{context}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",
+            text=f"{context}{self._learned()}\n\n=== PYTANIE NOTARIUSZA ===\n{question}",
         )
         return {"answer": answer.text, "sources": sources, "skipped": skipped,
                 "unknown_placeholders": list(answer.unknown_placeholders)}
 
-    def general(self, question: str, names=()) -> dict:
+    def _learned(self, purpose: str = "wiedza") -> str:
+        return self._learning.guidance(purpose) if self._learning is not None else ""
+
+    def general(self, question: str, names=(), mail: bool = False) -> dict:
         """A question with no case chosen: the assistant answers from general knowledge, reading no documents."""
         answer = self._inference.ask(purpose="chat", system=SYSTEM_GENERAL, names=list(names), max_tokens=2048,
-                                     text=question)
+                                     text=question + self._learned("mail" if mail else "wiedza"))
         return {"answer": answer.text, "unknown_placeholders": list(answer.unknown_placeholders)}
 
     def propose(self, case: str, instruction: str, actor: str, names=()) -> Proposal:
@@ -175,6 +180,8 @@ class Drafts:
         guidance = ""
         if self._style is not None:
             guidance += self._style.guidance(instruction)
+        if self._learning is not None:
+            guidance += self._learning.guidance("akt")
         if self._rules is not None:
             required = self._rules.required_wording(instruction)
             if required:

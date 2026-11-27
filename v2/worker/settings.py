@@ -95,6 +95,7 @@ class Settings(_Strict):
     listen: ListenSettings = ListenSettings()
     backup_dir: str | None = None
     acts_dir: str | None = Field(default=None, max_length=400)     # where the office keeps its acts
+    learn: bool = True                                             # learning mode, visible in the window
     backup_reminder_days: int = Field(default=7, ge=1, le=90)
 
     def account_config(self) -> AccountConfig | None:

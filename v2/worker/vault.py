@@ -70,6 +70,8 @@ class Vault:
             db.execute("CREATE TABLE IF NOT EXISTS case_notes (case_id TEXT PRIMARY KEY, parties BLOB NOT NULL)")
             # The office calendar, one encrypted entry per appointment; added later, like case_notes.
             db.execute("CREATE TABLE IF NOT EXISTS calendar (id TEXT PRIMARY KEY, entry BLOB NOT NULL)")
+            # What learning mode has learned (lessons), encrypted like the calendar.
+            db.execute("CREATE TABLE IF NOT EXISTS lessons (id TEXT PRIMARY KEY, entry BLOB NOT NULL)")
 
     def _set_key(self, key: bytes) -> None:
         self._kek = AESGCM(derive(key, "kek"))
@@ -160,6 +162,8 @@ class Vault:
                      for case, blob in db.execute("SELECT case_id, parties FROM case_notes").fetchall()]
             entries = [(ident, _open(self._notes, blob, _aad("calendar", ident)))
                        for ident, blob in db.execute("SELECT id, entry FROM calendar").fetchall()]
+            lessons = [(ident, _open(self._notes, blob, _aad("lesson", ident)))
+                       for ident, blob in db.execute("SELECT id, entry FROM lessons").fetchall()]
             self._verify_audit(db)
             self._set_key(new_key)
             for case, plain in notes:
@@ -167,6 +171,8 @@ class Vault:
                            (_seal(self._notes, plain, _aad("parties", case)), case))
             for ident, plain in entries:
                 db.execute("UPDATE calendar SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("calendar", ident)), ident))
+            for ident, plain in lessons:
+                db.execute("UPDATE lessons SET entry=? WHERE id=?", (_seal(self._notes, plain, _aad("lesson", ident)), ident))
             previous = b""
             for row in db.execute("SELECT seq, ts, actor, action, doc_id, version FROM audit ORDER BY seq").fetchall():
                 previous = self._mac(previous, row)
@@ -344,6 +350,24 @@ class Vault:
         with self._ro() as db:
             rows = db.execute("SELECT id, entry FROM calendar").fetchall()
         return [{"id": ident, **json.loads(_open(self._notes, blob, _aad("calendar", ident)))} for ident, blob in rows]
+
+    # ------------------------------------------------------------ lessons (learning mode)
+    def lesson_put(self, ident: str, entry: dict) -> None:
+        blob = _seal(self._notes, json.dumps(entry, ensure_ascii=False).encode(), _aad("lesson", ident))
+        with self._tx() as db:
+            db.execute("INSERT INTO lessons VALUES (?,?) ON CONFLICT(id) DO UPDATE SET entry=excluded.entry", (ident, blob))
+
+    def lesson_delete(self, ident: str, *, actor="local-admin") -> bool:
+        with self._tx() as db:
+            gone = db.execute("DELETE FROM lessons WHERE id=?", (ident,)).rowcount
+            if gone:
+                self._log(db, actor, "lesson-delete", None, None)
+        return bool(gone)
+
+    def lessons(self):
+        with self._ro() as db:
+            rows = db.execute("SELECT id, entry FROM lessons").fetchall()
+        return [{"id": ident, **json.loads(_open(self._notes, blob, _aad("lesson", ident)))} for ident, blob in rows]
 
     def cases(self):
         with self._ro() as db:

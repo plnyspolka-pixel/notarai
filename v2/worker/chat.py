@@ -72,6 +72,7 @@ class Chat:
         self._inbox: dict[str, list] = {}       # last listing per identity, in memory only
         self._sheets: dict[tuple, dict] = {}    # last values per (identity, case, procedure), for „wpisz ponownie”
         self._agendas: dict[str, list] = {}     # last calendar listing per identity, for „usuń termin 2”
+        self._lessons: dict[str, list] = {}     # last lessons listing per identity, for „zapomnij lekcję 3”
 
     # ------------------------------------------------------------ confirmations
     def _confirm(self, identity, question: str, label: str, action) -> dict:
@@ -137,6 +138,9 @@ class Chat:
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        taught = self._learning(identity, message, plain)
+        if taught is not None:
+            return taught
         checked = self._registers(identity, message, plain, case)
         if checked is not None:
             return checked
@@ -942,6 +946,80 @@ class Chat:
             blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
         return blocks
 
+    # ------------------------------------------------------------ learning mode
+    def _learning(self, identity, message, plain):
+        from .learning import KINDS
+
+        s = self.s
+        learning = s.learning
+        writable = identity.scope in {"admin", "write"}
+        if plain in {"tryb uczenia", "uczenie", "czy sie uczysz", "czy sie uczysz?"}:
+            summary = learning.summary()
+            state = "włączony" if summary["enabled"] else "wyłączony"
+            lines = [f"Tryb uczenia: {state}. Znam lekcji: {summary['total']}."]
+            lines += [f"• {KINDS[k]}: {n}" for k, n in summary["counts"].items() if n]
+            lines.append("Uczę się z: poprawek w projektach aktów, poprawek po dyktowaniu, Twoich odpowiedzi na maile, "
+                         "poleceń „zapamiętaj: …” i „to było źle: …”. Każdą lekcję widzisz i możesz usunąć.")
+            actions = [("Czego się nauczyłeś?", "czego się nauczyłeś")]
+            if identity.scope == "admin":
+                actions.append(("Wyłącz tryb uczenia", "wyłącz tryb uczenia") if summary["enabled"] else
+                               ("Włącz tryb uczenia", "włącz tryb uczenia"))
+            return [text("\n".join(lines)), buttons(*actions)]
+        if plain in {"wlacz tryb uczenia", "wylacz tryb uczenia", "wlacz uczenie", "wylacz uczenie"}:
+            if identity.scope != "admin":
+                return [text("Tryb uczenia przełącza się na komputerze kancelarii.")]
+            on = plain.startswith("wlacz")
+            s.update_settings(lambda d: d.update(learn=on))
+            return [text("Tryb uczenia włączony: uczę się z Twoich poprawek i poleceń, a każdą lekcję pokazuję." if on else
+                         "Tryb uczenia wyłączony: nie zapisuję nowych lekcji i nie używam dotychczasowych."),
+                    {"type": "learning"}]
+        if plain in {"czego sie nauczyles", "czego sie nauczyles?", "lekcje", "co wiesz o kancelarii", "pokaz lekcje"}:
+            lessons = learning.lessons()
+            self._lessons[identity.id] = lessons
+            if not lessons:
+                return [text("Nie mam jeszcze żadnych lekcji. Uczę się, gdy poprawiasz projekty, dyktujesz i odpowiadasz "
+                             "na maile, albo gdy napiszesz „zapamiętaj: …”.")]
+            lines, number = [], 0
+            for kind, title in KINDS.items():
+                group = [l for l in lessons if l["kind"] == kind]
+                if group:
+                    lines.append(title + ":")
+                    for lesson in group:
+                        number += 1
+                        lines.append(f"{number}. {lesson['text']}" + (f" (×{lesson['seen']})" if lesson.get("seen", 1) > 1 else ""))
+            self._lessons[identity.id] = [l for kind in KINDS for l in lessons if l["kind"] == kind]
+            return [text("\n".join(lines)), text("Żeby usunąć lekcję, napisz „zapomnij lekcję” i numer.")]
+        found = re.fullmatch(r"zapomnij(?: lekcj[eaę])?\s+(\d+)", plain)
+        if found:
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            listed = self._lessons.get(identity.id) or []
+            index = int(found.group(1))
+            if not 1 <= index <= len(listed):
+                return [text("Nie ma lekcji o tym numerze. Napisz „czego się nauczyłeś”.")]
+            lesson = listed[index - 1]
+
+            def forget():
+                learning.forget(lesson["id"], actor=identity.id)
+                return [text(f"Zapomniałem: {lesson['text']}")]
+            return [self._confirm(identity, f"Zapomnieć lekcję „{lesson['text'][:160]}”?", "Tak, zapomnij", forget)]
+        found = re.match(r"(zapamietaj|zapisz w pamieci|pamietaj)\b\s*(?:ze|:)?\s*", plain)
+        if found and len(plain) > found.end():
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            content = message[len(message) - (len(plain) - found.end()):].strip(" :")
+            lesson = learning.remember(content, "wiedza")
+            return [text("📘 Zapamiętałem: " + content if lesson else "To już wiem."), {"type": "learning"}]
+        found = re.match(r"(to bylo zle|zle|nie tak|popraw sie|blad)\s*[:,-]\s*", plain)
+        if found and len(plain) > found.end():
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            content = message[len(message) - (len(plain) - found.end()):].strip()
+            learning.remember(content, "korekta")
+            return [text("📘 Dziękuję, zapamiętałem korektę: " + content + ". Będę ją brał pod uwagę w kolejnych odpowiedziach."),
+                    {"type": "learning"}]
+        return None
+
     # ------------------------------------------------------------ public registers: EKW and KRZ
     def _registers(self, identity, message, plain, case):
         from .registers import KW, land_register_numbers, pesels_in
@@ -1248,7 +1326,7 @@ class Chat:
                 draft = s.general("Napisz krótką, uprzejmą i rzeczową odpowiedź kancelarii notarialnej na poniższą "
                                   "wiadomość. Tylko treść odpowiedzi, bez tematu i bez podpisu.\n\n"
                                   f"Od: {mail.sender}\nTemat: {mail.subject}\n\n{mail.text[:6000]}",
-                                  [mail.sender] if mail.sender else [])["answer"]
+                                  [mail.sender] if mail.sender else [], mail=True)["answer"]
             except Exception:
                 draft = ""              # no assistant here: the notary writes or dictates the reply
             subject = mail.subject if norm(mail.subject).startswith(("re:", "odp:")) else "Re: " + mail.subject
@@ -1407,7 +1485,7 @@ class Chat:
                  "offsite-backup": "wysłał kopię poza kancelarię", "calendar-put": "zapisał termin",
                  "calendar-delete": "usunął termin", "restore": "odtworzył sejf z kopii",
                  "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
-                 "settings": "zmienił ustawienia", "mail-compose": "przygotował odpowiedź do wysłania", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
+                 "settings": "zmienił ustawienia", "mail-compose": "przygotował odpowiedź do wysłania", "lesson-delete": "usunął lekcję trybu uczenia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
                  "form-fill-verified": "wypełnił formularz", "form-fill-partial": "wypełnił część formularza",
                  "form-send-started": "zaczął wysyłać formularz", "form-send-sent": "wysłał formularz",
                  "form-send-uncertain": "nacisnął wysyłanie formularza (wynik niepewny)"}
