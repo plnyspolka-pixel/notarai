@@ -1,0 +1,45 @@
+name: NotarAI V2 Windows preview installer
+on:
+  pull_request:
+    branches: [notarai-2.0]
+    paths:
+      - 'v2/installer/**'
+      - 'v2/worker/**'
+      - 'v2/requirements.txt'
+      - '.github/workflows/notarai-v2-windows-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: notarai-v2-installer
+  cancel-in-progress: false
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build the x64 EXE
+        run: ./v2/installer/build.ps1 -OutputDirectory "$env:RUNNER_TEMP/notarai-preview"
+      - name: Exercise install, Pocket in Edge, and uninstall
+        run: |
+          python -m pip --disable-pip-version-check install playwright==1.62.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $previous = Join-Path $env:RUNNER_TEMP "NotarAI-2.1.0-Setup-x64.exe"
+          Invoke-WebRequest -Uri "https://github.com/plnyspolka-pixel/notarai/releases/download/notarai-v2-podglad/NotarAI-V2-Setup-x64.exe" -OutFile $previous
+          $expected = "11e3c3950f411ea169ee58750a8b17037cba64093c2adc4df757c90dfe5bf08a"
+          if ((Get-FileHash -LiteralPath $previous -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "Installer 2.1.0 SHA-256 mismatch" }
+          python -X utf8 v2/installer/smoke_windows.py "$env:RUNNER_TEMP/notarai-preview/NotarAI-V2-Setup-x64.exe" $previous
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NotarAI-V2-2.1.1-Setup-x64
+          path: ${{ runner.temp }}/notarai-preview/NotarAI-V2-Setup-x64.exe
+          if-no-files-found: error
+          compression-level: 0

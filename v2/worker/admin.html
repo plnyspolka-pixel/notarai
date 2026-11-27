@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d6b57">
+  <title>NotarAI – panel stanowiska</title>
+  <link rel="stylesheet" href="pocket.css">
+  <link rel="icon" href="pocket-icon.svg" type="image/svg+xml">
+</head>
+<body data-mode="admin">
+  <header>
+    <h1>NotarAI – panel stanowiska</h1>
+    <div id="bar" hidden>
+      <label for="case" class="sr">Sprawa</label>
+      <select id="case"></select>
+      <button id="rules-toggle" class="quiet chip" aria-expanded="false" aria-controls="rules-box">Zasady kancelarii</button>
+      <button id="logout" class="quiet">Rozłącz</button>
+    </div>
+  </header>
+  <aside id="rules-box" class="card" hidden aria-label="Zasady kancelarii">
+    <p class="muted">Twarde zasady kancelarii. Pilnuje ich program przy każdym zapisie i wysyłce; nie da się ich obejść poleceniem.</p>
+    <ol id="rules-list"></ol>
+    <p class="muted" id="rules-hint"></p>
+  </aside>
+  <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
+  <section id="pairing">
+    <p>Panel otwiera się z menu Start („NotarAI - panel stanowiska”). Jeśli widzisz tę stronę, otwórz go stamtąd ponownie.</p>
+    <label for="code">Kod panelu</label>
+    <input id="code" type="password" autocomplete="off">
+    <button id="pair" class="primary">Otwórz panel</button>
+  </section>
+  <section id="listener" hidden aria-label="Mikrofon">
+    <h2 id="listener-name">Mikrofon</h2>
+    <p id="listener-state" class="listener-state" role="status">Uruchamiam…</p>
+    <div class="meter" aria-hidden="true"><div id="listener-level"></div></div>
+    <button id="listener-toggle" class="primary big">Włącz mikrofon</button>
+    <p class="muted">Włącz mikrofon po poinformowaniu uczestników. Możesz go wyłączyć w każdej chwili.</p>
+  </section>
+  <main id="workspace" hidden>
+    <button id="pokaz-nagrywanie">Nagrywanie stanowiska</button>
+    <section id="panel-nagrywania" class="card" hidden>
+      <h2>Nagrywanie stanowiska</h2>
+      <p>Poinformuj uczestników przed uzbrojeniem sesji. Używaj wyłącznie fikcyjnych danych.</p>
+<form id="ustawienia">
+  <label>Sprawa lub opis notatki <input id="opis-nagrania" maxlength="120" required></label>
+  <label>Stanowisko <select id="stanowisko"><option value="gabinet">Gabinet</option><option value="sekretariat">Sekretariat</option></select></label>
+  <p>NotarAI dobiera dostępne mikrofony automatycznie. W gabinecie używa też kamery.</p>
+  <label><input id="automatyczny" type="checkbox" checked> Uruchom zapis po wykryciu dźwięku w uzbrojonej sesji</label>
+  <button type="submit">Uzbrój sesję</button>
+</form>
+<button id="recznie" disabled>Rozpocznij zapis teraz</button>
+<button id="stop" disabled>Zakończ sesję</button>
+<p id="stan-nagrywania" role="status">Urządzenia są wyłączone.</p>
+<button id="lista">Pokaż lokalne nagrania</button>
+<ul id="nagrania"></ul>
+      <pre id="tekst-nagrania"></pre>
+    </section>
+    <section id="desk" hidden aria-label="Moje kafelki">
+      <div id="tiles"></div>
+      <div class="row">
+        <button id="arrange" class="quiet">Ustaw</button>
+        <button id="add-tile" class="quiet">Dodaj narzędzie</button>
+        <button id="hide-tiles" class="quiet">Schowaj</button>
+      </div>
+    </section>
+    <div id="messages" role="log" aria-live="polite" aria-label="Rozmowa"></div>
+    <section id="sheet" hidden aria-label="Dokument">
+      <div class="row">
+        <h2 id="selected">Dokument</h2>
+        <button id="close-sheet" class="quiet">Zamknij</button>
+      </div>
+      <div id="history" hidden>
+        <label for="versions">Wersja dokumentu</label>
+        <select id="versions"></select>
+        <div class="row">
+          <button id="open-version">Otwórz wersję</button>
+          <button id="download">Pobierz otwartą wersję</button>
+        </div>
+        <div id="replace-tools" hidden>
+          <label for="replacement">Plik do zapisania jako kolejna wersja</label>
+          <input id="replacement" type="file">
+          <button id="replace">Zapisz plik jako kolejną wersję</button>
+        </div>
+      </div>
+      <div id="text-editor" hidden>
+        <label for="name">Nazwa dokumentu tekstowego</label>
+        <input id="name" maxlength="255">
+        <label for="body">Treść</label>
+        <textarea id="body"></textarea>
+        <div class="row">
+          <button id="save" class="primary">Zapisz nową wersję</button>
+          <button id="copy">Zapisz jako nowy dokument</button>
+        </div>
+      </div>
+    </section>
+    <div id="composer">
+      <div id="chips"></div>
+      <div class="row tight">
+        <label for="file" class="sr">Dodaj plik do sprawy</label>
+        <input id="file" type="file" hidden>
+        <button id="attach" class="quiet" title="Dodaj plik do sprawy" aria-label="Dodaj plik do sprawy">＋</button>
+        <button id="voice" class="quiet" title="Notatka głosowa" aria-label="Nagraj notatkę głosową">🎤</button>
+        <label for="prompt" class="sr">Napisz polecenie albo pytanie</label>
+        <textarea id="prompt" rows="1" placeholder="Napisz, co mam zrobić…"></textarea>
+        <button id="send" class="primary">Wyślij</button>
+      </div>
+    </div>
+  </main>
+  <p id="status" role="status"></p>
+  <script src="qrcode.js"></script>
+  <script src="tunnel.js"></script>
+  <script src="pocket.js"></script>
+  <script src="nagrywanie.js"></script>
+</body>
+</html>

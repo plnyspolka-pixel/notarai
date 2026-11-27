@@ -92,9 +92,9 @@ def test_document_history_for_paired_devices(setup):
     assert history.json() == [2, 1]
     assert history.headers["cache-control"] == "no-store"
     assert client.get("/v2/documents", headers=reader).json() == [{"id": doc_id, "version": 2}]
-    assert client.get("/v2/documents?include_names=true", headers=reader).json() == [
-        {"id": doc_id, "version": 2, "name": "Druga.txt"}
-    ]
+    listed = client.get("/v2/documents?include_names=true", headers=reader).json()
+    assert len(listed) == 1 and listed[0].pop("created") > 0
+    assert listed == [{"id": doc_id, "version": 2, "name": "Druga.txt", "size": 1, "case": None}]
     assert client.get(path + "?version=1", headers=reader).json() == {
         "id": doc_id, "version": 1, "name": "Pierwsza.txt", "content_b64": "YQ=="
     }

@@ -84,6 +84,41 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   na stronę samo. Nie uruchamiaj `infra\strona.ps1` ani FTP ręcznie, chyba
   że workflow nie działa (wtedy to wysyłka awaryjna).
 
+## NotarAI 2.0 (katalog `v2/`, tor rozwojowy)
+
+- Stan dla właściciela: `v2/STAN.md`. Architektura i moduły: `v2/README.md`.
+- V2 jest osobne od V1: własne zależności (`v2/requirements.txt`), własne testy
+  (`cd v2 && python -m pytest -q`), bez wdrożeń na produkcję i bez importu danych
+  ani konfiguracji V1. Z V1 bierze wyłącznie kod reguł (`taksa.py`, `slownie.py`
+  przez `v2/worker/domain.py`); zmieniając je, puść też testy V2.
+- Wyłącznie dane fikcyjne. `ai.real_data_approved` zostaje `false`; nie dodawaj
+  sposobu przełączenia go z aplikacji.
+- Każde wywołanie modelu w V2 idzie przez `v2/worker/inference.py` (polityka UE,
+  pseudonimizacja, licznik). Nie wołaj Bedrock z innego miejsca i nie loguj treści.
+- Zapis albo wysyłka w imieniu notariusza: tylko przez kontrakt Connect z
+  zatwierdzeniem dokładnej treści i odczytem kontrolnym; bez ponawiania po
+  niepewnym wyniku.
+- Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia` istnieją w
+  eu-central-1 (decyzja właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
+  `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
+- Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
+  zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
+  nieodwracalne wymagają potwierdzenia.
+- Wypełnianie formularzy w V2 (decyzja właściciela 27.11.2026: priorytet programu): procedura
+  z nagrania (`v2/worker/procedures.py`) daje wartości, a `v2/worker/autofill.py` wpisuje je sam
+  na stronach (`web_fill.py`, przeglądarka NotarAI) i w programach Windows (`win_fill.py`,
+  UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: zawsze dopiero po
+  zatwierdzeniu w czacie, związanym ze stanem formularza z podglądu; jedno naciśnięcie, bez
+  ponawiania po niepewnym wyniku. Nie dodawaj ścieżki, która wysyła bez tego zatwierdzenia.
+- Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): tylko
+  lokalnie (`v2/worker/transcribe.py`), bez usług mowy w chmurze; dźwięku nasłuchu nie zapisuj.
+  Urządzenie o zakresie `listen` (mikrofon) wysyła tylko dźwięk: nie dawaj mu innych tras.
+- Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
+  ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
+  zasady, którego kod nie umie sprawdzić.
+- Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
+  w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
+
 ## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)
 
 - Architektura i zasady: docs/agent-factory.md.

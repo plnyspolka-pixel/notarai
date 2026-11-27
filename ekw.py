@@ -368,6 +368,34 @@ def pobierz(numer: str, klient: httpx.Client | None = None) -> dict:
     return pobierz_apify(numer, klient)
 
 
+def _dane_zadania(odpowiedz: httpx.Response) -> dict:
+    try:
+        pakiet = odpowiedz.json()
+    except ValueError:
+        pakiet = None
+    zadanie = pakiet.get("data") if isinstance(pakiet, dict) else None
+    if not isinstance(zadanie, dict) or not zadanie.get("id"):
+        raise BladEKW("niedostepny", "Niezrozumiala odpowiedz dostawcy")
+    return zadanie
+
+
+def _czekaj_na_apify(klient: httpx.Client, zadanie: dict, termin: float) -> dict:
+    while zadanie.get("status") in {"READY", "RUNNING", "TIMING-OUT", "ABORTING"}:
+        pozostalo = int(termin - time.monotonic())
+        if pozostalo < 1:
+            raise BladEKW("niedostepny", "Portal EKW nie odpowiedzial w czasie - sprobuj pozniej")
+        try:
+            odpowiedz = klient.get(
+                f"/actor-runs/{zadanie['id']}", params={"waitForFinish": min(pozostalo, 60)},
+            )
+        except httpx.HTTPError:
+            raise BladEKW("niedostepny", "Brak polaczenia z dostawca przy sprawdzaniu zadania")
+        if odpowiedz.status_code != 200:
+            raise BladEKW("niedostepny", f"Dostawca odpowiedzial kodem {odpowiedz.status_code}")
+        zadanie = _dane_zadania(odpowiedz)
+    return zadanie
+
+
 def pobierz_apify(numer: str, klient: httpx.Client | None = None) -> dict:
     """Jedna ksiega przez aktora Apify. Czeka na wynik aktora."""
     numer = normalizuj_numer(numer)
@@ -377,13 +405,13 @@ def pobierz_apify(numer: str, klient: httpx.Client | None = None) -> dict:
     wlasny = klient is None
     k = klient or _klient()
     zbior = magazyn_id = None
+    termin = time.monotonic() + CZAS_S
     try:
         try:
             odp = k.post(
-                f"/acts/{AKTOR}/run-sync",
-                params={"timeout": CZAS_S, "memory": 1024},
-                json={"kwNumbers": [numer], "viewType": "aktualna",
-                      "includeRawHtml": False, "maxConcurrency": 1},
+                f"/acts/{AKTOR}/runs",
+                params={"timeout": CZAS_S, "memory": 1024, "waitForFinish": min(CZAS_S, 60)},
+                json={"kwNumbers": [numer], "viewType": "aktualna", "includeRawHtml": False},
             )
         except httpx.TimeoutException:
             raise BladEKW("niedostepny", "Portal EKW nie odpowiedzial w czasie - sprobuj pozniej")
@@ -397,10 +425,7 @@ def pobierz_apify(numer: str, klient: httpx.Client | None = None) -> dict:
             raise BladEKW("niedostepny", "Portal EKW nie odpowiedzial w czasie - sprobuj pozniej")
         if odp.status_code >= 400:
             raise BladEKW("niedostepny", f"Dostawca odpowiedzial kodem {odp.status_code}")
-        try:
-            zadanie = odp.json().get("data") or {}
-        except ValueError:
-            raise BladEKW("niedostepny", "Niezrozumiala odpowiedz dostawcy")
+        zadanie = _czekaj_na_apify(k, _dane_zadania(odp), termin)
         zbior, magazyn_id = zadanie.get("defaultDatasetId"), zadanie.get("defaultKeyValueStoreId")
         rekordy: list = []
         if zbior:
