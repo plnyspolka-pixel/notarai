@@ -102,6 +102,9 @@ SYSTEM_AGENT = (
     "drogę krokiem notatka i dopiero wtedy wykonuj polecenie. Gdy polecenie dotyczy kilku pozycji (np. kilku aktów), "
     "rób je po kolei i nie kończ, póki wszystkie nie są przygotowane. Logowania, certyfikatu, PIN-u, hasła, podpisu i "
     "płatności nie wykonujesz nigdy: przygotuj wszystko i zakończ, mówiąc, co czeka na notariusza. "
+    "W starszych programach część pól przychodzi jako „pole bez nazwy N” (program rysuje podpisy sam): zrób wtedy JEDEN "
+    "zrzut ekranu, ustal, które pole jest którym, zapisz to krokiem notatka (np. „ekran Nowy wpis: pole bez nazwy 1 = "
+    "data aktu”) i dalej wpisuj krokiem wpisz po tych nazwach, nie klikaniem w punkt. "
     "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
     "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
@@ -285,6 +288,8 @@ class Computer:
         self.map = ProgramMap(self._home)
         self.used_browser = False                                # this run touched the NotarAI browser
         self.login_needed = None                                 # a login screen was just read: where
+        self.read_windows = {}                                   # window -> names of its buttons, as last read (this run)
+        self.fields_seen = 0
         self.picture = None                                      # JPEG for the model's next turn, taken once
 
     def _may(self, what: str) -> bool:
@@ -657,7 +662,12 @@ class Computer:
             options = f" (do wyboru: {', '.join(control.options[:15])})" if control.options else ""
             lines.append(f"[{control.kind}] {control.label}{value}{options}")
         self.map.record(desktop.where() or title, desktop.where() or title, found)
-        return f"Okno {desktop.where()}:\n" + ("\n".join(lines[:500]) or "(brak pól dostępnych dla programu)")
+        way = getattr(desktop, "read_by", "") or "UI Automation"
+        self.read_windows[plain(desktop.where() or title)] = [plain(re.sub(r"\s*\([^)]*\)\s*$", "", c.label)) for c in found
+                                                              if c.kind in {"button", "check"} and c.label.strip()]
+        self.fields_seen = len(found)
+        return (f"Okno {desktop.where()} (odczyt: {way}, elementów: {len(found)}):\n"
+                + ("\n".join(lines[:500]) or "(brak pól dostępnych dla programu: użyj kroku ekran)"))
 
     def _control(self, desktop, label, kinds):
         from .autofill import norm
@@ -803,6 +813,12 @@ class Agent:
                     self._rules.check_send("komputer", [])
                 except RuleViolation as error:
                     return {"answer": f"Zasada kancelarii nie pozwala teraz wysłać: {error}", "steps": steps, "stopped": None}
+            refused = self._order(step)
+            if refused:
+                history.append(f"KROK {json.dumps(step, ensure_ascii=False)}\nWYNIK: BŁĄD: {refused}")
+                steps.append({"krok": kind, "po_co": why, "wynik": "BŁĄD: " + refused})
+                self._narrate(f"{time.strftime('%H:%M:%S')} · cofnięte: {self._exact(step)} · {refused}")
+                continue
             number, started = len(steps) + 1, time.monotonic()
             self._narrate(f"{time.strftime('%H:%M:%S')} krok {number} · {self._exact(step)}"
                           + (f" · po co: {why}" if why else "")
@@ -847,9 +863,37 @@ class Agent:
             return "usuniecie" if "{del" in keys or "{delete" in keys else None
         return None
 
+    def _order(self, step) -> str | None:
+        """Fields before pictures, kept by code (2.8.1): a program is driven by the names of its fields and menus.
+        A screenshot comes only after the window was read, and a point is not clicked where a named button exists."""
+        computer, kind = self._computer, step["krok"]
+        if getattr(computer, "_desktop", None) is None or kind not in {"ekran", "kliknij_punkt"}:
+            return None
+        read = getattr(computer, "read_windows", {})
+        if not read and not getattr(computer, "used_browser", False):
+            return ("Najpierw odczytaj okno programu krokiem okno (pola, przyciski i menu po nazwach). Zrzut ekranu "
+                    "dopiero wtedy, gdy okno nie pokaże tego, czego potrzebujesz.")
+        if kind == "kliknij_punkt":
+            wanted = plain(str(step.get("co", "")))
+            for title, names in read.items():
+                if wanted and wanted in names:
+                    return (f"„{step.get('co')}” jest w oknie po nazwie: użyj kroku kliknij z przyciskiem „{step.get('co')}” "
+                            "zamiast klikać w punkt.")
+        return None
+
+    WAYS = {"okno": "pola okna", "wpisz": "pola okna", "kliknij": "pola okna", "klawisze": "klawiatura",
+            "ekran": "ZRZUT EKRANU", "kliknij_punkt": "ZRZUT EKRANU", "pisz": "klawiatura",
+            "widok": "strona", "web_wpisz": "strona", "web_kliknij": "strona", "strona": "strona",
+            "polecenie": "wiersz poleceń", "narzedzia": "wiersz poleceń"}
+
+    @classmethod
+    def _exact(cls, step) -> str:
+        """The step as it is carried out, for the live log: by which way, what, where, with what."""
+        way = cls.WAYS.get(step["krok"])
+        return (f"[{way}] " if way else "") + cls._plain_step(step)
+
     @staticmethod
-    def _exact(step) -> str:
-        """The step as it is carried out, for the live log: what, where, with what."""
+    def _plain_step(step) -> str:
         get = lambda key, limit=70: str(step.get(key, "") or "")[:limit]
         kind = step["krok"]
         forms = {

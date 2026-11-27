@@ -165,6 +165,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
     także menu, zakładki, drzewa i listy oraz otwarte menu i okna dialogowe tego samego programu
     (`win_fill.Desktop.controls(deep=True)`); z tego powstaje mapa programu. Wypełnianie formularzy z procedur
     (`autofill`) nadal używa `controls()` bez `deep`.
+  - programy klasyczne (Delphi/VCL, wersja 2.8.1): gdy UI Automation daje mniej niż `win_fill.MIN_NAMED` nazwanych
+    elementów, `controls(deep=True)` czyta to samo okno backendem win32 (`_legacy_controls`): pola po klasach okien
+    (`LEGACY_CLASSES`), menu główne i zakładki; pola bez podpisu dostają „pole bez nazwy N”. Kolejność pilnuje kod
+    (`Agent._order`): zrzut ekranu dopiero po kroku `okno`, a klik w punkt jest cofany, gdy przycisk ma nazwę w oknie.
   - ekran logowania (pole hasła albo PIN-u w oknie programu lub na stronie) wykrywa kod (`Computer._login`):
     przebieg staje, czat prosi notariusza o zalogowanie i wznawia pracę po „Zalogowałem się, kontynuuj”.
   - dziennik na żywo: każdy krok agenta idzie do `narrate` jako dokładna czynność z godziną i osobno jej wynik

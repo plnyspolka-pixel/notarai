@@ -254,8 +254,11 @@ def test_the_agent_looks_at_the_screen_and_clicks_a_point(tmp_path):
     computer = Computer(tmp_path, desktop=lambda: FakeDesktop(), grabber=lambda: (JPEG, 2.0, (960, 540)),
                         pointer=lambda x, y, double: clicks.append((x, y, double)), typist=typed.append,
                         label_at=lambda x, y: "Wyślij" if (x, y) == (400, 200) else "")
-    ask, _ = script({"krok": "kliknij_punkt", "x": 10, "y": 10, "co": "pole"},              # no screenshot yet: refused
+    ask, _ = script({"krok": "ekran", "okno": ""},                                          # fields first: refused by code
+                    {"krok": "okno", "okno": "RejNET"},
+                    {"krok": "kliknij_punkt", "x": 10, "y": 10, "co": "pole"},              # no screenshot yet: refused
                     {"krok": "ekran", "okno": ""},
+                    {"krok": "kliknij_punkt", "x": 5, "y": 5, "co": "Zapisz"},              # has a name in the window: refused
                     {"krok": "kliknij_punkt", "x": 100, "y": 50, "co": "pole Numer"},
                     {"krok": "pisz", "tekst": "1234/2026"},
                     {"krok": "ekran", "okno": "RejNET"},
@@ -263,11 +266,13 @@ def test_the_agent_looks_at_the_screen_and_clicks_a_point(tmp_path):
                     {"krok": "koniec", "odpowiedz": "x"})
     lines = []
     result = Agent(computer, ask, narrate=lines.append).run("wpisz numer w programie")
-    assert result["steps"][0]["wynik"].startswith("BŁĄD")
+    assert "Najpierw odczytaj okno" in result["steps"][0]["wynik"] and result["steps"][2]["wynik"].startswith("BŁĄD")
+    assert "użyj kroku kliknij" in result["steps"][4]["wynik"]
     assert clicks == [(200, 100, False)] and typed == ["1234/2026"]          # image pixels times the scale
     assert result["stopped"]["kind"] == "wyslanie"                           # the model's own label „OK” did not hide it
-    assert [len(images) for images in ask.pictures] == [0, 0, 1, 0, 0, 1]    # a picture is shown once, right after it is taken
-    assert any("zrzut ekranu idzie do asystenta" in line for line in lines)
+    assert [len(images) for images in ask.pictures] == [0, 0, 0, 0, 1, 0, 0, 0, 1]   # a picture is shown once, right after it is taken
+    assert any("[ZRZUT EKRANU] robię zrzut ekranu" in line and "zrzut ekranu idzie do asystenta" in line for line in lines)
+    assert any("[pola okna] odczytuję pola" in line for line in lines) and any("cofnięte" in line for line in lines)
 
 
 def test_the_station_can_switch_the_screen_and_the_command_line_off(tmp_path):
@@ -529,3 +534,87 @@ def test_a_login_screen_stops_the_run_and_the_whole_window_is_read(tmp_path):
     stopped = Agent(computer, ask, narrate=lines.append).run("zarejestruj akt w RejNET")["stopped"]
     assert stopped["kind"] == "logowanie" and stopped["where"] == "RejNET - Repertorium" and desktop.typed == {}
     assert any("ekran logowania" in line for line in lines)
+
+
+# ---- 2.8.1: classic Windows programs (Delphi/VCL) read by their window classes when UI Automation shows too little
+class _Rect:
+    def __init__(self, left, top, right, bottom):
+        self.left, self.top, self.right, self.bottom = left, top, right, bottom
+
+
+class _Classic:
+    """One window of a classic program, as pywinauto's win32 backend shows it."""
+    def __init__(self, class_name, text="", rect=(0, 0, 10, 10), friendly="", style=0, texts=()):
+        self._class, self._text, self._rect, self._friendly, self._style, self._texts = class_name, text, rect, friendly, style, list(texts)
+        self.typed, self.clicked, self.selected = None, 0, None
+
+    def class_name(self): return self._class
+    def friendly_class_name(self): return self._friendly or self._class
+    def is_visible(self): return True
+    def is_enabled(self): return True
+    def rectangle(self): return _Rect(*self._rect)
+    def window_text(self): return self.typed if self.typed is not None else self._text
+    def has_style(self, style): return bool(self._style & style)
+    def texts(self): return [self._text, *self._texts]
+    def set_edit_text(self, value): self.typed = value
+    def click(self): self.clicked += 1
+    def select(self, index): self.selected = index
+
+
+class _MenuItem:
+    def __init__(self, text, entries=()):
+        self._text, self._entries = text, list(entries)
+
+    def text(self): return self._text
+    def is_enabled(self): return True
+    def sub_menu(self): return self if self._entries else None
+    def items(self): return self._entries
+
+
+class _ClassicWindow:
+    def __init__(self, elements, menu):
+        self._elements, self._menu, self.chosen = elements, menu, []
+
+    def descendants(self): return self._elements
+    def menu(self): return _MenuItem("", self._menu)
+    def menu_select(self, path): self.chosen.append(path)
+
+
+def test_a_delphi_program_is_read_by_its_fields_not_by_screenshots():
+    from types import SimpleNamespace
+    from worker.win_fill import Desktop, legacy_type
+
+    assert legacy_type("TEdit") == "Edit" and legacy_type("TMaskEdit") == "Edit" and legacy_type("TDBEdit") == "Edit"
+    assert legacy_type("TComboBox") == "ComboBox" and legacy_type("TBitBtn") == "Button" and legacy_type("TCheckBox") == "CheckBox"
+    assert legacy_type("TPanel") is None and legacy_type("TDBGrid") is None
+
+    number = _Classic("TEdit", "", (200, 100, 400, 122))
+    password = _Classic("TEdit", "tajne", (200, 300, 400, 322), style=0x20)
+    save = _Classic("TBitBtn", "&Zapisz", (200, 200, 300, 230))
+    tabs = _Classic("TPageControl", "", (0, 40, 800, 60), friendly="TabControl", texts=["Akty", "Strony"])
+    elements = [_Classic("TStaticText", "Numer aktu:", (60, 102, 190, 120)), number, _Classic("TEdit", "", (200, 140, 400, 162)),
+                _Classic("TMaskEdit", "", (500, 400, 700, 422)), save, tabs, _Classic("TPanel", "", (0, 0, 800, 600))]
+    classic = _ClassicWindow(elements, [_MenuItem("&Rejestry", [_MenuItem("Repertorium &A\tCtrl+A"), _MenuItem("Nowy wpis")])])
+    # UI Automation sees the window but none of its fields: what a Delphi program often gives
+    uia_window = SimpleNamespace(descendants=lambda: [], element_info=SimpleNamespace(handle=77, process_id=5),
+                                 window_text=lambda: "RejNET", set_focus=lambda: None)
+    desktop = Desktop(backend=SimpleNamespace(windows=lambda **kw: [uia_window]),
+                      legacy=SimpleNamespace(window=lambda handle: classic if handle == 77 else None))
+    desktop.focus("RejNET")
+    found = desktop.controls(deep=True)
+    labels = [(c.kind, c.label) for c in found]
+    assert desktop.read_by == "klasyczne okna Windows"
+    assert ("text", "Numer aktu") in labels and ("text", "Numer aktu (2)") in labels and ("button", "Zapisz") in labels
+    assert ("text", "pole bez nazwy 1") in labels
+    assert ("button", "Rejestry > Repertorium A (menu)") in labels and ("button", "Strony (zakładka)") in labels
+    by = {c.label: c for c in found}
+    desktop.type(by["Numer aktu"], "12/2026")
+    desktop.click(by["Zapisz"])
+    desktop.click(by["Rejestry > Nowy wpis (menu)"])
+    desktop.click(by["Strony (zakładka)"])
+    assert number.typed == "12/2026" and save.clicked == 1 and classic.chosen == ["&Rejestry->Nowy wpis"] and tabs.selected == 1
+    assert desktop.read(by["Numer aktu"]) == "12/2026" and desktop.password_field is False
+    assert desktop.controls() == []                                   # form filling from procedures is unchanged
+    elements.append(password)
+    desktop.controls(deep=True)
+    assert desktop.password_field is True                             # a login screen of a classic program is seen too
