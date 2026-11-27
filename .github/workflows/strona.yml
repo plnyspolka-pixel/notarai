@@ -148,6 +148,19 @@ jobs:
           done
           echo "::error::https://notarai.pl/index.html rozni sie od strona/index.html po wysylce."
           exit 1
+      - name: Zweryfikuj aplikacje na Androida po FTPS
+        run: |
+          set -euo pipefail
+          # Paczka, numer wersji i potwierdzenie domeny musza byc na serwerze te same co w repozytorium;
+          # inaczej telefony dostaja falszywa informacje o aktualizacji albo pasek adresu w aplikacji.
+          for plik in pocket/NotarAI-Pocket.apk pocket/wersja.json .well-known/assetlinks.json; do
+            curl -fsSL --retry 3 -H 'Cache-Control: no-cache' \
+              "https://notarai.pl/${plik}?v=${GITHUB_RUN_ID}" -o "$RUNNER_TEMP/android-plik"
+            cmp "strona/$plik" "$RUNNER_TEMP/android-plik" || {
+              echo "::error::Plik $plik na notarai.pl rozni sie od repozytorium"
+              exit 1
+            }
+          done
       - name: Zweryfikuj cztery pliki do pobrania po FTPS
         run: |
           set -euo pipefail

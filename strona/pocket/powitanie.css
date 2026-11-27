@@ -10,3 +10,4 @@
 .powitanie-skaner { margin: 8px 0; }
 .powitanie-skaner video { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 2px solid var(--accent); background: #000; }
 .powitanie-skaner button { width: 100%; }
+.powitanie h3.powitanie-odstep { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }

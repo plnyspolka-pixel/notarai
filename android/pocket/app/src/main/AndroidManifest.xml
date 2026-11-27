@@ -51,6 +51,12 @@
             <meta-data
                 android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
                 android:value="pl.notarai.pocket.ekranstartowy" />
+            <meta-data
+                android:name="android.support.customtabs.trusted.ADDITIONAL_TRUSTED_ORIGINS"
+                android:resource="@array/dodatkowe_domeny" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/skroty" />
             <!-- Bez przegladarki z obsluga TWA strona otwiera sie w karcie przegladarki, nigdy w WebView:
                  klucz urzadzenia ma zostac w magazynie przegladarki. -->
             <meta-data

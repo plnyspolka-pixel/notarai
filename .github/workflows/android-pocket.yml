@@ -1,0 +1,32 @@
+# Aplikacja NotarAI na Androida (android/pocket): czy projekt sie kompiluje i przechodzi lint.
+# Paczka z tego przebiegu jest niepodpisana i nigdzie nie trafia; wydanie podpisuje sie kluczem
+# z AWS Secrets Manager (notarai/pocket-android-podpis), patrz android/pocket/README.md.
+name: android-pocket
+
+on:
+  pull_request:
+    paths: ["android/pocket/**", ".github/workflows/android-pocket.yml"]
+  push:
+    branches: [master]
+    paths: ["android/pocket/**", ".github/workflows/android-pocket.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-pocket-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kompilacja:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Kompilacja i lint
+        working-directory: android/pocket
+        run: ./gradlew --no-daemon assembleRelease lintRelease

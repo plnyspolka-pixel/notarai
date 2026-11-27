@@ -9,6 +9,14 @@ bez wydawania nowej wersji aplikacji.
 - Aplikacja nie prosi o żadne uprawnienia; mikrofon i aparat nadaje Chrome stronie notarai.pl.
 - Kod QR z panelu stanowiska (`https://notarai.pl/pocket/#...`) otwiera od razu aplikację.
 
+## Dwie drogi w aplikacji
+
+- Konto kancelarii: ekran startowy prowadzi do `https://app.notarai.pl/`. Aplikacja ufa tej domenie
+  (`dodatkowe_domeny` w `zasoby.xml`), a domena oddaje ten sam `assetlinks.json` (`app.py`).
+- Komputer kancelarii: parowanie kodem QR, jak opisano wyżej.
+- Skróty po przytrzymaniu ikony (`res/xml/skroty.xml`): „Konto kancelarii” i „Połącz z komputerem”
+  (`/pocket/?wybor=1` wraca do ekranu wyboru).
+
 ## Powiązanie ze stroną
 
 Pasek adresu znika tylko wtedy, gdy `https://notarai.pl/.well-known/assetlinks.json`

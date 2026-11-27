@@ -7,6 +7,7 @@
 Skrypt jest powtarzalny (drugie uruchomienie nic nie zmienia) i dopisuje:
 - ikony PNG do manifestu (instalacja na Androidzie),
 - skrypt aktualizacja.js (informacja o nowszej paczce aplikacji),
+- ikonę i tryb pełnoekranowy dla iPhone'a,
 - marka.css, sygnet i nazwa NotarAI (identyfikacja wizualna jak na notarai.pl),
 - powitanie.js i powitanie.css (ekran niesparowanego telefonu: jak połączyć go z kancelarią),
 - pobieranie powłoki z pominięciem pamięci podręcznej HTTP, żeby nowa wersja strony trafiała do
@@ -61,6 +62,12 @@ def dopisz(katalog: Path = KATALOG) -> None:
     html = _zamien(html, '<link rel="icon" href="pocket-icon.svg" type="image/svg+xml">',
                    '<link rel="icon" href="logo-mark.svg" type="image/svg+xml">', plik.name)
     html = _zamien(html, "<title>NotarAI Pocket</title>", "<title>NotarAI</title>", plik.name)
+    # iPhone: ikona i tryb pełnoekranowy po „Dodaj do ekranu początkowego” w Safari.
+    html = _zamien(html, '  <link rel="manifest" href="pocket.webmanifest">',
+                   '  <link rel="manifest" href="pocket.webmanifest">\n'
+                   '  <link rel="apple-touch-icon" href="pocket-icon-180.png">\n'
+                   '  <meta name="apple-mobile-web-app-capable" content="yes">\n'
+                   '  <meta name="apple-mobile-web-app-title" content="NotarAI">', plik.name)
     # Krój Montserrat leży na tej samej domenie (strona/fonts); bez tego wpisu CSP by go zablokowała.
     html = _zamien(html, "style-src 'self'; img-src", "style-src 'self'; font-src 'self'; img-src", plik.name)
     plik.write_text(html, encoding="utf-8")
