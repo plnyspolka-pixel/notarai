@@ -74,11 +74,33 @@ def srodowisko(monkeypatch, tmp_path):
 
 
 class TestWyborDostawcy:
-    def test_finyou_ma_pierwszenstwo(self, monkeypatch):
+    def test_apify_ma_pierwszenstwo(self, monkeypatch):
         assert ekw.dostawca() == "finyou" and ekw.dostepne()
         monkeypatch.setenv("PIECZAPP_APIFY_TOKEN", "apify_api_x")
-        assert ekw.dostawca() == "finyou"
-        assert "Finance You" in ekw.zrodlo()
+        assert ekw.dostawca() == "apify"
+        assert "Apify" in ekw.zrodlo()
+
+    @pytest.mark.parametrize("kod", ["limit", "niepelny", "nie_znaleziono"])
+    def test_finyou_przejmuje_tylko_gdy_apify_nie_moze_pobrac(self, monkeypatch, kod):
+        monkeypatch.setenv("PIECZAPP_APIFY_TOKEN", "apify_api_x")
+
+        def awaria(*_args):
+            raise ekw.BladEKW(kod, "Testowa odpowiedz Apify")
+
+        monkeypatch.setattr(ekw, "pobierz_apify", awaria)
+        klient = AtrapaFinyou(post=(200, gotowa(provider="easymkw")))
+        monkeypatch.setattr(ekw, "_klient_finyou", lambda: klient)
+        if kod == "nie_znaleziono":
+            with pytest.raises(ekw.BladEKW) as blad:
+                ekw.pobierz(KW)
+            assert blad.value.kod == kod
+            assert not klient.wywolania
+        else:
+            wynik = ekw.pobierz(KW)
+            assert "easymkw" in wynik["zrodlo"]
+            assert klient.wywolania[0][2] == {
+                "kw": KW, "wait_seconds": 50, "fallback_only": True,
+            }
 
     def test_bez_finyou_zostaje_apify(self, monkeypatch):
         monkeypatch.delenv("PIECZAPP_FINYOU_TOKEN")
