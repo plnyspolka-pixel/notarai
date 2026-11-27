@@ -52,7 +52,8 @@ def serve(home: Path, state: Path, *, no_browser: bool):
         # Addresses of the NotarAI services for this installation. Everything optional stays off
         # until the notary switches it on in the panel.
         (home / "settings.json").write_text(preset.read_text(encoding="utf-8"), encoding="utf-8")
-    app = create_app(home, allow_bedrock=False)
+    # AI stays off until the notary switches it on and signs in (settings ai.enabled, Cognito login).
+    app = create_app(home)
     nonce = secrets.token_hex(32)
 
     @app.head(INSTANCE_PATH, include_in_schema=False)

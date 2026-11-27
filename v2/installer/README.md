@@ -2,7 +2,7 @@
 
 Run `NotarAI-V2-Setup-x64.exe` and launch **NotarAI V2 Preview** from the Start menu. Setup installs for the current user and includes a private Python runtime. Pocket opens in the default browser on `127.0.0.1`. Paste the one-time code from the NotarAI console to connect. The **Nowy kod parowania** shortcut in the Start menu replaces the pending code and gives you five more minutes. Clicking the main Start menu entry again opens Pocket from the existing worker. Press Ctrl+C in the main NotarAI console to stop the worker. Use synthetic documents only.
 
-The preview runs with Bedrock disabled. Its encrypted test vault uses the current Windows user's DPAPI and lives under `%LOCALAPPDATA%\NotarAI\V2-preview`. Uninstalling removes the program and shortcut and preserves the test vault. The preview installer is unsigned.
+The assistant is off until the notary writes „włącz asystenta” in the workstation panel and signs in with a NotarAI account in the `notarai-v2` group; service addresses come from `preset.json`. Its encrypted test vault uses the current Windows user's DPAPI and lives under `%LOCALAPPDATA%\NotarAI\V2-preview`. Uninstalling removes the program and shortcut and preserves the test vault. The preview installer is unsigned.
 
 ## Build and verify
 
