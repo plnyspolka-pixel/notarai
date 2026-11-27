@@ -2,125 +2,74 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d6b57">
   <title>NotarAI – panel stanowiska</title>
   <link rel="stylesheet" href="pocket.css">
   <link rel="icon" href="pocket-icon.svg" type="image/svg+xml">
 </head>
-<body>
-  <h1>NotarAI – panel stanowiska</h1>
-  <p class="muted" id="mode"></p>
-  <section id="locked">
-    <p>Panel otwiera się z menu Start („NotarAI – panel stanowiska”). Jeśli widzisz tę stronę, otwórz go stamtąd ponownie.</p>
+<body data-mode="admin">
+  <header>
+    <h1>NotarAI – panel stanowiska</h1>
+    <div id="bar" hidden>
+      <label for="case" class="sr">Sprawa</label>
+      <select id="case"></select>
+      <button id="logout" class="quiet">Rozłącz</button>
+    </div>
+  </header>
+  <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
+  <section id="pairing">
+    <p>Panel otwiera się z menu Start („NotarAI - panel stanowiska”). Jeśli widzisz tę stronę, otwórz go stamtąd ponownie.</p>
     <label for="code">Kod panelu</label>
     <input id="code" type="password" autocomplete="off">
-    <button id="unlock" class="primary">Otwórz panel</button>
+    <button id="pair" class="primary">Otwórz panel</button>
   </section>
-  <main id="panel" hidden>
-    <div id="notices"></div>
-
-    <section>
-      <h2>Kod odzyskiwania i kopia zapasowa</h2>
-      <p class="muted">Dokumenty są zaszyfrowane kluczem z tego komputera. Kod odzyskiwania pozwala odtworzyć je
-        z kopii po awarii, kradzieży albo wymianie komputera. Bez kodu kopia jest bezużyteczna, dla każdego.</p>
-      <p id="recovery-state"></p>
-      <button id="enroll" class="primary" hidden>Utwórz kod odzyskiwania</button>
-      <div id="print-area" class="card" hidden>
-        <p><strong>Kod odzyskiwania sejfu NotarAI</strong></p>
-        <p class="code" id="recovery-code"></p>
-        <p>Wydrukuj i przechowuj poza komputerem (np. w kasie pancernej). Nie pokażemy go ponownie.</p>
-        <p class="muted" id="recovery-date"></p>
-      </div>
-      <div id="code-actions" class="row" hidden>
-        <button id="print">Drukuj kod</button>
-        <button id="code-saved">Kod jest bezpiecznie zapisany – ukryj</button>
-      </div>
-      <label for="backup-dir">Katalog kopii (inny dysk: pendrive, dysk sieciowy)</label>
+  <main id="workspace" hidden>
+    <div id="messages" role="log" aria-live="polite" aria-label="Rozmowa"></div>
+    <section id="sheet" hidden aria-label="Dokument">
       <div class="row">
-        <input id="backup-dir" autocomplete="off" placeholder="np. E:\NotarAI-kopie">
-        <button id="save-backup-dir">Zapisz katalog</button>
+        <h2 id="selected">Dokument</h2>
+        <button id="close-sheet" class="quiet">Zamknij</button>
       </div>
-      <button id="backup">Zrób kopię teraz</button>
-      <p class="muted" id="backup-state"></p>
-    </section>
-
-    <section>
-      <h2>Dokumenty i edycja w Wordzie</h2>
-      <p class="muted">„Otwórz do edycji” otwiera dokument w Wordzie albo LibreOffice na tym komputerze. Po zapisaniu
-        i zamknięciu edytora wybierz „Zapisz do sejfu”: powstanie kolejna wersja, a kopia robocza zniknie z dysku.</p>
-      <table><thead><tr><th>Dokument</th><th>Sprawa</th><th>Wersja</th><th></th></tr></thead><tbody id="documents"></tbody></table>
-      <h2>Otwarte do edycji</h2>
-      <table><thead><tr><th>Dokument</th><th>Stan</th><th></th><th></th></tr></thead><tbody id="workcopies"></tbody></table>
-      <button id="reload-documents">Odśwież</button>
-    </section>
-
-    <section>
-      <h2>Urządzenia</h2>
-      <table><thead><tr><th>Nazwa</th><th>Dostęp</th><th>Sprawy</th><th></th></tr></thead><tbody id="devices"></tbody></table>
-      <label for="device-name">Nowe urządzenie – nazwa</label>
-      <input id="device-name" maxlength="80" autocomplete="off" placeholder="np. Telefon notariusza">
-      <label for="device-scope">Dostęp</label>
-      <select id="device-scope"><option value="read">Tylko odczyt</option><option value="write">Odczyt i zapis</option></select>
-      <label for="device-cases">Tylko te sprawy (po jednej w wierszu; puste = wszystkie)</label>
-      <textarea id="device-cases" rows="2" class="short"></textarea>
-      <button id="invite">Wydaj kod parowania</button>
-      <p class="code" id="pair-code" hidden></p>
-      <div id="remote-pair" hidden>
-        <p>Telefon poza kancelarią: zeskanuj kod aparatem (ważny 5 minut, działa raz).</p>
-        <canvas id="pair-qr" width="10" height="10" aria-label="Kod QR do sparowania telefonu"></canvas>
-        <p class="muted">Kod zawiera adres tego stanowiska i jednorazowe hasło. Nie wysyłaj go e-mailem ani komunikatorem.</p>
-      </div>
-    </section>
-
-    <section>
-      <h2>Dostęp spoza kancelarii</h2>
-      <p class="muted">Telefon łączy się z tym komputerem przez przekaźnik NotarAI. Przekaźnik widzi wyłącznie
-        zaszyfrowane dane i niczego nie zapisuje; ten komputer nie otwiera żadnego portu. Gdy komputer jest
-        wyłączony, dokumenty są niedostępne.</p>
-      <p id="tunnel-state"></p>
-      <label><input id="tunnel-enabled" type="checkbox"> Zezwól na dostęp spoza kancelarii</label>
-      <label for="relay-url">Adres przekaźnika</label>
-      <input id="relay-url" autocomplete="off" placeholder="wss://…">
-      <label for="pocket-url">Adres strony Pocket</label>
-      <input id="pocket-url" autocomplete="off" placeholder="https://…">
-      <button id="save-tunnel">Zapisz</button>
-    </section>
-
-    <section>
-      <h2>Asystent AI</h2>
-      <p class="muted">Model działa w Amazon Bedrock w Unii Europejskiej. Treść zapytań nie jest zapisywana;
-        dane osobowe są przed wysłaniem zastępowane znacznikami.</p>
-      <p id="ai-state"></p>
-      <label><input id="ai-enabled" type="checkbox"> Włącz asystenta na tym stanowisku</label>
-      <button id="save-ai">Zapisz</button>
-      <div id="login-form" hidden>
-        <label for="email">Adres e-mail konta NotarAI</label>
-        <input id="email" type="email" autocomplete="username">
-        <label for="password">Hasło</label>
-        <input id="password" type="password" autocomplete="current-password">
-        <div id="mfa-row" hidden>
-          <label for="mfa">Kod z aplikacji uwierzytelniającej</label>
-          <input id="mfa" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+      <div id="history" hidden>
+        <label for="versions">Wersja dokumentu</label>
+        <select id="versions"></select>
+        <div class="row">
+          <button id="open-version">Otwórz wersję</button>
+          <button id="download">Pobierz otwartą wersję</button>
         </div>
-        <div id="new-password-row" hidden>
-          <label for="new-password">Nowe hasło (pierwsze logowanie)</label>
-          <input id="new-password" type="password" autocomplete="new-password">
+        <div id="replace-tools" hidden>
+          <label for="replacement">Plik do zapisania jako kolejna wersja</label>
+          <input id="replacement" type="file">
+          <button id="replace">Zapisz plik jako kolejną wersję</button>
         </div>
-        <button id="login" class="primary">Zaloguj</button>
       </div>
-      <button id="logout-ai" hidden>Wyloguj z AI</button>
-      <table><thead><tr><th>Model</th><th>Cel</th><th>Wywołań</th><th>Tokeny wej.</th><th>Tokeny wyj.</th></tr></thead><tbody id="usage"></tbody></table>
+      <div id="text-editor" hidden>
+        <label for="name">Nazwa dokumentu tekstowego</label>
+        <input id="name" maxlength="255">
+        <label for="body">Treść</label>
+        <textarea id="body"></textarea>
+        <div class="row">
+          <button id="save" class="primary">Zapisz nową wersję</button>
+          <button id="copy">Zapisz jako nowy dokument</button>
+        </div>
+      </div>
     </section>
-
-    <section>
-      <h2>Dziennik dostępu</h2>
-      <p class="muted">Kto i kiedy czytał albo zapisywał dokumenty. Dziennik jest zabezpieczony przed zmianą.</p>
-      <button id="reload-audit">Odśwież dziennik</button>
-      <table><thead><tr><th>Kiedy</th><th>Kto</th><th>Co</th><th>Dokument</th></tr></thead><tbody id="audit"></tbody></table>
-    </section>
+    <div id="composer">
+      <div id="chips"></div>
+      <div class="row tight">
+        <label for="file" class="sr">Dodaj plik do sprawy</label>
+        <input id="file" type="file" hidden>
+        <button id="attach" class="quiet" title="Dodaj plik do sprawy" aria-label="Dodaj plik do sprawy">＋</button>
+        <label for="prompt" class="sr">Napisz polecenie albo pytanie</label>
+        <textarea id="prompt" rows="1" placeholder="Napisz, co mam zrobić…"></textarea>
+        <button id="send" class="primary">Wyślij</button>
+      </div>
+    </div>
   </main>
   <p id="status" role="status"></p>
   <script src="qrcode.js"></script>
-  <script src="admin.js"></script>
+  <script src="tunnel.js"></script>
+  <script src="pocket.js"></script>
 </body>
 </html>

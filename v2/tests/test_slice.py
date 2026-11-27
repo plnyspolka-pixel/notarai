@@ -326,7 +326,7 @@ def test_panel_session_is_local_only_single_use_and_expires(office):
     with sqlite3.connect(home / "devices.sqlite3") as db:
         db.execute("UPDATE devices SET expires = 1")
     assert client.get("/v2/audit", headers=panel).status_code == 401
-    assert client.get("/v2/admin").status_code == 200 and client.get("/v2/admin.js").status_code == 200
+    assert client.get("/v2/admin").status_code == 200 and client.get("/v2/qrcode.js").status_code == 200
 
 
 def test_settings_are_validated_and_release_gate_is_not_a_setting(office, tmp_path):
@@ -374,3 +374,22 @@ def test_foreign_document_id_gives_no_existence_hint(office):
     unknown = {**body, "id": "11111111-1111-4111-8111-111111111111", "case": "sprawa-2"}
     assert client.post("/v2/documents", headers=phone, json=body).status_code == 404
     assert client.post("/v2/documents", headers=phone, json=unknown).status_code == 404
+
+
+def test_pocket_exports_as_a_static_site_and_preset_is_valid(tmp_path):
+    import sys
+    from pathlib import Path
+
+    from worker.settings import validate
+
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "tools"))
+    from export_pocket import export
+
+    names = export(tmp_path / "pocket")
+    html = (tmp_path / "pocket" / "index.html").read_text(encoding="utf-8")
+    assert "index.html" in names and 'src="pocket.js"' in html and "/v2/" not in html
+    assert '"./"' in (tmp_path / "pocket" / "pocket-sw.js").read_text(encoding="utf-8")
+    preset = validate(json.loads((root / "installer" / "preset.json").read_text(encoding="utf-8")))
+    assert not preset.ai.enabled and not preset.tunnel.enabled and not preset.replica.enabled
+    assert not preset.ai.real_data_approved and preset.account.region == "eu-central-1"

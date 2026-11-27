@@ -6,6 +6,7 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import NamedTuple
 
 from fastapi import FastAPI, Depends, Header, HTTPException, Query, Request
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field
 from . import recovery
 from .aws_credentials import Account, ChallengeRequired, LoginError
 from .bedrock import smoke_test
+from .chat import Chat
 from .connect_sdk import ConnectSession, LocalReceipts
 from .devices import DeviceRegistry
 from .docx_adapter import DOCX_APP, OpenXmlDocx
@@ -35,8 +37,7 @@ from .workcopy import WorkCopies, WorkCopyError
 CASE = r"^[\w.-]{1,64}$"
 STATIC = {"pocket.js": "application/javascript", "pocket.css": "text/css",
           "pocket.webmanifest": "application/manifest+json", "pocket-sw.js": "application/javascript",
-          "pocket-icon.svg": "image/svg+xml", "admin.js": "application/javascript",
-          "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
+          "pocket-icon.svg": "image/svg+xml",           "tunnel.js": "application/javascript", "qrcode.js": "application/javascript"}
 
 
 class Identity(NamedTuple):
@@ -86,6 +87,14 @@ class Login(BaseModel):
     password: str = Field(min_length=1, max_length=256)
     mfa_code: str | None = Field(default=None, max_length=12)
     new_password: str | None = Field(default=None, max_length=256)
+
+class ChatTurn(BaseModel):
+    text: str = Field(default="", max_length=8000)
+    case: str | None = Field(default=None, pattern=CASE)
+    names: list[str] = Field(default_factory=list, max_length=50)
+    confirm: str | None = Field(default=None, max_length=64)
+    hello: bool = False
+
 
 class FeeRequest(BaseModel):
     parameters: dict
@@ -606,6 +615,104 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     def draft_discard(draft_id: str, identity: Identity = Depends(writable)):
         drafts.discard(draft_id, identity.id)
         return {"discarded": True}
+
+    # ------------------------------------------------------------ chat
+    def chat_status():
+        current, last = state["settings"], vault.last_action("backup")
+        return {
+            "mode": mode, "enrolled": recovery.enrolled(home), "last_backup": last,
+            "backup_overdue": last is None or time.time_ns() - last > current.backup_reminder_days * 86400 * 10**9,
+            "offsite": current.replica.enabled, "last_offsite": vault.last_action("offsite-backup"),
+            "documents": len(vault.list()), "cases": len(vault.cases()),
+            "devices": sum(1 for d in devices.list() if not d["revoked"]),
+            "workcopies": len(workcopies.list()),
+            "ai": state["inference"].enabled, "pseudonymize": state["inference"].pseudonymizes,
+            "signed_in": bool(state["account"] and state["account"].signed_in),
+            "tunnel": current.tunnel.enabled,
+            "tunnel_connected": bool(relay["client"] and relay["client"].connected.is_set()),
+        }
+
+    def update_settings(mutate):
+        data = state["settings"].model_dump()
+        mutate(data)
+        new = validate_settings(data)
+        if new.backup_dir is not None and not Path(new.backup_dir).is_dir():
+            raise recovery.RecoveryError("Ten katalog nie istnieje albo dysk nie jest podłączony.")
+        state["relay_dirty"] = state.get("relay_dirty") or new.tunnel != state["settings"].tunnel
+        save_settings(home, new)
+        configure(new)
+        vault.log("local-admin", "settings")
+
+    def pairing_link(code: str):
+        current = state["settings"].tunnel
+        if not current.enabled or relay["keys"] is None:
+            return None
+        from urllib.parse import urlencode
+        from .tunnel import b64e
+
+        return current.pocket_url + "#" + urlencode(
+            {"r": current.relay_url, "o": relay["keys"].office, "k": b64e(relay["keys"].public), "c": code})
+
+    def offsite_backup():
+        target = replica()
+        if target is None:
+            raise recovery.RecoveryError("Kopia poza kancelarią wymaga zalogowania kontem NotarAI.")
+        return target.upload()
+
+    def enroll_code(replace: bool):
+        code = recovery.enroll(home, replace=replace)
+        vault.log("local-admin", "enroll-recovery")
+        return code
+
+    chat = Chat(SimpleNamespace(
+        vault=vault, drafts=drafts, devices=devices, workcopies=workcopies,
+        cases=lambda identity: [c for c in vault.cases() if identity.cases is None or c in identity.cases],
+        may_see_case=lambda identity, case: (identity.cases is None or case in identity.cases),
+        documents=lambda identity, case: [
+            {"id": d["id"], "name": d["name"], "version": d["version"], "case": d["case"]}
+            for d in vault.summaries(frozenset({case}) if case is not None else identity.cases)],
+        pseudonymizes=lambda: state["inference"].pseudonymizes,
+        fee_catalog=fee_catalog, fee_estimate=fee_estimate, status=chat_status,
+        enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
+        offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
+        update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
+        account_configured=lambda: state["account"] is not None,
+        signed_in=lambda: bool(state["account"] and state["account"].signed_in),
+        logout=lambda: state["account"] and state["account"].logout(),
+    ))
+    SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError)
+
+    def chat_turn(identity: Identity, turn: ChatTurn):
+        if turn.case is not None and identity.cases is not None and turn.case not in identity.cases:
+            return [{"type": "text", "text": "Nie ma takiej sprawy."}]
+        try:
+            if turn.confirm:
+                return chat.confirm(identity, turn.confirm)
+            if turn.hello or not turn.text.strip():
+                blocks = chat.hello(identity, turn.case)
+                recent = sorted(vault.summaries(identity.cases if turn.case is None else frozenset({turn.case})),
+                                key=lambda d: -d["created"])[:6]
+                if recent:
+                    blocks.insert(1, {"type": "documents", "items": [
+                        {"id": d["id"], "name": d["name"], "version": d["version"], "case": d["case"]} for d in recent]})
+                return blocks
+            return chat.say(identity, turn.text, turn.case, turn.names)
+        except SAID as error:        # these carry sentences written for the notary
+            return [{"type": "text", "text": str(error)}]
+        except (ValueError, KeyError):
+            return [{"type": "text", "text": "Nie udało się tego wykonać. Sprawdź polecenie i spróbuj ponownie."}]
+
+    @app.post("/v2/chat")
+    async def chat_endpoint(turn: ChatTurn, identity: Identity = Depends(auth)):
+        blocks = await asyncio.to_thread(chat_turn, identity, turn)
+        if state.pop("relay_dirty", False):
+            await restart_relay()
+            if state["settings"].tunnel.enabled:
+                try:
+                    await asyncio.wait_for(relay["client"].connected.wait(), 3)
+                except asyncio.TimeoutError:
+                    pass
+        return {"blocks": blocks}
 
     # ------------------------------------------------------------ account
     @app.post("/v2/account/login", dependencies=[Depends(admin)])

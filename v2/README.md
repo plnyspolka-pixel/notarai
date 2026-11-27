@@ -26,7 +26,7 @@ Owner-facing status in Polish: [STAN.md](STAN.md).
 | `worker/drafting.py`, `docx_writer.py`, `connect_sdk.py` | Case documents to a model draft; the notary approves exact text (SHA-256 bound into the Connect request); DOCX written once and read back before it counts. |
 | `worker/workcopy.py` | Edit a vault document in Word or LibreOffice on the workstation; check-in creates the next revision and removes the plaintext working copy. |
 | `worker/tunnel.py`, `tunnel.js`, `relay/` | Remote access for paired devices: end-to-end encrypted channel, device-bound non-extractable key, relay that forwards opaque frames and stores none. The worker opens no inbound port. |
-| `worker/pocket.*`, `admin.*` | Pocket (device UI, installable) and the workstation panel (recovery code, backups, devices, AI sign-in, access log). |
+| `worker/chat.py`, `pocket.*`, `admin.html` | Chat-first UI: one conversation window for Pocket and for the workstation panel. State-changing commands are matched deterministically, never by a model; irreversible ones need a tapped confirmation. |
 | `worker/domain.py` | Deterministic notarial rules shared with V1 as code only (fee engine, amounts in words). |
 | `infra/notarai-v2-*.yaml` | CloudFormation for Bedrock access, the relay and off-site copies. Validated, not deployed. |
 
@@ -36,7 +36,7 @@ is an opt-in exception that stores ciphertext only the office can open; enabling
 ## Release gates before real data
 - Owner approval of the AWS stacks and of off-site ciphertext copies.
 - Signed installer and update channel; Windows CI green on the service, installer and DPAPI tests.
-- Privacy review of pseudonymisation limits: names not listed by the notary reach the model in clear.
+- Privacy review of pseudonymisation: it is the office's setting (on by default); names not listed for a case reach the model in clear.
 - Live relay deployed and exercised; revocation and lost-device drill on real phones.
 - Independent security review. `ai.real_data_approved` in `settings.json` stays `false` until then and
   cannot be changed from the application.

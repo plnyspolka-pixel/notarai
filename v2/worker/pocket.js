@@ -1,28 +1,28 @@
 "use strict";
+// One chat window for Pocket (a paired device) and for the workstation panel (data-mode="admin").
+// The page sends sentences to /v2/chat and renders the blocks it gets back.
 
 const el = id => document.getElementById(id);
+const admin = document.body.dataset.mode === "admin";
 const maxBytes = 20 * 1024 * 1024;
 const ALL = "\u0000all";
-const NONE = "\u0000none";
 let token = "";
 let scope = "";
-let allowedCases = null;
+let tunnel = null;           // set when this device reaches the office through the relay
 let opened = null;
 let originalText = "";
-let proposal = null;
-let listed = [];
+let names = [];
+let busy = false;
 
 function status(message) {
   el("status").textContent = message;
 }
 
-let tunnel = null;   // set when this device reaches the office through the relay
-
 async function call(path, method = "GET", data) {
-  let status, body = null;
+  let code, body = null;
   if (tunnel) {
     try {
-      ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+      ({ status: code, body } = await tunnel.request(method, "/v2/" + path, data));
     } catch (error) {
       // The office restarted or renewed its relay connection: sign in again with the device key, once.
       if (!error.bye) throw error;
@@ -33,7 +33,7 @@ async function call(path, method = "GET", data) {
       tunnel.close();
       tunnel = resumed.tunnel;
       tunnel.onclose = onclose;
-      ({ status, body } = await tunnel.request(method, "/v2/" + path, data));
+      ({ status: code, body } = await tunnel.request(method, "/v2/" + path, data));
     }
   } else {
     const headers = {};
@@ -43,26 +43,29 @@ async function call(path, method = "GET", data) {
       method, headers, cache: "no-store", credentials: "omit",
       body: data === undefined ? undefined : JSON.stringify(data),
     });
-    status = response.status;
+    code = response.status;
     try { body = await response.json(); } catch { /* no body */ }
   }
-  if (status === 401) {
-    throw new Error("Sesja wygasła lub dostęp został cofnięty. Skopiuj niezapisany tekst przed rozłączeniem.");
-  }
-  if (status < 200 || status >= 300) {
+  if (code < 200 || code >= 300) {
     const detail = (body && body.detail) || "";
-    if (status === 409 && detail === "revision conflict") {
-      throw new Error("Konflikt wersji. Zachowano edytowany tekst i wybrany plik. Możesz zapisać zmiany jako osobny dokument.");
-    }
-    // Messages written for the notary are Polish sentences; protocol errors stay generic.
-    if (/[ąćęłńóśźż .]/i.test(detail) && detail.length > 20) throw new Error(detail);
-    throw new Error("Nie udało się wykonać operacji (HTTP " + status + ").");
+    const error = new Error(
+      code === 401 && !(body && body.challenge) && !/[ąćęłńóśźż]/i.test(detail)
+        ? (admin ? "Sesja panelu wygasła. Otwórz panel ponownie z menu Start."
+                 : "Sesja wygasła lub dostęp został cofnięty. Skopiuj niezapisany tekst przed rozłączeniem.")
+        : code === 409 && detail === "revision conflict"
+          ? "Konflikt wersji. Zachowano edytowany tekst i wybrany plik. Możesz zapisać zmiany jako osobny dokument."
+          // Messages written for the notary are Polish sentences; protocol errors stay generic.
+          : (/[ąćęłńóśźż .]/i.test(detail) && detail.length > 20 ? detail : "Nie udało się wykonać operacji (HTTP " + code + ")."));
+    error.challenge = body && body.challenge;
+    throw error;
   }
   return body;
 }
 
 function run(action) {
   return async () => {
+    if (busy) return;
+    busy = true;
     const controls = [...document.querySelectorAll("button, input, select, textarea")];
     const previous = controls.map(control => control.disabled);
     controls.forEach(control => { control.disabled = true; });
@@ -71,30 +74,263 @@ function run(action) {
     } catch (error) {
       status(error.message);
     } finally {
+      // New controls created meanwhile start enabled; old ones return to what they were.
       controls.forEach((control, i) => { control.disabled = previous[i]; });
+      busy = false;
     }
   };
 }
 
-function mayDiscard() {
-  const dirty = !el("text-editor").hidden && scope === "write" &&
-    (el("name").value !== (opened?.name ?? "") || el("body").value !== originalText);
-  return !dirty || window.confirm("Porzucić niezapisane zmiany?");
-}
-
 function currentCase() {
   const value = el("case").value;
-  return value === ALL || value === NONE || value === "" ? null : value;
+  return value === ALL || value === "" ? null : value;
 }
 
-function resetEditor() {
-  opened = null;
-  originalText = "";
-  el("name").value = "";
-  el("body").value = "";
-  el("replacement").value = "";
-  el("versions").replaceChildren();
-  el("editor").hidden = true;
+// ---------------------------------------------------------------- conversation
+function node(tag, className, textContent) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (textContent !== undefined) element.textContent = textContent;
+  return element;
+}
+
+function show(element) {
+  el("messages").append(element);
+  element.scrollIntoView({ block: "end" });
+  return element;
+}
+
+function bubble(text, who) {
+  return show(node("div", "bubble " + who, text));
+}
+
+function sayButton(label, sentence) {
+  const button = node("button", "", label);
+  button.onclick = run(() => send(sentence, label));
+  return button;
+}
+
+function field(labelText, input) {
+  const label = node("label", "", labelText);
+  label.append(input);
+  return label;
+}
+
+function target(value) {
+  if (!value) return null;
+  const [id, version] = value.split(":");
+  return { id, version: Number(version) };
+}
+
+const render = {
+  text: block => bubble(block.text, "them"),
+
+  buttons: block => {
+    const group = node("div", "group");
+    block.items.forEach(item => group.append(sayButton(item.label, item.say)));
+    show(group);
+  },
+
+  documents: block => {
+    const group = node("div", "group docs");
+    block.items.forEach(item => {
+      const button = node("button", "", item.name + " · wersja " + item.version);
+      button.onclick = run(() => openDocument(item.id));
+      group.append(button);
+    });
+    show(group);
+  },
+
+  case: block => {
+    if (![...el("case").options].some(option => option.value === block.case)) el("case").add(new Option(block.case, block.case));
+    el("case").value = block.case;
+  },
+
+  names: block => { names = block.names; },
+
+  open: block => openDocument(block.id),
+
+  confirm: block => {
+    const card = node("div", "card them");
+    card.append(node("p", "", block.text));
+    const yes = node("button", "danger", block.label);
+    const no = node("button", "", "Nie");
+    yes.onclick = run(async () => {
+      card.remove();
+      bubble(block.label, "me");
+      await exchange({ confirm: block.token });
+    });
+    no.onclick = () => { card.remove(); bubble("Nie", "me"); bubble("Dobrze, nic nie zmieniam.", "them"); };
+    const row = node("div", "row");
+    row.append(yes, no);
+    card.append(row);
+    show(card);
+  },
+
+  secret: block => {
+    const card = node("div", "card them");
+    card.append(node("p", "", block.title), node("p", "code", block.text), node("p", "muted", block.hint || ""));
+    const row = node("div", "row");
+    if (block.print) {
+      const print = node("button", "", "Drukuj");
+      print.onclick = () => {
+        card.classList.add("printing");
+        window.print();
+        card.classList.remove("printing");
+      };
+      row.append(print);
+    }
+    const hide = node("button", "", block.print ? "Kod jest bezpiecznie zapisany – ukryj" : "Ukryj kod");
+    hide.onclick = () => {
+      if (block.print && !window.confirm("Czy kod jest wydrukowany albo przepisany? Po ukryciu nie da się go wyświetlić.")) return;
+      card.remove();
+      bubble("Kod ukryty.", "them");
+    };
+    row.append(hide);
+    card.append(row);
+    show(card);
+  },
+
+  qr: block => {
+    const card = node("div", "card them");
+    const canvas = node("canvas");
+    canvas.setAttribute("aria-label", "Kod QR do sparowania telefonu");
+    canvas.dataset.link = block.link;
+    const code = qrcode(0, "M");
+    code.addData(block.link);
+    code.make();
+    const count = code.getModuleCount(), scale = 5, margin = 4;
+    canvas.width = canvas.height = (count + 2 * margin) * scale;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#000";
+    for (let row = 0; row < count; row++) {
+      for (let column = 0; column < count; column++) {
+        if (code.isDark(row, column)) context.fillRect((column + margin) * scale, (row + margin) * scale, scale, scale);
+      }
+    }
+    card.append(canvas);
+    show(card);
+  },
+
+  login: () => {
+    const card = node("div", "card them");
+    const input = (type, autocomplete) => {
+      const element = node("input");
+      element.type = type;
+      element.autocomplete = autocomplete;
+      return element;
+    };
+    const email = input("email", "username"), password = input("password", "current-password");
+    const mfa = input("text", "one-time-code"), fresh = input("password", "new-password");
+    const mfaRow = field("Kod z aplikacji uwierzytelniającej", mfa);
+    const freshRow = field("Nowe hasło (pierwsze logowanie)", fresh);
+    mfaRow.hidden = freshRow.hidden = true;
+    const submit = node("button", "primary", "Zaloguj");
+    submit.onclick = run(async () => {
+      try {
+        await call("account/login", "POST", {
+          email: email.value.trim(), password: password.value,
+          mfa_code: mfa.value.trim() || null, new_password: fresh.value || null,
+        });
+      } catch (error) {
+        if (error.challenge === "mfa") mfaRow.hidden = false;
+        if (error.challenge === "new_password") freshRow.hidden = false;
+        throw error;
+      }
+      card.remove();
+      bubble("Zalogowano do AI.", "them");
+    });
+    card.append(field("Adres e-mail konta NotarAI", email), field("Hasło", password), mfaRow, freshRow, submit);
+    show(card);
+  },
+
+  proposal: block => {
+    const card = node("div", "card them");
+    card.append(node("p", "notice", "To propozycja modelu. Przeczytaj całość przed zapisem; odpowiadasz za treść dokumentu."));
+    if (block.gaps) card.append(node("p", "notice", "Miejsca do uzupełnienia: " + block.gaps + ". Szukaj w tekście „[DO UZUPEŁNIENIA”."));
+    if (block.unknown_placeholders.length) {
+      card.append(node("p", "notice", "Model użył znaczników, których nie było w dokumentach: " + block.unknown_placeholders.join(", ") + ". Popraw te miejsca."));
+    }
+    if (block.skipped.length) card.append(node("p", "notice", "Nie odczytano (tylko TXT i DOCX): " + block.skipped.join(", ") + "."));
+    card.append(node("p", "muted", "Na podstawie: " + block.sources.map(source => source.name + " (wersja " + source.version + ")").join(", ") + "."));
+    const body = node("textarea", "tall");
+    body.value = block.paragraphs.join("\n");
+    const name = node("input");
+    name.maxLength = 255;
+    name.value = "projekt.docx";
+    const base = node("select"), template = node("select");
+    base.append(new Option("Nowy dokument", ""), ...block.docx.map(item => new Option("Kolejna wersja: " + item.name, item.id + ":" + item.version)));
+    template.append(new Option("Bez wzoru", ""), ...block.docx.map(item => new Option(item.name, item.id + ":" + item.version)));
+    card.append(field("Treść projektu (możesz poprawić przed zapisem)", body), field("Nazwa pliku", name));
+    if (block.docx.length) card.append(field("Zapisz jako", base), field("Wzór kancelarii (układ strony i nagłówek)", template));
+    const approve = node("button", "primary", "Zatwierdzam i zapisuję");
+    const discard = node("button", "danger", "Odrzuć projekt");
+    approve.onclick = run(async () => {
+      const file = name.value.trim();
+      if (!/\.docx$/i.test(file)) throw new Error("Podaj nazwę pliku z rozszerzeniem .docx.");
+      const result = await call("drafts/" + block.id + "/approve", "POST", {
+        name: file, paragraphs: body.value.split("\n"), base: target(base.value), template: target(template.value),
+      });
+      card.remove();
+      bubble("Zatwierdzam i zapisuję", "me");
+      bubble("Zapisałem " + result.name + " jako wersję " + result.version + " i potwierdziłem odczytem kontrolnym.", "them");
+      render.documents({ items: [{ id: result.id, name: result.name, version: result.version }] });
+      status("Zapisano " + result.name + " jako wersję " + result.version + " i potwierdzono odczytem kontrolnym.");
+    });
+    discard.onclick = run(async () => {
+      if (!window.confirm("Odrzucić projekt? Nie da się go przywrócić.")) return;
+      await call("drafts/" + block.id, "DELETE");
+      card.remove();
+      bubble("Odrzuć projekt", "me");
+      bubble("Projekt odrzucony. Nic nie zapisałem.", "them");
+    });
+    const row = node("div", "row");
+    row.append(approve, discard);
+    card.append(row);
+    show(card);
+  },
+};
+
+async function exchange(turn) {
+  const waiting = bubble("Piszę…", "them wait");
+  let reply;
+  try {
+    reply = await call("chat", "POST", { case: currentCase(), names, ...turn });
+  } finally {
+    waiting.remove();
+  }
+  for (const block of reply.blocks) await (render[block.type] || render.text)(block);
+  if (reply.blocks.some(block => block.type === "case")) await refreshCases(currentCase());
+}
+
+async function send(sentence, shown) {
+  const text = sentence.trim();
+  if (!text) return;
+  bubble(shown || text, "me");
+  status("");
+  await exchange({ text });
+}
+
+function chips() {
+  const items = admin
+    ? [["Stan", "stan"], ["Dodaj telefon", "dodaj telefon"], ["Zrób kopię", "zrób kopię"], ["Dziennik", "dziennik"], ["Dokumenty", "dokumenty"], ["Pomoc", "pomoc"]]
+    : [["Dokumenty", "dokumenty"], ["Sprawy", "sprawy"], ["Taksa", "taksa"], ["Pomoc", "pomoc"]];
+  const elements = items.map(([label, sentence]) => sayButton(label, sentence));
+  if (scope !== "read") {
+    const note = node("button", "", "Nowy dokument tekstowy");
+    note.onclick = () => { if (mayDiscard()) showSheet(null, [], ""); };
+    elements.splice(1, 0, note);
+  }
+  el("chips").replaceChildren(...elements);
+}
+
+// ---------------------------------------------------------------- document sheet
+function mayDiscard() {
+  const dirty = !el("sheet").hidden && !el("text-editor").hidden && scope !== "read" &&
+    (el("name").value !== (opened?.name ?? "") || el("body").value !== originalText);
+  return !dirty || window.confirm("Porzucić niezapisane zmiany?");
 }
 
 function decode(content) {
@@ -110,7 +346,7 @@ function encode(bytes) {
   return btoa(binary);
 }
 
-function showEditor(document, versions, localText) {
+function showSheet(document, versions, localText) {
   opened = document;
   let text = localText;
   if (document && text === undefined && /\.txt$/i.test(document.name)) {
@@ -120,94 +356,41 @@ function showEditor(document, versions, localText) {
       // Non-UTF-8 files are available for download with their original bytes.
     }
   }
+  const writer = scope !== "read";
   originalText = text ?? "";
   el("name").value = document?.name ?? "";
   el("body").value = originalText;
-  el("name").readOnly = scope !== "write";
-  el("body").readOnly = scope !== "write";
+  el("name").readOnly = !writer;
+  el("body").readOnly = !writer;
   el("text-editor").hidden = text === undefined;
-  const writable = scope === "write" && (!document || document.version === versions[0]);
+  const writable = writer && (!document || document.version === versions[0]);
   el("save").hidden = !writable;
   el("replace-tools").hidden = !writable || !document;
   el("replacement").value = "";
-  el("copy").hidden = scope !== "write" || !document;
+  el("copy").hidden = !writer || !document;
   el("selected").textContent = document ? document.name + " · wersja " + document.version : "Nowy dokument";
   el("versions").replaceChildren(...versions.map(version =>
     new Option("Wersja " + version, version, false, version === document?.version)
   ));
   el("history").hidden = !document;
-  el("editor").hidden = false;
+  el("sheet").hidden = false;
+  el("sheet").scrollIntoView({ block: "nearest" });
+}
+
+function closeSheet() {
+  opened = null;
+  originalText = "";
+  el("sheet").hidden = true;
 }
 
 async function openDocument(id, version) {
+  if (!mayDiscard()) return;
   const [document, versions] = await Promise.all([
     call("documents/" + id + (version ? "?version=" + version : "")),
     call("documents/" + id + "/versions"),
   ]);
-  showEditor(document, versions);
+  showSheet(document, versions);
   status("Otwarto wersję " + document.version + ".");
-}
-
-function notice(text) {
-  const box = document.createElement("p");
-  box.className = "notice";
-  box.textContent = text;
-  return box;
-}
-
-async function refreshStatus() {
-  const state = await call("status");
-  allowedCases = state.cases;
-  el("mode").textContent = state.mode === "synthetic-only"
-    ? "Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów."
-    : "Dokumenty są przechowywane na komputerze kancelarii.";
-  const notes = [];
-  if (!state.recovery.enrolled) {
-    notes.push(notice("Sejf nie ma kodu odzyskiwania. Po awarii komputera dokumentów nie da się odtworzyć. Utwórz kod w panelu stanowiska na komputerze kancelarii."));
-  } else if (state.recovery.backup_overdue) {
-    notes.push(notice("Dawno nie było kopii zapasowej. Zrób ją w panelu stanowiska na komputerze kancelarii."));
-  }
-  if (!state.ai.enabled) notes.push(notice("Asystent AI jest wyłączony na tym stanowisku."));
-  else if (!state.ai.signed_in) notes.push(notice("Asystent AI wymaga zalogowania w panelu stanowiska."));
-  el("notices").replaceChildren(...notes);
-  el("draft").hidden = scope !== "write";
-  el("new-case-tools").hidden = scope !== "write" || allowedCases !== null;
-}
-
-async function refreshCases(keep) {
-  const cases = await call("cases");
-  const selected = keep ?? el("case").value;
-  const options = [];
-  if (allowedCases === null) {
-    options.push(new Option("Wszystkie dokumenty", ALL));
-  }
-  cases.forEach(name => options.push(new Option(name, name)));
-  if (!options.length) options.push(new Option("Brak spraw", NONE));
-  el("case").replaceChildren(...options);
-  if ([...el("case").options].some(option => option.value === selected)) el("case").value = selected;
-}
-
-async function refresh() {
-  const selected = currentCase();
-  listed = await call("documents?include_names=true" + (selected ? "&case=" + encodeURIComponent(selected) : ""));
-  const entries = listed.map(item => {
-    const entry = document.createElement("li");
-    const button = document.createElement("button");
-    button.textContent = item.name + " · wersja " + item.version;
-    button.onclick = run(async () => {
-      if (mayDiscard()) await openDocument(item.id);
-    });
-    entry.append(button);
-    return entry;
-  });
-  if (!entries.length) {
-    const empty = document.createElement("li");
-    empty.textContent = "Brak dokumentów.";
-    entries.push(empty);
-  }
-  el("docs").replaceChildren(...entries);
-  el("assistant").hidden = !selected;
-  if (!selected) hideProposal();
 }
 
 async function save(name, bytes, current, text) {
@@ -220,14 +403,9 @@ async function save(name, bytes, current, text) {
     case: current ? null : currentCase(),
   });
   const versions = Array.from({ length: result.version }, (_, index) => result.version - index);
-  showEditor({ ...result, name, content_b64 }, versions, text);
-  el("file").value = "";
+  showSheet({ ...result, name, content_b64 }, versions, text);
+  render.documents({ items: [{ id: result.id, name, version: result.version }] });
   status("Zapisano wersję " + result.version + ".");
-  try {
-    await refresh();
-  } catch {
-    status("Zapisano wersję " + result.version + ". Lista dokumentów wymaga odświeżenia.");
-  }
 }
 
 async function saveText(current) {
@@ -237,168 +415,69 @@ async function saveText(current) {
   await save(name, new TextEncoder().encode(text), current, text);
 }
 
-// ---------------------------------------------------------------- assistant
-function names() {
-  return el("names").value.split("\n").map(line => line.trim()).filter(Boolean).slice(0, 50);
+async function saveFile(input, current) {
+  const file = el(input).files[0];
+  if (!file) throw new Error("Wybierz plik.");
+  if (file.size > maxBytes) throw new Error("Limit rozmiaru pliku to 20 MiB.");
+  if (!mayDiscard()) return;
+  if (!current) bubble("Dodaję plik " + file.name, "me");
+  await save(file.name, new Uint8Array(await file.arrayBuffer()), current);
+  el(input).value = "";
+  if (!current) bubble("Dodałem " + file.name + (currentCase() ? " do sprawy „" + currentCase() + "”." : "."), "them");
 }
-
-function question() {
-  const text = el("prompt").value.trim();
-  if (!text) throw new Error("Wpisz pytanie albo polecenie.");
-  if (!currentCase()) throw new Error("Wybierz sprawę.");
-  return { text, names: names() };
-}
-
-function hideProposal() {
-  proposal = null;
-  el("proposal").hidden = true;
-  el("proposal-text").value = "";
-}
-
-function showProposal(result) {
-  proposal = result;
-  const notes = [];
-  notes.push(notice("To propozycja modelu. Przeczytaj całość przed zapisem; odpowiadasz za treść dokumentu."));
-  if (result.gaps) notes.push(notice("Miejsca do uzupełnienia: " + result.gaps + ". Szukaj w tekście „[DO UZUPEŁNIENIA”."));
-  if (result.unknown_placeholders.length) {
-    notes.push(notice("Model użył znaczników, których nie było w dokumentach: " + result.unknown_placeholders.join(", ") + ". Popraw te miejsca."));
-  }
-  if (result.skipped.length) {
-    notes.push(notice("Nie odczytano (tylko TXT i DOCX): " + result.skipped.join(", ") + "."));
-  }
-  const sources = document.createElement("p");
-  sources.className = "muted";
-  sources.textContent = "Na podstawie: " + result.sources.map(source => source.name + " (wersja " + source.version + ")").join(", ") + ".";
-  notes.push(sources);
-  el("proposal-notes").replaceChildren(...notes);
-  el("proposal-text").value = result.paragraphs.join("\n");
-  const documents = listed.filter(item => /\.docx$/i.test(item.name));
-  el("proposal-base").replaceChildren(
-    new Option("Nowy dokument", ""),
-    ...documents.map(item => new Option("Kolejna wersja: " + item.name, item.id + ":" + item.version)),
-  );
-  el("proposal-template").replaceChildren(
-    new Option("Bez wzoru", ""),
-    ...documents.map(item => new Option(item.name, item.id + ":" + item.version)),
-  );
-  el("proposal").hidden = false;
-  el("answer").hidden = true;
-}
-
-function target(value) {
-  if (!value) return null;
-  const [id, version] = value.split(":");
-  return { id, version: Number(version) };
-}
-
-el("ask").onclick = run(async () => {
-  const result = await call("cases/" + encodeURIComponent(currentCase()) + "/ask", "POST", question());
-  el("answer").textContent = result.answer;
-  el("answer").hidden = false;
-  status("Odpowiedź na podstawie " + result.sources.length + " dokumentów sprawy.");
-});
-el("draft").onclick = run(async () => {
-  status("Przygotowuję projekt. To może potrwać do kilku minut.");
-  showProposal(await call("cases/" + encodeURIComponent(currentCase()) + "/draft", "POST", question()));
-  status("Projekt gotowy do sprawdzenia. Nic nie zostało jeszcze zapisane.");
-});
-el("approve").onclick = run(async () => {
-  const name = el("proposal-name").value.trim();
-  if (!/\.docx$/i.test(name)) throw new Error("Podaj nazwę pliku z rozszerzeniem .docx.");
-  const base = target(el("proposal-base").value);
-  const result = await call("drafts/" + proposal.id + "/approve", "POST", {
-    name, paragraphs: el("proposal-text").value.split("\n"),
-    base, template: target(el("proposal-template").value),
-  });
-  hideProposal();
-  status("Zapisano " + result.name + " jako wersję " + result.version + " i potwierdzono odczytem kontrolnym.");
-  await refresh();
-});
-el("discard").onclick = run(async () => {
-  if (!window.confirm("Odrzucić projekt? Nie da się go przywrócić.")) return;
-  await call("drafts/" + proposal.id, "DELETE");
-  hideProposal();
-  status("Projekt odrzucony. Nic nie zapisano.");
-});
-
-// ---------------------------------------------------------------- fees
-async function loadFees() {
-  const catalog = await call("taksa/katalog");
-  el("fee-kind").replaceChildren(...catalog.map(kind => new Option(kind.nazwa, kind.id)));
-}
-
-el("fee").onclick = run(async () => {
-  const value = Number(el("fee-value").value.replace(/\s/g, "").replace(",", "."));
-  if (!(value > 0)) throw new Error("Podaj wartość większą od zera.");
-  const result = await call("taksa", "POST", { parameters: { czynnosci: [{ rodzaj: el("fee-kind").value, wartosc: value }] } });
-  el("fee-result").textContent = result.tekst || (result.uwagi || []).join("\n");
-  el("fee-result").hidden = false;
-  status("Taksę policzył program według stawek maksymalnych, nie model.");
-});
 
 // ---------------------------------------------------------------- session
+async function refreshCases(keep) {
+  const cases = await call("cases");
+  const state = await call("status");
+  const options = [];
+  if (state.cases === null) options.push(new Option("Wszystkie sprawy", ALL));
+  cases.forEach(name => options.push(new Option(name, name)));
+  if (keep && !cases.includes(keep)) options.push(new Option(keep, keep));
+  el("case").replaceChildren(...options);
+  if (keep) el("case").value = keep;
+  el("mode").textContent = state.mode === "synthetic-only"
+    ? "Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów."
+    : "Dokumenty są przechowywane na komputerze kancelarii.";
+}
+
 async function enter(device) {
   token = device.token;
   scope = device.scope;
   el("pairing").hidden = true;
   el("workspace").hidden = false;
-  el("write-tools").hidden = scope !== "write";
-  status(scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu.");
-  await refreshStatus();
+  el("bar").hidden = false;
+  el("attach").hidden = scope === "read";
+  el("messages").replaceChildren();
+  chips();
+  status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
   await refreshCases();
-  await refresh();
-  await loadFees();
+  await exchange({ hello: true });
 }
-
-el("pair").onclick = run(async () => {
-  const code = el("code").value.trim();
-  const device = await call("devices/redeem", "POST", { code });
-  el("code").value = "";
-  await enter(device);
-});
-el("refresh").onclick = run(async () => {
-  await refreshStatus();
-  await refreshCases();
-  await refresh();
-});
-el("case").onchange = run(async () => {
-  if (!mayDiscard()) return;
-  resetEditor();
-  hideProposal();
-  el("answer").hidden = true;
-  await refresh();
-});
-el("add-case").onclick = run(async () => {
-  const name = el("new-case").value.trim();
-  if (!/^[\p{L}\p{N}_.-]{1,64}$/u.test(name)) throw new Error("Nazwa sprawy: litery, cyfry, myślnik, kropka; bez spacji.");
-  if (![...el("case").options].some(option => option.value === name)) el("case").add(new Option(name, name));
-  el("case").value = name;
-  el("new-case").value = "";
-  await refresh();
-  status("Sprawa „" + name + "” pojawi się na stałe po zapisaniu pierwszego dokumentu.");
-});
-el("logout").onclick = run(async () => {
-  if (!mayDiscard()) return;
-  if (tunnel) {
-    if (!window.confirm("Rozłączyć i zapomnieć to urządzenie? Ponowne połączenie wymaga nowego kodu z kancelarii.")) return;
-    tunnel.close();
-    tunnel = null;
-    await NotaraiTunnel.forgetIdentity();
-  }
-  leave("Rozłączono.");
-});
 
 function leave(message) {
   token = "";
   scope = "";
-  resetEditor();
-  hideProposal();
-  el("file").value = "";
-  el("docs").replaceChildren();
-  el("answer").hidden = true;
+  names = [];
+  closeSheet();
+  el("messages").replaceChildren();
   el("workspace").hidden = true;
+  el("bar").hidden = true;
   el("pairing").hidden = false;
   status(message);
+}
+
+async function unlock(code) {
+  // Never through call(): this must stay a plain local request even if a tunnel identity exists.
+  const response = await fetch("/v2/devices/redeem", {
+    method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+    credentials: "omit", body: JSON.stringify({ code }),
+  });
+  const session = response.ok ? await response.json() : null;
+  if (!session || (admin && session.scope !== "admin") || (!admin && session.scope === "admin")) {
+    throw new Error(admin ? "Kod panelu jest nieważny. Otwórz panel ponownie z menu Start." : "Kod parowania jest nieważny albo wygasł.");
+  }
+  await enter(session);
 }
 
 async function enterRemote(session) {
@@ -411,8 +490,14 @@ async function enterRemote(session) {
 }
 
 async function start() {
-  const link = NotaraiTunnel.parseLink(window.location.hash);
-  if (window.location.hash) history.replaceState(null, "", window.location.pathname);
+  const fragment = window.location.hash;
+  if (fragment) history.replaceState(null, "", window.location.pathname);
+  if (admin) {
+    // The launcher opens this page with a one-time code in the fragment, which never reaches a server log.
+    if (fragment.length > 1) await unlock(fragment.slice(1));
+    return;
+  }
+  const link = NotaraiTunnel.parseLink(fragment);
   if (link) {
     status("Łączę z kancelarią…");
     await enterRemote(await NotaraiTunnel.pair(link));
@@ -420,15 +505,54 @@ async function start() {
   } else if (await NotaraiTunnel.hasIdentity()) {
     status("Łączę z kancelarią…");
     await enterRemote(await NotaraiTunnel.resume());
+  } else if (!["127.0.0.1", "localhost"].includes(window.location.hostname)) {
+    // Opened on the public address without a pairing: a typed code cannot work from here.
+    el("pairing").replaceChildren(node("p", "",
+      "To urządzenie nie jest jeszcze sparowane. W kancelarii napisz w panelu stanowiska „dodaj telefon” i zeskanuj kod QR aparatem tego telefonu."));
   }
 }
 
-el("new").onclick = () => {
-  if (mayDiscard()) showEditor(null, [], "");
-};
-el("open-version").onclick = run(async () => {
-  if (mayDiscard()) await openDocument(opened.id, el("versions").value);
+el("pair").onclick = run(async () => {
+  const code = el("code").value.trim();
+  el("code").value = "";
+  await unlock(code);
 });
+el("send").onclick = run(async () => {
+  const text = el("prompt").value;
+  el("prompt").value = "";
+  el("prompt").style.height = "";
+  await send(text);
+});
+el("prompt").addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    el("send").click();
+  }
+});
+el("prompt").addEventListener("input", () => {
+  el("prompt").style.height = "auto";
+  el("prompt").style.height = el("prompt").scrollHeight + "px";
+});
+el("case").onchange = run(async () => {
+  closeSheet();
+  bubble(currentCase() ? "Sprawa: " + currentCase() : "Wszystkie sprawy", "me");
+  await exchange({ text: "dokumenty" });
+});
+el("attach").onclick = () => el("file").click();
+el("file").onchange = run(() => saveFile("file", null));
+el("logout").onclick = run(async () => {
+  if (!mayDiscard()) return;
+  if (tunnel) {
+    if (!window.confirm("Rozłączyć i zapomnieć to urządzenie? Ponowne połączenie wymaga nowego kodu z kancelarii.")) return;
+    tunnel.onclose = () => {};
+    tunnel.close();
+    tunnel = null;
+    await NotaraiTunnel.forgetIdentity();
+  }
+  leave("Rozłączono.");
+});
+el("close-sheet").onclick = () => { if (mayDiscard()) closeSheet(); };
+el("open-version").onclick = run(() => openDocument(opened.id, el("versions").value));
 el("download").onclick = () => {
   const url = URL.createObjectURL(new Blob([decode(opened.content_b64)]));
   const link = document.createElement("a");
@@ -439,17 +563,9 @@ el("download").onclick = () => {
 };
 el("save").onclick = run(() => saveText(opened));
 el("copy").onclick = run(() => saveText(null));
-async function saveFile(input, current) {
-  const file = el(input).files[0];
-  if (!file) throw new Error("Wybierz plik.");
-  if (file.size > maxBytes) throw new Error("Limit rozmiaru pliku to 20 MiB.");
-  if (mayDiscard()) await save(file.name, new Uint8Array(await file.arrayBuffer()), current);
-}
-
-el("import").onclick = run(() => saveFile("file", null));
 el("replace").onclick = run(() => saveFile("replacement", opened));
 
-if ("serviceWorker" in navigator) {
+if (!admin && "serviceWorker" in navigator) {
   navigator.serviceWorker.register("pocket-sw.js").catch(() => { /* optional */ });
 }
 run(start)();

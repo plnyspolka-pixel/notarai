@@ -47,6 +47,11 @@ def serve(home: Path, state: Path, *, no_browser: bool):
         if any(home.iterdir()):
             raise RuntimeError("Brak kluczy istniejącego sejfu testowego.")
         initialize(home)
+    preset = Path(__file__).with_name("preset.json")
+    if preset.is_file() and not (home / "settings.json").exists():
+        # Addresses of the NotarAI services for this installation. Everything optional stays off
+        # until the notary switches it on in the panel.
+        (home / "settings.json").write_text(preset.read_text(encoding="utf-8"), encoding="utf-8")
     app = create_app(home, allow_bedrock=False)
     nonce = secrets.token_hex(32)
 

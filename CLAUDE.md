@@ -98,9 +98,13 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zapis albo wysyłka w imieniu notariusza: tylko przez kontrakt Connect z
   zatwierdzeniem dokładnej treści i odczytem kontrolnym; bez ponawiania po
   niepewnym wyniku.
-- Stosy `infra/notarai-v2-*.yaml` są zwalidowane, nie utworzone. `notarai-v2-kopia`
-  przechowuje zaszyfrowane dane osobowe: przed utworzeniem zapytaj o potwierdzenie.
-- Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.*`, `tunnel.js`) sprawdzaj
+- Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia` istnieją w
+  eu-central-1 (decyzja właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
+  `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
+- Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
+  zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
+  nieodwracalne wymagają potwierdzenia.
+- Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
   w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
 
 ## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)

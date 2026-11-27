@@ -278,3 +278,20 @@ def test_failed_restore_leaves_no_key_behind(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         recovery.restore(backup, tmp_path / "new", code)
     assert list((tmp_path / "new").iterdir()) == []
+
+
+def test_case_parties_are_encrypted_and_survive_rotation_and_restore(tmp_path):
+    home, vault = new_home(tmp_path)
+    code = recovery.enroll(home)
+    vault.put(None, 0, "akt.txt", b"x", case="sprawa-1")
+    assert vault.set_parties("sprawa-1", ["Jan  Kowalski", "Jan Kowalski", "", "Anna Nowak"]) == ["Jan Kowalski", "Anna Nowak"]
+    assert b"Kowalski" not in (home / "vault.sqlite3").read_bytes()
+    assert vault.parties("inna") == [] and vault.parties(None) == []
+    with pytest.raises(ValueError):
+        vault.set_parties("../x", ["a"])
+    code = recovery.rotate_master(home)
+    assert Vault(home, read_secret(home, "vault.key")).parties("sprawa-1") == ["Jan Kowalski", "Anna Nowak"]
+    backup = tmp_path / "k.notarai-backup"
+    recovery.backup(home, backup)
+    recovery.restore(backup, tmp_path / "new", code)
+    assert Vault(tmp_path / "new", read_secret(tmp_path / "new", "vault.key")).parties("sprawa-1") == ["Jan Kowalski", "Anna Nowak"]

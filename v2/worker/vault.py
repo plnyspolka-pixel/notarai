@@ -66,10 +66,13 @@ class Vault:
                 raise ValueError("vault was written by a newer NotarAI")
             if version < SCHEMA:
                 self._migrate(db, key)
+            # People named in a case (for pseudonymisation), encrypted; added after schema 2 shipped.
+            db.execute("CREATE TABLE IF NOT EXISTS case_notes (case_id TEXT PRIMARY KEY, parties BLOB NOT NULL)")
 
     def _set_key(self, key: bytes) -> None:
         self._kek = AESGCM(derive(key, "kek"))
         self._audit_key = derive(key, "audit")
+        self._notes = AESGCM(derive(key, "case-notes"))
 
     def connect(self):
         return sqlite3.connect(self.db, timeout=10, isolation_level=None)
@@ -151,8 +154,13 @@ class Vault:
                     "UPDATE documents SET dek=? WHERE id=?",
                     (_seal(new_kek, dek, self._dek_aad(doc_id, case)), doc_id),
                 )
+            notes = [(case, _open(self._notes, blob, _aad("parties", case)))
+                     for case, blob in db.execute("SELECT case_id, parties FROM case_notes").fetchall()]
             self._verify_audit(db)
             self._set_key(new_key)
+            for case, plain in notes:
+                db.execute("UPDATE case_notes SET parties=? WHERE case_id=?",
+                           (_seal(self._notes, plain, _aad("parties", case)), case))
             previous = b""
             for row in db.execute("SELECT seq, ts, actor, action, doc_id, version FROM audit ORDER BY seq").fetchall():
                 previous = self._mac(previous, row)
@@ -293,6 +301,24 @@ class Vault:
                 result.append({"id": doc_id, "version": version, "name": name, "size": size,
                                "created": created, "case": case})
         return result
+
+    def set_parties(self, case: str, names):
+        """Remember who is named in a case, so every device hides the same people from the model."""
+        names = [*dict.fromkeys(" ".join(str(n).split()) for n in names if str(n).strip())][:50]
+        if not valid_case(case) or case is None or any(len(n) > 120 for n in names):
+            raise ValueError("invalid parties")
+        blob = _seal(self._notes, json.dumps(names, ensure_ascii=False).encode(), _aad("parties", case))
+        with self._tx() as db:
+            db.execute("INSERT INTO case_notes VALUES (?,?) ON CONFLICT(case_id) DO UPDATE SET parties=excluded.parties",
+                       (case, blob))
+        return names
+
+    def parties(self, case):
+        if case is None:
+            return []
+        with self._ro() as db:
+            row = db.execute("SELECT parties FROM case_notes WHERE case_id=?", (case,)).fetchone()
+        return json.loads(_open(self._notes, row[0], _aad("parties", case))) if row else []
 
     def cases(self):
         with self._ro() as db:

@@ -28,4 +28,31 @@ table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 #status { position: sticky; bottom: 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 2.6em; }
 [hidden] { display: none !important; }
-@media print { body > *:not(#print-area) { display: none !important; } #print-area { display: block !important; border: 0; } }
+
+/* ---- chat ---- */
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+#bar { display: flex; gap: 8px; align-items: center; }
+#bar select { max-width: 46vw; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+button.quiet { background: transparent; }
+#workspace { display: flex; flex-direction: column; gap: 8px; }
+#messages { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; min-height: 30vh; }
+.bubble { max-width: 92%; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble.me { align-self: flex-end; background: var(--accent); border-color: var(--accent); color: #fff; }
+.bubble.them { align-self: flex-start; }
+.bubble.wait { color: var(--muted); font-style: italic; }
+.group { align-self: stretch; display: flex; flex-wrap: wrap; gap: 6px; }
+.group button { min-height: 40px; padding: 6px 12px; border-radius: 999px; }
+.group.docs button { border-radius: 10px; text-align: left; }
+.card.them { align-self: stretch; }
+.card canvas { display: block; margin: 8px auto; max-width: 100%; height: auto; image-rendering: pixelated; }
+#composer { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0 max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+#chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+#chips button { flex: 0 0 auto; min-height: 36px; padding: 4px 12px; border-radius: 999px; font-size: .92rem; }
+.row.tight { flex-wrap: nowrap; align-items: flex-end; }
+.row.tight > * { flex: 0 0 auto; }
+.row.tight > textarea { flex: 1 1 auto; min-height: 44px; max-height: 40vh; resize: none; }
+#status { position: static; border: 0; background: transparent; color: var(--muted); font-size: .9rem; min-height: 1.4em; padding: 0; }
+#sheet h2 { margin: 0; }
+@media print { body > *, #workspace > *, #messages > * { display: none !important; }
+  body > #workspace, #workspace > #messages, #messages > .printing { display: block !important; border: 0; } }

@@ -1,0 +1,498 @@
+"""Chat-first front door. The notary types a sentence; this module decides what to do.
+
+Routing is deterministic for anything that changes state (copies, devices, settings): a fixed
+set of Polish phrasings, never a model's guess. Only what is left over, a question about the
+case, goes to the model. Irreversible actions return a confirmation the user must tap.
+
+A reply is a list of blocks the page renders: text, buttons (which send a sentence back),
+documents, a draft to approve, a one-time secret, a QR code, a sign-in form, a confirmation.
+"""
+import re
+import secrets
+import time
+import unicodedata
+from decimal import Decimal, InvalidOperation
+
+from .drafting import DraftError
+from .vault import valid_case
+
+DRAFT_WORDS = ("przygotuj", "napisz", "sporzadz", "zredaguj", "stworz projekt", "projekt aktu", "projekt umowy")
+CONFIRM_TTL = 300
+
+
+def norm(text: str) -> str:
+    text = text.lower().replace("ł", "l")
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").strip()
+
+
+def text(message: str) -> dict:
+    return {"type": "text", "text": message}
+
+
+def buttons(*items) -> dict:
+    return {"type": "buttons", "items": [{"label": label, "say": say} for label, say in items]}
+
+
+def parse_amount(message: str) -> Decimal | None:
+    """'500 tys.', '1,2 mln zł', '350000', '350 000,50 zł'."""
+    found = re.search(r"(\d[\d \u00a0.]*(?:,\d+)?)\s*(mln|milion\w*|tys\w*|k\b)?", message.lower())
+    if not found:
+        return None
+    number = found.group(1).replace(" ", "").replace("\u00a0", "")
+    number = number.replace(".", "") if found.group(2) is None or "," in number else number
+    try:
+        value = Decimal(number.replace(",", "."))
+    except InvalidOperation:
+        return None
+    unit = found.group(2) or ""
+    if unit.startswith(("mln", "milion")):
+        value *= 1_000_000
+    elif unit.startswith(("tys", "k")):
+        value *= 1_000
+    return value if value > 0 else None
+
+
+def when(ns: int) -> str:
+    stamp = time.localtime(ns // 10**9)
+    today = time.localtime()
+    day = "dziś" if stamp[:3] == today[:3] else time.strftime("%d.%m", stamp)
+    return f"{day} o {time.strftime('%H:%M', stamp)}"
+
+
+class Chat:
+    def __init__(self, services):
+        self.s = services
+        self._pending: dict[str, tuple[str, float, callable]] = {}
+
+    # ------------------------------------------------------------ confirmations
+    def _confirm(self, identity, question: str, label: str, action) -> dict:
+        now = time.monotonic()
+        self._pending = {k: v for k, v in self._pending.items() if v[1] > now}
+        token = secrets.token_urlsafe(16)
+        self._pending[token] = (identity.id, now + CONFIRM_TTL, action)
+        return {"type": "confirm", "text": question, "label": label, "token": token}
+
+    def confirm(self, identity, token: str) -> list[dict]:
+        owner, expires, action = self._pending.pop(token, ("", 0, None))
+        if action is None or owner != identity.id or expires <= time.monotonic():
+            return [text("To potwierdzenie wygasło. Napisz polecenie jeszcze raz.")]
+        return action()
+
+    # ------------------------------------------------------------ entry points
+    def hello(self, identity, case) -> list[dict]:
+        admin = identity.scope == "admin"
+        blocks = [text("Dzień dobry. Napisz, co mam zrobić, albo wybierz podpowiedź." if not admin else
+                       "Dzień dobry. Tu ustawiasz to stanowisko. Napisz, co mam zrobić, albo wybierz podpowiedź.")]
+        blocks += self._warnings(admin)
+        if admin:
+            blocks.append(buttons(("Stan stanowiska", "stan"), ("Dodaj telefon", "dodaj telefon"),
+                                  ("Zrób kopię", "zrób kopię"), ("Kto czytał dokumenty?", "dziennik"),
+                                  ("Dokumenty", "dokumenty"), ("Co umiesz?", "pomoc")))
+        else:
+            blocks.append(buttons(("Dokumenty", "dokumenty"), ("Sprawy", "sprawy"),
+                                  ("Policz taksę", "taksa"), ("Co umiesz?", "pomoc")))
+        return blocks
+
+    def say(self, identity, message: str, case, names) -> list[dict]:
+        message = " ".join(message.split())
+        plain = norm(message)
+        admin = identity.scope == "admin"
+        if admin:
+            reply = self._admin(identity, message, plain, case)
+            if reply is not None:
+                return reply
+        return self._common(identity, message, plain, case, names)
+
+    # ------------------------------------------------------------ shared intents
+    def _common(self, identity, message, plain, case, names) -> list[dict]:
+        s, writable = self.s, identity.scope in {"admin", "write"}
+        if plain in {"pomoc", "help", "co umiesz", "co umiesz?", "co potrafisz", "co potrafisz?"}:
+            return self._help(identity.scope == "admin", writable)
+        if plain in {"sprawy", "lista spraw", "pokaz sprawy", "jakie sa sprawy", "jakie sa sprawy?"}:
+            cases = s.cases(identity)
+            if not cases:
+                return [text("Nie ma jeszcze żadnej sprawy. Napisz „nowa sprawa” i jej nazwę, np. „nowa sprawa kowalski-2026”.")]
+            return [text("Którą sprawę otworzyć?"), buttons(*[(c, f"sprawa {c}") for c in cases[:30]])]
+        found = re.fullmatch(r"(?:nowa sprawa|sprawa|przejdz do sprawy|otworz sprawe|przejdz do)\s+(\S+)", plain)
+        if found:
+            name = message.split()[-1]
+            if not valid_case(name) or not s.may_see_case(identity, name):
+                return [text("Nazwa sprawy może mieć litery, cyfry, myślnik i kropkę, bez spacji.")]
+            return [{"type": "case", "case": name}, text(f"Sprawa „{name}”. Co robimy?"),
+                    buttons(("Dokumenty", "dokumenty"), ("Przygotuj projekt", "przygotuj projekt umowy"))]
+        if plain.startswith(("strony:", "strony ", "osoby:")):
+            listed = [n.strip() for n in re.split(r"[,;\n]", message.split(":", 1)[-1] if ":" in message
+                                                  else message.split(" ", 1)[-1]) if n.strip()][:50]
+            if case is None or not s.may_see_case(identity, case):
+                return [text("Najpierw wybierz sprawę, której dotyczą te osoby.")]
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            listed = s.vault.set_parties(case, listed)
+            return [{"type": "names", "names": listed},
+                    text(f"Zapamiętałem strony sprawy „{case}”: " + ", ".join(listed) + "."
+                         + (" Model zobaczy je jako znaczniki, na każdym urządzeniu." if s.pseudonymizes() else ""))]
+        if re.search(r"\b(dokumenty|pliki|lista dokumentow|co jest w sprawie|pokaz dokumenty)\b", plain) \
+                and not plain.startswith(DRAFT_WORDS):
+            return self._documents(identity, case)
+        if "taks" in plain or plain.startswith(("ile kosztuje", "koszt ", "policz koszt")):
+            return self._fee(message, plain)
+        found = re.fullmatch(r"(?:notatka|zapisz notatke|zanotuj)\s*:?\s*(.+)", message, re.IGNORECASE | re.DOTALL)
+        if found and norm(message).startswith(("notatka", "zapisz notatke", "zanotuj")):
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            if not s.may_see_case(identity, case):
+                return [text("Najpierw wybierz sprawę.")]
+            name = time.strftime("notatka-%Y%m%d-%H%M%S.txt")
+            doc_id, version = s.vault.put(None, 0, name, found.group(1).encode(), actor=identity.id, case=case)
+            return [text(f"Zapisałem notatkę jako {name}."),
+                    {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}]
+        found = re.fullmatch(r"(?:otworz|pokaz|wyswietl)\s+(.+)", plain)
+        if found:
+            match = self._find_document(identity, case, found.group(1))
+            if isinstance(match, dict):
+                return [{"type": "open", "id": match["id"]}, text(f"Otwieram {match['name']}.")]
+            if match:
+                return [text("Który dokument?"), {"type": "documents", "items": match}]
+        if case is None:
+            return [text("Wybierz sprawę, a odpowiem na podstawie jej dokumentów."),
+                    buttons(("Sprawy", "sprawy"), ("Co umiesz?", "pomoc"))]
+        if not s.may_see_case(identity, case):
+            return [text("Nie ma takiej sprawy.")]
+        if plain.startswith(DRAFT_WORDS) or " projekt " in f" {plain} ":
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu, więc nie przygotuje projektu.")]
+            proposal = s.drafts.propose(case, message, identity.id, names).public()
+            proposal["type"] = "proposal"
+            proposal["docx"] = [d for d in s.vault.summaries({case}) if d["name"].lower().endswith(".docx")]
+            return [text("Projekt gotowy. Przeczytaj go; zapiszę dopiero to, co zatwierdzisz."), proposal]
+        answer = s.drafts.ask(case, message, identity.id, names)
+        blocks = [text(answer["answer"])]
+        if answer["skipped"]:
+            blocks.append(text("Nie czytałem (tylko TXT i DOCX): " + ", ".join(answer["skipped"]) + "."))
+        return blocks
+
+    def _help(self, admin: bool, writable: bool) -> list[dict]:
+        lines = ["Piszesz zwykłym zdaniem. Na przykład:",
+                 "• „dokumenty” albo „otwórz umowa”",
+                 "• pytanie o sprawę: „kto jest sprzedającym?”",
+                 "• „policz taksę od sprzedaży lokalu za 500 tys.”"]
+        if writable:
+            lines += ["• „przygotuj umowę sprzedaży lokalu” (nic nie zapiszę bez Twojej zgody)",
+                      "• „notatka: klient przyniesie odpis w piątek”",
+                      "• „strony: Jan Kowalski, Anna Nowak”"]
+        if admin:
+            lines += ["• „zrób kopię”, „kod odzyskiwania”",
+                      "• „dodaj telefon” albo „dodaj telefon tylko do odczytu dla sprawy kowalski-2026”",
+                      "• „urządzenia”, „cofnij telefon”",
+                      "• „kto czytał umowa.docx?”",
+                      "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
+                      "• „włącz asystenta”, „wyłącz pseudonimizację”, „włącz dostęp spoza kancelarii”"]
+        return [text("\n".join(lines))]
+
+    def _documents(self, identity, case) -> list[dict]:
+        items = self.s.documents(identity, case)
+        if not items:
+            return [text("Brak dokumentów" + (f" w sprawie „{case}”." if case else ".")
+                         + " Dodaj plik spinaczem albo napisz „notatka: …”.")]
+        head = f"Dokumenty sprawy „{case}”:" if case else "Wszystkie dokumenty:"
+        return [text(head), {"type": "documents", "items": items[:60]}]
+
+    def _find_document(self, identity, case, fragment: str):
+        fragment = re.sub(r"\s+(w wordzie|do edycji|w edytorze)$", "", fragment).strip(" „”\"")
+        items = self.s.documents(identity, case) or self.s.documents(identity, None)
+        hits = [d for d in items if fragment in norm(d["name"])]
+        exact = [d for d in hits if norm(d["name"]) == fragment or norm(d["name"]).rsplit(".", 1)[0] == fragment]
+        if len(exact) == 1 or len(hits) == 1:
+            return (exact or hits)[0]
+        return hits[:20]
+
+    def _fee(self, message, plain) -> list[dict]:
+        catalog = self.s.fee_catalog()["rodzaje"]
+        explicit = re.fullmatch(r"taksa (\S+) (\S+)", plain)
+        kind = next((r for r in catalog if explicit and r["id"] == explicit.group(1)), None)
+        amount = parse_amount(explicit.group(2) if kind else message)
+        if kind is None:
+            words = {w[:5] for w in re.findall(r"[a-z]{4,}", plain)} - {"taksa", "taksy", "takse", "polic", "kosztu"}
+            scored = sorted(((len(words & {w[:5] for w in re.findall(r"[a-z]{4,}", norm(r["nazwa"]))}), r)
+                             for r in catalog), key=lambda pair: -pair[0])
+            if scored and scored[0][0] > 0 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
+                kind = scored[0][1]
+            elif amount is not None:
+                options = [r for score, r in scored[:6] if score > 0] or catalog[:6]
+                return [text("Jakiej czynności dotyczy?"),
+                        buttons(*[(r["nazwa"], f"taksa {r['id']} {amount}") for r in options])]
+        if amount is None:
+            return [text("Podaj wartość, np. „taksa od sprzedaży lokalu za 500 tys.”")]
+        if kind is None:
+            return [text("Jakiej czynności dotyczy?"),
+                    buttons(*[(r["nazwa"], f"taksa {r['id']} {amount}") for r in catalog[:6]])]
+        result = self.s.fee_estimate({"czynnosci": [{"rodzaj": kind["id"], "wartosc": float(amount)}]})
+        return [text(result.get("tekst") or "\n".join(result.get("uwagi") or ["Nie udało się policzyć."])),
+                text("Policzył to program według stawek maksymalnych, nie model.")]
+
+    def _warnings(self, admin: bool) -> list[dict]:
+        s, blocks = self.s, []
+        status = s.status()
+        if not status["enrolled"]:
+            blocks.append(text("Uwaga: sejf nie ma kodu odzyskiwania. Po awarii komputera dokumentów nie da się odtworzyć."
+                               + ("" if admin else " Utwórz go w panelu stanowiska na komputerze kancelarii.")))
+            if admin:
+                blocks.append(buttons(("Utwórz kod odzyskiwania", "kod odzyskiwania")))
+        elif status["backup_overdue"]:
+            blocks.append(text("Dawno nie było kopii zapasowej."
+                               + ("" if admin else " Zrób ją w panelu stanowiska na komputerze kancelarii.")))
+            if admin:
+                blocks.append(buttons(("Zrób kopię teraz", "zrób kopię")))
+        if admin and status["workcopies"]:
+            blocks.append(text(f"Otwarte do edycji i niezapisane w sejfie: {status['workcopies']}."))
+            blocks.append(buttons(("Pokaż otwarte", "otwarte")))
+        return blocks
+
+    # ------------------------------------------------------------ workstation intents
+    def _admin(self, identity, message, plain, case):
+        s = self.s
+        on = plain.startswith(("wlacz", "uruchom", "zezwol"))
+        off = plain.startswith(("wylacz", "zablokuj", "zatrzymaj"))
+        if plain in {"stan", "status", "stan stanowiska", "jak stoimy", "jak stoimy?"}:
+            return self._status()
+        if "kod odzyskiwania" in plain:
+            if s.status()["enrolled"]:
+                if plain.startswith("nowy"):
+                    return [self._confirm(identity, "Wydać nowy kod odzyskiwania? Stary przestanie działać dla nowych kopii.",
+                                          "Tak, wydaj nowy kod", lambda: self._recovery_code(True))]
+                return [text("Kod odzyskiwania już istnieje i nie da się go wyświetlić ponownie. "
+                             "Jeśli wydruk zaginął, napisz „nowy kod odzyskiwania”.")]
+            return self._recovery_code(False)
+        if re.search(r"\bkatalog kopii\b", plain):
+            path = message.split(None, 2)[-1].strip() if len(message.split()) > 2 else ""
+            if not path or norm(path) in {"kopii"}:
+                return [text("Napisz „katalog kopii” i ścieżkę, np. „katalog kopii E:\\NotarAI-kopie”.")]
+            s.update_settings(lambda d: d.update(backup_dir=path))
+            return [text(f"Kopie będą trafiać do {path}. Zrobić pierwszą teraz?"), buttons(("Zrób kopię", "zrób kopię"))]
+        if re.search(r"\bkopi[ae]\b", plain) and (on or off) and ("poza" in plain or "chmur" in plain):
+            s.update_settings(lambda d: d["replica"].update(enabled=on))
+            return [text("Kopia poza kancelarią włączona. Wysyłam zaszyfrowany plik raz na dobę." if on
+                         else "Kopia poza kancelarią wyłączona.")]
+        if re.search(r"\bkopi[aeę]\b", plain) and not plain.startswith(("gdzie", "kiedy")):
+            return self._backup()
+        if plain in {"urzadzenia", "telefony", "pokaz urzadzenia", "lista urzadzen"}:
+            return self._devices(identity)
+        if plain.startswith(("dodaj telefon", "dodaj urzadzenie", "dodaj tablet", "dodaj laptop", "sparuj", "nowy telefon")):
+            return self._invite(message, plain)
+        found = re.fullmatch(r"(?:cofnij|odlacz|usun|zablokuj)(?: dostep)?(?: urzadzenia| urzadzenie)?\s+(.+)", plain)
+        if found:
+            return self._revoke(identity, found.group(1))
+        if plain.startswith(("dziennik", "kto czytal", "kto otwieral", "historia", "kto zmienial")):
+            return self._audit(identity, case, plain)
+        if plain.startswith(("zuzycie", "ile kosztowalo", "ile zuzylismy", "koszty ai")):
+            usage = s.usage()
+            if not usage:
+                return [text("Asystent nie był jeszcze używany.")]
+            return [text("\n".join(
+                f"{row['calls']} wywołań ({ {'draft': 'projekty', 'chat': 'pytania', 'smoke': 'testy'}.get(row['purpose'], row['purpose']) }): "
+                f"{row['input_tokens']} tokenów wejścia, {row['output_tokens']} wyjścia." for row in usage))]
+        if (on or off) and re.search(r"pseudonim|maskowani|znacznik", plain):
+            s.update_settings(lambda d: d["ai"].update(pseudonymize=on))
+            return [text("Pseudonimizacja włączona: PESEL, NIP, numery KW, rachunki i wskazane osoby model zobaczy jako znaczniki."
+                         if on else "Pseudonimizacja wyłączona: tekst dokumentów trafia do modelu w UE bez zmian. "
+                                    "Nadal nic nie jest tam zapisywane.")]
+        if (on or off) and re.search(r"spoza kancelarii|zdaln|poza kancelari|tunel", plain):
+            try:
+                s.update_settings(lambda d: d["tunnel"].update(enabled=on))
+            except ValueError:
+                return [text("Brakuje adresu przekaźnika albo strony Pocket. Otrzymasz je przy wdrożeniu.")]
+            return [text("Dostęp spoza kancelarii włączony. Nowe telefony sparujesz kodem QR: napisz „dodaj telefon”."
+                         if on else "Dostęp spoza kancelarii wyłączony. Telefony działają tylko na tym komputerze.")]
+        if (on or off) and re.search(r"asystent|\bai\b|sztuczn", plain):
+            if on and not s.account_configured():
+                return [text("To stanowisko nie ma jeszcze danych konta NotarAI. Otrzymasz je przy wdrożeniu.")]
+            s.update_settings(lambda d: d["ai"].update(enabled=on))
+            blocks = [text("Asystent włączony." if on else "Asystent wyłączony.")]
+            if on and not s.signed_in():
+                blocks += [text("Zaloguj się kontem NotarAI:"), {"type": "login"}]
+            return blocks
+        if plain in {"zaloguj", "zaloguj sie", "logowanie", "zaloguj do ai"}:
+            if not s.account_configured():
+                return [text("To stanowisko nie ma jeszcze danych konta NotarAI.")]
+            return [{"type": "login"}]
+        if plain in {"wyloguj", "wyloguj sie", "wyloguj z ai"}:
+            s.logout()
+            return [text("Wylogowano z AI.")]
+        if plain in {"otwarte", "co jest otwarte", "co jest otwarte?", "pokaz otwarte", "kopie robocze"}:
+            return self._workcopies()
+        found = re.fullmatch(r"(?:otworz|edytuj)\s+(.+?)\s+(?:w wordzie|do edycji|w edytorze)", plain) \
+            or re.fullmatch(r"edytuj\s+(.+)", plain)
+        if found:
+            match = self._find_document(identity, case, found.group(1))
+            if not isinstance(match, dict):
+                return [text("Który dokument otworzyć do edycji?")] + (
+                    [buttons(*[(d["name"], f"edytuj {d['name']}") for d in match[:10]])] if match else [])
+            s.workcopies.checkout(match["id"], identity.id)
+            return [text(f"Otworzyłem {match['name']} w edytorze. Gdy zapiszesz i zamkniesz, napisz „zapisz do sejfu”."),
+                    buttons(("Zapisz do sejfu", f"zapisz do sejfu {match['name']}"))]
+        found = re.fullmatch(r"zapisz do sejfu\s*(.*)", plain)
+        if found:
+            return self._checkin(identity, found.group(1))
+        found = re.fullmatch(r"porzuc(?: zmiany)?(?: w)?\s+(.+)", plain)
+        if found:
+            copy = self._one_copy(found.group(1))
+            if copy is None:
+                return [text("Nie znalazłem takiej kopii roboczej.")]
+            return [self._confirm(identity, f"Porzucić zmiany w „{copy['name']}”? Nie da się ich odzyskać.",
+                                  "Tak, porzuć zmiany", lambda: self._discard(identity, copy))]
+        return None
+
+    def _status(self) -> list[dict]:
+        st = self.s.status()
+        lines = [
+            "Tryb próbny: tylko fikcyjne dokumenty." if st["mode"] == "synthetic-only" else "Dokumenty kancelarii są na tym komputerze.",
+            f"Dokumentów: {st['documents']}, spraw: {st['cases']}, sparowanych urządzeń: {st['devices']}.",
+            "Kod odzyskiwania: jest." if st["enrolled"] else "Kod odzyskiwania: BRAK.",
+            ("Ostatnia kopia: " + when(st["last_backup"]) + ".") if st["last_backup"] else "Kopii zapasowej jeszcze nie było.",
+            "Kopia poza kancelarią: " + (("włączona, ostatnia " + when(st["last_offsite"])) if st["last_offsite"]
+                                         else "włączona, jeszcze nie wysłana" if st["offsite"] else "wyłączona") + ".",
+            "Asystent: " + ("włączony" if st["ai"] else "wyłączony") + (", zalogowany" if st["signed_in"] else "")
+            + ("; pseudonimizacja włączona." if st["pseudonymize"] else "; pseudonimizacja wyłączona."),
+            "Dostęp spoza kancelarii: " + ("połączony z przekaźnikiem." if st["tunnel_connected"]
+                                           else "włączony, brak połączenia." if st["tunnel"] else "wyłączony."),
+        ]
+        return [text("\n".join(lines))] + self._warnings(True)
+
+    def _recovery_code(self, replace: bool) -> list[dict]:
+        code = self.s.enroll(replace)
+        return [{"type": "secret", "title": "Kod odzyskiwania sejfu NotarAI", "text": code, "print": True,
+                 "hint": "Wydrukuj i przechowuj poza komputerem, np. w kasie pancernej. Nie pokażę go ponownie."},
+                text("Bez tego kodu kopia jest bezużyteczna dla każdego, także dla nas.")]
+
+    def _backup(self) -> list[dict]:
+        s = self.s
+        if not s.status()["enrolled"]:
+            return [text("Najpierw utwórz kod odzyskiwania: bez niego kopii nie da się odtworzyć."),
+                    buttons(("Utwórz kod odzyskiwania", "kod odzyskiwania"))]
+        done = []
+        if s.backup_dir():
+            made = s.local_backup()
+            done.append(f"Kopia zapisana na dysku: {made['file']} (dokumentów: {made['documents']}, wersji: {made['revisions']}).")
+        if s.offsite_enabled():
+            made = s.offsite_backup()
+            done.append(f"Zaszyfrowana kopia wysłana poza kancelarię: {made['file']}.")
+        if not done:
+            return [text("Nie wiem jeszcze, gdzie zapisywać kopie. Napisz „katalog kopii” i ścieżkę do innego dysku, "
+                         "np. „katalog kopii E:\\NotarAI-kopie”.")]
+        return [text("\n".join(done))]
+
+    def _devices(self, identity) -> list[dict]:
+        devices = [d for d in self.s.devices.list() if not d["revoked"]]
+        if not devices:
+            return [text("Nie ma sparowanych urządzeń."), buttons(("Dodaj telefon", "dodaj telefon"))]
+        lines = [f"• {d['name']}: {'odczyt i zapis' if d['scope'] == 'write' else 'tylko odczyt'}, "
+                 + ("sprawy: " + ", ".join(d["cases"]) if d["cases"] else "wszystkie sprawy") for d in devices]
+        return [text("\n".join(lines)), buttons(*[(f"Cofnij: {d['name']}", f"cofnij {d['name']}") for d in devices[:8]])]
+
+    def _invite(self, message, plain) -> list[dict]:
+        scope = "read" if re.search(r"tylko (?:do )?odczyt|bez zapisu|do odczytu", plain) else "write"
+        cases = re.findall(r"spraw[ayę]?\s+([\w.-]+)", message, re.IGNORECASE)
+        cases = [c for c in cases if valid_case(c) and norm(c) not in {"i", "oraz"}] or None
+        named = re.search(r"(?:o nazwie|nazwa|pod nazwa)\s+[„\"]?([^„”\",]+)", message, re.IGNORECASE)
+        name = named.group(1).strip() if named else {"dodaj tablet": "Tablet", "dodaj laptop": "Laptop"}.get(
+            " ".join(plain.split()[:2]), "Telefon")
+        existing = {d["name"] for d in self.s.devices.list()}
+        base, index = name, 2
+        while name in existing:
+            name, index = f"{base} {index}", index + 1
+        invitation = self.s.devices.invite(name, scope, cases=cases)
+        what = ("tylko odczyt" if scope == "read" else "odczyt i zapis") + (
+            ", sprawy: " + ", ".join(cases) if cases else ", wszystkie sprawy")
+        blocks = [text(f"Urządzenie „{name}” ({what}). Kod działa raz, przez 5 minut.")]
+        link = self.s.pairing_link(invitation["code"])
+        if link:
+            blocks += [text("Poza kancelarią: zeskanuj kod aparatem telefonu."), {"type": "qr", "link": link},
+                       text("Na tym komputerze: wklej poniższy kod w Pocket.")]
+        blocks.append({"type": "secret", "title": "Kod parowania", "text": invitation["code"],
+                       "hint": "Nie wysyłaj go e-mailem ani komunikatorem."})
+        return blocks
+
+    def _revoke(self, identity, fragment) -> list[dict]:
+        fragment = fragment.replace("cofnij: ", "").strip(" :")
+        hits = [d for d in self.s.devices.list() if not d["revoked"] and fragment in norm(d["name"])]
+        exact = [d for d in hits if norm(d["name"]) == fragment]
+        if len(exact) != 1 and len(hits) != 1:
+            return [text("Które urządzenie?" if hits else "Nie ma takiego urządzenia.")] + (
+                [buttons(*[(d["name"], f"cofnij {d['name']}") for d in hits[:8]])] if hits else [])
+        device = (exact or hits)[0]
+
+        def act():
+            self.s.devices.revoke(device["id"])
+            self.s.vault.log(identity.id, "revoke-device")
+            return [text(f"Cofnąłem dostęp urządzenia „{device['name']}”. "
+                         "Plików, które już na nie pobrano, nie da się usunąć zdalnie.")]
+        return [self._confirm(identity, f"Cofnąć dostęp urządzenia „{device['name']}”?", "Tak, cofnij dostęp", act)]
+
+    def _audit(self, identity, case, plain) -> list[dict]:
+        s = self.s
+        names = {d["id"]: d["name"] for d in s.vault.summaries()}
+        devices = {d["id"]: d["name"] for d in s.devices.list()}
+        target = None
+        rest = re.sub(r"^(dziennik|kto czytal|kto otwieral|historia|kto zmienial)\s*", "", plain).strip(" ?")
+        if rest:
+            match = self._find_document(identity, case, rest)
+            if isinstance(match, dict):
+                target = match["id"]
+        verbs = {"read": "odczytał", "write": "zapisał", "checkout": "otworzył do edycji",
+                 "discard-workcopy": "porzucił zmiany w", "backup": "zrobił kopię zapasową",
+                 "offsite-backup": "wysłał kopię poza kancelarię", "restore": "odtworzył sejf z kopii",
+                 "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
+                 "settings": "zmienił ustawienia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu"}
+        who = {"local-admin": "ten komputer", "connect-verify": "kontrola po zapisie", "migration": "program"}
+        lines = []
+        for entry in s.vault.audit(60, target):
+            if entry["actor"] == "connect-verify":
+                continue
+            actor = devices.get(entry["actor"]) or who.get(entry["actor"]) or "panel stanowiska"
+            line = f"{when(entry['ts'])}: {actor} {verbs.get(entry['action'], entry['action'])}"
+            if entry["doc_id"]:
+                line += f" {names.get(entry['doc_id'], 'usunięty dokument')}" + (
+                    f" (wersja {entry['version']})" if entry["version"] else "")
+            lines.append(line + ".")
+            if len(lines) == 15:
+                break
+        if not lines:
+            return [text("Dziennik jest pusty.")]
+        return [text("\n".join(lines)), text("Dziennik jest zabezpieczony przed zmianą wpisów.")]
+
+    def _workcopies(self) -> list[dict]:
+        copies = self.s.workcopies.list()
+        if not copies:
+            return [text("Żaden dokument nie jest otwarty do edycji.")]
+        state = lambda c: ("plik roboczy zniknął" if c["missing"] else "otwarty w edytorze" if c["in_use"]  # noqa: E731
+                           else "zmieniony, niezapisany w sejfie" if c["changed"] else "bez zmian")
+        actions = []
+        for copy in copies[:6]:
+            actions += [(f"Zapisz do sejfu: {copy['name']}", f"zapisz do sejfu {copy['name']}"),
+                        (f"Porzuć: {copy['name']}", f"porzuć zmiany {copy['name']}")]
+        return [text("\n".join(f"• {c['name']}: {state(c)}" for c in copies)), buttons(*actions)]
+
+    def _one_copy(self, fragment):
+        copies = self.s.workcopies.list()
+        fragment = fragment.strip(" :")
+        hits = [c for c in copies if not fragment or fragment in norm(c["name"])]
+        return hits[0] if len(hits) == 1 else None
+
+    def _checkin(self, identity, fragment) -> list[dict]:
+        copy = self._one_copy(fragment)
+        if copy is None:
+            copies = self.s.workcopies.list()
+            if not copies:
+                return [text("Żaden dokument nie jest otwarty do edycji.")]
+            return [text("Który dokument zapisać do sejfu?"),
+                    buttons(*[(c["name"], f"zapisz do sejfu {c['name']}") for c in copies[:8]])]
+        result = self.s.workcopies.checkin(copy["id"], identity.id)
+        return [text(f"Zapisałem {copy['name']} jako wersję {result['version']}. Kopia robocza zniknęła z dysku."
+                     if result["saved"] else f"{copy['name']}: bez zmian. Kopia robocza zniknęła z dysku.")]
+
+    def _discard(self, identity, copy) -> list[dict]:
+        self.s.workcopies.discard(copy["id"], identity.id)
+        return [text(f"Porzuciłem zmiany w „{copy['name']}”. Kopia robocza zniknęła z dysku.")]
+
+
+__all__ = ["Chat", "DraftError", "norm", "parse_amount"]

@@ -2,48 +2,35 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d6b57">
   <title>NotarAI Pocket</title>
   <link rel="stylesheet" href="pocket.css">
   <link rel="manifest" href="pocket.webmanifest">
   <link rel="icon" href="pocket-icon.svg" type="image/svg+xml">
 </head>
-<body>
-  <h1>NotarAI Pocket</h1>
-  <p class="muted" id="mode">Tryb lokalny. Używaj wyłącznie fikcyjnych dokumentów.</p>
+<body data-mode="pocket">
+  <header>
+    <h1>NotarAI Pocket</h1>
+    <div id="bar" hidden>
+      <label for="case" class="sr">Sprawa</label>
+      <select id="case"></select>
+      <button id="logout" class="quiet">Rozłącz</button>
+    </div>
+  </header>
+  <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
   <section id="pairing">
     <label for="code">Kod parowania</label>
     <input id="code" type="password" autocomplete="off">
     <button id="pair" class="primary">Połącz</button>
   </section>
   <main id="workspace" hidden>
-    <div id="notices"></div>
-    <div class="row">
-      <button id="refresh">Odśwież listę</button>
-      <button id="logout">Rozłącz</button>
-    </div>
-    <section>
-      <label for="case">Sprawa</label>
-      <select id="case"></select>
-      <div id="new-case-tools" hidden>
-        <label for="new-case">Nowa sprawa (litery, cyfry, myślnik)</label>
-        <div class="row">
-          <input id="new-case" maxlength="64" autocomplete="off">
-          <button id="add-case">Dodaj sprawę</button>
-        </div>
+    <div id="messages" role="log" aria-live="polite" aria-label="Rozmowa"></div>
+    <section id="sheet" hidden aria-label="Dokument">
+      <div class="row">
+        <h2 id="selected">Dokument</h2>
+        <button id="close-sheet" class="quiet">Zamknij</button>
       </div>
-    </section>
-    <h2>Dokumenty</h2>
-    <ul id="docs"></ul>
-    <div id="write-tools" class="card" hidden>
-      <button id="new">Nowy dokument tekstowy</button>
-      <label for="file">Importuj plik (do 20 MiB)</label>
-      <input id="file" type="file">
-      <button id="import">Importuj jako nowy dokument</button>
-    </div>
-    <section id="editor" hidden>
-      <h2 id="selected">Dokument</h2>
       <div id="history" hidden>
         <label for="versions">Wersja dokumentu</label>
         <select id="versions"></select>
@@ -68,45 +55,17 @@
         </div>
       </div>
     </section>
-    <section id="assistant" hidden>
-      <h2>Asystent sprawy</h2>
-      <p class="muted">Asystent czyta dokumenty TXT i DOCX tej sprawy. Numery PESEL, NIP, rachunków, ksiąg wieczystych
-        i wskazane niżej osoby są przed wysłaniem zastępowane znacznikami.</p>
-      <label for="names">Strony i inne osoby (po jednej w wierszu)</label>
-      <textarea id="names" rows="3" class="short"></textarea>
-      <label for="prompt">Pytanie albo polecenie</label>
-      <textarea id="prompt" rows="3" class="short"></textarea>
-      <div class="row">
-        <button id="ask">Zapytaj</button>
-        <button id="draft" class="primary" hidden>Przygotuj projekt</button>
+    <div id="composer">
+      <div id="chips"></div>
+      <div class="row tight">
+        <label for="file" class="sr">Dodaj plik do sprawy</label>
+        <input id="file" type="file" hidden>
+        <button id="attach" class="quiet" title="Dodaj plik do sprawy" aria-label="Dodaj plik do sprawy">＋</button>
+        <label for="prompt" class="sr">Napisz polecenie albo pytanie</label>
+        <textarea id="prompt" rows="1" placeholder="Napisz, co mam zrobić…"></textarea>
+        <button id="send" class="primary">Wyślij</button>
       </div>
-      <pre id="answer" hidden></pre>
-      <div id="proposal" hidden>
-        <h2>Projekt do sprawdzenia</h2>
-        <div id="proposal-notes"></div>
-        <label for="proposal-text">Treść projektu (możesz poprawić przed zapisem)</label>
-        <textarea id="proposal-text" class="tall"></textarea>
-        <label for="proposal-name">Nazwa pliku</label>
-        <input id="proposal-name" maxlength="255" value="projekt.docx">
-        <label for="proposal-base">Zapisz jako</label>
-        <select id="proposal-base"></select>
-        <label for="proposal-template">Wzór kancelarii (układ strony i nagłówek)</label>
-        <select id="proposal-template"></select>
-        <div class="row">
-          <button id="approve" class="primary">Zatwierdzam i zapisuję</button>
-          <button id="discard" class="danger">Odrzuć projekt</button>
-        </div>
-      </div>
-    </section>
-    <section id="fees">
-      <h2>Taksa notarialna</h2>
-      <label for="fee-kind">Czynność</label>
-      <select id="fee-kind"></select>
-      <label for="fee-value">Wartość (zł)</label>
-      <input id="fee-value" inputmode="decimal" autocomplete="off">
-      <button id="fee">Policz</button>
-      <pre id="fee-result" hidden></pre>
-    </section>
+    </div>
   </main>
   <p id="status" role="status"></p>
   <script src="tunnel.js"></script>

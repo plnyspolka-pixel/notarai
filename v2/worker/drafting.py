@@ -106,7 +106,12 @@ class Drafts:
         return "\n\n".join(parts), sources, skipped
 
     # ------------------------------------------------------------ operations
+    def _names(self, case: str, names) -> list[str]:
+        """People remembered for the case plus any named in this request."""
+        return list(dict.fromkeys([*self._vault.parties(case), *names]))
+
     def ask(self, case: str, question: str, actor: str, names=()) -> dict:
+        names = self._names(case, names)
         context, sources, skipped = self._context(case, actor)
         answer = self._inference.ask(
             purpose="chat", system=SYSTEM_CHAT, names=names, max_tokens=2048,
@@ -116,6 +121,7 @@ class Drafts:
                 "unknown_placeholders": list(answer.unknown_placeholders)}
 
     def propose(self, case: str, instruction: str, actor: str, names=()) -> Proposal:
+        names = self._names(case, names)
         context, sources, skipped = self._context(case, actor)
         answer = self._inference.ask(
             purpose="draft", system=SYSTEM_DRAFT, names=names, max_tokens=16000,

@@ -41,7 +41,7 @@ try {
     @('taksa.py', 'slownie.py') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path (Split-Path $source) $_) -Destination $shared
     }
-    @('launch.py', 'preview_instance.py') | ForEach-Object {
+    @('launch.py', 'preview_instance.py', 'preset.json') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination $payload
     }
     & (Join-Path $runtime 'python.exe') -X utf8 -c "import docx, win32crypt, uvicorn; from worker.api import create_app; from worker.domain import fee_catalog; assert fee_catalog()['rodzaje']"
