@@ -41,6 +41,10 @@ STEPS = [
      "why": "Każde stanowisko i każda aplikacja ma swoją nazwę: widać, skąd przyszło polecenie, kto je wykonał i kto "
             "napisał wiadomość. Wybierz albo napisz własną, np. „nazwij stanowisko Aplikacja Ania”.",
      "actions": [("Gabinet", "nazwij stanowisko Gabinet"), ("Sekretariat", "nazwij stanowisko Sekretariat")]},
+    {"key": "rola", "title": "Nowa kancelaria czy kolejne stanowisko?",
+     "why": "Jeśli NotarAI działa już na innym komputerze tej kancelarii, dołącz do niej: sprawy, dokumenty, kalendarz, "
+            "lekcje i komunikator będą wspólne. Na tamtym komputerze napisz „połącz drugie stanowisko” i przepisz tutaj kod.",
+     "actions": [("Dołączam do kancelarii", "dołączam do kancelarii"), ("To pierwsze stanowisko", "pierwsze stanowisko")]},
     {"key": "mozliwosci", "title": "Co NotarAI może dla Ciebie zrobić",
      "why": "Krótki pokaz wszystkich możliwości programu: co robi, jak o to poprosić, z przyciskiem „Spróbuj” przy każdej.",
      "actions": [("Zobacz pokaz", "pokaż możliwości")]},

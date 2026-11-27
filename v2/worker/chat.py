@@ -979,6 +979,16 @@ class Chat:
                                   buttons(("Wróć do pominiętych", "przewodnik od nowa"))] if missing else
                                  [text("Wszystko gotowe.")])
             return blocks + self._guide_card(step)
+        if plain in {"pierwsze stanowisko", "to pierwsze stanowisko", "nowa kancelaria"}:
+            guide.mark("rola")
+            return [text("Dobrze, to pierwsze stanowisko kancelarii. Kolejny komputer dołączysz później, pisząc tutaj "
+                         "„połącz drugie stanowisko”.")]
+        if plain in {"dolaczam do kancelarii", "dolacz do kancelarii", "kolejne stanowisko", "drugie stanowisko tej kancelarii"}:
+            return [text("1. Na komputerze, na którym NotarAI już działa, napisz „połącz drugie stanowisko”.\n"
+                         "2. Pokaże się zdanie z kodem, np. „dołącz do kancelarii 192.168.1.20:47321 ABCD…”.\n"
+                         "3. Przepisz je tutaj (kod działa 10 minut, oba komputery w tej samej sieci).\n"
+                         "Zaloguj się tu kontem osoby, która pracuje przy tym komputerze; to samo konto co na pierwszym "
+                         "stanowisku też zadziała.")]
         if plain in {"pomin krok", "pomin", "pomin ten krok", "pozniej"}:
             step = guide.current()
             if step is None:

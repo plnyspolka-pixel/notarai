@@ -1120,6 +1120,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         "mikrofony": lambda: has_device("listen"),
         "nazwa": lambda: bool(state["settings"].station_name),
         "kancelaria": lambda: app.state.office.joined if hasattr(app.state, "office") else False,
+        "rola": lambda: app.state.office.joined if hasattr(app.state, "office") else False,
     })
 
     @app.post("/v2/pick-folder", dependencies=[Depends(admin)])
