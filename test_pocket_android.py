@@ -251,3 +251,37 @@ def test_iphone_instaluje_z_safari_a_publikacja_sprawdza_paczke():
     publikacja = (ROOT / ".github" / "workflows" / "strona.yml").read_text(encoding="utf-8")
     for plik in ("pocket/NotarAI-Pocket.apk", "pocket/wersja.json", ".well-known/assetlinks.json"):
         assert plik in publikacja, plik
+
+
+def test_dodaj_do_sprawy_pliki_z_telefonu_czekaja_w_przegladarce():
+    """Udostępnij → NotarAI: pliki zatrzymuje service worker w przeglądarce, a na serwer trafiają
+    dopiero po wybraniu sprawy przez zalogowaną osobę. Sam formularz niczego na serwerze nie zapisuje."""
+    from fastapi.testclient import TestClient
+
+    import app as aplikacja
+    import autoryzacja
+
+    assert "/dodaj-do-sprawy" in autoryzacja._OTWARTE
+    klient = TestClient(aplikacja.app, follow_redirects=False)
+    sw = klient.get("/dodaj-do-sprawy-sw.js")
+    assert sw.status_code == 200 and "javascript" in sw.headers["content-type"]
+    assert sw.headers["service-worker-allowed"] == "/" and sw.headers["cache-control"] == "no-cache"
+    assert 'adres.pathname !== "/dodaj-do-sprawy"' in sw.text and "caches.open(SCHOWEK)" in sw.text
+    assert "fetch(" not in sw.text                                   # nic nie wysyła i nie przejmuje innych ścieżek
+    odpowiedz = klient.post("/dodaj-do-sprawy", files={"pliki": ("dowod.jpg", b"dane", "image/jpeg")})
+    assert odpowiedz.status_code == 303 and odpowiedz.headers["location"] == "/?dodaj=brak"
+
+    strona = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'id="okno-dodaj-do-sprawy"' in strona and '<script src="/static/dodaj-do-sprawy.js"></script>' in strona
+    kod = (ROOT / "static" / "dodaj-do-sprawy.js").read_text(encoding="utf-8")
+    assert "api(`/api/sprawy/${encodeURIComponent(wybor.value)}/pliki`" in kod     # zwykła, zalogowana ścieżka
+    assert "innerHTML" not in kod
+
+    zasoby = (ANDROID / "app" / "src" / "main" / "res" / "values" / "zasoby.xml").read_text(encoding="utf-8")
+    cel = re.search(r'<string name="cel_udostepniania"[^>]*>(.+?)</string>', zasoby).group(1).replace('\\"', '"')
+    assert json.loads(cel) == {"action": "https://app.notarai.pl/dodaj-do-sprawy", "method": "POST",
+                               "enctype": "multipart/form-data",
+                               "params": {"files": [{"name": "pliki", "accept": ["image/*", "application/pdf"]}]}}
+    akcje = {a.get(NS + "name") for f in _manifest_aplikacji().iter("intent-filter")
+             if f.get(NS + "label") == "@string/dodaj_do_sprawy" for a in f.findall("action")}
+    assert akcje == {"android.intent.action.SEND", "android.intent.action.SEND_MULTIPLE"}
