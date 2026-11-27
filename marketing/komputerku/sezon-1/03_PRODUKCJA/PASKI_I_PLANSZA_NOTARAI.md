@@ -18,6 +18,8 @@ Każdy odcinek serialu dostaje domyślnie:
      najwyższym napisem ze swojego okna czasu (co najmniej nad 3 wierszami, czyli dół ok. y=1252).
      Znaczek „AI” i tytuł są u góry kadru. Wersja 16:9 z Workera to cały kadr 9:16 na rozmytym
      tle, więc pasek mieści się w niej bez przycinania.
+   - Napisy nie mogą na siebie zachodzić w czasie (libass podnosi wtedy nowy napis nad stary na cały
+     czas jego trwania i wjeżdża w pasek). `paski.py` skraca koniec napisu do startu następnego − 0,04 s.
 
 2. **Plansza notarai** (ok. 4,5 s) na końcu ujęć, tuż przed planszą Workera „Na motywach
    prawdziwych spraw…” (3 s): sygnet i znak „notarai”, jedno zdanie łączące problem odcinka
