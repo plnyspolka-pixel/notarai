@@ -27,15 +27,16 @@ SLIDES = [
      "you": "kto jest sprzedającym i czy zgadza się numer księgi?", "notarai": "Sprzedającym jest Jan Kowalski. Numer KW w umowie przedwstępnej różni się od odpisu: …",
      "try": "dokumenty"},
     {"icon": "book", "title": "Księgi wieczyste (EKW)",
-     "text": "Pokaż raz, jak sprawdzasz księgę w przeglądarce NotarAI. Potem program sam otwiera księgę po numerze, "
-             "przepisuje potrzebne działy do sprawy i porównuje je z dokumentami.",
-     "you": "sprawdź księgę WA1M/00012345/6", "notarai": "Otwieram księgę w przeglądarce NotarAI i wpisuję numer…",
-     "try": "dodaj czynność Sprawdzenie księgi wieczystej (EKW)"},
+     "text": "Podajesz numer albo program sam znajduje go w dokumentach sprawy. Treść wszystkich działów trafia do "
+             "sprawy w 1-4 minuty, a asystent porównuje ją z umową: strony, obciążenia, oznaczenie nieruchomości. "
+             "To nie jest odpis urzędowy: porównaj ze źródłem.",
+     "you": "sprawdź KW WA1M/00012345/6", "notarai": "Księga WA1M/00012345/6: Dział III brak wpisów, Dział IV hipoteka umowna…",
+     "try": "sprawdź księgę"},
     {"icon": "scale", "title": "Krajowy Rejestr Zadłużonych (KRZ)",
-     "text": "Strony sprawy sprawdzane w KRZ przed aktem: pokazujesz raz, potem program wyszukuje każdą stronę sam "
-             "i zapisuje wynik w sprawie.",
-     "you": "sprawdź strony w KRZ", "notarai": "Sprawdzam Jana Kowalskiego i Annę Nowak w KRZ…",
-     "try": "dodaj czynność Sprawdzenie stron w Krajowym Rejestrze Zadłużonych (KRZ)"},
+     "text": "Program bierze numery PESEL stron z dokumentów sprawy i sprawdza każdą osobę na krz.ms.gov.pl "
+             "(dwa wyszukiwania), zapisuje zrzuty do sprawy i maskuje PESEL. Wynik zawsze potwierdzasz na zrzucie.",
+     "you": "sprawdź strony w KRZ", "notarai": "4405*******: brak wpisu; 8901*******: brak wpisu. Zrzuty w sprawie.",
+     "try": "sprawdź strony w KRZ"},
     {"icon": "form", "title": "Wnioski i formularze urzędowe",
      "text": "Wniosek o wpis w KW, PCC-3, zawiadomienia: program wypełnia pola sam z danych sprawy, na stronach "
              "i w programach Windows. Wysłanie albo podpis zawsze dopiero po Twoim zatwierdzeniu, jednym naciśnięciem.",

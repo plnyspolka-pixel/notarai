@@ -185,6 +185,15 @@ class Browser:
             self._playwright.stop()
         self._context = self._playwright = None
 
+    def on_page(self, function, timeout: float = 240):
+        """Run `function(page)` on the browser thread (a longer task such as a KRZ search)."""
+        try:
+            return self._pool.submit(lambda: function(self._page())).result(timeout=timeout)
+        except FillError:
+            raise
+        except Exception:
+            raise FillError("Przeglądarka nie odpowiedziała. Sprawdź okno przeglądarki NotarAI i spróbuj ponownie.") from None
+
     # ---- the target interface used by autofill.Autofill
     def open(self, url: str) -> str:
         if not re.fullmatch(r"https://[^\s]+|http://127\.0\.0\.1(:\d+)?/[^\s]*", url):

@@ -38,7 +38,7 @@ try {
         Remove-Item -Recurse -Force
     # Deterministic rules shared with V1 (code only): the fee engine and amounts in words.
     $shared = New-Item -ItemType Directory -Path (Join-Path $payload 'worker\_v1') -Force
-    @('taksa.py', 'slownie.py') | ForEach-Object {
+    @('taksa.py', 'slownie.py', 'krz_portal.py', 'walidacja.py') | ForEach-Object {
         Copy-Item -LiteralPath (Join-Path (Split-Path $source) $_) -Destination $shared
     }
     @('launch.py', 'preview_instance.py', 'apply_update.py', 'preset.json') | ForEach-Object {

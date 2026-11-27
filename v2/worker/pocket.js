@@ -659,6 +659,24 @@ render.reply = block => {
   if (!admin) { open.disabled = true; open.title = "Wiadomość otworzysz na komputerze kancelarii."; }
 };
 
+render.job = block => {
+  // A longer task on the office computer (a land register, a KRZ search): its result arrives here by itself.
+  const waiting = bubble("Pracuję nad tym…", "them wait");
+  (async () => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        const answer = await call("jobs/" + block.id);
+        if (!answer.done) continue;
+        waiting.remove();
+        for (const part of answer.blocks) await (render[part.type] || render.text)(part);
+        return;
+      } catch { waiting.textContent = "Nie mogę sprawdzić wyniku. Spróbuję jeszcze raz."; }
+    }
+    waiting.textContent = "To trwa wyjątkowo długo. Wynik znajdziesz w dokumentach sprawy, gdy będzie gotowy.";
+  })();
+};
+
 render.progress = block => {
   // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
   const card = node("div", "card them progress");

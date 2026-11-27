@@ -164,7 +164,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
                fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
-               dictation_stream=None, environment_scan=None, mail_composer=None):
+               dictation_stream=None, environment_scan=None, mail_composer=None, registers=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -1015,6 +1015,44 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         path = picker()
         return {"path": path if path and Path(path).is_dir() else None}
 
+    # ------------------------------------------------------------ long tasks (registers): run in the background
+    jobs: dict[str, dict] = {}
+
+    def start_job(identity: Identity, work) -> str:
+        """`work()` returns chat blocks; the window asks for them by id until they are ready."""
+        now = time.monotonic()
+        for key in [k for k, v in jobs.items() if now - v["created"] > 3600]:
+            jobs.pop(key, None)
+        ident = secrets.token_urlsafe(12)
+        job = {"owner": identity.id, "created": now, "done": threading.Event(), "blocks": None}
+        jobs[ident] = job
+
+        def run():
+            try:
+                job["blocks"] = work()
+            except SAID as error:
+                job["blocks"] = [{"type": "text", "text": str(error)}]
+            except Exception:
+                job["blocks"] = [{"type": "text", "text": "Zadanie nie powiodło się. Spróbuj ponownie."}]
+            job["done"].set()
+        threading.Thread(target=run, daemon=True, name="notarai-zadanie").start()
+        return ident
+
+    @app.get("/v2/jobs/{ident}")
+    def job_result(ident: str, identity: Identity = Depends(auth)):
+        job = jobs.get(ident)
+        if job is None or job["owner"] != identity.id:
+            raise HTTPException(404, "not found")
+        if not job["done"].is_set():
+            return {"done": False}
+        jobs.pop(ident, None)
+        return {"done": True, "blocks": job["blocks"]}
+
+    from .registers import Registers
+
+    register_service = registers or Registers(lambda: state["account"], state["settings"].ai.region,
+                                              browser=lambda: web_target())
+
     from .speech_model import ModelDownload
 
     model_download = ModelDownload(home / "modele-mowy")
@@ -1183,7 +1221,8 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
-        calendar=calendar, onboarding=onboarding, environment=environment, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
+        start_job=start_job, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,
@@ -1210,7 +1249,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         vault.log(identity.id, "mail-compose")
         return {"detail": f"Otworzyłem gotową wiadomość w {where}. Sprawdź ją tam i kliknij Wyślij."}
 
+    from .registers import RegisterError
+
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
+            RegisterError,
             mail_module.MailError, ProcedureError, FillError, RuleViolation)
 
     def chat_turn(identity: Identity, turn: ChatTurn):

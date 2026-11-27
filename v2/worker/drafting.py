@@ -141,6 +141,13 @@ class Drafts:
                              "W tej sprawie nie ma dokumentów tekstowych (DOCX, PDF, TXT lub e-mail) do odczytania.")
         return "\n\n".join(parts), sources, skipped
 
+    def case_text(self, case: str, actor: str) -> str:
+        """All readable text of a case (for finding land register numbers and PESELs), or ""."""
+        try:
+            return self._context(case, actor)[0]
+        except DraftError:
+            return ""
+
     # ------------------------------------------------------------ operations
     def _names(self, case: str, names) -> list[str]:
         """People remembered for the case plus any named in this request."""

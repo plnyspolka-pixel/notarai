@@ -16,6 +16,8 @@ def _load(name: str):
         if candidate.is_file():
             spec = importlib.util.spec_from_file_location(f"notarai_v1_{name}", candidate)
             module = importlib.util.module_from_spec(spec)
+            import sys
+            sys.modules[spec.name] = module          # dataclasses in a module look themselves up here
             spec.loader.exec_module(module)
             return module
     raise RuntimeError(f"shared module {name} is not installed")
@@ -32,3 +34,16 @@ def fee_catalog() -> dict:
 
 def amount_in_words(text: str) -> str:
     return _load("slownie").slownie_kwoty(text)
+
+
+def krz_portal():
+    """V1's knowledge of the debtors' register portal (tabs, recognition patterns, the Playwright adapter)."""
+    return _load("krz_portal")
+
+
+def valid_land_register(number: str) -> tuple[bool, str]:
+    return _load("walidacja").ksiega_wieczysta(number)
+
+
+def valid_pesel(number: str) -> tuple[bool, str]:
+    return _load("walidacja").pesel(number)

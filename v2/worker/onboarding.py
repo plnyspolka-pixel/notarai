@@ -14,8 +14,6 @@ import unicodedata
 from pathlib import Path
 
 ACTIVITIES = [
-    "Sprawdzenie księgi wieczystej (EKW)",
-    "Sprawdzenie stron w Krajowym Rejestrze Zadłużonych (KRZ)",
     "Wniosek o wpis w księdze wieczystej (EKW)",
     "Deklaracja PCC-3 i zawiadomienie do urzędu skarbowego",
     "Zawiadomienie gminy o prawie pierwokupu",

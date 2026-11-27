@@ -137,6 +137,9 @@ class Chat:
         tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
         if tiles is not None:
             return tiles
+        checked = self._registers(identity, message, plain, case)
+        if checked is not None:
+            return checked
         planned = self._calendar(identity, message, plain, case, identity.scope in {"admin", "write"})
         if planned is not None:        # before the panel: "usuń termin 2" is not a device called "termin 2"
             return planned
@@ -938,6 +941,82 @@ class Chat:
             blocks.append(text("Dodaj czynność (albo napisz „dodaj czynność” i nazwę):"))
             blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
         return blocks
+
+    # ------------------------------------------------------------ public registers: EKW and KRZ
+    def _registers(self, identity, message, plain, case):
+        from .registers import KW, land_register_numbers, pesels_in
+
+        kw_asked = re.match(r"(sprawdz|pobierz|otworz|pokaz|odczytaj)? ?(kw|ksiege|ksiega|ksiegi|ksiege wieczysta|tresc kw|odpis kw)\b", plain)
+        krz_asked = re.search(r"\bkrz\b|rejestr\w* zadluzonych", plain) and plain.startswith(("sprawdz", "krz", "przeszukaj", "szukaj"))
+        if not kw_asked and not krz_asked:
+            return None
+        s = self.s
+        if identity.scope not in {"admin", "write"}:
+            return [text("To urządzenie ma dostęp tylko do odczytu.")]
+        if case is None or not s.may_see_case(identity, case):
+            return [text("Najpierw wybierz sprawę: wynik zapiszę w jej dokumentach.")]
+        if kw_asked:
+            found = KW.search(message.upper())
+            if not found:
+                numbers = land_register_numbers(s.drafts.case_text(case, identity.id))
+                if not numbers:
+                    return [text("Podaj numer księgi, np. „sprawdź KW WA1M/00012345/6”. W dokumentach tej sprawy "
+                                 "nie znalazłem żadnego numeru.")]
+                return [text("Którą księgę pobrać? Znalazłem w dokumentach sprawy:"),
+                        buttons(*[(n, f"sprawdź KW {n}") for n in numbers[:8]])]
+            number = found.group(1).upper()
+
+            def fetch():
+                job = s.start_job(identity, lambda: self._land_register(identity, case, number))
+                return [text(f"Pobieram treść księgi {number}. To trwa zwykle 1-4 minuty; możesz w tym czasie pracować, "
+                             "wynik pojawi się tutaj i w dokumentach sprawy."), {"type": "job", "id": job}]
+            return [self._confirm(identity, f"Pobrać treść księgi {number} do sprawy „{case}”? Zapytanie u dostawcy "
+                                  "jest płatne; to nie jest odpis urzędowy, porównaj go ze źródłem.", "Tak, pobierz", fetch)]
+        pesels = pesels_in(message) or pesels_in(s.drafts.case_text(case, identity.id))
+        if not pesels:
+            return [text("Nie znalazłem numerów PESEL w dokumentach tej sprawy. Napisz „sprawdź KRZ” i numer PESEL.")]
+        masked = ", ".join(p[:4] + "*******" for p in pesels[:6])
+
+        def search():
+            job = s.start_job(identity, lambda: self._debtors(identity, case, pesels[:6]))
+            return [text(f"Sprawdzam w KRZ: {masked}. Każda osoba to dwa wyszukiwania z odstępem; wynik i zrzuty "
+                         "trafią do sprawy."), {"type": "job", "id": job}]
+        return [self._confirm(identity, f"Sprawdzić w Krajowym Rejestrze Zadłużonych osoby o numerach {masked} "
+                              f"(sprawa „{case}”)? Przeglądarka NotarAI otworzy krz.ms.gov.pl.", "Tak, sprawdź", search)]
+
+    def _land_register(self, identity, case, number) -> list[dict]:
+        s = self.s
+        answer = s.registers.land_register(number)
+        book = answer["ksiega"]
+        name = f"KW {number.replace('/', '-')} ({time.strftime('%Y-%m-%d')}).txt"
+        doc_id, version = s.vault.put(None, 0, name, answer["tekst"].encode(), actor=identity.id, case=case)
+        lines = [f"Księga {number}" + (f", {book.get('sad')}" if book.get("sad") else "") + "."]
+        for section in book.get("dzialy", []):
+            first = (section.get("tekst") or "").strip().splitlines()[:1]
+            lines.append(f"• Dział {section['oznaczenie']}: " + ("brak wpisów" if section.get("pusty") else
+                                                                (first[0][:120] if first else "wpisy w dokumencie")))
+        lines.append("Pełna treść jest w dokumentach sprawy. To nie jest odpis urzędowy.")
+        return [text("\n".join(lines)), {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]},
+                buttons(("Porównaj z dokumentami sprawy", f"porównaj księgę {number} z dokumentami sprawy: strony, "
+                                                          "obciążenia w dziale III i IV, oznaczenie nieruchomości"),
+                        ("Otwórz", f"otwórz {name}"))]
+
+    def _debtors(self, identity, case, pesels) -> list[dict]:
+        s = self.s
+        words = {"brak_wpisu": "brak wpisu", "wpis": "ZNALEZIONO POZYCJĘ, sprawdź zrzut", "blad": "nie rozpoznano wyniku, sprawdź zrzut"}
+        lines, items = [], []
+        for pesel in pesels:
+            result = s.registers.debtors(pesel)
+            lines.append(f"• {result['maska']}: {words.get(result['status'], result['status'])}")
+            for shot_name, data in result.get("zrzuty", []):
+                doc_id, version = s.vault.put(None, 0, shot_name, data, actor=identity.id, case=case)
+                items.append({"id": doc_id, "name": shot_name, "version": version})
+        note = (f"Sprawdzenie w KRZ ({result['zrodlo']}), {time.strftime('%Y-%m-%d %H:%M')}:\n" + "\n".join(lines)
+                + "\nWynik heurystyczny: zawsze do potwierdzenia na zrzutach.")
+        name = f"KRZ ({time.strftime('%Y-%m-%d %H-%M')}).txt"
+        doc_id, version = s.vault.put(None, 0, name, note.encode(), actor=identity.id, case=case)
+        items.insert(0, {"id": doc_id, "name": name, "version": version})
+        return [text(note), {"type": "documents", "items": items}]
 
     # ------------------------------------------------------------ calendar
     def _calendar(self, identity, message, plain, case, writable):

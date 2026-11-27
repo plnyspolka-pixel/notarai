@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - rejestry dla stanowiska (decyzja wlasciciela 27.11.2026). Funkcja
+  zwraca tresc ksiegi wieczystej przez ekw.py z V1 (Finance You albo Apify); token
+  dostawcy czyta z Secrets Manager wlasna rola, stanowisko go nie widzi. Wywoluje ja
+  tylko rola stanowiska V2. Nic nie jest zapisywane; w logach brak numeru i tresci.
+
+Parameters:
+  PaczkaBucket:
+    Type: String
+    Default: notarai-zrodla-127621462971
+  PaczkaKlucz:
+    Type: String
+    Description: Klucz paczki z v2/rejestry/build.py, np. v2/rejestry-abc123.zip
+  ApifySekretArn:
+    Type: String
+    Default: ""
+    Description: Pelny ARN sekretu notarai/apify (klucz token). Puste = bez Apify.
+  FinyouSekretArn:
+    Type: String
+    Default: ""
+    Description: Pelny ARN sekretu notarai/finyou (klucz token). Puste = bez Finance You.
+  FinyouAdres:
+    Type: String
+    Default: ""
+    Description: Adres API Finance You (jawny), np. https://finyou.pl. Puste = bez Finance You.
+  RolaStanowiska:
+    Type: String
+    Default: notarai-v2-stanowisko
+
+Conditions:
+  MamyApify: !Not [!Equals [!Ref ApifySekretArn, ""]]
+  MamyFinyou: !Not [!Equals [!Ref FinyouSekretArn, ""]]
+
+Resources:
+  Logi:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/notarai-v2-rejestry
+      RetentionInDays: 14
+
+  RolaFunkcji:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-v2-rejestry
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logi
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${Logi.Arn}:*"
+        - PolicyName: tokeny-dostawcow
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !If [MamyApify, !Ref ApifySekretArn, !Ref AWS::NoValue]
+                  - !If [MamyFinyou, !Ref FinyouSekretArn, !Ref AWS::NoValue]
+
+  Funkcja:
+    Type: AWS::Lambda::Function
+    DependsOn: Logi
+    Properties:
+      FunctionName: notarai-v2-rejestry
+      Description: Tresc KW dla stanowiska NotarAI V2 (ekw.py z V1); bez zapisu i bez danych w logach
+      Runtime: python3.13
+      Handler: handler.handler
+      Role: !GetAtt RolaFunkcji.Arn
+      Timeout: 300
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref PaczkaBucket
+        S3Key: !Ref PaczkaKlucz
+      Environment:
+        Variables:
+          APIFY_SECRET_ARN: !If [MamyApify, !Ref ApifySekretArn, ""]
+          FINYOU_SECRET_ARN: !If [MamyFinyou, !Ref FinyouSekretArn, ""]
+          PIECZAPP_FINYOU_URL: !Ref FinyouAdres
+
+  WywolanieZeStanowiska:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaStanowiska
+      PolicyName: notarai-v2-rejestry
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TrescKsiegWieczystych
+            Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource: !GetAtt Funkcja.Arn
+
+Outputs:
+  Funkcja:
+    Description: Wpisz w ustawieniach stanowiska V2 jako registers.function (domyslnie ta nazwa)
+    Value: !Ref Funkcja

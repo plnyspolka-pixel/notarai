@@ -90,7 +90,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - V2 jest osobne od V1: własne zależności (`v2/requirements.txt`), własne testy
   (`cd v2 && python -m pytest -q`), bez wdrożeń na produkcję i bez importu danych
   ani konfiguracji V1. Z V1 bierze wyłącznie kod reguł (`taksa.py`, `slownie.py`
-  przez `v2/worker/domain.py`); zmieniając je, puść też testy V2.
+  przez `v2/worker/domain.py`); zmieniając je, puść też testy V2. Decyzja właściciela
+  27.11.2026: także `krz_portal.py` i `walidacja.py` (KRZ i numery KW/PESEL, tą samą drogą),
+  a treść KW pobiera funkcja AWS `notarai-v2-rejestry` (stos w `infra/`) z `ekw.py` V1 bez zmian;
+  token dostawcy zostaje w Secrets Manager, stanowisko woła funkcję swoim logowaniem.
 - Wyłącznie dane fikcyjne. `ai.real_data_approved` zostaje `false`; nie dodawaj
   sposobu przełączenia go z aplikacji.
 - Każde wywołanie modelu w V2 idzie przez `v2/worker/inference.py` (polityka UE,
@@ -98,8 +101,8 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Zapis albo wysyłka w imieniu notariusza: tylko przez kontrakt Connect z
   zatwierdzeniem dokładnej treści i odczytem kontrolnym; bez ponawiania po
   niepewnym wyniku.
-- Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia` istnieją w
-  eu-central-1 (decyzja właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
+- Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia`, `notarai-v2-mowa`,
+  `notarai-v2-pobieranie`, `notarai-v2-rejestry` istnieją w eu-central-1 (decyzje właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
   `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
 - Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
   zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
