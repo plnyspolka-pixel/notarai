@@ -1,13 +1,21 @@
-"""Speech to text for narrated recordings, on this computer only.
+"""Speech to text on this computer only: narrated recordings and voice notes.
 
-Uses faster-whisper when it is installed (`pip install faster-whisper`; the model is downloaded
-once, then runs offline). No cloud speech service is used: audio never leaves the computer.
-Without it the notary types or corrects the narration by hand.
+faster-whisper runs locally; the model is downloaded once into the vault's directory and then
+works offline. No cloud speech service is used, so audio never leaves the computer. Without it
+the recording is still stored and the notary can type the text.
 """
 import tempfile
+import threading
 from pathlib import Path
 
-_model = None
+MODELS = ("tiny", "base", "small", "medium", "large-v3", "turbo")
+AUDIO = (".webm", ".ogg", ".opus", ".oga", ".m4a", ".mp3", ".wav", ".aac", ".amr", ".3gp", ".flac", ".mp4")
+_models: dict = {}
+_lock = threading.Lock()
+
+
+def is_audio(name: str) -> bool:
+    return name.lower().endswith(AUDIO)
 
 
 def available() -> bool:
@@ -18,17 +26,21 @@ def available() -> bool:
         return False
 
 
-def transcribe(recording: bytes, model_size: str = "small") -> str:
-    """Polish transcript of a WebM/Opus recording. Raises RuntimeError when unavailable."""
-    global _model
+def transcribe(recording: bytes, model_size: str = "small", root: Path | None = None, suffix: str = ".webm") -> str:
+    """Polish transcript of an audio file in any common format. Raises RuntimeError when unavailable."""
     if not available():
         raise RuntimeError("no local transcriber")
+    if model_size not in MODELS:
+        raise ValueError("unknown speech model")
     from faster_whisper import WhisperModel
 
-    if _model is None:
-        _model = WhisperModel(model_size, device="cpu", compute_type="int8")
+    with _lock:                      # one model in memory, loaded once
+        if model_size not in _models:
+            _models[model_size] = WhisperModel(model_size, device="cpu", compute_type="int8",
+                                               download_root=str(root) if root else None)
+        model = _models[model_size]
     with tempfile.TemporaryDirectory() as scratch:
-        path = Path(scratch) / "nagranie.webm"
+        path = Path(scratch) / ("nagranie" + (suffix if suffix.startswith(".") and len(suffix) <= 6 else ".webm"))
         path.write_bytes(recording)
-        segments, _ = _model.transcribe(str(path), language="pl", vad_filter=True)
+        segments, _ = model.transcribe(str(path), language="pl", vad_filter=True, beam_size=5)
         return " ".join(segment.text.strip() for segment in segments).strip()

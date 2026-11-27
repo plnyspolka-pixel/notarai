@@ -64,6 +64,11 @@ class TunnelSettings(_Strict):
         return re.match(r"wss?://[^/]+", self.relay_url).group(0)
 
 
+class SpeechSettings(_Strict):
+    # Larger models hear better and run slower on an office computer's processor.
+    model: str = Field(default="small", pattern=r"^(tiny|base|small|medium|large-v3|turbo)$")
+
+
 class MailSettings(_Strict):
     source: str | None = Field(default=None, pattern=r"^(thunderbird|outlook|folder)$")
     path: str | None = Field(default=None, max_length=400)
@@ -75,6 +80,7 @@ class Settings(_Strict):
     replica: ReplicaSettings = ReplicaSettings()
     tunnel: TunnelSettings = TunnelSettings()
     mail: MailSettings = MailSettings()
+    speech: SpeechSettings = SpeechSettings()
     backup_dir: str | None = None
     backup_reminder_days: int = Field(default=7, ge=1, le=90)
 

@@ -81,3 +81,5 @@ img.shot { display: block; width: 100%; max-height: 60vh; object-fit: contain; o
 img.shot.zoom { max-height: none; cursor: zoom-out; }
 .state-missing .fill-field, .state-differs .fill-field, .state-no-option .fill-field, .state-refused .fill-field { color: var(--bad); }
 .state-empty .fill-field { color: var(--warn); }
+
+#voice.recording { background: var(--bad); border-color: var(--bad); color: #fff; }

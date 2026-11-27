@@ -51,6 +51,17 @@ function watch(page, problems, label) {
   try {
     // ---- Pocket on the office computer: pair, then do everything by talking
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+    await context.addInitScript(() => {
+      // A silent microphone stands in for the phone's.
+      navigator.mediaDevices.getUserMedia = async () => {
+        const audio = new AudioContext();
+        const tone = audio.createOscillator();
+        const out = audio.createMediaStreamDestination();
+        tone.connect(out);
+        tone.start();
+        return out.stream;
+      };
+    });
     const page = await context.newPage();
     watch(page, problems, "pocket: ");
     await page.goto(info.url + "/pocket");
@@ -64,6 +75,12 @@ function watch(page, problems, label) {
     assert(await page.locator("#case").inputValue() === "sprawa-1", "case not selected");
     await say(page, "notatka: Sprzedający Jan Kowalski, PESEL 44051401359, zbywa lokal nr 5.", "Zapisałem notatkę");
     await say(page, "strony: Jan Kowalski", "Zapamiętałem");
+    await page.getByRole("button", { name: "Nagraj notatkę głosową" }).click();
+    await statusIs(page, "Nagrywam notatkę.");
+    await page.waitForTimeout(1500);
+    await page.getByRole("button", { name: "Zakończ i zapisz notatkę głosową" }).click();
+    await answered(page, "Notatka głosowa:");
+    await page.getByRole("button", { name: /^notatka-glosowa-.*\.txt · wersja 1$/ }).waitFor();
     await say(page, "Kto sprzedaje?", "Sprzedającym jest Jan Kowalski.");
     await say(page, "Przygotuj umowę sprzedaży lokalu", "Projekt gotowy");
     const draft = await page.getByLabel("Treść projektu").inputValue();
@@ -176,7 +193,7 @@ function watch(page, problems, label) {
     await answered(panel, "Kopia zapisana na dysku");
     assert(fs.readdirSync(info.backups).some(name => name.endsWith(".notarai-backup")), "no backup file");
 
-    await say(panel, "otwórz notatka w Wordzie", "w edytorze");
+    await say(panel, "otwórz notatka-2026 w Wordzie", "w edytorze");
     const copies = path.join(info.home, "workcopies");
     const folder = path.join(copies, fs.readdirSync(copies)[0]);
     const working = fs.readdirSync(folder).find(name => name.endsWith(".txt"));

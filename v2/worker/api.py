@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import binascii
+import re
 import secrets
 import threading
 import time
@@ -103,6 +104,12 @@ class Lesson(BaseModel):
     narration: str = Field(max_length=20000)
     frames: list[str] = Field(min_length=1, max_length=20)          # JPEG screenshots, base64
     recording_b64: str | None = Field(default=None, max_length=((MAX_BYTES+2)//3)*4)
+
+
+class VoiceNote(BaseModel):
+    audio_b64: str = Field(max_length=((MAX_BYTES+2)//3)*4)
+    name: str = Field(default="notatka-glosowa.webm", min_length=1, max_length=255)
+    case: str | None = Field(default=None, pattern=CASE)
 
 
 class Recording(BaseModel):
@@ -717,18 +724,81 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     async def procedure_failed(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=409)
 
+    from . import transcribe as local_speech
+
+    def speech_to_text(audio: bytes, suffix: str = ".webm") -> str | None:
+        """None when this computer has no speech recognition; raises on a failed attempt."""
+        if transcriber is not None:
+            return transcriber(audio)
+        if not local_speech.available():
+            return None
+        return local_speech.transcribe(audio, state["settings"].speech.model, home / "modele-mowy", suffix)
+
     @app.post("/v2/procedures/transcribe", dependencies=[Depends(admin)])
     def procedure_transcribe(req: Recording):
         """Narration to text on this computer; 409 means: type it instead."""
-        from . import transcribe as local
-
-        speak = transcriber or (local.transcribe if local.available() else None)
-        if speak is None:
-            raise ProcedureError("Na tym komputerze nie ma rozpoznawania mowy. Wpisz komentarz ręcznie.")
         try:
-            return {"text": speak(base64.b64decode(req.recording_b64, validate=True))}
+            heard = speech_to_text(base64.b64decode(req.recording_b64, validate=True))
         except Exception:
             raise ProcedureError("Nie udało się rozpoznać mowy z nagrania. Wpisz komentarz ręcznie.") from None
+        if heard is None:
+            raise ProcedureError("Na tym komputerze nie ma rozpoznawania mowy. Wpisz komentarz ręcznie.")
+        return {"text": heard}
+
+    def store_voice_note(audio: bytes, name: str, case, actor: str) -> dict:
+        """Keep the recording and, when speech recognition is available, its text beside it."""
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        suffix = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ".webm"
+        if suffix not in local_speech.AUDIO:
+            raise HTTPException(400, "not an audio file")
+        original = re.sub(r"[^\w .-]", "", name.rsplit(".", 1)[0]).strip(" .")[:80]
+        stem = f"notatka-glosowa-{stamp}" if not original or original.lower().startswith("notatka") else original
+        audio_id, audio_version = vault.put(None, 0, stem + suffix, audio, actor=actor, case=case)
+        stored = [{"id": audio_id, "name": stem + suffix, "version": audio_version}]
+        try:
+            heard = speech_to_text(audio, suffix)
+        except Exception:
+            heard = ""
+        if heard is None:
+            return {"documents": stored, "text": None,
+                    "detail": "Zapisałem nagranie. Na tym komputerze nie ma rozpoznawania mowy, więc tekstu nie ma."}
+        if not heard:
+            return {"documents": stored, "text": "",
+                    "detail": "Zapisałem nagranie, ale nie rozpoznałem w nim mowy."}
+        body = f"Notatka głosowa z {time.strftime('%d.%m.%Y %H:%M')} (przepisana automatycznie, sprawdź):\n\n{heard}\n"
+        text_name = stem + (" - tekst.txt" if stem != f"notatka-glosowa-{stamp}" else ".txt")
+        text_id, text_version = vault.put(None, 0, text_name, body.encode(), actor=actor, case=case)
+        stored.append({"id": text_id, "name": text_name, "version": text_version})
+        return {"documents": stored, "text": heard, "detail": ""}
+
+    @app.post("/v2/voice")
+    def voice_note(req: VoiceNote, identity: Identity = Depends(writable)):
+        see_case(identity, req.case)
+        try:
+            audio = base64.b64decode(req.audio_b64, validate=True)
+        except (ValueError, binascii.Error):
+            raise HTTPException(400, "invalid recording")
+        if not audio or len(audio) > MAX_BYTES:
+            raise HTTPException(400, "invalid recording")
+        return store_voice_note(audio, req.name, req.case, identity.id)
+
+    def transcribe_document(doc_id: str, actor: str) -> dict:
+        """Text for a recording already in the vault, stored next to it (the recording is not copied)."""
+        version, name, data = vault.get(doc_id, actor=actor)
+        if not local_speech.is_audio(name):
+            raise ProcedureError("To nie jest nagranie.")
+        try:
+            heard = speech_to_text(data, "." + name.rsplit(".", 1)[-1].lower())
+        except Exception:
+            heard = ""
+        if heard is None:
+            return {"documents": [], "text": None, "detail": "Na tym komputerze nie ma rozpoznawania mowy."}
+        if not heard:
+            return {"documents": [], "text": "", "detail": "Nie rozpoznałem mowy w tym nagraniu."}
+        text_name = name.rsplit(".", 1)[0] + " - tekst.txt"
+        body = f"Tekst nagrania „{name}” (przepisany automatycznie, sprawdź):\n\n{heard}\n"
+        text_id, text_version = vault.put(None, 0, text_name, body.encode(), actor=actor, case=vault.case_of(doc_id))
+        return {"documents": [{"id": text_id, "name": text_name, "version": text_version}], "text": heard, "detail": ""}
 
     @app.post("/v2/procedures/learn")
     def procedure_learn(req: Lesson, identity: Identity = Depends(admin)):
@@ -760,7 +830,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     from . import mail as mail_module
 
     chat = Chat(SimpleNamespace(
-        layouts=layouts, procedures=procedures, autofill=autofill,
+        layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),

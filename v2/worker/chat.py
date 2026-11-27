@@ -160,6 +160,17 @@ class Chat:
             doc_id, version = s.vault.put(None, 0, name, found.group(1).encode(), actor=identity.id, case=case)
             return [text(f"Zapisałem notatkę jako {name}."),
                     {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}]
+        found = re.fullmatch(r"(?:przepisz|spisz|odsluchaj|transkrybuj)(?: nagranie| notatke)?\s+(.+)", plain)
+        if found:
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            match = self._find_document(identity, case, found.group(1))
+            if not isinstance(match, dict):
+                return [text("Które nagranie przepisać?")] + ([{"type": "documents", "items": match}] if match else [])
+            result = s.transcribe_document(match["id"], identity.id)
+            if result["text"]:
+                return [text("Przepisałem nagranie:\n\n" + result["text"]), {"type": "documents", "items": result["documents"]}]
+            return [text(result["detail"])]
         found = re.fullmatch(r"(?:otworz|pokaz|wyswietl)\s+(.+)", plain)
         if found:
             match = self._find_document(identity, case, found.group(1))
@@ -340,7 +351,7 @@ class Chat:
         lines += ["• „narzędzia”, żeby ustawić sobie kafelki z tym, czego używasz najczęściej"]
         if writable:
             lines += ["• „przygotuj umowę sprzedaży lokalu” (nic nie zapiszę bez Twojej zgody)",
-                      "• „notatka: klient przyniesie odpis w piątek”",
+                      "• „notatka: klient przyniesie odpis w piątek” albo notatka głosowa: przycisk z mikrofonem",
                       "• „strony: Jan Kowalski, Anna Nowak”"]
         if admin:
             lines += ["• „zrób kopię”, „kod odzyskiwania”",

@@ -703,10 +703,74 @@ async function saveText(current) {
   await save(name, new TextEncoder().encode(text), current, text);
 }
 
+// ---------------------------------------------------------------- voice notes
+const AUDIO = /\.(webm|ogg|opus|oga|m4a|mp3|wav|aac|amr|3gp|flac)$/i;
+let voice = null;
+
+async function sendVoice(bytes, name) {
+  const waiting = bubble("Przepisuję notatkę głosową na komputerze kancelarii…", "them wait");
+  let result;
+  try {
+    result = await call("voice", "POST", { audio_b64: encode(bytes), name, case: currentCase() });
+  } finally {
+    waiting.remove();
+  }
+  bubble(result.text ? "Notatka głosowa:\n\n" + result.text : result.detail, "them");
+  render.documents({ items: result.documents });
+  status(result.text ? "Zapisałem nagranie i tekst" + (currentCase() ? " w sprawie „" + currentCase() + "”." : ".") : result.detail);
+}
+
+el("voice").onclick = run(async () => {
+  if (voice) {                       // second tap: stop and send
+    const finished = voice;
+    voice = null;
+    await finished.stop();
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    throw new Error("Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki.");
+  }
+  const chunks = [];
+  const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
+  recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+  const limit = setTimeout(() => el("voice").click(), 10 * 60 * 1000);
+  const done = new Promise(resolve => { recorder.onstop = resolve; });
+  voice = {
+    stop: async () => {
+      clearTimeout(limit);
+      recorder.stop();
+      await done;
+      stream.getTracks().forEach(track => track.stop());
+      el("voice").textContent = "🎤";
+      el("voice").classList.remove("recording");
+      el("voice").setAttribute("aria-label", "Nagraj notatkę głosową");
+      const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      const extension = /ogg/.test(audio.type) ? ".ogg" : /mp4|aac/.test(audio.type) ? ".m4a" : ".webm";
+      bubble("🎤 Notatka głosowa (" + Math.max(1, Math.round(audio.size / 4000)) + " s)", "me");
+      await sendVoice(new Uint8Array(await audio.arrayBuffer()), "notatka" + extension);
+    },
+  };
+  recorder.start(1000);
+  el("voice").textContent = "■";
+  el("voice").classList.add("recording");
+  el("voice").setAttribute("aria-label", "Zakończ i zapisz notatkę głosową");
+  el("voice").disabled = false;
+  status("Nagrywam notatkę. Dotknij ■, żeby zakończyć.");
+});
+
 async function saveFile(input, current) {
   const file = el(input).files[0];
   if (!file) throw new Error("Wybierz plik.");
   if (file.size > maxBytes) throw new Error("Limit rozmiaru pliku to 20 MiB.");
+  if (!current && AUDIO.test(file.name)) {          // a recording from a dictaphone or a messenger
+    bubble("🎤 " + file.name, "me");
+    el(input).value = "";
+    await sendVoice(new Uint8Array(await file.arrayBuffer()), file.name);
+    return;
+  }
   if (!mayDiscard()) return;
   if (!current) bubble("Dodaję plik " + file.name, "me");
   await save(file.name, new Uint8Array(await file.arrayBuffer()), current);
@@ -736,6 +800,7 @@ async function enter(device) {
   el("workspace").hidden = false;
   el("bar").hidden = false;
   el("attach").hidden = scope === "read";
+  el("voice").hidden = scope === "read" || !(navigator.mediaDevices && window.MediaRecorder);
   el("messages").replaceChildren();
   chips();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
