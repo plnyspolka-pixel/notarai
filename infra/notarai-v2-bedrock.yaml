@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - dostep stanowiska kancelarii do Amazon Bedrock w UE. Stanowisko
+  loguje sie do istniejacej puli Cognito i dostaje poswiadczenia na okolo godzine,
+  ktore pozwalaja wylacznie wywolac model w regionach UE. Stos nie tworzy zadnego
+  magazynu danych: tresc zapytan nie jest nigdzie zapisywana.
+
+Parameters:
+  PulaUzytkownikow:
+    Type: String
+    Description: Identyfikator puli Cognito (wyjscie PulaId stosu notarai-logowanie)
+    AllowedPattern: "^eu-central-1_[A-Za-z0-9]+$"
+  WaznoscOdswiezania:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 90
+    Description: Po ilu dniach bez pracy stanowisko musi zalogowac sie ponownie
+
+Resources:
+  # Osobny klient puli dla stanowisk V2: cofniecie go odcina wszystkie stanowiska
+  # naraz i nie dotyka logowania do aplikacji V1.
+  KlientStanowiska:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: notarai-v2-stanowisko
+      UserPoolId: !Ref PulaUzytkownikow
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: !Ref WaznoscOdswiezania
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  PulaTozsamosci:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: notarai-v2-stanowiska
+      AllowUnauthenticatedIdentities: false
+      AllowClassicFlow: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref KlientStanowiska
+          ProviderName: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${PulaUzytkownikow}"
+          # Wylogowany albo usuniety uzytkownik nie dostanie nowych poswiadczen.
+          ServerSideTokenCheck: true
+
+  RolaStanowiska:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: notarai-v2-stanowisko
+      Description: Stanowisko kancelarii - wylacznie wywolanie modeli Bedrock w UE
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref PulaTozsamosci
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
+      Policies:
+        - PolicyName: notarai-v2-bedrock-ue
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WywolanieModeliWUE
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/eu.*"
+                  - "arn:aws:bedrock:eu-central-1::foundation-model/*"
+                  - "arn:aws:bedrock:eu-west-1::foundation-model/*"
+                  - "arn:aws:bedrock:eu-west-3::foundation-model/*"
+                  - "arn:aws:bedrock:eu-north-1::foundation-model/*"
+                  - "arn:aws:bedrock:eu-south-1::foundation-model/*"
+                  - "arn:aws:bedrock:eu-south-2::foundation-model/*"
+              # Stanowisko samo sprawdza przed kazdym wywolaniem, ze konto nie
+              # zapisuje tresci i ze profil modelu nie wychodzi poza UE.
+              - Sid: OdczytUstawienDoSprawdzenia
+                Effect: Allow
+                Action:
+                  - bedrock:GetModelInvocationLoggingConfiguration
+                  - bedrock:GetInferenceProfile
+                Resource: "*"
+              - Sid: NicPozaUE
+                Effect: Deny
+                Action: "*"
+                Resource: "*"
+                Condition:
+                  StringNotEquals:
+                    "aws:RequestedRegion":
+                      - eu-central-1
+                      - eu-west-1
+                      - eu-west-3
+                      - eu-north-1
+                      - eu-south-1
+                      - eu-south-2
+
+  PrzypisanieRoli:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref PulaTozsamosci
+      Roles:
+        authenticated: !GetAtt RolaStanowiska.Arn
+
+Outputs:
+  KlientStanowiskaId:
+    Description: Wpisz w ustawieniach stanowiska V2 jako client_id
+    Value: !Ref KlientStanowiska
+  PulaTozsamosciId:
+    Description: Wpisz w ustawieniach stanowiska V2 jako identity_pool_id
+    Value: !Ref PulaTozsamosci

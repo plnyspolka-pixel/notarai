@@ -62,5 +62,18 @@ def replace_secret(home: Path, name: str, data: bytes) -> None:
     os.replace(temporary, target)
 
 
+def store_secret(home: Path, name: str, data: bytes) -> None:
+    """Create or replace."""
+    if secret_path(home, name).exists():
+        replace_secret(home, name, data)
+    else:
+        write_new_secret(home, name, data)
+
+
+def delete_secret(home: Path, name: str) -> None:
+    for candidate in (home / name, home / f"{name}.dpapi"):
+        candidate.unlink(missing_ok=True)
+
+
 def _entropy(name: str) -> bytes:
     return f"NotarAI V2 development:{name}".encode("ascii")
