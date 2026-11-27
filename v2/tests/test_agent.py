@@ -716,3 +716,16 @@ def test_no_remote_help_and_no_second_copy(tmp_path):
     assert "już działa" in str(twice.value) and started == []
     computer.start("C:\\Akty\\umowa.docx")
     assert started == ["C:\\Akty\\umowa.docx"]
+
+
+def test_the_program_itself_says_which_command_line_tools_are_here(office, monkeypatch, tmp_path):
+    client, admin, desk, desktop, replies = office
+    (tmp_path / "cli-anything-libreoffice.exe").write_bytes(b"MZ")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    said = client.post("/v2/chat", headers=admin, json={"text": "jakie masz narzedzia wiersza polecen"}).json()["blocks"][0]["text"]
+    assert "cli-anything-libreoffice" in said and "włączony" in said and "[pola okna]" in said
+    monkeypatch.setenv("PATH", str(tmp_path / "pusto"))
+    said = client.post("/v2/chat", headers=admin, json={"text": "czy jest tu CLI-Anything albo winapp?"}).json()["blocks"][0]["text"]
+    assert "Nie znalazłem narzędzi cli-anything ani winapp" in said and replies == []      # no model call at all
+    from worker.chat import answer_blocks
+    assert answer_blocks("ROZUMIEM: x\n\nMogę **otwierać programy** i więcej.\n\n---")[0]["text"] == "Mogę otwierać programy i więcej."

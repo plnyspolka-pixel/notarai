@@ -125,7 +125,10 @@ def answer_blocks(answer: str) -> list[dict]:
     while lines and re.match(r"\s*\**DALEJ\**\s*:", lines[-1], re.I):
         raw = re.sub(r"^\s*\**DALEJ\**\s*:\s*", "", lines.pop(), flags=re.I)
         steps = [s.strip(" „”\"*.-") for s in raw.split("|") if s.strip(" „”\"*.-")][:3]
-    blocks = [text("\n".join(lines).strip())]
+    shown = "\n".join(lines).strip()
+    shown = re.sub(r"\*\*(.+?)\*\*", r"\1", shown)               # the window shows plain text: no asterisks around words
+    shown = re.sub(r"(?m)^\s*-{3,}\s*$", "", shown).strip()
+    blocks = [text(shown)]
     if steps:
         blocks.append(text("Proponuję dalej:"))
         blocks.append(buttons(*[(step[:60], step) for step in steps]))
@@ -467,6 +470,15 @@ class Chat:
         from .agent import ProgramMap
 
         browser, known = self._browser(), getattr(self.s.computer, "map", None)
+        if re.search(r"narzedzi\w* (wiersza|linii) polecen|narzedzi\w* cli\b|cli.?anything|\bwinapp\b|windows cli", plain) \
+                and not plain.startswith(("wlacz", "wylacz", "uruchom", "zablokuj")):
+            # Answered by the program itself, from what is on this computer: not by the model.
+            allowed = self.s.settings().agent.commands
+            found = self.s.computer.tools()
+            return [text(("Wiersz poleceń dla agenta jest włączony" if allowed else "Wiersz poleceń dla agenta jest WYŁĄCZONY")
+                         + " (pojedynczy program z argumentami; bez cmd, PowerShella i skryptów).\n\n" + found
+                         + "\n\nProgramy Windows (np. RejNET) obsługuję wbudowanym odczytem okien, bez tych narzędzi: "
+                           "w dzienniku pracy widać to jako [pola okna].")]
         if re.fullmatch(r"(pokaz|otworz|wyswietl)( mi)? (okno )?przegladark\w*( notarai)?", plain):
             if browser is None or not browser.is_open():
                 return [text("Przeglądarka NotarAI nie jest teraz otwarta: otworzy się przy pierwszej stronie.")]
