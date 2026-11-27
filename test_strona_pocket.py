@@ -18,7 +18,7 @@ def test_wszystkie_pliki_powloki_sa_i_sa_podpiete():
     for plik in PLIKI:
         assert (KATALOG / plik).is_file(), plik
     html = (KATALOG / "index.html").read_text(encoding="utf-8")
-    for plik in ("pocket.css", "pocket.js", "tunnel.js", "pocket.webmanifest", "pocket-icon.svg"):
+    for plik in ("pocket.css", "pocket.js", "tunnel.js", "pocket.webmanifest", "logo-mark.svg"):   # ikona: sygnet NotarAI
         assert f'"{plik}"' in html, plik
     assert "/v2/" not in html      # na notarai.pl nie ma API stanowiska: tylko ścieżki względne
 

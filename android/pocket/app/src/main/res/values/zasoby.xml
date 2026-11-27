@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nazwa" translatable="false">NotarAI Pocket</string>
+    <string name="nazwa" translatable="false">NotarAI</string>
     <!-- Druga polowa powiazania jest na stronie: https://notarai.pl/.well-known/assetlinks.json -->
     <string name="powiazanie_ze_strona" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://notarai.pl\"}}]</string>
-    <color name="zielen">#0D6B57</color>
-    <color name="tlo">#F6F8F7</color>
+    <!-- Identyfikacja wizualna NotarAI (strona/brand-site.css). -->
+    <color name="granat">#071D49</color>
+    <color name="biel">#FFFFFF</color>
+    <color name="tlo">#F4F7FC</color>
 </resources>

@@ -1,14 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Ikona jednobarwna (motywy Androida). Geometria i kolory: strona/logo-mark.svg (sygnet NotarAI). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="6"
-        android:translateY="6">
+        android:scaleX="0.37"
+        android:scaleY="0.37"
+        android:translateX="29.77"
+        android:translateY="27.55">
         <path
             android:fillColor="#000000"
-            android:pathData="M28,70V26h8l24,30V26h8v44h-8L36,40v30z" />
+            android:pathData="M16 16h104c0 13-9 23-23 23H29c-10 0-17 6-21 16C0 39 7 16 16 16Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M31 45h76c-1 12-9 19-21 19H43c-13 0-18 9-23 18-8-16 0-37 11-37Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M45 70h25l-4 33-21 24V70Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M74 70h19v32c0 4-2 7-6 10l-13 9V70Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M97 70h13v26c0 5-3 8-7 11l-6 4V70Z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M108,112h8a3,3 0 0 1 3,3v8a3,3 0 0 1 -3,3h-8a3,3 0 0 1 -3,-3v-8a3,3 0 0 1 3,-3z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M121,98h5a2,2 0 0 1 2,2v5a2,2 0 0 1 -2,2h-5a2,2 0 0 1 -2,-2v-5a2,2 0 0 1 2,-2z" />
     </group>
 </vector>

@@ -1,0 +1,22 @@
+/* Identyfikacja wizualna NotarAI na stronie Pocket: paleta, krój pisma i sygnet z notarai.pl.
+   Ładowany po pocket.css; dopisuje go tools/pocket_strona.py po eksporcie z V2. */
+@font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: swap; src: url("../fonts/montserrat-latin-ext-wght-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: swap; src: url("../fonts/montserrat-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+:root { --ink: #0d204e; --muted: #596a86; --line: #dce5f3; --bg: #f4f7fc; --card: #fff; --accent: #234bd2; }
+body { font-family: Montserrat, "Segoe UI", system-ui, Arial, sans-serif; }
+h1.marka { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 1.55rem; font-weight: 800; letter-spacing: -.05em; color: #071d49; }
+h1.marka img { width: 34px; height: 34px; flex: none; }
+h1.marka strong { color: #00bfe8; font-weight: 800; }
+h1.marka .marka-dopisek { margin-left: 4px; padding: 3px 9px; border-radius: 999px; background: #eaf1ff; color: #1a4b9d; font-size: .72rem; font-weight: 700; letter-spacing: 0; }
+h2, h3 { letter-spacing: -.02em; }
+section, main > div.card, .card { border-radius: 16px; box-shadow: 0 12px 28px rgba(10, 35, 77, .04); }
+button, input, textarea, select { border-radius: 10px; }
+button.primary { font-weight: 700; }
+button.primary:hover { background: #183bab; border-color: #183bab; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible { outline-color: #00cfff; }
+.code { background: #eaf1ff; }
+a { color: #234bd2; }
+.tile > button.go { background: #eaf1ff; }
+.meter { background: #dce5f3; }
+.powitanie-kroki li::marker { color: #234bd2; }
+.powitanie-skaner video { border-color: #234bd2; }
