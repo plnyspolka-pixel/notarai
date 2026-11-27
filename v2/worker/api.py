@@ -211,7 +211,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     drafts = Drafts(vault, lambda: state["inference"], connect, rules=rules, style=style, learning=learning)
     redeem_throttle = _Throttle()
     workcopies = WorkCopies(home, vault, opener, rules=rules) if opener else WorkCopies(home, vault, rules=rules)
-    mode = "local" if settings.ai.real_data_approved else "synthetic-only"
+    mode = "local" if settings.ai.real_data_approved else "synthetic-only"   # real cases unless an old gate says otherwise
     settings = None   # read state["settings"]; it can change while the worker runs
 
     relay: dict = {"task": None, "client": None, "keys": None}
@@ -738,7 +738,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                                               kind=proposed.instruction[:60])
             except Exception:
                 learned = []           # learning never stands in the way of saving
-        return {**result, "learned": [l["text"] for l in learned]} if isinstance(result, dict) else result
+        return {**result, "learned": [{"id": l["id"], "text": l["text"]} for l in learned]} if isinstance(result, dict) else result
 
     @app.delete("/v2/drafts/{draft_id}")
     def draft_discard(draft_id: str, identity: Identity = Depends(writable)):
@@ -931,7 +931,17 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/learning/dictation")
     def learning_dictation(req: Corrected, identity: Identity = Depends(writable)):
-        return {"learned": [l["text"] for l in learning.from_dictation(req.heard, req.final)]}
+        return {"learned": [{"id": l["id"], "text": l["text"]} for l in learning.from_dictation(req.heard, req.final)]}
+
+    class Decision(BaseModel):
+        accept: bool
+
+    @app.post("/v2/learning/{ident}")
+    def learning_decide(ident: str, req: Decision, identity: Identity = Depends(writable)):
+        decided = learning.decide(ident, req.accept, actor=identity.id)
+        if decided is None:
+            raise HTTPException(404, "not found")
+        return {"status": decided["status"]}
 
     @app.get("/v2/learning")
     def learning_state(identity: Identity = Depends(auth)):
@@ -1258,6 +1268,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
+        send_mail=lambda identity, to, subject, body, original: send_mail(
+            identity, mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),
+            to, subject, body, original, True),
         calendar=calendar, onboarding=onboarding, environment=environment, registers=register_service,
         start_job=start_job, narrate=narrate, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
@@ -1272,6 +1285,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         subject: str = Field(default="", max_length=300)
         body: str = Field(default="", max_length=50_000)
         draft: str = Field(default="", max_length=50_000)       # what the assistant proposed, to learn from edits
+        send: bool = False                                        # the notary's command said „wyślij”
 
     @app.post("/v2/mail/compose", dependencies=[Depends(admin)])
     def mail_compose(req: Compose, identity: Identity = Depends(admin)):
@@ -1281,15 +1295,30 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(409, "Poczta nie jest połączona. Napisz „połącz pocztę”.")
         original = chat.inbox_message(identity, req.n) if req.n else None
         try:
-            where = (mail_composer or mail_module.compose)(source, req.to, req.subject, req.body, original)
-        except mail_module.MailError as error:
+            return send_mail(identity, source, req.to, req.subject, req.body, original, req.send)
+        except (mail_module.MailError, RuleViolation) as error:
             raise HTTPException(409, str(error))
-        vault.log(identity.id, "mail-compose")
-        learned = learning.from_reply(req.body, [original.sender] if original and original.sender else [])
-        return {"detail": f"Otworzyłem gotową wiadomość w {where}. Sprawdź ją tam i kliknij Wyślij.",
-                "learned": [l["text"] for l in learned]}
+
+    def send_mail(identity: Identity, source, to: str, subject: str, body: str, original, send: bool) -> dict:
+        if send:
+            rules.check_send("poczta", [])            # e.g. the office's sending hours
+        if source is None:
+            raise mail_module.MailError("Poczta nie jest połączona. Napisz „połącz pocztę”.")
+        said = (mail_composer or mail_module.compose)(source, to, subject, body, original, send=send)
+        vault.log(identity.id, "mail-send" if send and said.startswith("Wysłałem") else "mail-compose")
+        learned = learning.from_reply(body, [original.sender] if original and original.sender else [])
+        return {"detail": said, "sent": said.startswith("Wysłałem"), "learned": [{"id": l["id"], "text": l["text"]} for l in learned]}
 
     from .registers import RegisterError
+
+    @app.get("/v2/suggestions")
+    def suggestions(case: str | None = None, identity: Identity = Depends(auth)):
+        if case is not None and (not valid_case(case) or (identity.cases is not None and case not in identity.cases)):
+            raise HTTPException(404, "not found")
+        try:
+            return {"items": chat.suggestions(identity, case)}
+        except Exception:
+            return {"items": []}
 
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
             RegisterError,

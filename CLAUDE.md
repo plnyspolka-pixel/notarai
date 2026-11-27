@@ -94,13 +94,17 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   27.11.2026: także `krz_portal.py` i `walidacja.py` (KRZ i numery KW/PESEL, tą samą drogą),
   a treść KW pobiera funkcja AWS `notarai-v2-rejestry` (stos w `infra/`) z `ekw.py` V1 bez zmian;
   token dostawcy zostaje w Secrets Manager, stanowisko woła funkcję swoim logowaniem.
-- Wyłącznie dane fikcyjne. `ai.real_data_approved` zostaje `false`; nie dodawaj
-  sposobu przełączenia go z aplikacji.
+- Dane prawdziwe (decyzja właściciela 27.11.2026): V2 obsługuje prawdziwe sprawy i dane osobowe;
+  `ai.real_data_approved` domyślnie `true` i nadal nie da się go przełączyć z aplikacji. Zasady
+  RODO z tego pliku (UE, brak danych w logach, sejf, pseudonimizacja dla modelu) obowiązują bez zmian.
 - Każde wywołanie modelu w V2 idzie przez `v2/worker/inference.py` (polityka UE,
   pseudonimizacja, licznik). Nie wołaj Bedrock z innego miejsca i nie loguj treści.
-- Zapis albo wysyłka w imieniu notariusza: tylko przez kontrakt Connect z
-  zatwierdzeniem dokładnej treści i odczytem kontrolnym; bez ponawiania po
-  niepewnym wyniku.
+- Zapis albo wysyłka w imieniu notariusza (decyzja właściciela 27.11.2026): wyraźne polecenie
+  notariusza lub użytkownika („wyślij pocztę”, „wypełnij … i wyślij”) jest zatwierdzeniem; dodatkowe
+  „Tak / Nie” tylko przy ustawieniu `confirm` albo gdy polecenie nie prosiło o tę czynność (np. samo
+  „wypełnij”). Zawsze: zasady kancelarii (`check_*`) przed zapisem i wysyłką, pokazanie w rozmowie
+  dokładnie tego, co wykonano, jedno wykonanie bez ponawiania po niepewnym wyniku. Zapis dokumentu
+  nadal przez kontrakt Connect z odczytem kontrolnym.
 - Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia`, `notarai-v2-mowa`,
   `notarai-v2-pobieranie`, `notarai-v2-rejestry` istnieją w eu-central-1 (decyzje właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
   `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
@@ -110,9 +114,9 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
 - Wypełnianie formularzy w V2 (decyzja właściciela 27.11.2026: priorytet programu): procedura
   z nagrania (`v2/worker/procedures.py`) daje wartości, a `v2/worker/autofill.py` wpisuje je sam
   na stronach (`web_fill.py`, przeglądarka NotarAI) i w programach Windows (`win_fill.py`,
-  UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: zawsze dopiero po
-  zatwierdzeniu w czacie, związanym ze stanem formularza z podglądu; jedno naciśnięcie, bez
-  ponawiania po niepewnym wyniku. Nie dodawaj ścieżki, która wysyła bez tego zatwierdzenia.
+  UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: na wyraźne polecenie (zob. wyżej,
+  decyzja 27.11.2026) albo po zatwierdzeniu w czacie, zawsze związane ze stanem formularza z podglądu;
+  jedno naciśnięcie, bez ponawiania po niepewnym wyniku.
 - Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): decyzja
   właściciela 27.11.2026 - domyślnie w chmurze, wyłącznie Amazon Transcribe w eu-central-1
   (`v2/worker/cloud_speech.py`, bucket stosu `notarai-v2-mowa`): nagranie i wynik kasowane zaraz

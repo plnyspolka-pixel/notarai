@@ -1,4 +1,6 @@
 """Local worker for browser tests: real vault and API, fake Bedrock. Prints one JSON line when ready."""
+import os
+os.environ.setdefault("NOTARAI_ALWAYS_CONFIRM", "1")
 import json
 import socket
 import sys

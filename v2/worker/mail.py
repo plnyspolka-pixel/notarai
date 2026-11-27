@@ -185,8 +185,8 @@ class Outlook:
         except Exception:
             raise MailError("Outlook nie oddał tego załącznika. Spróbuj ponownie.") from None
 
-    def compose(self, to: str, subject: str, body: str, reply_to: Message | None = None) -> None:
-        """Open a ready message in Outlook's own window. Sending stays with the notary (Wyślij in Outlook)."""
+    def compose(self, to: str, subject: str, body: str, reply_to: Message | None = None, send: bool = False) -> None:
+        """A ready message in Outlook: sent at once when the notary's command said so, otherwise opened."""
         try:
             application = self._application()
             if reply_to is not None and reply_to.entry_id:
@@ -195,7 +195,10 @@ class Outlook:
             else:
                 item = application.CreateItem(0)          # 0 = a mail item
                 item.To, item.Subject, item.Body = to, subject, body
-            item.Display(False)
+            if send:
+                item.Send()
+            else:
+                item.Display(False)
         except MailError:
             raise
         except Exception:
@@ -256,11 +259,13 @@ def thunderbird_program() -> Path | None:
     return None
 
 
-def compose(source, to: str, subject: str, body: str, reply_to: Message | None = None, *, runner=None) -> str:
-    """Open a ready message in the mail program for the notary to check and send. Returns where it opened."""
+def compose(source, to: str, subject: str, body: str, reply_to: Message | None = None, *, runner=None,
+            send: bool = False) -> str:
+    """A ready message in the mail program. With `send` Outlook sends it at once; programs that cannot be
+    driven that way (Thunderbird, others) open it ready, and the result says so. Returns a sentence."""
     if hasattr(source, "compose"):
-        source.compose(to, subject, body, reply_to)
-        return "Outlooku"
+        source.compose(to, subject, body, reply_to, send=send)
+        return "Wysłałem wiadomość z Outlooka." if send else "Otworzyłem gotową wiadomość w Outlooku. Sprawdź ją tam i kliknij Wyślij."
     import subprocess
 
     program = thunderbird_program() if isinstance(source, Thunderbird) else None
@@ -268,7 +273,8 @@ def compose(source, to: str, subject: str, body: str, reply_to: Message | None =
     if program is not None:
         (runner or subprocess.Popen)([str(program), "-compose",
                                       f"to={quote(to)},subject={quote(subject)},body={quote(body)}"])
-        return "Thunderbirdzie"
+        return ("Thunderbird nie pozwala innym programom wysyłać za siebie: otworzyłem gotową wiadomość, kliknij Wyślij."
+                if send else "Otworzyłem gotową wiadomość w Thunderbirdzie. Sprawdź ją tam i kliknij Wyślij.")
     # Any other program: a ready .eml next to the mail folder, opened by the default mail program.
     from email.message import EmailMessage
 
@@ -284,7 +290,8 @@ def compose(source, to: str, subject: str, body: str, reply_to: Message | None =
         os.startfile(str(path))       # noqa: S606 - a file NotarAI just wrote
     elif runner is not None:
         runner([str(path)])
-    return "domyślnym programie pocztowym"
+    return ("Ten program pocztowy nie pozwala wysyłać za siebie: otworzyłem gotową wiadomość, kliknij Wyślij." if send
+            else "Otworzyłem gotową wiadomość w domyślnym programie pocztowym. Sprawdź ją tam i kliknij Wyślij.")
 
 
 def detect() -> list:

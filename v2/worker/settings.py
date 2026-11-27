@@ -20,9 +20,9 @@ class AiSettings(_Strict):
     model: str = "eu.anthropic.claude-sonnet-4-6"
     # Replace identifiers and listed names with placeholders before text leaves the computer.
     pseudonymize: bool = True
-    # Stays false until the release gates in README.md are met; while false the
-    # worker labels itself synthetic-only.
-    real_data_approved: bool = False
+    # Owner's decision 27.11.2026: V2 works on the office's real cases. A release gate set by the
+    # installation, never switched from the application.
+    real_data_approved: bool = True
 
 
 class AccountSettings(_Strict):
@@ -96,6 +96,9 @@ class Settings(_Strict):
     backup_dir: str | None = None
     acts_dir: str | None = Field(default=None, max_length=400)     # where the office keeps its acts
     learn: bool = True                                             # learning mode, visible in the window
+    # Owner's decision 27.11.2026: a command is the approval ("wyślij pocztę" sends). When true, the
+    # program asks "Tak / Nie" before irreversible actions as it did before.
+    confirm: bool = Field(default_factory=lambda: os.environ.get("NOTARAI_ALWAYS_CONFIRM") == "1")
     backup_reminder_days: int = Field(default=7, ge=1, le=90)
 
     def account_config(self) -> AccountConfig | None:

@@ -120,3 +120,26 @@ def test_the_v1_portal_knowledge_loads_in_v2():
     portal = domain.krz_portal()
     assert portal.ADRES == "https://krz.ms.gov.pl/" and hasattr(portal, "StronaPlaywright")
     assert portal.rozpoznaj("Nie znaleziono podmiotów")[0] in {"brak_wpisu", "blad"}
+
+
+def test_the_program_proposes_what_to_do_next_from_what_it_sees(tmp_path):
+    client, admin, _ = office(tmp_path)
+    client.post("/v2/documents", headers=admin, json={"id": None, "expected_version": 0, "name": "umowa.txt", "case": "s",
+                                                       "content_b64": base64.b64encode(
+                                                           b"Lokal w KW WA4M/00160286/2, sprzedajacy PESEL 44051401359.").decode()})
+    items = client.get("/v2/suggestions", headers=admin, params={"case": "s"}).json()["items"]
+    assert [i["say"] for i in items] == ["sprawdź KW WA4M/00160286/2", "sprawdź strony w KRZ",
+                                         "przygotuj projekt aktu na podstawie dokumentów sprawy"]
+    assert all(i["why"] for i in items)
+    hello = client.post("/v2/chat", headers=admin, json={"hello": True, "case": "s"}).json()["blocks"]
+    assert any(b.get("text", "").startswith("Proponuję teraz") for b in hello) or any(
+        "Przewodnik" in b.get("text", "") for b in hello)
+    assert client.get("/v2/suggestions", headers=admin, params={"case": "../x"}).status_code == 404
+
+
+def test_the_assistant_says_how_it_understood():
+    from worker.chat import answer_blocks, understood
+    answer = "ROZUMIEM: pytasz o sprzedającego; sprawdzę umowę przedwstępną.\nSprzedaje Jan.\nDALEJ: sprawdź KW"
+    assert understood(answer) == ("Sprzedaje Jan.\nDALEJ: sprawdź KW", "pytasz o sprzedającego; sprawdzę umowę przedwstępną.")
+    blocks = answer_blocks(answer)
+    assert blocks[0]["text"] == "Sprzedaje Jan." and blocks[2]["items"][0]["say"] == "sprawdź KW"

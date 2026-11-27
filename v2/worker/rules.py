@@ -68,7 +68,7 @@ def describe(rule: dict) -> str:
     if kind == "pole_wymagane":
         return f"Formularz{where} nie zostanie wysłany bez wypełnionego pola „{rule['tekst']}”."
     if kind == "godziny_wysylki":
-        return f"Formularze wysyłam tylko w dni robocze od {rule['od']}:00 do {rule['do']}:00."
+        return f"Formularze i pocztę wysyłam tylko w dni robocze od {rule['od']}:00 do {rule['do']}:00."
     return "Pseudonimizacji nie można wyłączyć."
 
 

@@ -465,6 +465,23 @@ async function refreshAgenda() {
 el("month-prev").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); refreshAgenda(); };
 el("month-next").onclick = () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + 1, 1); refreshAgenda(); };
 render.calendar = () => refreshAgenda();
+
+// What to do now, worked out from what the program sees; refreshed after every exchange.
+async function refreshAhead() {
+  let items = [];
+  try {
+    const query = currentCase() ? "?case=" + encodeURIComponent(currentCase()) : "";
+    items = (await call("suggestions" + query)).items;
+  } catch { return; }
+  el("ahead-box").hidden = !items.length;
+  el("ahead").replaceChildren(...items.map(item => {
+    const row = node("li");
+    const go = sayButton(item.label, item.say);
+    go.title = item.why;
+    row.append(go, node("span", "muted why", item.why));
+    return row;
+  }));
+}
 setInterval(() => { if (scope && scope !== "listen" && !document.hidden) refreshAgenda(); }, 5 * 60 * 1000);
 
 render["pick-folder"] = block => {
@@ -655,12 +672,22 @@ render.reply = block => {
     showLearned(answer.learned);
     status(answer.detail);
   });
+  const sendNow = node("button", "primary", block.program === "Outlook" ? "Wyślij" : "Otwórz do wysłania");
+  sendNow.onclick = run(async () => {
+    if (!body.value.trim()) throw new Error("Odpowiedź jest pusta.");
+    const answer = await call("mail/compose", "POST", { n: block.n, to: to.value, subject: subject.value, body: body.value,
+                                                       draft: block.body, send: true });
+    bubble(answer.detail, "them");
+    if (answer.sent) card.remove();
+    showLearned(answer.learned);
+  });
+  open.className = "";
   const row = node("div", "row");
-  row.append(dictate, open);
+  row.append(dictate, open, sendNow);
   card.append(field("Do", to), field("Temat", subject), field("Treść (" + (block.body ? "projekt przygotował asystent, popraw go" : "pusta") + ")", body), row,
-              node("p", "muted", "Program pocztowy otworzy gotową wiadomość; wysyłasz ją sam przyciskiem Wyślij."));
+              node("p", "muted", "„Wyślij” wysyła od razu z Twojego programu pocztowego; możesz też napisać albo powiedzieć „wyślij”."));
   show(card);
-  if (!admin) { open.disabled = true; open.title = "Wiadomość otworzysz na komputerze kancelarii."; }
+  if (!admin) { open.disabled = sendNow.disabled = true; open.title = sendNow.title = "Pocztę obsługuje komputer kancelarii."; }
 };
 
 render.job = block => {
@@ -683,12 +710,30 @@ render.job = block => {
 
 // ---------------------------------------------------------------- learning mode: always visible
 function showLearned(lessons) {
+  // „Nauczyłem się tego, potwierdzasz?” - lessons learned by watching are used only after a yes.
   if (!lessons || !lessons.length) return;
   const card = node("div", "card them learned-now");
-  card.append(node("strong", "", "📘 Tryb uczenia: zapamiętałem"));
-  const list = node("ul");
-  for (const lesson of lessons) list.append(node("li", "", lesson));
-  card.append(list, node("p", "muted", "Napisz „czego się nauczyłeś”, żeby zobaczyć wszystko albo coś usunąć."));
+  card.append(node("strong", "", "📘 Tryb uczenia: nauczyłem się tego, potwierdzasz?"));
+  const list = node("ul", "lesson-list");
+  for (const lesson of lessons) {
+    const item = node("li");
+    const words = node("span", "", typeof lesson === "string" ? lesson : lesson.text);
+    item.append(words);
+    if (lesson.id) {
+      const yes = node("button", "chip", "Tak");
+      const no = node("button", "chip quiet", "Nie");
+      const decide = accept => run(async () => {
+        await call("learning/" + lesson.id, "POST", { accept });
+        item.replaceChildren(node("span", "muted", (accept ? "✓ Zapamiętane: " : "✗ Odrzucone: ") + words.textContent));
+        refreshLearning();
+      });
+      yes.onclick = decide(true);
+      no.onclick = decide(false);
+      item.append(yes, no);
+    }
+    list.append(item);
+  }
+  card.append(list, node("p", "muted", "Dopóki nie potwierdzisz, nie korzystam z tej lekcji. Wszystkie: „czego się nauczyłeś”."));
   show(card);
   refreshLearning();
 }
@@ -698,11 +743,13 @@ async function refreshLearning() {
   try { state = await call("learning"); } catch { return; }
   const badge = el("learning");
   badge.hidden = false;
-  badge.textContent = (state.enabled ? "📘 Tryb uczenia · " + state.total : "Tryb uczenia wyłączony");
+  badge.textContent = (state.enabled ? "📘 Tryb uczenia · " + state.total + (state.pending ? " · " + state.pending + " do potwierdzenia" : "")
+                                     : "Tryb uczenia wyłączony");
   badge.classList.toggle("off", !state.enabled);
   badge.title = state.enabled ? "Uczę się z Twoich poprawek. Kliknij, żeby zobaczyć lekcje." : "Kliknij, żeby zobaczyć tryb uczenia.";
 }
 render.learning = () => refreshLearning();
+render.lessons = block => showLearned(block.items);
 
 render.progress = block => {
   // A long job on the office computer (e.g. downloading the speech model): a bar that fills by itself.
@@ -988,6 +1035,7 @@ async function exchange(turn) {
   }
   for (const block of reply.blocks) await (render[block.type] || render.text)(block);
   if (reply.blocks.some(block => block.type === "case")) await refreshCases(currentCase());
+  if (scope !== "listen") refreshAhead();
 }
 
 async function send(sentence, shown) {
@@ -1456,9 +1504,8 @@ async function refreshCases(keep) {
     item.append(button);
     return item;
   }));
-  el("mode").textContent = state.mode === "synthetic-only"
-    ? "Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów."
-    : "Dokumenty są przechowywane na komputerze kancelarii.";
+  el("mode").hidden = state.mode !== "synthetic-only";
+  el("mode").textContent = "Ta instalacja ma jeszcze stare ustawienie trybu próbnego: używaj fikcyjnych dokumentów.";
 }
 
 // Pairing is done once. A paired device stays connected across refreshes and restarts (localStorage)
@@ -1665,7 +1712,10 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
-el("learning").onclick = run(() => send("tryb uczenia", "Tryb uczenia"));
+el("learning").onclick = run(async () => {
+  const state = await call("learning");
+  await send(state.pending ? "lekcje do potwierdzenia" : "tryb uczenia", state.pending ? "Lekcje do potwierdzenia" : "Tryb uczenia");
+});
 el("agenda-add").onclick = () => {
   // A chosen day is written in already: only the hour and what remain to say or type.
   const [y, m, d] = (cal.day || "").split("-");

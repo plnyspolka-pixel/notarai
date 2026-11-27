@@ -25,7 +25,7 @@
     <ol id="rules-list"></ol>
     <p class="muted" id="rules-hint"></p>
   </aside>
-  <p class="muted" id="mode">Tryb próbny. Używaj wyłącznie fikcyjnych dokumentów.</p>
+  <p class="muted" id="mode" hidden></p>
   <section id="pairing">
     <label for="code">Kod parowania</label>
     <input id="code" type="password" autocomplete="off">
@@ -41,6 +41,10 @@
   </section>
   <main id="workspace" hidden>
     <aside id="side" aria-label="Kalendarz i sprawy">
+      <section class="side-box" id="ahead-box" hidden>
+        <h2>Proponuję teraz</h2>
+        <ul id="ahead" class="ahead"></ul>
+      </section>
       <section class="side-box" id="calendar-box">
         <div class="month-head">
           <button id="month-prev" class="quiet nav" aria-label="Poprzedni miesiąc">‹</button>

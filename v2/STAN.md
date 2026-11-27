@@ -36,6 +36,8 @@ V1 pozostaje nietknięte.
 | KRZ | „sprawdź strony w KRZ”: PESEL z dokumentów sprawy, `krz_portal.py` z V1 w przeglądarce NotarAI, zrzuty do sprawy, PESEL maskowany | testy (portal na żywo: NA-20) |
 | Tryb uczenia | Widoczny przycisk 📘; lekcje z poprawek aktów, poprawek dyktowania (od razu poprawia kolejne dyktowanie), odpowiedzi na maile, „zapamiętaj:” i „to było źle:”; lista „czego się nauczyłeś”, usuwanie, wyłącznik; bez nazwisk i liczb, zaszyfrowane | testy + przeglądarka |
 | Program mówi, co robi | W trakcie pracy kroki na żywo pod wiadomością („Rozumiem: pytanie o sprawę…”, „Czytam dokumenty (4)”, „Pytam asystenta we Frankfurcie…”), potem zwinięte „Jak to zrobiłem”; po odpowiedzi „Proponuję dalej” z 1-3 przyciskami | testy + przeglądarka |
+| Polecenie = zatwierdzenie | „wyślij pocztę”, „odpowiedz na mail 2: …”, „wypełnij … i wyślij” wykonują się od razu (decyzja właściciela); „pytaj o potwierdzenie” przywraca „Tak / Nie”; zasady kancelarii (np. godziny wysyłki) sprawdzane zawsze | testy |
+| Proponuję teraz | 2-3 następne kroki z tego, co widzi program: terminy, braki w sprawie (KW, KRZ, projekt aktu), poczta, lekcje do potwierdzenia, zaległa kopia; na powitanie i w lewym pasku | testy + przeglądarka |
 | Program na pulpicie | Ikona „NotarAI” otwiera własne okno (bez paska adresu, bez logowania kodem), worker działa w tle i startuje z Windows; odświeżenie okna nie rozłącza | testy + budowa i próba instalatora w CI Windows |
 | Twarde zasady kancelarii | Zasady ustawiane zdaniem („zasada: …”), pilnowane przez kod przy zapisie projektu, zapisie z Worda, wysyłce formularza i zmianie ustawień; małe okienko „Zasady kancelarii” w nagłówku | testy + przeglądarka |
 | Styl kancelarii | „naucz się stylu kancelarii” czyta akty na dyskach stanowiska (DOCX, ODT, RTF, TXT) i zapamiętuje powtarzalne sformułowania i układ, bez danych klientów; projekty piszą tymi sformułowaniami | testy na fikcyjnym dysku |
@@ -178,3 +180,13 @@ dopóki notariusz tego nie włączy.
 - RejNET i inne programy kancelarii przez automatyzację okien (wymaga dostępu do środowiska testowego; patrz `docs/czeka-na-dostep.md`).
 - Rozliczanie zużycia AI po stronie NotarAI (dziś licznik jest lokalny, na stanowisku).
 - Niezależny przegląd bezpieczeństwa przed pierwszymi prawdziwymi danymi.
+
+
+## Dane prawdziwe: co musi zrobić kancelaria (decyzja z 27.11.2026)
+
+Program przetwarza dane klientów wyłącznie w UE (Frankfurt), w zaszyfrowanym sejfie na komputerze, a do
+modelu AI wysyła je po pseudonimizacji. Po stronie kancelarii jako administratora danych zostaje:
+- umowa powierzenia przetwarzania z AWS (DPA AWS, akceptowana w koncie) i z Finance You / Apify dla treści KW,
+- wpis w rejestrze czynności przetwarzania (AI w UE, przepisywanie mowy, kopie we Frankfurcie, KW, KRZ),
+- obowiązek informacyjny dla klientów, zwłaszcza przy stałym nasłuchu i nagrywaniu rozmów,
+- ocena skutków (DPIA) dla nasłuchu i automatycznego przetwarzania, jeśli inspektor ochrony danych uzna ją za potrzebną.

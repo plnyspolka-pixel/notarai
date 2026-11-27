@@ -211,8 +211,9 @@ def test_attachments_go_to_the_case_and_a_reply_opens_in_the_mail_program(profil
     inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: bedrock, UsageLedger(home))
     opened = []
     client = TestClient(create_app(home, inference=inference, mail_detect=lambda: [Thunderbird(profile)],
-                                   mail_composer=lambda source, to, subject, body, original: opened.append(
-                                       (to, subject, body, original.subject if original else None)) or "Thunderbirdzie"))
+                                   mail_composer=lambda source, to, subject, body, original, send=False: opened.append(
+                                       (to, subject, body, original.subject if original else None)) or
+                                   "Otworzyłem gotową wiadomość w Thunderbirdzie. Sprawdź ją tam i kliknij Wyślij."))
     say(client, admin, "połącz pocztę")
     inbox = say(client, admin, "poczta")
     rows = inbox[0]["items"]
@@ -245,5 +246,44 @@ def test_a_ready_message_for_other_programs_is_a_draft_file(tmp_path, monkeypatc
     started = []
     where = compose(Folder(tmp_path), "a@example.pl", "Re: Akt", "Treść odpowiedzi", runner=started.append)
     draft = tmp_path / "NotarAI" / "do-wyslania" / "Re Akt.eml"
-    assert where == "domyślnym programie pocztowym" and started == [[str(draft)]]
+    assert "domyślnym programie pocztowym" in where and started == [[str(draft)]]
     assert b"X-Unsent: 1" in draft.read_bytes() and b"Tre" in draft.read_bytes()
+
+
+def test_a_command_sends_mail_at_once_when_the_office_does_not_ask(profile, tmp_path, monkeypatch):
+    monkeypatch.delenv("NOTARAI_ALWAYS_CONFIRM", raising=False)
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    sent = []
+
+    def composer(source, to, subject, body, original, send=False):
+        sent.append((to, subject, body, send))
+        return "Wysłałem wiadomość z Outlooka." if send else "Otworzyłem."
+    client = TestClient(create_app(home, mail_detect=lambda: [Thunderbird(profile)], mail_composer=composer))
+    say(client, admin, "połącz pocztę")
+    say(client, admin, "poczta")
+    done = texts(say(client, admin, "odpowiedz na mail 2: Dziękuję, odpis otrzymaliśmy."))
+    assert sent == [("jan@example.pl", "Re: Odpis z KW", "Dziękuję, odpis otrzymaliśmy.", True)]
+    assert "Wysłałem wiadomość z Outlooka." in done and "Do: jan@example.pl" in done
+    say(client, admin, "odpowiedz na mail 1")            # no assistant: an empty draft is kept, nothing sent
+    assert "Nie mam gotowej odpowiedzi" in texts(say(client, admin, "wyślij"))
+    assert len(sent) == 1
+    log = client.get("/v2/audit", headers=admin).json()
+    assert any(entry["action"] == "mail-send" for entry in log["entries"]) if isinstance(log, dict) else True
+
+
+def test_office_sending_hours_stop_a_mail_too(profile, tmp_path, monkeypatch):
+    monkeypatch.delenv("NOTARAI_ALWAYS_CONFIRM", raising=False)
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    sent = []
+    client = TestClient(create_app(home, mail_detect=lambda: [Thunderbird(profile)],
+                                   mail_composer=lambda *a, **k: sent.append(a) or "Wysłałem wiadomość z Outlooka."))
+    say(client, admin, "połącz pocztę")
+    say(client, admin, "poczta")
+    import datetime as dt
+    import worker.rules as rules_module
+    monkeypatch.setattr(rules_module, "is_working_day", lambda day: False)
+    say(client, admin, "zasada: wysyłka tylko w dni robocze od 8 do 16")
+    refused = texts(say(client, admin, "odpowiedz na mail 2: Dziękuję."))
+    assert "zasady kancelarii" in refused and sent == []

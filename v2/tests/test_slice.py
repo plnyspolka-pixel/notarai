@@ -161,7 +161,7 @@ def test_ai_off_by_default(tmp_path):
     assert response.status_code == 403 and "wyłączone" in response.json()["detail"]
     status = client.get("/v2/status", headers=admin).json()
     assert status["ai"] == {"enabled": False, "signed_in": False, "account_configured": False, "pseudonymize": True}
-    assert status["mode"] == "synthetic-only"
+    assert status["mode"] == "local"            # owner's decision 27.11.2026: real cases
 
 
 def test_device_limited_to_a_case_sees_nothing_else(office):
@@ -332,9 +332,9 @@ def test_panel_session_is_local_only_single_use_and_expires(office):
 def test_settings_are_validated_and_release_gate_is_not_a_setting(office, tmp_path):
     client, admin, home, _ = office
     current = client.get("/v2/settings", headers=admin).json()
-    assert current["ai"]["enabled"] is False and current["ai"]["real_data_approved"] is False
+    assert current["ai"]["enabled"] is False and current["ai"]["real_data_approved"] is True
     assert client.put("/v2/settings", headers=admin,
-                      json={**current, "ai": {**current["ai"], "real_data_approved": True}}).status_code == 403
+                      json={**current, "ai": {**current["ai"], "real_data_approved": False}}).status_code == 403
     assert client.put("/v2/settings", headers=admin,
                       json={**current, "ai": {**current["ai"], "region": "us-east-1"}}).status_code == 400
     assert client.put("/v2/settings", headers=admin,
@@ -395,4 +395,4 @@ def test_pocket_exports_as_a_static_site_and_preset_is_valid(tmp_path):
     assert "script-src 'self';" in csp and "'unsafe" not in csp and '<meta name="robots" content="noindex">' in html
     preset = validate(json.loads((root / "installer" / "preset.json").read_text(encoding="utf-8")))
     assert not preset.ai.enabled and not preset.tunnel.enabled and not preset.replica.enabled
-    assert not preset.ai.real_data_approved and preset.account.region == "eu-central-1"
+    assert preset.ai.real_data_approved and preset.account.region == "eu-central-1"

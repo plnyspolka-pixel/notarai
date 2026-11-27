@@ -1,6 +1,7 @@
 """Learning mode: NotarAI learns from how the office works, visibly and under the notary's control.
 
-Fronts (each lesson is shown when learned and listed in „czego się nauczyłeś”, each can be forgotten):
+Fronts (each lesson learned by watching is first proposed: "Nauczyłem się tego, potwierdzasz?", and used
+only after a yes; lessons the notary states are used at once; all are listed and can be forgotten):
   akty       a draft compared with what the notary approved: replaced, removed and added sentences
   dyktowanie words the notary corrects after dictation; applied to the next dictations at once
   poczta     the notary's own replies, as examples of the office's tone for the next drafts
@@ -55,7 +56,24 @@ class Learning:
         found = [l for l in self._vault.lessons() if kind is None or l["kind"] == kind]
         return sorted(found, key=lambda l: l["created"])
 
-    def _add(self, kind: str, text: str, data: dict, key: str) -> dict | None:
+    def confirmed(self, kind: str | None = None) -> list[dict]:
+        return [l for l in self.lessons(kind) if l.get("status", "potwierdzona") == "potwierdzona"]
+
+    def pending(self) -> list[dict]:
+        return [l for l in self.lessons() if l.get("status") == "proponowana"]
+
+    def decide(self, ident: str, accept: bool, actor: str = "local-admin") -> dict | None:
+        lesson = next((l for l in self.lessons() if l["id"] == ident), None)
+        if lesson is None:
+            return None
+        if not accept:
+            self._vault.lesson_delete(ident, actor=actor)
+            return {**lesson, "status": "odrzucona"}
+        lesson["status"] = "potwierdzona"
+        self._vault.lesson_put(ident, {k: v for k, v in lesson.items() if k != "id"})
+        return lesson
+
+    def _add(self, kind: str, text: str, data: dict, key: str, status: str = "proponowana") -> dict | None:
         existing = [l for l in self.lessons(kind) if l.get("key") == key]
         if existing:
             lesson = existing[0]
@@ -65,7 +83,8 @@ class Learning:
         everything = self.lessons()
         if len(everything) >= MAX_LESSONS:
             self._vault.lesson_delete(everything[0]["id"])
-        lesson = {"kind": kind, "text": text, "data": data, "key": key, "created": self._clock(), "seen": 1}
+        lesson = {"kind": kind, "text": text, "data": data, "key": key, "created": self._clock(), "seen": 1,
+                  "status": status}
         ident = secrets.token_hex(6)
         self._vault.lesson_put(ident, lesson)
         return {"id": ident, **lesson}
@@ -133,7 +152,7 @@ class Learning:
     def apply_dictation(self, text: str) -> str:
         if not self.enabled:
             return text
-        for lesson in self.lessons("slownik"):
+        for lesson in self.confirmed("slownik"):
             heard, say = lesson["data"]["heard"], lesson["data"]["say"]
             text = re.sub(r"(?<!\w)" + re.escape(heard) + r"(?!\w)", say, text, flags=re.I)
         return text
@@ -153,7 +172,7 @@ class Learning:
         text = " ".join(text.split())[:500]
         if not text:
             return None
-        return self._add(kind, text, {}, kind[0] + ":" + text.lower())
+        return self._add(kind, text, {}, kind[0] + ":" + text.lower(), status="potwierdzona")   # said by the notary
 
     # ------------------------------------------------------------ use
     def guidance(self, purpose: str) -> str:
@@ -161,16 +180,16 @@ class Learning:
         if not self.enabled:
             return ""
         parts = []
-        knowledge = [l["text"] for l in self.lessons("wiedza")][-30:] + [l["text"] for l in self.lessons("korekta")][-20:]
+        knowledge = [l["text"] for l in self.confirmed("wiedza")][-30:] + [l["text"] for l in self.confirmed("korekta")][-20:]
         if knowledge:
             parts.append("=== WIEDZA I KOREKTY KANCELARII (od notariusza) ===\n" + "\n".join(f"- {k}" for k in knowledge))
         if purpose == "akt":
-            edits = sorted(self.lessons("poprawka"), key=lambda l: (-l.get("seen", 1), -l["created"]))[:25]
+            edits = sorted(self.confirmed("poprawka"), key=lambda l: (-l.get("seen", 1), -l["created"]))[:25]
             if edits:
                 parts.append("=== PREFERENCJE KANCELARII Z POPRAWEK NOTARIUSZA ([osoba] i # to dane do wstawienia) ===\n"
                              + "\n".join(f"- {l['text']}" for l in edits))
         if purpose == "mail":
-            examples = [l["data"]["example"] for l in self.lessons("odpowiedz")]
+            examples = [l["data"]["example"] for l in self.confirmed("odpowiedz")]
             if examples:
                 parts.append("=== PRZYKŁADY ODPOWIEDZI KANCELARII (ton i forma) ===\n" + "\n---\n".join(examples))
         return ("\n\n" + "\n\n".join(parts)) if parts else ""
@@ -179,4 +198,4 @@ class Learning:
         counts = {kind: 0 for kind in KINDS}
         for lesson in self.lessons():
             counts[lesson["kind"]] = counts.get(lesson["kind"], 0) + 1
-        return {"enabled": self.enabled, "counts": counts, "total": sum(counts.values())}
+        return {"enabled": self.enabled, "counts": counts, "total": sum(counts.values()), "pending": len(self.pending())}

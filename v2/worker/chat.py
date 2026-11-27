@@ -58,8 +58,17 @@ def parse_amount(message: str) -> Decimal | None:
     return value if value > 0 else None
 
 
+def understood(answer: str) -> tuple[str, str | None]:
+    """(answer without it, the assistant's own one-line understanding) from a leading „ROZUMIEM:” line."""
+    lines = answer.lstrip().splitlines()
+    if lines and re.match(r"\s*\**ROZUMIEM\**\s*:", lines[0], re.I):
+        return "\n".join(lines[1:]).lstrip(), re.sub(r"^\s*\**ROZUMIEM\**\s*:\s*", "", lines[0], flags=re.I).strip()
+    return answer, None
+
+
 def answer_blocks(answer: str) -> list[dict]:
     """The assistant's answer, with its „DALEJ:” line turned into next-step buttons."""
+    answer, _ = understood(answer)
     lines = answer.rstrip().splitlines()
     steps = []
     while lines and re.match(r"\s*\**DALEJ\**\s*:", lines[-1], re.I):
@@ -87,9 +96,15 @@ class Chat:
         self._sheets: dict[tuple, dict] = {}    # last values per (identity, case, procedure), for „wpisz ponownie”
         self._agendas: dict[str, list] = {}     # last calendar listing per identity, for „usuń termin 2”
         self._lessons: dict[str, list] = {}     # last lessons listing per identity, for „zapomnij lekcję 3”
+        self._replies: dict[str, tuple] = {}    # the last reply draft per identity, for „wyślij”
 
     # ------------------------------------------------------------ confirmations
-    def _confirm(self, identity, question: str, label: str, action) -> dict:
+    def _confirm(self, identity, question: str, label: str, action, *, explicit: bool = True) -> dict:
+        """Owner's decision 27.11.2026: an explicit command is the approval, so it runs at once. The
+        "Tak / Nie" step comes back with the setting `confirm`, or when the command did not ask for
+        this action itself (e.g. sending a form after „wypełnij”, without „wyślij”)."""
+        if explicit and not self.s.settings().confirm:
+            return {"type": "now", "blocks": action()}
         now = time.monotonic()
         self._pending = {k: v for k, v in self._pending.items() if v[1] > now}
         token = secrets.token_urlsafe(16)
@@ -102,7 +117,7 @@ class Chat:
             self._pending.pop(token, None)      # only its owner can use up a confirmation
         if action is None or owner != identity.id or expires <= time.monotonic():
             return [text("To potwierdzenie wygasło. Napisz polecenie jeszcze raz.")]
-        return action()
+        return self._flatten(action())
 
     # ------------------------------------------------------------ entry points
     def hello(self, identity, case) -> list[dict]:
@@ -133,6 +148,11 @@ class Chat:
             offered = {say for _, say in step["actions"]}        # the guide offers it: no second button
             blocks = [b for b in blocks if b["type"] != "buttons" or not {i["say"] for i in b["items"]} <= offered]
             return blocks + self._guide_card(step)
+        offered = {i["say"] for b in blocks if b["type"] == "buttons" for i in b["items"]}
+        ahead = [i for i in self.suggestions(identity, case) if i["say"] not in offered]
+        if ahead:
+            blocks.append(text("Proponuję teraz: " + "; ".join(f"{i['label']} ({i['why']})" for i in ahead) + "."))
+            blocks.append(buttons(*[(i["label"], i["say"]) for i in ahead]))
         if admin:
             blocks.append(buttons(("Stan stanowiska", "stan"), ("Gdzie są dane", "gdzie są dane"), ("Dodaj telefon", "dodaj telefon"),
                                   ("Zrób kopię", "zrób kopię"), ("Kto czytał dokumenty?", "dziennik"),
@@ -142,9 +162,20 @@ class Chat:
                                   ("Policz taksę", "taksa"), ("Co umiesz?", "pomoc")))
         return blocks
 
+    @staticmethod
+    def _flatten(blocks) -> list[dict]:
+        out = []
+        for block in blocks:
+            out += Chat._flatten(block["blocks"]) if block.get("type") == "now" else [block]
+        return out
+
     def say(self, identity, message: str, case, names) -> list[dict]:
+        return self._flatten(self._say(identity, message, case, names))
+
+    def _say(self, identity, message: str, case, names) -> list[dict]:
         message = " ".join(message.split())
         plain = norm(message)
+        self._plain = plain
         admin = identity.scope == "admin"
         office_rules = self._office_rules(identity, message, plain)
         if office_rules is not None:
@@ -277,7 +308,11 @@ class Chat:
             # No case chosen: the same chat answers as a general assistant, without reading any documents.
             s.narrate(identity, "Rozumiem to jako pytanie ogólne, bez konkretnej sprawy: nie czytam żadnych dokumentów.")
             s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
-            return answer_blocks(s.general(message, names)["answer"])
+            said = s.general(message, names)["answer"]
+            line = understood(said)[1]
+            if line:
+                s.narrate(identity, "Jak to rozumiem: " + line)
+            return answer_blocks(said)
         if not s.may_see_case(identity, case):
             return [text("Nie ma takiej sprawy.")]
         if plain.startswith(DRAFT_WORDS) or " projekt " in f" {plain} ":
@@ -295,6 +330,9 @@ class Chat:
         s.narrate(identity, f"Rozumiem: pytanie o sprawę „{case}”. Czytam jej dokumenty ({count}).")
         s.narrate(identity, "Pytam asystenta we Frankfurcie" + ("; nazwiska i numery zamieniam na znaczniki." if s.pseudonymizes() else "."))
         answer = s.drafts.ask(case, message, identity.id, names)
+        line = understood(answer["answer"])[1]
+        if line:
+            s.narrate(identity, "Jak to rozumiem: " + line)
         s.narrate(identity, "Sprawdzam, z których dokumentów pochodzi odpowiedź.")
         blocks = answer_blocks(answer["answer"])
         if answer["skipped"]:
@@ -387,8 +425,10 @@ class Chat:
                         "Nacisnąłem przycisk wysyłania, ale nie widzę zmiany na ekranie. Sprawdź, czy wniosek został "
                         "przyjęty, zanim spróbujesz ponownie.")
                 return [text(done)] + ([{"type": "image", "image": image, "alt": "Ekran po wysłaniu"}] if image else [])
+            asked_to_send = bool(re.search(r"\b(wyslij|wysylaj|zloz|i wyslij|przeslij)\b", getattr(self, "_plain", "")))
             blocks.append(self._confirm(identity, f"Wysłać „{sheet['name']}” przyciskiem „{preview['send']}”? Wyślę dokładnie "
-                                                  "to, co widać na zrzucie powyżej.", "Wyślij teraz", send))
+                                                  "to, co widać na zrzucie powyżej.", "Wyślij teraz", send,
+                                        explicit=asked_to_send))
         elif preview["send_missing"]:
             blocks.append(text(f"Nie widzę przycisku „{preview['send_missing']}”, więc nie wyślę. Wyślij ręcznie."))
         return blocks
@@ -972,6 +1012,59 @@ class Chat:
             blocks.append(buttons(*[(f"+ {a}", f"dodaj czynność {a}") for a in suggested]))
         return blocks
 
+    # ------------------------------------------------------------ thinking ahead: what to do now
+    def suggestions(self, identity, case) -> list[dict]:
+        """Two or three next steps from what the program sees: appointments, mail, the chosen case,
+        lessons to confirm, copies. Each is a sentence the program understands, with the reason."""
+        from .registers import land_register_numbers, pesels_in
+
+        s, found = self.s, []
+        writable = identity.scope in {"admin", "write"}
+        if identity.scope == "listen":
+            return []
+        try:
+            soon = s.calendar.upcoming(2, cases=identity.cases)
+        except Exception:
+            soon = []
+        for entry in soon[:4]:
+            if entry.get("case") and entry.get("case") != case:
+                found.append({"label": f"{entry['label']}: {entry['title'][:40]}", "say": f"sprawa {entry['case']}",
+                              "why": "termin w kalendarzu: otwórz sprawę i sprawdź, czy wszystko gotowe"})
+        if case is not None and writable and s.may_see_case(identity, case):
+            names = [d["name"] for d in s.documents(identity, case)]
+            body = s.drafts.case_text(case, identity.id) if names else ""
+            checked = " ".join(names)
+            for number in land_register_numbers(body):
+                if "KW " + number.replace("/", "-") not in checked:
+                    found.append({"label": f"Sprawdź KW {number}", "say": f"sprawdź KW {number}",
+                                  "why": "numer księgi jest w dokumentach, a jej treści nie ma w sprawie"})
+                    break
+            if pesels_in(body) and "KRZ (" not in checked:
+                found.append({"label": "Sprawdź strony w KRZ", "say": "sprawdź strony w KRZ",
+                              "why": "w dokumentach są numery PESEL, a sprawdzenia w KRZ jeszcze nie było"})
+            if names and not any(n.lower().endswith(".docx") for n in names):
+                found.append({"label": "Przygotuj projekt aktu", "say": "przygotuj projekt aktu na podstawie dokumentów sprawy",
+                              "why": "sprawa ma dokumenty, ale nie ma jeszcze projektu aktu"})
+        if identity.scope == "admin" and s.settings().mail.source is not None:
+            found.append({"label": "Przejrzyj pocztę", "say": "poczta", "why": "poczta jest podłączona"})
+        try:
+            waiting = len(s.learning.pending())
+        except Exception:
+            waiting = 0
+        if waiting:
+            found.append({"label": f"Potwierdź lekcje ({waiting})", "say": "lekcje do potwierdzenia",
+                          "why": "tryb uczenia czeka na Twoje „tak” albo „nie”"})
+        if identity.scope == "admin":
+            last = s.status().get("last_backup")
+            if s.status().get("enrolled") and (not last or time.time_ns() - last > 7 * 86400 * 10**9):
+                found.append({"label": "Zrób kopię sejfu", "say": "zrób kopię", "why": "ostatnia kopia jest starsza niż tydzień"})
+        unique, seen = [], set()
+        for item in found:
+            if item["say"] not in seen:
+                seen.add(item["say"])
+                unique.append(item)
+        return unique[:3]
+
     # ------------------------------------------------------------ learning mode
     def _learning(self, identity, message, plain):
         from .learning import KINDS
@@ -991,6 +1084,20 @@ class Chat:
                 actions.append(("Wyłącz tryb uczenia", "wyłącz tryb uczenia") if summary["enabled"] else
                                ("Włącz tryb uczenia", "włącz tryb uczenia"))
             return [text("\n".join(lines)), buttons(*actions)]
+        if plain in {"pytaj o potwierdzenie", "pytaj przed wykonaniem", "nie pytaj o potwierdzenie", "wykonuj bez pytania",
+                     "potwierdzenia", "wlacz potwierdzenia", "wylacz potwierdzenia"}:
+            if identity.scope != "admin":
+                return [text("To ustawia się na komputerze kancelarii.")]
+            if plain == "potwierdzenia":
+                asks = s.settings().confirm
+                return [text("Teraz " + ("pytam „Tak / Nie” przed nieodwracalnymi czynnościami." if asks else
+                                         "wykonuję polecenia od razu: polecenie jest zatwierdzeniem.")),
+                        buttons(("Nie pytaj", "nie pytaj o potwierdzenie") if asks else ("Pytaj o potwierdzenie", "pytaj o potwierdzenie"))]
+            asks = plain in {"pytaj o potwierdzenie", "pytaj przed wykonaniem", "wlacz potwierdzenia"}
+            s.update_settings(lambda d: d.update(confirm=asks))
+            return [text("Od teraz pytam „Tak / Nie” przed wysyłką, pobraniem płatnym i usuwaniem." if asks else
+                         "Od teraz polecenie jest zatwierdzeniem: „wyślij pocztę” wysyła od razu. Wykonane czynności "
+                         "zawsze pokazuję w rozmowie z dokładną treścią.")]
         if plain in {"wlacz tryb uczenia", "wylacz tryb uczenia", "wlacz uczenie", "wylacz uczenie"}:
             if identity.scope != "admin":
                 return [text("Tryb uczenia przełącza się na komputerze kancelarii.")]
@@ -999,6 +1106,20 @@ class Chat:
             return [text("Tryb uczenia włączony: uczę się z Twoich poprawek i poleceń, a każdą lekcję pokazuję." if on else
                          "Tryb uczenia wyłączony: nie zapisuję nowych lekcji i nie używam dotychczasowych."),
                     {"type": "learning"}]
+        if plain in {"lekcje do potwierdzenia", "co do potwierdzenia", "potwierdz lekcje", "nowe lekcje"}:
+            waiting = learning.pending()
+            if not waiting:
+                return [text("Nie ma nowych lekcji do potwierdzenia.")]
+            return [{"type": "lessons", "items": [{"id": l["id"], "text": l["text"]} for l in waiting[:12]]}]
+        found = re.fullmatch(r"(potwierdz|odrzuc) lekcje\s+([0-9a-f]{12})", plain)
+        if found:
+            if not writable:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            decided = learning.decide(found.group(2), found.group(1) == "potwierdz", actor=identity.id)
+            if decided is None:
+                return [text("Nie ma takiej lekcji.")]
+            return [text(("📘 Potwierdzone, będę z tego korzystać: " if decided["status"] == "potwierdzona"
+                          else "Odrzucone, nie będę się tego trzymać: ") + decided["text"]), {"type": "learning"}]
         if plain in {"czego sie nauczyles", "czego sie nauczyles?", "lekcje", "co wiesz o kancelarii", "pokaz lekcje"}:
             lessons = learning.lessons()
             self._lessons[identity.id] = lessons
@@ -1012,7 +1133,8 @@ class Chat:
                     lines.append(title + ":")
                     for lesson in group:
                         number += 1
-                        lines.append(f"{number}. {lesson['text']}" + (f" (×{lesson['seen']})" if lesson.get("seen", 1) > 1 else ""))
+                        lines.append(f"{number}. {lesson['text']}" + (f" (×{lesson['seen']})" if lesson.get("seen", 1) > 1 else "")
+                                     + (" [czeka na potwierdzenie]" if lesson.get("status") == "proponowana" else ""))
             self._lessons[identity.id] = [l for kind in KINDS for l in lessons if l["kind"] == kind]
             return [text("\n".join(lines)), text("Żeby usunąć lekcję, napisz „zapomnij lekcję” i numer.")]
         found = re.fullmatch(r"zapomnij(?: lekcj[eaę])?\s+(\d+)", plain)
@@ -1278,6 +1400,12 @@ class Chat:
 
     def _mail(self, identity, message, plain, case):
         s = self.s
+        if plain in {"wyslij", "wyslij odpowiedz"} and identity.id in self._replies:
+            pending = self._replies[identity.id]
+            if not pending[3].strip():
+                return [text("Nie mam gotowej odpowiedzi do wysłania: projekt jest pusty. Napisz albo podyktuj treść "
+                             "w karcie odpowiedzi, albo „odpowiedz na mail " + str(pending[0]) + ": treść”.")]
+            return self._send_reply(identity, pending[1], pending[2], pending[3])
         if not re.search(r"\b(poczt\w*|mail\w*|maile|wiadomosc\w*|skrzynk\w*|outlook\w*|thunderbird\w*|zalacznik\w*)\b", plain):
             return None
         if plain.startswith(("odlacz poczte", "wylacz poczte", "rozlacz poczte")):
@@ -1343,7 +1471,9 @@ class Chat:
             return [text(f"Dodałem załącznik {name} do sprawy „{case}”." + (" Co z nim zrobić?" if readable else "")),
                     {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}] + (
                     [buttons(("Streść", f"streść {name}"), ("Sprawdź błędy", f"sprawdź {name}"))] if readable else [])
-        found = re.fullmatch(r"odpowiedz(?: na)? (?:mail|maila|wiadomosc)\s+(\d+)", plain)
+        found = re.fullmatch(r"odpowiedz(?: na)? (?:mail|maila|wiadomosc)\s+(\d+)(?:\s*:\s*(.+))?", plain)
+        if found and found.group(2):
+            found = re.fullmatch(r"(?i)odpowiedz\w*(?: na)? (?:mail\w*|wiadomo\w*)\s+(\d+)\s*:\s*(.+)", message, re.S) or found
         if found:
             listed = self._inbox.get(identity.id) or []
             index = int(found.group(1))
@@ -1360,8 +1490,17 @@ class Chat:
             except Exception:
                 draft = ""              # no assistant here: the notary writes or dictates the reply
             subject = mail.subject if norm(mail.subject).startswith(("re:", "odp:")) else "Re: " + mail.subject
+            if found.group(2):                    # „odpowiedz na mail 2: treść” - the command is the approval
+                return self._send_reply(identity, mail, subject, found.group(2).strip())
+            self._replies[identity.id] = (index, mail, subject, draft)
             return [{"type": "reply", "n": index, "to": mail.address, "subject": subject, "body": draft,
                      "program": source.name}]
+        if plain in {"wyslij", "wyslij poczte", "wyslij odpowiedz", "wyslij maila", "wyslij mail", "wyslij wiadomosc"}:
+            pending = self._replies.get(identity.id)
+            if pending is None or not pending[3].strip():
+                return [text("Nie mam gotowej odpowiedzi do wysłania. Napisz „odpowiedz na mail” i numer albo "
+                             "„odpowiedz na mail 2: treść”.")]
+            return self._send_reply(identity, pending[1], pending[2], pending[3])
         found = re.fullmatch(r"(?:pokaz |otworz |przeczytaj )?(?:mail|maila|wiadomosc)\s+(\d+)", plain)
         if found:
             listed = self._inbox.get(identity.id) or []
@@ -1392,6 +1531,16 @@ class Chat:
         return [{"type": "inbox", "text": "\n".join(lines), "items": [
             {"n": n, "sender": m.sender or m.address, "subject": m.subject or "(bez tematu)",
              "when": when(int(m.when * 10**9)), "attachments": len(m.attachments)} for n, m in enumerate(listed, 1)]}]
+
+    def _send_reply(self, identity, mail, subject: str, body: str) -> list[dict]:
+        if identity.scope != "admin":
+            return [text("Pocztę wysyła komputer kancelarii: napisz to w oknie NotarAI na tym komputerze.")]
+        result = self.s.send_mail(identity, mail.address, subject, body, mail)
+        self._replies.pop(identity.id, None)
+        blocks = [text(result["detail"] + f"\nDo: {mail.address}\nTemat: {subject}\n\n{body}")]
+        if result["learned"]:
+            blocks.append({"type": "lessons", "items": result["learned"]})   # [{id, text}]
+        return blocks
 
     def inbox_message(self, identity, index: int):
         listed = self._inbox.get(identity.id) or []
@@ -1515,7 +1664,7 @@ class Chat:
                  "offsite-backup": "wysłał kopię poza kancelarię", "calendar-put": "zapisał termin",
                  "calendar-delete": "usunął termin", "restore": "odtworzył sejf z kopii",
                  "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
-                 "settings": "zmienił ustawienia", "mail-compose": "przygotował odpowiedź do wysłania", "lesson-delete": "usunął lekcję trybu uczenia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
+                 "settings": "zmienił ustawienia", "mail-compose": "przygotował odpowiedź do wysłania", "mail-send": "wysłał wiadomość e-mail", "lesson-delete": "usunął lekcję trybu uczenia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
                  "form-fill-verified": "wypełnił formularz", "form-fill-partial": "wypełnił część formularza",
                  "form-send-started": "zaczął wysyłać formularz", "form-send-sent": "wysłał formularz",
                  "form-send-uncertain": "nacisnął wysyłanie formularza (wynik niepewny)"}

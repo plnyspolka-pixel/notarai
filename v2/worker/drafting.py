@@ -38,7 +38,8 @@ SYSTEM_GENERAL = (
     "(wystarczy napisać „taksa”). Znaczniki w nawiasach kwadratowych zastępują dane osobowe: przepisuj je bez zmian."
 )
 NEXT_STEPS = (
-    " Na samym końcu dodaj jedną osobną linię zaczynającą się od „DALEJ:” z jednym do trzech następnych kroków, "
+    " Zacznij od jednej linii zaczynającej się od „ROZUMIEM:”: jednym zdaniem, jak rozumiesz polecenie i na czym "
+    "oprzesz odpowiedź. Na samym końcu dodaj jedną osobną linię zaczynającą się od „DALEJ:” z jednym do trzech następnych kroków, "
     "które notariusz może zlecić temu programowi, jako krótkie polecenia po polsku (np. „sprawdź KW”, „sprawdź strony "
     "w KRZ”, „przygotuj projekt umowy”, „termin jutro 10:00 …”), oddzielone znakiem |. Proponuj tylko kroki, które "
     "naprawdę wynikają z sytuacji."
