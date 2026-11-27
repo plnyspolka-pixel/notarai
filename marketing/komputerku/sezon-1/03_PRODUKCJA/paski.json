@@ -1,0 +1,75 @@
+{
+ "opis": "Paski postaci (lower thirds) i plansza końcowa notarai dla każdego odcinka. Narzędzie: finyou services/ai-clip/rolki/paski.py. Zasady: docs w 03_PRODUKCJA/PASKI_I_PLANSZA_NOTARAI.md.",
+ "pasek": {"czas": 3.8},
+ "postacie": {
+  "helena": {"nazwa": "Helena", "rola": "notariuszka", "uwaga": "notariusz: samo imię i rola, nigdy nazwisko"},
+  "marta": {"nazwa": "Marta", "rola": "notariuszka", "uwaga": "notariusz: samo imię i rola, nigdy nazwisko"},
+  "basia": {"nazwa": "Basia Wrona", "rola": "sekretariat"},
+  "kuba": {"nazwa": "Kuba Maj", "rola": "aplikant notarialny"},
+  "irena": {"nazwa": "Irena Nowak", "rola": "sprzedająca"},
+  "pawel": {"nazwa": "Paweł Nowak", "rola": "syn pani Ireny"},
+  "joanna": {"nazwa": "Joanna Kaczmarek", "rola": "kupująca"},
+  "robert": {"nazwa": "Robert Kaczmarek", "rola": "kupujący"},
+  "sowa": {"nazwa": "Adrian Sowa", "rola": "pośrednik", "uwaga": "biuro pośrednictwa nigdy nie ma nazwy"},
+  "klient": {"nazwa": "Marek Zając", "rola": "kupujący", "uwaga": "EP04, inna sprawa; nazwisko dopisane do biblii 27.11.2026"}
+ },
+ "plansza_notarai": {
+  "czas": 4.5,
+  "kicker": "Kancelaria pod Siódemką · odcinek {nr}",
+  "stopka": "Każdy projekt sprawdza i zatwierdza notariusz.",
+  "cta": "notarai.pl",
+  "zrodlo_tresci": "tylko funkcje opisane na strona/index.html i w README.md"
+ },
+ "odcinki": {
+  "s01e01": {
+   "paski": [
+    {"postac": "helena", "ujecie": "u1", "mysl": "Zdążę przed szesnastą, ale nie na skróty."},
+    {"postac": "kuba", "ujecie": "u2", "mysl": "Byle klient się nie zdenerwował."},
+    {"postac": "marta", "ujecie": "u6", "mysl": "Odpis teraz, zanim wyłączą księgi."},
+    {"postac": "sowa", "ujecie": "u10", "poza_kadrem": "w słuchawce", "przez_ciecie": true, "mysl": "Pierwszy grudnia musi przejść."},
+    {"postac": "basia", "ujecie": "u14", "poza_kadrem": "głos zza kadru", "przez_ciecie": true, "mysl": "Bez syna. Powiem tylko pani rejent."}
+   ],
+   "plansza_notarai": {"linia": "Dane z odpisu księgi trafiają do projektu bez przepisywania. Odczyt sprawdzasz Ty."}
+  },
+  "s01e02": {
+   "paski": [
+    {"postac": "irena", "ujecie": "u1", "mysl": "Tym razem powiem wszystko sama."},
+    {"postac": "basia", "ujecie": "u2", "od": 0.2, "mysl": "Syn w poczekalni. Tak będzie lepiej."},
+    {"postac": "helena", "ujecie": "u4", "mysl": "Niech powie to własnymi słowami."},
+    {"postac": "pawel", "ujecie": "u11", "od": 0.4, "przez_ciecie": true, "mysl": "Przecież wszystko było już ustalone."},
+    {"postac": "kuba", "ujecie": "u16", "mysl": "Dwa różne projekty? Ktoś namieszał."}
+   ],
+   "plansza_notarai": {"linia": "Czego brakuje w materiałach, projekt zaznacza wprost w tekście."}
+  },
+  "s01e03": {
+   "paski": [
+    {"postac": "helena", "ujecie": "u1", "mysl": "Tego zdania nie pisała nasza kancelaria."},
+    {"postac": "kuba", "ujecie": "u2", "mysl": "Która to właściwie była wersja druga?"},
+    {"postac": "marta", "ujecie": "u4", "mysl": "Dwie wersje drugie. Numeruję od nowa."},
+    {"postac": "basia", "ujecie": "u15", "poza_kadrem": "głos zza kadru", "mysl": "Pan Sowa nie daje za wygraną."}
+   ],
+   "plansza_notarai": {"linia": "Dokumenty sprawy w jednym miejscu, a pliki z historią wersji."}
+  },
+  "s01e04": {
+   "paski": [
+    {"postac": "kuba", "ujecie": "u1", "mysl": "Wczoraj tego nie było. Na pewno."},
+    {"postac": "marta", "ujecie": "u4", "mysl": "Dwadzieścia minut. Pobieram księgę jeszcze raz."},
+    {"postac": "helena", "ujecie": "u8", "mysl": "Nikt dziś nie podpisze w ciemno."},
+    {"postac": "klient", "ujecie": "u9", "mysl": "Miało być czysto. Co to znaczy?"},
+    {"postac": "basia", "ujecie": "u12", "poza_kadrem": "głos zza kadru", "mysl": "Wrócili przed czwartą. Zdążymy."}
+   ],
+   "plansza_notarai": {"linia": "Każde sprawdzenie w rejestrze zapisuje się w sprawie ze zrzutem ekranu."}
+  },
+  "s01e05": {
+   "paski": [
+    {"postac": "basia", "ujecie": "u1", "mysl": "Dwa maile, dwa różne „ustalenia”."},
+    {"postac": "kuba", "ujecie": "u2", "od": 0.2, "poza_kadrem": "głos zza kadru", "mysl": "Pani Irena nic nie potwierdziła."},
+    {"postac": "helena", "ujecie": "u4", "mysl": "Najpierw: co naprawdę dostali?"},
+    {"postac": "joanna", "ujecie": "u5", "mysl": "Mamy maila, więc to ustalone?"},
+    {"postac": "robert", "ujecie": "u6", "mysl": "Koniec najmu. Nie mamy gdzie iść."},
+    {"postac": "pawel", "ujecie": "u14", "mysl": "Pan Sowa mówił, że załatwione."}
+   ],
+   "plansza_notarai": {"linia": "Projekt poprawiasz zwykłym językiem. Decyzję podejmuje notariusz."}
+  }
+ }
+}

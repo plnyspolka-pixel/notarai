@@ -157,6 +157,7 @@ flowchart TD
 ## 2.10 Postacie epizodyczne
 
 - **Pani Borowska:** klientka w odrębnej sprawie dotyczącej nieruchomości. Jej KW pozwala pokazać problem nowej wzmianki i ostrożność w interpretacji zmian. Ta sprawa **nie jest powiązana prawnie ani rodzinnie z Ireną**.
+- **Marek Zając:** kupujący w odrębnej sprawie z nową wzmianką w KW (EP04, „Wczoraj tego nie było”); słyszał, że księga jest czysta, i bez wyjaśnienia nie podpisuje. Nazwisko dopisane 27.11.2026 na potrzeby pasków postaci; nie łączyć z główną sprawą.
 - **Zarządca / przedstawiciel wspólnoty:** wystawia uzupełniający dokument o rozliczeniach eksploatacyjnych. Nie jest stroną sprzedaży.
 - **Pracownik banku kupujących:** udziela informacji o dokumentacji finansowania za pośrednictwem stron; bank nie wydaje „zgody na własność” i nie zastępuje decyzji notariusza.
 - **Inni klienci kancelarii:** osoby oczekujące na poświadczenia, darowizny i pełnomocnictwa. Ich obecność buduje wiarygodne przeciążenie recepcji; nie wszyscy są w głównej intrydze.
