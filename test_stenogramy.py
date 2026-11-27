@@ -346,7 +346,8 @@ def test_model_stenogramu_tylko_eu():
         anonimizacja._model_z_env("anthropic.claude-sonnet-4-6")
 
 
-def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch):
+@pytest.mark.parametrize("utrata_mikrofonu", [False, True])
+def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch, utrata_mikrofonu):
     """Prawdziwy Chromium z udawanym mikrofonem: dwie sesje, wysyłka, stenogram."""
     playwright = pytest.importorskip("playwright.sync_api")
     monkeypatch.setattr(stenogramy, "_w_tle", stenogramy.przetworz)
@@ -374,8 +375,28 @@ def test_ui_nagrywa_w_sesjach_i_pokazuje_stenogram(klient, tmp_path, monkeypatch
             strona.select_option("#sprawa", "spr1")
             strona.click("#btn-nagraj")
             strona.wait_for_function("document.body.classList.contains('trwa')")
+            assert "Mikrofon aktywny" in strona.text_content("#mikrofon-stan")
+            strona.evaluate("""() => {
+                Object.defineProperty(document, "visibilityState", {configurable: true, value: "hidden"});
+                document.dispatchEvent(new Event("visibilitychange"));
+            }""")
             strona.wait_for_timeout(4000)                      # > 2 sesje po 1,8 s
-            strona.click("#btn-nagraj")
+            strona.wait_for_function("biezace.rec.state === 'recording'")
+            assert "Mikrofon aktywny" in strona.text_content("#mikrofon-stan")
+            strona.evaluate("""() => {
+                delete document.visibilityState;
+                document.dispatchEvent(new Event("visibilitychange"));
+            }""")
+            if utrata_mikrofonu:
+                strona.evaluate("""() => {
+                    for (const tor of biezace.strumien.getAudioTracks()) {
+                        tor.stop();
+                        tor.dispatchEvent(new Event("ended"));
+                    }
+                }""")
+                assert "Utracono dostęp do mikrofonu" in strona.text_content("#mikrofon-stan")
+            else:
+                strona.click("#btn-nagraj")
             strona.wait_for_selector("#stan.ok", timeout=20000)
 
             spis = magazyn.wczytaj_plik_kancelarii("stenogramy", [])
