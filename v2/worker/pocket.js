@@ -63,14 +63,14 @@ async function call(path, method = "GET", data) {
 }
 
 function run(action) {
-  return async () => {
+  return async (...args) => {
     if (busy) return;
     busy = true;
     const controls = [...document.querySelectorAll("button, input, select, textarea")];
     const previous = controls.map(control => control.disabled);
     controls.forEach(control => { control.disabled = true; });
     try {
-      await action();
+      await action(...args);
     } catch (error) {
       status(error.message);
     } finally {
@@ -122,7 +122,61 @@ function target(value) {
   return { id, version: Number(version) };
 }
 
+// ---------------------------------------------------------------- tiles
+let layout = { show: false, tiles: [] };
+let arranging = false;
+
+async function storeLayout() {
+  layout = await call("layout", "POST", layout);
+  drawTiles();
+}
+
+function moveTile(from, to) {
+  if (to < 0 || to >= layout.tiles.length || from === to) return;
+  layout.tiles.splice(to, 0, layout.tiles.splice(from, 1)[0]);
+}
+
+function drawTiles() {
+  el("desk").hidden = !layout.show || !layout.tiles.length;
+  el("tiles").classList.toggle("arranging", arranging);
+  el("arrange").textContent = arranging ? "Gotowe" : "Ustaw";
+  el("tiles").replaceChildren(...layout.tiles.map((tile, index) => {
+    const box = node("div", "tile");
+    const go = node("button", "go", tile.label);
+    go.onclick = run(async () => { if (!arranging) await send(tile.say, tile.label); });
+    box.append(go);
+    // Arranging: drag with a mouse, or use the arrows (touch screens, keyboards).
+    box.draggable = arranging;
+    box.ondragstart = event => { event.dataTransfer.setData("text/plain", String(index)); box.classList.add("dragging"); };
+    box.ondragend = () => box.classList.remove("dragging");
+    box.ondragover = event => { if (arranging) event.preventDefault(); };
+    box.ondrop = run(async event => {
+      event.preventDefault();
+      moveTile(Number(event.dataTransfer.getData("text/plain")), index);
+      await storeLayout();
+    });
+    const edit = node("div", "edit");
+    const step = (label, title, action) => {
+      const button = node("button", "", label);
+      button.title = title;
+      button.setAttribute("aria-label", title + ": " + tile.label);
+      button.onclick = run(async () => { action(); await storeLayout(); });
+      return button;
+    };
+    edit.append(
+      step("←", "Przesuń wcześniej", () => moveTile(index, index - 1)),
+      step("→", "Przesuń dalej", () => moveTile(index, index + 1)),
+      step("✕", "Usuń kafelek", () => { layout.tiles.splice(index, 1); }),
+    );
+    box.append(edit);
+    return box;
+  }));
+}
+
 const render = {
+  layout: block => { layout = block.layout; arranging = false; drawTiles(); },
+
+
   text: block => bubble(block.text, "them"),
 
   buttons: block => {
@@ -315,8 +369,8 @@ async function send(sentence, shown) {
 
 function chips() {
   const items = admin
-    ? [["Stan", "stan"], ["Dodaj telefon", "dodaj telefon"], ["Zrób kopię", "zrób kopię"], ["Dziennik", "dziennik"], ["Dokumenty", "dokumenty"], ["Pomoc", "pomoc"]]
-    : [["Dokumenty", "dokumenty"], ["Sprawy", "sprawy"], ["Taksa", "taksa"], ["Pomoc", "pomoc"]];
+    ? [["Stan", "stan"], ["Dodaj telefon", "dodaj telefon"], ["Zrób kopię", "zrób kopię"], ["Dziennik", "dziennik"], ["Dokumenty", "dokumenty"], ["Narzędzia", "narzędzia"], ["Pomoc", "pomoc"]]
+    : [["Dokumenty", "dokumenty"], ["Sprawy", "sprawy"], ["Taksa", "taksa"], ["Narzędzia", "narzędzia"], ["Pomoc", "pomoc"]];
   const elements = items.map(([label, sentence]) => sayButton(label, sentence));
   if (scope !== "read") {
     const note = node("button", "", "Nowy dokument tekstowy");
@@ -452,6 +506,8 @@ async function enter(device) {
   chips();
   status(admin ? "Panel otwarty." : (scope === "write" ? "Połączono z prawem zapisu." : "Połączono w trybie odczytu."));
   await refreshCases();
+  layout = await call("layout");
+  drawTiles();
   await exchange({ hello: true });
 }
 
@@ -460,6 +516,8 @@ function leave(message) {
   scope = "";
   names = [];
   closeSheet();
+  layout = { show: false, tiles: [] };
+  drawTiles();
   el("messages").replaceChildren();
   el("workspace").hidden = true;
   el("bar").hidden = true;
@@ -551,6 +609,9 @@ el("logout").onclick = run(async () => {
   }
   leave("Rozłączono.");
 });
+el("arrange").onclick = () => { arranging = !arranging; drawTiles(); };
+el("add-tile").onclick = run(() => send("narzędzia", "Dodaj narzędzie"));
+el("hide-tiles").onclick = run(() => send("ukryj kafelki", "Schowaj kafelki"));
 el("close-sheet").onclick = () => { if (mayDiscard()) closeSheet(); };
 el("open-version").onclick = run(() => openDocument(opened.id, el("versions").value));
 el("download").onclick = () => {

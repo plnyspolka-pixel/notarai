@@ -51,6 +51,7 @@ def main():
         print(json.dumps({
             "url": f"http://127.0.0.1:{port}/v2",
             "write": registry.invite("telefon", "write")["code"],
+            "write2": registry.invite("telefon 2", "write")["code"],
             "read": registry.invite("tablet", "read", cases=["sprawa-1"])["code"],
             "admin": registry.invite("panel", "admin", allow_admin=True)["code"],
             "backups": str(backups), "home": str(home),

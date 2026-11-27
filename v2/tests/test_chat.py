@@ -200,3 +200,33 @@ def test_model_problems_arrive_as_a_sentence_not_an_error(tmp_path):
         "name": "a.txt", "expected_version": 0, "case": "s", "content_b64": "YQ=="})
     assert "wyłączone" in texts(say(client, admin, "Kto sprzedaje?", case="s"))
     assert "nie ma dokumentów" in texts(say(client, admin, "Kto sprzedaje?", case="pusta"))
+
+
+def test_the_workspace_is_the_notarys_own(office):
+    client, admin, home, _, _, _ = office
+    phone = device(client, admin)
+    assert client.get("/v2/layout", headers=phone).json() == {"show": False, "tiles": []}     # simple by default
+    offered = say(client, phone, "narzędzia")
+    labels = [item["label"] for item in offered[1]["items"]]
+    assert "+ Taksa" in labels and "+ Zrób kopię" not in labels                   # workstation tools stay there
+    added = say(client, phone, "dodaj kafelek Taksa")
+    assert added[0]["layout"] == {"show": True, "tiles": [{"label": "Taksa", "say": "taksa"}]}
+    say(client, phone, "dodaj kafelek Pełnomocnictwo KW: przygotuj pełnomocnictwo do wniosku wieczystoksięgowego")
+    say(client, phone, "dodaj kafelek Taksa")                                        # no duplicates
+    layout = client.get("/v2/layout", headers=phone).json()
+    assert [t["label"] for t in layout["tiles"]] == ["Pełnomocnictwo KW", "Taksa"]
+    assert layout["tiles"][0]["say"].startswith("przygotuj pełnomocnictwo")
+    assert say(client, phone, "ukryj kafelki")[0]["layout"]["show"] is False
+    assert say(client, phone, "pokaż kafelki")[0]["layout"]["show"] is True
+    assert "Nie znam" in texts(say(client, phone, "dodaj kafelek Zrób kopię"))
+    assert len(say(client, phone, "usuń kafelek taksa")[0]["layout"]["tiles"]) == 1
+    # Dragging on the page stores the new order through the same layout.
+    moved = client.post("/v2/layout", headers=phone, json={"show": True, "tiles": [
+        {"label": "B", "say": "dokumenty"}, {"label": "A", "say": "sprawy"}, {"label": "b", "say": "x"}, {"label": "", "say": "x"}]})
+    assert [t["label"] for t in moved.json()["tiles"]] == ["B", "A"]
+    assert client.post("/v2/layout", headers=phone, json={"tiles": [{"label": str(i), "say": "x"} for i in range(41)]}).status_code == 400
+    # Layouts are per device; the panel has its own, with workstation tools.
+    assert client.get("/v2/layout", headers=device(client, admin)).json()["tiles"] == []
+    assert "+ Zrób kopię" in [i["label"] for i in say(client, admin, "narzędzia")[1]["items"]]
+    assert say(client, admin, "dodaj kafelek Zrób kopię")[0]["layout"]["tiles"] == [{"label": "Zrób kopię", "say": "zrób kopię"}]
+    assert say(client, phone, "wyczyść pulpit")[0]["layout"] == {"show": False, "tiles": []}

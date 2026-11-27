@@ -14,6 +14,7 @@ import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from .drafting import DraftError
+from .layout import tools_for
 from .vault import valid_case
 
 DRAFT_WORDS = ("przygotuj", "napisz", "sporzadz", "zredaguj", "stworz projekt", "projekt aktu", "projekt umowy")
@@ -97,6 +98,9 @@ class Chat:
         message = " ".join(message.split())
         plain = norm(message)
         admin = identity.scope == "admin"
+        tiles = self._tiles(identity, message, plain)       # first: a tile may be named after any command
+        if tiles is not None:
+            return tiles
         if admin:
             reply = self._admin(identity, message, plain, case)
             if reply is not None:
@@ -171,11 +175,67 @@ class Chat:
             blocks.append(text("Nie czytałem (tylko TXT i DOCX): " + ", ".join(answer["skipped"]) + "."))
         return blocks
 
+    # ------------------------------------------------------------ the notary's own workspace
+    def _tiles(self, identity, message, plain):
+        s, admin = self.s, identity.scope == "admin"
+        key = "admin" if admin else identity.id
+        if not re.search(r"kafel|narzedzi|pulpit|przypnij|odepnij", plain):
+            return None
+        layout = s.layouts.get(key)
+        catalog = tools_for(admin)
+
+        def stored(note):
+            return [{"type": "layout", "layout": s.layouts.put(key, layout)}, text(note)]
+
+        if re.fullmatch(r"(narzedzia|jakie (sa )?narzedzia\??|dodaj narzedzie|dodaj kafelek|pokaz narzedzia)", plain):
+            have = {t["label"].lower() for t in layout["tiles"]}
+            free = [t for t in catalog if t["label"].lower() not in have]
+            return [text("Co chcesz mieć pod ręką? Dotknij, żeby dodać kafelek. Własny dodasz zdaniem "
+                         "„dodaj kafelek Nazwa: polecenie”, np. „dodaj kafelek Pełnomocnictwo KW: przygotuj "
+                         "pełnomocnictwo do złożenia wniosku wieczystoksięgowego”."),
+                    buttons(*[("+ " + t["label"], "dodaj kafelek " + t["label"]) for t in free])]
+        found = re.fullmatch(r"(?:dodaj kafelek|przypnij|dodaj narzedzie)\s+(.+)", message, re.IGNORECASE)
+        if found and norm(message).startswith(("dodaj kafelek", "przypnij", "dodaj narzedzie")):
+            wanted = found.group(1).strip()
+            if ":" in wanted:
+                label, say = (part.strip() for part in wanted.split(":", 1))
+            else:
+                tool = next((t for t in catalog if norm(t["label"]) == norm(wanted)), None)
+                if tool is None:
+                    return [text("Nie znam takiego narzędzia. Własny kafelek: „dodaj kafelek Nazwa: polecenie”."),
+                            buttons(("Pokaż narzędzia", "narzędzia"))]
+                label, say = tool["label"], tool["say"]
+            if not label or not say:
+                return [text("Podaj nazwę i polecenie: „dodaj kafelek Nazwa: polecenie”.")]
+            layout["tiles"] = [t for t in layout["tiles"] if norm(t["label"]) != norm(label)] + [{"label": label, "say": say}]
+            layout["show"] = True
+            return stored(f"Dodałem kafelek „{label}”. Kafelki przestawisz przyciskiem „Ustaw” albo przeciągając.")
+        found = re.fullmatch(r"(?:usun kafelek|odepnij|usun narzedzie)\s+(.+)", plain)
+        if found:
+            keep = [t for t in layout["tiles"] if norm(t["label"]) != found.group(1).strip()]
+            if len(keep) == len(layout["tiles"]):
+                return [text("Nie ma takiego kafelka.")]
+            layout["tiles"] = keep
+            return stored("Usunąłem kafelek.")
+        if re.fullmatch(r"(ukryj|schowaj|wylacz) (kafelki|pulpit|narzedzia)", plain):
+            layout["show"] = False
+            return stored("Schowałem kafelki. Zostaje sama rozmowa; wrócą po „pokaż kafelki”.")
+        if re.fullmatch(r"(pokaz|wlacz|kafelki|pulpit|moje kafelki)( kafelki| pulpit)?", plain):
+            if not layout["tiles"]:
+                return self._tiles(identity, "narzędzia", "narzedzia")
+            layout["show"] = True
+            return stored("Oto Twoje kafelki.")
+        if re.fullmatch(r"(usun wszystkie kafelki|wyczysc pulpit|wyczysc kafelki)", plain):
+            layout["tiles"], layout["show"] = [], False
+            return stored("Pulpit jest pusty. Zostaje sama rozmowa.")
+        return None
+
     def _help(self, admin: bool, writable: bool) -> list[dict]:
         lines = ["Piszesz zwykłym zdaniem. Na przykład:",
                  "• „dokumenty” albo „otwórz umowa”",
                  "• pytanie o sprawę: „kto jest sprzedającym?”",
                  "• „policz taksę od sprzedaży lokalu za 500 tys.”"]
+        lines += ["• „narzędzia”, żeby ustawić sobie kafelki z tym, czego używasz najczęściej"]
         if writable:
             lines += ["• „przygotuj umowę sprzedaży lokalu” (nic nie zapiszę bez Twojej zgody)",
                       "• „notatka: klient przyniesie odpis w piątek”",

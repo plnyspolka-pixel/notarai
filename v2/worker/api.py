@@ -24,6 +24,7 @@ from .docx_adapter import DOCX_APP, OpenXmlDocx
 from .domain import fee_catalog, fee_estimate
 from .drafting import DraftError, Drafts
 from .inference import Inference, InferenceError
+from .layout import Layouts
 from .init_vault import home_path
 from .local_secrets import read_secret
 from .policy import Policy, PolicyError
@@ -664,7 +665,24 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         vault.log("local-admin", "enroll-recovery")
         return code
 
+    layouts = Layouts(home)
+
+    def layout_key(identity: Identity) -> str:
+        return "admin" if identity.scope == "admin" else identity.id
+
+    @app.get("/v2/layout")
+    def layout_read(identity: Identity = Depends(auth)):
+        return layouts.get(layout_key(identity))
+
+    @app.post("/v2/layout")
+    def layout_write(body: dict, identity: Identity = Depends(auth)):
+        try:
+            return layouts.put(layout_key(identity), body)
+        except (ValueError, AttributeError, TypeError):
+            raise HTTPException(400, "invalid layout")
+
     chat = Chat(SimpleNamespace(
+        layouts=layouts,
         vault=vault, drafts=drafts, devices=devices, workcopies=workcopies,
         cases=lambda identity: [c for c in vault.cases() if identity.cases is None or c in identity.cases],
         may_see_case=lambda identity, case: (identity.cases is None or case in identity.cases),

@@ -86,6 +86,33 @@ function watch(page, problems, label) {
     await page.getByRole("button", { name: "Taksa", exact: true }).click();
     await answered(page, "Podaj wartość");
 
+    // ---- the notary arranges their own tiles; none by default
+    assert(await page.locator("#desk").isHidden(), "tiles shown by default");
+    await say(page, "narzędzia", "Co chcesz mieć pod ręką?");
+    await page.getByRole("button", { name: "+ Taksa" }).click();
+    await answered(page, "Dodałem kafelek „Taksa”");
+    await say(page, "dodaj kafelek Kto sprzedaje: Kto sprzedaje?", "Dodałem kafelek");
+    await say(page, "dodaj kafelek Dokumenty", "Dodałem kafelek");
+    const order = () => page.locator("#tiles .tile > button.go").allTextContents();
+    assert((await order()).join() === "Taksa,Kto sprzedaje,Dokumenty", "tiles: " + await order());
+    await page.getByRole("button", { name: "Ustaw", exact: true }).click();
+    await page.getByRole("button", { name: "Przesuń wcześniej: Dokumenty" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#tiles .tile > button.go")[1].textContent === "Dokumenty");
+    await page.locator("#tiles .tile").nth(2).dragTo(page.locator("#tiles .tile").nth(0));
+    await page.waitForFunction(() => document.querySelectorAll("#tiles .tile > button.go")[0].textContent === "Kto sprzedaje");
+    await page.getByRole("button", { name: "Usuń kafelek: Taksa" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#tiles .tile").length === 2);
+    await page.getByRole("button", { name: "Gotowe" }).click();
+    await page.locator("#tiles").getByRole("button", { name: "Kto sprzedaje" }).click();
+    await answered(page, "Sprzedającym jest Jan Kowalski.");
+    if (shots) await page.screenshot({ path: path.join(shots, "kafelki.png") });
+    await page.reload();                                       // the layout is remembered for this device
+    await page.getByLabel("Kod parowania").fill(info.write2);
+    await page.getByRole("button", { name: "Połącz" }).click();
+    await statusIs(page, "Połączono z prawem zapisu.");
+    assert(await page.locator("#desk").isHidden(), "another device inherited the tiles");
+    await say(page, "sprawa sprawa-1", "Sprawa „sprawa-1”");
+
     // The classic text note still works from a suggestion chip.
     await page.getByRole("button", { name: "Nowy dokument tekstowy" }).click();
     await page.getByLabel("Nazwa dokumentu tekstowego").fill("uwagi.txt");

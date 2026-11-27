@@ -56,3 +56,14 @@ button.quiet { background: transparent; }
 #sheet h2 { margin: 0; }
 @media print { body > *, #workspace > *, #messages > * { display: none !important; }
   body > #workspace, #workspace > #messages, #messages > .printing { display: block !important; border: 0; } }
+
+/* ---- the notary's own tiles ---- */
+#tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.tile { position: relative; display: flex; flex-direction: column; }
+.tile > button.go { min-height: 64px; width: 100%; border-radius: 12px; font-weight: 600; background: #eef4f2; }
+.tile.dragging { opacity: .4; }
+.tile .edit { display: none; gap: 4px; margin-top: 4px; }
+#tiles.arranging .tile .edit { display: flex; }
+#tiles.arranging .tile > button.go { border-style: dashed; cursor: grab; }
+.tile .edit button { flex: 1; min-height: 36px; padding: 2px; }
+#desk .row > * { flex: 0 1 auto; }
