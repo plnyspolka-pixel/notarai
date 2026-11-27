@@ -155,7 +155,7 @@ def say(client, headers, text, **extra):
 
 
 def texts(blocks):
-    return "\n".join(b.get("text", "") for b in blocks if b["type"] == "text")
+    return "\n".join(b.get("text", "") for b in blocks if b["type"] in {"text", "inbox"})
 
 
 def test_mail_is_connected_and_used_by_talking(profile, tmp_path):
@@ -202,3 +202,48 @@ def test_mail_is_connected_and_used_by_talking(profile, tmp_path):
     found.clear()
     assert "Nie znalazłem Thunderbirda" in texts(say(client, admin, "połącz pocztę"))
     assert "Nie znalazłem programu Outlook" in texts(say(client, admin, "połącz pocztę outlook"))
+
+
+def test_attachments_go_to_the_case_and_a_reply_opens_in_the_mail_program(profile, tmp_path):
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    bedrock = Bedrock()
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: bedrock, UsageLedger(home))
+    opened = []
+    client = TestClient(create_app(home, inference=inference, mail_detect=lambda: [Thunderbird(profile)],
+                                   mail_composer=lambda source, to, subject, body, original: opened.append(
+                                       (to, subject, body, original.subject if original else None)) or "Thunderbirdzie"))
+    say(client, admin, "połącz pocztę")
+    inbox = say(client, admin, "poczta")
+    rows = inbox[0]["items"]
+    assert inbox[0]["type"] == "inbox" and rows[1]["sender"] == "Jan Kowalski" and rows[1]["attachments"] == 1
+    shown = say(client, admin, "mail 2")
+    labels = [i["label"] for b in shown if b["type"] == "buttons" for i in b["items"]]
+    assert "📎 odpis.pdf do sprawy" in labels and "Odpowiedz" in labels
+    assert "Do której sprawy" in texts(say(client, admin, "dodaj załącznik 1 z maila 2"))
+    added = say(client, admin, "dodaj załącznik 1 z maila 2", case="kowalski-2026")
+    assert added[1]["items"][0]["name"] == "odpis.pdf" and "Streść" in json.dumps(added, ensure_ascii=False)
+    document = client.get(f"/v2/documents/{added[1]['items'][0]['id']}", headers=admin).json()
+    import base64
+    assert base64.b64decode(document["content_b64"]) == b"%PDF"
+    reply = say(client, admin, "odpowiedz na mail 2")[0]
+    assert reply == {"type": "reply", "n": 2, "to": "jan@example.pl", "subject": "Re: Odpis z KW",
+                     "body": "W piątek o 10.", "program": "Thunderbird"}
+    assert "Napisz krótką, uprzejmą" in bedrock.prompts[-1] and "jan@example.pl" not in bedrock.prompts[-1]
+    answer = client.post("/v2/mail/compose", headers=admin, json={"n": 2, "to": reply["to"], "subject": reply["subject"],
+                                                                 "body": "Dziękuję, termin pasuje."}).json()
+    assert "Otworzyłem gotową wiadomość w Thunderbirdzie" in answer["detail"]
+    assert opened == [("jan@example.pl", "Re: Odpis z KW", "Dziękuję, termin pasuje.", "Odpis z KW")]
+    code = client.post("/v2/devices/invite", headers=admin, json={"name": "t", "scope": "write"}).json()["code"]
+    phone = {"Authorization": "Bearer " + client.post("/v2/devices/redeem", json={"code": code}).json()["token"]}
+    assert client.post("/v2/mail/compose", headers=phone, json={"body": "x"}).status_code == 403
+
+
+def test_a_ready_message_for_other_programs_is_a_draft_file(tmp_path, monkeypatch):
+    from worker.mail import Folder, compose
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    started = []
+    where = compose(Folder(tmp_path), "a@example.pl", "Re: Akt", "Treść odpowiedzi", runner=started.append)
+    draft = tmp_path / "NotarAI" / "do-wyslania" / "Re Akt.eml"
+    assert where == "domyślnym programie pocztowym" and started == [[str(draft)]]
+    assert b"X-Unsent: 1" in draft.read_bytes() and b"Tre" in draft.read_bytes()

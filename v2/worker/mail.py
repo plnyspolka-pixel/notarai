@@ -32,6 +32,7 @@ class Message:
     text: str
     attachments: list
     raw: bytes | None = None       # original .eml bytes when the source has them
+    entry_id: str | None = None    # Outlook's id of the item, to reach attachments and reply
 
     def summary(self) -> dict:
         return {"sender": self.sender or self.address, "subject": self.subject or "(bez tematu)", "when": self.when}
@@ -163,12 +164,42 @@ class Outlook:
                     received.timestamp() if hasattr(received, "timestamp") else 0.0,
                     str(getattr(item, "Body", "") or "")[:MAX_TEXT],
                     [str(a.FileName) for a in getattr(item, "Attachments", [])],
+                    entry_id=str(getattr(item, "EntryID", "") or "") or None,
                 ))
             return _newest(messages, limit)
         except MailError:
             raise
         except Exception:
             raise MailError("Outlook nie odpowiedział. Sprawdź, czy jest uruchomiony, i spróbuj ponownie.") from None
+
+
+    def attachment(self, entry_id: str, index: int) -> bytes:
+        import tempfile
+
+        try:
+            item = self._application().GetNamespace("MAPI").GetItemFromID(entry_id)
+            with tempfile.TemporaryDirectory() as scratch:
+                path = Path(scratch) / "zalacznik"
+                item.Attachments.Item(index + 1).SaveAsFile(str(path))
+                return path.read_bytes()
+        except Exception:
+            raise MailError("Outlook nie oddał tego załącznika. Spróbuj ponownie.") from None
+
+    def compose(self, to: str, subject: str, body: str, reply_to: Message | None = None) -> None:
+        """Open a ready message in Outlook's own window. Sending stays with the notary (Wyślij in Outlook)."""
+        try:
+            application = self._application()
+            if reply_to is not None and reply_to.entry_id:
+                item = application.GetNamespace("MAPI").GetItemFromID(reply_to.entry_id).Reply()
+                item.Body = body + "\n\n" + str(item.Body or "")
+            else:
+                item = application.CreateItem(0)          # 0 = a mail item
+                item.To, item.Subject, item.Body = to, subject, body
+            item.Display(False)
+        except MailError:
+            raise
+        except Exception:
+            raise MailError("Nie udało się otworzyć wiadomości w Outlooku.") from None
 
 
 class Folder:
@@ -195,6 +226,65 @@ class Folder:
             except OSError:
                 continue
         return _newest(messages, limit)
+
+
+def attachment(message: Message, index: int, source=None) -> tuple[str, bytes]:
+    """(file name, content) of one attachment, taken from the original message."""
+    if not 0 <= index < len(message.attachments):
+        raise MailError("Ta wiadomość nie ma takiego załącznika.")
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", str(message.attachments[index]))[:120] or "zalacznik"
+    if message.raw is not None:
+        parsed = email.message_from_bytes(message.raw, policy=email.policy.default)
+        parts = [part for part in parsed.walk() if part.get_filename()]
+        if index < len(parts):
+            data = parts[index].get_payload(decode=True) or b""
+            if len(data) > 20 * 2**20:
+                raise MailError("Ten załącznik jest większy niż 20 MiB.")
+            return name, data
+    if message.entry_id and hasattr(source, "attachment"):
+        return name, source.attachment(message.entry_id, index)
+    raise MailError("Nie umiem odczytać tego załącznika z tej poczty.")
+
+
+def thunderbird_program() -> Path | None:
+    if os.name != "nt":
+        return None
+    for base in (os.environ.get("ProgramFiles", ""), os.environ.get("ProgramFiles(x86)", "")):
+        candidate = Path(base) / "Mozilla Thunderbird" / "thunderbird.exe"
+        if base and candidate.is_file():
+            return candidate
+    return None
+
+
+def compose(source, to: str, subject: str, body: str, reply_to: Message | None = None, *, runner=None) -> str:
+    """Open a ready message in the mail program for the notary to check and send. Returns where it opened."""
+    if hasattr(source, "compose"):
+        source.compose(to, subject, body, reply_to)
+        return "Outlooku"
+    import subprocess
+
+    program = thunderbird_program() if isinstance(source, Thunderbird) else None
+    quote = lambda value: "'" + value.replace("'", "’") + "'"
+    if program is not None:
+        (runner or subprocess.Popen)([str(program), "-compose",
+                                      f"to={quote(to)},subject={quote(subject)},body={quote(body)}"])
+        return "Thunderbirdzie"
+    # Any other program: a ready .eml next to the mail folder, opened by the default mail program.
+    from email.message import EmailMessage
+
+    draft = EmailMessage()
+    draft["To"], draft["Subject"] = to, subject
+    draft["X-Unsent"] = "1"            # Outlook and Windows Mail open it as a message to send
+    draft.set_content(body)
+    folder = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "NotarAI" / "do-wyslania"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / ((re.sub(r"[^\w -]", "", subject)[:50].strip() or "wiadomosc") + ".eml")
+    path.write_bytes(bytes(draft))
+    if runner is None and hasattr(os, "startfile"):
+        os.startfile(str(path))       # noqa: S606 - a file NotarAI just wrote
+    elif runner is not None:
+        runner([str(path)])
+    return "domyślnym programie pocztowym"
 
 
 def detect() -> list:

@@ -442,3 +442,20 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
 - **Status:** kod wdrożeniowy; dostęp na żywo niezweryfikowany.
 - **Brakuje:** dedykowanego Cognito MFA, DNS/certyfikatu, przypiętego obrazu i roli OIDC dla osobnego stosu. Istniejąca rola aplikacji nie wystarcza. NAT TEST musi być włączony jawnie; nie przenosić EIP ani nie używać jako adresu rejestrów PROD.
 - **Na żywo:** `docs/private-aws-browser.md`; wdrożyć, sprawdzić anonimowy dostęp, logowanie na telefonie i rzeczywisty IPv4 w Chromium. Włączyć automatyzację przez `PRIVATE_BROWSER_AUTODEPLOY=true` dopiero po konfiguracji roli i zmiennych. Bez danych kancelarii.
+
+## NA-20. NotarAI V2 na stanowisku kancelarii: dyktowanie, poczta, programy (27.11.2026)
+
+- **Status:** kod i testy na atrapach; na prawdziwym stanowisku niesprawdzone.
+- **Brakuje:** komputera kancelarii z zainstalowanym V2 (konto `bielak@notar.pl` jest w grupie `notarai-v2`).
+- **Na żywo (tylko fikcyjne dane):**
+  1. Dyktowanie 🎤 przez Amazon Transcribe streaming w eu-central-1: tekst ma rosnąć w polu w trakcie mówienia
+     (`v2/worker/cloud_speech.py`, `transcribe_stream`); zmierzyć opóźnienie; jeśli sieć blokuje HTTP/2, zanotować.
+  2. Rozpoznanie komputera na pierwszym ekranie (`v2/worker/environment.py`): czy wykrywa pocztę, Word, RejNET
+     i programy podpisu; poprawić listę `KNOWN` o nazwy z prawdziwego komputera.
+  3. Poczta: załącznik z Outlooka/Thunderbirda do sprawy, „Odpowiedz” otwiera gotową wiadomość w programie
+     pocztowym (`mail.compose`); nie klikamy „Wyślij” za notariusza.
+  4. RejNET / program kancelaryjny: nagrać procedurę wpisu do repertorium na fikcyjnych danych i sprawdzić
+     wypełnienie przez UI Automation (`win_fill.py`).
+  5. EKW i KRZ: nagrać procedury sprawdzenia księgi i strony w przeglądarce NotarAI, potem uruchomić je dla
+     fikcyjnej sprawy; zapisać, czego strony wymagają (logowanie, captcha).
+- **Zamknięte, gdy:** punkty 1-5 przeszły albo mają opisany powód i poprawkę.

@@ -104,8 +104,17 @@ class Chat:
         step = self.s.onboarding.current() if admin else None
         if step is not None:
             if step["number"] == 1:
-                blocks.append(text("Witaj w NotarAI. Przeprowadzę Cię przez pierwsze uruchomienie: kilka krótkich kroków, "
-                                   "każdy możesz pominąć i wrócić do niego później."))
+                blocks.append(text("Witaj w NotarAI. Przeprowadzę Cię przez pierwsze uruchomienie: kilka krótkich kroków. "
+                                   "Najpierw sprawdziłem, co jest na tym komputerze, żeby od razu podłączyć to, czego używasz."
+                                   if self.s.program.current is not None else
+                                   "Witaj w NotarAI. Przeprowadzę Cię przez pierwsze uruchomienie: kilka krótkich kroków, "
+                                   "większość możesz pominąć i wrócić do niej później."))
+                if step["key"] == "rozpoznanie" and self.s.program.current is not None:
+                    # An installed program looks around by itself: the first screen already shows what was found.
+                    blocks += self._environment(refresh=True)
+                    step = self.s.onboarding.current()
+                    if step is None:
+                        return blocks
             offered = {say for _, say in step["actions"]}        # the guide offers it: no second button
             blocks = [b for b in blocks if b["type"] != "buttons" or not {i["say"] for i in b["items"]} <= offered]
             return blocks + self._guide_card(step)
@@ -152,8 +161,15 @@ class Chat:
     # ------------------------------------------------------------ shared intents
     def _common(self, identity, message, plain, case, names) -> list[dict]:
         s, writable = self.s, identity.scope in {"admin", "write"}
+        if plain in {"pokaz mozliwosci", "mozliwosci", "co potrafi notarai", "co mozesz dla mnie zrobic", "pokaz"}:
+            from .tour import slides
+            return [{"type": "tour", "slides": slides(), "done": "pokaz obejrzany"}]
+        if plain == "pokaz obejrzany":
+            if identity.scope == "admin":
+                s.onboarding.mark("mozliwosci")
+            return [text("Wszystkie możliwości są też w „Co umiesz?” i zawsze możesz napisać „pokaż możliwości”.")]
         if plain in {"pomoc", "help", "co umiesz", "co umiesz?", "co potrafisz", "co potrafisz?"}:
-            return self._help(identity.scope == "admin", writable)
+            return self._help(identity.scope == "admin", writable) + [buttons(("Pokaż możliwości", "pokaż możliwości"))]
         learned = self._procedures(identity, message, plain, case, names, writable)
         if learned is not None:
             return learned
@@ -786,8 +802,9 @@ class Chat:
 
     # ------------------------------------------------------------ first-run guide (workstation only)
     def _guide_card(self, step) -> list[dict]:
+        extra = [] if step.get("required") else [("Pomiń ten krok", "pomiń krok")]
         return [text(f"Przewodnik · krok {step['number']} z {step['of']}: {step['title']}\n{step['why']}"),
-                buttons(*step["actions"], ("Pomiń ten krok", "pomiń krok"), ("Cała lista", "przewodnik"))]
+                buttons(*step["actions"], *extra, ("Cała lista", "przewodnik"))]
 
     def _guide(self, identity, message, plain):
         s = self.s
@@ -809,7 +826,9 @@ class Chat:
             step = guide.current()
             if step is None:
                 return [text("Przewodnik jest skończony. Napisz „przewodnik”, żeby zobaczyć listę.")]
-            guide.skip(step["key"])
+            if not guide.skip(step["key"]):
+                return [text(f"Tego kroku nie da się pominąć: {step['title']}. {step['why']}"),
+                        buttons(*step["actions"])]
             following = guide.current()
             return ([text(f"Pominąłem: {step['title']}. Wrócisz do tego, pisząc „przewodnik”.")]
                     + (self._guide_card(following) if following else [text("To był ostatni krok.")]))
@@ -817,6 +836,9 @@ class Chat:
             guide.restart()
             step = guide.current()
             return self._guide_card(step) if step else [text("Wszystkie kroki są już zrobione.")]
+        if plain in {"rozpoznaj komputer", "co jest na komputerze", "co znalazles", "sprawdz komputer",
+                     "rozpoznanie", "co jest na tym komputerze"}:
+            return self._environment(refresh=plain != "co znalazles")
         # folders chosen in a Windows dialog on this computer
         if plain in {"wybierz folder aktow", "wskaz folder aktow"}:
             return [{"type": "pick-folder", "purpose": "akty", "label": "Wybierz folder z aktami…"},
@@ -857,6 +879,42 @@ class Chat:
                          "na fikcyjnych danych), potem poproś o projekt. Każdy zatwierdzony akt uczy program Waszego stylu."),
                     buttons(*[(kind, f"przygotuj projekt: {kind.lower()}") for kind in ACT_KINDS])]
         return None
+
+    def _environment(self, refresh: bool) -> list[dict]:
+        found = self.s.environment(refresh=refresh)
+        settings = self.s.settings()
+        lines, actions = ["Co znalazłem na tym komputerze:"], []
+        if found["mail"]:
+            names = ", ".join(m["label"] for m in found["mail"])
+            connected = settings.mail.source is not None
+            lines.append(f"• Poczta: {names}" + (" (podłączona)" if connected else ""))
+            if not connected:
+                actions += [(f"Podłącz {m['label']}", f"połącz pocztę {m['kind']}") for m in found["mail"]]
+        else:
+            lines.append("• Poczta: nie znalazłem Thunderbirda ani klasycznego Outlooka (nowy Outlook: przez folder z wiadomościami)")
+        groups = {"kancelaryjny": "Programy kancelaryjne", "podpis": "Podpis kwalifikowany", "urzędowy": "Programy urzędowe",
+                  "edytor": "Edytor tekstu", "przegladarka": "Przeglądarki"}
+        for kind, title in groups.items():
+            items = [p for p in found["programs"] if p["kind"] == kind]
+            if items:
+                lines.append(f"• {title}: " + "; ".join(f"{p['shown']} ({p['use']})" for p in items))
+                if kind == "kancelaryjny":
+                    actions += [(f"Podłącz {p['shown']}", f"dodaj czynność Wpis do programu {p['shown']}") for p in items]
+        if not any(p["kind"] == "kancelaryjny" for p in found["programs"]):
+            lines.append("• Programy kancelaryjne: żadnego nie rozpoznałem po nazwie. Każdy program Windows podłączysz, "
+                         "pokazując raz czynność: „nagraj procedurę” i nazwa.")
+        if found["acts"]:
+            lines.append("• Foldery z aktami: " + "; ".join(f"{a['path']} ({a['acts']} plików)" for a in found["acts"][:3]))
+            if settings.acts_dir is None:
+                top = found["acts"][0]["path"]
+                actions.append(("Akty są tutaj: " + top[-40:], f"folder aktów {top}"))
+        else:
+            lines.append("• Folderów z aktami nie znalazłem w Dokumentach, na pulpicie ani na dyskach D: do H:.")
+        lines.append("Nic nie zostało zmienione ani wysłane; to tylko przegląd.")
+        blocks = [text("\n".join(lines))]
+        if actions:
+            blocks.append(buttons(*actions[:10]))
+        return blocks
 
     def _activities(self, identity) -> list[dict]:
         from .onboarding import ACTIVITIES
@@ -1034,7 +1092,7 @@ class Chat:
 
     def _mail(self, identity, message, plain, case):
         s = self.s
-        if not re.search(r"\b(poczt\w*|mail\w*|maile|wiadomosc\w*|skrzynk\w*|outlook\w*|thunderbird\w*)\b", plain):
+        if not re.search(r"\b(poczt\w*|mail\w*|maile|wiadomosc\w*|skrzynk\w*|outlook\w*|thunderbird\w*|zalacznik\w*)\b", plain):
             return None
         if plain.startswith(("odlacz poczte", "wylacz poczte", "rozlacz poczte")):
             s.update_settings(lambda d: d["mail"].update(source=None, path=None))
@@ -1082,6 +1140,41 @@ class Chat:
             doc_id, version = s.vault.put(None, 0, name, data, actor=identity.id, case=target)
             return [text(f"Dodałem wiadomość do sprawy „{target}”. Asystent będzie ją czytał razem z innymi dokumentami."),
                     {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}]
+        found = re.fullmatch(r"dodaj zalacznik\s+(\d+)\s+z (?:maila|mail|wiadomosci)\s+(\d+)(?: do sprawy)?", plain)
+        if found:
+            if identity.scope not in {"admin", "write"}:
+                return [text("To urządzenie ma dostęp tylko do odczytu.")]
+            listed = self._inbox.get(identity.id) or []
+            index = int(found.group(2))
+            if not 1 <= index <= len(listed):
+                return [text("Nie ma wiadomości o tym numerze. Napisz „poczta”, żeby zobaczyć listę.")]
+            if case is None:
+                return [text("Do której sprawy? Wybierz sprawę u góry i kliknij załącznik jeszcze raz.")]
+            from .mail import attachment
+            name, data = attachment(listed[index - 1], int(found.group(1)) - 1, source)
+            doc_id, version = s.vault.put(None, 0, name, data, actor=identity.id, case=case)
+            readable = name.lower().endswith((".docx", ".pdf", ".txt", ".eml"))
+            return [text(f"Dodałem załącznik {name} do sprawy „{case}”." + (" Co z nim zrobić?" if readable else "")),
+                    {"type": "documents", "items": [{"id": doc_id, "name": name, "version": version}]}] + (
+                    [buttons(("Streść", f"streść {name}"), ("Sprawdź błędy", f"sprawdź {name}"))] if readable else [])
+        found = re.fullmatch(r"odpowiedz(?: na)? (?:mail|maila|wiadomosc)\s+(\d+)", plain)
+        if found:
+            listed = self._inbox.get(identity.id) or []
+            index = int(found.group(1))
+            if not 1 <= index <= len(listed):
+                return [text("Nie ma wiadomości o tym numerze. Napisz „poczta”, żeby zobaczyć listę.")]
+            mail = listed[index - 1]
+            draft = ""
+            try:
+                draft = s.general("Napisz krótką, uprzejmą i rzeczową odpowiedź kancelarii notarialnej na poniższą "
+                                  "wiadomość. Tylko treść odpowiedzi, bez tematu i bez podpisu.\n\n"
+                                  f"Od: {mail.sender}\nTemat: {mail.subject}\n\n{mail.text[:6000]}",
+                                  [mail.sender] if mail.sender else [])["answer"]
+            except Exception:
+                draft = ""              # no assistant here: the notary writes or dictates the reply
+            subject = mail.subject if norm(mail.subject).startswith(("re:", "odp:")) else "Re: " + mail.subject
+            return [{"type": "reply", "n": index, "to": mail.address, "subject": subject, "body": draft,
+                     "program": source.name}]
         found = re.fullmatch(r"(?:pokaz |otworz |przeczytaj )?(?:mail|maila|wiadomosc)\s+(\d+)", plain)
         if found:
             listed = self._inbox.get(identity.id) or []
@@ -1093,8 +1186,11 @@ class Chat:
             head = f"Od: {mail.sender} <{mail.address}>\nTemat: {mail.subject}"
             if mail.attachments:
                 head += "\nZałączniki: " + ", ".join(mail.attachments)
-            return [text(head + "\n\n" + body),
-                    buttons((f"Dodaj do sprawy{' „' + case + '”' if case else ''}", f"dodaj mail {index} do sprawy"))]
+            actions = [(f"Dodaj do sprawy{' „' + case + '”' if case else ''}", f"dodaj mail {index} do sprawy"),
+                       ("Odpowiedz", f"odpowiedz na mail {index}")]
+            actions += [(f"📎 {name[:40]} do sprawy", f"dodaj załącznik {k} z maila {index}")
+                        for k, name in enumerate(mail.attachments[:8], 1)]
+            return [text(head + "\n\n" + body), buttons(*actions)]
         listed = source.latest(30)
         sender = re.search(r"\bod\s+(.+)", plain)
         if sender:
@@ -1106,7 +1202,13 @@ class Chat:
             return [text("Nie ma takich wiadomości." if sender else "Skrzynka odbiorcza jest pusta.")]
         lines = [f"{n}. {when(int(m.when * 10**9))}, {m.sender or m.address}: {m.subject or '(bez tematu)'}"
                  + (" 📎" if m.attachments else "") for n, m in enumerate(listed, 1)]
-        return [text("\n".join(lines)), buttons(*[(f"Pokaż {n}", f"mail {n}") for n in range(1, len(listed) + 1)])]
+        return [{"type": "inbox", "text": "\n".join(lines), "items": [
+            {"n": n, "sender": m.sender or m.address, "subject": m.subject or "(bez tematu)",
+             "when": when(int(m.when * 10**9)), "attachments": len(m.attachments)} for n, m in enumerate(listed, 1)]}]
+
+    def inbox_message(self, identity, index: int):
+        listed = self._inbox.get(identity.id) or []
+        return listed[index - 1] if 1 <= index <= len(listed) else None
 
     def _programs(self) -> list[dict]:
         s = self.s
@@ -1226,7 +1328,7 @@ class Chat:
                  "offsite-backup": "wysłał kopię poza kancelarię", "calendar-put": "zapisał termin",
                  "calendar-delete": "usunął termin", "restore": "odtworzył sejf z kopii",
                  "enroll-recovery": "utworzył kod odzyskiwania", "revoke-device": "cofnął dostęp urządzenia",
-                 "settings": "zmienił ustawienia", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
+                 "settings": "zmienił ustawienia", "mail-compose": "przygotował odpowiedź do wysłania", "rotate-key": "wymienił klucz sejfu", "migrate": "przeniósł sejf do nowego formatu",
                  "form-fill-verified": "wypełnił formularz", "form-fill-partial": "wypełnił część formularza",
                  "form-send-started": "zaczął wysyłać formularz", "form-send-sent": "wysłał formularz",
                  "form-send-uncertain": "nacisnął wysyłanie formularza (wynik niepewny)"}

@@ -164,7 +164,7 @@ windows_folder_picker = _windows_folder_picker if sys.platform == "win32" else N
 def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference | None = None,
                account: Account | None = None, opener=None, mail_detect=None, transcriber=None,
                fill_targets: dict | None = None, folder_picker=None, updater=None, restarter=None,
-               dictation_stream=None):
+               dictation_stream=None, environment_scan=None, mail_composer=None):
     recovery.finish_interrupted_rotation(home)
     vault = Vault(home, read_secret(home, "vault.key"))
     devices = DeviceRegistry(home)
@@ -970,6 +970,19 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         stored.append({"id": text_id, "name": text_name, "version": text_version})
         return {"documents": stored, "text": heard, "detail": ""}
 
+    from . import environment as environment_module
+
+    found_here: dict = {}
+
+    def environment(refresh: bool = False) -> dict:
+        """What is on this computer (cached; the first scan starts with the worker)."""
+        if refresh or not found_here:
+            scanner = environment_scan or (lambda: environment_module.scan(mail_detect=mail_detect or mail_module.detect))
+            found_here.clear()
+            found_here.update(scanner())
+            onboarding.mark("rozpoznanie")
+        return dict(found_here)
+
     from .onboarding import Onboarding
     from .procedures import slug as procedure_slug
 
@@ -1170,13 +1183,33 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         enroll=enroll_code, backup_dir=lambda: state["settings"].backup_dir, local_backup=local_backup,
         offsite_enabled=lambda: state["settings"].replica.enabled, offsite_backup=offsite_backup,
         update_settings=update_settings, usage=ledger.summary, pairing_link=pairing_link,
-        calendar=calendar, onboarding=onboarding, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
+        calendar=calendar, onboarding=onboarding, environment=environment, program=program, restart_for_update=restart_for_update, settings=lambda: state["settings"], local_speech_installed=lambda: local_speech.available(),
         download_speech_model=lambda: model_download.start(state["settings"].speech.model),
         speech_model_progress=model_download.progress,
         account_configured=lambda: state["account"] is not None,
         signed_in=lambda: bool(state["account"] and state["account"].signed_in),
         logout=lambda: state["account"] and state["account"].logout(),
     ))
+    class Compose(BaseModel):
+        n: int | None = Field(default=None, ge=1, le=50)
+        to: str = Field(default="", max_length=500)
+        subject: str = Field(default="", max_length=300)
+        body: str = Field(default="", max_length=50_000)
+
+    @app.post("/v2/mail/compose", dependencies=[Depends(admin)])
+    def mail_compose(req: Compose, identity: Identity = Depends(admin)):
+        """Opens the ready message in the office's mail program; the notary checks it and presses Send there."""
+        source = mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path)
+        if source is None:
+            raise HTTPException(409, "Poczta nie jest połączona. Napisz „połącz pocztę”.")
+        original = chat.inbox_message(identity, req.n) if req.n else None
+        try:
+            where = (mail_composer or mail_module.compose)(source, req.to, req.subject, req.body, original)
+        except mail_module.MailError as error:
+            raise HTTPException(409, str(error))
+        vault.log(identity.id, "mail-compose")
+        return {"detail": f"Otworzyłem gotową wiadomość w {where}. Sprawdź ją tam i kliknij Wyślij."}
+
     SAID = (PolicyError, InferenceError, DraftError, LoginError, recovery.RecoveryError, ReplicaError, WorkCopyError,
             mail_module.MailError, ProcedureError, FillError, RuleViolation)
 

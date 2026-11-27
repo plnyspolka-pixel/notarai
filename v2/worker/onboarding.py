@@ -14,12 +14,15 @@ import unicodedata
 from pathlib import Path
 
 ACTIVITIES = [
+    "Sprawdzenie księgi wieczystej (EKW)",
+    "Sprawdzenie stron w Krajowym Rejestrze Zadłużonych (KRZ)",
     "Wniosek o wpis w księdze wieczystej (EKW)",
     "Deklaracja PCC-3 i zawiadomienie do urzędu skarbowego",
     "Zawiadomienie gminy o prawie pierwokupu",
     "Rejestr aktów poświadczenia dziedziczenia",
     "Wypisy aktu dla stron i urzędów",
     "Repertorium A",
+    "Wpis do programu kancelaryjnego (np. RejNET)",
 ]
 ACT_KINDS = ["Sprzedaż lokalu", "Darowizna", "Umowa deweloperska", "Poświadczenie dziedziczenia",
              "Pełnomocnictwo", "Umowa o podział majątku"]
@@ -32,8 +35,16 @@ def slug(text: str) -> str:
 
 
 STEPS = [
-    {"key": "kod", "title": "Kod odzyskiwania sejfu",
-     "why": "Jedyny klucz do kopii sejfu. Wydrukuj go i schowaj w sejfie kancelarii; bez niego kopii nie da się otworzyć.",
+    {"key": "rozpoznanie", "title": "Co jest na tym komputerze",
+     "why": "Sprawdzam pocztę, edytor tekstu, przeglądarki, programy kancelaryjne i foldery z aktami, żeby od razu "
+            "podłączyć to, czego używasz.",
+     "actions": [("Pokaż, co znalazłem", "rozpoznaj komputer")]},
+    {"key": "mozliwosci", "title": "Co NotarAI może dla Ciebie zrobić",
+     "why": "Krótki pokaz wszystkich możliwości programu: co robi, jak o to poprosić, z przyciskiem „Spróbuj” przy każdej.",
+     "actions": [("Zobacz pokaz", "pokaż możliwości")]},
+    {"key": "kod", "title": "Kod odzyskiwania sejfu", "required": True,
+     "why": "Obowiązkowe. To jedyny klucz do kopii sejfu: po awarii komputera bez tego kodu dokumentów nie odzyska "
+            "nikt, także my. Wydrukuj go i schowaj w sejfie kancelarii.",
      "actions": [("Utwórz kod odzyskiwania", "kod odzyskiwania")]},
     {"key": "konto", "title": "Zalogowanie stanowiska",
      "why": "Logowanie włącza asystenta AI i przepisywanie mowy we Frankfurcie. Raz na tym komputerze.",
@@ -97,11 +108,15 @@ class Onboarding:
             data["marked"].append(key)
             self._save(data)
 
-    def skip(self, key: str) -> None:
+    def skip(self, key: str) -> bool:
+        """False for a step that cannot be skipped."""
+        if any(step["key"] == key and step.get("required") for step in STEPS):
+            return False
         data = self._load()
         if key not in data["skipped"]:
             data["skipped"].append(key)
             self._save(data)
+        return True
 
     def restart(self) -> None:
         data = self._load()
@@ -126,11 +141,15 @@ class Onboarding:
     def current(self) -> dict | None:
         """The first step neither done nor skipped; None once the guide is complete."""
         data = self._load()
+        for index, step in enumerate(STEPS, 1):
+            if self.done(step["key"]):
+                continue
+            if step.get("required"):                   # in its turn, and back at every start until it is done
+                return {**step, "number": index, "of": len(STEPS)}
+            if not data["finished"] and step["key"] not in data["skipped"]:
+                return {**step, "number": index, "of": len(STEPS)}
         if data["finished"]:
             return None
-        for index, step in enumerate(STEPS, 1):
-            if step["key"] not in data["skipped"] and not self.done(step["key"]):
-                return {**step, "number": index, "of": len(STEPS)}
         data["finished"] = True
         self._save(data)
         return None

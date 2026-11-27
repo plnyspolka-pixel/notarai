@@ -175,3 +175,32 @@ button.nav { min-height: 32px; width: 32px; padding: 0; border: 0; font-size: 1.
 .month .day.busy::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
 .month .day.chosen.busy::after { background: #fff; }
 .agenda-title { font-size: .85rem; margin: 4px 0 2px; color: var(--muted); font-weight: 600; }
+
+/* ---- tour of abilities ---- */
+.tour { padding: 18px 20px; }
+.tour-main { display: grid; grid-template-columns: 120px 1fr; gap: 18px; align-items: start; }
+.tour-art { width: 120px; height: 120px; border-radius: 28px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+.tour-art svg { width: 72px; height: 72px; }
+.tour-body h2 { margin: 2px 0 6px; font-size: 1.2rem; }
+.tour-body p { margin: 0 0 10px; }
+.tour-sample { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; padding: 10px; border-radius: 12px; background: var(--bg); }
+.tour-sample .bubble { max-width: 100%; font-size: .93rem; box-shadow: none; }
+.tour-sample .bubble.them { border: 1px solid var(--line); }
+.tour-dots { display: flex; justify-content: center; gap: 6px; margin: 12px 0 4px; }
+.tour-dots .dot { width: 9px; height: 9px; min-height: 9px; padding: 0; border: 0; border-radius: 50%; background: var(--line); }
+.tour-dots .dot.on { background: var(--accent); }
+.tour-nav { justify-content: space-between; flex-wrap: nowrap; }
+.tour-nav > * { flex: 0 0 auto; }
+.tour.finished .tour-nav button.primary { display: none; }
+@media (max-width: 600px) { .tour-main { grid-template-columns: 1fr; } .tour-art { width: 84px; height: 84px; border-radius: 20px; } .tour-art svg { width: 52px; height: 52px; } }
+
+/* ---- mail ---- */
+.inbox h2, .reply h2 { margin: 0 0 8px; }
+.inbox-list { margin: 0; }
+.inbox-list li { margin: 0; border-top: 1px solid var(--line); }
+.inbox-list li:first-child { border-top: 0; }
+button.mail-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; width: 100%; border: 0; border-radius: 8px; padding: 8px 6px; background: transparent; text-align: left; }
+button.mail-row:hover { background: var(--accent-soft); }
+.mail-from { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-when { color: var(--muted); font-size: .85rem; }
+.mail-subject { grid-column: 1 / -1; color: var(--muted); font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
