@@ -8,7 +8,7 @@ really has; those learned by showing say so.
 SLIDES = [
     {"icon": "calendar", "title": "Kalendarz kancelarii",
      "text": "Terminy aktów i spotkań mówisz albo piszesz zwykłym zdaniem. Na komputerze kalendarz miesiąca jest zawsze po lewej, "
-             "a plan dnia widzisz na powitanie. Terminy usłyszane w rozmowach dopisują się same, do sprawdzenia.",
+             "a plan dnia widzisz na powitanie. Terminy usłyszane w rozmowach dopisują się same, do sprawdzenia. Kalendarz jest ten sam co w notarai.pl.",
      "you": "termin w piątek 10:00 podpisanie aktu Kowalski", "notarai": "Zapisałem w kalendarzu: pt 10:00, podpisanie aktu Kowalski.",
      "try": "co mam jutro"},
     {"icon": "mic", "title": "Dyktowanie zamiast pisania",

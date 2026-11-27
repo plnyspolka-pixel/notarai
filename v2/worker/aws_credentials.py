@@ -139,6 +139,11 @@ class Account:
         self._id_token, self._id_expires = result["IdToken"], _expiry(result["IdToken"])
         return self._id_token
 
+    def id_token(self) -> str:
+        """The signed-in person's ID token (about an hour), for the office's web API (calendar sync)."""
+        with self._lock:
+            return self._fresh_id_token()
+
     def credentials(self) -> dict:
         """AWS credentials valid for at least five more minutes."""
         with self._lock:
