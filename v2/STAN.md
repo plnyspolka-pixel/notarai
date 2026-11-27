@@ -31,10 +31,15 @@ V1 pozostaje nietknięte.
 
 ## Instalator
 
-Stały link do najnowszego przetestowanego instalatora (po zalogowaniu na GitHubie):
+Pobieranie bez logowania (stos `notarai-v2-pobieranie`: prywatny bucket w eu-central-1 + CloudFront, tylko plik
+instalatora, żadnych danych kancelarii):
+https://daw6bv5zhb6ck.cloudfront.net/NotarAI-V2-Setup-x64.exe
+
+Najnowszy przetestowany instalator z CI (po zalogowaniu na GitHubie):
 https://github.com/plnyspolka-pixel/notarai/releases/download/notarai-v2-podglad/NotarAI-V2-Setup-x64.exe
 
-Każda udana budowa w CI podmienia plik pod tym linkiem; suma SHA-256 jest w opisie wydania.
+CI podmienia plik na GitHubie przy każdej udanej budowie; pod adresem CloudFront plik podmienia się ręcznie
+(`aws s3 cp NotarAI-V2-Setup-x64.exe s3://notarai-v2-pobieranie-<konto>/`), bo GitHub nie ma kluczy AWS.
 
 ## Jak się tego używa
 

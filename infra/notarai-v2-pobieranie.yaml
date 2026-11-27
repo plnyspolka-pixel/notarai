@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - publiczne pobieranie instalatora Windows. Prywatny bucket w
+  eu-central-1 zawiera wylacznie pliki instalatora (zadnych danych kancelarii),
+  udostepniane przez CloudFront pod stalym adresem https.
+
+Resources:
+  Pliki:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "notarai-v2-pobieranie-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  DostepCloudFront:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: notarai-v2-pobieranie
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  Dystrybucja:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: notarai V2 - instalator Windows
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+        Origins:
+          - Id: pliki
+            DomainName: !GetAtt Pliki.RegionalDomainName
+            OriginAccessControlId: !GetAtt DostepCloudFront.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: pliki
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: false
+          # Managed policy "CachingOptimized"
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+  TylkoCloudFront:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Pliki
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: OdczytPrzezCloudFront
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${Pliki.Arn}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Dystrybucja}"
+
+Outputs:
+  Bucket:
+    Value: !Ref Pliki
+  Adres:
+    Description: Staly adres pobierania instalatora
+    Value: !Sub "https://${Dystrybucja.DomainName}/NotarAI-V2-Setup-x64.exe"
