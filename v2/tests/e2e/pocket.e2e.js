@@ -248,6 +248,41 @@ function watch(page, problems, label) {
     assert((await panel.locator("#messages").textContent()).includes("przyjeto.html?pesel=44051401359&lokal=5"), "the form was not sent with the approved values");
     await panel.locator("#case").selectOption({ index: 0 });
 
+    // ---- always-on microphones: a tablet in reception becomes a microphone; conversations become notes
+    await say(panel, "włącz nasłuch", "Włączyć stały nasłuch?");
+    await panel.getByRole("button", { name: "Tak, włącz nasłuch" }).click();
+    await answered(panel, "Nasłuch włączony.");
+    await say(panel, "dodaj mikrofon Sekretariat", "Mikrofon „Sekretariat”.");
+    const micCode = (await panel.locator(".code").last().textContent()).trim();
+    const tablet = await browser.newContext({ viewport: { width: 800, height: 1000 } });
+    await tablet.addInitScript(() => {
+      window.NOTARAI_SEGMENT_MS = 1200;
+      navigator.mediaDevices.getUserMedia = async () => {
+        const audio = new AudioContext();
+        const tone = audio.createOscillator();
+        const out = audio.createMediaStreamDestination();
+        tone.connect(out);
+        tone.start();
+        return out.stream;
+      };
+    });
+    const mic = await tablet.newPage();
+    watch(mic, problems, "mic: ");
+    await mic.goto(info.url + "/pocket");
+    await mic.getByLabel("Kod parowania").fill(micCode);
+    await mic.getByRole("button", { name: "Połącz" }).click();
+    await mic.locator("#listener-name", { hasText: "Mikrofon: Sekretariat" }).waitFor();
+    await mic.waitForFunction(() => /Przesłane fragmenty rozmów: [2-9]/.test(document.getElementById("listener-state").textContent), null, { timeout: 20000 });
+    assert(await mic.locator("#workspace").isHidden() && await mic.locator("#composer").isHidden(), "a microphone shows the chat");
+    if (shots) await mic.screenshot({ path: path.join(shots, "mikrofon.png") });
+    await mic.getByRole("button", { name: "Wstrzymaj" }).click();
+    await mic.locator("#listener-state", { hasText: "Wstrzymane na tym urządzeniu" }).waitFor();
+    await say(panel, "nasłuch", "Sekretariat: ostatni dźwięk");
+    await say(panel, "wyłącz nasłuch", "Zapisałem ostatnie rozmowy: 1");
+    await say(panel, "notatki z rozmów", "Ostatnie notatki z rozmów:");
+    await panel.getByRole("button", { name: /^rozmowa-.*-Sekretariat\.txt · wersja 1$/ }).waitFor();
+    await tablet.close();
+
     // ---- remote access: a phone pairs from the QR link and reconnects with its key
     await panel.evaluate(async ([relayUrl, pocketUrl]) => {
       // Addresses come with the installation; here the test supplies local ones through the same API.

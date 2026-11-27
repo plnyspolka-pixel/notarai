@@ -91,3 +91,10 @@ button.chip { min-height: 36px; padding: 4px 12px; border-radius: 999px; font-si
 #rules-box li { margin: 4px 0; }
 #rules-box li button { min-height: 28px; padding: 0 8px; }
 #bar { flex-wrap: wrap; }
+
+/* ---- microphone mode ---- */
+#listener { text-align: center; }
+.listener-state { font-size: 1.1rem; min-height: 3em; }
+.meter { height: 14px; border-radius: 7px; background: #e3ebe8; overflow: hidden; margin: 12px 0; }
+#listener-level { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+button.big { width: 100%; min-height: 72px; font-size: 1.2rem; }

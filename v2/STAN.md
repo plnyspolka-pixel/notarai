@@ -21,6 +21,9 @@ V1 pozostaje nietknięte.
 | Poczta | Thunderbird (wprost z plików), klasyczny Outlook, folder .eml; tylko odczyt, wiadomość do sprawy jednym zdaniem | testy na plikach Thunderbirda; Outlook na atrapie |
 | Samodzielne wypełnianie | „wypełnij …” na stanowisku wpisuje dane w formularz na stronie albo w programie Windows, naciska „Dalej”, pokazuje zrzut i stan każdego pola; wysyła dopiero po „Wyślij teraz” | testy na prawdziwym formularzu w Chromium + przeglądarka; okno Windows w CI |
 | Notatki głosowe | Mikrofon w Pocket, pliki z dyktafonu i komunikatorów; tekst przepisany lokalnie trafia do sprawy obok nagrania | testy na atrapie rozpoznawania mowy + przeglądarka |
+| Twarde zasady kancelarii | Zasady ustawiane zdaniem („zasada: …”), pilnowane przez kod przy zapisie projektu, zapisie z Worda, wysyłce formularza i zmianie ustawień; małe okienko „Zasady kancelarii” w nagłówku | testy + przeglądarka |
+| Styl kancelarii | „naucz się stylu kancelarii” czyta akty na dyskach stanowiska (DOCX, ODT, RTF, TXT) i zapamiętuje powtarzalne sformułowania i układ, bez danych klientów; projekty piszą tymi sformułowaniami | testy na fikcyjnym dysku |
+| Stały nasłuch | Mikrofony (tablet, telefon, komputer) sparowane jako „mikrofon”; stenopis odczytanego aktu trafia do sprawy, z rozmów i telefonów powstają notatki z terminem i kontaktem | testy + przeglądarka (zastępczy mikrofon) |
 | Uczenie przez pokazanie | Nagranie ekranu z komentarzem zamienia się w procedurę do zatwierdzenia; dla sprawy powstają wartości do każdego pola z przyciskiem „Kopiuj” | testy + przeglądarka + próba na żywo z Bedrock |
 | Telefon w kancelarii | Pocket w przeglądarce, uprawnienia odczyt/zapis i per sprawa | przeglądarka |
 | Telefon poza kancelarią | Parowanie kodem QR, szyfrowanie od telefonu do komputera, klucz nie opuszcza telefonu | przeglądarka przez lokalny przekaźnik |
@@ -41,6 +44,24 @@ Jedno okno rozmowy, w Pocket i w panelu stanowiska. Piszesz zwykłym zdaniem, be
 - kafelki: „narzędzia”, „dodaj kafelek Taksa”, „dodaj kafelek Pełnomocnictwo KW: przygotuj pełnomocnictwo…”, „ukryj kafelki”
 - poczta (panel): „połącz pocztę”, „poczta”, „maile od Kowalskiego”, „dodaj mail 2 do sprawy”
 - procedury: „nagraj procedurę Wniosek o wpis w KW” (panel), potem na każdym urządzeniu „wypełnij wniosek o wpis w KW”
+
+### Twarde zasady kancelarii
+
+Notariusz pisze w panelu np. „zasada: każdy akt musi zawierać „Notariusz pouczył strony…””, „zasada: nigdy
+„Szanowny Panie””, „zasada: wysyłka tylko w dni robocze od 8 do 15”, „zasada: przed wysłaniem pole
+„PESEL wnioskodawcy” musi być wypełnione”, „zasada: pseudonimizacja zawsze włączona”. Program przyjmuje tylko
+zasady, które umie sprawdzić kodem; inne odrzuca i mówi dlaczego, zamiast udawać, że ich pilnuje. Model widzi
+wymagane sformułowania, żeby projekt był od razu zgodny, ale o zapisie i wysyłce decyduje sprawdzenie w kodzie.
+
+### Stały nasłuch
+
+1. W panelu: „włącz nasłuch” (z potwierdzeniem i przypomnieniem o obowiązku informacyjnym RODO).
+2. „dodaj mikrofon Sekretariat”, „dodaj mikrofon Gabinet”: kod albo QR otwiera na tablecie lub telefonie ekran
+   mikrofonu. Urządzenie zostaje na ładowarce; przesyła fragmenty z dźwiękiem, ciszy nie wysyła.
+3. Komputer kancelarii przepisuje mowę lokalnie. Rozmowa, która pokrywa się z aktem w którejś sprawie, staje się
+   stenopisem tej sprawy; pozostałe (wizyty, telefony słyszane w pokoju) stają się notatkami w sprawie
+   „sekretariat” z podsumowaniem, terminem i kontaktem. Dźwięk nie jest przechowywany.
+4. „nasłuch”, „wstrzymaj nasłuch”, „wznów nasłuch”, „notatki z rozmów”, „stenopisy”.
 
 ### Jak notariusz pracuje z formularzami
 
@@ -96,6 +117,16 @@ dopóki notariusz tego nie włączy.
   kancelaryjnych (np. RejNET) nie sprawdzałem, bo nie mam do nich dostępu.
 - Nagrywanie ekranu: sprawdzone w Chromium na zastępczym obrazie ekranu, nie na prawdziwym pulpicie Windows.
 - Microsoft Word: przetestowane z LibreOffice; z Wordem mechanizm jest ten sam (plik i blokada `~$`), ale nie był uruchomiony.
+
+## Do sprawdzenia na miejscu (nasłuch)
+
+- Jakość rozpoznawania mowy z mikrofonu w pokoju zależy od sprzętu; dobry mikrofon konferencyjny na biurku
+  zamiast mikrofonu tabletu wyraźnie pomaga. Rozmowy telefonicznej program słyszy tylko stronę kancelarii,
+  chyba że rozmowa idzie przez głośnik.
+- Model „small” na zwykłym procesorze przepisuje mniej więcej w czasie rzeczywistym; przy kilku mikrofonach
+  naraz kolejka może rosnąć w ciągu dnia i nadrabiać po godzinach.
+- Obowiązek informacyjny (RODO, art. 13) i zgoda zespołu na nagrywanie w pokojach: decyzja i wzór informacji
+  po stronie kancelarii.
 
 ## Decyzje dla właściciela
 

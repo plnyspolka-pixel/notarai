@@ -113,6 +113,13 @@ class VoiceNote(BaseModel):
     case: str | None = Field(default=None, pattern=CASE)
 
 
+class Segment(BaseModel):
+    audio_b64: str = Field(max_length=4 * 1024 * 1024)
+    suffix: str = Field(default=".webm", pattern=r"^\.(webm|ogg|m4a|mp4|wav)$")
+    started_ms: int = Field(ge=0)
+    duration_ms: int = Field(ge=0, le=10 * 60 * 1000)
+
+
 class Recording(BaseModel):
     recording_b64: str = Field(max_length=((MAX_BYTES+2)//3)*4)
 
@@ -237,6 +244,16 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     app_maintain = maintain
 
+    async def listening_loop():
+        while True:
+            await asyncio.sleep(3)
+            try:
+                await asyncio.to_thread(app.state.listening.tick)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass        # one bad segment must not stop the microphones
+
     async def maintenance_loop():
         while True:
             await asyncio.sleep(120)
@@ -255,8 +272,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         _app.state.lock = acquire(home)       # one serving process per vault; key rotation checks this
         await restart_relay()
         upkeep = asyncio.create_task(maintenance_loop())
+        ears = asyncio.create_task(listening_loop())
         yield
         upkeep.cancel()
+        ears.cancel()
         try:
             _app.state.close_browser()
         except Exception:
@@ -268,7 +287,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
     app = FastAPI(title="NotarAI 2.0 development worker", docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
 
-    def auth(authorization: str = Header(default="")) -> Identity:
+    LISTEN_PATHS = {"/v2/listen", "/v2/listen/state"}
+
+    def identify(authorization: str) -> Identity:
         if secrets.compare_digest(authorization.encode(), ("Bearer "+token).encode()):
             return Identity("local-admin","admin")
         if authorization.startswith("Tunnel ") and authorization[7:] in internal:
@@ -278,6 +299,13 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             if device:
                 return Identity(*device)
         raise HTTPException(401,"unauthorized")
+
+    def auth(request: Request, authorization: str = Header(default="")) -> Identity:
+        identity = identify(authorization)
+        if identity.scope == "listen" and request.url.path not in LISTEN_PATHS:
+            # A microphone sends sound and nothing else: no documents, no chat, no settings.
+            raise HTTPException(403, "microphone only")
+        return identity
 
     def admin(identity: Identity = Depends(auth)) -> Identity:
         if identity.scope != "admin":
@@ -307,7 +335,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         import httpx
 
         known = devices.lookup(device_id)       # re-read on every request, so revocation is immediate
-        if known is None or known["scope"] not in {"read", "write"}:
+        if known is None or known["scope"] not in {"read", "write", "listen"}:
             return 401, {"detail": "unauthorized"}
         if path.split("?")[0] in {"/v2/devices/redeem", "/v2/devices/invite"}:
             return 403, {"detail": "local only"}      # pairing through the tunnel has its own message
@@ -792,6 +820,36 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(400, "invalid recording")
         return store_voice_note(audio, req.name, req.case, identity.id)
 
+    from .listening import Listening
+    from .docx_writer import extract as extract_docx
+
+    listening = Listening(vault, lambda audio, suffix: speech_to_text(audio, suffix), lambda: state["inference"],
+                          lambda: state["settings"].listen, extract=extract_docx)
+    app.state.listening = listening
+
+    def source_name(identity: Identity) -> str:
+        if identity.scope == "admin":
+            return "stanowisko"
+        known = devices.lookup(identity.id)
+        return known["name"] if known else "mikrofon"
+
+    @app.post("/v2/listen")
+    def listen_segment(req: Segment, identity: Identity = Depends(auth)):
+        if identity.scope not in {"listen", "admin"}:
+            raise HTTPException(403, "microphones only")
+        try:
+            audio = base64.b64decode(req.audio_b64, validate=True)
+        except (ValueError, binascii.Error):
+            raise HTTPException(400, "invalid audio")
+        accepted = listening.accept(source_name(identity), audio, req.suffix, req.started_ms / 1000, req.duration_ms / 1000)
+        current = state["settings"].listen
+        return {"accepted": accepted, "enabled": current.enabled, "paused": current.paused}
+
+    @app.get("/v2/listen/state")
+    def listen_state(identity: Identity = Depends(auth)):
+        current = state["settings"].listen
+        return {"enabled": current.enabled, "paused": current.paused, "source": source_name(identity)}
+
     def transcribe_document(doc_id: str, actor: str) -> dict:
         """Text for a recording already in the vault, stored next to it (the recording is not copied)."""
         version, name, data = vault.get(doc_id, actor=actor)
@@ -848,7 +906,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     chat = Chat(SimpleNamespace(
         layouts=layouts, procedures=procedures, autofill=autofill, transcribe_document=transcribe_document,
-        rules=rules, style=style,
+        rules=rules, style=style, listening=lambda: app.state.listening,
+        status_listen=lambda: state["settings"].listen.model_dump(),
+        can_transcribe=lambda: transcriber is not None or local_speech.available(),
         transcribes=lambda: transcriber is not None or __import__("worker.transcribe", fromlist=["x"]).available(),
         mail_detect=mail_detect or mail_module.detect,
         mail_source=lambda: mail_module.open_source(state["settings"].mail.source, state["settings"].mail.path),

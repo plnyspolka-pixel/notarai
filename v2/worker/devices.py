@@ -35,8 +35,8 @@ class DeviceRegistry:
     def invite(self, name, scope, *, replace_pending=False, cases=None, allow_admin=False):
         """`allow_admin` is for the local launcher only: an admin code opens the workstation panel
         for twelve hours. The HTTP API never passes it."""
-        allowed = {"read","write","admin"} if allow_admin else {"read","write"}
-        if scope == "admin" and cases is not None:
+        allowed = {"read","write","listen","admin"} if allow_admin else {"read","write","listen"}
+        if scope in {"admin", "listen"} and cases is not None:
             raise ValueError("invalid device")
         if scope not in allowed or not name.strip() or len(name)>80:
             raise ValueError("invalid device")
@@ -78,11 +78,11 @@ class DeviceRegistry:
         """A live device by identifier (the tunnel authenticates by key, not by token)."""
         with self.connect() as db:
             row = db.execute(
-                "SELECT scope,cases,pubkey FROM devices WHERE id=? AND revoked=0 AND (expires IS NULL OR expires > ?)",
+                "SELECT scope,cases,pubkey,name FROM devices WHERE id=? AND revoked=0 AND (expires IS NULL OR expires > ?)",
                 (device_id, int(time.time()))).fetchone()
         if row is None:
             return None
-        return {"scope": row[0], "cases": json.loads(row[1]) if row[1] else None, "pubkey": row[2]}
+        return {"scope": row[0], "cases": json.loads(row[1]) if row[1] else None, "pubkey": row[2], "name": row[3]}
 
     def list(self):
         with self.connect() as db:

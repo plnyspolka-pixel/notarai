@@ -110,8 +110,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: zawsze dopiero po
   zatwierdzeniu w czacie, związanym ze stanem formularza z podglądu; jedno naciśnięcie, bez
   ponawiania po niepewnym wyniku. Nie dodawaj ścieżki, która wysyła bez tego zatwierdzenia.
-- Mowa (nagrania procedur, notatki głosowe): tylko lokalnie (`v2/worker/transcribe.py`),
-  bez usług mowy w chmurze.
+- Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): tylko
+  lokalnie (`v2/worker/transcribe.py`), bez usług mowy w chmurze; dźwięku nasłuchu nie zapisuj.
+  Urządzenie o zakresie `listen` (mikrofon) wysyła tylko dźwięk: nie dawaj mu innych tras.
+- Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
+  ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
+  zasady, którego kod nie umie sprawdzić.
 - Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
   w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
 

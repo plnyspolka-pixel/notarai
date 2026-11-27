@@ -364,6 +364,7 @@ class Chat:
                       "• „urządzenia”, „cofnij telefon”",
                       "• „zasada: każdy akt musi zawierać „…””, „zasady”, „usuń zasadę 2”",
                       "• „naucz się stylu kancelarii” albo „naucz się stylu z D:\\Akty”, potem „styl kancelarii”",
+                      "• „włącz nasłuch”, „dodaj mikrofon Sekretariat”, „nasłuch”, „notatki z rozmów”, „stenopisy”",
                       "• „kto czytał umowa.docx?”",
                       "• „otwórz umowa w Wordzie”, potem „zapisz do sejfu”",
                       "• „nagraj procedurę Wniosek o wpis w KW”, potem „wypełnij wniosek o wpis w KW”: wpiszę dane "
@@ -433,6 +434,75 @@ class Chat:
         return blocks
 
     # ------------------------------------------------------------ workstation intents
+    def _listen(self, identity, message, plain):
+        """Always-on microphones (workstation only)."""
+        s = self.s
+        if not re.search(r"nasluch|mikrofon|stenopis|notatki z rozmow|rozmowy z dzis|podsluch", plain):
+            return None
+        current = s.status_listen()
+        if plain.startswith(("wlacz nasluch", "uruchom nasluch")):
+            if not s.can_transcribe():
+                return [text("Na tym komputerze nie ma rozpoznawania mowy, więc nasłuch nie miałby czego zapisać.")]
+
+            def act():
+                s.update_settings(lambda d: d["listen"].update(enabled=True, paused=False))
+                return [text("Nasłuch włączony. Dodaj mikrofony zdaniem „dodaj mikrofon Sekretariat” albo "
+                             "„dodaj mikrofon Gabinet”."), buttons(("Dodaj mikrofon", "dodaj mikrofon Sekretariat"))]
+            return [self._confirm(identity,
+                                  "Włączyć stały nasłuch? Mikrofony będą zapisywać rozmowy w kancelarii jako tekst: "
+                                  "stenopisy odczytanych aktów trafią do spraw, a z rozmów i telefonów powstaną notatki. "
+                                  "Dźwięku nie przechowuję. Klientów trzeba o tym poinformować (RODO, art. 13), np. "
+                                  "tabliczką przy wejściu i zdaniem na początku rozmowy telefonicznej.",
+                                  "Tak, włącz nasłuch", act)]
+        if plain.startswith(("wylacz nasluch", "zakoncz nasluch")):
+            s.update_settings(lambda d: d["listen"].update(enabled=False))
+            filed = s.listening().flush()
+            return [text("Nasłuch wyłączony." + (f" Zapisałem ostatnie rozmowy: {len(filed)}." if filed else ""))]
+        if re.match(r"(wstrzymaj|pauza|zatrzymaj|przerwij) nasluch|pauza", plain):
+            s.update_settings(lambda d: d["listen"].update(paused=True))
+            return [text("Nasłuch wstrzymany. Mikrofony nic nie przesyłają, dopóki nie napiszesz „wznów nasłuch”.")]
+        if plain.startswith(("wznow nasluch", "wznow")):
+            s.update_settings(lambda d: d["listen"].update(paused=False))
+            return [text("Nasłuch wznowiony.")]
+        found = re.fullmatch(r"(?:dodaj|sparuj|podlacz) mikrofon\s*(.*)", plain)
+        if found:
+            name = message.split(None, 2)[2].strip(" „”\"") if len(message.split(None, 2)) > 2 else "Mikrofon"
+            invitation = s.devices.invite(name[:80], "listen")
+            blocks = [text(f"Mikrofon „{name}”. Na urządzeniu, które ma słuchać (tablet, telefon, komputer z mikrofonem), "
+                           "otwórz Pocket tym kodem i zostaw je włączone na ładowarce. Kod działa raz, przez 5 minut. "
+                           "Mikrofon nie ma dostępu do dokumentów.")]
+            link = s.pairing_link(invitation["code"])
+            if link:
+                blocks.append({"type": "qr", "link": link})
+            blocks.append({"type": "secret", "title": "Kod mikrofonu", "text": invitation["code"],
+                           "hint": "Na tym komputerze: wklej w Pocket. Nie wysyłaj kodu e-mailem."})
+            if not current["enabled"]:
+                blocks.append(buttons(("Włącz nasłuch", "włącz nasłuch")))
+            return blocks
+        if "notatki z rozmow" in plain or "rozmowy z dzis" in plain or plain.startswith("stenopisy"):
+            wanted = "stenopis-" if "stenopis" in plain else "rozmowa-"
+            items = sorted((d for d in s.vault.summaries() if d["name"].startswith(wanted)), key=lambda d: -d["created"])[:12]
+            if not items:
+                return [text("Nie ma jeszcze " + ("stenopisów." if wanted == "stenopis-" else "notatek z rozmów."))]
+            return [text(("Ostatnie stenopisy:" if wanted == "stenopis-" else "Ostatnie notatki z rozmów:")),
+                    {"type": "documents", "items": [{"id": d["id"], "name": d["name"], "version": d["version"]} for d in items]}]
+        listening = s.listening()
+        mics = [d for d in s.devices.list() if d["scope"] == "listen" and not d["revoked"]]
+        state = ("wyłączony" if not current["enabled"] else "wstrzymany" if current["paused"] else "włączony")
+        lines = [f"Nasłuch: {state}."]
+        for mic in mics:
+            seen = listening.sources.get(mic["name"])
+            lines.append(f"• {mic['name']}: " + (f"ostatni dźwięk {when(int(seen['last'] * 10**9))}" if seen else "jeszcze nic nie przesłał"))
+        if not mics:
+            lines.append("Nie ma jeszcze mikrofonów.")
+        if listening.pending():
+            lines.append(f"Do przepisania czeka fragmentów: {listening.pending()}.")
+        actions = [("Dodaj mikrofon", "dodaj mikrofon Sekretariat"), ("Notatki z rozmów", "notatki z rozmów"),
+                   ("Stenopisy", "stenopisy")]
+        actions.insert(0, ("Włącz nasłuch", "włącz nasłuch") if not current["enabled"] else
+                       ("Wznów nasłuch", "wznów nasłuch") if current["paused"] else ("Wstrzymaj nasłuch", "wstrzymaj nasłuch"))
+        return [text("\n".join(lines)), buttons(*actions)]
+
     def _style(self, identity, message, plain):
         """Learning the office's way of writing from acts already on its computers (workstation only)."""
         s = self.s
@@ -526,6 +596,9 @@ class Chat:
         learned = self._style(identity, message, plain)
         if learned is not None:
             return learned
+        heard = self._listen(identity, message, plain)
+        if heard is not None:
+            return heard
         mail = self._mail(identity, message, plain, case)      # before devices: "odłącz pocztę" is not a device
         if mail is not None:
             return mail

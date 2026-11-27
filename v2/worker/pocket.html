@@ -30,6 +30,14 @@
     <input id="code" type="password" autocomplete="off">
     <button id="pair" class="primary">Połącz</button>
   </section>
+  <section id="listener" hidden aria-label="Mikrofon">
+    <h2 id="listener-name">Mikrofon</h2>
+    <p id="listener-state" class="listener-state" role="status">Uruchamiam…</p>
+    <div class="meter" aria-hidden="true"><div id="listener-level"></div></div>
+    <button id="listener-toggle" class="primary big">Wstrzymaj</button>
+    <p class="muted">To urządzenie przesyła do komputera kancelarii tylko dźwięk z rozmów; ciszy nie wysyła. Zostaw je
+      włączone na ładowarce. Nie ma dostępu do dokumentów.</p>
+  </section>
   <main id="workspace" hidden>
     <section id="desk" hidden aria-label="Moje kafelki">
       <div id="tiles"></div>

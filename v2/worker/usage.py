@@ -4,7 +4,7 @@ import time
 from contextlib import closing
 from pathlib import Path
 
-PURPOSES = frozenset({"draft", "chat", "extract", "command", "smoke", "learn", "fill"})
+PURPOSES = frozenset({"draft", "chat", "extract", "command", "smoke", "learn", "fill", "listen"})
 
 
 class UsageLedger:

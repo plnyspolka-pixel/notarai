@@ -69,6 +69,12 @@ class SpeechSettings(_Strict):
     model: str = Field(default="small", pattern=r"^(tiny|base|small|medium|large-v3|turbo)$")
 
 
+class ListenSettings(_Strict):
+    enabled: bool = False
+    paused: bool = False
+    gap_seconds: int = Field(default=120, ge=30, le=900)     # quiet this long ends a conversation
+
+
 class MailSettings(_Strict):
     source: str | None = Field(default=None, pattern=r"^(thunderbird|outlook|folder)$")
     path: str | None = Field(default=None, max_length=400)
@@ -81,6 +87,7 @@ class Settings(_Strict):
     tunnel: TunnelSettings = TunnelSettings()
     mail: MailSettings = MailSettings()
     speech: SpeechSettings = SpeechSettings()
+    listen: ListenSettings = ListenSettings()
     backup_dir: str | None = None
     backup_reminder_days: int = Field(default=7, ge=1, le=90)
 

@@ -805,6 +805,96 @@ async function saveFile(input, current) {
   if (!current) bubble("Dodałem " + file.name + (currentCase() ? " do sprawy „" + currentCase() + "”." : "."), "them");
 }
 
+// ---------------------------------------------------------------- microphone mode
+const SEGMENT_MS = window.NOTARAI_SEGMENT_MS || 20000;     // short pieces: a lost one loses little
+const QUIET = 0.02;                                         // below this the piece is silence and is not sent
+let listener = null;
+
+async function startListener() {
+  const state = await call("listen/state");
+  el("listener-name").textContent = "Mikrofon: " + state.source;
+  el("listener").hidden = false;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch {
+    el("listener-state").textContent = "Brak dostępu do mikrofonu. Zezwól na niego w ustawieniach przeglądarki i odśwież.";
+    return;
+  }
+  const audio = new AudioContext();
+  await audio.resume();
+  const analyser = audio.createAnalyser();
+  analyser.fftSize = 1024;
+  audio.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+  listener = { stream, audio, paused: false, lock: null, peak: 0, sent: 0, timer: null };
+
+  const level = () => {
+    analyser.getFloatTimeDomainData(samples);
+    let sum = 0;
+    for (const value of samples) sum += value * value;
+    const rms = Math.sqrt(sum / samples.length);
+    listener.peak = Math.max(listener.peak, rms);
+    el("listener-level").style.width = Math.min(100, Math.round(rms * 400)) + "%";
+  };
+  listener.meter = setInterval(level, 200);
+
+  const keepAwake = async () => {
+    try { if ("wakeLock" in navigator) listener.lock = await navigator.wakeLock.request("screen"); } catch { /* optional */ }
+  };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && listener) keepAwake(); });
+  await keepAwake();
+
+  const piece = () => {
+    if (!listener || listener.paused) return;
+    const chunks = [];
+    const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
+    const started = Date.now();
+    listener.peak = 0;
+    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    recorder.onstop = async () => {
+      const loud = listener && listener.peak >= QUIET;
+      if (listener && !listener.paused) piece();          // the next piece starts at once
+      if (!loud) return;
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      try {
+        const answer = await call("listen", "POST", {
+          audio_b64: encode(new Uint8Array(await blob.arrayBuffer())),
+          suffix: /ogg/.test(blob.type) ? ".ogg" : /mp4/.test(blob.type) ? ".mp4" : ".webm",
+          started_ms: started, duration_ms: Date.now() - started,
+        });
+        listener.sent += answer.accepted ? 1 : 0;
+        el("listener-state").textContent = !answer.enabled ? "Nasłuch jest wyłączony w kancelarii."
+          : answer.paused ? "Nasłuch wstrzymany w kancelarii." : "Słucham. Przesłane fragmenty rozmów: " + listener.sent + ".";
+      } catch (error) {
+        el("listener-state").textContent = "Nie mogę połączyć się z kancelarią. Próbuję dalej. (" + error.message + ")";
+      }
+    };
+    recorder.start();
+    listener.timer = setTimeout(() => recorder.state !== "inactive" && recorder.stop(), SEGMENT_MS);
+    listener.recorder = recorder;
+  };
+  listener.piece = piece;
+  el("listener-state").textContent = state.enabled ? (state.paused ? "Nasłuch wstrzymany w kancelarii." : "Słucham.")
+    : "Nasłuch jest wyłączony w kancelarii. Włączysz go w panelu stanowiska.";
+  piece();
+}
+
+el("listener-toggle").onclick = () => {
+  if (!listener) return;
+  listener.paused = !listener.paused;
+  el("listener-toggle").textContent = listener.paused ? "Wznów" : "Wstrzymaj";
+  if (listener.paused) {
+    clearTimeout(listener.timer);
+    if (listener.recorder && listener.recorder.state !== "inactive") listener.recorder.stop();
+    el("listener-state").textContent = "Wstrzymane na tym urządzeniu. Nic nie przesyłam.";
+  } else {
+    el("listener-state").textContent = "Słucham.";
+    listener.recorder = null;
+    listener.piece();
+  }
+};
+
 // ---------------------------------------------------------------- session
 async function refreshCases(keep) {
   const cases = await call("cases");
@@ -824,6 +914,11 @@ async function enter(device) {
   token = device.token;
   scope = device.scope;
   el("pairing").hidden = true;
+  if (scope === "listen") {          // a microphone: no chat, no documents
+    el("mode").hidden = true;
+    await startListener();
+    return;
+  }
   el("workspace").hidden = false;
   el("bar").hidden = false;
   el("attach").hidden = scope === "read";
