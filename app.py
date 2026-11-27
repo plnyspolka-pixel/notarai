@@ -183,6 +183,28 @@ def powiazanie_aplikacji_android():
                         media_type="application/json")
 
 
+@app.get("/dodaj-do-sprawy-sw.js")
+def dodaj_do_sprawy_sw():
+    """Service worker funkcji "Dodaj do sprawy" (pliki udostepnione z telefonu).
+
+    Musi byc podany spod korzenia, zeby mogl przejac formularz /dodaj-do-sprawy; sam nie
+    obsluguje zadnej innej sciezki.
+    """
+    return FileResponse(Path(__file__).parent / "static" / "dodaj-do-sprawy-sw.js",
+                        media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+@app.post("/dodaj-do-sprawy")
+async def dodaj_do_sprawy_bez_przegladarki(request: Request):
+    """Formularz udostepniania, gdy przegladarka nie ma jeszcze service workera.
+
+    Bez logowania nie przyjmujemy plikow: tresci zadania nie czytamy i niczego nie zapisujemy,
+    tylko odsylamy do aplikacji z informacja, zeby udostepnic pliki jeszcze raz.
+    """
+    return Response(status_code=303, headers={"Location": "/?dodaj=brak"})
+
+
 @app.get("/zdrowie")
 def zdrowie(request: Request):
     """Sonda dla App Runner/ECS. Zadnych danych, sam status.

@@ -7,6 +7,10 @@
     <string-array name="dodatkowe_domeny" translatable="false">
         <item>https://app.notarai.pl</item>
     </string-array>
+    <!-- „Dodaj do sprawy”: zdjęcie albo PDF udostępnione z telefonu trafia do konta kancelarii,
+         gdzie notariusz wybiera sprawę (static/dodaj-do-sprawy.js po stronie aplikacji w chmurze). -->
+    <string name="dodaj_do_sprawy" translatable="false">Dodaj do sprawy</string>
+    <string name="cel_udostepniania" translatable="false">{\"action\": \"https://app.notarai.pl/dodaj-do-sprawy\", \"method\": \"POST\", \"enctype\": \"multipart/form-data\", \"params\": {\"files\": [{\"name\": \"pliki\", \"accept\": [\"image/*\", \"application/pdf\"]}]}}</string>
     <string name="skrot_konto" translatable="false">Konto kancelarii</string>
     <string name="skrot_komputer" translatable="false">Połącz z komputerem</string>
     <!-- Identyfikacja wizualna NotarAI (strona/brand-site.css). -->

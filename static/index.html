@@ -2012,6 +2012,16 @@ notarai</div>
 </dialog>
 
 <!-- Kod kancelarii: pytamy, gdy serwer odpowie 423 (sprawy zaszyfrowane kodem). -->
+<!-- Pliki udostępnione aplikacji z telefonu (Android: Udostępnij → NotarAI): wybór sprawy. -->
+<dialog class="okno" id="okno-dodaj-do-sprawy" aria-labelledby="dds-tytul">
+  <h2 id="dds-tytul">Dodaj do sprawy</h2>
+  <p>Pliki udostępnione z telefonu. Na serwer trafią dopiero po wybraniu sprawy.</p>
+  <ul id="dds-pliki"></ul>
+  <label for="dds-sprawa">Sprawa</label>
+  <select id="dds-sprawa" style="width:100%;font:16px var(--sans);padding:9px 10px"></select>
+  <div class="dol"><button id="dds-dodaj">Dodaj do sprawy</button><button class="wtorny" id="dds-odrzuc">Odrzuć pliki</button><span class="stan" id="dds-stan"></span></div>
+</dialog>
+
 <dialog class="okno" id="okno-klucz" aria-labelledby="klucz-tytul">
   <h2 id="klucz-tytul">Kod kancelarii</h2>
   <p id="klucz-opis"></p>
@@ -7593,5 +7603,6 @@ $("prz-zapisz-nadawce").onclick = async () => {
 <script src="/static/personalizacja.js"></script>
 <script src="/static/ksiegi.js"></script>
 <script src="/static/pulpit-ai.js"></script>
+<script src="/static/dodaj-do-sprawy.js"></script>
 </body>
 </html>

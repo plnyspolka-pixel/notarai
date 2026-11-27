@@ -65,7 +65,11 @@ _OTWARTE = ("/", "/static", "/zdrowie", "/admin", "/api/admin", "/api/logowanie"
             # sama strona; jej API (/api/stenogramy) wymaga logowania
             "/stenogramy", "/asysta-odczytu",
             # publiczne potwierdzenie, ze aplikacja NotarAI na Androida nalezy do tej domeny
-            "/.well-known/assetlinks.json")
+            "/.well-known/assetlinks.json",
+            # "Dodaj do sprawy" z telefonu: sam formularz i jego service worker. Pliki zatrzymuje
+            # przegladarka; serwer niczego tu nie zapisuje (app.py), a zalaczniki ida potem
+            # zwykla, zalogowana sciezka /api/sprawy/{id}/pliki.
+            "/dodaj-do-sprawy")
 
 # Bez zaakceptowanej umowy powierzenia nie przetwarzamy spraw (Regulamin
 # § 6 ust. 4). Otwarte zostaje to, co potrzebne do jej zaakceptowania.
