@@ -68,6 +68,7 @@ class Account:
         self._id_token: str | None = None
         self._id_expires = 0.0
         self._credentials: dict | None = None
+        self._identity_id = ""
 
     # ------------------------------------------------------------ sign-in
     @property
@@ -149,6 +150,7 @@ class Account:
                 identity = self._identity.get_id(IdentityPoolId=self._config.identity_pool_id, Logins=logins)
                 issued = self._identity.get_credentials_for_identity(
                     IdentityId=identity["IdentityId"], Logins=logins)["Credentials"]
+                self._identity_id = identity["IdentityId"]
                 expires = issued["Expiration"]
                 self._credentials = {
                     "access_key": issued["AccessKeyId"], "secret_key": issued["SecretKey"],
@@ -160,6 +162,11 @@ class Account:
             except Exception:
                 raise LoginError("Nie udało się uzyskać dostępu do AI dla tego konta.") from None
             return dict(self._credentials)
+
+    def identity_id(self) -> str:
+        """This office's identity in the pool; also its private prefix for off-site copies."""
+        self.credentials()
+        return self._identity_id
 
     def client_factory(self, region: str | None = None):
         """`factory(service)` for worker.inference.Inference; clients always carry fresh credentials."""

@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .aws_credentials import AccountConfig
-from .policy import check_static
+from .policy import EU_REGIONS, check_static
 
 
 class _Strict(BaseModel):
@@ -34,6 +34,10 @@ class ReplicaSettings(_Strict):
     enabled: bool = False
     bucket: str = Field(default="", max_length=63)
     region: str = "eu-central-1"
+
+    def check(self) -> None:
+        if self.enabled and (self.region not in EU_REGIONS or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", self.bucket)):
+            raise ValueError("off-site copies need an EU bucket")
 
 
 class TunnelSettings(_Strict):
@@ -78,6 +82,7 @@ def validate(data) -> Settings:
         check_static(settings.ai.region, settings.ai.model)
         settings.account_config()
         settings.tunnel.check()
+        settings.replica.check()
     except (ValidationError, PermissionError, TypeError):
         raise ValueError("settings are invalid") from None
     return settings

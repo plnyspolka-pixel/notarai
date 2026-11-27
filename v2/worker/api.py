@@ -25,6 +25,7 @@ from .inference import Inference, InferenceError
 from .init_vault import home_path
 from .local_secrets import read_secret
 from .policy import Policy, PolicyError
+from .replica import Replica, ReplicaError
 from .settings import load as load_settings, save as save_settings, validate as validate_settings
 from .sync import plan
 from .usage import UsageLedger
@@ -157,10 +158,59 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         relay["client"] = RelayClient(tunnel_settings.relay_url, relay["keys"], devices, app.state.dispatch)
         relay["task"] = asyncio.create_task(relay["client"].run())
 
+    def replica():
+        current = state["settings"]
+        if not current.replica.enabled or state["account"] is None:
+            return None
+        return Replica(home, state["account"], current.replica.bucket, current.replica.region)
+
+    def local_backup():
+        current = state["settings"]
+        if current.backup_dir is None:
+            raise recovery.RecoveryError("Wskaż w ustawieniach katalog kopii (inny dysk niż ten komputer).")
+        directory = Path(current.backup_dir)
+        if not directory.is_dir():
+            raise recovery.RecoveryError("Katalog kopii jest niedostępny. Podłącz dysk i spróbuj ponownie.")
+        name = time.strftime("notarai-%Y%m%d-%H%M%S.notarai-backup")
+        manifest = recovery.backup(home, directory / name)
+        return {"file": name, "documents": manifest["documents"], "revisions": manifest["revisions"]}
+
+    def due(action: str, hours: int = 24) -> bool:
+        last = vault.last_action(action)
+        return last is None or time.time_ns() - last > hours * 3600 * 10**9
+
+    def maintain() -> dict:
+        """Daily copies without anyone remembering: local disk when present, off-site when enabled."""
+        done = {}
+        if not recovery.enrolled(home):
+            return done
+        if state["settings"].backup_dir is not None and due("backup"):
+            try:
+                done["local"] = local_backup()["file"]
+            except recovery.RecoveryError:
+                pass        # disk unplugged: the panel shows the overdue notice
+        target = replica()
+        if target is not None and state["account"].signed_in and due("offsite-backup"):
+            try:
+                done["offsite"] = target.upload()["file"]
+            except (ReplicaError, recovery.RecoveryError, LoginError):
+                pass
+        return done
+
+    app_maintain = maintain
+
+    async def maintenance_loop():
+        while True:
+            await asyncio.sleep(120)
+            await asyncio.to_thread(maintain)
+            await asyncio.sleep(1800)
+
     @asynccontextmanager
     async def lifespan(_app):
         await restart_relay()
+        upkeep = asyncio.create_task(maintenance_loop())
         yield
+        upkeep.cancel()
         if relay["task"] is not None:
             relay["task"].cancel()
 
@@ -224,6 +274,7 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             return response.status_code, None
 
     app.state.dispatch = dispatch
+    app.state.maintain = app_maintain
     app.state.devices = devices
 
     @app.exception_handler(RequestValidationError)
@@ -248,6 +299,10 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
         if isinstance(exc, ChallengeRequired):
             body["challenge"] = exc.kind
         return JSONResponse(body, status_code=401)
+
+    @app.exception_handler(ReplicaError)
+    async def replica_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
 
     @app.exception_handler(recovery.RecoveryError)
     async def recovery_failed(request, exc):
@@ -335,7 +390,9 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             "ai": {"enabled": inference.enabled, "signed_in": bool(account and account.signed_in),
                    "account_configured": account is not None},
             "recovery": {"enrolled": recovery.enrolled(home), "last_backup": last_backup and last_backup // 10**9,
-                         "backup_overdue": overdue, "backup_dir_configured": settings.backup_dir is not None},
+                         "backup_overdue": overdue, "backup_dir_configured": settings.backup_dir is not None,
+                         "offsite_enabled": settings.replica.enabled,
+                         "last_offsite": (vault.last_action("offsite-backup") or 0) // 10**9 or None},
         }
 
     @app.get("/v2/settings", dependencies=[Depends(admin)])
@@ -396,15 +453,19 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
 
     @app.post("/v2/backup", dependencies=[Depends(admin)])
     def backup():
-        settings = state["settings"]
-        if settings.backup_dir is None:
-            raise recovery.RecoveryError("Wskaż w ustawieniach katalog kopii (inny dysk niż ten komputer).")
-        directory = Path(settings.backup_dir)
-        if not directory.is_dir():
-            raise recovery.RecoveryError("Katalog kopii jest niedostępny. Podłącz dysk i spróbuj ponownie.")
-        name = time.strftime("notarai-%Y%m%d-%H%M%S.notarai-backup")
-        manifest = recovery.backup(home, directory / name)
-        return {"file": name, "documents": manifest["documents"], "revisions": manifest["revisions"]}
+        return local_backup()
+
+    @app.post("/v2/backup/offsite", dependencies=[Depends(admin)])
+    def backup_offsite():
+        target = replica()
+        if target is None:
+            raise recovery.RecoveryError("Kopia poza kancelarią nie jest włączona na tym stanowisku.")
+        return target.upload()
+
+    @app.get("/v2/backup/offsite", dependencies=[Depends(admin)])
+    def backup_offsite_list():
+        target = replica()
+        return target.list() if target is not None else []
 
     # ------------------------------------------------------------ documents
     @app.get("/v2/cases")

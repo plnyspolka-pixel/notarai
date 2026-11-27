@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  notarai V2 - kopie sejfow kancelarii poza kancelaria (eu-central-1). Bucket
+  przechowuje wylacznie zaszyfrowane pliki kopii; klucz do nich ma tylko kancelaria
+  (kod odzyskiwania), notarai i AWS go nie znaja. Mimo to sa to zaszyfrowane dane
+  osobowe klientow kancelarii - utworzenie stosu wymaga swiadomej decyzji
+  wlasciciela (patrz CLAUDE.md).
+
+Parameters:
+  NazwaBucketa:
+    Type: String
+    Default: notarai-v2-kopie
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+  RolaStanowiska:
+    Type: String
+    Default: notarai-v2-stanowisko
+    Description: Rola ze stosu notarai-v2-bedrock, ktorej wolno zapisywac kopie
+  DniStarychWersji:
+    Type: Number
+    Default: 30
+    Description: Po ilu dniach znika usunieta albo nadpisana kopia
+
+Resources:
+  Kopie:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref NazwaBucketa
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: stare-wersje
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: !Ref DniStarychWersji
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 2
+
+  TylkoTls:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Kopie
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TylkoSzyfrowanePolaczenie
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt Kopie.Arn
+              - !Sub "${Kopie.Arn}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  # Kazda kancelaria widzi i zapisuje wylacznie wlasny katalog: jego nazwa to
+  # identyfikator tozsamosci z puli Cognito, ktorego nie da sie podac za kogos.
+  DostepDoWlasnychKopii:
+    Type: AWS::IAM::RolePolicy
+    Properties:
+      RoleName: !Ref RolaStanowiska
+      PolicyName: notarai-v2-kopie-wlasne
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: WlasneKopie
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: !Sub "${Kopie.Arn}/${!cognito-identity.amazonaws.com:sub}/*"
+          - Sid: ListaWlasnychKopii
+            Effect: Allow
+            Action: s3:ListBucket
+            Resource: !GetAtt Kopie.Arn
+            Condition:
+              StringLike:
+                "s3:prefix": "${cognito-identity.amazonaws.com:sub}/*"
+
+Outputs:
+  Bucket:
+    Description: Wpisz w ustawieniach stanowiska V2 jako replica.bucket
+    Value: !Ref Kopie

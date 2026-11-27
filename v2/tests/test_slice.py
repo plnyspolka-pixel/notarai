@@ -200,7 +200,7 @@ def test_status_recovery_backup_and_fee(office, tmp_path):
     client, admin, home, _ = office
     status = client.get("/v2/status", headers=admin).json()
     assert status["recovery"] == {"enrolled": False, "last_backup": None, "backup_overdue": True,
-                                  "backup_dir_configured": False}
+                                  "backup_dir_configured": False, "offsite_enabled": False, "last_offsite": None}
     assert client.post("/v2/backup", headers=admin).status_code == 409
     code = client.post("/v2/recovery/enroll", headers=admin).json()["code"]
     assert client.post("/v2/recovery/enroll", headers=admin).status_code == 409

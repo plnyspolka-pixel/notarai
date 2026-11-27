@@ -114,7 +114,7 @@ def _manifest_mac(master: bytes, manifest: dict) -> str:
     return hmac.new(derive(master, "backup"), body, hashlib.sha256).hexdigest()
 
 
-def backup(home: Path, destination: Path) -> dict:
+def backup(home: Path, destination: Path, *, action: str = "backup") -> dict:
     """Write one backup file. Refuses to overwrite and to run without a recovery code."""
     if not enrolled(home):
         raise RecoveryError("Najpierw utwórz kod odzyskiwania: bez niego kopii nie da się odtworzyć.")
@@ -144,7 +144,7 @@ def backup(home: Path, destination: Path) -> dict:
             os.replace(partial, destination)
         finally:
             partial.unlink(missing_ok=True)
-    vault.log("local-admin", "backup")
+    vault.log("local-admin", action)
     return manifest
 
 
