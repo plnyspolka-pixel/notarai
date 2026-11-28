@@ -28,6 +28,7 @@ from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 import config
 import dokumenty
 import prompty
+import prawo_datadonkey
 import tokenomia
 
 log = logging.getLogger("pieczapp.bedrock")
@@ -659,7 +660,13 @@ def sporzadz_projekt(
     # samym wzorze czytaja go z cache; dane sprawy i polecenie ida po punkcie.
     staly, zmienny = prompty.polecenie_generowania_bloki(wzor, dane, opis, legenda, ustalenia, personalizacja)
     tresc = [{"text": staly}, PUNKT_CACHE, {"text": zmienny}]
-    return _oczysc_projekt(_rozmowa(prompty.GENEROWANIE, tresc))
+    # Wyszukiwanie lokalne: bez przekazywania danych stron do DataDonkey.
+    prawny = prawo_datadonkey.kontekst(opis + "\n" + wzor + "\n" + ustalenia)
+    system = prompty.GENEROWANIE
+    if prawny:
+        tresc.append({"text": prawny})
+        system += prawo_datadonkey.INSTRUKCJA
+    return _oczysc_projekt(_rozmowa(system, tresc))
 
 
 def popraw_wg_zasad(tekst: str, naruszenia: list[dict]) -> str:
@@ -934,15 +941,24 @@ def rozmawiaj(kontekst: str, historia: list[dict], wiadomosc: str) -> str:
         if tura["role"] == "assistant":
             tura["content"].append(PUNKT_CACHE)
             break
+    prawny = prawo_datadonkey.kontekst((wiadomosc or "") + "\n" + kontekst)
+    system = prompty.ROZMOWA + (prawo_datadonkey.INSTRUKCJA if prawny else "")
     if wiadomosc is None:
         # pierwsza tura: pytania wstepne - kontekst juz jest ostatnia tura uzytkownika
         ostatnia = tury.pop()
-        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
+        if prawny:
+            ostatnia["content"].append({"text": prawny})
+        return _rozmowa(system, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
     if tury[-1]["role"] == "user":
         tury[-1]["content"].append({"text": wiadomosc})
         ostatnia = tury.pop()
-        return _rozmowa(prompty.ROZMOWA, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
-    return _rozmowa(prompty.ROZMOWA, [{"text": wiadomosc}], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
+        if prawny:
+            ostatnia["content"].append({"text": prawny})
+        return _rozmowa(system, ostatnia["content"], max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
+    tresc = [{"text": wiadomosc}]
+    if prawny:
+        tresc.append({"text": prawny})
+    return _rozmowa(system, tresc, max_tokenow=MAX_TOKENOW_ROZMOWY, historia=tury)
 
 
 # Odpowiedz kalkulatora to krotki JSON z parametrami; kwoty liczy taksa.py.
