@@ -17,6 +17,7 @@ Dwa kierunki:
 |---|---|
 | [STAN-WIEDZY.md](STAN-WIEDZY.md) | stan wiedzy na dzień wpisu: co wiadomo, z jaką pewnością, co z tego wynika dla nas |
 | [KIERUNKI.md](KIERUNKI.md) | kolejne kierunki i eksperymenty laboratorium, z kosztem i miarą sukcesu |
+| [SPRZEDAZ-PRODUKTOW-CYFROWYCH.md](SPRZEDAZ-PRODUKTOW-CYFROWYCH.md) | sprzedaż produktów cyfrowych (28.11.2026): co testować, ceny, konwersja, kanały, lejki, walidacja, Polska i prawo. Rejestry `sprzedaz-*.jsonl`: `popyt` (RP, 50), `ceny` (RC, 83), `konwersja` (RK, 97), `kanaly` (RA, 80), `lejki` (RL, 64), `walidacja` (RW, 72), `polska` (RO, 34) — 480 pozycji, 393 unikalne prace. Weryfikacja: 479 potwierdzonych, 1 `tytul_inny` (RO028, do obejrzenia); RL001 (Ariely i Wertenbroch 2002) oznaczona w OpenAlex jako wycofana. Notatki źródłowe z linkami: `research_notes/Sprzedaż produktów cyfrowych/`. Część liczb spoza OpenAlex pochodzi ze streszczeń wyszukiwarki — oznaczone w raporcie |
 | [GENEROWANIE-WIDEO.md](GENEROWANIE-WIDEO.md) | generowanie obrazów i wideo na otwartych modelach: workflow, agenci, powtórki, ocena (rejestry `media-*.jsonl`, M/N/Q, 100 prac) — pod ai-clip |
 | `zrodla/*.jsonl` | rejestry prac (każda z identyfikatorem OpenAlex): `bezpieczenstwo` (S, 62), `llm-agenci` (L, 71), `trening-agentow` (T, 77), `praca-z-agentami` (P, 57), `zbiory-dla-agentow` (D, 85); `zbiory-danych` — rejestr dziedzinowy drugiej sesji |
 | `weryfikacja/*.jsonl` | wynik weryfikacji rejestrów — także starszych, z gałęzi laboratorium |
