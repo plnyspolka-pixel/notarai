@@ -461,3 +461,12 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      wewnętrznych, skopiować odcisk SHA-256 klucza podpisywania Google i dopisać go jako drugi wpis w
      `sha256_cert_fingerprints`. Wypełnić kartę sklepu i deklarację bezpieczeństwa danych.
 - **Zamknięte, gdy:** aplikacja z Google Play otwiera Pocket bez paska adresu i przechodzi krok 3.
+
+
+## NA-21. DataDonkey — wersjonowane źródła prawa w NotarAI (28.11.2026)
+
+- **Status:** kod integracji, czeka na prawdziwy indeks i testy; nie jest wdrożony.
+- **Co jest:** lokalne wyszukiwanie zatwierdzonych przepisów, kontrola SHA-256 i aktualności, kontekst dla czatu głównego, rozmowy o sprawie i projektu aktu. Domyślnie wyłączone bez pliku i przypiętego skrótu.
+- **Brakuje:** zweryfikowanego i aktualizowanego zbioru przepisów DataDonkey, sprawdzonych przedziałów obowiązywania, bezpiecznej dystrybucji pliku i jego skrótu oraz testu na fikcyjnej sprawie z prawdziwym Bedrock EU. Nie wysyłamy danych spraw do DataDonkey.
+- **Na żywo:** zgodnie z docs/datadonkey-prawo.md; sprawdzić brak wyniku, nieaktualny indeks, cytowanie i zgodność z urzędowym tekstem oraz projekt wymagający akceptacji notariusza.
+- **Zamknięte, gdy:** produkcyjny indeks jest odświeżany, integracja ma zielone testy i potwierdzoną jakość na fikcyjnych sprawach.
