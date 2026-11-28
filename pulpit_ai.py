@@ -221,6 +221,14 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
                                                 "bez danych osobowych i identyfikatorów spraw."}},
                 ["opis"]),
     ]
+    if os.getenv("PIECZAPP_PRAWO_SNAPSHOT"):
+        wynik.append(_schema(
+            "wyszukaj_prawo", "Wyszukaj lokalne, zweryfikowane przepisy DataDonkey. "
+            "Podaj temat prawny bez danych osobowych, kod państwa i właściwy dzień. "
+            "Brak wyniku nie dowodzi braku przepisów; nie zgaduj daty historycznej.",
+            {"temat": {"type": "string"}, "jurysdykcja": {"type": "string"},
+             "na_dzien": {"type": "string", "description": "YYYY-MM-DD"}},
+            ["temat", "jurysdykcja", "na_dzien"]))
     if urzadzenia.dostepne():
         wynik += [
             _schema("lista_komputerow", "Wymień tylko komputery sparowane z tą kancelarią."),
@@ -237,6 +245,13 @@ def _narzedzia(dostepne: list[dict], uprawnienia: frozenset) -> list[dict]:
 
 def _wykonaj(nazwa: str, dane: dict, dostepne: list[dict],
              uprawnienia: frozenset, akcje: list[dict]) -> dict:
+    if nazwa == "wyszukaj_prawo" and os.getenv("PIECZAPP_PRAWO_SNAPSHOT"):
+        kraj = str(dane.get("jurysdykcja", "")).upper()
+        dzien = dane.get("na_dzien")
+        if not re.fullmatch(r"[A-Z]{2}", kraj) or not isinstance(dzien, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", dzien):
+            return {"status": "invalid_query", "results": []}
+        return prawo_datadonkey.szukaj(str(dane.get("temat", ""))[:1000],
+                                       jurysdykcja=kraj, na_dzien=dzien)
     if nazwa == "sprawdz_postep_samonaprawy":
         naprawy = _stan_napraw()
         akcje.append({"typ": "postep_napraw", "naprawy": naprawy})
