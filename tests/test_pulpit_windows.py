@@ -26,7 +26,7 @@ TEKST = 'Zażółć gęślą jaźń & 100% "cudzysłów" ^ | <a>'
 def winapp():
     winapp = pulpit.Winapp()
     assert winapp.sciezka and winapp.sciezka.lower().endswith(".exe"), winapp.sciezka
-    subprocess.Popen(["notepad.exe"])
+    proces = subprocess.Popen(["notepad.exe"])
     for _ in range(60):
         try:
             if winapp("status", "--app", "notepad").get("hwnd"):
@@ -36,6 +36,11 @@ def winapp():
         time.sleep(0.5)
     yield winapp
     subprocess.run(["taskkill", "/IM", "notepad.exe", "/F"], capture_output=True, check=False)
+    try:
+        proces.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proces.kill()
+        proces.wait(timeout=10)
 
 
 def test_notatnik_jak_program_kancelaryjny(winapp):
