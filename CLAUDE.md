@@ -179,6 +179,10 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia
   osób (sprawy, kalendarz, poczta, wnioski/agent, zatwierdzanie, ustawienia) leżą w sejfie kancelarii
   i sprawdza je kod przy każdym zapisie i wysyłce; domyślnie wszystko poza kontami i uprawnieniami.
+- Rejestry, kolejność (decyzja właściciela 28.11.2026): KW - Apify, potem silnik Finance You (EKW), oba w funkcji
+  `notarai-v2-rejestry`; KRZ - najpierw Apify (aktor `regdata~krz-debtor-scraper`, tryby `person` i `soleTrader`, w tej
+  samej funkcji; PESEL nie trafia do logów), a dopiero gdy Apify nie odpowie, przeglądarka NotarAI z opisem każdego
+  ruchu i obrazem strony w oknie stanowiska (`registers._Told`, `_screencast`).
 - Rejestry (decyzja właściciela 27.11.2026): KW zawsze przez API (funkcja `notarai-v2-rejestry`), nigdy przez
   agenta ani przeglądarkę; KRZ (brak publicznego API, a WAF portalu blokuje przeglądarki bez okna - ustalone 28.11.2026)
   w przeglądarce NotarAI z prawdziwym oknem trzymanym poza ekranem (jak praca agenta w tle); okno na wierzch na prośbę.

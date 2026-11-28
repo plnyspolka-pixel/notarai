@@ -2165,7 +2165,7 @@ class Chat:
                          "trafią do sprawy."), {"type": "job", "id": job}]
         return [self._confirm(identity, f"Sprawdzić w Krajowym Rejestrze Zadłużonych osoby o numerach {masked} "
                               f"(sprawa „{case}”)? " + ("Przeglądarka NotarAI otworzy krz.ms.gov.pl." if visible else
-                              "Sprawdzę na krz.ms.gov.pl w tle, bez otwierania okna."), "Tak, sprawdź", search)]
+                              "Najpierw przez Apify; gdy nie odpowie, w przeglądarce NotarAI z podglądem tutaj."), "Tak, sprawdź", search)]
 
     def _land_register(self, identity, case, number) -> list[dict]:
         s = self.s
@@ -2187,27 +2187,54 @@ class Chat:
                         ("Otwórz", f"otwórz {name}"))]
 
     def _debtors(self, identity, case, pesels, visible=False) -> list[dict]:
+        """Owner's decision 28.11.2026: Apify first (both modes, in the AWS function), the NotarAI browser only when
+        Apify does not answer; every move of the browser is said in the conversation and shown as a live picture."""
         s = self.s
         words = {"brak_wpisu": "brak wpisu", "wpis": "ZNALEZIONO POZYCJĘ, sprawdź zrzut", "blad": "nie rozpoznano wyniku, sprawdź zrzut"}
-        lines, items = [], []
+        lines, items, sources = [], [], set()
+        api = getattr(s.registers, "debtors_api", None)
         for pesel in pesels:
-            s.narrate(identity, f"Sprawdzam w KRZ osobę {pesel[:4]}*******" + (": w oknie przeglądarki." if visible else
-                      " w tle, bez otwierania okna: dwie zakładki, z odstępem."))
+            masked = pesel[:4] + "*******"
+            if api is not None and not visible:
+                s.narrate(identity, f"KRZ, osoba {masked}: pytam Apify (krz.ms.gov.pl), osoba fizyczna i przedsiębiorca naraz.")
+                try:
+                    found = api(pesel)
+                except Exception as error:
+                    s.narrate(identity, f"Apify nie odpowiedziało ({error}). Sprawdzam w przeglądarce NotarAI; "
+                                        "podgląd strony pokazuję tutaj.")
+                else:
+                    sources.add(found.get("zrodlo") or "Apify")
+                    entries = found.get("wpisy") or []
+                    if not entries:
+                        s.narrate(identity, f"Apify: {masked} - brak postępowań w KRZ.")
+                        lines.append(f"• {masked}: brak wpisu (Apify, oba tryby)")
+                    else:
+                        s.narrate(identity, f"Apify: {masked} - znalezione postępowania: {len(entries)}.")
+                        for entry in entries[:10]:
+                            lines.append(f"• {masked}: ZNALEZIONO " + ", ".join(
+                                str(entry[k]) for k in ("caseSignature", "proceedingType", "proceedingStatus", "court",
+                                                        "proceedingStartDate") if entry.get(k)))
+                    continue
+            s.narrate(identity, f"KRZ, osoba {masked}: przeglądarka NotarAI" + (" na ekranie." if visible else
+                      ", okno poza ekranem; każdy krok i obraz strony widać tutaj."))
             try:
                 result = s.registers.debtors(pesel, visible=visible,
-                                             seen=lambda image: s.narrate(identity, "Tak teraz wygląda strona KRZ:", image))
+                                             seen=lambda image: s.narrate(identity, "Tak teraz wygląda strona KRZ:", image),
+                                             told=lambda line: s.narrate(identity, line))
             except Exception as error:
                 if visible:
                     raise
-                return [text(f"Sprawdzenie w KRZ w tle się nie udało ({error}). Strona KRZ mogła się zmienić albo "
-                             "zablokować wyszukiwanie bez okna."),
+                return [text(f"Sprawdzenie w KRZ się nie udało: Apify nie odpowiedziało, a przeglądarka napotkała błąd "
+                             f"({error})."),
                         buttons(("Sprawdź w oknie przeglądarki", "sprawdź KRZ w oknie " + " ".join(pesels)))]
+            sources.add(result["zrodlo"])
             lines.append(f"• {result['maska']}: {words.get(result['status'], result['status'])}")
             for shot_name, data in result.get("zrzuty", []):
                 doc_id, version = s.vault.put(None, 0, shot_name, data, actor=identity.id, case=case)
                 items.append({"id": doc_id, "name": shot_name, "version": version})
-        note = (f"Sprawdzenie w KRZ ({result['zrodlo']}), {time.strftime('%Y-%m-%d %H:%M')}:\n" + "\n".join(lines)
-                + "\nWynik heurystyczny: zawsze do potwierdzenia na zrzutach.")
+        note = (f"Sprawdzenie w KRZ ({', '.join(sorted(sources))}), {time.strftime('%Y-%m-%d %H:%M')}:\n" + "\n".join(lines)
+                + ("\nWynik z przeglądarki jest heurystyczny: potwierdź na zrzutach." if items else
+                   "\nŹródło: rejestr KRZ przez Apify; w razie wątpliwości potwierdź na krz.ms.gov.pl."))
         name = f"KRZ ({time.strftime('%Y-%m-%d %H-%M')}).txt"
         doc_id, version = s.vault.put(None, 0, name, note.encode(), actor=identity.id, case=case)
         items.insert(0, {"id": doc_id, "name": name, "version": version})

@@ -730,7 +730,7 @@ render.job = block => {
   // A longer task on the office computer (a land register, a KRZ search): its result arrives here by itself.
   // While it runs, every step the program takes is listed here as it happens (the same lines as /activity).
   const waiting = node("div", "bubble them wait working");
-  const head = node("div", "", "Pracuję nad tym…");
+  const head = node("div", "", "Zaczynam…");
   const log = node("ol", "steps live");
   const view = node("img", "shot live-view");
   view.hidden = true;
@@ -753,7 +753,7 @@ render.job = block => {
           view.hidden = false;
           reveal.hidden = !admin;
         }
-        head.textContent = "Pracuję. Dziennik czynności na żywo (wpisy: " + said.length + "):";
+        head.textContent = "Teraz: " + line.text;               // what it is doing this moment, not „working…”
         log.scrollTop = log.scrollHeight;
         waiting.scrollIntoView({ block: "end" });
       }

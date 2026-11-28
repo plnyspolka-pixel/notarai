@@ -26,7 +26,7 @@ class FakeRegisters:
             raise RegisterError("Numer księgi jest nieprawidłowy.")
         return BOOK
 
-    def debtors(self, pesel, label="", visible=False, seen=None):
+    def debtors(self, pesel, label="", visible=False, seen=None, told=None):
         self.asked.append(pesel)
         return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/",
                 "zrzuty": [(f"krz_prowadzaca_{pesel[:4]}.png", b"\\x89PNG")]}
@@ -162,9 +162,9 @@ def test_the_case_is_found_from_the_number_in_its_documents(tmp_path):
 def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
     client, admin, fake = office(tmp_path)
     asked = say(client, admin, "sprawdź KRZ 44051401359")
-    assert asked[0]["type"] == "confirm" and "w tle, bez otwierania okna" in asked[0]["text"]
+    assert asked[0]["type"] == "confirm" and "Najpierw przez Apify" in asked[0]["text"]
 
-    def broken(pesel, label="", visible=False, seen=None):
+    def broken(pesel, label="", visible=False, seen=None, told=None):
         if not visible:
             raise RuntimeError("strona nie odpowiedziała")
         fake.asked.append(("okno", pesel))
@@ -172,7 +172,7 @@ def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
     fake.debtors = broken
     started = client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"]}).json()["blocks"]
     failed = finish(client, admin, started)
-    assert "w tle się nie udało" in failed[0]["text"] and failed[1]["items"][0]["say"] == "sprawdź KRZ w oknie 44051401359"
+    assert "się nie udało" in failed[0]["text"] and failed[1]["items"][0]["say"] == "sprawdź KRZ w oknie 44051401359"
     again = say(client, admin, failed[1]["items"][0]["say"])
     assert "otworzy krz.ms.gov.pl" in again[0]["text"]
     started = client.post("/v2/chat", headers=admin, json={"confirm": again[0]["token"]}).json()["blocks"]
@@ -183,7 +183,7 @@ def test_krz_runs_hidden_and_offers_the_window_only_when_that_fails(tmp_path):
 def test_the_window_sees_the_krz_page_while_the_search_runs(tmp_path):
     client, admin, fake = office(tmp_path)
 
-    def watched(pesel, label="", visible=False, seen=None):
+    def watched(pesel, label="", visible=False, seen=None, told=None):
         seen(b"\xff\xd8\xff-strona-krz")
         return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/", "zrzuty": []}
     fake.debtors = watched
@@ -194,3 +194,30 @@ def test_the_window_sees_the_krz_page_while_the_search_runs(tmp_path):
     pictures = [l for l in lines if l.get("image")]
     assert pictures and base64.b64decode(pictures[-1]["image"]).startswith(b"\xff\xd8\xff")
     assert "44051401359" not in json.dumps(lines)
+
+
+def test_krz_asks_apify_first_and_falls_back_to_the_browser_with_every_move_told(tmp_path):
+    client, admin, fake = office(tmp_path)
+    calls = []
+
+    def api(pesel):
+        calls.append(("apify", pesel))
+        if pesel == "44051401359":
+            return {"ok": True, "wpisy": [], "zrodlo": "Apify (krz.ms.gov.pl)"}
+        raise RuntimeError("Apify nie odpowiedziało.")
+
+    def browser(pesel, label="", visible=False, seen=None, told=None):
+        calls.append(("przegladarka", pesel))
+        told("Klikam zakładkę „Osoba fizyczna”.")
+        seen(b"\xff\xd8\xff-strona")
+        return {"maska": pesel[:4] + "*******", "status": "brak_wpisu", "zrodlo": "https://krz.ms.gov.pl/", "zrzuty": []}
+    fake.debtors_api, fake.debtors = api, browser
+    asked = say(client, admin, "sprawdź KRZ 44051401359 i 02070803628")
+    started = client.post("/v2/chat", headers=admin, json={"confirm": asked[0]["token"]}).json()["blocks"]
+    note = finish(client, admin, started)[0]["text"]
+    assert calls == [("apify", "44051401359"), ("apify", "02070803628"), ("przegladarka", "02070803628")]
+    assert "4405*******: brak wpisu (Apify, oba tryby)" in note and "0207*******: brak wpisu" in note
+    lines = [l["text"] for l in client.get("/v2/activity", headers=admin).json()["lines"]]
+    assert any("pytam Apify" in l for l in lines) and any("Klikam zakładkę" in l for l in lines)
+    assert not any("44051401359" in l or "02070803628" in l for l in lines)
+
