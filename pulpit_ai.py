@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 import autoryzacja
 import asystent_kancelarii
 import bedrock
+import prawo_datadonkey
 import samonaprawa
 import magazyn
 import stanowiska
@@ -306,10 +307,15 @@ def rozmowa(request: Request, zadanie: Polecenie):
         if isinstance(t, dict) and t.get("rola") in ("uzytkownik", "asystent") and t.get("tresc")
     ]
     tury = _tury(historia, wiadomosc)
+    prawny = prawo_datadonkey.kontekst(wiadomosc)
+    system = SYSTEM
+    if prawny:
+        tury[-1]["content"].append({"text": prawny})
+        system += prawo_datadonkey.INSTRUKCJA
     akcje: list[dict] = []
     try:
         for _ in range(4):
-            wynik = bedrock.tura_z_narzedziami(SYSTEM, tury, narzedzia, max_tokenow=1600)
+            wynik = bedrock.tura_z_narzedziami(system, tury, narzedzia, max_tokenow=1600)
             wiad = wynik["wiadomosc"]
             tury.append(wiad)
             uzycia = [blok["toolUse"] for blok in wiad.get("content", []) if "toolUse" in blok]
