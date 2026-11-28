@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 import krz_portal
-from pomocnik import cdp, klikamy as silnik_klikania, krz_cdp
+from pomocnik import cdp, klikamy as silnik_klikania, krz_cdp, pulpit as silnik_pulpitu
 
 log = logging.getLogger("notarai.pomocnik.zadania")
 
@@ -93,14 +93,7 @@ def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
         return {"bledy": ["Pomocnik nie ma polaczenia z notarai, wiec nie ma kogo "
                           "zapytac o kolejny krok."]}
 
-    def model(cel, stan, kroki):
-        return notarai.krok_klikania(zlecenie.get("id", ""), cel, stan,
-                                     [vars(k) for k in kroki])
-
-    zatwierdz = None
-    if tresc.get("docelowy_komputer") and hasattr(notarai, "zgoda_na_wyslanie"):
-        zatwierdz = lambda host, etykieta: notarai.zgoda_na_wyslanie(
-            zlecenie.get("id", ""), host, etykieta)
+    model, zatwierdz = _model_i_zgoda(zlecenie, notarai)
 
     polaczenie, strona = polacz()
     try:
@@ -114,12 +107,68 @@ def klikamy(zlecenie: dict, notarai=None, polacz=cdp.polacz) -> dict:
 
     log.info("klikamy: krokow=%d pytanie=%s", len(przebieg.kroki),
              bool(przebieg.pytanie))
+    return _raport(przebieg)
+
+
+def _model_i_zgoda(zlecenie: dict, notarai):
+    """Model pyta notarai o kolejny krok; zgoda na wysylke idzie przez telefon."""
+    tresc = zlecenie.get("tresc") or {}
+
+    def model(cel, stan, kroki):
+        return notarai.krok_klikania(zlecenie.get("id", ""), cel, stan,
+                                     [vars(k) for k in kroki])
+
+    zatwierdz = None
+    if tresc.get("docelowy_komputer") and hasattr(notarai, "zgoda_na_wyslanie"):
+        zatwierdz = lambda host, etykieta: notarai.zgoda_na_wyslanie(
+            zlecenie.get("id", ""), host, etykieta)
+    return model, zatwierdz
+
+
+def _raport(przebieg) -> dict:
     return {
         "kroki": [vars(k) for k in przebieg.kroki],
         "podsumowanie": przebieg.podsumowanie,
         "pytanie": przebieg.pytanie,
         "bledy": [przebieg.zatrzymano] if przebieg.zatrzymano else [],
     }
+
+
+def pulpit(zlecenie: dict, notarai=None, winapp=None, dozwolone=None) -> dict:
+    """Klikamy w programie kancelaryjnym Windows (np. Rejent) przez winapp CLI.
+
+    Ta sama petla i te same blokady co w przegladarce, plus blokady pulpitu
+    z pomocnik/pulpit.py. Ktory program wolno prowadzic, decyduje lista na tym
+    komputerze - zlecenie z serwera moze ja tylko wskazac, nie poszerzyc.
+    """
+    tresc = zlecenie.get("tresc") or {}
+    cel = tresc.get("cel", "")
+    if not cel:
+        return {"bledy": ["Zlecenie nie mowi, co zrobic."]}
+    if notarai is None:
+        return {"bledy": ["Pomocnik nie ma polaczenia z notarai, wiec nie ma kogo "
+                          "zapytac o kolejny krok."]}
+    try:
+        okno = silnik_pulpitu.OknoProgramu.polacz(
+            tresc.get("program", ""), winapp=winapp, dozwolone=dozwolone)
+    except (silnik_pulpitu.OdmowaPulpitu, silnik_pulpitu.BladWinapp) as blad:
+        log.warning("pulpit: nie polaczono (%s)", type(blad).__name__)
+        return {"bledy": [str(blad)]}
+
+    model, zatwierdz = _model_i_zgoda(zlecenie, notarai)
+    try:
+        przebieg = silnik_klikania.prowadz(cel, okno, model, dozwolone_hosty=(),
+                                           zatwierdz_wysylke=zatwierdz)
+    except silnik_pulpitu.BladWinapp as blad:
+        # Odczyt okna padl w trakcie (np. program zamknieto) - bez tresci okna.
+        log.warning("pulpit: przerwano (%s)", blad.kod)
+        return {"bledy": [str(blad)]}
+    finally:
+        okno.zakoncz()
+
+    log.info("pulpit: krokow=%d pytanie=%s", len(przebieg.kroki),
+             bool(przebieg.pytanie))
+    return _raport(przebieg)
 
 
 def karty(zlecenie: dict, notarai=None) -> dict:
@@ -154,4 +203,4 @@ def karty(zlecenie: dict, notarai=None) -> dict:
         return {"bledy": ["Nie udalo sie otworzyc strony na tym komputerze."]}
 
 
-WYKONAWCY = {"krz": krz, "klikamy": klikamy, "karty": karty}
+WYKONAWCY = {"krz": krz, "klikamy": klikamy, "karty": karty, "pulpit": pulpit}

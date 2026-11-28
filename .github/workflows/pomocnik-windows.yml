@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'pomocnik/**'
+      - 'tests/test_pulpit_windows.py'
       - 'infra/zbuduj-pomocnika.ps1'
       - '.github/workflows/pomocnik-windows.yml'
   workflow_dispatch:
@@ -58,3 +59,43 @@ jobs:
             static/pobierz/notarai-pomocnik.json
           if-no-files-found: error
           retention-days: 14
+
+  pulpit-winapp:
+    # Klikamy na pulpicie (pomocnik/pulpit.py) na prawdziwym Windowsie:
+    # winapp CLI prowadzi Notatnik. Tylko wzorce UIA (inspect, set-value,
+    # get-value) - bez zrzutow ekranu i nagrywania.
+    name: Pulpit - winapp CLI na Notatniku
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      WINAPP_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v7
+
+      - name: Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: winapp CLI (ta sama wersja co u notariusza)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          npm install -g @microsoft/winappcli@0.8.0
+          if ($LASTEXITCODE -ne 0) { throw "Instalacja winapp nie powiodla sie" }
+
+      - name: Pomocnik prowadzi Notatnik
+        shell: powershell
+        env:
+          NOTARAI_TEST_WINAPP: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --quiet --disable-pip-version-check "pytest==8.3.4"
+          python -m pytest -q -p no:cacheprovider --noconftest -o addopts="" tests/test_pulpit_windows.py -rA
+          if ($LASTEXITCODE -ne 0) { throw "Proba pulpitu nie przeszla" }

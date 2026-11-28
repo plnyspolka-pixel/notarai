@@ -2306,6 +2306,39 @@ def zlec_klikanie(identyfikator: str, zadanie: ZadanieKlikania):
     return {"zlecenie": zlecenie["id"], "stan": "czeka"}
 
 
+class ZadaniePulpitu(BaseModel):
+    cel: str
+    program: str
+
+
+@app.post("/api/sprawy/{identyfikator}/pulpit", status_code=202)
+def zlec_pulpit(identyfikator: str, zadanie: ZadaniePulpitu):
+    """Klikamy w programie kancelaryjnym na komputerze notariusza (np. Rejent).
+
+    Serwer tylko wskazuje program. Czy wolno nim sterowac, rozstrzyga lista
+    zgod na komputerze notariusza (pomocnik/pulpit.py) - stad jej nie poszerzymy.
+    """
+    from pomocnik.pulpit import nazwa_programu
+
+    _katalog_sprawy(identyfikator)
+    cel = zadanie.cel.strip()
+    if not cel:
+        raise HTTPException(400, "Napisz, co pomocnik ma zrobic w programie")
+    program = nazwa_programu(zadanie.program)
+    if not program:
+        raise HTTPException(400, "Podaj nazwe programu, np. Rejent.")
+    if not zlecenia.dostepne():
+        raise HTTPException(409, BRAK_PRZEGLADARKI)
+    if not _pomocnik_pod_reka():
+        raise HTTPException(409, (
+            "Pomocnik notarai nie jest teraz uruchomiony na Twoim komputerze, "
+            "a to on prowadzi program kancelaryjny. Uruchom pomocnika i sprobuj ponownie."))
+    zlecenie = zlecenia.zloz("pulpit", identyfikator, {"cel": cel[:1000], "program": program})
+    # Bez celu w logach - potrafi niesc dane stron czynnosci.
+    log.info("sprawa %s: zlecono pulpit, zlecenie %s", identyfikator, zlecenie["id"])
+    return {"zlecenie": zlecenie["id"], "stan": "czeka"}
+
+
 class WidokStrony(BaseModel):
     cel: str
     stan: dict

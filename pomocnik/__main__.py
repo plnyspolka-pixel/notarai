@@ -12,7 +12,7 @@ import os
 import sys
 from pathlib import Path
 
-from pomocnik import instalacja
+from pomocnik import instalacja, pulpit
 from pomocnik.klient import WERSJA
 from pomocnik.okno import uruchom
 
@@ -28,6 +28,33 @@ def _pokaz_blad(tresc: str) -> None:  # pragma: no cover - okno systemowe
     ctypes.windll.user32.MessageBoxW(None, tresc, "notarai - pomocnik", 0x10)
 
 
+FLAGA_ZEZWOL_PROGRAM = "--zezwol-program"
+
+
+def _pokaz(tresc: str, ikona: int = 0x40) -> None:  # pragma: no cover - okno systemowe
+    if sys.stdout:
+        print(tresc)
+        return
+    import ctypes
+    ctypes.windll.user32.MessageBoxW(None, tresc, "notarai - pomocnik", ikona)
+
+
+def zezwol_z_wiersza(argumenty: list[str]) -> str:
+    """`notarai-pomocnik.exe --zezwol-program Rejent` - zgoda dana przy tym komputerze.
+
+    Zgody na sterowanie programem nie da sie dac zdalnie z notarai: lista lezy
+    w pomocnik.json na komputerze notariusza i tylko tu jest poszerzana.
+    """
+    i = argumenty.index(FLAGA_ZEZWOL_PROGRAM)
+    nazwa = argumenty[i + 1] if i + 1 < len(argumenty) else ""
+    try:
+        czysta = pulpit.zezwol_na_program(nazwa)
+    except ValueError as blad:
+        return f"Nie dopisano programu: {blad}"
+    return (f"Pomocnik moze teraz prowadzic program {czysta} na prosbe z notarai. "
+            "Podpisu, wysylki do urzedow i usuwania i tak nie wykona.")
+
+
 def main() -> None:
     uchwyty = [logging.FileHandler(_dziennik(), encoding="utf-8")]
     if sys.stderr:  # w .exe bez konsoli stderr nie istnieje
@@ -35,6 +62,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, handlers=uchwyty,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+    if FLAGA_ZEZWOL_PROGRAM in sys.argv:
+        _pokaz(zezwol_z_wiersza(sys.argv))
+        return
     if instalacja.FLAGA_ODINSTALUJ in sys.argv:
         instalacja.odinstaluj()
         return

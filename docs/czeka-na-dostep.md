@@ -461,3 +461,32 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      wewnętrznych, skopiować odcisk SHA-256 klucza podpisywania Google i dopisać go jako drugi wpis w
      `sha256_cert_fingerprints`. Wypełnić kartę sklepu i deklarację bezpieczeństwa danych.
 - **Zamknięte, gdy:** aplikacja z Google Play otwiera Pocket bez paska adresu i przechodzi krok 3.
+
+## NA-21. Klikamy w programie kancelaryjnym (Rejent) przez winapp CLI (28.11.2026)
+
+- **Status:** czeka
+- **Co jest:** `pomocnik/pulpit.py` (okno programu dla pętli Klikamy, winapp CLI 0.8.0, blokady
+  pulpitu), wykonawca `pulpit` w `pomocnik/zadania.py`, `POST /api/sprawy/{sprawa}/pulpit`,
+  zgoda przy komputerze `notarai-pomocnik.exe --zezwol-program <proces>`, testy z atrapą
+  (`test_pomocnik_pulpit.py`) i próba na Notatniku na Windowsie w CI (`tests/test_pulpit_windows.py`).
+  Opis: `docs/pomocnik-pulpit.md`.
+- **Brakuje:** komputera z programem kancelaryjnym podłączonego do sesji Claude (Remote Control),
+  nazwy i wersji programu (producent, Pomoc → O programie) oraz bazy pokazowej albo pustej
+  kancelarii do prób.
+- **Na żywo:**
+  1. Rozpoznanie bez danych stron: `winapp ui status -a <proces> --json`, potem
+     `winapp ui inspect -a <PID> --depth 12 --json` na ekranach: lista czynności, repertorium A,
+     nowa czynność, okno strony. Zapisać, czy przyciski i pola mają nazwy (UIA), czy program
+     rysuje je sam (wtedy droga przez eksport albo bazę, NA-5). Bez `screenshot` i `record`
+     na prawdziwych sprawach.
+  2. Sprawdzić polskie znaki w nazwach kontrolek (Usuń, Zatwierdź) po stronie pomocnika
+     i nazwę procesu do listy zgód.
+  3. Na bazie pokazowej: `notarai-pomocnik.exe --zezwol-program <proces>`, zlecenie z notarai
+     „dodaj nową czynność dla strony X” (dane fikcyjne), krok po kroku do zapisu.
+  4. Próba blokad: dialog usuwania („Tak” ma zatrzymać), zamknięcie roku, pole hasła programu.
+  5. Dopisać do `ZABRONIONE_PULPIT` i `GENERYCZNE` w `pomocnik/pulpit.py` nazwy, które program
+     daje czynnościom nieodwracalnym i przyciskom potwierdzeń.
+- **W kodzie:** `pomocnik/pulpit.py`, `pomocnik/zadania.py`, `app.py` (`zlec_pulpit`),
+  potem przycisk zgody w `pomocnik/okno.py` i pole w interfejsie sprawy.
+- **Zamknięte, gdy:** pomocnik na bazie pokazowej dodaje czynność w programie kancelaryjnym
+  na polecenie z notarai, a blokady z kroku 4 zatrzymują go za każdym razem.
