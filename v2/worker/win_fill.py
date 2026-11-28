@@ -519,6 +519,22 @@ class Desktop:
         except Exception:
             return ""
 
+    def program(self) -> str:
+        """The program the chosen window belongs to, by the name of its file („rejnet”): the same whatever the window's
+        title says at the moment. "" when Windows does not tell."""
+        try:
+            import win32api
+            import win32process
+
+            process = win32api.OpenProcess(0x1000, False, self._window.element_info.process_id)     # query limited information
+            try:
+                path = win32process.GetModuleFileNameEx(process, 0)
+            finally:
+                win32api.CloseHandle(process)
+            return re.split(r"[\\/]", path)[-1].rsplit(".", 1)[0].lower()
+        except Exception:
+            return ""
+
     def rect(self):
         """(left, top, right, bottom) of the chosen window on the screen, or None."""
         try:

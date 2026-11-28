@@ -421,13 +421,14 @@ class Chat:
                                                  "asked": time.monotonic()}
             options = stopped.get("options") or []
             show = stopped.get("show")
-            teach = ([(f"Pokażę: kliknę „{show['nazwa']}”", f"pokażę punkt {show['nazwa']} w oknie {show['okno']}")]
+            teach = ([(f"Pokażę: przeklikam „{show['nazwa']}”", f"pokażę drogę {show['nazwa']} w oknie {show['okno']}")]
                      if show else [])
             return [*(self._page_picture() if used else []),
                     text(f"Utknąłem: {stopped['label']}\nCo mam zrobić? Wybierz albo napisz własnymi słowami; "
                          "zapamiętam to na następny raz (tryb uczenia)."
-                         + (f"\nMożesz mi to też pokazać: po naciśnięciu „Pokażę” kliknij raz „{show['nazwa']}” w programie, "
-                            "a zapamiętam to miejsce." if show else "")),
+                         + (f"\nMożesz mi to też pokazać: po naciśnięciu „Pokażę” przeklikaj w programie całą drogę do "
+                            f"„{show['nazwa']}” (jedno kliknięcie albo kilkanaście), a na końcu naciśnij „Koniec pokazu”. "
+                            "Zapamiętam kolejne miejsca i ekrany, nie to, co wpisujesz." if show else "")),
                     buttons(*teach, *[(o, "odpowiedź dla agenta: " + o) for o in options],
                             ("Przerwij", "odpowiedź dla agenta: przerwij"))]
         if kind == "limit":
@@ -480,13 +481,21 @@ class Chat:
     def _show_point(self, identity, message, plain):
         """„Pokażę, kliknij za mną”: the notary clicks a thing the program draws itself; its place is kept by name,
         and the agent that was waiting goes on with it."""
-        found = re.fullmatch(r"(?:pokaze|pokaz|naucz|zapamietaj) punkt (.+?) w (?:oknie|programie) (.+)", plain)
+        if plain.rstrip(".! ") in {"koniec pokazu", "koniec pokazywania", "to wszystko, koniec pokazu"}:
+            ending = self._agent_runs.get("pokaz-" + identity.id)
+            if ending is None:
+                return [text("Nie nagrywam teraz żadnego pokazu.")]
+            ending.set()
+            return [text("Kończę nagrywanie pokazu.")]
+        found = re.fullmatch(r"(?:pokaze|pokaz|naucz|zapamietaj|nagraj) (punkt|droge|droga|pokaz) (.+?) w (?:oknie|programie) (.+)", plain)
         if not found:
             return None
+        if found.group(1) != "punkt":
+            return self._show_way(identity, message)
         if not self._may_use_computer(identity):
             return [text("Punkty w programach pokazuje się na komputerze kancelarii.")]
         original = re.fullmatch(r"\s*\S+\s+punkt\s+(.+?)\s+w\s+(?:oknie|programie)\s+(.+?)\s*", message, flags=re.I)
-        name, window = (original.group(1), original.group(2)) if original else (found.group(1), found.group(2))
+        name, window = (original.group(1), original.group(2)) if original else (found.group(2), found.group(3))
         waiting = self._agent_question.pop(identity.id, None)
         withdraw = getattr(self.s, "withdraw_question", None)
         if withdraw is not None:
@@ -511,6 +520,53 @@ class Chat:
         job = self.s.start_job(identity, learn)
         return [text(f"Kliknij teraz raz „{name}” w oknie programu „{window}”. Czekam minutę; zapamiętam samo miejsce, "
                      "nic z tego, co tam widać."), {"type": "job", "id": job}]
+
+    def _show_way(self, identity, message: str) -> list[dict]:
+        """„Pokażę” as a whole sequence (owner's decision 28.11.2026): every click of the notary in the program is kept
+        until „Koniec pokazu”; the agent that was waiting then does the same by itself."""
+        if not self._may_use_computer(identity):
+            return [text("Pokazy w programach nagrywa się na komputerze kancelarii.")]
+        original = re.fullmatch(r"\s*\S+\s+\S+\s+(.+?)\s+w\s+(?:oknie|programie)\s+(.+?)\s*", message, flags=re.I)
+        if not original:
+            return [text("Napisz: „pokażę drogę <nazwa> w oknie <program>”.")]
+        name, window = original.group(1), original.group(2)
+        waiting = self._agent_question.pop(identity.id, None)
+        ending = self._agent_runs["pokaz-" + identity.id] = threading.Event()      # „stop” ends the recording too
+
+        def record():
+            from .agent import AgentError
+            try:
+                learned = self.s.computer.record_show(window, name, stop=ending.is_set)
+            except AgentError as error:
+                if waiting is not None:
+                    self._agent_question[identity.id] = waiting
+                return [text(str(error)), buttons((f"Spróbuję jeszcze raz: „{name}”", f"pokażę drogę {name} w oknie {window}"))]
+            finally:
+                self._agent_runs.pop("pokaz-" + identity.id, None)
+                withdraw = getattr(self.s, "withdraw_question", None)
+                if withdraw is not None:
+                    withdraw(identity)                  # the small „Koniec pokazu” window is no longer needed
+            self.s.vault.log(identity.id, "agent-pokaz")
+            if waiting is None:
+                return [text(learned)]
+            note = (f"(Notariusz przeklikał w oknie „{window}” drogę „{name}”; jest zapisana jako POKAZANA DROGA. Odtwórz ją "
+                    f"krokiem pokaz z nazwą „{name}” i pracuj dalej.)")
+            return [text(learned)] + self._computer(identity, waiting["task"], allowed=waiting["allowed"],
+                                                    history=waiting["history"] + [note])
+        self.s.narrate(identity, f"Nagrywam pokaz „{name}”: klikaj w programie po kolei.")
+        job = self.s.start_job(identity, record)
+        ask = getattr(self.s, "ask_notary", None)
+        if ask is not None:
+            try:
+                ask(identity, f"Nagrywam pokaz „{name}”. Przeklikaj teraz w programie „{window}” całą drogę, krok po kroku. "
+                              "Zapisuję miejsca kliknięć i ekrany, nie to, co wpisujesz. Gdy skończysz, naciśnij „Koniec pokazu”.",
+                    [("Koniec pokazu", {"text": "koniec pokazu"})], None)
+            except Exception:
+                pass
+        return [text(f"Nagrywam pokaz „{name}”. Przeklikaj teraz w oknie programu „{window}” całą drogę, krok po kroku. Zapisuję "
+                     "miejsca kliknięć i ekrany, nie to, co wpisujesz. Na końcu naciśnij „Koniec pokazu” (albo po prostu przestań "
+                     "klikać na pół minuty)."),
+                buttons(("Koniec pokazu", "koniec pokazu")), {"type": "job", "id": job}]
 
     def _agent_answer(self, identity, message, plain):
         """The notary answers the agent's question: the work goes on, and what follows from the answer is learned."""
