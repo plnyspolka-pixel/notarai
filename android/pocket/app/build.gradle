@@ -13,7 +13,7 @@ def jestPodpis = magazynKluczy && hasloKluczy && file(magazynKluczy).exists()
 
 // Numer paczki. Podnies przy kazdym wydaniu razem ze strona/pocket/wersja.json: strona porownuje
 // oba numery i pokazuje w aplikacji informacje o nowszej paczce.
-def kodWersji = 4
+def kodWersji = 5
 
 android {
     namespace "pl.notarai.pocket"
@@ -24,7 +24,7 @@ android {
         minSdk 26
         targetSdk 36
         versionCode kodWersji
-        versionName "2.4.0"
+        versionName "2.4.1"
         manifestPlaceholders = [kodWersji: kodWersji.toString()]
     }
 

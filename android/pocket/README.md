@@ -42,6 +42,22 @@ Wynik: `app/build/outputs/apk/release/app-release.apk` (do pobrania ze strony; s
 `strona/pocket/NotarAI-Pocket.apk` i popraw numer wersji na `strona/do-pobrania/index.html`) i
 `app/build/outputs/bundle/release/app-release.aab` (Google Play).
 
+## Próba przed wydaniem (obowiązkowa)
+
+Każdą paczkę przed publikacją uruchom na Androidzie, choćby w emulatorze. Wersje 2.1.0-2.4.0 wyszły
+bez tego i padały przy starcie (brak `ManageDataLauncherActivity` w manifeście).
+
+    sdkmanager "emulator" "system-images;android-34;aosp_atd;x86_64"
+    avdmanager create avd -n proba -k "system-images;android-34;aosp_atd;x86_64" -d pixel_5
+    emulator -avd proba -no-window -no-audio -no-snapshot      # bez KVM: ANDROID_I_WANT_MY_TCG=yes i -accel off
+    adb install -r app/build/outputs/apk/release/app-release.apk
+    adb shell am start -W -n pl.notarai.pocket/com.google.androidbrowserhelper.trusted.LauncherActivity
+    adb logcat -d | grep -E 'AndroidRuntime: FATAL|TWALauncherActivity'     # ma nie być FATAL
+    adb shell pidof pl.notarai.pocket                                       # proces ma żyć
+
+Sprawdź też skróty (`-a android.intent.action.VIEW -d https://notarai.pl/pocket/?wybor=1`) i udostępnianie
+(`-a android.intent.action.SEND -t image/jpeg`).
+
 ## Aktualizacje
 
 - Nowe funkcje Pocket trafiają do wszystkich same: aplikacja wyświetla stronę, a service worker pobiera
