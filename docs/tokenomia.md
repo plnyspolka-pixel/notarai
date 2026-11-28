@@ -140,6 +140,11 @@ API:
 - `GET /api/admin/tokenomia` – cennik z kosztami P50/P90, kalibracja z pomiarów,
   wynik miesiąca każdej kancelarii (kredyty, koszt, zrealizowany narzut),
 - `POST /api/admin/kancelarie/{id}/kredyty {"kredyty": 250, "powod": "..."}` – ręczna korekta.
+- `PUT /api/admin/kancelarie/{id}/bez-limitu {"wlacz": true, "powod": "..."}` – kancelaria
+  zwolniona z kredytów (umowa indywidualna, partner): nic jej nie blokuje i nic nie
+  pobieramy, okno „Kredyty” znika. Saldo zostaje nietknięte i wraca po `"wlacz": false`.
+  Koszt AI takiej kancelarii dalej trafia do `miesiace` portfela (0 kredytów), więc widać
+  go w `GET /api/admin/tokenomia`. W panelu `/admin`: „Bez limitu kredytów…”.
 
 Płatności: patrz sekcja 8. Nowa kancelaria dostaje 150 kr startowych; kancelaria założona
 przed tokenomią dostaje je przy pierwszej czynności.

@@ -470,10 +470,30 @@ def egzekwowana(kancelaria: str) -> dict | None:
     """Portfel, jesli tokenomia obowiazuje te kancelarie; inaczej None.
     Kancelaria bez portfela (np. zalozona przed tokenomia) dostaje przy
     pierwszej czynnosci portfel z kredytami startowymi - nikt nie pracuje
-    poza kredytami."""
+    poza kredytami. Wyjatek: kancelaria, ktorej administrator ustawil
+    "bez limitu" (ustaw_bez_limitu) - dla niej zwracamy None, wiec nic jej
+    nie blokuje i nic nie pobieramy."""
     if not WLACZONA or kancelaria in ("", "lokalna"):
         return None
-    return wczytaj_portfel(kancelaria) or zaloz_portfel_probny(kancelaria)
+    portfel = wczytaj_portfel(kancelaria) or zaloz_portfel_probny(kancelaria)
+    return None if bez_limitu(portfel) else portfel
+
+
+def bez_limitu(portfel: dict | None) -> bool:
+    """Kancelaria zwolniona z kredytow decyzja administratora."""
+    return bool(portfel and portfel.get("bez_limitu"))
+
+
+def ustaw_bez_limitu(kancelaria: str, wlacz: bool, powod: str = "") -> dict:
+    """Wlacza albo wylacza zwolnienie z kredytow. Saldo zostaje nietkniete -
+    po wylaczeniu kancelaria wraca do kredytow, ktore miala."""
+    def zmiana(p):
+        if bez_limitu(p) != wlacz:
+            p["bez_limitu"] = wlacz
+            _wpis(p, {"akcja": "bez_limitu", "kredyty": 0, "wlaczone": wlacz, "powod": powod})
+        return p
+    log.info("tokenomia: kancelaria %s, bez limitu = %s (%s)", kancelaria, wlacz, powod or "-")
+    return zmien_portfel(kancelaria, zmiana, utworz=True)
 
 
 def aktywna(kancelaria: str) -> bool:
@@ -545,6 +565,7 @@ class akcja:
                         glowna, koszt, przychod)
         _zapisz_pomiar(glowna, sum(n for _, n in self.pozycje), self.licznik, koszt, kredyty)
         if egzekwowana(self.kancelaria) is None:
+            self._zapisz_koszt_bez_limitu(glowna, koszt)
             return
 
         def zmiana(p):
@@ -555,6 +576,18 @@ class akcja:
             return p
         zmien_portfel(self.kancelaria, zmiana)
         self.pobrano = kredyty
+
+    def _zapisz_koszt_bez_limitu(self, glowna: str, koszt: float) -> None:
+        """Kancelaria bez limitu nic nie placi, ale jej koszt AI zapisujemy w
+        miesiacu portfela (0 kredytow), zeby bylo widac, ile nas kosztuje."""
+        if not WLACZONA or self.kancelaria in ("", "lokalna"):
+            return
+
+        def zmiana(p):
+            if bez_limitu(p):
+                _zaksieguj_miesiac(p, glowna, 0.0, koszt)
+            return p
+        zmien_portfel(self.kancelaria, zmiana)
 
 
 def obciaz(kod: str, ilosc: float, sprawa: str = "") -> float:
@@ -671,11 +704,13 @@ def _zakupy(portfel: dict | None) -> list[dict]:
             | {"zamowienie": n} for n, z in zam.items() if z.get("status") in ("oplacone", "zwrot")][-24:]
 
 
-def _widok_portfela(portfel: dict | None, moge_kupic: bool = False) -> dict:
+def _widok_portfela(portfel: dict | None, moge_kupic: bool = False,
+                    bez_limitu_kancelarii: bool = False) -> dict:
     import platnosci
     return {
         "wlaczona": WLACZONA,
         "egzekwowana": portfel is not None,
+        "bez_limitu": bez_limitu_kancelarii,
         "saldo": None if portfel is None else saldo(portfel),
         "pula": None if portfel is None else portfel.get("pula", 0),
         "doladowane": None if portfel is None else portfel.get("doladowane", 0),
@@ -708,7 +743,9 @@ def moje_kredyty(request: Request):
     portfel = egzekwowana(kancelaria)
     if portfel and _uzgodnij_oczekujace(kancelaria, portfel):
         portfel = wczytaj_portfel(kancelaria)
-    return _widok_portfela(portfel, _czy_wlasciciel(request))
+    zwolniona = (portfel is None and WLACZONA and kancelaria not in ("", "lokalna")
+                 and bez_limitu(wczytaj_portfel(kancelaria)))
+    return _widok_portfela(portfel, _czy_wlasciciel(request), zwolniona)
 
 
 class ZakupPakietu(BaseModel):
@@ -871,6 +908,22 @@ def admin_doladuj(request: Request, id_k: str, dane: Doladowanie):
     return {"id": id_k, "saldo": saldo(portfel)}
 
 
+class BezLimitu(BaseModel):
+    wlacz: bool
+    powod: str = ""
+
+
+@router_admina.put("/kancelarie/{id_k}/bez-limitu")
+def admin_bez_limitu(request: Request, id_k: str, dane: BezLimitu):
+    """Zwalnia kancelarie z kredytow (albo przywraca kredyty). Saldo zostaje."""
+    import autoryzacja
+    autoryzacja._wymagaj_admina(request)
+    if autoryzacja._znajdz(autoryzacja._wczytaj_rejestr(), id_k)[1] is None:
+        raise HTTPException(404, "Nie znaleziono kancelarii")
+    portfel = ustaw_bez_limitu(id_k, dane.wlacz, dane.powod[:80])
+    return {"id": id_k, "bez_limitu": bez_limitu(portfel), "saldo": saldo(portfel)}
+
+
 @router_admina.get("/tokenomia")
 def admin_tokenomia(request: Request):
     """Cennik z kosztami, kalibracja z pomiarow i wynik miesiaca kancelarii."""
@@ -881,6 +934,7 @@ def admin_tokenomia(request: Request):
         portfel = wczytaj_portfel(wpis["id"])
         if portfel:
             kancelarie.append({"id": wpis["id"], "nazwa": wpis.get("nazwa"), "saldo": saldo(portfel),
+                               "bez_limitu": bez_limitu(portfel),
                                "miesiac": podsumowanie_miesiaca(portfel)})
     return {"wlaczona": WLACZONA, "narzut_min": NARZUT, "kurs_usd": KURS_USD_PLN,
             "premia_regionalna": PREMIA_REGIONALNA, "najnizsza_cena_kredytu": najnizsza_cena_kredytu(),
