@@ -1315,6 +1315,11 @@ class Chat:
             return [text("Agent może patrzeć na ekran: zrzut idzie do asystenta we Frankfurcie tak, jak go widać (nazwisk "
                          "na obrazie nie da się zamienić na znaczniki), nic nie jest tam zapisywane; każde spojrzenie widać w rozmowie."
                          if on else "Agent nie robi już zrzutów ekranu: widzi tylko tekst plików, pól okien i stron.")]
+        if (on or off) and re.search(r"poprawian\w* dyktowan|dyktowan\w* z kontekst|poprawian\w* z kontekst", plain):
+            s.update_settings(lambda d: d.setdefault("speech", {}).update(polish=on))
+            return [text("Po dyktowaniu czytam tekst jeszcze raz i zapisuję to, co miałeś na myśli (nazwy programów, "
+                         "zająknięcia, interpunkcja). Liczb, dat i kwot nie zmieniam; pod polem zobaczysz, co usłyszałem dosłownie."
+                         if on else "Dyktowanie wpisuje teraz dokładnie to, co usłyszało, bez poprawiania z kontekstu.")]
         if (on or off) and re.search(r"dzwiek\w* (pytani|agenta|okienk)|sygnal\w* (dzwiekow\w* )?(pytani|agenta|okienk)", plain):
             s.update_settings(lambda d: d.setdefault("agent", {}).update(sound=on))
             return [text("Gdy agent będzie czekał na Twoją decyzję, usłyszysz sygnał; powtórzę go kilka razy, póki nie odpowiesz."

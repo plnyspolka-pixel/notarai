@@ -106,3 +106,63 @@ def test_without_a_sign_in_dictation_says_so_before_starting(tmp_path):
     said = client.post("/v2/chat", headers=admin, json={"text": "sprawdź mowę"}).json()["blocks"]
     assert "✗ Logowanie: stanowisko NIE jest zalogowane" in said[0]["text"]
     assert said[1]["items"][0]["say"] == "zaloguj"
+
+
+# ---- dictation read with understanding (owner's decision 28.11.2026)
+def test_the_polish_keeps_every_number_and_falls_back_to_what_was_heard():
+    from worker.dictation_polish import polish
+
+    heard = "kazałem mu w rynecie zarejestrować akt z 14 listopada kwota 450000 złotych no"
+    seen = []
+
+    def good(system, text):
+        seen.append(text)
+        return "Kazałem mu w RejNET zarejestrować akt z 14 listopada, kwota 450000 złotych."
+    assert polish(good, heard, ["rejnet"]) == ("Kazałem mu w RejNET zarejestrować akt z 14 listopada, kwota 450000 złotych.", True)
+    assert "rejnet" in seen[0] and "TEKST USŁYSZANY" in seen[0]
+    assert polish(lambda s, t: "Zarejestruj akt z 14 listopada, kwota 540000 złotych.", heard) == (heard, False)   # a number changed
+    assert polish(lambda s, t: "", heard) == (heard, False)
+    assert polish(lambda s, t: heard + " " + "i jeszcze dopisz sto innych rzeczy " * 5, heard) == (heard, False)   # something added
+    assert polish(lambda s, t: 1 / 0, heard) == (heard, False)                                                   # the model failed
+    assert polish(good, "tak") == ("tak", False)                                                                  # too short to bother
+
+
+def test_at_the_end_of_a_dictation_the_text_is_what_was_meant(tmp_path):
+    from worker.inference import Inference
+    from worker.policy import EU_REGIONS, Policy
+    from worker.usage import UsageLedger
+
+    def heard_wrong(source, on_text):
+        while source.get(timeout=5) is not None:
+            pass
+        on_text(["sprawdź w rynecie akty z 2026 roku no"], "")
+
+    class Bedrock:
+        asked = []
+
+        def get_model_invocation_logging_configuration(self):
+            return {}
+
+        def get_inference_profile(self, inferenceProfileIdentifier):
+            return {"models": [{"modelArn": f"arn:aws:bedrock:{r}::foundation-model/x"} for r in EU_REGIONS]}
+
+        def converse(self, **kwargs):
+            Bedrock.asked.append(kwargs["messages"][0]["content"][-1]["text"])
+            return {"output": {"message": {"content": [{"text": "Sprawdź w RejNET akty z 2026 roku."}]}}, "stopReason": "end_turn",
+                    "usage": {"inputTokens": 1, "outputTokens": 1}}
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(), UsageLedger(home))
+    client = TestClient(create_app(home, inference=inference, dictation_stream=heard_wrong))
+    ident = client.post("/v2/dictation", headers=admin).json()["id"]
+    client.post(f"/v2/dictation/{ident}", headers=admin, json={"pcm_b64": PIECE})
+    assert Bedrock.asked == []                                          # nothing is polished while the notary still speaks
+    final = client.post(f"/v2/dictation/{ident}", headers=admin, json={"end": True}).json()
+    assert final["text"] == "Sprawdź w RejNET akty z 2026 roku." and final["heard"] == "sprawdź w rynecie akty z 2026 roku no"
+    assert len(Bedrock.asked) == 1
+    said = client.post("/v2/chat", headers=admin, json={"text": "wyłącz poprawianie dyktowania"}).json()["blocks"][0]["text"]
+    assert "dokładnie to, co usłyszało" in said
+    ident = client.post("/v2/dictation", headers=admin).json()["id"]
+    client.post(f"/v2/dictation/{ident}", headers=admin, json={"pcm_b64": PIECE})
+    final = client.post(f"/v2/dictation/{ident}", headers=admin, json={"end": True}).json()
+    assert final["text"] == "sprawdź w rynecie akty z 2026 roku no" and "heard" not in final and len(Bedrock.asked) == 1

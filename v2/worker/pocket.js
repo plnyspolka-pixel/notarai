@@ -1406,6 +1406,7 @@ async function pushPiece(state, end) {
       }
     }
     if (answer.second_way) status("Szybkie połączenie nie działało: przepisałem nagranie drugą drogą.");
+    if (answer.heard) state.heard = answer.heard;        // what was heard word for word, before it was read with understanding
     return answer;
   } finally {
     state.busy = false;
@@ -1432,7 +1433,9 @@ async function stopDictation(mode) {
   }
   status("Kończę przepisywanie…");
   await pushPiece(state, true);
-  status(state.target.value.trim() ? "Gotowe. Popraw tekst, jeśli trzeba." : "Nie usłyszałem słów. Spróbuj jeszcze raz.");
+  status(!state.target.value.trim() ? "Nie usłyszałem słów. Spróbuj jeszcze raz."
+    : state.heard ? "Poprawiłem z kontekstu. Usłyszałem dosłownie: „" + state.heard.slice(0, 220) + "”"
+    : "Gotowe. Popraw tekst, jeśli trzeba.");
   state.target.dataset.heard = state.text;          // compared with what is finally sent: learning mode
   if (state.target !== el("prompt")) {
     state.target.focus();

@@ -73,6 +73,9 @@ class SpeechSettings(_Strict):
     # The EU bucket of the notarai-v2-mowa stack: the slower second way when streaming is blocked.
     bucket: str = Field(default="notarai-v2-mowa-127621462971", max_length=63, pattern=r"^([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?$")
     model: str = Field(default="small", pattern=r"^(tiny|base|small|medium|large-v3|turbo)$")
+    # After dictation the assistant reads the text once more and writes what was meant (misheard names of programs,
+    # stammering, punctuation); numbers are never changed (dictation_polish.py).
+    polish: bool = True
 
 
 class ListenSettings(_Strict):

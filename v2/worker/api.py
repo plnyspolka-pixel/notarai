@@ -1005,6 +1005,21 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
             raise HTTPException(403, "only for the NotarAI window on this computer")
         return {"code": devices.invite("panel stanowiska", "admin", replace_pending=True, allow_admin=True)["code"]}
 
+    def understood_dictation(heard: str) -> tuple[str, str | None]:
+        """(text for the box, the heard text when it was changed). Once, at the end of a dictation."""
+        from .dictation_polish import polish
+
+        current = state["inference"]
+        if not state["settings"].speech.polish or current is None or not getattr(current, "enabled", False):
+            return heard, None
+        try:
+            glossary = list(agent_computer.map.programs()) + [c for c in vault.cases() if c not in HIDDEN_CASES][:40]
+        except Exception:
+            glossary = []
+        said, changed = polish(lambda system, words: current.ask(purpose="dictation", system=system, text=words,
+                                                                 names=vault.all_parties(), max_tokens=1500).text, heard, glossary)
+        return (said, heard) if changed else (heard, None)
+
     @app.post("/v2/dictation")
     def dictation_start(identity: Identity = Depends(auth)):
         now = time.monotonic()
@@ -1041,7 +1056,11 @@ def create_app(home: Path, *, allow_bedrock: bool = True, inference: Inference |
                     print(f"dyktowanie: druga droga nie dziala ({error.__class__.__name__})", file=sys.stderr, flush=True)
                     heard = ""
                 if heard:
-                    return {"text": learning.apply_dictation(heard), "done": True, "error": None, "second_way": True}
+                    said, raw = understood_dictation(learning.apply_dictation(heard))
+                    return {"text": said, "done": True, "error": None, "second_way": True, **({"heard": raw} if raw else {})}
+            said, raw = understood_dictation(learning.apply_dictation(dictation.text()))
+            return {"text": said, "done": dictation.done.is_set(), "error": dictation.error,
+                    "login": dictation.login_needed, **({"heard": raw} if raw else {})}
         return {"text": learning.apply_dictation(dictation.text()), "done": dictation.done.is_set(), "error": dictation.error,
                 "login": dictation.login_needed}
 
