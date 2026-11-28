@@ -401,6 +401,13 @@ textarea.pole-tekst{resize:vertical;min-height:60px}
 .kal-tel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
 button.maly{padding:5px 10px;font-size:12.5px}
 #kal-przenies.on{background:var(--akcent-tlo);border-color:var(--akcent);color:var(--akcent)}
+/* godziny po 15:00: dolozone przyciskiem, nie licza sie do kropki zajetosci */
+.kal-po-godzinach{font-size:11.5px;color:var(--tekst3);margin:6px 0 1px;padding-top:6px;border-top:1px dashed var(--linia2)}
+.kal-tydz .kal-po-godzinach{grid-column:1/-1;margin:4px 0 0;padding-top:4px}
+.kal-slot.po:not(.zajety):not(.wybrany){border-style:dashed}
+.kal-tydz .k.po:not(.zajety){border:1px dashed var(--linia2)}
+.kal-tydz .g.po{color:var(--tekst3);font-style:italic}
+button.kal-pozniej{align-self:flex-start;margin-top:4px;width:auto}
 /* dostepnosc dnia: kropka przy dacie */
 .kal-gora{flex-wrap:wrap}
 .kal-siatka[hidden]{display:none}
@@ -1370,6 +1377,7 @@ notarai</div>
       <span><i class="kal-kropka k-czerw"></i>poniżej 50%, ale co najmniej godzina</span>
       <span><i class="kal-kropka k-purp"></i>pełne (wolne najwyżej pół godziny)</span>
       <span><i class="kal-kropka k-szara"></i>niedostępny: weekend, święto, kancelaria nieczynna</span>
+      <span>Kolor liczy się z godzin 8:30–15:00. Późniejsze godziny dodasz przyciskiem „+ Dodaj późniejszą godzinę” — nie zmieniają koloru.</span>
     </div>
   </div>
   <div class="karta" id="gcal-karta">
@@ -6321,10 +6329,13 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 /* ---------- 6: kalendarz ---------- */
-// Okno dnia: polgodzinne okienka od 8:30 do 18:00. Zaznaczone okienka sa
-// zawsze ciagiem - rezerwacja trwa od pierwszego do konca ostatniego.
+// Okno dnia: polgodzinne okienka. Godziny pracy to 8:30-15:00 (OD-DO) i tylko
+// one licza sie do kropki zajetosci dnia. Pozniejsze godziny (do DO_MAX)
+// notariusz doklada przyciskiem; dzien z terminem po 15:00 pokazuje je sam.
+// Zaznaczone okienka sa zawsze ciagiem - rezerwacja trwa od pierwszego do
+// konca ostatniego.
 const RODZAJE = ["sprzedaż", "sprzedaż nieruchomości", "darowizna", "dział spadku", "poświadczenie podpisów", "testament", "pełnomocnictwo notarialne", "inne"];
-const OD = 8 * 60 + 30, DO = 18 * 60, KROK = 30;
+const OD = 8 * 60 + 30, DO = 15 * 60, DO_MAX = 22 * 60, KROK = 30;
 // kalData - dzien, wokol ktorego rysujemy miesiac / tydzien / dzien.
 let wpisyKal = [], opisyDni = {}, kalData = new Date(), widok = "miesiac";
 kalData.setHours(0, 0, 0, 0);
@@ -6337,9 +6348,29 @@ const dwa = n => String(n).padStart(2, "0");
 const iso = d => d.getFullYear() + "-" + dwa(d.getMonth() + 1) + "-" + dwa(d.getDate());
 const minuty = g => +g.slice(0, 2) * 60 + +g.slice(3, 5);
 const godz = m => dwa(Math.floor(m / 60)) + ":" + dwa(m % 60);
+// Okienka godzin pracy (8:30-15:00) - podstawa kropki zajetosci.
 const okienka = []; for (let m = OD; m < DO; m += KROK) okienka.push(m);
 // Termin z sama godzina rozpoczecia zajmuje jedno okienko (tak samo liczy serwer).
 const koniecWpisu = w => w.koniec ? minuty(w.koniec) : minuty(w.godzina) + KROK;
+// Dolozone pozniejsze godziny: dzien -> koniec okna dnia w minutach.
+const pozniejDo = {};
+// Koniec okna dnia: 15:00, dalej o dolozone godziny i o terminy po 15:00.
+function koniecDnia(data){
+  let k = Math.max(DO, pozniejDo[data] || 0);
+  wpisyKal.forEach(w => {
+    if (w.data === data && w.godzina && minuty(w.godzina) < DO_MAX)
+      k = Math.max(k, OD + Math.ceil((koniecWpisu(w) - OD) / KROK) * KROK);
+  });
+  return Math.min(k, DO_MAX);
+}
+function okienkaDo(koniec){ const l = []; for (let m = OD; m < koniec; m += KROK) l.push(m); return l; }
+const okienkaDnia = data => okienkaDo(koniecDnia(data));
+// Przycisk "dodaj pozniejsze godziny": kolejna godzina, najdalej do DO_MAX.
+function dolozGodzine(dni, koniec){
+  const nowy = Math.min(koniec + 60, DO_MAX);
+  dni.forEach(d => { pozniejDo[d] = Math.max(pozniejDo[d] || 0, nowy); });
+}
+const opisGodzin = m => String(m / 60).replace(".", ",");
 const duzaLitera = t => t.charAt(0).toUpperCase() + t.slice(1);
 
 // Dni ustawowo wolne od pracy (ustawa z 18.01.1951). Wigilia od 2025 r.
@@ -6371,16 +6402,17 @@ function dzienWolny(data){
   const dzien = new Date(data + "T00:00").getDay();
   return dzien === 6 ? "sobota" : dzien === 0 ? "niedziela" : "";
 }
-// Kropka przy dacie. 100% to godziny otwarcia (okienka OD-DO).
+// Kropka przy dacie. 100% to godziny pracy 8:30-15:00 (okienka OD-DO).
+// Terminy w dolozonych pozniejszych godzinach nie zmieniaja koloru.
 function dostepnosc(data){
   const wolny = dzienWolny(data);
   if (wolny) return {klasa: "k-szara", opis: "niedostępny: " + wolny};
   const terminy = wpisyKal.filter(w => w.data === data && w.godzina);
   const wolne = okienka.filter(m => !terminy.some(w => minuty(w.godzina) < m + KROK && m < koniecWpisu(w))).length;
-  const zajete = terminy.reduce((s, w) => s + koniecWpisu(w) - minuty(w.godzina), 0);
+  const zajete = terminy.reduce((s, w) => s + Math.max(0, Math.min(koniecWpisu(w), DO) - Math.max(minuty(w.godzina), OD)), 0);
   const czesc = wolne / okienka.length;
   const klasa = wolne < 2 || zajete >= DO - OD ? "k-purp" : czesc >= .8 ? "k-ziel" : czesc >= .5 ? "k-zolta" : "k-czerw";
-  return {klasa, opis: "wolne " + String(wolne * KROK / 60).replace(".", ",") + " z " + String((DO - OD) / 60).replace(".", ",") + " godz."};
+  return {klasa, opis: "wolne " + opisGodzin(wolne * KROK) + " z " + opisGodzin(DO - OD) + " godz. (" + godz(OD).replace(/^0/, "") + "–" + godz(DO) + ")"};
 }
 function kropka(data){
   const d = dostepnosc(data);
@@ -6481,23 +6513,33 @@ function rysujTydzien(){
       + "<b>" + escape(d.toLocaleDateString("pl-PL", {weekday:"short", day:"numeric", month:"numeric"})) + kropka(data) + "</b>"
       + opisyDniaHtml(data) + (bez ? '<div class="stan">+ ' + bez + " bez godziny</div>" : "") + "</div>";
   });
-  okienka.forEach(m => {
-    html += '<div class="g">' + godz(m) + "</div>";
+  // Wiersze do najpozniejszej godziny tygodnia (15:00 albo dalej).
+  const koniec = Math.max(...dni.map(d => koniecDnia(iso(d))));
+  okienkaDo(koniec).forEach(m => {
+    if (m === DO) html += '<div class="kal-po-godzinach">Po godzinach pracy — nie liczą się do zajętości dnia</div>';
+    html += '<div class="g' + (m >= DO ? " po" : "") + '">' + godz(m) + "</div>";
     dni.forEach(d => {
       const data = iso(d), kto = wpisyKal.find(w => w.data === data && w.godzina && minuty(w.godzina) < m + KROK && m < koniecWpisu(w));
-      html += '<div class="k' + (kto ? " zajety" : dzienWolny(data) ? " wolny" : "") + '" data-dzien="' + data + '" data-m="' + m + '"'
+      html += '<div class="k' + (kto ? " zajety" : dzienWolny(data) ? " wolny" : "") + (m >= DO ? " po" : "") + '" data-dzien="' + data + '" data-m="' + m + '"'
         + (kto ? ' data-wpis="' + escape(kto.id) + '" title="' + escape(godzinyWpisu(kto) + " " + opisWpisu(kto)) + '"' : "")
         + ">" + (kto ? escape(opisWpisu(kto) || "zajęte") : "") + "</div>";
     });
   });
   const t = $("kal-tydzien");
-  t.innerHTML = html + "</div>";
+  t.innerHTML = html + "</div>" + (koniec < DO_MAX
+    ? '<button type="button" class="wtorny maly kal-pozniej" id="kal-tydzien-pozniej">+ Dodaj późniejszą godzinę ('
+      + godz(koniec) + "–" + godz(Math.min(koniec + 60, DO_MAX)) + ")</button>" : "");
   // Klik w wolna godzine otwiera dzien z ta godzina juz zaznaczona.
   t.querySelectorAll("[data-dzien]").forEach(el => el.onclick = () => {
     const wpis = el.dataset.wpis ? wpisyKal.find(w => w.id === el.dataset.wpis) : null;
+    // Pozniejsza godzina z widoku tygodnia zostaje widoczna w oknie dnia.
+    const m = +el.dataset.m, d = el.dataset.dzien;
+    if (!wpis && m >= DO) pozniejDo[d] = Math.max(pozniejDo[d] || 0, m + KROK);
     otworzDzien(el.dataset.dzien, wpis);
     if (!wpis && el.dataset.m) zaznacz(+el.dataset.m);
   });
+  const pozniej = $("kal-tydzien-pozniej");
+  if (pozniej) pozniej.onclick = () => { dolozGodzine(dni.map(iso), koniec); rysujTydzien(); };
 }
 function rysujMiesiac(){
   const kalMiesiac = new Date(kalData.getFullYear(), kalData.getMonth(), 1);
@@ -6620,8 +6662,12 @@ function rysujOkno(){
     $("kal-nieczynne").checked = !!opis.nieczynne;
     stan($("stan6d"), "");
   }
+  // Okno dnia nie kurczy sie w trakcie pracy (np. po przeniesieniu terminu
+  // sprzed 16:00 na rano) - dolozone godziny zostaja do odswiezenia strony.
+  const koniec = koniecDnia(dzienOkna);
+  if (koniec > DO) pozniejDo[dzienOkna] = koniec;
   // Terminy bez godziny albo poza okienkami, zeby nie zginely z widoku.
-  const poza = wpisyDnia().filter(w => !w.godzina || koniecWpisu(w) <= OD || minuty(w.godzina) >= DO);
+  const poza = wpisyDnia().filter(w => !w.godzina || koniecWpisu(w) <= OD || minuty(w.godzina) >= koniec);
   const b = $("kal-bez-godz");
   b.innerHTML = poza.length ? '<span class="etykieta">Poza godzinami</span>' : "";
   poza.forEach(w => {
@@ -6633,13 +6679,19 @@ function rysujOkno(){
   });
   const g = $("kal-godziny");
   g.innerHTML = "";
-  okienka.forEach(m => {
+  okienkaDo(koniec).forEach(m => {
+    if (m === DO) {
+      const p = document.createElement("div");
+      p.className = "kal-po-godzinach";
+      p.textContent = "Po godzinach pracy — nie liczą się do zajętości dnia";
+      g.appendChild(p);
+    }
     const kto = zajmujacy(m), el = document.createElement("button");
     // Godzina, ktora edytowany termin zajmuje, a po zmianach juz nie bedzie.
     // Do zapisu jest nadal zajeta - nie pokazujemy jej jako wolnej.
     const zwalniany = !kto && !wybrane.includes(m) && oryginalne.includes(m);
     el.type = "button";
-    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "") + (zwalniany ? " zwalniany" : "");
+    el.className = "kal-slot" + (kto ? " zajety" : "") + (wybrane.includes(m) ? " wybrany" : "") + (zwalniany ? " zwalniany" : "") + (m >= DO ? " po" : "");
     // Kazde okienko rezerwacji pokazuje, czyje jest - nie tylko pierwsze.
     el.innerHTML = '<span class="g">' + godz(m) + "–" + godz(m + KROK) + '</span><span class="o">'
       + (kto ? escape(opisWpisu(kto) || "zajęte") : wybrane.includes(m) ? "wybrane" : zwalniany ? "zwolni się po zapisie" : "wolne") + "</span>";
@@ -6647,6 +6699,14 @@ function rysujOkno(){
     el.onclick = () => kto ? (porzucic() && edytujTermin(kto)) : zaznacz(m);
     g.appendChild(el);
   });
+  if (koniec < DO_MAX) {
+    const p = document.createElement("button");
+    p.type = "button"; p.id = "kal-pozniej"; p.className = "wtorny maly kal-pozniej";
+    p.textContent = "+ Dodaj późniejszą godzinę (" + godz(koniec) + "–" + godz(Math.min(koniec + 60, DO_MAX)) + ")";
+    p.title = "Późniejsze godziny nie zmieniają koloru zajętości dnia";
+    p.onclick = () => { dolozGodzine([dzienOkna], koniec); rysujOkno(); if (widok === "tydzien") rysujTydzien(); };
+    g.appendChild(p);
+  }
   const n = wybrane.length;
   $("kal-przenies").hidden = !edytowany || !n;
   $("kal-przenies").classList.toggle("on", przenoszenie);
@@ -6692,7 +6752,7 @@ function zaznacz(m){
   } else if (!wybrane.length) wybrane = [m];
   else {
     const od = Math.min(wybrane[0], m), dok = Math.max(wybrane[wybrane.length - 1], m);
-    const ciag = okienka.filter(x => x >= od && x <= dok);
+    const ciag = okienkaDnia(dzienOkna).filter(x => x >= od && x <= dok);
     wybrane = ciag.every(x => !zajmujacy(x)) ? ciag : [m];
   }
   stan($("stan6"), "");
@@ -6702,7 +6762,7 @@ function zaznacz(m){
 function przenies(m){
   przenoszenie = false;
   const dlugosc = Math.max(wybrane.length, 1);
-  const ciag = okienka.filter(x => x >= m && x < m + dlugosc * KROK);
+  const ciag = okienkaDnia(dzienOkna).filter(x => x >= m && x < m + dlugosc * KROK);
   const miesci = ciag.length === dlugosc && ciag.every(x => !zajmujacy(x));
   wybrane = miesci ? ciag : [m];
   stan($("stan6"), miesci ? "Sprawdź nowe godziny i kliknij „Zapisz zmiany”."
@@ -6766,7 +6826,7 @@ function nowyTermin(){
 }
 function edytujTermin(w){
   edytowany = w.id; przenoszenie = false;
-  wybrane = w.godzina ? okienka.filter(m => m + KROK > minuty(w.godzina) && m < koniecWpisu(w)) : [];
+  wybrane = w.godzina ? okienkaDnia(dzienOkna).filter(m => m + KROK > minuty(w.godzina) && m < koniecWpisu(w)) : [];
   oryginalne = [...wybrane];
   wypelnij(w);
   stanPoczatkowy = stanFormularza();
