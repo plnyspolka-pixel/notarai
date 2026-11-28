@@ -435,3 +435,53 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
   8. Kolejność: PR do `master` dopiero po decyzji o powiadomieniu kancelarii (zmiana zał. 3, 30 dni).
 - **Zamknięte, gdy:** wnioski TEST złożone z potwierdzonym adresem, adapter działa w podsieci wyjścia, a umowa
   jest opublikowana po powiadomieniu.
+
+
+## NA-19. Prywatna przeglądarka ze stałym IP AWS (26.11.2026)
+
+- **Status:** kod wdrożeniowy; dostęp na żywo niezweryfikowany.
+- **Brakuje:** dedykowanego Cognito MFA, DNS/certyfikatu, przypiętego obrazu i roli OIDC dla osobnego stosu. Istniejąca rola aplikacji nie wystarcza. NAT TEST musi być włączony jawnie; nie przenosić EIP ani nie używać jako adresu rejestrów PROD.
+- **Na żywo:** `docs/private-aws-browser.md`; wdrożyć, sprawdzić anonimowy dostęp, logowanie na telefonie i rzeczywisty IPv4 w Chromium. Włączyć automatyzację przez `PRIVATE_BROWSER_AUTODEPLOY=true` dopiero po konfiguracji roli i zmiennych. Bez danych kancelarii.
+
+## NA-20. NotarAI V2 na stanowisku kancelarii: dyktowanie, poczta, programy (27.11.2026)
+
+- **Status:** kod i testy na atrapach; na prawdziwym stanowisku niesprawdzone.
+- **Brakuje:** komputera kancelarii z zainstalowanym V2 (konto `bielak@notar.pl` jest w grupie `notarai-v2`).
+- **Na żywo (tylko fikcyjne dane):**
+  1. Dyktowanie 🎤 przez Amazon Transcribe streaming w eu-central-1: tekst ma rosnąć w polu w trakcie mówienia
+     (`v2/worker/cloud_speech.py`, `transcribe_stream`); zmierzyć opóźnienie; jeśli sieć blokuje HTTP/2, zanotować.
+  2. Rozpoznanie komputera na pierwszym ekranie (`v2/worker/environment.py`): czy wykrywa pocztę, Word, RejNET
+     i programy podpisu; poprawić listę `KNOWN` o nazwy z prawdziwego komputera.
+  3. Poczta: załącznik z Outlooka/Thunderbirda do sprawy, „Odpowiedz” otwiera gotową wiadomość w programie
+     pocztowym (`mail.compose`); nie klikamy „Wyślij” za notariusza.
+  4. RejNET / program kancelaryjny: nagrać procedurę wpisu do repertorium na fikcyjnych danych i sprawdzić
+     wypełnienie przez UI Automation (`win_fill.py`).
+  5. EKW i KRZ: nagrać procedury sprawdzenia księgi i strony w przeglądarce NotarAI, potem uruchomić je dla
+     fikcyjnej sprawy; zapisać, czego strony wymagają (logowanie, captcha).
+  6. Agent komputera 2.6.1/2.7.0 (`v2/worker/agent.py`), fikcyjne dane: zdanie mówione („dobra, słuchaj, wejdź na
+     stronę … i wypełnij formularz”) ma ruszyć agenta, także przy wybranej sprawie; okno bez pól (program rysujący
+     własny interfejs): `ekran`, `kliknij_punkt`, `pisz` - sprawdzić trafianie przy skalowaniu 125/150% i dwóch
+     monitorach (zrzut obejmuje ekran główny); `polecenie`: `winapp ui list-windows --json` i jedno narzędzie
+     `cli-anything-…`, jeśli zainstalowane, oraz odmowa dla `cmd`/`powershell`; „używaj Chrome” (osobny profil
+     `przegladarka-chrome`); telefon po „pozwól telefonowi … sterować komputerem”.
+  7. Wersja 2.8.0, RejNET na fikcyjnych danych: „poznaj program RejNET” (czy mapa zawiera ekrany rejestracji aktu),
+     potem rejestracja 2-3 aktów jednym zdaniem; sprawdzić, czy okno przeglądarki zostaje poza ekranem na Windows
+     (`--window-position=-32000,-32000`, `Browser.setWindowBounds`), czy wychodzi do logowania certyfikatem i wraca
+     w tło po „Zalogowałem się, kontynuuj”, oraz czy strona pracuje poprawnie, gdy okno jest poza ekranem.
+  8. Praca w tle (2.8.5+), RejNET otwarty pod innym oknem, notariusz pisze w Wordzie: czy `okno`/`wpisz`/`kliknij` działają
+     bez wyjścia okna na wierzch; czy `Desktop.capture` (PrintWindow) daje obraz zakrytego okna Delphi (czarny obraz =
+     zanotować); czy `click_at`/`send_text` trafiają w pole; czy okienko z pytaniem (`attention.py`) wychodzi ponad okna
+     i nie zabiera klawiatury; czy po zgodzie „Tak, na chwilę” okno notariusza wraca na wierzch.
+- **Zamknięte, gdy:** punkty 1-8 przeszły albo mają opisany powód i poprawkę.
+
+## NA-21. Dwa stanowiska w jednej kancelarii na prawdziwych komputerach (27.11.2026)
+
+- **Status:** kod i testy (dwa stanowiska w jednym procesie, atrapy druku i zrzutu ekranu).
+- **Brakuje:** dwóch komputerów z Windows w jednej sieci z NotarAI 2.4.x.
+- **Na żywo:** nazwać stanowiska (Gabinet, Sekretariat); „połącz drugie stanowisko” na jednym, „dołącz do kancelarii …”
+  na drugim; zezwolić na sieć prywatną w zaporze; sprawdzić wymianę dokumentu, terminu, wiadomości i usunięcia;
+  równoległą edycję (dokument „(konflikt)”); „drukarki” i „wydrukuj … w sekretariacie” (Word/PDF przez „printto”);
+  „zezwól na podgląd ekranu” i „pokaż ekran …”; zmierzyć opóźnienie (cel: kilka sekund).
+  Drukarki i skanery sieciowe: „znajdź drukarki”, nazwać je, wydruk przez IPP (DOCX przez Worda), skan eSCL
+  do sprawy z szyby i z podajnika; zanotować modele, które nie obsługują IPP/eSCL.
+- **Zamknięte, gdy:** wszystko powyżej działa albo ma opisany powód i poprawkę.

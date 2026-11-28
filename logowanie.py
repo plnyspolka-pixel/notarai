@@ -19,6 +19,10 @@ log = logging.getLogger("pieczapp.logowanie")
 
 PULA = os.getenv("PIECZAPP_COGNITO_POOL", "")
 KLIENT = os.getenv("PIECZAPP_COGNITO_KLIENT", "")
+# Programy kancelarii z ta sama pula (NotarAI 2.0 na stanowisku): ich token
+# tozsamosci tez otwiera API kancelarii (np. synchronizacja kalendarza).
+# Logowanie haslem i odnawianie zostaja tylko dla klienta aplikacji.
+KLIENCI_DODATKOWI = tuple(k.strip() for k in os.getenv("PIECZAPP_COGNITO_KLIENCI_DODATKOWI", "").split(",") if k.strip())
 
 # Token JWT ma trzy czesci rozdzielone kropka. Po tym odrozniamy go od
 # tokenu pomocnika i awaryjnego tokenu administratora.
@@ -215,7 +219,7 @@ def dane_z_tokenu(token: str) -> dict:
             token,
             klucz.key,
             algorithms=["RS256"],
-            audience=KLIENT,
+            audience=[KLIENT, *KLIENCI_DODATKOWI],
             issuer=f"https://cognito-idp.{config.REGION}.amazonaws.com/{PULA}",
         )
     except Exception as blad:

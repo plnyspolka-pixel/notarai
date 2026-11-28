@@ -23,7 +23,7 @@ class Odpowiedz:
 
 
 class AtrapaKlienta:
-    """Udaje api.apify.com: run-sync, odczyt zbioru, zapis ERRORS, kasowanie."""
+    """Udaje api.apify.com: runs, odczyt zbioru, zapis ERRORS, kasowanie."""
 
     def __init__(self, rekordy=None, status_zadania="SUCCEEDED", kod_startu=201,
                  bledy="", komunikat=""):
@@ -41,6 +41,9 @@ class AtrapaKlienta:
 
     def get(self, sciezka, params=None):
         self.wywolania.append(("GET", sciezka, None))
+        if sciezka == "/actor-runs/run1":
+            return Odpowiedz(200, {"data": {"id": "run1", "status": "SUCCEEDED",
+                                           "defaultDatasetId": "ds1", "defaultKeyValueStoreId": "kv1"}})
         if sciezka == "/datasets/ds1/items":
             return Odpowiedz(200, self.rekordy or [])
         if sciezka == "/key-value-stores/kv1/records/ERRORS":
@@ -109,9 +112,15 @@ class TestPobierz:
         k = AtrapaKlienta([rekord()])
         ekw.pobierz(KW, k)
         metoda, sciezka, cialo = k.wywolania[0]
-        assert (metoda, sciezka) == ("POST", f"/acts/{ekw.AKTOR}/run-sync")
+        assert (metoda, sciezka) == ("POST", f"/acts/{ekw.AKTOR}/runs")
         assert cialo["kwNumbers"] == [KW] and cialo["viewType"] == "aktualna"
         assert cialo["includeRawHtml"] is False
+
+    def test_czeka_na_zakonczenie_aktora_przed_odczytem_zbioru(self):
+        k = AtrapaKlienta([rekord()], status_zadania="RUNNING")
+        ekw.pobierz(KW, k)
+        metody = [(m, s) for m, s, _ in k.wywolania]
+        assert metody[1:3] == [("GET", "/actor-runs/run1"), ("GET", "/datasets/ds1/items")]
 
     def test_kasuje_dane_u_dostawcy_takze_po_bledzie(self):
         k = AtrapaKlienta([rekord(kwNumber="WA4M/00000001/1")])

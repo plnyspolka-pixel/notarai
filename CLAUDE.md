@@ -84,6 +84,158 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   na stronę samo. Nie uruchamiaj `infra\strona.ps1` ani FTP ręcznie, chyba
   że workflow nie działa (wtedy to wysyłka awaryjna).
 
+## NotarAI 2.0 (katalog `v2/`, tor rozwojowy)
+
+- Stan dla właściciela: `v2/STAN.md`. Architektura i moduły: `v2/README.md`.
+- V2 jest osobne od V1: własne zależności (`v2/requirements.txt`), własne testy
+  (`cd v2 && python -m pytest -q`), bez wdrożeń na produkcję i bez importu danych
+  ani konfiguracji V1. Z V1 bierze wyłącznie kod reguł (`taksa.py`, `slownie.py`
+  przez `v2/worker/domain.py`); zmieniając je, puść też testy V2. Decyzja właściciela
+  27.11.2026: także `krz_portal.py` i `walidacja.py` (KRZ i numery KW/PESEL, tą samą drogą),
+  a treść KW pobiera funkcja AWS `notarai-v2-rejestry` (stos w `infra/`) z `ekw.py` V1 bez zmian;
+  token dostawcy zostaje w Secrets Manager, stanowisko woła funkcję swoim logowaniem.
+- Kalendarz (decyzja właściciela 27.11.2026): kalendarz V2 jest synchronizowany w obie strony z kalendarzem
+  wersji webowej przez API V1 (`/api/kalendarz`) z logowaniem stanowiska (token Cognito klienta
+  `notarai-v2-stanowisko`, który V1 przyjmuje przez `PIECZAPP_COGNITO_KLIENCI_DODATKOWI`);
+  `v2/worker/web_calendar.py`. Żadnych innych danych V1; treści terminów nie trafiają do logów.
+- Dane prawdziwe (decyzja właściciela 27.11.2026): V2 obsługuje prawdziwe sprawy i dane osobowe;
+  `ai.real_data_approved` domyślnie `true` i nadal nie da się go przełączyć z aplikacji. Zasady
+  RODO z tego pliku (UE, brak danych w logach, sejf, pseudonimizacja dla modelu) obowiązują bez zmian.
+- Każde wywołanie modelu w V2 idzie przez `v2/worker/inference.py` (polityka UE,
+  pseudonimizacja, licznik). Nie wołaj Bedrock z innego miejsca i nie loguj treści.
+- Zapis albo wysyłka w imieniu notariusza (decyzja właściciela 27.11.2026): wyraźne polecenie
+  notariusza lub użytkownika („wyślij pocztę”, „wypełnij … i wyślij”) jest zatwierdzeniem; dodatkowe
+  „Tak / Nie” tylko przy ustawieniu `confirm` albo gdy polecenie nie prosiło o tę czynność (np. samo
+  „wypełnij”). Zawsze: zasady kancelarii (`check_*`) przed zapisem i wysyłką, pokazanie w rozmowie
+  dokładnie tego, co wykonano, jedno wykonanie bez ponawiania po niepewnym wyniku. Zapis dokumentu
+  nadal przez kontrakt Connect z odczytem kontrolnym.
+- Stosy `notarai-v2-bedrock`, `notarai-v2-przekaznik`, `notarai-v2-kopia`, `notarai-v2-mowa`,
+  `notarai-v2-pobieranie`, `notarai-v2-rejestry`, `notarai-v2-serwis` istnieją w eu-central-1 (decyzje właściciela 27.11.2026). Zmieniaj je tylko przez szablony w
+  `infra/`; `notarai-v2-kopia` przechowuje zaszyfrowane dane osobowe.
+- Interfejs V2 to rozmowa (`v2/worker/chat.py`): nowe funkcje dodawaj jako polecenia
+  zdaniem, bez tabel i formularzy. Polecenia zmieniające stan rozpoznaje kod, nie model;
+  nieodwracalne wymagają potwierdzenia.
+- Wypełnianie formularzy w V2 (decyzja właściciela 27.11.2026: priorytet programu): procedura
+  z nagrania (`v2/worker/procedures.py`) daje wartości, a `v2/worker/autofill.py` wpisuje je sam
+  na stronach (`web_fill.py`, przeglądarka NotarAI) i w programach Windows (`win_fill.py`,
+  UI Automation). Wysłanie, złożenie, podpisanie albo zapis na stałe: na wyraźne polecenie (zob. wyżej,
+  decyzja 27.11.2026) albo po zatwierdzeniu w czacie, zawsze związane ze stanem formularza z podglądu;
+  jedno naciśnięcie, bez ponawiania po niepewnym wyniku.
+- Mowa (nagrania procedur, notatki głosowe, stały nasłuch `v2/worker/listening.py`): decyzja
+  właściciela 27.11.2026 - domyślnie w chmurze, wyłącznie Amazon Transcribe w eu-central-1
+  (`v2/worker/cloud_speech.py`, bucket stosu `notarai-v2-mowa`): nagranie i wynik kasowane zaraz
+  po odczycie tekstu, reguła cyklu życia kasuje resztę po dniu, organizacja ma politykę AI opt-out.
+  Alternatywa lokalna (`v2/worker/transcribe.py`) zostaje jako ustawienie `speech.where`. Żadnych
+  innych usług mowy; dźwięku nasłuchu nie zapisuj na stałe.
+  Urządzenie o zakresie `listen` (mikrofon) wysyła tylko dźwięk: nie dawaj mu innych tras.
+- Agent komputera (decyzja właściciela 27.11.2026, `v2/worker/agent.py`): na stanowisku polecenie zdaniem
+  („otwórz akt … w Wordzie i popraw datę”, „wejdź na stronę … i pobierz …”) wykonuje model krok po kroku:
+  czyta pliki z całego dysku, uruchamia programy, wpisuje i klika w oknach Windows (UI Automation) i w przeglądarce
+  NotarAI. Polecenie jest zatwierdzeniem. Kod (nie model) pilnuje: brak narzędzia do usuwania plików, istniejący
+  plik zmieniany tylko zamianą tekstu z kopią poprzedniej wersji, `check_document` przed zapisem i `check_send`
+  przed wysłaniem, wysłanie/złożenie/podpis/zapłata/usunięcie tylko gdy zdanie notariusza o to prosi (inaczej
+  „Tak / Nie”), każda taka czynność raz. Tekst idzie do modelu po pseudonimizacji.
+  Decyzje właściciela 27.11.2026 (wersja 2.7.0), wszystkie w `agent.py`, ustawienia `agent.*` w `settings.py`:
+  - ekran: agent może zrobić zrzut ekranu (krok `ekran`), kliknąć w punkt i pisać z klawiatury. Zrzut idzie do
+    modelu w UE tak, jak go widać (bez pseudonimizacji), tylko przez `inference.py`, każde spojrzenie jest
+    wypisane w rozmowie; wyłącznik „wyłącz zrzuty ekranu agenta”. Przy kliknięciu w punkt o tym, czy to
+    wysłanie/podpis/usunięcie, decyduje najpierw nazwa elementu podana przez Windows, potem opis modelu.
+  - wiersz poleceń: krok `polecenie` uruchamia JEDEN program z argumentami, nigdy przez powłokę. Lista
+    `BLOCKED_PROGRAMS` (cmd, PowerShell, interpretery, hosty skryptów, narzędzia systemowe kasujące dane lub
+    zmieniające system) i zakaz plików skryptowych są w kodzie: nie skracaj ich i nie dodawaj `shell=True`.
+    Poświadczenia AWS nie przechodzą do uruchamianego programu. Narzędzia `cli-anything-*` i `winapp` agent
+    wywołuje tą drogą, jeśli są zainstalowane; program sam ich nie pobiera ani nie generuje (zob. `v2/CONNECT.md`).
+  - telefon: sparowane urządzenie zleca pracę agentowi tylko za zgodą daną w oknie stanowiska („pozwól
+    telefonowi … sterować komputerem” z potwierdzeniem albo „dodaj telefon z dostępem do komputera”); tylko
+    urządzenie z zapisem i wszystkimi sprawami; zgoda czytana przy każdym użyciu (`devices.computer`).
+  - przeglądarka: Edge albo Chrome („używaj Chrome”), każda w osobnym profilu NotarAI.
+  Decyzje właściciela 27.11.2026 (wersja 2.8.0):
+  - logowanie (certyfikat, PIN, hasło), podpis i płatność agent ZAWSZE oddaje notariuszowi (`agent.NEVER`): żadne
+    zdanie ani „Tak” tego nie odblokowuje; czat pokazuje okno przeglądarki i przycisk „…, kontynuuj”. Nie usuwaj
+    rodzaju z `NEVER`. Wysłanie i usunięcie zostają jak wyżej (na wyraźne polecenie albo po „Tak”).
+  - praca w tle (`agent.background`, domyślnie tak): przeglądarka NotarAI to nadal prawdziwe okno Edge/Chrome,
+    tylko trzymane poza ekranem (`web_fill.Browser.hide/show`); pokazuje się do logowania, podpisu i na „pokaż
+    przeglądarkę”. Nie zamieniaj jej na przeglądarkę bezokienkową: logowanie certyfikatem i oddanie okna
+    notariuszowi wymagają prawdziwego okna. Programy Windows agent obsługuje w ich własnych oknach.
+  - mapa programów (`agent.ProgramMap`, plik `mapa-programow.json` w katalogu programu): nazwy ekranów, pól
+    i przycisków zbierane kodem z kroków `okno`/`widok` oraz notatki agenta o drodze przez program; nigdy wartości
+    pól, numery ani dane osób (filtr w kodzie). Mapa trafia do promptu agenta od pierwszego kroku.
+  - jeden przebieg to do `MAX_STEPS` kroków; po limicie czat proponuje „Kontynuuj” z zachowaną historią.
+  - programy Windows (np. RejNET to program na komputerze, nie strona): agent czyta przez UI Automation całe okno,
+    także menu, zakładki, drzewa i listy oraz otwarte menu i okna dialogowe tego samego programu
+    (`win_fill.Desktop.controls(deep=True)`); z tego powstaje mapa programu. Wypełnianie formularzy z procedur
+    (`autofill`) nadal używa `controls()` bez `deep`.
+  - programy klasyczne (Delphi/VCL, wersja 2.8.1): gdy UI Automation daje mniej niż `win_fill.MIN_NAMED` nazwanych
+    elementów, `controls(deep=True)` czyta to samo okno backendem win32 (`_legacy_controls`): pola po klasach okien
+    (`LEGACY_CLASSES`), menu główne i zakładki; pola bez podpisu dostają „pole bez nazwy N”. Kolejność pilnuje kod
+    (`Agent._order`): zrzut ekranu dopiero po kroku `okno`, a klik w punkt jest cofany, gdy przycisk ma nazwę w oknie.
+  - ekran logowania (pole hasła albo PIN-u w oknie programu lub na stronie) wykrywa kod (`Computer._login`):
+    przebieg staje, czat prosi notariusza o zalogowanie i wznawia pracę po „Zalogowałem się, kontynuuj”.
+  - dziennik na żywo: każdy krok agenta idzie do `narrate` jako dokładna czynność z godziną i osobno jej wynik
+    (`Agent._exact`, `_outcome`); okno rozmowy pokazuje je w trakcie pracy w tle (`pocket.js`, `render.job`).
+    Dziennik żyje tylko w pamięci programu i trafia do urządzenia, które zleciło pracę; nie zapisuj go do plików ani logów.
+- Konta i uprawnienia osób (decyzja właściciela 27.11.2026, `v2/worker/team.py`, stos `notarai-v2-zespol`):
+  notariusz (grupa Cognito `notarai-v2-notariusz`) zakłada, blokuje i odblokowuje konta swojej kancelarii
+  zdaniem w czacie; funkcja AWS sprawdza wołającego jego tokenem dostępu i `custom:kancelaria`. Uprawnienia
+  osób (sprawy, kalendarz, poczta, wnioski/agent, zatwierdzanie, ustawienia) leżą w sejfie kancelarii
+  i sprawdza je kod przy każdym zapisie i wysyłce; domyślnie wszystko poza kontami i uprawnieniami.
+- Rejestry, kolejność (decyzja właściciela 28.11.2026): KW - Apify, potem silnik Finance You (EKW), oba w funkcji
+  `notarai-v2-rejestry`; KRZ - najpierw Apify (aktor `regdata~krz-debtor-scraper`, tryby `person` i `soleTrader`, w tej
+  samej funkcji; PESEL nie trafia do logów), a dopiero gdy Apify nie odpowie, przeglądarka NotarAI z opisem każdego
+  ruchu i obrazem strony w oknie stanowiska (`registers._Told`, `_screencast`).
+- Rejestry (decyzja właściciela 27.11.2026): KW zawsze przez API (funkcja `notarai-v2-rejestry`), nigdy przez
+  agenta ani przeglądarkę; KRZ (brak publicznego API, a WAF portalu blokuje przeglądarki bez okna - ustalone 28.11.2026)
+  w przeglądarce NotarAI z prawdziwym oknem trzymanym poza ekranem (jak praca agenta w tle); okno na wierzch na prośbę.
+  W trakcie pracy okno stanowiska pokazuje podgląd strony (obraz w `narrate`, tylko w pamięci, nigdy do modelu ani plików). Zdania o KW/KRZ rozpoznaje kod przed agentem. Sprawy nie trzeba wybierać:
+  program rozpoznaje ją po numerze KW, PESEL albo nazwisku strony (`chat._guess_case`).
+- Agent w trybie uczenia (decyzja właściciela 27.11.2026): gdy agent utknie (krok `pytanie` albo 3 błędy z rzędu,
+  liczone kodem), pyta notariusza z opcjami; z odpowiedzi powstaje lekcja `komputer` (potwierdzona, bo powiedział ją
+  notariusz) i jest pokazywana od razu; po pracy z błędami program proponuje wniosek do potwierdzenia. Lekcje bez
+  danych osobowych; potwierdzone trafiają do instrukcji agenta (`learning.computer_guidance`).
+- Zatrzymanie agenta (decyzja właściciela 27.11.2026, po incydencie): „stop” i zamknięcie okna stanowiska zatrzymują
+  agenta przed następnym krokiem (sprawdza kod, `Agent.run(cancelled=...)`); pomoc zdalna i pulpit zdalny
+  (`agent.REMOTE_HELP`) nigdy nie są uruchamiane ani otwierane przez agenta; brak drugiej kopii działającego programu.
+- Agent nie zabiera ekranu (decyzja właściciela 28.11.2026, `agent.background`, domyślnie tak): okna programów nie są
+  wyciągane na wierzch (`win_fill.Desktop.quiet`, `focus` bez `set_focus`), pola i przyciski idą komunikatami do okna,
+  zrzut okna robi Windows spod innych okien (`Desktop.capture`, PrintWindow), klik w punkt i pisanie to komunikaty
+  (`click_at`, `send_text`). Krok, którego tak się nie da (`klawisze`, zrzut całego ekranu, klik myszą), rzuca
+  `agent.NeedFront`: przebieg staje (rodzaj `wierzch`), czat pyta o zgodę na to zadanie, a po kroku okno notariusza wraca
+  na wierzch (`Computer._borrow`, `give_back`). Nie dodawaj `set_focus`, `click_input` ani `send_keys` poza `_borrow`.
+- Dziennik pracy agenta i skracanie drogi (decyzja właściciela 28.11.2026): dokładny dziennik na żywo (z wartościami)
+  zostaje tylko w pamięci, ale każdy przebieg zostawia plik w `dziennik-agenta/` (`agent.RunLog`): rodzaj kroku,
+  program, NAZWA pola lub przycisku, czy się udało, czas; nigdy wpisywana wartość, treść pliku, ścieżka ani zrzut,
+  a zdanie notariusza bez słów pisanych wielką literą i bez cyfr. Nie dopisuj tam wartości. Udana praca zapisuje w mapie
+  programu „sprawdzoną drogę” (`ProgramMap.route`): dla jednej czynności zostaje najkrótsza znana. Kręcenie się w kółko
+  wykrywa kod (`Agent._looping`, powtórzony odczyt bez zmiany): przebieg staje i pyta notariusza.
+- Nauczone punkty (decyzja właściciela 28.11.2026): elementów, które program rysuje sam (panel modułów RejNET), agent nie
+  zgaduje. Kolejność: pozycja menu albo zakładka, potem nauczony punkt (krok `punkt`, `Computer.press_point`), a gdy go
+  nie ma, pytanie z polami `punkt` i `okno`; notariusz klika element raz („pokażę punkt … w oknie …”,
+  `Computer.learn_point`, `chat._show_point`). W `ProgramMap` zostaje nazwa i położenie jako ułamek okna, nic z treści.
+  Po naciśnięciu kod sprawdza zmianę okna (`_changes`); brak reakcji w tle = `NeedFront`.
+- Pokaz jako sekwencja (decyzja właściciela 28.11.2026): „pokażę drogę … w oknie …” nagrywa kolejne kliknięcia notariusza
+  (`Computer.record_show`, do „Koniec pokazu”, 30 s bez kliknięcia albo `MAX_SHOW_STEPS`): położenie jako ułamek okna, tytuł
+  ekranu przed i po, nazwa elementu z Windows, znacznik „tu wpisywano” (nigdy treść klawiszy). `ProgramMap.show`; agent
+  odtwarza krokiem `pokaz` (`Computer.replay_show`): kod sprawdza ekran przed i po każdym kliknięciu, staje na miejscu
+  wpisywania i przy niezgodnym ekranie. Mapa programu jest kluczowana nazwą pliku programu (`Desktop.program`,
+  `Computer._program_of`), nie tytułem okna.
+- Dyktowanie ze zrozumieniem (decyzja właściciela 28.11.2026, `v2/worker/dictation_polish.py`, ustawienie `speech.polish`):
+  raz, na końcu dyktowania, model poprawia usłyszany tekst z kontekstu (słownik: poznane programy, nazwy spraw, polecenia
+  programu), przez `inference.py` z pseudonimizacją. Kod trzyma bezpieczniki: te same cyfry co w usłyszanym tekście,
+  długość w proporcji, przy błędzie zostaje tekst dosłowny. Tylko dyktowanie do pola, nie notatki głosowe ani stenopisy.
+- Okienko z pytaniem (decyzja właściciela 28.11.2026, `v2/worker/attention.py`, ustawienie `agent.popup`): gdy praca agenta
+  staje na pytaniu, logowaniu albo potwierdzeniu, stanowisko otwiera małe okno Edge ponad innymi oknami. Strona jest
+  podawana tylko temu komputerowi pod jednorazowym adresem (`this_computer`), jedna odpowiedź na pytanie; odpowiedź
+  odbiera okno stanowiska (`/v2/agent/inbox`) i wprowadza do rozmowy jak zwykłe kliknięcie. Skrypt i styl w osobnych
+  plikach (`attention.js`, `attention.css`), bo CSP nie pozwala na kod w stronie. Tylko dla pracy zleconej z okna stanowiska.
+- KRZ bez numeru (decyzja właściciela 28.11.2026): gdy zdanie nie podaje PESEL, `chat._parties_from_documents` sam znajduje
+  akt (sprawy w sejfie, potem pliki przez `Computer.find/read`) i proponuje strony do sprawdzenia; kod, nie model;
+  PESEL w rozmowie zawsze zamaskowany.
+- Twarde zasady kancelarii (`v2/worker/rules.py`) to kod, nie polecenie dla modelu. Każda nowa
+  ścieżka zapisu dokumentu albo wysyłki musi wywołać właściwe `check_*`. Nie dodawaj rodzaju
+  zasady, którego kod nie umie sprawdzić.
+- Zmiany w interfejsie (`v2/worker/pocket.*`, `admin.html`, `tunnel.js`) sprawdzaj
+  w przeglądarce: `cd v2 && node tests/e2e/pocket.e2e.js python`.
+
 ## Secure Agent Factory (prototyp, bez wdrożenia produkcyjnego)
 
 - Architektura i zasady: docs/agent-factory.md.

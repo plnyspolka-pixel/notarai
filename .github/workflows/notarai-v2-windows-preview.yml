@@ -1,0 +1,63 @@
+name: NotarAI V2 Windows preview installer
+on:
+  pull_request:
+    branches: [notarai-2.0]
+    paths:
+      - 'v2/installer/**'
+      - 'v2/worker/**'
+      - 'v2/requirements.txt'
+      - '.github/workflows/notarai-v2-windows-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: notarai-v2-installer
+  cancel-in-progress: false
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write          # only to publish the tested EXE as the download below
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build the x64 EXE
+        run: ./v2/installer/build.ps1 -OutputDirectory "$env:RUNNER_TEMP/notarai-preview"
+      - name: Exercise install, Pocket in Edge, and uninstall
+        run: |
+          python -m pip --disable-pip-version-check install playwright==1.62.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -X utf8 v2/installer/smoke_windows.py "$env:RUNNER_TEMP/notarai-preview/NotarAI-V2-Setup-x64.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NotarAI-V2-Setup-x64
+          path: ${{ runner.temp }}/notarai-preview/NotarAI-V2-Setup-x64.exe
+          if-no-files-found: error
+          compression-level: 0
+      - name: Publish the tested EXE under a fixed download link
+        # Only builds from this repository, after the install test above passed.
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP 'notarai-preview/NotarAI-V2-Setup-x64.exe'
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLower()
+          $notes = "Instalator NotarAI 2 dla Windows x64 (wersja produkcyjna).`n`n" +
+                   "Zbudowany i przetestowany automatycznie z commita $env:TARGET.`nSHA-256: $hash`n`n" +
+                   "Instalator nie jest podpisany: Windows pokaże ostrzeżenie SmartScreen (Więcej informacji, Uruchom mimo to)."
+          gh release delete notarai-v2-podglad --repo $env:GITHUB_REPOSITORY --yes --cleanup-tag 2>$null
+          # The small code update next to the full installer (the program fetches it by itself).
+          $update = Get-ChildItem -LiteralPath (Join-Path $env:RUNNER_TEMP 'notarai-preview') -Filter 'NotarAI-V2-aktualizacja-*.zip' | Select-Object -First 1
+          $manifest = Join-Path $env:RUNNER_TEMP 'notarai-preview/aktualizacja.json'
+          gh release create notarai-v2-podglad $exe $update.FullName $manifest --repo $env:GITHUB_REPOSITORY --target $env:TARGET `
+            --title 'NotarAI 2 - instalator Windows' --notes $notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

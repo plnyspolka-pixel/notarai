@@ -1,0 +1,62 @@
+name: Private AWS browser
+on:
+  pull_request:
+    paths:
+      - infra/notarai-private-browser.yaml
+      - infra/deploy-private-browser.sh
+      - .github/workflows/private-aws-browser.yml
+  push:
+    branches: [master]
+    paths:
+      - infra/notarai-private-browser.yaml
+      - infra/deploy-private-browser.sh
+      - .github/workflows/private-aws-browser.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: notarai-private-browser
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          bash -n infra/deploy-private-browser.sh
+          python3 -m pip install cfn-lint
+          cfn-lint -r eu-central-1 -t infra/notarai-private-browser.yaml
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && vars.PRIVATE_BROWSER_AUTODEPLOY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_PAGER: ''
+      ROLE: ${{ vars.BROWSER_DEPLOY_ROLE }}
+      BROWSER_HOSTNAME: ${{ vars.BROWSER_HOSTNAME }}
+      BROWSER_CERT_ARN: ${{ vars.BROWSER_CERT_ARN }}
+      BROWSER_POOL_ARN: ${{ vars.BROWSER_POOL_ARN }}
+      BROWSER_POOL_CLIENT: ${{ vars.BROWSER_POOL_CLIENT }}
+      BROWSER_POOL_DOMAIN: ${{ vars.BROWSER_POOL_DOMAIN }}
+      BROWSER_PUBLIC_SUBNETS: ${{ vars.BROWSER_PUBLIC_SUBNETS }}
+      BROWSER_CLIENT_CIDR: ${{ vars.BROWSER_CLIENT_CIDR }}
+      BROWSER_IMAGE: ${{ vars.BROWSER_IMAGE }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Dedicated AWS role via OIDC
+        run: |
+          set -euo pipefail
+          test -n "$ROLE"
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -er .value)
+          echo "::add-mask::$token"
+          creds=$(aws sts assume-role-with-web-identity --role-arn "$ROLE" --role-session-name "browser-$GITHUB_RUN_ID" --web-identity-token "$token" --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)
+          read -r kid secret session <<< "$creds"
+          for val in "$kid" "$secret" "$session"; do echo "::add-mask::$val"; done
+          printf 'AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_SESSION_TOKEN=%s\n' "$kid" "$secret" "$session" >> "$GITHUB_ENV"
+      - name: Deploy dedicated stack
+        run: bash infra/deploy-private-browser.sh

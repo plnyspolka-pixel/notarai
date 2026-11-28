@@ -1,0 +1,22 @@
+{
+  "account": {
+    "region": "eu-central-1",
+    "user_pool_id": "eu-central-1_vEJem2cj2",
+    "client_id": "5m71qpav9nkuv176tialrh0e90",
+    "identity_pool_id": "eu-central-1:968360ad-2130-4675-8b72-f238e1f2fd41"
+  },
+  "tunnel": {
+    "enabled": false,
+    "relay_url": "wss://qj7nel6in9.execute-api.eu-central-1.amazonaws.com/v1",
+    "pocket_url": "https://notarai.pl/pocket/"
+  },
+  "replica": {
+    "enabled": false,
+    "bucket": "notarai-v2-kopie",
+    "region": "eu-central-1"
+  },
+  "speech": {
+    "where": "chmura",
+    "bucket": "notarai-v2-mowa-127621462971"
+  }
+}
