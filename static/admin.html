@@ -482,6 +482,7 @@ function kartaKancelarii(k){
       <span class="znacznik" title="Identyfikator kancelarii">${escape(k.id)}</span>
       <span class="znacznik ${k.kredyty !== null && k.kredyty !== undefined && k.kredyty <= 0 ? "wyl" : ""}"
             title="Saldo kredytów (tokenomia)">${k.kredyty === null || k.kredyty === undefined ? "bez portfela kredytów" : String(k.kredyty).replace(".", ",") + " kr."}</span>
+      ${k.bez_limitu ? '<span class="znacznik" title="Kancelaria zwolniona z kredytów: nic jej nie blokuje i nic nie pobieramy">bez limitu kredytów</span>' : ""}
       <span class="znacznik ${k.umowa ? "ok" : "wyl"}" title="Regulamin i umowa powierzenia">${k.umowa ? "umowa od " + data(k.umowa) : "umowa niezaakceptowana"}</span></div>
     <div class="osoby">${zespol.length ? "" : '<p class="stan">Nikt jeszcze nie ma konta. Zaproś notariusza.</p>'}</div>
     ${zespol.length ? "" : `<div class="zapros"><input type="email" placeholder="e-mail notariusza" spellcheck="false">
@@ -494,6 +495,7 @@ function kartaKancelarii(k){
       <button class="wtorny maly" data-akcja="aktywna">${k.aktywna ? "Wyłącz kancelarię" : "Włącz ponownie"}</button>
       ${k.serwis_do && k.aktywna && czyJwt(token) ? '<button class="wtorny maly" data-akcja="serwis">Otwórz sprawy (dostęp serwisowy)</button>' : ""}
       <button class="odnosnik" data-akcja="kredyty">Dopisz kredyty…</button>
+      <button class="odnosnik" data-akcja="bez-limitu">${k.bez_limitu ? "Przywróć kredyty…" : "Bez limitu kredytów…"}</button>
       ${k.aktywna ? "" : '<button class="odnosnik" data-akcja="usun">Usuń wszystkie dane…</button>'}
     </div>
 `;
@@ -567,6 +569,19 @@ function kartaKancelarii(k){
     try {
       await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/kredyty",
                 {method: "POST", body: JSON.stringify({kredyty: Number(ile.replace(",", ".")), powod: powod.trim() || "recznie"})});
+      await odswiez();
+    } catch (e) { stan(st, e.message, true); }
+  };
+
+  d.querySelector('[data-akcja="bez-limitu"]').onclick = async () => {
+    const powod = prompt(k.bez_limitu
+      ? "Przywrócić kredyty „" + k.nazwa + "”?\n\nKancelaria wróci do salda, które miała. Powód (widoczny w historii):"
+      : "Zwolnić „" + k.nazwa + "” z kredytów?\n\nKancelaria korzysta ze wszystkiego bez limitu i bez opłat; "
+        + "jej koszt AI zobaczysz w zestawieniu tokenomii. Powód (widoczny w historii):", "umowa indywidualna");
+    if (powod === null) return;
+    try {
+      await api("/api/admin/kancelarie/" + encodeURIComponent(k.id) + "/bez-limitu",
+                {method: "PUT", body: JSON.stringify({wlacz: !k.bez_limitu, powod: powod.trim()})});
       await odswiez();
     } catch (e) { stan(st, e.message, true); }
   };

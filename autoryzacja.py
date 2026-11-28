@@ -662,7 +662,7 @@ def lista_kancelarii(request: Request):
         {"id": w["id"], "nazwa": w["nazwa"], "aktywna": w.get("aktywna", True),
          "przechowywanie": w.get("przechowywanie", "chmura"),
          "klucz_kancelarii": bool((w.get("szyfrowanie") or {}).get("kcv")),
-         "kredyty": _saldo_kredytow(w["id"]),
+         **_stan_kredytow(w["id"]),
          "umowa": (w.get("umowa") or {}).get("zaakceptowano"),
          "zespol": _zespol(w),
          "serwis_do": (_serwis_trwa(w) or {}).get("do"),
@@ -671,9 +671,10 @@ def lista_kancelarii(request: Request):
     ]
 
 
-def _saldo_kredytow(id_k: str) -> float | None:
+def _stan_kredytow(id_k: str) -> dict:
     portfel = tokenomia.wczytaj_portfel(id_k)
-    return None if portfel is None else tokenomia.saldo(portfel)
+    return {"kredyty": None if portfel is None else tokenomia.saldo(portfel),
+            "bez_limitu": tokenomia.bez_limitu(portfel)}
 
 
 def _stan_mapy(wpis: dict) -> dict:

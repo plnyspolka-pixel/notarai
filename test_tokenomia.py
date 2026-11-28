@@ -363,6 +363,52 @@ def test_kazdy_model_biznesowy_ma_narzut_100_procent_na_kosztach_ai():
 
 # --- konta kancelarii (pelny przeplyw zakupu w test_platnosci) ------------------------
 
+# --- kancelaria bez limitu (zwolniona z kredytow przez administratora) ----------
+
+def test_bez_limitu_nic_nie_blokuje_i_nic_nie_pobiera(portfele):
+    t.doladuj(KANCELARIA, 1, "test")
+    with pytest.raises(t.BrakKredytow):
+        t.sprawdz("projekt")
+    t.ustaw_bez_limitu(KANCELARIA, True, "umowa indywidualna")
+    for _ in range(50):                                       # daleko ponad saldo i debet
+        with t.akcja("projekt") as a:
+            t.dolicz("eu.anthropic.claude-opus-4-6-v1", {"inputTokens": 30_000, "outputTokens": 20_000})
+        assert a.pobrano == 0
+    assert t.obciaz("przesylka", 4) == 0
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    assert t.saldo(portfel) == 1 and t.aktywna(KANCELARIA) and t.saldo_kancelarii() is None
+
+
+def test_bez_limitu_koszt_ai_dalej_widac_w_miesiacu(portfele):
+    t.ustaw_bez_limitu(KANCELARIA, True)
+    with t.akcja("projekt"):
+        t.dolicz("eu.anthropic.claude-opus-4-6-v1", {"inputTokens": 30_000, "outputTokens": 20_000})
+    miesiac = t.podsumowanie_miesiaca(t.wczytaj_portfel(KANCELARIA))
+    assert miesiac["akcje"]["projekt"] == {"ile": 1, "kredyty": 0.0, "koszt_zl": pytest.approx(miesiac["koszt_zl"], abs=0.01)}
+    assert miesiac["kredyty"] == 0 and miesiac["koszt_zl"] > 0
+
+
+def test_wylaczenie_bez_limitu_przywraca_kredyty_z_tym_samym_saldem(portfele):
+    t.doladuj(KANCELARIA, 1, "test")
+    t.ustaw_bez_limitu(KANCELARIA, True, "test")
+    with t.akcja("projekt"):
+        pass
+    t.ustaw_bez_limitu(KANCELARIA, False, "koniec umowy")
+    portfel = t.wczytaj_portfel(KANCELARIA)
+    assert t.saldo(portfel) == 1 and not t.bez_limitu(portfel)
+    with pytest.raises(t.BrakKredytow):
+        t.sprawdz("projekt")
+    wpisy = [w for w in portfel["historia"] if w["akcja"] == "bez_limitu"]
+    assert [w["wlaczone"] for w in wpisy] == [True, False] and wpisy[0]["powod"] == "test"
+
+
+def test_bez_limitu_dotyczy_tylko_wskazanej_kancelarii(portfele, monkeypatch):
+    t.ustaw_bez_limitu("inna-kancelaria", True)
+    t.doladuj(KANCELARIA, 1, "test")
+    with pytest.raises(t.BrakKredytow):
+        t.sprawdz("projekt")
+
+
 from test_platnosci import (ADMIN, CZLONEK, WLASCICIEL, jako,  # noqa: E402,F401
                             _przywroc_moduly, logowanie_atrapa, serwer)
 
@@ -395,3 +441,23 @@ def test_kancelaria_widzi_swoje_kredyty(serwer_z_kredytami):
     t.doladuj(id_k, 42, "test")
     widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
     assert widok["saldo"] == 42 + t.KREDYTY_PROBNE and widok["egzekwowana"]
+
+
+def test_admin_zwalnia_kancelarie_z_kredytow(serwer_z_kredytami):
+    klient, id_k = serwer_z_kredytami
+    adres = f"/api/admin/kancelarie/{id_k}/bez-limitu"
+    assert klient.put(adres, headers=jako(WLASCICIEL, id_k), json={"wlacz": True}).status_code in (401, 403)
+    assert klient.put("/api/admin/kancelarie/nie-ma-takiej/bez-limitu", headers=ADMIN,
+                      json={"wlacz": True}).status_code == 404
+    odp = klient.put(adres, headers=ADMIN, json={"wlacz": True, "powod": "umowa indywidualna"})
+    assert odp.status_code == 200 and odp.json()["bez_limitu"] is True
+    assert odp.json()["saldo"] == t.KREDYTY_PROBNE                      # saldo nietkniete
+    widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
+    assert widok["bez_limitu"] is True and widok["egzekwowana"] is False and widok["saldo"] is None
+    lista = klient.get("/api/admin/kancelarie", headers=ADMIN).json()
+    assert next(k for k in lista if k["id"] == id_k)["bez_limitu"] is True
+    assert any(k["id"] == id_k and k["bez_limitu"] for k in
+               klient.get("/api/admin/tokenomia", headers=ADMIN).json()["kancelarie"])
+    assert klient.put(adres, headers=ADMIN, json={"wlacz": False}).json()["bez_limitu"] is False
+    widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
+    assert widok["bez_limitu"] is False and widok["egzekwowana"] and widok["saldo"] == t.KREDYTY_PROBNE
