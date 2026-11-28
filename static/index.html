@@ -3933,8 +3933,9 @@ async function wczytajAbonament(){
     const k = await api("/api/kredyty");
     kredyty = k.ok ? await k.json() : null;
   } catch { kredyty = null; }
-  $("btn-abonament").hidden = !(kredyty && kredyty.egzekwowana);
-  if (kredyty && kredyty.egzekwowana) {
+  $("btn-abonament").hidden = !(kredyty && (kredyty.egzekwowana || kredyty.bez_limitu));
+  if (kredyty && kredyty.bez_limitu) $("btn-abonament").textContent = "Kredyty: bez limitu";
+  else if (kredyty && kredyty.egzekwowana) {
     $("btn-abonament").textContent = kredyty.saldo <= 0 ? "Brak kredytów" : "Kredyty: " + kr(kredyty.saldo);
   }
   if ($("okno-abonament").open) rysujAbonament();
@@ -3944,7 +3945,9 @@ function rysujAbonament(){
   rysujKredyty();
   const k = kredyty;
   let opis = "";
-  if (k && k.egzekwowana) {
+  if (k && k.bez_limitu) {
+    opis = "To konto ma kredyty bez limitu: czytanie skanów, rozmowa o sprawie i projekty nie zużywają kredytów kancelarii.";
+  } else if (k && k.egzekwowana) {
     opis = k.saldo <= 0
       ? "Kredyty się skończyły. Sprawy, kalendarz i dokumenty są dostępne jak zawsze — dokup pakiet, żeby dalej czytać skany, rozmawiać o sprawie i tworzyć projekty."
       : "Płacisz tylko za czynności, z których korzystasz. Bez abonamentu i bez opłat miesięcznych.";

@@ -144,6 +144,20 @@ API:
 Płatności: patrz sekcja 8. Nowa kancelaria dostaje 150 kr startowych; kancelaria założona
 przed tokenomią dostaje je przy pierwszej czynności.
 
+### Konta bez limitu kredytów (decyzja właściciela 28.11.2026)
+
+- Lista adresów e-mail w `PIECZAPP_KREDYTY_BEZ_LIMITU`; w chmurze parametr `KredytyBezLimitu`
+  stosu `notarai-aplikacja` (domyślnie `bielak@notar.pl`).
+- Gdy czynność wykonuje zalogowana osoba z listy: brak 402, nic nie schodzi z portfela
+  kancelarii, `GET /api/kredyty` zwraca `bez_limitu: true`, a przycisk w aplikacji pokazuje
+  „Kredyty: bez limitu”. Koszt modelu dalej trafia do dziennika (`(bez limitu)`, bez adresu)
+  i do kalibracji, ale nie do wyniku miesiąca kancelarii.
+- Liczy się tylko własne logowanie osoby. Reszta zespołu tej kancelarii płaci normalnie,
+  tak samo pomocnik i dostęp serwisowy administratora.
+- Zmiana listy: wdrożenie z `--parameter-overrides KredytyBezLimitu=a@b.pl,c@d.pl`.
+  Samo zmienienie wartości domyślnej w szablonie nie wystarczy, jeśli stos ma już ten
+  parametr, bo CloudFormation zostawia wtedy poprzednią wartość.
+
 ### Kalibracja
 
 Profile tokenów są szacunkiem z budowy promptów. Po kilkuset prawdziwych akcjach

@@ -395,3 +395,89 @@ def test_kancelaria_widzi_swoje_kredyty(serwer_z_kredytami):
     t.doladuj(id_k, 42, "test")
     widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
     assert widok["saldo"] == 42 + t.KREDYTY_PROBNE and widok["egzekwowana"]
+
+
+# --- konta bez limitu kredytow (decyzja wlasciciela 28.11.2026) ----------------------
+
+BEZ_LIMITU = "bielak@notar.pl"
+
+
+@pytest.fixture
+def bez_limitu(portfele, monkeypatch):
+    monkeypatch.setattr(t, "BEZ_LIMITU", frozenset({BEZ_LIMITU}))
+    znacznik = t.osoba_var.set(BEZ_LIMITU.upper())             # wielkosc liter bez znaczenia
+    yield
+    t.osoba_var.reset(znacznik)
+
+
+def test_konto_bez_limitu_nie_placi_i_nie_dostaje_402(bez_limitu):
+    t.zaloz_portfel_probny(KANCELARIA)
+    t.doladuj(KANCELARIA, -t.KREDYTY_PROBNE, "saldo zero")
+    with t.akcja("projekt") as a:
+        t.dolicz("eu.anthropic.claude-opus-4-6-v1", {"inputTokens": 30_000, "outputTokens": 20_000})
+    assert a.pobrano == 0
+    assert t.saldo(t.wczytaj_portfel(KANCELARIA)) == 0
+    assert t.obciaz("przesylka", 3) == 0
+    assert t.saldo_kancelarii() is None
+
+
+def test_konto_bez_limitu_koszt_zostaje_w_dzienniku(bez_limitu, caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="pieczapp.tokenomia"), t.akcja("formularz"):
+        t.dolicz("eu.anthropic.claude-opus-4-6-v1", {"inputTokens": 1_000, "outputTokens": 500})
+    assert "formularz" in caplog.text and "(bez limitu)" in caplog.text
+    assert BEZ_LIMITU not in caplog.text.lower()               # bez adresu w logach
+
+
+def test_inna_osoba_z_tej_samej_kancelarii_dalej_placi(portfele, monkeypatch):
+    monkeypatch.setattr(t, "BEZ_LIMITU", frozenset({BEZ_LIMITU}))
+    znacznik = t.osoba_var.set("sekretariat@notar.pl")
+    try:
+        t.zaloz_portfel_probny(KANCELARIA)
+        t.doladuj(KANCELARIA, -t.KREDYTY_PROBNE + 1, "prawie zero")
+        with pytest.raises(t.BrakKredytow):
+            with t.akcja("projekt"):
+                pass
+    finally:
+        t.osoba_var.reset(znacznik)
+
+
+def test_lista_bez_limitu_z_ustawienia(monkeypatch):
+    import importlib
+    monkeypatch.setenv("PIECZAPP_KREDYTY_BEZ_LIMITU", " Bielak@Notar.pl , ,inny@example.com")
+    try:
+        assert importlib.reload(t).BEZ_LIMITU == {"bielak@notar.pl", "inny@example.com"}
+    finally:
+        monkeypatch.delenv("PIECZAPP_KREDYTY_BEZ_LIMITU")
+        assert importlib.reload(t).BEZ_LIMITU == frozenset()
+    assert t.bez_limitu() is False                             # pusta lista: nikt
+
+
+def test_konto_bez_limitu_w_aplikacji(serwer_z_kredytami, monkeypatch):
+    """Zalogowana osoba z listy widzi 'bez limitu'; reszta zespolu dalej widzi saldo."""
+    klient, id_k = serwer_z_kredytami
+    import autoryzacja
+    rejestr = autoryzacja._wczytaj_rejestr()
+    wpis = autoryzacja._znajdz(rejestr, id_k)[1]
+    wpis["zespol"].append({"email": BEZ_LIMITU, "rola": "czlonek", "zaproszono": None, "dolaczyl": None})
+    autoryzacja._zapisz_rejestr(rejestr)
+    monkeypatch.setattr(t, "BEZ_LIMITU", frozenset({BEZ_LIMITU}))
+    widok = klient.get("/api/kredyty", headers=jako(BEZ_LIMITU, id_k)).json()
+    assert widok["bez_limitu"] is True and widok["egzekwowana"] is False and widok["saldo"] is None
+    widok = klient.get("/api/kredyty", headers=jako(CZLONEK, id_k)).json()
+    assert widok["bez_limitu"] is False and widok["saldo"] == t.KREDYTY_PROBNE
+    assert t.osoba_var.get() == ""                             # nie przecieka poza zadanie
+
+
+def test_szablon_przekazuje_konta_bez_limitu():
+    import pathlib
+    import yaml
+
+    class Ladowarka(yaml.SafeLoader):
+        pass
+    Ladowarka.add_multi_constructor("!", lambda l, s, w: None)
+    szablon = yaml.load(pathlib.Path(__file__).with_name("infra").joinpath("notarai-aplikacja.yaml").read_text(
+        encoding="utf-8"), Loader=Ladowarka)
+    assert BEZ_LIMITU in szablon["Parameters"]["KredytyBezLimitu"]["Default"].split(",")
+    tekst = pathlib.Path(__file__).with_name("infra").joinpath("notarai-aplikacja.yaml").read_text(encoding="utf-8")
+    assert "- Name: PIECZAPP_KREDYTY_BEZ_LIMITU\n              Value: !Ref KredytyBezLimitu" in tekst

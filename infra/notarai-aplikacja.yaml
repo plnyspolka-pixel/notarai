@@ -106,6 +106,10 @@ Parameters:
     Type: String
     Default: "5m71qpav9nkuv176tialrh0e90"
     Description: Klienci tej samej puli, ktorych token otwiera API kancelarii (NotarAI 2.0 - stanowisko, synchronizacja kalendarza).
+  KredytyBezLimitu:
+    Type: String
+    Default: "bielak@notar.pl"
+    Description: Konta bez limitu kredytow, adresy e-mail po przecinku (decyzja wlasciciela 28.11.2026). Koszt czynnosci dalej widac w dzienniku.
   ApifySekretArn:
     Type: String
     Default: ""
@@ -633,6 +637,8 @@ Resources:
               Value: !Ref KlientLogowania
             - Name: PIECZAPP_COGNITO_KLIENCI_DODATKOWI
               Value: !Ref KlienciDodatkowi
+            - Name: PIECZAPP_KREDYTY_BEZ_LIMITU
+              Value: !Ref KredytyBezLimitu
             - Name: PIECZAPP_ADRES
               Value: !Ref AdresPubliczny
             - Name: PIECZAPP_VAT

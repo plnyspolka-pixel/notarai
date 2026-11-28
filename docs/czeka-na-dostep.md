@@ -461,3 +461,23 @@ Szczegóły działania: `docs/ksiegi-i-giif.md`. Scenariusz spotkania:
      wewnętrznych, skopiować odcisk SHA-256 klucza podpisywania Google i dopisać go jako drugi wpis w
      `sha256_cert_fingerprints`. Wypełnić kartę sklepu i deklarację bezpieczeństwa danych.
 - **Zamknięte, gdy:** aplikacja z Google Play otwiera Pocket bez paska adresu i przechodzi krok 3.
+
+## NA-22. Konto bielak@notar.pl: kredyty bez limitu i kalendarz z NotarAI 2.0 (28.11.2026)
+
+- **Status:** czeka (kod gotowy; numer 22, bo NA-20 i NA-21 są już zajęte na gałęzi V2)
+- **Co jest:** kredyty bez limitu dla adresów z parametru `KredytyBezLimitu` (`tokenomia.bez_limitu`,
+  `docs/tokenomia.md`); web przyjmuje token stanowiska NotarAI 2.0 (#165, wdrożone 28.11.2026 00:42 UTC).
+- **Brakuje:** ważnego dostępu do AWS w sesji (MCP AWS i klucze w środowisku wygasły) i stanowiska
+  z NotarAI 2.0, na którym zaloguje się bielak@notar.pl.
+- **Na żywo:**
+  1. Po wdrożeniu: `aws ecs describe-task-definition` usługi `notarai` ma
+     `PIECZAPP_KREDYTY_BEZ_LIMITU=bielak@notar.pl` (eu-central-1).
+  2. Cognito (pula aplikacji): konto bielak@notar.pl ma `custom:kancelaria`, a ta kancelaria jest
+     aktywna, ma zaakceptowaną umowę powierzenia i bielak@notar.pl w zespole. Bez tego kalendarz
+     stanowiska dostaje 401/428.
+  3. app.notarai.pl jako bielak@notar.pl: przycisk „Kredyty: bez limitu”, czynność z modelem
+     (np. tura rozmowy na fikcyjnej sprawie) przechodzi także przy saldzie kancelarii ≤ 0, saldo się nie zmienia.
+  4. NotarAI 2.0 na stanowisku, to samo konto: termin dodany w 2.0 pojawia się w kalendarzu
+     app.notarai.pl, termin dodany w sieci pojawia się w 2.0, usunięcie działa w obie strony
+     (`v2/worker/web_calendar.py`). Tylko fikcyjne terminy.
+- **Zamknięte, gdy:** kroki 1-4 przeszły.
