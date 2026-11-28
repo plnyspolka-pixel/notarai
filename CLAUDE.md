@@ -212,6 +212,12 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   nie ma, pytanie z polami `punkt` i `okno`; notariusz klika element raz („pokażę punkt … w oknie …”,
   `Computer.learn_point`, `chat._show_point`). W `ProgramMap` zostaje nazwa i położenie jako ułamek okna, nic z treści.
   Po naciśnięciu kod sprawdza zmianę okna (`_changes`); brak reakcji w tle = `NeedFront`.
+- Pokaz jako sekwencja (decyzja właściciela 28.11.2026): „pokażę drogę … w oknie …” nagrywa kolejne kliknięcia notariusza
+  (`Computer.record_show`, do „Koniec pokazu”, 30 s bez kliknięcia albo `MAX_SHOW_STEPS`): położenie jako ułamek okna, tytuł
+  ekranu przed i po, nazwa elementu z Windows, znacznik „tu wpisywano” (nigdy treść klawiszy). `ProgramMap.show`; agent
+  odtwarza krokiem `pokaz` (`Computer.replay_show`): kod sprawdza ekran przed i po każdym kliknięciu, staje na miejscu
+  wpisywania i przy niezgodnym ekranie. Mapa programu jest kluczowana nazwą pliku programu (`Desktop.program`,
+  `Computer._program_of`), nie tytułem okna.
 - Dyktowanie ze zrozumieniem (decyzja właściciela 28.11.2026, `v2/worker/dictation_polish.py`, ustawienie `speech.polish`):
   raz, na końcu dyktowania, model poprawia usłyszany tekst z kontekstu (słownik: poznane programy, nazwy spraw, polecenia
   programu), przez `inference.py` z pseudonimizacją. Kod trzyma bezpieczniki: te same cyfry co w usłyszanym tekście,

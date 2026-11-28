@@ -1078,6 +1078,9 @@ class PanelDesktop(FakeDesktop):
     def where(self):
         return self.title_now
 
+    def program(self):
+        return "rejnet"                               # the file of the program: the same on every screen
+
     def rect(self):
         return 100, 50, 1100, 850                     # 1000 x 800
 
@@ -1127,25 +1130,60 @@ def test_a_learned_point_that_ignores_messages_needs_the_front_for_a_moment(tmp_
     assert done["answer"] == "ok" and mouse == [(300, 450)] and desktop.log == ["NA WIERZCH", "oddane"]
 
 
-def test_the_agent_asks_to_be_shown_and_goes_on_after_the_click(tmp_path):
+def test_the_agent_asks_to_be_shown_and_repeats_the_whole_sequence(tmp_path):
     home = tmp_path / "home"
     admin = {"Authorization": "Bearer " + initialize(home)}
-    desktop, replies = PanelDesktop(), []
+    desktop, replies, opened = PanelDesktop(takes_messages=False), [], []      # its title stays the same on every screen
+    shown_clicks = iter([(300, 450), (600, 250), (700, 650), None])
     inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(replies), UsageLedger(home))
-    client = TestClient(create_app(home, inference=inference, computer_roots=[tmp_path], attention_opener=lambda url: None,
-                                   computer_parts={"clicks": lambda rect, seconds: (300, 450)},
+    client = TestClient(create_app(home, inference=inference, computer_roots=[tmp_path], attention_opener=opened.append,
+                                   computer_parts={"clicks": lambda rect, seconds: next(shown_clicks), "label_at": lambda x, y: ""},
                                    fill_targets={"program": lambda: desktop, "strona": lambda: None}))
+    client.get("/v2/agent/inbox", headers=admin)
     replies += [json.dumps({"krok": "pytanie", "problem": "nie widzę modułu Repertorium A, jest tylko narysowany w panelu",
                             "opcje": ["Spróbuj przez menu"], "punkt": "Repertorium A", "okno": "RejNET"})]
     blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz w programie RejNET repertorium A"}).json()["blocks"]
     asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
     offer = next(i for b in asked if b["type"] == "buttons" for i in b["items"] if i["label"].startswith("Pokażę"))
-    assert offer["say"] == "pokażę punkt Repertorium A w oknie RejNET"
-    replies += [json.dumps({"krok": "punkt", "okno": "RejNET", "nazwa": "Repertorium A"}),
+    assert offer["say"] == "pokażę drogę Repertorium A w oknie RejNET"
+    replies += [json.dumps({"krok": "pokaz", "okno": "RejNET", "nazwa": "Repertorium A"}),
                 json.dumps({"krok": "koniec", "odpowiedz": "Jestem w Repertorium A."})]
     shown = client.post("/v2/chat", headers=admin, json={"text": offer["say"]}).json()["blocks"]
-    assert "Kliknij teraz raz „Repertorium A”" in shown[0]["text"]
+    assert "Nagrywam pokaz „Repertorium A”" in shown[0]["text"] and any(b["type"] == "buttons" for b in shown)
+    assert "Koniec pokazu" in client.get(opened[-1].split("testserver", 1)[1] + "/dane").json()["actions"]
     learned = wait(client, admin, next(b["id"] for b in shown if b["type"] == "job"))
-    assert "Zapamiętałem „Repertorium A”" in learned[0]["text"]
+    assert "3 kliknięć" in learned[0]["text"]
     assert "Jestem w Repertorium A." in wait(client, admin, next(b["id"] for b in learned if b["type"] == "job"))[0]["text"]
-    assert desktop.sent == [(200, 400)]
+    assert desktop.sent == [(200, 400), (500, 200), (600, 600)]                 # the same three places, in the window's own pixels
+    assert "Nie nagrywam teraz" in client.post("/v2/chat", headers=admin, json={"text": "koniec pokazu"}).json()["blocks"][0]["text"]
+
+
+def test_a_shown_way_checks_the_screen_and_stops_where_the_notary_typed(tmp_path):
+    class Program(PanelDesktop):
+        def click_at(self, x, y, double=False):
+            self.sent.append((x, y))
+            self.title_now = {(200, 400): "RejNET - Repertorium A", (500, 200): "RejNET - Nowy wpis"}.get((x, y), self.title_now)
+            return True
+    desktop = Program()
+    titles = iter(["RejNET", "RejNET - Repertorium A", "RejNET - Nowy wpis", "RejNET - Nowy wpis"])
+    clicks = iter([(300, 450), (600, 250), (700, 650, True), None])
+
+    def notary(rect, seconds):                    # each click of the notary moves the program on, as it would
+        spot = next(clicks)
+        if spot is not None:
+            desktop.click_at(round((spot[0] - 100)), round((spot[1] - 50)))
+        return spot
+    computer = Computer(tmp_path, desktop=lambda: desktop, clicks=notary, label_at=lambda x, y: "Nowy wpis" if x == 600 else "")
+    computer.instant = True
+    assert "3 kliknięć" in computer.record_show("RejNET", "Nowy wpis w repertorium")
+    described = computer.map.describe()
+    assert "POKAZANA DROGA „Nowy wpis w repertorium” (krok pokaz, 3 kliknięć, po drodze notariusz wpisywał wartości)" in described
+    desktop.sent.clear()
+    desktop.title_now = "RejNET"
+    first = computer.replay_show("RejNET", "nowy wpis")
+    assert desktop.sent == [(200, 400), (500, 200)] and "wykonałem kroki 1-2 z 3" in first and '"od": 3' in first
+    assert "Odtworzyłem pokaz" in computer.replay_show("RejNET", "nowy wpis", start=3) and desktop.sent[-1] == (600, 600)
+    desktop.title_now = "RejNET - Ustawienia"                                   # a different screen than at the show
+    with pytest.raises(Exception) as wrong:
+        computer.replay_show("RejNET", "nowy wpis")
+    assert "ekran jest inny niż przy pokazie" in str(wrong.value) and len(desktop.sent) == 3
