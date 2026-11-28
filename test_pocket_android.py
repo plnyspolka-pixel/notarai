@@ -285,3 +285,18 @@ def test_dodaj_do_sprawy_pliki_z_telefonu_czekaja_w_przegladarce():
     akcje = {a.get(NS + "name") for f in _manifest_aplikacji().iter("intent-filter")
              if f.get(NS + "label") == "@string/dodaj_do_sprawy" for a in f.findall("action")}
     assert akcje == {"android.intent.action.SEND", "android.intent.action.SEND_MULTIPLE"}
+
+
+def test_manifest_deklaruje_ekrany_ktorych_biblioteka_uzywa_przy_starcie():
+    """Awaria wersji 2.1.0-2.4.0: LauncherActivity przy każdym starcie włącza ManageDataLauncherActivity
+    (setComponentEnabledSetting). Bez deklaracji w manifeście Android rzuca IllegalArgumentException
+    i aplikacja pada tuż po otwarciu przeglądarki (pasek adresu, a potem brak reakcji na ikonę).
+    Odtworzone i sprawdzone w emulatorze Androida 14."""
+    korzen = _manifest_aplikacji()
+    aktywnosci = {a.get(NS + "name"): a for a in korzen.iter("activity")}
+    for nazwa in ("LauncherActivity", "FocusActivity", "ManageDataLauncherActivity"):
+        assert f"com.google.androidbrowserhelper.trusted.{nazwa}" in aktywnosci, nazwa
+    dane = aktywnosci["com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"]
+    assert dane.get(NS + "exported") == "false"
+    assert _meta(dane)["android.support.customtabs.trusted.MANAGE_SPACE_URL"] == "https://notarai.pl/pocket/"
+    assert korzen.find("application").get(NS + "manageSpaceActivity").endswith("ManageDataLauncherActivity")

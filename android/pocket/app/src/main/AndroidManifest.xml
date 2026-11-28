@@ -18,6 +18,7 @@
         android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/nazwa"
+        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Translucent.NoTitleBar"
         android:usesCleartextTraffic="false">
@@ -100,6 +101,17 @@
         </activity>
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+
+        <!-- Wymagane przez bibliotekę: przy każdym starcie LauncherActivity włącza ten ekran
+             („Zarządzaj danymi” w ustawieniach aplikacji). Bez tej deklaracji Android rzuca wyjątek
+             i aplikacja pada zaraz po otwarciu przeglądarki (awaria wersji 2.1.0–2.4.0). -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="https://notarai.pl/pocket/" />
+        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"
