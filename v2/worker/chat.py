@@ -252,6 +252,9 @@ class Chat:
             return office_rules
         if plain.rstrip("!. ") in STOP_WORDS:
             return self._stop_agent(identity)
+        shown = self._show_point(identity, message, plain)       # „pokażę punkt …”: before it is taken for an answer
+        if shown is not None:
+            return shown
         answered = self._agent_answer(identity, message, plain)
         if answered is not None:
             return answered
@@ -417,10 +420,16 @@ class Chat:
                                                  "problem": stopped["label"], "steps": result["steps"],
                                                  "asked": time.monotonic()}
             options = stopped.get("options") or []
+            show = stopped.get("show")
+            teach = ([(f"Pokażę: kliknę „{show['nazwa']}”", f"pokażę punkt {show['nazwa']} w oknie {show['okno']}")]
+                     if show else [])
             return [*(self._page_picture() if used else []),
                     text(f"Utknąłem: {stopped['label']}\nCo mam zrobić? Wybierz albo napisz własnymi słowami; "
-                         "zapamiętam to na następny raz (tryb uczenia)."),
-                    buttons(*[(o, "odpowiedź dla agenta: " + o) for o in options], ("Przerwij", "odpowiedź dla agenta: przerwij"))]
+                         "zapamiętam to na następny raz (tryb uczenia)."
+                         + (f"\nMożesz mi to też pokazać: po naciśnięciu „Pokażę” kliknij raz „{show['nazwa']}” w programie, "
+                            "a zapamiętam to miejsce." if show else "")),
+                    buttons(*teach, *[(o, "odpowiedź dla agenta: " + o) for o in options],
+                            ("Przerwij", "odpowiedź dla agenta: przerwij"))]
         if kind == "limit":
             return [text(f"Zrobiłem {stopped['label']} i jeszcze nie skończyłem. Nic nie wysłałem ani nie podpisałem."),
                     *(self._page_picture() if used else []),
@@ -467,6 +476,41 @@ class Chat:
         self.s.narrate(identity, "Zatrzymuję pracę na komputerze.")
         return [text("Zatrzymałem. Agent nie zrobi już żadnego kroku; to, co było w toku, przerwałem."
                      if running else "Zatrzymane. Nic teraz nie pracowało na komputerze.")]
+
+    def _show_point(self, identity, message, plain):
+        """„Pokażę, kliknij za mną”: the notary clicks a thing the program draws itself; its place is kept by name,
+        and the agent that was waiting goes on with it."""
+        found = re.fullmatch(r"(?:pokaze|pokaz|naucz|zapamietaj) punkt (.+?) w (?:oknie|programie) (.+)", plain)
+        if not found:
+            return None
+        if not self._may_use_computer(identity):
+            return [text("Punkty w programach pokazuje się na komputerze kancelarii.")]
+        original = re.fullmatch(r"\s*\S+\s+punkt\s+(.+?)\s+w\s+(?:oknie|programie)\s+(.+?)\s*", message, flags=re.I)
+        name, window = (original.group(1), original.group(2)) if original else (found.group(1), found.group(2))
+        waiting = self._agent_question.pop(identity.id, None)
+        withdraw = getattr(self.s, "withdraw_question", None)
+        if withdraw is not None:
+            withdraw(identity)
+
+        def learn():
+            from .agent import AgentError
+            try:
+                learned = self.s.computer.learn_point(window, name)
+            except AgentError as error:
+                if waiting is not None:
+                    self._agent_question[identity.id] = waiting       # the question still stands
+                return [text(str(error)), buttons((f"Spróbuję jeszcze raz: „{name}”", f"pokażę punkt {name} w oknie {window}"))]
+            self.s.vault.log(identity.id, "agent-punkt")
+            if waiting is None:
+                return [text(learned)]
+            note = (f"(Notariusz pokazał jednym kliknięciem, gdzie jest „{name}” w oknie „{window}”. To teraz nauczony punkt: "
+                    f"naciśnij go krokiem punkt z nazwą „{name}” i pracuj dalej.)")
+            return [text(learned)] + self._computer(identity, waiting["task"], allowed=waiting["allowed"],
+                                                    history=waiting["history"] + [note])
+        self.s.narrate(identity, f"Czekam na Twoje kliknięcie „{name}” w programie (60 sekund).")
+        job = self.s.start_job(identity, learn)
+        return [text(f"Kliknij teraz raz „{name}” w oknie programu „{window}”. Czekam minutę; zapamiętam samo miejsce, "
+                     "nic z tego, co tam widać."), {"type": "job", "id": job}]
 
     def _agent_answer(self, identity, message, plain):
         """The notary answers the agent's question: the work goes on, and what follows from the answer is learned."""

@@ -1066,3 +1066,86 @@ def test_positions_of_a_classic_list_are_matched_whatever_the_spelling():
     with pytest.raises(Exception) as refused:
         desktop.choose(control, "zamiana")
     assert "Dostępne pozycje: Sprzedaż | Darowizna" in str(refused.value)
+
+
+# ---- things the program draws itself (a side panel): the menu first, then a point the notary showed once
+class PanelDesktop(FakeDesktop):
+    """A program whose left panel is painted: only its window and a few named buttons are visible to Windows."""
+    def __init__(self, takes_messages=True):
+        super().__init__()
+        self.takes, self.sent, self.title_now, self.log, self.quiet = takes_messages, [], "RejNET", [], False
+
+    def where(self):
+        return self.title_now
+
+    def rect(self):
+        return 100, 50, 1100, 850                     # 1000 x 800
+
+    def click_at(self, x, y, double=False):
+        self.sent.append((x, y))
+        if self.takes:
+            self.title_now = "RejNET - Repertorium A"
+        return True
+
+    def to_front(self):
+        self.log.append("NA WIERZCH")
+        return 1
+
+    def give_back(self, before):
+        self.log.append("oddane")
+
+
+def test_a_painted_panel_is_learned_from_one_click_and_pressed_by_name(tmp_path):
+    desktop = PanelDesktop()
+    computer = Computer(tmp_path, desktop=lambda: desktop, clicks=lambda rect, seconds: (300, 450))
+    computer.instant = True
+    assert "Zapamiętałem „Repertorium A”" in computer.learn_point("RejNET", "Repertorium A")
+    assert computer.map.points("RejNET") == {"Repertorium A": {"x": 0.2, "y": 0.5}}
+    assert "NAUCZONE PUNKTY" in computer.map.describe() and "Repertorium A" in computer.map.describe()
+    ask, seen = script({"krok": "punkt", "okno": "RejNET", "nazwa": "repertorium a"}, {"krok": "koniec", "odpowiedz": "W module."})
+    result = Agent(computer, ask).run("wejdź do repertorium A w RejNET")
+    assert desktop.sent == [(200, 400)] and "w tle" in result["steps"][0]["wynik"]          # the share of the window, in its pixels
+    assert "NAUCZONE PUNKTY" in seen[0]
+    ask, _ = script({"krok": "punkt", "okno": "RejNET", "nazwa": "Księga"}, {"krok": "koniec", "odpowiedz": "x"})
+    assert "Nie znam punktu" in Agent(computer, ask).run("wejdź")["steps"][0]["wynik"]
+    with pytest.raises(Exception) as late:
+        Computer(tmp_path, desktop=lambda: desktop, clicks=lambda rect, seconds: None).learn_point("RejNET", "Coś")
+    assert "Nie zobaczyłem kliknięcia" in str(late.value)
+
+
+def test_a_learned_point_that_ignores_messages_needs_the_front_for_a_moment(tmp_path):
+    desktop, mouse = PanelDesktop(takes_messages=False), []
+    quiet = Computer(tmp_path, desktop=lambda: desktop, allowed=lambda: {"background": True},
+                     clicks=lambda rect, seconds: (300, 450), pointer=lambda x, y, d: mouse.append((x, y)))
+    quiet.instant = True
+    quiet.learn_point("RejNET", "Repertorium A")
+    ask, _ = script({"krok": "punkt", "okno": "RejNET", "nazwa": "Repertorium A"})
+    waiting = Agent(quiet, ask).run("wejdź do repertorium")
+    assert waiting["stopped"]["kind"] == "wierzch" and mouse == []
+    ask, _ = script({"krok": "punkt", "okno": "RejNET", "nazwa": "Repertorium A"}, {"krok": "koniec", "odpowiedz": "ok"})
+    done = Agent(quiet, ask).run("wejdź do repertorium", allowed={"wierzch"})
+    assert done["answer"] == "ok" and mouse == [(300, 450)] and desktop.log == ["NA WIERZCH", "oddane"]
+
+
+def test_the_agent_asks_to_be_shown_and_goes_on_after_the_click(tmp_path):
+    home = tmp_path / "home"
+    admin = {"Authorization": "Bearer " + initialize(home)}
+    desktop, replies = PanelDesktop(), []
+    inference = Inference(Policy("eu-central-1", "eu.anthropic.claude-sonnet-4-6"), lambda s: Bedrock(replies), UsageLedger(home))
+    client = TestClient(create_app(home, inference=inference, computer_roots=[tmp_path], attention_opener=lambda url: None,
+                                   computer_parts={"clicks": lambda rect, seconds: (300, 450)},
+                                   fill_targets={"program": lambda: desktop, "strona": lambda: None}))
+    replies += [json.dumps({"krok": "pytanie", "problem": "nie widzę modułu Repertorium A, jest tylko narysowany w panelu",
+                            "opcje": ["Spróbuj przez menu"], "punkt": "Repertorium A", "okno": "RejNET"})]
+    blocks = client.post("/v2/chat", headers=admin, json={"text": "otwórz w programie RejNET repertorium A"}).json()["blocks"]
+    asked = wait(client, admin, next(b["id"] for b in blocks if b["type"] == "job"))
+    offer = next(i for b in asked if b["type"] == "buttons" for i in b["items"] if i["label"].startswith("Pokażę"))
+    assert offer["say"] == "pokażę punkt Repertorium A w oknie RejNET"
+    replies += [json.dumps({"krok": "punkt", "okno": "RejNET", "nazwa": "Repertorium A"}),
+                json.dumps({"krok": "koniec", "odpowiedz": "Jestem w Repertorium A."})]
+    shown = client.post("/v2/chat", headers=admin, json={"text": offer["say"]}).json()["blocks"]
+    assert "Kliknij teraz raz „Repertorium A”" in shown[0]["text"]
+    learned = wait(client, admin, next(b["id"] for b in shown if b["type"] == "job"))
+    assert "Zapamiętałem „Repertorium A”" in learned[0]["text"]
+    assert "Jestem w Repertorium A." in wait(client, admin, next(b["id"] for b in learned if b["type"] == "job"))[0]["text"]
+    assert desktop.sent == [(200, 400)]

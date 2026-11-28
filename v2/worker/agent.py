@@ -129,6 +129,13 @@ SYSTEM_AGENT = (
     "Listy rozwijane ([select]) ustawiasz krokiem wpisz z wartością równą jednej z pozycji; nie rozwijaj ich klikaniem "
     "ani zrzutem. Krok kliknij na liście tylko podaje jej pozycje. Po każdym kliknięciu wynik mówi, co się w oknie "
     "pojawiło, zmieniło i zniknęło: czytaj to, zanim uznasz, że coś nie zadziałało. "
+    "- {\"krok\":\"punkt\",\"okno\":fragment tytułu,\"nazwa\":nazwa z listy NAUCZONE PUNKTY} – naciska miejsce w oknie, które "
+    "notariusz pokazał wcześniej jednym kliknięciem (panel, ikona, kafelek rysowany przez program)\n"
+    "MENU PRZED PANELEM: w starszych programach panele boczne, kafelki i ikony są rysowane i nie mają nazw, ale menu "
+    "główne je ma. Do modułu albo funkcji idź najpierw pozycją z dopiskiem (menu) albo (zakładka), potem nauczonym "
+    "punktem (krok punkt). Gdy element jest tylko narysowany i nie ma go ani w menu, ani wśród nauczonych punktów, nie "
+    "próbuj trafiać w niego na ślepo: zadaj pytanie krokiem pytanie z dodatkowymi polami \"punkt\": nazwa tego elementu i "
+    "\"okno\": fragment tytułu okna; notariusz kliknie go raz i odtąd masz go jako nauczony punkt. "
     "Kolejność prób w programie Windows: najpierw okno/wpisz/kliknij (pola po nazwach); gdy okno nie ma pól, ekran i "
     "kliknij_punkt/pisz; gdy program ma własny wiersz poleceń albo narzędzie cli-anything, polecenie. "
     "Zasady: działaj samodzielnie, nie pytaj o rzeczy, które możesz sprawdzić. Zanim zmienisz plik, przeczytaj go. "
@@ -274,7 +281,25 @@ class ProgramMap:
             self._save(data)
         return f"Zapamiętałem o programie „{program}”."
 
-    MAX_ROUTES = 6
+    MAX_ROUTES, MAX_POINTS = 6, 60
+
+    def point(self, program: str, name: str, fx: float, fy: float) -> bool:
+        """A place in the program's window the notary showed with one click: its name and where it lies as a share of
+        the window's width and height (so it survives another window size). Nothing of what is written there."""
+        program, name = self.key(program), self._safe(name)
+        if not program or not name or not (0 <= fx <= 1 and 0 <= fy <= 1):
+            return False
+        data = self._load()
+        entry = data.setdefault(program, {"ekrany": {}, "notatki": []})
+        points = entry.setdefault("punkty", {})
+        if name not in points and len(points) >= self.MAX_POINTS:
+            return False
+        points[name] = {"x": round(fx, 4), "y": round(fy, 4)}
+        self._save(data)
+        return True
+
+    def points(self, program: str) -> dict:
+        return dict(self._load().get(self.key(program), {}).get("punkty", {}))
 
     def route(self, program: str, purpose: str, steps: list[str]) -> None:
         """A way through the program that ended well, as names of what was pressed and filled (never values).
@@ -315,6 +340,8 @@ class ProgramMap:
         for name, entry in sorted(data.items()):
             lines.append(f"PROGRAM {name}")
             lines += [f"  droga: {note}" for note in entry.get("notatki", [])]
+            if entry.get("punkty"):
+                lines.append("  NAUCZONE PUNKTY (pokazane przez notariusza, krok punkt): " + ", ".join(entry["punkty"]))
             for purpose, way in entry.get("drogi", {}).items():
                 lines.append(f"  SPRAWDZONA DROGA „{purpose}” ({len(way['kroki'])} kroków, udana {way.get('razy', 1)} razy): "
                              + " -> ".join(way["kroki"]))
@@ -350,7 +377,7 @@ class RunLog:
         kind = step.get("krok", "")
         where = ProgramMap.key(str(step.get("okno") or step.get("adres") or "")) if step.get("okno") or step.get("adres") else ""
         what = ProgramMap._safe(step.get("pole") or step.get("przycisk") or step.get("co") or (
-            step.get("program") if kind == "polecenie" else "")) or ""
+            step.get("program") if kind == "polecenie" else "") or (step.get("nazwa") if kind == "punkt" else "")) or ""
         return where, what
 
     def step(self, step, outcome: str, seconds: float, *, state: str = "ok") -> None:
@@ -394,12 +421,14 @@ class Computer:
     READABLE = (".docx", ".pdf", ".txt", ".eml", ".csv", ".md", ".xml", ".html", ".htm")
 
     def __init__(self, home: Path, *, desktop=None, browser=None, roots=None, starter=None, rules=None,
-                 grabber=None, pointer=None, typist=None, runner=None, label_at=None, allowed=None, which=None):
+                 grabber=None, pointer=None, typist=None, runner=None, label_at=None, allowed=None, which=None,
+                 clicks=None):
         """`allowed()` -> {"screen": bool, "commands": bool}: what the station lets the agent do (settings)."""
         self._home = Path(home)
         self._desktop, self._browser = desktop, browser          # callables returning the targets
         self._roots, self._starter, self._rules = roots, starter, rules
         self._grabber, self._pointer, self._typist, self._runner = grabber, pointer, typist, runner
+        self._clicks = clicks                                    # the notary's own click, for learning a point
         self._label_at, self._allowed, self._which = label_at, allowed, which or shutil.which
         self._scale = None                                       # screen pixels per pixel of the last screenshot
         self.map = ProgramMap(self._home)
@@ -886,6 +915,71 @@ class Computer:
         return f"Wpisałem w „{control.label}”: {desktop.read(control)}"
 
     @staticmethod
+    def _watch_click(rect, seconds: float):
+        """Wait for the notary's own left click inside `rect`; (x, y) on the screen, or None when time ran out."""
+        import ctypes
+
+        user32, deadline, was_down = ctypes.windll.user32, time.monotonic() + seconds, True
+        while time.monotonic() < deadline:
+            down = bool(user32.GetAsyncKeyState(0x01) & 0x8000)
+            if down and not was_down:
+                spot = (ctypes.c_long * 2)()
+                user32.GetCursorPos(spot)
+                if rect[0] <= spot[0] < rect[2] and rect[1] <= spot[1] < rect[3]:
+                    return spot[0], spot[1]
+            was_down = down
+            time.sleep(0.015)
+        return None
+
+    def learn_point(self, title: str, name: str, seconds: float = 60.0) -> str:
+        """„Pokażę, kliknij za mną”: the notary clicks the thing once in the program; its place is remembered by name."""
+        desktop = self._window(title)
+        rect = desktop.rect() if hasattr(desktop, "rect") else None
+        if not rect or rect[2] <= rect[0] or rect[3] <= rect[1]:
+            raise AgentError("Nie widzę położenia okna tego programu. Przywróć je (nie może być zminimalizowane).")
+        spot = (self._clicks or self._watch_click)(rect, seconds)
+        if spot is None:
+            raise AgentError(f"Nie zobaczyłem kliknięcia w oknie „{desktop.where()}” w ciągu {int(seconds)} sekund.")
+        fx, fy = (spot[0] - rect[0]) / (rect[2] - rect[0]), (spot[1] - rect[1]) / (rect[3] - rect[1])
+        if not self.map.point(desktop.where() or title, name, fx, fy):
+            raise AgentError("Nie udało się zapamiętać tego punktu (nazwa bez numerów, najwyżej 60 punktów na program).")
+        return f"Zapamiętałem „{name}” w programie „{desktop.where()}”. Następnym razem nacisnę to sam."
+
+    def press_point(self, title: str, name: str) -> str:
+        """Press a place the notary showed before; say what changed, and take the front only if nothing did."""
+        desktop = self._window(title)
+        known = self.map.points(desktop.where() or title)
+        wanted = plain(name)
+        hit = next((k for k in known if plain(k) == wanted), None) or next((k for k in known if wanted and wanted in plain(k)), None)
+        if hit is None:
+            raise AgentError(f"Nie znam punktu „{name}” w tym programie. Znane: {', '.join(known) or 'żaden'}. "
+                             "Zadaj pytanie z polem punkt, a notariusz pokaże go jednym kliknięciem.")
+        rect = desktop.rect() if hasattr(desktop, "rect") else None
+        if not rect:
+            raise AgentError("Nie widzę położenia okna tego programu.")
+        dx, dy = round(known[hit]["x"] * (rect[2] - rect[0])), round(known[hit]["y"] * (rect[3] - rect[1]))
+        try:
+            before = self._state(self._all(desktop))
+        except Exception:
+            before = {}
+        title_before = desktop.where()
+        sent = hasattr(desktop, "click_at") and desktop.click_at(dx, dy)
+        time.sleep(0 if getattr(self, "instant", False) else 0.8)
+        changes = self._changes(desktop, before)
+        if sent and ("nic się nie zmieniło" not in changes or desktop.where() != title_before):
+            return f"Nacisnąłem nauczony punkt „{hit}” (w tle)." + changes
+
+        def with_mouse():                      # the program did not take the message: the real mouse, for a moment
+            if self._pointer is not None:
+                self._pointer(rect[0] + dx, rect[1] + dy, False)
+                return
+            from pywinauto import mouse
+            mouse.click(coords=(rect[0] + dx, rect[1] + dy))
+            time.sleep(0.8)
+        self._borrow(f"kliknięcie myszą w nauczony punkt „{hit}” (program nie przyjął go w tle)", with_mouse, desktop)
+        return f"Nacisnąłem nauczony punkt „{hit}” myszą." + self._changes(desktop, before)
+
+    @staticmethod
     def _state(found) -> dict:
         return {f"[{c.kind}] {c.label}": c.value for c in found if c.label.strip()}
 
@@ -1031,7 +1125,7 @@ class Agent:
     STUCK_AFTER = 3            # failed steps in a row: the agent asks the notary instead of trying on
 
     READS = frozenset({"okno", "okna", "widok", "pliki", "szukaj", "czytaj", "narzedzia"})
-    ACTIONS = frozenset({"wpisz", "kliknij", "web_wpisz", "web_kliknij"})
+    ACTIONS = frozenset({"wpisz", "kliknij", "web_wpisz", "web_kliknij", "punkt"})
 
     def run(self, task: str, *, allowed=frozenset(), history=None, lessons: str = "", cancelled=lambda: False) -> dict:
         """Returns {"answer", "steps", "stopped": None | {"kind", "label", "step", "history"}}.
@@ -1099,8 +1193,11 @@ class Agent:
                 options = [str(o)[:120] for o in (step.get("opcje") or []) if str(o).strip()][:4]
                 problem = str(step.get("problem", "")).strip()[:300] or "Nie wiem, jak dalej."
                 self._narrate(f"{time.strftime('%H:%M:%S')} · utknąłem: {problem} · pytam notariusza")
+                show = None
+                if str(step.get("punkt", "")).strip() and str(step.get("okno", "")).strip():
+                    show = {"nazwa": str(step["punkt"]).strip()[:60], "okno": str(step["okno"]).strip()[:80]}
                 return {"answer": "", "steps": steps, "stopped": {"kind": "pytanie", "label": problem, "options": options,
-                                                                  "step": step, "history": history}}
+                                                                  "step": step, "history": history, "show": show}}
             failed = 0
             for earlier in reversed(steps):
                 if not str(earlier.get("wynik", "")).startswith("BŁĄD"):
@@ -1167,7 +1264,8 @@ class Agent:
                 where, what = RunLog.place(step)
                 where = where or ProgramMap.key(str(getattr(self._computer, "last_page", "") or ""))
                 if what:
-                    self._way.append((where or "program", ("wpisz " if "wpisz" in kind else "kliknij ") + what))
+                    self._way.append((where or "program", ("wpisz " if "wpisz" in kind else "punkt " if kind == "punkt"
+                                                           else "kliknij ") + what))
             circling = self._looping()
             if circling:       # no more turns of the same circle: the notary decides how to go on
                 self._narrate(f"{time.strftime('%H:%M:%S')} · kręcę się w kółko ({circling}): zatrzymuję się i pytam notariusza")
@@ -1222,7 +1320,7 @@ class Agent:
                             "zamiast klikać w punkt.")
         return None
 
-    WAYS = {"okno": "pola okna", "wpisz": "pola okna", "kliknij": "pola okna", "klawisze": "klawiatura",
+    WAYS = {"okno": "pola okna", "wpisz": "pola okna", "kliknij": "pola okna", "klawisze": "klawiatura", "punkt": "nauczony punkt",
             "ekran": "ZRZUT EKRANU", "kliknij_punkt": "ZRZUT EKRANU", "pisz": "klawiatura",
             "widok": "strona", "web_wpisz": "strona", "web_kliknij": "strona", "strona": "strona",
             "polecenie": "wiersz poleceń", "narzedzia": "wiersz poleceń"}
@@ -1259,6 +1357,7 @@ class Agent:
             "narzedzia": lambda: "sprawdzam narzędzia wiersza poleceń",
             "polecenie": lambda: "wiersz poleceń: " + f"{get('program')} {' '.join(map(str, step.get('argumenty') or [])) if isinstance(step.get('argumenty', []), list) else ''}"[:200],
             "notatka": lambda: f"zapamiętuję o programie „{get('program')}”: {get('tekst', 200)}",
+            "punkt": lambda: f"okno „{get('okno')}”: naciskam nauczony punkt „{get('nazwa')}”",
         }
         return forms.get(kind, lambda: kind)()
 
@@ -1279,7 +1378,7 @@ class Agent:
                  "widok": "czytam stronę", "web_wpisz": "wpisuję na stronie", "web_kliknij": "klikam na stronie",
                  "ekran": "patrzę na ekran", "kliknij_punkt": "klikam w punkt na ekranie", "pisz": "piszę z klawiatury",
                  "narzedzia": "sprawdzam narzędzia wiersza poleceń", "polecenie": "uruchamiam program z wiersza poleceń",
-                 "notatka": "zapamiętuję drogę przez program"}
+                 "notatka": "zapamiętuję drogę przez program", "punkt": "naciskam nauczony punkt"}
         return names.get(step["krok"], step["krok"])
 
     def _do(self, step) -> str:
@@ -1307,6 +1406,7 @@ class Agent:
             "narzedzia": c.tools,
             "polecenie": lambda: c.command(get("program"), step.get("argumenty", [])),
             "notatka": lambda: c.map.note(get("program"), get("tekst")),
+            "punkt": lambda: c.press_point(get("okno"), get("nazwa")),
         }
         if k not in actions:
             raise AgentError(f"Nie znam kroku „{k}”.")

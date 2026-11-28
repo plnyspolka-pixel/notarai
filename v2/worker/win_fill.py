@@ -519,6 +519,14 @@ class Desktop:
         except Exception:
             return ""
 
+    def rect(self):
+        """(left, top, right, bottom) of the chosen window on the screen, or None."""
+        try:
+            r = self._window.rectangle()
+            return r.left, r.top, r.right, r.bottom
+        except Exception:
+            return None
+
     def snapshot(self):
         try:
             image = self._window.capture_as_image()

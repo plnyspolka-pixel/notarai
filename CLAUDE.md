@@ -207,6 +207,11 @@ pieczapp (stanowisko lokalne); identyfikatory w kodzie (moduły, zmienne
   a zdanie notariusza bez słów pisanych wielką literą i bez cyfr. Nie dopisuj tam wartości. Udana praca zapisuje w mapie
   programu „sprawdzoną drogę” (`ProgramMap.route`): dla jednej czynności zostaje najkrótsza znana. Kręcenie się w kółko
   wykrywa kod (`Agent._looping`, powtórzony odczyt bez zmiany): przebieg staje i pyta notariusza.
+- Nauczone punkty (decyzja właściciela 28.11.2026): elementów, które program rysuje sam (panel modułów RejNET), agent nie
+  zgaduje. Kolejność: pozycja menu albo zakładka, potem nauczony punkt (krok `punkt`, `Computer.press_point`), a gdy go
+  nie ma, pytanie z polami `punkt` i `okno`; notariusz klika element raz („pokażę punkt … w oknie …”,
+  `Computer.learn_point`, `chat._show_point`). W `ProgramMap` zostaje nazwa i położenie jako ułamek okna, nic z treści.
+  Po naciśnięciu kod sprawdza zmianę okna (`_changes`); brak reakcji w tle = `NeedFront`.
 - Dyktowanie ze zrozumieniem (decyzja właściciela 28.11.2026, `v2/worker/dictation_polish.py`, ustawienie `speech.polish`):
   raz, na końcu dyktowania, model poprawia usłyszany tekst z kontekstu (słownik: poznane programy, nazwy spraw, polecenia
   programu), przez `inference.py` z pseudonimizacją. Kod trzyma bezpieczniki: te same cyfry co w usłyszanym tekście,
