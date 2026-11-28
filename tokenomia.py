@@ -250,6 +250,20 @@ DEBET_KREDYTOW = float(os.getenv("PIECZAPP_DEBET_KREDYTOW", "30"))
 # czyli kazda platna funkcja da sie sprawdzic co najmniej raz. Koszt dla nas:
 # ok. 45 zl na kancelarie (koszt AI typowej sprawy ok. 22 zl).
 KREDYTY_PROBNE = float(os.getenv("PIECZAPP_KREDYTY_PROBNE", "150"))
+# Konta bez limitu kredytow (decyzja wlasciciela 28.11.2026): adresy e-mail
+# po przecinku, w chmurze z parametru KredytyBezLimitu stosu aplikacji.
+# Czynnosc takiej osoby nie jest blokowana ani pobierana z portfela kancelarii;
+# koszt dalej liczymy (dziennik, pomiary), zeby bylo widac, ile kosztuje.
+BEZ_LIMITU = frozenset(a.strip().lower() for a in os.getenv("PIECZAPP_KREDYTY_BEZ_LIMITU", "").split(",")
+                       if a.strip())
+# Zalogowana osoba biezacego zadania (ustawia autoryzacja.middleware). Pusta
+# dla pomocnika, dostepu serwisowego i trybu lokalnego.
+osoba_var: contextvars.ContextVar[str] = contextvars.ContextVar("tokenomia_osoba", default="")
+
+
+def bez_limitu() -> bool:
+    """Czy czynnosc wykonuje osoba z kontem bez limitu kredytow."""
+    return bool(BEZ_LIMITU) and osoba_var.get().strip().lower() in BEZ_LIMITU
 
 
 def najnizsza_cena_kredytu() -> float:
@@ -487,6 +501,8 @@ def aktywna(kancelaria: str) -> bool:
 def sprawdz(kod: str, ilosc: float = 1) -> float:
     """Rzuca BrakKredytow, gdy saldo z debetem nie pokrywa akcji. Zwraca cene."""
     cena = AKCJE[kod].kredyty() * ilosc
+    if bez_limitu():
+        return cena
     portfel = egzekwowana(_kancelaria())
     if portfel is not None and cena > 0 and saldo(portfel) - cena < -DEBET_KREDYTOW:
         raise BrakKredytow(cena, saldo(portfel))
@@ -537,14 +553,15 @@ class akcja:
         koszt = round(self.licznik.koszt_zl + zewnetrzny, 4)
         glowna = self.pozycje[0][0]
         przychod = kredyty * CENA_KREDYTU_ZL
-        log.info("tokenomia: %s x%g sprawa=%s wywolan=%d we=%d wy=%d koszt=%.3f zl kredyty=%g",
+        wolna = bez_limitu()
+        log.info("tokenomia: %s x%g sprawa=%s wywolan=%d we=%d wy=%d koszt=%.3f zl kredyty=%g%s",
                  glowna, sum(n for _, n in self.pozycje), self.sprawa or "-", self.licznik.wywolan,
-                 self.licznik.wejscie, self.licznik.wyjscie, koszt, kredyty)
+                 self.licznik.wejscie, self.licznik.wyjscie, koszt, kredyty, " (bez limitu)" if wolna else "")
         if przychod and koszt and przychod < koszt * (1 + NARZUT):
             log.warning("tokenomia: %s ponizej progu narzutu (koszt %.3f zl, cena %.2f zl)",
                         glowna, koszt, przychod)
         _zapisz_pomiar(glowna, sum(n for _, n in self.pozycje), self.licznik, koszt, kredyty)
-        if egzekwowana(self.kancelaria) is None:
+        if wolna or egzekwowana(self.kancelaria) is None:
             return
 
         def zmiana(p):
@@ -645,6 +662,8 @@ router_admina = APIRouter(prefix="/api/admin", tags=["admin"])
 
 def saldo_kancelarii() -> float | None:
     """Saldo biezacej kancelarii albo None, gdy nie placi kredytami."""
+    if bez_limitu():
+        return None
     portfel = egzekwowana(_kancelaria())
     return None if portfel is None else saldo(portfel)
 
@@ -676,6 +695,7 @@ def _widok_portfela(portfel: dict | None, moge_kupic: bool = False) -> dict:
     return {
         "wlaczona": WLACZONA,
         "egzekwowana": portfel is not None,
+        "bez_limitu": bez_limitu(),
         "saldo": None if portfel is None else saldo(portfel),
         "pula": None if portfel is None else portfel.get("pula", 0),
         "doladowane": None if portfel is None else portfel.get("doladowane", 0),
@@ -705,6 +725,8 @@ def _czy_wlasciciel(request: Request) -> bool:
 @router.get("")
 def moje_kredyty(request: Request):
     kancelaria = _kancelaria()
+    if bez_limitu():
+        return _widok_portfela(None)
     portfel = egzekwowana(kancelaria)
     if portfel and _uzgodnij_oczekujace(kancelaria, portfel):
         portfel = wczytaj_portfel(kancelaria)

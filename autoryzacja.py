@@ -282,6 +282,9 @@ async def middleware(request: Request, call_next):
         return JSONResponse({"detail": str(blad), "klucz_kancelarii": "zly"}, 403)
     znacznik = magazyn.kancelaria_var.set(kancelaria)
     znacznik_p = magazyn.przechowywanie_var.set(przechowywanie)
+    # Konto bez limitu kredytow liczy sie tylko przy wlasnym logowaniu, nie
+    # przy dostepie serwisowym administratora do cudzej kancelarii.
+    znacznik_o = tokenomia.osoba_var.set("" if id_serwisu else email)
     try:
         request.state.kancelaria = kancelaria
         request.state.komputer = komputer
@@ -291,6 +294,7 @@ async def middleware(request: Request, call_next):
     finally:
         magazyn.kancelaria_var.reset(znacznik)
         magazyn.przechowywanie_var.reset(znacznik_p)
+        tokenomia.osoba_var.reset(znacznik_o)
         szyfr.stan_var.reset(znacznik_s)
 
 
